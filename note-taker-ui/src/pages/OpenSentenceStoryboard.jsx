@@ -40,6 +40,7 @@ import {
   STORYBOARD_SOURCE,
   STORYBOARD_SOURCE_ROOMS,
   STORYBOARD_THEN_NOW,
+  STORYBOARD_THEN_QUOTATION,
   storyboardSource
 } from '../components/wiki/open-sentence/openSentenceStoryboardFixture';
 import './open-sentence-storyboard.css';
@@ -77,7 +78,13 @@ const thenSeed = () => createExploration({
   id: STORYBOARD_COMPUTE_ID,
   originalText: STORYBOARD_THEN_NOW,
   source: STORYBOARD_COMPUTE_SOURCE,
-  then: { text: STORYBOARD_COMPUTE_SENTENCE }
+  then: {
+    text: STORYBOARD_COMPUTE_SENTENCE,
+    quotation: {
+      title: STORYBOARD_COMPUTE_SOURCE.title,
+      passage: STORYBOARD_THEN_QUOTATION
+    }
+  }
 });
 
 const applyBeat = (beat, source) => {
@@ -328,9 +335,10 @@ const OpenSentenceStoryboard = () => {
           a question, a return note, a placed passage, a proposed wording, or a named
           premise forgets the experiment. A note under the line is the way home.
           Source cycles the honest absences. Stillness is the open state with no
-          drawing.           Propose names a wording; Accept is what writes the illustrated
+          drawing. Propose names a wording; Accept is what writes the illustrated
           line. Pressure names a premise beside the original. It does not invent a
-          causal chain. Then names an earlier recorded line. It is not a biography.
+          causal chain. Then names an earlier recorded line. A recorded quotation
+          sits with it when one was saved. It is not a biography.
         </p>
       </header>
 

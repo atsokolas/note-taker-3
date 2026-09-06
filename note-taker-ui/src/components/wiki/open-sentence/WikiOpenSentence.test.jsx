@@ -115,6 +115,44 @@ describe('WikiOpenSentence', () => {
     expect(screen.queryByText(/used to believe/i)).not.toBeInTheDocument();
   });
 
+  it('opens the recorded quotation from that revision, not a neighbor or today\'s snippet', () => {
+    renderWikiSentence({
+      revisions: [{
+        before: {
+          body: {
+            type: 'doc',
+            content: [{
+              type: 'paragraph',
+              content: [{
+                type: 'text',
+                text: 'Memory was a pile of notes.',
+                marks: [{
+                  type: 'claim',
+                  attrs: { claimId: 'claim-1', citationIndexes: [1] }
+                }]
+              }]
+            }]
+          },
+          claims: [{
+            claimId: 'claim-1',
+            text: 'Memory was a pile of notes.',
+            sourceRefIds: ['source-1']
+          }],
+          sourceRefs: [{
+            _id: 'source-1',
+            title: 'Memory article',
+            snippet: 'Memory used to be a pile of notes.'
+          }]
+        }
+      }]
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    expect(document.querySelector('.open-sentence-pocket__then')).toHaveTextContent('Memory was a pile of notes.');
+    expect(document.querySelector('.open-sentence-pocket__then-source')).toHaveTextContent('Memory used to be a pile of notes.');
+    expect(screen.getByText('Source snippet')).toBeInTheDocument();
+    expect(screen.queryByText('Unrelated')).not.toBeInTheDocument();
+  });
+
   it('leaves a return ticket when walking into Library, not a Wiki rewrite', () => {
     renderWikiSentence();
     fireEvent.click(screen.getByRole('button', { name: 'Open' }));

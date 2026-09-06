@@ -309,6 +309,20 @@ const PocketBody = ({
           <div className="open-sentence-pocket__then">
             <p className="open-sentence-pocket__qualification">Then</p>
             <blockquote className="open-sentence-pocket__quote">{then.text}</blockquote>
+            {then.quotation ? (
+              <div className="open-sentence-pocket__then-source">
+                {then.quotation.title ? (
+                  <p className="open-sentence-pocket__source-title">{then.quotation.title}</p>
+                ) : null}
+                {then.quotation.aroundBefore ? (
+                  <p className="open-sentence-pocket__around">{then.quotation.aroundBefore}</p>
+                ) : null}
+                <blockquote className="open-sentence-pocket__quote">{then.quotation.passage}</blockquote>
+                {then.quotation.aroundAfter ? (
+                  <p className="open-sentence-pocket__around">{then.quotation.aroundAfter}</p>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         ) : null}
       </div>

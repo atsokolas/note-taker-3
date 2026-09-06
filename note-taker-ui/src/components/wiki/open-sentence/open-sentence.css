@@ -239,6 +239,12 @@ mark.highlight.open-sentence__held.is-placed:not(.is-open)::before {
   gap: 0.2em;
 }
 
+.open-sentence-pocket__then-source {
+  display: grid;
+  gap: 0.2em;
+  margin-top: var(--noeis-space-2);
+}
+
 .open-sentence-pocket__source {
   max-height: min(42vh, 22rem);
   overflow: auto;

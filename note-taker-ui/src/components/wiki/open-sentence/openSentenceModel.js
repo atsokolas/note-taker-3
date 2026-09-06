@@ -3,14 +3,34 @@ export const EXPLORATION_STATUS = Object.freeze({
   open: 'open'
 });
 
-const asThen = (value, currentText) => {
+const asQuotation = (value, currentPassage) => {
+  const passage = String(value?.passage || '').trim();
+  const now = String(currentPassage || '').trim();
+  if (!passage || passage === now) return null;
+  const title = String(value?.title || '').trim();
+  const aroundBefore = String(value?.aroundBefore || '').trim();
+  const aroundAfter = String(value?.aroundAfter || '').trim();
+  return {
+    ...(title ? { title } : {}),
+    passage,
+    ...(aroundBefore ? { aroundBefore } : {}),
+    ...(aroundAfter ? { aroundAfter } : {})
+  };
+};
+
+const asThen = (value, currentText, currentPassage) => {
   const text = String(value?.text || '').trim();
   const now = String(currentText || '').trim();
   if (!text || !now || text === now) return null;
-  return { text };
+  const quotation = asQuotation(value?.quotation, currentPassage);
+  return quotation ? { text, quotation } : { text };
 };
 
-export const liveThen = (exploration) => asThen(exploration?.then, exploration?.originalText);
+export const liveThen = (exploration) => asThen(
+  exploration?.then,
+  exploration?.originalText,
+  exploration?.source?.passage
+);
 
 export const createExploration = ({
   id = '',
@@ -20,7 +40,8 @@ export const createExploration = ({
   then = null
 } = {}) => {
   const text = String(originalText || '');
-  const recorded = asThen(then, text);
+  const boundSource = source && typeof source === 'object' ? source : null;
+  const recorded = asThen(then, text, boundSource?.passage);
   return {
     id: String(id || '').trim(),
     originalText: text,
@@ -28,7 +49,7 @@ export const createExploration = ({
     question: '',
     returnNote: '',
     mark: mark === '!' ? '!' : '',
-    source: source && typeof source === 'object' ? source : null,
+    source: boundSource,
     ...(recorded ? { then: recorded } : {}),
     placed: false,
     status: EXPLORATION_STATUS.closed
@@ -228,7 +249,7 @@ export const restoreExploration = (raw, fallback) => {
         ? EXPLORATION_STATUS.open
         : EXPLORATION_STATUS.closed
     };
-    const recorded = asThen(base.then, restored.originalText);
+    const recorded = asThen(base.then, restored.originalText, restored.source?.passage);
     const { then: _ignoredThen, ...withoutThen } = restored;
     return {
       ...withoutThen,

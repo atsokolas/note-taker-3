@@ -183,10 +183,10 @@ export const bindClaimSource = ({
   };
 };
 
-export const claimTextOnPage = (doc, claimId) => {
+export const claimMarkOnPage = (doc, claimId) => {
   const target = String(claimId || '').trim();
-  if (!target || !doc) return '';
-  let found = '';
+  if (!target || !doc) return null;
+  let found = null;
   const walk = (node) => {
     if (found || !node) return;
     if (Array.isArray(node)) {
@@ -196,7 +196,14 @@ export const claimTextOnPage = (doc, claimId) => {
     if (typeof node !== 'object') return;
     if (node.type === 'text' && Array.isArray(node.marks)) {
       const mark = node.marks.find((item) => item?.type === 'claim' && String(item.attrs?.claimId || '') === target);
-      if (mark) found = String(node.text || '');
+      if (mark) {
+        found = {
+          claimId: target,
+          text: String(node.text || ''),
+          citationIndexes: Array.isArray(mark.attrs?.citationIndexes) ? mark.attrs.citationIndexes : [],
+          contradictionIndexes: Array.isArray(mark.attrs?.contradictionIndexes) ? mark.attrs.contradictionIndexes : []
+        };
+      }
     }
     walk(node.content);
   };
@@ -204,20 +211,27 @@ export const claimTextOnPage = (doc, claimId) => {
   return found;
 };
 
-const earlierClaimTextFromRevisions = (revisions, claimId, now) => {
+export const claimTextOnPage = (doc, claimId) => String(claimMarkOnPage(doc, claimId)?.text || '');
+
+const earlierFromRevisions = (revisions, claimId, now) => {
   const list = Array.isArray(revisions) ? revisions : [];
   for (const revision of list) {
     if (revision?.snapshotPrunedAt) continue;
     const before = revision?.before;
     if (!before) continue;
-    const fromBody = String(claimTextOnPage(before.body, claimId) || '').trim();
-    if (fromBody && fromBody !== now) return fromBody;
+    const mark = claimMarkOnPage(before.body, claimId);
     const fromClaims = (Array.isArray(before.claims) ? before.claims : [])
       .find((claim) => idsMatch(claim?.claimId, claimId));
-    const text = String(fromClaims?.text || '').trim();
-    if (text && text !== now) return text;
+    const text = String(mark?.text || fromClaims?.text || '').trim();
+    if (text && text !== now) {
+      return {
+        text,
+        before,
+        mark: mark || { claimId, text }
+      };
+    }
   }
-  return '';
+  return null;
 };
 
 const earlierClaimTextFromHistory = (history, now) => {
@@ -229,12 +243,35 @@ const earlierClaimTextFromHistory = (history, now) => {
   return '';
 };
 
+const quotationFromBefore = (found, claimId) => {
+  if (!found?.before) return null;
+  const ledgerClaim = (Array.isArray(found.before.claims) ? found.before.claims : [])
+    .find((claim) => idsMatch(claim?.claimId, claimId));
+  const bound = bindClaimSource({
+    claimMark: found.mark,
+    ledgerClaim,
+    citations: found.before.citations || [],
+    sourceRefs: found.before.sourceRefs || []
+  });
+  if (!bound || bound.available === false) return null;
+  const passage = String(bound.passage || '').trim();
+  if (!passage) return null;
+  return {
+    title: bound.title,
+    passage,
+    aroundBefore: bound.aroundBefore,
+    aroundAfter: bound.aroundAfter
+  };
+};
+
 export const recordedThen = ({ claimId, currentText, revisions, history } = {}) => {
   const now = String(currentText || '').trim();
   if (!claimId || !now) return null;
-  const prior = earlierClaimTextFromRevisions(revisions, claimId, now)
-    || earlierClaimTextFromHistory(history, now);
-  return prior ? { text: prior } : null;
+  const fromRevision = earlierFromRevisions(revisions, claimId, now);
+  const text = fromRevision?.text || earlierClaimTextFromHistory(history, now);
+  if (!text) return null;
+  const quotation = quotationFromBefore(fromRevision, claimId);
+  return quotation ? { text, quotation } : { text };
 };
 
 export const liveExplorationForClaim = ({

@@ -125,7 +125,7 @@ The illustrated Pressure beat is Compute, not Parenting. It does not walk into N
 
 ## Then / Now (2026-09-06)
 
-The same pocket can hold an earlier recorded wording beside today's line. **Then** is identity, not a reconstructed scene: the newest unpruned Wiki revision whose `before` still has that claim, or a claim-history fallback when revisions do not record a prior line. The live marked sentence stays Now. Missing earlier wording stays missing. A private draft cannot forge Then. Library has no claim revisions, so it stays silent.
+The same pocket can hold an earlier recorded wording beside today's line. **Then** is identity, not a reconstructed scene: the newest unpruned Wiki revision whose `before` still has that claim, or a claim-history fallback when revisions do not record a prior line. The live marked sentence stays Now. If that revision also recorded a quotation for the same source identity, and it differs from today's passage, it sits under Then. Missing earlier wording or a missing historical quotation stays missing. A private draft cannot forge Then. Library has no claim revisions, so it stays silent.
 
 The illustrated Then beat is Compute, not Parenting. It does not walk into Nomad. It is not a biography.
 
