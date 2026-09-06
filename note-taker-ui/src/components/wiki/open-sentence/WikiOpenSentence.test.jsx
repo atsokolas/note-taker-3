@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import renderTiptapDoc from '../renderTiptapDoc';
 import { WikiOpenSentenceProvider, wrapOpenableParagraph } from './WikiOpenSentence';
@@ -36,33 +36,30 @@ const page = {
   }]
 };
 
+const providerFrom = (props, onOpenedClaim) => (
+  <WikiOpenSentenceProvider
+    enabled={props.enabled !== false}
+    page={props.page || page}
+    pageId={props.pageId || 'wiki-1'}
+    onOpenedClaim={onOpenedClaim}
+    onAcceptWording={props.onAcceptWording}
+  >
+    {renderTiptapDoc((props.page || page).body, { wrapParagraph: wrapOpenableParagraph })}
+  </WikiOpenSentenceProvider>
+);
+
 const renderWikiSentence = (props = {}) => {
   const onOpenedClaim = props.onOpenedClaim || jest.fn();
-  const view = (
+  const rendered = render(
     <MemoryRouter>
-      <WikiOpenSentenceProvider
-        enabled={props.enabled !== false}
-        page={props.page || page}
-        pageId={props.pageId || 'wiki-1'}
-        onOpenedClaim={onOpenedClaim}
-      >
-        {renderTiptapDoc((props.page || page).body, { wrapParagraph: wrapOpenableParagraph })}
-      </WikiOpenSentenceProvider>
+      {providerFrom(props, onOpenedClaim)}
     </MemoryRouter>
   );
-  const rendered = render(view);
   return {
     onOpenedClaim,
     rerender: (next = {}) => rendered.rerender(
       <MemoryRouter>
-        <WikiOpenSentenceProvider
-          enabled={next.enabled !== false}
-          page={next.page || props.page || page}
-          pageId={next.pageId || props.pageId || 'wiki-1'}
-          onOpenedClaim={next.onOpenedClaim || onOpenedClaim}
-        >
-          {renderTiptapDoc((next.page || props.page || page).body, { wrapParagraph: wrapOpenableParagraph })}
-        </WikiOpenSentenceProvider>
+        {providerFrom({ ...props, ...next }, next.onOpenedClaim || onOpenedClaim)}
       </MemoryRouter>
     )
   };
@@ -345,5 +342,52 @@ describe('WikiOpenSentence', () => {
     expect(document.querySelector('[data-claim-id="claim-compute"]')).toHaveTextContent('Compute will remain scarce.');
     expect(screen.queryByText('Children need room to make mistakes.')).not.toBeInTheDocument();
     expect(onOpenedClaim).toHaveBeenCalledWith('claim-compute');
+  });
+
+  it('asks the host to accept the named proposal, not a later unproposed edit', async () => {
+    const onAcceptWording = jest.fn().mockResolvedValue();
+    renderWikiSentence({ onAcceptWording });
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    fireEvent.change(screen.getByLabelText('Try a narrower wording'), {
+      target: { value: 'Memory compounds when we forget.' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Propose this wording' }));
+    fireEvent.change(screen.getByLabelText('Try a narrower wording'), {
+      target: { value: 'Memory compounds when we remember.' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Accept this wording' }));
+    await waitFor(() => expect(onAcceptWording).toHaveBeenCalledWith({
+      claimId: 'claim-1',
+      against: 'Memory compounds with review.',
+      text: 'Memory compounds when we forget.'
+    }));
+    expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent('Memory compounds with review.');
+  });
+
+  it('keeps the article when the host refuses a stale proposal', async () => {
+    const onAcceptWording = jest.fn().mockRejectedValue({
+      response: { data: { error: 'The article moved on. This proposal was not applied.', code: 'stale_claim' } }
+    });
+    renderWikiSentence({ onAcceptWording });
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    fireEvent.change(screen.getByLabelText('Try a narrower wording'), {
+      target: { value: 'Memory compounds when we forget.' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Propose this wording' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Accept this wording' }));
+    expect(await screen.findByText('The article moved on. This proposal was not applied.')).toBeInTheDocument();
+    expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent('Memory compounds with review.');
+    expect(screen.getByText(/Proposed, not accepted/)).toHaveTextContent('Memory compounds when we forget.');
+  });
+
+  it('does not offer accept when the host cannot write', () => {
+    renderWikiSentence();
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    fireEvent.change(screen.getByLabelText('Try a narrower wording'), {
+      target: { value: 'Memory compounds when we forget.' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Propose this wording' }));
+    expect(screen.getByText(/Proposed, not accepted/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Accept this wording' })).not.toBeInTheDocument();
   });
 });

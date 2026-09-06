@@ -18,7 +18,16 @@ on:
       - 'note-taker-ui/src/agent/agentConversationModel.test.js'
       - 'note-taker-ui/src/agent/contextualAgentContracts.js'
       - 'note-taker-ui/src/agent/AgentRailContext.jsx'
+      - 'note-taker-ui/src/api/wiki.js'
       - 'note-taker-ui/package.json'
+      - 'server/services/openSentenceAcceptService.js'
+      - 'server/services/openSentenceAcceptService.test.js'
+      - 'server/services/wikiClaimBodyPatchService.js'
+      - 'server/services/wikiClaimBodyPatchService.test.js'
+      - 'server/routes/openSentenceAcceptRoutes.js'
+      - 'server/routes/__tests__/openSentenceAcceptRoutes.test.js'
+      - 'server/routes/wikiRoutes.js'
+      - 'package.json'
       - '.github/workflows/open-sentence-regression.yml'
   push:
     branches:
@@ -39,7 +48,16 @@ on:
       - 'note-taker-ui/src/agent/agentConversationModel.test.js'
       - 'note-taker-ui/src/agent/contextualAgentContracts.js'
       - 'note-taker-ui/src/agent/AgentRailContext.jsx'
+      - 'note-taker-ui/src/api/wiki.js'
       - 'note-taker-ui/package.json'
+      - 'server/services/openSentenceAcceptService.js'
+      - 'server/services/openSentenceAcceptService.test.js'
+      - 'server/services/wikiClaimBodyPatchService.js'
+      - 'server/services/wikiClaimBodyPatchService.test.js'
+      - 'server/routes/openSentenceAcceptRoutes.js'
+      - 'server/routes/__tests__/openSentenceAcceptRoutes.test.js'
+      - 'server/routes/wikiRoutes.js'
+      - 'package.json'
       - '.github/workflows/open-sentence-regression.yml'
 
 jobs:
@@ -61,3 +79,17 @@ jobs:
         env:
           CI: true
         run: npm run test:open-sentence
+
+  accept:
+    name: Opened-sentence accept write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - name: Claim-text patch and accept route
+        run: npm run open-sentence:accept

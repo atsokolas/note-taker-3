@@ -2,7 +2,8 @@ const assert = require('assert');
 const {
   buildClaimBodyPatch,
   inspectExactClaimAnchors,
-  replaceExactClaimRange
+  replaceExactClaimRange,
+  replaceExactClaimText
 } = require('./wikiClaimBodyPatchService');
 
 const mark = (claimId, attrs = {}) => ({
@@ -66,6 +67,18 @@ assert.strictEqual(replaced.content[1].content[0].text, 'New claim.');
 assert.deepStrictEqual(replaced.content[1].content[0].marks[0].attrs, {
   claimId: 'claim-1', support: 'conflicted', citationIndexes: [1], contradictionIndexes: [2]
 });
+const textOnly = replaceExactClaimText({
+  body: before,
+  claimId: 'claim-1',
+  replacementText: 'Narrower claim.'
+});
+assert.strictEqual(textOnly.content[1].content[0].text, 'Narrower claim.');
+assert.deepStrictEqual(textOnly.content[1].content[0].marks[0].attrs, before.content[1].content[0].marks[0].attrs);
+expectCode(() => replaceExactClaimText({
+  body: doc('Old claim.', { split: true }),
+  claimId: 'claim-1',
+  replacementText: 'Narrower claim.'
+}), 'claim_body_ambiguous');
 expectCode(() => inspectExactClaimAnchors({
   body: doc('Old claim.', { split: true }), claims: [claim('Old claim.')], requireSingleTextNode: true
 }), 'claim_body_ambiguous');

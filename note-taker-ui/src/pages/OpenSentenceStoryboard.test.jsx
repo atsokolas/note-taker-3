@@ -35,7 +35,7 @@ describe('OpenSentenceStoryboard', () => {
     expect(screen.getByText('Works beside this sentence. Does not rewrite the article.')).toBeInTheDocument();
   });
 
-  it('proposes wording without changing the Wiki line', () => {
+  it('proposes wording without writing, then accept writes the illustrated line', () => {
     renderBoard();
     fireEvent.click(screen.getByRole('button', { name: 'Wording' }));
     expect(screen.getByLabelText('Try a narrower wording')).toHaveValue(STORYBOARD_PROVISIONAL);
@@ -43,6 +43,11 @@ describe('OpenSentenceStoryboard', () => {
     expect(screen.getByText(/Proposed, not accepted/)).toHaveTextContent(STORYBOARD_PROVISIONAL);
     expect(screen.getByText(/The article still reads/)).toHaveTextContent(STORYBOARD_SENTENCE);
     expect(screen.getByRole('button', { name: STORYBOARD_SENTENCE })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Accept this wording' }));
+    expect(screen.getByRole('button', { name: STORYBOARD_PROVISIONAL })).toBeInTheDocument();
+    expect(screen.queryByText(/Proposed, not accepted/)).not.toBeInTheDocument();
+    expect(screen.getByText(/The article still reads/)).toHaveTextContent(STORYBOARD_PROVISIONAL);
+    expect(screen.getByText('Now with').closest('p')).toHaveTextContent(STORYBOARD_PROVISIONAL);
   });
 
   it('restores a private draft after interruption without changing the Wiki line', () => {
@@ -110,6 +115,7 @@ describe('OpenSentenceStoryboard', () => {
       target: { value: 'A narrower library line.' }
     });
     expect(screen.queryByRole('button', { name: 'Propose this wording' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Accept this wording' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Back to Parenting →' }));
     expect(screen.getByRole('heading', { name: 'Parenting' })).toBeInTheDocument();
   });

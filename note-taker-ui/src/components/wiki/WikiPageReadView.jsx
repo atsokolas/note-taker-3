@@ -20,7 +20,8 @@ import {
   streamAskWikiPage,
   streamMaintainWikiPage,
   trackCompanyDossierInJudgment,
-  updateWikiPage
+  updateWikiPage,
+  acceptOpenedSentenceWording
 } from '../../api/wiki';
 import { startKnowledgeMovementInvestigation } from '../../api/knowledgeMovements';
 import { getConnectionsForItem } from '../../api/connections';
@@ -1809,6 +1810,13 @@ const WikiPageReadView = ({
     }
   }, [judgmentTrackBusy, navigate, pageId, systemStatus]);
 
+  const acceptOpenedWording = useCallback(async ({ claimId, against, text }) => {
+    const saved = await acceptOpenedSentenceWording(pageId, { claimId, against, text });
+    if (!saved) return;
+    latestPageRef.current = saved;
+    setPage(saved);
+  }, [pageId]);
+
   const handleAsk = async (question) => {
     setAsking(true);
     setError('');
@@ -3156,6 +3164,7 @@ const WikiPageReadView = ({
                     page={page}
                     pageId={pageId}
                     onOpenedClaim={setOpenedClaimId}
+                    onAcceptWording={openSentenceEnabled ? acceptOpenedWording : undefined}
                   >
                     {renderTiptapDoc(displayBody, {
                       tocItems,

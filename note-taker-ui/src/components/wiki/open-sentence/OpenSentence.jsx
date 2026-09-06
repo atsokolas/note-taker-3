@@ -167,7 +167,9 @@ const PocketBody = ({
   acceptedLabel,
   placeBesideTitle,
   onCommit,
-  onOpenSourceHome
+  onOpenSourceHome,
+  onAccept,
+  acceptSilence
 }) => {
   const spans = wordingChanged(exploration)
     ? changedWordSpans(accepted, exploration.provisionalText)
@@ -232,10 +234,18 @@ const PocketBody = ({
             <p className="open-sentence-pocket__proposal">
               Proposed, not accepted: {proposal.text}
             </p>
+            {onAccept ? (
+              <button type="button" onClick={() => onAccept(exploration)}>
+                Accept this wording
+              </button>
+            ) : null}
             <button type="button" onClick={() => onCommit(withdrawProposal(exploration))}>
               Withdraw the proposal
             </button>
           </>
+        ) : null}
+        {acceptSilence ? (
+          <p className="open-sentence-pocket__silence">{acceptSilence}</p>
         ) : null}
         <p className="open-sentence-pocket__qualification">
           {acceptedLabel}: {accepted}
@@ -282,6 +292,8 @@ const OpenSentence = ({
   homecoming = '',
   stillness = false,
   onOpenSourceHome,
+  onAccept,
+  acceptSilence = '',
   children
 }) => {
   const pocketId = useId();
@@ -500,6 +512,8 @@ const OpenSentence = ({
               placeBesideTitle={placeBesideTitle}
               onCommit={onChange}
               onOpenSourceHome={onOpenSourceHome}
+              onAccept={onAccept}
+              acceptSilence={acceptSilence}
             />
             <button type="button" className="open-sentence-pocket__close" onClick={closePocket}>
               Close
