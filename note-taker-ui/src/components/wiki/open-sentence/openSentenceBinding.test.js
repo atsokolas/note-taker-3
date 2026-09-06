@@ -1,4 +1,5 @@
 import {
+  bindClaimOther,
   bindClaimSource,
   claimsInParagraph,
   claimTextOnPage,
@@ -294,5 +295,49 @@ describe('openSentenceBinding', () => {
       revisions: [{ snapshotPrunedAt: '2026-09-01T00:00:00.000Z', before: { body: {} } }]
     });
     expect(exploration.then).toEqual({ text: 'Compute will remain scarce.' });
+  });
+
+  it('opens a second recorded passage by identity, not a neighbor', () => {
+    const letter = {
+      _id: 'source-letter',
+      type: 'highlight',
+      objectId: 'highlight-letter',
+      parentObjectId: 'article-letter',
+      title: 'Letter to a young investor',
+      snippet: 'A loss you can survive still teaches the book. The ones that end the partnership do not.'
+    };
+    const exploration = liveExplorationForClaim({
+      claimMark: { claimId: 'claim-1', text: 'Children need room to make mistakes.', citationIndexes: [1, 2] },
+      ledgerClaim: { claimId: 'claim-1', sourceRefIds: ['source-nomad', 'source-letter'] },
+      sourceRefs: [nomad, letter, neighbor]
+    });
+    expect(exploration.source.title).toBe('Nomad');
+    expect(exploration.other).toEqual(expect.objectContaining({
+      title: 'Letter to a young investor',
+      passage: 'A loss you can survive still teaches the book. The ones that end the partnership do not.'
+    }));
+    expect(JSON.stringify(exploration.other)).not.toContain('Unrelated');
+  });
+
+  it('stays silent when the second attachment is the same source, a neighbor, or recorded work', () => {
+    expect(bindClaimOther({
+      claimMark: { claimId: 'claim-1', citationIndexes: [1, 2] },
+      ledgerClaim: { claimId: 'claim-1', sourceRefIds: ['source-nomad', 'source-nomad-copy'] },
+      sourceRefs: [nomad, { ...nomad, _id: 'source-nomad-copy' }]
+    })).toBeNull();
+    expect(bindClaimOther({
+      claimMark: { claimId: 'claim-1', citationIndexes: [1] },
+      ledgerClaim: { claimId: 'claim-1', sourceRefIds: ['source-nomad'] },
+      sourceRefs: [nomad, neighbor]
+    })).toBeNull();
+    expect(bindClaimOther({
+      claimMark: { claimId: 'claim-1', citationIndexes: [1, 2] },
+      ledgerClaim: { claimId: 'claim-1', sourceRefIds: ['source-nomad', 'source-question'] },
+      sourceRefs: [nomad, {
+        _id: 'source-question',
+        type: 'question',
+        snippet: 'Which mistakes are recoverable?'
+      }]
+    })).toBeNull();
   });
 });

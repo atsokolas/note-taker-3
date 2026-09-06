@@ -65,6 +65,8 @@ describe('OpenedLibraryPassage', () => {
     expect(screen.queryByRole('link', { name: 'Open in Library →' })).not.toBeInTheDocument();
     expect(screen.getByText(/The saved passage still reads/)).toHaveTextContent(highlight.text);
     expect(document.querySelector('.open-sentence-pocket__then')).not.toBeInTheDocument();
+    expect(screen.queryByText('Also beside')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('How they meet')).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Try a narrower wording'), {
       target: { value: 'A narrower library line.' }
     });

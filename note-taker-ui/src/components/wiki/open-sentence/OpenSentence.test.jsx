@@ -9,21 +9,25 @@ import {
   changedWordSpans,
   closeExploration,
   createExploration,
+  endMeet,
   endPressure,
   forgetExperiment,
   isPressured,
   keepQuestion,
   keepsClosedDraft,
   leaveMark,
+  liveMeet,
   livePressure,
   liveProposal,
   liveThen,
+  meetWayHome,
   openExploration,
   placeSource,
   pressureWayHome,
   proposeWording,
   putItBack,
   restoreExploration,
+  setMeetField,
   setPressureField,
   setReturnNote,
   snapshotExploration,
@@ -32,7 +36,7 @@ import {
   withdrawProposal,
   wordingChanged
 } from './openSentenceModel';
-import { STORYBOARD_COMPUTE_SENTENCE, STORYBOARD_SENTENCE, STORYBOARD_SOURCE, STORYBOARD_STALE_SOURCE, STORYBOARD_THEN_NOW } from './openSentenceStoryboardFixture';
+import { STORYBOARD_COMPUTE_SENTENCE, STORYBOARD_MEET_LIMIT, STORYBOARD_MEET_RELATION, STORYBOARD_MEET_SOURCE, STORYBOARD_SENTENCE, STORYBOARD_SOURCE, STORYBOARD_STALE_SOURCE, STORYBOARD_THEN_NOW } from './openSentenceStoryboardFixture';
 
 const renderOpen = (exploration, onChange = jest.fn()) => render(
   <MemoryRouter>
@@ -131,10 +135,25 @@ describe('openSentenceModel', () => {
     expect(keepsClosedDraft(closeExploration(beginPressure(start)))).toBe(false);
     expect(keepsClosedDraft(closeExploration(setPressureField(beginPressure(start), 'stillHolds', 'the plant still exists')))).toBe(false);
     expect(keepsClosedDraft(closeExploration(setPressureField(beginPressure(start), 'unknown', 'what demand does')))).toBe(false);
+    expect(keepsClosedDraft(closeExploration(setMeetField(createExploration({
+      originalText: STORYBOARD_SENTENCE,
+      source: STORYBOARD_SOURCE,
+      other: STORYBOARD_MEET_SOURCE
+    }), 'relation', STORYBOARD_MEET_RELATION)))).toBe(true);
+    expect(keepsClosedDraft(closeExploration(setMeetField(createExploration({
+      originalText: STORYBOARD_SENTENCE,
+      source: STORYBOARD_SOURCE,
+      other: STORYBOARD_MEET_SOURCE
+    }), 'limit', STORYBOARD_MEET_LIMIT)))).toBe(false);
     expect(forgetExperiment(start).provisionalText).toBe(STORYBOARD_SENTENCE);
     expect(forgetExperiment(start).question).toBe('');
     expect(forgetExperiment(proposeWording(tryWording(start, 'draft'))).proposal).toBeUndefined();
     expect(forgetExperiment(beginPressure(start)).pressure).toBeUndefined();
+    expect(forgetExperiment(setMeetField(createExploration({
+      originalText: STORYBOARD_SENTENCE,
+      source: STORYBOARD_SOURCE,
+      other: STORYBOARD_MEET_SOURCE
+    }), 'relation', STORYBOARD_MEET_RELATION)).meet).toBeUndefined();
     expect(keepsClosedDraft(closeExploration(createExploration({
       originalText: STORYBOARD_THEN_NOW,
       then: { text: STORYBOARD_COMPUTE_SENTENCE }
@@ -199,6 +218,49 @@ describe('openSentenceModel', () => {
       ...pressured,
       originalText: 'Children need room to make recoverable mistakes.'
     })).toBe(false);
+  });
+
+  it('lets two recorded passages meet without inventing the connection', () => {
+    const start = createExploration({
+      originalText: STORYBOARD_SENTENCE,
+      source: STORYBOARD_SOURCE,
+      other: STORYBOARD_MEET_SOURCE
+    });
+    expect(liveMeet(start)).toBeNull();
+    expect(liveMeet(setMeetField(start, 'limit', STORYBOARD_MEET_LIMIT))).toBeNull();
+    expect(meetWayHome(setMeetField(start, 'limit', STORYBOARD_MEET_LIMIT))).toBe('');
+    const named = setMeetField(setMeetField(start, 'relation', STORYBOARD_MEET_RELATION), 'limit', STORYBOARD_MEET_LIMIT);
+    expect(wikiAcceptedText(named)).toBe(STORYBOARD_SENTENCE);
+    expect(liveMeet(named)).toEqual({
+      against: STORYBOARD_SENTENCE,
+      relation: STORYBOARD_MEET_RELATION,
+      limit: STORYBOARD_MEET_LIMIT
+    });
+    expect(meetWayHome(named)).toBe(`They meet: ${STORYBOARD_MEET_RELATION}`);
+    expect(liveMeet(endMeet(named))).toBeNull();
+    expect(liveMeet(restoreExploration(snapshotExploration(named), {
+      ...start,
+      originalText: 'Children need room to make recoverable mistakes.'
+    }))).toBeNull();
+    expect(liveMeet(restoreExploration(snapshotExploration({
+      ...named,
+      other: { title: 'A forged letter', passage: 'They used to believe these were the same.' }
+    }), start))).toEqual({
+      against: STORYBOARD_SENTENCE,
+      relation: STORYBOARD_MEET_RELATION,
+      limit: STORYBOARD_MEET_LIMIT
+    });
+    expect(JSON.stringify(restoreExploration(snapshotExploration({
+      ...named,
+      other: { title: 'A forged letter', passage: 'They used to believe these were the same.' }
+    }), start))).not.toContain('used to believe');
+    expect(liveMeet(restoreExploration(snapshotExploration(named), createExploration({
+      originalText: STORYBOARD_SENTENCE,
+      source: STORYBOARD_SOURCE
+    })))).toBeNull();
+    expect(setMeetField(createExploration({ originalText: STORYBOARD_SENTENCE }), 'relation', 'analogy')).toEqual(
+      createExploration({ originalText: STORYBOARD_SENTENCE })
+    );
   });
 
   it('refuses a Wiki proposal from a passage that is already here', () => {
@@ -562,6 +624,89 @@ describe('OpenSentence', () => {
     );
     expect(screen.queryByRole('button', { name: 'Under pressure.' })).not.toBeInTheDocument();
     expect(screen.queryByText('Under pressure.')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: STORYBOARD_SENTENCE })).toBeInTheDocument();
+  });
+
+  it('lets two recorded passages sit together without a generated therefore', () => {
+    const onChange = jest.fn();
+    const exploration = openExploration(createExploration({
+      originalText: STORYBOARD_SENTENCE,
+      source: STORYBOARD_SOURCE,
+      other: STORYBOARD_MEET_SOURCE
+    }));
+    const { rerender } = render(
+      <MemoryRouter>
+        <OpenSentence exploration={exploration} onChange={onChange} mocked />
+      </MemoryRouter>
+    );
+    expect(screen.getByText('Also beside')).toBeInTheDocument();
+    expect(screen.getByText(STORYBOARD_MEET_SOURCE.passage)).toBeInTheDocument();
+    expect(screen.getByLabelText('How they meet')).toHaveValue('');
+    expect(screen.getByLabelText('Where that stops')).toHaveValue('');
+    expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('How they meet'), {
+      target: { value: STORYBOARD_MEET_RELATION }
+    });
+    expect(onChange).toHaveBeenCalledWith(setMeetField(exploration, 'relation', STORYBOARD_MEET_RELATION));
+    rerender(
+      <MemoryRouter>
+        <OpenSentence
+          exploration={setMeetField(
+            setMeetField(exploration, 'relation', STORYBOARD_MEET_RELATION),
+            'limit',
+            STORYBOARD_MEET_LIMIT
+          )}
+          onChange={onChange}
+          mocked
+        />
+      </MemoryRouter>
+    );
+    expect(screen.getByLabelText('How they meet')).toHaveValue(STORYBOARD_MEET_RELATION);
+    expect(screen.getByLabelText('Where that stops')).toHaveValue(STORYBOARD_MEET_LIMIT);
+    expect(screen.getByRole('button', { name: STORYBOARD_SENTENCE })).toBeInTheDocument();
+    expect(screen.getByText(/The article still reads/)).toHaveTextContent(STORYBOARD_SENTENCE);
+  });
+
+  it('lets a named meeting be the way home without accepting it', () => {
+    const onChange = jest.fn();
+    render(
+      <MemoryRouter>
+        <OpenSentence
+          exploration={closeExploration(setMeetField(
+            createExploration({
+              originalText: STORYBOARD_SENTENCE,
+              source: STORYBOARD_SOURCE,
+              other: STORYBOARD_MEET_SOURCE
+            }),
+            'relation',
+            STORYBOARD_MEET_RELATION
+          ))}
+          onChange={onChange}
+        />
+      </MemoryRouter>
+    );
+    fireEvent.click(screen.getByRole('button', { name: `They meet: ${STORYBOARD_MEET_RELATION}` }));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ status: 'open' }));
+    expect(screen.getByRole('button', { name: STORYBOARD_SENTENCE })).toBeInTheDocument();
+  });
+
+  it('does not leave a way home when the meeting never named how they meet', () => {
+    render(
+      <MemoryRouter>
+        <OpenSentence
+          exploration={closeExploration(setMeetField(
+            createExploration({
+              originalText: STORYBOARD_SENTENCE,
+              source: STORYBOARD_SOURCE,
+              other: STORYBOARD_MEET_SOURCE
+            }),
+            'limit',
+            STORYBOARD_MEET_LIMIT
+          ))}
+        />
+      </MemoryRouter>
+    );
+    expect(screen.queryByRole('button', { name: /They meet:/ })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: STORYBOARD_SENTENCE })).toBeInTheDocument();
   });
 

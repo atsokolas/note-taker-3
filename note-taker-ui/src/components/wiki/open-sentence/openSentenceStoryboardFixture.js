@@ -29,6 +29,23 @@ export const STORYBOARD_PAGE_TITLE = 'Parenting';
 
 export const STORYBOARD_SENTENCE = 'Children need room to make mistakes.';
 
+export const STORYBOARD_MEET_RELATION = 'analogy';
+
+export const STORYBOARD_MEET_LIMIT =
+  'Tolerating capital losses is not interchangeable with a child\'s welfare.';
+
+export const STORYBOARD_MEET_SOURCE = Object.freeze({
+  title: 'Letter to a young investor',
+  qualification: 'Saved passage · import date is not a reading date',
+  aroundBefore: 'Survivable error is how a book gets made.',
+  passage: 'A loss you can survive still teaches the book. The ones that end the partnership do not.',
+  aroundAfter: 'That is a different kind of care than keeping every position intact.',
+  available: true,
+  stale: false,
+  href: '',
+  here: false
+});
+
 export const STORYBOARD_SCOPE = 'storyboard';
 
 export const STORYBOARD_ITEM_ID = 'parenting-room-to-be-wrong';

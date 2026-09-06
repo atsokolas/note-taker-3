@@ -16,6 +16,7 @@ export const createExploration = ({
   id = '',
   originalText = '',
   source = null,
+  other = null,
   mark = '',
   then = null
 } = {}) => {
@@ -29,6 +30,7 @@ export const createExploration = ({
     returnNote: '',
     mark: mark === '!' ? '!' : '',
     source: source && typeof source === 'object' ? source : null,
+    other: other && typeof other === 'object' ? other : null,
     ...(recorded ? { then: recorded } : {}),
     placed: false,
     status: EXPLORATION_STATUS.closed
@@ -133,18 +135,75 @@ export const pressureWayHome = (exploration) => {
   return pressure ? `For this experiment: ${pressure.premise}` : '';
 };
 
+export const inspectableOther = (exploration) => {
+  const other = exploration?.other;
+  if (!other || other.available === false) return null;
+  const passage = String(other.passage || '').trim();
+  const first = String(exploration?.source?.passage || '').trim();
+  if (!passage || passage === first) return null;
+  return other;
+};
+
+export const canMeet = (exploration) => Boolean(inspectableOther(exploration));
+
+export const isMeeting = (exploration) => {
+  if (!canMeet(exploration)) return false;
+  const meet = exploration?.meet;
+  if (!meet || typeof meet !== 'object') return false;
+  return String(meet.against || '').trim() === String(exploration?.originalText || '').trim();
+};
+
+export const liveMeet = (exploration) => {
+  if (!isMeeting(exploration)) return null;
+  const relation = String(exploration.meet.relation || '').trim();
+  if (!relation) return null;
+  return {
+    against: String(exploration.meet.against || '').trim(),
+    relation,
+    limit: String(exploration.meet.limit || '').trim()
+  };
+};
+
+export const setMeetField = (exploration, field, value) => {
+  if (!canMeet(exploration)) return exploration;
+  if (field !== 'relation' && field !== 'limit') return exploration;
+  const current = isMeeting(exploration)
+    ? exploration.meet
+    : { against: '', relation: '', limit: '' };
+  return {
+    ...exploration,
+    meet: {
+      against: String(exploration.originalText || '').trim(),
+      relation: String(current.relation || ''),
+      limit: String(current.limit || ''),
+      [field]: String(value ?? '')
+    }
+  };
+};
+
+export const endMeet = (exploration) => (
+  exploration?.meet ? { ...exploration, meet: null } : exploration
+);
+
+export const meetWayHome = (exploration) => {
+  const meet = liveMeet(exploration);
+  return meet ? `They meet: ${meet.relation}` : '';
+};
+
 export const keepsClosedDraft = (exploration) => Boolean(
   String(exploration?.question || '').trim()
   || String(exploration?.returnNote || '').trim()
   || exploration?.placed
   || liveProposal(exploration)
   || livePressure(exploration)
+  || liveMeet(exploration)
 );
 
 export const forgetExperiment = (live) => createExploration({
   id: live?.id,
   originalText: live?.originalText,
   source: live?.source,
+  other: live?.other,
   then: live?.then
 });
 
@@ -222,6 +281,7 @@ export const restoreExploration = (raw, fallback) => {
       ...parsed,
       originalText: base.originalText,
       source: base.source,
+      other: base.other,
       id: base.id,
       mark: parsed.mark === '!' ? '!' : '',
       status: parsed.status === EXPLORATION_STATUS.open
@@ -229,12 +289,14 @@ export const restoreExploration = (raw, fallback) => {
         : EXPLORATION_STATUS.closed
     };
     const recorded = asThen(base.then, restored.originalText);
-    const { then: _ignoredThen, ...withoutThen } = restored;
+    const { then: _ignoredThen, other: _ignoredOther, ...withoutRecord } = restored;
     return {
-      ...withoutThen,
+      ...withoutRecord,
+      other: base.other,
       ...(recorded ? { then: recorded } : {}),
       proposal: liveProposal(restored),
-      pressure: isPressured(restored) ? restored.pressure : null
+      pressure: isPressured(restored) ? restored.pressure : null,
+      meet: isMeeting(restored) ? restored.meet : null
     };
   } catch (_unreadable) {
     return base;

@@ -9,18 +9,23 @@ import {
   canProposeWording,
   changedWordSpans,
   closeExploration,
+  endMeet,
   endPressure,
+  inspectableOther,
+  isMeeting,
   isOpen,
   isPressured,
   keepQuestion,
   leaveMark,
   liveProposal,
   liveThen,
+  meetWayHome,
   openExploration,
   placeSource,
   pressureWayHome,
   proposeWording,
   putItBack,
+  setMeetField,
   setPressureField,
   setReturnNote,
   tryWording,
@@ -50,6 +55,38 @@ const SourceHome = ({ source, mocked, onOpen }) => {
   return <a className="open-sentence-pocket__home" href={source.href} onClick={go}>{label}</a>;
 };
 
+const PassageRead = ({ source, inspecting = false, placed = false, settling = false }) => (
+  <>
+    <p className="open-sentence-pocket__source-title">{source.title}</p>
+    {inspecting && source.aroundBefore ? (
+      <p className="open-sentence-pocket__around">{source.aroundBefore}</p>
+    ) : null}
+    {source.passage ? (
+      <p className={`open-sentence-pocket__passage${placed ? ' is-placed' : ''}${settling ? ' is-settling' : ''}`}>
+        {source.passage}
+      </p>
+    ) : (
+      <p className="open-sentence-pocket__silence">The exact passage was not saved with this citation.</p>
+    )}
+    {inspecting && source.aroundAfter ? (
+      <p className="open-sentence-pocket__around">{source.aroundAfter}</p>
+    ) : null}
+    {inspecting && !source.aroundBefore && !source.aroundAfter ? (
+      <p className="open-sentence-pocket__silence">
+        The surrounding lines were not saved with this passage.
+      </p>
+    ) : null}
+    {source.stale ? (
+      <p className="open-sentence-pocket__stale">
+        This is an older copy. A newer line was not attached.
+      </p>
+    ) : null}
+    {source.qualification ? (
+      <p className="open-sentence-pocket__qualification">{source.qualification}</p>
+    ) : null}
+  </>
+);
+
 const SourceBeside = ({
   exploration,
   mocked,
@@ -74,39 +111,17 @@ const SourceBeside = ({
     );
   }
 
-  const aroundMissing = !source.aroundBefore && !source.aroundAfter;
   const canPlace = Boolean(source.passage) && (!source.here || placeBesideTitle);
   const besideLabel = placeBesideTitle || source.title || 'the thought';
 
   return (
     <>
-      <p className="open-sentence-pocket__source-title">{source.title}</p>
-      {inspecting && source.aroundBefore ? (
-        <p className="open-sentence-pocket__around">{source.aroundBefore}</p>
-      ) : null}
-      {source.passage ? (
-        <p className={`open-sentence-pocket__passage${exploration.placed ? ' is-placed' : ''}${settling ? ' is-settling' : ''}`}>
-          {source.passage}
-        </p>
-      ) : (
-        <p className="open-sentence-pocket__silence">The exact passage was not saved with this citation.</p>
-      )}
-      {inspecting && source.aroundAfter ? (
-        <p className="open-sentence-pocket__around">{source.aroundAfter}</p>
-      ) : null}
-      {inspecting && aroundMissing ? (
-        <p className="open-sentence-pocket__silence">
-          The surrounding lines were not saved with this passage.
-        </p>
-      ) : null}
-      {source.stale ? (
-        <p className="open-sentence-pocket__stale">
-          This is an older copy. A newer line was not attached.
-        </p>
-      ) : null}
-      {source.qualification ? (
-        <p className="open-sentence-pocket__qualification">{source.qualification}</p>
-      ) : null}
+      <PassageRead
+        source={source}
+        inspecting={inspecting}
+        placed={exploration.placed}
+        settling={settling}
+      />
       {exploration.placed ? (
         <p className="open-sentence-pocket__placed">Placed beside {besideLabel}</p>
       ) : null}
@@ -207,6 +222,59 @@ const PressureBody = ({ pocketId, exploration, onCommit }) => {
   );
 };
 
+const MeetBody = ({ pocketId, exploration, mocked, onCommit, onOpenSourceHome }) => {
+  const other = inspectableOther(exploration);
+  const [inspecting, setInspecting] = useState(false);
+  if (!other) return null;
+  const meet = isMeeting(exploration) ? exploration.meet : { relation: '', limit: '' };
+  const around = Boolean(other.aroundBefore || other.aroundAfter);
+
+  return (
+    <div className="open-sentence-pocket__meet">
+      <p className="open-sentence-pocket__qualification">Also beside</p>
+      <PassageRead source={other} inspecting={inspecting} />
+      {around || other.href ? (
+        <div className="open-sentence-pocket__actions">
+          {around ? (
+            <button type="button" onClick={() => setInspecting((current) => !current)}>
+              {inspecting ? 'Hide surrounding' : 'Read around this'}
+            </button>
+          ) : null}
+          <SourceHome
+            source={other}
+            mocked={mocked}
+            onOpen={() => onOpenSourceHome?.(other, exploration)}
+          />
+        </div>
+      ) : null}
+      <label className="open-sentence-pocket__label" htmlFor={`${pocketId}-meet`}>
+        How they meet
+      </label>
+      <textarea
+        id={`${pocketId}-meet`}
+        rows={2}
+        value={meet.relation}
+        onChange={(event) => onCommit(setMeetField(exploration, 'relation', event.target.value))}
+        placeholder="Support, tension, analogy, exception, or unrelated."
+      />
+      <label className="open-sentence-pocket__label" htmlFor={`${pocketId}-limit`}>
+        Where that stops
+      </label>
+      <textarea
+        id={`${pocketId}-limit`}
+        rows={2}
+        value={meet.limit}
+        onChange={(event) => onCommit(setMeetField(exploration, 'limit', event.target.value))}
+      />
+      {meet.relation || meet.limit ? (
+        <button type="button" onClick={() => onCommit(endMeet(exploration))}>
+          Leave this meeting
+        </button>
+      ) : null}
+    </div>
+  );
+};
+
 const PocketBody = ({
   pocketId,
   exploration,
@@ -252,6 +320,13 @@ const PocketBody = ({
           setPreviewing={setPreviewing}
           settling={settling}
           placeBesideTitle={placeBesideTitle}
+          onCommit={onCommit}
+          onOpenSourceHome={onOpenSourceHome}
+        />
+        <MeetBody
+          pocketId={pocketId}
+          exploration={exploration}
+          mocked={mocked}
           onCommit={onCommit}
           onOpenSourceHome={onOpenSourceHome}
         />
@@ -482,7 +557,8 @@ const OpenSentence = ({
   const wayHomeLabel = closedNote
     || (closedQuestion ? 'You left this open.' : '')
     || (closedProposal ? 'Proposed, not accepted.' : '')
-    || pressureWayHome(exploration);
+    || pressureWayHome(exploration)
+    || meetWayHome(exploration);
   const wayHome = !open && !keepPocket && (homecoming || wayHomeLabel) ? (
     <div className="open-sentence__way-home">
       {homecoming ? <p className="open-sentence__been">{homecoming}</p> : null}
