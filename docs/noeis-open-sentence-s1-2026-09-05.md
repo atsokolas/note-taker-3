@@ -109,6 +109,10 @@ Still later: how a selection stores revision + anchor in existing source documen
 
 The picture is the ordinary reading gesture. Opening a sentence rebinds the steward to that claim without leaving the accepted page. Ask is conversation against the page, with the opened line as the focus. A generated reply is not a Wiki rewrite. Bound sources on the rail are the attached citation for that sentence, or none. Filler is never the answer.
 
+## Proposed wording (2026-09-06)
+
+Trying a narrower line is still an experiment. **Propose this wording** is a distinct act: it names the current claim and the current accepted line, and it does not write the article. If that line has moved on, the proposal is dropped rather than applied to a different sentence. Withdraw forgets the proposal. Library passages do not propose a Wiki revision. Accepted change remains a later, separate path.
+
 ## Coming home (2026-09-05)
 
 Closing the pocket without a question, a return note, or a placed passage discards the experiment. Keeping any of those keeps a private draft. The accepted Wiki still does not change. A `!` left alone is a gesture in the moment; closing forgets it too.

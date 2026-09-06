@@ -395,9 +395,9 @@ Decided for the first scene (2026-09-05), recorded in [Open a sentence S1](noeis
 5. The next horizon is still chosen from demonstrated use.
 6. The pocket picture is the ordinary reading gesture. Live ask is conversation against the accepted page, bound to the opened claim. A generated reply is not a Wiki rewrite.
 
-Still later: a later deliberate revision uses the current claim identity and provenance; device-save vs server-sync; revision + anchor in source documents.
+Proposed wording is a distinct act. It names the current claim and the current accepted line. It does not write the article. If that line moved on, the proposal is dropped. Accepted change remains a later, separately authorized path.
 
-**This stage:** the pocket on `/wiki/read/:id`, the Library walk, the way home, and a companion that can be asked about the opened sentence without writing the article. Not an accepted revision, not a public-share leak.
+**This stage:** the pocket on `/wiki/read/:id`, the Library walk, the way home, a companion that can be asked about the opened sentence, and a proposal that is not yet a belief. Not an accepted revision, not a public-share leak.
 
 ## Appendix — consolidation coverage
 

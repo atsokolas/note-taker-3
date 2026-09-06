@@ -15,7 +15,7 @@ import {
   writeReturnTicket
 } from './openSentenceJourney';
 import { draftStorageKey } from './openSentenceBinding';
-import { closeExploration, createExploration, keepQuestion, openExploration, tryWording } from './openSentenceModel';
+import { closeExploration, createExploration, keepQuestion, openExploration, proposeWording, tryWording } from './openSentenceModel';
 import { readStore } from './openSentenceStore';
 
 const article = {
@@ -182,6 +182,27 @@ describe('openSentenceJourney', () => {
     expect(aligned.source).toEqual({ title: 'Capacity', available: false });
     expect(JSON.parse(readStore(draftStorageKey('wiki-compute', 'claim-compute'))).originalText)
       .toBe('Compute will not stay scarce.');
+  });
+
+  it('drops a proposal when the live Wiki line moved on, without applying it', () => {
+    const was = createExploration({
+      id: 'claim-1',
+      originalText: 'Children need room to make mistakes.'
+    });
+    keepExploration(
+      'wiki-1',
+      'claim-1',
+      proposeWording(openExploration(tryWording(was, 'Children need room to make recoverable mistakes.'))),
+      was
+    );
+    const now = createExploration({
+      id: 'claim-1',
+      originalText: 'Children need room to make recoverable mistakes.'
+    });
+    const aligned = alignRemembered('wiki-1', 'claim-1', now);
+    expect(aligned.originalText).toBe('Children need room to make recoverable mistakes.');
+    expect(aligned.proposal).toBeNull();
+    expect(JSON.parse(readStore(draftStorageKey('wiki-1', 'claim-1'))).proposal).toBeNull();
   });
 
   it('rebinds a stored draft to live sentence text without inventing a source', () => {

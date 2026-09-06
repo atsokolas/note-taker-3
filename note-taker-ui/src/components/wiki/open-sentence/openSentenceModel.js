@@ -30,10 +30,32 @@ export const closeExploration = (exploration) => ({
   status: EXPLORATION_STATUS.closed
 });
 
+export const liveProposal = (exploration) => {
+  const proposal = exploration?.proposal;
+  if (!proposal || typeof proposal !== 'object') return null;
+  const text = String(proposal.text || '').trim();
+  const against = String(proposal.against || '').trim();
+  const current = String(exploration?.originalText || '').trim();
+  if (!text || !against || text === against || against !== current) return null;
+  return { text, against };
+};
+
+export const proposeWording = (exploration) => {
+  const text = String(exploration?.provisionalText || '').trim();
+  const against = String(exploration?.originalText || '').trim();
+  if (!text || !against || text === against) return exploration;
+  return { ...exploration, proposal: { text, against } };
+};
+
+export const withdrawProposal = (exploration) => (
+  exploration?.proposal ? { ...exploration, proposal: null } : exploration
+);
+
 export const keepsClosedDraft = (exploration) => Boolean(
   String(exploration?.question || '').trim()
   || String(exploration?.returnNote || '').trim()
   || exploration?.placed
+  || liveProposal(exploration)
 );
 
 export const forgetExperiment = (live) => createExploration({
@@ -111,7 +133,7 @@ export const restoreExploration = (raw, fallback) => {
   try {
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== 'object') return base;
-    return {
+    const restored = {
       ...base,
       ...parsed,
       originalText: base.originalText,
@@ -121,6 +143,10 @@ export const restoreExploration = (raw, fallback) => {
       status: parsed.status === EXPLORATION_STATUS.open
         ? EXPLORATION_STATUS.open
         : EXPLORATION_STATUS.closed
+    };
+    return {
+      ...restored,
+      proposal: liveProposal(restored)
     };
   } catch (_unreadable) {
     return base;

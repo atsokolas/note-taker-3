@@ -10,12 +10,15 @@ import {
   isOpen,
   keepQuestion,
   leaveMark,
+  liveProposal,
   openExploration,
   placeSource,
+  proposeWording,
   putItBack,
   setReturnNote,
   tryWording,
   wikiAcceptedText,
+  withdrawProposal,
   wordingChanged
 } from './openSentenceModel';
 import './open-sentence.css';
@@ -163,11 +166,16 @@ const PocketBody = ({
   acceptedLabel,
   placeBesideTitle,
   onCommit,
-  onOpenSourceHome
+  onOpenSourceHome,
+  canPropose
 }) => {
   const spans = wordingChanged(exploration)
     ? changedWordSpans(accepted, exploration.provisionalText)
     : [];
+  const proposal = liveProposal(exploration);
+  const sameAsProposal = Boolean(
+    proposal && String(exploration.provisionalText || '').trim() === proposal.text
+  );
 
   return (
     <>
@@ -213,6 +221,21 @@ const PocketBody = ({
             Put it back
           </button>
         ) : null}
+        {canPropose && wordingChanged(exploration) && !sameAsProposal ? (
+          <button type="button" onClick={() => onCommit(proposeWording(exploration))}>
+            Propose this wording
+          </button>
+        ) : null}
+        {proposal ? (
+          <>
+            <p className="open-sentence-pocket__proposal">
+              Proposed, not accepted: {proposal.text}
+            </p>
+            <button type="button" onClick={() => onCommit(withdrawProposal(exploration))}>
+              Withdraw the proposal
+            </button>
+          </>
+        ) : null}
         <p className="open-sentence-pocket__qualification">
           {acceptedLabel}: {accepted}
         </p>
@@ -257,6 +280,7 @@ const OpenSentence = ({
   placeBesideTitle = '',
   homecoming = '',
   stillness = false,
+  canPropose = true,
   onOpenSourceHome,
   children
 }) => {
@@ -379,12 +403,14 @@ const OpenSentence = ({
 
   const closedNote = String(exploration.returnNote || '').trim();
   const closedQuestion = String(exploration.question || '').trim();
-  const wayHome = !open && !keepPocket && (homecoming || closedNote || closedQuestion) ? (
+  const closedProposal = liveProposal(exploration);
+  const wayHomeLabel = closedNote || (closedQuestion ? 'You left this open.' : '') || (closedProposal ? 'Proposed, not accepted.' : '');
+  const wayHome = !open && !keepPocket && (homecoming || wayHomeLabel) ? (
     <div className="open-sentence__way-home">
       {homecoming ? <p className="open-sentence__been">{homecoming}</p> : null}
-      {closedNote || closedQuestion ? (
+      {wayHomeLabel ? (
         <button type="button" className="open-sentence__next" onClick={openPocket}>
-          {closedNote || 'You left this open.'}
+          {wayHomeLabel}
         </button>
       ) : null}
     </div>
@@ -474,6 +500,7 @@ const OpenSentence = ({
               placeBesideTitle={placeBesideTitle}
               onCommit={onChange}
               onOpenSourceHome={onOpenSourceHome}
+              canPropose={canPropose}
             />
             <button type="button" className="open-sentence-pocket__close" onClick={closePocket}>
               Close

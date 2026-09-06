@@ -35,6 +35,16 @@ describe('OpenSentenceStoryboard', () => {
     expect(screen.getByText('Works beside this sentence. Does not rewrite the article.')).toBeInTheDocument();
   });
 
+  it('proposes wording without changing the Wiki line', () => {
+    renderBoard();
+    fireEvent.click(screen.getByRole('button', { name: 'Wording' }));
+    expect(screen.getByLabelText('Try a narrower wording')).toHaveValue(STORYBOARD_PROVISIONAL);
+    fireEvent.click(screen.getByRole('button', { name: 'Propose this wording' }));
+    expect(screen.getByText(/Proposed, not accepted/)).toHaveTextContent(STORYBOARD_PROVISIONAL);
+    expect(screen.getByText(/The article still reads/)).toHaveTextContent(STORYBOARD_SENTENCE);
+    expect(screen.getByRole('button', { name: STORYBOARD_SENTENCE })).toBeInTheDocument();
+  });
+
   it('restores a private draft after interruption without changing the Wiki line', () => {
     const { unmount } = renderBoard();
     fireEvent.click(screen.getByRole('button', { name: 'Leave open' }));

@@ -64,6 +64,10 @@ describe('OpenedLibraryPassage', () => {
     expect(screen.getByLabelText('Opened sentence')).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Open in Library →' })).not.toBeInTheDocument();
     expect(screen.getByText(/The saved passage still reads/)).toHaveTextContent(highlight.text);
+    fireEvent.change(screen.getByLabelText('Try a narrower wording'), {
+      target: { value: 'A narrower library line.' }
+    });
+    expect(screen.queryByRole('button', { name: 'Propose this wording' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Read around this' }));
     expect(screen.getByText('Getting lost was part of the work.')).toBeInTheDocument();
   });

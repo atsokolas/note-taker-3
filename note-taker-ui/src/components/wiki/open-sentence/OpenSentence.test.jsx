@@ -12,12 +12,15 @@ import {
   leaveMark,
   openExploration,
   placeSource,
+  liveProposal,
+  proposeWording,
   putItBack,
   restoreExploration,
   setReturnNote,
   snapshotExploration,
   tryWording,
   wikiAcceptedText,
+  withdrawProposal,
   wordingChanged
 } from './openSentenceModel';
 import { STORYBOARD_SENTENCE, STORYBOARD_SOURCE, STORYBOARD_STALE_SOURCE } from './openSentenceStoryboardFixture';
@@ -83,7 +86,7 @@ describe('openSentenceModel', () => {
     expect(leaveMark(leaveMark(start), false).mark).toBe('');
   });
 
-  it('forgets a closed experiment unless a question, return note, or placed passage remains', () => {
+  it('forgets a closed experiment unless a question, return note, placed passage, or proposal remains', () => {
     const start = openExploration(createExploration({ originalText: STORYBOARD_SENTENCE }));
     expect(keepsClosedDraft(closeExploration(tryWording(start, 'draft')))).toBe(false);
     expect(keepsClosedDraft(closeExploration(keepQuestion(start, 'Which mistakes?')))).toBe(true);
@@ -93,8 +96,30 @@ describe('openSentenceModel', () => {
       source: STORYBOARD_SOURCE
     })))).toBe(true);
     expect(keepsClosedDraft(closeExploration(leaveMark(start)))).toBe(false);
+    expect(keepsClosedDraft(closeExploration(proposeWording(tryWording(start, 'Children need room to make recoverable mistakes.'))))).toBe(true);
     expect(forgetExperiment(start).provisionalText).toBe(STORYBOARD_SENTENCE);
     expect(forgetExperiment(start).question).toBe('');
+    expect(forgetExperiment(proposeWording(tryWording(start, 'draft'))).proposal).toBeUndefined();
+  });
+
+  it('proposes wording against the current line, and drops it if that line moved on', () => {
+    const start = createExploration({ originalText: STORYBOARD_SENTENCE });
+    expect(proposeWording(start)).toBe(start);
+    const proposed = proposeWording(tryWording(start, 'Children need room to make recoverable mistakes.'));
+    expect(liveProposal(proposed)).toEqual({
+      text: 'Children need room to make recoverable mistakes.',
+      against: STORYBOARD_SENTENCE
+    });
+    expect(wikiAcceptedText(proposed)).toBe(STORYBOARD_SENTENCE);
+    expect(liveProposal(withdrawProposal(proposed))).toBeNull();
+    expect(liveProposal(restoreExploration(snapshotExploration(proposed), {
+      ...start,
+      originalText: 'Children need room to make recoverable mistakes.'
+    }))).toBeNull();
+    expect(liveProposal(restoreExploration(snapshotExploration(proposed), start))).toEqual({
+      text: 'Children need room to make recoverable mistakes.',
+      against: STORYBOARD_SENTENCE
+    });
   });
 });
 
@@ -228,6 +253,25 @@ describe('OpenSentence', () => {
     expect(screen.queryByLabelText('Try a narrower wording')).not.toBeInTheDocument();
   });
 
+  it('lets a proposal be the way home without accepting it', () => {
+    const onChange = jest.fn();
+    render(
+      <MemoryRouter>
+        <OpenSentence
+          exploration={closeExploration(proposeWording(tryWording(
+            createExploration({ originalText: STORYBOARD_SENTENCE }),
+            'Children need room to make recoverable mistakes.'
+          )))}
+          onChange={onChange}
+        />
+      </MemoryRouter>
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Proposed, not accepted.' }));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ status: 'open' }));
+    expect(screen.getByRole('button', { name: STORYBOARD_SENTENCE })).toBeInTheDocument();
+    expect(screen.queryByLabelText('Try a narrower wording')).not.toBeInTheDocument();
+  });
+
   it('lets an unfinished question be the way home when there is no return note', () => {
     const onChange = jest.fn();
     render(
@@ -284,6 +328,38 @@ describe('OpenSentence', () => {
     expect(screen.getByRole('button', { name: 'Next: figure out which mistakes are recoverable.' })).toBeInTheDocument();
     expect(screen.queryByLabelText('Try a narrower wording')).not.toBeInTheDocument();
     jest.useRealTimers();
+  });
+
+  it('proposes wording without changing the article, and can withdraw it', () => {
+    const onChange = jest.fn();
+    const exploration = openExploration(tryWording(
+      createExploration({ originalText: STORYBOARD_SENTENCE, source: STORYBOARD_SOURCE }),
+      'Children need room to make recoverable mistakes.'
+    ));
+    renderOpen(exploration, onChange);
+    expect(screen.getByText(/The article still reads/)).toHaveTextContent(STORYBOARD_SENTENCE);
+    fireEvent.click(screen.getByRole('button', { name: 'Propose this wording' }));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
+      proposal: {
+        text: 'Children need room to make recoverable mistakes.',
+        against: STORYBOARD_SENTENCE
+      }
+    }));
+  });
+
+  it('does not offer a Wiki proposal from a Library passage', () => {
+    render(
+      <MemoryRouter>
+        <OpenSentence
+          exploration={openExploration(tryWording(
+            createExploration({ originalText: STORYBOARD_SOURCE.passage, source: { ...STORYBOARD_SOURCE, here: true } }),
+            'A narrower library line.'
+          ))}
+          canPropose={false}
+        />
+      </MemoryRouter>
+    );
+    expect(screen.queryByRole('button', { name: 'Propose this wording' })).not.toBeInTheDocument();
   });
 
   it('is already still when stillness is asked for', () => {

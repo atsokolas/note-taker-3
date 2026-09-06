@@ -254,6 +254,10 @@ describe('WikiOpenSentence', () => {
       originalText: 'Memory compounds with review.',
       provisionalText: 'Memory compounds when we forget.',
       question: 'Does it still?',
+      proposal: {
+        text: 'Memory compounds when we forget.',
+        against: 'Memory compounds with review.'
+      },
       status: 'open'
     }));
     const moved = {
@@ -282,6 +286,7 @@ describe('WikiOpenSentence', () => {
     expect(screen.getByText('This source is unavailable. A similar passage was not attached.')).toBeInTheDocument();
     expect(onOpenedText).toHaveBeenCalledWith('Memory compounds when we return to it.', 'claim-1');
     expect(onOpenedText).not.toHaveBeenCalledWith('Memory compounds when we forget.', expect.anything());
+    expect(screen.queryByText(/Proposed, not accepted/)).not.toBeInTheDocument();
   });
 
   it('does not let a vanished claim speak through a stored draft', () => {

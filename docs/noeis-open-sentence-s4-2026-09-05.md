@@ -30,6 +30,8 @@ Those gates run locally as `npm run test:open-sentence` in `note-taker-ui/`, and
 | **Deployed** | Vercel preview of the PR, when that check is green. | https://www.noeis.io. |
 
 Opening a sentence rebinds the steward to that claim. Ask stays conversation against the accepted page. A generated reply is not offered as a Wiki rewrite.
+
+Proposed wording is a distinct act. It names the current claim and the current accepted line. It does not write the article. If that line moved on, the proposal is dropped.
 | **Authenticated-production** | Not run. | Founder account on production, seeded Wiki/Library, or live deleted-source against signed-in data. |
 
 Do not read a green script as longitudinal value. Do not read a preview deploy as production.

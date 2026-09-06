@@ -181,6 +181,7 @@ const OpenSentenceStoryboard = () => {
             stillness={stillness}
             acceptedLabel="The saved passage still reads"
             placeBesideTitle={STORYBOARD_PAGE_TITLE}
+            canPropose={false}
           />
           <p>That is a different kind of care than keeping someone from leaving the path at all.</p>
         </div>
