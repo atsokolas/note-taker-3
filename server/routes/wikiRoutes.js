@@ -24,6 +24,7 @@ const {
 } = require('../services/wikiBriefingService');
 const { openTargets, paperColumns } = require('../services/paperColumns');
 const { buildClaimPage } = require('../services/claimFromHighlight');
+const { fetchReadableArticle } = require('../services/readableArticle');
 const { assertionsFrom, askedBefore, closings, dayOf, quietStreak } = require('../services/paperLedger');
 const { findWikiBacklinks: defaultFindWikiBacklinks } = require('../services/wikiBacklinkService');
 const {
@@ -312,6 +313,8 @@ const INVERSE_CONNECTION_RELATION_TYPES = {
   needs_review: 'review_needed_by',
   review_needed_by: 'needs_review'
 };
+
+const INGEST_TEXT_LIMIT = 8000;
 
 const emptyDoc = () => ({ type: 'doc', content: [{ type: 'paragraph' }] });
 
@@ -8587,7 +8590,23 @@ const buildWikiRouter = ({
       const normalized = normalizeIngestSource(req.body?.source);
       if (normalized.error) return res.status(400).json({ error: normalized.error });
       const source = normalized.value;
-      const sourceLabel = source.title || source.url || source.text.slice(0, 120) || 'Untitled source';
+      /* A URL used to arrive as a bare link. The run stored a title and an
+         address and nothing to read, so the wiki either drafted from an empty
+         source or drafted nothing at all. The reader's extension has always
+         extracted; the server never did. It does now — and when it cannot, the
+         reason is written down, because a source that could not be read is not
+         the same thing as a source that said nothing. */
+      const fetched = (source.rawType === 'url' && source.url && !source.text)
+        ? await fetchReadableArticle({ url: source.url })
+        : null;
+      const sourceText = fetched?.ok && fetched.content
+        ? fetched.content.slice(0, INGEST_TEXT_LIMIT)
+        : source.text;
+      const sourceLabel = source.title
+        || (fetched?.ok ? fetched.title : '')
+        || source.url
+        || sourceText.slice(0, 120)
+        || 'Untitled source';
       const event = await createWikiSourceEvent({
         WikiSourceEvent,
         userId: req.user.id,
@@ -8596,12 +8615,13 @@ const buildWikiRouter = ({
         provider: source.rawType === 'url' ? 'url' : (source.rawType === 'text' ? 'paste' : ''),
         eventType: 'imported',
         title: sourceLabel,
-        summary: source.summary || source.text || source.url || sourceLabel,
-        text: source.text,
+        summary: source.summary || sourceText.slice(0, 1200) || source.url || sourceLabel,
+        text: sourceText,
         url: source.url,
         metadata: {
           ingest: true,
-          ingestSourceType: source.rawType
+          ingestSourceType: source.rawType,
+          ...(fetched ? { fetchedText: Boolean(fetched.ok && fetched.content), fetchError: fetched.ok ? '' : fetched.error } : {})
         }
       });
       if (!event) return res.status(400).json({ error: 'Could not create ingest run.' });
