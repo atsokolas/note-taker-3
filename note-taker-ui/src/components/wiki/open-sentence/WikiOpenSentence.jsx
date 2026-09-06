@@ -76,6 +76,11 @@ export const WikiOpenSentenceProvider = ({
       readStore(draftStorageKey(pageId, claimMark.claimId)),
       openedId === claimMark.claimId
     );
+    // `walk` is the store's revision, not an unused value: this callback reads
+    // the draft store imperatively above, so bumping it on every store change is
+    // what makes a saved draft show up. Removing it satisfies the rule and
+    // silently stops drafts refreshing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [liveFor, openedId, pageId, walk]);
 
   const commit = useCallback((claimId, next) => {
