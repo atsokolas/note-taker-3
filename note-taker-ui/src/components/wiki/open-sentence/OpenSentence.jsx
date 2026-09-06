@@ -39,7 +39,7 @@ const selectionInside = (root) => {
   if (!root || typeof window === 'undefined' || !window.getSelection) return false;
   const selection = window.getSelection();
   if (!selection || selection.isCollapsed || !selection.rangeCount) return false;
-  return root.contains(selection.rangeAt(0).commonAncestorContainer);
+  return root.contains(selection.getRangeAt(0).commonAncestorContainer);
 };
 
 const SourceHome = ({ source, mocked, onOpen }) => {

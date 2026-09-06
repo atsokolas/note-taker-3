@@ -307,6 +307,21 @@ describe('OpenSentence', () => {
     expect(onChange).toHaveBeenCalledWith(closeExploration(exploration));
   });
 
+  it('reads the live selection without inventing a rangeAt helper', () => {
+    const range = { commonAncestorContainer: document.body };
+    jest.spyOn(window, 'getSelection').mockReturnValue({
+      isCollapsed: false,
+      rangeCount: 1,
+      getRangeAt: () => range
+    });
+    renderOpen(openExploration(createExploration({
+      originalText: STORYBOARD_SENTENCE,
+      source: STORYBOARD_SOURCE
+    })));
+    expect(() => document.dispatchEvent(new Event('selectionchange'))).not.toThrow();
+    window.getSelection.mockRestore();
+  });
+
   it('says nothing when no source belongs here', () => {
     renderOpen(openExploration(createExploration({ originalText: STORYBOARD_SENTENCE, source: null })));
     expect(screen.getByText('Nothing beside this sentence yet.')).toBeInTheDocument();
