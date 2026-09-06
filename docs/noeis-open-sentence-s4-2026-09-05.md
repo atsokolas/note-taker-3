@@ -74,7 +74,7 @@ Public shares. Workspace composer. Repo dossiers, company dossiers, investment d
 **Under pressure**
 - Eligibility: an opened sentence (Wiki pocket or Library passage).
 - Quality bar: the person names premise / still-holds / unknown. Identity `against` is the current accepted line. No generated causal chain.
-- Silence: empty slots stay empty; the live line moved on → drop the experiment; do not invent consequences. Filler is never the answer.
+- Silence: empty slots stay empty; still-holds or unknown without a named premise do not keep the walk; the live line moved on → drop the experiment; do not invent consequences. Filler is never the answer.
 
 ## Separately authorized
 

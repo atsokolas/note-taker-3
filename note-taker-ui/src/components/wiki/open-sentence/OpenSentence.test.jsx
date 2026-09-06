@@ -107,6 +107,8 @@ describe('openSentenceModel', () => {
     expect(keepsClosedDraft(closeExploration(proposeWording(tryWording(start, 'Children need room to make recoverable mistakes.'))))).toBe(true);
     expect(keepsClosedDraft(closeExploration(setPressureField(beginPressure(start), 'premise', 'demand grows more slowly')))).toBe(true);
     expect(keepsClosedDraft(closeExploration(beginPressure(start)))).toBe(false);
+    expect(keepsClosedDraft(closeExploration(setPressureField(beginPressure(start), 'stillHolds', 'the plant still exists')))).toBe(false);
+    expect(keepsClosedDraft(closeExploration(setPressureField(beginPressure(start), 'unknown', 'what demand does')))).toBe(false);
     expect(forgetExperiment(start).provisionalText).toBe(STORYBOARD_SENTENCE);
     expect(forgetExperiment(start).question).toBe('');
     expect(forgetExperiment(proposeWording(tryWording(start, 'draft'))).proposal).toBeUndefined();
@@ -147,6 +149,8 @@ describe('openSentenceModel', () => {
     const start = createExploration({ originalText: STORYBOARD_SENTENCE });
     expect(beginPressure(start).pressure.against).toBe(STORYBOARD_SENTENCE);
     expect(livePressure(beginPressure(start))).toBeNull();
+    expect(livePressure(setPressureField(beginPressure(start), 'stillHolds', 'the plant still exists'))).toBeNull();
+    expect(pressureWayHome(setPressureField(beginPressure(start), 'unknown', 'what demand does'))).toBe('');
     const pressured = setPressureField(beginPressure(start), 'premise', 'demand grows more slowly');
     expect(wikiAcceptedText(pressured)).toBe(STORYBOARD_SENTENCE);
     expect(livePressure(pressured)).toEqual({
@@ -498,6 +502,23 @@ describe('OpenSentence', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: 'For this experiment: demand grows more slowly' }));
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ status: 'open' }));
+    expect(screen.getByRole('button', { name: STORYBOARD_SENTENCE })).toBeInTheDocument();
+  });
+
+  it('does not leave a way home when the experiment never named a premise', () => {
+    render(
+      <MemoryRouter>
+        <OpenSentence
+          exploration={closeExploration(setPressureField(
+            beginPressure(createExploration({ originalText: STORYBOARD_SENTENCE })),
+            'stillHolds',
+            'the plant still exists'
+          ))}
+        />
+      </MemoryRouter>
+    );
+    expect(screen.queryByRole('button', { name: 'Under pressure.' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Under pressure.')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: STORYBOARD_SENTENCE })).toBeInTheDocument();
   });
 

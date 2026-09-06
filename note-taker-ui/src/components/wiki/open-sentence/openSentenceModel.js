@@ -89,14 +89,12 @@ export const isPressured = (exploration) => {
 export const livePressure = (exploration) => {
   if (!isPressured(exploration)) return null;
   const premise = String(exploration.pressure.premise || '').trim();
-  const stillHolds = String(exploration.pressure.stillHolds || '').trim();
-  const unknown = String(exploration.pressure.unknown || '').trim();
-  if (!premise && !stillHolds && !unknown) return null;
+  if (!premise) return null;
   return {
     against: String(exploration.pressure.against || '').trim(),
     premise,
-    stillHolds,
-    unknown
+    stillHolds: String(exploration.pressure.stillHolds || '').trim(),
+    unknown: String(exploration.pressure.unknown || '').trim()
   };
 };
 
@@ -117,8 +115,7 @@ export const setPressureField = (exploration, field, value) => {
 
 export const pressureWayHome = (exploration) => {
   const pressure = livePressure(exploration);
-  if (!pressure) return '';
-  return pressure.premise ? `For this experiment: ${pressure.premise}` : 'Under pressure.';
+  return pressure ? `For this experiment: ${pressure.premise}` : '';
 };
 
 export const keepsClosedDraft = (exploration) => Boolean(

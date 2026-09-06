@@ -57,7 +57,7 @@ Ink palettes, serendipity, and sharing wait.
 
 What you type in the pocket survives reload on this device for owned Wiki and Library walks (`localStorage`). The storyboard stays a tab-local study (`sessionStorage`). Neither is server-sync, an accepted Wiki revision, or a belief. A leftover tab draft is lifted onto the device so a mid-walk is not lost. Another tab’s save can become this tab’s restore.
 
-Closing the pocket without a question, a return note, a placed passage, a proposed wording, or a named premise discards the experiment. Keeping any of those keeps a private draft. An empty “suppose” is not a kept walk. Put it back restores the original wording. The accepted article never receives the draft.
+Closing the pocket without a question, a return note, a placed passage, a proposed wording, or a named premise discards the experiment. Keeping any of those keeps a private draft. An empty “suppose” is not a kept walk. Filling only what still holds or what remains unknown is not a named premise. Put it back restores the original wording. The accepted article never receives the draft.
 
 ## What this is not yet
 
