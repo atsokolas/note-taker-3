@@ -274,6 +274,24 @@ describe('openSentenceJourney', () => {
     expect(readStore(draftStorageKey('wiki-1', 'claim-1'))).toBeFalsy();
   });
 
+  it('does not keep a pressure walk that never named a premise', () => {
+    const was = createExploration({
+      id: 'claim-1',
+      originalText: 'Compute will remain scarce.'
+    });
+    keepExploration(
+      'wiki-1',
+      'claim-1',
+      closeExploration(setPressureField(
+        beginPressure(openExploration(was)),
+        'stillHolds',
+        'the plant still exists'
+      )),
+      was
+    );
+    expect(readStore(draftStorageKey('wiki-1', 'claim-1'))).toBeFalsy();
+  });
+
   it('rebinds a stored draft to live sentence text without inventing a source', () => {
     const live = createExploration({
       id: 'claim-1',
