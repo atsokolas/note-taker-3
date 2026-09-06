@@ -40,6 +40,7 @@ import {
   STORYBOARD_SOURCE,
   STORYBOARD_SOURCE_ROOMS,
   STORYBOARD_THEN_NOW,
+  STORYBOARD_THEN_QUESTION,
   STORYBOARD_THEN_QUOTATION,
   storyboardSource
 } from '../components/wiki/open-sentence/openSentenceStoryboardFixture';
@@ -83,7 +84,8 @@ const thenSeed = () => createExploration({
     quotation: {
       title: STORYBOARD_COMPUTE_SOURCE.title,
       passage: STORYBOARD_THEN_QUOTATION
-    }
+    },
+    question: STORYBOARD_THEN_QUESTION
   }
 });
 
@@ -337,8 +339,9 @@ const OpenSentenceStoryboard = () => {
           Source cycles the honest absences. Stillness is the open state with no
           drawing. Propose names a wording; Accept is what writes the illustrated
           line. Pressure names a premise beside the original. It does not invent a
-          causal chain. Then names an earlier recorded line. A recorded quotation
-          sits with it when one was saved. It is not a biography.
+          causal chain.           Then names an earlier recorded line. A recorded quotation
+          sits with it when one was saved. A recorded question sits with it
+          when one was left open then. It is not a biography.
         </p>
       </header>
 

@@ -50,6 +50,17 @@ const SourceHome = ({ source, mocked, onOpen }) => {
   return <a className="open-sentence-pocket__home" href={source.href} onClick={go}>{label}</a>;
 };
 
+const ThenKept = ({ label, children }) => (
+  <div className="open-sentence-pocket__then-source">
+    {label ? <p className="open-sentence-pocket__source-title">{label}</p> : null}
+    {children}
+  </div>
+);
+
+const ThenQuote = ({ text }) => (
+  <blockquote className="open-sentence-pocket__quote">{text}</blockquote>
+);
+
 const SourceBeside = ({
   exploration,
   mocked,
@@ -308,20 +319,27 @@ const PocketBody = ({
         {then ? (
           <div className="open-sentence-pocket__then">
             <p className="open-sentence-pocket__qualification">Then</p>
-            <blockquote className="open-sentence-pocket__quote">{then.text}</blockquote>
+            <ThenQuote text={then.text} />
             {then.quotation ? (
-              <div className="open-sentence-pocket__then-source">
-                {then.quotation.title ? (
-                  <p className="open-sentence-pocket__source-title">{then.quotation.title}</p>
-                ) : null}
+              <ThenKept label={then.quotation.title}>
                 {then.quotation.aroundBefore ? (
                   <p className="open-sentence-pocket__around">{then.quotation.aroundBefore}</p>
                 ) : null}
-                <blockquote className="open-sentence-pocket__quote">{then.quotation.passage}</blockquote>
+                <ThenQuote text={then.quotation.passage} />
                 {then.quotation.aroundAfter ? (
                   <p className="open-sentence-pocket__around">{then.quotation.aroundAfter}</p>
                 ) : null}
-              </div>
+              </ThenKept>
+            ) : null}
+            {then.question ? (
+              <ThenKept label="Then you left this open">
+                <ThenQuote text={then.question} />
+              </ThenKept>
+            ) : null}
+            {then.draft ? (
+              <ThenKept label="Then you wrote">
+                <ThenQuote text={then.draft} />
+              </ThenKept>
             ) : null}
           </div>
         ) : null}

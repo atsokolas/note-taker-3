@@ -3,13 +3,14 @@ export const EXPLORATION_STATUS = Object.freeze({
   open: 'open'
 });
 
+const asLine = (value) => String(value || '').trim();
+
 const asQuotation = (value, currentPassage) => {
-  const passage = String(value?.passage || '').trim();
-  const now = String(currentPassage || '').trim();
-  if (!passage || passage === now) return null;
-  const title = String(value?.title || '').trim();
-  const aroundBefore = String(value?.aroundBefore || '').trim();
-  const aroundAfter = String(value?.aroundAfter || '').trim();
+  const passage = asLine(value?.passage);
+  if (!passage || passage === asLine(currentPassage)) return null;
+  const title = asLine(value?.title);
+  const aroundBefore = asLine(value?.aroundBefore);
+  const aroundAfter = asLine(value?.aroundAfter);
   return {
     ...(title ? { title } : {}),
     passage,
@@ -18,19 +19,42 @@ const asQuotation = (value, currentPassage) => {
   };
 };
 
-const asThen = (value, currentText, currentPassage) => {
-  const text = String(value?.text || '').trim();
-  const now = String(currentText || '').trim();
-  if (!text || !now || text === now) return null;
-  const quotation = asQuotation(value?.quotation, currentPassage);
-  return quotation ? { text, quotation } : { text };
+const unlessSame = (value, ...sameAs) => {
+  const text = asLine(value);
+  return text && !sameAs.map(asLine).includes(text) ? text : '';
 };
 
-export const liveThen = (exploration) => asThen(
-  exploration?.then,
-  exploration?.originalText,
-  exploration?.source?.passage
-);
+const asThen = (value, currentText, currentPassage) => {
+  const text = asLine(value?.text);
+  const now = asLine(currentText);
+  if (!text || !now || text === now) return null;
+  const quotation = asQuotation(value?.quotation, currentPassage);
+  const question = asLine(value?.question);
+  const draft = unlessSame(value?.draft, text, question);
+  return {
+    text,
+    ...(quotation ? { quotation } : {}),
+    ...(question ? { question } : {}),
+    ...(draft ? { draft } : {})
+  };
+};
+
+export const liveThen = (exploration) => {
+  const recorded = asThen(
+    exploration?.then,
+    exploration?.originalText,
+    exploration?.source?.passage
+  );
+  if (!recorded) return null;
+  const question = unlessSame(recorded.question, exploration?.question);
+  const draft = unlessSame(recorded.draft, exploration?.returnNote);
+  return {
+    text: recorded.text,
+    ...(recorded.quotation ? { quotation: recorded.quotation } : {}),
+    ...(question ? { question } : {}),
+    ...(draft ? { draft } : {})
+  };
+};
 
 export const createExploration = ({
   id = '',

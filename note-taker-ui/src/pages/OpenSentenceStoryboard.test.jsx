@@ -15,6 +15,7 @@ import {
   STORYBOARD_SCOPE,
   STORYBOARD_SENTENCE,
   STORYBOARD_THEN_NOW,
+  STORYBOARD_THEN_QUESTION,
   STORYBOARD_THEN_QUOTATION
 } from '../components/wiki/open-sentence/openSentenceStoryboardFixture';
 
@@ -151,6 +152,8 @@ describe('OpenSentenceStoryboard', () => {
     expect(screen.getByText(/The article still reads/)).toHaveTextContent(STORYBOARD_THEN_NOW);
     expect(document.querySelector('.open-sentence-pocket__then')).toHaveTextContent(STORYBOARD_COMPUTE_SENTENCE);
     expect(document.querySelector('.open-sentence-pocket__then-source')).toHaveTextContent(STORYBOARD_THEN_QUOTATION);
+    expect(screen.getByText('Then you left this open')).toBeInTheDocument();
+    expect(document.querySelector('.open-sentence-pocket__then')).toHaveTextContent(STORYBOARD_THEN_QUESTION);
     expect(screen.getByText('Supply was the constraint this decade.')).toBeInTheDocument();
     expect(screen.queryByText(STORYBOARD_SENTENCE)).not.toBeInTheDocument();
     expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();

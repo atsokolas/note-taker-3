@@ -124,7 +124,7 @@ export const claimIdFromSelection = (root, claims = []) => {
   return claims.some((claim) => claim.claimId === claimId) ? claimId : fallback;
 };
 
-export const bindClaimSource = ({
+const attachedSourceRefs = ({
   claimMark,
   ledgerClaim,
   citations = [],
@@ -133,7 +133,6 @@ export const bindClaimSource = ({
   const refs = Array.isArray(sourceRefs) ? sourceRefs : [];
   const notes = Array.isArray(citations) ? citations : [];
   const indexes = citationIndexes(claimMark);
-
   let attached = [];
   if (ledgerClaim) {
     attached = refs.filter((source) => ledgerMatchesSource({
@@ -152,12 +151,28 @@ export const bindClaimSource = ({
       .filter((citation) => (ledgerClaim.citationIds || []).some((id) => idsMatch(id, citation)))
       .some((citation) => citationMatchesSource(citation, source)));
   }
+  return { attached, indexes };
+};
 
-  if (!attached.length) {
-    return indexes.length ? unavailableSource() : null;
+export const bindClaimSource = ({
+  claimMark,
+  ledgerClaim,
+  citations = [],
+  sourceRefs = []
+} = {}) => {
+  const { attached, indexes } = attachedSourceRefs({
+    claimMark,
+    ledgerClaim,
+    citations,
+    sourceRefs
+  });
+
+  const source = attached.find((item) => item?.type !== 'question' && item?.type !== 'notebook');
+  if (!source) {
+    return indexes.length && !attached.length ? unavailableSource() : null;
   }
 
-  const source = attached[0];
+  const notes = Array.isArray(citations) ? citations : [];
   const citation = notes.find((item) => citationMatchesSource(item, source));
   const citedPassage = cleanSourceTextForDisplay(citation?.quote || '');
   const currentPassage = cleanSourceTextForDisplay(source.snippet || source.excerpt || '');
@@ -243,16 +258,22 @@ const earlierClaimTextFromHistory = (history, now) => {
   return '';
 };
 
-const quotationFromBefore = (found, claimId) => {
+const snapshotForClaim = (found, claimId) => {
   if (!found?.before) return null;
   const ledgerClaim = (Array.isArray(found.before.claims) ? found.before.claims : [])
     .find((claim) => idsMatch(claim?.claimId, claimId));
-  const bound = bindClaimSource({
+  return {
     claimMark: found.mark,
     ledgerClaim,
     citations: found.before.citations || [],
     sourceRefs: found.before.sourceRefs || []
-  });
+  };
+};
+
+const quotationFromBefore = (found, claimId) => {
+  const snapshot = snapshotForClaim(found, claimId);
+  if (!snapshot) return null;
+  const bound = bindClaimSource(snapshot);
   if (!bound || bound.available === false) return null;
   const passage = String(bound.passage || '').trim();
   if (!passage) return null;
@@ -264,14 +285,54 @@ const quotationFromBefore = (found, claimId) => {
   };
 };
 
+const pickAttachedLine = (attached, type) => {
+  const ref = (attached || []).find((item) => item?.type === type);
+  return String(ref?.snippet || ref?.title || '').trim();
+};
+
+const workFromBefore = (found, claimId) => {
+  const snapshot = snapshotForClaim(found, claimId);
+  if (!snapshot) return {};
+  const { attached } = attachedSourceRefs(snapshot);
+  return {
+    question: pickAttachedLine(attached, 'question'),
+    draft: pickAttachedLine(attached, 'notebook')
+  };
+};
+
+const thenDraftFromHistory = (history, thenText) => {
+  const list = Array.isArray(history) ? history : [];
+  const match = list.find((entry) => (
+    String(entry?.text || '').trim() === thenText
+    && entry?.actorType === 'user'
+    && String(entry?.note || '').trim()
+  ));
+  return match ? String(match.note).trim() : '';
+};
+
+const asRecordedThen = ({ text, quotation, question, draft }) => {
+  if (!text) return null;
+  return {
+    text,
+    ...(quotation ? { quotation } : {}),
+    ...(question ? { question } : {}),
+    ...(draft ? { draft } : {})
+  };
+};
+
 export const recordedThen = ({ claimId, currentText, revisions, history } = {}) => {
   const now = String(currentText || '').trim();
   if (!claimId || !now) return null;
   const fromRevision = earlierFromRevisions(revisions, claimId, now);
   const text = fromRevision?.text || earlierClaimTextFromHistory(history, now);
   if (!text) return null;
-  const quotation = quotationFromBefore(fromRevision, claimId);
-  return quotation ? { text, quotation } : { text };
+  const work = workFromBefore(fromRevision, claimId);
+  return asRecordedThen({
+    text,
+    quotation: quotationFromBefore(fromRevision, claimId),
+    question: work.question,
+    draft: work.draft || thenDraftFromHistory(history, text)
+  });
 };
 
 export const liveExplorationForClaim = ({
