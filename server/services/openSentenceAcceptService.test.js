@@ -102,4 +102,45 @@ expectCode(() => planOpenedSentenceAccept({
   text: 'Children need room to make recoverable mistakes.'
 }), 'claim_body_ambiguous');
 
+const drifted = ordinaryPage();
+drifted.body.content[0].content[0].text = 'Children need both closeness and room to try.';
+expectCode(() => planOpenedSentenceAccept({
+  page: drifted,
+  claimId: 'claim-1',
+  against: 'Children need room to make mistakes.',
+  text: 'Children need room to make recoverable mistakes.'
+}), 'stale_claim');
+assert.equal(drifted.body.content[0].content[0].text, 'Children need both closeness and room to try.');
+
+const liveWins = ordinaryPage();
+liveWins.body.content[0].content[0].text = 'Children need both closeness and room to try.';
+liveWins.claims[0].text = 'Children need room to make mistakes.';
+const livePlan = planOpenedSentenceAccept({
+  page: liveWins,
+  claimId: 'claim-1',
+  against: 'Children need both closeness and room to try.',
+  text: 'Children need room to make recoverable mistakes.'
+});
+assert.equal(livePlan.body.content[0].content[0].text, 'Children need room to make recoverable mistakes.');
+
+const retiredPage = ordinaryPage();
+retiredPage.claims[0].checkInStatus = 'retired';
+retiredPage.claims[0].retiredAt = new Date();
+expectCode(() => planOpenedSentenceAccept({
+  page: retiredPage,
+  claimId: 'claim-1',
+  against: 'Children need room to make mistakes.',
+  text: 'Children need room to make recoverable mistakes.'
+}), 'vanished_claim');
+assert.equal(retiredPage.body.content[0].content[0].text, 'Children need room to make mistakes.');
+assert.equal(retiredPage.claims[0].checkInStatus, 'retired');
+assert.ok(retiredPage.claims[0].retiredAt);
+
+expectCode(() => planOpenedSentenceAccept({
+  page: ordinaryPage(),
+  claimId: 'claim-1',
+  against: 'Children need room to make mistakes.',
+  text: `${'a'.repeat(2001)}.`
+}), 'too_long');
+
 console.log('openSentenceAcceptService tests passed');

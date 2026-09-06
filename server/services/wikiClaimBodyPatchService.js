@@ -252,6 +252,8 @@ const locateExactClaimNode = ({ body, claimId } = {}) => {
   return anchors[0];
 };
 
+const exactClaimText = ({ body, claimId } = {}) => rangeText(locateExactClaimNode({ body, claimId }));
+
 const replaceExactClaimText = ({ body, claimId, replacementText } = {}) => {
   const anchor = locateExactClaimNode({ body, claimId });
   const next = clone(body);
@@ -283,6 +285,7 @@ module.exports = {
   WikiClaimBodyPatchError,
   bodyHash,
   buildClaimBodyPatch,
+  exactClaimText,
   extractPlainText,
   inspectExactClaimAnchors,
   replaceExactClaimRange,
