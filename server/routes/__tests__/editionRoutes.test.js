@@ -75,12 +75,14 @@ describe('the newsstand', () => {
   let server;
   let url;
   let Edition;
+  let EditionProfile;
   let articles;
   let asAgent;
   let saved;
 
   beforeEach(async () => {
     Edition = makeStore();
+    EditionProfile = makeStore();
     articles = [];
     asAgent = false;
     saved = [];
@@ -120,6 +122,7 @@ describe('the newsstand', () => {
         req.agentToken ? res.status(403).json({ error: 'Only you can do that, not an agent.' }) : next()
       ),
       Edition,
+      EditionProfile,
       Article,
       readArticle: (...args) => readArticle(...args),
       SharedEdition,
@@ -362,5 +365,136 @@ describe('the newsstand', () => {
     asAgent = false;
     expect((await send(`/api/editions/${made.body._id}`, 'DELETE')).status).toBe(200);
     expect(Edition.rows).toHaveLength(0);
+  });
+});
+
+/**
+ * A paper the reader configured, and kept up daily without losing Monday.
+ */
+describe('topics the reader configures, and filing into them', () => {
+  let server;
+  let url;
+  let Edition;
+  let EditionProfile;
+
+  const listen2 = (app) => new Promise((resolve) => {
+    const server = app.listen(0, '127.0.0.1', () => resolve(server));
+  });
+
+  beforeEach(async () => {
+    Edition = makeStore();
+    EditionProfile = makeStore();
+    const app = express();
+    app.use(express.json());
+    app.use(buildEditionRouter({
+      auth: (req, _res, next) => {
+        req.user = { id: 'user-1' };
+        req.agentToken = { id: 'token-1', name: 'OpenClaw · Jarvis' };
+        next();
+      },
+      humanOnly: (req, res, next) => (
+        req.agentToken ? res.status(403).json({ error: 'Only you can do that, not an agent.' }) : next()
+      ),
+      Edition,
+      EditionProfile,
+      Article: { findOneAndUpdate: async () => ({ _id: 'a1' }) }
+    }));
+    server = await listen2(app);
+    url = `http://127.0.0.1:${server.address().port}`;
+  });
+
+  afterEach(() => server?.close());
+
+  const send = async (path, method = 'GET', body) => {
+    const response = await fetch(`${url}${path}`, {
+      method,
+      headers: { 'content-type': 'application/json' },
+      ...(body ? { body: JSON.stringify(body) } : {})
+    });
+    return { status: response.status, body: await response.json() };
+  };
+
+  const configure = (over = {}) => send('/api/edition-profiles', 'POST', {
+    key: 'biotech',
+    title: 'This Month in Biotech',
+    cadence: 'monthly',
+    sections: [{ key: 'clinical_evidence', label: 'Clinical evidence' }],
+    ...over
+  });
+
+  const finding = (over = {}) => ({
+    title: 'A trial reads out',
+    url: 'https://example.com/one',
+    section: 'clinical_evidence',
+    finding: 'The trial reported a twelve point improvement.',
+    boundary: 'Single site, n=40, no replication.',
+    ...over
+  });
+
+  it('lets an agent configure a topic, and editing it does not open a second', async () => {
+    const created = await configure();
+    expect(created.status).toBe(201);
+    expect(created.body.cadence).toBe('monthly');
+
+    const edited = await configure({ cadence: 'weekly' });
+    expect(edited.status).toBe(200);
+    expect(edited.body.cadence).toBe('weekly');
+
+    const listed = await send('/api/edition-profiles');
+    expect(listed.body.profiles).toHaveLength(1);
+    expect(listed.body.builtIn).toEqual(expect.arrayContaining(['this_week_in_ai']));
+  });
+
+  it('refuses a topic with no sections, because that is a list not a paper', async () => {
+    const bad = await configure({ sections: [] });
+    expect(bad.status).toBe(400);
+    expect(bad.body.error).toMatch(/section/i);
+  });
+
+  // The whole point: filing tomorrow must not delete today.
+  it('adds to the running issue instead of replacing it', async () => {
+    await configure();
+    const monday = await send('/api/editions/file', 'POST', { profile: 'biotech', items: [finding()] });
+    expect(monday.status).toBe(201);
+    expect(monday.body.itemCount).toBe(1);
+
+    const tuesday = await send('/api/editions/file', 'POST', {
+      profile: 'biotech',
+      items: [finding({ title: 'A second readout', url: 'https://example.com/two' })]
+    });
+    expect(tuesday.status).toBe(200);
+    expect(tuesday.body.itemCount).toBe(2);
+    expect(tuesday.body.added).toBe(1);
+    expect(Edition.rows).toHaveLength(1);
+  });
+
+  it('skips a link the issue already holds rather than printing it twice', async () => {
+    await configure();
+    await send('/api/editions/file', 'POST', { profile: 'biotech', items: [finding()] });
+    const again = await send('/api/editions/file', 'POST', { profile: 'biotech', items: [finding()] });
+    expect(again.body.itemCount).toBe(1);
+    expect(again.body.added).toBe(0);
+    expect(again.body.alreadyHeld).toBe(1);
+  });
+
+  it('still demands a boundary when filing into a topic the reader invented', async () => {
+    await configure();
+    const bad = await send('/api/editions/file', 'POST', { profile: 'biotech', items: [finding({ boundary: '' })] });
+    expect(bad.status).toBe(400);
+    expect(bad.body.error).toMatch(/boundary/i);
+  });
+
+  it('names the topics that exist when an agent files into one that does not', async () => {
+    await configure();
+    const bad = await send('/api/editions/file', 'POST', { profile: 'quantum', items: [finding()] });
+    expect(bad.status).toBe(400);
+    expect(bad.body.error).toMatch(/biotech/);
+  });
+
+  it('files a daily topic into separate issues on separate days', async () => {
+    await configure({ key: 'ai_daily', title: 'AI Daily', cadence: 'daily' });
+    await send('/api/editions/file', 'POST', { profile: 'ai_daily', items: [finding()], now: '2026-09-09T10:00:00Z' });
+    await send('/api/editions/file', 'POST', { profile: 'ai_daily', items: [finding({ url: 'https://example.com/two' })], now: '2026-09-10T10:00:00Z' });
+    expect(Edition.rows).toHaveLength(2);
   });
 });
