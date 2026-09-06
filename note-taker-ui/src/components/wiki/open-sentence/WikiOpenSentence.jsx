@@ -35,6 +35,7 @@ export const WikiOpenSentenceProvider = ({
   page,
   pageId,
   enabled = false,
+  revisions,
   onOpenedClaim,
   onAcceptWording,
   children
@@ -60,8 +61,8 @@ export const WikiOpenSentenceProvider = ({
   }, [enabled, pageId]);
 
   const liveFor = useCallback((claimMark) => (
-    liveExplorationForPageClaim(page, claimMark)
-  ), [page]);
+    liveExplorationForPageClaim(page, claimMark, { revisions })
+  ), [page, revisions]);
 
   useEffect(() => {
     if (!enabled || !pageId) return;

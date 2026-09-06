@@ -204,20 +204,55 @@ export const claimTextOnPage = (doc, claimId) => {
   return found;
 };
 
+const earlierClaimTextFromRevisions = (revisions, claimId, now) => {
+  const list = Array.isArray(revisions) ? revisions : [];
+  for (const revision of list) {
+    if (revision?.snapshotPrunedAt) continue;
+    const before = revision?.before;
+    if (!before) continue;
+    const fromBody = String(claimTextOnPage(before.body, claimId) || '').trim();
+    if (fromBody && fromBody !== now) return fromBody;
+    const fromClaims = (Array.isArray(before.claims) ? before.claims : [])
+      .find((claim) => idsMatch(claim?.claimId, claimId));
+    const text = String(fromClaims?.text || '').trim();
+    if (text && text !== now) return text;
+  }
+  return '';
+};
+
+const earlierClaimTextFromHistory = (history, now) => {
+  const list = Array.isArray(history) ? history : [];
+  for (let index = list.length - 1; index >= 0; index -= 1) {
+    const text = String(list[index]?.text || '').trim();
+    if (text && text !== now) return text;
+  }
+  return '';
+};
+
+export const recordedThen = ({ claimId, currentText, revisions, history } = {}) => {
+  const now = String(currentText || '').trim();
+  if (!claimId || !now) return null;
+  const prior = earlierClaimTextFromRevisions(revisions, claimId, now)
+    || earlierClaimTextFromHistory(history, now);
+  return prior ? { text: prior } : null;
+};
+
 export const liveExplorationForClaim = ({
   claimMark,
   ledgerClaim,
   citations = [],
-  sourceRefs = []
+  sourceRefs = [],
+  then = null
 } = {}) => createExploration({
   id: String(claimMark?.claimId || ledgerClaim?.claimId || '').trim(),
   originalText: claimMark && 'text' in claimMark
     ? String(claimMark.text ?? '')
     : String(ledgerClaim?.text || ''),
-  source: bindClaimSource({ claimMark, ledgerClaim, citations, sourceRefs })
+  source: bindClaimSource({ claimMark, ledgerClaim, citations, sourceRefs }),
+  then
 });
 
-export const liveExplorationForPageClaim = (page, claimMark = {}) => {
+export const liveExplorationForPageClaim = (page, claimMark = {}, extras = {}) => {
   const claimId = String(claimMark?.claimId || '').trim();
   const onPage = claimTextOnPage(page?.body, claimId);
   const text = onPage || String(claimMark?.text || '');
@@ -232,6 +267,12 @@ export const liveExplorationForPageClaim = (page, claimMark = {}) => {
     },
     ledgerClaim,
     citations: text ? (page?.citations || []) : [],
-    sourceRefs: text ? (page?.sourceRefs || []) : []
+    sourceRefs: text ? (page?.sourceRefs || []) : [],
+    then: recordedThen({
+      claimId,
+      currentText: text,
+      revisions: extras.revisions,
+      history: ledgerClaim?.history
+    })
   });
 };

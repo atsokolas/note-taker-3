@@ -13,7 +13,8 @@ import {
   STORYBOARD_PROVISIONAL,
   STORYBOARD_RETURN_NOTE,
   STORYBOARD_SCOPE,
-  STORYBOARD_SENTENCE
+  STORYBOARD_SENTENCE,
+  STORYBOARD_THEN_NOW
 } from '../components/wiki/open-sentence/openSentenceStoryboardFixture';
 
 const renderBoard = (entries = ['/']) => render(
@@ -139,6 +140,25 @@ describe('OpenSentenceStoryboard', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Read' }));
     expect(screen.getByRole('heading', { name: 'Parenting' })).toBeInTheDocument();
     expect(screen.queryByDisplayValue(STORYBOARD_PREMISE)).not.toBeInTheDocument();
+  });
+
+  it('puts the earlier Compute line beside today without Parenting copy or a biography', () => {
+    renderBoard();
+    fireEvent.click(screen.getByRole('button', { name: 'Then' }));
+    expect(screen.getByRole('heading', { name: STORYBOARD_COMPUTE_TITLE })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: STORYBOARD_THEN_NOW })).toBeInTheDocument();
+    expect(screen.getByText(/The article still reads/)).toHaveTextContent(STORYBOARD_THEN_NOW);
+    expect(document.querySelector('.open-sentence-pocket__then')).toHaveTextContent(STORYBOARD_COMPUTE_SENTENCE);
+    expect(screen.queryByText(STORYBOARD_SENTENCE)).not.toBeInTheDocument();
+    expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/slower-demand experiment/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Open in Library →' })).not.toBeInTheDocument();
+    expect(
+      screen.getByText('The earlier wording is recorded. It is not a reconstructed biography.')
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Read' }));
+    expect(screen.getByRole('heading', { name: 'Parenting' })).toBeInTheDocument();
+    expect(document.querySelector('.open-sentence-pocket__then')).not.toBeInTheDocument();
   });
 
   it('leaves a way home after Nomad without opening the pocket', async () => {

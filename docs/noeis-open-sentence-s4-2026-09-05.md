@@ -38,13 +38,15 @@ Accepting that proposal is a later, separate act. It patches only that claim’s
 
 A named premise can sit beside the original line in the same pocket. Empty slots stay empty. The original survives. If the live line moved on, the experiment is dropped. Library may suppose; it still cannot propose or accept.
 
+An earlier recorded wording can sit beside today in the same pocket. Identity is that claim's prior revision (or history fallback). A draft cannot forge Then. Library stays silent.
+
 Do not read a green script as longitudinal value. Do not read a preview deploy as production.
 
 ## What stays closed
 
-Public shares. Workspace composer. Repo dossiers, company dossiers, investment dossiers, living theses, research editions. Server-sync of private drafts. Generated inspection of whether a wording is warranted. Horizons (exhibits, rehearsal, instruments, two Libraries, sharing). §4.3 and §4.4.
+Public shares. Workspace composer. Repo dossiers, company dossiers, investment dossiers, living theses, research editions. Server-sync of private drafts. Generated inspection of whether a wording is warranted. Historical source versions and contemporaneous drafts as a reconstructed scene. Horizons (exhibits, rehearsal, instruments, two Libraries, sharing). §4.4.
 
-## Taste pass (unchanged)
+## Taste pass
 
 **Wiki claim → source**
 - Eligibility: claim mark with citation indexes or ledger `sourceRefIds` pointing at a `sourceRef`, on an owned ordinary Wiki in read mode.
@@ -75,6 +77,11 @@ Public shares. Workspace composer. Repo dossiers, company dossiers, investment d
 - Eligibility: an opened sentence (Wiki pocket or Library passage).
 - Quality bar: the person names premise / still-holds / unknown. Identity `against` is the current accepted line. No generated causal chain.
 - Silence: empty slots stay empty; still-holds or unknown without a named premise do not keep the walk; the live line moved on → drop the experiment; do not invent consequences. Filler is never the answer.
+
+**Then / Now**
+- Eligibility: an opened Wiki claim with a prior recorded wording in revisions (or history fallback) that differs from the live marked line.
+- Quality bar: identity only. That claim, exact recorded text. No similar-text repair. No generated biography.
+- Silence: no earlier different wording; a pruned snapshot; Library. Filler is never the answer.
 
 ## Separately authorized
 

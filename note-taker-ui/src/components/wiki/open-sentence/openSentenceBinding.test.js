@@ -172,4 +172,127 @@ describe('openSentenceBinding', () => {
     expect(exploration.originalText).toBe('');
     expect(exploration.source).toBeNull();
   });
+
+  it('reads Then from the newest unpruned revision before-body, not a similar neighbor', () => {
+    const exploration = liveExplorationForPageClaim({
+      body: {
+        type: 'doc',
+        content: [{
+          type: 'paragraph',
+          content: [{
+            type: 'text',
+            text: 'Software can do more with the same plant.',
+            marks: [{ type: 'claim', attrs: { claimId: 'claim-compute', citationIndexes: [1] } }]
+          }]
+        }]
+      },
+      claims: [{
+        claimId: 'claim-compute',
+        text: 'Software can do more with the same plant.',
+        sourceRefIds: ['source-capacity']
+      }],
+      sourceRefs: [{
+        _id: 'source-capacity',
+        title: 'Capacity',
+        snippet: 'Supply was the constraint this decade.'
+      }]
+    }, { claimId: 'claim-compute' }, {
+      revisions: [{
+        snapshotPrunedAt: '2026-09-01T00:00:00.000Z',
+        before: {
+          body: {
+            type: 'doc',
+            content: [{
+              type: 'paragraph',
+              content: [{
+                type: 'text',
+                text: 'A neighboring line was not this claim.',
+                marks: [{ type: 'claim', attrs: { claimId: 'claim-other' } }]
+              }]
+            }]
+          },
+          claims: [{ claimId: 'claim-other', text: 'A neighboring line was not this claim.' }]
+        }
+      }, {
+        before: {
+          body: {
+            type: 'doc',
+            content: [{
+              type: 'paragraph',
+              content: [{
+                type: 'text',
+                text: 'Compute will remain scarce.',
+                marks: [{ type: 'claim', attrs: { claimId: 'claim-compute' } }]
+              }]
+            }]
+          },
+          claims: [{ claimId: 'claim-compute', text: 'Compute will remain scarce.' }]
+        }
+      }]
+    });
+    expect(exploration.originalText).toBe('Software can do more with the same plant.');
+    expect(exploration.then).toEqual({ text: 'Compute will remain scarce.' });
+    expect(JSON.stringify(exploration.then)).not.toContain('neighboring');
+  });
+
+  it('stays silent when the recorded earlier line is the same as now', () => {
+    const exploration = liveExplorationForPageClaim({
+      body: {
+        type: 'doc',
+        content: [{
+          type: 'paragraph',
+          content: [{
+            type: 'text',
+            text: 'Compute will remain scarce.',
+            marks: [{ type: 'claim', attrs: { claimId: 'claim-compute' } }]
+          }]
+        }]
+      },
+      claims: [{ claimId: 'claim-compute', text: 'Compute will remain scarce.' }]
+    }, { claimId: 'claim-compute' }, {
+      revisions: [{
+        before: {
+          body: {
+            type: 'doc',
+            content: [{
+              type: 'paragraph',
+              content: [{
+                type: 'text',
+                text: 'Compute will remain scarce.',
+                marks: [{ type: 'claim', attrs: { claimId: 'claim-compute' } }]
+              }]
+            }]
+          }
+        }
+      }]
+    });
+    expect(exploration.then).toBeUndefined();
+  });
+
+  it('falls back to claim history when revisions do not record a prior line', () => {
+    const exploration = liveExplorationForPageClaim({
+      body: {
+        type: 'doc',
+        content: [{
+          type: 'paragraph',
+          content: [{
+            type: 'text',
+            text: 'Software can do more with the same plant.',
+            marks: [{ type: 'claim', attrs: { claimId: 'claim-compute' } }]
+          }]
+        }]
+      },
+      claims: [{
+        claimId: 'claim-compute',
+        text: 'Software can do more with the same plant.',
+        history: [
+          { text: 'Compute will remain scarce.' },
+          { text: 'Software can do more with the same plant.' }
+        ]
+      }]
+    }, { claimId: 'claim-compute' }, {
+      revisions: [{ snapshotPrunedAt: '2026-09-01T00:00:00.000Z', before: { body: {} } }]
+    });
+    expect(exploration.then).toEqual({ text: 'Compute will remain scarce.' });
+  });
 });

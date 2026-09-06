@@ -9,6 +9,8 @@ export const STORYBOARD_COMPUTE_TITLE = 'Compute will remain scarce';
 
 export const STORYBOARD_COMPUTE_SENTENCE = 'Compute will remain scarce.';
 
+export const STORYBOARD_THEN_NOW = 'Software can do more with the same plant.';
+
 export const STORYBOARD_PREMISE = 'demand grows more slowly';
 
 export const STORYBOARD_COMPUTE_SOURCE = Object.freeze({

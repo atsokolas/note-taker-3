@@ -3,22 +3,37 @@ export const EXPLORATION_STATUS = Object.freeze({
   open: 'open'
 });
 
+const asThen = (value, currentText) => {
+  const text = String(value?.text || '').trim();
+  const now = String(currentText || '').trim();
+  if (!text || !now || text === now) return null;
+  return { text };
+};
+
+export const liveThen = (exploration) => asThen(exploration?.then, exploration?.originalText);
+
 export const createExploration = ({
   id = '',
   originalText = '',
   source = null,
-  mark = ''
-} = {}) => ({
-  id: String(id || '').trim(),
-  originalText: String(originalText || ''),
-  provisionalText: String(originalText || ''),
-  question: '',
-  returnNote: '',
-  mark: mark === '!' ? '!' : '',
-  source: source && typeof source === 'object' ? source : null,
-  placed: false,
-  status: EXPLORATION_STATUS.closed
-});
+  mark = '',
+  then = null
+} = {}) => {
+  const text = String(originalText || '');
+  const recorded = asThen(then, text);
+  return {
+    id: String(id || '').trim(),
+    originalText: text,
+    provisionalText: text,
+    question: '',
+    returnNote: '',
+    mark: mark === '!' ? '!' : '',
+    source: source && typeof source === 'object' ? source : null,
+    ...(recorded ? { then: recorded } : {}),
+    placed: false,
+    status: EXPLORATION_STATUS.closed
+  };
+};
 
 export const openExploration = (exploration) => ({
   ...exploration,
@@ -129,7 +144,8 @@ export const keepsClosedDraft = (exploration) => Boolean(
 export const forgetExperiment = (live) => createExploration({
   id: live?.id,
   originalText: live?.originalText,
-  source: live?.source
+  source: live?.source,
+  then: live?.then
 });
 
 export const tryWording = (exploration, text) => ({
@@ -212,8 +228,11 @@ export const restoreExploration = (raw, fallback) => {
         ? EXPLORATION_STATUS.open
         : EXPLORATION_STATUS.closed
     };
+    const recorded = asThen(base.then, restored.originalText);
+    const { then: _ignoredThen, ...withoutThen } = restored;
     return {
-      ...restored,
+      ...withoutThen,
+      ...(recorded ? { then: recorded } : {}),
       proposal: liveProposal(restored),
       pressure: isPressured(restored) ? restored.pressure : null
     };
