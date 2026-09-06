@@ -105,6 +105,10 @@ What the pocket sits on. No new engines.
 
 Still later: how a selection stores revision + anchor in existing source documents; device-save vs server-sync retention; live retrieval beyond attached citations.
 
+## Live companion (2026-09-06)
+
+The picture is the ordinary reading gesture. Opening a sentence rebinds the steward to that claim without leaving the accepted page. Ask is conversation against the page, with the opened line as the focus. A generated reply is not a Wiki rewrite. Bound sources on the rail are the attached citation for that sentence, or none. Filler is never the answer.
+
 ## Coming home (2026-09-05)
 
 Closing the pocket without a question, a return note, or a placed passage discards the experiment. Keeping any of those keeps a private draft. The accepted Wiki still does not change. A `!` left alone is a gesture in the moment; closing forgets it too.

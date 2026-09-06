@@ -28,6 +28,8 @@ Those gates run locally as `npm run test:open-sentence` in `note-taker-ui/`, and
 | **Persisted** | Device-save (`localStorage`) and storyboard tab-save (`sessionStorage`) covered by tests. Leftover tab drafts lift onto the device. | Server-sync. Cross-device recovery. |
 | **Merged** | This branch / PR only. | `main`. |
 | **Deployed** | Vercel preview of the PR, when that check is green. | https://www.noeis.io. |
+
+Opening a sentence rebinds the steward to that claim. Ask stays conversation against the accepted page. A generated reply is not offered as a Wiki rewrite.
 | **Authenticated-production** | Not run. | Founder account on production, seeded Wiki/Library, or live deleted-source against signed-in data. |
 
 Do not read a green script as longitudinal value. Do not read a preview deploy as production.

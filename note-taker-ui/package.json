@@ -34,7 +34,7 @@
 		"start": "react-scripts start",
 		"build": "react-scripts build",
 		"test": "react-scripts test",
-		"test:open-sentence": "react-scripts test --watchAll=false --testPathPattern='open-sentence|OpenSentence|OpenedLibraryPassage|openSentence|wikiSurfaceModel|WikiPageReadView.test|SharedWikiPage.test'",
+		"test:open-sentence": "react-scripts test --watchAll=false --testPathPattern='open-sentence|OpenSentence|OpenedLibraryPassage|openSentence|wikiSurfaceModel|WikiPageReadView.test|SharedWikiPage.test|agentConversationModel.test'",
 		"test:e2e": "npx @playwright/test test",
 		"frames:open-sentence": "npx @playwright/test test --config=playwright.storyboard.config.js",
 		"test:agent-harness": "npx @playwright/test test e2e/agent-harness.smoke.spec.js",

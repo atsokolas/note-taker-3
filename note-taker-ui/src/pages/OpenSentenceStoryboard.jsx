@@ -328,7 +328,9 @@ const OpenSentenceStoryboard = () => {
             <p className="agent-rail__eyebrow">{scene === 'library' ? 'Librarian' : 'Wiki steward'}</p>
           </div>
           <p className="agent-rail__role-description">
-            Works beside the article. Does not become a second chat in the pocket.
+            {exploration.status === 'open' || libraryExploration.status === 'open'
+              ? 'Works beside this sentence. Does not rewrite the article.'
+              : 'Works beside the article. Does not become a second chat in the pocket.'}
           </p>
           <p className="agent-rail__subject">
             <span>Now with</span>

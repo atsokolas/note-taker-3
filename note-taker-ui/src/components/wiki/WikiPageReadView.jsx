@@ -82,6 +82,7 @@ import {
   WikiOpenSentenceProvider,
   wrapOpenableParagraph
 } from './open-sentence/WikiOpenSentence';
+import { companionForOpenedClaim } from './open-sentence/openSentenceCompanion';
 import WikiLivingThesis from './WikiLivingThesis';
 import WikiInvestmentValuation from './WikiInvestmentValuation';
 import WikiFirstHeadReview from './WikiFirstHeadReview';
@@ -1228,7 +1229,6 @@ const WikiPageReadView = ({
   const [repoComparisonAvailable, setRepoComparisonAvailable] = useState(false);
   const [continuationBasis, setContinuationBasis] = useState(null);
   const [continuationState, setContinuationState] = useState({ busy: false, error: '' });
-  const [openedSentenceText, setOpenedSentenceText] = useState('');
   const [openedClaimId, setOpenedClaimId] = useState('');
   const wikiSurfaceDescriptor = buildWikiSurfaceDescriptor({
     page,
@@ -1238,13 +1238,21 @@ const WikiPageReadView = ({
     acceptedRevisionId: continuationBasis?.revisionId || '',
     mode: 'read'
   });
+  const openedCompanion = companionForOpenedClaim(page, { claimId: openedClaimId });
   useNoeisAgentSurface('agent-surface.wiki', wikiSurfaceDescriptor, {
-    subject: openedSentenceText || displayWikiPageTitle(page, 'Wiki page'),
-    boundSources: page ? countWikiSources(page) : null,
-    empty: page
+    subject: openedCompanion?.subject || displayWikiPageTitle(page, 'Wiki page'),
+    boundSources: openedCompanion
+      ? openedCompanion.boundSources
+      : (page ? countWikiSources(page) : null),
+    empty: openedCompanion?.empty || (page
       ? 'Nothing to retrieve until you ask against this accepted page.'
-      : 'Loading the page before the steward checks it.'
-  }, {});
+      : 'Loading the page before the steward checks it.'),
+    ...(openedCompanion ? {
+      askPlaceholder: openedCompanion.askPlaceholder,
+      roleDescription: openedCompanion.roleDescription,
+      lines: openedCompanion.lines
+    } : {})
+  });
   const reducedMotion = useReducedMotion();
   const [showMarginalia, setShowMarginalia] = useState(() => {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
@@ -3148,8 +3156,7 @@ const WikiPageReadView = ({
                     page={page}
                     pageId={pageId}
                     onOpenedText={(text, claimId) => {
-                      setOpenedSentenceText(text || '');
-                      setOpenedClaimId(claimId || '');
+                      setOpenedClaimId(text ? (claimId || '') : '');
                     }}
                   >
                     {renderTiptapDoc(displayBody, {

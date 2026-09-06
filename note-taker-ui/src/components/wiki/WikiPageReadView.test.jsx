@@ -929,6 +929,20 @@ describe('WikiPageReadView', () => {
     expect(document.querySelector('.open-sentence')).not.toHaveClass('is-open');
   });
 
+  it('rebinds the steward to the opened claim without leaving the accepted page', async () => {
+    renderReadView();
+    await screen.findByRole('heading', { level: 1, name: 'Enterprise AI Memory' });
+    fireEvent.click(screen.getByRole('button', { name: 'Open', exact: true }));
+    expect(document.querySelector('.open-sentence')).toHaveClass('is-open');
+    await waitFor(() => expect(mockUseNoeisSurface).toHaveBeenLastCalledWith(expect.objectContaining({
+      room: 'wiki',
+      objectType: 'wiki_claim',
+      objectId: 'claim-1',
+      pageId: 'wiki-1',
+      claimId: 'claim-1'
+    })));
+  });
+
   it('does not open a sentence in the workspace composer', async () => {
     renderReadView({ workspaceMode: true });
     expect(await screen.findByText('Memory compounds with review.')).toBeInTheDocument();

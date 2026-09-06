@@ -393,11 +393,11 @@ Decided for the first scene (2026-09-05), recorded in [Open a sentence S1](noeis
 3. Claim identity is `data-claim-id`. Attached sources are citation indexes / ledger `sourceRefIds` into `sourceRefs`. No similar-text repair.
 4. **First craft texture:** marginalia, placement, restrained colophon study.
 5. The next horizon is still chosen from demonstrated use.
-6. Live-agent budget is still closed until this picture is approved.
+6. The pocket picture is the ordinary reading gesture. Live ask is conversation against the accepted page, bound to the opened claim. A generated reply is not a Wiki rewrite.
 
-Still open: whether this pocket picture is the one to keep as the product’s ordinary reading gesture, now that owned Wiki pages can open a claim in place.
+Still later: a later deliberate revision uses the current claim identity and provenance; device-save vs server-sync; revision + anchor in source documents.
 
-**This stage:** the pocket on `/wiki/read/:id`, the Library walk, the way home, and the storyboard’s honest failures — silence, a gone source, missing surrounding, an older copy, a long passage that scrolls, stillness. Not a retrieval rewrite, not an accepted revision, not a public-share leak.
+**This stage:** the pocket on `/wiki/read/:id`, the Library walk, the way home, and a companion that can be asked about the opened sentence without writing the article. Not an accepted revision, not a public-share leak.
 
 ## Appendix — consolidation coverage
 

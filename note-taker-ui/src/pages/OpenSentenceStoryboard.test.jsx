@@ -32,6 +32,7 @@ describe('OpenSentenceStoryboard', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open', exact: true }));
     expect(screen.getByText('Now with').closest('p')).toHaveTextContent(STORYBOARD_SENTENCE);
     expect(screen.getByText(/The article still reads/)).toHaveTextContent(STORYBOARD_SENTENCE);
+    expect(screen.getByText('Works beside this sentence. Does not rewrite the article.')).toBeInTheDocument();
   });
 
   it('restores a private draft after interruption without changing the Wiki line', () => {
