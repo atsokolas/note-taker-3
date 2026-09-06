@@ -44,6 +44,15 @@ const renderOpen = (exploration, onChange = jest.fn()) => render(
   </MemoryRouter>
 );
 
+const meeting = (open = false) => {
+  const walk = createExploration({
+    originalText: STORYBOARD_SENTENCE,
+    source: STORYBOARD_SOURCE,
+    other: STORYBOARD_MEET_SOURCE
+  });
+  return open ? openExploration(walk) : walk;
+};
+
 describe('openSentenceModel', () => {
   it('keeps accepted wiki text untouched while wording changes', () => {
     const start = createExploration({ id: 's1', originalText: STORYBOARD_SENTENCE });
@@ -135,25 +144,13 @@ describe('openSentenceModel', () => {
     expect(keepsClosedDraft(closeExploration(beginPressure(start)))).toBe(false);
     expect(keepsClosedDraft(closeExploration(setPressureField(beginPressure(start), 'stillHolds', 'the plant still exists')))).toBe(false);
     expect(keepsClosedDraft(closeExploration(setPressureField(beginPressure(start), 'unknown', 'what demand does')))).toBe(false);
-    expect(keepsClosedDraft(closeExploration(setMeetField(createExploration({
-      originalText: STORYBOARD_SENTENCE,
-      source: STORYBOARD_SOURCE,
-      other: STORYBOARD_MEET_SOURCE
-    }), 'relation', STORYBOARD_MEET_RELATION)))).toBe(true);
-    expect(keepsClosedDraft(closeExploration(setMeetField(createExploration({
-      originalText: STORYBOARD_SENTENCE,
-      source: STORYBOARD_SOURCE,
-      other: STORYBOARD_MEET_SOURCE
-    }), 'limit', STORYBOARD_MEET_LIMIT)))).toBe(false);
+    expect(keepsClosedDraft(closeExploration(setMeetField(meeting(), 'relation', STORYBOARD_MEET_RELATION)))).toBe(true);
+    expect(keepsClosedDraft(closeExploration(setMeetField(meeting(), 'limit', STORYBOARD_MEET_LIMIT)))).toBe(false);
     expect(forgetExperiment(start).provisionalText).toBe(STORYBOARD_SENTENCE);
     expect(forgetExperiment(start).question).toBe('');
     expect(forgetExperiment(proposeWording(tryWording(start, 'draft'))).proposal).toBeUndefined();
     expect(forgetExperiment(beginPressure(start)).pressure).toBeUndefined();
-    expect(forgetExperiment(setMeetField(createExploration({
-      originalText: STORYBOARD_SENTENCE,
-      source: STORYBOARD_SOURCE,
-      other: STORYBOARD_MEET_SOURCE
-    }), 'relation', STORYBOARD_MEET_RELATION)).meet).toBeUndefined();
+    expect(forgetExperiment(setMeetField(meeting(), 'relation', STORYBOARD_MEET_RELATION)).meet).toBeUndefined();
     expect(keepsClosedDraft(closeExploration(createExploration({
       originalText: STORYBOARD_THEN_NOW,
       then: { text: STORYBOARD_COMPUTE_SENTENCE }
@@ -221,11 +218,7 @@ describe('openSentenceModel', () => {
   });
 
   it('lets two recorded passages meet without inventing the connection', () => {
-    const start = createExploration({
-      originalText: STORYBOARD_SENTENCE,
-      source: STORYBOARD_SOURCE,
-      other: STORYBOARD_MEET_SOURCE
-    });
+    const start = meeting();
     expect(liveMeet(start)).toBeNull();
     expect(liveMeet(setMeetField(start, 'limit', STORYBOARD_MEET_LIMIT))).toBeNull();
     expect(meetWayHome(setMeetField(start, 'limit', STORYBOARD_MEET_LIMIT))).toBe('');
@@ -629,11 +622,7 @@ describe('OpenSentence', () => {
 
   it('lets two recorded passages sit together without a generated therefore', () => {
     const onChange = jest.fn();
-    const exploration = openExploration(createExploration({
-      originalText: STORYBOARD_SENTENCE,
-      source: STORYBOARD_SOURCE,
-      other: STORYBOARD_MEET_SOURCE
-    }));
+    const exploration = meeting(true);
     const { rerender } = render(
       <MemoryRouter>
         <OpenSentence exploration={exploration} onChange={onChange} mocked />
@@ -673,11 +662,7 @@ describe('OpenSentence', () => {
       <MemoryRouter>
         <OpenSentence
           exploration={closeExploration(setMeetField(
-            createExploration({
-              originalText: STORYBOARD_SENTENCE,
-              source: STORYBOARD_SOURCE,
-              other: STORYBOARD_MEET_SOURCE
-            }),
+            meeting(),
             'relation',
             STORYBOARD_MEET_RELATION
           ))}
@@ -695,11 +680,7 @@ describe('OpenSentence', () => {
       <MemoryRouter>
         <OpenSentence
           exploration={closeExploration(setMeetField(
-            createExploration({
-              originalText: STORYBOARD_SENTENCE,
-              source: STORYBOARD_SOURCE,
-              other: STORYBOARD_MEET_SOURCE
-            }),
+            meeting(),
             'limit',
             STORYBOARD_MEET_LIMIT
           ))}

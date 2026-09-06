@@ -55,6 +55,12 @@ const SourceHome = ({ source, mocked, onOpen }) => {
   return <a className="open-sentence-pocket__home" href={source.href} onClick={go}>{label}</a>;
 };
 
+const AroundToggle = ({ inspecting, onToggle }) => (
+  <button type="button" onClick={onToggle}>
+    {inspecting ? 'Hide surrounding' : 'Read around this'}
+  </button>
+);
+
 const PassageRead = ({ source, inspecting = false, placed = false, settling = false }) => (
   <>
     <p className="open-sentence-pocket__source-title">{source.title}</p>
@@ -135,9 +141,7 @@ const SourceBeside = ({
         {exploration.mark || '!'}
       </button>
       <div className="open-sentence-pocket__actions">
-        <button type="button" onClick={() => setInspecting((current) => !current)}>
-          {inspecting ? 'Hide surrounding' : 'Read around this'}
-        </button>
+        <AroundToggle inspecting={inspecting} onToggle={() => setInspecting((current) => !current)} />
         <SourceHome
           source={source}
           mocked={mocked}
@@ -227,26 +231,19 @@ const MeetBody = ({ pocketId, exploration, mocked, onCommit, onOpenSourceHome })
   const [inspecting, setInspecting] = useState(false);
   if (!other) return null;
   const meet = isMeeting(exploration) ? exploration.meet : { relation: '', limit: '' };
-  const around = Boolean(other.aroundBefore || other.aroundAfter);
 
   return (
     <div className="open-sentence-pocket__meet">
       <p className="open-sentence-pocket__qualification">Also beside</p>
       <PassageRead source={other} inspecting={inspecting} />
-      {around || other.href ? (
-        <div className="open-sentence-pocket__actions">
-          {around ? (
-            <button type="button" onClick={() => setInspecting((current) => !current)}>
-              {inspecting ? 'Hide surrounding' : 'Read around this'}
-            </button>
-          ) : null}
-          <SourceHome
-            source={other}
-            mocked={mocked}
-            onOpen={() => onOpenSourceHome?.(other, exploration)}
-          />
-        </div>
-      ) : null}
+      <div className="open-sentence-pocket__actions">
+        <AroundToggle inspecting={inspecting} onToggle={() => setInspecting((current) => !current)} />
+        <SourceHome
+          source={other}
+          mocked={mocked}
+          onOpen={() => onOpenSourceHome?.(other, exploration)}
+        />
+      </div>
       <label className="open-sentence-pocket__label" htmlFor={`${pocketId}-meet`}>
         How they meet
       </label>
@@ -324,6 +321,7 @@ const PocketBody = ({
           onOpenSourceHome={onOpenSourceHome}
         />
         <MeetBody
+          key={`${exploration?.other?.title || ''}:${exploration?.other?.passage || ''}`}
           pocketId={pocketId}
           exploration={exploration}
           mocked={mocked}

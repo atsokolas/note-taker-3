@@ -144,10 +144,8 @@ export const inspectableOther = (exploration) => {
   return other;
 };
 
-export const canMeet = (exploration) => Boolean(inspectableOther(exploration));
-
 export const isMeeting = (exploration) => {
-  if (!canMeet(exploration)) return false;
+  if (!inspectableOther(exploration)) return false;
   const meet = exploration?.meet;
   if (!meet || typeof meet !== 'object') return false;
   return String(meet.against || '').trim() === String(exploration?.originalText || '').trim();
@@ -165,7 +163,7 @@ export const liveMeet = (exploration) => {
 };
 
 export const setMeetField = (exploration, field, value) => {
-  if (!canMeet(exploration)) return exploration;
+  if (!inspectableOther(exploration)) return exploration;
   if (field !== 'relation' && field !== 'limit') return exploration;
   const current = isMeeting(exploration)
     ? exploration.meet
@@ -289,10 +287,9 @@ export const restoreExploration = (raw, fallback) => {
         : EXPLORATION_STATUS.closed
     };
     const recorded = asThen(base.then, restored.originalText);
-    const { then: _ignoredThen, other: _ignoredOther, ...withoutRecord } = restored;
+    const { then: _ignoredThen, ...withoutThen } = restored;
     return {
-      ...withoutRecord,
-      other: base.other,
+      ...withoutThen,
       ...(recorded ? { then: recorded } : {}),
       proposal: liveProposal(restored),
       pressure: isPressured(restored) ? restored.pressure : null,

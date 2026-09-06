@@ -163,16 +163,16 @@ export const bindClaimSource = (args = {}) => {
 export const bindClaimOther = (args = {}) => {
   const { passages, notes } = attachedPassages(args);
   if (passages.length < 2) return null;
-  const first = passages[0];
-  const firstKey = sourceIdentity(first);
-  const other = passages.find((item, index) => (
-    index > 0 && sourceIdentity(item) && sourceIdentity(item) !== firstKey
-  ));
+  const firstKey = sourceIdentity(passages[0]);
+  const other = passages.slice(1).find((item) => {
+    const key = sourceIdentity(item);
+    return key && key !== firstKey;
+  });
   if (!other) return null;
   const bound = bindPassage(other, notes);
-  if (!bound?.available || !String(bound.passage || '').trim()) return null;
-  const primary = bindPassage(first, notes);
-  if (bound.passage === String(primary?.passage || '').trim()) return null;
+  const passage = String(bound?.passage || '').trim();
+  if (!bound?.available || !passage) return null;
+  if (passage === String(bindPassage(passages[0], notes)?.passage || '').trim()) return null;
   return bound;
 };
 

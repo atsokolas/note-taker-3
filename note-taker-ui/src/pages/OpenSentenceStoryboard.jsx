@@ -86,16 +86,19 @@ const thenSeed = () => createExploration({
   then: { text: STORYBOARD_COMPUTE_SENTENCE }
 });
 
-const meetSeed = () => setMeetField(
-  setMeetField(openExploration(createExploration({
+const meetSeed = () => {
+  const opened = openExploration(createExploration({
     id: STORYBOARD_ITEM_ID,
     originalText: STORYBOARD_SENTENCE,
     source: STORYBOARD_SOURCE,
     other: STORYBOARD_MEET_SOURCE
-  })), 'relation', STORYBOARD_MEET_RELATION),
-  'limit',
-  STORYBOARD_MEET_LIMIT
-);
+  }));
+  return setMeetField(
+    setMeetField(opened, 'relation', STORYBOARD_MEET_RELATION),
+    'limit',
+    STORYBOARD_MEET_LIMIT
+  );
+};
 
 const applyBeat = (beat, source) => {
   if (beat === 'pressure') {
