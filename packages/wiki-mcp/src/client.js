@@ -89,6 +89,13 @@ const normalizeArticleSummary = (article = {}) => ({
   updatedAt: article.updatedAt || null
 });
 
+const normalizeFolder = (folder = {}) => ({
+  id: pickId(folder),
+  name: folder.name || '',
+  parentFolderId: folder.parentFolderId ? String(folder.parentFolderId) : null,
+  asFeed: Boolean(folder.asFeed)
+});
+
 const normalizeFullArticle = (article = {}) => ({
   ...article,
   id: pickId(article),
@@ -342,6 +349,47 @@ export class NoeisClient {
       method: 'POST',
       body: { title, url, content, folderId, author, publicationDate, siteName }
     }).then(normalizeFullArticle);
+  }
+
+  listFolders() {
+    return this.request('/api/folders').then(rows => (Array.isArray(rows) ? rows.map(normalizeFolder) : []));
+  }
+
+  createFolder({ name } = {}) {
+    return this.request('/folders', { method: 'POST', body: { name } }).then(normalizeFolder);
+  }
+
+  /* An agent knows the shelf by its name; the API knows it by its id. Resolving
+     that here is the whole reason this tool exists — asking a caller to list,
+     match and remember an id before it can file one article is how filing
+     stops happening at all. */
+  async resolveFolderId({ folderId, folder } = {}) {
+    if (folderId) return String(folderId);
+    const wanted = String(folder || '').trim();
+    if (!wanted) return null;
+    const folders = await this.listFolders();
+    const match = folders.find(row => row.name.toLowerCase() === wanted.toLowerCase());
+    if (!match) {
+      throw new NoeisApiError(`No folder named "${wanted}". Call list_folders to see them, or create_folder to make it.`);
+    }
+    return match.id;
+  }
+
+  async fileArticle({ articleId, folderId, folder } = {}) {
+    const target = await this.resolveFolderId({ folderId, folder });
+    return this.request(`/articles/${encodeURIComponent(articleId)}/move`, {
+      method: 'PATCH',
+      body: { folderId: target }
+    }).then(normalizeFullArticle);
+  }
+
+  /* The Shelf. `kept` in the Library is this boolean and nothing else, and it
+     was reachable from the UI and the API but from no agent. */
+  keepArticle({ articleId, kept = true } = {}) {
+    return this.request(`/articles/${encodeURIComponent(articleId)}/evergreen`, {
+      method: 'PATCH',
+      body: { evergreen: Boolean(kept) }
+    });
   }
 
   createHighlight({ articleId, text, note, tags, anchor, color } = {}) {
