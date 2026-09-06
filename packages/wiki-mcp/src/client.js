@@ -1,4 +1,6 @@
-export const DEFAULT_API_URL = 'https://note-taker-3-unrg.onrender.com';
+import { DEFAULT_API_URL, resolveAuth } from './config.js';
+
+export { DEFAULT_API_URL };
 
 const trimTrailingSlash = (value = '') => String(value || '').replace(/\/+$/g, '');
 
@@ -139,13 +141,10 @@ export class NoeisApiError extends Error {
 }
 
 export class NoeisClient {
-  constructor({
-    token = process.env.NOEIS_TOKEN,
-    apiUrl = process.env.NOEIS_API_URL || DEFAULT_API_URL,
-    fetchImpl = global.fetch
-  } = {}) {
-    this.token = String(token || '').trim();
-    this.apiUrl = trimTrailingSlash(apiUrl || DEFAULT_API_URL);
+  constructor({ token, apiUrl, fetchImpl = global.fetch, env = process.env } = {}) {
+    const auth = resolveAuth({ env });
+    this.token = String(token || auth.token).trim();
+    this.apiUrl = trimTrailingSlash(apiUrl || auth.apiUrl);
     this.fetch = fetchImpl;
     if (typeof this.fetch !== 'function') {
       throw new Error('No fetch implementation is available. Use Node 18+.');
@@ -154,7 +153,7 @@ export class NoeisClient {
 
   requireToken() {
     if (!this.token) {
-      throw new NoeisApiError('NOEIS_TOKEN is required. Create one in Noeis Settings -> Connected agents.');
+      throw new NoeisApiError('No Noeis token. Run `noeis login --token ntk_at_...`, or set NOEIS_TOKEN. Create one in Noeis Settings -> Connected agents.');
     }
   }
 
