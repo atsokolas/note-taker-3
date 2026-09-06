@@ -10,6 +10,7 @@ import useTextSelection from './reader/useTextSelection';
 import SelectionMenu from './reader/SelectionMenu';
 import MagneticReadingRail from './reader/MagneticReadingRail';
 import PassageDoor from './reader/PassageDoorView';
+import OpenedLibraryPassage from './wiki/open-sentence/OpenedLibraryPassage';
 import {
   connectedJudgmentIds,
   pickFolioLine,
@@ -77,6 +78,7 @@ const ArticleReader = ({
   onAskLibrarian,
   onToggleEvergreen,
   onTogglePlacement,
+  onOpenedSentence,
   sourceTrace = null
 }) => {
   const contentRef = useRef(null);
@@ -345,16 +347,15 @@ const ArticleReader = ({
           )}
         </div>
       </div>
-      {focusedPassage ? (
-        <aside
-          className="article-cited-passage"
-          data-highlight-id={`highlight-${focusedHighlightId}`}
-          aria-label="Saved passage"
-        >
-          <span className="eyebrow">Saved passage</span>
-          <blockquote>{focusedPassage.text || 'Untitled highlight'}</blockquote>
-          {focusedPassage.note ? <p>{focusedPassage.note}</p> : null}
-        </aside>
+      {focusedHighlight ? (
+        <OpenedLibraryPassage
+          article={article}
+          highlight={focusedHighlight}
+          rootRef={readerRootRef}
+          contentHtml={html}
+          inArticle={!focusedPassage}
+          onOpenedText={onOpenedSentence}
+        />
       ) : null}
       {isHighlightOnlyImport ? (
         <div className="article-reader-content reader article-reader-content--highlights" ref={contentRef}>

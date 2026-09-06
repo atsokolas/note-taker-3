@@ -1,0 +1,157 @@
+.open-sentence-storyboard {
+  min-height: 100vh;
+  padding: var(--noeis-space-6) var(--noeis-space-5) var(--noeis-space-8);
+  background: var(--noeis-canvas);
+  color: var(--noeis-ink);
+  overflow-x: auto;
+}
+
+.open-sentence-storyboard__masthead,
+.open-sentence-storyboard__controls,
+.open-sentence-storyboard__colophon {
+  width: min(1120px, 100%);
+  margin: 0 auto var(--noeis-space-5);
+}
+
+.open-sentence-storyboard__eyebrow {
+  margin: 0 0 var(--noeis-space-2);
+  color: var(--noeis-ink-subtle);
+  font-size: var(--noeis-type-meta);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.open-sentence-storyboard h1 {
+  margin: 0 0 var(--noeis-space-3);
+  font-family: var(--noeis-font-reading);
+  font-size: var(--noeis-type-title);
+  font-weight: 520;
+}
+
+.open-sentence-storyboard__note {
+  margin: 0;
+  max-width: 62ch;
+  color: var(--noeis-ink-muted);
+}
+
+.open-sentence-storyboard__controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--noeis-space-4);
+  align-items: end;
+  justify-content: space-between;
+}
+
+.open-sentence-storyboard__beats,
+.open-sentence-storyboard__widths {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--noeis-space-2);
+}
+
+.open-sentence-storyboard__controls button {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--noeis-rule);
+  border-radius: var(--noeis-radius-pill);
+  background: var(--noeis-paper);
+  color: var(--noeis-ink);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.82rem;
+}
+
+.open-sentence-storyboard__controls button.is-active {
+  border-color: var(--noeis-thread);
+  background: color-mix(in srgb, var(--noeis-thread) 12%, var(--noeis-paper));
+}
+
+.open-sentence-storyboard__stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: var(--noeis-space-5);
+  width: var(--storyboard-width, 1440px);
+  max-width: none;
+  margin: 0 auto;
+  padding: var(--noeis-space-6);
+  border: 1px solid var(--noeis-rule);
+  background: var(--noeis-paper);
+}
+
+.open-sentence-storyboard__stage[data-width='430'] {
+  grid-template-columns: minmax(0, 1fr);
+  padding: var(--noeis-space-4);
+}
+
+.open-sentence-storyboard__stage[data-width='430'] .open-sentence-storyboard__rail {
+  display: none;
+}
+
+.open-sentence-storyboard__stage[data-width='430'] .open-sentence-storyboard__rail.is-open {
+  display: grid;
+}
+
+.open-sentence-storyboard__article h1 {
+  font-size: clamp(2rem, 4vw, 3.4rem);
+}
+
+.open-sentence-storyboard__article .open-sentence-library-arrival__back {
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--noeis-ink);
+  cursor: pointer;
+  font: inherit;
+  font-family: var(--noeis-font-ui);
+  font-size: 0.88rem;
+  font-style: normal;
+}
+
+.open-sentence-storyboard__drawer {
+  min-height: 44px;
+}
+
+.open-sentence-storyboard__colophon {
+  display: flex;
+  align-items: center;
+  gap: var(--noeis-space-3);
+  padding-top: var(--noeis-space-6);
+  border-top: 1px solid var(--noeis-rule);
+  color: var(--noeis-ink-muted);
+  font-family: var(--noeis-font-reading);
+  font-style: italic;
+}
+
+.open-sentence-storyboard__mark {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--noeis-thread);
+  border-radius: 50%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .open-sentence-storyboard__stage .agent-rail__thread-knot {
+    animation: none;
+  }
+}
+
+.open-sentence-storyboard__stage[data-stillness='1'] .open-sentence__reveal {
+  transition: none;
+}
+
+.open-sentence-storyboard__stage[data-stillness='1'] .open-sentence__held.is-open::before,
+.open-sentence-storyboard__stage[data-stillness='1'] .open-sentence-pocket__passage.is-settling,
+.open-sentence-storyboard__stage[data-stillness='1'] .open-sentence-library-arrival,
+.open-sentence-storyboard__stage[data-stillness='1'] .agent-rail__thread-knot {
+  animation: none;
+}
+
+.open-sentence-storyboard__stage[data-width='430'] .open-sentence:not(.is-armed):not(.is-open) .open-sentence__open:not(:focus-visible) {
+  opacity: 0.7;
+}
+
+.open-sentence-storyboard__stage[data-width='430'] .open-sentence__chip {
+  display: none;
+}

@@ -26,8 +26,13 @@ export const buildAgentContextFromIdentity = ({ type, id, title = '', metadata =
 
 export const buildAgentContext = (surface = {}) => {
   const rawType = clean(surface.objectType || surface.room || 'workspace').toLowerCase();
-  const type = CONTEXT_TYPE_ALIASES[rawType] || rawType;
-  const id = clean(surface.objectId || surface.id || surface.room || 'workspace');
+  const claimId = clean(surface.claimId || (rawType === 'wiki_claim' ? surface.objectId : ''));
+  const pageId = clean(surface.pageId);
+  const openedClaim = rawType === 'wiki_claim';
+  const type = openedClaim ? 'wiki_page' : (CONTEXT_TYPE_ALIASES[rawType] || rawType);
+  const id = openedClaim
+    ? pageId
+    : clean(surface.objectId || surface.id || surface.room || 'workspace');
   const title = clean(surface.subject || surface.title || surface.roleLabel || 'Workspace');
 
   return buildAgentContextFromIdentity({
@@ -37,7 +42,9 @@ export const buildAgentContext = (surface = {}) => {
     metadata: {
       room: clean(surface.room),
       contractId: clean(surface.contractId),
-      objectType: rawType
+      objectType: rawType,
+      ...(claimId ? { claimId } : {}),
+      ...(openedClaim && title ? { primaryText: title } : {})
     }
   });
 };

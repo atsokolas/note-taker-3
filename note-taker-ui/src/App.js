@@ -118,6 +118,7 @@ const SearchConsoleOpportunities = lazy(() => import('./pages/SearchConsoleOppor
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
 const TermsOfUse = lazy(() => import('./pages/TermsOfUse'));
 const DesignPreview = lazy(() => import('./pages/DesignPreview'));
+const OpenSentenceStoryboard = lazy(() => import('./pages/OpenSentenceStoryboard'));
 const SharedConcept = lazy(() => import('./pages/SharedConcept'));
 const SharedQuestion = lazy(() => import('./pages/SharedQuestion'));
 const SharedEdition = lazy(() => import('./pages/SharedEdition'));
@@ -223,6 +224,10 @@ const DataIntegrationsRedirect = () => {
 
 export const isPublicSharePath = (pathname = '') => pathname.startsWith('/share/');
 
+export const isDesignPreviewPath = (pathname = '') => (
+  pathname === '/design-preview' || pathname.startsWith('/design-preview/')
+);
+
 const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess, uiSettings }) => {
   const location = useLocation();
   const isShareRoute = isPublicSharePath(location.pathname);
@@ -243,7 +248,7 @@ const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess, uiSettings }) => {
     || location.pathname === '/import-reading-archive-into-noeis'
     || location.pathname === '/source-backed-synthesis-workflow'
     || location.pathname === '/from-saved-article-to-draft-in-noeis'
-    || location.pathname === '/design-preview'
+    || isDesignPreviewPath(location.pathname)
   );
   const isEditorialPublicRoute = (
     location.pathname === '/'
@@ -281,6 +286,7 @@ const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess, uiSettings }) => {
           <Route path="/from-saved-article-to-draft-in-noeis" element={<FromSavedArticleToDraftInNoeis />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/terms" element={<TermsOfUse />} />
+          <Route path="/design-preview/open-sentence" element={<OpenSentenceStoryboard />} />
           <Route path="/design-preview" element={<DesignPreview />} />
           <Route path="/share/concepts/:slug" element={<SharedConcept />} />
           <Route path="/share/questions/:slug" element={<SharedQuestion />} />
@@ -780,6 +786,7 @@ function App() {
             <Route path="/from-saved-article-to-draft-in-noeis" element={<FromSavedArticleToDraftInNoeis />} />
             <Route path="/privacy" element={<PrivacyPolicy />} />
             <Route path="/terms" element={<TermsOfUse />} />
+            <Route path="/design-preview/open-sentence" element={<OpenSentenceStoryboard />} />
             <Route path="/design-preview" element={<DesignPreview />} />
             <Route path="/share/concepts/:slug" element={<SharedConcept />} />
             <Route path="/share/wiki/collection/:idOrSlug" element={<SharedWikiCollectionPage />} />

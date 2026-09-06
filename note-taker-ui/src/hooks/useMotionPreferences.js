@@ -5,32 +5,33 @@ const mediaQueryMatches = (query, fallback = false) => {
   return Boolean(window.matchMedia(query).matches);
 };
 
-export const usePrefersReducedMotion = () => {
-  const [reduced, setReduced] = useState(() => mediaQueryMatches('(prefers-reduced-motion: reduce)'));
+const subscribeMedia = (mq, apply) => {
+  if (!mq) return undefined;
+  if (typeof mq.addEventListener === 'function') {
+    mq.addEventListener('change', apply);
+    return () => mq.removeEventListener('change', apply);
+  }
+  if (typeof mq.addListener === 'function') {
+    mq.addListener(apply);
+    return () => mq.removeListener(apply);
+  }
+  return undefined;
+};
+
+const useMediaQuery = (query, fallback = false) => {
+  const [matches, setMatches] = useState(() => mediaQueryMatches(query, fallback));
 
   useEffect(() => {
     if (typeof window === 'undefined' || !window.matchMedia) return undefined;
-    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const apply = () => setReduced(Boolean(mq.matches));
+    const mq = window.matchMedia(query);
+    const apply = () => setMatches(Boolean(mq.matches));
     apply();
-    mq.addEventListener('change', apply);
-    return () => mq.removeEventListener('change', apply);
-  }, []);
+    return subscribeMedia(mq, apply);
+  }, [query]);
 
-  return reduced;
+  return matches;
 };
 
-export const useFinePointer = () => {
-  const [fine, setFine] = useState(() => mediaQueryMatches('(pointer: fine)', true));
+export const usePrefersReducedMotion = () => useMediaQuery('(prefers-reduced-motion: reduce)');
 
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.matchMedia) return undefined;
-    const mq = window.matchMedia('(pointer: fine)');
-    const apply = () => setFine(Boolean(mq.matches));
-    apply();
-    mq.addEventListener('change', apply);
-    return () => mq.removeEventListener('change', apply);
-  }, []);
-
-  return fine;
-};
+export const useFinePointer = () => useMediaQuery('(pointer: fine)', true);

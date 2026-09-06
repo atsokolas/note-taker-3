@@ -25,6 +25,10 @@ export const wikiProjectionForPage = (page = null) => {
   return 'ordinary';
 };
 
+export const wikiAllowsOpenSentence = (page, { workspaceMode = false } = {}) => (
+  Boolean(page) && !workspaceMode && wikiProjectionForPage(page) === 'ordinary'
+);
+
 export const buildWikiSurfaceDescriptor = ({
   page = null,
   pageId = '',

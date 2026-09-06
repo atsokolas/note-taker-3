@@ -112,6 +112,8 @@ export const buildContextualAgentSurface = (contractId, context = {}) => {
   const objectType = String(context.objectType || resolved.room || '').trim();
   const objectId = String(context.objectId || resolved.room || '').trim();
   const subject = String(context.subject || context.title || '').trim();
+  const pageId = String(context.pageId || '').trim();
+  const claimId = String(context.claimId || (objectType === 'wiki_claim' ? objectId : '')).trim();
 
   return {
     id: objectId ? `${resolved.room}:${objectType}:${objectId}` : resolved.id,
@@ -122,6 +124,8 @@ export const buildContextualAgentSurface = (contractId, context = {}) => {
     roleDescription: String(context.roleDescription || resolved.roleDescription || '').trim(),
     objectType,
     objectId,
+    pageId,
+    claimId,
     subject,
     // How much the agent can actually see. null means the surface has not
     // declared a corpus; 0 is a real answer and must be said out loud.

@@ -1,0 +1,63 @@
+name: Open a sentence regression
+
+on:
+  pull_request:
+    paths:
+      - 'note-taker-ui/src/components/wiki/open-sentence/**'
+      - 'note-taker-ui/src/pages/OpenSentenceStoryboard*'
+      - 'note-taker-ui/src/pages/open-sentence-storyboard.css'
+      - 'note-taker-ui/src/components/wiki/WikiPageReadView.jsx'
+      - 'note-taker-ui/src/components/wiki/WikiPageReadView.test.jsx'
+      - 'note-taker-ui/src/components/wiki/wikiSurfaceModel.js'
+      - 'note-taker-ui/src/components/wiki/wikiSurfaceModel.test.js'
+      - 'note-taker-ui/src/components/ArticleReader.jsx'
+      - 'note-taker-ui/src/pages/SharedWikiPage.jsx'
+      - 'note-taker-ui/src/pages/SharedWikiPage.test.jsx'
+      - 'note-taker-ui/src/pages/Library.jsx'
+      - 'note-taker-ui/src/agent/agentConversationModel.js'
+      - 'note-taker-ui/src/agent/agentConversationModel.test.js'
+      - 'note-taker-ui/src/agent/contextualAgentContracts.js'
+      - 'note-taker-ui/src/agent/AgentRailContext.jsx'
+      - 'note-taker-ui/package.json'
+      - '.github/workflows/open-sentence-regression.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'note-taker-ui/src/components/wiki/open-sentence/**'
+      - 'note-taker-ui/src/pages/OpenSentenceStoryboard*'
+      - 'note-taker-ui/src/pages/open-sentence-storyboard.css'
+      - 'note-taker-ui/src/components/wiki/WikiPageReadView.jsx'
+      - 'note-taker-ui/src/components/wiki/WikiPageReadView.test.jsx'
+      - 'note-taker-ui/src/components/wiki/wikiSurfaceModel.js'
+      - 'note-taker-ui/src/components/wiki/wikiSurfaceModel.test.js'
+      - 'note-taker-ui/src/components/ArticleReader.jsx'
+      - 'note-taker-ui/src/pages/SharedWikiPage.jsx'
+      - 'note-taker-ui/src/pages/SharedWikiPage.test.jsx'
+      - 'note-taker-ui/src/pages/Library.jsx'
+      - 'note-taker-ui/src/agent/agentConversationModel.js'
+      - 'note-taker-ui/src/agent/agentConversationModel.test.js'
+      - 'note-taker-ui/src/agent/contextualAgentContracts.js'
+      - 'note-taker-ui/src/agent/AgentRailContext.jsx'
+      - 'note-taker-ui/package.json'
+      - '.github/workflows/open-sentence-regression.yml'
+
+jobs:
+  gate:
+    name: Selected open-sentence gates
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: note-taker-ui
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: note-taker-ui/package-lock.json
+      - run: npm ci
+      - name: Pocket, host, share, and surface regressions
+        env:
+          CI: true
+        run: npm run test:open-sentence

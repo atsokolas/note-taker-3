@@ -1,6 +1,7 @@
 import {
   buildWikiFrontSurfaceDescriptor,
   buildWikiSurfaceDescriptor,
+  wikiAllowsOpenSentence,
   wikiProjectionForPage
 } from './wikiSurfaceModel';
 
@@ -25,6 +26,22 @@ describe('wiki surface model', () => {
     }));
   });
 
+  it('lets an opened sentence rebind the claim without inventing an accepted revision', () => {
+    expect(buildWikiSurfaceDescriptor({
+      page: { _id: 'page-1', title: 'Compute will remain scarce.' },
+      pageId: 'page-1',
+      claimId: 'claim-compute',
+      revisionId: 'revision-1',
+      acceptedRevisionId: 'accepted-1'
+    })).toEqual(expect.objectContaining({
+      objectType: 'wiki_claim',
+      objectId: 'claim-compute',
+      claimId: 'claim-compute',
+      revisionId: 'revision-1',
+      acceptedRevisionId: 'accepted-1'
+    }));
+  });
+
   it.each([
     [{ pageType: 'repo' }, 'repo_dossier'],
     [{ investmentDossier: { version: 1 } }, 'investment_dossier'],
@@ -34,6 +51,18 @@ describe('wiki surface model', () => {
     [{ pageType: 'topic' }, 'ordinary']
   ])('preserves the specialized projection for %p', (page, projection) => {
     expect(wikiProjectionForPage(page)).toBe(projection);
+  });
+
+  it('opens a sentence only on an owned ordinary Wiki in read mode', () => {
+    const ordinary = { _id: 'page-1', title: 'Compound interest', pageType: 'topic' };
+    expect(wikiAllowsOpenSentence(ordinary)).toBe(true);
+    expect(wikiAllowsOpenSentence(ordinary, { workspaceMode: true })).toBe(false);
+    expect(wikiAllowsOpenSentence(null)).toBe(false);
+    expect(wikiAllowsOpenSentence({ pageType: 'repo' })).toBe(false);
+    expect(wikiAllowsOpenSentence({ investmentDossier: { version: 1 } })).toBe(false);
+    expect(wikiAllowsOpenSentence({ createdFrom: { label: 'weekend-readings:2026-09-05' } })).toBe(false);
+    expect(wikiAllowsOpenSentence({ createdFrom: { label: 'company-dossier:COST' } })).toBe(false);
+    expect(wikiAllowsOpenSentence({ judgment: { kind: 'living_thesis' } })).toBe(false);
   });
 
   it('names the empty workspace and Morning Paper without inventing a page identity', () => {

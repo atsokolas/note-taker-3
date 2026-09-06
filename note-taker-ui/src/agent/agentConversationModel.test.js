@@ -47,6 +47,31 @@ describe('agent conversation model', () => {
     }));
   });
 
+  it('keeps an opened Wiki sentence on the accepted page', () => {
+    expect(buildAgentContext({
+      room: 'wiki',
+      contractId: 'agent-surface.wiki',
+      objectType: 'wiki_claim',
+      objectId: 'claim-1',
+      pageId: 'page-1',
+      subject: 'Children need room to make mistakes.'
+    })).toEqual(expect.objectContaining({
+      type: 'wiki_page',
+      id: 'page-1',
+      pageId: 'page-1',
+      title: 'Children need room to make mistakes.',
+      metadata: expect.objectContaining({
+        objectType: 'wiki_claim',
+        claimId: 'claim-1',
+        primaryText: 'Children need room to make mistakes.'
+      })
+    }));
+    expect(buildAgentContext({
+      objectType: 'wiki_claim',
+      objectId: 'claim-1'
+    })).toBeNull();
+  });
+
   it('keeps durable thread messages and their provenance presentation-safe', () => {
     const messages = mapAgentThreadMessages({
       threadId: 'thread-1',

@@ -833,6 +833,7 @@ describe('WikiPageReadView', () => {
     expect(header).toHaveClass('wiki-read__header--living-thesis');
     expect(objectLabel).toHaveTextContent('Living thesis');
     expect(objectLabel.nextElementSibling).toBe(title);
+    expect(screen.queryByRole('button', { name: 'Open', exact: true })).not.toBeInTheDocument();
   });
 
   it('leads investment dossiers with one case cover and keeps owner judgment in Judgment', async () => {
@@ -875,6 +876,7 @@ describe('WikiPageReadView', () => {
     expect(within(cover).getByRole('link', { name: 'Open company case →' })).toHaveAttribute('href', '/judgment/wiki-1');
     expect(screen.getByText('Research acceptance never rewrites your belief.')).toBeInTheDocument();
     expect(screen.queryByText('Can Costco compound owner value above the hurdle?')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Open', exact: true })).not.toBeInTheDocument();
   });
 
   it('keeps a dossier in Wiki until the owner explicitly tracks it in Judgment', async () => {
@@ -922,6 +924,36 @@ describe('WikiPageReadView', () => {
     expect(factualContext).toHaveTextContent('About this page');
     expect(contents).toBeInTheDocument();
     expect(leftRail.querySelector('.right-drawer')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Open', exact: true })).toBeInTheDocument();
+    expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent('Memory compounds with review.');
+    expect(document.querySelector('.open-sentence')).not.toHaveClass('is-open');
+  });
+
+  it('rebinds the steward to the opened claim without leaving the accepted page', async () => {
+    renderReadView();
+    await screen.findByRole('heading', { level: 1, name: 'Enterprise AI Memory' });
+    fireEvent.click(screen.getByRole('button', { name: 'Open', exact: true }));
+    expect(document.querySelector('.open-sentence')).toHaveClass('is-open');
+    await waitFor(() => expect(mockUseNoeisSurface).toHaveBeenLastCalledWith(expect.objectContaining({
+      room: 'wiki',
+      objectType: 'wiki_claim',
+      objectId: 'claim-1',
+      pageId: 'wiki-1',
+      claimId: 'claim-1'
+    })));
+    fireEvent.click(screen.getByRole('button', { name: 'Close', expanded: true }));
+    await waitFor(() => expect(mockUseNoeisSurface).toHaveBeenLastCalledWith(expect.objectContaining({
+      objectType: 'wiki_page',
+      objectId: 'wiki-1',
+      claimId: ''
+    })));
+  });
+
+  it('does not open a sentence in the workspace composer', async () => {
+    renderReadView({ workspaceMode: true });
+    expect(await screen.findByText('Memory compounds with review.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Open', exact: true })).not.toBeInTheDocument();
+    expect(document.querySelector('.open-sentence')).not.toBeInTheDocument();
   });
 
   it('moves one accessible contents list below the title on mobile', async () => {
@@ -2698,6 +2730,7 @@ describe('WikiPageReadView', () => {
     await flushDeferredWikiReadWork();
 
     expect(screen.getByRole('region', { name: 'Repository dossier overview' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Open', exact: true })).not.toBeInTheDocument();
     expect(screen.getByRole('navigation', { name: 'Repository dossier quick links' })).toHaveTextContent('Architecture');
     expect(screen.getByRole('navigation', { name: 'Repository dossier quick links' })).toHaveTextContent('Open questions');
     expect(screen.getByRole('link', { name: /View repository maintenance comparison/i })).toHaveAttribute(
@@ -2793,5 +2826,29 @@ describe('WikiPageReadView', () => {
     expect(screen.queryByRole('region', { name: 'Wiki maintenance receipt' })).not.toBeInTheDocument();
     expect(screen.queryByText('Page status')).not.toBeInTheDocument();
     expect(document.querySelector('.wiki-read--research-edition')).toBeInTheDocument();
+  });
+
+  it('opens a claim in place on ordinary reading and leaves the accepted line alone', async () => {
+    renderReadView();
+    await flushDeferredWikiReadWork();
+
+    const claim = screen.getByText('Memory compounds with review.');
+    expect(claim).toHaveAttribute('data-claim-id', 'claim-1');
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    const pocket = screen.getByLabelText('Opened sentence');
+    expect(within(pocket).getByText('Source snippet')).toBeInTheDocument();
+    fireEvent.change(within(pocket).getByLabelText('Try a narrower wording'), {
+      target: { value: 'Memory compounds when we forget.' }
+    });
+    expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent('Memory compounds with review.');
+    expect(within(pocket).getByText(/The article still reads/)).toHaveTextContent('Memory compounds with review.');
+  });
+
+  it('does not open sentences inside the workspace composer shell', async () => {
+    renderReadView({ workspaceMode: true });
+    await flushDeferredWikiReadWork();
+
+    expect(screen.getByText('Memory compounds with review.')).toHaveAttribute('data-claim-id', 'claim-1');
+    expect(screen.queryByRole('button', { name: 'Open' })).not.toBeInTheDocument();
   });
 });

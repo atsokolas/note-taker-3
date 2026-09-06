@@ -233,7 +233,12 @@ export const AgentRailProvider = ({ children }) => {
       if (result?.thread?.threadId) {
         adoptThread(result.thread);
       }
-      if (!result?.structureProposal && surfaceRevision.current === revision && typeof handlers.current.onAccept === 'function') {
+      if (
+        !result?.structureProposal
+        && surfaceRevision.current === revision
+        && typeof handlers.current.onAccept === 'function'
+        && surface.contractId !== 'agent-surface.wiki'
+      ) {
         const evidence = buildAgentEvidenceCandidates(result?.relatedItems);
         const judgmentEvidence = surface.contractId === 'agent-surface.judgment';
         const primaryEvidence = evidence[0] || null;
@@ -383,6 +388,8 @@ export const useNoeisAgentSurface = (contractId, descriptor, presentation = {}, 
   useContextualAgentSurface(contractId, {
     objectType: descriptor?.objectType,
     objectId: descriptor?.objectId,
+    pageId: descriptor?.pageId,
+    claimId: descriptor?.claimId,
     subject: descriptor?.title,
     ...presentation
   }, handlers);

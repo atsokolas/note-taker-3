@@ -7,6 +7,7 @@ const frontendPort = new URL(frontendUrl).port || '3000';
 
 module.exports = defineConfig({
   testDir: './e2e',
+  testIgnore: /open-sentence-s1-frames/,
   fullyParallel: false,
   retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI ? [['html', { open: 'never' }], ['list']] : [['list']],
