@@ -127,7 +127,7 @@ describe('OpenSentenceStoryboard', () => {
     renderBoard();
     fireEvent.click(screen.getByRole('button', { name: 'Pressure' }));
     expect(screen.getByRole('heading', { name: STORYBOARD_COMPUTE_TITLE })).toBeInTheDocument();
-    expect(screen.getByText(STORYBOARD_COMPUTE_SENTENCE)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: STORYBOARD_COMPUTE_SENTENCE })).toBeInTheDocument();
     expect(screen.getByDisplayValue(STORYBOARD_PREMISE)).toBeInTheDocument();
     expect(screen.getByText(/The article still reads/)).toHaveTextContent(STORYBOARD_COMPUTE_SENTENCE);
     expect(screen.queryByText(STORYBOARD_SENTENCE)).not.toBeInTheDocument();

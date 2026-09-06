@@ -256,7 +256,8 @@ describe('openSentenceJourney', () => {
     });
     const aligned = alignRemembered('wiki-compute', 'claim-compute', now);
     expect(aligned.originalText).toBe('Compute will not stay scarce.');
-    expect(aligned.pressure).toBeNull();
+    expect(aligned.pressure).toBeFalsy();
+    expect(readStore(draftStorageKey('wiki-compute', 'claim-compute'))).toBeFalsy();
   });
 
   it('forgets an empty pressure walk when the pocket closes', () => {
