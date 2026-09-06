@@ -207,6 +207,33 @@ export const writeTools = [
     handler: (client, args) => client.createArticle(args)
   },
   {
+    name: 'create_folder',
+    description: 'Create a Library folder. Fails with 409 if a folder of that name already exists, so prefer list_folders first.',
+    inputSchema: {
+      name: z.string().min(1).describe('Folder name.')
+    },
+    handler: (client, args) => client.createFolder(args)
+  },
+  {
+    name: 'file_article',
+    description: 'Move a saved article into a Library folder. Give either folderId or folder (the folder name, resolved for you). Pass neither to unfile it.',
+    inputSchema: {
+      articleId: z.string().describe('Saved article id.'),
+      folderId: z.string().optional().describe('Target folder id.'),
+      folder: z.string().optional().describe('Target folder name, resolved case-insensitively. Ignored when folderId is given.')
+    },
+    handler: (client, args) => client.fileArticle(args)
+  },
+  {
+    name: 'keep_article',
+    description: 'Put a saved article on the Shelf, or take it off. This is what the Library calls "kept": the article joins the canon the reader keeps for good, and the date recorded is when it was first kept, not when it was last toggled.',
+    inputSchema: {
+      articleId: z.string().describe('Saved article id.'),
+      kept: z.boolean().optional().describe('true to keep it (the default), false to take it off the Shelf.')
+    },
+    handler: (client, args) => client.keepArticle(args)
+  },
+  {
     name: 'create_highlight',
     description: 'Create a highlight on an existing Library article.',
     inputSchema: {
