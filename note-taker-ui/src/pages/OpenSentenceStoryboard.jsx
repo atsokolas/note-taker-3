@@ -11,6 +11,7 @@ import {
   isOpen,
   isPressured,
   keepQuestion,
+  liveThen,
   openExploration,
   placeSource,
   putItBack,
@@ -38,6 +39,7 @@ import {
   STORYBOARD_SENTENCE,
   STORYBOARD_SOURCE,
   STORYBOARD_SOURCE_ROOMS,
+  STORYBOARD_THEN_NOW,
   storyboardSource
 } from '../components/wiki/open-sentence/openSentenceStoryboardFixture';
 import './open-sentence-storyboard.css';
@@ -55,7 +57,8 @@ const BEATS = [
   { id: 'wording', label: 'Wording' },
   { id: 'question', label: 'Leave open' },
   { id: 'return', label: 'Return' },
-  { id: 'pressure', label: 'Pressure' }
+  { id: 'pressure', label: 'Pressure' },
+  { id: 'then', label: 'Then' }
 ];
 
 const seed = (source = STORYBOARD_SOURCE) => createExploration({
@@ -70,6 +73,13 @@ const computeSeed = () => createExploration({
   source: STORYBOARD_COMPUTE_SOURCE
 });
 
+const thenSeed = () => createExploration({
+  id: STORYBOARD_COMPUTE_ID,
+  originalText: STORYBOARD_THEN_NOW,
+  source: STORYBOARD_COMPUTE_SOURCE,
+  then: { text: STORYBOARD_COMPUTE_SENTENCE }
+});
+
 const applyBeat = (beat, source) => {
   if (beat === 'pressure') {
     return setPressureField(
@@ -77,6 +87,9 @@ const applyBeat = (beat, source) => {
       'premise',
       STORYBOARD_PREMISE
     );
+  }
+  if (beat === 'then') {
+    return openExploration(thenSeed());
   }
   const opened = openExploration(seed(source));
   const placed = placeSource(opened);
@@ -118,6 +131,9 @@ const companionRole = (scene, exploration, libraryExploration) => {
   }
   if (isPressured(exploration)) {
     return 'The original stays. The experiment is not a generated causal chain.';
+  }
+  if (liveThen(exploration)) {
+    return 'The earlier wording is recorded. It is not a reconstructed biography.';
   }
   return isOpen(exploration) ? BESIDE_SENTENCE : BESIDE_ARTICLE;
 };
@@ -173,7 +189,14 @@ const OpenSentenceStoryboard = () => {
   const [beenToLibrary, setBeenToLibrary] = useState(false);
 
   useEffect(() => {
-    const live = exploration.id === STORYBOARD_COMPUTE_ID ? computeSeed() : seed(source);
+    const live = exploration.id === STORYBOARD_COMPUTE_ID
+      ? createExploration({
+        id: STORYBOARD_COMPUTE_ID,
+        originalText: exploration.originalText || STORYBOARD_COMPUTE_SENTENCE,
+        source: STORYBOARD_COMPUTE_SOURCE,
+        then: exploration.then
+      })
+      : seed(source);
     keepExploration(STORYBOARD_SCOPE, exploration.id || STORYBOARD_ITEM_ID, exploration, live);
   }, [exploration, source]);
 
@@ -183,6 +206,7 @@ const OpenSentenceStoryboard = () => {
   };
 
   const computeWalk = exploration.id === STORYBOARD_COMPUTE_ID;
+  const thenLine = liveThen(exploration);
   const companionSubject = scene === 'library'
     ? (isOpen(libraryExploration) ? wikiAcceptedText(libraryExploration) : 'Nomad')
     : (isOpen(exploration)
@@ -246,8 +270,9 @@ const OpenSentenceStoryboard = () => {
             onAccept={(current) => setExploration(acceptWording(current))}
           />
           <p>
-            A slower-demand experiment is not a forecast. It names a pressure.
-            It does not write the article.
+            {thenLine
+              ? 'The earlier wording is recorded. It is not a reconstructed biography. It does not write the article.'
+              : 'A slower-demand experiment is not a forecast. It names a pressure. It does not write the article.'}
           </p>
         </div>
       </article>
@@ -291,7 +316,7 @@ const OpenSentenceStoryboard = () => {
         </div>
       </article>
     )
-  ), [beenToLibrary, computeWalk, exploration, libraryExploration, scene, source, stillness]);
+  ), [beenToLibrary, computeWalk, exploration, libraryExploration, scene, source, stillness, thenLine]);
 
   return (
     <div className="open-sentence-storyboard">
@@ -303,9 +328,9 @@ const OpenSentenceStoryboard = () => {
           a question, a return note, a placed passage, a proposed wording, or a named
           premise forgets the experiment. A note under the line is the way home.
           Source cycles the honest absences. Stillness is the open state with no
-          drawing. Propose names a wording; Accept is what writes the illustrated
+          drawing.           Propose names a wording; Accept is what writes the illustrated
           line. Pressure names a premise beside the original. It does not invent a
-          causal chain.
+          causal chain. Then names an earlier recorded line. It is not a biography.
         </p>
       </header>
 

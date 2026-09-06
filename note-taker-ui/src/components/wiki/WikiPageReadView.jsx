@@ -1230,6 +1230,7 @@ const WikiPageReadView = ({
   const [repoComparisonAvailable, setRepoComparisonAvailable] = useState(false);
   const [continuationBasis, setContinuationBasis] = useState(null);
   const [continuationState, setContinuationState] = useState({ busy: false, error: '' });
+  const [revisions, setRevisions] = useState([]);
   const [openedClaimId, setOpenedClaimId] = useState('');
   const wikiSurfaceDescriptor = buildWikiSurfaceDescriptor({
     page,
@@ -1491,15 +1492,21 @@ const WikiPageReadView = ({
     let cancelled = false;
     setContinuationBasis(null);
     setContinuationState({ busy: false, error: '' });
+    setRevisions([]);
     if (!page) return undefined;
     listWikiRevisions(pageId)
-      .then((revisions) => {
+      .then((rows) => {
         if (cancelled) return;
-        const [acceptedBasis] = selectableAcceptedRevisions(revisions);
+        const list = Array.isArray(rows) ? rows : [];
+        setRevisions(list);
+        const [acceptedBasis] = selectableAcceptedRevisions(list);
         setContinuationBasis(acceptedBasis || null);
       })
       .catch(() => {
-        if (!cancelled) setContinuationBasis(null);
+        if (!cancelled) {
+          setRevisions([]);
+          setContinuationBasis(null);
+        }
       });
     return () => { cancelled = true; };
   }, [page, pageId]);
@@ -3163,6 +3170,7 @@ const WikiPageReadView = ({
                     enabled={openSentenceEnabled}
                     page={page}
                     pageId={pageId}
+                    revisions={revisions}
                     onOpenedClaim={setOpenedClaimId}
                     onAcceptWording={openSentenceEnabled ? acceptOpenedWording : undefined}
                   >

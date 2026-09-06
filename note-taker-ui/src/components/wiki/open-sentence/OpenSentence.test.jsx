@@ -17,6 +17,7 @@ import {
   leaveMark,
   livePressure,
   liveProposal,
+  liveThen,
   openExploration,
   placeSource,
   pressureWayHome,
@@ -31,7 +32,7 @@ import {
   withdrawProposal,
   wordingChanged
 } from './openSentenceModel';
-import { STORYBOARD_SENTENCE, STORYBOARD_SOURCE, STORYBOARD_STALE_SOURCE } from './openSentenceStoryboardFixture';
+import { STORYBOARD_COMPUTE_SENTENCE, STORYBOARD_SENTENCE, STORYBOARD_SOURCE, STORYBOARD_STALE_SOURCE, STORYBOARD_THEN_NOW } from './openSentenceStoryboardFixture';
 
 const renderOpen = (exploration, onChange = jest.fn()) => render(
   <MemoryRouter>
@@ -73,6 +74,27 @@ describe('openSentenceModel', () => {
     expect(restored.source).toEqual(STORYBOARD_SOURCE);
     expect(restored.question).toBe('Which mistakes?');
     expect(restored.provisionalText).toBe('draft');
+    expect(liveThen(restored)).toBeNull();
+  });
+
+  it('restores Then from the live record and drops a forged draft biography', () => {
+    const start = createExploration({
+      originalText: STORYBOARD_THEN_NOW,
+      then: { text: STORYBOARD_COMPUTE_SENTENCE }
+    });
+    const dirty = {
+      ...start,
+      then: { text: 'They used to believe compute would stay scarce.' },
+      originalText: 'forged'
+    };
+    const restored = restoreExploration(snapshotExploration(dirty), start);
+    expect(restored.originalText).toBe(STORYBOARD_THEN_NOW);
+    expect(liveThen(restored)).toEqual({ text: STORYBOARD_COMPUTE_SENTENCE });
+    expect(JSON.stringify(restored)).not.toContain('used to believe');
+    expect(liveThen(restoreExploration(snapshotExploration({
+      ...dirty,
+      then: { text: 'They used to believe compute would stay scarce.' }
+    }), createExploration({ originalText: STORYBOARD_THEN_NOW })))).toBeNull();
   });
 
   it('does not place an unavailable source, an empty slot, or a missing passage', () => {
@@ -113,6 +135,14 @@ describe('openSentenceModel', () => {
     expect(forgetExperiment(start).question).toBe('');
     expect(forgetExperiment(proposeWording(tryWording(start, 'draft'))).proposal).toBeUndefined();
     expect(forgetExperiment(beginPressure(start)).pressure).toBeUndefined();
+    expect(keepsClosedDraft(closeExploration(createExploration({
+      originalText: STORYBOARD_THEN_NOW,
+      then: { text: STORYBOARD_COMPUTE_SENTENCE }
+    })))).toBe(false);
+    expect(liveThen(forgetExperiment(createExploration({
+      originalText: STORYBOARD_THEN_NOW,
+      then: { text: STORYBOARD_COMPUTE_SENTENCE }
+    })))).toEqual({ text: STORYBOARD_COMPUTE_SENTENCE });
   });
 
   it('proposes wording against the current line, and drops it if that line moved on', () => {
@@ -484,6 +514,19 @@ describe('OpenSentence', () => {
     );
     expect(screen.getByLabelText('For this experiment')).toHaveValue('demand grows more slowly');
     expect(screen.getByRole('button', { name: STORYBOARD_SENTENCE })).toBeInTheDocument();
+  });
+
+  it('shows Then beside the live line without a biography or a therefore', () => {
+    renderOpen(openExploration(createExploration({
+      originalText: STORYBOARD_THEN_NOW,
+      then: { text: STORYBOARD_COMPUTE_SENTENCE }
+    })));
+    expect(screen.getByRole('button', { name: STORYBOARD_THEN_NOW })).toBeInTheDocument();
+    expect(screen.getByText(/The article still reads/)).toHaveTextContent(STORYBOARD_THEN_NOW);
+    expect(document.querySelector('.open-sentence-pocket__then')).toHaveTextContent(STORYBOARD_COMPUTE_SENTENCE);
+    expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/used to believe/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/biography/i)).not.toBeInTheDocument();
   });
 
   it('lets a named experiment be the way home without accepting it', () => {

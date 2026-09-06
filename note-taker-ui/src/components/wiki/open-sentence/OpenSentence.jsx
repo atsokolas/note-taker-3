@@ -15,6 +15,7 @@ import {
   keepQuestion,
   leaveMark,
   liveProposal,
+  liveThen,
   openExploration,
   placeSource,
   pressureWayHome,
@@ -228,6 +229,7 @@ const PocketBody = ({
     ? changedWordSpans(accepted, exploration.provisionalText)
     : [];
   const proposal = liveProposal(exploration);
+  const then = liveThen(exploration);
   const sameAsProposal = Boolean(
     proposal && String(exploration.provisionalText || '').trim() === proposal.text
   );
@@ -303,6 +305,12 @@ const PocketBody = ({
         <p className="open-sentence-pocket__qualification">
           {acceptedLabel}: {accepted}
         </p>
+        {then ? (
+          <div className="open-sentence-pocket__then">
+            <p className="open-sentence-pocket__qualification">Then</p>
+            <blockquote className="open-sentence-pocket__quote">{then.text}</blockquote>
+          </div>
+        ) : null}
       </div>
 
       <PressureBody pocketId={pocketId} exploration={exploration} onCommit={onCommit} />

@@ -41,6 +41,7 @@ const providerFrom = (props, onOpenedClaim) => (
     enabled={props.enabled !== false}
     page={props.page || page}
     pageId={props.pageId || 'wiki-1'}
+    revisions={props.revisions}
     onOpenedClaim={onOpenedClaim}
     onAcceptWording={props.onAcceptWording}
   >
@@ -85,6 +86,33 @@ describe('WikiOpenSentence', () => {
     expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent('Memory compounds with review.');
     expect(screen.getByText(/The article still reads/)).toHaveTextContent('Memory compounds with review.');
     expect(onOpenedClaim).toHaveBeenCalledWith('claim-1');
+  });
+
+  it('shows Then from revisions without rewriting the article line', () => {
+    renderWikiSentence({
+      revisions: [{
+        before: {
+          body: {
+            type: 'doc',
+            content: [{
+              type: 'paragraph',
+              content: [{
+                type: 'text',
+                text: 'Memory was a pile of notes.',
+                marks: [{ type: 'claim', attrs: { claimId: 'claim-1' } }]
+              }]
+            }]
+          },
+          claims: [{ claimId: 'claim-1', text: 'Memory was a pile of notes.' }]
+        }
+      }]
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent('Memory compounds with review.');
+    expect(screen.getByText(/The article still reads/)).toHaveTextContent('Memory compounds with review.');
+    expect(document.querySelector('.open-sentence-pocket__then')).toHaveTextContent('Memory was a pile of notes.');
+    expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/used to believe/i)).not.toBeInTheDocument();
   });
 
   it('leaves a return ticket when walking into Library, not a Wiki rewrite', () => {

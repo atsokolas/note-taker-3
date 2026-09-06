@@ -234,6 +234,11 @@ mark.highlight.open-sentence__held.is-placed:not(.is-open)::before {
   min-width: 0;
 }
 
+.open-sentence-pocket__then {
+  display: grid;
+  gap: 0.2em;
+}
+
 .open-sentence-pocket__source {
   max-height: min(42vh, 22rem);
   overflow: auto;
@@ -267,6 +272,16 @@ mark.highlight.open-sentence__held.is-placed:not(.is-open)::before {
   color: var(--noeis-ink-subtle);
   font-family: var(--noeis-font-ui);
   font-size: 0.72rem;
+}
+
+.open-sentence-pocket__quote {
+  margin: 0;
+  max-width: 62ch;
+  padding: 0;
+  border: 0;
+  color: var(--noeis-ink);
+  font: inherit;
+  font-family: var(--noeis-font-reading);
 }
 
 .open-sentence-pocket__proposal {
