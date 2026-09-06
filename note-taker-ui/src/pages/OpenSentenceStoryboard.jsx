@@ -181,7 +181,6 @@ const OpenSentenceStoryboard = () => {
             stillness={stillness}
             acceptedLabel="The saved passage still reads"
             placeBesideTitle={STORYBOARD_PAGE_TITLE}
-            canPropose={false}
           />
           <p>That is a different kind of care than keeping someone from leaving the path at all.</p>
         </div>
@@ -234,9 +233,10 @@ const OpenSentenceStoryboard = () => {
         <h1>Open a sentence</h1>
         <p className="open-sentence-storyboard__note">
           The article stays the page. Select the sentence and open it. Closing without
-          a question, a return note, or a placed passage forgets the experiment. A note
-          under the line is the way home. Source cycles the honest absences. Stillness
-          is the open state with no drawing. The Wiki line does not change.
+          a question, a return note, a placed passage, or a proposed wording forgets
+          the experiment. A note under the line is the way home. Source cycles the
+          honest absences. Stillness is the open state with no drawing. The Wiki line
+          does not change.
         </p>
       </header>
 

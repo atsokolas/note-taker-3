@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import OpenSentence from './OpenSentence';
 import {
+  canProposeWording,
   changedWordSpans,
   closeExploration,
   createExploration,
@@ -120,6 +121,19 @@ describe('openSentenceModel', () => {
       text: 'Children need room to make recoverable mistakes.',
       against: STORYBOARD_SENTENCE
     });
+  });
+
+  it('refuses a Wiki proposal from a passage that is already here', () => {
+    const library = tryWording(createExploration({
+      originalText: STORYBOARD_SOURCE.passage,
+      source: { ...STORYBOARD_SOURCE, here: true }
+    }), 'A narrower library line.');
+    expect(canProposeWording(library)).toBe(false);
+    expect(proposeWording(library)).toBe(library);
+    expect(liveProposal({
+      ...library,
+      proposal: { text: 'A narrower library line.', against: STORYBOARD_SOURCE.passage }
+    })).toBeNull();
   });
 });
 
@@ -348,17 +362,10 @@ describe('OpenSentence', () => {
   });
 
   it('does not offer a Wiki proposal from a Library passage', () => {
-    render(
-      <MemoryRouter>
-        <OpenSentence
-          exploration={openExploration(tryWording(
-            createExploration({ originalText: STORYBOARD_SOURCE.passage, source: { ...STORYBOARD_SOURCE, here: true } }),
-            'A narrower library line.'
-          ))}
-          canPropose={false}
-        />
-      </MemoryRouter>
-    );
+    renderOpen(openExploration(tryWording(
+      createExploration({ originalText: STORYBOARD_SOURCE.passage, source: { ...STORYBOARD_SOURCE, here: true } }),
+      'A narrower library line.'
+    )));
     expect(screen.queryByRole('button', { name: 'Propose this wording' })).not.toBeInTheDocument();
   });
 

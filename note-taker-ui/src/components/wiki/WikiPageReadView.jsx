@@ -3155,9 +3155,7 @@ const WikiPageReadView = ({
                     enabled={openSentenceEnabled}
                     page={page}
                     pageId={pageId}
-                    onOpenedText={(text, claimId) => {
-                      setOpenedClaimId(text ? (claimId || '') : '');
-                    }}
+                    onOpenedClaim={setOpenedClaimId}
                   >
                     {renderTiptapDoc(displayBody, {
                       tocItems,

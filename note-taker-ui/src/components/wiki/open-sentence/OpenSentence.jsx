@@ -5,6 +5,7 @@ import useCssMagneticLerp from '../../../hooks/useCssMagneticLerp';
 import { useFinePointer, usePrefersReducedMotion } from '../../../hooks/useMotionPreferences';
 import {
   cancelPlacement,
+  canProposeWording,
   changedWordSpans,
   closeExploration,
   isOpen,
@@ -166,8 +167,7 @@ const PocketBody = ({
   acceptedLabel,
   placeBesideTitle,
   onCommit,
-  onOpenSourceHome,
-  canPropose
+  onOpenSourceHome
 }) => {
   const spans = wordingChanged(exploration)
     ? changedWordSpans(accepted, exploration.provisionalText)
@@ -176,6 +176,7 @@ const PocketBody = ({
   const sameAsProposal = Boolean(
     proposal && String(exploration.provisionalText || '').trim() === proposal.text
   );
+  const mayPropose = canProposeWording(exploration);
 
   return (
     <>
@@ -221,7 +222,7 @@ const PocketBody = ({
             Put it back
           </button>
         ) : null}
-        {canPropose && wordingChanged(exploration) && !sameAsProposal ? (
+        {mayPropose && wordingChanged(exploration) && !sameAsProposal ? (
           <button type="button" onClick={() => onCommit(proposeWording(exploration))}>
             Propose this wording
           </button>
@@ -280,7 +281,6 @@ const OpenSentence = ({
   placeBesideTitle = '',
   homecoming = '',
   stillness = false,
-  canPropose = true,
   onOpenSourceHome,
   children
 }) => {
@@ -500,7 +500,6 @@ const OpenSentence = ({
               placeBesideTitle={placeBesideTitle}
               onCommit={onChange}
               onOpenSourceHome={onOpenSourceHome}
-              canPropose={canPropose}
             />
             <button type="button" className="open-sentence-pocket__close" onClick={closePocket}>
               Close

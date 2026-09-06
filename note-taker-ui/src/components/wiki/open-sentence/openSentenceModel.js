@@ -30,7 +30,10 @@ export const closeExploration = (exploration) => ({
   status: EXPLORATION_STATUS.closed
 });
 
+export const canProposeWording = (exploration) => !exploration?.source?.here;
+
 export const liveProposal = (exploration) => {
+  if (!canProposeWording(exploration)) return null;
   const proposal = exploration?.proposal;
   if (!proposal || typeof proposal !== 'object') return null;
   const text = String(proposal.text || '').trim();
@@ -41,6 +44,7 @@ export const liveProposal = (exploration) => {
 };
 
 export const proposeWording = (exploration) => {
+  if (!canProposeWording(exploration)) return exploration;
   const text = String(exploration?.provisionalText || '').trim();
   const against = String(exploration?.originalText || '').trim();
   if (!text || !against || text === against) return exploration;

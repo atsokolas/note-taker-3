@@ -28,11 +28,11 @@ Those gates run locally as `npm run test:open-sentence` in `note-taker-ui/`, and
 | **Persisted** | Device-save (`localStorage`) and storyboard tab-save (`sessionStorage`) covered by tests. Leftover tab drafts lift onto the device. | Server-sync. Cross-device recovery. |
 | **Merged** | This branch / PR only. | `main`. |
 | **Deployed** | Vercel preview of the PR, when that check is green. | https://www.noeis.io. |
+| **Authenticated-production** | Not run. | Founder account on production, seeded Wiki/Library, or live deleted-source against signed-in data. |
 
 Opening a sentence rebinds the steward to that claim. Ask stays conversation against the accepted page. A generated reply is not offered as a Wiki rewrite.
 
 Proposed wording is a distinct act. It names the current claim and the current accepted line. It does not write the article. If that line moved on, the proposal is dropped.
-| **Authenticated-production** | Not run. | Founder account on production, seeded Wiki/Library, or live deleted-source against signed-in data. |
 
 Do not read a green script as longitudinal value. Do not read a preview deploy as production.
 
@@ -51,6 +51,16 @@ Public shares. Workspace composer. Repo dossiers, company dossiers, investment d
 - Eligibility: a focused saved highlight on an owned Library article.
 - Quality bar: saved prefix/suffix, or an exact unique slice (offset only to disambiguate repeats).
 - Silence: missing surrounding stays missing.
+
+**Companion bound sources**
+- Eligibility: an opened claim on an owned ordinary Wiki in read mode.
+- Quality bar: the same attached citation the pocket would show, title only on the rail.
+- Silence: 0, or “Nothing beside this sentence yet.” A generated reply is never Accept-to-rewrite.
+
+**Proposed wording**
+- Eligibility: a changed provisional line on an opened owned Wiki claim, against the current accepted text.
+- Quality bar: identity only (that claim and that accepted line).
+- Silence: unchanged wording cannot propose; the live line moved on → drop; Library does not propose.
 
 ## Separately authorized
 

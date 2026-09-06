@@ -35,7 +35,7 @@ export const WikiOpenSentenceProvider = ({
   page,
   pageId,
   enabled = false,
-  onOpenedText,
+  onOpenedClaim,
   children
 }) => {
   const [openedId, setOpenedId] = useState(() => (
@@ -87,10 +87,10 @@ export const WikiOpenSentenceProvider = ({
   }, [liveFor, openedId, pageId]);
 
   useEffect(() => {
-    if (!onOpenedText) return;
+    if (!onOpenedClaim) return;
     const liveText = openedId ? String(claimTextOnPage(page?.body, openedId) || '').trim() : '';
-    onOpenedText(liveText, liveText ? openedId : '');
-  }, [onOpenedText, openedId, page]);
+    onOpenedClaim(liveText ? openedId : '');
+  }, [onOpenedClaim, openedId, page]);
 
   const leaveForLibrary = useCallback((source, exploration) => {
     writeReturnTicket({

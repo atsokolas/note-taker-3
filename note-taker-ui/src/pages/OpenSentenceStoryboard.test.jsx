@@ -106,6 +106,10 @@ describe('OpenSentenceStoryboard', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open', exact: true }));
     expect(screen.getByText('Now with').closest('p')).toHaveTextContent(/wrong turn/);
     expect(screen.queryByRole('link', { name: 'Open in Library →' })).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Try a narrower wording'), {
+      target: { value: 'A narrower library line.' }
+    });
+    expect(screen.queryByRole('button', { name: 'Propose this wording' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Back to Parenting →' }));
     expect(screen.getByRole('heading', { name: 'Parenting' })).toBeInTheDocument();
   });

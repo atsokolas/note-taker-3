@@ -113,7 +113,6 @@ const OpenedLibraryPassage = ({
       armRoot={hosts?.mark || null}
       acceptedLabel="The saved passage still reads"
       placeBesideTitle={ticket?.pageTitle || ''}
-      canPropose={false}
     >
       {inArticle ? null : (highlight?.text || live.originalText)}
     </OpenSentence>
