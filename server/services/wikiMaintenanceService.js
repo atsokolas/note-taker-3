@@ -4426,7 +4426,27 @@ const maintainWikiPage = async ({
     sourceCount: candidates.length
   });
 
-  if (candidates.length && isConfigured()) {
+  /* A source row is not evidence. A URL that fetched nothing still arrives as
+     one candidate with empty text, and asking the model to draft from it gets
+     a page *about the emptiness* — "No claims are present in the source" —
+     filed into the claims ledger as though it were a claim about the subject.
+     Silence is the correct output for an empty corpus, so the floor is any
+     evidence at all rather than any source at all. */
+  const evidenceWordCount = candidates.reduce(
+    (total, source) => total + countWords(String(source?.text || '')),
+    0
+  );
+  if (candidates.length && !evidenceWordCount) {
+    await emitProgress({
+      stage: 'sources_empty',
+      summary: candidates.length === 1
+        ? 'The one source carries no readable text, so there is nothing to draft from.'
+        : `All ${candidates.length} sources carry no readable text, so there is nothing to draft from.`,
+      sourceCount: candidates.length
+    });
+  }
+
+  if (candidates.length && evidenceWordCount && isConfigured()) {
     try {
       await emitProgress({
         stage: 'model_drafting',
