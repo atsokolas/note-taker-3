@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-const pageTypes = ['topic', 'concept', 'entity', 'source', 'question', 'comparison', 'overview', 'project', 'log'];
+const pageTypes = ['topic', 'concept', 'entity', 'source', 'question', 'comparison', 'overview', 'project', 'repo', 'log'];
 const statuses = ['draft', 'published', 'archived'];
 const visibilities = ['private', 'shared'];
 
@@ -34,9 +34,10 @@ export const writeTools = [
     inputSchema: {
       title: z.string().min(1).describe('Page title.'),
       pageType: optionalEnum(pageTypes),
-      body: z.union([z.string(), z.record(z.any())]).optional().describe('Optional body as plain text or TipTap JSON.'),
+      body: z.union([z.string(), z.record(z.any())]).optional().describe('Optional body as plain text or TipTap JSON. Plain text keeps its paragraph breaks; blank lines separate paragraphs.'),
       sourceScope: optionalEnum(['entire_library', 'selected_sources', 'current_item']),
-      initialSourceRef: z.record(z.any()).optional().describe('Optional initial source reference to attach.')
+      initialSourceRef: z.record(z.any()).optional().describe('Optional initial source reference to attach, e.g. { type: "external", url, title }. Do not send sourceRefs, claims, or citations — the API rejects them; those ledgers are managed by wiki maintenance.'),
+      initialSourceRefs: z.array(z.record(z.any())).optional().describe('Optional initial source references when a page cites more than one, up to 8.')
     },
     handler: (client, args) => client.createPage(args)
   },
@@ -86,9 +87,10 @@ export const writeTools = [
   },
   {
     name: 'ingest_source',
-    description: 'Call this when the user shares a URL, pasted text, or source object and wants it folded into the wiki. Requires an agent-write token.',
+    description: 'Call this when the user shares a URL, pasted text, or source object and wants it folded into the wiki. Waits for the run to settle and returns how it landed, including nextStep. A URL or pasted text never creates a page on its own: when nothing matches, the run ends `ignored` with a suggestedCreatePage — pass that to create_page to keep the source. Requires an agent-write token.',
     inputSchema: {
-      source: sourceShape
+      source: sourceShape,
+      waitMs: z.number().int().min(0).max(60000).optional().describe('How long to wait for the run to settle before handing back a runId to poll. Defaults to 20000.')
     },
     handler: (client, args) => client.ingestSource(args)
   },

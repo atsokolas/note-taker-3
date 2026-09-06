@@ -315,6 +315,25 @@ const INVERSE_CONNECTION_RELATION_TYPES = {
 
 const emptyDoc = () => ({ type: 'doc', content: [{ type: 'paragraph' }] });
 
+/* Prose arrives as a TipTap doc from the editor and as a plain string from
+   every agent that ever wrote a page. Both are the same intent, so both land
+   here: the string keeps its paragraph breaks, because a page written in
+   paragraphs and stored as one block has lost something with no error to say
+   so. Anything else returns null and lets the caller decide. */
+const normalizeBodyDoc = (value) => {
+  if (value && typeof value === 'object' && !Array.isArray(value)) return value;
+  if (typeof value !== 'string') return null;
+  const paragraphs = value
+    .split(/\n\s*\n/)
+    .map(part => part.replace(/\s+/g, ' ').trim())
+    .filter(Boolean);
+  if (!paragraphs.length) return null;
+  return {
+    type: 'doc',
+    content: paragraphs.map(text => ({ type: 'paragraph', content: [{ type: 'text', text }] }))
+  };
+};
+
 const paragraphNode = (content = []) => ({
   type: 'paragraph',
   content: content.map(item => {
@@ -3909,9 +3928,7 @@ const buildWikiRouter = ({
       }
       const body = livingThesisPreset
         ? buildLivingThesisBody()
-        : req.body?.body && typeof req.body.body === 'object' && !Array.isArray(req.body.body)
-        ? req.body.body
-        : emptyDoc();
+        : (normalizeBodyDoc(req.body?.body) || emptyDoc());
       const page = new WikiPage({
         userId: req.user.id,
         title,
@@ -5039,9 +5056,7 @@ const buildWikiRouter = ({
       const fullName = `${ownerKey}/${repoKey}`;
       const repoUrl = `https://github.com/${fullName}`;
       const title = normalizeTitle(req.body?.title || buildRepoWikiTitle(fullName));
-      const body = req.body?.body && typeof req.body.body === 'object' && !Array.isArray(req.body.body)
-        ? req.body.body
-        : {
+      const body = normalizeBodyDoc(req.body?.body) || {
           type: 'doc',
           content: [
             {
@@ -6640,11 +6655,12 @@ const buildWikiRouter = ({
         page.evergreenAt = req.body.evergreen ? (page.evergreenAt || new Date()) : null;
       }
       if (req.body?.body !== undefined) {
-        if (!req.body.body || typeof req.body.body !== 'object' || Array.isArray(req.body.body)) {
-          return res.status(400).json({ error: 'body must be a TipTap JSON object.' });
+        const nextBody = normalizeBodyDoc(req.body.body);
+        if (!nextBody) {
+          return res.status(400).json({ error: 'body must be a TipTap JSON object or a non-empty string.' });
         }
-        page.body = req.body.body;
-        page.plainText = extractPlainText(req.body.body);
+        page.body = nextBody;
+        page.plainText = extractPlainText(nextBody);
       }
       if (req.body?.body !== undefined) refreshPageClaims(page);
       if (normalizedJudgment) {
@@ -9192,6 +9208,7 @@ module.exports = {
   buildRequireHumanForWeekendReadingsMutation,
   buildUniqueWikiSlugBuilder,
   buildWikiRouter,
+  normalizeBodyDoc,
   buildWikiDraftState,
   extractPlainText,
   normalizeCreatedFrom,

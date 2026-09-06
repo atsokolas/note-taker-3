@@ -1,14 +1,15 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 
-import { DEFAULT_API_URL, NoeisApiError, NoeisClient } from './client.js';
+import { NoeisApiError, NoeisClient } from './client.js';
+import { DEFAULT_API_URL, resolveConfigPath } from './config.js';
 import { readTools } from './tools/read.js';
 import { writeTools } from './tools/write.js';
 import { renderWikiSchemaPrompt, wikiSchemaPrompt } from './prompts/wiki_schema.js';
 
 export const SERVER_INFO = {
   name: 'noeis-wiki',
-  version: '0.1.2'
+  version: '0.2.0'
 };
 
 export const toolDefinitions = [...readTools, ...writeTools];
@@ -75,8 +76,11 @@ const printHelp = () => {
   process.stdout.write(`Noeis Wiki MCP\n\n`);
   process.stdout.write(`Usage: noeis-wiki-mcp\n\n`);
   process.stdout.write(`Environment:\n`);
-  process.stdout.write(`  NOEIS_TOKEN    Required agent token from Noeis Settings -> Connected agents\n`);
-  process.stdout.write(`  NOEIS_API_URL  Optional API URL, defaults to ${DEFAULT_API_URL}\n\n`);
+  process.stdout.write(`  NOEIS_TOKEN       Agent token from Noeis Settings -> Connected agents\n`);
+  process.stdout.write(`  NOEIS_API_URL     Optional API URL, defaults to ${DEFAULT_API_URL}\n`);
+  process.stdout.write(`  NOEIS_CONFIG_DIR  Optional config directory, defaults to ~/.config/noeis\n\n`);
+  process.stdout.write(`Without NOEIS_TOKEN, both are read from ${resolveConfigPath()},\n`);
+  process.stdout.write(`which \`noeis login --token ntk_at_...\` writes.\n\n`);
 };
 
 export const main = async (argv = []) => {

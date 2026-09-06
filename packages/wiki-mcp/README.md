@@ -44,7 +44,7 @@ instead of the published package. The server is a plain stdio process:
       "transport": "stdio",
       "command": "node",
       "args": ["/absolute/path/to/note-taker-3/packages/wiki-mcp/bin/noeis-wiki-mcp"],
-      "env": { "NOEIS_TOKEN": "<Settings → Connected agents>" }
+      "env": { "NOEIS_CONFIG_DIR": "/Users/you/.config/noeis" }
     }
   }
 }
@@ -86,7 +86,7 @@ These links package a specific task, target, runtime, and permission set. Openin
 noeis mcp
 ```
 
-`noeis mcp` reads the token and API URL from `~/.config/noeis/config.json`, `NOEIS_CONFIG_DIR`, or explicit environment variables. `NOEIS_API_URL` defaults to `https://note-taker-3-unrg.onrender.com`.
+Both `noeis mcp` and `noeis-wiki-mcp` read the token and API URL from `NOEIS_TOKEN`/`NOEIS_API_URL` when set, and otherwise from `config.json` in `NOEIS_CONFIG_DIR` (default `~/.config/noeis`) — the file `noeis login` writes. `NOEIS_API_URL` defaults to `https://note-taker-3-unrg.onrender.com`.
 
 The MCP surface includes wiki tools plus Library/Think tools for saved articles, highlights, concepts, and questions. Agents can search highlights, fetch articles, create article highlights, create or update Think questions, update concepts, pin highlights to concepts, and create or edit wiki pages.
 
