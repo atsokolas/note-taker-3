@@ -146,6 +146,7 @@ describe('openSentenceModel', () => {
     expect(keepsClosedDraft(closeExploration(setPressureField(beginPressure(start), 'unknown', 'what demand does')))).toBe(false);
     expect(keepsClosedDraft(closeExploration(setMeetField(meeting(), 'relation', STORYBOARD_MEET_RELATION)))).toBe(true);
     expect(keepsClosedDraft(closeExploration(setMeetField(meeting(), 'limit', STORYBOARD_MEET_LIMIT)))).toBe(false);
+    expect(keepsClosedDraft(closeExploration(setMeetField(meeting(), 'between', 'Survivable error is not the same kind of care.')))).toBe(false);
     expect(forgetExperiment(start).provisionalText).toBe(STORYBOARD_SENTENCE);
     expect(forgetExperiment(start).question).toBe('');
     expect(forgetExperiment(proposeWording(tryWording(start, 'draft'))).proposal).toBeUndefined();
@@ -227,8 +228,19 @@ describe('openSentenceModel', () => {
     expect(liveMeet(named)).toEqual({
       against: STORYBOARD_SENTENCE,
       relation: STORYBOARD_MEET_RELATION,
-      limit: STORYBOARD_MEET_LIMIT
+      limit: STORYBOARD_MEET_LIMIT,
+      between: ''
     });
+    const between = 'Survivable error is not the same kind of care.';
+    expect(liveMeet(setMeetField(start, 'between', between))).toBeNull();
+    const written = setMeetField(named, 'between', between);
+    expect(liveMeet(written)).toEqual({
+      against: STORYBOARD_SENTENCE,
+      relation: STORYBOARD_MEET_RELATION,
+      limit: STORYBOARD_MEET_LIMIT,
+      between
+    });
+    expect(liveMeet(restoreExploration(snapshotExploration(written), start))).toEqual(liveMeet(written));
     expect(meetWayHome(named)).toBe(`They meet: ${STORYBOARD_MEET_RELATION}`);
     expect(liveMeet(endMeet(named))).toBeNull();
     expect(liveMeet(restoreExploration(snapshotExploration(named), {
@@ -241,7 +253,8 @@ describe('openSentenceModel', () => {
     }), start))).toEqual({
       against: STORYBOARD_SENTENCE,
       relation: STORYBOARD_MEET_RELATION,
-      limit: STORYBOARD_MEET_LIMIT
+      limit: STORYBOARD_MEET_LIMIT,
+      between: ''
     });
     expect(JSON.stringify(restoreExploration(snapshotExploration({
       ...named,
@@ -647,7 +660,14 @@ describe('OpenSentence', () => {
     expect(screen.getByText(STORYBOARD_MEET_SOURCE.passage)).toBeInTheDocument();
     expect(screen.getByLabelText('How they meet')).toHaveValue('');
     expect(screen.getByLabelText('Where that stops')).toHaveValue('');
+    expect(screen.getByLabelText('The space between')).toHaveValue('');
     expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('The space between'), {
+      target: { value: 'Survivable error is not the same kind of care.' }
+    });
+    expect(onChange).toHaveBeenCalledWith(
+      setMeetField(exploration, 'between', 'Survivable error is not the same kind of care.')
+    );
     fireEvent.change(screen.getByLabelText('How they meet'), {
       target: { value: STORYBOARD_MEET_RELATION }
     });

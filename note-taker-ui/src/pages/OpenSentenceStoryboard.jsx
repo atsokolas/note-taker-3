@@ -8,10 +8,10 @@ import {
   beginPressure,
   cancelPlacement,
   createExploration,
+  inspectableOther,
   isOpen,
   isPressured,
   keepQuestion,
-  liveMeet,
   liveThen,
   openExploration,
   placeSource,
@@ -155,8 +155,8 @@ const companionRole = (scene, exploration, libraryExploration) => {
   if (isPressured(exploration)) {
     return 'The original stays. The experiment is not a generated causal chain.';
   }
-  if (liveMeet(exploration)) {
-    return 'Both ends are inspectable. The connection is named, not generated.';
+  if (inspectableOther(exploration)) {
+    return 'Both ends are inspectable. The space between is yours.';
   }
   if (liveThen(exploration)) {
     return 'The earlier wording is recorded. It is not a reconstructed biography.';
@@ -359,10 +359,11 @@ const OpenSentenceStoryboard = () => {
           a question, a return note, a placed passage, a proposed wording, a named
           premise, or a named meeting forgets the experiment. A note under the line is the way home.
           Source cycles the honest absences. Stillness is the open state with no
-          drawing.           Propose names a wording; Accept is what writes the illustrated
+          drawing. Propose names a wording; Accept is what writes the illustrated
           line. Pressure names a premise beside the original. It does not invent a
           causal chain. Then names an earlier recorded line. It is not a biography.
           Meet names how two recorded passages sit together, and where that stops.
+          The space between is yours. It is not a synthesized paragraph.
         </p>
       </header>
 

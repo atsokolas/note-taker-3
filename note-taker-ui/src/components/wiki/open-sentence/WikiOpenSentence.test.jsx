@@ -156,6 +156,7 @@ describe('WikiOpenSentence', () => {
     expect(screen.getByText('Also beside')).toBeInTheDocument();
     expect(screen.getByText('A loss you can survive still teaches the book.')).toBeInTheDocument();
     expect(screen.getByLabelText('How they meet')).toHaveValue('');
+    expect(screen.getByLabelText('The space between')).toHaveValue('');
     expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent('Memory compounds with review.');
     expect(screen.getByText(/The article still reads/)).toHaveTextContent('Memory compounds with review.');
     expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();

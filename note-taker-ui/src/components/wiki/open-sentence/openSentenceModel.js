@@ -151,29 +151,32 @@ export const isMeeting = (exploration) => {
   return String(meet.against || '').trim() === String(exploration?.originalText || '').trim();
 };
 
+const MEET_SLOTS = ['relation', 'limit', 'between'];
+
+const meetSlots = (meet = {}) => Object.fromEntries(
+  MEET_SLOTS.map((slot) => [slot, String(meet?.[slot] || '')])
+);
+
 export const liveMeet = (exploration) => {
   if (!isMeeting(exploration)) return null;
-  const relation = String(exploration.meet.relation || '').trim();
-  if (!relation) return null;
+  const slots = meetSlots(exploration.meet);
+  if (!slots.relation.trim()) return null;
   return {
     against: String(exploration.meet.against || '').trim(),
-    relation,
-    limit: String(exploration.meet.limit || '').trim()
+    relation: slots.relation.trim(),
+    limit: slots.limit.trim(),
+    between: slots.between.trim()
   };
 };
 
 export const setMeetField = (exploration, field, value) => {
   if (!inspectableOther(exploration)) return exploration;
-  if (field !== 'relation' && field !== 'limit') return exploration;
-  const current = isMeeting(exploration)
-    ? exploration.meet
-    : { against: '', relation: '', limit: '' };
+  if (!MEET_SLOTS.includes(field)) return exploration;
   return {
     ...exploration,
     meet: {
+      ...meetSlots(isMeeting(exploration) ? exploration.meet : {}),
       against: String(exploration.originalText || '').trim(),
-      relation: String(current.relation || ''),
-      limit: String(current.limit || ''),
       [field]: String(value ?? '')
     }
   };

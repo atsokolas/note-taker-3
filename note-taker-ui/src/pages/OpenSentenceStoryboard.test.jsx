@@ -173,10 +173,11 @@ describe('OpenSentenceStoryboard', () => {
     expect(screen.getByText(STORYBOARD_MEET_SOURCE.passage)).toBeInTheDocument();
     expect(screen.getByLabelText('How they meet')).toHaveValue(STORYBOARD_MEET_RELATION);
     expect(screen.getByLabelText('Where that stops')).toHaveValue(STORYBOARD_MEET_LIMIT);
+    expect(screen.getByLabelText('The space between')).toHaveValue('');
     expect(screen.queryByText(STORYBOARD_COMPUTE_SENTENCE)).not.toBeInTheDocument();
     expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
     expect(
-      screen.getByText('Both ends are inspectable. The connection is named, not generated.')
+      screen.getByText('Both ends are inspectable. The space between is yours.')
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Read' }));
     expect(screen.queryByText('Also beside')).not.toBeInTheDocument();

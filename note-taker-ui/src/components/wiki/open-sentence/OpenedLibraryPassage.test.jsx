@@ -67,6 +67,7 @@ describe('OpenedLibraryPassage', () => {
     expect(document.querySelector('.open-sentence-pocket__then')).not.toBeInTheDocument();
     expect(screen.queryByText('Also beside')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('How they meet')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('The space between')).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Try a narrower wording'), {
       target: { value: 'A narrower library line.' }
     });

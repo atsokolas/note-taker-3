@@ -61,6 +61,21 @@ const AroundToggle = ({ inspecting, onToggle }) => (
   </button>
 );
 
+const PocketField = ({ id, label, value, onChange, placeholder, rows = 2 }) => (
+  <>
+    <label className="open-sentence-pocket__label" htmlFor={id}>
+      {label}
+    </label>
+    <textarea
+      id={id}
+      rows={rows}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      placeholder={placeholder}
+    />
+  </>
+);
+
 const PassageRead = ({ source, inspecting = false, placed = false, settling = false }) => (
   <>
     <p className="open-sentence-pocket__source-title">{source.title}</p>
@@ -191,33 +206,24 @@ const PressureBody = ({ pocketId, exploration, onCommit }) => {
   const pressure = exploration.pressure;
   return (
     <div className="open-sentence-pocket__pressure">
-      <label className="open-sentence-pocket__label" htmlFor={`${pocketId}-premise`}>
-        For this experiment
-      </label>
-      <textarea
+      <PocketField
         id={`${pocketId}-premise`}
-        rows={2}
+        label="For this experiment"
         value={pressure.premise}
-        onChange={(event) => onCommit(setPressureField(exploration, 'premise', event.target.value))}
+        onChange={(value) => onCommit(setPressureField(exploration, 'premise', value))}
         placeholder="Name the change. Do not invent a chain."
       />
-      <label className="open-sentence-pocket__label" htmlFor={`${pocketId}-holds`}>
-        What still holds
-      </label>
-      <textarea
+      <PocketField
         id={`${pocketId}-holds`}
-        rows={2}
+        label="What still holds"
         value={pressure.stillHolds}
-        onChange={(event) => onCommit(setPressureField(exploration, 'stillHolds', event.target.value))}
+        onChange={(value) => onCommit(setPressureField(exploration, 'stillHolds', value))}
       />
-      <label className="open-sentence-pocket__label" htmlFor={`${pocketId}-unknown`}>
-        What remains unknown
-      </label>
-      <textarea
+      <PocketField
         id={`${pocketId}-unknown`}
-        rows={2}
+        label="What remains unknown"
         value={pressure.unknown}
-        onChange={(event) => onCommit(setPressureField(exploration, 'unknown', event.target.value))}
+        onChange={(value) => onCommit(setPressureField(exploration, 'unknown', value))}
       />
       <button type="button" onClick={() => onCommit(endPressure(exploration))}>
         Leave the experiment
@@ -230,7 +236,13 @@ const MeetBody = ({ pocketId, exploration, mocked, onCommit, onOpenSourceHome })
   const other = inspectableOther(exploration);
   const [inspecting, setInspecting] = useState(false);
   if (!other) return null;
-  const meet = isMeeting(exploration) ? exploration.meet : { relation: '', limit: '' };
+  const meet = {
+    relation: '',
+    limit: '',
+    between: '',
+    ...(isMeeting(exploration) ? exploration.meet : {})
+  };
+  const written = Boolean(meet.relation || meet.limit || meet.between);
 
   return (
     <div className="open-sentence-pocket__meet">
@@ -244,26 +256,27 @@ const MeetBody = ({ pocketId, exploration, mocked, onCommit, onOpenSourceHome })
           onOpen={() => onOpenSourceHome?.(other, exploration)}
         />
       </div>
-      <label className="open-sentence-pocket__label" htmlFor={`${pocketId}-meet`}>
-        How they meet
-      </label>
-      <textarea
+      <PocketField
         id={`${pocketId}-meet`}
-        rows={2}
+        label="How they meet"
         value={meet.relation}
-        onChange={(event) => onCommit(setMeetField(exploration, 'relation', event.target.value))}
+        onChange={(value) => onCommit(setMeetField(exploration, 'relation', value))}
         placeholder="Support, tension, analogy, exception, or unrelated."
       />
-      <label className="open-sentence-pocket__label" htmlFor={`${pocketId}-limit`}>
-        Where that stops
-      </label>
-      <textarea
+      <PocketField
         id={`${pocketId}-limit`}
-        rows={2}
+        label="Where that stops"
         value={meet.limit}
-        onChange={(event) => onCommit(setMeetField(exploration, 'limit', event.target.value))}
+        onChange={(value) => onCommit(setMeetField(exploration, 'limit', value))}
       />
-      {meet.relation || meet.limit ? (
+      <PocketField
+        id={`${pocketId}-between`}
+        label="The space between"
+        value={meet.between}
+        onChange={(value) => onCommit(setMeetField(exploration, 'between', value))}
+        rows={3}
+      />
+      {written ? (
         <button type="button" onClick={() => onCommit(endMeet(exploration))}>
           Leave this meeting
         </button>
@@ -331,14 +344,12 @@ const PocketBody = ({
       </div>
 
       <div className="open-sentence-pocket__write">
-        <label className="open-sentence-pocket__label" htmlFor={`${pocketId}-wording`}>
-          Try a narrower wording
-        </label>
-        <textarea
+        <PocketField
           id={`${pocketId}-wording`}
-          rows={3}
+          label="Try a narrower wording"
           value={exploration.provisionalText}
-          onChange={(event) => onCommit(tryWording(exploration, event.target.value))}
+          onChange={(value) => onCommit(tryWording(exploration, value))}
+          rows={3}
         />
         {spans.length ? (
           <p className="open-sentence-pocket__diff" aria-label="Changed words">
@@ -389,14 +400,11 @@ const PocketBody = ({
       <PressureBody pocketId={pocketId} exploration={exploration} onCommit={onCommit} />
 
       <div className="open-sentence-pocket__question">
-        <label className="open-sentence-pocket__label" htmlFor={`${pocketId}-question`}>
-          Leave this open
-        </label>
-        <textarea
+        <PocketField
           id={`${pocketId}-question`}
-          rows={2}
+          label="Leave this open"
           value={exploration.question}
-          onChange={(event) => onCommit(keepQuestion(exploration, event.target.value))}
+          onChange={(value) => onCommit(keepQuestion(exploration, value))}
           placeholder="An unfinished question can stay unfinished."
         />
         <label className="open-sentence-pocket__label" htmlFor={`${pocketId}-return`}>
