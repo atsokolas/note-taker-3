@@ -1716,6 +1716,47 @@ editionSchema.index({ userId: 1, profile: 1, windowStart: 1, windowEnd: 1 }, { u
 
 const Edition = mongoose.model('Edition', editionSchema);
 
+/* A topic the reader wants an edition of, and how often.
+
+   The two profiles Noeis ships with are opinions about AI and about a reading
+   weekend. They are not the only two subjects a person has. A reader tells
+   their agent to keep an edition on biotech, monthly, in four sections, and
+   this is where that instruction lives — so every agent they own agrees on
+   what the topic is called, what its sections are, and which window today
+   belongs to.
+
+   Cadence is stored rather than the window, because a window is a fact about
+   a particular issue and the cadence is the standing instruction. Noeis works
+   the window out from it, so two agents filing on the same morning file into
+   the same issue instead of two. */
+const editionProfileSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  key: { type: String, required: true, trim: true },
+  title: { type: String, required: true, trim: true },
+  issueLabel: { type: String, default: 'Issue', trim: true },
+  cadence: { type: String, enum: ['daily', 'weekly', 'monthly'], default: 'weekly' },
+  sections: {
+    type: [new mongoose.Schema({
+      key: { type: String, required: true, trim: true },
+      label: { type: String, required: true, trim: true }
+    }, { _id: false })],
+    default: []
+  },
+  minItems: { type: Number, default: 1 },
+  maxItems: { type: Number, default: 15 },
+  /* Who asked for it. A topic configured by an agent says which one. */
+  configuredBy: {
+    label: { type: String, default: '', trim: true },
+    agentTokenId: { type: mongoose.Schema.Types.ObjectId, ref: 'AgentToken', default: null }
+  }
+}, { timestamps: true });
+
+/* One topic per key per reader: telling an agent twice to keep a biotech
+   edition edits the topic rather than making a second one beside it. */
+editionProfileSchema.index({ userId: 1, key: 1 }, { unique: true });
+
+const EditionProfile = mongoose.model('EditionProfile', editionProfileSchema);
+
 const questionSchema = new mongoose.Schema({
   text: { type: String, required: true, trim: true },
   /* What would close the loop. A question nothing could settle is a mood,
@@ -3204,6 +3245,7 @@ module.exports = {
   ConceptDecisionLessonEvidence,
   ConceptNote,
   Edition,
+  EditionProfile,
   MorningPaperRecord,
   SharedEdition,
   Question,

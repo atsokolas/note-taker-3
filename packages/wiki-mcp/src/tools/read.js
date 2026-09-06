@@ -11,6 +11,12 @@ const pageIdShape = {
 
 export const readTools = [
   {
+    name: 'list_edition_profiles',
+    description: 'List the reader\'s edition topics: what each paper is called, its sections, and how often it comes out (daily, weekly, monthly). Call this before filing so you use a topic that exists and a section it actually has.',
+    inputSchema: {},
+    handler: (client) => client.listEditionProfiles()
+  },
+  {
     name: 'list_editions',
     description: 'List the editions already filed for this reader, newest window first. Check here before filing so you continue a run rather than starting a second one, and so you know which issue number is next.',
     inputSchema: {

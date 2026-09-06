@@ -5,7 +5,10 @@ const {
   EditionShapeError,
   emptySections,
   normalizeEdition,
-  resolveEditionProfile
+  normalizeItem,
+  profileKeysFor,
+  resolveEditionProfile,
+  windowFor
 } = require('../services/editionShape');
 
 /**
@@ -34,8 +37,8 @@ const serializeItem = (item = {}) => ({
   savedArticleId: item.savedArticleId ? String(item.savedArticleId) : null
 });
 
-const serializeEdition = (edition = {}, { withItems = true } = {}) => {
-  const profile = resolveEditionProfile(edition.profile);
+const serializeEdition = (edition = {}, { withItems = true, profiles = null } = {}) => {
+  const profile = resolveEditionProfile(edition.profile, { profiles });
   const items = (edition.items || []).map(serializeItem);
   return {
     _id: String(edition._id),
@@ -53,7 +56,7 @@ const serializeEdition = (edition = {}, { withItems = true } = {}) => {
     writtenBy: edition.writtenBy?.label || '',
     /* Said on every edition, on the stand and on the page: the sections this
        week never filled, and how many of its sources the reader has taken. */
-    unfilled: emptySections({ profile: edition.profile, items }).map(section => section.label),
+    unfilled: emptySections({ profile: edition.profile, items, profiles }).map(section => section.label),
     itemCount: items.length,
     savedCount: items.filter(item => item.savedArticleId).length,
     createdAt: edition.createdAt,
@@ -79,8 +82,8 @@ const shareSlug = () => crypto.randomBytes(SLUG_BYTES)
  * took into their own library, not how many — a public edition is the reading,
  * and what the reader did with it afterwards is theirs.
  */
-const serializePublicEdition = (edition = {}, ownerDisplayName = '') => {
-  const full = serializeEdition(edition);
+const serializePublicEdition = (edition = {}, ownerDisplayName = '', { profiles = null } = {}) => {
+  const full = serializeEdition(edition, { profiles });
   const { savedCount, ...rest } = full;
   return {
     ...rest,
@@ -89,10 +92,22 @@ const serializePublicEdition = (edition = {}, ownerDisplayName = '') => {
   };
 };
 
+const serializeProfile = (profile = {}) => ({
+  key: profile.key,
+  title: profile.title,
+  issueLabel: profile.issueLabel || 'Issue',
+  cadence: profile.cadence || 'weekly',
+  sections: (profile.sections || []).map(section => ({ key: section.key, label: section.label })),
+  minItems: profile.minItems ?? 1,
+  maxItems: profile.maxItems ?? 15,
+  configuredBy: profile.configuredBy?.label || ''
+});
+
 const buildEditionRouter = ({
   auth,
   humanOnly = (_req, _res, next) => next(),
   Edition,
+  EditionProfile = null,
   Article,
   /* Optional: without it, editions simply cannot be shared. */
   SharedEdition = null,
@@ -102,6 +117,24 @@ const buildEditionRouter = ({
   onArticleSaved = () => {}
 } = {}) => {
   const router = express.Router();
+
+  /* The reader's own topics, shaped like the two Noeis ships with so that
+     everything downstream — validation, sections, the empty-section sentence —
+     cannot tell the difference. */
+  const loadProfiles = async (userId) => {
+    if (!EditionProfile) return null;
+    const rows = await EditionProfile.find({ userId }).lean();
+    if (!rows.length) return null;
+    return Object.fromEntries(rows.map(row => [row.key, {
+      key: row.key,
+      titleLabel: row.title,
+      issueLabel: row.issueLabel || 'Issue',
+      cadence: row.cadence || 'weekly',
+      sections: (row.sections || []).map(section => ({ key: section.key, label: section.label })),
+      minItems: Number.isFinite(row.minItems) ? row.minItems : 1,
+      maxItems: Number.isFinite(row.maxItems) ? row.maxItems : 15
+    }]));
+  };
 
   const refuse = (res, error, fallback) => {
     if (error instanceof EditionShapeError) {
@@ -119,10 +152,148 @@ const buildEditionRouter = ({
    * current, not a pile of drafts. Saves the reader already made survive the
    * rewrite, because those are the reader's, not the agent's.
    */
+  /* The reader's standing instruction: this topic, these sections, this often.
+
+     Written by the agent, because the reader tells their agent what they are
+     interested in rather than filling in a form. Configuring a topic twice
+     edits it — a reader who says "make the biotech one monthly" is changing
+     their mind, not opening a second paper. */
+  router.post('/api/edition-profiles', auth, async (req, res) => {
+    try {
+      if (!EditionProfile) return res.status(503).json({ error: 'Edition topics are not available.' });
+      const key = String(req.body?.key || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+      if (!key) return res.status(400).json({ error: 'key is required: a short slug for the topic, like "biotech".' });
+      const title = String(req.body?.title || '').trim().slice(0, 300);
+      if (!title) return res.status(400).json({ error: 'title is required: what this paper is called on its masthead.' });
+      const cadence = ['daily', 'weekly', 'monthly'].includes(String(req.body?.cadence || '').trim())
+        ? String(req.body.cadence).trim()
+        : 'weekly';
+      const sections = (Array.isArray(req.body?.sections) ? req.body.sections : [])
+        .map(section => ({
+          key: String(section?.key || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, ''),
+          label: String(section?.label || '').trim().slice(0, 120)
+        }))
+        .filter(section => section.key && section.label)
+        .slice(0, 8);
+      if (!sections.length) {
+        return res.status(400).json({
+          error: 'At least one section is required. Sections are the argument a paper makes about its subject; a paper without them is a list.'
+        });
+      }
+      const maxItems = Math.min(Math.max(Number(req.body?.maxItems) || 15, 1), 40);
+      const minItems = Math.min(Math.max(Number(req.body?.minItems) || 1, 1), maxItems);
+      const configuredBy = {
+        label: String(req.body?.configuredBy || req.agentToken?.name || '').trim().slice(0, 200),
+        agentTokenId: req.agentToken?.id || null
+      };
+      const existing = await EditionProfile.findOne({ userId: req.user.id, key });
+      const doc = { key, title, issueLabel: String(req.body?.issueLabel || 'Issue').trim().slice(0, 60) || 'Issue', cadence, sections, minItems, maxItems, configuredBy };
+      const saved = existing
+        ? await EditionProfile.findOneAndUpdate({ _id: existing._id, userId: req.user.id }, doc, { new: true })
+        : await EditionProfile.create({ ...doc, userId: req.user.id });
+      return res.status(existing ? 200 : 201).json(serializeProfile(saved));
+    } catch (error) {
+      return refuse(res, error, 'Failed to configure that edition topic.');
+    }
+  });
+
+  router.get('/api/edition-profiles', auth, async (req, res) => {
+    try {
+      const rows = EditionProfile ? await EditionProfile.find({ userId: req.user.id }).sort({ createdAt: 1 }).lean() : [];
+      return res.status(200).json({
+        profiles: rows.map(serializeProfile),
+        builtIn: profileKeysFor(null).filter(key => !rows.some(row => row.key === key))
+      });
+    } catch (error) {
+      return refuse(res, error, 'Failed to list edition topics.');
+    }
+  });
+
+  router.delete('/api/edition-profiles/:key', auth, humanOnly, async (req, res) => {
+    try {
+      if (!EditionProfile) return res.status(503).json({ error: 'Edition topics are not available.' });
+      const removed = await EditionProfile.findOneAndDelete({ userId: req.user.id, key: String(req.params.key || '').trim() });
+      if (!removed) return res.status(404).json({ error: 'No such edition topic.' });
+      return res.status(200).json({ key: removed.key, removed: true });
+    } catch (error) {
+      return refuse(res, error, 'Failed to remove that edition topic.');
+    }
+  });
+
+  /* Add to the issue this moment belongs to.
+
+     The whole point of a maintained paper: an agent files what it found this
+     morning without having to know, or resend, what it filed on Monday. The
+     window comes from the topic's cadence rather than from the caller, so two
+     agents filing the same day file into the same issue. */
+  router.post('/api/editions/file', auth, async (req, res) => {
+    try {
+      const userId = req.user.id;
+      const profiles = await loadProfiles(userId);
+      const profile = resolveEditionProfile(req.body?.profile, { profiles });
+      if (!profile) {
+        return res.status(400).json({
+          error: `Unknown edition topic "${req.body?.profile || ''}". Known topics: ${profileKeysFor(profiles).join(', ')}. Configure a new one before filing into it.`
+        });
+      }
+      const incoming = Array.isArray(req.body?.items) ? req.body.items : [];
+      if (!incoming.length) return res.status(400).json({ error: 'items is required: what you found, with a boundary on each.' });
+
+      const { windowStart, windowEnd } = windowFor(profile.cadence || 'weekly', req.body?.now ? new Date(req.body.now) : new Date());
+      const existing = await Edition.findOne({ userId, profile: profile.key, windowStart, windowEnd });
+      const kept = (existing?.items || []).map(item => (item.toObject ? item.toObject() : item));
+      const keptUrls = new Set(kept.map(item => item.url));
+
+      /* Normalized against the same standard as a whole edition — a boundary
+         is required here too, or the daily door becomes the way around it. */
+      const added = [];
+      incoming.forEach((raw, index) => {
+        const item = normalizeItem(raw, kept.length + index, profile);
+        if (keptUrls.has(item.url)) return;
+        keptUrls.add(item.url);
+        added.push(item);
+      });
+
+      const items = [...kept, ...added];
+      if (items.length > profile.maxItems) {
+        return res.status(400).json({
+          error: `${profile.titleLabel} holds at most ${profile.maxItems} items; this issue would have ${items.length}. An edition that lists everything has chosen nothing.`
+        });
+      }
+
+      const writtenBy = {
+        label: String(req.body?.writtenBy || req.agentToken?.name || existing?.writtenBy?.label || '').trim().slice(0, 200),
+        agentTokenId: req.agentToken?.id || existing?.writtenBy?.agentTokenId || null
+      };
+
+      const saved = existing
+        ? await Edition.findOneAndUpdate({ _id: existing._id, userId }, { items, writtenBy }, { new: true })
+        : await Edition.create({
+          userId,
+          profile: profile.key,
+          title: String(req.body?.title || '').trim().slice(0, 300) || profile.titleLabel,
+          windowStart,
+          windowEnd,
+          standfirst: String(req.body?.standfirst || '').trim().slice(0, 2400),
+          items,
+          writtenBy
+        });
+
+      return res.status(existing ? 200 : 201).json({
+        ...serializeEdition(saved, { profiles }),
+        added: added.length,
+        alreadyHeld: incoming.length - added.length
+      });
+    } catch (error) {
+      return refuse(res, error, 'Failed to file into that edition.');
+    }
+  });
+
   router.post('/api/editions', auth, async (req, res) => {
     try {
-      const built = normalizeEdition(req.body);
       const userId = req.user.id;
+      const profiles = await loadProfiles(userId);
+      const built = normalizeEdition(req.body, { profiles });
       const existing = await Edition.findOne({
         userId,
         profile: built.profile,
@@ -153,7 +324,7 @@ const buildEditionRouter = ({
         )
         : await Edition.create({ ...built, items, writtenBy, userId });
 
-      return res.status(existing ? 200 : 201).json(serializeEdition(saved));
+      return res.status(existing ? 200 : 201).json(serializeEdition(saved, { profiles }));
     } catch (error) {
       return refuse(res, error, 'Failed to file the edition.');
     }
