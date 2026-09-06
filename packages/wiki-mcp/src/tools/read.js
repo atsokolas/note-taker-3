@@ -143,6 +143,12 @@ export const readTools = [
     handler: (client, args) => client.getLintRun(args)
   },
   {
+    name: 'list_folders',
+    description: 'List the Library folders, with their ids. Call this before filing an article when you only know a folder by name.',
+    inputSchema: {},
+    handler: (client) => client.listFolders()
+  },
+  {
     name: 'search_articles',
     description: 'Search the user library for saved articles. Use this before fetching article detail or article highlights.',
     inputSchema: {

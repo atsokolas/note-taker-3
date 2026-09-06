@@ -1,6 +1,6 @@
 {
   "name": "@noeis/wiki-mcp",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "MCP server for driving a Noeis wiki from external agents.",
   "type": "module",
   "exports": {
@@ -15,7 +15,7 @@
     "README.md"
   ],
   "scripts": {
-    "test": "node test/server.test.js && node test/config.test.js && node test/ingest.test.js",
+    "test": "node test/server.test.js && node test/config.test.js && node test/ingest.test.js && node test/library.test.js",
     "smoke": "node bin/noeis-wiki-mcp --help"
   },
   "keywords": [
