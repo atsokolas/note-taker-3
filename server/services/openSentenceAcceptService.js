@@ -1,6 +1,7 @@
 const { isResearchEditionPage } = require('./wikiProtectedArtifactService');
 const {
   WikiClaimBodyPatchError,
+  exactClaimText,
   extractPlainText,
   replaceExactClaimText
 } = require('./wikiClaimBodyPatchService');
@@ -14,7 +15,20 @@ class OpenSentenceAcceptError extends Error {
   }
 }
 
-const clean = (value, limit = 2000) => String(value || '').replace(/\s+/g, ' ').trim().slice(0, limit);
+const CLAIM_TEXT_LIMIT = 2000;
+const normalize = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+const retired = (claim) => claim?.checkInStatus === 'retired' || Boolean(claim?.retiredAt);
+
+const asBodyError = (error) => {
+  if (error instanceof WikiClaimBodyPatchError) {
+    throw new OpenSentenceAcceptError(
+      'The sentence is no longer a single marked line. This proposal was not applied.',
+      409,
+      error.code || 'claim_body_ambiguous'
+    );
+  }
+  throw error;
+};
 
 const wikiAllowsOpenSentence = (page) => {
   if (!page) return false;
@@ -46,18 +60,31 @@ const planOpenedSentenceAccept = ({ page, claimId, against, text } = {}) => {
       'not_ordinary'
     );
   }
-  const id = clean(claimId, 240);
-  const expected = clean(against);
-  const nextText = clean(text);
+  const id = String(claimId || '').trim();
+  const expected = normalize(against);
+  const nextText = normalize(text);
   if (!id || !expected || !nextText || nextText === expected) {
     throw new OpenSentenceAcceptError('There is no live proposal to accept.', 400, 'no_proposal');
   }
+  if (nextText.length > CLAIM_TEXT_LIMIT) {
+    throw new OpenSentenceAcceptError(
+      'That wording is too long to accept as a sentence.',
+      400,
+      'too_long'
+    );
+  }
   const claims = Array.isArray(page.claims) ? page.claims : [];
   const claim = claims.find((item) => String(item?.claimId || '').trim() === id);
-  if (!claim) {
+  if (!claim || retired(claim)) {
     throw new OpenSentenceAcceptError('That claim is no longer on the page.', 409, 'vanished_claim');
   }
-  if (clean(claim.text) !== expected) {
+  let liveLine;
+  try {
+    liveLine = exactClaimText({ body: page.body, claimId: id });
+  } catch (error) {
+    asBodyError(error);
+  }
+  if (liveLine !== expected) {
     throw new OpenSentenceAcceptError(
       'The article moved on. This proposal was not applied.',
       409,
@@ -72,14 +99,7 @@ const planOpenedSentenceAccept = ({ page, claimId, against, text } = {}) => {
       replacementText: nextText
     });
   } catch (error) {
-    if (error instanceof WikiClaimBodyPatchError) {
-      throw new OpenSentenceAcceptError(
-        'The sentence is no longer a single marked line. This proposal was not applied.',
-        409,
-        error.code || 'claim_body_ambiguous'
-      );
-    }
-    throw error;
+    asBodyError(error);
   }
   return {
     claimId: id,

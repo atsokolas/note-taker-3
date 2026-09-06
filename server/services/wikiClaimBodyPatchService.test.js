@@ -1,6 +1,7 @@
 const assert = require('assert');
 const {
   buildClaimBodyPatch,
+  exactClaimText,
   inspectExactClaimAnchors,
   replaceExactClaimRange,
   replaceExactClaimText
@@ -74,6 +75,7 @@ const textOnly = replaceExactClaimText({
 });
 assert.strictEqual(textOnly.content[1].content[0].text, 'Narrower claim.');
 assert.deepStrictEqual(textOnly.content[1].content[0].marks[0].attrs, before.content[1].content[0].marks[0].attrs);
+assert.strictEqual(exactClaimText({ body: before, claimId: 'claim-1' }), 'Old claim.');
 expectCode(() => replaceExactClaimText({
   body: doc('Old claim.', { split: true }),
   claimId: 'claim-1',
