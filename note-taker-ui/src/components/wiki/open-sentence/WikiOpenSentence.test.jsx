@@ -291,6 +291,77 @@ describe('WikiOpenSentence', () => {
     expect(screen.queryByText('A neighboring log was not this claim.')).not.toBeInTheDocument();
   });
 
+  it('lets a recorded Then passage sit as what still holds, not a neighbor or a question', () => {
+    renderWikiSentence({
+      page: {
+        ...page,
+        claims: [{
+          claimId: 'claim-1',
+          text: 'Memory compounds with review.',
+          sourceRefIds: ['source-1']
+        }]
+      },
+      revisions: [{
+        before: {
+          body: {
+            type: 'doc',
+            content: [{
+              type: 'paragraph',
+              content: [{
+                type: 'text',
+                text: 'Memory was a pile of notes.',
+                marks: [{
+                  type: 'claim',
+                  attrs: { claimId: 'claim-1', citationIndexes: [1, 2] }
+                }]
+              }]
+            }]
+          },
+          claims: [{
+            claimId: 'claim-1',
+            text: 'Memory was a pile of notes.',
+            sourceRefIds: ['source-1', 'source-log']
+          }],
+          sourceRefs: [{
+            _id: 'source-1',
+            title: 'Memory article',
+            snippet: 'Memory used to be a pile of notes.'
+          }, {
+            _id: 'source-log',
+            type: 'highlight',
+            title: 'Review log',
+            snippet: 'The pile did not become a practice by sitting still.'
+          }, {
+            _id: 'source-other',
+            type: 'highlight',
+            title: 'Unrelated',
+            snippet: 'A neighboring log was not this claim.'
+          }, {
+            _id: 'source-question',
+            type: 'question',
+            snippet: 'Does memory still compound if we never return?'
+          }]
+        }
+      }]
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Suppose this stops being true' }));
+    expect(screen.getByRole('button', { name: 'Keep Memory article as what still holds' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Keep earlier Memory article as what still holds' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Keep Review log as what still holds' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Unrelated/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Does memory still compound/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Then you left this open/ })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Keep Review log as what still holds' }));
+    expect(screen.getByLabelText('What still holds')).toHaveValue(
+      'The pile did not become a practice by sitting still.'
+    );
+    expect(screen.getByLabelText('What remains unknown')).toHaveValue('');
+    expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent(
+      'Memory compounds with review.'
+    );
+  });
+
   it('opens a recorded question from that revision without rewriting the article or forging today\'s walk', () => {
     renderWikiSentence({
       revisions: [{

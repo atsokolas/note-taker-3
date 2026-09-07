@@ -19,6 +19,7 @@ import {
   isPressured,
   keepBetweenAsEssay,
   keepBetweenAsExperiment,
+  keepPressureName,
   keepPressurePassage,
   keepQuestion,
   keepsClosedDraft,
@@ -378,6 +379,47 @@ describe('openSentenceModel', () => {
     expect(keepPressurePassage(beginPressure(createExploration({
       originalText: STORYBOARD_THEN_NOW
     })), 'stillHolds', STORYBOARD_COMPUTE_SOURCE).pressure.stillHolds).toBe('');
+  });
+
+  it('lets a Then passage sit as what still holds, not a question, a neighbor, or both slots', () => {
+    const start = beginPressure(createExploration({
+      originalText: STORYBOARD_THEN_NOW,
+      source: STORYBOARD_COMPUTE_SOURCE,
+      then: {
+        text: STORYBOARD_COMPUTE_SENTENCE,
+        sources: [{
+          title: STORYBOARD_COMPUTE_SOURCE.title,
+          passage: STORYBOARD_THEN_QUOTATION
+        }, STORYBOARD_THEN_BESIDE],
+        question: STORYBOARD_THEN_QUESTION
+      }
+    }));
+    const passages = pressurePassages(start);
+    expect(passages).toEqual([
+      { title: STORYBOARD_COMPUTE_SOURCE.title, passage: STORYBOARD_COMPUTE_SOURCE.passage },
+      { title: STORYBOARD_COMPUTE_SOURCE.title, passage: STORYBOARD_THEN_QUOTATION },
+      { title: STORYBOARD_THEN_BESIDE.title, passage: STORYBOARD_THEN_BESIDE.passage }
+    ]);
+    expect(keepPressureName(passages[0], passages)).toBe('Capacity');
+    expect(keepPressureName(passages[1], passages)).toBe('earlier Capacity');
+    expect(keepPressureName(passages[2], passages)).toBe('Plant log');
+    expect(keepPressurePassage(start, 'stillHolds', {
+      title: 'Then you left this open',
+      passage: STORYBOARD_THEN_QUESTION
+    })).toEqual(start);
+    expect(keepPressurePassage(start, 'stillHolds', {
+      title: 'Neighbor',
+      passage: 'Unrelated floors'
+    })).toEqual(start);
+    const held = keepPressurePassage(start, 'stillHolds', {
+      title: STORYBOARD_COMPUTE_SOURCE.title,
+      passage: STORYBOARD_THEN_QUOTATION
+    });
+    expect(held.pressure.stillHolds).toBe(STORYBOARD_THEN_QUOTATION);
+    expect(keepPressurePassage(held, 'unknown', {
+      title: STORYBOARD_COMPUTE_SOURCE.title,
+      passage: STORYBOARD_THEN_QUOTATION
+    })).toEqual(held);
   });
 
   it('lets two recorded passages meet without inventing the connection', () => {
@@ -890,6 +932,44 @@ describe('OpenSentence', () => {
     expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/used to believe/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/biography/i)).not.toBeInTheDocument();
+  });
+
+  it('lets a Then passage sit as what still holds, not a question or a generated consequence', () => {
+    const exploration = beginPressure(openExploration(createExploration({
+      originalText: STORYBOARD_THEN_NOW,
+      source: STORYBOARD_COMPUTE_SOURCE,
+      then: {
+        text: STORYBOARD_COMPUTE_SENTENCE,
+        sources: [{
+          title: 'Capacity',
+          passage: STORYBOARD_THEN_QUOTATION,
+          href: STORYBOARD_THEN_ORIGINAL
+        }, STORYBOARD_THEN_BESIDE],
+        question: STORYBOARD_THEN_QUESTION
+      }
+    })));
+    const onChange = jest.fn();
+    const { rerender } = renderOpen(exploration, onChange);
+    expect(screen.getByRole('button', { name: 'Keep Capacity as what still holds' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Keep earlier Capacity as what still holds' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Keep Plant log as what still holds' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Then you left this open/ })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Keep earlier Capacity as what still holds' }));
+    const held = keepPressurePassage(exploration, 'stillHolds', {
+      title: 'Capacity',
+      passage: STORYBOARD_THEN_QUOTATION
+    });
+    expect(onChange).toHaveBeenCalledWith(held);
+    rerender(
+      <MemoryRouter>
+        <OpenSentence exploration={held} onChange={onChange} mocked />
+      </MemoryRouter>
+    );
+    expect(screen.getByLabelText('What still holds')).toHaveValue(STORYBOARD_THEN_QUOTATION);
+    expect(document.querySelector('.open-sentence-pocket__pressure')).toHaveTextContent('Capacity');
+    expect(screen.queryByRole('button', { name: 'Keep earlier Capacity as unknown' })).not.toBeInTheDocument();
+    expect(screen.getByLabelText('What remains unknown')).toHaveValue('');
+    expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
   });
 
   it('lets a named experiment be the way home without accepting it', () => {

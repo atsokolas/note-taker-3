@@ -21,6 +21,7 @@ import {
   isPressured,
   keepBetweenAsEssay,
   keepBetweenAsExperiment,
+  keepPressureName,
   keepPressurePassage,
   keepQuestion,
   leaveEssay,
@@ -222,8 +223,8 @@ const SourceBeside = ({
   );
 };
 
-const keepPressureLabel = (field, title) => {
-  const name = title || 'this passage';
+const keepPressureLabel = (field, source, passages) => {
+  const name = keepPressureName(source, passages);
   if (field === 'stillHolds') return `Keep ${name} as what still holds`;
   if (field === 'unknown') return `Keep ${name} as unknown`;
   return '';
@@ -262,7 +263,7 @@ const PressureSlot = ({
           type="button"
           onClick={() => onCommit(keepPressurePassage(exploration, field, source))}
         >
-          {keepPressureLabel(field, source.title)}
+          {keepPressureLabel(field, source, passages)}
         </button>
       ))}
     </>
