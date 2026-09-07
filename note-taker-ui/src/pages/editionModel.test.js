@@ -1,4 +1,7 @@
-import { agentRunLine, bySection, gapLine, issueLine, takenLine, windowLine } from './editionModel';
+import {
+  byPaper, bylineFor, bySection, closesLine, datelineLine, gapLine, isNewSince,
+  issueLine, lastSeen, markSeen, newSinceLine, runLine, stateOf, takenLine, windowLine
+} from './editionModel';
 
 describe('the window a paper covers', () => {
   it('says one month once', () => {
@@ -98,31 +101,178 @@ describe('reading it in sections', () => {
 
 describe('whether an agent kept its promise', () => {
   const week = (n) => ({ windowStart: new Date(Date.UTC(2026, 8, 6 - n * 7)).toISOString() });
+  const month = (n) => ({ windowStart: new Date(Date.UTC(2026, 8 - n, 1)).toISOString() });
 
-  /* The only fact on the stand about the agent rather than the reading. */
   it('counts a run of consecutive windows', () => {
-    expect(agentRunLine([week(0), week(1), week(2), week(3)]))
-      .toBe('4 weeks running. Not a week missed.');
+    expect(runLine([week(0), week(1), week(2), week(3)])).toBe('4 weeks running, not one missed');
   });
 
-  /* Two in a row is not yet a habit. */
+  /* Measured against the paper's own rhythm: a monthly is not accused of
+     missing fifty weeks. */
+  it('reads a monthly in months', () => {
+    expect(runLine([month(0), month(1), month(2)])).toBe('3 months running, not one missed');
+  });
+
+  /* One issue is not yet a periodical. */
   it('says nothing below a run', () => {
-    expect(agentRunLine([week(0), week(1)])).toBe('');
-    expect(agentRunLine([])).toBe('');
-    expect(agentRunLine()).toBe('');
+    expect(runLine([week(0)])).toBe('');
+    expect(runLine([])).toBe('');
+    expect(runLine()).toBe('');
   });
 
   /* Three editions filed in one afternoon are not a three-week run. */
   it('counts windows, not filings', () => {
-    expect(agentRunLine([week(0), week(0), week(0)])).toBe('');
+    expect(runLine([week(0), week(0), week(0)])).toBe('');
   });
 
-  it('stops at the first week missed', () => {
-    expect(agentRunLine([week(0), week(1), week(2), week(6), week(7)]))
-      .toBe('3 weeks running. Not a week missed.');
+  it('stops at the first window missed', () => {
+    expect(runLine([week(0), week(1), week(2), week(6), week(7)]))
+      .toBe('3 weeks running, not one missed');
   });
 
   it('survives an edition with no window', () => {
-    expect(() => agentRunLine([{ windowStart: 'nonsense' }, week(0), week(1), week(2)])).not.toThrow();
+    expect(() => runLine([{ windowStart: 'nonsense' }, week(0), week(1), week(2)])).not.toThrow();
+  });
+});
+
+describe('the stand, arranged as papers', () => {
+  const issue = (profile, number, startDay) => ({
+    _id: `${profile}-${number}`,
+    profile,
+    profileLabel: profile === 'ai' ? 'This Week in AI' : 'Weekend Readings',
+    issueLabel: 'Issue',
+    number,
+    windowStart: new Date(Date.UTC(2026, 8, startDay)).toISOString(),
+    windowEnd: new Date(Date.UTC(2026, 8, startDay + 6)).toISOString()
+  });
+
+  /* Editions arrive newest-first across every profile, which reads as a pile. */
+  it('gathers each profile into one paper, oldest issue first', () => {
+    const papers = byPaper([issue('ai', 2, 13), issue('weekend', 1, 6), issue('ai', 1, 6)]);
+    expect(papers).toHaveLength(2);
+    const ai = papers.find(paper => paper.profile === 'ai');
+    expect(ai.title).toBe('This Week in AI');
+    expect(ai.issues.map(row => row.number)).toEqual([1, 2]);
+    /* The current issue is the last one, and the freshest paper stands first. */
+    expect(ai.current).toBe(1);
+    expect(papers[0].profile).toBe('ai');
+  });
+
+  it('ignores a row with no paper to belong to', () => {
+    expect(byPaper([{ _id: 'x' }])).toEqual([]);
+    expect(byPaper()).toEqual([]);
+  });
+});
+
+describe('the tense of an issue', () => {
+  const at = (day) => Date.UTC(2026, 8, day);
+  const window = { windowStart: '2026-09-06', windowEnd: '2026-09-12' };
+
+  /* The whole stand turns on this: an issue inside its window is still being
+     written, and one past it has finished. */
+  it('is filling inside its window and closed after it', () => {
+    expect(stateOf(window, at(9))).toBe('filling');
+    expect(stateOf(window, at(6))).toBe('filling');
+    expect(stateOf(window, at(15))).toBe('closed');
+  });
+
+  /* The window includes its last day, so Saturday is not already over. */
+  it('is still filling on the day it closes', () => {
+    expect(stateOf(window, at(12) + 60 * 60 * 1000)).toBe('filling');
+  });
+
+  it('is open before it begins', () => {
+    expect(stateOf(window, at(1))).toBe('open');
+  });
+
+  /* Not a countdown. A paper says which day it goes to press. */
+  it('names the day it closes', () => {
+    expect(closesLine(window, at(9))).toBe('Closes Saturday');
+    expect(closesLine(window, at(12) + 60 * 60 * 1000)).toBe('Closes today');
+    expect(closesLine(window, at(20))).toBe('Closed');
+    expect(closesLine({ windowStart: '2026-09-01', windowEnd: '2026-09-30' }, at(2))).toBe('Closes September 30');
+  });
+});
+
+describe('the dateline a paper prints', () => {
+  it('names the days and spells the month', () => {
+    expect(datelineLine({ windowStart: '2026-09-06', windowEnd: '2026-09-12' }))
+      .toBe('Sunday 6 – Saturday 12 September 2026');
+  });
+
+  it('names both months when the window crosses one', () => {
+    expect(datelineLine({ windowStart: '2026-08-30', windowEnd: '2026-09-05' }))
+      .toBe('Sunday 30 August – Saturday 5 September 2026');
+  });
+
+  /* A single day says one date, not the same date twice. */
+  it('sets a daily issue as one day', () => {
+    expect(datelineLine({ windowStart: '2026-09-09', windowEnd: '2026-09-09' }))
+      .toBe('Wednesday 9 September 2026');
+  });
+
+  /* A whole month is a month, not the 1st through the 30th. */
+  it('sets a monthly issue as its month', () => {
+    expect(datelineLine({ windowStart: '2026-09-01', windowEnd: '2026-09-30' })).toBe('September 2026');
+  });
+
+  it('says nothing without a window', () => {
+    expect(datelineLine()).toBe('');
+  });
+});
+
+describe('who filed a column', () => {
+  const by = (label) => ({ filedBy: label });
+
+  /* The masthead names whoever wrote last, which stops being the whole truth
+     the moment two agents keep the same paper. */
+  it('signs one agent, and names them all when several filed', () => {
+    expect(bylineFor([by('Jarvis'), by('Jarvis')])).toBe('Filed by Jarvis');
+    expect(bylineFor([by('Jarvis'), by('Hermes')])).toBe('Filed by Jarvis and Hermes');
+    expect(bylineFor([by('Jarvis'), by('Hermes'), by('Codex')]))
+      .toBe('Filed by Jarvis, Hermes and Codex');
+  });
+
+  /* Silence rather than a guess at the reader's own agent. */
+  it('says nothing about an unsigned column', () => {
+    expect(bylineFor([by(''), {}])).toBe('');
+    expect(bylineFor([])).toBe('');
+    expect(bylineFor()).toBe('');
+  });
+});
+
+describe('what arrived since you last stood here', () => {
+  beforeEach(() => window.localStorage.clear());
+
+  const filed = (at) => ({ filedAt: at });
+
+  /* An issue you have never opened marks nothing: everything in it is new,
+     and marking all of it says nothing at all. */
+  it('marks nothing on an issue you have never opened', () => {
+    expect(lastSeen('e1')).toBe('');
+    expect(isNewSince(filed('2026-09-10T00:00:00Z'), '')).toBe(false);
+    expect(newSinceLine([filed('2026-09-10T00:00:00Z')], '')).toBe('');
+  });
+
+  it('remembers when you were last here, per issue', () => {
+    markSeen('e1', '2026-09-09T00:00:00Z');
+    expect(lastSeen('e1')).toBe('2026-09-09T00:00:00Z');
+    expect(lastSeen('e2')).toBe('');
+  });
+
+  it('marks only what was filed after that', () => {
+    const since = '2026-09-09T00:00:00Z';
+    expect(isNewSince(filed('2026-09-10T00:00:00Z'), since)).toBe(true);
+    expect(isNewSince(filed('2026-09-08T00:00:00Z'), since)).toBe(false);
+    /* An item filed before per-item dates existed carries no claim either way. */
+    expect(isNewSince({}, since)).toBe(false);
+  });
+
+  it('counts them in a sentence, and stays silent at none', () => {
+    const since = '2026-09-09T00:00:00Z';
+    const items = [filed('2026-09-10T00:00:00Z'), filed('2026-09-11T00:00:00Z'), filed('2026-09-01T00:00:00Z')];
+    expect(newSinceLine(items, since)).toBe('2 new since you last looked');
+    expect(newSinceLine([filed('2026-09-01T00:00:00Z')], since)).toBe('');
+    expect(newSinceLine()).toBe('');
   });
 });
