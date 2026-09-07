@@ -372,7 +372,8 @@ const OpenSentenceStoryboard = () => {
           premise, a named meeting, or a note written between them forgets the experiment. A note under the line is the way home.
           Source cycles the honest absences. Stillness is the open state with no
           drawing. Propose names a wording; Accept is what writes the illustrated
-          line. Pressure names a premise beside the original. It does not invent a
+          line. Pressure names a premise beside the original. A recorded passage
+          can sit as what still holds, or as what remains unknown. It does not invent a
           causal chain. Then names an earlier recorded line. Recorded sources
           sit with it when they were saved then. The historical version opens when that
           door is still a different identity. A recorded question sits with it when

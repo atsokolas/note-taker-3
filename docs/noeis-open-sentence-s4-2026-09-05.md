@@ -36,7 +36,7 @@ Proposed wording is a distinct act. It names the current claim and the current a
 
 Accepting that proposal is a later, separate act. It patches only that claim’s body text and ledger text, keeps marks and citations, and records a `user_edit` revision. The article line changing is the receipt. A stale, vanished, split, or specialized claim is not applied.
 
-A named premise can sit beside the original line in the same pocket. Empty slots stay empty. The original survives. If the live line moved on, the experiment is dropped. Library may suppose; it still cannot propose or accept.
+A named premise can sit beside the original line in the same pocket. Empty slots stay empty. A recorded passage already beside the sentence can be kept as what still holds, or as what remains unknown. The original survives. If the live line moved on, the experiment is dropped. Library may suppose; it still cannot propose or accept.
 
 An earlier recorded wording can sit beside today in the same pocket. Identity is that claim's prior revision (or history fallback). Recorded sources attached to that claim in the snapshot sit under Then when they still differ from today. A historical door opens only when the snapshot's own href or original URL is a different identity from today's live source or live other. If that snapshot bound a question or notebook draft to the claim, that recorded line sits under Then. A draft cannot forge Then. Library stays silent.
 
@@ -77,8 +77,8 @@ Public shares. Workspace composer. Repo dossiers, company dossiers, investment d
 
 **Under pressure**
 - Eligibility: an opened sentence (Wiki pocket or Library passage).
-- Quality bar: the person names premise / still-holds / unknown. Identity `against` is the current accepted line. No generated causal chain.
-- Silence: empty slots stay empty; still-holds or unknown without a named premise do not keep the walk; a named meeting does not fill a premise by itself; the live line moved on → drop the experiment; do not invent consequences. Filler is never the answer.
+- Quality bar: the person names premise / still-holds / unknown. A still-holds or unknown slot may hold an exact recorded passage already bound in the pocket (live source or live other). Identity `against` is the current accepted line. No generated causal chain. No generated support.
+- Silence: empty slots stay empty; still-holds or unknown without a named premise do not keep the walk; a named meeting does not fill a premise by itself; a neighboring unattached source cannot be kept; the same passage cannot occupy both slots; the live line moved on → drop the experiment; do not invent consequences. Filler is never the answer.
 
 **Then / Now**
 - Eligibility: an opened Wiki claim with a prior recorded wording in revisions (or history fallback) that differs from the live marked line.
