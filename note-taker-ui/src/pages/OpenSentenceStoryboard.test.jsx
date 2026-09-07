@@ -186,6 +186,24 @@ describe('OpenSentenceStoryboard', () => {
     expect(document.querySelector('.open-sentence-pocket__then')).not.toBeInTheDocument();
   });
 
+  it('lets a Then passage sit as what still holds without inventing a consequence', () => {
+    renderBoard();
+    fireEvent.click(screen.getByRole('button', { name: 'Then' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Suppose this stops being true' }));
+    expect(screen.getByRole('button', { name: 'Keep Capacity as what still holds' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Keep earlier Capacity as what still holds' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Keep Plant log as what still holds' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Then you left this open/ })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Keep earlier Capacity as what still holds' }));
+    expect(screen.getByLabelText('What still holds')).toHaveValue(STORYBOARD_THEN_QUOTATION);
+    expect(screen.queryByRole('button', { name: 'Keep earlier Capacity as unknown' })).not.toBeInTheDocument();
+    expect(screen.getByLabelText('What remains unknown')).toHaveValue('');
+    expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Read' }));
+    expect(screen.getByRole('heading', { name: 'Parenting' })).toBeInTheDocument();
+    expect(screen.queryByLabelText('What still holds')).not.toBeInTheDocument();
+  });
+
   it('puts the investment letter beside Parenting without generating the connection', () => {
     renderBoard();
     fireEvent.click(screen.getByRole('button', { name: 'Meet' }));

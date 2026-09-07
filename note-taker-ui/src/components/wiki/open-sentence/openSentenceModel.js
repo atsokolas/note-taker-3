@@ -218,20 +218,31 @@ export const inspectableOther = (exploration) => {
 
 const recordedPassage = (source) => {
   if (!source || source.available === false) return null;
-  const passage = String(source.passage || '').trim();
+  const passage = asLine(source.passage);
   if (!passage) return null;
-  const title = String(source.title || '').trim();
+  const title = asLine(source.title);
   return title ? { title, passage } : { passage };
 };
 
 export const pressurePassages = (exploration) => {
   const seen = new Set();
-  return [exploration?.source, inspectableOther(exploration)].reduce((list, source) => {
+  return [
+    exploration?.source,
+    inspectableOther(exploration),
+    ...(liveThen(exploration)?.sources || [])
+  ].reduce((list, source) => {
     const recorded = recordedPassage(source);
     if (!recorded || seen.has(recorded.passage)) return list;
     seen.add(recorded.passage);
     return [...list, recorded];
   }, []);
+};
+
+export const keepPressureName = (source, passages = []) => {
+  const name = asLine(source?.title) || 'this passage';
+  const same = passages.filter((item) => (asLine(item.title) || 'this passage') === name);
+  if (same.length < 2) return name;
+  return asLine(same[0]?.passage) === asLine(source?.passage) ? name : `earlier ${name}`;
 };
 
 export const keepPressurePassage = (exploration, field, source) => {
