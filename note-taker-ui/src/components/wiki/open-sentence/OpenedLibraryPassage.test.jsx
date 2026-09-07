@@ -69,6 +69,7 @@ describe('OpenedLibraryPassage', () => {
     expect(screen.queryByLabelText('How they meet')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('The space between')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Keep this as an experiment' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Keep this as an essay' })).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Try a narrower wording'), {
       target: { value: 'A narrower library line.' }
     });

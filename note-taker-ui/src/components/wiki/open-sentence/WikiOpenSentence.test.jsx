@@ -159,6 +159,7 @@ describe('WikiOpenSentence', () => {
     expect(screen.getByLabelText('The space between')).toHaveValue('');
     expect(screen.queryByRole('button', { name: 'Keep this as an experiment' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Propose this as the line' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Keep this as an essay' })).not.toBeInTheDocument();
     expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent('Memory compounds with review.');
     expect(screen.getByText(/The article still reads/)).toHaveTextContent('Memory compounds with review.');
     expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
@@ -178,6 +179,10 @@ describe('WikiOpenSentence', () => {
       'Survivable error is not the same kind of care.'
     );
     expect(screen.getByLabelText('Try a narrower wording')).toHaveValue('Memory compounds with review.');
+    fireEvent.click(screen.getByRole('button', { name: 'Keep this as an essay' }));
+    expect(screen.getByText(/An essay, not the line/)).toHaveTextContent(
+      'Survivable error is not the same kind of care.'
+    );
     expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent('Memory compounds with review.');
   });
 

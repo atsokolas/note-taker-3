@@ -6,6 +6,7 @@ import { useFinePointer, usePrefersReducedMotion } from '../../../hooks/useMotio
 import {
   beginPressure,
   cancelPlacement,
+  canKeepBetweenAsEssay,
   canKeepBetweenAsExperiment,
   canProposeBetween,
   canProposeWording,
@@ -13,13 +14,17 @@ import {
   closeExploration,
   endMeet,
   endPressure,
+  essayWayHome,
   inspectableOther,
   isMeeting,
   isOpen,
   isPressured,
+  keepBetweenAsEssay,
   keepBetweenAsExperiment,
   keepQuestion,
+  leaveEssay,
   leaveMark,
+  liveEssay,
   liveProposal,
   liveThen,
   meetSlots,
@@ -291,6 +296,14 @@ const MeetBody = ({ pocketId, exploration, mocked, onCommit, onOpenSourceHome })
           Propose this as the line
         </button>
       ) : null}
+      {canKeepBetweenAsEssay(exploration) ? (
+        <button
+          type="button"
+          onClick={() => onCommit(keepBetweenAsEssay(exploration))}
+        >
+          Keep this as an essay
+        </button>
+      ) : null}
       {written ? (
         <button type="button" onClick={() => onCommit(endMeet(exploration))}>
           Leave this meeting
@@ -322,6 +335,7 @@ const PocketBody = ({
     ? changedWordSpans(accepted, exploration.provisionalText)
     : [];
   const proposal = liveProposal(exploration);
+  const essay = liveEssay(exploration);
   const then = liveThen(exploration);
   const sameAsProposal = Boolean(
     proposal && String(exploration.provisionalText || '').trim() === proposal.text
@@ -395,6 +409,16 @@ const PocketBody = ({
             ) : null}
             <button type="button" onClick={() => onCommit(withdrawProposal(exploration))}>
               Withdraw the proposal
+            </button>
+          </>
+        ) : null}
+        {essay ? (
+          <>
+            <p className="open-sentence-pocket__proposal">
+              An essay, not the line: {essay.text}
+            </p>
+            <button type="button" onClick={() => onCommit(leaveEssay(exploration))}>
+              Leave the essay
             </button>
           </>
         ) : null}
@@ -579,7 +603,8 @@ const OpenSentence = ({
     || (closedQuestion ? 'You left this open.' : '')
     || (closedProposal ? 'Proposed, not accepted.' : '')
     || pressureWayHome(exploration)
-    || meetWayHome(exploration);
+    || meetWayHome(exploration)
+    || essayWayHome(exploration);
   const wayHome = !open && !keepPocket && (homecoming || wayHomeLabel) ? (
     <div className="open-sentence__way-home">
       {homecoming ? <p className="open-sentence__been">{homecoming}</p> : null}

@@ -176,6 +176,7 @@ describe('OpenSentenceStoryboard', () => {
     expect(screen.getByLabelText('The space between')).toHaveValue('');
     expect(screen.queryByRole('button', { name: 'Keep this as an experiment' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Propose this as the line' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Keep this as an essay' })).not.toBeInTheDocument();
     expect(screen.queryByText(STORYBOARD_COMPUTE_SENTENCE)).not.toBeInTheDocument();
     expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
     expect(
@@ -191,6 +192,10 @@ describe('OpenSentenceStoryboard', () => {
     expect(screen.getByLabelText('What still holds')).toHaveValue('');
     fireEvent.click(screen.getByRole('button', { name: 'Propose this as the line' }));
     expect(screen.getByText(/Proposed, not accepted/)).toHaveTextContent(
+      'Survivable error is not the same kind of care.'
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Keep this as an essay' }));
+    expect(screen.getByText(/An essay, not the line/)).toHaveTextContent(
       'Survivable error is not the same kind of care.'
     );
     expect(screen.getByLabelText('Try a narrower wording')).toHaveValue(STORYBOARD_SENTENCE);
