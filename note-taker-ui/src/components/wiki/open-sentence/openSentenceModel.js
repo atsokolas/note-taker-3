@@ -160,12 +160,14 @@ const meetSlots = (meet = {}) => Object.fromEntries(
 export const liveMeet = (exploration) => {
   if (!isMeeting(exploration)) return null;
   const slots = meetSlots(exploration.meet);
-  if (!slots.relation.trim()) return null;
+  const relation = slots.relation.trim();
+  const between = slots.between.trim();
+  if (!relation && !between) return null;
   return {
     against: String(exploration.meet.against || '').trim(),
-    relation: slots.relation.trim(),
+    relation,
     limit: slots.limit.trim(),
-    between: slots.between.trim()
+    between
   };
 };
 
@@ -188,7 +190,9 @@ export const endMeet = (exploration) => (
 
 export const meetWayHome = (exploration) => {
   const meet = liveMeet(exploration);
-  return meet ? `They meet: ${meet.relation}` : '';
+  if (!meet) return '';
+  if (meet.relation) return `They meet: ${meet.relation}`;
+  return meet.between.split(/\n/, 1)[0];
 };
 
 export const keepsClosedDraft = (exploration) => Boolean(

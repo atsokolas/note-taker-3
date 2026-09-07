@@ -146,7 +146,7 @@ describe('openSentenceModel', () => {
     expect(keepsClosedDraft(closeExploration(setPressureField(beginPressure(start), 'unknown', 'what demand does')))).toBe(false);
     expect(keepsClosedDraft(closeExploration(setMeetField(meeting(), 'relation', STORYBOARD_MEET_RELATION)))).toBe(true);
     expect(keepsClosedDraft(closeExploration(setMeetField(meeting(), 'limit', STORYBOARD_MEET_LIMIT)))).toBe(false);
-    expect(keepsClosedDraft(closeExploration(setMeetField(meeting(), 'between', 'Survivable error is not the same kind of care.')))).toBe(false);
+    expect(keepsClosedDraft(closeExploration(setMeetField(meeting(), 'between', 'Survivable error is not the same kind of care.')))).toBe(true);
     expect(forgetExperiment(start).provisionalText).toBe(STORYBOARD_SENTENCE);
     expect(forgetExperiment(start).question).toBe('');
     expect(forgetExperiment(proposeWording(tryWording(start, 'draft'))).proposal).toBeUndefined();
@@ -232,7 +232,14 @@ describe('openSentenceModel', () => {
       between: ''
     });
     const between = 'Survivable error is not the same kind of care.';
-    expect(liveMeet(setMeetField(start, 'between', between))).toBeNull();
+    expect(liveMeet(setMeetField(start, 'between', between))).toEqual({
+      against: STORYBOARD_SENTENCE,
+      relation: '',
+      limit: '',
+      between
+    });
+    expect(meetWayHome(setMeetField(start, 'between', between))).toBe(between);
+    expect(meetWayHome(setMeetField(start, 'between', `${between}\nA second line.`))).toBe(between);
     const written = setMeetField(named, 'between', between);
     expect(liveMeet(written)).toEqual({
       against: STORYBOARD_SENTENCE,
@@ -242,6 +249,7 @@ describe('openSentenceModel', () => {
     });
     expect(liveMeet(restoreExploration(snapshotExploration(written), start))).toEqual(liveMeet(written));
     expect(meetWayHome(named)).toBe(`They meet: ${STORYBOARD_MEET_RELATION}`);
+    expect(meetWayHome(written)).toBe(`They meet: ${STORYBOARD_MEET_RELATION}`);
     expect(liveMeet(endMeet(named))).toBeNull();
     expect(liveMeet(restoreExploration(snapshotExploration(named), {
       ...start,
@@ -723,6 +731,22 @@ describe('OpenSentence', () => {
       </MemoryRouter>
     );
     expect(screen.queryByRole('button', { name: /They meet:/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: STORYBOARD_SENTENCE })).toBeInTheDocument();
+  });
+
+  it('lets a note written between them be the way home without accepting it', () => {
+    const onChange = jest.fn();
+    const between = 'Survivable error is not the same kind of care.';
+    render(
+      <MemoryRouter>
+        <OpenSentence
+          exploration={closeExploration(setMeetField(meeting(), 'between', between))}
+          onChange={onChange}
+        />
+      </MemoryRouter>
+    );
+    fireEvent.click(screen.getByRole('button', { name: between }));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ status: 'open' }));
     expect(screen.getByRole('button', { name: STORYBOARD_SENTENCE })).toBeInTheDocument();
   });
 
