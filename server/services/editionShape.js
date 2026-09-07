@@ -47,10 +47,48 @@ const EDITION_PROFILE_KEYS = Object.freeze(Object.keys(EDITION_PROFILES));
 
 const normalizeProfileKey = (value = '') => String(value || '').trim().toLowerCase().replace(/-/g, '_');
 
-const resolveEditionProfile = (value = '') => EDITION_PROFILES[normalizeProfileKey(value)] || null;
+/* The reader's own topics resolve first, then the two Noeis ships with. A
+   reader who names a topic `this_week_in_ai` is describing the paper they
+   want, not colliding with ours, so theirs wins. */
+const resolveEditionProfile = (value = '', { profiles = null } = {}) => {
+  const key = normalizeProfileKey(value);
+  if (!key) return null;
+  return (profiles && profiles[key]) || EDITION_PROFILES[key] || null;
+};
 
-const sectionLabel = (profileKey, sectionKey) => (
-  (EDITION_PROFILES[normalizeProfileKey(profileKey)]?.sections || [])
+const profileKeysFor = (profiles = null) => Array.from(new Set([
+  ...Object.keys(profiles || {}),
+  ...EDITION_PROFILE_KEYS
+]));
+
+const startOfUtcDay = (value) => {
+  const date = value instanceof Date ? value : new Date(value);
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+};
+
+/* Which issue today belongs to.
+
+   The cadence is the reader's standing instruction; the window is a fact about
+   one issue. Deriving the second from the first is what stops two agents filing
+   on the same morning from opening two issues of the same paper. */
+const windowFor = (cadence = 'weekly', now = new Date()) => {
+  const day = startOfUtcDay(now);
+  if (cadence === 'daily') return { windowStart: day, windowEnd: day };
+  if (cadence === 'monthly') {
+    return {
+      windowStart: new Date(Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), 1)),
+      windowEnd: new Date(Date.UTC(day.getUTCFullYear(), day.getUTCMonth() + 1, 0))
+    };
+  }
+  const windowStart = new Date(day);
+  windowStart.setUTCDate(day.getUTCDate() - day.getUTCDay());
+  const windowEnd = new Date(windowStart);
+  windowEnd.setUTCDate(windowStart.getUTCDate() + 6);
+  return { windowStart, windowEnd };
+};
+
+const sectionLabel = (profileKey, sectionKey, { profiles = null } = {}) => (
+  (resolveEditionProfile(profileKey, { profiles })?.sections || [])
     .find(section => section.key === sectionKey)?.label || ''
 );
 
@@ -155,11 +193,11 @@ const normalizeItem = (raw = {}, index = 0, profile) => {
  * agent that can fix it and try again — an error that says "invalid payload"
  * makes it guess.
  */
-const normalizeEdition = (raw = {}) => {
-  const profile = resolveEditionProfile(raw.profile);
+const normalizeEdition = (raw = {}, { profiles = null } = {}) => {
+  const profile = resolveEditionProfile(raw.profile, { profiles });
   if (!profile) {
     throw new EditionShapeError(
-      `Unknown edition profile "${raw?.profile || ''}". Known profiles: ${EDITION_PROFILE_KEYS.join(', ')}.`,
+      `Unknown edition profile "${raw?.profile || ''}". Known profiles: ${profileKeysFor(profiles).join(', ')}. Configure a new one before filing into it.`,
       { field: 'profile' }
     );
   }
@@ -214,8 +252,8 @@ const normalizeEdition = (raw = {}) => {
  * and often the most honest one there is. It is a sentence the paper prints
  * about itself.
  */
-const emptySections = ({ profile, items = [] } = {}) => {
-  const resolved = resolveEditionProfile(profile);
+const emptySections = ({ profile, items = [], profiles = null } = {}) => {
+  const resolved = resolveEditionProfile(profile, { profiles });
   if (!resolved) return [];
   const filled = new Set((items || []).map(item => item.section));
   return resolved.sections.filter(section => !filled.has(section.key));
@@ -224,6 +262,8 @@ const emptySections = ({ profile, items = [] } = {}) => {
 module.exports = {
   EDITION_PROFILES,
   EDITION_PROFILE_KEYS,
+  profileKeysFor,
+  windowFor,
   EditionShapeError,
   emptySections,
   normalizeEdition,

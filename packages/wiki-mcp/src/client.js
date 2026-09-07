@@ -495,6 +495,28 @@ export class NoeisClient {
     return this.request('/api/editions', { method: 'POST', body: edition });
   }
 
+  /* The reader's standing instruction about a subject: what it is called, what
+     its sections are, how often it comes out. */
+  listEditionProfiles() {
+    return this.request('/api/edition-profiles');
+  }
+
+  configureEdition({ key, title, cadence, sections, issueLabel, minItems, maxItems } = {}) {
+    return this.request('/api/edition-profiles', {
+      method: 'POST',
+      body: { key, title, cadence, sections, issueLabel, minItems, maxItems }
+    });
+  }
+
+  /* Add to the issue this moment belongs to, without resending the ones
+     already filed. The window comes from the topic's cadence. */
+  fileEditionItems({ profile, items, title, standfirst, now } = {}) {
+    return this.request('/api/editions/file', {
+      method: 'POST',
+      body: { profile, items, title, standfirst, now }
+    });
+  }
+
   listEditions({ profile, limit } = {}) {
     return this.request('/api/editions', { query: { profile, limit } });
   }

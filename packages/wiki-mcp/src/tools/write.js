@@ -16,7 +16,7 @@ const editionProfiles = ['this_week_in_ai', 'weekend_readings'];
 const editionItemShape = z.object({
   title: z.string().min(1).describe('What the source is called.'),
   url: z.string().url().describe('Link the reader can open, and save from.'),
-  section: z.string().describe('Section key for this profile. this_week_in_ai: models_methods, infrastructure_systems, evaluation_counterevidence. weekend_readings: thesis_evidence, counterevidence, context, intellectual_broadening.'),
+  section: z.string().describe('Section key for this topic. Built in — this_week_in_ai: models_methods, infrastructure_systems, evaluation_counterevidence. weekend_readings: thesis_evidence, counterevidence, context, intellectual_broadening. For a topic the reader configured, call list_edition_profiles for its sections.'),
   finding: z.string().min(1).describe('What this source actually says. Not a summary of its announcement.'),
   boundary: z.string().min(1).describe('What would limit this finding — sample, scope, conflict of interest, missing replication. Required.'),
   sourceLabel: z.string().optional().describe('Publication or author.'),
@@ -84,6 +84,34 @@ export const writeTools = [
       writtenBy: z.string().optional().describe('How to sign the masthead. Defaults to the connected agent name.')
     },
     handler: (client, args) => client.createEdition(args)
+  },
+  {
+    name: 'configure_edition',
+    description: 'Set up or change one of the reader\'s edition topics — a subject they want a paper on, its sections, and how often it comes out. Configuring the same key twice edits that topic rather than making a second one. Ask the reader what the sections should be: sections are the argument the paper makes about its subject, and generic ones throw away the only opinion worth having.',
+    inputSchema: {
+      key: z.string().min(1).describe('Short slug for the topic, e.g. "biotech". Reused to file into it.'),
+      title: z.string().min(1).describe('What the paper is called on its masthead, e.g. "This Month in Biotech".'),
+      cadence: z.enum(['daily', 'weekly', 'monthly']).optional().describe('How often an issue runs. Defaults to weekly. Noeis works out which issue a given day belongs to from this.'),
+      sections: z.array(z.object({
+        key: z.string().min(1).describe('Slug, e.g. "clinical_evidence".'),
+        label: z.string().min(1).describe('What the reader sees, e.g. "Clinical evidence".')
+      })).min(1).describe('The layers this subject reads in. At least one, at most eight.'),
+      issueLabel: z.string().optional().describe('What one issue is called: "Issue", "Edition", "Dispatch". Defaults to Issue.'),
+      minItems: z.number().int().optional().describe('Fewest items an issue may carry.'),
+      maxItems: z.number().int().optional().describe('Most items an issue may carry. An edition that lists everything has chosen nothing.')
+    },
+    handler: (client, args) => client.configureEdition(args)
+  },
+  {
+    name: 'file_edition_items',
+    description: 'Add what you found today to the issue this moment belongs to, WITHOUT resending what is already there. This is how a paper is maintained: file each morning and the issue fills up over its window. Noeis picks the issue from the topic\'s cadence, so two agents filing the same day file into the same one, and an item whose link is already held is skipped rather than duplicated. Every item still needs its boundary. Requires an agent-write token.',
+    inputSchema: {
+      profile: z.string().min(1).describe('Topic key, from list_edition_profiles.'),
+      items: z.array(editionItemShape).min(1).describe('Only the new findings. What is already filed stays.'),
+      title: z.string().optional().describe('Title, used only when this opens a new issue.'),
+      standfirst: z.string().optional().describe('Standfirst, used only when this opens a new issue.')
+    },
+    handler: (client, args) => client.fileEditionItems(args)
   },
   {
     name: 'ingest_source',
