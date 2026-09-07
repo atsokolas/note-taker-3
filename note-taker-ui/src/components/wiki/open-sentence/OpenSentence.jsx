@@ -7,6 +7,7 @@ import {
   beginPressure,
   cancelPlacement,
   canKeepBetweenAsExperiment,
+  canProposeBetween,
   canProposeWording,
   changedWordSpans,
   closeExploration,
@@ -280,6 +281,14 @@ const MeetBody = ({ pocketId, exploration, mocked, onCommit, onOpenSourceHome })
           onClick={() => onCommit(keepBetweenAsExperiment(exploration))}
         >
           Keep this as an experiment
+        </button>
+      ) : null}
+      {canProposeBetween(exploration) ? (
+        <button
+          type="button"
+          onClick={() => onCommit(proposeWording(exploration, meet.between))}
+        >
+          Propose this as the line
         </button>
       ) : null}
       {written ? (
