@@ -153,7 +153,7 @@ export const isMeeting = (exploration) => {
 
 const MEET_SLOTS = ['relation', 'limit', 'between'];
 
-const meetSlots = (meet = {}) => Object.fromEntries(
+export const meetSlots = (meet = {}) => Object.fromEntries(
   MEET_SLOTS.map((slot) => [slot, String(meet?.[slot] || '')])
 );
 
@@ -193,6 +193,15 @@ export const meetWayHome = (exploration) => {
   if (!meet) return '';
   if (meet.relation) return `They meet: ${meet.relation}`;
   return meet.between.split(/\n/, 1)[0];
+};
+
+export const canKeepBetweenAsExperiment = (exploration) => (
+  Boolean(liveMeet(exploration)?.between) && !livePressure(exploration)
+);
+
+export const keepBetweenAsExperiment = (exploration) => {
+  if (!canKeepBetweenAsExperiment(exploration)) return exploration;
+  return setPressureField(beginPressure(exploration), 'premise', liveMeet(exploration).between);
 };
 
 export const keepsClosedDraft = (exploration) => Boolean(
