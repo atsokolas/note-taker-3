@@ -174,11 +174,20 @@ describe('OpenSentenceStoryboard', () => {
     expect(screen.getByLabelText('How they meet')).toHaveValue(STORYBOARD_MEET_RELATION);
     expect(screen.getByLabelText('Where that stops')).toHaveValue(STORYBOARD_MEET_LIMIT);
     expect(screen.getByLabelText('The space between')).toHaveValue('');
+    expect(screen.queryByRole('button', { name: 'Propose this as the line' })).not.toBeInTheDocument();
     expect(screen.queryByText(STORYBOARD_COMPUTE_SENTENCE)).not.toBeInTheDocument();
     expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
     expect(
       screen.getByText('Both ends are inspectable. The space between is yours.')
     ).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('The space between'), {
+      target: { value: 'Survivable error is not the same kind of care.' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Propose this as the line' }));
+    expect(screen.getByText(/Proposed, not accepted/)).toHaveTextContent(
+      'Survivable error is not the same kind of care.'
+    );
+    expect(screen.getByLabelText('Try a narrower wording')).toHaveValue(STORYBOARD_SENTENCE);
     fireEvent.click(screen.getByRole('button', { name: 'Read' }));
     expect(screen.queryByText('Also beside')).not.toBeInTheDocument();
   });

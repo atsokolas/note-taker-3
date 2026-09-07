@@ -363,7 +363,8 @@ const OpenSentenceStoryboard = () => {
           line. Pressure names a premise beside the original. It does not invent a
           causal chain. Then names an earlier recorded line. It is not a biography.
           Meet names how two recorded passages sit together, and where that stops.
-          The space between is yours. A note written there can stay a note.
+          The space between is yours. A note written there can stay a note, or be
+          proposed as the line. Propose is still not Accept.
         </p>
       </header>
 
