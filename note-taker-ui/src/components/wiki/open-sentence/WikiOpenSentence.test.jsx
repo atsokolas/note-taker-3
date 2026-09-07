@@ -157,11 +157,22 @@ describe('WikiOpenSentence', () => {
     expect(screen.getByText('A loss you can survive still teaches the book.')).toBeInTheDocument();
     expect(screen.getByLabelText('How they meet')).toHaveValue('');
     expect(screen.getByLabelText('The space between')).toHaveValue('');
+    expect(screen.queryByRole('button', { name: 'Keep this as an experiment' })).not.toBeInTheDocument();
     expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent('Memory compounds with review.');
     expect(screen.getByText(/The article still reads/)).toHaveTextContent('Memory compounds with review.');
     expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('How they meet'), { target: { value: 'analogy' } });
     expect(screen.getByLabelText('How they meet')).toHaveValue('analogy');
+    fireEvent.change(screen.getByLabelText('The space between'), {
+      target: { value: 'Survivable error is not the same kind of care.' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Keep this as an experiment' }));
+    expect(screen.getByLabelText('For this experiment')).toHaveValue(
+      'Survivable error is not the same kind of care.'
+    );
+    expect(screen.getByLabelText('What still holds')).toHaveValue('');
+    expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
+    expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent('Memory compounds with review.');
   });
 
   it('leaves a return ticket when walking into Library, not a Wiki rewrite', () => {

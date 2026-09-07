@@ -40,7 +40,7 @@ A named premise can sit beside the original line in the same pocket. Empty slots
 
 An earlier recorded wording can sit beside today in the same pocket. Identity is that claim's prior revision (or history fallback). A draft cannot forge Then. Library stays silent.
 
-A second recorded passage can sit beside the first in the same pocket. Identity is that claim's attached sources. The person names how they meet and where that stops. The space between is theirs to write, and stays empty until they do. A note written there can stay a note. A draft cannot forge the second source. Library stays silent.
+A second recorded passage can sit beside the first in the same pocket. Identity is that claim's attached sources. The person names how they meet and where that stops. The space between is theirs to write, and stays empty until they do. A note written there can stay a note, or be kept as an unfinished experiment — the existing pressure act, their words as the premise. A draft cannot forge the second source. Library stays silent.
 
 Do not read a green script as longitudinal value. Do not read a preview deploy as production.
 
@@ -78,7 +78,7 @@ Public shares. Workspace composer. Repo dossiers, company dossiers, investment d
 **Under pressure**
 - Eligibility: an opened sentence (Wiki pocket or Library passage).
 - Quality bar: the person names premise / still-holds / unknown. Identity `against` is the current accepted line. No generated causal chain.
-- Silence: empty slots stay empty; still-holds or unknown without a named premise do not keep the walk; the live line moved on → drop the experiment; do not invent consequences. Filler is never the answer.
+- Silence: empty slots stay empty; still-holds or unknown without a named premise do not keep the walk; a named meeting does not fill a premise by itself; the live line moved on → drop the experiment; do not invent consequences. Filler is never the answer.
 
 **Then / Now**
 - Eligibility: an opened Wiki claim with a prior recorded wording in revisions (or history fallback) that differs from the live marked line.
@@ -87,7 +87,7 @@ Public shares. Workspace composer. Repo dossiers, company dossiers, investment d
 
 **Two pieces meet**
 - Eligibility: an opened Wiki claim with a second attached sourceRef of a different identity and a different passage than the live source.
-- Quality bar: identity only. Those two recorded passages. The person names the relation and the limit. The space between is theirs. A note written there can stay a note. No similar-text repair. No generated match. No synthesized paragraph.
+- Quality bar: identity only. Those two recorded passages. The person names the relation and the limit. The space between is theirs. A note written there can stay a note. A note kept as an experiment is the existing pressure act, their words as the premise. No similar-text repair. No generated match. No synthesized paragraph. No invented chain.
 - Silence: one source; a duplicate identity; the same passage twice; a neighboring unattached source; recorded work (question / notebook); Library; relation empty and the space between empty (limit-only does not keep the walk); the live line moved on → drop the naming. Filler is never the answer.
 
 ## Separately authorized

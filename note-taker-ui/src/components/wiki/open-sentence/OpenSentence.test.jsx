@@ -5,6 +5,7 @@ import OpenSentence from './OpenSentence';
 import {
   acceptWording,
   beginPressure,
+  canKeepBetweenAsExperiment,
   canProposeWording,
   changedWordSpans,
   closeExploration,
@@ -13,6 +14,7 @@ import {
   endPressure,
   forgetExperiment,
   isPressured,
+  keepBetweenAsExperiment,
   keepQuestion,
   keepsClosedDraft,
   leaveMark,
@@ -275,6 +277,27 @@ describe('openSentenceModel', () => {
     expect(setMeetField(createExploration({ originalText: STORYBOARD_SENTENCE }), 'relation', 'analogy')).toEqual(
       createExploration({ originalText: STORYBOARD_SENTENCE })
     );
+    expect(canKeepBetweenAsExperiment(start)).toBe(false);
+    expect(canKeepBetweenAsExperiment(named)).toBe(false);
+    const noted = setMeetField(start, 'between', between);
+    expect(canKeepBetweenAsExperiment(noted)).toBe(true);
+    const kept = keepBetweenAsExperiment(noted);
+    expect(livePressure(kept)).toEqual({
+      against: STORYBOARD_SENTENCE,
+      premise: between,
+      stillHolds: '',
+      unknown: ''
+    });
+    expect(kept.provisionalText).toBe(STORYBOARD_SENTENCE);
+    expect(wikiAcceptedText(kept)).toBe(STORYBOARD_SENTENCE);
+    expect(canKeepBetweenAsExperiment(kept)).toBe(false);
+    expect(keepBetweenAsExperiment(kept)).toBe(kept);
+    expect(keepBetweenAsExperiment(start)).toBe(start);
+    expect(livePressure(keepBetweenAsExperiment(setPressureField(
+      beginPressure(noted),
+      'premise',
+      'demand grows more slowly'
+    ))).premise).toBe('demand grows more slowly');
   });
 
   it('refuses a Wiki proposal from a passage that is already here', () => {
@@ -746,6 +769,45 @@ describe('OpenSentence', () => {
       </MemoryRouter>
     );
     fireEvent.click(screen.getByRole('button', { name: between }));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ status: 'open' }));
+    expect(screen.getByRole('button', { name: STORYBOARD_SENTENCE })).toBeInTheDocument();
+  });
+
+  it('lets a note written between them be kept as an experiment', () => {
+    const onChange = jest.fn();
+    const between = 'Survivable error is not the same kind of care.';
+    const opened = openExploration(setMeetField(meeting(), 'between', between));
+    const { rerender } = renderOpen(opened, onChange);
+    expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Keep this as an experiment' }));
+    expect(onChange).toHaveBeenCalledWith(keepBetweenAsExperiment(opened));
+    rerender(
+      <MemoryRouter>
+        <OpenSentence exploration={keepBetweenAsExperiment(opened)} mocked />
+      </MemoryRouter>
+    );
+    expect(screen.getByLabelText('For this experiment')).toHaveValue(between);
+    expect(screen.getByLabelText('What still holds')).toHaveValue('');
+    expect(screen.getByLabelText('What remains unknown')).toHaveValue('');
+    expect(screen.queryByRole('button', { name: 'Keep this as an experiment' })).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Try a narrower wording')).toHaveValue(STORYBOARD_SENTENCE);
+    expect(screen.getByText(/The article still reads/)).toHaveTextContent(STORYBOARD_SENTENCE);
+  });
+
+  it('lets a between kept as an experiment be the way home without accepting it', () => {
+    const between = 'Survivable error is not the same kind of care.';
+    const onChange = jest.fn();
+    render(
+      <MemoryRouter>
+        <OpenSentence
+          exploration={closeExploration(keepBetweenAsExperiment(
+            setMeetField(meeting(), 'between', between)
+          ))}
+          onChange={onChange}
+        />
+      </MemoryRouter>
+    );
+    fireEvent.click(screen.getByRole('button', { name: `For this experiment: ${between}` }));
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ status: 'open' }));
     expect(screen.getByRole('button', { name: STORYBOARD_SENTENCE })).toBeInTheDocument();
   });
