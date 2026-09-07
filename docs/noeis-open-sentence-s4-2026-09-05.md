@@ -40,13 +40,13 @@ A named premise can sit beside the original line in the same pocket. Empty slots
 
 An earlier recorded wording can sit beside today in the same pocket. Identity is that claim's prior revision (or history fallback). A draft cannot forge Then. Library stays silent.
 
-A second recorded passage can sit beside the first in the same pocket. Identity is that claim's attached sources. The person names how they meet and where that stops. The space between is theirs to write, and stays empty until they do. A note written there can stay a note. A draft cannot forge the second source. Library stays silent.
+A second recorded passage can sit beside the first in the same pocket. Identity is that claim's attached sources. The person names how they meet and where that stops. The space between is theirs to write, and stays empty until they do. A note written there can stay a note, or be proposed as the Wiki line — the existing proposal, their words, against the live line. A draft cannot forge the second source. Library stays silent.
 
 Do not read a green script as longitudinal value. Do not read a preview deploy as production.
 
 ## What stays closed
 
-Public shares. Workspace composer. Repo dossiers, company dossiers, investment dossiers, living theses, research editions. Server-sync of private drafts. Generated inspection of whether a wording is warranted. Generated matches between sources. Turning the space between into an essay or a Wiki proposal. Historical source versions and contemporaneous drafts as a reconstructed scene. Horizons (exhibits, rehearsal, instruments, two Libraries, sharing).
+Public shares. Workspace composer. Repo dossiers, company dossiers, investment dossiers, living theses, research editions. Server-sync of private drafts. Generated inspection of whether a wording is warranted. Generated matches between sources. Turning the space between into an essay or an unfinished experiment. Historical source versions and contemporaneous drafts as a reconstructed scene. Horizons (exhibits, rehearsal, instruments, two Libraries, sharing).
 
 ## Taste pass
 
@@ -66,9 +66,9 @@ Public shares. Workspace composer. Repo dossiers, company dossiers, investment d
 - Silence: 0, or “Nothing beside this sentence yet.” A generated reply is never Accept-to-rewrite.
 
 **Proposed wording**
-- Eligibility: a changed provisional line on an opened owned Wiki claim, against the current accepted text.
-- Quality bar: identity only (that claim and that accepted line).
-- Silence: unchanged wording cannot propose; the live line moved on → drop; Library does not propose.
+- Eligibility: a changed provisional line on an opened owned Wiki claim, against the current accepted text; or a note written in the space between two bound passages, when that note is not the live line and not the current provisional wording.
+- Quality bar: identity only (that claim and that accepted line). The words are the person's. The space between is not copied into the wording field just to propose.
+- Silence: unchanged wording cannot propose; a between note that repeats the live line or the provisional line does not add a second Propose; the live line moved on → drop; Library does not propose.
 
 **Accepted wording**
 - Eligibility: a live proposal on an opened owned ordinary Wiki claim; `against` is the current accepted line; the claim is a single marked text node.
@@ -87,7 +87,7 @@ Public shares. Workspace composer. Repo dossiers, company dossiers, investment d
 
 **Two pieces meet**
 - Eligibility: an opened Wiki claim with a second attached sourceRef of a different identity and a different passage than the live source.
-- Quality bar: identity only. Those two recorded passages. The person names the relation and the limit. The space between is theirs. A note written there can stay a note. No similar-text repair. No generated match. No synthesized paragraph.
+- Quality bar: identity only. Those two recorded passages. The person names the relation and the limit. The space between is theirs. A note written there can stay a note. A proposal from that note is that person's wording against the live line. No similar-text repair. No generated match. No synthesized paragraph.
 - Silence: one source; a duplicate identity; the same passage twice; a neighboring unattached source; recorded work (question / notebook); Library; relation empty and the space between empty (limit-only does not keep the walk); the live line moved on → drop the naming. Filler is never the answer.
 
 ## Separately authorized

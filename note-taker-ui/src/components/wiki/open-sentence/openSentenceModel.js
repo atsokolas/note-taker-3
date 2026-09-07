@@ -60,9 +60,9 @@ export const liveProposal = (exploration) => {
   return { text, against };
 };
 
-export const proposeWording = (exploration) => {
+export const proposeWording = (exploration, from = exploration?.provisionalText) => {
   if (!canProposeWording(exploration)) return exploration;
-  const text = String(exploration?.provisionalText || '').trim();
+  const text = String(from ?? '').trim();
   const against = String(exploration?.originalText || '').trim();
   if (!text || !against || text === against) return exploration;
   return { ...exploration, proposal: { text, against } };
@@ -153,7 +153,7 @@ export const isMeeting = (exploration) => {
 
 const MEET_SLOTS = ['relation', 'limit', 'between'];
 
-const meetSlots = (meet = {}) => Object.fromEntries(
+export const meetSlots = (meet = {}) => Object.fromEntries(
   MEET_SLOTS.map((slot) => [slot, String(meet?.[slot] || '')])
 );
 
@@ -193,6 +193,14 @@ export const meetWayHome = (exploration) => {
   if (!meet) return '';
   if (meet.relation) return `They meet: ${meet.relation}`;
   return meet.between.split(/\n/, 1)[0];
+};
+
+export const canProposeBetween = (exploration) => {
+  const between = String(liveMeet(exploration)?.between || '').trim();
+  if (!between || !canProposeWording(exploration)) return false;
+  if (between === String(exploration.originalText || '').trim()) return false;
+  if (between === String(exploration.provisionalText || '').trim()) return false;
+  return String(liveProposal(exploration)?.text || '') !== between;
 };
 
 export const keepsClosedDraft = (exploration) => Boolean(

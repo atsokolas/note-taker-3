@@ -6,6 +6,7 @@ import { useFinePointer, usePrefersReducedMotion } from '../../../hooks/useMotio
 import {
   beginPressure,
   cancelPlacement,
+  canProposeBetween,
   canProposeWording,
   changedWordSpans,
   closeExploration,
@@ -19,6 +20,7 @@ import {
   leaveMark,
   liveProposal,
   liveThen,
+  meetSlots,
   meetWayHome,
   openExploration,
   placeSource,
@@ -236,12 +238,7 @@ const MeetBody = ({ pocketId, exploration, mocked, onCommit, onOpenSourceHome })
   const other = inspectableOther(exploration);
   const [inspecting, setInspecting] = useState(false);
   if (!other) return null;
-  const meet = {
-    relation: '',
-    limit: '',
-    between: '',
-    ...(isMeeting(exploration) ? exploration.meet : {})
-  };
+  const meet = meetSlots(isMeeting(exploration) ? exploration.meet : {});
   const written = Boolean(meet.relation || meet.limit || meet.between);
 
   return (
@@ -276,6 +273,14 @@ const MeetBody = ({ pocketId, exploration, mocked, onCommit, onOpenSourceHome })
         onChange={(value) => onCommit(setMeetField(exploration, 'between', value))}
         rows={3}
       />
+      {canProposeBetween(exploration) ? (
+        <button
+          type="button"
+          onClick={() => onCommit(proposeWording(exploration, meet.between))}
+        >
+          Propose this as the line
+        </button>
+      ) : null}
       {written ? (
         <button type="button" onClick={() => onCommit(endMeet(exploration))}>
           Leave this meeting
