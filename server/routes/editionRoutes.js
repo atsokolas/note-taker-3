@@ -24,6 +24,13 @@ const {
  * nothing here is public.
  */
 
+/* Who is writing. An agent's own claim about its name is not evidence, so
+   this reads the token first and only falls back to what the caller said. */
+const scribe = (req = {}) => ({
+  label: String(req.agentToken?.name || req.body?.writtenBy || '').trim().slice(0, 200),
+  agentTokenId: req.agentToken?.id || null
+});
+
 const serializeItem = (item = {}) => ({
   itemId: item.itemId,
   title: item.title,
@@ -34,6 +41,8 @@ const serializeItem = (item = {}) => ({
   finding: item.finding,
   boundary: item.boundary,
   note: item.note || '',
+  filedBy: item.filedBy?.label || '',
+  filedAt: item.filedAt || null,
   savedArticleId: item.savedArticleId ? String(item.savedArticleId) : null
 });
 
@@ -246,12 +255,14 @@ const buildEditionRouter = ({
 
       /* Normalized against the same standard as a whole edition — a boundary
          is required here too, or the daily door becomes the way around it. */
+      const filedBy = scribe(req);
+      const filedAt = new Date();
       const added = [];
       incoming.forEach((raw, index) => {
         const item = normalizeItem(raw, kept.length + index, profile);
         if (keptUrls.has(item.url)) return;
         keptUrls.add(item.url);
-        added.push(item);
+        added.push({ ...item, filedBy, filedAt });
       });
 
       const items = [...kept, ...added];
@@ -261,10 +272,7 @@ const buildEditionRouter = ({
         });
       }
 
-      const writtenBy = {
-        label: String(req.body?.writtenBy || req.agentToken?.name || existing?.writtenBy?.label || '').trim().slice(0, 200),
-        agentTokenId: req.agentToken?.id || existing?.writtenBy?.agentTokenId || null
-      };
+      const writtenBy = filedBy.label ? filedBy : (existing?.writtenBy || filedBy);
 
       const saved = existing
         ? await Edition.findOneAndUpdate({ _id: existing._id, userId }, { items, writtenBy }, { new: true })
@@ -301,20 +309,20 @@ const buildEditionRouter = ({
         windowEnd: built.windowEnd
       });
 
-      const keptSaves = new Map(
-        (existing?.items || [])
-          .filter(item => item.savedArticleId)
-          .map(item => [item.url, item.savedArticleId])
-      );
-      const items = built.items.map(item => ({
-        ...item,
-        savedArticleId: keptSaves.get(item.url) || null
-      }));
-
-      const writtenBy = {
-        label: String(req.body?.writtenBy || req.agentToken?.name || '').trim().slice(0, 200),
-        agentTokenId: req.agentToken?.id || null
-      };
+      /* A rewrite keeps what the reader did and who did the work: a save they
+         made, and the byline an earlier filing earned. Both key on the link. */
+      const held = new Map((existing?.items || []).map(item => [item.url, item]));
+      const writtenBy = scribe(req);
+      const now = new Date();
+      const items = built.items.map((item) => {
+        const before = held.get(item.url);
+        return {
+          ...item,
+          filedBy: before?.filedBy?.label ? before.filedBy : writtenBy,
+          filedAt: before?.filedAt || now,
+          savedArticleId: before?.savedArticleId || null
+        };
+      });
 
       const saved = existing
         ? await Edition.findOneAndUpdate(

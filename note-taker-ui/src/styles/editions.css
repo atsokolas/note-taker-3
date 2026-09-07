@@ -10,36 +10,39 @@
 
 .editions,
 .edition {
-  max-width: 72ch;
   margin: 0 auto;
   padding: 0 0 64px;
 }
 
-.editions__eyebrow,
-.edition-item__label,
-.editions__row-meta,
-.edition__meta {
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
-  font-size: 0.68rem;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: color-mix(in srgb, var(--text-muted) 90%, transparent);
+/* The stand is a broadsheet and wants the width; a single paper is read and
+   keeps its measure. */
+.editions { max-width: 104ch; }
+.edition { max-width: 72ch; }
+
+/* Small caps in the serif do the work mono used to. A dateline is read, not
+   operated, and the mono register here means "this is a field you act on". */
+.noeis-caps {
+  font-variant-caps: all-small-caps;
+  font-feature-settings: "smcp" 1, "c2sc" 1, "lnum" 1, "kern" 1;
+  letter-spacing: 0.09em;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 
-.editions__definition {
-  margin: 6px 0 0;
-  max-width: 56ch;
-  color: color-mix(in srgb, var(--text-muted) 82%, transparent);
-  font-size: 0.86rem;
-  font-style: italic;
-  line-height: 1.45;
-}
-
-.editions__masthead {
-  padding: 0 0 20px;
+/* ---------- the folio ---------- */
+/* What a paper prints at the top of every page: where you are, what day it
+   is. Computed from the day, so it is right on a Tuesday. */
+.folio {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+  padding: 0 0 10px;
   border-bottom: 1px solid var(--noeis-rule, var(--border-subtle-2));
+  color: color-mix(in srgb, var(--text-muted) 88%, transparent);
+  font-size: 0.9rem;
 }
+
+.folio em { font-style: italic; }
 
 .editions__quiet {
   margin: 24px 0;
@@ -47,214 +50,446 @@
   font-style: italic;
 }
 
-.editions__empty {
-  margin: 32px 0;
+.editions__empty { margin: 40px 0; max-width: 58ch; }
+.editions__empty h2 { margin: 0 0 10px; font-size: 1.4rem; }
+.editions__empty p { margin: 0 0 8px; line-height: 1.55; }
+.editions__aside { color: color-mix(in srgb, var(--text-muted) 86%, transparent); }
+
+/* ---------- a front page ---------- */
+/* An asterism between papers: the typographic mark for a break between things
+   that are each complete. Rules would say "another row". */
+.front { padding: 68px 0 0; }
+
+.front + .front::before {
+  content: "\2042";
+  display: block;
+  text-align: center;
+  margin: 0 0 56px;
+  font-size: 1.3rem;
+  letter-spacing: 0.1em;
+  color: color-mix(in srgb, var(--text-muted) 70%, transparent);
 }
 
-.editions__empty h2 {
-  margin: 0 0 10px;
-  font-size: 1.4rem;
+/* The nameplate, with ears. A paper's ears carry the two small facts that are
+   not the news — the weather and the price. Ours carry the two that are not
+   the reading: whether the agent turned up, and how much of it you took. */
+.nameplate {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: end;
+  gap: 24px;
 }
 
-.editions__empty p {
-  margin: 0 0 8px;
-  max-width: 58ch;
-  line-height: 1.55;
-}
-
-.editions__aside {
-  color: color-mix(in srgb, var(--text-muted) 86%, transparent);
-}
-
-.editions__list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.editions__row {
-  padding: 20px 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--border-subtle-2)) 70%, transparent);
-}
-
-.editions__row-link {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 12px;
-  text-decoration: none;
-}
-
-.editions__row-title,
-.edition__title {
-  font-family: "Newsreader", Georgia, serif;
-  color: var(--text-primary);
-}
-
-.editions__row-title {
-  font-size: 1.24rem;
-}
-
-.editions__row-link:hover .editions__row-title {
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-.editions__row-lines {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 14px;
-  margin: 6px 0 0;
+.ear {
+  margin: 0 0 6px;
+  max-width: 20ch;
+  font-style: italic;
   font-size: 0.9rem;
+  line-height: 1.4;
   color: color-mix(in srgb, var(--text-muted) 88%, transparent);
 }
 
-/* An empty section is an editorial fact. It reads as a note, never a warning:
-   a week with no counterevidence is telling the truth, not erroring. */
-.editions__row-gap,
-.edition__gap,
-.paper-editions__gap {
-  font-style: italic;
+.ear--right { text-align: right; justify-self: end; }
+.ear b { font-style: normal; font-weight: 500; color: var(--text-primary); }
+
+.nameplate__title {
+  margin: 0;
+  text-align: center;
+  font-family: "Newsreader", Georgia, serif;
+  font-optical-sizing: auto;
+  font-weight: 600;
+  font-size: clamp(2.1rem, 5vw, 3.4rem);
+  line-height: 1;
+  letter-spacing: -0.024em;
+  text-wrap: balance;
+  color: var(--text-primary);
 }
 
-.editions__row-byline,
-.edition__byline {
-  margin: 4px 0 0;
+/* A Scotch rule: thick over thin, the way a nameplate is ruled off. */
+.dateline {
+  position: relative;
+  margin: 16px 0 0;
+  padding: 8px 0 7px;
+  border-top: 3px solid color-mix(in srgb, var(--text-primary) 58%, transparent);
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 6px 16px;
+  flex-wrap: wrap;
+  font-size: 0.86rem;
+  color: color-mix(in srgb, var(--text-muted) 88%, transparent);
+}
+
+.dateline::before,
+.dateline::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: color-mix(in srgb, var(--text-primary) 58%, transparent);
+}
+
+.dateline::before { top: -6px; }
+.dateline::after { bottom: 0; }
+
+/* Pointer ink is the one colour that means live, here as everywhere else. */
+.dateline .is-live { color: var(--noeis-pointer, var(--text-primary)); }
+.dateline .is-quiet { color: color-mix(in srgb, var(--text-muted) 76%, transparent); }
+
+/* Turning to another issue. The nameplate never moves: it is the same paper. */
+.issue { transition: opacity 240ms cubic-bezier(0.2, 0.7, 0.2, 1), transform 240ms cubic-bezier(0.2, 0.7, 0.2, 1); }
+.issue.is-turning { opacity: 0; transform: translateY(6px); }
+
+.standfirst {
+  margin: 36px auto 0;
+  max-width: 64ch;
+  font-family: "Newsreader", Georgia, serif;
+  font-style: italic;
+  font-size: 1.32rem;
+  line-height: 1.36;
+  text-align: center;
+  text-wrap: balance;
+  color: var(--text-primary);
+}
+
+/* Something arrived while you were standing here. Pointer ink, because it is
+   the one colour that means live, and it leaves of its own accord. */
+.front__arrival {
+  margin: 14px 0 0;
+  text-align: center;
+  font-style: italic;
+  color: var(--noeis-pointer, var(--text-primary));
+}
+
+/* What is here that was not here last time. The one question a periodical
+   answers that a list cannot. */
+.front__fresh {
+  margin: 22px 0 0;
+  text-align: center;
+  font-style: italic;
+  font-size: 0.92rem;
+  color: color-mix(in srgb, var(--text-muted) 84%, transparent);
+}
+
+/* ---------- the columns ---------- */
+/* One column per section, so the shape of the paper is the shape of the week.
+   An empty section is an empty column with its head still set. */
+.columns {
+  margin: 38px 0 0;
+  padding: 22px 0 0;
+  border-top: 1px solid var(--noeis-rule, var(--border-subtle-2));
+  display: grid;
+  /* The count is written out per width rather than passed in as a variable:
+     a repeat() count cannot be a var(), and an inline style could not be
+     overridden at a narrower measure. */
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  column-gap: 28px;
+  row-gap: 34px;
+}
+
+.columns[data-columns="1"] { grid-template-columns: minmax(0, 1fr); }
+.columns[data-columns="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.columns[data-columns="4"] { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+.column { min-width: 0; }
+
+.column + .column {
+  border-left: 1px solid var(--noeis-rule, var(--border-subtle-2));
+  padding-left: 28px;
+}
+
+.column__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  margin: 0 0 4px;
+  padding: 0 0 6px;
+  border-bottom: 1px solid color-mix(in srgb, var(--text-primary) 34%, transparent);
+  font-size: 0.86rem;
+  color: color-mix(in srgb, var(--text-muted) 92%, transparent);
+}
+
+.column__head b { font-weight: 400; color: color-mix(in srgb, var(--text-muted) 74%, transparent); }
+
+/* A section byline. Two agents can keep one paper. */
+.column__byline {
+  margin: 6px 0 12px;
+  font-size: 0.82rem;
+  font-style: italic;
+  color: color-mix(in srgb, var(--text-muted) 76%, transparent);
+}
+
+.column__empty {
+  margin: 10px 0 0;
+  font-style: italic;
+  color: color-mix(in srgb, var(--text-muted) 80%, transparent);
+}
+
+/* ---------- a story, folded ---------- */
+.story { padding: 0 0 16px; margin: 0 0 16px; border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--border-subtle-2)) 70%, transparent); }
+.story:last-child { margin-bottom: 0; border-bottom: 0; }
+
+.story__head {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+
+.story__title {
+  margin: 0;
+  font-family: "Newsreader", Georgia, serif;
+  font-weight: 500;
+  font-size: 1.14rem;
+  line-height: 1.22;
+  letter-spacing: -0.008em;
+  text-wrap: balance;
+  color: var(--text-primary);
+}
+
+.story__head:hover .story__title {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+}
+
+.story__source {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  margin: 6px 0 0;
+  font-size: 0.84rem;
+  font-style: italic;
+  color: color-mix(in srgb, var(--text-muted) 80%, transparent);
+}
+
+.story__fold { color: var(--noeis-pointer, var(--text-muted)); font-style: normal; white-space: nowrap; }
+
+/* A mark in the margin, never a badge. A story you have not seen is worth
+   pointing at; it is not worth interrupting you about. */
+.story__new { color: var(--noeis-pointer, var(--text-primary)); font-style: italic; }
+
+.story.is-new { position: relative; }
+
+.story.is-new::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: -12px;
+  width: 2px;
+  height: 1.1em;
+  background: var(--noeis-pointer, var(--text-primary));
+}
+
+/* The fold. A grid track from nothing to everything: no measuring, and it
+   animates whatever the finding turns out to be. */
+.story__body {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 420ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.story__body > div { min-height: 0; overflow: hidden; }
+.story.is-open .story__body { grid-template-rows: 1fr; }
+
+/* Set like body text on a front page, with the opening letter dropped. */
+.story__finding {
+  margin: 12px 0 0;
+  font-size: 0.98rem;
+  line-height: 1.56;
+  text-align: justify;
+  text-justify: inter-word;
+  hyphens: auto;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 300ms ease 120ms, transform 300ms ease 120ms;
+}
+
+.story.is-open .story__finding { opacity: 1; transform: none; }
+
+.story__finding::first-letter {
+  float: left;
+  font-family: "Newsreader", Georgia, serif;
+  font-weight: 500;
+  font-size: 2.7em;
+  line-height: 0.84;
+  padding: 0.06em 0.08em 0 0;
+}
+
+/* The required half, set as a margin note rather than a warning. */
+.story__boundary {
+  margin: 12px 0 0;
+  padding: 0 0 0 14px;
+  border-left: 2px solid color-mix(in srgb, var(--noeis-pointer, var(--text-muted)) 42%, transparent);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: color-mix(in srgb, var(--text-muted) 94%, transparent);
+  opacity: 0;
+  transition: opacity 300ms ease 200ms;
+}
+
+.story.is-open .story__boundary { opacity: 1; }
+
+.story__boundary i {
+  display: block;
+  margin: 0 0 3px;
   font-size: 0.82rem;
   color: color-mix(in srgb, var(--text-muted) 78%, transparent);
 }
 
-.edition__back {
-  display: inline-block;
-  margin: 0 0 20px;
-  font-size: 0.9rem;
+.story__note { margin: 10px 0 0; font-size: 0.92rem; line-height: 1.5; }
+.story__doors { margin: 12px 0 0; font-size: 0.88rem; }
+
+/* ---------- what to watch next ---------- */
+.watch {
+  margin: 30px 0 0;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--text-primary) 26%, transparent);
 }
 
-.edition__masthead {
-  padding: 0 0 18px;
-  border-bottom: 2px solid var(--noeis-rule, var(--border-subtle-2));
+.watch__head { margin: 0 0 6px; font-size: 0.82rem; color: color-mix(in srgb, var(--text-muted) 92%, transparent); }
+.watch ul { margin: 0; padding-left: 18px; font-size: 0.92rem; line-height: 1.55; color: color-mix(in srgb, var(--text-muted) 92%, transparent); }
+.watch li + li { margin-top: 4px; }
+
+/* ---------- the run ---------- */
+/* The archive as a run, not a list: the issue you are reading in ink, every
+   earlier one a number you can turn back to. */
+.run {
+  display: flex;
+  justify-content: center;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 34px 0 0;
+  padding: 14px 0 0;
+  border-top: 1px solid var(--noeis-rule, var(--border-subtle-2));
+  font-size: 0.92rem;
 }
 
-.edition__title {
+.run__label { font-style: italic; color: color-mix(in srgb, var(--text-muted) 74%, transparent); }
+
+.run__issue {
+  padding: 2px 4px;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  background: none;
+  font: inherit;
+  color: color-mix(in srgb, var(--text-muted) 92%, transparent);
+  cursor: pointer;
+  transition: color 160ms ease, border-color 160ms ease;
+}
+
+.run__issue:hover { color: var(--text-primary); }
+
+.run__issue.is-current {
+  color: var(--text-primary);
+  border-bottom-color: currentColor;
+  cursor: default;
+}
+
+.run__whole { margin-left: 8px; font-style: italic; color: var(--noeis-pointer, var(--text-primary)); }
+
+.front__gap {
+  margin: 20px 0 0;
+  text-align: center;
+  font-style: italic;
+  color: color-mix(in srgb, var(--text-muted) 86%, transparent);
+}
+
+/* ---------- the door to another paper ---------- */
+/* Topics are configurable now, and the way you configure one is to say a
+   sentence to your agent. The page hands you the sentence. */
+.editions__door {
+  margin: 96px auto 0;
+  max-width: 56ch;
+  text-align: center;
+}
+
+.editions__door::before {
+  content: "\2042";
+  display: block;
+  margin: 0 0 36px;
+  font-size: 1.3rem;
+  letter-spacing: 0.1em;
+  color: color-mix(in srgb, var(--text-muted) 70%, transparent);
+}
+
+.editions__door-lede,
+.editions__door-note {
   margin: 0;
-  font-size: 2.1rem;
-  line-height: 1.15;
-}
-
-.edition__meta {
-  margin: 8px 0 0;
-}
-
-.edition__taken {
-  margin: 6px 0 0;
-  font-size: 0.9rem;
+  font-style: italic;
   color: color-mix(in srgb, var(--text-muted) 88%, transparent);
 }
 
-.edition__standfirst {
-  margin: 24px 0 0;
+/* The sentence itself, set as something you would say out loud. */
+.editions__say {
+  margin: 16px 0 0;
   font-family: "Newsreader", Georgia, serif;
-  font-size: 1.16rem;
-  line-height: 1.55;
+  font-size: 1.2rem;
+  line-height: 1.4;
+  text-wrap: balance;
+  color: var(--text-primary);
 }
 
-.edition__section {
-  margin: 36px 0 0;
+.editions__door-note { margin: 14px 0 0; font-size: 0.9rem; }
+
+@media (max-width: 920px) {
+  .columns,
+  .columns[data-columns="4"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .column:nth-child(odd) { border-left: 0; padding-left: 0; }
 }
 
-.edition__section-title {
-  margin: 0 0 4px;
-  padding: 0 0 6px;
-  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--border-subtle-2)) 70%, transparent);
-  font-size: 0.94rem;
-  letter-spacing: 0.02em;
+@media (max-width: 640px) {
+  .front { padding-top: 52px; }
+  .nameplate { grid-template-columns: 1fr; gap: 10px; }
+  .ear, .ear--right { max-width: none; text-align: center; justify-self: center; }
+  .ear--left { order: 2; }
+  .ear--right { order: 3; }
+  .columns,
+  .columns[data-columns="2"],
+  .columns[data-columns="4"] { grid-template-columns: minmax(0, 1fr); row-gap: 26px; }
+  .column + .column {
+    border-left: 0;
+    padding-left: 0;
+    border-top: 1px solid var(--noeis-rule, var(--border-subtle-2));
+    padding-top: 22px;
+  }
+  .standfirst { font-size: 1.18rem; }
 }
 
-.edition__section-empty {
-  margin: 12px 0 0;
-  color: color-mix(in srgb, var(--text-muted) 80%, transparent);
-  font-style: italic;
+@media (prefers-reduced-motion: reduce) {
+  .issue,
+  .story__body,
+  .story__finding,
+  .story__boundary,
+  .run__issue { transition: none; }
 }
 
-.edition-item {
-  padding: 20px 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--border-subtle-2)) 45%, transparent);
-}
+/* The Sunday papers print. Everything folded open, nothing to press. */
+@media print {
+  .editions { max-width: none; }
+  .folio,
+  .run,
+  .story__fold,
+  .story__new,
+  .front__arrival,
+  .front__fresh,
+  .editions__door { display: none; }
 
-.edition-item__title {
-  margin: 0;
-  font-family: "Newsreader", Georgia, serif;
-  font-size: 1.16rem;
-  line-height: 1.35;
-}
-
-.edition-item__source {
-  margin: 4px 0 0;
-  font-size: 0.82rem;
-  color: color-mix(in srgb, var(--text-muted) 82%, transparent);
-}
-
-.edition-item__finding,
-.edition-item__note {
-  margin: 10px 0 0;
-  line-height: 1.55;
-}
-
-.edition-item__note {
-  color: color-mix(in srgb, var(--text-primary) 82%, transparent);
-}
-
-/* The required half, and the reason this is not a newsletter. */
-.edition-item__boundary {
-  margin: 12px 0 0;
-  padding: 0 0 0 14px;
-  border-left: 2px solid color-mix(in srgb, var(--noeis-pointer, var(--text-muted)) 42%, transparent);
-  line-height: 1.55;
-}
-
-.edition-item__label {
-  display: block;
-  margin: 0 0 2px;
-}
-
-.edition-item__doors {
-  margin: 14px 0 0;
-}
-
-.edition-item__save {
-  padding: 6px 12px;
-  border: 1px solid color-mix(in srgb, var(--noeis-pointer, var(--text-muted)) 55%, transparent);
-  border-radius: 999px;
-  background: none;
-  color: var(--noeis-pointer, var(--text-primary));
-  font-size: 0.84rem;
-  cursor: pointer;
-}
-
-.edition-item__save:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--noeis-pointer, var(--text-muted)) 10%, transparent);
-}
-
-.edition-item__save:disabled {
-  cursor: progress;
-  opacity: 0.6;
-}
-
-.edition-item__saved {
-  font-size: 0.84rem;
-}
-
-.edition__watch {
-  margin: 10px 0 0;
-  padding-left: 20px;
-  line-height: 1.6;
-}
-
-.edition__gap {
-  margin: 32px 0 0;
-  padding: 14px 0 0;
-  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--border-subtle-2)) 70%, transparent);
-  color: color-mix(in srgb, var(--text-muted) 86%, transparent);
+  .story.is-new::before { display: none; }
+  .story__body { grid-template-rows: 1fr; }
+  .story__finding,
+  .story__boundary { opacity: 1; transform: none; }
+  .front { break-inside: avoid; }
+  .dateline .is-live { color: inherit; }
 }
 
 /* The door on the morning paper. */
@@ -368,14 +603,6 @@
 .edition__colophon p {
   margin: 0 0 8px;
   max-width: 56ch;
-}
-
-/* A run of filings. Quiet, and about the agent rather than the reading. */
-.editions__run {
-  margin: 14px 0 0;
-  color: color-mix(in srgb, var(--text-muted) 88%, transparent);
-  font-size: 0.88rem;
-  font-style: italic;
 }
 
 .edition__colophon-cta {
