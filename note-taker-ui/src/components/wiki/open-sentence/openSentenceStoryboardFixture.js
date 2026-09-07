@@ -18,6 +18,11 @@ export const STORYBOARD_THEN_QUESTION =
 
 export const STORYBOARD_THEN_ORIGINAL = 'https://illustrated.example/capacity-then';
 
+export const STORYBOARD_THEN_BESIDE = Object.freeze({
+  title: 'Plant log',
+  passage: 'The floor did not move when the software did.'
+});
+
 export const STORYBOARD_PREMISE = 'demand grows more slowly';
 
 export const STORYBOARD_COMPUTE_SOURCE = Object.freeze({

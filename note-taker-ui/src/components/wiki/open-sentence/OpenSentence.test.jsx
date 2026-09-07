@@ -44,7 +44,7 @@ import {
   withdrawProposal,
   wordingChanged
 } from './openSentenceModel';
-import { STORYBOARD_COMPUTE_SENTENCE, STORYBOARD_COMPUTE_SOURCE, STORYBOARD_MEET_LIMIT, STORYBOARD_MEET_RELATION, STORYBOARD_MEET_SOURCE, STORYBOARD_SENTENCE, STORYBOARD_SOURCE, STORYBOARD_STALE_SOURCE, STORYBOARD_THEN_NOW, STORYBOARD_THEN_ORIGINAL, STORYBOARD_THEN_QUESTION, STORYBOARD_THEN_QUOTATION } from './openSentenceStoryboardFixture';
+import { STORYBOARD_COMPUTE_SENTENCE, STORYBOARD_COMPUTE_SOURCE, STORYBOARD_MEET_LIMIT, STORYBOARD_MEET_RELATION, STORYBOARD_MEET_SOURCE, STORYBOARD_SENTENCE, STORYBOARD_SOURCE, STORYBOARD_STALE_SOURCE, STORYBOARD_THEN_BESIDE, STORYBOARD_THEN_NOW, STORYBOARD_THEN_ORIGINAL, STORYBOARD_THEN_QUESTION, STORYBOARD_THEN_QUOTATION } from './openSentenceStoryboardFixture';
 
 const renderOpen = (exploration, onChange = jest.fn()) => render(
   <MemoryRouter>
@@ -104,7 +104,7 @@ describe('openSentenceModel', () => {
       source: STORYBOARD_COMPUTE_SOURCE,
       then: {
         text: STORYBOARD_COMPUTE_SENTENCE,
-        quotation: { title: 'Capacity', passage: STORYBOARD_THEN_QUOTATION },
+        sources: [{ title: 'Capacity', passage: STORYBOARD_THEN_QUOTATION }, STORYBOARD_THEN_BESIDE],
         question: STORYBOARD_THEN_QUESTION,
         draft: 'The plant is still the constraint.'
       }
@@ -113,11 +113,14 @@ describe('openSentenceModel', () => {
       ...start,
       then: {
         text: 'They used to believe compute would stay scarce.',
-        quotation: {
+        sources: [{
           title: 'Capacity',
           passage: 'They used to quote a different plant.',
           href: STORYBOARD_SOURCE.href
-        },
+        }, {
+          title: 'Plant log',
+          passage: 'They used to keep an invented companion source.'
+        }],
         question: 'They used to wonder about demand.',
         draft: 'They used to write a reconstructed scene.'
       },
@@ -127,7 +130,10 @@ describe('openSentenceModel', () => {
     expect(restored.originalText).toBe(STORYBOARD_THEN_NOW);
     expect(liveThen(restored)).toEqual({
       text: STORYBOARD_COMPUTE_SENTENCE,
-      quotation: { title: 'Capacity', passage: STORYBOARD_THEN_QUOTATION },
+      sources: [
+        { title: 'Capacity', passage: STORYBOARD_THEN_QUOTATION },
+        STORYBOARD_THEN_BESIDE
+      ],
       question: STORYBOARD_THEN_QUESTION,
       draft: 'The plant is still the constraint.'
     });
@@ -135,6 +141,7 @@ describe('openSentenceModel', () => {
     expect(JSON.stringify(restored)).not.toContain('used to quote');
     expect(JSON.stringify(restored)).not.toContain('used to wonder');
     expect(JSON.stringify(restored)).not.toContain('used to write');
+    expect(JSON.stringify(restored)).not.toContain('invented companion');
     expect(JSON.stringify(restored)).not.toContain(STORYBOARD_SOURCE.href);
     expect(liveThen(restoreExploration(snapshotExploration(dirty), createExploration({
       originalText: STORYBOARD_THEN_NOW
@@ -206,7 +213,7 @@ describe('openSentenceModel', () => {
       source: STORYBOARD_COMPUTE_SOURCE,
       then: {
         text: STORYBOARD_COMPUTE_SENTENCE,
-        quotation: { title: 'Capacity', passage: STORYBOARD_COMPUTE_SOURCE.passage }
+        sources: [{ title: 'Capacity', passage: STORYBOARD_COMPUTE_SOURCE.passage }]
       }
     }))).toEqual({ text: STORYBOARD_COMPUTE_SENTENCE });
     expect(liveThen(createExploration({
@@ -214,35 +221,55 @@ describe('openSentenceModel', () => {
       source: STORYBOARD_SOURCE,
       then: {
         text: STORYBOARD_COMPUTE_SENTENCE,
-        quotation: {
+        sources: [{
           title: 'Capacity',
           passage: STORYBOARD_THEN_QUOTATION,
           href: STORYBOARD_SOURCE.href,
           isLibrary: true
-        }
+        }]
       }
     }))).toEqual({
       text: STORYBOARD_COMPUTE_SENTENCE,
-      quotation: { title: 'Capacity', passage: STORYBOARD_THEN_QUOTATION }
+      sources: [{ title: 'Capacity', passage: STORYBOARD_THEN_QUOTATION }]
+    });
+    expect(liveThen(createExploration({
+      originalText: STORYBOARD_THEN_NOW,
+      source: STORYBOARD_COMPUTE_SOURCE,
+      other: STORYBOARD_THEN_BESIDE,
+      then: {
+        text: STORYBOARD_COMPUTE_SENTENCE,
+        sources: [{
+          title: 'Capacity',
+          passage: STORYBOARD_THEN_QUOTATION,
+          href: STORYBOARD_THEN_ORIGINAL
+        }, STORYBOARD_THEN_BESIDE]
+      }
+    }))).toEqual({
+      text: STORYBOARD_COMPUTE_SENTENCE,
+      sources: [{
+        title: 'Capacity',
+        passage: STORYBOARD_THEN_QUOTATION,
+        href: STORYBOARD_THEN_ORIGINAL
+      }]
     });
     expect(liveThen(createExploration({
       originalText: STORYBOARD_THEN_NOW,
       source: STORYBOARD_COMPUTE_SOURCE,
       then: {
         text: STORYBOARD_COMPUTE_SENTENCE,
-        quotation: {
+        sources: [{
           title: 'Capacity',
           passage: STORYBOARD_THEN_QUOTATION,
           href: STORYBOARD_THEN_ORIGINAL
-        }
+        }, STORYBOARD_THEN_BESIDE]
       }
     }))).toEqual({
       text: STORYBOARD_COMPUTE_SENTENCE,
-      quotation: {
+      sources: [{
         title: 'Capacity',
         passage: STORYBOARD_THEN_QUOTATION,
         href: STORYBOARD_THEN_ORIGINAL
-      }
+      }, STORYBOARD_THEN_BESIDE]
     });
     expect(liveThen({
       ...createExploration({
@@ -786,11 +813,11 @@ describe('OpenSentence', () => {
       source: STORYBOARD_COMPUTE_SOURCE,
       then: {
         text: STORYBOARD_COMPUTE_SENTENCE,
-        quotation: {
+        sources: [{
           title: 'Capacity',
           passage: STORYBOARD_THEN_QUOTATION,
           href: STORYBOARD_THEN_ORIGINAL
-        },
+        }, STORYBOARD_THEN_BESIDE],
         question: STORYBOARD_THEN_QUESTION,
         draft: 'The plant is still the constraint.'
       }
@@ -800,6 +827,8 @@ describe('OpenSentence', () => {
     const then = document.querySelector('.open-sentence-pocket__then');
     expect(then).toHaveTextContent(STORYBOARD_COMPUTE_SENTENCE);
     expect(then).toHaveTextContent(STORYBOARD_THEN_QUOTATION);
+    expect(then).toHaveTextContent('Plant log');
+    expect(then).toHaveTextContent(STORYBOARD_THEN_BESIDE.passage);
     expect(then).toHaveTextContent('Then you left this open');
     expect(then).toHaveTextContent(STORYBOARD_THEN_QUESTION);
     expect(then).toHaveTextContent('Then you wrote');

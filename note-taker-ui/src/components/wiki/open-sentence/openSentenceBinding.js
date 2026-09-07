@@ -294,36 +294,21 @@ const snapshotForClaim = (found, claimId) => {
   };
 };
 
-const quotationFromBefore = (found, claimId) => {
-  const snapshot = snapshotForClaim(found, claimId);
-  if (!snapshot) return null;
-  const bound = bindClaimSource(snapshot);
-  if (!bound || bound.available === false) return null;
-  const passage = String(bound.passage || '').trim();
-  if (!passage) return null;
-  return {
-    title: bound.title,
-    passage,
-    aroundBefore: bound.aroundBefore,
-    aroundAfter: bound.aroundAfter,
-    href: bound.href,
-    originalHref: bound.originalHref,
-    isLibrary: bound.isLibrary,
-    articleId: bound.articleId,
-    highlightId: bound.highlightId
-  };
-};
-
 const pickAttachedLine = (attached, type) => {
   const ref = (attached || []).find((item) => item?.type === type);
   return String(ref?.snippet || ref?.title || '').trim();
 };
 
-const workFromBefore = (found, claimId) => {
+const recordedPassage = (bound) => (
+  bound && bound.available !== false && String(bound.passage || '').trim() ? bound : null
+);
+
+const sceneFromBefore = (found, claimId) => {
   const snapshot = snapshotForClaim(found, claimId);
   if (!snapshot) return {};
   const { attached } = attachedSourceRefs(snapshot);
   return {
+    sources: [bindClaimSource(snapshot), bindClaimOther(snapshot)].filter(recordedPassage),
     question: pickAttachedLine(attached, 'question'),
     draft: pickAttachedLine(attached, 'notebook')
   };
@@ -345,12 +330,11 @@ export const recordedThen = ({ claimId, currentText, revisions, history } = {}) 
   const fromRevision = earlierFromRevisions(revisions, claimId, now);
   const text = fromRevision?.text || earlierClaimTextFromHistory(history, now);
   if (!text) return null;
-  const work = workFromBefore(fromRevision, claimId);
+  const scene = sceneFromBefore(fromRevision, claimId);
   return {
     text,
-    quotation: quotationFromBefore(fromRevision, claimId),
-    question: work.question,
-    draft: work.draft || thenDraftFromHistory(history, text)
+    ...scene,
+    draft: scene.draft || thenDraftFromHistory(history, text)
   };
 };
 

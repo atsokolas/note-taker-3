@@ -344,12 +344,12 @@ describe('openSentenceBinding', () => {
     });
     expect(exploration.then).toEqual({
       text: 'Compute will remain scarce.',
-      quotation: {
+      sources: [{
         title: 'Capacity',
         passage: 'The plant, not the algorithm, was the limit.',
         aroundBefore: 'The bottleneck was not a clever algorithm.',
         aroundAfter: 'That does not prove the next decade will look the same.'
-      }
+      }]
     });
     expect(JSON.stringify(exploration.then)).not.toContain('Unrelated');
     expect(exploration.source.passage).toBe('Supply was the constraint this decade.');
@@ -568,10 +568,10 @@ describe('openSentenceBinding', () => {
     });
     expect(exploration.then).toEqual({
       text: 'Compute will remain scarce.',
-      quotation: {
+      sources: [{
         title: 'Capacity',
         passage: 'The plant, not the algorithm, was the limit.'
-      },
+      }],
       question: 'Is scarcity a plant problem, or a demand problem?',
       draft: 'The plant is still the constraint.'
     });
@@ -688,8 +688,8 @@ describe('openSentenceBinding', () => {
         }
       }]
     });
-    expect(exploration.then.quotation.href).toBe('https://old.example/capacity-then');
-    expect(exploration.then.quotation.isLibrary).toBeUndefined();
+    expect(exploration.then.sources[0].href).toBe('https://old.example/capacity-then');
+    expect(exploration.then.sources[0].isLibrary).toBeUndefined();
     expect(exploration.source.href).toBe('/library?articleId=article-capacity&highlightId=highlight-now');
   });
 
@@ -732,8 +732,86 @@ describe('openSentenceBinding', () => {
         }
       }]
     });
-    expect(exploration.then.quotation.passage).toBe('The plant, not the algorithm, was the limit.');
-    expect(exploration.then.quotation.href).toBeUndefined();
+    expect(exploration.then.sources[0].passage).toBe('The plant, not the algorithm, was the limit.');
+    expect(exploration.then.sources[0].href).toBeUndefined();
     expect(JSON.stringify(exploration.then)).not.toContain('/library');
+  });
+
+  it('opens a second recorded source from that revision, not today\'s other or a neighbor', () => {
+    const plant = {
+      _id: 'source-plant',
+      type: 'highlight',
+      objectId: 'highlight-plant',
+      title: 'Plant log',
+      snippet: 'The floor did not move when the software did.'
+    };
+    const capacityThen = {
+      _id: 'source-capacity',
+      type: 'highlight',
+      title: 'Capacity',
+      snippet: 'The plant, not the algorithm, was the limit.'
+    };
+    const before = {
+      body: markedDoc('Compute will remain scarce.', {
+        claimId: 'claim-compute',
+        citationIndexes: [1, 2]
+      }),
+      claims: [{
+        claimId: 'claim-compute',
+        text: 'Compute will remain scarce.',
+        sourceRefIds: ['source-capacity', 'source-plant']
+      }],
+      sourceRefs: [capacityThen, plant, {
+        _id: 'source-other',
+        type: 'highlight',
+        title: 'A neighboring log was not this claim.',
+        snippet: 'Unrelated floors should never be substituted.'
+      }]
+    };
+    const thenOnly = liveExplorationForPageClaim({
+      body: markedDoc('Software can do more with the same plant.', {
+        claimId: 'claim-compute',
+        citationIndexes: [1]
+      }),
+      claims: [{
+        claimId: 'claim-compute',
+        text: 'Software can do more with the same plant.',
+        sourceRefIds: ['source-capacity']
+      }],
+      sourceRefs: [{
+        _id: 'source-capacity',
+        type: 'highlight',
+        title: 'Capacity',
+        snippet: 'Supply was the constraint this decade.'
+      }]
+    }, { claimId: 'claim-compute' }, { revisions: [{ before }] });
+    expect(thenOnly.then.sources).toEqual([
+      { title: 'Capacity', passage: 'The plant, not the algorithm, was the limit.' },
+      { title: 'Plant log', passage: 'The floor did not move when the software did.' }
+    ]);
+    expect(thenOnly.other).toBeNull();
+    expect(JSON.stringify(thenOnly.then)).not.toContain('Unrelated');
+
+    const alreadyBeside = liveExplorationForPageClaim({
+      body: markedDoc('Software can do more with the same plant.', {
+        claimId: 'claim-compute',
+        citationIndexes: [1, 2]
+      }),
+      claims: [{
+        claimId: 'claim-compute',
+        text: 'Software can do more with the same plant.',
+        sourceRefIds: ['source-capacity', 'source-plant']
+      }],
+      sourceRefs: [{
+        _id: 'source-capacity',
+        type: 'highlight',
+        title: 'Capacity',
+        snippet: 'Supply was the constraint this decade.'
+      }, plant]
+    }, { claimId: 'claim-compute' }, { revisions: [{ before }] });
+    expect(alreadyBeside.other.passage).toBe(plant.snippet);
+    expect(alreadyBeside.then.sources).toEqual([
+      { title: 'Capacity', passage: 'The plant, not the algorithm, was the limit.' }
+    ]);
   });
 });

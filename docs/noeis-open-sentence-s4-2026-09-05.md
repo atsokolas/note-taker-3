@@ -38,7 +38,7 @@ Accepting that proposal is a later, separate act. It patches only that claim’s
 
 A named premise can sit beside the original line in the same pocket. Empty slots stay empty. The original survives. If the live line moved on, the experiment is dropped. Library may suppose; it still cannot propose or accept.
 
-An earlier recorded wording can sit beside today in the same pocket. Identity is that claim's prior revision (or history fallback). If that revision recorded a different quotation for the same source, it sits under Then. That quotation opens a historical door only when the snapshot's own href or original URL is a different identity from today's live source. If that snapshot bound a question or notebook draft to the claim, that recorded line sits under Then. A draft cannot forge Then. Library stays silent.
+An earlier recorded wording can sit beside today in the same pocket. Identity is that claim's prior revision (or history fallback). Recorded sources attached to that claim in the snapshot sit under Then when they still differ from today. A historical door opens only when the snapshot's own href or original URL is a different identity from today's live source or live other. If that snapshot bound a question or notebook draft to the claim, that recorded line sits under Then. A draft cannot forge Then. Library stays silent.
 
 A second recorded passage can sit beside the first in the same pocket. Identity is that claim's attached sources. The person names how they meet and where that stops. The space between is theirs to write, and stays empty until they do. A note written there can stay a note, be kept as an unfinished experiment — the existing pressure act, their words as the premise — be proposed as the Wiki line — the existing proposal, their words, against the live line — or be kept as an essay — a snapshot of their words, not the Wiki line, able to remain after the meeting is left. A draft cannot forge the second source. Library stays silent.
 
@@ -46,7 +46,7 @@ Do not read a green script as longitudinal value. Do not read a preview deploy a
 
 ## What stays closed
 
-Public shares. Workspace composer. Repo dossiers, company dossiers, investment dossiers, living theses, research editions. Server-sync of private drafts. Generated inspection of whether a wording is warranted. Generated matches between sources. Contemporaneous drafts and questions as a reconstructed scene of everything written then. Horizons (exhibits, rehearsal, instruments, two Libraries, sharing).
+Public shares. Workspace composer. Repo dossiers, company dossiers, investment dossiers, living theses, research editions. Server-sync of private drafts. Generated inspection of whether a wording is warranted. Generated matches between sources. A reconstructed biography of everything written then. Horizons (exhibits, rehearsal, instruments, two Libraries, sharing).
 
 ## Taste pass
 
@@ -91,14 +91,19 @@ Public shares. Workspace composer. Repo dossiers, company dossiers, investment d
 - Silence: one source; a duplicate identity; the same passage twice; a neighboring unattached source; recorded work (question / notebook); Library; relation empty and the space between empty (limit-only does not keep the walk); the live line moved on → drop the naming. Filler is never the answer.
 
 **Historical quotation**
-- Eligibility: Then is showing from a revision whose `before` binds the same source identity for that claim, with a recorded passage that differs from today's.
+- Eligibility: Then is showing from a revision whose `before` binds an attached source for that claim, with a recorded passage that differs from today's live source and live other.
 - Quality bar: identity only. That sourceRef, exact recorded quote or snippet. No similar-text repair. No generated biography.
-- Silence: history fallback (no snapshot); pruned snapshot; missing or unavailable historical source; quotation already matches today. Filler is never the answer.
+- Silence: history fallback (no snapshot); pruned snapshot; missing or unavailable historical source; passage already matches today or today's other. Filler is never the answer.
 
 **Historical version**
-- Eligibility: Then quotation is showing, and the snapshot source has an owned or original door whose identity differs from today's live source door.
+- Eligibility: a Then source is showing, and the snapshot source has an owned or original door whose identity differs from today's live source and live other doors.
 - Quality bar: identity only. That snapshot sourceRef's recorded href or url. Exact. No constructing a Library URL from today's highlight. No wayback invention. No today's Library door pretending to be Then.
 - Silence: same door as today; no url on the snapshot; history fallback; Library host. Filler is never the answer.
+
+**Contemporaneous scene**
+- Eligibility: Then is showing from a revision whose `before` binds more than the live source — another attached passage, a question, or a notebook draft — still different from today.
+- Quality bar: identity only. Those snapshot sourceRefs and recorded work. Exact. Assembled beside today. No similar-text repair. No generated biography. No filling from neighboring unattached sources.
+- Silence: same passage as today or today's other; unattached neighbor; history-only Then with no snapshot work; Library host. Filler is never the answer.
 
 **Recorded question / draft**
 - Eligibility: Then is showing from a revision whose `before` binds a `question` or `notebook` sourceRef to that claim, or a user `history.note` whose text is the Then line.
