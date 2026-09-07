@@ -19,6 +19,7 @@ import {
   isPressured,
   keepBetweenAsEssay,
   keepBetweenAsExperiment,
+  keepPressurePassage,
   keepQuestion,
   keepsClosedDraft,
   leaveEssay,
@@ -31,6 +32,7 @@ import {
   meetWayHome,
   openExploration,
   placeSource,
+  pressurePassages,
   pressureWayHome,
   proposeWording,
   putItBack,
@@ -354,6 +356,28 @@ describe('openSentenceModel', () => {
       ...pressured,
       originalText: 'Children need room to make recoverable mistakes.'
     })).toBe(false);
+  });
+
+  it('lets a recorded passage sit as what still holds or as unknown, not both, and not a neighbor', () => {
+    const start = beginPressure(createExploration({
+      originalText: STORYBOARD_THEN_NOW,
+      source: STORYBOARD_COMPUTE_SOURCE,
+      other: STORYBOARD_THEN_BESIDE
+    }));
+    expect(pressurePassages(start)).toEqual([
+      { title: STORYBOARD_COMPUTE_SOURCE.title, passage: STORYBOARD_COMPUTE_SOURCE.passage },
+      { title: STORYBOARD_THEN_BESIDE.title, passage: STORYBOARD_THEN_BESIDE.passage }
+    ]);
+    expect(keepPressurePassage(start, 'premise', STORYBOARD_COMPUTE_SOURCE)).toEqual(start);
+    expect(keepPressurePassage(start, 'stillHolds', { title: 'Neighbor', passage: 'Unrelated floors' })).toEqual(start);
+    const held = keepPressurePassage(start, 'stillHolds', STORYBOARD_COMPUTE_SOURCE);
+    expect(held.pressure.stillHolds).toBe(STORYBOARD_COMPUTE_SOURCE.passage);
+    expect(keepPressurePassage(held, 'unknown', STORYBOARD_COMPUTE_SOURCE)).toEqual(held);
+    const unknown = keepPressurePassage(held, 'unknown', STORYBOARD_THEN_BESIDE);
+    expect(unknown.pressure.unknown).toBe(STORYBOARD_THEN_BESIDE.passage);
+    expect(keepPressurePassage(beginPressure(createExploration({
+      originalText: STORYBOARD_THEN_NOW
+    })), 'stillHolds', STORYBOARD_COMPUTE_SOURCE).pressure.stillHolds).toBe('');
   });
 
   it('lets two recorded passages meet without inventing the connection', () => {
@@ -805,6 +829,31 @@ describe('OpenSentence', () => {
     );
     expect(screen.getByLabelText('For this experiment')).toHaveValue('demand grows more slowly');
     expect(screen.getByRole('button', { name: STORYBOARD_SENTENCE })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Keep Nomad as what still holds' }));
+    expect(onChange).toHaveBeenCalledWith(keepPressurePassage(
+      setPressureField(pressured, 'premise', 'demand grows more slowly'),
+      'stillHolds',
+      STORYBOARD_SOURCE
+    ));
+    rerender(
+      <MemoryRouter>
+        <OpenSentence
+          exploration={keepPressurePassage(
+            setPressureField(pressured, 'premise', 'demand grows more slowly'),
+            'stillHolds',
+            STORYBOARD_SOURCE
+          )}
+          onChange={onChange}
+          mocked
+        />
+      </MemoryRouter>
+    );
+    expect(screen.getByLabelText('What still holds')).toHaveValue(STORYBOARD_SOURCE.passage);
+    expect(document.querySelector('.open-sentence-pocket__pressure')).toHaveTextContent('Nomad');
+    expect(screen.queryByRole('button', { name: 'Keep Nomad as what still holds' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Keep Nomad as unknown' })).not.toBeInTheDocument();
+    expect(screen.getByLabelText('What remains unknown')).toHaveValue('');
+    expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
   });
 
   it('shows Then beside the live line without a biography or a therefore', () => {

@@ -7,6 +7,7 @@ import OpenSentenceStoryboard, { patchStoryboardSearch } from './OpenSentenceSto
 import { draftStorageKey, openedStorageKey } from '../components/wiki/open-sentence/openSentenceBinding';
 import {
   STORYBOARD_COMPUTE_SENTENCE,
+  STORYBOARD_COMPUTE_SOURCE,
   STORYBOARD_COMPUTE_TITLE,
   STORYBOARD_ITEM_ID,
   STORYBOARD_MEET_LIMIT,
@@ -144,6 +145,12 @@ describe('OpenSentenceStoryboard', () => {
     expect(
       screen.getByText('The original stays. The experiment is not a generated causal chain.')
     ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Keep Capacity as what still holds' }));
+    expect(screen.getByLabelText('What still holds')).toHaveValue(STORYBOARD_COMPUTE_SOURCE.passage);
+    expect(document.querySelector('.open-sentence-pocket__pressure')).toHaveTextContent('Capacity');
+    expect(screen.queryByRole('button', { name: 'Keep Capacity as unknown' })).not.toBeInTheDocument();
+    expect(screen.getByLabelText('What remains unknown')).toHaveValue('');
+    expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Read' }));
     expect(screen.getByRole('heading', { name: 'Parenting' })).toBeInTheDocument();
     expect(screen.queryByDisplayValue(STORYBOARD_PREMISE)).not.toBeInTheDocument();

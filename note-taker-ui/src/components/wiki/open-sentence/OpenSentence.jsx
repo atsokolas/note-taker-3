@@ -21,6 +21,7 @@ import {
   isPressured,
   keepBetweenAsEssay,
   keepBetweenAsExperiment,
+  keepPressurePassage,
   keepQuestion,
   leaveEssay,
   leaveMark,
@@ -31,6 +32,7 @@ import {
   meetWayHome,
   openExploration,
   placeSource,
+  pressurePassages,
   pressureWayHome,
   proposeWording,
   putItBack,
@@ -220,6 +222,53 @@ const SourceBeside = ({
   );
 };
 
+const keepPressureLabel = (field, title) => {
+  const name = title || 'this passage';
+  if (field === 'stillHolds') return `Keep ${name} as what still holds`;
+  if (field === 'unknown') return `Keep ${name} as unknown`;
+  return '';
+};
+
+const PressureSlot = ({
+  id,
+  label,
+  field,
+  placeholder,
+  keep = false,
+  exploration,
+  onCommit
+}) => {
+  const value = exploration.pressure[field];
+  const passages = keep ? pressurePassages(exploration) : [];
+  const taken = new Set(
+    ['stillHolds', 'unknown'].map((slot) => String(exploration.pressure[slot] || '').trim())
+  );
+  const kept = passages.find((source) => source.passage === String(value || '').trim());
+  return (
+    <>
+      <PocketField
+        id={id}
+        label={label}
+        value={value}
+        placeholder={placeholder}
+        onChange={(next) => onCommit(setPressureField(exploration, field, next))}
+      />
+      {kept?.title ? (
+        <p className="open-sentence-pocket__qualification">{kept.title}</p>
+      ) : null}
+      {passages.filter((source) => !taken.has(source.passage)).map((source) => (
+        <button
+          key={`${field}:${source.passage}`}
+          type="button"
+          onClick={() => onCommit(keepPressurePassage(exploration, field, source))}
+        >
+          {keepPressureLabel(field, source.title)}
+        </button>
+      ))}
+    </>
+  );
+};
+
 const PressureBody = ({ pocketId, exploration, onCommit }) => {
   if (!isPressured(exploration)) {
     return (
@@ -230,27 +279,31 @@ const PressureBody = ({ pocketId, exploration, onCommit }) => {
       </div>
     );
   }
-  const pressure = exploration.pressure;
   return (
     <div className="open-sentence-pocket__pressure">
-      <PocketField
+      <PressureSlot
         id={`${pocketId}-premise`}
         label="For this experiment"
-        value={pressure.premise}
-        onChange={(value) => onCommit(setPressureField(exploration, 'premise', value))}
+        field="premise"
         placeholder="Name the change. Do not invent a chain."
+        exploration={exploration}
+        onCommit={onCommit}
       />
-      <PocketField
+      <PressureSlot
         id={`${pocketId}-holds`}
         label="What still holds"
-        value={pressure.stillHolds}
-        onChange={(value) => onCommit(setPressureField(exploration, 'stillHolds', value))}
+        field="stillHolds"
+        keep
+        exploration={exploration}
+        onCommit={onCommit}
       />
-      <PocketField
+      <PressureSlot
         id={`${pocketId}-unknown`}
         label="What remains unknown"
-        value={pressure.unknown}
-        onChange={(value) => onCommit(setPressureField(exploration, 'unknown', value))}
+        field="unknown"
+        keep
+        exploration={exploration}
+        onCommit={onCommit}
       />
       <button type="button" onClick={() => onCommit(endPressure(exploration))}>
         Leave the experiment

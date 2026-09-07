@@ -151,13 +151,19 @@ export const acceptWording = (exploration) => {
   };
 };
 
+const PRESSURE_SLOTS = ['premise', 'stillHolds', 'unknown'];
+
+const pressureSlots = (pressure = {}) => Object.fromEntries(
+  PRESSURE_SLOTS.map((slot) => [slot, String(pressure?.[slot] || '')])
+);
+
 export const beginPressure = (exploration) => {
   if (isPressured(exploration)) return exploration;
   const against = String(exploration?.originalText || '').trim();
   if (!against) return exploration;
   return {
     ...exploration,
-    pressure: { against, premise: '', stillHolds: '', unknown: '' }
+    pressure: { against, ...pressureSlots() }
   };
 };
 
@@ -173,26 +179,24 @@ export const isPressured = (exploration) => {
 
 export const livePressure = (exploration) => {
   if (!isPressured(exploration)) return null;
-  const premise = String(exploration.pressure.premise || '').trim();
+  const slots = pressureSlots(exploration.pressure);
+  const premise = slots.premise.trim();
   if (!premise) return null;
   return {
     against: String(exploration.pressure.against || '').trim(),
     premise,
-    stillHolds: String(exploration.pressure.stillHolds || '').trim(),
-    unknown: String(exploration.pressure.unknown || '').trim()
+    stillHolds: slots.stillHolds.trim(),
+    unknown: slots.unknown.trim()
   };
 };
 
 export const setPressureField = (exploration, field, value) => {
-  if (!isPressured(exploration)) return exploration;
-  if (field !== 'premise' && field !== 'stillHolds' && field !== 'unknown') return exploration;
+  if (!isPressured(exploration) || !PRESSURE_SLOTS.includes(field)) return exploration;
   return {
     ...exploration,
     pressure: {
       against: String(exploration.originalText || '').trim(),
-      premise: String(exploration.pressure.premise || ''),
-      stillHolds: String(exploration.pressure.stillHolds || ''),
-      unknown: String(exploration.pressure.unknown || ''),
+      ...pressureSlots(exploration.pressure),
       [field]: String(value ?? '')
     }
   };
@@ -210,6 +214,38 @@ export const inspectableOther = (exploration) => {
   const first = String(exploration?.source?.passage || '').trim();
   if (!passage || passage === first) return null;
   return other;
+};
+
+const recordedPassage = (source) => {
+  if (!source || source.available === false) return null;
+  const passage = String(source.passage || '').trim();
+  if (!passage) return null;
+  const title = String(source.title || '').trim();
+  return title ? { title, passage } : { passage };
+};
+
+export const pressurePassages = (exploration) => {
+  const seen = new Set();
+  return [exploration?.source, inspectableOther(exploration)].reduce((list, source) => {
+    const recorded = recordedPassage(source);
+    if (!recorded || seen.has(recorded.passage)) return list;
+    seen.add(recorded.passage);
+    return [...list, recorded];
+  }, []);
+};
+
+export const keepPressurePassage = (exploration, field, source) => {
+  if (field !== 'stillHolds' && field !== 'unknown') return exploration;
+  const recorded = recordedPassage(source);
+  if (!recorded) return exploration;
+  if (!pressurePassages(exploration).some((item) => item.passage === recorded.passage)) {
+    return exploration;
+  }
+  const slots = pressureSlots(exploration?.pressure);
+  if ([slots.stillHolds, slots.unknown].map((text) => text.trim()).includes(recorded.passage)) {
+    return exploration;
+  }
+  return setPressureField(exploration, field, recorded.passage);
 };
 
 export const isMeeting = (exploration) => {
