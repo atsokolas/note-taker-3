@@ -9,6 +9,9 @@ import {
   STORYBOARD_COMPUTE_SENTENCE,
   STORYBOARD_COMPUTE_TITLE,
   STORYBOARD_ITEM_ID,
+  STORYBOARD_MEET_LIMIT,
+  STORYBOARD_MEET_RELATION,
+  STORYBOARD_MEET_SOURCE,
   STORYBOARD_PREMISE,
   STORYBOARD_PROVISIONAL,
   STORYBOARD_RETURN_NOTE,
@@ -159,6 +162,25 @@ describe('OpenSentenceStoryboard', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Read' }));
     expect(screen.getByRole('heading', { name: 'Parenting' })).toBeInTheDocument();
     expect(document.querySelector('.open-sentence-pocket__then')).not.toBeInTheDocument();
+  });
+
+  it('puts the investment letter beside Parenting without generating the connection', () => {
+    renderBoard();
+    fireEvent.click(screen.getByRole('button', { name: 'Meet' }));
+    expect(screen.getByRole('heading', { name: 'Parenting' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: STORYBOARD_SENTENCE })).toBeInTheDocument();
+    expect(screen.getByText('Also beside')).toBeInTheDocument();
+    expect(screen.getByText(STORYBOARD_MEET_SOURCE.passage)).toBeInTheDocument();
+    expect(screen.getByLabelText('How they meet')).toHaveValue(STORYBOARD_MEET_RELATION);
+    expect(screen.getByLabelText('Where that stops')).toHaveValue(STORYBOARD_MEET_LIMIT);
+    expect(screen.getByLabelText('The space between')).toHaveValue('');
+    expect(screen.queryByText(STORYBOARD_COMPUTE_SENTENCE)).not.toBeInTheDocument();
+    expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
+    expect(
+      screen.getByText('Both ends are inspectable. The space between is yours.')
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Read' }));
+    expect(screen.queryByText('Also beside')).not.toBeInTheDocument();
   });
 
   it('leaves a way home after Nomad without opening the pocket', async () => {

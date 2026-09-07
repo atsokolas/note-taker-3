@@ -78,6 +78,104 @@ const unavailableSource = (title = 'This source') => ({
   highlightId: ''
 });
 
+const isRecordedWork = (source) => source?.type === 'question' || source?.type === 'notebook';
+
+const sourceIdentity = (source) => {
+  const objectId = String(source?.objectId || '').trim();
+  if (objectId) return `${source?.type || ''}:${objectId}`;
+  return asId(source);
+};
+
+const attachedSourceRefs = ({
+  claimMark,
+  ledgerClaim,
+  citations = [],
+  sourceRefs = []
+} = {}) => {
+  const refs = Array.isArray(sourceRefs) ? sourceRefs : [];
+  const notes = Array.isArray(citations) ? citations : [];
+  const indexes = citationIndexes(claimMark);
+  let attached = [];
+  if (ledgerClaim) {
+    attached = refs.filter((source) => ledgerMatchesSource({
+      claim: ledgerClaim,
+      source,
+      citations: notes
+    }));
+  }
+  if (!attached.length && indexes.length) {
+    attached = indexes
+      .map((index) => refs[index - 1])
+      .filter(Boolean);
+  }
+  if (!attached.length && notes.length && ledgerClaim?.citationIds?.length) {
+    attached = refs.filter((source) => notes
+      .filter((citation) => (ledgerClaim.citationIds || []).some((id) => idsMatch(id, citation)))
+      .some((citation) => citationMatchesSource(citation, source)));
+  }
+  return { attached, indexes, notes };
+};
+
+const bindPassage = (source, notes = []) => {
+  if (!source) return null;
+  const citation = notes.find((item) => citationMatchesSource(item, source));
+  const citedPassage = cleanSourceTextForDisplay(citation?.quote || '');
+  const currentPassage = cleanSourceTextForDisplay(source.snippet || source.excerpt || '');
+  const passage = citedPassage || currentPassage;
+  const doors = resolveSourceDoors(source);
+  const around = surrounding(source);
+  const libraryIds = libraryIdsFromHref(doors.ownedHref);
+  return {
+    title: String(source.title || '').trim() || 'Untitled source',
+    passage,
+    aroundBefore: around.aroundBefore,
+    aroundAfter: around.aroundAfter,
+    qualification: qualifyBoundSource(source, passage, doors),
+    available: true,
+    stale: Boolean(citedPassage && currentPassage && citedPassage !== currentPassage),
+    href: doors.ownedHref,
+    originalHref: doors.originalHref,
+    isLibrary: doors.isLibrary,
+    here: false,
+    articleId: libraryIds.articleId,
+    highlightId: libraryIds.highlightId
+  };
+};
+
+const attachedPassages = (args) => {
+  const { attached, indexes, notes } = attachedSourceRefs(args);
+  return {
+    attached,
+    passages: attached.filter((source) => !isRecordedWork(source)),
+    indexes,
+    notes
+  };
+};
+
+export const bindClaimSource = (args = {}) => {
+  const { attached, passages, indexes, notes } = attachedPassages(args);
+  if (!passages.length) {
+    return indexes.length && !attached.length ? unavailableSource() : null;
+  }
+  return bindPassage(passages[0], notes);
+};
+
+export const bindClaimOther = (args = {}) => {
+  const { passages, notes } = attachedPassages(args);
+  if (passages.length < 2) return null;
+  const firstKey = sourceIdentity(passages[0]);
+  const other = passages.slice(1).find((item) => {
+    const key = sourceIdentity(item);
+    return key && key !== firstKey;
+  });
+  if (!other) return null;
+  const bound = bindPassage(other, notes);
+  const passage = String(bound?.passage || '').trim();
+  if (!bound?.available || !passage) return null;
+  if (passage === String(bindPassage(passages[0], notes)?.passage || '').trim()) return null;
+  return bound;
+};
+
 export const draftStorageKey = (pageId, claimId) => (
   `noeis.open-sentence.${String(pageId || '').trim()}.${String(claimId || '').trim()}`
 );
@@ -122,65 +220,6 @@ export const claimIdFromSelection = (root, claims = []) => {
     ? String(claimNode.getAttribute('data-claim-id') || '').trim()
     : '';
   return claims.some((claim) => claim.claimId === claimId) ? claimId : fallback;
-};
-
-export const bindClaimSource = ({
-  claimMark,
-  ledgerClaim,
-  citations = [],
-  sourceRefs = []
-} = {}) => {
-  const refs = Array.isArray(sourceRefs) ? sourceRefs : [];
-  const notes = Array.isArray(citations) ? citations : [];
-  const indexes = citationIndexes(claimMark);
-
-  let attached = [];
-  if (ledgerClaim) {
-    attached = refs.filter((source) => ledgerMatchesSource({
-      claim: ledgerClaim,
-      source,
-      citations: notes
-    }));
-  }
-  if (!attached.length && indexes.length) {
-    attached = indexes
-      .map((index) => refs[index - 1])
-      .filter(Boolean);
-  }
-  if (!attached.length && notes.length && ledgerClaim?.citationIds?.length) {
-    attached = refs.filter((source) => notes
-      .filter((citation) => (ledgerClaim.citationIds || []).some((id) => idsMatch(id, citation)))
-      .some((citation) => citationMatchesSource(citation, source)));
-  }
-
-  if (!attached.length) {
-    return indexes.length ? unavailableSource() : null;
-  }
-
-  const source = attached[0];
-  const citation = notes.find((item) => citationMatchesSource(item, source));
-  const citedPassage = cleanSourceTextForDisplay(citation?.quote || '');
-  const currentPassage = cleanSourceTextForDisplay(source.snippet || source.excerpt || '');
-  const passage = citedPassage || currentPassage;
-  const doors = resolveSourceDoors(source);
-  const around = surrounding(source);
-  const libraryIds = libraryIdsFromHref(doors.ownedHref);
-
-  return {
-    title: String(source.title || '').trim() || 'Untitled source',
-    passage,
-    aroundBefore: around.aroundBefore,
-    aroundAfter: around.aroundAfter,
-    qualification: qualifyBoundSource(source, passage, doors),
-    available: true,
-    stale: Boolean(citedPassage && currentPassage && citedPassage !== currentPassage),
-    href: doors.ownedHref,
-    originalHref: doors.originalHref,
-    isLibrary: doors.isLibrary,
-    here: false,
-    articleId: libraryIds.articleId,
-    highlightId: libraryIds.highlightId
-  };
 };
 
 export const claimTextOnPage = (doc, claimId) => {
@@ -243,14 +282,18 @@ export const liveExplorationForClaim = ({
   citations = [],
   sourceRefs = [],
   then = null
-} = {}) => createExploration({
-  id: String(claimMark?.claimId || ledgerClaim?.claimId || '').trim(),
-  originalText: claimMark && 'text' in claimMark
-    ? String(claimMark.text ?? '')
-    : String(ledgerClaim?.text || ''),
-  source: bindClaimSource({ claimMark, ledgerClaim, citations, sourceRefs }),
-  then
-});
+} = {}) => {
+  const bound = { claimMark, ledgerClaim, citations, sourceRefs };
+  return createExploration({
+    id: String(claimMark?.claimId || ledgerClaim?.claimId || '').trim(),
+    originalText: claimMark && 'text' in claimMark
+      ? String(claimMark.text ?? '')
+      : String(ledgerClaim?.text || ''),
+    source: bindClaimSource(bound),
+    other: bindClaimOther(bound),
+    then
+  });
+};
 
 export const liveExplorationForPageClaim = (page, claimMark = {}, extras = {}) => {
   const claimId = String(claimMark?.claimId || '').trim();

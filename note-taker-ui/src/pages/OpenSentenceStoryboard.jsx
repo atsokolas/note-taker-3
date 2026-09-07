@@ -8,6 +8,7 @@ import {
   beginPressure,
   cancelPlacement,
   createExploration,
+  inspectableOther,
   isOpen,
   isPressured,
   keepQuestion,
@@ -15,6 +16,7 @@ import {
   openExploration,
   placeSource,
   putItBack,
+  setMeetField,
   setPressureField,
   setReturnNote,
   tryWording,
@@ -31,6 +33,9 @@ import {
   STORYBOARD_COMPUTE_TITLE,
   STORYBOARD_ITEM_ID,
   STORYBOARD_LIBRARY_SOURCE,
+  STORYBOARD_MEET_LIMIT,
+  STORYBOARD_MEET_RELATION,
+  STORYBOARD_MEET_SOURCE,
   STORYBOARD_PAGE_TITLE,
   STORYBOARD_PREMISE,
   STORYBOARD_PROVISIONAL,
@@ -58,7 +63,8 @@ const BEATS = [
   { id: 'question', label: 'Leave open' },
   { id: 'return', label: 'Return' },
   { id: 'pressure', label: 'Pressure' },
-  { id: 'then', label: 'Then' }
+  { id: 'then', label: 'Then' },
+  { id: 'meet', label: 'Meet' }
 ];
 
 const seed = (source = STORYBOARD_SOURCE) => createExploration({
@@ -80,6 +86,20 @@ const thenSeed = () => createExploration({
   then: { text: STORYBOARD_COMPUTE_SENTENCE }
 });
 
+const meetSeed = () => {
+  const opened = openExploration(createExploration({
+    id: STORYBOARD_ITEM_ID,
+    originalText: STORYBOARD_SENTENCE,
+    source: STORYBOARD_SOURCE,
+    other: STORYBOARD_MEET_SOURCE
+  }));
+  return setMeetField(
+    setMeetField(opened, 'relation', STORYBOARD_MEET_RELATION),
+    'limit',
+    STORYBOARD_MEET_LIMIT
+  );
+};
+
 const applyBeat = (beat, source) => {
   if (beat === 'pressure') {
     return setPressureField(
@@ -90,6 +110,9 @@ const applyBeat = (beat, source) => {
   }
   if (beat === 'then') {
     return openExploration(thenSeed());
+  }
+  if (beat === 'meet') {
+    return meetSeed();
   }
   const opened = openExploration(seed(source));
   const placed = placeSource(opened);
@@ -131,6 +154,9 @@ const companionRole = (scene, exploration, libraryExploration) => {
   }
   if (isPressured(exploration)) {
     return 'The original stays. The experiment is not a generated causal chain.';
+  }
+  if (inspectableOther(exploration)) {
+    return 'Both ends are inspectable. The space between is yours.';
   }
   if (liveThen(exploration)) {
     return 'The earlier wording is recorded. It is not a reconstructed biography.';
@@ -196,7 +222,12 @@ const OpenSentenceStoryboard = () => {
         source: STORYBOARD_COMPUTE_SOURCE,
         then: exploration.then
       })
-      : seed(source);
+      : createExploration({
+        id: STORYBOARD_ITEM_ID,
+        originalText: STORYBOARD_SENTENCE,
+        source,
+        other: exploration.other
+      });
     keepExploration(STORYBOARD_SCOPE, exploration.id || STORYBOARD_ITEM_ID, exploration, live);
   }, [exploration, source]);
 
@@ -325,12 +356,14 @@ const OpenSentenceStoryboard = () => {
         <h1>Open a sentence</h1>
         <p className="open-sentence-storyboard__note">
           The article stays the page. Select the sentence and open it. Closing without
-          a question, a return note, a placed passage, a proposed wording, or a named
-          premise forgets the experiment. A note under the line is the way home.
+          a question, a return note, a placed passage, a proposed wording, a named
+          premise, a named meeting, or a note written between them forgets the experiment. A note under the line is the way home.
           Source cycles the honest absences. Stillness is the open state with no
-          drawing.           Propose names a wording; Accept is what writes the illustrated
+          drawing. Propose names a wording; Accept is what writes the illustrated
           line. Pressure names a premise beside the original. It does not invent a
           causal chain. Then names an earlier recorded line. It is not a biography.
+          Meet names how two recorded passages sit together, and where that stops.
+          The space between is yours. A note written there can stay a note.
         </p>
       </header>
 

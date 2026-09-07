@@ -16,6 +16,7 @@ export const createExploration = ({
   id = '',
   originalText = '',
   source = null,
+  other = null,
   mark = '',
   then = null
 } = {}) => {
@@ -29,6 +30,7 @@ export const createExploration = ({
     returnNote: '',
     mark: mark === '!' ? '!' : '',
     source: source && typeof source === 'object' ? source : null,
+    other: other && typeof other === 'object' ? other : null,
     ...(recorded ? { then: recorded } : {}),
     placed: false,
     status: EXPLORATION_STATUS.closed
@@ -133,18 +135,80 @@ export const pressureWayHome = (exploration) => {
   return pressure ? `For this experiment: ${pressure.premise}` : '';
 };
 
+export const inspectableOther = (exploration) => {
+  const other = exploration?.other;
+  if (!other || other.available === false) return null;
+  const passage = String(other.passage || '').trim();
+  const first = String(exploration?.source?.passage || '').trim();
+  if (!passage || passage === first) return null;
+  return other;
+};
+
+export const isMeeting = (exploration) => {
+  if (!inspectableOther(exploration)) return false;
+  const meet = exploration?.meet;
+  if (!meet || typeof meet !== 'object') return false;
+  return String(meet.against || '').trim() === String(exploration?.originalText || '').trim();
+};
+
+const MEET_SLOTS = ['relation', 'limit', 'between'];
+
+const meetSlots = (meet = {}) => Object.fromEntries(
+  MEET_SLOTS.map((slot) => [slot, String(meet?.[slot] || '')])
+);
+
+export const liveMeet = (exploration) => {
+  if (!isMeeting(exploration)) return null;
+  const slots = meetSlots(exploration.meet);
+  const relation = slots.relation.trim();
+  const between = slots.between.trim();
+  if (!relation && !between) return null;
+  return {
+    against: String(exploration.meet.against || '').trim(),
+    relation,
+    limit: slots.limit.trim(),
+    between
+  };
+};
+
+export const setMeetField = (exploration, field, value) => {
+  if (!inspectableOther(exploration)) return exploration;
+  if (!MEET_SLOTS.includes(field)) return exploration;
+  return {
+    ...exploration,
+    meet: {
+      ...meetSlots(isMeeting(exploration) ? exploration.meet : {}),
+      against: String(exploration.originalText || '').trim(),
+      [field]: String(value ?? '')
+    }
+  };
+};
+
+export const endMeet = (exploration) => (
+  exploration?.meet ? { ...exploration, meet: null } : exploration
+);
+
+export const meetWayHome = (exploration) => {
+  const meet = liveMeet(exploration);
+  if (!meet) return '';
+  if (meet.relation) return `They meet: ${meet.relation}`;
+  return meet.between.split(/\n/, 1)[0];
+};
+
 export const keepsClosedDraft = (exploration) => Boolean(
   String(exploration?.question || '').trim()
   || String(exploration?.returnNote || '').trim()
   || exploration?.placed
   || liveProposal(exploration)
   || livePressure(exploration)
+  || liveMeet(exploration)
 );
 
 export const forgetExperiment = (live) => createExploration({
   id: live?.id,
   originalText: live?.originalText,
   source: live?.source,
+  other: live?.other,
   then: live?.then
 });
 
@@ -222,6 +286,7 @@ export const restoreExploration = (raw, fallback) => {
       ...parsed,
       originalText: base.originalText,
       source: base.source,
+      other: base.other,
       id: base.id,
       mark: parsed.mark === '!' ? '!' : '',
       status: parsed.status === EXPLORATION_STATUS.open
@@ -234,7 +299,8 @@ export const restoreExploration = (raw, fallback) => {
       ...withoutThen,
       ...(recorded ? { then: recorded } : {}),
       proposal: liveProposal(restored),
-      pressure: isPressured(restored) ? restored.pressure : null
+      pressure: isPressured(restored) ? restored.pressure : null,
+      meet: isMeeting(restored) ? restored.meet : null
     };
   } catch (_unreadable) {
     return base;

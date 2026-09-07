@@ -228,6 +228,7 @@ mark.highlight.open-sentence__held.is-placed:not(.is-open)::before {
 .open-sentence-pocket__source,
 .open-sentence-pocket__write,
 .open-sentence-pocket__pressure,
+.open-sentence-pocket__meet,
 .open-sentence-pocket__question {
   display: grid;
   gap: var(--noeis-space-2);
@@ -352,6 +353,7 @@ mark.highlight.open-sentence__held.is-placed:not(.is-open)::before {
 
 .open-sentence-pocket__write > button,
 .open-sentence-pocket__pressure > button,
+.open-sentence-pocket__meet > button,
 .open-sentence-pocket__actions button,
 .open-sentence-pocket__close {
   min-height: 44px;
@@ -392,6 +394,7 @@ mark.highlight.open-sentence__held.is-placed:not(.is-open)::before {
 
 .open-sentence-pocket__write > button,
 .open-sentence-pocket__pressure > button,
+.open-sentence-pocket__meet > button,
 .open-sentence-pocket__close {
   justify-self: start;
 }

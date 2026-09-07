@@ -129,11 +129,19 @@ The same pocket can hold an earlier recorded wording beside today's line. **Then
 
 The illustrated Then beat is Compute, not Parenting. It does not walk into Nomad. It is not a biography.
 
+## Meet (2026-09-06)
+
+The same pocket can hold a second recorded passage beside the first. **Also beside** is identity, not a generated match: another sourceRef bound to that claim, with a different identity and a different passage. The person names how they meet and where that stops. **The space between** is empty until they write. A note written there can stay a note. Empty slots stay empty. Noeis does not synthesize a paragraph, fill the relation, or write the article.
+
+Identity is the current accepted line and those two recorded passages. If the live line moved on, or the second passage is gone, the naming is dropped. A private draft cannot forge the second source. A neighboring unattached source is not brought in. Library has only the passage you are already in, so it stays silent.
+
+The illustrated Meet beat is Parenting with Nomad and an investment letter. It does not walk into Compute. The space between stays empty until the person writes. A note written there can stay a note.
+
 ## Coming home (2026-09-05)
 
-Closing the pocket without a question, a return note, a placed passage, a proposed wording, or a named premise discards the experiment. Keeping any of those keeps a private draft. Closing still does not write the article. A `!` left alone is a gesture in the moment; closing forgets it too.
+Closing the pocket without a question, a return note, a placed passage, a proposed wording, a named premise, a named meeting, or a note written between them discards the experiment. Keeping any of those keeps a private draft. Closing still does not write the article. A `!` left alone is a gesture in the moment; closing forgets it too.
 
-Coming back from Library, the sentence can say “You were in Nomad.” A return note sits under the closed line as the way back into the pocket. A proposed wording can sit there too, still not accepted. A named premise can sit there as “For this experiment: …”. A placed passage leaves a quiet gold thread even while closed. None of this opens the pocket by itself.
+Coming back from Library, the sentence can say “You were in Nomad.” A return note sits under the closed line as the way back into the pocket. A proposed wording can sit there too, still not accepted. A named premise can sit there as “For this experiment: …”. A named meeting can sit there as “They meet: …”. A note written between two passages can sit there as the first line of that note. A placed passage leaves a quiet gold thread even while closed. None of this opens the pocket by itself.
 
 ## Honest failures and long content (2026-09-05)
 
@@ -155,7 +163,7 @@ That is local, Playwright-rendered storyboard frames, and (when the PR check is 
 
 ## Exit for this stage
 
-A person can complete the Parenting journey on the storyboard without coaching, at ~1440, ~1320, and ~430, with keyboard, and with reduced motion. Mocked retrieval stays labeled. Long content scrolls inside the pocket. Silence, a gone source, missing surrounding, and an older copy stay distinct. On an owned standard Wiki, opening a claim makes a pocket, rebinds the companion, and leaves the accepted line unchanged. Walking into Library from that pocket lands on the highlight, remembers the held sentence, and can open the same pocket there. Coming home, the Wiki remembers Nomad without opening, and a closed experiment without a question, a return note, a placed passage, a proposed wording, or a named premise does not linger. On Compute, the person can name a slower-demand premise beside the original line without a generated chain. On that same page, an earlier recorded wording can sit beside today when one exists.
+A person can complete the Parenting journey on the storyboard without coaching, at ~1440, ~1320, and ~430, with keyboard, and with reduced motion. Mocked retrieval stays labeled. Long content scrolls inside the pocket. Silence, a gone source, missing surrounding, and an older copy stay distinct. On an owned standard Wiki, opening a claim makes a pocket, rebinds the companion, and leaves the accepted line unchanged. Walking into Library from that pocket lands on the highlight, remembers the held sentence, and can open the same pocket there. Coming home, the Wiki remembers Nomad without opening, and a closed experiment without a question, a return note, a placed passage, a proposed wording, a named premise, a named meeting, or a note written between them does not linger. On Compute, the person can name a slower-demand premise beside the original line without a generated chain. On that same page, an earlier recorded wording can sit beside today when one exists. On Parenting, a second recorded passage can sit beside Nomad when one is bound to that claim. The person names how they meet and where that stops. The space between stays empty until they write. A note written there can stay a note.
 
 ## S1 frames (2026-09-06)
 

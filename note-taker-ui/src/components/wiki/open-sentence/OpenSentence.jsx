@@ -9,18 +9,23 @@ import {
   canProposeWording,
   changedWordSpans,
   closeExploration,
+  endMeet,
   endPressure,
+  inspectableOther,
+  isMeeting,
   isOpen,
   isPressured,
   keepQuestion,
   leaveMark,
   liveProposal,
   liveThen,
+  meetWayHome,
   openExploration,
   placeSource,
   pressureWayHome,
   proposeWording,
   putItBack,
+  setMeetField,
   setPressureField,
   setReturnNote,
   tryWording,
@@ -34,7 +39,7 @@ const selectionInside = (root) => {
   if (!root || typeof window === 'undefined' || !window.getSelection) return false;
   const selection = window.getSelection();
   if (!selection || selection.isCollapsed || !selection.rangeCount) return false;
-  return root.contains(selection.rangeAt(0).commonAncestorContainer);
+  return root.contains(selection.getRangeAt(0).commonAncestorContainer);
 };
 
 const SourceHome = ({ source, mocked, onOpen }) => {
@@ -49,6 +54,59 @@ const SourceHome = ({ source, mocked, onOpen }) => {
   }
   return <a className="open-sentence-pocket__home" href={source.href} onClick={go}>{label}</a>;
 };
+
+const AroundToggle = ({ inspecting, onToggle }) => (
+  <button type="button" onClick={onToggle}>
+    {inspecting ? 'Hide surrounding' : 'Read around this'}
+  </button>
+);
+
+const PocketField = ({ id, label, value, onChange, placeholder, rows = 2 }) => (
+  <>
+    <label className="open-sentence-pocket__label" htmlFor={id}>
+      {label}
+    </label>
+    <textarea
+      id={id}
+      rows={rows}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      placeholder={placeholder}
+    />
+  </>
+);
+
+const PassageRead = ({ source, inspecting = false, placed = false, settling = false }) => (
+  <>
+    <p className="open-sentence-pocket__source-title">{source.title}</p>
+    {inspecting && source.aroundBefore ? (
+      <p className="open-sentence-pocket__around">{source.aroundBefore}</p>
+    ) : null}
+    {source.passage ? (
+      <p className={`open-sentence-pocket__passage${placed ? ' is-placed' : ''}${settling ? ' is-settling' : ''}`}>
+        {source.passage}
+      </p>
+    ) : (
+      <p className="open-sentence-pocket__silence">The exact passage was not saved with this citation.</p>
+    )}
+    {inspecting && source.aroundAfter ? (
+      <p className="open-sentence-pocket__around">{source.aroundAfter}</p>
+    ) : null}
+    {inspecting && !source.aroundBefore && !source.aroundAfter ? (
+      <p className="open-sentence-pocket__silence">
+        The surrounding lines were not saved with this passage.
+      </p>
+    ) : null}
+    {source.stale ? (
+      <p className="open-sentence-pocket__stale">
+        This is an older copy. A newer line was not attached.
+      </p>
+    ) : null}
+    {source.qualification ? (
+      <p className="open-sentence-pocket__qualification">{source.qualification}</p>
+    ) : null}
+  </>
+);
 
 const SourceBeside = ({
   exploration,
@@ -74,39 +132,17 @@ const SourceBeside = ({
     );
   }
 
-  const aroundMissing = !source.aroundBefore && !source.aroundAfter;
   const canPlace = Boolean(source.passage) && (!source.here || placeBesideTitle);
   const besideLabel = placeBesideTitle || source.title || 'the thought';
 
   return (
     <>
-      <p className="open-sentence-pocket__source-title">{source.title}</p>
-      {inspecting && source.aroundBefore ? (
-        <p className="open-sentence-pocket__around">{source.aroundBefore}</p>
-      ) : null}
-      {source.passage ? (
-        <p className={`open-sentence-pocket__passage${exploration.placed ? ' is-placed' : ''}${settling ? ' is-settling' : ''}`}>
-          {source.passage}
-        </p>
-      ) : (
-        <p className="open-sentence-pocket__silence">The exact passage was not saved with this citation.</p>
-      )}
-      {inspecting && source.aroundAfter ? (
-        <p className="open-sentence-pocket__around">{source.aroundAfter}</p>
-      ) : null}
-      {inspecting && aroundMissing ? (
-        <p className="open-sentence-pocket__silence">
-          The surrounding lines were not saved with this passage.
-        </p>
-      ) : null}
-      {source.stale ? (
-        <p className="open-sentence-pocket__stale">
-          This is an older copy. A newer line was not attached.
-        </p>
-      ) : null}
-      {source.qualification ? (
-        <p className="open-sentence-pocket__qualification">{source.qualification}</p>
-      ) : null}
+      <PassageRead
+        source={source}
+        inspecting={inspecting}
+        placed={exploration.placed}
+        settling={settling}
+      />
       {exploration.placed ? (
         <p className="open-sentence-pocket__placed">Placed beside {besideLabel}</p>
       ) : null}
@@ -120,9 +156,7 @@ const SourceBeside = ({
         {exploration.mark || '!'}
       </button>
       <div className="open-sentence-pocket__actions">
-        <button type="button" onClick={() => setInspecting((current) => !current)}>
-          {inspecting ? 'Hide surrounding' : 'Read around this'}
-        </button>
+        <AroundToggle inspecting={inspecting} onToggle={() => setInspecting((current) => !current)} />
         <SourceHome
           source={source}
           mocked={mocked}
@@ -172,37 +206,81 @@ const PressureBody = ({ pocketId, exploration, onCommit }) => {
   const pressure = exploration.pressure;
   return (
     <div className="open-sentence-pocket__pressure">
-      <label className="open-sentence-pocket__label" htmlFor={`${pocketId}-premise`}>
-        For this experiment
-      </label>
-      <textarea
+      <PocketField
         id={`${pocketId}-premise`}
-        rows={2}
+        label="For this experiment"
         value={pressure.premise}
-        onChange={(event) => onCommit(setPressureField(exploration, 'premise', event.target.value))}
+        onChange={(value) => onCommit(setPressureField(exploration, 'premise', value))}
         placeholder="Name the change. Do not invent a chain."
       />
-      <label className="open-sentence-pocket__label" htmlFor={`${pocketId}-holds`}>
-        What still holds
-      </label>
-      <textarea
+      <PocketField
         id={`${pocketId}-holds`}
-        rows={2}
+        label="What still holds"
         value={pressure.stillHolds}
-        onChange={(event) => onCommit(setPressureField(exploration, 'stillHolds', event.target.value))}
+        onChange={(value) => onCommit(setPressureField(exploration, 'stillHolds', value))}
       />
-      <label className="open-sentence-pocket__label" htmlFor={`${pocketId}-unknown`}>
-        What remains unknown
-      </label>
-      <textarea
+      <PocketField
         id={`${pocketId}-unknown`}
-        rows={2}
+        label="What remains unknown"
         value={pressure.unknown}
-        onChange={(event) => onCommit(setPressureField(exploration, 'unknown', event.target.value))}
+        onChange={(value) => onCommit(setPressureField(exploration, 'unknown', value))}
       />
       <button type="button" onClick={() => onCommit(endPressure(exploration))}>
         Leave the experiment
       </button>
+    </div>
+  );
+};
+
+const MeetBody = ({ pocketId, exploration, mocked, onCommit, onOpenSourceHome }) => {
+  const other = inspectableOther(exploration);
+  const [inspecting, setInspecting] = useState(false);
+  if (!other) return null;
+  const meet = {
+    relation: '',
+    limit: '',
+    between: '',
+    ...(isMeeting(exploration) ? exploration.meet : {})
+  };
+  const written = Boolean(meet.relation || meet.limit || meet.between);
+
+  return (
+    <div className="open-sentence-pocket__meet">
+      <p className="open-sentence-pocket__qualification">Also beside</p>
+      <PassageRead source={other} inspecting={inspecting} />
+      <div className="open-sentence-pocket__actions">
+        <AroundToggle inspecting={inspecting} onToggle={() => setInspecting((current) => !current)} />
+        <SourceHome
+          source={other}
+          mocked={mocked}
+          onOpen={() => onOpenSourceHome?.(other, exploration)}
+        />
+      </div>
+      <PocketField
+        id={`${pocketId}-meet`}
+        label="How they meet"
+        value={meet.relation}
+        onChange={(value) => onCommit(setMeetField(exploration, 'relation', value))}
+        placeholder="Support, tension, analogy, exception, or unrelated."
+      />
+      <PocketField
+        id={`${pocketId}-limit`}
+        label="Where that stops"
+        value={meet.limit}
+        onChange={(value) => onCommit(setMeetField(exploration, 'limit', value))}
+      />
+      <PocketField
+        id={`${pocketId}-between`}
+        label="The space between"
+        value={meet.between}
+        onChange={(value) => onCommit(setMeetField(exploration, 'between', value))}
+        rows={3}
+      />
+      {written ? (
+        <button type="button" onClick={() => onCommit(endMeet(exploration))}>
+          Leave this meeting
+        </button>
+      ) : null}
     </div>
   );
 };
@@ -255,17 +333,23 @@ const PocketBody = ({
           onCommit={onCommit}
           onOpenSourceHome={onOpenSourceHome}
         />
+        <MeetBody
+          key={`${exploration?.other?.title || ''}:${exploration?.other?.passage || ''}`}
+          pocketId={pocketId}
+          exploration={exploration}
+          mocked={mocked}
+          onCommit={onCommit}
+          onOpenSourceHome={onOpenSourceHome}
+        />
       </div>
 
       <div className="open-sentence-pocket__write">
-        <label className="open-sentence-pocket__label" htmlFor={`${pocketId}-wording`}>
-          Try a narrower wording
-        </label>
-        <textarea
+        <PocketField
           id={`${pocketId}-wording`}
-          rows={3}
+          label="Try a narrower wording"
           value={exploration.provisionalText}
-          onChange={(event) => onCommit(tryWording(exploration, event.target.value))}
+          onChange={(value) => onCommit(tryWording(exploration, value))}
+          rows={3}
         />
         {spans.length ? (
           <p className="open-sentence-pocket__diff" aria-label="Changed words">
@@ -316,14 +400,11 @@ const PocketBody = ({
       <PressureBody pocketId={pocketId} exploration={exploration} onCommit={onCommit} />
 
       <div className="open-sentence-pocket__question">
-        <label className="open-sentence-pocket__label" htmlFor={`${pocketId}-question`}>
-          Leave this open
-        </label>
-        <textarea
+        <PocketField
           id={`${pocketId}-question`}
-          rows={2}
+          label="Leave this open"
           value={exploration.question}
-          onChange={(event) => onCommit(keepQuestion(exploration, event.target.value))}
+          onChange={(value) => onCommit(keepQuestion(exploration, value))}
           placeholder="An unfinished question can stay unfinished."
         />
         <label className="open-sentence-pocket__label" htmlFor={`${pocketId}-return`}>
@@ -482,7 +563,8 @@ const OpenSentence = ({
   const wayHomeLabel = closedNote
     || (closedQuestion ? 'You left this open.' : '')
     || (closedProposal ? 'Proposed, not accepted.' : '')
-    || pressureWayHome(exploration);
+    || pressureWayHome(exploration)
+    || meetWayHome(exploration);
   const wayHome = !open && !keepPocket && (homecoming || wayHomeLabel) ? (
     <div className="open-sentence__way-home">
       {homecoming ? <p className="open-sentence__been">{homecoming}</p> : null}

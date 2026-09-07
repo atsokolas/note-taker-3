@@ -115,6 +115,55 @@ describe('WikiOpenSentence', () => {
     expect(screen.queryByText(/used to believe/i)).not.toBeInTheDocument();
   });
 
+  it('lets a second recorded source sit beside the first without rewriting the article', () => {
+    renderWikiSentence({
+      page: {
+        ...page,
+        claims: [{
+          claimId: 'claim-1',
+          text: 'Memory compounds with review.',
+          support: 'supported',
+          sourceRefIds: ['source-1', 'source-letter']
+        }],
+        sourceRefs: [
+          page.sourceRefs[0],
+          {
+            _id: 'source-letter',
+            type: 'highlight',
+            objectId: 'highlight-letter',
+            parentObjectId: 'article-letter',
+            title: 'Letter to a young investor',
+            snippet: 'A loss you can survive still teaches the book.'
+          }
+        ],
+        body: {
+          type: 'doc',
+          content: [{
+            type: 'paragraph',
+            content: [{
+              type: 'text',
+              text: 'Memory compounds with review.',
+              marks: [{
+                type: 'claim',
+                attrs: { claimId: 'claim-1', support: 'supported', citationIndexes: [1, 2] }
+              }]
+            }]
+          }]
+        }
+      }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    expect(screen.getByText('Also beside')).toBeInTheDocument();
+    expect(screen.getByText('A loss you can survive still teaches the book.')).toBeInTheDocument();
+    expect(screen.getByLabelText('How they meet')).toHaveValue('');
+    expect(screen.getByLabelText('The space between')).toHaveValue('');
+    expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent('Memory compounds with review.');
+    expect(screen.getByText(/The article still reads/)).toHaveTextContent('Memory compounds with review.');
+    expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('How they meet'), { target: { value: 'analogy' } });
+    expect(screen.getByLabelText('How they meet')).toHaveValue('analogy');
+  });
+
   it('leaves a return ticket when walking into Library, not a Wiki rewrite', () => {
     renderWikiSentence();
     fireEvent.click(screen.getByRole('button', { name: 'Open' }));
