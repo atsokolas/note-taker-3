@@ -212,6 +212,41 @@ export const canProposeBetween = (exploration) => {
   return liveProposal(exploration)?.text !== between;
 };
 
+export const liveEssay = (exploration) => {
+  const essay = exploration?.essay;
+  if (!essay || typeof essay !== 'object') return null;
+  const text = String(essay.text || '').trim();
+  const against = String(essay.against || '').trim();
+  const current = String(exploration?.originalText || '').trim();
+  if (!text || !against || against !== current) return null;
+  return { text, against };
+};
+
+export const canKeepBetweenAsEssay = (exploration) => {
+  const between = liveMeet(exploration)?.between;
+  return Boolean(between) && liveEssay(exploration)?.text !== between;
+};
+
+export const keepBetweenAsEssay = (exploration) => {
+  if (!canKeepBetweenAsEssay(exploration)) return exploration;
+  return {
+    ...exploration,
+    essay: {
+      against: String(exploration.originalText || '').trim(),
+      text: liveMeet(exploration).between
+    }
+  };
+};
+
+export const leaveEssay = (exploration) => (
+  exploration?.essay ? { ...exploration, essay: null } : exploration
+);
+
+export const essayWayHome = (exploration) => {
+  const essay = liveEssay(exploration);
+  return essay ? `An essay: ${essay.text.split(/\n/, 1)[0]}` : '';
+};
+
 export const keepsClosedDraft = (exploration) => Boolean(
   String(exploration?.question || '').trim()
   || String(exploration?.returnNote || '').trim()
@@ -219,6 +254,7 @@ export const keepsClosedDraft = (exploration) => Boolean(
   || liveProposal(exploration)
   || livePressure(exploration)
   || liveMeet(exploration)
+  || liveEssay(exploration)
 );
 
 export const forgetExperiment = (live) => createExploration({
@@ -317,7 +353,8 @@ export const restoreExploration = (raw, fallback) => {
       ...(recorded ? { then: recorded } : {}),
       proposal: liveProposal(restored),
       pressure: isPressured(restored) ? restored.pressure : null,
-      meet: isMeeting(restored) ? restored.meet : null
+      meet: isMeeting(restored) ? restored.meet : null,
+      essay: liveEssay(restored)
     };
   } catch (_unreadable) {
     return base;

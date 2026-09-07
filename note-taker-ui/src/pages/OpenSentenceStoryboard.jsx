@@ -364,8 +364,8 @@ const OpenSentenceStoryboard = () => {
           causal chain. Then names an earlier recorded line. It is not a biography.
           Meet names how two recorded passages sit together, and where that stops.
           The space between is yours. A note written there can stay a note, be
-          kept as an experiment, or be proposed as the line. The experiment does
-          not invent a chain. Propose is still not Accept.
+          kept as an experiment, be proposed as the line, or be kept as an essay.
+          None of those write the article.
         </p>
       </header>
 
