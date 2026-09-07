@@ -233,6 +233,64 @@ describe('WikiOpenSentence', () => {
     expect(screen.queryByText('Unrelated')).not.toBeInTheDocument();
   });
 
+  it('opens a second recorded source from that revision, not a neighbor or today\'s other', () => {
+    renderWikiSentence({
+      page: {
+        ...page,
+        claims: [{
+          claimId: 'claim-1',
+          text: 'Memory compounds with review.',
+          sourceRefIds: ['source-1']
+        }]
+      },
+      revisions: [{
+        before: {
+          body: {
+            type: 'doc',
+            content: [{
+              type: 'paragraph',
+              content: [{
+                type: 'text',
+                text: 'Memory was a pile of notes.',
+                marks: [{
+                  type: 'claim',
+                  attrs: { claimId: 'claim-1', citationIndexes: [1, 2] }
+                }]
+              }]
+            }]
+          },
+          claims: [{
+            claimId: 'claim-1',
+            text: 'Memory was a pile of notes.',
+            sourceRefIds: ['source-1', 'source-log']
+          }],
+          sourceRefs: [{
+            _id: 'source-1',
+            title: 'Memory article',
+            snippet: 'Memory used to be a pile of notes.'
+          }, {
+            _id: 'source-log',
+            type: 'highlight',
+            title: 'Review log',
+            snippet: 'The pile did not become a practice by sitting still.'
+          }, {
+            _id: 'source-other',
+            type: 'highlight',
+            title: 'Unrelated',
+            snippet: 'A neighboring log was not this claim.'
+          }]
+        }
+      }]
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    const then = document.querySelector('.open-sentence-pocket__then');
+    expect(then).toHaveTextContent('Memory used to be a pile of notes.');
+    expect(then).toHaveTextContent('Review log');
+    expect(then).toHaveTextContent('The pile did not become a practice by sitting still.');
+    expect(screen.queryByText('Also beside')).not.toBeInTheDocument();
+    expect(screen.queryByText('A neighboring log was not this claim.')).not.toBeInTheDocument();
+  });
+
   it('opens a recorded question from that revision without rewriting the article or forging today\'s walk', () => {
     renderWikiSentence({
       revisions: [{

@@ -64,15 +64,22 @@ const SourceHome = ({ source, mocked, onOpen }) => {
   return <a className="open-sentence-pocket__home" href={source.href} onClick={go}>{label}</a>;
 };
 
-const ThenKept = ({ label, children }) => (
-  <div className="open-sentence-pocket__then-source">
-    {label ? <p className="open-sentence-pocket__source-title">{label}</p> : null}
-    {children}
-  </div>
-);
-
 const ThenQuote = ({ text }) => (
   <blockquote className="open-sentence-pocket__quote">{text}</blockquote>
+);
+
+const ThenPassage = ({ source, mocked, onOpen }) => (
+  <div className="open-sentence-pocket__then-source">
+    {source.title ? <p className="open-sentence-pocket__source-title">{source.title}</p> : null}
+    {source.aroundBefore ? (
+      <p className="open-sentence-pocket__around">{source.aroundBefore}</p>
+    ) : null}
+    <ThenQuote text={source.passage} />
+    {source.aroundAfter ? (
+      <p className="open-sentence-pocket__around">{source.aroundAfter}</p>
+    ) : null}
+    <SourceHome source={source} mocked={mocked} onOpen={onOpen} />
+  </div>
 );
 
 const AroundToggle = ({ inspecting, onToggle }) => (
@@ -443,31 +450,19 @@ const PocketBody = ({
           <div className="open-sentence-pocket__then">
             <p className="open-sentence-pocket__qualification">Then</p>
             <ThenQuote text={then.text} />
-            {then.quotation ? (
-              <ThenKept label={then.quotation.title}>
-                {then.quotation.aroundBefore ? (
-                  <p className="open-sentence-pocket__around">{then.quotation.aroundBefore}</p>
-                ) : null}
-                <ThenQuote text={then.quotation.passage} />
-                {then.quotation.aroundAfter ? (
-                  <p className="open-sentence-pocket__around">{then.quotation.aroundAfter}</p>
-                ) : null}
-                <SourceHome
-                  source={then.quotation}
-                  mocked={mocked}
-                  onOpen={() => onOpenSourceHome?.(then.quotation, exploration)}
-                />
-              </ThenKept>
-            ) : null}
+            {(then.sources || []).map((source) => (
+              <ThenPassage
+                key={`${source.title}:${source.passage}`}
+                source={source}
+                mocked={mocked}
+                onOpen={() => onOpenSourceHome?.(source, exploration)}
+              />
+            ))}
             {then.question ? (
-              <ThenKept label="Then you left this open">
-                <ThenQuote text={then.question} />
-              </ThenKept>
+              <ThenPassage source={{ title: 'Then you left this open', passage: then.question }} />
             ) : null}
             {then.draft ? (
-              <ThenKept label="Then you wrote">
-                <ThenQuote text={then.draft} />
-              </ThenKept>
+              <ThenPassage source={{ title: 'Then you wrote', passage: then.draft }} />
             ) : null}
           </div>
         ) : null}

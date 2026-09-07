@@ -20,7 +20,8 @@ import {
   STORYBOARD_THEN_NOW,
   STORYBOARD_THEN_ORIGINAL,
   STORYBOARD_THEN_QUESTION,
-  STORYBOARD_THEN_QUOTATION
+  STORYBOARD_THEN_QUOTATION,
+  STORYBOARD_THEN_BESIDE
 } from '../components/wiki/open-sentence/openSentenceStoryboardFixture';
 
 const renderBoard = (entries = ['/']) => render(
@@ -156,12 +157,14 @@ describe('OpenSentenceStoryboard', () => {
     expect(screen.getByText(/The article still reads/)).toHaveTextContent(STORYBOARD_THEN_NOW);
     expect(document.querySelector('.open-sentence-pocket__then')).toHaveTextContent(STORYBOARD_COMPUTE_SENTENCE);
     expect(document.querySelector('.open-sentence-pocket__then-source')).toHaveTextContent(STORYBOARD_THEN_QUOTATION);
+    expect(document.querySelector('.open-sentence-pocket__then')).toHaveTextContent(STORYBOARD_THEN_BESIDE.passage);
     expect(screen.getByText('Then you left this open')).toBeInTheDocument();
     expect(document.querySelector('.open-sentence-pocket__then')).toHaveTextContent(STORYBOARD_THEN_QUESTION);
     expect(screen.getByRole('link', { name: 'Return to source →' })).toHaveAttribute(
       'href',
       STORYBOARD_THEN_ORIGINAL
     );
+    expect(screen.queryByText('Also beside')).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Open in Library →' })).not.toBeInTheDocument();
     expect(screen.getByText('Supply was the constraint this decade.')).toBeInTheDocument();
     expect(screen.queryByText(STORYBOARD_SENTENCE)).not.toBeInTheDocument();
@@ -189,6 +192,7 @@ describe('OpenSentenceStoryboard', () => {
     expect(screen.queryByRole('button', { name: 'Keep this as an experiment' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Propose this as the line' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Keep this as an essay' })).not.toBeInTheDocument();
+    expect(screen.queryByText(STORYBOARD_THEN_BESIDE.passage)).not.toBeInTheDocument();
     expect(screen.queryByText(STORYBOARD_COMPUTE_SENTENCE)).not.toBeInTheDocument();
     expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
     expect(
