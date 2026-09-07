@@ -1,64 +1,153 @@
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import Editions from './Editions';
-import { listEditions } from '../api/editions';
+import { getEdition, listEditions } from '../api/editions';
 
-jest.mock('../api/editions', () => ({ listEditions: jest.fn() }));
+jest.mock('../api/editions', () => ({
+  listEditions: jest.fn(),
+  getEdition: jest.fn()
+}));
+
+const SECTIONS = [
+  { key: 'models_methods', label: 'Models & methods' },
+  { key: 'evaluation_counterevidence', label: 'Evaluation & counterevidence' }
+];
+
+/* A window whose end is comfortably past, so the issue reads as closed. */
+const closed = { windowStart: '2026-08-30', windowEnd: '2026-09-05' };
+/* One that has not: filling. */
+const filling = { windowStart: '2100-01-03', windowEnd: '2100-01-09' };
 
 const row = (over = {}) => ({
-  _id: 'e1',
+  _id: 'e2',
+  profile: 'this_week_in_ai',
+  profileLabel: 'This Week in AI',
   title: 'This Week in AI',
   issueLabel: 'Issue',
-  number: 14,
-  windowStart: '2026-09-01',
-  windowEnd: '2026-09-07',
-  itemCount: 4,
-  savedCount: 1,
+  number: 2,
+  sections: SECTIONS,
+  itemCount: 1,
+  savedCount: 0,
   unfilled: ['Evaluation & counterevidence'],
-  writtenBy: 'OpenClaw · Jarvis',
+  writtenBy: 'Jarvis',
+  ...filling,
   ...over
 });
 
+const item = (over = {}) => ({
+  itemId: 'i1',
+  title: 'A Unified Framework for VLA Agents',
+  url: 'https://example.com/vla',
+  sourceLabel: 'arXiv',
+  sourceDate: '1 September 2026',
+  section: 'models_methods',
+  finding: 'Prerequisites are checked before acting and outcomes verified afterward.',
+  boundary: 'A preprint, not independent production validation.',
+  filedBy: 'Jarvis',
+  savedArticleId: null,
+  ...over
+});
+
+const full = (over = {}) => ({ ...row(), items: [item()], watchNext: [], ...over });
+
 describe('the newsstand', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    getEdition.mockResolvedValue(full());
+  });
 
   const open = () => render(<MemoryRouter><Editions /></MemoryRouter>);
 
-  it('says what the stand is for, and that Noeis does not write them', async () => {
-    listEditions.mockResolvedValue([]);
-    open();
-    expect(await screen.findByText(/Noeis holds them to a shape; it does not write them/)).toBeInTheDocument();
-  });
-
-  it('reads each paper by its window and its issue', async () => {
+  it('sets the paper by its nameplate and its dateline', async () => {
     listEditions.mockResolvedValue([row()]);
     open();
-    expect(await screen.findByText('This Week in AI')).toBeInTheDocument();
-    expect(screen.getByText('Sep 1 – 7 · Issue 14')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /This Week in AI/ })).toHaveAttribute('href', '/editions/e1');
+    expect(await screen.findByRole('heading', { name: 'This Week in AI' })).toBeInTheDocument();
+    expect(screen.getByText('Issue 2', { selector: 'span' })).toBeInTheDocument();
+    expect(screen.getByText(/Sunday 3 – Saturday 9 January 2100/)).toBeInTheDocument();
   });
 
-  /* The two sentences that matter about a week. */
-  it('says what the week left empty and how much of it you took', async () => {
+  /* One column per section: the shape of the paper is the shape of the week. */
+  it('gives every section a column, filled or not', async () => {
     listEditions.mockResolvedValue([row()]);
     open();
-    expect(await screen.findByText('1 of 4 in your library.')).toBeInTheDocument();
-    expect(screen.getByText('Nothing this week under Evaluation & counterevidence.')).toBeInTheDocument();
+    expect(await screen.findByText('Models & methods')).toBeInTheDocument();
+    expect(screen.getByText('Evaluation & counterevidence')).toBeInTheDocument();
   });
 
-  /* A paper written by an agent says so, so you know which one to argue with. */
-  it('signs the masthead', async () => {
+  /* The tense of the silence. An open issue has not finished failing to find
+     counterevidence; a closed one has. */
+  it('says "nothing yet" while the issue is still filling', async () => {
     listEditions.mockResolvedValue([row()]);
     open();
-    expect(await screen.findByText('Written by OpenClaw · Jarvis')).toBeInTheDocument();
+    expect(await screen.findByText('Nothing yet.')).toBeInTheDocument();
+    expect(screen.queryByText('Nothing that week.')).not.toBeInTheDocument();
   });
 
-  it('stays quiet about a week that filled its own shape', async () => {
-    listEditions.mockResolvedValue([row({ unfilled: [] })]);
+  it('says "nothing that week" once the window has closed', async () => {
+    listEditions.mockResolvedValue([row({ ...closed })]);
+    getEdition.mockResolvedValue(full({ ...closed }));
     open();
-    await screen.findByText('This Week in AI');
-    expect(screen.queryByText(/Nothing this week under/)).not.toBeInTheDocument();
+    expect(await screen.findByText('Nothing that week.')).toBeInTheDocument();
+  });
+
+  /* Two agents can keep one paper, so a column carries its own byline. */
+  it('signs each column with whoever filed it', async () => {
+    listEditions.mockResolvedValue([row()]);
+    getEdition.mockResolvedValue(full({
+      items: [item(), item({ itemId: 'i2', url: 'https://example.com/two', filedBy: 'Hermes' })]
+    }));
+    open();
+    expect(await screen.findByText('Filed by Jarvis and Hermes')).toBeInTheDocument();
+  });
+
+  it('stays quiet about a byline nobody signed', async () => {
+    listEditions.mockResolvedValue([row()]);
+    getEdition.mockResolvedValue(full({ items: [item({ filedBy: '' })] }));
+    open();
+    await screen.findByText('Models & methods');
+    expect(screen.queryByText(/Filed by/)).not.toBeInTheDocument();
+  });
+
+  /* A headline carries the front page; the finding is folded underneath it. */
+  it('shows the headline first and unfolds the finding on click', async () => {
+    listEditions.mockResolvedValue([row()]);
+    open();
+    const head = await screen.findByRole('button', { name: /A Unified Framework/ });
+    expect(head).toHaveAttribute('aria-expanded', 'false');
+    await userEvent.click(head);
+    expect(head).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByText(/Prerequisites are checked before acting/)).toBeInTheDocument();
+    expect(screen.getByText(/not independent production validation/)).toBeInTheDocument();
+  });
+
+  /* A run of issues, not a pile: the same paper, turned back through. */
+  it('gathers a paper’s issues into one run and turns between them', async () => {
+    listEditions.mockResolvedValue([
+      row(),
+      row({ _id: 'e1', number: 1, ...closed })
+    ]);
+    open();
+    const run = await screen.findByRole('navigation', { name: /back issues/ });
+    expect(within(run).getByRole('button', { name: 'Issue 2' })).toHaveAttribute('aria-current', 'true');
+
+    await userEvent.click(within(run).getByRole('button', { name: 'Issue 1' }));
+    await waitFor(() => {
+      expect(within(run).getByRole('button', { name: 'Issue 1' })).toHaveAttribute('aria-current', 'true');
+    });
+  });
+
+  /* Papers, not a date-ordered pile: two profiles are two front pages. */
+  it('keeps two papers apart rather than interleaving them by date', async () => {
+    listEditions.mockResolvedValue([
+      row(),
+      row({ _id: 'w1', profile: 'weekend_readings', profileLabel: 'Weekend Readings', title: 'Weekend Readings', number: 1 })
+    ]);
+    open();
+    expect(await screen.findByRole('heading', { name: 'This Week in AI' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Weekend Readings' })).toBeInTheDocument();
+    expect(screen.getAllByRole('navigation', { name: /back issues/ })).toHaveLength(2);
   });
 
   /* An empty stand is not a failure state — the reader who has never
@@ -82,5 +171,13 @@ describe('the newsstand', () => {
     listEditions.mockRejectedValue({ response: { data: { error: 'Nope.' } } });
     open();
     await waitFor(() => expect(screen.getByText('Nope.')).toBeInTheDocument());
+  });
+
+  /* The masthead stands even when the columns cannot be set. */
+  it('keeps the nameplate when an issue will not open', async () => {
+    listEditions.mockResolvedValue([row()]);
+    getEdition.mockRejectedValue(new Error('nope'));
+    open();
+    expect(await screen.findByRole('heading', { name: 'This Week in AI' })).toBeInTheDocument();
   });
 });

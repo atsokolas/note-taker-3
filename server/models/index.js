@@ -1686,6 +1686,14 @@ const editionItemSchema = new mongoose.Schema({
      by mongoose, so the refusal can name the item instead of the path. */
   boundary: { type: String, required: true, trim: true },
   note: { type: String, default: '', trim: true },
+  /* Which agent filed this one. The masthead names whoever wrote the issue
+     last, which stops being the whole truth the moment two agents keep the
+     same paper — a section is entitled to its own byline. */
+  filedBy: {
+    label: { type: String, default: '', trim: true },
+    agentTokenId: { type: mongoose.Schema.Types.ObjectId, ref: 'AgentToken', default: null }
+  },
+  filedAt: { type: Date, default: null },
   savedArticleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Article', default: null }
 }, { _id: false });
 
