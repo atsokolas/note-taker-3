@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import OpenSentence from './OpenSentence';
 import {
@@ -42,6 +42,7 @@ import {
   setPressureField,
   setReturnNote,
   snapshotExploration,
+  sourceClip,
   tryWording,
   wikiAcceptedText,
   withdrawProposal,
@@ -422,6 +423,23 @@ describe('openSentenceModel', () => {
     })).toEqual(held);
   });
 
+  it('copies the exact passage with its title and existing door, not a mark or an invented url', () => {
+    expect(sourceClip(STORYBOARD_SOURCE)).toBe(
+      `"${STORYBOARD_SOURCE.passage}"\n— Nomad\n${STORYBOARD_SOURCE.href}`
+    );
+    expect(sourceClip({ ...STORYBOARD_SOURCE, href: '', here: true, mark: '!' })).toBe(
+      `"${STORYBOARD_SOURCE.passage}"\n— Nomad`
+    );
+    expect(sourceClip({
+      title: 'Capacity',
+      passage: STORYBOARD_THEN_QUOTATION,
+      href: STORYBOARD_THEN_ORIGINAL,
+      aroundBefore: 'Not this.'
+    })).toBe(`"${STORYBOARD_THEN_QUOTATION}"\n— Capacity\n${STORYBOARD_THEN_ORIGINAL}`);
+    expect(sourceClip({ title: 'Neighbor', passage: '', href: '/library?forged=1' })).toBe('');
+    expect(sourceClip({ title: 'Nomad', passage: '', available: false })).toBe('');
+  });
+
   it('lets two recorded passages meet without inventing the connection', () => {
     const start = meeting();
     expect(liveMeet(start)).toBeNull();
@@ -656,6 +674,35 @@ describe('OpenSentence', () => {
     expect(screen.queryByRole('link', { name: 'Open in Library →' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Place beside' })).not.toBeInTheDocument();
     expect(screen.getByText(/The article still reads/)).toBeInTheDocument();
+  });
+
+  it('copies the bound passage with its source, not the mark, surrounding, or an invented door', async () => {
+    const writeText = jest.fn().mockResolvedValue();
+    Object.assign(navigator, { clipboard: { writeText } });
+    renderOpen(openExploration(createExploration({
+      originalText: STORYBOARD_SENTENCE,
+      source: STORYBOARD_SOURCE,
+      mark: '!'
+    })));
+    fireEvent.click(screen.getByRole('button', { name: 'Copy with source' }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(sourceClip(STORYBOARD_SOURCE)));
+    expect(writeText.mock.calls[0][0]).not.toContain('!');
+    expect(writeText.mock.calls[0][0]).not.toContain(STORYBOARD_SOURCE.aroundBefore);
+  });
+
+  it('copies a passage that is already here without inventing a Library door', async () => {
+    const writeText = jest.fn().mockResolvedValue();
+    Object.assign(navigator, { clipboard: { writeText } });
+    renderOpen(openExploration(createExploration({
+      originalText: STORYBOARD_SOURCE.passage,
+      source: { ...STORYBOARD_SOURCE, href: '', here: true }
+    })));
+    fireEvent.click(screen.getByRole('button', { name: 'Copy with source' }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(
+      `"${STORYBOARD_SOURCE.passage}"\n— Nomad`
+    ));
+    expect(writeText.mock.calls[0][0]).not.toContain('/library');
+    expect(screen.queryByRole('link', { name: 'Open in Library →' })).not.toBeInTheDocument();
   });
 
   it('lets Place beside name the Wiki thought you walked from', () => {
@@ -934,6 +981,37 @@ describe('OpenSentence', () => {
     expect(screen.queryByText(/biography/i)).not.toBeInTheDocument();
   });
 
+  it('copies a Then source with its recorded door, not a question or a draft', async () => {
+    const writeText = jest.fn().mockResolvedValue();
+    Object.assign(navigator, { clipboard: { writeText } });
+    const thenSource = {
+      title: 'Capacity',
+      passage: STORYBOARD_THEN_QUOTATION,
+      href: STORYBOARD_THEN_ORIGINAL
+    };
+    renderOpen(openExploration(createExploration({
+      originalText: STORYBOARD_THEN_NOW,
+      source: STORYBOARD_COMPUTE_SOURCE,
+      then: {
+        text: STORYBOARD_COMPUTE_SENTENCE,
+        sources: [thenSource, STORYBOARD_THEN_BESIDE],
+        question: STORYBOARD_THEN_QUESTION,
+        draft: 'The plant is still the constraint.'
+      }
+    })));
+    const then = document.querySelector('.open-sentence-pocket__then');
+    const quoted = [...then.querySelectorAll('.open-sentence-pocket__then-source')]
+      .find((node) => node.textContent.includes(STORYBOARD_THEN_QUOTATION));
+    const question = [...then.querySelectorAll('.open-sentence-pocket__then-source')]
+      .find((node) => node.textContent.includes('Then you left this open'));
+    expect(quoted.querySelector('button')).toHaveTextContent('Copy with source');
+    expect(question.querySelector('button')).toBeNull();
+    fireEvent.click(quoted.querySelector('button'));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(sourceClip(thenSource)));
+    expect(writeText.mock.calls[0][0]).not.toContain(STORYBOARD_THEN_QUESTION);
+    expect(writeText.mock.calls[0][0]).not.toContain('The plant is still the constraint.');
+  });
+
   it('lets a Then passage sit as what still holds, not a question or a generated consequence', () => {
     const exploration = beginPressure(openExploration(createExploration({
       originalText: STORYBOARD_THEN_NOW,
@@ -1006,6 +1084,16 @@ describe('OpenSentence', () => {
     expect(screen.queryByRole('button', { name: 'Under pressure.' })).not.toBeInTheDocument();
     expect(screen.queryByText('Under pressure.')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: STORYBOARD_SENTENCE })).toBeInTheDocument();
+  });
+
+  it('copies the second passage with its source, not a generated match', async () => {
+    const writeText = jest.fn().mockResolvedValue();
+    Object.assign(navigator, { clipboard: { writeText } });
+    renderOpen(meeting(true));
+    const meet = document.querySelector('.open-sentence-pocket__meet');
+    fireEvent.click([...meet.querySelectorAll('button')].find((el) => el.textContent === 'Copy with source'));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(sourceClip(STORYBOARD_MEET_SOURCE)));
+    expect(writeText.mock.calls[0][0]).not.toContain('therefore');
   });
 
   it('lets two recorded passages sit together without a generated therefore', () => {

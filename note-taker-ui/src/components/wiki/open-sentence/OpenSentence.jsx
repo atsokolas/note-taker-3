@@ -40,6 +40,7 @@ import {
   setMeetField,
   setPressureField,
   setReturnNote,
+  sourceClip,
   tryWording,
   wikiAcceptedText,
   withdrawProposal,
@@ -67,11 +68,40 @@ const SourceHome = ({ source, mocked, onOpen }) => {
   return <a className="open-sentence-pocket__home" href={source.href} onClick={go}>{label}</a>;
 };
 
+const CopyWithSource = ({ source }) => {
+  const clip = sourceClip(source);
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    if (!copied) return undefined;
+    const timer = window.setTimeout(() => setCopied(false), 1600);
+    return () => window.clearTimeout(timer);
+  }, [copied]);
+  if (!clip) return null;
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        if (!navigator.clipboard?.writeText) return;
+        navigator.clipboard.writeText(clip).then(() => setCopied(true)).catch(() => {});
+      }}
+    >
+      {copied ? 'Copied.' : 'Copy with source'}
+    </button>
+  );
+};
+
+const SourceCite = ({ source, mocked, onOpen, copyable = true }) => (
+  <>
+    <SourceHome source={source} mocked={mocked} onOpen={onOpen} />
+    {copyable ? <CopyWithSource source={source} /> : null}
+  </>
+);
+
 const ThenQuote = ({ text }) => (
   <blockquote className="open-sentence-pocket__quote">{text}</blockquote>
 );
 
-const ThenPassage = ({ source, mocked, onOpen }) => (
+const ThenPassage = ({ source, mocked, onOpen, copyable = false }) => (
   <div className="open-sentence-pocket__then-source">
     {source.title ? <p className="open-sentence-pocket__source-title">{source.title}</p> : null}
     {source.aroundBefore ? (
@@ -81,7 +111,16 @@ const ThenPassage = ({ source, mocked, onOpen }) => (
     {source.aroundAfter ? (
       <p className="open-sentence-pocket__around">{source.aroundAfter}</p>
     ) : null}
-    <SourceHome source={source} mocked={mocked} onOpen={onOpen} />
+    {copyable || (source.href && !source.here) ? (
+      <div className="open-sentence-pocket__actions">
+        <SourceCite
+          source={source}
+          mocked={mocked}
+          copyable={copyable}
+          onOpen={onOpen}
+        />
+      </div>
+    ) : null}
   </div>
 );
 
@@ -187,7 +226,7 @@ const SourceBeside = ({
       </button>
       <div className="open-sentence-pocket__actions">
         <AroundToggle inspecting={inspecting} onToggle={() => setInspecting((current) => !current)} />
-        <SourceHome
+        <SourceCite
           source={source}
           mocked={mocked}
           onOpen={() => onOpenSourceHome?.(source, exploration)}
@@ -326,7 +365,7 @@ const MeetBody = ({ pocketId, exploration, mocked, onCommit, onOpenSourceHome })
       <PassageRead source={other} inspecting={inspecting} />
       <div className="open-sentence-pocket__actions">
         <AroundToggle inspecting={inspecting} onToggle={() => setInspecting((current) => !current)} />
-        <SourceHome
+        <SourceCite
           source={other}
           mocked={mocked}
           onOpen={() => onOpenSourceHome?.(other, exploration)}
@@ -509,6 +548,7 @@ const PocketBody = ({
                 key={`${source.title}:${source.passage}`}
                 source={source}
                 mocked={mocked}
+                copyable
                 onOpen={() => onOpenSourceHome?.(source, exploration)}
               />
             ))}
