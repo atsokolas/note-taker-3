@@ -38,7 +38,7 @@ Accepting that proposal is a later, separate act. It patches only that claim’s
 
 A named premise can sit beside the original line in the same pocket. Empty slots stay empty. The original survives. If the live line moved on, the experiment is dropped. Library may suppose; it still cannot propose or accept.
 
-An earlier recorded wording can sit beside today in the same pocket. Identity is that claim's prior revision (or history fallback). A draft cannot forge Then. Library stays silent.
+An earlier recorded wording can sit beside today in the same pocket. Identity is that claim's prior revision (or history fallback). If that revision recorded a different quotation for the same source, it sits under Then. If that snapshot bound a question or notebook draft to the claim, that recorded line sits under Then. A draft cannot forge Then. Library stays silent.
 
 A second recorded passage can sit beside the first in the same pocket. Identity is that claim's attached sources. The person names how they meet and where that stops. The space between is theirs to write, and stays empty until they do. A note written there can stay a note, be kept as an unfinished experiment — the existing pressure act, their words as the premise — be proposed as the Wiki line — the existing proposal, their words, against the live line — or be kept as an essay — a snapshot of their words, not the Wiki line, able to remain after the meeting is left. A draft cannot forge the second source. Library stays silent.
 
@@ -46,7 +46,7 @@ Do not read a green script as longitudinal value. Do not read a preview deploy a
 
 ## What stays closed
 
-Public shares. Workspace composer. Repo dossiers, company dossiers, investment dossiers, living theses, research editions. Server-sync of private drafts. Generated inspection of whether a wording is warranted. Generated matches between sources. Historical source versions and contemporaneous drafts as a reconstructed scene. Horizons (exhibits, rehearsal, instruments, two Libraries, sharing).
+Public shares. Workspace composer. Repo dossiers, company dossiers, investment dossiers, living theses, research editions. Server-sync of private drafts. Generated inspection of whether a wording is warranted. Generated matches between sources. Contemporaneous drafts and questions as a reconstructed scene of everything written then. Horizons (exhibits, rehearsal, instruments, two Libraries, sharing).
 
 ## Taste pass
 
@@ -89,6 +89,16 @@ Public shares. Workspace composer. Repo dossiers, company dossiers, investment d
 - Eligibility: an opened Wiki claim with a second attached sourceRef of a different identity and a different passage than the live source.
 - Quality bar: identity only. Those two recorded passages. The person names the relation and the limit. The space between is theirs. A note written there can stay a note. A note kept as an experiment is the existing pressure act, their words as the premise. A proposal from that note is that person's wording against the live line. An essay from that note is a snapshot of their words, not the Wiki line. No similar-text repair. No generated match. No synthesized paragraph. No invented chain.
 - Silence: one source; a duplicate identity; the same passage twice; a neighboring unattached source; recorded work (question / notebook); Library; relation empty and the space between empty (limit-only does not keep the walk); the live line moved on → drop the naming. Filler is never the answer.
+
+**Historical quotation**
+- Eligibility: Then is showing from a revision whose `before` binds the same source identity for that claim, with a recorded passage that differs from today's.
+- Quality bar: identity only. That sourceRef, exact recorded quote or snippet. No similar-text repair. No Library door pretending to be a historical version. No generated biography.
+- Silence: history fallback (no snapshot); pruned snapshot; missing or unavailable historical source; quotation already matches today. Filler is never the answer.
+
+**Recorded question / draft**
+- Eligibility: Then is showing from a revision whose `before` binds a `question` or `notebook` sourceRef to that claim, or a user `history.note` whose text is the Then line.
+- Quality bar: identity only. That claim, exact recorded snippet, title, or note. No similar-text repair. No generated biography. A question is not copied into today's "Leave this open."
+- Silence: history-only Then with no user note; pruned snapshot; Library; a neighboring type; a note that already equals the live question or return note. Filler is never the answer.
 
 ## Separately authorized
 
