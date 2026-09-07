@@ -305,7 +305,12 @@ const quotationFromBefore = (found, claimId) => {
     title: bound.title,
     passage,
     aroundBefore: bound.aroundBefore,
-    aroundAfter: bound.aroundAfter
+    aroundAfter: bound.aroundAfter,
+    href: bound.href,
+    originalHref: bound.originalHref,
+    isLibrary: bound.isLibrary,
+    articleId: bound.articleId,
+    highlightId: bound.highlightId
   };
 };
 

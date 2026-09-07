@@ -18,6 +18,7 @@ import {
   STORYBOARD_SCOPE,
   STORYBOARD_SENTENCE,
   STORYBOARD_THEN_NOW,
+  STORYBOARD_THEN_ORIGINAL,
   STORYBOARD_THEN_QUESTION,
   STORYBOARD_THEN_QUOTATION
 } from '../components/wiki/open-sentence/openSentenceStoryboardFixture';
@@ -157,6 +158,11 @@ describe('OpenSentenceStoryboard', () => {
     expect(document.querySelector('.open-sentence-pocket__then-source')).toHaveTextContent(STORYBOARD_THEN_QUOTATION);
     expect(screen.getByText('Then you left this open')).toBeInTheDocument();
     expect(document.querySelector('.open-sentence-pocket__then')).toHaveTextContent(STORYBOARD_THEN_QUESTION);
+    expect(screen.getByRole('link', { name: 'Return to source →' })).toHaveAttribute(
+      'href',
+      STORYBOARD_THEN_ORIGINAL
+    );
+    expect(screen.queryByRole('link', { name: 'Open in Library →' })).not.toBeInTheDocument();
     expect(screen.getByText('Supply was the constraint this decade.')).toBeInTheDocument();
     expect(screen.queryByText(STORYBOARD_SENTENCE)).not.toBeInTheDocument();
     expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();

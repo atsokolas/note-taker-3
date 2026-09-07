@@ -45,6 +45,7 @@ import {
   STORYBOARD_SOURCE,
   STORYBOARD_SOURCE_ROOMS,
   STORYBOARD_THEN_NOW,
+  STORYBOARD_THEN_ORIGINAL,
   STORYBOARD_THEN_QUESTION,
   STORYBOARD_THEN_QUOTATION,
   storyboardSource
@@ -89,7 +90,8 @@ const thenSeed = () => createExploration({
     text: STORYBOARD_COMPUTE_SENTENCE,
     quotation: {
       title: STORYBOARD_COMPUTE_SOURCE.title,
-      passage: STORYBOARD_THEN_QUOTATION
+      passage: STORYBOARD_THEN_QUOTATION,
+      href: STORYBOARD_THEN_ORIGINAL
     },
     question: STORYBOARD_THEN_QUESTION
   }
@@ -371,7 +373,8 @@ const OpenSentenceStoryboard = () => {
           drawing. Propose names a wording; Accept is what writes the illustrated
           line. Pressure names a premise beside the original. It does not invent a
           causal chain. Then names an earlier recorded line. A recorded quotation
-          sits with it when one was saved. A recorded question sits with it when
+          sits with it when one was saved. The historical version opens when that
+          door is still a different identity. A recorded question sits with it when
           one was left open then. It is not a biography. Meet names how
           two recorded passages sit together, and where that stops. The space
           between is yours. A note written there can stay a note, be kept as an

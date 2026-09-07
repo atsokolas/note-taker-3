@@ -10,25 +10,51 @@ const unlessSame = (value, ...sameAs) => {
   return text && !sameAs.map(asLine).includes(text) ? text : '';
 };
 
-const asQuotation = (value, currentPassage) => {
+const liveDoors = (source) => (
+  [asLine(source?.href), asLine(source?.originalHref)].filter(Boolean)
+);
+
+const historicalDoor = (value, currentSource) => {
+  const taken = liveDoors(currentSource);
+  const href = asLine(value?.href);
+  const original = asLine(value?.originalHref);
+  if (href && !taken.includes(href)) {
+    const articleId = asLine(value?.articleId);
+    const highlightId = asLine(value?.highlightId);
+    return {
+      href,
+      ...(value?.isLibrary ? { isLibrary: true } : {}),
+      ...(articleId ? { articleId } : {}),
+      ...(highlightId ? { highlightId } : {})
+    };
+  }
+  if (original && !taken.includes(original) && original !== href) {
+    return { href: original };
+  }
+  return null;
+};
+
+const asQuotation = (value, currentSource) => {
   const passage = asLine(value?.passage);
-  if (!passage || passage === asLine(currentPassage)) return null;
+  if (!passage || passage === asLine(currentSource?.passage)) return null;
   const title = asLine(value?.title);
   const aroundBefore = asLine(value?.aroundBefore);
   const aroundAfter = asLine(value?.aroundAfter);
+  const door = historicalDoor(value, currentSource);
   return {
     ...(title ? { title } : {}),
     passage,
     ...(aroundBefore ? { aroundBefore } : {}),
-    ...(aroundAfter ? { aroundAfter } : {})
+    ...(aroundAfter ? { aroundAfter } : {}),
+    ...(door || {})
   };
 };
 
-const asThen = (value, currentText, currentPassage) => {
+const asThen = (value, currentText, currentSource) => {
   const text = asLine(value?.text);
   const now = asLine(currentText);
   if (!text || !now || text === now) return null;
-  const quotation = asQuotation(value?.quotation, currentPassage);
+  const quotation = asQuotation(value?.quotation, currentSource);
   const question = asLine(value?.question);
   const draft = unlessSame(value?.draft, text, question);
   return {
@@ -43,7 +69,7 @@ export const liveThen = (exploration) => asThen({
   ...(exploration?.then || {}),
   question: unlessSame(exploration?.then?.question, exploration?.question),
   draft: unlessSame(exploration?.then?.draft, exploration?.returnNote)
-}, exploration?.originalText, exploration?.source?.passage);
+}, exploration?.originalText, exploration?.source);
 
 export const createExploration = ({
   id = '',
@@ -55,7 +81,7 @@ export const createExploration = ({
 } = {}) => {
   const text = String(originalText || '');
   const boundSource = source && typeof source === 'object' ? source : null;
-  const recorded = asThen(then, text, boundSource?.passage);
+  const recorded = asThen(then, text, boundSource);
   return {
     id: String(id || '').trim(),
     originalText: text,
@@ -380,7 +406,7 @@ export const restoreExploration = (raw, fallback) => {
         ? EXPLORATION_STATUS.open
         : EXPLORATION_STATUS.closed
     };
-    const recorded = asThen(base.then, restored.originalText, restored.source?.passage);
+    const recorded = asThen(base.then, restored.originalText, restored.source);
     const { then: _ignoredThen, ...withoutThen } = restored;
     return {
       ...withoutThen,

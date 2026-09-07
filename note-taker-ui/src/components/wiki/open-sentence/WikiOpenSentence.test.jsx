@@ -211,8 +211,12 @@ describe('WikiOpenSentence', () => {
           }],
           sourceRefs: [{
             _id: 'source-1',
+            type: 'highlight',
+            objectId: 'highlight-1',
+            parentObjectId: 'article-1',
             title: 'Memory article',
-            snippet: 'Memory used to be a pile of notes.'
+            snippet: 'Memory used to be a pile of notes.',
+            url: 'https://old.example/memory-then'
           }]
         }
       }]
@@ -221,6 +225,11 @@ describe('WikiOpenSentence', () => {
     expect(document.querySelector('.open-sentence-pocket__then')).toHaveTextContent('Memory was a pile of notes.');
     expect(document.querySelector('.open-sentence-pocket__then-source')).toHaveTextContent('Memory used to be a pile of notes.');
     expect(screen.getByText('Source snippet')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Return to source →' })).toHaveAttribute(
+      'href',
+      'https://old.example/memory-then'
+    );
+    expect(screen.getAllByRole('link', { name: 'Open in Library →' })).toHaveLength(1);
     expect(screen.queryByText('Unrelated')).not.toBeInTheDocument();
   });
 
