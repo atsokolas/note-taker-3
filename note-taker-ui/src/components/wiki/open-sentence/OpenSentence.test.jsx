@@ -6,6 +6,7 @@ import {
   acceptWording,
   beginPressure,
   canKeepBetweenAsExperiment,
+  canProposeBetween,
   canProposeWording,
   changedWordSpans,
   closeExploration,
@@ -192,6 +193,13 @@ describe('openSentenceModel', () => {
       ...proposed,
       originalText: 'Children need room to make recoverable mistakes.'
     }).proposal).toEqual(proposed.proposal);
+    const between = 'Survivable error is not the same kind of care.';
+    const fromBetween = proposeWording(setMeetField(meeting(), 'between', between), between);
+    expect(liveProposal(fromBetween)).toEqual({ text: between, against: STORYBOARD_SENTENCE });
+    expect(fromBetween.provisionalText).toBe(STORYBOARD_SENTENCE);
+    expect(wikiAcceptedText(fromBetween)).toBe(STORYBOARD_SENTENCE);
+    expect(acceptWording(fromBetween).originalText).toBe(between);
+    expect(liveMeet(acceptWording(fromBetween))).toBeNull();
   });
 
   it('puts a named premise beside the original and drops it if that line moved on', () => {
@@ -298,6 +306,24 @@ describe('openSentenceModel', () => {
       'premise',
       'demand grows more slowly'
     ))).premise).toBe('demand grows more slowly');
+    expect(canProposeBetween(start)).toBe(false);
+    expect(canProposeBetween(named)).toBe(false);
+    expect(canProposeBetween(setMeetField(start, 'between', STORYBOARD_SENTENCE))).toBe(false);
+    expect(canProposeBetween(noted)).toBe(true);
+    expect(canProposeBetween(proposeWording(noted, between))).toBe(false);
+    expect(canProposeBetween(tryWording(
+      setMeetField(start, 'between', 'Children need room to make recoverable mistakes.'),
+      'Children need room to make recoverable mistakes.'
+    ))).toBe(false);
+    expect(canProposeBetween(setMeetField(
+      createExploration({
+        originalText: STORYBOARD_SOURCE.passage,
+        source: { ...STORYBOARD_SOURCE, here: true },
+        other: STORYBOARD_MEET_SOURCE
+      }),
+      'between',
+      between
+    ))).toBe(false);
   });
 
   it('refuses a Wiki proposal from a passage that is already here', () => {
@@ -559,6 +585,7 @@ describe('OpenSentence', () => {
       'A narrower library line.'
     )));
     expect(screen.queryByRole('button', { name: 'Propose this wording' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Propose this as the line' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Accept this wording' })).not.toBeInTheDocument();
   });
 
@@ -810,6 +837,36 @@ describe('OpenSentence', () => {
     fireEvent.click(screen.getByRole('button', { name: `For this experiment: ${between}` }));
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ status: 'open' }));
     expect(screen.getByRole('button', { name: STORYBOARD_SENTENCE })).toBeInTheDocument();
+  });
+
+  it('lets a note written between them be proposed as the line', () => {
+    const onChange = jest.fn();
+    const between = 'Survivable error is not the same kind of care.';
+    const { rerender } = renderOpen(
+      openExploration(setMeetField(meeting(), 'between', between)),
+      onChange
+    );
+    expect(screen.getByLabelText('Try a narrower wording')).toHaveValue(STORYBOARD_SENTENCE);
+    expect(screen.getByText(/The article still reads/)).toHaveTextContent(STORYBOARD_SENTENCE);
+    fireEvent.click(screen.getByRole('button', { name: 'Propose this as the line' }));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
+      proposal: { text: between, against: STORYBOARD_SENTENCE },
+      provisionalText: STORYBOARD_SENTENCE
+    }));
+    rerender(
+      <MemoryRouter>
+        <OpenSentence
+          exploration={openExploration(proposeWording(
+            setMeetField(meeting(), 'between', between),
+            between
+          ))}
+          mocked
+        />
+      </MemoryRouter>
+    );
+    expect(screen.getByText(/Proposed, not accepted/)).toHaveTextContent(between);
+    expect(screen.queryByRole('button', { name: 'Propose this as the line' })).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Try a narrower wording')).toHaveValue(STORYBOARD_SENTENCE);
   });
 
   it('is already still when stillness is asked for', () => {

@@ -60,9 +60,9 @@ export const liveProposal = (exploration) => {
   return { text, against };
 };
 
-export const proposeWording = (exploration) => {
+export const proposeWording = (exploration, from = exploration?.provisionalText) => {
   if (!canProposeWording(exploration)) return exploration;
-  const text = String(exploration?.provisionalText || '').trim();
+  const text = String(from ?? '').trim();
   const against = String(exploration?.originalText || '').trim();
   if (!text || !against || text === against) return exploration;
   return { ...exploration, proposal: { text, against } };
@@ -202,6 +202,14 @@ export const canKeepBetweenAsExperiment = (exploration) => (
 export const keepBetweenAsExperiment = (exploration) => {
   if (!canKeepBetweenAsExperiment(exploration)) return exploration;
   return setPressureField(beginPressure(exploration), 'premise', liveMeet(exploration).between);
+};
+
+export const canProposeBetween = (exploration) => {
+  const between = liveMeet(exploration)?.between;
+  if (!between || !canProposeWording(exploration)) return false;
+  if (between === String(exploration.originalText || '').trim()) return false;
+  if (between === String(exploration.provisionalText || '').trim()) return false;
+  return liveProposal(exploration)?.text !== between;
 };
 
 export const keepsClosedDraft = (exploration) => Boolean(
