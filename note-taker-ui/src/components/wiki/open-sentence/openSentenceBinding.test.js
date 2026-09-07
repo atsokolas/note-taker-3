@@ -647,4 +647,93 @@ describe('openSentenceBinding', () => {
     expect(systemOnly.then).toEqual({ text: 'Compute will remain scarce.' });
     expect(JSON.stringify(systemOnly.then)).not.toContain('proposed wording');
   });
+
+  it('opens a historical original when that door is not today\'s Library door', () => {
+    const today = {
+      _id: 'source-capacity',
+      type: 'highlight',
+      objectId: 'highlight-now',
+      parentObjectId: 'article-capacity',
+      title: 'Capacity',
+      snippet: 'Supply was the constraint this decade.'
+    };
+    const exploration = liveExplorationForPageClaim({
+      body: markedDoc('Software can do more with the same plant.', {
+        claimId: 'claim-compute',
+        citationIndexes: [1]
+      }),
+      claims: [{
+        claimId: 'claim-compute',
+        text: 'Software can do more with the same plant.',
+        sourceRefIds: ['source-capacity']
+      }],
+      sourceRefs: [today]
+    }, { claimId: 'claim-compute' }, {
+      revisions: [{
+        before: {
+          body: markedDoc('Compute will remain scarce.', {
+            claimId: 'claim-compute',
+            citationIndexes: [1]
+          }),
+          claims: [{
+            claimId: 'claim-compute',
+            text: 'Compute will remain scarce.',
+            sourceRefIds: ['source-capacity']
+          }],
+          sourceRefs: [{
+            ...today,
+            snippet: 'The plant, not the algorithm, was the limit.',
+            url: 'https://old.example/capacity-then'
+          }]
+        }
+      }]
+    });
+    expect(exploration.then.quotation.href).toBe('https://old.example/capacity-then');
+    expect(exploration.then.quotation.isLibrary).toBeUndefined();
+    expect(exploration.source.href).toBe('/library?articleId=article-capacity&highlightId=highlight-now');
+  });
+
+  it('does not open today\'s Library door as a historical version', () => {
+    const today = {
+      _id: 'source-capacity',
+      type: 'highlight',
+      objectId: 'highlight-now',
+      parentObjectId: 'article-capacity',
+      title: 'Capacity',
+      snippet: 'Supply was the constraint this decade.'
+    };
+    const exploration = liveExplorationForPageClaim({
+      body: markedDoc('Software can do more with the same plant.', {
+        claimId: 'claim-compute',
+        citationIndexes: [1]
+      }),
+      claims: [{
+        claimId: 'claim-compute',
+        text: 'Software can do more with the same plant.',
+        sourceRefIds: ['source-capacity']
+      }],
+      sourceRefs: [today]
+    }, { claimId: 'claim-compute' }, {
+      revisions: [{
+        before: {
+          body: markedDoc('Compute will remain scarce.', {
+            claimId: 'claim-compute',
+            citationIndexes: [1]
+          }),
+          claims: [{
+            claimId: 'claim-compute',
+            text: 'Compute will remain scarce.',
+            sourceRefIds: ['source-capacity']
+          }],
+          sourceRefs: [{
+            ...today,
+            snippet: 'The plant, not the algorithm, was the limit.'
+          }]
+        }
+      }]
+    });
+    expect(exploration.then.quotation.passage).toBe('The plant, not the algorithm, was the limit.');
+    expect(exploration.then.quotation.href).toBeUndefined();
+    expect(JSON.stringify(exploration.then)).not.toContain('/library');
+  });
 });

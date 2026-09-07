@@ -44,7 +44,7 @@ import {
   withdrawProposal,
   wordingChanged
 } from './openSentenceModel';
-import { STORYBOARD_COMPUTE_SENTENCE, STORYBOARD_COMPUTE_SOURCE, STORYBOARD_MEET_LIMIT, STORYBOARD_MEET_RELATION, STORYBOARD_MEET_SOURCE, STORYBOARD_SENTENCE, STORYBOARD_SOURCE, STORYBOARD_STALE_SOURCE, STORYBOARD_THEN_NOW, STORYBOARD_THEN_QUESTION, STORYBOARD_THEN_QUOTATION } from './openSentenceStoryboardFixture';
+import { STORYBOARD_COMPUTE_SENTENCE, STORYBOARD_COMPUTE_SOURCE, STORYBOARD_MEET_LIMIT, STORYBOARD_MEET_RELATION, STORYBOARD_MEET_SOURCE, STORYBOARD_SENTENCE, STORYBOARD_SOURCE, STORYBOARD_STALE_SOURCE, STORYBOARD_THEN_NOW, STORYBOARD_THEN_ORIGINAL, STORYBOARD_THEN_QUESTION, STORYBOARD_THEN_QUOTATION } from './openSentenceStoryboardFixture';
 
 const renderOpen = (exploration, onChange = jest.fn()) => render(
   <MemoryRouter>
@@ -113,7 +113,11 @@ describe('openSentenceModel', () => {
       ...start,
       then: {
         text: 'They used to believe compute would stay scarce.',
-        quotation: { title: 'Capacity', passage: 'They used to quote a different plant.' },
+        quotation: {
+          title: 'Capacity',
+          passage: 'They used to quote a different plant.',
+          href: STORYBOARD_SOURCE.href
+        },
         question: 'They used to wonder about demand.',
         draft: 'They used to write a reconstructed scene.'
       },
@@ -131,6 +135,7 @@ describe('openSentenceModel', () => {
     expect(JSON.stringify(restored)).not.toContain('used to quote');
     expect(JSON.stringify(restored)).not.toContain('used to wonder');
     expect(JSON.stringify(restored)).not.toContain('used to write');
+    expect(JSON.stringify(restored)).not.toContain(STORYBOARD_SOURCE.href);
     expect(liveThen(restoreExploration(snapshotExploration(dirty), createExploration({
       originalText: STORYBOARD_THEN_NOW
     })))).toBeNull();
@@ -204,6 +209,41 @@ describe('openSentenceModel', () => {
         quotation: { title: 'Capacity', passage: STORYBOARD_COMPUTE_SOURCE.passage }
       }
     }))).toEqual({ text: STORYBOARD_COMPUTE_SENTENCE });
+    expect(liveThen(createExploration({
+      originalText: STORYBOARD_THEN_NOW,
+      source: STORYBOARD_SOURCE,
+      then: {
+        text: STORYBOARD_COMPUTE_SENTENCE,
+        quotation: {
+          title: 'Capacity',
+          passage: STORYBOARD_THEN_QUOTATION,
+          href: STORYBOARD_SOURCE.href,
+          isLibrary: true
+        }
+      }
+    }))).toEqual({
+      text: STORYBOARD_COMPUTE_SENTENCE,
+      quotation: { title: 'Capacity', passage: STORYBOARD_THEN_QUOTATION }
+    });
+    expect(liveThen(createExploration({
+      originalText: STORYBOARD_THEN_NOW,
+      source: STORYBOARD_COMPUTE_SOURCE,
+      then: {
+        text: STORYBOARD_COMPUTE_SENTENCE,
+        quotation: {
+          title: 'Capacity',
+          passage: STORYBOARD_THEN_QUOTATION,
+          href: STORYBOARD_THEN_ORIGINAL
+        }
+      }
+    }))).toEqual({
+      text: STORYBOARD_COMPUTE_SENTENCE,
+      quotation: {
+        title: 'Capacity',
+        passage: STORYBOARD_THEN_QUOTATION,
+        href: STORYBOARD_THEN_ORIGINAL
+      }
+    });
     expect(liveThen({
       ...createExploration({
         originalText: STORYBOARD_THEN_NOW,
@@ -746,7 +786,11 @@ describe('OpenSentence', () => {
       source: STORYBOARD_COMPUTE_SOURCE,
       then: {
         text: STORYBOARD_COMPUTE_SENTENCE,
-        quotation: { title: 'Capacity', passage: STORYBOARD_THEN_QUOTATION },
+        quotation: {
+          title: 'Capacity',
+          passage: STORYBOARD_THEN_QUOTATION,
+          href: STORYBOARD_THEN_ORIGINAL
+        },
         question: STORYBOARD_THEN_QUESTION,
         draft: 'The plant is still the constraint.'
       }
@@ -760,6 +804,11 @@ describe('OpenSentence', () => {
     expect(then).toHaveTextContent(STORYBOARD_THEN_QUESTION);
     expect(then).toHaveTextContent('Then you wrote');
     expect(then).toHaveTextContent('The plant is still the constraint.');
+    expect(screen.getByRole('link', { name: 'Return to source →' })).toHaveAttribute(
+      'href',
+      STORYBOARD_THEN_ORIGINAL
+    );
+    expect(screen.queryByRole('link', { name: 'Open in Library →' })).not.toBeInTheDocument();
     expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/used to believe/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/biography/i)).not.toBeInTheDocument();

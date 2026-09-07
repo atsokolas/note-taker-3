@@ -452,6 +452,11 @@ const PocketBody = ({
                 {then.quotation.aroundAfter ? (
                   <p className="open-sentence-pocket__around">{then.quotation.aroundAfter}</p>
                 ) : null}
+                <SourceHome
+                  source={then.quotation}
+                  mocked={mocked}
+                  onOpen={() => onOpenSourceHome?.(then.quotation, exploration)}
+                />
               </ThenKept>
             ) : null}
             {then.question ? (

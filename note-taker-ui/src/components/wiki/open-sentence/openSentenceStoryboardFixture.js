@@ -16,6 +16,8 @@ export const STORYBOARD_THEN_QUOTATION = 'The plant, not the algorithm, was the 
 export const STORYBOARD_THEN_QUESTION =
   'Is scarcity a plant problem, or a demand problem?';
 
+export const STORYBOARD_THEN_ORIGINAL = 'https://illustrated.example/capacity-then';
+
 export const STORYBOARD_PREMISE = 'demand grows more slowly';
 
 export const STORYBOARD_COMPUTE_SOURCE = Object.freeze({
