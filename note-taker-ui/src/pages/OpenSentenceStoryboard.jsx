@@ -5,6 +5,7 @@ import '../styles/agent-rail.css';
 import OpenSentence from '../components/wiki/open-sentence/OpenSentence';
 import {
   acceptWording,
+  applyInstrument,
   beginPressure,
   cancelPlacement,
   createExploration,
@@ -14,6 +15,7 @@ import {
   isWithoutParagraph,
   keepQuestion,
   liveBearing,
+  liveInstrument,
   liveThen,
   openExploration,
   placeSource,
@@ -27,7 +29,8 @@ import {
 } from '../components/wiki/open-sentence/openSentenceModel';
 import {
   keepExploration,
-  readRemembered
+  readRemembered,
+  writeHeldInstrument
 } from '../components/wiki/open-sentence/openSentenceJourney';
 import {
   STORYBOARD_COMPUTE_ID,
@@ -44,6 +47,7 @@ import {
   STORYBOARD_PROVISIONAL,
   STORYBOARD_QUESTION,
   STORYBOARD_DISTINCTION,
+  STORYBOARD_INSTRUMENT_NAME,
   STORYBOARD_BEARING_SOURCE,
   STORYBOARD_SCOPE,
   STORYBOARD_SENTENCE,
@@ -74,7 +78,8 @@ const BEATS = [
   { id: 'return', label: 'Return' },
   { id: 'pressure', label: 'Pressure' },
   { id: 'then', label: 'Then' },
-  { id: 'meet', label: 'Meet' }
+  { id: 'meet', label: 'Meet' },
+  { id: 'instrument', label: 'Instrument' }
 ];
 
 const seed = (source = STORYBOARD_SOURCE) => createExploration({
@@ -132,6 +137,14 @@ const applyBeat = (beat, source) => {
   if (beat === 'meet') {
     return meetSeed();
   }
+  if (beat === 'instrument') {
+    const held = {
+      name: STORYBOARD_INSTRUMENT_NAME,
+      definition: STORYBOARD_DISTINCTION
+    };
+    writeHeldInstrument(held);
+    return applyInstrument(openExploration(computeSeed()), held);
+  }
   if (beat === 'without') {
     return tryWithoutThisParagraph(openExploration(seed(source)));
   }
@@ -181,6 +194,9 @@ const companionRole = (scene, exploration, libraryExploration, pageTitle) => {
   }
   if (isPressured(exploration)) {
     return 'The original stays. The experiment is not a generated causal chain.';
+  }
+  if (liveInstrument(exploration)) {
+    return 'The instrument sits beside this sentence. It does not rewrite the article.';
   }
   if (pageTitle && pageTitle === wikiAcceptedText(exploration)) {
     return 'The title is named. The sentence stays.';
@@ -398,7 +414,7 @@ const OpenSentenceStoryboard = () => {
         <p className="open-sentence-storyboard__note">
           The article stays the page. Select the sentence and open it. Closing without
           a question, a named distinction, a placed passage, a proposed wording, a named
-          premise, a named meeting, or a note written between them forgets the experiment. A distinction under the line is the way home.
+          premise, a named meeting, a note written between them, or a named instrument forgets the experiment. A distinction under the line is the way home.
           Source cycles the honest absences. Stillness is the open state with no
           drawing. Propose names a wording; Accept is what writes the illustrated
           line. Pressure names a premise beside the original. A recorded passage
@@ -420,7 +436,9 @@ const OpenSentenceStoryboard = () => {
           The space
           between is yours. A note written there can stay a note, be kept as an
           experiment, be proposed as the line, or be kept as an essay. None of
-          those write the article.
+          those write the article. A named distinction can be kept as an instrument.
+          Applied to another sentence, it sits beside that line. It does not write
+          the article.
         </p>
       </header>
 

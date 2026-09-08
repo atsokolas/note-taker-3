@@ -96,6 +96,23 @@ describe('OpenedLibraryPassage', () => {
     expect(screen.queryByRole('button', { name: 'Make this the title' })).not.toBeInTheDocument();
   });
 
+  it('lets a named distinction be kept as an instrument without a Wiki write', () => {
+    renderPassage();
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    expect(screen.queryByRole('button', { name: 'Keep this as an instrument' })).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('The distinction that would help'), {
+      target: { value: 'A turn you can walk back from, versus one that strands you.' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Keep this as an instrument' }));
+    fireEvent.change(screen.getByLabelText('Name this instrument'), {
+      target: { value: 'Room to be wrong' }
+    });
+    expect(screen.getByText(/An instrument, not the line/)).toHaveTextContent('Room to be wrong');
+    expect(screen.getByText(/The saved passage still reads/)).toHaveTextContent(highlight.text);
+    expect(screen.queryByRole('button', { name: 'Propose this wording' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Accept this wording' })).not.toBeInTheDocument();
+  });
+
   it('places the passage beside the Wiki thought you walked from', () => {
     writeReturnTicket({
       articleId: 'article-1',
