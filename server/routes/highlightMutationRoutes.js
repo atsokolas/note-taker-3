@@ -141,7 +141,20 @@ const buildHighlightMutationRouter = ({
           metadata: { route: 'add-highlight' }
         });
       }
-      res.status(200).json({ article: updatedArticle, highlight: createdHighlight });
+      /* A highlight is a subdocument: it belongs to the article by containment
+         and carries no articleId of its own. Returning the raw subdocument told
+         every caller the highlight had no article — an agent read that as its
+         own write having failed and reported five saved highlights as unattached.
+         Read and update already serialize; create now says the same thing. */
+      res.status(200).json({
+        article: updatedArticle,
+        highlight: createdHighlight
+          ? serializeHighlightWithArticle(updatedArticle, createdHighlight, {
+            includeAnchor: true,
+            normalizeItemType
+          })
+          : null
+      });
     } catch (error) {
       console.error("❌ Error adding highlight:", error);
       if (error.name === 'CastError') {
