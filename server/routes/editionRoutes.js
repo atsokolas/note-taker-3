@@ -1,6 +1,6 @@
 const express = require('express');
 const crypto = require('crypto');
-const { fetchReadableArticle } = require('../services/readableArticle');
+const { fetchReadableArticle, paragraphsToHtml } = require('../services/readableArticle');
 const {
   EditionShapeError,
   emptySections,
@@ -404,7 +404,11 @@ const buildEditionRouter = ({
             /* The page's own title beats the agent's, which is a headline
                written for the edition rather than the piece. */
             title: readable.title || item.title,
-            content: readable.content || '',
+            /* Paragraphed, because the reader renders a body as HTML: stored as
+               the blank-line separated text it arrives as, a piece saved from an
+               edition reads as one unbroken run you cannot highlight a sentence
+               of — which is the same seam this door was built to close. */
+            content: paragraphsToHtml(readable.content),
             siteName: item.sourceLabel || '',
             publicationDate: item.sourceDate || '',
             highlights: []

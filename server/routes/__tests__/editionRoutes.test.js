@@ -208,13 +208,15 @@ describe('the newsstand', () => {
 
     /* The seam in "seamless": a source taken from an agent's paper used to
        arrive as a row you could file but not read. */
-    it('arrives readable, with the page’s own title', async () => {
+    /* The reader renders a body as HTML, so text saved raw is one unbroken run
+       with no sentence to highlight — the seam this door exists to close. */
+    it('arrives readable, paragraphed, with the page’s own title', async () => {
       asAgent = true;
       const made = await send('/api/editions', 'POST', week());
       asAgent = false;
       const res = await send(`/api/editions/${made.body._id}/items/item-1/save`, 'POST');
       expect(res.body.readable).toBe(true);
-      expect(articles[0].content).toBe('The body.');
+      expect(articles[0].content).toBe('<p>The body.</p>');
       expect(articles[0].title).toBe('The page’s own title');
     });
 

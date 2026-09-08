@@ -180,25 +180,6 @@ const buildTagInsightRouter = ({
     }
   });
 
-  router.put('/api/tags/:name/meta', authenticateToken, async (req, res) => {
-    try {
-      const userId = new mongoose.Types.ObjectId(req.user.id);
-      const name = req.params.name;
-      const { description = '', pinnedHighlightIds = [] } = req.body;
-
-      const updated = await TagMeta.findOneAndUpdate(
-        { name: new RegExp(`^${name}$`, 'i'), userId },
-        { name, description, pinnedHighlightIds },
-        { new: true, upsert: true, setDefaultsOnInsert: true }
-      );
-
-      res.status(200).json(updated);
-    } catch (error) {
-      console.error("❌ Error updating tag meta:", error);
-      res.status(500).json({ error: "Failed to update tag meta." });
-    }
-  });
-
   router.get('/api/tags/:name/highlights', authenticateToken, async (req, res) => {
     try {
       const userId = new mongoose.Types.ObjectId(req.user.id);
