@@ -845,7 +845,7 @@ const OpenSentence = ({
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [closePocket, exploration, fresh, open, previewing]);
+  }, [closePocket, exploration, fresh, onChange, open, previewing]);
 
   useEffect(() => {
     if (!followChip) {
