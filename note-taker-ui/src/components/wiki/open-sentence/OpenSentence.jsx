@@ -34,6 +34,7 @@ import {
   keepQuestion,
   leaveEssay,
   leaveMark,
+  liveBearing,
   liveDistinction,
   liveEssay,
   liveProposal,
@@ -200,7 +201,23 @@ const PocketField = ({ id, label, value, onChange, placeholder, rows = 2 }) => (
   </>
 );
 
-const DistinctionField = ({ pocketId, exploration, onCommit }) => {
+const BearingPassage = ({ exploration, mocked, onOpenSourceHome }) => {
+  const bearing = liveBearing(exploration);
+  if (!bearing) return null;
+  return (
+    <div className="open-sentence-pocket__bearing">
+      <p className="open-sentence-pocket__qualification">Bears on this distinction.</p>
+      <ThenPassage
+        source={bearing}
+        mocked={mocked}
+        copyable
+        onOpen={() => onOpenSourceHome?.(bearing, exploration)}
+      />
+    </div>
+  );
+};
+
+const DistinctionField = ({ pocketId, exploration, onCommit, mocked, onOpenSourceHome }) => {
   const dated = formatNamedOn(namedOn(exploration));
   return (
     <>
@@ -214,6 +231,11 @@ const DistinctionField = ({ pocketId, exploration, onCommit }) => {
       {dated ? (
         <p className="open-sentence-pocket__qualification">{dated}</p>
       ) : null}
+      <BearingPassage
+        exploration={exploration}
+        mocked={mocked}
+        onOpenSourceHome={onOpenSourceHome}
+      />
     </>
   );
 };
@@ -682,6 +704,8 @@ const PocketBody = ({
                   pocketId={pocketId}
                   exploration={exploration}
                   onCommit={onCommit}
+                  mocked={mocked}
+                  onOpenSourceHome={onOpenSourceHome}
                 />
               </>
             ) : null}
@@ -710,10 +734,18 @@ const PocketBody = ({
               pocketId={pocketId}
               exploration={exploration}
               onCommit={onCommit}
+              mocked={mocked}
+              onOpenSourceHome={onOpenSourceHome}
             />
           )}
         </div>
-      ) : null}
+      ) : (
+        <BearingPassage
+          exploration={exploration}
+          mocked={mocked}
+          onOpenSourceHome={onOpenSourceHome}
+        />
+      )}
       {hasPersonalWork(exploration) ? (
         <button
           type="button"

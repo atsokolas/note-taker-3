@@ -152,6 +152,21 @@ const attachedPassages = (args) => {
   };
 };
 
+const distinctBoundPassages = (args) => {
+  const { passages, notes } = attachedPassages(args);
+  const seen = new Set();
+  return passages.reduce((list, item) => {
+    const key = sourceIdentity(item);
+    const bound = bindPassage(item, notes);
+    const passage = String(bound?.passage || '').trim();
+    if (!key || !passage || seen.has(key) || list.some((row) => row.passage === passage)) {
+      return list;
+    }
+    seen.add(key);
+    return [...list, bound];
+  }, []);
+};
+
 export const bindClaimSource = (args = {}) => {
   const { attached, passages, indexes, notes } = attachedPassages(args);
   if (!passages.length) {
@@ -160,21 +175,9 @@ export const bindClaimSource = (args = {}) => {
   return bindPassage(passages[0], notes);
 };
 
-export const bindClaimOther = (args = {}) => {
-  const { passages, notes } = attachedPassages(args);
-  if (passages.length < 2) return null;
-  const firstKey = sourceIdentity(passages[0]);
-  const other = passages.slice(1).find((item) => {
-    const key = sourceIdentity(item);
-    return key && key !== firstKey;
-  });
-  if (!other) return null;
-  const bound = bindPassage(other, notes);
-  const passage = String(bound?.passage || '').trim();
-  if (!bound?.available || !passage) return null;
-  if (passage === String(bindPassage(passages[0], notes)?.passage || '').trim()) return null;
-  return bound;
-};
+export const bindClaimOther = (args = {}) => distinctBoundPassages(args)[1] || null;
+
+export const bindClaimBearing = (args = {}) => distinctBoundPassages(args)[2] || null;
 
 export const draftStorageKey = (pageId, claimId) => (
   `noeis.open-sentence.${String(pageId || '').trim()}.${String(claimId || '').trim()}`
@@ -353,6 +356,7 @@ export const liveExplorationForClaim = ({
       : String(ledgerClaim?.text || ''),
     source: bindClaimSource(bound),
     other: bindClaimOther(bound),
+    bearing: bindClaimBearing(bound),
     then
   });
 };

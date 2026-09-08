@@ -7,6 +7,7 @@ import OpenSentenceStoryboard, { patchStoryboardSearch } from './OpenSentenceSto
 import { draftStorageKey, openedStorageKey } from '../components/wiki/open-sentence/openSentenceBinding';
 import { sourceClip } from '../components/wiki/open-sentence/openSentenceModel';
 import {
+  STORYBOARD_BEARING_SOURCE,
   STORYBOARD_COMPUTE_SENTENCE,
   STORYBOARD_COMPUTE_SOURCE,
   STORYBOARD_COMPUTE_TITLE,
@@ -81,6 +82,23 @@ describe('OpenSentenceStoryboard', () => {
     expect(screen.getByLabelText('Try a narrower wording')).toHaveValue(STORYBOARD_PROVISIONAL);
     expect(screen.getByLabelText('Leave this open')).toHaveValue(STORYBOARD_QUESTION);
     expect(screen.getByLabelText('The distinction that would help')).toHaveValue(STORYBOARD_DISTINCTION);
+  });
+
+  it('returns later material beside the unfinished question without closing it', () => {
+    renderBoard();
+    fireEvent.click(screen.getByRole('button', { name: 'Leave open' }));
+    expect(screen.queryByText('Bears on this distinction.')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Return' }));
+    expect(screen.getByLabelText('Leave this open')).toHaveValue(STORYBOARD_QUESTION);
+    expect(screen.getByLabelText('The distinction that would help')).toHaveValue(STORYBOARD_DISTINCTION);
+    expect(screen.getByLabelText('Try a narrower wording')).toHaveValue(STORYBOARD_SENTENCE);
+    expect(screen.getByText('Bears on this distinction.')).toBeInTheDocument();
+    expect(screen.getByText(STORYBOARD_BEARING_SOURCE.passage)).toBeInTheDocument();
+    expect(
+      screen.getByText('This bears on the distinction. It does not close the question.')
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/resolved/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: STORYBOARD_SENTENCE })).toBeInTheDocument();
   });
 
   it('lets the companion become a drawer at mobile width', () => {

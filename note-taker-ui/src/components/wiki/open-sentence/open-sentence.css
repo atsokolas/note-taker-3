@@ -239,7 +239,8 @@ mark.highlight.open-sentence__held.is-placed:not(.is-open)::before {
   min-width: 0;
 }
 
-.open-sentence-pocket__then {
+.open-sentence-pocket__then,
+.open-sentence-pocket__bearing {
   display: grid;
   gap: 0.2em;
 }
