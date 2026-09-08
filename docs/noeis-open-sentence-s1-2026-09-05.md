@@ -147,9 +147,9 @@ The illustrated Meet beat is Parenting with Nomad and an investment letter. It d
 
 **Try the other way (2026-09-08)**
 
-The same two recorded passages can be read in the other order. **Try the other way** puts the second passage first. Identities stay: Nomad is still Nomad; the letter is still the letter. **Put them back** restores the bound order. Reordering is not synthesis, agreement, or a generated argument. A swap alone is not a kept draft. If the second passage is gone, the swap is dropped. Filler is never the answer.
+The same two recorded passages can be read in the other order. **Try the other way** puts the second passage first. Identities stay: Nomad is still Nomad; the letter is still the letter. **Put them back** restores the bound order. Reordering is not synthesis, agreement, or a generated argument. A swap alone is not a kept draft. If either recorded passage is gone or replaced, the swap is dropped. Filler is never the answer.
 
-**Taste pass.** Eligibility: an opened sentence with a second inspectable recorded passage. Quality bar: display order only. Source and other identities do not trade places. Undo is Put them back. Silence: one passage → no toggle; a vanished second passage drops the swap; a swap alone does not linger after close. Filler is never the answer.
+**Taste pass.** Eligibility: an opened sentence with two inspectable recorded passages — the bound source and a second. Quality bar: display order only. Source and other identities do not trade places. Undo is Put them back. Silence: empty or missing first passage → no toggle; one passage → no toggle; a vanished or replaced first or second passage drops the swap; a swap alone does not linger after close. Filler is never the answer.
 
 ## Coming home (2026-09-05)
 

@@ -10,6 +10,7 @@ import {
   canKeepBetweenAsExperiment,
   canProposeBetween,
   canProposeWording,
+  canRearrange,
   changedWordSpans,
   closeExploration,
   endMeet,
@@ -615,12 +616,14 @@ const PocketBody = ({
         )}
         {writing && other ? (
           <div className="open-sentence-pocket__meet">
-            <button
-              type="button"
-              onClick={() => onCommit(rearranged ? putThemBack(exploration) : tryTheOtherWay(exploration))}
-            >
-              {rearranged ? 'Put them back' : 'Try the other way'}
-            </button>
+            {canRearrange(exploration) ? (
+              <button
+                type="button"
+                onClick={() => onCommit(rearranged ? putThemBack(exploration) : tryTheOtherWay(exploration))}
+              >
+                {rearranged ? 'Put them back' : 'Try the other way'}
+              </button>
+            ) : null}
             <MeetNaming pocketId={pocketId} exploration={exploration} onCommit={onCommit} />
           </div>
         ) : null}

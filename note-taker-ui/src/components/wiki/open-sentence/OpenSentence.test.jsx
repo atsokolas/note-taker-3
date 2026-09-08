@@ -655,12 +655,28 @@ describe('openSentenceModel', () => {
     expect(tryTheOtherWay(createExploration({ originalText: STORYBOARD_SENTENCE, source: STORYBOARD_SOURCE }))).toEqual(
       createExploration({ originalText: STORYBOARD_SENTENCE, source: STORYBOARD_SOURCE })
     );
+    const emptyFirst = createExploration({
+      originalText: STORYBOARD_SENTENCE,
+      source: { ...STORYBOARD_SOURCE, passage: '' },
+      other: STORYBOARD_MEET_SOURCE
+    });
+    expect(tryTheOtherWay(emptyFirst)).toBe(emptyFirst);
     expect(keepsClosedDraft(closeExploration(tryTheOtherWay(start)))).toBe(false);
     const swapped = tryTheOtherWay(start);
     expect(isRearranged(restoreExploration(snapshotExploration(swapped), start))).toBe(true);
     expect(isRearranged(restoreExploration(snapshotExploration(swapped), createExploration({
       originalText: STORYBOARD_SENTENCE,
       source: STORYBOARD_SOURCE
+    })))).toBe(false);
+    expect(isRearranged(restoreExploration(snapshotExploration(swapped), createExploration({
+      originalText: STORYBOARD_SENTENCE,
+      source: STORYBOARD_SOURCE,
+      other: { ...STORYBOARD_MEET_SOURCE, passage: 'A different recorded letter.' }
+    })))).toBe(false);
+    expect(isRearranged(restoreExploration(snapshotExploration(swapped), createExploration({
+      originalText: STORYBOARD_SENTENCE,
+      source: { ...STORYBOARD_SOURCE, passage: 'A different recorded Nomad.' },
+      other: STORYBOARD_MEET_SOURCE
     })))).toBe(false);
   });
 
@@ -1464,6 +1480,17 @@ describe('OpenSentence', () => {
     expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Put them back' }));
     expect(onChange).toHaveBeenCalledWith(putThemBack(tryTheOtherWay(exploration)));
+  });
+
+  it('does not offer Try the other way when the first passage is empty', () => {
+    renderOpen(openExploration(createExploration({
+      originalText: STORYBOARD_SENTENCE,
+      source: { ...STORYBOARD_SOURCE, passage: '' },
+      other: STORYBOARD_MEET_SOURCE
+    })));
+    expect(screen.queryByRole('button', { name: 'Try the other way' })).not.toBeInTheDocument();
+    expect(screen.getByLabelText('How they meet')).toBeInTheDocument();
+    expect(screen.getByText(STORYBOARD_MEET_SOURCE.passage)).toBeInTheDocument();
   });
 
   it('lets a named meeting be the way home without accepting it', () => {
