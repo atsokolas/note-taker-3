@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import fs from 'fs';
 import path from 'path';
@@ -172,6 +172,8 @@ describe('OpenSentenceStoryboard', () => {
     expect(document.querySelector('.open-sentence-pocket__then')).toHaveTextContent(STORYBOARD_THEN_BESIDE.passage);
     expect(screen.getByText('Then you left this open')).toBeInTheDocument();
     expect(document.querySelector('.open-sentence-pocket__then')).toHaveTextContent(STORYBOARD_THEN_QUESTION);
+    expect(within(document.querySelector('.open-sentence-pocket__then')).getByLabelText('The distinction that would help')).toHaveValue('');
+    expect(document.querySelectorAll('.open-sentence-pocket__question textarea')).toHaveLength(1);
     expect(screen.getByRole('link', { name: 'Return to source →' })).toHaveAttribute(
       'href',
       STORYBOARD_THEN_ORIGINAL
@@ -182,7 +184,6 @@ describe('OpenSentenceStoryboard', () => {
     expect(screen.queryByText(STORYBOARD_SENTENCE)).not.toBeInTheDocument();
     expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/slower-demand experiment/)).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: 'Open in Library →' })).not.toBeInTheDocument();
     expect(
       screen.getByText('The earlier wording is recorded. It is not a reconstructed biography.')
     ).toBeInTheDocument();

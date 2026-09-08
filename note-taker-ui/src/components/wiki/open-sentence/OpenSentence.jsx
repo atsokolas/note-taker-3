@@ -15,6 +15,7 @@ import {
   endMeet,
   endPressure,
   essayWayHome,
+  formatNamedOn,
   inspectableOther,
   isMeeting,
   isOpen,
@@ -32,6 +33,7 @@ import {
   liveThen,
   meetSlots,
   meetWayHome,
+  namedOn,
   openExploration,
   placeSource,
   pressurePassages,
@@ -145,6 +147,24 @@ const PocketField = ({ id, label, value, onChange, placeholder, rows = 2 }) => (
     />
   </>
 );
+
+const DistinctionField = ({ pocketId, exploration, onCommit }) => {
+  const dated = formatNamedOn(namedOn(exploration));
+  return (
+    <>
+      <PocketField
+        id={`${pocketId}-distinction`}
+        label="The distinction that would help"
+        value={exploration.distinction || ''}
+        onChange={(value) => onCommit(setDistinction(exploration, value))}
+        placeholder="Name the fork. Do not close the question."
+      />
+      {dated ? (
+        <p className="open-sentence-pocket__qualification">{dated}</p>
+      ) : null}
+    </>
+  );
+};
 
 const PassageRead = ({ source, inspecting = false, placed = false, settling = false }) => (
   <>
@@ -554,7 +574,14 @@ const PocketBody = ({
               />
             ))}
             {then.question ? (
-              <ThenPassage source={{ title: 'Then you left this open', passage: then.question }} />
+              <>
+                <ThenPassage source={{ title: 'Then you left this open', passage: then.question }} />
+                <DistinctionField
+                  pocketId={pocketId}
+                  exploration={exploration}
+                  onCommit={onCommit}
+                />
+              </>
             ) : null}
             {then.draft ? (
               <ThenPassage source={{ title: 'Then you wrote', passage: then.draft }} />
@@ -573,13 +600,13 @@ const PocketBody = ({
           onChange={(value) => onCommit(keepQuestion(exploration, value))}
           placeholder="An unfinished question can stay unfinished."
         />
-        <PocketField
-          id={`${pocketId}-distinction`}
-          label="The distinction that would help"
-          value={exploration.distinction || ''}
-          onChange={(value) => onCommit(setDistinction(exploration, value))}
-          placeholder="Name the fork. Do not close the question."
-        />
+        {then?.question ? null : (
+          <DistinctionField
+            pocketId={pocketId}
+            exploration={exploration}
+            onCommit={onCommit}
+          />
+        )}
       </div>
     </>
   );

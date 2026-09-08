@@ -5,6 +5,28 @@ export const EXPLORATION_STATUS = Object.freeze({
 
 const asLine = (value) => String(value || '').trim();
 
+const asDay = (value) => {
+  const text = asLine(value);
+  return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : '';
+};
+
+const MONTHS = Object.freeze([
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+]);
+
+const todayStamp = (now = new Date()) => {
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${now.getFullYear()}-${month}-${day}`;
+};
+
+export const formatNamedOn = (day) => {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(asDay(day));
+  if (!match) return '';
+  return `${Number(match[3])} ${MONTHS[Number(match[2]) - 1]} ${match[1]}`;
+};
+
 const unlessSame = (value, ...sameAs) => {
   const text = asLine(value);
   return text && !sameAs.map(asLine).includes(text) ? text : '';
@@ -371,14 +393,20 @@ export const essayWayHome = (exploration) => {
   return essay ? `An essay: ${essay.text.split(/\n/, 1)[0]}` : '';
 };
 
-export const liveDistinction = (exploration) => unlessSame(
-  exploration?.distinction,
-  exploration?.question
+export const liveDistinction = (exploration) => {
+  const against = asLine(exploration?.distinctionAgainst);
+  const current = asLine(exploration?.originalText);
+  if (against && against !== current) return '';
+  return unlessSame(exploration?.distinction, exploration?.question);
+};
+
+export const namedOn = (exploration) => (
+  liveDistinction(exploration) ? asDay(exploration?.distinctionAt) : ''
 );
 
 export const keepsClosedDraft = (exploration) => Boolean(
   String(exploration?.question || '').trim()
-  || String(exploration?.distinction || '').trim()
+  || liveDistinction(exploration)
   || exploration?.placed
   || liveProposal(exploration)
   || livePressure(exploration)
@@ -410,10 +438,34 @@ export const keepQuestion = (exploration, question) => ({
 });
 
 export const setDistinction = (exploration, distinction) => {
-  const { returnNote: _legacyNote, ...rest } = exploration || {};
+  const {
+    returnNote: _legacyNote,
+    distinctionAt: previousAt,
+    distinctionAgainst: _previousAgainst,
+    ...rest
+  } = exploration || {};
+  const text = String(distinction ?? '');
+  if (!asLine(text)) {
+    return { ...rest, distinction: '' };
+  }
   return {
     ...rest,
-    distinction: String(distinction ?? '')
+    distinction: text,
+    distinctionAt: asDay(previousAt) || todayStamp(),
+    distinctionAgainst: asLine(rest.originalText)
+  };
+};
+
+const restoreDistinction = (value, legacyNote, against, at, current) => {
+  const distinction = (value == null || value === '') ? asLine(legacyNote) : String(value);
+  const bound = asLine(against);
+  if (!asLine(distinction) || (bound && bound !== current)) {
+    return { distinction: '' };
+  }
+  return {
+    distinction,
+    ...(asDay(at) ? { distinctionAt: asDay(at) } : {}),
+    ...(bound ? { distinctionAgainst: bound } : {})
   };
 };
 
@@ -479,10 +531,22 @@ export const restoreExploration = (raw, fallback) => {
         : EXPLORATION_STATUS.closed
     };
     const recorded = asThen(base.then, restored.originalText, restored.source, restored.other);
-    const { then: _ignoredThen, returnNote: legacyNote, ...withoutThen } = restored;
+    const {
+      then: _ignoredThen,
+      returnNote: legacyNote,
+      distinctionAt: rawAt,
+      distinctionAgainst: rawAgainst,
+      ...withoutThen
+    } = restored;
     return {
       ...withoutThen,
-      distinction: asLine(withoutThen.distinction) || asLine(legacyNote),
+      ...restoreDistinction(
+        withoutThen.distinction,
+        legacyNote,
+        rawAgainst,
+        rawAt,
+        asLine(restored.originalText)
+      ),
       ...(recorded ? { then: recorded } : {}),
       proposal: liveProposal(restored),
       pressure: isPressured(restored) ? restored.pressure : null,

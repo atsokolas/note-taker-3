@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import OpenSentence from './OpenSentence';
 import {
@@ -16,6 +16,7 @@ import {
   endPressure,
   essayWayHome,
   forgetExperiment,
+  formatNamedOn,
   isPressured,
   keepBetweenAsEssay,
   keepBetweenAsExperiment,
@@ -31,6 +32,7 @@ import {
   livePressure,
   liveProposal,
   liveThen,
+  namedOn,
   meetWayHome,
   openExploration,
   placeSource,
@@ -114,6 +116,43 @@ describe('openSentenceModel', () => {
     expect(restored).not.toHaveProperty('returnNote');
     expect(liveDistinction(restored)).toBe(STORYBOARD_DISTINCTION);
     expect(keepsClosedDraft(closeExploration(restored))).toBe(true);
+  });
+
+  it('dates a named distinction once, and does not invent a date for a lifted note', () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-09-08T15:00:00'));
+    const start = createExploration({ originalText: STORYBOARD_SENTENCE });
+    const named = setDistinction(start, STORYBOARD_DISTINCTION);
+    expect(named.distinctionAt).toBe('2026-09-08');
+    expect(named.distinctionAgainst).toBe(STORYBOARD_SENTENCE);
+    expect(formatNamedOn(namedOn(named))).toBe('8 Sep 2026');
+    jest.setSystemTime(new Date('2026-09-09T15:00:00'));
+    expect(setDistinction(named, `${STORYBOARD_DISTINCTION} still`).distinctionAt).toBe('2026-09-08');
+    expect(setDistinction(named, '')).not.toHaveProperty('distinctionAt');
+    expect(setDistinction(named, '')).not.toHaveProperty('distinctionAgainst');
+    const typed = setDistinction(start, `${STORYBOARD_DISTINCTION} `);
+    expect(typed.distinction).toBe(`${STORYBOARD_DISTINCTION} `);
+    expect(restoreExploration(snapshotExploration(typed), start).distinction).toBe(`${STORYBOARD_DISTINCTION} `);
+    expect(liveDistinction(typed)).toBe(STORYBOARD_DISTINCTION);
+    expect(liveDistinction({ ...named, originalText: 'The line moved on.' })).toBe('');
+    expect(keepsClosedDraft(closeExploration({ ...named, originalText: 'The line moved on.' }))).toBe(false);
+    expect(restoreExploration(snapshotExploration(named), {
+      ...start,
+      originalText: 'The line moved on.'
+    }).distinction).toBe('');
+    const lifted = restoreExploration(JSON.stringify({
+      ...start,
+      distinction: STORYBOARD_DISTINCTION
+    }), start);
+    expect(lifted.distinction).toBe(STORYBOARD_DISTINCTION);
+    expect(lifted).not.toHaveProperty('distinctionAt');
+    expect(namedOn(lifted)).toBe('');
+    expect(restoreExploration(JSON.stringify({
+      ...named,
+      distinctionAt: 'not-a-day'
+    }), start)).not.toHaveProperty('distinctionAt');
+    expect(restoreExploration(snapshotExploration(named), start).distinctionAt).toBe('2026-09-08');
+    jest.useRealTimers();
   });
 
   it('does not copy Then’s question into today’s question or distinction', () => {
@@ -224,6 +263,7 @@ describe('openSentenceModel', () => {
     expect(forgetExperiment(start).provisionalText).toBe(STORYBOARD_SENTENCE);
     expect(forgetExperiment(start).question).toBe('');
     expect(forgetExperiment(start).distinction).toBe('');
+    expect(forgetExperiment(setDistinction(start, STORYBOARD_DISTINCTION)).distinctionAt).toBeUndefined();
     expect(forgetExperiment(proposeWording(tryWording(start, 'draft'))).proposal).toBeUndefined();
     expect(forgetExperiment(beginPressure(start)).pressure).toBeUndefined();
     expect(forgetExperiment(setMeetField(meeting(), 'relation', STORYBOARD_MEET_RELATION)).meet).toBeUndefined();
@@ -1033,6 +1073,8 @@ describe('OpenSentence', () => {
   });
 
   it('lets a distinction sit beside Then’s question without closing it or copying it in', () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-09-08T15:00:00'));
     const onChange = jest.fn();
     const exploration = openExploration(createExploration({
       originalText: STORYBOARD_THEN_NOW,
@@ -1042,17 +1084,35 @@ describe('OpenSentence', () => {
         question: STORYBOARD_THEN_QUESTION
       }
     }));
-    renderOpen(exploration, onChange);
+    const { rerender } = render(
+      <MemoryRouter>
+        <OpenSentence exploration={exploration} onChange={onChange} mocked />
+      </MemoryRouter>
+    );
+    const then = document.querySelector('.open-sentence-pocket__then');
+    expect(within(then).getByLabelText('The distinction that would help')).toHaveValue('');
+    expect(document.querySelectorAll('.open-sentence-pocket__question textarea')).toHaveLength(1);
     expect(screen.getByLabelText('Leave this open')).toHaveValue('');
-    fireEvent.change(screen.getByLabelText('The distinction that would help'), {
+    fireEvent.change(within(then).getByLabelText('The distinction that would help'), {
       target: { value: 'Whether scarcity is a plant problem or a demand problem.' }
     });
-    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
+    const next = onChange.mock.calls[0][0];
+    expect(next).toEqual(expect.objectContaining({
       distinction: 'Whether scarcity is a plant problem or a demand problem.',
-      question: ''
+      question: '',
+      distinctionAt: '2026-09-08',
+      distinctionAgainst: STORYBOARD_THEN_NOW
     }));
-    expect(onChange.mock.calls[0][0]).not.toHaveProperty('returnNote');
+    expect(next).not.toHaveProperty('returnNote');
+    rerender(
+      <MemoryRouter>
+        <OpenSentence exploration={next} onChange={onChange} mocked />
+      </MemoryRouter>
+    );
     expect(document.querySelector('.open-sentence-pocket__then')).toHaveTextContent(STORYBOARD_THEN_QUESTION);
+    expect(document.querySelector('.open-sentence-pocket__then')).toHaveTextContent('8 Sep 2026');
+    expect(screen.queryByText(/used to believe/i)).not.toBeInTheDocument();
+    jest.useRealTimers();
   });
 
   it('copies a Then source with its recorded door, not a question or a draft', async () => {
