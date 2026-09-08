@@ -207,6 +207,9 @@ it, inspect references, and catch up on recent activity with a read-scoped token
 - `get_question`
 - `list_concepts`
 - `get_concept`
+- `list_notebook_entries`
+- `get_notebook_entry`
+- `list_notebook_folders`
 
 Write tools require a token with the `agent-write` scope. Read-only tokens receive `403` from the Noeis API on these calls:
 
@@ -240,13 +243,22 @@ Write tools require a token with the `agent-write` scope. Read-only tokens recei
 - `create_highlight`
 - `update_highlight`
 - `delete_highlight`
+- `create_notebook_entry`
+- `update_notebook_entry`
+- `delete_notebook_entry`
+- `add_highlight_to_notebook_entry`
+- `create_notebook_folder`
+- `delete_notebook_folder`
 - `create_question`
 - `update_question`
 - `update_concept`
 - `pin_highlight_to_concept`
 
-`delete_article` and `delete_highlight` are the only tools with no undo. Both say
-so in their descriptions and both expect the reader to have been asked first.
+`delete_article`, `delete_highlight` and `delete_notebook_entry` are the tools
+with no undo. Each says so in its description and each expects the reader to have
+been asked first. `delete_folder` and `delete_notebook_folder` are not among them:
+a Library folder must be empty before it will go, and a Notebook folder unfiles
+its notes rather than taking them with it.
 
 ## Prompt
 

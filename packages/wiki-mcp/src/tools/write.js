@@ -346,6 +346,75 @@ export const writeTools = [
     handler: (client, args) => client.deleteHighlight(args)
   },
   {
+    name: 'create_notebook_entry',
+    description: 'Write a new Notebook entry. A note is the reader\'s own thinking, not a saved source — save sources with create_article. Name a folder by folderId or folder (the name, resolved for you). Kind is claim, evidence or note; evidence may name the claim entry it supports.',
+    inputSchema: {
+      title: z.string().min(1).describe('The note\'s title.'),
+      content: z.string().optional().describe('The note\'s text. Becomes a single paragraph block when blocks are not given.'),
+      blocks: z.array(z.record(z.any())).optional().describe('Structured blocks, when you have them. Replaces content.'),
+      folderId: z.string().optional().describe('Notebook folder id.'),
+      folder: z.string().optional().describe('Notebook folder name, resolved case-insensitively. Ignored when folderId is given.'),
+      tags: z.array(z.string()).optional(),
+      type: optionalEnum(['claim', 'evidence', 'note']).describe('What the note is. Defaults to note.'),
+      claimId: z.string().optional().describe('The claim entry this evidence supports. Only holds when type is evidence.'),
+      linkedArticleId: z.string().optional().describe('A Library article this note is about.')
+    },
+    handler: (client, args) => client.createNotebookEntry(args)
+  },
+  {
+    name: 'update_notebook_entry',
+    description: 'Change a Notebook entry. Only the fields you pass are touched, so an update that renames a note leaves its text, tags and filing standing.',
+    inputSchema: {
+      entryId: z.string().describe('Notebook entry id.'),
+      title: z.string().optional(),
+      content: z.string().optional().describe('Replaces the note\'s text and its blocks.'),
+      blocks: z.array(z.record(z.any())).optional().describe('Replaces the note\'s blocks.'),
+      folderId: z.string().optional().describe('Notebook folder id. Pass an empty folder name to unfile.'),
+      folder: z.string().optional().describe('Notebook folder name. Ignored when folderId is given.'),
+      tags: z.array(z.string()).optional().describe('Replaces the existing tags.'),
+      type: optionalEnum(['claim', 'evidence', 'note']),
+      claimId: z.string().optional().describe('Only holds when type is evidence.'),
+      linkedArticleId: z.string().optional()
+    },
+    handler: (client, args) => client.updateNotebookEntry(args)
+  },
+  {
+    name: 'delete_notebook_entry',
+    description: 'High-impact: permanently remove a Notebook entry and everything written in it. There is no undo. Confirm with the reader first.',
+    inputSchema: {
+      entryId: z.string().describe('Notebook entry id.')
+    },
+    handler: (client, args) => client.deleteNotebookEntry(args)
+  },
+  {
+    name: 'add_highlight_to_notebook_entry',
+    description: 'Put a saved highlight into a Notebook entry: the passage is embedded in the note where the reader can see it, and linked so the note knows where it came from.',
+    inputSchema: {
+      entryId: z.string().describe('Notebook entry id.'),
+      highlightId: z.string().describe('Highlight id, from search_highlights or list_article_highlights.')
+    },
+    handler: (client, args) => client.addHighlightToNotebookEntry(args)
+  },
+  {
+    name: 'create_notebook_folder',
+    description: 'Create a Notebook folder, optionally inside another one. Notebook folders are their own cabinet, separate from Library folders.',
+    inputSchema: {
+      name: z.string().min(1).describe('Folder name.'),
+      parentFolderId: z.string().optional().describe('Parent folder id. Omit both parent fields for a top-level folder.'),
+      parent: z.string().optional().describe('Parent folder name. Ignored when parentFolderId is given.')
+    },
+    handler: (client, args) => client.createNotebookFolder(args)
+  },
+  {
+    name: 'delete_notebook_folder',
+    description: 'Remove a Notebook folder. The notes inside it are unfiled, never deleted. Give either folderId or folder.',
+    inputSchema: {
+      folderId: z.string().optional().describe('Notebook folder id.'),
+      folder: z.string().optional().describe('Notebook folder name, resolved case-insensitively. Ignored when folderId is given.')
+    },
+    handler: (client, args) => client.deleteNotebookFolder(args)
+  },
+  {
     name: 'create_question',
     description: 'Create a Think question, optionally linked to a concept and highlights.',
     inputSchema: {

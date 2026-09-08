@@ -106,6 +106,41 @@ const normalizeFullArticle = (article = {}) => ({
   folder: article.folder || null
 });
 
+const normalizeNotebookFolder = (folder = {}) => ({
+  id: pickId(folder),
+  name: folder.name || '',
+  parentFolderId: folder.parentFolderId ? String(folder.parentFolderId) : null,
+  sortOrder: Number(folder.sortOrder || 0)
+});
+
+/* The summary listing is the one worth handing an agent: the full listing
+   returns every entry's whole body, which is a notebook read in one gulp. */
+const normalizeNotebookSummary = (entry = {}) => ({
+  id: pickId(entry),
+  title: entry.title || 'Untitled',
+  type: entry.type || 'note',
+  folder: entry.folder ? String(entry.folder) : null,
+  tags: Array.isArray(entry.tags) ? entry.tags : [],
+  snippet: cleanText(entry.snippet || entry.content || ''),
+  blockCount: Number(entry.blockCount ?? (Array.isArray(entry.blocks) ? entry.blocks.length : 0)),
+  updatedAt: entry.updatedAt || null
+});
+
+const normalizeNotebookEntry = (entry = {}) => ({
+  id: pickId(entry),
+  title: entry.title || 'Untitled',
+  content: entry.content || '',
+  blocks: Array.isArray(entry.blocks) ? entry.blocks : [],
+  type: entry.type || 'note',
+  claimId: entry.claimId ? String(entry.claimId) : null,
+  folder: entry.folder ? String(entry.folder) : null,
+  tags: Array.isArray(entry.tags) ? entry.tags : [],
+  linkedArticleId: entry.linkedArticleId ? String(entry.linkedArticleId) : null,
+  linkedHighlightIds: (Array.isArray(entry.linkedHighlightIds) ? entry.linkedHighlightIds : []).map(String),
+  createdAt: entry.createdAt || null,
+  updatedAt: entry.updatedAt || null
+});
+
 const normalizeHighlight = (highlight = {}) => ({
   ...highlight,
   id: pickId(highlight),
@@ -503,6 +538,94 @@ export class NoeisClient {
       asFeed: Boolean(payload?.asFeed),
       asFeedAt: payload?.asFeedAt || null
     }));
+  }
+
+  /* The Notebook, which had no tool at all: fourteen routes an agent could not
+     see. Listing asks for the summary projection, so a reader with two hundred
+     entries gets two hundred titles rather than two hundred essays. */
+  listNotebookEntries({ limit = 50 } = {}) {
+    return this.request('/api/notebook', { query: { summary: 1, limit } })
+      .then(payload => normalizeArrayPayload(payload, 'entries').map(normalizeNotebookSummary));
+  }
+
+  getNotebookEntry({ entryId }) {
+    return this.request(`/api/notebook/${encodeURIComponent(entryId)}`).then(normalizeNotebookEntry);
+  }
+
+  listNotebookFolders() {
+    return this.request('/api/notebook/folders')
+      .then(payload => normalizeArrayPayload(payload, 'folders').map(normalizeNotebookFolder));
+  }
+
+  /* The same courtesy the Library's shelves get: a notebook folder answers to
+     its name, so no caller has to list and remember an id to file one note. */
+  async resolveNotebookFolderId({ folderId, folder } = {}) {
+    if (folderId) return String(folderId);
+    const wanted = String(folder || '').trim();
+    if (!wanted) return null;
+    const folders = await this.listNotebookFolders();
+    const match = folders.find(row => row.name.toLowerCase() === wanted.toLowerCase());
+    if (!match) {
+      throw new NoeisApiError(`No notebook folder named "${wanted}". Call list_notebook_folders to see them, or create_notebook_folder to make it.`);
+    }
+    return match.id;
+  }
+
+  async createNotebookEntry({ title, content, blocks, folderId, folder, tags, type, claimId, linkedArticleId } = {}) {
+    const target = await this.resolveNotebookFolderId({ folderId, folder });
+    return this.request('/api/notebook', {
+      method: 'POST',
+      body: { title, content, blocks, folder: target, tags, type, claimId, linkedArticleId }
+    }).then(normalizeNotebookEntry);
+  }
+
+  /* PUT, but only over what the caller named: an update that sent every field
+     would blank a note's tags for want of mentioning them. */
+  async updateNotebookEntry({ entryId, title, content, blocks, folderId, folder, tags, type, claimId, linkedArticleId } = {}) {
+    const named = folderId !== undefined || folder !== undefined;
+    const body = {
+      ...(title === undefined ? {} : { title }),
+      ...(content === undefined ? {} : { content }),
+      ...(blocks === undefined ? {} : { blocks }),
+      ...(tags === undefined ? {} : { tags }),
+      ...(type === undefined ? {} : { type }),
+      ...(claimId === undefined ? {} : { claimId }),
+      ...(linkedArticleId === undefined ? {} : { linkedArticleId }),
+      ...(named ? { folder: await this.resolveNotebookFolderId({ folderId, folder }) } : {})
+    };
+    return this.request(`/api/notebook/${encodeURIComponent(entryId)}`, { method: 'PUT', body })
+      .then(normalizeNotebookEntry);
+  }
+
+  deleteNotebookEntry({ entryId } = {}) {
+    return this.request(`/api/notebook/${encodeURIComponent(entryId)}`, { method: 'DELETE' })
+      .then(() => ({ id: String(entryId), deleted: true }));
+  }
+
+  /* append-highlight rather than link-highlight: it embeds the passage in the
+     note and links it, where linking alone leaves the note with a reference to
+     something the reader cannot see on the page. */
+  addHighlightToNotebookEntry({ entryId, highlightId } = {}) {
+    return this.request(`/api/notebook/${encodeURIComponent(entryId)}/append-highlight`, {
+      method: 'POST',
+      body: { highlightId }
+    }).then(normalizeNotebookEntry);
+  }
+
+  async createNotebookFolder({ name, parentFolderId, parent } = {}) {
+    const target = await this.resolveNotebookFolderId({ folderId: parentFolderId, folder: parent });
+    return this.request('/api/notebook/folders', {
+      method: 'POST',
+      body: { name, parentFolderId: target }
+    }).then(normalizeNotebookFolder);
+  }
+
+  /* Deleting a folder unfiles its notes rather than taking them with it, which
+     is worth saying: the reader loses a drawer, never a page. */
+  async deleteNotebookFolder({ folderId, folder } = {}) {
+    const target = await this.resolveNotebookFolderId({ folderId, folder });
+    await this.request(`/api/notebook/folders/${encodeURIComponent(target)}`, { method: 'DELETE' });
+    return { id: target, deleted: true, notesKept: true };
   }
 
   listQuestions({ status, tag, conceptName, highlightId, notebookEntryId } = {}) {

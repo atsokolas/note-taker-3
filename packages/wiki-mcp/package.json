@@ -15,7 +15,7 @@
     "README.md"
   ],
   "scripts": {
-    "test": "node test/server.test.js && node test/config.test.js && node test/ingest.test.js && node test/library.test.js",
+    "test": "node test/server.test.js && node test/config.test.js && node test/ingest.test.js && node test/library.test.js && node test/notebook.test.js",
     "smoke": "node bin/noeis-wiki-mcp --help"
   },
   "keywords": [
