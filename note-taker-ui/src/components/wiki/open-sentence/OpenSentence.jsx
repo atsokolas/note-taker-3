@@ -71,7 +71,7 @@ import {
   writeHeldInstrument
 } from './openSentenceJourney';
 import { listenOpenSentenceStore } from './openSentenceStore';
-import { KeptWork, PocketField, WithoutParagraphWork, WithoutSourceWork } from './OpenSentenceKept';
+import { CopyClip, KeptWork, PocketField, WithoutParagraphWork, WithoutSourceWork } from './OpenSentenceKept';
 import './open-sentence.css';
 
 const selectionInside = (root) => {
@@ -94,27 +94,9 @@ const SourceHome = ({ source, mocked, onOpen }) => {
   return <a className="open-sentence-pocket__home" href={source.href} onClick={go}>{label}</a>;
 };
 
-const CopyWithSource = ({ source }) => {
-  const clip = sourceClip(source);
-  const [copied, setCopied] = useState(false);
-  useEffect(() => {
-    if (!copied) return undefined;
-    const timer = window.setTimeout(() => setCopied(false), 1600);
-    return () => window.clearTimeout(timer);
-  }, [copied]);
-  if (!clip) return null;
-  return (
-    <button
-      type="button"
-      onClick={() => {
-        if (!navigator.clipboard?.writeText) return;
-        navigator.clipboard.writeText(clip).then(() => setCopied(true)).catch(() => {});
-      }}
-    >
-      {copied ? 'Copied.' : 'Copy with source'}
-    </button>
-  );
-};
+const CopyWithSource = ({ source }) => (
+  <CopyClip clip={sourceClip(source)} idleLabel="Copy with source" />
+);
 
 const SourceCite = ({ source, mocked, onOpen, copyable = true }) => (
   <>

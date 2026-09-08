@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-08
 **Sits under:** [Operable knowledge](noeis-operable-knowledge-vision-spec-2026-09-04.md) §11 / §6 H6
-**Status:** Horizon H6 is on this walk. Frontend-only. Not a person finding value beyond a generated answer. H7 and H8 stay closed.
+**Status:** Horizon H6 is on this walk. Frontend-only. Not a person finding value beyond a generated answer. Carrying a snapshot out is [S7](noeis-open-sentence-s7-2026-09-08.md). H8 stays closed.
 
 The operable-knowledge sequence has no numbered S6. This slice is H6, named that way so the remaining S5 horizons can stay in [S5](noeis-open-sentence-s5-2026-09-08.md) and Library limits can ship as their own act. It is not onboarding’s unrelated S6, and it is not shared work.
 
@@ -29,6 +29,6 @@ The storyboard Limits beat is Parenting with Nomad set aside. Silence has no sou
 
 ## What stays closed
 
-Sharing. Two Libraries. Server-sync. Public shares. Authorized external research. Generated warrant.
+Two Libraries. Publication. Server-sync. Public shares. Authorized external research. Generated warrant.
 
 A person finding understanding beyond a generated answer remains separately authorized.

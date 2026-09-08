@@ -2,9 +2,9 @@
 
 **Date:** 2026-09-08
 **Sits under:** [Operable knowledge](noeis-operable-knowledge-vision-spec-2026-09-04.md) §11 S5 / §6 H1–H5
-**Status:** Horizons H1–H5 are on this walk. Frontend-only. Dogfood approved by founder assumption. Not a person finding value beyond a generated answer. S4 is closed and released by founder assumption. Library limits are [S6](noeis-open-sentence-s6-2026-09-08.md).
+**Status:** Horizons H1–H5 are on this walk. Frontend-only. Dogfood approved by founder assumption. Not a person finding value beyond a generated answer. S4 is closed and released by founder assumption. Library limits are [S6](noeis-open-sentence-s6-2026-09-08.md). Carrying a snapshot out is [S7](noeis-open-sentence-s7-2026-09-08.md).
 
-S5 asked to select **one** horizon the observed workflow needed, then grow from use. H2 shipped first: uncertainty that stays alive. H4 followed: invent an intellectual instrument. The unused S5 horizons from that same pocket grammar are here: a working exhibit, a rehearsal, and unwritten work. They are not Library limits or sharing.
+S5 asked to select **one** horizon the observed workflow needed, then grow from use. H2 shipped first: uncertainty that stays alive. H4 followed: invent an intellectual instrument. The unused S5 horizons from that same pocket grammar are here: a working exhibit, a rehearsal, and unwritten work. They are not Library limits. Sharing a snapshot is [S7](noeis-open-sentence-s7-2026-09-08.md).
 
 ## H2 — Uncertainty that stays alive
 
@@ -104,6 +104,6 @@ Library may keep all three. It still cannot propose or accept a Wiki write.
 
 ## What stays closed
 
-Library limits. Sharing. Server-sync. Public shares. Generated warrant.
+Library limits. Two Libraries. Publication. Server-sync. Public shares. Generated warrant.
 
 A person finding understanding beyond a generated answer remains separately authorized.

@@ -1,35 +1,50 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+  beginCarry,
   bringParagraphBackLabel,
   bringSourceBackLabel,
   bringTheParagraphBack,
   bringTheSourceBack,
+  canCarryOut,
+  canIncludeCarryPassage,
   canKeepAsExhibit,
   canKeepAsRehearsal,
   canKeepAsUnwritten,
   canTryWithoutParagraph,
   canTryWithoutSource,
+  canUseCarryBetween,
+  canUseCarryQuestion,
+  carryClip,
+  carrySlotName,
+  includeCarryPassage,
   isWithoutParagraph,
   isWithoutSource,
   keepAsExhibit,
   keepAsRehearsal,
   keepAsUnwritten,
+  leaveCarry,
+  leaveCarryPassage,
   leaveExhibit,
   leaveRehearsal,
   leaveUnwritten,
+  liveCarry,
   liveExhibit,
   liveRehearsal,
   liveUnwritten,
+  pendingCarry,
   pendingExhibit,
   pendingRehearsal,
   pendingUnwritten,
   rehearsalStillBeside,
+  setCarryField,
   setExhibitField,
   setRehearsalAttempt,
   setUnwrittenField,
   showExhibitWay,
   tryWithoutThisParagraph,
-  tryWithoutThisSource
+  tryWithoutThisSource,
+  useCarryBetween,
+  useCarryQuestion
 } from './openSentenceModel';
 
 export const PocketField = ({ id, label, value, onChange, placeholder, rows = 2 }) => (
@@ -46,6 +61,27 @@ export const PocketField = ({ id, label, value, onChange, placeholder, rows = 2 
     />
   </>
 );
+
+export const CopyClip = ({ clip, idleLabel, copiedLabel = 'Copied.' }) => {
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    if (!copied) return undefined;
+    const timer = window.setTimeout(() => setCopied(false), 1600);
+    return () => window.clearTimeout(timer);
+  }, [copied]);
+  if (!clip) return null;
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        if (!navigator.clipboard?.writeText) return;
+        navigator.clipboard.writeText(clip).then(() => setCopied(true)).catch(() => {});
+      }}
+    >
+      {copied ? copiedLabel : idleLabel}
+    </button>
+  );
+};
 
 const SetAsideWork = ({ aside, caption, bringLabel, tryLabel, onBring, onTry }) => (
   aside ? (
@@ -226,10 +262,98 @@ const UnwrittenWork = ({ pocketId, exploration, onCommit }) => {
   );
 };
 
+const CarryPassage = ({ source }) => (
+  <>
+    {source.title ? (
+      <p className="open-sentence-pocket__source-title">{source.title}</p>
+    ) : null}
+    <p className="open-sentence-pocket__passage">{source.passage}</p>
+  </>
+);
+
+const CarryInclude = ({ slot, exploration, onCommit }) => {
+  const pending = pendingCarry(exploration);
+  if (!pending) return null;
+  const included = pending[slot];
+  const name = carrySlotName(exploration, slot);
+  if (included) {
+    return (
+      <button type="button" onClick={() => onCommit(leaveCarryPassage(exploration, slot))}>
+        Leave {name} out
+      </button>
+    );
+  }
+  if (!canIncludeCarryPassage(exploration, slot)) return null;
+  return (
+    <button type="button" onClick={() => onCommit(includeCarryPassage(exploration, slot))}>
+      Include {name}
+    </button>
+  );
+};
+
+const CarryWork = ({ pocketId, exploration, onCommit }) => {
+  const pending = pendingCarry(exploration);
+  const carry = liveCarry(exploration);
+  if (!pending) {
+    if (!canCarryOut(exploration)) return null;
+    return (
+      <button type="button" onClick={() => onCommit(beginCarry(exploration))}>
+        Carry this out
+      </button>
+    );
+  }
+  return (
+    <div className="open-sentence-pocket__pressure">
+      {carry ? (
+        <p className="open-sentence-pocket__proposal">A snapshot. It is not a publication.</p>
+      ) : null}
+      {carry ? (
+        <div className="open-sentence-pocket__preview" aria-label="What a recipient would see">
+          <p className="open-sentence-pocket__qualification">{carry.question}</p>
+          <CarryPassage source={carry.source} />
+          <CarryPassage source={carry.other} />
+          <p className="open-sentence-pocket__qualification">{carry.conclusion}</p>
+        </div>
+      ) : null}
+      <PocketField
+        id={`${pocketId}-carry-question`}
+        label="The question"
+        value={pending.question}
+        onChange={(value) => onCommit(setCarryField(exploration, 'question', value))}
+        placeholder="One question. Do not share the whole Library."
+      />
+      {canUseCarryQuestion(exploration) ? (
+        <button type="button" onClick={() => onCommit(useCarryQuestion(exploration))}>
+          Use the unfinished question
+        </button>
+      ) : null}
+      <CarryInclude slot="source" exploration={exploration} onCommit={onCommit} />
+      <CarryInclude slot="other" exploration={exploration} onCommit={onCommit} />
+      <PocketField
+        id={`${pocketId}-carry-conclusion`}
+        label="A provisional conclusion"
+        value={pending.conclusion}
+        onChange={(value) => onCommit(setCarryField(exploration, 'conclusion', value))}
+        placeholder="Provisional. Not a published finding."
+      />
+      {canUseCarryBetween(exploration) ? (
+        <button type="button" onClick={() => onCommit(useCarryBetween(exploration))}>
+          Use the space between
+        </button>
+      ) : null}
+      <CopyClip clip={carryClip(exploration)} idleLabel="Copy this snapshot" />
+      <button type="button" onClick={() => onCommit(leaveCarry(exploration))}>
+        Leave this snapshot
+      </button>
+    </div>
+  );
+};
+
 export const KeptWork = ({ pocketId, exploration, onCommit }) => (
   <>
     <ExhibitWork pocketId={pocketId} exploration={exploration} onCommit={onCommit} />
     <RehearsalWork pocketId={pocketId} exploration={exploration} onCommit={onCommit} />
     <UnwrittenWork pocketId={pocketId} exploration={exploration} onCommit={onCommit} />
+    <CarryWork pocketId={pocketId} exploration={exploration} onCommit={onCommit} />
   </>
 );
