@@ -4,6 +4,7 @@ import {
   buildRepoSectionChangeBadges,
   displayWikiPageTitle,
   extractRepoDossierOverviewSummary,
+  unnamedTitlePreview,
   formatGitHubRepoWatchReceipt,
   githubWatchState,
   isRepoDossierPage,
@@ -68,6 +69,32 @@ describe('wikiRepoDossierModel', () => {
 
   it('preserves package path casing in non-repo page titles', () => {
     expect(displayWikiPageTitle({ title: 'Margin of Safety' })).toBe('Margin of Safety');
+  });
+
+  it('previews the first sentence of an unnamed page without treating it as a title', () => {
+    const unnamed = {
+      body: {
+        type: 'doc',
+        content: [{
+          type: 'paragraph',
+          content: [{
+            type: 'text',
+            text: 'Care is not the same as preventing every scrape. A child who never meets a recoverable failure also never learns.'
+          }]
+        }]
+      }
+    };
+    expect(unnamedTitlePreview(unnamed)).toBe('Care is not the same as preventing every scrape.');
+    expect(displayWikiPageTitle(unnamed)).toBe('Care is not the same as preventing every scrape.');
+    expect(displayWikiPageTitle({ ...unnamed, title: 'Parenting' })).toBe('Parenting');
+    expect(displayWikiPageTitle({ title: '' })).toBe('Untitled wiki page');
+    expect(displayWikiPageTitle({
+      title: '',
+      pageType: 'repo',
+      externalWatches: {
+        githubRepo: { owner: 'atsokolas', repo: 'note-taker-3' }
+      }
+    })).toBe('note-taker-3 — repo wiki');
   });
 
   it('keeps dossier summaries whole or silent', () => {

@@ -172,7 +172,7 @@ const nextSourceRoom = (mode) => {
 const BESIDE_SENTENCE = 'Works beside this sentence. Does not rewrite the article.';
 const BESIDE_ARTICLE = 'Works beside the article. Does not become a second chat in the pocket.';
 
-const companionRole = (scene, exploration, libraryExploration) => {
+const companionRole = (scene, exploration, libraryExploration, pageTitle) => {
   if (scene === 'library') {
     return isOpen(libraryExploration) ? BESIDE_SENTENCE : BESIDE_ARTICLE;
   }
@@ -181,6 +181,9 @@ const companionRole = (scene, exploration, libraryExploration) => {
   }
   if (isPressured(exploration)) {
     return 'The original stays. The experiment is not a generated causal chain.';
+  }
+  if (pageTitle && pageTitle === wikiAcceptedText(exploration)) {
+    return 'The title is named. The sentence stays.';
   }
   if (liveBearing(exploration)) {
     return 'This bears on the distinction. It does not close the question.';
@@ -243,6 +246,7 @@ const OpenSentenceStoryboard = () => {
     source: STORYBOARD_LIBRARY_SOURCE
   }));
   const [beenToLibrary, setBeenToLibrary] = useState(false);
+  const [pageTitle, setPageTitle] = useState(STORYBOARD_PAGE_TITLE);
 
   useEffect(() => {
     const live = exploration.id === STORYBOARD_COMPUTE_ID
@@ -273,7 +277,9 @@ const OpenSentenceStoryboard = () => {
     ? (isOpen(libraryExploration) ? wikiAcceptedText(libraryExploration) : 'Nomad')
     : (isOpen(exploration)
       ? wikiAcceptedText(exploration)
-      : (computeWalk ? STORYBOARD_COMPUTE_TITLE : STORYBOARD_PAGE_TITLE));
+      : (computeWalk
+        ? STORYBOARD_COMPUTE_TITLE
+        : (pageTitle || 'Care is not the same as preventing every scrape.')));
 
   const article = useMemo(() => (
     scene === 'library' ? (
@@ -342,7 +348,9 @@ const OpenSentenceStoryboard = () => {
       <article className="wiki-read open-sentence-storyboard__article">
         <header className="wiki-read__header">
           <p className="wiki-read__eyebrow">Wiki</p>
-          <h1>{STORYBOARD_PAGE_TITLE}</h1>
+          <h1 className={pageTitle ? undefined : 'wiki-read__title is-unnamed'}>
+            {pageTitle || 'Care is not the same as preventing every scrape.'}
+          </h1>
         </header>
         <div className="wiki-read__body">
           <p>
@@ -361,6 +369,8 @@ const OpenSentenceStoryboard = () => {
             stillness={stillness}
             homecoming={beenToLibrary ? 'You were in Nomad.' : ''}
             onAccept={(current) => setExploration(acceptWording(current))}
+            pageTitle={pageTitle}
+            onMakeTitle={setPageTitle}
             onOpenSourceHome={() => {
               setBeenToLibrary(true);
               setScene('library');
@@ -378,7 +388,7 @@ const OpenSentenceStoryboard = () => {
         </div>
       </article>
     )
-  ), [beenToLibrary, computeWalk, exploration, libraryExploration, scene, source, stillness, thenLine]);
+  ), [beenToLibrary, computeWalk, exploration, libraryExploration, pageTitle, scene, source, stillness, thenLine]);
 
   return (
     <div className="open-sentence-storyboard">
@@ -405,7 +415,9 @@ const OpenSentenceStoryboard = () => {
           way reads the second passage first. Put them back restores the bound
           order. It is not a new argument. Try without this paragraph hides it
           only in this temporary version. The article closes around the gap. Bring
-          it back by name. It is not deletion. The space
+          it back by name. It is not deletion. Make this the title names the page
+          from the wording. The sentence stays. Writing need not wait for naming.
+          The space
           between is yours. A note written there can stay a note, be kept as an
           experiment, be proposed as the line, or be kept as an essay. None of
           those write the article.
@@ -423,6 +435,7 @@ const OpenSentenceStoryboard = () => {
                 setBeat(item.id);
                 setQuery({ beat: item.id });
                 setExploration(applyBeat(item.id, source));
+                setPageTitle(STORYBOARD_PAGE_TITLE);
                 setScene('wiki');
                 setBeenToLibrary(false);
               }}
@@ -501,7 +514,7 @@ const OpenSentenceStoryboard = () => {
             <p className="agent-rail__eyebrow">{scene === 'library' ? 'Librarian' : 'Wiki steward'}</p>
           </div>
           <p className="agent-rail__role-description">
-            {companionRole(scene, exploration, libraryExploration)}
+            {companionRole(scene, exploration, libraryExploration, pageTitle)}
           </p>
           <p className="agent-rail__subject">
             <span>Now with</span>

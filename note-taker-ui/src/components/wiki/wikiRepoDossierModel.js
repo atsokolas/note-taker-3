@@ -1,5 +1,6 @@
 import { buildRepoWikiTitle } from '../../utils/githubRepoInput';
 import { normalizeSpaces, sentenceBoundaryTrim } from '../../utils/editorialText';
+import { firstParagraphText } from './renderTiptapDoc';
 
 const normalizeText = (value = '') => String(value || '').trim();
 
@@ -120,10 +121,18 @@ export const repoNameFromPage = (page = {}) => {
   return parts[parts.length - 1] || '';
 };
 
+export const unnamedTitlePreview = (page = {}) => {
+  const prose = firstParagraphText(page?.body);
+  if (!prose) return '';
+  const sentence = prose.match(/^[^.?!]+[.?!]?/);
+  return normalizeText(sentence ? sentence[0] : prose);
+};
+
 /**
  * UI title for repo wikis: repo slug casing preserved, not title-cased owner/repo.
  * Falls back to stored page.title for non-repo pages. Stale stored names
  * ("Atsokolas/Note-Taker-3 Repo Wiki") still render as the canonical form.
+ * An unnamed page previews its first sentence; that preview is not a title.
  */
 export const displayWikiPageTitle = (page = {}, fallback = 'Untitled wiki page') => {
   const title = normalizeText(page?.title);
@@ -138,7 +147,7 @@ export const displayWikiPageTitle = (page = {}, fallback = 'Untitled wiki page')
         .replace(/\s+repo wiki\s*$/i, '')
     );
   }
-  return title || fallback;
+  return title || unnamedTitlePreview(page) || fallback;
 };
 
 export const formatGitHubRepoWatchReceipt = (watch = {}) => {

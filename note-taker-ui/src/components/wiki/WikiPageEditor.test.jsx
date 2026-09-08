@@ -17,7 +17,13 @@ const mockEditor = {
     insertPullquote: jest.fn(function insertPullquote() { return this; }),
     run: jest.fn()
   })),
-  getJSON: jest.fn(() => ({ type: 'doc', content: [{ type: 'paragraph' }] }))
+  getJSON: jest.fn(() => ({ type: 'doc', content: [{ type: 'paragraph' }] })),
+  on: jest.fn(),
+  off: jest.fn(),
+  state: {
+    selection: { from: 0, to: 0, empty: true },
+    doc: { textBetween: jest.fn(() => '') }
+  }
 };
 
 jest.mock('@tiptap/react', () => ({
@@ -98,6 +104,12 @@ describe('WikiPageEditor', () => {
       run: jest.fn()
     }));
     mockEditor.renderTestContent = null;
+    mockEditor.on.mockReset();
+    mockEditor.off.mockReset();
+    mockEditor.state = {
+      selection: { from: 0, to: 0, empty: true },
+      doc: { textBetween: jest.fn(() => '') }
+    };
     mockUseEditor.mockReturnValue(mockEditor);
     getWikiPage.mockResolvedValue(page);
     getWikiBacklinks.mockResolvedValue({ count: 0, backlinks: [] });
@@ -653,5 +665,51 @@ describe('WikiPageEditor', () => {
     });
     expect(confirmSpy).toHaveBeenCalledWith('Delete "Enterprise AI Memory"?');
     confirmSpy.mockRestore();
+  });
+
+  it('previews the first sentence in the title field without writing it', async () => {
+    getWikiPage.mockResolvedValue({
+      ...page,
+      title: '',
+      body: {
+        type: 'doc',
+        content: [{
+          type: 'paragraph',
+          content: [{ type: 'text', text: 'Memory compounds with review. A second sentence stays.' }]
+        }]
+      }
+    });
+    render(
+      <MemoryRouter>
+        <WikiPageEditor pageId="wiki-1" />
+      </MemoryRouter>
+    );
+    const titleField = await screen.findByLabelText('Wiki page title');
+    expect(titleField).toHaveValue('');
+    expect(titleField).toHaveAttribute('placeholder', 'Memory compounds with review.');
+    expect(updateWikiPage).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: 'Make this the title' })).not.toBeInTheDocument();
+  });
+
+  it('names the page from the selected wording without rewriting the body', async () => {
+    mockEditor.state = {
+      selection: { from: 0, to: 28, empty: false },
+      doc: { textBetween: jest.fn(() => 'Memory compounds with review.') }
+    };
+    updateWikiPage.mockResolvedValue({ ...page, title: 'Memory compounds with review.' });
+    render(
+      <MemoryRouter>
+        <WikiPageEditor pageId="wiki-1" />
+      </MemoryRouter>
+    );
+    await screen.findByLabelText('Wiki page title');
+    fireEvent.click(screen.getByRole('button', { name: 'Make this the title' }));
+    expect(screen.getByLabelText('Wiki page title')).toHaveValue('Memory compounds with review.');
+    await waitFor(() => expect(updateWikiPage).toHaveBeenCalledWith('wiki-1', {
+      title: 'Memory compounds with review.'
+    }), { timeout: 2000 });
+    expect(updateWikiPage).not.toHaveBeenCalledWith('wiki-1', expect.objectContaining({
+      body: expect.anything()
+    }));
   });
 });

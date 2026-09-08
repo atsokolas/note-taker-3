@@ -1085,17 +1085,19 @@ const WikiReadReferences = ({ sources = [], citations = [], highlightedRef, onJu
   );
 };
 
-const WikiReadTitle = ({ title = '', plain = false }) => {
+const WikiReadTitle = ({ title = '', plain = false, named = true }) => {
+  const heading = String(title || '').trim() || 'Untitled wiki page';
+  const className = named ? 'wiki-read__title' : 'wiki-read__title is-unnamed';
   if (plain) {
     return (
-      <h1 className="wiki-read__title" data-view-transition-name="wiki-read-title">
-        {String(title || '').trim() || 'Untitled wiki page'}
+      <h1 className={className} data-view-transition-name="wiki-read-title">
+        {heading}
       </h1>
     );
   }
   const parts = splitTitleAccent(title);
   return (
-    <h1 className="wiki-read__title" data-view-transition-name="wiki-read-title">
+    <h1 className={className} data-view-transition-name="wiki-read-title">
       {parts.before ? <>{parts.before} </> : null}
       <em>{parts.accent}</em>
       {parts.after ? <> {parts.after}</> : null}
@@ -1823,6 +1825,15 @@ const WikiPageReadView = ({
     latestPageRef.current = saved;
     setPage(saved);
   }, [pageId]);
+
+  const makeOpenedTitle = useCallback(async (text) => {
+    const line = String(text || '').trim();
+    if (!line || line === String(latestPageRef.current?.title || page?.title || '').trim()) return;
+    const saved = await updateWikiPage(pageId, { title: line });
+    if (!saved) return;
+    latestPageRef.current = saved;
+    setPage(saved);
+  }, [page?.title, pageId]);
 
   const handleAsk = async (question) => {
     setAsking(true);
@@ -2884,7 +2895,11 @@ const WikiPageReadView = ({
                 In workspace mode the agent will surface quality problems
                 via chat notification (AT-26). */}
             {livingThesisPage ? <p className="wiki-read__object-label">Living thesis</p> : null}
-            <WikiReadTitle title={displayWikiPageTitle(page)} plain={standardWikiPage} />
+            <WikiReadTitle
+              title={displayWikiPageTitle(page)}
+              plain={standardWikiPage}
+              named={Boolean(String(page?.title || '').trim())}
+            />
             {standardWikiPage ? (
               <p className="wiki-read__standard-facts" aria-label="Page facts">
                 {standardPageFacts.map(fact => <span key={fact}>{fact}</span>)}
@@ -3173,6 +3188,7 @@ const WikiPageReadView = ({
                     revisions={revisions}
                     onOpenedClaim={setOpenedClaimId}
                     onAcceptWording={openSentenceEnabled ? acceptOpenedWording : undefined}
+                    onMakeTitle={openSentenceEnabled ? makeOpenedTitle : undefined}
                   >
                     {renderTiptapDoc(displayBody, {
                       tocItems,

@@ -38,6 +38,7 @@ export const WikiOpenSentenceProvider = ({
   revisions,
   onOpenedClaim,
   onAcceptWording,
+  onMakeTitle,
   children
 }) => {
   const [openedId, setOpenedId] = useState(() => (
@@ -144,16 +145,27 @@ export const WikiOpenSentenceProvider = ({
     }
   }, [onAcceptWording]);
 
+  const makeTitle = useCallback(async (text) => {
+    if (!onMakeTitle) return;
+    try {
+      await onMakeTitle(text);
+    } catch (_error) {
+      // The page title stays. The sentence stays.
+    }
+  }, [onMakeTitle]);
+
   const value = useMemo(() => ({
     enabled,
     openedId,
     pageId,
+    pageTitle: String(page?.title || ''),
     explorationFor,
     commit,
     leaveForLibrary,
     accept: onAcceptWording ? accept : null,
+    makeTitle: onMakeTitle ? makeTitle : null,
     acceptSilence
-  }), [accept, acceptSilence, commit, enabled, explorationFor, leaveForLibrary, onAcceptWording, openedId, pageId]);
+  }), [accept, acceptSilence, commit, enabled, explorationFor, leaveForLibrary, makeTitle, onAcceptWording, onMakeTitle, openedId, page?.title, pageId]);
 
   return (
     <WikiOpenSentenceContext.Provider value={value}>
@@ -204,6 +216,8 @@ const OpenableParagraph = ({ node, id, className, children }) => {
       onOpenSourceHome={ctx.leaveForLibrary}
       onAccept={ctx.accept}
       acceptSilence={ctx.acceptSilence}
+      pageTitle={ctx.pageTitle}
+      onMakeTitle={ctx.makeTitle}
       lineProps={{
         id,
         className,

@@ -9,6 +9,7 @@ import {
   bringTheParagraphBack,
   canKeepBetweenAsEssay,
   canKeepBetweenAsExperiment,
+  canMakeThisTheTitle,
   canProposeBetween,
   canProposeWording,
   changedWordSpans,
@@ -792,6 +793,14 @@ describe('openSentenceModel', () => {
       ...library,
       proposal: { text: 'A narrower library line.', against: STORYBOARD_SOURCE.passage }
     })).toBeNull();
+  });
+
+  it('lets wording become the title only when it is not already named', () => {
+    expect(canMakeThisTheTitle('Parenting', STORYBOARD_SENTENCE)).toBe(true);
+    expect(canMakeThisTheTitle('', STORYBOARD_SENTENCE)).toBe(true);
+    expect(canMakeThisTheTitle(STORYBOARD_SENTENCE, STORYBOARD_SENTENCE)).toBe(false);
+    expect(canMakeThisTheTitle('Parenting', '  ')).toBe(false);
+    expect(canMakeThisTheTitle('Parenting', '')).toBe(false);
   });
 });
 
@@ -1650,6 +1659,68 @@ describe('OpenSentence', () => {
       source: STORYBOARD_LIBRARY_SOURCE
     })));
     expect(screen.queryByRole('button', { name: 'Try without this paragraph' })).not.toBeInTheDocument();
+  });
+
+  it('names the page from the wording and leaves the sentence', () => {
+    const onMakeTitle = jest.fn();
+    const exploration = openExploration(createExploration({
+      originalText: STORYBOARD_SENTENCE,
+      source: STORYBOARD_SOURCE
+    }));
+    render(
+      <MemoryRouter>
+        <OpenSentence
+          exploration={exploration}
+          onChange={jest.fn()}
+          mocked
+          pageTitle="Parenting"
+          onMakeTitle={onMakeTitle}
+        />
+      </MemoryRouter>
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Make this the title' }));
+    expect(onMakeTitle).toHaveBeenCalledWith(STORYBOARD_SENTENCE);
+    expect(screen.getByRole('button', { name: STORYBOARD_SENTENCE })).toBeInTheDocument();
+    expect(screen.getByText(/The article still reads/)).toHaveTextContent(STORYBOARD_SENTENCE);
+  });
+
+  it('does not offer Make this the title when the wording is already the title', () => {
+    render(
+      <MemoryRouter>
+        <OpenSentence
+          exploration={openExploration(createExploration({
+            originalText: STORYBOARD_SENTENCE,
+            source: STORYBOARD_SOURCE
+          }))}
+          mocked
+          pageTitle={STORYBOARD_SENTENCE}
+          onMakeTitle={jest.fn()}
+        />
+      </MemoryRouter>
+    );
+    expect(screen.queryByRole('button', { name: 'Make this the title' })).not.toBeInTheDocument();
+  });
+
+  it('does not offer Make this the title without a host or wording', () => {
+    renderOpen(openExploration(createExploration({
+      originalText: STORYBOARD_SENTENCE,
+      source: STORYBOARD_SOURCE
+    })));
+    expect(screen.queryByRole('button', { name: 'Make this the title' })).not.toBeInTheDocument();
+    render(
+      <MemoryRouter>
+        <OpenSentence
+          exploration={openExploration(tryWording(createExploration({
+            originalText: STORYBOARD_SENTENCE,
+            source: STORYBOARD_SOURCE
+          }), '   '))}
+          mocked
+          pageTitle="Parenting"
+          onMakeTitle={jest.fn()}
+        />
+      </MemoryRouter>
+    );
+    expect(screen.queryByRole('button', { name: 'Make this the title' })).not.toBeInTheDocument();
   });
 
   it('lets Escape bring the paragraph back without closing the pocket', () => {

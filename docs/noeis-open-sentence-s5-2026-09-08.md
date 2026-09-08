@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-08
 **Sits under:** [Operable knowledge](noeis-operable-knowledge-vision-spec-2026-09-04.md) §11 S5 / §6 H2
-**Status:** Horizon H2. Frontend-only. Not dogfood. Not a person finding value beyond a generated answer.
+**Status:** Horizon H2 is on `main`. Named distinction, Then's dated reply, and later material that bears on the distinction. Frontend-only. Not dogfood. Not a person finding value beyond a generated answer.
 
 S5 asked to select **one** horizon the observed workflow needed. This slice is **H2 — Uncertainty that stays alive**. It is not exhibits, rehearsal, an instrument, unwritten-work composition, Library limits, or sharing.
 

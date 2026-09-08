@@ -93,6 +93,7 @@ describe('OpenedLibraryPassage', () => {
     expect(screen.queryByRole('button', { name: 'Propose this wording' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Propose this as the line' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Accept this wording' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Make this the title' })).not.toBeInTheDocument();
   });
 
   it('places the passage beside the Wiki thought you walked from', () => {

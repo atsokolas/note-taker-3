@@ -51,6 +51,18 @@ describe('OpenSentenceStoryboard', () => {
     expect(screen.getByText('Works beside this sentence. Does not rewrite the article.')).toBeInTheDocument();
   });
 
+  it('names the page from the wording and leaves the article line', () => {
+    renderBoard();
+    fireEvent.click(screen.getByRole('button', { name: 'Open', exact: true }));
+    fireEvent.click(screen.getByRole('button', { name: 'Make this the title' }));
+    expect(screen.getByRole('heading', { name: STORYBOARD_SENTENCE })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: STORYBOARD_SENTENCE })).not.toHaveClass('is-unnamed');
+    expect(screen.getByRole('button', { name: STORYBOARD_SENTENCE })).toBeInTheDocument();
+    expect(screen.getByText(/The article still reads/)).toHaveTextContent(STORYBOARD_SENTENCE);
+    expect(screen.getByText('The title is named. The sentence stays.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Make this the title' })).not.toBeInTheDocument();
+  });
+
   it('proposes wording without writing, then accept writes the illustrated line', () => {
     renderBoard();
     fireEvent.click(screen.getByRole('button', { name: 'Wording' }));
