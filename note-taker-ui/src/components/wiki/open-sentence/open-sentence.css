@@ -400,6 +400,7 @@ mark.highlight.open-sentence__held.is-placed:not(.is-open)::before {
 .open-sentence-pocket__write > button,
 .open-sentence-pocket__pressure > button,
 .open-sentence-pocket__meet > button,
+.open-sentence-pocket__fresh,
 .open-sentence-pocket__close {
   justify-self: start;
 }

@@ -131,6 +131,12 @@ The illustrated Then beat is Compute, not Parenting. It does not walk into Nomad
 
 When Then holds a recorded question, **the distinction that would help** sits beside that question — a dated reply, the same field, not a second binder. Then’s question stays Then’s. Today’s words stay today’s. The date is stamped once when the distinction is first named; a lifted note without a date stays undated. Clearing the distinction forgets the date. No worldview-change announcement.
 
+## Read it fresh (2026-09-08)
+
+The same pocket can hide what you wrote and leave the sources. **Read it fresh** is a view, not deletion: wording, questions, the distinction, Then’s recorded question and draft, pressure, meeting names, and the mark recede. The attached passages, Then’s recorded line and sources, and the accepted sentence stay. **Show what I wrote** restores them in place. Escape leaves the fresh view before it closes the pocket. Closing still does not write the article. A pocket with only a source has no toggle. Filler is never the answer.
+
+**Taste pass.** Eligibility: the opened pocket has personal work — a kept draft, a changed wording, an open experiment, a mark, or Then’s recorded question or draft. Quality bar: a session-local view. Restore in place. Not deletion, not proof of rereading, not stored on the exploration. Silence: only a source → no toggle; Escape leaves the view before it closes the pocket; closing still does not write the article. Filler is never the answer.
+
 ## Meet (2026-09-06)
 
 The same pocket can hold a second recorded passage beside the first. **Also beside** is identity, not a generated match: another sourceRef bound to that claim, with a different identity and a different passage. The person names how they meet and where that stops. **The space between** is empty until they write. A note written there can stay a note, be kept as an unfinished experiment, be proposed as the Wiki line, or be kept as an essay. The experiment uses the existing pressure act: their words become the named premise; still-holds and unknown stay empty until they write. The proposal is the existing proposal act: their words, against the live line. The wording field stays the current claim. The essay is a snapshot of their words; it is not the Wiki line, and it can remain after they leave the meeting. Empty slots stay empty. Noeis does not synthesize a paragraph, fill the relation, invent a chain, or write the article.

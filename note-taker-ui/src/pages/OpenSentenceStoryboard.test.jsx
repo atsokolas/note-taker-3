@@ -71,6 +71,7 @@ describe('OpenSentenceStoryboard', () => {
     expect(screen.getByLabelText('Try a narrower wording')).toHaveValue(STORYBOARD_PROVISIONAL);
     expect(screen.getByLabelText('Leave this open')).toHaveValue(STORYBOARD_QUESTION);
     expect(screen.getByLabelText('The distinction that would help')).toHaveValue(STORYBOARD_DISTINCTION);
+    expect(screen.getByRole('button', { name: 'Read it fresh' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: STORYBOARD_SENTENCE })).toBeInTheDocument();
     expect(window.sessionStorage.getItem(openedStorageKey(STORYBOARD_SCOPE))).toBe(STORYBOARD_ITEM_ID);
     expect(window.sessionStorage.getItem(draftStorageKey(STORYBOARD_SCOPE, STORYBOARD_ITEM_ID)))
