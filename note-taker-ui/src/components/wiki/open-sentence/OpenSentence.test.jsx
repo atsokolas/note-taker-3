@@ -124,10 +124,22 @@ describe('openSentenceModel', () => {
     const start = createExploration({ originalText: STORYBOARD_SENTENCE });
     const named = setDistinction(start, STORYBOARD_DISTINCTION);
     expect(named.distinctionAt).toBe('2026-09-08');
+    expect(named.distinctionAgainst).toBe(STORYBOARD_SENTENCE);
     expect(formatNamedOn(namedOn(named))).toBe('8 Sep 2026');
     jest.setSystemTime(new Date('2026-09-09T15:00:00'));
     expect(setDistinction(named, `${STORYBOARD_DISTINCTION} still`).distinctionAt).toBe('2026-09-08');
     expect(setDistinction(named, '')).not.toHaveProperty('distinctionAt');
+    expect(setDistinction(named, '')).not.toHaveProperty('distinctionAgainst');
+    const typed = setDistinction(start, `${STORYBOARD_DISTINCTION} `);
+    expect(typed.distinction).toBe(`${STORYBOARD_DISTINCTION} `);
+    expect(restoreExploration(snapshotExploration(typed), start).distinction).toBe(`${STORYBOARD_DISTINCTION} `);
+    expect(liveDistinction(typed)).toBe(STORYBOARD_DISTINCTION);
+    expect(liveDistinction({ ...named, originalText: 'The line moved on.' })).toBe('');
+    expect(keepsClosedDraft(closeExploration({ ...named, originalText: 'The line moved on.' }))).toBe(false);
+    expect(restoreExploration(snapshotExploration(named), {
+      ...start,
+      originalText: 'The line moved on.'
+    }).distinction).toBe('');
     const lifted = restoreExploration(JSON.stringify({
       ...start,
       distinction: STORYBOARD_DISTINCTION
@@ -1088,7 +1100,8 @@ describe('OpenSentence', () => {
     expect(next).toEqual(expect.objectContaining({
       distinction: 'Whether scarcity is a plant problem or a demand problem.',
       question: '',
-      distinctionAt: '2026-09-08'
+      distinctionAt: '2026-09-08',
+      distinctionAgainst: STORYBOARD_THEN_NOW
     }));
     expect(next).not.toHaveProperty('returnNote');
     rerender(

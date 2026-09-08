@@ -30,8 +30,8 @@ When Then holds a recorded question, the same distinction field sits beside it a
 
 **Named distinction**
 - Eligibility: an opened sentence (Wiki pocket or Library passage). The person may name a distinction with or without an unfinished question.
-- Quality bar: the person's words. Not a generated fork. Not a task. Then's question is not copied in. Identity `against` is the current accepted line; restore cannot invent a distinction from Then.
-- Silence: empty distinction stays empty; a distinction that repeats the live question is not a second way home; Then's question stays Then's; a leftover `returnNote` is lifted once, then dropped. No timer, overdue, or paraphrase. Filler is never the answer.
+- Quality bar: the person's words. Not a generated fork. Not a task. Then's question is not copied in. Identity `against` is the current accepted line; restore drops the distinction if that line moved on. Restore cannot invent a distinction from Then.
+- Silence: empty distinction stays empty; a distinction that repeats the live question is not a second way home; Then's question stays Then's; a leftover `returnNote` is lifted once, then dropped; trailing spaces while typing are kept, and trimmed only when asking whether the distinction is live. No timer, overdue, or paraphrase. Filler is never the answer.
 
 **Dated reply beside Then**
 - Eligibility: Then is showing a recorded question on an opened sentence.
