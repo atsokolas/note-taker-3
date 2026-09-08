@@ -1,6 +1,6 @@
 import { countWikiClaims, countWikiSources, isWikiScaffoldPage } from './wikiPageMetrics';
 import { wikiPageId } from './wikiRepoDedupeModel';
-import { displayWikiPageTitle } from './wikiRepoDossierModel';
+import { displayWikiPageTitle, namedWikiPageTitle } from './wikiRepoDossierModel';
 
 /*
  * Same-title wiki pages, folded into one row.
@@ -24,7 +24,7 @@ const stripEdges = (value = '') => String(value || '')
  * Case, surrounding punctuation, and whitespace do not make a page distinct.
  */
 export const titleKeyForPage = (page = {}) => stripEdges(
-  displayWikiPageTitle(page, '')
+  namedWikiPageTitle(page)
     .replace(/[‘’]/g, "'")
     .replace(/[“”]/g, '"')
     .replace(/\s+/g, ' ')

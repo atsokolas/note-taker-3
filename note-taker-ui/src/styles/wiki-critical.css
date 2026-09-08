@@ -203,6 +203,10 @@
 .wiki-read__title {
   view-transition-name: wiki-read-title;
 }
+.wiki-read__title.is-unnamed {
+  color: var(--noeis-ink-muted);
+  font-weight: 500;
+}
 .wiki-read__layout--rail-collapsed {
   grid-template-columns: minmax(160px, 220px) minmax(0, 860px) 48px;
   gap: 24px;

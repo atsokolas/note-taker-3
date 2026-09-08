@@ -595,6 +595,11 @@ export const hasPersonalWork = (exploration) => {
 
 export const wikiAcceptedText = (exploration) => String(exploration?.originalText || '');
 
+export const canMakeThisTheTitle = (pageTitle, wording) => {
+  const line = asLine(wording);
+  return Boolean(line && line !== asLine(pageTitle));
+};
+
 const tokenize = (value = '') => String(value).split(/(\s+)/).filter((part) => part.length > 0);
 
 export const changedWordSpans = (original = '', next = '') => {

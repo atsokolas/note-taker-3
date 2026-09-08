@@ -45,6 +45,7 @@ const providerFrom = (props, onOpenedClaim) => (
     revisions={props.revisions}
     onOpenedClaim={onOpenedClaim}
     onAcceptWording={props.onAcceptWording}
+    onMakeTitle={props.onMakeTitle}
   >
     {renderTiptapDoc((props.page || page).body, { wrapParagraph: wrapOpenableParagraph })}
   </WikiOpenSentenceProvider>
@@ -869,6 +870,27 @@ describe('WikiOpenSentence', () => {
     expect(screen.getByText(/The article still reads/)).toHaveTextContent('Memory compounds with review.');
     fireEvent.click(screen.getByRole('button', { name: 'Bring “Memory compounds with review.” back' }));
     expect(document.querySelector('.open-sentence')).not.toHaveClass('is-without');
+    expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent('Memory compounds with review.');
+  });
+
+  it('asks the host to name the page and leaves the claim text', async () => {
+    const onMakeTitle = jest.fn().mockResolvedValue();
+    const { rerender } = renderWikiSentence({ onMakeTitle });
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Make this the title' }));
+    await waitFor(() => expect(onMakeTitle).toHaveBeenCalledWith('Memory compounds with review.'));
+    expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent('Memory compounds with review.');
+    rerender({ onMakeTitle, page: { ...page, title: 'Memory compounds with review.' } });
+    expect(screen.queryByRole('button', { name: 'Make this the title' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the title when naming fails', async () => {
+    const onMakeTitle = jest.fn().mockRejectedValue(new Error('no'));
+    renderWikiSentence({ onMakeTitle });
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Make this the title' }));
+    await waitFor(() => expect(onMakeTitle).toHaveBeenCalledWith('Memory compounds with review.'));
+    expect(screen.getByRole('button', { name: 'Make this the title' })).toBeInTheDocument();
     expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent('Memory compounds with review.');
   });
 });

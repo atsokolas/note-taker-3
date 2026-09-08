@@ -2888,6 +2888,51 @@ describe('WikiPageReadView', () => {
     expect(within(pocket).getByText(/The article still reads/)).toHaveTextContent(nextLine);
   });
 
+  it('previews the first sentence until a title is named', async () => {
+    getWikiPage.mockResolvedValue({ ...page, title: '' });
+    renderReadView();
+    await flushDeferredWikiReadWork();
+    const heading = await screen.findByRole('heading', { level: 1 });
+    expect(heading).toHaveClass('is-unnamed');
+    expect(heading).toHaveTextContent('Enterprise AI Memory depends on Compounding interest.');
+    expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent('Memory compounds with review.');
+  });
+
+  it('names the page from the opened wording and leaves the body', async () => {
+    const named = 'Memory compounds with review.';
+    updateWikiPage.mockImplementation(async (_id, patch) => ({ ...page, ...patch }));
+    renderReadView();
+    await flushDeferredWikiReadWork();
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    const pocket = screen.getByLabelText('Opened sentence');
+    await act(async () => {
+      fireEvent.click(within(pocket).getByRole('button', { name: 'Make this the title' }));
+    });
+    await waitFor(() => expect(updateWikiPage).toHaveBeenCalledWith('wiki-1', { title: named }));
+    expect(updateWikiPage).not.toHaveBeenCalledWith('wiki-1', expect.objectContaining({ body: expect.anything() }));
+    expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent(named);
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(named);
+    expect(screen.getByRole('heading', { level: 1 })).not.toHaveClass('is-unnamed');
+    expect(within(pocket).queryByRole('button', { name: 'Make this the title' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the title when naming is refused', async () => {
+    updateWikiPage.mockRejectedValueOnce(new Error('That did not save.'));
+    renderReadView();
+    await flushDeferredWikiReadWork();
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    const pocket = screen.getByLabelText('Opened sentence');
+    await act(async () => {
+      fireEvent.click(within(pocket).getByRole('button', { name: 'Make this the title' }));
+    });
+    await waitFor(() => expect(updateWikiPage).toHaveBeenCalledWith('wiki-1', {
+      title: 'Memory compounds with review.'
+    }));
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Enterprise AI Memory');
+    expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent('Memory compounds with review.');
+    expect(within(pocket).getByRole('button', { name: 'Make this the title' })).toBeInTheDocument();
+  });
+
   it('keeps the article when accept is refused as stale', async () => {
     const refusal = new Error('The article moved on. This proposal was not applied.');
     refusal.response = {

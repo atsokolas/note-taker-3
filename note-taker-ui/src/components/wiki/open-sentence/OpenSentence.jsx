@@ -10,6 +10,7 @@ import {
   cancelPlacement,
   canKeepBetweenAsEssay,
   canKeepBetweenAsExperiment,
+  canMakeThisTheTitle,
   canProposeBetween,
   canProposeWording,
   canRearrange,
@@ -504,7 +505,16 @@ const MeetPassage = ({ exploration, mocked, onOpenSourceHome, lead = false }) =>
   );
 };
 
-const WordingWork = ({ pocketId, exploration, accepted, onCommit, onAccept, acceptSilence }) => {
+const WordingWork = ({
+  pocketId,
+  exploration,
+  accepted,
+  pageTitle,
+  onCommit,
+  onAccept,
+  onMakeTitle,
+  acceptSilence
+}) => {
   const spans = wordingChanged(exploration)
     ? changedWordSpans(accepted, exploration.provisionalText)
     : [];
@@ -514,6 +524,7 @@ const WordingWork = ({ pocketId, exploration, accepted, onCommit, onAccept, acce
     proposal && String(exploration.provisionalText || '').trim() === proposal.text
   );
   const mayPropose = canProposeWording(exploration);
+  const wording = String(exploration.provisionalText || '').trim();
   return (
     <>
       <PocketField
@@ -533,6 +544,11 @@ const WordingWork = ({ pocketId, exploration, accepted, onCommit, onAccept, acce
       {wordingChanged(exploration) ? (
         <button type="button" onClick={() => onCommit(putItBack(exploration))}>
           Put it back
+        </button>
+      ) : null}
+      {onMakeTitle && canMakeThisTheTitle(pageTitle, wording) ? (
+        <button type="button" onClick={() => onMakeTitle(wording)}>
+          Make this the title
         </button>
       ) : null}
       {mayPropose && wordingChanged(exploration) && !sameAsProposal ? (
@@ -585,9 +601,11 @@ const PocketBody = ({
   accepted,
   acceptedLabel,
   placeBesideTitle,
+  pageTitle,
   onCommit,
   onOpenSourceHome,
   onAccept,
+  onMakeTitle,
   acceptSilence,
   fresh = false,
   onFresh
@@ -662,8 +680,10 @@ const PocketBody = ({
             pocketId={pocketId}
             exploration={exploration}
             accepted={accepted}
+            pageTitle={pageTitle}
             onCommit={onCommit}
             onAccept={onAccept}
+            onMakeTitle={onMakeTitle}
             acceptSilence={acceptSilence}
           />
         ) : null}
@@ -774,10 +794,12 @@ const OpenSentence = ({
   armRoot = null,
   acceptedLabel = 'The article still reads',
   placeBesideTitle = '',
+  pageTitle = '',
   homecoming = '',
   stillness = false,
   onOpenSourceHome,
   onAccept,
+  onMakeTitle,
   acceptSilence = '',
   children
 }) => {
@@ -1011,9 +1033,11 @@ const OpenSentence = ({
               accepted={accepted}
               acceptedLabel={acceptedLabel}
               placeBesideTitle={placeBesideTitle}
+              pageTitle={pageTitle}
               onCommit={onChange}
               onOpenSourceHome={onOpenSourceHome}
               onAccept={onAccept}
+              onMakeTitle={onMakeTitle}
               acceptSilence={acceptSilence}
               fresh={fresh}
               onFresh={setFresh}
