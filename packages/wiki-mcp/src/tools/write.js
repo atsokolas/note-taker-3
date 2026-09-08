@@ -115,7 +115,7 @@ export const writeTools = [
   },
   {
     name: 'ingest_source',
-    description: 'Call this when the user shares a URL, pasted text, or source object and wants it folded into the wiki. Waits for the run to settle and returns how it landed, including nextStep. A URL or pasted text never creates a page on its own: when nothing matches, the run ends `ignored` with a suggestedCreatePage — pass that to create_page to keep the source. Requires an agent-write token.',
+    description: 'Fold a source into the WIKI — the encyclopedia of what the reader knows. This does NOT put the piece in their Library: it never writes an article they can open and read, so "save this article" and "add this to my library" are create_article, not this. Use this only to make a source inform wiki pages. Waits for the run to settle and returns how it landed, including nextStep. A URL or pasted text never creates a page on its own: when nothing matches, the run ends `ignored` with a suggestedCreatePage — pass that to create_page to keep the source. Requires an agent-write token.',
     inputSchema: {
       source: sourceShape,
       waitMs: z.number().int().min(0).max(60000).optional().describe('How long to wait for the run to settle before handing back a runId to poll. Defaults to 20000.')
@@ -222,7 +222,7 @@ export const writeTools = [
   },
   {
     name: 'create_article',
-    description: 'Save or update a normal Library article. Use this for user requests to add an article to the reading library, not for wiki ingestion. Pass the full article text as content: without it the Library holds a title and a link, and the reader shows a highlight-only edition instead of the piece. Read the page first and send what you read; the server only falls back to fetching the URL itself when content is missing, and a paywall or a script-rendered page defeats it. The result says which of the three happened.',
+    description: 'THE way an article gets into the reader\'s Library, where they open and read it. Every "save this", "add this to my library", "keep this article" is this tool — ingest_source is the wiki and leaves the Library untouched. Pass the full article text as content: without it the Library holds a title and a link, and the reader shows a highlight-only edition instead of the piece. Read the page first and send what you read; the server only falls back to fetching the URL itself when content is missing, and a paywall or a script-rendered page defeats it. The result says which of the three happened.',
     inputSchema: {
       title: z.string().min(1),
       url: z.string().min(1),

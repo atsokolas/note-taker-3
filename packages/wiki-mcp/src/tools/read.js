@@ -122,7 +122,7 @@ export const readTools = [
   },
   {
     name: 'get_ingest_run',
-    description: 'Get an ingest run and its timeline.',
+    description: 'Get an ingest run and its timeline. A run is background model work that takes minutes, so poll it slowly — every 30 seconds or so — and expect several polls before it settles. ingest_source already waits for you; a run still going when it returns is normal and not a failure, and hammering this in a tight loop only produces a wall of pending answers.',
     inputSchema: {
       runId: z.string().describe('Wiki ingest run id.')
     },
