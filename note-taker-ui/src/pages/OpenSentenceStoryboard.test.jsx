@@ -237,6 +237,7 @@ describe('OpenSentenceStoryboard', () => {
     expect(screen.getByRole('button', { name: STORYBOARD_SENTENCE })).toBeInTheDocument();
     expect(screen.getByText('Also beside')).toBeInTheDocument();
     expect(screen.getByText(STORYBOARD_MEET_SOURCE.passage)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Try the other way' })).toBeInTheDocument();
     expect(screen.getByLabelText('How they meet')).toHaveValue(STORYBOARD_MEET_RELATION);
     expect(screen.getByLabelText('Where that stops')).toHaveValue(STORYBOARD_MEET_LIMIT);
     expect(screen.getByLabelText('The space between')).toHaveValue('');

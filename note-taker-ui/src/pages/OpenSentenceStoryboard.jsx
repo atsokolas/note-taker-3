@@ -381,7 +381,9 @@ const OpenSentenceStoryboard = () => {
           one was left open then. The distinction that would help sits beside that
           question, dated once named. Both stay. It is not a biography. Read it fresh
           hides what you wrote, not the sources. Meet names how
-          two recorded passages sit together, and where that stops. The space
+          two recorded passages sit together, and where that stops. Try the other
+          way reads the second passage first. Put them back restores the bound
+          order. It is not a new argument. The space
           between is yours. A note written there can stay a note, be kept as an
           experiment, be proposed as the line, or be kept as an essay. None of
           those write the article.

@@ -334,6 +334,20 @@ export const endMeet = (exploration) => (
   exploration?.meet ? { ...exploration, meet: null } : exploration
 );
 
+export const isRearranged = (exploration) => Boolean(
+  inspectableOther(exploration) && exploration?.rearranged
+);
+
+export const tryTheOtherWay = (exploration) => (
+  inspectableOther(exploration) && !exploration?.rearranged
+    ? { ...exploration, rearranged: true }
+    : exploration
+);
+
+export const putThemBack = (exploration) => (
+  exploration?.rearranged ? { ...exploration, rearranged: false } : exploration
+);
+
 export const meetWayHome = (exploration) => {
   const meet = liveMeet(exploration);
   if (!meet) return '';
@@ -563,7 +577,8 @@ export const restoreExploration = (raw, fallback) => {
       proposal: liveProposal(restored),
       pressure: isPressured(restored) ? restored.pressure : null,
       meet: isMeeting(restored) ? restored.meet : null,
-      essay: liveEssay(restored)
+      essay: liveEssay(restored),
+      rearranged: Boolean(inspectableOther(restored) && restored.rearranged)
     };
   } catch (_unreadable) {
     return base;
