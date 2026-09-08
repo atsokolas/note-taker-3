@@ -19,6 +19,7 @@ import {
   formatNamedOn,
   hasPersonalWork,
   isPressured,
+  isRearranged,
   keepBetweenAsEssay,
   keepBetweenAsExperiment,
   keepPressureName,
@@ -41,12 +42,14 @@ import {
   pressureWayHome,
   proposeWording,
   putItBack,
+  putThemBack,
   restoreExploration,
   setDistinction,
   setMeetField,
   setPressureField,
   snapshotExploration,
   sourceClip,
+  tryTheOtherWay,
   tryWording,
   wikiAcceptedText,
   withdrawProposal,
@@ -642,6 +645,41 @@ describe('openSentenceModel', () => {
     }))).toBeNull();
   });
 
+  it('lets two recorded passages swap order without inventing an argument', () => {
+    const start = meeting();
+    expect(isRearranged(start)).toBe(false);
+    expect(tryTheOtherWay(start).source).toBe(start.source);
+    expect(tryTheOtherWay(start).other).toBe(start.other);
+    expect(isRearranged(tryTheOtherWay(start))).toBe(true);
+    expect(isRearranged(putThemBack(tryTheOtherWay(start)))).toBe(false);
+    expect(tryTheOtherWay(createExploration({ originalText: STORYBOARD_SENTENCE, source: STORYBOARD_SOURCE }))).toEqual(
+      createExploration({ originalText: STORYBOARD_SENTENCE, source: STORYBOARD_SOURCE })
+    );
+    const emptyFirst = createExploration({
+      originalText: STORYBOARD_SENTENCE,
+      source: { ...STORYBOARD_SOURCE, passage: '' },
+      other: STORYBOARD_MEET_SOURCE
+    });
+    expect(tryTheOtherWay(emptyFirst)).toBe(emptyFirst);
+    expect(keepsClosedDraft(closeExploration(tryTheOtherWay(start)))).toBe(false);
+    const swapped = tryTheOtherWay(start);
+    expect(isRearranged(restoreExploration(snapshotExploration(swapped), start))).toBe(true);
+    expect(isRearranged(restoreExploration(snapshotExploration(swapped), createExploration({
+      originalText: STORYBOARD_SENTENCE,
+      source: STORYBOARD_SOURCE
+    })))).toBe(false);
+    expect(isRearranged(restoreExploration(snapshotExploration(swapped), createExploration({
+      originalText: STORYBOARD_SENTENCE,
+      source: STORYBOARD_SOURCE,
+      other: { ...STORYBOARD_MEET_SOURCE, passage: 'A different recorded letter.' }
+    })))).toBe(false);
+    expect(isRearranged(restoreExploration(snapshotExploration(swapped), createExploration({
+      originalText: STORYBOARD_SENTENCE,
+      source: { ...STORYBOARD_SOURCE, passage: 'A different recorded Nomad.' },
+      other: STORYBOARD_MEET_SOURCE
+    })))).toBe(false);
+  });
+
   it('refuses a Wiki proposal from a passage that is already here', () => {
     const library = tryWording(createExploration({
       originalText: STORYBOARD_SOURCE.passage,
@@ -1152,6 +1190,7 @@ describe('OpenSentence', () => {
       source: STORYBOARD_SOURCE
     })));
     expect(screen.queryByRole('button', { name: 'Read it fresh' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Try the other way' })).not.toBeInTheDocument();
     expect(screen.getByText(STORYBOARD_SOURCE.passage)).toBeInTheDocument();
   });
 
@@ -1211,6 +1250,7 @@ describe('OpenSentence', () => {
     ));
     fireEvent.click(screen.getByRole('button', { name: 'Read it fresh' }));
     expect(screen.queryByLabelText('How they meet')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Try the other way' })).not.toBeInTheDocument();
     expect(screen.getByText(STORYBOARD_SOURCE.passage)).toBeInTheDocument();
     expect(screen.getByText(STORYBOARD_MEET_SOURCE.passage)).toBeInTheDocument();
   });
@@ -1414,6 +1454,43 @@ describe('OpenSentence', () => {
     expect(screen.getByLabelText('Where that stops')).toHaveValue(STORYBOARD_MEET_LIMIT);
     expect(screen.getByRole('button', { name: STORYBOARD_SENTENCE })).toBeInTheDocument();
     expect(screen.getByText(/The article still reads/)).toHaveTextContent(STORYBOARD_SENTENCE);
+  });
+
+  it('lets the second passage be read first, then put back, without writing an argument', () => {
+    const onChange = jest.fn();
+    const exploration = meeting(true);
+    const { rerender } = renderOpen(exploration, onChange);
+    const titles = () => (
+      [...document.querySelector('.open-sentence-pocket__source').querySelectorAll('.open-sentence-pocket__source-title')]
+        .map((node) => node.textContent)
+    );
+    expect(titles()).toEqual([STORYBOARD_SOURCE.title, STORYBOARD_MEET_SOURCE.title]);
+    expect(screen.getByText('Also beside')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Try the other way' }));
+    expect(onChange).toHaveBeenCalledWith(tryTheOtherWay(exploration));
+    rerender(
+      <MemoryRouter>
+        <OpenSentence exploration={tryTheOtherWay(exploration)} onChange={onChange} mocked />
+      </MemoryRouter>
+    );
+    expect(titles()).toEqual([STORYBOARD_MEET_SOURCE.title, STORYBOARD_SOURCE.title]);
+    expect(screen.queryByText('Also beside')).not.toBeInTheDocument();
+    expect(screen.getByText('Tried the other way.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Place beside' })).toBeInTheDocument();
+    expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Put them back' }));
+    expect(onChange).toHaveBeenCalledWith(putThemBack(tryTheOtherWay(exploration)));
+  });
+
+  it('does not offer Try the other way when the first passage is empty', () => {
+    renderOpen(openExploration(createExploration({
+      originalText: STORYBOARD_SENTENCE,
+      source: { ...STORYBOARD_SOURCE, passage: '' },
+      other: STORYBOARD_MEET_SOURCE
+    })));
+    expect(screen.queryByRole('button', { name: 'Try the other way' })).not.toBeInTheDocument();
+    expect(screen.getByLabelText('How they meet')).toBeInTheDocument();
+    expect(screen.getByText(STORYBOARD_MEET_SOURCE.passage)).toBeInTheDocument();
   });
 
   it('lets a named meeting be the way home without accepting it', () => {

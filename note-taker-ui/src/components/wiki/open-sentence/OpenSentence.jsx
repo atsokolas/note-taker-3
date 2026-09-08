@@ -10,6 +10,7 @@ import {
   canKeepBetweenAsExperiment,
   canProposeBetween,
   canProposeWording,
+  canRearrange,
   changedWordSpans,
   closeExploration,
   endMeet,
@@ -21,6 +22,7 @@ import {
   isMeeting,
   isOpen,
   isPressured,
+  isRearranged,
   keepBetweenAsEssay,
   keepBetweenAsExperiment,
   keepPressureName,
@@ -41,10 +43,12 @@ import {
   pressureWayHome,
   proposeWording,
   putItBack,
+  putThemBack,
   setDistinction,
   setMeetField,
   setPressureField,
   sourceClip,
+  tryTheOtherWay,
   tryWording,
   wikiAcceptedText,
   withdrawProposal,
@@ -453,14 +457,13 @@ const MeetNaming = ({ pocketId, exploration, onCommit }) => {
   );
 };
 
-const MeetBody = ({ pocketId, exploration, mocked, onCommit, onOpenSourceHome, writing = true }) => {
+const MeetPassage = ({ exploration, mocked, onOpenSourceHome, lead = false }) => {
   const other = inspectableOther(exploration);
   const [inspecting, setInspecting] = useState(false);
   if (!other) return null;
-
   return (
     <div className="open-sentence-pocket__meet">
-      <p className="open-sentence-pocket__qualification">Also beside</p>
+      {lead ? <p className="open-sentence-pocket__qualification">Also beside</p> : null}
       <PassageRead source={other} inspecting={inspecting} />
       <div className="open-sentence-pocket__actions">
         <AroundToggle inspecting={inspecting} onToggle={() => setInspecting((current) => !current)} />
@@ -470,9 +473,6 @@ const MeetBody = ({ pocketId, exploration, mocked, onCommit, onOpenSourceHome, w
           onOpen={() => onOpenSourceHome?.(other, exploration)}
         />
       </div>
-      {writing ? (
-        <MeetNaming pocketId={pocketId} exploration={exploration} onCommit={onCommit} />
-      ) : null}
     </div>
   );
 };
@@ -567,6 +567,32 @@ const PocketBody = ({
 }) => {
   const then = liveThen(exploration);
   const writing = !fresh;
+  const rearranged = isRearranged(exploration);
+  const other = inspectableOther(exploration);
+  const boundSource = (
+    <SourceBeside
+      exploration={exploration}
+      mocked={mocked}
+      inspecting={inspecting}
+      setInspecting={setInspecting}
+      previewing={previewing}
+      setPreviewing={setPreviewing}
+      settling={settling}
+      placeBesideTitle={placeBesideTitle}
+      onCommit={onCommit}
+      onOpenSourceHome={onOpenSourceHome}
+      writing={writing}
+    />
+  );
+  const alsoSource = (
+    <MeetPassage
+      key={`${exploration?.other?.title || ''}:${exploration?.other?.passage || ''}`}
+      exploration={exploration}
+      mocked={mocked}
+      onOpenSourceHome={onOpenSourceHome}
+      lead={!rearranged}
+    />
+  );
 
   return (
     <>
@@ -576,28 +602,31 @@ const PocketBody = ({
       ) : null}
 
       <div className="open-sentence-pocket__source">
-        <SourceBeside
-          exploration={exploration}
-          mocked={mocked}
-          inspecting={inspecting}
-          setInspecting={setInspecting}
-          previewing={previewing}
-          setPreviewing={setPreviewing}
-          settling={settling}
-          placeBesideTitle={placeBesideTitle}
-          onCommit={onCommit}
-          onOpenSourceHome={onOpenSourceHome}
-          writing={writing}
-        />
-        <MeetBody
-          key={`${exploration?.other?.title || ''}:${exploration?.other?.passage || ''}`}
-          pocketId={pocketId}
-          exploration={exploration}
-          mocked={mocked}
-          onCommit={onCommit}
-          onOpenSourceHome={onOpenSourceHome}
-          writing={writing}
-        />
+        {rearranged ? (
+          <>
+            <p className="open-sentence-pocket__qualification">Tried the other way.</p>
+            {alsoSource}
+            {boundSource}
+          </>
+        ) : (
+          <>
+            {boundSource}
+            {alsoSource}
+          </>
+        )}
+        {writing && other ? (
+          <div className="open-sentence-pocket__meet">
+            {canRearrange(exploration) ? (
+              <button
+                type="button"
+                onClick={() => onCommit(rearranged ? putThemBack(exploration) : tryTheOtherWay(exploration))}
+              >
+                {rearranged ? 'Put them back' : 'Try the other way'}
+              </button>
+            ) : null}
+            <MeetNaming pocketId={pocketId} exploration={exploration} onCommit={onCommit} />
+          </div>
+        ) : null}
       </div>
 
       <div className="open-sentence-pocket__write">

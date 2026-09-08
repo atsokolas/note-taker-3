@@ -247,6 +247,11 @@ export const inspectableOther = (exploration) => {
   return other;
 };
 
+const samePassage = (left, right) => {
+  const passage = asLine(left?.passage);
+  return Boolean(passage && passage === asLine(right?.passage));
+};
+
 const recordedPassage = (source) => {
   if (!source || source.available === false) return null;
   const passage = asLine(source.passage);
@@ -332,6 +337,24 @@ export const setMeetField = (exploration, field, value) => {
 
 export const endMeet = (exploration) => (
   exploration?.meet ? { ...exploration, meet: null } : exploration
+);
+
+export const canRearrange = (exploration) => Boolean(
+  recordedPassage(exploration?.source) && inspectableOther(exploration)
+);
+
+export const isRearranged = (exploration) => Boolean(
+  canRearrange(exploration) && exploration?.rearranged
+);
+
+export const tryTheOtherWay = (exploration) => (
+  canRearrange(exploration) && !exploration?.rearranged
+    ? { ...exploration, rearranged: true }
+    : exploration
+);
+
+export const putThemBack = (exploration) => (
+  exploration?.rearranged ? { ...exploration, rearranged: false } : exploration
 );
 
 export const meetWayHome = (exploration) => {
@@ -563,7 +586,13 @@ export const restoreExploration = (raw, fallback) => {
       proposal: liveProposal(restored),
       pressure: isPressured(restored) ? restored.pressure : null,
       meet: isMeeting(restored) ? restored.meet : null,
-      essay: liveEssay(restored)
+      essay: liveEssay(restored),
+      rearranged: Boolean(
+        canRearrange(restored)
+        && parsed.rearranged
+        && samePassage(parsed.source, restored.source)
+        && samePassage(parsed.other, restored.other)
+      )
     };
   } catch (_unreadable) {
     return base;

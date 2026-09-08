@@ -171,6 +171,7 @@ describe('WikiOpenSentence', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open' }));
     expect(screen.getByText('Also beside')).toBeInTheDocument();
     expect(screen.getByText('A loss you can survive still teaches the book.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Try the other way' })).toBeInTheDocument();
     expect(screen.getByLabelText('How they meet')).toHaveValue('');
     expect(screen.getByLabelText('The space between')).toHaveValue('');
     expect(screen.queryByRole('button', { name: 'Keep this as an experiment' })).not.toBeInTheDocument();
