@@ -207,11 +207,20 @@ export const pressureWayHome = (exploration) => {
   return pressure ? `For this experiment: ${pressure.premise}` : '';
 };
 
+export const sourceClip = (source) => {
+  if (!source || source.available === false) return '';
+  const passage = asLine(source.passage);
+  if (!passage) return '';
+  const title = asLine(source.title);
+  const href = source.here ? '' : asLine(source.href);
+  return [`"${passage}"`, title && `— ${title}`, href].filter(Boolean).join('\n');
+};
+
 export const inspectableOther = (exploration) => {
   const other = exploration?.other;
   if (!other || other.available === false) return null;
-  const passage = String(other.passage || '').trim();
-  const first = String(exploration?.source?.passage || '').trim();
+  const passage = asLine(other.passage);
+  const first = asLine(exploration?.source?.passage);
   if (!passage || passage === first) return null;
   return other;
 };

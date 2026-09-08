@@ -6,6 +6,7 @@ import { WikiOpenSentenceProvider, wrapOpenableParagraph } from './WikiOpenSente
 import { draftStorageKey, openedStorageKey } from './openSentenceBinding';
 import { RETURN_TICKET_KEY } from './openSentenceJourney';
 import { writeStore } from './openSentenceStore';
+import { sourceClip } from './openSentenceModel';
 
 const page = {
   _id: 'wiki-1',
@@ -86,6 +87,21 @@ describe('WikiOpenSentence', () => {
     expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent('Memory compounds with review.');
     expect(screen.getByText(/The article still reads/)).toHaveTextContent('Memory compounds with review.');
     expect(onOpenedClaim).toHaveBeenCalledWith('claim-1');
+  });
+
+  it('copies the bound passage with its source, not an invented door', async () => {
+    const writeText = jest.fn().mockResolvedValue();
+    Object.assign(navigator, { clipboard: { writeText } });
+    renderWikiSentence();
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Copy with source' }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(sourceClip({
+      title: 'Memory article',
+      passage: 'Source snippet',
+      href: '/library?articleId=article-1&highlightId=highlight-1'
+    })));
+    expect(writeText.mock.calls[0][0]).not.toContain('Memory compounds with review.');
+    expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent('Memory compounds with review.');
   });
 
   it('shows Then from revisions without rewriting the article line', () => {

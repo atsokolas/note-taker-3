@@ -40,6 +40,8 @@ A named premise can sit beside the original line in the same pocket. Empty slots
 
 An earlier recorded wording can sit beside today in the same pocket. Identity is that claim's prior revision (or history fallback). Recorded sources attached to that claim in the snapshot sit under Then when they still differ from today. A historical door opens only when the snapshot's own href or original URL is a different identity from today's live source or live other. If that snapshot bound a question or notebook draft to the claim, that recorded line sits under Then. A draft cannot forge Then. Library stays silent.
 
+Copy with source takes the exact saved passage, its recorded title, and the existing door. Ordinary Copy is unchanged. A private mark is not copied. A missing door stays missing. A Then question or draft is not a source.
+
 A second recorded passage can sit beside the first in the same pocket. Identity is that claim's attached sources. The person names how they meet and where that stops. The space between is theirs to write, and stays empty until they do. A note written there can stay a note, be kept as an unfinished experiment — the existing pressure act, their words as the premise — be proposed as the Wiki line — the existing proposal, their words, against the live line — or be kept as an essay — a snapshot of their words, not the Wiki line, able to remain after the meeting is left. A draft cannot forge the second source. Library stays silent.
 
 Do not read a green script as longitudinal value. Do not read a preview deploy as production.
@@ -109,6 +111,11 @@ Public shares. Workspace composer. Repo dossiers, company dossiers, investment d
 - Eligibility: Then is showing from a revision whose `before` binds a `question` or `notebook` sourceRef to that claim, or a user `history.note` whose text is the Then line.
 - Quality bar: identity only. That claim, exact recorded snippet, title, or note. No similar-text repair. No generated biography. A question is not copied into today's "Leave this open."
 - Silence: history-only Then with no user note; pruned snapshot; Library; a neighboring type; a note that already equals the live question or return note. Filler is never the answer.
+
+**Copy with source**
+- Eligibility: a bound inspectable passage in the pocket — today's source, today's other, or a Then source.
+- Quality bar: exact saved words, recorded title, existing href only. Ordinary Copy is unchanged.
+- Silence: no passage; unavailable source; Then question or draft; a passage already here keeps the quote and title and does not invent a Library URL. Filler is never the answer.
 
 ## Separately authorized
 

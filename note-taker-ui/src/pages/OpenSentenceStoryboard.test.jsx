@@ -5,6 +5,7 @@ import fs from 'fs';
 import path from 'path';
 import OpenSentenceStoryboard, { patchStoryboardSearch } from './OpenSentenceStoryboard';
 import { draftStorageKey, openedStorageKey } from '../components/wiki/open-sentence/openSentenceBinding';
+import { sourceClip } from '../components/wiki/open-sentence/openSentenceModel';
 import {
   STORYBOARD_COMPUTE_SENTENCE,
   STORYBOARD_COMPUTE_SOURCE,
@@ -18,6 +19,7 @@ import {
   STORYBOARD_RETURN_NOTE,
   STORYBOARD_SCOPE,
   STORYBOARD_SENTENCE,
+  STORYBOARD_SOURCE,
   STORYBOARD_THEN_NOW,
   STORYBOARD_THEN_ORIGINAL,
   STORYBOARD_THEN_QUESTION,
@@ -202,6 +204,25 @@ describe('OpenSentenceStoryboard', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Read' }));
     expect(screen.getByRole('heading', { name: 'Parenting' })).toBeInTheDocument();
     expect(screen.queryByLabelText('What still holds')).not.toBeInTheDocument();
+  });
+
+  it('copies a bound passage with its source, including the recorded Then door', async () => {
+    const writeText = jest.fn().mockResolvedValue();
+    Object.assign(navigator, { clipboard: { writeText } });
+    renderBoard();
+    fireEvent.click(screen.getByRole('button', { name: 'Open', exact: true }));
+    fireEvent.click(screen.getByRole('button', { name: 'Copy with source' }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(sourceClip(STORYBOARD_SOURCE)));
+    fireEvent.click(screen.getByRole('button', { name: 'Then' }));
+    const quoted = [...document.querySelectorAll('.open-sentence-pocket__then-source')]
+      .find((node) => node.textContent.includes(STORYBOARD_THEN_QUOTATION));
+    fireEvent.click([...quoted.querySelectorAll('button')].find((el) => el.textContent === 'Copy with source'));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(
+      `"${STORYBOARD_THEN_QUOTATION}"\n— Capacity\n${STORYBOARD_THEN_ORIGINAL}`
+    ));
+    const question = [...document.querySelectorAll('.open-sentence-pocket__then-source')]
+      .find((node) => node.textContent.includes('Then you left this open'));
+    expect(question.querySelector('button')).toBeNull();
   });
 
   it('puts the investment letter beside Parenting without generating the connection', () => {
