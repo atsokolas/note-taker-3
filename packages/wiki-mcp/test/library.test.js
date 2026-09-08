@@ -127,20 +127,21 @@ const run = async () => {
     assert.deepStrictEqual(updated.tags, ['bio']);
   }
 
-  // Given only the highlight, the article is resolved rather than demanded.
+  // Given only the highlight, the article is resolved rather than demanded —
+  // by asking for that one highlight, not for every highlight there is.
   {
     const { client, calls } = clientWith([
-      [{ _id: 'h1', articleId: 'a7', text: 'x' }],
+      { _id: 'h1', articleId: 'a7', text: 'x' },
       { _id: 'h1', articleId: 'a7', text: 'x', note: 'why it matters' }
     ]);
     await client.updateHighlight({ highlightId: 'h1', note: 'why it matters' });
-    assert.match(calls[0].url, /\/api\/highlights\/all$/);
+    assert.match(calls[0].url, /\/api\/highlights\/h1$/);
     assert.match(calls[1].url, /\/articles\/a7\/highlights\/h1$/);
   }
 
   // A highlight id that matches nothing says so, and says where to look.
   {
-    const { client } = clientWith([[]]);
+    const { client } = clientWith([{}]);
     await assert.rejects(
       () => client.deleteHighlight({ highlightId: 'h9' }),
       /No highlight h9.*search_highlights/s

@@ -102,16 +102,16 @@ const run = async () => {
           }
         ]);
       }
-      if (requestUrl.pathname.endsWith('/api/highlights/all')) {
-        return jsonResponse([
-          {
-            _id: 'highlight-1',
-            articleId: 'article-1',
-            articleTitle: 'Opportunity cost memo',
-            text: 'Every choice excludes another return.',
-            tags: ['opportunity-cost']
-          }
-        ]);
+      /* One highlight now comes back by its own id, rather than the whole pile
+         being fetched and searched. */
+      if (requestUrl.pathname.endsWith('/api/highlights/highlight-1')) {
+        return jsonResponse({
+          _id: 'highlight-1',
+          articleId: 'article-1',
+          articleTitle: 'Opportunity cost memo',
+          text: 'Every choice excludes another return.',
+          tags: ['opportunity-cost']
+        });
       }
       if (requestUrl.pathname.endsWith('/save-article')) {
         const body = JSON.parse(init.body || '{}');
@@ -355,6 +355,10 @@ const run = async () => {
 
   const highlight = await toolDefinitions.find(tool => tool.name === 'get_highlight').handler(client, { highlightId: 'highlight-1' });
   assert.strictEqual(highlight.text, 'Every choice excludes another return.');
+  assert.strictEqual(highlight.articleId, 'article-1');
+  // Asked for by id, fetched by id — not by pulling every highlight the reader owns.
+  assert(seenRequests.some(request => request.url.endsWith('/api/highlights/highlight-1')));
+  assert(!seenRequests.some(request => request.url.endsWith('/api/highlights/all')));
 
   const createdArticle = await toolDefinitions.find(tool => tool.name === 'create_article').handler(client, {
     title: 'Saved article',

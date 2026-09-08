@@ -179,6 +179,36 @@ const buildFeedbackHighlightRouter = ({
     }
   });
 
+  /* One highlight, by its own id. Without this the only way to reach a single
+     passage was to fetch every highlight the reader owns and search the pile —
+     which is what get_highlight did. The {userId, highlights._id} index makes
+     this the lookup it always looked like.
+
+     Registered after /api/highlights/all, which an earlier router owns, so the
+     literal path still wins over this parameter. */
+  router.get('/api/highlights/:highlightId', authenticateToken, async (req, res) => {
+    try {
+      const userId = new mongoose.Types.ObjectId(req.user.id);
+      const { highlightId } = req.params;
+      if (!mongoose.Types.ObjectId.isValid(highlightId)) {
+        return res.status(400).json({ error: 'Invalid highlight id.' });
+      }
+      const highlightObjectId = new mongoose.Types.ObjectId(highlightId);
+      const [highlight] = await Article.aggregate([
+        { $match: { userId, 'highlights._id': highlightObjectId } },
+        { $unwind: '$highlights' },
+        { $match: { 'highlights._id': highlightObjectId } },
+        { $limit: 1 },
+        { $project: HIGHLIGHT_AGGREGATE_PROJECTION }
+      ]);
+      if (!highlight) return res.status(404).json({ error: 'Highlight not found.' });
+      res.status(200).json(highlight);
+    } catch (error) {
+      console.error("❌ Error fetching highlight:", error);
+      res.status(500).json({ error: "Failed to fetch highlight." });
+    }
+  });
+
   router.get('/api/highlights/organize/claims', authenticateToken, async (req, res) => {
     try {
       const userId = new mongoose.Types.ObjectId(req.user.id);

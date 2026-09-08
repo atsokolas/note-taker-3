@@ -1326,6 +1326,12 @@ wikiMaintenanceRunSchema.index(
   { name: 'judgment_audit_run' }
 );
 wikiMaintenanceRunSchema.index({ leaseKey: 1 }, { unique: true, sparse: true });
+/* The storage governor sweeps every reader's finished runs at once, so it asks
+   by status and age with no userId — and every index above leads with userId.
+   Nothing could serve it: Mongo scanned the collection and sorted in memory,
+   which passed 32MB and aborted, so pruning had never once run. This index is
+   the query, filter and sort both. */
+wikiMaintenanceRunSchema.index({ status: 1, createdAt: 1 }, { name: 'storage_governor_sweep' });
 
 const WikiMaintenanceRun = mongoose.model('WikiMaintenanceRun', wikiMaintenanceRunSchema);
 

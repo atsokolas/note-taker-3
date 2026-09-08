@@ -396,10 +396,15 @@ export class NoeisClient {
     }).then(payload => normalizeArrayPayload(payload, 'highlights').map(normalizeHighlight));
   }
 
+  /* Asked for by id, fetched by id. This used to pull every highlight the
+     reader owns and search the pile for one of them. */
   getHighlight({ highlightId }) {
-    return this.request('/api/highlights/all')
-      .then(payload => normalizeArrayPayload(payload, 'highlights').map(normalizeHighlight))
-      .then(highlights => highlights.find(highlight => String(highlight.id) === String(highlightId)) || null);
+    return this.request(`/api/highlights/${encodeURIComponent(highlightId)}`)
+      .then(normalizeHighlight)
+      .catch(error => {
+        if (error?.status === 404) return null;
+        throw error;
+      });
   }
 
   /* Echoing the whole body back is both wasteful and quiet about the one thing
