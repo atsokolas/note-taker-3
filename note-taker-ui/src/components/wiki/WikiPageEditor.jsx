@@ -119,6 +119,7 @@ const WikiPageEditor = ({ pageId, onDoneEditing, workspaceMode = false }) => {
   const [lastVisit, setLastVisit] = useState(null);
   const lastVisitCapturedRef = useRef(false);
   const saveTimer = useRef(null);
+  const pendingSaveRef = useRef({});
   const latestPageRef = useRef(null);
   const draftTriggeredRef = useRef(false);
 
@@ -138,10 +139,14 @@ const WikiPageEditor = ({ pageId, onDoneEditing, workspaceMode = false }) => {
   };
 
   const scheduleSave = (updates) => {
+    pendingSaveRef.current = { ...pendingSaveRef.current, ...updates };
     if (saveTimer.current) clearTimeout(saveTimer.current);
     setSaveStatus('dirty');
     saveTimer.current = setTimeout(() => {
-      savePage(updates);
+      const patch = pendingSaveRef.current;
+      pendingSaveRef.current = {};
+      saveTimer.current = null;
+      savePage(patch);
     }, 650);
   };
 
@@ -284,6 +289,7 @@ const WikiPageEditor = ({ pageId, onDoneEditing, workspaceMode = false }) => {
     return () => {
       cancelled = true;
       if (saveTimer.current) clearTimeout(saveTimer.current);
+      pendingSaveRef.current = {};
     };
   }, [editor, pageId]);
 

@@ -5,6 +5,7 @@ import {
   displayWikiPageTitle,
   extractRepoDossierOverviewSummary,
   unnamedTitlePreview,
+  namedWikiPageTitle,
   formatGitHubRepoWatchReceipt,
   githubWatchState,
   isRepoDossierPage,
@@ -85,6 +86,7 @@ describe('wikiRepoDossierModel', () => {
       }
     };
     expect(unnamedTitlePreview(unnamed)).toBe('Care is not the same as preventing every scrape.');
+    expect(namedWikiPageTitle(unnamed)).toBe('');
     expect(displayWikiPageTitle(unnamed)).toBe('Care is not the same as preventing every scrape.');
     expect(displayWikiPageTitle({ ...unnamed, title: 'Parenting' })).toBe('Parenting');
     expect(displayWikiPageTitle({ title: '' })).toBe('Untitled wiki page');

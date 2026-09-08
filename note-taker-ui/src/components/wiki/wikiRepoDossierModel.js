@@ -129,12 +129,11 @@ export const unnamedTitlePreview = (page = {}) => {
 };
 
 /**
- * UI title for repo wikis: repo slug casing preserved, not title-cased owner/repo.
- * Falls back to stored page.title for non-repo pages. Stale stored names
- * ("Atsokolas/Note-Taker-3 Repo Wiki") still render as the canonical form.
- * An unnamed page previews its first sentence; that preview is not a title.
+ * Stored or canonical name: repo slug casing preserved, not title-cased owner/repo.
+ * Stale stored names ("Atsokolas/Note-Taker-3 Repo Wiki") still render as the
+ * canonical form. This is identity. It never invents a title from the body.
  */
-export const displayWikiPageTitle = (page = {}, fallback = 'Untitled wiki page') => {
+export const namedWikiPageTitle = (page = {}) => {
   const title = normalizeText(page?.title);
   const type = String(page?.pageType || '').toLowerCase();
   const repoWiki = type === 'repo' || /\brepo wiki\s*$/i.test(title);
@@ -147,8 +146,16 @@ export const displayWikiPageTitle = (page = {}, fallback = 'Untitled wiki page')
         .replace(/\s+repo wiki\s*$/i, '')
     );
   }
-  return title || unnamedTitlePreview(page) || fallback;
+  return title;
 };
+
+/**
+ * What the reader sees. An unnamed page previews its first sentence; that
+ * preview is not a title and must not be used as a grouping key.
+ */
+export const displayWikiPageTitle = (page = {}, fallback = 'Untitled wiki page') => (
+  namedWikiPageTitle(page) || unnamedTitlePreview(page) || fallback
+);
 
 export const formatGitHubRepoWatchReceipt = (watch = {}) => {
   const state = githubWatchState(watch);

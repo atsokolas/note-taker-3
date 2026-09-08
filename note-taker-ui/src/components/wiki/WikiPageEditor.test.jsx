@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import WikiPageEditor from './WikiPageEditor';
 import { addWikiSource, applyWikiAutolink, deleteWikiPage, getWikiAutolinkSuggestions, getWikiBacklinks, getWikiPage, listWikiAutolinks, listWikiConnectorActions, listWikiRevisions, maintainWikiPage, promoteWikiDiscussion, rebuildWikiPageGraph, removeWikiSource, reviewWikiFreshness, updateWikiPage } from '../../api/wiki';
@@ -711,5 +711,39 @@ describe('WikiPageEditor', () => {
     expect(updateWikiPage).not.toHaveBeenCalledWith('wiki-1', expect.objectContaining({
       body: expect.anything()
     }));
+  });
+
+  it('keeps a pending body edit when the selected wording becomes the title', async () => {
+    mockEditor.state = {
+      selection: { from: 0, to: 28, empty: false },
+      doc: { textBetween: jest.fn(() => 'Memory compounds with review.') }
+    };
+    const nextBody = {
+      type: 'doc',
+      content: [{
+        type: 'paragraph',
+        content: [{ type: 'text', text: 'Memory compounds with review. A second sentence stays.' }]
+      }]
+    };
+    updateWikiPage.mockResolvedValue({
+      ...page,
+      title: 'Memory compounds with review.',
+      body: nextBody
+    });
+    render(
+      <MemoryRouter>
+        <WikiPageEditor pageId="wiki-1" />
+      </MemoryRouter>
+    );
+    await screen.findByLabelText('Wiki page title');
+    const editorOptions = mockUseEditor.mock.calls[0][0];
+    act(() => {
+      editorOptions.onUpdate({ editor: { getJSON: () => nextBody } });
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Make this the title' }));
+    await waitFor(() => expect(updateWikiPage).toHaveBeenCalledWith('wiki-1', {
+      body: nextBody,
+      title: 'Memory compounds with review.'
+    }), { timeout: 2000 });
   });
 });
