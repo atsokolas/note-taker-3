@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-08
 **Sits under:** [Operable knowledge](noeis-operable-knowledge-vision-spec-2026-09-04.md) §11 S4
-**Status:** Engineering complete on `main`. Selected gates, clean host integration, and the four first-scene acts. Not dogfood. Not an authenticated production walk. Not longitudinal value.
+**Status:** Closed and released by founder assumption. Engineering was already complete on `main`. Selected gates, clean host integration, and the four first-scene acts. Not dogfood. Not an authenticated production walk. Not longitudinal value.
 
 S4 asked for clean integration, selected regression gates, user dogfood, then a separately authorized release. This document names what each kind of evidence is, and what it is not. Dogfood and a founder walk on owned production data remain separately authorized.
 

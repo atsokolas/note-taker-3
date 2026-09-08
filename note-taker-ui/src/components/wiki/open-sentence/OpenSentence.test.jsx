@@ -7,6 +7,8 @@ import {
   beginPressure,
   bringParagraphBackLabel,
   bringTheParagraphBack,
+  canApplyInstrument,
+  canKeepAsInstrument,
   canKeepBetweenAsEssay,
   canKeepBetweenAsExperiment,
   canMakeThisTheTitle,
@@ -21,9 +23,12 @@ import {
   forgetExperiment,
   formatNamedOn,
   hasPersonalWork,
+  instrumentWayHome,
   isPressured,
   isRearranged,
   isWithoutParagraph,
+  applyInstrument,
+  keepAsInstrument,
   keepBetweenAsEssay,
   keepBetweenAsExperiment,
   keepPressureName,
@@ -31,10 +36,12 @@ import {
   keepQuestion,
   keepsClosedDraft,
   leaveEssay,
+  leaveInstrument,
   leaveMark,
   liveBearing,
   liveDistinction,
   liveEssay,
+  liveInstrument,
   liveMeet,
   livePressure,
   liveProposal,
@@ -42,6 +49,7 @@ import {
   namedOn,
   meetWayHome,
   openExploration,
+  pendingInstrument,
   placeSource,
   pressurePassages,
   pressureWayHome,
@@ -50,6 +58,7 @@ import {
   putThemBack,
   restoreExploration,
   setDistinction,
+  setInstrumentName,
   setMeetField,
   setPressureField,
   snapshotExploration,
@@ -61,7 +70,7 @@ import {
   withdrawProposal,
   wordingChanged
 } from './openSentenceModel';
-import { STORYBOARD_BEARING_SOURCE, STORYBOARD_COMPUTE_SENTENCE, STORYBOARD_COMPUTE_SOURCE, STORYBOARD_DISTINCTION, STORYBOARD_LIBRARY_SOURCE, STORYBOARD_MEET_LIMIT, STORYBOARD_MEET_RELATION, STORYBOARD_MEET_SOURCE, STORYBOARD_QUESTION, STORYBOARD_SENTENCE, STORYBOARD_SOURCE, STORYBOARD_STALE_SOURCE, STORYBOARD_THEN_BESIDE, STORYBOARD_THEN_NOW, STORYBOARD_THEN_ORIGINAL, STORYBOARD_THEN_QUESTION, STORYBOARD_THEN_QUOTATION } from './openSentenceStoryboardFixture';
+import { STORYBOARD_BEARING_SOURCE, STORYBOARD_COMPUTE_SENTENCE, STORYBOARD_COMPUTE_SOURCE, STORYBOARD_DISTINCTION, STORYBOARD_INSTRUMENT_NAME, STORYBOARD_LIBRARY_SOURCE, STORYBOARD_MEET_LIMIT, STORYBOARD_MEET_RELATION, STORYBOARD_MEET_SOURCE, STORYBOARD_QUESTION, STORYBOARD_SENTENCE, STORYBOARD_SOURCE, STORYBOARD_STALE_SOURCE, STORYBOARD_THEN_BESIDE, STORYBOARD_THEN_NOW, STORYBOARD_THEN_ORIGINAL, STORYBOARD_THEN_QUESTION, STORYBOARD_THEN_QUOTATION } from './openSentenceStoryboardFixture';
 
 const renderOpen = (exploration, onChange = jest.fn()) => render(
   <MemoryRouter>
@@ -717,6 +726,70 @@ describe('openSentenceModel', () => {
     }))).toBeNull();
   });
 
+  it('lets a named distinction be kept as an instrument and applied without writing', () => {
+    const start = openExploration(createExploration({
+      originalText: STORYBOARD_SENTENCE,
+      source: STORYBOARD_SOURCE
+    }));
+    expect(canKeepAsInstrument(start)).toBe(false);
+    const named = setDistinction(start, STORYBOARD_DISTINCTION);
+    expect(canKeepAsInstrument(named)).toBe(true);
+    const kept = keepAsInstrument(named);
+    expect(pendingInstrument(kept)).toEqual({
+      name: '',
+      definition: STORYBOARD_DISTINCTION,
+      against: STORYBOARD_SENTENCE
+    });
+    expect(liveInstrument(kept)).toBeNull();
+    expect(canKeepAsInstrument(kept)).toBe(false);
+    expect(keepAsInstrument(kept)).toBe(kept);
+    expect(keepAsInstrument(start)).toBe(start);
+    expect(keepsClosedDraft(closeExploration(kept))).toBe(true);
+    expect(keepsClosedDraft(closeExploration({
+      ...keepAsInstrument(named),
+      distinction: '',
+      distinctionAgainst: '',
+      distinctionAt: undefined
+    }))).toBe(false);
+    const titled = setInstrumentName(kept, STORYBOARD_INSTRUMENT_NAME);
+    expect(liveInstrument(titled)).toEqual({
+      name: STORYBOARD_INSTRUMENT_NAME,
+      definition: STORYBOARD_DISTINCTION,
+      against: STORYBOARD_SENTENCE
+    });
+    expect(wikiAcceptedText(titled)).toBe(STORYBOARD_SENTENCE);
+    expect(instrumentWayHome(titled)).toBe(`An instrument: ${STORYBOARD_INSTRUMENT_NAME}`);
+    expect(keepsClosedDraft(closeExploration(setDistinction(titled, '')))).toBe(true);
+    expect(liveInstrument(leaveInstrument(titled))).toBeNull();
+    expect(setInstrumentName(kept, '')).toEqual(leaveInstrument(kept));
+    expect(liveInstrument(restoreExploration(snapshotExploration(titled), start))).toEqual(
+      liveInstrument(titled)
+    );
+    expect(liveInstrument(restoreExploration(snapshotExploration(titled), {
+      ...start,
+      originalText: 'Children need room to make recoverable mistakes.'
+    }))).toBeNull();
+    const compute = openExploration(createExploration({
+      originalText: STORYBOARD_COMPUTE_SENTENCE,
+      source: STORYBOARD_COMPUTE_SOURCE
+    }));
+    const held = liveInstrument(titled);
+    expect(canApplyInstrument(compute, held)).toBe(true);
+    expect(canApplyInstrument(titled, held)).toBe(false);
+    expect(canApplyInstrument(setDistinction(compute, 'A different fork.'), held)).toBe(false);
+    const applied = applyInstrument(compute, held);
+    expect(liveInstrument(applied)).toEqual({
+      name: STORYBOARD_INSTRUMENT_NAME,
+      definition: STORYBOARD_DISTINCTION,
+      against: STORYBOARD_COMPUTE_SENTENCE
+    });
+    expect(applied.distinction).toBe('');
+    expect(wikiAcceptedText(applied)).toBe(STORYBOARD_COMPUTE_SENTENCE);
+    expect(applyInstrument(applied, held)).toBe(applied);
+    expect(applyInstrument(compute, { name: '', definition: STORYBOARD_DISTINCTION })).toBe(compute);
+    expect(forgetExperiment(titled).instrument).toBeUndefined();
+  });
+
   it('lets two recorded passages swap order without inventing an argument', () => {
     const start = meeting();
     expect(isRearranged(start)).toBe(false);
@@ -805,6 +878,11 @@ describe('openSentenceModel', () => {
 });
 
 describe('OpenSentence', () => {
+  beforeEach(() => {
+    window.sessionStorage.clear();
+    window.localStorage.clear();
+  });
+
   afterEach(() => {
     jest.useRealTimers();
   });
@@ -1892,6 +1970,95 @@ describe('OpenSentence', () => {
     fireEvent.click(screen.getByRole('button', { name: `An essay: ${between}` }));
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ status: 'open' }));
     expect(screen.getByRole('button', { name: STORYBOARD_SENTENCE })).toBeInTheDocument();
+  });
+
+  it('lets a named distinction be kept as an instrument without writing', () => {
+    const onChange = jest.fn();
+    const opened = openExploration(setDistinction(
+      createExploration({ originalText: STORYBOARD_SENTENCE, source: STORYBOARD_SOURCE }),
+      STORYBOARD_DISTINCTION
+    ));
+    const { rerender } = renderOpen(opened, onChange);
+    expect(screen.queryByRole('button', { name: 'Apply Room to be wrong' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Keep this as an instrument' }));
+    expect(onChange).toHaveBeenCalledWith(keepAsInstrument(opened));
+    rerender(
+      <MemoryRouter>
+        <OpenSentence exploration={keepAsInstrument(opened)} onChange={onChange} mocked />
+      </MemoryRouter>
+    );
+    expect(screen.getByLabelText('Name this instrument')).toHaveValue('');
+    expect(screen.getByLabelText('The distinction that would help')).toHaveValue(STORYBOARD_DISTINCTION);
+    fireEvent.change(screen.getByLabelText('Name this instrument'), {
+      target: { value: STORYBOARD_INSTRUMENT_NAME }
+    });
+    expect(onChange).toHaveBeenCalledWith(setInstrumentName(keepAsInstrument(opened), STORYBOARD_INSTRUMENT_NAME));
+    rerender(
+      <MemoryRouter>
+        <OpenSentence
+          exploration={setInstrumentName(keepAsInstrument(opened), STORYBOARD_INSTRUMENT_NAME)}
+          onChange={onChange}
+          mocked
+        />
+      </MemoryRouter>
+    );
+    expect(screen.getByText(/An instrument, not the line/)).toHaveTextContent(STORYBOARD_INSTRUMENT_NAME);
+    expect(screen.queryByRole('button', { name: 'Keep this as an instrument' })).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Try a narrower wording')).toHaveValue(STORYBOARD_SENTENCE);
+    expect(screen.getByText(/The article still reads/)).toHaveTextContent(STORYBOARD_SENTENCE);
+  });
+
+  it('lets a named instrument be applied beside another sentence without writing', () => {
+    const titled = setInstrumentName(keepAsInstrument(openExploration(setDistinction(
+      createExploration({ originalText: STORYBOARD_SENTENCE, source: STORYBOARD_SOURCE }),
+      STORYBOARD_DISTINCTION
+    ))), STORYBOARD_INSTRUMENT_NAME);
+    const { unmount } = render(
+      <MemoryRouter>
+        <OpenSentence exploration={titled} mocked />
+      </MemoryRouter>
+    );
+    unmount();
+    const compute = openExploration(createExploration({
+      originalText: STORYBOARD_COMPUTE_SENTENCE,
+      source: STORYBOARD_COMPUTE_SOURCE
+    }));
+    const appliedChange = jest.fn();
+    const { rerender } = render(
+      <MemoryRouter>
+        <OpenSentence exploration={compute} onChange={appliedChange} mocked />
+      </MemoryRouter>
+    );
+    fireEvent.click(screen.getByRole('button', { name: `Apply ${STORYBOARD_INSTRUMENT_NAME}` }));
+    expect(appliedChange).toHaveBeenCalledWith(applyInstrument(compute, liveInstrument(titled)));
+    rerender(
+      <MemoryRouter>
+        <OpenSentence exploration={applyInstrument(compute, liveInstrument(titled))} mocked />
+      </MemoryRouter>
+    );
+    expect(screen.getByText(/An instrument, not the line/)).toHaveTextContent(STORYBOARD_INSTRUMENT_NAME);
+    expect(screen.queryByRole('button', { name: `Apply ${STORYBOARD_INSTRUMENT_NAME}` })).not.toBeInTheDocument();
+    expect(screen.getByText(/The article still reads/)).toHaveTextContent(STORYBOARD_COMPUTE_SENTENCE);
+    expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
+  });
+
+  it('lets a named instrument be the way home when that sentence has no distinction', () => {
+    const onChange = jest.fn();
+    const applied = applyInstrument(
+      openExploration(createExploration({
+        originalText: STORYBOARD_COMPUTE_SENTENCE,
+        source: STORYBOARD_COMPUTE_SOURCE
+      })),
+      { name: STORYBOARD_INSTRUMENT_NAME, definition: STORYBOARD_DISTINCTION }
+    );
+    render(
+      <MemoryRouter>
+        <OpenSentence exploration={closeExploration(applied)} onChange={onChange} />
+      </MemoryRouter>
+    );
+    fireEvent.click(screen.getByRole('button', { name: `An instrument: ${STORYBOARD_INSTRUMENT_NAME}` }));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ status: 'open' }));
+    expect(screen.getByRole('button', { name: STORYBOARD_COMPUTE_SENTENCE })).toBeInTheDocument();
   });
 
   it('is already still when stillness is asked for', () => {

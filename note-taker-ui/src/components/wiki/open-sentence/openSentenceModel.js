@@ -451,6 +451,96 @@ export const essayWayHome = (exploration) => {
   return essay ? `An essay: ${essay.text.split(/\n/, 1)[0]}` : '';
 };
 
+const asInstrumentRecord = (value, current) => {
+  if (!value || typeof value !== 'object') return null;
+  const definition = asLine(value.definition);
+  const against = asLine(value.against);
+  if (!definition || !against || against !== current) return null;
+  return {
+    name: String(value.name || ''),
+    definition,
+    against
+  };
+};
+
+export const heldInstrumentFrom = (value) => {
+  const name = asLine(value?.name);
+  const definition = asLine(value?.definition);
+  return name && definition ? { name, definition } : null;
+};
+
+export const pendingInstrument = (exploration) => (
+  asInstrumentRecord(exploration?.instrument, asLine(exploration?.originalText))
+);
+
+export const liveInstrument = (exploration) => {
+  const pending = pendingInstrument(exploration);
+  return pending && asLine(pending.name) ? pending : null;
+};
+
+export const canKeepAsInstrument = (exploration) => {
+  const distinction = liveDistinction(exploration);
+  if (!distinction) return false;
+  return pendingInstrument(exploration)?.definition !== distinction;
+};
+
+export const keepAsInstrument = (exploration) => {
+  if (!canKeepAsInstrument(exploration)) return exploration;
+  return {
+    ...exploration,
+    instrument: {
+      name: '',
+      definition: liveDistinction(exploration),
+      against: asLine(exploration.originalText)
+    }
+  };
+};
+
+export const setInstrumentName = (exploration, name) => {
+  const pending = pendingInstrument(exploration);
+  if (!pending) return exploration;
+  const text = String(name ?? '');
+  if (!asLine(text) && text === '') return leaveInstrument(exploration);
+  return {
+    ...exploration,
+    instrument: {
+      ...pending,
+      name: text
+    }
+  };
+};
+
+export const leaveInstrument = (exploration) => (
+  exploration?.instrument ? { ...exploration, instrument: null } : exploration
+);
+
+export const canApplyInstrument = (exploration, held) => {
+  const tool = heldInstrumentFrom(held);
+  if (!tool || !asLine(exploration?.originalText)) return false;
+  if (pendingInstrument(exploration)) return false;
+  const distinction = liveDistinction(exploration);
+  if (distinction && distinction !== tool.definition) return false;
+  return true;
+};
+
+export const applyInstrument = (exploration, held) => {
+  if (!canApplyInstrument(exploration, held)) return exploration;
+  const tool = heldInstrumentFrom(held);
+  return {
+    ...exploration,
+    instrument: {
+      name: tool.name,
+      definition: tool.definition,
+      against: asLine(exploration.originalText)
+    }
+  };
+};
+
+export const instrumentWayHome = (exploration) => {
+  const instrument = liveInstrument(exploration);
+  return instrument ? `An instrument: ${instrument.name.split(/\n/, 1)[0]}` : '';
+};
+
 export const liveDistinction = (exploration) => {
   const against = asLine(exploration?.distinctionAgainst);
   const current = asLine(exploration?.originalText);
@@ -499,6 +589,7 @@ export const keepsClosedDraft = (exploration) => Boolean(
   || livePressure(exploration)
   || liveMeet(exploration)
   || liveEssay(exploration)
+  || liveInstrument(exploration)
 );
 
 export const forgetExperiment = (live) => createExploration({
@@ -664,6 +755,7 @@ export const restoreExploration = (raw, fallback) => {
       pressure: isPressured(restored) ? restored.pressure : null,
       meet: isMeeting(restored) ? restored.meet : null,
       essay: liveEssay(restored),
+      instrument: pendingInstrument(restored),
       rearranged: Boolean(
         canRearrange(restored)
         && parsed.rearranged

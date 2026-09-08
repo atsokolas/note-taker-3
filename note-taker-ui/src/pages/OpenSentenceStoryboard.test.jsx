@@ -19,6 +19,7 @@ import {
   STORYBOARD_PROVISIONAL,
   STORYBOARD_QUESTION,
   STORYBOARD_DISTINCTION,
+  STORYBOARD_INSTRUMENT_NAME,
   STORYBOARD_SCOPE,
   STORYBOARD_SENTENCE,
   STORYBOARD_SOURCE,
@@ -299,6 +300,32 @@ describe('OpenSentenceStoryboard', () => {
     expect(screen.getByLabelText('Try a narrower wording')).toHaveValue(STORYBOARD_SENTENCE);
     fireEvent.click(screen.getByRole('button', { name: 'Read' }));
     expect(screen.queryByText('Also beside')).not.toBeInTheDocument();
+  });
+
+  it('keeps a named distinction as an instrument and applies it beside Compute without writing', () => {
+    renderBoard();
+    fireEvent.click(screen.getByRole('button', { name: 'Leave open' }));
+    expect(screen.getByRole('heading', { name: 'Parenting' })).toBeInTheDocument();
+    expect(screen.getByLabelText('The distinction that would help')).toHaveValue(STORYBOARD_DISTINCTION);
+    expect(screen.queryByRole('button', { name: `Apply ${STORYBOARD_INSTRUMENT_NAME}` })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Keep this as an instrument' }));
+    fireEvent.change(screen.getByLabelText('Name this instrument'), {
+      target: { value: STORYBOARD_INSTRUMENT_NAME }
+    });
+    expect(screen.getByText(/An instrument, not the line/)).toHaveTextContent(STORYBOARD_INSTRUMENT_NAME);
+    expect(screen.getByText(/The article still reads/)).toHaveTextContent(STORYBOARD_SENTENCE);
+    fireEvent.click(screen.getByRole('button', { name: 'Instrument' }));
+    expect(screen.getByRole('heading', { name: STORYBOARD_COMPUTE_TITLE })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: STORYBOARD_COMPUTE_SENTENCE })).toBeInTheDocument();
+    expect(screen.getByText(/An instrument, not the line/)).toHaveTextContent(STORYBOARD_INSTRUMENT_NAME);
+    expect(screen.getByText(STORYBOARD_DISTINCTION)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Keep this as an instrument' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: `Apply ${STORYBOARD_INSTRUMENT_NAME}` })).not.toBeInTheDocument();
+    expect(screen.getByText(/The article still reads/)).toHaveTextContent(STORYBOARD_COMPUTE_SENTENCE);
+    expect(
+      screen.getByText('The instrument sits beside this sentence. It does not rewrite the article.')
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
   });
 
   it('sets the Parenting paragraph aside without deleting it', () => {

@@ -204,6 +204,23 @@ describe('WikiOpenSentence', () => {
     expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent('Memory compounds with review.');
   });
 
+  it('lets a named distinction be kept as an instrument without writing the article', () => {
+    renderWikiSentence();
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    expect(screen.queryByRole('button', { name: 'Keep this as an instrument' })).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('The distinction that would help'), {
+      target: { value: 'Review that compounds memory, versus review that only piles notes.' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Keep this as an instrument' }));
+    fireEvent.change(screen.getByLabelText('Name this instrument'), {
+      target: { value: 'Room to be wrong' }
+    });
+    expect(screen.getByText(/An instrument, not the line/)).toHaveTextContent('Room to be wrong');
+    expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent('Memory compounds with review.');
+    expect(screen.getByText(/The article still reads/)).toHaveTextContent('Memory compounds with review.');
+    expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
+  });
+
   it('lets a third recorded passage sit beside the named distinction without resolving the question', () => {
     renderWikiSentence({
       page: {

@@ -149,6 +149,8 @@ export const STORYBOARD_QUESTION = 'I cannot tell which mistakes are recoverable
 export const STORYBOARD_DISTINCTION =
   'A mistake that teaches the map, versus one that strands you.';
 
+export const STORYBOARD_INSTRUMENT_NAME = 'Room to be wrong';
+
 export const STORYBOARD_BEARING_SOURCE = Object.freeze({
   title: 'Field notes',
   qualification: 'Saved passage · import date is not a reading date',

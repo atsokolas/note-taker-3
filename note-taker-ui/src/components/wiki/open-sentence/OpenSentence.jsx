@@ -8,6 +8,8 @@ import {
   bringParagraphBackLabel,
   bringTheParagraphBack,
   cancelPlacement,
+  canApplyInstrument,
+  canKeepAsInstrument,
   canKeepBetweenAsEssay,
   canKeepBetweenAsExperiment,
   canMakeThisTheTitle,
@@ -17,33 +19,39 @@ import {
   canTryWithoutParagraph,
   changedWordSpans,
   closeExploration,
+  applyInstrument,
   endMeet,
   endPressure,
   essayWayHome,
   formatNamedOn,
   hasPersonalWork,
   inspectableOther,
+  instrumentWayHome,
   isMeeting,
   isOpen,
   isPressured,
   isRearranged,
   isWithoutParagraph,
+  keepAsInstrument,
   keepBetweenAsEssay,
   keepBetweenAsExperiment,
   keepPressureName,
   keepPressurePassage,
   keepQuestion,
   leaveEssay,
+  leaveInstrument,
   leaveMark,
   liveBearing,
   liveDistinction,
   liveEssay,
+  liveInstrument,
   liveProposal,
   liveThen,
   meetSlots,
   meetWayHome,
   namedOn,
   openExploration,
+  pendingInstrument,
   placeSource,
   pressurePassages,
   pressureWayHome,
@@ -51,6 +59,7 @@ import {
   putItBack,
   putThemBack,
   setDistinction,
+  setInstrumentName,
   setMeetField,
   setPressureField,
   sourceClip,
@@ -61,6 +70,12 @@ import {
   withdrawProposal,
   wordingChanged
 } from './openSentenceModel';
+import {
+  readHeldInstrument,
+  rememberHeldInstrument,
+  writeHeldInstrument
+} from './openSentenceJourney';
+import { listenOpenSentenceStore } from './openSentenceStore';
 import './open-sentence.css';
 
 const selectionInside = (root) => {
@@ -218,8 +233,23 @@ const BearingPassage = ({ exploration, mocked, onOpenSourceHome }) => {
   );
 };
 
-const DistinctionField = ({ pocketId, exploration, onCommit, mocked, onOpenSourceHome }) => {
+const DistinctionField = ({
+  pocketId,
+  exploration,
+  onCommit,
+  mocked,
+  onOpenSourceHome,
+  heldInstrument,
+  onHeld
+}) => {
   const dated = formatNamedOn(namedOn(exploration));
+  const pending = pendingInstrument(exploration);
+  const instrument = liveInstrument(exploration);
+  const nameInstrument = (name) => {
+    const next = setInstrumentName(exploration, name);
+    onHeld?.(rememberHeldInstrument(next, exploration));
+    onCommit(next);
+  };
   return (
     <>
       <PocketField
@@ -231,6 +261,40 @@ const DistinctionField = ({ pocketId, exploration, onCommit, mocked, onOpenSourc
       />
       {dated ? (
         <p className="open-sentence-pocket__qualification">{dated}</p>
+      ) : null}
+      {canKeepAsInstrument(exploration) ? (
+        <button type="button" onClick={() => onCommit(keepAsInstrument(exploration))}>
+          Keep this as an instrument
+        </button>
+      ) : null}
+      {pending ? (
+        <>
+          {instrument ? (
+            <p className="open-sentence-pocket__proposal">
+              An instrument, not the line: {instrument.name}
+            </p>
+          ) : null}
+          <p className="open-sentence-pocket__qualification">{pending.definition}</p>
+          <PocketField
+            id={`${pocketId}-instrument`}
+            label="Name this instrument"
+            value={pending.name}
+            onChange={nameInstrument}
+            placeholder="Name the instrument. Do not generate a definition."
+            rows={1}
+          />
+          <button type="button" onClick={() => onCommit(leaveInstrument(exploration))}>
+            Leave the instrument
+          </button>
+        </>
+      ) : null}
+      {canApplyInstrument(exploration, heldInstrument) ? (
+        <button
+          type="button"
+          onClick={() => onCommit(applyInstrument(exploration, heldInstrument))}
+        >
+          Apply {heldInstrument.name}
+        </button>
       ) : null}
       <BearingPassage
         exploration={exploration}
@@ -608,7 +672,9 @@ const PocketBody = ({
   onMakeTitle,
   acceptSilence,
   fresh = false,
-  onFresh
+  onFresh,
+  heldInstrument,
+  onHeld
 }) => {
   const then = liveThen(exploration);
   const writing = !fresh;
@@ -726,6 +792,8 @@ const PocketBody = ({
                   onCommit={onCommit}
                   mocked={mocked}
                   onOpenSourceHome={onOpenSourceHome}
+                  heldInstrument={heldInstrument}
+                  onHeld={onHeld}
                 />
               </>
             ) : null}
@@ -756,6 +824,8 @@ const PocketBody = ({
               onCommit={onCommit}
               mocked={mocked}
               onOpenSourceHome={onOpenSourceHome}
+              heldInstrument={heldInstrument}
+              onHeld={onHeld}
             />
           )}
         </div>
@@ -816,6 +886,7 @@ const OpenSentence = ({
   const [leftOpen, setLeftOpen] = useState(false);
   const [settling, setSettling] = useState(false);
   const [fresh, setFresh] = useState(false);
+  const [heldInstrument, setHeldInstrument] = useState(readHeldInstrument);
   const open = isOpen(exploration);
   const [keepPocket, setKeepPocket] = useState(open);
   const accepted = wikiAcceptedText(exploration);
@@ -853,6 +924,19 @@ const OpenSentence = ({
     if (!open) setLeftOpen(false);
     wasOpen.current = open;
   }, [exploration.question, open]);
+
+  useEffect(() => {
+    const refreshHeld = () => setHeldInstrument(readHeldInstrument());
+    refreshHeld();
+    return listenOpenSentenceStore(refreshHeld);
+  }, []);
+
+  useEffect(() => {
+    const live = liveInstrument(exploration);
+    if (!live) return;
+    writeHeldInstrument(live);
+    setHeldInstrument(readHeldInstrument());
+  }, [exploration]);
 
   useEffect(() => {
     if (open) {
@@ -938,7 +1022,8 @@ const OpenSentence = ({
     || (closedProposal ? 'Proposed, not accepted.' : '')
     || pressureWayHome(exploration)
     || meetWayHome(exploration)
-    || essayWayHome(exploration);
+    || essayWayHome(exploration)
+    || instrumentWayHome(exploration);
   const wayHome = !open && !keepPocket && (homecoming || wayHomeLabel) ? (
     <div className="open-sentence__way-home">
       {homecoming ? <p className="open-sentence__been">{homecoming}</p> : null}
@@ -1041,6 +1126,8 @@ const OpenSentence = ({
               acceptSilence={acceptSilence}
               fresh={fresh}
               onFresh={setFresh}
+              heldInstrument={heldInstrument}
+              onHeld={setHeldInstrument}
             />
             <button type="button" className="open-sentence-pocket__close" onClick={closePocket}>
               Close

@@ -12,7 +12,10 @@ import {
   rememberDraft,
   surroundingFromArticle,
   wikiReturnHref,
-  writeReturnTicket
+  writeHeldInstrument,
+  writeReturnTicket,
+  readHeldInstrument,
+  rememberHeldInstrument
 } from './openSentenceJourney';
 import { draftStorageKey } from './openSentenceBinding';
 import {
@@ -309,5 +312,31 @@ describe('openSentenceJourney', () => {
     expect(bound.originalText).toBe('Children need room to make mistakes.');
     expect(bound.source).toEqual({ title: 'Nomad' });
     expect(bound.question).toBe('Which mistakes?');
+  });
+
+  it('keeps a named instrument on the device so another sentence can apply it', () => {
+    expect(readHeldInstrument()).toBeNull();
+    writeHeldInstrument({ name: 'Room to be wrong', definition: 'A mistake that teaches.' });
+    expect(readHeldInstrument()).toEqual({
+      name: 'Room to be wrong',
+      definition: 'A mistake that teaches.'
+    });
+    writeHeldInstrument({ name: '', definition: 'A mistake that teaches.' });
+    expect(readHeldInstrument()).toBeNull();
+    const named = {
+      originalText: 'Children need room to make mistakes.',
+      instrument: {
+        name: 'Room to be wrong',
+        definition: 'A mistake that teaches.',
+        against: 'Children need room to make mistakes.'
+      }
+    };
+    rememberHeldInstrument(named, named);
+    expect(readHeldInstrument()).toEqual({
+      name: 'Room to be wrong',
+      definition: 'A mistake that teaches.'
+    });
+    rememberHeldInstrument({ ...named, instrument: null }, named);
+    expect(readHeldInstrument()).toBeNull();
   });
 });
