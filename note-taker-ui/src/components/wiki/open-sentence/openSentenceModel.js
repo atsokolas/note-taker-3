@@ -132,10 +132,13 @@ export const openExploration = (exploration) => ({
   status: EXPLORATION_STATUS.open
 });
 
-export const closeExploration = (exploration) => ({
-  ...exploration,
-  status: EXPLORATION_STATUS.closed
-});
+export const closeExploration = (exploration) => {
+  if (!exploration?.without) {
+    return { ...exploration, status: EXPLORATION_STATUS.closed };
+  }
+  const { without: _aside, ...rest } = exploration;
+  return { ...rest, status: EXPLORATION_STATUS.closed };
+};
 
 export const canProposeWording = (exploration) => !exploration?.source?.here;
 
@@ -356,6 +359,33 @@ export const tryTheOtherWay = (exploration) => (
 export const putThemBack = (exploration) => (
   exploration?.rearranged ? { ...exploration, rearranged: false } : exploration
 );
+
+const paragraphName = (exploration) => asLine(exploration?.originalText);
+
+export const canTryWithoutParagraph = (exploration) => Boolean(
+  paragraphName(exploration) && !exploration?.source?.here
+);
+
+export const isWithoutParagraph = (exploration) => Boolean(
+  canTryWithoutParagraph(exploration) && exploration?.without
+);
+
+export const tryWithoutThisParagraph = (exploration) => (
+  canTryWithoutParagraph(exploration) && !exploration?.without
+    ? { ...exploration, without: true }
+    : exploration
+);
+
+export const bringTheParagraphBack = (exploration) => {
+  if (!exploration?.without) return exploration;
+  const { without: _aside, ...rest } = exploration;
+  return rest;
+};
+
+export const bringParagraphBackLabel = (exploration) => {
+  const name = paragraphName(exploration);
+  return name ? `Bring “${name}” back` : '';
+};
 
 export const meetWayHome = (exploration) => {
   const meet = liveMeet(exploration);
@@ -592,6 +622,12 @@ export const restoreExploration = (raw, fallback) => {
         && parsed.rearranged
         && samePassage(parsed.source, restored.source)
         && samePassage(parsed.other, restored.other)
+      ),
+      without: Boolean(
+        restored.status === EXPLORATION_STATUS.open
+        && parsed.without
+        && asLine(parsed.originalText) === asLine(restored.originalText)
+        && canTryWithoutParagraph(restored)
       )
     };
   } catch (_unreadable) {

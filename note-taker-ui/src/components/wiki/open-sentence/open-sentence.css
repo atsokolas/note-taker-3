@@ -9,6 +9,10 @@
   margin: 0 0 1em;
 }
 
+.open-sentence.is-without > .open-sentence__line {
+  display: none;
+}
+
 .open-sentence__held {
   position: relative;
   box-decoration-break: clone;

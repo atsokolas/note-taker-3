@@ -11,6 +11,7 @@ import {
   inspectableOther,
   isOpen,
   isPressured,
+  isWithoutParagraph,
   keepQuestion,
   liveThen,
   openExploration,
@@ -19,6 +20,7 @@ import {
   setDistinction,
   setMeetField,
   setPressureField,
+  tryWithoutThisParagraph,
   tryWording,
   wikiAcceptedText
 } from '../components/wiki/open-sentence/openSentenceModel';
@@ -63,6 +65,7 @@ const WIDTHS = [
 const BEATS = [
   { id: 'read', label: 'Read' },
   { id: 'open', label: 'Opened' },
+  { id: 'without', label: 'Without' },
   { id: 'place', label: 'Placed' },
   { id: 'wording', label: 'Wording' },
   { id: 'question', label: 'Leave open' },
@@ -127,6 +130,9 @@ const applyBeat = (beat, source) => {
   if (beat === 'meet') {
     return meetSeed();
   }
+  if (beat === 'without') {
+    return tryWithoutThisParagraph(openExploration(seed(source)));
+  }
   const opened = openExploration(seed(source));
   const placed = placeSource(opened);
   const worded = tryWording(placed, STORYBOARD_PROVISIONAL);
@@ -164,6 +170,9 @@ const BESIDE_ARTICLE = 'Works beside the article. Does not become a second chat 
 const companionRole = (scene, exploration, libraryExploration) => {
   if (scene === 'library') {
     return isOpen(libraryExploration) ? BESIDE_SENTENCE : BESIDE_ARTICLE;
+  }
+  if (isWithoutParagraph(exploration)) {
+    return 'The paragraph is set aside. It is not deleted.';
   }
   if (isPressured(exploration)) {
     return 'The original stays. The experiment is not a generated causal chain.';
@@ -383,7 +392,9 @@ const OpenSentenceStoryboard = () => {
           hides what you wrote, not the sources. Meet names how
           two recorded passages sit together, and where that stops. Try the other
           way reads the second passage first. Put them back restores the bound
-          order. It is not a new argument. The space
+          order. It is not a new argument. Try without this paragraph hides it
+          only in this temporary version. The article closes around the gap. Bring
+          it back by name. It is not deletion. The space
           between is yours. A note written there can stay a note, be kept as an
           experiment, be proposed as the line, or be kept as an essay. None of
           those write the article.
