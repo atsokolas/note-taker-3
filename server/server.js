@@ -606,11 +606,25 @@ const runWikiStorageGovernorWorker = async () => {
       revisionPageLimit: Number(process.env.WIKI_STORAGE_REVISION_PAGE_LIMIT || 10),
       historyArchiveApply: process.env.WIKI_HISTORY_ARCHIVE_DISABLED !== 'true',
       historyArchiveLimit: Number(process.env.WIKI_HISTORY_ARCHIVE_LIMIT || 3),
-      dryRun: process.env.WIKI_STORAGE_GOVERNOR_APPLY !== 'true'
+      /* Always a dry run in the server. Deleting requires a verified backup,
+         and the governor is given no way to write one here — it would throw
+         rather than reclaim, hourly, the moment anything became deletable.
+         Nor should it: a backup belongs on durable disk, and this container's
+         is ephemeral. scripts/run_wiki_storage_governor.js --apply is the door
+         that actually reclaims, from a machine with somewhere to put the copy. */
+      dryRun: true
     });
     const compactable = result.revisionPages.reduce((sum, row) => sum + Number(row.compactableSnapshots || 0), 0);
     if (compactable || result.historyArchive.archived || result.maintenanceRuns.deletable || result.sourceEvents.deletable || result.underPressure) {
       console.log(`[wiki-storage-governor] dryRun=${result.dryRun} pressure=${result.underPressure} archived=${result.historyArchive.archived} savedBytes=${result.historyArchive.savedBytes} snapshots=${compactable} runs=${result.maintenanceRuns.deletable} events=${result.sourceEvents.deletable}`);
+      /* A report nobody can act on is how a cluster fills to its last byte
+         while something watches it happen and says so every hour. */
+      if (result.underPressure) {
+        console.warn('[wiki-storage-governor] under pressure and this process only reports. Reclaim with: APPLY_WIKI_STORAGE_GOVERNOR=YES node scripts/run_wiki_storage_governor.js --apply');
+      }
+      if (process.env.WIKI_STORAGE_GOVERNOR_APPLY === 'true') {
+        console.warn('[wiki-storage-governor] WIKI_STORAGE_GOVERNOR_APPLY is set but ignored here: deletion needs a verified backup this container cannot write. Run the script instead.');
+      }
     }
   } catch (error) {
     console.error('[wiki-storage-governor] failed:', error);
