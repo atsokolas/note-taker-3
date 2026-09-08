@@ -493,6 +493,18 @@ export const wordingChanged = (exploration) => (
   String(exploration?.provisionalText || '').trim() !== String(exploration?.originalText || '').trim()
 );
 
+export const hasPersonalWork = (exploration) => {
+  const then = liveThen(exploration);
+  return Boolean(
+    keepsClosedDraft(exploration)
+    || wordingChanged(exploration)
+    || isPressured(exploration)
+    || exploration?.mark
+    || then?.question
+    || then?.draft
+  );
+};
+
 export const wikiAcceptedText = (exploration) => String(exploration?.originalText || '');
 
 const tokenize = (value = '') => String(value).split(/(\s+)/).filter((part) => part.length > 0);

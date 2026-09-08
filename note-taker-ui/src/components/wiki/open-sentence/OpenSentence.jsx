@@ -16,6 +16,7 @@ import {
   endPressure,
   essayWayHome,
   formatNamedOn,
+  hasPersonalWork,
   inspectableOther,
   isMeeting,
   isOpen,
@@ -133,6 +134,48 @@ const AroundToggle = ({ inspecting, onToggle }) => (
   </button>
 );
 
+const PlacementActions = ({
+  exploration,
+  source,
+  canPlace,
+  besideLabel,
+  previewing,
+  setPreviewing,
+  onCommit
+}) => {
+  if (!canPlace) return null;
+  if (exploration.placed) {
+    return (
+      <button type="button" onClick={() => onCommit(cancelPlacement(exploration))}>
+        Remove passage
+      </button>
+    );
+  }
+  if (previewing) {
+    return (
+      <>
+        <div className="open-sentence-pocket__preview">
+          <p className="open-sentence-pocket__label">Beside {besideLabel}</p>
+          <p className="open-sentence-pocket__passage">{source.passage}</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            onCommit(placeSource(exploration));
+            setPreviewing(false);
+          }}
+        >
+          Place here
+        </button>
+        <button type="button" onClick={() => setPreviewing(false)}>Cancel</button>
+      </>
+    );
+  }
+  return (
+    <button type="button" onClick={() => setPreviewing(true)}>Place beside</button>
+  );
+};
+
 const PocketField = ({ id, label, value, onChange, placeholder, rows = 2 }) => (
   <>
     <label className="open-sentence-pocket__label" htmlFor={id}>
@@ -208,7 +251,8 @@ const SourceBeside = ({
   settling,
   placeBesideTitle,
   onCommit,
-  onOpenSourceHome
+  onOpenSourceHome,
+  writing = true
 }) => {
   const source = exploration?.source;
   if (!source) {
@@ -230,21 +274,23 @@ const SourceBeside = ({
       <PassageRead
         source={source}
         inspecting={inspecting}
-        placed={exploration.placed}
-        settling={settling}
+        placed={writing && exploration.placed}
+        settling={writing && settling}
       />
-      {exploration.placed ? (
+      {writing && exploration.placed ? (
         <p className="open-sentence-pocket__placed">Placed beside {besideLabel}</p>
       ) : null}
-      <button
-        type="button"
-        className="open-sentence-pocket__marginalia"
-        aria-pressed={exploration.mark === '!'}
-        aria-label={exploration.mark === '!' ? 'Remove mark' : 'Leave a mark'}
-        onClick={() => onCommit(leaveMark(exploration, exploration.mark !== '!'))}
-      >
-        {exploration.mark || '!'}
-      </button>
+      {writing ? (
+        <button
+          type="button"
+          className="open-sentence-pocket__marginalia"
+          aria-pressed={exploration.mark === '!'}
+          aria-label={exploration.mark === '!' ? 'Remove mark' : 'Leave a mark'}
+          onClick={() => onCommit(leaveMark(exploration, exploration.mark !== '!'))}
+        >
+          {exploration.mark || '!'}
+        </button>
+      ) : null}
       <div className="open-sentence-pocket__actions">
         <AroundToggle inspecting={inspecting} onToggle={() => setInspecting((current) => !current)} />
         <SourceCite
@@ -252,31 +298,16 @@ const SourceBeside = ({
           mocked={mocked}
           onOpen={() => onOpenSourceHome?.(source, exploration)}
         />
-        {canPlace && exploration.placed ? (
-          <button type="button" onClick={() => onCommit(cancelPlacement(exploration))}>
-            Remove passage
-          </button>
-        ) : null}
-        {canPlace && !exploration.placed && previewing ? (
-          <>
-            <div className="open-sentence-pocket__preview">
-              <p className="open-sentence-pocket__label">Beside {besideLabel}</p>
-              <p className="open-sentence-pocket__passage">{source.passage}</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                onCommit(placeSource(exploration));
-                setPreviewing(false);
-              }}
-            >
-              Place here
-            </button>
-            <button type="button" onClick={() => setPreviewing(false)}>Cancel</button>
-          </>
-        ) : null}
-        {canPlace && !exploration.placed && !previewing ? (
-          <button type="button" onClick={() => setPreviewing(true)}>Place beside</button>
+        {writing ? (
+          <PlacementActions
+            exploration={exploration}
+            source={source}
+            canPlace={canPlace}
+            besideLabel={besideLabel}
+            previewing={previewing}
+            setPreviewing={setPreviewing}
+            onCommit={onCommit}
+          />
         ) : null}
       </div>
     </>
@@ -373,25 +404,11 @@ const PressureBody = ({ pocketId, exploration, onCommit }) => {
   );
 };
 
-const MeetBody = ({ pocketId, exploration, mocked, onCommit, onOpenSourceHome }) => {
-  const other = inspectableOther(exploration);
-  const [inspecting, setInspecting] = useState(false);
-  if (!other) return null;
+const MeetNaming = ({ pocketId, exploration, onCommit }) => {
   const meet = meetSlots(isMeeting(exploration) ? exploration.meet : {});
   const written = Boolean(meet.relation || meet.limit || meet.between);
-
   return (
-    <div className="open-sentence-pocket__meet">
-      <p className="open-sentence-pocket__qualification">Also beside</p>
-      <PassageRead source={other} inspecting={inspecting} />
-      <div className="open-sentence-pocket__actions">
-        <AroundToggle inspecting={inspecting} onToggle={() => setInspecting((current) => !current)} />
-        <SourceCite
-          source={other}
-          mocked={mocked}
-          onOpen={() => onOpenSourceHome?.(other, exploration)}
-        />
-      </div>
+    <>
       <PocketField
         id={`${pocketId}-meet`}
         label="How they meet"
@@ -413,26 +430,17 @@ const MeetBody = ({ pocketId, exploration, mocked, onCommit, onOpenSourceHome })
         rows={3}
       />
       {canKeepBetweenAsExperiment(exploration) ? (
-        <button
-          type="button"
-          onClick={() => onCommit(keepBetweenAsExperiment(exploration))}
-        >
+        <button type="button" onClick={() => onCommit(keepBetweenAsExperiment(exploration))}>
           Keep this as an experiment
         </button>
       ) : null}
       {canProposeBetween(exploration) ? (
-        <button
-          type="button"
-          onClick={() => onCommit(proposeWording(exploration, meet.between))}
-        >
+        <button type="button" onClick={() => onCommit(proposeWording(exploration, meet.between))}>
           Propose this as the line
         </button>
       ) : null}
       {canKeepBetweenAsEssay(exploration) ? (
-        <button
-          type="button"
-          onClick={() => onCommit(keepBetweenAsEssay(exploration))}
-        >
+        <button type="button" onClick={() => onCommit(keepBetweenAsEssay(exploration))}>
           Keep this as an essay
         </button>
       ) : null}
@@ -441,7 +449,99 @@ const MeetBody = ({ pocketId, exploration, mocked, onCommit, onOpenSourceHome })
           Leave this meeting
         </button>
       ) : null}
+    </>
+  );
+};
+
+const MeetBody = ({ pocketId, exploration, mocked, onCommit, onOpenSourceHome, writing = true }) => {
+  const other = inspectableOther(exploration);
+  const [inspecting, setInspecting] = useState(false);
+  if (!other) return null;
+
+  return (
+    <div className="open-sentence-pocket__meet">
+      <p className="open-sentence-pocket__qualification">Also beside</p>
+      <PassageRead source={other} inspecting={inspecting} />
+      <div className="open-sentence-pocket__actions">
+        <AroundToggle inspecting={inspecting} onToggle={() => setInspecting((current) => !current)} />
+        <SourceCite
+          source={other}
+          mocked={mocked}
+          onOpen={() => onOpenSourceHome?.(other, exploration)}
+        />
+      </div>
+      {writing ? (
+        <MeetNaming pocketId={pocketId} exploration={exploration} onCommit={onCommit} />
+      ) : null}
     </div>
+  );
+};
+
+const WordingWork = ({ pocketId, exploration, accepted, onCommit, onAccept, acceptSilence }) => {
+  const spans = wordingChanged(exploration)
+    ? changedWordSpans(accepted, exploration.provisionalText)
+    : [];
+  const proposal = liveProposal(exploration);
+  const essay = liveEssay(exploration);
+  const sameAsProposal = Boolean(
+    proposal && String(exploration.provisionalText || '').trim() === proposal.text
+  );
+  const mayPropose = canProposeWording(exploration);
+  return (
+    <>
+      <PocketField
+        id={`${pocketId}-wording`}
+        label="Try a narrower wording"
+        value={exploration.provisionalText}
+        onChange={(value) => onCommit(tryWording(exploration, value))}
+        rows={3}
+      />
+      {spans.length ? (
+        <p className="open-sentence-pocket__diff" aria-label="Changed words">
+          {spans.map((span, index) => (
+            span.changed ? <mark key={`${span.text}-${index}`}>{span.text}</mark> : span.text
+          ))}
+        </p>
+      ) : null}
+      {wordingChanged(exploration) ? (
+        <button type="button" onClick={() => onCommit(putItBack(exploration))}>
+          Put it back
+        </button>
+      ) : null}
+      {mayPropose && wordingChanged(exploration) && !sameAsProposal ? (
+        <button type="button" onClick={() => onCommit(proposeWording(exploration))}>
+          Propose this wording
+        </button>
+      ) : null}
+      {proposal ? (
+        <>
+          <p className="open-sentence-pocket__proposal">
+            Proposed, not accepted: {proposal.text}
+          </p>
+          {onAccept ? (
+            <button type="button" onClick={() => onAccept(exploration)}>
+              Accept this wording
+            </button>
+          ) : null}
+          <button type="button" onClick={() => onCommit(withdrawProposal(exploration))}>
+            Withdraw the proposal
+          </button>
+        </>
+      ) : null}
+      {essay ? (
+        <>
+          <p className="open-sentence-pocket__proposal">
+            An essay, not the line: {essay.text}
+          </p>
+          <button type="button" onClick={() => onCommit(leaveEssay(exploration))}>
+            Leave the essay
+          </button>
+        </>
+      ) : null}
+      {acceptSilence ? (
+        <p className="open-sentence-pocket__silence">{acceptSilence}</p>
+      ) : null}
+    </>
   );
 };
 
@@ -461,23 +561,17 @@ const PocketBody = ({
   onCommit,
   onOpenSourceHome,
   onAccept,
-  acceptSilence
+  acceptSilence,
+  fresh = false,
+  onFresh
 }) => {
-  const spans = wordingChanged(exploration)
-    ? changedWordSpans(accepted, exploration.provisionalText)
-    : [];
-  const proposal = liveProposal(exploration);
-  const essay = liveEssay(exploration);
   const then = liveThen(exploration);
-  const sameAsProposal = Boolean(
-    proposal && String(exploration.provisionalText || '').trim() === proposal.text
-  );
-  const mayPropose = canProposeWording(exploration);
+  const writing = !fresh;
 
   return (
     <>
       {mocked ? <p className="open-sentence-pocket__kicker">Illustrated source · not live retrieval</p> : null}
-      {leftOpen && String(exploration.question || '').trim() ? (
+      {writing && leftOpen && String(exploration.question || '').trim() ? (
         <p className="open-sentence-pocket__whisper">You left this open.</p>
       ) : null}
 
@@ -493,6 +587,7 @@ const PocketBody = ({
           placeBesideTitle={placeBesideTitle}
           onCommit={onCommit}
           onOpenSourceHome={onOpenSourceHome}
+          writing={writing}
         />
         <MeetBody
           key={`${exploration?.other?.title || ''}:${exploration?.other?.passage || ''}`}
@@ -501,61 +596,20 @@ const PocketBody = ({
           mocked={mocked}
           onCommit={onCommit}
           onOpenSourceHome={onOpenSourceHome}
+          writing={writing}
         />
       </div>
 
       <div className="open-sentence-pocket__write">
-        <PocketField
-          id={`${pocketId}-wording`}
-          label="Try a narrower wording"
-          value={exploration.provisionalText}
-          onChange={(value) => onCommit(tryWording(exploration, value))}
-          rows={3}
-        />
-        {spans.length ? (
-          <p className="open-sentence-pocket__diff" aria-label="Changed words">
-            {spans.map((span, index) => (
-              span.changed ? <mark key={`${span.text}-${index}`}>{span.text}</mark> : span.text
-            ))}
-          </p>
-        ) : null}
-        {wordingChanged(exploration) ? (
-          <button type="button" onClick={() => onCommit(putItBack(exploration))}>
-            Put it back
-          </button>
-        ) : null}
-        {mayPropose && wordingChanged(exploration) && !sameAsProposal ? (
-          <button type="button" onClick={() => onCommit(proposeWording(exploration))}>
-            Propose this wording
-          </button>
-        ) : null}
-        {proposal ? (
-          <>
-            <p className="open-sentence-pocket__proposal">
-              Proposed, not accepted: {proposal.text}
-            </p>
-            {onAccept ? (
-              <button type="button" onClick={() => onAccept(exploration)}>
-                Accept this wording
-              </button>
-            ) : null}
-            <button type="button" onClick={() => onCommit(withdrawProposal(exploration))}>
-              Withdraw the proposal
-            </button>
-          </>
-        ) : null}
-        {essay ? (
-          <>
-            <p className="open-sentence-pocket__proposal">
-              An essay, not the line: {essay.text}
-            </p>
-            <button type="button" onClick={() => onCommit(leaveEssay(exploration))}>
-              Leave the essay
-            </button>
-          </>
-        ) : null}
-        {acceptSilence ? (
-          <p className="open-sentence-pocket__silence">{acceptSilence}</p>
+        {writing ? (
+          <WordingWork
+            pocketId={pocketId}
+            exploration={exploration}
+            accepted={accepted}
+            onCommit={onCommit}
+            onAccept={onAccept}
+            acceptSilence={acceptSilence}
+          />
         ) : null}
         <p className="open-sentence-pocket__qualification">
           {acceptedLabel}: {accepted}
@@ -573,7 +627,7 @@ const PocketBody = ({
                 onOpen={() => onOpenSourceHome?.(source, exploration)}
               />
             ))}
-            {then.question ? (
+            {writing && then.question ? (
               <>
                 <ThenPassage source={{ title: 'Then you left this open', passage: then.question }} />
                 <DistinctionField
@@ -583,31 +637,47 @@ const PocketBody = ({
                 />
               </>
             ) : null}
-            {then.draft ? (
+            {writing && then.draft ? (
               <ThenPassage source={{ title: 'Then you wrote', passage: then.draft }} />
             ) : null}
           </div>
         ) : null}
       </div>
 
-      <PressureBody pocketId={pocketId} exploration={exploration} onCommit={onCommit} />
+      {writing ? (
+        <PressureBody pocketId={pocketId} exploration={exploration} onCommit={onCommit} />
+      ) : null}
 
-      <div className="open-sentence-pocket__question">
-        <PocketField
-          id={`${pocketId}-question`}
-          label="Leave this open"
-          value={exploration.question}
-          onChange={(value) => onCommit(keepQuestion(exploration, value))}
-          placeholder="An unfinished question can stay unfinished."
-        />
-        {then?.question ? null : (
-          <DistinctionField
-            pocketId={pocketId}
-            exploration={exploration}
-            onCommit={onCommit}
+      {writing ? (
+        <div className="open-sentence-pocket__question">
+          <PocketField
+            id={`${pocketId}-question`}
+            label="Leave this open"
+            value={exploration.question}
+            onChange={(value) => onCommit(keepQuestion(exploration, value))}
+            placeholder="An unfinished question can stay unfinished."
           />
-        )}
-      </div>
+          {then?.question ? null : (
+            <DistinctionField
+              pocketId={pocketId}
+              exploration={exploration}
+              onCommit={onCommit}
+            />
+          )}
+        </div>
+      ) : null}
+      {hasPersonalWork(exploration) ? (
+        <button
+          type="button"
+          className="open-sentence-pocket__fresh"
+          onClick={() => {
+            if (!fresh) setPreviewing(false);
+            onFresh?.(!fresh);
+          }}
+        >
+          {fresh ? 'Show what I wrote' : 'Read it fresh'}
+        </button>
+      ) : null}
     </>
   );
 };
@@ -643,6 +713,7 @@ const OpenSentence = ({
   const [previewing, setPreviewing] = useState(false);
   const [leftOpen, setLeftOpen] = useState(false);
   const [settling, setSettling] = useState(false);
+  const [fresh, setFresh] = useState(false);
   const open = isOpen(exploration);
   const [keepPocket, setKeepPocket] = useState(open);
   const accepted = wikiAcceptedText(exploration);
@@ -675,6 +746,7 @@ const OpenSentence = ({
   useEffect(() => {
     if (open && !wasOpen.current) {
       setLeftOpen(Boolean(String(exploration.question || '').trim()));
+      setFresh(false);
     }
     if (!open) setLeftOpen(false);
     wasOpen.current = open;
@@ -713,11 +785,15 @@ const OpenSentence = ({
         setPreviewing(false);
         return;
       }
+      if (fresh) {
+        setFresh(false);
+        return;
+      }
       closePocket();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [closePocket, open, previewing]);
+  }, [closePocket, fresh, open, previewing]);
 
   useEffect(() => {
     if (!followChip) {
@@ -854,6 +930,8 @@ const OpenSentence = ({
               onOpenSourceHome={onOpenSourceHome}
               onAccept={onAccept}
               acceptSilence={acceptSilence}
+              fresh={fresh}
+              onFresh={setFresh}
             />
             <button type="button" className="open-sentence-pocket__close" onClick={closePocket}>
               Close

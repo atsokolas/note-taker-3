@@ -17,6 +17,7 @@ import {
   essayWayHome,
   forgetExperiment,
   formatNamedOn,
+  hasPersonalWork,
   isPressured,
   keepBetweenAsEssay,
   keepBetweenAsExperiment,
@@ -237,6 +238,17 @@ describe('openSentenceModel', () => {
     const start = createExploration({ originalText: STORYBOARD_SENTENCE });
     expect(leaveMark(start).mark).toBe('!');
     expect(leaveMark(leaveMark(start), false).mark).toBe('');
+  });
+
+  it('knows when the pocket has personal writing to hide', () => {
+    const start = createExploration({ originalText: STORYBOARD_SENTENCE, source: STORYBOARD_SOURCE });
+    expect(hasPersonalWork(start)).toBe(false);
+    expect(hasPersonalWork(leaveMark(start))).toBe(true);
+    expect(hasPersonalWork(tryWording(start, 'recoverable mistakes'))).toBe(true);
+    expect(hasPersonalWork(createExploration({
+      originalText: STORYBOARD_THEN_NOW,
+      then: { text: STORYBOARD_COMPUTE_SENTENCE, question: STORYBOARD_THEN_QUESTION }
+    }))).toBe(true);
   });
 
   it('forgets a closed experiment unless a question, distinction, placed passage, or proposal remains', () => {
@@ -913,6 +925,41 @@ describe('OpenSentence', () => {
     jest.useRealTimers();
   });
 
+  it('keeps writing hidden while the pocket recedes from a fresh reading', () => {
+    jest.useFakeTimers();
+    const onChange = jest.fn();
+    const opened = setDistinction(
+      keepQuestion(
+        openExploration(createExploration({
+          originalText: STORYBOARD_SENTENCE,
+          source: STORYBOARD_SOURCE
+        })),
+        STORYBOARD_QUESTION
+      ),
+      STORYBOARD_DISTINCTION
+    );
+    const board = (exploration) => (
+      <MemoryRouter>
+        <OpenSentence exploration={exploration} onChange={onChange} />
+      </MemoryRouter>
+    );
+    const { rerender } = render(board(opened));
+    fireEvent.click(screen.getByRole('button', { name: 'Read it fresh' }));
+    rerender(board(closeExploration(opened)));
+    expect(screen.queryByLabelText('Leave this open')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Try a narrower wording')).not.toBeInTheDocument();
+    expect(screen.getByText(STORYBOARD_SOURCE.passage)).toBeInTheDocument();
+    expect(document.querySelector('.open-sentence-pocket__fresh')).toHaveTextContent('Show what I wrote');
+    act(() => {
+      jest.advanceTimersByTime(320);
+    });
+    expect(screen.queryByLabelText('Try a narrower wording')).not.toBeInTheDocument();
+    rerender(board(opened));
+    expect(screen.getByLabelText('Leave this open')).toHaveValue(STORYBOARD_QUESTION);
+    expect(screen.getByRole('button', { name: 'Read it fresh' })).toBeInTheDocument();
+    jest.useRealTimers();
+  });
+
   it('proposes wording without changing the article, and can withdraw it', () => {
     const onChange = jest.fn();
     const exploration = openExploration(tryWording(
@@ -1070,6 +1117,102 @@ describe('OpenSentence', () => {
     expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/used to believe/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/biography/i)).not.toBeInTheDocument();
+  });
+
+  it('hides personal writing to read the sources, and restores them in place', () => {
+    const onChange = jest.fn();
+    renderOpen(
+      setDistinction(
+        keepQuestion(
+          openExploration(createExploration({
+            originalText: STORYBOARD_SENTENCE,
+            source: STORYBOARD_SOURCE
+          })),
+          STORYBOARD_QUESTION
+        ),
+        STORYBOARD_DISTINCTION
+      ),
+      onChange
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Read it fresh' }));
+    expect(screen.queryByLabelText('Leave this open')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Try a narrower wording')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Leave a mark')).not.toBeInTheDocument();
+    expect(screen.getByText(STORYBOARD_SOURCE.passage)).toBeInTheDocument();
+    expect(screen.getByText(/The article still reads/)).toHaveTextContent(STORYBOARD_SENTENCE);
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Show what I wrote' }));
+    expect(screen.getByLabelText('Leave this open')).toHaveValue(STORYBOARD_QUESTION);
+    expect(screen.getByLabelText('The distinction that would help')).toHaveValue(STORYBOARD_DISTINCTION);
+  });
+
+  it('does not offer Read it fresh when there is nothing personal to hide', () => {
+    renderOpen(openExploration(createExploration({
+      originalText: STORYBOARD_SENTENCE,
+      source: STORYBOARD_SOURCE
+    })));
+    expect(screen.queryByRole('button', { name: 'Read it fresh' })).not.toBeInTheDocument();
+    expect(screen.getByText(STORYBOARD_SOURCE.passage)).toBeInTheDocument();
+  });
+
+  it('lets Escape leave the fresh view without closing the pocket', () => {
+    renderOpen(openExploration(keepQuestion(
+      createExploration({ originalText: STORYBOARD_SENTENCE, source: STORYBOARD_SOURCE }),
+      STORYBOARD_QUESTION
+    )));
+    fireEvent.click(screen.getByRole('button', { name: 'Read it fresh' }));
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.getByLabelText('Leave this open')).toHaveValue(STORYBOARD_QUESTION);
+    expect(screen.getByLabelText('Try a narrower wording')).toBeInTheDocument();
+  });
+
+  it('hides Then’s question when reading fresh, not the recorded line or source', () => {
+    renderOpen(openExploration(createExploration({
+      originalText: STORYBOARD_THEN_NOW,
+      source: STORYBOARD_COMPUTE_SOURCE,
+      then: {
+        text: STORYBOARD_COMPUTE_SENTENCE,
+        sources: [{
+          title: 'Capacity',
+          passage: STORYBOARD_THEN_QUOTATION,
+          href: STORYBOARD_THEN_ORIGINAL
+        }],
+        question: STORYBOARD_THEN_QUESTION
+      }
+    })));
+    fireEvent.click(screen.getByRole('button', { name: 'Read it fresh' }));
+    expect(screen.queryByText('Then you left this open')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('The distinction that would help')).not.toBeInTheDocument();
+    expect(document.querySelector('.open-sentence-pocket__then')).toHaveTextContent(STORYBOARD_COMPUTE_SENTENCE);
+    expect(document.querySelector('.open-sentence-pocket__then')).toHaveTextContent(STORYBOARD_THEN_QUOTATION);
+  });
+
+  it('hides placement and the mark while leaving the passage', () => {
+    renderOpen(leaveMark(placeSource(openExploration(createExploration({
+      originalText: STORYBOARD_SENTENCE,
+      source: STORYBOARD_SOURCE
+    })))));
+    fireEvent.click(screen.getByRole('button', { name: 'Read it fresh' }));
+    expect(screen.queryByText(/Placed beside/)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Remove mark')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Remove passage' })).not.toBeInTheDocument();
+    expect(screen.getByText(STORYBOARD_SOURCE.passage)).toBeInTheDocument();
+  });
+
+  it('hides meeting names while leaving both passages', () => {
+    renderOpen(setMeetField(
+      setMeetField(openExploration(createExploration({
+        originalText: STORYBOARD_SENTENCE,
+        source: STORYBOARD_SOURCE,
+        other: STORYBOARD_MEET_SOURCE
+      })), 'relation', STORYBOARD_MEET_RELATION),
+      'limit',
+      STORYBOARD_MEET_LIMIT
+    ));
+    fireEvent.click(screen.getByRole('button', { name: 'Read it fresh' }));
+    expect(screen.queryByLabelText('How they meet')).not.toBeInTheDocument();
+    expect(screen.getByText(STORYBOARD_SOURCE.passage)).toBeInTheDocument();
+    expect(screen.getByText(STORYBOARD_MEET_SOURCE.passage)).toBeInTheDocument();
   });
 
   it('lets a distinction sit beside Then’s question without closing it or copying it in', () => {

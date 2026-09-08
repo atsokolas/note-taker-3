@@ -379,7 +379,8 @@ const OpenSentenceStoryboard = () => {
           sit with it when they were saved then. The historical version opens when that
           door is still a different identity. A recorded question sits with it when
           one was left open then. The distinction that would help sits beside that
-          question, dated once named. Both stay. It is not a biography. Meet names how
+          question, dated once named. Both stay. It is not a biography. Read it fresh
+          hides what you wrote, not the sources. Meet names how
           two recorded passages sit together, and where that stops. The space
           between is yours. A note written there can stay a note, be kept as an
           experiment, be proposed as the line, or be kept as an essay. None of
