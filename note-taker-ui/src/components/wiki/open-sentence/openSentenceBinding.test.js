@@ -193,6 +193,33 @@ describe('openSentenceBinding', () => {
     expect(exploration.source.title).toBe('Capacity');
   });
 
+  it('binds the cited source from the page mark when the caller only has a claim id', () => {
+    const exploration = liveExplorationForPageClaim({
+      body: {
+        type: 'doc',
+        content: [{
+          type: 'paragraph',
+          content: [{
+            type: 'text',
+            text: 'Memory compounds with review.',
+            marks: [{ type: 'claim', attrs: { claimId: 'claim-1', citationIndexes: [1] } }]
+          }]
+        }]
+      },
+      claims: [{ claimId: 'claim-1', text: 'Memory compounds with review.', support: 'supported' }],
+      sourceRefs: [{
+        _id: 'source-1',
+        type: 'highlight',
+        objectId: 'highlight-1',
+        parentObjectId: 'article-1',
+        title: 'Memory article',
+        snippet: 'Source snippet'
+      }]
+    }, { claimId: 'claim-1' });
+    expect(exploration.source.passage).toBe('Source snippet');
+    expect(exploration.source.title).toBe('Memory article');
+  });
+
   it('does not restore a ledger line that is no longer on the page', () => {
     const exploration = liveExplorationForPageClaim({
       body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Elsewhere.' }] }] },

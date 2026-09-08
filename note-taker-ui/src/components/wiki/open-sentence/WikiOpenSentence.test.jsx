@@ -247,13 +247,21 @@ describe('WikiOpenSentence', () => {
       target: { value: 'Who does the reviewing, and who only stores the notes?' }
     });
     expect(screen.getByText('Unwritten work, not the article.')).toBeInTheDocument();
-    expect(screen.getAllByText('Source snippet').length).toBeGreaterThan(0);
-    fireEvent.click(screen.getByRole('button', { name: 'Try without this source' }));
-    expect(screen.queryByText('Source snippet')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Bring Memory article back' })).toBeInTheDocument();
     expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent('Memory compounds with review.');
     expect(screen.getByText(/The article still reads/)).toHaveTextContent('Memory compounds with review.');
     expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
+  });
+
+  it('hides the bound source in the pocket and brings it back by name', () => {
+    renderWikiSentence();
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    expect(screen.getByText('Source snippet')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Try without this source', exact: true }));
+    expect(screen.queryByText('Source snippet')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Bring Memory article back' })).toBeInTheDocument();
+    expect(screen.getByText(/The article still reads/)).toHaveTextContent('Memory compounds with review.');
+    fireEvent.click(screen.getByRole('button', { name: 'Bring Memory article back' }));
+    expect(screen.getByText('Source snippet')).toBeInTheDocument();
   });
 
   it('lets a third recorded passage sit beside the named distinction without resolving the question', () => {
