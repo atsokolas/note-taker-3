@@ -16,7 +16,8 @@ import {
   STORYBOARD_MEET_SOURCE,
   STORYBOARD_PREMISE,
   STORYBOARD_PROVISIONAL,
-  STORYBOARD_RETURN_NOTE,
+  STORYBOARD_QUESTION,
+  STORYBOARD_DISTINCTION,
   STORYBOARD_SCOPE,
   STORYBOARD_SENTENCE,
   STORYBOARD_SOURCE,
@@ -68,7 +69,8 @@ describe('OpenSentenceStoryboard', () => {
     const { unmount } = renderBoard();
     fireEvent.click(screen.getByRole('button', { name: 'Leave open' }));
     expect(screen.getByLabelText('Try a narrower wording')).toHaveValue(STORYBOARD_PROVISIONAL);
-    expect(screen.getByLabelText('Leave this open')).toHaveValue(STORYBOARD_RETURN_NOTE);
+    expect(screen.getByLabelText('Leave this open')).toHaveValue(STORYBOARD_QUESTION);
+    expect(screen.getByLabelText('The distinction that would help')).toHaveValue(STORYBOARD_DISTINCTION);
     expect(screen.getByRole('button', { name: STORYBOARD_SENTENCE })).toBeInTheDocument();
     expect(window.sessionStorage.getItem(openedStorageKey(STORYBOARD_SCOPE))).toBe(STORYBOARD_ITEM_ID);
     expect(window.sessionStorage.getItem(draftStorageKey(STORYBOARD_SCOPE, STORYBOARD_ITEM_ID)))
@@ -76,7 +78,8 @@ describe('OpenSentenceStoryboard', () => {
     unmount();
     renderBoard();
     expect(screen.getByLabelText('Try a narrower wording')).toHaveValue(STORYBOARD_PROVISIONAL);
-    expect(screen.getByLabelText('Leave this open')).toHaveValue(STORYBOARD_RETURN_NOTE);
+    expect(screen.getByLabelText('Leave this open')).toHaveValue(STORYBOARD_QUESTION);
+    expect(screen.getByLabelText('The distinction that would help')).toHaveValue(STORYBOARD_DISTINCTION);
   });
 
   it('lets the companion become a drawer at mobile width', () => {
@@ -274,7 +277,7 @@ describe('OpenSentenceStoryboard', () => {
     await waitFor(() => {
       expect(screen.getByText('You were in Nomad.')).toBeInTheDocument();
     });
-    expect(screen.getByRole('button', { name: STORYBOARD_RETURN_NOTE })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: STORYBOARD_DISTINCTION })).toBeInTheDocument();
     expect(screen.queryByLabelText('Try a narrower wording')).not.toBeInTheDocument();
     expect(screen.getByText(/From the Library of/)).toHaveTextContent('you were in Nomad.');
   });

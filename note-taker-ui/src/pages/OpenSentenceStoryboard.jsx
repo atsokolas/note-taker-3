@@ -16,9 +16,9 @@ import {
   openExploration,
   placeSource,
   putItBack,
+  setDistinction,
   setMeetField,
   setPressureField,
-  setReturnNote,
   tryWording,
   wikiAcceptedText
 } from '../components/wiki/open-sentence/openSentenceModel';
@@ -39,7 +39,8 @@ import {
   STORYBOARD_PAGE_TITLE,
   STORYBOARD_PREMISE,
   STORYBOARD_PROVISIONAL,
-  STORYBOARD_RETURN_NOTE,
+  STORYBOARD_QUESTION,
+  STORYBOARD_DISTINCTION,
   STORYBOARD_SCOPE,
   STORYBOARD_SENTENCE,
   STORYBOARD_SOURCE,
@@ -129,9 +130,9 @@ const applyBeat = (beat, source) => {
   const opened = openExploration(seed(source));
   const placed = placeSource(opened);
   const worded = tryWording(placed, STORYBOARD_PROVISIONAL);
-  const questioned = setReturnNote(
-    keepQuestion(worded, STORYBOARD_RETURN_NOTE),
-    STORYBOARD_RETURN_NOTE
+  const questioned = setDistinction(
+    keepQuestion(worded, STORYBOARD_QUESTION),
+    STORYBOARD_DISTINCTION
   );
   switch (beat) {
     case 'open':
@@ -143,9 +144,9 @@ const applyBeat = (beat, source) => {
     case 'question':
       return questioned;
     case 'return':
-      return setReturnNote(
-        keepQuestion(putItBack(worded), STORYBOARD_RETURN_NOTE),
-        STORYBOARD_RETURN_NOTE
+      return setDistinction(
+        keepQuestion(putItBack(worded), STORYBOARD_QUESTION),
+        STORYBOARD_DISTINCTION
       );
     default:
       return seed(source);
@@ -368,8 +369,8 @@ const OpenSentenceStoryboard = () => {
         <h1>Open a sentence</h1>
         <p className="open-sentence-storyboard__note">
           The article stays the page. Select the sentence and open it. Closing without
-          a question, a return note, a placed passage, a proposed wording, a named
-          premise, a named meeting, or a note written between them forgets the experiment. A note under the line is the way home.
+          a question, a named distinction, a placed passage, a proposed wording, a named
+          premise, a named meeting, or a note written between them forgets the experiment. A distinction under the line is the way home.
           Source cycles the honest absences. Stillness is the open state with no
           drawing. Propose names a wording; Accept is what writes the illustrated
           line. Pressure names a premise beside the original. A recorded passage

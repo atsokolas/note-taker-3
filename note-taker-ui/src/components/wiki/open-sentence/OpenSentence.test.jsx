@@ -25,6 +25,7 @@ import {
   keepsClosedDraft,
   leaveEssay,
   leaveMark,
+  liveDistinction,
   liveEssay,
   liveMeet,
   livePressure,
@@ -38,9 +39,9 @@ import {
   proposeWording,
   putItBack,
   restoreExploration,
+  setDistinction,
   setMeetField,
   setPressureField,
-  setReturnNote,
   snapshotExploration,
   sourceClip,
   tryWording,
@@ -48,7 +49,7 @@ import {
   withdrawProposal,
   wordingChanged
 } from './openSentenceModel';
-import { STORYBOARD_COMPUTE_SENTENCE, STORYBOARD_COMPUTE_SOURCE, STORYBOARD_MEET_LIMIT, STORYBOARD_MEET_RELATION, STORYBOARD_MEET_SOURCE, STORYBOARD_SENTENCE, STORYBOARD_SOURCE, STORYBOARD_STALE_SOURCE, STORYBOARD_THEN_BESIDE, STORYBOARD_THEN_NOW, STORYBOARD_THEN_ORIGINAL, STORYBOARD_THEN_QUESTION, STORYBOARD_THEN_QUOTATION } from './openSentenceStoryboardFixture';
+import { STORYBOARD_COMPUTE_SENTENCE, STORYBOARD_COMPUTE_SOURCE, STORYBOARD_DISTINCTION, STORYBOARD_MEET_LIMIT, STORYBOARD_MEET_RELATION, STORYBOARD_MEET_SOURCE, STORYBOARD_QUESTION, STORYBOARD_SENTENCE, STORYBOARD_SOURCE, STORYBOARD_STALE_SOURCE, STORYBOARD_THEN_BESIDE, STORYBOARD_THEN_NOW, STORYBOARD_THEN_ORIGINAL, STORYBOARD_THEN_QUESTION, STORYBOARD_THEN_QUOTATION } from './openSentenceStoryboardFixture';
 
 const renderOpen = (exploration, onChange = jest.fn()) => render(
   <MemoryRouter>
@@ -100,6 +101,34 @@ describe('openSentenceModel', () => {
     expect(restored.question).toBe('Which mistakes?');
     expect(restored.provisionalText).toBe('draft');
     expect(liveThen(restored)).toBeNull();
+  });
+
+  it('lifts a stored return note into a distinction without keeping a next-step field', () => {
+    const start = createExploration({ originalText: STORYBOARD_SENTENCE });
+    const restored = restoreExploration(JSON.stringify({
+      ...start,
+      returnNote: STORYBOARD_DISTINCTION,
+      distinction: ''
+    }), start);
+    expect(restored.distinction).toBe(STORYBOARD_DISTINCTION);
+    expect(restored).not.toHaveProperty('returnNote');
+    expect(liveDistinction(restored)).toBe(STORYBOARD_DISTINCTION);
+    expect(keepsClosedDraft(closeExploration(restored))).toBe(true);
+  });
+
+  it('does not copy Then’s question into today’s question or distinction', () => {
+    const start = createExploration({
+      originalText: STORYBOARD_THEN_NOW,
+      then: {
+        text: STORYBOARD_COMPUTE_SENTENCE,
+        question: STORYBOARD_THEN_QUESTION
+      }
+    });
+    expect(start.question).toBe('');
+    expect(start.distinction).toBe('');
+    expect(liveThen(start).question).toBe(STORYBOARD_THEN_QUESTION);
+    expect(liveDistinction(setDistinction(keepQuestion(start, STORYBOARD_THEN_QUESTION), STORYBOARD_THEN_QUESTION))).toBe('');
+    expect(liveThen(keepQuestion(start, STORYBOARD_THEN_QUESTION)).question).toBeUndefined();
   });
 
   it('restores Then from the live record and drops a forged draft biography', () => {
@@ -171,11 +200,11 @@ describe('openSentenceModel', () => {
     expect(leaveMark(leaveMark(start), false).mark).toBe('');
   });
 
-  it('forgets a closed experiment unless a question, return note, placed passage, or proposal remains', () => {
+  it('forgets a closed experiment unless a question, distinction, placed passage, or proposal remains', () => {
     const start = openExploration(createExploration({ originalText: STORYBOARD_SENTENCE }));
     expect(keepsClosedDraft(closeExploration(tryWording(start, 'draft')))).toBe(false);
     expect(keepsClosedDraft(closeExploration(keepQuestion(start, 'Which mistakes?')))).toBe(true);
-    expect(keepsClosedDraft(closeExploration(setReturnNote(start, 'Next: look again')))).toBe(true);
+    expect(keepsClosedDraft(closeExploration(setDistinction(start, STORYBOARD_DISTINCTION)))).toBe(true);
     expect(keepsClosedDraft(closeExploration(placeSource({
       ...start,
       source: STORYBOARD_SOURCE
@@ -194,6 +223,7 @@ describe('openSentenceModel', () => {
     ))))).toBe(true);
     expect(forgetExperiment(start).provisionalText).toBe(STORYBOARD_SENTENCE);
     expect(forgetExperiment(start).question).toBe('');
+    expect(forgetExperiment(start).distinction).toBe('');
     expect(forgetExperiment(proposeWording(tryWording(start, 'draft'))).proposal).toBeUndefined();
     expect(forgetExperiment(beginPressure(start)).pressure).toBeUndefined();
     expect(forgetExperiment(setMeetField(meeting(), 'relation', STORYBOARD_MEET_RELATION)).meet).toBeUndefined();
@@ -293,7 +323,7 @@ describe('openSentenceModel', () => {
           draft: 'The plant is still the constraint.'
         }
       }),
-      returnNote: 'The plant is still the constraint.'
+      distinction: 'The plant is still the constraint.'
     })).toEqual({ text: STORYBOARD_COMPUTE_SENTENCE });
   });
 
@@ -735,7 +765,7 @@ describe('OpenSentence', () => {
               source: STORYBOARD_SOURCE
             })),
             question: 'Which mistakes?',
-            returnNote: 'Next: figure out which mistakes are recoverable.'
+            distinction: STORYBOARD_DISTINCTION
           }}
           onChange={onChange}
           homecoming="You were in Nomad."
@@ -743,7 +773,7 @@ describe('OpenSentence', () => {
       </MemoryRouter>
     );
     expect(screen.getByText('You were in Nomad.')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Next: figure out which mistakes are recoverable.' }));
+    fireEvent.click(screen.getByRole('button', { name: STORYBOARD_DISTINCTION }));
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ status: 'open' }));
     expect(screen.queryByLabelText('Try a narrower wording')).not.toBeInTheDocument();
   });
@@ -767,7 +797,7 @@ describe('OpenSentence', () => {
     expect(screen.queryByLabelText('Try a narrower wording')).not.toBeInTheDocument();
   });
 
-  it('lets an unfinished question be the way home when there is no return note', () => {
+  it('lets an unfinished question be the way home when there is no distinction', () => {
     const onChange = jest.fn();
     render(
       <MemoryRouter>
@@ -785,6 +815,24 @@ describe('OpenSentence', () => {
     expect(screen.queryByLabelText('Try a narrower wording')).not.toBeInTheDocument();
   });
 
+  it('does not make a second way home from a distinction that repeats the question', () => {
+    const onChange = jest.fn();
+    render(
+      <MemoryRouter>
+        <OpenSentence
+          exploration={closeExploration(setDistinction(
+            keepQuestion(createExploration({ originalText: STORYBOARD_SENTENCE }), STORYBOARD_QUESTION),
+            STORYBOARD_QUESTION
+          ))}
+          onChange={onChange}
+        />
+      </MemoryRouter>
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'You left this open.' }));
+    expect(screen.queryByRole('button', { name: STORYBOARD_QUESTION })).not.toBeInTheDocument();
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ status: 'open' }));
+  });
+
   it('lets the pocket recede before the way home remains', () => {
     jest.useFakeTimers();
     const onChange = jest.fn();
@@ -794,7 +842,7 @@ describe('OpenSentence', () => {
         source: STORYBOARD_SOURCE
       })),
       question: 'Which mistakes?',
-      returnNote: 'Next: figure out which mistakes are recoverable.'
+      distinction: STORYBOARD_DISTINCTION
     };
     const { rerender } = render(
       <MemoryRouter>
@@ -820,7 +868,7 @@ describe('OpenSentence', () => {
       jest.advanceTimersByTime(320);
     });
     expect(screen.getByText('You were in Nomad.')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Next: figure out which mistakes are recoverable.' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: STORYBOARD_DISTINCTION })).toBeInTheDocument();
     expect(screen.queryByLabelText('Try a narrower wording')).not.toBeInTheDocument();
     jest.useRealTimers();
   });
@@ -971,6 +1019,9 @@ describe('OpenSentence', () => {
     expect(then).toHaveTextContent(STORYBOARD_THEN_QUESTION);
     expect(then).toHaveTextContent('Then you wrote');
     expect(then).toHaveTextContent('The plant is still the constraint.');
+    expect(screen.getByLabelText('Leave this open')).toHaveValue('');
+    expect(screen.getByLabelText('The distinction that would help')).toHaveValue('');
+    expect(screen.queryByPlaceholderText('Next: …')).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Return to source →' })).toHaveAttribute(
       'href',
       STORYBOARD_THEN_ORIGINAL
@@ -979,6 +1030,29 @@ describe('OpenSentence', () => {
     expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/used to believe/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/biography/i)).not.toBeInTheDocument();
+  });
+
+  it('lets a distinction sit beside Then’s question without closing it or copying it in', () => {
+    const onChange = jest.fn();
+    const exploration = openExploration(createExploration({
+      originalText: STORYBOARD_THEN_NOW,
+      source: STORYBOARD_COMPUTE_SOURCE,
+      then: {
+        text: STORYBOARD_COMPUTE_SENTENCE,
+        question: STORYBOARD_THEN_QUESTION
+      }
+    }));
+    renderOpen(exploration, onChange);
+    expect(screen.getByLabelText('Leave this open')).toHaveValue('');
+    fireEvent.change(screen.getByLabelText('The distinction that would help'), {
+      target: { value: 'Whether scarcity is a plant problem or a demand problem.' }
+    });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
+      distinction: 'Whether scarcity is a plant problem or a demand problem.',
+      question: ''
+    }));
+    expect(onChange.mock.calls[0][0]).not.toHaveProperty('returnNote');
+    expect(document.querySelector('.open-sentence-pocket__then')).toHaveTextContent(STORYBOARD_THEN_QUESTION);
   });
 
   it('copies a Then source with its recorded door, not a question or a draft', async () => {

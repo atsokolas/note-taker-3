@@ -455,9 +455,12 @@ describe('WikiOpenSentence', () => {
     }));
     renderWikiSentence();
     expect(window.localStorage.getItem(draftStorageKey('wiki-1', 'claim-1'))).toContain('Does it still?');
+    expect(window.localStorage.getItem(draftStorageKey('wiki-1', 'claim-1'))).toContain('"distinction"');
+    expect(window.localStorage.getItem(draftStorageKey('wiki-1', 'claim-1'))).not.toContain('"returnNote"');
     expect(window.sessionStorage.getItem(draftStorageKey('wiki-1', 'claim-1'))).toBeFalsy();
     expect(screen.getByLabelText('Try a narrower wording')).toHaveValue('Memory compounds when we forget.');
     expect(screen.getByLabelText('Leave this open')).toHaveValue('Does it still?');
+    expect(screen.getByLabelText('The distinction that would help')).toHaveValue('Next: open the highlight');
     expect(screen.getByText('You left this open.')).toBeInTheDocument();
     expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent('Memory compounds with review.');
     expect(screen.getByText('Source snippet')).toBeInTheDocument();
@@ -534,7 +537,6 @@ describe('WikiOpenSentence', () => {
       originalText: 'Memory compounds with review.',
       provisionalText: 'Memory compounds with review.',
       question: '',
-      returnNote: '',
       mark: '',
       placed: true,
       status: 'closed'

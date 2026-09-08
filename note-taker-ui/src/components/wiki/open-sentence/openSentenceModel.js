@@ -75,7 +75,7 @@ const asThen = (value, currentText, ...today) => {
 export const liveThen = (exploration) => asThen({
   ...(exploration?.then || {}),
   question: unlessSame(exploration?.then?.question, exploration?.question),
-  draft: unlessSame(exploration?.then?.draft, exploration?.returnNote)
+  draft: unlessSame(exploration?.then?.draft, exploration?.distinction)
 }, exploration?.originalText, exploration?.source, exploration?.other);
 
 export const createExploration = ({
@@ -95,7 +95,7 @@ export const createExploration = ({
     originalText: text,
     provisionalText: text,
     question: '',
-    returnNote: '',
+    distinction: '',
     mark: mark === '!' ? '!' : '',
     source: boundSource,
     other: boundOther,
@@ -371,9 +371,14 @@ export const essayWayHome = (exploration) => {
   return essay ? `An essay: ${essay.text.split(/\n/, 1)[0]}` : '';
 };
 
+export const liveDistinction = (exploration) => unlessSame(
+  exploration?.distinction,
+  exploration?.question
+);
+
 export const keepsClosedDraft = (exploration) => Boolean(
   String(exploration?.question || '').trim()
-  || String(exploration?.returnNote || '').trim()
+  || String(exploration?.distinction || '').trim()
   || exploration?.placed
   || liveProposal(exploration)
   || livePressure(exploration)
@@ -404,10 +409,13 @@ export const keepQuestion = (exploration, question) => ({
   question: String(question ?? '')
 });
 
-export const setReturnNote = (exploration, returnNote) => ({
-  ...exploration,
-  returnNote: String(returnNote ?? '')
-});
+export const setDistinction = (exploration, distinction) => {
+  const { returnNote: _legacyNote, ...rest } = exploration || {};
+  return {
+    ...rest,
+    distinction: String(distinction ?? '')
+  };
+};
 
 export const placeSource = (exploration) => {
   const source = exploration?.source;
@@ -471,9 +479,10 @@ export const restoreExploration = (raw, fallback) => {
         : EXPLORATION_STATUS.closed
     };
     const recorded = asThen(base.then, restored.originalText, restored.source, restored.other);
-    const { then: _ignoredThen, ...withoutThen } = restored;
+    const { then: _ignoredThen, returnNote: legacyNote, ...withoutThen } = restored;
     return {
       ...withoutThen,
+      distinction: asLine(withoutThen.distinction) || asLine(legacyNote),
       ...(recorded ? { then: recorded } : {}),
       proposal: liveProposal(restored),
       pressure: isPressured(restored) ? restored.pressure : null,
