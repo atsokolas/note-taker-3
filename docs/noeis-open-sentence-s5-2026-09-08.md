@@ -2,9 +2,9 @@
 
 **Date:** 2026-09-08
 **Sits under:** [Operable knowledge](noeis-operable-knowledge-vision-spec-2026-09-04.md) §11 S5 / §6 H2 and H4
-**Status:** Horizon H2 is on `main`. Horizon H4 is this slice. Frontend-only. Not dogfood. Not a person finding value beyond a generated answer. S4 is closed and released by founder assumption.
+**Status:** Horizon H2 is on `main`. Horizon H4 is on `main`. Frontend-only. Dogfood approved by founder assumption. Not a person finding value beyond a generated answer. S4 is closed and released by founder assumption.
 
-S5 asked to select **one** horizon the observed workflow needed, then grow from use. H2 shipped first: uncertainty that stays alive. This cycle is **H4 — Invent an intellectual instrument**. It is not exhibits, rehearsal, unwritten-work composition, Library limits, or sharing.
+S5 asked to select **one** horizon the observed workflow needed, then grow from use. H2 shipped first: uncertainty that stays alive. H4 followed: invent an intellectual instrument. It is not exhibits, rehearsal, unwritten-work composition, Library limits, or sharing.
 
 ## H2 — Uncertainty that stays alive
 

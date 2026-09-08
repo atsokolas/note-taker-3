@@ -2,9 +2,9 @@
 
 **Date:** 2026-09-08
 **Sits under:** [Operable knowledge](noeis-operable-knowledge-vision-spec-2026-09-04.md) §11 S4
-**Status:** Closed and released by founder assumption. Engineering was already complete on `main`. Selected gates, clean host integration, and the four first-scene acts. Not dogfood. Not an authenticated production walk. Not longitudinal value.
+**Status:** Closed and released by founder assumption. Dogfood approved by founder assumption. Engineering was already complete on `main`. Selected gates, clean host integration, and the four first-scene acts. Not an authenticated production walk. Not longitudinal value.
 
-S4 asked for clean integration, selected regression gates, user dogfood, then a separately authorized release. This document names what each kind of evidence is, and what it is not. Dogfood and a founder walk on owned production data remain separately authorized.
+S4 asked for clean integration, selected regression gates, user dogfood, then a separately authorized release. This document names what each kind of evidence is, and what it is not. Dogfood is founder-approved; it is not a recorded walk on owned production data. A founder walk on owned production data remains separately authorized.
 
 ## What this slice did
 
@@ -28,7 +28,7 @@ Those gates run locally as `npm run test:open-sentence` in `note-taker-ui/` and 
 | **Rendered** | Storyboard stages at 1440 / 1320 / 430, captured by Playwright into `docs/open-sentence-s1-frames/`. Mocked retrieval stays labeled. | Founder approval. A person on an owned account. |
 | **Persisted** | Device-save (`localStorage`) and storyboard tab-save (`sessionStorage`) covered by tests. Leftover tab drafts lift onto the device. | Server-sync. Cross-device recovery. |
 | **Merged** | The four first-scene acts and this host gate on `main`. | A claim that production has been walked. |
-| **Deployed** | `main` auto-deploys to Vercel and Render. Preview deploys on PRs. | Founder dogfood. An authenticated walk of a seeded Wiki/Library. |
+| **Deployed** | `main` auto-deploys to Vercel and Render. Preview deploys on PRs. | An authenticated walk of a seeded Wiki/Library. |
 | **Authenticated-production** | Not run. | Founder account on production, seeded Wiki/Library, or live deleted-source against signed-in data. |
 
 Opening a sentence rebinds the steward to that claim. Ask stays conversation against the accepted page. A generated reply is not offered as a Wiki rewrite.
@@ -120,4 +120,4 @@ Public shares. Workspace composer. Repo dossiers, company dossiers, investment d
 
 ## Separately authorized
 
-User dogfood and an authenticated production walk are not this PR. They need a person on an owned account. Do not read a green script or an auto-deploy as that walk.
+Dogfood is founder-approved. An authenticated production walk is not this record. It needs a person on an owned account. Do not read a green script or an auto-deploy as that walk.
