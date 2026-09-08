@@ -40,4 +40,10 @@ describe('open-sentence motion', () => {
   it('keeps Open findable on a coarse pointer without waiting for hover', () => {
     expect(css).toMatch(/@media \(pointer: coarse\)[\s\S]*?\.open-sentence__open\s*\{[\s\S]*?opacity:\s*0\.7;/);
   });
+
+  it('styles Read it fresh as a pocket button', () => {
+    expect(css).toMatch(
+      /\.open-sentence-pocket__actions button,\s*\.open-sentence-pocket__fresh,\s*\.open-sentence-pocket__close \{[\s\S]*?min-height:\s*44px/
+    );
+  });
 });

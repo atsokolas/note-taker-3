@@ -729,7 +729,6 @@ const OpenSentence = ({
   const closePocket = useCallback(() => {
     setPreviewing(false);
     setInspecting(false);
-    setFresh(false);
     onChange(closeExploration(exploration));
   }, [exploration, onChange]);
 
@@ -747,11 +746,9 @@ const OpenSentence = ({
   useEffect(() => {
     if (open && !wasOpen.current) {
       setLeftOpen(Boolean(String(exploration.question || '').trim()));
-    }
-    if (!open) {
-      setLeftOpen(false);
       setFresh(false);
     }
+    if (!open) setLeftOpen(false);
     wasOpen.current = open;
   }, [exploration.question, open]);
 

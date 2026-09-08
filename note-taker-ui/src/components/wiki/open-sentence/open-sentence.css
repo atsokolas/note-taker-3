@@ -361,6 +361,7 @@ mark.highlight.open-sentence__held.is-placed:not(.is-open)::before {
 .open-sentence-pocket__pressure > button,
 .open-sentence-pocket__meet > button,
 .open-sentence-pocket__actions button,
+.open-sentence-pocket__fresh,
 .open-sentence-pocket__close {
   min-height: 44px;
   padding: 0 14px;

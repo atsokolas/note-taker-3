@@ -925,6 +925,41 @@ describe('OpenSentence', () => {
     jest.useRealTimers();
   });
 
+  it('keeps writing hidden while the pocket recedes from a fresh reading', () => {
+    jest.useFakeTimers();
+    const onChange = jest.fn();
+    const opened = setDistinction(
+      keepQuestion(
+        openExploration(createExploration({
+          originalText: STORYBOARD_SENTENCE,
+          source: STORYBOARD_SOURCE
+        })),
+        STORYBOARD_QUESTION
+      ),
+      STORYBOARD_DISTINCTION
+    );
+    const board = (exploration) => (
+      <MemoryRouter>
+        <OpenSentence exploration={exploration} onChange={onChange} />
+      </MemoryRouter>
+    );
+    const { rerender } = render(board(opened));
+    fireEvent.click(screen.getByRole('button', { name: 'Read it fresh' }));
+    rerender(board(closeExploration(opened)));
+    expect(screen.queryByLabelText('Leave this open')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Try a narrower wording')).not.toBeInTheDocument();
+    expect(screen.getByText(STORYBOARD_SOURCE.passage)).toBeInTheDocument();
+    expect(document.querySelector('.open-sentence-pocket__fresh')).toHaveTextContent('Show what I wrote');
+    act(() => {
+      jest.advanceTimersByTime(320);
+    });
+    expect(screen.queryByLabelText('Try a narrower wording')).not.toBeInTheDocument();
+    rerender(board(opened));
+    expect(screen.getByLabelText('Leave this open')).toHaveValue(STORYBOARD_QUESTION);
+    expect(screen.getByRole('button', { name: 'Read it fresh' })).toBeInTheDocument();
+    jest.useRealTimers();
+  });
+
   it('proposes wording without changing the article, and can withdraw it', () => {
     const onChange = jest.fn();
     const exploration = openExploration(tryWording(
