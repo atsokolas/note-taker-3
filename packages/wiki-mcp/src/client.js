@@ -198,6 +198,23 @@ const normalizeArrayPayload = (payload, key) => {
   return [];
 };
 
+/* The API answers a refused token with a code. A code is not an instruction,
+   and an agent handed one has to guess what it means for the work it was
+   asked to do. */
+const authFailureMessage = (payload) => {
+  const code = String(payload?.error || '').toUpperCase();
+  if (code === 'AUTH_EXPIRED') {
+    return 'Your Noeis sign-in has expired, so this and every other Noeis call will be refused until it is renewed. Ask the reader to run `noeis connect openclaw` (or the runtime they use) to sign in again.';
+  }
+  if (code === 'AUTH_INVALID') {
+    return 'Noeis rejected this token as invalid. Ask the reader to run `noeis connect openclaw` (or the runtime they use) to reconnect.';
+  }
+  if (code === 'FORBIDDEN' || code === 'SCOPE_REQUIRED') {
+    return 'This token is not allowed to do that. A write needs a token with the agent-write scope.';
+  }
+  return 'Noeis refused this token. Ask the reader to reconnect, or check the token has the scope this call needs.';
+};
+
 export class NoeisApiError extends Error {
   constructor(message, { status = 0, body = null, retryAfter = null } = {}) {
     super(message);
@@ -270,9 +287,16 @@ export class NoeisClient {
       : (contentType.includes('application/json') ? await response.json() : await response.text());
 
     if (!response.ok) {
-      const message = typeof payload === 'object' && payload?.error
-        ? payload.error
-        : `Noeis API request failed with ${response.status}`;
+      /* A refused token is the one failure an agent cannot fix by trying again,
+         and the one it is most likely to misread. AUTH_EXPIRED with a 401 has
+         already been reported to a reader as "Noeis is returning 500, I can't
+         continue" — the server was fine and the sign-in had simply lapsed. So
+         the message says which it is and what to do about it. */
+      const message = response.status === 401 || response.status === 403
+        ? `${authFailureMessage(payload)} Noeis is reachable and nothing was changed.`
+        : (typeof payload === 'object' && payload?.error
+          ? payload.error
+          : `Noeis API request failed with ${response.status}`);
       throw new NoeisApiError(message, {
         status: response.status,
         body: payload,

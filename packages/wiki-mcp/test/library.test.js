@@ -198,6 +198,54 @@ const run = async () => {
     assert.deepStrictEqual(calls[0].body, { asFeed: true });
     assert.deepStrictEqual(screened, { id: 'f1', name: 'AI & Computing', asFeed: true, asFeedAt: '2026-09-08' });
   }
+
+  /* A refused token is the one failure retrying cannot fix, and the one most
+     likely to be misread: an expired sign-in was reported to a reader as
+     "Noeis is returning 500 Internal Server Error, I can't continue". */
+  {
+    const failing = async () => ({
+      ok: false,
+      status: 401,
+      headers: { get: (name) => (String(name).toLowerCase() === 'content-type' ? 'application/json' : null) },
+      json: async () => ({ error: 'AUTH_EXPIRED' }),
+      text: async () => '{"error":"AUTH_EXPIRED"}'
+    });
+    const client = new NoeisClient({ token: 't', env: {}, fetchImpl: failing });
+    const error = await client.getArticle({ articleId: 'a1' }).then(() => null, e => e);
+    assert.strictEqual(error.status, 401);
+    assert.match(error.message, /sign-in has expired/);
+    assert.match(error.message, /noeis connect/);
+    // And says the server is not the problem, so nobody reports an outage.
+    assert.match(error.message, /Noeis is reachable and nothing was changed/);
+  }
+
+  {
+    const failing = async () => ({
+      ok: false,
+      status: 403,
+      headers: { get: (name) => (String(name).toLowerCase() === 'content-type' ? 'application/json' : null) },
+      json: async () => ({ error: 'Only you can do that, not an agent.' }),
+      text: async () => '{}'
+    });
+    const client = new NoeisClient({ token: 't', env: {}, fetchImpl: failing });
+    const error = await client.getArticle({ articleId: 'a1' }).then(() => null, e => e);
+    assert.match(error.message, /refused this token/);
+  }
+
+  // Everything that is not an auth failure still reports what the API said.
+  {
+    const failing = async () => ({
+      ok: false,
+      status: 500,
+      headers: { get: (name) => (String(name).toLowerCase() === 'content-type' ? 'application/json' : null) },
+      json: async () => ({ error: 'Internal server error.' }),
+      text: async () => '{}'
+    });
+    const client = new NoeisClient({ token: 't', env: {}, fetchImpl: failing });
+    const error = await client.getArticle({ articleId: 'a1' }).then(() => null, e => e);
+    assert.strictEqual(error.status, 500);
+    assert.strictEqual(error.message, 'Internal server error.');
+  }
 };
 
 run().catch((error) => { console.error(error); process.exit(1); });
