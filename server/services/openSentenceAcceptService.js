@@ -35,7 +35,7 @@ const wikiAllowsOpenSentence = (page) => {
   const createdFrom = String(page?.createdFrom?.label || '').trim().toLowerCase();
   const repoWatch = page?.externalWatches?.githubRepo || {};
   if (
-    String(page?.pageType || '').toLowerCase() === 'repo'
+    ['repo', 'project', 'log'].includes(String(page?.pageType || '').toLowerCase())
     || String(page?.repoKey || '').trim()
     || String(repoWatch.owner || '').trim()
     || String(repoWatch.repo || '').trim()

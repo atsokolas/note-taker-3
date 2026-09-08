@@ -1,23 +1,24 @@
 # Open a sentence — S4 evidence
 
-**Date:** 2026-09-05
+**Date:** 2026-09-08
 **Sits under:** [Operable knowledge](noeis-operable-knowledge-vision-spec-2026-09-04.md) §11 S4
-**Status:** Selected regression gates and an honest evidence record. Not a production release. Not dogfood.
+**Status:** Engineering complete on `main`. Selected gates, clean host integration, and the four first-scene acts. Not dogfood. Not an authenticated production walk. Not longitudinal value.
 
-S4 asked for clean integration, selected regression gates, user dogfood, then a separately authorized release. This document names what each kind of evidence is, and what it is not.
+S4 asked for clean integration, selected regression gates, user dogfood, then a separately authorized release. This document names what each kind of evidence is, and what it is not. Dogfood and a founder walk on owned production data remain separately authorized.
 
 ## What this slice did
 
-The pocket already lives on owned ordinary Wiki reading and on a focused Library highlight. S4 names the host gate (`wikiAllowsOpenSentence`: ordinary projection, not workspace) and runs it beside the existing `standardWikiPage` flags so a specialized page cannot open by accident.
+The pocket lives on owned ordinary Wiki reading and on a focused Library highlight. The host gate is one function: `wikiAllowsOpenSentence` — ordinary projection, not workspace. Specialized pages (repo, project, log, living thesis, investment dossier, company dossier, research edition) cannot open by accident. The accept write uses the same ordinary-page rule. `standardWikiPage` still styles the article; it is not a second Open gate.
 
 Selected gates:
 
 - Pocket, journey, store, binding, and storyboard unit tests
 - Surface projection / host eligibility
-- Ordinary Wiki read shows Open without opening; workspace, living thesis, investment dossier, and repo dossier do not
+- Ordinary Wiki read shows Open without opening; workspace, living thesis, investment dossier, repo / project / log, and research edition do not
 - Public shares do not restore a private draft
+- Accept write refuses a specialized page
 
-Those gates run locally as `npm run test:open-sentence` in `note-taker-ui/`, and on pull requests that touch the pocket via `.github/workflows/open-sentence-regression.yml`.
+Those gates run locally as `npm run test:open-sentence` in `note-taker-ui/` and `npm run open-sentence:accept` at the repo root, and on pull requests and `main` via `.github/workflows/open-sentence-regression.yml`.
 
 ## Evidence, distinguished
 
@@ -26,8 +27,8 @@ Those gates run locally as `npm run test:open-sentence` in `note-taker-ui/`, and
 | **Local** | Jest in jsdom, including the storyboard journey and the host/share gates. | A person at a real width. |
 | **Rendered** | Storyboard stages at 1440 / 1320 / 430, captured by Playwright into `docs/open-sentence-s1-frames/`. Mocked retrieval stays labeled. | Founder approval. A person on an owned account. |
 | **Persisted** | Device-save (`localStorage`) and storyboard tab-save (`sessionStorage`) covered by tests. Leftover tab drafts lift onto the device. | Server-sync. Cross-device recovery. |
-| **Merged** | This branch / PR only. | `main`. |
-| **Deployed** | Vercel preview of the PR, when that check is green. | https://www.noeis.io. |
+| **Merged** | The four first-scene acts and this host gate on `main`. | A claim that production has been walked. |
+| **Deployed** | `main` auto-deploys to Vercel and Render. Preview deploys on PRs. | Founder dogfood. An authenticated walk of a seeded Wiki/Library. |
 | **Authenticated-production** | Not run. | Founder account on production, seeded Wiki/Library, or live deleted-source against signed-in data. |
 
 Opening a sentence rebinds the steward to that claim. Ask stays conversation against the accepted page. A generated reply is not offered as a Wiki rewrite.
@@ -119,4 +120,4 @@ Public shares. Workspace composer. Repo dossiers, company dossiers, investment d
 
 ## Separately authorized
 
-User dogfood and production release are not this PR. They need a person on an owned account, then a distinct authorization to merge and ship.
+User dogfood and an authenticated production walk are not this PR. They need a person on an owned account. Do not read a green script or an auto-deploy as that walk.

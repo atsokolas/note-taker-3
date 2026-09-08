@@ -2529,7 +2529,7 @@ const WikiPageReadView = ({
     && !investmentDossierPage
     && !livingThesisPage
     && !companyDossier;
-  const openSentenceEnabled = wikiAllowsOpenSentence(page, { workspaceMode }) && standardWikiPage;
+  const openSentenceEnabled = wikiAllowsOpenSentence(page, { workspaceMode });
   const specializedWorkflowPage = !standardWikiPage && !weekendReadingsPage;
   const standardPageFacts = standardWikiPage ? [
     labelFor(page.pageType || 'topic'),

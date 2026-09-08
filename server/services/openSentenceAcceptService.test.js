@@ -33,6 +33,8 @@ const ordinaryPage = ({ claimText = 'Children need room to make mistakes.', ...e
 
 assert.equal(wikiAllowsOpenSentence(ordinaryPage()), true);
 assert.equal(wikiAllowsOpenSentence({ pageType: 'repo' }), false);
+assert.equal(wikiAllowsOpenSentence({ pageType: 'project' }), false);
+assert.equal(wikiAllowsOpenSentence({ pageType: 'log' }), false);
 assert.equal(wikiAllowsOpenSentence({ judgment: { kind: 'living_thesis' } }), false);
 assert.equal(wikiAllowsOpenSentence({ investmentDossier: { version: 1 } }), false);
 assert.equal(wikiAllowsOpenSentence({ createdFrom: { label: 'weekend-readings:2026-09-05' } }), false);

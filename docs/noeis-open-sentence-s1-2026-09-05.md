@@ -159,7 +159,7 @@ Public shares, workspace, dossiers, and editions stay closed. A second ordinary 
 
 The host gate is `wikiAllowsOpenSentence`: an owned ordinary Wiki in read mode. Specialized projections and the workspace composer stay closed. Public shares do not restore a private draft. Selected Jest gates run as `npm run test:open-sentence` in `note-taker-ui/`, and the accept write as `npm run open-sentence:accept` at the repo root.
 
-That is local, Playwright-rendered storyboard frames, and (when the PR check is green) preview-deployed evidence. It is not merged to `main`, not production, not dogfood, and not longitudinal value. See [S4 evidence](noeis-open-sentence-s4-2026-09-05.md).
+That is local, Playwright-rendered storyboard frames, device-persisted drafts, and merged-to-`main` evidence. `main` auto-deploys. It is not dogfood, not an authenticated production walk, and not longitudinal value. See [S4 evidence](noeis-open-sentence-s4-2026-09-05.md).
 
 ## Exit for this stage
 
