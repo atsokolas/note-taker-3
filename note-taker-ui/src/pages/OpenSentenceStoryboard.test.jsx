@@ -19,7 +19,13 @@ import {
   STORYBOARD_PROVISIONAL,
   STORYBOARD_QUESTION,
   STORYBOARD_DISTINCTION,
+  STORYBOARD_EXHIBIT_NAME,
+  STORYBOARD_EXHIBIT_OTHER,
+  STORYBOARD_EXHIBIT_THIS,
   STORYBOARD_INSTRUMENT_NAME,
+  STORYBOARD_REHEARSAL,
+  STORYBOARD_UNWRITTEN,
+  STORYBOARD_UNWRITTEN_GAP,
   STORYBOARD_SCOPE,
   STORYBOARD_SENTENCE,
   STORYBOARD_SOURCE,
@@ -326,6 +332,60 @@ describe('OpenSentenceStoryboard', () => {
       screen.getByText('The instrument sits beside this sentence. It does not rewrite the article.')
     ).toBeInTheDocument();
     expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
+  });
+
+  it('keeps two readings as an exhibit without writing', () => {
+    renderBoard();
+    fireEvent.click(screen.getByRole('button', { name: 'Exhibit' }));
+    expect(screen.getByRole('heading', { name: 'Parenting' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: STORYBOARD_SENTENCE })).toBeInTheDocument();
+    expect(screen.getByText(/An exhibit, not evidence/)).toHaveTextContent(STORYBOARD_EXHIBIT_NAME);
+    expect(screen.getByLabelText('This way')).toHaveValue(STORYBOARD_EXHIBIT_THIS);
+    expect(screen.getByLabelText('The other way')).toHaveValue(STORYBOARD_EXHIBIT_OTHER);
+    fireEvent.click(screen.getByRole('button', { name: 'Show the other way' }));
+    expect(screen.getByRole('button', { name: 'Show the other way' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByText(/The article still reads/)).toHaveTextContent(STORYBOARD_SENTENCE);
+    expect(
+      screen.getByText('The exhibit is an illustration. It is not evidence.')
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
+  });
+
+  it('lets the person try saying it without a grade', () => {
+    renderBoard();
+    fireEvent.click(screen.getByRole('button', { name: 'Rehearse' }));
+    expect(screen.getByRole('heading', { name: 'Parenting' })).toBeInTheDocument();
+    expect(screen.getByText('A rehearsal, not a grade.')).toBeInTheDocument();
+    expect(screen.getByLabelText('Try saying it')).toHaveValue(STORYBOARD_REHEARSAL);
+    expect(screen.getByText('Still beside this explanation.')).toBeInTheDocument();
+    expect(screen.getByText(/The article still reads/)).toHaveTextContent(STORYBOARD_SENTENCE);
+    expect(screen.getByText('The explanation is yours. It is not a grade.')).toBeInTheDocument();
+    expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
+  });
+
+  it('names unwritten work without ghostwriting the article', () => {
+    renderBoard();
+    fireEvent.click(screen.getByRole('button', { name: 'Unwritten' }));
+    expect(screen.getByRole('heading', { name: 'Parenting' })).toBeInTheDocument();
+    expect(screen.getByText('Unwritten work, not the article.')).toBeInTheDocument();
+    expect(screen.getByLabelText('What this collection could become')).toHaveValue(STORYBOARD_UNWRITTEN);
+    expect(screen.getByLabelText('What still stops it')).toHaveValue(STORYBOARD_UNWRITTEN_GAP);
+    expect(screen.getByText(/The article still reads/)).toHaveTextContent(STORYBOARD_SENTENCE);
+    expect(screen.getByText('This is not the article. The gap stays a gap.')).toBeInTheDocument();
+    expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
+  });
+
+  it('sets the Nomad source aside without deleting it', () => {
+    renderBoard();
+    fireEvent.click(screen.getByRole('button', { name: 'Limits' }));
+    expect(screen.getByRole('heading', { name: 'Parenting' })).toBeInTheDocument();
+    expect(screen.queryByText(STORYBOARD_SOURCE.passage)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: STORYBOARD_SENTENCE })).toBeInTheDocument();
+    expect(screen.getByText(/The article still reads/)).toHaveTextContent(STORYBOARD_SENTENCE);
+    expect(screen.getByRole('button', { name: 'Bring Nomad back' })).toBeInTheDocument();
+    expect(screen.getByText('The source is set aside. It is not deleted.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Bring Nomad back' }));
+    expect(screen.getByText(STORYBOARD_SOURCE.passage)).toBeInTheDocument();
   });
 
   it('sets the Parenting paragraph aside without deleting it', () => {

@@ -1,10 +1,10 @@
 # Open a sentence — S5: grow from use
 
 **Date:** 2026-09-08
-**Sits under:** [Operable knowledge](noeis-operable-knowledge-vision-spec-2026-09-04.md) §11 S5 / §6 H2 and H4
-**Status:** Horizon H2 is on `main`. Horizon H4 is on `main`. Frontend-only. Dogfood approved by founder assumption. Not a person finding value beyond a generated answer. S4 is closed and released by founder assumption.
+**Sits under:** [Operable knowledge](noeis-operable-knowledge-vision-spec-2026-09-04.md) §11 S5 / §6 H1–H5
+**Status:** Horizons H1–H5 are on this walk. Frontend-only. Dogfood approved by founder assumption. Not a person finding value beyond a generated answer. S4 is closed and released by founder assumption. Library limits are [S6](noeis-open-sentence-s6-2026-09-08.md).
 
-S5 asked to select **one** horizon the observed workflow needed, then grow from use. H2 shipped first: uncertainty that stays alive. H4 followed: invent an intellectual instrument. It is not exhibits, rehearsal, unwritten-work composition, Library limits, or sharing.
+S5 asked to select **one** horizon the observed workflow needed, then grow from use. H2 shipped first: uncertainty that stays alive. H4 followed: invent an intellectual instrument. The unused S5 horizons from that same pocket grammar are here: a working exhibit, a rehearsal, and unwritten work. They are not Library limits or sharing.
 
 ## H2 — Uncertainty that stays alive
 
@@ -38,6 +38,28 @@ Library may keep and apply (their thinking). It still cannot propose or accept a
 
 The storyboard Instrument beat is Compute with **Room to be wrong** already applied. Leave-open still shows Keep on Parenting when the distinction is live and not yet this definition.
 
+## H1 — Working exhibits
+
+Parenting does not want a compounding calculator. It wants two named readings of the same material, switched in place, labeled as an illustration.
+
+Keep this as an exhibit when a source or another passage is inspectable. Name it. Write this way, and the other way. Show one at a time. Switching does not write the article. The caption is “An exhibit, not evidence.” Empty pending is not a kept closed draft. Identical readings are not live.
+
+Noeis does not generate the readings, claim evidence, or attach a formula the person did not write.
+
+## H3 — Rehearse with your knowledge
+
+“I need to explain this tomorrow. Let me try first.” Try saying it. The attempt stays theirs. There is no grade, no generated gap question, and no celebrity voice.
+
+If a bound source (or the other passage) does not overlap that attempt, it can sit as “Still beside this explanation.” A source set aside for Library limits does not reappear there. Empty pending is not a kept closed draft. Clearing the attempt unmakes it.
+
+## H5 — Discover the unwritten work
+
+Ask what this collection could become that no one source contains. Optionally name what still stops it. Do not auto-fill from Leave-this-open. That question stays H2.
+
+Live when the organizing question is non-empty. Clearing it unmakes the work. The gap may stay empty. The caption is “Unwritten work, not the article.” Noeis does not ghostwrite a thesis.
+
+Library may keep all three. It still cannot propose or accept a Wiki write.
+
 ## Taste pass
 
 **Named distinction**
@@ -65,8 +87,23 @@ The storyboard Instrument beat is Compute with **Room to be wrong** already appl
 - Quality bar: name and definition stay. `against` becomes this line. The article is unchanged. A different live distinction is not overwritten. Earlier applications retain their version.
 - Silence: no held name → no Apply; already applied here → no second Apply; a different live distinction → no Apply; a pending snapshot on this line → no Apply; failed/moved line drops restore. Opening a sentence does not auto-apply. Filler is never the answer.
 
+**Keep this as an exhibit**
+- Eligibility: an opened sentence with an inspectable source or another inspectable passage, and no pending exhibit on this line.
+- Quality bar: two readings the person writes. A name is optional. Switching the shown way does not write the article. Caption: an exhibit, not evidence. Identity `against` is the current accepted line.
+- Silence: no inspectable source or other → no Keep; identical or empty readings are not live and are not a kept draft; a moved line drops restore. No generated readings, formulas, or evidence claim. Filler is never the answer.
+
+**Try saying it**
+- Eligibility: an opened sentence with no pending rehearsal on this line.
+- Quality bar: their attempt. No grade. A source or other sits beside it only when it does not overlap the attempt, and only when that source is not set aside.
+- Silence: empty attempt is not live and is not a kept draft; clearing the attempt unmakes it; overlapping source stays quiet; a moved line drops restore. No generated gap question. Filler is never the answer.
+
+**Keep this as unwritten work**
+- Eligibility: an opened sentence with no pending unwritten work on this line.
+- Quality bar: an organizing question they type. An optional gap. Not copied from Leave-this-open. Not the article.
+- Silence: empty question is not live and is not a kept draft; clearing the question unmakes it; a moved line drops restore. No ghostwritten thesis. Filler is never the answer.
+
 ## What stays closed
 
-Exhibits. Rehearsal. Unwritten-work composition. Library limits. Sharing. Server-sync. Public shares. Generated warrant.
+Library limits. Sharing. Server-sync. Public shares. Generated warrant.
 
 A person finding understanding beyond a generated answer remains separately authorized.

@@ -7,19 +7,27 @@ import {
   beginPressure,
   bringParagraphBackLabel,
   bringTheParagraphBack,
+  bringSourceBackLabel,
+  bringTheSourceBack,
   canApplyInstrument,
+  canKeepAsExhibit,
   canKeepAsInstrument,
+  canKeepAsRehearsal,
+  canKeepAsUnwritten,
   canKeepBetweenAsEssay,
   canKeepBetweenAsExperiment,
   canMakeThisTheTitle,
   canProposeBetween,
   canProposeWording,
+  canTryWithoutSource,
   changedWordSpans,
   closeExploration,
+  closedWayHome,
   createExploration,
   endMeet,
   endPressure,
   essayWayHome,
+  exhibitWayHome,
   forgetExperiment,
   formatNamedOn,
   hasPersonalWork,
@@ -27,8 +35,12 @@ import {
   isPressured,
   isRearranged,
   isWithoutParagraph,
+  isWithoutSource,
   applyInstrument,
+  keepAsExhibit,
   keepAsInstrument,
+  keepAsRehearsal,
+  keepAsUnwritten,
   keepBetweenAsEssay,
   keepBetweenAsExperiment,
   keepPressureName,
@@ -36,20 +48,28 @@ import {
   keepQuestion,
   keepsClosedDraft,
   leaveEssay,
+  leaveExhibit,
   leaveInstrument,
   leaveMark,
+  leaveRehearsal,
+  leaveUnwritten,
   liveBearing,
   liveDistinction,
   liveEssay,
+  liveExhibit,
   liveInstrument,
   liveMeet,
   livePressure,
   liveProposal,
+  liveRehearsal,
   liveThen,
+  liveUnwritten,
   namedOn,
   meetWayHome,
   openExploration,
   pendingInstrument,
+  rehearsalStillBeside,
+  rehearsalWayHome,
   placeSource,
   pressurePassages,
   pressureWayHome,
@@ -58,19 +78,25 @@ import {
   putThemBack,
   restoreExploration,
   setDistinction,
+  setExhibitFields,
   setInstrumentName,
   setMeetField,
   setPressureField,
+  setRehearsalAttempt,
+  setUnwrittenField,
   snapshotExploration,
   sourceClip,
+  showExhibitWay,
   tryTheOtherWay,
   tryWithoutThisParagraph,
+  tryWithoutThisSource,
   tryWording,
+  unwrittenWayHome,
   wikiAcceptedText,
   withdrawProposal,
   wordingChanged
 } from './openSentenceModel';
-import { STORYBOARD_BEARING_SOURCE, STORYBOARD_COMPUTE_SENTENCE, STORYBOARD_COMPUTE_SOURCE, STORYBOARD_DISTINCTION, STORYBOARD_INSTRUMENT_NAME, STORYBOARD_LIBRARY_SOURCE, STORYBOARD_MEET_LIMIT, STORYBOARD_MEET_RELATION, STORYBOARD_MEET_SOURCE, STORYBOARD_QUESTION, STORYBOARD_SENTENCE, STORYBOARD_SOURCE, STORYBOARD_STALE_SOURCE, STORYBOARD_THEN_BESIDE, STORYBOARD_THEN_NOW, STORYBOARD_THEN_ORIGINAL, STORYBOARD_THEN_QUESTION, STORYBOARD_THEN_QUOTATION } from './openSentenceStoryboardFixture';
+import { STORYBOARD_BEARING_SOURCE, STORYBOARD_COMPUTE_SENTENCE, STORYBOARD_COMPUTE_SOURCE, STORYBOARD_DISTINCTION, STORYBOARD_EXHIBIT_NAME, STORYBOARD_EXHIBIT_OTHER, STORYBOARD_EXHIBIT_THIS, STORYBOARD_INSTRUMENT_NAME, STORYBOARD_LIBRARY_SOURCE, STORYBOARD_MEET_LIMIT, STORYBOARD_MEET_RELATION, STORYBOARD_MEET_SOURCE, STORYBOARD_QUESTION, STORYBOARD_REHEARSAL, STORYBOARD_SENTENCE, STORYBOARD_SOURCE, STORYBOARD_STALE_SOURCE, STORYBOARD_THEN_BESIDE, STORYBOARD_THEN_NOW, STORYBOARD_THEN_ORIGINAL, STORYBOARD_THEN_QUESTION, STORYBOARD_THEN_QUOTATION, STORYBOARD_UNWRITTEN, STORYBOARD_UNWRITTEN_GAP } from './openSentenceStoryboardFixture';
 
 const renderOpen = (exploration, onChange = jest.fn()) => render(
   <MemoryRouter>
@@ -788,6 +814,111 @@ describe('openSentenceModel', () => {
     expect(applyInstrument(applied, held)).toBe(applied);
     expect(applyInstrument(compute, { name: '', definition: STORYBOARD_DISTINCTION })).toBe(compute);
     expect(forgetExperiment(titled).instrument).toBeUndefined();
+  });
+
+  it('lets an exhibit, a rehearsal, unwritten work, and a set-aside source sit beside the line', () => {
+    const start = openExploration(createExploration({
+      originalText: STORYBOARD_SENTENCE,
+      source: STORYBOARD_SOURCE
+    }));
+    expect(canKeepAsExhibit(start)).toBe(true);
+    expect(canKeepAsExhibit(createExploration({ originalText: STORYBOARD_SENTENCE }))).toBe(false);
+    const exhibited = setExhibitFields(keepAsExhibit(start), {
+      name: STORYBOARD_EXHIBIT_NAME,
+      thisWay: STORYBOARD_EXHIBIT_THIS,
+      otherWay: STORYBOARD_EXHIBIT_OTHER
+    });
+    expect(liveExhibit(exhibited)).toEqual({
+      against: STORYBOARD_SENTENCE,
+      name: STORYBOARD_EXHIBIT_NAME,
+      thisWay: STORYBOARD_EXHIBIT_THIS,
+      otherWay: STORYBOARD_EXHIBIT_OTHER,
+      showing: 'this'
+    });
+    expect(wikiAcceptedText(showExhibitWay(exhibited, 'other'))).toBe(STORYBOARD_SENTENCE);
+    expect(exhibitWayHome(exhibited)).toBe(`An exhibit: ${STORYBOARD_EXHIBIT_NAME}`);
+    expect(exhibitWayHome(setExhibitFields(keepAsExhibit(start), {
+      thisWay: STORYBOARD_EXHIBIT_THIS,
+      otherWay: STORYBOARD_EXHIBIT_OTHER
+    }))).toBe(`An exhibit: ${STORYBOARD_EXHIBIT_THIS}`);
+    expect(liveExhibit(setExhibitFields(keepAsExhibit(start), {
+      thisWay: STORYBOARD_EXHIBIT_THIS,
+      otherWay: STORYBOARD_EXHIBIT_THIS
+    }))).toBeNull();
+    expect(keepsClosedDraft(closeExploration(keepAsExhibit(start)))).toBe(false);
+    expect(keepsClosedDraft(closeExploration(setExhibitFields(keepAsExhibit(start), {
+      thisWay: STORYBOARD_EXHIBIT_THIS,
+      otherWay: STORYBOARD_EXHIBIT_THIS
+    })))).toBe(false);
+    expect(keepsClosedDraft(closeExploration(exhibited))).toBe(true);
+    expect(liveExhibit(leaveExhibit(exhibited))).toBeNull();
+    expect(liveExhibit(restoreExploration(snapshotExploration(exhibited), start))).toEqual(
+      liveExhibit(exhibited)
+    );
+    expect(liveExhibit(restoreExploration(snapshotExploration(exhibited), {
+      ...start,
+      originalText: 'Children need room to make recoverable mistakes.'
+    }))).toBeNull();
+    expect(forgetExperiment(exhibited).exhibit).toBeUndefined();
+
+    expect(canKeepAsRehearsal(start)).toBe(true);
+    const rehearsed = setRehearsalAttempt(keepAsRehearsal(start), STORYBOARD_REHEARSAL);
+    expect(liveRehearsal(rehearsed).attempt).toBe(STORYBOARD_REHEARSAL);
+    expect(rehearsalStillBeside(rehearsed).passage).toBe(STORYBOARD_SOURCE.passage);
+    expect(rehearsalStillBeside(tryWithoutThisSource(rehearsed))).toBeNull();
+    expect(rehearsalStillBeside(setRehearsalAttempt(
+      keepAsRehearsal(start),
+      STORYBOARD_SOURCE.passage
+    ))).toBeNull();
+    expect(rehearsalWayHome(rehearsed)).toBe(`A rehearsal: ${STORYBOARD_REHEARSAL}`);
+    expect(setRehearsalAttempt(keepAsRehearsal(start), '')).toEqual(leaveRehearsal(keepAsRehearsal(start)));
+    expect(keepsClosedDraft(closeExploration(keepAsRehearsal(start)))).toBe(false);
+    expect(wikiAcceptedText(rehearsed)).toBe(STORYBOARD_SENTENCE);
+    expect(liveRehearsal(restoreExploration(snapshotExploration(rehearsed), start))).toEqual(
+      liveRehearsal(rehearsed)
+    );
+
+    const drafted = setUnwrittenField(
+      setUnwrittenField(keepAsUnwritten(start), 'question', STORYBOARD_UNWRITTEN),
+      'gap',
+      STORYBOARD_UNWRITTEN_GAP
+    );
+    expect(liveUnwritten(drafted)).toEqual({
+      against: STORYBOARD_SENTENCE,
+      question: STORYBOARD_UNWRITTEN,
+      gap: STORYBOARD_UNWRITTEN_GAP
+    });
+    expect(unwrittenWayHome(drafted)).toBe(`Unwritten: ${STORYBOARD_UNWRITTEN}`);
+    expect(canKeepAsUnwritten(drafted)).toBe(false);
+    expect(setUnwrittenField(keepAsUnwritten(start), 'question', '')).toEqual(
+      leaveUnwritten(keepAsUnwritten(start))
+    );
+    expect(wikiAcceptedText(drafted)).toBe(STORYBOARD_SENTENCE);
+    expect(liveUnwritten(restoreExploration(snapshotExploration(drafted), start))).toEqual(
+      liveUnwritten(drafted)
+    );
+
+    expect(canTryWithoutSource(start)).toBe(true);
+    expect(canTryWithoutSource(createExploration({ originalText: STORYBOARD_SENTENCE }))).toBe(false);
+    const aside = tryWithoutThisSource(start);
+    expect(isWithoutSource(aside)).toBe(true);
+    expect(aside.originalText).toBe(STORYBOARD_SENTENCE);
+    expect(bringTheSourceBack(aside)).toEqual(start);
+    expect(bringSourceBackLabel(aside)).toBe('Bring Nomad back');
+    expect(isWithoutSource(closeExploration(aside))).toBe(false);
+    expect(keepsClosedDraft(closeExploration(aside))).toBe(false);
+    expect(isWithoutSource(restoreExploration(snapshotExploration(aside), start))).toBe(true);
+    expect(isWithoutSource(restoreExploration(
+      snapshotExploration(closeExploration(aside)),
+      start
+    ))).toBe(false);
+    expect(isWithoutSource(restoreExploration(snapshotExploration(aside), createExploration({
+      originalText: 'The line moved on.',
+      source: STORYBOARD_SOURCE
+    })))).toBe(false);
+    expect(closedWayHome(closeExploration(exhibited))).toBe(`An exhibit: ${STORYBOARD_EXHIBIT_NAME}`);
+    expect(closedWayHome(closeExploration(rehearsed))).toBe(`A rehearsal: ${STORYBOARD_REHEARSAL}`);
+    expect(closedWayHome(closeExploration(drafted))).toBe(`Unwritten: ${STORYBOARD_UNWRITTEN}`);
   });
 
   it('lets two recorded passages swap order without inventing an argument', () => {
@@ -2059,6 +2190,145 @@ describe('OpenSentence', () => {
     fireEvent.click(screen.getByRole('button', { name: `An instrument: ${STORYBOARD_INSTRUMENT_NAME}` }));
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ status: 'open' }));
     expect(screen.getByRole('button', { name: STORYBOARD_COMPUTE_SENTENCE })).toBeInTheDocument();
+  });
+
+  it('lets two readings be kept as an exhibit without writing', () => {
+    const onChange = jest.fn();
+    const opened = openExploration(createExploration({
+      originalText: STORYBOARD_SENTENCE,
+      source: STORYBOARD_SOURCE
+    }));
+    const { rerender } = renderOpen(opened, onChange);
+    fireEvent.click(screen.getByRole('button', { name: 'Keep this as an exhibit' }));
+    expect(onChange).toHaveBeenCalledWith(keepAsExhibit(opened));
+    const both = setExhibitFields(keepAsExhibit(opened), {
+      name: STORYBOARD_EXHIBIT_NAME,
+      thisWay: STORYBOARD_EXHIBIT_THIS,
+      otherWay: STORYBOARD_EXHIBIT_OTHER
+    });
+    rerender(
+      <MemoryRouter>
+        <OpenSentence exploration={both} onChange={onChange} mocked />
+      </MemoryRouter>
+    );
+    expect(screen.getByText(/An exhibit, not evidence/)).toHaveTextContent(STORYBOARD_EXHIBIT_NAME);
+    expect(screen.getByLabelText('This way')).toHaveValue(STORYBOARD_EXHIBIT_THIS);
+    expect(screen.getByLabelText('The other way')).toHaveValue(STORYBOARD_EXHIBIT_OTHER);
+    fireEvent.click(screen.getByRole('button', { name: 'Show the other way' }));
+    expect(onChange).toHaveBeenCalledWith(showExhibitWay(both, 'other'));
+    rerender(
+      <MemoryRouter>
+        <OpenSentence exploration={showExhibitWay(both, 'other')} onChange={onChange} mocked />
+      </MemoryRouter>
+    );
+    expect(screen.getByRole('button', { name: 'Show the other way' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: STORYBOARD_SENTENCE })).toBeInTheDocument();
+    expect(screen.getByText(/The article still reads/)).toHaveTextContent(STORYBOARD_SENTENCE);
+    expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
+  });
+
+  it('lets the person try saying it without a grade', () => {
+    const onChange = jest.fn();
+    const opened = openExploration(createExploration({
+      originalText: STORYBOARD_SENTENCE,
+      source: STORYBOARD_SOURCE
+    }));
+    const { rerender } = renderOpen(opened, onChange);
+    fireEvent.click(screen.getByRole('button', { name: 'Try saying it' }));
+    expect(onChange).toHaveBeenCalledWith(keepAsRehearsal(opened));
+    const rehearsed = setRehearsalAttempt(keepAsRehearsal(opened), STORYBOARD_REHEARSAL);
+    rerender(
+      <MemoryRouter>
+        <OpenSentence exploration={rehearsed} onChange={onChange} mocked />
+      </MemoryRouter>
+    );
+    expect(screen.getByText('A rehearsal, not a grade.')).toBeInTheDocument();
+    expect(screen.getByLabelText('Try saying it')).toHaveValue(STORYBOARD_REHEARSAL);
+    expect(screen.getByText('Still beside this explanation.')).toBeInTheDocument();
+    expect(screen.getByText(/The article still reads/)).toHaveTextContent(STORYBOARD_SENTENCE);
+    expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
+  });
+
+  it('names unwritten work without ghostwriting the article', () => {
+    const onChange = jest.fn();
+    const opened = openExploration(createExploration({
+      originalText: STORYBOARD_SENTENCE,
+      source: STORYBOARD_SOURCE
+    }));
+    const { rerender } = renderOpen(opened, onChange);
+    fireEvent.click(screen.getByRole('button', { name: 'Keep this as unwritten work' }));
+    expect(onChange).toHaveBeenCalledWith(keepAsUnwritten(opened));
+    const drafted = setUnwrittenField(
+      setUnwrittenField(keepAsUnwritten(opened), 'question', STORYBOARD_UNWRITTEN),
+      'gap',
+      STORYBOARD_UNWRITTEN_GAP
+    );
+    rerender(
+      <MemoryRouter>
+        <OpenSentence exploration={drafted} onChange={onChange} mocked />
+      </MemoryRouter>
+    );
+    expect(screen.getByText('Unwritten work, not the article.')).toBeInTheDocument();
+    expect(screen.getByLabelText('What this collection could become')).toHaveValue(STORYBOARD_UNWRITTEN);
+    expect(screen.getByLabelText('What still stops it')).toHaveValue(STORYBOARD_UNWRITTEN_GAP);
+    expect(screen.getByText(/The article still reads/)).toHaveTextContent(STORYBOARD_SENTENCE);
+    expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
+  });
+
+  it('hides the bound source in the pocket and brings it back by name', () => {
+    const onChange = jest.fn();
+    const opened = openExploration(createExploration({
+      originalText: STORYBOARD_SENTENCE,
+      source: STORYBOARD_SOURCE
+    }));
+    const { rerender } = renderOpen(opened, onChange);
+    expect(screen.getByText(STORYBOARD_SOURCE.passage)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Try without this source' }));
+    expect(onChange).toHaveBeenCalledWith(tryWithoutThisSource(opened));
+    rerender(
+      <MemoryRouter>
+        <OpenSentence exploration={tryWithoutThisSource(opened)} onChange={onChange} mocked />
+      </MemoryRouter>
+    );
+    expect(screen.queryByText(STORYBOARD_SOURCE.passage)).not.toBeInTheDocument();
+    expect(screen.getByText('This source is set aside. Support that remains is this sentence.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: STORYBOARD_SENTENCE })).toBeInTheDocument();
+    expect(screen.getByText(/The article still reads/)).toHaveTextContent(STORYBOARD_SENTENCE);
+    fireEvent.click(screen.getByRole('button', { name: 'Bring Nomad back' }));
+    expect(onChange).toHaveBeenCalledWith(bringTheSourceBack(tryWithoutThisSource(opened)));
+  });
+
+  it('does not offer an exhibit or a set-aside source when nothing is bound', () => {
+    renderOpen(openExploration(createExploration({ originalText: STORYBOARD_SENTENCE })));
+    expect(screen.queryByRole('button', { name: 'Keep this as an exhibit' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Try without this source' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Try saying it' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Keep this as unwritten work' })).toBeInTheDocument();
+  });
+
+  it('lets a live exhibit, rehearsal, or unwritten work be the way home', () => {
+    const opened = openExploration(createExploration({
+      originalText: STORYBOARD_SENTENCE,
+      source: STORYBOARD_SOURCE
+    }));
+    const onChange = jest.fn();
+    const closed = (exploration) => (
+      <MemoryRouter>
+        <OpenSentence exploration={closeExploration(exploration)} onChange={onChange} />
+      </MemoryRouter>
+    );
+    const { rerender } = render(closed(setExhibitFields(keepAsExhibit(opened), {
+      name: STORYBOARD_EXHIBIT_NAME,
+      thisWay: STORYBOARD_EXHIBIT_THIS,
+      otherWay: STORYBOARD_EXHIBIT_OTHER
+    })));
+    fireEvent.click(screen.getByRole('button', { name: `An exhibit: ${STORYBOARD_EXHIBIT_NAME}` }));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ status: 'open' }));
+    expect(screen.getByRole('button', { name: STORYBOARD_SENTENCE })).toBeInTheDocument();
+    rerender(closed(setRehearsalAttempt(keepAsRehearsal(opened), STORYBOARD_REHEARSAL)));
+    expect(screen.getByRole('button', { name: `A rehearsal: ${STORYBOARD_REHEARSAL}` })).toBeInTheDocument();
+    rerender(closed(setUnwrittenField(keepAsUnwritten(opened), 'question', STORYBOARD_UNWRITTEN)));
+    expect(screen.getByRole('button', { name: `Unwritten: ${STORYBOARD_UNWRITTEN}` })).toBeInTheDocument();
   });
 
   it('is already still when stillness is asked for', () => {

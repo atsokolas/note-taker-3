@@ -221,6 +221,41 @@ describe('WikiOpenSentence', () => {
     expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
   });
 
+  it('lets an exhibit, a rehearsal, unwritten work, and a set-aside source sit beside the claim without writing', () => {
+    renderWikiSentence();
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Keep this as an exhibit' }));
+    fireEvent.change(screen.getByLabelText('Name this exhibit'), {
+      target: { value: 'Review that compounds, or review that piles' }
+    });
+    fireEvent.change(screen.getByLabelText('This way'), {
+      target: { value: 'A later pass can still find the earlier one.' }
+    });
+    fireEvent.change(screen.getByLabelText('The other way'), {
+      target: { value: 'A pile of notes does not compound.' }
+    });
+    expect(screen.getByText(/An exhibit, not evidence/)).toHaveTextContent(
+      'Review that compounds, or review that piles'
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Try saying it' }));
+    fireEvent.change(screen.getByLabelText('Try saying it'), {
+      target: { value: 'Review works when a later pass can still find the first.' }
+    });
+    expect(screen.getByText('A rehearsal, not a grade.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Keep this as unwritten work' }));
+    fireEvent.change(screen.getByLabelText('What this collection could become'), {
+      target: { value: 'Who does the reviewing, and who only stores the notes?' }
+    });
+    expect(screen.getByText('Unwritten work, not the article.')).toBeInTheDocument();
+    expect(screen.getAllByText('Source snippet').length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole('button', { name: 'Try without this source' }));
+    expect(screen.queryByText('Source snippet')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Bring Memory article back' })).toBeInTheDocument();
+    expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent('Memory compounds with review.');
+    expect(screen.getByText(/The article still reads/)).toHaveTextContent('Memory compounds with review.');
+    expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
+  });
+
   it('lets a third recorded passage sit beside the named distinction without resolving the question', () => {
     renderWikiSentence({
       page: {

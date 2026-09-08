@@ -151,6 +151,23 @@ export const STORYBOARD_DISTINCTION =
 
 export const STORYBOARD_INSTRUMENT_NAME = 'Room to be wrong';
 
+export const STORYBOARD_EXHIBIT_NAME = 'Recoverable, or not';
+
+export const STORYBOARD_EXHIBIT_THIS =
+  'A scrape you can walk back from still teaches the ground.';
+
+export const STORYBOARD_EXHIBIT_OTHER =
+  'A stranding ends the walk. It is not the same kind of lesson.';
+
+export const STORYBOARD_REHEARSAL =
+  'Care is letting a child find the path without being carried.';
+
+export const STORYBOARD_UNWRITTEN =
+  'Who gets to experiment, and who pays for the mistake?';
+
+export const STORYBOARD_UNWRITTEN_GAP =
+  'The page does not say who bears a stranding.';
+
 export const STORYBOARD_BEARING_SOURCE = Object.freeze({
   title: 'Field notes',
   qualification: 'Saved passage · import date is not a reading date',

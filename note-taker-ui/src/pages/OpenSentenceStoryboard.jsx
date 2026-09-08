@@ -13,17 +13,29 @@ import {
   isOpen,
   isPressured,
   isWithoutParagraph,
+  isWithoutSource,
+  keepAsExhibit,
+  keepAsRehearsal,
+  keepAsUnwritten,
   keepQuestion,
   liveBearing,
+  liveExhibit,
   liveInstrument,
+  liveRehearsal,
   liveThen,
+  liveUnwritten,
   openExploration,
   placeSource,
   putItBack,
   setDistinction,
+  setExhibitFields,
   setMeetField,
   setPressureField,
+  setRehearsalAttempt,
+  setUnwrittenField,
+  showExhibitWay,
   tryWithoutThisParagraph,
+  tryWithoutThisSource,
   tryWording,
   wikiAcceptedText
 } from '../components/wiki/open-sentence/openSentenceModel';
@@ -47,7 +59,13 @@ import {
   STORYBOARD_PROVISIONAL,
   STORYBOARD_QUESTION,
   STORYBOARD_DISTINCTION,
+  STORYBOARD_EXHIBIT_NAME,
+  STORYBOARD_EXHIBIT_OTHER,
+  STORYBOARD_EXHIBIT_THIS,
   STORYBOARD_INSTRUMENT_NAME,
+  STORYBOARD_REHEARSAL,
+  STORYBOARD_UNWRITTEN,
+  STORYBOARD_UNWRITTEN_GAP,
   STORYBOARD_BEARING_SOURCE,
   STORYBOARD_SCOPE,
   STORYBOARD_SENTENCE,
@@ -79,7 +97,11 @@ const BEATS = [
   { id: 'pressure', label: 'Pressure' },
   { id: 'then', label: 'Then' },
   { id: 'meet', label: 'Meet' },
-  { id: 'instrument', label: 'Instrument' }
+  { id: 'instrument', label: 'Instrument' },
+  { id: 'exhibit', label: 'Exhibit' },
+  { id: 'rehearse', label: 'Rehearse' },
+  { id: 'unwritten', label: 'Unwritten' },
+  { id: 'limits', label: 'Limits' }
 ];
 
 const seed = (source = STORYBOARD_SOURCE) => createExploration({
@@ -145,6 +167,36 @@ const applyBeat = (beat, source) => {
     writeHeldInstrument(held);
     return applyInstrument(openExploration(computeSeed()), held);
   }
+  if (beat === 'exhibit') {
+    return showExhibitWay(
+      setExhibitFields(keepAsExhibit(openExploration(seed(source))), {
+        name: STORYBOARD_EXHIBIT_NAME,
+        thisWay: STORYBOARD_EXHIBIT_THIS,
+        otherWay: STORYBOARD_EXHIBIT_OTHER
+      }),
+      'this'
+    );
+  }
+  if (beat === 'rehearse') {
+    return setRehearsalAttempt(
+      keepAsRehearsal(openExploration(seed(source))),
+      STORYBOARD_REHEARSAL
+    );
+  }
+  if (beat === 'unwritten') {
+    return setUnwrittenField(
+      setUnwrittenField(
+        keepAsUnwritten(openExploration(seed(source))),
+        'question',
+        STORYBOARD_UNWRITTEN
+      ),
+      'gap',
+      STORYBOARD_UNWRITTEN_GAP
+    );
+  }
+  if (beat === 'limits') {
+    return tryWithoutThisSource(openExploration(seed(source)));
+  }
   if (beat === 'without') {
     return tryWithoutThisParagraph(openExploration(seed(source)));
   }
@@ -192,8 +244,20 @@ const companionRole = (scene, exploration, libraryExploration, pageTitle) => {
   if (isWithoutParagraph(exploration)) {
     return 'The paragraph is set aside. It is not deleted.';
   }
+  if (isWithoutSource(exploration)) {
+    return 'The source is set aside. It is not deleted.';
+  }
   if (isPressured(exploration)) {
     return 'The original stays. The experiment is not a generated causal chain.';
+  }
+  if (liveExhibit(exploration)) {
+    return 'The exhibit is an illustration. It is not evidence.';
+  }
+  if (liveRehearsal(exploration)) {
+    return 'The explanation is yours. It is not a grade.';
+  }
+  if (liveUnwritten(exploration)) {
+    return 'This is not the article. The gap stays a gap.';
   }
   if (liveInstrument(exploration)) {
     return 'The instrument sits beside this sentence. It does not rewrite the article.';
@@ -414,7 +478,8 @@ const OpenSentenceStoryboard = () => {
         <p className="open-sentence-storyboard__note">
           The article stays the page. Select the sentence and open it. Closing without
           a question, a named distinction, a placed passage, a proposed wording, a named
-          premise, a named meeting, a note written between them, or a named instrument forgets the experiment. A distinction under the line is the way home.
+          premise, a named meeting, a note written between them, a named instrument,
+          a named exhibit, a rehearsal, or unwritten work forgets the experiment. A distinction under the line is the way home.
           Source cycles the honest absences. Stillness is the open state with no
           drawing. Propose names a wording; Accept is what writes the illustrated
           line. Pressure names a premise beside the original. A recorded passage
@@ -438,7 +503,11 @@ const OpenSentenceStoryboard = () => {
           experiment, be proposed as the line, or be kept as an essay. None of
           those write the article. A named distinction can be kept as an instrument.
           Applied to another sentence, it sits beside that line. It does not write
-          the article.
+          the article. Two named readings can be kept as an exhibit, not evidence.
+          Try saying it keeps your explanation; a source you did not cover can sit
+          beside it. Unwritten work names what the collection could become, and the
+          gap. Try without this source sets the bound passage aside. Closing restores
+          it. It is not deletion.
         </p>
       </header>
 
