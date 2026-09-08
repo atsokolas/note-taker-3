@@ -6,7 +6,7 @@ const {
 } = require('../../services/importTitleService');
 const { buildLegacyContentRouter } = require('../legacyContentRoutes');
 
-const saveArticle = async (body, { stored = null, fetchUrlForIngest } = {}) => {
+const saveArticle = async (body, { stored = null, fetchReadableArticle } = {}) => {
   const saved = [];
   const Article = {
     findOne: async () => stored,
@@ -47,8 +47,10 @@ const saveArticle = async (body, { stored = null, fetchUrlForIngest } = {}) => {
     normalizeItemType: value => value,
     buildEmbeddingId: () => '',
     queueEmbeddingDelete: () => {},
-    // Never reach the network from a test; the default is the real fetcher.
-    fetchUrlForIngest: fetchUrlForIngest || (async () => { throw new Error('not fetched'); })
+    /* Never reach the network from a test; the default is the real fetcher,
+       which goes through the public-URL guard. */
+    fetchReadableArticle: fetchReadableArticle
+      || (async () => ({ ok: false, content: '', error: 'not fetched' }))
   }));
   const server = http.createServer(app);
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -113,7 +115,7 @@ describe('save-article body', () => {
   test('fetches the article body when the caller sends none', async () => {
     const result = await saveArticle(
       { title: 'Going Founder Mode on Cancer', url: 'https://centuryofbio.com/p/sid' },
-      { fetchUrlForIngest: async ({ url }) => ({ url, title: 'Going Founder Mode on Cancer', text: `${longEnough}\n\nSecond block.` }) }
+      { fetchReadableArticle: async ({ url }) => ({ ok: true, url, title: 'Going Founder Mode on Cancer', content: `${longEnough}\n\nSecond block.`, error: '' }) }
     );
     expect(result.status).toBe(200);
     expect(result.body.contentSource).toBe('fetched');
@@ -124,7 +126,7 @@ describe('save-article body', () => {
   test('escapes fetched text rather than trusting it as markup', async () => {
     const result = await saveArticle(
       { title: 'Sharp text', url: 'https://example.com/sharp' },
-      { fetchUrlForIngest: async ({ url }) => ({ url, title: 'Sharp text', text: `<script>alert(1)</script> ${longEnough}` }) }
+      { fetchReadableArticle: async ({ url }) => ({ ok: true, url, title: 'Sharp text', content: `<script>alert(1)</script> ${longEnough}`, error: '' }) }
     );
     expect(result.body.content).not.toContain('<script>');
     expect(result.body.content).toContain('&lt;script&gt;');
@@ -133,13 +135,15 @@ describe('save-article body', () => {
   test('leaves the body empty when the fetch returns a stub', async () => {
     const result = await saveArticle(
       { title: 'Paywalled', url: 'https://example.com/paywalled' },
-      { fetchUrlForIngest: async ({ url }) => ({ url, title: 'Paywalled', text: 'Subscribe to keep reading.' }) }
+      { fetchReadableArticle: async ({ url }) => ({ ok: true, url, title: 'Paywalled', content: 'Subscribe to keep reading.', error: '' }) }
     );
     expect(result.status).toBe(200);
     expect(result.body.contentSource).toBe('missing');
     expect(result.body.content).toBe('');
   });
 
+  /* A URL the guard refuses — a private address, a redirect into one — comes
+     back as a failed read, not an exception, and must not lose the save. */
   test('a save that fails to fetch still files the article', async () => {
     const result = await saveArticle({ title: 'Offline', url: 'https://example.com/offline' });
     expect(result.status).toBe(200);

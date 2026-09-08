@@ -6,9 +6,9 @@ const { processWikiSourceEvent } = require('../services/wikiMaintenanceOrchestra
 const { isProceduralShelf } = require('../lib/proceduralShelf');
 const { firstGraphOf } = require('../lib/feedHome');
 const {
-  fetchUrlForIngest: defaultFetchUrlForIngest,
-  ingestTextToHtml
-} = require('../services/import/urlTextIngest');
+  fetchReadableArticle: defaultFetchReadableArticle,
+  paragraphsToHtml
+} = require('../services/readableArticle');
 
 const applyDefaultArticleVisibility = (match, { includeSuppressed = false } = {}) => {
   if (includeSuppressed) return match;
@@ -51,7 +51,7 @@ const buildLegacyContentRouter = ({
   normalizeItemType,
   buildEmbeddingId,
   queueEmbeddingDelete,
-  fetchUrlForIngest = defaultFetchUrlForIngest,
+  fetchReadableArticle = defaultFetchReadableArticle,
   WikiPage = null,
   WikiRevision = null,
   WikiSourceEvent = null,
@@ -65,17 +65,22 @@ const buildLegacyContentRouter = ({
   /* An agent saving through the API knows a title and a URL; it rarely holds the
      body the browser extension reads off the page. Left alone that lands a shell
      in the Library, and the reader falls back to a highlight-only edition — the
-     highlights survive, the article never arrives. Fetch the body ourselves
-     rather than storing the shell. */
+     highlights survive, the article never arrives.
+
+     The edition save door already had this problem and already solved it, so
+     this fetches the way that one does. The URL comes from outside, and
+     fetchReadableArticle goes through the public-URL guard: no localhost, no
+     private address, every redirect re-checked. A plainer fetcher here would
+     have let a caller point the server at its own metadata service and read the
+     answer back out of their Library. */
   const fetchArticleBody = async (url) => {
-    try {
-      const fetched = await fetchUrlForIngest({ url, timeoutMs: 8000 });
-      const html = ingestTextToHtml(fetched?.text || '');
-      return html.replace(/<[^>]*>/g, '').trim().length >= MIN_FETCHED_BODY_LENGTH ? html : '';
-    } catch (error) {
-      console.warn(`Could not fetch a body for ${url}:`, error.message);
+    const readable = await fetchReadableArticle({ url });
+    if (!readable.ok) {
+      console.warn(`Could not fetch a body for ${url}:`, readable.error);
       return '';
     }
+    const html = paragraphsToHtml(readable.content);
+    return html.replace(/<[^>]*>/g, '').trim().length >= MIN_FETCHED_BODY_LENGTH ? html : '';
   };
 
   const emitWikiSourceEvent = async (payload = {}) => {
