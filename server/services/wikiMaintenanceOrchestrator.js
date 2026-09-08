@@ -427,7 +427,7 @@ const warnMatchedFalsifiers = async ({ page, arrival, at = new Date() } = {}) =>
   }));
 };
 
-const processWikiSourceEvent = async ({
+const runWikiSourceEvent = async ({
   sourceEventId,
   sourceEvent = null,
   userId,
@@ -881,6 +881,40 @@ const processWikiSourceEvent = async ({
     throw error;
   }
 };
+
+/* Maintenance is not safely concurrent. Five highlights saved in thirteen
+   seconds fired five passes at the same page; each loaded it, each spent two
+   minutes in the model, and each tried to save over a version the others had
+   already moved past. Mongoose rejected all but the first — versions 5, 4, 2, 3
+   and 6 failing inside two minutes — and the page kept none of the work.
+
+   The per-event lease cannot help: those were five different events. What has to
+   be true is that a pass builds on the page the pass before it left, so a user's
+   passes run one at a time, in arrival order, each loading its pages fresh.
+
+   The queue is per process, which is what one instance needs. A second instance
+   would need a durable page lease of the kind repo builds already take. */
+const maintenanceQueues = new Map();
+
+const afterPreviousMaintenance = (userId, task) => {
+  const key = String(userId || 'anonymous');
+  /* A failed pass must not poison the queue behind it, so the tail forgets both
+     outcomes; the caller still receives its own. */
+  const result = (maintenanceQueues.get(key) || Promise.resolve()).then(task, task);
+  const tail = result.then(() => {}, () => {});
+  maintenanceQueues.set(key, tail);
+  /* Drop the key once the chain drains, so the map holds work in flight rather
+     than every user who has ever ingested. */
+  tail.then(() => {
+    if (maintenanceQueues.get(key) === tail) maintenanceQueues.delete(key);
+  });
+  return result;
+};
+
+const processWikiSourceEvent = (args = {}) => afterPreviousMaintenance(
+  args.userId || args.sourceEvent?.userId,
+  () => runWikiSourceEvent(args)
+);
 
 const processPendingWikiSourceEvents = async ({ userId, models = {}, limit = 5, buildUniqueSlug = null, wikiSchemaContent = '' } = {}) => {
   const { WikiSourceEvent } = models;
