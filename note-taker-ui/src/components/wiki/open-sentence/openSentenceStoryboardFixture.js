@@ -144,6 +144,9 @@ export const storyboardSource = (mode) => {
   }
 };
 
-export const STORYBOARD_RETURN_NOTE = 'Next: figure out which mistakes are recoverable.';
+export const STORYBOARD_QUESTION = 'I cannot tell which mistakes are recoverable.';
+
+export const STORYBOARD_DISTINCTION =
+  'A mistake that teaches the map, versus one that strands you.';
 
 export const STORYBOARD_PROVISIONAL = 'Children need room to make recoverable mistakes.';

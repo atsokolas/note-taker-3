@@ -373,8 +373,7 @@ mark.highlight.open-sentence__held.is-placed:not(.is-open)::before {
   font-size: 0.88rem;
 }
 
-.open-sentence-pocket textarea,
-.open-sentence-pocket input {
+.open-sentence-pocket textarea {
   width: 100%;
   max-width: 62ch;
   padding: var(--noeis-space-3);

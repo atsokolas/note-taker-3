@@ -26,6 +26,7 @@ import {
   keepQuestion,
   leaveEssay,
   leaveMark,
+  liveDistinction,
   liveEssay,
   liveProposal,
   liveThen,
@@ -37,9 +38,9 @@ import {
   pressureWayHome,
   proposeWording,
   putItBack,
+  setDistinction,
   setMeetField,
   setPressureField,
-  setReturnNote,
   sourceClip,
   tryWording,
   wikiAcceptedText,
@@ -572,14 +573,12 @@ const PocketBody = ({
           onChange={(value) => onCommit(keepQuestion(exploration, value))}
           placeholder="An unfinished question can stay unfinished."
         />
-        <label className="open-sentence-pocket__label" htmlFor={`${pocketId}-return`}>
-          A note for your return
-        </label>
-        <input
-          id={`${pocketId}-return`}
-          value={exploration.returnNote}
-          onChange={(event) => onCommit(setReturnNote(exploration, event.target.value))}
-          placeholder="Next: …"
+        <PocketField
+          id={`${pocketId}-distinction`}
+          label="The distinction that would help"
+          value={exploration.distinction || ''}
+          onChange={(value) => onCommit(setDistinction(exploration, value))}
+          placeholder="Name the fork. Do not close the question."
         />
       </div>
     </>
@@ -722,10 +721,10 @@ const OpenSentence = ({
     else openPocket();
   };
 
-  const closedNote = String(exploration.returnNote || '').trim();
+  const closedDistinction = liveDistinction(exploration);
   const closedQuestion = String(exploration.question || '').trim();
   const closedProposal = liveProposal(exploration);
-  const wayHomeLabel = closedNote
+  const wayHomeLabel = closedDistinction
     || (closedQuestion ? 'You left this open.' : '')
     || (closedProposal ? 'Proposed, not accepted.' : '')
     || pressureWayHome(exploration)

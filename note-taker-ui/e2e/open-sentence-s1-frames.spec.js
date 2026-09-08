@@ -34,6 +34,10 @@ test.describe('Open a sentence S1 frames', () => {
 
     await page.getByRole('button', { name: 'Leave open' }).click();
     await expect(page.getByLabel('Leave this open')).toBeVisible();
+    await expect(page.getByLabel('The distinction that would help')).toBeVisible();
+    await expect(page.getByLabel('The distinction that would help')).toHaveValue(
+      'A mistake that teaches the map, versus one that strands you.'
+    );
     await saveStage(page, '1440-leave-open');
 
     await page.getByRole('button', { name: 'Sidebar 1320' }).click();

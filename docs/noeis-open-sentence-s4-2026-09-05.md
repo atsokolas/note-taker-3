@@ -111,7 +111,7 @@ Public shares. Workspace composer. Repo dossiers, company dossiers, investment d
 **Recorded question / draft**
 - Eligibility: Then is showing from a revision whose `before` binds a `question` or `notebook` sourceRef to that claim, or a user `history.note` whose text is the Then line.
 - Quality bar: identity only. That claim, exact recorded snippet, title, or note. No similar-text repair. No generated biography. A question is not copied into today's "Leave this open."
-- Silence: history-only Then with no user note; pruned snapshot; Library; a neighboring type; a note that already equals the live question or return note. Filler is never the answer.
+- Silence: history-only Then with no user note; pruned snapshot; Library; a neighboring type; a note that already equals the live question or distinction. Filler is never the answer.
 
 **Copy with source**
 - Eligibility: a bound inspectable passage in the pocket — today's source, today's other, or a Then source.
