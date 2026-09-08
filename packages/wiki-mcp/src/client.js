@@ -353,15 +353,11 @@ export class NoeisClient {
       method: 'POST',
       body: { title, url, content, folderId, author, publicationDate, siteName }
     }).then(payload => {
-      const article = normalizeFullArticle(payload);
-      const contentLength = article.content.length;
-      const source = payload?.contentSource || (contentLength ? 'request' : 'missing');
+      const contentLength = String(payload?.content || '').length;
       return {
-        ...normalizeArticleSummary(article),
-        id: article.id,
-        folder: article.folder,
+        ...normalizeArticleSummary(payload),
         contentLength,
-        contentSource: source,
+        contentSource: payload?.contentSource || (contentLength ? 'request' : 'missing'),
         ...(contentLength ? {} : {
           warning: 'Saved without article text. The Library will show a highlight-only edition until you save again with content.'
         })
@@ -398,16 +394,41 @@ export class NoeisClient {
     return this.request(`/articles/${encodeURIComponent(articleId)}/move`, {
       method: 'PATCH',
       body: { folderId: target }
-    }).then(normalizeFullArticle);
+    }).then(normalizeArticleSummary);
   }
 
   /* The Shelf. `kept` in the Library is this boolean and nothing else, and it
-     was reachable from the UI and the API but from no agent. */
+     was reachable from the UI and the API but from no agent. The API still
+     calls it evergreen; the receipt answers in the word the tool asked in. */
   keepArticle({ articleId, kept = true } = {}) {
     return this.request(`/articles/${encodeURIComponent(articleId)}/evergreen`, {
       method: 'PATCH',
       body: { evergreen: Boolean(kept) }
-    });
+    }).then(payload => ({
+      id: pickId(payload),
+      kept: Boolean(payload?.evergreen),
+      keptAt: payload?.evergreenAt || null
+    }));
+  }
+
+  /* The Imbox piles. Later is owed a move, set aside is at hand this week,
+     stream is home — the triage a reader does by hand every day, and the one
+     part of organizing the Library no agent could reach. */
+  placeArticle({ articleId, placement, reason } = {}) {
+    return this.request(`/articles/${encodeURIComponent(articleId)}/placement`, {
+      method: 'PATCH',
+      body: { placement, ...(reason === undefined ? {} : { reason }) }
+    }).then(payload => ({
+      id: pickId(payload),
+      placement: payload?.placement || 'stream',
+      placementAt: payload?.placementAt || null,
+      placementReason: payload?.placementReason || ''
+    }));
+  }
+
+  deleteArticle({ articleId } = {}) {
+    return this.request(`/articles/${encodeURIComponent(articleId)}`, { method: 'DELETE' })
+      .then(() => ({ id: String(articleId), deleted: true }));
   }
 
   createHighlight({ articleId, text, note, tags, anchor, color } = {}) {
@@ -415,6 +436,73 @@ export class NoeisClient {
       method: 'POST',
       body: { text, note, tags, anchor, color }
     }).then(payload => normalizeHighlight(payload?.highlight || payload?.createdHighlight || payload));
+  }
+
+  /* A highlight is addressed by the article that holds it. Every tool that
+     hands one back names its articleId, so callers normally have both — and an
+     agent holding only the highlight id gets the same courtesy resolveFolderId
+     gives a folder name, at the cost of one lookup. */
+  async resolveHighlightArticleId({ articleId, highlightId } = {}) {
+    if (articleId) return String(articleId);
+    const highlight = await this.getHighlight({ highlightId });
+    if (!highlight?.articleId) {
+      throw new NoeisApiError(`No highlight ${highlightId}. Call search_highlights or list_article_highlights to find it.`);
+    }
+    return highlight.articleId;
+  }
+
+  async updateHighlight({ articleId, highlightId, note, tags, color, type, claimId } = {}) {
+    const article = await this.resolveHighlightArticleId({ articleId, highlightId });
+    return this.request(
+      `/articles/${encodeURIComponent(article)}/highlights/${encodeURIComponent(highlightId)}`,
+      { method: 'PATCH', body: { note, tags, color, type, claimId } }
+    ).then(normalizeHighlight);
+  }
+
+  async deleteHighlight({ articleId, highlightId } = {}) {
+    const article = await this.resolveHighlightArticleId({ articleId, highlightId });
+    await this.request(
+      `/articles/${encodeURIComponent(article)}/highlights/${encodeURIComponent(highlightId)}`,
+      { method: 'DELETE' }
+    );
+    return { id: String(highlightId), articleId: article, deleted: true };
+  }
+
+  async deleteFolder({ folderId, folder } = {}) {
+    const target = await this.resolveFolderId({ folderId, folder });
+    await this.request(`/folders/${encodeURIComponent(target)}`, { method: 'DELETE' });
+    return { id: target, deleted: true };
+  }
+
+  /* Nesting resolves both ends by name, because a caller who knows the cabinet
+     as "Biology inside Science" should not have to learn two ids to say so.
+     Each receipt reports only what its route actually settled — normalizing
+     these through normalizeFolder would report asFeed:false for a folder whose
+     screening the route never mentioned. */
+  async nestFolder({ folderId, folder, parentFolderId, parent } = {}) {
+    const target = await this.resolveFolderId({ folderId, folder });
+    const nextParent = await this.resolveFolderId({ folderId: parentFolderId, folder: parent });
+    return this.request(`/folders/${encodeURIComponent(target)}/parent`, {
+      method: 'PATCH',
+      body: { parentFolderId: nextParent }
+    }).then(payload => ({
+      id: pickId(payload),
+      name: payload?.name || '',
+      parentFolderId: payload?.parentFolderId ? String(payload.parentFolderId) : null
+    }));
+  }
+
+  async setFolderFeed({ folderId, folder, asFeed = true } = {}) {
+    const target = await this.resolveFolderId({ folderId, folder });
+    return this.request(`/folders/${encodeURIComponent(target)}/feed`, {
+      method: 'PATCH',
+      body: { asFeed: Boolean(asFeed) }
+    }).then(payload => ({
+      id: pickId(payload),
+      name: payload?.name || '',
+      asFeed: Boolean(payload?.asFeed),
+      asFeedAt: payload?.asFeedAt || null
+    }));
   }
 
   listQuestions({ status, tag, conceptName, highlightId, notebookEntryId } = {}) {

@@ -262,6 +262,54 @@ export const writeTools = [
     handler: (client, args) => client.keepArticle(args)
   },
   {
+    name: 'place_article',
+    description: 'Put a saved article in one of the Library\'s piles. later is owed a move, setAside is at hand this week, stream is home. This is the reader\'s daily triage; keep_article (the Shelf) is separate and permanent.',
+    inputSchema: {
+      articleId: z.string().describe('Saved article id.'),
+      placement: z.enum(['stream', 'later', 'setAside']).describe('Where the article sits.'),
+      reason: z.string().optional().describe('A short note on why, kept with the placement. Ignored for stream, which clears it.')
+    },
+    handler: (client, args) => client.placeArticle(args)
+  },
+  {
+    name: 'delete_article',
+    description: 'High-impact: permanently remove a saved article and every highlight on it. There is no undo. Confirm with the reader first, and prefer place_article or file_article when the article should merely be out of the way.',
+    inputSchema: {
+      articleId: z.string().describe('Saved article id.')
+    },
+    handler: (client, args) => client.deleteArticle(args)
+  },
+  {
+    name: 'delete_folder',
+    description: 'Remove an empty Library folder. Give either folderId or folder (the folder name, resolved for you). Fails with 409 while the folder still holds articles, so file them elsewhere first.',
+    inputSchema: {
+      folderId: z.string().optional().describe('Folder id.'),
+      folder: z.string().optional().describe('Folder name, resolved case-insensitively. Ignored when folderId is given.')
+    },
+    handler: (client, args) => client.deleteFolder(args)
+  },
+  {
+    name: 'nest_folder',
+    description: 'Move a Library folder inside another one, or out to the top level. Name either end by id or by name. Pass no parent to unnest. Filing trays cannot be nested and a folder cannot move inside its own descendant.',
+    inputSchema: {
+      folderId: z.string().optional().describe('Folder to move, by id.'),
+      folder: z.string().optional().describe('Folder to move, by name. Ignored when folderId is given.'),
+      parentFolderId: z.string().optional().describe('Destination folder id. Omit both parent fields to move the folder to the top level.'),
+      parent: z.string().optional().describe('Destination folder name. Ignored when parentFolderId is given.')
+    },
+    handler: (client, args) => client.nestFolder(args)
+  },
+  {
+    name: 'set_folder_feed',
+    description: 'Screen a Library folder as a feed, or stop. A feed folder reads as an arriving scroll rather than a drawer. Give either folderId or folder.',
+    inputSchema: {
+      folderId: z.string().optional().describe('Folder id.'),
+      folder: z.string().optional().describe('Folder name, resolved case-insensitively. Ignored when folderId is given.'),
+      asFeed: z.boolean().optional().describe('true to screen it as a feed (the default), false to stop.')
+    },
+    handler: (client, args) => client.setFolderFeed(args)
+  },
+  {
     name: 'create_highlight',
     description: 'Create a highlight on an existing Library article.',
     inputSchema: {
@@ -273,6 +321,29 @@ export const writeTools = [
       color: z.string().optional()
     },
     handler: (client, args) => client.createHighlight(args)
+  },
+  {
+    name: 'update_highlight',
+    description: 'Change what a highlight carries: its note, its tags, its colour, or what kind of thing it is. Only the fields you pass are touched. articleId is optional — every tool that returns a highlight names it, and it is resolved for you when omitted.',
+    inputSchema: {
+      highlightId: z.string().describe('Highlight id.'),
+      articleId: z.string().optional().describe('The article holding it. Resolved from the highlight when omitted.'),
+      note: z.string().optional().describe('The reader\'s note on the passage.'),
+      tags: z.array(z.string()).optional().describe('Replaces the existing tags.'),
+      color: z.string().optional().describe('Hex colour, e.g. #f6e27a.'),
+      type: optionalEnum(['claim', 'evidence', 'note']).describe('What the passage is. Anything but evidence clears its claim link.'),
+      claimId: z.string().optional().describe('The claim this evidence supports. Only holds when type is evidence.')
+    },
+    handler: (client, args) => client.updateHighlight(args)
+  },
+  {
+    name: 'delete_highlight',
+    description: 'High-impact: permanently remove a highlight from its article, with its note and tags. There is no undo. Confirm with the reader first.',
+    inputSchema: {
+      highlightId: z.string().describe('Highlight id.'),
+      articleId: z.string().optional().describe('The article holding it. Resolved from the highlight when omitted.')
+    },
+    handler: (client, args) => client.deleteHighlight(args)
   },
   {
     name: 'create_question',

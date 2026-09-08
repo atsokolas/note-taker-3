@@ -173,8 +173,15 @@ For local development:
 
 ## Tools
 
-Read tools available now. These return normalized JSON so external agents can list pages, choose one, read it, inspect references, and catch up on recent wiki activity with a read-scoped token:
+Both lists below are the complete tool surface, checked against `toolDefinitions`
+by `test/server.test.js` — a tool added without a line here fails the suite.
 
+Read tools return normalized JSON, so an agent can list pages, choose one, read
+it, inspect references, and catch up on recent activity with a read-scoped token:
+
+- `list_edition_profiles`
+- `list_editions`
+- `get_edition`
 - `list_pages`
 - `get_page`
 - `get_page_markdown`
@@ -190,12 +197,25 @@ Read tools available now. These return normalized JSON so external agents can li
 - `list_proposals`
 - `list_autolinks`
 - `get_lint_run`
+- `list_folders`
+- `search_articles`
+- `get_article`
+- `list_article_highlights`
+- `search_highlights`
+- `get_highlight`
+- `list_questions`
+- `get_question`
+- `list_concepts`
+- `get_concept`
 
 Write tools require a token with the `agent-write` scope. Read-only tokens receive `403` from the Noeis API on these calls:
 
 - `create_page`
 - `update_page`
 - `archive_page`
+- `create_edition`
+- `configure_edition`
+- `file_edition_items`
 - `ingest_source`
 - `draft_page`
 - `ask_page`
@@ -208,6 +228,25 @@ Write tools require a token with the `agent-write` scope. Read-only tokens recei
 - `accept_proposal`
 - `dismiss_proposal`
 - `merge_proposal`
+- `create_article`
+- `create_folder`
+- `file_article`
+- `keep_article`
+- `place_article`
+- `delete_article`
+- `delete_folder`
+- `nest_folder`
+- `set_folder_feed`
+- `create_highlight`
+- `update_highlight`
+- `delete_highlight`
+- `create_question`
+- `update_question`
+- `update_concept`
+- `pin_highlight_to_concept`
+
+`delete_article` and `delete_highlight` are the only tools with no undo. Both say
+so in their descriptions and both expect the reader to have been asked first.
 
 ## Prompt
 
