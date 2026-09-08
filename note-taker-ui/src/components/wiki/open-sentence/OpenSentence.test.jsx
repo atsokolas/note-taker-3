@@ -31,6 +31,7 @@ import {
   keepsClosedDraft,
   leaveEssay,
   leaveMark,
+  liveBearing,
   liveDistinction,
   liveEssay,
   liveMeet,
@@ -59,7 +60,7 @@ import {
   withdrawProposal,
   wordingChanged
 } from './openSentenceModel';
-import { STORYBOARD_COMPUTE_SENTENCE, STORYBOARD_COMPUTE_SOURCE, STORYBOARD_DISTINCTION, STORYBOARD_LIBRARY_SOURCE, STORYBOARD_MEET_LIMIT, STORYBOARD_MEET_RELATION, STORYBOARD_MEET_SOURCE, STORYBOARD_QUESTION, STORYBOARD_SENTENCE, STORYBOARD_SOURCE, STORYBOARD_STALE_SOURCE, STORYBOARD_THEN_BESIDE, STORYBOARD_THEN_NOW, STORYBOARD_THEN_ORIGINAL, STORYBOARD_THEN_QUESTION, STORYBOARD_THEN_QUOTATION } from './openSentenceStoryboardFixture';
+import { STORYBOARD_BEARING_SOURCE, STORYBOARD_COMPUTE_SENTENCE, STORYBOARD_COMPUTE_SOURCE, STORYBOARD_DISTINCTION, STORYBOARD_LIBRARY_SOURCE, STORYBOARD_MEET_LIMIT, STORYBOARD_MEET_RELATION, STORYBOARD_MEET_SOURCE, STORYBOARD_QUESTION, STORYBOARD_SENTENCE, STORYBOARD_SOURCE, STORYBOARD_STALE_SOURCE, STORYBOARD_THEN_BESIDE, STORYBOARD_THEN_NOW, STORYBOARD_THEN_ORIGINAL, STORYBOARD_THEN_QUESTION, STORYBOARD_THEN_QUOTATION } from './openSentenceStoryboardFixture';
 
 const renderOpen = (exploration, onChange = jest.fn()) => render(
   <MemoryRouter>
@@ -75,6 +76,18 @@ const meeting = (open = false) => {
   });
   return open ? openExploration(walk) : walk;
 };
+
+const namedWalk = (extra = {}) => setDistinction(
+  keepQuestion(
+    createExploration({
+      originalText: STORYBOARD_SENTENCE,
+      source: STORYBOARD_SOURCE,
+      ...extra
+    }),
+    STORYBOARD_QUESTION
+  ),
+  STORYBOARD_DISTINCTION
+);
 
 describe('openSentenceModel', () => {
   it('keeps accepted wiki text untouched while wording changes', () => {
@@ -176,6 +189,52 @@ describe('openSentenceModel', () => {
     expect(liveThen(start).question).toBe(STORYBOARD_THEN_QUESTION);
     expect(liveDistinction(setDistinction(keepQuestion(start, STORYBOARD_THEN_QUESTION), STORYBOARD_THEN_QUESTION))).toBe('');
     expect(liveThen(keepQuestion(start, STORYBOARD_THEN_QUESTION)).question).toBeUndefined();
+  });
+
+  it('lets a later passage bear on the named distinction without resolving it', () => {
+    const start = namedWalk({ bearing: STORYBOARD_BEARING_SOURCE });
+    expect(liveBearing(start)).toEqual(STORYBOARD_BEARING_SOURCE);
+    expect(liveBearing(keepQuestion(createExploration({
+      originalText: STORYBOARD_SENTENCE,
+      source: STORYBOARD_SOURCE,
+      bearing: STORYBOARD_BEARING_SOURCE
+    }), STORYBOARD_QUESTION))).toBeNull();
+    expect(liveBearing(setDistinction(createExploration({
+      originalText: STORYBOARD_SENTENCE,
+      source: STORYBOARD_SOURCE,
+      bearing: STORYBOARD_BEARING_SOURCE
+    }), STORYBOARD_DISTINCTION))).toBeNull();
+    expect(liveBearing(namedWalk({ bearing: STORYBOARD_SOURCE }))).toBeNull();
+    expect(liveBearing(namedWalk({
+      other: STORYBOARD_MEET_SOURCE,
+      bearing: STORYBOARD_MEET_SOURCE
+    }))).toBeNull();
+    expect(liveBearing(namedWalk({
+      bearing: { ...STORYBOARD_BEARING_SOURCE, passage: 'An unrelated later note.' }
+    }))).toBeNull();
+    expect(liveBearing(namedWalk({
+      bearing: { ...STORYBOARD_BEARING_SOURCE, passage: 'The map is still useful.' }
+    }))).toBeNull();
+    expect(liveBearing(namedWalk({
+      bearing: { ...STORYBOARD_BEARING_SOURCE, available: false, passage: '' }
+    }))).toBeNull();
+    expect(keepsClosedDraft(closeExploration(createExploration({
+      originalText: STORYBOARD_SENTENCE,
+      bearing: STORYBOARD_BEARING_SOURCE
+    })))).toBe(false);
+    expect(forgetExperiment(start).bearing).toEqual(STORYBOARD_BEARING_SOURCE);
+    expect(forgetExperiment(start).question).toBe('');
+    expect(restoreExploration(snapshotExploration(start), createExploration({
+      originalText: STORYBOARD_SENTENCE,
+      source: STORYBOARD_SOURCE
+    })).bearing).toBeUndefined();
+    expect(restoreExploration(snapshotExploration(createExploration({
+      originalText: STORYBOARD_SENTENCE
+    })), createExploration({
+      originalText: STORYBOARD_SENTENCE,
+      source: STORYBOARD_SOURCE,
+      bearing: STORYBOARD_BEARING_SOURCE
+    })).bearing).toEqual(STORYBOARD_BEARING_SOURCE);
   });
 
   it('restores Then from the live record and drops a forged draft biography', () => {
@@ -307,6 +366,14 @@ describe('openSentenceModel', () => {
       then: {
         text: STORYBOARD_COMPUTE_SENTENCE,
         sources: [{ title: 'Capacity', passage: STORYBOARD_COMPUTE_SOURCE.passage }]
+      }
+    }))).toEqual({ text: STORYBOARD_COMPUTE_SENTENCE });
+    expect(liveThen(createExploration({
+      originalText: STORYBOARD_THEN_NOW,
+      bearing: { title: 'Field notes', passage: STORYBOARD_THEN_QUOTATION },
+      then: {
+        text: STORYBOARD_COMPUTE_SENTENCE,
+        sources: [{ title: 'Capacity', passage: STORYBOARD_THEN_QUOTATION }]
       }
     }))).toEqual({ text: STORYBOARD_COMPUTE_SENTENCE });
     expect(liveThen(createExploration({
@@ -1216,6 +1283,34 @@ describe('OpenSentence', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Show what I wrote' }));
     expect(screen.getByLabelText('Leave this open')).toHaveValue(STORYBOARD_QUESTION);
     expect(screen.getByLabelText('The distinction that would help')).toHaveValue(STORYBOARD_DISTINCTION);
+  });
+
+  it('lets later material sit beside the distinction without closing the question', () => {
+    renderOpen(openExploration(namedWalk({ bearing: STORYBOARD_BEARING_SOURCE })));
+    expect(screen.getByLabelText('Leave this open')).toHaveValue(STORYBOARD_QUESTION);
+    expect(screen.getByLabelText('The distinction that would help')).toHaveValue(STORYBOARD_DISTINCTION);
+    expect(screen.getByText('Bears on this distinction.')).toBeInTheDocument();
+    expect(screen.getByText(STORYBOARD_BEARING_SOURCE.passage)).toBeInTheDocument();
+    expect(screen.getByText('Field notes')).toBeInTheDocument();
+    expect(screen.queryByText(/resolved/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/overdue/i)).not.toBeInTheDocument();
+  });
+
+  it('stays silent when later material does not bear on the distinction', () => {
+    renderOpen(openExploration(namedWalk({
+      bearing: { ...STORYBOARD_BEARING_SOURCE, passage: 'An unrelated later note.' }
+    })));
+    expect(screen.getByLabelText('Leave this open')).toHaveValue(STORYBOARD_QUESTION);
+    expect(screen.queryByText('Bears on this distinction.')).not.toBeInTheDocument();
+    expect(screen.queryByText('An unrelated later note.')).not.toBeInTheDocument();
+  });
+
+  it('keeps the bearing passage when reading fresh', () => {
+    renderOpen(openExploration(namedWalk({ bearing: STORYBOARD_BEARING_SOURCE })));
+    fireEvent.click(screen.getByRole('button', { name: 'Read it fresh' }));
+    expect(screen.queryByLabelText('Leave this open')).not.toBeInTheDocument();
+    expect(screen.getByText('Bears on this distinction.')).toBeInTheDocument();
+    expect(screen.getByText(STORYBOARD_BEARING_SOURCE.passage)).toBeInTheDocument();
   });
 
   it('does not offer Read it fresh when there is nothing personal to hide', () => {

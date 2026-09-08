@@ -203,6 +203,69 @@ describe('WikiOpenSentence', () => {
     expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent('Memory compounds with review.');
   });
 
+  it('lets a third recorded passage sit beside the named distinction without resolving the question', () => {
+    renderWikiSentence({
+      page: {
+        ...page,
+        claims: [{
+          claimId: 'claim-1',
+          text: 'Memory compounds with review.',
+          support: 'supported',
+          sourceRefIds: ['source-1', 'source-letter', 'source-notes']
+        }],
+        sourceRefs: [
+          page.sourceRefs[0],
+          {
+            _id: 'source-letter',
+            type: 'highlight',
+            objectId: 'highlight-letter',
+            parentObjectId: 'article-letter',
+            title: 'Letter to a young investor',
+            snippet: 'A loss you can survive still teaches the book.'
+          },
+          {
+            _id: 'source-notes',
+            type: 'highlight',
+            objectId: 'highlight-notes',
+            parentObjectId: 'article-notes',
+            title: 'Field notes',
+            snippet: 'Review compounds memory only when a later pass can still find the earlier one.'
+          }
+        ],
+        body: {
+          type: 'doc',
+          content: [{
+            type: 'paragraph',
+            content: [{
+              type: 'text',
+              text: 'Memory compounds with review.',
+              marks: [{
+                type: 'claim',
+                attrs: { claimId: 'claim-1', support: 'supported', citationIndexes: [1, 2, 3] }
+              }]
+            }]
+          }]
+        }
+      }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    expect(screen.queryByText('Bears on this distinction.')).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Leave this open'), {
+      target: { value: 'I cannot tell which review is enough.' }
+    });
+    fireEvent.change(screen.getByLabelText('The distinction that would help'), {
+      target: { value: 'Review that compounds memory, versus review that only piles notes.' }
+    });
+    expect(screen.getByText('Bears on this distinction.')).toBeInTheDocument();
+    expect(screen.getByText(
+      'Review compounds memory only when a later pass can still find the earlier one.'
+    )).toBeInTheDocument();
+    expect(screen.getByLabelText('Leave this open')).toHaveValue('I cannot tell which review is enough.');
+    expect(screen.queryByText(/resolved/i)).not.toBeInTheDocument();
+    expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent('Memory compounds with review.');
+    expect(screen.getByText(/The article still reads/)).toHaveTextContent('Memory compounds with review.');
+  });
+
   it('opens the recorded quotation from that revision, not a neighbor or today\'s snippet', () => {
     renderWikiSentence({
       revisions: [{

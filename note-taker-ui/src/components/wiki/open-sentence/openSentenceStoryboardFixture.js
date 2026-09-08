@@ -149,4 +149,16 @@ export const STORYBOARD_QUESTION = 'I cannot tell which mistakes are recoverable
 export const STORYBOARD_DISTINCTION =
   'A mistake that teaches the map, versus one that strands you.';
 
+export const STORYBOARD_BEARING_SOURCE = Object.freeze({
+  title: 'Field notes',
+  qualification: 'Saved passage · import date is not a reading date',
+  aroundBefore: 'Later you walked the same ground without the first map in your hand.',
+  passage: 'The map is only a map if a mistake still lets you walk back. A stranding is different.',
+  aroundAfter: 'That is not an answer to which mistakes are recoverable. It is the same fork.',
+  available: true,
+  stale: false,
+  href: '',
+  here: false
+});
+
 export const STORYBOARD_PROVISIONAL = 'Children need room to make recoverable mistakes.';

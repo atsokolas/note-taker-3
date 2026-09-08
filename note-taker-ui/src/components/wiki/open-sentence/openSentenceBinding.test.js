@@ -1,4 +1,5 @@
 import {
+  bindClaimBearing,
   bindClaimOther,
   bindClaimSource,
   claimsInParagraph,
@@ -489,6 +490,61 @@ describe('openSentenceBinding', () => {
       passage: 'A loss you can survive still teaches the book. The ones that end the partnership do not.'
     }));
     expect(JSON.stringify(exploration.other)).not.toContain('Unrelated');
+  });
+
+  it('opens a third recorded passage by identity, not a neighbor', () => {
+    const letter = {
+      _id: 'source-letter',
+      type: 'highlight',
+      objectId: 'highlight-letter',
+      parentObjectId: 'article-letter',
+      title: 'Letter to a young investor',
+      snippet: 'A loss you can survive still teaches the book. The ones that end the partnership do not.'
+    };
+    const notes = {
+      _id: 'source-notes',
+      type: 'highlight',
+      objectId: 'highlight-notes',
+      parentObjectId: 'article-notes',
+      title: 'Field notes',
+      snippet: 'The map is only a map if a mistake still lets you walk back. A stranding is different.'
+    };
+    const bound = {
+      claimMark: {
+        claimId: 'claim-1',
+        text: 'Children need room to make mistakes.',
+        citationIndexes: [1, 2, 3]
+      },
+      ledgerClaim: {
+        claimId: 'claim-1',
+        sourceRefIds: ['source-nomad', 'source-letter', 'source-notes']
+      },
+      sourceRefs: [nomad, letter, notes, neighbor]
+    };
+    expect(bindClaimBearing(bound).title).toBe('Field notes');
+    expect(bindClaimBearing(bound).passage).toContain('A stranding is different.');
+    expect(JSON.stringify(bindClaimBearing(bound))).not.toContain('Unrelated');
+    expect(liveExplorationForClaim(bound).bearing.title).toBe('Field notes');
+  });
+
+  it('stays silent when there is no third distinct passage', () => {
+    const letter = {
+      _id: 'source-letter',
+      type: 'highlight',
+      objectId: 'highlight-letter',
+      title: 'Letter to a young investor',
+      snippet: 'A loss you can survive still teaches the book.'
+    };
+    expect(bindClaimBearing({
+      claimMark: { claimId: 'claim-1', citationIndexes: [1, 2] },
+      ledgerClaim: { claimId: 'claim-1', sourceRefIds: ['source-nomad', 'source-letter'] },
+      sourceRefs: [nomad, letter]
+    })).toBeNull();
+    expect(bindClaimBearing({
+      claimMark: { claimId: 'claim-1', citationIndexes: [1, 2, 3] },
+      ledgerClaim: { claimId: 'claim-1', sourceRefIds: ['source-nomad', 'source-letter', 'source-nomad-copy'] },
+      sourceRefs: [nomad, letter, { ...nomad, _id: 'source-nomad-copy' }]
+    })).toBeNull();
   });
 
   it('stays silent when the second attachment is the same source, a neighbor, or recorded work', () => {

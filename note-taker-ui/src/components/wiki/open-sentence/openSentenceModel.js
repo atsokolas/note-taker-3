@@ -98,20 +98,22 @@ export const liveThen = (exploration) => asThen({
   ...(exploration?.then || {}),
   question: unlessSame(exploration?.then?.question, exploration?.question),
   draft: unlessSame(exploration?.then?.draft, exploration?.distinction)
-}, exploration?.originalText, exploration?.source, exploration?.other);
+}, exploration?.originalText, exploration?.source, exploration?.other, exploration?.bearing);
 
 export const createExploration = ({
   id = '',
   originalText = '',
   source = null,
   other = null,
+  bearing = null,
   mark = '',
   then = null
 } = {}) => {
   const text = String(originalText || '');
   const boundSource = source && typeof source === 'object' ? source : null;
   const boundOther = other && typeof other === 'object' ? other : null;
-  const recorded = asThen(then, text, boundSource, boundOther);
+  const boundBearing = bearing && typeof bearing === 'object' ? bearing : null;
+  const recorded = asThen(then, text, boundSource, boundOther, boundBearing);
   return {
     id: String(id || '').trim(),
     originalText: text,
@@ -121,6 +123,7 @@ export const createExploration = ({
     mark: mark === '!' ? '!' : '',
     source: boundSource,
     other: boundOther,
+    ...(boundBearing ? { bearing: boundBearing } : {}),
     ...(recorded ? { then: recorded } : {}),
     placed: false,
     status: EXPLORATION_STATUS.closed
@@ -241,14 +244,17 @@ export const sourceClip = (source) => {
   return [`"${passage}"`, title && `— ${title}`, href].filter(Boolean).join('\n');
 };
 
-export const inspectableOther = (exploration) => {
-  const other = exploration?.other;
-  if (!other || other.available === false) return null;
-  const passage = asLine(other.passage);
-  const first = asLine(exploration?.source?.passage);
-  if (!passage || passage === first) return null;
-  return other;
+const inspectablePassage = (source, ...sameAs) => {
+  if (!source || source.available === false) return null;
+  const passage = asLine(source.passage);
+  if (!passage || sameAs.some((item) => passage === asLine(item?.passage))) return null;
+  return source;
 };
+
+export const inspectableOther = (exploration) => inspectablePassage(
+  exploration?.other,
+  exploration?.source
+);
 
 const samePassage = (left, right) => {
   const passage = asLine(left?.passage);
@@ -256,11 +262,10 @@ const samePassage = (left, right) => {
 };
 
 const recordedPassage = (source) => {
-  if (!source || source.available === false) return null;
-  const passage = asLine(source.passage);
-  if (!passage) return null;
-  const title = asLine(source.title);
-  return title ? { title, passage } : { passage };
+  const bound = inspectablePassage(source);
+  if (!bound) return null;
+  const title = asLine(bound.title);
+  return title ? { title, passage: asLine(bound.passage) } : { passage: asLine(bound.passage) };
 };
 
 export const pressurePassages = (exploration) => {
@@ -453,6 +458,35 @@ export const liveDistinction = (exploration) => {
   return unlessSame(exploration?.distinction, exploration?.question);
 };
 
+const CONTENT_STOP = Object.freeze(new Set([
+  'also', 'and', 'are', 'been', 'can', 'does', 'for', 'from', 'have', 'into',
+  'not', 'one', 'onto', 'still', 'than', 'that', 'the', 'them', 'then', 'they',
+  'this', 'versus', 'was', 'were', 'what', 'when', 'which', 'with', 'you', 'your'
+]));
+
+const contentWords = (value) => asLine(value).toLowerCase()
+  .split(/[^a-z0-9]+/)
+  .filter((word) => word.length >= 3 && !CONTENT_STOP.has(word));
+
+const overlapsDistinction = (passage, distinction) => {
+  const keys = contentWords(distinction);
+  if (keys.length < 2) return false;
+  const have = new Set(contentWords(passage));
+  return keys.filter((word) => have.has(word)).length >= 2;
+};
+
+export const liveBearing = (exploration) => {
+  const distinction = liveDistinction(exploration);
+  if (!asLine(exploration?.question) || !distinction) return null;
+  const bound = inspectablePassage(
+    exploration?.bearing,
+    exploration?.source,
+    exploration?.other
+  );
+  if (!bound || !overlapsDistinction(bound.passage, distinction)) return null;
+  return bound;
+};
+
 export const namedOn = (exploration) => (
   liveDistinction(exploration) ? asDay(exploration?.distinctionAt) : ''
 );
@@ -472,6 +506,7 @@ export const forgetExperiment = (live) => createExploration({
   originalText: live?.originalText,
   source: live?.source,
   other: live?.other,
+  bearing: live?.bearing,
   then: live?.then
 });
 
@@ -589,13 +624,20 @@ export const restoreExploration = (raw, fallback) => {
       originalText: base.originalText,
       source: base.source,
       other: base.other,
+      bearing: base.bearing,
       id: base.id,
       mark: parsed.mark === '!' ? '!' : '',
       status: parsed.status === EXPLORATION_STATUS.open
         ? EXPLORATION_STATUS.open
         : EXPLORATION_STATUS.closed
     };
-    const recorded = asThen(base.then, restored.originalText, restored.source, restored.other);
+    const recorded = asThen(
+      base.then,
+      restored.originalText,
+      restored.source,
+      restored.other,
+      restored.bearing
+    );
     const {
       then: _ignoredThen,
       returnNote: legacyNote,

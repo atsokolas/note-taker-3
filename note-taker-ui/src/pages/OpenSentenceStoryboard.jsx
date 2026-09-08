@@ -13,6 +13,7 @@ import {
   isPressured,
   isWithoutParagraph,
   keepQuestion,
+  liveBearing,
   liveThen,
   openExploration,
   placeSource,
@@ -43,6 +44,7 @@ import {
   STORYBOARD_PROVISIONAL,
   STORYBOARD_QUESTION,
   STORYBOARD_DISTINCTION,
+  STORYBOARD_BEARING_SOURCE,
   STORYBOARD_SCOPE,
   STORYBOARD_SENTENCE,
   STORYBOARD_SOURCE,
@@ -150,10 +152,13 @@ const applyBeat = (beat, source) => {
     case 'question':
       return questioned;
     case 'return':
-      return setDistinction(
-        keepQuestion(putItBack(worded), STORYBOARD_QUESTION),
-        STORYBOARD_DISTINCTION
-      );
+      return {
+        ...setDistinction(
+          keepQuestion(putItBack(worded), STORYBOARD_QUESTION),
+          STORYBOARD_DISTINCTION
+        ),
+        bearing: STORYBOARD_BEARING_SOURCE
+      };
     default:
       return seed(source);
   }
@@ -176,6 +181,9 @@ const companionRole = (scene, exploration, libraryExploration) => {
   }
   if (isPressured(exploration)) {
     return 'The original stays. The experiment is not a generated causal chain.';
+  }
+  if (liveBearing(exploration)) {
+    return 'This bears on the distinction. It does not close the question.';
   }
   if (inspectableOther(exploration)) {
     return 'Both ends are inspectable. The space between is yours.';
@@ -248,7 +256,8 @@ const OpenSentenceStoryboard = () => {
         id: STORYBOARD_ITEM_ID,
         originalText: STORYBOARD_SENTENCE,
         source,
-        other: exploration.other
+        other: exploration.other,
+        bearing: exploration.bearing
       });
     keepExploration(STORYBOARD_SCOPE, exploration.id || STORYBOARD_ITEM_ID, exploration, live);
   }, [exploration, source]);
@@ -388,7 +397,9 @@ const OpenSentenceStoryboard = () => {
           sit with it when they were saved then. The historical version opens when that
           door is still a different identity. A recorded question sits with it when
           one was left open then. The distinction that would help sits beside that
-          question, dated once named. Both stay. It is not a biography. Read it fresh
+          question, dated once named. Both stay. It is not a biography. Later a recorded
+          passage can sit beside the named distinction. It bears on the fork. It does
+          not close the question. Read it fresh
           hides what you wrote, not the sources. Meet names how
           two recorded passages sit together, and where that stops. Try the other
           way reads the second passage first. Put them back restores the bound
