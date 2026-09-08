@@ -64,6 +64,55 @@ describe('created highlight carries its article', () => {
     expect(result.body.highlight.text).toBe('Founder mode is a claim about proximity.');
   });
 
+  /* The update path answers from the document it just saved rather than reading
+     the same row back. What it answers with still has to be the change. */
+  test('an update answers with the saved highlight and its article', async () => {
+    const highlight = { _id: 'highlight-1', text: 'Founder mode.', note: '', tags: [], color: '#f6e27a', type: 'note', claimId: null };
+    const article = {
+      _id: 'article-1',
+      title: 'Going Founder Mode on Cancer',
+      url: 'https://centuryofbio.com/p/sid',
+      highlights: Object.assign([highlight], { id: (id) => (String(id) === 'highlight-1' ? highlight : null) }),
+      save: async () => article
+    };
+
+    const app = express();
+    app.use(express.json());
+    app.use(buildHighlightMutationRouter({
+      mongoose: { Types: { ObjectId: String } },
+      authenticateToken: (req, _res, next) => { req.user = { id: 'user-1' }; next(); },
+      Article: { findOne: async () => article },
+      normalizeTags: value => (Array.isArray(value) ? value : []),
+      enqueueHighlightEmbedding: () => {},
+      safeMapEmbedding: () => null,
+      highlightToEmbeddingItem: () => null,
+      queueEmbeddingUpsert: () => {},
+      markTourSignal: async () => {},
+      normalizeItemType: (value, fallback) => value || fallback,
+      parseClaimId: value => value || null,
+      buildEmbeddingId: () => '',
+      queueEmbeddingDelete: () => {}
+    }));
+    const server = http.createServer(app);
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    const { port } = server.address();
+    try {
+      const response = await fetch(`http://127.0.0.1:${port}/articles/article-1/highlights/highlight-1`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ note: 'Proximity is the claim.', tags: ['bio'] })
+      });
+      const body = await response.json();
+      expect(response.status).toBe(200);
+      expect(body.articleId).toBe('article-1');
+      expect(body.articleTitle).toBe('Going Founder Mode on Cancer');
+      expect(body.note).toBe('Proximity is the claim.');
+      expect(body.tags).toEqual(['bio']);
+    } finally {
+      await new Promise(resolve => server.close(resolve));
+    }
+  });
+
   test('an anchor survives the round trip', async () => {
     const result = await createHighlight({
       text: 'Founder mode is a claim about proximity.',
