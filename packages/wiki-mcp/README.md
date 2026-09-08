@@ -264,6 +264,30 @@ been asked first. `delete_folder` and `delete_notebook_folder` are not among the
 a Library folder must be empty before it will go, and a Notebook folder unfiles
 its notes rather than taking them with it.
 
+## Releasing
+
+Two packages, published in order, because the CLI depends on this one:
+
+```bash
+cd packages/wiki-mcp && npm publish --access public
+cd ../cli            && npm publish --access public
+```
+
+Bump both versions first, and bump the CLI's `@noeis/wiki-mcp` range to match
+the version being published. That range is the thing to watch: it sat at
+`^0.1.2` while this package moved to 0.3.0, and a caret on a `0.x` version pins
+the minor — so the CLI could never install what had been written, and every
+agent connected through it kept the tools as they stood at 0.1.2.
+
+Verify the artifact rather than the working tree, since `files` decides what
+actually ships:
+
+```bash
+npm pack --pack-destination /tmp
+cd $(mktemp -d) && npm init -y && npm install /tmp/noeis-wiki-mcp-<version>.tgz
+node -e "import('@noeis/wiki-mcp').then(m => console.log(m.toolDefinitions.length, 'tools'))"
+```
+
 ## Prompt
 
 - `wiki_schema`: fetches the current Noeis wiki schema markdown and returns it as prompt context.
