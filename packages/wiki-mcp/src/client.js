@@ -106,6 +106,29 @@ const normalizeFullArticle = (article = {}) => ({
   folder: article.folder || null
 });
 
+/* Concepts were the last surface handing back whatever the API said. The
+   pinned ids are the part a caller acts on, so they are named and shaped like
+   every other id this client returns. */
+const normalizeConcept = (concept = {}) => ({
+  id: pickId(concept),
+  name: concept.name || '',
+  description: concept.description || '',
+  pinnedHighlightIds: (Array.isArray(concept.pinnedHighlightIds) ? concept.pinnedHighlightIds : []).map(String),
+  pinnedArticleIds: (Array.isArray(concept.pinnedArticleIds) ? concept.pinnedArticleIds : []).map(String),
+  pinnedNoteIds: (Array.isArray(concept.pinnedNoteIds) ? concept.pinnedNoteIds : []).map(String),
+  isPublic: Boolean(concept.isPublic),
+  updatedAt: concept.updatedAt || null
+});
+
+const normalizeConceptNote = (note = {}) => ({
+  id: pickId(note),
+  conceptName: note.tagName || '',
+  title: note.title || '',
+  content: note.content || '',
+  createdAt: note.createdAt || null,
+  updatedAt: note.updatedAt || null
+});
+
 const normalizeNotebookFolder = (folder = {}) => ({
   id: pickId(folder),
   name: folder.name || '',
@@ -662,18 +685,59 @@ export class NoeisClient {
   }
 
   listConcepts() {
-    return this.request('/api/concepts');
+    return this.request('/api/concepts')
+      .then(payload => normalizeArrayPayload(payload, 'concepts').map(normalizeConcept));
   }
 
+  /* Reading one keeps everything the API sends — its workspace and layout are
+     the reason to ask for one rather than the list. */
   getConcept({ name }) {
-    return this.request(`/api/concepts/${encodeURIComponent(name)}`);
+    return this.request(`/api/concepts/${encodeURIComponent(name)}`)
+      .then(concept => ({ ...concept, ...normalizeConcept(concept) }));
   }
 
-  updateConcept({ name, description, summary, status, pinnedHighlightIds, pinnedArticleIds, pinnedNoteIds, ideaWorkbench, ideaWorkbenchMeta } = {}) {
+  /* Only what the caller named reaches the API. The route stores what it is
+     given, so sending the untouched fields as undefined is how a rename used to
+     clear a concept's pins. */
+  updateConcept({ name, description, pinnedHighlightIds, pinnedArticleIds, pinnedNoteIds } = {}) {
     return this.request(`/api/concepts/${encodeURIComponent(name)}`, {
       method: 'PUT',
-      body: { description, summary, status, pinnedHighlightIds, pinnedArticleIds, pinnedNoteIds, ideaWorkbench, ideaWorkbenchMeta }
-    });
+      body: {
+        ...(description === undefined ? {} : { description }),
+        ...(pinnedHighlightIds === undefined ? {} : { pinnedHighlightIds }),
+        ...(pinnedArticleIds === undefined ? {} : { pinnedArticleIds }),
+        ...(pinnedNoteIds === undefined ? {} : { pinnedNoteIds })
+      }
+    }).then(normalizeConcept);
+  }
+
+  /* Concept notes are the reader's own writing filed under a concept — the
+     Notebook is the long form, these are the margin. Neither was reachable. */
+  listConceptNotes({ name } = {}) {
+    return this.request(`/api/concepts/${encodeURIComponent(name)}/notes`)
+      .then(payload => normalizeArrayPayload(payload, 'notes').map(normalizeConceptNote));
+  }
+
+  writeConceptNote({ name, title, content } = {}) {
+    return this.request(`/api/concepts/${encodeURIComponent(name)}/notes`, {
+      method: 'POST',
+      body: { title, content }
+    }).then(normalizeConceptNote);
+  }
+
+  updateConceptNote({ noteId, title, content } = {}) {
+    return this.request(`/api/concepts/notes/${encodeURIComponent(noteId)}`, {
+      method: 'PUT',
+      body: {
+        ...(title === undefined ? {} : { title }),
+        ...(content === undefined ? {} : { content })
+      }
+    }).then(normalizeConceptNote);
+  }
+
+  deleteConceptNote({ noteId } = {}) {
+    return this.request(`/api/concepts/notes/${encodeURIComponent(noteId)}`, { method: 'DELETE' })
+      .then(() => ({ id: String(noteId), deleted: true }));
   }
 
   pinHighlightToConcept({ name, highlightId } = {}) {

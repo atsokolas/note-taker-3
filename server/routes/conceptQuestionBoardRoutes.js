@@ -241,10 +241,15 @@ const buildConceptQuestionBoardRouter = ({
     try {
       const userId = req.user.id;
       const { id } = req.params;
-      const { title = '', content = '' } = req.body;
+      /* Only what the caller named: defaulting both to '' meant an update that
+         renamed a note erased everything written in it. */
+      const { title, content } = req.body || {};
       const updated = await ConceptNote.findOneAndUpdate(
         { _id: id, userId },
-        { title, content },
+        {
+          ...(title === undefined ? {} : { title }),
+          ...(content === undefined ? {} : { content })
+        },
         { new: true }
       );
       if (!updated) return res.status(404).json({ error: "Note not found." });

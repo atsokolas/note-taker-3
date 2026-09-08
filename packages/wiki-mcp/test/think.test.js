@@ -1,3 +1,6 @@
+// The Think surface: the Notebook the reader writes in, and the concepts they
+// file it under. Both were reachable from the product and not from an agent.
+
 import assert from 'assert';
 
 import { NoeisClient } from '../src/client.js';
@@ -117,6 +120,79 @@ const run = async () => {
     const gone = await client.deleteNotebookEntry({ entryId: 'n1' });
     assert.strictEqual(calls[0].method, 'DELETE');
     assert.deepStrictEqual(gone, { id: 'n1', deleted: true });
+  }
+
+  /* Concepts. update_concept upserts, so it is also how a concept is made —
+     and it must not blank what it was not asked about: sending the untouched
+     fields as undefined is how a description edit cleared a concept's pins. */
+  {
+    const { client, calls } = clientWith([{ _id: 'c1', name: 'Founder mode', description: 'Sharper.', pinnedHighlightIds: ['h1'] }]);
+    const concept = await client.updateConcept({ name: 'Founder mode', description: 'Sharper.' });
+    assert.strictEqual(calls[0].method, 'PUT');
+    assert.deepStrictEqual(calls[0].body, { description: 'Sharper.' });
+    assert.deepStrictEqual(concept.pinnedHighlightIds, ['h1']);
+    assert.strictEqual(concept.id, 'c1');
+  }
+
+  // An explicit empty list is an unpin, and still travels.
+  {
+    const { client, calls } = clientWith([{ _id: 'c1', name: 'Founder mode' }]);
+    await client.updateConcept({ name: 'Founder mode', pinnedArticleIds: [] });
+    assert.deepStrictEqual(calls[0].body, { pinnedArticleIds: [] });
+  }
+
+  {
+    const { client } = clientWith([[{ _id: 'c1', name: 'Founder mode', pinnedNoteIds: ['n1'] }]]);
+    const concepts = await client.listConcepts();
+    assert.deepStrictEqual(concepts[0], {
+      id: 'c1',
+      name: 'Founder mode',
+      description: '',
+      pinnedHighlightIds: [],
+      pinnedArticleIds: [],
+      pinnedNoteIds: ['n1'],
+      isPublic: false,
+      updatedAt: null
+    });
+  }
+
+  // Reading one keeps what only the single read returns.
+  {
+    const { client } = clientWith([{ _id: 'c1', name: 'Founder mode', workspace: { items: [1, 2] } }]);
+    const concept = await client.getConcept({ name: 'Founder mode' });
+    assert.strictEqual(concept.id, 'c1');
+    assert.deepStrictEqual(concept.workspace, { items: [1, 2] });
+  }
+
+  // Concept notes: the reader's margin on an idea, filed by concept name.
+  {
+    const { client, calls } = clientWith([[{ _id: 'cn1', tagName: 'Founder mode', title: 'Where it breaks', content: 'Scale.' }]]);
+    const notes = await client.listConceptNotes({ name: 'Founder mode' });
+    assert.match(calls[0].url, /\/api\/concepts\/Founder%20mode\/notes$/);
+    assert.deepStrictEqual(notes[0], {
+      id: 'cn1',
+      conceptName: 'Founder mode',
+      title: 'Where it breaks',
+      content: 'Scale.',
+      createdAt: null,
+      updatedAt: null
+    });
+  }
+
+  // Retitling a note must not erase what is written in it.
+  {
+    const { client, calls } = clientWith([{ _id: 'cn1', tagName: 'Founder mode', title: 'Renamed', content: 'Scale.' }]);
+    const note = await client.updateConceptNote({ noteId: 'cn1', title: 'Renamed' });
+    assert.strictEqual(calls[0].method, 'PUT');
+    assert.deepStrictEqual(calls[0].body, { title: 'Renamed' });
+    assert.strictEqual(note.content, 'Scale.');
+  }
+
+  {
+    const { client, calls } = clientWith([{ message: 'Note deleted.' }]);
+    const gone = await client.deleteConceptNote({ noteId: 'cn1' });
+    assert.strictEqual(calls[0].method, 'DELETE');
+    assert.deepStrictEqual(gone, { id: 'cn1', deleted: true });
   }
 };
 

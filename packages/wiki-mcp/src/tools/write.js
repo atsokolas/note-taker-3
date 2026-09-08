@@ -346,6 +346,34 @@ export const writeTools = [
     handler: (client, args) => client.deleteHighlight(args)
   },
   {
+    name: 'write_concept_note',
+    description: 'Write a note under a Think concept — the reader\'s margin on an idea. A concept that does not exist yet is named here without being created; call update_concept if it should also be a concept in its own right.',
+    inputSchema: {
+      name: z.string().describe('Concept name to file the note under.'),
+      title: z.string().optional().describe('The note\'s title.'),
+      content: z.string().optional().describe('The note itself.')
+    },
+    handler: (client, args) => client.writeConceptNote(args)
+  },
+  {
+    name: 'update_concept_note',
+    description: 'Change a concept note. Only the fields you pass are touched, so retitling a note leaves what is written in it standing.',
+    inputSchema: {
+      noteId: z.string().describe('Concept note id, from list_concept_notes.'),
+      title: z.string().optional(),
+      content: z.string().optional()
+    },
+    handler: (client, args) => client.updateConceptNote(args)
+  },
+  {
+    name: 'delete_concept_note',
+    description: 'High-impact: permanently remove a concept note. There is no undo. Confirm with the reader first.',
+    inputSchema: {
+      noteId: z.string().describe('Concept note id.')
+    },
+    handler: (client, args) => client.deleteConceptNote(args)
+  },
+  {
     name: 'create_notebook_entry',
     description: 'Write a new Notebook entry. A note is the reader\'s own thinking, not a saved source — save sources with create_article. Name a folder by folderId or folder (the name, resolved for you). Kind is claim, evidence or note; evidence may name the claim entry it supports.',
     inputSchema: {
@@ -447,17 +475,13 @@ export const writeTools = [
   },
   {
     name: 'update_concept',
-    description: 'Patch a Think concept. Confirm user intent before changing description, pinned material, or workbench state.',
+    description: 'Write a Think concept, creating it if the reader has no concept by that name. Only the fields you pass are touched, so setting a description leaves the pinned material standing. Replacing a pinned list replaces it whole — pin_highlight_to_concept adds one without disturbing the rest. Confirm intent before changing a description or unpinning.',
     inputSchema: {
-      name: z.string().describe('Concept name.'),
-      description: z.string().optional(),
-      summary: z.string().optional(),
-      status: z.string().optional(),
-      pinnedHighlightIds: z.array(z.string()).optional(),
-      pinnedArticleIds: z.array(z.string()).optional(),
-      pinnedNoteIds: z.array(z.string()).optional(),
-      ideaWorkbench: z.record(z.any()).optional(),
-      ideaWorkbenchMeta: z.record(z.any()).optional()
+      name: z.string().describe('Concept name. A name the reader does not have yet creates the concept.'),
+      description: z.string().optional().describe('What the concept is. Replaces the existing description.'),
+      pinnedHighlightIds: z.array(z.string()).optional().describe('Replaces the pinned highlights entirely. Pass [] to unpin them all.'),
+      pinnedArticleIds: z.array(z.string()).optional().describe('Replaces the pinned articles entirely.'),
+      pinnedNoteIds: z.array(z.string()).optional().describe('Replaces the pinned notes entirely.')
     },
     handler: (client, args) => client.updateConcept(args)
   },

@@ -194,7 +194,7 @@ const buildConceptService = ({ Article, TagMeta, NotebookEntry, ReferenceEdge, m
     const cleanName = normalizeName(name);
     const userObjectId = new mongoose.Types.ObjectId(userId);
     const existing = await TagMeta.findOne({ name: new RegExp(`^${cleanName}$`, 'i'), userId: userObjectId });
-    const { description = '', pinnedHighlightIds = [], pinnedArticleIds = [], pinnedNoteIds = [] } = payload;
+    const { description, pinnedHighlightIds, pinnedArticleIds, pinnedNoteIds } = payload;
     const isPublic = payload.isPublic !== undefined ? Boolean(payload.isPublic) : existing?.isPublic || false;
 
     // Keep slug only for public concepts. Avoid persisting empty-string slugs,
@@ -210,13 +210,19 @@ const buildConceptService = ({ Article, TagMeta, NotebookEntry, ReferenceEdge, m
     }
 
     const query = { name: new RegExp(`^${cleanName}$`, 'i'), userId: userObjectId };
+    /* Only what the caller named. Defaulting the absent fields to '' and []
+       meant every write blanked what it did not mention: Think saves a concept
+       with just a description — sometimes only to make sure the row exists
+       before pulling material in — and each of those calls was silently
+       emptying that concept's pinned highlights, articles and notes. Pins have
+       their own route, and nothing that omits them is asking to clear them. */
     const setDoc = {
       name: cleanName,
-      description,
-      pinnedHighlightIds,
-      pinnedArticleIds,
-      pinnedNoteIds,
-      isPublic
+      isPublic,
+      ...(description === undefined ? {} : { description }),
+      ...(pinnedHighlightIds === undefined ? {} : { pinnedHighlightIds }),
+      ...(pinnedArticleIds === undefined ? {} : { pinnedArticleIds }),
+      ...(pinnedNoteIds === undefined ? {} : { pinnedNoteIds })
     };
     if (nextSlug) setDoc.slug = nextSlug;
     const updateDoc = nextSlug

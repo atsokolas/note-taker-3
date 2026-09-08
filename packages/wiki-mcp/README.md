@@ -207,6 +207,7 @@ it, inspect references, and catch up on recent activity with a read-scoped token
 - `get_question`
 - `list_concepts`
 - `get_concept`
+- `list_concept_notes`
 - `list_notebook_entries`
 - `get_notebook_entry`
 - `list_notebook_folders`
@@ -243,6 +244,9 @@ Write tools require a token with the `agent-write` scope. Read-only tokens recei
 - `create_highlight`
 - `update_highlight`
 - `delete_highlight`
+- `write_concept_note`
+- `update_concept_note`
+- `delete_concept_note`
 - `create_notebook_entry`
 - `update_notebook_entry`
 - `delete_notebook_entry`
@@ -254,8 +258,8 @@ Write tools require a token with the `agent-write` scope. Read-only tokens recei
 - `update_concept`
 - `pin_highlight_to_concept`
 
-`delete_article`, `delete_highlight` and `delete_notebook_entry` are the tools
-with no undo. Each says so in its description and each expects the reader to have
+`delete_article`, `delete_highlight`, `delete_notebook_entry` and
+`delete_concept_note` are the tools with no undo. Each says so in its description and each expects the reader to have
 been asked first. `delete_folder` and `delete_notebook_folder` are not among them:
 a Library folder must be empty before it will go, and a Notebook folder unfiles
 its notes rather than taking them with it.

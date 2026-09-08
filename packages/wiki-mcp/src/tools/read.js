@@ -237,6 +237,14 @@ export const readTools = [
     handler: (client, args) => client.getConcept(args)
   },
   {
+    name: 'list_concept_notes',
+    description: 'List the notes filed under a Think concept, newest first. These are the reader\'s margin on a concept; the Notebook is where the long form lives.',
+    inputSchema: {
+      name: z.string().describe('Concept name.')
+    },
+    handler: (client, args) => client.listConceptNotes(args)
+  },
+  {
     name: 'list_notebook_entries',
     description: 'List Notebook entries newest first: title, kind, folder, tags and an opening snippet. Read one in full with get_notebook_entry.',
     inputSchema: {
