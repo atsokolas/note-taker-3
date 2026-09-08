@@ -46,4 +46,9 @@ describe('open-sentence motion', () => {
       /\.open-sentence-pocket__actions button,\s*\.open-sentence-pocket__fresh,\s*\.open-sentence-pocket__close \{[\s\S]*?min-height:\s*44px/
     );
   });
+
+  it('hides the article paragraph when it is set aside', () => {
+    const beforeMotion = css.slice(0, css.indexOf('@media (prefers-reduced-motion: reduce)'));
+    expect(beforeMotion).toMatch(/\.open-sentence\.is-without > \.open-sentence__line\s*\{[^}]*display:\s*none/s);
+  });
 });

@@ -5,12 +5,15 @@ import useCssMagneticLerp from '../../../hooks/useCssMagneticLerp';
 import { useFinePointer, usePrefersReducedMotion } from '../../../hooks/useMotionPreferences';
 import {
   beginPressure,
+  bringParagraphBackLabel,
+  bringTheParagraphBack,
   cancelPlacement,
   canKeepBetweenAsEssay,
   canKeepBetweenAsExperiment,
   canProposeBetween,
   canProposeWording,
   canRearrange,
+  canTryWithoutParagraph,
   changedWordSpans,
   closeExploration,
   endMeet,
@@ -23,6 +26,7 @@ import {
   isOpen,
   isPressured,
   isRearranged,
+  isWithoutParagraph,
   keepBetweenAsEssay,
   keepBetweenAsExperiment,
   keepPressureName,
@@ -49,6 +53,7 @@ import {
   setPressureField,
   sourceClip,
   tryTheOtherWay,
+  tryWithoutThisParagraph,
   tryWording,
   wikiAcceptedText,
   withdrawProposal,
@@ -643,6 +648,20 @@ const PocketBody = ({
         <p className="open-sentence-pocket__qualification">
           {acceptedLabel}: {accepted}
         </p>
+        {canTryWithoutParagraph(exploration) ? (
+          isWithoutParagraph(exploration) ? (
+            <>
+              <p className="open-sentence-pocket__qualification">Trying without this paragraph.</p>
+              <button type="button" onClick={() => onCommit(bringTheParagraphBack(exploration))}>
+                {bringParagraphBackLabel(exploration)}
+              </button>
+            </>
+          ) : (
+            <button type="button" onClick={() => onCommit(tryWithoutThisParagraph(exploration))}>
+              Try without this paragraph
+            </button>
+          )
+        ) : null}
         {then ? (
           <div className="open-sentence-pocket__then">
             <p className="open-sentence-pocket__qualification">Then</p>
@@ -818,11 +837,15 @@ const OpenSentence = ({
         setFresh(false);
         return;
       }
+      if (isWithoutParagraph(exploration)) {
+        onChange(bringTheParagraphBack(exploration));
+        return;
+      }
       closePocket();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [closePocket, fresh, open, previewing]);
+  }, [closePocket, exploration, fresh, open, previewing]);
 
   useEffect(() => {
     if (!followChip) {
@@ -878,7 +901,8 @@ const OpenSentence = ({
     hideHeld || split ? 'is-embedded' : '',
     open ? 'is-open' : '',
     armed ? 'is-armed' : '',
-    exploration?.placed ? 'is-placed' : ''
+    exploration?.placed ? 'is-placed' : '',
+    isWithoutParagraph(exploration) ? 'is-without' : ''
   ].filter(Boolean).join(' ');
 
   const controls = (

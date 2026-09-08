@@ -783,4 +783,29 @@ describe('WikiOpenSentence', () => {
     expect(screen.getByText(/Proposed, not accepted/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Accept this wording' })).not.toBeInTheDocument();
   });
+
+  it('hides the claim paragraph in the article and brings it back by name', () => {
+    renderWikiSentence({
+      page: {
+        ...page,
+        body: {
+          type: 'doc',
+          content: [
+            { type: 'paragraph', content: [{ type: 'text', text: 'Before the claim.' }] },
+            page.body.content[0],
+            { type: 'paragraph', content: [{ type: 'text', text: 'After the claim.' }] }
+          ]
+        }
+      }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Try without this paragraph' }));
+    expect(document.querySelector('.open-sentence')).toHaveClass('is-without');
+    expect(screen.getByText('Before the claim.')).toBeInTheDocument();
+    expect(screen.getByText('After the claim.')).toBeInTheDocument();
+    expect(screen.getByText(/The article still reads/)).toHaveTextContent('Memory compounds with review.');
+    fireEvent.click(screen.getByRole('button', { name: 'Bring “Memory compounds with review.” back' }));
+    expect(document.querySelector('.open-sentence')).not.toHaveClass('is-without');
+    expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent('Memory compounds with review.');
+  });
 });

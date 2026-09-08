@@ -5,6 +5,8 @@ import OpenSentence from './OpenSentence';
 import {
   acceptWording,
   beginPressure,
+  bringParagraphBackLabel,
+  bringTheParagraphBack,
   canKeepBetweenAsEssay,
   canKeepBetweenAsExperiment,
   canProposeBetween,
@@ -20,6 +22,7 @@ import {
   hasPersonalWork,
   isPressured,
   isRearranged,
+  isWithoutParagraph,
   keepBetweenAsEssay,
   keepBetweenAsExperiment,
   keepPressureName,
@@ -50,12 +53,13 @@ import {
   snapshotExploration,
   sourceClip,
   tryTheOtherWay,
+  tryWithoutThisParagraph,
   tryWording,
   wikiAcceptedText,
   withdrawProposal,
   wordingChanged
 } from './openSentenceModel';
-import { STORYBOARD_COMPUTE_SENTENCE, STORYBOARD_COMPUTE_SOURCE, STORYBOARD_DISTINCTION, STORYBOARD_MEET_LIMIT, STORYBOARD_MEET_RELATION, STORYBOARD_MEET_SOURCE, STORYBOARD_QUESTION, STORYBOARD_SENTENCE, STORYBOARD_SOURCE, STORYBOARD_STALE_SOURCE, STORYBOARD_THEN_BESIDE, STORYBOARD_THEN_NOW, STORYBOARD_THEN_ORIGINAL, STORYBOARD_THEN_QUESTION, STORYBOARD_THEN_QUOTATION } from './openSentenceStoryboardFixture';
+import { STORYBOARD_COMPUTE_SENTENCE, STORYBOARD_COMPUTE_SOURCE, STORYBOARD_DISTINCTION, STORYBOARD_LIBRARY_SOURCE, STORYBOARD_MEET_LIMIT, STORYBOARD_MEET_RELATION, STORYBOARD_MEET_SOURCE, STORYBOARD_QUESTION, STORYBOARD_SENTENCE, STORYBOARD_SOURCE, STORYBOARD_STALE_SOURCE, STORYBOARD_THEN_BESIDE, STORYBOARD_THEN_NOW, STORYBOARD_THEN_ORIGINAL, STORYBOARD_THEN_QUESTION, STORYBOARD_THEN_QUOTATION } from './openSentenceStoryboardFixture';
 
 const renderOpen = (exploration, onChange = jest.fn()) => render(
   <MemoryRouter>
@@ -677,6 +681,36 @@ describe('openSentenceModel', () => {
       originalText: STORYBOARD_SENTENCE,
       source: { ...STORYBOARD_SOURCE, passage: 'A different recorded Nomad.' },
       other: STORYBOARD_MEET_SOURCE
+    })))).toBe(false);
+  });
+
+  it('lets the opened paragraph be set aside without deleting it', () => {
+    const start = openExploration(createExploration({
+      originalText: STORYBOARD_SENTENCE,
+      source: STORYBOARD_SOURCE
+    }));
+    const aside = tryWithoutThisParagraph(start);
+    expect(isWithoutParagraph(aside)).toBe(true);
+    expect(aside.originalText).toBe(STORYBOARD_SENTENCE);
+    expect(bringTheParagraphBack(aside)).toEqual(start);
+    expect(bringParagraphBackLabel(aside)).toBe(`Bring “${STORYBOARD_SENTENCE}” back`);
+    const here = createExploration({
+      originalText: STORYBOARD_SOURCE.passage,
+      source: STORYBOARD_LIBRARY_SOURCE
+    });
+    expect(tryWithoutThisParagraph(here)).toBe(here);
+    const empty = createExploration({ originalText: '' });
+    expect(tryWithoutThisParagraph(empty)).toBe(empty);
+    expect(keepsClosedDraft(closeExploration(aside))).toBe(false);
+    expect(isWithoutParagraph(closeExploration(aside))).toBe(false);
+    expect(isWithoutParagraph(restoreExploration(snapshotExploration(aside), start))).toBe(true);
+    expect(isWithoutParagraph(restoreExploration(
+      snapshotExploration(closeExploration(aside)),
+      start
+    ))).toBe(false);
+    expect(isWithoutParagraph(restoreExploration(snapshotExploration(aside), createExploration({
+      originalText: 'The line moved on.',
+      source: STORYBOARD_SOURCE
     })))).toBe(false);
   });
 
@@ -1491,6 +1525,50 @@ describe('OpenSentence', () => {
     expect(screen.queryByRole('button', { name: 'Try the other way' })).not.toBeInTheDocument();
     expect(screen.getByLabelText('How they meet')).toBeInTheDocument();
     expect(screen.getByText(STORYBOARD_MEET_SOURCE.passage)).toBeInTheDocument();
+  });
+
+  it('hides the paragraph in the article and brings it back by name', () => {
+    const onChange = jest.fn();
+    const exploration = openExploration(createExploration({
+      originalText: STORYBOARD_SENTENCE,
+      source: STORYBOARD_SOURCE
+    }));
+    const { rerender } = renderOpen(exploration, onChange);
+    expect(screen.getByRole('button', { name: STORYBOARD_SENTENCE })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Try without this paragraph' }));
+    expect(onChange).toHaveBeenCalledWith(tryWithoutThisParagraph(exploration));
+    rerender(
+      <MemoryRouter>
+        <OpenSentence exploration={tryWithoutThisParagraph(exploration)} onChange={onChange} mocked />
+      </MemoryRouter>
+    );
+    expect(document.querySelector('.open-sentence')).toHaveClass('is-without');
+    expect(screen.getByText(/The article still reads/)).toHaveTextContent(STORYBOARD_SENTENCE);
+    expect(screen.getByText('Trying without this paragraph.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: bringParagraphBackLabel(exploration) }));
+    expect(onChange).toHaveBeenCalledWith(bringTheParagraphBack(tryWithoutThisParagraph(exploration)));
+  });
+
+  it('does not offer to set aside a paragraph that is already here', () => {
+    renderOpen(openExploration(createExploration({
+      originalText: STORYBOARD_SOURCE.passage,
+      source: STORYBOARD_LIBRARY_SOURCE
+    })));
+    expect(screen.queryByRole('button', { name: 'Try without this paragraph' })).not.toBeInTheDocument();
+  });
+
+  it('lets Escape bring the paragraph back without closing the pocket', () => {
+    const onChange = jest.fn();
+    renderOpen(tryWithoutThisParagraph(openExploration(createExploration({
+      originalText: STORYBOARD_SENTENCE,
+      source: STORYBOARD_SOURCE
+    }))), onChange);
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(onChange).toHaveBeenCalledWith(openExploration(createExploration({
+      originalText: STORYBOARD_SENTENCE,
+      source: STORYBOARD_SOURCE
+    })));
+    expect(onChange).not.toHaveBeenCalledWith(expect.objectContaining({ status: 'closed' }));
   });
 
   it('lets a named meeting be the way home without accepting it', () => {

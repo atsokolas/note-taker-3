@@ -271,6 +271,20 @@ describe('OpenSentenceStoryboard', () => {
     expect(screen.queryByText('Also beside')).not.toBeInTheDocument();
   });
 
+  it('sets the Parenting paragraph aside without deleting it', () => {
+    renderBoard();
+    fireEvent.click(screen.getByRole('button', { name: 'Without' }));
+    expect(screen.getByRole('heading', { name: 'Parenting' })).toBeInTheDocument();
+    expect(document.querySelector('.open-sentence')).toHaveClass('is-without');
+    expect(screen.getByText(/Care is not the same as preventing every scrape/)).toBeInTheDocument();
+    expect(screen.getByText(/The useful distinction is not whether a mistake happened/)).toBeInTheDocument();
+    expect(screen.getByText(/The article still reads/)).toHaveTextContent(STORYBOARD_SENTENCE);
+    expect(screen.getByRole('button', { name: `Bring “${STORYBOARD_SENTENCE}” back` })).toBeInTheDocument();
+    expect(screen.getByText('The paragraph is set aside. It is not deleted.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: `Bring “${STORYBOARD_SENTENCE}” back` }));
+    expect(screen.getByRole('button', { name: STORYBOARD_SENTENCE })).toBeInTheDocument();
+  });
+
   it('leaves a way home after Nomad without opening the pocket', async () => {
     renderBoard();
     fireEvent.click(screen.getByRole('button', { name: 'Leave open' }));
