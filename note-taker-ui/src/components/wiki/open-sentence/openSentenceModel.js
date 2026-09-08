@@ -5,6 +5,28 @@ export const EXPLORATION_STATUS = Object.freeze({
 
 const asLine = (value) => String(value || '').trim();
 
+const asDay = (value) => {
+  const text = asLine(value);
+  return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : '';
+};
+
+const MONTHS = Object.freeze([
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+]);
+
+const todayStamp = (now = new Date()) => {
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${now.getFullYear()}-${month}-${day}`;
+};
+
+export const formatNamedOn = (day) => {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(asDay(day));
+  if (!match) return '';
+  return `${Number(match[3])} ${MONTHS[Number(match[2]) - 1]} ${match[1]}`;
+};
+
 const unlessSame = (value, ...sameAs) => {
   const text = asLine(value);
   return text && !sameAs.map(asLine).includes(text) ? text : '';
@@ -376,6 +398,10 @@ export const liveDistinction = (exploration) => unlessSame(
   exploration?.question
 );
 
+export const namedOn = (exploration) => (
+  liveDistinction(exploration) ? asDay(exploration?.distinctionAt) : ''
+);
+
 export const keepsClosedDraft = (exploration) => Boolean(
   String(exploration?.question || '').trim()
   || String(exploration?.distinction || '').trim()
@@ -410,10 +436,15 @@ export const keepQuestion = (exploration, question) => ({
 });
 
 export const setDistinction = (exploration, distinction) => {
-  const { returnNote: _legacyNote, ...rest } = exploration || {};
+  const { returnNote: _legacyNote, distinctionAt: previousAt, ...rest } = exploration || {};
+  const text = String(distinction ?? '');
+  if (!asLine(text)) {
+    return { ...rest, distinction: '' };
+  }
   return {
     ...rest,
-    distinction: String(distinction ?? '')
+    distinction: text,
+    distinctionAt: asDay(previousAt) || todayStamp()
   };
 };
 
@@ -479,10 +510,18 @@ export const restoreExploration = (raw, fallback) => {
         : EXPLORATION_STATUS.closed
     };
     const recorded = asThen(base.then, restored.originalText, restored.source, restored.other);
-    const { then: _ignoredThen, returnNote: legacyNote, ...withoutThen } = restored;
+    const {
+      then: _ignoredThen,
+      returnNote: legacyNote,
+      distinctionAt: rawAt,
+      ...withoutThen
+    } = restored;
+    const distinction = asLine(withoutThen.distinction) || asLine(legacyNote);
+    const distinctionAt = distinction ? asDay(rawAt) : '';
     return {
       ...withoutThen,
-      distinction: asLine(withoutThen.distinction) || asLine(legacyNote),
+      distinction,
+      ...(distinctionAt ? { distinctionAt } : {}),
       ...(recorded ? { then: recorded } : {}),
       proposal: liveProposal(restored),
       pressure: isPressured(restored) ? restored.pressure : null,

@@ -18,6 +18,8 @@ The way home is quiet: the named distinction, or “You left this open.” if on
 
 Later, genuinely relevant material may return through existing return surfaces. That continuity is not this slice.
 
+When Then holds a recorded question, the same distinction field sits beside it as a dated reply. Then’s question stays. The date is stamped once; a lifted note without a date stays undated. No second binder. No worldview-change announcement.
+
 ## What was deleted
 
 - `setReturnNote` / `exploration.returnNote` as a live field
@@ -30,6 +32,11 @@ Later, genuinely relevant material may return through existing return surfaces. 
 - Eligibility: an opened sentence (Wiki pocket or Library passage). The person may name a distinction with or without an unfinished question.
 - Quality bar: the person's words. Not a generated fork. Not a task. Then's question is not copied in. Identity `against` is the current accepted line; restore cannot invent a distinction from Then.
 - Silence: empty distinction stays empty; a distinction that repeats the live question is not a second way home; Then's question stays Then's; a leftover `returnNote` is lifted once, then dropped. No timer, overdue, or paraphrase. Filler is never the answer.
+
+**Dated reply beside Then**
+- Eligibility: Then is showing a recorded question on an opened sentence.
+- Quality bar: the same distinction field, sitting beside that question. Date is the day it was first named. Then's question is kept. Not a generated reply. Not a worldview-change announcement.
+- Silence: no Then question → the field stays under Leave this open; empty stays empty; a lifted note without a date stays undated; an invalid date is dropped. Filler is never the answer.
 
 ## What stays closed
 
