@@ -885,25 +885,25 @@ export const carrySlotName = (exploration, slot) => {
   return asLine(included?.title) || asLine(bound?.title) || 'this passage';
 };
 
-export const canUseCarryQuestion = (exploration) => {
+export const canFillCarryQuestion = (exploration) => {
   const pending = pendingCarry(exploration);
   const question = asLine(exploration?.question);
   return Boolean(pending && question && question !== asLine(pending.question));
 };
 
-export const useCarryQuestion = (exploration) => {
-  if (!canUseCarryQuestion(exploration)) return exploration;
+export const fillCarryQuestion = (exploration) => {
+  if (!canFillCarryQuestion(exploration)) return exploration;
   return setCarryField(exploration, 'question', String(exploration.question || ''));
 };
 
-export const canUseCarryBetween = (exploration) => {
+export const canFillCarryBetween = (exploration) => {
   const pending = pendingCarry(exploration);
   const between = asLine(liveMeet(exploration)?.between);
   return Boolean(pending && between && between !== asLine(pending.conclusion));
 };
 
-export const useCarryBetween = (exploration) => {
-  if (!canUseCarryBetween(exploration)) return exploration;
+export const fillCarryBetween = (exploration) => {
+  if (!canFillCarryBetween(exploration)) return exploration;
   return setCarryField(exploration, 'conclusion', liveMeet(exploration).between);
 };
 

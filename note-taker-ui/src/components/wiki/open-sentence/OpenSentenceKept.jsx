@@ -6,16 +6,18 @@ import {
   bringTheParagraphBack,
   bringTheSourceBack,
   canCarryOut,
+  canFillCarryBetween,
+  canFillCarryQuestion,
   canIncludeCarryPassage,
   canKeepAsExhibit,
   canKeepAsRehearsal,
   canKeepAsUnwritten,
   canTryWithoutParagraph,
   canTryWithoutSource,
-  canUseCarryBetween,
-  canUseCarryQuestion,
   carryClip,
   carrySlotName,
+  fillCarryBetween,
+  fillCarryQuestion,
   includeCarryPassage,
   isWithoutParagraph,
   isWithoutSource,
@@ -42,9 +44,7 @@ import {
   setUnwrittenField,
   showExhibitWay,
   tryWithoutThisParagraph,
-  tryWithoutThisSource,
-  useCarryBetween,
-  useCarryQuestion
+  tryWithoutThisSource
 } from './openSentenceModel';
 
 export const PocketField = ({ id, label, value, onChange, placeholder, rows = 2 }) => (
@@ -322,8 +322,8 @@ const CarryWork = ({ pocketId, exploration, onCommit }) => {
         onChange={(value) => onCommit(setCarryField(exploration, 'question', value))}
         placeholder="One question. Do not share the whole Library."
       />
-      {canUseCarryQuestion(exploration) ? (
-        <button type="button" onClick={() => onCommit(useCarryQuestion(exploration))}>
+      {canFillCarryQuestion(exploration) ? (
+        <button type="button" onClick={() => onCommit(fillCarryQuestion(exploration))}>
           Use the unfinished question
         </button>
       ) : null}
@@ -336,8 +336,8 @@ const CarryWork = ({ pocketId, exploration, onCommit }) => {
         onChange={(value) => onCommit(setCarryField(exploration, 'conclusion', value))}
         placeholder="Provisional. Not a published finding."
       />
-      {canUseCarryBetween(exploration) ? (
-        <button type="button" onClick={() => onCommit(useCarryBetween(exploration))}>
+      {canFillCarryBetween(exploration) ? (
+        <button type="button" onClick={() => onCommit(fillCarryBetween(exploration))}>
           Use the space between
         </button>
       ) : null}

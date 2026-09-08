@@ -22,8 +22,8 @@ import {
   canProposeBetween,
   canProposeWording,
   canTryWithoutSource,
-  canUseCarryBetween,
-  canUseCarryQuestion,
+  canFillCarryBetween,
+  canFillCarryQuestion,
   carryClip,
   carryWayHome,
   changedWordSpans,
@@ -104,8 +104,8 @@ import {
   tryWithoutThisSource,
   tryWording,
   unwrittenWayHome,
-  useCarryBetween,
-  useCarryQuestion,
+  fillCarryBetween,
+  fillCarryQuestion,
   wikiAcceptedText,
   withdrawProposal,
   wordingChanged
@@ -969,11 +969,11 @@ describe('openSentenceModel', () => {
     });
     expect(setCarryField(pending, 'question', '')).toEqual(leaveCarry(pending));
     const asked = keepQuestion(start, STORYBOARD_QUESTION);
-    expect(canUseCarryQuestion(beginCarry(asked))).toBe(true);
-    expect(useCarryQuestion(beginCarry(asked)).carry.question).toBe(STORYBOARD_QUESTION);
+    expect(canFillCarryQuestion(beginCarry(asked))).toBe(true);
+    expect(fillCarryQuestion(beginCarry(asked)).carry.question).toBe(STORYBOARD_QUESTION);
     const between = setMeetField(start, 'between', STORYBOARD_CARRY_CONCLUSION);
-    expect(canUseCarryBetween(beginCarry(between))).toBe(true);
-    expect(useCarryBetween(beginCarry(between)).carry.conclusion).toBe(STORYBOARD_CARRY_CONCLUSION);
+    expect(canFillCarryBetween(beginCarry(between))).toBe(true);
+    expect(fillCarryBetween(beginCarry(between)).carry.conclusion).toBe(STORYBOARD_CARRY_CONCLUSION);
     const snapshot = setCarryFields(included, {
       question: STORYBOARD_CARRY_QUESTION,
       conclusion: STORYBOARD_CARRY_CONCLUSION
@@ -2371,7 +2371,7 @@ describe('OpenSentence', () => {
     expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
   });
 
-  it('lets a snapshot be carried out from two included passages without writing', () => {
+  it('lets a snapshot be carried out from two included passages without writing', async () => {
     const onChange = jest.fn();
     const opened = openExploration(meeting());
     const { rerender } = renderOpen(opened, onChange);
@@ -2431,7 +2431,7 @@ describe('OpenSentence', () => {
     const writeText = jest.fn().mockResolvedValue();
     Object.assign(navigator, { clipboard: { writeText } });
     fireEvent.click(screen.getByRole('button', { name: 'Copy this snapshot' }));
-    expect(writeText).toHaveBeenCalledWith(carryClip(snapshot));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(carryClip(snapshot)));
     expect(writeText.mock.calls[0][0]).not.toMatch(/https?:|\/library/);
     expect(screen.getByText(/The article still reads/)).toHaveTextContent(STORYBOARD_SENTENCE);
     expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
