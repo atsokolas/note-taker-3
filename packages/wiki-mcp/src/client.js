@@ -344,11 +344,29 @@ export class NoeisClient {
       .then(highlights => highlights.find(highlight => String(highlight.id) === String(highlightId)) || null);
   }
 
+  /* Echoing the whole body back is both wasteful and quiet about the one thing
+     that goes wrong here: a save with no article text. The receipt says where the
+     body came from, so an agent that saved a shell can read the page and save
+     again instead of moving on to highlights. */
   createArticle({ title, url, content = '', folderId, author, publicationDate, siteName } = {}) {
     return this.request('/save-article', {
       method: 'POST',
       body: { title, url, content, folderId, author, publicationDate, siteName }
-    }).then(normalizeFullArticle);
+    }).then(payload => {
+      const article = normalizeFullArticle(payload);
+      const contentLength = article.content.length;
+      const source = payload?.contentSource || (contentLength ? 'request' : 'missing');
+      return {
+        ...normalizeArticleSummary(article),
+        id: article.id,
+        folder: article.folder,
+        contentLength,
+        contentSource: source,
+        ...(contentLength ? {} : {
+          warning: 'Saved without article text. The Library will show a highlight-only edition until you save again with content.'
+        })
+      };
+    });
   }
 
   listFolders() {

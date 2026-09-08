@@ -149,11 +149,13 @@ const run = async () => {
         ]);
       }
       if (requestUrl.pathname.endsWith('/save-article')) {
+        const body = JSON.parse(init.body || '{}');
         return jsonResponse({
           _id: 'article-created',
-          title: 'Saved article',
-          url: 'https://example.com/new',
-          content: 'Saved.'
+          title: body.title || 'Saved article',
+          url: body.url || 'https://example.com/new',
+          content: body.content || '',
+          contentSource: body.content ? 'request' : 'missing'
         });
       }
       if (requestUrl.pathname.endsWith('/articles/article-1/highlights') && init.method === 'POST') {
@@ -395,7 +397,20 @@ const run = async () => {
     content: 'Saved.'
   });
   assert.strictEqual(createdArticle.id, 'article-created');
+  assert.strictEqual(createdArticle.contentSource, 'request');
+  assert.strictEqual(createdArticle.contentLength, 6);
+  assert(!('warning' in createdArticle));
   assert(seenRequests.some(request => request.url.endsWith('/save-article') && request.init.method === 'POST'));
+
+  // A save with no body is the shell that leaves the reader a highlight-only
+  // edition. The receipt has to say so rather than read like a success.
+  const shellArticle = await toolDefinitions.find(tool => tool.name === 'create_article').handler(client, {
+    title: 'Going Founder Mode on Cancer',
+    url: 'https://centuryofbio.com/p/sid'
+  });
+  assert.strictEqual(shellArticle.contentLength, 0);
+  assert.strictEqual(shellArticle.contentSource, 'missing');
+  assert.match(shellArticle.warning, /highlight-only edition/);
 
   const createdHighlight = await toolDefinitions.find(tool => tool.name === 'create_highlight').handler(client, {
     articleId: 'article-1',

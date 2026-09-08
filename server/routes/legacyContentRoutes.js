@@ -5,6 +5,10 @@ const { createWikiSourceEvent } = require('../services/wikiSourceEventService');
 const { processWikiSourceEvent } = require('../services/wikiMaintenanceOrchestrator');
 const { isProceduralShelf } = require('../lib/proceduralShelf');
 const { firstGraphOf } = require('../lib/feedHome');
+const {
+  fetchUrlForIngest: defaultFetchUrlForIngest,
+  ingestTextToHtml
+} = require('../services/import/urlTextIngest');
 
 const applyDefaultArticleVisibility = (match, { includeSuppressed = false } = {}) => {
   if (includeSuppressed) return match;
@@ -16,6 +20,13 @@ const applyDefaultArticleVisibility = (match, { includeSuppressed = false } = {}
 };
 
 const ARTICLE_PLACEMENTS = new Set(['stream', 'later', 'setAside']);
+
+/* A body shorter than this is a cookie wall, a paywall stub or a JavaScript
+   shell — not the piece. Saving it would be worse than saving nothing, because
+   the reader would stop offering the highlight edition and show the stub instead. */
+const MIN_FETCHED_BODY_LENGTH = 400;
+
+const hasText = (value) => String(value || '').replace(/<[^>]*>/g, '').trim().length > 0;
 
 const normalizeArticlePlacement = (value) => {
   const candidate = String(value || '').trim();
@@ -40,6 +51,7 @@ const buildLegacyContentRouter = ({
   normalizeItemType,
   buildEmbeddingId,
   queueEmbeddingDelete,
+  fetchUrlForIngest = defaultFetchUrlForIngest,
   WikiPage = null,
   WikiRevision = null,
   WikiSourceEvent = null,
@@ -49,6 +61,22 @@ const buildLegacyContentRouter = ({
   Question = null
 }) => {
   const router = express.Router();
+
+  /* An agent saving through the API knows a title and a URL; it rarely holds the
+     body the browser extension reads off the page. Left alone that lands a shell
+     in the Library, and the reader falls back to a highlight-only edition — the
+     highlights survive, the article never arrives. Fetch the body ourselves
+     rather than storing the shell. */
+  const fetchArticleBody = async (url) => {
+    try {
+      const fetched = await fetchUrlForIngest({ url, timeoutMs: 8000 });
+      const html = ingestTextToHtml(fetched?.text || '');
+      return html.replace(/<[^>]*>/g, '').trim().length >= MIN_FETCHED_BODY_LENGTH ? html : '';
+    } catch (error) {
+      console.warn(`Could not fetch a body for ${url}:`, error.message);
+      return '';
+    }
+  };
 
   const emitWikiSourceEvent = async (payload = {}) => {
     try {
@@ -197,14 +225,29 @@ const buildLegacyContentRouter = ({
         }
         actualFolderId = folderId;
       }
+
+      /* Saving is an upsert, so every field written unconditionally is a field a
+         later partial save erases. An agent re-saving a title and a URL used to
+         blank the body, the author and the filing the extension had captured.
+         Only what the caller actually sent is written; the rest is left standing. */
+      const existing = await Article.findOne({ url: url, userId: userId }, 'content');
+      /* Whatever the caller sent is what gets stored — an image-only body is
+         still their body. The fetch is a backstop for the empty case alone. */
+      let resolvedContent = typeof content === 'string' ? content.trim() : '';
+      let contentSource = resolvedContent ? 'request' : '';
+      if (!resolvedContent && !hasText(existing?.content)) {
+        resolvedContent = await fetchArticleBody(url);
+        contentSource = resolvedContent ? 'fetched' : 'missing';
+      }
+
       const articleData = {
         title: safeTitle,
-        content: content || '',
-        folder: actualFolderId,
         userId: userId,
-        author: author || '',
-        publicationDate: publicationDate || '',
-        siteName: siteName || '',
+        ...(resolvedContent ? { content: resolvedContent } : {}),
+        ...(folderId !== undefined ? { folder: actualFolderId } : {}),
+        ...(author ? { author } : {}),
+        ...(publicationDate ? { publicationDate } : {}),
+        ...(siteName ? { siteName } : {}),
         ...(pdfs !== undefined ? { pdfs: normalizePdfs(pdfs) } : {}),
         /* A placement chosen on the save card. Three decisions, one card:
            the piece arrives already filed and already placed, so it never
@@ -213,7 +256,13 @@ const buildLegacyContentRouter = ({
         ...(normalizeArticlePlacement(placement) && normalizeArticlePlacement(placement) !== 'stream'
           ? { placement: normalizeArticlePlacement(placement), placementAt: new Date() }
           : {}),
-        $setOnInsert: { highlights: [] }
+        /* Everything omitted above keeps its schema default on insert, and on an
+           update keeps whatever the article already holds. content is the one
+           path with no schema default, so it says its own empty. */
+        $setOnInsert: {
+          highlights: [],
+          ...(resolvedContent ? {} : { content: '' })
+        }
       };
 
       const updatedArticle = await Article.findOneAndUpdate({ url: url, userId: userId }, articleData, {
@@ -249,7 +298,12 @@ const buildLegacyContentRouter = ({
         sourceUpdatedAt: updatedArticle.updatedAt || new Date(),
         metadata: { route: 'save-article' }
       });
-      res.status(200).json(updatedArticle);
+      /* A save that quietly stored no body is the bug this route had. Say so in
+         the receipt so the caller can fetch the text and save again. */
+      res.status(200).json({
+        ...(typeof updatedArticle?.toObject === 'function' ? updatedArticle.toObject() : updatedArticle),
+        contentSource: contentSource || (hasText(updatedArticle?.content) ? 'existing' : 'missing')
+      });
     } catch (error) {
       console.error("❌ Error in /save-article:", error);
       res.status(500).json({ error: "Internal server error.", details: error.message });

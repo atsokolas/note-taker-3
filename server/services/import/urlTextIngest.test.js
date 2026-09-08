@@ -3,6 +3,7 @@ const {
   extractReadableText,
   extractTitle,
   fetchUrlForIngest,
+  ingestTextToHtml,
   normalizeIngestText,
   stripHtml,
   stripSiteSuffix
@@ -104,6 +105,20 @@ const run = async () => {
     })
   });
   assert.strictEqual(suffixed.title, "Goodhart's law");
+
+  // Extracted text is blank-line separated blocks. Stored raw, the reader —
+  // which renders bodies as HTML — collapses an essay into one unbroken run.
+  assert.strictEqual(
+    ingestTextToHtml('First block.\n\nSecond block.'),
+    '<p>First block.</p>\n<p>Second block.</p>'
+  );
+  assert.strictEqual(ingestTextToHtml('A line\nand its wrap.'), '<p>A line<br/>and its wrap.</p>');
+  assert.strictEqual(ingestTextToHtml('  \n\n  '), '');
+  // Page text is not markup, and a fetched page is not trusted to say otherwise.
+  assert.strictEqual(
+    ingestTextToHtml('<script>alert("x")</script>'),
+    '<p>&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt;</p>'
+  );
 
   console.log('urlTextIngest tests passed');
 };

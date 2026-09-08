@@ -109,6 +109,24 @@ const extractReadableText = (html = '') => {
   return stripHtml(body || html);
 };
 
+const escapeHtml = (value = '') => String(value || '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;');
+
+/**
+ * The reader renders article bodies as HTML. Extracted text arrives as blank-line
+ * separated blocks, and handing that over raw collapses a whole essay into one
+ * unbroken run — technically saved, unreadable in practice.
+ */
+const ingestTextToHtml = (text = '') => String(text || '')
+  .split(/\n{2,}/)
+  .map(block => block.trim())
+  .filter(Boolean)
+  .map(block => `<p>${escapeHtml(block).replace(/\n/g, '<br/>')}</p>`)
+  .join('\n');
+
 const normalizeIngestText = (value = '', maxLength = 120000) => (
   String(value || '').replace(/\r/g, '').replace(/[ \t]+\n/g, '\n').trim().slice(0, maxLength)
 );
@@ -151,6 +169,7 @@ module.exports = {
   extractReadableText,
   extractTitle,
   fetchUrlForIngest,
+  ingestTextToHtml,
   normalizeIngestText,
   stripHtml
 };

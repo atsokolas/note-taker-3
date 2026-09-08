@@ -222,11 +222,11 @@ export const writeTools = [
   },
   {
     name: 'create_article',
-    description: 'Save or update a normal Library article. Use this for user requests to add an article to the reading library, not for wiki ingestion.',
+    description: 'Save or update a normal Library article. Use this for user requests to add an article to the reading library, not for wiki ingestion. Pass the full article text as content: without it the Library holds a title and a link, and the reader shows a highlight-only edition instead of the piece. Read the page first and send what you read; the server only falls back to fetching the URL itself when content is missing, and a paywall or a script-rendered page defeats it. The result says which of the three happened.',
     inputSchema: {
       title: z.string().min(1),
       url: z.string().min(1),
-      content: z.string().optional(),
+      content: z.string().optional().describe('The full article text or HTML. Omit only when the body is genuinely unavailable to you.'),
       folderId: z.string().optional(),
       author: z.string().optional(),
       publicationDate: z.string().optional(),
