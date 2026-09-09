@@ -279,3 +279,42 @@ describe('the shape of a block', () => {
     expect(line).toHaveAttribute('aria-expanded', 'false');
   });
 });
+
+/**
+ * A warning that names no way out is a complaint.
+ */
+describe('a test nothing is watching', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.spyOn(router, 'useParams').mockReturnValue({ pageId: 'p1' });
+    listWikiSourceEvents.mockResolvedValue([]);
+    getCompanyDossierJudgmentReview.mockResolvedValue(null);
+    getJudgmentLibraryEvidence.mockResolvedValue({ claim: '', terms: [], candidates: [] });
+  });
+
+  const unwatched = () => {
+    const held = page();
+    held.judgment.falsifiers = [{ falsifierId: 'f1', text: 'A cheaper model ships.', observableSignal: '' }];
+    return held;
+  };
+
+  it('says so, and opens the form that fixes it', async () => {
+    getWikiPage.mockResolvedValue(unwatched());
+    renderCase();
+    await screen.findByLabelText('Title');
+    expect(screen.getByText(/Nothing is watching this/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Name one' }));
+    expect(await screen.findByLabelText('I would change my mind if')).toBeInTheDocument();
+  });
+
+  /* A test with a signal is watched, and the page stays quiet about it. */
+  it('stays quiet when a signal is named', async () => {
+    const watched = page();
+    watched.judgment.falsifiers = [{ falsifierId: 'f1', text: 'A cheaper model ships.', observableSignal: 'MMLU per dollar halves.' }];
+    getWikiPage.mockResolvedValue(watched);
+    renderCase();
+    await screen.findByLabelText('Title');
+    expect(screen.queryByText(/Nothing is watching this/)).not.toBeInTheDocument();
+  });
+});

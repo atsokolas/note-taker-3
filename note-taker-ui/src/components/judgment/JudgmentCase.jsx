@@ -159,7 +159,8 @@ const JudgmentCase = ({
   /* The test's own machinery — setting it, and recording what happened when
      the date arrived — stays where it was built and is shown inside the block
      that is about it. */
-  test = null
+  test = null,
+  onNameSignal
 }) => {
   const composer = kind => (
     <UpdateComposer
@@ -231,10 +232,12 @@ const JudgmentCase = ({
           composer={composer}
         >
           {/* A test nobody is watching is a test in name only, and this page is
-              the only place that knows. */}
+              the only place that knows — so it says so, and opens the form that
+              fixes it rather than leaving the reader to find the cure. */}
           {view.changeMindIf.some(line => !line.signal) ? (
             <p className="judgment-block__unwatched">
-              Nothing is watching this — no observable signal named.
+              Nothing is watching this — no observable signal named.{' '}
+              <button type="button" onClick={() => onNameSignal?.()}>Name one</button>
             </p>
           ) : null}
           {test}

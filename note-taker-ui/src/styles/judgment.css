@@ -1041,7 +1041,15 @@ button.judgment-inbox__text:focus-visible {
 
 .judgment-time input[type='range'] {
   width: min(100%, 28rem);
-  accent-color: var(--ink, #302a23);
+  accent-color: var(--noeis-pointer, var(--ink, #302a23));
+}
+
+.judgment-time label {
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--noeis-pointer, var(--text-primary));
 }
 
 .judgment-time__caption {
@@ -2933,14 +2941,11 @@ body.noeis-editorial .judgment .judgment__title,
   color: color-mix(in srgb, var(--text-muted) 88%, transparent) !important;
 }
 
-/* The sentence you hold, in pointer ink. It is the one live thing on the
-   page — the only field here you can rewrite in place — and this is the ink
-   that means exactly that everywhere else in the product. */
 body.noeis-editorial .judgment .judgment__opinion,
 .judgment .judgment__opinion {
   max-width: 54ch;
   margin: 14px 0 0;
-  color: var(--noeis-pointer, var(--text-primary)) !important;
+  color: var(--text-primary) !important;
   font-size: clamp(1.34rem, 2.2vw, 1.62rem) !important;
   font-weight: 500 !important;
   line-height: 1.28 !important;
@@ -3105,6 +3110,19 @@ body.noeis-editorial .judgment .judgment-block__unwatched,
   margin: 12px 0 0;
   color: var(--noeis-warning, #9a6a2d) !important;
   font-size: 0.92rem;
+}
+
+/* The cure, in the same ink as the problem. A warning that names no way out
+   is just a complaint. */
+.judgment-block__unwatched button {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
 }
 
 /* At rest the page carries no fields. This asks for one. */
