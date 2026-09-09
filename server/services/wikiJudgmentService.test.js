@@ -364,3 +364,50 @@ module.exports = { run };
   );
   console.log('graph proof (server half) passed');
 }
+
+/* What the sentence used to say. A judgment that changed is the record. */
+{
+  const first = normalizeJudgment({
+    input: { currentJudgment: 'The accelerator shortage is temporary.' },
+    actorType: 'user'
+  });
+  assert.deepStrictEqual(first.heldHistory, [], 'a first draft supersedes nothing');
+
+  const revised = normalizeJudgment({
+    input: { currentJudgment: 'Compute is the binding constraint on frontier progress.' },
+    existing: first,
+    actorType: 'user'
+  });
+  assert.strictEqual(revised.heldHistory.length, 1);
+  assert.strictEqual(revised.heldHistory[0].text, 'The accelerator shortage is temporary.');
+  assert(revised.heldHistory[0].until instanceof Date, 'the wording keeps the day it stopped being held');
+
+  /* Saving the same sentence again is not a revision. */
+  const resaved = normalizeJudgment({
+    input: { currentJudgment: 'Compute is the binding constraint on frontier progress.', confidence: 0.6 },
+    existing: revised,
+    actorType: 'user'
+  });
+  assert.strictEqual(resaved.heldHistory.length, 1, 'an unchanged sentence appends nothing');
+
+  const again = normalizeJudgment({
+    input: { currentJudgment: 'We are compute scarce.' },
+    existing: resaved,
+    actorType: 'user'
+  });
+  assert.deepStrictEqual(
+    again.heldHistory.map(entry => entry.text),
+    ['The accelerator shortage is temporary.', 'Compute is the binding constraint on frontier progress.'],
+    'oldest first, append-only'
+  );
+
+  /* Clearing the sentence is not a supersession either — there is no new
+     wording to have replaced the old one. */
+  const cleared = normalizeJudgment({
+    input: { currentJudgment: '' },
+    existing: again,
+    actorType: 'user'
+  });
+  assert.strictEqual(cleared.heldHistory.length, 2, 'an emptied sentence appends nothing');
+  console.log('held history passed');
+}

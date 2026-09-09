@@ -1220,6 +1220,8 @@ button.judgment-inbox__text:focus-visible {
 
   .judgment-log.is-listening .judgment-log__row:not(.is-kin),
   .judgment-log__row,
+  .judgment-case.is-listening .judgment-block__entry:not(.is-kin),
+  .judgment-block__entry,
   .judgment-inbox.is-listening .judgment-inbox__line:not(.is-kin),
   .judgment-inbox__line {
     opacity: 1;
@@ -2912,4 +2914,187 @@ body.noeis-editorial .judgment .judgment-depends__add select,
 
 .judgment__new-actions .is-quiet {
   color: var(--text-muted, var(--vellum-subtle));
+}
+
+/* ---- The case, two by two ------------------------------------------------ */
+
+/* The name was set at 2.6rem and the sentence at 1.08rem, which is why an
+   unwritten case showed a grey imperative as the largest thing on the page
+   and the belief as a caption under it. The sentence is the case; the name is
+   a handle for it. */
+body.noeis-editorial .judgment .judgment__title,
+.judgment .judgment__title {
+  max-width: 44ch;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif) !important;
+  font-size: 0.78rem !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.06em !important;
+  line-height: 1.4 !important;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--text-muted) 88%, transparent) !important;
+}
+
+body.noeis-editorial .judgment .judgment__opinion,
+.judgment .judgment__opinion {
+  max-width: 54ch;
+  margin: 14px 0 0;
+  color: var(--text-primary) !important;
+  font-size: clamp(1.34rem, 2.2vw, 1.62rem) !important;
+  font-weight: 500 !important;
+  line-height: 1.28 !important;
+  letter-spacing: -0.01em;
+}
+
+/* What it used to say. Dated and quiet, never struck: superseded is not
+   retracted, and a judgment that changed is the record. */
+.judgment__earlier {
+  margin: 22px 0 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--noeis-rule, var(--border-subtle-2));
+  max-width: 60ch;
+}
+
+.judgment__earlier h2 {
+  margin: 0 0 8px;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--text-muted) 78%, transparent);
+}
+
+body.noeis-editorial .judgment .judgment__earlier-line,
+.judgment .judgment__earlier-line {
+  display: grid;
+  grid-template-columns: 6.5rem 1fr;
+  gap: 14px;
+  margin: 0 0 7px;
+  font-size: 0.94rem;
+  color: color-mix(in srgb, var(--text-muted) 92%, transparent) !important;
+}
+
+.judgment__earlier-line time {
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.78rem;
+  font-variant-numeric: lining-nums tabular-nums;
+  color: color-mix(in srgb, var(--text-muted) 74%, transparent);
+  padding-top: 0.2em;
+}
+
+/* The grid. Top row is what you claim; bottom row is what happened since. */
+.judgment-case__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-top: 1px solid var(--noeis-rule, var(--border-subtle-2));
+}
+
+.judgment-block {
+  min-width: 0;
+  padding: 24px 28px 26px;
+  border-bottom: 1px solid var(--noeis-rule, var(--border-subtle-2));
+}
+
+.judgment-block:nth-child(odd) { border-right: 1px solid var(--noeis-rule, var(--border-subtle-2)); }
+
+.judgment-block__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin: 0 0 14px;
+}
+
+.judgment-block__head h3 {
+  margin: 0;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.76rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: color-mix(in srgb, var(--text-muted) 94%, transparent);
+}
+
+.judgment-block__count {
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.74rem;
+  font-variant-numeric: lining-nums;
+  color: color-mix(in srgb, var(--text-muted) 70%, transparent);
+}
+
+/* WRITTEN: plain text on the page. No border, no fill — a record reads as a
+   document, and nothing here may look like a field. */
+.judgment-block__entry { margin: 0 0 16px; }
+.judgment-block__entry:last-of-type { margin-bottom: 0; }
+/* `body.noeis-editorial p` paints every paragraph muted with !important, so
+   specificity alone loses and every line here — the record, the absences and
+   the one warning — renders in the same grey. Outranking it takes the same
+   !important the title and the opinion above already use. */
+body.noeis-editorial .judgment .judgment-block__text,
+.judgment .judgment-block__text {
+  margin: 0;
+  line-height: 1.5;
+  color: var(--text-primary) !important;
+}
+
+.judgment-block__when {
+  display: block;
+  margin-top: 4px;
+  cursor: default;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.78rem;
+  font-style: normal;
+  color: color-mix(in srgb, var(--text-muted) 78%, transparent);
+}
+
+/* How far a source reaches, said while you hover it. */
+body.noeis-editorial .judgment .judgment-case__whisper,
+.judgment .judgment-case__whisper {
+  margin: 0 0 10px;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.78rem;
+  color: color-mix(in srgb, var(--text-muted) 82%, transparent) !important;
+}
+
+.judgment-case.is-listening .judgment-block__entry:not(.is-kin) { opacity: 0.38; }
+
+.judgment-block__entry.is-kin .judgment-block__text {
+  background: color-mix(in srgb, var(--wiki-warm-accent, var(--vellum-warm)) 10%, transparent);
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--wiki-warm-accent, var(--vellum-warm)) 72%, transparent);
+}
+
+body.noeis-editorial .judgment .judgment-block__none,
+.judgment .judgment-block__none {
+  margin: 0;
+  color: color-mix(in srgb, var(--text-muted) 80%, transparent) !important;
+}
+
+/* The one line here that is a warning, and only when it is true. */
+body.noeis-editorial .judgment .judgment-block__unwatched,
+.judgment .judgment-block__unwatched {
+  margin: 12px 0 0;
+  color: var(--noeis-warning, #9a6a2d) !important;
+  font-size: 0.92rem;
+}
+
+/* At rest the page carries no fields. This asks for one. */
+.judgment-block__add {
+  margin: 14px 0 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.82rem;
+  color: var(--noeis-pointer, var(--text-primary));
+  cursor: pointer;
+}
+
+.judgment-block__add:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+.judgment-block .judgment-composer { margin: 14px 0 0; }
+
+@media (max-width: 860px) {
+  .judgment-case__grid { grid-template-columns: 1fr; }
+  .judgment-block { padding: 22px 20px 24px; }
+  .judgment-block:nth-child(odd) { border-right: 0; }
+  .judgment__earlier-line { grid-template-columns: 5rem 1fr; gap: 10px; }
 }

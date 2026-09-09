@@ -1,16 +1,13 @@
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import useCssMagneticLerp from '../hooks/useCssMagneticLerp';
-import { useFinePointer, usePrefersReducedMotion } from '../hooks/useMotionPreferences';
-import { clearSentenceHandoff, flySentenceInto, handOffSentence } from '../motion/columnMotion';
-import { formatLedgerDate, isLibraryHref, newLineId } from './judgmentModel';
-import { LOG_FILTERS, buildJudgmentLog, filterLog, omitEntry, sameWeek, sourceKinForCandidate, speaksWith, weekKey } from './judgmentLog';
-import { useFlightDecision } from '../motion/useFlightDecision';
+import { usePrefersReducedMotion } from '../hooks/useMotionPreferences';
+import { clearSentenceHandoff, handOffSentence } from '../motion/columnMotion';
+import { isLibraryHref, newLineId } from './judgmentModel';
+import { sourceKinForCandidate, speaksWith } from './judgmentLog';
 import { clearMention, readMention } from './sourceMention';
 import SourcePicker from '../components/judgment/SourcePicker';
 
 const AUTOSAVE_PAUSE_MS = 700;
-const KIND_MARK = 22;
 const INBOX_OPEN = 3;
 const LEAVE_MS = 200;
 const isExternal = (href = '') => /^https?:\/\//i.test(href);
@@ -22,34 +19,6 @@ const KINDS = [
   { field: 'changeMindIf', label: 'Change', prompt: 'What would change your mind?' },
   { field: 'whatIDid', label: 'Did', prompt: 'What did you do about it?' }
 ];
-
-const FILTER_LABEL = {
-  all: 'All',
-  why: 'Why',
-  against: 'Against'
-};
-
-const KIND_LABEL = {
-  why: 'Why',
-  against: 'Against',
-  did: 'Did'
-};
-
-const kindName = (kind) => KIND_LABEL[kind] || kind;
-
-const markOffset = (rail, clientX) => {
-  const rect = rail.getBoundingClientRect();
-  return clientX - rect.left - KIND_MARK / 2;
-};
-
-const activeMarkOffset = (rail) => {
-  const hinted = rail.querySelector('[data-hint="true"]');
-  const active = hinted || rail.querySelector('[aria-checked="true"]');
-  if (!active) return 0;
-  const railRect = rail.getBoundingClientRect();
-  const buttonRect = active.getBoundingClientRect();
-  return buttonRect.left - railRect.left + (buttonRect.width - KIND_MARK) / 2;
-};
 
 const citeClass = (source) => [
   'judgment__cite',
@@ -77,112 +46,7 @@ const CitationMark = ({ source, onKin }) => {
   );
 };
 
-const LogRow = ({ entry, kin, arriving, onKin }) => {
-  const textRef = useRef(null);
-  const related = kin?.week
-    ? sameWeek(entry.at, kin)
-    : entry.sources.some(source => speaksWith(source, kin));
-  const willFly = useFlightDecision(arriving, entry.text);
-  const when = formatLedgerDate(entry.at);
-  const week = weekKey(entry.at);
-
-  useLayoutEffect(() => {
-    if (!arriving) return;
-    flySentenceInto(textRef.current, entry.text);
-  }, [arriving, entry.text]);
-
-  return (
-    <li
-      className={[
-        'judgment-log__row',
-        `judgment-log__row--${entry.kind}`,
-        related ? 'is-kin' : '',
-        arriving && !willFly ? 'is-arriving' : ''
-      ].filter(Boolean).join(' ')}
-    >
-      <span className="judgment-log__kind">{kindName(entry.kind)}</span>
-      <p className="judgment-log__text" ref={textRef}>
-        {entry.text}
-        {entry.sources.length ? (
-          <sup className="judgment__cites">
-            {entry.sources.map(source => (
-              <CitationMark key={source.id} source={source} onKin={onKin} />
-            ))}
-          </sup>
-        ) : null}
-      </p>
-      {when ? (
-        <time
-          className="judgment-log__when"
-          dateTime={entry.at}
-          tabIndex={0}
-          onMouseEnter={() => week && onKin?.({ week, label: 'Same week' })}
-          onMouseLeave={() => onKin?.(null)}
-          onFocus={() => week && onKin?.({ week, label: 'Same week' })}
-          onBlur={() => onKin?.(null)}
-        >
-          {when}
-        </time>
-      ) : null}
-    </li>
-  );
-};
-
-const KindRail = ({ kind, hintKind, onKind }) => {
-  const magnetic = useCssMagneticLerp('--kind-x', 0.28);
-  const fine = useFinePointer();
-  const reduced = usePrefersReducedMotion();
-  const follow = fine && !reduced;
-  const placed = useRef(false);
-
-  const rest = useCallback((instant) => {
-    const rail = magnetic.elRef.current;
-    if (!rail) return;
-    const x = activeMarkOffset(rail);
-    if (instant) magnetic.reset(x);
-    else magnetic.setTarget(x);
-  }, [magnetic]);
-
-  useEffect(() => {
-    rest(!placed.current);
-    placed.current = true;
-  }, [kind, hintKind, rest]);
-
-  return (
-    <div
-      ref={magnetic.elRef}
-      className="judgment-composer__kinds"
-      role="radiogroup"
-      aria-label="This update is"
-      onMouseMove={(event) => {
-        if (!follow) return;
-        magnetic.setTarget(markOffset(event.currentTarget, event.clientX));
-      }}
-      onMouseLeave={() => {
-        if (follow) rest(false);
-      }}
-    >
-      {KINDS.map(option => (
-        <button
-          key={option.field}
-          type="button"
-          role="radio"
-          aria-checked={kind === option.field}
-          data-hint={hintKind === option.field ? 'true' : undefined}
-          className={[
-            kind === option.field ? 'is-active' : '',
-            hintKind === option.field ? 'is-hint' : ''
-          ].filter(Boolean).join(' ')}
-          onClick={() => onKind(option.field)}
-        >
-          {option.label}
-        </button>
-      ))}
-    </div>
-  );
-};
-
-const KindWords = ({ kind, disabled, onHint, onChoose }) => (
+const KindWords = ({ kind, disabled, onChoose }) => (
   <span className="judgment__kind-words">
     {['why', 'against'].map((field) => (
       <button
@@ -190,10 +54,6 @@ const KindWords = ({ kind, disabled, onHint, onChoose }) => (
         type="button"
         className={kind === field ? 'is-lit' : ''}
         disabled={disabled}
-        onMouseEnter={() => onHint?.(field)}
-        onMouseLeave={() => onHint?.('')}
-        onFocus={() => onHint?.(field)}
-        onBlur={() => onHint?.('')}
         onClick={() => onChoose?.(field)}
       >
         {field === 'why' ? 'Why' : 'Against'}
@@ -210,7 +70,6 @@ const InboxLine = ({
   kin,
   match,
   onKin,
-  onHint,
   onFile,
   onPress
 }) => {
@@ -263,7 +122,6 @@ const InboxLine = ({
       <KindWords
         kind={kind}
         disabled={filing}
-        onHint={onHint}
         onChoose={(field) => onFile(candidate, field, textRef.current)}
       />
     </li>
@@ -281,7 +139,6 @@ const MorningInbox = ({
   view,
   kin,
   onKin,
-  onHint,
   onFile
 }) => {
   const [open, setOpen] = useState(false);
@@ -352,7 +209,6 @@ const MorningInbox = ({
             kin={kin}
             match={sourceKinForCandidate(view, candidate)}
             onKin={onKin}
-            onHint={onHint}
             onFile={file}
             onPress={(item, origin) => file(item, kind, origin)}
           />
@@ -369,19 +225,18 @@ const MorningInbox = ({
 
 const UpdateComposer = ({
   onWrite,
-  onPending,
   onSettle,
   inbox = null,
   onFile,
   view,
   kin,
   onKin,
-  hintKind,
-  onHint,
   /* Sources already bound to this case, offered before the library is asked. */
-  boundSources = []
+  boundSources = [],
+  /* Decided by the block this was opened in. A composer that could change its
+     own mind needed a rail; one that belongs to a side does not. */
+  kind
 }) => {
-  const [kind, setKind] = useState('why');
   const [draft, setDraft] = useState('');
   const [state, setState] = useState('idle');
   const [writeError, setWriteError] = useState('');
@@ -400,7 +255,6 @@ const UpdateComposer = ({
     if (!line || !onWrite) return '';
     if (!lineIdRef.current) {
       lineIdRef.current = newLineId(kind);
-      onPending?.(lineIdRef.current);
     }
     setState('saving');
     setWriteError('');
@@ -417,7 +271,7 @@ const UpdateComposer = ({
       );
       return '';
     }
-  }, [kind, onPending, onWrite, source]);
+  }, [kind, onWrite, source]);
 
   useEffect(() => () => window.clearTimeout(timerRef.current), []);
 
@@ -427,7 +281,6 @@ const UpdateComposer = ({
     const written = await save(draft);
     if (!written) return false;
     onSettle?.(written);
-    onPending?.('');
     lineIdRef.current = '';
     setDraft('');
     setSource(null);
@@ -436,40 +289,8 @@ const UpdateComposer = ({
     return true;
   };
 
-  const chooseKind = async (next) => {
-    window.clearTimeout(timerRef.current);
-    if (draft.trim() && !(await finish())) return false;
-    lineIdRef.current = '';
-    if (next !== kind) setKind(next);
-    return true;
-  };
-
-  const fileInbox = async (candidate, field) => {
-    const ok = await chooseKind(field);
-    if (!ok) return false;
-    try {
-      await onFile?.(candidate, field);
-      return true;
-    } catch (failure) {
-      setWriteError(
-        failure?.response?.data?.error
-        || failure?.message
-        || 'That line was not saved.'
-      );
-      return false;
-    }
-  };
-
   return (
     <div className="judgment-composer">
-      <KindRail
-        kind={kind}
-        hintKind={hintKind}
-        onKind={async (next) => {
-          if (next === kind) return;
-          await chooseKind(next);
-        }}
-      />
       <label className="sr-only" htmlFor="judgment-update">{prompt}</label>
       <input
         id="judgment-update"
@@ -554,119 +375,8 @@ const UpdateComposer = ({
         ) : null}
         {writeError ? <span role="alert">{writeError}</span> : null}
       </div>
-      <MorningInbox
-        candidates={inbox}
-        kind={kind}
-        view={view}
-        kin={kin}
-        onKin={onKin}
-        onHint={onHint}
-        onFile={fileInbox}
-      />
     </div>
   );
 };
 
-const MonthFold = ({ group, kin, arrivingId, onKin, onToggle }) => {
-  if (group.open) {
-    return (
-      <>
-        {group.label ? <h3 className="judgment-log__month-name">{group.label}</h3> : null}
-        <ol className="judgment-log__list">
-          {group.entries.map(entry => (
-            <LogRow
-              key={entry.id}
-              entry={entry}
-              kin={kin}
-              arriving={entry.id === arrivingId}
-              onKin={onKin}
-            />
-          ))}
-        </ol>
-      </>
-    );
-  }
-
-  const count = group.entries.length;
-  return (
-    <button
-      type="button"
-      className="judgment-log__fold"
-      aria-expanded="false"
-      onClick={onToggle}
-    >
-      {group.label}
-      <span>{count} {count === 1 ? 'update' : 'updates'}</span>
-    </button>
-  );
-};
-
-const JudgmentLog = ({ view, arrivingId, pendingId, kin, onKin }) => {
-  const [filter, setFilter] = useState('all');
-  const [unfolded, setUnfolded] = useState(() => new Set());
-  const spine = useMemo(() => buildJudgmentLog(view), [view]);
-  const groups = filterLog(
-    omitEntry(
-      spine.map(group => (unfolded.has(group.id) ? { ...group, open: true } : group)),
-      pendingId
-    ),
-    filter
-  );
-  const listening = Boolean(kin?.week || kin?.n != null);
-  const speaking = kin?.week
-    ? spine.flatMap(group => group.entries).filter(entry => sameWeek(entry.at, kin)).length
-    : listening
-      ? spine.flatMap(group => group.entries).filter(entry => entry.sources.some(source => source.n === kin.n)).length
-      : 0;
-
-  const toggle = (id) => {
-    setUnfolded((current) => {
-      const next = new Set(current);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  return (
-    <section className={`judgment-log${listening ? ' is-listening' : ''}`} aria-label="The case so far">
-      <div className="judgment-log__filters" role="tablist" aria-label="Show">
-        {LOG_FILTERS.map((id) => (
-          <button
-            key={id}
-            type="button"
-            role="tab"
-            aria-selected={filter === id}
-            className={filter === id ? 'is-active' : ''}
-            onClick={() => setFilter(id)}
-          >
-            {FILTER_LABEL[id]}
-          </button>
-        ))}
-        {kin ? (
-          <p className="judgment-log__whisper" aria-live="polite">
-            {kin.label || `Source ${kin.n}`}
-            {speaking > 1 ? ` · ${speaking} lines` : ''}
-          </p>
-        ) : null}
-      </div>
-      {groups.length ? groups.map(group => (
-        <div key={group.id} className="judgment-log__month">
-          <MonthFold
-            group={group}
-            kin={kin}
-            arrivingId={arrivingId}
-            onKin={onKin}
-            onToggle={() => toggle(group.id)}
-          />
-        </div>
-      )) : (
-        <p className="judgment-log__empty">
-          {filter === 'all' ? 'Nothing written yet.' : 'Nothing on this side yet.'}
-        </p>
-      )}
-    </section>
-  );
-};
-
-export { UpdateComposer, JudgmentLog, KindWords };
+export { UpdateComposer, KindWords, CitationMark, MorningInbox };

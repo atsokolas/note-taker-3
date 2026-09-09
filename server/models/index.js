@@ -662,6 +662,16 @@ const wikiJudgmentSchema = new mongoose.Schema({
      needs to know the field exists. */
   governingQuestion: { type: String, default: '', trim: true },
   currentJudgment: { type: String, default: '', trim: true },
+  /* What the sentence used to say. A judgment that changed is the record, not
+     an edit to hide, so the superseded wording keeps the date it stopped
+     being held. Append-only: nothing here is ever rewritten. */
+  heldHistory: {
+    type: [new mongoose.Schema({
+      text: { type: String, required: true, trim: true },
+      until: { type: Date, required: true }
+    }, { _id: false })],
+    default: []
+  },
   confidence: { type: Number, min: 0, max: 1, default: null },
   /* `parked` is not `closed`. Closed means the question is settled; parked
      means the reader has stopped tending this one, which says nothing about

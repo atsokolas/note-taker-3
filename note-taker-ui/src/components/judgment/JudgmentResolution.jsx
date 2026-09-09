@@ -37,8 +37,6 @@ const JudgmentResolution = ({
   claim,
   judgment = {},
   evidenceOptions = [],
-  changeMindIf = [],
-  arrivingId = '',
   onSaved
 }) => {
   const [settingTest, setSettingTest] = useState(false);
@@ -151,15 +149,6 @@ const JudgmentResolution = ({
         <p className="judgment-resolution__criteria">
           {judgment.resolutionCriteria}
           {judgment.resolutionHorizonAt ? <small>By {dateLabel(judgment.resolutionHorizonAt)}</small> : null}
-        </p>
-      ) : null}
-
-      {changeMindIf.length ? (
-        <p className="judgment-resolution__said">
-          <span>I’d change my mind if</span>
-          {changeMindIf.map(line => (
-            <span key={line.id} className={line.id === arrivingId ? 'is-arriving' : ''}>{line.text}</span>
-          ))}
         </p>
       ) : null}
 

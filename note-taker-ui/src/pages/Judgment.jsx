@@ -26,6 +26,7 @@ import JudgmentShelf from '../components/collection/JudgmentShelf';
 import AriadneThread from '../components/judgment/AriadneThread';
 import DossierResearchReview from '../components/judgment/DossierResearchReview';
 import JudgmentLedger from '../components/judgment/JudgmentLedger';
+import JudgmentCase from '../components/judgment/JudgmentCase';
 import JudgmentResolution from '../components/judgment/JudgmentResolution';
 import LivingTeam from '../components/judgment/LivingTeam';
 import AriadneLineage from '../components/judgment/AriadneLineage';
@@ -49,6 +50,7 @@ import {
   buildJudgmentIndex,
   createJudgment,
   formatHoldAge,
+  formatLedgerDate,
   oneSentence,
   PARTNER_ACK,
   projectJudgment,
@@ -57,7 +59,7 @@ import {
   upsertLineIntoJudgment
 } from './judgmentModel';
 import { rememberOpenedJudgment } from '../components/reader/folioModel';
-import { UpdateComposer, JudgmentLog, KindWords } from './JudgmentThread';
+import { KindWords } from './JudgmentThread';
 import { OpinionGhost, ghostOfMissingName } from './opinionGhost';
 import { describeLanding, describePreview } from './judgmentWrite';
 import { describeAnniversary } from './researchAnniversary';
@@ -171,7 +173,7 @@ const AutosaveField = ({ value = '', format, multiline = false, onSave, onIdle, 
    sentence of belief always sits under it. Editing the title writes the wiki
    handle the rest of the product already uses. Editing the opinion writes
    the claim, and only the claim. */
-const Title = ({ title = '', claim = '', heldClaim = claim, pageId = '', onSave, onWriteClaim, titleRef }) => {
+const Title = ({ title = '', claim = '', heldClaim = claim, pageId = '', earlier = [], onSave, onWriteClaim, titleRef }) => {
   const [writeError, setWriteError] = useState('');
 
   const run = useCallback(async (action, fallback) => {
@@ -213,6 +215,19 @@ const Title = ({ title = '', claim = '', heldClaim = claim, pageId = '', onSave,
           resetAfterSave
         />
         <OpinionGhost sentence={claim} identity={pageId} />
+        {/* What it used to say. Superseded is not retracted, so these are not
+            struck — they are dated and quiet, under the one you hold. */}
+        {earlier.length ? (
+          <div className="judgment__earlier">
+            <h2>What it used to say</h2>
+            {earlier.map(line => (
+              <p key={line.id} className="judgment__earlier-line">
+                <time>{formatLedgerDate(line.until)}</time>
+                <span>{line.text}</span>
+              </p>
+            ))}
+          </div>
+        ) : null}
       </div>
       {writeError ? <p className="judgment__error" role="alert">{writeError}</p> : null}
     </>
@@ -229,13 +244,12 @@ const BeliefLink = ({ to, title, claim }) => (
 /* A note under the door: one sentence on the threshold of the claim, then
    two words. Accept resolves in place into Why or Against; dismiss evaporates
    it. Not a tray, not a toast. */
-const OvernightLine = ({ proposal, busy, onAccept, onDismiss, onHint }) => {
+const OvernightLine = ({ proposal, busy, onAccept, onDismiss }) => {
   const [choosing, setChoosing] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const reduced = usePrefersReducedMotion();
 
   const leave = (run) => {
-    onHint?.('');
     setLeaving(true);
     window.setTimeout(run, reduced ? 0 : 200);
   };
@@ -250,7 +264,6 @@ const OvernightLine = ({ proposal, busy, onAccept, onDismiss, onHint }) => {
       {choosing ? (
         <KindWords
           disabled={busy}
-          onHint={onHint}
           onChoose={(field) => leave(() => onAccept(proposal, field))}
         />
       ) : (
@@ -761,13 +774,11 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
   const [printing, setPrinting] = useState(false);
   const [printError, setPrintError] = useState('');
   const [arrivingId, setArrivingId] = useState('');
-  const [pendingId, setPendingId] = useState('');
   /* null until the library has been searched for this claim. An empty array
      means the search ran and found nothing — a finding the skeptic reports —
      and null means we cannot say either way yet. */
   const [libraryCandidates, setLibraryCandidates] = useState(null);
   const [kin, setKin] = useState(null);
-  const [kindHint, setKindHint] = useState('');
   const [researchReview, setResearchReview] = useState(null);
   const [researchReviewBusy, setResearchReviewBusy] = useState(false);
   const [researchReviewError, setResearchReviewError] = useState('');
@@ -1277,7 +1288,6 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
             busy={busy}
             onAccept={acceptOvernight}
             onDismiss={dismissOvernight}
-            onHint={setKindHint}
           />
         </div>
       ) : null}
@@ -1288,6 +1298,7 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
         title={view.title}
         claim={view.claim}
         heldClaim={heldClaim}
+        earlier={view.earlier}
         onSave={rename}
         onWriteClaim={writeClaim}
         titleRef={claimRef}
@@ -1335,45 +1346,33 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
         <p className="judgment-research-review__error" role="alert">{researchReviewError}</p>
       ) : null}
 
+      {/* Why you hold it, what would break it, what argues against, and what
+          you did — the substance of a belief, four blocks two by two. For a
+          long time this sat below the ledger, the lineage, the night watch and
+          four other panels; a reader scrolling for the reasons met the
+          machinery first. The reasons come before the record of them. */}
       <div className={step(3)}>
-        <JudgmentResolution
-          pageId={pageId}
-          claim={view.claim}
-          judgment={page.judgment}
-          evidenceOptions={verdictEvidenceOptions(page)}
-          changeMindIf={view.changeMindIf}
-          arrivingId={arrivingId}
-          onSaved={(next) => {
-            if (next) setPage(current => ({ ...current, judgment: next }));
-          }}
-        />
-      </div>
-
-      {/* Why you hold it, and what argues against — the substance of a belief,
-          and for a long time it sat below the ledger, the lineage, the night
-          watch and four other panels. A reader scrolling for the reasons met
-          the machinery first. The reasons come before the record of them. */}
-      <div className={step(3)}>
-        <UpdateComposer
-          key={pageId}
+        <JudgmentCase
+          view={view}
           boundSources={verdictEvidenceOptions(page)}
           onWrite={writeLine}
-          onPending={setPendingId}
           onSettle={setArrivingId}
+          arrivingId={arrivingId}
           inbox={inbox}
           onFile={fileEvidence}
-          view={view}
           kin={kin}
           onKin={setKin}
-          hintKind={kindHint}
-          onHint={setKindHint}
-        />
-        <JudgmentLog
-          view={view}
-          arrivingId={arrivingId}
-          pendingId={pendingId}
-          kin={kin}
-          onKin={setKin}
+          test={(
+            <JudgmentResolution
+              pageId={pageId}
+              claim={view.claim}
+              judgment={page.judgment}
+              evidenceOptions={verdictEvidenceOptions(page)}
+              onSaved={(next) => {
+                if (next) setPage(current => ({ ...current, judgment: next }));
+              }}
+            />
+          )}
         />
       </div>
 

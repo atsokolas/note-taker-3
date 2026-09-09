@@ -256,9 +256,24 @@ const changeMindLines = (judgment = {}) => list(judgment.falsifiers)
   .filter(item => normalizeSpaces(item?.status) !== 'retired')
   .map((item, index) => ({
     id: normalizeSpaces(item?.falsifierId) || `falsifier:${index}`,
-    text: normalizeSpaces(item?.text)
+    text: normalizeSpaces(item?.text),
+    /* Without a signal nothing can watch this, and the page is the only place
+       that knows. A test nobody is watching is a test in name only. */
+    signal: normalizeSpaces(item?.observableSignal)
   }))
   .filter(line => line.text);
+
+/* What the sentence used to say, newest first: the one it replaced reads
+   directly under the one you hold. Append-only on the way in, so the order
+   here is the only thing that needs reversing. */
+const earlierLines = (judgment = {}) => list(judgment.heldHistory)
+  .map((entry, index) => ({
+    id: `held:${index}`,
+    text: normalizeSpaces(entry?.text),
+    until: entry?.until || null
+  }))
+  .filter(line => line.text)
+  .reverse();
 
 /* What I did is a ledger. Lines are ordered oldest first and are never
    rewritten — a cancelled decision stays on the page as a thing that was
@@ -385,6 +400,7 @@ export const projectJudgment = (page, now = Date.now()) => {
     boundSourceCount: uniqueSources([...why, ...against]).length,
     changeMindIf: changeMindLines(judgment),
     whatIDid: whatIDidLines(judgment),
+    earlier: earlierLines(judgment),
     lessons: lessonLines(judgment),
     parked: normalizeSpaces(judgment.status) === 'parked',
     evergreen: Boolean(page?.evergreen),
