@@ -1220,7 +1220,6 @@ button.judgment-inbox__text:focus-visible {
 
   .judgment-log.is-listening .judgment-log__row:not(.is-kin),
   .judgment-log__row,
-  .judgment-case.is-listening .judgment-block__entry:not(.is-kin),
   .judgment-block__entry,
   .judgment-inbox.is-listening .judgment-inbox__line:not(.is-kin),
   .judgment-inbox__line {
@@ -3054,8 +3053,6 @@ body.noeis-editorial .judgment .judgment-case__whisper,
   font-size: 0.78rem;
   color: color-mix(in srgb, var(--text-muted) 82%, transparent) !important;
 }
-
-.judgment-case.is-listening .judgment-block__entry:not(.is-kin) { opacity: 0.38; }
 
 .judgment-block__entry.is-kin .judgment-block__text {
   background: color-mix(in srgb, var(--wiki-warm-accent, var(--vellum-warm)) 10%, transparent);

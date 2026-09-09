@@ -370,7 +370,6 @@ describe('Judgment claim', () => {
     expect(screen.getByText('AI demand keeps compounding faster than new supply.')).toBeInTheDocument();
 
     fireEvent.mouseEnter(semi[0]);
-    expect(document.querySelector('.judgment-case')).toHaveClass('is-listening');
     expect(document.querySelectorAll('.judgment-block__entry.is-kin')).toHaveLength(2);
     expect(screen.getByText('SemiAnalysis · 2 lines')).toBeInTheDocument();
   });
@@ -1533,7 +1532,6 @@ describe('Evidence from the library', () => {
     renderDetail();
     fireEvent.mouseEnter(await screen.findByText(kinCandidate.text));
     expect(screen.getByText('SemiAnalysis · 2 lines')).toBeInTheDocument();
-    expect(document.querySelector('.judgment-case')).toHaveClass('is-listening');
   });
 
   it('keeps the arrived log row in the same kinship as [n] hover', async () => {
@@ -1554,7 +1552,6 @@ describe('Evidence from the library', () => {
     const semi = screen.getAllByRole('link', { name: 'Source 1: SemiAnalysis' })[0];
     fireEvent.mouseEnter(semi);
     expect(arrived.closest('.judgment-block__entry')).toHaveClass('is-kin');
-    expect(document.querySelector('.judgment-case')).toHaveClass('is-listening');
   });
 
   it('lights other log rows from the same week when you hover a date', async () => {
@@ -1570,7 +1567,6 @@ describe('Evidence from the library', () => {
     ));
     fireEvent.mouseEnter(stamp);
 
-    expect(document.querySelector('.judgment-case')).toHaveClass('is-listening');
     expect(screen.getByText('AI demand keeps compounding faster than new supply.').closest('.judgment-block__entry')).toHaveClass('is-kin');
     expect(screen.getByText('Lead times and power constrain what can be delivered.').closest('.judgment-block__entry')).toHaveClass('is-kin');
     expect(screen.getByText('Hyperscalers are designing more in-house silicon.').closest('.judgment-block__entry')).not.toHaveClass('is-kin');
