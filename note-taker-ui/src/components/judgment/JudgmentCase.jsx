@@ -155,8 +155,10 @@ const JudgmentCase = ({
     />
   );
 
-  /* While a citation is under the cursor the case listens: the lines that rest
-     on it light, and everything else steps back. */
+  /* Kinship lights the lines it applies to and leaves the rest alone. It used
+     to dim everything else, which read as the page going soft — and because a
+     scroll drags entries under a still cursor, the dimming flickered on and
+     off the whole way down. A highlight says the same thing and holds still. */
   const listening = Boolean(kin?.week || kin?.n != null);
   const everyLine = [...view.why, ...view.changeMindIf, ...view.against, ...view.whatIDid];
   const speaking = listening
@@ -166,7 +168,7 @@ const JudgmentCase = ({
     : 0;
 
   return (
-    <div className={`judgment-case${listening ? ' is-listening' : ''}`}>
+    <div className="judgment-case">
       {/* How far a source reaches. A number worth saying only when it is more
           than the line you are already looking at. */}
       {kin ? (
