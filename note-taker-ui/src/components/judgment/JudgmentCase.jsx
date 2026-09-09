@@ -1,8 +1,9 @@
 import React, { useLayoutEffect, useRef, useState } from 'react';
 import { CitationMark, MorningInbox, UpdateComposer } from '../../pages/JudgmentThread';
-import { sameWeek, speaksWith } from '../../pages/judgmentLog';
+import { sameWeek, speaksWith, weekKey } from '../../pages/judgmentLog';
 import { formatLedgerDate } from '../../pages/judgmentModel';
 import { flySentenceInto } from '../../motion/columnMotion';
+import { useFlightDecision } from '../../motion/useFlightDecision';
 
 /**
  * The case, two by two.
@@ -34,6 +35,11 @@ const Entry = ({ line, arriving, kin, onKin }) => {
   const related = kin?.week
     ? sameWeek(line.at, kin)
     : sources.some(source => speaksWith(source, kin));
+  /* A sentence that flew here from the inbox has already made its entrance.
+     Fading it in as well would play the arrival twice. */
+  const willFly = useFlightDecision(arriving, line.text);
+  const when = formatLedgerDate(line.at);
+  const week = weekKey(line.at);
 
   useLayoutEffect(() => {
     if (!arriving) return;
@@ -44,9 +50,9 @@ const Entry = ({ line, arriving, kin, onKin }) => {
     <div className={[
       'judgment-block__entry',
       related ? 'is-kin' : '',
-      arriving ? 'is-arriving' : ''
+      arriving && !willFly ? 'is-arriving' : ''
     ].filter(Boolean).join(' ')}>
-      <p ref={textRef}>
+      <p className="judgment-block__text" ref={textRef}>
         {line.text}
         {sources.length ? (
           <sup className="judgment__cites">
@@ -56,9 +62,22 @@ const Entry = ({ line, arriving, kin, onKin }) => {
           </sup>
         ) : null}
       </p>
-      {/* The date only. What it rests on is already said by the [n] after the
-          sentence, and saying it twice is not saying it better. */}
-      {line.at ? <cite>{formatLedgerDate(line.at)}</cite> : null}
+      {/* The date only — what it rests on is already said by the [n] after the
+          sentence. Hovering it lights everything written the same week, which
+          is how a case shows you the sitting it came from. */}
+      {when ? (
+        <time
+          className="judgment-block__when"
+          dateTime={line.at}
+          tabIndex={0}
+          onMouseEnter={() => week && onKin?.({ week, label: 'Same week' })}
+          onMouseLeave={() => onKin?.(null)}
+          onFocus={() => week && onKin?.({ week, label: 'Same week' })}
+          onBlur={() => onKin?.(null)}
+        >
+          {when}
+        </time>
+      ) : null}
     </div>
   );
 };
@@ -115,7 +134,6 @@ const JudgmentCase = ({
   view,
   boundSources = [],
   onWrite,
-  onPending,
   onSettle,
   arrivingId = '',
   inbox = null,
@@ -127,24 +145,36 @@ const JudgmentCase = ({
      that is about it. */
   test = null
 }) => {
-  const composer = fixedKind => (
+  const composer = kind => (
     <UpdateComposer
-      key={`${view.id}:${fixedKind}`}
-      fixedKind={fixedKind}
+      key={`${view.id}:${kind}`}
+      kind={kind}
       boundSources={boundSources}
       onWrite={onWrite}
-      onPending={onPending}
       onSettle={onSettle}
-      inbox={inbox}
-      onFile={onFile}
-      view={view}
-      kin={kin}
-      onKin={onKin}
     />
   );
 
+  /* While a citation is under the cursor the case listens: the lines that rest
+     on it light, and everything else steps back. */
+  const listening = Boolean(kin?.week || kin?.n != null);
+  const everyLine = [...view.why, ...view.changeMindIf, ...view.against, ...view.whatIDid];
+  const speaking = listening
+    ? everyLine.filter(line => (kin.week
+      ? sameWeek(line.at, kin)
+      : (line.sources || []).some(source => speaksWith(source, kin)))).length
+    : 0;
+
   return (
-    <div className="judgment-case">
+    <div className={`judgment-case${listening ? ' is-listening' : ''}`}>
+      {/* How far a source reaches. A number worth saying only when it is more
+          than the line you are already looking at. */}
+      {kin ? (
+        <p className="judgment-case__whisper" aria-live="polite">
+          {kin.label || `Source ${kin.n}`}
+          {speaking > 1 ? ` · ${speaking} lines` : ''}
+        </p>
+      ) : null}
       {/* What the library has found that bears on this sentence. It is about
           the case, not about the line you happen to be writing, so it stands
           above the grid rather than inside whichever block is open. */}

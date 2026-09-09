@@ -244,13 +244,12 @@ const BeliefLink = ({ to, title, claim }) => (
 /* A note under the door: one sentence on the threshold of the claim, then
    two words. Accept resolves in place into Why or Against; dismiss evaporates
    it. Not a tray, not a toast. */
-const OvernightLine = ({ proposal, busy, onAccept, onDismiss, onHint }) => {
+const OvernightLine = ({ proposal, busy, onAccept, onDismiss }) => {
   const [choosing, setChoosing] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const reduced = usePrefersReducedMotion();
 
   const leave = (run) => {
-    onHint?.('');
     setLeaving(true);
     window.setTimeout(run, reduced ? 0 : 200);
   };
@@ -265,7 +264,6 @@ const OvernightLine = ({ proposal, busy, onAccept, onDismiss, onHint }) => {
       {choosing ? (
         <KindWords
           disabled={busy}
-          onHint={onHint}
           onChoose={(field) => leave(() => onAccept(proposal, field))}
         />
       ) : (
@@ -776,13 +774,11 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
   const [printing, setPrinting] = useState(false);
   const [printError, setPrintError] = useState('');
   const [arrivingId, setArrivingId] = useState('');
-  const [pendingId, setPendingId] = useState('');
   /* null until the library has been searched for this claim. An empty array
      means the search ran and found nothing — a finding the skeptic reports —
      and null means we cannot say either way yet. */
   const [libraryCandidates, setLibraryCandidates] = useState(null);
   const [kin, setKin] = useState(null);
-  const [kindHint, setKindHint] = useState('');
   const [researchReview, setResearchReview] = useState(null);
   const [researchReviewBusy, setResearchReviewBusy] = useState(false);
   const [researchReviewError, setResearchReviewError] = useState('');
@@ -1292,7 +1288,6 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
             busy={busy}
             onAccept={acceptOvernight}
             onDismiss={dismissOvernight}
-            onHint={setKindHint}
           />
         </div>
       ) : null}
@@ -1361,7 +1356,6 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
           view={view}
           boundSources={verdictEvidenceOptions(page)}
           onWrite={writeLine}
-          onPending={setPendingId}
           onSettle={setArrivingId}
           arrivingId={arrivingId}
           inbox={inbox}

@@ -1220,6 +1220,8 @@ button.judgment-inbox__text:focus-visible {
 
   .judgment-log.is-listening .judgment-log__row:not(.is-kin),
   .judgment-log__row,
+  .judgment-case.is-listening .judgment-block__entry:not(.is-kin),
+  .judgment-block__entry,
   .judgment-inbox.is-listening .judgment-inbox__line:not(.is-kin),
   .judgment-inbox__line {
     opacity: 1;
@@ -2962,13 +2964,14 @@ body.noeis-editorial .judgment .judgment__opinion,
   color: color-mix(in srgb, var(--text-muted) 78%, transparent);
 }
 
-.judgment__earlier-line {
+body.noeis-editorial .judgment .judgment__earlier-line,
+.judgment .judgment__earlier-line {
   display: grid;
   grid-template-columns: 6.5rem 1fr;
   gap: 14px;
   margin: 0 0 7px;
   font-size: 0.94rem;
-  color: color-mix(in srgb, var(--text-muted) 92%, transparent);
+  color: color-mix(in srgb, var(--text-muted) 92%, transparent) !important;
 }
 
 .judgment__earlier-line time {
@@ -3022,28 +3025,54 @@ body.noeis-editorial .judgment .judgment__opinion,
    document, and nothing here may look like a field. */
 .judgment-block__entry { margin: 0 0 16px; }
 .judgment-block__entry:last-of-type { margin-bottom: 0; }
-.judgment-block__entry p { margin: 0; line-height: 1.5; }
+/* `body.noeis-editorial p` paints every paragraph muted with !important, so
+   specificity alone loses and every line here — the record, the absences and
+   the one warning — renders in the same grey. Outranking it takes the same
+   !important the title and the opinion above already use. */
+body.noeis-editorial .judgment .judgment-block__text,
+.judgment .judgment-block__text {
+  margin: 0;
+  line-height: 1.5;
+  color: var(--text-primary) !important;
+}
 
-.judgment-block__entry cite {
+.judgment-block__when {
   display: block;
   margin-top: 4px;
+  cursor: default;
   font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
   font-size: 0.78rem;
   font-style: normal;
   color: color-mix(in srgb, var(--text-muted) 78%, transparent);
 }
 
-.judgment-block__entry.is-kin p { background: color-mix(in srgb, var(--noeis-pointer, var(--text-muted)) 9%, transparent); }
+/* How far a source reaches, said while you hover it. */
+body.noeis-editorial .judgment .judgment-case__whisper,
+.judgment .judgment-case__whisper {
+  margin: 0 0 10px;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.78rem;
+  color: color-mix(in srgb, var(--text-muted) 82%, transparent) !important;
+}
 
-.judgment-block__none {
+.judgment-case.is-listening .judgment-block__entry:not(.is-kin) { opacity: 0.38; }
+
+.judgment-block__entry.is-kin .judgment-block__text {
+  background: color-mix(in srgb, var(--wiki-warm-accent, var(--vellum-warm)) 10%, transparent);
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--wiki-warm-accent, var(--vellum-warm)) 72%, transparent);
+}
+
+body.noeis-editorial .judgment .judgment-block__none,
+.judgment .judgment-block__none {
   margin: 0;
-  color: color-mix(in srgb, var(--text-muted) 80%, transparent);
+  color: color-mix(in srgb, var(--text-muted) 80%, transparent) !important;
 }
 
 /* The one line here that is a warning, and only when it is true. */
-.judgment-block__unwatched {
+body.noeis-editorial .judgment .judgment-block__unwatched,
+.judgment .judgment-block__unwatched {
   margin: 12px 0 0;
-  color: var(--noeis-warning, #9a6a2d);
+  color: var(--noeis-warning, #9a6a2d) !important;
   font-size: 0.92rem;
 }
 
