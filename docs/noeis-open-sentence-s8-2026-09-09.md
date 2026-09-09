@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-09
 **Sits under:** [Operable knowledge](noeis-operable-knowledge-vision-spec-2026-09-04.md) §11 Later — Shared work / §6 H8
-**Status:** Horizon H8 is on this walk as a pocket slice. Frontend-only. Not a second person's Library. Not a consensus. Not a motive. Cross-account search, a social feed, and the publication contract stay closed.
+**Status:** Horizon H8 is on this walk as a pocket slice. Frontend-only. Not a second person's Library. Not a consensus. Not a motive. Cross-account search and a social feed stay closed. A later public URL waits on the [snapshot share contract](noeis-open-sentence-snapshot-share-contract-2026-09-09.md).
 
 The operable-knowledge sequence has no numbered S8. This slice is H8's first honest act that can live in the same pocket: two attributed contributions on a shared question. It is not two logins, and it is not a merge of private beliefs.
 
@@ -32,6 +32,6 @@ Caption: “Two contributions. Not a consensus.” Meet already names relation, 
 
 ## What stays closed
 
-A second person's Library. Silent cross-account search. Social feed. Follower graph. Merged personal beliefs. Publication, retention, source access, and revocation. Server-sync. Public shares of the pocket. Generated warrant.
+A second person's Library. Silent cross-account search. Social feed. Follower graph. Merged personal beliefs. Implementing a public URL. Server-sync. Public shares of the pocket. Generated warrant.
 
 A person finding understanding beyond a generated answer remains separately authorized.
