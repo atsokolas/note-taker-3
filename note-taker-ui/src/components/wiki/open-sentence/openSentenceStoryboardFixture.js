@@ -174,6 +174,21 @@ export const STORYBOARD_CARRY_QUESTION =
 export const STORYBOARD_CARRY_CONCLUSION =
   'Care is the walk back, not the absence of a wrong turn.';
 
+export const STORYBOARD_CONTRIBUTIONS_QUESTION =
+  'Who gets to walk back, and who pays for a stranding?';
+
+export const STORYBOARD_BOTH_ACCEPT =
+  'A scrape that can be walked back still teaches.';
+
+export const STORYBOARD_THIS_DISPUTES =
+  'A child\'s welfare is not a book you can close.';
+
+export const STORYBOARD_OTHER_DISPUTES =
+  'A loss you cannot survive is not a lesson you get to keep.';
+
+export const STORYBOARD_OBSERVATION =
+  'Whether the person can continue after the scrape.';
+
 export const STORYBOARD_BEARING_SOURCE = Object.freeze({
   title: 'Field notes',
   qualification: 'Saved passage · import date is not a reading date',

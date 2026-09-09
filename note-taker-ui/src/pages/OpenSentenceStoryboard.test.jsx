@@ -28,6 +28,11 @@ import {
   STORYBOARD_UNWRITTEN_GAP,
   STORYBOARD_CARRY_CONCLUSION,
   STORYBOARD_CARRY_QUESTION,
+  STORYBOARD_CONTRIBUTIONS_QUESTION,
+  STORYBOARD_BOTH_ACCEPT,
+  STORYBOARD_THIS_DISPUTES,
+  STORYBOARD_OTHER_DISPUTES,
+  STORYBOARD_OBSERVATION,
   STORYBOARD_SCOPE,
   STORYBOARD_SENTENCE,
   STORYBOARD_SOURCE,
@@ -402,6 +407,33 @@ describe('OpenSentenceStoryboard', () => {
     expect(screen.getByLabelText('What a recipient would see').querySelector('a')).toBeNull();
     expect(screen.getByText(/The article still reads/)).toHaveTextContent(STORYBOARD_SENTENCE);
     expect(screen.getByText('This is a snapshot. It is not a publication.')).toBeInTheDocument();
+    expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
+  });
+
+  it('lets two bound passages meet as attributed contributions, not a consensus', () => {
+    renderBoard();
+    fireEvent.click(
+      within(screen.getByRole('tablist', { name: 'Scene' })).getByRole('button', {
+        name: 'Libraries',
+        exact: true
+      })
+    );
+    expect(screen.getByRole('heading', { name: 'Parenting' })).toBeInTheDocument();
+    expect(screen.getByText('Two contributions. Not a consensus.', { exact: true })).toBeInTheDocument();
+    expect(screen.getByText('Different values', { selector: 'p' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Shared question')).toHaveValue(STORYBOARD_CONTRIBUTIONS_QUESTION);
+    expect(screen.getByLabelText('What both accept')).toHaveValue(STORYBOARD_BOTH_ACCEPT);
+    expect(screen.getByLabelText(`What ${STORYBOARD_SOURCE.title} still disputes`))
+      .toHaveValue(STORYBOARD_THIS_DISPUTES);
+    expect(screen.getByLabelText(`What ${STORYBOARD_MEET_SOURCE.title} still disputes`))
+      .toHaveValue(STORYBOARD_OTHER_DISPUTES);
+    expect(screen.getByLabelText('What observation might help')).toHaveValue(STORYBOARD_OBSERVATION);
+    expect(screen.getByRole('button', { name: 'Different values' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    expect(screen.getByText(/The article still reads/)).toHaveTextContent(STORYBOARD_SENTENCE);
+    expect(screen.getByText('Two contributions. Not a consensus. Not a motive.')).toBeInTheDocument();
     expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
   });
 

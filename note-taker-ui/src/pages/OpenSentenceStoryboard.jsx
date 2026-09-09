@@ -7,6 +7,7 @@ import {
   acceptWording,
   applyInstrument,
   beginCarry,
+  beginContributions,
   beginPressure,
   cancelPlacement,
   createExploration,
@@ -22,6 +23,7 @@ import {
   keepQuestion,
   liveBearing,
   liveCarry,
+  liveContributions,
   liveExhibit,
   liveInstrument,
   liveRehearsal,
@@ -31,6 +33,7 @@ import {
   placeSource,
   putItBack,
   setCarryFields,
+  setContributionFields,
   setDistinction,
   setExhibitFields,
   setMeetField,
@@ -72,6 +75,11 @@ import {
   STORYBOARD_UNWRITTEN_GAP,
   STORYBOARD_CARRY_CONCLUSION,
   STORYBOARD_CARRY_QUESTION,
+  STORYBOARD_CONTRIBUTIONS_QUESTION,
+  STORYBOARD_BOTH_ACCEPT,
+  STORYBOARD_THIS_DISPUTES,
+  STORYBOARD_OTHER_DISPUTES,
+  STORYBOARD_OBSERVATION,
   STORYBOARD_BEARING_SOURCE,
   STORYBOARD_SCOPE,
   STORYBOARD_SENTENCE,
@@ -108,7 +116,8 @@ const BEATS = [
   { id: 'rehearse', label: 'Rehearse' },
   { id: 'unwritten', label: 'Unwritten' },
   { id: 'limits', label: 'Limits' },
-  { id: 'carry', label: 'Carry' }
+  { id: 'carry', label: 'Carry' },
+  { id: 'libraries', label: 'Libraries' }
 ];
 
 const seed = (source = STORYBOARD_SOURCE) => createExploration({
@@ -213,6 +222,16 @@ const applyBeat = (beat, source) => {
       }
     );
   }
+  if (beat === 'libraries') {
+    return setContributionFields(beginContributions(meetSeed()), {
+      question: STORYBOARD_CONTRIBUTIONS_QUESTION,
+      kind: 'values',
+      bothAccept: STORYBOARD_BOTH_ACCEPT,
+      thisDisputes: STORYBOARD_THIS_DISPUTES,
+      otherDisputes: STORYBOARD_OTHER_DISPUTES,
+      observation: STORYBOARD_OBSERVATION
+    });
+  }
   if (beat === 'without') {
     return tryWithoutThisParagraph(openExploration(seed(source)));
   }
@@ -277,6 +296,9 @@ const companionRole = (scene, exploration, libraryExploration, pageTitle) => {
   }
   if (liveCarry(exploration)) {
     return 'This is a snapshot. It is not a publication.';
+  }
+  if (liveContributions(exploration)) {
+    return 'Two contributions. Not a consensus. Not a motive.';
   }
   if (liveInstrument(exploration)) {
     return 'The instrument sits beside this sentence. It does not rewrite the article.';
@@ -498,7 +520,7 @@ const OpenSentenceStoryboard = () => {
           The article stays the page. Select the sentence and open it. Closing without
           a question, a named distinction, a placed passage, a proposed wording, a named
           premise, a named meeting, a note written between them, a named instrument,
-          a named exhibit, a rehearsal, unwritten work, or a carried snapshot forgets the experiment. A distinction under the line is the way home.
+          a named exhibit, a rehearsal, unwritten work, a carried snapshot, or two contributions forgets the experiment. A distinction under the line is the way home.
           Source cycles the honest absences. Stillness is the open state with no
           drawing. Propose names a wording; Accept is what writes the illustrated
           line. Pressure names a premise beside the original. A recorded passage
@@ -529,6 +551,10 @@ const OpenSentenceStoryboard = () => {
           it. It is not deletion. Carry this out takes one question, two included
           passages, and a provisional conclusion. Bound passages stay out until
           included. The preview is the snapshot. It is not a publication.
+          Let two contributions meet names a shared question, the kind of
+          difference, what both accept, what each still disputes, and what
+          observation might help. Attribution stays with the bound passages.
+          It is not a consensus, a motive, or a second Library.
         </p>
       </header>
 
