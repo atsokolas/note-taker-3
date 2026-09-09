@@ -502,3 +502,43 @@ describe('filing pieces from the cabinet', () => {
     expect(branchOf('Investing').classList.contains('is-drop-target')).toBe(false);
   });
 });
+
+/**
+ * The library's upkeep belongs with the cabinet.
+ *
+ * It used to sit in a lone disclosure above the reading — a maintenance menu
+ * floating in the one place a reader is trying to read.
+ */
+describe('the cabinet keeps the library’s upkeep', () => {
+  const realMatchMedia = window.matchMedia;
+  beforeEach(() => setViewport(false));
+  afterEach(() => { window.matchMedia = realMatchMedia; });
+
+  it('offers filing, structure and imports together', () => {
+    renderNav({ onOrganize: () => {}, onToggleSuppressed: () => {} });
+    expect(screen.getByRole('button', { name: 'Review filing' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Clean up structure' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Show review imports' })).toBeInTheDocument();
+  });
+
+  it('runs the action it names', () => {
+    const organize = jest.fn();
+    renderNav({ onOrganize: organize, onToggleSuppressed: () => {} });
+    fireEvent.click(screen.getByRole('button', { name: 'Clean up structure' }));
+    expect(organize).toHaveBeenCalled();
+  });
+
+  /* The import toggle says which way it will go, and reports its own state. */
+  it('names the direction of the toggle', () => {
+    renderNav({ onToggleSuppressed: () => {}, suppressedVisible: true });
+    const toggle = screen.getByRole('button', { name: 'Hide review imports' });
+    expect(toggle).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  /* A cabinet that is not offered them is still a cabinet. */
+  it('says nothing about upkeep it was not given', () => {
+    renderNav();
+    expect(screen.queryByRole('button', { name: 'Clean up structure' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /review imports/ })).not.toBeInTheDocument();
+  });
+});

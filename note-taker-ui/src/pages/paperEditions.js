@@ -81,15 +81,19 @@ export const editionsLine = ({
   return parts.map(label => ({ label, current: label === edition }));
 };
 
+/* The words here are the words on the shelves they link to. They used to be
+   their own vocabulary — "owed a move", "at hand", "the shelf" — which meant
+   the sentence and the tabs under it named the same three places differently,
+   and a reader had to learn the mapping before either made sense. */
 const PLACES = [
-  { key: 'later', word: 'owed a move', href: '/library?scope=later' },
-  { key: 'setAside', word: 'at hand', href: '/library?scope=set-aside' }
+  { key: 'later', word: 'in Later', href: '/library?scope=later' },
+  { key: 'setAside', word: 'in Set aside', href: '/library?scope=set-aside' }
 ];
 
 /**
  * The desk, as a sentence you can walk through.
  *
- *   On your desk — 3 owed a move, 1 at hand, Costco has 2 new folios.
+ *   On your desk — 3 in Later, 1 in Set aside, Costco has 2 new folios.
  *
  * This used to return a finished string, which meant the one thing the reader
  * most wanted to do with it — go there — was the one thing it could not
@@ -129,7 +133,7 @@ export const deskClauses = ({ later = null, setAside = null, topics = [], editio
 /** What the canon holds, when anyone has counted it. */
 export const shelfClause = (kept = null) => {
   const n = counted(kept);
-  return n ? { key: 'kept', text: `The shelf holds ${n}`, href: '/library?scope=kept' } : null;
+  return n ? { key: 'kept', text: `${n} in Kept`, href: '/library?scope=kept' } : null;
 };
 
 /* Day one. One line, and it asks for nothing — a first morning that opened
@@ -138,7 +142,7 @@ export const firstMorningLead = () => (
   'No news yet. Save something worth keeping — I’ll print it when it moves.'
 );
 
-export const firstMorningDeskLine = () => 'Your desk is empty. The shelf holds nothing yet.';
+export const firstMorningDeskLine = () => 'Your desk is empty. Nothing in Kept yet.';
 
 /** A paper ends. A feed does not, which is the difference. */
 export const END_OF_PAPER = '— end of the paper —';

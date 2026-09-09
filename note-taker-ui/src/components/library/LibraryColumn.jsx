@@ -56,8 +56,8 @@ const DEDICATED = {
   },
   later: {
     eyebrow: 'Later',
-    empty: 'Nothing owed a move. Open a source and press Later when it still wants a move, just not now.',
-    fallback: 'Owed a move, oldest first.',
+    empty: 'Nothing in Later. Open a source and press Later when it still wants a move, just not now.',
+    fallback: 'Waiting in Later, oldest first.',
     line: laterPileLine,
     order: orderLaterOldestFirst,
     dateOf: (article) => article.placementAt || article.createdAt || null,
@@ -65,8 +65,8 @@ const DEDICATED = {
   },
   'set-aside': {
     eyebrow: 'Set aside',
-    empty: 'Nothing at hand. Open a source and press Set aside when you want it close this week.',
-    fallback: 'At hand this week, newest on top.',
+    empty: 'Nothing in Set aside. Open a source and press Set aside when you want it close this week.',
+    fallback: 'Set aside for this week, newest on top.',
     line: setAsidePileLine,
     order: orderSetAsideNewestFirst,
     dateOf: (article) => article.placementAt || article.createdAt || null,

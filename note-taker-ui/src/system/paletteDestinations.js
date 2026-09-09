@@ -58,7 +58,7 @@ export const placementCommands = ({ subject = null } = {}) => {
     {
       id: `place.set-aside.${id}`,
       label: `Set aside: ${title}`,
-      hint: 'keeps it at hand this week',
+      hint: 'keeps it close this week',
       placement: 'setAside',
       targetId: id,
       kind: 'command'
