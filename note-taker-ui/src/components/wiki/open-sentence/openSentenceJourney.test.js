@@ -26,7 +26,9 @@ import {
   openExploration,
   proposeWording,
   setPressureField,
-  tryWording
+  tryWithoutThisSource,
+  tryWording,
+  isWithoutSource
 } from './openSentenceModel';
 import { readStore } from './openSentenceStore';
 
@@ -129,6 +131,24 @@ describe('openSentenceJourney', () => {
     const remembered = readRemembered('wiki-1', 'claim-1', live);
     expect(remembered.status).toBe('open');
     expect(remembered.question).toBe('Which mistakes?');
+  });
+
+  it('keeps a set-aside source while the pocket is open', () => {
+    const live = createExploration({
+      id: 'claim-1',
+      originalText: 'Memory compounds with review.',
+      source: { title: 'Memory article', passage: 'Source snippet', available: true }
+    });
+    keepExploration(
+      'wiki-1',
+      'claim-1',
+      tryWithoutThisSource(openExploration(live)),
+      live
+    );
+    const remembered = readRemembered('wiki-1', 'claim-1', live);
+    expect(remembered.status).toBe('open');
+    expect(isWithoutSource(remembered)).toBe(true);
+    expect(alignRemembered('wiki-1', 'claim-1', live).withoutSource).toBe(true);
   });
 
   it('keeps the walk in memory when the device cannot save', () => {

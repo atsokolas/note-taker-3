@@ -113,6 +113,40 @@ describe('OpenedLibraryPassage', () => {
     expect(screen.queryByRole('button', { name: 'Accept this wording' })).not.toBeInTheDocument();
   });
 
+  it('lets remaining S5 work sit beside a Library passage without a Wiki write', () => {
+    renderPassage();
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Keep this as an exhibit' }));
+    fireEvent.change(screen.getByLabelText('Name this exhibit'), {
+      target: { value: 'Recoverable, or not' }
+    });
+    fireEvent.change(screen.getByLabelText('This way'), {
+      target: { value: 'A scrape you can walk back from still teaches the ground.' }
+    });
+    fireEvent.change(screen.getByLabelText('The other way'), {
+      target: { value: 'A stranding ends the walk.' }
+    });
+    expect(screen.getByText(/An exhibit, not evidence/)).toHaveTextContent('Recoverable, or not');
+    fireEvent.click(screen.getByRole('button', { name: 'Try saying it' }));
+    fireEvent.change(screen.getByLabelText('Try saying it'), {
+      target: { value: 'Care is letting a child find the path without being carried.' }
+    });
+    expect(screen.getByText('A rehearsal, not a grade.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Keep this as unwritten work' }));
+    fireEvent.change(screen.getByLabelText('What this collection could become'), {
+      target: { value: 'Who gets to experiment, and who pays for the mistake?' }
+    });
+    expect(screen.getByText('Unwritten work, not the article.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Read around this' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Try without this source' }));
+    expect(screen.queryByRole('button', { name: 'Read around this' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Bring Nomad back' })).toBeInTheDocument();
+    expect(screen.getByText(/The saved passage still reads/)).toHaveTextContent(highlight.text);
+    expect(screen.queryByRole('button', { name: 'Propose this wording' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Accept this wording' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
+  });
+
   it('places the passage beside the Wiki thought you walked from', () => {
     writeReturnTicket({
       articleId: 'article-1',

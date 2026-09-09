@@ -5,8 +5,8 @@ import useCssMagneticLerp from '../../../hooks/useCssMagneticLerp';
 import { useFinePointer, usePrefersReducedMotion } from '../../../hooks/useMotionPreferences';
 import {
   beginPressure,
-  bringParagraphBackLabel,
   bringTheParagraphBack,
+  bringTheSourceBack,
   cancelPlacement,
   canApplyInstrument,
   canKeepAsInstrument,
@@ -16,22 +16,21 @@ import {
   canProposeBetween,
   canProposeWording,
   canRearrange,
-  canTryWithoutParagraph,
   changedWordSpans,
   closeExploration,
   applyInstrument,
+  closedWayHome,
   endMeet,
   endPressure,
-  essayWayHome,
   formatNamedOn,
   hasPersonalWork,
   inspectableOther,
-  instrumentWayHome,
   isMeeting,
   isOpen,
   isPressured,
   isRearranged,
   isWithoutParagraph,
+  isWithoutSource,
   keepAsInstrument,
   keepBetweenAsEssay,
   keepBetweenAsExperiment,
@@ -42,19 +41,16 @@ import {
   leaveInstrument,
   leaveMark,
   liveBearing,
-  liveDistinction,
   liveEssay,
   liveInstrument,
   liveProposal,
   liveThen,
   meetSlots,
-  meetWayHome,
   namedOn,
   openExploration,
   pendingInstrument,
   placeSource,
   pressurePassages,
-  pressureWayHome,
   proposeWording,
   putItBack,
   putThemBack,
@@ -64,7 +60,6 @@ import {
   setPressureField,
   sourceClip,
   tryTheOtherWay,
-  tryWithoutThisParagraph,
   tryWording,
   wikiAcceptedText,
   withdrawProposal,
@@ -76,6 +71,7 @@ import {
   writeHeldInstrument
 } from './openSentenceJourney';
 import { listenOpenSentenceStore } from './openSentenceStore';
+import { KeptWork, PocketField, WithoutParagraphWork, WithoutSourceWork } from './OpenSentenceKept';
 import './open-sentence.css';
 
 const selectionInside = (root) => {
@@ -201,21 +197,6 @@ const PlacementActions = ({
     <button type="button" onClick={() => setPreviewing(true)}>Place beside</button>
   );
 };
-
-const PocketField = ({ id, label, value, onChange, placeholder, rows = 2 }) => (
-  <>
-    <label className="open-sentence-pocket__label" htmlFor={id}>
-      {label}
-    </label>
-    <textarea
-      id={id}
-      rows={rows}
-      value={value}
-      onChange={(event) => onChange(event.target.value)}
-      placeholder={placeholder}
-    />
-  </>
-);
 
 const BearingPassage = ({ exploration, mocked, onOpenSourceHome }) => {
   const bearing = liveBearing(exploration);
@@ -680,7 +661,7 @@ const PocketBody = ({
   const writing = !fresh;
   const rearranged = isRearranged(exploration);
   const other = inspectableOther(exploration);
-  const boundSource = (
+  const boundSource = isWithoutSource(exploration) ? null : (
     <SourceBeside
       exploration={exploration}
       mocked={mocked}
@@ -756,20 +737,8 @@ const PocketBody = ({
         <p className="open-sentence-pocket__qualification">
           {acceptedLabel}: {accepted}
         </p>
-        {canTryWithoutParagraph(exploration) ? (
-          isWithoutParagraph(exploration) ? (
-            <>
-              <p className="open-sentence-pocket__qualification">Trying without this paragraph.</p>
-              <button type="button" onClick={() => onCommit(bringTheParagraphBack(exploration))}>
-                {bringParagraphBackLabel(exploration)}
-              </button>
-            </>
-          ) : (
-            <button type="button" onClick={() => onCommit(tryWithoutThisParagraph(exploration))}>
-              Try without this paragraph
-            </button>
-          )
-        ) : null}
+        <WithoutParagraphWork exploration={exploration} onCommit={onCommit} />
+        <WithoutSourceWork exploration={exploration} onCommit={onCommit} />
         {then ? (
           <div className="open-sentence-pocket__then">
             <p className="open-sentence-pocket__qualification">Then</p>
@@ -806,6 +775,10 @@ const PocketBody = ({
 
       {writing ? (
         <PressureBody pocketId={pocketId} exploration={exploration} onCommit={onCommit} />
+      ) : null}
+
+      {writing ? (
+        <KeptWork pocketId={pocketId} exploration={exploration} onCommit={onCommit} />
       ) : null}
 
       {writing ? (
@@ -979,6 +952,10 @@ const OpenSentence = ({
         onChange(bringTheParagraphBack(exploration));
         return;
       }
+      if (isWithoutSource(exploration)) {
+        onChange(bringTheSourceBack(exploration));
+        return;
+      }
       closePocket();
     };
     window.addEventListener('keydown', onKey);
@@ -1014,16 +991,7 @@ const OpenSentence = ({
     else openPocket();
   };
 
-  const closedDistinction = liveDistinction(exploration);
-  const closedQuestion = String(exploration.question || '').trim();
-  const closedProposal = liveProposal(exploration);
-  const wayHomeLabel = closedDistinction
-    || (closedQuestion ? 'You left this open.' : '')
-    || (closedProposal ? 'Proposed, not accepted.' : '')
-    || pressureWayHome(exploration)
-    || meetWayHome(exploration)
-    || essayWayHome(exploration)
-    || instrumentWayHome(exploration);
+  const wayHomeLabel = closedWayHome(exploration);
   const wayHome = !open && !keepPocket && (homecoming || wayHomeLabel) ? (
     <div className="open-sentence__way-home">
       {homecoming ? <p className="open-sentence__been">{homecoming}</p> : null}

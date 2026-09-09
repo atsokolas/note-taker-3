@@ -136,10 +136,7 @@ export const openExploration = (exploration) => ({
 });
 
 export const closeExploration = (exploration) => {
-  if (!exploration?.without) {
-    return { ...exploration, status: EXPLORATION_STATUS.closed };
-  }
-  const { without: _aside, ...rest } = exploration;
+  const { without: _aside, withoutSource: _source, ...rest } = exploration || {};
   return { ...rest, status: EXPLORATION_STATUS.closed };
 };
 
@@ -365,6 +362,27 @@ export const putThemBack = (exploration) => (
   exploration?.rearranged ? { ...exploration, rearranged: false } : exploration
 );
 
+const firstLine = (value) => String(value || '').split(/\n/, 1)[0];
+
+const setFlag = (exploration, flag, allowed) => (
+  allowed && !exploration?.[flag]
+    ? { ...exploration, [flag]: true }
+    : exploration
+);
+
+const clearFlag = (exploration, flag) => {
+  if (!exploration?.[flag]) return exploration;
+  const { [flag]: _aside, ...rest } = exploration;
+  return rest;
+};
+
+const restoreOpenFlag = (parsed, restored, flag, allowed) => Boolean(
+  restored.status === EXPLORATION_STATUS.open
+  && parsed[flag]
+  && asLine(parsed.originalText) === asLine(restored.originalText)
+  && allowed
+);
+
 const paragraphName = (exploration) => asLine(exploration?.originalText);
 
 export const canTryWithoutParagraph = (exploration) => Boolean(
@@ -376,21 +394,35 @@ export const isWithoutParagraph = (exploration) => Boolean(
 );
 
 export const tryWithoutThisParagraph = (exploration) => (
-  canTryWithoutParagraph(exploration) && !exploration?.without
-    ? { ...exploration, without: true }
-    : exploration
+  setFlag(exploration, 'without', canTryWithoutParagraph(exploration))
 );
 
-export const bringTheParagraphBack = (exploration) => {
-  if (!exploration?.without) return exploration;
-  const { without: _aside, ...rest } = exploration;
-  return rest;
-};
+export const bringTheParagraphBack = (exploration) => clearFlag(exploration, 'without');
 
 export const bringParagraphBackLabel = (exploration) => {
   const name = paragraphName(exploration);
   return name ? `Bring “${name}” back` : '';
 };
+
+const sourceName = (exploration) => (
+  asLine(exploration?.source?.title) || 'this source'
+);
+
+export const canTryWithoutSource = (exploration) => Boolean(
+  inspectablePassage(exploration?.source)
+);
+
+export const isWithoutSource = (exploration) => Boolean(
+  canTryWithoutSource(exploration) && exploration?.withoutSource
+);
+
+export const tryWithoutThisSource = (exploration) => (
+  setFlag(exploration, 'withoutSource', canTryWithoutSource(exploration))
+);
+
+export const bringTheSourceBack = (exploration) => clearFlag(exploration, 'withoutSource');
+
+export const bringSourceBackLabel = (exploration) => `Bring ${sourceName(exploration)} back`;
 
 export const meetWayHome = (exploration) => {
   const meet = liveMeet(exploration);
@@ -416,14 +448,16 @@ export const canProposeBetween = (exploration) => {
   return liveProposal(exploration)?.text !== between;
 };
 
+const liveAgainst = (value, exploration) => {
+  if (!value || typeof value !== 'object') return '';
+  const against = asLine(value.against);
+  return against && against === asLine(exploration?.originalText) ? against : '';
+};
+
 export const liveEssay = (exploration) => {
-  const essay = exploration?.essay;
-  if (!essay || typeof essay !== 'object') return null;
-  const text = String(essay.text || '').trim();
-  const against = String(essay.against || '').trim();
-  const current = String(exploration?.originalText || '').trim();
-  if (!text || !against || against !== current) return null;
-  return { text, against };
+  const against = liveAgainst(exploration?.essay, exploration);
+  const text = asLine(exploration?.essay?.text);
+  return against && text ? { text, against } : null;
 };
 
 export const canKeepBetweenAsEssay = (exploration) => {
@@ -541,6 +575,209 @@ export const instrumentWayHome = (exploration) => {
   return instrument ? `An instrument: ${instrument.name.split(/\n/, 1)[0]}` : '';
 };
 
+const exhibitSlots = (exhibit = {}) => ({
+  name: String(exhibit?.name || ''),
+  thisWay: String(exhibit?.thisWay || ''),
+  otherWay: String(exhibit?.otherWay || ''),
+  showing: exhibit?.showing === 'other' ? 'other' : 'this'
+});
+
+export const pendingExhibit = (exploration) => {
+  const against = liveAgainst(exploration?.exhibit, exploration);
+  if (!against) return null;
+  return { against, ...exhibitSlots(exploration.exhibit) };
+};
+
+export const liveExhibit = (exploration) => {
+  const pending = pendingExhibit(exploration);
+  if (!pending) return null;
+  const thisWay = asLine(pending.thisWay);
+  const otherWay = asLine(pending.otherWay);
+  if (!thisWay || !otherWay || thisWay === otherWay) return null;
+  return {
+    ...pending,
+    name: asLine(pending.name),
+    thisWay,
+    otherWay
+  };
+};
+
+export const canKeepAsExhibit = (exploration) => (
+  Boolean(inspectablePassage(exploration?.source) || inspectableOther(exploration))
+  && !pendingExhibit(exploration)
+);
+
+export const keepAsExhibit = (exploration) => {
+  if (!canKeepAsExhibit(exploration)) return exploration;
+  return {
+    ...exploration,
+    exhibit: {
+      against: asLine(exploration.originalText),
+      ...exhibitSlots()
+    }
+  };
+};
+
+export const setExhibitField = (exploration, field, value) => {
+  const pending = pendingExhibit(exploration);
+  if (!pending || !['name', 'thisWay', 'otherWay'].includes(field)) return exploration;
+  return {
+    ...exploration,
+    exhibit: {
+      ...pending,
+      [field]: String(value ?? '')
+    }
+  };
+};
+
+export const setExhibitFields = (exploration, fields = {}) => (
+  Object.entries(fields).reduce(
+    (walk, [field, value]) => setExhibitField(walk, field, value),
+    exploration
+  )
+);
+
+export const showExhibitWay = (exploration, showing) => {
+  const pending = pendingExhibit(exploration);
+  if (!pending || (showing !== 'this' && showing !== 'other')) return exploration;
+  return {
+    ...exploration,
+    exhibit: {
+      ...pending,
+      showing
+    }
+  };
+};
+
+export const leaveExhibit = (exploration) => (
+  exploration?.exhibit ? { ...exploration, exhibit: null } : exploration
+);
+
+export const exhibitWayHome = (exploration) => {
+  const exhibit = liveExhibit(exploration);
+  if (!exhibit) return '';
+  return `An exhibit: ${firstLine(exhibit.name || exhibit.thisWay)}`;
+};
+
+export const pendingRehearsal = (exploration) => {
+  const against = liveAgainst(exploration?.rehearsal, exploration);
+  if (!against) return null;
+  return {
+    against,
+    attempt: String(exploration.rehearsal.attempt || '')
+  };
+};
+
+export const liveRehearsal = (exploration) => {
+  const pending = pendingRehearsal(exploration);
+  const attempt = asLine(pending?.attempt);
+  return pending && attempt ? { ...pending, attempt } : null;
+};
+
+export const canKeepAsRehearsal = (exploration) => !pendingRehearsal(exploration);
+
+export const keepAsRehearsal = (exploration) => {
+  if (!canKeepAsRehearsal(exploration) || !asLine(exploration?.originalText)) return exploration;
+  return {
+    ...exploration,
+    rehearsal: {
+      against: asLine(exploration.originalText),
+      attempt: ''
+    }
+  };
+};
+
+export const setRehearsalAttempt = (exploration, attempt) => {
+  const pending = pendingRehearsal(exploration);
+  if (!pending) return exploration;
+  const text = String(attempt ?? '');
+  if (!asLine(text) && text === '') return leaveRehearsal(exploration);
+  return {
+    ...exploration,
+    rehearsal: {
+      ...pending,
+      attempt: text
+    }
+  };
+};
+
+export const leaveRehearsal = (exploration) => (
+  exploration?.rehearsal ? { ...exploration, rehearsal: null } : exploration
+);
+
+export const rehearsalWayHome = (exploration) => {
+  const rehearsal = liveRehearsal(exploration);
+  return rehearsal ? `A rehearsal: ${firstLine(rehearsal.attempt)}` : '';
+};
+
+export const pendingUnwritten = (exploration) => {
+  const against = liveAgainst(exploration?.unwritten, exploration);
+  if (!against) return null;
+  return {
+    against,
+    question: String(exploration.unwritten.question || ''),
+    gap: String(exploration.unwritten.gap || '')
+  };
+};
+
+export const liveUnwritten = (exploration) => {
+  const pending = pendingUnwritten(exploration);
+  const question = asLine(pending?.question);
+  return pending && question ? { ...pending, question, gap: asLine(pending.gap) } : null;
+};
+
+export const canKeepAsUnwritten = (exploration) => !pendingUnwritten(exploration);
+
+export const keepAsUnwritten = (exploration) => {
+  if (!canKeepAsUnwritten(exploration) || !asLine(exploration?.originalText)) return exploration;
+  return {
+    ...exploration,
+    unwritten: {
+      against: asLine(exploration.originalText),
+      question: '',
+      gap: ''
+    }
+  };
+};
+
+export const setUnwrittenField = (exploration, field, value) => {
+  const pending = pendingUnwritten(exploration);
+  if (!pending || (field !== 'question' && field !== 'gap')) return exploration;
+  const text = String(value ?? '');
+  if (field === 'question' && !asLine(text) && text === '') {
+    return leaveUnwritten(exploration);
+  }
+  return {
+    ...exploration,
+    unwritten: {
+      ...pending,
+      [field]: text
+    }
+  };
+};
+
+export const leaveUnwritten = (exploration) => (
+  exploration?.unwritten ? { ...exploration, unwritten: null } : exploration
+);
+
+export const unwrittenWayHome = (exploration) => {
+  const unwritten = liveUnwritten(exploration);
+  return unwritten ? `Unwritten: ${firstLine(unwritten.question)}` : '';
+};
+
+export const closedWayHome = (exploration) => (
+  liveDistinction(exploration)
+  || (asLine(exploration?.question) ? 'You left this open.' : '')
+  || (liveProposal(exploration) ? 'Proposed, not accepted.' : '')
+  || pressureWayHome(exploration)
+  || meetWayHome(exploration)
+  || essayWayHome(exploration)
+  || instrumentWayHome(exploration)
+  || exhibitWayHome(exploration)
+  || rehearsalWayHome(exploration)
+  || unwrittenWayHome(exploration)
+);
+
 export const liveDistinction = (exploration) => {
   const against = asLine(exploration?.distinctionAgainst);
   const current = asLine(exploration?.originalText);
@@ -577,6 +814,16 @@ export const liveBearing = (exploration) => {
   return bound;
 };
 
+export const rehearsalStillBeside = (exploration) => {
+  const rehearsal = liveRehearsal(exploration);
+  if (!rehearsal) return null;
+  const bound = isWithoutSource(exploration)
+    ? inspectableOther(exploration)
+    : (inspectablePassage(exploration?.source) || inspectableOther(exploration));
+  if (!bound || overlapsDistinction(bound.passage, rehearsal.attempt)) return null;
+  return bound;
+};
+
 export const namedOn = (exploration) => (
   liveDistinction(exploration) ? asDay(exploration?.distinctionAt) : ''
 );
@@ -590,6 +837,9 @@ export const keepsClosedDraft = (exploration) => Boolean(
   || liveMeet(exploration)
   || liveEssay(exploration)
   || liveInstrument(exploration)
+  || liveExhibit(exploration)
+  || liveRehearsal(exploration)
+  || liveUnwritten(exploration)
 );
 
 export const forgetExperiment = (live) => createExploration({
@@ -678,6 +928,9 @@ export const hasPersonalWork = (exploration) => {
     keepsClosedDraft(exploration)
     || wordingChanged(exploration)
     || isPressured(exploration)
+    || pendingExhibit(exploration)
+    || pendingRehearsal(exploration)
+    || pendingUnwritten(exploration)
     || exploration?.mark
     || then?.question
     || then?.draft
@@ -756,17 +1009,26 @@ export const restoreExploration = (raw, fallback) => {
       meet: isMeeting(restored) ? restored.meet : null,
       essay: liveEssay(restored),
       instrument: pendingInstrument(restored),
+      exhibit: pendingExhibit(restored),
+      rehearsal: pendingRehearsal(restored),
+      unwritten: pendingUnwritten(restored),
       rearranged: Boolean(
         canRearrange(restored)
         && parsed.rearranged
         && samePassage(parsed.source, restored.source)
         && samePassage(parsed.other, restored.other)
       ),
-      without: Boolean(
-        restored.status === EXPLORATION_STATUS.open
-        && parsed.without
-        && asLine(parsed.originalText) === asLine(restored.originalText)
-        && canTryWithoutParagraph(restored)
+      without: restoreOpenFlag(
+        parsed,
+        restored,
+        'without',
+        canTryWithoutParagraph(restored)
+      ),
+      withoutSource: restoreOpenFlag(
+        parsed,
+        restored,
+        'withoutSource',
+        canTryWithoutSource(restored)
       )
     };
   } catch (_unreadable) {

@@ -363,14 +363,15 @@ export const liveExplorationForClaim = ({
 
 export const liveExplorationForPageClaim = (page, claimMark = {}, extras = {}) => {
   const claimId = String(claimMark?.claimId || '').trim();
-  const onPage = claimTextOnPage(page?.body, claimId);
-  const text = onPage || String(claimMark?.text || '');
+  const onPage = claimMarkOnPage(page?.body, claimId);
+  const text = onPage?.text || String(claimMark?.text || '');
   const ledgerClaim = text
     ? (page?.claims || []).find((claim) => idsMatch(claim?.claimId, claimId))
     : null;
   return liveExplorationForClaim({
     claimMark: {
       ...claimMark,
+      ...onPage,
       claimId,
       text
     },
