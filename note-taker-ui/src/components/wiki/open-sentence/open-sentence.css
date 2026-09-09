@@ -416,6 +416,12 @@ mark.highlight.open-sentence__held.is-placed:not(.is-open)::before {
   justify-self: start;
 }
 
+.open-sentence-pocket__pressure button[aria-pressed="true"],
+.open-sentence-pocket__actions button[aria-pressed="true"] {
+  border-color: color-mix(in srgb, var(--noeis-ink) 28%, var(--noeis-rule));
+  background: color-mix(in srgb, var(--noeis-ink) 6%, var(--noeis-paper));
+}
+
 @keyframes open-sentence-mark {
   from { opacity: 0; transform: scaleY(0.4); }
   to { opacity: 1; transform: scaleY(1); }

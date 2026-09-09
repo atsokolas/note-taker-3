@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   beginCarry,
+  beginContributions,
   bringParagraphBackLabel,
   bringSourceBackLabel,
   bringTheParagraphBack,
@@ -8,16 +9,22 @@ import {
   canCarryOut,
   canFillCarryBetween,
   canFillCarryQuestion,
+  canFillContributionQuestion,
   canIncludeCarryPassage,
   canKeepAsExhibit,
   canKeepAsRehearsal,
   canKeepAsUnwritten,
+  canMeetContributions,
   canTryWithoutParagraph,
   canTryWithoutSource,
   carryClip,
   carrySlotName,
+  CONTRIBUTION_KINDS,
+  contributionKindLabel,
+  contributionName,
   fillCarryBetween,
   fillCarryQuestion,
+  fillContributionQuestion,
   includeCarryPassage,
   isWithoutParagraph,
   isWithoutSource,
@@ -26,19 +33,24 @@ import {
   keepAsUnwritten,
   leaveCarry,
   leaveCarryPassage,
+  leaveContributions,
   leaveExhibit,
   leaveRehearsal,
   leaveUnwritten,
   liveCarry,
+  liveContributions,
   liveExhibit,
   liveRehearsal,
   liveUnwritten,
   pendingCarry,
+  pendingContributions,
   pendingExhibit,
   pendingRehearsal,
   pendingUnwritten,
   rehearsalStillBeside,
   setCarryField,
+  setContributionField,
+  setContributionKind,
   setExhibitField,
   setRehearsalAttempt,
   setUnwrittenField,
@@ -349,11 +361,93 @@ const CarryWork = ({ pocketId, exploration, onCommit }) => {
   );
 };
 
+const ContributionWork = ({ pocketId, exploration, onCommit }) => {
+  const pending = pendingContributions(exploration);
+  const live = liveContributions(exploration);
+  if (!pending) {
+    if (!canMeetContributions(exploration)) return null;
+    return (
+      <button type="button" onClick={() => onCommit(beginContributions(exploration))}>
+        Let two contributions meet
+      </button>
+    );
+  }
+  const kindId = `${pocketId}-contribution-kind`;
+  const namedKind = contributionKindLabel(live?.kind);
+  return (
+    <div className="open-sentence-pocket__pressure">
+      {live ? (
+        <p className="open-sentence-pocket__proposal">Two contributions. Not a consensus.</p>
+      ) : null}
+      {namedKind ? (
+        <p className="open-sentence-pocket__qualification">{namedKind}</p>
+      ) : null}
+      <PocketField
+        id={`${pocketId}-contribution-question`}
+        label="Shared question"
+        value={pending.question}
+        onChange={(value) => onCommit(setContributionField(exploration, 'question', value))}
+        placeholder="One question both are answering. Not a merged belief."
+      />
+      {canFillContributionQuestion(exploration) ? (
+        <button type="button" onClick={() => onCommit(fillContributionQuestion(exploration))}>
+          Use the unfinished question
+        </button>
+      ) : null}
+      <p className="open-sentence-pocket__label" id={kindId}>Kind of difference</p>
+      <div className="open-sentence-pocket__actions" role="group" aria-labelledby={kindId}>
+        {CONTRIBUTION_KINDS.map((kind) => (
+          <button
+            key={kind}
+            type="button"
+            aria-pressed={pending.kind === kind}
+            onClick={() => onCommit(setContributionKind(exploration, kind))}
+          >
+            {contributionKindLabel(kind)}
+          </button>
+        ))}
+      </div>
+      <PocketField
+        id={`${pocketId}-contribution-accept`}
+        label="What both accept"
+        value={pending.bothAccept}
+        onChange={(value) => onCommit(setContributionField(exploration, 'bothAccept', value))}
+        placeholder="What both still hold. Silence is allowed."
+      />
+      <PocketField
+        id={`${pocketId}-contribution-this`}
+        label={`What ${contributionName(exploration, 'source')} still disputes`}
+        value={pending.thisDisputes}
+        onChange={(value) => onCommit(setContributionField(exploration, 'thisDisputes', value))}
+        placeholder="This contribution's remaining dispute. Not a motive."
+      />
+      <PocketField
+        id={`${pocketId}-contribution-other`}
+        label={`What ${contributionName(exploration, 'other')} still disputes`}
+        value={pending.otherDisputes}
+        onChange={(value) => onCommit(setContributionField(exploration, 'otherDisputes', value))}
+        placeholder="The other contribution's remaining dispute. Not a motive."
+      />
+      <PocketField
+        id={`${pocketId}-contribution-observation`}
+        label="What observation might help"
+        value={pending.observation}
+        onChange={(value) => onCommit(setContributionField(exploration, 'observation', value))}
+        placeholder="What would help. Not a verdict."
+      />
+      <button type="button" onClick={() => onCommit(leaveContributions(exploration))}>
+        Leave this meeting
+      </button>
+    </div>
+  );
+};
+
 export const KeptWork = ({ pocketId, exploration, onCommit }) => (
   <>
     <ExhibitWork pocketId={pocketId} exploration={exploration} onCommit={onCommit} />
     <RehearsalWork pocketId={pocketId} exploration={exploration} onCommit={onCommit} />
     <UnwrittenWork pocketId={pocketId} exploration={exploration} onCommit={onCommit} />
     <CarryWork pocketId={pocketId} exploration={exploration} onCommit={onCommit} />
+    <ContributionWork pocketId={pocketId} exploration={exploration} onCommit={onCommit} />
   </>
 );

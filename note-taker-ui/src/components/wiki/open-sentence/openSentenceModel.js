@@ -799,9 +799,12 @@ export const liveCarry = (exploration) => {
   };
 };
 
+const pairedInspection = (exploration) => Boolean(
+  recordedPassage(exploration?.source) && inspectableOther(exploration)
+);
+
 export const canCarryOut = (exploration) => (
-  Boolean(recordedPassage(exploration?.source) && inspectableOther(exploration))
-  && !pendingCarry(exploration)
+  pairedInspection(exploration) && !pendingCarry(exploration)
 );
 
 export const beginCarry = (exploration) => {
@@ -929,6 +932,145 @@ export const carryWayHome = (exploration) => {
   return carry ? `A snapshot: ${firstLine(carry.question)}` : '';
 };
 
+export const CONTRIBUTION_KINDS = Object.freeze([
+  'fact',
+  'definition',
+  'horizon',
+  'values',
+  'risk'
+]);
+
+const KIND_LABELS = Object.freeze({
+  fact: 'Disputed facts',
+  definition: 'Different definitions',
+  horizon: 'Different time horizons',
+  values: 'Different values',
+  risk: 'Different acceptable risks'
+});
+
+export const contributionKindLabel = (kind) => KIND_LABELS[kind] || '';
+
+const asContributionKind = (value) => (
+  CONTRIBUTION_KINDS.includes(value) ? value : ''
+);
+
+const CONTRIBUTION_TEXT_FIELDS = Object.freeze([
+  'question',
+  'bothAccept',
+  'thisDisputes',
+  'otherDisputes',
+  'observation'
+]);
+
+const contributionSlots = (value = {}) => ({
+  question: String(value?.question || ''),
+  kind: asContributionKind(value?.kind),
+  bothAccept: String(value?.bothAccept || ''),
+  thisDisputes: String(value?.thisDisputes || ''),
+  otherDisputes: String(value?.otherDisputes || ''),
+  observation: String(value?.observation || '')
+});
+
+export const pendingContributions = (exploration) => {
+  const against = liveAgainst(exploration?.contributions, exploration);
+  if (!against) return null;
+  return { against, ...contributionSlots(exploration.contributions) };
+};
+
+export const liveContributions = (exploration) => {
+  const pending = pendingContributions(exploration);
+  if (!pending || !asLine(pending.question)) return null;
+  if (!pairedInspection(exploration) || isWithoutSource(exploration)) return null;
+  return pending;
+};
+
+export const canMeetContributions = (exploration) => (
+  pairedInspection(exploration)
+  && !isWithoutSource(exploration)
+  && !pendingContributions(exploration)
+);
+
+export const beginContributions = (exploration) => {
+  if (!canMeetContributions(exploration) || !asLine(exploration?.originalText)) {
+    return exploration;
+  }
+  return {
+    ...exploration,
+    contributions: {
+      against: asLine(exploration.originalText),
+      ...contributionSlots()
+    }
+  };
+};
+
+export const leaveContributions = (exploration) => (
+  exploration?.contributions ? { ...exploration, contributions: null } : exploration
+);
+
+export const setContributionField = (exploration, field, value) => {
+  const pending = pendingContributions(exploration);
+  if (!pending || !CONTRIBUTION_TEXT_FIELDS.includes(field)) return exploration;
+  const text = String(value ?? '');
+  if (field === 'question' && !asLine(text) && text === '') {
+    return leaveContributions(exploration);
+  }
+  return {
+    ...exploration,
+    contributions: {
+      ...pending,
+      [field]: text
+    }
+  };
+};
+
+export const setContributionKind = (exploration, kind) => {
+  const pending = pendingContributions(exploration);
+  if (!pending) return exploration;
+  const next = asContributionKind(kind);
+  return {
+    ...exploration,
+    contributions: {
+      ...pending,
+      kind: pending.kind === next ? '' : next
+    }
+  };
+};
+
+export const setContributionFields = (exploration, fields = {}) => (
+  Object.entries(fields).reduce((walk, [field, value]) => (
+    field === 'kind'
+      ? setContributionKind(walk, value)
+      : setContributionField(walk, field, value)
+  ), exploration)
+);
+
+export const contributionName = (exploration, side) => {
+  const bound = side === 'source'
+    ? exploration?.source
+    : (side === 'other' ? exploration?.other : null);
+  if (!bound) {
+    return side === 'other' ? 'the other contribution' : 'this contribution';
+  }
+  return asLine(bound.title)
+    || (side === 'other' ? 'the other contribution' : 'this contribution');
+};
+
+export const canFillContributionQuestion = (exploration) => {
+  const pending = pendingContributions(exploration);
+  const question = asLine(exploration?.question);
+  return Boolean(pending && question && question !== asLine(pending.question));
+};
+
+export const fillContributionQuestion = (exploration) => {
+  if (!canFillContributionQuestion(exploration)) return exploration;
+  return setContributionField(exploration, 'question', String(exploration.question || ''));
+};
+
+export const contributionsWayHome = (exploration) => {
+  const live = liveContributions(exploration);
+  return live ? `Two contributions: ${firstLine(live.question)}` : '';
+};
+
 export const closedWayHome = (exploration) => (
   liveDistinction(exploration)
   || (asLine(exploration?.question) ? 'You left this open.' : '')
@@ -941,6 +1083,7 @@ export const closedWayHome = (exploration) => (
   || rehearsalWayHome(exploration)
   || unwrittenWayHome(exploration)
   || carryWayHome(exploration)
+  || contributionsWayHome(exploration)
 );
 
 export const liveDistinction = (exploration) => {
@@ -1006,6 +1149,7 @@ export const keepsClosedDraft = (exploration) => Boolean(
   || liveRehearsal(exploration)
   || liveUnwritten(exploration)
   || liveCarry(exploration)
+  || liveContributions(exploration)
 );
 
 export const forgetExperiment = (live) => createExploration({
@@ -1098,6 +1242,7 @@ export const hasPersonalWork = (exploration) => {
     || pendingRehearsal(exploration)
     || pendingUnwritten(exploration)
     || pendingCarry(exploration)
+    || pendingContributions(exploration)
     || exploration?.mark
     || then?.question
     || then?.draft
@@ -1180,6 +1325,7 @@ export const restoreExploration = (raw, fallback) => {
       rehearsal: pendingRehearsal(restored),
       unwritten: pendingUnwritten(restored),
       carry: pendingCarry(restored),
+      contributions: pendingContributions(restored),
       rearranged: Boolean(
         canRearrange(restored)
         && parsed.rearranged

@@ -200,6 +200,7 @@ describe('SharedWikiPage', () => {
     expect(document.querySelector('.open-sentence')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Try a narrower wording')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Carry this out' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Let two contributions meet' })).not.toBeInTheDocument();
     expect(screen.queryByText('a private draft')).not.toBeInTheDocument();
   });
 

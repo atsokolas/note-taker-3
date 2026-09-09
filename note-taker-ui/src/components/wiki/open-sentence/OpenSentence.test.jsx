@@ -5,6 +5,7 @@ import OpenSentence from './OpenSentence';
 import {
   acceptWording,
   beginCarry,
+  beginContributions,
   beginPressure,
   bringParagraphBackLabel,
   bringTheParagraphBack,
@@ -12,6 +13,7 @@ import {
   bringTheSourceBack,
   canApplyInstrument,
   canCarryOut,
+  canFillContributionQuestion,
   canKeepAsExhibit,
   canKeepAsInstrument,
   canKeepAsRehearsal,
@@ -21,9 +23,13 @@ import {
   canMakeThisTheTitle,
   canProposeBetween,
   canProposeWording,
+  canMeetContributions,
   canTryWithoutSource,
   canFillCarryBetween,
   canFillCarryQuestion,
+  contributionKindLabel,
+  contributionName,
+  contributionsWayHome,
   carryClip,
   carryWayHome,
   changedWordSpans,
@@ -57,6 +63,7 @@ import {
   leaveEssay,
   leaveCarry,
   leaveCarryPassage,
+  leaveContributions,
   leaveExhibit,
   leaveInstrument,
   leaveMark,
@@ -64,6 +71,7 @@ import {
   leaveUnwritten,
   liveBearing,
   liveCarry,
+  liveContributions,
   liveDistinction,
   liveEssay,
   liveExhibit,
@@ -89,6 +97,9 @@ import {
   restoreExploration,
   setCarryField,
   setCarryFields,
+  setContributionField,
+  setContributionFields,
+  setContributionKind,
   setDistinction,
   setExhibitFields,
   setInstrumentName,
@@ -106,11 +117,44 @@ import {
   unwrittenWayHome,
   fillCarryBetween,
   fillCarryQuestion,
+  fillContributionQuestion,
   wikiAcceptedText,
   withdrawProposal,
   wordingChanged
 } from './openSentenceModel';
-import { STORYBOARD_BEARING_SOURCE, STORYBOARD_CARRY_CONCLUSION, STORYBOARD_CARRY_QUESTION, STORYBOARD_COMPUTE_SENTENCE, STORYBOARD_COMPUTE_SOURCE, STORYBOARD_DISTINCTION, STORYBOARD_EXHIBIT_NAME, STORYBOARD_EXHIBIT_OTHER, STORYBOARD_EXHIBIT_THIS, STORYBOARD_INSTRUMENT_NAME, STORYBOARD_LIBRARY_SOURCE, STORYBOARD_MEET_LIMIT, STORYBOARD_MEET_RELATION, STORYBOARD_MEET_SOURCE, STORYBOARD_QUESTION, STORYBOARD_REHEARSAL, STORYBOARD_SENTENCE, STORYBOARD_SOURCE, STORYBOARD_STALE_SOURCE, STORYBOARD_THEN_BESIDE, STORYBOARD_THEN_NOW, STORYBOARD_THEN_ORIGINAL, STORYBOARD_THEN_QUESTION, STORYBOARD_THEN_QUOTATION, STORYBOARD_UNWRITTEN, STORYBOARD_UNWRITTEN_GAP } from './openSentenceStoryboardFixture';
+import {
+  STORYBOARD_BEARING_SOURCE,
+  STORYBOARD_BOTH_ACCEPT,
+  STORYBOARD_CARRY_CONCLUSION,
+  STORYBOARD_CARRY_QUESTION,
+  STORYBOARD_COMPUTE_SENTENCE,
+  STORYBOARD_COMPUTE_SOURCE,
+  STORYBOARD_CONTRIBUTIONS_QUESTION,
+  STORYBOARD_DISTINCTION,
+  STORYBOARD_EXHIBIT_NAME,
+  STORYBOARD_EXHIBIT_OTHER,
+  STORYBOARD_EXHIBIT_THIS,
+  STORYBOARD_INSTRUMENT_NAME,
+  STORYBOARD_LIBRARY_SOURCE,
+  STORYBOARD_MEET_LIMIT,
+  STORYBOARD_MEET_RELATION,
+  STORYBOARD_MEET_SOURCE,
+  STORYBOARD_OBSERVATION,
+  STORYBOARD_OTHER_DISPUTES,
+  STORYBOARD_QUESTION,
+  STORYBOARD_REHEARSAL,
+  STORYBOARD_SENTENCE,
+  STORYBOARD_SOURCE,
+  STORYBOARD_STALE_SOURCE,
+  STORYBOARD_THEN_BESIDE,
+  STORYBOARD_THEN_NOW,
+  STORYBOARD_THEN_ORIGINAL,
+  STORYBOARD_THEN_QUESTION,
+  STORYBOARD_THEN_QUOTATION,
+  STORYBOARD_THIS_DISPUTES,
+  STORYBOARD_UNWRITTEN,
+  STORYBOARD_UNWRITTEN_GAP
+} from './openSentenceStoryboardFixture';
 
 const renderOpen = (exploration, onChange = jest.fn()) => render(
   <MemoryRouter>
@@ -938,6 +982,7 @@ describe('openSentenceModel', () => {
   it('lets a snapshot of two included passages be carried out without publishing', () => {
     const start = openExploration(meeting());
     expect(canCarryOut(start)).toBe(true);
+    expect(canCarryOut(tryWithoutThisSource(start))).toBe(true);
     expect(canCarryOut(createExploration({
       originalText: STORYBOARD_SENTENCE,
       source: STORYBOARD_SOURCE
@@ -1015,6 +1060,80 @@ describe('openSentenceModel', () => {
       originalText: 'Children need room to make recoverable mistakes.'
     }))).toBeNull();
     expect(forgetExperiment(snapshot).carry).toBeUndefined();
+  });
+
+  it('lets two bound passages meet as attributed contributions, not a consensus', () => {
+    const start = openExploration(meeting());
+    expect(canMeetContributions(start)).toBe(true);
+    expect(canMeetContributions(tryWithoutThisSource(start))).toBe(false);
+    expect(canMeetContributions(createExploration({
+      originalText: STORYBOARD_SENTENCE,
+      source: STORYBOARD_SOURCE
+    }))).toBe(false);
+    expect(beginContributions(createExploration({
+      originalText: STORYBOARD_SENTENCE,
+      source: STORYBOARD_SOURCE
+    }))).toEqual(createExploration({
+      originalText: STORYBOARD_SENTENCE,
+      source: STORYBOARD_SOURCE
+    }));
+    const pending = beginContributions(start);
+    expect(liveContributions(pending)).toBeNull();
+    expect(keepsClosedDraft(closeExploration(pending))).toBe(false);
+    expect(canMeetContributions(pending)).toBe(false);
+    expect(setContributionField(pending, 'question', '')).toEqual(leaveContributions(pending));
+    expect(contributionName(start, 'source')).toBe(STORYBOARD_SOURCE.title);
+    expect(contributionName(start, 'other')).toBe(STORYBOARD_MEET_SOURCE.title);
+    expect(contributionName(createExploration({ originalText: STORYBOARD_SENTENCE }), 'source'))
+      .toBe('this contribution');
+    expect(contributionName(createExploration({
+      originalText: STORYBOARD_SENTENCE,
+      source: { passage: STORYBOARD_SOURCE.passage, available: true },
+      other: { passage: STORYBOARD_MEET_SOURCE.passage, available: true }
+    }), 'other')).toBe('the other contribution');
+    expect(contributionKindLabel('values')).toBe('Different values');
+    expect(setContributionKind(pending, 'values').contributions.kind).toBe('values');
+    expect(setContributionKind(setContributionKind(pending, 'values'), 'values').contributions.kind)
+      .toBe('');
+    const asked = keepQuestion(start, STORYBOARD_QUESTION);
+    expect(canFillContributionQuestion(beginContributions(asked))).toBe(true);
+    expect(fillContributionQuestion(beginContributions(asked)).contributions.question)
+      .toBe(STORYBOARD_QUESTION);
+    const meetingWalk = setContributionFields(pending, {
+      question: STORYBOARD_CONTRIBUTIONS_QUESTION,
+      kind: 'values',
+      bothAccept: STORYBOARD_BOTH_ACCEPT,
+      thisDisputes: STORYBOARD_THIS_DISPUTES,
+      otherDisputes: STORYBOARD_OTHER_DISPUTES,
+      observation: STORYBOARD_OBSERVATION
+    });
+    expect(liveContributions(meetingWalk)).toEqual({
+      against: STORYBOARD_SENTENCE,
+      question: STORYBOARD_CONTRIBUTIONS_QUESTION,
+      kind: 'values',
+      bothAccept: STORYBOARD_BOTH_ACCEPT,
+      thisDisputes: STORYBOARD_THIS_DISPUTES,
+      otherDisputes: STORYBOARD_OTHER_DISPUTES,
+      observation: STORYBOARD_OBSERVATION
+    });
+    expect(liveContributions(tryWithoutThisSource(meetingWalk))).toBeNull();
+    expect(wikiAcceptedText(meetingWalk)).toBe(STORYBOARD_SENTENCE);
+    expect(contributionsWayHome(meetingWalk)).toBe(
+      `Two contributions: ${STORYBOARD_CONTRIBUTIONS_QUESTION}`
+    );
+    expect(closedWayHome(closeExploration(meetingWalk))).toBe(
+      `Two contributions: ${STORYBOARD_CONTRIBUTIONS_QUESTION}`
+    );
+    expect(keepsClosedDraft(closeExploration(meetingWalk))).toBe(true);
+    expect(hasPersonalWork(pending)).toBe(true);
+    expect(liveContributions(restoreExploration(snapshotExploration(meetingWalk), start))).toEqual(
+      liveContributions(meetingWalk)
+    );
+    expect(liveContributions(restoreExploration(snapshotExploration(meetingWalk), {
+      ...start,
+      originalText: 'Children need room to make recoverable mistakes.'
+    }))).toBeNull();
+    expect(forgetExperiment(meetingWalk).contributions).toBeUndefined();
   });
 
   it('lets two recorded passages swap order without inventing an argument', () => {
@@ -2437,6 +2556,72 @@ describe('OpenSentence', () => {
     expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
   });
 
+  it('lets two bound passages meet as attributed contributions without judging a motive', () => {
+    const onChange = jest.fn();
+    const opened = openExploration(meeting());
+    const { rerender } = renderOpen(opened, onChange);
+    fireEvent.click(screen.getByRole('button', { name: 'Let two contributions meet' }));
+    expect(onChange).toHaveBeenCalledWith(beginContributions(opened));
+    const pending = beginContributions(opened);
+    rerender(
+      <MemoryRouter>
+        <OpenSentence exploration={pending} onChange={onChange} mocked />
+      </MemoryRouter>
+    );
+    expect(screen.queryByText('Two contributions. Not a consensus.')).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Shared question'), {
+      target: { value: STORYBOARD_CONTRIBUTIONS_QUESTION }
+    });
+    expect(onChange).toHaveBeenCalledWith(
+      setContributionField(pending, 'question', STORYBOARD_CONTRIBUTIONS_QUESTION)
+    );
+    const asked = setContributionField(pending, 'question', STORYBOARD_CONTRIBUTIONS_QUESTION);
+    rerender(
+      <MemoryRouter>
+        <OpenSentence exploration={asked} onChange={onChange} mocked />
+      </MemoryRouter>
+    );
+    expect(screen.getByText('Two contributions. Not a consensus.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Different values' }));
+    expect(onChange).toHaveBeenCalledWith(setContributionKind(asked, 'values'));
+    const named = setContributionFields(asked, {
+      kind: 'values',
+      bothAccept: STORYBOARD_BOTH_ACCEPT,
+      thisDisputes: STORYBOARD_THIS_DISPUTES,
+      otherDisputes: STORYBOARD_OTHER_DISPUTES,
+      observation: STORYBOARD_OBSERVATION
+    });
+    rerender(
+      <MemoryRouter>
+        <OpenSentence exploration={named} onChange={onChange} mocked />
+      </MemoryRouter>
+    );
+    expect(screen.getByRole('button', { name: 'Different values' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    expect(screen.getByText('Different values', { selector: 'p' })).toBeInTheDocument();
+    expect(screen.getByLabelText(`What ${STORYBOARD_SOURCE.title} still disputes`))
+      .toHaveValue(STORYBOARD_THIS_DISPUTES);
+    expect(screen.getByLabelText(`What ${STORYBOARD_MEET_SOURCE.title} still disputes`))
+      .toHaveValue(STORYBOARD_OTHER_DISPUTES);
+    expect(screen.getByLabelText('What both accept')).toHaveValue(STORYBOARD_BOTH_ACCEPT);
+    expect(screen.getByLabelText('What observation might help')).toHaveValue(STORYBOARD_OBSERVATION);
+    expect(screen.getByText(/The article still reads/)).toHaveTextContent(STORYBOARD_SENTENCE);
+    expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
+    rerender(
+      <MemoryRouter>
+        <OpenSentence
+          exploration={tryWithoutThisSource(named)}
+          onChange={onChange}
+          mocked
+        />
+      </MemoryRouter>
+    );
+    expect(screen.queryByText('Two contributions. Not a consensus.')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Shared question')).toHaveValue(STORYBOARD_CONTRIBUTIONS_QUESTION);
+  });
+
   it('hides the bound source in the pocket and brings it back by name', () => {
     const onChange = jest.fn();
     const opened = openExploration(createExploration({
@@ -2465,6 +2650,7 @@ describe('OpenSentence', () => {
     expect(screen.queryByRole('button', { name: 'Keep this as an exhibit' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Try without this source' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Carry this out' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Let two contributions meet' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Try saying it' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Keep this as unwritten work' })).toBeInTheDocument();
   });
@@ -2475,6 +2661,7 @@ describe('OpenSentence', () => {
       source: STORYBOARD_SOURCE
     })));
     expect(screen.queryByRole('button', { name: 'Carry this out' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Let two contributions meet' })).not.toBeInTheDocument();
   });
 
   it('lets a live exhibit, rehearsal, unwritten work, or snapshot be the way home', () => {
@@ -2508,6 +2695,13 @@ describe('OpenSentence', () => {
       }
     )));
     expect(screen.getByRole('button', { name: `A snapshot: ${STORYBOARD_CARRY_QUESTION}` })).toBeInTheDocument();
+    rerender(closed(setContributionFields(
+      beginContributions(openExploration(meeting())),
+      { question: STORYBOARD_CONTRIBUTIONS_QUESTION }
+    )));
+    expect(screen.getByRole('button', {
+      name: `Two contributions: ${STORYBOARD_CONTRIBUTIONS_QUESTION}`
+    })).toBeInTheDocument();
   });
 
   it('is already still when stillness is asked for', () => {
