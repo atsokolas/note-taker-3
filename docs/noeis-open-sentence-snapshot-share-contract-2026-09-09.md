@@ -83,7 +83,7 @@ Cache, when a URL exists: invalidate on publish and on revoke. Do not advertise 
 
 The recipient may copy the visible text. They do not receive a license to the Library, to unpublished notes, or to later private edits.
 
-They may not pull the frozen passages into a second Library as if they had been granted the source. Two people contributing selected material to one question is H8, and stays closed.
+They may not pull the frozen passages into a second Library as if they had been granted the source. Two attributed contributions in one pocket are [S8](noeis-open-sentence-s8-2026-09-09.md). A second person's Library stays closed.
 
 ## Taste pass (when a URL is later authorized)
 
