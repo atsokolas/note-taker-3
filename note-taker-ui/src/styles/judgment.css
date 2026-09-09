@@ -1041,7 +1041,15 @@ button.judgment-inbox__text:focus-visible {
 
 .judgment-time input[type='range'] {
   width: min(100%, 28rem);
-  accent-color: var(--ink, #302a23);
+  accent-color: var(--noeis-pointer, var(--ink, #302a23));
+}
+
+.judgment-time label {
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--noeis-pointer, var(--text-primary));
 }
 
 .judgment-time__caption {
@@ -3004,20 +3012,32 @@ body.noeis-editorial .judgment .judgment__earlier-line,
   margin: 0 0 14px;
 }
 
+/* Small caps in the serif, the register the rest of the product reads its
+   labels in. "What would change your mind" is three times the length of
+   "Why" — balanced wrapping and a shared baseline keep four heads of very
+   different lengths looking like one row. */
 .judgment-block__head h3 {
   margin: 0;
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.76rem;
+  min-width: 0;
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-variant-caps: all-small-caps;
+  font-feature-settings: "smcp" 1, "c2sc" 1, "lnum" 1, "kern" 1;
+  font-size: clamp(0.88rem, 0.62rem + 0.5vw, 1rem);
   font-weight: 600;
-  letter-spacing: 0.05em;
-  color: color-mix(in srgb, var(--text-muted) 94%, transparent);
+  letter-spacing: 0.07em;
+  line-height: 1.2;
+  text-wrap: balance;
+  color: color-mix(in srgb, var(--text-muted) 96%, transparent);
 }
 
+/* Silent at zero: the absence sentence below already says there is nothing,
+   and "none" beside a head that reads "What argues against it" says it twice. */
 .judgment-block__count {
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.74rem;
-  font-variant-numeric: lining-nums;
-  color: color-mix(in srgb, var(--text-muted) 70%, transparent);
+  flex: none;
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-variant-numeric: lining-nums tabular-nums;
+  font-size: 0.9rem;
+  color: color-mix(in srgb, var(--text-muted) 66%, transparent);
 }
 
 /* WRITTEN: plain text on the page. No border, no fill — a record reads as a
@@ -3028,11 +3048,30 @@ body.noeis-editorial .judgment .judgment__earlier-line,
    specificity alone loses and every line here — the record, the absences and
    the one warning — renders in the same grey. Outranking it takes the same
    !important the title and the opinion above already use. */
+/* Two lines at rest, the whole sentence on a click — a column of full
+   paragraphs is a wall, and an edition already reads this way. */
 body.noeis-editorial .judgment .judgment-block__text,
 .judgment .judgment-block__text {
   margin: 0;
   line-height: 1.5;
   color: var(--text-primary) !important;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+body.noeis-editorial .judgment .judgment-block__entry.is-open .judgment-block__text,
+.judgment .judgment-block__entry.is-open .judgment-block__text {
+  display: block;
+  overflow: visible;
+}
+
+.judgment-block__text:focus-visible {
+  outline: 2px solid var(--noeis-pointer, currentColor);
+  outline-offset: 3px;
+  border-radius: 2px;
 }
 
 .judgment-block__when {
@@ -3073,9 +3112,22 @@ body.noeis-editorial .judgment .judgment-block__unwatched,
   font-size: 0.92rem;
 }
 
+/* The cure, in the same ink as the problem. A warning that names no way out
+   is just a complaint. */
+.judgment-block__unwatched button {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
 /* At rest the page carries no fields. This asks for one. */
 .judgment-block__add {
-  margin: 14px 0 0;
+  margin: 0 0 16px;
   padding: 0;
   border: 0;
   background: none;
@@ -3087,7 +3139,7 @@ body.noeis-editorial .judgment .judgment-block__unwatched,
 
 .judgment-block__add:hover { text-decoration: underline; text-underline-offset: 3px; }
 
-.judgment-block .judgment-composer { margin: 14px 0 0; }
+.judgment-block .judgment-composer { margin: 0 0 18px; }
 
 @media (max-width: 860px) {
   .judgment-case__grid { grid-template-columns: 1fr; }

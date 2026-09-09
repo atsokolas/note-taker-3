@@ -774,6 +774,8 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
   const [printing, setPrinting] = useState(false);
   const [printError, setPrintError] = useState('');
   const [arrivingId, setArrivingId] = useState('');
+  /* Bumped by the unwatched-test warning to open the form that answers it. */
+  const [openTest, setOpenTest] = useState(0);
   /* null until the library has been searched for this claim. An empty array
      means the search ran and found nothing — a finding the skeptic reports —
      and null means we cannot say either way yet. */
@@ -1362,12 +1364,14 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
           onFile={fileEvidence}
           kin={kin}
           onKin={setKin}
+          onNameSignal={() => setOpenTest(n => n + 1)}
           test={(
             <JudgmentResolution
               pageId={pageId}
               claim={view.claim}
               judgment={page.judgment}
               evidenceOptions={verdictEvidenceOptions(page)}
+              openTest={openTest}
               onSaved={(next) => {
                 if (next) setPage(current => ({ ...current, judgment: next }));
               }}

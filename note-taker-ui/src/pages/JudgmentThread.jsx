@@ -245,6 +245,9 @@ const UpdateComposer = ({
   const [source, setSource] = useState(null);
   const [mention, setMention] = useState(null);
   const inputRef = useRef(null);
+  /* Opened from a block, the field is the thing you just asked for. Landing
+     the cursor in it is the difference between one gesture and two. */
+  useEffect(() => { inputRef.current?.focus(); }, []);
   const lineIdRef = useRef('');
   const timerRef = useRef(0);
   const prompt = KINDS.find(option => option.field === kind)?.prompt || 'Write an update…';
