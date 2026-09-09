@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-08
 **Sits under:** [Operable knowledge](noeis-operable-knowledge-vision-spec-2026-09-04.md) §11 Later — Shared work / §6 H7 / L6
-**Status:** Horizon H7 is on this walk. Frontend-only. Not a person finding value beyond a generated answer. Not a publication. Two contributions are [S8](noeis-open-sentence-s8-2026-09-09.md). A second person's Library and the publication contract stay closed.
+**Status:** Horizon H7 is on this walk. Frontend-only. Not a person finding value beyond a generated answer. Not a publication. Two contributions are [S8](noeis-open-sentence-s8-2026-09-09.md). The [snapshot share contract](noeis-open-sentence-snapshot-share-contract-2026-09-09.md) is the decision record for a later URL. A second person's Library stays closed.
 
 The operable-knowledge sequence has no numbered S7. This slice is H7, the first shared-work act that can live in the same pocket: one question, two passages, and a provisional conclusion. It is not two Libraries, and it is not a public share of the pocket.
 
@@ -39,8 +39,8 @@ Library with only one passage stays silent. Public shares still do not restore a
 
 ## What stays closed
 
-A second person's Library. Publication, retention, source access, and revocation. Server-sync. Public shares of the pocket. Generated warrant.
+A second person's Library. Implementing a public URL. Server-sync. Public shares of the pocket. Generated warrant.
 
-Two contributions in this pocket are [S8](noeis-open-sentence-s8-2026-09-09.md).
+Two contributions in this pocket are [S8](noeis-open-sentence-s8-2026-09-09.md). Access, revocation, retention, and derivatives for a later snapshot URL are named in the [snapshot share contract](noeis-open-sentence-snapshot-share-contract-2026-09-09.md). That document does not publish anything.
 
 A person finding understanding beyond a generated answer remains separately authorized.
