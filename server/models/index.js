@@ -1242,6 +1242,17 @@ const wikiRevisionSchema = new mongoose.Schema({
   before: { type: mongoose.Schema.Types.Mixed, default: null },
   after: { type: mongoose.Schema.Types.Mixed, default: null },
   snapshotPrunedAt: { type: Date, default: null },
+  /* A maintenance pass that changed nothing used to record that fact by storing
+     the whole page twice. Repo-page revisions ran 1.5MB each and the wiki's
+     revisions grew to two thirds of the cluster.
+
+     So a pass whose before and after are the same content stores neither, and
+     says so here. This is not snapshotPrunedAt: that means retention removed a
+     payload and the content is gone. This means the content was never worth
+     writing because it equals the revision before it, and is read back from
+     there. The row, its id, its links, its summary and its review all stand. */
+  snapshotUnchanged: { type: Boolean, default: false },
+  contentHash: { type: String, default: '' },
   summary: { type: String, default: '', trim: true }
 }, { timestamps: true });
 
