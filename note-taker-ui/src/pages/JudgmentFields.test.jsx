@@ -38,8 +38,17 @@ const page = () => ({
 
 const renderCase = () => render(<MemoryRouter><Judgment /></MemoryRouter>);
 
+/* The four kinds are blocks now, not tabs: you open the one you mean to
+   write in, and its field appears there. */
+const INVITATION = {
+  Why: '+ Add a reason',
+  Against: '+ Add counterevidence',
+  Change: '+ Add a test',
+  Did: '+ Record what you did'
+};
+
 const choose = (kind) => {
-  fireEvent.click(screen.getByRole('radio', { name: kind }));
+  fireEvent.click(screen.getByRole('button', { name: INVITATION[kind] }));
 };
 
 describe('updates on an opened judgment', () => {
@@ -52,14 +61,30 @@ describe('updates on an opened judgment', () => {
     getJudgmentLibraryEvidence.mockResolvedValue({ claim: '', terms: [], candidates: [] });
   });
 
-  it('holds the prior still, and the log underneath', async () => {
+  it('holds the prior still, with the four blocks under it', async () => {
     renderCase();
     expect(await screen.findByLabelText('Title')).toHaveValue('');
     expect(screen.getByLabelText('What you hold')).toHaveValue('A written process improves judgment.');
     expect(screen.getByText('Process still loses half the bets.')).toBeInTheDocument();
+    /* What a line rests on is said once, by the mark after it. */
     expect(screen.getByLabelText('Source 1: Everyone Has a Process')).toHaveTextContent('[1]');
     expect(screen.queryByText('Everyone Has a Process')).not.toBeInTheDocument();
-    expect(screen.getByRole('radio', { name: 'Why' })).toBeChecked();
+
+    /* All four are on screen at once, so an empty side reads as an absence
+       rather than as a tab nobody opened. */
+    ['Why you believe it', 'What would change your mind', 'What argues against it', 'What you did about it']
+      .forEach(label => expect(screen.getByRole('region', { name: label })).toBeInTheDocument());
+  });
+
+  /* At rest the page is record, not form: nothing on it looks like a field
+     until you ask for one. */
+  it('carries no field until a block is opened', async () => {
+    renderCase();
+    await screen.findByLabelText('Title');
+    expect(screen.queryByLabelText('Why do you believe it?')).not.toBeInTheDocument();
+
+    choose('Why');
+    expect(screen.getByLabelText('Why do you believe it?')).toBeInTheDocument();
   });
 
   it('writes a line into the log and keeps what was already there', async () => {
@@ -155,16 +180,18 @@ describe('a line that does not land', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(/was not saved/);
   });
 
-  it('keeps the current kind when settling the draft fails', async () => {
+  /* A line that would not save is still the writer's. It stays in the field,
+     with the reason it did not land. */
+  it('keeps the words in the field when the save fails', async () => {
     updateWikiPage.mockRejectedValue(new Error('That line was not saved. It is still only on this screen.'));
     renderCase();
     await screen.findByLabelText('Title');
+    choose('Why');
     const input = screen.getByLabelText('Why do you believe it?');
     fireEvent.change(input, { target: { value: 'Process still loses half the bets twice.' } });
-    choose('Against');
+    fireEvent.blur(input);
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/was not saved/);
-    expect(screen.getByRole('radio', { name: 'Why' })).toBeChecked();
     expect(input).toHaveValue('Process still loses half the bets twice.');
   });
 });

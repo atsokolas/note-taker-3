@@ -379,9 +379,12 @@ const UpdateComposer = ({
   hintKind,
   onHint,
   /* Sources already bound to this case, offered before the library is asked. */
-  boundSources = []
+  boundSources = [],
+  /* Written inside a block, the kind is already decided by where you clicked.
+     The rail is for a composer that stands on its own. */
+  fixedKind = ''
 }) => {
-  const [kind, setKind] = useState('why');
+  const [kind, setKind] = useState(fixedKind || 'why');
   const [draft, setDraft] = useState('');
   const [state, setState] = useState('idle');
   const [writeError, setWriteError] = useState('');
@@ -462,14 +465,16 @@ const UpdateComposer = ({
 
   return (
     <div className="judgment-composer">
-      <KindRail
-        kind={kind}
-        hintKind={hintKind}
-        onKind={async (next) => {
-          if (next === kind) return;
-          await chooseKind(next);
-        }}
-      />
+      {fixedKind ? null : (
+        <KindRail
+          kind={kind}
+          hintKind={hintKind}
+          onKind={async (next) => {
+            if (next === kind) return;
+            await chooseKind(next);
+          }}
+        />
+      )}
       <label className="sr-only" htmlFor="judgment-update">{prompt}</label>
       <input
         id="judgment-update"
@@ -554,15 +559,6 @@ const UpdateComposer = ({
         ) : null}
         {writeError ? <span role="alert">{writeError}</span> : null}
       </div>
-      <MorningInbox
-        candidates={inbox}
-        kind={kind}
-        view={view}
-        kin={kin}
-        onKin={onKin}
-        onHint={onHint}
-        onFile={fileInbox}
-      />
     </div>
   );
 };
@@ -669,4 +665,4 @@ const JudgmentLog = ({ view, arrivingId, pendingId, kin, onKin }) => {
   );
 };
 
-export { UpdateComposer, JudgmentLog, KindWords };
+export { UpdateComposer, JudgmentLog, KindWords, CitationMark, MorningInbox };
