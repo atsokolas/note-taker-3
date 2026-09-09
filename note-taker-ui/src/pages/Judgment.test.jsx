@@ -867,7 +867,9 @@ describe('Judgment claim', () => {
     await screen.findByRole('heading', { level: 1 });
     const against = screen.getByRole('region', { name: 'What argues against it' });
     expect(within(against).getByText('Nothing written. This is the side that changes your mind.')).toBeInTheDocument();
-    expect(within(against).getByText('none')).toBeInTheDocument();
+    /* The head stays silent at zero: the sentence under it already says so,
+       and "none" beside "What argues against it" says it twice. */
+    expect(within(against).queryByText('none')).not.toBeInTheDocument();
     expect(within(screen.getByRole('region', { name: 'What you did about it' }))
       .getByText(/Nothing recorded/)).toBeInTheDocument();
     expect(screen.queryByText('Hyperscalers are designing more in-house silicon.')).not.toBeInTheDocument();

@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import * as router from 'react-router-dom';
 import Judgment from './Judgment';
@@ -220,5 +220,62 @@ describe('a saved line is never held hostage', () => {
     await waitFor(() => expect(input).toHaveValue(''));
     expect(await screen.findByText('Two quarters of falling margin.')).toBeInTheDocument();
     expect(recordClaimFalsifiability).toHaveBeenCalled();
+  });
+});
+
+/**
+ * Where a line goes, and how much of it you see.
+ */
+describe('the shape of a block', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.spyOn(router, 'useParams').mockReturnValue({ pageId: 'p1' });
+    getWikiPage.mockResolvedValue(page());
+    listWikiSourceEvents.mockResolvedValue([]);
+    getCompanyDossierJudgmentReview.mockResolvedValue(null);
+    getJudgmentLibraryEvidence.mockResolvedValue({ claim: '', terms: [], candidates: [] });
+  });
+
+  /* Newest first, so the line you just wrote is the one you are looking at. */
+  it('puts the newest line at the top of its block', async () => {
+    const many = page();
+    many.judgment.why = [
+      { reasonId: 'w1', text: 'The older reason.' },
+      { reasonId: 'w2', text: 'The newer reason.' }
+    ];
+    getWikiPage.mockResolvedValue(many);
+    renderCase();
+    await screen.findByLabelText('Title');
+
+    const why = screen.getByRole('region', { name: 'Why you believe it' });
+    const written = within(why).getAllByRole('button', { name: /reason\./ });
+    expect(written[0]).toHaveTextContent('The newer reason.');
+    expect(written[1]).toHaveTextContent('The older reason.');
+  });
+
+  /* The field sits above the lines it will join, so what you write appears
+     directly under where you wrote it. */
+  it('opens the field above the lines, not beneath them', async () => {
+    renderCase();
+    await screen.findByLabelText('Title');
+    choose('Why');
+
+    const why = screen.getByRole('region', { name: 'Why you believe it' });
+    const field = within(why).getByLabelText('Why do you believe it?');
+    const firstLine = within(why).getAllByRole('button', { name: /Process still loses half the bets/ })[0];
+    expect(field.compareDocumentPosition(firstLine) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  /* Two lines at rest, the whole sentence on a click. */
+  it('folds a line open and shut', async () => {
+    renderCase();
+    await screen.findByLabelText('Title');
+    const line = screen.getAllByRole('button', { name: /Process still loses half the bets\./ })[0];
+    expect(line).toHaveAttribute('aria-expanded', 'false');
+
+    fireEvent.click(line);
+    expect(line).toHaveAttribute('aria-expanded', 'true');
+    fireEvent.click(line);
+    expect(line).toHaveAttribute('aria-expanded', 'false');
   });
 });

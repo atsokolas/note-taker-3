@@ -29,6 +29,9 @@ import { useFlightDecision } from '../../motion/useFlightDecision';
    everywhere else here. */
 const Entry = ({ line, arriving, kin, onKin }) => {
   const textRef = useRef(null);
+  /* A column of full sentences is a wall. Two lines is enough to know which
+     one this is; the rest is one click away, as it is on an edition. */
+  const [open, setOpen] = useState(false);
   const sources = line.sources || [];
   /* Kinship runs two ways: lines resting on the same source, and lines
      written in the same week. Hovering either lights the other. */
@@ -49,10 +52,23 @@ const Entry = ({ line, arriving, kin, onKin }) => {
   return (
     <div className={[
       'judgment-block__entry',
+      open ? 'is-open' : '',
       related ? 'is-kin' : '',
       arriving && !willFly ? 'is-arriving' : ''
     ].filter(Boolean).join(' ')}>
-      <p className="judgment-block__text" ref={textRef}>
+      <p
+        className="judgment-block__text"
+        ref={textRef}
+        role="button"
+        tabIndex={0}
+        aria-expanded={open}
+        onClick={() => setOpen(value => !value)}
+        onKeyDown={(event) => {
+          if (event.key !== 'Enter' && event.key !== ' ') return;
+          event.preventDefault();
+          setOpen(value => !value);
+        }}
+      >
         {line.text}
         {sources.length ? (
           <sup className="judgment__cites">
@@ -95,15 +111,28 @@ const Block = ({
   children
 }) => {
   const [writing, setWriting] = useState(false);
+  /* Newest first, and the field above them: what you just wrote appears
+     directly under where you wrote it, rather than at the foot of a column
+     you have to go looking down. */
+  const newestFirst = [...lines].reverse();
+
   return (
     <section className="judgment-block" aria-label={label}>
       <div className="judgment-block__head">
         <h3>{label}</h3>
-        <span className="judgment-block__count">{lines.length || 'none'}</span>
+        {lines.length ? <span className="judgment-block__count">{lines.length}</span> : null}
       </div>
 
-      {lines.length
-        ? lines.map(line => (
+      {kind ? (writing ? composer(kind) : (
+        <button type="button" className="judgment-block__add" onClick={() => setWriting(true)}>
+          {invitation}
+        </button>
+      )) : null}
+
+      {children}
+
+      {newestFirst.length
+        ? newestFirst.map(line => (
           <Entry
             key={line.id}
             line={line}
@@ -113,19 +142,6 @@ const Block = ({
           />
         ))
         : <p className="judgment-block__none">{empty}</p>}
-
-      {children}
-
-      {/* A field only exists once you have asked for one, and then it stays:
-          a reader writing reasons writes several, and closing it after each
-          would charge a click for the next. */}
-      {kind ? (writing ? (
-        composer(kind)
-      ) : (
-        <button type="button" className="judgment-block__add" onClick={() => setWriting(true)}>
-          {invitation}
-        </button>
-      )) : null}
     </section>
   );
 };
