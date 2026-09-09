@@ -9052,7 +9052,27 @@ const buildWikiRouter = ({
       if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
       if (!WikiRevision) return res.status(200).json({ revisions: [] });
       const limit = Math.max(1, Math.min(Number(req.query.limit) || 50, 100));
-      const revisions = await WikiRevision.find({ userId: req.user.id, pageId: req.params.id }).sort({ createdAt: -1 }).limit(limit).lean();
+      /* A history list is ids, dates, reasons and summaries. This shipped two
+         full copies of the page per row instead — up to fifty of them, and on
+         the repo page a snapshot ran 1.5MB, so opening the history of one page
+         could move tens of megabytes to render five lines in a rail.
+
+         What the readers actually reach into is narrow: Open Sentence looks for
+         an earlier wording in before.body and before.claims, and the accepted-
+         revision picker falls back to a claim's text in either side. Nothing
+         reads plainText, aiState, freshness, publicProof or the body of after.
+         A caller that truly wants the whole snapshot asks for it. */
+      const wantsSnapshots = String(req.query.include || '').split(',').includes('snapshots');
+      const query = WikiRevision.find({ userId: req.user.id, pageId: req.params.id })
+        .sort({ createdAt: -1 })
+        .limit(limit);
+      const revisions = await (wantsSnapshots ? query : query.select([
+        'reason', 'actorType', 'sourceEventId', 'maintenanceRunId', 'promotionStatus',
+        'claimReview', 'sourceVersion', 'quality', 'summary', 'pageId', 'userId',
+        'snapshotPrunedAt', 'snapshotUnchanged', 'contentHash', 'createdAt', 'updatedAt',
+        'before.body', 'before.claims', 'before.citations', 'before.sourceRefs',
+        'after.claims'
+      ].join(' '))).lean();
       res.status(200).json({ revisions });
     } catch (error) {
       console.error('Error listing wiki revisions:', error);
