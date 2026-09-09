@@ -168,6 +168,12 @@ export const STORYBOARD_UNWRITTEN =
 export const STORYBOARD_UNWRITTEN_GAP =
   'The page does not say who bears a stranding.';
 
+export const STORYBOARD_CARRY_QUESTION =
+  'Which mistakes can a child walk back from?';
+
+export const STORYBOARD_CARRY_CONCLUSION =
+  'Care is the walk back, not the absence of a wrong turn.';
+
 export const STORYBOARD_BEARING_SOURCE = Object.freeze({
   title: 'Field notes',
   qualification: 'Saved passage · import date is not a reading date',

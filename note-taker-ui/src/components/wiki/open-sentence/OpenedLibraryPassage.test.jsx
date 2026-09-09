@@ -116,6 +116,7 @@ describe('OpenedLibraryPassage', () => {
   it('lets remaining S5 work sit beside a Library passage without a Wiki write', () => {
     renderPassage();
     fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    expect(screen.queryByRole('button', { name: 'Carry this out' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Keep this as an exhibit' }));
     fireEvent.change(screen.getByLabelText('Name this exhibit'), {
       target: { value: 'Recoverable, or not' }
@@ -144,6 +145,7 @@ describe('OpenedLibraryPassage', () => {
     expect(screen.getByText(/The saved passage still reads/)).toHaveTextContent(highlight.text);
     expect(screen.queryByRole('button', { name: 'Propose this wording' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Accept this wording' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Carry this out' })).not.toBeInTheDocument();
     expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
   });
 

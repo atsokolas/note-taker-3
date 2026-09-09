@@ -765,6 +765,170 @@ export const unwrittenWayHome = (exploration) => {
   return unwritten ? `Unwritten: ${firstLine(unwritten.question)}` : '';
 };
 
+const asCarryPassage = (value) => {
+  const recorded = recordedPassage(value);
+  if (!recorded) return null;
+  const title = asLine(recorded.title);
+  return title ? { title, passage: recorded.passage } : { passage: recorded.passage };
+};
+
+const carrySlots = (carry = {}) => ({
+  question: String(carry?.question || ''),
+  conclusion: String(carry?.conclusion || ''),
+  source: asCarryPassage(carry?.source),
+  other: asCarryPassage(carry?.other)
+});
+
+export const pendingCarry = (exploration) => {
+  const against = liveAgainst(exploration?.carry, exploration);
+  if (!against) return null;
+  return { against, ...carrySlots(exploration.carry) };
+};
+
+export const liveCarry = (exploration) => {
+  const pending = pendingCarry(exploration);
+  const question = asLine(pending?.question);
+  const conclusion = asLine(pending?.conclusion);
+  if (!pending || !question || !conclusion || !pending.source || !pending.other) return null;
+  return {
+    against: pending.against,
+    question,
+    conclusion,
+    source: pending.source,
+    other: pending.other
+  };
+};
+
+export const canCarryOut = (exploration) => (
+  Boolean(recordedPassage(exploration?.source) && inspectableOther(exploration))
+  && !pendingCarry(exploration)
+);
+
+export const beginCarry = (exploration) => {
+  if (!canCarryOut(exploration) || !asLine(exploration?.originalText)) return exploration;
+  return {
+    ...exploration,
+    carry: {
+      against: asLine(exploration.originalText),
+      ...carrySlots()
+    }
+  };
+};
+
+export const leaveCarry = (exploration) => (
+  exploration?.carry ? { ...exploration, carry: null } : exploration
+);
+
+export const setCarryField = (exploration, field, value) => {
+  const pending = pendingCarry(exploration);
+  if (!pending || (field !== 'question' && field !== 'conclusion')) return exploration;
+  const text = String(value ?? '');
+  if (field === 'question' && !asLine(text) && text === '') return leaveCarry(exploration);
+  return {
+    ...exploration,
+    carry: {
+      ...pending,
+      [field]: text
+    }
+  };
+};
+
+export const setCarryFields = (exploration, fields = {}) => (
+  Object.entries(fields).reduce(
+    (walk, [field, value]) => setCarryField(walk, field, value),
+    exploration
+  )
+);
+
+const boundCarryPassage = (exploration, slot) => {
+  if (slot === 'source') {
+    return isWithoutSource(exploration) ? null : recordedPassage(exploration?.source);
+  }
+  if (slot === 'other') return recordedPassage(inspectableOther(exploration));
+  return null;
+};
+
+export const includeCarryPassage = (exploration, slot) => {
+  const pending = pendingCarry(exploration);
+  const recorded = asCarryPassage(boundCarryPassage(exploration, slot));
+  if (!pending || !recorded) return exploration;
+  return {
+    ...exploration,
+    carry: {
+      ...pending,
+      [slot]: recorded
+    }
+  };
+};
+
+export const leaveCarryPassage = (exploration, slot) => {
+  const pending = pendingCarry(exploration);
+  if (!pending || (slot !== 'source' && slot !== 'other') || !pending[slot]) return exploration;
+  return {
+    ...exploration,
+    carry: {
+      ...pending,
+      [slot]: null
+    }
+  };
+};
+
+export const canIncludeCarryPassage = (exploration, slot) => {
+  const pending = pendingCarry(exploration);
+  return Boolean(pending && !pending[slot] && boundCarryPassage(exploration, slot));
+};
+
+export const carrySlotName = (exploration, slot) => {
+  const pending = pendingCarry(exploration);
+  const included = slot === 'source' || slot === 'other' ? pending?.[slot] : null;
+  const bound = slot === 'source' ? exploration?.source : exploration?.other;
+  return asLine(included?.title) || asLine(bound?.title) || 'this passage';
+};
+
+export const canFillCarryQuestion = (exploration) => {
+  const pending = pendingCarry(exploration);
+  const question = asLine(exploration?.question);
+  return Boolean(pending && question && question !== asLine(pending.question));
+};
+
+export const fillCarryQuestion = (exploration) => {
+  if (!canFillCarryQuestion(exploration)) return exploration;
+  return setCarryField(exploration, 'question', String(exploration.question || ''));
+};
+
+export const canFillCarryBetween = (exploration) => {
+  const pending = pendingCarry(exploration);
+  const between = asLine(liveMeet(exploration)?.between);
+  return Boolean(pending && between && between !== asLine(pending.conclusion));
+};
+
+export const fillCarryBetween = (exploration) => {
+  if (!canFillCarryBetween(exploration)) return exploration;
+  return setCarryField(exploration, 'conclusion', liveMeet(exploration).between);
+};
+
+const namedCarryPassage = (passage) => (
+  [asLine(passage?.title), passage?.passage ? `"${passage.passage}"` : '']
+    .filter(Boolean)
+    .join('\n')
+);
+
+export const carryClip = (exploration) => {
+  const carry = liveCarry(exploration);
+  if (!carry) return '';
+  return [
+    carry.question,
+    namedCarryPassage(carry.source),
+    namedCarryPassage(carry.other),
+    carry.conclusion
+  ].filter(Boolean).join('\n\n');
+};
+
+export const carryWayHome = (exploration) => {
+  const carry = liveCarry(exploration);
+  return carry ? `A snapshot: ${firstLine(carry.question)}` : '';
+};
+
 export const closedWayHome = (exploration) => (
   liveDistinction(exploration)
   || (asLine(exploration?.question) ? 'You left this open.' : '')
@@ -776,6 +940,7 @@ export const closedWayHome = (exploration) => (
   || exhibitWayHome(exploration)
   || rehearsalWayHome(exploration)
   || unwrittenWayHome(exploration)
+  || carryWayHome(exploration)
 );
 
 export const liveDistinction = (exploration) => {
@@ -840,6 +1005,7 @@ export const keepsClosedDraft = (exploration) => Boolean(
   || liveExhibit(exploration)
   || liveRehearsal(exploration)
   || liveUnwritten(exploration)
+  || liveCarry(exploration)
 );
 
 export const forgetExperiment = (live) => createExploration({
@@ -931,6 +1097,7 @@ export const hasPersonalWork = (exploration) => {
     || pendingExhibit(exploration)
     || pendingRehearsal(exploration)
     || pendingUnwritten(exploration)
+    || pendingCarry(exploration)
     || exploration?.mark
     || then?.question
     || then?.draft
@@ -1012,6 +1179,7 @@ export const restoreExploration = (raw, fallback) => {
       exhibit: pendingExhibit(restored),
       rehearsal: pendingRehearsal(restored),
       unwritten: pendingUnwritten(restored),
+      carry: pendingCarry(restored),
       rearranged: Boolean(
         canRearrange(restored)
         && parsed.rearranged

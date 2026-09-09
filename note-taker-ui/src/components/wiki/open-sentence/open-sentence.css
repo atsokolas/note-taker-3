@@ -356,6 +356,11 @@ mark.highlight.open-sentence__held.is-placed:not(.is-open)::before {
   background: color-mix(in srgb, var(--noeis-paper-muted) 70%, transparent);
 }
 
+.open-sentence-pocket__pressure > .open-sentence-pocket__preview {
+  display: grid;
+  gap: var(--noeis-space-2);
+}
+
 .open-sentence-pocket__actions {
   display: flex;
   flex-wrap: wrap;

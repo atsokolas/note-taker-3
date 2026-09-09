@@ -4,12 +4,14 @@ import { MemoryRouter } from 'react-router-dom';
 import OpenSentence from './OpenSentence';
 import {
   acceptWording,
+  beginCarry,
   beginPressure,
   bringParagraphBackLabel,
   bringTheParagraphBack,
   bringSourceBackLabel,
   bringTheSourceBack,
   canApplyInstrument,
+  canCarryOut,
   canKeepAsExhibit,
   canKeepAsInstrument,
   canKeepAsRehearsal,
@@ -20,6 +22,10 @@ import {
   canProposeBetween,
   canProposeWording,
   canTryWithoutSource,
+  canFillCarryBetween,
+  canFillCarryQuestion,
+  carryClip,
+  carryWayHome,
   changedWordSpans,
   closeExploration,
   closedWayHome,
@@ -31,6 +37,7 @@ import {
   forgetExperiment,
   formatNamedOn,
   hasPersonalWork,
+  includeCarryPassage,
   instrumentWayHome,
   isPressured,
   isRearranged,
@@ -48,12 +55,15 @@ import {
   keepQuestion,
   keepsClosedDraft,
   leaveEssay,
+  leaveCarry,
+  leaveCarryPassage,
   leaveExhibit,
   leaveInstrument,
   leaveMark,
   leaveRehearsal,
   leaveUnwritten,
   liveBearing,
+  liveCarry,
   liveDistinction,
   liveEssay,
   liveExhibit,
@@ -77,6 +87,8 @@ import {
   putItBack,
   putThemBack,
   restoreExploration,
+  setCarryField,
+  setCarryFields,
   setDistinction,
   setExhibitFields,
   setInstrumentName,
@@ -92,11 +104,13 @@ import {
   tryWithoutThisSource,
   tryWording,
   unwrittenWayHome,
+  fillCarryBetween,
+  fillCarryQuestion,
   wikiAcceptedText,
   withdrawProposal,
   wordingChanged
 } from './openSentenceModel';
-import { STORYBOARD_BEARING_SOURCE, STORYBOARD_COMPUTE_SENTENCE, STORYBOARD_COMPUTE_SOURCE, STORYBOARD_DISTINCTION, STORYBOARD_EXHIBIT_NAME, STORYBOARD_EXHIBIT_OTHER, STORYBOARD_EXHIBIT_THIS, STORYBOARD_INSTRUMENT_NAME, STORYBOARD_LIBRARY_SOURCE, STORYBOARD_MEET_LIMIT, STORYBOARD_MEET_RELATION, STORYBOARD_MEET_SOURCE, STORYBOARD_QUESTION, STORYBOARD_REHEARSAL, STORYBOARD_SENTENCE, STORYBOARD_SOURCE, STORYBOARD_STALE_SOURCE, STORYBOARD_THEN_BESIDE, STORYBOARD_THEN_NOW, STORYBOARD_THEN_ORIGINAL, STORYBOARD_THEN_QUESTION, STORYBOARD_THEN_QUOTATION, STORYBOARD_UNWRITTEN, STORYBOARD_UNWRITTEN_GAP } from './openSentenceStoryboardFixture';
+import { STORYBOARD_BEARING_SOURCE, STORYBOARD_CARRY_CONCLUSION, STORYBOARD_CARRY_QUESTION, STORYBOARD_COMPUTE_SENTENCE, STORYBOARD_COMPUTE_SOURCE, STORYBOARD_DISTINCTION, STORYBOARD_EXHIBIT_NAME, STORYBOARD_EXHIBIT_OTHER, STORYBOARD_EXHIBIT_THIS, STORYBOARD_INSTRUMENT_NAME, STORYBOARD_LIBRARY_SOURCE, STORYBOARD_MEET_LIMIT, STORYBOARD_MEET_RELATION, STORYBOARD_MEET_SOURCE, STORYBOARD_QUESTION, STORYBOARD_REHEARSAL, STORYBOARD_SENTENCE, STORYBOARD_SOURCE, STORYBOARD_STALE_SOURCE, STORYBOARD_THEN_BESIDE, STORYBOARD_THEN_NOW, STORYBOARD_THEN_ORIGINAL, STORYBOARD_THEN_QUESTION, STORYBOARD_THEN_QUOTATION, STORYBOARD_UNWRITTEN, STORYBOARD_UNWRITTEN_GAP } from './openSentenceStoryboardFixture';
 
 const renderOpen = (exploration, onChange = jest.fn()) => render(
   <MemoryRouter>
@@ -919,6 +933,88 @@ describe('openSentenceModel', () => {
     expect(closedWayHome(closeExploration(exhibited))).toBe(`An exhibit: ${STORYBOARD_EXHIBIT_NAME}`);
     expect(closedWayHome(closeExploration(rehearsed))).toBe(`A rehearsal: ${STORYBOARD_REHEARSAL}`);
     expect(closedWayHome(closeExploration(drafted))).toBe(`Unwritten: ${STORYBOARD_UNWRITTEN}`);
+  });
+
+  it('lets a snapshot of two included passages be carried out without publishing', () => {
+    const start = openExploration(meeting());
+    expect(canCarryOut(start)).toBe(true);
+    expect(canCarryOut(createExploration({
+      originalText: STORYBOARD_SENTENCE,
+      source: STORYBOARD_SOURCE
+    }))).toBe(false);
+    expect(beginCarry(createExploration({
+      originalText: STORYBOARD_SENTENCE,
+      source: STORYBOARD_SOURCE
+    }))).toEqual(createExploration({
+      originalText: STORYBOARD_SENTENCE,
+      source: STORYBOARD_SOURCE
+    }));
+    const pending = beginCarry(start);
+    expect(liveCarry(pending)).toBeNull();
+    expect(keepsClosedDraft(closeExploration(pending))).toBe(false);
+    expect(includeCarryPassage(pending, 'source').carry.source).toEqual({
+      title: STORYBOARD_SOURCE.title,
+      passage: STORYBOARD_SOURCE.passage
+    });
+    expect(JSON.stringify(includeCarryPassage(pending, 'source').carry.source)).not.toMatch(
+      /href|articleId|highlightId|around/
+    );
+    expect(includeCarryPassage(tryWithoutThisSource(pending), 'source')).toEqual(
+      tryWithoutThisSource(pending)
+    );
+    const included = includeCarryPassage(includeCarryPassage(pending, 'source'), 'other');
+    expect(included.carry.other).toEqual({
+      title: STORYBOARD_MEET_SOURCE.title,
+      passage: STORYBOARD_MEET_SOURCE.passage
+    });
+    expect(setCarryField(pending, 'question', '')).toEqual(leaveCarry(pending));
+    const asked = keepQuestion(start, STORYBOARD_QUESTION);
+    expect(canFillCarryQuestion(beginCarry(asked))).toBe(true);
+    expect(fillCarryQuestion(beginCarry(asked)).carry.question).toBe(STORYBOARD_QUESTION);
+    const between = setMeetField(start, 'between', STORYBOARD_CARRY_CONCLUSION);
+    expect(canFillCarryBetween(beginCarry(between))).toBe(true);
+    expect(fillCarryBetween(beginCarry(between)).carry.conclusion).toBe(STORYBOARD_CARRY_CONCLUSION);
+    const snapshot = setCarryFields(included, {
+      question: STORYBOARD_CARRY_QUESTION,
+      conclusion: STORYBOARD_CARRY_CONCLUSION
+    });
+    expect(liveCarry(snapshot)).toEqual({
+      against: STORYBOARD_SENTENCE,
+      question: STORYBOARD_CARRY_QUESTION,
+      conclusion: STORYBOARD_CARRY_CONCLUSION,
+      source: {
+        title: STORYBOARD_SOURCE.title,
+        passage: STORYBOARD_SOURCE.passage
+      },
+      other: {
+        title: STORYBOARD_MEET_SOURCE.title,
+        passage: STORYBOARD_MEET_SOURCE.passage
+      }
+    });
+    expect(wikiAcceptedText(snapshot)).toBe(STORYBOARD_SENTENCE);
+    expect(carryWayHome(snapshot)).toBe(`A snapshot: ${STORYBOARD_CARRY_QUESTION}`);
+    expect(closedWayHome(closeExploration(snapshot))).toBe(`A snapshot: ${STORYBOARD_CARRY_QUESTION}`);
+    expect(keepsClosedDraft(closeExploration(snapshot))).toBe(true);
+    expect(carryClip(snapshot)).toBe([
+      STORYBOARD_CARRY_QUESTION,
+      `${STORYBOARD_SOURCE.title}\n"${STORYBOARD_SOURCE.passage}"`,
+      `${STORYBOARD_MEET_SOURCE.title}\n"${STORYBOARD_MEET_SOURCE.passage}"`,
+      STORYBOARD_CARRY_CONCLUSION
+    ].join('\n\n'));
+    expect(carryClip(snapshot)).not.toMatch(/https?:|\/library|articleId|illustrated-nomad/);
+    expect(leaveCarryPassage(included, 'source').carry.source).toBeNull();
+    expect(liveCarry(restoreExploration(snapshotExploration(snapshot), start))).toEqual(
+      liveCarry(snapshot)
+    );
+    expect(restoreExploration(snapshotExploration(includeCarryPassage(pending, 'source')), {
+      ...start,
+      source: { ...STORYBOARD_SOURCE, passage: 'A later private edit of Nomad.' }
+    }).carry.source.passage).toBe(STORYBOARD_SOURCE.passage);
+    expect(liveCarry(restoreExploration(snapshotExploration(snapshot), {
+      ...start,
+      originalText: 'Children need room to make recoverable mistakes.'
+    }))).toBeNull();
+    expect(forgetExperiment(snapshot).carry).toBeUndefined();
   });
 
   it('lets two recorded passages swap order without inventing an argument', () => {
@@ -2275,6 +2371,72 @@ describe('OpenSentence', () => {
     expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
   });
 
+  it('lets a snapshot be carried out from two included passages without writing', async () => {
+    const onChange = jest.fn();
+    const opened = openExploration(meeting());
+    const { rerender } = renderOpen(opened, onChange);
+    fireEvent.click(screen.getByRole('button', { name: 'Carry this out' }));
+    expect(onChange).toHaveBeenCalledWith(beginCarry(opened));
+    const pending = beginCarry(opened);
+    rerender(
+      <MemoryRouter>
+        <OpenSentence exploration={pending} onChange={onChange} mocked />
+      </MemoryRouter>
+    );
+    expect(screen.queryByText('A snapshot. It is not a publication.')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Include Nomad' }));
+    expect(onChange).toHaveBeenCalledWith(includeCarryPassage(pending, 'source'));
+    const withSource = includeCarryPassage(pending, 'source');
+    rerender(
+      <MemoryRouter>
+        <OpenSentence exploration={withSource} onChange={onChange} mocked />
+      </MemoryRouter>
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Include Letter to a young investor' }));
+    expect(onChange).toHaveBeenCalledWith(includeCarryPassage(withSource, 'other'));
+    const included = includeCarryPassage(withSource, 'other');
+    rerender(
+      <MemoryRouter>
+        <OpenSentence exploration={included} onChange={onChange} mocked />
+      </MemoryRouter>
+    );
+    fireEvent.change(screen.getByLabelText('The question'), {
+      target: { value: STORYBOARD_CARRY_QUESTION }
+    });
+    expect(onChange).toHaveBeenCalledWith(setCarryField(included, 'question', STORYBOARD_CARRY_QUESTION));
+    const asked = setCarryField(included, 'question', STORYBOARD_CARRY_QUESTION);
+    rerender(
+      <MemoryRouter>
+        <OpenSentence exploration={asked} onChange={onChange} mocked />
+      </MemoryRouter>
+    );
+    fireEvent.change(screen.getByLabelText('A provisional conclusion'), {
+      target: { value: STORYBOARD_CARRY_CONCLUSION }
+    });
+    const snapshot = setCarryFields(included, {
+      question: STORYBOARD_CARRY_QUESTION,
+      conclusion: STORYBOARD_CARRY_CONCLUSION
+    });
+    rerender(
+      <MemoryRouter>
+        <OpenSentence exploration={snapshot} onChange={onChange} mocked />
+      </MemoryRouter>
+    );
+    expect(screen.getByText('A snapshot. It is not a publication.')).toBeInTheDocument();
+    expect(screen.getByLabelText('What a recipient would see')).toHaveTextContent(STORYBOARD_CARRY_QUESTION);
+    expect(screen.getByLabelText('What a recipient would see')).toHaveTextContent(STORYBOARD_SOURCE.passage);
+    expect(screen.getByLabelText('What a recipient would see')).toHaveTextContent(STORYBOARD_MEET_SOURCE.passage);
+    expect(screen.getByLabelText('What a recipient would see')).toHaveTextContent(STORYBOARD_CARRY_CONCLUSION);
+    expect(screen.getByLabelText('What a recipient would see').querySelector('a')).toBeNull();
+    const writeText = jest.fn().mockResolvedValue();
+    Object.assign(navigator, { clipboard: { writeText } });
+    fireEvent.click(screen.getByRole('button', { name: 'Copy this snapshot' }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(carryClip(snapshot)));
+    expect(writeText.mock.calls[0][0]).not.toMatch(/https?:|\/library/);
+    expect(screen.getByText(/The article still reads/)).toHaveTextContent(STORYBOARD_SENTENCE);
+    expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
+  });
+
   it('hides the bound source in the pocket and brings it back by name', () => {
     const onChange = jest.fn();
     const opened = openExploration(createExploration({
@@ -2302,11 +2464,20 @@ describe('OpenSentence', () => {
     renderOpen(openExploration(createExploration({ originalText: STORYBOARD_SENTENCE })));
     expect(screen.queryByRole('button', { name: 'Keep this as an exhibit' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Try without this source' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Carry this out' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Try saying it' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Keep this as unwritten work' })).toBeInTheDocument();
   });
 
-  it('lets a live exhibit, rehearsal, or unwritten work be the way home', () => {
+  it('does not offer to carry a snapshot when only one passage is bound', () => {
+    renderOpen(openExploration(createExploration({
+      originalText: STORYBOARD_SENTENCE,
+      source: STORYBOARD_SOURCE
+    })));
+    expect(screen.queryByRole('button', { name: 'Carry this out' })).not.toBeInTheDocument();
+  });
+
+  it('lets a live exhibit, rehearsal, unwritten work, or snapshot be the way home', () => {
     const opened = openExploration(createExploration({
       originalText: STORYBOARD_SENTENCE,
       source: STORYBOARD_SOURCE
@@ -2329,6 +2500,14 @@ describe('OpenSentence', () => {
     expect(screen.getByRole('button', { name: `A rehearsal: ${STORYBOARD_REHEARSAL}` })).toBeInTheDocument();
     rerender(closed(setUnwrittenField(keepAsUnwritten(opened), 'question', STORYBOARD_UNWRITTEN)));
     expect(screen.getByRole('button', { name: `Unwritten: ${STORYBOARD_UNWRITTEN}` })).toBeInTheDocument();
+    rerender(closed(setCarryFields(
+      includeCarryPassage(includeCarryPassage(beginCarry(openExploration(meeting())), 'source'), 'other'),
+      {
+        question: STORYBOARD_CARRY_QUESTION,
+        conclusion: STORYBOARD_CARRY_CONCLUSION
+      }
+    )));
+    expect(screen.getByRole('button', { name: `A snapshot: ${STORYBOARD_CARRY_QUESTION}` })).toBeInTheDocument();
   });
 
   it('is already still when stillness is asked for', () => {

@@ -26,6 +26,8 @@ import {
   STORYBOARD_REHEARSAL,
   STORYBOARD_UNWRITTEN,
   STORYBOARD_UNWRITTEN_GAP,
+  STORYBOARD_CARRY_CONCLUSION,
+  STORYBOARD_CARRY_QUESTION,
   STORYBOARD_SCOPE,
   STORYBOARD_SENTENCE,
   STORYBOARD_SOURCE,
@@ -386,6 +388,21 @@ describe('OpenSentenceStoryboard', () => {
     expect(screen.getByText('The source is set aside. It is not deleted.')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Bring Nomad back' }));
     expect(screen.getByText(STORYBOARD_SOURCE.passage)).toBeInTheDocument();
+  });
+
+  it('carries a snapshot of two included passages without publishing', () => {
+    renderBoard();
+    fireEvent.click(within(screen.getByRole('tablist', { name: 'Scene' })).getByRole('button', { name: 'Carry' }));
+    expect(screen.getByRole('heading', { name: 'Parenting' })).toBeInTheDocument();
+    expect(screen.getByText('A snapshot. It is not a publication.')).toBeInTheDocument();
+    expect(screen.getByLabelText('The question')).toHaveValue(STORYBOARD_CARRY_QUESTION);
+    expect(screen.getByLabelText('A provisional conclusion')).toHaveValue(STORYBOARD_CARRY_CONCLUSION);
+    expect(screen.getByLabelText('What a recipient would see')).toHaveTextContent(STORYBOARD_SOURCE.passage);
+    expect(screen.getByLabelText('What a recipient would see')).toHaveTextContent(STORYBOARD_MEET_SOURCE.passage);
+    expect(screen.getByLabelText('What a recipient would see').querySelector('a')).toBeNull();
+    expect(screen.getByText(/The article still reads/)).toHaveTextContent(STORYBOARD_SENTENCE);
+    expect(screen.getByText('This is a snapshot. It is not a publication.')).toBeInTheDocument();
+    expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
   });
 
   it('sets the Parenting paragraph aside without deleting it', () => {

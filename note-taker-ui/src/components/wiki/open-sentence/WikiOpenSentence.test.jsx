@@ -204,6 +204,67 @@ describe('WikiOpenSentence', () => {
     expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent('Memory compounds with review.');
   });
 
+  it('lets a two-source claim carry a snapshot without writing or publishing', () => {
+    renderWikiSentence({
+      page: {
+        ...page,
+        claims: [{
+          claimId: 'claim-1',
+          text: 'Memory compounds with review.',
+          support: 'supported',
+          sourceRefIds: ['source-1', 'source-letter']
+        }],
+        sourceRefs: [
+          page.sourceRefs[0],
+          {
+            _id: 'source-letter',
+            type: 'highlight',
+            objectId: 'highlight-letter',
+            parentObjectId: 'article-letter',
+            title: 'Letter to a young investor',
+            snippet: 'A loss you can survive still teaches the book.'
+          }
+        ],
+        body: {
+          type: 'doc',
+          content: [{
+            type: 'paragraph',
+            content: [{
+              type: 'text',
+              text: 'Memory compounds with review.',
+              marks: [{
+                type: 'claim',
+                attrs: { claimId: 'claim-1', support: 'supported', citationIndexes: [1, 2] }
+              }]
+            }]
+          }]
+        }
+      }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Carry this out' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Include Memory article' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Include Letter to a young investor' }));
+    fireEvent.change(screen.getByLabelText('The question'), {
+      target: { value: 'What still compounds when review is only a pile?' }
+    });
+    fireEvent.change(screen.getByLabelText('A provisional conclusion'), {
+      target: { value: 'A later pass has to be able to find the first.' }
+    });
+    expect(screen.getByText('A snapshot. It is not a publication.')).toBeInTheDocument();
+    expect(screen.getByLabelText('What a recipient would see')).toHaveTextContent(
+      'What still compounds when review is only a pile?'
+    );
+    expect(screen.getByLabelText('What a recipient would see')).toHaveTextContent('Source snippet');
+    expect(screen.getByLabelText('What a recipient would see')).toHaveTextContent(
+      'A loss you can survive still teaches the book.'
+    );
+    expect(screen.getByLabelText('What a recipient would see').querySelector('a')).toBeNull();
+    expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent('Memory compounds with review.');
+    expect(screen.getByText(/The article still reads/)).toHaveTextContent('Memory compounds with review.');
+    expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
+  });
+
   it('lets a named distinction be kept as an instrument without writing the article', () => {
     renderWikiSentence();
     fireEvent.click(screen.getByRole('button', { name: 'Open' }));
@@ -224,6 +285,7 @@ describe('WikiOpenSentence', () => {
   it('lets an exhibit, a rehearsal, unwritten work, and a set-aside source sit beside the claim without writing', () => {
     renderWikiSentence();
     fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    expect(screen.queryByRole('button', { name: 'Carry this out' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Keep this as an exhibit' }));
     fireEvent.change(screen.getByLabelText('Name this exhibit'), {
       target: { value: 'Review that compounds, or review that piles' }
