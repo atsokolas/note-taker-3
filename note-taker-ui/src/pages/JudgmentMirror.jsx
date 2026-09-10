@@ -74,9 +74,7 @@ const JudgmentMirror = () => {
 
   return (
     <main className="judgment-mirror" aria-labelledby="judgment-mirror-title">
-      <div className={`judgment__meta ${step(1)}`}>
-        <Link className="judgment__back" to="/judgment">← Judgment</Link>
-      </div>
+      <Link className={`judgment__back ${step(1)}`} to="/judgment">← Judgment</Link>
       <header className={step(1)}>
         <p>The casebook looking back</p>
         <h1 id="judgment-mirror-title">The Mirror</h1>
