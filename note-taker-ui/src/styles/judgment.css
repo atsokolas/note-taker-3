@@ -767,10 +767,104 @@ button.judgment-inbox__text:focus-visible {
   font-size: 0.88rem;
 }
 
-.judgment__after {
-  display: grid;
-  gap: 36px;
-  margin-top: 52px;
+/* ---------- under the case ---------- */
+
+/* What has happened to this belief. The seam is set in the register of the
+   four block heads because it is their peer; the ledger, the room and the
+   rest underneath it are parts, not peers, and share one small label. */
+.judgment-record {
+  margin-top: clamp(3rem, 7vw, 4.6rem);
+}
+
+.judgment .judgment-record__seam {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 0;
+  color: var(--text-primary, var(--vellum-ink)) !important;
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: clamp(0.88rem, 0.62rem + 0.5vw, 1rem);
+  font-weight: 500;
+  font-variant-caps: all-small-caps;
+  letter-spacing: 0.06em;
+}
+
+.judgment-record__seam::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--noeis-rule-strong, var(--vellum-line));
+}
+
+.judgment-record > section {
+  margin: 2rem 0 0;
+}
+
+/* The parts share one small label. The ledger and the room asked for tracked
+   uppercase sans and got the editorial serif instead; the fields underneath
+   asked for a bold sans. One rule, in the reading face, for all of them. */
+.judgment .judgment-record section > h2 {
+  margin: 0 0 1rem;
+  color: var(--text-primary, var(--vellum-ink));
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/* What you could still do to it. One row of verbs under a hairline, and
+   nothing in it is a heading. A tool you have opened, or one with something
+   to say, carries a title or an open disclosure — and anything titled takes
+   the full width beneath the row rather than squeezing into it. */
+.judgment-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.6rem 1.6rem;
+  margin-top: clamp(2.6rem, 6vw, 4rem);
+  padding-top: 1rem;
+  border-top: 1px solid var(--noeis-rule, var(--vellum-line));
+}
+
+.judgment-tools > section,
+.judgment-tools > details,
+.judgment-tools > div {
+  margin: 0;
+  padding: 0;
+  border-top: 0;
+}
+
+.judgment-tools > section[aria-labelledby],
+.judgment-tools > details[open],
+.judgment-tools > .judgment-park.is-asking,
+.judgment-tools > .judgment-park.is-parked {
+  flex-basis: 100%;
+  order: 1;
+  margin-top: 1.4rem;
+}
+
+/* Every verb in the row speaks in the same voice as the print and park
+   buttons beside it. */
+.judgment-tools .ariadne-lineage__quiet,
+.judgment-tools .tracing-paper__quiet,
+.judgment-tools .night-watch__quiet,
+.judgment-tools .take-the-paper__quiet {
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.84rem;
+  border-bottom-color: currentColor;
+}
+
+.judgment-tools .ariadne-lineage__quiet:hover,
+.judgment-tools .tracing-paper__quiet:hover,
+.judgment-tools .night-watch__quiet:hover,
+.judgment-tools .take-the-paper__quiet:hover,
+.judgment-tools .ariadne-lineage__quiet:focus-visible,
+.judgment-tools .tracing-paper__quiet:focus-visible,
+.judgment-tools .night-watch__quiet:focus-visible,
+.judgment-tools .take-the-paper__quiet:focus-visible {
+  color: var(--text-primary, var(--vellum-ink));
 }
 
 /* Resolution is a margin ritual, not a workflow card. The only ornament is a
@@ -1510,13 +1604,6 @@ body.noeis-editorial .judgment .judgment__new input,
 
 /* The pamphlet door, beside the way back. Quiet: printing a claim is a thing
    you do occasionally, not the point of the page. */
-.judgment__meta {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 16px;
-}
-
 .judgment__print {
   min-height: 0;
   padding: 0;

@@ -1711,6 +1711,40 @@ describe('Evidence from the library', () => {
   });
 });
 
+describe('Opening a case', () => {
+  beforeEach(() => {
+    getWikiPage.mockResolvedValue(judgmentPage());
+  });
+
+  it('reads as the belief, then what has happened to it, then what you can still do', async () => {
+    renderDetail();
+    await screen.findByLabelText('Title');
+
+    // Nothing stands above the sentence but the way back.
+    const back = screen.getByRole('link', { name: '← All judgments' });
+    expect(back.compareDocumentPosition(screen.getByLabelText('Title')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    // The record follows the case, and the tools follow the record.
+    const record = screen.getByRole('region', { name: 'What has happened to it' });
+    const tools = screen.getByRole('group', { name: 'What you can still do' });
+    expect(record.compareDocumentPosition(tools) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    // Every tool is one verb in the row, and none of them is a heading.
+    [
+      'Thread a later case',
+      'Lay tracing paper',
+      'Name a watch',
+      'Take the paper with you',
+      'Print this as one page',
+      'Park this',
+      'Keep this'
+    ].forEach((name) => {
+      expect(within(tools).getByRole('button', { name })).toBeInTheDocument();
+    });
+    expect(within(tools).queryByRole('heading')).toBeNull();
+  });
+});
+
 describe('Parking a judgment, and the lesson it leaves', () => {
   beforeEach(() => {
     getWikiPage.mockResolvedValue(judgmentPage());

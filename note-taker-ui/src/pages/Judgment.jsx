@@ -1266,22 +1266,7 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
 
   return (
     <main className="judgment" aria-labelledby="judgment-claim">
-      <div className={`judgment__meta ${step(1)}`}>
-        <Link className="judgment__back" to="/judgment">← All judgments</Link>
-        <button type="button" className="judgment__print" onClick={printPamphlet} disabled={printing}>
-          {printing ? 'Setting it…' : 'Print this as one page'}
-        </button>
-        {/* A belief held for life. Kept claims are never bubbled as neglected,
-            because you cannot neglect something you decided to keep. */}
-        <EvergreenToggle
-          evergreen={view.evergreen}
-          onChange={async (next) => {
-            const saved = await setWikiPageEvergreen(pageId, next);
-            setPage(current => ({ ...current, evergreen: saved?.evergreen ?? next, evergreenAt: saved?.evergreenAt ?? null }));
-          }}
-        />
-      </div>
-      {printError ? <p className="judgment__print-error" role="alert">{printError}</p> : null}
+      <Link className={`judgment__back ${step(1)}`} to="/judgment">← All judgments</Link>
 
       {overnight ? (
         <div className={step(2)}>
@@ -1380,23 +1365,26 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
         />
       </div>
 
-      <JudgmentLedger
-        pageId={pageId}
-        claim={view.claim}
-        page={page}
-        judgment={page.judgment}
-        onSaved={(next) => {
-          if (next) setPage(current => ({ ...current, judgment: next }));
-        }}
-      />
-      <LivingTeam pageId={pageId} />
-      <AriadneLineage pageId={pageId} />
-      <TracingPaper pageId={pageId} />
-      <NightWatch pageId={pageId} />
-      <CasebookPreview pageId={pageId} />
-      <TakeThePaper pageId={pageId} />
+      {/* Two things sit under the case, and neither is its peer. First, what
+          has happened to this belief: the clocks, who sat with it, what it
+          taught you, what it rests on. Second, what you could still do to it.
+          For a long time both were one stack of equal headings, so a reader
+          who finished the reasons could not tell the judgment had ended and
+          its apparatus had begun. */}
+      <section className={`judgment-record ${step(4)}`} aria-labelledby="judgment-record-title">
+        <h2 id="judgment-record-title" className="judgment-record__seam">What has happened to it</h2>
 
-      <div className={`judgment__after ${step(4)}`}>
+        <JudgmentLedger
+          pageId={pageId}
+          claim={view.claim}
+          page={page}
+          judgment={page.judgment}
+          onSaved={(next) => {
+            if (next) setPage(current => ({ ...current, judgment: next }));
+          }}
+        />
+        <LivingTeam pageId={pageId} />
+
         {view.lessons.length ? (
           <section className="judgment__field judgment__lessons" aria-labelledby="judgment-field-lessons">
             <h2 id="judgment-field-lessons">What it taught me</h2>
@@ -1418,8 +1406,6 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
           onRemove={removeDependsOn}
         />
 
-        <ParkJudgment parked={view.parked} supports={supports} onPark={park} onResume={resume} />
-
         {view.review ? (
           <section className="judgment__field judgment__review" aria-labelledby="judgment-field-review">
             <h2 id="judgment-field-review">What happened?</h2>
@@ -1435,7 +1421,32 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
             )}
           </section>
         ) : null}
+      </section>
+
+      {/* Every tool is one verb until you press it, or until it has something
+          to say; then it takes its own width beneath the row. Each keeps its
+          own state — the row only decides where it sits. */}
+      <div className="judgment-tools" role="group" aria-label="What you can still do">
+        <AriadneLineage pageId={pageId} />
+        <TracingPaper pageId={pageId} />
+        <NightWatch pageId={pageId} />
+        <CasebookPreview pageId={pageId} />
+        <TakeThePaper pageId={pageId} />
+        <button type="button" className="judgment__print" onClick={printPamphlet} disabled={printing}>
+          {printing ? 'Setting it…' : 'Print this as one page'}
+        </button>
+        <ParkJudgment parked={view.parked} supports={supports} onPark={park} onResume={resume} />
+        {/* A belief held for life. Kept claims are never bubbled as neglected,
+            because you cannot neglect something you decided to keep. */}
+        <EvergreenToggle
+          evergreen={view.evergreen}
+          onChange={async (next) => {
+            const saved = await setWikiPageEvergreen(pageId, next);
+            setPage(current => ({ ...current, evergreen: saved?.evergreen ?? next, evergreenAt: saved?.evergreenAt ?? null }));
+          }}
+        />
       </div>
+      {printError ? <p className="judgment__print-error" role="alert">{printError}</p> : null}
 
       {error ? <p className="judgment__error" role="alert">{error}</p> : null}
     </main>
