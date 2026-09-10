@@ -1,3 +1,5 @@
+const crypto = require('crypto');
+
 /**
  * What an edition has to contain.
  *
@@ -259,6 +261,89 @@ const emptySections = ({ profile, items = [], profiles = null } = {}) => {
   return resolved.sections.filter(section => !filled.has(section.key));
 };
 
+const dayIso = (value) => {
+  if (!value) return '';
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toISOString().slice(0, 10);
+};
+
+/* A source link a stranger may follow. javascript: and data: look like URLs
+   and are not; they never become hrefs on a public paper. */
+const publicHttpUrl = (value) => {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return '';
+    url.hash = '';
+    return url.toString();
+  } catch (_error) {
+    return '';
+  }
+};
+
+const publicText = (value = '', limit = 2000) => String(value == null ? '' : value)
+  .replace(/\s+/g, ' ')
+  .trim()
+  .slice(0, limit);
+
+const projectPublicItem = (item = {}) => ({
+  itemId: publicText(item.itemId, 120),
+  title: publicText(item.title, 400),
+  url: publicHttpUrl(item.url),
+  sourceLabel: publicText(item.sourceLabel, 200),
+  sourceDate: publicText(item.sourceDate, 40),
+  section: publicText(item.section, 120),
+  finding: publicText(item.finding, 2000),
+  boundary: publicText(item.boundary, 2000),
+  note: publicText(item.note, 4000)
+});
+
+/**
+ * The published paper: an allowlist, not the owner's payload minus a few keys.
+ *
+ * A share is a version, not a live pointer. What a stranger may see is only
+ * what this function named. Saved article ids, placements, highlights, and
+ * the rest of the private house stay out even if they were sitting on the
+ * document that was projected.
+ */
+const projectPublicEdition = (edition = {}, ownerDisplayName = '', { profiles = null } = {}) => {
+  const profile = resolveEditionProfile(edition.profile, { profiles });
+  const sections = (profile?.sections || edition.sections || []).map(section => ({
+    key: publicText(section.key, 120),
+    label: publicText(section.label, 200)
+  }));
+  const writtenBy = typeof edition.writtenBy === 'string'
+    ? publicText(edition.writtenBy, 200)
+    : publicText(edition.writtenBy?.label, 200);
+
+  return {
+    title: publicText(edition.title, 300) || publicText(profile?.titleLabel, 300),
+    issueLabel: publicText(profile?.issueLabel || edition.issueLabel, 80) || 'Issue',
+    number: Number.isFinite(Number(edition.number)) && Number(edition.number) > 0
+      ? Math.floor(Number(edition.number))
+      : null,
+    windowStart: dayIso(edition.windowStart),
+    windowEnd: dayIso(edition.windowEnd),
+    standfirst: publicText(edition.standfirst, 2400),
+    throughLine: publicText(edition.throughLine, 2400),
+    watchNext: (Array.isArray(edition.watchNext) ? edition.watchNext : [])
+      .map(line => publicText(line, 400))
+      .filter(Boolean)
+      .slice(0, 12),
+    writtenBy,
+    ownerDisplayName: publicText(ownerDisplayName, 200),
+    sections,
+    items: (edition.items || []).map(projectPublicItem)
+  };
+};
+
+const hashPublicEdition = (snapshot) => crypto
+  .createHash('sha256')
+  .update(JSON.stringify(snapshot || {}))
+  .digest('hex');
+
 module.exports = {
   EDITION_PROFILES,
   EDITION_PROFILE_KEYS,
@@ -266,8 +351,11 @@ module.exports = {
   windowFor,
   EditionShapeError,
   emptySections,
+  hashPublicEdition,
   normalizeEdition,
   normalizeItem,
+  projectPublicEdition,
+  publicHttpUrl,
   resolveEditionProfile,
   sectionLabel
 };

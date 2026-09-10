@@ -561,13 +561,6 @@
   padding: 48px 24px 72px;
 }
 
-.edition__share {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin: 18px 0 0;
-}
-
 .edition__share-copy,
 .edition__share-revoke {
   padding: 6px 14px;
@@ -586,6 +579,126 @@
 
 .edition__share-revoke {
   color: color-mix(in srgb, var(--text-muted) 92%, transparent);
+}
+
+.edition-share {
+  margin: 12px 0 0;
+  justify-self: start;
+}
+
+.front .edition-share {
+  display: flex;
+  justify-content: flex-end;
+  margin: 10px 0 0;
+}
+
+.edition-share > summary {
+  display: inline-flex;
+  align-items: baseline;
+  padding: 6px 14px;
+  border: 1px solid color-mix(in srgb, var(--noeis-rule, var(--border-subtle-2)) 90%, transparent);
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 0.84rem;
+  list-style: none;
+}
+
+.edition-share > summary::-webkit-details-marker { display: none; }
+
+.edition-share > summary:hover {
+  border-color: color-mix(in srgb, var(--noeis-pointer, var(--text-muted)) 55%, transparent);
+}
+
+.edition-share__panel {
+  margin: 12px 0 0;
+  padding: 16px 16px 18px;
+  max-width: 68ch;
+  border: 1px solid var(--noeis-rule, var(--border-subtle-2));
+  background: var(--bg-primary, #fff);
+}
+
+.edition-share__kicker {
+  margin: 0 0 8px;
+  font-size: 0.9rem;
+}
+
+.edition-share__privacy {
+  margin: 0 0 14px;
+  max-width: 52ch;
+  color: color-mix(in srgb, var(--text-muted) 88%, transparent);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.edition-share__preview {
+  margin: 0 0 16px;
+  max-height: 42vh;
+  overflow: auto;
+  padding: 0 2px 8px 0;
+}
+
+.edition-share__preview-label {
+  margin: 0 0 8px;
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--text-muted) 86%, transparent);
+}
+
+.edition-paper--compact .edition__title { font-size: 1.15rem; }
+.edition-paper--compact .edition__section { margin-top: 18px; }
+
+.edition-share__url-label {
+  display: block;
+  margin: 0 0 6px;
+  font-size: 0.82rem;
+}
+
+.edition-share__url {
+  display: block;
+  width: 100%;
+  margin: 0 0 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--noeis-rule, var(--border-subtle-2));
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.86rem;
+}
+
+.edition-share__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.edition-share__open {
+  font-size: 0.84rem;
+}
+
+.edition-share__status,
+.edition-share__error {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: baseline;
+  margin: 0 0 12px;
+  font-size: 0.9rem;
+}
+
+.edition-share__status button,
+.edition-share__error button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .edition-share__panel { scroll-behavior: auto; }
 }
 
 /* The standard, said plainly to someone who has never heard of this product.

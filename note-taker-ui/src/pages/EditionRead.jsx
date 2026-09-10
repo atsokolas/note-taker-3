@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { getEdition, getEditionShare, revokeEditionShare, saveEditionItem, shareEdition } from '../api/editions';
+import { getEdition, saveEditionItem } from '../api/editions';
+import EditionShare from '../components/editions/EditionShare';
 import { bySection, gapLine, issueLine, takenLine, windowLine } from './editionModel';
 
 /**
@@ -66,8 +67,6 @@ const EditionRead = () => {
   const [error, setError] = useState('');
   const [savingId, setSavingId] = useState('');
   const [unread, setUnread] = useState(null);
-  const [share, setShare] = useState({ shared: false, slug: '' });
-  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -81,52 +80,6 @@ const EditionRead = () => {
       });
     return () => { cancelled = true; };
   }, [id]);
-
-  /* The crossing. The whole edition comes back so the masthead's count of
-     what you have taken is right the moment you take one. */
-  /* Whether this paper is already published, so the control says "copy the
-     link" rather than offering to mint a second one. */
-  useEffect(() => {
-    let cancelled = false;
-    getEditionShare(id)
-      .then((found) => { if (!cancelled) setShare(found || { shared: false, slug: '' }); })
-      .catch(() => { if (!cancelled) setShare({ shared: false, slug: '' }); });
-    return () => { cancelled = true; };
-  }, [id]);
-
-  const publish = useCallback(async () => {
-    setError('');
-    try {
-      const minted = await shareEdition(id);
-      setShare({ shared: true, slug: minted.slug || '' });
-    } catch (shareError) {
-      setError(shareError?.response?.data?.error || 'That paper did not publish.');
-    }
-  }, [id]);
-
-  const unpublish = useCallback(async () => {
-    setError('');
-    try {
-      await revokeEditionShare(id);
-      setShare({ shared: false, slug: '' });
-      setCopied(false);
-    } catch (shareError) {
-      setError(shareError?.response?.data?.error || 'That share did not revoke.');
-    }
-  }, [id]);
-
-  const copyLink = useCallback(async () => {
-    const href = `${window.location.origin}/share/editions/${share.slug}`;
-    try {
-      await navigator.clipboard.writeText(href);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 2200);
-    } catch (_copyError) {
-      /* A clipboard a browser refuses is not an error worth a red line —
-         the link is on screen and selectable. */
-      setCopied(false);
-    }
-  }, [share.slug]);
 
   const save = useCallback(async (itemId) => {
     setSavingId(itemId);
@@ -172,28 +125,10 @@ const EditionRead = () => {
             their agents to argue with. */}
         {edition.writtenBy ? <p className="edition__byline">Written by {edition.writtenBy}</p> : null}
         <p className="edition__taken">{takenLine(edition)}</p>
+        <EditionShare editionId={id} edition={edition} />
       </header>
 
       {error ? <p className="status-message error-message">{error}</p> : null}
-
-      {/* A paper is worth keeping if you can pass it on. The boundary rule
-          travels with it, which is what makes it worth someone's click. */}
-      <div className="edition__share">
-        {share.shared ? (
-          <>
-            <button type="button" className="edition__share-copy" onClick={copyLink} data-testid="edition-copy-link">
-              {copied ? 'Link copied' : 'Copy the link'}
-            </button>
-            <button type="button" className="edition__share-revoke" onClick={unpublish} data-testid="edition-unpublish">
-              Unpublish
-            </button>
-          </>
-        ) : (
-          <button type="button" className="edition__share-copy" onClick={publish} data-testid="edition-publish">
-            Publish this paper
-          </button>
-        )}
-      </div>
 
       {edition.standfirst ? <p className="edition__standfirst">{edition.standfirst}</p> : null}
 

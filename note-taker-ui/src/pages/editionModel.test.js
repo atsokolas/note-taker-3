@@ -1,6 +1,7 @@
 import {
   byPaper, bylineFor, bySection, closesLine, datelineLine, gapLine, isNewSince,
-  issueLine, lastSeen, markSeen, newSinceLine, runLine, stateOf, takenLine, windowLine
+  issueLine, lastSeen, markSeen, newSinceLine, publicSourceHref, runLine, stateOf,
+  takenLine, windowLine
 } from './editionModel';
 
 describe('the window a paper covers', () => {
@@ -276,3 +277,12 @@ describe('what arrived since you last stood here', () => {
     expect(newSinceLine()).toBe('');
   });
 });
+
+describe('a source a stranger may follow', () => {
+  it('keeps http(s) and drops javascript', () => {
+    expect(publicSourceHref('https://example.com/p')).toBe('https://example.com/p');
+    expect(publicSourceHref('javascript:alert(1)')).toBe('');
+    expect(publicSourceHref('not a url')).toBe('');
+  });
+});
+

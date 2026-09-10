@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getEdition, listEditions } from '../api/editions';
+import EditionShare from '../components/editions/EditionShare';
 import {
   bylineFor, bySection, byPaper, closesLine, datelineLine, folioLine, gapLine,
   isNewSince, issueLine, lastSeen, markSeen, newSinceLine, runLine, stateOf, takenLine
@@ -178,6 +179,7 @@ const FrontPage = ({ paper }) => {
             {tense === 'filling' ? `Filling · ${closesLine(issue).toLowerCase()}` : closesLine(issue)}
           </span>
         </p>
+        <EditionShare key={issue._id} editionId={issue._id} edition={opened} />
       </header>
 
       {arrival ? (

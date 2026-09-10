@@ -41,6 +41,7 @@ import LibraryColumn from '../components/library/LibraryColumn';
 import LibraryFeedColumn from '../components/library/LibraryFeedColumn';
 import LibraryShelfNav from '../components/library/LibraryShelfNav';
 import LibraryPlaces from '../components/library/LibraryPlaces';
+import LibraryActions from '../components/library/LibraryActions';
 import ScreenWord from '../components/library/ScreenWord';
 import '../styles/library-column.css';
 import '../styles/reader-editorial.css';
@@ -1255,39 +1256,29 @@ const Library = () => {
         className={columnEntering ? 'wfp-anim wfp-anim--1' : ''}
       />
       <div className="library-page-shell__column">
-        {!isReadingView ? (
-          <LibraryPlaces
-            feedTopics={libraryRoom.feedTopics}
-            later={laterCount}
-            setAside={setAsideCount}
-            kept={keptCount}
-            scope={scope}
-          />
-        ) : null}
-        <div className="library-page-shell__column-head">
-          {isReadingView ? (
+        {isReadingView ? (
+          <div className="library-page-shell__column-head">
             <button type="button" className="library-reader__back" onClick={() => handleSelectArticle('')}>
               ← At home
             </button>
-          ) : <span />}
-          <span className="library-page-shell__doors">
-            {/* Filing already lives in the shelf. The less-frequent cleanup
-                controls stay available without sitting above every source. */}
-            {!isReadingView ? (
-              <details className="library-page-shell__tools">
-                <summary>Library actions</summary>
-                <div>
-                  <button type="button" onClick={handleOrganizeLibrary} disabled={organizeLaunching}>
-                    {organizeLaunching ? 'Starting' : 'Clean up structure'}
-                  </button>
-                  <button type="button" onClick={handleToggleSuppressedItems}>
-                    {showSuppressedItems ? 'Hide review imports' : 'Show review imports'}
-                  </button>
-                </div>
-              </details>
-            ) : null}
-          </span>
-        </div>
+          </div>
+        ) : (
+          <div className="library-browse-head">
+            <LibraryPlaces
+              feedTopics={libraryRoom.feedTopics}
+              later={laterCount}
+              setAside={setAsideCount}
+              kept={keptCount}
+              scope={scope}
+            />
+            <LibraryActions
+              organizeLaunching={organizeLaunching}
+              showSuppressedItems={showSuppressedItems}
+              onOrganize={handleOrganizeLibrary}
+              onToggleSuppressed={handleToggleSuppressedItems}
+            />
+          </div>
+        )}
         {/* The locked middle: the reading you were in, then the sources as a
             list of title, source and date. LibraryMain still renders every
             other scope — folders, unfiled, highlights — because those are its

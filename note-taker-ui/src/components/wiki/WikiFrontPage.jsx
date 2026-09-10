@@ -825,7 +825,7 @@ const WikiFrontPage = ({ initialKind = '' }) => {
               Your Wiki · {mastheadDate()}
             </p>
           </div>
-          <LibraryPlaces feedTopics={libraryRoom.feedTopics} firstMorning />
+          <LibraryPlaces feedTopics={libraryRoom.feedTopics} />
         </header>
         <section className="wiki-front-page__empty wfp-anim wfp-anim--3" aria-labelledby="wfp-empty-title">
           {/* Day one prints one line and asks for nothing. A first morning

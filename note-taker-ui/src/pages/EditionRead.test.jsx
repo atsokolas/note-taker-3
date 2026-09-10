@@ -15,6 +15,7 @@ jest.mock('../api/editions', () => ({
   saveEditionItem: jest.fn(),
   getEditionShare: jest.fn(),
   shareEdition: jest.fn(),
+  updateEditionShare: jest.fn(),
   revokeEditionShare: jest.fn()
 }));
 
@@ -183,33 +184,40 @@ describe('publishing a paper', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     getEdition.mockResolvedValue(paper());
-    getEditionShare.mockResolvedValue({ shared: false, slug: '' });
+    getEditionShare.mockResolvedValue({
+      shared: false,
+      slug: '',
+      preview: { title: 'This Week in AI', ownerDisplayName: 'Athan', items: [], sections: [] },
+      currentHash: 'hash-1'
+    });
   });
 
   it('offers to publish a paper that is not published', async () => {
     open();
+    expect(await screen.findByTestId('edition-share-open')).toHaveTextContent('Share');
     expect(await screen.findByTestId('edition-publish')).toBeInTheDocument();
     expect(screen.queryByTestId('edition-copy-link')).not.toBeInTheDocument();
   });
 
   it('mints a link and then offers to copy it', async () => {
-    shareEdition.mockResolvedValue({ shared: true, slug: 'abc123' });
+    shareEdition.mockResolvedValue({ shared: true, slug: 'abc123', stale: false });
     open();
     fireEvent.click(await screen.findByTestId('edition-publish'));
     await waitFor(() => expect(screen.getByTestId('edition-copy-link')).toBeInTheDocument());
-    expect(screen.getByTestId('edition-unpublish')).toBeInTheDocument();
+    expect(screen.getByTestId('edition-unpublish')).toHaveTextContent('Stop sharing');
+    expect(screen.getByTestId('edition-share-url').value).toContain('/share/editions/abc123');
   });
 
   /* Already published means copy the link, never mint a second one. */
   it('does not offer to publish what is already published', async () => {
-    getEditionShare.mockResolvedValue({ shared: true, slug: 'abc123' });
+    getEditionShare.mockResolvedValue({ shared: true, slug: 'abc123', stale: false });
     open();
     expect(await screen.findByTestId('edition-copy-link')).toBeInTheDocument();
     expect(screen.queryByTestId('edition-publish')).not.toBeInTheDocument();
   });
 
   it('goes back to offering to publish once revoked', async () => {
-    getEditionShare.mockResolvedValue({ shared: true, slug: 'abc123' });
+    getEditionShare.mockResolvedValue({ shared: true, slug: 'abc123', stale: false });
     revokeEditionShare.mockResolvedValue({ revoked: true });
     open();
     fireEvent.click(await screen.findByTestId('edition-unpublish'));
@@ -221,5 +229,13 @@ describe('publishing a paper', () => {
     open();
     fireEvent.click(await screen.findByTestId('edition-publish'));
     await waitFor(() => expect(screen.getByText('That paper did not publish.')).toBeInTheDocument());
+  });
+
+  it('does not treat a failed lookup as unpublished', async () => {
+    getEditionShare.mockRejectedValue(new Error('network'));
+    open();
+    expect(await screen.findByText('Sharing status unavailable')).toBeInTheDocument();
+    expect(screen.getByTestId('edition-share-retry')).toBeInTheDocument();
+    expect(screen.queryByTestId('edition-publish')).not.toBeInTheDocument();
   });
 });

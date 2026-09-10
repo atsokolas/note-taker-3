@@ -4,9 +4,11 @@ const { fetchReadableArticle, paragraphsToHtml } = require('../services/readable
 const {
   EditionShapeError,
   emptySections,
+  hashPublicEdition,
   normalizeEdition,
   normalizeItem,
   profileKeysFor,
+  projectPublicEdition,
   resolveEditionProfile,
   windowFor
 } = require('../services/editionShape');
@@ -84,20 +86,41 @@ const shareSlug = () => crypto.randomBytes(SLUG_BYTES)
   .replace(/\//g, '_')
   .replace(/=+$/g, '');
 
+const isDuplicateKey = (error) => Number(error?.code) === 11000;
+
+const PREVIEW_STALE = 'The issue changed since you previewed it. Refresh the preview before sharing.';
+
+const noStore = (res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  res.set('Pragma', 'no-cache');
+};
+
 /**
  * What a stranger sees.
  *
- * The paper, and nothing about the person who kept it. Not which sources they
- * took into their own library, not how many — a public edition is the reading,
- * and what the reader did with it afterwards is theirs.
+ * An allowlist of the previewed paper, not the owner's payload with a few
+ * private fields subtracted. The snapshot this produces is what the public
+ * route serves; later private edits cannot leak through it.
  */
-const serializePublicEdition = (edition = {}, ownerDisplayName = '', { profiles = null } = {}) => {
-  const full = serializeEdition(edition, { profiles });
-  const { savedCount, ...rest } = full;
+const shareState = (share, { preview = null, currentHash = '' } = {}) => {
+  if (!share) {
+    return {
+      shared: false,
+      ownerDisplayName: preview?.ownerDisplayName || '',
+      preview,
+      currentHash
+    };
+  }
   return {
-    ...rest,
-    ownerDisplayName,
-    items: (full.items || []).map(({ savedArticleId, ...item }) => item)
+    shared: true,
+    slug: share.slug,
+    ownerDisplayName: share.ownerDisplayName || preview?.ownerDisplayName || '',
+    publishedAt: share.publishedAt || null,
+    contentHash: share.contentHash || '',
+    currentHash,
+    stale: Boolean(share.contentHash && currentHash && share.contentHash !== currentHash),
+    preview,
+    snapshot: share.snapshot || null
   };
 };
 
@@ -143,6 +166,19 @@ const buildEditionRouter = ({
       minItems: Number.isFinite(row.minItems) ? row.minItems : 1,
       maxItems: Number.isFinite(row.maxItems) ? row.maxItems : 15
     }]));
+  };
+
+  const ownerNameOf = async (userId) => {
+    if (!User) return '';
+    const owner = await User.findById(userId).select('name displayName').lean().catch(() => null);
+    return String(owner?.displayName || owner?.name || '').trim();
+  };
+
+  const livePreviewOf = async (edition, userId) => {
+    const profiles = await loadProfiles(userId);
+    const ownerDisplayName = await ownerNameOf(userId);
+    const preview = projectPublicEdition(edition, ownerDisplayName, { profiles });
+    return { preview, currentHash: hashPublicEdition(preview), ownerDisplayName };
   };
 
   const refuse = (res, error, fallback) => {
@@ -439,7 +475,8 @@ const buildEditionRouter = ({
    *
    * Human only, and idempotent — asking twice hands back the same link rather
    * than minting a second one, because a reader who has already sent the
-   * first would then have two live URLs for one paper.
+   * first would then have two live URLs for one paper. The snapshot is frozen
+   * at create; asking twice does not quietly republish later private edits.
    */
   router.post('/api/editions/:id/share', auth, humanOnly, async (req, res) => {
     if (!SharedEdition) return res.status(503).json({ error: 'Sharing is not available.' });
@@ -448,40 +485,96 @@ const buildEditionRouter = ({
       const edition = await Edition.findOne({ _id: req.params.id, userId }).lean();
       if (!edition) return res.status(404).json({ error: 'No such edition.' });
 
-      const existing = await SharedEdition.findOne({ userId, editionId: edition._id }).lean();
-      if (existing) return res.status(200).json({ shared: true, slug: existing.slug });
-
-      let ownerDisplayName = '';
-      if (User) {
-        const owner = await User.findById(userId).select('name displayName').lean().catch(() => null);
-        ownerDisplayName = String(owner?.displayName || owner?.name || '').trim();
+      const { preview, currentHash, ownerDisplayName } = await livePreviewOf(edition, userId);
+      const previewHash = String(req.body?.previewHash || '').trim();
+      if (previewHash && previewHash !== currentHash) {
+        return res.status(409).json({ error: PREVIEW_STALE, field: 'previewHash' });
       }
-      const created = await SharedEdition.create({
-        userId,
-        editionId: edition._id,
-        slug: shareSlug(),
-        ownerDisplayName
-      });
-      return res.status(201).json({ shared: true, slug: created.slug });
+
+      const existing = await SharedEdition.findOne({ userId, editionId: edition._id }).lean();
+      if (existing) {
+        return res.status(200).json(shareState(existing, { preview, currentHash }));
+      }
+
+      const now = new Date();
+      try {
+        const created = await SharedEdition.create({
+          userId,
+          editionId: edition._id,
+          slug: shareSlug(),
+          ownerDisplayName,
+          snapshot: preview,
+          contentHash: currentHash,
+          publishedAt: now
+        });
+        return res.status(201).json(shareState(created, { preview, currentHash }));
+      } catch (error) {
+        if (!isDuplicateKey(error)) throw error;
+        const raced = await SharedEdition.findOne({ userId, editionId: edition._id }).lean();
+        if (!raced) throw error;
+        return res.status(200).json(shareState(raced, { preview, currentHash }));
+      }
     } catch (error) {
       return refuse(res, error, 'Failed to share that edition.');
     }
   });
 
   router.get('/api/editions/:id/share', auth, async (req, res) => {
-    if (!SharedEdition) return res.status(200).json({ shared: false });
+    if (!SharedEdition) return res.status(503).json({ error: 'Sharing is not available.' });
     try {
-      const found = await SharedEdition
-        .findOne({ userId: req.user.id, editionId: req.params.id })
-        .lean();
-      return res.status(200).json(found ? { shared: true, slug: found.slug } : { shared: false });
+      const userId = req.user.id;
+      const edition = await Edition.findOne({ _id: req.params.id, userId }).lean();
+      if (!edition) return res.status(404).json({ error: 'No such edition.' });
+      const { preview, currentHash } = await livePreviewOf(edition, userId);
+      const found = await SharedEdition.findOne({ userId, editionId: edition._id }).lean();
+      return res.status(200).json(shareState(found, { preview, currentHash }));
     } catch (error) {
       return refuse(res, error, 'Failed to read that share.');
     }
   });
 
+  /* Replace the published version under the same URL. Bound to the preview
+     the owner just approved, so a rewrite that landed while the panel was
+     open cannot publish unseen changes. */
+  router.put('/api/editions/:id/share', auth, humanOnly, async (req, res) => {
+    if (!SharedEdition) return res.status(503).json({ error: 'Sharing is not available.' });
+    try {
+      const userId = req.user.id;
+      const edition = await Edition.findOne({ _id: req.params.id, userId }).lean();
+      if (!edition) return res.status(404).json({ error: 'No such edition.' });
+
+      const { preview, currentHash, ownerDisplayName } = await livePreviewOf(edition, userId);
+      const previewHash = String(req.body?.previewHash || '').trim();
+      if (!previewHash || previewHash !== currentHash) {
+        return res.status(409).json({ error: PREVIEW_STALE, field: 'previewHash' });
+      }
+
+      const existing = await SharedEdition.findOne({ userId, editionId: edition._id }).lean();
+      if (!existing) return res.status(404).json({ error: 'This paper is not shared.' });
+
+      const now = new Date();
+      const updated = await SharedEdition.findOneAndUpdate(
+        { userId, editionId: edition._id },
+        {
+          $set: {
+            snapshot: preview,
+            contentHash: currentHash,
+            publishedAt: now,
+            ownerDisplayName: ownerDisplayName || existing.ownerDisplayName || ''
+          }
+        },
+        { new: true }
+      );
+      const row = updated && typeof updated.toObject === 'function' ? updated.toObject() : updated;
+      return res.status(200).json(shareState(row, { preview, currentHash }));
+    } catch (error) {
+      return refuse(res, error, 'Failed to update that share.');
+    }
+  });
+
   /* Revoking removes the row, so the link stops resolving rather than
-     resolving to a refusal that confirms the paper exists. */
+     resolving to a refusal that confirms the paper exists. Sharing again
+     mints a new slug; the old URL stays dead. */
   router.delete('/api/editions/:id/share', auth, humanOnly, async (req, res) => {
     if (!SharedEdition) return res.status(200).json({ revoked: true });
     try {
@@ -492,16 +585,15 @@ const buildEditionRouter = ({
     }
   });
 
-  /* The public read. No auth, and deliberately no trace of the reader beyond
-     the name they publish under. */
+  /* The public read. The snapshot, and nothing live. A revoked or never-
+     minted slug is the same unanswered link. */
   router.get('/api/public/editions/:slug', async (req, res) => {
+    noStore(res);
     if (!SharedEdition) return res.status(404).json({ error: 'No such edition.' });
     try {
       const share = await SharedEdition.findOne({ slug: String(req.params.slug || '').trim() }).lean();
-      if (!share) return res.status(404).json({ error: 'No such edition.' });
-      const edition = await Edition.findOne({ _id: share.editionId, userId: share.userId }).lean();
-      if (!edition) return res.status(404).json({ error: 'No such edition.' });
-      return res.status(200).json(serializePublicEdition(edition, share.ownerDisplayName));
+      if (!share?.snapshot) return res.status(404).json({ error: 'No such edition.' });
+      return res.status(200).json(share.snapshot);
     } catch (error) {
       return refuse(res, error, 'Failed to open that edition.');
     }
@@ -522,4 +614,4 @@ const buildEditionRouter = ({
   return router;
 };
 
-module.exports = { buildEditionRouter, serializeEdition, serializePublicEdition, serializeItem };
+module.exports = { buildEditionRouter, serializeEdition, serializeItem };

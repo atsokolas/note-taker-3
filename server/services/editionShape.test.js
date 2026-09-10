@@ -133,3 +133,98 @@ describe('profiles', () => {
     expect(resolveEditionProfile('weekend_readings').sections.map(s => s.key)).toContain('counterevidence');
   });
 });
+
+describe('the public paper', () => {
+  const { hashPublicEdition, projectPublicEdition, publicHttpUrl } = require('./editionShape');
+
+  it('keeps the editorial paper and drops the private house', () => {
+    const seen = projectPublicEdition({
+      _id: 'e1',
+      userId: 'user-1',
+      profile: 'this_week_in_ai',
+      title: 'This Week in AI',
+      number: 14,
+      windowStart: '2026-09-01',
+      windowEnd: '2026-09-07',
+      standfirst: 'A quiet week.',
+      throughLine: 'Inference cost.',
+      watchNext: ['The replication'],
+      writtenBy: { label: 'Jarvis', agentTokenId: 'tok-9' },
+      savedCount: 3,
+      items: [{
+        itemId: 'item-1',
+        title: 'A paper about scaling',
+        url: 'https://example.com/paper#intro',
+        sourceLabel: 'Lab Blog',
+        sourceDate: 'Sep 3',
+        section: 'models_methods',
+        finding: 'Loss keeps falling.',
+        boundary: 'One lab.',
+        note: 'Editorial aside.',
+        savedArticleId: 'art-1',
+        filedBy: { label: 'Jarvis', agentTokenId: 'tok-9' },
+        placement: 'later',
+        highlights: [{ text: 'secret' }]
+      }]
+    }, 'Athan');
+
+    expect(seen).toEqual({
+      title: 'This Week in AI',
+      issueLabel: 'Issue',
+      number: 14,
+      windowStart: '2026-09-01',
+      windowEnd: '2026-09-07',
+      standfirst: 'A quiet week.',
+      throughLine: 'Inference cost.',
+      watchNext: ['The replication'],
+      writtenBy: 'Jarvis',
+      ownerDisplayName: 'Athan',
+      sections: [
+        { key: 'models_methods', label: 'Models & methods' },
+        { key: 'infrastructure_systems', label: 'Infrastructure & systems' },
+        { key: 'evaluation_counterevidence', label: 'Evaluation & counterevidence' }
+      ],
+      items: [{
+        itemId: 'item-1',
+        title: 'A paper about scaling',
+        url: 'https://example.com/paper',
+        sourceLabel: 'Lab Blog',
+        sourceDate: 'Sep 3',
+        section: 'models_methods',
+        finding: 'Loss keeps falling.',
+        boundary: 'One lab.',
+        note: 'Editorial aside.'
+      }]
+    });
+    expect(seen._id).toBeUndefined();
+    expect(JSON.stringify(seen)).not.toMatch(/art-1|tok-9|user-1|secret|later|savedCount/);
+    expect(hashPublicEdition(seen)).toMatch(/^[a-f0-9]{64}$/);
+  });
+
+  it('will not turn a javascript URL into an outbound source link', () => {
+    expect(publicHttpUrl('javascript:alert(1)')).toBe('');
+    expect(publicHttpUrl('data:text/html,hi')).toBe('');
+    expect(publicHttpUrl('https://example.com/ok')).toBe('https://example.com/ok');
+  });
+
+  it('keeps a custom profile’s section labels', () => {
+    const seen = projectPublicEdition({
+      profile: 'biotech',
+      title: 'Biotech',
+      windowStart: '2026-09-01',
+      windowEnd: '2026-09-30',
+      items: []
+    }, 'Athan', {
+      profiles: {
+        biotech: {
+          key: 'biotech',
+          titleLabel: 'Biotech',
+          issueLabel: 'Month',
+          sections: [{ key: 'trials', label: 'Trials' }]
+        }
+      }
+    });
+    expect(seen.issueLabel).toBe('Month');
+    expect(seen.sections).toEqual([{ key: 'trials', label: 'Trials' }]);
+  });
+});

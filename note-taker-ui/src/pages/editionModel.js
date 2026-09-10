@@ -268,3 +268,16 @@ export const folioLine = (now = new Date()) => {
   const name = DAYS[date.getDay()];
   return `The ${name} ${date.getDay() === 0 || date.getDay() === 6 ? 'papers' : 'paper'}`;
 };
+
+/** An outbound source a stranger may follow. javascript: never becomes an href. */
+export const publicSourceHref = (value) => {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return '';
+    return url.toString();
+  } catch (_error) {
+    return '';
+  }
+};

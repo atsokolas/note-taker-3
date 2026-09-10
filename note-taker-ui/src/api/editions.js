@@ -49,8 +49,21 @@ export const getEditionShare = async (id) => {
   return res.data || { shared: false };
 };
 
-export const shareEdition = async (id) => {
-  const res = await api.post(`/api/editions/${encodeURIComponent(id)}/share`, {}, getAuthHeaders());
+export const shareEdition = async (id, body = {}) => {
+  const res = await api.post(
+    `/api/editions/${encodeURIComponent(id)}/share`,
+    body,
+    getAuthHeaders()
+  );
+  return res.data || {};
+};
+
+export const updateEditionShare = async (id, body = {}) => {
+  const res = await api.put(
+    `/api/editions/${encodeURIComponent(id)}/share`,
+    body,
+    getAuthHeaders()
+  );
   return res.data || {};
 };
 

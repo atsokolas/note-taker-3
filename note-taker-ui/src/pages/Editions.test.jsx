@@ -3,11 +3,15 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import Editions from './Editions';
-import { getEdition, listEditions } from '../api/editions';
+import { getEdition, getEditionShare, listEditions } from '../api/editions';
 
 jest.mock('../api/editions', () => ({
   listEditions: jest.fn(),
-  getEdition: jest.fn()
+  getEdition: jest.fn(),
+  getEditionShare: jest.fn(),
+  shareEdition: jest.fn(),
+  updateEditionShare: jest.fn(),
+  revokeEditionShare: jest.fn()
 }));
 
 const SECTIONS = [
@@ -56,6 +60,7 @@ describe('the newsstand', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     getEdition.mockResolvedValue(full());
+    getEditionShare.mockResolvedValue({ shared: false, preview: null, currentHash: '' });
   });
 
   const open = () => render(<MemoryRouter><Editions /></MemoryRouter>);
@@ -179,5 +184,11 @@ describe('the newsstand', () => {
     getEdition.mockRejectedValue(new Error('nope'));
     open();
     expect(await screen.findByRole('heading', { name: 'This Week in AI' })).toBeInTheDocument();
+  });
+
+  it('puts Share on the issue masthead', async () => {
+    listEditions.mockResolvedValue([row()]);
+    open();
+    expect(await screen.findByTestId('edition-share-open')).toHaveTextContent('Share');
   });
 });

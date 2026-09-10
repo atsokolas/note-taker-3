@@ -1095,9 +1095,9 @@ describe('WikiFrontPage (AT-394)', () => {
 
       await screen.findByLabelText('Where you left off');
       expect(document.querySelector('.paper-open__editions .is-current')).toHaveTextContent('the weekend');
-      expect(screen.queryByRole('link', { name: '1 owed a move' })).not.toBeInTheDocument();
-      expect(screen.getByRole('link', { name: '2 at hand' })).toHaveAttribute('href', '/library?scope=set-aside');
-      expect(screen.getByRole('link', { name: 'The shelf holds 7' })).toHaveAttribute('href', '/library?scope=kept');
+      expect(screen.queryByRole('link', { name: '1 saved for later' })).not.toBeInTheDocument();
+      expect(screen.getByRole('link', { name: '2 set aside' })).toHaveAttribute('href', '/library?scope=set-aside');
+      expect(screen.getByRole('link', { name: '7 kept' })).toHaveAttribute('href', '/library?scope=kept');
     });
 
     it('hands the desk back as doors, and leaves the places strip to the Library', async () => {
@@ -1120,10 +1120,10 @@ describe('WikiFrontPage (AT-394)', () => {
 
       const desk = await screen.findByLabelText('Where you left off');
       expect(desk).toBeInTheDocument();
-      expect(screen.getByRole('link', { name: '1 owed a move' })).toHaveAttribute('href', '/library?scope=later');
-      expect(screen.getByRole('link', { name: '2 at hand' })).toHaveAttribute('href', '/library?scope=set-aside');
-      expect(screen.getByRole('link', { name: 'The shelf holds 7' })).toHaveAttribute('href', '/library?scope=kept');
-      expect(screen.getByRole('link', { name: 'Newsletters has 2 new folios' }))
+      expect(screen.getByRole('link', { name: '1 saved for later' })).toHaveAttribute('href', '/library?scope=later');
+      expect(screen.getByRole('link', { name: '2 set aside' })).toHaveAttribute('href', '/library?scope=set-aside');
+      expect(screen.getByRole('link', { name: '7 kept' })).toHaveAttribute('href', '/library?scope=kept');
+      expect(screen.getByRole('link', { name: 'Newsletters has 2 new items' }))
         .toHaveAttribute('href', '/library?scope=feed&topic=news');
       expect(screen.queryByText(/^Feed$/)).not.toBeInTheDocument();
     });

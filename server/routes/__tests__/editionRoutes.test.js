@@ -79,6 +79,9 @@ describe('the newsstand', () => {
   let articles;
   let asAgent;
   let saved;
+  let shares;
+  let readArticle;
+  let skipShareLookups;
 
   beforeEach(async () => {
     Edition = makeStore();
@@ -87,6 +90,7 @@ describe('the newsstand', () => {
     asAgent = false;
     saved = [];
     shares = [];
+    skipShareLookups = 0;
     readArticle = async () => ({ ok: true, url: '', title: 'The page’s own title', content: 'The body.', error: '' });
     const Article = {
       findOneAndUpdate: async (query, patch) => {
@@ -97,15 +101,37 @@ describe('the newsstand', () => {
         return row;
       }
     };
+    const shareMatch = (row, query) => Object.entries(query)
+      .every(([key, value]) => String(row[key]) === String(value));
     const SharedEdition = {
       findOne: (query) => ({
-        lean: async () => shares.find(row => Object.entries(query)
-          .every(([key, value]) => String(row[key]) === String(value))) || null
+        lean: async () => {
+          if (skipShareLookups > 0) {
+            skipShareLookups -= 1;
+            return null;
+          }
+          return shares.find(row => shareMatch(row, query)) || null;
+        }
       }),
-      create: async (doc) => { shares.push({ ...doc }); return doc; },
+      create: async (doc) => {
+        if (shares.some(row => String(row.userId) === String(doc.userId)
+          && String(row.editionId) === String(doc.editionId))) {
+          const error = new Error('E11000 duplicate key');
+          error.code = 11000;
+          throw error;
+        }
+        const row = { ...doc };
+        shares.push(row);
+        return row;
+      },
+      findOneAndUpdate: async (query, patch) => {
+        const row = shares.find(entry => shareMatch(entry, query));
+        if (!row) return null;
+        Object.assign(row, patch.$set || patch);
+        return row;
+      },
       deleteOne: async (query) => {
-        const index = shares.findIndex(row => Object.entries(query)
-          .every(([key, value]) => String(row[key]) === String(value)));
+        const index = shares.findIndex(row => shareMatch(row, query));
         if (index !== -1) shares.splice(index, 1);
         return { deletedCount: index === -1 ? 0 : 1 };
       }
@@ -268,7 +294,7 @@ describe('the newsstand', () => {
   });
 
   describe('sharing a paper', () => {
-    const share = async (id, method = 'POST') => send(`/api/editions/${id}/share`, method);
+    const share = async (id, method = 'POST', body) => send(`/api/editions/${id}/share`, method, body);
 
     it('mints a link, and hands back the same one when asked twice', async () => {
       asAgent = true;
@@ -298,7 +324,10 @@ describe('the newsstand', () => {
       asAgent = true;
       const made = await send('/api/editions', 'POST', week());
       asAgent = false;
-      expect((await share(made.body._id, 'GET')).body).toEqual({ shared: false });
+      const before = await share(made.body._id, 'GET');
+      expect(before.body.shared).toBe(false);
+      expect(before.body.preview.title).toBe('This Week in AI');
+      expect(before.body.currentHash).toBeTruthy();
       await share(made.body._id);
       expect((await share(made.body._id, 'GET')).body.shared).toBe(true);
     });
@@ -336,6 +365,108 @@ describe('the newsstand', () => {
 
     it('says nothing about a slug that was never minted', async () => {
       expect((await send('/api/public/editions/nope')).status).toBe(404);
+    });
+
+    it('keeps the published snapshot when the private issue is rewritten', async () => {
+      asAgent = true;
+      const made = await send('/api/editions', 'POST', week({ standfirst: 'First pass.' }));
+      asAgent = false;
+      const { body: { slug } } = await share(made.body._id);
+      asAgent = true;
+      await send('/api/editions', 'POST', week({ standfirst: 'Rewritten in private.' }));
+      asAgent = false;
+      const seen = await send(`/api/public/editions/${slug}`);
+      expect(seen.body.standfirst).toBe('First pass.');
+      const status = await share(made.body._id, 'GET');
+      expect(status.body.stale).toBe(true);
+    });
+
+    it('updates the snapshot under the same slug when the owner asks', async () => {
+      asAgent = true;
+      const made = await send('/api/editions', 'POST', week({ standfirst: 'First pass.' }));
+      asAgent = false;
+      const created = await share(made.body._id);
+      asAgent = true;
+      await send('/api/editions', 'POST', week({ standfirst: 'Second pass.' }));
+      asAgent = false;
+      const preview = await share(made.body._id, 'GET');
+      const updated = await share(made.body._id, 'PUT', { previewHash: preview.body.currentHash });
+      expect(updated.status).toBe(200);
+      expect(updated.body.slug).toBe(created.body.slug);
+      expect(updated.body.stale).toBe(false);
+      const seen = await send(`/api/public/editions/${created.body.slug}`);
+      expect(seen.body.standfirst).toBe('Second pass.');
+    });
+
+    it('refuses to publish a preview the issue has already left behind', async () => {
+      asAgent = true;
+      const made = await send('/api/editions', 'POST', week({ standfirst: 'First pass.' }));
+      asAgent = false;
+      const preview = await share(made.body._id, 'GET');
+      asAgent = true;
+      await send('/api/editions', 'POST', week({ standfirst: 'Moved on.' }));
+      asAgent = false;
+      const stale = await share(made.body._id, 'POST', { previewHash: preview.body.currentHash });
+      expect(stale.status).toBe(409);
+      expect(shares).toHaveLength(0);
+    });
+
+    it('converges when two creates race the unique index', async () => {
+      asAgent = true;
+      const made = await send('/api/editions', 'POST', week());
+      asAgent = false;
+      shares.push({
+        userId: 'user-1',
+        editionId: made.body._id,
+        slug: 'held',
+        ownerDisplayName: 'Athan',
+        snapshot: { title: 'Held' },
+        contentHash: 'abc',
+        publishedAt: new Date().toISOString()
+      });
+      skipShareLookups = 1;
+      const res = await share(made.body._id);
+      expect(res.status).toBe(200);
+      expect(res.body.slug).toBe('held');
+      expect(shares).toHaveLength(1);
+    });
+
+    it('does not let an agent replace a published version', async () => {
+      asAgent = true;
+      const made = await send('/api/editions', 'POST', week());
+      asAgent = false;
+      await share(made.body._id);
+      asAgent = true;
+      expect((await share(made.body._id, 'PUT', { previewHash: 'nope' })).status).toBe(403);
+    });
+
+    it('strips private fields instead of subtracting a few from the owner payload', async () => {
+      asAgent = true;
+      const made = await send('/api/editions', 'POST', week({
+        items: [
+          item({ note: 'Editorial aside.', savedArticleId: 'should-not-leak' }),
+          item({ title: 'A second', url: 'https://example.com/two' })
+        ]
+      }));
+      asAgent = false;
+      const { body: { slug } } = await share(made.body._id);
+      const seen = await send(`/api/public/editions/${slug}`);
+      expect(seen.body._id).toBeUndefined();
+      expect(seen.body.userId).toBeUndefined();
+      expect(seen.body.savedCount).toBeUndefined();
+      expect(seen.body.items[0].savedArticleId).toBeUndefined();
+      expect(seen.body.items[0].filedBy).toBeUndefined();
+      expect(seen.body.items[0].note).toBe('Editorial aside.');
+      expect(seen.body.items[0].url).toBe('https://example.com/paper');
+    });
+
+    it('does not cache a public edition after it has been revoked', async () => {
+      asAgent = true;
+      const made = await send('/api/editions', 'POST', week());
+      asAgent = false;
+      const { body: { slug } } = await share(made.body._id);
+      const live = await fetch(`${url}/api/public/editions/${slug}`);
+      expect(live.headers.get('cache-control')).toMatch(/no-store/);
     });
   });
 
