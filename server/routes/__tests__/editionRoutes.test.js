@@ -94,8 +94,14 @@ describe('the newsstand', () => {
     readArticle = async () => ({ ok: true, url: '', title: 'The page’s own title', content: 'The body.', error: '' });
     const Article = {
       findOneAndUpdate: async (query, patch) => {
-        const existing = articles.find(row => row.url === query.url && row.userId === query.userId);
-        if (existing) return existing;
+        const existing = articles.find((row) => {
+          if (query._id) return String(row._id) === String(query._id);
+          return row.url === query.url && row.userId === query.userId;
+        });
+        if (existing) {
+          Object.assign(existing, patch.$set || {});
+          return existing;
+        }
         const row = { _id: `article-${articles.length + 1}`, ...query, ...(patch.$setOnInsert || {}) };
         articles.push(row);
         return row;
@@ -467,6 +473,65 @@ describe('the newsstand', () => {
       const { body: { slug } } = await share(made.body._id);
       const live = await fetch(`${url}/api/public/editions/${slug}`);
       expect(live.headers.get('cache-control')).toMatch(/no-store/);
+    });
+  });
+
+  describe('new arrivals', () => {
+    it('lists unread items across papers, and drops one once it is opened', async () => {
+      asAgent = true;
+      const made = await send('/api/editions', 'POST', week());
+      asAgent = false;
+      const inbox = await send('/api/editions/inbox');
+      expect(inbox.status).toBe(200);
+      expect(inbox.body.items).toHaveLength(2);
+      await send(`/api/editions/${made.body._id}/items/item-1/state`, 'POST', { status: 'opened' });
+      const after = await send('/api/editions/inbox');
+      expect(after.body.items.map(row => row.itemId)).toEqual(['item-2']);
+    });
+
+    it('saves a source into Later and takes it out of New', async () => {
+      asAgent = true;
+      const made = await send('/api/editions', 'POST', week());
+      asAgent = false;
+      const later = await send(`/api/editions/${made.body._id}/items/item-1/later`, 'POST');
+      expect(later.status).toBe(200);
+      expect(later.body.placed).toBe(true);
+      expect(articles[0].placement).toBe('later');
+      expect((await send('/api/editions/inbox')).body.items.map(row => row.itemId)).toEqual(['item-2']);
+    });
+
+    it('keeps the item’s id and the reader’s choice when the week is rewritten', async () => {
+      asAgent = true;
+      const made = await send('/api/editions', 'POST', week());
+      asAgent = false;
+      await send(`/api/editions/${made.body._id}/items/item-1/state`, 'POST', { status: 'opened' });
+      asAgent = true;
+      const rewritten = await send('/api/editions', 'POST', week({
+        items: [
+          item({ title: 'A second', url: 'https://example.com/two' }),
+          item({ title: 'A paper about scaling', url: 'https://example.com/paper' })
+        ]
+      }));
+      const paper = rewritten.body.items.find(row => row.url.includes('/paper'));
+      expect(paper.itemId).toBe('item-1');
+      expect(paper.readerStatus).toBe('opened');
+    });
+
+    it('is the reader’s to triage, not the agent’s', async () => {
+      asAgent = true;
+      const made = await send('/api/editions', 'POST', week());
+      expect((await send(`/api/editions/${made.body._id}/items/item-1/state`, 'POST', { status: 'dismissed' })).status).toBe(403);
+      expect((await send(`/api/editions/${made.body._id}/items/item-1/later`, 'POST')).status).toBe(403);
+    });
+
+    it('restores a dismissed arrival', async () => {
+      asAgent = true;
+      const made = await send('/api/editions', 'POST', week());
+      asAgent = false;
+      await send(`/api/editions/${made.body._id}/items/item-1/state`, 'POST', { status: 'dismissed' });
+      expect((await send('/api/editions/inbox')).body.items).toHaveLength(1);
+      await send(`/api/editions/${made.body._id}/items/item-1/state`, 'POST', { status: 'new' });
+      expect((await send('/api/editions/inbox')).body.items).toHaveLength(2);
     });
   });
 

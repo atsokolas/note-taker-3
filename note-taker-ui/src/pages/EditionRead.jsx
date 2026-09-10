@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
-import { getEdition, saveEditionItem } from '../api/editions';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { getEdition, saveEditionItem, saveEditionItemLater, setEditionItemState } from '../api/editions';
 import EditionShare from '../components/editions/EditionShare';
 import { bySection, gapLine, issueLine, takenLine, windowLine } from './editionModel';
 
@@ -17,8 +17,8 @@ import { bySection, gapLine, issueLine, takenLine, windowLine } from './editionM
  * rather than dropped, which is the one thing a newsletter never does.
  */
 
-const EditionItem = ({ item, onSave, saving, unread = null }) => (
-  <article className="edition-item">
+const EditionItem = ({ item, onSave, onLater, saving, laterSaving, unread = null, laterNote = null }) => (
+  <article className="edition-item" id={`edition-item-${item.itemId}`}>
     <h3 className="edition-item__title">
       <a href={item.url} target="_blank" rel="noopener noreferrer">{item.title}</a>
     </h3>
@@ -27,7 +27,6 @@ const EditionItem = ({ item, onSave, saving, unread = null }) => (
     ) : null}
 
     <p className="edition-item__finding">{item.finding}</p>
-    {/* The required half. An item that could not say this was refused. */}
     <p className="edition-item__boundary">
       <span className="edition-item__label">What would limit it</span>
       {item.boundary}
@@ -57,16 +56,36 @@ const EditionItem = ({ item, onSave, saving, unread = null }) => (
           {saving ? 'Saving…' : 'Save to library'}
         </button>
       )}
+      {item.readerStatus === 'later' || laterNote?.itemId === item.itemId ? (
+        <Link className="edition-item__saved" to="/library?scope=later">
+          {laterNote?.fromSetAside ? 'Moved to Later · Open Later' : 'Saved for later · Open Later'}
+        </Link>
+      ) : (
+        <button
+          type="button"
+          className="edition-item__save"
+          onClick={() => onLater(item.itemId)}
+          disabled={laterSaving}
+          data-testid={`edition-later-${item.itemId}`}
+        >
+          {laterSaving ? 'Saving…' : 'Save for later'}
+        </button>
+      )}
     </div>
   </article>
 );
 
 const EditionRead = () => {
   const { id = '' } = useParams();
+  const [params] = useSearchParams();
+  const focusItem = params.get('item') || '';
   const [edition, setEdition] = useState(null);
   const [error, setError] = useState('');
   const [savingId, setSavingId] = useState('');
+  const [laterId, setLaterId] = useState('');
   const [unread, setUnread] = useState(null);
+  const [laterNote, setLaterNote] = useState(null);
+  const acknowledged = useRef('');
 
   useEffect(() => {
     let cancelled = false;
@@ -80,6 +99,18 @@ const EditionRead = () => {
       });
     return () => { cancelled = true; };
   }, [id]);
+
+  useEffect(() => {
+    if (!edition || !focusItem || acknowledged.current === `${id}:${focusItem}`) return;
+    if (!(edition.items || []).some(item => item.itemId === focusItem)) return;
+    acknowledged.current = `${id}:${focusItem}`;
+    Promise.resolve(setEditionItemState(id, focusItem, 'opened')).catch(() => {
+      acknowledged.current = '';
+    });
+    window.requestAnimationFrame(() => {
+      document.getElementById(`edition-item-${focusItem}`)?.scrollIntoView?.({ block: 'start' });
+    });
+  }, [edition, focusItem, id]);
 
   const save = useCallback(async (itemId) => {
     setSavingId(itemId);
@@ -97,6 +128,24 @@ const EditionRead = () => {
       setError(saveError?.response?.data?.error || 'That source did not save.');
     } finally {
       setSavingId('');
+    }
+  }, [id]);
+
+  const later = useCallback(async (itemId) => {
+    setLaterId(itemId);
+    setError('');
+    try {
+      const result = await saveEditionItemLater(id, itemId);
+      if (result?.edition) setEdition(result.edition);
+      if (result?.placed === false) {
+        setError(result.error || 'Saved to Library; could not move to Later — Retry');
+        return;
+      }
+      setLaterNote({ itemId, fromSetAside: Boolean(result?.fromSetAside) });
+    } catch (laterError) {
+      setError(laterError?.response?.data?.error || 'That source did not save for later.');
+    } finally {
+      setLaterId('');
     }
   }, [id]);
 
@@ -141,8 +190,11 @@ const EditionRead = () => {
                 key={item.itemId}
                 item={item}
                 onSave={save}
+                onLater={later}
                 saving={savingId === item.itemId}
+                laterSaving={laterId === item.itemId}
                 unread={unread?.itemId === item.itemId ? unread : null}
+                laterNote={laterNote}
               />
             ))
           ) : (

@@ -1721,7 +1721,13 @@ const editionItemSchema = new mongoose.Schema({
     agentTokenId: { type: mongoose.Schema.Types.ObjectId, ref: 'AgentToken', default: null }
   },
   filedAt: { type: Date, default: null },
-  savedArticleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Article', default: null }
+  savedArticleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Article', default: null },
+  /* What the reader did with this arrival. Missing means new. An agent rewrite
+     keeps this by URL; the agent cannot set it. */
+  readerState: {
+    status: { type: String, enum: ['opened', 'later', 'dismissed'], default: undefined },
+    at: { type: Date, default: null }
+  }
 }, { _id: false });
 
 const editionSchema = new mongoose.Schema({

@@ -1,8 +1,10 @@
 const {
   EditionShapeError,
+  collectInbox,
   emptySections,
   normalizeEdition,
-  resolveEditionProfile
+  resolveEditionProfile,
+  retainHeldItems
 } = require('./editionShape');
 
 const item = (over = {}) => ({
@@ -226,5 +228,57 @@ describe('the public paper', () => {
     });
     expect(seen.issueLabel).toBe('Month');
     expect(seen.sections).toEqual([{ key: 'trials', label: 'Trials' }]);
+  });
+});
+
+describe('keeping a reader’s place in a rewritten week', () => {
+  it('follows the source URL, not the position', () => {
+    const kept = retainHeldItems(
+      [
+        { itemId: 'item-1', url: 'https://example.com/two', title: 'B' },
+        { itemId: 'item-2', url: 'https://example.com/paper', title: 'A' }
+      ],
+      [
+        { itemId: 'item-1', url: 'https://example.com/paper', savedArticleId: 'art-1', readerState: { status: 'opened', at: 'then' } },
+        { itemId: 'item-2', url: 'https://example.com/two' }
+      ],
+      { label: 'Jarvis' },
+      new Date()
+    );
+    const paper = kept.find(row => row.url === 'https://example.com/paper');
+    expect(paper.itemId).toBe('item-1');
+    expect(paper.savedArticleId).toBe('art-1');
+    expect(paper.readerState.status).toBe('opened');
+  });
+
+  it('refuses a collision instead of silently renaming', () => {
+    expect(() => retainHeldItems(
+      [
+        { itemId: 'item-1', url: 'https://example.com/new', title: 'New' },
+        { itemId: 'x', url: 'https://example.com/paper', title: 'A' }
+      ],
+      [{ itemId: 'item-1', url: 'https://example.com/paper' }],
+      {},
+      new Date()
+    )).toThrow(/share the id/);
+  });
+
+  it('collects only new, ready items, newest filing first', () => {
+    const inbox = collectInbox([
+      {
+        _id: 'e1',
+        profile: 'this_week_in_ai',
+        title: 'This Week in AI',
+        createdAt: '2026-09-01',
+        items: [
+          { itemId: 'old', title: 'Opened', url: 'https://example.com/a', finding: 'A', boundary: 'B', filedAt: '2026-09-08', readerState: { status: 'opened' } },
+          { itemId: 'bad', title: 'No link', url: 'javascript:alert(1)', finding: 'A', boundary: 'B', filedAt: '2026-09-10' },
+          { itemId: 'fresh', title: 'Fresh', url: 'https://example.com/b', finding: 'A', boundary: 'B', filedAt: '2026-09-09' }
+        ]
+      }
+    ]);
+    expect(inbox.items).toHaveLength(1);
+    expect(inbox.items[0].itemId).toBe('fresh');
+    expect(inbox.items[0].finding).toBeUndefined();
   });
 });

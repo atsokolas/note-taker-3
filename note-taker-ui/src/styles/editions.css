@@ -162,16 +162,6 @@
   color: var(--noeis-pointer, var(--text-primary));
 }
 
-/* What is here that was not here last time. The one question a periodical
-   answers that a list cannot. */
-.front__fresh {
-  margin: 22px 0 0;
-  text-align: center;
-  font-style: italic;
-  font-size: 0.92rem;
-  color: color-mix(in srgb, var(--text-muted) 84%, transparent);
-}
-
 /* ---------- the columns ---------- */
 /* One column per section, so the shape of the paper is the shape of the week.
    An empty section is an empty column with its head still set. */
@@ -272,22 +262,6 @@
 }
 
 .story__fold { color: var(--noeis-pointer, var(--text-muted)); font-style: normal; white-space: nowrap; }
-
-/* A mark in the margin, never a badge. A story you have not seen is worth
-   pointing at; it is not worth interrupting you about. */
-.story__new { color: var(--noeis-pointer, var(--text-primary)); font-style: italic; }
-
-.story.is-new { position: relative; }
-
-.story.is-new::before {
-  content: "";
-  position: absolute;
-  top: 2px;
-  left: -12px;
-  width: 2px;
-  height: 1.1em;
-  background: var(--noeis-pointer, var(--text-primary));
-}
 
 /* The fold. A grid track from nothing to everything: no measuring, and it
    animates whatever the finding turns out to be. */
@@ -479,12 +453,9 @@
   .folio,
   .run,
   .story__fold,
-  .story__new,
   .front__arrival,
-  .front__fresh,
   .editions__door { display: none; }
 
-  .story.is-new::before { display: none; }
   .story__body { grid-template-rows: 1fr; }
   .story__finding,
   .story__boundary { opacity: 1; transform: none; }
@@ -552,6 +523,25 @@
   color: color-mix(in srgb, var(--text-muted) 86%, transparent);
   font-size: 0.82rem;
   font-style: italic;
+}
+
+.edition-item__doors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: baseline;
+  margin: 12px 0 0;
+  font-size: 0.88rem;
+}
+
+.edition-item__save {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-decoration: underline;
 }
 
 /* A paper someone published. Read by a stranger on whatever they had to
@@ -723,3 +713,90 @@
   margin: 4px 0 0;
   font-weight: 500;
 }
+
+/* New arrivals. A short list before the papers, not a second broadsheet. */
+.edition-inbox {
+  margin: 28px 0 8px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--noeis-rule, var(--border-subtle-2));
+}
+
+.edition-inbox__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 0 12px;
+}
+
+.edition-inbox__head h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.edition-inbox__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.edition-inbox__row {
+  margin: 0 0 16px;
+  max-width: 62ch;
+}
+
+.edition-inbox__title {
+  margin: 0;
+  font-size: 1.02rem;
+}
+
+.edition-inbox__meta {
+  margin: 4px 0 0;
+  color: color-mix(in srgb, var(--text-muted) 86%, transparent);
+  font-size: 0.86rem;
+}
+
+.edition-inbox__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  margin: 8px 0 0;
+  font-size: 0.88rem;
+}
+
+.edition-inbox__actions button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-decoration: underline;
+}
+
+.edition-inbox__dismiss {
+  color: color-mix(in srgb, var(--text-muted) 88%, transparent);
+  text-decoration: none;
+}
+
+.edition-inbox__empty,
+.edition-inbox__status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: baseline;
+  margin: 0 0 12px;
+  color: color-mix(in srgb, var(--text-muted) 86%, transparent);
+  font-size: 0.92rem;
+}
+
+.edition-inbox__status button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  font: inherit;
+}
+

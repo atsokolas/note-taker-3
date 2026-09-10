@@ -1,6 +1,6 @@
 import {
-  byPaper, bylineFor, bySection, closesLine, datelineLine, gapLine, isNewSince,
-  issueLine, lastSeen, markSeen, newSinceLine, publicSourceHref, runLine, stateOf,
+  byPaper, bylineFor, bySection, closesLine, datelineLine, gapLine,
+  issueLine, publicSourceHref, runLine, stateOf,
   takenLine, windowLine
 } from './editionModel';
 
@@ -239,42 +239,6 @@ describe('who filed a column', () => {
     expect(bylineFor([by(''), {}])).toBe('');
     expect(bylineFor([])).toBe('');
     expect(bylineFor()).toBe('');
-  });
-});
-
-describe('what arrived since you last stood here', () => {
-  beforeEach(() => window.localStorage.clear());
-
-  const filed = (at) => ({ filedAt: at });
-
-  /* An issue you have never opened marks nothing: everything in it is new,
-     and marking all of it says nothing at all. */
-  it('marks nothing on an issue you have never opened', () => {
-    expect(lastSeen('e1')).toBe('');
-    expect(isNewSince(filed('2026-09-10T00:00:00Z'), '')).toBe(false);
-    expect(newSinceLine([filed('2026-09-10T00:00:00Z')], '')).toBe('');
-  });
-
-  it('remembers when you were last here, per issue', () => {
-    markSeen('e1', '2026-09-09T00:00:00Z');
-    expect(lastSeen('e1')).toBe('2026-09-09T00:00:00Z');
-    expect(lastSeen('e2')).toBe('');
-  });
-
-  it('marks only what was filed after that', () => {
-    const since = '2026-09-09T00:00:00Z';
-    expect(isNewSince(filed('2026-09-10T00:00:00Z'), since)).toBe(true);
-    expect(isNewSince(filed('2026-09-08T00:00:00Z'), since)).toBe(false);
-    /* An item filed before per-item dates existed carries no claim either way. */
-    expect(isNewSince({}, since)).toBe(false);
-  });
-
-  it('counts them in a sentence, and stays silent at none', () => {
-    const since = '2026-09-09T00:00:00Z';
-    const items = [filed('2026-09-10T00:00:00Z'), filed('2026-09-11T00:00:00Z'), filed('2026-09-01T00:00:00Z')];
-    expect(newSinceLine(items, since)).toBe('2 new since you last looked');
-    expect(newSinceLine([filed('2026-09-01T00:00:00Z')], since)).toBe('');
-    expect(newSinceLine()).toBe('');
   });
 });
 

@@ -3,12 +3,13 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import Editions from './Editions';
-import { getEdition, getEditionShare, listEditions } from '../api/editions';
+import { getEdition, getEditionInbox, getEditionShare, listEditions } from '../api/editions';
 
 jest.mock('../api/editions', () => ({
   listEditions: jest.fn(),
   getEdition: jest.fn(),
   getEditionShare: jest.fn(),
+  getEditionInbox: jest.fn(),
   shareEdition: jest.fn(),
   updateEditionShare: jest.fn(),
   revokeEditionShare: jest.fn()
@@ -61,6 +62,7 @@ describe('the newsstand', () => {
     jest.clearAllMocks();
     getEdition.mockResolvedValue(full());
     getEditionShare.mockResolvedValue({ shared: false, preview: null, currentHash: '' });
+    getEditionInbox.mockResolvedValue({ items: [], hasMore: false, remaining: 0 });
   });
 
   const open = () => render(<MemoryRouter><Editions /></MemoryRouter>);
@@ -161,7 +163,7 @@ describe('the newsstand', () => {
     listEditions.mockResolvedValue([]);
     open();
     expect(await screen.findByText('No paper yet.')).toBeInTheDocument();
-    expect(screen.getByText(/noeis connect/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Connections' })).toHaveAttribute('href', '/connections');
   });
 
   /* Nothing on the stand is not the same as nothing loaded. */
@@ -190,5 +192,17 @@ describe('the newsstand', () => {
     listEditions.mockResolvedValue([row()]);
     open();
     expect(await screen.findByTestId('edition-share-open')).toHaveTextContent('Share');
+  });
+
+  it('puts new arrivals above the papers', async () => {
+    listEditions.mockResolvedValue([row()]);
+    getEditionInbox.mockResolvedValue({
+      items: [{ editionId: 'e2', itemId: 'i1', title: 'A fresh filing', sourceLabel: 'arXiv' }],
+      hasMore: false,
+      remaining: 0
+    });
+    open();
+    expect(await screen.findByText('A fresh filing')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Read now' })).toHaveAttribute('href', '/editions/e2?item=i1');
   });
 });

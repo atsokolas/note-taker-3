@@ -344,6 +344,106 @@ const hashPublicEdition = (snapshot) => crypto
   .update(JSON.stringify(snapshot || {}))
   .digest('hex');
 
+const READER_STATUSES = Object.freeze(['opened', 'later', 'dismissed']);
+
+const readerStateOf = (item) => {
+  const status = String(item?.readerState?.status || '').trim();
+  if (!READER_STATUSES.includes(status)) return undefined;
+  return { status, at: item.readerState.at || null };
+};
+
+const itemIsNew = (item = {}) => !READER_STATUSES.includes(item?.readerState?.status);
+const itemIsReady = (item = {}) => Boolean(
+  publicText(item.title, 400)
+  && publicText(item.finding, 2000)
+  && publicText(item.boundary, 2000)
+  && publicHttpUrl(item.url)
+);
+
+/**
+ * Keep the reader's work when an agent rewrites the week.
+ *
+ * Identity follows the source URL, not the position in the payload. The
+ * itemId, the save, and the reading choice all survive a reorder. An agent
+ * cannot name or reset those fields.
+ */
+const retainHeldItems = (incoming = [], existingItems = [], writtenBy = {}, now = new Date()) => {
+  const held = new Map((existingItems || []).map((item) => [item.url, item]));
+  const used = new Set();
+  return (incoming || []).map((item) => {
+    const before = held.get(item.url);
+    const next = {
+      ...item,
+      itemId: before?.itemId || item.itemId,
+      filedBy: before?.filedBy?.label ? before.filedBy : writtenBy,
+      filedAt: before?.filedAt || now,
+      savedArticleId: before?.savedArticleId || null,
+      readerState: readerStateOf(before)
+    };
+    if (used.has(next.itemId)) {
+      throw new EditionShapeError(`Two items share the id "${next.itemId}".`, { field: 'itemId' });
+    }
+    used.add(next.itemId);
+    return next;
+  });
+};
+
+const inboxSortAt = (item = {}, edition = {}) => {
+  const filed = Date.parse(item.filedAt || 0);
+  if (Number.isFinite(filed)) return filed;
+  const created = Date.parse(edition.createdAt || 0);
+  return Number.isFinite(created) ? created : 0;
+};
+
+const inboxCursorOf = (row) => `${row.sortAt}:${row.editionId}:${row.itemId}`;
+
+const collectInbox = (editions = [], { cursor = '', limit = 20, profiles = null } = {}) => {
+  const rows = [];
+  (editions || []).forEach((edition) => {
+    const profile = resolveEditionProfile(edition.profile, { profiles });
+    (edition.items || []).forEach((item) => {
+      if (!itemIsNew(item) || !itemIsReady(item)) return;
+      const sortAt = inboxSortAt(item, edition);
+      rows.push({
+        editionId: String(edition._id),
+        itemId: item.itemId,
+        title: item.title,
+        url: publicHttpUrl(item.url),
+        sourceLabel: item.sourceLabel || '',
+        sourceDate: item.sourceDate || '',
+        profile: edition.profile,
+        profileLabel: profile?.titleLabel || edition.profile,
+        issueTitle: edition.title,
+        issueLabel: profile?.issueLabel || edition.issueLabel || 'Issue',
+        number: edition.number ?? null,
+        filedAt: item.filedAt || null,
+        sortAt
+      });
+    });
+  });
+
+  rows.sort((left, right) => (
+    right.sortAt - left.sortAt
+    || String(right.editionId).localeCompare(String(left.editionId))
+    || String(right.itemId).localeCompare(String(left.itemId))
+  ));
+
+  let start = 0;
+  if (cursor) {
+    const index = rows.findIndex(row => inboxCursorOf(row) === cursor);
+    start = index === -1 ? 0 : index + 1;
+  }
+  const size = Math.min(Math.max(Number(limit) || 20, 1), 40);
+  const page = rows.slice(start, start + size);
+  const last = page[page.length - 1];
+  return {
+    items: page.map(({ sortAt, ...item }) => item),
+    hasMore: start + page.length < rows.length,
+    nextCursor: last ? inboxCursorOf({ ...last, sortAt: last.sortAt }) : '',
+    remaining: Math.max(0, rows.length - start - page.length)
+  };
+};
+
 module.exports = {
   EDITION_PROFILES,
   EDITION_PROFILE_KEYS,
@@ -351,11 +451,16 @@ module.exports = {
   windowFor,
   EditionShapeError,
   emptySections,
+  collectInbox,
   hashPublicEdition,
+  itemIsNew,
+  itemIsReady,
   normalizeEdition,
   normalizeItem,
   projectPublicEdition,
   publicHttpUrl,
+  READER_STATUSES,
   resolveEditionProfile,
+  retainHeldItems,
   sectionLabel
 };

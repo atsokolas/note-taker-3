@@ -225,43 +225,6 @@ export const runLine = (issues = []) => {
   return `${run} ${unit} running, not one missed`;
 };
 
-/**
- * What arrived since you last stood here.
- *
- * A periodical has one question a list cannot answer: what is here that was
- * not here before. The mark is per issue and per browser — it is a reading
- * habit, not a fact about the edition — and an issue you have never opened
- * marks nothing, because everything in it is new and marking all of it says
- * nothing at all.
- */
-const SEEN_KEY = 'noeis.editions.seen';
-
-const seenAll = () => {
-  try { return JSON.parse(window.localStorage.getItem(SEEN_KEY) || '{}') || {}; } catch (_error) { return {}; }
-};
-
-export const lastSeen = (editionId) => (editionId ? seenAll()[editionId] || '' : '');
-
-export const markSeen = (editionId, at = new Date().toISOString()) => {
-  if (!editionId) return;
-  try {
-    window.localStorage.setItem(SEEN_KEY, JSON.stringify({ ...seenAll(), [editionId]: at }));
-  } catch (_error) { /* a browser that refuses storage still reads the paper */ }
-};
-
-export const isNewSince = (item = {}, since = '') => {
-  if (!since || !item?.filedAt) return false;
-  const filed = Date.parse(item.filedAt);
-  return Number.isFinite(filed) && filed > Date.parse(since);
-};
-
-/** "Two new since you last looked." Silent when nothing is. */
-export const newSinceLine = (items = [], since = '') => {
-  const fresh = (items || []).filter(item => isNewSince(item, since)).length;
-  if (!fresh) return '';
-  return `${fresh} new since you last looked`;
-};
-
 /** The folio: a paper knows what day it is. */
 export const folioLine = (now = new Date()) => {
   const date = now instanceof Date ? now : new Date(now);
