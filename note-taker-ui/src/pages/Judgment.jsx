@@ -119,10 +119,38 @@ const AutosaveField = ({ value = '', format, multiline = false, onSave, onIdle, 
     setDraft(stored);
   }, [stored]);
   useEffect(() => () => window.clearTimeout(timerRef.current), []);
+  /* Grow the field to the sentence it holds. The first measurement lands
+     before the column has its final width, so a sentence that will sit on two
+     lines gets measured wrapped into ten and the box keeps that height for the
+     life of the page — a hand's depth of nothing under the belief. Re-fit when
+     the width actually changes, and only then, or fitting would resize the box
+     that the observer is watching. */
   useLayoutEffect(() => {
-    if (!multiline || !fieldRef.current) return;
-    fieldRef.current.style.height = 'auto';
-    fieldRef.current.style.height = `${fieldRef.current.scrollHeight}px`;
+    const field = fieldRef.current;
+    if (!multiline || !field) return undefined;
+    const fit = () => {
+      field.style.height = 'auto';
+      field.style.height = `${field.scrollHeight}px`;
+    };
+    fit();
+    if (typeof ResizeObserver !== 'function') return undefined;
+    let measured = field.clientWidth;
+    let frame = 0;
+    const observer = new ResizeObserver(([entry]) => {
+      const width = entry?.contentRect?.width ?? 0;
+      if (Math.abs(width - measured) < 1) return;
+      measured = width;
+      /* Fit on the next frame so the height write is not a mutation of the
+         box this observer is still delivering. Chrome otherwise reports a
+         ResizeObserver loop and CRA paints it as a runtime overlay. */
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(fit);
+    });
+    observer.observe(field);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
   }, [draft, multiline]);
 
   const save = useCallback(async (raw) => {
@@ -1296,8 +1324,23 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
           Write your current view above to look for evidence. Your research is unchanged.
         </p>
       ) : null}
-      {view.provenance ? (
-        <p className={`judgment__provenance ${step(3)}`}>{view.provenance}</p>
+      {/* Where you stand, in one sentence: how long you have held it, what it
+          is made of, and the one thing that can be wrong with it. The blocks
+          below say all of this too, but only to a reader willing to count
+          them — and the unwatched test used to be announced twice. */}
+      {view.standing.since || view.standing.made || view.standing.unwatched ? (
+        <p className={`judgment__standing ${step(3)}`}>
+          {[view.standing.since, view.standing.made].filter(Boolean).join(' ')}
+          {view.standing.unwatched ? (
+            <span className="judgment__standing-warning">
+              {' '}{view.standing.unwatched}{' '}
+              <button type="button" onClick={() => setOpenTest(n => n + 1)}>Name a signal</button>
+            </span>
+          ) : null}
+        </p>
+      ) : null}
+      {view.looked ? (
+        <p className="judgment__provenance">{view.looked}</p>
       ) : null}
       {anniversary ? (
         <p className="judgment__anniversary" role="note">{anniversary}</p>
@@ -1349,7 +1392,6 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
           onFile={fileEvidence}
           kin={kin}
           onKin={setKin}
-          onNameSignal={() => setOpenTest(n => n + 1)}
           test={(
             <JudgmentResolution
               pageId={pageId}

@@ -41,10 +41,10 @@ const renderCase = () => render(<MemoryRouter><Judgment /></MemoryRouter>);
 /* The four kinds are blocks now, not tabs: you open the one you mean to
    write in, and its field appears there. */
 const INVITATION = {
-  Why: '+ Add a reason',
-  Against: '+ Add counterevidence',
-  Change: '+ Add a test',
-  Did: '+ Record what you did'
+  Why: 'Add a reason…',
+  Against: 'Add counterevidence…',
+  Change: 'Add a test…',
+  Did: 'Record what you did…'
 };
 
 const choose = (kind) => {
@@ -236,8 +236,9 @@ describe('the shape of a block', () => {
     getJudgmentLibraryEvidence.mockResolvedValue({ claim: '', terms: [], candidates: [] });
   });
 
-  /* Newest first, so the line you just wrote is the one you are looking at. */
-  it('puts the newest line at the top of its block', async () => {
+  /* A block rests as its newest sentence, and everything older is behind one
+     door. Four blocks then read as four sentences. */
+  it('rests as its newest sentence, with the rest behind one door', async () => {
     const many = page();
     many.judgment.why = [
       { reasonId: 'w1', text: 'The older reason.' },
@@ -248,9 +249,31 @@ describe('the shape of a block', () => {
     await screen.findByLabelText('Title');
 
     const why = screen.getByRole('region', { name: 'Why you believe it' });
-    const written = within(why).getAllByRole('button', { name: /reason\./ });
+    expect(within(why).getByText('The newer reason.')).toBeInTheDocument();
+    expect(within(why).queryByText('The older reason.')).not.toBeInTheDocument();
+
+    const door = within(why).getByRole('button', { name: 'and one earlier' });
+    expect(door).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(door);
+
+    expect(within(why).getByText('The older reason.')).toBeInTheDocument();
+    /* Newest first, so the line you just wrote is still the one on top. */
+    const written = within(why).getAllByText(/reason\./);
     expect(written[0]).toHaveTextContent('The newer reason.');
     expect(written[1]).toHaveTextContent('The older reason.');
+
+    fireEvent.click(within(why).getByRole('button', { name: 'Fold' }));
+    expect(within(why).queryByText('The older reason.')).not.toBeInTheDocument();
+  });
+
+  /* A door that opens onto nothing is worse than no door. */
+  it('shows no door when the block holds one short line', async () => {
+    renderCase();
+    await screen.findByLabelText('Title');
+
+    const why = screen.getByRole('region', { name: 'Why you believe it' });
+    expect(within(why).getByText('Process still loses half the bets.')).toBeInTheDocument();
+    expect(within(why).queryByRole('button', { name: /earlier|Fold|in full/ })).toBeNull();
   });
 
   /* The field sits above the lines it will join, so what you write appears
@@ -262,21 +285,59 @@ describe('the shape of a block', () => {
 
     const why = screen.getByRole('region', { name: 'Why you believe it' });
     const field = within(why).getByLabelText('Why do you believe it?');
-    const firstLine = within(why).getAllByRole('button', { name: /Process still loses half the bets/ })[0];
+    const firstLine = within(why).getByText(/Process still loses half the bets/);
     expect(field.compareDocumentPosition(firstLine) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  /* Two lines at rest, the whole sentence on a click. */
-  it('folds a line open and shut', async () => {
+  /* Not a box and not a button: the block's next sentence, which becomes a
+     field only when it is reached for. */
+  it('carries no field until the ghost line is reached for', async () => {
     renderCase();
     await screen.findByLabelText('Title');
-    const line = screen.getAllByRole('button', { name: /Process still loses half the bets\./ })[0];
-    expect(line).toHaveAttribute('aria-expanded', 'false');
 
-    fireEvent.click(line);
-    expect(line).toHaveAttribute('aria-expanded', 'true');
-    fireEvent.click(line);
-    expect(line).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByLabelText('Why do you believe it?')).not.toBeInTheDocument();
+    choose('Why');
+    expect(screen.getByLabelText('Why do you believe it?')).toBeInTheDocument();
+  });
+});
+
+/**
+ * Where you stand, in one sentence — so a reader learns what the case is made
+ * of without counting the blocks themselves.
+ */
+describe('the standing line', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.spyOn(router, 'useParams').mockReturnValue({ pageId: 'p1' });
+    listWikiSourceEvents.mockResolvedValue([]);
+    getCompanyDossierJudgmentReview.mockResolvedValue(null);
+    getJudgmentLibraryEvidence.mockResolvedValue({ claim: '', terms: [], candidates: [] });
+  });
+
+  it('spells what the belief is made of, in words rather than a scoreboard', async () => {
+    const made = page();
+    made.judgment.bornAt = '2026-03-14T12:00:00.000Z';
+    made.judgment.against = [{ text: 'One objection.' }, { text: 'Another objection.' }];
+    made.judgment.falsifiers = [{ falsifierId: 'f1', text: 'A cheaper model ships.', observableSignal: 'MMLU per dollar halves.' }];
+    getWikiPage.mockResolvedValue(made);
+    renderCase();
+    await screen.findByLabelText('Title');
+
+    expect(screen.getByText(/Held since March 14/)).toBeInTheDocument();
+    expect(screen.getByText(/One reason, two objections, one test\./)).toBeInTheDocument();
+  });
+
+  /* Unknown is not zero: an empty case says nothing rather than reporting
+     that it holds no reasons, no objections and no tests. */
+  it('says nothing about a case with nothing in it', async () => {
+    const bare = page();
+    bare.judgment.why = [];
+    getWikiPage.mockResolvedValue(bare);
+    renderCase();
+    await screen.findByLabelText('Title');
+
+    expect(screen.queryByText(/no reasons/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/0 reasons/)).not.toBeInTheDocument();
   });
 });
 
@@ -302,9 +363,11 @@ describe('a test nothing is watching', () => {
     getWikiPage.mockResolvedValue(unwatched());
     renderCase();
     await screen.findByLabelText('Title');
-    expect(screen.getByText(/Nothing is watching this/)).toBeInTheDocument();
+    /* Said once, in the sentence that says where you stand — the block used
+       to announce it a second time. */
+    expect(screen.getByText(/Nothing is watching it/)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Name one' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Name a signal' }));
     expect(await screen.findByLabelText('I would change my mind if')).toBeInTheDocument();
   });
 

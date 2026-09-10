@@ -334,6 +334,22 @@ const sameLocalDay = (a, b) => (
 
 /* "Since November. You looked this morning." Both halves come from real
    timestamps; a half with no timestamp behind it simply is not written. */
+/* When you were last here. On the index this rides behind "Since November";
+   on a case the standing line has already said how long the belief has been
+   held, so the case asks for this clause alone rather than repeating itself. */
+export const lastLookedLine = (judgment = {}, now = Date.now()) => {
+  const looked = time(judgment.lastReviewedAt);
+  if (Number.isNaN(looked)) return '';
+  const date = new Date(looked);
+  const today = new Date(now);
+  if (sameLocalDay(date, today)) return date.getHours() < 12 ? 'You looked this morning.' : 'You looked today.';
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  return sameLocalDay(date, yesterday)
+    ? 'You looked yesterday.'
+    : `You looked ${date.toLocaleDateString(undefined, { month: 'long', day: 'numeric' })}.`;
+};
+
 export const provenanceLine = (page, now = Date.now()) => {
   const judgment = page?.judgment || {};
   const parts = [];
@@ -351,21 +367,52 @@ export const provenanceLine = (page, now = Date.now()) => {
       ? { month: 'long' }
       : { month: 'long', year: 'numeric' })}.`);
   }
-  const looked = time(judgment.lastReviewedAt);
-  if (!Number.isNaN(looked)) {
-    const date = new Date(looked);
-    const today = new Date(now);
-    if (sameLocalDay(date, today)) {
-      parts.push(date.getHours() < 12 ? 'You looked this morning.' : 'You looked today.');
-    } else {
-      const yesterday = new Date(now);
-      yesterday.setDate(yesterday.getDate() - 1);
-      parts.push(sameLocalDay(date, yesterday)
-        ? 'You looked yesterday.'
-        : `You looked ${date.toLocaleDateString(undefined, { month: 'long', day: 'numeric' })}.`);
-    }
-  }
+  const looked = lastLookedLine(judgment, now);
+  if (looked) parts.push(looked);
   return parts.join(' ');
+};
+
+/* Counts belong in a sentence, and a sentence spells its numbers. "2 reasons"
+   is a scoreboard; "two reasons" is English. Past ten the digit reads better
+   than the word, which is where prose keeps the line too. */
+const COUNT_WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
+export const countWord = (n) => COUNT_WORDS[n] || String(n);
+const tally = (n, singular, plural) => `${countWord(n)} ${n === 1 ? singular : plural}`;
+
+/* Where you stand, in one sentence.
+ *
+ * The page used to open with when you started and when you last looked, and
+ * then left you to count the blocks yourself to learn what the case was made
+ * of. What a belief is made of is the first thing worth saying about it, and
+ * the one thing that can be wrong with it — a test nothing is watching —
+ * belongs at the end of that sentence, where the cure can sit beside it.
+ *
+ * Nothing is padded. A case with no reasons says so and stops; it does not
+ * report zeroes.
+ */
+const standingLine = (judgment = {}, { why, against, changeMindIf }, now = Date.now()) => {
+  const startedAt = time(judgment.bornAt || judgment.startedAt || whatIDidLines(judgment)[0]?.at || null);
+  const withinAYear = now - startedAt < 365 * 24 * 60 * 60 * 1000;
+  const made = [
+    why.length && tally(why.length, 'reason', 'reasons'),
+    against.length && tally(against.length, 'objection', 'objections'),
+    changeMindIf.length && tally(changeMindIf.length, 'test', 'tests')
+  ].filter(Boolean);
+  const unwatched = changeMindIf.filter(line => !line.signal).length;
+  return {
+    since: Number.isNaN(startedAt) ? '' : `Held since ${new Date(startedAt).toLocaleDateString(undefined, withinAYear
+      ? { month: 'long', day: 'numeric' }
+      : { month: 'long', year: 'numeric' })}.`,
+    /* "Two reasons, two objections, one test." — and nothing at all when the
+       case is still empty, because "no reasons, no objections, no tests" is
+       the zero this product does not print. */
+    made: made.length ? `${made.join(', ').replace(/^./, c => c.toUpperCase())}.` : '',
+    /* A test nobody is watching is a test in name only, and this sentence is
+       the only place that says so — the block used to say it too. */
+    unwatched: unwatched
+      ? `${changeMindIf.length === 1 ? 'Nothing is watching it' : `${countWord(unwatched).replace(/^./, c => c.toUpperCase())} of them have nothing watching`}.`
+      : ''
+  };
 };
 
 export const formatLedgerDate = (value) => {
@@ -383,6 +430,7 @@ export const projectJudgment = (page, now = Date.now()) => {
   const numbered = numberCitations([...whyBase, ...againstBase]);
   const why = numbered.slice(0, whyBase.length);
   const against = numbered.slice(whyBase.length);
+  const changeMindIf = changeMindLines(judgment);
   return {
     id: idOf(page),
     claim: claimSentence(page),
@@ -390,6 +438,7 @@ export const projectJudgment = (page, now = Date.now()) => {
     headline: judgmentHeadline(page),
     pageTitle: normalizeSpaces(page?.title),
     provenance: provenanceLine(page, now),
+    looked: lastLookedLine(judgment, now),
     why,
     whySources: uniqueSources(why),
     against,
@@ -398,7 +447,8 @@ export const projectJudgment = (page, now = Date.now()) => {
     // This is what the agent can see when it is asked about this claim, so
     // it is also the number the rail is allowed to show.
     boundSourceCount: uniqueSources([...why, ...against]).length,
-    changeMindIf: changeMindLines(judgment),
+    changeMindIf,
+    standing: standingLine(judgment, { why, against, changeMindIf }, now),
     whatIDid: whatIDidLines(judgment),
     earlier: earlierLines(judgment),
     lessons: lessonLines(judgment),
