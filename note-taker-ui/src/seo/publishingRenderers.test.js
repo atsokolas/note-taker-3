@@ -1,5 +1,6 @@
 const {
   renderHomeFallback,
+  patchHomeHead,
   renderExamplesPage,
   renderSitemap,
   renderPrerenderManifest,
@@ -8,13 +9,25 @@ const {
   renderBingSiteAuthXml
 } = require('../../scripts/seo/renderers');
 const publishingContent = require('./publishingContent.json');
+const homeCopy = require('./homeCopy.json');
 
 describe('publishing renderers', () => {
+  it('keeps the signed-out homepage copy in one place', () => {
+    expect(publishingContent.home.headline).toBe(homeCopy.headline);
+    expect(publishingContent.home.lede).toBe(homeCopy.lede);
+    expect(publishingContent.home.statements).toEqual(homeCopy.statements);
+    expect(publishingContent.home.title).toBe('Noeis — Make something of what you read');
+  });
+
   it('renders a server-visible homepage fallback from the publishing registry', () => {
     const html = renderHomeFallback(publishingContent);
 
-    expect(html).toContain('Source-grounded personal research wiki');
-    expect(html).toContain('Saved reading becomes a source-grounded wiki. The wiki becomes judgments you can be held to.');
+    expect(html).toContain('A personal research workspace');
+    expect(html).toContain('Make something of what you read.');
+    expect(html).toContain('Keep the source.');
+    expect(html).toContain('Work with the idea.');
+    expect(html).toContain('Pick it up again.');
+    expect(html).toContain('href="#how-it-works"');
     expect(html).toContain('href="/guides"');
     expect(html).toContain('href="/examples"');
     expect(html).toContain('href="/ai-second-brain"');
@@ -23,6 +36,17 @@ describe('publishing renderers', () => {
     expect(html).toContain('href="/share/wiki/collection/mental-models"');
     expect(html).toContain('href="/share/wiki/collection/value-investing"');
     expect(html).toContain('Private backlinks, highlights, source notes, and agent work stay with the original owner.');
+    expect(html).not.toContain('Nothing is written until you accept it');
+    expect(html).not.toContain('An agent brings evidence overnight');
+  });
+
+  it('patches the homepage document title and descriptions from the same copy', () => {
+    const html = patchHomeHead(
+      '<title>old</title><meta name="description" content="old" /><meta property="og:title" content="old" /><meta property="og:description" content="old" /><meta name="twitter:title" content="old" /><meta name="twitter:description" content="old" />',
+      publishingContent
+    );
+    expect(html).toContain('<title>Noeis — Make something of what you read</title>');
+    expect(html).toContain(`content="${publishingContent.home.description}"`);
   });
 
   it('renders a curated examples page for source-grounded public wikis', () => {

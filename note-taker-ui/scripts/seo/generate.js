@@ -5,6 +5,7 @@ const {
   renderExamplesPage,
   renderGuidePage,
   renderHomeFallback,
+  patchHomeHead,
   renderSitemap,
   renderPrerenderManifest,
   renderStaticRedirects,
@@ -39,9 +40,12 @@ if (!indexHtml.includes(START_MARKER) || !indexHtml.includes(END_MARKER)) {
   throw new Error('SEO homepage fallback markers are missing from public/index.html');
 }
 
-const nextIndexHtml = indexHtml.replace(
-  new RegExp(`${START_MARKER}[\\s\\S]*${END_MARKER}`),
-  `${START_MARKER}\n${homeFallback}\n    ${END_MARKER}`
+const nextIndexHtml = patchHomeHead(
+  indexHtml.replace(
+    new RegExp(`${START_MARKER}[\\s\\S]*${END_MARKER}`),
+    `${START_MARKER}\n${homeFallback}\n    ${END_MARKER}`
+  ),
+  content
 );
 
 fs.writeFileSync(indexHtmlPath, nextIndexHtml);
