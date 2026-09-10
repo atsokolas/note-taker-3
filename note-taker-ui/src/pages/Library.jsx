@@ -1252,6 +1252,10 @@ const Library = () => {
         onFileArticle={handleFileArticle}
         onReviewFiling={handleReviewFiling}
         filingLaunching={filingLaunching}
+        onOrganize={handleOrganizeLibrary}
+        organizeLaunching={organizeLaunching}
+        onToggleSuppressed={handleToggleSuppressedItems}
+        suppressedVisible={showSuppressedItems}
         className={columnEntering ? 'wfp-anim wfp-anim--1' : ''}
       />
       <div className="library-page-shell__column">
@@ -1265,28 +1269,13 @@ const Library = () => {
           />
         ) : null}
         <div className="library-page-shell__column-head">
+          {/* Only the way back out of a reading. The library's upkeep moved to
+              the cabinet, where the rest of its housekeeping already lived. */}
           {isReadingView ? (
             <button type="button" className="library-reader__back" onClick={() => handleSelectArticle('')}>
               ← At home
             </button>
-          ) : <span />}
-          <span className="library-page-shell__doors">
-            {/* Filing already lives in the shelf. The less-frequent cleanup
-                controls stay available without sitting above every source. */}
-            {!isReadingView ? (
-              <details className="library-page-shell__tools">
-                <summary>Library actions</summary>
-                <div>
-                  <button type="button" onClick={handleOrganizeLibrary} disabled={organizeLaunching}>
-                    {organizeLaunching ? 'Starting' : 'Clean up structure'}
-                  </button>
-                  <button type="button" onClick={handleToggleSuppressedItems}>
-                    {showSuppressedItems ? 'Hide review imports' : 'Show review imports'}
-                  </button>
-                </div>
-              </details>
-            ) : null}
-          </span>
+          ) : null}
         </div>
         {/* The locked middle: the reading you were in, then the sources as a
             list of title, source and date. LibraryMain still renders every

@@ -60,7 +60,7 @@ describe('the desk clauses', () => {
     expect(textOf(deskClauses({
       later: 3, setAside: 1,
       topics: [{ name: 'Costco', open: 2 }]
-    }))).toEqual(['3 owed a move', '1 at hand', 'Costco has 2 new folios']);
+    }))).toEqual(['3 in Later', '1 in Set aside', 'Costco has 2 new folios']);
   });
 
   /* The sentence was a finished string, so the one thing a reader wanted to do
@@ -73,7 +73,7 @@ describe('the desk clauses', () => {
   });
 
   it('only lets a place speak when it has something on it', () => {
-    expect(textOf(deskClauses({ later: 0, setAside: 2 }))).toEqual(['2 at hand']);
+    expect(textOf(deskClauses({ later: 0, setAside: 2 }))).toEqual(['2 in Set aside']);
   });
 
   it('names folders, never the word feed', () => {
@@ -92,13 +92,13 @@ describe('the desk clauses', () => {
   });
 
   it('counts only what it knows, and stays silent about the rest', () => {
-    expect(textOf(deskClauses({ later: 3, setAside: null }))).toEqual(['3 owed a move']);
+    expect(textOf(deskClauses({ later: 3, setAside: null }))).toEqual(['3 in Later']);
   });
 });
 
 describe('the shelf clause', () => {
   it('says what the canon holds, and how to reach it', () => {
-    expect(shelfClause(7)).toEqual({ key: 'kept', text: 'The shelf holds 7', href: '/library?scope=kept' });
+    expect(shelfClause(7)).toEqual({ key: 'kept', text: '7 in Kept', href: '/library?scope=kept' });
   });
 
   it('stays quiet about a canon holding nothing, or one nobody has counted', () => {
@@ -110,7 +110,7 @@ describe('the shelf clause', () => {
 describe('the first mornings', () => {
   it('prints one line on day one, and asks for nothing', () => {
     expect(firstMorningLead()).toBe('No news yet. Save something worth keeping — I’ll print it when it moves.');
-    expect(firstMorningDeskLine()).toBe('Your desk is empty. The shelf holds nothing yet.');
+    expect(firstMorningDeskLine()).toBe('Your desk is empty. Nothing in Kept yet.');
   });
 });
 
@@ -148,10 +148,10 @@ describe('which paper this is', () => {
 describe('the desk on a weekend', () => {
   /* What you set aside is exactly what a weekend is for. The clause that says
      "owed" is a bill, and the paper does not deliver bills on a Saturday. */
-  it('drops what is owed and keeps what is at hand', () => {
+  it('drops Later and keeps Set aside', () => {
     const clauses = deskClauses({ later: 3, setAside: 2, edition: 'the weekend' });
     expect(clauses.map(clause => clause.key)).toEqual(['setAside']);
-    expect(clauses[0].text).toBe('2 at hand');
+    expect(clauses[0].text).toBe('2 in Set aside');
   });
 
   it('still presents the bill on a weekday', () => {

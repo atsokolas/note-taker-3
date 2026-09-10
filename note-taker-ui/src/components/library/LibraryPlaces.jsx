@@ -16,11 +16,11 @@ import '../../styles/library-column.css';
  * screened. Four links are a navigation bar — they say where you could go and
  * nothing about whether it is worth going. A sentence is a report:
  *
- *   On your desk — 3 owed a move, 1 at hand, Costco has 2 new folios.
- *   The shelf holds 7.
+ *   On your desk — 3 in Later, 1 in Set aside, Costco has 2 new folios.
+ *   7 in Kept.
  *
  * Only places with something on them speak, the folder is named rather than
- * called a feed, and the shelf always gets its clause because the canon is the
+ * called a feed, and Kept always gets its clause because the canon is the
  * one place that is never neglected. The words stay links, so the sentence is
  * still the way there.
  */

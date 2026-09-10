@@ -81,6 +81,12 @@ const LibraryShelfNav = ({
   onSelectScope,
   onSelectFolder,
   onReviewFiling,
+  /* The library's own upkeep, kept with the cabinet rather than above the
+     reading. Absent, the cabinet simply does not offer them. */
+  onOrganize,
+  organizeLaunching = false,
+  onToggleSuppressed,
+  suppressedVisible = false,
   /* A drawer dropped onto another drawer nests inside it; dropped on the
      cabinet itself it returns to the top. Absent, rows only navigate — a
      cabinet that cannot move is still a cabinet. */
@@ -427,7 +433,10 @@ const LibraryShelfNav = ({
             </p>
           ) : null}
 
-          {/* Filing is the cabinet's own work, so it lives with the cabinet. */}
+          {/* Filing is the cabinet's own work, so it lives with the cabinet —
+              and so does the rest of the library's upkeep. These used to sit
+              in a lone disclosure above the reading, which put maintenance in
+              the one place a reader is trying to read. */}
           {onReviewFiling ? (
             <button
               type="button"
@@ -436,6 +445,28 @@ const LibraryShelfNav = ({
               disabled={filingLaunching}
             >
               {filingLaunching ? 'Starting…' : 'Review filing'}
+            </button>
+          ) : null}
+
+          {onOrganize ? (
+            <button
+              type="button"
+              className="library-shelf__filing"
+              onClick={onOrganize}
+              disabled={organizeLaunching}
+            >
+              {organizeLaunching ? 'Starting…' : 'Clean up structure'}
+            </button>
+          ) : null}
+
+          {onToggleSuppressed ? (
+            <button
+              type="button"
+              className="library-shelf__filing"
+              onClick={onToggleSuppressed}
+              aria-pressed={suppressedVisible}
+            >
+              {suppressedVisible ? 'Hide review imports' : 'Show review imports'}
             </button>
           ) : null}
 
