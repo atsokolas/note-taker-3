@@ -361,17 +361,22 @@ describe('Judgment claim', () => {
        until it is asked to be one. */
     expect(screen.getByRole('region', { name: 'Why you believe it' })).toBeInTheDocument();
     expect(screen.queryByLabelText('Why do you believe it?')).not.toBeInTheDocument();
+    /* A block rests as its newest sentence, so only one of the two lines
+       resting on SemiAnalysis is on the page until something asks for more. */
     const semi = screen.getAllByRole('link', { name: 'Source 1: SemiAnalysis' });
-    expect(semi).toHaveLength(2);
+    expect(semi).toHaveLength(1);
     expect(semi[0]).toHaveAttribute('href', 'https://semianalysis.com/capacity');
     expect(screen.getByRole('link', { name: 'Source 2: TrendForce' }))
       .toHaveAttribute('href', 'https://trendforce.com/supply');
     expect(screen.queryByText('SemiAnalysis and TrendForce')).not.toBeInTheDocument();
-    expect(screen.getByText('AI demand keeps compounding faster than new supply.')).toBeInTheDocument();
 
+    /* Hovering the mark says two lines rest on it — so both are shown. A
+       whisper that counts three while the fold shows one is the page losing
+       the truth at the last inch. */
     fireEvent.mouseEnter(semi[0]);
-    expect(document.querySelectorAll('.judgment-block__entry.is-kin')).toHaveLength(2);
     expect(screen.getByText('SemiAnalysis · 2 lines')).toBeInTheDocument();
+    expect(document.querySelectorAll('.judgment-block__entry.is-kin')).toHaveLength(2);
+    expect(screen.getByText('AI demand keeps compounding faster than new supply.')).toBeInTheDocument();
   });
 
   it('opens a library-backed [n] in the library instead of ejecting to the open web', async () => {
@@ -416,9 +421,13 @@ describe('Judgment claim', () => {
     await screen.findByRole('heading', { level: 1 });
     const why = screen.getByRole('region', { name: 'Why you believe it' });
     const against = screen.getByRole('region', { name: 'What argues against it' });
-    expect(within(why).getByText('AI demand keeps compounding faster than new supply.')).toBeInTheDocument();
+    /* Both names, and the newest sentence of each, without a tab between. */
+    expect(within(why).getByRole('button', { name: 'and one earlier' })).toBeInTheDocument();
     expect(within(against).getByText('Hyperscalers are designing more in-house silicon.')).toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: 'Against' })).not.toBeInTheDocument();
+
+    fireEvent.click(within(why).getByRole('button', { name: 'and one earlier' }));
+    expect(within(why).getByText('AI demand keeps compounding faster than new supply.')).toBeInTheDocument();
   });
 
   it('renames the case without rewriting the claim', async () => {
@@ -847,15 +856,9 @@ describe('Judgment claim', () => {
     expect(updateWikiPage).not.toHaveBeenCalled();
   });
 
-  /* This used to assert the opposite: an empty field was absent entirely.
-     That rule was right about the danger — nothing on this page may be filled
-     in with something plausible — and wrong about the remedy. A judgment
-     carried out of a tension arrives with two sides written and two sections
-     still to write, and hiding those two left a page that promises four things
-     showing one. The section is present; what is absent is any line in it. */
-  /* An empty side keeps its head and says what is missing. Hidden, it read as
-     a tab nobody had opened; printed, it is the absence itself — and on this
-     page the absence of counterevidence is the most useful thing there is. */
+  /* An empty side keeps its head. Hidden, it read as a tab nobody had opened.
+     The ghost line is the empty state — a second absence sentence said the
+     same thing twice. */
   it('prints an empty side as an absence rather than hiding it', async () => {
     const bare = judgmentPage();
     bare.judgment.against = [];
@@ -866,12 +869,13 @@ describe('Judgment claim', () => {
 
     await screen.findByRole('heading', { level: 1 });
     const against = screen.getByRole('region', { name: 'What argues against it' });
-    expect(within(against).getByText('Nothing written. This is the side that changes your mind.')).toBeInTheDocument();
-    /* The head stays silent at zero: the sentence under it already says so,
-       and "none" beside "What argues against it" says it twice. */
+    expect(within(against).getByRole('button', { name: 'Add counterevidence…' })).toBeInTheDocument();
+    expect(within(against).queryByText('This is the side that changes your mind.')).not.toBeInTheDocument();
+    /* The head stays silent at zero: the invitation already says the room is
+       empty, and "none" beside "What argues against it" says it twice. */
     expect(within(against).queryByText('none')).not.toBeInTheDocument();
     expect(within(screen.getByRole('region', { name: 'What you did about it' }))
-      .getByText(/Nothing recorded/)).toBeInTheDocument();
+      .getByRole('button', { name: 'Record what you did…' })).toBeInTheDocument();
     expect(screen.queryByText('Hyperscalers are designing more in-house silicon.')).not.toBeInTheDocument();
   });
 
@@ -1028,7 +1032,7 @@ describe('the overnight line', () => {
 
     renderDetail();
     await screen.findByLabelText('Title');
-    fireEvent.click(screen.getByRole('button', { name: '+ Add a reason' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add a reason…' }));
     const input = screen.getByLabelText('Why do you believe it?');
     fireEvent.change(input, { target: { value: 'A typed why.' } });
     fireEvent.click(screen.getByRole('button', { name: 'Accept' }));
@@ -1564,8 +1568,11 @@ describe('Evidence from the library', () => {
     getWikiPage.mockResolvedValue(dated);
 
     renderDetail();
+    /* The newest line is the one on the page at rest, so it is the date a
+       reader can reach. Hovering it opens the block on the line written the
+       same week — the sitting, shown rather than merely counted. */
     const stamp = await screen.findByText((_, node) => (
-      node?.tagName === 'TIME' && node.getAttribute('dateTime') === '2026-08-10T12:00:00.000Z'
+      node?.tagName === 'TIME' && node.getAttribute('dateTime') === '2026-08-14T12:00:00.000Z'
     ));
     fireEvent.mouseEnter(stamp);
 
