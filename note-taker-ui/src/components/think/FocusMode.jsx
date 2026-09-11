@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import '../../styles/think-writing.css';
 
 /**
  * Rails away, held.

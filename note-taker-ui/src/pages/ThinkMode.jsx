@@ -4517,13 +4517,21 @@ const ThinkMode = () => {
   const homeEditorialLayout = activeView === 'home' ? (
     <div className="think-home-editorial-shell-page" data-think-posture={activeThinkPosture}>
       <div className="think-home-editorial-shell">
-        <aside className="think-home-editorial-shell__left">
+        <aside
+          className="think-home-editorial-shell__left"
+          data-writing-rail="left"
+          data-writing-rail-label="Think"
+        >
           {homeEditorialLeftPanel}
         </aside>
         <main className="think-home-editorial-shell__main">
           {mainPanel}
         </main>
-        <aside className="think-home-editorial-shell__right">
+        <aside
+          className="think-home-editorial-shell__right"
+          data-writing-rail="right"
+          data-writing-rail-label="Partner"
+        >
           <RightDrawer title={AGENT_DISPLAY_NAME} open={rightOpen} onToggle={handleToggleRight}>
             <AgentContextShell
               surface="think"
@@ -4580,7 +4588,11 @@ const ThinkMode = () => {
   const conceptIndexEditorialLayout = activeView === 'concepts' && !hasExplicitConceptSelection ? (
     <div className="concept-index-editorial-shell-page" data-think-posture="concept">
       <div className="concept-index-editorial-shell">
-        <aside className="concept-index-editorial-shell__left">
+        <aside
+          className="concept-index-editorial-shell__left"
+          data-writing-rail="left"
+          data-writing-rail-label="Think"
+        >
           {thinkShelfRail}
         </aside>
         <main className="concept-index-editorial-shell__main">
@@ -4625,7 +4637,11 @@ const ThinkMode = () => {
             {mainPanel}
           </div>
         </main>
-        <aside className="concept-index-editorial-shell__right">
+        <aside
+          className="concept-index-editorial-shell__right"
+          data-writing-rail="right"
+          data-writing-rail-label="Partner"
+        >
           <RightDrawer title={AGENT_DISPLAY_NAME} open={rightOpen} onToggle={handleToggleRight}>
             <AgentContextShell
               surface="think"
