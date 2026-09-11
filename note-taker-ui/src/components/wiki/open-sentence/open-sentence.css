@@ -1,5 +1,39 @@
 /* Open a sentence: the article makes a pocket. The sentence stays. */
 
+.read-fresh-toggle {
+  min-height: 44px;
+  padding: 0.45rem 0;
+  border: 0;
+  background: none;
+  color: var(--noeis-ink-muted);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+.read-fresh-toggle:focus-visible { outline: 2px solid var(--noeis-focus); outline-offset: 3px; }
+
+/* Keep the same source DOM and save session; only personal layers disappear.
+   Imported emphasis, footnotes, citations and highlight-only source excerpts stay. */
+[data-read-fresh] :is(.open-sentence__open, .open-sentence__chip, .open-sentence__reveal,
+  .open-sentence__way-home, .open-sentence__library-open, .open-sentence__library-pocket,
+  .open-sentence-works, .open-sentence-library-arrival, .article-cited-passage,
+  .article-folio, .article-passage-threads, .article-highlight-edition__meta,
+  .article-highlight-edition__note, .passage-door) { display: none !important; }
+
+[data-read-fresh] .open-sentence__held::before { display: none; }
+[data-read-fresh] :is(mark.highlight[data-highlight-id], [data-transient-passage="true"],
+  .is-cited-passage, .wiki-claim-citation--targeted:not(:focus-visible)) {
+  --highlight-color: transparent !important;
+  background: transparent !important;
+  color: inherit !important;
+  box-shadow: none !important;
+  outline: none !important;
+  text-decoration: none !important;
+  transition: none !important;
+}
+.library-page-shell:has(.article-reader[data-read-fresh]) .library-context-stack--reading { display: none; }
+
 .open-sentence {
   display: block;
 }
@@ -257,6 +291,140 @@ mark.highlight.open-sentence__held.is-placed:not(.is-open)::before {
   padding-right: 0.2em;
 }
 
+.open-sentence-pocket fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.open-sentence-pocket__contents,
+.open-sentence-pocket__source-primary,
+.open-sentence-pocket__authored,
+.open-sentence-pocket__meet fieldset {
+  display: grid;
+  gap: var(--noeis-space-3);
+}
+
+.open-sentence-pocket__contents { gap: var(--noeis-space-4); }
+
+.open-sentence-works {
+  border-top: 1px solid var(--noeis-rule);
+  margin-top: 2rem;
+  padding-top: 1rem;
+  font-family: var(--noeis-ui-font);
+  font-size: 0.88rem;
+}
+.open-sentence-works > p { color: var(--noeis-ink-muted); }
+.open-sentence-works__return,
+.open-sentence-works__origin { color: var(--noeis-ink-muted); }
+.open-sentence-works__origin { display: block; font-size: 0.8rem; }
+.open-sentence-works__return { margin: 0 0 0.75rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+.open-sentence-works summary { min-height: 44px; padding-block: 0.6rem; cursor: pointer; overflow-wrap: anywhere; }
+.open-sentence-works ul { list-style: none; padding: 0; }
+.open-sentence-works button {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-height: 44px;
+  font: inherit;
+  color: inherit;
+  border: 0;
+  background: none;
+  padding: 0.45rem 0;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+}
+
+.open-sentence-pocket__discard > button {
+  min-height: 44px;
+  color: inherit;
+  font: inherit;
+  padding: 0.5rem 0;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  text-underline-offset: 0.2em;
+}
+
+.open-sentence-pocket__discard > button:hover { text-decoration: underline; }
+
+@media (min-width: 1100px) {
+  .open-sentence-pocket__source.has-pair {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+    max-height: none;
+    gap: 1.5rem;
+  }
+}
+
+.open-sentence-pocket summary {
+  padding: 10px 0;
+  cursor: pointer;
+  color: var(--noeis-ink-muted);
+  font-family: var(--noeis-font-ui);
+  font-size: 0.88rem;
+}
+
+.open-sentence-pocket__writing-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--noeis-space-2);
+}
+
+.open-sentence-pocket__writing-head label {
+  font-family: var(--noeis-font-reading);
+  font-size: 1.12rem;
+  overflow-wrap: anywhere;
+}
+
+.open-sentence-pocket__writing-head button,
+.open-sentence-pocket__title-selection {
+  min-height: 44px;
+  padding: 4px 0;
+  border: 0;
+  background: transparent;
+  color: var(--noeis-thread-strong);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.82rem;
+}
+
+.open-sentence-pocket__authored textarea {
+  max-width: none;
+  resize: vertical;
+  line-height: 1.65;
+  font-family: var(--noeis-font-reading);
+  background: transparent;
+}
+
+.open-sentence-pocket__save,
+.open-sentence-pocket__receipt {
+  margin: 0;
+  min-height: 1.5em;
+  font-family: var(--noeis-font-ui);
+  font-size: 0.82rem;
+  color: var(--noeis-ink-muted);
+}
+
+.open-sentence-pocket__receipt a { color: var(--noeis-thread-strong); }
+.open-sentence-pocket__prior-writing { white-space: pre-wrap; overflow-wrap: anywhere; }
+.open-sentence-pocket__context blockquote { margin: 1em 0; padding-left: 1em; border-left: 1px solid var(--noeis-rule); }
+.open-sentence-pocket__context cite { font-style: normal; color: var(--noeis-ink-muted); }
+
+.open-sentence-pocket button:disabled { cursor: default; opacity: 0.55; }
+
+@media (max-width: 720px) {
+  .open-sentence-pocket__authored textarea,
+  .open-sentence-pocket input { font-size: 16px; }
+}
+
 .open-sentence-pocket__source-title,
 .open-sentence-pocket__label {
   margin: 0;
@@ -321,7 +489,7 @@ mark.highlight.open-sentence__held.is-placed:not(.is-open)::before {
   animation: open-sentence-place var(--noeis-motion-base) cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-.open-sentence-pocket__home {
+.open-sentence-pocket__actions > a {
   display: inline-flex;
   align-items: center;
   min-height: 44px;
@@ -340,6 +508,8 @@ mark.highlight.open-sentence__held.is-placed:not(.is-open)::before {
 
 .open-sentence-pocket__marginalia {
   justify-self: start;
+  min-width: 44px;
+  min-height: 44px;
   margin: 0;
   padding: 0;
   border: 0;
@@ -367,6 +537,8 @@ mark.highlight.open-sentence__held.is-placed:not(.is-open)::before {
   gap: var(--noeis-space-2);
 }
 
+.open-sentence-pocket__contents > button,
+.open-sentence-continuity button,
 .open-sentence-pocket__write > button,
 .open-sentence-pocket__pressure > button,
 .open-sentence-pocket__meet > button,
@@ -408,6 +580,8 @@ mark.highlight.open-sentence__held.is-placed:not(.is-open)::before {
   font-weight: 560;
 }
 
+.open-sentence-pocket__contents > button,
+.open-sentence-continuity button,
 .open-sentence-pocket__write > button,
 .open-sentence-pocket__pressure > button,
 .open-sentence-pocket__meet > button,
@@ -459,3 +633,11 @@ mark.highlight.open-sentence__held.is-placed:not(.is-open)::before {
     opacity: 0.7;
   }
 }
+
+.open-sentence-pocket__context-copy dl { margin: 0; }
+.open-sentence-pocket__context-copy dt { margin-top: 1rem; font-size: 0.75rem; color: var(--text-secondary); }
+.open-sentence-pocket__context-copy dd { margin: 0.25rem 0 0; overflow-wrap: anywhere; }
+
+.authored-recovery { max-width: 48rem; margin: 0 auto; padding: 2rem 1.25rem; }
+.authored-recovery details { margin: 1rem 0; }
+.authored-recovery h1 { overflow-wrap: anywhere; }

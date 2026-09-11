@@ -5,6 +5,9 @@ import useCssMagneticLerp from '../../../hooks/useCssMagneticLerp';
 import { useFinePointer, usePrefersReducedMotion } from '../../../hooks/useMotionPreferences';
 import {
   beginPressure,
+  chooseLibraryPassage,
+  setReturnNote,
+  thoughtTitle,
   bringTheParagraphBack,
   bringTheSourceBack,
   cancelPlacement,
@@ -72,6 +75,8 @@ import {
 } from './openSentenceJourney';
 import { listenOpenSentenceStore } from './openSentenceStore';
 import { CopyClip, KeptWork, PocketField, WithoutParagraphWork, WithoutSourceWork } from './OpenSentenceKept';
+import AuthoredWriting, { AuthoredContext } from './AuthoredWriting';
+import LibraryPassagePicker from './LibraryPassagePicker';
 import './open-sentence.css';
 
 const selectionInside = (root) => {
@@ -203,7 +208,8 @@ const DistinctionField = ({
   mocked,
   onOpenSourceHome,
   heldInstrument,
-  onHeld
+  onHeld,
+  authorship
 }) => {
   const dated = formatNamedOn(namedOn(exploration));
   const pending = pendingInstrument(exploration);
@@ -311,7 +317,8 @@ const SourceBeside = ({
   placeBesideTitle,
   onCommit,
   onOpenSourceHome,
-  writing = true
+  writing = true,
+  allowPlacement = true
 }) => {
   const source = exploration?.source;
   if (!source) {
@@ -357,7 +364,7 @@ const SourceBeside = ({
           mocked={mocked}
           onOpen={() => onOpenSourceHome?.(source, exploration)}
         />
-        {writing ? (
+        {writing && allowPlacement ? (
           <PlacementActions
             exploration={exploration}
             source={source}
@@ -637,8 +644,14 @@ const PocketBody = ({
   fresh = false,
   onFresh,
   heldInstrument,
-  onHeld
+  onHeld,
+  authorship
 }) => {
+  const [choosing, setChoosing] = useState(false);
+  const [previousChoice, setPreviousChoice] = useState(null);
+  const bringButton = useRef(null);
+  const composing = Boolean(authorship);
+  const sources = [exploration.source, exploration.other].filter(source => source?.available !== false && source?.passage);
   const then = liveThen(exploration);
   const writing = !fresh;
   const rearranged = isRearranged(exploration);
@@ -656,6 +669,7 @@ const PocketBody = ({
       onCommit={onCommit}
       onOpenSourceHome={onOpenSourceHome}
       writing={writing}
+      allowPlacement={!composing || Boolean(placeBesideTitle)}
     />
   );
   const alsoSource = (
@@ -675,6 +689,11 @@ const PocketBody = ({
         <p className="open-sentence-pocket__whisper">You left this open.</p>
       ) : null}
 
+      {composing && !authorship.ready ? <div>
+        <p role="status">{authorship.error || 'Opening your private work…'}</p>
+        {authorship.error ? <button type="button" onClick={authorship.retryLoad}>Try opening again</button> : null}
+      </div> : null}
+      <fieldset className="open-sentence-pocket__contents" disabled={composing && !authorship.ready}>
       <div className="open-sentence-pocket__source">
         {rearranged ? (
           <>
@@ -703,6 +722,37 @@ const PocketBody = ({
         ) : null}
       </div>
 
+      {composing ? (
+        <>
+          <div className="open-sentence-pocket__actions">
+            <button ref={bringButton} type="button" onClick={() => setChoosing(true)}>Bring from Library</button>
+            {previousChoice ? (
+              <button type="button" onClick={() => {
+                onCommit({ ...exploration, ...previousChoice });
+                setPreviousChoice(null);
+              }}>Undo passage placement</button>
+            ) : null}
+          </div>
+          <LibraryPassagePicker
+            open={choosing}
+            excluded={sources}
+            onDismiss={() => { setChoosing(false); bringButton.current?.focus(); }}
+            onPlace={source => {
+              setPreviousChoice({ selectedSource: exploration.selectedSource || null, other: exploration.other, meet: exploration.meet });
+              onCommit(chooseLibraryPassage(exploration, source));
+              setChoosing(false);
+              bringButton.current?.focus();
+            }}
+          />
+          <details className="open-sentence-pocket__context">
+            <summary>Working with {sources.length ? `${sources.length} passage${sources.length === 1 ? '' : 's'} and your writing` : 'this sentence and your writing'}</summary>
+            <AuthoredContext exploration={exploration} sources={sources} />
+          </details>
+          <AuthoredWriting exploration={exploration} onChange={onCommit} authorship={authorship} pocketId={pocketId} />
+        </>
+      ) : null}
+
+      <details open={!composing || wordingChanged(exploration)}><summary>Try a wording for the article</summary>
       <div className="open-sentence-pocket__write">
         {writing ? (
           <WordingWork
@@ -755,6 +805,7 @@ const PocketBody = ({
         ) : null}
       </div>
 
+      </details>
       {writing ? (
         <PressureBody pocketId={pocketId} exploration={exploration} onCommit={onCommit} />
       ) : null}
@@ -791,7 +842,12 @@ const PocketBody = ({
           onOpenSourceHome={onOpenSourceHome}
         />
       )}
-      {hasPersonalWork(exploration) ? (
+      {composing ? <label className="open-sentence-pocket__label">
+        A note for your return
+        <input value={exploration.returnNote || ''} onChange={event => onCommit(setReturnNote(exploration, event.target.value))} placeholder="Next: …" />
+      </label> : null}
+      </fieldset>
+      {!composing && hasPersonalWork(exploration) ? (
         <button
           type="button"
           className="open-sentence-pocket__fresh"
@@ -826,10 +882,13 @@ const OpenSentence = ({
   onAccept,
   onMakeTitle,
   acceptSilence = '',
+  authorship = null,
+  suspended = false,
   children
 }) => {
   const pocketId = useId();
   const heldRef = useRef(null);
+  const openButton = useRef(null);
   const wasOpen = useRef(false);
   const chipMagnet = useCssMagneticLerp('--open-chip-x', 0.28);
   const finePointer = useFinePointer();
@@ -847,7 +906,7 @@ const OpenSentence = ({
   const accepted = wikiAcceptedText(exploration);
   const { className: lineClassName, ...restLine } = lineProps;
   const split = Boolean(hosts?.controls && hosts?.pocket);
-  const followChip = finePointer && !reducedMotion && armed && !open;
+  const followChip = !suspended && finePointer && !reducedMotion && armed && !open;
 
   const openPocket = useCallback(() => {
     setArmed(false);
@@ -858,6 +917,7 @@ const OpenSentence = ({
     setPreviewing(false);
     setInspecting(false);
     onChange(closeExploration(exploration));
+    openButton.current?.focus();
   }, [exploration, onChange]);
 
   useEffect(() => {
@@ -866,10 +926,11 @@ const OpenSentence = ({
   }, [exploration?.source?.aroundBefore, exploration?.source?.available, exploration?.source?.passage, exploration?.source?.stale]);
 
   useEffect(() => {
+    if (suspended) return undefined;
     const onPointer = () => setArmed(selectionInside(armRoot || heldRef.current));
     document.addEventListener('selectionchange', onPointer);
     return () => document.removeEventListener('selectionchange', onPointer);
-  }, [armRoot]);
+  }, [armRoot, suspended]);
 
   useEffect(() => {
     if (open && !wasOpen.current) {
@@ -918,9 +979,9 @@ const OpenSentence = ({
   }, [exploration?.placed]);
 
   useEffect(() => {
-    if (!open) return undefined;
+    if (!open || suspended) return undefined;
     const onKey = (event) => {
-      if (event.key !== 'Escape') return;
+      if (event.key !== 'Escape' || event.defaultPrevented || event.isComposing || event.keyCode === 229) return;
       event.stopPropagation();
       if (previewing) {
         setPreviewing(false);
@@ -942,7 +1003,7 @@ const OpenSentence = ({
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [closePocket, exploration, fresh, onChange, open, previewing]);
+  }, [closePocket, exploration, fresh, onChange, open, previewing, suspended]);
 
   useEffect(() => {
     if (!followChip) {
@@ -973,7 +1034,7 @@ const OpenSentence = ({
     else openPocket();
   };
 
-  const wayHomeLabel = closedWayHome(exploration);
+  const wayHomeLabel = authorship ? thoughtTitle(exploration) || closedWayHome(exploration) : closedWayHome(exploration);
   const wayHome = !open && !keepPocket && (homecoming || wayHomeLabel) ? (
     <div className="open-sentence__way-home">
       {homecoming ? <p className="open-sentence__been">{homecoming}</p> : null}
@@ -998,6 +1059,7 @@ const OpenSentence = ({
     <>
       <button
         type="button"
+        ref={openButton}
         className="open-sentence__open"
         aria-expanded={open}
         aria-controls={pocketId}
@@ -1078,6 +1140,7 @@ const OpenSentence = ({
               onFresh={setFresh}
               heldInstrument={heldInstrument}
               onHeld={setHeldInstrument}
+              authorship={authorship}
             />
             <button type="button" className="open-sentence-pocket__close" onClick={closePocket}>
               Close

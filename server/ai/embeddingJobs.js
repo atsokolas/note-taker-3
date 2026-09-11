@@ -204,15 +204,25 @@ const persistEmbeddingJob = async ({ collection, id, text, payload, model = Embe
   );
 };
 
-const enqueueEmbedding = ({ collection, id, text, payload }) => {
-  if (canPersistEmbeddingJobs()) {
-    return persistEmbeddingJob({ collection, id, text, payload })
+const enqueueEmbedding = ({ collection, id, text, payload }, {
+  requireDurable = false,
+  model = EmbeddingJob,
+  enqueueTransient = enqueue
+} = {}) => {
+  if (requireDurable) {
+    if (!canPersistEmbeddingJobs(model)) {
+      return Promise.reject(new Error('Durable embedding queue persistence is unavailable.'));
+    }
+    return persistEmbeddingJob({ collection, id, text, payload, model });
+  }
+  if (canPersistEmbeddingJobs(model)) {
+    return persistEmbeddingJob({ collection, id, text, payload, model })
       .catch(error => {
         console.error('❌ Failed to persist embedding job; using transient queue:', error.message || error);
-        enqueue('embedding', { collection, id, text, payload });
+        enqueueTransient('embedding', { collection, id, text, payload });
       });
   }
-  enqueue('embedding', { collection, id, text, payload });
+  enqueueTransient('embedding', { collection, id, text, payload });
   return null;
 };
 
@@ -629,9 +639,10 @@ const enqueueArticleEmbedding = async (article, options = {}) => {
   return Promise.all([jobCleanup, cleanup]);
 };
 
-const enqueueNotebookEmbedding = (entry) => {
-  if (!entry) return;
-  enqueueEmbedding({
+const buildNotebookEmbeddingJob = (entry) => {
+  if (!entry) return null;
+  const updatedAt = entry.updatedAt || entry.createdAt || new Date().toISOString();
+  return {
     collection: COLLECTIONS.notebook,
     id: String(entry._id),
     text: buildNotebookText(entry),
@@ -640,16 +651,23 @@ const enqueueNotebookEmbedding = (entry) => {
       objectId: String(entry._id),
       title: entry.title || '',
       tags: entry.tags || [],
-      createdAt: entry.updatedAt || entry.createdAt || new Date().toISOString(),
+      createdAt: updatedAt,
+      updatedAt,
       userId: String(entry.userId)
     }
-  });
+  };
 };
 
-const enqueueQuestionEmbedding = (question) => {
-  if (!question) return;
+const enqueueNotebookEmbedding = async (entry, options = {}) => {
+  const job = buildNotebookEmbeddingJob(entry);
+  return job ? enqueueEmbedding(job, options) : null;
+};
+
+const buildQuestionEmbeddingJob = (question) => {
+  if (!question) return null;
   const tags = [question.conceptName || question.linkedTagName].filter(Boolean);
-  enqueueEmbedding({
+  const updatedAt = question.updatedAt || question.createdAt || new Date().toISOString();
+  return {
     collection: COLLECTIONS.questions,
     id: String(question._id),
     text: buildQuestionText(question),
@@ -658,10 +676,16 @@ const enqueueQuestionEmbedding = (question) => {
       objectId: String(question._id),
       title: question.text || '',
       tags,
-      createdAt: question.updatedAt || question.createdAt || new Date().toISOString(),
+      createdAt: updatedAt,
+      updatedAt,
       userId: String(question.userId)
     }
-  });
+  };
+};
+
+const enqueueQuestionEmbedding = async (question, options = {}) => {
+  const job = buildQuestionEmbeddingJob(question);
+  return job ? enqueueEmbedding(job, options) : null;
 };
 
 const enqueueWikiClaimEmbeddings = (page) => {
@@ -720,6 +744,8 @@ module.exports = {
   releaseEmbeddingJob,
   isRateLimitError,
   buildArticleEmbeddingJobs,
+  buildNotebookEmbeddingJob,
+  buildQuestionEmbeddingJob,
   deleteArticleEmbeddingState,
   reconcileArticleEmbeddingJobs,
   buildJudgmentEmbeddingJob,

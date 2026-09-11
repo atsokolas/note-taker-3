@@ -1,5 +1,8 @@
 import {
   buildNoteShelf,
+  noteTitle,
+  buildWritingResults,
+  buildAuthoredShelf,
   editedLine,
   namesAThinkObject,
   readRecentNoteIds,
@@ -62,7 +65,7 @@ describe('the faint shelf', () => {
     expect(shelf.map(item => item.isOpen)).toEqual([false, true, false]);
   });
 
-  it('stays bounded until the human searches or asks for the full recent set', () => {
+  it('stays bounded until the human asks for the full recent set', () => {
     const many = Array.from({ length: 24 }, (_, index) => ({
       _id: `note-${index}`,
       title: index === 22 ? 'A specific parenting thought' : `Note ${index}`,
@@ -70,8 +73,6 @@ describe('the faint shelf', () => {
     }));
 
     expect(buildNoteShelf({ notes: many })).toHaveLength(18);
-    expect(buildNoteShelf({ notes: many, query: 'parenting' }).map(item => item.title))
-      .toEqual(['A specific parenting thought']);
     expect(buildNoteShelf({ notes: many, expanded: true })).toHaveLength(24);
   });
 });
@@ -117,5 +118,42 @@ describe('namesAThinkObject', () => {
 
   it('leaves postures it does not know to the older workspace', () => {
     expect(namesAThinkObject('?tab=organize')).toBe(true);
+  });
+});
+
+it('keeps private continuation identity and constructs an exact local link', () => {
+  expect(buildAuthoredShelf(null)).toEqual([]);
+  expect(buildAuthoredShelf([{ title: 'No identity' }])).toEqual([]);
+  const [row] = buildAuthoredShelf([{ id: 'work-1', pageId: 'page/1', claimId: 'claim&1', title: 'My words', returnNote: 'Try the exception.', href: 'https://untrusted.example' }]);
+  expect(row.href).toBe('/wiki/read/page%2F1?claimId=claim%261&exploration=1');
+  expect(row.returnNote).toBe('Try the exception.');
+});
+
+it('returns Library writing to its own highlight without constructing a Wiki identity', () => {
+  const [item] = buildAuthoredShelf([{ id: 'work-1', articleId: 'article-1', highlightId: 'highlight-1', title: 'My words' }]);
+  expect(item.href).toBe('/library?articleId=article-1&highlightId=highlight-1&exploration=1');
+});
+
+
+describe('writing recognition', () => {
+  it('uses a first-text preview only for an unnamed note, without modifying it', () => {
+    const entry = { title: 'Untitled', snippet: 'The room & the question.' };
+    expect(noteTitle(entry)).toBe('The room & the question.');
+    expect(entry.title).toBe('Untitled');
+    expect(noteTitle({ title: 'Untitled', snippet: 'Old preview', blocks: [{text:'The new beginning'}] })).toBe('The new beginning');
+    expect(noteTitle({ title: 'Untitled', snippet: 'A < B and B > C' })).toBe('A < B and B > C');
+    expect(noteTitle({ title: 'My title', snippet: 'Opening words' })).toBe('My title');
+    expect(noteTitle({ title: 'Untitled note' })).toBe('Untitled');
+  });
+  it('constructs local result links from identity and keeps independent copies distinct', () => {
+    const results = buildWritingResults([
+      { kind:'notebook',id:'note-1',title:'Untitled',snippet:'A phrase I remember',href:'https://untrusted.test' },
+      { kind:'exploration',id:'work-1',articleId:'article-1',highlightId:'highlight-1',title:'A phrase I remember' },
+      { kind:'exploration',id:'broken',title:'Missing identity' }
+    ]);
+    expect(results.map(item => item.href)).toEqual(['/think?tab=notebook&entryId=note-1','/library?articleId=article-1&highlightId=highlight-1&exploration=1']);
+    expect(results[0].title).toBe('A phrase I remember');
+    expect(buildWritingResults([{kind:'notebook',id:'note-1',title:'My note'}], 'room + time')[0].href)
+      .toBe('/think?tab=notebook&entryId=note-1&find=room+%2B+time');
   });
 });

@@ -25,6 +25,31 @@ export const buildCanonicalArticlePath = (articleId = '') => {
   return id ? `/library?articleId=${encodeURIComponent(id)}` : '/library';
 };
 
+export const safeInternalPath = (value, prefix) => {
+  const path = clean(value);
+  if (!path.startsWith('/') || path.startsWith('//') || path.includes('\\')) return '';
+  try {
+    const parsed = new URL(path, 'https://noeis.local');
+    const matches = prefix.endsWith('/') ? parsed.pathname.startsWith(prefix) : parsed.pathname === prefix;
+    return parsed.origin === 'https://noeis.local' && matches
+      ? `${parsed.pathname}${parsed.search}${parsed.hash}` : '';
+  } catch (_error) {
+    return '';
+  }
+};
+
+// A saved quotation's exact passage must belong to its recorded article.
+// If its path drifted, return to that article without pretending it is exact.
+export const resolveSavedSourcePath = (source = {}) => {
+  const articleId = idOf(source?.articleId);
+  const path = safeInternalPath(source?.sourcePath, '/library');
+  if (path) {
+    const pathArticleId = new URL(path, 'https://noeis.local').searchParams.get('articleId');
+    if (pathArticleId && (!articleId || pathArticleId === articleId)) return path;
+  }
+  return articleId ? buildCanonicalArticlePath(articleId) : '';
+};
+
 export const buildCanonicalHighlightPath = ({ articleId = '', highlightId = '' } = {}) => {
   const article = idOf(articleId);
   const highlight = idOf(highlightId);
@@ -33,6 +58,15 @@ export const buildCanonicalHighlightPath = ({ articleId = '', highlightId = '' }
   if (!article) return '/library';
   const path = buildCanonicalArticlePath(article);
   return highlight ? `${path}&highlightId=${encodeURIComponent(highlight)}` : path;
+};
+
+// Private continuation uses object identity only, never the current browser
+// query, private prose, or a token. Opening it still requires the owner.
+export const buildAuthoredContinuationPath = (row = {}) => {
+  if (row.sourceUnavailable && row.id) return `/think?explorationId=${encodeURIComponent(idOf(row.id))}`;
+  if (row.articleId && row.highlightId) return `${buildCanonicalHighlightPath(row)}&exploration=1`;
+  if (row.pageId && row.claimId) return `/wiki/read/${encodeURIComponent(idOf(row.pageId))}?claimId=${encodeURIComponent(idOf(row.claimId))}&exploration=1`;
+  return '';
 };
 
 const buildOwnedSourcePath = (source = {}) => {

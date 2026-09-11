@@ -2,11 +2,122 @@ import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import QuestionBlocksEditor, { getChallengeEvidenceBalance } from './QuestionBlocksEditor';
 
-jest.mock('../../../hooks/useHighlights', () => () => ({
-  highlightMap: new Map()
-}));
+const mockUseHighlights = jest.fn(() => ({ highlightMap: new Map() }));
+
+jest.mock('../../../hooks/useHighlights', () => (...args) => mockUseHighlights(...args));
 
 describe('QuestionBlocksEditor', () => {
+  beforeEach(() => {
+    mockUseHighlights.mockReturnValue({ highlightMap: new Map() });
+  });
+
+  it('renders a source-bound paragraph as an attributed quotation with its exact Library return', () => {
+    const sourcePath = '/library?articleId=article-1#passage=%7B%22text%22%3A%22Exact%22%7D';
+    render(
+      <QuestionBlocksEditor
+        blocks={[{
+          id: 'source-1',
+          type: 'paragraph',
+          text: 'The exact chosen passage.',
+          articleId: 'article-1',
+          articleTitle: 'A beautiful source',
+          sourcePath
+        }]}
+        onChange={jest.fn()}
+        onInsertHighlight={jest.fn()}
+      />
+    );
+
+    expect(screen.getByRole('blockquote', { name: 'Source quotation from A beautiful source' }))
+      .toHaveTextContent('The exact chosen passage.');
+    expect(screen.queryByDisplayValue('The exact chosen passage.')).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'A beautiful source' })).toHaveAttribute('href', sourcePath);
+  });
+
+  it('rejects a source path for another article and falls back to the canonical Library route', () => {
+    render(
+      <QuestionBlocksEditor
+        blocks={[{
+          id: 'source-1',
+          type: 'paragraph',
+          text: 'Source passage.',
+          articleId: 'article-1',
+          articleTitle: 'Known source',
+          sourcePath: '/library?articleId=article-2#passage=wrong'
+        }]}
+        onChange={jest.fn()}
+        onInsertHighlight={jest.fn()}
+      />
+    );
+
+    expect(screen.getByRole('link', { name: 'Known source' })).toHaveAttribute(
+      'href',
+      '/library?articleId=article-1'
+    );
+  });
+
+  it('keeps an authored highlight snapshot even when the live highlight text has changed', () => {
+    mockUseHighlights.mockReturnValue({
+      highlightMap: new Map([['highlight-1', {
+        _id: 'highlight-1',
+        text: 'Changed live highlight text.',
+        articleId: 'article-1',
+        articleTitle: 'A beautiful source'
+      }]])
+    });
+    render(
+      <QuestionBlocksEditor
+        blocks={[{
+          id: 'source-1',
+          type: 'highlight-ref',
+          highlightId: 'highlight-1',
+          text: 'The passage as it was when kept.',
+          articleId: 'article-1',
+          articleTitle: 'A beautiful source',
+          sourcePath: '/library?articleId=article-1&highlightId=highlight-1'
+        }]}
+        onChange={jest.fn()}
+        onInsertHighlight={jest.fn()}
+      />
+    );
+
+    expect(screen.getByRole('blockquote', { name: 'Source quotation from A beautiful source' }))
+      .toHaveTextContent('The passage as it was when kept.');
+    expect(screen.getByRole('link', { name: 'A beautiful source' })).toHaveAttribute(
+      'href',
+      '/library?articleId=article-1&highlightId=highlight-1'
+    );
+    expect(screen.queryByText('Changed live highlight text.')).not.toBeInTheDocument();
+  });
+
+  it('keeps an ordinary highlight embed live when it has no authored source path', () => {
+    mockUseHighlights.mockReturnValue({
+      highlightMap: new Map([['highlight-1', {
+        _id: 'highlight-1',
+        text: 'Current saved highlight text.',
+        articleId: 'article-1',
+        articleTitle: 'A beautiful source'
+      }]])
+    });
+    render(
+      <QuestionBlocksEditor
+        blocks={[{
+          id: 'highlight-block-1',
+          type: 'highlight-ref',
+          highlightId: 'highlight-1',
+          text: 'Older cached text.',
+          articleId: 'article-1',
+          articleTitle: 'A beautiful source'
+        }]}
+        onChange={jest.fn()}
+        onInsertHighlight={jest.fn()}
+      />
+    );
+
+    expect(screen.getByText(/Current saved highlight text/)).toBeInTheDocument();
+    expect(screen.queryByRole('blockquote')).not.toBeInTheDocument();
+  });
+
   it('calculates support/counter balance for challenged claims', () => {
     expect(getChallengeEvidenceBalance({
       challenge: {

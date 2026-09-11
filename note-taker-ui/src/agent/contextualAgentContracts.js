@@ -126,6 +126,7 @@ export const buildContextualAgentSurface = (contractId, context = {}) => {
     objectId,
     pageId,
     claimId,
+    ...(context.exploration ? { exploration: context.exploration } : {}),
     subject,
     // How much the agent can actually see. null means the surface has not
     // declared a corpus; 0 is a real answer and must be said out loud.

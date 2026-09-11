@@ -12,6 +12,9 @@ export const RoomShelf = ({
   searchLabel,
   searchPlaceholder,
   searchTestId,
+  searchMaxLength,
+  searchInputRef,
+  onSearchKeyDown,
   masthead,
   onSearchChange,
   className = '',
@@ -32,6 +35,9 @@ export const RoomShelf = ({
         <span className="sr-only">{searchLabel}</span>
         <input
           type="search"
+          ref={searchInputRef}
+          maxLength={searchMaxLength}
+          onKeyDown={onSearchKeyDown}
           value={search}
           aria-label={searchLabel}
           placeholder={searchPlaceholder}

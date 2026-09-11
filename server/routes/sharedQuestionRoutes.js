@@ -11,7 +11,12 @@ const generateSlug = () => crypto.randomBytes(SLUG_BYTES)
 
 const sanitizeParagraphBlocks = (blocks = []) => (
   (Array.isArray(blocks) ? blocks : [])
-    .filter((block) => block?.type === 'paragraph')
+    .filter((block) => (
+      block?.type === 'paragraph'
+      && !String(block?.sourcePath || '').trim()
+      && !String(block?.articleId || '').trim()
+      && !String(block?.articleTitle || '').trim()
+    ))
     .map((block) => ({
       id: String(block?.id || ''),
       type: 'paragraph',

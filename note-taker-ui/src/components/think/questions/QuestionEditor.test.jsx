@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import QuestionEditor from './QuestionEditor';
 
 jest.mock('../../../hooks/useHighlights', () => () => ({
@@ -22,6 +22,62 @@ jest.mock('../notebook/InsertHighlightModal', () => function InsertHighlightModa
 });
 
 describe('QuestionEditor', () => {
+  it('ends a kept question with both named sources and retains them after save and reopen', () => {
+    const sources = [
+      { id: 'primary', type: 'highlight-ref', text: 'The sentence’s source words.', highlightId: 'highlight-1',
+        articleId: 'article-1', articleTitle: 'The original source', sourcePath: '/library?articleId=article-1&highlightId=highlight-1' },
+      { id: 'chosen', type: 'paragraph', text: 'The words brought into the thought.',
+        articleId: 'article-2', articleTitle: 'The chosen source', sourcePath: '/library?articleId=article-2#passage=exact' }
+    ];
+    const question = {
+      _id: 'question-1', text: 'What follows?', blocks: sources,
+      importMeta: { sourceType: 'authored_exploration', sourceLabel: 'Parenting',
+        sourceUrl: '/wiki/read/page-1?claimId=claim-1&exploration=1', sourcePath: sources[1].sourcePath }
+    };
+    const onSave = jest.fn();
+    const { rerender } = render(<QuestionEditor question={question} onSave={onSave} />);
+    const assertSources = () => {
+      const footer = within(screen.getByRole('contentinfo', { name: 'Authored work origin' }));
+      for (const source of sources) expect(footer.getByRole('link', { name: `Open ${source.articleTitle}` }))
+        .toHaveAttribute('href', source.sourcePath);
+      expect(footer.getByRole('link', { name: 'Return to Parenting' })).toHaveAttribute('href', question.importMeta.sourceUrl);
+    };
+    assertSources();
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    rerender(<QuestionEditor question={onSave.mock.calls[0][0]} onSave={onSave} />);
+    assertSources();
+  });
+
+  it('preserves the exact source-bound quotation when saving and reopening', () => {
+    const onSave = jest.fn();
+    const sourceBlock = {
+      id: 'source-1',
+      type: 'paragraph',
+      text: 'The exact chosen passage.',
+      articleId: 'article-1',
+      articleTitle: 'A beautiful source',
+      sourcePath: '/library?articleId=article-1#passage=exact'
+    };
+    const { rerender } = render(
+      <QuestionEditor
+        question={{ _id: 'question-1', text: 'What follows?', blocks: [sourceBlock] }}
+        saving={false}
+        error={null}
+        onSave={onSave}
+      />
+    );
+
+    expect(screen.getByRole('blockquote', { name: `Source quotation from ${sourceBlock.articleTitle}` }))
+      .toHaveTextContent(sourceBlock.text);
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ blocks: [expect.objectContaining(sourceBlock)] }));
+
+    const saved = onSave.mock.calls[0][0];
+    rerender(<QuestionEditor question={saved} saving={false} error={null} onSave={onSave} />);
+    expect(screen.getByRole('link', { name: sourceBlock.articleTitle })).toHaveAttribute('href', sourceBlock.sourcePath);
+    expect(screen.queryByDisplayValue(sourceBlock.text)).not.toBeInTheDocument();
+  });
+
   it('preserves challenged claim evidence when initializing and saving a draft', () => {
     const onSave = jest.fn();
     const question = {

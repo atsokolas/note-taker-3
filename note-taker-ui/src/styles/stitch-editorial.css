@@ -3062,18 +3062,6 @@ body.noeis-editorial [data-think-posture='notebook'] .think-posture-strip__butto
     overflow-x: auto;
     padding-bottom: 2px;
   }
-
-  body.noeis-editorial .question-editorial-main__draft-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  body.noeis-editorial .question-editorial-main__evidence-dock {
-    position: static;
-    grid-template-columns: minmax(0, 1fr);
-    padding: 12px 0 0;
-    border-left: 0;
-    border-top: 1px solid color-mix(in srgb, var(--vellum-ink) 10%, transparent);
-  }
 }
 
 body.noeis-editorial .think-home__material-row {
@@ -4087,8 +4075,8 @@ body.noeis-editorial .question-editorial-main__evidence-line > p {
 
 body.noeis-editorial .question-editorial-main__line-balance {
   display: grid;
-  grid-template-columns: max-content minmax(36px, 1fr) max-content;
-  gap: 7px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 6px 8px;
   align-items: center;
   min-width: 0;
   font-family: var(--noeis-ui-font);
@@ -4101,10 +4089,17 @@ body.noeis-editorial .question-editorial-main__line-balance {
 body.noeis-editorial .question-editorial-main__line-balance i {
   position: relative;
   display: block;
+  grid-column: 1 / -1;
+  grid-row: 2;
   height: 3px;
   overflow: hidden;
   border-radius: 999px;
   background: color-mix(in srgb, #9b5b22 36%, transparent);
+}
+
+body.noeis-editorial .question-editorial-main__line-balance span:last-child {
+  justify-self: end;
+  text-align: right;
 }
 
 body.noeis-editorial .question-editorial-main__line-balance i::before {
@@ -6827,6 +6822,20 @@ body.noeis-editorial .question-editorial-shell .agent-thought-partner__quick-pro
 
 body.noeis-editorial .question-editorial-shell .agent-thought-partner__thread {
   gap: 12px;
+}
+
+@media (max-width: 760px) {
+  body.noeis-editorial .question-editorial-main__draft-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  body.noeis-editorial .question-editorial-main__evidence-dock {
+    position: static;
+    grid-template-columns: minmax(0, 1fr);
+    padding: 12px 0 0;
+    border-left: 0;
+    border-top: 1px solid color-mix(in srgb, var(--vellum-ink) 10%, transparent);
+  }
 }
 
 @media (max-width: 1360px) {
@@ -9872,7 +9881,16 @@ body.noeis-editorial .wiki-read__rail-details[open] > summary::after {
 }
 
 @container wikiread (max-width: 980px) {
+  /* The shared companion already occupies a rail. Reflow this reader using
+     its available width, keeping the article out of an implicit third column. */
+  body.noeis-editorial .wiki-read--standard .wiki-read__layout,
+  body.noeis-editorial .wiki-read--standard .wiki-read__layout--rail-collapsed {
+    grid-template-columns: minmax(150px, 180px) minmax(0, 1fr);
+  }
+
   body.noeis-editorial .wiki-read--standard .wiki-read__toc {
+    grid-column: 1;
+    grid-row: 1;
     display: grid;
     order: 0;
     position: static;
@@ -9893,8 +9911,26 @@ body.noeis-editorial .wiki-read__rail-details[open] > summary::after {
   }
 
   body.noeis-editorial .wiki-read--standard .wiki-read__article {
+    grid-column: 2;
+    grid-row: 1 / span 2;
     order: 1;
   }
+
+  body.noeis-editorial .wiki-read--standard .wiki-read__rail {
+    grid-column: 1;
+    grid-row: 2;
+    position: static;
+  }
+}
+
+@container wikiread (max-width: 680px) {
+  body.noeis-editorial .wiki-read--standard .wiki-read__layout,
+  body.noeis-editorial .wiki-read--standard .wiki-read__layout--rail-collapsed {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  body.noeis-editorial .wiki-read--standard .wiki-read__article { grid-column: 1; grid-row: 1; }
+  body.noeis-editorial .wiki-read--standard .wiki-read__toc { grid-column: 1; grid-row: 2; }
+  body.noeis-editorial .wiki-read--standard .wiki-read__rail { grid-column: 1; grid-row: 3; }
 }
 
 body.noeis-editorial .wiki-read--standard .wiki-read__toc--mobile {

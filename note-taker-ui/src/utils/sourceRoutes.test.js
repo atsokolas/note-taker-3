@@ -1,4 +1,5 @@
 import {
+  buildAuthoredContinuationPath,
   buildCanonicalArticlePath,
   buildCanonicalHighlightPath,
   buildSourceOpenPath,
@@ -9,6 +10,13 @@ import {
 } from './sourceRoutes';
 
 describe('sourceRoutes', () => {
+  it('builds private continuation from identity, ignoring browser queries and prose', () => {
+    expect(buildAuthoredContinuationPath({ articleId: 'a / 1', highlightId: 'h&1', href: 'https://elsewhere.test', draft: { writing: 'private' } }))
+      .toBe('/library?articleId=a%20%2F%201&highlightId=h%261&exploration=1');
+    expect(buildAuthoredContinuationPath({ pageId: 'p1', claimId: 'c?1' })).toBe('/wiki/read/p1?claimId=c%3F1&exploration=1');
+    expect(buildAuthoredContinuationPath({ articleId: 'a1' })).toBe('');
+    expect(buildAuthoredContinuationPath()).toBe('');
+  });
   it('builds exact, encoded Library locations', () => {
     expect(buildCanonicalArticlePath('article / one')).toBe('/library?articleId=article%20%2F%20one');
     expect(buildCanonicalHighlightPath({ articleId: 'article-1', highlightId: 'highlight-1' }))

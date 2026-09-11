@@ -1,3 +1,4 @@
+const { plainNotebookText } = require('../services/authoredWorkDiscovery');
 const express = require('express');
 const mongoose = require('mongoose');
 const { createWikiSourceEvent } = require('../services/wikiSourceEventService');
@@ -121,15 +122,10 @@ const buildNotebookRouter = ({
           : 0;
         const compactParam = String(req.query.compact || '').trim().toLowerCase();
         const compact = compactParam === '1' || compactParam === 'true';
-        if (compact) {
-          const query = NotebookEntry.find({ userId })
-            .select('_id title folder type createdAt updatedAt')
-            .sort({ updatedAt: -1, _id: -1 });
-          if (limit) query.limit(limit);
-          const entries = await query.lean();
-          res.status(200).json(entries);
-          return;
-        }
+        const firstText = { $arrayElemAt: [{ $filter: {
+          input: { $ifNull: ['$blocks.text', []] }, as: 'text',
+          cond: { $regexMatch: { input: { $ifNull: ['$$text', ''] }, regex: /\S/ } }
+        } }, 0] };
         const pipeline = [
           { $match: { userId: new mongoose.Types.ObjectId(userId) } },
           {
@@ -137,19 +133,18 @@ const buildNotebookRouter = ({
               title: 1,
               folder: 1,
               type: 1,
-              claimId: 1,
-              tags: 1,
-              linkedArticleId: 1,
-              linkedHighlightIds: 1,
-              importMeta: 1,
+              ...(compact ? {} : {
+                claimId: 1, tags: 1, linkedArticleId: 1, linkedHighlightIds: 1, importMeta: 1,
+                blockCount: { $size: { $ifNull: ['$blocks', []] } }
+              }),
               createdAt: 1,
               updatedAt: 1,
-              blockCount: { $size: { $ifNull: ['$blocks', []] } },
+              snippetHtml: { $eq: [{ $ifNull: [firstText, null] }, null] },
               snippet: {
                 $substrCP: [
                   {
                     $ifNull: [
-                      { $arrayElemAt: ['$blocks.text', 0] },
+                      firstText,
                       { $ifNull: ['$content', ''] }
                     ]
                   },
@@ -163,7 +158,9 @@ const buildNotebookRouter = ({
           ...(limit ? [{ $limit: limit }] : [])
         ];
         const entries = await NotebookEntry.aggregate(pipeline);
-        res.status(200).json(entries);
+        res.status(200).json(entries.map(({ snippetHtml, ...entry }) => ({
+          ...entry, snippet: snippetHtml ? plainNotebookText(entry.snippet) : entry.snippet
+        })));
         return;
       }
       const entries = await NotebookEntry.find({ userId }).sort({ updatedAt: -1 });

@@ -5,6 +5,7 @@ import InsertHighlightModal from '../notebook/InsertHighlightModal';
 import ReturnLaterControl from '../../return-queue/ReturnLaterControl';
 import useHighlights from '../../../hooks/useHighlights';
 import AgentSkillDock from '../../agent/AgentSkillDock';
+import AuthoredWorkOrigin from '../AuthoredWorkOrigin';
 
 const createId = () => {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
@@ -150,6 +151,7 @@ const QuestionEditor = ({
         onInsertHighlight={() => setInsertOpen(true)}
         challengeEvidenceByBlockId={challengeEvidenceByBlockId}
       />
+      <AuthoredWorkOrigin importMeta={question.importMeta} sourceBlocks={blocksDraft} />
       <InsertHighlightModal
         open={insertOpen}
         highlights={highlights}

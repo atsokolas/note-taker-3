@@ -1,10 +1,22 @@
-import { AUTH_RETURN_KEY, isAppRoute, rememberReturnPath } from './appRoutes';
+import { AUTH_RETURN_KEY, forgetReturnPath, isAppRoute, readReturnPath, rememberReturnPath } from './appRoutes';
 
 /* Logged out, every unmatched path fell through one catch-all to the marketing
    home. A link to your own wiki, a bookmark to a judgment, and a typo all
    landed on the same sales page — the front door, the sign-in, and the 404
    wearing one face. */
 describe('telling a page of the product from a page that sells it', () => {
+  it('reads the same exact destination until the authenticated route consumes it', () => {
+    rememberReturnPath({ pathname: '/wiki/read/p1', search: '?claimId=c1&exploration=1', hash: '#sources' });
+    expect(readReturnPath()).toBe('/wiki/read/p1?claimId=c1&exploration=1#sources');
+    expect(readReturnPath()).toBe('/wiki/read/p1?claimId=c1&exploration=1#sources');
+    forgetReturnPath();
+    expect(readReturnPath()).toBe('');
+  });
+
+  it.each(['https://elsewhere.test', '//elsewhere.test', '/\\elsewhere.test'])('rejects external return %s', path => {
+    sessionStorage.setItem(AUTH_RETURN_KEY, path);
+    expect(readReturnPath()).toBe('');
+  });
   it('knows the rooms behind the sign-in', () => {
     [
       '/wiki', '/wiki/read/abc', '/judgment', '/judgment/p1', '/judgment/mirror', '/mirror', '/library', '/think', '/settings/profile',

@@ -3,8 +3,12 @@ const { contentHashOf } = require('./vectorStore');
 const {
   buildArticleEmbeddingJobs,
   buildJudgmentEmbeddingJob,
+  buildNotebookEmbeddingJob,
+  buildQuestionEmbeddingJob,
   deleteArticleEmbeddingState,
   drainEmbeddingJobQueue,
+  enqueueNotebookEmbedding,
+  enqueueQuestionEmbedding,
   persistEmbeddingJob,
   reconcileArticleEmbeddingJobs,
   retryDelayMs
@@ -172,6 +176,108 @@ const run = async () => {
   assert.strictEqual(heldSentence.payload.objectId, 'page-1');
   assert.ok(!heldSentence.text.includes('dossier title'), 'the page title cannot steer sentence retrieval');
   assert.strictEqual(buildJudgmentEmbeddingJob({ _id: 'page-2', userId: 'u', judgment: {} }), null);
+
+  const notebookUpdatedAt = new Date('2026-09-07T10:11:12.000Z');
+  const notebookEntry = {
+    _id: 'notebook-kept-1',
+    userId: OWNER,
+    title: 'A kept note',
+    content: 'Fallback content',
+    blocks: [{ text: 'The authored paragraph.' }, { text: 'The source passage.' }],
+    tags: ['authored'],
+    updatedAt: notebookUpdatedAt
+  };
+  const notebookJob = buildNotebookEmbeddingJob(notebookEntry);
+  assert.deepStrictEqual(notebookJob, {
+    collection: 'notebook_entries',
+    id: 'notebook-kept-1',
+    text: 'A kept note\nThe authored paragraph.\nThe source passage.',
+    payload: {
+      type: 'notebook_entry',
+      objectId: 'notebook-kept-1',
+      title: 'A kept note',
+      tags: ['authored'],
+      createdAt: notebookUpdatedAt,
+      updatedAt: notebookUpdatedAt,
+      userId: OWNER
+    }
+  });
+
+  const questionUpdatedAt = new Date('2026-09-07T10:12:13.000Z');
+  const question = {
+    _id: 'question-kept-1',
+    userId: OWNER,
+    text: 'What follows from this?',
+    blocks: [{ text: 'The authored paragraph.' }],
+    linkedTagName: 'Parenting',
+    updatedAt: questionUpdatedAt
+  };
+  const questionJob = buildQuestionEmbeddingJob(question);
+  assert.deepStrictEqual(questionJob, {
+    collection: 'questions',
+    id: 'question-kept-1',
+    text: 'What follows from this?\nThe authored paragraph.',
+    payload: {
+      type: 'question',
+      objectId: 'question-kept-1',
+      title: 'What follows from this?',
+      tags: ['Parenting'],
+      createdAt: questionUpdatedAt,
+      updatedAt: questionUpdatedAt,
+      userId: OWNER
+    }
+  });
+
+  const durableQueueFlag = process.env.EMBEDDING_PERSISTENT_QUEUE_DISABLED;
+  delete process.env.EMBEDDING_PERSISTENT_QUEUE_DISABLED;
+  try {
+    const durableNotebookModel = createEmbeddingJobModel();
+    let transientCalls = 0;
+    const persistedNotebook = await enqueueNotebookEmbedding(notebookEntry, {
+      requireDurable: true,
+      model: durableNotebookModel,
+      enqueueTransient: () => { transientCalls += 1; }
+    });
+    assert.strictEqual(persistedNotebook, durableNotebookModel.jobs[0]);
+    assert.strictEqual(durableNotebookModel.jobs[0].collection, notebookJob.collection);
+    assert.strictEqual(durableNotebookModel.jobs[0].objectId, notebookJob.id);
+    assert.strictEqual(durableNotebookModel.jobs[0].text, notebookJob.text);
+    assert.deepStrictEqual(durableNotebookModel.jobs[0].payload, notebookJob.payload);
+    assert.strictEqual(durableNotebookModel.jobs[0].sourceUpdatedAt.getTime(), notebookUpdatedAt.getTime());
+    assert.strictEqual(transientCalls, 0);
+
+    const durableQuestionModel = createEmbeddingJobModel();
+    await enqueueQuestionEmbedding(question, {
+      requireDurable: true,
+      model: durableQuestionModel,
+      enqueueTransient: () => { transientCalls += 1; }
+    });
+    assert.deepStrictEqual(durableQuestionModel.jobs[0].payload, questionJob.payload);
+    assert.strictEqual(durableQuestionModel.jobs[0].sourceUpdatedAt.getTime(), questionUpdatedAt.getTime());
+    assert.strictEqual(transientCalls, 0);
+
+    const persistenceFailure = new Error('durable persistence failed');
+    await assert.rejects(
+      enqueueNotebookEmbedding(notebookEntry, {
+        requireDurable: true,
+        model: { findOneAndUpdate: async () => { throw persistenceFailure; } },
+        enqueueTransient: () => { transientCalls += 1; }
+      }),
+      error => error === persistenceFailure
+    );
+    await assert.rejects(
+      enqueueQuestionEmbedding(question, {
+        requireDurable: true,
+        model: null,
+        enqueueTransient: () => { transientCalls += 1; }
+      }),
+      /Durable embedding queue persistence is unavailable/
+    );
+    assert.strictEqual(transientCalls, 0, 'strict durable enqueue never falls back to the transient queue');
+  } finally {
+    if (durableQueueFlag === undefined) delete process.env.EMBEDDING_PERSISTENT_QUEUE_DISABLED;
+    else process.env.EMBEDDING_PERSISTENT_QUEUE_DISABLED = durableQueueFlag;
+  }
 
   assert.ok(retryDelayMs({ attemptCount: 1 }) >= retryDelayMs({ attemptCount: 0 }));
 

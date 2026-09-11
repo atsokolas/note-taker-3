@@ -1,6 +1,7 @@
 import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '../ui';
+import ReadFresh, { useReadFresh } from '../reader/ReadFresh';
 import {
   approveWeekendReadingsRevision,
   archiveWikiPage,
@@ -1234,6 +1235,7 @@ const WikiPageReadView = ({
   const [continuationState, setContinuationState] = useState({ busy: false, error: '' });
   const [revisions, setRevisions] = useState([]);
   const [openedClaimId, setOpenedClaimId] = useState('');
+  const [openedExploration, setOpenedExploration] = useState(null);
   const wikiSurfaceDescriptor = buildWikiSurfaceDescriptor({
     page,
     pageId,
@@ -1242,8 +1244,9 @@ const WikiPageReadView = ({
     acceptedRevisionId: continuationBasis?.revisionId || '',
     mode: 'read'
   });
-  const openedCompanion = companionForOpenedClaim(page, { claimId: openedClaimId });
+  const openedCompanion = companionForOpenedClaim(page, { claimId: openedClaimId, exploration: openedExploration });
   useNoeisAgentSurface('agent-surface.wiki', wikiSurfaceDescriptor, {
+    exploration: openedExploration,
     subject: openedCompanion?.subject || displayWikiPageTitle(page, 'Wiki page'),
     boundSources: openedCompanion
       ? openedCompanion.boundSources
@@ -1302,6 +1305,7 @@ const WikiPageReadView = ({
   const latestPageRef = useRef(null);
   const lastRefreshNonceRef = useRef(0);
   const articleRef = useRef(null);
+  const reading = useReadFresh(articleRef, pageId, '.wiki-read__body [data-wiki-block-anchor]');
   const focusedClaimNodeRef = useRef(null);
   const recentParagraphTimersRef = useRef(new Map());
   const pageTransitionTimerRef = useRef(null);
@@ -2865,6 +2869,7 @@ const WikiPageReadView = ({
         </aside> : null}
         <article
           ref={articleRef}
+          data-read-fresh={reading.readFresh || undefined}
           className={`wiki-read__article${listeningRef ? ' is-listening' : ''}`}
           onMouseOver={(event) => {
             handleClaimHover(event);
@@ -3116,6 +3121,7 @@ const WikiPageReadView = ({
                 </button>
               </div> : null}
               {standardWikiPage ? <nav className="wiki-read__continuation-actions wiki-read__continuation-actions--standard" aria-label="Continue this page">
+                {openSentenceEnabled ? <ReadFresh {...reading} /> : null}
                 {(page.sourceRefs || []).length ? <a href="#wiki-read-references-title">Sources</a> : null}
                 {continuationBasis ? (
                   <button
@@ -3183,10 +3189,13 @@ const WikiPageReadView = ({
                 ) : (
                   <WikiOpenSentenceProvider
                     enabled={openSentenceEnabled}
+                    readFresh={reading.readFresh}
                     page={page}
                     pageId={pageId}
                     revisions={revisions}
                     onOpenedClaim={setOpenedClaimId}
+                    onOpenedExploration={setOpenedExploration}
+                    durable
                     onAcceptWording={openSentenceEnabled ? acceptOpenedWording : undefined}
                     onMakeTitle={openSentenceEnabled ? makeOpenedTitle : undefined}
                   >

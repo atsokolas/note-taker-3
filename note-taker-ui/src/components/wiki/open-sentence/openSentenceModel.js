@@ -118,6 +118,8 @@ export const createExploration = ({
     id: String(id || '').trim(),
     originalText: text,
     provisionalText: text,
+    title: '',
+    writing: '',
     question: '',
     distinction: '',
     mark: mark === '!' ? '!' : '',
@@ -1136,8 +1138,13 @@ export const namedOn = (exploration) => (
   liveDistinction(exploration) ? asDay(exploration?.distinctionAt) : ''
 );
 
-export const keepsClosedDraft = (exploration) => Boolean(
-  String(exploration?.question || '').trim()
+export const keepsClosedDraft = (exploration, { preserveAuthorship = false } = {}) => Boolean(
+  String(exploration?.writing || '').trim()
+  || String(exploration?.title || '').trim()
+  || (preserveAuthorship && wordingChanged(exploration))
+  || exploration?.selectedSource
+  || String(exploration?.question || '').trim()
+  || String(exploration?.returnNote || '').trim()
   || liveDistinction(exploration)
   || exploration?.placed
   || liveProposal(exploration)
@@ -1166,6 +1173,34 @@ export const tryWording = (exploration, text) => ({
   provisionalText: String(text ?? '')
 });
 
+export const writeThought = (exploration, writing) => ({
+  ...exploration,
+  writing: String(writing ?? '')
+});
+
+export const titleThought = (exploration, title) => ({
+  ...exploration,
+  title: String(title ?? '').slice(0, 240)
+});
+
+export const thoughtTitle = (exploration) => String(
+  exploration?.title?.trim() || exploration?.writing?.split('\n').find(line => line.trim()) ||
+  exploration?.question || exploration?.returnNote || exploration?.pressure?.premise ||
+  exploration?.pressure?.stillHolds || exploration?.pressure?.unknown ||
+  exploration?.meet?.between || exploration?.meet?.relation || exploration?.meet?.limit || exploration?.essay?.text || exploration?.proposal?.text ||
+  (exploration?.provisionalText !== exploration?.originalText ? exploration?.provisionalText : '') || ''
+).trim();
+
+export const chooseLibraryPassage = (exploration, source) => ({
+  ...exploration,
+  selectedSource: source || null,
+  other: source || exploration.attachedOther || null,
+  attachedOther: exploration.attachedOther || (!exploration.selectedSource ? exploration.other : null),
+  // The relationship described a specific pair. Keep the person's words,
+  // but do not present them as a relationship to a newly chosen passage.
+  meet: exploration.meet ? { ...exploration.meet, against: '' } : null
+});
+
 export const putItBack = (exploration) => ({
   ...exploration,
   provisionalText: exploration.originalText
@@ -1176,9 +1211,10 @@ export const keepQuestion = (exploration, question) => ({
   question: String(question ?? '')
 });
 
+export const setReturnNote = (exploration, returnNote) => ({ ...exploration, returnNote: String(returnNote ?? '') });
+
 export const setDistinction = (exploration, distinction) => {
   const {
-    returnNote: _legacyNote,
     distinctionAt: previousAt,
     distinctionAgainst: _previousAgainst,
     ...rest
@@ -1273,7 +1309,7 @@ export const changedWordSpans = (original = '', next = '') => {
 
 export const snapshotExploration = (exploration) => JSON.stringify(exploration || {});
 
-export const restoreExploration = (raw, fallback) => {
+export const restoreExploration = (raw, fallback, { preserveAuthorship = false } = {}) => {
   const base = fallback || createExploration();
   if (!raw) return base;
   try {
@@ -1283,8 +1319,10 @@ export const restoreExploration = (raw, fallback) => {
       ...base,
       ...parsed,
       originalText: base.originalText,
+      authoredAgainst: preserveAuthorship && parsed.originalText && parsed.originalText !== base.originalText ? parsed.originalText : '',
       source: base.source,
-      other: base.other,
+      other: parsed.selectedSource || base.other,
+      attachedOther: base.other,
       bearing: base.bearing,
       id: base.id,
       mark: parsed.mark === '!' ? '!' : '',
@@ -1308,18 +1346,19 @@ export const restoreExploration = (raw, fallback) => {
     } = restored;
     return {
       ...withoutThen,
+      ...(preserveAuthorship && legacyNote !== undefined ? { returnNote: legacyNote } : {}),
       ...restoreDistinction(
         withoutThen.distinction,
-        legacyNote,
+        preserveAuthorship ? undefined : legacyNote,
         rawAgainst,
         rawAt,
         asLine(restored.originalText)
       ),
       ...(recorded ? { then: recorded } : {}),
-      proposal: liveProposal(restored),
-      pressure: isPressured(restored) ? restored.pressure : null,
-      meet: isMeeting(restored) ? restored.meet : null,
-      essay: liveEssay(restored),
+      proposal: preserveAuthorship ? restored.proposal : liveProposal(restored),
+      pressure: preserveAuthorship ? restored.pressure : (isPressured(restored) ? restored.pressure : null),
+      meet: restored.meet || null,
+      essay: preserveAuthorship ? restored.essay : liveEssay(restored),
       instrument: pendingInstrument(restored),
       exhibit: pendingExhibit(restored),
       rehearsal: pendingRehearsal(restored),

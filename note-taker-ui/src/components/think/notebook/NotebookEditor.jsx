@@ -12,6 +12,7 @@ import InsertReferenceModal from './InsertReferenceModal';
 import AgentSkillDock from '../../agent/AgentSkillDock';
 import EvergreenToggle from '../../EvergreenToggle';
 import EditorDraftShell from '../editor/EditorDraftShell';
+import AuthoredWorkOrigin from '../AuthoredWorkOrigin';
 import useSlashCommands from '../editor/useSlashCommands';
 import useThinkWritingActivity from '../editor/useThinkWritingActivity';
 import { createArtifactSlashItems } from '../editor/editorArtifacts';
@@ -83,6 +84,32 @@ const BlockIdExtension = Extension.create({
             parseHTML: element => element.getAttribute('data-highlight-id'),
             renderHTML: attributes => (
               attributes.highlightId ? { 'data-highlight-id': attributes.highlightId } : {}
+            )
+          }
+        }
+      },
+      {
+        types: ['blockquote'],
+        attributes: {
+          sourcePath: {
+            default: null,
+            parseHTML: element => element.getAttribute('data-source-path'),
+            renderHTML: attributes => (
+              attributes.sourcePath ? { 'data-source-path': attributes.sourcePath } : {}
+            )
+          },
+          articleId: {
+            default: null,
+            parseHTML: element => element.getAttribute('data-article-id'),
+            renderHTML: attributes => (
+              attributes.articleId ? { 'data-article-id': attributes.articleId } : {}
+            )
+          },
+          articleTitle: {
+            default: '',
+            parseHTML: element => element.getAttribute('data-article-title') || '',
+            renderHTML: attributes => (
+              attributes.articleTitle ? { 'data-article-title': attributes.articleTitle } : {}
             )
           }
         }
@@ -282,6 +309,8 @@ const NotebookEditor = ({
   saving,
   error,
   onSave,
+  onRegisterSave,
+  startWriting = false,
   onDelete,
   onRegisterInsert,
   onCreate,
@@ -306,6 +335,7 @@ const NotebookEditor = ({
   const referenceTriggerRef = useRef(null);
   const saveTimerRef = useRef(null);
   const saveSequenceRef = useRef(0);
+  const saveInFlightRef = useRef(null);
   const dirtyRef = useRef(false);
   const hydratedEntryIdRef = useRef('');
   const titleDraftRef = useRef(entry?.title || '');
@@ -440,11 +470,16 @@ const NotebookEditor = ({
      across would mean the second note you looked at was live before you had
      read a word of it. */
   useEffect(() => {
-    setEditingBody(false);
+    setEditingBody(startWriting);
+    const focusFrame = startWriting
+      ? window.requestAnimationFrame?.(() => editor?.commands.focus('start'))
+      : null;
     setSaveState('idle');
+    saveSequenceRef.current += 1;
     dirtyRef.current = false;
     if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
-  }, [entry?._id]);
+    return () => { if (focusFrame != null) window.cancelAnimationFrame?.(focusFrame); };
+  }, [entry?._id, startWriting, editor]);
 
   const startEditingBody = () => {
     if (editingBody) return;
@@ -637,19 +672,41 @@ const NotebookEditor = ({
   }, [claimId, editor, entry, entryTags, entryType]);
 
   const commitDraft = useCallback(async () => {
+    // A navigation flush waits for the pending save, then includes any words
+    // typed while that request was in flight. Requests cannot overtake each other.
+    while (saveInFlightRef.current) await saveInFlightRef.current;
+    if (!dirtyRef.current) return true;
     const payload = buildSavePayload();
-    if (!payload || !dirtyRef.current) return;
+    if (!payload) return false;
     const sequence = ++saveSequenceRef.current;
     dirtyRef.current = false;
     setSaveState('saving');
-    try {
-      await onSave(payload);
-      if (sequence === saveSequenceRef.current) setSaveState('saved');
-    } catch (_saveError) {
-      dirtyRef.current = true;
-      if (sequence === saveSequenceRef.current) setSaveState('error');
-    }
+    const attempt = (async () => {
+      await Promise.resolve();
+      try {
+        await onSave(payload);
+        if (sequence === saveSequenceRef.current) setSaveState(dirtyRef.current ? 'dirty' : 'saved');
+        return true;
+      } catch (_saveError) {
+        if (sequence === saveSequenceRef.current) {
+          dirtyRef.current = true;
+          setSaveState('error');
+        }
+        return false;
+      } finally { saveInFlightRef.current = null; }
+    })();
+    saveInFlightRef.current = attempt;
+    return attempt;
   }, [buildSavePayload, onSave]);
+
+  useEffect(() => {
+    onRegisterSave?.(async () => {
+      let saved;
+      do { saved = await commitDraft(); } while (saved && dirtyRef.current);
+      return saved;
+    });
+    return () => onRegisterSave?.(null);
+  }, [commitDraft, onRegisterSave]);
 
   const scheduleSave = useCallback(() => {
     dirtyRef.current = true;
@@ -819,14 +876,17 @@ const NotebookEditor = ({
             rows={1}
             className="think-notebook-title-input"
             value={titleDraft}
-            onFocus={startEditingBody}
+            onFocus={() => setEditingBody(true)}
             onChange={(event) => {
               titleDraftRef.current = event.target.value;
               setTitleDraft(event.target.value);
               scheduleSave();
             }}
             onKeyDown={(event) => {
-              if (event.key === 'Enter') event.preventDefault();
+              if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
+                event.preventDefault();
+                editor?.commands.focus('start');
+              }
             }}
             ref={(node) => {
               if (!node) return;
@@ -1118,6 +1178,7 @@ const NotebookEditor = ({
         onAskSelection={onInvokeAgentSkill ? handleAskSelection : null}
       />
       </div>
+      <AuthoredWorkOrigin importMeta={entry.importMeta} sourceBlocks={entry.blocks} />
       <InsertHighlightModal
         open={insertMode === 'highlight'}
         highlights={highlights}

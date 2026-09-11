@@ -100,14 +100,20 @@ describe('wiki critical CSS loading', () => {
     expect(bodyBlock).toContain('color: var(--wiki-reading-ink)');
   });
 
-  it('keeps desktop citation marginalia inside the reader grid instead of beyond the viewport', () => {
+  it('shows citation marginalia only when the reader itself has room for it', () => {
     const css = fs.readFileSync(path.join(__dirname, 'wiki-critical.css'), 'utf8');
-    const desktopBlock = css.match(/@media \(min-width: 1280px\) \{[\s\S]*?\.wiki-read__margin-note \{/)?.[0] || '';
+    const polishCss = fs.readFileSync(path.join(__dirname, 'think-home-polish.css'), 'utf8');
+    const readBlock = css.match(/\.wiki-read \{[\s\S]*?\n\}/)?.[0] || '';
+    const desktopBlock = css.match(/@container wikiread \(min-width: 1120px\) \{[\s\S]*?\.wiki-read__margin-note \{/)?.[0] || '';
 
+    expect(readBlock).toContain('container: wikiread / inline-size');
     expect(desktopBlock).toContain('.wiki-read__article-panel');
     expect(desktopBlock).toContain('grid-template-columns: minmax(0, 1fr) 184px');
     expect(desktopBlock).toContain('position: sticky');
     expect(desktopBlock).not.toContain('left: calc(100% + 24px)');
+    expect(css).not.toMatch(/@media \(min-width: 1280px\) \{[\s\S]*?\.wiki-read__marginalia/);
+    expect(polishCss).not.toMatch(/@media \(min-width: 1280px\) \{[\s\S]*?\.wiki-read__marginalia/);
+    expect(polishCss).not.toContain('left: calc(100% + 24px)');
   });
 
   it('guards the living-agent composer breathing border primitives', () => {

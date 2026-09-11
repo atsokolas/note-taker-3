@@ -8,6 +8,7 @@ import React, {
   useState
 } from 'react';
 import OpenSentence from './OpenSentence';
+import AuthoredWorkList from './AuthoredWorkList';
 import {
   claimIdFromSelection,
   claimsInParagraph,
@@ -16,7 +17,7 @@ import {
   liveExplorationForPageClaim,
   openedStorageKey
 } from './openSentenceBinding';
-import { closeExploration, isOpen, liveProposal } from './openSentenceModel';
+import { closeExploration, forgetExperiment, isOpen, keepsClosedDraft, liveProposal, openExploration } from './openSentenceModel';
 import {
   alignRemembered,
   bindDraft,
@@ -24,10 +25,12 @@ import {
   keepExploration,
   matchingWikiTicket,
   readRemembered,
+  rememberOpened,
   rememberDraft,
   writeReturnTicket
 } from './openSentenceJourney';
-import { listenOpenSentenceStore, readStore } from './openSentenceStore';
+import { listenOpenSentenceStore, readStore, writeStore } from './openSentenceStore';
+import useAuthoredExplorations, { explorationDraft, authorshipFor } from './useAuthoredExplorations';
 
 const WikiOpenSentenceContext = createContext(null);
 
@@ -35,58 +38,75 @@ export const WikiOpenSentenceProvider = ({
   page,
   pageId,
   enabled = false,
+  readFresh = false,
   revisions,
   onOpenedClaim,
+  onOpenedExploration,
+  durable = false,
+  persistence,
   onAcceptWording,
   onMakeTitle,
   children
 }) => {
   const [openedId, setOpenedId] = useState(() => (
-    enabled && pageId ? (readStore(openedStorageKey(pageId)) || null) : null
+    enabled && pageId && !durable ? (readStore(openedStorageKey(pageId)) || null) : null
   ));
   const [walk, setWalk] = useState(0);
   const [acceptSilence, setAcceptSilence] = useState('');
   const acceptingRef = useRef(false);
+  const cloud = useAuthoredExplorations({ scopeId: pageId, enabled: enabled && durable, api: persistence });
+  const { change: changeAuthoredWork, discard: discardAuthoredWork } = cloud;
+  const scope = durable ? `account:${cloud.owner}:${pageId}` : pageId;
 
   useEffect(() => {
-    if (!enabled || !pageId) {
+    if (!enabled || !pageId || (durable && !cloud.owner)) {
       setOpenedId(null);
       return undefined;
     }
     const readOpened = () => {
-      setOpenedId(readStore(openedStorageKey(pageId)) || null);
+      setOpenedId(readStore(openedStorageKey(scope)) || null);
       setWalk((n) => n + 1);
     };
-    readOpened();
+    const params = new URLSearchParams(window.location.search);
+    const requested = params.get('exploration') === '1' ? params.get('claimId') : '';
+    setOpenedId(requested || readStore(openedStorageKey(scope)) || null);
     return listenOpenSentenceStore(readOpened);
-  }, [enabled, pageId]);
+  }, [cloud.owner, durable, enabled, pageId, scope]);
 
   const liveFor = useCallback((claimMark) => (
     liveExplorationForPageClaim(page, claimMark, { revisions })
   ), [page, revisions]);
 
   useEffect(() => {
-    if (!enabled || !pageId) return;
+    if (!enabled || !pageId || durable) return;
     const opened = openedId || readStore(openedStorageKey(pageId));
     if (opened) alignRemembered(pageId, opened, liveFor({ claimId: opened }));
-  }, [enabled, liveFor, openedId, page, pageId]);
+  }, [durable, enabled, liveFor, openedId, page, pageId]);
 
   const explorationFor = useCallback((claimMark) => {
     if (!claimMark?.claimId) return liveFor(claimMark);
     return bindDraft(
       liveFor(claimMark),
-      readStore(draftStorageKey(pageId, claimMark.claimId)),
-      openedId === claimMark.claimId
+      durable
+        ? cloud.records[claimMark.claimId]?.draft || (cloud.owner ? readStore(draftStorageKey(pageId, claimMark.claimId)) : null)
+        : readStore(draftStorageKey(pageId, claimMark.claimId)),
+      openedId === claimMark.claimId,
+      { preserveAuthorship: durable }
     );
     // `walk` is the store's revision, not an unused value: this callback reads
     // the draft store imperatively above, so bumping it on every store change is
     // what makes a saved draft show up. Removing it satisfies the rule and
     // silently stops drafts refreshing.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [liveFor, openedId, pageId, walk]);
+  }, [cloud.owner, cloud.records, durable, liveFor, openedId, pageId, walk]);
 
   const commit = useCallback((claimId, next) => {
     if (!claimId) return;
+    if (durable) {
+      changeAuthoredWork(claimId, next);
+      setOpenedId(rememberOpened(scope, claimId, next, openedId));
+      return;
+    }
     if (openedId && openedId !== claimId) {
       const previousLive = liveFor({ claimId: openedId });
       rememberDraft(
@@ -99,18 +119,37 @@ export const WikiOpenSentenceProvider = ({
     const remembered = keepExploration(pageId, claimId, next, liveFor({ claimId }));
     setOpenedId(isOpen(remembered) ? claimId : (openedId === claimId ? null : openedId));
     setWalk((n) => n + 1);
-  }, [liveFor, openedId, pageId]);
+  }, [changeAuthoredWork, durable, liveFor, openedId, pageId, scope]);
+
+  useEffect(() => {
+    if (!onOpenedExploration) return;
+    onOpenedExploration(enabled && !readFresh && openedId ? {
+      pageId,
+      claimId: openedId,
+      draft: explorationDraft(explorationFor({ claimId: openedId }))
+    } : null);
+  }, [enabled, explorationFor, onOpenedExploration, openedId, pageId, readFresh]);
+
+  const discard = useCallback(async (claimId) => {
+    await discardAuthoredWork(claimId);
+    writeStore(draftStorageKey(pageId, claimId), '');
+    const reset = forgetExperiment(liveFor({ claimId }));
+    setOpenedId(rememberOpened(scope, claimId, reset, openedId));
+  }, [discardAuthoredWork, liveFor, openedId, pageId, scope]);
 
   useEffect(() => {
     if (!onOpenedClaim) return;
     const liveText = openedId ? String(claimTextOnPage(page?.body, openedId) || '').trim() : '';
-    onOpenedClaim(liveText ? openedId : '');
-  }, [onOpenedClaim, openedId, page]);
+    onOpenedClaim(liveText && !readFresh ? openedId : '');
+  }, [onOpenedClaim, openedId, page, readFresh]);
 
   const leaveForLibrary = useCallback((source, exploration) => {
     writeReturnTicket({
       articleId: source?.articleId,
       highlightId: source?.highlightId,
+      passage: source?.passage,
+      anchor: source?.anchor,
+      reopen: durable && keepsClosedDraft(exploration, { preserveAuthorship: true }),
       sentence: claimTextOnPage(page?.body, exploration?.id)
         || exploration?.originalText
         || '',
@@ -119,7 +158,7 @@ export const WikiOpenSentenceProvider = ({
       sourceTitle: source?.title || '',
       claimId: exploration?.id
     });
-  }, [page, pageId]);
+  }, [durable, page, pageId]);
 
   useEffect(() => {
     setAcceptSilence('');
@@ -156,6 +195,7 @@ export const WikiOpenSentenceProvider = ({
 
   const value = useMemo(() => ({
     enabled,
+    readFresh,
     openedId,
     pageId,
     pageTitle: String(page?.title || ''),
@@ -163,13 +203,19 @@ export const WikiOpenSentenceProvider = ({
     commit,
     leaveForLibrary,
     accept: onAcceptWording ? accept : null,
+    acceptSilence,
     makeTitle: onMakeTitle ? makeTitle : null,
-    acceptSilence
-  }), [accept, acceptSilence, commit, enabled, explorationFor, leaveForLibrary, makeTitle, onAcceptWording, onMakeTitle, openedId, page?.title, pageId]);
+    authorship: durable ? { ...cloud, discard } : null
+  }), [accept, acceptSilence, cloud, commit, discard, durable, enabled, explorationFor, leaveForLibrary, makeTitle, onAcceptWording, onMakeTitle, openedId, page?.title, pageId, readFresh]);
 
   return (
     <WikiOpenSentenceContext.Provider value={value}>
       {children}
+      {enabled && durable ? <AuthoredWorkList records={cloud.records} isAvailable={claimId => Boolean(claimTextOnPage(page?.body, claimId)) && (page?.claims || []).some(claim => claim.claimId === claimId)} openedId={openedId} onDiscard={discard} onKeep={cloud.keep} onResolveConflict={cloud.resolveConflict} onOpen={claimId => {
+        commit(claimId, openExploration(explorationFor({ claimId })));
+        requestAnimationFrame(() => Array.from(document.querySelectorAll('[data-claim-id]'))
+          .find(node => node.getAttribute('data-claim-id') === claimId)?.scrollIntoView?.({ block: 'center', behavior: 'instant' }));
+      }} /> : null}
     </WikiOpenSentenceContext.Provider>
   );
 };
@@ -206,6 +252,7 @@ const OpenableParagraph = ({ node, id, className, children }) => {
   return (
     <OpenSentence
       exploration={ctx.explorationFor(claim)}
+      suspended={ctx.readFresh}
       onChange={(next) => ctx.commit(claim.claimId, next)}
       heldInteractive={false}
       lineRef={lineRef}
@@ -216,6 +263,7 @@ const OpenableParagraph = ({ node, id, className, children }) => {
       onOpenSourceHome={ctx.leaveForLibrary}
       onAccept={ctx.accept}
       acceptSilence={ctx.acceptSilence}
+      authorship={ctx.authorship ? authorshipFor(ctx.authorship, claim.claimId) : null}
       pageTitle={ctx.pageTitle}
       onMakeTitle={ctx.makeTitle}
       lineProps={{

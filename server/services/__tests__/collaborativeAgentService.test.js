@@ -530,6 +530,29 @@ const run = async () => {
   assert.ok(wikiPrompt.includes('Never ask the user to ingest or attach the current page'), 'Wiki chat prompt should prohibit fake missing-context replies.');
   assert.ok(!wikiPrompt.includes('69fd2e7d212cd5a5f57db144'), 'Wiki chat prompt should not expose raw page ObjectIds to the model.');
 
+  const privatePrompt = buildPartnerChatMessages({
+    message: 'Develop my distinction into an essay.',
+    contextItem: {
+      type: 'wiki_page', title: 'Parenting',
+      authoredExploration: {
+        claimText: 'Children need room to make mistakes.',
+        primarySource: { title: 'Room to learn', passage: 'Learning needs another attempt.' },
+        draft: {
+          title: 'Room to be wrong',
+          writing: 'A recoverable mistake leaves another attempt possible.\nKeep this exact second line.',
+          question: 'Who decides what is recoverable?',
+          pressure: { premise: 'Suppose no retry is possible.', stillHolds: 'Curiosity.', unknown: 'What replaces practice?' },
+          selectedSource: { articleTitle: 'Nomad', passage: 'A mistake that removes the next attempt cannot.', aroundBefore: 'An illustrative passage.', aroundAfter: 'Patience matters.' }
+        }
+      }
+    }
+  }).map(item => item.content).join('\n');
+  for (const text of ['Room to be wrong', 'Keep this exact second line.', 'Who decides what is recoverable?', 'Suppose no retry is possible.', 'Learning needs another attempt.', 'A mistake that removes the next attempt cannot.', 'Patience matters.']) {
+    assert.ok(privatePrompt.includes(text), `The companion must receive the complete bound exploration: ${text}`);
+  }
+  assert.ok(privatePrompt.includes('never evidence'), 'Hypotheticals must not be represented as source evidence.');
+  assert.ok(privatePrompt.includes('does not save it or change the Wiki'), 'Suggested prose must preserve the explicit acceptance boundary.');
+
   const wikiFallbackReply = buildReply({
     message: 'What does this page say about margin of safety? Answer from the current page only.',
     context: { type: 'workspace', id: 'wiki', pageId: '69fd2e7d212cd5a5f57db144' },

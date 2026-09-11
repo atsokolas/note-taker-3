@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { QuietButton } from './ui';
 import { createHighlight } from '../api/highlights';
 import { listWikiPages } from '../api/wiki';
@@ -8,9 +8,11 @@ import PlacementSwitch from './PlacementSwitch';
 import useTourSignal from '../tour/useTourSignal';
 import useTextSelection from './reader/useTextSelection';
 import SelectionMenu from './reader/SelectionMenu';
+import ReadFresh, { useReadFresh } from './reader/ReadFresh';
 import MagneticReadingRail from './reader/MagneticReadingRail';
 import PassageDoor from './reader/PassageDoorView';
-import OpenedLibraryPassage from './wiki/open-sentence/OpenedLibraryPassage';
+import OpenedLibraryPassage, { LibraryOriginReturn } from './wiki/open-sentence/OpenedLibraryPassage';
+import { matchingReturnTicket } from './wiki/open-sentence/openSentenceJourney';
 import {
   connectedJudgmentIds,
   pickFolioLine,
@@ -22,6 +24,10 @@ import { useFinePointer, usePrefersReducedMotion } from '../hooks/useMotionPrefe
 import { knownHighlightColor } from '../constants/highlightColors';
 import { placementOf } from '../pages/placementModel';
 import { renderArticleContentWithHighlights } from '../utils/highlightMarkup';
+import {
+  markExactArticlePassage,
+  readArticlePassageFragment
+} from '../utils/articlePassageAnchor';
 import { findExistingHighlightForSelection } from '../utils/libraryThinkSeam';
 import { sourceLabel } from './library/libraryColumnModel';
 
@@ -82,6 +88,8 @@ const ArticleReader = ({
   sourceTrace = null
 }) => {
   const contentRef = useRef(null);
+  const navigate = useNavigate();
+  const location = useLocation();
   const titleRef = useRef(null);
   const readerRootRef = useRef(null);
   const menuRef = useRef(null);
@@ -89,6 +97,7 @@ const ArticleReader = ({
   const [saveError, setSaveError] = useState('');
   const [saving, setSaving] = useState(false);
   const articleId = article?._id;
+  const reading = useReadFresh(readerRootRef, articleId, '.article-reader-content p, .article-reader-content blockquote, .article-reader-content h2');
   const articlePlacement = article?.placement;
   /* Kept lives here rather than being read straight off the prop, so pressing
      it settles immediately instead of waiting for the article list to refetch.
@@ -96,6 +105,12 @@ const ArticleReader = ({
   const [kept, setKept] = useState(Boolean(article?.evergreen));
   const [placement, setPlacement] = useState(() => placementOf(article));
   const [folioPages, setFolioPages] = useState([]);
+  const [passageLocation, setPassageLocation] = useState(() => ({
+    hash: typeof window === 'undefined' ? '' : window.location.hash,
+    articleId: typeof window === 'undefined'
+      ? ''
+      : new URLSearchParams(window.location.search).get('articleId') || ''
+  }));
   useEffect(() => { setKept(Boolean(article?.evergreen)); }, [article?._id, article?.evergreen]);
   useEffect(() => {
     setPlacement(placementOf({ placement: articlePlacement }));
@@ -124,7 +139,32 @@ const ArticleReader = ({
     () => renderArticleContentWithHighlights(article, highlights),
     [article, highlights]
   );
-  const contentMarkup = useMemo(() => ({ __html: html }), [html]);
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const readLocation = () => setPassageLocation({
+      hash: window.location.hash,
+      articleId: new URLSearchParams(window.location.search).get('articleId') || ''
+    });
+    readLocation();
+    window.addEventListener('hashchange', readLocation);
+    return () => window.removeEventListener('hashchange', readLocation);
+  }, [articleId]);
+  const passageFragment = useMemo(
+    () => (String(articleId || '') === passageLocation.articleId
+      ? readArticlePassageFragment(passageLocation.hash, articleId)
+      : { status: 'absent', anchor: null }),
+    [articleId, passageLocation]
+  );
+  const passageReturn = useMemo(() => {
+    if (passageFragment.status !== 'ready') {
+      return { html, status: passageFragment.status };
+    }
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const resolved = markExactArticlePassage(doc.body, passageFragment.anchor);
+    return { html: doc.body.innerHTML, status: resolved.status };
+  }, [html, passageFragment]);
+  const contentMarkup = useMemo(() => ({ __html: passageReturn.html }), [passageReturn.html]);
   const focusedHighlight = useMemo(() => (
     highlights.find((item) => String(item?._id || item?.id || '') === String(focusedHighlightId)) || null
   ), [focusedHighlightId, highlights]);
@@ -197,6 +237,31 @@ const ArticleReader = ({
     const timeout = window.setTimeout(() => target.classList.remove('is-cited-passage'), 1600);
     return () => window.clearTimeout(timeout);
   }, [focusedHighlightId, focusedPassage, html, reducedMotion]);
+
+  useEffect(() => {
+    if (passageReturn.status !== 'found' || !contentRef.current) return undefined;
+    const targets = [...contentRef.current.querySelectorAll('[data-transient-passage="true"]')];
+    const target = targets[0];
+    if (!target) return undefined;
+    target.scrollIntoView?.({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'center' });
+    const timeout = window.setTimeout(() => {
+      targets.forEach((node) => node.classList.remove('is-cited-passage'));
+    }, 1600);
+    return () => window.clearTimeout(timeout);
+  }, [passageReturn, reducedMotion]);
+
+  const passageReturnStatus = (() => {
+    if (passageReturn.status === 'missing') {
+      return 'This passage is no longer present exactly as it was selected. The article is still here.';
+    }
+    if (passageReturn.status === 'ambiguous') {
+      return 'This passage appears more than once and its exact place could not be confirmed. The article is still here.';
+    }
+    if (passageReturn.status === 'malformed' || passageReturn.status === 'oversize') {
+      return 'This passage link could not be read. The article is still here.';
+    }
+    return '';
+  })();
 
   if (!article) {
     return (
@@ -285,13 +350,26 @@ const ArticleReader = ({
   };
 
   return (
-    <div className="article-reader" ref={readerRootRef}>
-      {selectionState.isOpen && (
+    <div className="article-reader" ref={readerRootRef} data-read-fresh={reading.readFresh || undefined}>
+      {selectionState.isOpen && !reading.readFresh && (
         <SelectionMenu
           ref={menuRef}
           rect={selectionState.rect}
           saving={saving}
           onHighlight={handleCreateHighlight}
+          onWorkWithPassage={() => {
+            if (selectionState.text.trim().length > 4000) {
+              setSaveError('Choose a passage of 4000 characters or fewer to start writing.');
+              return;
+            }
+            return persistHighlight(highlight => {
+              const params = new URLSearchParams(location.search);
+              params.set('articleId', articleId);
+              params.set('highlightId', highlight._id);
+              params.set('exploration', '1');
+              navigate({ pathname: '/library', search: params.toString(), hash: '' });
+            });
+          }}
           onAskLibrarian={() => handleSaveAndOpen(onAskLibrarian, 'The agent is unavailable here.')}
         />
       )}
@@ -318,6 +396,7 @@ const ArticleReader = ({
             rather than an action — findable only if you already knew it was
             there. */}
         <div className="article-reader-decisions">
+          <ReadFresh {...reading} />
           {/* One instrument for one fact. Two words and a separate reminder
               became a switch with a clock cap: park and promise in one
               gesture, which is why Remind me is gone. */}
@@ -347,10 +426,20 @@ const ArticleReader = ({
           )}
         </div>
       </div>
-      {focusedHighlight ? (
+      {passageReturnStatus ? (
+        <p className="status-message" role="status">{passageReturnStatus}</p>
+      ) : null}
+      {!focusedHighlight && passageFragment.status === 'ready' ? (
+        <LibraryOriginReturn ticket={matchingReturnTicket({ articleId, passage: passageFragment.anchor.text, anchor: passageFragment.anchor })} />
+      ) : null}
+      {articleId ? (
         <OpenedLibraryPassage
+          key={articleId}
           article={article}
+          readFresh={reading.readFresh}
           highlight={focusedHighlight}
+          highlights={highlights}
+          focusedHighlightId={focusedHighlightId}
           rootRef={readerRootRef}
           contentHtml={html}
           inArticle={!focusedPassage}

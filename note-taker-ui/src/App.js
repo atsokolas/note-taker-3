@@ -4,7 +4,7 @@ import WikiFrontPage from './components/wiki/WikiFrontPage';
 import Judgment from './pages/Judgment';
 import JudgmentMirror from './pages/JudgmentMirror';
 import NotFound from './pages/NotFound';
-import { isAppRoute, rememberReturnPath } from './navigation/appRoutes';
+import { forgetReturnPath, isAppRoute, readReturnPath, rememberReturnPath } from './navigation/appRoutes';
 import { Analytics } from '@vercel/analytics/react';
 import Register from './components/Register';
 import Login from './components/Login';
@@ -74,6 +74,7 @@ const Editions = lazy(() => import('./pages/Editions'));
 const EditionRead = lazy(() => import('./pages/EditionRead'));
 const ThinkMode = lazy(() => import('./pages/ThinkMode'));
 const ThinkNotes = lazy(() => import('./pages/ThinkNotes'));
+const AuthoredRecovery = lazy(() => import('./components/think/AuthoredRecovery'));
 const MapView = lazy(() => import('./pages/MapView'));
 const ReviewMode = lazy(() => import('./pages/ReviewMode'));
 const ReturnQueue = lazy(() => import('./pages/ReturnQueue'));
@@ -179,6 +180,8 @@ const bootstrapDevTokenFromLocation = () => {
    so links from Library, Wiki and the palette keep landing where they point. */
 const ThinkSurface = () => {
   const location = useLocation();
+  const workId = new URLSearchParams(location.search).get('explorationId');
+  if (workId) return <AuthoredRecovery key={workId} workId={workId} />;
   return namesAThinkObject(location.search) ? <ThinkMode /> : <ThinkNotes />;
 };
 
@@ -336,6 +339,12 @@ const PublicFallback = () => {
   }, [location, wantsApp]);
   if (wantsApp) return <Navigate to="/login" replace />;
   return <NotFound />;
+};
+
+const AuthenticatedLoginRedirect = () => {
+  const [destination] = useState(readReturnPath);
+  useEffect(forgetReturnPath, []);
+  return <Navigate to={destination || '/'} replace />;
 };
 
 /* Stable authenticated runtime.
@@ -822,7 +831,7 @@ function App() {
             <Route path="/articles/:id" element={<LegacyArticleRedirect />} />
             <Route path="/export" element={<Export />} />
             {/* Redirect authenticated users away from auth pages */}
-            <Route path="/login" element={<Navigate to="/" replace />} />
+            <Route path="/login" element={<AuthenticatedLoginRedirect />} />
             <Route path="/register" element={<Navigate to="/" replace />} />
             {/* Signed in, an unknown path rendered nothing at all — a top bar
                 over an empty column, which reads as the page having failed. */}

@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { Button, QuietButton } from '../../ui';
 import HighlightBlock from '../../blocks/HighlightBlock';
 import useHighlights from '../../../hooks/useHighlights';
+import { resolveSavedSourcePath } from '../../../utils/sourceRoutes';
 
 const createId = () => {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
@@ -10,6 +11,10 @@ const createId = () => {
 
 const SUPPORT_SIGNALS = new Set(['support', 'supports', 'supported', 'evidence', 'pro']);
 const COUNTER_SIGNALS = new Set(['counter', 'counterpoint', 'contradicts', 'contradiction', 'against', 'con']);
+
+const sourceBound = (block) => block?.type === 'highlight-ref'
+  ? Boolean(block.sourcePath)
+  : Boolean(block?.sourcePath || block?.articleId || block?.articleTitle);
 
 export const getChallengeEvidenceBalance = (block = {}) => {
   const challenge = block.challenge || {};
@@ -88,14 +93,17 @@ const QuestionBlocksEditor = ({
 
   const resolvedBlocks = useMemo(
     () => blocks.map(block => {
-      if (block.type !== 'highlight-ref') return { block, highlight: null };
+      const sourceHref = resolveSavedSourcePath(block);
+      if (block.type !== 'highlight-ref') {
+        return { block, highlight: null, sourceHref };
+      }
       const highlight = highlightMap.get(String(block.highlightId)) || {
         id: block.highlightId,
         text: block.text || 'Highlight',
         tags: [],
         articleTitle: ''
       };
-      return { block, highlight };
+      return { block, highlight, sourceHref };
     }),
     [blocks, highlightMap]
   );
@@ -121,7 +129,7 @@ const QuestionBlocksEditor = ({
 
   return (
     <div className="think-question-blocks">
-      {resolvedBlocks.map(({ block, highlight }, index) => (
+      {resolvedBlocks.map(({ block, highlight, sourceHref }, index) => (
         <div
           key={block.id}
           id={`question-block-${block.id}`}
@@ -132,7 +140,21 @@ const QuestionBlocksEditor = ({
           data-question-block-type={block.type || 'paragraph'}
           data-challenge-active={block.challenge?.enabled ? 'true' : 'false'}
         >
-          {block.type === 'paragraph' ? (
+          {sourceBound(block) ? (
+            <blockquote
+              className="think-question-source-quote"
+              aria-label={`Source quotation from ${block.articleTitle || 'Library'}`}
+            >
+              <p>{block.text}</p>
+              {block.articleTitle ? (
+                <cite>
+                  {sourceHref ? (
+                    <a href={sourceHref}>{block.articleTitle}</a>
+                  ) : block.articleTitle}
+                </cite>
+              ) : null}
+            </blockquote>
+          ) : block.type === 'paragraph' ? (
             <textarea
               className="think-question-paragraph"
               rows={3}

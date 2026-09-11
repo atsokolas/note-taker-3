@@ -189,6 +189,7 @@
   width: min(1380px, calc(100% - 32px));
   margin: 0 auto;
   padding: 28px 0 64px;
+  container: wikiread / inline-size;
 }
 .wiki-read__topline {
   display: flex;
@@ -718,7 +719,10 @@
   color: var(--text-primary);
   font-weight: 650;
 }
-@media (min-width: 1280px) {
+/* Marginalia needs the reader's full canvas. A viewport breakpoint also
+   enabled it inside the narrower app column beside the persistent agent rail,
+   where the two margins overlapped. */
+@container wikiread (min-width: 1120px) {
   .wiki-read__layout--rail-collapsed .wiki-read__article-panel {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 184px;

@@ -271,13 +271,6 @@ const Library = () => {
     setSourceContextOpen(true);
   }, [requestedHighlightId, selectedArticleId, articleHighlights]);
 
-  useEffect(() => {
-    if (searchParams.get('scope')) return;
-    const params = new URLSearchParams(searchParams);
-    params.set('scope', 'all');
-    setSearchParams(params, { replace: true });
-  }, [searchParams, setSearchParams]);
-
   const handleSelectScope = useCallback((nextScope) => {
     const params = new URLSearchParams(searchParams);
     params.set('scope', nextScope);
