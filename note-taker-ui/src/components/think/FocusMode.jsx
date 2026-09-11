@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { THINK_WRITING_CLASS } from './editor/useThinkWritingActivity';
 
 /**
  * Rails away, held.
@@ -8,13 +7,12 @@ import { THINK_WRITING_CLASS } from './editor/useThinkWritingActivity';
  * and the room reassembles around you, which is the moment you least wanted
  * it to. This is the same state held on purpose until you let it go.
  *
- * It lives in the bar rather than in the rail. It was in the rail, which meant
- * the one control that could bring the rails back faded out with them: you
- * pressed a thing to hide a thing, and the way out went with it. The bar is
- * the only furniture on the page that never leaves.
+ * In Notebook the control stays above the collapsible rail contents, so the
+ * way back remains visible. Other Think surfaces keep their bar control.
  */
 
 export const FOCUS_MODE_KEY = 'think.focusMode.v1';
+export const THINK_FOCUS_CLASS = 'think-focus-held';
 
 /* Remembered per reader, because a preference you have to restate every
    morning is not a preference. Storage can refuse — a private window, cleared
@@ -55,23 +53,19 @@ const RailsMark = ({ held }) => (
   </svg>
 );
 
-const FocusMode = () => {
+const FocusMode = ({ inRail = false }) => {
   const [held, setHeld] = useState(remembered);
 
   useEffect(() => {
     if (!held) return undefined;
-    document.body.classList.add(THINK_WRITING_CLASS);
-    /* Only what this put there comes back off. Writing may be holding the same
-       class for its own reasons, and letting go of focus mode should not yank
-       the rails back over someone mid-sentence. */
-    return () => { if (!remembered()) document.body.classList.remove(THINK_WRITING_CLASS); };
+    document.body.classList.add(THINK_FOCUS_CLASS);
+    return () => document.body.classList.remove(THINK_FOCUS_CLASS);
   }, [held]);
 
   const toggle = useCallback(() => {
     setHeld((current) => {
       const next = !current;
       remember(next);
-      if (!next) document.body.classList.remove(THINK_WRITING_CLASS);
       return next;
     });
   }, []);
@@ -79,13 +73,14 @@ const FocusMode = () => {
   return (
     <button
       type="button"
-      className={`think-focus-mode${held ? ' is-held' : ''}`}
+      className={`think-focus-mode${inRail ? ' think-focus-mode--rail' : ''}${held ? ' is-held' : ''}`}
       onClick={toggle}
       aria-pressed={held}
-      title={held ? 'Bring the rails back' : 'Send the rails away'}
+      title={held ? 'Exit focus mode' : 'Focus mode'}
+      aria-label={held ? 'Exit focus mode' : 'Focus mode'}
     >
       <RailsMark held={held} />
-      <span className="sr-only">{held ? 'Bring the rails back' : 'Send the rails away'}</span>
+      {inRail ? <span className="think-focus-mode__label">{held ? 'Exit focus' : 'Focus'}</span> : null}
     </button>
   );
 };
