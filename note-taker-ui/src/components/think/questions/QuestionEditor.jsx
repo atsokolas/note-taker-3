@@ -9,7 +9,7 @@ import AuthoredWorkOrigin from '../AuthoredWorkOrigin';
 import FindWhatIAlreadyHave from '../../wiki/open-sentence/FindWhatIAlreadyHave';
 import {
   alreadyUsedHere,
-  linkedHighlightIdsFromBlocks,
+  mergeQuestionHighlightLinks,
   questionBlockFromPassage,
   recordedUsesFromQuestionBlocks
 } from '../../../utils/libraryPassageUse';
@@ -81,9 +81,9 @@ const QuestionEditor = ({
     return () => onRegisterInsert(null);
   }, [onRegisterInsert]);
 
-  const persist = (blocks) => {
+  const persist = (blocks, options) => {
     if (!question) return;
-    const linkedHighlightIds = linkedHighlightIdsFromBlocks(blocks);
+    const linkedHighlightIds = mergeQuestionHighlightLinks(question, blocks, options);
     onSave({
       ...question,
       text: titleDraft.trim() || 'Untitled question',
@@ -121,7 +121,7 @@ const QuestionEditor = ({
     const next = blocksDraft.filter((block) => block.id !== placedBlock.id);
     setPlacedBlockId('');
     setBlocksDraft(next);
-    persist(next);
+    persist(next, { removeHighlightIds: [placedBlock.highlightId].filter(Boolean) });
   };
 
   if (!question) {

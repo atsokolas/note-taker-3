@@ -212,4 +212,86 @@ describe('QuestionEditor', () => {
       blocks: [expect.objectContaining({ id: 'block-1', text: 'Edited after placing.' })]
     }));
   });
+
+  it('keeps a highlight link that lives on the question, not in blocks', () => {
+    const onSave = jest.fn();
+    render(
+      <QuestionEditor
+        question={{
+          _id: 'question-1',
+          text: 'Who bears the downside?',
+          linkedHighlightId: 'highlight-origin',
+          blocks: [{ id: 'block-1', type: 'paragraph', text: 'A distinction still open.' }]
+        }}
+        saving={false}
+        error={null}
+        onSave={onSave}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
+      linkedHighlightIds: ['highlight-origin'],
+      linkedHighlightId: 'highlight-origin',
+      blocks: [expect.objectContaining({ id: 'block-1', text: 'A distinction still open.' })]
+    }));
+  });
+
+  it('places a found passage without dropping a pre-existing question highlight link', () => {
+    const onSave = jest.fn();
+    render(
+      <QuestionEditor
+        question={{
+          _id: 'question-1',
+          text: 'Who bears the downside?',
+          linkedHighlightId: 'highlight-origin',
+          blocks: [{ id: 'block-1', type: 'paragraph', text: 'A distinction still open.' }]
+        }}
+        saving={false}
+        error={null}
+        onSave={onSave}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Find what I already have' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Place here' }));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
+      linkedHighlightIds: ['highlight-origin', 'highlight-nomad'],
+      linkedHighlightId: 'highlight-origin',
+      blocks: [
+        expect.objectContaining({ highlightId: 'highlight-nomad' }),
+        expect.objectContaining({ id: 'block-1' })
+      ]
+    }));
+  });
+
+  it('keeps later edits and the original highlight link when undoing a found passage', () => {
+    const onSave = jest.fn();
+    const question = {
+      _id: 'question-1',
+      text: 'Who bears the downside?',
+      linkedHighlightId: 'highlight-origin',
+      linkedHighlightIds: ['highlight-origin'],
+      blocks: [{ id: 'block-1', type: 'paragraph', text: 'A distinction still open.' }]
+    };
+    const { rerender } = render(
+      <QuestionEditor question={question} saving={false} error={null} onSave={onSave} />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Find what I already have' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Place here' }));
+    rerender(
+      <QuestionEditor question={onSave.mock.calls[0][0]} saving={false} error={null} onSave={onSave} />
+    );
+    fireEvent.change(screen.getByDisplayValue('A distinction still open.'), {
+      target: { value: 'Edited after placing.' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Undo passage placement' }));
+    expect(onSave).toHaveBeenLastCalledWith(expect.objectContaining({
+      text: 'Who bears the downside?',
+      linkedHighlightIds: ['highlight-origin'],
+      linkedHighlightId: 'highlight-origin',
+      blocks: [expect.objectContaining({ id: 'block-1', text: 'Edited after placing.' })]
+    }));
+  });
 });

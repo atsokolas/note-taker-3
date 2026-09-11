@@ -1,6 +1,7 @@
 import {
   alreadyUsedHere,
   linkedHighlightIdsFromBlocks,
+  mergeQuestionHighlightLinks,
   questionBlockFromPassage,
   recordedUsesFromQuestionBlocks,
   recordedUsesFromSources,
@@ -63,5 +64,32 @@ describe('libraryPassageUse', () => {
       { type: 'highlight-ref', highlightId: 'highlight-1' },
       { type: 'paragraph', articleId: 'article-2', text: 'An excerpt without a mark.' }
     ])).toEqual(['highlight-1']);
+  });
+
+  it('keeps question highlight links that are not represented by blocks', () => {
+    expect(mergeQuestionHighlightLinks(
+      { linkedHighlightId: 'highlight-origin' },
+      [{ type: 'paragraph', text: 'My words.' }]
+    )).toEqual(['highlight-origin']);
+  });
+
+  it('adds placed-block highlights without dropping existing question links', () => {
+    expect(mergeQuestionHighlightLinks(
+      { linkedHighlightId: 'highlight-origin', linkedHighlightIds: ['highlight-origin'] },
+      [{ type: 'highlight-ref', highlightId: 'highlight-nomad' }]
+    )).toEqual(['highlight-origin', 'highlight-nomad']);
+  });
+
+  it('drops an undone highlight only when no remaining block still holds it', () => {
+    expect(mergeQuestionHighlightLinks(
+      { linkedHighlightIds: ['highlight-origin', 'highlight-nomad'], linkedHighlightId: 'highlight-origin' },
+      [{ type: 'paragraph', text: 'Edited after placing.' }],
+      { removeHighlightIds: ['highlight-nomad'] }
+    )).toEqual(['highlight-origin']);
+    expect(mergeQuestionHighlightLinks(
+      { linkedHighlightIds: ['highlight-nomad'], linkedHighlightId: 'highlight-nomad' },
+      [{ type: 'highlight-ref', highlightId: 'highlight-nomad' }],
+      { removeHighlightIds: ['highlight-nomad'] }
+    )).toEqual(['highlight-nomad']);
   });
 });
