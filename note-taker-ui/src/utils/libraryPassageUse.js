@@ -41,3 +41,29 @@ export const questionBlockFromPassage = (passage, createId) => ({
   articleTitle: passage?.title || 'Untitled source',
   sourcePath: passage?.href || ''
 });
+
+export const linkedHighlightIdsFromBlocks = (blocks = []) => (
+  [...new Set((Array.isArray(blocks) ? blocks : [])
+    .map((block) => String(block?.highlightId || '').trim())
+    .filter(Boolean))]
+);
+
+const highlightIdsOf = (value) => (
+  [...new Set((Array.isArray(value) ? value : [value])
+    .map((id) => String(id || '').trim())
+    .filter(Boolean))]
+);
+
+// Question links can exist with empty blocks (All Highlights → New Question).
+// Keep those, add ids from placed blocks, and drop an id only when undo asks
+// and no remaining block still holds it.
+export const mergeQuestionHighlightLinks = (question = {}, blocks = [], { removeHighlightIds = [] } = {}) => {
+  const existing = highlightIdsOf([
+    ...(Array.isArray(question?.linkedHighlightIds) ? question.linkedHighlightIds : []),
+    question?.linkedHighlightId
+  ]);
+  const fromBlocks = linkedHighlightIdsFromBlocks(blocks);
+  const stillOnBlocks = new Set(fromBlocks);
+  const remove = new Set(highlightIdsOf(removeHighlightIds).filter((id) => !stillOnBlocks.has(id)));
+  return [...new Set([...existing, ...fromBlocks])].filter((id) => !remove.has(id));
+};

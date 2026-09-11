@@ -9,6 +9,7 @@ import AuthoredWorkOrigin from '../AuthoredWorkOrigin';
 import FindWhatIAlreadyHave from '../../wiki/open-sentence/FindWhatIAlreadyHave';
 import {
   alreadyUsedHere,
+  mergeQuestionHighlightLinks,
   questionBlockFromPassage,
   recordedUsesFromQuestionBlocks
 } from '../../../utils/libraryPassageUse';
@@ -59,7 +60,7 @@ const QuestionEditor = ({
 }) => {
   const [titleDraft, setTitleDraft] = useState('');
   const [blocksDraft, setBlocksDraft] = useState([]);
-  const [previousBlocks, setPreviousBlocks] = useState(null);
+  const [placedBlockId, setPlacedBlockId] = useState('');
   const [insertOpen, setInsertOpen] = useState(false);
   const { highlights, loading: highlightsLoading, error: highlightsError } = useHighlights({ enabled: insertOpen });
 
@@ -80,12 +81,15 @@ const QuestionEditor = ({
     return () => onRegisterInsert(null);
   }, [onRegisterInsert]);
 
-  const persist = (blocks) => {
+  const persist = (blocks, options) => {
     if (!question) return;
+    const linkedHighlightIds = mergeQuestionHighlightLinks(question, blocks, options);
     onSave({
       ...question,
       text: titleDraft.trim() || 'Untitled question',
-      blocks
+      blocks,
+      linkedHighlightIds,
+      linkedHighlightId: linkedHighlightIds[0] || null
     });
   };
 
@@ -101,12 +105,23 @@ const QuestionEditor = ({
   };
 
   const recordedUses = recordedUsesFromQuestionBlocks(blocksDraft);
+  const placedBlock = placedBlockId
+    ? blocksDraft.find((block) => block.id === placedBlockId)
+    : null;
   const placeFoundPassage = (passage) => {
     if (alreadyUsedHere(passage, recordedUses)) return;
-    setPreviousBlocks(blocksDraft);
-    const next = [questionBlockFromPassage(passage, createId), ...blocksDraft];
+    const block = questionBlockFromPassage(passage, createId);
+    const next = [block, ...blocksDraft];
+    setPlacedBlockId(block.id);
     setBlocksDraft(next);
     persist(next);
+  };
+  const undoPlacedPassage = () => {
+    if (!placedBlock) return;
+    const next = blocksDraft.filter((block) => block.id !== placedBlock.id);
+    setPlacedBlockId('');
+    setBlocksDraft(next);
+    persist(next, { removeHighlightIds: [placedBlock.highlightId].filter(Boolean) });
   };
 
   if (!question) {
@@ -168,13 +183,8 @@ const QuestionEditor = ({
       <div className="think-question-find">
         <FindWhatIAlreadyHave
           excluded={recordedUses}
-          canUndo={Boolean(previousBlocks)}
-          onUndo={() => {
-            const restored = previousBlocks;
-            setBlocksDraft(restored);
-            setPreviousBlocks(null);
-            persist(restored);
-          }}
+          canUndo={Boolean(placedBlock)}
+          onUndo={undoPlacedPassage}
           onPlace={placeFoundPassage}
         />
       </div>

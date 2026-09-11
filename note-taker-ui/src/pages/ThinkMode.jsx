@@ -2458,7 +2458,9 @@ const ThinkMode = () => {
         ...(payload.settledBy === undefined ? {} : { settledBy: payload.settledBy }),
         status: payload.status,
         conceptName: payload.conceptName || payload.linkedTagName || '',
-        blocks: payload.blocks || []
+        blocks: payload.blocks || [],
+        ...(payload.linkedHighlightIds === undefined ? {} : { linkedHighlightIds: payload.linkedHighlightIds }),
+        ...(payload.linkedHighlightId === undefined ? {} : { linkedHighlightId: payload.linkedHighlightId })
       });
       setAllQuestions(prev => prev.map(q => q._id === updated._id ? updated : q));
     } catch (err) {
