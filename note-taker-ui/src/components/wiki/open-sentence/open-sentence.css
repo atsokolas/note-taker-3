@@ -273,6 +273,10 @@ mark.highlight.open-sentence__held.is-placed:not(.is-open)::before {
   min-width: 0;
 }
 
+.open-sentence-pocket__question .library-passage-picker {
+  margin-top: var(--noeis-space-1, 0.35rem);
+}
+
 .open-sentence-pocket__then,
 .open-sentence-pocket__bearing {
   display: grid;

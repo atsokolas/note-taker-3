@@ -21,6 +21,24 @@ jest.mock('../notebook/InsertHighlightModal', () => function InsertHighlightModa
   return null;
 });
 
+jest.mock('../../wiki/open-sentence/LibraryPassagePicker', () => function LibraryPassagePicker({ open, onPlace }) {
+  if (!open) return null;
+  return (
+    <button
+      type="button"
+      onClick={() => onPlace({
+        articleId: 'article-nomad',
+        highlightId: 'highlight-nomad',
+        title: 'Nomad',
+        passage: 'A wrong turn can still leave another attempt.',
+        href: '/library?articleId=article-nomad&highlightId=highlight-nomad'
+      })}
+    >
+      Place here
+    </button>
+  );
+});
+
 describe('QuestionEditor', () => {
   it('ends a kept question with both named sources and retains them after save and reopen', () => {
     const sources = [
@@ -144,5 +162,47 @@ describe('QuestionEditor', () => {
     const titleField = screen.getByLabelText('Question title');
     expect(titleField.tagName).toBe('TEXTAREA');
     expect(titleField).toHaveClass('think-question-title-input--wrap');
+  });
+
+  it('places a found Library passage beside the question and keeps the question through save', () => {
+    const onSave = jest.fn();
+    const question = {
+      _id: 'question-1',
+      text: 'Who bears the downside?',
+      blocks: [{ id: 'block-1', type: 'paragraph', text: 'A distinction still open.' }]
+    };
+    const { rerender } = render(
+      <QuestionEditor question={question} saving={false} error={null} onSave={onSave} />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Find what I already have' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Place here' }));
+
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
+      text: 'Who bears the downside?',
+      blocks: [
+        expect.objectContaining({
+          type: 'highlight-ref',
+          highlightId: 'highlight-nomad',
+          articleId: 'article-nomad',
+          articleTitle: 'Nomad',
+          text: 'A wrong turn can still leave another attempt.',
+          sourcePath: '/library?articleId=article-nomad&highlightId=highlight-nomad'
+        }),
+        expect.objectContaining({ id: 'block-1', text: 'A distinction still open.' })
+      ]
+    }));
+
+    rerender(
+      <QuestionEditor question={onSave.mock.calls[0][0]} saving={false} error={null} onSave={onSave} />
+    );
+    expect(screen.getByDisplayValue('Who bears the downside?')).toBeInTheDocument();
+    expect(screen.getByRole('blockquote', { name: 'Source quotation from Nomad' }))
+      .toHaveTextContent('A wrong turn can still leave another attempt.');
+    fireEvent.click(screen.getByRole('button', { name: 'Undo passage placement' }));
+    expect(onSave).toHaveBeenLastCalledWith(expect.objectContaining({
+      text: 'Who bears the downside?',
+      blocks: [expect.objectContaining({ id: 'block-1', text: 'A distinction still open.' })]
+    }));
   });
 });

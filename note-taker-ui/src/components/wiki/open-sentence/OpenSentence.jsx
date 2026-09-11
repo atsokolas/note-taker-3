@@ -76,7 +76,7 @@ import {
 import { listenOpenSentenceStore } from './openSentenceStore';
 import { CopyClip, KeptWork, PocketField, WithoutParagraphWork, WithoutSourceWork } from './OpenSentenceKept';
 import AuthoredWriting, { AuthoredContext } from './AuthoredWriting';
-import LibraryPassagePicker from './LibraryPassagePicker';
+import FindWhatIAlreadyHave from './FindWhatIAlreadyHave';
 import './open-sentence.css';
 
 const selectionInside = (root) => {
@@ -519,13 +519,23 @@ const MeetNaming = ({ pocketId, exploration, onCommit }) => {
   );
 };
 
-const MeetPassage = ({ exploration, mocked, onOpenSourceHome, lead = false }) => {
+const MeetPassage = ({
+  exploration,
+  mocked,
+  onOpenSourceHome,
+  lead = false,
+  besideQuestion = false
+}) => {
   const other = inspectableOther(exploration);
   const [inspecting, setInspecting] = useState(false);
   if (!other) return null;
   return (
     <div className="open-sentence-pocket__meet">
-      {lead ? <p className="open-sentence-pocket__qualification">Also beside</p> : null}
+      {lead ? (
+        <p className="open-sentence-pocket__qualification">
+          {besideQuestion ? 'Beside this question' : 'Also beside'}
+        </p>
+      ) : null}
       <PassageRead source={other} inspecting={inspecting} />
       <div className="open-sentence-pocket__actions">
         <AroundToggle inspecting={inspecting} onToggle={() => setInspecting((current) => !current)} />
@@ -647,9 +657,7 @@ const PocketBody = ({
   onHeld,
   authorship
 }) => {
-  const [choosing, setChoosing] = useState(false);
   const [previousChoice, setPreviousChoice] = useState(null);
-  const bringButton = useRef(null);
   const composing = Boolean(authorship);
   const sources = [exploration.source, exploration.other].filter(source => source?.available !== false && source?.passage);
   const then = liveThen(exploration);
@@ -679,8 +687,40 @@ const PocketBody = ({
       mocked={mocked}
       onOpenSourceHome={onOpenSourceHome}
       lead={!rearranged}
+      besideQuestion={composing}
     />
   );
+  const meetControls = writing && other ? (
+    <div className="open-sentence-pocket__meet">
+      {canRearrange(exploration) ? (
+        <button
+          type="button"
+          onClick={() => onCommit(rearranged ? putThemBack(exploration) : tryTheOtherWay(exploration))}
+        >
+          {rearranged ? 'Put them back' : 'Try the other way'}
+        </button>
+      ) : null}
+      <MeetNaming pocketId={pocketId} exploration={exploration} onCommit={onCommit} />
+    </div>
+  ) : null;
+  const findAlreadyHave = composing ? (
+    <FindWhatIAlreadyHave
+      excluded={sources}
+      canUndo={Boolean(previousChoice)}
+      onUndo={() => {
+        onCommit({ ...exploration, ...previousChoice });
+        setPreviousChoice(null);
+      }}
+      onPlace={source => {
+        setPreviousChoice({
+          selectedSource: exploration.selectedSource || null,
+          other: exploration.other,
+          meet: exploration.meet
+        });
+        onCommit(chooseLibraryPassage(exploration, source));
+      }}
+    />
+  ) : null;
 
   return (
     <>
@@ -695,7 +735,7 @@ const PocketBody = ({
       </div> : null}
       <fieldset className="open-sentence-pocket__contents" disabled={composing && !authorship.ready}>
       <div className="open-sentence-pocket__source">
-        {rearranged ? (
+        {rearranged && !composing ? (
           <>
             <p className="open-sentence-pocket__qualification">Tried the other way.</p>
             {alsoSource}
@@ -704,46 +744,14 @@ const PocketBody = ({
         ) : (
           <>
             {boundSource}
-            {alsoSource}
+            {composing ? null : alsoSource}
           </>
         )}
-        {writing && other ? (
-          <div className="open-sentence-pocket__meet">
-            {canRearrange(exploration) ? (
-              <button
-                type="button"
-                onClick={() => onCommit(rearranged ? putThemBack(exploration) : tryTheOtherWay(exploration))}
-              >
-                {rearranged ? 'Put them back' : 'Try the other way'}
-              </button>
-            ) : null}
-            <MeetNaming pocketId={pocketId} exploration={exploration} onCommit={onCommit} />
-          </div>
-        ) : null}
+        {composing ? null : meetControls}
       </div>
 
       {composing ? (
         <>
-          <div className="open-sentence-pocket__actions">
-            <button ref={bringButton} type="button" onClick={() => setChoosing(true)}>Bring from Library</button>
-            {previousChoice ? (
-              <button type="button" onClick={() => {
-                onCommit({ ...exploration, ...previousChoice });
-                setPreviousChoice(null);
-              }}>Undo passage placement</button>
-            ) : null}
-          </div>
-          <LibraryPassagePicker
-            open={choosing}
-            excluded={sources}
-            onDismiss={() => { setChoosing(false); bringButton.current?.focus(); }}
-            onPlace={source => {
-              setPreviousChoice({ selectedSource: exploration.selectedSource || null, other: exploration.other, meet: exploration.meet });
-              onCommit(chooseLibraryPassage(exploration, source));
-              setChoosing(false);
-              bringButton.current?.focus();
-            }}
-          />
           <details className="open-sentence-pocket__context">
             <summary>Working with {sources.length ? `${sources.length} passage${sources.length === 1 ? '' : 's'} and your writing` : 'this sentence and your writing'}</summary>
             <AuthoredContext exploration={exploration} sources={sources} />
@@ -823,6 +831,16 @@ const PocketBody = ({
             onChange={(value) => onCommit(keepQuestion(exploration, value))}
             placeholder="An unfinished question can stay unfinished."
           />
+          {composing ? (
+            <>
+              {rearranged ? (
+                <p className="open-sentence-pocket__qualification">Tried the other way.</p>
+              ) : null}
+              {alsoSource}
+              {meetControls}
+              {findAlreadyHave}
+            </>
+          ) : null}
           {then?.question ? null : (
             <DistinctionField
               pocketId={pocketId}

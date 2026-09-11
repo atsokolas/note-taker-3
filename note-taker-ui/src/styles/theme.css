@@ -5473,6 +5473,34 @@ html[data-ui-theme='dark'] .article-reader-header {
   gap: 8px;
 }
 
+.think-question-find .open-sentence-pocket__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.think-question-find button {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: var(--surface);
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+
+.think-question-find button:focus-visible {
+  outline: 2px solid var(--noeis-focus, var(--focus-ring, #3b6ee8));
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .think-question-find * {
+    scroll-behavior: auto;
+  }
+}
+
 .think-question-title-input {
   flex: 1;
   border: none;
