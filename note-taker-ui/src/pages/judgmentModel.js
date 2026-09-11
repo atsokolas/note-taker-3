@@ -377,40 +377,26 @@ export const provenanceLine = (page, now = Date.now()) => {
    than the word, which is where prose keeps the line too. */
 const COUNT_WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
 export const countWord = (n) => COUNT_WORDS[n] || String(n);
-const tally = (n, singular, plural) => `${countWord(n)} ${n === 1 ? singular : plural}`;
 
-/* Where you stand, in one sentence.
+/* Where you stand, under the sentence you hold.
  *
- * The page used to open with when you started and when you last looked, and
- * then left you to count the blocks yourself to learn what the case was made
- * of. What a belief is made of is the first thing worth saying about it, and
- * the one thing that can be wrong with it — a test nothing is watching —
- * belongs at the end of that sentence, where the cure can sit beside it.
- *
- * Nothing is padded. A case with no reasons says so and stops; it does not
- * report zeroes.
+ * The four blocks already name the reasons, the objections and the tests.
+ * Repeating that census here as "two reasons, two objections, one test" is
+ * a scoreboard on top of the scoreboard. What belongs here is how long you
+ * have held it, and — only when it is true — that a test still has no signal.
  */
-const standingLine = (judgment = {}, { why, against, changeMindIf }, now = Date.now()) => {
+const standingLine = (judgment = {}, { changeMindIf }, now = Date.now()) => {
   const startedAt = time(judgment.bornAt || judgment.startedAt || whatIDidLines(judgment)[0]?.at || null);
   const withinAYear = now - startedAt < 365 * 24 * 60 * 60 * 1000;
-  const made = [
-    why.length && tally(why.length, 'reason', 'reasons'),
-    against.length && tally(against.length, 'objection', 'objections'),
-    changeMindIf.length && tally(changeMindIf.length, 'test', 'tests')
-  ].filter(Boolean);
   const unwatched = changeMindIf.filter(line => !line.signal).length;
   return {
     since: Number.isNaN(startedAt) ? '' : `Held since ${new Date(startedAt).toLocaleDateString(undefined, withinAYear
       ? { month: 'long', day: 'numeric' }
       : { month: 'long', year: 'numeric' })}.`,
-    /* "Two reasons, two objections, one test." — and nothing at all when the
-       case is still empty, because "no reasons, no objections, no tests" is
-       the zero this product does not print. */
-    made: made.length ? `${made.join(', ').replace(/^./, c => c.toUpperCase())}.` : '',
-    /* A test nobody is watching is a test in name only, and this sentence is
-       the only place that says so — the block used to say it too. */
     unwatched: unwatched
-      ? `${changeMindIf.length === 1 ? 'Nothing is watching it' : `${countWord(unwatched).replace(/^./, c => c.toUpperCase())} of them have nothing watching`}.`
+      ? (changeMindIf.length === 1
+        ? 'The test has no signal yet.'
+        : `${countWord(unwatched).replace(/^./, c => c.toUpperCase())} tests have no signal yet.`)
       : ''
   };
 };

@@ -25,6 +25,7 @@ import ReadingDrift from '../components/ReadingDrift';
 import JudgmentShelf from '../components/collection/JudgmentShelf';
 import AriadneThread from '../components/judgment/AriadneThread';
 import DossierResearchReview from '../components/judgment/DossierResearchReview';
+import JudgmentHistory from '../components/judgment/JudgmentHistory';
 import JudgmentLedger from '../components/judgment/JudgmentLedger';
 import JudgmentCase from '../components/judgment/JudgmentCase';
 import JudgmentResolution from '../components/judgment/JudgmentResolution';
@@ -1324,23 +1325,18 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
           Write your current view above to look for evidence. Your research is unchanged.
         </p>
       ) : null}
-      {/* Where you stand, in one sentence: how long you have held it, what it
-          is made of, and the one thing that can be wrong with it. The blocks
-          below say all of this too, but only to a reader willing to count
-          them — and the unwatched test used to be announced twice. */}
-      {view.standing.since || view.standing.made || view.standing.unwatched ? (
+      {/* How long you have held it, and when you last looked — not a census
+          of the blocks sitting immediately underneath. */}
+      {view.standing.since || view.looked ? (
         <p className={`judgment__standing ${step(3)}`}>
-          {[view.standing.since, view.standing.made].filter(Boolean).join(' ')}
-          {view.standing.unwatched ? (
-            <span className="judgment__standing-warning">
-              {' '}{view.standing.unwatched}{' '}
-              <button type="button" onClick={() => setOpenTest(n => n + 1)}>Name a signal</button>
-            </span>
-          ) : null}
+          {[view.standing.since, view.looked].filter(Boolean).join(' ')}
         </p>
       ) : null}
-      {view.looked ? (
-        <p className="judgment__provenance">{view.looked}</p>
+      {view.standing.unwatched ? (
+        <p className="judgment__standing-warning">
+          {view.standing.unwatched}{' '}
+          <button type="button" onClick={() => setOpenTest(n => n + 1)}>Name one</button>
+        </p>
       ) : null}
       {anniversary ? (
         <p className="judgment__anniversary" role="note">{anniversary}</p>
@@ -1415,54 +1411,31 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
           its apparatus had begun. */}
       <section className={`judgment-record ${step(4)}`} aria-labelledby="judgment-record-title">
         <h2 id="judgment-record-title" className="judgment-record__seam">What has happened to it</h2>
-
-        <JudgmentLedger
-          pageId={pageId}
-          claim={view.claim}
-          page={page}
-          judgment={page.judgment}
-          onSaved={(next) => {
-            if (next) setPage(current => ({ ...current, judgment: next }));
-          }}
-        />
-        <LivingTeam pageId={pageId} />
-
-        {view.lessons.length ? (
-          <section className="judgment__field judgment__lessons" aria-labelledby="judgment-field-lessons">
-            <h2 id="judgment-field-lessons">What it taught me</h2>
-            <ul>
-              {view.lessons.map(lesson => (
-                <li key={lesson.id}>
-                  <span>{lesson.text}</span>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
-
-        <Dependencies
+        <JudgmentHistory
+          view={view}
           rests={rests}
-          supports={supports}
-          options={dependencyOptions}
-          onAdd={addDependsOn}
-          onRemove={removeDependsOn}
+          ledger={(
+            <JudgmentLedger
+              pageId={pageId}
+              claim={view.claim}
+              page={page}
+              judgment={page.judgment}
+              onSaved={(next) => {
+                if (next) setPage(current => ({ ...current, judgment: next }));
+              }}
+            />
+          )}
+          room={<LivingTeam pageId={pageId} />}
+          dependencies={(
+            <Dependencies
+              rests={rests}
+              supports={supports}
+              options={dependencyOptions}
+              onAdd={addDependsOn}
+              onRemove={removeDependsOn}
+            />
+          )}
         />
-
-        {view.review ? (
-          <section className="judgment__field judgment__review" aria-labelledby="judgment-field-review">
-            <h2 id="judgment-field-review">What happened?</h2>
-            {view.review.state === 'observed' ? (
-              <>
-                {view.review.summary ? <p className="judgment__line">{view.review.summary}</p> : null}
-                {view.review.lesson ? <p className="judgment__line">{view.review.lesson}</p> : null}
-              </>
-            ) : (
-              <p className="judgment__line judgment__line--asking">
-                The review date has passed. Nothing here is filled in until you say what happened.
-              </p>
-            )}
-          </section>
-        ) : null}
       </section>
 
       {/* Every tool is one verb until you press it, or until it has something

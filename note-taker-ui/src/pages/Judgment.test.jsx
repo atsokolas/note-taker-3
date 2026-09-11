@@ -602,7 +602,7 @@ describe('Judgment claim', () => {
 
     renderDetail();
 
-    expect(await screen.findByText('Searched your library. Nothing in it bears on this sentence.'))
+    expect(await screen.findByText('Nothing in your library speaks to this yet.'))
       .toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'On this sentence' })).not.toBeInTheDocument();
   });
@@ -616,7 +616,7 @@ describe('Judgment claim', () => {
     await screen.findByLabelText('What you hold');
     await waitFor(() => expect(getJudgmentLibraryEvidence).toHaveBeenCalled());
     // A failed read is not an empty library, and must never be reported as one.
-    expect(screen.queryByText(/Nothing in it bears on this sentence/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Nothing in your library speaks to this yet/)).not.toBeInTheDocument();
   });
 
   it('narrows the belief instead of replacing it, and says so', async () => {
@@ -895,8 +895,8 @@ describe('Judgment claim', () => {
 
     renderDetail();
 
-    expect(await screen.findByRole('heading', { level: 2, name: 'What happened?' })).toBeInTheDocument();
-    expect(screen.getByText(/Nothing here is filled in until you say what happened/)).toBeInTheDocument();
+    expect((await screen.findAllByText(/review date passed/i)).length).toBeGreaterThan(0);
+    expect(screen.getByText(/until you say what happened/)).toBeInTheDocument();
   });
 });
 
@@ -1801,8 +1801,6 @@ describe('Parking a judgment, and the lesson it leaves', () => {
     await screen.findByLabelText('Title');
 
     expect(screen.getByText(/It is still yours; you are just not tending it/)).toBeInTheDocument();
-    // The lesson reads on the page it came from.
-    expect(screen.getByRole('heading', { name: 'What it taught me' })).toBeInTheDocument();
     expect(screen.getByText('Power, not silicon.')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Pick it back up' }));

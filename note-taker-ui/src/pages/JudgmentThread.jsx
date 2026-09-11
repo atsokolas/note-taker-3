@@ -179,14 +179,14 @@ const MorningInbox = ({
   // Not searched yet. Nothing truthful to say, so nothing is said.
   if (!searched) return null;
 
-  /* Searched, and the library had nothing bearing on this sentence. That is a
-     finding, and the skeptic reports it. Dismissing your way down to an empty
-     list is not the same event, so it stays quiet — the search did find
-     something, you just dealt with it. */
+  /* Searched, and the library had nothing for this. That is a finding, and
+     it is said once, quietly. Dismissing your way down to an empty list is
+     not the same event, so it stays quiet — the search did find something,
+     you just dealt with it. */
   if (!found.length) {
     return (
       <p className="judgment-inbox__nothing" role="status">
-        Searched your library. Nothing in it bears on this sentence.
+        Nothing in your library speaks to this yet.
       </p>
     );
   }
