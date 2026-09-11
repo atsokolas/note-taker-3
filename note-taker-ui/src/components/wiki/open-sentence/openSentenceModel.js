@@ -1,4 +1,10 @@
-import { distinctionRecord } from '../../../utils/distinctionUse';
+import {
+  distinctionRecord,
+  heldInstrumentFrom,
+  recordFailedApplication
+} from '../../../utils/distinctionUse';
+
+export { heldInstrumentFrom };
 
 export const EXPLORATION_STATUS = Object.freeze({
   closed: 'closed',
@@ -504,8 +510,6 @@ const asInstrumentRecord = (value, current) => {
   return distinctionRecord({ ...value, definition, against });
 };
 
-export const heldInstrumentFrom = (value) => distinctionRecord(value);
-
 export const pendingInstrument = (exploration) => (
   asInstrumentRecord(exploration?.instrument, asLine(exploration?.originalText))
 );
@@ -568,9 +572,49 @@ export const applyInstrument = (exploration, held) => {
     ...exploration,
     instrument: distinctionRecord({
       ...tool,
-      against: asLine(exploration.originalText)
+      against: asLine(exploration.originalText),
+      appliedAt: todayStamp()
     })
   };
+};
+
+export const isAppliedInstrument = (exploration) => {
+  const instrument = liveInstrument(exploration);
+  if (!instrument) return false;
+  if (asLine(instrument.appliedAt) || instrument.inapplicable || instrument.narrowedTo) return true;
+  return !liveDistinction(exploration);
+};
+
+export const canJudgeApplication = (exploration) => {
+  const instrument = liveInstrument(exploration);
+  return Boolean(isAppliedInstrument(exploration) && instrument && !instrument.inapplicable && !instrument.narrowedTo);
+};
+
+export const markInapplicable = (exploration, { reason = '', at } = {}) => {
+  if (!canJudgeApplication(exploration)) return exploration;
+  return {
+    ...exploration,
+    instrument: recordFailedApplication(liveInstrument(exploration), {
+      inapplicable: true,
+      reason,
+      at: asDay(at) || todayStamp()
+    })
+  };
+};
+
+export const proposeNarrowerDefinition = (exploration, { definition, name, reason, at } = {}) => {
+  if (!canJudgeApplication(exploration)) return exploration;
+  const current = liveInstrument(exploration);
+  const next = recordFailedApplication(current, {
+    narrower: {
+      name: asLine(name) || current.name,
+      definition
+    },
+    reason,
+    at: asDay(at) || todayStamp()
+  });
+  if (!next?.narrowedTo) return exploration;
+  return { ...exploration, instrument: next };
 };
 
 export const instrumentWayHome = (exploration) => {

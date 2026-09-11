@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { distinctionRecord } from '../../../utils/distinctionUse';
+import { heldInstrumentFrom, keepNewerHeldInstrument } from '../../../utils/distinctionUse';
 import './UseDistinctionHere.css';
 
 export default function UseDistinctionHere({
@@ -13,10 +13,17 @@ export default function UseDistinctionHere({
   const [active, setActive] = useState(0);
   const trigger = useRef(null);
   const list = useRef(null);
+  const heldRecord = heldInstrumentFrom(held);
   const choices = (Array.isArray(distinctions) ? distinctions : [])
-    .map((item) => distinctionRecord(item))
-    .filter(Boolean);
-  const heldRecord = distinctionRecord(held);
+    .map((item) => keepNewerHeldInstrument(heldRecord, heldInstrumentFrom(item)))
+    .filter(Boolean)
+    .filter((item, index, listed) => (
+      listed.findIndex((entry) => (
+        entry.sourceId && item.sourceId
+          ? entry.sourceId === item.sourceId
+          : entry.versionId === item.versionId
+      )) === index
+    ));
   const options = heldRecord && !choices.some((item) => (
     item.sourceId ? item.sourceId === heldRecord.sourceId : item.versionId === heldRecord.versionId
   ))

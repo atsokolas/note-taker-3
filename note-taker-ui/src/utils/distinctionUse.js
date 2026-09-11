@@ -41,29 +41,59 @@ export const distinctionExternalId = (saved = {}) => {
   return '';
 };
 
-export const distinctionRecord = (value = {}) => {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+const asMeaning = (value = {}) => {
   const name = asLine(value.name);
   const definition = asLine(value.definition);
   if (!name || !definition) return null;
+  return {
+    name,
+    definition,
+    versionId: asLine(value.versionId) || distinctionVersionId({ name, definition })
+  };
+};
+
+export const distinctionRecord = (value = {}) => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const meaning = asMeaning(value);
+  if (!meaning) return null;
   const sourceId = asLine(value.sourceId);
   const ownerId = asLine(value.ownerId);
   const against = asLine(value.against);
   const appliedAt = asLine(value.appliedAt);
-  const versionId = asLine(value.versionId) || distinctionVersionId({ name, definition });
+  const reason = asLine(value.reason);
+  const narrowedAt = asLine(value.narrowedAt);
   const sourceHref = asLine(value.sourceHref) || (sourceId ? distinctionHref(sourceId) : '');
   const externalId = asLine(value.externalId);
+  const narrowedTo = value.inapplicable === true ? null : asMeaning(value.narrowedTo);
   return {
-    name,
-    definition,
-    versionId,
+    ...meaning,
     ...(sourceId ? { sourceId, sourceKind: asLine(value.sourceKind) || 'notebook' } : {}),
     ...(ownerId ? { ownerId } : {}),
     ...(against ? { against } : {}),
     ...(sourceHref ? { sourceHref } : {}),
     ...(appliedAt ? { appliedAt } : {}),
-    ...(externalId ? { externalId } : {})
+    ...(externalId ? { externalId } : {}),
+    ...(value.inapplicable === true ? { inapplicable: true } : {}),
+    ...(reason ? { reason } : {}),
+    ...(narrowedAt ? { narrowedAt } : {}),
+    ...(narrowedTo ? { narrowedTo } : {})
   };
+};
+
+export const heldInstrumentFrom = (value) => {
+  const record = distinctionRecord(value);
+  if (!record) return null;
+  const held = distinctionRecord({
+    name: record.name,
+    definition: record.definition,
+    versionId: record.versionId,
+    sourceId: record.sourceId,
+    sourceKind: record.sourceKind,
+    ownerId: record.ownerId,
+    sourceHref: record.sourceId ? distinctionHref(record.sourceId) : record.sourceHref,
+    externalId: record.externalId
+  });
+  return value?.pending === true ? { ...held, pending: true } : held;
 };
 
 export const recordedDefinition = (use) => {
@@ -83,11 +113,111 @@ export const sourceStatus = (use, liveNote) => {
 };
 
 export const heldInstrumentForOwner = (held, ownerId) => {
-  const record = distinctionRecord(held);
+  const record = heldInstrumentFrom(held);
   if (!record) return null;
   const owner = asLine(ownerId);
   if (record.ownerId && owner && record.ownerId !== owner) return null;
   return record;
+};
+
+export const recordFailedApplication = (use, {
+  inapplicable = false,
+  narrower,
+  reason = '',
+  at = ''
+} = {}) => {
+  const record = distinctionRecord(use);
+  if (!record) return null;
+  const {
+    narrowedTo: _priorNarrow,
+    inapplicable: _priorInapplicable,
+    reason: _priorReason,
+    narrowedAt: _priorAt,
+    ...base
+  } = record;
+  const when = asLine(at);
+  const why = asLine(reason);
+  if (inapplicable) {
+    return distinctionRecord({
+      ...base,
+      inapplicable: true,
+      ...(why ? { reason: why } : {}),
+      ...(when ? { narrowedAt: when } : {})
+    });
+  }
+  const next = asMeaning(narrower);
+  if (!next || next.versionId === record.versionId) return record;
+  return distinctionRecord({
+    ...base,
+    ...(why ? { reason: why } : {}),
+    ...(when ? { narrowedAt: when } : {}),
+    narrowedTo: next
+  });
+};
+
+export const liveDefinitionAfterFailure = (use) => {
+  const record = distinctionRecord(use);
+  if (!record) return null;
+  if (record.narrowedTo && !record.inapplicable) {
+    return heldInstrumentFrom({
+      ...heldInstrumentFrom(record),
+      ...record.narrowedTo
+    });
+  }
+  return heldInstrumentFrom(record);
+};
+
+export const keepNewerHeldInstrument = (held, snapshot) => {
+  const current = heldInstrumentFrom(held);
+  const used = heldInstrumentFrom(snapshot);
+  if (!current) return used;
+  if (!used) return current;
+  if (current.sourceId && used.sourceId && current.sourceId === used.sourceId) {
+    if (current.versionId === used.versionId) return current.pending ? used : current;
+    if (current.pending === true) return current;
+    return used;
+  }
+  if (current.versionId === used.versionId) return used;
+  if (!used.sourceId && current.name === used.name) return current;
+  return used;
+};
+
+export const exceptionsFromUses = (uses = []) => (
+  (Array.isArray(uses) ? uses : [])
+    .map((item) => distinctionRecord(item))
+    .filter((item) => item && (item.inapplicable || item.narrowedTo))
+);
+
+export const shouldUpdateExistingDistinction = (note, next = {}) => {
+  const listed = eligibleDistinctions([note])[0];
+  const name = asLine(next.name);
+  const definition = asLine(next.definition);
+  return Boolean(listed && name && definition && name === listed.name);
+};
+
+export const updateDistinctionPayload = ({
+  note,
+  name,
+  definition,
+  createId = () => 'block-1'
+} = {}) => {
+  const listed = eligibleDistinctions([note])[0];
+  const title = asLine(name) || listed?.name;
+  const text = asLine(definition);
+  if (!title || !text || !listed) return null;
+  const externalId = asLine(note?.importMeta?.externalId || note?.externalId);
+  return {
+    title,
+    content: text,
+    blocks: [{ id: createId(), type: 'paragraph', text }],
+    importMeta: {
+      ...(note?.importMeta && typeof note.importMeta === 'object' ? note.importMeta : {}),
+      provider: asLine(note?.importMeta?.provider) || 'noeis',
+      sourceType: DISTINCTION_SOURCE_TYPE,
+      sourceLabel: title,
+      ...(externalId ? { externalId } : {})
+    }
+  };
 };
 
 const noteDefinition = (note) => asLine(

@@ -151,6 +151,12 @@ export const STORYBOARD_DISTINCTION =
 
 export const STORYBOARD_INSTRUMENT_NAME = 'Room to be wrong';
 
+export const STORYBOARD_NARROWER =
+  'A mistake that teaches the map, if someone else does not bear the downside.';
+
+export const STORYBOARD_NARROW_REASON =
+  'A product rollback can teach the team while customers still pay.';
+
 export const STORYBOARD_EXHIBIT_NAME = 'Recoverable, or not';
 
 export const STORYBOARD_EXHIBIT_THIS =

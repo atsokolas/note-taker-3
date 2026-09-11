@@ -580,10 +580,10 @@ mark.highlight.open-sentence__held.is-placed:not(.is-open)::before {
   font-size: 0.95rem;
 }
 
-.open-sentence-pocket__diff mark {
-  background: color-mix(in srgb, var(--noeis-thread) 22%, transparent);
-  color: inherit;
-  font-weight: 560;
+.open-sentence-pocket__judgment {
+  display: grid;
+  justify-items: start;
+  gap: 0.35rem;
 }
 
 .open-sentence-pocket__contents > button,
@@ -591,6 +591,7 @@ mark.highlight.open-sentence__held.is-placed:not(.is-open)::before {
 .open-sentence-pocket__write > button,
 .open-sentence-pocket__pressure > button,
 .open-sentence-pocket__meet > button,
+.open-sentence-pocket__judgment > button,
 .open-sentence-pocket__fresh,
 .open-sentence-pocket__close {
   justify-self: start;

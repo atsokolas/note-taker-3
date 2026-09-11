@@ -8,7 +8,8 @@ import { writeReturnTicket } from './openSentenceJourney';
 jest.mock('../../../api/notebook', () => ({
   getNotebookSummaries: () => new Promise(() => {}),
   getNotebookEntry: async () => null,
-  createNotebookEntry: async () => null
+  createNotebookEntry: async () => null,
+  updateNotebookEntry: async () => null
 }));
 
 const article = {
