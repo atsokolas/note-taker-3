@@ -782,7 +782,7 @@
   grid-template-rows: 0fr;
 }
 
-.edition-inbox__nest > ul { min-height: 0; overflow: hidden; }
+.edition-inbox__nest > div { min-height: 0; overflow: hidden; }
 
 .edition-inbox__edition.is-open .edition-inbox__nest {
   grid-template-rows: 1fr;

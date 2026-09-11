@@ -88,17 +88,19 @@ const InboxEdition = ({ group, busy, onLater, onDismiss }) => {
         inert={!open}
         aria-hidden={!open}
       >
-        <ul className="edition-inbox__items">
-          {group.items.map((row) => (
-            <Item
-              key={rowKey(row)}
-              row={row}
-              busy={busy}
-              onLater={onLater}
-              onDismiss={onDismiss}
-            />
-          ))}
-        </ul>
+        <div>
+          <ul className="edition-inbox__items">
+            {group.items.map((row) => (
+              <Item
+                key={rowKey(row)}
+                row={row}
+                busy={busy}
+                onLater={onLater}
+                onDismiss={onDismiss}
+              />
+            ))}
+          </ul>
+        </div>
       </div>
     </li>
   );
