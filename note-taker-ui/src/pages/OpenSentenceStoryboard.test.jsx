@@ -320,7 +320,7 @@ describe('OpenSentenceStoryboard', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Leave open' }));
     expect(screen.getByRole('heading', { name: 'Parenting' })).toBeInTheDocument();
     expect(screen.getByLabelText('The distinction that would help')).toHaveValue(STORYBOARD_DISTINCTION);
-    expect(screen.queryByRole('button', { name: `Apply ${STORYBOARD_INSTRUMENT_NAME}` })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Use this here' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Keep this as an instrument' }));
     fireEvent.change(screen.getByLabelText('Name this instrument'), {
       target: { value: STORYBOARD_INSTRUMENT_NAME }
@@ -331,9 +331,10 @@ describe('OpenSentenceStoryboard', () => {
     expect(screen.getByRole('heading', { name: STORYBOARD_COMPUTE_TITLE })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: STORYBOARD_COMPUTE_SENTENCE })).toBeInTheDocument();
     expect(screen.getByText(/An instrument, not the line/)).toHaveTextContent(STORYBOARD_INSTRUMENT_NAME);
+    expect(screen.getByText('Used here as written.')).toBeInTheDocument();
     expect(screen.getByText(STORYBOARD_DISTINCTION)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Keep this as an instrument' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: `Apply ${STORYBOARD_INSTRUMENT_NAME}` })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Use this here' })).not.toBeInTheDocument();
     expect(screen.getByText(/The article still reads/)).toHaveTextContent(STORYBOARD_COMPUTE_SENTENCE);
     expect(
       screen.getByText('The instrument sits beside this sentence. It does not rewrite the article.')

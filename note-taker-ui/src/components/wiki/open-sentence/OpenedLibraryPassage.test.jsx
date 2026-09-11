@@ -5,6 +5,12 @@ import * as Router from 'react-router-dom';
 import OpenedLibraryPassage from './OpenedLibraryPassage';
 import { writeReturnTicket } from './openSentenceJourney';
 
+jest.mock('../../../api/notebook', () => ({
+  getNotebookSummaries: () => new Promise(() => {}),
+  getNotebookEntry: async () => null,
+  createNotebookEntry: async () => null
+}));
+
 const article = {
   _id: 'article-1',
   title: 'Nomad',

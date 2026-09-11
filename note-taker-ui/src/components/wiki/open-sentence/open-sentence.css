@@ -541,6 +541,8 @@ mark.highlight.open-sentence__held.is-placed:not(.is-open)::before {
   gap: var(--noeis-space-2);
 }
 
+.open-sentence-pocket .use-distinction-here__trigger,
+.open-sentence-pocket .use-distinction-here__choices button,
 .open-sentence-pocket__contents > button,
 .open-sentence-continuity button,
 .open-sentence-pocket__write > button,

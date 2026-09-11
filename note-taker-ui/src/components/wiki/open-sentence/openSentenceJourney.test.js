@@ -348,10 +348,10 @@ describe('openSentenceJourney', () => {
   it('keeps a named instrument on the device so another sentence can apply it', () => {
     expect(readHeldInstrument()).toBeNull();
     writeHeldInstrument({ name: 'Room to be wrong', definition: 'A mistake that teaches.' });
-    expect(readHeldInstrument()).toEqual({
+    expect(readHeldInstrument()).toEqual(expect.objectContaining({
       name: 'Room to be wrong',
       definition: 'A mistake that teaches.'
-    });
+    }));
     writeHeldInstrument({ name: '', definition: 'A mistake that teaches.' });
     expect(readHeldInstrument()).toBeNull();
     const named = {
@@ -363,10 +363,10 @@ describe('openSentenceJourney', () => {
       }
     };
     rememberHeldInstrument(named, named);
-    expect(readHeldInstrument()).toEqual({
+    expect(readHeldInstrument()).toEqual(expect.objectContaining({
       name: 'Room to be wrong',
       definition: 'A mistake that teaches.'
-    });
+    }));
     rememberHeldInstrument({ ...named, instrument: null }, named);
     expect(readHeldInstrument()).toBeNull();
   });

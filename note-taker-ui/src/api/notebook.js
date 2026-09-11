@@ -43,3 +43,15 @@ export const getNotebookSummaries = async ({ force = false } = {}) => summariesC
 export const getNotebookShelf = async ({ force = false } = {}) => thinkShelfCache.read({ force });
 
 export const getNotebookFolders = async ({ force = false } = {}) => foldersCache.read({ force });
+
+export const getNotebookEntry = async (id) => {
+  const res = await api.get(`/api/notebook/${encodeURIComponent(id)}`, getAuthHeaders());
+  return res.data;
+};
+
+export const createNotebookEntry = async (payload) => {
+  const res = await api.post('/api/notebook', payload, getAuthHeaders());
+  summariesCache.reset();
+  thinkShelfCache.reset();
+  return res.data;
+};

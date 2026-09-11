@@ -8,6 +8,12 @@ import { RETURN_TICKET_KEY } from './openSentenceJourney';
 import { writeStore } from './openSentenceStore';
 import { sourceClip } from './openSentenceModel';
 
+jest.mock('../../../api/notebook', () => ({
+  getNotebookSummaries: () => new Promise(() => {}),
+  getNotebookEntry: async () => null,
+  createNotebookEntry: async () => null
+}));
+
 const page = {
   _id: 'wiki-1',
   title: 'Enterprise AI Memory',

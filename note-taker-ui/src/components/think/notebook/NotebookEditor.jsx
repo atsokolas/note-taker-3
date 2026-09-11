@@ -18,6 +18,9 @@ import useThinkWritingActivity from '../editor/useThinkWritingActivity';
 import { createArtifactSlashItems } from '../editor/editorArtifacts';
 import { handleEditorStructureShortcut } from '../editor/editorShortcuts';
 import { createNotebookClaimSlashItems } from './notebookClaimSlash';
+import UseDistinctionHere from '../../wiki/open-sentence/UseDistinctionHere';
+import { editorNodesFromDistinctionUse, eligibleDistinctions } from '../../../utils/distinctionUse';
+import { getNotebookSummaries } from '../../../api/notebook';
 import useHighlights from '../../../hooks/useHighlights';
 import useArticles from '../../../hooks/useArticles';
 import useConcepts from '../../../hooks/useConcepts';
@@ -346,6 +349,7 @@ const NotebookEditor = ({
   const [wikiPages, setWikiPages] = useState([]);
   const [wikiPagesLoading, setWikiPagesLoading] = useState(false);
   const [insertMenuOpen, setInsertMenuOpen] = useState(false);
+  const [savedDistinctions, setSavedDistinctions] = useState([]);
   const [organizeOpen, setOrganizeOpen] = useState(false);
   const [entryType, setEntryType] = useState(entry?.type || 'note');
   const [entryTags, setEntryTags] = useState(entry?.tags || []);
@@ -363,7 +367,14 @@ const NotebookEditor = ({
   const { articles } = useArticles({ enabled: insertMode === 'article' });
   const { concepts } = useConcepts();
   const { questions } = useQuestions({ status: 'open', enabled: insertMode === 'question' });
+  const applyDistinctionRef = useRef(() => {});
+  const usableDistinctionsRef = useRef([]);
   const highlightLookupRef = useRef((id) => highlightMap.get(String(id)));
+  const usableDistinctions = useMemo(
+    () => savedDistinctions.filter((item) => item.sourceId !== String(entry?._id || '')),
+    [entry?._id, savedDistinctions]
+  );
+  usableDistinctionsRef.current = usableDistinctions;
   const slashActionItems = useMemo(() => ([
     ...createArtifactSlashItems(),
     {
@@ -401,12 +412,43 @@ const NotebookEditor = ({
       artifactType: 'question',
       onSelect: () => setInsertMode('question')
     },
+    {
+      id: 'useDistinction',
+      label: 'Use this here',
+      description: 'Keep the wording of a named distinction on this page.',
+      keywords: ['use', 'distinction', 'instrument', 'definition'],
+      onSelect: () => {
+        const choices = usableDistinctionsRef.current;
+        if (choices.length === 1) {
+          applyDistinctionRef.current(choices[0]);
+          return;
+        }
+        setInsertMenuOpen(true);
+        setInsertMode('distinction');
+      }
+    },
     ...createNotebookClaimSlashItems({ claimId, navigate })
   ]), [claimId, navigate]);
 
   useEffect(() => {
     highlightLookupRef.current = (id) => highlightMap.get(String(id));
   }, [highlightMap]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const notes = typeof getNotebookSummaries === 'function'
+          ? await getNotebookSummaries()
+          : [];
+        if (!cancelled) setSavedDistinctions(eligibleDistinctions(notes));
+      } catch (_ignored) {
+        if (!cancelled) setSavedDistinctions([]);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [entry?._id]);
 
   const highlightExtension = useMemo(
     () => HighlightRefNode.configure({
@@ -803,6 +845,16 @@ const NotebookEditor = ({
     });
   };
 
+  const applyDistinction = (record) => {
+    if (!editor) return;
+    startEditingBody();
+    const nodes = editorNodesFromDistinctionUse(record);
+    if (!nodes.length) return;
+    editor.chain().focus().insertContent(nodes).run();
+    setInsertMode('');
+  };
+  applyDistinctionRef.current = applyDistinction;
+
   const handleSelectInsertMode = (mode) => {
     referenceTriggerRef.current = null;
     setInsertMenuOpen(false);
@@ -995,6 +1047,13 @@ const NotebookEditor = ({
                     >
                       Question
                     </QuietButton>
+                    {usableDistinctions.length ? (
+                      <UseDistinctionHere
+                        distinctions={usableDistinctions}
+                        startOpen={insertMode === 'distinction'}
+                        onUse={applyDistinction}
+                      />
+                    ) : null}
                   </div>
                 )}
               </div>

@@ -1,7 +1,19 @@
 import React from 'react';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { distinctionRecord } from '../../../utils/distinctionUse';
+import { writeHeldInstrument } from './openSentenceJourney';
 import OpenSentence from './OpenSentence';
+
+jest.mock('../../../api/notebook', () => ({
+  getNotebookSummaries: () => new Promise(() => {}),
+  getNotebookEntry: async () => {
+    const error = new Error('Notebook entry not found.');
+    error.response = { status: 404 };
+    throw error;
+  },
+  createNotebookEntry: async () => null
+}));
 import {
   acceptWording,
   beginCarry,
@@ -840,11 +852,11 @@ describe('openSentenceModel', () => {
       distinctionAt: undefined
     }))).toBe(false);
     const titled = setInstrumentName(kept, STORYBOARD_INSTRUMENT_NAME);
-    expect(liveInstrument(titled)).toEqual({
+    expect(liveInstrument(titled)).toEqual(distinctionRecord({
       name: STORYBOARD_INSTRUMENT_NAME,
       definition: STORYBOARD_DISTINCTION,
       against: STORYBOARD_SENTENCE
-    });
+    }));
     expect(wikiAcceptedText(titled)).toBe(STORYBOARD_SENTENCE);
     expect(instrumentWayHome(titled)).toBe(`An instrument: ${STORYBOARD_INSTRUMENT_NAME}`);
     expect(keepsClosedDraft(closeExploration(setDistinction(titled, '')))).toBe(true);
@@ -866,11 +878,11 @@ describe('openSentenceModel', () => {
     expect(canApplyInstrument(titled, held)).toBe(false);
     expect(canApplyInstrument(setDistinction(compute, 'A different fork.'), held)).toBe(false);
     const applied = applyInstrument(compute, held);
-    expect(liveInstrument(applied)).toEqual({
+    expect(liveInstrument(applied)).toEqual(distinctionRecord({
       name: STORYBOARD_INSTRUMENT_NAME,
       definition: STORYBOARD_DISTINCTION,
       against: STORYBOARD_COMPUTE_SENTENCE
-    });
+    }));
     expect(applied.distinction).toBe('');
     expect(wikiAcceptedText(applied)).toBe(STORYBOARD_COMPUTE_SENTENCE);
     expect(applyInstrument(applied, held)).toBe(applied);
@@ -2342,7 +2354,7 @@ describe('OpenSentence', () => {
       STORYBOARD_DISTINCTION
     ));
     const { rerender } = renderOpen(opened, onChange);
-    expect(screen.queryByRole('button', { name: 'Apply Room to be wrong' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Use this here' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Keep this as an instrument' }));
     expect(onChange).toHaveBeenCalledWith(keepAsInstrument(opened));
     rerender(
@@ -2392,7 +2404,7 @@ describe('OpenSentence', () => {
         <OpenSentence exploration={compute} onChange={appliedChange} mocked />
       </MemoryRouter>
     );
-    fireEvent.click(screen.getByRole('button', { name: `Apply ${STORYBOARD_INSTRUMENT_NAME}` }));
+    fireEvent.click(screen.getByRole('button', { name: 'Use this here' }));
     expect(appliedChange).toHaveBeenCalledWith(applyInstrument(compute, liveInstrument(titled)));
     rerender(
       <MemoryRouter>
@@ -2400,9 +2412,53 @@ describe('OpenSentence', () => {
       </MemoryRouter>
     );
     expect(screen.getByText(/An instrument, not the line/)).toHaveTextContent(STORYBOARD_INSTRUMENT_NAME);
-    expect(screen.queryByRole('button', { name: `Apply ${STORYBOARD_INSTRUMENT_NAME}` })).not.toBeInTheDocument();
+    expect(screen.getByText('Used here as written.')).toBeInTheDocument();
+    expect(screen.getByText(STORYBOARD_DISTINCTION)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Use this here' })).not.toBeInTheDocument();
     expect(screen.getByText(/The article still reads/)).toHaveTextContent(STORYBOARD_COMPUTE_SENTENCE);
     expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
+  });
+
+  it('does not offer another account’s held distinction', () => {
+    writeHeldInstrument(distinctionRecord({
+      name: STORYBOARD_INSTRUMENT_NAME,
+      definition: STORYBOARD_DISTINCTION,
+      ownerId: 'owner-2'
+    }));
+    render(
+      <MemoryRouter>
+        <OpenSentence
+          exploration={openExploration(createExploration({
+            originalText: STORYBOARD_COMPUTE_SENTENCE,
+            source: STORYBOARD_COMPUTE_SOURCE
+          }))}
+          mocked
+          authorship={{ ready: true, owner: 'owner-1' }}
+        />
+      </MemoryRouter>
+    );
+    expect(screen.queryByRole('button', { name: 'Use this here' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the recorded definition when the notebook page is gone', async () => {
+    const applied = applyInstrument(
+      openExploration(createExploration({
+        originalText: STORYBOARD_COMPUTE_SENTENCE,
+        source: STORYBOARD_COMPUTE_SOURCE
+      })),
+      distinctionRecord({
+        name: STORYBOARD_INSTRUMENT_NAME,
+        definition: STORYBOARD_DISTINCTION,
+        sourceId: 'note-gone'
+      })
+    );
+    render(
+      <MemoryRouter>
+        <OpenSentence exploration={applied} />
+      </MemoryRouter>
+    );
+    expect(await screen.findByText(STORYBOARD_DISTINCTION)).toBeInTheDocument();
+    expect(await screen.findByText('The notebook page is gone. These are the words used here.')).toBeInTheDocument();
   });
 
   it('lets a named instrument be the way home when that sentence has no distinction', () => {

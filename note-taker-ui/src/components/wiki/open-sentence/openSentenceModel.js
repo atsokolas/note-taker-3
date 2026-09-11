@@ -1,3 +1,5 @@
+import { distinctionRecord } from '../../../utils/distinctionUse';
+
 export const EXPLORATION_STATUS = Object.freeze({
   closed: 'closed',
   open: 'open'
@@ -492,18 +494,17 @@ const asInstrumentRecord = (value, current) => {
   const definition = asLine(value.definition);
   const against = asLine(value.against);
   if (!definition || !against || against !== current) return null;
-  return {
-    name: String(value.name || ''),
-    definition,
-    against
-  };
+  if (!asLine(value.name)) {
+    return {
+      name: String(value.name || ''),
+      definition,
+      against
+    };
+  }
+  return distinctionRecord({ ...value, definition, against });
 };
 
-export const heldInstrumentFrom = (value) => {
-  const name = asLine(value?.name);
-  const definition = asLine(value?.definition);
-  return name && definition ? { name, definition } : null;
-};
+export const heldInstrumentFrom = (value) => distinctionRecord(value);
 
 export const pendingInstrument = (exploration) => (
   asInstrumentRecord(exploration?.instrument, asLine(exploration?.originalText))
@@ -537,12 +538,13 @@ export const setInstrumentName = (exploration, name) => {
   if (!pending) return exploration;
   const text = String(name ?? '');
   if (!asLine(text) && text === '') return leaveInstrument(exploration);
+  const next = {
+    ...pending,
+    name: text
+  };
   return {
     ...exploration,
-    instrument: {
-      ...pending,
-      name: text
-    }
+    instrument: asLine(text) ? distinctionRecord({ ...next, against: pending.against }) : next
   };
 };
 
@@ -564,11 +566,10 @@ export const applyInstrument = (exploration, held) => {
   const tool = heldInstrumentFrom(held);
   return {
     ...exploration,
-    instrument: {
-      name: tool.name,
-      definition: tool.definition,
+    instrument: distinctionRecord({
+      ...tool,
       against: asLine(exploration.originalText)
-    }
+    })
   };
 };
 

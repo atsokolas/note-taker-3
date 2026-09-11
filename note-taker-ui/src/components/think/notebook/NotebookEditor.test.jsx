@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import NotebookEditor from './NotebookEditor';
 import { listWikiPages } from '../../../api/wiki';
 import { getArticleEvergreen } from '../../../api/articles';
+import { getNotebookSummaries } from '../../../api/notebook';
 import { THINK_WRITING_IDLE_MS } from '../editor/useThinkWritingActivity';
 
 const mockUseEditor = jest.fn();
@@ -79,6 +80,12 @@ jest.mock('../../../api/organize', () => ({
   searchNotebookClaims: jest.fn(async () => [])
 }));
 
+jest.mock('../../../api/notebook', () => ({
+  getNotebookSummaries: jest.fn(async () => []),
+  getNotebookEntry: jest.fn(),
+  createNotebookEntry: jest.fn()
+}));
+
 jest.mock('../../../api/wiki', () => ({
   listWikiPages: jest.fn(async () => [])
 }));
@@ -105,6 +112,7 @@ describe('NotebookEditor', () => {
     // Keep this component suite at the rendering boundary. The hook has its
     // own async contract tests, and a pending read avoids post-assertion state.
     getArticleEvergreen.mockReturnValue(new Promise(() => {}));
+    getNotebookSummaries.mockReturnValue(new Promise(() => {}));
     mockUseEditor.mockReturnValue(mockEditor);
     mockEditor.chain.mockReturnValue(mockChain);
     mockEditor.isActive.mockImplementation(() => false);
@@ -119,6 +127,8 @@ describe('NotebookEditor', () => {
     mockChain.toggleBulletList.mockReturnValue(mockChain);
     mockChain.toggleOrderedList.mockReturnValue(mockChain);
     mockChain.toggleBlockquote.mockReturnValue(mockChain);
+    mockChain.deleteRange.mockReturnValue(mockChain);
+    mockChain.insertContent.mockReturnValue(mockChain);
     mockChain.run.mockReturnValue(true);
     mockEditor.chain.mockClear();
     mockEditor.on.mockClear();
@@ -367,6 +377,27 @@ describe('NotebookEditor', () => {
     expect(screen.queryByRole('menuitem', { name: /This is a Why/i })).not.toBeInTheDocument();
   });
 
+  it('offers Use this here from /use in the slash menu', async () => {
+    mockEditor.state.selection.empty = true;
+    mockEditor.state.selection.from = 4;
+    mockEditor.state.selection.to = 4;
+    mockEditor.state.selection.$from.parent = { textContent: '/use' };
+    mockEditor.state.selection.$from.parentOffset = 4;
+    mockEditor.view.coordsAtPos.mockReturnValue({ left: 12, right: 12, top: 10, bottom: 24 });
+
+    render(
+      <NotebookEditor
+        entry={{ _id: 'note-1', title: 'Draft', content: '<p>Draft</p>', blocks: [], type: 'note', tags: [] }}
+        saving={false}
+        error=""
+        onSave={jest.fn()}
+        onDelete={jest.fn()}
+      />
+    );
+
+    expect(await screen.findByRole('menuitem', { name: /Use this here/i })).toBeInTheDocument();
+  });
+
   it('keeps insert actions collapsed until requested', () => {
     render(
       <NotebookEditor
@@ -390,6 +421,43 @@ describe('NotebookEditor', () => {
     expect(screen.getByRole('button', { name: 'Article' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Concept' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Question' })).toBeInTheDocument();
+  });
+
+  it('inserts the recorded distinction wording, not a live note rewrite', async () => {
+    getNotebookSummaries.mockResolvedValue([{
+      _id: 'note-room',
+      title: 'Room to be wrong',
+      snippet: 'A mistake that teaches the map, versus one that strands you.',
+      importMeta: { sourceType: 'authored_distinction' }
+    }]);
+    render(
+      <NotebookEditor
+        entry={{ _id: 'note-2', title: 'Second use', content: '<p>Draft</p>', blocks: [], type: 'note', tags: [] }}
+        saving={false}
+        error=""
+        onSave={jest.fn()}
+        onDelete={jest.fn()}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Insert material' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Use this here' }));
+    expect(mockChain.insertContent).toHaveBeenCalledWith(expect.arrayContaining([
+      expect.objectContaining({
+        type: 'heading',
+        content: [{ type: 'text', text: 'Room to be wrong' }]
+      }),
+      expect.objectContaining({
+        type: 'blockquote',
+        attrs: expect.objectContaining({
+          articleTitle: 'Room to be wrong',
+          sourcePath: expect.stringMatching(/entryId=note-room&v=/)
+        }),
+        content: [{
+          type: 'paragraph',
+          content: [{ type: 'text', text: 'A mistake that teaches the map, versus one that strands you.' }]
+        }]
+      })
+    ]));
   });
 
   it('can hide the inline notebook agent surface when the shell provides it elsewhere', () => {

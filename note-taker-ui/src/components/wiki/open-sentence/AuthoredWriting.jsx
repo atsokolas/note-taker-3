@@ -91,6 +91,8 @@ export function AuthoredContext({ exploration = {}, sources }) {
     ['Essay applies to', exploration.essay?.against],
     ['Proposed wording', exploration.proposal?.text],
     ['Proposal applies to', exploration.proposal?.against],
+    ['Named distinction', exploration.instrument?.name],
+    ['Definition used here', exploration.instrument?.definition],
   ].filter(([, value]) => typeof value === 'string' && value.trim());
   const passages = sources || [exploration.selectedSource].filter(Boolean);
   return <div className="open-sentence-pocket__context-copy">

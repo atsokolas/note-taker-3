@@ -77,6 +77,17 @@ import { listenOpenSentenceStore } from './openSentenceStore';
 import { CopyClip, KeptWork, PocketField, WithoutParagraphWork, WithoutSourceWork } from './OpenSentenceKept';
 import AuthoredWriting, { AuthoredContext } from './AuthoredWriting';
 import FindWhatIAlreadyHave from './FindWhatIAlreadyHave';
+import UseDistinctionHere from './UseDistinctionHere';
+import {
+  distinctionExternalId,
+  distinctionRecord,
+  eligibleDistinctions,
+  heldInstrumentForOwner,
+  recordedDefinition,
+  retainDistinction,
+  sourceStatus
+} from '../../../utils/distinctionUse';
+import { createNotebookEntry, getNotebookEntry, getNotebookSummaries } from '../../../api/notebook';
 import './open-sentence.css';
 
 const selectionInside = (root) => {
@@ -201,6 +212,35 @@ const BearingPassage = ({ exploration, mocked, onOpenSourceHome }) => {
   );
 };
 
+const RecordedDefinition = ({
+  exploration,
+  mocked,
+  sourceState
+}) => {
+  const instrument = liveInstrument(exploration);
+  const recorded = recordedDefinition(instrument);
+  if (!recorded) return null;
+  const status = sourceState || (instrument.sourceId ? null : 'unbound');
+  const href = instrument.sourceHref;
+  return (
+    <>
+      <p className="open-sentence-pocket__prior-writing">{recorded.definition}</p>
+      <p className="open-sentence-pocket__qualification">
+        {status === 'missing' || status === 'foreign'
+          ? 'The notebook page is gone. These are the words used here.'
+          : 'Used here as written.'}
+      </p>
+      {href && status !== 'missing' && status !== 'foreign' ? (
+        mocked ? (
+          <span className="open-sentence-pocket__save">Open the definition</span>
+        ) : (
+          <Link className="open-sentence-pocket__home" to={href}>Open the definition</Link>
+        )
+      ) : null}
+    </>
+  );
+};
+
 const DistinctionField = ({
   pocketId,
   exploration,
@@ -209,16 +249,93 @@ const DistinctionField = ({
   onOpenSourceHome,
   heldInstrument,
   onHeld,
-  authorship
+  authorship,
+  savedDistinctions = []
 }) => {
   const dated = formatNamedOn(namedOn(exploration));
   const pending = pendingInstrument(exploration);
   const instrument = liveInstrument(exploration);
+  const [sourceState, setSourceState] = useState(null);
+  const ownerId = authorship?.owner || '';
+  const instrumentName = instrument?.name || '';
+  const instrumentDefinition = instrument?.definition || '';
+  const instrumentSourceId = instrument?.sourceId || '';
+  const instrumentAgainst = instrument?.against || '';
+  const instrumentOwnerId = instrument?.ownerId || '';
+  const externalId = distinctionExternalId(authorship?.record?.saved);
+  const explorationRef = useRef(exploration);
+  const onCommitRef = useRef(onCommit);
+  const onHeldRef = useRef(onHeld);
+  explorationRef.current = exploration;
+  onCommitRef.current = onCommit;
+  onHeldRef.current = onHeld;
   const nameInstrument = (name) => {
     const next = setInstrumentName(exploration, name);
-    onHeld?.(rememberHeldInstrument(next, exploration));
-    onCommit(next);
+    const live = liveInstrument(next);
+    const bound = live && ownerId ? distinctionRecord({ ...live, ownerId }) : live;
+    const named = bound ? { ...next, instrument: bound } : next;
+    onHeld?.(rememberHeldInstrument(named, exploration));
+    onCommit(named);
   };
+
+  useEffect(() => {
+    if (mocked || !instrumentName || instrumentSourceId || !ownerId || !externalId) return undefined;
+    let cancelled = false;
+    (async () => {
+      try {
+        const notes = await getNotebookSummaries({ force: true });
+        const retained = await retainDistinction({
+          notes,
+          createNote: createNotebookEntry,
+          name: instrumentName,
+          definition: instrumentDefinition,
+          externalId
+        });
+        if (cancelled || !retained?.sourceId) return;
+        const current = explorationRef.current;
+        const next = {
+          ...current,
+          instrument: distinctionRecord({
+            name: instrumentName,
+            definition: instrumentDefinition,
+            against: instrumentAgainst,
+            ...retained,
+            ownerId
+          })
+        };
+        onHeldRef.current?.(rememberHeldInstrument(next, current));
+        onCommitRef.current(next);
+      } catch (_ignored) {
+        return;
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [mocked, instrumentName, instrumentDefinition, instrumentSourceId, instrumentAgainst, ownerId, externalId]);
+
+  useEffect(() => {
+    if (mocked || !instrumentSourceId) {
+      setSourceState(instrumentSourceId ? 'ok' : null);
+      return undefined;
+    }
+    let cancelled = false;
+    const used = distinctionRecord({
+      name: instrumentName,
+      definition: instrumentDefinition,
+      sourceId: instrumentSourceId,
+      ownerId: instrumentOwnerId
+    });
+    const load = async () => {
+      try {
+        const note = await getNotebookEntry(instrumentSourceId);
+        if (!cancelled) setSourceState(sourceStatus(used, note));
+      } catch (_ignored) {
+        if (!cancelled) setSourceState('missing');
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [mocked, instrumentName, instrumentDefinition, instrumentSourceId, instrumentOwnerId]);
+
   return (
     <>
       <PocketField
@@ -243,7 +360,14 @@ const DistinctionField = ({
               An instrument, not the line: {instrument.name}
             </p>
           ) : null}
-          <p className="open-sentence-pocket__qualification">{pending.definition}</p>
+          <RecordedDefinition
+            exploration={exploration}
+            mocked={mocked}
+            sourceState={sourceState}
+          />
+          {!instrument ? (
+            <p className="open-sentence-pocket__qualification">{pending.definition}</p>
+          ) : null}
           <PocketField
             id={`${pocketId}-instrument`}
             label="Name this instrument"
@@ -258,12 +382,15 @@ const DistinctionField = ({
         </>
       ) : null}
       {canApplyInstrument(exploration, heldInstrument) ? (
-        <button
-          type="button"
-          onClick={() => onCommit(applyInstrument(exploration, heldInstrument))}
-        >
-          Apply {heldInstrument.name}
-        </button>
+        <UseDistinctionHere
+          held={heldInstrument}
+          distinctions={savedDistinctions}
+          onUse={(record) => {
+            const next = applyInstrument(exploration, record);
+            onHeld?.(rememberHeldInstrument(next, exploration));
+            onCommit(next);
+          }}
+        />
       ) : null}
       <BearingPassage
         exploration={exploration}
@@ -655,7 +782,8 @@ const PocketBody = ({
   onFresh,
   heldInstrument,
   onHeld,
-  authorship
+  authorship,
+  savedDistinctions = []
 }) => {
   const [previousChoice, setPreviousChoice] = useState(null);
   const composing = Boolean(authorship);
@@ -803,6 +931,8 @@ const PocketBody = ({
                   onOpenSourceHome={onOpenSourceHome}
                   heldInstrument={heldInstrument}
                   onHeld={onHeld}
+                  authorship={authorship}
+                  savedDistinctions={savedDistinctions}
                 />
               </>
             ) : null}
@@ -850,6 +980,8 @@ const PocketBody = ({
               onOpenSourceHome={onOpenSourceHome}
               heldInstrument={heldInstrument}
               onHeld={onHeld}
+              authorship={authorship}
+              savedDistinctions={savedDistinctions}
             />
           )}
         </div>
@@ -919,6 +1051,7 @@ const OpenSentence = ({
   const [settling, setSettling] = useState(false);
   const [fresh, setFresh] = useState(false);
   const [heldInstrument, setHeldInstrument] = useState(readHeldInstrument);
+  const [savedDistinctions, setSavedDistinctions] = useState([]);
   const open = isOpen(exploration);
   const [keepPocket, setKeepPocket] = useState(open);
   const accepted = wikiAcceptedText(exploration);
@@ -968,9 +1101,26 @@ const OpenSentence = ({
   useEffect(() => {
     const live = liveInstrument(exploration);
     if (!live) return;
-    writeHeldInstrument(live);
+    writeHeldInstrument(authorship?.owner ? distinctionRecord({ ...live, ownerId: authorship.owner }) : live);
     setHeldInstrument(readHeldInstrument());
-  }, [exploration]);
+  }, [authorship?.owner, exploration]);
+
+  useEffect(() => {
+    if (mocked || !authorship?.owner) return undefined;
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const notes = typeof getNotebookSummaries === 'function'
+          ? await getNotebookSummaries({ force: true })
+          : [];
+        if (!cancelled) setSavedDistinctions(eligibleDistinctions(notes));
+      } catch (_ignored) {
+        if (!cancelled) setSavedDistinctions([]);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [mocked, authorship?.owner, exploration?.instrument?.sourceId]);
 
   useEffect(() => {
     if (open) {
@@ -1156,9 +1306,10 @@ const OpenSentence = ({
               acceptSilence={acceptSilence}
               fresh={fresh}
               onFresh={setFresh}
-              heldInstrument={heldInstrument}
+              heldInstrument={heldInstrumentForOwner(heldInstrument, authorship?.owner)}
               onHeld={setHeldInstrument}
               authorship={authorship}
+              savedDistinctions={savedDistinctions}
             />
             <button type="button" className="open-sentence-pocket__close" onClick={closePocket}>
               Close

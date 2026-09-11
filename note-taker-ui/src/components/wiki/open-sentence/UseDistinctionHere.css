@@ -1,0 +1,33 @@
+.use-distinction-here {
+  display: grid;
+  justify-items: start;
+  gap: 0.35rem;
+}
+
+.use-distinction-here__trigger {
+  min-height: 44px;
+}
+
+.use-distinction-here__choices {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.25rem;
+  min-width: min(100%, 16rem);
+}
+
+.use-distinction-here__choices:focus {
+  outline: 2px solid var(--noeis-thread-strong);
+  outline-offset: 2px;
+}
+
+.use-distinction-here__choices button {
+  width: 100%;
+  min-height: 44px;
+  text-align: left;
+}
+
+.use-distinction-here__choices button[aria-selected="true"] {
+  text-decoration: underline;
+}
