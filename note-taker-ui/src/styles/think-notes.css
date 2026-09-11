@@ -224,6 +224,17 @@ body.noeis-editorial .think-notes .think-notebook-editor-actions-overflow,
   display: none;
 }
 
+/* Finishing stays on the page: arrange, undo, export. */
+body.noeis-editorial .think-notes .notebook-arrangement,
+.think-notes .notebook-arrangement {
+  display: block;
+}
+
+body.noeis-editorial .think-notes .think-notebook-editor-actions-right > .ui-quiet-button[data-notebook-finish],
+.think-notes .think-notebook-editor-actions-right > .ui-quiet-button[data-notebook-finish] {
+  display: inline-flex;
+}
+
 /* The title is the note's headline, not a form field. */
 .think-notes .think-notebook-title-input,
 .think-notes .think-notebook-title-input:focus {

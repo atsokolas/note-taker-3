@@ -20,6 +20,7 @@ const EditorDraftShell = ({
   blockControlsClassName = '',
   trayItems = [],
   trayClassName = '',
+  hideBlockControls = false,
   slashCommands = null,
   contextualToolbar = false,
   onAskSelection = null
@@ -131,10 +132,12 @@ const EditorDraftShell = ({
       <div className={['think-editor-slash-hint', helperClassName].filter(Boolean).join(' ')}>
         <span className="think-editor-slash-hint__token">/</span>
         <span>{helperCopy}</span>
-        <div className={['think-editor-block-controls', blockControlsClassName].filter(Boolean).join(' ')}>
-          <button type="button" className="ui-quiet-button" onClick={() => moveCurrentBlock(editor, 'up')}>Move up</button>
-          <button type="button" className="ui-quiet-button" onClick={() => moveCurrentBlock(editor, 'down')}>Move down</button>
-        </div>
+        {hideBlockControls ? null : (
+          <div className={['think-editor-block-controls', blockControlsClassName].filter(Boolean).join(' ')}>
+            <button type="button" className="ui-quiet-button" onClick={() => moveCurrentBlock(editor, 'up')}>Move up</button>
+            <button type="button" className="ui-quiet-button" onClick={() => moveCurrentBlock(editor, 'down')}>Move down</button>
+          </div>
+        )}
       </div>
       {Array.isArray(trayItems) && trayItems.length > 0 ? (
         <DraftBlockTray

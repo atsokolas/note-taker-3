@@ -5047,52 +5047,7 @@ const stripHtml = (value = '') => (
     .trim()
 );
 
-const buildNotebookMarkdown = (entry) => {
-  const title = entry?.title || 'Untitled';
-  const blocks = Array.isArray(entry?.blocks) && entry.blocks.length > 0
-    ? entry.blocks
-    : [{ type: 'paragraph', text: stripHtml(entry?.content || '') }];
-  const lines = [`# ${title}`, ''];
-  blocks.forEach((block) => {
-    const type = block.type || 'paragraph';
-    const text = String(block.text || '').trim();
-    if (type === 'heading') {
-      const level = Math.min(Math.max(block.level || 1, 1), 4);
-      lines.push(`${'#'.repeat(level)} ${text}`);
-      lines.push('');
-      return;
-    }
-    if (type === 'bullet') {
-      const indent = '  '.repeat(block.indent || 0);
-      lines.push(`${indent}- ${text}`);
-      return;
-    }
-    if (type === 'highlight_embed' || type === 'highlight-ref') {
-      if (text) {
-        lines.push(`> ${text}`);
-        lines.push('');
-      }
-      return;
-    }
-    if (type === 'article_ref' || type === 'article-ref') {
-      lines.push(`- Article: ${block.articleTitle || text || 'Untitled article'}`);
-      return;
-    }
-    if (type === 'concept_ref' || type === 'concept-ref') {
-      lines.push(`- Concept: ${block.conceptName || text || 'Concept'}`);
-      return;
-    }
-    if (type === 'question_ref' || type === 'question-ref') {
-      lines.push(`- Question: ${block.questionText || text || 'Question'}`);
-      return;
-    }
-    if (text) {
-      lines.push(text);
-      lines.push('');
-    }
-  });
-  return lines.join('\n').trim() + '\n';
-};
+const { buildNotebookMarkdown } = require('./services/notebookMarkdown');
 
 const buildConceptMarkdown = ({ concept, related, questions }) => {
   const lines = [`# ${concept?.name || 'Concept'}`, ''];

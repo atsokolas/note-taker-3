@@ -162,14 +162,16 @@ describe('NotebookEditor', () => {
     expect(screen.getByText(/Type \/ for commands/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Move up' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Move down' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Export' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Try without this passage' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Bold' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Italic' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Quote' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Paragraph' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Heading' })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Evidence block' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Concept block' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Question block' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Evidence block' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Concept block' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Question block' })).not.toBeInTheDocument();
   });
 
   it('keeps the exact Library passage visible beside a derived notebook page', () => {
@@ -504,41 +506,181 @@ describe('NotebookEditor', () => {
         { type: 'paragraph', content: [{ type: 'text', text: 'B' }] },
         { type: 'paragraph', content: [{ type: 'text', text: 'A' }] }
       ]
-    }, false);
+    }, true);
   });
 
-  it('inserts a structured question block from the visible draft block actions', () => {
+  it('moves the exception before the rule, then undoes that move', () => {
+    const rule = {
+      type: 'paragraph',
+      attrs: { blockId: 'rule' },
+      content: [{ type: 'text', text: 'Recoverable mistakes belong to the person who can still put things back.' }]
+    };
+    const exception = {
+      type: 'paragraph',
+      attrs: { blockId: 'exception' },
+      content: [{ type: 'text', text: 'The exception is when the downside lands on someone who never chose the experiment.' }]
+    };
+    const citation = {
+      type: 'blockquote',
+      attrs: {
+        blockId: 'quote',
+        articleId: 'article-1',
+        articleTitle: 'A beautiful source',
+        sourcePath: '/library?articleId=article-1#passage=exact'
+      },
+      content: [{ type: 'paragraph', content: [{ type: 'text', text: 'The cost is borne by people who did not volunteer.' }] }]
+    };
+    const close = {
+      type: 'paragraph',
+      attrs: { blockId: 'close' },
+      content: [{ type: 'text', text: 'Who gets to experiment, and who pays?' }]
+    };
+    const original = { type: 'doc', content: [rule, exception, citation, close] };
+    mockEditor.getJSON.mockReturnValue(original);
+    mockEditor.state.selection.$from.index.mockReturnValue(1);
+
     render(
       <NotebookEditor
-        entry={{ _id: 'note-1', title: 'Draft', content: '<p>Draft</p>', blocks: [], type: 'note', tags: [] }}
+        entry={{
+          _id: 'essay-1',
+          title: 'Who gets to experiment, and who pays?',
+          content: '',
+          blocks: [],
+          type: 'note',
+          tags: []
+        }}
         saving={false}
         error=""
         onSave={jest.fn()}
         onDelete={jest.fn()}
+        showInlineAgentDock={false}
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Question block' }));
+    expect(screen.getByText('The exception is when the downside lands on someone who never chose the experiment.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Move up' }));
 
-    expect(mockEditor.commands.insertContent).toHaveBeenCalledWith([
-      {
-        type: 'heading',
-        attrs: { level: 3 },
-        content: [{ type: 'text', text: 'Question' }]
-      },
-      {
-        type: 'paragraph',
-        content: [{ type: 'text', text: 'Open question: ' }]
-      },
-      {
-        type: 'paragraph',
-        content: [{ type: 'text', text: 'Why it matters: ' }]
-      },
-      {
-        type: 'paragraph',
-        content: [{ type: 'text', text: 'Next evidence to find: ' }]
-      }
+    const movedDoc = mockEditor.commands.setContent.mock.calls
+      .map((call) => call[0])
+      .find((doc) => Array.isArray(doc?.content) && doc.content.length === 4);
+    expect(movedDoc.content.map((node) => node.attrs.blockId)).toEqual([
+      'exception',
+      'quote',
+      'rule',
+      'close'
     ]);
+    fireEvent.click(screen.getByRole('button', { name: 'Undo moving “The exception is when the downside lands on someone who never chose the experiment.”' }));
+    expect(mockEditor.commands.setContent).toHaveBeenLastCalledWith(original, true);
+  });
+
+  it('sets a passage aside with a named way back', () => {
+    const rule = {
+      type: 'paragraph',
+      attrs: { blockId: 'rule' },
+      content: [{ type: 'text', text: 'Recoverable mistakes belong to the person who can still put things back.' }]
+    };
+    const exception = {
+      type: 'paragraph',
+      attrs: { blockId: 'exception' },
+      content: [{ type: 'text', text: 'The exception is when the downside lands on someone who never chose the experiment.' }]
+    };
+    mockEditor.getJSON.mockReturnValue({ type: 'doc', content: [rule, exception] });
+    mockEditor.state.selection.$from.index.mockReturnValue(1);
+
+    render(
+      <NotebookEditor
+        entry={{ _id: 'essay-1', title: 'Letter', content: '', blocks: [], type: 'note', tags: [] }}
+        saving={false}
+        error=""
+        onSave={jest.fn()}
+        onDelete={jest.fn()}
+        showInlineAgentDock={false}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Try without this passage' }));
+    const asideDoc = mockEditor.commands.setContent.mock.calls
+      .map((call) => call[0])
+      .find((doc) => Array.isArray(doc?.content) && doc.content.length === 1);
+    expect(asideDoc.content.map((node) => node.attrs.blockId)).toEqual(['rule']);
+    mockEditor.getJSON.mockReturnValue({ type: 'doc', content: [rule] });
+    fireEvent.click(screen.getByRole('button', { name: 'Bring back: The exception is when the downside lands on someone who never chose the experiment.' }));
+    expect(mockEditor.commands.setContent.mock.calls.at(-1)[0].content.map((node) => node.attrs.blockId)).toEqual(['rule', 'exception']);
+  });
+
+  it('asks before deleting a passage and does not move it to Set aside', () => {
+    const rule = {
+      type: 'paragraph',
+      attrs: { blockId: 'rule' },
+      content: [{ type: 'text', text: 'Recoverable mistakes belong to the person who can still put things back.' }]
+    };
+    mockEditor.getJSON.mockReturnValue({ type: 'doc', content: [rule] });
+    window.confirm = jest.fn(() => true);
+
+    render(
+      <NotebookEditor
+        entry={{ _id: 'essay-1', title: 'Letter', content: '', blocks: [], type: 'note', tags: [] }}
+        saving={false}
+        error=""
+        onSave={jest.fn()}
+        onDelete={jest.fn()}
+        showInlineAgentDock={false}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete this passage' }));
+    expect(window.confirm).toHaveBeenCalledWith(expect.stringContaining('will not wait in Set aside'));
+    expect(screen.queryByRole('button', { name: /Bring back:/ })).not.toBeInTheDocument();
+  });
+
+  it('exports the saved notebook after flushing the draft', async () => {
+    const onSave = jest.fn(async (payload) => payload);
+    mockEditor.getJSON.mockReturnValue({
+      type: 'doc',
+      content: [{
+        type: 'blockquote',
+        attrs: {
+          blockId: 'quote-1',
+          articleId: 'article-1',
+          articleTitle: 'A beautiful source',
+          sourcePath: '/library?articleId=article-1#passage=exact'
+        },
+        content: [{ type: 'paragraph', content: [{ type: 'text', text: 'The cost is borne by people who did not volunteer.' }] }]
+      }]
+    });
+    render(
+      <NotebookEditor
+        entry={{ _id: 'essay-1', title: 'Who gets to experiment, and who pays?', content: '', blocks: [], type: 'note', tags: [] }}
+        saving={false}
+        error=""
+        onSave={onSave}
+        onDelete={jest.fn()}
+        showInlineAgentDock={false}
+      />
+    );
+
+    const click = jest.fn();
+    const originalCreate = document.createElement.bind(document);
+    const createSpy = jest.spyOn(document, 'createElement').mockImplementation((tag) => {
+      const node = originalCreate(tag);
+      if (tag === 'a') node.click = click;
+      return node;
+    });
+    global.URL.createObjectURL = jest.fn(() => 'blob:essay');
+    global.URL.revokeObjectURL = jest.fn();
+    global.fetch = jest.fn(async () => ({
+      ok: true,
+      blob: async () => new Blob(['# Letter\n'], { type: 'text/markdown' })
+    }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Export' }));
+    await waitFor(() => expect(onSave).toHaveBeenCalled());
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(
+      '/api/export/notebook/essay-1',
+      expect.objectContaining({ headers: expect.any(Object) })
+    ));
+    await waitFor(() => expect(click).toHaveBeenCalled());
+    createSpy.mockRestore();
   });
 
   it('opens source and concept insertion from Notion-style inline triggers', async () => {

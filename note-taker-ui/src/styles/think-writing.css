@@ -425,3 +425,101 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
     min-height: 44px;
   }
 }
+
+.notebook-arrangement {
+  margin: 0 0 1.25rem;
+  padding: 0 0 1rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--vellum-line, #ded7c9) 80%, transparent);
+}
+
+.notebook-arrangement__kicker {
+  margin: 0 0 0.2rem;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary, var(--vellum-subtle, #827c72));
+}
+
+.notebook-arrangement__copy,
+.notebook-arrangement__pieces,
+.notebook-arrangement__aside {
+  margin: 0;
+  color: var(--text-primary, var(--vellum-ink, #29251f));
+  font-family: var(--font-serif, Georgia, serif);
+  font-size: 0.98rem;
+  line-height: 1.45;
+}
+
+.notebook-arrangement__controls,
+.notebook-arrangement__aside {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.55rem;
+  margin-top: 0.65rem;
+}
+
+.notebook-arrangement__pieces {
+  margin: 0.75rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.notebook-arrangement__pieces li {
+  position: relative;
+  padding: 0.15rem 0 0.15rem 1.1rem;
+}
+
+.notebook-arrangement__pieces li::before {
+  content: "—";
+  position: absolute;
+  left: 0;
+  color: var(--text-secondary, var(--vellum-subtle, #827c72));
+}
+
+.notebook-arrangement__pieces li.is-current {
+  font-style: italic;
+}
+
+.think-notebook-editor-body blockquote[data-article-id],
+.think-notebook-editor-body blockquote[data-source-path],
+.think-notebook-editor-body blockquote[data-highlight-id],
+.think-notebook-editor-body .notebook-source-quote {
+  margin: 1.1rem 0 1.1rem 0.15rem;
+  padding: 0.35rem 0 0.35rem 1rem;
+  border-left: 2px solid currentColor;
+  font-style: italic;
+}
+
+.think-notebook-editor-body blockquote[data-article-id]::before,
+.think-notebook-editor-body blockquote[data-source-path]::before,
+.think-notebook-editor-body blockquote[data-highlight-id]::before,
+.think-notebook-editor-body .notebook-source-quote::before {
+  content: "Source quotation";
+  display: block;
+  margin-bottom: 0.35rem;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.72rem;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.think-notebook-editor-body blockquote[data-article-title]::after {
+  content: " — " attr(data-article-title);
+  display: block;
+  margin-top: 0.4rem;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.85rem;
+  font-style: normal;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .notebook-arrangement,
+  .notebook-arrangement * {
+    transition: none !important;
+    animation: none !important;
+  }
+}

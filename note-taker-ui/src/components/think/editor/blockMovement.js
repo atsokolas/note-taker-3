@@ -1,23 +1,18 @@
+import {
+  applyNotebookDoc,
+  movePieceInDocument,
+  pieceIndexForNode
+} from '../../../utils/notebookArrangement';
+
 export const moveBlockInDocument = (doc, currentIndex, direction = 'up') => {
-  const content = Array.isArray(doc?.content) ? [...doc.content] : [];
-  if (!Number.isInteger(currentIndex) || content.length < 2) {
-    return { moved: false, doc };
-  }
-
-  const delta = direction === 'down' ? 1 : -1;
-  const targetIndex = currentIndex + delta;
-  if (targetIndex < 0 || targetIndex >= content.length) {
-    return { moved: false, doc };
-  }
-
-  [content[currentIndex], content[targetIndex]] = [content[targetIndex], content[currentIndex]];
-
+  const pieceIndex = pieceIndexForNode(doc, currentIndex);
+  const result = movePieceInDocument(doc, pieceIndex, direction);
   return {
-    moved: true,
-    doc: {
-      ...doc,
-      content
-    }
+    moved: result.moved,
+    doc: result.doc,
+    label: result.label || '',
+    fromIndex: result.fromIndex,
+    toIndex: result.toIndex
   };
 };
 
@@ -26,6 +21,6 @@ export const moveCurrentBlock = (editor, direction = 'up') => {
   const doc = editor?.getJSON?.();
   const result = moveBlockInDocument(doc, currentIndex, direction);
   if (!result.moved) return false;
-  editor?.commands?.setContent?.(result.doc, false);
-  return true;
+  applyNotebookDoc(editor, result.doc);
+  return result;
 };
