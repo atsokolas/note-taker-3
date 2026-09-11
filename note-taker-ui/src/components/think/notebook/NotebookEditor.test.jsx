@@ -644,7 +644,11 @@ describe('NotebookEditor', () => {
     const payload = onSave.mock.calls[0][0];
     expect(payload.asidePieces).toHaveLength(1);
     expect(payload.asidePieces[0].nodes[0]).toEqual(exception);
-    expect(payload.asidePieces[0]).not.toHaveProperty('blocks');
+    expect(payload.asidePieces[0].blocks).toEqual([{
+      id: 'exception',
+      type: 'paragraph',
+      text: 'The exception is when the downside lands on someone who never chose the experiment.'
+    }]);
     expect(payload.blocks.map((block) => block.id)).toEqual(['rule']);
   });
 

@@ -5,6 +5,7 @@ import {
   isSourceBoundNode,
   movePieceInDocument,
   openingLine,
+  persistableAsidePiece,
   pieceIndexForNode,
   restorePieceInDocument,
   setAsidePieceInDocument
@@ -135,6 +136,37 @@ describe('notebookArrangement', () => {
       attrs: { blockId: 'p1' },
       content: [{ type: 'text', text: 'Hello' }]
     });
+  });
+
+  it('dual-writes blocks so a pre-nodes API still keeps the set-aside', () => {
+    const removed = setAsidePieceInDocument(essayDoc, 1);
+    const payload = persistableAsidePiece(removed.aside);
+    expect(payload.nodes).toEqual(removed.aside.nodes);
+    expect(payload.blocks).toEqual([
+      {
+        id: 'exception',
+        type: 'paragraph',
+        text: 'The exception is when the downside lands on someone who never chose the experiment.'
+      },
+      {
+        id: 'quote-The cost is borne by people who did not volunteer.',
+        type: 'quote',
+        sourcePath: '/library?articleId=article-1#passage=exact',
+        articleId: 'article-1',
+        articleTitle: 'A source',
+        text: 'The cost is borne by people who did not volunteer.'
+      }
+    ]);
+
+    const afterOldApi = { id: payload.id, label: payload.label, index: payload.index, blocks: payload.blocks };
+    const recovered = hydrateAsidePieces([afterOldApi]);
+    expect(recovered[0].nodes.map((node) => node.attrs.blockId)).toEqual([
+      'exception',
+      'quote-The cost is borne by people who did not volunteer.'
+    ]);
+    const restored = restorePieceInDocument(removed.doc, recovered[0]);
+    expect(restored.doc.content.map((node) => node.attrs.blockId))
+      .toEqual(essayDoc.content.map((node) => node.attrs.blockId));
   });
 
   it('deletes a passage without keeping a secret offcut', () => {
