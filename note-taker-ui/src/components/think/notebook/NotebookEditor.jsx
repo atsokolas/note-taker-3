@@ -486,7 +486,7 @@ const NotebookEditor = ({
     Array.isArray(entry?.asidePieces) ? entry.asidePieces : []
   ));
   const [arrangementReceipt, setArrangementReceipt] = useState(null);
-  const [docTick, setDocTick] = useState(0);
+  const [, setDocTick] = useState(0);
 
   const editor = useEditor({
     editable: false,
@@ -810,10 +810,7 @@ const NotebookEditor = ({
     };
   }, [editor]);
 
-  const arrangementPieces = useMemo(
-    () => groupDocPieces(editor?.getJSON?.() || { type: 'doc', content: [] }),
-    [docTick, editor]
-  );
+  const arrangementPieces = groupDocPieces(editor?.getJSON?.() || { type: 'doc', content: [] });
   const currentPieceIndex = pieceIndexForNode(
     editor?.getJSON?.(),
     editor?.state?.selection?.$from?.index?.(0)
