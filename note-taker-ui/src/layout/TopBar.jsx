@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import BrandGradient from '../components/BrandGradient';
 import FocusMode from '../components/think/FocusMode';
+import { namesAThinkObject } from '../pages/thinkNotesModel';
 import SystemStatus from './SystemStatus';
 import { goToKeyFor } from '../navigation/appNavigation';
 import { THEME_OPTIONS } from '../settings/uiPreferences';
@@ -100,6 +101,7 @@ const TopBar = ({
   /* The rails are a Think idea, so the control appears only where there are
      rails to send away. */
   const onThink = String(location.pathname || '').startsWith('/think');
+  const onNotebook = onThink && !namesAThinkObject(location.search) && !new URLSearchParams(location.search).get('explorationId');
 
   const isNavItemActive = useMemo(() => (item) => {
     if (typeof item.match === 'function') {
@@ -238,11 +240,9 @@ const TopBar = ({
               })}
             </nav>
           </div>
-          {/* The rails are a Think idea, so the control only appears where
-              there are rails to send away. It lives in the bar because the bar
-              is the one piece of furniture that never leaves — it was in the
-              rail, and faded out with it. */}
-          {onThink ? <FocusMode /> : null}
+          {/* Notebook owns its control in the left rail. Other Think surfaces
+              keep the existing bar control. */}
+          {onThink && !onNotebook ? <FocusMode /> : null}
         </div>
         {searchMode === 'field' ? (
           <div className="topbar__search-slot">

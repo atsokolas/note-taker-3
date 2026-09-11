@@ -790,14 +790,12 @@
 }
 
 /* ---- The browse head ----------------------------------------------------- *
- * Places on the left, Actions on the right. Ordinary spacing — not a
- * viewport-height gap that left an empty band above the list. */
+ * Keep the infrequent tools beside the places they act on. */
 .library-browse-head {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px 24px;
+  align-items: center;
+  gap: 8px 24px;
   padding: 20px 0 8px;
 }
 
@@ -824,10 +822,34 @@
 }
 
 .library-page-shell__tools summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   width: fit-content;
+  min-height: 36px;
+  padding: 4px 10px;
   cursor: pointer;
   list-style: none;
+  border: 1px solid var(--vellum-line);
+  border-radius: 6px;
+}
+
+.library-page-shell__tools summary::after {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-right: 1px solid currentColor;
   border-bottom: 1px solid currentColor;
+  transform: translateY(-2px) rotate(45deg);
+}
+
+.library-page-shell__tools[open] summary::after {
+  transform: translateY(1px) rotate(225deg);
+}
+
+.library-page-shell__tools summary:focus-visible {
+  outline: 2px solid var(--vellum-accent, #9b6a18);
+  outline-offset: 3px;
 }
 
 .library-page-shell__tools summary::-webkit-details-marker { display: none; }
@@ -836,9 +858,10 @@
   position: absolute;
   z-index: 8;
   top: calc(100% + 10px);
-  right: 0;
+  left: 0;
   display: grid;
-  min-width: 176px;
+  width: 220px;
+  max-width: calc(100vw - 40px);
   gap: 10px;
   padding: 14px;
   border: 1px solid var(--vellum-line);
@@ -846,7 +869,8 @@
   box-shadow: 0 14px 32px color-mix(in srgb, var(--vellum-ink) 9%, transparent);
 }
 
-.library-page-shell__column-head button {
+.library-page-shell__column-head button,
+.library-page-shell__tools button {
   min-height: 0;
   padding: 0;
   border: 0;
@@ -863,14 +887,47 @@
 }
 
 .library-page-shell__column-head button:hover,
-.library-page-shell__column-head button:focus-visible {
+.library-page-shell__column-head button:focus-visible,
+.library-page-shell__tools button:hover,
+.library-page-shell__tools button:focus-visible {
   color: var(--wiki-warm-accent, var(--vellum-warm));
   outline: none;
 }
 
-.library-page-shell__column-head button:disabled {
+.library-page-shell__column-head button:disabled,
+.library-page-shell__tools button:disabled {
   border-bottom-color: transparent;
   cursor: default;
+}
+
+.library-page-shell__tools button {
+  min-height: 36px;
+  border: 0;
+  text-align: left;
+}
+
+@media (max-width: 640px) {
+  .library-browse-head {
+    position: relative;
+  }
+
+  .library-page-shell__tools {
+    position: static;
+  }
+
+  .library-page-shell__tools[open] > div {
+    top: 100%;
+    left: auto;
+    right: 0;
+    max-width: 100%;
+  }
+}
+
+@media (pointer: coarse) {
+  .library-page-shell__tools summary,
+  .library-page-shell__tools button {
+    min-height: 44px;
+  }
 }
 
 @media (max-width: 900px) {

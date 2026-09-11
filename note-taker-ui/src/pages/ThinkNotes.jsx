@@ -5,6 +5,7 @@ import authoredExplorations from '../api/authoredExplorations';
 import { getAuthHeaders } from '../hooks/useAuthHeaders';
 import { clearNotebookCache, getNotebookShelf } from '../api/notebook';
 import NotebookEditor from '../components/think/notebook/NotebookEditor';
+import FocusMode from '../components/think/FocusMode';
 import ThoughtPartnerPanel from '../components/agent/ThoughtPartnerPanel';
 import {
   RoomShelf,
@@ -275,92 +276,95 @@ const ThinkNotes = () => {
 
   return (
     <div className="think-notes">
-      <RoomShelf
-        className={`think-notes__shelf ${step(1)}`}
-        aria-label="Think navigation"
-        data-writing-rail="left"
-        data-writing-rail-label="Notes"
-        label="Think"
-        count={loading ? undefined : notes.length}
-        search={shelfQuery}
-        searchLabel="Find your writing"
-        searchPlaceholder="A phrase you remember…"
-        searchMaxLength={160}
-        searchInputRef={searchInput}
-        onSearchKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); setShelfQuery(''); } }}
-        onSearchChange={setShelfQuery}
-      >
-        <RoomShelfList className="think-notes__spaces">
-          <li>
-            <RoomShelfButton active onClick={() => openThinkView('notebook')}>
-              <span>Notebook</span>
-              {!loading ? <RoomShelfMeta>{notes.length}</RoomShelfMeta> : null}
-            </RoomShelfButton>
-          </li>
-          <li><RoomShelfButton onClick={() => openThinkView('concepts')}><span>Concepts</span></RoomShelfButton></li>
-          <li><RoomShelfButton onClick={() => openThinkView('questions')}><span>Questions</span></RoomShelfButton></li>
-        </RoomShelfList>
-        {phrase ? (
-          <RoomShelfSection label="Found in your writing">
-            <p className="room-shelf__description">Notes and private explorations</p>
-            <p role="status" className="room-shelf__description">{searchMessage}</p>
-            <RoomShelfList>
-              {writingResults.map(item => (
-                <li key={`${item.kind}:${item.id}`}>
-                  <Link to={item.href} onClick={event => followWriting(event, item.href)} className={roomShelfItemClass({ nested: true, className: 'think-notes__continuation' })}>
-                    <span>{item.excerpt === item.title ? <WritingMatch item={item} /> : item.title}</span>
-                    <span className="think-notes__writing-origin">{item.kind === 'notebook' ? 'Note' : `Private writing · ${item.label}`}{item.pageTitle ? ` · ${item.pageTitle}` : ''}{item.sourceUnavailable ? ' · Recorded context' : item.originMissing ? ' · Earlier passage' : ''}</span>
-                    {item.excerpt !== item.title ? <span className="think-notes__match-excerpt"><WritingMatch item={item} /></span> : null}
-                  </Link>
-                </li>
-              ))}
-            </RoomShelfList>
-            {found?.limited ? <p className="room-shelf__description">More matches may be available. Add a few words to narrow them.</p> : null}
-            <button type="button" className="think-notes__shelf-more" onClick={() => setShelfQuery('')}>Back to recent work</button>
-          </RoomShelfSection>
-        ) : <>
-        {authoredError ? <p role="status" className="room-shelf__description">{authoredError}</p> : null}
-        {authoredWork.length ? (
-          <RoomShelfSection label="Your writing" className="think-notes__writing">
-            <RoomShelfList>
-              {authoredWork.map(item => (
-                <li key={item.id}>
-                  <Link to={item.href} onClick={event => followWriting(event, item.href)} className={roomShelfItemClass({ nested: true, className: 'think-notes__continuation' })}>
-                    <span>{item.title}</span>
-                    {item.returnNote ? <span className="think-notes__return-note">{item.returnNote}</span> : null}
-                    {item.pageTitle ? <span className="think-notes__writing-origin">From {item.pageTitle}{item.sourceUnavailable ? ' · Recorded context' : item.originMissing ? ' · Earlier passage' : ''}</span> : null}
-                  </Link>
-                </li>
-              ))}
-            </RoomShelfList>
-          </RoomShelfSection>
-        ) : null}
-        <RoomShelfSection label="Recent notes">
-          <RoomShelfList>
-            {shelf.map(item => (
-              <li key={item.id}>
-                <RoomShelfButton
-                  active={item.isOpen}
-                  nested
-                  onClick={() => openNote(item.id)}
-                >
-                  <span>{item.title}</span>
-                </RoomShelfButton>
-              </li>
-            ))}
+      <aside className="think-notes__shelf" aria-label="Think navigation">
+        <FocusMode inRail />
+        <RoomShelf
+          as="div"
+          className={step(1)}
+          data-writing-rail="left"
+          data-writing-rail-label="Notes"
+          label="Think"
+          count={loading ? undefined : notes.length}
+          search={shelfQuery}
+          searchLabel="Find your writing"
+          searchPlaceholder="A phrase you remember…"
+          searchMaxLength={160}
+          searchInputRef={searchInput}
+          onSearchKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); setShelfQuery(''); } }}
+          onSearchChange={setShelfQuery}
+        >
+          <RoomShelfList className="think-notes__spaces">
+            <li>
+              <RoomShelfButton active onClick={() => openThinkView('notebook')}>
+                <span>Notebook</span>
+                {!loading ? <RoomShelfMeta>{notes.length}</RoomShelfMeta> : null}
+              </RoomShelfButton>
+            </li>
+            <li><RoomShelfButton onClick={() => openThinkView('concepts')}><span>Concepts</span></RoomShelfButton></li>
+            <li><RoomShelfButton onClick={() => openThinkView('questions')}><span>Questions</span></RoomShelfButton></li>
           </RoomShelfList>
-          {hasMoreNotes ? (
-            <button
-              type="button"
-              className="think-notes__shelf-more"
-              onClick={() => setShelfExpanded(true)}
-            >
-              Show all recent notes
-            </button>
+          {phrase ? (
+            <RoomShelfSection label="Found in your writing">
+              <p className="room-shelf__description">Notes and private explorations</p>
+              <p role="status" className="room-shelf__description">{searchMessage}</p>
+              <RoomShelfList>
+                {writingResults.map(item => (
+                  <li key={`${item.kind}:${item.id}`}>
+                    <Link to={item.href} onClick={event => followWriting(event, item.href)} className={roomShelfItemClass({ nested: true, className: 'think-notes__continuation' })}>
+                      <span>{item.excerpt === item.title ? <WritingMatch item={item} /> : item.title}</span>
+                      <span className="think-notes__writing-origin">{item.kind === 'notebook' ? 'Note' : `Private writing · ${item.label}`}{item.pageTitle ? ` · ${item.pageTitle}` : ''}{item.sourceUnavailable ? ' · Recorded context' : item.originMissing ? ' · Earlier passage' : ''}</span>
+                      {item.excerpt !== item.title ? <span className="think-notes__match-excerpt"><WritingMatch item={item} /></span> : null}
+                    </Link>
+                  </li>
+                ))}
+              </RoomShelfList>
+              {found?.limited ? <p className="room-shelf__description">More matches may be available. Add a few words to narrow them.</p> : null}
+              <button type="button" className="think-notes__shelf-more" onClick={() => setShelfQuery('')}>Back to recent work</button>
+            </RoomShelfSection>
+          ) : <>
+          {authoredError ? <p role="status" className="room-shelf__description">{authoredError}</p> : null}
+          {authoredWork.length ? (
+            <RoomShelfSection label="Your writing" className="think-notes__writing">
+              <RoomShelfList>
+                {authoredWork.map(item => (
+                  <li key={item.id}>
+                    <Link to={item.href} onClick={event => followWriting(event, item.href)} className={roomShelfItemClass({ nested: true, className: 'think-notes__continuation' })}>
+                      <span>{item.title}</span>
+                      {item.returnNote ? <span className="think-notes__return-note">{item.returnNote}</span> : null}
+                      {item.pageTitle ? <span className="think-notes__writing-origin">From {item.pageTitle}{item.sourceUnavailable ? ' · Recorded context' : item.originMissing ? ' · Earlier passage' : ''}</span> : null}
+                    </Link>
+                  </li>
+                ))}
+              </RoomShelfList>
+            </RoomShelfSection>
           ) : null}
-        </RoomShelfSection>
-        </>}
-      </RoomShelf>
+          <RoomShelfSection label="Recent notes">
+            <RoomShelfList>
+              {shelf.map(item => (
+                <li key={item.id}>
+                  <RoomShelfButton
+                    active={item.isOpen}
+                    nested
+                    onClick={() => openNote(item.id)}
+                  >
+                    <span>{item.title}</span>
+                  </RoomShelfButton>
+                </li>
+              ))}
+            </RoomShelfList>
+            {hasMoreNotes ? (
+              <button
+                type="button"
+                className="think-notes__shelf-more"
+                onClick={() => setShelfExpanded(true)}
+              >
+                Show all recent notes
+              </button>
+            ) : null}
+          </RoomShelfSection>
+          </>}
+        </RoomShelf>
+      </aside>
 
       <main
         ref={noteSurface}

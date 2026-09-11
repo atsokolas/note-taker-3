@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 
-/* The stylesheet knows one state — rails away — and two things can cause it:
-   writing, and focus mode held on purpose. */
+/* Writing owns this temporary retreat; FocusMode holds its own class so idle
+   and blur cannot cancel the reader's deliberate choice. */
 export const THINK_WRITING_CLASS = 'think-rails-away';
 export const THINK_WRITING_IDLE_MS = 1600;
 
