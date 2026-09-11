@@ -22,7 +22,11 @@ const buildRouter = (overrides = {}) => buildAgentChatRouter({
   },
   authenticatePersonalAgentKey: (_req, _res, next) => next(),
   getUserAgentEntitlements: async () => ({ premiumWebResearchAvailable: false }),
-  generateCollaborativeReply: async () => {
+  generateCollaborativeReply: async (args) => {
+    if (args.context?.metadata?.exploration) {
+      overrides.observedExploration = args.context.metadata.exploration;
+      return { reply: 'A response to the private writing.', relatedItems: [] };
+    }
     throw new Error('generic collaborative reply should not run for wiki graph ask');
   },
   normalizePersonalAgentCapabilities: (input) => input || {},
@@ -218,6 +222,18 @@ const run = async () => {
       !body.includes('Answered from the selected wiki page.'),
       'Graph-expanded answers should not claim they only used the selected page.'
     );
+
+    observed.observedCorpusArgs = null;
+    const exploration = { pageId: '64a000000000000000000001', claimId: 'claim-1', draft: { writing: 'My private distinction.', question: 'Does it hold?', pressure: { premise: 'Suppose there is no retry.' } } };
+    const privateResponse = await fetch(`${url}/api/agent/chat/stream`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ message: 'Think through my distinction.', context: { pageId: exploration.pageId, claimId: exploration.claimId, metadata: { exploration } } })
+    });
+    const privateBody = await privateResponse.text();
+    assert.deepStrictEqual(observed.observedExploration, exploration, 'The collaborative resolver must receive the exact working state.');
+    assert.strictEqual(observed.observedCorpusArgs, null, 'Private exploration must bypass the Wiki-only answer shortcut.');
+    assert.ok(privateBody.includes('A response to the private writing.'), 'The collaborative reply must reach the same stream.');
+    assert.ok(!privateBody.includes('Read the selected wiki page.'), 'Do not announce unverified reading before the private context resolves.');
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }

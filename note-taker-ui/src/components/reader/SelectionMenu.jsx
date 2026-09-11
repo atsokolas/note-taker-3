@@ -16,6 +16,7 @@ const SelectionMenu = React.forwardRef(({
   saving,
   onHighlight,
   onAskLibrarian,
+  onWorkWithPassage,
 }, ref) => {
   const reducedMotion = usePrefersReducedMotion();
   const finePointer = useFinePointer();
@@ -98,7 +99,7 @@ const SelectionMenu = React.forwardRef(({
       style={style}
       role="menu"
     >
-      {/* Two things you can do to a sentence: keep it, or ask about it.
+      {/* Keep a sentence, ask about it, or begin writing from it.
 
           Highlight keeps it in the default ink, so the reader who just wants
           the sentence never meets a decision. The swatches are for the reader
@@ -112,6 +113,9 @@ const SelectionMenu = React.forwardRef(({
         <button type="button" className="selection-menu-button is-muted" onClick={onAskLibrarian} disabled={saving}>
           Ask about this
         </button>
+        {onWorkWithPassage ? <button type="button" className="selection-menu-button" onClick={onWorkWithPassage} disabled={saving}>
+          Work with this passage
+        </button> : null}
         <span className="selection-menu__inks" role="group" aria-label="Highlight in a colour">
           {HIGHLIGHT_COLOR_OPTIONS.map((ink) => (
             <button

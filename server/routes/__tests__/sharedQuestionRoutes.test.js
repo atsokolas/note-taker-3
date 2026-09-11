@@ -81,7 +81,22 @@ const run = async () => {
     conceptName: 'Compounding',
     blocks: [
       { id: 'p1', type: 'paragraph', text: 'Public paragraph.' },
-      { id: 'h1', type: 'highlight-ref', text: 'secret highlight' }
+      { id: 'p2', type: 'paragraph', text: 'Another authored paragraph.' },
+      { id: 'h1', type: 'highlight-ref', text: 'secret highlight' },
+      {
+        id: 'private-excerpt',
+        type: 'paragraph',
+        text: 'An exact excerpt from the owner Library.',
+        articleId: new mongoose.Types.ObjectId().toString(),
+        articleTitle: 'Private source',
+        sourcePath: '/library?articleId=private#passage=exact'
+      },
+      {
+        id: 'private-path-only',
+        type: 'paragraph',
+        text: 'A source paragraph carrying only its exact path.',
+        sourcePath: '/library?articleId=private'
+      }
     ]
   });
 
@@ -110,8 +125,11 @@ const run = async () => {
     assert.strictEqual(publicRead.response.status, 200);
     assert.strictEqual(publicRead.body.question.text, 'What survives compounding?');
     assert.deepStrictEqual(publicRead.body.question.paragraphs, [
-      { id: 'p1', type: 'paragraph', text: 'Public paragraph.' }
+      { id: 'p1', type: 'paragraph', text: 'Public paragraph.' },
+      { id: 'p2', type: 'paragraph', text: 'Another authored paragraph.' }
     ]);
+    assert.ok(!JSON.stringify(publicRead.body).includes('exact excerpt'));
+    assert.ok(!JSON.stringify(publicRead.body).includes('secret highlight'));
 
     const revoke = await fetchJson(`${base}/api/questions/${questionId}/share`, { method: 'DELETE' });
     assert.strictEqual(revoke.response.status, 200);

@@ -90,6 +90,38 @@ describe('open sentence companion', () => {
     expect(companionForOpenedClaim(page, { claimId: '' })).toBeNull();
   });
 
+  it('counts two exact excerpts from the same article as one source family', () => {
+    const articlePage = {
+      ...page,
+      sourceRefs: [{
+        ...page.sourceRefs[0],
+        type: 'article',
+        objectId: 'article-nomad'
+      }]
+    };
+    const companion = companionForOpenedClaim(articlePage, {
+      claimId: 'claim-1',
+      exploration: {
+        claimId: 'claim-1',
+        draft: {
+          writing: 'Recoverable error can be a form of care.',
+          selectedSource: {
+            articleId: 'article-nomad',
+            title: 'Nomad',
+            passage: 'The second excerpt names the next attempt.',
+            available: true
+          }
+        }
+      }
+    });
+
+    expect(companion).toEqual(expect.objectContaining({
+      boundSources: 1,
+      askPlaceholder: 'Think with me about this'
+    }));
+    expect(companion.lines.filter((line) => line.id.startsWith('source'))).toHaveLength(2);
+  });
+
   it('asks against the accepted page, with the opened line as focus', () => {
     expect(buildAgentContext({
       room: 'wiki',

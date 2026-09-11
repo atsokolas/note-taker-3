@@ -95,7 +95,10 @@ export const serializeBlocksFromDoc = (doc, createId = defaultId) => {
       blocks.push({
         id: node.attrs?.blockId || createId(),
         type: node.attrs?.highlightId ? 'highlight_embed' : 'quote',
-        highlightId: node.attrs?.highlightId || null,
+        ...(node.attrs?.highlightId ? { highlightId: node.attrs.highlightId } : {}),
+        ...(node.attrs?.sourcePath ? { sourcePath: node.attrs.sourcePath } : {}),
+        ...(node.attrs?.articleId ? { articleId: node.attrs.articleId } : {}),
+        ...(node.attrs?.articleTitle ? { articleTitle: node.attrs.articleTitle } : {}),
         text: extractText(node)
       });
       return;
@@ -135,7 +138,23 @@ export const buildDocFromBlocks = (blocks = []) => ({
         content: block.text ? [{ type: 'text', text: block.text }] : []
       };
     }
-    if (block.type === 'highlight-ref' || block.type === 'highlight_embed') {
+    const savedHighlight = block.type === 'highlight-ref' || block.type === 'highlight_embed';
+    if (block.type === 'quote' || (savedHighlight && block.sourcePath)) {
+      return {
+        type: 'blockquote',
+        attrs: {
+          blockId: block.id,
+          ...(savedHighlight ? { highlightId: block.highlightId || null } : {}),
+          sourcePath: block.sourcePath || null,
+          articleId: block.articleId || null,
+          articleTitle: block.articleTitle || ''
+        },
+        content: block.text
+          ? [{ type: 'paragraph', content: [{ type: 'text', text: block.text }] }]
+          : []
+      };
+    }
+    if (savedHighlight) {
       return {
         type: 'highlightRef',
         attrs: {

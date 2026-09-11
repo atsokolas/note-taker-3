@@ -31,6 +31,7 @@
 
 .think-notes__shelf .think-notes__shelf-more {
   display: block;
+  min-height: 44px;
   width: auto;
   margin-top: 18px;
   padding: 0;
@@ -43,9 +44,31 @@
   cursor: pointer;
 }
 
+/* Starting is deliberate and stays within reach on the narrow composition. */
+.think-notes__start { margin-bottom: 28px; }
+.think-notes__start button {
+  min-height: 44px;
+  padding: 5px 0;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  background: transparent;
+  color: var(--text-secondary);
+  font: 0.86rem var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  cursor: pointer;
+}
+.think-notes__start button:hover,
+.think-notes__start button:focus-visible { color: var(--wiki-warm-accent, var(--vellum-warm)); }
+.think-notes__start button:disabled { opacity: 0.6; cursor: wait; }
+.think-notes__start p { color: var(--text-secondary); font-size: 0.86rem; line-height: 1.5; }
+.think-notes__start .think-notes__find { display: none; margin-left: 24px; }
+@media (max-width: 760px) {
+  .think-notes__start .think-notes__find { display: inline-block; }
+}
+
 /* ---------- the note ---------- */
 
 .think-notes__note {
+  scroll-margin-top: 104px;
   min-width: 0;
   max-width: 720px;
   opacity: 1;
@@ -187,27 +210,18 @@ body.noeis-editorial .think-notes .think-draft-block-tray,
   display: none;
 }
 
-/* Saving stays. "Structure" and "More" are workbench controls. */
+/* Insertion controls stay in the existing slash menu. */
 body.noeis-editorial .think-notes .think-notebook-editor-actions-left,
 .think-notes .think-notebook-editor-actions-left {
   display: none;
 }
 
-body.noeis-editorial .think-notes .think-notebook-editor-actions,
-.think-notes .think-notebook-editor-actions {
-  justify-content: flex-end;
-}
-
-/* "Structure" and "More" are workbench controls too; Save is not. */
+/* Keep the autosave receipt; hide the workbench controls. */
 body.noeis-editorial .think-notes .think-notebook-editor-actions-right > .ui-quiet-button,
 body.noeis-editorial .think-notes .think-notebook-editor-actions-overflow,
 .think-notes .think-notebook-editor-actions-right > .ui-quiet-button,
 .think-notes .think-notebook-editor-actions-overflow {
   display: none;
-}
-
-.think-notes .think-notebook-editor-actions {
-  margin-top: 18px;
 }
 
 /* The title is the note's headline, not a form field. */
@@ -238,33 +252,7 @@ body.noeis-editorial .think-notes .think-notebook-editor-actions-overflow,
   line-height: 1.66;
 }
 
-/* Save is the one control the note needs. It reads as a word, like every other
-   action in this language, rather than as a filled button. */
-body.noeis-editorial .think-notes .think-notebook-editor-actions .ui-button,
-.think-notes .think-notebook-editor-actions .ui-button {
-  min-height: 0;
-  padding: 0 !important;
-  border: 0 !important;
-  border-bottom: 1px solid currentColor !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  color: var(--text-muted, var(--vellum-subtle)) !important;
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif) !important;
-  font-size: 0.86rem !important;
-  font-weight: 400 !important;
-  letter-spacing: 0 !important;
-  text-transform: none !important;
-}
-
-body.noeis-editorial .think-notes .think-notebook-editor-actions .ui-button:hover,
-.think-notes .think-notebook-editor-actions .ui-button:hover {
-  color: var(--wiki-warm-accent, var(--vellum-warm)) !important;
-}
-
-/* With Structure and More gone, Save was the only thing left in a row that
-   still spanned the column and pushed it to the far right. It belongs at the
-   foot of the note, beside the agent door. */
+/* The save receipt belongs with the writing at the start of the column. */
 body.noeis-editorial .think-notes .think-notebook-editor-actions,
 .think-notes .think-notebook-editor-actions {
   justify-content: flex-start;
@@ -295,4 +283,36 @@ body.noeis-editorial .think-notes .think-notebook-editor-actions-right,
 .think-notes .think-shelf {
   border-right: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 52%, transparent);
   padding-right: clamp(18px, 2vw, 32px);
+}
+
+/* A return note sits beside its title, in the person's own words. Keep the
+   whole row a real link so keyboard and open-in-new-tab work naturally. */
+.think-notes__shelf .think-notes__writing ul { display: grid; gap: 8px; }
+.think-notes__shelf .think-notes__continuation {
+  display: grid;
+  gap: 5px;
+  width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.think-notes__return-note {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+.think-notes__writing-origin {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
+.think-notes__match-excerpt {
+  font-size: 0.82rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+.think-notes__continuation mark {
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--wiki-warm-accent, var(--vellum-warm)) 14%, transparent);
+  border-radius: 2px;
 }

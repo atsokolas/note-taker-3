@@ -194,6 +194,107 @@ describe('NotebookEditor', () => {
     expect(screen.getAllByRole('link')).toHaveLength(1);
   });
 
+  it('hydrates and autosaves a source quote without losing its Library provenance', async () => {
+    const onSave = jest.fn(async payload => payload);
+    const sourceBlock = {
+      id: 'quote-1',
+      type: 'quote',
+      text: 'The exact selected passage.',
+      articleId: 'article-1',
+      articleTitle: 'A beautiful source',
+      sourcePath: '/library?articleId=article-1#passage=exact'
+    };
+    mockEditor.getJSON.mockReturnValue({
+      type: 'doc',
+      content: [{
+        type: 'blockquote',
+        attrs: {
+          blockId: sourceBlock.id,
+          highlightId: null,
+          articleId: sourceBlock.articleId,
+          articleTitle: sourceBlock.articleTitle,
+          sourcePath: sourceBlock.sourcePath
+        },
+        content: [{ type: 'paragraph', content: [{ type: 'text', text: sourceBlock.text }] }]
+      }]
+    });
+
+    render(
+      <NotebookEditor
+        entry={{
+          _id: 'note-source',
+          title: 'Source note',
+          content: '',
+          blocks: [sourceBlock],
+          type: 'note',
+          tags: [],
+          importMeta: {
+            sourceType: 'authored_exploration',
+            sourceLabel: 'Parenting',
+            sourceUrl: '/wiki/read/page-1?claimId=claim-1',
+            sourcePath: sourceBlock.sourcePath
+          }
+        }}
+        saving={false}
+        error=""
+        onSave={onSave}
+        onDelete={jest.fn()}
+      />
+    );
+
+    expect(mockUseEditor.mock.calls[0][0].content.content[0]).toMatchObject({
+      type: 'blockquote',
+      attrs: {
+        blockId: sourceBlock.id,
+        articleId: sourceBlock.articleId,
+        articleTitle: sourceBlock.articleTitle,
+        sourcePath: sourceBlock.sourcePath
+      }
+    });
+    expect(screen.getByRole('link', { name: 'Open A beautiful source' })).toHaveAttribute(
+      'href',
+      sourceBlock.sourcePath
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    const updateRegistration = [...mockEditor.on.mock.calls].reverse().find(([eventName]) => eventName === 'update');
+    act(() => updateRegistration[1]());
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ blocks: [sourceBlock] })), {
+      timeout: 1800
+    });
+  });
+
+  it('hydrates an authored highlight snapshot as saved quote content', () => {
+    const sourceBlock = {
+      id: 'source-highlight-1',
+      type: 'highlight_embed',
+      highlightId: 'highlight-1',
+      text: 'The passage as it was when kept.',
+      articleId: 'article-1',
+      articleTitle: 'A beautiful source',
+      sourcePath: '/library?articleId=article-1&highlightId=highlight-1'
+    };
+
+    render(
+      <NotebookEditor
+        entry={{ _id: 'note-source', title: 'Source note', content: '', blocks: [sourceBlock], type: 'note', tags: [] }}
+        saving={false}
+        error=""
+        onSave={jest.fn()}
+        onDelete={jest.fn()}
+      />
+    );
+
+    expect(mockUseEditor.mock.calls[0][0].content.content[0]).toMatchObject({
+      type: 'blockquote',
+      attrs: expect.objectContaining({
+        blockId: sourceBlock.id,
+        highlightId: sourceBlock.highlightId,
+        sourcePath: sourceBlock.sourcePath
+      }),
+      content: [{ type: 'paragraph', content: [{ type: 'text', text: sourceBlock.text }] }]
+    });
+  });
+
   it('keeps the Library source from the note with the shared human-only control', async () => {
     const setEvergreen = jest.fn().mockResolvedValue({ evergreen: true });
     render(
@@ -497,6 +598,59 @@ describe('NotebookEditor', () => {
         expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ id: 'note-1', title: 'Playing to Win' }));
       }, { timeout: 1800 });
       expect(screen.getByRole('status')).toHaveTextContent('Saved');
+    });
+
+    it('finishes pending writes in order before a navigation flush resolves', async () => {
+      let finishFirst;
+      const onSave = jest.fn().mockImplementationOnce(() => new Promise(resolve => { finishFirst = resolve; })).mockResolvedValue({});
+      let flush;
+      render(<NotebookEditor entry={{_id:'note-1', title:'First words', blocks:[]}} onSave={onSave} onRegisterSave={value => { flush = value; }} />);
+      fireEvent.change(screen.getByPlaceholderText('Title'), {target:{value:'First version'}});
+      let first;
+      await act(async () => { first = flush(); });
+      expect(onSave).toHaveBeenCalledTimes(1);
+      fireEvent.change(screen.getByPlaceholderText('Title'), {target:{value:'The final version'}});
+      let second;
+      await act(async () => { second = flush(); });
+      expect(onSave).toHaveBeenCalledTimes(1);
+      await act(async () => { finishFirst({}); await first; await second; });
+      expect(onSave.mock.calls.map(([payload]) => payload.title)).toEqual(['First version','The final version']);
+      expect(await second).toBe(true);
+    });
+
+    it('keeps words and reports a failed flush so navigation can stay put', async () => {
+      let flush;
+      render(<NotebookEditor entry={{_id:'note-1',title:'Before',blocks:[]}} onSave={jest.fn().mockRejectedValue(new Error('Offline'))} onRegisterSave={value => {flush=value;}} />);
+      fireEvent.change(screen.getByPlaceholderText('Title'), {target:{value:'Keep these words'}});
+      let saved;
+      await act(async () => { saved = await flush(); });
+      expect(saved).toBe(false);
+      expect(screen.getByPlaceholderText('Title')).toHaveValue('Keep these words');
+    });
+
+    it('finishes edits made during the navigation flush before reporting Saved', async () => {
+      let flush;
+      let finishSave;
+      const onSave = jest.fn()
+        .mockImplementationOnce(() => new Promise(resolve => { finishSave = resolve; }))
+        .mockResolvedValue({});
+      render(<NotebookEditor entry={{ _id: 'note-1', title: 'Before', blocks: [] }} onSave={onSave} onRegisterSave={value => { flush = value; }} startWriting />);
+      fireEvent.change(screen.getByPlaceholderText('Title'), { target: { value: 'First words' } });
+      let saving;
+      await act(async () => { saving = flush(); });
+      fireEvent.change(screen.getByPlaceholderText('Title'), { target: { value: 'The words after that' } });
+      expect(screen.getByRole('status')).toHaveTextContent('Editing');
+      await act(async () => { finishSave({}); await saving; });
+      expect(onSave.mock.calls.map(([payload]) => payload.title)).toEqual(['First words', 'The words after that']);
+      expect(screen.getByRole('status')).toHaveTextContent('Saved');
+      expect(await saving).toBe(true);
+    });
+
+    it('starts a deliberately created note in writing mode without saving on open', () => {
+      const onSave = jest.fn();
+      render(<NotebookEditor entry={{_id:'new-note',title:'Untitled',blocks:[]}} onSave={onSave} startWriting />);
+      expect(mockEditor.setEditable).toHaveBeenCalledWith(true);
+      expect(onSave).not.toHaveBeenCalled();
     });
 
     it('keeps rails visible on focus and fades them only after typing', () => {

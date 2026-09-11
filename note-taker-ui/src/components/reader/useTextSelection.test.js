@@ -13,17 +13,15 @@ const makeContainer = () => {
   return container;
 };
 
-const selectionOver = (node, text) => ({
-  rangeCount: 1,
-  toString: () => text,
-  removeAllRanges: jest.fn(),
-  getRangeAt: () => ({
-    commonAncestorContainer: node,
-    startContainer: node.firstChild,
-    startOffset: 0,
-    getBoundingClientRect: () => ({ top: 200, left: 100, width: 300, height: 20 })
-  })
-});
+const selectionOver = (node, text) => {
+  const range = document.createRange();
+  const textNode = node.querySelector('p')?.firstChild || node;
+  const at = Math.max(0, (textNode.textContent || '').indexOf(text));
+  range.setStart(textNode, at);
+  range.setEnd(textNode, Math.min(at + text.length, textNode.textContent.length));
+  range.getBoundingClientRect = () => ({ top: 200, left: 100, width: 300, height: 20 });
+  return { rangeCount: 1, toString: () => text, removeAllRanges: jest.fn(), getRangeAt: () => range };
+};
 
 describe('useTextSelection', () => {
   let container;
@@ -45,6 +43,28 @@ describe('useTextSelection', () => {
     mouseUp();
     expect(result.current.selectionState.isOpen).toBe(true);
     expect(result.current.selectionState.text).toBe('worth selecting');
+  });
+
+  it('excludes inline controls and private pockets from quotations and source anchors', () => {
+    container.innerHTML = '<p>Before.</p><div data-reader-control>Private words</div><p>An exact passage.<span data-reader-control><button>Open</button></span></p><p>After.</p>';
+    const range = document.createRange();
+    range.setStart(container.querySelectorAll('p')[1].firstChild, 0);
+    range.setEnd(container.querySelector('button').firstChild, 4);
+    range.getBoundingClientRect = () => ({ top: 200, left: 100, width: 300, height: 20 });
+    jest.spyOn(window, 'getSelection').mockReturnValue({ rangeCount: 1, getRangeAt: () => range });
+    const { result } = setup();
+    mouseUp();
+    expect(result.current.selectionState.text).toBe('An exact passage.');
+    expect(result.current.selectionState.anchor).toEqual({ text: 'An exact passage.', prefix: 'Before.', suffix: 'After.', startOffsetApprox: 7 });
+    expect(container.querySelector('button')).toHaveTextContent('Open');
+  });
+
+  it('does not offer private pocket words as a source selection', () => {
+    container.innerHTML = '<div data-reader-control><p>Private writing.</p></div>';
+    jest.spyOn(window, 'getSelection').mockReturnValue(selectionOver(container, 'Private writing.'));
+    const { result } = setup();
+    mouseUp();
+    expect(result.current.selectionState.isOpen).toBe(false);
   });
 
   it('closes when the selection collapses to a click', () => {
@@ -77,6 +97,7 @@ describe('useTextSelection', () => {
     mouseUp();
 
     const elsewhere = document.createElement('div');
+    elsewhere.innerHTML = '<p>something else entirely</p>';
     document.body.appendChild(elsewhere);
     window.getSelection.mockReturnValue(selectionOver(elsewhere, 'something else entirely'));
     mouseUp();

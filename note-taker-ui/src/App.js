@@ -4,7 +4,7 @@ import WikiFrontPage from './components/wiki/WikiFrontPage';
 import Judgment from './pages/Judgment';
 import JudgmentMirror from './pages/JudgmentMirror';
 import NotFound from './pages/NotFound';
-import { isAppRoute, rememberReturnPath } from './navigation/appRoutes';
+import { forgetReturnPath, isAppRoute, readReturnPath, rememberReturnPath } from './navigation/appRoutes';
 import { Analytics } from '@vercel/analytics/react';
 import Register from './components/Register';
 import Login from './components/Login';
@@ -336,6 +336,12 @@ const PublicFallback = () => {
   }, [location, wantsApp]);
   if (wantsApp) return <Navigate to="/login" replace />;
   return <NotFound />;
+};
+
+const AuthenticatedLoginRedirect = () => {
+  const [destination] = useState(readReturnPath);
+  useEffect(forgetReturnPath, []);
+  return <Navigate to={destination || '/'} replace />;
 };
 
 /* Stable authenticated runtime.
@@ -822,7 +828,7 @@ function App() {
             <Route path="/articles/:id" element={<LegacyArticleRedirect />} />
             <Route path="/export" element={<Export />} />
             {/* Redirect authenticated users away from auth pages */}
-            <Route path="/login" element={<Navigate to="/" replace />} />
+            <Route path="/login" element={<AuthenticatedLoginRedirect />} />
             <Route path="/register" element={<Navigate to="/" replace />} />
             {/* Signed in, an unknown path rendered nothing at all — a top bar
                 over an empty column, which reads as the page having failed. */}

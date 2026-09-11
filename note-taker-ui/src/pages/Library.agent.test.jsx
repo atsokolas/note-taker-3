@@ -347,6 +347,22 @@ describe('Library agent rail', () => {
     }));
   });
 
+  it('opens an article without rewriting an incoming passage link to add the default scope', async () => {
+    const setSearchParams = jest.fn();
+    jest.spyOn(router, 'useSearchParams').mockReturnValue([
+      new URLSearchParams('articleId=article-1'),
+      setSearchParams
+    ]);
+
+    renderLibrary('/library?articleId=article-1#passage=exact-words');
+
+    await waitFor(() => {
+      expect(document.querySelector('.library-page-shell.is-reading')).toBeInTheDocument();
+    });
+    // Replacing only search params would discard the incoming passage fragment.
+    expect(setSearchParams).not.toHaveBeenCalled();
+  });
+
   it('opens source context when navigation targets an exact highlight', async () => {
     /* setupTests mocks useSearchParams to empty for the whole suite, so a deep
        link cannot be expressed through the URL here — it has to be handed in.

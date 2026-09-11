@@ -101,6 +101,17 @@ describe('openSentenceJourney', () => {
       .toBe('/wiki/read/wiki-1?claimId=claim-1');
   });
 
+  it('binds an excerpt return to its exact words and location, not just its article', () => {
+    const anchor = { prefix: 'Before. ', suffix: ' After.', startOffsetApprox: 8 };
+    writeReturnTicket({ articleId: 'article-1', passage: 'The same words.', anchor, pageId: 'wiki-1', pageTitle: 'Parenting', claimId: 'claim-1', reopen: true });
+    const ticket = matchingReturnTicket({ articleId: 'article-1', passage: 'The same words.', anchor });
+    expect(wikiReturnHref(ticket)).toBe('/wiki/read/wiki-1?claimId=claim-1&exploration=1');
+    expect(matchingReturnTicket({ articleId: 'article-1', passage: 'Different words.', anchor })).toBeNull();
+    expect(matchingReturnTicket({ articleId: 'article-1', passage: 'The same words.', anchor: { ...anchor, startOffsetApprox: 100 } })).toBeNull();
+    expect(matchingReturnTicket({ articleId: 'article-1', highlightId: 'unrelated-highlight' })).toBeNull();
+    expect(matchingReturnTicket({ articleId: 'other-article', passage: 'The same words.', anchor })).toBeNull();
+  });
+
   it('names the source you were in, and forgets a closed draft with nothing to keep', () => {
     writeReturnTicket({
       articleId: 'article-1',

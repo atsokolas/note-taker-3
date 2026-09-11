@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const {
   WIKI_PAGE_TYPES
 } = require('../services/wikiPageStructureService');
+const { buildAuthoredExplorationModel } = require('./authoredExploration');
 
 // --- AUTHENTICATION ADDITIONS: User Schema and Model ---
 const userAgentProfileSchema = new mongoose.Schema({
@@ -267,6 +268,7 @@ const notebookBlockSchema = new mongoose.Schema({
   highlightId: { type: mongoose.Schema.Types.ObjectId, default: null },
   articleId: { type: mongoose.Schema.Types.ObjectId, default: null },
   articleTitle: { type: String, default: '' },
+  sourcePath: { type: String, default: '' },
   conceptId: { type: mongoose.Schema.Types.ObjectId, default: null },
   conceptName: { type: String, default: '' },
   questionId: { type: mongoose.Schema.Types.ObjectId, default: null },
@@ -1780,6 +1782,9 @@ const questionSchema = new mongoose.Schema({
     type: { type: String, enum: ['paragraph', 'highlight-ref'], default: 'paragraph' },
     text: { type: String, default: '' },
     highlightId: { type: mongoose.Schema.Types.ObjectId, default: null },
+    articleId: { type: mongoose.Schema.Types.ObjectId, default: null },
+    articleTitle: { type: String, default: '' },
+    sourcePath: { type: String, default: '' },
     challenge: {
       enabled: { type: Boolean, default: false },
       createdAt: { type: Date, default: null },
@@ -1792,6 +1797,7 @@ const questionSchema = new mongoose.Schema({
   linkedHighlightId: { type: mongoose.Schema.Types.ObjectId, default: null },
   linkedHighlightIds: [{ type: mongoose.Schema.Types.ObjectId }],
   linkedNotebookEntryId: { type: mongoose.Schema.Types.ObjectId, default: null },
+  importMeta: { type: importMetaSchema, default: () => ({}) },
   hiddenFromHome: { type: Boolean, default: false },
   debugOnly: { type: Boolean, default: false },
   archived: { type: Boolean, default: false },
@@ -3229,6 +3235,7 @@ const decisionMemoryEventSchema = new mongoose.Schema({
 decisionMemoryEventSchema.index({ userId: 1, at: -1 });
 
 const DecisionMemoryEvent = mongoose.model('DecisionMemoryEvent', decisionMemoryEventSchema);
+const AuthoredExploration = buildAuthoredExplorationModel(mongoose);
 
 module.exports = {
   User,
@@ -3306,5 +3313,6 @@ module.exports = {
   ResearchMandate,
   InstitutionalHold,
   DecisionMemoryEvent,
+  AuthoredExploration,
   dropLegacyConnectionIndex
 };

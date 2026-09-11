@@ -72,6 +72,59 @@ describe('agent conversation model', () => {
     })).toBeNull();
   });
 
+  it('forwards the exact private authored exploration with its selected Library source', () => {
+    const exploration = {
+      claimId: 'claim-1',
+      draft: {
+        writing: 'Recoverable error can be a form of care.',
+        question: 'Where does protection become control?',
+        pressure: {
+          premise: 'The cost of one mistake rises sharply.'
+        },
+        selectedSource: {
+          articleId: 'article-7',
+          highlightId: '',
+          title: 'The Uses of Error',
+          passage: 'A reversible mistake preserves another attempt.',
+          anchor: {
+            text: 'A reversible mistake preserves another attempt.',
+            prefix: 'Learning remains possible when ',
+            suffix: ' That distinction matters.',
+            startOffsetApprox: 96
+          }
+        }
+      }
+    };
+
+    expect(buildAgentContext({
+      room: 'wiki',
+      contractId: 'agent-surface.wiki',
+      objectType: 'wiki_claim',
+      objectId: 'claim-1',
+      pageId: 'page-1',
+      subject: 'Children need room to make mistakes.',
+      exploration
+    })).toEqual(expect.objectContaining({
+      type: 'wiki_page',
+      id: 'page-1',
+      metadata: expect.objectContaining({ exploration })
+    }));
+  });
+
+  it('keeps ordinary Wiki, Library, and Think contexts unchanged', () => {
+    const contexts = [
+      buildAgentContext({ room: 'wiki', objectType: 'wiki_page', objectId: 'wiki-1', exploration: { private: true } }),
+      buildAgentContext({ room: 'library', objectType: 'article', objectId: 'article-1', exploration: { private: true } }),
+      buildAgentContext({ room: 'think', objectType: 'concept', objectId: 'concept-1', exploration: { private: true } })
+    ];
+    expect(contexts).toEqual([
+      expect.objectContaining({ type: 'wiki_page', id: 'wiki-1', pageId: 'wiki-1' }),
+      expect.objectContaining({ type: 'article', id: 'article-1' }),
+      expect.objectContaining({ type: 'concept', id: 'concept-1' })
+    ]);
+    contexts.forEach((context) => expect(context.metadata).not.toHaveProperty('exploration'));
+  });
+
   it('keeps durable thread messages and their provenance presentation-safe', () => {
     const messages = mapAgentThreadMessages({
       threadId: 'thread-1',

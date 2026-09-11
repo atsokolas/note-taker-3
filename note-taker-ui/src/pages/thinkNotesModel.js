@@ -1,4 +1,5 @@
-import { normalizeSpaces } from '../utils/editorialText';
+import { normalizeSpaces, plainTextFrom, wordBoundaryTrim } from '../utils/editorialText';
+import { buildAuthoredContinuationPath } from '../utils/sourceRoutes';
 
 // Which note Think opens, and how it reads.
 //
@@ -49,20 +50,41 @@ export const resolveOpenNoteId = ({ requestedId = '', notes = [], recentIds = []
   return idOf(newest);
 };
 
+/** A preview recognizes unnamed work without changing the saved title. */
+export const noteTitle = (entry) => {
+  const title = normalizeSpaces(entry?.title);
+  if (title && !/^untitled(?: note| notebook page)?$/i.test(title)) return title;
+  const preview = Array.isArray(entry?.blocks)
+    ? entry.blocks.find(block => block.text?.trim())?.text || plainTextFrom(entry.content)
+    : entry?.snippet || plainTextFrom(entry?.content);
+  return wordBoundaryTrim(String(preview).split('\n').find(line => line.trim()) || '', { maxLength: 120 }) || 'Untitled';
+};
+
+export const authoredWorkHref = (row, query = '') => {
+  if (row?.kind === 'notebook' && row.id) {
+    const params = new URLSearchParams({ tab: 'notebook', entryId: row.id });
+    if (query) params.set('find', query);
+    return `/think?${params}`;
+  }
+  return buildAuthoredContinuationPath(row || {});
+};
+
+export const buildWritingResults = (rows = [], query = '') => list(rows)
+  .filter(row => ['notebook', 'exploration'].includes(row?.kind) && authoredWorkHref(row))
+  .map(row => ({ ...row, title: row.kind === 'notebook' ? noteTitle(row) : row.title, href: authoredWorkHref(row, query) }));
+
 /** The faint list beside the note: every other note, most recent first. */
-export const buildNoteShelf = ({ notes = [], openId = '', query = '', expanded = false, limit = 18 } = {}) => {
-  const needle = normalizeSpaces(query).toLowerCase();
+export const buildNoteShelf = ({ notes = [], openId = '', expanded = false, limit = 18 } = {}) => {
   const sorted = list(notes)
   .map(entry => ({
     id: idOf(entry),
-    title: normalizeSpaces(entry?.title) || 'Untitled',
+    title: noteTitle(entry),
     updatedAt: entry?.updatedAt || entry?.createdAt || null,
     isOpen: idOf(entry) === normalizeSpaces(openId)
   }))
   .filter(item => item.id)
-  .filter(item => !needle || item.title.toLowerCase().includes(needle))
   .sort((left, right) => time(right.updatedAt) - time(left.updatedAt));
-  return expanded || needle ? sorted : sorted.slice(0, limit);
+  return expanded ? sorted : sorted.slice(0, limit);
 };
 
 /** "edited this morning" — from the timestamp, never guessed. */
@@ -120,3 +142,16 @@ export const namesAThinkObject = (search = '') => {
   if (!keys) return true;
   return keys.some(key => normalizeSpaces(params.get(key)));
 };
+
+/** Recent private writing shares the shelf, but keeps its own Wiki identity. */
+export const buildAuthoredShelf = (rows = []) => list(rows)
+  .filter(row => row?.id && ((row.pageId && row.claimId) || (row.articleId && row.highlightId)) && row.title?.trim())
+  .slice(0, 5)
+  .map(row => ({
+    id: row.id,
+    title: row.title,
+    returnNote: row.returnNote || '',
+    pageTitle: row.pageTitle || '',
+    ...(row.originMissing ? { originMissing: true } : {}),
+    href: authoredWorkHref(row)
+  }));

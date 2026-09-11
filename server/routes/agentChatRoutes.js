@@ -208,6 +208,9 @@ const buildAgentChatRouter = ({
   };
 
   const buildWikiGraphChatReply = async ({ userId, message, context, signal = null } = {}) => {
+    // Private writing needs the collaborative path, which resolves its owned
+    // passages before generation. The graph answerer only knows the Wiki.
+    if (context?.metadata?.exploration || context?.exploration) return null;
     const question = String(message || '').trim();
     const pageId = String(context?.pageId || '').trim();
     if (!question || !pageId || !askWikiPage || !loadWikiAskCorpus) return null;
@@ -792,7 +795,7 @@ const buildAgentChatRouter = ({
       const thread = await loadThread(String(req.user.id), req.body?.threadId);
       const actor = { actorType: 'user', actorId: String(req.user.id) };
       const context = req.body?.context || thread?.scope || null;
-      if (context?.pageId) {
+      if (context?.pageId && !context?.metadata?.exploration && !context?.exploration) {
         emitActivity(res, activityReceipts, {
           stage: 'read_page',
           summary: 'Read the selected wiki page.'

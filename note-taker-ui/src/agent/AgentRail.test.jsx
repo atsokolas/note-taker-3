@@ -60,6 +60,43 @@ const PresentationColumn = ({ accepted = [] }) => {
   );
 };
 
+const AUTHORED_SOURCE_A = {
+  articleId: 'article-a',
+  title: 'The Uses of Error',
+  passage: 'A reversible mistake preserves another attempt.'
+};
+
+const AUTHORED_SOURCE_B = {
+  articleId: 'article-b',
+  title: 'Protective Instincts',
+  passage: 'Protection can quietly become control.'
+};
+
+const AuthoredWikiSurface = () => {
+  const [selectedSource, setSelectedSource] = useState(AUTHORED_SOURCE_A);
+  useContextualAgentSurface('agent-surface.wiki', {
+    objectType: 'wiki_claim',
+    objectId: 'claim-authored',
+    pageId: 'page-authored',
+    subject: 'Children need room to make mistakes.',
+    askPlaceholder: 'Think with me about this',
+    exploration: {
+      claimId: 'claim-authored',
+      draft: {
+        writing: 'Recoverable error can be a form of care.',
+        question: 'Where does protection become control?',
+        pressure: { premise: 'The cost of one mistake rises sharply.' },
+        selectedSource
+      }
+    }
+  }, {});
+  return (
+    <button type="button" onClick={() => setSelectedSource(AUTHORED_SOURCE_B)}>
+      Swap selected source
+    </button>
+  );
+};
+
 const renderRail = ({ accepted = [] } = {}) => {
   const utils = render(
     <AgentRailProvider>
@@ -198,6 +235,50 @@ describe('AgentRail', () => {
     await waitFor(() => expect(within(rail()).queryByText('A late line.')).not.toBeInTheDocument());
     expect(within(rail()).queryByText('anything')).not.toBeInTheDocument();
     expect(within(rail()).queryByRole('button', { name: 'Accept' })).not.toBeInTheDocument();
+  });
+
+  it('cancels a late authored reply after a source swap but keeps the completed conversation', async () => {
+    let releaseLateReply;
+    streamChatWithAgent
+      .mockResolvedValueOnce({ reply: 'The first pairing has a durable answer.' })
+      .mockImplementationOnce(() => new Promise((resolve) => { releaseLateReply = resolve; }));
+    render(
+      <AgentRailProvider>
+        <AuthoredWikiSurface />
+        <AgentRail />
+      </AgentRailProvider>
+    );
+    const rail = screen.getByRole('complementary', { name: 'Wiki steward' });
+    const ask = async (question) => {
+      fireEvent.change(within(rail).getByPlaceholderText('Think with me about this'), {
+        target: { value: question }
+      });
+      fireEvent.click(within(rail).getByRole('button', { name: 'Ask' }));
+    };
+
+    await ask('What does this pairing reveal?');
+    expect(await within(rail).findByText('The first pairing has a durable answer.')).toBeInTheDocument();
+    expect(streamChatWithAgent.mock.calls[0][0].context.metadata.exploration).toEqual({
+      claimId: 'claim-authored',
+      draft: {
+        writing: 'Recoverable error can be a form of care.',
+        question: 'Where does protection become control?',
+        pressure: { premise: 'The cost of one mistake rises sharply.' },
+        selectedSource: AUTHORED_SOURCE_A
+      }
+    });
+
+    await ask('Does the first source still hold?');
+    await waitFor(() => expect(streamChatWithAgent).toHaveBeenCalledTimes(2));
+    fireEvent.click(screen.getByRole('button', { name: 'Swap selected source' }));
+    releaseLateReply({ reply: 'This belongs only to the old pairing.' });
+
+    expect(streamChatWithAgent.mock.calls[1][1].signal).toHaveProperty('aborted', true);
+    await waitFor(() => expect(
+      within(rail).queryByText('Does the first source still hold?')
+    ).not.toBeInTheDocument());
+    expect(within(rail).queryByText('This belongs only to the old pairing.')).not.toBeInTheDocument();
+    expect(within(rail).getByText('The first pairing has a durable answer.')).toBeInTheDocument();
   });
 
   it('keeps pending work when only the named presentation resolves', async () => {

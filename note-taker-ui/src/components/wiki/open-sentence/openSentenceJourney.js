@@ -19,6 +19,12 @@ export const RETURN_TICKET_KEY = 'noeis.open-sentence.return';
 const asId = (value) => String(value?._id || value?.id || value || '').trim();
 
 const AROUND_WINDOW = 160;
+const excerptKey = ({ passage, anchor } = {}) => passage ? JSON.stringify([
+  String(passage).slice(0, 6000),
+  String(anchor?.prefix || '').slice(-240),
+  String(anchor?.suffix || '').slice(0, 240),
+  anchor?.startOffsetApprox ?? null
+]) : '';
 
 export const libraryDraftScope = (articleId) => `library:${asId(articleId)}`;
 
@@ -30,6 +36,8 @@ export const writeReturnTicket = (ticket = {}) => {
   writeStore(RETURN_TICKET_KEY, JSON.stringify({
     articleId,
     highlightId: asId(ticket.highlightId),
+    ...(!ticket.highlightId && ticket.passage ? { passageKey: excerptKey(ticket) } : {}),
+    ...(ticket.reopen ? { reopen: true } : {}),
     sentence: String(ticket.sentence || ''),
     pageId,
     pageTitle: String(ticket.pageTitle || '').trim(),
@@ -51,6 +59,8 @@ export const readReturnTicket = () => {
     return {
       articleId,
       highlightId: asId(parsed.highlightId),
+      ...(!parsed.highlightId && parsed.passageKey ? { passageKey: String(parsed.passageKey) } : {}),
+      ...(parsed.reopen === true ? { reopen: true } : {}),
       sentence: String(parsed.sentence || ''),
       pageId,
       pageTitle: String(parsed.pageTitle || '').trim(),
@@ -62,10 +72,12 @@ export const readReturnTicket = () => {
   }
 };
 
-export const matchingReturnTicket = ({ articleId, highlightId } = {}) => {
+export const matchingReturnTicket = ({ articleId, highlightId, passage, anchor } = {}) => {
   const ticket = readReturnTicket();
   if (!ticket || ticket.articleId !== asId(articleId)) return null;
   if (ticket.highlightId && ticket.highlightId !== asId(highlightId)) return null;
+  const selected = excerptKey({ passage, anchor });
+  if ((ticket.passageKey || selected) && ticket.passageKey !== selected) return null;
   return ticket;
 };
 
@@ -82,9 +94,9 @@ export const homecomingLine = (ticket) => {
   return sourceTitle ? `You were in ${sourceTitle}.` : 'You were in the Library.';
 };
 
-export const bindDraft = (live, draft, opened) => {
+export const bindDraft = (live, draft, opened, options) => {
   const raw = typeof draft === 'string' ? draft : (draft ? snapshotExploration(draft) : '');
-  const restored = restoreExploration(raw, live);
+  const restored = restoreExploration(raw, live, options);
   return opened ? openExploration(restored) : closeExploration(restored);
 };
 
@@ -132,7 +144,9 @@ export const alignRemembered = (scope, itemId, live) => {
 export const wikiReturnHref = (ticket) => {
   if (!ticket?.pageId) return '';
   const claim = asId(ticket.claimId);
-  return wikiReadPath(ticket.pageId, claim ? `claimId=${encodeURIComponent(claim)}` : '');
+  return wikiReadPath(ticket.pageId, claim
+    ? `claimId=${encodeURIComponent(claim)}${ticket.reopen ? '&exploration=1' : ''}`
+    : '');
 };
 
 const indexesOf = (haystack, needle) => {

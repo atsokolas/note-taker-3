@@ -1,19 +1,21 @@
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { libraryExplorations } from '../../../api/authoredExplorations';
+import useAuthoredExplorations, { authorshipFor } from './useAuthoredExplorations';
+import { draftStorageKey, openedStorageKey } from './openSentenceBinding';
+import { readStore, writeStore } from './openSentenceStore';
 import OpenSentence from './OpenSentence';
-import { isOpen } from './openSentenceModel';
+import AuthoredWorkList from './AuthoredWorkList';
+import { isOpen, keepsClosedDraft, thoughtTitle } from './openSentenceModel';
 import {
   liveExplorationForHighlight,
   matchingReturnTicket,
   placeBesideWikiDraft,
   cancelWikiDraftPlacement,
   libraryDraftScope,
-  keepExploration,
-  readRemembered,
-  alignRemembered,
+  bindDraft,
   wikiReturnHref
 } from './openSentenceJourney';
-import { listenOpenSentenceStore } from './openSentenceStore';
 
 const highlightSelector = (highlightId) => `[data-highlight-id="highlight-${highlightId}"]`;
 
@@ -26,20 +28,33 @@ const findPassageHosts = (root, highlightId) => {
   const block = (mark || target).closest('p, li, blockquote, h2, h3, h4, section') || target;
   const controls = document.createElement('span');
   controls.className = 'open-sentence__library-open';
+  controls.dataset.readerControl = '';
   insertAfter.after(controls);
   const pocket = document.createElement('div');
   pocket.className = 'open-sentence__library-pocket';
+  pocket.dataset.readerControl = '';
   block.after(pocket);
   return { controls, pocket, line: block, mark: mark || insertAfter };
 };
 
-const OpenedLibraryPassage = ({
+export const LibraryOriginReturn = ({ ticket }) => ticket ? (
+  <p className="open-sentence-library-arrival">
+    You were holding {ticket.sentence || 'that sentence'}
+    <Link className="open-sentence-library-arrival__back" to={wikiReturnHref(ticket)}>
+      Back to {ticket.pageTitle || 'the Wiki'} →
+    </Link>
+  </p>
+) : null;
+
+const LibraryPassage = ({
   article,
   highlight,
   rootRef,
   contentHtml = '',
+  readFresh = false,
   inArticle = false,
-  onOpenedText
+  onOpenedText,
+  work
 }) => {
   const highlightId = String(highlight?._id || highlight?.id || '').trim();
   const articleId = String(article?._id || article?.id || '').trim();
@@ -49,38 +64,38 @@ const OpenedLibraryPassage = ({
     () => liveExplorationForHighlight({ article, highlight }),
     [article, highlight]
   );
-  const [exploration, setExploration] = useState(() => (
-    highlightId ? readRemembered(scope, highlightId, live) : live
-  ));
+  const location = useLocation();
+  const requested = new URLSearchParams(location.search).get('exploration') === '1';
+  const [opened, setOpened] = useState(() => requested || readStore(openedStorageKey(scope)) === highlightId);
   const [hosts, setHosts] = useState(null);
-  const opened = isOpen(exploration);
+  const [unwritten, setUnwritten] = useState(null);
+  // Preserve old device work until its first deliberate edit migrates it.
+  const exploration = bindDraft(live, work.records[highlightId]?.draft || unwritten || (work.owner ? readStore(draftStorageKey(scope, highlightId)) : null), opened, { preserveAuthorship: true });
   const placed = Boolean(exploration.placed);
 
   useEffect(() => {
-    if (!highlightId) {
-      setExploration(live);
-      return undefined;
-    }
-    const readWalk = () => setExploration(alignRemembered(scope, highlightId, live));
-    readWalk();
-    return listenOpenSentenceStore(readWalk);
-  }, [highlightId, live, scope]);
+    setOpened(requested || readStore(openedStorageKey(scope)) === highlightId);
+  }, [highlightId, requested, scope, location.key]);
 
   const commit = useCallback((next) => {
-    const remembered = keepExploration(scope, highlightId, next, live);
+    // Opening an empty experiment is a reading control, not a saved draft.
+    setUnwritten(!work.records[highlightId] && !keepsClosedDraft(next, { preserveAuthorship: true }) ? next : null);
+    work.change(highlightId, next);
     if (ticket) {
-      if (remembered.placed && !placed) placeBesideWikiDraft(ticket);
-      if (!remembered.placed && placed) cancelWikiDraftPlacement(ticket);
+      if (next.placed && !placed) placeBesideWikiDraft(ticket);
+      if (!next.placed && placed) cancelWikiDraftPlacement(ticket);
     }
-    setExploration(remembered);
-  }, [highlightId, live, placed, scope, ticket]);
+    const nextOpened = isOpen(next);
+    if (!nextOpened) writeStore(openedStorageKey(scope), '');
+    setOpened(nextOpened);
+  }, [highlightId, placed, scope, ticket, work]);
 
   useEffect(() => {
-    onOpenedText?.(opened ? String(live.originalText || '').trim() : '');
+    onOpenedText?.(opened && !readFresh ? String(live.originalText || '').trim() : '');
     return () => onOpenedText?.('');
-  }, [live.originalText, onOpenedText, opened]);
+  }, [live.originalText, onOpenedText, opened, readFresh]);
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     if (!inArticle) {
       setHosts(null);
       return undefined;
@@ -104,9 +119,19 @@ const OpenedLibraryPassage = ({
     return () => mark.classList.remove('is-open', 'is-placed');
   }, [hosts, opened, placed]);
 
+  useEffect(() => {
+    if (requested) hosts?.line?.scrollIntoView?.({ block: 'center', behavior: 'instant' });
+  }, [hosts, requested, location.key]);
+
   const pocket = (
     <OpenSentence
       exploration={exploration}
+      suspended={readFresh}
+      authorship={authorshipFor({ ...work, discard: async itemId => {
+        await work.discard(itemId);
+        setUnwritten(null);
+        setOpened(false);
+      } }, highlightId)}
       onChange={commit}
       hideHeld={inArticle}
       hosts={inArticle ? hosts : null}
@@ -118,16 +143,7 @@ const OpenedLibraryPassage = ({
     </OpenSentence>
   );
 
-  const arrival = ticket ? (
-    <p className="open-sentence-library-arrival">
-      You were holding {ticket.sentence || 'that sentence'}
-      {wikiReturnHref(ticket) ? (
-        <Link className="open-sentence-library-arrival__back" to={wikiReturnHref(ticket)}>
-          Back to {ticket.pageTitle || 'the Wiki'} →
-        </Link>
-      ) : null}
-    </p>
-  ) : null;
+  const arrival = <LibraryOriginReturn ticket={ticket} />;
 
   if (inArticle) {
     return (
@@ -150,6 +166,44 @@ const OpenedLibraryPassage = ({
       {highlight?.note ? <p>{highlight.note}</p> : null}
     </aside>
   );
+};
+
+// The saved work outlives the mark. Keep one account-bound session while
+// switching passages; a missing mark uses the same recovery view as Wiki.
+const OpenedLibraryPassage = ({ focusedHighlightId, highlights, persistence = libraryExplorations, ...props }) => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const articleId = String(props.article?._id || props.article?.id || '');
+  const highlightId = String(props.highlight?._id || props.highlight?.id || focusedHighlightId || '');
+  const scope = libraryDraftScope(articleId);
+  const cloud = useAuthoredExplorations({ scopeId: articleId, cacheScope: scope, enabled: Boolean(articleId), api: persistence });
+  const available = new Set((highlights || props.article?.highlights || (props.highlight ? [props.highlight] : []))
+    .map(item => String(item._id || item.id)));
+  const openWork = itemId => {
+    const params = new URLSearchParams(location.search);
+    params.set('articleId', articleId);
+    params.set('highlightId', itemId);
+    params.set('exploration', '1');
+    navigate({ pathname: '/library', search: params.toString(), hash: '' });
+  };
+  const work = { ...cloud, discard: async itemId => {
+    await cloud.discard(itemId);
+    writeStore(draftStorageKey(scope, itemId), '');
+    if (readStore(openedStorageKey(scope)) === itemId) writeStore(openedStorageKey(scope), '');
+  } };
+  const requestedMissing = Boolean(highlightId && !props.highlight);
+  return <>
+    {cloud.error ? <p className="status-message" role="status">
+      Your saved writing could not be loaded. <button type="button" onClick={cloud.retryLoad}>Try again</button>
+    </p> : requestedMissing && cloud.loading ? <p className="status-message" role="status">Finding your saved writing…</p>
+      : requestedMissing && !cloud.loading && !thoughtTitle(cloud.records[highlightId]?.draft)
+        ? <p className="status-message" role="status">This saved passage is no longer here. No saved writing was found for it.</p> : null}
+    <AuthoredWorkList records={cloud.records} openedId={highlightId} isAvailable={itemId => available.has(itemId)}
+      missingMessage="This highlight is no longer saved in the article. Your earlier quotation and writing are here."
+      missingLabel="Earlier passage" onOpen={openWork} onReveal={openWork}
+      onDiscard={work.discard} onKeep={work.keep} onResolveConflict={work.resolveConflict} />
+    {props.highlight ? <LibraryPassage key={highlightId} {...props} work={work} /> : null}
+  </>;
 };
 
 export default OpenedLibraryPassage;

@@ -35,7 +35,8 @@ const surfaceIdentity = (surface = {}) => [
   surface.contractId,
   surface.room,
   surface.objectType,
-  surface.objectId
+  surface.objectId,
+  surface.exploration ? JSON.stringify(surface.exploration) : ''
 ].map(value => String(value || '').trim()).join('|');
 
 const isAbortError = error => error?.name === 'AbortError' || error?.code === 'ERR_CANCELED';

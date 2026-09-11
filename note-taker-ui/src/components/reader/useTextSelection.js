@@ -16,8 +16,17 @@ import { useCallback, useEffect, useState } from 'react';
  * @property {SelectionAnchor | null} anchor
  */
 
+// Controls and private writing can sit inside the reading column. They are
+// never part of a quotation or its source offsets, even in a paragraph selection.
+const READER_CONTROLS = '[data-reader-control], button, input, textarea';
+const sourceText = (fragment) => {
+  fragment.querySelectorAll(READER_CONTROLS).forEach(node => node.remove());
+  return fragment.textContent || '';
+};
+const insideControl = (node) => (node?.nodeType === 1 ? node : node?.parentElement)?.closest(READER_CONTROLS);
+
 const buildAnchor = (container, range, rawText) => {
-  const containerText = container.innerText || container.textContent || '';
+  const containerText = sourceText(container.cloneNode(true));
   const trimmedText = rawText.trim();
   if (!trimmedText) return null;
 
@@ -25,7 +34,7 @@ const buildAnchor = (container, range, rawText) => {
   const preRange = document.createRange();
   preRange.selectNodeContents(container);
   preRange.setEnd(range.startContainer, range.startOffset);
-  const baseOffset = preRange.toString().length;
+  const baseOffset = sourceText(preRange.cloneContents()).length;
   const startOffset = baseOffset + leadingWhitespace;
   const endOffset = startOffset + trimmedText.length;
 
@@ -104,7 +113,8 @@ const useTextSelection = ({ containerRef, menuRef, minLength = 3 }) => {
     const range = selection.getRangeAt(0);
     if (!container.contains(range.commonAncestorContainer)) return close();
 
-    const rawText = selection.toString();
+    if (insideControl(range.startContainer)) return close();
+    const rawText = sourceText(range.cloneContents());
     const trimmedText = rawText.trim();
     if (trimmedText.length < minLength) return close();
 

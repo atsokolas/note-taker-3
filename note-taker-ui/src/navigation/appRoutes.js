@@ -8,6 +8,7 @@
 // that does not exist.
 
 import { getAuthenticatedRoutePrefixes } from '../system/noeisSurfaceDefinitions';
+import { safeInternalPath } from '../utils/sourceRoutes';
 
 /** True for a page that exists but is behind the sign-in. */
 export const isAppRoute = (pathname = '') => {
@@ -20,6 +21,16 @@ export const isAppRoute = (pathname = '') => {
    writes when a request is refused, and the same key the login form reads, so
    arriving from a link and being logged out mid-session end up in one place. */
 export const AUTH_RETURN_KEY = 'auth_return_to';
+
+export const readReturnPath = () => {
+  try { return safeInternalPath(window.sessionStorage?.getItem(AUTH_RETURN_KEY), '/'); }
+  catch { return ''; }
+};
+
+export const forgetReturnPath = () => {
+  try { window.sessionStorage?.removeItem(AUTH_RETURN_KEY); }
+  catch { /* Sign-in still works when storage is unavailable. */ }
+};
 
 export const rememberReturnPath = (location) => {
   const path = `${location?.pathname || ''}${location?.search || ''}${location?.hash || ''}`;

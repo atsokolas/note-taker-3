@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import api, { clearStoredTokens } from '../api';
 import { Button } from './ui';
+import { forgetReturnPath, readReturnPath } from '../navigation/appRoutes';
 
 const Login = ({ onLoginSuccess, chromeStoreLink }) => {
   const [username, setUsername] = useState('');
@@ -66,16 +67,13 @@ const Login = ({ onLoginSuccess, chromeStoreLink }) => {
         setMessage('Login successful.');
         setIsError(false);
         if (typeof onLoginSuccess === 'function') {
+          // The authenticated route consumes the return. Navigating here as
+          // well races its /login redirect during the auth boundary change.
           onLoginSuccess();
-        }
-        try {
-          const returnTo = sessionStorage.getItem('auth_return_to');
-          sessionStorage.removeItem('auth_return_to');
-          if (returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//')) {
-            navigate(returnTo, { replace: true });
-          }
-        } catch (_error) {
-          // ignore storage failures
+        } else {
+          const returnTo = readReturnPath();
+          forgetReturnPath();
+          if (returnTo) navigate(returnTo, { replace: true });
         }
       } else {
         setMessage('Login succeeded, but no token was returned.');

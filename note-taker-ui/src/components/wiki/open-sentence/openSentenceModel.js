@@ -26,6 +26,8 @@ export const createExploration = ({
     id: String(id || '').trim(),
     originalText: text,
     provisionalText: text,
+    title: '',
+    writing: '',
     question: '',
     returnNote: '',
     mark: mark === '!' ? '!' : '',
@@ -247,8 +249,12 @@ export const essayWayHome = (exploration) => {
   return essay ? `An essay: ${essay.text.split(/\n/, 1)[0]}` : '';
 };
 
-export const keepsClosedDraft = (exploration) => Boolean(
-  String(exploration?.question || '').trim()
+export const keepsClosedDraft = (exploration, { preserveAuthorship = false } = {}) => Boolean(
+  String(exploration?.writing || '').trim()
+  || String(exploration?.title || '').trim()
+  || (preserveAuthorship && wordingChanged(exploration))
+  || exploration?.selectedSource
+  || String(exploration?.question || '').trim()
   || String(exploration?.returnNote || '').trim()
   || exploration?.placed
   || liveProposal(exploration)
@@ -268,6 +274,34 @@ export const forgetExperiment = (live) => createExploration({
 export const tryWording = (exploration, text) => ({
   ...exploration,
   provisionalText: String(text ?? '')
+});
+
+export const writeThought = (exploration, writing) => ({
+  ...exploration,
+  writing: String(writing ?? '')
+});
+
+export const titleThought = (exploration, title) => ({
+  ...exploration,
+  title: String(title ?? '').slice(0, 240)
+});
+
+export const thoughtTitle = (exploration) => String(
+  exploration?.title?.trim() || exploration?.writing?.split('\n').find(line => line.trim()) ||
+  exploration?.question || exploration?.returnNote || exploration?.pressure?.premise ||
+  exploration?.pressure?.stillHolds || exploration?.pressure?.unknown ||
+  exploration?.meet?.between || exploration?.meet?.relation || exploration?.meet?.limit || exploration?.essay?.text || exploration?.proposal?.text ||
+  (exploration?.provisionalText !== exploration?.originalText ? exploration?.provisionalText : '') || ''
+).trim();
+
+export const chooseLibraryPassage = (exploration, source) => ({
+  ...exploration,
+  selectedSource: source || null,
+  other: source || exploration.attachedOther || null,
+  attachedOther: exploration.attachedOther || (!exploration.selectedSource ? exploration.other : null),
+  // The relationship described a specific pair. Keep the person's words,
+  // but do not present them as a relationship to a newly chosen passage.
+  meet: exploration.meet ? { ...exploration.meet, against: '' } : null
 });
 
 export const putItBack = (exploration) => ({
@@ -328,7 +362,7 @@ export const changedWordSpans = (original = '', next = '') => {
 
 export const snapshotExploration = (exploration) => JSON.stringify(exploration || {});
 
-export const restoreExploration = (raw, fallback) => {
+export const restoreExploration = (raw, fallback, { preserveAuthorship = false } = {}) => {
   const base = fallback || createExploration();
   if (!raw) return base;
   try {
@@ -338,8 +372,10 @@ export const restoreExploration = (raw, fallback) => {
       ...base,
       ...parsed,
       originalText: base.originalText,
+      authoredAgainst: preserveAuthorship && parsed.originalText && parsed.originalText !== base.originalText ? parsed.originalText : '',
       source: base.source,
-      other: base.other,
+      other: parsed.selectedSource || base.other,
+      attachedOther: base.other,
       id: base.id,
       mark: parsed.mark === '!' ? '!' : '',
       status: parsed.status === EXPLORATION_STATUS.open
@@ -351,10 +387,10 @@ export const restoreExploration = (raw, fallback) => {
     return {
       ...withoutThen,
       ...(recorded ? { then: recorded } : {}),
-      proposal: liveProposal(restored),
-      pressure: isPressured(restored) ? restored.pressure : null,
-      meet: isMeeting(restored) ? restored.meet : null,
-      essay: liveEssay(restored)
+      proposal: preserveAuthorship ? restored.proposal : liveProposal(restored),
+      pressure: preserveAuthorship ? restored.pressure : (isPressured(restored) ? restored.pressure : null),
+      meet: restored.meet || null,
+      essay: preserveAuthorship ? restored.essay : liveEssay(restored)
     };
   } catch (_unreadable) {
     return base;

@@ -137,9 +137,10 @@ describe('openSentenceModel', () => {
     expect(leaveMark(leaveMark(start), false).mark).toBe('');
   });
 
-  it('forgets a closed experiment unless a question, return note, placed passage, or proposal remains', () => {
+  it('preserves authored wording in the durable loop without changing legacy experiment retention', () => {
     const start = openExploration(createExploration({ originalText: STORYBOARD_SENTENCE }));
     expect(keepsClosedDraft(closeExploration(tryWording(start, 'draft')))).toBe(false);
+    expect(keepsClosedDraft(closeExploration(tryWording(start, 'draft')), { preserveAuthorship: true })).toBe(true);
     expect(keepsClosedDraft(closeExploration(keepQuestion(start, 'Which mistakes?')))).toBe(true);
     expect(keepsClosedDraft(closeExploration(setReturnNote(start, 'Next: look again')))).toBe(true);
     expect(keepsClosedDraft(closeExploration(placeSource({
@@ -392,6 +393,19 @@ describe('OpenSentence', () => {
     renderOpen(exploration, onChange);
     fireEvent.keyDown(screen.getByRole('button', { name: STORYBOARD_SENTENCE }), { key: 'Enter' });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ status: 'open' }));
+  });
+
+  it.each([{ isComposing: true }, { keyCode: 229 }])('does not close the pocket for input-method Escape (%j)', (composition) => {
+    const onChange = jest.fn();
+    const exploration = openExploration(createExploration({
+      originalText: STORYBOARD_SENTENCE,
+      source: STORYBOARD_SOURCE
+    }));
+    renderOpen(exploration, onChange);
+    fireEvent.keyDown(window, { key: 'Escape', ...composition });
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(onChange).toHaveBeenCalledWith(closeExploration(exploration));
   });
 
   it('closes on Escape after the placement preview', () => {

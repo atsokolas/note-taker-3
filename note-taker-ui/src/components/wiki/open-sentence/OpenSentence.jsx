@@ -11,6 +11,7 @@ import {
   canProposeBetween,
   canProposeWording,
   changedWordSpans,
+  chooseLibraryPassage,
   closeExploration,
   endMeet,
   endPressure,
@@ -38,10 +39,14 @@ import {
   setPressureField,
   setReturnNote,
   tryWording,
+  thoughtTitle,
+  writeThought,
   wikiAcceptedText,
   withdrawProposal,
   wordingChanged
 } from './openSentenceModel';
+import AuthoredWriting, { AuthoredContext } from './AuthoredWriting';
+import LibraryPassagePicker from './LibraryPassagePicker';
 import './open-sentence.css';
 
 const selectionInside = (root) => {
@@ -59,9 +64,9 @@ const SourceHome = ({ source, mocked, onOpen }) => {
     if (mocked) event.preventDefault();
   };
   if (source.isLibrary) {
-    return <Link className="open-sentence-pocket__home" to={source.href} onClick={go}>{label}</Link>;
+    return <Link to={source.href} onClick={go}>{label}</Link>;
   }
-  return <a className="open-sentence-pocket__home" href={source.href} onClick={go}>{label}</a>;
+  return <a href={source.href} onClick={go}>{label}</a>;
 };
 
 const AroundToggle = ({ inspecting, onToggle }) => (
@@ -127,7 +132,8 @@ const SourceBeside = ({
   settling,
   placeBesideTitle,
   onCommit,
-  onOpenSourceHome
+  onOpenSourceHome,
+  allowPlacement = true
 }) => {
   const source = exploration?.source;
   if (!source) {
@@ -141,7 +147,7 @@ const SourceBeside = ({
     );
   }
 
-  const canPlace = Boolean(source.passage) && (!source.here || placeBesideTitle);
+  const canPlace = allowPlacement && Boolean(source.passage) && (!source.here || placeBesideTitle);
   const besideLabel = placeBesideTitle || source.title || 'the thought';
 
   return (
@@ -241,11 +247,12 @@ const PressureBody = ({ pocketId, exploration, onCommit }) => {
   );
 };
 
-const MeetBody = ({ pocketId, exploration, mocked, onCommit, onOpenSourceHome }) => {
+const MeetBody = ({ pocketId, exploration, mocked, onCommit, onOpenSourceHome, composing = false }) => {
   const other = inspectableOther(exploration);
   const [inspecting, setInspecting] = useState(false);
   if (!other) return null;
-  const meet = meetSlots(isMeeting(exploration) ? exploration.meet : {});
+  const priorPair = Boolean(exploration.meet && !isMeeting(exploration));
+  const meet = meetSlots(exploration.meet || {});
   const written = Boolean(meet.relation || meet.limit || meet.between);
 
   return (
@@ -260,6 +267,10 @@ const MeetBody = ({ pocketId, exploration, mocked, onCommit, onOpenSourceHome })
           onOpen={() => onOpenSourceHome?.(other, exploration)}
         />
       </div>
+      <details open={!composing || written}>
+        <summary>Compare these passages</summary>
+        {priorPair ? <p className="open-sentence-pocket__qualification">These notes describe an earlier pairing.</p> : null}
+        <fieldset disabled={priorPair}>
       <PocketField
         id={`${pocketId}-meet`}
         label="How they meet"
@@ -273,14 +284,23 @@ const MeetBody = ({ pocketId, exploration, mocked, onCommit, onOpenSourceHome })
         value={meet.limit}
         onChange={(value) => onCommit(setMeetField(exploration, 'limit', value))}
       />
-      <PocketField
+      {!composing ? <PocketField
         id={`${pocketId}-between`}
         label="The space between"
         value={meet.between}
         onChange={(value) => onCommit(setMeetField(exploration, 'between', value))}
         rows={3}
-      />
-      {canKeepBetweenAsExperiment(exploration) ? (
+      /> : meet.between ? (
+        <>
+          <p className="open-sentence-pocket__label">Earlier writing between these passages</p>
+          <p className="open-sentence-pocket__prior-writing">{meet.between}</p>
+          {!exploration.writing?.trim() ? <button type="button" onClick={() => onCommit({
+            ...writeThought(exploration, meet.between),
+            meet: { ...exploration.meet, between: '' }
+          })}>Continue this writing</button> : null}
+        </>
+      ) : null}
+      {!composing && canKeepBetweenAsExperiment(exploration) ? (
         <button
           type="button"
           onClick={() => onCommit(keepBetweenAsExperiment(exploration))}
@@ -288,7 +308,7 @@ const MeetBody = ({ pocketId, exploration, mocked, onCommit, onOpenSourceHome })
           Keep this as an experiment
         </button>
       ) : null}
-      {canProposeBetween(exploration) ? (
+      {!composing && canProposeBetween(exploration) ? (
         <button
           type="button"
           onClick={() => onCommit(proposeWording(exploration, meet.between))}
@@ -296,7 +316,7 @@ const MeetBody = ({ pocketId, exploration, mocked, onCommit, onOpenSourceHome })
           Propose this as the line
         </button>
       ) : null}
-      {canKeepBetweenAsEssay(exploration) ? (
+      {!composing && canKeepBetweenAsEssay(exploration) ? (
         <button
           type="button"
           onClick={() => onCommit(keepBetweenAsEssay(exploration))}
@@ -304,11 +324,13 @@ const MeetBody = ({ pocketId, exploration, mocked, onCommit, onOpenSourceHome })
           Keep this as an essay
         </button>
       ) : null}
+        </fieldset>
       {written ? (
         <button type="button" onClick={() => onCommit(endMeet(exploration))}>
           Leave this meeting
         </button>
       ) : null}
+      </details>
     </div>
   );
 };
@@ -329,8 +351,12 @@ const PocketBody = ({
   onCommit,
   onOpenSourceHome,
   onAccept,
-  acceptSilence
+  acceptSilence,
+  authorship
 }) => {
+  const [choosing, setChoosing] = useState(false);
+  const [previousChoice, setPreviousChoice] = useState(null);
+  const bringButton = useRef(null);
   const spans = wordingChanged(exploration)
     ? changedWordSpans(accepted, exploration.provisionalText)
     : [];
@@ -341,6 +367,8 @@ const PocketBody = ({
     proposal && String(exploration.provisionalText || '').trim() === proposal.text
   );
   const mayPropose = canProposeWording(exploration);
+  const composing = Boolean(authorship);
+  const sources = [exploration.source, exploration.other].filter(source => source?.available !== false && source?.passage);
 
   return (
     <>
@@ -349,7 +377,16 @@ const PocketBody = ({
         <p className="open-sentence-pocket__whisper">You left this open.</p>
       ) : null}
 
-      <div className="open-sentence-pocket__source">
+      {composing && !authorship.ready ? (
+        <div>
+          <p role="status">{authorship.error || 'Opening your private work…'}</p>
+          {authorship.error ? <button type="button" onClick={authorship.retryLoad}>Try opening again</button> : null}
+        </div>
+      ) : null}
+      <fieldset className="open-sentence-pocket__contents" disabled={composing && !authorship.ready}>
+
+      <div className={`open-sentence-pocket__source${composing && exploration.other ? ' has-pair' : ''}`}>
+        <div className="open-sentence-pocket__source-primary">
         <SourceBeside
           exploration={exploration}
           mocked={mocked}
@@ -361,7 +398,9 @@ const PocketBody = ({
           placeBesideTitle={placeBesideTitle}
           onCommit={onCommit}
           onOpenSourceHome={onOpenSourceHome}
+          allowPlacement={!composing || Boolean(placeBesideTitle)}
         />
+        </div>
         <MeetBody
           key={`${exploration?.other?.title || ''}:${exploration?.other?.passage || ''}`}
           pocketId={pocketId}
@@ -369,10 +408,43 @@ const PocketBody = ({
           mocked={mocked}
           onCommit={onCommit}
           onOpenSourceHome={onOpenSourceHome}
+          composing={composing}
         />
       </div>
 
-      <div className="open-sentence-pocket__write">
+      {composing ? (
+        <>
+          <div className="open-sentence-pocket__actions">
+            <button ref={bringButton} type="button" onClick={() => setChoosing(true)}>Bring from Library</button>
+            {previousChoice ? (
+              <button type="button" onClick={() => {
+                onCommit({ ...exploration, ...previousChoice });
+                setPreviousChoice(null);
+              }}>Undo passage placement</button>
+            ) : null}
+          </div>
+          <LibraryPassagePicker
+            open={choosing}
+            excluded={sources}
+            onDismiss={() => { setChoosing(false); bringButton.current?.focus(); }}
+            onPlace={source => {
+              setPreviousChoice({ selectedSource: exploration.selectedSource || null, other: exploration.other, meet: exploration.meet });
+              onCommit(chooseLibraryPassage(exploration, source));
+              setChoosing(false);
+              bringButton.current?.focus();
+            }}
+          />
+          <details className="open-sentence-pocket__context">
+            <summary>Working with {sources.length ? `${sources.length} passage${sources.length === 1 ? '' : 's'} and your writing` : 'this sentence and your writing'}</summary>
+            <AuthoredContext exploration={exploration} sources={sources} />
+          </details>
+          <AuthoredWriting exploration={exploration} onChange={onCommit} authorship={authorship} pocketId={pocketId} />
+        </>
+      ) : null}
+
+      <details open={!composing || wordingChanged(exploration) || Boolean(proposal) || Boolean(essay)}>
+        <summary>Try a wording for the article</summary>
+        <div className="open-sentence-pocket__write">
         <PocketField
           id={`${pocketId}-wording`}
           label="Try a narrower wording"
@@ -435,9 +507,12 @@ const PocketBody = ({
           </div>
         ) : null}
       </div>
+      </details>
 
       <PressureBody pocketId={pocketId} exploration={exploration} onCommit={onCommit} />
 
+      <details open={!composing || Boolean(exploration.question || exploration.returnNote)}>
+      <summary>Leave a question or a note for your return</summary>
       <div className="open-sentence-pocket__question">
         <PocketField
           id={`${pocketId}-question`}
@@ -456,6 +531,8 @@ const PocketBody = ({
           placeholder="Next: …"
         />
       </div>
+      </details>
+      </fieldset>
     </>
   );
 };
@@ -474,13 +551,16 @@ const OpenSentence = ({
   placeBesideTitle = '',
   homecoming = '',
   stillness = false,
+  suspended = false,
   onOpenSourceHome,
   onAccept,
   acceptSilence = '',
+  authorship = null,
   children
 }) => {
   const pocketId = useId();
   const heldRef = useRef(null);
+  const openButton = useRef(null);
   const wasOpen = useRef(false);
   const chipMagnet = useCssMagneticLerp('--open-chip-x', 0.28);
   const finePointer = useFinePointer();
@@ -496,7 +576,7 @@ const OpenSentence = ({
   const accepted = wikiAcceptedText(exploration);
   const { className: lineClassName, ...restLine } = lineProps;
   const split = Boolean(hosts?.controls && hosts?.pocket);
-  const followChip = finePointer && !reducedMotion && armed && !open;
+  const followChip = !suspended && finePointer && !reducedMotion && armed && !open;
 
   const openPocket = useCallback(() => {
     setArmed(false);
@@ -507,6 +587,7 @@ const OpenSentence = ({
     setPreviewing(false);
     setInspecting(false);
     onChange(closeExploration(exploration));
+    openButton.current?.focus();
   }, [exploration, onChange]);
 
   useEffect(() => {
@@ -515,10 +596,11 @@ const OpenSentence = ({
   }, [exploration?.source?.aroundBefore, exploration?.source?.available, exploration?.source?.passage, exploration?.source?.stale]);
 
   useEffect(() => {
+    if (suspended) return undefined;
     const onPointer = () => setArmed(selectionInside(armRoot || heldRef.current));
     document.addEventListener('selectionchange', onPointer);
     return () => document.removeEventListener('selectionchange', onPointer);
-  }, [armRoot]);
+  }, [armRoot, suspended]);
 
   useEffect(() => {
     if (open && !wasOpen.current) {
@@ -553,9 +635,9 @@ const OpenSentence = ({
   }, [exploration?.placed]);
 
   useEffect(() => {
-    if (!open) return undefined;
+    if (!open || suspended) return undefined;
     const onKey = (event) => {
-      if (event.key !== 'Escape') return;
+      if (event.key !== 'Escape' || event.isComposing || event.keyCode === 229) return;
       event.stopPropagation();
       if (previewing) {
         setPreviewing(false);
@@ -565,7 +647,7 @@ const OpenSentence = ({
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [closePocket, open, previewing]);
+  }, [closePocket, open, previewing, suspended]);
 
   useEffect(() => {
     if (!followChip) {
@@ -600,6 +682,7 @@ const OpenSentence = ({
   const closedQuestion = String(exploration.question || '').trim();
   const closedProposal = liveProposal(exploration);
   const wayHomeLabel = closedNote
+    || ((exploration.title || exploration.writing) ? thoughtTitle(exploration) : '')
     || (closedQuestion ? 'You left this open.' : '')
     || (closedProposal ? 'Proposed, not accepted.' : '')
     || pressureWayHome(exploration)
@@ -629,6 +712,7 @@ const OpenSentence = ({
       <button
         type="button"
         className="open-sentence__open"
+        ref={openButton}
         aria-expanded={open}
         aria-controls={pocketId}
         onClick={open ? closePocket : openPocket}
@@ -702,6 +786,7 @@ const OpenSentence = ({
               onOpenSourceHome={onOpenSourceHome}
               onAccept={onAccept}
               acceptSilence={acceptSilence}
+              authorship={authorship}
             />
             <button type="button" className="open-sentence-pocket__close" onClick={closePocket}>
               Close

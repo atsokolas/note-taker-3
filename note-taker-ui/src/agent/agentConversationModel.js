@@ -44,7 +44,8 @@ export const buildAgentContext = (surface = {}) => {
       contractId: clean(surface.contractId),
       objectType: rawType,
       ...(claimId ? { claimId } : {}),
-      ...(openedClaim && title ? { primaryText: title } : {})
+      ...(openedClaim && title ? { primaryText: title } : {}),
+      ...(openedClaim && surface.exploration ? { exploration: surface.exploration } : {})
     }
   });
 };

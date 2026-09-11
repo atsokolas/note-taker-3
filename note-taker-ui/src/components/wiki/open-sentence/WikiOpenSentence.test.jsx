@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import renderTiptapDoc from '../renderTiptapDoc';
 import { WikiOpenSentenceProvider, wrapOpenableParagraph } from './WikiOpenSentence';
@@ -43,6 +43,10 @@ const providerFrom = (props, onOpenedClaim) => (
     pageId={props.pageId || 'wiki-1'}
     revisions={props.revisions}
     onOpenedClaim={onOpenedClaim}
+    onOpenedExploration={props.onOpenedExploration}
+    readFresh={props.readFresh}
+    durable={props.durable}
+    persistence={props.persistence}
     onAcceptWording={props.onAcceptWording}
   >
     {renderTiptapDoc((props.page || page).body, { wrapParagraph: wrapOpenableParagraph })}
@@ -58,6 +62,7 @@ const renderWikiSentence = (props = {}) => {
   );
   return {
     onOpenedClaim,
+    unmount: rendered.unmount,
     rerender: (next = {}) => rendered.rerender(
       <MemoryRouter>
         {providerFrom({ ...props, ...next }, next.onOpenedClaim || onOpenedClaim)}
@@ -70,6 +75,279 @@ describe('WikiOpenSentence', () => {
   beforeEach(() => {
     window.sessionStorage.clear();
     window.localStorage.clear();
+  });
+
+  it('pauses hidden writing controls without closing, reloading or resaving the work', async () => {
+    window.history.replaceState({}, '', '/wiki/read/wiki-1?claimId=claim-1&exploration=1');
+    const persistence = { load: jest.fn(async () => ({ userId: 'owner-1', explorations: [{ claimId: 'claim-1', revision: 2, draft: { writing: 'My distinction.', originalText: 'Memory compounds with review.' } }] })), save: jest.fn() };
+    const onOpenedExploration = jest.fn();
+    const view = renderWikiSentence({ durable: true, persistence, onOpenedExploration });
+    const writing = await screen.findByRole('textbox', { name: 'Your writing' });
+    await waitFor(() => expect(writing).toHaveValue('My distinction.'));
+    view.rerender({ readFresh: true });
+    expect(onOpenedExploration).toHaveBeenLastCalledWith(null);
+    expect(view.onOpenedClaim).toHaveBeenLastCalledWith('');
+    fireEvent.keyDown(window, { key: 'Escape' });
+    view.rerender({ readFresh: false });
+    expect(screen.getByRole('textbox', { name: 'Your writing' })).toBe(writing);
+    expect(writing).toHaveValue('My distinction.');
+    expect(onOpenedExploration).toHaveBeenLastCalledWith(expect.objectContaining({ claimId: 'claim-1' }));
+    expect(persistence.load).toHaveBeenCalledTimes(1);
+    expect(persistence.save).not.toHaveBeenCalled();
+  });
+
+  it('recovers every private field when the marked sentence disappears but its ledger remains', async () => {
+    const draft = {
+      title: 'Room to return', originalText: 'An earlier sentence.',
+      writing: 'An earlier paragraph.', question: 'What changes?', returnNote: 'Next: an exception.',
+      provisionalText: 'An alternative line.',
+      pressure: { against: 'An earlier sentence.', premise: 'Suppose memory fades.', stillHolds: 'A record remains.', unknown: 'Who returns?' },
+      meet: { relation: 'A useful likeness.', limit: 'Different circumstances.', between: 'A bridge between them.' },
+      essay: { text: 'An earlier essay.', against: 'An earlier sentence.' },
+      proposal: { text: 'A proposed line.', against: 'An earlier sentence.' },
+      selectedSource: { title: 'An owned source', passage: 'The chosen words.' },
+    };
+    const persistence = { load: jest.fn(async () => ({ userId: 'owner-1', explorations: [{ claimId: 'claim-1', draft, revision: 2 }] })) };
+    renderWikiSentence({ durable: true, persistence, page: { ...page, body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'A different sentence.' }] }] } } });
+    expect(await screen.findByText('Room to return', { selector: 'summary' })).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Room to return', { selector: 'summary' }));
+    for (const value of ['An earlier paragraph.', 'What changes?', 'Next: an exception.', 'An alternative line.', 'Suppose memory fades.', 'A record remains.', 'Who returns?', 'A useful likeness.', 'Different circumstances.', 'A bridge between them.', 'An earlier essay.', 'A proposed line.', 'The chosen words.']) {
+      expect(screen.getByText(value)).toBeInTheDocument();
+    }
+    expect(screen.queryByRole('textbox', { name: 'Your writing' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Discard exploration' })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: 'Keep in Notebook' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Keep question' })).not.toBeInTheDocument();
+  });
+
+  it('opens a removed sentence return link directly to saved words without saving or focusing an editor', async () => {
+    window.history.replaceState({}, '', '/wiki/read/wiki-1?claimId=claim-1&exploration=1');
+    const originalScroll = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = jest.fn();
+    const persistence = {
+      load: jest.fn(async () => ({ userId: 'owner-1', explorations: [{ claimId: 'claim-1', revision: 2, draft: { title: 'Room to return', writing: 'Words that remain.', returnNote: 'Try the exception.' } }] })),
+      save: jest.fn()
+    };
+    try {
+      renderWikiSentence({ durable: true, persistence, page: { ...page, claims: [], body: { type: 'doc', content: [] } } });
+      const summary = await screen.findByText('Room to return', { selector: 'summary' });
+      await waitFor(() => expect(summary.closest('details')).toHaveAttribute('open'));
+      expect(Element.prototype.scrollIntoView).toHaveBeenCalledWith({ block: 'center', behavior: 'instant' });
+      expect(screen.getByText('Words that remain.')).toBeVisible();
+      expect(screen.getByText('Try the exception.')).toBeVisible();
+      expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+      expect(persistence.save).not.toHaveBeenCalled();
+    } finally {
+      window.history.replaceState({}, '', '/');
+      Element.prototype.scrollIntoView = originalScroll;
+    }
+  });
+
+  it('finishes a reserved Keep from removed-claim recovery and preserves its private words', async () => {
+    const saved = {
+      claimId: 'claim-1', revision: 2,
+      draft: { title: 'Room to return', writing: 'Words that outlive the sentence.', originalText: 'An earlier sentence.' },
+      keeps: [{ destination: 'notebook', status: 'pending', targetId: 'note-1', mutationId: 'keep-1' }]
+    };
+    const persistence = {
+      load: jest.fn(async () => ({ userId: 'owner-1', explorations: [saved] })),
+      save: jest.fn(),
+      keep: jest.fn(async () => ({ exploration: { ...saved, keeps: [{ ...saved.keeps[0], status: 'complete' }] } }))
+    };
+    renderWikiSentence({ durable: true, persistence, page: { ...page, claims: [], body: { type: 'doc', content: [] } } });
+    fireEvent.click(await screen.findByText('Room to return', { selector: 'summary' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Finish keeping note' }));
+    expect(await screen.findByRole('link', { name: 'Open kept note' })).toHaveAttribute('href', '/think?tab=notebook&entryId=note-1');
+    expect(screen.getByText('Words that outlive the sentence.')).toBeInTheDocument();
+    expect(persistence.save).not.toHaveBeenCalled();
+    expect(persistence.keep).toHaveBeenCalledWith('wiki-1', 'claim-1', expect.objectContaining({ destination: 'notebook' }));
+    expect(screen.queryByRole('button', { name: 'Keep question' })).not.toBeInTheDocument();
+  });
+
+  it('explains why Keep failed without losing the authored words or claiming success', async () => {
+    const persistence = {
+      load: jest.fn(async () => ({ userId: 'owner-1', explorations: [] })),
+      save: jest.fn(async (_pageId, claimId, payload) => ({ claimId, draft: payload.draft, revision: payload.expectedRevision + 1, keeps: [] })),
+      keep: jest.fn().mockRejectedValue({ isAxiosError: true, message: 'Request failed with status code 409', response: { status: 409, data: { error: 'The selected passage changed.' } } })
+    };
+    renderWikiSentence({ durable: true, persistence });
+    await waitFor(() => expect(persistence.load).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    const writing = await screen.findByRole('textbox', { name: 'Your writing' });
+    await waitFor(() => expect(writing).toBeEnabled());
+    fireEvent.change(writing, { target: { value: 'These words remain mine.' } });
+    await screen.findByText('Saved privately');
+    fireEvent.click(screen.getByRole('button', { name: 'Keep in Notebook' }));
+    expect(await screen.findByText('The selected passage changed.')).toBeInTheDocument();
+    expect(writing).toHaveValue('These words remain mine.');
+    expect(screen.queryByText('Request failed with status code 409')).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Open kept note' })).not.toBeInTheDocument();
+  });
+
+  it.each([false, true])('recovers a stale Discard without hiding either version (removed claim: %s)', async removed => {
+    const original = { claimId: 'claim-1', revision: 1, keeps: [],
+      draft: { title: 'A thought to revisit', writing: 'My original words.', originalText: 'Memory compounds with review.' } };
+    const newer = { ...original, revision: 2, draft: { ...original.draft, writing: 'Newer words from another session.' } };
+    const persistence = {
+      load: jest.fn(async () => ({ userId: 'owner-1', explorations: [original] })),
+      save: jest.fn(),
+      discard: jest.fn().mockRejectedValueOnce({ response: { status: 409,
+        data: { current: newer, error: 'The exploration revision is stale.' } } }).mockResolvedValueOnce({})
+    };
+    renderWikiSentence({ durable: true, persistence,
+      ...(removed ? { page: { ...page, claims: [], body: { type: 'doc', content: [] } } } : {}) });
+    const works = await screen.findByRole('complementary', { name: 'Your work here' });
+    fireEvent.click(within(works).getByText('A thought to revisit', { selector: removed ? 'summary' : 'button' }));
+    if (!removed) fireEvent.click(screen.getByText('Exploration options'));
+    fireEvent.click(screen.getByRole('button', { name: 'Discard exploration' }));
+    fireEvent.click(await screen.findByText('Read the saved version'));
+    expect(screen.getByText('Newer words from another session.')).toBeInTheDocument();
+    if (removed) {
+      expect(screen.getByText('My original words.')).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Save my version instead' })).not.toBeInTheDocument();
+    } else expect(screen.getByRole('textbox', { name: 'Your writing' })).toHaveValue('My original words.');
+    expect(screen.getByRole('button', { name: 'Discard exploration' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Use the saved version' }));
+    expect(screen.queryByText('The exploration revision is stale.')).not.toBeInTheDocument();
+    expect(persistence.save).not.toHaveBeenCalled();
+    expect(persistence.discard).toHaveBeenCalledTimes(1);
+    const discard = screen.getByRole('button', { name: 'Discard exploration' });
+    expect(discard).toBeEnabled();
+    fireEvent.click(discard);
+    await waitFor(() => expect(screen.queryByRole('complementary', { name: 'Your work here' })).not.toBeInTheDocument());
+    expect(persistence.discard).toHaveBeenLastCalledWith('wiki-1', 'claim-1', 2);
+  });
+
+  it('offers Finish keeping after the server acknowledges an interrupted copy without claiming it is complete', async () => {
+    let saved;
+    const persistence = {
+      load: jest.fn(async () => ({ userId: 'owner-1', explorations: [] })),
+      save: jest.fn(async (_page, claimId, payload) => {
+        saved = { claimId, revision: payload.expectedRevision + 1, draft: payload.draft, keeps: [] };
+        return saved;
+      }),
+      keep: jest.fn(async (_page, _claim, payload) => {
+        if (!saved.keeps.length) {
+          saved = { ...saved, revision: saved.revision + 1, keeps: [{ destination: 'notebook',
+            targetId: 'note-1', mutationId: payload.mutationId, status: 'pending' }] };
+          throw { response: { status: 503, data: { code: 'keep_pending', current: saved,
+            error: 'Your copy is saved. Finishing Keep was interrupted; try again.' } } };
+        }
+        saved = { ...saved, keeps: [{ ...saved.keeps[0], status: 'complete' }] };
+        return { exploration: saved, href: '/think?tab=notebook&entryId=note-1' };
+      })
+    };
+    renderWikiSentence({ durable: true, persistence });
+    await waitFor(() => expect(persistence.load).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    const writing = await screen.findByRole('textbox', { name: 'Your writing' });
+    fireEvent.change(writing, { target: { value: 'A thought worth keeping.' } });
+    await screen.findByText('Saved privately');
+    fireEvent.click(screen.getByRole('button', { name: 'Keep in Notebook' }));
+    const retry = await screen.findByRole('button', { name: 'Finish keeping note' });
+    expect(screen.queryByRole('link', { name: 'Open kept note' })).not.toBeInTheDocument();
+    expect(writing).toHaveValue('A thought worth keeping.');
+    await waitFor(() => expect(retry).toBeEnabled());
+    fireEvent.click(retry);
+    expect(await screen.findByRole('link', { name: 'Open kept note' })).toHaveAttribute('href', '/think?tab=notebook&entryId=note-1');
+    expect(persistence.save).toHaveBeenCalledTimes(1);
+    expect(persistence.keep.mock.calls[1][2].mutationId).toBe(persistence.keep.mock.calls[0][2].mutationId);
+  });
+
+  it('offers version review for a stale Keep and creates no copy until the person retries', async () => {
+    const original = { claimId: 'claim-1', revision: 1, keeps: [],
+      draft: { title: 'A thought to keep', writing: 'My first version.', question: 'What remains?', originalText: 'Memory compounds with review.' } };
+    const newer = { ...original, revision: 3, draft: { ...original.draft, writing: 'A newer version.' } };
+    const persistence = {
+      load: jest.fn(async () => ({ userId: 'owner-1', explorations: [original] })),
+      save: jest.fn(async (_page, _claim, payload) => ({ ...original, revision: payload.expectedRevision + 1, draft: payload.draft })),
+      keep: jest.fn().mockRejectedValueOnce({ response: { status: 409,
+        data: { current: newer, error: 'The exploration revision is stale.' } } }).mockResolvedValueOnce({
+          exploration: { ...newer, keeps: [{ destination: 'notebook', status: 'complete', targetId: 'note-1' }] },
+          href: '/think?tab=notebook&entryId=note-1'
+        })
+    };
+    renderWikiSentence({ durable: true, persistence });
+    const works = await screen.findByRole('complementary', { name: 'Your work here' });
+    fireEvent.click(within(works).getByRole('button', { name: 'A thought to keep' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Keep in Notebook' }));
+    fireEvent.click(await screen.findByText('Read the saved version'));
+    expect(screen.getByText('A newer version.')).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Your writing' })).toHaveValue('My first version.');
+    expect(screen.getByRole('button', { name: 'Keep in Notebook' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Keep question' })).toBeDisabled();
+    expect(screen.queryByRole('link', { name: 'Open kept note' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Use the saved version' }));
+    expect(screen.getByRole('textbox', { name: 'Your writing' })).toHaveValue('A newer version.');
+    expect(screen.queryByText('The exploration revision is stale.')).not.toBeInTheDocument();
+    expect(persistence.keep).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Keep in Notebook' }));
+    expect(await screen.findByRole('link', { name: 'Open kept note' })).toHaveAttribute('href', '/think?tab=notebook&entryId=note-1');
+    expect(persistence.keep).toHaveBeenLastCalledWith('wiki-1', 'claim-1', expect.objectContaining({ expectedRevision: 3 }));
+  });
+
+  it.each([{ isComposing: true }, { keyCode: 229 }])('leaves title confirmation to the input method (%j)', async (composition) => {
+    const load = jest.fn(async () => ({ userId: 'owner-1', explorations: [] }));
+    renderWikiSentence({ durable: true, persistence: {
+      load
+    } });
+    await waitFor(() => expect(load).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    const writing = await screen.findByRole('textbox', { name: 'Your writing' });
+    await waitFor(() => expect(writing).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: 'Give it a name' }));
+    const title = screen.getByRole('textbox', { name: 'Title' });
+    fireEvent.change(title, { target: { value: '考える余地' } });
+    for (const key of ['Enter', 'Escape']) {
+      fireEvent.keyDown(title, { key, ...composition });
+      expect(title).toHaveFocus();
+      expect(title).toHaveValue('考える余地');
+      expect(writing).toBeInTheDocument();
+    }
+    fireEvent.keyDown(title, { key: 'Escape' });
+    expect(screen.queryByRole('textbox', { name: 'Title' })).not.toBeInTheDocument();
+    expect(writing).toHaveFocus();
+  });
+
+  it('keeps authored words after close and restores them from the server in a fresh session', async () => {
+    let saved = null;
+    const persistence = {
+      load: jest.fn(async () => ({ userId: 'owner-1', explorations: saved ? [saved] : [] })),
+      save: jest.fn(async (_pageId, claimId, payload) => {
+        saved = { claimId, draft: payload.draft, revision: payload.expectedRevision + 1, keeps: [] };
+        return saved;
+      })
+    };
+    const onOpenedExploration = jest.fn();
+    const view = renderWikiSentence({ durable: true, persistence, onOpenedExploration });
+    await waitFor(() => expect(persistence.load).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    const writing = await screen.findByRole('textbox', { name: 'Your writing' });
+    await waitFor(() => expect(writing).toBeEnabled());
+    const words = 'The difference is room to be wrong.\nAn attempt should leave another attempt possible.';
+    fireEvent.change(writing, { target: { value: words } });
+    writing.setSelectionRange(18, 34);
+    fireEvent.select(writing);
+    const titleAction = screen.getByRole('button', { name: 'Make this the title' });
+    expect(fireEvent.pointerDown(titleAction, { pointerType: 'touch' })).toBe(false);
+    fireEvent.click(titleAction);
+    expect(writing).toHaveValue(words);
+    fireEvent.click(screen.getByRole('button', { name: 'Rename' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Title' }), { target: { value: 'Do not keep this title' } });
+    fireEvent.keyDown(screen.getByRole('textbox', { name: 'Title' }), { key: 'Escape' });
+    expect(writing).toHaveFocus();
+    expect(screen.queryByText('Do not keep this title')).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText('Saved privately')).toBeInTheDocument());
+    expect(saved.draft.writing).toBe(words);
+    expect(onOpenedExploration).toHaveBeenLastCalledWith(expect.objectContaining({ draft: expect.objectContaining({ writing: words }) }));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Close' })[0]);
+    view.unmount();
+    window.localStorage.clear();
+    renderWikiSentence({ durable: true, persistence });
+    await waitFor(() => expect(persistence.load).toHaveBeenCalledTimes(2));
+    fireEvent.click(await within(await screen.findByRole('complementary', { name: 'Your work here' })).findByRole('button', { name: saved.draft.title, exact: true }));
+    expect(await screen.findByRole('textbox', { name: 'Your writing' })).toHaveValue(words);
+    expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent('Memory compounds with review.');
   });
 
   it('opens a pocket under the claim without rewriting the article line', () => {
@@ -203,6 +481,24 @@ describe('WikiOpenSentence', () => {
     );
   });
 
+  it.each(['', 'An authored distinction.'])('marks a durable Library return for reopening only when it holds work: %s', async writing => {
+    const persistence = {
+      load: jest.fn(async () => ({ userId: 'owner-1', explorations: writing ? [{
+        claimId: 'claim-1', revision: 1, draft: { writing, originalText: 'Memory compounds with review.' }, keeps: []
+      }] : [] }))
+    };
+    renderWikiSentence({ durable: true, persistence });
+    await waitFor(() => expect(persistence.load).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    const field = await screen.findByRole('textbox', { name: 'Your writing' });
+    await waitFor(() => expect(field).toBeEnabled());
+    expect(field).toHaveValue(writing);
+    fireEvent.click(screen.getByRole('link', { name: 'Open in Library →' }));
+    const ticket = JSON.parse(window.localStorage.getItem(RETURN_TICKET_KEY));
+    expect(ticket.reopen).toBe(writing ? true : undefined);
+    expect(ticket.claimId).toBe('claim-1');
+  });
+
   it('restores a leftover tab draft onto the device without accepting a forged wiki line', () => {
     window.sessionStorage.setItem(openedStorageKey('wiki-1'), 'claim-1');
     window.sessionStorage.setItem(draftStorageKey('wiki-1', 'claim-1'), JSON.stringify({
@@ -249,7 +545,7 @@ describe('WikiOpenSentence', () => {
     expect(screen.getByText('Nothing beside this sentence yet.')).toBeInTheDocument();
   });
 
-  it('discards a closed experiment that did not keep a question', () => {
+  it('discards a legacy experiment that did not keep a question', () => {
     renderWikiSentence();
     fireEvent.click(screen.getByRole('button', { name: 'Open' }));
     fireEvent.change(screen.getByLabelText('Try a narrower wording'), {

@@ -182,6 +182,7 @@ const {
   WikiBriefingCache,
   WikiSharedCollection,
   ConnectorActionLog,
+  AuthoredExploration,
   dropLegacyConnectionIndex
 } = require('./models/index');
 const { drainWikiSourceEventQueue } = require('./services/wikiSourceEventWorker');
@@ -193,6 +194,7 @@ const { drainDueReadingWatches } = require('./services/readingWatcherService');
 const { drainDueMorningPaperEmails } = require('./services/morningPaperEmailService');
 const { runWikiStorageGovernor } = require('./services/wikiStorageGovernorService');
 const { recoverInterruptedDossierBuilds } = require('./services/wikiDossierBuildReliabilityService');
+const { buildAuthoredKeepEffects } = require('./services/authoredKeepEffects');
 
 let dossierBuildRecoveryTimer = null;
 const recoverStaleDossierBuilds = () => (
@@ -639,6 +641,7 @@ if (mongoose.connection.readyState === 1) {
 const { buildFolderService } = require('./services/folderService');
 const { getFoldersWithCounts } = buildFolderService({ Folder, Article, mongoose });
 const { buildNotebookRouter } = require('./routes/notebookRoutes');
+const { buildAuthoredExplorationRouter } = require('./routes/authoredExplorationRoutes');
 const { buildWikiRouter } = require('./routes/wikiRoutes');
 const { buildWorkingMemoryRouter } = require('./routes/workingMemoryRoutes');
 const { buildUiTourRouter } = require('./routes/uiTourRoutes');
@@ -5406,6 +5409,17 @@ app.use(buildNotebookRouter({
   Article,
   TagMeta,
   Question
+}));
+
+app.use(buildAuthoredExplorationRouter({
+  authenticateToken,
+  AuthoredExploration,
+  WikiPage,
+  Article,
+  NotebookEntry,
+  Question,
+  createBlockId,
+  ...buildAuthoredKeepEffects({ WikiSourceEvent, enqueueNotebookEmbedding, enqueueQuestionEmbedding })
 }));
 
 app.use(buildDailyLoopRouter({

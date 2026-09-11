@@ -30,6 +30,7 @@ import {
 import { startKnowledgeMovementInvestigation } from '../../api/knowledgeMovements';
 import { getConnectionsForItem } from '../../api/connections';
 import { recordClaimCheckIn, recordWikiPageVisit } from '../../api/dailyLoop';
+import authoredExplorations from '../../api/authoredExplorations';
 
 const mockUseNoeisSurface = jest.fn();
 
@@ -71,6 +72,17 @@ jest.mock('../../api/connections', () => ({
 jest.mock('../../api/dailyLoop', () => ({
   recordClaimCheckIn: jest.fn(),
   recordWikiPageVisit: jest.fn()
+}));
+
+jest.mock('../../api/authoredExplorations', () => ({
+  ...jest.requireActual('../../api/authoredExplorations'),
+  __esModule: true,
+  default: {
+    load: jest.fn(),
+    save: jest.fn(),
+    keep: jest.fn(),
+    discard: jest.fn()
+  }
 }));
 
 jest.mock('./decisions/DecisionCreateForm', () => () => null);
@@ -223,6 +235,16 @@ describe('WikiPageReadView', () => {
     recordClaimCheckIn.mockResolvedValue({
       claim: { ...page.claims[0], checkInStatus: 'restored', restoredAt: '2026-07-19T12:05:00.000Z' }
     });
+    authoredExplorations.load.mockResolvedValue({ userId: 'wiki-reader-user', explorations: [] });
+    authoredExplorations.save.mockImplementation(async (pageId, claimId, payload) => ({
+      pageId,
+      claimId,
+      userId: 'wiki-reader-user',
+      revision: Number(payload.expectedRevision || 0) + 1,
+      draft: payload.draft
+    }));
+    authoredExplorations.keep.mockResolvedValue({ exploration: null, artifact: null });
+    authoredExplorations.discard.mockResolvedValue(undefined);
     maintainWikiPage.mockResolvedValue(page);
     getWikiPageMarkdown.mockResolvedValue('---\ntitle: "Enterprise AI Memory"\n---\n\n## Core idea\n');
     askWikiPage.mockResolvedValue(page);
@@ -2838,8 +2860,10 @@ describe('WikiPageReadView', () => {
     expect(claim).toHaveAttribute('data-claim-id', 'claim-1');
     fireEvent.click(screen.getByRole('button', { name: 'Open' }));
     const pocket = screen.getByLabelText('Opened sentence');
-    expect(within(pocket).getByText('Source snippet')).toBeInTheDocument();
-    fireEvent.change(within(pocket).getByLabelText('Try a narrower wording'), {
+    expect(within(pocket).getByText('Source snippet', { selector: '.open-sentence-pocket__passage' })).toBeInTheDocument();
+    const wording = within(pocket).getByLabelText('Try a narrower wording');
+    await waitFor(() => expect(wording).toBeEnabled());
+    fireEvent.change(wording, {
       target: { value: 'Memory compounds when we forget.' }
     });
     expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent('Memory compounds with review.');
@@ -2869,7 +2893,9 @@ describe('WikiPageReadView', () => {
     await flushDeferredWikiReadWork();
     fireEvent.click(screen.getByRole('button', { name: 'Open' }));
     const pocket = screen.getByLabelText('Opened sentence');
-    fireEvent.change(within(pocket).getByLabelText('Try a narrower wording'), {
+    const wording = within(pocket).getByLabelText('Try a narrower wording');
+    await waitFor(() => expect(wording).toBeEnabled());
+    fireEvent.change(wording, {
       target: { value: nextLine }
     });
     fireEvent.click(within(pocket).getByRole('button', { name: 'Propose this wording' }));
@@ -2898,7 +2924,9 @@ describe('WikiPageReadView', () => {
     await flushDeferredWikiReadWork();
     fireEvent.click(screen.getByRole('button', { name: 'Open' }));
     const pocket = screen.getByLabelText('Opened sentence');
-    fireEvent.change(within(pocket).getByLabelText('Try a narrower wording'), {
+    const wording = within(pocket).getByLabelText('Try a narrower wording');
+    await waitFor(() => expect(wording).toBeEnabled());
+    fireEvent.change(wording, {
       target: { value: 'Memory compounds when we forget.' }
     });
     fireEvent.click(within(pocket).getByRole('button', { name: 'Propose this wording' }));
