@@ -1,3 +1,5 @@
+import { buildDocFromBlocks } from './notebookBlocks';
+
 const SOURCE_NODE_TYPES = new Set([
   'highlightRef',
   'articleRef',
@@ -76,6 +78,25 @@ export const pieceIndexForNode = (doc, nodeIndex) => {
   return found ? found.pieceIndex : 0;
 };
 
+export const nodesFromAsidePiece = (piece) => {
+  if (Array.isArray(piece?.nodes) && piece.nodes.length) return piece.nodes;
+  if (Array.isArray(piece?.blocks) && piece.blocks.length) {
+    return buildDocFromBlocks(piece.blocks).content || [];
+  }
+  return [];
+};
+
+export const persistableAsidePiece = (piece) => ({
+  id: piece.id,
+  label: piece.label || '',
+  index: Number.isInteger(piece.index) ? piece.index : 0,
+  nodes: nodesFromAsidePiece(piece)
+});
+
+export const hydrateAsidePieces = (pieces = []) => (
+  (Array.isArray(pieces) ? pieces : []).map(persistableAsidePiece)
+);
+
 const flattenPieces = (pieces) => pieces.flatMap((piece) => piece.nodes);
 
 const withContent = (doc, content) => ({
@@ -123,10 +144,15 @@ export const setAsidePieceInDocument = (doc, pieceIndex) => {
 };
 
 export const restorePieceInDocument = (doc, aside) => {
-  if (!aside?.nodes?.length) return { restored: false, doc };
+  const nodes = nodesFromAsidePiece(aside);
+  if (!nodes.length) return { restored: false, doc };
   const content = Array.isArray(doc?.content) ? [...doc.content] : [];
-  const insertAt = Math.max(0, Math.min(Number.isInteger(aside.index) ? aside.index : content.length, content.length));
-  content.splice(insertAt, 0, ...aside.nodes);
+  const pieces = groupDocPieces({ type: 'doc', content });
+  const pieceIndex = Number.isInteger(aside.index) ? aside.index : pieces.length;
+  const insertAt = pieceIndex < 0 || pieceIndex >= pieces.length
+    ? content.length
+    : pieces[pieceIndex].startIndex;
+  content.splice(insertAt, 0, ...nodes);
   return {
     restored: true,
     doc: withContent(doc, content)

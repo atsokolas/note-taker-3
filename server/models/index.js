@@ -280,7 +280,8 @@ const notebookAsidePieceSchema = new mongoose.Schema({
   id: { type: String, required: true },
   label: { type: String, default: '' },
   index: { type: Number, default: 0 },
-  blocks: { type: [notebookBlockSchema], default: [] }
+  nodes: { type: [mongoose.Schema.Types.Mixed], default: [] },
+  blocks: { type: [notebookBlockSchema] }
 }, { _id: false });
 
 const notebookEntrySchema = new mongoose.Schema({

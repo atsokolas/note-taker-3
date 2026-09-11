@@ -1,6 +1,7 @@
 import {
   deletePieceInDocument,
   groupDocPieces,
+  hydrateAsidePieces,
   isSourceBoundNode,
   movePieceInDocument,
   openingLine,
@@ -80,6 +81,60 @@ describe('notebookArrangement', () => {
     const restored = restorePieceInDocument(removed.doc, removed.aside);
     expect(restored.doc.content.map((node) => node.attrs.blockId))
       .toEqual(essayDoc.content.map((node) => node.attrs.blockId));
+  });
+
+  it('restores a later passage after the citation that belongs to the preceding prose', () => {
+    const removed = setAsidePieceInDocument(essayDoc, 2);
+    expect(removed.aside.index).toBe(2);
+    expect(removed.doc.content.map((node) => node.attrs.blockId)).toEqual([
+      'rule',
+      'exception',
+      'quote-The cost is borne by people who did not volunteer.'
+    ]);
+    const restored = restorePieceInDocument(removed.doc, removed.aside);
+    expect(restored.doc.content.map((node) => node.attrs.blockId))
+      .toEqual(essayDoc.content.map((node) => node.attrs.blockId));
+    expect(groupDocPieces(restored.doc)[1].nodes).toHaveLength(2);
+  });
+
+  it('keeps original node JSON, including marks, while a passage is set aside', () => {
+    const marked = {
+      type: 'paragraph',
+      attrs: { blockId: 'marked' },
+      content: [{
+        type: 'text',
+        text: 'linked',
+        marks: [
+          { type: 'bold' },
+          { type: 'link', attrs: { href: 'https://example.com' } }
+        ]
+      }]
+    };
+    const code = {
+      type: 'codeBlock',
+      attrs: { language: 'js' },
+      content: [{ type: 'text', text: 'const a = 1;' }]
+    };
+    const doc = { type: 'doc', content: [marked, code] };
+    const removed = setAsidePieceInDocument(doc, 0);
+    expect(removed.aside.nodes[0]).toEqual(marked);
+    const restored = restorePieceInDocument(removed.doc, removed.aside);
+    expect(restored.doc.content[0]).toEqual(marked);
+    expect(restored.doc.content[1]).toEqual(code);
+  });
+
+  it('hydrates a legacy aside that only stored lossy blocks', () => {
+    const pieces = hydrateAsidePieces([{
+      id: 'old',
+      label: 'Old opening',
+      index: 1,
+      blocks: [{ id: 'p1', type: 'paragraph', text: 'Hello' }]
+    }]);
+    expect(pieces[0].nodes[0]).toMatchObject({
+      type: 'paragraph',
+      attrs: { blockId: 'p1' },
+      content: [{ type: 'text', text: 'Hello' }]
+    });
   });
 
   it('deletes a passage without keeping a secret offcut', () => {

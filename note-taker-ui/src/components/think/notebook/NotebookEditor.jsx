@@ -19,7 +19,7 @@ import { handleEditorStructureShortcut } from '../editor/editorShortcuts';
 import { createNotebookClaimSlashItems } from './notebookClaimSlash';
 import UseDistinctionHere from '../../wiki/open-sentence/UseDistinctionHere';
 import { editorNodesFromDistinctionUse, eligibleDistinctions } from '../../../utils/distinctionUse';
-import { getNotebookSummaries } from '../../../api/notebook';
+import { exportNotebookMarkdown, getNotebookSummaries } from '../../../api/notebook';
 import useHighlights from '../../../hooks/useHighlights';
 import useArticles from '../../../hooks/useArticles';
 import useConcepts from '../../../hooks/useConcepts';
@@ -29,6 +29,8 @@ import {
   applyNotebookDoc,
   deletePieceInDocument,
   groupDocPieces,
+  hydrateAsidePieces,
+  persistableAsidePiece,
   pieceIndexForNode,
   restorePieceInDocument,
   setAsidePieceInDocument
@@ -482,10 +484,15 @@ const NotebookEditor = ({
      stray one on the way to the search field) landed in the note. Editing is
      now something you ask for: click the body, or press Edit. */
   const [editingBody, setEditingBody] = useState(false);
-  const [asidePieces, setAsidePieces] = useState(() => (
-    Array.isArray(entry?.asidePieces) ? entry.asidePieces : []
-  ));
+  const [asidePieces, setAsidePieces] = useState(() => hydrateAsidePieces(entry?.asidePieces));
+  const asidePiecesRef = useRef(asidePieces);
+  const writeAsidePieces = (next) => {
+    const resolved = typeof next === 'function' ? next(asidePiecesRef.current) : next;
+    asidePiecesRef.current = resolved;
+    setAsidePieces(resolved);
+  };
   const [arrangementReceipt, setArrangementReceipt] = useState(null);
+  const [exportError, setExportError] = useState('');
   const [, setDocTick] = useState(0);
 
   const editor = useEditor({
@@ -603,7 +610,7 @@ const NotebookEditor = ({
     setOrganizeError('');
     setClaimEvidenceOpen(false);
     setClaimEvidenceItems([]);
-    setAsidePieces(Array.isArray(entry.asidePieces) ? entry.asidePieces : []);
+    writeAsidePieces(hydrateAsidePieces(entry.asidePieces));
     setArrangementReceipt(null);
     if (editor) {
       const content = entry.blocks?.length ? buildDocFromBlocks(entry.blocks) : (entry.content || '<p></p>');
@@ -735,18 +742,13 @@ const NotebookEditor = ({
       title: titleDraftRef.current.trim() || 'Untitled note',
       content: editor.getHTML(),
       blocks,
-      asidePieces: asidePieces.map((piece) => ({
-        id: piece.id,
-        label: piece.label,
-        index: piece.index,
-        blocks: Array.isArray(piece.blocks) ? piece.blocks : []
-      })),
+      asidePieces: hydrateAsidePieces(asidePiecesRef.current),
       type: entryType,
       tags: entryTags,
       claimId: entryType === 'evidence' ? (claimId || null) : null,
       linkedArticleId: entry.linkedArticleId || null
     };
-  }, [asidePieces, claimId, editor, entry, entryTags, entryType]);
+  }, [claimId, editor, entry, entryTags, entryType]);
 
   const commitDraft = useCallback(async () => {
     // A navigation flush waits for the pending save, then includes any words
@@ -953,7 +955,7 @@ const NotebookEditor = ({
   const handleArrangeUndo = () => {
     if (!editor || !arrangementReceipt?.restoreDoc) return;
     applyNotebookDoc(editor, arrangementReceipt.restoreDoc);
-    if (arrangementReceipt.restoreAside) setAsidePieces(arrangementReceipt.restoreAside);
+    if (arrangementReceipt.restoreAside) writeAsidePieces(hydrateAsidePieces(arrangementReceipt.restoreAside));
     setArrangementReceipt(null);
     startEditingBody();
     scheduleSave();
@@ -962,34 +964,23 @@ const NotebookEditor = ({
   const handleSetAside = (pieceIndex) => {
     if (!editor) return;
     const previous = editor.getJSON();
-    const previousAside = asidePieces;
+    const previousAside = asidePiecesRef.current;
     const { doc, aside } = setAsidePieceInDocument(previous, pieceIndex);
     if (!aside) return;
+    writeAsidePieces((current) => ([...current, persistableAsidePiece(aside)]));
     applyNotebookDoc(editor, doc);
-    setAsidePieces((current) => ([
-      ...current,
-      {
-        id: aside.id,
-        label: aside.label,
-        index: aside.index,
-        blocks: serializeBlocksFromDoc({ type: 'doc', content: aside.nodes })
-      }
-    ]));
     rememberArrangement(previous, `Undo setting aside “${aside.label}”`, { restoreAside: previousAside });
   };
 
   const handleRestoreAside = (id) => {
     if (!editor) return;
-    const piece = asidePieces.find((item) => item.id === id);
+    const piece = asidePiecesRef.current.find((item) => item.id === id);
     if (!piece) return;
     const previous = editor.getJSON();
-    const previousAside = asidePieces;
-    const restored = restorePieceInDocument(previous, {
-      ...piece,
-      nodes: buildDocFromBlocks(piece.blocks || []).content
-    });
+    const previousAside = asidePiecesRef.current;
+    const restored = restorePieceInDocument(previous, persistableAsidePiece(piece));
+    writeAsidePieces((current) => current.filter((item) => item.id !== id));
     applyNotebookDoc(editor, restored.doc);
-    setAsidePieces((current) => current.filter((item) => item.id !== id));
     rememberArrangement(previous, `Undo bringing back “${piece.label}”`, { restoreAside: previousAside });
   };
 
@@ -1009,17 +1000,16 @@ const NotebookEditor = ({
 
   const handleExport = async () => {
     if (!entry?._id) return;
+    setExportError('');
     dirtyRef.current = true;
-    await commitDraft();
+    const saved = await commitDraft();
+    if (!saved) {
+      setExportError('Could not save this draft, so export did not start.');
+      return;
+    }
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`/api/export/notebook/${entry._id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (!res.ok) {
-        throw new Error('Failed to export notebook entry.');
-      }
-      const blob = await res.blob();
+      const data = await exportNotebookMarkdown(entry._id);
+      const blob = data instanceof Blob ? data : new Blob([data], { type: 'text/markdown;charset=utf-8' });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -1028,8 +1018,8 @@ const NotebookEditor = ({
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error(err);
+    } catch (_err) {
+      setExportError('Could not export this note.');
     }
   };
 
@@ -1240,6 +1230,7 @@ const NotebookEditor = ({
         />
       ) : null}
       {error && <p className="status-message error-message">{error}</p>}
+      {exportError && <p className="status-message error-message">{exportError}</p>}
       {organizeOpen && (
         <div className="notebook-organize-panel">
           <div className="notebook-organize-row">

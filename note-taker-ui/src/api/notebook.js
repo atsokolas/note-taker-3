@@ -62,3 +62,11 @@ export const updateNotebookEntry = async (id, payload) => {
   thinkShelfCache.reset();
   return res.data;
 };
+
+export const exportNotebookMarkdown = async (id) => {
+  const res = await api.get(`/api/export/notebook/${encodeURIComponent(id)}`, {
+    ...getAuthHeaders(),
+    responseType: 'blob'
+  });
+  return res.data;
+};

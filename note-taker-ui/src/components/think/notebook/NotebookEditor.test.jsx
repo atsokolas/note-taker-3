@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import NotebookEditor from './NotebookEditor';
 import { listWikiPages } from '../../../api/wiki';
 import { getArticleEvergreen } from '../../../api/articles';
-import { getNotebookSummaries } from '../../../api/notebook';
+import { exportNotebookMarkdown, getNotebookSummaries } from '../../../api/notebook';
 import { THINK_WRITING_IDLE_MS } from '../editor/useThinkWritingActivity';
 
 const mockUseEditor = jest.fn();
@@ -84,7 +84,8 @@ jest.mock('../../../api/notebook', () => ({
   getNotebookSummaries: jest.fn(async () => []),
   getNotebookEntry: jest.fn(),
   createNotebookEntry: jest.fn(),
-  updateNotebookEntry: jest.fn()
+  updateNotebookEntry: jest.fn(),
+  exportNotebookMarkdown: jest.fn()
 }));
 
 jest.mock('../../../api/wiki', () => ({
@@ -114,6 +115,8 @@ describe('NotebookEditor', () => {
     // own async contract tests, and a pending read avoids post-assertion state.
     getArticleEvergreen.mockReturnValue(new Promise(() => {}));
     getNotebookSummaries.mockReturnValue(new Promise(() => {}));
+    exportNotebookMarkdown.mockReset();
+    exportNotebookMarkdown.mockResolvedValue(new Blob(['# Letter\n'], { type: 'text/markdown' }));
     mockUseEditor.mockReturnValue(mockEditor);
     mockEditor.chain.mockReturnValue(mockChain);
     mockEditor.isActive.mockImplementation(() => false);
@@ -608,6 +611,81 @@ describe('NotebookEditor', () => {
     expect(mockEditor.commands.setContent.mock.calls.at(-1)[0].content.map((node) => node.attrs.blockId)).toEqual(['rule', 'exception']);
   });
 
+  it('autosaves the set-aside list from the same arrangement, not the previous render', async () => {
+    const onSave = jest.fn(async (payload) => payload);
+    const rule = {
+      type: 'paragraph',
+      attrs: { blockId: 'rule' },
+      content: [{ type: 'text', text: 'Recoverable mistakes belong to the person who can still put things back.' }]
+    };
+    const exception = {
+      type: 'paragraph',
+      attrs: { blockId: 'exception' },
+      content: [{ type: 'text', text: 'The exception is when the downside lands on someone who never chose the experiment.' }]
+    };
+    mockEditor.getJSON.mockReturnValue({ type: 'doc', content: [rule, exception] });
+    mockEditor.state.selection.$from.index.mockReturnValue(1);
+
+    render(
+      <NotebookEditor
+        entry={{ _id: 'essay-1', title: 'Letter', content: '', blocks: [], type: 'note', tags: [] }}
+        saving={false}
+        error=""
+        onSave={onSave}
+        onDelete={jest.fn()}
+        showInlineAgentDock={false}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Try without this passage' }));
+    mockEditor.getJSON.mockReturnValue({ type: 'doc', content: [rule] });
+
+    await waitFor(() => expect(onSave).toHaveBeenCalled(), { timeout: 1800 });
+    const payload = onSave.mock.calls[0][0];
+    expect(payload.asidePieces).toHaveLength(1);
+    expect(payload.asidePieces[0].nodes[0]).toEqual(exception);
+    expect(payload.asidePieces[0]).not.toHaveProperty('blocks');
+    expect(payload.blocks.map((block) => block.id)).toEqual(['rule']);
+  });
+
+  it('brings a set-aside passage back with its original marks and links', () => {
+    const marked = {
+      type: 'paragraph',
+      attrs: { blockId: 'marked' },
+      content: [{
+        type: 'text',
+        text: 'See this source',
+        marks: [
+          { type: 'bold' },
+          { type: 'link', attrs: { href: 'https://example.com' } }
+        ]
+      }]
+    };
+    const closer = {
+      type: 'paragraph',
+      attrs: { blockId: 'close' },
+      content: [{ type: 'text', text: 'Who pays?' }]
+    };
+    mockEditor.getJSON.mockReturnValue({ type: 'doc', content: [marked, closer] });
+    mockEditor.state.selection.$from.index.mockReturnValue(0);
+
+    render(
+      <NotebookEditor
+        entry={{ _id: 'essay-1', title: 'Letter', content: '', blocks: [], type: 'note', tags: [] }}
+        saving={false}
+        error=""
+        onSave={jest.fn()}
+        onDelete={jest.fn()}
+        showInlineAgentDock={false}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Try without this passage' }));
+    mockEditor.getJSON.mockReturnValue({ type: 'doc', content: [closer] });
+    fireEvent.click(screen.getByRole('button', { name: 'Bring back: See this source' }));
+    expect(mockEditor.commands.setContent.mock.calls.at(-1)[0].content[0]).toEqual(marked);
+  });
+
   it('asks before deleting a passage and does not move it to Set aside', () => {
     const rule = {
       type: 'paragraph',
@@ -668,19 +746,43 @@ describe('NotebookEditor', () => {
     });
     global.URL.createObjectURL = jest.fn(() => 'blob:essay');
     global.URL.revokeObjectURL = jest.fn();
-    global.fetch = jest.fn(async () => ({
-      ok: true,
-      blob: async () => new Blob(['# Letter\n'], { type: 'text/markdown' })
-    }));
+    global.fetch = jest.fn();
 
     fireEvent.click(screen.getByRole('button', { name: 'Export' }));
     await waitFor(() => expect(onSave).toHaveBeenCalled());
-    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(
-      '/api/export/notebook/essay-1',
-      expect.objectContaining({ headers: expect.any(Object) })
-    ));
+    await waitFor(() => expect(exportNotebookMarkdown).toHaveBeenCalledWith('essay-1'));
+    expect(global.fetch).not.toHaveBeenCalled();
     await waitFor(() => expect(click).toHaveBeenCalled());
     createSpy.mockRestore();
+  });
+
+  it('aborts export with a visible failure when the draft cannot be saved', async () => {
+    const onSave = jest.fn(async () => {
+      throw new Error('save failed');
+    });
+    mockEditor.getJSON.mockReturnValue({
+      type: 'doc',
+      content: [{
+        type: 'paragraph',
+        attrs: { blockId: 'rule' },
+        content: [{ type: 'text', text: 'Recoverable mistakes belong to the person who can still put things back.' }]
+      }]
+    });
+    render(
+      <NotebookEditor
+        entry={{ _id: 'essay-1', title: 'Who gets to experiment, and who pays?', content: '', blocks: [], type: 'note', tags: [] }}
+        saving={false}
+        error=""
+        onSave={onSave}
+        onDelete={jest.fn()}
+        showInlineAgentDock={false}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Export' }));
+    await waitFor(() => expect(onSave).toHaveBeenCalled());
+    expect(exportNotebookMarkdown).not.toHaveBeenCalled();
+    expect(screen.getByText('Could not save this draft, so export did not start.')).toBeInTheDocument();
   });
 
   it('opens source and concept insertion from Notion-style inline triggers', async () => {
