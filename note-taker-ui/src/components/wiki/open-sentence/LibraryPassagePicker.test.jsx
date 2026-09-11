@@ -115,6 +115,16 @@ describe('LibraryPassagePicker', () => {
     await waitFor(() => expect(screen.getByRole('listitem').querySelector('button')).toHaveFocus());
   });
 
+  it('names a recorded use on a search result before placement', async () => {
+    renderPicker({ excluded: [{
+      articleId: 'article-1',
+      highlightId: 'highlight-1',
+      passage: highlight.text
+    }] });
+    await searchForNomad();
+    expect(screen.getByText('You already used this here.')).toBeInTheDocument();
+  });
+
   it('does not create or duplicate an existing saved passage', async () => {
     const utils = renderPicker({ excluded: [{
       articleId: 'article-1',
@@ -122,9 +132,9 @@ describe('LibraryPassagePicker', () => {
       passage: highlight.text
     }] });
     fireEvent.click(await searchForNomad());
-    await screen.findByText('This passage is already here.');
-    expect(screen.getByRole('button', { name: 'Place here' })).toBeDisabled();
+    expect(await screen.findByRole('button', { name: 'Place here' })).toBeDisabled();
     expect(utils.onPlace).not.toHaveBeenCalled();
+    expect(screen.getAllByText('You already used this here.').length).toBeGreaterThan(0);
   });
 
   it('lets an owned article contribute an exact bounded selection without making a highlight', async () => {

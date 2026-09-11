@@ -6,6 +6,12 @@ import ReturnLaterControl from '../../return-queue/ReturnLaterControl';
 import useHighlights from '../../../hooks/useHighlights';
 import AgentSkillDock from '../../agent/AgentSkillDock';
 import AuthoredWorkOrigin from '../AuthoredWorkOrigin';
+import FindWhatIAlreadyHave from '../../wiki/open-sentence/FindWhatIAlreadyHave';
+import {
+  alreadyUsedHere,
+  questionBlockFromPassage,
+  recordedUsesFromQuestionBlocks
+} from '../../../utils/libraryPassageUse';
 
 const createId = () => {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
@@ -53,6 +59,7 @@ const QuestionEditor = ({
 }) => {
   const [titleDraft, setTitleDraft] = useState('');
   const [blocksDraft, setBlocksDraft] = useState([]);
+  const [previousBlocks, setPreviousBlocks] = useState(null);
   const [insertOpen, setInsertOpen] = useState(false);
   const { highlights, loading: highlightsLoading, error: highlightsError } = useHighlights({ enabled: insertOpen });
 
@@ -73,13 +80,17 @@ const QuestionEditor = ({
     return () => onRegisterInsert(null);
   }, [onRegisterInsert]);
 
-  const handleSave = () => {
+  const persist = (blocks) => {
     if (!question) return;
     onSave({
       ...question,
       text: titleDraft.trim() || 'Untitled question',
-      blocks: blocksDraft
+      blocks
     });
+  };
+
+  const handleSave = () => {
+    persist(blocksDraft);
   };
 
   const handleInsertHighlight = (highlight) => {
@@ -87,6 +98,15 @@ const QuestionEditor = ({
       ...prev,
       { id: createId(), type: 'highlight-ref', highlightId: highlight._id, text: highlight.text || '' }
     ]);
+  };
+
+  const recordedUses = recordedUsesFromQuestionBlocks(blocksDraft);
+  const placeFoundPassage = (passage) => {
+    if (alreadyUsedHere(passage, recordedUses)) return;
+    setPreviousBlocks(blocksDraft);
+    const next = [questionBlockFromPassage(passage, createId), ...blocksDraft];
+    setBlocksDraft(next);
+    persist(next);
   };
 
   if (!question) {
@@ -145,6 +165,19 @@ const QuestionEditor = ({
         onInvoke={onInvokeAgentSkill}
       />
       {error && <p className="status-message error-message">{error}</p>}
+      <div className="think-question-find">
+        <FindWhatIAlreadyHave
+          excluded={recordedUses}
+          canUndo={Boolean(previousBlocks)}
+          onUndo={() => {
+            const restored = previousBlocks;
+            setBlocksDraft(restored);
+            setPreviousBlocks(null);
+            persist(restored);
+          }}
+          onPlace={placeFoundPassage}
+        />
+      </div>
       <QuestionBlocksEditor
         blocks={blocksDraft}
         onChange={setBlocksDraft}

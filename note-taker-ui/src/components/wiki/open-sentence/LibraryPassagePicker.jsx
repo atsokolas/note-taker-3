@@ -8,6 +8,7 @@ import { buildFolderTree, flattenFolderTree } from '../../../pages/folderTreeMod
 import { buildArticlePassageHref } from '../../../utils/articlePassageAnchor';
 import { buildCanonicalArticlePath, buildCanonicalHighlightPath } from '../../../utils/sourceRoutes';
 import { cleanSourceTextForDisplay } from '../../../utils/sourceDisplayText';
+import { alreadyUsedHere } from '../../../utils/libraryPassageUse';
 import { surroundingFromArticle } from './openSentenceJourney';
 import './library-passage-picker.css';
 
@@ -60,15 +61,7 @@ const resultRows = (payload = {}) => {
   return rows;
 };
 
-const excludedPassage = (candidate, excluded = []) => {
-  const passage = clean(candidate?.passage).toLowerCase();
-  return excluded.some((item) => {
-    const sameHighlight = candidate?.highlightId
-      && idOf(item?.articleId) === idOf(candidate.articleId)
-      && idOf(item?.highlightId) === idOf(candidate.highlightId);
-    return sameHighlight || (passage && clean(item?.passage).toLowerCase() === passage);
-  });
-};
+const excludedPassage = (candidate, excluded = []) => alreadyUsedHere(candidate, excluded);
 
 const passageFromHighlight = ({ article, highlight }) => {
   const articleId = idOf(article);
@@ -297,11 +290,11 @@ const LibraryPassagePicker = ({
     : 'all Library sources';
 
   return (
-    <section className="library-passage-picker" role="dialog" aria-label="Bring a passage from Library">
+    <section className="library-passage-picker" role="dialog" aria-label="Find what I already have">
       <header className="library-passage-picker__head">
         <div>
           <p className="library-passage-picker__eyebrow">Your Library</p>
-          <h3>Bring a passage</h3>
+          <h3>Find what I already have</h3>
         </div>
         <button type="button" onClick={onDismiss}>Close</button>
       </header>
@@ -360,7 +353,7 @@ const LibraryPassagePicker = ({
             <p className="library-passage-picker__quiet">
               {selectionTooLong
                 ? `Choose a shorter passage. This selection is ${chosen.passage.length.toLocaleString()} characters.`
-                : 'This passage is already here.'}
+                : 'You already used this here.'}
             </p>
           ) : null}
           <div className="library-passage-picker__actions">
@@ -442,6 +435,9 @@ const LibraryPassagePicker = ({
                 >
                   <strong>{row.title}</strong>
                   <span>{row.kind === 'highlight' ? row.passage : (row.passage || 'Open to choose exact words')}</span>
+                  {excludedPassage(row, excluded) ? (
+                    <span className="library-passage-picker__quiet">You already used this here.</span>
+                  ) : null}
                 </button>
               </li>
             ))}

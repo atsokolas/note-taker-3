@@ -33,6 +33,7 @@ import {
   carryClip,
   carryWayHome,
   changedWordSpans,
+  chooseLibraryPassage,
   closeExploration,
   closedWayHome,
   createExploration,
@@ -416,6 +417,8 @@ describe('openSentenceModel', () => {
     expect(keepsClosedDraft(closeExploration(tryWording(start, 'draft')))).toBe(false);
     expect(keepsClosedDraft(closeExploration(tryWording(start, 'draft')), { preserveAuthorship: true })).toBe(true);
     expect(keepsClosedDraft(closeExploration(keepQuestion(start, 'Which mistakes?')))).toBe(true);
+    expect(chooseLibraryPassage(keepQuestion(start, STORYBOARD_QUESTION), STORYBOARD_MEET_SOURCE).question)
+      .toBe(STORYBOARD_QUESTION);
     expect(keepsClosedDraft(closeExploration(setDistinction(start, STORYBOARD_DISTINCTION)))).toBe(true);
     expect(keepsClosedDraft(closeExploration(placeSource({
       ...start,
@@ -2744,5 +2747,43 @@ describe('OpenSentence', () => {
     );
     expect(screen.getByText('You were in Nomad.')).toBeInTheDocument();
     expect(screen.queryByLabelText('Try a narrower wording')).not.toBeInTheDocument();
+  });
+
+  it('finds an owned passage beside a saved question without moving the question', () => {
+    const onChange = jest.fn();
+    const exploration = {
+      ...chooseLibraryPassage(
+        keepQuestion(openExploration(createExploration({
+          originalText: STORYBOARD_SENTENCE,
+          source: STORYBOARD_SOURCE
+        })), STORYBOARD_QUESTION),
+        STORYBOARD_MEET_SOURCE
+      ),
+      writing: 'Recoverable mistakes stay possible.'
+    };
+    render(
+      <MemoryRouter>
+        <OpenSentence
+          exploration={exploration}
+          onChange={onChange}
+          authorship={{
+            ready: true,
+            owner: 'owner-1',
+            record: { saved: { id: 'work-1' }, revision: 1 },
+            keep: jest.fn(),
+            discard: jest.fn(),
+            resolveConflict: jest.fn()
+          }}
+        />
+      </MemoryRouter>
+    );
+    const question = screen.getByLabelText('Leave this open');
+    expect(question).toHaveValue(STORYBOARD_QUESTION);
+    const beside = question.closest('.open-sentence-pocket__question');
+    expect(beside).toHaveTextContent('Beside this question');
+    expect(beside).toHaveTextContent(STORYBOARD_MEET_SOURCE.passage);
+    expect(within(beside).getByRole('button', { name: 'Find what I already have' })).toBeInTheDocument();
+    expect(screen.queryByText('Also beside')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Your writing')).toHaveValue('Recoverable mistakes stay possible.');
   });
 });
