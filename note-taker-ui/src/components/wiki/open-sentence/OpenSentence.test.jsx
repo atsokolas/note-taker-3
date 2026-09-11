@@ -1,20 +1,25 @@
 import React from 'react';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { distinctionRecord } from '../../../utils/distinctionUse';
-import { writeHeldInstrument } from './openSentenceJourney';
+import { distinctionRecord, DISTINCTION_SOURCE_TYPE } from '../../../utils/distinctionUse';
+import { readHeldInstrument, writeHeldInstrument } from './openSentenceJourney';
 import OpenSentence from './OpenSentence';
 
 jest.mock('../../../api/notebook', () => ({
-  getNotebookSummaries: () => new Promise(() => {}),
-  getNotebookEntry: async () => {
+  getNotebookSummaries: jest.fn(() => new Promise(() => {})),
+  getNotebookEntry: jest.fn(async () => {
     const error = new Error('Notebook entry not found.');
     error.response = { status: 404 };
     throw error;
-  },
-  createNotebookEntry: async () => null,
-  updateNotebookEntry: async () => null
+  }),
+  createNotebookEntry: jest.fn(async () => null),
+  updateNotebookEntry: jest.fn(async () => null)
 }));
+import {
+  getNotebookEntry,
+  getNotebookSummaries,
+  updateNotebookEntry
+} from '../../../api/notebook';
 import {
   acceptWording,
   beginCarry,
@@ -1288,6 +1293,16 @@ describe('OpenSentence', () => {
   beforeEach(() => {
     window.sessionStorage.clear();
     window.localStorage.clear();
+    getNotebookSummaries.mockReset();
+    getNotebookEntry.mockReset();
+    updateNotebookEntry.mockReset();
+    getNotebookSummaries.mockImplementation(() => new Promise(() => {}));
+    getNotebookEntry.mockImplementation(async () => {
+      const error = new Error('Notebook entry not found.');
+      error.response = { status: 404 };
+      throw error;
+    });
+    updateNotebookEntry.mockImplementation(async () => null);
   });
 
   afterEach(() => {
@@ -2525,6 +2540,134 @@ describe('OpenSentence', () => {
     expect(screen.getByText(STORYBOARD_DISTINCTION, { selector: '.open-sentence-pocket__prior-writing' })).toBeInTheDocument();
     expect(screen.queryByText(STORYBOARD_NARROWER)).not.toBeInTheDocument();
     expect(screen.getByText('Used here as written.')).toBeInTheDocument();
+  });
+
+  it('does not let an old application snapshot replace the saved notebook wording', async () => {
+    const used = distinctionRecord({
+      name: STORYBOARD_INSTRUMENT_NAME,
+      definition: STORYBOARD_DISTINCTION,
+      sourceId: 'note-1',
+      ownerId: 'owner-1'
+    });
+    const liveNote = {
+      _id: 'note-1',
+      title: STORYBOARD_INSTRUMENT_NAME,
+      snippet: STORYBOARD_NARROWER,
+      importMeta: { sourceType: DISTINCTION_SOURCE_TYPE }
+    };
+    getNotebookSummaries.mockResolvedValue([liveNote]);
+    getNotebookEntry.mockResolvedValue(liveNote);
+    const applied = applyInstrument(
+      openExploration(createExploration({
+        originalText: STORYBOARD_SENTENCE,
+        source: STORYBOARD_SOURCE
+      })),
+      used
+    );
+    const { unmount } = render(
+      <MemoryRouter>
+        <OpenSentence
+          exploration={applied}
+          authorship={{ ready: true, owner: 'owner-1' }}
+        />
+      </MemoryRouter>
+    );
+    expect(await screen.findByText('Used here as written.')).toBeInTheDocument();
+    expect(readHeldInstrument()).toBeNull();
+    unmount();
+    const compute = openExploration(createExploration({
+      originalText: STORYBOARD_COMPUTE_SENTENCE,
+      source: STORYBOARD_COMPUTE_SOURCE
+    }));
+    const onChange = jest.fn();
+    render(
+      <MemoryRouter>
+        <OpenSentence
+          exploration={compute}
+          onChange={onChange}
+          authorship={{ ready: true, owner: 'owner-1' }}
+        />
+      </MemoryRouter>
+    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Use this here' }));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
+      instrument: expect.objectContaining({
+        definition: STORYBOARD_NARROWER,
+        sourceId: 'note-1'
+      })
+    }));
+  });
+
+  it('keeps the narrowed wording here and lets the notebook save be retried when it fails', async () => {
+    const used = distinctionRecord({
+      name: STORYBOARD_INSTRUMENT_NAME,
+      definition: STORYBOARD_DISTINCTION,
+      sourceId: 'note-1',
+      ownerId: 'owner-1'
+    });
+    const liveNote = {
+      _id: 'note-1',
+      title: STORYBOARD_INSTRUMENT_NAME,
+      snippet: STORYBOARD_DISTINCTION,
+      content: STORYBOARD_DISTINCTION,
+      importMeta: { sourceType: DISTINCTION_SOURCE_TYPE }
+    };
+    getNotebookSummaries.mockResolvedValue([liveNote]);
+    getNotebookEntry.mockResolvedValue(liveNote);
+    updateNotebookEntry.mockRejectedValueOnce(new Error('offline'));
+    const applied = applyInstrument(
+      openExploration(createExploration({
+        originalText: STORYBOARD_COMPUTE_SENTENCE,
+        source: STORYBOARD_COMPUTE_SOURCE
+      })),
+      used
+    );
+    const onChange = jest.fn();
+    const { rerender } = render(
+      <MemoryRouter>
+        <OpenSentence
+          exploration={applied}
+          onChange={onChange}
+          authorship={{ ready: true, owner: 'owner-1' }}
+        />
+      </MemoryRouter>
+    );
+    fireEvent.click(await screen.findByRole('button', { name: "This didn't hold" }));
+    fireEvent.change(screen.getByLabelText('A narrower definition'), {
+      target: { value: STORYBOARD_NARROWER }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Keep this wording' }));
+    const narrowed = proposeNarrowerDefinition(applied, { definition: STORYBOARD_NARROWER });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
+      instrument: expect.objectContaining({
+        definition: STORYBOARD_DISTINCTION,
+        narrowedTo: expect.objectContaining({ definition: STORYBOARD_NARROWER })
+      })
+    }));
+    rerender(
+      <MemoryRouter>
+        <OpenSentence
+          exploration={narrowed}
+          onChange={onChange}
+          authorship={{ ready: true, owner: 'owner-1' }}
+        />
+      </MemoryRouter>
+    );
+    expect(await screen.findByText('The narrower wording is here. The notebook note did not save.')).toBeInTheDocument();
+    expect(readHeldInstrument()).toEqual(expect.objectContaining({
+      definition: STORYBOARD_NARROWER,
+      pending: true
+    }));
+    updateNotebookEntry.mockResolvedValueOnce({ ...liveNote, snippet: STORYBOARD_NARROWER });
+    fireEvent.click(screen.getByRole('button', { name: 'Try saving again' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: 'Try saving again' })).not.toBeInTheDocument();
+    });
+    expect(updateNotebookEntry).toHaveBeenCalled();
+    expect(readHeldInstrument().pending).toBeUndefined();
+    expect(readHeldInstrument().definition).toBe(STORYBOARD_NARROWER);
+    expect(screen.getByText('Used here as written.')).toBeInTheDocument();
+    expect(screen.getAllByText(STORYBOARD_DISTINCTION).length).toBeGreaterThan(0);
   });
 
   it('lets an application be inapplicable without changing the definition', () => {

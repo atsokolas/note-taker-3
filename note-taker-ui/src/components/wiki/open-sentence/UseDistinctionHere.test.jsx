@@ -50,7 +50,7 @@ describe('UseDistinctionHere', () => {
     });
     render(
       <UseDistinctionHere
-        held={narrowed}
+        held={{ ...narrowed, pending: true }}
         distinctions={[room]}
         onUse={onUse}
       />
@@ -62,6 +62,27 @@ describe('UseDistinctionHere', () => {
         name: room.name,
         definition: narrowed.definition
       })
+    }));
+  });
+
+  it('uses the saved notebook wording when held is only an old snapshot', () => {
+    const onUse = jest.fn();
+    const live = distinctionRecord({
+      name: room.name,
+      definition: 'A mistake that teaches the map, if someone else does not bear the downside.',
+      sourceId: 'note-1'
+    });
+    render(
+      <UseDistinctionHere
+        held={room}
+        distinctions={[live]}
+        onUse={onUse}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Use this here' }));
+    expect(onUse).toHaveBeenCalledWith(expect.objectContaining({
+      definition: live.definition,
+      versionId: live.versionId
     }));
   });
 

@@ -15,6 +15,7 @@ import {
   writeHeldInstrument,
   writeReturnTicket,
   readHeldInstrument,
+  confirmHeldInstrument,
   rememberHeldInstrument
 } from './openSentenceJourney';
 import { draftStorageKey } from './openSentenceBinding';
@@ -400,6 +401,8 @@ describe('openSentenceJourney', () => {
     };
     rememberHeldInstrument(narrowed, applied);
     expect(readHeldInstrument().definition).toBe('A mistake that teaches, if someone else pays.');
+    expect(readHeldInstrument().pending).toBe(true);
     expect(readHeldInstrument().reason).toBeUndefined();
+    expect(confirmHeldInstrument(readHeldInstrument()).pending).toBeUndefined();
   });
 });

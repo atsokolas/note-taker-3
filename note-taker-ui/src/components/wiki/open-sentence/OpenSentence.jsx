@@ -73,6 +73,7 @@ import {
   wordingChanged
 } from './openSentenceModel';
 import {
+  confirmHeldInstrument,
   readHeldInstrument,
   rememberHeldInstrument,
   writeHeldInstrument
@@ -83,6 +84,7 @@ import AuthoredWriting, { AuthoredContext } from './AuthoredWriting';
 import FindWhatIAlreadyHave from './FindWhatIAlreadyHave';
 import UseDistinctionHere from './UseDistinctionHere';
 import {
+  DISTINCTION_SOURCE_TYPE,
   distinctionExternalId,
   distinctionRecord,
   eligibleDistinctions,
@@ -278,41 +280,86 @@ const RecordedDefinition = ({
 };
 
 const persistNarrowedDefinition = async ({ mocked, sourceId, live }) => {
-  if (mocked || !sourceId || !live) return;
-  try {
-    const note = await getNotebookEntry(sourceId);
-    if (shouldUpdateExistingDistinction(note, live)) {
-      const payload = updateDistinctionPayload({
-        note,
-        name: live.name,
-        definition: live.definition
-      });
-      if (payload) await updateNotebookEntry(sourceId, payload);
-      return;
-    }
-    await createNotebookEntry(retainDistinctionPayload({
+  if (mocked || !sourceId || !live) return live;
+  const note = await getNotebookEntry(sourceId);
+  if (shouldUpdateExistingDistinction(note, live)) {
+    const payload = updateDistinctionPayload({
+      note,
       name: live.name,
-      definition: live.definition,
-      externalId: distinctionExternalId({ id: `${sourceId}:${live.name}` })
-    }));
-  } catch (_ignored) {
-    return;
+      definition: live.definition
+    });
+    if (payload) await updateNotebookEntry(sourceId, payload);
+    return live;
   }
+  await createNotebookEntry(retainDistinctionPayload({
+    name: live.name,
+    definition: live.definition,
+    externalId: distinctionExternalId({ id: `${sourceId}:${live.name}` })
+  }));
+  return live;
 };
+
+const NARROW_SAVE_FAILED = 'The narrower wording is here. The notebook note did not save.';
 
 const ApplicationJudgment = ({
   pocketId,
   exploration,
   mocked,
   onCommit,
-  onHeld
+  onHeld,
+  heldInstrument,
+  savedDistinctions = [],
+  distinctionsReady = false,
+  onNotes
 }) => {
   const instrument = liveInstrument(exploration);
   const [judging, setJudging] = useState(false);
   const [narrowerDraft, setNarrowerDraft] = useState('');
   const [reasonDraft, setReasonDraft] = useState('');
-  if (!canJudgeApplication(exploration) || !instrument) return null;
+  const [saveError, setSaveError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const live = liveDefinitionAfterFailure(instrument);
+  const saved = (Array.isArray(savedDistinctions) ? savedDistinctions : [])
+    .find((item) => item?.sourceId && item.sourceId === instrument?.sourceId);
+  const notebookMatches = Boolean(
+    live && saved && heldInstrumentFrom(saved)?.versionId === live.versionId
+  );
+  const held = heldInstrumentFrom(heldInstrument);
+  const showRetry = Boolean(
+    !mocked
+    && instrument?.narrowedTo
+    && instrument.sourceId
+    && live
+    && (saveError || held?.pending === true || (distinctionsReady && !notebookMatches))
+  );
+  if (!instrument || (!canJudgeApplication(exploration) && !judging && !showRetry)) return null;
   const spans = judging ? changedWordSpans(instrument.definition, narrowerDraft) : [];
+  const adoptLive = (nextLive) => {
+    if (!nextLive) return;
+    onHeld?.(confirmHeldInstrument(nextLive));
+    onNotes?.(nextLive);
+  };
+  const saveLive = async (nextLive) => {
+    if (mocked || !instrument.sourceId || !nextLive) {
+      adoptLive(nextLive);
+      setSaveError('');
+      return;
+    }
+    setSaving(true);
+    setSaveError('');
+    try {
+      await persistNarrowedDefinition({
+        mocked,
+        sourceId: instrument.sourceId,
+        live: nextLive
+      });
+      adoptLive(nextLive);
+    } catch (_failed) {
+      setSaveError(NARROW_SAVE_FAILED);
+    } finally {
+      setSaving(false);
+    }
+  };
   const keepNarrower = () => {
     const next = proposeNarrowerDefinition(exploration, {
       definition: narrowerDraft,
@@ -321,12 +368,8 @@ const ApplicationJudgment = ({
     if (next === exploration) return;
     onHeld?.(rememberHeldInstrument(next, exploration));
     onCommit(next);
-    persistNarrowedDefinition({
-      mocked,
-      sourceId: instrument.sourceId,
-      live: liveDefinitionAfterFailure(liveInstrument(next))
-    });
     setJudging(false);
+    saveLive(liveDefinitionAfterFailure(liveInstrument(next)));
   };
   return (
     <div className="open-sentence-pocket__judgment">
@@ -354,7 +397,7 @@ const ApplicationJudgment = ({
             placeholder="Optional. A sentence is enough."
             rows={2}
           />
-          <button type="button" onClick={keepNarrower}>
+          <button type="button" onClick={keepNarrower} disabled={saving}>
             Keep this wording
           </button>
           <button
@@ -364,11 +407,12 @@ const ApplicationJudgment = ({
               setNarrowerDraft('');
               setReasonDraft('');
             }}
+            disabled={saving}
           >
             Put it back
           </button>
         </>
-      ) : (
+      ) : canJudgeApplication(exploration) ? (
         <>
           <button
             type="button"
@@ -390,6 +434,15 @@ const ApplicationJudgment = ({
             This didn't hold
           </button>
         </>
+      ) : (
+        <>
+          <p className="open-sentence-pocket__save" role="status">
+            {saveError || NARROW_SAVE_FAILED}
+          </p>
+          <button type="button" onClick={() => saveLive(live)} disabled={saving}>
+            Try saving again
+          </button>
+        </>
       )}
     </div>
   );
@@ -404,7 +457,9 @@ const DistinctionField = ({
   heldInstrument,
   onHeld,
   authorship,
-  savedDistinctions = []
+  savedDistinctions = [],
+  distinctionsReady = false,
+  onNotes
 }) => {
   const dated = formatNamedOn(namedOn(exploration));
   const pending = pendingInstrument(exploration);
@@ -525,6 +580,10 @@ const DistinctionField = ({
             mocked={mocked}
             onCommit={onCommit}
             onHeld={onHeld}
+            heldInstrument={heldInstrument}
+            savedDistinctions={savedDistinctions}
+            distinctionsReady={distinctionsReady}
+            onNotes={onNotes}
           />
           {!instrument ? (
             <p className="open-sentence-pocket__qualification">{pending.definition}</p>
@@ -544,7 +603,8 @@ const DistinctionField = ({
           </button>
         </>
       ) : null}
-      {canApplyInstrument(exploration, heldInstrument) ? (
+      {canApplyInstrument(exploration, heldInstrument)
+        || savedDistinctions.some((item) => canApplyInstrument(exploration, item)) ? (
         <UseDistinctionHere
           held={heldInstrument}
           distinctions={savedDistinctions}
@@ -946,7 +1006,9 @@ const PocketBody = ({
   heldInstrument,
   onHeld,
   authorship,
-  savedDistinctions = []
+  savedDistinctions = [],
+  distinctionsReady = false,
+  onNotes
 }) => {
   const [previousChoice, setPreviousChoice] = useState(null);
   const composing = Boolean(authorship);
@@ -1096,6 +1158,8 @@ const PocketBody = ({
                   onHeld={onHeld}
                   authorship={authorship}
                   savedDistinctions={savedDistinctions}
+                  distinctionsReady={distinctionsReady}
+                  onNotes={onNotes}
                 />
               </>
             ) : null}
@@ -1145,6 +1209,8 @@ const PocketBody = ({
               onHeld={onHeld}
               authorship={authorship}
               savedDistinctions={savedDistinctions}
+              distinctionsReady={distinctionsReady}
+              onNotes={onNotes}
             />
           )}
         </div>
@@ -1215,6 +1281,7 @@ const OpenSentence = ({
   const [fresh, setFresh] = useState(false);
   const [heldInstrument, setHeldInstrument] = useState(readHeldInstrument);
   const [savedDistinctions, setSavedDistinctions] = useState([]);
+  const [distinctionsReady, setDistinctionsReady] = useState(Boolean(mocked));
   const open = isOpen(exploration);
   const [keepPocket, setKeepPocket] = useState(open);
   const accepted = wikiAcceptedText(exploration);
@@ -1226,6 +1293,23 @@ const OpenSentence = ({
     setArmed(false);
     onChange(openExploration(exploration));
   }, [exploration, onChange]);
+
+  const adoptLiveNote = useCallback((live) => {
+    if (!live?.sourceId) return;
+    const next = eligibleDistinctions([{
+      _id: live.sourceId,
+      title: live.name,
+      snippet: live.definition,
+      importMeta: { sourceType: DISTINCTION_SOURCE_TYPE }
+    }])[0];
+    if (!next) return;
+    setSavedDistinctions((list) => {
+      const index = list.findIndex((item) => item.sourceId === next.sourceId);
+      if (index < 0) return [...list, next];
+      return list.map((item, i) => (i === index ? next : item));
+    });
+    setDistinctionsReady(true);
+  }, []);
 
   const closePocket = useCallback(() => {
     setPreviewing(false);
@@ -1264,9 +1348,13 @@ const OpenSentence = ({
   useEffect(() => {
     const live = liveInstrument(exploration);
     if (!live) return;
-    const snapshot = authorship?.owner
-      ? { ...heldInstrumentFrom(live), ownerId: authorship.owner }
-      : heldInstrumentFrom(live);
+    if (isAppliedInstrument(exploration) && !live.narrowedTo) return;
+    const base = liveDefinitionAfterFailure(live);
+    if (!base) return;
+    const snapshot = {
+      ...(authorship?.owner ? { ...base, ownerId: authorship.owner } : base),
+      ...(live.narrowedTo && !live.inapplicable ? { pending: true } : {})
+    };
     const nextHeld = keepNewerHeldInstrument(
       heldInstrumentForOwner(readHeldInstrument(), authorship?.owner),
       snapshot
@@ -1277,7 +1365,10 @@ const OpenSentence = ({
   }, [authorship?.owner, exploration]);
 
   useEffect(() => {
-    if (mocked || !authorship?.owner) return undefined;
+    if (mocked || !authorship?.owner) {
+      setDistinctionsReady(true);
+      return undefined;
+    }
     let cancelled = false;
     const load = async () => {
       try {
@@ -1287,6 +1378,8 @@ const OpenSentence = ({
         if (!cancelled) setSavedDistinctions(eligibleDistinctions(notes));
       } catch (_ignored) {
         if (!cancelled) setSavedDistinctions([]);
+      } finally {
+        if (!cancelled) setDistinctionsReady(true);
       }
     };
     load();
@@ -1481,6 +1574,8 @@ const OpenSentence = ({
               onHeld={setHeldInstrument}
               authorship={authorship}
               savedDistinctions={savedDistinctions}
+              distinctionsReady={distinctionsReady}
+              onNotes={adoptLiveNote}
             />
             <button type="button" className="open-sentence-pocket__close" onClick={closePocket}>
               Close

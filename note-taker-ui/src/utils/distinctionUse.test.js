@@ -10,6 +10,7 @@ import {
   findRetainedDistinction,
   heldInstrumentForOwner,
   heldInstrumentFrom,
+  keepNewerHeldInstrument,
   liveDefinitionAfterFailure,
   quoteBlockFromDistinctionUse,
   recordFailedApplication,
@@ -317,5 +318,24 @@ describe('distinctionUse', () => {
     );
     expect(exceptionsFromUses([parenting, rollout, compute])).toEqual([rollout, compute]);
     expect(exceptionsFromUses([])).toEqual([]);
+  });
+
+  it('keeps a pending held narrowing over a stale notebook, and otherwise trusts the saved note', () => {
+    const old = heldInstrumentFrom({ ...room, sourceId: 'note-1' });
+    const next = heldInstrumentFrom({
+      name: room.name,
+      definition: 'A mistake that teaches the map, if someone else does not bear the downside.',
+      sourceId: 'note-1'
+    });
+    expect(keepNewerHeldInstrument(old, next).definition).toBe(next.definition);
+    expect(keepNewerHeldInstrument(old, next).pending).toBeUndefined();
+    expect(keepNewerHeldInstrument({ ...next, pending: true }, old)).toEqual(expect.objectContaining({
+      definition: next.definition,
+      pending: true
+    }));
+    expect(keepNewerHeldInstrument({ ...next, pending: true }, next).definition).toBe(next.definition);
+    expect(keepNewerHeldInstrument({ ...next, pending: true }, next).pending).toBeUndefined();
+    expect(keepNewerHeldInstrument(next, { ...next, pending: true }).pending).toBeUndefined();
+    expect(keepNewerHeldInstrument(next, { ...next, pending: true }).definition).toBe(next.definition);
   });
 });

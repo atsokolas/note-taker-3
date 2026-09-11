@@ -36,12 +36,29 @@ export const readHeldInstrument = () => {
   }
 };
 
+export const confirmHeldInstrument = (held) => {
+  const record = heldInstrumentFrom(held);
+  if (!record) {
+    writeHeldInstrument(null);
+    return null;
+  }
+  writeHeldInstrument({ ...record, pending: false });
+  return readHeldInstrument();
+};
+
 export const rememberHeldInstrument = (next, previous) => {
   const live = liveInstrument(next);
   if (live?.inapplicable) return readHeldInstrument();
   const held = liveDefinitionAfterFailure(live);
   if (held) {
-    writeHeldInstrument(held);
+    const was = heldInstrumentFrom(liveInstrument(previous));
+    const pending = Boolean(
+      live?.narrowedTo
+      && !live?.inapplicable
+      && was
+      && was.versionId !== held.versionId
+    );
+    writeHeldInstrument(pending ? { ...held, pending: true } : held);
     return readHeldInstrument();
   }
   const was = liveInstrument(previous);

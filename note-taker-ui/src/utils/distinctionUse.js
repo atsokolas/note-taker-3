@@ -83,7 +83,7 @@ export const distinctionRecord = (value = {}) => {
 export const heldInstrumentFrom = (value) => {
   const record = distinctionRecord(value);
   if (!record) return null;
-  return distinctionRecord({
+  const held = distinctionRecord({
     name: record.name,
     definition: record.definition,
     versionId: record.versionId,
@@ -93,6 +93,7 @@ export const heldInstrumentFrom = (value) => {
     sourceHref: record.sourceId ? distinctionHref(record.sourceId) : record.sourceHref,
     externalId: record.externalId
   });
+  return value?.pending === true ? { ...held, pending: true } : held;
 };
 
 export const recordedDefinition = (use) => {
@@ -171,8 +172,12 @@ export const keepNewerHeldInstrument = (held, snapshot) => {
   const used = heldInstrumentFrom(snapshot);
   if (!current) return used;
   if (!used) return current;
+  if (current.sourceId && used.sourceId && current.sourceId === used.sourceId) {
+    if (current.versionId === used.versionId) return current.pending ? used : current;
+    if (current.pending === true) return current;
+    return used;
+  }
   if (current.versionId === used.versionId) return used;
-  if (current.sourceId && used.sourceId && current.sourceId === used.sourceId) return current;
   if (!used.sourceId && current.name === used.name) return current;
   return used;
 };
