@@ -55,3 +55,10 @@ export const createNotebookEntry = async (payload) => {
   thinkShelfCache.reset();
   return res.data;
 };
+
+export const updateNotebookEntry = async (id, payload) => {
+  const res = await api.put(`/api/notebook/${encodeURIComponent(id)}`, payload, getAuthHeaders());
+  summariesCache.reset();
+  thinkShelfCache.reset();
+  return res.data;
+};

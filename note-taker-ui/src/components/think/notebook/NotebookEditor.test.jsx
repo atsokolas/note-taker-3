@@ -83,7 +83,8 @@ jest.mock('../../../api/organize', () => ({
 jest.mock('../../../api/notebook', () => ({
   getNotebookSummaries: jest.fn(async () => []),
   getNotebookEntry: jest.fn(),
-  createNotebookEntry: jest.fn()
+  createNotebookEntry: jest.fn(),
+  updateNotebookEntry: jest.fn()
 }));
 
 jest.mock('../../../api/wiki', () => ({

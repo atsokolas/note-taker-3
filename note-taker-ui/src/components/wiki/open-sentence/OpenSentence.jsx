@@ -12,6 +12,7 @@ import {
   bringTheSourceBack,
   cancelPlacement,
   canApplyInstrument,
+  canJudgeApplication,
   canKeepAsInstrument,
   canKeepBetweenAsEssay,
   canKeepBetweenAsExperiment,
@@ -28,6 +29,7 @@ import {
   formatNamedOn,
   hasPersonalWork,
   inspectableOther,
+  isAppliedInstrument,
   isMeeting,
   isOpen,
   isPressured,
@@ -48,12 +50,14 @@ import {
   liveInstrument,
   liveProposal,
   liveThen,
+  markInapplicable,
   meetSlots,
   namedOn,
   openExploration,
   pendingInstrument,
   placeSource,
   pressurePassages,
+  proposeNarrowerDefinition,
   proposeWording,
   putItBack,
   putThemBack,
@@ -83,11 +87,17 @@ import {
   distinctionRecord,
   eligibleDistinctions,
   heldInstrumentForOwner,
+  heldInstrumentFrom,
+  keepNewerHeldInstrument,
+  liveDefinitionAfterFailure,
   recordedDefinition,
   retainDistinction,
-  sourceStatus
+  retainDistinctionPayload,
+  shouldUpdateExistingDistinction,
+  sourceStatus,
+  updateDistinctionPayload
 } from '../../../utils/distinctionUse';
-import { createNotebookEntry, getNotebookEntry, getNotebookSummaries } from '../../../api/notebook';
+import { createNotebookEntry, getNotebookEntry, getNotebookSummaries, updateNotebookEntry } from '../../../api/notebook';
 import './open-sentence.css';
 
 const selectionInside = (root) => {
@@ -222,6 +232,9 @@ const RecordedDefinition = ({
   if (!recorded) return null;
   const status = sourceState || (instrument.sourceId ? null : 'unbound');
   const href = instrument.sourceHref;
+  const narrowed = instrument.narrowedTo;
+  const spans = narrowed ? changedWordSpans(recorded.definition, narrowed.definition) : [];
+  const dated = formatNamedOn(instrument.narrowedAt);
   return (
     <>
       <p className="open-sentence-pocket__prior-writing">{recorded.definition}</p>
@@ -230,6 +243,29 @@ const RecordedDefinition = ({
           ? 'The notebook page is gone. These are the words used here.'
           : 'Used here as written.'}
       </p>
+      {instrument.inapplicable ? (
+        <p className="open-sentence-pocket__qualification">
+          {instrument.reason
+            ? `Doesn't apply here${dated ? ` · ${dated}` : ''}. ${instrument.reason}`
+            : `Doesn't apply here${dated ? ` · ${dated}` : ''}.`}
+        </p>
+      ) : null}
+      {narrowed ? (
+        <>
+          {spans.length ? (
+            <p className="open-sentence-pocket__diff" aria-label="Changed words">
+              {spans.map((span, index) => (
+                span.changed ? <mark key={`${span.text}-${index}`}>{span.text}</mark> : span.text
+              ))}
+            </p>
+          ) : null}
+          <p className="open-sentence-pocket__qualification">
+            {dated ? `Narrowed ${dated}` : 'Narrowed'}
+            {instrument.reason ? `. ${instrument.reason}` : '.'}
+            {' Earlier uses keep the words they were applied with.'}
+          </p>
+        </>
+      ) : null}
       {href && status !== 'missing' && status !== 'foreign' ? (
         mocked ? (
           <span className="open-sentence-pocket__save">Open the definition</span>
@@ -238,6 +274,124 @@ const RecordedDefinition = ({
         )
       ) : null}
     </>
+  );
+};
+
+const persistNarrowedDefinition = async ({ mocked, sourceId, live }) => {
+  if (mocked || !sourceId || !live) return;
+  try {
+    const note = await getNotebookEntry(sourceId);
+    if (shouldUpdateExistingDistinction(note, live)) {
+      const payload = updateDistinctionPayload({
+        note,
+        name: live.name,
+        definition: live.definition
+      });
+      if (payload) await updateNotebookEntry(sourceId, payload);
+      return;
+    }
+    await createNotebookEntry(retainDistinctionPayload({
+      name: live.name,
+      definition: live.definition,
+      externalId: distinctionExternalId({ id: `${sourceId}:${live.name}` })
+    }));
+  } catch (_ignored) {
+    return;
+  }
+};
+
+const ApplicationJudgment = ({
+  pocketId,
+  exploration,
+  mocked,
+  onCommit,
+  onHeld
+}) => {
+  const instrument = liveInstrument(exploration);
+  const [judging, setJudging] = useState(false);
+  const [narrowerDraft, setNarrowerDraft] = useState('');
+  const [reasonDraft, setReasonDraft] = useState('');
+  if (!canJudgeApplication(exploration) || !instrument) return null;
+  const spans = judging ? changedWordSpans(instrument.definition, narrowerDraft) : [];
+  const keepNarrower = () => {
+    const next = proposeNarrowerDefinition(exploration, {
+      definition: narrowerDraft,
+      reason: reasonDraft
+    });
+    if (next === exploration) return;
+    onHeld?.(rememberHeldInstrument(next, exploration));
+    onCommit(next);
+    persistNarrowedDefinition({
+      mocked,
+      sourceId: instrument.sourceId,
+      live: liveDefinitionAfterFailure(liveInstrument(next))
+    });
+    setJudging(false);
+  };
+  return (
+    <div className="open-sentence-pocket__judgment">
+      {judging ? (
+        <>
+          <PocketField
+            id={`${pocketId}-narrower`}
+            label="A narrower definition"
+            value={narrowerDraft}
+            onChange={setNarrowerDraft}
+            placeholder="Keep the name. Change only the words that failed here."
+          />
+          {spans.some((span) => span.changed) ? (
+            <p className="open-sentence-pocket__diff" aria-label="Changed words">
+              {spans.map((span, index) => (
+                span.changed ? <mark key={`${span.text}-${index}`}>{span.text}</mark> : span.text
+              ))}
+            </p>
+          ) : null}
+          <PocketField
+            id={`${pocketId}-failure-reason`}
+            label="Why it failed here"
+            value={reasonDraft}
+            onChange={setReasonDraft}
+            placeholder="Optional. A sentence is enough."
+            rows={2}
+          />
+          <button type="button" onClick={keepNarrower}>
+            Keep this wording
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setJudging(false);
+              setNarrowerDraft('');
+              setReasonDraft('');
+            }}
+          >
+            Put it back
+          </button>
+        </>
+      ) : (
+        <>
+          <button
+            type="button"
+            onClick={() => {
+              const next = markInapplicable(exploration);
+              onHeld?.(rememberHeldInstrument(next, exploration));
+              onCommit(next);
+            }}
+          >
+            This doesn't apply here
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setNarrowerDraft(instrument.definition);
+              setJudging(true);
+            }}
+          >
+            This didn't hold
+          </button>
+        </>
+      )}
+    </div>
   );
 };
 
@@ -365,17 +519,26 @@ const DistinctionField = ({
             mocked={mocked}
             sourceState={sourceState}
           />
+          <ApplicationJudgment
+            pocketId={pocketId}
+            exploration={exploration}
+            mocked={mocked}
+            onCommit={onCommit}
+            onHeld={onHeld}
+          />
           {!instrument ? (
             <p className="open-sentence-pocket__qualification">{pending.definition}</p>
           ) : null}
-          <PocketField
-            id={`${pocketId}-instrument`}
-            label="Name this instrument"
-            value={pending.name}
-            onChange={nameInstrument}
-            placeholder="Name the instrument. Do not generate a definition."
-            rows={1}
-          />
+          {isAppliedInstrument(exploration) ? null : (
+            <PocketField
+              id={`${pocketId}-instrument`}
+              label="Name this instrument"
+              value={pending.name}
+              onChange={nameInstrument}
+              placeholder="Name the instrument. Do not generate a definition."
+              rows={1}
+            />
+          )}
           <button type="button" onClick={() => onCommit(leaveInstrument(exploration))}>
             Leave the instrument
           </button>
@@ -1101,7 +1264,15 @@ const OpenSentence = ({
   useEffect(() => {
     const live = liveInstrument(exploration);
     if (!live) return;
-    writeHeldInstrument(authorship?.owner ? distinctionRecord({ ...live, ownerId: authorship.owner }) : live);
+    const snapshot = authorship?.owner
+      ? { ...heldInstrumentFrom(live), ownerId: authorship.owner }
+      : heldInstrumentFrom(live);
+    const nextHeld = keepNewerHeldInstrument(
+      heldInstrumentForOwner(readHeldInstrument(), authorship?.owner),
+      snapshot
+    );
+    if (!nextHeld) return;
+    writeHeldInstrument(nextHeld);
     setHeldInstrument(readHeldInstrument());
   }, [authorship?.owner, exploration]);
 
@@ -1120,7 +1291,7 @@ const OpenSentence = ({
     };
     load();
     return () => { cancelled = true; };
-  }, [mocked, authorship?.owner, exploration?.instrument?.sourceId]);
+  }, [mocked, authorship?.owner, exploration?.instrument?.sourceId, exploration?.instrument?.narrowedTo?.versionId]);
 
   useEffect(() => {
     if (open) {

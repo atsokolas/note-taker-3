@@ -23,6 +23,8 @@ import {
   STORYBOARD_EXHIBIT_OTHER,
   STORYBOARD_EXHIBIT_THIS,
   STORYBOARD_INSTRUMENT_NAME,
+  STORYBOARD_NARROWER,
+  STORYBOARD_NARROW_REASON,
   STORYBOARD_REHEARSAL,
   STORYBOARD_UNWRITTEN,
   STORYBOARD_UNWRITTEN_GAP,
@@ -340,6 +342,30 @@ describe('OpenSentenceStoryboard', () => {
       screen.getByText('The instrument sits beside this sentence. It does not rewrite the article.')
     ).toBeInTheDocument();
     expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
+  });
+
+  it('narrows a failed Compute use and keeps the old words on that use', () => {
+    renderBoard();
+    fireEvent.click(screen.getByRole('button', { name: 'Leave open' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Keep this as an instrument' }));
+    fireEvent.change(screen.getByLabelText('Name this instrument'), {
+      target: { value: STORYBOARD_INSTRUMENT_NAME }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Instrument' }));
+    fireEvent.click(screen.getByRole('button', { name: "This didn't hold" }));
+    fireEvent.change(screen.getByLabelText('A narrower definition'), {
+      target: { value: STORYBOARD_NARROWER }
+    });
+    fireEvent.change(screen.getByLabelText('Why it failed here'), {
+      target: { value: STORYBOARD_NARROW_REASON }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Keep this wording' }));
+    expect(screen.getByText(STORYBOARD_DISTINCTION)).toBeInTheDocument();
+    expect(screen.getByText('Used here as written.')).toBeInTheDocument();
+    expect(screen.getByText(STORYBOARD_NARROW_REASON, { exact: false })).toBeInTheDocument();
+    expect(screen.getByLabelText('Changed words')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: "This didn't hold" })).not.toBeInTheDocument();
+    expect(screen.getByText(/The article still reads/)).toHaveTextContent(STORYBOARD_COMPUTE_SENTENCE);
   });
 
   it('keeps two readings as an exhibit without writing', () => {

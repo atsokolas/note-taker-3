@@ -370,4 +370,36 @@ describe('openSentenceJourney', () => {
     rememberHeldInstrument({ ...named, instrument: null }, named);
     expect(readHeldInstrument()).toBeNull();
   });
+
+  it('holds the narrowed live wording without rewriting the failed use', () => {
+    const applied = {
+      originalText: 'Compute will remain scarce.',
+      instrument: {
+        name: 'Room to be wrong',
+        definition: 'A mistake that teaches.',
+        against: 'Compute will remain scarce.',
+        appliedAt: '2026-09-11'
+      }
+    };
+    rememberHeldInstrument(applied, applied);
+    expect(readHeldInstrument()).toEqual(expect.objectContaining({
+      name: 'Room to be wrong',
+      definition: 'A mistake that teaches.'
+    }));
+    const narrowed = {
+      ...applied,
+      instrument: {
+        ...applied.instrument,
+        narrowedTo: {
+          name: 'Room to be wrong',
+          definition: 'A mistake that teaches, if someone else pays.'
+        },
+        narrowedAt: '2026-09-11',
+        reason: 'Customers still paid.'
+      }
+    };
+    rememberHeldInstrument(narrowed, applied);
+    expect(readHeldInstrument().definition).toBe('A mistake that teaches, if someone else pays.');
+    expect(readHeldInstrument().reason).toBeUndefined();
+  });
 });

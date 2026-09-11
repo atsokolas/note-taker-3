@@ -6,13 +6,19 @@ import {
   distinctionVersionId,
   editorNodesFromDistinctionUse,
   eligibleDistinctions,
+  exceptionsFromUses,
   findRetainedDistinction,
   heldInstrumentForOwner,
+  heldInstrumentFrom,
+  liveDefinitionAfterFailure,
   quoteBlockFromDistinctionUse,
+  recordFailedApplication,
   recordedDefinition,
   retainDistinction,
   retainDistinctionPayload,
-  sourceStatus
+  shouldUpdateExistingDistinction,
+  sourceStatus,
+  updateDistinctionPayload
 } from './distinctionUse';
 
 const room = {
@@ -166,5 +172,150 @@ describe('distinctionUse', () => {
         content: [{ type: 'paragraph', content: [{ type: 'text', text: room.definition }] }]
       }
     ]);
+  });
+
+  it('records a narrower wording on a failed use without rewriting the words used there', () => {
+    const first = distinctionRecord({
+      ...room,
+      sourceId: 'note-1',
+      against: 'Children need room to make recoverable mistakes.',
+      appliedAt: '2026-09-11'
+    });
+    const narrower = {
+      name: room.name,
+      definition: 'A mistake that teaches the map, if someone else does not bear the downside.'
+    };
+    const failed = recordFailedApplication(first, {
+      narrower,
+      reason: 'A product rollback can teach the team while customers still pay.',
+      at: '2026-09-11'
+    });
+    expect(recordedDefinition(failed)).toEqual(room);
+    expect(failed.versionId).toBe(first.versionId);
+    expect(failed.against).toBe(first.against);
+    expect(failed.narrowedTo).toEqual({
+      name: narrower.name,
+      definition: narrower.definition,
+      versionId: distinctionVersionId(narrower)
+    });
+    expect(failed.reason).toBe('A product rollback can teach the team while customers still pay.');
+    expect(failed.narrowedAt).toBe('2026-09-11');
+    expect(failed.narrowedTo.versionId).not.toBe(first.versionId);
+    expect(liveDefinitionAfterFailure(failed)).toEqual(expect.objectContaining(narrower));
+    expect(heldInstrumentFrom(failed)).toEqual(expect.objectContaining(room));
+    expect(heldInstrumentFrom(failed).narrowedTo).toBeUndefined();
+    expect(heldInstrumentFrom(failed).against).toBeUndefined();
+  });
+
+  it('keeps an inapplicable use pinned to the old definition', () => {
+    const used = distinctionRecord({
+      ...room,
+      sourceId: 'note-1',
+      against: 'Compute will remain scarce.',
+      appliedAt: '2026-09-11'
+    });
+    const failed = recordFailedApplication(used, {
+      inapplicable: true,
+      reason: 'Scarcity is not a recoverable mistake.',
+      at: '2026-09-11'
+    });
+    expect(recordedDefinition(failed)).toEqual(room);
+    expect(failed.inapplicable).toBe(true);
+    expect(failed.narrowedTo).toBeUndefined();
+    expect(liveDefinitionAfterFailure(failed)).toEqual(expect.objectContaining(room));
+    expect(heldInstrumentFrom(failed).inapplicable).toBeUndefined();
+  });
+
+  it('does not invent a correction when the wording did not change', () => {
+    const used = distinctionRecord({ ...room, sourceId: 'note-1', appliedAt: '2026-09-11' });
+    expect(recordFailedApplication(used, { narrower: room, at: '2026-09-11' })).toEqual(used);
+  });
+
+  it('lets two scoped meanings sit beside each other instead of merging similar names', () => {
+    const listed = eligibleDistinctions([
+      {
+        _id: 'note-1',
+        title: 'reversible',
+        snippet: 'A decision you can walk back.',
+        importMeta: { sourceType: DISTINCTION_SOURCE_TYPE }
+      },
+      {
+        _id: 'note-2',
+        title: 'reversible',
+        snippet: 'A trade you can exit overnight.',
+        importMeta: { sourceType: DISTINCTION_SOURCE_TYPE }
+      }
+    ]);
+    expect(listed).toHaveLength(2);
+    expect(listed.map((item) => item.definition)).toEqual([
+      'A decision you can walk back.',
+      'A trade you can exit overnight.'
+    ]);
+    expect(listed[0].sourceId).not.toBe(listed[1].sourceId);
+  });
+
+  it('updates the same named note, and keeps a renamed meaning as a separate note', () => {
+    const note = {
+      _id: 'note-1',
+      title: room.name,
+      snippet: room.definition,
+      importMeta: { sourceType: DISTINCTION_SOURCE_TYPE, externalId: 'distinction:work-1' }
+    };
+    const narrower = 'A mistake that teaches the map, if someone else does not bear the downside.';
+    expect(shouldUpdateExistingDistinction(note, { name: room.name, definition: narrower })).toBe(true);
+    expect(shouldUpdateExistingDistinction(note, {
+      name: 'Whose downside?',
+      definition: 'Who pays when the experiment fails.'
+    })).toBe(false);
+    expect(updateDistinctionPayload({
+      note,
+      name: room.name,
+      definition: narrower,
+      createId: () => 'block-2'
+    })).toMatchObject({
+      title: room.name,
+      content: narrower,
+      blocks: [{ id: 'block-2', type: 'paragraph', text: narrower }],
+      importMeta: {
+        sourceType: DISTINCTION_SOURCE_TYPE,
+        sourceLabel: room.name,
+        externalId: 'distinction:work-1'
+      }
+    });
+  });
+
+  it('grows an atlas from actual failed uses, not an empty catalog', () => {
+    const parenting = distinctionRecord({
+      ...room,
+      sourceId: 'note-1',
+      against: 'Children need room to make recoverable mistakes.'
+    });
+    const rollout = recordFailedApplication(
+      distinctionRecord({
+        ...room,
+        sourceId: 'note-1',
+        against: 'Ship the rollback while the blast radius is still yours.',
+        appliedAt: '2026-09-11'
+      }),
+      {
+        narrower: {
+          name: room.name,
+          definition: 'A mistake that teaches the map, if someone else does not bear the downside.'
+        },
+        reason: 'Customers still paid.',
+        at: '2026-09-11'
+      }
+    );
+    const compute = recordFailedApplication(
+      distinctionRecord({
+        ...room,
+        sourceId: 'note-1',
+        against: 'Compute will remain scarce.',
+        appliedAt: '2026-09-11'
+      }),
+      { inapplicable: true, at: '2026-09-11' }
+    );
+    expect(exceptionsFromUses([parenting, rollout, compute])).toEqual([rollout, compute]);
+    expect(exceptionsFromUses([])).toEqual([]);
   });
 });

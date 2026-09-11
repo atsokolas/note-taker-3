@@ -12,7 +12,8 @@ jest.mock('../../../api/notebook', () => ({
     error.response = { status: 404 };
     throw error;
   },
-  createNotebookEntry: async () => null
+  createNotebookEntry: async () => null,
+  updateNotebookEntry: async () => null
 }));
 import {
   acceptWording,
@@ -63,6 +64,7 @@ import {
   isWithoutParagraph,
   isWithoutSource,
   applyInstrument,
+  isAppliedInstrument,
   keepAsExhibit,
   keepAsInstrument,
   keepAsRehearsal,
@@ -96,6 +98,7 @@ import {
   liveThen,
   liveUnwritten,
   namedOn,
+  markInapplicable,
   meetWayHome,
   openExploration,
   pendingInstrument,
@@ -104,6 +107,7 @@ import {
   placeSource,
   pressurePassages,
   pressureWayHome,
+  proposeNarrowerDefinition,
   proposeWording,
   putItBack,
   putThemBack,
@@ -148,6 +152,8 @@ import {
   STORYBOARD_EXHIBIT_OTHER,
   STORYBOARD_EXHIBIT_THIS,
   STORYBOARD_INSTRUMENT_NAME,
+  STORYBOARD_NARROWER,
+  STORYBOARD_NARROW_REASON,
   STORYBOARD_LIBRARY_SOURCE,
   STORYBOARD_MEET_LIMIT,
   STORYBOARD_MEET_RELATION,
@@ -878,16 +884,55 @@ describe('openSentenceModel', () => {
     expect(canApplyInstrument(titled, held)).toBe(false);
     expect(canApplyInstrument(setDistinction(compute, 'A different fork.'), held)).toBe(false);
     const applied = applyInstrument(compute, held);
-    expect(liveInstrument(applied)).toEqual(distinctionRecord({
+    expect(liveInstrument(applied)).toEqual(expect.objectContaining({
       name: STORYBOARD_INSTRUMENT_NAME,
       definition: STORYBOARD_DISTINCTION,
-      against: STORYBOARD_COMPUTE_SENTENCE
+      against: STORYBOARD_COMPUTE_SENTENCE,
+      versionId: distinctionRecord({
+        name: STORYBOARD_INSTRUMENT_NAME,
+        definition: STORYBOARD_DISTINCTION
+      }).versionId
     }));
+    expect(liveInstrument(applied).appliedAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(isAppliedInstrument(applied)).toBe(true);
+    expect(isAppliedInstrument(titled)).toBe(false);
     expect(applied.distinction).toBe('');
     expect(wikiAcceptedText(applied)).toBe(STORYBOARD_COMPUTE_SENTENCE);
     expect(applyInstrument(applied, held)).toBe(applied);
     expect(applyInstrument(compute, { name: '', definition: STORYBOARD_DISTINCTION })).toBe(compute);
     expect(forgetExperiment(titled).instrument).toBeUndefined();
+  });
+
+  it('narrows a failed application without rewriting the earlier use', () => {
+    const named = setInstrumentName(keepAsInstrument(openExploration(setDistinction(
+      createExploration({ originalText: STORYBOARD_SENTENCE, source: STORYBOARD_SOURCE }),
+      STORYBOARD_DISTINCTION
+    ))), STORYBOARD_INSTRUMENT_NAME);
+    const applied = applyInstrument(
+      openExploration(createExploration({
+        originalText: STORYBOARD_COMPUTE_SENTENCE,
+        source: STORYBOARD_COMPUTE_SOURCE
+      })),
+      liveInstrument(named)
+    );
+    const narrowed = proposeNarrowerDefinition(applied, {
+      definition: STORYBOARD_NARROWER,
+      reason: STORYBOARD_NARROW_REASON,
+      at: '2026-09-11'
+    });
+    expect(liveInstrument(named).definition).toBe(STORYBOARD_DISTINCTION);
+    expect(liveInstrument(narrowed).definition).toBe(STORYBOARD_DISTINCTION);
+    expect(liveInstrument(narrowed).narrowedTo.definition).toBe(STORYBOARD_NARROWER);
+    expect(liveInstrument(narrowed).reason).toBe(STORYBOARD_NARROW_REASON);
+    expect(liveInstrument(narrowed).narrowedAt).toBe('2026-09-11');
+    expect(liveInstrument(narrowed).versionId).toBe(liveInstrument(named).versionId);
+    expect(liveInstrument(restoreExploration(snapshotExploration(narrowed), applied)).narrowedTo.definition)
+      .toBe(STORYBOARD_NARROWER);
+    expect(proposeNarrowerDefinition(applied, { definition: STORYBOARD_DISTINCTION })).toBe(applied);
+    const skipped = markInapplicable(applied, { reason: 'Scarcity is not a recoverable mistake.', at: '2026-09-11' });
+    expect(liveInstrument(skipped).inapplicable).toBe(true);
+    expect(liveInstrument(skipped).definition).toBe(STORYBOARD_DISTINCTION);
+    expect(markInapplicable(narrowed)).toBe(narrowed);
   });
 
   it('lets an exhibit, a rehearsal, unwritten work, and a set-aside source sit beside the line', () => {
@@ -2417,6 +2462,90 @@ describe('OpenSentence', () => {
     expect(screen.queryByRole('button', { name: 'Use this here' })).not.toBeInTheDocument();
     expect(screen.getByText(/The article still reads/)).toHaveTextContent(STORYBOARD_COMPUTE_SENTENCE);
     expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
+  });
+
+  it('lets a failed application propose a narrower definition without rewriting the earlier use', () => {
+    const titled = setInstrumentName(keepAsInstrument(openExploration(setDistinction(
+      createExploration({ originalText: STORYBOARD_SENTENCE, source: STORYBOARD_SOURCE }),
+      STORYBOARD_DISTINCTION
+    ))), STORYBOARD_INSTRUMENT_NAME);
+    const { unmount } = render(
+      <MemoryRouter>
+        <OpenSentence exploration={titled} mocked />
+      </MemoryRouter>
+    );
+    unmount();
+    const compute = openExploration(createExploration({
+      originalText: STORYBOARD_COMPUTE_SENTENCE,
+      source: STORYBOARD_COMPUTE_SOURCE
+    }));
+    const applied = applyInstrument(compute, liveInstrument(titled));
+    const onChange = jest.fn();
+    const { rerender, unmount: unmountApplied } = render(
+      <MemoryRouter>
+        <OpenSentence exploration={applied} onChange={onChange} mocked />
+      </MemoryRouter>
+    );
+    expect(screen.getByText('Used here as written.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: "This didn't hold" }));
+    fireEvent.change(screen.getByLabelText('A narrower definition'), {
+      target: { value: STORYBOARD_NARROWER }
+    });
+    fireEvent.change(screen.getByLabelText('Why it failed here'), {
+      target: { value: STORYBOARD_NARROW_REASON }
+    });
+    expect(screen.getByLabelText('Changed words').querySelector('mark')).toHaveTextContent('if');
+    fireEvent.click(screen.getByRole('button', { name: 'Keep this wording' }));
+    const narrowed = proposeNarrowerDefinition(applied, {
+      definition: STORYBOARD_NARROWER,
+      reason: STORYBOARD_NARROW_REASON
+    });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
+      instrument: expect.objectContaining({
+        definition: STORYBOARD_DISTINCTION,
+        reason: STORYBOARD_NARROW_REASON,
+        narrowedTo: expect.objectContaining({ definition: STORYBOARD_NARROWER })
+      })
+    }));
+    rerender(
+      <MemoryRouter>
+        <OpenSentence exploration={narrowed} mocked />
+      </MemoryRouter>
+    );
+    expect(screen.getByText(STORYBOARD_DISTINCTION)).toBeInTheDocument();
+    expect(screen.getByText('Used here as written.')).toBeInTheDocument();
+    expect(screen.getByText(STORYBOARD_NARROW_REASON, { exact: false })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: "This didn't hold" })).not.toBeInTheDocument();
+    unmountApplied();
+    render(
+      <MemoryRouter>
+        <OpenSentence exploration={titled} mocked />
+      </MemoryRouter>
+    );
+    expect(screen.getByText(STORYBOARD_DISTINCTION, { selector: '.open-sentence-pocket__prior-writing' })).toBeInTheDocument();
+    expect(screen.queryByText(STORYBOARD_NARROWER)).not.toBeInTheDocument();
+    expect(screen.getByText('Used here as written.')).toBeInTheDocument();
+  });
+
+  it('lets an application be inapplicable without changing the definition', () => {
+    const applied = applyInstrument(
+      openExploration(createExploration({
+        originalText: STORYBOARD_COMPUTE_SENTENCE,
+        source: STORYBOARD_COMPUTE_SOURCE
+      })),
+      distinctionRecord({
+        name: STORYBOARD_INSTRUMENT_NAME,
+        definition: STORYBOARD_DISTINCTION
+      })
+    );
+    const onChange = jest.fn();
+    render(
+      <MemoryRouter>
+        <OpenSentence exploration={applied} onChange={onChange} mocked />
+      </MemoryRouter>
+    );
+    fireEvent.click(screen.getByRole('button', { name: "This doesn't apply here" }));
+    expect(onChange).toHaveBeenCalledWith(markInapplicable(applied));
   });
 
   it('does not offer another account’s held distinction', () => {

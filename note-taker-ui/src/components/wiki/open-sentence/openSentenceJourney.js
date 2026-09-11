@@ -1,5 +1,6 @@
 import { wikiReadPath } from '../../../utils/wikiFeatureFlags';
 import { cleanSourceTextForDisplay } from '../../../utils/sourceDisplayText';
+import { liveDefinitionAfterFailure } from '../../../utils/distinctionUse';
 import {
   EXPLORATION_STATUS,
   cancelPlacement,
@@ -37,13 +38,15 @@ export const readHeldInstrument = () => {
 
 export const rememberHeldInstrument = (next, previous) => {
   const live = liveInstrument(next);
-  if (live) {
-    writeHeldInstrument(live);
+  if (live?.inapplicable) return readHeldInstrument();
+  const held = liveDefinitionAfterFailure(live);
+  if (held) {
+    writeHeldInstrument(held);
     return readHeldInstrument();
   }
   const was = liveInstrument(previous);
-  const held = readHeldInstrument();
-  if (was && held && held.name === was.name && held.definition === was.definition) {
+  const current = readHeldInstrument();
+  if (was && current && current.name === was.name && current.definition === was.definition) {
     writeHeldInstrument(null);
   }
   return readHeldInstrument();

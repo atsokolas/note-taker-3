@@ -1,7 +1,7 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import UseDistinctionHere from './UseDistinctionHere';
-import { distinctionRecord } from '../../../utils/distinctionUse';
+import { distinctionRecord, distinctionVersionId } from '../../../utils/distinctionUse';
 
 const room = distinctionRecord({
   name: 'Room to be wrong',
@@ -39,6 +39,30 @@ describe('UseDistinctionHere', () => {
     fireEvent.keyDown(list, { key: 'Enter' });
     expect(onUse).toHaveBeenCalledWith(expect.objectContaining({ name: downside.name }));
     expect(screen.getByRole('button', { name: 'Use this here' })).toHaveFocus();
+  });
+
+  it('uses the narrowed live wording when a saved note is still on the old version', () => {
+    const onUse = jest.fn();
+    const narrowed = distinctionRecord({
+      name: room.name,
+      definition: 'A mistake that teaches the map, if someone else does not bear the downside.',
+      sourceId: 'note-1'
+    });
+    render(
+      <UseDistinctionHere
+        held={narrowed}
+        distinctions={[room]}
+        onUse={onUse}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Use this here' }));
+    expect(onUse).toHaveBeenCalledWith(expect.objectContaining({
+      definition: narrowed.definition,
+      versionId: distinctionVersionId({
+        name: room.name,
+        definition: narrowed.definition
+      })
+    }));
   });
 
   it('stays silent when there is nothing to use', () => {
