@@ -11,24 +11,25 @@ describe('Think writing focus mode', () => {
     expect(css).toContain("[data-writing-rail='right']:is(:hover, :focus-within)");
   });
 
-  it('fades rails in and out instead of snapping them away', () => {
-    expect(css).toMatch(/\[data-writing-rail\] > \*[\s\S]*?transition:[\s\S]*?opacity 680ms cubic-bezier\(0\.16, 1, 0\.3, 1\)/);
-    expect(css).toMatch(/body:is\(\.think-rails-away, \.think-focus-held\) \[data-writing-rail\] > \*[\s\S]*?opacity: 0;[\s\S]*?opacity 540ms cubic-bezier\(0\.4, 0, 0\.2, 1\)/);
-    expect(css).toMatch(/grid-template-columns 720ms var\(--noeis-ease-standard/);
-    expect(css).toContain('--think-rail-retreat: -4px;');
-    expect(css).toContain('--think-rail-retreat: 4px;');
-    expect(css).not.toMatch(/opacity 280ms/);
-    expect(css).not.toContain('--think-rail-retreat: -14px;');
+  it('uses one shared push for typing and held focus', () => {
+    expect(css).toContain('--think-rail-push: var(--noeis-motion-deliberate, 320ms) var(--noeis-ease-standard, cubic-bezier(0.2, 0.8, 0.2, 1));');
+    expect(css).toMatch(/grid-template-columns var\(--think-rail-push\)/);
+    expect(css).toMatch(/\[data-writing-rail\] > \*[\s\S]*?transition: opacity var\(--think-rail-push\)/);
+    expect(css).toContain('body:is(.think-rails-away, .think-focus-held) [data-writing-rail] > *');
+    expect(css).toContain('min-width: var(--think-rail-rest);');
+    expect(css).toContain('overflow-x: hidden;');
+    expect(css).toContain('body.noeis-editorial .think-home-editorial-shell');
+    expect(css).toContain('body.noeis-editorial .concept-index-editorial-shell');
+    expect(css).not.toMatch(/transition-delay:\s*48ms/);
+    expect(css).not.toContain('--think-rail-retreat');
+    expect(css).not.toMatch(/opacity 680ms/);
+    expect(css).not.toMatch(/opacity 540ms/);
+    expect(css).not.toMatch(/grid-template-columns 720ms/);
   });
 
-  it('staggers the two rails so they do not dissolve as one slab', () => {
-    expect(css).toMatch(/\[data-writing-rail='right'\] > \*[\s\S]*?transition-delay: 48ms;/);
-    expect(css).toMatch(/body:is\(\.think-rails-away, \.think-focus-held\) \[data-writing-rail\]:is\(:hover, :focus-within\) > \*[\s\S]*?transition-delay: 0ms;/);
-  });
-
-  it('keeps a short opacity fade under reduced motion and skips rail retreat motion', () => {
-    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*body:is\(\.think-rails-away, \.think-focus-held\) \[data-writing-rail\]::after/);
-    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*transition: opacity 80ms/);
-    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*transform: none/);
+  it('makes reduced motion instant instead of a half-animated fade', () => {
+    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*body:is\(\.think-rails-away, \.think-focus-held\) \[data-writing-rail\]::after[\s\S]*transition: none;/);
+    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*\[data-writing-rail\] > \*[\s\S]*transform: none[\s\S]*transition: none;/);
+    expect(css).not.toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*transition: opacity 80ms/);
   });
 });

@@ -1416,6 +1416,8 @@ describe('ThinkMode template integration', () => {
     );
 
     const shelf = await screen.findByTestId('think-shelf-rail');
+    expect(document.querySelector('[data-writing-rail="left"]')).toBeInTheDocument();
+    expect(document.querySelector('[data-writing-rail="right"]')).toBeInTheDocument();
     expect(within(shelf).getByRole('region', { name: 'Questions' })).toBeInTheDocument();
     const questionLink = within(shelf).getByRole('link', {
       name: /what quantitative threshold best balances protection against valuation error/i
