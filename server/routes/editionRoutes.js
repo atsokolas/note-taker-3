@@ -262,26 +262,27 @@ const buildEditionRouter = ({
       const cadence = ['daily', 'weekly', 'monthly'].includes(String(req.body?.cadence || '').trim())
         ? String(req.body.cadence).trim()
         : 'weekly';
-      const sections = (Array.isArray(req.body?.sections) ? req.body.sections : [])
+      const hasSectionsField = Array.isArray(req.body?.sections);
+      const sections = (hasSectionsField ? req.body.sections : [])
         .map(section => ({
           key: String(section?.key || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, ''),
           label: String(section?.label || '').trim().slice(0, 120)
         }))
         .filter(section => section.key && section.label)
         .slice(0, 8);
-      if (!sections.length) {
-        return res.status(400).json({
-          error: 'At least one section is required. Sections are the argument a paper makes about its subject; a paper without them is a list.'
-        });
-      }
+      const existing = await EditionProfile.findOne({ userId: req.user.id, key });
+      /* Omitted sections keep the standing shape. An explicit empty list is
+         silence — not an invented evidence / counter-evidence layout. */
+      const nextSections = hasSectionsField
+        ? sections
+        : (existing?.sections || []).map(section => ({ key: section.key, label: section.label }));
       const maxItems = Math.min(Math.max(Number(req.body?.maxItems) || 15, 1), 40);
       const minItems = Math.min(Math.max(Number(req.body?.minItems) || 1, 1), maxItems);
       const configuredBy = {
         label: String(req.body?.configuredBy || req.agentToken?.name || '').trim().slice(0, 200),
         agentTokenId: req.agentToken?.id || null
       };
-      const existing = await EditionProfile.findOne({ userId: req.user.id, key });
-      const doc = { key, title, issueLabel: String(req.body?.issueLabel || 'Issue').trim().slice(0, 60) || 'Issue', cadence, sections, minItems, maxItems, configuredBy };
+      const doc = { key, title, issueLabel: String(req.body?.issueLabel || 'Issue').trim().slice(0, 60) || 'Issue', cadence, sections: nextSections, minItems, maxItems, configuredBy };
       const saved = existing
         ? await EditionProfile.findOneAndUpdate({ _id: existing._id, userId: req.user.id }, doc, { new: true })
         : await EditionProfile.create({ ...doc, userId: req.user.id });

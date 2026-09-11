@@ -138,7 +138,6 @@
 .dateline .is-quiet { color: color-mix(in srgb, var(--text-muted) 76%, transparent); }
 
 /* Turning to another issue. The nameplate never moves: it is the same paper. */
-.issue { transition: opacity 240ms cubic-bezier(0.2, 0.7, 0.2, 1), transform 240ms cubic-bezier(0.2, 0.7, 0.2, 1); }
 .issue.is-turning { opacity: 0; transform: translateY(6px); }
 
 .standfirst {
@@ -163,24 +162,27 @@
 }
 
 /* ---------- the columns ---------- */
-/* One column per section, so the shape of the paper is the shape of the week.
-   An empty section is an empty column with its head still set. */
+/* One column per configured section. The count comes from the edition, never
+   a hardcoded evidence / counter-evidence three. Empty configuration prints
+   no tracks. */
 .columns {
+  --edition-columns: 1;
+  --edition-columns-narrow: 1;
   margin: 38px 0 0;
   padding: 22px 0 0;
   border-top: 1px solid var(--noeis-rule, var(--border-subtle-2));
   display: grid;
-  /* The count is written out per width rather than passed in as a variable:
-     a repeat() count cannot be a var(), and an inline style could not be
-     overridden at a narrower measure. */
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(var(--edition-columns), minmax(0, 1fr));
   column-gap: 28px;
   row-gap: 34px;
 }
 
-.columns[data-columns="1"] { grid-template-columns: minmax(0, 1fr); }
-.columns[data-columns="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.columns[data-columns="4"] { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+/* Filed items with no column map: a list, not an invented role. */
+.issue__loose {
+  margin: 38px 0 0;
+  padding: 22px 0 0;
+  border-top: 1px solid var(--noeis-rule, var(--border-subtle-2));
+}
 
 .column { min-width: 0; }
 
@@ -268,7 +270,6 @@
 .story__body {
   display: grid;
   grid-template-rows: 0fr;
-  transition: grid-template-rows 420ms cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 
 .story__body > div { min-height: 0; overflow: hidden; }
@@ -284,7 +285,6 @@
   hyphens: auto;
   opacity: 0;
   transform: translateY(4px);
-  transition: opacity 300ms ease 120ms, transform 300ms ease 120ms;
 }
 
 .story.is-open .story__finding { opacity: 1; transform: none; }
@@ -307,7 +307,6 @@
   line-height: 1.5;
   color: color-mix(in srgb, var(--text-muted) 94%, transparent);
   opacity: 0;
-  transition: opacity 300ms ease 200ms;
 }
 
 .story.is-open .story__boundary { opacity: 1; }
@@ -358,7 +357,6 @@
   font: inherit;
   color: color-mix(in srgb, var(--text-muted) 92%, transparent);
   cursor: pointer;
-  transition: color 160ms ease, border-color 160ms ease;
 }
 
 .run__issue:hover { color: var(--text-primary); }
@@ -416,8 +414,7 @@
 .editions__door-note { margin: 14px 0 0; font-size: 0.9rem; }
 
 @media (max-width: 920px) {
-  .columns,
-  .columns[data-columns="4"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .columns { grid-template-columns: repeat(var(--edition-columns-narrow, 1), minmax(0, 1fr)); }
   .column:nth-child(odd) { border-left: 0; padding-left: 0; }
 }
 
@@ -427,9 +424,7 @@
   .ear, .ear--right { max-width: none; text-align: center; justify-self: center; }
   .ear--left { order: 2; }
   .ear--right { order: 3; }
-  .columns,
-  .columns[data-columns="2"],
-  .columns[data-columns="4"] { grid-template-columns: minmax(0, 1fr); row-gap: 26px; }
+  .columns { grid-template-columns: minmax(0, 1fr); row-gap: 26px; }
   .column + .column {
     border-left: 0;
     padding-left: 0;
@@ -437,6 +432,24 @@
     padding-top: 22px;
   }
   .standfirst { font-size: 1.18rem; }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .issue {
+    transition: opacity 240ms cubic-bezier(0.2, 0.7, 0.2, 1), transform 240ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  .story__body {
+    transition: grid-template-rows 420ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  .story__finding {
+    transition: opacity 300ms ease 120ms, transform 300ms ease 120ms;
+  }
+  .story__boundary {
+    transition: opacity 300ms ease 200ms;
+  }
+  .run__issue {
+    transition: color 160ms ease, border-color 160ms ease;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

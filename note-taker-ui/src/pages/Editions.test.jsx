@@ -205,4 +205,69 @@ describe('the newsstand', () => {
     expect(await screen.findByText('A fresh filing')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Read now' })).toHaveAttribute('href', '/editions/e2?item=i1');
   });
+
+  it('sets columns from the edition’s configuration, not a fixed evidence layout', async () => {
+    const sections = [
+      { key: 'deployment', label: 'Deployment' },
+      { key: 'policy', label: 'Policy' }
+    ];
+    listEditions.mockResolvedValue([row({
+      profile: 'climate_tech',
+      profileLabel: 'Climate Tech',
+      title: 'Climate Tech',
+      sections,
+      unfilled: ['Policy']
+    })]);
+    getEdition.mockResolvedValue(full({
+      profile: 'climate_tech',
+      profileLabel: 'Climate Tech',
+      title: 'Climate Tech',
+      sections,
+      unfilled: ['Policy'],
+      items: [item({ section: 'deployment' })]
+    }));
+    open();
+    expect(await screen.findByText('Deployment')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Climate Tech' })).toBeInTheDocument();
+    expect(screen.getByText('Policy')).toBeInTheDocument();
+    expect(screen.queryByText('Evidence for the thesis')).not.toBeInTheDocument();
+    expect(screen.queryByText('Counterevidence')).not.toBeInTheDocument();
+    expect(screen.getByTestId('edition-columns')).toHaveAttribute('data-columns', '2');
+  });
+
+  it('keeps five named columns rather than wrapping them into three', async () => {
+    const sections = ['alpha', 'beta', 'gamma', 'delta', 'epsilon']
+      .map(key => ({ key, label: key[0].toUpperCase() + key.slice(1) }));
+    listEditions.mockResolvedValue([row({ sections, unfilled: [] })]);
+    getEdition.mockResolvedValue(full({ sections, unfilled: [], items: [item({ section: 'alpha' })] }));
+    open();
+    expect(await screen.findByText('Alpha')).toBeInTheDocument();
+    expect(screen.getByTestId('edition-columns')).toHaveAttribute('data-columns', '5');
+    expect(screen.getByText('Epsilon')).toBeInTheDocument();
+  });
+
+  it('prints silence when no columns are configured', async () => {
+    listEditions.mockResolvedValue([row({ sections: [], unfilled: [] })]);
+    getEdition.mockResolvedValue(full({ sections: [], items: [], unfilled: [] }));
+    open();
+    expect(await screen.findByTestId('edition-columns-silence')).toHaveTextContent('No columns set.');
+    expect(screen.queryByTestId('edition-columns')).not.toBeInTheDocument();
+    expect(screen.queryByText('Models & methods')).not.toBeInTheDocument();
+    expect(screen.queryByText('Evaluation & counterevidence')).not.toBeInTheDocument();
+    expect(screen.queryByText('Elsewhere')).not.toBeInTheDocument();
+  });
+
+  it('shows filed items without inventing a column role when none were set', async () => {
+    listEditions.mockResolvedValue([row({ sections: [], unfilled: [] })]);
+    getEdition.mockResolvedValue(full({
+      sections: [],
+      unfilled: [],
+      items: [item({ section: 'deployment' })]
+    }));
+    open();
+    expect(await screen.findByTestId('edition-loose')).toBeInTheDocument();
+    expect(screen.getByText('A Unified Framework for VLA Agents')).toBeInTheDocument();
+    expect(screen.queryByText('Elsewhere')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('edition-columns')).not.toBeInTheDocument();
+  });
 });

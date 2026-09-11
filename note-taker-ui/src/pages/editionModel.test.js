@@ -1,7 +1,7 @@
 import {
-  byInboxEdition, byPaper, bylineFor, bySection, closesLine, datelineLine, gapLine,
-  inboxEditionLine, issueLine, publicSourceHref, runLine, stateOf,
-  takenLine, windowLine
+  byInboxEdition, byPaper, bylineFor, bySection, closesLine, datelineLine,
+  editionColumnStyle, gapLine, inboxEditionLine, issueLine, publicSourceHref,
+  runLine, standLayout, stateOf, takenLine, windowLine
 } from './editionModel';
 
 describe('the window a paper covers', () => {
@@ -97,6 +97,37 @@ describe('reading it in sections', () => {
     const read = bySection({ sections, items: [{ section: 'a' }] });
     expect(read.map(entry => entry.label)).toEqual(['A', 'B']);
     expect(bySection()).toEqual([]);
+  });
+
+  /* No configured columns is silence. Inventing Elsewhere — or evidence /
+     counter-evidence — would be filler. */
+  it('does not invent a column when none were configured', () => {
+    expect(bySection({
+      sections: [],
+      items: [{ section: 'deployment', title: 'A finding' }]
+    })).toEqual([]);
+  });
+
+  it('hands unsectioned items through as a list, not a role', () => {
+    const items = [{ section: 'deployment', title: 'A finding' }];
+    expect(standLayout({ sections: [], items })).toEqual({
+      ready: true,
+      columns: [],
+      looseItems: items
+    });
+    expect(standLayout({ sections, items: [{ section: 'a' }] }).looseItems).toEqual([]);
+    expect(standLayout(null).ready).toBe(false);
+  });
+
+  it('writes the column count the configuration named', () => {
+    expect(editionColumnStyle(5)).toEqual({
+      '--edition-columns': '5',
+      '--edition-columns-narrow': '2'
+    });
+    expect(editionColumnStyle(1)).toEqual({
+      '--edition-columns': '1',
+      '--edition-columns-narrow': '1'
+    });
   });
 });
 

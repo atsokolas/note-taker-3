@@ -4,8 +4,8 @@ import { getEdition, listEditions } from '../api/editions';
 import EditionInbox from '../components/editions/EditionInbox';
 import EditionShare from '../components/editions/EditionShare';
 import {
-  bylineFor, bySection, byPaper, closesLine, datelineLine, folioLine, gapLine,
-  issueLine, runLine, stateOf, takenLine
+  bylineFor, byPaper, closesLine, datelineLine, editionColumnStyle, folioLine,
+  gapLine, issueLine, runLine, standLayout, stateOf, takenLine
 } from './editionModel';
 
 /**
@@ -16,12 +16,12 @@ import {
  * something you read on a Sunday rather than something that scrolled past in
  * a chat window and was gone.
  *
- * Set as a broadsheet because the shape of the paper is the shape of the week:
- * one column per section, so a week with nothing under counterevidence is an
- * empty column with its head still set, which is the most legible silence a
- * page can print. Headlines carry the front page; a story unfolds where it
- * stands rather than taking you somewhere else, because reading the stand and
- * reading a finding are the same act.
+ * Set as a broadsheet because the shape of the paper is the shape the agent
+ * configured: one column per named section. An empty named column keeps its
+ * head. No columns configured is silence — not evidence, counter-evidence, or
+ * any other invented set. Headlines carry the front page; a story unfolds
+ * where it stands rather than taking you somewhere else, because reading the
+ * stand and reading a finding are the same act.
  */
 
 /* A paper still being written checks itself while you are reading it. Slow
@@ -90,8 +90,8 @@ const Column = ({ section, tense }) => {
           <Story key={item.itemId} item={item} />
         ))
       ) : (
-        /* Printed, not dropped. A week with nothing under counterevidence is
-           saying something, and hiding it is what a newsletter does. */
+        /* Printed, not dropped. A named column nobody filled is saying
+           something; hiding it is what a newsletter does. */
         <p className="column__empty">{tense === 'closed' ? 'Nothing that week.' : 'Nothing yet.'}</p>
       )}
     </section>
@@ -149,7 +149,8 @@ const FrontPage = ({ paper }) => {
     }, 200);
   }, [index]);
 
-  const sections = opened ? bySection(opened) : null;
+  const layout = standLayout(opened);
+  const { columns, looseItems } = layout;
 
   return (
     <section className="front" aria-label={paper.title}>
@@ -179,9 +180,16 @@ const FrontPage = ({ paper }) => {
       <div className={`issue${turning ? ' is-turning' : ''}`}>
         {issue.standfirst ? <p className="standfirst">{issue.standfirst}</p> : null}
 
-        {sections ? (
-          <div className="columns" data-columns={Math.min(sections.length, 4)}>
-            {sections.map(section => (
+        {!layout.ready ? (
+          <p className="editions__quiet" role="status">Setting the page…</p>
+        ) : columns.length ? (
+          <div
+            className="columns"
+            data-testid="edition-columns"
+            data-columns={columns.length}
+            style={editionColumnStyle(columns.length)}
+          >
+            {columns.map(section => (
               <Column
                 key={section.key || section.label}
                 section={section}
@@ -189,8 +197,16 @@ const FrontPage = ({ paper }) => {
               />
             ))}
           </div>
+        ) : looseItems.length ? (
+          <div className="issue__loose" data-testid="edition-loose">
+            {looseItems.map(item => (
+              <Story key={item.itemId} item={item} />
+            ))}
+          </div>
         ) : (
-          <p className="editions__quiet" role="status">Setting the page…</p>
+          <p className="editions__quiet" data-testid="edition-columns-silence">
+            No columns set.
+          </p>
         )}
 
         {opened?.watchNext?.length ? (

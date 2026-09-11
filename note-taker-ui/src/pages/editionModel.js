@@ -2,9 +2,13 @@
  * How a paper reads.
  *
  * The sentences an edition says about itself, and none of them is a count for
- * its own sake. What the week left empty is an editorial fact — an AI weekly
- * with nothing under counterevidence is telling you something real. What you
- * took from it is the only measure of whether the paper did its job.
+ * its own sake. What the week left empty is an editorial fact — a named column
+ * nobody filled is telling you something real. What you took from it is the
+ * only measure of whether the paper did its job.
+ *
+ * Columns belong to the edition's configuration, not to a fixed evidence /
+ * counter-evidence layout. A paper with no columns configured prints silence
+ * rather than inventing filler.
  *
  * A stand holds papers, not issues. Editions arrive as a flat list ordered by
  * date, which reads as a pile; grouping them back into the papers they belong
@@ -100,7 +104,7 @@ export const closesLine = (edition = {}, now = Date.now()) => {
  *
  * Silence when the week covered its own shape — printing "0 sections empty"
  * would be filler. Never a count where a name will do: the reader needs to
- * know it was counterevidence that went missing, not that one thing did.
+ * know which named column went missing, not that one thing did.
  */
 export const gapLine = ({ unfilled = [] } = {}) => {
   const names = (unfilled || []).filter(Boolean);
@@ -125,20 +129,51 @@ export const takenLine = ({ itemCount = 0, savedCount = 0 } = {}) => {
   return `${taken} of ${total} in your library.`;
 };
 
-/** The items of one section, in the order the profile names them. */
+/**
+ * The items of one section, in the order the configuration names them.
+ *
+ * No configured columns is silence: items do not become an invented
+ * "Elsewhere" or evidence/counter-evidence set. Orphans only appear when the
+ * paper *has* a shape and an item no longer fits it — a profile that changed
+ * after filing, not a missing configuration.
+ */
 export const bySection = ({ sections = [], items = [] } = {}) => {
-  const known = new Set((sections || []).map(section => section.key));
-  const ordered = (sections || []).map(section => ({
+  const named = (sections || []).filter(section => section?.key || section?.label);
+  if (!named.length) return [];
+  const known = new Set(named.map(section => section.key));
+  const ordered = named.map(section => ({
     ...section,
     items: (items || []).filter(item => item.section === section.key)
   }));
-  /* An item filed under a section this profile does not name still gets read.
-     The shape validator refuses those on the way in, so this only catches a
-     profile whose sections changed after an edition was filed. */
   const orphans = (items || []).filter(item => !known.has(item.section));
   return orphans.length
     ? [...ordered, { key: '', label: 'Elsewhere', items: orphans }]
     : ordered;
+};
+
+/**
+ * How the stand lays out one issue.
+ *
+ * `columns` is the configured shape (empty columns included). `looseItems` is
+ * what remains when there is no shape — a list without invented roles.
+ */
+export const standLayout = (edition = null) => {
+  if (!edition) return { ready: false, columns: [], looseItems: [] };
+  const columns = bySection(edition);
+  return {
+    ready: true,
+    columns,
+    looseItems: columns.length ? [] : (Array.isArray(edition.items) ? edition.items : [])
+  };
+};
+
+/** Grid count from the configuration, never a hardcoded three. */
+export const editionColumnStyle = (count = 0) => {
+  const n = Math.max(0, Math.floor(Number(count) || 0));
+  return {
+    '--edition-columns': String(n),
+    '--edition-columns-narrow': String(Math.min(Math.max(n, 1), 2))
+  };
 };
 
 /**
