@@ -135,6 +135,9 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
    sides. Hover or keyboard focus peeks a rail back along the same curve. */
 @media (min-width: 1181px) {
   .think-notes {
+    /* Pixel tracks interpolate; minmax() to 30px is discrete and reads as
+       rails jumping after the words have already started to go. */
+    grid-template-columns: 220px minmax(420px, 1fr) 280px;
     transition:
       grid-template-columns var(--think-rail-push),
       gap var(--think-rail-push);
@@ -156,11 +159,11 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
   }
 
   body:is(.think-rails-away, .think-focus-held) .think-notes:has([data-writing-rail='left']:is(:hover, :focus-within)) {
-    grid-template-columns: minmax(180px, 220px) minmax(420px, 1fr) 30px;
+    grid-template-columns: 220px minmax(420px, 1fr) 30px;
   }
 
   body:is(.think-rails-away, .think-focus-held) .think-notes:has([data-writing-rail='right']:is(:hover, :focus-within)) {
-    grid-template-columns: 30px minmax(420px, 1fr) minmax(230px, 280px);
+    grid-template-columns: 30px minmax(420px, 1fr) 280px;
   }
 }
 
