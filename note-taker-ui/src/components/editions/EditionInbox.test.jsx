@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import EditionInbox from './EditionInbox';
 import { getEditionInbox, saveEditionItemLater, setEditionItemState } from '../../api/editions';
@@ -19,6 +19,17 @@ const row = {
   profileLabel: 'This Week in AI',
   issueLabel: 'Issue',
   number: 14
+};
+
+const weekend = {
+  editionId: 'w1',
+  itemId: 'item-2',
+  title: 'A long essay',
+  sourceLabel: 'Journal',
+  sourceDate: 'Sep 4',
+  profileLabel: 'Weekend Readings',
+  issueLabel: 'Issue',
+  number: 3
 };
 
 describe('new arrivals', () => {
@@ -65,5 +76,43 @@ describe('new arrivals', () => {
     expect(await screen.findByText('New items did not load.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
     expect(screen.queryByText('No new items')).not.toBeInTheDocument();
+  });
+
+  it('nests each arrival under the edition that filed it', async () => {
+    getEditionInbox.mockResolvedValue({ items: [row, weekend], hasMore: false, remaining: 0 });
+    render(<MemoryRouter><EditionInbox /></MemoryRouter>);
+    const ai = await screen.findByRole('region', { name: 'This Week in AI · Issue 14' });
+    const saturday = screen.getByRole('region', { name: 'Weekend Readings · Issue 3' });
+    expect(within(ai).getByText('A paper about scaling')).toBeInTheDocument();
+    expect(within(ai).queryByText('A long essay')).not.toBeInTheDocument();
+    expect(within(saturday).getByText('A long essay')).toBeInTheDocument();
+    expect(within(saturday).queryByText('A paper about scaling')).not.toBeInTheDocument();
+  });
+
+  it('folds one edition’s arrivals without hiding the others', async () => {
+    getEditionInbox.mockResolvedValue({ items: [row, weekend], hasMore: false, remaining: 0 });
+    render(<MemoryRouter><EditionInbox /></MemoryRouter>);
+    const head = await screen.findByRole('button', { name: /This Week in AI · Issue 14/ });
+    expect(head).toHaveAttribute('aria-expanded', 'true');
+    fireEvent.click(head);
+    expect(head).toHaveAttribute('aria-expanded', 'false');
+    expect(head.closest('.edition-inbox__edition')).not.toHaveClass('is-open');
+    expect(screen.queryByRole('region', { name: 'This Week in AI · Issue 14' })).not.toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Weekend Readings · Issue 3' })).toBeInTheDocument();
+    expect(screen.getByText('A long essay')).toBeInTheDocument();
+    fireEvent.click(head);
+    expect(head).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('region', { name: 'This Week in AI · Issue 14' })).toBeInTheDocument();
+    expect(screen.getByText('A paper about scaling')).toBeInTheDocument();
+  });
+
+  it('drops an edition once its last arrival is gone', async () => {
+    setEditionItemState.mockResolvedValue({ readerStatus: 'dismissed' });
+    render(<MemoryRouter><EditionInbox /></MemoryRouter>);
+    expect(await screen.findByRole('button', { name: /This Week in AI · Issue 14/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: /This Week in AI · Issue 14/ })).not.toBeInTheDocument();
+    });
   });
 });

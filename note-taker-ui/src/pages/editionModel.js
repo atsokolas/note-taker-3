@@ -193,6 +193,36 @@ export const byPaper = (editions = []) => {
 };
 
 /**
+ * New arrivals, nested back under the issue that filed them.
+ *
+ * The inbox arrives as a date-ordered pile, so two papers — and two issues of
+ * the same paper — sit as adjacent rows. Grouping by edition makes each issue
+ * a thing you can fold, rather than a label repeated on every finding.
+ */
+export const byInboxEdition = (items = []) => {
+  const groups = new Map();
+  (Array.isArray(items) ? items : []).forEach((item) => {
+    if (!item) return;
+    const editionId = item.editionId || '';
+    if (!groups.has(editionId)) {
+      groups.set(editionId, {
+        editionId,
+        title: item.profileLabel || item.issueTitle || 'Edition',
+        issue: issueLine(item),
+        items: []
+      });
+    }
+    groups.get(editionId).items.push(item);
+  });
+  return [...groups.values()];
+};
+
+/** The issue name on an inbox group: the paper, then which number. */
+export const inboxEditionLine = ({ title, issue } = {}) => (
+  [title, issue].filter(Boolean).join(' · ')
+);
+
+/**
  * Whether an agent has kept its promise, for one paper.
  *
  * A periodical is judged on whether it turned up. Consecutive by window rather
