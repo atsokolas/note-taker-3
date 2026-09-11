@@ -84,7 +84,7 @@ const BlockIdExtension = Extension.create({
   addGlobalAttributes() {
     return [
       {
-        types: ['paragraph', 'heading', 'blockquote', 'listItem'],
+        types: ['paragraph', 'heading', 'blockquote', 'listItem', 'codeBlock'],
         attributes: {
           blockId: {
             default: null,
