@@ -1,0 +1,29 @@
+{
+  "title": "Noeis — Make something of what you read",
+  "description": "Keep articles, highlights and notes together. Build a source-backed understanding of a subject, develop your own ideas, and return to the work that matters.",
+  "eyebrow": "A personal research workspace",
+  "headline": "Make something of what you read.",
+  "lede": "Keep articles, highlights and notes together. Build a source-backed understanding of a subject, develop your own ideas, and return to the work that matters.",
+  "primaryCta": {
+    "label": "Get started",
+    "href": "/register"
+  },
+  "secondaryCta": {
+    "label": "See how it works",
+    "href": "#how-it-works"
+  },
+  "statements": [
+    {
+      "title": "Keep the source.",
+      "copy": "Save the passage with the article it came from."
+    },
+    {
+      "title": "Work with the idea.",
+      "copy": "Develop a page, note or question from your reading."
+    },
+    {
+      "title": "Pick it up again.",
+      "copy": "Return to your saved material and continue thinking."
+    }
+  ]
+}

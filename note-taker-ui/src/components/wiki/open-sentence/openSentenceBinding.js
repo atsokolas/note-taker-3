@@ -152,6 +152,21 @@ const attachedPassages = (args) => {
   };
 };
 
+const distinctBoundPassages = (args) => {
+  const { passages, notes } = attachedPassages(args);
+  const seen = new Set();
+  return passages.reduce((list, item) => {
+    const key = sourceIdentity(item);
+    const bound = bindPassage(item, notes);
+    const passage = String(bound?.passage || '').trim();
+    if (!key || !passage || seen.has(key) || list.some((row) => row.passage === passage)) {
+      return list;
+    }
+    seen.add(key);
+    return [...list, bound];
+  }, []);
+};
+
 export const bindClaimSource = (args = {}) => {
   const { attached, passages, indexes, notes } = attachedPassages(args);
   if (!passages.length) {
@@ -160,21 +175,9 @@ export const bindClaimSource = (args = {}) => {
   return bindPassage(passages[0], notes);
 };
 
-export const bindClaimOther = (args = {}) => {
-  const { passages, notes } = attachedPassages(args);
-  if (passages.length < 2) return null;
-  const firstKey = sourceIdentity(passages[0]);
-  const other = passages.slice(1).find((item) => {
-    const key = sourceIdentity(item);
-    return key && key !== firstKey;
-  });
-  if (!other) return null;
-  const bound = bindPassage(other, notes);
-  const passage = String(bound?.passage || '').trim();
-  if (!bound?.available || !passage) return null;
-  if (passage === String(bindPassage(passages[0], notes)?.passage || '').trim()) return null;
-  return bound;
-};
+export const bindClaimOther = (args = {}) => distinctBoundPassages(args)[1] || null;
+
+export const bindClaimBearing = (args = {}) => distinctBoundPassages(args)[2] || null;
 
 export const draftStorageKey = (pageId, claimId) => (
   `noeis.open-sentence.${String(pageId || '').trim()}.${String(claimId || '').trim()}`
@@ -222,10 +225,10 @@ export const claimIdFromSelection = (root, claims = []) => {
   return claims.some((claim) => claim.claimId === claimId) ? claimId : fallback;
 };
 
-export const claimTextOnPage = (doc, claimId) => {
+export const claimMarkOnPage = (doc, claimId) => {
   const target = String(claimId || '').trim();
-  if (!target || !doc) return '';
-  let found = '';
+  if (!target || !doc) return null;
+  let found = null;
   const walk = (node) => {
     if (found || !node) return;
     if (Array.isArray(node)) {
@@ -235,7 +238,14 @@ export const claimTextOnPage = (doc, claimId) => {
     if (typeof node !== 'object') return;
     if (node.type === 'text' && Array.isArray(node.marks)) {
       const mark = node.marks.find((item) => item?.type === 'claim' && String(item.attrs?.claimId || '') === target);
-      if (mark) found = String(node.text || '');
+      if (mark) {
+        found = {
+          claimId: target,
+          text: String(node.text || ''),
+          citationIndexes: Array.isArray(mark.attrs?.citationIndexes) ? mark.attrs.citationIndexes : [],
+          contradictionIndexes: Array.isArray(mark.attrs?.contradictionIndexes) ? mark.attrs.contradictionIndexes : []
+        };
+      }
     }
     walk(node.content);
   };
@@ -243,20 +253,27 @@ export const claimTextOnPage = (doc, claimId) => {
   return found;
 };
 
-const earlierClaimTextFromRevisions = (revisions, claimId, now) => {
+export const claimTextOnPage = (doc, claimId) => String(claimMarkOnPage(doc, claimId)?.text || '');
+
+const earlierFromRevisions = (revisions, claimId, now) => {
   const list = Array.isArray(revisions) ? revisions : [];
   for (const revision of list) {
     if (revision?.snapshotPrunedAt) continue;
     const before = revision?.before;
     if (!before) continue;
-    const fromBody = String(claimTextOnPage(before.body, claimId) || '').trim();
-    if (fromBody && fromBody !== now) return fromBody;
+    const mark = claimMarkOnPage(before.body, claimId);
     const fromClaims = (Array.isArray(before.claims) ? before.claims : [])
       .find((claim) => idsMatch(claim?.claimId, claimId));
-    const text = String(fromClaims?.text || '').trim();
-    if (text && text !== now) return text;
+    const text = String(mark?.text || fromClaims?.text || '').trim();
+    if (text && text !== now) {
+      return {
+        text,
+        before,
+        mark: mark || { claimId, text }
+      };
+    }
   }
-  return '';
+  return null;
 };
 
 const earlierClaimTextFromHistory = (history, now) => {
@@ -268,12 +285,60 @@ const earlierClaimTextFromHistory = (history, now) => {
   return '';
 };
 
+const snapshotForClaim = (found, claimId) => {
+  if (!found?.before) return null;
+  const ledgerClaim = (Array.isArray(found.before.claims) ? found.before.claims : [])
+    .find((claim) => idsMatch(claim?.claimId, claimId));
+  return {
+    claimMark: found.mark,
+    ledgerClaim,
+    citations: found.before.citations || [],
+    sourceRefs: found.before.sourceRefs || []
+  };
+};
+
+const pickAttachedLine = (attached, type) => {
+  const ref = (attached || []).find((item) => item?.type === type);
+  return String(ref?.snippet || ref?.title || '').trim();
+};
+
+const recordedPassage = (bound) => (
+  bound && bound.available !== false && String(bound.passage || '').trim() ? bound : null
+);
+
+const sceneFromBefore = (found, claimId) => {
+  const snapshot = snapshotForClaim(found, claimId);
+  if (!snapshot) return {};
+  const { attached } = attachedSourceRefs(snapshot);
+  return {
+    sources: [bindClaimSource(snapshot), bindClaimOther(snapshot)].filter(recordedPassage),
+    question: pickAttachedLine(attached, 'question'),
+    draft: pickAttachedLine(attached, 'notebook')
+  };
+};
+
+const thenDraftFromHistory = (history, thenText) => {
+  const list = Array.isArray(history) ? history : [];
+  const match = list.find((entry) => (
+    String(entry?.text || '').trim() === thenText
+    && entry?.actorType === 'user'
+    && String(entry?.note || '').trim()
+  ));
+  return match ? String(match.note).trim() : '';
+};
+
 export const recordedThen = ({ claimId, currentText, revisions, history } = {}) => {
   const now = String(currentText || '').trim();
   if (!claimId || !now) return null;
-  const prior = earlierClaimTextFromRevisions(revisions, claimId, now)
-    || earlierClaimTextFromHistory(history, now);
-  return prior ? { text: prior } : null;
+  const fromRevision = earlierFromRevisions(revisions, claimId, now);
+  const text = fromRevision?.text || earlierClaimTextFromHistory(history, now);
+  if (!text) return null;
+  const scene = sceneFromBefore(fromRevision, claimId);
+  return {
+    text,
+    ...scene,
+    draft: scene.draft || thenDraftFromHistory(history, text)
+  };
 };
 
 export const liveExplorationForClaim = ({
@@ -291,20 +356,22 @@ export const liveExplorationForClaim = ({
       : String(ledgerClaim?.text || ''),
     source: bindClaimSource(bound),
     other: bindClaimOther(bound),
+    bearing: bindClaimBearing(bound),
     then
   });
 };
 
 export const liveExplorationForPageClaim = (page, claimMark = {}, extras = {}) => {
   const claimId = String(claimMark?.claimId || '').trim();
-  const onPage = claimTextOnPage(page?.body, claimId);
-  const text = onPage || String(claimMark?.text || '');
+  const onPage = claimMarkOnPage(page?.body, claimId);
+  const text = onPage?.text || String(claimMark?.text || '');
   const ledgerClaim = text
     ? (page?.claims || []).find((claim) => idsMatch(claim?.claimId, claimId))
     : null;
   return liveExplorationForClaim({
     claimMark: {
       ...claimMark,
+      ...onPage,
       claimId,
       text
     },

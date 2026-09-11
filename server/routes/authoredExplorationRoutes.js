@@ -1,11 +1,13 @@
 const { listRecentExplorations, searchAuthoredWork } = require('../services/authoredWorkDiscovery');
 const express = require('express');
+const { ownedWork, saveVersion } = require('../services/authoredWorkRecovery');
 const {
   AuthoredExplorationError,
   deleteExploration,
   keepExploration,
   listExplorations,
-  putExploration
+  putExploration,
+  serializeExploration
 } = require('../services/authoredExplorationService');
 
 const buildAuthoredExplorationRouter = ({
@@ -33,6 +35,22 @@ const buildAuthoredExplorationRouter = ({
     console.error('Error handling authored exploration:', error);
     return res.status(500).json({ error: 'Private authored work is temporarily unavailable.' });
   };
+
+  router.get('/api/authored-explorations/:workId', authenticateToken, humanOnly, async (req, res) => {
+    res.set('Cache-Control', 'private, no-store');
+    try {
+      const row = await ownedWork({ AuthoredExploration, userId: req.user.id, workId: req.params.workId });
+      return res.json({ exploration: serializeExploration(row), versions: row.savedVersions || [], userId: String(req.user.id) });
+    } catch (error) { return sendError(res, error); }
+  });
+
+  router.post('/api/authored-explorations/:workId/versions', authenticateToken, humanOnly, async (req, res) => {
+    res.set('Cache-Control', 'private, no-store');
+    try {
+      const versions = await saveVersion({ AuthoredExploration, userId: req.user.id, workId: req.params.workId, expectedRevision: req.body?.expectedRevision });
+      return res.json({ versions });
+    } catch (error) { return sendError(res, error); }
+  });
 
   router.get('/api/authored-work/search', authenticateToken, humanOnly, async (req, res) => {
     res.set('Cache-Control', 'private, no-store');

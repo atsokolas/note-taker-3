@@ -328,7 +328,7 @@ These are constraints for an architecture inventory, not claims about existing c
 
 ### Sharing and history
 
-Preview recipient-visible material and source-access limits. Private source content, personal annotations, credentials, and hidden metadata must not leak. Shared snapshots do not silently incorporate later private edits. Define access, revocation, retention, and derivative-content behavior before collaboration work.
+Preview recipient-visible material and source-access limits. Private source content, personal annotations, credentials, and hidden metadata must not leak. Shared snapshots do not silently incorporate later private edits. Define access, revocation, retention, and derivative-content behavior before collaboration work. For a carried pocket snapshot, that definition is [the snapshot share contract](noeis-open-sentence-snapshot-share-contract-2026-09-09.md).
 
 Historical reconstruction uses recorded artifacts only. Missing data remains missing; dates and identity are not invented to make a compelling story.
 

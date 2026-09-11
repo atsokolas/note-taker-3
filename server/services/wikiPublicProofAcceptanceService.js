@@ -1,4 +1,5 @@
 const { eventIsSubstantive, providerKind } = require('./alphabetProofAcceptanceService');
+const { resolveRevisionSnapshot } = require('./wikiRevisionService');
 const { buildPublicProofHeadHash } = require('./publicProofHeadService');
 
 const clean = (value = '', limit = 320) => String(value || '').replace(/\s+/g, ' ').trim().slice(0, limit);
@@ -71,11 +72,16 @@ const buildSecPublicProofAcceptance = ({
   });
 
   if (!seenTypes.has('sec_edgar')) errors.push('Missing required accepted clock: sec_edgar.');
+  /* A promoted revision that changed nothing is still the head, and naming an
+     older one in its place would put the wrong id in the proof. It kept no
+     payload, so the content it stands for is read back off the chain. */
+  const headContent = revision => revision?.after || resolveRevisionSnapshot(revision, revisions, 'after');
   const headRevision = acceptedHeadRevision || revisions
-    .filter(row => row && row.promotionStatus === 'promoted' && row.after)
+    .filter(row => row && row.promotionStatus === 'promoted' && headContent(row))
     .sort((left, right) => new Date(right.createdAt || 0) - new Date(left.createdAt || 0))[0];
   const pageHeadHash = buildPublicProofHeadHash(page);
-  const revisionHeadHash = headRevision?.after ? buildPublicProofHeadHash(headRevision.after) : '';
+  const resolvedHead = headContent(headRevision);
+  const revisionHeadHash = resolvedHead ? buildPublicProofHeadHash(resolvedHead) : '';
   if (!headRevision || !sameId(headRevision.pageId, pageId) || headRevision.promotionStatus !== 'promoted') {
     errors.push('Public-proof acceptance must identify the promoted revision representing the current dossier head.');
   } else if (!revisionHeadHash || revisionHeadHash !== pageHeadHash) {

@@ -5,8 +5,8 @@ import {
   isWeekend,
   paperEdition,
   END_OF_PAPER,
-  firstMorningDeskLine,
   firstMorningLead,
+  placeDoorLabel,
   shelfClause
 } from './paperEditions';
 
@@ -60,7 +60,7 @@ describe('the desk clauses', () => {
     expect(textOf(deskClauses({
       later: 3, setAside: 1,
       topics: [{ name: 'Costco', open: 2 }]
-    }))).toEqual(['3 owed a move', '1 at hand', 'Costco has 2 new folios']);
+    }))).toEqual(['3 saved for later', '1 set aside', 'Costco has 2 new items']);
   });
 
   /* The sentence was a finished string, so the one thing a reader wanted to do
@@ -73,12 +73,12 @@ describe('the desk clauses', () => {
   });
 
   it('only lets a place speak when it has something on it', () => {
-    expect(textOf(deskClauses({ later: 0, setAside: 2 }))).toEqual(['2 at hand']);
+    expect(textOf(deskClauses({ later: 0, setAside: 2 }))).toEqual(['2 set aside']);
   });
 
   it('names folders, never the word feed', () => {
     const [topic] = deskClauses({ topics: [{ name: 'Macro', open: 1, href: '/library?scope=feed&topic=m' }] });
-    expect(topic.text).toBe('Macro has 1 new folio');
+    expect(topic.text).toBe('Macro has 1 new item');
     expect(topic.text.toLowerCase()).not.toContain('feed');
     expect(topic.href).toBe('/library?scope=feed&topic=m');
   });
@@ -87,18 +87,24 @@ describe('the desk clauses', () => {
     expect(deskClauses({ later: 0, setAside: 0, topics: [] })).toEqual([]);
   });
 
+  it('puts a known count on a door and stays quiet at zero and unread', () => {
+    expect(placeDoorLabel('Later', 1)).toBe('Later 1');
+    expect(placeDoorLabel('Later', 0)).toBe('Later');
+    expect(placeDoorLabel('Later', null)).toBe('Later');
+  });
+
   it('will not report a desk it has not read', () => {
     expect(deskClauses({ later: null, setAside: null })).toEqual([]);
   });
 
   it('counts only what it knows, and stays silent about the rest', () => {
-    expect(textOf(deskClauses({ later: 3, setAside: null }))).toEqual(['3 owed a move']);
+    expect(textOf(deskClauses({ later: 3, setAside: null }))).toEqual(['3 saved for later']);
   });
 });
 
 describe('the shelf clause', () => {
   it('says what the canon holds, and how to reach it', () => {
-    expect(shelfClause(7)).toEqual({ key: 'kept', text: 'The shelf holds 7', href: '/library?scope=kept' });
+    expect(shelfClause(7)).toEqual({ key: 'kept', text: '7 kept', href: '/library?scope=kept' });
   });
 
   it('stays quiet about a canon holding nothing, or one nobody has counted', () => {
@@ -110,7 +116,6 @@ describe('the shelf clause', () => {
 describe('the first mornings', () => {
   it('prints one line on day one, and asks for nothing', () => {
     expect(firstMorningLead()).toBe('No news yet. Save something worth keeping — I’ll print it when it moves.');
-    expect(firstMorningDeskLine()).toBe('Your desk is empty. The shelf holds nothing yet.');
   });
 });
 
@@ -148,10 +153,10 @@ describe('which paper this is', () => {
 describe('the desk on a weekend', () => {
   /* What you set aside is exactly what a weekend is for. The clause that says
      "owed" is a bill, and the paper does not deliver bills on a Saturday. */
-  it('drops what is owed and keeps what is at hand', () => {
+  it('drops Later on a weekend and keeps what is set aside', () => {
     const clauses = deskClauses({ later: 3, setAside: 2, edition: 'the weekend' });
     expect(clauses.map(clause => clause.key)).toEqual(['setAside']);
-    expect(clauses[0].text).toBe('2 at hand');
+    expect(clauses[0].text).toBe('2 set aside');
   });
 
   it('still presents the bill on a weekday', () => {

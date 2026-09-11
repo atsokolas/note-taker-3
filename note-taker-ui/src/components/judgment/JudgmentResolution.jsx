@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { recordJudgmentVerdict, setJudgmentResolution } from '../../api/judgmentResolution';
 
 const clean = value => String(value || '').trim();
@@ -37,9 +37,11 @@ const JudgmentResolution = ({
   claim,
   judgment = {},
   evidenceOptions = [],
-  changeMindIf = [],
-  arrivingId = '',
-  onSaved
+  onSaved,
+  /* Bumped by the warning above when a test has no signal anything can watch.
+     The way to fix that is this form, so the warning opens it rather than
+     naming a problem and leaving the reader to find the cure. */
+  openTest = 0
 }) => {
   const [settingTest, setSettingTest] = useState(false);
   const [criteria, setCriteria] = useState(judgment.resolutionCriteria || '');
@@ -51,6 +53,8 @@ const JudgmentResolution = ({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [newVerdictId, setNewVerdictId] = useState('');
+
+  useEffect(() => { if (openTest) setSettingTest(true); }, [openTest]);
   const verdicts = Array.isArray(judgment.verdicts) ? judgment.verdicts : [];
   const latest = verdicts.at(-1) || null;
   const due = useMemo(() => {
@@ -151,15 +155,6 @@ const JudgmentResolution = ({
         <p className="judgment-resolution__criteria">
           {judgment.resolutionCriteria}
           {judgment.resolutionHorizonAt ? <small>By {dateLabel(judgment.resolutionHorizonAt)}</small> : null}
-        </p>
-      ) : null}
-
-      {changeMindIf.length ? (
-        <p className="judgment-resolution__said">
-          <span>I’d change my mind if</span>
-          {changeMindIf.map(line => (
-            <span key={line.id} className={line.id === arrivingId ? 'is-arriving' : ''}>{line.text}</span>
-          ))}
         </p>
       ) : null}
 

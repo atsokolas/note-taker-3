@@ -1,3 +1,5 @@
+import { isRepoDossierPage } from './wikiRepoDossierModel';
+
 const clean = value => String(value || '').trim();
 
 const pageIdentity = (page = {}, fallback = '') => clean(
@@ -7,14 +9,6 @@ const pageIdentity = (page = {}, fallback = '') => clean(
 export const wikiProjectionForPage = (page = null) => {
   if (!page) return 'workspace';
   const createdFrom = clean(page?.createdFrom?.label).toLowerCase();
-  const repoWatch = page?.externalWatches?.githubRepo || {};
-  if (
-    clean(page?.pageType).toLowerCase() === 'repo'
-    || clean(page?.repoKey)
-    || clean(repoWatch.owner)
-    || clean(repoWatch.repo)
-    || clean(repoWatch.url)
-  ) return 'repo_dossier';
   if (page?.investmentDossier?.version) return 'investment_dossier';
   if (/^(?:weekend-readings|this-week-in-ai):/.test(createdFrom)) return 'research_edition';
   if (
@@ -22,6 +16,7 @@ export const wikiProjectionForPage = (page = null) => {
     || (clean(page?.externalWatches?.edgar?.ticker) && clean(page?.externalWatches?.edgar?.status).toLowerCase() === 'active')
   ) return 'company_dossier';
   if (page?.judgment?.kind) return 'living_thesis';
+  if (isRepoDossierPage(page) || clean(page?.repoKey)) return 'repo_dossier';
   return 'ordinary';
 };
 

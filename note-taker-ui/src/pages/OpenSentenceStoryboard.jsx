@@ -5,26 +5,51 @@ import '../styles/agent-rail.css';
 import OpenSentence from '../components/wiki/open-sentence/OpenSentence';
 import {
   acceptWording,
+  applyInstrument,
+  beginCarry,
+  beginContributions,
   beginPressure,
   cancelPlacement,
   createExploration,
+  includeCarryPassage,
   inspectableOther,
   isOpen,
   isPressured,
+  isWithoutParagraph,
+  isWithoutSource,
+  keepAsExhibit,
+  keepAsRehearsal,
+  keepAsUnwritten,
   keepQuestion,
+  liveBearing,
+  liveCarry,
+  liveContributions,
+  liveExhibit,
+  liveInstrument,
+  liveRehearsal,
   liveThen,
+  liveUnwritten,
   openExploration,
   placeSource,
   putItBack,
+  setCarryFields,
+  setContributionFields,
+  setDistinction,
+  setExhibitFields,
   setMeetField,
   setPressureField,
-  setReturnNote,
+  setRehearsalAttempt,
+  setUnwrittenField,
+  showExhibitWay,
+  tryWithoutThisParagraph,
+  tryWithoutThisSource,
   tryWording,
   wikiAcceptedText
 } from '../components/wiki/open-sentence/openSentenceModel';
 import {
   keepExploration,
-  readRemembered
+  readRemembered,
+  writeHeldInstrument
 } from '../components/wiki/open-sentence/openSentenceJourney';
 import {
   STORYBOARD_COMPUTE_ID,
@@ -39,12 +64,32 @@ import {
   STORYBOARD_PAGE_TITLE,
   STORYBOARD_PREMISE,
   STORYBOARD_PROVISIONAL,
-  STORYBOARD_RETURN_NOTE,
+  STORYBOARD_QUESTION,
+  STORYBOARD_DISTINCTION,
+  STORYBOARD_EXHIBIT_NAME,
+  STORYBOARD_EXHIBIT_OTHER,
+  STORYBOARD_EXHIBIT_THIS,
+  STORYBOARD_INSTRUMENT_NAME,
+  STORYBOARD_REHEARSAL,
+  STORYBOARD_UNWRITTEN,
+  STORYBOARD_UNWRITTEN_GAP,
+  STORYBOARD_CARRY_CONCLUSION,
+  STORYBOARD_CARRY_QUESTION,
+  STORYBOARD_CONTRIBUTIONS_QUESTION,
+  STORYBOARD_BOTH_ACCEPT,
+  STORYBOARD_THIS_DISPUTES,
+  STORYBOARD_OTHER_DISPUTES,
+  STORYBOARD_OBSERVATION,
+  STORYBOARD_BEARING_SOURCE,
   STORYBOARD_SCOPE,
   STORYBOARD_SENTENCE,
   STORYBOARD_SOURCE,
   STORYBOARD_SOURCE_ROOMS,
   STORYBOARD_THEN_NOW,
+  STORYBOARD_THEN_ORIGINAL,
+  STORYBOARD_THEN_QUESTION,
+  STORYBOARD_THEN_QUOTATION,
+  STORYBOARD_THEN_BESIDE,
   storyboardSource
 } from '../components/wiki/open-sentence/openSentenceStoryboardFixture';
 import './open-sentence-storyboard.css';
@@ -58,13 +103,21 @@ const WIDTHS = [
 const BEATS = [
   { id: 'read', label: 'Read' },
   { id: 'open', label: 'Opened' },
+  { id: 'without', label: 'Without' },
   { id: 'place', label: 'Placed' },
   { id: 'wording', label: 'Wording' },
   { id: 'question', label: 'Leave open' },
   { id: 'return', label: 'Return' },
   { id: 'pressure', label: 'Pressure' },
   { id: 'then', label: 'Then' },
-  { id: 'meet', label: 'Meet' }
+  { id: 'meet', label: 'Meet' },
+  { id: 'instrument', label: 'Instrument' },
+  { id: 'exhibit', label: 'Exhibit' },
+  { id: 'rehearse', label: 'Rehearse' },
+  { id: 'unwritten', label: 'Unwritten' },
+  { id: 'limits', label: 'Limits' },
+  { id: 'carry', label: 'Carry' },
+  { id: 'libraries', label: 'Libraries' }
 ];
 
 const seed = (source = STORYBOARD_SOURCE) => createExploration({
@@ -83,7 +136,15 @@ const thenSeed = () => createExploration({
   id: STORYBOARD_COMPUTE_ID,
   originalText: STORYBOARD_THEN_NOW,
   source: STORYBOARD_COMPUTE_SOURCE,
-  then: { text: STORYBOARD_COMPUTE_SENTENCE }
+  then: {
+    text: STORYBOARD_COMPUTE_SENTENCE,
+    sources: [{
+      title: STORYBOARD_COMPUTE_SOURCE.title,
+      passage: STORYBOARD_THEN_QUOTATION,
+      href: STORYBOARD_THEN_ORIGINAL
+    }, STORYBOARD_THEN_BESIDE],
+    question: STORYBOARD_THEN_QUESTION
+  }
 });
 
 const meetSeed = () => {
@@ -114,12 +175,72 @@ const applyBeat = (beat, source) => {
   if (beat === 'meet') {
     return meetSeed();
   }
+  if (beat === 'instrument') {
+    const held = {
+      name: STORYBOARD_INSTRUMENT_NAME,
+      definition: STORYBOARD_DISTINCTION
+    };
+    writeHeldInstrument(held);
+    return applyInstrument(openExploration(computeSeed()), held);
+  }
+  if (beat === 'exhibit') {
+    return showExhibitWay(
+      setExhibitFields(keepAsExhibit(openExploration(seed(source))), {
+        name: STORYBOARD_EXHIBIT_NAME,
+        thisWay: STORYBOARD_EXHIBIT_THIS,
+        otherWay: STORYBOARD_EXHIBIT_OTHER
+      }),
+      'this'
+    );
+  }
+  if (beat === 'rehearse') {
+    return setRehearsalAttempt(
+      keepAsRehearsal(openExploration(seed(source))),
+      STORYBOARD_REHEARSAL
+    );
+  }
+  if (beat === 'unwritten') {
+    return setUnwrittenField(
+      setUnwrittenField(
+        keepAsUnwritten(openExploration(seed(source))),
+        'question',
+        STORYBOARD_UNWRITTEN
+      ),
+      'gap',
+      STORYBOARD_UNWRITTEN_GAP
+    );
+  }
+  if (beat === 'limits') {
+    return tryWithoutThisSource(openExploration(seed(source)));
+  }
+  if (beat === 'carry') {
+    return setCarryFields(
+      includeCarryPassage(includeCarryPassage(beginCarry(meetSeed()), 'source'), 'other'),
+      {
+        question: STORYBOARD_CARRY_QUESTION,
+        conclusion: STORYBOARD_CARRY_CONCLUSION
+      }
+    );
+  }
+  if (beat === 'libraries') {
+    return setContributionFields(beginContributions(meetSeed()), {
+      question: STORYBOARD_CONTRIBUTIONS_QUESTION,
+      kind: 'values',
+      bothAccept: STORYBOARD_BOTH_ACCEPT,
+      thisDisputes: STORYBOARD_THIS_DISPUTES,
+      otherDisputes: STORYBOARD_OTHER_DISPUTES,
+      observation: STORYBOARD_OBSERVATION
+    });
+  }
+  if (beat === 'without') {
+    return tryWithoutThisParagraph(openExploration(seed(source)));
+  }
   const opened = openExploration(seed(source));
   const placed = placeSource(opened);
   const worded = tryWording(placed, STORYBOARD_PROVISIONAL);
-  const questioned = setReturnNote(
-    keepQuestion(worded, STORYBOARD_RETURN_NOTE),
-    STORYBOARD_RETURN_NOTE
+  const questioned = setDistinction(
+    keepQuestion(worded, STORYBOARD_QUESTION),
+    STORYBOARD_DISTINCTION
   );
   switch (beat) {
     case 'open':
@@ -131,10 +252,13 @@ const applyBeat = (beat, source) => {
     case 'question':
       return questioned;
     case 'return':
-      return setReturnNote(
-        keepQuestion(putItBack(worded), STORYBOARD_RETURN_NOTE),
-        STORYBOARD_RETURN_NOTE
-      );
+      return {
+        ...setDistinction(
+          keepQuestion(putItBack(worded), STORYBOARD_QUESTION),
+          STORYBOARD_DISTINCTION
+        ),
+        bearing: STORYBOARD_BEARING_SOURCE
+      };
     default:
       return seed(source);
   }
@@ -148,12 +272,42 @@ const nextSourceRoom = (mode) => {
 const BESIDE_SENTENCE = 'Works beside this sentence. Does not rewrite the article.';
 const BESIDE_ARTICLE = 'Works beside the article. Does not become a second chat in the pocket.';
 
-const companionRole = (scene, exploration, libraryExploration) => {
+const companionRole = (scene, exploration, libraryExploration, pageTitle) => {
   if (scene === 'library') {
     return isOpen(libraryExploration) ? BESIDE_SENTENCE : BESIDE_ARTICLE;
   }
+  if (isWithoutParagraph(exploration)) {
+    return 'The paragraph is set aside. It is not deleted.';
+  }
+  if (isWithoutSource(exploration)) {
+    return 'The source is set aside. It is not deleted.';
+  }
   if (isPressured(exploration)) {
     return 'The original stays. The experiment is not a generated causal chain.';
+  }
+  if (liveExhibit(exploration)) {
+    return 'The exhibit is an illustration. It is not evidence.';
+  }
+  if (liveRehearsal(exploration)) {
+    return 'The explanation is yours. It is not a grade.';
+  }
+  if (liveUnwritten(exploration)) {
+    return 'This is not the article. The gap stays a gap.';
+  }
+  if (liveCarry(exploration)) {
+    return 'This is a snapshot. It is not a publication.';
+  }
+  if (liveContributions(exploration)) {
+    return 'Two contributions. Not a consensus. Not a motive.';
+  }
+  if (liveInstrument(exploration)) {
+    return 'The instrument sits beside this sentence. It does not rewrite the article.';
+  }
+  if (pageTitle && pageTitle === wikiAcceptedText(exploration)) {
+    return 'The title is named. The sentence stays.';
+  }
+  if (liveBearing(exploration)) {
+    return 'This bears on the distinction. It does not close the question.';
   }
   if (inspectableOther(exploration)) {
     return 'Both ends are inspectable. The space between is yours.';
@@ -213,6 +367,7 @@ const OpenSentenceStoryboard = () => {
     source: STORYBOARD_LIBRARY_SOURCE
   }));
   const [beenToLibrary, setBeenToLibrary] = useState(false);
+  const [pageTitle, setPageTitle] = useState(STORYBOARD_PAGE_TITLE);
 
   useEffect(() => {
     const live = exploration.id === STORYBOARD_COMPUTE_ID
@@ -226,7 +381,8 @@ const OpenSentenceStoryboard = () => {
         id: STORYBOARD_ITEM_ID,
         originalText: STORYBOARD_SENTENCE,
         source,
-        other: exploration.other
+        other: exploration.other,
+        bearing: exploration.bearing
       });
     keepExploration(STORYBOARD_SCOPE, exploration.id || STORYBOARD_ITEM_ID, exploration, live);
   }, [exploration, source]);
@@ -242,7 +398,9 @@ const OpenSentenceStoryboard = () => {
     ? (isOpen(libraryExploration) ? wikiAcceptedText(libraryExploration) : 'Nomad')
     : (isOpen(exploration)
       ? wikiAcceptedText(exploration)
-      : (computeWalk ? STORYBOARD_COMPUTE_TITLE : STORYBOARD_PAGE_TITLE));
+      : (computeWalk
+        ? STORYBOARD_COMPUTE_TITLE
+        : (pageTitle || 'Care is not the same as preventing every scrape.')));
 
   const article = useMemo(() => (
     scene === 'library' ? (
@@ -311,7 +469,9 @@ const OpenSentenceStoryboard = () => {
       <article className="wiki-read open-sentence-storyboard__article">
         <header className="wiki-read__header">
           <p className="wiki-read__eyebrow">Wiki</p>
-          <h1>{STORYBOARD_PAGE_TITLE}</h1>
+          <h1 className={pageTitle ? undefined : 'wiki-read__title is-unnamed'}>
+            {pageTitle || 'Care is not the same as preventing every scrape.'}
+          </h1>
         </header>
         <div className="wiki-read__body">
           <p>
@@ -330,6 +490,8 @@ const OpenSentenceStoryboard = () => {
             stillness={stillness}
             homecoming={beenToLibrary ? 'You were in Nomad.' : ''}
             onAccept={(current) => setExploration(acceptWording(current))}
+            pageTitle={pageTitle}
+            onMakeTitle={setPageTitle}
             onOpenSourceHome={() => {
               setBeenToLibrary(true);
               setScene('library');
@@ -347,7 +509,7 @@ const OpenSentenceStoryboard = () => {
         </div>
       </article>
     )
-  ), [beenToLibrary, computeWalk, exploration, libraryExploration, scene, source, stillness, thenLine]);
+  ), [beenToLibrary, computeWalk, exploration, libraryExploration, pageTitle, scene, source, stillness, thenLine]);
 
   return (
     <div className="open-sentence-storyboard">
@@ -356,16 +518,43 @@ const OpenSentenceStoryboard = () => {
         <h1>Open a sentence</h1>
         <p className="open-sentence-storyboard__note">
           The article stays the page. Select the sentence and open it. Closing without
-          a question, a return note, a placed passage, a proposed wording, a named
-          premise, a named meeting, or a note written between them forgets the experiment. A note under the line is the way home.
+          a question, a named distinction, a placed passage, a proposed wording, a named
+          premise, a named meeting, a note written between them, a named instrument,
+          a named exhibit, a rehearsal, unwritten work, a carried snapshot, or two contributions forgets the experiment. A distinction under the line is the way home.
           Source cycles the honest absences. Stillness is the open state with no
           drawing. Propose names a wording; Accept is what writes the illustrated
-          line. Pressure names a premise beside the original. It does not invent a
-          causal chain. Then names an earlier recorded line. It is not a biography.
-          Meet names how two recorded passages sit together, and where that stops.
-          The space between is yours. A note written there can stay a note, be
-          kept as an experiment, be proposed as the line, or be kept as an essay.
-          None of those write the article.
+          line. Pressure names a premise beside the original. A recorded passage
+          can sit as what still holds, or as what remains unknown. It does not invent a
+          causal chain. Then names an earlier recorded line. Recorded sources
+          sit with it when they were saved then. The historical version opens when that
+          door is still a different identity. A recorded question sits with it when
+          one was left open then. The distinction that would help sits beside that
+          question, dated once named. Both stay. It is not a biography. Later a recorded
+          passage can sit beside the named distinction. It bears on the fork. It does
+          not close the question. Read it fresh
+          hides what you wrote, not the sources. Meet names how
+          two recorded passages sit together, and where that stops. Try the other
+          way reads the second passage first. Put them back restores the bound
+          order. It is not a new argument. Try without this paragraph hides it
+          only in this temporary version. The article closes around the gap. Bring
+          it back by name. It is not deletion. Make this the title names the page
+          from the wording. The sentence stays. Writing need not wait for naming.
+          The space
+          between is yours. A note written there can stay a note, be kept as an
+          experiment, be proposed as the line, or be kept as an essay. None of
+          those write the article. A named distinction can be kept as an instrument.
+          Applied to another sentence, it sits beside that line. It does not write
+          the article. Two named readings can be kept as an exhibit, not evidence.
+          Try saying it keeps your explanation; a source you did not cover can sit
+          beside it. Unwritten work names what the collection could become, and the
+          gap. Try without this source sets the bound passage aside. Closing restores
+          it. It is not deletion. Carry this out takes one question, two included
+          passages, and a provisional conclusion. Bound passages stay out until
+          included. The preview is the snapshot. It is not a publication.
+          Let two contributions meet names a shared question, the kind of
+          difference, what both accept, what each still disputes, and what
+          observation might help. Attribution stays with the bound passages.
+          It is not a consensus, a motive, or a second Library.
         </p>
       </header>
 
@@ -380,6 +569,7 @@ const OpenSentenceStoryboard = () => {
                 setBeat(item.id);
                 setQuery({ beat: item.id });
                 setExploration(applyBeat(item.id, source));
+                setPageTitle(STORYBOARD_PAGE_TITLE);
                 setScene('wiki');
                 setBeenToLibrary(false);
               }}
@@ -458,7 +648,7 @@ const OpenSentenceStoryboard = () => {
             <p className="agent-rail__eyebrow">{scene === 'library' ? 'Librarian' : 'Wiki steward'}</p>
           </div>
           <p className="agent-rail__role-description">
-            {companionRole(scene, exploration, libraryExploration)}
+            {companionRole(scene, exploration, libraryExploration, pageTitle)}
           </p>
           <p className="agent-rail__subject">
             <span>Now with</span>

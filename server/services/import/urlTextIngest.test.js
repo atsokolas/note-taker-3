@@ -8,6 +8,10 @@ const {
   stripSiteSuffix
 } = require('./urlTextIngest');
 
+/* Never resolve a real name in a test: the guard calls DNS, and a suite that
+   does is a suite that fails on a plane. */
+const publicLookup = async () => [{ address: '93.184.216.34' }];
+
 const run = async () => {
   // Zero-padded numeric references are what Wikipedia emits. The old decoder
   // matched &#39; but not &#039;, so a new user's first page was titled
@@ -39,9 +43,11 @@ const run = async () => {
 
   const result = await fetchUrlForIngest({
     url: 'https://example.com/post',
+    lookup: publicLookup,
     fetchImpl: async () => ({
       ok: true,
-      headers: { get: () => 'text/html' },
+      status: 200,
+      headers: { get: (name) => (String(name).toLowerCase() === 'content-type' ? 'text/html' : null) },
       text: async () => html
     })
   });
@@ -49,9 +55,10 @@ const run = async () => {
   assert.strictEqual(result.title, 'Example & Test');
   assert.ok(result.text.includes('Second & third.'));
 
+  // Still refused, now by the guard and in its words rather than ours.
   await assert.rejects(
     () => fetchUrlForIngest({ url: 'file:///tmp/x' }),
-    /http and https/
+    /public HTTP\(S\)/
   );
 
   // A page titles itself for a browser tab. A library of "X - Wikipedia" reads as
@@ -96,14 +103,33 @@ const run = async () => {
   // End to end: the suffix is gone by the time the source reaches the library.
   const suffixed = await fetchUrlForIngest({
     url: 'https://en.wikipedia.org/wiki/Goodhart',
+    lookup: publicLookup,
     fetchImpl: async () => ({
       ok: true,
-      headers: { get: () => 'text/html' },
+      status: 200,
+      headers: { get: (name) => (String(name).toLowerCase() === 'content-type' ? 'text/html' : null) },
       text: async () => '<html><head><meta property="og:site_name" content="Wikipedia">'
         + '<title>Goodhart&#039;s law - Wikipedia</title></head><body><p>A law.</p></body></html>'
     })
   });
   assert.strictEqual(suffixed.title, "Goodhart's law");
+
+  /* The URL is pasted by a person and fetched by the server, which is the shape
+     of every SSRF. A paste that resolves inward must never reach the network. */
+  await assert.rejects(
+    () => fetchUrlForIngest({
+      url: 'http://169.254.169.254/latest/meta-data/',
+      fetchImpl: async () => { throw new Error('the server should never have fetched this'); }
+    }),
+    /public IP addresses/
+  );
+  await assert.rejects(
+    () => fetchUrlForIngest({
+      url: 'http://localhost/admin',
+      fetchImpl: async () => { throw new Error('the server should never have fetched this'); }
+    }),
+    /public host/
+  );
 
   console.log('urlTextIngest tests passed');
 };

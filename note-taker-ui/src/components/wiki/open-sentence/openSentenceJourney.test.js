@@ -12,7 +12,10 @@ import {
   rememberDraft,
   surroundingFromArticle,
   wikiReturnHref,
-  writeReturnTicket
+  writeHeldInstrument,
+  writeReturnTicket,
+  readHeldInstrument,
+  rememberHeldInstrument
 } from './openSentenceJourney';
 import { draftStorageKey } from './openSentenceBinding';
 import {
@@ -23,7 +26,9 @@ import {
   openExploration,
   proposeWording,
   setPressureField,
-  tryWording
+  tryWithoutThisSource,
+  tryWording,
+  isWithoutSource
 } from './openSentenceModel';
 import { readStore } from './openSentenceStore';
 
@@ -137,6 +142,24 @@ describe('openSentenceJourney', () => {
     const remembered = readRemembered('wiki-1', 'claim-1', live);
     expect(remembered.status).toBe('open');
     expect(remembered.question).toBe('Which mistakes?');
+  });
+
+  it('keeps a set-aside source while the pocket is open', () => {
+    const live = createExploration({
+      id: 'claim-1',
+      originalText: 'Memory compounds with review.',
+      source: { title: 'Memory article', passage: 'Source snippet', available: true }
+    });
+    keepExploration(
+      'wiki-1',
+      'claim-1',
+      tryWithoutThisSource(openExploration(live)),
+      live
+    );
+    const remembered = readRemembered('wiki-1', 'claim-1', live);
+    expect(remembered.status).toBe('open');
+    expect(isWithoutSource(remembered)).toBe(true);
+    expect(alignRemembered('wiki-1', 'claim-1', live).withoutSource).toBe(true);
   });
 
   it('keeps the walk in memory when the device cannot save', () => {
@@ -320,5 +343,31 @@ describe('openSentenceJourney', () => {
     expect(bound.originalText).toBe('Children need room to make mistakes.');
     expect(bound.source).toEqual({ title: 'Nomad' });
     expect(bound.question).toBe('Which mistakes?');
+  });
+
+  it('keeps a named instrument on the device so another sentence can apply it', () => {
+    expect(readHeldInstrument()).toBeNull();
+    writeHeldInstrument({ name: 'Room to be wrong', definition: 'A mistake that teaches.' });
+    expect(readHeldInstrument()).toEqual({
+      name: 'Room to be wrong',
+      definition: 'A mistake that teaches.'
+    });
+    writeHeldInstrument({ name: '', definition: 'A mistake that teaches.' });
+    expect(readHeldInstrument()).toBeNull();
+    const named = {
+      originalText: 'Children need room to make mistakes.',
+      instrument: {
+        name: 'Room to be wrong',
+        definition: 'A mistake that teaches.',
+        against: 'Children need room to make mistakes.'
+      }
+    };
+    rememberHeldInstrument(named, named);
+    expect(readHeldInstrument()).toEqual({
+      name: 'Room to be wrong',
+      definition: 'A mistake that teaches.'
+    });
+    rememberHeldInstrument({ ...named, instrument: null }, named);
+    expect(readHeldInstrument()).toBeNull();
   });
 });

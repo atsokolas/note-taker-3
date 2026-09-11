@@ -46,6 +46,22 @@ describe('authored exploration persistence lifecycle', () => {
     jest.useRealTimers();
   });
 
+  it('holds an older offline copy beside current words until an explicit decision', async () => {
+    const api = { load: load({ explorations: [saved('Newer online words', 3)] }), save: jest.fn().mockResolvedValue(saved('Offline words', 4)) };
+    const { result } = await open(api);
+    act(() => result.current.restoreWriting('claim-1', { revision: 2, fields: { writing: 'Offline words' } }));
+    expect(result.current.records['claim-1'].draft.writing).toBe('Offline words');
+    expect(result.current.records['claim-1'].conflict.draft.writing).toBe('Newer online words');
+    await act(async () => { jest.advanceTimersByTime(1000); });
+    expect(api.save).not.toHaveBeenCalled();
+    act(() => result.current.resolveConflict('claim-1', false));
+    expect(result.current.records['claim-1'].draft.writing).toBe('Newer online words');
+    expect(api.save).not.toHaveBeenCalled();
+    act(() => result.current.restoreWriting('claim-1', { revision: 3, fields: { writing: 'Offline words' } }));
+    await act(async () => { jest.advanceTimersByTime(500); });
+    expect(api.save.mock.calls[0][2]).toMatchObject({ expectedRevision: 3, draft: { writing: 'Offline words' } });
+  });
+
   it('replays the exact mutation after a lost acknowledgement', async () => {
     const failed = deferred();
     const api = { load: load(), save: jest.fn().mockReturnValueOnce(failed.promise).mockResolvedValueOnce(saved('First words')), keep: jest.fn(), discard: jest.fn() };

@@ -39,7 +39,8 @@ import { wikiPagePath } from '../../utils/wikiFeatureFlags';
 import { trackWikiQaPromoted } from '../../utils/wikiAnalytics';
 import { useNoeisSurface } from '../../surface/NoeisSurfaceContext';
 import { buildWikiSurfaceDescriptor } from './wikiSurfaceModel';
-import { displayWikiPageTitle } from './wikiRepoDossierModel';
+import { displayWikiPageTitle, unnamedTitlePreview } from './wikiRepoDossierModel';
+import { canMakeThisTheTitle } from './open-sentence/openSentenceModel';
 
 const emptyDoc = { type: 'doc', content: [{ type: 'paragraph' }] };
 
@@ -111,12 +112,14 @@ const WikiPageEditor = ({ pageId, onDoneEditing, workspaceMode = false }) => {
   const [asking, setAsking] = useState(false);
   const [promotingDiscussionId, setPromotingDiscussionId] = useState('');
   const [error, setError] = useState('');
+  const [selectionTick, setSelectionTick] = useState(0);
   // Snapshot from the previous visit, captured on first page load. We hold
   // this in a ref + state so subsequent edits within the visit don't clear
   // the banner — only "Mark reviewed" or a fresh page load should.
   const [lastVisit, setLastVisit] = useState(null);
   const lastVisitCapturedRef = useRef(false);
   const saveTimer = useRef(null);
+  const pendingSaveRef = useRef({});
   const latestPageRef = useRef(null);
   const draftTriggeredRef = useRef(false);
 
@@ -136,10 +139,14 @@ const WikiPageEditor = ({ pageId, onDoneEditing, workspaceMode = false }) => {
   };
 
   const scheduleSave = (updates) => {
+    pendingSaveRef.current = { ...pendingSaveRef.current, ...updates };
     if (saveTimer.current) clearTimeout(saveTimer.current);
     setSaveStatus('dirty');
     saveTimer.current = setTimeout(() => {
-      savePage(updates);
+      const patch = pendingSaveRef.current;
+      pendingSaveRef.current = {};
+      saveTimer.current = null;
+      savePage(patch);
     }, 650);
   };
 
@@ -282,13 +289,37 @@ const WikiPageEditor = ({ pageId, onDoneEditing, workspaceMode = false }) => {
     return () => {
       cancelled = true;
       if (saveTimer.current) clearTimeout(saveTimer.current);
+      pendingSaveRef.current = {};
     };
   }, [editor, pageId]);
+
+  useEffect(() => {
+    if (!editor) return undefined;
+    const bump = () => setSelectionTick((n) => n + 1);
+    editor.on('selectionUpdate', bump);
+    return () => editor.off('selectionUpdate', bump);
+  }, [editor]);
 
   const handleTitleChange = (event) => {
     const title = event.target.value;
     setPage(current => ({ ...(current || latestPageRef.current), title }));
     scheduleSave({ title });
+  };
+
+  const selectedWording = (() => {
+    if (!editor) return '';
+    void selectionTick;
+    const selection = editor.state?.selection;
+    if (!selection || selection.empty) return '';
+    return String(editor.state.doc.textBetween(selection.from, selection.to, ' ') || '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  })();
+
+  const handleMakeThisTheTitle = () => {
+    if (!canMakeThisTheTitle(page?.title, selectedWording)) return;
+    setPage((current) => ({ ...(current || latestPageRef.current), title: selectedWording }));
+    scheduleSave({ title: selectedWording });
   };
 
   const handleInsertPullquote = () => {
@@ -612,7 +643,7 @@ const WikiPageEditor = ({ pageId, onDoneEditing, workspaceMode = false }) => {
             className="wiki-editor__title"
             value={page.title || ''}
             onChange={handleTitleChange}
-            placeholder="Untitled wiki page"
+            placeholder={unnamedTitlePreview(page) || 'Untitled wiki page'}
             aria-label="Wiki page title"
           />
           <WikiPageMetaBar page={page} onChange={handleMetaChange} saveStatus={saveStatus} />
@@ -620,6 +651,11 @@ const WikiPageEditor = ({ pageId, onDoneEditing, workspaceMode = false }) => {
             <Button type="button" variant="secondary" onClick={handleInsertPullquote}>
               Pullquote
             </Button>
+            {canMakeThisTheTitle(page?.title, selectedWording) ? (
+              <Button type="button" variant="secondary" onClick={handleMakeThisTheTitle}>
+                Make this the title
+              </Button>
+            ) : null}
           </div>
           <EditorContent editor={editor} />
           {!workspaceMode ? (

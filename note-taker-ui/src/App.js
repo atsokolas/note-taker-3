@@ -74,6 +74,7 @@ const Editions = lazy(() => import('./pages/Editions'));
 const EditionRead = lazy(() => import('./pages/EditionRead'));
 const ThinkMode = lazy(() => import('./pages/ThinkMode'));
 const ThinkNotes = lazy(() => import('./pages/ThinkNotes'));
+const AuthoredRecovery = lazy(() => import('./components/think/AuthoredRecovery'));
 const MapView = lazy(() => import('./pages/MapView'));
 const ReviewMode = lazy(() => import('./pages/ReviewMode'));
 const ReturnQueue = lazy(() => import('./pages/ReturnQueue'));
@@ -179,6 +180,8 @@ const bootstrapDevTokenFromLocation = () => {
    so links from Library, Wiki and the palette keep landing where they point. */
 const ThinkSurface = () => {
   const location = useLocation();
+  const workId = new URLSearchParams(location.search).get('explorationId');
+  if (workId) return <AuthoredRecovery key={workId} workId={workId} />;
   return namesAThinkObject(location.search) ? <ThinkMode /> : <ThinkNotes />;
 };
 

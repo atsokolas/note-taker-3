@@ -80,4 +80,11 @@ describe('a paper someone published', () => {
     render(<SharedEdition />);
     await waitFor(() => expect(screen.getByText(/not a list of links/)).toBeInTheDocument());
   });
+
+  it('asks indexes not to list an unlisted share', async () => {
+    getPublicEdition.mockResolvedValue(paper());
+    render(<SharedEdition />);
+    await screen.findByText('This Week in AI');
+    expect(document.head.querySelector('meta[name="robots"]')).toHaveAttribute('content', 'noindex,nofollow');
+  });
 });

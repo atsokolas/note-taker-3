@@ -309,7 +309,7 @@ const ThinkNotes = () => {
                 <li key={`${item.kind}:${item.id}`}>
                   <Link to={item.href} onClick={event => followWriting(event, item.href)} className={roomShelfItemClass({ nested: true, className: 'think-notes__continuation' })}>
                     <span>{item.excerpt === item.title ? <WritingMatch item={item} /> : item.title}</span>
-                    <span className="think-notes__writing-origin">{item.kind === 'notebook' ? 'Note' : `Private writing · ${item.label}`}{item.pageTitle ? ` · ${item.pageTitle}` : ''}{item.originMissing ? ' · Earlier passage' : ''}</span>
+                    <span className="think-notes__writing-origin">{item.kind === 'notebook' ? 'Note' : `Private writing · ${item.label}`}{item.pageTitle ? ` · ${item.pageTitle}` : ''}{item.sourceUnavailable ? ' · Recorded context' : item.originMissing ? ' · Earlier passage' : ''}</span>
                     {item.excerpt !== item.title ? <span className="think-notes__match-excerpt"><WritingMatch item={item} /></span> : null}
                   </Link>
                 </li>
@@ -328,7 +328,7 @@ const ThinkNotes = () => {
                   <Link to={item.href} onClick={event => followWriting(event, item.href)} className={roomShelfItemClass({ nested: true, className: 'think-notes__continuation' })}>
                     <span>{item.title}</span>
                     {item.returnNote ? <span className="think-notes__return-note">{item.returnNote}</span> : null}
-                    {item.pageTitle ? <span className="think-notes__writing-origin">From {item.pageTitle}{item.originMissing ? ' · Earlier passage' : ''}</span> : null}
+                    {item.pageTitle ? <span className="think-notes__writing-origin">From {item.pageTitle}{item.sourceUnavailable ? ' · Recorded context' : item.originMissing ? ' · Earlier passage' : ''}</span> : null}
                   </Link>
                 </li>
               ))}

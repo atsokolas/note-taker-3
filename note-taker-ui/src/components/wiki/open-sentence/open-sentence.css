@@ -43,6 +43,10 @@
   margin: 0 0 1em;
 }
 
+.open-sentence.is-without > .open-sentence__line {
+  display: none;
+}
+
 .open-sentence__held {
   position: relative;
   box-decoration-break: clone;
@@ -269,9 +273,16 @@ mark.highlight.open-sentence__held.is-placed:not(.is-open)::before {
   min-width: 0;
 }
 
-.open-sentence-pocket__then {
+.open-sentence-pocket__then,
+.open-sentence-pocket__bearing {
   display: grid;
   gap: 0.2em;
+}
+
+.open-sentence-pocket__then-source {
+  display: grid;
+  gap: 0.2em;
+  margin-top: var(--noeis-space-2);
 }
 
 .open-sentence-pocket__source {
@@ -515,16 +526,24 @@ mark.highlight.open-sentence__held.is-placed:not(.is-open)::before {
   background: color-mix(in srgb, var(--noeis-paper-muted) 70%, transparent);
 }
 
+.open-sentence-pocket__pressure > .open-sentence-pocket__preview {
+  display: grid;
+  gap: var(--noeis-space-2);
+}
+
 .open-sentence-pocket__actions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--noeis-space-2);
 }
 
+.open-sentence-pocket__contents > button,
+.open-sentence-continuity button,
 .open-sentence-pocket__write > button,
 .open-sentence-pocket__pressure > button,
 .open-sentence-pocket__meet > button,
 .open-sentence-pocket__actions button,
+.open-sentence-pocket__fresh,
 .open-sentence-pocket__close {
   min-height: 44px;
   padding: 0 14px;
@@ -537,8 +556,7 @@ mark.highlight.open-sentence__held.is-placed:not(.is-open)::before {
   font-size: 0.88rem;
 }
 
-.open-sentence-pocket textarea,
-.open-sentence-pocket input {
+.open-sentence-pocket textarea {
   width: 100%;
   max-width: 62ch;
   padding: var(--noeis-space-3);
@@ -562,11 +580,20 @@ mark.highlight.open-sentence__held.is-placed:not(.is-open)::before {
   font-weight: 560;
 }
 
+.open-sentence-pocket__contents > button,
+.open-sentence-continuity button,
 .open-sentence-pocket__write > button,
 .open-sentence-pocket__pressure > button,
 .open-sentence-pocket__meet > button,
+.open-sentence-pocket__fresh,
 .open-sentence-pocket__close {
   justify-self: start;
+}
+
+.open-sentence-pocket__pressure button[aria-pressed="true"],
+.open-sentence-pocket__actions button[aria-pressed="true"] {
+  border-color: color-mix(in srgb, var(--noeis-ink) 28%, var(--noeis-rule));
+  background: color-mix(in srgb, var(--noeis-ink) 6%, var(--noeis-paper));
 }
 
 @keyframes open-sentence-mark {
@@ -610,3 +637,7 @@ mark.highlight.open-sentence__held.is-placed:not(.is-open)::before {
 .open-sentence-pocket__context-copy dl { margin: 0; }
 .open-sentence-pocket__context-copy dt { margin-top: 1rem; font-size: 0.75rem; color: var(--text-secondary); }
 .open-sentence-pocket__context-copy dd { margin: 0.25rem 0 0; overflow-wrap: anywhere; }
+
+.authored-recovery { max-width: 48rem; margin: 0 auto; padding: 2rem 1.25rem; }
+.authored-recovery details { margin: 1rem 0; }
+.authored-recovery h1 { overflow-wrap: anywhere; }

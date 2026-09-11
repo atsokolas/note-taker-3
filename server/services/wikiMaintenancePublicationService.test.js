@@ -100,6 +100,9 @@ const run = async () => {
     WikiRevision,
     maintainArgs: { resumeFromBestCandidate: true },
     maintainWikiPageFn: async ({ page }) => {
+      // A recoverable candidate changes content; bookkeeping-only revisions omit snapshots.
+      page.plainText = 'A new dossier scaffold that still needs evidence.';
+      page.body = { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: page.plainText }] }] };
       page.aiState = {
         draftStatus: 'ready',
         quality: { ok: false, status: 'fail', failures: ['The dossier is only a scaffold.'] }

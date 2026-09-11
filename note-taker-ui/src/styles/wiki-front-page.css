@@ -2396,18 +2396,8 @@ body.noeis-editorial .wiki-front-page__operations-panel input {
 
 .wiki-front-page .paper-open__printed,
 .wiki-front-page .paper-open__editions,
-.wiki-front-page .paper-open__end,
-.wiki-front-page .library-places__line {
+.wiki-front-page .paper-open__end {
   font-variant-numeric: lining-nums tabular-nums;
-}
-
-/* The desk line reads as a sentence; the doors underneath stay findable. */
-.library-places__line {
-  margin: 0 0 0.35rem;
-  color: var(--text-secondary, var(--vellum-ink));
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
-  font-size: 0.95rem;
-  line-height: 1.5;
 }
 
 /* ── ⌘P yields a real paper ───────────────────────────────────────────────

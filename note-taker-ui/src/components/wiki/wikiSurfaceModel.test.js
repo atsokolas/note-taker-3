@@ -44,6 +44,8 @@ describe('wiki surface model', () => {
 
   it.each([
     [{ pageType: 'repo' }, 'repo_dossier'],
+    [{ pageType: 'project' }, 'repo_dossier'],
+    [{ pageType: 'log' }, 'repo_dossier'],
     [{ investmentDossier: { version: 1 } }, 'investment_dossier'],
     [{ createdFrom: { label: 'this-week-in-ai:2026-08-17' } }, 'research_edition'],
     [{ createdFrom: { label: 'company-dossier:COST' } }, 'company_dossier'],
@@ -59,6 +61,8 @@ describe('wiki surface model', () => {
     expect(wikiAllowsOpenSentence(ordinary, { workspaceMode: true })).toBe(false);
     expect(wikiAllowsOpenSentence(null)).toBe(false);
     expect(wikiAllowsOpenSentence({ pageType: 'repo' })).toBe(false);
+    expect(wikiAllowsOpenSentence({ pageType: 'project' })).toBe(false);
+    expect(wikiAllowsOpenSentence({ pageType: 'log' })).toBe(false);
     expect(wikiAllowsOpenSentence({ investmentDossier: { version: 1 } })).toBe(false);
     expect(wikiAllowsOpenSentence({ createdFrom: { label: 'weekend-readings:2026-09-05' } })).toBe(false);
     expect(wikiAllowsOpenSentence({ createdFrom: { label: 'company-dossier:COST' } })).toBe(false);

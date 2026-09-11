@@ -34,6 +34,14 @@ export const libraryExplorations = explorationApi(
 
 export const authoredExplorations = {
   ...explorationApi(pagePath, claimPath),
+  async read(workId) {
+    const { data } = await api.get(`/api/authored-explorations/${encodeURIComponent(workId)}`);
+    return data;
+  },
+  async saveVersion(workId, expectedRevision) {
+    const { data } = await api.post(`/api/authored-explorations/${encodeURIComponent(workId)}/versions`, { expectedRevision });
+    return data.versions;
+  },
   async search(query, { signal } = {}) {
     const { data } = await api.get('/api/authored-work/search', { params: { q: query }, signal });
     return data;

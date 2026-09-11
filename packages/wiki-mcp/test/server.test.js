@@ -1,4 +1,6 @@
 import assert from 'assert';
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 
@@ -7,57 +9,20 @@ import { createMcpServer, toolDefinitions } from '../src/server.js';
 import { renderWikiSchemaPrompt } from '../src/prompts/wiki_schema.js';
 
 const run = async () => {
-  const requiredReadTools = [
-    'list_pages',
-    'get_page',
-    'search_pages',
-    'list_sources',
-    'list_backlinks',
-    'list_autolinks',
-    'list_revisions',
-    'list_activity',
-    'get_schema',
-    'list_proposals',
-    'get_briefing',
-    'search_articles',
-    'get_article',
-    'list_article_highlights',
-    'search_highlights',
-    'get_highlight',
-    'list_questions',
-    'get_question',
-    'list_concepts',
-    'get_concept'
-  ];
-  for (const name of requiredReadTools) {
-    assert(toolDefinitions.some(tool => tool.name === name), `missing ${name}`);
-  }
-  const requiredWriteTools = [
-    'create_page',
-    'update_page',
-    'archive_page',
-    'ingest_source',
-    'draft_page',
-    'ask_page',
-    'promote_answer',
-    'lint_wiki',
-    'apply_autolink',
-    'add_source',
-    'remove_source',
-    'update_schema',
-    'accept_proposal',
-    'dismiss_proposal',
-    'merge_proposal',
-    'create_article',
-    'create_highlight',
-    'create_question',
-    'update_question',
-    'update_concept',
-    'pin_highlight_to_concept'
-  ];
-  for (const name of requiredWriteTools) {
-    assert(toolDefinitions.some(tool => tool.name === name), `missing ${name}`);
-  }
+  /* The README is the only place the tool surface is written out for a human,
+     and it had drifted twenty-five tools behind the code. Two hand-kept lists
+     here had drifted with it. One assertion against the document replaces both:
+     a tool added without a README line fails, and so does a README line naming
+     a tool that no longer exists. */
+  const readme = readFileSync(fileURLToPath(new URL('../README.md', import.meta.url)), 'utf8');
+  const documented = [...readme
+    .slice(readme.indexOf('## Tools'), readme.indexOf('## Prompt'))
+    .matchAll(/^- `([a-z_]+)`$/gm)].map(match => match[1]);
+  assert.deepStrictEqual(
+    documented.sort(),
+    toolDefinitions.map(tool => tool.name).sort(),
+    'README tool list and toolDefinitions disagree'
+  );
 
   const seenRequests = [];
   const jsonResponse = (payload) => ({
@@ -137,23 +102,25 @@ const run = async () => {
           }
         ]);
       }
-      if (requestUrl.pathname.endsWith('/api/highlights/all')) {
-        return jsonResponse([
-          {
-            _id: 'highlight-1',
-            articleId: 'article-1',
-            articleTitle: 'Opportunity cost memo',
-            text: 'Every choice excludes another return.',
-            tags: ['opportunity-cost']
-          }
-        ]);
+      /* One highlight now comes back by its own id, rather than the whole pile
+         being fetched and searched. */
+      if (requestUrl.pathname.endsWith('/api/highlights/highlight-1')) {
+        return jsonResponse({
+          _id: 'highlight-1',
+          articleId: 'article-1',
+          articleTitle: 'Opportunity cost memo',
+          text: 'Every choice excludes another return.',
+          tags: ['opportunity-cost']
+        });
       }
       if (requestUrl.pathname.endsWith('/save-article')) {
+        const body = JSON.parse(init.body || '{}');
         return jsonResponse({
           _id: 'article-created',
-          title: 'Saved article',
-          url: 'https://example.com/new',
-          content: 'Saved.'
+          title: body.title || 'Saved article',
+          url: body.url || 'https://example.com/new',
+          content: body.content || '',
+          contentSource: body.content ? 'request' : 'missing'
         });
       }
       if (requestUrl.pathname.endsWith('/articles/article-1/highlights') && init.method === 'POST') {
@@ -388,6 +355,10 @@ const run = async () => {
 
   const highlight = await toolDefinitions.find(tool => tool.name === 'get_highlight').handler(client, { highlightId: 'highlight-1' });
   assert.strictEqual(highlight.text, 'Every choice excludes another return.');
+  assert.strictEqual(highlight.articleId, 'article-1');
+  // Asked for by id, fetched by id — not by pulling every highlight the reader owns.
+  assert(seenRequests.some(request => request.url.endsWith('/api/highlights/highlight-1')));
+  assert(!seenRequests.some(request => request.url.endsWith('/api/highlights/all')));
 
   const createdArticle = await toolDefinitions.find(tool => tool.name === 'create_article').handler(client, {
     title: 'Saved article',
@@ -395,7 +366,20 @@ const run = async () => {
     content: 'Saved.'
   });
   assert.strictEqual(createdArticle.id, 'article-created');
+  assert.strictEqual(createdArticle.contentSource, 'request');
+  assert.strictEqual(createdArticle.contentLength, 6);
+  assert(!('warning' in createdArticle));
   assert(seenRequests.some(request => request.url.endsWith('/save-article') && request.init.method === 'POST'));
+
+  // A save with no body is the shell that leaves the reader a highlight-only
+  // edition. The receipt has to say so rather than read like a success.
+  const shellArticle = await toolDefinitions.find(tool => tool.name === 'create_article').handler(client, {
+    title: 'Going Founder Mode on Cancer',
+    url: 'https://centuryofbio.com/p/sid'
+  });
+  assert.strictEqual(shellArticle.contentLength, 0);
+  assert.strictEqual(shellArticle.contentSource, 'missing');
+  assert.match(shellArticle.warning, /highlight-only edition/);
 
   const createdHighlight = await toolDefinitions.find(tool => tool.name === 'create_highlight').handler(client, {
     articleId: 'article-1',

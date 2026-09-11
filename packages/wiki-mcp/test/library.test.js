@@ -66,13 +66,14 @@ const run = async () => {
     );
   }
 
-  // The Shelf is one boolean, and it defaults to keeping.
+  // The Shelf is one boolean, and it defaults to keeping. The API still calls
+  // it evergreen; the receipt answers in the word the tool asked in.
   {
     const { client, calls } = clientWith([{ _id: 'a1', evergreen: true, evergreenAt: '2026-09-06' }]);
     const kept = await client.keepArticle({ articleId: 'a1' });
     assert.match(calls[0].url, /\/articles\/a1\/evergreen$/);
     assert.deepStrictEqual(calls[0].body, { evergreen: true });
-    assert.strictEqual(kept.evergreen, true);
+    assert.deepStrictEqual(kept, { id: 'a1', kept: true, keptAt: '2026-09-06' });
   }
 
   {
@@ -86,6 +87,164 @@ const run = async () => {
     const folder = await client.createFolder({ name: 'Kept' });
     assert.deepStrictEqual(calls[0].body, { name: 'Kept' });
     assert.strictEqual(folder.id, 'f3');
+  }
+
+  // Filing a piece should not hand its whole body back; the caller asked where
+  // it went, not what it says.
+  {
+    const { client } = clientWith([{ _id: 'a1', title: 'T', content: 'the entire essay' }]);
+    const filed = await client.fileArticle({ articleId: 'a1', folderId: 'f9' });
+    assert.strictEqual(filed.title, 'T');
+    assert(!('content' in filed));
+  }
+
+  // The Imbox piles. later and setAside carry a reason; stream clears it.
+  {
+    const { client, calls } = clientWith([
+      { _id: 'a1', placement: 'later', placementAt: '2026-09-08', placementReason: 'owed a second read' }
+    ]);
+    const placed = await client.placeArticle({ articleId: 'a1', placement: 'later', reason: 'owed a second read' });
+    assert.match(calls[0].url, /\/articles\/a1\/placement$/);
+    assert.deepStrictEqual(calls[0].body, { placement: 'later', reason: 'owed a second read' });
+    assert.strictEqual(placed.placement, 'later');
+    assert.strictEqual(placed.placementReason, 'owed a second read');
+  }
+
+  // No reason given is not the same as an empty reason: don't send one.
+  {
+    const { client, calls } = clientWith([{ _id: 'a1', placement: 'stream' }]);
+    await client.placeArticle({ articleId: 'a1', placement: 'stream' });
+    assert.deepStrictEqual(calls[0].body, { placement: 'stream' });
+  }
+
+  // A highlight is addressed by the article holding it. Given both, no lookup.
+  {
+    const { client, calls } = clientWith([{ _id: 'h1', articleId: 'a1', text: 'x', tags: ['bio'] }]);
+    const updated = await client.updateHighlight({ articleId: 'a1', highlightId: 'h1', tags: ['bio'] });
+    assert.strictEqual(calls.length, 1);
+    assert.strictEqual(calls[0].method, 'PATCH');
+    assert.match(calls[0].url, /\/articles\/a1\/highlights\/h1$/);
+    assert.deepStrictEqual(updated.tags, ['bio']);
+  }
+
+  // Given only the highlight, the article is resolved rather than demanded —
+  // by asking for that one highlight, not for every highlight there is.
+  {
+    const { client, calls } = clientWith([
+      { _id: 'h1', articleId: 'a7', text: 'x' },
+      { _id: 'h1', articleId: 'a7', text: 'x', note: 'why it matters' }
+    ]);
+    await client.updateHighlight({ highlightId: 'h1', note: 'why it matters' });
+    assert.match(calls[0].url, /\/api\/highlights\/h1$/);
+    assert.match(calls[1].url, /\/articles\/a7\/highlights\/h1$/);
+  }
+
+  // A highlight id that matches nothing says so, and says where to look.
+  {
+    const { client } = clientWith([{}]);
+    await assert.rejects(
+      () => client.deleteHighlight({ highlightId: 'h9' }),
+      /No highlight h9.*search_highlights/s
+    );
+  }
+
+  {
+    const { client, calls } = clientWith([{ _id: 'a1' }]);
+    const gone = await client.deleteHighlight({ articleId: 'a1', highlightId: 'h1' });
+    assert.strictEqual(calls[0].method, 'DELETE');
+    assert.deepStrictEqual(gone, { id: 'h1', articleId: 'a1', deleted: true });
+  }
+
+  {
+    const { client, calls } = clientWith([{ message: 'Article deleted successfully.' }]);
+    const gone = await client.deleteArticle({ articleId: 'a1' });
+    assert.strictEqual(calls[0].method, 'DELETE');
+    assert.deepStrictEqual(gone, { id: 'a1', deleted: true });
+  }
+
+  // Folders answer to their names everywhere, not only when filing.
+  {
+    const { client, calls } = clientWith([FOLDERS, { message: 'Folder deleted successfully.' }]);
+    const gone = await client.deleteFolder({ folder: 'people' });
+    assert.match(calls[1].url, /\/folders\/f2$/);
+    assert.deepStrictEqual(gone, { id: 'f2', deleted: true });
+  }
+
+  // Nesting resolves both ends by name.
+  {
+    const { client, calls } = clientWith([
+      FOLDERS,
+      FOLDERS,
+      { _id: 'f2', name: 'People', parentFolderId: 'f1' }
+    ]);
+    const nested = await client.nestFolder({ folder: 'People', parent: 'AI & Computing' });
+    assert.match(calls[2].url, /\/folders\/f2\/parent$/);
+    assert.deepStrictEqual(calls[2].body, { parentFolderId: 'f1' });
+    assert.deepStrictEqual(nested, { id: 'f2', name: 'People', parentFolderId: 'f1' });
+  }
+
+  // No parent named means the top level, not a guess.
+  {
+    const { client, calls } = clientWith([{ _id: 'f2', name: 'People', parentFolderId: null }]);
+    await client.nestFolder({ folderId: 'f2' });
+    assert.deepStrictEqual(calls[0].body, { parentFolderId: null });
+  }
+
+  // The feed receipt reports screening only — the route settles nothing else,
+  // so nothing else is claimed.
+  {
+    const { client, calls } = clientWith([{ _id: 'f1', name: 'AI & Computing', asFeed: true, asFeedAt: '2026-09-08' }]);
+    const screened = await client.setFolderFeed({ folderId: 'f1' });
+    assert.deepStrictEqual(calls[0].body, { asFeed: true });
+    assert.deepStrictEqual(screened, { id: 'f1', name: 'AI & Computing', asFeed: true, asFeedAt: '2026-09-08' });
+  }
+
+  /* A refused token is the one failure retrying cannot fix, and the one most
+     likely to be misread: an expired sign-in was reported to a reader as
+     "Noeis is returning 500 Internal Server Error, I can't continue". */
+  {
+    const failing = async () => ({
+      ok: false,
+      status: 401,
+      headers: { get: (name) => (String(name).toLowerCase() === 'content-type' ? 'application/json' : null) },
+      json: async () => ({ error: 'AUTH_EXPIRED' }),
+      text: async () => '{"error":"AUTH_EXPIRED"}'
+    });
+    const client = new NoeisClient({ token: 't', env: {}, fetchImpl: failing });
+    const error = await client.getArticle({ articleId: 'a1' }).then(() => null, e => e);
+    assert.strictEqual(error.status, 401);
+    assert.match(error.message, /sign-in has expired/);
+    assert.match(error.message, /noeis connect/);
+    // And says the server is not the problem, so nobody reports an outage.
+    assert.match(error.message, /Noeis is reachable and nothing was changed/);
+  }
+
+  {
+    const failing = async () => ({
+      ok: false,
+      status: 403,
+      headers: { get: (name) => (String(name).toLowerCase() === 'content-type' ? 'application/json' : null) },
+      json: async () => ({ error: 'Only you can do that, not an agent.' }),
+      text: async () => '{}'
+    });
+    const client = new NoeisClient({ token: 't', env: {}, fetchImpl: failing });
+    const error = await client.getArticle({ articleId: 'a1' }).then(() => null, e => e);
+    assert.match(error.message, /refused this token/);
+  }
+
+  // Everything that is not an auth failure still reports what the API said.
+  {
+    const failing = async () => ({
+      ok: false,
+      status: 500,
+      headers: { get: (name) => (String(name).toLowerCase() === 'content-type' ? 'application/json' : null) },
+      json: async () => ({ error: 'Internal server error.' }),
+      text: async () => '{}'
+    });
+    const client = new NoeisClient({ token: 't', env: {}, fetchImpl: failing });
+    const error = await client.getArticle({ articleId: 'a1' }).then(() => null, e => e);
+    assert.strictEqual(error.status, 500);
+    assert.strictEqual(error.message, 'Internal server error.');
   }
 };
 

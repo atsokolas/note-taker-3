@@ -10,6 +10,7 @@
 
 const crypto = require('crypto');
 const { wordBoundaryTrim } = require('../lib/editorialText');
+const { resolveRevisionSnapshot } = require('./wikiRevisionService');
 
 const CLOCKS = Object.freeze(['evidence', 'expectation', 'decision', 'review', 'outcome']);
 const PRECISION = Object.freeze(['exact', 'day', 'month', 'year', 'unknown']);
@@ -477,8 +478,13 @@ const latestRevisionAt = (revisions = [], at) => {
 
 const snapshotAt = ({ page, revisions = [], at }) => {
   const revision = latestRevisionAt(revisions, at);
-  if (revision?.after) {
-    return { ...plain(revision.after), _id: idOf(page), createdAt: revision.createdAt };
+  /* A revision that changed nothing stores no payload; what it stood for is the
+     content of the newest revision before it that does. Falling through to the
+     page as it is now would answer a question about the past with the present. */
+  const after = revision?.after
+    || (revision ? resolveRevisionSnapshot(plain(revision), list(revisions).map(plain), 'after') : null);
+  if (after) {
+    return { ...plain(after), _id: idOf(page), createdAt: revision.createdAt };
   }
   const born = plain(page)?.createdAt || plain(page)?.judgment?.bornAt;
   if (born && laterThan(born, at)) return null;

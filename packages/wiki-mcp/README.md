@@ -173,8 +173,15 @@ For local development:
 
 ## Tools
 
-Read tools available now. These return normalized JSON so external agents can list pages, choose one, read it, inspect references, and catch up on recent wiki activity with a read-scoped token:
+Both lists below are the complete tool surface, checked against `toolDefinitions`
+by `test/server.test.js` — a tool added without a line here fails the suite.
 
+Read tools return normalized JSON, so an agent can list pages, choose one, read
+it, inspect references, and catch up on recent activity with a read-scoped token:
+
+- `list_edition_profiles`
+- `list_editions`
+- `get_edition`
 - `list_pages`
 - `get_page`
 - `get_page_markdown`
@@ -190,12 +197,29 @@ Read tools available now. These return normalized JSON so external agents can li
 - `list_proposals`
 - `list_autolinks`
 - `get_lint_run`
+- `list_folders`
+- `search_articles`
+- `get_article`
+- `list_article_highlights`
+- `search_highlights`
+- `get_highlight`
+- `list_questions`
+- `get_question`
+- `list_concepts`
+- `get_concept`
+- `list_concept_notes`
+- `list_notebook_entries`
+- `get_notebook_entry`
+- `list_notebook_folders`
 
 Write tools require a token with the `agent-write` scope. Read-only tokens receive `403` from the Noeis API on these calls:
 
 - `create_page`
 - `update_page`
 - `archive_page`
+- `create_edition`
+- `configure_edition`
+- `file_edition_items`
 - `ingest_source`
 - `draft_page`
 - `ask_page`
@@ -208,6 +232,61 @@ Write tools require a token with the `agent-write` scope. Read-only tokens recei
 - `accept_proposal`
 - `dismiss_proposal`
 - `merge_proposal`
+- `create_article`
+- `create_folder`
+- `file_article`
+- `keep_article`
+- `place_article`
+- `delete_article`
+- `delete_folder`
+- `nest_folder`
+- `set_folder_feed`
+- `create_highlight`
+- `update_highlight`
+- `delete_highlight`
+- `write_concept_note`
+- `update_concept_note`
+- `delete_concept_note`
+- `create_notebook_entry`
+- `update_notebook_entry`
+- `delete_notebook_entry`
+- `add_highlight_to_notebook_entry`
+- `create_notebook_folder`
+- `delete_notebook_folder`
+- `create_question`
+- `update_question`
+- `update_concept`
+- `pin_highlight_to_concept`
+
+`delete_article`, `delete_highlight`, `delete_notebook_entry` and
+`delete_concept_note` are the tools with no undo. Each says so in its description and each expects the reader to have
+been asked first. `delete_folder` and `delete_notebook_folder` are not among them:
+a Library folder must be empty before it will go, and a Notebook folder unfiles
+its notes rather than taking them with it.
+
+## Releasing
+
+Two packages, published in order, because the CLI depends on this one:
+
+```bash
+cd packages/wiki-mcp && npm publish --access public
+cd ../cli            && npm publish --access public
+```
+
+Bump both versions first, and bump the CLI's `@noeis/wiki-mcp` range to match
+the version being published. That range is the thing to watch: it sat at
+`^0.1.2` while this package moved to 0.3.0, and a caret on a `0.x` version pins
+the minor — so the CLI could never install what had been written, and every
+agent connected through it kept the tools as they stood at 0.1.2.
+
+Verify the artifact rather than the working tree, since `files` decides what
+actually ships:
+
+```bash
+npm pack --pack-destination /tmp
+cd $(mktemp -d) && npm init -y && npm install /tmp/noeis-wiki-mcp-<version>.tgz
+node -e "import('@noeis/wiki-mcp').then(m => console.log(m.toolDefinitions.length, 'tools'))"
+```
 
 ## Prompt
 

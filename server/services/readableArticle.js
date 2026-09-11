@@ -95,6 +95,27 @@ const bodyFrom = (html = '') => {
  * source worth saving, and a save that failed because a paywall answered 403
  * should file the row and say so — not lose the reader's click.
  */
+const escapeHtml = (value = '') => String(value || '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;');
+
+/**
+ * The article as the reader's page will render it.
+ *
+ * `content` above is text with blank lines between blocks, and the reader
+ * renders a body as HTML — so stored raw it collapses into one unbroken run,
+ * technically saved and unreadable in practice. Page text is not markup, and a
+ * fetched page is not trusted to claim otherwise.
+ */
+const paragraphsToHtml = (text = '') => String(text || '')
+  .split(/\n{2,}/)
+  .map(block => block.trim())
+  .filter(Boolean)
+  .map(block => `<p>${escapeHtml(block).replace(/\n/g, '<br/>')}</p>`)
+  .join('\n');
+
 const fetchReadableArticle = async ({ url, fetchImpl, lookup } = {}) => {
   try {
     const { text: html, url: finalUrl } = await fetchPublicText({
@@ -120,6 +141,7 @@ module.exports = {
   MAX_CONTENT_LENGTH,
   bodyFrom,
   fetchReadableArticle,
+  paragraphsToHtml,
   stripTags,
   titleFrom
 };

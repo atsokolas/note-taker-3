@@ -6,6 +6,7 @@ import { WikiOpenSentenceProvider, wrapOpenableParagraph } from './WikiOpenSente
 import { draftStorageKey, openedStorageKey } from './openSentenceBinding';
 import { RETURN_TICKET_KEY } from './openSentenceJourney';
 import { writeStore } from './openSentenceStore';
+import { sourceClip } from './openSentenceModel';
 
 const page = {
   _id: 'wiki-1',
@@ -36,6 +37,41 @@ const page = {
   }]
 };
 
+const twoSourcePage = {
+  ...page,
+  claims: [{
+    claimId: 'claim-1',
+    text: 'Memory compounds with review.',
+    support: 'supported',
+    sourceRefIds: ['source-1', 'source-letter']
+  }],
+  sourceRefs: [
+    page.sourceRefs[0],
+    {
+      _id: 'source-letter',
+      type: 'highlight',
+      objectId: 'highlight-letter',
+      parentObjectId: 'article-letter',
+      title: 'Letter to a young investor',
+      snippet: 'A loss you can survive still teaches the book.'
+    }
+  ],
+  body: {
+    type: 'doc',
+    content: [{
+      type: 'paragraph',
+      content: [{
+        type: 'text',
+        text: 'Memory compounds with review.',
+        marks: [{
+          type: 'claim',
+          attrs: { claimId: 'claim-1', support: 'supported', citationIndexes: [1, 2] }
+        }]
+      }]
+    }]
+  }
+};
+
 const providerFrom = (props, onOpenedClaim) => (
   <WikiOpenSentenceProvider
     enabled={props.enabled !== false}
@@ -48,6 +84,7 @@ const providerFrom = (props, onOpenedClaim) => (
     durable={props.durable}
     persistence={props.persistence}
     onAcceptWording={props.onAcceptWording}
+    onMakeTitle={props.onMakeTitle}
   >
     {renderTiptapDoc((props.page || page).body, { wrapParagraph: wrapOpenableParagraph })}
   </WikiOpenSentenceProvider>
@@ -366,6 +403,21 @@ describe('WikiOpenSentence', () => {
     expect(onOpenedClaim).toHaveBeenCalledWith('claim-1');
   });
 
+  it('copies the bound passage with its source, not an invented door', async () => {
+    const writeText = jest.fn().mockResolvedValue();
+    Object.assign(navigator, { clipboard: { writeText } });
+    renderWikiSentence();
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Copy with source' }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(sourceClip({
+      title: 'Memory article',
+      passage: 'Source snippet',
+      href: '/library?articleId=article-1&highlightId=highlight-1'
+    })));
+    expect(writeText.mock.calls[0][0]).not.toContain('Memory compounds with review.');
+    expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent('Memory compounds with review.');
+  });
+
   it('shows Then from revisions without rewriting the article line', () => {
     renderWikiSentence({
       revisions: [{
@@ -433,6 +485,7 @@ describe('WikiOpenSentence', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open' }));
     expect(screen.getByText('Also beside')).toBeInTheDocument();
     expect(screen.getByText('A loss you can survive still teaches the book.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Try the other way' })).toBeInTheDocument();
     expect(screen.getByLabelText('How they meet')).toHaveValue('');
     expect(screen.getByLabelText('The space between')).toHaveValue('');
     expect(screen.queryByRole('button', { name: 'Keep this as an experiment' })).not.toBeInTheDocument();
@@ -462,6 +515,401 @@ describe('WikiOpenSentence', () => {
       'Survivable error is not the same kind of care.'
     );
     expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent('Memory compounds with review.');
+  });
+
+  it('lets a two-source claim carry a snapshot without writing or publishing', () => {
+    renderWikiSentence({ page: twoSourcePage });
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Carry this out' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Include Memory article' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Include Letter to a young investor' }));
+    fireEvent.change(screen.getByLabelText('The question'), {
+      target: { value: 'What still compounds when review is only a pile?' }
+    });
+    fireEvent.change(screen.getByLabelText('A provisional conclusion'), {
+      target: { value: 'A later pass has to be able to find the first.' }
+    });
+    expect(screen.getByText('A snapshot. It is not a publication.')).toBeInTheDocument();
+    expect(screen.getByLabelText('What a recipient would see')).toHaveTextContent(
+      'What still compounds when review is only a pile?'
+    );
+    expect(screen.getByLabelText('What a recipient would see')).toHaveTextContent('Source snippet');
+    expect(screen.getByLabelText('What a recipient would see')).toHaveTextContent(
+      'A loss you can survive still teaches the book.'
+    );
+    expect(screen.getByLabelText('What a recipient would see').querySelector('a')).toBeNull();
+    expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent('Memory compounds with review.');
+    expect(screen.getByText(/The article still reads/)).toHaveTextContent('Memory compounds with review.');
+    expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
+  });
+
+  it('lets a two-source claim record two contributions without inventing a consensus', () => {
+    renderWikiSentence({ page: twoSourcePage });
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Let two contributions meet' }));
+    fireEvent.change(screen.getByLabelText('Shared question'), {
+      target: { value: 'Who still has to find the first note?' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Different values' }));
+    fireEvent.change(screen.getByLabelText('What Memory article still disputes'), {
+      target: { value: 'A pile of notes is not yet a memory.' }
+    });
+    fireEvent.change(screen.getByLabelText('What Letter to a young investor still disputes'), {
+      target: { value: 'A loss you cannot survive is not a review you get to keep.' }
+    });
+    expect(screen.getByText('Two contributions. Not a consensus.', { exact: true })).toBeInTheDocument();
+    expect(screen.getByText('Different values', { selector: 'p' })).toBeInTheDocument();
+    expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent(
+      'Memory compounds with review.'
+    );
+    expect(screen.getByText(/The article still reads/)).toHaveTextContent('Memory compounds with review.');
+    expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
+  });
+
+  it('lets a named distinction be kept as an instrument without writing the article', () => {
+    renderWikiSentence();
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    expect(screen.queryByRole('button', { name: 'Keep this as an instrument' })).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('The distinction that would help'), {
+      target: { value: 'Review that compounds memory, versus review that only piles notes.' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Keep this as an instrument' }));
+    fireEvent.change(screen.getByLabelText('Name this instrument'), {
+      target: { value: 'Room to be wrong' }
+    });
+    expect(screen.getByText(/An instrument, not the line/)).toHaveTextContent('Room to be wrong');
+    expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent('Memory compounds with review.');
+    expect(screen.getByText(/The article still reads/)).toHaveTextContent('Memory compounds with review.');
+    expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
+  });
+
+  it('lets an exhibit, a rehearsal, unwritten work, and a set-aside source sit beside the claim without writing', () => {
+    renderWikiSentence();
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    expect(screen.queryByRole('button', { name: 'Carry this out' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Let two contributions meet' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Keep this as an exhibit' }));
+    fireEvent.change(screen.getByLabelText('Name this exhibit'), {
+      target: { value: 'Review that compounds, or review that piles' }
+    });
+    fireEvent.change(screen.getByLabelText('This way'), {
+      target: { value: 'A later pass can still find the earlier one.' }
+    });
+    fireEvent.change(screen.getByLabelText('The other way'), {
+      target: { value: 'A pile of notes does not compound.' }
+    });
+    expect(screen.getByText(/An exhibit, not evidence/)).toHaveTextContent(
+      'Review that compounds, or review that piles'
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Try saying it' }));
+    fireEvent.change(screen.getByLabelText('Try saying it'), {
+      target: { value: 'Review works when a later pass can still find the first.' }
+    });
+    expect(screen.getByText('A rehearsal, not a grade.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Keep this as unwritten work' }));
+    fireEvent.change(screen.getByLabelText('What this collection could become'), {
+      target: { value: 'Who does the reviewing, and who only stores the notes?' }
+    });
+    expect(screen.getByText('Unwritten work, not the article.')).toBeInTheDocument();
+    expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent('Memory compounds with review.');
+    expect(screen.getByText(/The article still reads/)).toHaveTextContent('Memory compounds with review.');
+    expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
+  });
+
+  it('hides the bound source in the pocket and brings it back by name', () => {
+    renderWikiSentence();
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    expect(screen.getByText('Source snippet')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Try without this source', exact: true }));
+    expect(screen.queryByText('Source snippet')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Bring Memory article back' })).toBeInTheDocument();
+    expect(screen.getByText(/The article still reads/)).toHaveTextContent('Memory compounds with review.');
+    fireEvent.click(screen.getByRole('button', { name: 'Bring Memory article back' }));
+    expect(screen.getByText('Source snippet')).toBeInTheDocument();
+  });
+
+  it('lets a third recorded passage sit beside the named distinction without resolving the question', () => {
+    renderWikiSentence({
+      page: {
+        ...page,
+        claims: [{
+          claimId: 'claim-1',
+          text: 'Memory compounds with review.',
+          support: 'supported',
+          sourceRefIds: ['source-1', 'source-letter', 'source-notes']
+        }],
+        sourceRefs: [
+          page.sourceRefs[0],
+          {
+            _id: 'source-letter',
+            type: 'highlight',
+            objectId: 'highlight-letter',
+            parentObjectId: 'article-letter',
+            title: 'Letter to a young investor',
+            snippet: 'A loss you can survive still teaches the book.'
+          },
+          {
+            _id: 'source-notes',
+            type: 'highlight',
+            objectId: 'highlight-notes',
+            parentObjectId: 'article-notes',
+            title: 'Field notes',
+            snippet: 'Review compounds memory only when a later pass can still find the earlier one.'
+          }
+        ],
+        body: {
+          type: 'doc',
+          content: [{
+            type: 'paragraph',
+            content: [{
+              type: 'text',
+              text: 'Memory compounds with review.',
+              marks: [{
+                type: 'claim',
+                attrs: { claimId: 'claim-1', support: 'supported', citationIndexes: [1, 2, 3] }
+              }]
+            }]
+          }]
+        }
+      }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    expect(screen.queryByText('Bears on this distinction.')).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Leave this open'), {
+      target: { value: 'I cannot tell which review is enough.' }
+    });
+    fireEvent.change(screen.getByLabelText('The distinction that would help'), {
+      target: { value: 'Review that compounds memory, versus review that only piles notes.' }
+    });
+    expect(screen.getByText('Bears on this distinction.')).toBeInTheDocument();
+    expect(screen.getByText(
+      'Review compounds memory only when a later pass can still find the earlier one.'
+    )).toBeInTheDocument();
+    expect(screen.getByLabelText('Leave this open')).toHaveValue('I cannot tell which review is enough.');
+    expect(screen.queryByText(/resolved/i)).not.toBeInTheDocument();
+    expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent('Memory compounds with review.');
+    expect(screen.getByText(/The article still reads/)).toHaveTextContent('Memory compounds with review.');
+  });
+
+  it('opens the recorded quotation from that revision, not a neighbor or today\'s snippet', () => {
+    renderWikiSentence({
+      revisions: [{
+        before: {
+          body: {
+            type: 'doc',
+            content: [{
+              type: 'paragraph',
+              content: [{
+                type: 'text',
+                text: 'Memory was a pile of notes.',
+                marks: [{
+                  type: 'claim',
+                  attrs: { claimId: 'claim-1', citationIndexes: [1] }
+                }]
+              }]
+            }]
+          },
+          claims: [{
+            claimId: 'claim-1',
+            text: 'Memory was a pile of notes.',
+            sourceRefIds: ['source-1']
+          }],
+          sourceRefs: [{
+            _id: 'source-1',
+            type: 'highlight',
+            objectId: 'highlight-1',
+            parentObjectId: 'article-1',
+            title: 'Memory article',
+            snippet: 'Memory used to be a pile of notes.',
+            url: 'https://old.example/memory-then'
+          }]
+        }
+      }]
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    expect(document.querySelector('.open-sentence-pocket__then')).toHaveTextContent('Memory was a pile of notes.');
+    expect(document.querySelector('.open-sentence-pocket__then-source')).toHaveTextContent('Memory used to be a pile of notes.');
+    expect(screen.getByText('Source snippet')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Return to source →' })).toHaveAttribute(
+      'href',
+      'https://old.example/memory-then'
+    );
+    expect(screen.getAllByRole('link', { name: 'Open in Library →' })).toHaveLength(1);
+    expect(screen.queryByText('Unrelated')).not.toBeInTheDocument();
+  });
+
+  it('opens a second recorded source from that revision, not a neighbor or today\'s other', () => {
+    renderWikiSentence({
+      page: {
+        ...page,
+        claims: [{
+          claimId: 'claim-1',
+          text: 'Memory compounds with review.',
+          sourceRefIds: ['source-1']
+        }]
+      },
+      revisions: [{
+        before: {
+          body: {
+            type: 'doc',
+            content: [{
+              type: 'paragraph',
+              content: [{
+                type: 'text',
+                text: 'Memory was a pile of notes.',
+                marks: [{
+                  type: 'claim',
+                  attrs: { claimId: 'claim-1', citationIndexes: [1, 2] }
+                }]
+              }]
+            }]
+          },
+          claims: [{
+            claimId: 'claim-1',
+            text: 'Memory was a pile of notes.',
+            sourceRefIds: ['source-1', 'source-log']
+          }],
+          sourceRefs: [{
+            _id: 'source-1',
+            title: 'Memory article',
+            snippet: 'Memory used to be a pile of notes.'
+          }, {
+            _id: 'source-log',
+            type: 'highlight',
+            title: 'Review log',
+            snippet: 'The pile did not become a practice by sitting still.'
+          }, {
+            _id: 'source-other',
+            type: 'highlight',
+            title: 'Unrelated',
+            snippet: 'A neighboring log was not this claim.'
+          }]
+        }
+      }]
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    const then = document.querySelector('.open-sentence-pocket__then');
+    expect(then).toHaveTextContent('Memory used to be a pile of notes.');
+    expect(then).toHaveTextContent('Review log');
+    expect(then).toHaveTextContent('The pile did not become a practice by sitting still.');
+    expect(screen.queryByText('Also beside')).not.toBeInTheDocument();
+    expect(screen.queryByText('A neighboring log was not this claim.')).not.toBeInTheDocument();
+  });
+
+  it('lets a recorded Then passage sit as what still holds, not a neighbor or a question', () => {
+    renderWikiSentence({
+      page: {
+        ...page,
+        claims: [{
+          claimId: 'claim-1',
+          text: 'Memory compounds with review.',
+          sourceRefIds: ['source-1']
+        }]
+      },
+      revisions: [{
+        before: {
+          body: {
+            type: 'doc',
+            content: [{
+              type: 'paragraph',
+              content: [{
+                type: 'text',
+                text: 'Memory was a pile of notes.',
+                marks: [{
+                  type: 'claim',
+                  attrs: { claimId: 'claim-1', citationIndexes: [1, 2] }
+                }]
+              }]
+            }]
+          },
+          claims: [{
+            claimId: 'claim-1',
+            text: 'Memory was a pile of notes.',
+            sourceRefIds: ['source-1', 'source-log']
+          }],
+          sourceRefs: [{
+            _id: 'source-1',
+            title: 'Memory article',
+            snippet: 'Memory used to be a pile of notes.'
+          }, {
+            _id: 'source-log',
+            type: 'highlight',
+            title: 'Review log',
+            snippet: 'The pile did not become a practice by sitting still.'
+          }, {
+            _id: 'source-other',
+            type: 'highlight',
+            title: 'Unrelated',
+            snippet: 'A neighboring log was not this claim.'
+          }, {
+            _id: 'source-question',
+            type: 'question',
+            snippet: 'Does memory still compound if we never return?'
+          }]
+        }
+      }]
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Suppose this stops being true' }));
+    expect(screen.getByRole('button', { name: 'Keep Memory article as what still holds' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Keep earlier Memory article as what still holds' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Keep Review log as what still holds' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Unrelated/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Does memory still compound/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Then you left this open/ })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Keep Review log as what still holds' }));
+    expect(screen.getByLabelText('What still holds')).toHaveValue(
+      'The pile did not become a practice by sitting still.'
+    );
+    expect(screen.getByLabelText('What remains unknown')).toHaveValue('');
+    expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent(
+      'Memory compounds with review.'
+    );
+  });
+
+  it('opens a recorded question from that revision without rewriting the article or forging today\'s walk', () => {
+    renderWikiSentence({
+      revisions: [{
+        before: {
+          body: {
+            type: 'doc',
+            content: [{
+              type: 'paragraph',
+              content: [{
+                type: 'text',
+                text: 'Memory was a pile of notes.',
+                marks: [{
+                  type: 'claim',
+                  attrs: { claimId: 'claim-1', citationIndexes: [1] }
+                }]
+              }]
+            }]
+          },
+          claims: [{
+            claimId: 'claim-1',
+            text: 'Memory was a pile of notes.',
+            sourceRefIds: ['source-1', 'source-question']
+          }],
+          sourceRefs: [{
+            _id: 'source-1',
+            title: 'Memory article',
+            snippet: 'Memory used to be a pile of notes.'
+          }, {
+            _id: 'source-question',
+            type: 'question',
+            snippet: 'Does memory still compound if we never return?'
+          }]
+        }
+      }]
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    const then = document.querySelector('.open-sentence-pocket__then');
+    expect(then).toHaveTextContent('Memory was a pile of notes.');
+    expect(then).toHaveTextContent('Then you left this open');
+    expect(then).toHaveTextContent('Does memory still compound if we never return?');
+    expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent('Memory compounds with review.');
+    expect(screen.getByLabelText('Leave this open')).toHaveValue('');
+    expect(screen.queryByText(/biography/i)).not.toBeInTheDocument();
   });
 
   it('leaves a return ticket when walking into Library, not a Wiki rewrite', () => {
@@ -514,9 +962,12 @@ describe('WikiOpenSentence', () => {
     }));
     renderWikiSentence();
     expect(window.localStorage.getItem(draftStorageKey('wiki-1', 'claim-1'))).toContain('Does it still?');
+    expect(window.localStorage.getItem(draftStorageKey('wiki-1', 'claim-1'))).toContain('"distinction"');
+    expect(window.localStorage.getItem(draftStorageKey('wiki-1', 'claim-1'))).not.toContain('"returnNote"');
     expect(window.sessionStorage.getItem(draftStorageKey('wiki-1', 'claim-1'))).toBeFalsy();
     expect(screen.getByLabelText('Try a narrower wording')).toHaveValue('Memory compounds when we forget.');
     expect(screen.getByLabelText('Leave this open')).toHaveValue('Does it still?');
+    expect(screen.getByLabelText('The distinction that would help')).toHaveValue('Next: open the highlight');
     expect(screen.getByText('You left this open.')).toBeInTheDocument();
     expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent('Memory compounds with review.');
     expect(screen.getByText('Source snippet')).toBeInTheDocument();
@@ -593,7 +1044,6 @@ describe('WikiOpenSentence', () => {
       originalText: 'Memory compounds with review.',
       provisionalText: 'Memory compounds with review.',
       question: '',
-      returnNote: '',
       mark: '',
       placed: true,
       status: 'closed'
@@ -838,5 +1288,51 @@ describe('WikiOpenSentence', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Propose this wording' }));
     expect(screen.getByText(/Proposed, not accepted/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Accept this wording' })).not.toBeInTheDocument();
+  });
+
+  it('hides the claim paragraph in the article and brings it back by name', () => {
+    renderWikiSentence({
+      page: {
+        ...page,
+        body: {
+          type: 'doc',
+          content: [
+            { type: 'paragraph', content: [{ type: 'text', text: 'Before the claim.' }] },
+            page.body.content[0],
+            { type: 'paragraph', content: [{ type: 'text', text: 'After the claim.' }] }
+          ]
+        }
+      }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Try without this paragraph' }));
+    expect(document.querySelector('.open-sentence')).toHaveClass('is-without');
+    expect(screen.getByText('Before the claim.')).toBeInTheDocument();
+    expect(screen.getByText('After the claim.')).toBeInTheDocument();
+    expect(screen.getByText(/The article still reads/)).toHaveTextContent('Memory compounds with review.');
+    fireEvent.click(screen.getByRole('button', { name: 'Bring “Memory compounds with review.” back' }));
+    expect(document.querySelector('.open-sentence')).not.toHaveClass('is-without');
+    expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent('Memory compounds with review.');
+  });
+
+  it('asks the host to name the page and leaves the claim text', async () => {
+    const onMakeTitle = jest.fn().mockResolvedValue();
+    const { rerender } = renderWikiSentence({ onMakeTitle });
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Make this the title' }));
+    await waitFor(() => expect(onMakeTitle).toHaveBeenCalledWith('Memory compounds with review.'));
+    expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent('Memory compounds with review.');
+    rerender({ onMakeTitle, page: { ...page, title: 'Memory compounds with review.' } });
+    expect(screen.queryByRole('button', { name: 'Make this the title' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the title when naming fails', async () => {
+    const onMakeTitle = jest.fn().mockRejectedValue(new Error('no'));
+    renderWikiSentence({ onMakeTitle });
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Make this the title' }));
+    await waitFor(() => expect(onMakeTitle).toHaveBeenCalledWith('Memory compounds with review.'));
+    expect(screen.getByRole('button', { name: 'Make this the title' })).toBeInTheDocument();
+    expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent('Memory compounds with review.');
   });
 });

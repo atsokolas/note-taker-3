@@ -20,7 +20,7 @@ describe('explicit writing discovery', () => {
     expect(Object.keys(filter.$or[0])).toEqual(['draft.title']);
     expect(JSON.stringify(filter)).not.toMatch(/selectedSource|against|keeps|mutations/);
   });
-  it('finds a private question but excludes unchanged source wording and inaccessible origins', async () => {
+  it('finds a private question but excludes source-only text and preserves private words after losing the source', async () => {
     const args = setup({work:[
       {_id:'question',pageId:'page',claimId:'claim',draft:{question:'What leaves room to return?'}},
       {_id:'source-only',pageId:'page',claimId:'claim',draft:{title:'Other',originalText:'room to return',provisionalText:'room to return',selectedSource:{passage:'room to return'}}},
@@ -28,7 +28,8 @@ describe('explicit writing discovery', () => {
       {_id:'highlight-gone',articleId:'article',highlightId:'missing',draft:{writing:'room to return'}}
     ],pages:[{_id:'page',title:'A source'}],articles:[{_id:'article',title:'Another source',highlights:[]}]});
     const found = await searchAuthoredWork({...args,query:'room to return'});
-    expect(found.results.map(row=>row.id)).toEqual(['question', 'highlight-gone']);
+    expect(found.results.map(row=>row.id)).toEqual(['question', 'highlight-gone', 'gone']);
+    expect(found.results[2]).toMatchObject({ sourceUnavailable: true });
     expect(found.results[1]).toMatchObject({ articleId: 'article', highlightId: 'missing', originMissing: true });
     expect(found.results[0]).toMatchObject({label:'Question',pageId:'page',claimId:'claim'});
     expect(JSON.stringify(found)).not.toMatch(/originalText|selectedSource|provisionalText/);

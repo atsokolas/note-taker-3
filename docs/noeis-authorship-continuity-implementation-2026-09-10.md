@@ -1,5 +1,7 @@
 # C1 — Return without reconstruction
 
+**September 11 release update:** C1 engineering is complete in the release branch, including chosen versions, portable offline work and whole-source recovery. The historical local-only statements below describe earlier stages. See [C1 release and user test](noeis-authorship-c1-release-2026-09-11.md) for current scope and evidence.
+
 Updated September 11, 2026. First eight slices implemented locally: **Your writing** in Think, **Work with this passage** in Library, **Start a note** in Think, **Find your writing**, recovery when a Library highlight disappears, **Your work here** on an ordinary Library article, **Read fresh** in Library and ordinary Wiki readers, and **Copy continuation link** for deliberate private handoff. Uncommitted, unmerged, undeployed. Athan explicitly advanced C1; C0's remaining acceptance stays open without requiring another C0-only polish pass.
 
 ## What the person can do

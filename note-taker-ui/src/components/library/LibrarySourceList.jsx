@@ -45,7 +45,7 @@ const coverageMessage = ({ coverage, counts, sourceView, hasMore }) => {
   const limitations = Array.isArray(coverage?.limitations) ? coverage.limitations : [];
   const scanLimited = limitations.some(value => /scan_limited|scan_may_be_limited/.test(String(value)));
   if (hasMore || scanLimited) {
-    return 'Showing a bounded mixed-source scan; older matches may not appear yet.';
+    return 'Showing recent sources. Older matches may be missing.';
   }
   if (counts?.[sourceView]?.exact === true && limitations.every(value => (
     String(value) === 'material_movements_limited_to_50'

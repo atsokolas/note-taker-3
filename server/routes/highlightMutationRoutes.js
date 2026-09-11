@@ -141,7 +141,20 @@ const buildHighlightMutationRouter = ({
           metadata: { route: 'add-highlight' }
         });
       }
-      res.status(200).json({ article: updatedArticle, highlight: createdHighlight });
+      /* A highlight is a subdocument: it belongs to the article by containment
+         and carries no articleId of its own. Returning the raw subdocument told
+         every caller the highlight had no article — an agent read that as its
+         own write having failed and reported five saved highlights as unattached.
+         Read and update already serialize; create now says the same thing. */
+      res.status(200).json({
+        article: updatedArticle,
+        highlight: createdHighlight
+          ? serializeHighlightWithArticle(updatedArticle, createdHighlight, {
+            includeAnchor: true,
+            normalizeItemType
+          })
+          : null
+      });
     } catch (error) {
       console.error("❌ Error adding highlight:", error);
       if (error.name === 'CastError') {
@@ -205,12 +218,13 @@ const buildHighlightMutationRouter = ({
 
         await article.save();
 
-        const refreshed = await Article.findById(articleId);
-        const updatedHighlight = refreshed.highlights.id(highlightId);
-        enqueueHighlightEmbedding({ highlight: updatedHighlight, article: refreshed });
+        /* The saved document already holds the change; re-reading it by id was a
+           round trip to be told what we had just written. */
+        const updatedHighlight = article.highlights.id(highlightId);
+        enqueueHighlightEmbedding({ highlight: updatedHighlight, article: article });
         const highlightItem = safeMapEmbedding(
           () => highlightToEmbeddingItem(
-            { ...updatedHighlight, articleId: refreshed._id, articleTitle: refreshed.title },
+            { ...updatedHighlight, articleId: article._id, articleTitle: article.title },
             String(userId)
           ),
           'highlight'
@@ -220,17 +234,17 @@ const buildHighlightMutationRouter = ({
           userId,
           sourceType: 'highlight',
           sourceObjectId: updatedHighlight._id,
-          parentObjectId: refreshed._id,
+          parentObjectId: article._id,
           provider: 'library',
           eventType: 'updated',
-          title: refreshed.title,
+          title: article.title,
           summary: [updatedHighlight.text, updatedHighlight.note].filter(Boolean).join(' - '),
-          url: refreshed.url,
-          sourceUpdatedAt: refreshed.updatedAt || new Date(),
+          url: article.url,
+          sourceUpdatedAt: article.updatedAt || new Date(),
           metadata: { route: 'update-highlight' }
         });
         res.status(200).json(
-          serializeHighlightWithArticle(refreshed, updatedHighlight, {
+          serializeHighlightWithArticle(article, updatedHighlight, {
             includeAnchor: true,
             normalizeItemType
           })
@@ -257,7 +271,9 @@ const buildHighlightMutationRouter = ({
         article.highlights.pull(highlightId);
         await article.save();
 
-        const updatedArticle = await Article.findById(articleId).populate('folder');
+        /* Re-read only for the populated folder the response carries, and named
+           by owner like every other query here. */
+        const updatedArticle = await Article.findOne({ _id: articleId, userId }).populate('folder');
         const deleteId = buildEmbeddingId({
           userId: String(userId),
           objectType: 'highlight',

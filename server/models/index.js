@@ -664,6 +664,16 @@ const wikiJudgmentSchema = new mongoose.Schema({
      needs to know the field exists. */
   governingQuestion: { type: String, default: '', trim: true },
   currentJudgment: { type: String, default: '', trim: true },
+  /* What the sentence used to say. A judgment that changed is the record, not
+     an edit to hide, so the superseded wording keeps the date it stopped
+     being held. Append-only: nothing here is ever rewritten. */
+  heldHistory: {
+    type: [new mongoose.Schema({
+      text: { type: String, required: true, trim: true },
+      until: { type: Date, required: true }
+    }, { _id: false })],
+    default: []
+  },
   confidence: { type: Number, min: 0, max: 1, default: null },
   /* `parked` is not `closed`. Closed means the question is settled; parked
      means the reader has stopped tending this one, which says nothing about
@@ -1244,6 +1254,17 @@ const wikiRevisionSchema = new mongoose.Schema({
   before: { type: mongoose.Schema.Types.Mixed, default: null },
   after: { type: mongoose.Schema.Types.Mixed, default: null },
   snapshotPrunedAt: { type: Date, default: null },
+  /* A maintenance pass that changed nothing used to record that fact by storing
+     the whole page twice. Repo-page revisions ran 1.5MB each and the wiki's
+     revisions grew to two thirds of the cluster.
+
+     So a pass whose before and after are the same content stores neither, and
+     says so here. This is not snapshotPrunedAt: that means retention removed a
+     payload and the content is gone. This means the content was never worth
+     writing because it equals the revision before it, and is read back from
+     there. The row, its id, its links, its summary and its review all stand. */
+  snapshotUnchanged: { type: Boolean, default: false },
+  contentHash: { type: String, default: '' },
   summary: { type: String, default: '', trim: true }
 }, { timestamps: true });
 
@@ -1328,6 +1349,12 @@ wikiMaintenanceRunSchema.index(
   { name: 'judgment_audit_run' }
 );
 wikiMaintenanceRunSchema.index({ leaseKey: 1 }, { unique: true, sparse: true });
+/* The storage governor sweeps every reader's finished runs at once, so it asks
+   by status and age with no userId — and every index above leads with userId.
+   Nothing could serve it: Mongo scanned the collection and sorted in memory,
+   which passed 32MB and aborted, so pruning had never once run. This index is
+   the query, filter and sort both. */
+wikiMaintenanceRunSchema.index({ status: 1, createdAt: 1 }, { name: 'storage_governor_sweep' });
 
 const WikiMaintenanceRun = mongoose.model('WikiMaintenanceRun', wikiMaintenanceRunSchema);
 
@@ -1696,7 +1723,13 @@ const editionItemSchema = new mongoose.Schema({
     agentTokenId: { type: mongoose.Schema.Types.ObjectId, ref: 'AgentToken', default: null }
   },
   filedAt: { type: Date, default: null },
-  savedArticleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Article', default: null }
+  savedArticleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Article', default: null },
+  /* What the reader did with this arrival. Missing means new. An agent rewrite
+     keeps this by URL; the agent cannot set it. */
+  readerState: {
+    status: { type: String, enum: ['opened', 'later', 'dismissed'], default: undefined },
+    at: { type: Date, default: null }
+  }
 }, { _id: false });
 
 const editionSchema = new mongoose.Schema({
@@ -3032,12 +3065,19 @@ const SharedQuestion = mongoose.model('SharedQuestion', sharedQuestionSchema);
    flagging it. What is different is what a reader is publishing — not a
    sentence of their own but a paper their agent kept for them, which is
    exactly why the boundary rule matters. Anyone can share a list of links.
-   An edition cannot exist unless every item said what would limit it. */
+   An edition cannot exist unless every item said what would limit it.
+
+   The slug is the URL. The snapshot is the version. An agent rewrite of the
+   private issue does not touch the snapshot; only an explicit owner update
+   replaces it, under the same live URL. */
 const sharedEditionSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   editionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Edition', required: true },
   slug: { type: String, required: true, unique: true, index: true },
-  ownerDisplayName: { type: String, default: '' }
+  ownerDisplayName: { type: String, default: '' },
+  snapshot: { type: mongoose.Schema.Types.Mixed, default: null },
+  contentHash: { type: String, default: '' },
+  publishedAt: { type: Date, default: null }
 }, { timestamps: true });
 
 sharedEditionSchema.index({ userId: 1, editionId: 1 }, { unique: true });

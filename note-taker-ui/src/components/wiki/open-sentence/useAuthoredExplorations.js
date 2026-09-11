@@ -20,8 +20,9 @@ const conflictFrom = (error, itemId) => {
 // Empty optional fields match the server's omission; opening is not an edit.
 export const explorationDraft = (value = {}) => ({ ...Object.fromEntries([
   'title', 'writing', 'originalText', 'provisionalText', 'question', 'returnNote',
-  'mark', 'placed', 'pressure', 'meet', 'essay', 'proposal', 'selectedSource'
-].filter(key => value[key] !== undefined && value[key] !== null).map(key => [key, value[key]])),
+  'mark', 'placed', 'pressure', 'meet', 'essay', 'proposal', 'selectedSource',
+  'distinction', 'distinctionAt', 'distinctionAgainst', 'instrument', 'exhibit', 'rehearsal', 'unwritten', 'carry', 'contributions', 'rearranged', 'without', 'withoutSource'
+].filter(key => value[key] !== undefined && value[key] !== null && (!['distinction', 'distinctionAt', 'distinctionAgainst', 'rearranged', 'without', 'withoutSource'].includes(key) || Boolean(value[key]))).map(key => [key, value[key]])),
   ...(value.authoredAgainst ? { originalText: value.authoredAgainst } : {})
 });
 
@@ -274,10 +275,26 @@ export default function useAuthoredExplorations({ scopeId, cacheScope = scopeId,
   }, [flush, publish]);
 
   const retryLoad = useCallback(() => setLoadAttempt(value => value + 1), []);
-  return { ...view, change, retry, retryLoad, keep, discard, resolveConflict };
+  const restoreWriting = useCallback((itemId, { fields, revision }) => {
+    const current = session.current;
+    const record = current?.records[itemId];
+    if (!record?.saved || record.dirty || record.saving || record.error || record.conflict) {
+      throw new Error('Finish saving and resolve changes before bringing another version in.');
+    }
+    const draft = { ...record.draft, ...fields };
+    if (revision !== record.revision) {
+      record.conflict = record.saved;
+      record.draft = draft;
+      record.dirty = true;
+      record.revision = revision;
+      publish(current);
+    } else change(itemId, draft);
+  }, [change, publish]);
+  return { ...view, change, retry, retryLoad, keep, discard, resolveConflict, restoreWriting };
 }
 
 export const authorshipFor = (work, itemId) => ({
+  owner: work.owner,
   ready: Boolean(work.owner) && !work.loading,
   error: work.error,
   deviceSaved: work.deviceSaved,
@@ -286,5 +303,6 @@ export const authorshipFor = (work, itemId) => ({
   retryLoad: work.retryLoad,
   keep: destination => work.keep(itemId, destination),
   discard: () => work.discard(itemId),
+  restoreWriting: version => work.restoreWriting(itemId, version),
   resolveConflict: useLocal => work.resolveConflict(itemId, useLocal)
 });

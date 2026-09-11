@@ -1,6 +1,7 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
-import { getEdition, getEditionShare, revokeEditionShare, saveEditionItem, shareEdition } from '../api/editions';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { getEdition, saveEditionItem, saveEditionItemLater, setEditionItemState } from '../api/editions';
+import EditionShare from '../components/editions/EditionShare';
 import { bySection, gapLine, issueLine, takenLine, windowLine } from './editionModel';
 
 /**
@@ -16,8 +17,8 @@ import { bySection, gapLine, issueLine, takenLine, windowLine } from './editionM
  * rather than dropped, which is the one thing a newsletter never does.
  */
 
-const EditionItem = ({ item, onSave, saving, unread = null }) => (
-  <article className="edition-item">
+const EditionItem = ({ item, onSave, onLater, saving, laterSaving, unread = null, laterNote = null }) => (
+  <article className="edition-item" id={`edition-item-${item.itemId}`}>
     <h3 className="edition-item__title">
       <a href={item.url} target="_blank" rel="noopener noreferrer">{item.title}</a>
     </h3>
@@ -26,7 +27,6 @@ const EditionItem = ({ item, onSave, saving, unread = null }) => (
     ) : null}
 
     <p className="edition-item__finding">{item.finding}</p>
-    {/* The required half. An item that could not say this was refused. */}
     <p className="edition-item__boundary">
       <span className="edition-item__label">What would limit it</span>
       {item.boundary}
@@ -56,18 +56,36 @@ const EditionItem = ({ item, onSave, saving, unread = null }) => (
           {saving ? 'Saving…' : 'Save to library'}
         </button>
       )}
+      {item.readerStatus === 'later' || laterNote?.itemId === item.itemId ? (
+        <Link className="edition-item__saved" to="/library?scope=later">
+          {laterNote?.fromSetAside ? 'Moved to Later · Open Later' : 'Saved for later · Open Later'}
+        </Link>
+      ) : (
+        <button
+          type="button"
+          className="edition-item__save"
+          onClick={() => onLater(item.itemId)}
+          disabled={laterSaving}
+          data-testid={`edition-later-${item.itemId}`}
+        >
+          {laterSaving ? 'Saving…' : 'Save for later'}
+        </button>
+      )}
     </div>
   </article>
 );
 
 const EditionRead = () => {
   const { id = '' } = useParams();
+  const [params] = useSearchParams();
+  const focusItem = params.get('item') || '';
   const [edition, setEdition] = useState(null);
   const [error, setError] = useState('');
   const [savingId, setSavingId] = useState('');
+  const [laterId, setLaterId] = useState('');
   const [unread, setUnread] = useState(null);
-  const [share, setShare] = useState({ shared: false, slug: '' });
-  const [copied, setCopied] = useState(false);
+  const [laterNote, setLaterNote] = useState(null);
+  const acknowledged = useRef('');
 
   useEffect(() => {
     let cancelled = false;
@@ -82,51 +100,17 @@ const EditionRead = () => {
     return () => { cancelled = true; };
   }, [id]);
 
-  /* The crossing. The whole edition comes back so the masthead's count of
-     what you have taken is right the moment you take one. */
-  /* Whether this paper is already published, so the control says "copy the
-     link" rather than offering to mint a second one. */
   useEffect(() => {
-    let cancelled = false;
-    getEditionShare(id)
-      .then((found) => { if (!cancelled) setShare(found || { shared: false, slug: '' }); })
-      .catch(() => { if (!cancelled) setShare({ shared: false, slug: '' }); });
-    return () => { cancelled = true; };
-  }, [id]);
-
-  const publish = useCallback(async () => {
-    setError('');
-    try {
-      const minted = await shareEdition(id);
-      setShare({ shared: true, slug: minted.slug || '' });
-    } catch (shareError) {
-      setError(shareError?.response?.data?.error || 'That paper did not publish.');
-    }
-  }, [id]);
-
-  const unpublish = useCallback(async () => {
-    setError('');
-    try {
-      await revokeEditionShare(id);
-      setShare({ shared: false, slug: '' });
-      setCopied(false);
-    } catch (shareError) {
-      setError(shareError?.response?.data?.error || 'That share did not revoke.');
-    }
-  }, [id]);
-
-  const copyLink = useCallback(async () => {
-    const href = `${window.location.origin}/share/editions/${share.slug}`;
-    try {
-      await navigator.clipboard.writeText(href);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 2200);
-    } catch (_copyError) {
-      /* A clipboard a browser refuses is not an error worth a red line —
-         the link is on screen and selectable. */
-      setCopied(false);
-    }
-  }, [share.slug]);
+    if (!edition || !focusItem || acknowledged.current === `${id}:${focusItem}`) return;
+    if (!(edition.items || []).some(item => item.itemId === focusItem)) return;
+    acknowledged.current = `${id}:${focusItem}`;
+    Promise.resolve(setEditionItemState(id, focusItem, 'opened')).catch(() => {
+      acknowledged.current = '';
+    });
+    window.requestAnimationFrame(() => {
+      document.getElementById(`edition-item-${focusItem}`)?.scrollIntoView?.({ block: 'start' });
+    });
+  }, [edition, focusItem, id]);
 
   const save = useCallback(async (itemId) => {
     setSavingId(itemId);
@@ -144,6 +128,24 @@ const EditionRead = () => {
       setError(saveError?.response?.data?.error || 'That source did not save.');
     } finally {
       setSavingId('');
+    }
+  }, [id]);
+
+  const later = useCallback(async (itemId) => {
+    setLaterId(itemId);
+    setError('');
+    try {
+      const result = await saveEditionItemLater(id, itemId);
+      if (result?.edition) setEdition(result.edition);
+      if (result?.placed === false) {
+        setError(result.error || 'Saved to Library; could not move to Later — Retry');
+        return;
+      }
+      setLaterNote({ itemId, fromSetAside: Boolean(result?.fromSetAside) });
+    } catch (laterError) {
+      setError(laterError?.response?.data?.error || 'That source did not save for later.');
+    } finally {
+      setLaterId('');
     }
   }, [id]);
 
@@ -172,28 +174,10 @@ const EditionRead = () => {
             their agents to argue with. */}
         {edition.writtenBy ? <p className="edition__byline">Written by {edition.writtenBy}</p> : null}
         <p className="edition__taken">{takenLine(edition)}</p>
+        <EditionShare editionId={id} edition={edition} />
       </header>
 
       {error ? <p className="status-message error-message">{error}</p> : null}
-
-      {/* A paper is worth keeping if you can pass it on. The boundary rule
-          travels with it, which is what makes it worth someone's click. */}
-      <div className="edition__share">
-        {share.shared ? (
-          <>
-            <button type="button" className="edition__share-copy" onClick={copyLink} data-testid="edition-copy-link">
-              {copied ? 'Link copied' : 'Copy the link'}
-            </button>
-            <button type="button" className="edition__share-revoke" onClick={unpublish} data-testid="edition-unpublish">
-              Unpublish
-            </button>
-          </>
-        ) : (
-          <button type="button" className="edition__share-copy" onClick={publish} data-testid="edition-publish">
-            Publish this paper
-          </button>
-        )}
-      </div>
 
       {edition.standfirst ? <p className="edition__standfirst">{edition.standfirst}</p> : null}
 
@@ -206,8 +190,11 @@ const EditionRead = () => {
                 key={item.itemId}
                 item={item}
                 onSave={save}
+                onLater={later}
                 saving={savingId === item.itemId}
+                laterSaving={laterId === item.itemId}
                 unread={unread?.itemId === item.itemId ? unread : null}
+                laterNote={laterNote}
               />
             ))
           ) : (

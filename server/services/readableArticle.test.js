@@ -1,4 +1,4 @@
-const { bodyFrom, fetchReadableArticle, stripTags, titleFrom } = require('./readableArticle');
+const { bodyFrom, fetchReadableArticle, paragraphsToHtml, stripTags, titleFrom } = require('./readableArticle');
 
 const headers = (values = {}) => ({ get: key => values[String(key).toLowerCase()] || null });
 const publicLookup = async () => [{ address: '93.184.216.34', family: 4 }];
@@ -90,5 +90,28 @@ describe('fetching one', () => {
     });
     expect(wrong.ok).toBe(false);
     expect(wrong.error).toMatch(/readable web page/);
+  });
+});
+
+/* What comes back is text with blank lines between blocks, and the reader
+   renders a body as HTML. Stored raw it is one unbroken run: saved, unreadable. */
+describe('paragraphsToHtml', () => {
+  it('gives each block its own paragraph', () => {
+    expect(paragraphsToHtml('First block.\n\nSecond block.'))
+      .toBe('<p>First block.</p>\n<p>Second block.</p>');
+  });
+
+  it('keeps a wrapped line inside its paragraph', () => {
+    expect(paragraphsToHtml('A line\nand its wrap.')).toBe('<p>A line<br/>and its wrap.</p>');
+  });
+
+  it('has nothing to say about nothing', () => {
+    expect(paragraphsToHtml('  \n\n  ')).toBe('');
+    expect(paragraphsToHtml()).toBe('');
+  });
+
+  it('treats page text as text, not as markup', () => {
+    expect(paragraphsToHtml('<script>alert("x")</script>'))
+      .toBe('<p>&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt;</p>');
   });
 });

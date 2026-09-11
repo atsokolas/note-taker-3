@@ -50,7 +50,15 @@ const buildAuthoredExplorationModel = (mongoose) => {
     text: { type: String, default: '', maxlength: 20000 }
   }, { _id: false });
 
+  const originSchema = new mongoose.Schema({
+    pageTitle: { type: String, default: '', maxlength: 500 },
+    claimText: { type: String, default: '', maxlength: 4000 },
+    href: { type: String, default: '', maxlength: 1000 }
+  }, { _id: false });
+
   const draftSchema = new mongoose.Schema({
+    // Existing sentence tools are private experiments, bounded by the service.
+    ...Object.fromEntries(['distinction', 'distinctionAt', 'distinctionAgainst', 'instrument', 'exhibit', 'rehearsal', 'unwritten', 'carry', 'contributions', 'rearranged', 'without', 'withoutSource'].map(key => [key, { type: mongoose.Schema.Types.Mixed, default: undefined }])),
     title: { type: String, default: '', maxlength: 240 },
     writing: { type: String, default: '', maxlength: 20000 },
     originalText: { type: String, default: '', maxlength: 4000 },
@@ -79,11 +87,7 @@ const buildAuthoredExplorationModel = (mongoose) => {
     mutationId: { type: String, required: true, maxlength: 100 },
     status: { type: String, enum: ['pending', 'complete'], default: 'pending' },
     snapshot: {
-      origin: {
-        pageTitle: { type: String, default: '', maxlength: 500 },
-        claimText: { type: String, default: '', maxlength: 4000 },
-        href: { type: String, default: '', maxlength: 1000 }
-      },
+      origin: { type: originSchema, default: () => ({}) },
       draft: { type: draftSchema, default: undefined },
       primarySource: { type: keptSourceSchema, default: undefined }
     },
@@ -97,12 +101,14 @@ const buildAuthoredExplorationModel = (mongoose) => {
     articleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Article' },
     highlightId: { type: mongoose.Schema.Types.ObjectId },
     revision: { type: Number, required: true, min: 1, default: 1 },
-    origin: {
-      pageTitle: { type: String, default: '', maxlength: 500 },
-      claimText: { type: String, default: '', maxlength: 4000 },
-      href: { type: String, default: '', maxlength: 1000 }
-    },
+    origin: { type: originSchema, default: () => ({}) },
     draft: { type: draftSchema, default: () => ({}) },
+    savedVersions: { type: [new mongoose.Schema({
+      revision: { type: Number, required: true },
+      savedAt: { type: Date, required: true },
+      origin: { type: originSchema, default: () => ({}) },
+      draft: { type: draftSchema, required: true }
+    }, { _id: false })], default: [], select: false },
     mutations: { type: [mutationSchema], default: [] },
     keeps: { type: [keepSchema], default: [] }
   }, { timestamps: true });

@@ -193,7 +193,7 @@ describe('LibrarySourceList', () => {
       loadingMore: true,
       onLoadMore: jest.fn()
     });
-    expect(screen.getByTestId('library-source-coverage')).toHaveTextContent(/bounded mixed-source scan/i);
+    expect(screen.getByTestId('library-source-coverage')).toHaveTextContent(/Showing recent sources/i);
     expect(screen.getByTestId('library-source-load-more')).toBeDisabled();
     expect(screen.getByTestId('library-source-load-more')).toHaveTextContent('Loading more…');
   });

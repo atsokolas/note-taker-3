@@ -1,18 +1,18 @@
 /* The landing page, at the product's volume.
  *
- * The landing was already in this language — vellum, Newsreader, hairlines, no
- * cards. What was off was scale: the hero ran to 6.6rem and took most of the
- * first screen, which made the front door shout louder than anything behind it.
- * The claim on a Judgment page — the loudest thing in the product — tops out
- * around 2.7rem. This brings the hero into the same family: still the biggest
- * type on the site, no longer a different design.
- *
- * The two filled boxes go the same way. Every other action in the product is a
- * word with a rule under it; there is no reason the front door disagrees.
+ * One column of ink, the same family as a Judgment claim: still the biggest
+ * type on the site, no longer a different design. Actions are words with a
+ * rule under them, here as everywhere else.
  */
 
 /* stitch-editorial.css declares these at the same specificity and is imported
    after this file, so every selector here is scoped one level deeper. */
+body.noeis-editorial .landing-public .landing-public__hero {
+  display: block;
+  max-width: 62ch;
+  padding-bottom: 36px;
+}
+
 body.noeis-editorial .landing-public .landing-public__main h1 {
   max-width: 18ch;
   font-size: clamp(2.4rem, 4.4vw, 3.6rem);
@@ -24,6 +24,35 @@ body.noeis-editorial .landing-public .landing-public__lede {
   max-width: 56ch;
   font-size: 1.02rem;
   line-height: 1.6;
+}
+
+body.noeis-editorial .landing-public .landing-public__strip span {
+  font-family: "Newsreader", Georgia, serif;
+  font-size: 1.28rem;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  text-transform: none;
+  color: var(--vellum-ink);
+}
+
+body.noeis-editorial .landing-public .landing-public__support {
+  grid-template-columns: minmax(0, auto);
+}
+
+body.noeis-editorial .landing-public .landing-public__proof {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: var(--noeis-ui-font);
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--vellum-ink) 78%, transparent);
+  cursor: pointer;
+}
+
+body.noeis-editorial .landing-public .landing-public__proof:hover {
+  color: var(--vellum-ink);
 }
 
 /* Actions are words, here as everywhere else. */
@@ -52,16 +81,13 @@ body.noeis-editorial .landing-public .landing-public__support .ui-button:focus-v
   color: var(--vellum-warm) !important;
 }
 
-/* "Enter Noeis" was a full-width filled block at the foot of the page. */
 body.noeis-editorial .landing-public .landing-public__support .ui-button {
   width: auto;
   justify-self: start;
 }
 
 @media (max-width: 720px) {
-  /* stitch-editorial.css declares these at the same specificity and is imported
-   after this file, so every selector here is scoped one level deeper. */
-body.noeis-editorial .landing-public .landing-public__main h1 {
+  body.noeis-editorial .landing-public .landing-public__main h1 {
     font-size: clamp(2rem, 9vw, 2.8rem);
   }
 

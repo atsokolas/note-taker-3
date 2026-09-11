@@ -27,6 +27,7 @@ class JudgmentValidationError extends Error {
 }
 
 const plain = value => (value?.toObject ? value.toObject() : value || {});
+const list = value => (Array.isArray(value) ? value : []);
 const clean = (value, limit = 4000) => {
   const text = String(value || '').replace(/\s+/g, ' ').trim();
   return text.length > limit ? text.slice(0, limit).trim() : text;
@@ -267,6 +268,13 @@ const normalizeJudgment = ({ input, existing = null, actorType = 'user', pageId 
     kind,
     governingQuestion,
     currentJudgment,
+    /* The wording it replaced, kept with the day it stopped being held. Only
+       a real change appends, and only when there was something to supersede —
+       first drafts have no history, and a save that changed nothing else is
+       not a revision. */
+    heldHistory: currentJudgment && previousJudgment && currentJudgment !== previousJudgment
+      ? [...list(prior.heldHistory), { text: previousJudgment, until: new Date() }].slice(-20)
+      : list(prior.heldHistory),
     confidence: confidenceValue('judgment.confidence', next.confidence, null),
     status,
     decisionPosture: enumValue('judgment.decisionPosture', next.decisionPosture, VALUES.decisionPosture, 'investigate'),

@@ -63,6 +63,7 @@ export const buildCanonicalHighlightPath = ({ articleId = '', highlightId = '' }
 // Private continuation uses object identity only, never the current browser
 // query, private prose, or a token. Opening it still requires the owner.
 export const buildAuthoredContinuationPath = (row = {}) => {
+  if (row.sourceUnavailable && row.id) return `/think?explorationId=${encodeURIComponent(idOf(row.id))}`;
   if (row.articleId && row.highlightId) return `${buildCanonicalHighlightPath(row)}&exploration=1`;
   if (row.pageId && row.claimId) return `/wiki/read/${encodeURIComponent(idOf(row.pageId))}?claimId=${encodeURIComponent(idOf(row.claimId))}&exploration=1`;
   return '';

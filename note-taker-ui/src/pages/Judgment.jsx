@@ -25,7 +25,9 @@ import ReadingDrift from '../components/ReadingDrift';
 import JudgmentShelf from '../components/collection/JudgmentShelf';
 import AriadneThread from '../components/judgment/AriadneThread';
 import DossierResearchReview from '../components/judgment/DossierResearchReview';
+import JudgmentHistory from '../components/judgment/JudgmentHistory';
 import JudgmentLedger from '../components/judgment/JudgmentLedger';
+import JudgmentCase from '../components/judgment/JudgmentCase';
 import JudgmentResolution from '../components/judgment/JudgmentResolution';
 import LivingTeam from '../components/judgment/LivingTeam';
 import AriadneLineage from '../components/judgment/AriadneLineage';
@@ -49,6 +51,7 @@ import {
   buildJudgmentIndex,
   createJudgment,
   formatHoldAge,
+  formatLedgerDate,
   oneSentence,
   PARTNER_ACK,
   projectJudgment,
@@ -57,7 +60,7 @@ import {
   upsertLineIntoJudgment
 } from './judgmentModel';
 import { rememberOpenedJudgment } from '../components/reader/folioModel';
-import { UpdateComposer, JudgmentLog, KindWords } from './JudgmentThread';
+import { KindWords } from './JudgmentThread';
 import { OpinionGhost, ghostOfMissingName } from './opinionGhost';
 import { describeLanding, describePreview } from './judgmentWrite';
 import { describeAnniversary } from './researchAnniversary';
@@ -117,10 +120,38 @@ const AutosaveField = ({ value = '', format, multiline = false, onSave, onIdle, 
     setDraft(stored);
   }, [stored]);
   useEffect(() => () => window.clearTimeout(timerRef.current), []);
+  /* Grow the field to the sentence it holds. The first measurement lands
+     before the column has its final width, so a sentence that will sit on two
+     lines gets measured wrapped into ten and the box keeps that height for the
+     life of the page — a hand's depth of nothing under the belief. Re-fit when
+     the width actually changes, and only then, or fitting would resize the box
+     that the observer is watching. */
   useLayoutEffect(() => {
-    if (!multiline || !fieldRef.current) return;
-    fieldRef.current.style.height = 'auto';
-    fieldRef.current.style.height = `${fieldRef.current.scrollHeight}px`;
+    const field = fieldRef.current;
+    if (!multiline || !field) return undefined;
+    const fit = () => {
+      field.style.height = 'auto';
+      field.style.height = `${field.scrollHeight}px`;
+    };
+    fit();
+    if (typeof ResizeObserver !== 'function') return undefined;
+    let measured = field.clientWidth;
+    let frame = 0;
+    const observer = new ResizeObserver(([entry]) => {
+      const width = entry?.contentRect?.width ?? 0;
+      if (Math.abs(width - measured) < 1) return;
+      measured = width;
+      /* Fit on the next frame so the height write is not a mutation of the
+         box this observer is still delivering. Chrome otherwise reports a
+         ResizeObserver loop and CRA paints it as a runtime overlay. */
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(fit);
+    });
+    observer.observe(field);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
   }, [draft, multiline]);
 
   const save = useCallback(async (raw) => {
@@ -171,7 +202,7 @@ const AutosaveField = ({ value = '', format, multiline = false, onSave, onIdle, 
    sentence of belief always sits under it. Editing the title writes the wiki
    handle the rest of the product already uses. Editing the opinion writes
    the claim, and only the claim. */
-const Title = ({ title = '', claim = '', heldClaim = claim, pageId = '', onSave, onWriteClaim, titleRef }) => {
+const Title = ({ title = '', claim = '', heldClaim = claim, pageId = '', earlier = [], onSave, onWriteClaim, titleRef }) => {
   const [writeError, setWriteError] = useState('');
 
   const run = useCallback(async (action, fallback) => {
@@ -213,6 +244,19 @@ const Title = ({ title = '', claim = '', heldClaim = claim, pageId = '', onSave,
           resetAfterSave
         />
         <OpinionGhost sentence={claim} identity={pageId} />
+        {/* What it used to say. Superseded is not retracted, so these are not
+            struck — they are dated and quiet, under the one you hold. */}
+        {earlier.length ? (
+          <div className="judgment__earlier">
+            <h2>What it used to say</h2>
+            {earlier.map(line => (
+              <p key={line.id} className="judgment__earlier-line">
+                <time>{formatLedgerDate(line.until)}</time>
+                <span>{line.text}</span>
+              </p>
+            ))}
+          </div>
+        ) : null}
       </div>
       {writeError ? <p className="judgment__error" role="alert">{writeError}</p> : null}
     </>
@@ -229,13 +273,12 @@ const BeliefLink = ({ to, title, claim }) => (
 /* A note under the door: one sentence on the threshold of the claim, then
    two words. Accept resolves in place into Why or Against; dismiss evaporates
    it. Not a tray, not a toast. */
-const OvernightLine = ({ proposal, busy, onAccept, onDismiss, onHint }) => {
+const OvernightLine = ({ proposal, busy, onAccept, onDismiss }) => {
   const [choosing, setChoosing] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const reduced = usePrefersReducedMotion();
 
   const leave = (run) => {
-    onHint?.('');
     setLeaving(true);
     window.setTimeout(run, reduced ? 0 : 200);
   };
@@ -250,7 +293,6 @@ const OvernightLine = ({ proposal, busy, onAccept, onDismiss, onHint }) => {
       {choosing ? (
         <KindWords
           disabled={busy}
-          onHint={onHint}
           onChoose={(field) => leave(() => onAccept(proposal, field))}
         />
       ) : (
@@ -761,13 +803,13 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
   const [printing, setPrinting] = useState(false);
   const [printError, setPrintError] = useState('');
   const [arrivingId, setArrivingId] = useState('');
-  const [pendingId, setPendingId] = useState('');
+  /* Bumped by the unwatched-test warning to open the form that answers it. */
+  const [openTest, setOpenTest] = useState(0);
   /* null until the library has been searched for this claim. An empty array
      means the search ran and found nothing — a finding the skeptic reports —
      and null means we cannot say either way yet. */
   const [libraryCandidates, setLibraryCandidates] = useState(null);
   const [kin, setKin] = useState(null);
-  const [kindHint, setKindHint] = useState('');
   const [researchReview, setResearchReview] = useState(null);
   const [researchReviewBusy, setResearchReviewBusy] = useState(false);
   const [researchReviewError, setResearchReviewError] = useState('');
@@ -1253,22 +1295,7 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
 
   return (
     <main className="judgment" aria-labelledby="judgment-claim">
-      <div className={`judgment__meta ${step(1)}`}>
-        <Link className="judgment__back" to="/judgment">← All judgments</Link>
-        <button type="button" className="judgment__print" onClick={printPamphlet} disabled={printing}>
-          {printing ? 'Setting it…' : 'Print this as one page'}
-        </button>
-        {/* A belief held for life. Kept claims are never bubbled as neglected,
-            because you cannot neglect something you decided to keep. */}
-        <EvergreenToggle
-          evergreen={view.evergreen}
-          onChange={async (next) => {
-            const saved = await setWikiPageEvergreen(pageId, next);
-            setPage(current => ({ ...current, evergreen: saved?.evergreen ?? next, evergreenAt: saved?.evergreenAt ?? null }));
-          }}
-        />
-      </div>
-      {printError ? <p className="judgment__print-error" role="alert">{printError}</p> : null}
+      <Link className={`judgment__back ${step(1)}`} to="/judgment">← All judgments</Link>
 
       {overnight ? (
         <div className={step(2)}>
@@ -1277,7 +1304,6 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
             busy={busy}
             onAccept={acceptOvernight}
             onDismiss={dismissOvernight}
-            onHint={setKindHint}
           />
         </div>
       ) : null}
@@ -1288,6 +1314,7 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
         title={view.title}
         claim={view.claim}
         heldClaim={heldClaim}
+        earlier={view.earlier}
         onSave={rename}
         onWriteClaim={writeClaim}
         titleRef={claimRef}
@@ -1298,8 +1325,18 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
           Write your current view above to look for evidence. Your research is unchanged.
         </p>
       ) : null}
-      {view.provenance ? (
-        <p className={`judgment__provenance ${step(3)}`}>{view.provenance}</p>
+      {/* How long you have held it, and when you last looked — not a census
+          of the blocks sitting immediately underneath. */}
+      {view.standing.since || view.looked ? (
+        <p className={`judgment__standing ${step(3)}`}>
+          {[view.standing.since, view.looked].filter(Boolean).join(' ')}
+        </p>
+      ) : null}
+      {view.standing.unwatched ? (
+        <p className="judgment__standing-warning">
+          {view.standing.unwatched}{' '}
+          <button type="button" onClick={() => setOpenTest(n => n + 1)}>Name one</button>
+        </p>
       ) : null}
       {anniversary ? (
         <p className="judgment__anniversary" role="note">{anniversary}</p>
@@ -1335,104 +1372,96 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
         <p className="judgment-research-review__error" role="alert">{researchReviewError}</p>
       ) : null}
 
+      {/* Why you hold it, what would break it, what argues against, and what
+          you did — the substance of a belief, four blocks two by two. For a
+          long time this sat below the ledger, the lineage, the night watch and
+          four other panels; a reader scrolling for the reasons met the
+          machinery first. The reasons come before the record of them. */}
       <div className={step(3)}>
-        <JudgmentResolution
-          pageId={pageId}
-          claim={view.claim}
-          judgment={page.judgment}
-          evidenceOptions={verdictEvidenceOptions(page)}
-          changeMindIf={view.changeMindIf}
+        <JudgmentCase
+          view={view}
+          boundSources={verdictEvidenceOptions(page)}
+          onWrite={writeLine}
+          onSettle={setArrivingId}
           arrivingId={arrivingId}
-          onSaved={(next) => {
-            if (next) setPage(current => ({ ...current, judgment: next }));
+          inbox={inbox}
+          onFile={fileEvidence}
+          kin={kin}
+          onKin={setKin}
+          test={(
+            <JudgmentResolution
+              pageId={pageId}
+              claim={view.claim}
+              judgment={page.judgment}
+              evidenceOptions={verdictEvidenceOptions(page)}
+              openTest={openTest}
+              onSaved={(next) => {
+                if (next) setPage(current => ({ ...current, judgment: next }));
+              }}
+            />
+          )}
+        />
+      </div>
+
+      {/* Two things sit under the case, and neither is its peer. First, what
+          has happened to this belief: the clocks, who sat with it, what it
+          taught you, what it rests on. Second, what you could still do to it.
+          For a long time both were one stack of equal headings, so a reader
+          who finished the reasons could not tell the judgment had ended and
+          its apparatus had begun. */}
+      <section className={`judgment-record ${step(4)}`} aria-labelledby="judgment-record-title">
+        <h2 id="judgment-record-title" className="judgment-record__seam">What has happened to it</h2>
+        <JudgmentHistory
+          view={view}
+          rests={rests}
+          ledger={(
+            <JudgmentLedger
+              pageId={pageId}
+              claim={view.claim}
+              page={page}
+              judgment={page.judgment}
+              onSaved={(next) => {
+                if (next) setPage(current => ({ ...current, judgment: next }));
+              }}
+            />
+          )}
+          room={<LivingTeam pageId={pageId} />}
+          dependencies={(
+            <Dependencies
+              rests={rests}
+              supports={supports}
+              options={dependencyOptions}
+              onAdd={addDependsOn}
+              onRemove={removeDependsOn}
+            />
+          )}
+        />
+      </section>
+
+      {/* Every tool is one verb until you press it, or until it has something
+          to say; then it takes its own width beneath the row. Each keeps its
+          own state — the row only decides where it sits. */}
+      <div className="judgment-tools" role="group" aria-label="What you can still do">
+        <AriadneLineage pageId={pageId} />
+        <TracingPaper pageId={pageId} />
+        <NightWatch pageId={pageId} />
+        <CasebookPreview pageId={pageId} />
+        <TakeThePaper pageId={pageId} />
+        <button type="button" className="judgment__print" onClick={printPamphlet} disabled={printing}>
+          {printing ? 'Setting it…' : 'Print this as one page'}
+        </button>
+        <ParkJudgment parked={view.parked} supports={supports} onPark={park} onResume={resume} />
+        {/* A belief held for life. Kept claims are never bubbled as neglected,
+            because you cannot neglect something you decided to keep. */}
+        <EvergreenToggle
+          evergreen={view.evergreen}
+          onChange={async (next) => {
+            const saved = await setWikiPageEvergreen(pageId, next);
+            setPage(current => ({ ...current, evergreen: saved?.evergreen ?? next, evergreenAt: saved?.evergreenAt ?? null }));
           }}
         />
       </div>
-
-      {/* Why you hold it, and what argues against — the substance of a belief,
-          and for a long time it sat below the ledger, the lineage, the night
-          watch and four other panels. A reader scrolling for the reasons met
-          the machinery first. The reasons come before the record of them. */}
-      <div className={step(3)}>
-        <UpdateComposer
-          key={pageId}
-          boundSources={verdictEvidenceOptions(page)}
-          onWrite={writeLine}
-          onPending={setPendingId}
-          onSettle={setArrivingId}
-          inbox={inbox}
-          onFile={fileEvidence}
-          view={view}
-          kin={kin}
-          onKin={setKin}
-          hintKind={kindHint}
-          onHint={setKindHint}
-        />
-        <JudgmentLog
-          view={view}
-          arrivingId={arrivingId}
-          pendingId={pendingId}
-          kin={kin}
-          onKin={setKin}
-        />
-      </div>
-
-      <JudgmentLedger
-        pageId={pageId}
-        claim={view.claim}
-        page={page}
-        judgment={page.judgment}
-        onSaved={(next) => {
-          if (next) setPage(current => ({ ...current, judgment: next }));
-        }}
-      />
-      <LivingTeam pageId={pageId} />
-      <AriadneLineage pageId={pageId} />
-      <TracingPaper pageId={pageId} />
-      <NightWatch pageId={pageId} />
-      <CasebookPreview pageId={pageId} />
-      <TakeThePaper pageId={pageId} />
-
-      <div className={`judgment__after ${step(4)}`}>
-        {view.lessons.length ? (
-          <section className="judgment__field judgment__lessons" aria-labelledby="judgment-field-lessons">
-            <h2 id="judgment-field-lessons">What it taught me</h2>
-            <ul>
-              {view.lessons.map(lesson => (
-                <li key={lesson.id}>
-                  <span>{lesson.text}</span>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
-
-        <Dependencies
-          rests={rests}
-          supports={supports}
-          options={dependencyOptions}
-          onAdd={addDependsOn}
-          onRemove={removeDependsOn}
-        />
-
-        <ParkJudgment parked={view.parked} supports={supports} onPark={park} onResume={resume} />
-
-        {view.review ? (
-          <section className="judgment__field judgment__review" aria-labelledby="judgment-field-review">
-            <h2 id="judgment-field-review">What happened?</h2>
-            {view.review.state === 'observed' ? (
-              <>
-                {view.review.summary ? <p className="judgment__line">{view.review.summary}</p> : null}
-                {view.review.lesson ? <p className="judgment__line">{view.review.lesson}</p> : null}
-              </>
-            ) : (
-              <p className="judgment__line judgment__line--asking">
-                The review date has passed. Nothing here is filled in until you say what happened.
-              </p>
-            )}
-          </section>
-        ) : null}
-      </div>
+      {printError ? <p className="judgment__print-error" role="alert">{printError}</p> : null}
 
       {error ? <p className="judgment__error" role="alert">{error}</p> : null}
     </main>

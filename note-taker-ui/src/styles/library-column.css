@@ -789,14 +789,25 @@
   }
 }
 
-/* ---- The column head ----------------------------------------------------- */
+/* ---- The browse head ----------------------------------------------------- *
+ * Places on the left, Actions on the right. Ordinary spacing — not a
+ * viewport-height gap that left an empty band above the list. */
+.library-browse-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px 24px;
+  padding: 20px 0 8px;
+}
+
 .library-page-shell__column-head {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
   gap: 10px 26px;
-  padding-top: clamp(40px, 7vh, 84px);
+  padding-top: 20px;
 }
 
 .library-page-shell__doors {
@@ -863,8 +874,9 @@
 }
 
 @media (max-width: 900px) {
+  .library-browse-head,
   .library-page-shell__column-head {
-    padding-top: 24px;
+    padding-top: 16px;
   }
 }
 
@@ -948,9 +960,9 @@ body.noeis-editorial .library-page-shell .library-article-row-title,
   font-weight: 400;
 }
 
-/* The column starts where the reading starts, not a third of the way down. */
+/* The column starts where the reading starts. */
 .library-page-shell__column-head {
-  padding-top: clamp(24px, 4vh, 44px);
+  padding-top: 20px;
 }
 
 /* The Articles head carried a decorative page-icon and an inset accent bar
@@ -1097,30 +1109,19 @@ body.noeis-editorial .library-page-shell .library-folder-name,
   text-align: left;
 }
 
-/* Temporary: Later, Set aside, Kept, and screened names live at the top until
-   they have a permanent weave. Empty doors stay named so they can be found. */
 .library-places {
-  display: grid;
-  gap: 10px;
-  margin: 0 0 26px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  min-width: 0;
   font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
 }
 
-/* The doors lead and the report follows, because the doors are now the way
-   into the three places rather than a footnote under a sentence about them. */
 .library-places__doors {
   display: flex;
   flex-wrap: wrap;
   gap: 6px 26px;
   align-items: baseline;
-}
-
-.library-places__line {
-  margin: 0;
-  max-width: 62ch;
-  color: var(--text-secondary, var(--vellum-muted));
-  font-size: 0.88rem;
-  line-height: 1.55;
 }
 
 .library-places__doors a {

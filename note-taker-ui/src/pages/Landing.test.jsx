@@ -5,6 +5,7 @@ import * as router from 'react-router-dom';
 import Landing from './Landing';
 import { getPublicProofRegistry } from '../api/wiki';
 import { trackMarketingCta } from '../utils/marketingAnalytics';
+import HOME from '../seo/homeCopy.json';
 
 jest.mock('../api/wiki', () => ({
   getPublicProofRegistry: jest.fn()
@@ -45,16 +46,28 @@ describe('Landing', () => {
     });
   });
 
-  it('links the living dossier CTA directly to the configured Alphabet public page', async () => {
-    render(
-      <MemoryRouter initialEntries={['/']}>
-        <Landing />
-      </MemoryRouter>
-    );
+  const open = () => render(
+    <MemoryRouter initialEntries={['/']}>
+      <Landing />
+    </MemoryRouter>
+  );
 
-    // Waiting on the call only proves the request went out. The href arrives a
-    // microtask later, and clicking in between sent the reader to the fallback
-    // - which is what made this test fail about one run in four.
+  it('says what Noeis helps a newcomer do', async () => {
+    open();
+    expect(screen.getByRole('heading', { name: HOME.headline })).toBeInTheDocument();
+    expect(screen.getByText(HOME.lede)).toBeInTheDocument();
+    expect(screen.getByText('Keep the source.')).toBeInTheDocument();
+    expect(screen.getByText('Work with the idea.')).toBeInTheDocument();
+    expect(screen.getByText('Pick it up again.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'How it works' })).toHaveAttribute('href', '#how-it-works');
+    expect(screen.getByRole('link', { name: 'Log in' })).toHaveAttribute('href', '/login');
+    expect(screen.queryByText(/Nothing is written until you accept it/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/An agent brings evidence overnight/)).not.toBeInTheDocument();
+    await screen.findByRole('button', { name: 'Open a living dossier' });
+  });
+
+  it('links the living dossier as a supporting action, not a hero CTA', async () => {
+    open();
     const cta = await screen.findByRole('button', { name: 'Open a living dossier' });
     await waitFor(() => expect(cta).toHaveAttribute('data-target', '/share/wiki/alphabet-berkshire-2-0'));
 

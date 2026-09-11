@@ -1,6 +1,7 @@
 const { listRecentExplorations } = require('./authoredWorkDiscovery');
 const {
   AuthoredExplorationError,
+  normalizeDraft,
   deleteExploration,
   keepExploration,
   listExplorations,
@@ -491,9 +492,10 @@ describe('recent authored writing', () => {
     const WikiPage = { find: jest.fn(() => query([{ _id: 'page-1', title: 'Current page title' }])) };
     const result = await listRecentExplorations({ AuthoredExploration, WikiPage, userId: 'owner' });
     expect(AuthoredExploration.find).toHaveBeenCalledWith(expect.objectContaining({ userId: 'owner', $or: expect.any(Array) }));
-    expect(WikiPage.find).toHaveBeenCalledWith({ _id: { $in: ['unavailable', 'page-1'] }, userId: 'owner', status: { $ne: 'archived' }, archived: { $ne: true }, hiddenFromHome: { $ne: true }, debugOnly: { $ne: true } });
+    expect(WikiPage.find).toHaveBeenCalledWith({ _id: { $in: ['unavailable', 'page-1'] }, userId: 'owner' });
     expect(result).toHaveLength(5);
-    expect(result[0]).toEqual({ id: 'work-1', pageId: 'page-1', claimId: 'claim-1', pageTitle: 'Current page title', title: 'My first line.', returnNote: 'Try again tomorrow.', updatedAt: null });
+    expect(result[0]).toMatchObject({ id: 'work-0', sourceUnavailable: true });
+    expect(result[1]).toEqual({ id: 'work-1', pageId: 'page-1', claimId: 'claim-1', pageTitle: 'Current page title', title: 'My first line.', returnNote: 'Try again tomorrow.', updatedAt: null });
     expect(JSON.stringify(result)).not.toMatch(/Private source|private-mutation|note-1/);
   });
 
@@ -501,5 +503,22 @@ describe('recent authored writing', () => {
     const WikiPage = { find: jest.fn() };
     expect(await listRecentExplorations({ AuthoredExploration: { find: () => query([]) }, WikiPage, userId: 'owner' })).toEqual([]);
     expect(WikiPage.find).not.toHaveBeenCalled();
+  });
+});
+
+
+describe('private sentence experiment persistence', () => {
+  it('retains existing tools without granting them accepted-source authority', () => {
+    const draft = { writing: 'My words', returnNote: 'Come back', distinction: 'A separate meaning', instrument: { name: 'Try this', rows: [{ text: 'An observation', checked: true }] }, without: true, contributions: [{ text: 'A possibility', at: 12 }] };
+    expect(normalizeDraft(draft)).toMatchObject(draft);
+  });
+  it('rejects unbounded nested tools, oversized payloads, and prototype keys', () => {
+    for (const instrument of [{ text: 'x'.repeat(20001) }, Array(41).fill('x'), JSON.parse('{"__proto__":{"polluted":true}}')]) {
+      expect(() => normalizeDraft({ instrument })).toThrow();
+    }
+    let deep = 'text'; for (let i = 0; i < 10; i += 1) deep = { child: deep };
+    expect(() => normalizeDraft({ instrument: deep })).toThrow();
+    expect(() => normalizeDraft({ writing: 'x'.repeat(120001) })).toThrow();
+    expect({}.polluted).toBeUndefined();
   });
 });

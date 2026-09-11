@@ -115,7 +115,7 @@ export const writeTools = [
   },
   {
     name: 'ingest_source',
-    description: 'Call this when the user shares a URL, pasted text, or source object and wants it folded into the wiki. Waits for the run to settle and returns how it landed, including nextStep. A URL or pasted text never creates a page on its own: when nothing matches, the run ends `ignored` with a suggestedCreatePage — pass that to create_page to keep the source. Requires an agent-write token.',
+    description: 'Fold a source into the WIKI — the encyclopedia of what the reader knows. This does NOT put the piece in their Library: it never writes an article they can open and read, so "save this article" and "add this to my library" are create_article, not this. Use this only to make a source inform wiki pages. Waits for the run to settle and returns how it landed, including nextStep. A URL or pasted text never creates a page on its own: when nothing matches, the run ends `ignored` with a suggestedCreatePage — pass that to create_page to keep the source. Requires an agent-write token.',
     inputSchema: {
       source: sourceShape,
       waitMs: z.number().int().min(0).max(60000).optional().describe('How long to wait for the run to settle before handing back a runId to poll. Defaults to 20000.')
@@ -222,11 +222,11 @@ export const writeTools = [
   },
   {
     name: 'create_article',
-    description: 'Save or update a normal Library article. Use this for user requests to add an article to the reading library, not for wiki ingestion.',
+    description: 'THE way an article gets into the reader\'s Library, where they open and read it. Every "save this", "add this to my library", "keep this article" is this tool — ingest_source is the wiki and leaves the Library untouched. Pass the full article text as content: without it the Library holds a title and a link, and the reader shows a highlight-only edition instead of the piece. Read the page first and send what you read; the server only falls back to fetching the URL itself when content is missing, and a paywall or a script-rendered page defeats it. The result says which of the three happened.',
     inputSchema: {
       title: z.string().min(1),
       url: z.string().min(1),
-      content: z.string().optional(),
+      content: z.string().optional().describe('The full article text or HTML. Omit only when the body is genuinely unavailable to you.'),
       folderId: z.string().optional(),
       author: z.string().optional(),
       publicationDate: z.string().optional(),
@@ -262,6 +262,54 @@ export const writeTools = [
     handler: (client, args) => client.keepArticle(args)
   },
   {
+    name: 'place_article',
+    description: 'Put a saved article in one of the Library\'s piles. later is owed a move, setAside is at hand this week, stream is home. This is the reader\'s daily triage; keep_article (the Shelf) is separate and permanent.',
+    inputSchema: {
+      articleId: z.string().describe('Saved article id.'),
+      placement: z.enum(['stream', 'later', 'setAside']).describe('Where the article sits.'),
+      reason: z.string().optional().describe('A short note on why, kept with the placement. Ignored for stream, which clears it.')
+    },
+    handler: (client, args) => client.placeArticle(args)
+  },
+  {
+    name: 'delete_article',
+    description: 'High-impact: permanently remove a saved article and every highlight on it. There is no undo. Confirm with the reader first, and prefer place_article or file_article when the article should merely be out of the way.',
+    inputSchema: {
+      articleId: z.string().describe('Saved article id.')
+    },
+    handler: (client, args) => client.deleteArticle(args)
+  },
+  {
+    name: 'delete_folder',
+    description: 'Remove an empty Library folder. Give either folderId or folder (the folder name, resolved for you). Fails with 409 while the folder still holds articles, so file them elsewhere first.',
+    inputSchema: {
+      folderId: z.string().optional().describe('Folder id.'),
+      folder: z.string().optional().describe('Folder name, resolved case-insensitively. Ignored when folderId is given.')
+    },
+    handler: (client, args) => client.deleteFolder(args)
+  },
+  {
+    name: 'nest_folder',
+    description: 'Move a Library folder inside another one, or out to the top level. Name either end by id or by name. Pass no parent to unnest. Filing trays cannot be nested and a folder cannot move inside its own descendant.',
+    inputSchema: {
+      folderId: z.string().optional().describe('Folder to move, by id.'),
+      folder: z.string().optional().describe('Folder to move, by name. Ignored when folderId is given.'),
+      parentFolderId: z.string().optional().describe('Destination folder id. Omit both parent fields to move the folder to the top level.'),
+      parent: z.string().optional().describe('Destination folder name. Ignored when parentFolderId is given.')
+    },
+    handler: (client, args) => client.nestFolder(args)
+  },
+  {
+    name: 'set_folder_feed',
+    description: 'Screen a Library folder as a feed, or stop. A feed folder reads as an arriving scroll rather than a drawer. Give either folderId or folder.',
+    inputSchema: {
+      folderId: z.string().optional().describe('Folder id.'),
+      folder: z.string().optional().describe('Folder name, resolved case-insensitively. Ignored when folderId is given.'),
+      asFeed: z.boolean().optional().describe('true to screen it as a feed (the default), false to stop.')
+    },
+    handler: (client, args) => client.setFolderFeed(args)
+  },
+  {
     name: 'create_highlight',
     description: 'Create a highlight on an existing Library article.',
     inputSchema: {
@@ -273,6 +321,126 @@ export const writeTools = [
       color: z.string().optional()
     },
     handler: (client, args) => client.createHighlight(args)
+  },
+  {
+    name: 'update_highlight',
+    description: 'Change what a highlight carries: its note, its tags, its colour, or what kind of thing it is. Only the fields you pass are touched. articleId is optional — every tool that returns a highlight names it, and it is resolved for you when omitted.',
+    inputSchema: {
+      highlightId: z.string().describe('Highlight id.'),
+      articleId: z.string().optional().describe('The article holding it. Resolved from the highlight when omitted.'),
+      note: z.string().optional().describe('The reader\'s note on the passage.'),
+      tags: z.array(z.string()).optional().describe('Replaces the existing tags.'),
+      color: z.string().optional().describe('Hex colour, e.g. #f6e27a.'),
+      type: optionalEnum(['claim', 'evidence', 'note']).describe('What the passage is. Anything but evidence clears its claim link.'),
+      claimId: z.string().optional().describe('The claim this evidence supports. Only holds when type is evidence.')
+    },
+    handler: (client, args) => client.updateHighlight(args)
+  },
+  {
+    name: 'delete_highlight',
+    description: 'High-impact: permanently remove a highlight from its article, with its note and tags. There is no undo. Confirm with the reader first.',
+    inputSchema: {
+      highlightId: z.string().describe('Highlight id.'),
+      articleId: z.string().optional().describe('The article holding it. Resolved from the highlight when omitted.')
+    },
+    handler: (client, args) => client.deleteHighlight(args)
+  },
+  {
+    name: 'write_concept_note',
+    description: 'Write a note under a Think concept — the reader\'s margin on an idea. A concept that does not exist yet is named here without being created; call update_concept if it should also be a concept in its own right.',
+    inputSchema: {
+      name: z.string().describe('Concept name to file the note under.'),
+      title: z.string().optional().describe('The note\'s title.'),
+      content: z.string().optional().describe('The note itself.')
+    },
+    handler: (client, args) => client.writeConceptNote(args)
+  },
+  {
+    name: 'update_concept_note',
+    description: 'Change a concept note. Only the fields you pass are touched, so retitling a note leaves what is written in it standing.',
+    inputSchema: {
+      noteId: z.string().describe('Concept note id, from list_concept_notes.'),
+      title: z.string().optional(),
+      content: z.string().optional()
+    },
+    handler: (client, args) => client.updateConceptNote(args)
+  },
+  {
+    name: 'delete_concept_note',
+    description: 'High-impact: permanently remove a concept note. There is no undo. Confirm with the reader first.',
+    inputSchema: {
+      noteId: z.string().describe('Concept note id.')
+    },
+    handler: (client, args) => client.deleteConceptNote(args)
+  },
+  {
+    name: 'create_notebook_entry',
+    description: 'Write a new Notebook entry. A note is the reader\'s own thinking, not a saved source — save sources with create_article. Name a folder by folderId or folder (the name, resolved for you). Kind is claim, evidence or note; evidence may name the claim entry it supports.',
+    inputSchema: {
+      title: z.string().min(1).describe('The note\'s title.'),
+      content: z.string().optional().describe('The note\'s text. Becomes a single paragraph block when blocks are not given.'),
+      blocks: z.array(z.record(z.any())).optional().describe('Structured blocks, when you have them. Replaces content.'),
+      folderId: z.string().optional().describe('Notebook folder id.'),
+      folder: z.string().optional().describe('Notebook folder name, resolved case-insensitively. Ignored when folderId is given.'),
+      tags: z.array(z.string()).optional(),
+      type: optionalEnum(['claim', 'evidence', 'note']).describe('What the note is. Defaults to note.'),
+      claimId: z.string().optional().describe('The claim entry this evidence supports. Only holds when type is evidence.'),
+      linkedArticleId: z.string().optional().describe('A Library article this note is about.')
+    },
+    handler: (client, args) => client.createNotebookEntry(args)
+  },
+  {
+    name: 'update_notebook_entry',
+    description: 'Change a Notebook entry. Only the fields you pass are touched, so an update that renames a note leaves its text, tags and filing standing.',
+    inputSchema: {
+      entryId: z.string().describe('Notebook entry id.'),
+      title: z.string().optional(),
+      content: z.string().optional().describe('Replaces the note\'s text and its blocks.'),
+      blocks: z.array(z.record(z.any())).optional().describe('Replaces the note\'s blocks.'),
+      folderId: z.string().optional().describe('Notebook folder id. Pass an empty folder name to unfile.'),
+      folder: z.string().optional().describe('Notebook folder name. Ignored when folderId is given.'),
+      tags: z.array(z.string()).optional().describe('Replaces the existing tags.'),
+      type: optionalEnum(['claim', 'evidence', 'note']),
+      claimId: z.string().optional().describe('Only holds when type is evidence.'),
+      linkedArticleId: z.string().optional()
+    },
+    handler: (client, args) => client.updateNotebookEntry(args)
+  },
+  {
+    name: 'delete_notebook_entry',
+    description: 'High-impact: permanently remove a Notebook entry and everything written in it. There is no undo. Confirm with the reader first.',
+    inputSchema: {
+      entryId: z.string().describe('Notebook entry id.')
+    },
+    handler: (client, args) => client.deleteNotebookEntry(args)
+  },
+  {
+    name: 'add_highlight_to_notebook_entry',
+    description: 'Put a saved highlight into a Notebook entry: the passage is embedded in the note where the reader can see it, and linked so the note knows where it came from.',
+    inputSchema: {
+      entryId: z.string().describe('Notebook entry id.'),
+      highlightId: z.string().describe('Highlight id, from search_highlights or list_article_highlights.')
+    },
+    handler: (client, args) => client.addHighlightToNotebookEntry(args)
+  },
+  {
+    name: 'create_notebook_folder',
+    description: 'Create a Notebook folder, optionally inside another one. Notebook folders are their own cabinet, separate from Library folders.',
+    inputSchema: {
+      name: z.string().min(1).describe('Folder name.'),
+      parentFolderId: z.string().optional().describe('Parent folder id. Omit both parent fields for a top-level folder.'),
+      parent: z.string().optional().describe('Parent folder name. Ignored when parentFolderId is given.')
+    },
+    handler: (client, args) => client.createNotebookFolder(args)
+  },
+  {
+    name: 'delete_notebook_folder',
+    description: 'Remove a Notebook folder. The notes inside it are unfiled, never deleted. Give either folderId or folder.',
+    inputSchema: {
+      folderId: z.string().optional().describe('Notebook folder id.'),
+      folder: z.string().optional().describe('Notebook folder name, resolved case-insensitively. Ignored when folderId is given.')
+    },
+    handler: (client, args) => client.deleteNotebookFolder(args)
   },
   {
     name: 'create_question',
@@ -307,17 +475,13 @@ export const writeTools = [
   },
   {
     name: 'update_concept',
-    description: 'Patch a Think concept. Confirm user intent before changing description, pinned material, or workbench state.',
+    description: 'Write a Think concept, creating it if the reader has no concept by that name. Only the fields you pass are touched, so setting a description leaves the pinned material standing. Replacing a pinned list replaces it whole — pin_highlight_to_concept adds one without disturbing the rest. Confirm intent before changing a description or unpinning.',
     inputSchema: {
-      name: z.string().describe('Concept name.'),
-      description: z.string().optional(),
-      summary: z.string().optional(),
-      status: z.string().optional(),
-      pinnedHighlightIds: z.array(z.string()).optional(),
-      pinnedArticleIds: z.array(z.string()).optional(),
-      pinnedNoteIds: z.array(z.string()).optional(),
-      ideaWorkbench: z.record(z.any()).optional(),
-      ideaWorkbenchMeta: z.record(z.any()).optional()
+      name: z.string().describe('Concept name. A name the reader does not have yet creates the concept.'),
+      description: z.string().optional().describe('What the concept is. Replaces the existing description.'),
+      pinnedHighlightIds: z.array(z.string()).optional().describe('Replaces the pinned highlights entirely. Pass [] to unpin them all.'),
+      pinnedArticleIds: z.array(z.string()).optional().describe('Replaces the pinned articles entirely.'),
+      pinnedNoteIds: z.array(z.string()).optional().describe('Replaces the pinned notes entirely.')
     },
     handler: (client, args) => client.updateConcept(args)
   },

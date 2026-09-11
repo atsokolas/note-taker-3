@@ -11,6 +11,18 @@ export const STORYBOARD_COMPUTE_SENTENCE = 'Compute will remain scarce.';
 
 export const STORYBOARD_THEN_NOW = 'Software can do more with the same plant.';
 
+export const STORYBOARD_THEN_QUOTATION = 'The plant, not the algorithm, was the limit.';
+
+export const STORYBOARD_THEN_QUESTION =
+  'Is scarcity a plant problem, or a demand problem?';
+
+export const STORYBOARD_THEN_ORIGINAL = 'https://illustrated.example/capacity-then';
+
+export const STORYBOARD_THEN_BESIDE = Object.freeze({
+  title: 'Plant log',
+  passage: 'The floor did not move when the software did.'
+});
+
 export const STORYBOARD_PREMISE = 'demand grows more slowly';
 
 export const STORYBOARD_COMPUTE_SOURCE = Object.freeze({
@@ -132,6 +144,61 @@ export const storyboardSource = (mode) => {
   }
 };
 
-export const STORYBOARD_RETURN_NOTE = 'Next: figure out which mistakes are recoverable.';
+export const STORYBOARD_QUESTION = 'I cannot tell which mistakes are recoverable.';
+
+export const STORYBOARD_DISTINCTION =
+  'A mistake that teaches the map, versus one that strands you.';
+
+export const STORYBOARD_INSTRUMENT_NAME = 'Room to be wrong';
+
+export const STORYBOARD_EXHIBIT_NAME = 'Recoverable, or not';
+
+export const STORYBOARD_EXHIBIT_THIS =
+  'A scrape you can walk back from still teaches the ground.';
+
+export const STORYBOARD_EXHIBIT_OTHER =
+  'A stranding ends the walk. It is not the same kind of lesson.';
+
+export const STORYBOARD_REHEARSAL =
+  'Care is letting a child find the path without being carried.';
+
+export const STORYBOARD_UNWRITTEN =
+  'Who gets to experiment, and who pays for the mistake?';
+
+export const STORYBOARD_UNWRITTEN_GAP =
+  'The page does not say who bears a stranding.';
+
+export const STORYBOARD_CARRY_QUESTION =
+  'Which mistakes can a child walk back from?';
+
+export const STORYBOARD_CARRY_CONCLUSION =
+  'Care is the walk back, not the absence of a wrong turn.';
+
+export const STORYBOARD_CONTRIBUTIONS_QUESTION =
+  'Who gets to walk back, and who pays for a stranding?';
+
+export const STORYBOARD_BOTH_ACCEPT =
+  'A scrape that can be walked back still teaches.';
+
+export const STORYBOARD_THIS_DISPUTES =
+  'A child\'s welfare is not a book you can close.';
+
+export const STORYBOARD_OTHER_DISPUTES =
+  'A loss you cannot survive is not a lesson you get to keep.';
+
+export const STORYBOARD_OBSERVATION =
+  'Whether the person can continue after the scrape.';
+
+export const STORYBOARD_BEARING_SOURCE = Object.freeze({
+  title: 'Field notes',
+  qualification: 'Saved passage · import date is not a reading date',
+  aroundBefore: 'Later you walked the same ground without the first map in your hand.',
+  passage: 'The map is only a map if a mistake still lets you walk back. A stranding is different.',
+  aroundAfter: 'That is not an answer to which mistakes are recoverable. It is the same fork.',
+  available: true,
+  stale: false,
+  href: '',
+  here: false
+});
 
 export const STORYBOARD_PROVISIONAL = 'Children need room to make recoverable mistakes.';

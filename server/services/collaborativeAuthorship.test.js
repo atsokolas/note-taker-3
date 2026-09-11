@@ -20,6 +20,7 @@ const primaryHighlight = '64a000000000000000000007';
 const original = 'Children need room to make mistakes.';
 const selected = 'A recoverable mistake leaves the next attempt possible.';
 const page = { _id: pageId, userId: owner, title: 'Parenting', slug: 'parenting', plainText: original,
+  body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: original, marks: [{ type: 'claim', attrs: { claimId: 'claim-1' } }] }] }] },
   claims: [{ claimId: 'claim-1', text: original, sourceRefIds: [sourceId] }],
   sourceRefs: [{ _id: sourceId, type: 'highlight', objectId: primaryHighlight, parentObjectId: primaryId, title: 'Room to learn', snippet: original }]
 };

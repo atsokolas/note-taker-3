@@ -78,6 +78,23 @@ describe('groupWikiPagesByTitle', () => {
     expect(groups.every(group => group.count === 1)).toBe(true);
   });
 
+  it('does not treat a first-sentence preview as a shared title', () => {
+    const body = {
+      type: 'doc',
+      content: [{
+        type: 'paragraph',
+        content: [{ type: 'text', text: 'Care is not the same as preventing every scrape.' }]
+      }]
+    };
+    const groups = groupWikiPagesByTitle([
+      page({ _id: 'a', title: '', body }),
+      page({ _id: 'b', title: '', body })
+    ]);
+    expect(titleKeyForPage(page({ title: '', body }))).toBe('');
+    expect(groups).toHaveLength(2);
+    expect(groups.every(group => group.count === 1)).toBe(true);
+  });
+
   it('leaves every page reachable — nothing is dropped', () => {
     const pages = [
       page({ _id: 'a', title: 'Sovereign debt' }),

@@ -106,6 +106,64 @@ const normalizeFullArticle = (article = {}) => ({
   folder: article.folder || null
 });
 
+/* Concepts were the last surface handing back whatever the API said. The
+   pinned ids are the part a caller acts on, so they are named and shaped like
+   every other id this client returns. */
+const normalizeConcept = (concept = {}) => ({
+  id: pickId(concept),
+  name: concept.name || '',
+  description: concept.description || '',
+  pinnedHighlightIds: (Array.isArray(concept.pinnedHighlightIds) ? concept.pinnedHighlightIds : []).map(String),
+  pinnedArticleIds: (Array.isArray(concept.pinnedArticleIds) ? concept.pinnedArticleIds : []).map(String),
+  pinnedNoteIds: (Array.isArray(concept.pinnedNoteIds) ? concept.pinnedNoteIds : []).map(String),
+  isPublic: Boolean(concept.isPublic),
+  updatedAt: concept.updatedAt || null
+});
+
+const normalizeConceptNote = (note = {}) => ({
+  id: pickId(note),
+  conceptName: note.tagName || '',
+  title: note.title || '',
+  content: note.content || '',
+  createdAt: note.createdAt || null,
+  updatedAt: note.updatedAt || null
+});
+
+const normalizeNotebookFolder = (folder = {}) => ({
+  id: pickId(folder),
+  name: folder.name || '',
+  parentFolderId: folder.parentFolderId ? String(folder.parentFolderId) : null,
+  sortOrder: Number(folder.sortOrder || 0)
+});
+
+/* The summary listing is the one worth handing an agent: the full listing
+   returns every entry's whole body, which is a notebook read in one gulp. */
+const normalizeNotebookSummary = (entry = {}) => ({
+  id: pickId(entry),
+  title: entry.title || 'Untitled',
+  type: entry.type || 'note',
+  folder: entry.folder ? String(entry.folder) : null,
+  tags: Array.isArray(entry.tags) ? entry.tags : [],
+  snippet: cleanText(entry.snippet || entry.content || ''),
+  blockCount: Number(entry.blockCount ?? (Array.isArray(entry.blocks) ? entry.blocks.length : 0)),
+  updatedAt: entry.updatedAt || null
+});
+
+const normalizeNotebookEntry = (entry = {}) => ({
+  id: pickId(entry),
+  title: entry.title || 'Untitled',
+  content: entry.content || '',
+  blocks: Array.isArray(entry.blocks) ? entry.blocks : [],
+  type: entry.type || 'note',
+  claimId: entry.claimId ? String(entry.claimId) : null,
+  folder: entry.folder ? String(entry.folder) : null,
+  tags: Array.isArray(entry.tags) ? entry.tags : [],
+  linkedArticleId: entry.linkedArticleId ? String(entry.linkedArticleId) : null,
+  linkedHighlightIds: (Array.isArray(entry.linkedHighlightIds) ? entry.linkedHighlightIds : []).map(String),
+  createdAt: entry.createdAt || null,
+  updatedAt: entry.updatedAt || null
+});
+
 const normalizeHighlight = (highlight = {}) => ({
   ...highlight,
   id: pickId(highlight),
@@ -138,6 +196,23 @@ const normalizeArrayPayload = (payload, key) => {
   if (Array.isArray(payload)) return payload;
   if (Array.isArray(payload?.[key])) return payload[key];
   return [];
+};
+
+/* The API answers a refused token with a code. A code is not an instruction,
+   and an agent handed one has to guess what it means for the work it was
+   asked to do. */
+const authFailureMessage = (payload) => {
+  const code = String(payload?.error || '').toUpperCase();
+  if (code === 'AUTH_EXPIRED') {
+    return 'Your Noeis sign-in has expired, so this and every other Noeis call will be refused until it is renewed. Ask the reader to run `noeis connect openclaw` (or the runtime they use) to sign in again.';
+  }
+  if (code === 'AUTH_INVALID') {
+    return 'Noeis rejected this token as invalid. Ask the reader to run `noeis connect openclaw` (or the runtime they use) to reconnect.';
+  }
+  if (code === 'FORBIDDEN' || code === 'SCOPE_REQUIRED') {
+    return 'This token is not allowed to do that. A write needs a token with the agent-write scope.';
+  }
+  return 'Noeis refused this token. Ask the reader to reconnect, or check the token has the scope this call needs.';
 };
 
 export class NoeisApiError extends Error {
@@ -212,9 +287,16 @@ export class NoeisClient {
       : (contentType.includes('application/json') ? await response.json() : await response.text());
 
     if (!response.ok) {
-      const message = typeof payload === 'object' && payload?.error
-        ? payload.error
-        : `Noeis API request failed with ${response.status}`;
+      /* A refused token is the one failure an agent cannot fix by trying again,
+         and the one it is most likely to misread. AUTH_EXPIRED with a 401 has
+         already been reported to a reader as "Noeis is returning 500, I can't
+         continue" — the server was fine and the sign-in had simply lapsed. So
+         the message says which it is and what to do about it. */
+      const message = response.status === 401 || response.status === 403
+        ? `${authFailureMessage(payload)} Noeis is reachable and nothing was changed.`
+        : (typeof payload === 'object' && payload?.error
+          ? payload.error
+          : `Noeis API request failed with ${response.status}`);
       throw new NoeisApiError(message, {
         status: response.status,
         body: payload,
@@ -338,17 +420,36 @@ export class NoeisClient {
     }).then(payload => normalizeArrayPayload(payload, 'highlights').map(normalizeHighlight));
   }
 
+  /* Asked for by id, fetched by id. This used to pull every highlight the
+     reader owns and search the pile for one of them. */
   getHighlight({ highlightId }) {
-    return this.request('/api/highlights/all')
-      .then(payload => normalizeArrayPayload(payload, 'highlights').map(normalizeHighlight))
-      .then(highlights => highlights.find(highlight => String(highlight.id) === String(highlightId)) || null);
+    return this.request(`/api/highlights/${encodeURIComponent(highlightId)}`)
+      .then(normalizeHighlight)
+      .catch(error => {
+        if (error?.status === 404) return null;
+        throw error;
+      });
   }
 
+  /* Echoing the whole body back is both wasteful and quiet about the one thing
+     that goes wrong here: a save with no article text. The receipt says where the
+     body came from, so an agent that saved a shell can read the page and save
+     again instead of moving on to highlights. */
   createArticle({ title, url, content = '', folderId, author, publicationDate, siteName } = {}) {
     return this.request('/save-article', {
       method: 'POST',
       body: { title, url, content, folderId, author, publicationDate, siteName }
-    }).then(normalizeFullArticle);
+    }).then(payload => {
+      const contentLength = String(payload?.content || '').length;
+      return {
+        ...normalizeArticleSummary(payload),
+        contentLength,
+        contentSource: payload?.contentSource || (contentLength ? 'request' : 'missing'),
+        ...(contentLength ? {} : {
+          warning: 'Saved without article text. The Library will show a highlight-only edition until you save again with content.'
+        })
+      };
+    });
   }
 
   listFolders() {
@@ -380,16 +481,41 @@ export class NoeisClient {
     return this.request(`/articles/${encodeURIComponent(articleId)}/move`, {
       method: 'PATCH',
       body: { folderId: target }
-    }).then(normalizeFullArticle);
+    }).then(normalizeArticleSummary);
   }
 
   /* The Shelf. `kept` in the Library is this boolean and nothing else, and it
-     was reachable from the UI and the API but from no agent. */
+     was reachable from the UI and the API but from no agent. The API still
+     calls it evergreen; the receipt answers in the word the tool asked in. */
   keepArticle({ articleId, kept = true } = {}) {
     return this.request(`/articles/${encodeURIComponent(articleId)}/evergreen`, {
       method: 'PATCH',
       body: { evergreen: Boolean(kept) }
-    });
+    }).then(payload => ({
+      id: pickId(payload),
+      kept: Boolean(payload?.evergreen),
+      keptAt: payload?.evergreenAt || null
+    }));
+  }
+
+  /* The Imbox piles. Later is owed a move, set aside is at hand this week,
+     stream is home — the triage a reader does by hand every day, and the one
+     part of organizing the Library no agent could reach. */
+  placeArticle({ articleId, placement, reason } = {}) {
+    return this.request(`/articles/${encodeURIComponent(articleId)}/placement`, {
+      method: 'PATCH',
+      body: { placement, ...(reason === undefined ? {} : { reason }) }
+    }).then(payload => ({
+      id: pickId(payload),
+      placement: payload?.placement || 'stream',
+      placementAt: payload?.placementAt || null,
+      placementReason: payload?.placementReason || ''
+    }));
+  }
+
+  deleteArticle({ articleId } = {}) {
+    return this.request(`/articles/${encodeURIComponent(articleId)}`, { method: 'DELETE' })
+      .then(() => ({ id: String(articleId), deleted: true }));
   }
 
   createHighlight({ articleId, text, note, tags, anchor, color } = {}) {
@@ -397,6 +523,161 @@ export class NoeisClient {
       method: 'POST',
       body: { text, note, tags, anchor, color }
     }).then(payload => normalizeHighlight(payload?.highlight || payload?.createdHighlight || payload));
+  }
+
+  /* A highlight is addressed by the article that holds it. Every tool that
+     hands one back names its articleId, so callers normally have both — and an
+     agent holding only the highlight id gets the same courtesy resolveFolderId
+     gives a folder name, at the cost of one lookup. */
+  async resolveHighlightArticleId({ articleId, highlightId } = {}) {
+    if (articleId) return String(articleId);
+    const highlight = await this.getHighlight({ highlightId });
+    if (!highlight?.articleId) {
+      throw new NoeisApiError(`No highlight ${highlightId}. Call search_highlights or list_article_highlights to find it.`);
+    }
+    return highlight.articleId;
+  }
+
+  async updateHighlight({ articleId, highlightId, note, tags, color, type, claimId } = {}) {
+    const article = await this.resolveHighlightArticleId({ articleId, highlightId });
+    return this.request(
+      `/articles/${encodeURIComponent(article)}/highlights/${encodeURIComponent(highlightId)}`,
+      { method: 'PATCH', body: { note, tags, color, type, claimId } }
+    ).then(normalizeHighlight);
+  }
+
+  async deleteHighlight({ articleId, highlightId } = {}) {
+    const article = await this.resolveHighlightArticleId({ articleId, highlightId });
+    await this.request(
+      `/articles/${encodeURIComponent(article)}/highlights/${encodeURIComponent(highlightId)}`,
+      { method: 'DELETE' }
+    );
+    return { id: String(highlightId), articleId: article, deleted: true };
+  }
+
+  async deleteFolder({ folderId, folder } = {}) {
+    const target = await this.resolveFolderId({ folderId, folder });
+    await this.request(`/folders/${encodeURIComponent(target)}`, { method: 'DELETE' });
+    return { id: target, deleted: true };
+  }
+
+  /* Nesting resolves both ends by name, because a caller who knows the cabinet
+     as "Biology inside Science" should not have to learn two ids to say so.
+     Each receipt reports only what its route actually settled — normalizing
+     these through normalizeFolder would report asFeed:false for a folder whose
+     screening the route never mentioned. */
+  async nestFolder({ folderId, folder, parentFolderId, parent } = {}) {
+    const target = await this.resolveFolderId({ folderId, folder });
+    const nextParent = await this.resolveFolderId({ folderId: parentFolderId, folder: parent });
+    return this.request(`/folders/${encodeURIComponent(target)}/parent`, {
+      method: 'PATCH',
+      body: { parentFolderId: nextParent }
+    }).then(payload => ({
+      id: pickId(payload),
+      name: payload?.name || '',
+      parentFolderId: payload?.parentFolderId ? String(payload.parentFolderId) : null
+    }));
+  }
+
+  async setFolderFeed({ folderId, folder, asFeed = true } = {}) {
+    const target = await this.resolveFolderId({ folderId, folder });
+    return this.request(`/folders/${encodeURIComponent(target)}/feed`, {
+      method: 'PATCH',
+      body: { asFeed: Boolean(asFeed) }
+    }).then(payload => ({
+      id: pickId(payload),
+      name: payload?.name || '',
+      asFeed: Boolean(payload?.asFeed),
+      asFeedAt: payload?.asFeedAt || null
+    }));
+  }
+
+  /* The Notebook, which had no tool at all: fourteen routes an agent could not
+     see. Listing asks for the summary projection, so a reader with two hundred
+     entries gets two hundred titles rather than two hundred essays. */
+  listNotebookEntries({ limit = 50 } = {}) {
+    return this.request('/api/notebook', { query: { summary: 1, limit } })
+      .then(payload => normalizeArrayPayload(payload, 'entries').map(normalizeNotebookSummary));
+  }
+
+  getNotebookEntry({ entryId }) {
+    return this.request(`/api/notebook/${encodeURIComponent(entryId)}`).then(normalizeNotebookEntry);
+  }
+
+  listNotebookFolders() {
+    return this.request('/api/notebook/folders')
+      .then(payload => normalizeArrayPayload(payload, 'folders').map(normalizeNotebookFolder));
+  }
+
+  /* The same courtesy the Library's shelves get: a notebook folder answers to
+     its name, so no caller has to list and remember an id to file one note. */
+  async resolveNotebookFolderId({ folderId, folder } = {}) {
+    if (folderId) return String(folderId);
+    const wanted = String(folder || '').trim();
+    if (!wanted) return null;
+    const folders = await this.listNotebookFolders();
+    const match = folders.find(row => row.name.toLowerCase() === wanted.toLowerCase());
+    if (!match) {
+      throw new NoeisApiError(`No notebook folder named "${wanted}". Call list_notebook_folders to see them, or create_notebook_folder to make it.`);
+    }
+    return match.id;
+  }
+
+  async createNotebookEntry({ title, content, blocks, folderId, folder, tags, type, claimId, linkedArticleId } = {}) {
+    const target = await this.resolveNotebookFolderId({ folderId, folder });
+    return this.request('/api/notebook', {
+      method: 'POST',
+      body: { title, content, blocks, folder: target, tags, type, claimId, linkedArticleId }
+    }).then(normalizeNotebookEntry);
+  }
+
+  /* PUT, but only over what the caller named: an update that sent every field
+     would blank a note's tags for want of mentioning them. */
+  async updateNotebookEntry({ entryId, title, content, blocks, folderId, folder, tags, type, claimId, linkedArticleId } = {}) {
+    const named = folderId !== undefined || folder !== undefined;
+    const body = {
+      ...(title === undefined ? {} : { title }),
+      ...(content === undefined ? {} : { content }),
+      ...(blocks === undefined ? {} : { blocks }),
+      ...(tags === undefined ? {} : { tags }),
+      ...(type === undefined ? {} : { type }),
+      ...(claimId === undefined ? {} : { claimId }),
+      ...(linkedArticleId === undefined ? {} : { linkedArticleId }),
+      ...(named ? { folder: await this.resolveNotebookFolderId({ folderId, folder }) } : {})
+    };
+    return this.request(`/api/notebook/${encodeURIComponent(entryId)}`, { method: 'PUT', body })
+      .then(normalizeNotebookEntry);
+  }
+
+  deleteNotebookEntry({ entryId } = {}) {
+    return this.request(`/api/notebook/${encodeURIComponent(entryId)}`, { method: 'DELETE' })
+      .then(() => ({ id: String(entryId), deleted: true }));
+  }
+
+  /* append-highlight rather than link-highlight: it embeds the passage in the
+     note and links it, where linking alone leaves the note with a reference to
+     something the reader cannot see on the page. */
+  addHighlightToNotebookEntry({ entryId, highlightId } = {}) {
+    return this.request(`/api/notebook/${encodeURIComponent(entryId)}/append-highlight`, {
+      method: 'POST',
+      body: { highlightId }
+    }).then(normalizeNotebookEntry);
+  }
+
+  async createNotebookFolder({ name, parentFolderId, parent } = {}) {
+    const target = await this.resolveNotebookFolderId({ folderId: parentFolderId, folder: parent });
+    return this.request('/api/notebook/folders', {
+      method: 'POST',
+      body: { name, parentFolderId: target }
+    }).then(normalizeNotebookFolder);
+  }
+
+  /* Deleting a folder unfiles its notes rather than taking them with it, which
+     is worth saying: the reader loses a drawer, never a page. */
+  async deleteNotebookFolder({ folderId, folder } = {}) {
+    const target = await this.resolveNotebookFolderId({ folderId, folder });
+    await this.request(`/api/notebook/folders/${encodeURIComponent(target)}`, { method: 'DELETE' });
+    return { id: target, deleted: true, notesKept: true };
   }
 
   listQuestions({ status, tag, conceptName, highlightId, notebookEntryId } = {}) {
@@ -433,18 +714,59 @@ export class NoeisClient {
   }
 
   listConcepts() {
-    return this.request('/api/concepts');
+    return this.request('/api/concepts')
+      .then(payload => normalizeArrayPayload(payload, 'concepts').map(normalizeConcept));
   }
 
+  /* Reading one keeps everything the API sends — its workspace and layout are
+     the reason to ask for one rather than the list. */
   getConcept({ name }) {
-    return this.request(`/api/concepts/${encodeURIComponent(name)}`);
+    return this.request(`/api/concepts/${encodeURIComponent(name)}`)
+      .then(concept => ({ ...concept, ...normalizeConcept(concept) }));
   }
 
-  updateConcept({ name, description, summary, status, pinnedHighlightIds, pinnedArticleIds, pinnedNoteIds, ideaWorkbench, ideaWorkbenchMeta } = {}) {
+  /* Only what the caller named reaches the API. The route stores what it is
+     given, so sending the untouched fields as undefined is how a rename used to
+     clear a concept's pins. */
+  updateConcept({ name, description, pinnedHighlightIds, pinnedArticleIds, pinnedNoteIds } = {}) {
     return this.request(`/api/concepts/${encodeURIComponent(name)}`, {
       method: 'PUT',
-      body: { description, summary, status, pinnedHighlightIds, pinnedArticleIds, pinnedNoteIds, ideaWorkbench, ideaWorkbenchMeta }
-    });
+      body: {
+        ...(description === undefined ? {} : { description }),
+        ...(pinnedHighlightIds === undefined ? {} : { pinnedHighlightIds }),
+        ...(pinnedArticleIds === undefined ? {} : { pinnedArticleIds }),
+        ...(pinnedNoteIds === undefined ? {} : { pinnedNoteIds })
+      }
+    }).then(normalizeConcept);
+  }
+
+  /* Concept notes are the reader's own writing filed under a concept — the
+     Notebook is the long form, these are the margin. Neither was reachable. */
+  listConceptNotes({ name } = {}) {
+    return this.request(`/api/concepts/${encodeURIComponent(name)}/notes`)
+      .then(payload => normalizeArrayPayload(payload, 'notes').map(normalizeConceptNote));
+  }
+
+  writeConceptNote({ name, title, content } = {}) {
+    return this.request(`/api/concepts/${encodeURIComponent(name)}/notes`, {
+      method: 'POST',
+      body: { title, content }
+    }).then(normalizeConceptNote);
+  }
+
+  updateConceptNote({ noteId, title, content } = {}) {
+    return this.request(`/api/concepts/notes/${encodeURIComponent(noteId)}`, {
+      method: 'PUT',
+      body: {
+        ...(title === undefined ? {} : { title }),
+        ...(content === undefined ? {} : { content })
+      }
+    }).then(normalizeConceptNote);
+  }
+
+  deleteConceptNote({ noteId } = {}) {
+    return this.request(`/api/concepts/notes/${encodeURIComponent(noteId)}`, { method: 'DELETE' })
+      .then(() => ({ id: String(noteId), deleted: true }));
   }
 
   pinHighlightToConcept({ name, highlightId } = {}) {

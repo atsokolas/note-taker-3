@@ -346,7 +346,7 @@ describe('Judgment claim', () => {
     })));
   });
 
-  it('holds the prior still, with the log underneath', async () => {
+  it('holds the prior still, with the four sides under it', async () => {
     getWikiPage.mockResolvedValue(judgmentPage());
 
     renderDetail();
@@ -355,24 +355,28 @@ describe('Judgment claim', () => {
     expect(screen.getByLabelText('What you hold'))
       .toHaveValue('NVIDIA demand still outruns deliverable capacity.');
     expect(screen.getByRole('link', { name: '← All judgments' })).toHaveAttribute('href', '/judgment');
-    expect(screen.getByText('I’d change my mind if')).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'What would change your mind' })).toBeInTheDocument();
     expect(screen.getByText('Confirmed signed capacity converts within 90 days.')).toBeInTheDocument();
-    expect(screen.getByRole('radio', { name: 'Why' })).toBeChecked();
-    expect(screen.getByLabelText('Why do you believe it?')).toBeInTheDocument();
+    /* The four sides are on screen together, and none of them is a field
+       until it is asked to be one. */
+    expect(screen.getByRole('region', { name: 'Why you believe it' })).toBeInTheDocument();
+    expect(screen.queryByLabelText('Why do you believe it?')).not.toBeInTheDocument();
+    /* A block rests as its newest sentence, so only one of the two lines
+       resting on SemiAnalysis is on the page until something asks for more. */
     const semi = screen.getAllByRole('link', { name: 'Source 1: SemiAnalysis' });
-    expect(semi).toHaveLength(2);
+    expect(semi).toHaveLength(1);
     expect(semi[0]).toHaveAttribute('href', 'https://semianalysis.com/capacity');
     expect(screen.getByRole('link', { name: 'Source 2: TrendForce' }))
       .toHaveAttribute('href', 'https://trendforce.com/supply');
     expect(screen.queryByText('SemiAnalysis and TrendForce')).not.toBeInTheDocument();
-    expect(screen.getByText('AI demand keeps compounding faster than new supply.')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /February 2026/ })).toBeInTheDocument();
-    expect(screen.queryByText('Started 1.5%. Won’t add until signed capacity converts.')).not.toBeInTheDocument();
 
+    /* Hovering the mark says two lines rest on it — so both are shown. A
+       whisper that counts three while the fold shows one is the page losing
+       the truth at the last inch. */
     fireEvent.mouseEnter(semi[0]);
-    expect(document.querySelector('.judgment-log')).toHaveClass('is-listening');
-    expect(document.querySelectorAll('.judgment-log__row.is-kin')).toHaveLength(2);
     expect(screen.getByText('SemiAnalysis · 2 lines')).toBeInTheDocument();
+    expect(document.querySelectorAll('.judgment-block__entry.is-kin')).toHaveLength(2);
+    expect(screen.getByText('AI demand keeps compounding faster than new supply.')).toBeInTheDocument();
   });
 
   it('opens a library-backed [n] in the library instead of ejecting to the open web', async () => {
@@ -407,15 +411,23 @@ describe('Judgment claim', () => {
       .toHaveAttribute('target', '_blank');
   });
 
-  it('lets the log show one side of the case', async () => {
+  /* Both sides at once, which is the point of the grid. Behind a filter, an
+     empty Against read as a tab nobody had opened rather than as an absence. */
+  it('shows both sides of the case at the same time', async () => {
     getWikiPage.mockResolvedValue(judgmentPage());
 
     renderDetail();
 
     await screen.findByRole('heading', { level: 1 });
-    fireEvent.click(screen.getByRole('tab', { name: 'Against' }));
-    expect(screen.getByText('Hyperscalers are designing more in-house silicon.')).toBeInTheDocument();
-    expect(screen.queryByText('AI demand keeps compounding faster than new supply.')).not.toBeInTheDocument();
+    const why = screen.getByRole('region', { name: 'Why you believe it' });
+    const against = screen.getByRole('region', { name: 'What argues against it' });
+    /* Both names, and the newest sentence of each, without a tab between. */
+    expect(within(why).getByRole('button', { name: 'and one earlier' })).toBeInTheDocument();
+    expect(within(against).getByText('Hyperscalers are designing more in-house silicon.')).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Against' })).not.toBeInTheDocument();
+
+    fireEvent.click(within(why).getByRole('button', { name: 'and one earlier' }));
+    expect(within(why).getByText('AI demand keeps compounding faster than new supply.')).toBeInTheDocument();
   });
 
   it('renames the case without rewriting the claim', async () => {
@@ -550,8 +562,8 @@ describe('Judgment claim', () => {
     expect(updateWikiPage).not.toHaveBeenCalled();
     expect(screen.getByLabelText('Title')).toHaveValue('NVIDIA');
     await waitFor(() => {
-      expect(document.querySelector('.judgment-log__row--did .judgment-log__text'))
-        .toHaveTextContent('Changed what I hold: I am bullish NVIDIA compute.');
+      expect(within(screen.getByRole('region', { name: 'What you did about it' }))
+        .getByText('Changed what I hold: I am bullish NVIDIA compute.')).toBeInTheDocument();
     });
     expect(screen.getByTestId('opinion-ghost'))
       .toHaveTextContent('NVIDIA demand still outruns deliverable capacity.');
@@ -590,7 +602,7 @@ describe('Judgment claim', () => {
 
     renderDetail();
 
-    expect(await screen.findByText('Searched your library. Nothing in it bears on this sentence.'))
+    expect(await screen.findByText('Nothing in your library speaks to this yet.'))
       .toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'On this sentence' })).not.toBeInTheDocument();
   });
@@ -604,7 +616,7 @@ describe('Judgment claim', () => {
     await screen.findByLabelText('What you hold');
     await waitFor(() => expect(getJudgmentLibraryEvidence).toHaveBeenCalled());
     // A failed read is not an empty library, and must never be reported as one.
-    expect(screen.queryByText(/Nothing in it bears on this sentence/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Nothing in your library speaks to this yet/)).not.toBeInTheDocument();
   });
 
   it('narrows the belief instead of replacing it, and says so', async () => {
@@ -844,13 +856,10 @@ describe('Judgment claim', () => {
     expect(updateWikiPage).not.toHaveBeenCalled();
   });
 
-  /* This used to assert the opposite: an empty field was absent entirely.
-     That rule was right about the danger — nothing on this page may be filled
-     in with something plausible — and wrong about the remedy. A judgment
-     carried out of a tension arrives with two sides written and two sections
-     still to write, and hiding those two left a page that promises four things
-     showing one. The section is present; what is absent is any line in it. */
-  it('shows an empty field as the question it asks, and writes nothing into it', async () => {
+  /* An empty side keeps its head. Hidden, it read as a tab nobody had opened.
+     The ghost line is the empty state — a second absence sentence said the
+     same thing twice. */
+  it('prints an empty side as an absence rather than hiding it', async () => {
     const bare = judgmentPage();
     bare.judgment.against = [];
     bare.judgment.decisions = [];
@@ -859,11 +868,15 @@ describe('Judgment claim', () => {
     renderDetail();
 
     await screen.findByRole('heading', { level: 1 });
-    expect(screen.queryByRole('heading', { level: 2, name: 'Against' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('heading', { level: 2, name: 'What I did' })).not.toBeInTheDocument();
-    expect(screen.getByLabelText('Why do you believe it?')).toHaveValue('');
+    const against = screen.getByRole('region', { name: 'What argues against it' });
+    expect(within(against).getByRole('button', { name: 'Add counterevidence…' })).toBeInTheDocument();
+    expect(within(against).queryByText('This is the side that changes your mind.')).not.toBeInTheDocument();
+    /* The head stays silent at zero: the invitation already says the room is
+       empty, and "none" beside "What argues against it" says it twice. */
+    expect(within(against).queryByText('none')).not.toBeInTheDocument();
+    expect(within(screen.getByRole('region', { name: 'What you did about it' }))
+      .getByRole('button', { name: 'Record what you did…' })).toBeInTheDocument();
     expect(screen.queryByText('Hyperscalers are designing more in-house silicon.')).not.toBeInTheDocument();
-    expect(screen.queryByText(/this line doesn’t get edited/)).not.toBeInTheDocument();
   });
 
   it('keeps the review off the page until the review date has passed', async () => {
@@ -882,8 +895,8 @@ describe('Judgment claim', () => {
 
     renderDetail();
 
-    expect(await screen.findByRole('heading', { level: 2, name: 'What happened?' })).toBeInTheDocument();
-    expect(screen.getByText(/Nothing here is filled in until you say what happened/)).toBeInTheDocument();
+    expect((await screen.findAllByText(/review date passed/i)).length).toBeGreaterThan(0);
+    expect(screen.getByText(/until you say what happened/)).toBeInTheDocument();
   });
 });
 
@@ -1006,8 +1019,10 @@ describe('the overnight line', () => {
     const overnight = screen.getByRole('group', { name: 'Overnight agent line' });
     expect(within(overnight).getByRole('button', { name: 'Why' })).toBeInTheDocument();
     expect(within(overnight).getByRole('button', { name: 'Against' })).toBeInTheDocument();
-    expect(screen.getByRole('radio', { name: 'Why' })).toBeInTheDocument();
-    expect(screen.getAllByRole('tab', { name: 'Against' })).toHaveLength(1);
+    /* The overnight line keeps its own two words. There is no rail behind it
+       to echo them, and no tab row to collide with. */
+    expect(screen.queryByRole('radio', { name: 'Why' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Against' })).not.toBeInTheDocument();
   });
 
   it('does not write overnight into the composer draft', async () => {
@@ -1016,7 +1031,9 @@ describe('the overnight line', () => {
     updateWikiPage.mockImplementation(async (_id, updates) => ({ ...judgmentPage(), judgment: updates.judgment }));
 
     renderDetail();
-    const input = await screen.findByLabelText('Why do you believe it?');
+    await screen.findByLabelText('Title');
+    fireEvent.click(screen.getByRole('button', { name: 'Add a reason…' }));
+    const input = screen.getByLabelText('Why do you believe it?');
     fireEvent.change(input, { target: { value: 'A typed why.' } });
     fireEvent.click(screen.getByRole('button', { name: 'Accept' }));
     fireEvent.click(within(screen.getByRole('group', { name: 'Overnight agent line' })).getByRole('button', { name: 'Against' }));
@@ -1297,7 +1314,7 @@ describe('Evidence from the library', () => {
     renderDetail();
 
     expect(await screen.findByLabelText('Title')).toHaveValue('NVIDIA');
-    expect(screen.getByLabelText('Why do you believe it?')).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Why you believe it' })).toBeInTheDocument();
     expect(screen.queryByText(candidate.text)).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Look in your library →' })).not.toBeInTheDocument();
 
@@ -1321,7 +1338,6 @@ describe('Evidence from the library', () => {
     expect(inbox).toHaveClass('judgment-slip');
     expect(within(inbox).getByRole('button', { name: 'Why' })).toBeInTheDocument();
     expect(within(inbox).getByRole('button', { name: 'Against' })).toBeInTheDocument();
-    expect(screen.getByRole('radio', { name: 'Why' })).toBeChecked();
   });
 
   it('files an inbox line under Why, and the line leaves the inbox for the log', async () => {
@@ -1356,7 +1372,7 @@ describe('Evidence from the library', () => {
       if (this.classList?.contains('judgment-inbox__text')) {
         return { top: 120, left: 40, width: 280, height: 36, bottom: 156, right: 320 };
       }
-      if (this.classList?.contains('judgment-log__text')) {
+      if (this.classList?.contains('judgment-block__text')) {
         return { top: 420, left: 80, width: 560, height: 40, bottom: 460, right: 640 };
       }
       return { top: 0, left: 0, width: 120, height: 20, bottom: 20, right: 120 };
@@ -1375,7 +1391,7 @@ describe('Evidence from the library', () => {
       const [frames] = animate.mock.calls[0];
       expect(frames[0].transform).toBe('translate3d(-40px, -300px, 0) scale(0.5)');
       expect(frames[1].transform).toBe('translate3d(0, 0, 0) scale(1)');
-      const arrived = [...document.querySelectorAll('.judgment-log__row')]
+      const arrived = [...document.querySelectorAll('.judgment-block__entry')]
         .find(row => row.textContent.includes(candidate.text));
       expect(arrived).toBeTruthy();
       expect(arrived).not.toHaveClass('is-arriving');
@@ -1403,7 +1419,7 @@ describe('Evidence from the library', () => {
       const inbox = await screen.findByRole('region', { name: 'On this sentence' });
       fireEvent.click(within(inbox).getByRole('button', { name: 'Why' }));
       await waitFor(() => expect(updateWikiPage).toHaveBeenCalled());
-      const arrived = [...document.querySelectorAll('.judgment-log__row')]
+      const arrived = [...document.querySelectorAll('.judgment-block__entry')]
         .find(row => row.textContent.includes(candidate.text));
       expect(arrived).toBeTruthy();
       expect(animate).not.toHaveBeenCalled();
@@ -1413,14 +1429,13 @@ describe('Evidence from the library', () => {
     }
   });
 
-  it('files the passage itself once Why is selected on the rail', async () => {
+  it('files the passage under the word the inbox line names', async () => {
     getJudgmentLibraryEvidence.mockResolvedValue({ claim: 'c', terms: ['capacity'], candidates: [candidate] });
     updateWikiPage.mockImplementation(async (_id, body) => ({ ...judgmentPage(), judgment: body.judgment }));
 
     renderDetail();
-    await screen.findByText(candidate.text);
-    fireEvent.click(screen.getByRole('radio', { name: 'Why' }));
-    fireEvent.click(screen.getByRole('button', { name: candidate.text }));
+    const inbox = await screen.findByRole('region', { name: 'On this sentence' });
+    fireEvent.click(within(inbox).getByRole('button', { name: 'Why' }));
 
     await waitFor(() => expect(updateWikiPage).toHaveBeenCalled());
     const [, body] = updateWikiPage.mock.calls[updateWikiPage.mock.calls.length - 1];
@@ -1435,7 +1450,7 @@ describe('Evidence from the library', () => {
     expect(screen.queryByText(/Nothing you have saved speaks to this yet/)).not.toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'On this sentence' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Look in your library →' })).not.toBeInTheDocument();
-    expect(screen.getByLabelText('Why do you believe it?')).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Why you believe it' })).toBeInTheDocument();
   });
 
   it('does not search or present a governing question as a saved view', async () => {
@@ -1473,7 +1488,7 @@ describe('Evidence from the library', () => {
     expect(controls.setLatestReceipt).not.toHaveBeenCalled();
     expect(screen.queryByText(/could not be read/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/toast/i)).not.toBeInTheDocument();
-    expect(screen.getByLabelText('Why do you believe it?')).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Why you believe it' })).toBeInTheDocument();
   });
 
   it('does not announce a quiet library read in system status', async () => {
@@ -1523,7 +1538,6 @@ describe('Evidence from the library', () => {
     renderDetail();
     fireEvent.mouseEnter(await screen.findByText(kinCandidate.text));
     expect(screen.getByText('SemiAnalysis · 2 lines')).toBeInTheDocument();
-    expect(document.querySelector('.judgment-log')).toHaveClass('is-listening');
   });
 
   it('keeps the arrived log row in the same kinship as [n] hover', async () => {
@@ -1543,8 +1557,7 @@ describe('Evidence from the library', () => {
     const arrived = await screen.findByText(kinCandidate.text);
     const semi = screen.getAllByRole('link', { name: 'Source 1: SemiAnalysis' })[0];
     fireEvent.mouseEnter(semi);
-    expect(arrived.closest('.judgment-log__row')).toHaveClass('is-kin');
-    expect(document.querySelector('.judgment-log')).toHaveClass('is-listening');
+    expect(arrived.closest('.judgment-block__entry')).toHaveClass('is-kin');
   });
 
   it('lights other log rows from the same week when you hover a date', async () => {
@@ -1555,26 +1568,17 @@ describe('Evidence from the library', () => {
     getWikiPage.mockResolvedValue(dated);
 
     renderDetail();
+    /* The newest line is the one on the page at rest, so it is the date a
+       reader can reach. Hovering it opens the block on the line written the
+       same week — the sitting, shown rather than merely counted. */
     const stamp = await screen.findByText((_, node) => (
-      node?.tagName === 'TIME' && node.getAttribute('dateTime') === '2026-08-10T12:00:00.000Z'
+      node?.tagName === 'TIME' && node.getAttribute('dateTime') === '2026-08-14T12:00:00.000Z'
     ));
     fireEvent.mouseEnter(stamp);
 
-    expect(document.querySelector('.judgment-log')).toHaveClass('is-listening');
-    expect(screen.getByText('AI demand keeps compounding faster than new supply.').closest('.judgment-log__row')).toHaveClass('is-kin');
-    expect(screen.getByText('Lead times and power constrain what can be delivered.').closest('.judgment-log__row')).toHaveClass('is-kin');
-    expect(screen.getByText('Hyperscalers are designing more in-house silicon.').closest('.judgment-log__row')).not.toHaveClass('is-kin');
-  });
-
-  it('lights Why on the rail from the inbox line', async () => {
-    getJudgmentLibraryEvidence.mockResolvedValue({ claim: 'c', terms: ['capacity'], candidates: [candidate] });
-
-    renderDetail();
-    const inbox = await screen.findByRole('region', { name: 'On this sentence' });
-    fireEvent.click(screen.getByRole('radio', { name: 'Against' }));
-    expect(screen.getByRole('radio', { name: 'Against' })).toBeChecked();
-    fireEvent.mouseEnter(within(inbox).getByRole('button', { name: 'Why' }));
-    expect(screen.getByRole('radio', { name: 'Why' })).toHaveAttribute('data-hint', 'true');
+    expect(screen.getByText('AI demand keeps compounding faster than new supply.').closest('.judgment-block__entry')).toHaveClass('is-kin');
+    expect(screen.getByText('Lead times and power constrain what can be delivered.').closest('.judgment-block__entry')).toHaveClass('is-kin');
+    expect(screen.getByText('Hyperscalers are designing more in-house silicon.').closest('.judgment-block__entry')).not.toHaveClass('is-kin');
   });
 
   it('shows why the server selected a candidate', async () => {
@@ -1714,6 +1718,40 @@ describe('Evidence from the library', () => {
   });
 });
 
+describe('Opening a case', () => {
+  beforeEach(() => {
+    getWikiPage.mockResolvedValue(judgmentPage());
+  });
+
+  it('reads as the belief, then what has happened to it, then what you can still do', async () => {
+    renderDetail();
+    await screen.findByLabelText('Title');
+
+    // Nothing stands above the sentence but the way back.
+    const back = screen.getByRole('link', { name: '← All judgments' });
+    expect(back.compareDocumentPosition(screen.getByLabelText('Title')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    // The record follows the case, and the tools follow the record.
+    const record = screen.getByRole('region', { name: 'What has happened to it' });
+    const tools = screen.getByRole('group', { name: 'What you can still do' });
+    expect(record.compareDocumentPosition(tools) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    // Every tool is one verb in the row, and none of them is a heading.
+    [
+      'Thread a later case',
+      'Lay tracing paper',
+      'Name a watch',
+      'Take the paper with you',
+      'Print this as one page',
+      'Park this',
+      'Keep this'
+    ].forEach((name) => {
+      expect(within(tools).getByRole('button', { name })).toBeInTheDocument();
+    });
+    expect(within(tools).queryByRole('heading')).toBeNull();
+  });
+});
+
 describe('Parking a judgment, and the lesson it leaves', () => {
   beforeEach(() => {
     getWikiPage.mockResolvedValue(judgmentPage());
@@ -1763,8 +1801,6 @@ describe('Parking a judgment, and the lesson it leaves', () => {
     await screen.findByLabelText('Title');
 
     expect(screen.getByText(/It is still yours; you are just not tending it/)).toBeInTheDocument();
-    // The lesson reads on the page it came from.
-    expect(screen.getByRole('heading', { name: 'What it taught me' })).toBeInTheDocument();
     expect(screen.getByText('Power, not silicon.')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Pick it back up' }));

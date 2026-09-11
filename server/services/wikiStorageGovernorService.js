@@ -39,6 +39,47 @@ const metricFromStats = (name, stats = {}) => {
   return { name, dataBytes, indexBytes, logicalBytes: dataBytes + indexBytes };
 };
 
+/* How much of the ceiling wiki history may occupy. The rest is the reading the
+   product is actually for, plus room to work in. */
+const REVISION_BUDGET_SHARE = 0.5;
+const MIN_RECENT_REVISIONS = 3;
+
+/**
+ * How many recent revisions a page may keep, worked out from the disk.
+ *
+ * The old answer was 20, or 5 once the cluster was already in trouble. Neither
+ * number knew how many pages there were or how big a revision is, so 279 pages
+ * at 20 apiece licensed about 730MB of history on a 512MB cluster — the policy
+ * could not hold the line however it was tuned, because it was denominated in
+ * revisions and the constraint is bytes.
+ *
+ * So: take the share of the ceiling history may have, divide it by the pages
+ * that must share it, and see how many revisions of the size this wiki actually
+ * writes will fit. Cheap history is allowed to be long — which is the point,
+ * because a pass that changes nothing now costs almost nothing to record, and a
+ * budget in bytes notices that on its own where a budget in counts never could.
+ *
+ * The floor is there because a page with no recent history is not a page whose
+ * history is small; it is a page you cannot see the work on.
+ */
+const revisionKeepLimit = ({
+  highWaterBytes = DEFAULT_HIGH_WATER_BYTES,
+  pageCount = 0,
+  averageRevisionBytes = 0,
+  ceiling = DEFAULT_RECENT_REVISION_LIMIT,
+  floor = MIN_RECENT_REVISIONS
+} = {}) => {
+  const pages = Math.max(1, Number(pageCount) || 0);
+  const perRevision = Number(averageRevisionBytes) || 0;
+  const top = Math.max(1, Number(ceiling) || DEFAULT_RECENT_REVISION_LIMIT);
+  /* Nothing measured is not permission to keep everything, but it is no reason
+     to start deleting either: fall back to the ceiling and say so upstream. */
+  if (perRevision <= 0) return top;
+  const budget = Math.max(0, Number(highWaterBytes) || 0) * REVISION_BUDGET_SHARE;
+  const affordable = Math.floor(budget / pages / perRevision);
+  return Math.max(Math.max(1, Number(floor) || 1), Math.min(top, affordable));
+};
+
 const readStorageMetrics = async (db) => {
   if (!db || typeof db.command !== 'function') return null;
   const canReadCluster = typeof db.admin === 'function' && typeof db.client?.db === 'function';
@@ -196,12 +237,33 @@ const runWikiStorageGovernor = async ({
   const effectiveRetentionDays = underPressure
     ? Math.min(Number(retentionDays) || DEFAULT_RETENTION_DAYS, Number(pressureRetentionDays) || PRESSURE_RETENTION_DAYS)
     : Number(retentionDays) || DEFAULT_RETENTION_DAYS;
+  /* What the wiki actually costs per revision, measured rather than assumed, so
+     the budget below is denominated in the same unit as the limit that broke. */
+  const revisionCensus = typeof WikiRevision?.aggregate === 'function'
+    ? await WikiRevision.aggregate([
+      { $match: { snapshotPrunedAt: null } },
+      { $group: { _id: null, count: { $sum: 1 }, bytes: { $sum: { $bsonSize: '$$ROOT' } } } }
+    ]).catch(() => [])
+    : [];
+  const revisionCount = Number(revisionCensus?.[0]?.count || 0);
+  const averageRevisionBytes = revisionCount ? Number(revisionCensus[0].bytes || 0) / revisionCount : 0;
+  const pageCount = typeof WikiPage?.countDocuments === 'function'
+    ? await WikiPage.countDocuments({}).catch(() => 0)
+    : 0;
+  const budgetedRecentRevisionLimit = revisionKeepLimit({
+    highWaterBytes,
+    pageCount,
+    averageRevisionBytes,
+    ceiling: Math.max(1, Number(recentRevisionLimit) || DEFAULT_RECENT_REVISION_LIMIT)
+  });
+  /* Pressure still tightens things, but it is now a floor on urgency rather
+     than the only time the disk is consulted. */
   const effectiveRecentRevisionLimit = underPressure
     ? Math.min(
-      Math.max(1, Number(recentRevisionLimit) || DEFAULT_RECENT_REVISION_LIMIT),
+      budgetedRecentRevisionLimit,
       Math.max(1, Number(pressureRecentRevisionLimit) || PRESSURE_RECENT_REVISION_LIMIT)
     )
-    : Math.max(1, Number(recentRevisionLimit) || DEFAULT_RECENT_REVISION_LIMIT);
+    : budgetedRecentRevisionLimit;
   const cutoff = new Date(now.getTime() - Math.max(7, effectiveRetentionDays) * 24 * 60 * 60 * 1000);
   const limit = Math.max(1, Math.min(Number(batchSize) || 2500, 10000));
 
@@ -354,5 +416,6 @@ module.exports = {
   collectObjectIds,
   pruneHeavyRevisionPages,
   readStorageMetrics,
+  revisionKeepLimit,
   runWikiStorageGovernor
 };

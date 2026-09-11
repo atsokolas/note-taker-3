@@ -122,7 +122,7 @@ export const readTools = [
   },
   {
     name: 'get_ingest_run',
-    description: 'Get an ingest run and its timeline.',
+    description: 'Get an ingest run and its timeline. A run is background model work that takes minutes, so poll it slowly — every 30 seconds or so — and expect several polls before it settles. ingest_source already waits for you; a run still going when it returns is normal and not a failure, and hammering this in a tight loop only produces a wall of pending answers.',
     inputSchema: {
       runId: z.string().describe('Wiki ingest run id.')
     },
@@ -235,5 +235,35 @@ export const readTools = [
       name: z.string().describe('Concept name.')
     },
     handler: (client, args) => client.getConcept(args)
+  },
+  {
+    name: 'list_concept_notes',
+    description: 'List the notes filed under a Think concept, newest first. These are the reader\'s margin on a concept; the Notebook is where the long form lives.',
+    inputSchema: {
+      name: z.string().describe('Concept name.')
+    },
+    handler: (client, args) => client.listConceptNotes(args)
+  },
+  {
+    name: 'list_notebook_entries',
+    description: 'List Notebook entries newest first: title, kind, folder, tags and an opening snippet. Read one in full with get_notebook_entry.',
+    inputSchema: {
+      limit: z.number().int().min(1).max(500).optional().describe('How many entries to return. Defaults to 50.')
+    },
+    handler: (client, args) => client.listNotebookEntries(args)
+  },
+  {
+    name: 'get_notebook_entry',
+    description: 'Read one Notebook entry in full, including its blocks and the highlights embedded in it.',
+    inputSchema: {
+      entryId: z.string().describe('Notebook entry id.')
+    },
+    handler: (client, args) => client.getNotebookEntry(args)
+  },
+  {
+    name: 'list_notebook_folders',
+    description: 'List the Notebook\'s folders. Notebook folders are their own cabinet, separate from Library folders.',
+    inputSchema: {},
+    handler: (client) => client.listNotebookFolders()
   }
 ];

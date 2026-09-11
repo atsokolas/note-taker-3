@@ -635,7 +635,7 @@ const run = async () => {
     const questionWork = await AuthoredExploration.create({ userId: owner._id, pageId: page._id, claimId: `discovery-question-${runId}`, draft: { title: 'A question held open', question: `What would leave room for ${needle}?` } });
     await AuthoredExploration.create({ userId: owner._id, pageId: page._id, claimId: `discovery-source-${runId}`, draft: { title: 'Source text is not private writing', originalText: needle, provisionalText: needle } });
     await AuthoredExploration.create({ userId: foreign._id, pageId: page._id, claimId: `discovery-foreign-${runId}`, draft: { writing: needle } });
-    await AuthoredExploration.create({ userId: owner._id, pageId: new mongoose.Types.ObjectId(), claimId: `discovery-gone-${runId}`, draft: { writing: needle } });
+    const goneWork = await AuthoredExploration.create({ userId: owner._id, pageId: new mongoose.Types.ObjectId(), claimId: `discovery-gone-${runId}`, draft: { writing: needle } });
     const archivedSource = await Article.create({ userId: owner._id, url: `https://acceptance.invalid/${runId}/archived`, title: 'Archived origin', archived: true, highlights: [{ text: 'An archived source passage.' }] });
     created.articleIds.push(archivedSource._id);
     await AuthoredExploration.create({ userId: owner._id, articleId: archivedSource._id, highlightId: archivedSource.highlights[0]._id, draft: { writing: needle } });
@@ -644,8 +644,8 @@ const run = async () => {
     const beforeSearchEffects = JSON.stringify(counters);
     const discovery = await request(base, `/api/authored-work/search?q=${encodeURIComponent(needle)}`);
     assert.equal(discovery.status, 200, JSON.stringify(discovery.payload));
-    assert.deepEqual(discovery.payload.results.map(row => row.id).sort(), [String(archiveNote._id), String(questionWork._id)].sort());
-    assert.equal(discovery.payload.results.find(row => row.kind === 'exploration').label, 'Question');
+    assert.deepEqual(discovery.payload.results.map(row => row.id).sort(), [String(archiveNote._id), String(questionWork._id), String(goneWork._id)].sort());
+    assert.equal(discovery.payload.results.find(row => row.id === String(questionWork._id)).label, 'Question');
     const recent = await request(base, '/api/notebook?summary=1&compact=1&limit=120');
     assert.equal(recent.status, 200, JSON.stringify(recent.payload));
     assert(!recent.payload.some(row => row._id === String(archiveNote._id)), 'the searched note must be beyond the loaded shelf');
@@ -663,7 +663,36 @@ const run = async () => {
     assert.equal(JSON.stringify(await NotebookEntry.findById(archiveNote._id).lean()), beforeSearch);
     assert.equal(JSON.stringify(await AuthoredExploration.findById(questionWork._id).lean()), beforeWorkSearch);
     assert.equal(JSON.stringify(counters), beforeSearchEffects);
-    checks.push('Writing discovery finds a literal phrase in an older note beyond 120 summaries and in a private question, suppresses foreign/archived/debug/source-only/unavailable work, bounds results to 20, denies agent credentials, preserves titles/revisions, returns plain first-text previews, and emits no save effects.');
+    checks.push('Writing discovery finds a literal phrase in an older note beyond 120 summaries and in a private question, suppresses foreign/archived/debug/source-only work while retaining owned words after source loss, bounds results to 20, denies agent credentials, preserves titles/revisions, returns plain first-text previews, and emits no save effects.');
+
+    // Versions are chosen snapshots, bounded independently of autosave revisions.
+    const versionPath = `/api/authored-explorations/${goneWork._id}`;
+    const beforeVersionsEffects = JSON.stringify(counters);
+    for (let revision = 1; revision <= 14; revision += 1) {
+      await AuthoredExploration.updateOne({ _id: goneWork._id }, { $set: { revision, 'draft.writing': `Chosen words ${revision}` } });
+      const saved = await request(base, `${versionPath}/versions`, { method: 'POST', body: { expectedRevision: revision } });
+      assert.equal(saved.status, 200, JSON.stringify(saved.payload));
+      assert.equal(saved.payload.versions.length, Math.min(revision, 12));
+    }
+    const concurrentVersions = await Promise.all([1, 2].map(() => request(base, `${versionPath}/versions`, { method: 'POST', body: { expectedRevision: 14 } })));
+    assert(concurrentVersions.every(result => result.status === 200 && result.payload.versions.length === 12));
+    const recoveredVersion = await request(base, versionPath);
+    assert.equal(recoveredVersion.status, 200);
+    assert.equal(recoveredVersion.payload.exploration.draft.writing, 'Chosen words 14');
+    assert.deepEqual(recoveredVersion.payload.versions.map(version => version.revision), Array.from({ length: 12 }, (_, i) => i + 3));
+    assert.equal(recoveredVersion.payload.versions[0].draft.writing, 'Chosen words 3');
+    assert(!('savedVersions' in recoveredVersion.payload.exploration));
+    assert(!('savedVersions' in await AuthoredExploration.findById(goneWork._id).lean()));
+    assert.equal((await request(base, `${versionPath}/versions`, { method: 'POST', body: { expectedRevision: 13 } })).status, 409);
+    for (const token of [FOREIGN_TOKEN, AGENT_TOKEN]) {
+      assert.equal((await request(base, versionPath, { token })).status, token === AGENT_TOKEN ? 403 : 404);
+      assert.equal((await request(base, `${versionPath}/versions`, { method: 'POST', token, body: { expectedRevision: 14 } })).status, token === AGENT_TOKEN ? 403 : 404);
+    }
+    assert.equal(JSON.stringify(counters), beforeVersionsEffects);
+    const gonePath = `/api/wiki/pages/${goneWork.pageId}/claims/${goneWork.claimId}/exploration`;
+    assert.equal((await request(base, gonePath, { method: 'DELETE', body: { expectedRevision: 14 } })).status, 204);
+    assert.equal((await request(base, versionPath)).status, 404);
+    checks.push('Owner-only recovery survives whole-source loss; chosen versions retain the newest 12, deduplicate concurrent saves, reject stale revisions and foreign/agent access, stay out of ordinary queries and indexing, and disappear with explicit Discard.');
 
     report = {
       status: 'pass',

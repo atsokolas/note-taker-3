@@ -45,6 +45,7 @@ export const WikiOpenSentenceProvider = ({
   durable = false,
   persistence,
   onAcceptWording,
+  onMakeTitle,
   children
 }) => {
   const [openedId, setOpenedId] = useState(() => (
@@ -183,18 +184,29 @@ export const WikiOpenSentenceProvider = ({
     }
   }, [onAcceptWording]);
 
+  const makeTitle = useCallback(async (text) => {
+    if (!onMakeTitle) return;
+    try {
+      await onMakeTitle(text);
+    } catch (_error) {
+      // The page title stays. The sentence stays.
+    }
+  }, [onMakeTitle]);
+
   const value = useMemo(() => ({
     enabled,
     readFresh,
     openedId,
     pageId,
+    pageTitle: String(page?.title || ''),
     explorationFor,
     commit,
     leaveForLibrary,
     accept: onAcceptWording ? accept : null,
     acceptSilence,
+    makeTitle: onMakeTitle ? makeTitle : null,
     authorship: durable ? { ...cloud, discard } : null
-  }), [accept, acceptSilence, cloud, commit, discard, durable, enabled, explorationFor, leaveForLibrary, onAcceptWording, openedId, pageId, readFresh]);
+  }), [accept, acceptSilence, cloud, commit, discard, durable, enabled, explorationFor, leaveForLibrary, makeTitle, onAcceptWording, onMakeTitle, openedId, page?.title, pageId, readFresh]);
 
   return (
     <WikiOpenSentenceContext.Provider value={value}>
@@ -252,6 +264,8 @@ const OpenableParagraph = ({ node, id, className, children }) => {
       onAccept={ctx.accept}
       acceptSilence={ctx.acceptSilence}
       authorship={ctx.authorship ? authorshipFor(ctx.authorship, claim.claimId) : null}
+      pageTitle={ctx.pageTitle}
+      onMakeTitle={ctx.makeTitle}
       lineProps={{
         id,
         className,

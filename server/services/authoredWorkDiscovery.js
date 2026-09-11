@@ -24,19 +24,20 @@ const authoredFilter = pattern => ({ $or: [
   { 'draft.provisionalText': pattern, $expr: { $ne: ['$draft.provisionalText', '$draft.originalText'] } }
 ] });
 const draftProjection = fields.map(([path]) => `draft.${path}`).join(' ');
-const explorationProjection = `_id pageId claimId articleId highlightId ${draftProjection} draft.provisionalText draft.originalText updatedAt`;
+const explorationProjection = `_id pageId claimId articleId highlightId ${draftProjection} draft.provisionalText draft.originalText origin.pageTitle updatedAt`;
 
 const ownedOrigins = async ({ rows, WikiPage, Article, userId }) => {
   const load = async (Model, ids, select) => ids.length ? Model.find({
-    _id: { $in: [...new Set(ids)] }, userId, status: { $ne: 'archived' },
-    archived: { $ne: true }, hiddenFromHome: { $ne: true }, debugOnly: { $ne: true }
+    _id: { $in: [...new Set(ids)] }, userId
   }).select(select).lean() : [];
   const [pages, articles] = await Promise.all([
-    load(WikiPage, rows.filter(row => row.pageId).map(row => id(row.pageId)), '_id title'),
-    load(Article, rows.filter(row => row.articleId).map(row => id(row.articleId)), '_id title highlights._id')
+    load(WikiPage, rows.filter(row => row.pageId).map(row => id(row.pageId)), '_id title status archived hiddenFromHome debugOnly'),
+    load(Article, rows.filter(row => row.articleId).map(row => id(row.articleId)), '_id title highlights._id status archived hiddenFromHome debugOnly')
   ]);
   return new Map([...pages, ...articles].map(origin => [id(origin), origin]));
 };
+
+const suppressed = origin => origin && (origin.status === 'archived' || origin.archived || origin.hiddenFromHome || origin.debugOnly);
 
 const explorationSummary = (row, origin) => {
   const draft = row.draft || {};
@@ -44,9 +45,10 @@ const explorationSummary = (row, origin) => {
   return {
     id: id(row),
     ...(row.articleId
-      ? { articleId: id(row.articleId), highlightId: id(row.highlightId), originMissing: !origin.highlights?.some(highlight => id(highlight) === id(row.highlightId)) }
+      ? { articleId: id(row.articleId), highlightId: id(row.highlightId), originMissing: !origin?.highlights?.some(highlight => id(highlight) === id(row.highlightId)) }
       : { pageId: id(row.pageId), claimId: row.claimId }),
-    pageTitle: clean(origin.title).slice(0, 500),
+    ...(origin ? {} : { sourceUnavailable: true }),
+    pageTitle: clean(origin?.title || row.origin?.pageTitle || 'Earlier source').slice(0, 500),
     title: wordBoundaryTrim(clean(draft.title) || firstLine(body) || clean(draft.question) || clean(draft.returnNote), { maxLength: 160 }),
     returnNote: clean(draft.returnNote).slice(0, 320),
     updatedAt: row.updatedAt || null
@@ -57,7 +59,7 @@ const listRecentExplorations = async ({ AuthoredExploration, WikiPage, Article, 
   const rows = await AuthoredExploration.find({ userId, ...authoredFilter(/\S/) })
     .sort({ updatedAt: -1, _id: -1 }).limit(CANDIDATE_LIMIT).select(explorationProjection).lean();
   const origins = await ownedOrigins({ rows, WikiPage, Article, userId });
-  return rows.filter(row => origins.has(id(row.pageId || row.articleId)))
+  return rows.filter(row => !suppressed(origins.get(id(row.pageId || row.articleId))))
     .filter(row => authoredFields(row.draft).some(([, value]) => clean(value)))
     .slice(0, 5).map(row => explorationSummary(row, origins.get(id(row.pageId || row.articleId))));
 };
@@ -120,7 +122,7 @@ const searchAuthoredWork = async ({ NotebookEntry, AuthoredExploration, WikiPage
     }),
     ...explorations.map(row => {
       const origin = origins.get(id(row.pageId || row.articleId));
-      if (!origin) return null;
+      if (suppressed(origin)) return null;
       const match = excerptMatch(authoredFields(row.draft), pattern);
       return match && { kind: 'exploration', ...explorationSummary(row, origin), ...match };
     })

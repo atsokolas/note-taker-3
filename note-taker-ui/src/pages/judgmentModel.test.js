@@ -11,6 +11,7 @@ import {
   foldJudgmentPages,
   judgmentHeadline,
   namedTitle,
+  lastLookedLine,
   oneSentence,
   projectJudgment,
   provenanceLine,
@@ -294,6 +295,15 @@ describe('judgmentModel', () => {
   it('writes the provenance line only from timestamps it actually has', () => {
     expect(provenanceLine(page(), NOW)).toContain('Since November.');
     expect(provenanceLine({ judgment: {} }, NOW)).toBe('');
+  });
+
+  it('keeps the case standing line from repeating the index since-clause', () => {
+    const projected = projectJudgment(page(), NOW);
+    expect(projected.standing.since).toMatch(/^Held since November/);
+    expect(projected.looked).toBe('You looked this morning.');
+    expect(projected.standing.made).toBeUndefined();
+    expect(projected.standing.unwatched).toBe('The test has no signal yet.');
+    expect(lastLookedLine({}, NOW)).toBe('');
   });
 
   it('selects one overnight line that answers this sentence, not a tagged leftover', () => {

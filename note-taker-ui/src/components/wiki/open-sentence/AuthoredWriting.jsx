@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import AuthoredContinuityTools from './AuthoredContinuityTools';
 import { authoredWorkError } from '../../../api/authoredExplorations';
 import { buildAuthoredContinuationPath } from '../../../utils/sourceRoutes';
 import { beginPressure, canProposeWording, chooseLibraryPassage, isPressured, proposeWording, setPressureField, thoughtTitle, titleThought, writeThought } from './openSentenceModel';
@@ -262,6 +263,7 @@ export default function AuthoredWriting({ exploration, onChange, authorship, poc
       <details className="open-sentence-pocket__discard">
         <summary>Exploration options</summary>
         <AuthoredContinuation record={record} />
+        <AuthoredContinuityTools key={`${authorship.owner}:${authorship.record?.saved?.id}`} authorship={authorship} />
         {exploration.writing?.trim() && exploration.writing.length <= 4000 ? (
           <div className="open-sentence-pocket__actions">
             <button type="button" onClick={() => onChange(setPressureField(beginPressure(exploration), 'premise', exploration.writing))}>Try this writing as a premise</button>

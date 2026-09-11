@@ -55,9 +55,28 @@ const assertDraftBounds = (draft = {}) => {
   }
 };
 
+// Preserve existing sentence-tool state without granting it source or Wiki
+// authority. Limit JSON size/depth as well as the familiar authored fields.
+const EXPERIMENT_FIELDS = ['distinction', 'distinctionAt', 'distinctionAgainst', 'instrument', 'exhibit', 'rehearsal', 'unwritten', 'carry', 'contributions', 'rearranged', 'without', 'withoutSource'];
+const boundedExperiment = (value, depth = 0) => {
+  if (depth > 8) throw new AuthoredExplorationError('The experiment is too deeply nested.', 413);
+  if (value === null || typeof value === 'boolean') return value;
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.length <= 20000) return value;
+  if (Array.isArray(value) && value.length <= 40) return value.map(item => boundedExperiment(item, depth + 1));
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    const entries = Object.entries(value);
+    if (entries.length <= 30 && entries.every(([key]) => /^[a-zA-Z][a-zA-Z0-9_]{0,63}$/.test(key) && !['constructor', 'prototype', '__proto__'].includes(key))) {
+      return Object.fromEntries(entries.map(([key, item]) => [key, boundedExperiment(item, depth + 1)]));
+    }
+  }
+  throw new AuthoredExplorationError('The experiment contains unsupported or oversized content.', 413);
+};
+
 const normalizeDraft = (value = {}) => {
   const draft = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
   assertDraftBounds(draft);
+  if (JSON.stringify(draft).length > 120000) throw new AuthoredExplorationError('This draft is too large.', 413, 'draft_too_large');
   const next = {
     title: clean(draft.title, 240),
     writing: boundedRaw(draft.writing, 20000),
@@ -88,6 +107,7 @@ const normalizeDraft = (value = {}) => {
   const proposal = boundedPair(draft.proposal);
   if (essay) next.essay = essay;
   if (proposal) next.proposal = proposal;
+  for (const key of EXPERIMENT_FIELDS) if (draft[key] !== undefined && draft[key] !== null) next[key] = boundedExperiment(draft[key]);
   return next;
 };
 

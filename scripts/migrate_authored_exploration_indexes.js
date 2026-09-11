@@ -8,7 +8,11 @@ const run = async () => {
   await mongoose.connect(process.env.MONGODB_URI, { autoIndex: false });
   try {
     const Model = buildAuthoredExplorationModel(mongoose);
-    const before = await Model.collection.indexes();
+    const indexes = async () => {
+      try { return await Model.collection.indexes(); }
+      catch (error) { if (error.code === 26) return []; throw error; }
+    };
+    const before = await indexes();
     const legacyName = 'userId_1_pageId_1_claimId_1';
     const legacy = before.find(index => index.name === legacyName);
     const apply = process.argv.includes('--apply');
@@ -27,7 +31,7 @@ const run = async () => {
         await Model.collection.dropIndex(legacyName);
       }
     }
-    console.log(JSON.stringify({ database: mongoose.connection.name, applied: apply, legacyIndexPresentBefore: Boolean(legacy), indexes: (await Model.collection.indexes()).map(index => index.name) }, null, 2));
+    console.log(JSON.stringify({ database: mongoose.connection.name, applied: apply, legacyIndexPresentBefore: Boolean(legacy), indexes: (await indexes()).map(index => index.name) }, null, 2));
   } finally { await mongoose.disconnect(); }
 };
 run().catch(error => { console.error(error.message); process.exitCode = 1; });

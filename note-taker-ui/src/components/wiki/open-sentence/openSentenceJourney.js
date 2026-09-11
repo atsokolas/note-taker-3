@@ -6,7 +6,9 @@ import {
   closeExploration,
   createExploration,
   forgetExperiment,
+  heldInstrumentFrom,
   keepsClosedDraft,
+  liveInstrument,
   openExploration,
   restoreExploration,
   snapshotExploration
@@ -15,6 +17,37 @@ import { draftStorageKey, openedStorageKey } from './openSentenceBinding';
 import { readStore, writeStore } from './openSentenceStore';
 
 export const RETURN_TICKET_KEY = 'noeis.open-sentence.return';
+
+export const HELD_INSTRUMENT_KEY = 'noeis.open-sentence.instrument';
+
+export const writeHeldInstrument = (instrument = null) => {
+  const held = heldInstrumentFrom(instrument);
+  writeStore(HELD_INSTRUMENT_KEY, held ? JSON.stringify(held) : '');
+};
+
+export const readHeldInstrument = () => {
+  const raw = readStore(HELD_INSTRUMENT_KEY);
+  if (!raw) return null;
+  try {
+    return heldInstrumentFrom(JSON.parse(raw));
+  } catch (_unreadable) {
+    return null;
+  }
+};
+
+export const rememberHeldInstrument = (next, previous) => {
+  const live = liveInstrument(next);
+  if (live) {
+    writeHeldInstrument(live);
+    return readHeldInstrument();
+  }
+  const was = liveInstrument(previous);
+  const held = readHeldInstrument();
+  if (was && held && held.name === was.name && held.definition === was.definition) {
+    writeHeldInstrument(null);
+  }
+  return readHeldInstrument();
+};
 
 const asId = (value) => String(value?._id || value?.id || value || '').trim();
 
@@ -95,7 +128,9 @@ export const homecomingLine = (ticket) => {
 };
 
 export const bindDraft = (live, draft, opened, options) => {
-  const raw = typeof draft === 'string' ? draft : (draft ? snapshotExploration(draft) : '');
+  let value = draft;
+  if (typeof value === 'string') { try { value = JSON.parse(value); } catch { value = null; } }
+  const raw = value ? snapshotExploration({ ...value, status: opened ? EXPLORATION_STATUS.open : EXPLORATION_STATUS.closed }) : '';
   const restored = restoreExploration(raw, live, options);
   return opened ? openExploration(restored) : closeExploration(restored);
 };

@@ -1,20 +1,25 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import EditionRead from './EditionRead';
-import { getEdition, getEditionShare, revokeEditionShare, saveEditionItem, shareEdition } from '../api/editions';
+import { getEdition, getEditionShare, revokeEditionShare, saveEditionItem, saveEditionItemLater, setEditionItemState, shareEdition } from '../api/editions';
 
 /* The suite-wide router mock renders `Route element=` as nothing, so a page
    that reads a param is given the param directly, as the other ones are. */
+let mockSearch = '';
 jest.mock('react-router-dom', () => ({
   Link: ({ children, to, ...props }) => <a href={to} {...props}>{children}</a>,
-  useParams: () => ({ id: 'e1' })
+  useParams: () => ({ id: 'e1' }),
+  useSearchParams: () => [new URLSearchParams(mockSearch)]
 }));
 
 jest.mock('../api/editions', () => ({
   getEdition: jest.fn(),
   saveEditionItem: jest.fn(),
+  saveEditionItemLater: jest.fn(),
+  setEditionItemState: jest.fn(),
   getEditionShare: jest.fn(),
   shareEdition: jest.fn(),
+  updateEditionShare: jest.fn(),
   revokeEditionShare: jest.fn()
 }));
 
@@ -59,6 +64,9 @@ const open = () => render(<EditionRead />);
 describe('reading a paper an agent wrote', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSearch = '';
+    setEditionItemState.mockResolvedValue({ readerStatus: 'opened' });
+    saveEditionItemLater.mockResolvedValue({ placed: true });
     /* Unpublished unless a test says otherwise. */
     getEditionShare.mockResolvedValue({ shared: false, slug: '' });
   });
@@ -161,6 +169,39 @@ describe('reading a paper an agent wrote', () => {
       await waitFor(() => expect(screen.getByText('That source did not save.')).toBeInTheDocument());
       expect(screen.getByTestId('edition-save-item-1')).toBeEnabled();
     });
+
+    it('saves for later and points at Later', async () => {
+      getEdition.mockResolvedValue(paper());
+      saveEditionItemLater.mockResolvedValue({
+        placed: true,
+        articleId: 'a1',
+        edition: paper({
+          items: [item({ savedArticleId: 'a1', readerStatus: 'later' })],
+          savedCount: 1
+        })
+      });
+      open();
+      fireEvent.click(await screen.findByTestId('edition-later-item-1'));
+      await waitFor(() => expect(screen.getByRole('link', { name: /Open Later/ })).toBeInTheDocument());
+      expect(screen.getByRole('link', { name: /Open Later/ })).toHaveAttribute('href', '/library?scope=later');
+      expect(saveEditionItemLater).toHaveBeenCalledWith('e1', 'item-1');
+    });
+  });
+
+  it('records opened only after the item is on the page', async () => {
+    mockSearch = 'item=item-1';
+    getEdition.mockResolvedValue(paper());
+    open();
+    await screen.findByText('A paper about scaling');
+    await waitFor(() => expect(setEditionItemState).toHaveBeenCalledWith('e1', 'item-1', 'opened'));
+  });
+
+  it('does not record opened for an item that is not there', async () => {
+    mockSearch = 'item=missing';
+    getEdition.mockResolvedValue(paper());
+    open();
+    await screen.findByText('A paper about scaling');
+    expect(setEditionItemState).not.toHaveBeenCalled();
   });
 
   it('links every item to where it came from', async () => {
@@ -182,34 +223,42 @@ describe('reading a paper an agent wrote', () => {
 describe('publishing a paper', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSearch = '';
     getEdition.mockResolvedValue(paper());
-    getEditionShare.mockResolvedValue({ shared: false, slug: '' });
+    getEditionShare.mockResolvedValue({
+      shared: false,
+      slug: '',
+      preview: { title: 'This Week in AI', ownerDisplayName: 'Athan', items: [], sections: [] },
+      currentHash: 'hash-1'
+    });
   });
 
   it('offers to publish a paper that is not published', async () => {
     open();
+    expect(await screen.findByTestId('edition-share-open')).toHaveTextContent('Share');
     expect(await screen.findByTestId('edition-publish')).toBeInTheDocument();
     expect(screen.queryByTestId('edition-copy-link')).not.toBeInTheDocument();
   });
 
   it('mints a link and then offers to copy it', async () => {
-    shareEdition.mockResolvedValue({ shared: true, slug: 'abc123' });
+    shareEdition.mockResolvedValue({ shared: true, slug: 'abc123', stale: false });
     open();
     fireEvent.click(await screen.findByTestId('edition-publish'));
     await waitFor(() => expect(screen.getByTestId('edition-copy-link')).toBeInTheDocument());
-    expect(screen.getByTestId('edition-unpublish')).toBeInTheDocument();
+    expect(screen.getByTestId('edition-unpublish')).toHaveTextContent('Stop sharing');
+    expect(screen.getByTestId('edition-share-url').value).toContain('/share/editions/abc123');
   });
 
   /* Already published means copy the link, never mint a second one. */
   it('does not offer to publish what is already published', async () => {
-    getEditionShare.mockResolvedValue({ shared: true, slug: 'abc123' });
+    getEditionShare.mockResolvedValue({ shared: true, slug: 'abc123', stale: false });
     open();
     expect(await screen.findByTestId('edition-copy-link')).toBeInTheDocument();
     expect(screen.queryByTestId('edition-publish')).not.toBeInTheDocument();
   });
 
   it('goes back to offering to publish once revoked', async () => {
-    getEditionShare.mockResolvedValue({ shared: true, slug: 'abc123' });
+    getEditionShare.mockResolvedValue({ shared: true, slug: 'abc123', stale: false });
     revokeEditionShare.mockResolvedValue({ revoked: true });
     open();
     fireEvent.click(await screen.findByTestId('edition-unpublish'));
@@ -221,5 +270,13 @@ describe('publishing a paper', () => {
     open();
     fireEvent.click(await screen.findByTestId('edition-publish'));
     await waitFor(() => expect(screen.getByText('That paper did not publish.')).toBeInTheDocument());
+  });
+
+  it('does not treat a failed lookup as unpublished', async () => {
+    getEditionShare.mockRejectedValue(new Error('network'));
+    open();
+    expect(await screen.findByText('Sharing status unavailable')).toBeInTheDocument();
+    expect(screen.getByTestId('edition-share-retry')).toBeInTheDocument();
+    expect(screen.queryByTestId('edition-publish')).not.toBeInTheDocument();
   });
 });

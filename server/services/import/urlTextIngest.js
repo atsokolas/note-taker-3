@@ -1,3 +1,5 @@
+const { fetchPublicText } = require('../../lib/publicUrlFetch');
+
 // Numeric references are decoded generically rather than by listing them. The
 // previous list matched &#39; but not &#039; — the zero-padded form Wikipedia
 // emits — so imported pages were titled "Goodhart&#039;s law - Wikipedia" on
@@ -113,37 +115,34 @@ const normalizeIngestText = (value = '', maxLength = 120000) => (
   String(value || '').replace(/\r/g, '').replace(/[ \t]+\n/g, '\n').trim().slice(0, maxLength)
 );
 
-const fetchUrlForIngest = async ({ url, fetchImpl = fetch, timeoutMs = 12000 } = {}) => {
-  const parsed = new URL(String(url || '').trim());
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new Error('Only http and https URLs can be imported.');
-  }
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), Math.max(1000, Number(timeoutMs) || 12000));
-  try {
-    const res = await fetchImpl(parsed.toString(), {
-      signal: controller.signal,
-      headers: {
-        Accept: 'text/html, text/plain;q=0.9,*/*;q=0.5',
-        'User-Agent': 'NoeisBot/1.0 (+https://www.noeis.io)'
-      }
-    });
-    if (!res.ok) throw new Error(`URL fetch failed with HTTP ${res.status}.`);
-    const contentType = String(res.headers?.get?.('content-type') || '').toLowerCase();
-    const raw = await res.text();
-    const rawTitle = contentType.includes('html') ? extractTitle(raw, parsed.hostname) : parsed.hostname;
-    const title = contentType.includes('html')
-      ? stripSiteSuffix(rawTitle, { siteName: extractSiteName(raw), hostname: parsed.hostname })
-      : rawTitle;
-    const text = contentType.includes('html') ? extractReadableText(raw) : normalizeIngestText(raw);
-    return {
-      url: parsed.toString(),
-      title: title || parsed.hostname,
-      text: normalizeIngestText(text)
-    };
-  } finally {
-    clearTimeout(timeout);
-  }
+/**
+ * The URL is pasted by a person and fetched by the server, which is the shape
+ * of every SSRF. It goes through the public-URL guard rather than a bare fetch:
+ * no localhost, no private address, every redirect re-checked, the read bounded.
+ * Without it a paste of http://169.254.169.254/ would have the server read its
+ * own metadata service and file the answer in the reader's library.
+ */
+const fetchUrlForIngest = async ({ url, fetchImpl, lookup, timeoutMs = 12000 } = {}) => {
+  const { text: raw, url: finalUrl, contentType } = await fetchPublicText({
+    url,
+    subject: 'That URL',
+    accept: 'text/html, text/plain;q=0.9,*/*;q=0.5',
+    userAgent: 'NoeisBot/1.0 (+https://www.noeis.io)',
+    maxBytes: 2 * 1024 * 1024,
+    timeoutMs: Math.max(1000, Number(timeoutMs) || 12000),
+    ...(fetchImpl ? { fetchImpl } : {}),
+    ...(lookup ? { lookup } : {})
+  });
+  const { hostname } = new URL(finalUrl);
+  const isHtml = String(contentType || '').includes('html');
+  const title = isHtml
+    ? stripSiteSuffix(extractTitle(raw, hostname), { siteName: extractSiteName(raw), hostname })
+    : hostname;
+  return {
+    url: finalUrl,
+    title: title || hostname,
+    text: normalizeIngestText(isHtml ? extractReadableText(raw) : normalizeIngestText(raw))
+  };
 };
 
 module.exports = {

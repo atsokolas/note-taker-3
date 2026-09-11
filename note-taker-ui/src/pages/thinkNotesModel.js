@@ -153,5 +153,6 @@ export const buildAuthoredShelf = (rows = []) => list(rows)
     returnNote: row.returnNote || '',
     pageTitle: row.pageTitle || '',
     ...(row.originMissing ? { originMissing: true } : {}),
+    ...(row.sourceUnavailable ? { sourceUnavailable: true } : {}),
     href: authoredWorkHref(row)
   }));
