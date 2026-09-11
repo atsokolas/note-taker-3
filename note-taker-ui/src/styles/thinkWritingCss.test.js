@@ -28,6 +28,15 @@ describe('Think writing focus mode', () => {
     expect(css).not.toMatch(/grid-template-columns 720ms/);
   });
 
+  it('outranks stitch-editorial resting columns so focus can close the rails', () => {
+    expect(css).toContain('body.noeis-editorial:is(.think-rails-away, .think-focus-held) .notebook-editorial-shell');
+    expect(css).toContain('body.noeis-editorial:is(.think-rails-away, .think-focus-held) .think-home-editorial-shell');
+    expect(css).toContain('body.noeis-editorial:is(.think-rails-away, .think-focus-held) .concept-index-editorial-shell');
+    const stitch = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
+    expect(stitch).toContain('grid-template-columns: 250px minmax(0, 1fr) 300px;');
+    expect(stitch).toContain('grid-template-columns: 260px minmax(0, 1fr) 320px;');
+  });
+
   it('makes reduced motion instant instead of a half-animated fade', () => {
     expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*body:is\(\.think-rails-away, \.think-focus-held\) \[data-writing-rail\]::after[\s\S]*transition: none;/);
     expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*\[data-writing-rail\] > \*[\s\S]*transform: none[\s\S]*transition: none;/);
