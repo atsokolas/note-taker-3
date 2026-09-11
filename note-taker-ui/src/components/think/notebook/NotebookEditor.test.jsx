@@ -177,6 +177,57 @@ describe('NotebookEditor', () => {
     expect(screen.queryByRole('button', { name: 'Question block' })).not.toBeInTheDocument();
   });
 
+  it('registers blockId on code blocks so TipTap keeps the id', () => {
+    render(
+      <NotebookEditor
+        entry={{ _id: 'note-1', title: 'Draft', content: '<p>Draft</p>', blocks: [], type: 'note', tags: [] }}
+        saving={false}
+        error=""
+        onSave={jest.fn()}
+        onDelete={jest.fn()}
+        showInlineAgentDock={false}
+      />
+    );
+    const { extensions } = mockUseEditor.mock.calls[0][0];
+    const blockIdExt = extensions.find((ext) => ext.name === 'blockId');
+    const groups = blockIdExt.config.addGlobalAttributes();
+    expect(groups.some((group) => group.types.includes('codeBlock'))).toBe(true);
+  });
+
+  it('does not rewrite the document when a code block already has a stable id', async () => {
+    const onSave = jest.fn(async (payload) => payload);
+    mockEditor.getJSON.mockReturnValue({
+      type: 'doc',
+      content: [{
+        type: 'codeBlock',
+        attrs: { language: 'js', blockId: 'code-1' },
+        content: [{ type: 'text', text: 'const a = 1;' }]
+      }]
+    });
+    render(
+      <NotebookEditor
+        entry={{ _id: 'essay-1', title: 'Letter', content: '', blocks: [], type: 'note', tags: [] }}
+        saving={false}
+        error=""
+        onSave={onSave}
+        onDelete={jest.fn()}
+        showInlineAgentDock={false}
+      />
+    );
+    mockEditor.commands.setContent.mockClear();
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    const updateRegistration = [...mockEditor.on.mock.calls].reverse().find(([eventName]) => eventName === 'update');
+    act(() => updateRegistration[1]());
+    await waitFor(() => expect(onSave).toHaveBeenCalled(), { timeout: 1800 });
+    expect(mockEditor.commands.setContent).not.toHaveBeenCalled();
+    expect(onSave.mock.calls[0][0].blocks[0]).toMatchObject({
+      id: 'code-1',
+      type: 'code',
+      text: 'const a = 1;',
+      sourcePath: 'js'
+    });
+  });
+
   it('keeps the exact Library passage visible beside a derived notebook page', () => {
     render(
       <NotebookEditor

@@ -84,6 +84,28 @@ const buildNotebookMarkdown = (entry) => {
       pushBlank(lines);
       return;
     }
+    if (type === 'wiki_ref' || type === 'wiki-ref') {
+      const label = block.articleTitle || text || 'Wiki';
+      const href = sourceHref(block);
+      lines.push(href ? `[${label}](${href})` : `Wiki: ${label}`);
+      pushBlank(lines);
+      return;
+    }
+    if (type === 'code' || type === 'codeBlock') {
+      const language = String(block.sourcePath || '').trim();
+      const fenceLang = language.startsWith('/') ? '' : language;
+      const code = String(block.text || '').replace(/\n$/, '');
+      lines.push(`\`\`\`${fenceLang}`);
+      if (code) lines.push(code);
+      lines.push('```');
+      pushBlank(lines);
+      return;
+    }
+    if (type === 'divider' || type === 'horizontalRule') {
+      lines.push('---');
+      pushBlank(lines);
+      return;
+    }
     if (text) {
       lines.push(text);
       pushBlank(lines);

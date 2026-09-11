@@ -51,3 +51,34 @@ test('uses the heading’s actual opening line', () => {
   });
   assert.match(markdown, /^## The exception comes first\.\n/m);
 });
+
+test('exports a code block as a fenced block with its language', () => {
+  const markdown = buildNotebookMarkdown({
+    title: 'Letter',
+    blocks: [{
+      id: 'code-1',
+      type: 'code',
+      text: 'const a = 1;\nconst b = 2;',
+      sourcePath: 'js'
+    }]
+  });
+  assert.match(markdown, /```js\nconst a = 1;\nconst b = 2;\n```/);
+});
+
+test('exports a wiki reference as a link and a divider as a rule', () => {
+  const markdown = buildNotebookMarkdown({
+    title: 'Letter',
+    blocks: [
+      {
+        id: 'wiki-1',
+        type: 'wiki_ref',
+        text: 'Experimentation',
+        articleTitle: 'Experimentation',
+        sourcePath: '/wiki/workspace?page=wiki-1'
+      },
+      { id: 'hr-1', type: 'divider', text: '' }
+    ]
+  });
+  assert.match(markdown, /\[Experimentation\]\(\/wiki\/workspace\?page=wiki-1\)/);
+  assert.match(markdown, /^---$/m);
+});
