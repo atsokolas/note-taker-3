@@ -180,6 +180,8 @@ describe('QuestionEditor', () => {
 
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
       text: 'Who bears the downside?',
+      linkedHighlightIds: ['highlight-nomad'],
+      linkedHighlightId: 'highlight-nomad',
       blocks: [
         expect.objectContaining({
           type: 'highlight-ref',
@@ -199,10 +201,15 @@ describe('QuestionEditor', () => {
     expect(screen.getByDisplayValue('Who bears the downside?')).toBeInTheDocument();
     expect(screen.getByRole('blockquote', { name: 'Source quotation from Nomad' }))
       .toHaveTextContent('A wrong turn can still leave another attempt.');
+    fireEvent.change(screen.getByDisplayValue('A distinction still open.'), {
+      target: { value: 'Edited after placing.' }
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Undo passage placement' }));
     expect(onSave).toHaveBeenLastCalledWith(expect.objectContaining({
       text: 'Who bears the downside?',
-      blocks: [expect.objectContaining({ id: 'block-1', text: 'A distinction still open.' })]
+      linkedHighlightIds: [],
+      linkedHighlightId: null,
+      blocks: [expect.objectContaining({ id: 'block-1', text: 'Edited after placing.' })]
     }));
   });
 });

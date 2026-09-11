@@ -41,3 +41,9 @@ export const questionBlockFromPassage = (passage, createId) => ({
   articleTitle: passage?.title || 'Untitled source',
   sourcePath: passage?.href || ''
 });
+
+export const linkedHighlightIdsFromBlocks = (blocks = []) => (
+  [...new Set((Array.isArray(blocks) ? blocks : [])
+    .map((block) => String(block?.highlightId || '').trim())
+    .filter(Boolean))]
+);

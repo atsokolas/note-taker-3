@@ -1,5 +1,6 @@
 import {
   alreadyUsedHere,
+  linkedHighlightIdsFromBlocks,
   questionBlockFromPassage,
   recordedUsesFromQuestionBlocks,
   recordedUsesFromSources,
@@ -53,5 +54,14 @@ describe('libraryPassageUse', () => {
       articleTitle: 'Nomad',
       sourcePath: '/library?articleId=article-1&highlightId=highlight-1'
     });
+  });
+
+  it('records highlight linkage from placed blocks only', () => {
+    expect(linkedHighlightIdsFromBlocks([
+      { type: 'paragraph', text: 'My words.' },
+      { type: 'highlight-ref', highlightId: 'highlight-1' },
+      { type: 'highlight-ref', highlightId: 'highlight-1' },
+      { type: 'paragraph', articleId: 'article-2', text: 'An excerpt without a mark.' }
+    ])).toEqual(['highlight-1']);
   });
 });
