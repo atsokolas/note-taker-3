@@ -119,6 +119,27 @@ describe('what the week did not cover', () => {
     expect(emptySections({ profile: 'nope', items: [] })).toEqual([]);
     expect(emptySections()).toEqual([]);
   });
+
+  it('does not invent columns for a profile that named none', () => {
+    const profiles = {
+      climate: {
+        key: 'climate',
+        titleLabel: 'Climate',
+        issueLabel: 'Issue',
+        sections: [],
+        minItems: 1,
+        maxItems: 15
+      }
+    };
+    const built = normalizeEdition({
+      profile: 'climate',
+      windowStart: '2026-09-01',
+      windowEnd: '2026-09-07',
+      items: [item({ section: 'deployment' })]
+    }, { profiles });
+    expect(emptySections({ profile: built.profile, items: built.items, profiles })).toEqual([]);
+    expect(built.items[0].section).toBe('deployment');
+  });
 });
 
 describe('profiles', () => {

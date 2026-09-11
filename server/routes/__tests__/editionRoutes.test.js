@@ -643,10 +643,47 @@ describe('topics the reader configures, and filing into them', () => {
     expect(listed.body.builtIn).toEqual(expect.arrayContaining(['this_week_in_ai']));
   });
 
-  it('refuses a topic with no sections, because that is a list not a paper', async () => {
-    const bad = await configure({ sections: [] });
-    expect(bad.status).toBe(400);
-    expect(bad.body.error).toMatch(/section/i);
+  it('lets a paper have no columns, and does not invent evidence ones', async () => {
+    const created = await configure({ sections: [] });
+    expect(created.status).toBe(201);
+    expect(created.body.sections).toEqual([]);
+
+    const filed = await send('/api/editions/file', 'POST', {
+      profile: 'biotech',
+      items: [finding()]
+    });
+    expect(filed.status).toBe(201);
+    expect(filed.body.sections).toEqual([]);
+    expect(filed.body.itemCount).toBe(1);
+  });
+
+  it('keeps standing columns when an edit omits them', async () => {
+    await configure();
+    const edited = await send('/api/edition-profiles', 'POST', {
+      key: 'biotech',
+      title: 'This Month in Biotech',
+      cadence: 'weekly'
+    });
+    expect(edited.status).toBe(200);
+    expect(edited.body.sections).toEqual([{ key: 'clinical_evidence', label: 'Clinical evidence' }]);
+  });
+
+  it('puts those columns on the edition an agent files', async () => {
+    await configure({
+      sections: [
+        { key: 'deployment', label: 'Deployment' },
+        { key: 'policy', label: 'Policy' }
+      ]
+    });
+    const filed = await send('/api/editions/file', 'POST', {
+      profile: 'biotech',
+      items: [finding({ section: 'deployment' })]
+    });
+    expect(filed.status).toBe(201);
+    expect(filed.body.sections).toEqual([
+      { key: 'deployment', label: 'Deployment' },
+      { key: 'policy', label: 'Policy' }
+    ]);
   });
 
   // The whole point: filing tomorrow must not delete today.

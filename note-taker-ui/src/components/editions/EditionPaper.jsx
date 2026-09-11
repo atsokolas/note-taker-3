@@ -1,5 +1,5 @@
 import React from 'react';
-import { bySection, issueLine, publicSourceHref, windowLine } from '../../pages/editionModel';
+import { issueLine, publicSourceHref, standLayout, windowLine } from '../../pages/editionModel';
 
 /**
  * The paper a stranger reads, and the preview an owner approves.
@@ -35,6 +35,7 @@ const EditionPaper = ({ edition, compact = false }) => {
   const issue = issueLine(edition);
   const Title = compact ? 'h2' : 'h1';
   const SectionTitle = compact ? 'h3' : 'h2';
+  const { columns, looseItems } = standLayout(edition);
   return (
     <div className={`edition-paper${compact ? ' edition-paper--compact' : ''}`}>
       <header className="edition__masthead">
@@ -48,7 +49,7 @@ const EditionPaper = ({ edition, compact = false }) => {
 
       {edition.standfirst ? <p className="edition__standfirst">{edition.standfirst}</p> : null}
 
-      {bySection(edition).map((section) => (
+      {columns.length ? columns.map((section) => (
         <section key={section.key || section.label} className="edition__section">
           <SectionTitle className="edition__section-title">{section.label}</SectionTitle>
           {section.items.length ? (
@@ -57,7 +58,13 @@ const EditionPaper = ({ edition, compact = false }) => {
             <p className="edition__section-empty">Nothing this week.</p>
           )}
         </section>
-      ))}
+      )) : looseItems.length ? (
+        <section className="edition__section edition__section--loose">
+          {looseItems.map(item => <EditionItemView key={item.itemId || item.title} item={item} />)}
+        </section>
+      ) : (
+        <p className="editions__quiet" data-testid="edition-columns-silence">No columns set.</p>
+      )}
 
       {edition.throughLine ? (
         <section className="edition__section">

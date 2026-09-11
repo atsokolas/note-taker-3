@@ -61,6 +61,34 @@ describe('a paper someone published', () => {
     expect(screen.getByText('Nothing this week.')).toBeInTheDocument();
   });
 
+  it('prints the columns the published snapshot named', async () => {
+    getPublicEdition.mockResolvedValue(paper({
+      sections: [
+        { key: 'deployment', label: 'Deployment' },
+        { key: 'policy', label: 'Policy' }
+      ],
+      items: [{
+        itemId: 'item-1',
+        title: 'A paper about scaling',
+        url: 'https://example.com/paper',
+        section: 'deployment',
+        finding: 'Loss keeps falling.',
+        boundary: 'One lab, no replication yet.'
+      }]
+    }));
+    render(<SharedEdition />);
+    expect(await screen.findByText('Deployment')).toBeInTheDocument();
+    expect(screen.getByText('Policy')).toBeInTheDocument();
+    expect(screen.queryByText('Counterevidence')).not.toBeInTheDocument();
+  });
+
+  it('does not invent columns when the snapshot has none', async () => {
+    getPublicEdition.mockResolvedValue(paper({ sections: [], items: [] }));
+    render(<SharedEdition />);
+    expect(await screen.findByTestId('edition-columns-silence')).toHaveTextContent('No columns set.');
+    expect(screen.queryByText('Models & methods')).not.toBeInTheDocument();
+  });
+
   /* A revoked link deletes its row, so this is the same answer as a link that
      never existed — which is the point of deleting it. */
   it('says nothing exists rather than that it was withdrawn', async () => {

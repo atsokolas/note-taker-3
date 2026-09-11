@@ -89,6 +89,29 @@ describe('reading a paper an agent wrote', () => {
     expect(screen.getByText('Nothing this week under Evaluation & counterevidence.')).toBeInTheDocument();
   });
 
+  it('prints the columns the agent configured', async () => {
+    getEdition.mockResolvedValue(paper({
+      sections: [
+        { key: 'deployment', label: 'Deployment' },
+        { key: 'policy', label: 'Policy' }
+      ],
+      items: [item({ section: 'deployment' })],
+      unfilled: ['Policy']
+    }));
+    open();
+    expect(await screen.findByText('Deployment')).toBeInTheDocument();
+    expect(screen.getByText('Policy')).toBeInTheDocument();
+    expect(screen.queryByText('Evidence for the thesis')).not.toBeInTheDocument();
+  });
+
+  it('stays silent when the paper has no columns', async () => {
+    getEdition.mockResolvedValue(paper({ sections: [], items: [], unfilled: [] }));
+    open();
+    expect(await screen.findByTestId('edition-columns-silence')).toHaveTextContent('No columns set.');
+    expect(screen.queryByText('Models & methods')).not.toBeInTheDocument();
+    expect(screen.queryByText('Elsewhere')).not.toBeInTheDocument();
+  });
+
   it('signs the masthead and dates the window', async () => {
     getEdition.mockResolvedValue(paper());
     open();

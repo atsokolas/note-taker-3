@@ -16,7 +16,7 @@ const editionProfiles = ['this_week_in_ai', 'weekend_readings'];
 const editionItemShape = z.object({
   title: z.string().min(1).describe('What the source is called.'),
   url: z.string().url().describe('Link the reader can open, and save from.'),
-  section: z.string().describe('Section key for this topic. Built in — this_week_in_ai: models_methods, infrastructure_systems, evaluation_counterevidence. weekend_readings: thesis_evidence, counterevidence, context, intellectual_broadening. For a topic the reader configured, call list_edition_profiles for its sections.'),
+  section: z.string().describe('Section key for this topic. Use the keys from list_edition_profiles for this paper — columns are whatever the reader configured, not a fixed evidence / counter-evidence set. Built-in defaults, until reconfigured: this_week_in_ai (models_methods, infrastructure_systems, evaluation_counterevidence) and weekend_readings (thesis_evidence, counterevidence, context, intellectual_broadening).'),
   finding: z.string().min(1).describe('What this source actually says. Not a summary of its announcement.'),
   boundary: z.string().min(1).describe('What would limit this finding — sample, scope, conflict of interest, missing replication. Required.'),
   sourceLabel: z.string().optional().describe('Publication or author.'),
@@ -87,7 +87,7 @@ export const writeTools = [
   },
   {
     name: 'configure_edition',
-    description: 'Set up or change one of the reader\'s edition topics — a subject they want a paper on, its sections, and how often it comes out. Configuring the same key twice edits that topic rather than making a second one. Ask the reader what the sections should be: sections are the argument the paper makes about its subject, and generic ones throw away the only opinion worth having.',
+    description: 'Set up or change one of the reader\'s edition topics — a subject they want a paper on, its columns, and how often it comes out. Configuring the same key twice edits that topic rather than making a second one. Ask the reader what the columns should be: they are the argument the paper makes about its subject. Passing an empty list prints silence rather than inventing evidence / counter-evidence columns. Omit the field when editing so the standing columns stay.',
     inputSchema: {
       key: z.string().min(1).describe('Short slug for the topic, e.g. "biotech". Reused to file into it.'),
       title: z.string().min(1).describe('What the paper is called on its masthead, e.g. "This Month in Biotech".'),
@@ -95,7 +95,7 @@ export const writeTools = [
       sections: z.array(z.object({
         key: z.string().min(1).describe('Slug, e.g. "clinical_evidence".'),
         label: z.string().min(1).describe('What the reader sees, e.g. "Clinical evidence".')
-      })).min(1).describe('The layers this subject reads in. At least one, at most eight.'),
+      })).max(8).optional().describe('The columns this paper sets. Omit to keep the standing ones when editing. Pass [] for a paper with no columns — silence, not a default evidence layout. At most eight.'),
       issueLabel: z.string().optional().describe('What one issue is called: "Issue", "Edition", "Dispatch". Defaults to Issue.'),
       minItems: z.number().int().optional().describe('Fewest items an issue may carry.'),
       maxItems: z.number().int().optional().describe('Most items an issue may carry. An edition that lists everything has chosen nothing.')

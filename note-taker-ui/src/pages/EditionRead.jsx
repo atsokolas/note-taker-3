@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { getEdition, saveEditionItem, saveEditionItemLater, setEditionItemState } from '../api/editions';
 import EditionShare from '../components/editions/EditionShare';
-import { bySection, gapLine, issueLine, takenLine, windowLine } from './editionModel';
+import { gapLine, issueLine, standLayout, takenLine, windowLine } from './editionModel';
 
 /**
  * Reading a paper your agent wrote.
@@ -13,8 +13,8 @@ import { bySection, gapLine, issueLine, takenLine, windowLine } from './editionM
  * that door is the whole feature. Without it this is a newsletter.
  *
  * Each item states its finding and its boundary, because the shape refuses
- * items that will not. A section nobody filled is printed as an empty section
- * rather than dropped, which is the one thing a newsletter never does.
+ * items that will not. A named column nobody filled is printed empty rather
+ * than dropped. No columns configured is silence, not an invented layout.
  */
 
 const EditionItem = ({ item, onSave, onLater, saving, laterSaving, unread = null, laterNote = null }) => (
@@ -162,6 +162,19 @@ const EditionRead = () => {
 
   const gap = gapLine(edition);
   const issue = issueLine(edition);
+  const { columns, looseItems } = standLayout(edition);
+  const renderItem = (item) => (
+    <EditionItem
+      key={item.itemId}
+      item={item}
+      onSave={save}
+      onLater={later}
+      saving={savingId === item.itemId}
+      laterSaving={laterId === item.itemId}
+      unread={unread?.itemId === item.itemId ? unread : null}
+      laterNote={laterNote}
+    />
+  );
 
   return (
     <div className="edition" data-testid="edition-read">
@@ -181,29 +194,24 @@ const EditionRead = () => {
 
       {edition.standfirst ? <p className="edition__standfirst">{edition.standfirst}</p> : null}
 
-      {bySection(edition).map((section) => (
+      {columns.length ? columns.map((section) => (
         <section key={section.key || section.label} className="edition__section">
           <h2 className="edition__section-title">{section.label}</h2>
           {section.items.length ? (
-            section.items.map(item => (
-              <EditionItem
-                key={item.itemId}
-                item={item}
-                onSave={save}
-                onLater={later}
-                saving={savingId === item.itemId}
-                laterSaving={laterId === item.itemId}
-                unread={unread?.itemId === item.itemId ? unread : null}
-                laterNote={laterNote}
-              />
-            ))
+            section.items.map(renderItem)
           ) : (
-            /* Printed, not dropped. A week with nothing under counterevidence
-               is saying something, and hiding it is what a newsletter does. */
+            /* Printed, not dropped. A named column nobody filled is saying
+               something; hiding it is what a newsletter does. */
             <p className="edition__section-empty">Nothing this week.</p>
           )}
         </section>
-      ))}
+      )) : looseItems.length ? (
+        <section className="edition__section edition__section--loose">
+          {looseItems.map(renderItem)}
+        </section>
+      ) : (
+        <p className="editions__quiet" data-testid="edition-columns-silence">No columns set.</p>
+      )}
 
       {edition.throughLine ? (
         <section className="edition__section">
