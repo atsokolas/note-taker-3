@@ -7,7 +7,7 @@ export const ensureBlockIds = (node, createId = defaultId) => {
   if (!node) return { node, changed: false };
   let changed = false;
   const next = { ...node };
-  const needsId = ['paragraph', 'heading', 'blockquote', 'listItem', 'highlightRef', 'articleRef', 'conceptRef', 'questionRef'].includes(node.type);
+  const needsId = ['paragraph', 'heading', 'blockquote', 'listItem', 'highlightRef', 'articleRef', 'conceptRef', 'questionRef', 'wikiRef', 'codeBlock'].includes(node.type);
   if (needsId) {
     next.attrs = { ...(node.attrs || {}) };
     if (!next.attrs.blockId) {
@@ -29,6 +29,16 @@ const extractText = (node) => {
   if (!node) return '';
   if (node.type === 'text') return node.text || '';
   return (node.content || []).map(extractText).join('');
+};
+
+const wikiIdFromSourcePath = (path = '') => {
+  const match = String(path || '').match(/[?&]page=([^&]+)/);
+  if (!match) return '';
+  try {
+    return decodeURIComponent(match[1]);
+  } catch (_error) {
+    return match[1];
+  }
 };
 
 export const serializeBlocksFromDoc = (doc, createId = defaultId) => {
@@ -99,6 +109,42 @@ export const serializeBlocksFromDoc = (doc, createId = defaultId) => {
         questionId: node.attrs?.questionId || null,
         questionText: node.attrs?.questionText || '',
         text: node.attrs?.questionText || ''
+      });
+      return;
+    }
+    if (node.type === 'wikiRef') {
+      const wikiId = node.attrs?.wikiId || '';
+      const wikiTitle = node.attrs?.wikiTitle || '';
+      const wikiMeta = node.attrs?.wikiMeta || '';
+      const sourcePath = wikiId
+        ? `/wiki/workspace?page=${encodeURIComponent(wikiId)}`
+        : '';
+      blocks.push({
+        id: node.attrs?.blockId || createId(),
+        type: 'wiki_ref',
+        text: wikiTitle,
+        articleTitle: wikiTitle,
+        ...(sourcePath ? { sourcePath } : {}),
+        ...(wikiMeta ? { conceptName: wikiMeta } : {})
+      });
+      return;
+    }
+    if (node.type === 'codeBlock') {
+      const language = String(node.attrs?.language || '').trim();
+      blocks.push({
+        id: node.attrs?.blockId || createId(),
+        type: 'code',
+        text: extractText(node),
+        // Pre-nodes schema has no language field; sourcePath is the surviving string.
+        ...(language ? { sourcePath: language } : {})
+      });
+      return;
+    }
+    if (node.type === 'horizontalRule') {
+      blocks.push({
+        id: node.attrs?.blockId || createId(),
+        type: 'divider',
+        text: ''
       });
       return;
     }
@@ -203,6 +249,33 @@ export const buildDocFromBlocks = (blocks = []) => ({
           questionText: block.questionText || block.text || '',
           blockId: block.id
         }
+      };
+    }
+    if (block.type === 'wiki_ref' || block.type === 'wiki-ref' || block.type === 'wikiRef') {
+      return {
+        type: 'wikiRef',
+        attrs: {
+          wikiId: wikiIdFromSourcePath(block.sourcePath),
+          wikiTitle: block.articleTitle || block.text || '',
+          wikiMeta: block.conceptName || '',
+          blockId: block.id
+        }
+      };
+    }
+    if (block.type === 'code' || block.type === 'codeBlock') {
+      return {
+        type: 'codeBlock',
+        attrs: {
+          language: block.sourcePath || null,
+          blockId: block.id
+        },
+        content: block.text ? [{ type: 'text', text: block.text }] : []
+      };
+    }
+    if (block.type === 'divider' || block.type === 'horizontalRule') {
+      return {
+        type: 'horizontalRule',
+        attrs: { blockId: block.id }
       };
     }
     return {

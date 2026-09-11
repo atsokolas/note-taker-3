@@ -97,4 +97,73 @@ describe('notebookBlocks', () => {
       sourcePath: '/library?articleId=article-1&highlightId=highlight-1'
     }]);
   });
+
+  it('round-trips a code block, including fence language', () => {
+    const doc = {
+      type: 'doc',
+      content: [{
+        type: 'codeBlock',
+        attrs: { language: 'js', blockId: 'code-1' },
+        content: [{ type: 'text', text: 'const a = 1;' }]
+      }]
+    };
+    const serialized = serializeBlocksFromDoc(doc);
+    expect(serialized).toEqual([{
+      id: 'code-1',
+      type: 'code',
+      text: 'const a = 1;',
+      sourcePath: 'js'
+    }]);
+    expect(buildDocFromBlocks(serialized).content[0]).toMatchObject({
+      type: 'codeBlock',
+      attrs: { language: 'js', blockId: 'code-1' },
+      content: [{ type: 'text', text: 'const a = 1;' }]
+    });
+  });
+
+  it('round-trips a wiki reference through pre-nodes schema fields', () => {
+    const doc = {
+      type: 'doc',
+      content: [{
+        type: 'wikiRef',
+        attrs: {
+          wikiId: 'wiki-1',
+          wikiTitle: 'Experimentation',
+          wikiMeta: 'Living wiki',
+          blockId: 'wiki-1'
+        }
+      }]
+    };
+    const serialized = serializeBlocksFromDoc(doc);
+    expect(serialized).toEqual([{
+      id: 'wiki-1',
+      type: 'wiki_ref',
+      text: 'Experimentation',
+      articleTitle: 'Experimentation',
+      sourcePath: '/wiki/workspace?page=wiki-1',
+      conceptName: 'Living wiki'
+    }]);
+    expect(buildDocFromBlocks(serialized).content[0]).toEqual({
+      type: 'wikiRef',
+      attrs: {
+        wikiId: 'wiki-1',
+        wikiTitle: 'Experimentation',
+        wikiMeta: 'Living wiki',
+        blockId: 'wiki-1'
+      }
+    });
+  });
+
+  it('round-trips a divider', () => {
+    const doc = {
+      type: 'doc',
+      content: [{ type: 'horizontalRule', attrs: { blockId: 'hr-1' } }]
+    };
+    const serialized = serializeBlocksFromDoc(doc);
+    expect(serialized).toEqual([{ id: 'hr-1', type: 'divider', text: '' }]);
+    expect(buildDocFromBlocks(serialized).content[0]).toEqual({
+      type: 'horizontalRule',
+      attrs: { blockId: 'hr-1' }
+    });
+  });
 });
