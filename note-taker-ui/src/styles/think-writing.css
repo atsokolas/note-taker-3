@@ -192,22 +192,25 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
       gap var(--think-rail-push);
   }
 
-  body:is(.think-rails-away, .think-focus-held) .notebook-editorial-shell,
-  body:is(.think-rails-away, .think-focus-held) .think-home-editorial-shell,
-  body:is(.think-rails-away, .think-focus-held) .concept-index-editorial-shell {
+  /* Outrank stitch-editorial's resting 250/300 (and 260/320 under 1360px).
+     FocusMode imports this file before App imports stitch-editorial, so equal
+     specificity would leave two full-width empty columns while the words fade. */
+  body.noeis-editorial:is(.think-rails-away, .think-focus-held) .notebook-editorial-shell,
+  body.noeis-editorial:is(.think-rails-away, .think-focus-held) .think-home-editorial-shell,
+  body.noeis-editorial:is(.think-rails-away, .think-focus-held) .concept-index-editorial-shell {
     grid-template-columns: 30px minmax(0, 1fr) 30px;
     gap: 18px;
   }
 
-  body:is(.think-rails-away, .think-focus-held) .notebook-editorial-shell:has([data-writing-rail='left']:is(:hover, :focus-within)),
-  body:is(.think-rails-away, .think-focus-held) .think-home-editorial-shell:has([data-writing-rail='left']:is(:hover, :focus-within)),
-  body:is(.think-rails-away, .think-focus-held) .concept-index-editorial-shell:has([data-writing-rail='left']:is(:hover, :focus-within)) {
+  body.noeis-editorial:is(.think-rails-away, .think-focus-held) .notebook-editorial-shell:has([data-writing-rail='left']:is(:hover, :focus-within)),
+  body.noeis-editorial:is(.think-rails-away, .think-focus-held) .think-home-editorial-shell:has([data-writing-rail='left']:is(:hover, :focus-within)),
+  body.noeis-editorial:is(.think-rails-away, .think-focus-held) .concept-index-editorial-shell:has([data-writing-rail='left']:is(:hover, :focus-within)) {
     grid-template-columns: 250px minmax(0, 1fr) 30px;
   }
 
-  body:is(.think-rails-away, .think-focus-held) .notebook-editorial-shell:has([data-writing-rail='right']:is(:hover, :focus-within)),
-  body:is(.think-rails-away, .think-focus-held) .think-home-editorial-shell:has([data-writing-rail='right']:is(:hover, :focus-within)),
-  body:is(.think-rails-away, .think-focus-held) .concept-index-editorial-shell:has([data-writing-rail='right']:is(:hover, :focus-within)) {
+  body.noeis-editorial:is(.think-rails-away, .think-focus-held) .notebook-editorial-shell:has([data-writing-rail='right']:is(:hover, :focus-within)),
+  body.noeis-editorial:is(.think-rails-away, .think-focus-held) .think-home-editorial-shell:has([data-writing-rail='right']:is(:hover, :focus-within)),
+  body.noeis-editorial:is(.think-rails-away, .think-focus-held) .concept-index-editorial-shell:has([data-writing-rail='right']:is(:hover, :focus-within)) {
     grid-template-columns: 30px minmax(0, 1fr) 300px;
   }
 
