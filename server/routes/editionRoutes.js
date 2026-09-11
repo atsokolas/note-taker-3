@@ -3,11 +3,16 @@ const crypto = require('crypto');
 const { fetchReadableArticle, paragraphsToHtml } = require('../services/readableArticle');
 const {
   EditionShapeError,
+  collectInbox,
   emptySections,
+  hashPublicEdition,
   normalizeEdition,
   normalizeItem,
   profileKeysFor,
+  projectPublicEdition,
+  READER_STATUSES,
   resolveEditionProfile,
+  retainHeldItems,
   windowFor
 } = require('../services/editionShape');
 
@@ -43,7 +48,8 @@ const serializeItem = (item = {}) => ({
   note: item.note || '',
   filedBy: item.filedBy?.label || '',
   filedAt: item.filedAt || null,
-  savedArticleId: item.savedArticleId ? String(item.savedArticleId) : null
+  savedArticleId: item.savedArticleId ? String(item.savedArticleId) : null,
+  readerStatus: item.readerState?.status || 'new'
 });
 
 const serializeEdition = (edition = {}, { withItems = true, profiles = null } = {}) => {
@@ -84,20 +90,34 @@ const shareSlug = () => crypto.randomBytes(SLUG_BYTES)
   .replace(/\//g, '_')
   .replace(/=+$/g, '');
 
-/**
- * What a stranger sees.
- *
- * The paper, and nothing about the person who kept it. Not which sources they
- * took into their own library, not how many — a public edition is the reading,
- * and what the reader did with it afterwards is theirs.
- */
-const serializePublicEdition = (edition = {}, ownerDisplayName = '', { profiles = null } = {}) => {
-  const full = serializeEdition(edition, { profiles });
-  const { savedCount, ...rest } = full;
+const isDuplicateKey = (error) => Number(error?.code) === 11000;
+
+const PREVIEW_STALE = 'The issue changed since you previewed it. Refresh the preview before sharing.';
+
+const noStore = (res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  res.set('Pragma', 'no-cache');
+};
+
+const shareState = (share, { preview = null, currentHash = '' } = {}) => {
+  if (!share) {
+    return {
+      shared: false,
+      ownerDisplayName: preview?.ownerDisplayName || '',
+      preview,
+      currentHash
+    };
+  }
   return {
-    ...rest,
-    ownerDisplayName,
-    items: (full.items || []).map(({ savedArticleId, ...item }) => item)
+    shared: true,
+    slug: share.slug,
+    ownerDisplayName: share.ownerDisplayName || preview?.ownerDisplayName || '',
+    publishedAt: share.publishedAt || null,
+    contentHash: share.contentHash || '',
+    currentHash,
+    stale: Boolean(share.contentHash && currentHash && share.contentHash !== currentHash),
+    preview,
+    snapshot: share.snapshot || null
   };
 };
 
@@ -143,6 +163,71 @@ const buildEditionRouter = ({
       minItems: Number.isFinite(row.minItems) ? row.minItems : 1,
       maxItems: Number.isFinite(row.maxItems) ? row.maxItems : 15
     }]));
+  };
+
+  const ownerNameOf = async (userId) => {
+    if (!User) return '';
+    const owner = await User.findById(userId).select('name displayName').lean().catch(() => null);
+    return String(owner?.displayName || owner?.name || '').trim();
+  };
+
+  const livePreviewOf = async (edition, userId) => {
+    const profiles = await loadProfiles(userId);
+    const ownerDisplayName = await ownerNameOf(userId);
+    const preview = projectPublicEdition(edition, ownerDisplayName, { profiles });
+    return { preview, currentHash: hashPublicEdition(preview), ownerDisplayName };
+  };
+
+  const takeSource = async (item, userId) => {
+    const readable = await readArticle({ url: item.url });
+    const article = await Article.findOneAndUpdate(
+      { url: item.url, userId },
+      {
+        $setOnInsert: {
+          url: item.url,
+          userId,
+          title: readable.title || item.title,
+          content: paragraphsToHtml(readable.content),
+          siteName: item.sourceLabel || '',
+          publicationDate: item.sourceDate || '',
+          highlights: []
+        }
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+    return {
+      article,
+      readable: Boolean(readable.ok && readable.content),
+      readError: readable.ok ? '' : readable.error
+    };
+  };
+
+  const placeLater = async (article, userId) => {
+    if (article.placement === 'later') return article;
+    const now = new Date();
+    const updated = await Article.findOneAndUpdate(
+      { _id: article._id, userId },
+      { $set: { placement: 'later', placementAt: now } },
+      { new: true }
+    );
+    if (updated) return updated;
+    article.placement = 'later';
+    article.placementAt = now;
+    return article;
+  };
+
+  const ownedItem = async (req, res) => {
+    const edition = await Edition.findOne({ _id: req.params.id, userId: req.user.id });
+    if (!edition) {
+      res.status(404).json({ error: 'No such edition.' });
+      return null;
+    }
+    const item = (edition.items || []).find(entry => entry.itemId === req.params.itemId);
+    if (!item) {
+      res.status(404).json({ error: 'No such item in this edition.' });
+      return null;
+    }
+    return { edition, item };
   };
 
   const refuse = (res, error, fallback) => {
@@ -258,10 +343,15 @@ const buildEditionRouter = ({
       const filedBy = scribe(req);
       const filedAt = new Date();
       const added = [];
+      const usedIds = new Set(kept.map(item => item.itemId));
       incoming.forEach((raw, index) => {
         const item = normalizeItem(raw, kept.length + index, profile);
         if (keptUrls.has(item.url)) return;
+        if (usedIds.has(item.itemId)) {
+          throw new EditionShapeError(`Two items share the id "${item.itemId}".`, { field: 'itemId' });
+        }
         keptUrls.add(item.url);
+        usedIds.add(item.itemId);
         added.push({ ...item, filedBy, filedAt });
       });
 
@@ -310,19 +400,11 @@ const buildEditionRouter = ({
       });
 
       /* A rewrite keeps what the reader did and who did the work: a save they
-         made, and the byline an earlier filing earned. Both key on the link. */
-      const held = new Map((existing?.items || []).map(item => [item.url, item]));
+         made, a reading choice, and the byline an earlier filing earned.
+         Identity follows the source URL, so a reorder does not mint a new item. */
       const writtenBy = scribe(req);
       const now = new Date();
-      const items = built.items.map((item) => {
-        const before = held.get(item.url);
-        return {
-          ...item,
-          filedBy: before?.filedBy?.label ? before.filedBy : writtenBy,
-          filedAt: before?.filedAt || now,
-          savedArticleId: before?.savedArticleId || null
-        };
-      });
+      const items = retainHeldItems(built.items, existing?.items || [], writtenBy, now);
 
       const saved = existing
         ? await Edition.findOneAndUpdate(
@@ -343,15 +425,38 @@ const buildEditionRouter = ({
   router.get('/api/editions', auth, async (req, res) => {
     try {
       const query = { userId: req.user.id };
-      const profile = resolveEditionProfile(req.query?.profile);
+      const profiles = await loadProfiles(req.user.id);
+      const profile = resolveEditionProfile(req.query?.profile, { profiles });
       if (profile) query.profile = profile.key;
       const editions = await Edition.find(query)
         .sort({ windowEnd: -1, createdAt: -1 })
         .limit(Math.min(Number(req.query?.limit) || 40, 100))
         .lean();
-      return res.status(200).json({ editions: editions.map(edition => serializeEdition(edition, { withItems: false })) });
+      return res.status(200).json({
+        editions: editions.map(edition => serializeEdition(edition, { withItems: false, profiles }))
+      });
     } catch (error) {
       return refuse(res, error, 'Failed to open the newsstand.');
+    }
+  });
+
+  /* New arrivals across every paper. Bounded, newest filing first. Missing
+     reader state means new, so a legacy item still shows up. */
+  router.get('/api/editions/inbox', auth, async (req, res) => {
+    try {
+      const userId = req.user.id;
+      const profiles = await loadProfiles(userId);
+      const editions = await Edition.find({ userId })
+        .sort({ windowEnd: -1, createdAt: -1 })
+        .limit(200)
+        .lean();
+      return res.status(200).json(collectInbox(editions, {
+        cursor: String(req.query?.cursor || ''),
+        limit: Number(req.query?.limit) || 20,
+        profiles
+      }));
+    } catch (error) {
+      return refuse(res, error, 'Failed to open new items.');
     }
   });
 
@@ -359,7 +464,8 @@ const buildEditionRouter = ({
     try {
       const edition = await Edition.findOne({ _id: req.params.id, userId: req.user.id }).lean();
       if (!edition) return res.status(404).json({ error: 'No such edition.' });
-      return res.status(200).json(serializeEdition(edition));
+      const profiles = await loadProfiles(req.user.id);
+      return res.status(200).json(serializeEdition(edition, { profiles }));
     } catch (error) {
       return refuse(res, error, 'Failed to open the edition.');
     }
@@ -379,58 +485,89 @@ const buildEditionRouter = ({
    */
   router.post('/api/editions/:id/items/:itemId/save', auth, humanOnly, async (req, res) => {
     try {
+      const found = await ownedItem(req, res);
+      if (!found) return undefined;
+      const { edition, item } = found;
       const userId = req.user.id;
-      const edition = await Edition.findOne({ _id: req.params.id, userId });
-      if (!edition) return res.status(404).json({ error: 'No such edition.' });
-      const item = (edition.items || []).find(entry => entry.itemId === req.params.itemId);
-      if (!item) return res.status(404).json({ error: 'No such item in this edition.' });
+      const profiles = await loadProfiles(userId);
 
-      /* Fetched before the row is written, so a source taken from an
-         agent's paper arrives readable. This used to save a title and a URL
-         and nothing else — a row you could file but not read, and certainly
-         not highlight, which is the seam in "seamless".
-
-         A failed fetch is not a failed save: a paywall answering 403 is
-         still a source worth keeping, so the row is written either way and
-         the reason is reported beside it. */
-      const readable = await readArticle({ url: item.url });
-
-      const article = await Article.findOneAndUpdate(
-        { url: item.url, userId },
-        {
-          $setOnInsert: {
-            url: item.url,
-            userId,
-            /* The page's own title beats the agent's, which is a headline
-               written for the edition rather than the piece. */
-            title: readable.title || item.title,
-            /* Paragraphed, because the reader renders a body as HTML: stored as
-               the blank-line separated text it arrives as, a piece saved from an
-               edition reads as one unbroken run you cannot highlight a sentence
-               of — which is the same seam this door was built to close. */
-            content: paragraphsToHtml(readable.content),
-            siteName: item.sourceLabel || '',
-            publicationDate: item.sourceDate || '',
-            highlights: []
-          }
-        },
-        { upsert: true, new: true, setDefaultsOnInsert: true }
-      );
-
-      item.savedArticleId = article._id;
+      const taken = await takeSource(item, userId);
+      item.savedArticleId = taken.article._id;
       await edition.save();
-      onArticleSaved(article, { userId });
+      onArticleSaved(taken.article, { userId });
 
       return res.status(200).json({
-        articleId: String(article._id),
-        /* Said plainly, because "saved" and "saved but empty" are different
-           things to a reader about to go looking for the text. */
-        readable: Boolean(readable.ok && readable.content),
-        readError: readable.ok ? '' : readable.error,
-        edition: serializeEdition(edition)
+        articleId: String(taken.article._id),
+        readable: taken.readable,
+        readError: taken.readError,
+        edition: serializeEdition(edition, { profiles })
       });
     } catch (error) {
       return refuse(res, error, 'Failed to save that source.');
+    }
+  });
+
+  /* Save, move to Later, and take the arrival out of New — in that order.
+     The arrival is not acknowledged until both the row and the placement hold. */
+  router.post('/api/editions/:id/items/:itemId/later', auth, humanOnly, async (req, res) => {
+    try {
+      const found = await ownedItem(req, res);
+      if (!found) return undefined;
+      const { edition, item } = found;
+      const userId = req.user.id;
+      const profiles = await loadProfiles(userId);
+
+      const taken = await takeSource(item, userId);
+      item.savedArticleId = taken.article._id;
+      onArticleSaved(taken.article, { userId });
+
+      const previous = taken.article.placement || 'stream';
+      let placed = true;
+      try {
+        await placeLater(taken.article, userId);
+      } catch (_placeError) {
+        placed = false;
+      }
+
+      if (placed) item.readerState = { status: 'later', at: new Date() };
+      await edition.save();
+
+      return res.status(200).json({
+        articleId: String(taken.article._id),
+        readable: taken.readable,
+        readError: taken.readError,
+        placed,
+        fromSetAside: previous === 'setAside',
+        edition: serializeEdition(edition, { profiles }),
+        error: placed ? '' : 'Saved to Library; could not move to Later — Retry'
+      });
+    } catch (error) {
+      return refuse(res, error, 'Failed to save that source for later.');
+    }
+  });
+
+  router.post('/api/editions/:id/items/:itemId/state', auth, humanOnly, async (req, res) => {
+    try {
+      const status = String(req.body?.status || '').trim();
+      if (status === 'later') {
+        return res.status(400).json({ error: 'Use the later door to save and place the source.' });
+      }
+      if (status !== 'new' && !READER_STATUSES.includes(status)) {
+        return res.status(400).json({ error: 'status must be opened, dismissed, or new.' });
+      }
+      const found = await ownedItem(req, res);
+      if (!found) return undefined;
+      const { edition, item } = found;
+      item.readerState = status === 'new' ? undefined : { status, at: new Date() };
+      await edition.save();
+      const profiles = await loadProfiles(req.user.id);
+      return res.status(200).json({
+        itemId: item.itemId,
+        readerStatus: item.readerState?.status || 'new',
+        edition: serializeEdition(edition, { profiles })
+      });
+    } catch (error) {
+      return refuse(res, error, 'Failed to remember that choice.');
     }
   });
 
@@ -439,7 +576,8 @@ const buildEditionRouter = ({
    *
    * Human only, and idempotent — asking twice hands back the same link rather
    * than minting a second one, because a reader who has already sent the
-   * first would then have two live URLs for one paper.
+   * first would then have two live URLs for one paper. The snapshot is frozen
+   * at create; asking twice does not quietly republish later private edits.
    */
   router.post('/api/editions/:id/share', auth, humanOnly, async (req, res) => {
     if (!SharedEdition) return res.status(503).json({ error: 'Sharing is not available.' });
@@ -448,40 +586,96 @@ const buildEditionRouter = ({
       const edition = await Edition.findOne({ _id: req.params.id, userId }).lean();
       if (!edition) return res.status(404).json({ error: 'No such edition.' });
 
-      const existing = await SharedEdition.findOne({ userId, editionId: edition._id }).lean();
-      if (existing) return res.status(200).json({ shared: true, slug: existing.slug });
-
-      let ownerDisplayName = '';
-      if (User) {
-        const owner = await User.findById(userId).select('name displayName').lean().catch(() => null);
-        ownerDisplayName = String(owner?.displayName || owner?.name || '').trim();
+      const { preview, currentHash, ownerDisplayName } = await livePreviewOf(edition, userId);
+      const previewHash = String(req.body?.previewHash || '').trim();
+      if (previewHash && previewHash !== currentHash) {
+        return res.status(409).json({ error: PREVIEW_STALE, field: 'previewHash' });
       }
-      const created = await SharedEdition.create({
-        userId,
-        editionId: edition._id,
-        slug: shareSlug(),
-        ownerDisplayName
-      });
-      return res.status(201).json({ shared: true, slug: created.slug });
+
+      const existing = await SharedEdition.findOne({ userId, editionId: edition._id }).lean();
+      if (existing) {
+        return res.status(200).json(shareState(existing, { preview, currentHash }));
+      }
+
+      const now = new Date();
+      try {
+        const created = await SharedEdition.create({
+          userId,
+          editionId: edition._id,
+          slug: shareSlug(),
+          ownerDisplayName,
+          snapshot: preview,
+          contentHash: currentHash,
+          publishedAt: now
+        });
+        return res.status(201).json(shareState(created, { preview, currentHash }));
+      } catch (error) {
+        if (!isDuplicateKey(error)) throw error;
+        const raced = await SharedEdition.findOne({ userId, editionId: edition._id }).lean();
+        if (!raced) throw error;
+        return res.status(200).json(shareState(raced, { preview, currentHash }));
+      }
     } catch (error) {
       return refuse(res, error, 'Failed to share that edition.');
     }
   });
 
   router.get('/api/editions/:id/share', auth, async (req, res) => {
-    if (!SharedEdition) return res.status(200).json({ shared: false });
+    if (!SharedEdition) return res.status(503).json({ error: 'Sharing is not available.' });
     try {
-      const found = await SharedEdition
-        .findOne({ userId: req.user.id, editionId: req.params.id })
-        .lean();
-      return res.status(200).json(found ? { shared: true, slug: found.slug } : { shared: false });
+      const userId = req.user.id;
+      const edition = await Edition.findOne({ _id: req.params.id, userId }).lean();
+      if (!edition) return res.status(404).json({ error: 'No such edition.' });
+      const { preview, currentHash } = await livePreviewOf(edition, userId);
+      const found = await SharedEdition.findOne({ userId, editionId: edition._id }).lean();
+      return res.status(200).json(shareState(found, { preview, currentHash }));
     } catch (error) {
       return refuse(res, error, 'Failed to read that share.');
     }
   });
 
+  /* Replace the published version under the same URL. Bound to the preview
+     the owner just approved, so a rewrite that landed while the panel was
+     open cannot publish unseen changes. */
+  router.put('/api/editions/:id/share', auth, humanOnly, async (req, res) => {
+    if (!SharedEdition) return res.status(503).json({ error: 'Sharing is not available.' });
+    try {
+      const userId = req.user.id;
+      const edition = await Edition.findOne({ _id: req.params.id, userId }).lean();
+      if (!edition) return res.status(404).json({ error: 'No such edition.' });
+
+      const { preview, currentHash, ownerDisplayName } = await livePreviewOf(edition, userId);
+      const previewHash = String(req.body?.previewHash || '').trim();
+      if (!previewHash || previewHash !== currentHash) {
+        return res.status(409).json({ error: PREVIEW_STALE, field: 'previewHash' });
+      }
+
+      const existing = await SharedEdition.findOne({ userId, editionId: edition._id }).lean();
+      if (!existing) return res.status(404).json({ error: 'This paper is not shared.' });
+
+      const now = new Date();
+      const updated = await SharedEdition.findOneAndUpdate(
+        { userId, editionId: edition._id },
+        {
+          $set: {
+            snapshot: preview,
+            contentHash: currentHash,
+            publishedAt: now,
+            ownerDisplayName: ownerDisplayName || existing.ownerDisplayName || ''
+          }
+        },
+        { new: true }
+      );
+      const row = updated && typeof updated.toObject === 'function' ? updated.toObject() : updated;
+      return res.status(200).json(shareState(row, { preview, currentHash }));
+    } catch (error) {
+      return refuse(res, error, 'Failed to update that share.');
+    }
+  });
+
   /* Revoking removes the row, so the link stops resolving rather than
-     resolving to a refusal that confirms the paper exists. */
+     resolving to a refusal that confirms the paper exists. Sharing again
+     mints a new slug; the old URL stays dead. */
   router.delete('/api/editions/:id/share', auth, humanOnly, async (req, res) => {
     if (!SharedEdition) return res.status(200).json({ revoked: true });
     try {
@@ -492,16 +686,15 @@ const buildEditionRouter = ({
     }
   });
 
-  /* The public read. No auth, and deliberately no trace of the reader beyond
-     the name they publish under. */
+  /* The public read. The snapshot, and nothing live. A revoked or never-
+     minted slug is the same unanswered link. */
   router.get('/api/public/editions/:slug', async (req, res) => {
+    noStore(res);
     if (!SharedEdition) return res.status(404).json({ error: 'No such edition.' });
     try {
       const share = await SharedEdition.findOne({ slug: String(req.params.slug || '').trim() }).lean();
-      if (!share) return res.status(404).json({ error: 'No such edition.' });
-      const edition = await Edition.findOne({ _id: share.editionId, userId: share.userId }).lean();
-      if (!edition) return res.status(404).json({ error: 'No such edition.' });
-      return res.status(200).json(serializePublicEdition(edition, share.ownerDisplayName));
+      if (!share?.snapshot) return res.status(404).json({ error: 'No such edition.' });
+      return res.status(200).json(share.snapshot);
     } catch (error) {
       return refuse(res, error, 'Failed to open that edition.');
     }
@@ -522,4 +715,4 @@ const buildEditionRouter = ({
   return router;
 };
 
-module.exports = { buildEditionRouter, serializeEdition, serializePublicEdition, serializeItem };
+module.exports = { buildEditionRouter, serializeEdition, serializeItem };

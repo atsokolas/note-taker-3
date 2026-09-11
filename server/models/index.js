@@ -1721,7 +1721,13 @@ const editionItemSchema = new mongoose.Schema({
     agentTokenId: { type: mongoose.Schema.Types.ObjectId, ref: 'AgentToken', default: null }
   },
   filedAt: { type: Date, default: null },
-  savedArticleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Article', default: null }
+  savedArticleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Article', default: null },
+  /* What the reader did with this arrival. Missing means new. An agent rewrite
+     keeps this by URL; the agent cannot set it. */
+  readerState: {
+    status: { type: String, enum: ['opened', 'later', 'dismissed'], default: undefined },
+    at: { type: Date, default: null }
+  }
 }, { _id: false });
 
 const editionSchema = new mongoose.Schema({
@@ -3053,12 +3059,19 @@ const SharedQuestion = mongoose.model('SharedQuestion', sharedQuestionSchema);
    flagging it. What is different is what a reader is publishing — not a
    sentence of their own but a paper their agent kept for them, which is
    exactly why the boundary rule matters. Anyone can share a list of links.
-   An edition cannot exist unless every item said what would limit it. */
+   An edition cannot exist unless every item said what would limit it.
+
+   The slug is the URL. The snapshot is the version. An agent rewrite of the
+   private issue does not touch the snapshot; only an explicit owner update
+   replaces it, under the same live URL. */
 const sharedEditionSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   editionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Edition', required: true },
   slug: { type: String, required: true, unique: true, index: true },
-  ownerDisplayName: { type: String, default: '' }
+  ownerDisplayName: { type: String, default: '' },
+  snapshot: { type: mongoose.Schema.Types.Mixed, default: null },
+  contentHash: { type: String, default: '' },
+  publishedAt: { type: Date, default: null }
 }, { timestamps: true });
 
 sharedEditionSchema.index({ userId: 1, editionId: 1 }, { unique: true });

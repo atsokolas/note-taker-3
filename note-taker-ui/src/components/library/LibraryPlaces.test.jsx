@@ -15,8 +15,22 @@ describe('LibraryPlaces', () => {
     expect(screen.getByRole('link', { name: 'Later' })).toHaveAttribute('href', '/library?scope=later');
     expect(screen.getByRole('link', { name: 'Set aside' })).toHaveAttribute('href', '/library?scope=set-aside');
     expect(screen.getByRole('link', { name: 'Kept' })).toHaveAttribute('href', '/library?scope=kept');
+    expect(screen.queryByText(/On your desk/)).not.toBeInTheDocument();
     expect(screen.queryByText(/^Feed/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Feed \(0\)/)).not.toBeInTheDocument();
+  });
+
+  it('puts a known nonzero count on the door, never a nought', () => {
+    render(
+      <MemoryRouter>
+        <LibraryPlaces later={1} setAside={2} kept={2} />
+      </MemoryRouter>
+    );
+    expect(screen.getByRole('link', { name: 'Later 1' })).toHaveAttribute('href', '/library?scope=later');
+    expect(screen.getByRole('link', { name: 'Set aside 2' })).toHaveAttribute('href', '/library?scope=set-aside');
+    expect(screen.getByRole('link', { name: 'Kept 2' })).toHaveAttribute('href', '/library?scope=kept');
+    expect(screen.queryByText(/On your desk/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Later 0$/)).not.toBeInTheDocument();
   });
 
   it('adds screened folder names in living ink, never the word Feed', () => {

@@ -9,26 +9,35 @@
       "This guide is based on direct testing of Noeis workflows, review of current note-taking and second-brain patterns, and practical evaluation of what helps serious readers retrieve and reuse their own material.",
       "The goal is not to produce generic listicle SEO copy. It is to make the decision criteria explicit enough that a reader can judge whether the workflow will actually improve recall, synthesis, and output."
     ],
-    "description": "Noeis is a source-grounded personal research wiki for serious readers who want to turn saved reading, highlights, and notes into evidence-backed pages, drafts, and reusable insight."
+    "description": "Keep articles, highlights and notes together. Build a source-backed understanding of a subject, develop your own ideas, and return to the work that matters."
   },
   "home": {
-    "eyebrow": "Source-grounded personal research wiki",
-    "railEyebrow": "Agents retrieve. You accept.",
-    "railCopy": "A research workspace for people who read more than they can remember. Reading becomes pages with their sources attached, and pages become claims you have actually committed to.",
-    "headline": "Saved reading becomes a source-grounded wiki. The wiki becomes judgments you can be held to.",
-    "lede": "Noeis keeps your articles, highlights, pages, and notes in one place, and asks you to write down what you believe, what argues against it, and what would change your mind. An agent brings evidence overnight. Nothing is written until you accept it.",
+    "title": "Noeis — Make something of what you read",
+    "description": "Keep articles, highlights and notes together. Build a source-backed understanding of a subject, develop your own ideas, and return to the work that matters.",
+    "eyebrow": "A personal research workspace",
+    "headline": "Make something of what you read.",
+    "lede": "Keep articles, highlights and notes together. Build a source-backed understanding of a subject, develop your own ideas, and return to the work that matters.",
     "primaryCta": {
       "label": "Get started",
       "href": "/register"
     },
     "secondaryCta": {
-      "label": "Browse guides",
-      "href": "/guides"
+      "label": "See how it works",
+      "href": "#how-it-works"
     },
-    "proofPoints": [
-      "Highlights stay attached to source and context.",
-      "A claim carries its counterargument and what would change your mind.",
-      "The agent proposes. Nothing enters a page until you accept it."
+    "statements": [
+      {
+        "title": "Keep the source.",
+        "copy": "Save the passage with the article it came from."
+      },
+      {
+        "title": "Work with the idea.",
+        "copy": "Develop a page, note or question from your reading."
+      },
+      {
+        "title": "Pick it up again.",
+        "copy": "Return to your saved material and continue thinking."
+      }
     ],
     "guideLinks": [
       {

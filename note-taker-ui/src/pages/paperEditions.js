@@ -82,19 +82,20 @@ export const editionsLine = ({
 };
 
 const PLACES = [
-  { key: 'later', word: 'owed a move', href: '/library?scope=later' },
-  { key: 'setAside', word: 'at hand', href: '/library?scope=set-aside' }
+  { key: 'later', word: 'saved for later', href: '/library?scope=later' },
+  { key: 'setAside', word: 'set aside', href: '/library?scope=set-aside' }
 ];
+
+/** A door's own label: the name, and a known nonzero count beside it. */
+export const placeDoorLabel = (name, n) => {
+  const count = counted(n);
+  return count ? `${name} ${count}` : name;
+};
 
 /**
  * The desk, as a sentence you can walk through.
  *
- *   On your desk — 3 owed a move, 1 at hand, Costco has 2 new folios.
- *
- * This used to return a finished string, which meant the one thing the reader
- * most wanted to do with it — go there — was the one thing it could not
- * support. So it returns its clauses instead and lets the page decide how a
- * door looks. Same sentence, same rules, and every count is now the way in.
+ *   On your desk — 3 saved for later, 1 set aside, Costco has 2 new items.
  *
  * Only places holding something speak. The feed clause names the folder the
  * reader screened and never the word "feed", because they screened *Costco*.
@@ -103,9 +104,8 @@ export const deskClauses = ({ later = null, setAside = null, topics = [], editio
   const clauses = [];
 
   PLACES.forEach(({ key, word, href }) => {
-    /* Nothing is owed on a weekend. What you set aside is exactly what a
-       weekend is for, so that clause stays; the one that says "owed" is a
-       bill, and the paper does not deliver bills on a Saturday. */
+    /* Later waits on a weekday. What you set aside is exactly what a
+       weekend is for, so that clause stays. */
     if (key === 'later' && isWeekend(edition)) return;
     const n = counted(key === 'later' ? later : setAside);
     if (!n) return;
@@ -118,7 +118,7 @@ export const deskClauses = ({ later = null, setAside = null, topics = [], editio
     if (!name || !open) return;
     clauses.push({
       key: `topic:${topic.id || name}`,
-      text: `${name} has ${open} new folio${open === 1 ? '' : 's'}`,
+      text: `${name} has ${open} new item${open === 1 ? '' : 's'}`,
       href: topic.href || ''
     });
   });
@@ -129,7 +129,7 @@ export const deskClauses = ({ later = null, setAside = null, topics = [], editio
 /** What the canon holds, when anyone has counted it. */
 export const shelfClause = (kept = null) => {
   const n = counted(kept);
-  return n ? { key: 'kept', text: `The shelf holds ${n}`, href: '/library?scope=kept' } : null;
+  return n ? { key: 'kept', text: `${n} kept`, href: '/library?scope=kept' } : null;
 };
 
 /* Day one. One line, and it asks for nothing — a first morning that opened
@@ -137,8 +137,6 @@ export const shelfClause = (kept = null) => {
 export const firstMorningLead = () => (
   'No news yet. Save something worth keeping — I’ll print it when it moves.'
 );
-
-export const firstMorningDeskLine = () => 'Your desk is empty. The shelf holds nothing yet.';
 
 /** A paper ends. A feed does not, which is the difference. */
 export const END_OF_PAPER = '— end of the paper —';

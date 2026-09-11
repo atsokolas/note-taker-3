@@ -3152,7 +3152,6 @@ body.noeis-editorial .landing-public {
 body.noeis-editorial .landing-public__masthead,
 body.noeis-editorial .landing-public__hero,
 body.noeis-editorial .landing-public__strip,
-body.noeis-editorial .landing-public__details,
 body.noeis-editorial .landing-public__support,
 body.noeis-editorial .landing-public__footer {
   border-bottom: 1px solid var(--vellum-line);
@@ -3167,11 +3166,6 @@ body.noeis-editorial .landing-public__footer {
   padding-bottom: 18px;
 }
 
-body.noeis-editorial .landing-public__brand-block {
-  display: grid;
-  gap: 10px;
-}
-
 body.noeis-editorial .landing-public__brand {
   font-family: "Newsreader", Georgia, serif;
   font-size: clamp(2.2rem, 3vw, 3rem);
@@ -3182,17 +3176,7 @@ body.noeis-editorial .landing-public__brand {
   text-decoration: none;
 }
 
-body.noeis-editorial .landing-public__brand-copy,
-body.noeis-editorial .landing-public__footer p {
-  max-width: 32rem;
-  margin: 0;
-  font-size: 0.98rem;
-  line-height: 1.55;
-  color: color-mix(in srgb, var(--vellum-ink) 78%, transparent);
-}
-
 body.noeis-editorial .landing-public__nav,
-body.noeis-editorial .landing-public__inline-links,
 body.noeis-editorial .landing-public__footer-links {
   display: flex;
   flex-wrap: wrap;
@@ -3200,7 +3184,6 @@ body.noeis-editorial .landing-public__footer-links {
 }
 
 body.noeis-editorial .landing-public__nav a,
-body.noeis-editorial .landing-public__inline-links a,
 body.noeis-editorial .landing-public__footer-links a {
   font-family: var(--noeis-ui-font);
   font-size: 0.72rem;
@@ -3211,22 +3194,16 @@ body.noeis-editorial .landing-public__footer-links a {
 }
 
 body.noeis-editorial .landing-public__nav a:hover,
-body.noeis-editorial .landing-public__inline-links a:hover,
 body.noeis-editorial .landing-public__footer-links a:hover {
   color: var(--vellum-ink);
 }
 
 body.noeis-editorial .landing-public__hero {
-  display: grid;
-  grid-template-columns: 240px minmax(0, 1fr) 280px;
-  gap: 34px;
-  align-items: start;
+  max-width: 62ch;
   padding-bottom: 28px;
 }
 
-body.noeis-editorial .landing-public__eyebrow,
-body.noeis-editorial .landing-public__section-kicker,
-body.noeis-editorial .landing-public__strip span {
+body.noeis-editorial .landing-public__eyebrow {
   font-family: var(--noeis-ui-font);
   font-size: 0.68rem;
   font-weight: 600;
@@ -3235,17 +3212,8 @@ body.noeis-editorial .landing-public__strip span {
   color: var(--vellum-subtle);
 }
 
-body.noeis-editorial .landing-public__rail,
-body.noeis-editorial .landing-public__aside {
-  display: grid;
-  gap: 14px;
-  padding-top: 12px;
-}
-
-body.noeis-editorial .landing-public__rail p,
-body.noeis-editorial .landing-public__aside li,
 body.noeis-editorial .landing-public__support p,
-body.noeis-editorial .landing-public__column li {
+body.noeis-editorial .landing-public__strip p {
   margin: 0;
   font-size: 1rem;
   line-height: 1.62;
@@ -3285,39 +3253,7 @@ body.noeis-editorial .landing-public__actions {
   padding-top: 8px;
 }
 
-body.noeis-editorial .landing-public__mini-list,
-body.noeis-editorial .landing-public__detail-list {
-  display: grid;
-  gap: 12px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-body.noeis-editorial .landing-public__detail-list--ordered {
-  counter-reset: landing-tour;
-}
-
-body.noeis-editorial .landing-public__detail-list--ordered li {
-  counter-increment: landing-tour;
-  position: relative;
-  padding-left: 28px;
-}
-
-body.noeis-editorial .landing-public__detail-list--ordered li::before {
-  content: counter(landing-tour) ".";
-  position: absolute;
-  left: 0;
-  top: 0;
-  font-family: var(--noeis-ui-font);
-  font-size: 0.7rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--vellum-subtle);
-}
-
 body.noeis-editorial .landing-public__strip,
-body.noeis-editorial .landing-public__details,
 body.noeis-editorial .landing-public__support {
   display: grid;
   gap: 28px;
@@ -3329,33 +3265,13 @@ body.noeis-editorial .landing-public__strip {
 }
 
 body.noeis-editorial .landing-public__strip div,
-body.noeis-editorial .landing-public__column,
 body.noeis-editorial .landing-public__support div {
   display: grid;
   gap: 12px;
 }
 
-body.noeis-editorial .landing-public__strip p,
-body.noeis-editorial .landing-public__column h2 {
-  margin: 0;
-}
-
-body.noeis-editorial .landing-public__column h2 {
-  max-width: 18ch;
-  font-family: "Newsreader", Georgia, serif;
-  font-size: clamp(2rem, 3.4vw, 3rem);
-  font-weight: 400;
-  line-height: 0.98;
-  letter-spacing: -0.04em;
-  color: var(--vellum-ink);
-}
-
-body.noeis-editorial .landing-public__details {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
 body.noeis-editorial .landing-public__support {
-  grid-template-columns: 1.15fr 1fr 0.85fr;
+  grid-template-columns: minmax(0, auto);
 }
 
 body.noeis-editorial .auth-shell--editorial {
@@ -10145,7 +10061,6 @@ body.noeis-editorial .right-drawer__mobile-sheet .right-drawer__header-icon {
 
   body.noeis-editorial .landing-public__hero,
   body.noeis-editorial .landing-public__strip,
-  body.noeis-editorial .landing-public__details,
   body.noeis-editorial .landing-public__support,
   body.noeis-editorial .think-home-editorial__working-grid,
   body.noeis-editorial .think-home-editorial__split-grid {
@@ -10261,7 +10176,6 @@ body.noeis-editorial .right-drawer__mobile-sheet .right-drawer__header-icon {
   }
 
   body.noeis-editorial .landing-public__nav,
-  body.noeis-editorial .landing-public__inline-links,
   body.noeis-editorial .landing-public__footer-links,
   body.noeis-editorial .think-home-editorial__launchpad,
   body.noeis-editorial .think-home-editorial__notice-actions,

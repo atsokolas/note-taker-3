@@ -38,6 +38,33 @@ export const removeEdition = async (id) => {
   return res.data || null;
 };
 
+export const getEditionInbox = async ({ cursor = '', limit } = {}) => {
+  const params = new URLSearchParams();
+  if (cursor) params.set('cursor', cursor);
+  if (limit) params.set('limit', String(limit));
+  const query = params.toString();
+  const res = await api.get(`/api/editions/inbox${query ? `?${query}` : ''}`, getAuthHeaders());
+  return res.data || { items: [], hasMore: false, nextCursor: '' };
+};
+
+export const setEditionItemState = async (editionId, itemId, status) => {
+  const res = await api.post(
+    `/api/editions/${encodeURIComponent(editionId)}/items/${encodeURIComponent(itemId)}/state`,
+    { status },
+    getAuthHeaders()
+  );
+  return res.data || {};
+};
+
+export const saveEditionItemLater = async (editionId, itemId) => {
+  const res = await api.post(
+    `/api/editions/${encodeURIComponent(editionId)}/items/${encodeURIComponent(itemId)}/later`,
+    {},
+    getAuthHeaders()
+  );
+  return res.data || {};
+};
+
 /** A paper someone published, read by a stranger. No auth: that is the point. */
 export const getPublicEdition = async (slug) => {
   const res = await api.get(`/api/public/editions/${encodeURIComponent(slug)}`);
@@ -49,8 +76,21 @@ export const getEditionShare = async (id) => {
   return res.data || { shared: false };
 };
 
-export const shareEdition = async (id) => {
-  const res = await api.post(`/api/editions/${encodeURIComponent(id)}/share`, {}, getAuthHeaders());
+export const shareEdition = async (id, body = {}) => {
+  const res = await api.post(
+    `/api/editions/${encodeURIComponent(id)}/share`,
+    body,
+    getAuthHeaders()
+  );
+  return res.data || {};
+};
+
+export const updateEditionShare = async (id, body = {}) => {
+  const res = await api.put(
+    `/api/editions/${encodeURIComponent(id)}/share`,
+    body,
+    getAuthHeaders()
+  );
   return res.data || {};
 };
 

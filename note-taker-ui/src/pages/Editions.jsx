@@ -1,9 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getEdition, listEditions } from '../api/editions';
+import EditionInbox from '../components/editions/EditionInbox';
+import EditionShare from '../components/editions/EditionShare';
 import {
   bylineFor, bySection, byPaper, closesLine, datelineLine, folioLine, gapLine,
-  isNewSince, issueLine, lastSeen, markSeen, newSinceLine, runLine, stateOf, takenLine
+  issueLine, runLine, stateOf, takenLine
 } from './editionModel';
 
 /**
@@ -31,10 +33,10 @@ const ARRIVAL_MS = 6000;
 const issueName = (edition) => issueLine(edition) || datelineLine(edition) || 'Issue';
 
 /* A story: the headline, and the finding folded underneath it. */
-const Story = ({ item, fresh = false }) => {
+const Story = ({ item }) => {
   const [open, setOpen] = useState(false);
   return (
-    <article className={`story${open ? ' is-open' : ''}${fresh ? ' is-new' : ''}`}>
+    <article className={`story${open ? ' is-open' : ''}`}>
       <button
         type="button"
         className="story__head"
@@ -45,9 +47,6 @@ const Story = ({ item, fresh = false }) => {
         <span className="story__source">
           <span>
             {[item.sourceLabel, item.sourceDate].filter(Boolean).join(' · ')}
-            {/* A mark, never a badge: the reader is being told where to look,
-                not sold a notification. */}
-            {fresh ? <em className="story__new"> · new</em> : null}
           </span>
           <span className="story__fold" aria-hidden="true">{open ? 'fold' : 'unfold'}</span>
         </span>
@@ -75,7 +74,7 @@ const Story = ({ item, fresh = false }) => {
 };
 
 /* A column: one section of the paper, with the byline of whoever filed it. */
-const Column = ({ section, tense, since }) => {
+const Column = ({ section, tense }) => {
   const byline = bylineFor(section.items);
   return (
     <section className="column">
@@ -88,7 +87,7 @@ const Column = ({ section, tense, since }) => {
       {byline ? <p className="column__byline">{byline}</p> : null}
       {section.items.length ? (
         section.items.map(item => (
-          <Story key={item.itemId} item={item} fresh={isNewSince(item, since)} />
+          <Story key={item.itemId} item={item} />
         ))
       ) : (
         /* Printed, not dropped. A week with nothing under counterevidence is
@@ -105,7 +104,6 @@ const FrontPage = ({ paper }) => {
   const [full, setFull] = useState({});
   const [turning, setTurning] = useState(false);
   const [arrival, setArrival] = useState('');
-  const [since, setSince] = useState('');
   const cache = useRef({});
 
   const issue = paper.issues[index];
@@ -140,13 +138,6 @@ const FrontPage = ({ paper }) => {
     return () => { cancelled = true; window.clearInterval(tick); };
   }, [issue._id, tense]);
 
-  /* What you had already read, fixed at arrival so the marks do not vanish
-     from under you, and re-marked when you leave. */
-  useEffect(() => {
-    setSince(lastSeen(issue._id));
-    return () => markSeen(issue._id);
-  }, [issue._id]);
-
   /* Turning to another issue: the page lifts, the next one settles in. The
      nameplate never moves — it is the same paper. */
   const turn = useCallback((next) => {
@@ -178,6 +169,7 @@ const FrontPage = ({ paper }) => {
             {tense === 'filling' ? `Filling · ${closesLine(issue).toLowerCase()}` : closesLine(issue)}
           </span>
         </p>
+        <EditionShare key={issue._id} editionId={issue._id} edition={opened} />
       </header>
 
       {arrival ? (
@@ -185,20 +177,16 @@ const FrontPage = ({ paper }) => {
       ) : null}
 
       <div className={`issue${turning ? ' is-turning' : ''}`}>
-        {opened && newSinceLine(opened.items, since) ? (
-          <p className="front__fresh">{newSinceLine(opened.items, since)}.</p>
-        ) : null}
         {issue.standfirst ? <p className="standfirst">{issue.standfirst}</p> : null}
 
         {sections ? (
           <div className="columns" data-columns={Math.min(sections.length, 4)}>
             {sections.map(section => (
               <Column
-              key={section.key || section.label}
-              section={section}
-              tense={tense}
-              since={since}
-            />
+                key={section.key || section.label}
+                section={section}
+                tense={tense}
+              />
             ))}
           </div>
         ) : (
@@ -269,14 +257,13 @@ const Editions = () => {
         <section className="editions__empty">
           <h2>No paper yet.</h2>
           <p>
-            Connect an agent and ask it for one. Any of them will do — Claude, Codex,
-            Cursor, OpenClaw, Hermes — once <code>noeis connect</code> has pointed it here.
-          </p>
-          <p className="editions__aside">
-            Try: <em>“keep a This Week in AI for me, and file it here every Sunday.”</em>
+            Ask an agent to keep one for you, from{' '}
+            <Link to="/connections">Connections</Link>.
           </p>
         </section>
       ) : null}
+
+      {editions?.length ? <EditionInbox /> : null}
 
       {papers.map(paper => <FrontPage key={paper.profile} paper={paper} />)}
 

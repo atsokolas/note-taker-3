@@ -36,7 +36,20 @@ const renderGuideLinks = (links = []) => links.map((link) => (
   `<a href="${escapeHtml(link.href)}">${escapeHtml(link.label)}</a>`
 )).join('');
 
-const renderProofPoints = (items = []) => items.map((item) => `<li>${escapeHtml(item)}</li>`).join('');
+const patchHomeHead = (html, content) => {
+  const title = escapeHtml(content.home.title || '');
+  const description = escapeHtml(content.home.description || content.home.lede || '');
+  return [
+    [/<title>[^<]*<\/title>/, `<title>${title}</title>`],
+    [/(<meta\s+name="description"\s+content=")[^"]*(")/, `$1${description}$2`],
+    [/(<meta\s+property="og:title"\s+content=")[^"]*(")/, `$1${title}$2`],
+    [/(<meta\s+property="og:description"\s+content=")[^"]*(")/, `$1${description}$2`],
+    [/(<meta\s+name="twitter:title"\s+content=")[^"]*(")/, `$1${title}$2`],
+    [/(<meta\s+name="twitter:description"\s+content=")[^"]*(")/, `$1${description}$2`],
+    [/("applicationCategory": "ProductivityApplication",\s*"operatingSystem": "Web",\s*"url": "https:\/\/www\.noeis\.io",\s*"description": ")[^"]*(")/, `$1${description}$2`]
+  ].reduce((next, [pattern, value]) => next.replace(pattern, value), html);
+};
+
 const renderParagraphs = (paragraphs = []) => paragraphs.map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join('\n');
 const renderMetaPills = (content) => `<div class="meta-row">
   <span>Written by ${escapeHtml(content.site.authorName)}</span>
@@ -182,6 +195,12 @@ ${renderCards({ ...block, variant: 'compare' })}
   return '';
 }).join('\n');
 
+const renderStatements = (statements = []) => (statements || []).map((statement) => `
+          <div>
+            <h2>${escapeHtml(statement.title)}</h2>
+            <p>${escapeHtml(statement.copy)}</p>
+          </div>`).join('');
+
 const renderHomeFallback = (content) => `
   <main class="seo-page">
     <article class="seo-shell">
@@ -194,12 +213,14 @@ const renderHomeFallback = (content) => `
           <a class="button secondary" href="${escapeHtml(content.home.secondaryCta.href)}">${escapeHtml(content.home.secondaryCta.label)}</a>
         </div>
       </header>
-      <section class="card">
-        <p class="eyebrow">${escapeHtml(content.home.railEyebrow)}</p>
-        <p>${escapeHtml(content.home.railCopy)}</p>
-        <ul>
-          ${renderProofPoints(content.home.proofPoints)}
-        </ul>
+      <section class="card" id="how-it-works">
+        <p class="eyebrow">How it works</p>
+        <div class="grid">
+          ${renderStatements(content.home.statements)}
+        </div>
+        <div class="cta-row">
+          <a class="button primary" href="${escapeHtml(buildMarketingHref(content.home.primaryCta.href, { entry: 'home', cta: 'footer', pageType: 'home' }))}">${escapeHtml(content.home.primaryCta.label)}</a>
+        </div>
       </section>
       <section class="card">
         <p class="eyebrow">Start with the guide that matches your intent</p>
@@ -501,6 +522,7 @@ module.exports = {
   renderExamplesPage,
   renderGuidePage,
   renderHomeFallback,
+  patchHomeHead,
   renderSitemap,
   renderPrerenderManifest,
   renderStaticRedirects,

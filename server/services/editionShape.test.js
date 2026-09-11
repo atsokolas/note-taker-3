@@ -1,8 +1,10 @@
 const {
   EditionShapeError,
+  collectInbox,
   emptySections,
   normalizeEdition,
-  resolveEditionProfile
+  resolveEditionProfile,
+  retainHeldItems
 } = require('./editionShape');
 
 const item = (over = {}) => ({
@@ -131,5 +133,152 @@ describe('profiles', () => {
   it('gives each profile its own shape', () => {
     expect(resolveEditionProfile('this_week_in_ai').sections).toHaveLength(3);
     expect(resolveEditionProfile('weekend_readings').sections.map(s => s.key)).toContain('counterevidence');
+  });
+});
+
+describe('the public paper', () => {
+  const { hashPublicEdition, projectPublicEdition, publicHttpUrl } = require('./editionShape');
+
+  it('keeps the editorial paper and drops the private house', () => {
+    const seen = projectPublicEdition({
+      _id: 'e1',
+      userId: 'user-1',
+      profile: 'this_week_in_ai',
+      title: 'This Week in AI',
+      number: 14,
+      windowStart: '2026-09-01',
+      windowEnd: '2026-09-07',
+      standfirst: 'A quiet week.',
+      throughLine: 'Inference cost.',
+      watchNext: ['The replication'],
+      writtenBy: { label: 'Jarvis', agentTokenId: 'tok-9' },
+      savedCount: 3,
+      items: [{
+        itemId: 'item-1',
+        title: 'A paper about scaling',
+        url: 'https://example.com/paper#intro',
+        sourceLabel: 'Lab Blog',
+        sourceDate: 'Sep 3',
+        section: 'models_methods',
+        finding: 'Loss keeps falling.',
+        boundary: 'One lab.',
+        note: 'Editorial aside.',
+        savedArticleId: 'art-1',
+        filedBy: { label: 'Jarvis', agentTokenId: 'tok-9' },
+        placement: 'later',
+        highlights: [{ text: 'secret' }]
+      }]
+    }, 'Athan');
+
+    expect(seen).toEqual({
+      title: 'This Week in AI',
+      issueLabel: 'Issue',
+      number: 14,
+      windowStart: '2026-09-01',
+      windowEnd: '2026-09-07',
+      standfirst: 'A quiet week.',
+      throughLine: 'Inference cost.',
+      watchNext: ['The replication'],
+      writtenBy: 'Jarvis',
+      ownerDisplayName: 'Athan',
+      sections: [
+        { key: 'models_methods', label: 'Models & methods' },
+        { key: 'infrastructure_systems', label: 'Infrastructure & systems' },
+        { key: 'evaluation_counterevidence', label: 'Evaluation & counterevidence' }
+      ],
+      items: [{
+        itemId: 'item-1',
+        title: 'A paper about scaling',
+        url: 'https://example.com/paper',
+        sourceLabel: 'Lab Blog',
+        sourceDate: 'Sep 3',
+        section: 'models_methods',
+        finding: 'Loss keeps falling.',
+        boundary: 'One lab.',
+        note: 'Editorial aside.'
+      }]
+    });
+    expect(seen._id).toBeUndefined();
+    expect(JSON.stringify(seen)).not.toMatch(/art-1|tok-9|user-1|secret|later|savedCount/);
+    expect(hashPublicEdition(seen)).toMatch(/^[a-f0-9]{64}$/);
+  });
+
+  it('will not turn a javascript URL into an outbound source link', () => {
+    expect(publicHttpUrl('javascript:alert(1)')).toBe('');
+    expect(publicHttpUrl('data:text/html,hi')).toBe('');
+    expect(publicHttpUrl('https://example.com/ok')).toBe('https://example.com/ok');
+  });
+
+  it('keeps a custom profile’s section labels', () => {
+    const seen = projectPublicEdition({
+      profile: 'biotech',
+      title: 'Biotech',
+      windowStart: '2026-09-01',
+      windowEnd: '2026-09-30',
+      items: []
+    }, 'Athan', {
+      profiles: {
+        biotech: {
+          key: 'biotech',
+          titleLabel: 'Biotech',
+          issueLabel: 'Month',
+          sections: [{ key: 'trials', label: 'Trials' }]
+        }
+      }
+    });
+    expect(seen.issueLabel).toBe('Month');
+    expect(seen.sections).toEqual([{ key: 'trials', label: 'Trials' }]);
+  });
+});
+
+describe('keeping a reader’s place in a rewritten week', () => {
+  it('follows the source URL, not the position', () => {
+    const kept = retainHeldItems(
+      [
+        { itemId: 'item-1', url: 'https://example.com/two', title: 'B' },
+        { itemId: 'item-2', url: 'https://example.com/paper', title: 'A' }
+      ],
+      [
+        { itemId: 'item-1', url: 'https://example.com/paper', savedArticleId: 'art-1', readerState: { status: 'opened', at: 'then' } },
+        { itemId: 'item-2', url: 'https://example.com/two' }
+      ],
+      { label: 'Jarvis' },
+      new Date()
+    );
+    const paper = kept.find(row => row.url === 'https://example.com/paper');
+    expect(paper.itemId).toBe('item-1');
+    expect(paper.savedArticleId).toBe('art-1');
+    expect(paper.readerState.status).toBe('opened');
+  });
+
+  it('refuses a collision instead of silently renaming', () => {
+    expect(() => retainHeldItems(
+      [
+        { itemId: 'item-1', url: 'https://example.com/new', title: 'New' },
+        { itemId: 'x', url: 'https://example.com/paper', title: 'A' }
+      ],
+      [{ itemId: 'item-1', url: 'https://example.com/paper' }],
+      {},
+      new Date()
+    )).toThrow(/share the id/);
+  });
+
+  it('collects only new, ready items, newest filing first', () => {
+    const inbox = collectInbox([
+      {
+        _id: 'e1',
+        profile: 'this_week_in_ai',
+        title: 'This Week in AI',
+        createdAt: '2026-09-01',
+        items: [
+          { itemId: 'old', title: 'Opened', url: 'https://example.com/a', finding: 'A', boundary: 'B', filedAt: '2026-09-08', readerState: { status: 'opened' } },
+          { itemId: 'bad', title: 'No link', url: 'javascript:alert(1)', finding: 'A', boundary: 'B', filedAt: '2026-09-10' },
+          { itemId: 'fresh', title: 'Fresh', url: 'https://example.com/b', finding: 'A', boundary: 'B', filedAt: '2026-09-09' }
+        ]
+      }
+    ]);
+    expect(inbox.items).toHaveLength(1);
+    expect(inbox.items[0].itemId).toBe('fresh');
+    expect(inbox.items[0].finding).toBeUndefined();
   });
 });
