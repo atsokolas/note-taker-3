@@ -136,7 +136,7 @@ describe('IdeaWorkbenchHypothesisEditor', () => {
         { type: 'paragraph', content: [{ type: 'text', text: 'B' }] },
         { type: 'paragraph', content: [{ type: 'text', text: 'A' }] }
       ]
-    }, false);
+    }, true);
   });
 
   it('keeps the slash helper visible even when the toolbar is hidden for a fresh concept', () => {

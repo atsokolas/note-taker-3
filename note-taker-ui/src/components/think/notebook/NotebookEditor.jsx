@@ -15,7 +15,6 @@ import EditorDraftShell from '../editor/EditorDraftShell';
 import AuthoredWorkOrigin from '../AuthoredWorkOrigin';
 import useSlashCommands from '../editor/useSlashCommands';
 import useThinkWritingActivity from '../editor/useThinkWritingActivity';
-import { createArtifactSlashItems } from '../editor/editorArtifacts';
 import { handleEditorStructureShortcut } from '../editor/editorShortcuts';
 import { createNotebookClaimSlashItems } from './notebookClaimSlash';
 import UseDistinctionHere from '../../wiki/open-sentence/UseDistinctionHere';
@@ -26,11 +25,21 @@ import useArticles from '../../../hooks/useArticles';
 import useConcepts from '../../../hooks/useConcepts';
 import useQuestions from '../../../hooks/useQuestions';
 import { buildDocFromBlocks, ensureBlockIds, serializeBlocksFromDoc } from '../../../utils/notebookBlocks';
+import {
+  applyNotebookDoc,
+  deletePieceInDocument,
+  groupDocPieces,
+  pieceIndexForNode,
+  restorePieceInDocument,
+  setAsidePieceInDocument
+} from '../../../utils/notebookArrangement';
+import { moveCurrentBlock } from '../editor/blockMovement';
 import { getNotebookClaimEvidence, searchNotebookClaims } from '../../../api/organize';
 import { listWikiPages } from '../../../api/wiki';
 import { AGENT_DISPLAY_NAME } from '../../../constants/agentIdentity';
 import { resolveNotebookSource } from './notebookSourceModel';
 import useNotebookSourceEvergreen from './useNotebookSourceEvergreen';
+import NotebookArrangementRail from './NotebookArrangementRail';
 import '../../../styles/think-writing.css';
 
 const AUTOSAVE_DELAY_MS = 850;
@@ -164,6 +173,13 @@ const HighlightRefNode = Node.create({
           attributes.tags ? { 'data-highlight-tags': attributes.tags } : {}
         )
       },
+      sourcePath: {
+        default: '',
+        parseHTML: element => element.getAttribute('data-source-path') || '',
+        renderHTML: attributes => (
+          attributes.sourcePath ? { 'data-source-path': attributes.sourcePath } : {}
+        )
+      },
       blockId: {
         default: null,
         parseHTML: element => element.getAttribute('data-block-id'),
@@ -191,7 +207,11 @@ const HighlightRefNode = Node.create({
         articleId: node.attrs.articleId || ''
       };
       return (
-        <NodeViewWrapper className="highlight-ref-node" contentEditable={false}>
+        <NodeViewWrapper
+          className="highlight-ref-node notebook-source-quote"
+          contentEditable={false}
+          aria-label={highlight.articleTitle ? `Source quotation from ${highlight.articleTitle}` : 'Source quotation'}
+        >
           <HighlightBlock highlight={highlight} compact />
         </NodeViewWrapper>
       );
@@ -376,7 +396,6 @@ const NotebookEditor = ({
   );
   usableDistinctionsRef.current = usableDistinctions;
   const slashActionItems = useMemo(() => ([
-    ...createArtifactSlashItems(),
     {
       id: 'insertHighlight',
       label: 'Insert highlight',
@@ -463,6 +482,11 @@ const NotebookEditor = ({
      stray one on the way to the search field) landed in the note. Editing is
      now something you ask for: click the body, or press Edit. */
   const [editingBody, setEditingBody] = useState(false);
+  const [asidePieces, setAsidePieces] = useState(() => (
+    Array.isArray(entry?.asidePieces) ? entry.asidePieces : []
+  ));
+  const [arrangementReceipt, setArrangementReceipt] = useState(null);
+  const [, setDocTick] = useState(0);
 
   const editor = useEditor({
     editable: false,
@@ -554,6 +578,9 @@ const NotebookEditor = ({
           highlightText: highlight.text || '',
           articleTitle: highlight.articleTitle || '',
           articleId: highlight.articleId || '',
+          sourcePath: highlight.articleId
+            ? `/library?articleId=${encodeURIComponent(highlight.articleId)}${highlight._id ? `&highlightId=${encodeURIComponent(highlight._id)}` : ''}`
+            : '',
           tags: (highlight.tags || []).join(','),
           blockId: createId()
         }
@@ -576,6 +603,8 @@ const NotebookEditor = ({
     setOrganizeError('');
     setClaimEvidenceOpen(false);
     setClaimEvidenceItems([]);
+    setAsidePieces(Array.isArray(entry.asidePieces) ? entry.asidePieces : []);
+    setArrangementReceipt(null);
     if (editor) {
       const content = entry.blocks?.length ? buildDocFromBlocks(entry.blocks) : (entry.content || '<p></p>');
       editor.commands.setContent(content, false);
@@ -706,12 +735,18 @@ const NotebookEditor = ({
       title: titleDraftRef.current.trim() || 'Untitled note',
       content: editor.getHTML(),
       blocks,
+      asidePieces: asidePieces.map((piece) => ({
+        id: piece.id,
+        label: piece.label,
+        index: piece.index,
+        blocks: Array.isArray(piece.blocks) ? piece.blocks : []
+      })),
       type: entryType,
       tags: entryTags,
       claimId: entryType === 'evidence' ? (claimId || null) : null,
       linkedArticleId: entry.linkedArticleId || null
     };
-  }, [claimId, editor, entry, entryTags, entryType]);
+  }, [asidePieces, claimId, editor, entry, entryTags, entryType]);
 
   const commitDraft = useCallback(async () => {
     // A navigation flush waits for the pending save, then includes any words
@@ -764,6 +799,23 @@ const NotebookEditor = ({
     return () => editor.off('update', onUpdate);
   }, [editingBody, editor, scheduleSave]);
 
+  useEffect(() => {
+    if (!editor) return undefined;
+    const bump = () => setDocTick((value) => value + 1);
+    editor.on('update', bump);
+    editor.on('selectionUpdate', bump);
+    return () => {
+      editor.off('update', bump);
+      editor.off('selectionUpdate', bump);
+    };
+  }, [editor]);
+
+  const arrangementPieces = groupDocPieces(editor?.getJSON?.() || { type: 'doc', content: [] });
+  const currentPieceIndex = pieceIndexForNode(
+    editor?.getJSON?.(),
+    editor?.state?.selection?.$from?.index?.(0)
+  );
+
   useEffect(() => () => {
     if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
   }, []);
@@ -788,7 +840,11 @@ const NotebookEditor = ({
         highlightText: highlight.text || '',
         articleTitle: highlight.articleTitle || '',
         articleId: highlight.articleId || '',
-        tags: (highlight.tags || []).join(',')
+        sourcePath: highlight.articleId
+          ? `/library?articleId=${encodeURIComponent(highlight.articleId)}${highlight._id ? `&highlightId=${encodeURIComponent(highlight._id)}` : ''}`
+          : '',
+        tags: (highlight.tags || []).join(','),
+        blockId: createId()
       }
     });
   };
@@ -876,8 +932,85 @@ const NotebookEditor = ({
     });
   };
 
+  const rememberArrangement = (restoreDoc, label, extra = {}) => {
+    setArrangementReceipt({
+      label,
+      restoreDoc,
+      ...extra
+    });
+    startEditingBody();
+    scheduleSave();
+  };
+
+  const handleArrangeMove = (direction) => {
+    if (!editor) return;
+    const previous = editor.getJSON();
+    const result = moveCurrentBlock(editor, direction);
+    if (!result?.moved) return;
+    rememberArrangement(previous, `Undo moving “${result.label}”`);
+  };
+
+  const handleArrangeUndo = () => {
+    if (!editor || !arrangementReceipt?.restoreDoc) return;
+    applyNotebookDoc(editor, arrangementReceipt.restoreDoc);
+    if (arrangementReceipt.restoreAside) setAsidePieces(arrangementReceipt.restoreAside);
+    setArrangementReceipt(null);
+    startEditingBody();
+    scheduleSave();
+  };
+
+  const handleSetAside = (pieceIndex) => {
+    if (!editor) return;
+    const previous = editor.getJSON();
+    const previousAside = asidePieces;
+    const { doc, aside } = setAsidePieceInDocument(previous, pieceIndex);
+    if (!aside) return;
+    applyNotebookDoc(editor, doc);
+    setAsidePieces((current) => ([
+      ...current,
+      {
+        id: aside.id,
+        label: aside.label,
+        index: aside.index,
+        blocks: serializeBlocksFromDoc({ type: 'doc', content: aside.nodes })
+      }
+    ]));
+    rememberArrangement(previous, `Undo setting aside “${aside.label}”`, { restoreAside: previousAside });
+  };
+
+  const handleRestoreAside = (id) => {
+    if (!editor) return;
+    const piece = asidePieces.find((item) => item.id === id);
+    if (!piece) return;
+    const previous = editor.getJSON();
+    const previousAside = asidePieces;
+    const restored = restorePieceInDocument(previous, {
+      ...piece,
+      nodes: buildDocFromBlocks(piece.blocks || []).content
+    });
+    applyNotebookDoc(editor, restored.doc);
+    setAsidePieces((current) => current.filter((item) => item.id !== id));
+    rememberArrangement(previous, `Undo bringing back “${piece.label}”`, { restoreAside: previousAside });
+  };
+
+  const handleDeletePiece = (pieceIndex) => {
+    if (!editor) return;
+    const pieces = groupDocPieces(editor.getJSON());
+    const piece = pieces[pieceIndex];
+    if (!piece) return;
+    if (!window.confirm(`Delete “${piece.label}”? It will not wait in Set aside.`)) return;
+    const { doc, deleted } = deletePieceInDocument(editor.getJSON(), pieceIndex);
+    if (!deleted) return;
+    applyNotebookDoc(editor, doc);
+    setArrangementReceipt(null);
+    startEditingBody();
+    scheduleSave();
+  };
+
   const handleExport = async () => {
     if (!entry?._id) return;
+    dirtyRef.current = true;
+    await commitDraft();
     try {
       const token = localStorage.getItem('token');
       const res = await fetch(`/api/export/notebook/${entry._id}`, {
@@ -1060,19 +1193,19 @@ const NotebookEditor = ({
             </div>
           </div>
           <div className="think-notebook-editor-actions-right">
+            <QuietButton data-notebook-finish="export" onClick={handleExport}>Export</QuietButton>
             <QuietButton onClick={() => setOrganizeOpen(prev => !prev)}>
               {organizeOpen ? 'Close structure' : 'Structure'}
             </QuietButton>
-            {onDump && (
-              <QuietButton onClick={onDump}>Dump</QuietButton>
-            )}
-            {onSynthesize && (
-              <QuietButton onClick={() => onSynthesize(entry)}>Synthesize</QuietButton>
-            )}
             <details className="think-notebook-editor-actions-overflow">
               <summary className="ui-quiet-button">More</summary>
               <div className="think-notebook-editor-actions-overflow__menu">
-                <QuietButton onClick={handleExport}>Export</QuietButton>
+                {onDump && (
+                  <QuietButton onClick={onDump}>Dump</QuietButton>
+                )}
+                {onSynthesize && (
+                  <QuietButton onClick={() => onSynthesize(entry)}>Synthesize</QuietButton>
+                )}
                 <ReturnLaterControl
                   itemType="notebook"
                   itemId={entry?._id}
@@ -1225,13 +1358,25 @@ const NotebookEditor = ({
           if (!event.currentTarget.contains(event.relatedTarget)) commitDraft();
         }}
       >
+      <NotebookArrangementRail
+        pieces={arrangementPieces}
+        currentPieceIndex={currentPieceIndex}
+        asidePieces={asidePieces}
+        receipt={arrangementReceipt}
+        enabled={Boolean(editor)}
+        onMove={handleArrangeMove}
+        onUndo={handleArrangeUndo}
+        onSetAside={handleSetAside}
+        onRestore={handleRestoreAside}
+        onDeletePiece={handleDeletePiece}
+      />
       <EditorDraftShell
         editor={editor}
         surfaceRef={slashSurfaceRef}
         toolbarVariant="full"
         toolbarClassName="think-notebook-editor-formatting"
         helperCopy="Type / for commands. Use arrows to choose and Enter to apply."
-        trayItems={['evidence', 'concept', 'question']}
+        hideBlockControls
         slashCommands={slashCommands}
         contextualToolbar
         onAskSelection={onInvokeAgentSkill ? handleAskSelection : null}

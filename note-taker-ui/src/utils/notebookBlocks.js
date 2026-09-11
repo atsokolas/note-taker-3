@@ -53,11 +53,22 @@ export const serializeBlocksFromDoc = (doc, createId = defaultId) => {
       return;
     }
     if (node.type === 'highlightRef') {
+      const highlightId = node.attrs?.highlightId || null;
+      const articleId = node.attrs?.articleId || null;
+      const articleTitle = node.attrs?.articleTitle || '';
+      const sourcePath = node.attrs?.sourcePath || (
+        articleId
+          ? `/library?articleId=${encodeURIComponent(articleId)}${highlightId ? `&highlightId=${encodeURIComponent(highlightId)}` : ''}`
+          : ''
+      );
       blocks.push({
         id: node.attrs?.blockId || createId(),
         type: 'highlight_embed',
-        highlightId: node.attrs?.highlightId || null,
-        text: node.attrs?.highlightText || ''
+        highlightId,
+        text: node.attrs?.highlightText || '',
+        ...(articleId ? { articleId } : {}),
+        ...(articleTitle ? { articleTitle } : {}),
+        ...(sourcePath ? { sourcePath } : {})
       });
       return;
     }

@@ -72,4 +72,29 @@ describe('notebookBlocks', () => {
     expect(doc.content[0].content[0].content[0].text).toBe(blocks[0].text);
     expect(serializeBlocksFromDoc(doc)).toEqual(blocks);
   });
+
+  it('serializes a live highlight card with its Library door', () => {
+    const serialized = serializeBlocksFromDoc({
+      type: 'doc',
+      content: [{
+        type: 'highlightRef',
+        attrs: {
+          blockId: 'live-1',
+          highlightId: 'highlight-1',
+          highlightText: 'The kept line.',
+          articleId: 'article-1',
+          articleTitle: 'A beautiful source'
+        }
+      }]
+    });
+    expect(serialized).toEqual([{
+      id: 'live-1',
+      type: 'highlight_embed',
+      highlightId: 'highlight-1',
+      text: 'The kept line.',
+      articleId: 'article-1',
+      articleTitle: 'A beautiful source',
+      sourcePath: '/library?articleId=article-1&highlightId=highlight-1'
+    }]);
+  });
 });

@@ -182,7 +182,7 @@ const buildNotebookRouter = ({
   router.post('/api/notebook', authenticateToken, async (req, res) => {
     try {
       const userId = req.user.id;
-      const { title, content, blocks, folder, tags, linkedArticleId, type, claimId, source, importMeta } = req.body;
+      const { title, content, blocks, asidePieces, folder, tags, linkedArticleId, type, claimId, source, importMeta } = req.body;
       const nextBlocks = Array.isArray(blocks)
         ? blocks
         : (stripHtml(content || '') ? [{ id: createBlockId(), type: 'paragraph', text: stripHtml(content || '') }] : []);
@@ -201,6 +201,7 @@ const buildNotebookRouter = ({
         title: (title || 'Untitled').trim(),
         content: content || '',
         blocks: nextBlocks,
+        asidePieces: Array.isArray(asidePieces) ? asidePieces : [],
         folder: folder || null,
         type: nextType,
         claimId: nextClaimId,
@@ -531,7 +532,7 @@ const buildNotebookRouter = ({
     try {
       const userId = req.user.id;
       const { id } = req.params;
-      const { title, content, blocks, folder, tags, linkedArticleId, type, claimId, importMeta } = req.body;
+      const { title, content, blocks, asidePieces, folder, tags, linkedArticleId, type, claimId, importMeta } = req.body;
       const existing = await NotebookEntry.findOne({ _id: id, userId });
       if (!existing) {
         return res.status(404).json({ error: "Notebook entry not found." });
@@ -544,6 +545,9 @@ const buildNotebookRouter = ({
       } else if (content !== undefined) {
         const text = stripHtml(content || '');
         updates.blocks = text ? [{ id: createBlockId(), type: 'paragraph', text }] : [];
+      }
+      if (asidePieces !== undefined) {
+        updates.asidePieces = Array.isArray(asidePieces) ? asidePieces : [];
       }
       if (folder !== undefined) updates.folder = folder || null;
       if (tags !== undefined) updates.tags = normalizeTags(tags);

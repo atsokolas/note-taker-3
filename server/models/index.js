@@ -276,10 +276,18 @@ const notebookBlockSchema = new mongoose.Schema({
   status: { type: String, enum: ['open', 'answered'], default: 'open' }
 }, { _id: false });
 
+const notebookAsidePieceSchema = new mongoose.Schema({
+  id: { type: String, required: true },
+  label: { type: String, default: '' },
+  index: { type: Number, default: 0 },
+  blocks: { type: [notebookBlockSchema], default: [] }
+}, { _id: false });
+
 const notebookEntrySchema = new mongoose.Schema({
   title: { type: String, required: true, trim: true },
   content: { type: String, default: '' },
   blocks: { type: [notebookBlockSchema], default: [] },
+  asidePieces: { type: [notebookAsidePieceSchema], default: [] },
   folder: { type: mongoose.Schema.Types.ObjectId, ref: 'NotebookFolder', default: null },
   type: { type: String, enum: ['claim', 'evidence', 'note'], default: 'note' },
   claimId: { type: mongoose.Schema.Types.ObjectId, default: null },
