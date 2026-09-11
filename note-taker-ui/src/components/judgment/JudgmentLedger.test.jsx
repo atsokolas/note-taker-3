@@ -98,6 +98,7 @@ describe('JudgmentLedger', () => {
     render(<JudgmentLedger pageId={page._id} claim={page.judgment.currentJudgment} page={page} judgment={page.judgment} />);
     expect(await screen.findByText(/Written down/)).toBeInTheDocument();
     expect(screen.getAllByText('When the world spoke').length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByText('Look back'));
     const slider = screen.getByRole('slider', { name: /belief at this moment/i });
     fireEvent.change(slider, { target: { value: '0' } });
     expect(await screen.findByText(/tracing paper/i)).toBeInTheDocument();

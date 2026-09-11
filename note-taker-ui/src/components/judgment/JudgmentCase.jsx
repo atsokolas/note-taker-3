@@ -263,9 +263,9 @@ const JudgmentCase = ({
           {speaking > 1 ? ` · ${speaking} lines` : ''}
         </p>
       ) : null}
-      {/* What the library has found that bears on this sentence. It is about
-          the case, not about the line you happen to be writing, so it stands
-          above the grid rather than inside whichever block is open. */}
+      {/* What the library found for this. It is about the case, not about the
+          line you happen to be writing, so it stands above the grid rather
+          than inside whichever block is open. */}
       <MorningInbox
         candidates={inbox}
         kind="why"

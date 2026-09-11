@@ -301,7 +301,8 @@ describe('judgmentModel', () => {
     const projected = projectJudgment(page(), NOW);
     expect(projected.standing.since).toMatch(/^Held since November/);
     expect(projected.looked).toBe('You looked this morning.');
-    expect(projected.standing.made).toMatch(/Two reasons, one objection, one test/);
+    expect(projected.standing.made).toBeUndefined();
+    expect(projected.standing.unwatched).toBe('The test has no signal yet.');
     expect(lastLookedLine({}, NOW)).toBe('');
   });
 

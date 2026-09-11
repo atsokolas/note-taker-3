@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import CalendarMark from '../CalendarMark';
 import { usePrefersReducedMotion } from '../../hooks/useMotionPreferences';
 import {
   getJudgmentLedger,
@@ -17,6 +16,7 @@ import {
   reconstructAt,
   replayDecision
 } from '../../pages/judgmentLedgerModel';
+import { abbreviateLine } from '../../pages/judgmentHistory';
 
 const CONFIDENCE = [
   { id: '', label: 'Silent' },
@@ -40,16 +40,11 @@ const RESOLVE = [
 ];
 
 /**
- * One entry in the ledger: what happened, and roughly when.
+ * One mark on the ledger, abbreviated on the spine.
  *
- * The date used to lead the row at 1.15rem while the sentence it dates sat
- * underneath it in body text — so a page of the ledger read as a column of
- * timestamps with commentary. It is the other way round. The sentence is what
- * you came for; the day is the stamp beside it.
- *
- * A row with no day gets no stamp rather than the word "Sometime". The
- * precision note already says the day is not known, and saying it twice in
- * two registers is not more honest, only louder.
+ * The date used to lead the row while the sentence sat underneath it — a
+ * column of timestamps. Then the sentence led, and the day sat beside it.
+ * Now the row is a date and a short line; the rest waits behind a click.
  */
 const ClockLine = ({ fact }) => {
   const explained = fact.explained || explainDate(fact);
@@ -60,19 +55,29 @@ const ClockLine = ({ fact }) => {
     explained.lateNote,
     explained.causalKind === 'inference' ? 'Inference' : ''
   ].filter(Boolean).join(' · ');
+  const teaser = abbreviateLine(fact.summary || explained.label);
+  const head = (
+    <>
+      {explained.when ? <time className="judgment-history__when">{explained.when}</time> : null}
+      <span className="judgment-history__teaser">{teaser}</span>
+    </>
+  );
+  const opens = Boolean((fact.summary && fact.summary !== teaser) || notes);
+  if (!opens) {
+    return <li className={`judgment-history__event judgment-clock judgment-clock--${fact.clock}`}>{head}</li>;
+  }
   return (
-    <li className={`judgment-clock judgment-clock--${fact.clock}`}>
-      <span className="judgment-clock__name">{explained.label}</span>
-      {fact.summary ? <span className="judgment-clock__summary">{fact.summary}</span> : null}
-      <span className="judgment-clock__stamp">
-        {explained.when ? (
-          <span className="judgment-clock__when">
-            <CalendarMark />
-            {explained.when}
-          </span>
+    <li className={`judgment-history__event judgment-clock judgment-clock--${fact.clock}`}>
+      <details>
+        <summary>{head}</summary>
+        {fact.summary && fact.summary !== teaser ? (
+          <p className="judgment-clock__summary">{fact.summary}</p>
         ) : null}
-        {notes ? <small>{notes}</small> : null}
-      </span>
+        {explained.label && explained.label !== teaser ? (
+          <p className="judgment-clock__name">{explained.label}</p>
+        ) : null}
+        {notes ? <p className="judgment-clock__stamp"><small>{notes}</small></p> : null}
+      </details>
     </li>
   );
 };
@@ -248,7 +253,7 @@ const JudgmentLedger = ({ pageId, claim, page, judgment = {}, onSaved }) => {
       <h2 id="judgment-ledger-title">The ledger</h2>
 
       {clocks.length ? (
-        <ol className="judgment-clocks" aria-label="Five clocks">
+        <ol className="judgment-history__spine judgment-clocks" aria-label="Five clocks">
           {clocks.map((fact) => (
             <ClockLine key={fact.factId || `${fact.clock}:${fact.recordedAt}`} fact={fact} />
           ))}
@@ -256,21 +261,24 @@ const JudgmentLedger = ({ pageId, claim, page, judgment = {}, onSaved }) => {
       ) : null}
 
       {moments.length > 1 ? (
-        <div className="judgment-time">
-          <label htmlFor="judgment-time-cursor">Belief at this moment</label>
-          <input
-            id="judgment-time-cursor"
-            type="range"
-            min={0}
-            max={moments.length - 1}
-            value={cursorIndex(moments, at)}
-            onChange={(event) => setAt(moments[Number(event.target.value)] || '')}
-            aria-valuetext={reconstructed?.at || 'now'}
-          />
-          <p className="judgment-time__caption">
-            {traveling ? 'Tracing paper over the living case.' : 'This is the living case.'}
-          </p>
-        </div>
+        <details className="judgment-history__fold">
+          <summary>Look back</summary>
+          <div className="judgment-time">
+            <label htmlFor="judgment-time-cursor">Belief at this moment</label>
+            <input
+              id="judgment-time-cursor"
+              type="range"
+              min={0}
+              max={moments.length - 1}
+              value={cursorIndex(moments, at)}
+              onChange={(event) => setAt(moments[Number(event.target.value)] || '')}
+              aria-valuetext={reconstructed?.at || 'now'}
+            />
+            <p className="judgment-time__caption">
+              {traveling ? 'Tracing paper over the living case.' : 'This is the living case.'}
+            </p>
+          </div>
+        </details>
       ) : null}
 
       {traveling ? (

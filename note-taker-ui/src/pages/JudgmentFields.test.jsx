@@ -314,7 +314,7 @@ describe('the standing line', () => {
     getJudgmentLibraryEvidence.mockResolvedValue({ claim: '', terms: [], candidates: [] });
   });
 
-  it('spells what the belief is made of, in words rather than a scoreboard', async () => {
+  it('says how long you have held it, and leaves the census to the blocks', async () => {
     const made = page();
     made.judgment.bornAt = '2026-03-14T12:00:00.000Z';
     made.judgment.against = [{ text: 'One objection.' }, { text: 'Another objection.' }];
@@ -324,7 +324,9 @@ describe('the standing line', () => {
     await screen.findByLabelText('Title');
 
     expect(screen.getByText(/Held since March 14/)).toBeInTheDocument();
-    expect(screen.getByText(/One reason, two objections, one test\./)).toBeInTheDocument();
+    expect(screen.queryByText(/One reason, two objections, one test/)).not.toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Why you believe it' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'What argues against it' })).toBeInTheDocument();
   });
 
   /* Unknown is not zero: an empty case says nothing rather than reporting
@@ -365,9 +367,9 @@ describe('a test nothing is watching', () => {
     await screen.findByLabelText('Title');
     /* Said once, in the sentence that says where you stand — the block used
        to announce it a second time. */
-    expect(screen.getByText(/Nothing is watching it/)).toBeInTheDocument();
+    expect(screen.getByText(/The test has no signal yet/)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Name a signal' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Name one' }));
     expect(await screen.findByLabelText('I would change my mind if')).toBeInTheDocument();
   });
 
