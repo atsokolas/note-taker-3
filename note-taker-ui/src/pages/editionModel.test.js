@@ -1,6 +1,6 @@
 import {
-  byPaper, bylineFor, bySection, closesLine, datelineLine, gapLine,
-  issueLine, publicSourceHref, runLine, stateOf,
+  byInboxEdition, byPaper, bylineFor, bySection, closesLine, datelineLine, gapLine,
+  inboxEditionLine, issueLine, publicSourceHref, runLine, stateOf,
   takenLine, windowLine
 } from './editionModel';
 
@@ -162,6 +162,40 @@ describe('the stand, arranged as papers', () => {
   it('ignores a row with no paper to belong to', () => {
     expect(byPaper([{ _id: 'x' }])).toEqual([]);
     expect(byPaper()).toEqual([]);
+  });
+});
+
+describe('new arrivals nested under their edition', () => {
+  const arrival = (over = {}) => ({
+    editionId: 'e2',
+    itemId: 'i1',
+    title: 'Fresh',
+    profileLabel: 'This Week in AI',
+    issueLabel: 'Issue',
+    number: 2,
+    ...over
+  });
+
+  it('gathers a pile back under the issues that filed them', () => {
+    const groups = byInboxEdition([
+      arrival(),
+      arrival({ editionId: 'w1', itemId: 'i2', title: 'Weekend', profileLabel: 'Weekend Readings', number: 1 }),
+      arrival({ itemId: 'i3', title: 'Also fresh' })
+    ]);
+    expect(groups.map(group => group.editionId)).toEqual(['e2', 'w1']);
+    expect(groups[0].items.map(item => item.itemId)).toEqual(['i1', 'i3']);
+    expect(groups[0].title).toBe('This Week in AI');
+    expect(groups[0].issue).toBe('Issue 2');
+    expect(inboxEditionLine(groups[0])).toBe('This Week in AI · Issue 2');
+  });
+
+  it('keeps an unnumbered issue as the paper’s name', () => {
+    expect(inboxEditionLine({ title: 'Weekend Readings', issue: '' })).toBe('Weekend Readings');
+  });
+
+  it('says nothing about an empty pile', () => {
+    expect(byInboxEdition([])).toEqual([]);
+    expect(byInboxEdition()).toEqual([]);
   });
 });
 

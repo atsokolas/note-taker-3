@@ -1,13 +1,13 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getEditionInbox, saveEditionItemLater, setEditionItemState } from '../../api/editions';
-import { issueLine } from '../../pages/editionModel';
+import { byInboxEdition, inboxEditionLine } from '../../pages/editionModel';
 
 /**
  * What arrived, before the papers themselves.
  *
- * Compact rows, not a second broadsheet. The finding and its boundary live
- * in the issue; this only asks what to do with the arrival.
+ * Compact rows, nested under the issue that filed them. The finding and its
+ * boundary live in the issue; this only asks what to do with the arrival.
  */
 
 const LATER = '/library?scope=later';
@@ -22,9 +22,7 @@ const filedLine = (row) => {
 
 const metaLine = (row) => [
   row.sourceLabel,
-  row.sourceDate || filedLine(row),
-  row.profileLabel,
-  issueLine(row)
+  row.sourceDate || filedLine(row)
 ].filter(Boolean).join(' · ');
 
 const Head = () => (
@@ -33,6 +31,80 @@ const Head = () => (
     <Link to={LATER}>Later</Link>
   </header>
 );
+
+const Item = ({ row, busy, onLater, onDismiss }) => {
+  const key = rowKey(row);
+  const meta = metaLine(row);
+  return (
+    <li className="edition-inbox__row">
+      <p className="edition-inbox__title">{row.title}</p>
+      {meta ? <p className="edition-inbox__meta">{meta}</p> : null}
+      <p className="edition-inbox__actions">
+        <Link to={`/editions/${row.editionId}?item=${encodeURIComponent(row.itemId)}`}>
+          Read now
+        </Link>
+        <button type="button" onClick={() => onLater(row)} disabled={Boolean(busy)}>
+          {busy === `${key}:later` ? 'Saving…' : 'Save for later'}
+        </button>
+        <button
+          type="button"
+          className="edition-inbox__dismiss"
+          onClick={() => onDismiss(row)}
+          disabled={Boolean(busy)}
+        >
+          Dismiss
+        </button>
+      </p>
+    </li>
+  );
+};
+
+const InboxEdition = ({ group, busy, onLater, onDismiss }) => {
+  const [open, setOpen] = useState(true);
+  const label = inboxEditionLine(group);
+  const nestId = `inbox-edition-${group.editionId || 'elsewhere'}`;
+  const count = group.items.length;
+
+  return (
+    <li className={`edition-inbox__edition${open ? ' is-open' : ''}`}>
+      <button
+        type="button"
+        className="edition-inbox__edition-head"
+        aria-expanded={open}
+        aria-controls={nestId}
+        onClick={() => setOpen(value => !value)}
+      >
+        <span className="edition-inbox__edition-name">{label}</span>
+        <span className="edition-inbox__edition-meta">
+          <span>{`${count} new`}</span>
+          <span className="edition-inbox__fold" aria-hidden="true">{open ? 'fold' : 'unfold'}</span>
+        </span>
+      </button>
+      <div
+        className="edition-inbox__nest"
+        id={nestId}
+        role="region"
+        aria-label={label}
+        inert={!open}
+        aria-hidden={!open}
+      >
+        <div>
+          <ul className="edition-inbox__items">
+            {group.items.map((row) => (
+              <Item
+                key={rowKey(row)}
+                row={row}
+                busy={busy}
+                onLater={onLater}
+                onDismiss={onDismiss}
+              />
+            ))}
+          </ul>
+        </div>
+      </div>
+    </li>
+  );
+};
 
 const EditionInbox = () => {
   const [items, setItems] = useState(null);
@@ -131,6 +203,8 @@ const EditionInbox = () => {
     setReceipt({ fromSetAside: Boolean(result?.fromSetAside) });
   });
 
+  const groups = useMemo(() => byInboxEdition(items || []), [items]);
+
   return (
     <section className="edition-inbox" aria-label="New">
       <Head />
@@ -169,32 +243,15 @@ const EditionInbox = () => {
         <p className="edition-inbox__empty">No new items</p>
       ) : (
         <ul className="edition-inbox__list">
-          {items.map((row) => {
-            const key = rowKey(row);
-            const meta = metaLine(row);
-            return (
-              <li key={key} className="edition-inbox__row">
-                <p className="edition-inbox__title">{row.title}</p>
-                {meta ? <p className="edition-inbox__meta">{meta}</p> : null}
-                <p className="edition-inbox__actions">
-                  <Link to={`/editions/${row.editionId}?item=${encodeURIComponent(row.itemId)}`}>
-                    Read now
-                  </Link>
-                  <button type="button" onClick={() => later(row)} disabled={Boolean(busy)}>
-                    {busy === `${key}:later` ? 'Saving…' : 'Save for later'}
-                  </button>
-                  <button
-                    type="button"
-                    className="edition-inbox__dismiss"
-                    onClick={() => dismiss(row)}
-                    disabled={Boolean(busy)}
-                  >
-                    Dismiss
-                  </button>
-                </p>
-              </li>
-            );
-          })}
+          {groups.map((group) => (
+            <InboxEdition
+              key={group.editionId || group.title}
+              group={group}
+              busy={busy}
+              onLater={later}
+              onDismiss={dismiss}
+            />
+          ))}
         </ul>
       )}
 
