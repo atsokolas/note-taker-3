@@ -169,6 +169,100 @@ describe('notebookArrangement', () => {
       .toEqual(essayDoc.content.map((node) => node.attrs.blockId));
   });
 
+  it('keeps a set-aside code block through a pre-nodes API', () => {
+    const code = {
+      type: 'codeBlock',
+      attrs: { language: 'js', blockId: 'code-1' },
+      content: [{ type: 'text', text: 'const a = 1;' }]
+    };
+    const doc = { type: 'doc', content: [paragraph('Rule.', 'rule'), code] };
+    const removed = setAsidePieceInDocument(doc, 1);
+    const payload = persistableAsidePiece(removed.aside);
+    expect(payload.nodes).toEqual([code]);
+    expect(payload.blocks).toEqual([{
+      id: 'code-1',
+      type: 'code',
+      text: 'const a = 1;',
+      sourcePath: 'js'
+    }]);
+    const recovered = hydrateAsidePieces([{
+      id: payload.id,
+      label: payload.label,
+      index: payload.index,
+      blocks: payload.blocks
+    }]);
+    const restored = restorePieceInDocument(removed.doc, recovered[0]);
+    expect(restored.doc.content[1]).toMatchObject({
+      type: 'codeBlock',
+      attrs: { language: 'js', blockId: 'code-1' },
+      content: [{ type: 'text', text: 'const a = 1;' }]
+    });
+  });
+
+  it('keeps a wiki reference attached to prose through a pre-nodes API', () => {
+    const prose = paragraph('See the living page.', 'prose');
+    const wiki = {
+      type: 'wikiRef',
+      attrs: {
+        wikiId: 'wiki-1',
+        wikiTitle: 'Experimentation',
+        wikiMeta: 'Living wiki',
+        blockId: 'wiki-ref-1'
+      }
+    };
+    const doc = { type: 'doc', content: [prose, wiki] };
+    expect(groupDocPieces(doc)).toHaveLength(1);
+    const removed = setAsidePieceInDocument(doc, 0);
+    const payload = persistableAsidePiece(removed.aside);
+    expect(payload.blocks.map((block) => block.type)).toEqual(['paragraph', 'wiki_ref']);
+    expect(payload.blocks[1]).toEqual({
+      id: 'wiki-ref-1',
+      type: 'wiki_ref',
+      text: 'Experimentation',
+      articleTitle: 'Experimentation',
+      sourcePath: '/wiki/workspace?page=wiki-1',
+      conceptName: 'Living wiki'
+    });
+    const recovered = hydrateAsidePieces([{
+      id: payload.id,
+      label: payload.label,
+      index: payload.index,
+      blocks: payload.blocks
+    }]);
+    const restored = restorePieceInDocument(removed.doc, recovered[0]);
+    expect(restored.doc.content[1]).toEqual(wiki);
+  });
+
+  it('keeps an isolated wiki reference and a divider through a pre-nodes API', () => {
+    const wiki = {
+      type: 'wikiRef',
+      attrs: { wikiId: 'wiki-2', wikiTitle: 'Who pays?', blockId: 'wiki-2' }
+    };
+    const divider = { type: 'horizontalRule', attrs: { blockId: 'hr-1' } };
+    const wikiRemoved = setAsidePieceInDocument({ type: 'doc', content: [wiki, paragraph('After', 'after')] }, 0);
+    const wikiPayload = persistableAsidePiece(wikiRemoved.aside);
+    expect(wikiPayload.blocks).toHaveLength(1);
+    expect(wikiPayload.blocks[0].type).toBe('wiki_ref');
+    const wikiRecovered = hydrateAsidePieces([{
+      id: wikiPayload.id,
+      label: wikiPayload.label,
+      index: wikiPayload.index,
+      blocks: wikiPayload.blocks
+    }]);
+    expect(restorePieceInDocument(wikiRemoved.doc, wikiRecovered[0]).doc.content[0].type).toBe('wikiRef');
+
+    const dividerRemoved = setAsidePieceInDocument({ type: 'doc', content: [divider, paragraph('After', 'after')] }, 0);
+    const dividerPayload = persistableAsidePiece(dividerRemoved.aside);
+    expect(dividerPayload.blocks).toEqual([{ id: 'hr-1', type: 'divider', text: '' }]);
+    const dividerRecovered = hydrateAsidePieces([{
+      id: dividerPayload.id,
+      label: dividerPayload.label,
+      index: dividerPayload.index,
+      blocks: dividerPayload.blocks
+    }]);
+    expect(restorePieceInDocument(dividerRemoved.doc, dividerRecovered[0]).doc.content[0].type).toBe('horizontalRule');
+  });
+
   it('deletes a passage without keeping a secret offcut', () => {
     const result = deletePieceInDocument(essayDoc, 1);
     expect(result.deleted).toBe(true);
