@@ -76,6 +76,7 @@ const NotebookArrangementRail = ({
   const rootRef = useRef(null);
   const [open, setOpen] = useState(false);
   const [top, setTop] = useState(0);
+  const [placeAbove, setPlaceAbove] = useState(false);
   const [trackedIndex, setTrackedIndex] = useState(
     Number.isInteger(currentPieceIndex) ? currentPieceIndex : null
   );
@@ -146,6 +147,21 @@ const NotebookArrangementRail = ({
     };
   }, [open]);
 
+  useLayoutEffect(() => {
+    if (!open) {
+      setPlaceAbove(false);
+      return undefined;
+    }
+    const panel = rootRef.current?.querySelector('.notebook-arrangement__panel');
+    const mark = rootRef.current?.querySelector('.notebook-arrangement__mark');
+    if (!panel || !mark) return undefined;
+    const markRect = mark.getBoundingClientRect();
+    const roomBelow = window.innerHeight - markRect.bottom;
+    const nextAbove = panel.offsetHeight + 12 > roomBelow && markRect.top > panel.offsetHeight;
+    setPlaceAbove(nextAbove);
+    return undefined;
+  }, [open, top, trackedIndex, receipt, asidePieces]);
+
   if (!showMark) return null;
 
   const label = tracked?.label || (asidePieces.length ? 'Passages set aside' : 'This passage');
@@ -166,7 +182,7 @@ const NotebookArrangementRail = ({
   return (
     <div
       ref={rootRef}
-      className={`notebook-arrangement${motionOk ? ' is-motion' : ''}${open ? ' is-open' : ''}`}
+      className={`notebook-arrangement${motionOk ? ' is-motion' : ''}${open ? ' is-open' : ''}${placeAbove ? ' is-above' : ''}`}
       data-notebook-arrangement="mark"
       style={{ top }}
       onMouseDown={holdSelection}

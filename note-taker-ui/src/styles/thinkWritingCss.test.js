@@ -67,6 +67,7 @@ describe('Think writing focus mode', () => {
     expect(css).toContain('right: 0;');
     expect(css).toContain('.notebook-arrangement__mark {');
     expect(css).toContain('.notebook-arrangement__panel {');
+    expect(css).toContain('.notebook-arrangement.is-above .notebook-arrangement__panel');
     expect(css).toContain('@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference)');
     expect(css).toContain('animation: notebook-arrangement-in');
     expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*\.notebook-arrangement,[\s\S]*animation: none !important;/);
