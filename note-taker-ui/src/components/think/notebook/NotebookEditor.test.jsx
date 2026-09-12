@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import NotebookEditor from './NotebookEditor';
 import { listWikiPages } from '../../../api/wiki';
 import { getArticleEvergreen } from '../../../api/articles';
-import { disposeNotebookSourceCorrection, exportNotebookMarkdown, getNotebookSummaries } from '../../../api/notebook';
+import { disposeNotebookSourceCorrection, exportNotebookMarkdown, getNotebookShare, getNotebookSummaries } from '../../../api/notebook';
 import { THINK_WRITING_IDLE_MS } from '../editor/useThinkWritingActivity';
 
 const mockUseEditor = jest.fn();
@@ -86,7 +86,8 @@ jest.mock('../../../api/notebook', () => ({
   createNotebookEntry: jest.fn(),
   updateNotebookEntry: jest.fn(),
   exportNotebookMarkdown: jest.fn(),
-  disposeNotebookSourceCorrection: jest.fn()
+  disposeNotebookSourceCorrection: jest.fn(),
+  getNotebookShare: jest.fn(async () => ({ shared: false, preview: null }))
 }));
 
 jest.mock('../../../api/wiki', () => ({
@@ -123,6 +124,8 @@ describe('NotebookEditor', () => {
     getNotebookSummaries.mockReturnValue(new Promise(() => {}));
     exportNotebookMarkdown.mockReset();
     exportNotebookMarkdown.mockResolvedValue(new Blob(['# Letter\n'], { type: 'text/markdown' }));
+    getNotebookShare.mockReset();
+    getNotebookShare.mockResolvedValue({ shared: false, preview: null });
     mockUseEditor.mockReturnValue(mockEditor);
     mockEditor.chain.mockReturnValue(mockChain);
     mockEditor.isActive.mockImplementation(() => false);
@@ -996,6 +999,34 @@ describe('NotebookEditor', () => {
     await waitFor(() => expect(onSave).toHaveBeenCalled());
     expect(exportNotebookMarkdown).not.toHaveBeenCalled();
     expect(screen.getByText('Could not save this draft, so export did not start.')).toBeInTheDocument();
+  });
+
+  it('opens the recipient preview from Share', async () => {
+    getNotebookShare.mockResolvedValue({
+      shared: false,
+      publishable: true,
+      preview: {
+        title: 'Who gets to experiment, and who pays?',
+        ownerDisplayName: 'Athan',
+        blocks: [{ id: 'p1', type: 'paragraph', text: 'The exception arrives first.' }]
+      },
+      currentHash: 'hash'
+    });
+    render(
+      <NotebookEditor
+        entry={{ _id: 'essay-1', title: 'Who gets to experiment, and who pays?', content: '', blocks: [], type: 'note', tags: [] }}
+        saving={false}
+        error=""
+        onSave={jest.fn()}
+        onDelete={jest.fn()}
+        showInlineAgentDock={false}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Share' }));
+    expect(await screen.findByTestId('notebook-share-preview')).toBeInTheDocument();
+    expect(screen.getByText('The exception arrives first.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Create share link' })).toBeInTheDocument();
   });
 
   it('opens source and concept insertion from Notion-style inline triggers', async () => {

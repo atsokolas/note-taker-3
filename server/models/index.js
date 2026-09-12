@@ -3093,6 +3093,26 @@ sharedEditionSchema.index({ userId: 1, editionId: 1 }, { unique: true });
 
 const SharedEdition = mongoose.model('SharedEdition', sharedEditionSchema);
 
+/* A notebook essay, shared at a link.
+
+   Same contract as a shared edition: the slug is the URL, the snapshot is the
+   version. Private edits do not move the public copy. An explicit owner update
+   replaces the snapshot under the same URL. Revoking deletes the row, so a
+   later publish mints a new address and the old one stays unanswered. */
+const sharedNotebookSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  notebookId: { type: mongoose.Schema.Types.ObjectId, ref: 'NotebookEntry', required: true },
+  slug: { type: String, required: true, unique: true, index: true },
+  ownerDisplayName: { type: String, default: '' },
+  snapshot: { type: mongoose.Schema.Types.Mixed, default: null },
+  contentHash: { type: String, default: '' },
+  publishedAt: { type: Date, default: null }
+}, { timestamps: true });
+
+sharedNotebookSchema.index({ userId: 1, notebookId: 1 }, { unique: true });
+
+const SharedNotebook = mongoose.model('SharedNotebook', sharedNotebookSchema);
+
 /**
  * CasebookLineage — follow, fork, and adopt with frozen origin provenance.
  * Revoking a share never rewrites originHash, originTitle, or originSlug.
@@ -3312,6 +3332,7 @@ module.exports = {
   EditionProfile,
   MorningPaperRecord,
   SharedEdition,
+  SharedNotebook,
   Question,
   Board,
   BoardItem,

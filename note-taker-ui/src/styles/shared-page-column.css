@@ -11,7 +11,8 @@
 
 .shared-wiki-page,
 .shared-concept-page,
-.shared-question-page {
+.shared-question-page,
+.shared-notebook-page {
   background: var(--vellum-bg, var(--bg-primary));
 }
 

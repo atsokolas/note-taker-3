@@ -19,6 +19,7 @@ import { handleEditorStructureShortcut } from '../editor/editorShortcuts';
 import { createNotebookClaimSlashItems } from './notebookClaimSlash';
 import UseDistinctionHere from '../../wiki/open-sentence/UseDistinctionHere';
 import SourceCorrectionReview from '../SourceCorrectionReview';
+import NotebookShare from './NotebookShare';
 import { editorNodesFromDistinctionUse, eligibleDistinctions } from '../../../utils/distinctionUse';
 import { exportNotebookMarkdown, getNotebookSummaries, disposeNotebookSourceCorrection } from '../../../api/notebook';
 import useHighlights from '../../../hooks/useHighlights';
@@ -376,6 +377,7 @@ const NotebookEditor = ({
   const [insertMenuOpen, setInsertMenuOpen] = useState(false);
   const [savedDistinctions, setSavedDistinctions] = useState([]);
   const [organizeOpen, setOrganizeOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const [entryType, setEntryType] = useState(entry?.type || 'note');
   const [entryTags, setEntryTags] = useState(entry?.tags || []);
   const [tagInput, setTagInput] = useState('');
@@ -1221,7 +1223,20 @@ const NotebookEditor = ({
           </div>
           <div className="think-notebook-editor-actions-right">
             <QuietButton data-notebook-finish="export" onClick={handleExport}>Export</QuietButton>
-            <QuietButton onClick={() => setOrganizeOpen(prev => !prev)}>
+            <QuietButton
+              data-notebook-finish="share"
+              aria-expanded={shareOpen}
+              onClick={() => {
+                setShareOpen((previous) => !previous);
+                setOrganizeOpen(false);
+              }}
+            >
+              {shareOpen ? 'Close share' : 'Share'}
+            </QuietButton>
+            <QuietButton onClick={() => {
+              setOrganizeOpen((prev) => !prev);
+              setShareOpen(false);
+            }}>
               {organizeOpen ? 'Close structure' : 'Structure'}
             </QuietButton>
             <details className="think-notebook-editor-actions-overflow">
@@ -1268,6 +1283,7 @@ const NotebookEditor = ({
       ) : null}
       {error && <p className="status-message error-message">{error}</p>}
       {exportError && <p className="status-message error-message">{exportError}</p>}
+      {shareOpen && entry?._id ? <NotebookShare notebookId={entry._id} /> : null}
       {organizeOpen && (
         <div className="notebook-organize-panel">
           <div className="notebook-organize-row">
