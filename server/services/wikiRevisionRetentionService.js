@@ -1,5 +1,12 @@
 const { assertVerifiedBackup } = require('./mongoBackupService');
 
+const RECEIPT_RETENTION_KINDS = Object.freeze([
+  'public_proof_accepted',
+  'repo_wiki_claim_cohort_accepted',
+  'wiki_claim_disposition',
+  'authored_source_correction'
+]);
+
 const cleanId = (value) => String(value?._id || value || '').trim();
 
 const monthKey = (value) => {
@@ -170,7 +177,7 @@ const pruneWikiRevisionHistory = async ({
     let receiptQuery = Receipt.find({
       userId,
       status: 'completed',
-      kind: { $in: ['public_proof_accepted', 'repo_wiki_claim_cohort_accepted', 'wiki_claim_disposition'] },
+      kind: { $in: RECEIPT_RETENTION_KINDS },
       'provenance.pageId': cleanId(pageId)
     });
     if (receiptQuery?.select) receiptQuery = receiptQuery.select('kind status provenance');
@@ -254,6 +261,7 @@ const pruneWikiRevisionHistory = async ({
 };
 
 module.exports = {
+  RECEIPT_RETENTION_KINDS,
   buildWikiRevisionRetentionPlan,
   collectPageRetentionReferences,
   collectReceiptRetentionReferences,

@@ -208,3 +208,28 @@ export const STORYBOARD_BEARING_SOURCE = Object.freeze({
 });
 
 export const STORYBOARD_PROVISIONAL = 'Children need room to make recoverable mistakes.';
+
+export const STORYBOARD_CORRECTION_OLD = 'A wrong turn you can walk back from still teaches the map. The ones that strand you do not.';
+
+export const STORYBOARD_CORRECTION_NEW = 'A wrong turn you can walk back from still teaches the map. A stranding is not the same lesson.';
+
+export const STORYBOARD_SOURCE_CORRECTION = Object.freeze({
+  eventId: 'illustrated-source-event',
+  sourceEventId: 'illustrated-source-event',
+  sourceUseId: 'selected:illustrated-wrong-turn',
+  objectType: 'exploration',
+  oldQuotation: STORYBOARD_CORRECTION_OLD,
+  newEvidence: STORYBOARD_CORRECTION_NEW,
+  changedSegments: [
+    { kind: 'equal', text: 'A wrong turn you can walk back from still teaches the map. ' },
+    { kind: 'removed', text: 'The ones that strand you do not.' },
+    { kind: 'added', text: 'A stranding is not the same lesson.' }
+  ],
+  sourceTitle: 'Nomad',
+  sourceHref: '/library?articleId=illustrated-nomad&highlightId=illustrated-wrong-turn',
+  sourceUpdatedOn: '2026-09-11',
+  whatChanged: 'The saved passage was corrected.',
+  whatItAffects: 'Who gets to experiment',
+  whatINeed: 'Keep this work, change the quotation, or record no change — including when you cannot tell.',
+  ui: 'review'
+});

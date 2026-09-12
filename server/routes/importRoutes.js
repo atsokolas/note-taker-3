@@ -47,6 +47,7 @@ const {
   searchNotionPreviewItems
 } = require('../services/import/notionClient');
 const { createConnectorWikiSourceEvent } = require('../services/wikiSourceEventService');
+const { recordSourceCorrection } = require('../services/authoredSourceCorrection');
 const { processWikiSourceEvent: defaultProcessWikiSourceEvent } = require('../services/wikiMaintenanceOrchestrator');
 const { persistNoeisReceipt } = require('../services/noeisReceiptService');
 const { wordBoundaryTrim } = require('../lib/editorialText');
@@ -1989,6 +1990,7 @@ const buildImportRouter = ({
       const articleCache = new Map();
       const dirtyArticles = new Set();
       const pendingHighlightRefs = [];
+      const pendingCorrections = [];
 
       for (const row of rows) {
         const metadataTitle = toTrimmedString(row.title);
@@ -2050,9 +2052,22 @@ const buildImportRouter = ({
             continue;
           }
           const highlightExternalId = toTrimmedString(highlightRow.id);
-          const highlightAlreadyExists = (article.highlights || []).some((highlight) => (
-            (toTrimmedString(highlight?.importMeta?.externalId) && toTrimmedString(highlight?.importMeta?.externalId) === highlightExternalId)
-            || highlight.text === highlightText
+          const existingHighlight = (article.highlights || []).find((highlight) => (
+            toTrimmedString(highlight?.importMeta?.externalId)
+            && toTrimmedString(highlight?.importMeta?.externalId) === highlightExternalId
+          ));
+          if (existingHighlight && existingHighlight.text !== highlightText) {
+            pendingCorrections.push({
+              article,
+              highlight: existingHighlight,
+              previousText: existingHighlight.text
+            });
+            existingHighlight.text = highlightText;
+            dirtyArticles.add(article);
+            continue;
+          }
+          const highlightAlreadyExists = Boolean(existingHighlight) || (article.highlights || []).some((highlight) => (
+            highlight.text === highlightText
           ));
           if (highlightAlreadyExists) {
             skippedRows += 1;
@@ -2086,6 +2101,21 @@ const buildImportRouter = ({
       }
 
       await Promise.all(Array.from(dirtyArticles).map(article => article.save()));
+      await Promise.all(pendingCorrections.map(({ article, highlight, previousText }) => recordSourceCorrection({
+        WikiSourceEvent,
+        userId,
+        sourceType: 'highlight',
+        sourceObjectId: highlight._id,
+        parentObjectId: article._id,
+        provider: 'readwise',
+        externalId: toTrimmedString(highlight?.importMeta?.externalId),
+        title: article.title,
+        url: article.url,
+        previousText,
+        text: highlight.text,
+        sourceUpdatedAt: article.updatedAt || new Date(),
+        metadata: { source: 'readwise-api', importSessionId }
+      })));
       await Promise.all(Array.from(dirtyArticles).map(article => emitWikiSourceEvent({
         userId,
         sourceType: 'article',

@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import NotebookEditor from './NotebookEditor';
 import { listWikiPages } from '../../../api/wiki';
 import { getArticleEvergreen } from '../../../api/articles';
-import { exportNotebookMarkdown, getNotebookSummaries } from '../../../api/notebook';
+import { disposeNotebookSourceCorrection, exportNotebookMarkdown, getNotebookSummaries } from '../../../api/notebook';
 import { THINK_WRITING_IDLE_MS } from '../editor/useThinkWritingActivity';
 
 const mockUseEditor = jest.fn();
@@ -85,7 +85,8 @@ jest.mock('../../../api/notebook', () => ({
   getNotebookEntry: jest.fn(),
   createNotebookEntry: jest.fn(),
   updateNotebookEntry: jest.fn(),
-  exportNotebookMarkdown: jest.fn()
+  exportNotebookMarkdown: jest.fn(),
+  disposeNotebookSourceCorrection: jest.fn()
 }));
 
 jest.mock('../../../api/wiki', () => ({
@@ -1119,6 +1120,67 @@ describe('NotebookEditor', () => {
       } finally {
         jest.useRealTimers();
       }
+    });
+  });
+
+  it('reviews a source correction on the note without rewriting the page', async () => {
+    disposeNotebookSourceCorrection.mockResolvedValue({
+      sourceCorrection: {
+        eventId: 'evt-1',
+        oldQuotation: 'Two hours a week can sustain this.',
+        newEvidence: 'Two hours a week cannot sustain this.',
+        changedSegments: [
+          { kind: 'equal', text: 'Two hours a week ' },
+          { kind: 'removed', text: 'can' },
+          { kind: 'added', text: 'cannot' },
+          { kind: 'equal', text: ' sustain this.' }
+        ],
+        sourceUpdatedOn: '2026-09-11',
+        reviewedOn: '2026-09-12',
+        ui: 'settled',
+        disposition: 'no_change'
+      }
+    });
+    render(
+      <NotebookEditor
+        entry={{
+          _id: 'note-correction',
+          title: 'Who gets to experiment',
+          content: '',
+          blocks: [],
+          type: 'note',
+          tags: [],
+          sourceCorrection: {
+            eventId: 'evt-1',
+            oldQuotation: 'Two hours a week can sustain this.',
+            newEvidence: 'Two hours a week cannot sustain this.',
+            changedSegments: [
+              { kind: 'equal', text: 'Two hours a week ' },
+              { kind: 'removed', text: 'can' },
+              { kind: 'added', text: 'cannot' },
+              { kind: 'equal', text: ' sustain this.' }
+            ],
+            whatChanged: 'The saved passage was corrected.',
+            whatItAffects: 'Who gets to experiment',
+            sourceUpdatedOn: '2026-09-11',
+            ui: 'review'
+          }
+        }}
+        saving={false}
+        error=""
+        onSave={jest.fn()}
+        onDelete={jest.fn()}
+        showInlineAgentDock={false}
+      />
+    );
+    expect(screen.getByLabelText('Source correction')).toBeInTheDocument();
+    expect(screen.getByText('Two hours a week can sustain this.')).toBeInTheDocument();
+    expect(screen.getByText('Two hours a week cannot sustain this.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'No change' }));
+    expect(await screen.findByText('No change. The correction does not require this work to move.')).toBeInTheDocument();
+    expect(disposeNotebookSourceCorrection).toHaveBeenCalledWith('note-correction', {
+      eventId: 'evt-1',
+      action: 'no_change'
     });
   });
 });

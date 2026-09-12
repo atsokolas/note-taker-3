@@ -7,6 +7,7 @@ const {
 } = require('../utils/highlightUtils');
 const { createWikiSourceEvent } = require('../services/wikiSourceEventService');
 const { processWikiSourceEvent } = require('../services/wikiMaintenanceOrchestrator');
+const { recordSourceCorrection } = require('../services/authoredSourceCorrection');
 
 const buildHighlightMutationRouter = ({
   mongoose,
@@ -167,7 +168,7 @@ const buildHighlightMutationRouter = ({
   router.patch('/articles/:articleId/highlights/:highlightId', authenticateToken, async (req, res) => {
     try {
         const { articleId, highlightId } = req.params;
-        const { note, tags, type, claimId, color } = req.body;
+        const { note, tags, type, claimId, color, text } = req.body;
         const userId = req.user.id;
 
         const article = await Article.findOne({ _id: articleId, userId: userId });
@@ -178,6 +179,19 @@ const buildHighlightMutationRouter = ({
         const highlight = article.highlights.id(highlightId);
         if (!highlight) {
             return res.status(404).json({ error: "Highlight not found in this article." });
+        }
+
+        const previousText = highlight.text;
+        let textChanged = false;
+        if (text !== undefined) {
+          const nextText = typeof text === 'string' ? text.trim() : '';
+          if (nextText.length < 3) {
+            return res.status(400).json({ error: 'Highlight text is required.' });
+          }
+          if (nextText !== String(highlight.text || '')) {
+            highlight.text = nextText;
+            textChanged = true;
+          }
         }
 
         highlight.note = note !== undefined ? note : highlight.note;
@@ -230,19 +244,36 @@ const buildHighlightMutationRouter = ({
           'highlight'
         );
         if (highlightItem) queueEmbeddingUpsert([highlightItem]);
-        await emitWikiSourceEvent({
-          userId,
-          sourceType: 'highlight',
-          sourceObjectId: updatedHighlight._id,
-          parentObjectId: article._id,
-          provider: 'library',
-          eventType: 'updated',
-          title: article.title,
-          summary: [updatedHighlight.text, updatedHighlight.note].filter(Boolean).join(' - '),
-          url: article.url,
-          sourceUpdatedAt: article.updatedAt || new Date(),
-          metadata: { route: 'update-highlight' }
-        });
+        if (textChanged) {
+          await recordSourceCorrection({
+            WikiSourceEvent,
+            userId,
+            sourceType: 'highlight',
+            sourceObjectId: updatedHighlight._id,
+            parentObjectId: article._id,
+            provider: 'library',
+            title: article.title,
+            url: article.url,
+            previousText,
+            text: updatedHighlight.text,
+            sourceUpdatedAt: article.updatedAt || new Date(),
+            metadata: { route: 'update-highlight-text' }
+          });
+        } else {
+          await emitWikiSourceEvent({
+            userId,
+            sourceType: 'highlight',
+            sourceObjectId: updatedHighlight._id,
+            parentObjectId: article._id,
+            provider: 'library',
+            eventType: 'updated',
+            title: article.title,
+            summary: [updatedHighlight.text, updatedHighlight.note].filter(Boolean).join(' - '),
+            url: article.url,
+            sourceUpdatedAt: article.updatedAt || new Date(),
+            metadata: { route: 'update-highlight' }
+          });
+        }
         res.status(200).json(
           serializeHighlightWithArticle(article, updatedHighlight, {
             includeAnchor: true,

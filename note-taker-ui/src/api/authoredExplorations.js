@@ -49,6 +49,13 @@ export const authoredExplorations = {
   async list() {
     const { data } = await api.get('/api/authored-explorations');
     return data.explorations;
+  },
+  async disposeSourceCorrection(workId, { eventId, action }) {
+    const { data } = await api.post(
+      `/api/authored-explorations/${encodeURIComponent(workId)}/source-correction`,
+      { eventId, action }
+    );
+    return data;
   }
 };
 

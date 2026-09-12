@@ -1,5 +1,6 @@
 const assert = require('assert');
 const {
+  RECEIPT_RETENTION_KINDS,
   buildWikiRevisionRetentionPlan,
   collectPageRetentionReferences,
   collectReceiptRetentionReferences,
@@ -97,6 +98,10 @@ assert.deepStrictEqual(receiptReferences.revisionIds.sort(), [
   'public-acceptance-revision'
 ]);
 assert.deepStrictEqual(receiptReferences.sourceEventIds.sort(), ['clock-event', 'cohort-event']);
+assert(
+  RECEIPT_RETENTION_KINDS.includes('authored_source_correction'),
+  'retains source events named by an authored source-correction receipt'
+);
 
 console.log('wikiRevisionRetentionService tests passed');
 

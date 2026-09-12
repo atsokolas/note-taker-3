@@ -90,6 +90,9 @@ import {
   STORYBOARD_THEN_QUESTION,
   STORYBOARD_THEN_QUOTATION,
   STORYBOARD_THEN_BESIDE,
+  STORYBOARD_SOURCE_CORRECTION,
+  STORYBOARD_CORRECTION_OLD,
+  STORYBOARD_CORRECTION_NEW,
   storyboardSource
 } from '../components/wiki/open-sentence/openSentenceStoryboardFixture';
 import './open-sentence-storyboard.css';
@@ -117,7 +120,8 @@ const BEATS = [
   { id: 'unwritten', label: 'Unwritten' },
   { id: 'limits', label: 'Limits' },
   { id: 'carry', label: 'Carry' },
-  { id: 'libraries', label: 'Libraries' }
+  { id: 'libraries', label: 'Libraries' },
+  { id: 'correction', label: 'Correction' }
 ];
 
 const seed = (source = STORYBOARD_SOURCE) => createExploration({
@@ -231,6 +235,20 @@ const applyBeat = (beat, source) => {
       otherDisputes: STORYBOARD_OTHER_DISPUTES,
       observation: STORYBOARD_OBSERVATION
     });
+  }
+  if (beat === 'correction') {
+    const opened = openExploration(seed(source));
+    return {
+      ...opened,
+      writing: STORYBOARD_UNWRITTEN,
+      selectedSource: {
+        articleId: STORYBOARD_SOURCE.articleId,
+        highlightId: STORYBOARD_SOURCE.highlightId,
+        passage: STORYBOARD_CORRECTION_OLD,
+        title: STORYBOARD_SOURCE.title,
+        articleTitle: STORYBOARD_SOURCE.title
+      }
+    };
   }
   if (beat === 'without') {
     return tryWithoutThisParagraph(openExploration(seed(source)));
@@ -368,6 +386,42 @@ const OpenSentenceStoryboard = () => {
   }));
   const [beenToLibrary, setBeenToLibrary] = useState(false);
   const [pageTitle, setPageTitle] = useState(STORYBOARD_PAGE_TITLE);
+  const [correctionPreview, setCorrectionPreview] = useState(STORYBOARD_SOURCE_CORRECTION);
+
+  const correctionAuthorship = beat === 'correction' ? {
+    owner: 'illustrated',
+    ready: true,
+    error: '',
+    record: {
+      revision: 3,
+      dirty: false,
+      saving: false,
+      saved: {
+        id: 'illustrated-work',
+        articleId: STORYBOARD_SOURCE.articleId,
+        highlightId: STORYBOARD_SOURCE.highlightId,
+        sourceCorrection: correctionPreview
+      }
+    },
+    disposeSourceCorrection: async ({ action }) => {
+      const next = {
+        ...correctionPreview,
+        ui: 'settled',
+        disposition: action,
+        reviewedOn: '2026-09-12'
+      };
+      setCorrectionPreview(next);
+      return {
+        sourceCorrection: next,
+        receipt: { id: 'illustrated-receipt', provenance: { disposition: action, writingRewritten: false } }
+      };
+    },
+    keep: async () => ({}),
+    discard: async () => {},
+    retry: () => {},
+    retryLoad: () => {},
+    resolveConflict: () => {}
+  } : null;
 
   useEffect(() => {
     const live = exploration.id === STORYBOARD_COMPUTE_ID
@@ -492,6 +546,7 @@ const OpenSentenceStoryboard = () => {
             onAccept={(current) => setExploration(acceptWording(current))}
             pageTitle={pageTitle}
             onMakeTitle={setPageTitle}
+            authorship={correctionAuthorship}
             onOpenSourceHome={() => {
               setBeenToLibrary(true);
               setScene('library');
@@ -509,7 +564,7 @@ const OpenSentenceStoryboard = () => {
         </div>
       </article>
     )
-  ), [beenToLibrary, computeWalk, exploration, libraryExploration, pageTitle, scene, source, stillness, thenLine]);
+  ), [beenToLibrary, computeWalk, correctionAuthorship, exploration, libraryExploration, pageTitle, scene, source, stillness, thenLine]);
 
   return (
     <div className="open-sentence-storyboard">
@@ -572,6 +627,7 @@ const OpenSentenceStoryboard = () => {
                 setPageTitle(STORYBOARD_PAGE_TITLE);
                 setScene('wiki');
                 setBeenToLibrary(false);
+                setCorrectionPreview(STORYBOARD_SOURCE_CORRECTION);
               }}
             >
               {item.label}
