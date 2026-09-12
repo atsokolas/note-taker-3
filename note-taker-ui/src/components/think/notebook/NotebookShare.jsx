@@ -34,7 +34,15 @@ export function NotebookSharePanel({
   const [selectHint, setSelectHint] = useState(false);
   const href = share?.shared && share?.slug ? shareHref(share.slug) : '';
   const preview = share?.preview || null;
+  const snapshot = share?.snapshot || null;
+  const liveLink = Boolean(share?.shared);
+  const stale = Boolean(liveLink && share?.stale);
+  // The public URL serves the frozen snapshot. Preview is the workshop draft —
+  // show it as pending when stale, never as what the live link shows.
+  const readerEssay = liveLink ? (snapshot || (stale ? null : preview)) : preview;
+  const pendingEssay = stale ? preview : null;
   const publishable = share?.publishable !== false && Boolean(preview?.blocks?.length);
+  const readerVisible = Boolean(readerEssay?.blocks?.length);
 
   const copyLink = async () => {
     if (!href) return;
@@ -70,14 +78,24 @@ export function NotebookSharePanel({
         <p className="notebook-share__status" role="status">Checking the share…</p>
       ) : null}
 
-      {status === 'ready' && preview && publishable ? (
+      {status === 'ready' && readerVisible ? (
         <div className="notebook-share__preview" data-testid="notebook-share-preview">
           <p className="notebook-share__preview-label">What a reader will see</p>
-          <NotebookEssay snapshot={preview} compact />
+          <NotebookEssay snapshot={readerEssay} compact />
         </div>
       ) : null}
 
-      {status === 'ready' && !publishable ? (
+      {status === 'ready' && pendingEssay?.blocks?.length ? (
+        <div
+          className="notebook-share__preview notebook-share__preview--pending"
+          data-testid="notebook-share-pending"
+        >
+          <p className="notebook-share__preview-label">Pending an update</p>
+          <NotebookEssay snapshot={pendingEssay} compact />
+        </div>
+      ) : null}
+
+      {status === 'ready' && !readerVisible && !publishable ? (
         <p className="notebook-share__hint" data-testid="notebook-share-silence">
           Nothing to share yet.
         </p>
@@ -165,14 +183,14 @@ export function NotebookSharePanel({
   );
 }
 
-export default function NotebookShare({ notebookId }) {
+export default function NotebookShare({ notebookId, revision = 0 }) {
   const [status, setStatus] = useState('loading');
   const [share, setShare] = useState(null);
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
+  const seenRevision = useRef(revision);
 
   const load = useCallback(async () => {
-    setStatus('loading');
     setError('');
     try {
       const found = await getNotebookShare(notebookId);
@@ -186,8 +204,15 @@ export default function NotebookShare({ notebookId }) {
 
   useEffect(() => {
     setBusy('');
+    setStatus('loading');
     load();
   }, [notebookId, load]);
+
+  useEffect(() => {
+    if (seenRevision.current === revision) return;
+    seenRevision.current = revision;
+    load();
+  }, [revision, load]);
 
   const run = useCallback(async (label, work) => {
     if (busy) return;

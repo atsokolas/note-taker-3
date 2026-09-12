@@ -153,6 +153,10 @@
   border-bottom: 1px solid var(--noeis-rule, rgba(28, 24, 18, 0.08));
 }
 
+.notebook-share__preview--pending {
+  border-top-style: dashed;
+}
+
 .notebook-share__url {
   display: block;
   width: 100%;

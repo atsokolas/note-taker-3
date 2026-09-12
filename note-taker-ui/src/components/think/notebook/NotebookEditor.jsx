@@ -378,6 +378,9 @@ const NotebookEditor = ({
   const [savedDistinctions, setSavedDistinctions] = useState([]);
   const [organizeOpen, setOrganizeOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const shareOpenRef = useRef(false);
+  shareOpenRef.current = shareOpen;
+  const [shareRevision, setShareRevision] = useState(0);
   const [entryType, setEntryType] = useState(entry?.type || 'note');
   const [entryTags, setEntryTags] = useState(entry?.tags || []);
   const [tagInput, setTagInput] = useState('');
@@ -499,7 +502,7 @@ const NotebookEditor = ({
     setAsidePieces(resolved);
   };
   const [arrangementReceipt, setArrangementReceipt] = useState(null);
-  const [exportError, setExportError] = useState('');
+  const [finishError, setFinishError] = useState('');
   const [, setDocTick] = useState(0);
 
   const editor = useEditor({
@@ -792,7 +795,10 @@ const NotebookEditor = ({
       await Promise.resolve();
       try {
         await onSave(payload);
-        if (sequence === saveSequenceRef.current) setSaveState(dirtyRef.current ? 'dirty' : 'saved');
+        if (sequence === saveSequenceRef.current) {
+          setSaveState(dirtyRef.current ? 'dirty' : 'saved');
+          if (shareOpenRef.current) setShareRevision((value) => value + 1);
+        }
         return true;
       } catch (_saveError) {
         if (sequence === saveSequenceRef.current) {
@@ -1038,11 +1044,11 @@ const NotebookEditor = ({
 
   const handleExport = async () => {
     if (!entry?._id) return;
-    setExportError('');
+    setFinishError('');
     dirtyRef.current = true;
     const saved = await commitDraft();
     if (!saved) {
-      setExportError('Could not save this draft, so export did not start.');
+      setFinishError('Could not save this draft, so export did not start.');
       return;
     }
     try {
@@ -1057,8 +1063,26 @@ const NotebookEditor = ({
       link.remove();
       window.URL.revokeObjectURL(url);
     } catch (_err) {
-      setExportError('Could not export this note.');
+      setFinishError('Could not export this note.');
     }
+  };
+
+  const handleShare = async () => {
+    setOrganizeOpen(false);
+    if (shareOpen) {
+      setShareOpen(false);
+      setFinishError('');
+      return;
+    }
+    if (!entry?._id) return;
+    setFinishError('');
+    dirtyRef.current = true;
+    const saved = await commitDraft();
+    if (!saved) {
+      setFinishError('Could not save this draft, so sharing did not open.');
+      return;
+    }
+    setShareOpen(true);
   };
 
   if (!entry) {
@@ -1233,10 +1257,7 @@ const NotebookEditor = ({
             <QuietButton
               data-notebook-finish="share"
               aria-expanded={shareOpen}
-              onClick={() => {
-                setShareOpen((previous) => !previous);
-                setOrganizeOpen(false);
-              }}
+              onClick={handleShare}
             >
               {shareOpen ? 'Close share' : 'Share'}
             </QuietButton>
@@ -1289,8 +1310,10 @@ const NotebookEditor = ({
         />
       ) : null}
       {error && <p className="status-message error-message">{error}</p>}
-      {exportError && <p className="status-message error-message">{exportError}</p>}
-      {shareOpen && entry?._id ? <NotebookShare notebookId={entry._id} /> : null}
+      {finishError && <p className="status-message error-message">{finishError}</p>}
+      {shareOpen && entry?._id ? (
+        <NotebookShare notebookId={entry._id} revision={shareRevision} />
+      ) : null}
       {organizeOpen && (
         <div className="notebook-organize-panel">
           <div className="notebook-organize-row">

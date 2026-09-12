@@ -1036,6 +1036,86 @@ describe('NotebookEditor', () => {
     expect(screen.getByRole('button', { name: 'Create share link' })).toBeInTheDocument();
   });
 
+  it('does not open Share when the draft cannot be saved', async () => {
+    const onSave = jest.fn(async () => {
+      throw new Error('Offline');
+    });
+    render(
+      <NotebookEditor
+        entry={{ _id: 'essay-1', title: 'Who gets to experiment, and who pays?', content: '', blocks: [], type: 'note', tags: [] }}
+        saving={false}
+        error=""
+        onSave={onSave}
+        onDelete={jest.fn()}
+        showInlineAgentDock={false}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Share' }));
+    await waitFor(() => expect(onSave).toHaveBeenCalled());
+    expect(screen.queryByTestId('notebook-share')).not.toBeInTheDocument();
+    expect(screen.getByText('Could not save this draft, so sharing did not open.')).toBeInTheDocument();
+  });
+
+  it('refreshes share after a save while the panel stays open', async () => {
+    const onSave = jest.fn(async (payload) => payload);
+    getNotebookShare
+      .mockResolvedValueOnce({
+        shared: true,
+        slug: 'essay-slug',
+        stale: false,
+        publishable: true,
+        snapshot: {
+          title: 'Who gets to experiment, and who pays?',
+          ownerDisplayName: 'Athan',
+          blocks: [{ id: 'p1', type: 'paragraph', text: 'The exception arrives first.' }]
+        },
+        preview: {
+          title: 'Who gets to experiment, and who pays?',
+          ownerDisplayName: 'Athan',
+          blocks: [{ id: 'p1', type: 'paragraph', text: 'The exception arrives first.' }]
+        },
+        currentHash: 'hash'
+      })
+      .mockResolvedValueOnce({
+        shared: true,
+        slug: 'essay-slug',
+        stale: true,
+        publishable: true,
+        snapshot: {
+          title: 'Who gets to experiment, and who pays?',
+          ownerDisplayName: 'Athan',
+          blocks: [{ id: 'p1', type: 'paragraph', text: 'The exception arrives first.' }]
+        },
+        preview: {
+          title: 'Rewritten in the workshop',
+          ownerDisplayName: 'Athan',
+          blocks: [{ id: 'p1', type: 'paragraph', text: 'Rewritten in the workshop.' }]
+        },
+        currentHash: 'hash-2'
+      });
+    render(
+      <NotebookEditor
+        entry={{ _id: 'essay-1', title: 'Who gets to experiment, and who pays?', content: '', blocks: [], type: 'note', tags: [] }}
+        saving={false}
+        error=""
+        onSave={onSave}
+        onDelete={jest.fn()}
+        showInlineAgentDock={false}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Share' }));
+    expect(await screen.findByTestId('notebook-share-preview')).toBeInTheDocument();
+    expect(getNotebookShare).toHaveBeenCalledTimes(1);
+
+    fireEvent.change(screen.getByPlaceholderText('Title'), { target: { value: 'Rewritten in the workshop' } });
+    await waitFor(() => expect(getNotebookShare).toHaveBeenCalledTimes(2), { timeout: 1800 });
+    expect(await screen.findByTestId('notebook-update-share')).toBeInTheDocument();
+    expect(screen.getByTestId('notebook-share-pending')).toHaveTextContent('Rewritten in the workshop.');
+    expect(screen.getByTestId('notebook-share-preview')).not.toHaveTextContent('Rewritten in the workshop.');
+  });
+
   it('opens source and concept insertion from Notion-style inline triggers', async () => {
     render(
       <NotebookEditor
