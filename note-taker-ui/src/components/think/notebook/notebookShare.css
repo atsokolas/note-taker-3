@@ -97,6 +97,38 @@
   color: inherit;
 }
 
+.notebook-essay__copy {
+  margin-top: 0.35rem;
+}
+
+.notebook-essay__copy button {
+  font: inherit;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+  color: var(--noeis-ink-subtle, #6b6458);
+  background: transparent;
+  border: 0;
+  padding: 0.2rem 0;
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+  cursor: pointer;
+}
+
+.notebook-essay__clip {
+  display: block;
+  width: 100%;
+  margin: 0.45rem 0 0;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid var(--noeis-rule, rgba(28, 24, 18, 0.16));
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  resize: none;
+}
+
 .notebook-essay__name-kind {
   display: block;
   margin-bottom: 0.15rem;
@@ -271,32 +303,39 @@
   font-weight: 650;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .notebook-share,
-  .notebook-essay,
-  .shared-notebook-page {
-    scroll-behavior: auto;
+@media print {
+  .notebook-essay__copy {
+    display: none;
   }
 }
 
 @media (pointer: fine) {
   .notebook-share__actions button,
   .notebook-share__open,
-  .notebook-essay__source a {
+  .notebook-essay__source a,
+  .notebook-essay__copy button {
     transition: opacity 160ms ease;
   }
 
   .notebook-share__actions button:hover,
   .notebook-share__open:hover,
-  .notebook-essay__source a:hover {
+  .notebook-essay__source a:hover,
+  .notebook-essay__copy button:hover {
     opacity: 0.72;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .notebook-share,
+  .notebook-essay,
+  .shared-notebook-page {
+    scroll-behavior: auto;
+  }
+
   .notebook-share__actions button,
   .notebook-share__open,
-  .notebook-essay__source a {
+  .notebook-essay__source a,
+  .notebook-essay__copy button {
     transition: none;
   }
 }
