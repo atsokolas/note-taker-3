@@ -244,6 +244,18 @@ describe('reading a paper an agent wrote', () => {
     expect(list).not.toHaveAttribute('open');
     expect(screen.getByRole('link', { name: 'Lab Blog · A paper about scaling' }))
       .toHaveAttribute('href', 'https://example.com/paper');
+    expect(screen.getByTestId('edition-share-open').closest('.edition__actions'))
+      .toContainElement(screen.getByTestId('edition-sources-jump'));
+  });
+
+  it('prints masthead, then the issue, then the sources list', async () => {
+    getEdition.mockResolvedValue(paper());
+    open();
+    const title = await screen.findByRole('heading', { level: 1, name: 'This Week in AI' });
+    const standfirst = screen.getByText('A quiet week with one loud paper.');
+    const sources = screen.getByTestId('edition-sources');
+    expect(title.compareDocumentPosition(standfirst) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(standfirst.compareDocumentPosition(sources) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('does not invent a source list when nothing is followable', async () => {

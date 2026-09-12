@@ -97,7 +97,7 @@ const Column = ({ section, tense }) => {
 };
 
 /* One paper, showing one of its issues, with the run underneath. */
-const FrontPage = ({ paper }) => {
+const FrontPage = ({ paper, children = null }) => {
   const [index, setIndex] = useState(paper.current);
   const [full, setFull] = useState({});
   const [turning, setTurning] = useState(false);
@@ -174,6 +174,8 @@ const FrontPage = ({ paper }) => {
           {sources.length ? <EditionSourcesJump listId={listId} onJump={jump} /> : null}
         </div>
       </header>
+
+      {children}
 
       {arrival ? (
         <p className="front__arrival" role="status">{arrival} filed one just now.</p>
@@ -261,6 +263,7 @@ const Editions = () => {
   }, []);
 
   const papers = useMemo(() => byPaper(editions || []), [editions]);
+  const inbox = editions?.length ? <EditionInbox /> : null;
 
   return (
     <div className="editions" data-testid="editions-stand">
@@ -285,9 +288,13 @@ const Editions = () => {
         </section>
       ) : null}
 
-      {editions?.length ? <EditionInbox /> : null}
-
-      {papers.map(paper => <FrontPage key={paper.profile} paper={paper} />)}
+      {papers.length
+        ? papers.map((paper, index) => (
+          <FrontPage key={paper.profile} paper={paper}>
+            {index === 0 ? inbox : null}
+          </FrontPage>
+        ))
+        : inbox}
     </div>
   );
 };

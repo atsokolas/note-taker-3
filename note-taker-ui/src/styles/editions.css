@@ -816,10 +816,10 @@
   font-weight: 500;
 }
 
-/* New arrivals. A short list before the papers, not a second broadsheet. */
+/* New arrivals sit under the nameplate, not above it. Still not a second broadsheet. */
 .edition-inbox {
-  margin: 28px 0 8px;
-  padding-bottom: 18px;
+  margin: 28px 0 0;
+  padding-bottom: 16px;
   border-bottom: 1px solid var(--noeis-rule, var(--border-subtle-2));
 }
 
