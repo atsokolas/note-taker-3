@@ -62,6 +62,10 @@ describe('edition cadence', () => {
       iso(windowFor('monthly', new Date('2026-10-01T01:00:00Z')).windowEnd)
     );
   });
+
+  it('refuses a now that is not a date rather than inventing a window', () => {
+    assert.throws(() => windowFor('weekly', new Date('yesterday')), /not a date/);
+  });
 });
 
 describe("a reader's own edition topics", () => {

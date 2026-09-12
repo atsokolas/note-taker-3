@@ -42,6 +42,15 @@ const makeStore = () => {
     /* Awaitable, and .lean()-able, because the read paths ask for plain rows
        and the write paths ask for a document they can save. */
     findOne: (query) => {
+      /* Mongoose throws CastError before it looks; the old store returned null
+         and hid the 500 OpenClaw hit on get_edition with a profile key. */
+      if (query._id && !String(query._id).startsWith('edition-')) {
+        const error = new Error(`Cast to ObjectId failed for value "${query._id}"`);
+        error.name = 'CastError';
+        error.path = '_id';
+        const rejected = Promise.reject(error);
+        return { then: (resolve, reject) => rejected.then(resolve, reject), lean: () => rejected };
+      }
       const row = () => rows.find(entry => matches(entry, query)) || null;
       return {
         then: (resolve, reject) => Promise.resolve(row() && attach(row())).then(resolve, reject),
@@ -147,7 +156,7 @@ describe('the newsstand', () => {
     app.use(buildEditionRouter({
       auth: (req, _res, next) => {
         req.user = { id: 'user-1' };
-        if (asAgent) req.agentToken = { id: 'token-1', name: 'OpenClaw · Jarvis' };
+        if (asAgent) req.agentToken = { id: 'token-1', label: 'OpenClaw · Jarvis' };
         next();
       },
       humanOnly: (req, res, next) => (
@@ -552,6 +561,10 @@ describe('the newsstand', () => {
     asAgent = false;
     expect((await send(`/api/editions/${made.body._id}`)).body.items).toHaveLength(2);
     expect((await send('/api/editions/missing')).status).toBe(404);
+    /* A profile key is not an edition id. Mongoose CastError used to 500 here. */
+    const asProfile = await send('/api/editions/this_week_in_ai');
+    expect(asProfile.status).toBe(404);
+    expect(asProfile.body.error).toBe('No such edition.');
   });
 
   /* An agent that could delete its own back issues could quietly rewrite what
@@ -587,7 +600,7 @@ describe('topics the reader configures, and filing into them', () => {
     app.use(buildEditionRouter({
       auth: (req, _res, next) => {
         req.user = { id: 'user-1' };
-        req.agentToken = { id: 'token-1', name: 'OpenClaw · Jarvis' };
+        req.agentToken = { id: 'token-1', label: 'OpenClaw · Jarvis' };
         next();
       },
       humanOnly: (req, res, next) => (
@@ -732,6 +745,49 @@ describe('topics the reader configures, and filing into them', () => {
     await send('/api/editions/file', 'POST', { profile: 'ai_daily', items: [finding({ url: 'https://example.com/two' })], now: '2026-09-10T10:00:00Z' });
     expect(Edition.rows).toHaveLength(2);
   });
+
+  it('refuses a now that is not a date rather than 500ing the file', async () => {
+    await configure();
+    const bad = await send('/api/editions/file', 'POST', { profile: 'biotech', items: [finding()], now: 'yesterday' });
+    expect(bad.status).toBe(400);
+    expect(bad.body.field).toBe('now');
+    expect(Edition.rows).toHaveLength(0);
+  });
+
+  it('lands in the running issue when two filings race the window', async () => {
+    await configure();
+    const first = await send('/api/editions/file', 'POST', { profile: 'biotech', items: [finding()] });
+    expect(first.status).toBe(201);
+
+    const originalFindOne = Edition.findOne;
+    const originalCreate = Edition.create;
+    let skipped = 1;
+    Edition.findOne = (query) => {
+      if (skipped > 0 && query.profile) {
+        skipped -= 1;
+        return { then: (resolve, reject) => Promise.resolve(null).then(resolve, reject), lean: async () => null };
+      }
+      return originalFindOne(query);
+    };
+    Edition.create = async () => {
+      const error = new Error('E11000 duplicate key');
+      error.code = 11000;
+      throw error;
+    };
+    try {
+      const raced = await send('/api/editions/file', 'POST', {
+        profile: 'biotech',
+        items: [finding({ title: 'A second readout', url: 'https://example.com/two' })]
+      });
+      expect(raced.status).toBe(200);
+      expect(raced.body.itemCount).toBe(2);
+      expect(raced.body.added).toBe(1);
+      expect(Edition.rows).toHaveLength(1);
+    } finally {
+      Edition.findOne = originalFindOne;
+      Edition.create = originalCreate;
+    }
+  });
 });
 
 /**
@@ -758,7 +814,7 @@ describe('a section keeps its own byline', () => {
     app.use(buildEditionRouter({
       auth: (req, _res, next) => {
         req.user = { id: 'user-1' };
-        req.agentToken = { id: 'token-1', name: agent };
+        req.agentToken = { id: 'token-1', label: agent };
         next();
       },
       Edition,
@@ -819,5 +875,30 @@ describe('a section keeps its own byline', () => {
       items: [finding(), finding({ url: 'https://example.com/three' })]
     });
     expect(rewritten.body.items.map(item => item.filedBy)).toEqual(['Jarvis', 'Hermes']);
+  });
+});
+
+describe('the edition document', () => {
+  const mongoose = require('mongoose');
+  const { Edition } = require('../../models');
+
+  it('keeps a byline when the token id is not an ObjectId', () => {
+    const doc = new Edition({
+      userId: new mongoose.Types.ObjectId(),
+      profile: 'this_week_in_ai',
+      title: 'This Week in AI',
+      windowStart: new Date('2026-09-06'),
+      windowEnd: new Date('2026-09-12'),
+      writtenBy: { label: 'OpenClaw · Jarvis', agentTokenId: 'token-1' },
+      items: [{
+        itemId: 'item-1',
+        title: 'A paper',
+        url: 'https://example.com/a',
+        finding: 'It reports a twelve point improvement.',
+        boundary: 'One lab.',
+        filedBy: { label: 'OpenClaw · Jarvis', agentTokenId: 'token-1' }
+      }]
+    });
+    expect(doc.validateSync()).toBeUndefined();
   });
 });
