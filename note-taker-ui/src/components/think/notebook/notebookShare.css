@@ -1,0 +1,296 @@
+/* The published notebook: one column of writing. Preview and public page
+   share this so the owner sees the recipient page, not a sketch of it. */
+
+.notebook-essay {
+  max-width: 62ch;
+  color: var(--noeis-ink, #1c1812);
+}
+
+.notebook-essay.is-compact {
+  font-size: 0.94em;
+}
+
+.notebook-essay__header {
+  margin: 0 0 1.75rem;
+}
+
+.notebook-essay__eyebrow,
+.notebook-essay__by,
+.notebook-essay__name-kind,
+.notebook-essay__source {
+  margin: 0;
+  color: var(--noeis-ink-subtle, #6b6458);
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+}
+
+.notebook-essay__eyebrow {
+  margin-bottom: 0.45rem;
+  font-weight: 650;
+  text-transform: uppercase;
+}
+
+.notebook-essay__title {
+  margin: 0;
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: clamp(1.8rem, 3.2vw, 2.55rem);
+  font-weight: 400;
+  line-height: 1.12;
+  text-wrap: balance;
+}
+
+.notebook-essay__by {
+  margin-top: 0.7rem;
+  letter-spacing: 0;
+}
+
+.notebook-essay__body {
+  display: grid;
+  gap: 1.1rem;
+}
+
+.notebook-essay__heading,
+.notebook-essay__prose,
+.notebook-essay__bullet,
+.notebook-essay__quote p,
+.notebook-essay__name {
+  margin: 0;
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  line-height: 1.55;
+}
+
+.notebook-essay__heading {
+  font-size: 1.25em;
+  font-weight: 500;
+}
+
+.notebook-essay__bullet {
+  padding-left: calc(1.1em + (var(--indent, 0) * 1.1em));
+}
+
+.notebook-essay__bullet::before {
+  content: "·";
+  display: inline-block;
+  width: 1.1em;
+  margin-left: -1.1em;
+}
+
+.notebook-essay__quote {
+  margin: 0;
+  padding: 0 0 0 1rem;
+  border-left: 1px solid var(--noeis-rule, rgba(28, 24, 18, 0.18));
+}
+
+.notebook-essay__quote p {
+  font-style: italic;
+}
+
+.notebook-essay__source {
+  display: block;
+  margin-top: 0.45rem;
+  font-style: normal;
+  letter-spacing: 0;
+}
+
+.notebook-essay__source a {
+  color: inherit;
+}
+
+.notebook-essay__name-kind {
+  display: block;
+  margin-bottom: 0.15rem;
+  font-weight: 650;
+  text-transform: uppercase;
+}
+
+.notebook-essay__code {
+  margin: 0;
+  overflow-x: auto;
+  font-size: 0.88em;
+  line-height: 1.45;
+}
+
+.notebook-essay__rule {
+  margin: 0.4rem 0;
+  border: 0;
+  border-top: 1px solid var(--noeis-rule, rgba(28, 24, 18, 0.16));
+}
+
+.notebook-share {
+  display: grid;
+  gap: 0.85rem;
+  margin: 0.75rem 0 0;
+  padding: 1rem 0 0;
+  border-top: 1px solid var(--noeis-rule, rgba(28, 24, 18, 0.12));
+}
+
+.notebook-share__privacy,
+.notebook-share__hint,
+.notebook-share__status,
+.notebook-share__error,
+.notebook-share__kicker {
+  margin: 0;
+  max-width: 62ch;
+  color: var(--noeis-ink-subtle, #6b6458);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.notebook-share__preview-label,
+.notebook-share__url-label {
+  margin: 0 0 0.35rem;
+  color: var(--noeis-ink-subtle, #6b6458);
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.notebook-share__preview {
+  padding: 1rem 0;
+  border-top: 1px solid var(--noeis-rule, rgba(28, 24, 18, 0.08));
+  border-bottom: 1px solid var(--noeis-rule, rgba(28, 24, 18, 0.08));
+}
+
+.notebook-share__url {
+  display: block;
+  width: 100%;
+  max-width: 62ch;
+  margin: 0 0 0.7rem;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--noeis-rule, rgba(28, 24, 18, 0.16));
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  font-size: 0.9rem;
+}
+
+.notebook-share__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  align-items: center;
+}
+
+.notebook-share__actions button,
+.notebook-share__open {
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+  cursor: pointer;
+}
+
+.notebook-share__actions button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.notebook-share__error {
+  color: var(--noeis-danger, #8a2f21);
+}
+
+.shared-notebook-page {
+  min-height: 100vh;
+  padding: 2.5rem 1.25rem 4rem;
+  background: var(--vellum-bg, var(--bg-primary));
+}
+
+.shared-notebook-page__inner {
+  max-width: 62ch;
+  margin: 0 auto;
+}
+
+.shared-notebook-page__home {
+  display: inline-block;
+  margin-bottom: 2rem;
+  color: var(--noeis-ink-subtle, #6b6458);
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.84rem;
+}
+
+.shared-notebook-page__colophon {
+  margin: 2.5rem 0 0;
+  max-width: 54ch;
+  color: var(--noeis-ink-subtle, #6b6458);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.shared-notebook-page__quiet {
+  margin: 4rem auto;
+  max-width: 42ch;
+  font-style: italic;
+  color: var(--noeis-ink-subtle, #6b6458);
+}
+
+.notebook-share-preview {
+  min-height: 100vh;
+  padding: 1.25rem 1.25rem 3rem;
+  background: var(--vellum-bg, var(--bg-primary));
+}
+
+.notebook-share-preview__stage {
+  width: min(var(--preview-width, 1440px), 100%);
+  margin: 1.25rem auto 0;
+  padding: 1.5rem 1.25rem 2.5rem;
+  border: 1px solid var(--noeis-rule, rgba(28, 24, 18, 0.12));
+}
+
+.notebook-share-preview__controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.84rem;
+}
+
+.notebook-share-preview__controls button {
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 0.16em;
+  cursor: pointer;
+}
+
+.notebook-share-preview__controls button[aria-pressed="true"] {
+  text-decoration: none;
+  font-weight: 650;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .notebook-share,
+  .notebook-essay,
+  .shared-notebook-page {
+    scroll-behavior: auto;
+  }
+}
+
+@media (pointer: fine) {
+  .notebook-share__actions button,
+  .notebook-share__open,
+  .notebook-essay__source a {
+    transition: opacity 160ms ease;
+  }
+
+  .notebook-share__actions button:hover,
+  .notebook-share__open:hover,
+  .notebook-essay__source a:hover {
+    opacity: 0.72;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .notebook-share__actions button,
+  .notebook-share__open,
+  .notebook-essay__source a {
+    transition: none;
+  }
+}

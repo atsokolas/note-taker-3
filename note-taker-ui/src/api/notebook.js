@@ -78,3 +78,36 @@ export const disposeNotebookSourceCorrection = async (id, { eventId, action }) =
   }, getAuthHeaders());
   return res.data;
 };
+
+export const getNotebookShare = async (id) => {
+  const res = await api.get(`/api/notebook/${encodeURIComponent(id)}/share`, getAuthHeaders());
+  return res.data || { shared: false };
+};
+
+export const publishNotebookShare = async (id, body = {}) => {
+  const res = await api.post(
+    `/api/notebook/${encodeURIComponent(id)}/share`,
+    body,
+    getAuthHeaders()
+  );
+  return res.data || { shared: false };
+};
+
+export const updateNotebookShare = async (id, body = {}) => {
+  const res = await api.put(
+    `/api/notebook/${encodeURIComponent(id)}/share`,
+    body,
+    getAuthHeaders()
+  );
+  return res.data || { shared: false };
+};
+
+export const revokeNotebookShare = async (id) => {
+  const res = await api.delete(`/api/notebook/${encodeURIComponent(id)}/share`, getAuthHeaders());
+  return res.data || { revoked: true };
+};
+
+export const getPublicNotebook = async (slug) => {
+  const res = await api.get(`/api/public/notebooks/${encodeURIComponent(slug)}`);
+  return res.data || null;
+};

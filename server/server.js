@@ -161,6 +161,7 @@ const {
   EditionProfile,
   MorningPaperRecord,
   SharedEdition,
+  SharedNotebook,
   ReadingLoopEdition,
   VectorItem,
   SharedConcept,
@@ -5378,7 +5379,9 @@ app.use(buildNotebookRouter({
   Article,
   TagMeta,
   Question,
-  NoeisReceipt
+  NoeisReceipt,
+  SharedNotebook,
+  User
 }));
 
 app.use(buildAuthoredExplorationRouter({
