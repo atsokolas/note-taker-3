@@ -127,35 +127,33 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
   animation: think-agent-thread 700ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* One push, two causes.
+/* One push, both directions.
 
    Typing and held focus share this motion: the columns close and the words
    are carried with them — clipped at the inner edge, fading on the same
-   short ease. Not rails first, then a dissolve; not a stagger between
-   sides. Hover or keyboard focus peeks a rail back along the same curve. */
+   short ease. Coming back is that push reversed: the rails grow and bring
+   the words in with them. Not the page first, then the rails; not a stagger
+   between sides. Hover or keyboard focus peeks a rail back along the same
+   curve.
+
+   Discrete properties stay put. Toggling page width, rail position,
+   overflow-y, or ::after content with the body class made leave-focus snap
+   the measure, then fade the rails — the sequential lump coming off typing. */
 @media (min-width: 1181px) {
   .think-notes {
     /* Pixel tracks interpolate; minmax() to 30px is discrete and reads as
        rails jumping after the words have already started to go. */
     grid-template-columns: 220px minmax(420px, 1fr) 280px;
-    transition:
-      grid-template-columns var(--think-rail-push),
-      gap var(--think-rail-push);
   }
 
   /* Whether the rails are there is not a motion question — only how they
      leave is. Gating the outcome on the animation preference gave a reader
      with reduced motion a focus mode that held its state, changed its label,
      and did nothing: the class went on the body and no rule below matched it.
-     The transition above is the part that respects the preference. */
+     The transition below is the part that respects the preference. */
   body:is(.think-rails-away, .think-focus-held) .think-notes {
     grid-template-columns: 30px minmax(420px, 1fr) 30px;
     gap: 18px;
-  }
-
-  body:is(.think-rails-away, .think-focus-held) .think-notes__note {
-    width: 100%;
-    justify-self: center;
   }
 
   body:is(.think-rails-away, .think-focus-held) .think-notes:has([data-writing-rail='left']:is(:hover, :focus-within)) {
@@ -184,14 +182,6 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
     --think-rail-rest: 280px;
   }
 
-  body.noeis-editorial .notebook-editorial-shell,
-  body.noeis-editorial .think-home-editorial-shell,
-  body.noeis-editorial .concept-index-editorial-shell {
-    transition:
-      grid-template-columns var(--think-rail-push),
-      gap var(--think-rail-push);
-  }
-
   /* Outrank stitch-editorial's resting 250/300 (and 260/320 under 1360px).
      FocusMode imports this file before App imports stitch-editorial, so equal
      specificity would leave two full-width empty columns while the words fade. */
@@ -215,9 +205,17 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
   }
 
   /* Lock the words at the rail's resting width so a closing column clips
-     them instead of reflowing the text, then dissolving it afterwards. */
+     them instead of reflowing the text, then dissolving it afterwards.
+     The same lock lets an opening column grow the words back in. Sticky
+     asides already position ::after. Think notes marks an inner shelf, so
+     relative is standing, not a class toggle — toggling position or
+     overflow-y with the body class snapped the box, then faded the rails. */
   [data-writing-rail] {
     overflow-x: hidden;
+  }
+
+  .think-notes [data-writing-rail] {
+    position: relative;
   }
 
   [data-writing-rail='left'] {
@@ -232,28 +230,12 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
     box-sizing: border-box;
     min-width: var(--think-rail-rest);
     opacity: 1;
-    transition: opacity var(--think-rail-push);
   }
 
   [data-writing-rail]::after {
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity var(--think-rail-push);
-  }
-
-  body:is(.think-rails-away, .think-focus-held) [data-writing-rail] {
-    position: relative;
-    overflow-y: hidden;
-    cursor: pointer;
-  }
-
-  body:is(.think-rails-away, .think-focus-held) [data-writing-rail] > * {
-    opacity: 0;
-  }
-
-  body:is(.think-rails-away, .think-focus-held) [data-writing-rail]::after {
     position: absolute;
     top: min(30vh, 240px);
+    z-index: 1;
     display: block;
     width: 18px;
     padding-block: 6px;
@@ -265,21 +247,32 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
     letter-spacing: 0.16em;
     text-transform: uppercase;
     writing-mode: vertical-rl;
-    opacity: 0.82;
-    transition: opacity var(--think-rail-push);
+    opacity: 0;
+    pointer-events: none;
   }
 
-  body:is(.think-rails-away, .think-focus-held) [data-writing-rail='left']::after {
+  [data-writing-rail='left']::after {
     right: 3px;
     transform: rotate(180deg);
   }
 
-  body:is(.think-rails-away, .think-focus-held) [data-writing-rail='right']::after {
+  [data-writing-rail='right']::after {
     left: 3px;
   }
 
+  body:is(.think-rails-away, .think-focus-held) [data-writing-rail] {
+    cursor: pointer;
+  }
+
+  body:is(.think-rails-away, .think-focus-held) [data-writing-rail] > * {
+    opacity: 0;
+  }
+
+  body:is(.think-rails-away, .think-focus-held) [data-writing-rail]::after {
+    opacity: 0.82;
+  }
+
   body:is(.think-rails-away, .think-focus-held) [data-writing-rail]:is(:hover, :focus-within) {
-    overflow-y: auto;
     cursor: default;
   }
 
@@ -289,6 +282,22 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
 
   body:is(.think-rails-away, .think-focus-held) [data-writing-rail]:is(:hover, :focus-within)::after {
     opacity: 0;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .think-notes,
+    body.noeis-editorial .notebook-editorial-shell,
+    body.noeis-editorial .think-home-editorial-shell,
+    body.noeis-editorial .concept-index-editorial-shell {
+      transition:
+        grid-template-columns var(--think-rail-push),
+        gap var(--think-rail-push);
+    }
+
+    [data-writing-rail] > *,
+    [data-writing-rail]::after {
+      transition: opacity var(--think-rail-push);
+    }
   }
 }
 
