@@ -309,3 +309,34 @@ export const publicSourceHref = (value) => {
     return '';
   }
 };
+
+const hostOf = (href) => {
+  try {
+    return new URL(href).hostname.replace(/^www\./, '');
+  } catch (_error) {
+    return '';
+  }
+};
+
+/**
+ * The sources an issue actually cites.
+ *
+ * Eligibility: a filed item with a followable URL. Quality: http(s) only, one
+ * entry per href, labelled from what the item already carried. Silence: nothing
+ * qualifies — no invented links, no placeholder row.
+ */
+export const sourceLinks = (edition = null) => {
+  const items = Array.isArray(edition?.items) ? edition.items : [];
+  const seen = new Set();
+  const links = [];
+  items.forEach((item) => {
+    const href = publicSourceHref(item?.url);
+    if (!href || seen.has(href)) return;
+    seen.add(href);
+    const label = [item.sourceLabel, item.title].filter(Boolean).join(' · ')
+      || hostOf(href)
+      || href;
+    links.push({ href, label });
+  });
+  return links;
+};

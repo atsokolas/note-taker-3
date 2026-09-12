@@ -4,6 +4,11 @@ import { getEdition, listEditions } from '../api/editions';
 import EditionInbox from '../components/editions/EditionInbox';
 import EditionShare from '../components/editions/EditionShare';
 import {
+  EditionSourcesJump,
+  EditionSourcesList,
+  useEditionSources
+} from '../components/editions/EditionSources';
+import {
   bylineFor, byPaper, closesLine, datelineLine, editionColumnStyle, folioLine,
   gapLine, issueLine, runLine, standLayout, stateOf, takenLine
 } from './editionModel';
@@ -35,6 +40,7 @@ const issueName = (edition) => issueLine(edition) || datelineLine(edition) || 'I
 /* A story: the headline, and the finding folded underneath it. */
 const Story = ({ item }) => {
   const [open, setOpen] = useState(false);
+  const source = [item.sourceLabel, item.sourceDate].filter(Boolean).join(' · ');
   return (
     <article className={`story${open ? ' is-open' : ''}`}>
       <button
@@ -44,12 +50,7 @@ const Story = ({ item }) => {
         onClick={() => setOpen(value => !value)}
       >
         <h4 className="story__title">{item.title}</h4>
-        <span className="story__source">
-          <span>
-            {[item.sourceLabel, item.sourceDate].filter(Boolean).join(' · ')}
-          </span>
-          <span className="story__fold" aria-hidden="true">{open ? 'fold' : 'unfold'}</span>
-        </span>
+        {source ? <span className="story__source">{source}</span> : null}
       </button>
       <div className="story__body">
         <div>
@@ -78,10 +79,7 @@ const Column = ({ section, tense }) => {
   const byline = bylineFor(section.items);
   return (
     <section className="column">
-      <h3 className="column__head noeis-caps">
-        <span>{section.label}</span>
-        <b>{section.items.length || '—'}</b>
-      </h3>
+      <h3 className="column__head noeis-caps">{section.label}</h3>
       {/* Two agents can keep one paper, so a section is entitled to its own
           byline rather than inheriting whichever wrote the issue last. */}
       {byline ? <p className="column__byline">{byline}</p> : null}
@@ -151,6 +149,7 @@ const FrontPage = ({ paper }) => {
 
   const layout = standLayout(opened);
   const { columns, looseItems } = layout;
+  const { sources, listId, listRef, jump } = useEditionSources(opened);
 
   return (
     <section className="front" aria-label={paper.title}>
@@ -170,7 +169,10 @@ const FrontPage = ({ paper }) => {
             {tense === 'filling' ? `Filling · ${closesLine(issue).toLowerCase()}` : closesLine(issue)}
           </span>
         </p>
-        <EditionShare key={issue._id} editionId={issue._id} edition={opened} />
+        <div className="front__actions">
+          <EditionShare key={issue._id} editionId={issue._id} edition={opened} />
+          {sources.length ? <EditionSourcesJump listId={listId} onJump={jump} /> : null}
+        </div>
       </header>
 
       {arrival ? (
@@ -234,6 +236,10 @@ const FrontPage = ({ paper }) => {
       </nav>
 
       {tense === 'closed' && gapLine(issue) ? <p className="front__gap">{gapLine(issue)}</p> : null}
+
+      {sources.length ? (
+        <EditionSourcesList sources={sources} listId={listId} listRef={listRef} />
+      ) : null}
     </section>
   );
 };
@@ -282,19 +288,6 @@ const Editions = () => {
       {editions?.length ? <EditionInbox /> : null}
 
       {papers.map(paper => <FrontPage key={paper.profile} paper={paper} />)}
-
-      {papers.length ? (
-        <footer className="editions__door">
-          <p className="editions__door-lede">A paper is a sentence you say to your agent.</p>
-          <p className="editions__say">
-            “Keep me a monthly edition on climate tech, with sections for deployment
-            evidence, counterevidence and policy.”
-          </p>
-          <p className="editions__door-note">
-            Daily, weekly or monthly. Every item still has to say what would limit it.
-          </p>
-        </footer>
-      ) : null}
     </div>
   );
 };

@@ -33,5 +33,17 @@ describe('edition motion stays calm', () => {
     expect(css).toMatch(
       /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.issue,[\s\S]*?transition:\s*none/s
     );
+    expect(css).toMatch(
+      /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.edition-sources__summary::before \{\s*transition:\s*none/s
+    );
+  });
+
+  it('keeps section-flag and source-caret extras on fine pointers only', () => {
+    expect(css).toMatch(
+      /@media \(hover: hover\) and \(pointer: fine\)[\s\S]*?\.column__head::after\s*\{[^}]*transition:/s
+    );
+    expect(css).toMatch(
+      /@media \(hover: hover\) and \(pointer: fine\)[\s\S]*?\.edition-sources__summary::before\s*\{[^}]*transition:/s
+    );
   });
 });

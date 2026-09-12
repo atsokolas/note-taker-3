@@ -1,7 +1,7 @@
 import {
   byInboxEdition, byPaper, bylineFor, bySection, closesLine, datelineLine,
   editionColumnStyle, gapLine, inboxEditionLine, issueLine, publicSourceHref,
-  runLine, standLayout, stateOf, takenLine, windowLine
+  runLine, sourceLinks, standLayout, stateOf, takenLine, windowLine
 } from './editionModel';
 
 describe('the window a paper covers', () => {
@@ -312,6 +312,42 @@ describe('a source a stranger may follow', () => {
     expect(publicSourceHref('https://example.com/p')).toBe('https://example.com/p');
     expect(publicSourceHref('javascript:alert(1)')).toBe('');
     expect(publicSourceHref('not a url')).toBe('');
+  });
+});
+
+describe('the sources an issue cites', () => {
+  it('lists followable items once, labelled from what they already carried', () => {
+    expect(sourceLinks({
+      items: [
+        { title: 'A paper', url: 'https://example.com/a', sourceLabel: 'arXiv' },
+        { title: 'Same url again', url: 'https://example.com/a', sourceLabel: 'arXiv' },
+        { title: 'Another', url: 'https://example.com/b' }
+      ]
+    })).toEqual([
+      { href: 'https://example.com/a', label: 'arXiv · A paper' },
+      { href: 'https://example.com/b', label: 'Another' }
+    ]);
+  });
+
+  it('drops javascript and empty urls rather than inventing a link', () => {
+    expect(sourceLinks({
+      items: [
+        { title: 'Unsafe', url: 'javascript:alert(1)' },
+        { title: 'No url' },
+        { title: 'Blank', url: '   ' }
+      ]
+    })).toEqual([]);
+  });
+
+  it('stays silent when there is nothing to cite', () => {
+    expect(sourceLinks({ items: [] })).toEqual([]);
+    expect(sourceLinks()).toEqual([]);
+  });
+
+  it('falls back to the host rather than a placeholder name', () => {
+    expect(sourceLinks({ items: [{ url: 'https://www.example.com/p' }] })).toEqual([
+      { href: 'https://www.example.com/p', label: 'example.com' }
+    ]);
   });
 });
 

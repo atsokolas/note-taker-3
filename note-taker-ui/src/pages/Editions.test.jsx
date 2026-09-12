@@ -194,6 +194,39 @@ describe('the newsstand', () => {
     expect(await screen.findByTestId('edition-share-open')).toHaveTextContent('Share');
   });
 
+  it('offers the sources in the same bar, then a folded list of the real links', async () => {
+    listEditions.mockResolvedValue([row()]);
+    open();
+    expect(await screen.findByTestId('edition-sources-jump')).toHaveTextContent('Show me the sources');
+    const list = screen.getByTestId('edition-sources');
+    expect(list).not.toHaveAttribute('open');
+    await userEvent.click(screen.getByText('The sources'));
+    expect(list).toHaveAttribute('open');
+    expect(screen.getByRole('link', { name: 'arXiv · A Unified Framework for VLA Agents' }))
+      .toHaveAttribute('href', 'https://example.com/vla');
+  });
+
+  it('stays silent about sources when none are followable', async () => {
+    listEditions.mockResolvedValue([row({ itemCount: 0 })]);
+    getEdition.mockResolvedValue(full({
+      items: [{ ...item(), url: 'javascript:alert(1)' }],
+      itemCount: 0
+    }));
+    open();
+    await screen.findByRole('heading', { name: 'This Week in AI' });
+    expect(screen.queryByTestId('edition-sources-jump')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('edition-sources')).not.toBeInTheDocument();
+  });
+
+  it('does not print fold labels or the old how-to door', async () => {
+    listEditions.mockResolvedValue([row()]);
+    open();
+    await screen.findByText('Models & methods');
+    expect(screen.queryByText('unfold')).not.toBeInTheDocument();
+    expect(screen.queryByText('fold')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Keep me a monthly edition/)).not.toBeInTheDocument();
+  });
+
   it('puts new arrivals above the papers', async () => {
     listEditions.mockResolvedValue([row()]);
     getEditionInbox.mockResolvedValue({

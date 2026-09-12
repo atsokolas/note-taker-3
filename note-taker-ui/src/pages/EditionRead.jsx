@@ -2,6 +2,11 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { getEdition, saveEditionItem, saveEditionItemLater, setEditionItemState } from '../api/editions';
 import EditionShare from '../components/editions/EditionShare';
+import {
+  EditionSourcesJump,
+  EditionSourcesList,
+  useEditionSources
+} from '../components/editions/EditionSources';
 import { gapLine, issueLine, standLayout, takenLine, windowLine } from './editionModel';
 
 /**
@@ -149,6 +154,8 @@ const EditionRead = () => {
     }
   }, [id]);
 
+  const { sources, listId, listRef, jump } = useEditionSources(edition);
+
   if (error && !edition) {
     return (
       <div className="edition">
@@ -187,7 +194,10 @@ const EditionRead = () => {
             their agents to argue with. */}
         {edition.writtenBy ? <p className="edition__byline">Written by {edition.writtenBy}</p> : null}
         <p className="edition__taken">{takenLine(edition)}</p>
-        <EditionShare editionId={id} edition={edition} />
+        <div className="edition__actions">
+          <EditionShare editionId={id} edition={edition} />
+          {sources.length ? <EditionSourcesJump listId={listId} onJump={jump} /> : null}
+        </div>
       </header>
 
       {error ? <p className="status-message error-message">{error}</p> : null}
@@ -230,6 +240,10 @@ const EditionRead = () => {
       ) : null}
 
       {gap ? <p className="edition__gap">{gap}</p> : null}
+
+      {sources.length ? (
+        <EditionSourcesList sources={sources} listId={listId} listRef={listRef} />
+      ) : null}
     </div>
   );
 };
