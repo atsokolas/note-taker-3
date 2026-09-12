@@ -587,6 +587,19 @@
   margin: 10px 0 0;
 }
 
+/* Share's panel is not an action. contents lets the summary sit with the
+   jump, and the preview take the next full row instead of stretching the bar. */
+.front__actions .edition-share,
+.edition__actions .edition-share {
+  display: contents;
+}
+
+.front__actions .edition-share__panel,
+.edition__actions .edition-share__panel {
+  flex: 1 0 100%;
+  order: 2;
+}
+
 .edition-sources-jump,
 .edition-share > summary {
   display: inline-flex;

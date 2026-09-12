@@ -38,6 +38,15 @@ describe('edition motion stays calm', () => {
     );
   });
 
+  it('keeps the open share panel on its own row under the actions', () => {
+    expect(css).toMatch(
+      /\.front__actions \.edition-share,[\s\S]*?display:\s*contents/s
+    );
+    expect(css).toMatch(
+      /\.front__actions \.edition-share__panel,[\s\S]*?flex:\s*1 0 100%/s
+    );
+  });
+
   it('keeps section-flag and source-caret extras on fine pointers only', () => {
     expect(css).toMatch(
       /@media \(hover: hover\) and \(pointer: fine\)[\s\S]*?\.column__head::after\s*\{[^}]*transition:/s
