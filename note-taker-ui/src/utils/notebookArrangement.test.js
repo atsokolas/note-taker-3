@@ -93,6 +93,28 @@ describe('notebookArrangement', () => {
     expect(focus).toHaveBeenCalled();
   });
 
+  it('selects an atom passage as a node after it moves, not the following text', () => {
+    const divider = { type: 'horizontalRule', attrs: { blockId: 'hr-1' } };
+    const after = paragraph('Who pays?', 'after');
+    const doc = { type: 'doc', content: [divider, after] };
+    const setNodeSelection = jest.fn();
+    const setTextSelection = jest.fn();
+    const focus = jest.fn();
+    const editor = {
+      getJSON: () => doc,
+      state: {
+        doc: {
+          forEach: (fn) => fn({ ...divider, isAtom: true, isLeaf: true }, 0, 0)
+        }
+      },
+      commands: { setNodeSelection, setTextSelection, focus }
+    };
+    expect(focusPieceInEditor(editor, 0)).toBe(true);
+    expect(setNodeSelection).toHaveBeenCalledWith(0);
+    expect(setTextSelection).not.toHaveBeenCalled();
+    expect(focus).toHaveBeenCalled();
+  });
+
   it('moves the exception before the rule without dropping its citation', () => {
     const result = movePieceInDocument(essayDoc, 1, 'up');
     expect(result.moved).toBe(true);

@@ -99,26 +99,43 @@ export const pieceIndexForSelection = (doc, selection) => {
   return null;
 };
 
+const isAtomBlock = (node) => Boolean(
+  node?.isAtom
+  || node?.isLeaf
+  || node?.type?.isAtom
+  || node?.type?.isLeaf
+);
+
 export const focusPieceInEditor = (editor, pieceIndex) => {
   const pieces = groupDocPieces(editor?.getJSON?.());
   const piece = pieces[pieceIndex];
   const doc = editor?.state?.doc;
   if (!piece || typeof doc?.forEach !== 'function') return false;
-  let pos = null;
-  doc.forEach((_node, offset, index) => {
-    if (index === piece.startIndex) pos = offset + 1;
+  let offset = null;
+  let node = null;
+  doc.forEach((child, pos, index) => {
+    if (index === piece.startIndex) {
+      offset = pos;
+      node = child;
+    }
   });
-  if (!Number.isInteger(pos)) return false;
+  if (!Number.isInteger(offset) || !node) return false;
+  if (isAtomBlock(node) && editor.commands?.setNodeSelection) {
+    editor.commands.setNodeSelection(offset);
+    editor.commands.focus?.();
+    return true;
+  }
+  const caretPos = offset + 1;
   if (editor.commands?.setTextSelection) {
-    editor.commands.setTextSelection(pos);
+    editor.commands.setTextSelection(caretPos);
     editor.commands.focus?.();
     return true;
   }
   if (editor.chain) {
-    editor.chain().focus(pos).run();
+    editor.chain().focus(caretPos).run();
     return true;
   }
-  editor.commands?.focus?.(pos);
+  editor.commands?.focus?.(caretPos);
   return Boolean(editor.commands?.focus);
 };
 

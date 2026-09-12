@@ -112,6 +112,7 @@ jest.mock('../../../hooks/useMotionPreferences', () => ({
 describe('NotebookEditor', () => {
   const beginEditingEssay = () => {
     fireEvent.click(screen.getByTestId('editor-content'));
+    fireEvent.focus(document.querySelector('.think-notebook-editor__body'));
   };
 
   beforeEach(() => {
@@ -670,6 +671,51 @@ describe('NotebookEditor', () => {
     expect(screen.getByRole('toolbar', {
       name: 'This passage: The exception is when the downside lands on someone who never chose the experiment.'
     })).toBeInTheDocument();
+  });
+
+  it('hides the hover bar when focus leaves the essay for the title, Export, or Structure', () => {
+    mockEditor.getJSON.mockReturnValue({
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          attrs: { blockId: 'rule' },
+          content: [{ type: 'text', text: 'Recoverable mistakes belong to the person who can still put things back.' }]
+        }
+      ]
+    });
+    mockEditor.state.selection.$from.index.mockReturnValue(0);
+
+    render(
+      <NotebookEditor
+        entry={{ _id: 'essay-1', title: 'Letter', content: '', blocks: [], type: 'note', tags: [] }}
+        saving={false}
+        error=""
+        onSave={jest.fn()}
+        onDelete={jest.fn()}
+        showInlineAgentDock={false}
+      />
+    );
+
+    beginEditingEssay();
+    expect(screen.getByRole('toolbar', {
+      name: 'This passage: Recoverable mistakes belong to the person who can still put things back.'
+    })).toBeInTheDocument();
+
+    const body = document.querySelector('.think-notebook-editor__body');
+    fireEvent.blur(body, { relatedTarget: screen.getByPlaceholderText('Title') });
+    expect(screen.queryByRole('toolbar')).not.toBeInTheDocument();
+
+    fireEvent.focus(body);
+    expect(screen.getByRole('toolbar', {
+      name: 'This passage: Recoverable mistakes belong to the person who can still put things back.'
+    })).toBeInTheDocument();
+    fireEvent.blur(body, { relatedTarget: screen.getByRole('button', { name: 'Export' }) });
+    expect(screen.queryByRole('toolbar')).not.toBeInTheDocument();
+
+    fireEvent.focus(body);
+    fireEvent.blur(body, { relatedTarget: screen.getByRole('button', { name: 'Structure' }) });
+    expect(screen.queryByRole('toolbar')).not.toBeInTheDocument();
   });
 
   it('moves the exception before the rule, then undoes that move', () => {

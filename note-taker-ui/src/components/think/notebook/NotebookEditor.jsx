@@ -488,6 +488,7 @@ const NotebookEditor = ({
      stray one on the way to the search field) landed in the note. Editing is
      now something you ask for: click the body, or press Edit. */
   const [editingBody, setEditingBody] = useState(false);
+  const [bodyHasFocus, setBodyHasFocus] = useState(false);
   const [asidePieces, setAsidePieces] = useState(() => hydrateAsidePieces(entry?.asidePieces));
   const asidePiecesRef = useRef(asidePieces);
   const writeAsidePieces = (next) => {
@@ -548,6 +549,7 @@ const NotebookEditor = ({
      read a word of it. */
   useEffect(() => {
     setEditingBody(startWriting);
+    setBodyHasFocus(false);
     const focusFrame = startWriting
       ? window.requestAnimationFrame?.(() => editor?.commands.focus('start'))
       : null;
@@ -1380,8 +1382,12 @@ const NotebookEditor = ({
       <div
         className={`think-notebook-editor__body${editingBody ? ' is-editing' : ''}${agentThreadPulse ? ' is-connecting-agent' : ''}`}
         onClick={startEditingBody}
+        onFocus={() => setBodyHasFocus(true)}
         onBlur={(event) => {
-          if (!event.currentTarget.contains(event.relatedTarget)) commitDraft();
+          if (!event.currentTarget.contains(event.relatedTarget)) {
+            setBodyHasFocus(false);
+            commitDraft();
+          }
         }}
       >
       <EditorDraftShell
@@ -1397,7 +1403,7 @@ const NotebookEditor = ({
       />
       <NotebookArrangementRail
         editor={editor}
-        visible={editingBody}
+        visible={bodyHasFocus}
         pieces={arrangementPieces}
         currentPieceIndex={currentPieceIndex}
         asidePieces={asidePieces}
