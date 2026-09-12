@@ -1,4 +1,4 @@
-import { buildDocFromBlocks, serializeBlocksFromDoc } from '../notebookBlocks';
+import { buildDocFromBlocks, isMongoObjectId, serializeBlocksFromDoc } from '../notebookBlocks';
 
 describe('notebookBlocks', () => {
   it('serializes highlight blocks from a doc', () => {
@@ -14,10 +14,10 @@ describe('notebookBlocks', () => {
     const serialized = serializeBlocksFromDoc(doc, () => 'fallback');
     expect(serialized).toEqual([
       { id: 'p1', type: 'paragraph', text: 'Hello' },
-      { id: 'h1', type: 'highlight_embed', highlightId: 'hl-1', text: '' },
-      { id: 'a1', type: 'article_ref', articleId: 'ar-1', articleTitle: 'Article', text: 'Article' },
+      { id: 'h1', type: 'highlight_embed', highlightId: null, text: '' },
+      { id: 'a1', type: 'article_ref', articleId: null, articleTitle: 'Article', text: 'Article' },
       { id: 'c1', type: 'concept_ref', conceptId: null, conceptName: 'Compounding', text: 'Compounding' },
-      { id: 'q1', type: 'question_ref', questionId: 'q-1', questionText: 'Why?', text: 'Why?' },
+      { id: 'q1', type: 'question_ref', questionId: null, questionText: 'Why?', text: 'Why?' },
       { id: 't1', type: 'paragraph', text: 'Next' }
     ]);
   });
@@ -46,7 +46,13 @@ describe('notebookBlocks', () => {
         content: [{ type: 'text', text: 'The exact chosen passage.' }]
       }]
     });
-    expect(serializeBlocksFromDoc(doc)).toEqual(blocks);
+    expect(serializeBlocksFromDoc(doc)).toEqual([{
+      id: 'quote-1',
+      type: 'quote',
+      text: 'The exact chosen passage.',
+      articleTitle: 'A beautiful source',
+      sourcePath: '/library?articleId=article-1#passage=exact'
+    }]);
   });
 
   it('keeps an ordinary quote distinct from a saved highlight', () => {
@@ -70,7 +76,13 @@ describe('notebookBlocks', () => {
     const doc = buildDocFromBlocks(blocks);
     expect(doc.content[0].type).toBe('blockquote');
     expect(doc.content[0].content[0].content[0].text).toBe(blocks[0].text);
-    expect(serializeBlocksFromDoc(doc)).toEqual(blocks);
+    expect(serializeBlocksFromDoc(doc)).toEqual([{
+      id: 'source-highlight-1',
+      type: 'highlight_embed',
+      text: 'The passage as it was when kept.',
+      articleTitle: 'A beautiful source',
+      sourcePath: '/library?articleId=article-1&highlightId=highlight-1'
+    }]);
   });
 
   it('serializes a live highlight card with its Library door', () => {
@@ -90,9 +102,8 @@ describe('notebookBlocks', () => {
     expect(serialized).toEqual([{
       id: 'live-1',
       type: 'highlight_embed',
-      highlightId: 'highlight-1',
+      highlightId: null,
       text: 'The kept line.',
-      articleId: 'article-1',
       articleTitle: 'A beautiful source',
       sourcePath: '/library?articleId=article-1&highlightId=highlight-1'
     }]);
@@ -165,5 +176,24 @@ describe('notebookBlocks', () => {
       type: 'horizontalRule',
       attrs: { blockId: 'hr-1' }
     });
+  });
+
+  it('keeps a real Library ObjectId and drops a slug that would fail Mongo', () => {
+    expect(isMongoObjectId('507f1f77bcf86cd799439011')).toBe(true);
+    expect(isMongoObjectId('article-1')).toBe(false);
+    const serialized = serializeBlocksFromDoc({
+      type: 'doc',
+      content: [{
+        type: 'blockquote',
+        attrs: {
+          blockId: 'quote-1',
+          articleId: '507f1f77bcf86cd799439011',
+          articleTitle: 'A beautiful source',
+          sourcePath: '/library?articleId=507f1f77bcf86cd799439011#passage=exact'
+        },
+        content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Kept.' }] }]
+      }]
+    });
+    expect(serialized[0].articleId).toBe('507f1f77bcf86cd799439011');
   });
 });

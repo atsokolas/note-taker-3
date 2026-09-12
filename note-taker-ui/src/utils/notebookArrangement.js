@@ -1,4 +1,4 @@
-import { buildDocFromBlocks, serializeBlocksFromDoc } from './notebookBlocks';
+import { buildDocFromBlocks } from './notebookBlocks';
 
 const SOURCE_NODE_TYPES = new Set([
   'highlightRef',
@@ -92,10 +92,7 @@ export const persistableAsidePiece = (piece) => {
     id: piece.id,
     label: piece.label || '',
     index: Number.isInteger(piece.index) ? piece.index : 0,
-    nodes,
-    // Vercel can ship before Render. The pre-nodes API schema only keeps
-    // `blocks`; without this copy, Mongoose drops `nodes` and stores [].
-    blocks: serializeBlocksFromDoc({ type: 'doc', content: nodes })
+    nodes
   };
 };
 

@@ -138,28 +138,35 @@ describe('notebookArrangement', () => {
     });
   });
 
-  it('dual-writes blocks so a pre-nodes API still keeps the set-aside', () => {
+  it('persists a set-aside as editor nodes, not a second blocks copy', () => {
     const removed = setAsidePieceInDocument(essayDoc, 1);
     const payload = persistableAsidePiece(removed.aside);
     expect(payload.nodes).toEqual(removed.aside.nodes);
-    expect(payload.blocks).toEqual([
-      {
-        id: 'exception',
-        type: 'paragraph',
-        text: 'The exception is when the downside lands on someone who never chose the experiment.'
-      },
-      {
-        id: 'quote-The cost is borne by people who did not volunteer.',
-        type: 'quote',
-        sourcePath: '/library?articleId=article-1#passage=exact',
-        articleId: 'article-1',
-        articleTitle: 'A source',
-        text: 'The cost is borne by people who did not volunteer.'
-      }
-    ]);
+    expect(payload.blocks).toBeUndefined();
+  });
 
-    const afterOldApi = { id: payload.id, label: payload.label, index: payload.index, blocks: payload.blocks };
-    const recovered = hydrateAsidePieces([afterOldApi]);
+  it('still recovers a legacy aside that only stored lossy blocks', () => {
+    const removed = setAsidePieceInDocument(essayDoc, 1);
+    const recovered = hydrateAsidePieces([{
+      id: removed.aside.id,
+      label: removed.aside.label,
+      index: removed.aside.index,
+      blocks: [
+        {
+          id: 'exception',
+          type: 'paragraph',
+          text: 'The exception is when the downside lands on someone who never chose the experiment.'
+        },
+        {
+          id: 'quote-The cost is borne by people who did not volunteer.',
+          type: 'quote',
+          sourcePath: '/library?articleId=article-1#passage=exact',
+          articleId: 'article-1',
+          articleTitle: 'A source',
+          text: 'The cost is borne by people who did not volunteer.'
+        }
+      ]
+    }]);
     expect(recovered[0].nodes.map((node) => node.attrs.blockId)).toEqual([
       'exception',
       'quote-The cost is borne by people who did not volunteer.'
@@ -169,7 +176,7 @@ describe('notebookArrangement', () => {
       .toEqual(essayDoc.content.map((node) => node.attrs.blockId));
   });
 
-  it('keeps a set-aside code block through a pre-nodes API', () => {
+  it('keeps a set-aside code block as editor nodes', () => {
     const code = {
       type: 'codeBlock',
       attrs: { language: 'js', blockId: 'code-1' },
@@ -179,17 +186,12 @@ describe('notebookArrangement', () => {
     const removed = setAsidePieceInDocument(doc, 1);
     const payload = persistableAsidePiece(removed.aside);
     expect(payload.nodes).toEqual([code]);
-    expect(payload.blocks).toEqual([{
-      id: 'code-1',
-      type: 'code',
-      text: 'const a = 1;',
-      sourcePath: 'js'
-    }]);
+    expect(payload.blocks).toBeUndefined();
     const recovered = hydrateAsidePieces([{
       id: payload.id,
       label: payload.label,
       index: payload.index,
-      blocks: payload.blocks
+      nodes: payload.nodes
     }]);
     const restored = restorePieceInDocument(removed.doc, recovered[0]);
     expect(restored.doc.content[1]).toMatchObject({
@@ -214,20 +216,13 @@ describe('notebookArrangement', () => {
     expect(groupDocPieces(doc)).toHaveLength(1);
     const removed = setAsidePieceInDocument(doc, 0);
     const payload = persistableAsidePiece(removed.aside);
-    expect(payload.blocks.map((block) => block.type)).toEqual(['paragraph', 'wiki_ref']);
-    expect(payload.blocks[1]).toEqual({
-      id: 'wiki-ref-1',
-      type: 'wiki_ref',
-      text: 'Experimentation',
-      articleTitle: 'Experimentation',
-      sourcePath: '/wiki/workspace?page=wiki-1',
-      conceptName: 'Living wiki'
-    });
+    expect(payload.nodes).toEqual([prose, wiki]);
+    expect(payload.blocks).toBeUndefined();
     const recovered = hydrateAsidePieces([{
       id: payload.id,
       label: payload.label,
       index: payload.index,
-      blocks: payload.blocks
+      nodes: payload.nodes
     }]);
     const restored = restorePieceInDocument(removed.doc, recovered[0]);
     expect(restored.doc.content[1]).toEqual(wiki);
@@ -241,24 +236,25 @@ describe('notebookArrangement', () => {
     const divider = { type: 'horizontalRule', attrs: { blockId: 'hr-1' } };
     const wikiRemoved = setAsidePieceInDocument({ type: 'doc', content: [wiki, paragraph('After', 'after')] }, 0);
     const wikiPayload = persistableAsidePiece(wikiRemoved.aside);
-    expect(wikiPayload.blocks).toHaveLength(1);
-    expect(wikiPayload.blocks[0].type).toBe('wiki_ref');
+    expect(wikiPayload.nodes).toEqual([wiki]);
+    expect(wikiPayload.blocks).toBeUndefined();
     const wikiRecovered = hydrateAsidePieces([{
       id: wikiPayload.id,
       label: wikiPayload.label,
       index: wikiPayload.index,
-      blocks: wikiPayload.blocks
+      nodes: wikiPayload.nodes
     }]);
     expect(restorePieceInDocument(wikiRemoved.doc, wikiRecovered[0]).doc.content[0].type).toBe('wikiRef');
 
     const dividerRemoved = setAsidePieceInDocument({ type: 'doc', content: [divider, paragraph('After', 'after')] }, 0);
     const dividerPayload = persistableAsidePiece(dividerRemoved.aside);
-    expect(dividerPayload.blocks).toEqual([{ id: 'hr-1', type: 'divider', text: '' }]);
+    expect(dividerPayload.nodes).toEqual([divider]);
+    expect(dividerPayload.blocks).toBeUndefined();
     const dividerRecovered = hydrateAsidePieces([{
       id: dividerPayload.id,
       label: dividerPayload.label,
       index: dividerPayload.index,
-      blocks: dividerPayload.blocks
+      nodes: dividerPayload.nodes
     }]);
     expect(restorePieceInDocument(dividerRemoved.doc, dividerRecovered[0]).doc.content[0].type).toBe('horizontalRule');
   });

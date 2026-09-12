@@ -3,6 +3,10 @@ const defaultId = () => {
   return `block-${Math.random().toString(36).slice(2, 9)}-${Date.now()}`;
 };
 
+export const isMongoObjectId = (value) => /^[a-fA-F0-9]{24}$/.test(String(value || ''));
+
+const objectIdOrNull = (value) => (isMongoObjectId(value) ? String(value) : null);
+
 export const ensureBlockIds = (node, createId = defaultId) => {
   if (!node) return { node, changed: false };
   let changed = false;
@@ -63,12 +67,14 @@ export const serializeBlocksFromDoc = (doc, createId = defaultId) => {
       return;
     }
     if (node.type === 'highlightRef') {
-      const highlightId = node.attrs?.highlightId || null;
-      const articleId = node.attrs?.articleId || null;
+      const highlightId = objectIdOrNull(node.attrs?.highlightId);
+      const articleId = objectIdOrNull(node.attrs?.articleId);
       const articleTitle = node.attrs?.articleTitle || '';
+      const rawArticleId = node.attrs?.articleId || '';
+      const rawHighlightId = node.attrs?.highlightId || '';
       const sourcePath = node.attrs?.sourcePath || (
-        articleId
-          ? `/library?articleId=${encodeURIComponent(articleId)}${highlightId ? `&highlightId=${encodeURIComponent(highlightId)}` : ''}`
+        rawArticleId
+          ? `/library?articleId=${encodeURIComponent(rawArticleId)}${rawHighlightId ? `&highlightId=${encodeURIComponent(rawHighlightId)}` : ''}`
           : ''
       );
       blocks.push({
@@ -86,7 +92,7 @@ export const serializeBlocksFromDoc = (doc, createId = defaultId) => {
       blocks.push({
         id: node.attrs?.blockId || createId(),
         type: 'article_ref',
-        articleId: node.attrs?.articleId || null,
+        articleId: objectIdOrNull(node.attrs?.articleId),
         articleTitle: node.attrs?.articleTitle || '',
         text: node.attrs?.articleTitle || ''
       });
@@ -96,7 +102,7 @@ export const serializeBlocksFromDoc = (doc, createId = defaultId) => {
       blocks.push({
         id: node.attrs?.blockId || createId(),
         type: 'concept_ref',
-        conceptId: node.attrs?.conceptId || null,
+        conceptId: objectIdOrNull(node.attrs?.conceptId),
         conceptName: node.attrs?.conceptName || '',
         text: node.attrs?.conceptName || ''
       });
@@ -106,7 +112,7 @@ export const serializeBlocksFromDoc = (doc, createId = defaultId) => {
       blocks.push({
         id: node.attrs?.blockId || createId(),
         type: 'question_ref',
-        questionId: node.attrs?.questionId || null,
+        questionId: objectIdOrNull(node.attrs?.questionId),
         questionText: node.attrs?.questionText || '',
         text: node.attrs?.questionText || ''
       });
@@ -149,12 +155,14 @@ export const serializeBlocksFromDoc = (doc, createId = defaultId) => {
       return;
     }
     if (node.type === 'blockquote') {
+      const highlightId = objectIdOrNull(node.attrs?.highlightId);
+      const articleId = objectIdOrNull(node.attrs?.articleId);
       blocks.push({
         id: node.attrs?.blockId || createId(),
         type: node.attrs?.highlightId ? 'highlight_embed' : 'quote',
-        ...(node.attrs?.highlightId ? { highlightId: node.attrs.highlightId } : {}),
+        ...(highlightId ? { highlightId } : {}),
         ...(node.attrs?.sourcePath ? { sourcePath: node.attrs.sourcePath } : {}),
-        ...(node.attrs?.articleId ? { articleId: node.attrs.articleId } : {}),
+        ...(articleId ? { articleId } : {}),
         ...(node.attrs?.articleTitle ? { articleTitle: node.attrs.articleTitle } : {}),
         text: extractText(node)
       });

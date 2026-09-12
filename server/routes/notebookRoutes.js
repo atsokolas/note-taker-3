@@ -3,6 +3,11 @@ const express = require('express');
 const mongoose = require('mongoose');
 const { createWikiSourceEvent } = require('../services/wikiSourceEventService');
 const { processWikiSourceEvent } = require('../services/wikiMaintenanceOrchestrator');
+const {
+  asObjectIdOrNull,
+  sanitizeAsidePieces,
+  sanitizeNotebookBlocks
+} = require('../utils/notebookIdentity');
 
 const NOTEBOOK_USER_FOLDER_OWNERSHIP = 'user_owned';
 
@@ -183,9 +188,9 @@ const buildNotebookRouter = ({
     try {
       const userId = req.user.id;
       const { title, content, blocks, asidePieces, folder, tags, linkedArticleId, type, claimId, source, importMeta } = req.body;
-      const nextBlocks = Array.isArray(blocks)
+      const nextBlocks = sanitizeNotebookBlocks(Array.isArray(blocks)
         ? blocks
-        : (stripHtml(content || '') ? [{ id: createBlockId(), type: 'paragraph', text: stripHtml(content || '') }] : []);
+        : (stripHtml(content || '') ? [{ id: createBlockId(), type: 'paragraph', text: stripHtml(content || '') }] : []));
       const nextType = normalizeItemType(type, 'note');
       const nextClaimId = nextType === 'evidence' ? parseClaimId(claimId) : null;
       if (nextType === 'evidence' && claimId !== undefined && claimId !== null && claimId !== '' && !nextClaimId) {
@@ -201,12 +206,12 @@ const buildNotebookRouter = ({
         title: (title || 'Untitled').trim(),
         content: content || '',
         blocks: nextBlocks,
-        asidePieces: Array.isArray(asidePieces) ? asidePieces : [],
+        asidePieces: sanitizeAsidePieces(Array.isArray(asidePieces) ? asidePieces : []),
         folder: folder || null,
         type: nextType,
         claimId: nextClaimId,
         tags: normalizeTags(tags),
-        linkedArticleId: linkedArticleId || null,
+        linkedArticleId: asObjectIdOrNull(linkedArticleId),
         importMeta: normalizeImportMeta(importMeta),
         userId
       });
@@ -541,17 +546,17 @@ const buildNotebookRouter = ({
       if (title !== undefined) updates.title = title.trim() || 'Untitled';
       if (content !== undefined) updates.content = content;
       if (blocks !== undefined) {
-        updates.blocks = Array.isArray(blocks) ? blocks : [];
+        updates.blocks = sanitizeNotebookBlocks(Array.isArray(blocks) ? blocks : []);
       } else if (content !== undefined) {
         const text = stripHtml(content || '');
         updates.blocks = text ? [{ id: createBlockId(), type: 'paragraph', text }] : [];
       }
       if (asidePieces !== undefined) {
-        updates.asidePieces = Array.isArray(asidePieces) ? asidePieces : [];
+        updates.asidePieces = sanitizeAsidePieces(Array.isArray(asidePieces) ? asidePieces : []);
       }
       if (folder !== undefined) updates.folder = folder || null;
       if (tags !== undefined) updates.tags = normalizeTags(tags);
-      if (linkedArticleId !== undefined) updates.linkedArticleId = linkedArticleId || null;
+      if (linkedArticleId !== undefined) updates.linkedArticleId = asObjectIdOrNull(linkedArticleId);
       if (importMeta !== undefined) updates.importMeta = normalizeImportMeta(importMeta);
       if (type !== undefined) {
         const nextType = normalizeItemType(type, '');

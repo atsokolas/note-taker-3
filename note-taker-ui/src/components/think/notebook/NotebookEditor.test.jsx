@@ -228,6 +228,55 @@ describe('NotebookEditor', () => {
     });
   });
 
+  it('autosaves ordinary typing next to a source quotation without a failing articleId', async () => {
+    const onSave = jest.fn(async (payload) => payload);
+    mockEditor.getJSON.mockReturnValue({
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          attrs: { blockId: 'rule' },
+          content: [{ type: 'text', text: 'Recoverable mistakes belong to the person who can still put things back.' }]
+        },
+        {
+          type: 'blockquote',
+          attrs: {
+            blockId: 'quote-1',
+            articleId: 'article-1',
+            articleTitle: 'A beautiful source',
+            sourcePath: '/library?articleId=article-1#passage=exact'
+          },
+          content: [{
+            type: 'paragraph',
+            attrs: { blockId: 'quote-1-p' },
+            content: [{ type: 'text', text: 'The cost is borne by people who did not volunteer.' }]
+          }]
+        }
+      ]
+    });
+    render(
+      <NotebookEditor
+        entry={{ _id: 'essay-1', title: 'Letter', content: '', blocks: [], type: 'note', tags: [] }}
+        saving={false}
+        error=""
+        onSave={onSave}
+        onDelete={jest.fn()}
+        showInlineAgentDock={false}
+      />
+    );
+    mockEditor.commands.setContent.mockClear();
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    const updateRegistration = [...mockEditor.on.mock.calls].reverse().find(([eventName]) => eventName === 'update');
+    act(() => updateRegistration[1]());
+    await waitFor(() => expect(onSave).toHaveBeenCalled(), { timeout: 1800 });
+    expect(mockEditor.commands.setContent).not.toHaveBeenCalled();
+    const payload = onSave.mock.calls[0][0];
+    expect(payload.blocks.map((block) => block.type)).toEqual(['paragraph', 'quote']);
+    expect(payload.blocks[1].articleId).toBeUndefined();
+    expect(payload.blocks[1].sourcePath).toBe('/library?articleId=article-1#passage=exact');
+    expect(payload.asidePieces).toEqual([]);
+  });
+
   it('keeps the exact Library passage visible beside a derived notebook page', () => {
     render(
       <NotebookEditor
@@ -282,7 +331,11 @@ describe('NotebookEditor', () => {
           articleTitle: sourceBlock.articleTitle,
           sourcePath: sourceBlock.sourcePath
         },
-        content: [{ type: 'paragraph', content: [{ type: 'text', text: sourceBlock.text }] }]
+        content: [{
+          type: 'paragraph',
+          attrs: { blockId: `${sourceBlock.id}-p` },
+          content: [{ type: 'text', text: sourceBlock.text }]
+        }]
       }]
     });
 
@@ -325,9 +378,16 @@ describe('NotebookEditor', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
     const updateRegistration = [...mockEditor.on.mock.calls].reverse().find(([eventName]) => eventName === 'update');
     act(() => updateRegistration[1]());
-    await waitFor(() => expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ blocks: [sourceBlock] })), {
-      timeout: 1800
+    await waitFor(() => expect(onSave).toHaveBeenCalled(), { timeout: 1800 });
+    const saved = onSave.mock.calls[0][0].blocks[0];
+    expect(saved).toMatchObject({
+      id: sourceBlock.id,
+      type: 'quote',
+      text: sourceBlock.text,
+      articleTitle: sourceBlock.articleTitle,
+      sourcePath: sourceBlock.sourcePath
     });
+    expect(saved.articleId).toBeUndefined();
   });
 
   it('hydrates an authored highlight snapshot as saved quote content', () => {
@@ -695,11 +755,7 @@ describe('NotebookEditor', () => {
     const payload = onSave.mock.calls[0][0];
     expect(payload.asidePieces).toHaveLength(1);
     expect(payload.asidePieces[0].nodes[0]).toEqual(exception);
-    expect(payload.asidePieces[0].blocks).toEqual([{
-      id: 'exception',
-      type: 'paragraph',
-      text: 'The exception is when the downside lands on someone who never chose the experiment.'
-    }]);
+    expect(payload.asidePieces[0].blocks).toBeUndefined();
     expect(payload.blocks.map((block) => block.id)).toEqual(['rule']);
   });
 
