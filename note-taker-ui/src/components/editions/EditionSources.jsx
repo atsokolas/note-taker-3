@@ -12,9 +12,13 @@ import { sourceLinks } from '../../pages/editionModel';
 export const SOURCES_JUMP_COPY = 'Show me the sources';
 export const SOURCES_LIST_COPY = 'The sources';
 
-const instantMotion = () => (
+const media = (query) => Boolean(window.matchMedia?.(query)?.matches);
+
+/** Smooth only for a fine pointer that also wants motion. */
+const smoothJump = () => (
   typeof window !== 'undefined'
-  && Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches)
+  && media('(hover: hover) and (pointer: fine)')
+  && !media('(prefers-reduced-motion: reduce)')
 );
 
 export const useEditionSources = (edition) => {
@@ -22,10 +26,13 @@ export const useEditionSources = (edition) => {
   const listRef = useRef(null);
   const listId = `edition-sources-${edition?._id || 'issue'}`;
   const jump = useCallback(() => {
-    listRef.current?.scrollIntoView?.({
-      behavior: instantMotion() ? 'auto' : 'smooth',
+    const root = listRef.current;
+    if (!root?.scrollIntoView) return;
+    root.scrollIntoView({
+      behavior: smoothJump() ? 'smooth' : 'auto',
       block: 'start'
     });
+    root.querySelector('summary')?.focus?.();
   }, []);
   return { sources, listId, listRef, jump };
 };

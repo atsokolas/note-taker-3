@@ -58,23 +58,42 @@ describe('the sources of an issue', () => {
     expect(screen.queryByRole('link', { name: /Unsafe/ })).not.toBeInTheDocument();
   });
 
-  it('scrolls to the folded list without opening it', async () => {
+  const stubMedia = (matches) => {
+    window.matchMedia = (query) => ({
+      matches: matches(query),
+      addEventListener: () => {},
+      removeEventListener: () => {}
+    });
+  };
+
+  it('scrolls to the folded list without opening it, and leaves focus there', async () => {
     const scrollIntoView = jest.fn();
     Element.prototype.scrollIntoView = scrollIntoView;
+    stubMedia((query) => query === '(hover: hover) and (pointer: fine)');
     render(<Harness />);
     await userEvent.click(screen.getByTestId('edition-sources-jump'));
     expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
-    expect(screen.getByTestId('edition-sources')).not.toHaveAttribute('open');
+    const list = screen.getByTestId('edition-sources');
+    expect(list).not.toHaveAttribute('open');
+    expect(document.activeElement).toBe(list.querySelector('summary'));
+  });
+
+  it('jumps instantly on a coarse pointer', async () => {
+    const scrollIntoView = jest.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    stubMedia(() => false);
+    render(<Harness />);
+    await userEvent.click(screen.getByTestId('edition-sources-jump'));
+    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'auto', block: 'start' });
   });
 
   it('jumps instantly when the reader prefers less motion', async () => {
     const scrollIntoView = jest.fn();
     Element.prototype.scrollIntoView = scrollIntoView;
-    window.matchMedia = (query) => ({
-      matches: query === '(prefers-reduced-motion: reduce)',
-      addEventListener: () => {},
-      removeEventListener: () => {}
-    });
+    stubMedia((query) => (
+      query === '(prefers-reduced-motion: reduce)'
+      || query === '(hover: hover) and (pointer: fine)'
+    ));
     render(<Harness />);
     await userEvent.click(screen.getByTestId('edition-sources-jump'));
     expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'auto', block: 'start' });
