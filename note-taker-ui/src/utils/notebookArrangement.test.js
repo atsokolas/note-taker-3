@@ -1,5 +1,6 @@
 import {
   deletePieceInDocument,
+  focusPieceInEditor,
   groupDocPieces,
   hydrateAsidePieces,
   isSourceBoundNode,
@@ -7,6 +8,7 @@ import {
   openingLine,
   persistableAsidePiece,
   pieceIndexForNode,
+  pieceIndexForSelection,
   restorePieceInDocument,
   setAsidePieceInDocument
 } from './notebookArrangement';
@@ -54,6 +56,41 @@ describe('notebookArrangement', () => {
     expect(pieces[1].nodes).toHaveLength(2);
     expect(isSourceBoundNode(pieces[1].nodes[1])).toBe(true);
     expect(pieceIndexForNode(essayDoc, 2)).toBe(1);
+  });
+
+  it('selects the passage the caret is in, not the first one by default', () => {
+    const caret = (nodeIndex) => ({ $from: { index: () => nodeIndex } });
+    expect(pieceIndexForSelection(essayDoc, caret(0))).toBe(0);
+    expect(pieceIndexForSelection(essayDoc, caret(1))).toBe(1);
+    expect(pieceIndexForSelection(essayDoc, caret(2))).toBe(1);
+    expect(pieceIndexForSelection(essayDoc, caret(3))).toBe(2);
+  });
+
+  it('keeps the last passage selected when the caret sits after the essay', () => {
+    expect(pieceIndexForSelection(essayDoc, { $from: { index: () => 4 } })).toBe(2);
+    expect(pieceIndexForNode(essayDoc, 4)).toBe(2);
+  });
+
+  it('does not pretend the first passage is selected when the caret is elsewhere', () => {
+    expect(pieceIndexForSelection(essayDoc, null)).toBeNull();
+    expect(pieceIndexForSelection({ type: 'doc', content: [] }, { $from: { index: () => 0 } })).toBeNull();
+  });
+
+  it('places the caret at the start of the chosen passage', () => {
+    const setTextSelection = jest.fn();
+    const focus = jest.fn();
+    const editor = {
+      getJSON: () => essayDoc,
+      state: {
+        doc: {
+          forEach: (fn) => fn(essayDoc.content[3], 11, 3)
+        }
+      },
+      commands: { setTextSelection, focus }
+    };
+    expect(focusPieceInEditor(editor, 2)).toBe(true);
+    expect(setTextSelection).toHaveBeenCalledWith(12);
+    expect(focus).toHaveBeenCalled();
   });
 
   it('moves the exception before the rule without dropping its citation', () => {

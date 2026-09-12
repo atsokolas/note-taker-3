@@ -73,9 +73,53 @@ export const groupDocPieces = (doc) => {
 };
 
 export const pieceIndexForNode = (doc, nodeIndex) => {
+  const selected = pieceIndexForSelection(doc, {
+    $from: { index: () => nodeIndex }
+  });
+  return Number.isInteger(selected) ? selected : 0;
+};
+
+export const nodeIndexFromSelection = (selection) => {
+  const $from = selection?.$from;
+  if (typeof $from?.index !== 'function') return null;
+  const index = $from.index(0);
+  return Number.isInteger(index) ? index : null;
+};
+
+export const pieceIndexForSelection = (doc, selection) => {
   const pieces = groupDocPieces(doc);
+  if (!pieces.length) return null;
+  const nodeIndex = nodeIndexFromSelection(selection);
+  if (!Number.isInteger(nodeIndex)) return null;
   const found = pieces.find((piece) => nodeIndex >= piece.startIndex && nodeIndex <= piece.endIndex);
-  return found ? found.pieceIndex : 0;
+  if (found) return found.pieceIndex;
+  if (nodeIndex > pieces[pieces.length - 1].endIndex) {
+    return pieces[pieces.length - 1].pieceIndex;
+  }
+  return null;
+};
+
+export const focusPieceInEditor = (editor, pieceIndex) => {
+  const pieces = groupDocPieces(editor?.getJSON?.());
+  const piece = pieces[pieceIndex];
+  const doc = editor?.state?.doc;
+  if (!piece || typeof doc?.forEach !== 'function') return false;
+  let pos = null;
+  doc.forEach((_node, offset, index) => {
+    if (index === piece.startIndex) pos = offset + 1;
+  });
+  if (!Number.isInteger(pos)) return false;
+  if (editor.commands?.setTextSelection) {
+    editor.commands.setTextSelection(pos);
+    editor.commands.focus?.();
+    return true;
+  }
+  if (editor.chain) {
+    editor.chain().focus(pos).run();
+    return true;
+  }
+  editor.commands?.focus?.(pos);
+  return Boolean(editor.commands?.focus);
 };
 
 export const nodesFromAsidePiece = (piece) => {

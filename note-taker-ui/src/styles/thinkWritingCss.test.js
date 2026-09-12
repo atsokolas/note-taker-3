@@ -62,9 +62,15 @@ describe('Think writing focus mode', () => {
     expect(stitch).toContain('grid-template-columns: 260px minmax(0, 1fr) 320px;');
   });
 
-  it('makes reduced motion instant instead of a half-animated fade', () => {
-    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*body:is\(\.think-rails-away, \.think-focus-held\) \[data-writing-rail\]::after[\s\S]*transition: none;/);
-    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*\[data-writing-rail\] > \*[\s\S]*transform: none[\s\S]*transition: none;/);
-    expect(css).not.toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*transition: opacity 80ms/);
+  it('keeps notebook arrangement as a hover bar on the current passage', () => {
+    expect(css).toContain('.notebook-arrangement {');
+    expect(css).toContain('position: absolute;');
+    expect(css).toContain('width: max-content;');
+    expect(css).toContain('@media (prefers-reduced-motion: no-preference)');
+    expect(css).toContain('animation: notebook-arrangement-in');
+    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*\.notebook-arrangement,[\s\S]*animation: none !important;/);
+    expect(css).not.toContain('.notebook-arrangement__kicker');
+    expect(css).not.toContain('.notebook-arrangement__pieces');
+    expect(css).not.toContain('.notebook-arrangement__copy');
   });
 });

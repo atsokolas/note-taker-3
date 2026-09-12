@@ -110,6 +110,10 @@ jest.mock('../../../hooks/useMotionPreferences', () => ({
 }));
 
 describe('NotebookEditor', () => {
+  const beginEditingEssay = () => {
+    fireEvent.click(screen.getByTestId('editor-content'));
+  };
+
   beforeEach(() => {
     listWikiPages.mockResolvedValue([]);
     // Keep this component suite at the rendering boundary. The hook has its
@@ -164,10 +168,9 @@ describe('NotebookEditor', () => {
 
     expect(screen.getByPlaceholderText('Title')).toBeInTheDocument();
     expect(screen.getByText(/Type \/ for commands/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Move up' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Move down' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Export' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Try without this passage' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Move up' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Arrangement')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Bold' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Italic' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Quote' })).toBeInTheDocument();
@@ -613,6 +616,7 @@ describe('NotebookEditor', () => {
       />
     );
 
+    beginEditingEssay();
     fireEvent.click(screen.getByRole('button', { name: 'Move down' }));
 
     expect(mockEditor.commands.setContent).toHaveBeenCalledWith({
@@ -622,6 +626,50 @@ describe('NotebookEditor', () => {
         { type: 'paragraph', content: [{ type: 'text', text: 'A' }] }
       ]
     }, true);
+  });
+
+  it('names the hovered passage from the caret, not a stuck first piece', () => {
+    const rule = {
+      type: 'paragraph',
+      attrs: { blockId: 'rule' },
+      content: [{ type: 'text', text: 'Recoverable mistakes belong to the person who can still put things back.' }]
+    };
+    const exception = {
+      type: 'paragraph',
+      attrs: { blockId: 'exception' },
+      content: [{ type: 'text', text: 'The exception is when the downside lands on someone who never chose the experiment.' }]
+    };
+    mockEditor.getJSON.mockReturnValue({ type: 'doc', content: [rule, exception] });
+    mockEditor.state.selection.$from.index.mockReturnValue(0);
+
+    render(
+      <NotebookEditor
+        entry={{ _id: 'essay-1', title: 'Letter', content: '', blocks: [], type: 'note', tags: [] }}
+        saving={false}
+        error=""
+        onSave={jest.fn()}
+        onDelete={jest.fn()}
+        showInlineAgentDock={false}
+      />
+    );
+
+    expect(screen.queryByRole('toolbar')).not.toBeInTheDocument();
+    beginEditingEssay();
+    expect(screen.getByRole('toolbar', {
+      name: 'This passage: Recoverable mistakes belong to the person who can still put things back.'
+    })).toBeInTheDocument();
+
+    mockEditor.state.selection.$from.index.mockReturnValue(1);
+    const selectionHandlers = mockEditor.on.mock.calls
+      .filter((call) => call[0] === 'selectionUpdate')
+      .map((call) => call[1]);
+    expect(selectionHandlers.length).toBeGreaterThan(0);
+    act(() => {
+      selectionHandlers.forEach((handler) => handler());
+    });
+    expect(screen.getByRole('toolbar', {
+      name: 'This passage: The exception is when the downside lands on someone who never chose the experiment.'
+    })).toBeInTheDocument();
   });
 
   it('moves the exception before the rule, then undoes that move', () => {
@@ -672,7 +720,10 @@ describe('NotebookEditor', () => {
       />
     );
 
-    expect(screen.getByText('The exception is when the downside lands on someone who never chose the experiment.')).toBeInTheDocument();
+    beginEditingEssay();
+    expect(screen.getByRole('toolbar', {
+      name: 'This passage: The exception is when the downside lands on someone who never chose the experiment.'
+    })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Move up' }));
 
     const movedDoc = mockEditor.commands.setContent.mock.calls
@@ -713,6 +764,7 @@ describe('NotebookEditor', () => {
       />
     );
 
+    beginEditingEssay();
     fireEvent.click(screen.getByRole('button', { name: 'Try without this passage' }));
     const asideDoc = mockEditor.commands.setContent.mock.calls
       .map((call) => call[0])
@@ -749,6 +801,7 @@ describe('NotebookEditor', () => {
       />
     );
 
+    beginEditingEssay();
     fireEvent.click(screen.getByRole('button', { name: 'Try without this passage' }));
     mockEditor.getJSON.mockReturnValue({ type: 'doc', content: [rule] });
 
@@ -792,6 +845,7 @@ describe('NotebookEditor', () => {
       />
     );
 
+    beginEditingEssay();
     fireEvent.click(screen.getByRole('button', { name: 'Try without this passage' }));
     mockEditor.getJSON.mockReturnValue({ type: 'doc', content: [closer] });
     fireEvent.click(screen.getByRole('button', { name: 'Bring back: See this source' }));
@@ -818,6 +872,7 @@ describe('NotebookEditor', () => {
       />
     );
 
+    beginEditingEssay();
     fireEvent.click(screen.getByRole('button', { name: 'Delete this passage' }));
     expect(window.confirm).toHaveBeenCalledWith(expect.stringContaining('will not wait in Set aside'));
     expect(screen.queryByRole('button', { name: /Bring back:/ })).not.toBeInTheDocument();

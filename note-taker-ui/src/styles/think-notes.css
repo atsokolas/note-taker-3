@@ -224,10 +224,10 @@ body.noeis-editorial .think-notes .think-notebook-editor-actions-overflow,
   display: none;
 }
 
-/* Finishing stays on the page: arrange, undo, export. */
+/* Arrangement is a hover bar on the current passage, not a persistent strip. */
 body.noeis-editorial .think-notes .notebook-arrangement,
 .think-notes .notebook-arrangement {
-  display: block;
+  display: flex;
 }
 
 body.noeis-editorial .think-notes .think-notebook-editor-actions-right > .ui-quiet-button[data-notebook-finish],

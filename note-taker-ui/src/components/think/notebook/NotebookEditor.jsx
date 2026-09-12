@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { NodeViewWrapper, ReactNodeViewRenderer, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -29,14 +29,15 @@ import { buildDocFromBlocks, ensureBlockIds, serializeBlocksFromDoc } from '../.
 import {
   applyNotebookDoc,
   deletePieceInDocument,
+  focusPieceInEditor,
   groupDocPieces,
   hydrateAsidePieces,
+  movePieceInDocument,
   persistableAsidePiece,
-  pieceIndexForNode,
+  pieceIndexForSelection,
   restorePieceInDocument,
   setAsidePieceInDocument
 } from '../../../utils/notebookArrangement';
-import { moveCurrentBlock } from '../editor/blockMovement';
 import { getNotebookClaimEvidence, searchNotebookClaims } from '../../../api/organize';
 import { listWikiPages } from '../../../api/wiki';
 import { AGENT_DISPLAY_NAME } from '../../../constants/agentIdentity';
@@ -538,7 +539,7 @@ const NotebookEditor = ({
     }
   });
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (editor) editor.setEditable(editingBody);
   }, [editor, editingBody]);
 
@@ -557,10 +558,26 @@ const NotebookEditor = ({
     return () => { if (focusFrame != null) window.cancelAnimationFrame?.(focusFrame); };
   }, [entry?._id, startWriting, editor]);
 
-  const startEditingBody = () => {
+  const startEditingBody = (event) => {
     if (editingBody) return;
+    let pos = null;
+    if (editor?.view?.posAtCoords && event && Number.isFinite(event.clientX)) {
+      try {
+        pos = editor.view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos;
+      } catch (_err) {
+        pos = null;
+      }
+    }
     setEditingBody(true);
-    window.requestAnimationFrame?.(() => editor?.commands.focus('end'));
+    window.requestAnimationFrame?.(() => {
+      if (!editor) return;
+      if (Number.isInteger(pos)) {
+        editor.commands.setTextSelection?.(pos);
+        editor.commands.focus?.();
+        return;
+      }
+      editor.commands?.focus?.();
+    });
   };
 
   /* A picker open is still writing — see the hook. */
@@ -819,10 +836,11 @@ const NotebookEditor = ({
     };
   }, [editor]);
 
-  const arrangementPieces = groupDocPieces(editor?.getJSON?.() || { type: 'doc', content: [] });
-  const currentPieceIndex = pieceIndexForNode(
-    editor?.getJSON?.(),
-    editor?.state?.selection?.$from?.index?.(0)
+  const arrangementDoc = editor?.getJSON?.() || { type: 'doc', content: [] };
+  const arrangementPieces = groupDocPieces(arrangementDoc);
+  const currentPieceIndex = pieceIndexForSelection(
+    arrangementDoc,
+    editor?.state?.selection
   );
 
   useEffect(() => () => {
@@ -952,10 +970,12 @@ const NotebookEditor = ({
   };
 
   const handleArrangeMove = (direction) => {
-    if (!editor) return;
+    if (!editor || !Number.isInteger(currentPieceIndex)) return;
     const previous = editor.getJSON();
-    const result = moveCurrentBlock(editor, direction);
+    const result = movePieceInDocument(previous, currentPieceIndex, direction);
     if (!result?.moved) return;
+    applyNotebookDoc(editor, result.doc);
+    focusPieceInEditor(editor, result.toIndex);
     rememberArrangement(previous, `Undo moving “${result.label}”`);
   };
 
@@ -1364,18 +1384,6 @@ const NotebookEditor = ({
           if (!event.currentTarget.contains(event.relatedTarget)) commitDraft();
         }}
       >
-      <NotebookArrangementRail
-        pieces={arrangementPieces}
-        currentPieceIndex={currentPieceIndex}
-        asidePieces={asidePieces}
-        receipt={arrangementReceipt}
-        enabled={Boolean(editor)}
-        onMove={handleArrangeMove}
-        onUndo={handleArrangeUndo}
-        onSetAside={handleSetAside}
-        onRestore={handleRestoreAside}
-        onDeletePiece={handleDeletePiece}
-      />
       <EditorDraftShell
         editor={editor}
         surfaceRef={slashSurfaceRef}
@@ -1386,6 +1394,20 @@ const NotebookEditor = ({
         slashCommands={slashCommands}
         contextualToolbar
         onAskSelection={onInvokeAgentSkill ? handleAskSelection : null}
+      />
+      <NotebookArrangementRail
+        editor={editor}
+        visible={editingBody}
+        pieces={arrangementPieces}
+        currentPieceIndex={currentPieceIndex}
+        asidePieces={asidePieces}
+        receipt={arrangementReceipt}
+        enabled={Boolean(editor)}
+        onMove={handleArrangeMove}
+        onUndo={handleArrangeUndo}
+        onSetAside={handleSetAside}
+        onRestore={handleRestoreAside}
+        onDeletePiece={handleDeletePiece}
       />
       </div>
       <AuthoredWorkOrigin importMeta={entry.importMeta} sourceBlocks={entry.blocks} />

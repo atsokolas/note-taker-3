@@ -1,9 +1,43 @@
-import React from 'react';
+import React, { useLayoutEffect, useRef, useState } from 'react';
 import { QuietButton } from '../../ui';
 
+const passageOffsetPx = (editor, piece) => {
+  if (!editor || !piece) return 0;
+  const prose = editor.view?.dom;
+  const shell = typeof prose?.closest === 'function'
+    ? prose.closest('.think-notebook-editor__body')
+    : null;
+  if (!shell?.getBoundingClientRect) return 0;
+  const doc = editor.state?.doc;
+  let pos = null;
+  if (typeof doc?.forEach === 'function') {
+    doc.forEach((_node, offset, index) => {
+      if (index === piece.startIndex) pos = offset + 1;
+    });
+  }
+  let passageTop = 0;
+  try {
+    if (Number.isInteger(pos) && editor.view?.coordsAtPos) {
+      const coords = editor.view.coordsAtPos(pos);
+      if (Number.isFinite(coords?.top)) passageTop = coords.top;
+    }
+  } catch (_err) {
+    passageTop = 0;
+  }
+  if (!passageTop && Number.isInteger(pos) && editor.view?.nodeDOM) {
+    const node = editor.view.nodeDOM(pos);
+    const el = node?.nodeType === 1 ? node : node?.parentElement;
+    if (el?.getBoundingClientRect) passageTop = el.getBoundingClientRect().top;
+  }
+  const shellRect = shell.getBoundingClientRect();
+  return Math.max(0, passageTop - shellRect.top + (shell.scrollTop || 0));
+};
+
 const NotebookArrangementRail = ({
+  editor = null,
+  visible = false,
   pieces = [],
-  currentPieceIndex = 0,
+  currentPieceIndex = null,
   asidePieces = [],
   receipt = null,
   enabled = false,
@@ -13,20 +47,52 @@ const NotebookArrangementRail = ({
   onRestore,
   onDeletePiece
 }) => {
-  const current = pieces[currentPieceIndex] || null;
-  const canMoveUp = enabled && currentPieceIndex > 0;
-  const canMoveDown = enabled && currentPieceIndex < pieces.length - 1;
+  const barRef = useRef(null);
+  const [top, setTop] = useState(0);
+  const current = Number.isInteger(currentPieceIndex)
+    ? (pieces[currentPieceIndex] || null)
+    : null;
+  const canMoveUp = enabled && Number.isInteger(currentPieceIndex) && currentPieceIndex > 0;
+  const canMoveDown = enabled
+    && Number.isInteger(currentPieceIndex)
+    && currentPieceIndex < pieces.length - 1;
+  const showBar = visible && Boolean(current || asidePieces.length || receipt);
+
+  useLayoutEffect(() => {
+    if (!showBar || !current) {
+      setTop(0);
+      return undefined;
+    }
+    const sync = () => {
+      const passageTop = passageOffsetPx(editor, current);
+      const height = barRef.current?.offsetHeight || 40;
+      setTop(Math.max(0, passageTop - height - 6));
+    };
+    sync();
+    const prose = editor?.view?.dom;
+    window.addEventListener('resize', sync);
+    prose?.addEventListener?.('scroll', sync, { passive: true });
+    return () => {
+      window.removeEventListener('resize', sync);
+      prose?.removeEventListener?.('scroll', sync);
+    };
+  }, [showBar, editor, current]);
+
+  if (!showBar) return null;
 
   return (
-    <section className="notebook-arrangement" aria-label="Arrange this essay">
-      <div className="notebook-arrangement__intro">
-        <p className="notebook-arrangement__kicker">Arrangement</p>
-        <p className="notebook-arrangement__copy">
-          {current
-            ? `This passage: ${current.label}`
-            : 'Place the caret in a passage to move it.'}
-        </p>
-      </div>
+    <div
+      ref={barRef}
+      className="notebook-arrangement"
+      role="toolbar"
+      aria-label={current ? `This passage: ${current.label}` : 'Passages set aside'}
+      data-notebook-arrangement="bar"
+      style={{ top }}
+      onMouseDown={(event) => event.preventDefault()}
+    >
+      {current ? (
+        <p className="notebook-arrangement__label">{current.label}</p>
+      ) : null}
       <div className="notebook-arrangement__controls">
         <QuietButton
           disabled={!canMoveUp}
@@ -42,48 +108,33 @@ const NotebookArrangementRail = ({
         </QuietButton>
         <QuietButton
           disabled={!enabled || !current}
+          aria-label="Try without this passage"
           onClick={() => onSetAside?.(currentPieceIndex)}
         >
-          Try without this passage
+          Try without
         </QuietButton>
         <QuietButton
           disabled={!enabled || !current}
+          aria-label="Delete this passage"
           onClick={() => onDeletePiece?.(currentPieceIndex)}
         >
-          Delete this passage
+          Delete
         </QuietButton>
         {receipt ? (
           <QuietButton onClick={onUndo}>
             {receipt.label}
           </QuietButton>
         ) : null}
+        {asidePieces.map((piece) => (
+          <QuietButton
+            key={piece.id}
+            onClick={() => onRestore?.(piece.id)}
+          >
+            {`Bring back: ${piece.label}`}
+          </QuietButton>
+        ))}
       </div>
-      {pieces.length ? (
-        <ol className="notebook-arrangement__pieces">
-          {pieces.map((piece) => (
-            <li
-              key={`${piece.startIndex}:${piece.label}`}
-              className={piece.pieceIndex === currentPieceIndex ? 'is-current' : ''}
-            >
-              {piece.label}
-            </li>
-          ))}
-        </ol>
-      ) : null}
-      {asidePieces.length ? (
-        <div className="notebook-arrangement__aside" aria-label="Passages set aside">
-          <p className="notebook-arrangement__kicker">Set aside</p>
-          {asidePieces.map((piece) => (
-            <QuietButton
-              key={piece.id}
-              onClick={() => onRestore?.(piece.id)}
-            >
-              {`Bring back: ${piece.label}`}
-            </QuietButton>
-          ))}
-        </div>
-      ) : null}
-    </section>
+    </div>
   );
 };
 
