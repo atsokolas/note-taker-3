@@ -57,6 +57,10 @@ const item = (over = {}) => ({
 
 const full = (over = {}) => ({ ...row(), items: [item()], watchNext: [], ...over });
 
+const precedes = (earlier, later) => (
+  Boolean(earlier.compareDocumentPosition(later) & Node.DOCUMENT_POSITION_FOLLOWING)
+);
+
 describe('the newsstand', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -155,6 +159,9 @@ describe('the newsstand', () => {
     expect(await screen.findByRole('heading', { name: 'This Week in AI' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Weekend Readings' })).toBeInTheDocument();
     expect(screen.getAllByRole('navigation', { name: /back issues/ })).toHaveLength(2);
+    const inbox = screen.getByRole('region', { name: 'New' });
+    expect(precedes(screen.getByRole('heading', { name: 'This Week in AI' }), inbox)).toBe(true);
+    expect(precedes(inbox, screen.getByRole('heading', { name: 'Weekend Readings' }))).toBe(true);
   });
 
   /* An empty stand is not a failure state — the reader who has never
@@ -227,7 +234,7 @@ describe('the newsstand', () => {
     expect(screen.queryByText(/Keep me a monthly edition/)).not.toBeInTheDocument();
   });
 
-  it('puts new arrivals above the papers', async () => {
+  it('lets the nameplate lead, then new arrivals, then the paper, then the sources', async () => {
     listEditions.mockResolvedValue([row()]);
     getEditionInbox.mockResolvedValue({
       items: [{ editionId: 'e2', itemId: 'i1', title: 'A fresh filing', sourceLabel: 'arXiv' }],
@@ -235,8 +242,17 @@ describe('the newsstand', () => {
       remaining: 0
     });
     open();
-    expect(await screen.findByText('A fresh filing')).toBeInTheDocument();
+    const nameplate = await screen.findByRole('heading', { name: 'This Week in AI' });
+    const inbox = screen.getByRole('region', { name: 'New' });
+    const columns = await screen.findByTestId('edition-columns');
+    const sources = screen.getByTestId('edition-sources');
+    expect(screen.getByText('A fresh filing')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Read now' })).toHaveAttribute('href', '/editions/e2?item=i1');
+    expect(precedes(nameplate, inbox)).toBe(true);
+    expect(precedes(inbox, columns)).toBe(true);
+    expect(precedes(columns, sources)).toBe(true);
+    expect(screen.getByTestId('edition-share-open').closest('.front__actions'))
+      .toContainElement(screen.getByTestId('edition-sources-jump'));
   });
 
   it('sets columns from the edition’s configuration, not a fixed evidence layout', async () => {
