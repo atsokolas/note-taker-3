@@ -235,7 +235,9 @@
 }
 
 .notebook-share-preview__stage {
-  width: min(var(--preview-width, 1440px), 100%);
+  width: 100%;
+  max-width: var(--preview-width, 1440px);
+  box-sizing: border-box;
   margin: 1.25rem auto 0;
   padding: 1.5rem 1.25rem 2.5rem;
   border: 1px solid var(--noeis-rule, rgba(28, 24, 18, 0.12));
