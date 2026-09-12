@@ -35,7 +35,7 @@ export default function SourceCorrectionReview({ preview, onDispose, onSettled }
   useEffect(() => {
     setHeld(preview);
     setError('');
-  }, [preview?.eventId, preview?.ui, preview?.disposition, preview?.oldQuotation, preview?.newEvidence]);
+  }, [preview]);
 
   if (!held?.eventId || !held.oldQuotation || !held.newEvidence) return null;
 
@@ -71,31 +71,31 @@ export default function SourceCorrectionReview({ preview, onDispose, onSettled }
       aria-label="Source correction"
     >
       <p className="source-correction-review__fold">
-        <span>What changed</span>
+        <span className="source-correction-review__label">What changed</span>
         {held.whatChanged || 'The saved passage was corrected.'}
       </p>
       <p className="source-correction-review__fold">
-        <span>What it affects</span>
+        <span className="source-correction-review__label">What it affects</span>
         {held.whatItAffects || 'this work'}
       </p>
       {!settled ? (
         <p className="source-correction-review__fold">
-          <span>What I need from you</span>
+          <span className="source-correction-review__label">What I need from you</span>
           {held.whatINeed || 'Keep this work, change the quotation, or record no change — including when you cannot tell.'}
         </p>
       ) : null}
 
       <div className="source-correction-review__wording">
         <p>
-          <span>Used quotation</span>
+          <span className="source-correction-review__label">Used quotation</span>
           {held.oldQuotation}
         </p>
         <p>
-          <span>New evidence</span>
+          <span className="source-correction-review__label">New evidence</span>
           {held.newEvidence}
         </p>
         <p className="source-correction-review__changed" aria-label="Changed phrase">
-          <span>Changed phrase</span>
+          <span className="source-correction-review__label">Changed phrase</span>
           <Phrase segments={held.changedSegments} fallback={held.newEvidence} />
         </p>
       </div>

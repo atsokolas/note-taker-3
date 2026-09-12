@@ -22,8 +22,8 @@
   max-width: 62ch;
 }
 
-.source-correction-review__fold > span,
-.source-correction-review__wording span {
+.source-correction-review__fold > .source-correction-review__label,
+.source-correction-review__label {
   display: block;
   margin-bottom: 0.2em;
   color: var(--noeis-ink-subtle, #6b6458);
@@ -53,6 +53,10 @@
   font-weight: 600;
   background: color-mix(in srgb, var(--noeis-ink, #1c1812) 8%, transparent);
   box-decoration-break: clone;
+}
+
+.source-correction-review__changed del + ins {
+  margin-left: 0.25em;
 }
 
 .source-correction-review__dates,

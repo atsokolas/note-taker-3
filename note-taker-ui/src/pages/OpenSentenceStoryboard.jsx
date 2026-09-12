@@ -92,7 +92,6 @@ import {
   STORYBOARD_THEN_BESIDE,
   STORYBOARD_SOURCE_CORRECTION,
   STORYBOARD_CORRECTION_OLD,
-  STORYBOARD_CORRECTION_NEW,
   storyboardSource
 } from '../components/wiki/open-sentence/openSentenceStoryboardFixture';
 import './open-sentence-storyboard.css';
@@ -387,41 +386,43 @@ const OpenSentenceStoryboard = () => {
   const [beenToLibrary, setBeenToLibrary] = useState(false);
   const [pageTitle, setPageTitle] = useState(STORYBOARD_PAGE_TITLE);
   const [correctionPreview, setCorrectionPreview] = useState(STORYBOARD_SOURCE_CORRECTION);
-
-  const correctionAuthorship = beat === 'correction' ? {
-    owner: 'illustrated',
-    ready: true,
-    error: '',
-    record: {
-      revision: 3,
-      dirty: false,
-      saving: false,
-      saved: {
-        id: 'illustrated-work',
-        articleId: STORYBOARD_SOURCE.articleId,
-        highlightId: STORYBOARD_SOURCE.highlightId,
-        sourceCorrection: correctionPreview
-      }
-    },
-    disposeSourceCorrection: async ({ action }) => {
-      const next = {
-        ...correctionPreview,
-        ui: 'settled',
-        disposition: action,
-        reviewedOn: '2026-09-12'
-      };
-      setCorrectionPreview(next);
-      return {
-        sourceCorrection: next,
-        receipt: { id: 'illustrated-receipt', provenance: { disposition: action, writingRewritten: false } }
-      };
-    },
-    keep: async () => ({}),
-    discard: async () => {},
-    retry: () => {},
-    retryLoad: () => {},
-    resolveConflict: () => {}
-  } : null;
+  const correctionAuthorship = useMemo(() => {
+    if (beat !== 'correction') return null;
+    return {
+      owner: 'illustrated',
+      ready: true,
+      error: '',
+      record: {
+        revision: 3,
+        dirty: false,
+        saving: false,
+        saved: {
+          id: 'illustrated-work',
+          articleId: STORYBOARD_SOURCE.articleId,
+          highlightId: STORYBOARD_SOURCE.highlightId,
+          sourceCorrection: correctionPreview
+        }
+      },
+      disposeSourceCorrection: async ({ action }) => {
+        const next = {
+          ...correctionPreview,
+          ui: 'settled',
+          disposition: action,
+          reviewedOn: '2026-09-12'
+        };
+        setCorrectionPreview(next);
+        return {
+          sourceCorrection: next,
+          receipt: { id: 'illustrated-receipt', provenance: { disposition: action, writingRewritten: false } }
+        };
+      },
+      keep: async () => ({}),
+      discard: async () => {},
+      retry: () => {},
+      retryLoad: () => {},
+      resolveConflict: () => {}
+    };
+  }, [beat, correctionPreview]);
 
   useEffect(() => {
     const live = exploration.id === STORYBOARD_COMPUTE_ID
