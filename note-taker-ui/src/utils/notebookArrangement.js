@@ -99,6 +99,20 @@ export const pieceIndexForSelection = (doc, selection) => {
   return null;
 };
 
+export const pieceIndexNearOffset = (offsets = [], readingOffset = 0) => {
+  if (!offsets.length) return null;
+  let best = 0;
+  let bestDist = Infinity;
+  offsets.forEach((offset, index) => {
+    const dist = Math.abs((Number(offset) || 0) - readingOffset);
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = index;
+    }
+  });
+  return best;
+};
+
 const isAtomBlock = (node) => Boolean(
   node?.isAtom
   || node?.isLeaf

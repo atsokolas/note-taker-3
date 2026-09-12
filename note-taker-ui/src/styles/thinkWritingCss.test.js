@@ -62,15 +62,19 @@ describe('Think writing focus mode', () => {
     expect(stitch).toContain('grid-template-columns: 260px minmax(0, 1fr) 320px;');
   });
 
-  it('keeps notebook arrangement as a hover bar on the current passage', () => {
+  it('keeps notebook arrangement off the essay until a small right-rail mark is opened', () => {
     expect(css).toContain('.notebook-arrangement {');
-    expect(css).toContain('position: absolute;');
-    expect(css).toContain('width: max-content;');
+    expect(css).toContain('right: 0;');
+    expect(css).toContain('.notebook-arrangement__mark {');
+    expect(css).toContain('.notebook-arrangement__panel {');
+    expect(css).toContain('.notebook-arrangement.is-above .notebook-arrangement__panel');
     expect(css).toContain('@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference)');
     expect(css).toContain('animation: notebook-arrangement-in');
     expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*\.notebook-arrangement,[\s\S]*animation: none !important;/);
     expect(css).not.toContain('.notebook-arrangement__kicker');
     expect(css).not.toContain('.notebook-arrangement__pieces');
     expect(css).not.toContain('.notebook-arrangement__copy');
+    expect(css).not.toContain('.think-notebook-editor__body.is-editing');
+    expect(css).not.toContain('padding-top: 2.75rem;');
   });
 });

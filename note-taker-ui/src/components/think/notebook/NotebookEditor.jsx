@@ -963,6 +963,13 @@ const NotebookEditor = ({
     });
   };
 
+  const handleArrangeReveal = (pieceIndex) => {
+    const wasEditing = editingBody;
+    startEditingBody();
+    if (wasEditing || !Number.isInteger(pieceIndex) || !editor) return;
+    window.requestAnimationFrame?.(() => focusPieceInEditor(editor, pieceIndex));
+  };
+
   const rememberArrangement = (restoreDoc, label, extra = {}) => {
     setArrangementReceipt({
       label,
@@ -973,10 +980,10 @@ const NotebookEditor = ({
     scheduleSave();
   };
 
-  const handleArrangeMove = (direction) => {
-    if (!editor || !Number.isInteger(currentPieceIndex)) return;
+  const handleArrangeMove = (direction, pieceIndex = currentPieceIndex) => {
+    if (!editor || !Number.isInteger(pieceIndex)) return;
     const previous = editor.getJSON();
-    const result = movePieceInDocument(previous, currentPieceIndex, direction);
+    const result = movePieceInDocument(previous, pieceIndex, direction);
     if (!result?.moved) return;
     applyNotebookDoc(editor, result.doc);
     focusPieceInEditor(editor, result.toIndex);
@@ -1419,12 +1426,13 @@ const NotebookEditor = ({
       />
       <NotebookArrangementRail
         editor={editor}
-        visible={bodyHasFocus}
+        followSelection={bodyHasFocus}
         pieces={arrangementPieces}
         currentPieceIndex={currentPieceIndex}
         asidePieces={asidePieces}
         receipt={arrangementReceipt}
         enabled={Boolean(editor)}
+        onReveal={handleArrangeReveal}
         onMove={handleArrangeMove}
         onUndo={handleArrangeUndo}
         onSetAside={handleSetAside}

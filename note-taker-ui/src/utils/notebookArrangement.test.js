@@ -9,6 +9,7 @@ import {
   persistableAsidePiece,
   pieceIndexForNode,
   pieceIndexForSelection,
+  pieceIndexNearOffset,
   restorePieceInDocument,
   setAsidePieceInDocument
 } from './notebookArrangement';
@@ -74,6 +75,12 @@ describe('notebookArrangement', () => {
   it('does not pretend the first passage is selected when the caret is elsewhere', () => {
     expect(pieceIndexForSelection(essayDoc, null)).toBeNull();
     expect(pieceIndexForSelection({ type: 'doc', content: [] }, { $from: { index: () => 0 } })).toBeNull();
+  });
+
+  it('picks the passage nearest the reading offset when the caret is not driving', () => {
+    expect(pieceIndexNearOffset([10, 80, 240], 90)).toBe(1);
+    expect(pieceIndexNearOffset([10, 80, 240], 0)).toBe(0);
+    expect(pieceIndexNearOffset([], 40)).toBeNull();
   });
 
   it('places the caret at the start of the chosen passage', () => {
