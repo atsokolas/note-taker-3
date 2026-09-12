@@ -218,6 +218,15 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
     position: relative;
   }
 
+  /* Below 1181px the partner is static, so it is not a containing block.
+     The handle would otherwise pin to .think-notes. Relative here only;
+     sticky above 1180px is unchanged. */
+  @media (max-width: 1180px) {
+    .think-notes__partner[data-writing-rail] {
+      position: relative;
+    }
+  }
+
   [data-writing-rail='left'] {
     --think-rail-rest: 250px;
   }

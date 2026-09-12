@@ -42,6 +42,17 @@ describe('Think writing focus mode', () => {
     expect(notes).toMatch(/\.think-notes__partner \{[\s\S]*?position:\s*sticky;/);
   });
 
+  it('keeps the Think notes partner a containing block between 1121px and 1180px', () => {
+    expect(css).toMatch(
+      /@media \(min-width: 1121px\)[\s\S]*@media \(max-width: 1180px\)[\s\S]*\.think-notes__partner\[data-writing-rail\] \{[\s\S]*?position:\s*relative;/
+    );
+    expect(css).toContain('.think-notes__shelf [data-writing-rail]');
+    expect(css).not.toMatch(/\.think-notes \[data-writing-rail\] \{\s*position:\s*relative;/);
+    const notes = fs.readFileSync(path.join(__dirname, 'think-notes.css'), 'utf8');
+    expect(notes).toMatch(/@media \(max-width: 1180px\)[\s\S]*\.think-notes__partner \{[\s\S]*?position:\s*static;/);
+    expect(notes).toMatch(/\.think-notes__partner \{[\s\S]*?position:\s*sticky;/);
+  });
+
   it('outranks stitch-editorial resting columns so focus can close the rails', () => {
     expect(css).toContain('body.noeis-editorial:is(.think-rails-away, .think-focus-held) .notebook-editorial-shell');
     expect(css).toContain('body.noeis-editorial:is(.think-rails-away, .think-focus-held) .think-home-editorial-shell');
