@@ -115,6 +115,11 @@ describe('NotebookEditor', () => {
     fireEvent.focus(document.querySelector('.think-notebook-editor__body'));
   };
 
+  const openArrangement = (name = /Arrange this passage/) => {
+    beginEditingEssay();
+    fireEvent.click(screen.getByRole('button', { name }));
+  };
+
   beforeEach(() => {
     listWikiPages.mockResolvedValue([]);
     // Keep this component suite at the rendering boundary. The hook has its
@@ -617,7 +622,7 @@ describe('NotebookEditor', () => {
       />
     );
 
-    beginEditingEssay();
+    openArrangement();
     fireEvent.click(screen.getByRole('button', { name: 'Move down' }));
 
     expect(mockEditor.commands.setContent).toHaveBeenCalledWith({
@@ -654,11 +659,12 @@ describe('NotebookEditor', () => {
       />
     );
 
-    expect(screen.queryByRole('toolbar')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Move up' })).not.toBeInTheDocument();
     beginEditingEssay();
-    expect(screen.getByRole('toolbar', {
-      name: 'This passage: Recoverable mistakes belong to the person who can still put things back.'
+    expect(screen.getByRole('button', {
+      name: 'Arrange this passage: Recoverable mistakes belong to the person who can still put things back.'
     })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Move up' })).not.toBeInTheDocument();
 
     mockEditor.state.selection.$from.index.mockReturnValue(1);
     const selectionHandlers = mockEditor.on.mock.calls
@@ -668,12 +674,12 @@ describe('NotebookEditor', () => {
     act(() => {
       selectionHandlers.forEach((handler) => handler());
     });
-    expect(screen.getByRole('toolbar', {
-      name: 'This passage: The exception is when the downside lands on someone who never chose the experiment.'
+    expect(screen.getByRole('button', {
+      name: 'Arrange this passage: The exception is when the downside lands on someone who never chose the experiment.'
     })).toBeInTheDocument();
   });
 
-  it('hides the hover bar when focus leaves the essay for the title, Export, or Structure', () => {
+  it('keeps the arrange mark after the essay loses focus, without leaving actions on the prose', () => {
     mockEditor.getJSON.mockReturnValue({
       type: 'doc',
       content: [
@@ -698,24 +704,28 @@ describe('NotebookEditor', () => {
     );
 
     beginEditingEssay();
-    expect(screen.getByRole('toolbar', {
-      name: 'This passage: Recoverable mistakes belong to the person who can still put things back.'
-    })).toBeInTheDocument();
+    const arrangeMark = screen.getByRole('button', {
+      name: 'Arrange this passage: Recoverable mistakes belong to the person who can still put things back.'
+    });
+    expect(arrangeMark).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Move up' })).not.toBeInTheDocument();
 
     const body = document.querySelector('.think-notebook-editor__body');
     fireEvent.blur(body, { relatedTarget: screen.getByPlaceholderText('Title') });
-    expect(screen.queryByRole('toolbar')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', {
+      name: 'Arrange this passage: Recoverable mistakes belong to the person who can still put things back.'
+    })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Move up' })).not.toBeInTheDocument();
 
     fireEvent.focus(body);
-    expect(screen.getByRole('toolbar', {
-      name: 'This passage: Recoverable mistakes belong to the person who can still put things back.'
-    })).toBeInTheDocument();
     fireEvent.blur(body, { relatedTarget: screen.getByRole('button', { name: 'Export' }) });
-    expect(screen.queryByRole('toolbar')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', {
+      name: 'Arrange this passage: Recoverable mistakes belong to the person who can still put things back.'
+    })).toBeInTheDocument();
 
     fireEvent.focus(body);
     fireEvent.blur(body, { relatedTarget: screen.getByRole('button', { name: 'Structure' }) });
-    expect(screen.queryByRole('toolbar')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Move up' })).not.toBeInTheDocument();
   });
 
   it('moves the exception before the rule, then undoes that move', () => {
@@ -766,10 +776,7 @@ describe('NotebookEditor', () => {
       />
     );
 
-    beginEditingEssay();
-    expect(screen.getByRole('toolbar', {
-      name: 'This passage: The exception is when the downside lands on someone who never chose the experiment.'
-    })).toBeInTheDocument();
+    openArrangement(/Arrange this passage: The exception/);
     fireEvent.click(screen.getByRole('button', { name: 'Move up' }));
 
     const movedDoc = mockEditor.commands.setContent.mock.calls
@@ -810,7 +817,7 @@ describe('NotebookEditor', () => {
       />
     );
 
-    beginEditingEssay();
+    openArrangement();
     fireEvent.click(screen.getByRole('button', { name: 'Try without this passage' }));
     const asideDoc = mockEditor.commands.setContent.mock.calls
       .map((call) => call[0])
@@ -847,7 +854,7 @@ describe('NotebookEditor', () => {
       />
     );
 
-    beginEditingEssay();
+    openArrangement();
     fireEvent.click(screen.getByRole('button', { name: 'Try without this passage' }));
     mockEditor.getJSON.mockReturnValue({ type: 'doc', content: [rule] });
 
@@ -891,7 +898,7 @@ describe('NotebookEditor', () => {
       />
     );
 
-    beginEditingEssay();
+    openArrangement();
     fireEvent.click(screen.getByRole('button', { name: 'Try without this passage' }));
     mockEditor.getJSON.mockReturnValue({ type: 'doc', content: [closer] });
     fireEvent.click(screen.getByRole('button', { name: 'Bring back: See this source' }));
@@ -918,7 +925,7 @@ describe('NotebookEditor', () => {
       />
     );
 
-    beginEditingEssay();
+    openArrangement();
     fireEvent.click(screen.getByRole('button', { name: 'Delete this passage' }));
     expect(window.confirm).toHaveBeenCalledWith(expect.stringContaining('will not wait in Set aside'));
     expect(screen.queryByRole('button', { name: /Bring back:/ })).not.toBeInTheDocument();

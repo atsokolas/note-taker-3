@@ -224,7 +224,7 @@ body.noeis-editorial .think-notes .think-notebook-editor-actions-overflow,
   display: none;
 }
 
-/* Arrangement is a hover bar on the current passage, not a persistent strip. */
+/* Arrangement is a small tracking mark in the right gutter, not a bar on the essay. */
 body.noeis-editorial .think-notes .notebook-arrangement,
 .think-notes .notebook-arrangement {
   display: flex;

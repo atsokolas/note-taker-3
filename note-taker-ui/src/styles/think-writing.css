@@ -38,6 +38,7 @@ body.noeis-editorial .think-notebook-editor .ProseMirror:focus-visible,
 
 .think-notebook-editor__body {
   position: relative;
+  overflow: visible;
   padding: 4px 0 48px;
 }
 
@@ -444,37 +445,74 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
   }
 }
 
-.think-notebook-editor__body.is-editing {
-  padding-top: 2.75rem;
-}
-
 .notebook-arrangement {
   position: absolute;
-  left: 0;
-  right: auto;
+  top: 0;
+  right: 0;
   z-index: 4;
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.35rem 0.55rem;
-  width: max-content;
-  max-width: 100%;
+  justify-content: flex-end;
+  width: 28px;
   margin: 0;
-  padding: 4px 8px;
-  border: 1px solid color-mix(in srgb, var(--vellum-line, #ded7c9) 76%, transparent) !important;
-  border-radius: 10px !important;
-  background: color-mix(in srgb, var(--vellum-paper, #fbf8f1) 94%, transparent) !important;
-  box-shadow: 0 10px 28px rgba(43, 37, 28, 0.1) !important;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  pointer-events: none;
+  transform: translate(12px, 0);
+}
+
+.notebook-arrangement__mark,
+.notebook-arrangement__panel {
+  pointer-events: auto;
+}
+
+.notebook-arrangement__mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--vellum-line, #ded7c9) 76%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--vellum-paper, #fbf8f1) 92%, transparent);
+  box-shadow: 0 8px 22px rgba(43, 37, 28, 0.1);
+  backdrop-filter: blur(12px);
+  color: var(--text-secondary, var(--vellum-muted, #6f6a62));
+  cursor: pointer;
+}
+
+.notebook-arrangement__mark:hover,
+.notebook-arrangement__mark:focus-visible,
+.notebook-arrangement.is-open .notebook-arrangement__mark {
+  color: var(--text-primary, var(--vellum-ink, #29251f));
+  border-color: color-mix(in srgb, var(--vellum-line, #ded7c9) 92%, var(--vellum-ink, #29251f));
+}
+
+.notebook-arrangement__panel {
+  position: absolute;
+  top: 0;
+  right: calc(100% + 8px);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  width: max-content;
+  max-width: min(16.5rem, calc(100vw - 48px));
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--vellum-line, #ded7c9) 76%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--vellum-paper, #fbf8f1) 94%, transparent);
+  box-shadow: 0 12px 32px rgba(43, 37, 28, 0.12);
   backdrop-filter: blur(12px);
 }
 
 .notebook-arrangement__label {
-  flex: 1 1 100%;
   margin: 0;
-  max-width: 100%;
+  max-width: 15rem;
   color: var(--text-primary, var(--vellum-ink, #29251f));
   font-family: var(--font-serif, Georgia, serif);
-  font-size: 0.88rem;
+  font-size: 0.84rem;
   font-style: italic;
   line-height: 1.35;
   overflow: hidden;
@@ -495,8 +533,26 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
   font-size: 0.68rem;
 }
 
-@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+@media (max-width: 760px) {
   .notebook-arrangement {
+    transform: none;
+  }
+}
+
+@media (pointer: coarse) {
+  .notebook-arrangement,
+  .notebook-arrangement__mark {
+    width: 44px;
+    height: 44px;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .notebook-arrangement.is-motion {
+    transition: top 180ms var(--noeis-ease-standard, cubic-bezier(0.2, 0.8, 0.2, 1));
+  }
+
+  .notebook-arrangement.is-motion .notebook-arrangement__panel {
     animation: notebook-arrangement-in 160ms var(--noeis-ease-standard, cubic-bezier(0.2, 0.8, 0.2, 1)) both;
   }
 }
