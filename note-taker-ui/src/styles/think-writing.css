@@ -495,7 +495,7 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
   font-size: 0.68rem;
 }
 
-@media (prefers-reduced-motion: no-preference) {
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
   .notebook-arrangement {
     animation: notebook-arrangement-in 160ms var(--noeis-ease-standard, cubic-bezier(0.2, 0.8, 0.2, 1)) both;
   }
