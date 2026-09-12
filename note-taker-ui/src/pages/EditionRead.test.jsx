@@ -235,6 +235,25 @@ describe('reading a paper an agent wrote', () => {
     expect(link).toHaveAttribute('rel', 'noopener noreferrer');
   });
 
+  it('puts the sources beside Share, folded until opened', async () => {
+    getEdition.mockResolvedValue(paper());
+    open();
+    expect(await screen.findByTestId('edition-sources-jump')).toHaveTextContent('Show me the sources');
+    expect(screen.getByTestId('edition-share-open')).toBeInTheDocument();
+    const list = screen.getByTestId('edition-sources');
+    expect(list).not.toHaveAttribute('open');
+    expect(screen.getByRole('link', { name: 'Lab Blog · A paper about scaling' }))
+      .toHaveAttribute('href', 'https://example.com/paper');
+  });
+
+  it('does not invent a source list when nothing is followable', async () => {
+    getEdition.mockResolvedValue(paper({ items: [item({ url: '' })] }));
+    open();
+    await screen.findByText('A paper about scaling');
+    expect(screen.queryByTestId('edition-sources-jump')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('edition-sources')).not.toBeInTheDocument();
+  });
+
   it('says so when the edition does not open', async () => {
     getEdition.mockRejectedValue({ response: { data: { error: 'No such edition.' } } });
     open();
