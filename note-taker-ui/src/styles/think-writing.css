@@ -208,13 +208,13 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
      them instead of reflowing the text, then dissolving it afterwards.
      The same lock lets an opening column grow the words back in. Sticky
      asides already position ::after. Think notes marks an inner shelf, so
-     relative is standing, not a class toggle — toggling position or
-     overflow-y with the body class snapped the box, then faded the rails. */
+     relative is standing on that inner mark only — the partner aside stays
+     sticky. Toggling position with the body class snapped the box. */
   [data-writing-rail] {
     overflow-x: hidden;
   }
 
-  .think-notes [data-writing-rail] {
+  .think-notes__shelf [data-writing-rail] {
     position: relative;
   }
 
