@@ -673,7 +673,7 @@ describe('NotebookEditor', () => {
     })).toBeInTheDocument();
   });
 
-  it('hides the hover bar when focus leaves the essay for the title', () => {
+  it('hides the hover bar when focus leaves the essay for the title, Export, or Structure', () => {
     mockEditor.getJSON.mockReturnValue({
       type: 'doc',
       content: [
