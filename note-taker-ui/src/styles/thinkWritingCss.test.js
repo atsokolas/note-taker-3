@@ -36,6 +36,10 @@ describe('Think writing focus mode', () => {
     expect(collapsedRail?.[0]).toContain('cursor: pointer');
     expect(collapsedRail?.[0]).not.toMatch(/position:\s*relative/);
     expect(collapsedRail?.[0]).not.toMatch(/overflow-y:\s*hidden/);
+    expect(css).toContain('.think-notes__shelf [data-writing-rail]');
+    expect(css).not.toMatch(/\.think-notes \[data-writing-rail\] \{\s*position:\s*relative;/);
+    const notes = fs.readFileSync(path.join(__dirname, 'think-notes.css'), 'utf8');
+    expect(notes).toMatch(/\.think-notes__partner \{[\s\S]*?position:\s*sticky;/);
   });
 
   it('outranks stitch-editorial resting columns so focus can close the rails', () => {
