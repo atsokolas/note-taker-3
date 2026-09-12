@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { NodeViewWrapper, ReactNodeViewRenderer, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -536,7 +536,7 @@ const NotebookEditor = ({
     }
   });
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (editor) editor.setEditable(editingBody);
   }, [editor, editingBody]);
 
@@ -555,10 +555,26 @@ const NotebookEditor = ({
     return () => { if (focusFrame != null) window.cancelAnimationFrame?.(focusFrame); };
   }, [entry?._id, startWriting, editor]);
 
-  const startEditingBody = () => {
+  const startEditingBody = (event) => {
     if (editingBody) return;
+    let pos = null;
+    if (editor?.view?.posAtCoords && event && Number.isFinite(event.clientX)) {
+      try {
+        pos = editor.view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos;
+      } catch (_err) {
+        pos = null;
+      }
+    }
     setEditingBody(true);
-    window.requestAnimationFrame?.(() => editor?.commands.focus());
+    window.requestAnimationFrame?.(() => {
+      if (!editor) return;
+      if (Number.isInteger(pos)) {
+        editor.commands.setTextSelection?.(pos);
+        editor.commands.focus?.();
+        return;
+      }
+      editor.commands?.focus?.();
+    });
   };
 
   /* A picker open is still writing — see the hook. */

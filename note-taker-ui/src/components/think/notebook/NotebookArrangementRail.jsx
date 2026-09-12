@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useState } from 'react';
+import React, { useLayoutEffect, useRef, useState } from 'react';
 import { QuietButton } from '../../ui';
 
 const passageOffsetPx = (editor, piece) => {
@@ -47,6 +47,7 @@ const NotebookArrangementRail = ({
   onRestore,
   onDeletePiece
 }) => {
+  const barRef = useRef(null);
   const [top, setTop] = useState(0);
   const current = Number.isInteger(currentPieceIndex)
     ? (pieces[currentPieceIndex] || null)
@@ -62,7 +63,11 @@ const NotebookArrangementRail = ({
       setTop(0);
       return undefined;
     }
-    const sync = () => setTop(passageOffsetPx(editor, current));
+    const sync = () => {
+      const passageTop = passageOffsetPx(editor, current);
+      const height = barRef.current?.offsetHeight || 40;
+      setTop(Math.max(0, passageTop - height - 6));
+    };
     sync();
     const prose = editor?.view?.dom;
     window.addEventListener('resize', sync);
@@ -77,6 +82,7 @@ const NotebookArrangementRail = ({
 
   return (
     <div
+      ref={barRef}
       className="notebook-arrangement"
       role="toolbar"
       aria-label={current ? `This passage: ${current.label}` : 'Passages set aside'}

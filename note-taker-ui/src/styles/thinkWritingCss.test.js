@@ -54,7 +54,7 @@ describe('Think writing focus mode', () => {
   it('keeps notebook arrangement as a hover bar on the current passage', () => {
     expect(css).toContain('.notebook-arrangement {');
     expect(css).toContain('position: absolute;');
-    expect(css).toContain('transform: translateY(calc(-100% - 6px));');
+    expect(css).toContain('width: max-content;');
     expect(css).toContain('@media (prefers-reduced-motion: no-preference)');
     expect(css).toContain('animation: notebook-arrangement-in');
     expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*\.notebook-arrangement,[\s\S]*animation: none !important;/);
