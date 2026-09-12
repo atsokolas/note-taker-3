@@ -435,60 +435,67 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
   }
 }
 
+.think-notebook-editor__body.is-editing {
+  padding-top: 2.75rem;
+}
+
 .notebook-arrangement {
-  margin: 0 0 1.25rem;
-  padding: 0 0 1rem;
-  border-bottom: 1px solid color-mix(in srgb, var(--vellum-line, #ded7c9) 80%, transparent);
-}
-
-.notebook-arrangement__kicker {
-  margin: 0 0 0.2rem;
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-secondary, var(--vellum-subtle, #827c72));
-}
-
-.notebook-arrangement__copy,
-.notebook-arrangement__pieces,
-.notebook-arrangement__aside {
-  margin: 0;
-  color: var(--text-primary, var(--vellum-ink, #29251f));
-  font-family: var(--font-serif, Georgia, serif);
-  font-size: 0.98rem;
-  line-height: 1.45;
-}
-
-.notebook-arrangement__controls,
-.notebook-arrangement__aside {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem 0.55rem;
-  margin-top: 0.65rem;
-}
-
-.notebook-arrangement__pieces {
-  margin: 0.75rem 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.notebook-arrangement__pieces li {
-  position: relative;
-  padding: 0.15rem 0 0.15rem 1.1rem;
-}
-
-.notebook-arrangement__pieces li::before {
-  content: "—";
   position: absolute;
   left: 0;
-  color: var(--text-secondary, var(--vellum-subtle, #827c72));
+  right: auto;
+  z-index: 4;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.55rem;
+  width: max-content;
+  max-width: 100%;
+  margin: 0;
+  padding: 4px 8px;
+  border: 1px solid color-mix(in srgb, var(--vellum-line, #ded7c9) 76%, transparent) !important;
+  border-radius: 10px !important;
+  background: color-mix(in srgb, var(--vellum-paper, #fbf8f1) 94%, transparent) !important;
+  box-shadow: 0 10px 28px rgba(43, 37, 28, 0.1) !important;
+  backdrop-filter: blur(12px);
+  transform: translateY(calc(-100% - 6px));
 }
 
-.notebook-arrangement__pieces li.is-current {
+.notebook-arrangement__label {
+  flex: 1 1 100%;
+  margin: 0;
+  max-width: 100%;
+  color: var(--text-primary, var(--vellum-ink, #29251f));
+  font-family: var(--font-serif, Georgia, serif);
+  font-size: 0.88rem;
   font-style: italic;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notebook-arrangement__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.15rem 0.35rem;
+}
+
+.notebook-arrangement__controls .ui-quiet-button {
+  min-height: 28px;
+  padding: 3px 8px;
+  font-size: 0.68rem;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .notebook-arrangement {
+    animation: notebook-arrangement-in 160ms var(--noeis-ease-standard, cubic-bezier(0.2, 0.8, 0.2, 1)) both;
+  }
+}
+
+@keyframes notebook-arrangement-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .think-notebook-editor-body blockquote[data-article-id],

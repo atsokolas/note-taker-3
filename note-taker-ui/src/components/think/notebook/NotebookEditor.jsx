@@ -28,14 +28,15 @@ import { buildDocFromBlocks, ensureBlockIds, serializeBlocksFromDoc } from '../.
 import {
   applyNotebookDoc,
   deletePieceInDocument,
+  focusPieceInEditor,
   groupDocPieces,
   hydrateAsidePieces,
+  movePieceInDocument,
   persistableAsidePiece,
-  pieceIndexForNode,
+  pieceIndexForSelection,
   restorePieceInDocument,
   setAsidePieceInDocument
 } from '../../../utils/notebookArrangement';
-import { moveCurrentBlock } from '../editor/blockMovement';
 import { getNotebookClaimEvidence, searchNotebookClaims } from '../../../api/organize';
 import { listWikiPages } from '../../../api/wiki';
 import { AGENT_DISPLAY_NAME } from '../../../constants/agentIdentity';
@@ -557,7 +558,7 @@ const NotebookEditor = ({
   const startEditingBody = () => {
     if (editingBody) return;
     setEditingBody(true);
-    window.requestAnimationFrame?.(() => editor?.commands.focus('end'));
+    window.requestAnimationFrame?.(() => editor?.commands.focus());
   };
 
   /* A picker open is still writing — see the hook. */
@@ -812,10 +813,11 @@ const NotebookEditor = ({
     };
   }, [editor]);
 
-  const arrangementPieces = groupDocPieces(editor?.getJSON?.() || { type: 'doc', content: [] });
-  const currentPieceIndex = pieceIndexForNode(
-    editor?.getJSON?.(),
-    editor?.state?.selection?.$from?.index?.(0)
+  const arrangementDoc = editor?.getJSON?.() || { type: 'doc', content: [] };
+  const arrangementPieces = groupDocPieces(arrangementDoc);
+  const currentPieceIndex = pieceIndexForSelection(
+    arrangementDoc,
+    editor?.state?.selection
   );
 
   useEffect(() => () => {
@@ -945,10 +947,12 @@ const NotebookEditor = ({
   };
 
   const handleArrangeMove = (direction) => {
-    if (!editor) return;
+    if (!editor || !Number.isInteger(currentPieceIndex)) return;
     const previous = editor.getJSON();
-    const result = moveCurrentBlock(editor, direction);
+    const result = movePieceInDocument(previous, currentPieceIndex, direction);
     if (!result?.moved) return;
+    applyNotebookDoc(editor, result.doc);
+    focusPieceInEditor(editor, result.toIndex);
     rememberArrangement(previous, `Undo moving “${result.label}”`);
   };
 
@@ -1349,18 +1353,6 @@ const NotebookEditor = ({
           if (!event.currentTarget.contains(event.relatedTarget)) commitDraft();
         }}
       >
-      <NotebookArrangementRail
-        pieces={arrangementPieces}
-        currentPieceIndex={currentPieceIndex}
-        asidePieces={asidePieces}
-        receipt={arrangementReceipt}
-        enabled={Boolean(editor)}
-        onMove={handleArrangeMove}
-        onUndo={handleArrangeUndo}
-        onSetAside={handleSetAside}
-        onRestore={handleRestoreAside}
-        onDeletePiece={handleDeletePiece}
-      />
       <EditorDraftShell
         editor={editor}
         surfaceRef={slashSurfaceRef}
@@ -1371,6 +1363,20 @@ const NotebookEditor = ({
         slashCommands={slashCommands}
         contextualToolbar
         onAskSelection={onInvokeAgentSkill ? handleAskSelection : null}
+      />
+      <NotebookArrangementRail
+        editor={editor}
+        visible={editingBody}
+        pieces={arrangementPieces}
+        currentPieceIndex={currentPieceIndex}
+        asidePieces={asidePieces}
+        receipt={arrangementReceipt}
+        enabled={Boolean(editor)}
+        onMove={handleArrangeMove}
+        onUndo={handleArrangeUndo}
+        onSetAside={handleSetAside}
+        onRestore={handleRestoreAside}
+        onDeletePiece={handleDeletePiece}
       />
       </div>
       <AuthoredWorkOrigin importMeta={entry.importMeta} sourceBlocks={entry.blocks} />
