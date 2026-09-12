@@ -28,6 +28,16 @@ describe('Think writing focus mode', () => {
     expect(css).not.toMatch(/grid-template-columns 720ms/);
   });
 
+  it('keeps leave-focus on the same interpolable properties as enter', () => {
+    expect(css).toContain('@media (hover: hover) and (pointer: fine)');
+    expect(css).toMatch(/\[data-writing-rail\]::after[\s\S]*?content: attr\(data-writing-rail-label\);/);
+    expect(css).not.toContain('body:is(.think-rails-away, .think-focus-held) .think-notes__note');
+    const collapsedRail = css.match(/body:is\(\.think-rails-away, \.think-focus-held\) \[data-writing-rail\] \{[^}]+\}/);
+    expect(collapsedRail?.[0]).toContain('cursor: pointer');
+    expect(collapsedRail?.[0]).not.toMatch(/position:\s*relative/);
+    expect(collapsedRail?.[0]).not.toMatch(/overflow-y:\s*hidden/);
+  });
+
   it('outranks stitch-editorial resting columns so focus can close the rails', () => {
     expect(css).toContain('body.noeis-editorial:is(.think-rails-away, .think-focus-held) .notebook-editorial-shell');
     expect(css).toContain('body.noeis-editorial:is(.think-rails-away, .think-focus-held) .think-home-editorial-shell');
