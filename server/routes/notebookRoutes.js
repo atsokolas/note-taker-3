@@ -8,6 +8,11 @@ const {
   sanitizeAsidePieces,
   sanitizeNotebookBlocks
 } = require('../utils/notebookIdentity');
+const {
+  AuthoredSourceCorrectionError,
+  attachAuthoredSourceCorrection,
+  disposeAuthoredSourceCorrection
+} = require('../services/authoredSourceCorrection');
 
 const NOTEBOOK_USER_FOLDER_OWNERSHIP = 'user_owned';
 
@@ -33,9 +38,17 @@ const buildNotebookRouter = ({
   WikiMaintenanceRun = null,
   Article = null,
   TagMeta = null,
-  Question = null
+  Question = null,
+  NoeisReceipt = null
 }) => {
   const router = express.Router();
+  const correctionModels = () => ({ WikiSourceEvent, NoeisReceipt });
+  const humanOnly = (req, res, next) => {
+    if (req.agentToken || req.authInfo?.tokenSource === 'agent-token' || req.personalAgent) {
+      return res.status(403).json({ error: 'Only the human owner can settle a source correction.' });
+    }
+    return next();
+  };
 
   const blockSummary = (entry) => [
     entry?.content,
@@ -349,10 +362,46 @@ const buildNotebookRouter = ({
       if (!hadBlocks && entry.blocks?.length) {
         await entry.save();
       }
-      res.status(200).json(entry);
+      const payload = await attachAuthoredSourceCorrection({
+        models: correctionModels(),
+        userId,
+        objectType: 'notebook',
+        object: entry
+      });
+      res.status(200).json(payload);
     } catch (error) {
       console.error("❌ Error fetching notebook entry:", error);
       res.status(500).json({ error: "Failed to fetch notebook entry." });
+    }
+  });
+
+  router.post('/api/notebook/:id/source-correction', authenticateToken, humanOnly, async (req, res) => {
+    try {
+      const userId = req.user.id;
+      const entry = await NotebookEntry.findOne({ _id: req.params.id, userId });
+      if (!entry) return res.status(404).json({ error: 'Notebook entry not found.' });
+      const result = await disposeAuthoredSourceCorrection({
+        models: correctionModels(),
+        userId,
+        objectType: 'notebook',
+        object: entry,
+        eventId: req.body?.eventId,
+        action: req.body?.action
+      });
+      const payload = entry.toObject ? entry.toObject() : entry;
+      payload.sourceCorrection = result.preview;
+      return res.status(200).json({
+        sourceCorrection: result.preview,
+        receipt: result.receipt,
+        replay: Boolean(result.replay),
+        entry: payload
+      });
+    } catch (error) {
+      if (error instanceof AuthoredSourceCorrectionError) {
+        return res.status(error.status).json({ error: error.message, code: error.code });
+      }
+      console.error('Failed to settle notebook source correction:', error);
+      return res.status(500).json({ error: 'Failed to settle the source correction.' });
     }
   });
 
@@ -526,7 +575,12 @@ const buildNotebookRouter = ({
         sourceUpdatedAt: entry.updatedAt || new Date(),
         metadata: { route: 'append-highlight', highlightId }
       });
-      res.status(200).json(entry);
+      res.status(200).json(await attachAuthoredSourceCorrection({
+        models: correctionModels(),
+        userId,
+        objectType: 'notebook',
+        object: entry
+      }));
     } catch (error) {
       console.error("❌ Error appending highlight to notebook:", error);
       res.status(500).json({ error: "Failed to append highlight." });
@@ -639,7 +693,12 @@ const buildNotebookRouter = ({
         sourceUpdatedAt: updated.updatedAt || new Date(),
         metadata: { route: 'update-notebook' }
       });
-      res.status(200).json(updated);
+      res.status(200).json(await attachAuthoredSourceCorrection({
+        models: correctionModels(),
+        userId,
+        objectType: 'notebook',
+        object: updated
+      }));
     } catch (error) {
       console.error("❌ Error updating notebook entry:", error);
       res.status(500).json({ error: "Failed to update notebook entry." });

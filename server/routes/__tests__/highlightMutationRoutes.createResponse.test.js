@@ -120,4 +120,83 @@ describe('created highlight carries its article', () => {
     });
     expect(result.body.highlight.anchor.prefix).toBe('So ');
   });
+
+  test('a text correction records a processed source event with the old quotation', async () => {
+    const OLD = 'Two hours a week can sustain this.';
+    const NEW = 'Two hours a week cannot sustain this.';
+    const highlight = {
+      _id: '64f2000000000000000000aa',
+      text: OLD,
+      note: '',
+      tags: [],
+      color: '#f6e27a',
+      type: 'note',
+      claimId: null
+    };
+    const article = {
+      _id: '64f2000000000000000000bb',
+      title: 'A letter on time',
+      url: 'https://example.com/letter',
+      highlights: Object.assign([highlight], {
+        id: (id) => (String(id) === String(highlight._id) ? highlight : null)
+      }),
+      save: async () => article
+    };
+    const store = [];
+    function WikiSourceEvent(value) {
+      Object.assign(this, value);
+      this._id = this._id || `evt-${store.length + 1}`;
+      this.save = async () => {
+        const index = store.findIndex((row) => String(row._id) === String(this._id));
+        if (index >= 0) store[index] = this;
+        else store.push(this);
+        return this;
+      };
+    }
+    WikiSourceEvent.findOne = () => {
+      const api = {
+        sort() { return api; },
+        lean: async () => store[0] || null
+      };
+      api.then = (resolve, reject) => Promise.resolve(store[0] || null).then(resolve, reject);
+      return api;
+    };
+
+    const app = express();
+    app.use(express.json());
+    app.use(buildHighlightMutationRouter({
+      mongoose: { Types: { ObjectId: String } },
+      authenticateToken: (req, _res, next) => { req.user = { id: '64f200000000000000000001' }; next(); },
+      Article: { findOne: async () => article },
+      normalizeTags: (value) => (Array.isArray(value) ? value : []),
+      enqueueHighlightEmbedding: () => {},
+      safeMapEmbedding: () => null,
+      highlightToEmbeddingItem: () => null,
+      queueEmbeddingUpsert: () => {},
+      markTourSignal: async () => {},
+      normalizeItemType: (value, fallback) => value || fallback,
+      parseClaimId: (value) => value || null,
+      buildEmbeddingId: () => '',
+      queueEmbeddingDelete: () => {},
+      WikiSourceEvent
+    }));
+    const server = http.createServer(app);
+    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const { port } = server.address();
+    try {
+      const response = await fetch(`http://127.0.0.1:${port}/articles/${article._id}/highlights/${highlight._id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: NEW })
+      });
+      expect(response.status).toBe(200);
+      expect(store).toHaveLength(1);
+      expect(store[0].metadata.kind).toBe('source_correction');
+      expect(store[0].metadata.previousText).toBe(OLD);
+      expect(store[0].text).toBe(NEW);
+      expect(store[0].status).toBe('processed');
+    } finally {
+      await new Promise((resolve) => server.close(resolve));
+    }
+  });
 });

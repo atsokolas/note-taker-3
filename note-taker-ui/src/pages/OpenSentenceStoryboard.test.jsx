@@ -42,7 +42,9 @@ import {
   STORYBOARD_THEN_ORIGINAL,
   STORYBOARD_THEN_QUESTION,
   STORYBOARD_THEN_QUOTATION,
-  STORYBOARD_THEN_BESIDE
+  STORYBOARD_THEN_BESIDE,
+  STORYBOARD_CORRECTION_OLD,
+  STORYBOARD_CORRECTION_NEW
 } from '../components/wiki/open-sentence/openSentenceStoryboardFixture';
 
 const renderBoard = (entries = ['/']) => render(
@@ -514,5 +516,17 @@ describe('OpenSentenceStoryboard', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Stillness' }));
     expect(document.querySelector('.open-sentence-storyboard__stage')).toHaveAttribute('data-stillness', '1');
     expect(screen.getByRole('button', { name: 'Stillness' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('reviews a source correction with the old quotation and new evidence', async () => {
+    renderBoard();
+    fireEvent.click(screen.getByRole('button', { name: 'Correction' }));
+    const review = screen.getByLabelText('Source correction');
+    expect(review).toHaveTextContent(STORYBOARD_CORRECTION_OLD);
+    expect(review).toHaveTextContent(STORYBOARD_CORRECTION_NEW);
+    fireEvent.click(screen.getByRole('button', { name: 'No change' }));
+    expect(await screen.findByText('No change. The correction does not require this work to move.')).toBeInTheDocument();
+    expect(review).toHaveTextContent(STORYBOARD_CORRECTION_OLD);
+    expect(review).toHaveTextContent(/Reviewed 2026-09-12/);
   });
 });

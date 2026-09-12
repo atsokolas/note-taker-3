@@ -1,0 +1,125 @@
+/* Replaces stuffing authored source-correction review into MorningConsequence
+   or a second paper check-in. The review lives on the authored object. */
+
+.source-correction-review {
+  display: grid;
+  gap: var(--noeis-space-3, 0.75rem);
+  margin: 0 0 var(--noeis-space-5, 1.25rem);
+  padding: var(--noeis-space-4, 1rem) 0;
+  border-top: 1px solid var(--noeis-rule, rgba(28, 24, 18, 0.12));
+  border-bottom: 1px solid var(--noeis-rule, rgba(28, 24, 18, 0.12));
+  color: var(--noeis-ink, #1c1812);
+}
+
+.source-correction-review__fold,
+.source-correction-review__wording p,
+.source-correction-review__dates,
+.source-correction-review__source,
+.source-correction-review__hint,
+.source-correction-review__receipt,
+.source-correction-review__error {
+  margin: 0;
+  max-width: 62ch;
+}
+
+.source-correction-review__fold > .source-correction-review__label,
+.source-correction-review__label {
+  display: block;
+  margin-bottom: 0.2em;
+  color: var(--noeis-ink-subtle, #6b6458);
+  font-size: var(--noeis-type-meta, 0.72rem);
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.source-correction-review__wording {
+  display: grid;
+  gap: var(--noeis-space-3, 0.75rem);
+}
+
+.source-correction-review__changed {
+  line-height: 1.55;
+}
+
+.source-correction-review__changed del {
+  color: var(--noeis-ink-muted, #5c564c);
+  text-decoration-thickness: 1px;
+  text-decoration-color: currentColor;
+}
+
+.source-correction-review__changed ins {
+  text-decoration: none;
+  font-weight: 600;
+  background: color-mix(in srgb, var(--noeis-ink, #1c1812) 8%, transparent);
+  box-decoration-break: clone;
+}
+
+.source-correction-review__changed del + ins {
+  margin-left: 0.25em;
+}
+
+.source-correction-review__dates,
+.source-correction-review__hint {
+  color: var(--noeis-ink-muted, #5c564c);
+  font-size: var(--noeis-type-meta, 0.85rem);
+}
+
+.source-correction-review__source a {
+  color: inherit;
+}
+
+.source-correction-review__verbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+}
+
+.source-correction-review__verbs button {
+  appearance: none;
+  margin: 0;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--noeis-rule, rgba(28, 24, 18, 0.18));
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.source-correction-review__verbs button:hover:not(:disabled),
+.source-correction-review__verbs button:focus-visible {
+  border-color: var(--noeis-ink, #1c1812);
+}
+
+.source-correction-review__verbs button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.source-correction-review__receipt {
+  color: var(--noeis-ink, #1c1812);
+}
+
+.source-correction-review__error {
+  color: var(--noeis-ink, #1c1812);
+}
+
+.source-correction-review.is-settled .source-correction-review__wording {
+  opacity: 0.96;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .source-correction-review,
+  .source-correction-review__verbs button,
+  .source-correction-review__changed ins {
+    transition: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .source-correction-review__verbs {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

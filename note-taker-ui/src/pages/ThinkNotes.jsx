@@ -398,6 +398,12 @@ const ThinkNotes = () => {
               agentContextType="notebook"
               agentContextId={openId}
               agentContextTitle={entry.title || 'Note'}
+              onSourceCorrectionSettled={(result) => {
+                if (result?.entry) setEntry(result.entry);
+                else if (result?.sourceCorrection) {
+                  setEntry((current) => (current ? { ...current, sourceCorrection: result.sourceCorrection } : current));
+                }
+              }}
             />
             {/* A quiet shortcut into the same partner beside the document. */}
             <button

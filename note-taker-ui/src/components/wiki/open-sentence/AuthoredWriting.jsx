@@ -1,7 +1,8 @@
 import React, { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import AuthoredContinuityTools from './AuthoredContinuityTools';
-import { authoredWorkError } from '../../../api/authoredExplorations';
+import authoredExplorations, { authoredWorkError } from '../../../api/authoredExplorations';
+import SourceCorrectionReview from '../../think/SourceCorrectionReview';
 import { buildAuthoredContinuationPath } from '../../../utils/sourceRoutes';
 import { beginPressure, canProposeWording, chooseLibraryPassage, isPressured, proposeWording, setPressureField, thoughtTitle, titleThought, writeThought } from './openSentenceModel';
 
@@ -157,6 +158,17 @@ export default function AuthoredWriting({ exploration, onChange, authorship, poc
 
   return (
     <div className="open-sentence-pocket__authored">
+      <SourceCorrectionReview
+        preview={record?.saved?.sourceCorrection}
+        onDispose={({ eventId, action }) => {
+          if (typeof authorship.disposeSourceCorrection === 'function') {
+            return authorship.disposeSourceCorrection({ eventId, action });
+          }
+          const workId = record?.saved?.id;
+          if (!workId) throw new Error('This work is not saved yet.');
+          return authoredExplorations.disposeSourceCorrection(workId, { eventId, action });
+        }}
+      />
       {exploration.authoredAgainst ? (
         <div className="open-sentence-pocket__prior-writing" role="status">
           <p>The article’s sentence changed. Your earlier work is still here.</p>

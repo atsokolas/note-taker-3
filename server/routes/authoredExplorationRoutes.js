@@ -9,6 +9,11 @@ const {
   putExploration,
   serializeExploration
 } = require('../services/authoredExplorationService');
+const {
+  AuthoredSourceCorrectionError,
+  attachAuthoredSourceCorrection,
+  disposeAuthoredSourceCorrection
+} = require('../services/authoredSourceCorrection');
 
 const buildAuthoredExplorationRouter = ({
   authenticateToken,
@@ -18,10 +23,19 @@ const buildAuthoredExplorationRouter = ({
   NotebookEntry,
   Question,
   createBlockId,
+  WikiSourceEvent = null,
+  NoeisReceipt = null,
   onNotebookKept = async () => {},
   onQuestionKept = async () => {}
 }) => {
   const router = express.Router();
+  const correctionModels = () => ({ WikiSourceEvent, NoeisReceipt });
+  const withCorrection = async (userId, exploration) => attachAuthoredSourceCorrection({
+    models: correctionModels(),
+    userId,
+    objectType: 'exploration',
+    object: exploration
+  });
   const humanOnly = (req, res, next) => {
     if (req.agentToken || req.authInfo?.tokenSource === 'agent-token' || req.personalAgent) {
       return res.status(403).json({ error: 'Only the human owner can access private authored work.' });
@@ -40,7 +54,11 @@ const buildAuthoredExplorationRouter = ({
     res.set('Cache-Control', 'private, no-store');
     try {
       const row = await ownedWork({ AuthoredExploration, userId: req.user.id, workId: req.params.workId });
-      return res.json({ exploration: serializeExploration(row), versions: row.savedVersions || [], userId: String(req.user.id) });
+      return res.json({
+        exploration: await withCorrection(req.user.id, serializeExploration(row)),
+        versions: row.savedVersions || [],
+        userId: String(req.user.id)
+      });
     } catch (error) { return sendError(res, error); }
   });
 
@@ -87,7 +105,10 @@ const buildAuthoredExplorationRouter = ({
         highlightId: req.params.highlightId,
         claimId: req.query.claimId
       });
-      return res.status(200).json({ explorations, userId: String(req.user.id) });
+      return res.status(200).json({
+        explorations: await Promise.all(explorations.map((exploration) => withCorrection(req.user.id, exploration))),
+        userId: String(req.user.id)
+      });
     } catch (error) {
       return sendError(res, error);
     }
@@ -108,7 +129,9 @@ const buildAuthoredExplorationRouter = ({
         mutationId: req.body?.mutationId,
         draft: req.body?.draft
       });
-      return res.status(exploration.revision === 1 && !exploration.idempotent ? 201 : 200).json({ exploration });
+      return res.status(exploration.revision === 1 && !exploration.idempotent ? 201 : 200).json({
+        exploration: await withCorrection(req.user.id, exploration)
+      });
     } catch (error) {
       return sendError(res, error);
     }
@@ -153,6 +176,55 @@ const buildAuthoredExplorationRouter = ({
         onQuestionKept
       });
       return res.status(200).json(result);
+    } catch (error) {
+      return sendError(res, error);
+    }
+  });
+
+  const settleExplorationCorrection = async (req, res, row) => {
+    if (!row) return sendError(res, new AuthoredExplorationError('Private work not found.', 404, 'exploration_not_found'));
+    try {
+      const result = await disposeAuthoredSourceCorrection({
+        models: correctionModels(),
+        userId: req.user.id,
+        objectType: 'exploration',
+        object: row,
+        eventId: req.body?.eventId,
+        action: req.body?.action
+      });
+      return res.status(200).json({
+        sourceCorrection: result.preview,
+        receipt: result.receipt,
+        replay: Boolean(result.replay),
+        exploration: await withCorrection(req.user.id, serializeExploration(row))
+      });
+    } catch (error) {
+      if (error instanceof AuthoredSourceCorrectionError) {
+        return res.status(error.status).json({ error: error.message, code: error.code });
+      }
+      return sendError(res, error);
+    }
+  };
+
+  router.post('/api/authored-explorations/:workId/source-correction', authenticateToken, humanOnly, async (req, res) => {
+    try {
+      const row = await ownedWork({ AuthoredExploration, userId: req.user.id, workId: req.params.workId });
+      return settleExplorationCorrection(req, res, row);
+    } catch (error) {
+      return sendError(res, error);
+    }
+  });
+
+  router.post([
+    '/api/wiki/pages/:pageId/claims/:claimId/exploration/source-correction',
+    '/api/library/articles/:articleId/highlights/:highlightId/exploration/source-correction'
+  ], authenticateToken, humanOnly, async (req, res) => {
+    try {
+      const filter = req.params.articleId
+        ? { userId: req.user.id, articleId: req.params.articleId, highlightId: req.params.highlightId }
+        : { userId: req.user.id, pageId: req.params.pageId, claimId: req.params.claimId };
+      const row = await AuthoredExploration.findOne(filter);
+      return settleExplorationCorrection(req, res, row);
     } catch (error) {
       return sendError(res, error);
     }

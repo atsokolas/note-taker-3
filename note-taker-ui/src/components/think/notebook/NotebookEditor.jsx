@@ -18,8 +18,9 @@ import useThinkWritingActivity from '../editor/useThinkWritingActivity';
 import { handleEditorStructureShortcut } from '../editor/editorShortcuts';
 import { createNotebookClaimSlashItems } from './notebookClaimSlash';
 import UseDistinctionHere from '../../wiki/open-sentence/UseDistinctionHere';
+import SourceCorrectionReview from '../SourceCorrectionReview';
 import { editorNodesFromDistinctionUse, eligibleDistinctions } from '../../../utils/distinctionUse';
-import { exportNotebookMarkdown, getNotebookSummaries } from '../../../api/notebook';
+import { exportNotebookMarkdown, getNotebookSummaries, disposeNotebookSourceCorrection } from '../../../api/notebook';
 import useHighlights from '../../../hooks/useHighlights';
 import useArticles from '../../../hooks/useArticles';
 import useConcepts from '../../../hooks/useConcepts';
@@ -351,7 +352,8 @@ const NotebookEditor = ({
   agentContextType = 'notebook',
   agentContextId = '',
   agentContextTitle = '',
-  sourceEvergreen = null
+  sourceEvergreen = null,
+  onSourceCorrectionSettled = null
 }) => {
   const liveSourceEvergreen = useNotebookSourceEvergreen(entry);
   const resolvedSourceEvergreen = sourceEvergreen || liveSourceEvergreen;
@@ -384,6 +386,7 @@ const NotebookEditor = ({
   const [claimEvidenceItems, setClaimEvidenceItems] = useState([]);
   const [claimEvidenceLoading, setClaimEvidenceLoading] = useState(false);
   const [organizeError, setOrganizeError] = useState('');
+  const [sourceCorrection, setSourceCorrection] = useState(entry?.sourceCorrection || null);
   const navigate = useNavigate();
   const { highlights, highlightMap, loading: highlightsLoading, error: highlightsError } = useHighlights();
   const { articles } = useArticles({ enabled: insertMode === 'article' });
@@ -617,6 +620,10 @@ const NotebookEditor = ({
       editor.commands.setContent(content, false);
     }
   }, [entry, editor]);
+
+  useEffect(() => {
+    setSourceCorrection(entry?.sourceCorrection || null);
+  }, [entry?._id, entry?.sourceCorrection]);
 
   useEffect(() => {
     if (insertMode !== 'concept') return undefined;
@@ -1116,6 +1123,14 @@ const NotebookEditor = ({
             </div>
           </div>
         )}
+        <SourceCorrectionReview
+          preview={sourceCorrection}
+          onDispose={({ eventId, action }) => disposeNotebookSourceCorrection(entry._id, { eventId, action })}
+          onSettled={(result) => {
+            if (result?.sourceCorrection) setSourceCorrection(result.sourceCorrection);
+            onSourceCorrectionSettled?.(result);
+          }}
+        />
         <div className="think-notebook-editor-actions">
           <div className="think-notebook-editor-actions-left">
             {onCreate && (

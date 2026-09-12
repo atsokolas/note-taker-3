@@ -5377,7 +5377,8 @@ app.use(buildNotebookRouter({
   WikiMaintenanceRun,
   Article,
   TagMeta,
-  Question
+  Question,
+  NoeisReceipt
 }));
 
 app.use(buildAuthoredExplorationRouter({
@@ -5388,6 +5389,8 @@ app.use(buildAuthoredExplorationRouter({
   NotebookEntry,
   Question,
   createBlockId,
+  WikiSourceEvent,
+  NoeisReceipt,
   ...buildAuthoredKeepEffects({ WikiSourceEvent, enqueueNotebookEmbedding, enqueueQuestionEmbedding })
 }));
 
