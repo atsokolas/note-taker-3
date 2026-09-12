@@ -703,8 +703,18 @@ describe('NotebookEditor', () => {
     })).toBeInTheDocument();
 
     const body = document.querySelector('.think-notebook-editor__body');
-    const title = screen.getByPlaceholderText('Title');
-    fireEvent.blur(body, { relatedTarget: title });
+    fireEvent.blur(body, { relatedTarget: screen.getByPlaceholderText('Title') });
+    expect(screen.queryByRole('toolbar')).not.toBeInTheDocument();
+
+    fireEvent.focus(body);
+    expect(screen.getByRole('toolbar', {
+      name: 'This passage: Recoverable mistakes belong to the person who can still put things back.'
+    })).toBeInTheDocument();
+    fireEvent.blur(body, { relatedTarget: screen.getByRole('button', { name: 'Export' }) });
+    expect(screen.queryByRole('toolbar')).not.toBeInTheDocument();
+
+    fireEvent.focus(body);
+    fireEvent.blur(body, { relatedTarget: screen.getByRole('button', { name: 'Structure' }) });
     expect(screen.queryByRole('toolbar')).not.toBeInTheDocument();
   });
 
