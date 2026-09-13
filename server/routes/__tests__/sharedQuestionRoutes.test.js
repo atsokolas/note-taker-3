@@ -245,6 +245,73 @@ const run = async () => {
     const ownerSees = await fetchJson(`${base}/api/questions/${questionId}/share`);
     assert.strictEqual(ownerSees.body.contributions[0].text, 'Same fact, different time horizon.');
     assert.ok(!ownerSees.body.snapshot.contributions);
+    assert.ok(!ownerSees.body.contributions[0].interpretation);
+
+    const contributionId = ownerSees.body.contributions[0].id;
+    const agentTake = await fetchJson(
+      `${base}/api/questions/${questionId}/share/contributions/${contributionId}`,
+      {
+        method: 'PATCH',
+        headers: { 'x-agent-token': '1' },
+        body: JSON.stringify({ interpretation: 'An agent take.' })
+      }
+    );
+    assert.strictEqual(agentTake.response.status, 403);
+
+    const missingTake = await fetchJson(
+      `${base}/api/questions/${questionId}/share/contributions/missing`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ interpretation: 'Gone.' })
+      }
+    );
+    assert.strictEqual(missingTake.response.status, 404);
+
+    const take = await fetchJson(
+      `${base}/api/questions/${questionId}/share/contributions/${contributionId}`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({
+          interpretation: '<em>The horizon is the claim, not the fact.</em>',
+          articleId: 'secret',
+          sourcePath: '/library?articleId=secret'
+        })
+      }
+    );
+    assert.strictEqual(take.response.status, 200, JSON.stringify(take.body));
+    assert.strictEqual(take.body.contributions[0].text, 'Same fact, different time horizon.');
+    assert.strictEqual(take.body.contributions[0].remainder, 'Who pays when the window closes?');
+    assert.strictEqual(take.body.contributions[0].interpretation, 'The horizon is the claim, not the fact.');
+    assert.strictEqual(take.body.contributions[0].interpretedBy, 'Owner');
+    assert.ok(!take.body.snapshot.interpretation);
+    assert.ok(!take.body.snapshot.contributions);
+    assert.ok(!JSON.stringify(take.body.contributions).includes('secret'));
+
+    const takenPage = await fetchJson(`${base}/api/public/questions/${mint.body.slug}`);
+    assert.strictEqual(takenPage.body.contributions[0].interpretation, 'The horizon is the claim, not the fact.');
+    assert.strictEqual(takenPage.body.contributions[0].interpretedBy, 'Owner');
+    assert.strictEqual(takenPage.body.contributions[0].text, 'Same fact, different time horizon.');
+    assert.ok(!takenPage.body.interpretation);
+
+    const clearTake = await fetchJson(
+      `${base}/api/questions/${questionId}/share/contributions/${contributionId}`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ interpretation: '   ' })
+      }
+    );
+    assert.strictEqual(clearTake.response.status, 200);
+    assert.ok(!clearTake.body.contributions[0].interpretation);
+    assert.strictEqual(clearTake.body.contributions[0].text, 'Same fact, different time horizon.');
+
+    const retake = await fetchJson(
+      `${base}/api/questions/${questionId}/share/contributions/${contributionId}`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ interpretation: 'The horizon is the claim, not the fact.' })
+      }
+    );
+    assert.strictEqual(retake.body.contributions[0].interpretation, 'The horizon is the claim, not the fact.');
 
     const filled = [];
     for (let i = 1; i < CONTRIBUTION_LIMIT; i += 1) {
@@ -286,6 +353,8 @@ const run = async () => {
     assert.strictEqual(updated.body.snapshot.question.text, 'Rewritten in the workshop.');
     assert.strictEqual(updated.body.snapshot.correction, 'The exception now leads.');
     assert.strictEqual(updated.body.snapshot.publishedAt, mint.body.snapshot.publishedAt);
+    assert.strictEqual(updated.body.contributions[0].interpretation, 'The horizon is the claim, not the fact.');
+    assert.strictEqual(updated.body.contributions[0].text, 'Same fact, different time horizon.');
 
     Question.rows.splice(0, Question.rows.length);
     const afterDelete = await fetchJson(`${base}/api/public/questions/${mint.body.slug}`);
@@ -302,6 +371,15 @@ const run = async () => {
 
     const goneDoor = await offer(mint.body.slug, { by: 'Mara', text: 'After revoke.' });
     assert.strictEqual(goneDoor.response.status, 404);
+
+    const goneTake = await fetchJson(
+      `${base}/api/questions/${questionId}/share/contributions/${contributionId}`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ interpretation: 'After revoke.' })
+      }
+    );
+    assert.strictEqual(goneTake.response.status, 404);
 
     await Question.create({
       _id: questionId,

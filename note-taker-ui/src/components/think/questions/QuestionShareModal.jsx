@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Button, QuietButton } from '../../ui';
 import {
   getQuestionShare,
+  interpretQuestionContribution,
   mintQuestionShare,
   revokeQuestionShare,
   updateQuestionShare
@@ -10,6 +11,7 @@ import { usePrefersReducedMotion } from '../../../hooks/useMotionPreferences';
 import QuestionShareView from '../QuestionShareView';
 import {
   QUESTION_SHARE_PRIVACY,
+  QUESTION_SHARE_TAKE,
   THINK_SHARE_REVOKE
 } from '../thinkShareFixture';
 
@@ -21,6 +23,55 @@ const buildShareUrl = (slug) => {
 const actionErrorOf = (error, fallback) => (
   error?.response?.data?.error || error?.message || fallback
 );
+
+const asLine = (value) => String(value || '').trim();
+
+const TakeReading = ({ reading, disabled, onSave }) => {
+  const [text, setText] = useState(asLine(reading.interpretation));
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const fieldId = `question-share-take-${reading.id}`;
+
+  useEffect(() => {
+    setText(asLine(reading.interpretation));
+  }, [reading.interpretation]);
+
+  const save = async () => {
+    if (busy || disabled || !reading.id) return;
+    setBusy(true);
+    setError('');
+    try {
+      await onSave(reading.id, asLine(text));
+    } catch (_err) {
+      setError('That take did not save.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="concept-share-modal__note" data-testid={`question-share-take-${reading.id}`}>
+      <label className="concept-share-modal__label" htmlFor={fieldId}>
+        How you take this
+      </label>
+      <p className="muted small">{reading.by}</p>
+      <textarea
+        id={fieldId}
+        className="concept-share-modal__correction"
+        value={text}
+        maxLength={400}
+        rows={3}
+        onChange={(event) => setText(event.target.value)}
+        disabled={disabled || busy}
+      />
+      <p className="muted small">{QUESTION_SHARE_TAKE}</p>
+      {error ? <p className="status-message error-message">{error}</p> : null}
+      <Button type="button" variant="secondary" onClick={save} disabled={disabled || busy}>
+        {busy ? 'Saving…' : 'Save how you take it'}
+      </Button>
+    </div>
+  );
+};
 
 const ShareIncludesList = () => (
   <ul className="concept-share-modal__includes" aria-label="What's included">
@@ -106,6 +157,11 @@ const QuestionShareModal = ({ open, questionId, questionText, onClose }) => {
     }
   };
 
+  const handleTake = async (contributionId, interpretation) => {
+    const data = await interpretQuestionContribution(questionId, contributionId, { interpretation });
+    setState(data);
+  };
+
   const handleRevoke = async () => {
     if (!window.confirm('Revoke this share link? Anyone with the existing link will lose access immediately.')) return;
     setBusy(true);
@@ -188,6 +244,18 @@ const QuestionShareModal = ({ open, questionId, questionText, onClose }) => {
               >
                 <p className="concept-share-modal__reader-label">Pending an update</p>
                 <QuestionShareView snapshot={pending} compact />
+              </div>
+            ) : null}
+            {state.shared && readings.length ? (
+              <div className="concept-share-modal__takes" data-testid="question-share-takes">
+                {readings.map((reading) => (
+                  <TakeReading
+                    key={reading.id || reading.by}
+                    reading={reading}
+                    disabled={busy}
+                    onSave={handleTake}
+                  />
+                ))}
               </div>
             ) : null}
             {!reader?.question && !publishable ? (

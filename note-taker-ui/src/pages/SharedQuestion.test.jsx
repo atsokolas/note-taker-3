@@ -92,4 +92,30 @@ describe('SharedQuestion', () => {
       expect(screen.getByText('It is on this page, beside the question.')).toBeInTheDocument();
     });
   });
+
+  it('shows how the owner takes a reading without inviting a take on the public page', async () => {
+    getPublicQuestion.mockResolvedValueOnce({
+      ownerDisplayName: 'Athan',
+      publishedAt: '2026-06-14T00:00:00Z',
+      question: {
+        text: 'What survives compounding?',
+        status: 'open',
+        paragraphs: [{ id: 'p1', type: 'paragraph', text: 'First paragraph.' }]
+      },
+      contributions: [{
+        id: 'c1',
+        by: 'Mara',
+        text: 'Same fact, different time horizon.',
+        remainder: 'Who pays when the window closes?',
+        interpretation: 'The horizon is the claim, not the fact.',
+        interpretedBy: 'Athan'
+      }]
+    });
+
+    render(<SharedQuestion />);
+    expect(await screen.findByText('Same fact, different time horizon.')).toBeInTheDocument();
+    expect(screen.getByText('Athan — Not quite: The horizon is the claim, not the fact.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Offer a reading' })).toBeInTheDocument();
+    expect(screen.queryByLabelText('How you take this')).not.toBeInTheDocument();
+  });
 });

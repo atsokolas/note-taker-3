@@ -8,6 +8,8 @@ export const QUESTION_SHARE_COLOPHON = 'This is the version that was published. 
 
 export const QUESTION_SHARE_OFFER = 'Only these words leave your side. Your Library stays private. What you still hold is optional.';
 
+export const QUESTION_SHARE_TAKE = 'The reading stays. This sits beside it.';
+
 export const CONCEPT_SHARE_COLOPHON = 'This is the version that was published. Later private edits do not change it.';
 
 export const QUESTION_NOT_PUBLISHED = 'This question is not published.';

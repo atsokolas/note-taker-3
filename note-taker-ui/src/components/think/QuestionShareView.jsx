@@ -128,6 +128,11 @@ const Reading = ({ reading }) => {
       {asLine(reading.remainder) ? (
         <p className="think-share-view__remainder">Still holds: {asLine(reading.remainder)}</p>
       ) : null}
+      {asLine(reading.interpretation) && asLine(reading.interpretedBy) ? (
+        <p className="think-share-view__interpretation">
+          {asLine(reading.interpretedBy)} — Not quite: {asLine(reading.interpretation)}
+        </p>
+      ) : null}
       {when ? <p className="think-share-view__by">{when}</p> : null}
     </article>
   );

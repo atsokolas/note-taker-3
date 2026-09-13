@@ -5,6 +5,7 @@ import { questionSnapshot } from '../thinkShareFixture';
 
 jest.mock('../../../api/questions', () => ({
   getQuestionShare: jest.fn(),
+  interpretQuestionContribution: jest.fn(),
   mintQuestionShare: jest.fn(),
   revokeQuestionShare: jest.fn(),
   updateQuestionShare: jest.fn()
@@ -12,6 +13,7 @@ jest.mock('../../../api/questions', () => ({
 
 const {
   getQuestionShare,
+  interpretQuestionContribution,
   mintQuestionShare,
   revokeQuestionShare,
   updateQuestionShare
@@ -30,6 +32,7 @@ const pending = questionSnapshot({
 describe('QuestionShareModal', () => {
   beforeEach(() => {
     getQuestionShare.mockReset();
+    interpretQuestionContribution.mockReset();
     mintQuestionShare.mockReset();
     revokeQuestionShare.mockReset();
     updateQuestionShare.mockReset();
@@ -88,6 +91,50 @@ describe('QuestionShareModal', () => {
     });
     render(<QuestionShareModal open questionId="q1" questionText="What next?" onClose={() => {}} />);
     expect(await screen.findByTestId('question-share-preview')).toHaveTextContent('Same fact, different time horizon.');
+    expect(screen.getByTestId('question-share-preview')).toHaveTextContent('Still holds: Who pays when the window closes?');
+    expect(screen.queryByRole('button', { name: 'Offer a reading' })).not.toBeInTheDocument();
+    expect(screen.getByLabelText('How you take this')).toBeInTheDocument();
+    expect(screen.getByText('The reading stays. This sits beside it.')).toBeInTheDocument();
+  });
+
+  it('saves how the owner takes a reading without replacing it', async () => {
+    const reading = {
+      id: 'c1',
+      by: 'Mara',
+      text: 'Same fact, different time horizon.',
+      remainder: 'Who pays when the window closes?'
+    };
+    getQuestionShare.mockResolvedValueOnce({
+      shared: true,
+      slug: 'abc123',
+      snapshot: frozen,
+      preview: frozen,
+      contributions: [reading]
+    });
+    interpretQuestionContribution.mockResolvedValueOnce({
+      shared: true,
+      slug: 'abc123',
+      snapshot: frozen,
+      preview: frozen,
+      contributions: [{
+        ...reading,
+        interpretation: 'The horizon is the claim, not the fact.',
+        interpretedBy: 'Athan'
+      }]
+    });
+    render(<QuestionShareModal open questionId="q1" questionText="What next?" onClose={() => {}} />);
+    expect(await screen.findByLabelText('How you take this')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('How you take this'), {
+      target: { value: 'The horizon is the claim, not the fact.' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save how you take it' }));
+    await waitFor(() => expect(interpretQuestionContribution).toHaveBeenCalledWith('q1', 'c1', {
+      interpretation: 'The horizon is the claim, not the fact.'
+    }));
+    expect(await screen.findByTestId('question-share-preview')).toHaveTextContent(
+      'Athan — Not quite: The horizon is the claim, not the fact.'
+    );
+    expect(screen.getByTestId('question-share-preview')).toHaveTextContent('Same fact, different time horizon.');
     expect(screen.getByTestId('question-share-preview')).toHaveTextContent('Still holds: Who pays when the window closes?');
     expect(screen.queryByRole('button', { name: 'Offer a reading' })).not.toBeInTheDocument();
   });

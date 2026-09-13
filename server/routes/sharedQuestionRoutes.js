@@ -236,6 +236,55 @@ const buildSharedQuestionRouter = ({
     }
   });
 
+  /* The owner says how they take a reading. The reading and remainder stay.
+     Empty clears. It never enters the snapshot. Agents cannot do this. */
+  router.patch(
+    '/api/questions/:id/share/contributions/:contributionId',
+    authenticateToken,
+    humanOnly,
+    async (req, res) => {
+      noStore(res);
+      if (!QuestionContribution) {
+        return res.status(404).json({ error: 'That reading is not on this share.' });
+      }
+      try {
+        const question = await findOwnedQuestion(req.user.id, req.params.id);
+        if (!question) {
+          return res.status(404).json({ error: 'Question not found.' });
+        }
+        const share = asRow(await readLean(SharedQuestion.findOne({
+          userId: req.user.id,
+          questionId: question._id
+        })));
+        if (!share?.snapshot) {
+          return res.status(404).json({ error: 'This question is not shared.' });
+        }
+        const contributionId = String(req.params.contributionId || '').trim();
+        if (!contributionId) {
+          return res.status(404).json({ error: 'That reading is not on this share.' });
+        }
+        const interpretation = contributionRemainder(req.body?.interpretation);
+        const updated = await QuestionContribution.findOneAndUpdate(
+          { _id: contributionId, slug: share.slug },
+          { $set: { interpretation } },
+          { new: true }
+        );
+        if (!updated) {
+          return res.status(404).json({ error: 'That reading is not on this share.' });
+        }
+        const { preview, currentHash } = await liveQuestionPreview({
+          User,
+          question,
+          userId: req.user.id
+        });
+        return res.status(200).json(await payload(share, { preview, currentHash }));
+      } catch (error) {
+        console.error('❌ Error interpreting question contribution:', error);
+        return res.status(500).json({ error: 'Failed to save how you take that reading.' });
+      }
+    }
+  );
+
   router.get('/api/public/questions/:slug', async (req, res) => {
     noStore(res);
     try {
