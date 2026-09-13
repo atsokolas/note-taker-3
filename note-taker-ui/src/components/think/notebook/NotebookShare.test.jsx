@@ -1,6 +1,6 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import NotebookEssay from './NotebookEssay';
+import NotebookEssay, { quoteClip } from './NotebookEssay';
 import NotebookShare, { NotebookSharePanel } from './NotebookShare';
 import { essaySnapshot } from './notebookShareFixture';
 import { getNotebookShare } from '../../../api/notebook';
@@ -38,6 +38,87 @@ describe('NotebookEssay', () => {
     })} />);
     expect(screen.getByText(/Not available at a public address/)).toBeInTheDocument();
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
+  });
+
+  it('copies the quotation with its public door, and leaves ordinary prose alone', async () => {
+    const writeText = jest.fn(() => Promise.resolve());
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText }
+    });
+    render(<NotebookEssay snapshot={essaySnapshot()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Copy with source' }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(
+      '"Two hours a week cannot sustain this."\n— A letter on time\nhttps://example.com/letter'
+    ));
+    expect(await screen.findByRole('button', { name: 'Copied.' })).toBeInTheDocument();
+    expect(screen.getByText('The rule assumed spare hours. The exception arrives first.')).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /Copy with source|Copied/ })).toHaveLength(1);
+  });
+
+  it('copies a withheld quotation without inventing a door', async () => {
+    const writeText = jest.fn(() => Promise.resolve());
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText }
+    });
+    render(<NotebookEssay snapshot={essaySnapshot({
+      blocks: [{
+        id: 'q1',
+        type: 'quote',
+        text: 'Held privately.',
+        source: { title: 'A letter on time', href: 'https://secret.example/private', access: 'withheld' }
+      }]
+    })} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Copy with source' }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(
+      '"Held privately."\n— A letter on time'
+    ));
+  });
+
+  it('lets the quotation be selected when the clipboard is refused', async () => {
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: jest.fn(() => Promise.reject(new Error('denied'))) }
+    });
+    render(<NotebookEssay snapshot={essaySnapshot()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Copy with source' }));
+    expect(await screen.findByLabelText('Quotation with source')).toHaveValue(
+      '"Two hours a week cannot sustain this."\n— A letter on time\nhttps://example.com/letter'
+    );
+  });
+});
+
+describe('quoteClip', () => {
+  it('keeps attribution public and stays silent without a quotation or door', () => {
+    expect(quoteClip({
+      text: 'Two hours a week cannot sustain this.',
+      source: { title: 'A letter on time', href: 'https://example.com/letter', access: 'open' }
+    })).toBe('"Two hours a week cannot sustain this."\n— A letter on time\nhttps://example.com/letter');
+    expect(quoteClip({
+      text: 'Held privately.',
+      source: { title: 'A letter on time', href: 'https://secret.example/private', access: 'withheld' }
+    })).toBe('"Held privately."\n— A letter on time');
+    expect(quoteClip({
+      text: 'A line.',
+      source: { href: 'javascript:alert(1)' }
+    })).toBe('');
+    expect(quoteClip({
+      text: 'A line.',
+      source: { href: '/library?articleId=1' }
+    })).toBe('');
+    expect(quoteClip({ text: 'Prose only.' })).toBe('');
+    expect(quoteClip({
+      source: { title: 'A letter on time', href: 'https://example.com/letter' }
+    })).toBe('');
+  });
+
+  it('does not invent a copy act for a quotation with no source', () => {
+    render(<NotebookEssay snapshot={essaySnapshot({
+      blocks: [{ id: 'q0', type: 'quote', text: 'Just a remembered line.' }]
+    })} />);
+    expect(screen.getByText('Just a remembered line.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Copy with source' })).not.toBeInTheDocument();
   });
 });
 

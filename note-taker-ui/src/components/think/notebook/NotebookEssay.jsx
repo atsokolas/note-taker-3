@@ -1,6 +1,23 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { usePrefersReducedMotion } from '../../../hooks/useMotionPreferences';
 import { ACCESS_WITHHELD } from './notebookShareFixture';
 import './notebookShare.css';
+
+const asLine = (value) => String(value || '').trim();
+
+const publicHref = (value, access) => {
+  if (access === 'withheld') return '';
+  const raw = asLine(value);
+  if (!raw) return '';
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return '';
+    url.hash = '';
+    return url.toString();
+  } catch (_error) {
+    return '';
+  }
+};
 
 const formatPublished = (value) => {
   if (!value) return '';
@@ -9,10 +26,22 @@ const formatPublished = (value) => {
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 };
 
+// Exact quotation, recorded title, existing public door. No invented URL,
+// private path, annotation, or marketing footer. Missing door stays missing.
+export const quoteClip = (block = {}) => {
+  const passage = asLine(block.text);
+  if (!passage) return '';
+  const source = block.source || {};
+  const title = asLine(source.title);
+  const href = publicHref(source.href, source.access);
+  if (!title && !href) return '';
+  return [`"${passage}"`, title && `— ${title}`, href].filter(Boolean).join('\n');
+};
+
 const SourceLine = ({ source }) => {
   if (!source?.title && !source?.href) return null;
-  const withheld = source.access === 'withheld' || !source.href;
-  if (withheld) {
+  const href = publicHref(source.href, source.access);
+  if (!href) {
     return (
       <cite className="notebook-essay__source">
         {source.title ? `${source.title}. ` : ''}
@@ -22,8 +51,59 @@ const SourceLine = ({ source }) => {
   }
   return (
     <cite className="notebook-essay__source">
-      <a href={source.href} rel="noopener noreferrer">{source.title || source.href}</a>
+      <a href={href} rel="noopener noreferrer">{source.title || href}</a>
     </cite>
+  );
+};
+
+const CopyWithSource = ({ clip }) => {
+  const reduced = usePrefersReducedMotion();
+  const fieldRef = useRef(null);
+  const [copied, setCopied] = useState(false);
+  const [selectHint, setSelectHint] = useState(false);
+
+  useEffect(() => {
+    if (!copied || reduced) return undefined;
+    const timer = window.setTimeout(() => setCopied(false), 2200);
+    return () => window.clearTimeout(timer);
+  }, [copied, reduced]);
+
+  useEffect(() => {
+    if (!selectHint) return undefined;
+    fieldRef.current?.focus();
+    fieldRef.current?.select();
+    return undefined;
+  }, [selectHint]);
+
+  const copy = async () => {
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error('no clipboard');
+      await navigator.clipboard.writeText(clip);
+      setCopied(true);
+      setSelectHint(false);
+    } catch (_copyError) {
+      setCopied(false);
+      setSelectHint(true);
+    }
+  };
+
+  return (
+    <div className="notebook-essay__copy">
+      <button type="button" onClick={copy}>
+        {copied ? 'Copied.' : 'Copy with source'}
+      </button>
+      {selectHint ? (
+        <textarea
+          ref={fieldRef}
+          className="notebook-essay__clip"
+          readOnly
+          value={clip}
+          aria-label="Quotation with source"
+          rows={3}
+          onFocus={(event) => event.target.select()}
+        />
+      ) : null}
+    </div>
   );
 };
 
@@ -49,10 +129,12 @@ const EssayBlock = ({ block }) => {
     );
   }
   if (type === 'quote') {
+    const clip = quoteClip(block);
     return (
       <blockquote className="notebook-essay__quote">
         {block.text ? <p>{block.text}</p> : null}
         <SourceLine source={block.source} />
+        {clip ? <CopyWithSource clip={clip} /> : null}
       </blockquote>
     );
   }

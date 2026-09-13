@@ -19,6 +19,7 @@ describe('a note someone published', () => {
     expect(await screen.findByText('Who gets to experiment, and who pays?')).toBeInTheDocument();
     expect(screen.getByText('Two hours a week cannot sustain this.')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'A letter on time' })).toHaveAttribute('href', 'https://example.com/letter');
+    expect(screen.getByRole('button', { name: 'Copy with source' })).toBeInTheDocument();
     expect(screen.getByText(/Later private edits do not change it/)).toBeInTheDocument();
     expect(document.head.querySelector('meta[name="robots"]')).toHaveAttribute('content', 'noindex,nofollow');
   });
