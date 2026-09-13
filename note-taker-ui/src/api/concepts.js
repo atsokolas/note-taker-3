@@ -391,8 +391,13 @@ export const getConceptShare = async (name) => {
   return res.data || { shared: false };
 };
 
-export const mintConceptShare = async (name) => {
-  const res = await api.post(`/api/concepts/${encodeURIComponent(name)}/share`, {}, getAuthHeaders());
+export const mintConceptShare = async (name, body = {}) => {
+  const res = await api.post(`/api/concepts/${encodeURIComponent(name)}/share`, body, getAuthHeaders());
+  return res.data || {};
+};
+
+export const updateConceptShare = async (name, body = {}) => {
+  const res = await api.put(`/api/concepts/${encodeURIComponent(name)}/share`, body, getAuthHeaders());
   return res.data || {};
 };
 

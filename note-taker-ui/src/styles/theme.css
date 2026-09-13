@@ -8045,8 +8045,8 @@ html[data-ui-theme='dark'] body.noeis-editorial .concept-editorial-evidence__ite
 }
 
 .concept-share-modal {
-  max-width: 540px;
-  width: min(540px, 92vw);
+  max-width: 640px;
+  width: min(640px, 92vw);
 }
 
 .concept-share-modal__active,
@@ -8294,6 +8294,124 @@ html[data-ui-theme='dark'] body.noeis-editorial .concept-editorial-evidence__ite
 
 .concept-share-modal__fineprint {
   margin: 0;
+}
+
+.concept-share-modal__reader-label {
+  margin: 0 0 0.45rem;
+  color: var(--text-secondary);
+  font-size: 0.66rem;
+  font-weight: 650;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.concept-share-modal__reader {
+  padding: 0.2rem 0 0.6rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.concept-share-modal__reader--pending {
+  border-top-style: dashed;
+}
+
+.concept-share-modal__correction {
+  width: 100%;
+  min-height: 4.5rem;
+  padding: 8px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  color: var(--text);
+  font: inherit;
+  resize: vertical;
+}
+
+.concept-share-modal__note {
+  display: grid;
+  gap: 8px;
+}
+
+.think-share-view {
+  display: grid;
+  gap: 1.1rem;
+  color: var(--text);
+}
+
+.think-share-view.is-compact {
+  font-size: 0.94em;
+}
+
+.think-share-view__header {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.think-share-view__eyebrow,
+.think-share-view__by,
+.think-share-view__meta,
+.think-share-view__revised {
+  margin: 0;
+  color: var(--text-secondary);
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.78rem;
+}
+
+.think-share-view__eyebrow {
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.think-share-view__title {
+  margin: 0;
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: clamp(1.6rem, 3vw, 2.3rem);
+  font-weight: 400;
+  line-height: 1.15;
+  text-wrap: balance;
+}
+
+.think-share-view.is-compact .think-share-view__title {
+  font-size: 1.35rem;
+}
+
+.think-share-view__framing,
+.think-share-view__description,
+.think-share-view__body p,
+.think-share-view__silence,
+.think-share-view__correction {
+  margin: 0;
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  line-height: 1.55;
+}
+
+.think-share-view__correction {
+  font-style: italic;
+}
+
+.think-share-view__section {
+  margin: 0 0 0.6rem;
+  color: var(--text-secondary);
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.think-share-view__colophon {
+  margin: 0.4rem 0 0;
+  color: var(--text-secondary);
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .concept-share-modal__reader,
+  .think-share-view {
+    transition: none;
+  }
 }
 
 /* Public read-only shared concept page ----------------------------------- */

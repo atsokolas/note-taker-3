@@ -8,8 +8,7 @@ const { publicHttpUrl } = require('./editionShape');
  * later update under that same URL, revocation by deleting the row. This is
  * that contract for an authored essay, not a second share engine.
  *
- * Live question/concept shares stay live. Wiki shares stay live. This slice
- * does not change them.
+ * Wiki shares stay live. Question and concept shares freeze in authoredThinkShare.
  */
 
 const PREVIEW_STALE = 'The note changed since you previewed it. Refresh the preview before sharing.';

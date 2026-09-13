@@ -1,41 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getPublicConcept } from '../api/concepts';
+import ConceptShareView from '../components/think/ConceptShareView';
+import { CONCEPT_NOT_PUBLISHED } from '../components/think/thinkShareFixture';
 import '../styles/shared-page-column.css';
 
-/**
- * SharedConcept — public read-only view of a concept.
- *
- * Mounted at /share/concepts/:slug, no auth required. Renders a stripped
- * snapshot: framing, hypothesis, support / tension cards, open questions.
- * No editor, no private concept note, no agent, no sidebar — just the thinking.
- *
- * Polish in this iteration:
- *  - Real top header with Noeis brand, copy-link, and "Open Noeis" CTA so
- *    the page feels like a destination, not a leaked partial.
- *  - <head> tags managed imperatively (document.title + og:* + twitter:*)
- *    so link previews on Slack / Twitter / iMessage render branded — no
- *    react-helmet dependency for one page.
- *  - Sticky attribution bar fades in once the header scrolls out so
- *    readers always see who shared this and have copy/open actions in
- *    reach. Hidden in reduced-motion as a hard cut.
- *  - Read-time estimate (220 wpm) from the visible text content.
- *  - Two-column card grid for Support / Tension on wide screens.
- */
-
-const READING_WPM = 220;
 const STICKY_REVEAL_PX = 240;
-
-const formatDate = (value) => {
-  if (!value) return '';
-  try {
-    return new Date(value).toLocaleDateString(undefined, {
-      month: 'short', day: 'numeric', year: 'numeric'
-    });
-  } catch (_err) {
-    return '';
-  }
-};
 
 const stripHtml = (html = '') => {
   if (!html) return '';
@@ -45,9 +15,6 @@ const stripHtml = (html = '') => {
   return tmp.textContent || tmp.innerText || '';
 };
 
-// Set / clear named meta tags. Imperative because we have one public route
-// and don't want to pull in react-helmet for it. Returns a cleanup that
-// restores prior values so the SPA doesn't pollute other routes.
 const useDocumentMeta = (name, content, attr = 'name') => {
   useEffect(() => {
     if (typeof document === 'undefined' || !content) return undefined;
@@ -80,18 +47,6 @@ const useDocumentTitle = (title) => {
     };
   }, [title]);
 };
-
-const Card = ({ card, kind }) => (
-  <article className={`shared-concept__card shared-concept__card--${kind}`}>
-    <header>
-      <span className="shared-concept__card-eyebrow">{kind === 'support' ? 'Support' : kind === 'tension' ? 'Tension' : 'Question'}</span>
-      {card.source ? <span className="shared-concept__card-source">{card.source}</span> : null}
-    </header>
-    {card.title ? <h4 className="shared-concept__card-title">{card.title}</h4> : null}
-    {card.content ? <p className="shared-concept__card-content">{card.content}</p> : null}
-    {card.whyItMatters ? <p className="shared-concept__card-why"><em>{card.whyItMatters}</em></p> : null}
-  </article>
-);
 
 const SharedConceptTopBar = ({ minimal = false, onCopy, copyState, pageUrl }) => (
   <div className="shared-concept-topbar" data-testid="shared-concept-topbar">
@@ -126,7 +81,7 @@ const SharedConcept = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [copyState, setCopyState] = useState('idle'); // idle | copied | error
+  const [copyState, setCopyState] = useState('idle');
   const [stickyVisible, setStickyVisible] = useState(false);
 
   useEffect(() => {
@@ -142,12 +97,9 @@ const SharedConcept = () => {
       })
       .catch((err) => {
         if (cancelled) return;
-        const status = err?.response?.status;
-        if (status === 404) {
-          setError('This shared concept doesn\'t exist or was revoked.');
-        } else {
-          setError(err?.response?.data?.error || 'Failed to load shared concept.');
-        }
+        setError(err?.response?.status === 404
+          ? CONCEPT_NOT_PUBLISHED
+          : err?.response?.data?.error || 'Failed to load shared concept.');
         setLoading(false);
       });
     return () => {
@@ -155,7 +107,6 @@ const SharedConcept = () => {
     };
   }, [slug]);
 
-  // Reveal sticky attribution bar once visitor has scrolled past the hero.
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
     const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -168,28 +119,7 @@ const SharedConcept = () => {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  // Memoize derived arrays so dependent useMemo (read-time) has stable deps.
-  // Without this, eslint flags the read-time hook as having "logical-expression
-  // dependencies that change every render".
   const concept = useMemo(() => data?.concept || {}, [data]);
-  const supports = useMemo(() => concept.supports || [], [concept]);
-  const contradictions = useMemo(() => concept.contradictions || [], [concept]);
-  const questions = useMemo(() => concept.questions || [], [concept]);
-
-  const readMinutes = useMemo(() => {
-    const text = [
-      stripHtml(concept.hypothesisHtml),
-      concept.framing,
-      concept.description,
-      ...supports.map((c) => `${c.title || ''} ${c.content || ''} ${c.whyItMatters || ''}`),
-      ...contradictions.map((c) => `${c.title || ''} ${c.content || ''} ${c.whyItMatters || ''}`),
-      ...questions.map((c) => `${c.title || ''} ${c.content || ''}`),
-    ].join(' ').trim();
-    if (!text) return 0;
-    const words = text.split(/\s+/).filter(Boolean).length;
-    return Math.max(1, Math.round(words / READING_WPM));
-  }, [concept, supports, contradictions, questions]);
-
   const pageUrl = typeof window !== 'undefined' ? window.location.href : '';
   const conceptName = concept.name || 'Untitled concept';
   const ownerLine = data?.ownerDisplayName ? `Shared by ${data.ownerDisplayName}` : 'Shared via Noeis';
@@ -200,8 +130,6 @@ const SharedConcept = () => {
     || 'A concept shared from Noeis — a thinking workspace for serious readers.'
   ).slice(0, 220);
 
-  // Document head — branded link previews. Hooks always called; the inner
-  // effect bails when content is empty so we don't blank existing tags.
   useDocumentTitle(data ? `${conceptName} · Noeis` : 'Shared concept · Noeis');
   useDocumentMeta('description', ogDescription);
   useDocumentMeta('og:title', conceptName, 'property');
@@ -250,23 +178,6 @@ const SharedConcept = () => {
   return (
     <div className="shared-concept-page" data-testid="shared-concept-page">
       <SharedConceptTopBar onCopy={handleCopy} copyState={copyState} pageUrl={pageUrl} />
-
-      <header className="shared-concept-page__header">
-        <span className="shared-concept-page__eyebrow">Shared concept</span>
-        <h1 className="shared-concept-page__title">{conceptName}</h1>
-        {concept.framing ? (
-          <p className="shared-concept-page__framing">{concept.framing}</p>
-        ) : null}
-        {concept.description ? (
-          <p className="shared-concept-page__description">{concept.description}</p>
-        ) : null}
-        <p className="shared-concept-page__meta muted small">
-          {ownerLine}
-          {data?.sharedAt ? <> · {formatDate(data.sharedAt)}</> : null}
-          {readMinutes ? <> · {readMinutes} min read</> : null}
-        </p>
-      </header>
-
       <div
         className={`shared-concept-page__sticky-bar ${stickyVisible ? 'is-visible' : ''}`}
         aria-hidden={stickyVisible ? 'false' : 'true'}
@@ -282,50 +193,7 @@ const SharedConcept = () => {
           {copyState === 'copied' ? 'Link copied' : copyState === 'error' ? 'Copy failed' : 'Copy link'}
         </button>
       </div>
-
-      {concept.hypothesisHtml ? (
-        <section className="shared-concept-page__hypothesis">
-          <h2 className="shared-concept-page__section-title">Working hypothesis</h2>
-          <div
-            className="shared-concept-page__prose"
-            // eslint-disable-next-line react/no-danger
-            dangerouslySetInnerHTML={{ __html: concept.hypothesisHtml }}
-          />
-        </section>
-      ) : null}
-
-      {supports.length > 0 ? (
-        <section className="shared-concept-page__group">
-          <h2 className="shared-concept-page__section-title">Support</h2>
-          <div className="shared-concept-page__cards shared-concept-page__cards--grid">
-            {supports.map((card) => <Card key={card.id} card={card} kind="support" />)}
-          </div>
-        </section>
-      ) : null}
-
-      {contradictions.length > 0 ? (
-        <section className="shared-concept-page__group">
-          <h2 className="shared-concept-page__section-title">Tension</h2>
-          <div className="shared-concept-page__cards shared-concept-page__cards--grid">
-            {contradictions.map((card) => <Card key={card.id} card={card} kind="tension" />)}
-          </div>
-        </section>
-      ) : null}
-
-      {questions.length > 0 ? (
-        <section className="shared-concept-page__group">
-          <h2 className="shared-concept-page__section-title">Open questions</h2>
-          <div className="shared-concept-page__cards">
-            {questions.map((card) => <Card key={card.id} card={card} kind="question" />)}
-          </div>
-        </section>
-      ) : null}
-
-      <footer className="shared-concept-page__footer">
-        <p className="muted small">
-          Built in <Link to="/" className="shared-concept-page__home-link">Noeis</Link> — a thinking workspace for serious readers.
-        </p>
-      </footer>
+      <ConceptShareView snapshot={data} />
     </div>
   );
 };

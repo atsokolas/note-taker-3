@@ -68,8 +68,13 @@ export const getQuestionShare = async (id) => {
   return res.data || { shared: false };
 };
 
-export const mintQuestionShare = async (id) => {
-  const res = await api.post(`/api/questions/${encodeURIComponent(id)}/share`, {}, getAuthHeaders());
+export const mintQuestionShare = async (id, body = {}) => {
+  const res = await api.post(`/api/questions/${encodeURIComponent(id)}/share`, body, getAuthHeaders());
+  return res.data || {};
+};
+
+export const updateQuestionShare = async (id, body = {}) => {
+  const res = await api.put(`/api/questions/${encodeURIComponent(id)}/share`, body, getAuthHeaders());
   return res.data || {};
 };
 

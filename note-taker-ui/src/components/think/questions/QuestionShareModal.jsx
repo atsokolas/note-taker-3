@@ -1,40 +1,25 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Button, QuietButton } from '../../ui';
-import { getQuestionShare, mintQuestionShare, revokeQuestionShare } from '../../../api/questions';
-import { buildSharePreviewReceipt } from '../../../utils/connectionMagicMoment';
+import {
+  getQuestionShare,
+  mintQuestionShare,
+  revokeQuestionShare,
+  updateQuestionShare
+} from '../../../api/questions';
+import { usePrefersReducedMotion } from '../../../hooks/useMotionPreferences';
+import QuestionShareView from '../QuestionShareView';
+import {
+  QUESTION_SHARE_PRIVACY,
+  THINK_SHARE_REVOKE
+} from '../thinkShareFixture';
 
 const buildShareUrl = (slug) => {
   if (typeof window === 'undefined') return `/share/questions/${slug}`;
   return `${window.location.origin}/share/questions/${slug}`;
 };
 
-const buildShareHostLabel = () => {
-  if (typeof window === 'undefined') return 'noeis';
-  try {
-    return window.location.host.replace(/^www\./, '') || 'noeis';
-  } catch (_err) {
-    return 'noeis';
-  }
-};
-
-const ShareLinkPreviewCard = ({ questionText, host }) => (
-  <div className="concept-share-modal__preview" aria-hidden="true">
-    <div className="concept-share-modal__preview-bar">
-      <span className="concept-share-modal__preview-dot" />
-      <span className="concept-share-modal__preview-dot" />
-      <span className="concept-share-modal__preview-dot" />
-      <span className="concept-share-modal__preview-host">{host}/share/questions/…</span>
-    </div>
-    <div className="concept-share-modal__preview-body">
-      <span className="concept-share-modal__preview-brand">
-        <span className="concept-share-modal__preview-mark" />
-        Noeis
-      </span>
-      <span className="concept-share-modal__preview-eyebrow">Shared question</span>
-      <span className="concept-share-modal__preview-title">{questionText || 'Your question'}</span>
-      <span className="concept-share-modal__preview-meta">A read-only thread · Updated just now</span>
-    </div>
-  </div>
+const actionErrorOf = (error, fallback) => (
+  error?.response?.data?.error || error?.message || fallback
 );
 
 const ShareIncludesList = () => (
@@ -49,17 +34,20 @@ const ShareIncludesList = () => (
     </li>
     <li>
       <span className="concept-share-modal__includes-icon concept-share-modal__includes-icon--neg" aria-hidden="true">—</span>
-      Revoke any time — the link stops working immediately
+      Later private edits stay in the workshop until you replace this version
     </li>
   </ul>
 );
 
 const QuestionShareModal = ({ open, questionId, questionText, onClose }) => {
+  const reduced = usePrefersReducedMotion();
+  const urlRef = useRef(null);
   const [state, setState] = useState({ shared: false });
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [copyStatus, setCopyStatus] = useState('');
+  const [correction, setCorrection] = useState('');
 
   useEffect(() => {
     if (!open || !questionId) return undefined;
@@ -67,6 +55,7 @@ const QuestionShareModal = ({ open, questionId, questionText, onClose }) => {
     setLoading(true);
     setError('');
     setCopyStatus('');
+    setCorrection('');
     getQuestionShare(questionId)
       .then((data) => {
         if (cancelled) return;
@@ -75,7 +64,7 @@ const QuestionShareModal = ({ open, questionId, questionText, onClose }) => {
       })
       .catch((err) => {
         if (cancelled) return;
-        setError(err?.response?.data?.error || 'Failed to load share state.');
+        setError(actionErrorOf(err, 'Failed to load share state.'));
         setLoading(false);
       });
     return () => {
@@ -87,10 +76,27 @@ const QuestionShareModal = ({ open, questionId, questionText, onClose }) => {
     setBusy(true);
     setError('');
     try {
-      const data = await mintQuestionShare(questionId);
-      setState({ shared: true, slug: data.slug, createdAt: data.createdAt });
+      const data = await mintQuestionShare(questionId, { previewHash: state.currentHash });
+      setState(data);
     } catch (err) {
-      setError(err?.response?.data?.error || 'That did not save.');
+      setError(actionErrorOf(err, 'That did not save.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleUpdate = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      const data = await updateQuestionShare(questionId, {
+        previewHash: state.currentHash,
+        correction
+      });
+      setState(data);
+      setCorrection('');
+    } catch (err) {
+      setError(actionErrorOf(err, 'That did not save.'));
     } finally {
       setBusy(false);
     }
@@ -102,9 +108,14 @@ const QuestionShareModal = ({ open, questionId, questionText, onClose }) => {
     setError('');
     try {
       await revokeQuestionShare(questionId);
-      setState({ shared: false });
+      setState({
+        shared: false,
+        publishable: state.publishable,
+        preview: state.preview,
+        currentHash: state.currentHash
+      });
     } catch (err) {
-      setError(err?.response?.data?.error || 'That did not save.');
+      setError(actionErrorOf(err, 'That did not save.'));
     } finally {
       setBusy(false);
     }
@@ -116,17 +127,21 @@ const QuestionShareModal = ({ open, questionId, questionText, onClose }) => {
     try {
       await navigator.clipboard.writeText(shareUrl);
       setCopyStatus('Link copied to clipboard.');
-      setTimeout(() => setCopyStatus(''), 2400);
+      if (!reduced) setTimeout(() => setCopyStatus(''), 2400);
     } catch (_err) {
       setCopyStatus('Copy failed — select the URL manually.');
+      urlRef.current?.focus();
+      urlRef.current?.select();
     }
   };
 
-  const host = useMemo(() => buildShareHostLabel(), []);
   if (!open) return null;
 
   const url = state.slug ? buildShareUrl(state.slug) : '';
-  const receipt = buildSharePreviewReceipt();
+  const stale = Boolean(state.shared && state.stale);
+  const reader = state.shared ? (state.snapshot || (stale ? null : state.preview)) : state.preview;
+  const pending = stale ? state.preview : null;
+  const publishable = state.publishable !== false && Boolean(String(state.preview?.question?.text || questionText || '').trim());
 
   return (
     <div
@@ -141,55 +156,95 @@ const QuestionShareModal = ({ open, questionId, questionText, onClose }) => {
           <div className="concept-share-modal__heading">
             <span className="concept-share-modal__eyebrow">Public share</span>
             <h3>Share this question</h3>
-            <p className="muted small concept-share-modal__lede">
-              Anyone with the link can read the question and authored paragraphs.
-              Library highlights and private notes stay withheld.
-            </p>
+            <p className="muted small concept-share-modal__lede">{QUESTION_SHARE_PRIVACY}</p>
           </div>
           <button className="icon-button" onClick={onClose} aria-label="Close">×</button>
         </div>
 
         {loading ? (
           <p className="muted small concept-share-modal__loading">Loading…</p>
-        ) : error ? (
+        ) : error && !state.shared && !state.preview ? (
           <p className="status-message error-message">{error}</p>
-        ) : state.shared ? (
-          <div className="concept-share-modal__active">
-            <ShareLinkPreviewCard questionText={questionText} host={host} />
-            <p className="wiki-meta-bar__share concept-share-modal__receipt" role="status">{receipt}</p>
-            <div className="concept-share-modal__active-controls">
-              <label className="concept-share-modal__label" htmlFor="question-share-url">Public link</label>
-              <div className="concept-share-modal__url-row">
-                <input
-                  id="question-share-url"
-                  className="concept-share-modal__url-input"
-                  readOnly
-                  value={url}
-                  onFocus={(event) => event.target.select()}
-                />
-                <Button type="button" variant="secondary" onClick={handleCopy} disabled={busy}>
-                  Copy link
-                </Button>
-              </div>
-              {copyStatus ? <p className="muted small">{copyStatus}</p> : null}
-              <div className="concept-share-modal__actions">
-                <QuietButton type="button" onClick={handleRevoke} disabled={busy}>
-                  Revoke link
-                </QuietButton>
-                <Button type="button" onClick={onClose}>Done</Button>
-              </div>
-            </div>
-          </div>
         ) : (
-          <div className="concept-share-modal__idle">
-            <ShareLinkPreviewCard questionText={questionText} host={host} />
-            <ShareIncludesList />
-            <div className="concept-share-modal__actions">
-              <Button type="button" onClick={handleMint} disabled={busy}>
-                Create public link
-              </Button>
-              <QuietButton type="button" onClick={onClose}>Cancel</QuietButton>
-            </div>
+          <div className="concept-share-modal__active">
+            {reader?.question ? (
+              <div className="concept-share-modal__reader" data-testid="question-share-preview">
+                <p className="concept-share-modal__reader-label">What a reader will see</p>
+                <QuestionShareView snapshot={reader} compact />
+              </div>
+            ) : null}
+            {pending?.question ? (
+              <div
+                className="concept-share-modal__reader concept-share-modal__reader--pending"
+                data-testid="question-share-pending"
+              >
+                <p className="concept-share-modal__reader-label">Pending an update</p>
+                <QuestionShareView snapshot={pending} compact />
+              </div>
+            ) : null}
+            {!reader?.question && !publishable ? (
+              <p className="muted small" data-testid="question-share-silence">Nothing to share yet.</p>
+            ) : null}
+            {!state.shared ? <ShareIncludesList /> : null}
+            {state.shared ? (
+              <div className="concept-share-modal__active-controls">
+                <label className="concept-share-modal__label" htmlFor="question-share-url">Public link</label>
+                <div className="concept-share-modal__url-row">
+                  <input
+                    id="question-share-url"
+                    ref={urlRef}
+                    className="concept-share-modal__url"
+                    readOnly
+                    value={url}
+                    onFocus={(event) => event.target.select()}
+                  />
+                  <Button type="button" variant="secondary" onClick={handleCopy} disabled={busy}>
+                    Copy link
+                  </Button>
+                </div>
+                <p className="muted small">{THINK_SHARE_REVOKE}</p>
+                {copyStatus ? <p className="muted small">{copyStatus}</p> : null}
+                {stale ? (
+                  <div className="concept-share-modal__note">
+                    <label className="concept-share-modal__label" htmlFor="question-share-correction">
+                      What changed
+                    </label>
+                    <textarea
+                      id="question-share-correction"
+                      className="concept-share-modal__correction"
+                      data-testid="question-share-correction"
+                      value={correction}
+                      maxLength={400}
+                      rows={3}
+                      onChange={(event) => setCorrection(event.target.value)}
+                    />
+                  </div>
+                ) : null}
+                <div className="concept-share-modal__actions">
+                  {stale ? (
+                    <Button type="button" onClick={handleUpdate} disabled={busy} data-testid="question-update-share">
+                      {busy ? 'Updating…' : 'Update shared version'}
+                    </Button>
+                  ) : null}
+                  <QuietButton type="button" onClick={handleRevoke} disabled={busy}>
+                    Revoke link
+                  </QuietButton>
+                  <Button type="button" onClick={onClose}>Done</Button>
+                </div>
+              </div>
+            ) : publishable ? (
+              <div className="concept-share-modal__actions">
+                <Button type="button" onClick={handleMint} disabled={busy} data-testid="question-publish-share">
+                  Create public link
+                </Button>
+                <QuietButton type="button" onClick={onClose}>Cancel</QuietButton>
+              </div>
+            ) : (
+              <div className="concept-share-modal__actions">
+                <QuietButton type="button" onClick={onClose}>Cancel</QuietButton>
+              </div>
+            )}
+            {error ? <p className="status-message error-message">{error}</p> : null}
           </div>
         )}
       </div>
