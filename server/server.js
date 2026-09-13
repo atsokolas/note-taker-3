@@ -163,6 +163,7 @@ const {
   MorningPaperRecord,
   SharedEdition,
   SharedNotebook,
+  NotebookCorrespondence,
   ReadingLoopEdition,
   VectorItem,
   SharedConcept,
@@ -5382,6 +5383,7 @@ app.use(buildNotebookRouter({
   Question,
   NoeisReceipt,
   SharedNotebook,
+  NotebookCorrespondence,
   User
 }));
 

@@ -118,7 +118,56 @@
   margin-top: 0.35rem;
 }
 
-.notebook-essay__copy button {
+.notebook-essay__passage {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.notebook-essay__ask,
+.notebook-essay__ask-actions {
+  margin-top: 0.2rem;
+}
+
+.notebook-essay__ask-label,
+.notebook-essay__ask-hint,
+.notebook-essay__ask-error,
+.notebook-essay__ask-receipt {
+  margin: 0.35rem 0 0;
+  color: var(--noeis-ink-subtle, #6b6458);
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+  line-height: 1.45;
+}
+
+.notebook-essay__ask-label {
+  display: block;
+  margin-top: 0.45rem;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.notebook-essay__ask-field {
+  display: block;
+  width: 100%;
+  margin: 0.35rem 0 0;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid var(--noeis-rule, rgba(28, 24, 18, 0.16));
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  resize: none;
+}
+
+.notebook-essay__ask-error {
+  color: var(--noeis-ink, #1c1812);
+}
+
+.notebook-essay__copy button,
+.notebook-essay__ask button {
   font: inherit;
   font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
   font-size: 0.78rem;
@@ -130,6 +179,12 @@
   text-decoration: underline;
   text-underline-offset: 0.18em;
   cursor: pointer;
+}
+
+.notebook-essay__ask-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem;
 }
 
 .notebook-essay__clip {
@@ -200,6 +255,35 @@
   padding: 1rem 0;
   border-top: 1px solid var(--noeis-rule, rgba(28, 24, 18, 0.08));
   border-bottom: 1px solid var(--noeis-rule, rgba(28, 24, 18, 0.08));
+}
+
+.notebook-share__letters {
+  display: grid;
+  gap: 1rem;
+  padding: 0.25rem 0 0.5rem;
+}
+
+.notebook-share__letter {
+  display: grid;
+  gap: 0.35rem;
+  max-width: 54ch;
+}
+
+.notebook-share__letter-excerpt {
+  margin: 0;
+  padding: 0 0 0 1rem;
+  border-left: 1px solid var(--noeis-rule, rgba(28, 24, 18, 0.18));
+  color: var(--noeis-ink-subtle, #6b6458);
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-style: italic;
+  line-height: 1.45;
+}
+
+.notebook-share__letter-text {
+  margin: 0;
+  color: var(--noeis-ink, #1c1812);
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  line-height: 1.5;
 }
 
 .notebook-share__preview--pending {
@@ -351,7 +435,9 @@
   .notebook-share,
   .shared-notebook-page__home,
   .shared-notebook-page__print,
-  .notebook-essay__copy {
+  .notebook-essay__copy,
+  .notebook-essay__ask,
+  .notebook-essay__ask-receipt {
     display: none;
   }
 
@@ -442,6 +528,7 @@
   .notebook-share__open,
   .notebook-essay__source a,
   .notebook-essay__copy button,
+  .notebook-essay__ask button,
   .shared-notebook-page__print button {
     transition: opacity 160ms ease;
   }
@@ -450,6 +537,7 @@
   .notebook-share__open:hover,
   .notebook-essay__source a:hover,
   .notebook-essay__copy button:hover,
+  .notebook-essay__ask button:hover,
   .shared-notebook-page__print button:hover {
     opacity: 0.72;
   }
@@ -466,6 +554,7 @@
   .notebook-share__open,
   .notebook-essay__source a,
   .notebook-essay__copy button,
+  .notebook-essay__ask button,
   .shared-notebook-page__print button {
     transition: none;
   }

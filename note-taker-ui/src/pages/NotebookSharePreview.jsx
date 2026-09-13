@@ -17,6 +17,7 @@ const SCENES = [
   { id: 'empty', label: 'Empty' },
   { id: 'public', label: 'Recipient' },
   { id: 'revised', label: 'Revised' },
+  { id: 'letters', label: 'Letters' },
   { id: 'revoked', label: 'Revoked' }
 ];
 
@@ -55,6 +56,24 @@ const shareFor = (scene) => {
       },
       snapshot: frozen,
       currentHash: 'hash-2'
+    };
+  }
+  if (scene === 'letters') {
+    return {
+      shared: true,
+      slug: 'essay-slug',
+      stale: false,
+      publishable: true,
+      preview: live,
+      snapshot: frozen,
+      currentHash: 'hash',
+      letters: [{
+        id: 'letter-1',
+        blockId: 'q1',
+        excerpt: 'Two hours a week cannot sustain this.',
+        text: 'Does spare time belong to the person who pays?',
+        createdAt: '2026-09-13T16:00:00.000Z'
+      }]
     };
   }
   return { shared: false, publishable: true, preview: live, currentHash: 'hash' };
@@ -107,7 +126,7 @@ const NotebookSharePreview = () => {
       >
         {scene === 'public' ? (
           <main className="shared-notebook-page" data-testid="shared-notebook">
-            <NotebookPublicPage snapshot={frozen} />
+            <NotebookPublicPage snapshot={frozen} onAsk={() => Promise.resolve()} />
           </main>
         ) : null}
         {scene === 'revised' ? (

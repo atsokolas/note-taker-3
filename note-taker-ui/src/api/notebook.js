@@ -111,3 +111,11 @@ export const getPublicNotebook = async (slug) => {
   const res = await api.get(`/api/public/notebooks/${encodeURIComponent(slug)}`);
   return res.data || null;
 };
+
+export const sendNotebookCorrespondence = async (slug, body = {}) => {
+  const res = await api.post(
+    `/api/public/notebooks/${encodeURIComponent(slug)}/correspondence`,
+    body
+  );
+  return res.data || { sent: true };
+};

@@ -13,6 +13,13 @@ const shareHref = (slug) => (
   typeof window === 'undefined' ? `/share/notebooks/${slug}` : `${window.location.origin}/share/notebooks/${slug}`
 );
 
+const formatLetterDate = (value) => {
+  if (!value) return '';
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+};
+
 const actionErrorOf = (error, fallback) => (
   error?.response?.data?.error || error?.message || fallback
 );
@@ -44,6 +51,9 @@ export function NotebookSharePanel({
   const pendingEssay = stale ? preview : null;
   const publishable = share?.publishable !== false && Boolean(preview?.blocks?.length);
   const readerVisible = Boolean(readerEssay?.blocks?.length);
+  const letters = Array.isArray(share?.letters)
+    ? share.letters.filter((letter) => String(letter?.text || '').trim())
+    : [];
 
   useEffect(() => {
     setCorrection('');
@@ -104,6 +114,27 @@ export function NotebookSharePanel({
         <p className="notebook-share__hint" data-testid="notebook-share-silence">
           Nothing to share yet.
         </p>
+      ) : null}
+
+      {status === 'ready' && letters.length ? (
+        <div className="notebook-share__letters" data-testid="notebook-share-letters">
+          <p className="notebook-share__preview-label">From a reader</p>
+          {letters.map((letter, index) => {
+            const when = formatLetterDate(letter.createdAt);
+            return (
+              <article
+                key={letter.id || `${letter.blockId || 'letter'}-${index}`}
+                className="notebook-share__letter"
+              >
+                {letter.excerpt ? (
+                  <blockquote className="notebook-share__letter-excerpt">{letter.excerpt}</blockquote>
+                ) : null}
+                <p className="notebook-share__letter-text">{letter.text}</p>
+                {when ? <p className="notebook-share__hint">{when}</p> : null}
+              </article>
+            );
+          })}
+        </div>
       ) : null}
 
       {status === 'ready' && share?.shared ? (
@@ -279,7 +310,8 @@ export default function NotebookShare({ notebookId, revision = 0 }) {
           publishable: share?.publishable,
           preview: share?.preview || null,
           currentHash: share?.currentHash || '',
-          ownerDisplayName: share?.ownerDisplayName || ''
+          ownerDisplayName: share?.ownerDisplayName || '',
+          letters: share?.letters || []
         };
       })}
     />

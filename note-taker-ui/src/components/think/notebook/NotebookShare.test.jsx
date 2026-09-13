@@ -140,6 +140,28 @@ describe('quoteClip', () => {
     })} />);
     expect(screen.queryByText(/^Updated /)).not.toBeInTheDocument();
   });
+
+  it('invites a question on a published sentence, and stays silent in the compact preview', async () => {
+    const onAsk = jest.fn(() => Promise.resolve());
+    const { rerender } = render(<NotebookEssay snapshot={essaySnapshot()} onAsk={onAsk} />);
+    expect(screen.getByTestId('notebook-ask-q1')).toBeInTheDocument();
+    expect(screen.getByTestId('notebook-ask-p1')).toBeInTheDocument();
+    expect(screen.queryByTestId('notebook-ask-h1')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('notebook-ask-c1')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('notebook-ask-q1').querySelector('button'));
+    fireEvent.change(screen.getByLabelText('Your question'), {
+      target: { value: 'Does spare time belong to the person who pays?' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Send to the author' }));
+    expect(await screen.findByText('Sent to the author. It stays off this page.')).toBeInTheDocument();
+    expect(onAsk).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'q1', type: 'quote' }),
+      'Does spare time belong to the person who pays?'
+    );
+    expect(screen.queryByDisplayValue('Does spare time belong to the person who pays?')).not.toBeInTheDocument();
+    rerender(<NotebookEssay snapshot={essaySnapshot()} onAsk={onAsk} compact />);
+    expect(screen.queryByRole('button', { name: 'Leave a question' })).not.toBeInTheDocument();
+  });
 });
 
 describe('NotebookSharePanel', () => {
@@ -231,6 +253,37 @@ describe('NotebookSharePanel', () => {
     expect(onUpdate).toHaveBeenCalledWith('The exception now leads.');
   });
 
+  it('returns a reader question to the passage, and keeps it out of the public preview', () => {
+    render(
+      <NotebookSharePanel
+        notebookId="essay-1"
+        status="ready"
+        share={{
+          shared: true,
+          slug: 'essay-slug',
+          stale: false,
+          publishable: true,
+          snapshot: frozen,
+          preview: frozen,
+          letters: [{
+            id: 'letter-1',
+            blockId: 'q1',
+            excerpt: 'Two hours a week cannot sustain this.',
+            text: 'Does spare time belong to the person who pays?',
+            createdAt: '2026-09-13T16:00:00.000Z'
+          }]
+        }}
+      />
+    );
+    const letters = screen.getByTestId('notebook-share-letters');
+    expect(letters).toHaveTextContent('From a reader');
+    expect(letters).toHaveTextContent('Two hours a week cannot sustain this.');
+    expect(letters).toHaveTextContent('Does spare time belong to the person who pays?');
+    expect(screen.getByTestId('notebook-share-preview')).not.toHaveTextContent('Does spare time belong');
+    expect(screen.getByTestId('notebook-share-preview')).not.toHaveTextContent('From a reader');
+    expect(screen.queryByRole('button', { name: 'Leave a question' })).not.toBeInTheDocument();
+  });
+
   it('falls back to selecting the URL when the clipboard is refused', async () => {
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
@@ -252,6 +305,7 @@ describe('NotebookSharePanel', () => {
     fireEvent.click(screen.getByTestId('notebook-copy-link'));
     expect(await screen.findByTestId('notebook-select-link')).toHaveTextContent('Select and copy this link');
     expect(screen.queryByTestId('notebook-share-correction')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('notebook-share-letters')).not.toBeInTheDocument();
   });
 });
 

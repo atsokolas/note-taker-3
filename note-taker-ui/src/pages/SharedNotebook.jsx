@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { getPublicNotebook } from '../api/notebook';
+import { getPublicNotebook, sendNotebookCorrespondence } from '../api/notebook';
 import NotebookPublicPage from '../components/think/notebook/NotebookPublicPage';
 import useSeoMetadata from '../hooks/useSeoMetadata';
 import '../components/think/notebook/notebookShare.css';
@@ -58,7 +58,13 @@ const SharedNotebook = () => {
 
   return (
     <main className="shared-notebook-page" data-testid="shared-notebook">
-      <NotebookPublicPage snapshot={snapshot} />
+      <NotebookPublicPage
+        snapshot={snapshot}
+        onAsk={(block, text) => sendNotebookCorrespondence(slug, {
+          blockId: block.id,
+          text
+        })}
+      />
     </main>
   );
 };

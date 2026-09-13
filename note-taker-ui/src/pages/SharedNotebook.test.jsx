@@ -1,10 +1,13 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import SharedNotebook from './SharedNotebook';
-import { getPublicNotebook } from '../api/notebook';
+import { getPublicNotebook, sendNotebookCorrespondence } from '../api/notebook';
 import { essaySnapshot } from '../components/think/notebook/notebookShareFixture';
 
-jest.mock('../api/notebook', () => ({ getPublicNotebook: jest.fn() }));
+jest.mock('../api/notebook', () => ({
+  getPublicNotebook: jest.fn(),
+  sendNotebookCorrespondence: jest.fn()
+}));
 jest.mock('react-router-dom', () => ({
   Link: ({ children, to, ...props }) => <a href={to} {...props}>{children}</a>,
   useParams: () => ({ slug: 'essay-slug' })
@@ -56,5 +59,22 @@ describe('a note someone published', () => {
     expect(await screen.findByText('The exception now leads.')).toBeInTheDocument();
     expect(screen.getByText(/^Updated /)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Print this note' })).toBeInTheDocument();
+  });
+
+  it('sends a question on a passage and does not keep it on the public page', async () => {
+    getPublicNotebook.mockResolvedValue(essaySnapshot());
+    sendNotebookCorrespondence.mockResolvedValue({ sent: true });
+    render(<SharedNotebook />);
+    fireEvent.click((await screen.findByTestId('notebook-ask-q1')).querySelector('button'));
+    fireEvent.change(screen.getByLabelText('Your question'), {
+      target: { value: 'Does spare time belong to the person who pays?' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Send to the author' }));
+    expect(await screen.findByText('Sent to the author. It stays off this page.')).toBeInTheDocument();
+    expect(sendNotebookCorrespondence).toHaveBeenCalledWith('essay-slug', {
+      blockId: 'q1',
+      text: 'Does spare time belong to the person who pays?'
+    });
+    expect(screen.queryByDisplayValue('Does spare time belong to the person who pays?')).not.toBeInTheDocument();
   });
 });

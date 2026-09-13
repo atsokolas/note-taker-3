@@ -3115,6 +3115,24 @@ sharedNotebookSchema.index({ userId: 1, notebookId: 1 }, { unique: true });
 
 const SharedNotebook = mongoose.model('SharedNotebook', sharedNotebookSchema);
 
+/* A question a reader left on one published passage.
+
+   It belongs to the author, not to the public page. Revoking the share
+   closes the door; the letter stays so the sentence it answered still
+   has its reply. Inclusion in a later edition is a later, explicit act. */
+const notebookCorrespondenceSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  notebookId: { type: mongoose.Schema.Types.ObjectId, ref: 'NotebookEntry', required: true, index: true },
+  slug: { type: String, default: '', index: true },
+  blockId: { type: String, default: '' },
+  excerpt: { type: String, default: '' },
+  text: { type: String, required: true }
+}, { timestamps: true });
+
+notebookCorrespondenceSchema.index({ userId: 1, notebookId: 1, createdAt: 1 });
+
+const NotebookCorrespondence = mongoose.model('NotebookCorrespondence', notebookCorrespondenceSchema);
+
 /**
  * CasebookLineage — follow, fork, and adopt with frozen origin provenance.
  * Revoking a share never rewrites originHash, originTitle, or originSlug.
@@ -3335,6 +3353,7 @@ module.exports = {
   MorningPaperRecord,
   SharedEdition,
   SharedNotebook,
+  NotebookCorrespondence,
   Question,
   Board,
   BoardItem,

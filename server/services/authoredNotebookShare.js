@@ -16,6 +16,13 @@ const PREVIEW_STALE = 'The note changed since you previewed it. Refresh the prev
 const SLUG_BYTES = 9;
 const ACCESS_OPEN = 'open';
 const ACCESS_WITHHELD = 'withheld';
+const CORRESPONDENCE_LIMIT = 40;
+const CORRESPONDENCE_CHARS = 400;
+const CORRESPONDENCE_TYPES = Object.freeze({
+  paragraph: true,
+  quote: true,
+  bullet: true
+});
 
 const PUBLIC_TYPES = Object.freeze({
   paragraph: 'paragraph',
@@ -188,6 +195,8 @@ const freezeNotebookSnapshot = (preview, publishedAt, extra = {}) => {
   delete essay.publishedAt;
   delete essay.revisedAt;
   delete essay.correction;
+  delete essay.letters;
+  delete essay.correspondence;
   const iso = asIso(publishedAt);
   const revised = asIso(extra.revisedAt);
   const correction = publicText(stripTags(extra.correction), 400);
@@ -199,14 +208,58 @@ const freezeNotebookSnapshot = (preview, publishedAt, extra = {}) => {
   };
 };
 
-const notebookShareState = (share, { preview = null, currentHash = '' } = {}) => {
+const correspondenceText = (value) => publicText(stripTags(value), CORRESPONDENCE_CHARS);
+
+const eligibleCorrespondenceBlock = (block = {}) => {
+  const id = publicText(block.id, 80);
+  const type = String(block.type || '').trim();
+  const text = publicText(block.text, 8000);
+  if (!id || !text || !CORRESPONDENCE_TYPES[type]) return null;
+  return { id, type, text };
+};
+
+const findCorrespondenceBlock = (snapshot, blockId) => {
+  const id = publicText(blockId, 80);
+  if (!id) return null;
+  const blocks = Array.isArray(snapshot?.blocks) ? snapshot.blocks : [];
+  const block = blocks.find((item) => publicText(item?.id, 80) === id);
+  return block ? eligibleCorrespondenceBlock(block) : null;
+};
+
+const projectCorrespondence = (row = {}) => {
+  const text = correspondenceText(row.text);
+  if (!text) return null;
+  return {
+    id: idOf(row),
+    blockId: publicText(row.blockId, 80),
+    excerpt: publicText(row.excerpt, 8000),
+    text,
+    createdAt: asIso(row.createdAt)
+  };
+};
+
+const projectCorrespondenceList = (letters) => (Array.isArray(letters) ? letters : [])
+  .map(projectCorrespondence)
+  .filter(Boolean);
+
+const loadNotebookCorrespondence = async (NotebookCorrespondence, query) => {
+  if (!NotebookCorrespondence?.find) return [];
+  const found = NotebookCorrespondence.find(query);
+  const sorted = found?.sort ? found.sort({ createdAt: 1, _id: 1 }) : found;
+  const rows = sorted && typeof sorted.lean === 'function' ? await sorted.lean() : await sorted;
+  return Array.isArray(rows) ? rows : [];
+};
+
+const notebookShareState = (share, { preview = null, currentHash = '', letters = [] } = {}) => {
+  const projected = projectCorrespondenceList(letters);
   if (!share) {
     return {
       shared: false,
       publishable: canPublishNotebook(preview),
       ownerDisplayName: preview?.ownerDisplayName || '',
       preview,
-      currentHash
+      currentHash,
+      letters: projected
     };
   }
   return {
@@ -219,7 +272,8 @@ const notebookShareState = (share, { preview = null, currentHash = '' } = {}) =>
     currentHash,
     stale: Boolean(share.contentHash && currentHash && share.contentHash !== currentHash),
     preview,
-    snapshot: share.snapshot || null
+    snapshot: share.snapshot || null,
+    letters: projected
   };
 };
 
@@ -269,16 +323,24 @@ const liveNotebookPreview = async ({ Article, User, entry, userId }) => {
 module.exports = {
   ACCESS_OPEN,
   ACCESS_WITHHELD,
+  CORRESPONDENCE_CHARS,
+  CORRESPONDENCE_LIMIT,
   PREVIEW_STALE,
   PUBLIC_TYPES,
   canPublishNotebook,
   collectArticleIds,
+  correspondenceText,
+  eligibleCorrespondenceBlock,
+  findCorrespondenceBlock,
   freezeNotebookSnapshot,
   hashPublicNotebook,
   isDuplicateKey,
   liveNotebookPreview,
+  loadNotebookCorrespondence,
   loadSourceArticles,
   notebookShareState,
+  projectCorrespondence,
+  projectCorrespondenceList,
   projectPublicBlock,
   projectPublicNotebook,
   shareSlug

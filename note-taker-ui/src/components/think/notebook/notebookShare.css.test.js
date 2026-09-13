@@ -40,6 +40,7 @@ describe('printed notebook paper', () => {
     expect(printCss).toMatch(/\.shared-notebook-page__home/);
     expect(printCss).toMatch(/\.shared-notebook-page__print/);
     expect(printCss).toMatch(/\.notebook-essay__copy/);
+    expect(printCss).toMatch(/\.notebook-essay__ask/);
     expect(printCss).toMatch(/\.notebook-share,/);
     expect(printCss).toMatch(/content:\s*" · " attr\(href\)/);
     expect(printCss).toMatch(/\.notebook-essay__correction/);
