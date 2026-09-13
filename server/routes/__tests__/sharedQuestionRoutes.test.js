@@ -168,6 +168,7 @@ const run = async () => {
     optionalAuthenticateToken: (req, _res, next) => {
       const viewer = String(req.headers['x-user-id'] || '').trim();
       if (viewer) req.user = { id: viewer };
+      if (req.headers['x-agent-token']) req.agentToken = true;
       next();
     },
     SharedQuestion,
@@ -289,6 +290,62 @@ const run = async () => {
     const unsignedStill = await publicGet(mint.body.slug);
     assert.ok(!unsignedStill.body.yours);
 
+    const withdrawerId = new mongoose.Types.ObjectId().toString();
+    const extra = await offer(mint.body.slug, {
+      by: 'Nia',
+      text: 'I will take this back.'
+    }, asUser(withdrawerId));
+    assert.strictEqual(extra.response.status, 201);
+    const extraWaiting = await fetchJson(`${base}/api/questions/${questionId}/share`);
+    const extraId = extraWaiting.body.waiting.find((row) => row.text === 'I will take this back.').id;
+    const countBefore = SharedQuestion.rows[0].contributionCount;
+
+    const unsignedWithdraw = await fetchJson(
+      `${base}/api/public/questions/${mint.body.slug}/contributions/${extraId}`,
+      { method: 'DELETE' }
+    );
+    assert.strictEqual(unsignedWithdraw.response.status, 404);
+
+    const strangerWithdraw = await fetchJson(
+      `${base}/api/public/questions/${mint.body.slug}/contributions/${extraId}`,
+      { method: 'DELETE', headers: asUser(strangerId) }
+    );
+    assert.strictEqual(strangerWithdraw.response.status, 404);
+
+    const ownerWithdraw = await fetchJson(
+      `${base}/api/public/questions/${mint.body.slug}/contributions/${extraId}`,
+      { method: 'DELETE', headers: asUser(userId) }
+    );
+    assert.strictEqual(ownerWithdraw.response.status, 404);
+
+    const agentWithdraw = await fetchJson(
+      `${base}/api/public/questions/${mint.body.slug}/contributions/${extraId}`,
+      { method: 'DELETE', headers: { ...asUser(withdrawerId), 'x-agent-token': '1' } }
+    );
+    assert.strictEqual(agentWithdraw.response.status, 403);
+
+    const takeBack = await fetchJson(
+      `${base}/api/public/questions/${mint.body.slug}/contributions/${extraId}`,
+      { method: 'DELETE', headers: asUser(withdrawerId) }
+    );
+    assert.strictEqual(takeBack.response.status, 200, JSON.stringify(takeBack.body));
+    assert.deepStrictEqual(takeBack.body, { withdrawn: true });
+    assert.strictEqual(SharedQuestion.rows[0].contributionCount, countBefore - 1);
+    const afterHeldWithdraw = await publicGet(mint.body.slug, asUser(withdrawerId));
+    assert.ok(!afterHeldWithdraw.body.yours);
+    const againOffer = await offer(mint.body.slug, {
+      by: 'Nia',
+      text: 'A second try.'
+    }, asUser(withdrawerId));
+    assert.strictEqual(againOffer.response.status, 201);
+    const niaWaiting = await fetchJson(`${base}/api/questions/${questionId}/share`);
+    const niaId = niaWaiting.body.waiting.find((row) => row.text === 'A second try.').id;
+    const niaBack = await fetchJson(
+      `${base}/api/public/questions/${mint.body.slug}/contributions/${niaId}`,
+      { method: 'DELETE', headers: asUser(withdrawerId) }
+    );
+    assert.strictEqual(niaBack.response.status, 200);
+
     const strangerShare = await fetchJson(`${base}/api/questions/${questionId}/share`, {
       headers: asUser(strangerId)
     });
@@ -389,6 +446,8 @@ const run = async () => {
     const placedYours = await publicGet(mint.body.slug, asUser(contributorId));
     assert.ok(!placedYours.body.yours);
     assert.strictEqual(placedYours.body.contributions[0].id, contributionId);
+    assert.strictEqual(placedYours.body.contributions[0].mine, true);
+    assert.ok(!publicPlaced.body.contributions[0].mine);
     const otherStillHeld = await publicGet(mint.body.slug, asUser(otherContributorId));
     assert.strictEqual(otherStillHeld.body.yours[0].id, otherId);
     assert.deepStrictEqual(otherStillHeld.body.contributions.map((row) => row.id), [contributionId]);
@@ -518,6 +577,11 @@ const run = async () => {
     assert.strictEqual(goneYours.response.status, 404);
     const goneOther = await publicGet(mint.body.slug, asUser(otherContributorId));
     assert.strictEqual(goneOther.response.status, 404);
+    const goneWithdraw = await fetchJson(
+      `${base}/api/public/questions/${mint.body.slug}/contributions/${contributionId}`,
+      { method: 'DELETE', headers: asUser(contributorId) }
+    );
+    assert.strictEqual(goneWithdraw.response.status, 404);
 
     const goneDoor = await offer(mint.body.slug, { by: 'Mara', text: 'After revoke.' });
     assert.strictEqual(goneDoor.response.status, 404);
@@ -554,7 +618,7 @@ const run = async () => {
     assert.strictEqual(remint.response.status, 201);
     assert.notStrictEqual(remint.body.slug, mint.body.slug);
     assert.deepStrictEqual(remint.body.contributions, []);
-    const nextDoor = await offer(remint.body.slug, { by: 'Mara', text: 'A later door.' });
+    const nextDoor = await offer(remint.body.slug, { by: 'Mara', text: 'A later door.' }, asUser(contributorId));
     assert.strictEqual(nextDoor.response.status, 201);
     const newPage = await fetchJson(`${base}/api/public/questions/${remint.body.slug}`);
     assert.deepStrictEqual(newPage.body.contributions, []);
@@ -568,6 +632,25 @@ const run = async () => {
     const placedLater = await fetchJson(`${base}/api/public/questions/${remint.body.slug}`);
     assert.strictEqual(placedLater.body.contributions.length, 1);
     assert.strictEqual(placedLater.body.contributions[0].text, 'A later door.');
+    const laterMine = await publicGet(remint.body.slug, asUser(contributorId));
+    assert.strictEqual(laterMine.body.contributions[0].mine, true);
+    const withdrawPlaced = await fetchJson(
+      `${base}/api/public/questions/${remint.body.slug}/contributions/${laterId}`,
+      { method: 'DELETE', headers: asUser(contributorId) }
+    );
+    assert.strictEqual(withdrawPlaced.response.status, 200, JSON.stringify(withdrawPlaced.body));
+    const afterPlacedWithdraw = await publicGet(remint.body.slug);
+    assert.deepStrictEqual(afterPlacedWithdraw.body.contributions, []);
+    const ownerAfterWithdraw = await fetchJson(`${base}/api/questions/${questionId}/share`);
+    assert.deepStrictEqual(ownerAfterWithdraw.body.contributions, []);
+    assert.ok(!ownerAfterWithdraw.body.waiting);
+    const remintRow = SharedQuestion.rows.find((row) => row.slug === remint.body.slug);
+    assert.strictEqual(remintRow.contributionCount, 0);
+    const twice = await fetchJson(
+      `${base}/api/public/questions/${remint.body.slug}/contributions/${laterId}`,
+      { method: 'DELETE', headers: asUser(contributorId) }
+    );
+    assert.strictEqual(twice.response.status, 404);
 
     const closeLater = await fetchJson(`${base}/api/questions/${questionId}/share`, { method: 'DELETE' });
     assert.strictEqual(closeLater.response.status, 200);

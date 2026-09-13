@@ -141,6 +141,7 @@ const freezeThinkSnapshot = (preview, publishedAt, extra = {}) => {
   delete body.interpretedBy;
   delete body.waiting;
   delete body.yours;
+  delete body.mine;
   const iso = asIso(publishedAt);
   const revised = asIso(extra.revisedAt);
   const correction = publicText(stripTags(extra.correction), 400);
@@ -181,11 +182,13 @@ const contributionHeld = (row) => row?.held === true;
 const placedContributions = (rows) => (Array.isArray(rows) ? rows : []).filter((row) => !contributionHeld(row));
 const heldContributions = (rows) => (Array.isArray(rows) ? rows : []).filter(contributionHeld);
 const contributionViewerId = (row) => String(row?.contributorUserId || '').trim();
-const yoursContributions = (rows, viewerUserId) => {
+const contributionOwnedBy = (row, viewerUserId) => {
   const viewer = String(viewerUserId || '').trim();
-  if (!viewer) return [];
-  return heldContributions(rows).filter((row) => contributionViewerId(row) === viewer);
+  return Boolean(viewer && contributionViewerId(row) === viewer);
 };
+const yoursContributions = (rows, viewerUserId) => (
+  heldContributions(rows).filter((row) => contributionOwnedBy(row, viewerUserId))
+);
 
 const loadQuestionContributions = async (QuestionContribution, query) => {
   if (!QuestionContribution?.find) return [];
@@ -240,11 +243,21 @@ const publicQuestionPage = (share, contributions = [], viewerUserId = '') => {
   delete snapshot.interpretedBy;
   delete snapshot.waiting;
   delete snapshot.yours;
+  delete snapshot.mine;
   const extra = { interpretedBy: share.ownerDisplayName };
   const yours = projectContributionList(yoursContributions(contributions, viewerUserId), extra);
+  const viewer = String(viewerUserId || '').trim();
+  const published = placedContributions(contributions)
+    .map((row) => {
+      const projected = projectContribution(row, extra);
+      if (!projected) return null;
+      if (viewer && contributionOwnedBy(row, viewer)) return { ...projected, mine: true };
+      return projected;
+    })
+    .filter(Boolean);
   return {
     ...snapshot,
-    contributions: projectContributionList(placedContributions(contributions), extra),
+    contributions: published,
     ...(yours.length ? { yours } : {})
   };
 };

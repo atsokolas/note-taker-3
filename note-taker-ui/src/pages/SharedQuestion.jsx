@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { getPublicQuestion, offerQuestionContribution } from '../api/questions';
+import { getPublicQuestion, offerQuestionContribution, withdrawQuestionContribution } from '../api/questions';
 import QuestionShareView from '../components/think/QuestionShareView';
 import { QUESTION_NOT_PUBLISHED } from '../components/think/thinkShareFixture';
 import '../styles/shared-page-column.css';
@@ -152,6 +152,11 @@ const SharedQuestion = () => {
         snapshot={data}
         onOffer={async (reading) => {
           await offerQuestionContribution(slug, reading);
+          const payload = await getPublicQuestion(slug);
+          setData(payload);
+        }}
+        onWithdraw={async (contributionId) => {
+          await withdrawQuestionContribution(slug, contributionId);
           const payload = await getPublicQuestion(slug);
           setData(payload);
         }}

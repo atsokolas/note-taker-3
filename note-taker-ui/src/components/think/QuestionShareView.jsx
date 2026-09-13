@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { usePrefersReducedMotion } from '../../hooks/useMotionPreferences';
-import { QUESTION_SHARE_COLOPHON, QUESTION_SHARE_OFFER, QUESTION_SHARE_RECEIPT, QUESTION_SHARE_YOURS } from './thinkShareFixture';
+import { QUESTION_SHARE_COLOPHON, QUESTION_SHARE_OFFER, QUESTION_SHARE_RECEIPT, QUESTION_SHARE_WITHDRAW, QUESTION_SHARE_YOURS } from './thinkShareFixture';
 
 const asLine = (value) => String(value || '').trim();
 
@@ -23,7 +23,7 @@ const yoursOf = (snapshot) => (
     : []
 );
 
-const OfferReading = ({ onOffer }) => {
+const OfferReading = ({ onOffer, held = false }) => {
   const reduced = usePrefersReducedMotion();
   const nameRef = useRef(null);
   const [open, setOpen] = useState(false);
@@ -33,6 +33,10 @@ const OfferReading = ({ onOffer }) => {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [sent, setSent] = useState(false);
+
+  useEffect(() => {
+    if (!held) setSent(false);
+  }, [held]);
 
   useEffect(() => {
     if (!open || reduced) return undefined;
@@ -125,7 +129,35 @@ const OfferReading = ({ onOffer }) => {
   );
 };
 
-const Reading = ({ reading }) => {
+const WithdrawReading = ({ readingId, onWithdraw }) => {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  if (!onWithdraw || !readingId) return null;
+
+  const takeBack = async () => {
+    if (busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      await onWithdraw(readingId);
+    } catch (_withdrawError) {
+      setError('That reading did not come back.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="think-share-view__withdraw">
+      {error ? <p className="think-share-view__offer-error" role="status">{error}</p> : null}
+      <button type="button" onClick={takeBack} disabled={busy}>
+        {busy ? 'Taking back…' : QUESTION_SHARE_WITHDRAW}
+      </button>
+    </div>
+  );
+};
+
+const Reading = ({ reading, onWithdraw = null }) => {
   const when = formatPublished(reading.createdAt);
   return (
     <article className="think-share-view__reading" data-testid="question-share-reading">
@@ -140,6 +172,7 @@ const Reading = ({ reading }) => {
         </p>
       ) : null}
       {when ? <p className="think-share-view__by">{when}</p> : null}
+      {onWithdraw ? <WithdrawReading readingId={reading.id} onWithdraw={onWithdraw} /> : null}
     </article>
   );
 };
@@ -147,7 +180,8 @@ const Reading = ({ reading }) => {
 export default function QuestionShareView({
   snapshot,
   compact = false,
-  onOffer = null
+  onOffer = null,
+  onWithdraw = null
 }) {
   if (!snapshot) return null;
   const question = snapshot.question || {};
@@ -165,6 +199,7 @@ export default function QuestionShareView({
   const readings = readingsOf(snapshot);
   const yours = compact ? [] : yoursOf(snapshot);
   const invite = compact ? null : onOffer;
+  const takeBack = compact ? null : onWithdraw;
 
   return (
     <article
@@ -198,7 +233,11 @@ export default function QuestionShareView({
             {readings.length === 1 ? 'Another reading' : 'Other readings'}
           </p>
           {readings.map((reading, index) => (
-            <Reading key={reading.id || `${reading.by}-${index}`} reading={reading} />
+            <Reading
+              key={reading.id || `${reading.by}-${index}`}
+              reading={reading}
+              onWithdraw={takeBack && reading.mine ? takeBack : null}
+            />
           ))}
         </section>
       ) : null}
@@ -206,11 +245,15 @@ export default function QuestionShareView({
         <section className="think-share-view__yours" data-testid="question-share-yours">
           <p className="think-share-view__section">{QUESTION_SHARE_YOURS}</p>
           {yours.map((reading, index) => (
-            <Reading key={reading.id || `yours-${reading.by}-${index}`} reading={reading} />
+            <Reading
+              key={reading.id || `yours-${reading.by}-${index}`}
+              reading={reading}
+              onWithdraw={takeBack}
+            />
           ))}
         </section>
       ) : null}
-      {invite ? <OfferReading onOffer={invite} /> : null}
+      {invite ? <OfferReading onOffer={invite} held={yours.length > 0} /> : null}
       {compact ? null : <p className="think-share-view__colophon">{QUESTION_SHARE_COLOPHON}</p>}
     </article>
   );

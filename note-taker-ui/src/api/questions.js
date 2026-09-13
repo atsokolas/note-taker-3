@@ -106,6 +106,14 @@ export const offerQuestionContribution = async (slug, body = {}) => {
   return res.data || { sent: true };
 };
 
+export const withdrawQuestionContribution = async (slug, contributionId) => {
+  const res = await api.delete(
+    `/api/public/questions/${encodeURIComponent(slug)}/contributions/${encodeURIComponent(contributionId)}`,
+    optionalAuthHeaders()
+  );
+  return res.data || { withdrawn: true };
+};
+
 export const interpretQuestionContribution = async (questionId, contributionId, body = {}) => {
   const res = await api.patch(
     `/api/questions/${encodeURIComponent(questionId)}/share/contributions/${encodeURIComponent(contributionId)}`,

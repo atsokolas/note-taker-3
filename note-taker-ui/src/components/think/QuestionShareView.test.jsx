@@ -69,6 +69,7 @@ describe('QuestionShareView', () => {
     expect(screen.queryByTestId('question-share-readings')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Offer a reading' })).toBeInTheDocument();
     expect(screen.queryByLabelText('How you take this')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Take this back' })).not.toBeInTheDocument();
   });
 
   it('hides a held reading from compact preview even if yours is present', () => {
@@ -85,6 +86,7 @@ describe('QuestionShareView', () => {
     expect(screen.queryByTestId('question-share-yours')).not.toBeInTheDocument();
     expect(screen.queryByText('With the author')).not.toBeInTheDocument();
     expect(screen.queryByText('Same fact, different time horizon.')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Take this back' })).not.toBeInTheDocument();
   });
 
   it('offers a named reading with an optional remainder', async () => {
@@ -106,5 +108,36 @@ describe('QuestionShareView', () => {
     }));
     expect(await screen.findByText('It is with the author. It is not on the page yet.')).toBeInTheDocument();
     expect(screen.queryByTestId('question-share-readings')).not.toBeInTheDocument();
+  });
+
+  it('lets the offerer take a held reading back', async () => {
+    const onWithdraw = jest.fn().mockResolvedValue({ withdrawn: true });
+    render(
+      <QuestionShareView
+        snapshot={questionSnapshot({ yours: [questionContribution()] })}
+        onOffer={() => {}}
+        onWithdraw={onWithdraw}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Take this back' }));
+    await waitFor(() => expect(onWithdraw).toHaveBeenCalledWith('c1'));
+  });
+
+  it('lets the offerer take a placed reading back without inviting others to', () => {
+    render(
+      <QuestionShareView
+        snapshot={questionSnapshot({
+          contributions: [
+            questionContribution({ mine: true }),
+            questionContribution({ id: 'c2', by: 'Ada', text: 'Already on the page.', remainder: '', mine: false })
+          ]
+        })}
+        onWithdraw={() => {}}
+      />
+    );
+    const buttons = screen.getAllByRole('button', { name: 'Take this back' });
+    expect(buttons).toHaveLength(1);
+    expect(screen.getByText('Already on the page.')).toBeInTheDocument();
+    expect(screen.queryByLabelText('How you take this')).not.toBeInTheDocument();
   });
 });

@@ -11,15 +11,17 @@ import SharedQuestion from './SharedQuestion';
 
 jest.mock('../api/questions', () => ({
   getPublicQuestion: jest.fn(),
-  offerQuestionContribution: jest.fn()
+  offerQuestionContribution: jest.fn(),
+  withdrawQuestionContribution: jest.fn()
 }));
 
-const { getPublicQuestion, offerQuestionContribution } = require('../api/questions');
+const { getPublicQuestion, offerQuestionContribution, withdrawQuestionContribution } = require('../api/questions');
 
 describe('SharedQuestion', () => {
   beforeEach(() => {
     getPublicQuestion.mockReset();
     offerQuestionContribution.mockReset();
+    withdrawQuestionContribution.mockReset();
   });
 
   it('renders public question content without auth chrome', async () => {
@@ -140,5 +142,36 @@ describe('SharedQuestion', () => {
     expect(screen.getByTestId('question-share-yours')).toHaveTextContent('Same fact, different time horizon.');
     expect(screen.queryByTestId('question-share-readings')).not.toBeInTheDocument();
     expect(screen.getByText('It is with the author. It is not on the page yet.')).toBeInTheDocument();
+  });
+
+  it('lets a signed-in offerer take a held reading back while the door stays open', async () => {
+    const published = {
+      ownerDisplayName: 'Athan',
+      publishedAt: '2026-06-14T00:00:00Z',
+      question: {
+        text: 'What survives compounding?',
+        status: 'open',
+        paragraphs: [{ id: 'p1', type: 'paragraph', text: 'First paragraph.' }]
+      }
+    };
+    getPublicQuestion
+      .mockResolvedValueOnce({
+        ...published,
+        yours: [{
+          id: 'c1',
+          by: 'Mara',
+          text: 'Same fact, different time horizon.',
+          remainder: 'Who pays when the window closes?'
+        }]
+      })
+      .mockResolvedValueOnce(published);
+    withdrawQuestionContribution.mockResolvedValue({ withdrawn: true });
+
+    render(<SharedQuestion />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Take this back' }));
+    await waitFor(() => expect(withdrawQuestionContribution).toHaveBeenCalledWith('qslug123', 'c1'));
+    await waitFor(() => expect(screen.queryByTestId('question-share-yours')).not.toBeInTheDocument());
+    expect(screen.queryByTestId('question-share-readings')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Offer a reading' })).toBeInTheDocument();
   });
 });
