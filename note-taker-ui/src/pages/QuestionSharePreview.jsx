@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import QuestionShareView from '../components/think/QuestionShareView';
+import SharedQuestionCompanion from './SharedQuestionCompanion';
 import {
   QUESTION_NOT_PUBLISHED,
   QUESTION_SHARE_AGREEMENT,
@@ -35,6 +36,7 @@ const SCENES = [
   { id: 'taken', label: 'Taken' },
   { id: 'brief', label: 'Brief' },
   { id: 'presence', label: 'Presence' },
+  { id: 'companion', label: 'Companion' },
   { id: 'contributor', label: 'Contributor' },
   { id: 'owner', label: 'Owner' },
   { id: 'revised', label: 'Revised' },
@@ -148,7 +150,7 @@ const QuestionSharePreview = () => {
     if (!interpretation) return row;
     return { ...row, interpretation, interpretedBy: 'Athan' };
   });
-  const publicPage = scene === 'brief'
+  const publicPage = scene === 'brief' || scene === 'companion'
     ? closed
     : scene === 'taken'
       ? taken
@@ -162,7 +164,7 @@ const QuestionSharePreview = () => {
       ...publicPage,
       contributions: publicPage.contributions || []
     };
-  const isPublicPage = scene === 'public' || scene === 'together' || scene === 'taken' || scene === 'contributor' || scene === 'brief' || scene === 'presence';
+  const isPublicPage = scene === 'public' || scene === 'together' || scene === 'taken' || scene === 'contributor' || scene === 'brief' || scene === 'presence' || scene === 'companion';
   const ownerPresence = scene === 'owner' ? questionPresenceLine([{ by: 'Mara' }]) : '';
 
   return (
@@ -201,6 +203,12 @@ const QuestionSharePreview = () => {
               here={publicHere}
               onOffer={scene === 'taken' ? null : async () => {}}
               onWithdraw={scene === 'contributor' && !takenBack ? async () => { setTakenBack(true); } : null}
+            />
+            <SharedQuestionCompanion
+              slug="qslug"
+              page={publicSnapshot}
+              signedIn={scene === 'companion'}
+              defaultOpen={scene === 'companion'}
             />
           </main>
         ) : null}

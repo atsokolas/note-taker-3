@@ -19,7 +19,10 @@ const {
   prepareRelatedItemsForReply,
   filterRetrievedItemsForRequest,
   pruneRelatedItemsForContext,
-  shouldSearchWorkspaceForWikiPage
+  shouldSearchWorkspaceForWikiPage,
+  shouldSearchWorkspaceForContext,
+  isSharedQuestionScope,
+  buildSharedQuestionContextItem
 } = __testables;
 
 const makeFindModel = (resolver) => ({
@@ -1103,6 +1106,146 @@ const run = async () => {
     hfMessages.at(-1)?.content,
     'What do you think needs to be rethought?',
     'HF partner messages should end with the current user request.'
+  );
+
+  const frozenQuestion = {
+    question: {
+      text: 'What survives compounding?',
+      paragraphs: [{ id: 'p1', type: 'paragraph', text: 'Time plus reinvestment beats picking once.' }]
+    },
+    ownerDisplayName: 'Athan',
+    publishedAt: '2026-09-13T12:00:00.000Z'
+  };
+  const placedReading = {
+    _id: 'c1',
+    by: 'Mara',
+    text: 'Same fact, different time horizon.',
+    remainder: 'Who pays when the window closes?',
+    held: false
+  };
+  const heldReading = {
+    _id: 'held-1',
+    by: 'Ada',
+    text: 'A private held reading.',
+    held: true,
+    contributorUserId: 'viewer-1'
+  };
+  const makeShareModels = ({ share = null, contributions = [] } = {}) => ({
+    SharedQuestion: {
+      findOne(query = {}) {
+        const run = async () => (query.slug === share?.slug ? share : null);
+        return {
+          select() {
+            return { lean: run };
+          },
+          lean: run
+        };
+      }
+    },
+    QuestionContribution: {
+      find() {
+        return {
+          sort() {
+            return { lean: async () => contributions };
+          }
+        };
+      }
+    }
+  });
+  const publishedShare = {
+    slug: 'qslug',
+    snapshot: frozenQuestion,
+    ownerDisplayName: 'Athan',
+    publishedAt: '2026-09-13T12:00:00.000Z',
+    brief: {
+      agreement: 'The fact is shared. The horizon is not.',
+      remainder: 'The window may close before compounding pays.',
+      observation: 'Watch who is still in the room when the cost arrives.'
+    }
+  };
+  const sharedModels = makeShareModels({
+    share: publishedShare,
+    contributions: [placedReading, heldReading]
+  });
+  const sharedContext = await resolveContextItem({
+    userObjectId: 'viewer-1',
+    context: { type: 'shared_question', id: 'qslug', title: 'What survives compounding?' },
+    Article: null,
+    NotebookEntry: null,
+    TagMeta: null,
+    WikiPage: null,
+    ...sharedModels
+  });
+  assert.strictEqual(sharedContext.type, 'shared_question');
+  assert.strictEqual(sharedContext.id, 'qslug');
+  assert.ok(sharedContext.fullText.includes('What survives compounding?'));
+  assert.ok(sharedContext.fullText.includes('Same fact, different time horizon.'));
+  assert.ok(sharedContext.fullText.includes('What holds: The fact is shared.'));
+  assert.ok(!sharedContext.fullText.includes('A private held reading.'));
+  assert.ok(!Object.prototype.hasOwnProperty.call(sharedContext, 'yours'));
+  assert.ok(!Object.prototype.hasOwnProperty.call(sharedContext, 'here'));
+  assert.deepStrictEqual(
+    sharedContext.relatedItems.map((item) => item.type).sort(),
+    ['brief', 'reading']
+  );
+  assert.ok(!sharedContext.relatedItems.some((item) => item.type === 'article'));
+  assert.strictEqual(
+    shouldSearchWorkspaceForContext({
+      context: { type: 'shared_question', id: 'qslug' },
+      contextItem: sharedContext,
+      intentDecision: { retrievalPolicy: 'workspace' }
+    }),
+    false,
+    'Shared-question companion must not search a private Library.'
+  );
+  assert.strictEqual(
+    shouldSearchWorkspaceForContext({
+      context: { type: 'shared_question', id: 'missing' },
+      contextItem: null,
+      intentDecision: { retrievalPolicy: 'workspace' }
+    }),
+    false,
+    'An unpublished shared question must not fall through to workspace search.'
+  );
+  assert.strictEqual(isSharedQuestionScope({ type: 'shared_question' }), true);
+  const unpublishedContext = await resolveContextItem({
+    userObjectId: 'viewer-1',
+    context: { type: 'shared_question', id: 'gone' },
+    ...makeShareModels()
+  });
+  assert.strictEqual(unpublishedContext, null);
+  const retrieveShared = buildReply({
+    message: 'Find related notes in my library.',
+    context: { type: 'shared_question', id: 'qslug' },
+    contextItem: sharedContext,
+    relatedItems: [],
+    intentDecision: { replyIntent: 'retrieve', interactionMode: 'answer' }
+  });
+  assert.match(retrieveShared, /published question/i);
+  assert.ok(!/workspace/i.test(retrieveShared), 'Shared retrieve silence must not mention a private workspace.');
+  const unpublishedReply = buildReply({
+    message: 'Find related notes in my library.',
+    context: { type: 'shared_question', id: 'gone' },
+    contextItem: null,
+    relatedItems: [],
+    intentDecision: { replyIntent: 'retrieve', interactionMode: 'answer' }
+  });
+  assert.strictEqual(unpublishedReply, 'This question is not published.');
+  const sharedMessages = buildPartnerChatMessages({
+    message: 'What is actually on this page?',
+    context: { type: 'shared_question', id: 'qslug' },
+    contextItem: sharedContext,
+    relatedItems: sharedContext.relatedItems
+  });
+  assert.match(sharedMessages[0].content, /published question door/i);
+  assert.match(sharedMessages[1].content, /Published question:/);
+  assert.ok(!/Ask about your notes, concepts, and articles/i.test(sharedMessages[0].content));
+  assert.ok(
+    !buildSharedQuestionContextItem({
+      question: frozenQuestion.question,
+      yours: [{ by: 'Ada', text: 'held' }],
+      here: [{ by: 'Mara' }]
+    }, 'qslug').fullText.includes('held')
   );
 };
 

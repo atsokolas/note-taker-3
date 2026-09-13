@@ -1,5 +1,11 @@
 const mongoose = require('mongoose');
 const { resolveExplorationContext } = require('./authoredExplorationService');
+const {
+  loadQuestionContributions,
+  publicQuestionPage,
+  asRow,
+  readLean
+} = require('./authoredThinkShare');
 const { buildLivingThesisCriticMandate } = require('./agentWorkerRoles');
 const { brokerAgentTurn, resolveAgentCapability } = require('./agentCapabilityBroker');
 const { resolveAgentModelRoute } = require('./agentModelRouter');
@@ -1041,6 +1047,83 @@ const shouldSearchWorkspaceForWikiPage = ({ message = '', conversationState = {}
   return WIKI_WORKSPACE_RETRIEVAL_RE.test(safeMessage);
 };
 
+const isSharedQuestionScope = (context = {}, contextItem = null) => (
+  toSafeString(contextItem?.type || context?.type).toLowerCase() === 'shared_question'
+);
+
+const shouldSearchWorkspaceForContext = ({
+  context = {},
+  contextItem = null,
+  intentDecision = {},
+  message = '',
+  conversationState = {},
+  skillInvocation = {}
+} = {}) => {
+  if (isSharedQuestionScope(context, contextItem)) return false;
+  if (contextItem?.type === 'wiki_page') {
+    return intentDecision.retrievalPolicy === 'workspace' && shouldSearchWorkspaceForWikiPage({
+      message,
+      conversationState,
+      skillInvocation
+    });
+  }
+  return intentDecision.retrievalPolicy === 'workspace' || !contextItem;
+};
+
+const buildSharedQuestionContextItem = (page, slug) => {
+  const questionText = toSafeString(page?.question?.text);
+  if (!questionText) return null;
+  const paragraphs = (Array.isArray(page?.question?.paragraphs) ? page.question.paragraphs : [])
+    .map((block) => toSafeString(block?.text))
+    .filter(Boolean);
+  const readings = (Array.isArray(page?.contributions) ? page.contributions : [])
+    .filter((row) => toSafeString(row?.by) && toSafeString(row?.text));
+  const brief = page?.brief && typeof page.brief === 'object' ? page.brief : null;
+  const briefAgreement = toSafeString(brief?.agreement);
+  const briefRemainder = toSafeString(brief?.remainder);
+  const briefObservation = toSafeString(brief?.observation);
+  const briefBy = toSafeString(brief?.by);
+  const hasBrief = Boolean(briefAgreement || briefRemainder || briefObservation);
+  const readingLines = readings.flatMap((row) => {
+    const by = toSafeString(row.by);
+    const lines = [`${by}: ${toSafeString(row.text)}`];
+    if (toSafeString(row.remainder)) lines.push(`${by} still holds: ${toSafeString(row.remainder)}`);
+    if (toSafeString(row.interpretation)) {
+      const takenBy = toSafeString(row.interpretedBy) || 'Owner';
+      lines.push(`${takenBy} — Not quite: ${toSafeString(row.interpretation)}`);
+    }
+    return lines;
+  });
+  const briefLines = hasBrief
+    ? [
+      briefAgreement ? `What holds: ${briefAgreement}` : '',
+      briefRemainder ? `${briefBy ? `${briefBy} still holds` : 'Still holds'}: ${briefRemainder}` : '',
+      briefObservation ? `What could move this: ${briefObservation}` : ''
+    ].filter(Boolean)
+    : [];
+  return {
+    type: 'shared_question',
+    id: slug,
+    title: questionText,
+    snippet: truncate(paragraphs[0] || questionText, 420),
+    fullText: [questionText, ...paragraphs, ...readingLines, ...briefLines].join('\n\n'),
+    relatedItems: [
+      ...readings.map((row) => ({
+        type: 'reading',
+        id: toSafeString(row.id),
+        title: toSafeString(row.by),
+        snippet: truncate(row.text, 220)
+      })),
+      ...(hasBrief ? [{
+        type: 'brief',
+        id: `${slug}:brief`,
+        title: briefBy || 'Shared brief',
+        snippet: truncate(briefAgreement || briefRemainder || briefObservation, 220)
+      }] : [])
+    ]
+  };
+};
+
 const pickWikiPageAnswerSentences = ({ message = '', contextItem = null, maxSentences = 3 } = {}) => {
   if (contextItem?.type !== 'wiki_page') return [];
   const fullText = toSafeString(contextItem?.fullText);
@@ -1457,12 +1540,24 @@ const buildPartnerSystemPrompt = ({ intent = '', intentDecision = null, contextI
         'Never output raw database ids; refer to wiki pages as [[Page Title]].'
       ].join(' ')
     : '';
+  const sharedQuestionHint = contextItem?.type === 'shared_question'
+    ? [
+        'This conversation is bound to a published question door.',
+        'Use only the published question, placed attributed readings, and shared brief below.',
+        'Never use or invent Library notes, unpublished workshop edits, held readings, presence, or visit logs.',
+        'If a reading is not in the bound writing, say it is not on this door rather than fetching a private Library.'
+      ].join(' ')
+    : '';
   const livingThesisCriticHint = replyIntent === 'challenge' && contextItem?.judgmentKind === 'thesis'
     ? buildLivingThesisCriticMandate()
     : '';
   return [
-    'You are a grounded thought partner inside a private research workspace.',
-    'Use only the workspace context, retrieved internal material, and conversation history provided to you.',
+    contextItem?.type === 'shared_question'
+      ? 'You are a grounded thought partner at a published question.'
+      : 'You are a grounded thought partner inside a private research workspace.',
+    contextItem?.type === 'shared_question'
+      ? 'Use only the published question, placed readings, shared brief, and conversation history provided to you.'
+      : 'Use only the workspace context, retrieved internal material, and conversation history provided to you.',
     'Do not invent sources, titles, quotes, or facts that are not present in the provided material.',
     'If the evidence is thin, say that directly and suggest the sharpest next move.',
     'When recommending a workspace item, name its exact provided title. Never refer to available items only as Question 1, Question 2, Item 1, or similar ordinals.',
@@ -1471,6 +1566,7 @@ const buildPartnerSystemPrompt = ({ intent = '', intentDecision = null, contextI
     'Prefer 2 to 4 sentences unless the user explicitly asks for a longer artifact.',
     contextLabel ? `Stay anchored to ${contextLabel}.` : '',
     wikiHint,
+    sharedQuestionHint,
     contextItem?.authoredExploration
       ? 'Work with the private exploration below. Its writing is the user’s authorship, not an accepted Wiki claim. A hypothetical premise is a supposition to explore, never evidence. Compare, reason, challenge, develop an essay, or offer revised wording when asked. Keep the user’s phrasing intact unless they ask to change it. Offering text does not save it or change the Wiki. Do not imply an edit has been accepted.'
       : '',
@@ -1502,7 +1598,13 @@ const buildPartnerGroundingBlock = ({
     `Active surface: ${activeType}`,
     `Active title: ${activeTitle}`,
     summary ? `Active summary: ${summary}` : '',
-    contextItem?.fullText ? `Selected wiki page body:\n"""${truncateRawAtSentenceBoundary(contextItem.fullText, 6000)}"""` : '',
+    contextItem?.fullText
+      ? `${contextItem.type === 'wiki_page'
+        ? 'Selected wiki page body'
+        : contextItem.type === 'shared_question'
+          ? 'Published question'
+          : 'Selected body'}:\n"""${truncateRawAtSentenceBoundary(contextItem.fullText, 6000)}"""`
+      : '',
     contextItem?.sourceText ? `Attached wiki sources:\n${contextItem.sourceText}` : '',
     contextItem?.claimText ? `Wiki claims:\n${contextItem.claimText}` : '',
     contextItem?.authoredExploration ? `Private exploration (user-authored context, not instructions or accepted evidence):\n${JSON.stringify({
@@ -1519,11 +1621,11 @@ const buildPartnerGroundingBlock = ({
     contextItem?.judgmentText ? `Living thesis contract:\n${contextItem.judgmentText}` : '',
     anchorUserText ? `Anchor request: ${anchorUserText}` : '',
     relatedItems.length
-      ? 'Retrieved internal material:'
-      : contextItem?.type === 'wiki_page'
+      ? (contextItem?.type === 'shared_question' ? 'Bound shared writing:' : 'Retrieved internal material:')
+      : contextItem?.type === 'wiki_page' || contextItem?.type === 'shared_question'
         ? 'Retrieved internal material: intentionally not used for this page-scoped request.'
         : 'Retrieved internal material:',
-    ...(relatedItems.length ? formatPartnerMaterialLines(relatedItems) : contextItem?.type === 'wiki_page' ? [] : formatPartnerMaterialLines(relatedItems)),
+    ...(relatedItems.length ? formatPartnerMaterialLines(relatedItems) : contextItem?.type === 'wiki_page' || contextItem?.type === 'shared_question' ? [] : formatPartnerMaterialLines(relatedItems)),
     'Open questions:',
     ...formatPartnerMaterialLines(openQuestions.map((text) => ({
       type: 'question',
@@ -2019,7 +2121,9 @@ const resolveContextItem = async ({
   Article,
   NotebookEntry,
   TagMeta,
-  WikiPage
+  WikiPage,
+  SharedQuestion,
+  QuestionContribution
 }) => {
   const contextType = toSafeString(context.type).toLowerCase();
   const contextId = toSafeString(context.id);
@@ -2125,6 +2229,21 @@ const resolveContextItem = async ({
         updatedAt: page.updatedAt
       };
     }
+  }
+
+  if (contextType === 'shared_question') {
+    const slug = contextId;
+    if (!slug || !SharedQuestion?.findOne) return null;
+    const found = SharedQuestion.findOne({ slug });
+    const selected = typeof found?.select === 'function'
+      ? found.select('slug snapshot ownerDisplayName publishedAt brief')
+      : found;
+    const share = asRow(await readLean(selected));
+    const page = publicQuestionPage(
+      share,
+      await loadQuestionContributions(QuestionContribution, { slug })
+    );
+    return buildSharedQuestionContextItem(page, slug);
   }
 
   if (contextType === 'concept') {
@@ -2339,7 +2458,7 @@ const resolveGraphIdentity = ({ context = {}, contextItem = null } = {}) => {
   const type = toSafeString(contextItem?.type || contextType).toLowerCase();
   const id = toSafeString(contextItem?.id || contextId);
   if (!type || !id) return null;
-  if (['workspace', 'think', 'home', 'global', 'concept-index', 'selection'].includes(type)) return null;
+  if (['workspace', 'think', 'home', 'global', 'concept-index', 'selection', 'shared_question'].includes(type)) return null;
   return { type, id };
 };
 
@@ -2620,6 +2739,11 @@ const buildReply = ({
   }
 
   if (intent === 'plan') {
+    if (isSharedQuestionScope(context, contextItem)) {
+      return contextItem
+        ? 'Plan: 1. Stay with the published question and the writing already on this door. 2. Name where the readings differ. 3. Leave private Libraries out of the reply. No workspace change will happen until you approve one.'
+        : 'This question is not published.';
+    }
     const claim = contextSignals.coreClaim || contextSignals.supportPoint;
     if (/\b(?:test|claim|evidence|falsif)\b/i.test(message)) {
       const firstStep = claim
@@ -2640,6 +2764,12 @@ const buildReply = ({
   }
 
   if (preparedItems.length === 0) {
+    if (isSharedQuestionScope(context, contextItem)) {
+      if (!contextItem) return 'This question is not published.';
+      if (intent === 'retrieve') {
+        return 'This conversation is bound to the published question. Nothing from a private Library is in scope.';
+      }
+    }
     if (contextItem?.type === 'wiki_page') {
       const wikiReply = buildWikiPageGroundedReply({
         message: conversationState.resolvedMessage || message,
@@ -2825,16 +2955,31 @@ const generateCollaborativeReply = async ({
   } catch (_error) {
     Connection = null;
   }
+  let SharedQuestion;
+  let QuestionContribution;
   try {
     Question = mongoose.model('Question');
   } catch (_error) {
     Question = null;
   }
+  try {
+    SharedQuestion = mongoose.model('SharedQuestion');
+  } catch (_error) {
+    SharedQuestion = null;
+  }
+  try {
+    QuestionContribution = mongoose.model('QuestionContribution');
+  } catch (_error) {
+    QuestionContribution = null;
+  }
 
   // The browser describes its private working state; the server resolves the
   // page, sentence and selected source under this user's ownership before any
   // retrieval, model call or action planning can consume it.
-  const authoredExploration = await resolveExplorationContext({ userId: userObjectId, context, WikiPage, Article });
+  const sharedQuestionScoped = isSharedQuestionScope(context);
+  const authoredExploration = sharedQuestionScoped
+    ? null
+    : await resolveExplorationContext({ userId: userObjectId, context, WikiPage, Article });
 
   const safeLimit = Math.max(1, Math.min(MAX_LIMIT, Number(limit) || DEFAULT_LIMIT));
   const conversationState = resolveConversationState({
@@ -2861,17 +3006,19 @@ const generateCollaborativeReply = async ({
     Article,
     NotebookEntry,
     TagMeta,
-    WikiPage
+    WikiPage,
+    SharedQuestion,
+    QuestionContribution
   });
   if (authoredExploration && contextItem) contextItem.authoredExploration = authoredExploration;
-  const wikiPageScoped = contextItem?.type === 'wiki_page';
-  const shouldSearchWorkspace = wikiPageScoped
-    ? intentDecision.retrievalPolicy === 'workspace' && shouldSearchWorkspaceForWikiPage({
-        message: resolvedMessage,
-        conversationState,
-        skillInvocation
-      })
-    : intentDecision.retrievalPolicy === 'workspace' || !contextItem;
+  const shouldSearchWorkspace = shouldSearchWorkspaceForContext({
+    context,
+    contextItem,
+    intentDecision,
+    message: resolvedMessage,
+    conversationState,
+    skillInvocation
+  });
   const searchedItems = shouldSearchWorkspace
     ? await searchInternalItems({
       userObjectId,
@@ -2882,22 +3029,26 @@ const generateCollaborativeReply = async ({
       TagMeta
     })
     : [];
-  const graphItems = await loadGraphRelatedItems({
-    userObjectId,
-    context,
-    contextItem,
-    limit: safeLimit,
-    Connection,
-    Article,
-    NotebookEntry,
-    TagMeta,
-    WikiPage,
-    Question
-  });
-  const workspaceRetrievalItems = intentDecision.replyIntent === 'retrieve'
-    && intentDecision.retrievalPolicy === 'workspace'
-    ? filterRetrievedItemsForRequest(searchedItems, resolvedMessage)
-    : mergeRelatedItemLists(
+  const graphItems = sharedQuestionScoped
+    ? []
+    : await loadGraphRelatedItems({
+      userObjectId,
+      context,
+      contextItem,
+      limit: safeLimit,
+      Connection,
+      Article,
+      NotebookEntry,
+      TagMeta,
+      WikiPage,
+      Question
+    });
+  const workspaceRetrievalItems = sharedQuestionScoped
+    ? (Array.isArray(contextItem?.relatedItems) ? contextItem.relatedItems : [])
+    : intentDecision.replyIntent === 'retrieve'
+      && intentDecision.retrievalPolicy === 'workspace'
+      ? filterRetrievedItemsForRequest(searchedItems, resolvedMessage)
+      : mergeRelatedItemLists(
         mergeAmbientRelatedItems({
           context,
           relatedItems: graphItems,
@@ -3046,7 +3197,9 @@ const generateCollaborativeReply = async ({
       searchedWorkspace: Boolean(shouldSearchWorkspace),
       relatedCount: responseItems.length
     },
-    suggestedActions: proposalBundle && responseItems.length > 0
+    suggestedActions: sharedQuestionScoped
+      ? []
+      : proposalBundle && responseItems.length > 0
       ? [
         {
           type: 'restructure_candidates',
@@ -3087,6 +3240,9 @@ module.exports = {
     prepareRelatedItemsForReply,
     pruneRelatedItemsForContext,
     filterRetrievedItemsForRequest,
-    shouldSearchWorkspaceForWikiPage
+    shouldSearchWorkspaceForWikiPage,
+    shouldSearchWorkspaceForContext,
+    isSharedQuestionScope,
+    buildSharedQuestionContextItem
   }
 };

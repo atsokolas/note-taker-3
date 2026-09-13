@@ -15,8 +15,8 @@ const { isDuplicateKey, shareSlug } = require('./authoredNotebookShare');
  * the owner places it. The offerer may take it back while the door stays
  * open. Concurrent place, take, and withdraw keep both acts; they do not
  * last-write-win. A brief may close the page with what holds, what still
- * holds, and what could move this. Consensus is optional. Libraries stay
- * private.
+ * holds, and what could move this. Consensus is optional. The companion
+ * on that door is bound to this public page only. Libraries stay private.
  */
 
 const PREVIEW_STALE = {

@@ -17,6 +17,15 @@ jest.mock('../api/questions', () => ({
   getQuestionPresence: jest.fn()
 }));
 
+jest.mock('../components/agent/ThoughtPartnerPanel', () => ({
+  __esModule: true,
+  default: (props) => (
+    <aside data-testid="thought-partner-panel">
+      {props.contextType}:{props.contextId}
+    </aside>
+  )
+}));
+
 const {
   getPublicQuestion,
   offerQuestionContribution,
@@ -26,6 +35,8 @@ const {
 } = require('../api/questions');
 
 describe('SharedQuestion', () => {
+  const token = typeof window !== 'undefined' ? window.localStorage.getItem('token') : null;
+
   beforeEach(() => {
     getPublicQuestion.mockReset();
     offerQuestionContribution.mockReset();
@@ -34,6 +45,12 @@ describe('SharedQuestion', () => {
     getQuestionPresence.mockReset();
     beatQuestionPresence.mockResolvedValue({ present: false });
     getQuestionPresence.mockResolvedValue({});
+    window.localStorage.removeItem('token');
+  });
+
+  afterEach(() => {
+    if (token == null) window.localStorage.removeItem('token');
+    else window.localStorage.setItem('token', token);
   });
 
   it('renders public question content without auth chrome', async () => {
@@ -233,5 +250,52 @@ describe('SharedQuestion', () => {
 
     render(<SharedQuestion />);
     expect(await screen.findByTestId('question-share-presence')).toHaveTextContent('Mara is here.');
+  });
+
+  it('lets a signed-in reader ask about the published door, not the Library', async () => {
+    window.localStorage.setItem('token', 'reader-token');
+    getPublicQuestion.mockResolvedValueOnce({
+      ownerDisplayName: 'Athan',
+      publishedAt: '2026-06-14T00:00:00Z',
+      question: {
+        text: 'What survives compounding?',
+        status: 'open',
+        paragraphs: [{ id: 'p1', type: 'paragraph', text: 'First paragraph.' }]
+      },
+      contributions: [{
+        id: 'c1',
+        by: 'Mara',
+        text: 'Same fact, different time horizon.'
+      }],
+      yours: [{
+        id: 'held',
+        by: 'Ada',
+        text: 'Still with the author.'
+      }]
+    });
+
+    render(<SharedQuestion />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Ask about this reading' }));
+    expect(screen.getByTestId('thought-partner-panel')).toHaveTextContent('shared_question:qslug123');
+    expect(screen.getByTestId('shared-question-companion')).toHaveTextContent("Bound to this published question and Mara's reading.");
+    expect(screen.getByTestId('shared-question-companion')).not.toHaveTextContent('Ada');
+    expect(screen.getByTestId('shared-question-companion')).not.toHaveTextContent('Still with the author.');
+  });
+
+  it('keeps the companion off the page for an unsigned visitor', async () => {
+    getPublicQuestion.mockResolvedValueOnce({
+      ownerDisplayName: 'Athan',
+      publishedAt: '2026-06-14T00:00:00Z',
+      question: {
+        text: 'What survives compounding?',
+        status: 'open',
+        paragraphs: [{ id: 'p1', type: 'paragraph', text: 'First paragraph.' }]
+      }
+    });
+
+    render(<SharedQuestion />);
+    await screen.findByRole('heading', { level: 1, name: 'What survives compounding?' });
+    expect(screen.queryByTestId('shared-question-companion')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Ask about this reading' })).not.toBeInTheDocument();
   });
 });
