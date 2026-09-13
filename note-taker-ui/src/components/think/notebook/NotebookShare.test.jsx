@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import NotebookEssay, { quoteClip } from './NotebookEssay';
 import NotebookShare, { NotebookSharePanel } from './NotebookShare';
 import { essaySnapshot } from './notebookShareFixture';
-import { getNotebookShare } from '../../../api/notebook';
+import { getNotebookShare, updateNotebookShare } from '../../../api/notebook';
 
 jest.mock('../../../api/notebook', () => ({
   getNotebookShare: jest.fn(),
@@ -120,6 +120,26 @@ describe('quoteClip', () => {
     expect(screen.getByText('Just a remembered line.')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Copy with source' })).not.toBeInTheDocument();
   });
+
+  it('stays silent on the first share, and names a later correction', () => {
+    const { rerender } = render(<NotebookEssay snapshot={essaySnapshot()} />);
+    expect(screen.queryByText(/^Updated /)).not.toBeInTheDocument();
+    expect(screen.queryByText('The exception now leads.')).not.toBeInTheDocument();
+    rerender(<NotebookEssay snapshot={essaySnapshot({
+      revisedAt: '2026-09-13T15:00:00.000Z',
+      correction: 'The exception now leads.'
+    })} />);
+    expect(screen.getByText(/^Updated /)).toHaveTextContent('Updated');
+    expect(screen.getByText('The exception now leads.')).toBeInTheDocument();
+  });
+
+  it('does not invent an Updated line when the calendar date did not move', () => {
+    render(<NotebookEssay snapshot={essaySnapshot({
+      publishedAt: '2026-09-12T12:00:00.000Z',
+      revisedAt: '2026-09-12T18:00:00.000Z'
+    })} />);
+    expect(screen.queryByText(/^Updated /)).not.toBeInTheDocument();
+  });
 });
 
 describe('NotebookSharePanel', () => {
@@ -180,6 +200,35 @@ describe('NotebookSharePanel', () => {
     const pending = screen.getByTestId('notebook-share-pending');
     expect(pending).toHaveTextContent('Pending an update');
     expect(pending).toHaveTextContent('Rewritten in the workshop.');
+    expect(screen.getByTestId('notebook-share-correction')).toBeInTheDocument();
+    expect(screen.getByText(/A reader will see this sentence/)).toBeInTheDocument();
+    expect(live).not.toHaveTextContent('What changed');
+    expect(screen.queryByRole('button', { name: 'Print this note' })).not.toBeInTheDocument();
+  });
+
+  it('passes the optional correction with Update, without drafting it into the live preview', () => {
+    const onUpdate = jest.fn();
+    render(
+      <NotebookSharePanel
+        notebookId="essay-1"
+        status="ready"
+        share={{
+          shared: true,
+          slug: 'essay-slug',
+          stale: true,
+          publishable: true,
+          snapshot: frozen,
+          preview: workshopDraft
+        }}
+        onUpdate={onUpdate}
+      />
+    );
+    fireEvent.change(screen.getByTestId('notebook-share-correction'), {
+      target: { value: 'The exception now leads.' }
+    });
+    expect(screen.getByTestId('notebook-share-preview')).not.toHaveTextContent('The exception now leads.');
+    fireEvent.click(screen.getByTestId('notebook-update-share'));
+    expect(onUpdate).toHaveBeenCalledWith('The exception now leads.');
   });
 
   it('falls back to selecting the URL when the clipboard is refused', async () => {
@@ -202,12 +251,14 @@ describe('NotebookSharePanel', () => {
     );
     fireEvent.click(screen.getByTestId('notebook-copy-link'));
     expect(await screen.findByTestId('notebook-select-link')).toHaveTextContent('Select and copy this link');
+    expect(screen.queryByTestId('notebook-share-correction')).not.toBeInTheDocument();
   });
 });
 
 describe('NotebookShare', () => {
   beforeEach(() => {
     getNotebookShare.mockReset();
+    updateNotebookShare.mockReset();
   });
 
   it('reloads after a later save without treating the workshop draft as the live link', async () => {
@@ -240,5 +291,38 @@ describe('NotebookShare', () => {
     expect(screen.getByTestId('notebook-update-share')).toBeInTheDocument();
     expect(screen.getByTestId('notebook-share-preview')).not.toHaveTextContent('Rewritten in the workshop.');
     expect(getNotebookShare).toHaveBeenCalledTimes(2);
+  });
+
+  it('updates the shared version with the optional correction', async () => {
+    getNotebookShare.mockResolvedValue({
+      shared: true,
+      slug: 'essay-slug',
+      stale: true,
+      publishable: true,
+      currentHash: 'hash-2',
+      snapshot: frozen,
+      preview: workshopDraft
+    });
+    updateNotebookShare.mockResolvedValue({
+      shared: true,
+      slug: 'essay-slug',
+      stale: false,
+      publishable: true,
+      currentHash: 'hash-2',
+      snapshot: essaySnapshot({
+        revisedAt: '2026-09-13T15:00:00.000Z',
+        correction: 'The exception now leads.'
+      }),
+      preview: workshopDraft
+    });
+    render(<NotebookShare notebookId="essay-1" />);
+    fireEvent.change(await screen.findByTestId('notebook-share-correction'), {
+      target: { value: 'The exception now leads.' }
+    });
+    fireEvent.click(screen.getByTestId('notebook-update-share'));
+    await waitFor(() => expect(updateNotebookShare).toHaveBeenCalledWith('essay-1', {
+      previewHash: 'hash-2',
+      correction: 'The exception now leads.'
+    }));
   });
 });

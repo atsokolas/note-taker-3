@@ -32,6 +32,7 @@ export function NotebookSharePanel({
   const urlRef = useRef(null);
   const [copied, setCopied] = useState(false);
   const [selectHint, setSelectHint] = useState(false);
+  const [correction, setCorrection] = useState('');
   const href = share?.shared && share?.slug ? shareHref(share.slug) : '';
   const preview = share?.preview || null;
   const snapshot = share?.snapshot || null;
@@ -43,6 +44,10 @@ export function NotebookSharePanel({
   const pendingEssay = stale ? preview : null;
   const publishable = share?.publishable !== false && Boolean(preview?.blocks?.length);
   const readerVisible = Boolean(readerEssay?.blocks?.length);
+
+  useEffect(() => {
+    setCorrection('');
+  }, [notebookId, share?.slug, stale]);
 
   const copyLink = async () => {
     if (!href) return;
@@ -116,6 +121,28 @@ export function NotebookSharePanel({
             onFocus={(event) => event.target.select()}
           />
           <p className="notebook-share__hint">{NOTEBOOK_SHARE_REVOKE}</p>
+          {stale ? (
+            <div className="notebook-share__note">
+              <label
+                className="notebook-share__url-label"
+                htmlFor={`notebook-share-correction-${notebookId}`}
+              >
+                What changed
+              </label>
+              <textarea
+                id={`notebook-share-correction-${notebookId}`}
+                className="notebook-share__correction"
+                data-testid="notebook-share-correction"
+                value={correction}
+                maxLength={400}
+                rows={3}
+                onChange={(event) => setCorrection(event.target.value)}
+              />
+              <p className="notebook-share__hint">
+                Optional. A reader will see this sentence on the published note.
+              </p>
+            </div>
+          ) : null}
           <div className="notebook-share__actions">
             <button type="button" onClick={copyLink} data-testid="notebook-copy-link">
               {copied ? 'Link copied' : 'Copy link'}
@@ -141,7 +168,7 @@ export function NotebookSharePanel({
             {share.stale ? (
               <button
                 type="button"
-                onClick={onUpdate}
+                onClick={() => onUpdate?.(correction)}
                 disabled={Boolean(busy)}
                 data-testid="notebook-update-share"
               >
@@ -240,8 +267,9 @@ export default function NotebookShare({ notebookId, revision = 0 }) {
       onCreate={() => run('create', () => publishNotebookShare(notebookId, {
         previewHash: share?.currentHash
       }))}
-      onUpdate={() => run('update', () => updateNotebookShare(notebookId, {
-        previewHash: share?.currentHash
+      onUpdate={(note) => run('update', () => updateNotebookShare(notebookId, {
+        previewHash: share?.currentHash,
+        correction: note
       }))}
       onStop={() => run('stop', async () => {
         await revokeNotebookShare(notebookId);

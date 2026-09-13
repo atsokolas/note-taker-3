@@ -16,11 +16,16 @@ const SCENES = [
   { id: 'stale', label: 'Stale' },
   { id: 'empty', label: 'Empty' },
   { id: 'public', label: 'Recipient' },
+  { id: 'revised', label: 'Revised' },
   { id: 'revoked', label: 'Revoked' }
 ];
 
 const live = essaySnapshot({ publishedAt: undefined });
 const frozen = essaySnapshot();
+const revised = essaySnapshot({
+  revisedAt: '2026-09-13T15:00:00.000Z',
+  correction: 'The exception now leads.'
+});
 const empty = { title: 'Untitled', ownerDisplayName: 'Athan', blocks: [] };
 
 const shareFor = (scene) => {
@@ -105,12 +110,17 @@ const NotebookSharePreview = () => {
             <NotebookPublicPage snapshot={frozen} />
           </main>
         ) : null}
+        {scene === 'revised' ? (
+          <main className="shared-notebook-page" data-testid="shared-notebook-revised">
+            <NotebookPublicPage snapshot={revised} />
+          </main>
+        ) : null}
         {scene === 'revoked' ? (
           <main className="shared-notebook-page">
             <p className="shared-notebook-page__quiet">This note is not published.</p>
           </main>
         ) : null}
-        {scene !== 'public' && scene !== 'revoked' ? (
+        {scene !== 'public' && scene !== 'revised' && scene !== 'revoked' ? (
           <NotebookSharePanel key={scene} notebookId="essay-1" status="ready" share={shareFor(scene)} />
         ) : null}
       </div>

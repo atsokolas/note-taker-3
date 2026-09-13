@@ -45,6 +45,23 @@
   letter-spacing: 0;
 }
 
+.notebook-essay__revised,
+.notebook-essay__correction {
+  margin: 0.35rem 0 0;
+  color: var(--noeis-ink-subtle, #6b6458);
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.9rem;
+  letter-spacing: 0;
+  line-height: 1.45;
+}
+
+.notebook-essay__correction {
+  max-width: 54ch;
+  color: var(--noeis-ink, #1c1812);
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-style: italic;
+}
+
 .notebook-essay__body {
   display: grid;
   gap: 1.1rem;
@@ -189,7 +206,8 @@
   border-top-style: dashed;
 }
 
-.notebook-share__url {
+.notebook-share__url,
+.notebook-share__correction {
   display: block;
   width: 100%;
   max-width: 62ch;
@@ -200,6 +218,13 @@
   color: inherit;
   font-family: inherit;
   font-size: 0.9rem;
+}
+
+.notebook-share__correction {
+  min-height: 4.5rem;
+  margin: 0 0 0.35rem;
+  resize: vertical;
+  line-height: 1.45;
 }
 
 .notebook-share__actions {
@@ -368,7 +393,8 @@
     .notebook-essay__quote,
     .notebook-essay__quote p,
     .notebook-essay__name,
-    .notebook-essay__code
+    .notebook-essay__code,
+    .notebook-essay__correction
   ) {
     color: var(--noeis-ink) !important;
   }
@@ -376,7 +402,8 @@
   .notebook-essay :is(
     .notebook-essay__by,
     .notebook-essay__eyebrow,
-    .notebook-essay__source
+    .notebook-essay__source,
+    .notebook-essay__revised
   ),
   .shared-notebook-page__colophon {
     color: var(--noeis-ink-subtle) !important;
