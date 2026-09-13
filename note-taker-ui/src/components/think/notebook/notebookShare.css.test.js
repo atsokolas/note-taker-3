@@ -24,9 +24,15 @@ describe('printed notebook paper', () => {
   it('resets ink tokens so a dark theme cannot print pale on white', () => {
     expect(printCss).toMatch(/--noeis-ink:\s*#1c1812/);
     expect(printCss).toMatch(/--noeis-ink-subtle:\s*#6b6458/);
+    expect(printCss).toMatch(/--text-primary:\s*var\(--noeis-ink\)/);
+    expect(printCss).toMatch(/--vellum-muted:\s*var\(--noeis-ink-subtle\)/);
     expect(printCss).toMatch(/--noeis-rule:\s*rgba\(28,\s*24,\s*18/);
     expect(printCss).toMatch(/background:\s*#fff/);
     expect(printCss).toMatch(/color-scheme:\s*light/);
+    expect(printCss).toMatch(/\.notebook-essay__title/);
+    expect(printCss).toMatch(/color:\s*var\(--noeis-ink\)\s*!important/);
+    expect(printCss).toMatch(/\.notebook-essay__by/);
+    expect(printCss).toMatch(/color:\s*var\(--noeis-ink-subtle\)\s*!important/);
     expect(printCss).not.toMatch(/#f1eadc/);
   });
 
@@ -69,6 +75,8 @@ describe('printed notebook paper', () => {
       expect(getComputedStyle(document.documentElement).getPropertyValue('--noeis-ink').trim()).toBe('#f1eadc');
       expect(getComputedStyle(page).getPropertyValue('--noeis-ink').trim()).toBe('#1c1812');
       expect(getComputedStyle(page).getPropertyValue('--noeis-ink-subtle').trim()).toBe('#6b6458');
+      expect(getComputedStyle(page).getPropertyValue('--text-primary').trim()).toBe('var(--noeis-ink)');
+      expect(getComputedStyle(page).getPropertyValue('--vellum-muted').trim()).toBe('var(--noeis-ink-subtle)');
       expect(getComputedStyle(page).getPropertyValue('--noeis-rule').trim()).toBe('rgba(28, 24, 18, 0.18)');
       expect(getComputedStyle(page).backgroundColor).toBe('rgb(255, 255, 255)');
       expect(getComputedStyle(document.querySelector('.shared-notebook-page__print')).display).toBe('none');

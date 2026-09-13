@@ -330,15 +330,27 @@
     display: none;
   }
 
-  /* White paper. Dark (and automatic) theme ink is pale; a parent color
-     does not override descendant var(--noeis-ink) uses. Reset the tokens
-     the essay and colophon already read. */
+  /* White paper. Dark/automatic theme ink is pale. Parent color does
+     not override descendant token uses, and html has already computed
+     --text / --vellum-muted from that pale ink. Reset the tokens the essay
+     actually reads, then color the descendants so editorial p !important
+     cannot keep the muted dark-theme grey. */
   .notebook-share-preview,
   .notebook-share-preview__stage,
   .shared-notebook-page {
     --noeis-ink: #1c1812;
     --noeis-ink-subtle: #6b6458;
+    --noeis-ink-muted: #5f625f;
     --noeis-rule: rgba(28, 24, 18, 0.18);
+    --text: var(--noeis-ink);
+    --text-primary: var(--noeis-ink);
+    --text-secondary: var(--noeis-ink-muted);
+    --text-muted: var(--noeis-ink-subtle);
+    --muted: var(--noeis-ink-muted);
+    --vellum-ink: var(--noeis-ink);
+    --vellum-muted: var(--noeis-ink-subtle);
+    --vellum-subtle: var(--noeis-ink-subtle);
+    --vellum-bg: #fff;
     min-height: 0;
     margin: 0;
     padding: 0;
@@ -346,6 +358,28 @@
     background: #fff;
     color: var(--noeis-ink);
     color-scheme: light;
+  }
+
+  .notebook-essay :is(
+    .notebook-essay__title,
+    .notebook-essay__heading,
+    .notebook-essay__prose,
+    .notebook-essay__bullet,
+    .notebook-essay__quote,
+    .notebook-essay__quote p,
+    .notebook-essay__name,
+    .notebook-essay__code
+  ) {
+    color: var(--noeis-ink) !important;
+  }
+
+  .notebook-essay :is(
+    .notebook-essay__by,
+    .notebook-essay__eyebrow,
+    .notebook-essay__source
+  ),
+  .shared-notebook-page__colophon {
+    color: var(--noeis-ink-subtle) !important;
   }
 
   .shared-notebook-page__inner {
