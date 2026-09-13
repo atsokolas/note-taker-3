@@ -4,7 +4,7 @@ import { getPublicQuestion, offerQuestionContribution, withdrawQuestionContribut
 import QuestionShareView from '../components/think/QuestionShareView';
 import { QUESTION_NOT_PUBLISHED } from '../components/think/thinkShareFixture';
 import useQuestionPresence from '../hooks/useQuestionPresence';
-import SharedQuestionCompanion from './SharedQuestionCompanion';
+import SharedQuestionCompanion from './SharedQuestionCompanion.jsx';
 import { hasShareToken } from './sharedQuestionCompanion';
 import '../styles/shared-page-column.css';
 

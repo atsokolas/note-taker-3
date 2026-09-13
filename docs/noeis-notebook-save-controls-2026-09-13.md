@@ -10,9 +10,11 @@ entry passes current schema validation after the existing identity sanitizer.
 Production API `/api/version` served `f0002c5726a1edca1b37567d76e266a7dc4290e9`,
 which already includes the recent legacy-identity save repairs.
 
-This branch improves failure recovery and passage controls. It does not itself
-free production storage. No production notes, pages, historical records or
-indexes were changed. No merge or deployment is claimed.
+This branch improves failure recovery and passage controls. Production storage
+recovery and daily retention subsequently shipped in PRs #421–422; see
+[the storage report](noeis-storage-retention-2026-09-13.md). The notebook controls
+were still unreleased when the user reported the missing brackets. This release
+is rebased onto `ff92d346` and contains no production data changes.
 
 ## Changes
 
@@ -72,36 +74,28 @@ Once released and production storage is available:
    type a line and wait for Not saved. Restore networking, press Retry save, wait
    for Saved and reload. Do not reload while Not saved is showing.
 
+## Release verification — September 13
+
+- Rebased the previously local notebook-controls commit onto current main
+  (`ff92d346`) without conflicts.
+- Re-ran all 88 notebook UI tests and the Notebook update-route tests.
+- The Mac build exposed an existing case-insensitive import collision between
+  `SharedQuestionCompanion.jsx` and `sharedQuestionCompanion.js`. Three component
+  imports now specify `.jsx`; no Question behavior changed. The 12 relevant
+  Question tests and optimized frontend build pass.
+- Refreshed Chromium acceptance at 1440, 1320 and 430px with reduced motion:
+  the blue bracket matches paragraph and source bounds within 2px, the menu
+  stays inside the viewport, both shortcut variants open it, Escape restores
+  editor focus, and a grouped move/undo survives reload. Zero page errors.
+
 ## Remaining
 
-Production storage relief, an approved release, and authenticated production
-acceptance remain. Storage recurrence also needs a separate retention/capacity
-repair: a September 8 cleanup reclaimed space, but the cluster filled again.
-This work does not claim to finish later authorship roadmap chapters.
+Native Safari keyboard and physical touch acceptance remain user checks. This
+work does not claim to finish later authorship roadmap chapters. Daily storage
+retention is already deployed; the next actual daily cycle is a separate
+longitudinal check, not a reason to rerun cleanup today.
 
 Local repair checkout: `/Users/athantsokolas/.codex/worktrees/noeis-notebook-save-controls-2026-09-13`
-(branch `codex/notebook-save-controls-2026-09-13`, based on `f0002c57`). Isolated
-preview uses UI 3103, API 5513 and Mongo 27029 / `noeis_notebook_repair`; background
-workers and AI are disabled. QA credentials remain in the seed script, not here.
-
-## Storage recovery inventory
-
-Read-only cluster accounting measured 537,061,185 bytes (about 512.18 MiB),
-including the legacy database. Prefix-covered redundant indexes totaled only
-0.78 MiB. None was dropped. The existing retention dry run identified 474 full
-revision snapshot payloads on nine Wiki pages, about 179.76 MiB. This estimate is
-not an approved deletion list or a guarantee of durable storage relief.
-
-Backup planning wrote only private local files; no `--apply` was used. The first
-transfer was stopped for poor throughput. A compressed-transport retry failed
-with an Atlas server-monitor network timeout. No completed verified backup receipt
-was produced. The interrupted first archive is partial and must never authorize
-compaction. No background backup process was left running.
-
-Before archival can be approved/applied: finish verified backups, reconcile current
-owner/reference/review protections and concurrent changes, and prepare the exact
-restoration procedure. The September 8 operator also needed a temporary covered
-performance-index bridge because Atlas rejected even shrinking writes over quota;
-any repeat must restore and verify the original index definitions. Increasing
-Atlas capacity is a separate paid infrastructure decision. Neither path was applied
-in this task.
+(branch `codex/notebook-save-controls-2026-09-13`). Isolated preview uses UI 3103,
+API 5513 and Mongo 27029 / `noeis_notebook_repair`; background workers and AI are
+disabled. QA credentials remain in the seed script, not here.
