@@ -184,7 +184,7 @@ const QuestionSharePreview = () => {
                 <label className="notebook-share__url-label" htmlFor="question-share-preview-take">
                   How you take this
                 </label>
-                <p className="notebook-share__letter-excerpt">{ownerReadings[0].by}</p>
+                <p className="notebook-share__hint">{ownerReadings[0].by}</p>
                 <textarea
                   id="question-share-preview-take"
                   className="notebook-share__correction"
