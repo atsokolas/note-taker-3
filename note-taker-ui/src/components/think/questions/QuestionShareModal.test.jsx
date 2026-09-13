@@ -7,6 +7,7 @@ jest.mock('../../../api/questions', () => ({
   getQuestionShare: jest.fn(),
   interpretQuestionContribution: jest.fn(),
   mintQuestionShare: jest.fn(),
+  placeQuestionContribution: jest.fn(),
   revokeQuestionShare: jest.fn(),
   updateQuestionShare: jest.fn()
 }));
@@ -15,6 +16,7 @@ const {
   getQuestionShare,
   interpretQuestionContribution,
   mintQuestionShare,
+  placeQuestionContribution,
   revokeQuestionShare,
   updateQuestionShare
 } = require('../../../api/questions');
@@ -34,6 +36,7 @@ describe('QuestionShareModal', () => {
     getQuestionShare.mockReset();
     interpretQuestionContribution.mockReset();
     mintQuestionShare.mockReset();
+    placeQuestionContribution.mockReset();
     revokeQuestionShare.mockReset();
     updateQuestionShare.mockReset();
     window.confirm = jest.fn(() => true);
@@ -95,6 +98,40 @@ describe('QuestionShareModal', () => {
     expect(screen.queryByRole('button', { name: 'Offer a reading' })).not.toBeInTheDocument();
     expect(screen.getByLabelText('How you take this')).toBeInTheDocument();
     expect(screen.getByText('The reading stays. This sits beside it.')).toBeInTheDocument();
+  });
+
+  it('keeps a waiting reading off the compact preview until the owner places it', async () => {
+    const reading = {
+      id: 'c1',
+      by: 'Mara',
+      text: 'Same fact, different time horizon.',
+      remainder: 'Who pays when the window closes?'
+    };
+    getQuestionShare.mockResolvedValueOnce({
+      shared: true,
+      slug: 'abc123',
+      snapshot: frozen,
+      preview: frozen,
+      contributions: [],
+      waiting: [reading]
+    });
+    placeQuestionContribution.mockResolvedValueOnce({
+      shared: true,
+      slug: 'abc123',
+      snapshot: frozen,
+      preview: frozen,
+      contributions: [reading]
+    });
+    render(<QuestionShareModal open questionId="q1" questionText="What next?" onClose={() => {}} />);
+    expect(await screen.findByTestId('question-share-waiting')).toHaveTextContent('Same fact, different time horizon.');
+    expect(screen.getByTestId('question-share-preview')).not.toHaveTextContent('Same fact, different time horizon.');
+    expect(screen.queryByLabelText('How you take this')).not.toBeInTheDocument();
+    expect(screen.getByText('It is not on the page yet.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Let this sit beside the question' }));
+    await waitFor(() => expect(placeQuestionContribution).toHaveBeenCalledWith('q1', 'c1'));
+    expect(await screen.findByTestId('question-share-preview')).toHaveTextContent('Same fact, different time horizon.');
+    expect(screen.queryByTestId('question-share-waiting')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('How you take this')).toBeInTheDocument();
   });
 
   it('saves how the owner takes a reading without replacing it', async () => {

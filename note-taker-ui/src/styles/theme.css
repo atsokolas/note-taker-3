@@ -8338,6 +8338,20 @@ html[data-ui-theme='dark'] body.noeis-editorial .concept-editorial-evidence__ite
   border-top: 1px solid var(--border-subtle);
 }
 
+.concept-share-modal__waiting-by {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+}
+
+.concept-share-modal__waiting-text {
+  margin: 0;
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  line-height: 1.55;
+}
+
 .think-share-view {
   display: grid;
   gap: 1.1rem;

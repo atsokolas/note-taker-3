@@ -6,6 +6,7 @@ const {
   asRow,
   claimContributionSlot,
   contributionBy,
+  contributionHeld,
   contributionRemainder,
   contributionText,
   freezeThinkSnapshot,
@@ -263,9 +264,22 @@ const buildSharedQuestionRouter = ({
         if (!contributionId) {
           return res.status(404).json({ error: 'That reading is not on this share.' });
         }
+        const existing = asRow(await readLean(QuestionContribution.findOne({
+          _id: contributionId,
+          slug: share.slug
+        })));
+        if (!existing) {
+          return res.status(404).json({ error: 'That reading is not on this share.' });
+        }
+        if (contributionHeld(existing)) {
+          return res.status(409).json({
+            error: 'Place this reading before you say how you take it.',
+            field: 'held'
+          });
+        }
         const interpretation = contributionRemainder(req.body?.interpretation);
         const updated = await QuestionContribution.findOneAndUpdate(
-          { _id: contributionId, slug: share.slug },
+          { _id: contributionId, slug: share.slug, held: { $ne: true } },
           { $set: { interpretation } },
           { new: true }
         );
@@ -281,6 +295,63 @@ const buildSharedQuestionRouter = ({
       } catch (error) {
         console.error('❌ Error interpreting question contribution:', error);
         return res.status(500).json({ error: 'Failed to save how you take that reading.' });
+      }
+    }
+  );
+
+  /* The owner places a held reading beside the published question.
+     Until then it is not on the public page. Agents cannot do this. */
+  router.post(
+    '/api/questions/:id/share/contributions/:contributionId/place',
+    authenticateToken,
+    humanOnly,
+    async (req, res) => {
+      noStore(res);
+      if (!QuestionContribution) {
+        return res.status(404).json({ error: 'That reading is not on this share.' });
+      }
+      try {
+        const question = await findOwnedQuestion(req.user.id, req.params.id);
+        if (!question) {
+          return res.status(404).json({ error: 'Question not found.' });
+        }
+        const share = asRow(await readLean(SharedQuestion.findOne({
+          userId: req.user.id,
+          questionId: question._id
+        })));
+        if (!share?.snapshot) {
+          return res.status(404).json({ error: 'This question is not shared.' });
+        }
+        const contributionId = String(req.params.contributionId || '').trim();
+        if (!contributionId) {
+          return res.status(404).json({ error: 'That reading is not on this share.' });
+        }
+        const existing = asRow(await readLean(QuestionContribution.findOne({
+          _id: contributionId,
+          slug: share.slug
+        })));
+        if (!existing) {
+          return res.status(404).json({ error: 'That reading is not on this share.' });
+        }
+        if (contributionHeld(existing)) {
+          const placed = await QuestionContribution.findOneAndUpdate(
+            { _id: contributionId, slug: share.slug, held: true },
+            { $set: { held: false } },
+            { new: true }
+          );
+          if (!placed) {
+            return res.status(404).json({ error: 'That reading is not on this share.' });
+          }
+        }
+        const { preview, currentHash } = await liveQuestionPreview({
+          User,
+          question,
+          userId: req.user.id
+        });
+        return res.status(200).json(await payload(share, { preview, currentHash }));
+      } catch (error) {
+        console.error('❌ Error placing question contribution:', error);
+        return res.status(500).json({ error: 'Failed to place that reading.' });
       }
     }
   );
@@ -318,9 +389,9 @@ const buildSharedQuestionRouter = ({
     }
   });
 
-  /* A second person offers selected writing beside the frozen question.
-     It is attributed, optional remainder included, never merged into the
-     snapshot, and never a Library. Revoke closes the door. */
+  /* A second person offers selected writing. It is held until the owner
+     places it beside the frozen question. Optional remainder included,
+     never merged into the snapshot, never a Library. Revoke closes the door. */
   router.post('/api/public/questions/:slug/contributions', async (req, res) => {
     noStore(res);
     if (!QuestionContribution) {
@@ -362,7 +433,8 @@ const buildSharedQuestionRouter = ({
           slug: share.slug,
           by,
           text,
-          remainder
+          remainder,
+          held: true
         });
       } catch (error) {
         await releaseContributionSlot(SharedQuestion, share.slug);

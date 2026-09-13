@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import QuestionShareView from '../components/think/QuestionShareView';
 import {
   QUESTION_NOT_PUBLISHED,
+  QUESTION_SHARE_PLACE,
   QUESTION_SHARE_PRIVACY,
   QUESTION_SHARE_TAKE,
   THINK_SHARE_REVOKE,
@@ -22,6 +23,7 @@ const SCENES = [
   { id: 'stale', label: 'Stale' },
   { id: 'public', label: 'Recipient' },
   { id: 'together', label: 'Together' },
+  { id: 'waiting', label: 'Waiting' },
   { id: 'taken', label: 'Taken' },
   { id: 'owner', label: 'Owner' },
   { id: 'revised', label: 'Revised' },
@@ -65,6 +67,9 @@ const shareFor = (scene) => {
   if (scene === 'owner') {
     return { shared: true, slug: 'qslug', stale: false, snapshot: frozen, preview: live, contributions: together.contributions };
   }
+  if (scene === 'waiting') {
+    return { shared: true, slug: 'qslug', stale: false, snapshot: frozen, preview: live, contributions: [] };
+  }
   return { shared: false, stale: false, snapshot: null, preview: live };
 };
 
@@ -76,21 +81,27 @@ const QuestionSharePreview = () => {
   const [scene, setScene] = useState(() => (
     SCENES.some((item) => item.id === params.get('scene')) ? params.get('scene') : 'compose'
   ));
-  const [offered, setOffered] = useState([]);
   const [take, setTake] = useState('The horizon is the claim, not the fact.');
   const [takeSaved, setTakeSaved] = useState('');
+  const [placed, setPlaced] = useState(false);
 
   const setQuery = (nextWidth, nextScene) => {
     const search = new URLSearchParams({ width: nextWidth, scene: nextScene }).toString();
     window.history.replaceState(null, '', `${window.location.pathname}?${search}`);
     setWidth(nextWidth);
+    if (nextScene !== scene) setPlaced(false);
     setScene(nextScene);
   };
 
   const share = shareFor(scene);
   const reader = share.shared ? (share.snapshot || (share.stale ? null : share.preview)) : share.preview;
   const pending = share.stale ? share.preview : null;
-  const ownerReadings = (share.contributions || []).map((row) => {
+  const waiting = scene === 'waiting' && !placed ? [questionContribution()] : [];
+  const ownerReadings = (
+    scene === 'waiting'
+      ? (placed ? [questionContribution()] : [])
+      : (share.contributions || [])
+  ).map((row) => {
     const interpretation = String(takeSaved || '').trim();
     if (!interpretation) return row;
     return { ...row, interpretation, interpretedBy: 'Athan' };
@@ -98,10 +109,7 @@ const QuestionSharePreview = () => {
   const publicPage = scene === 'taken' ? taken : scene === 'together' ? together : frozen;
   const publicSnapshot = {
     ...publicPage,
-    contributions: [
-      ...(publicPage.contributions || []),
-      ...(scene === 'together' || scene === 'public' ? offered : [])
-    ]
+    contributions: publicPage.contributions || []
   };
   const isPublicPage = scene === 'public' || scene === 'together' || scene === 'taken';
 
@@ -138,16 +146,7 @@ const QuestionSharePreview = () => {
           <main className="shared-concept-page shared-question-page" data-testid="shared-question-page">
             <QuestionShareView
               snapshot={publicSnapshot}
-              onOffer={scene === 'taken' ? null : async (reading) => {
-                setOffered((current) => [
-                  ...current,
-                  {
-                    id: `local-${current.length + 1}`,
-                    ...reading,
-                    createdAt: '2026-09-13T16:00:00.000Z'
-                  }
-                ]);
-              }}
+              onOffer={scene === 'taken' ? null : async () => {}}
             />
           </main>
         ) : null}
@@ -177,6 +176,19 @@ const QuestionSharePreview = () => {
               <div className="notebook-share__preview notebook-share__preview--pending" data-testid="question-share-pending">
                 <p className="notebook-share__preview-label">Pending an update</p>
                 <QuestionShareView snapshot={pending} compact />
+              </div>
+            ) : null}
+            {scene === 'waiting' && waiting.length ? (
+              <div className="notebook-share__letters" data-testid="question-share-waiting">
+                <p className="notebook-share__hint">{waiting[0].by}</p>
+                <p className="notebook-share__letter-text">{waiting[0].text}</p>
+                {waiting[0].remainder ? (
+                  <p className="notebook-share__hint">Still holds: {waiting[0].remainder}</p>
+                ) : null}
+                <p className="notebook-share__hint">{QUESTION_SHARE_PLACE}</p>
+                <button type="button" onClick={() => setPlaced(true)}>
+                  Let this sit beside the question
+                </button>
               </div>
             ) : null}
             {scene === 'owner' && ownerReadings.length ? (

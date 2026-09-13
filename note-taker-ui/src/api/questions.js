@@ -105,5 +105,14 @@ export const interpretQuestionContribution = async (questionId, contributionId, 
   return res.data || {};
 };
 
+export const placeQuestionContribution = async (questionId, contributionId) => {
+  const res = await api.post(
+    `/api/questions/${encodeURIComponent(questionId)}/share/contributions/${encodeURIComponent(contributionId)}/place`,
+    {},
+    getAuthHeaders()
+  );
+  return res.data || {};
+};
+
 /** @deprecated Use mintQuestionShare */
 export const shareQuestion = mintQuestionShare;
