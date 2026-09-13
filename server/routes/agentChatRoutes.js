@@ -84,7 +84,7 @@ const buildAgentChatRouter = ({
     proposalActor = { actorType: 'native_agent', actorId: 'resident' },
     canPropose = true
   } = {}) => {
-    if (isSharedQuestionContext(context)) {
+    if (isSharedQuestionContext(context) || isSharedQuestionContext(result?.context)) {
       return {
         result: {
           ...result,
