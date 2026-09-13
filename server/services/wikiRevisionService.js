@@ -196,11 +196,7 @@ const createWikiRevision = async ({
   if (!WikiRevision || !userId || (!page && !pageId)) return null;
   const resolvedPageId = pageId || page?._id;
   const afterSnapshot = after || snapshotPage(page);
-  /* Most maintenance passes change nothing. Storing the page twice to say so is
-     how the wiki's revisions became two thirds of the cluster — the repo page
-     alone put on 74MB in three days, its five latest revisions byte-identical.
-     The hash that proves they are identical was already here; it was only ever
-     used after the fact. */
+  // Unchanged revisions keep metadata and a hash to verify their earlier payload.
   const unchanged = isBookkeepingOnlyRevision(before, afterSnapshot);
   const revision = new WikiRevision({
     ...(revisionId ? { _id: revisionId } : {}),
@@ -224,10 +220,10 @@ const createWikiRevision = async ({
   });
   await revision.save(session ? { session } : undefined);
   try {
-    if (!session && (pruneRevisionHistory || typeof WikiRevision.countDocuments === 'function')) {
-      const prune = pruneRevisionHistory
-        || require('./wikiRevisionRetentionService').pruneWikiRevisionHistory;
-      await prune({ WikiRevision, userId, pageId: resolvedPageId, page });
+    // Retention needs an explicit policy and backup handler. The former default
+    // scanned history on every write, then failed once pruning became necessary.
+    if (!session && typeof pruneRevisionHistory === 'function') {
+      await pruneRevisionHistory({ WikiRevision, userId, pageId: resolvedPageId, page });
     }
   } catch (error) {
     console.warn('[wiki-revision-retention] Prune failed; revision was preserved.', error?.message || error);

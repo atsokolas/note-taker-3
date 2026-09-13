@@ -8,6 +8,7 @@ const RECEIPT_RETENTION_KINDS = Object.freeze([
 ]);
 
 const cleanId = (value) => String(value?._id || value || '').trim();
+const hasRetainedSnapshot = revision => !revision.snapshotPrunedAt && !revision.snapshotUnchanged;
 
 const monthKey = (value) => {
   const date = new Date(value);
@@ -24,6 +25,8 @@ const sourceVersionHead = (revision) => String(
 const collectPageRetentionReferences = (page = {}) => {
   const revisionIds = new Set();
   const sourceEventIds = new Set();
+  [page?.aiState?.firstHeadCandidateRevisionId, page?.aiState?.maintenanceCandidateRevisionId]
+    .filter(Boolean).forEach(value => revisionIds.add(cleanId(value)));
   const clocks = Array.isArray(page?.publicProof?.acceptedClocks)
     ? page.publicProof.acceptedClocks
     : [];
@@ -84,7 +87,9 @@ const buildWikiRevisionRetentionPlan = ({
   protectedRevisionIds = [],
   acceptedSourceEventIds = [],
   publishedHeadSha = '',
-  recentLimit = 20
+  recentLimit = 20,
+  automaticExpiry = false,
+  now = new Date()
 } = {}) => {
   const ordered = [...revisions].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   const protectedIds = new Set(protectedRevisionIds.map(cleanId).filter(Boolean));
@@ -99,10 +104,12 @@ const buildWikiRevisionRetentionPlan = ({
   };
 
   ordered.slice(0, recentLimit).forEach((revision) => keep(revision, 'recent'));
-  if (ordered.length) keep(ordered[ordered.length - 1], 'original');
+  ordered.filter(hasRetainedSnapshot).slice(0, recentLimit)
+    .forEach(revision => keep(revision, 'recent_payload'));
+  if (!automaticExpiry && ordered.length) keep(ordered[ordered.length - 1], 'original');
 
   const olderMonths = new Set();
-  ordered.slice(recentLimit).forEach((revision) => {
+  (automaticExpiry ? [] : ordered.slice(recentLimit)).forEach((revision) => {
     const key = monthKey(revision.createdAt);
     if (key && !olderMonths.has(key)) {
       olderMonths.add(key);
@@ -116,8 +123,21 @@ const buildWikiRevisionRetentionPlan = ({
   });
 
   ordered.forEach((revision) => {
+    if (automaticExpiry) {
+      if (!['agent', 'system'].includes(revision.actorType)
+        || !['created', 'agent_maintenance', 'agent_candidate', 'source_event', 'valuation_refreshed'].includes(revision.reason)) {
+        keep(revision, 'human_or_unknown_origin');
+      }
+      const age = now.getTime() - new Date(revision.createdAt).getTime();
+      if (!Number.isFinite(age) || age <= 24 * 60 * 60 * 1000) keep(revision, 'last_24_hours');
+    }
     const reviewState = String(revision?.claimReview?.state || '').trim();
     const reviewEvents = Array.isArray(revision?.claimReview?.events) ? revision.claimReview.events : [];
+    if (revision?.claimReview?.scope === 'claim'
+      && ['pending', 'deferred'].includes(reviewState)
+      && ['candidate', 'deferred'].includes(revision.promotionStatus)) {
+      keep(revision, 'active_claim_review');
+    }
     if (revision?.claimReview?.version && (['deferred', 'accepted', 'rejected', 'preserved'].includes(reviewState) || reviewEvents.length)) {
       keep(revision, 'human_claim_review');
     }
@@ -131,6 +151,15 @@ const buildWikiRevisionRetentionPlan = ({
       keep(revision, 'published_head');
     }
   });
+
+  // A retained unchanged version must still resolve to its earlier full payload.
+  ordered.filter(revision => kept.has(cleanId(revision)) && revision.snapshotUnchanged)
+    .forEach(revision => {
+      const base = ordered.find(candidate => hasRetainedSnapshot(candidate)
+        && cleanId(candidate.pageId) === cleanId(revision.pageId)
+        && new Date(candidate.createdAt) <= new Date(revision.createdAt));
+      if (base) keep(base, 'unchanged_snapshot_base');
+    });
 
   const keptIds = ordered.map(cleanId).filter((id) => kept.has(id));
   const deletedIds = ordered.map(cleanId).filter((id) => !kept.has(id));
@@ -192,7 +221,7 @@ const pruneWikiRevisionHistory = async ({
   }
 
   const revisions = await WikiRevision.find({ userId, pageId })
-    .select('_id createdAt promotionStatus sourceEventId sourceVersion snapshotPrunedAt claimReview')
+    .select('_id createdAt promotionStatus sourceEventId sourceVersion snapshotPrunedAt snapshotUnchanged claimReview')
     .sort({ createdAt: -1 })
     .lean();
   const plan = buildWikiRevisionRetentionPlan({
@@ -202,9 +231,9 @@ const pruneWikiRevisionHistory = async ({
     publishedHeadSha: references.publishedHeadSha,
     recentLimit
   });
-  const prunedById = new Map(revisions.map(revision => [cleanId(revision), Boolean(revision.snapshotPrunedAt)]));
+  const payloadIds = new Set(revisions.filter(hasRetainedSnapshot).map(cleanId));
   const revisionObjectIdById = new Map(revisions.map(revision => [cleanId(revision), revision._id]));
-  const compactableSnapshotIds = plan.deletedIds.filter(id => !prunedById.get(id));
+  const compactableSnapshotIds = plan.deletedIds.filter(id => payloadIds.has(id));
   let compactableSnapshotBytes = 0;
   if (compactableSnapshotIds.length && typeof WikiRevision.aggregate === 'function') {
     const [snapshotSize] = await WikiRevision.aggregate([

@@ -49,7 +49,7 @@ const main = async () => {
   const page = await WikiPage.findById(pageId).lean();
   if (!page) throw new Error('Wiki page not found.');
   const revisions = await WikiRevision.find({ userId: page.userId, pageId })
-    .select('_id createdAt promotionStatus sourceEventId sourceVersion')
+    .select('_id createdAt promotionStatus sourceEventId sourceVersion snapshotPrunedAt snapshotUnchanged claimReview')
     .sort({ createdAt: -1 })
     .lean();
   const pageReferences = collectPageRetentionReferences(page);

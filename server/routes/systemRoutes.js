@@ -721,6 +721,7 @@ const buildSystemRouter = ({
   parseAiServiceUrl,
   joinUrl,
   isDatabaseReady = () => true,
+  getWikiStorageStatus = async () => null,
   allowDebugFixtures = process.env.NODE_ENV !== 'production',
   IntegrationConnection,
   ImportSession,
@@ -734,6 +735,14 @@ const buildSystemRouter = ({
   Question
 }) => {
   const router = express.Router();
+
+  router.get('/api/system/storage', authenticateToken, async (_req, res) => {
+    try {
+      res.json({ storage: await getWikiStorageStatus() });
+    } catch (_error) {
+      res.status(503).json({ error: 'Storage status is temporarily unavailable.' });
+    }
+  });
 
   router.get('/api/debug/time', (req, res) => {
     const serverNowSec = Math.floor(Date.now() / 1000);

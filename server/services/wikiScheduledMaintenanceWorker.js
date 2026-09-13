@@ -1,3 +1,4 @@
+const { acquireWikiWriteBudget } = require('./wikiAutomaticRetentionService');
 const { isGitHubRepoPage, maintainWikiPage } = require('./wikiMaintenanceService');
 const { createWikiRevision, snapshotPage } = require('./wikiRevisionService');
 const { runWikiMaintenanceCandidate } = require('./wikiMaintenancePublicationService');
@@ -123,11 +124,17 @@ const drainScheduledWikiMaintenance = async ({
   const results = [];
   const eligiblePages = (Array.isArray(pages) ? pages : []).filter(page => !isHumanOnlyWikiArtifact(page));
   for (const page of eligiblePages) {
-    const run = await createRun({ WikiMaintenanceRun, page });
+    const budget = await acquireWikiWriteBudget(WikiPage.db?.db);
+    if (!budget.allowed) {
+      results.push({ pageId: String(page._id), status: 'skipped', reason: budget.reason });
+      break;
+    }
+    let run;
     let buildLease = null;
     let targetPage = page;
     const repoHeadSha = String(page.externalWatches?.githubRepo?.lastHeadSha || '').trim();
     try {
+      run = await createRun({ WikiMaintenanceRun, page });
       if (isGitHubRepoPage({ page }) && repoHeadSha) {
         buildLease = await acquireRepoBuildLease({
           WikiPage,
@@ -243,6 +250,8 @@ const drainScheduledWikiMaintenance = async ({
         error: error.message || 'Scheduled wiki maintenance failed.'
       });
       results.push({ pageId: String(page._id), status: 'failed', error: error.message || String(error) });
+    } finally {
+      await budget.release();
     }
   }
   return {

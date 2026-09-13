@@ -41,6 +41,7 @@ import {
 } from './navigation/appNavigation';
 import { namesAThinkObject } from './pages/thinkNotesModel';
 import { useSystemStatus } from './system/useSystemStatus';
+import { useStorageStatus } from './system/useStorageStatus';
 import { SystemStatusProvider } from './system/SystemStatusContext';
 import { AgentRailProvider } from './agent/AgentRailContext';
 import AgentRail from './agent/AgentRail';
@@ -474,6 +475,8 @@ function App() {
   const [uiSettings, setUiSettings] = useState(() => loadUiSettingsFromStorage());
   const [uiSettingsSaving, setUiSettingsSaving] = useState(false);
   const systemStatus = useSystemStatus();
+  const storageFailure = useStorageStatus(isAuthenticated);
+  const recoverableFailure = systemStatus.recoverableFailure || storageFailure;
   const {
     setBackgroundWork: setSystemBackgroundWork,
     setLatestReceipt: setSystemLatestReceipt,
@@ -503,14 +506,14 @@ function App() {
       backgroundWork: systemStatus.backgroundWork,
       latestReceipt: systemStatus.latestReceipt,
       recentReceipts: systemStatus.recentReceipts,
-      recoverableFailure: systemStatus.recoverableFailure
+      recoverableFailure
     }
   }), [
     systemStatusControls,
     systemStatus.backgroundWork,
     systemStatus.latestReceipt,
     systemStatus.recentReceipts,
-    systemStatus.recoverableFailure
+    recoverableFailure
   ]);
 
   // Your existing Chrome Store link
@@ -887,7 +890,7 @@ function App() {
               latestReceipt: systemStatus.latestReceipt,
               recentReceipts: systemStatus.recentReceipts,
               clearRecentReceipts: systemStatus.clearRecentReceipts,
-              recoverableFailure: systemStatus.recoverableFailure
+              recoverableFailure
             }}
             onSystemStatusRetry={() => {
               const retry = systemStatus.recoverableFailure?.retry;

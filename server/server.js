@@ -198,7 +198,7 @@ const { drainDueTranscriptWatches } = require('./services/earningsTranscriptWatc
 const { drainDueGitHubRepoWatches } = require('./services/githubRepoWatcherService');
 const { drainDueReadingWatches } = require('./services/readingWatcherService');
 const { drainDueMorningPaperEmails } = require('./services/morningPaperEmailService');
-const { runWikiStorageGovernor } = require('./services/wikiStorageGovernorService');
+const { runDailyWikiRetention, readWikiStorageStatus } = require('./services/wikiAutomaticRetentionService');
 const { recoverInterruptedDossierBuilds } = require('./services/wikiDossierBuildReliabilityService');
 const { buildAuthoredKeepEffects } = require('./services/authoredKeepEffects');
 
@@ -604,36 +604,11 @@ const runWikiStorageGovernorWorker = async () => {
   if (wikiStorageGovernorRunning || mongoose.connection.readyState !== 1) return;
   wikiStorageGovernorRunning = true;
   try {
-    const result = await runWikiStorageGovernor({
-      models: { WikiPage, WikiRevision, WikiSourceEvent, WikiMaintenanceRun, NoeisReceipt },
-      db: mongoose.connection.db,
-      retentionDays: Number(process.env.WIKI_STORAGE_RETENTION_DAYS || 45),
-      pressureRetentionDays: Number(process.env.WIKI_STORAGE_PRESSURE_RETENTION_DAYS || 14),
-      highWaterBytes: Number(process.env.WIKI_STORAGE_HIGH_WATER_BYTES || 420 * 1024 * 1024),
-      batchSize: Number(process.env.WIKI_STORAGE_GOVERNOR_BATCH_SIZE || 2500),
-      revisionPageLimit: Number(process.env.WIKI_STORAGE_REVISION_PAGE_LIMIT || 10),
-      historyArchiveApply: process.env.WIKI_HISTORY_ARCHIVE_DISABLED !== 'true',
-      historyArchiveLimit: Number(process.env.WIKI_HISTORY_ARCHIVE_LIMIT || 3),
-      /* Always a dry run in the server. Deleting requires a verified backup,
-         and the governor is given no way to write one here — it would throw
-         rather than reclaim, hourly, the moment anything became deletable.
-         Nor should it: a backup belongs on durable disk, and this container's
-         is ephemeral. scripts/run_wiki_storage_governor.js --apply is the door
-         that actually reclaims, from a machine with somewhere to put the copy. */
-      dryRun: true
+    const result = await runDailyWikiRetention({ db: mongoose.connection.db });
+    if (!result.skipped) console.log('[wiki-storage] Daily cleanup completed', {
+      expired: result.expired, payloadBytesReclaimed: result.payloadBytesReclaimed,
+      netBytesReclaimed: result.netBytesReclaimed
     });
-    const compactable = result.revisionPages.reduce((sum, row) => sum + Number(row.compactableSnapshots || 0), 0);
-    if (compactable || result.historyArchive.archived || result.maintenanceRuns.deletable || result.sourceEvents.deletable || result.underPressure) {
-      console.log(`[wiki-storage-governor] dryRun=${result.dryRun} pressure=${result.underPressure} archived=${result.historyArchive.archived} savedBytes=${result.historyArchive.savedBytes} snapshots=${compactable} runs=${result.maintenanceRuns.deletable} events=${result.sourceEvents.deletable}`);
-      /* A report nobody can act on is how a cluster fills to its last byte
-         while something watches it happen and says so every hour. */
-      if (result.underPressure) {
-        console.warn('[wiki-storage-governor] under pressure and this process only reports. Reclaim with: APPLY_WIKI_STORAGE_GOVERNOR=YES node scripts/run_wiki_storage_governor.js --apply');
-      }
-      if (process.env.WIKI_STORAGE_GOVERNOR_APPLY === 'true') {
-        console.warn('[wiki-storage-governor] WIKI_STORAGE_GOVERNOR_APPLY is set but ignored here: deletion needs a verified backup this container cannot write. Run the script instead.');
-      }
-    }
   } catch (error) {
     console.error('[wiki-storage-governor] failed:', error);
   } finally {
@@ -643,10 +618,8 @@ const runWikiStorageGovernorWorker = async () => {
 
 const startWikiStorageGovernor = () => {
   if (process.env.WIKI_STORAGE_GOVERNOR_DISABLED === 'true' || wikiStorageGovernorTimer) return;
-  const intervalMs = Math.max(
-    60 * 60 * 1000,
-    Number(process.env.WIKI_STORAGE_GOVERNOR_INTERVAL_MS || 6 * 60 * 60 * 1000)
-  );
+  // The durable nextRunAt enforces one daily pass across restarts and instances.
+  const intervalMs = 15 * 60 * 1000;
   wikiStorageGovernorTimer = setInterval(runWikiStorageGovernorWorker, intervalMs);
   if (process.env.WIKI_STORAGE_GOVERNOR_RUN_ON_START !== 'false') {
     runWikiStorageGovernorWorker();
@@ -7487,6 +7460,7 @@ app.use(buildSystemRouter({
   parseAiServiceUrl,
   joinUrl,
   isDatabaseReady: () => mongoose.connection.readyState === 1,
+  getWikiStorageStatus: () => readWikiStorageStatus(mongoose.connection.db),
   allowDebugFixtures: process.env.NODE_ENV !== 'production',
   IntegrationConnection,
   ImportSession,

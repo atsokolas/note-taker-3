@@ -9010,7 +9010,8 @@ const buildWikiRouter = ({
         wikiSchemaContent: await loadWikiSchemaContent(req.user.id)
       });
       res.status(200).json({
-        processed: results.filter(result => !result.error).length,
+        processed: results.filter(result => !result.error && !result.deferred).length,
+        deferred: results.filter(result => result.deferred).length,
         failed: results.filter(result => result.error).length,
         results: results.map(result => ({
           eventId: result.event?._id || null,
@@ -9036,6 +9037,7 @@ const buildWikiRouter = ({
       });
       res.status(200).json({
         event: result.event,
+        deferred: Boolean(result.deferred),
         pages: Array.isArray(result.pages) ? result.pages.map(serializeWikiPage) : [],
         run: result.run || null
       });
@@ -9069,7 +9071,7 @@ const buildWikiRouter = ({
       const revisions = await (wantsSnapshots ? query : query.select([
         'reason', 'actorType', 'sourceEventId', 'maintenanceRunId', 'promotionStatus',
         'claimReview', 'sourceVersion', 'quality', 'summary', 'pageId', 'userId',
-        'snapshotPrunedAt', 'snapshotUnchanged', 'contentHash', 'createdAt', 'updatedAt',
+        'snapshotPrunedAt', 'snapshotExpiryPolicy', 'snapshotUnchanged', 'contentHash', 'createdAt', 'updatedAt',
         'before.body', 'before.claims', 'before.citations', 'before.sourceRefs',
         'after.claims'
       ].join(' '))).lean();

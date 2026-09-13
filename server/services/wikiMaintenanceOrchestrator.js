@@ -1,3 +1,4 @@
+const { acquireWikiWriteBudget } = require('./wikiAutomaticRetentionService');
 const { isGitHubRepoPage, maintainWikiPage } = require('./wikiMaintenanceService');
 const { createWikiRevision, snapshotPage } = require('./wikiRevisionService');
 const { runWikiMaintenanceCandidate } = require('./wikiMaintenancePublicationService');
@@ -913,7 +914,19 @@ const afterPreviousMaintenance = (userId, task) => {
 
 const processWikiSourceEvent = (args = {}) => afterPreviousMaintenance(
   args.userId || args.sourceEvent?.userId,
-  () => runWikiSourceEvent(args)
+  async () => {
+    const budget = await acquireWikiWriteBudget(args.models?.WikiPage?.db?.db);
+    if (!budget.allowed) {
+      const event = args.sourceEvent;
+      if (event?.status === 'processing') {
+        await args.models.WikiSourceEvent.updateOne({ _id: event._id, lockedAt: event.lockedAt, status: 'processing' }, {
+          $set: { status: 'pending', lockedAt: null, nextAttemptAt: new Date(Date.now() + 15 * 60 * 1000) }
+        });
+      }
+      return { event: event ? { _id: event._id, status: 'pending' } : null, pages: [], deferred: true, reason: budget.reason };
+    }
+    try { return await runWikiSourceEvent(args); } finally { await budget.release(); }
+  }
 );
 
 const processPendingWikiSourceEvents = async ({ userId, models = {}, limit = 5, buildUniqueSlug = null, wikiSchemaContent = '' } = {}) => {

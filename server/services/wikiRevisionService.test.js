@@ -105,6 +105,11 @@ class FakeRevision {
   });
   assert.strictEqual(transactionalRevision.saveOptions.session, session);
   assert.strictEqual(transactionalPruneCalled, false);
+  let implicitScans = 0;
+  FakeRevision.countDocuments = async () => { implicitScans += 1; return 25; };
+  const ordinary = await createWikiRevision({ WikiRevision: FakeRevision, userId: 'user-1', page });
+  assert(ordinary.saved);
+  assert.strictEqual(implicitScans, 0, 'ordinary writes do not attempt retention without its required backup handler');
   console.log('wikiRevisionService tests passed');
 })().catch((error) => {
   console.error(error);
