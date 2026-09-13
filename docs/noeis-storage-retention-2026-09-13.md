@@ -238,8 +238,25 @@ The pre-existing `systemRoutes.health.test.js` expects health without the vector
 index added on main; it fails against current main's response and remains untouched.
 The new storage-route test is independent of that stale health fixture.
 
-Production read-only policy review and release verification are in progress.
-Do not treat local tests as deployed or authenticated production proof.
+PR #421 merged as `32201123` and production served that commit at 20:33 UTC.
+Both GitHub regression workflows and the Vercel preview passed. The first actual
+server worker started at 20:31:59 UTC and completed at 20:39:46 UTC: 54 eligible
+snapshots expired, 7,193,166 payload bytes reclaimed, cluster usage
+405,907,057 -> 398,744,306 bytes (387.10 -> 380.27 MiB). The next daily slot is
+September 14 at 20:31:59 UTC, with timer polling up to 15 minutes after that.
+The receipt is stored in `wikistoragestate/automatic-snapshots-v1`, not inferred
+from dry-run output. Local production read-only scans failed on network errors and
+made no changes; the production server completed its own full reference scans.
+
+A controlled hosted API test under the verified `qa_editor_seed` account created
+a temporary Notebook entry, saved edited text, read it back and deleted it, with
+404 readback confirming removal. Test-generated events/jobs are separately cleaned
+by exact test object identity. This proves hosted API persistence, not Safari
+keystroke/autosave behavior on Athan's existing note.
+
+A follow-up gives due cleanup priority over new background work after the current
+lease finishes. This prevents a busy queue from repeatedly delaying its daily slot.
+The real Mongo integration test exercises that exact handoff.
 
 ## User test and remaining boundaries
 
@@ -248,8 +265,8 @@ wait for Saved, then reload and confirm the words remain. Existing Wiki reading,
 source links and pending reviews should continue to open normally. When healthy,
 there is no new storage badge or toast to dismiss.
 
-A production daily-worker receipt and live write/readback are still required to
-claim the new policy is operating. A later daily cycle is longitudinal evidence,
+The first production daily-worker receipt and live API write/readback are verified.
+A later daily cycle remains longitudinal evidence,
 not something a first deployment can prove. Protected/current content can still
 outgrow a 512 MiB cluster; in that case the policy must keep background work queued
 and make the capacity problem visible rather than deleting knowledge.

@@ -65,6 +65,12 @@ const acquireWikiWriteBudget = async (db) => {
   const lease = await acquireStorageLease(db, 'background');
   if (!lease) return { allowed: false, reason: 'storage_work_in_progress' };
   try {
+    // Once cleanup is due, let in-flight work finish without starting another pass.
+    if (process.env.WIKI_STORAGE_GOVERNOR_DISABLED !== 'true'
+      && new Date(lease.state.nextRunAt).getTime() <= Date.now()) {
+      await lease.finish();
+      return { allowed: false, reason: 'daily_cleanup_due' };
+    }
     const metrics = await readStorageMetrics(db);
     const threshold = lease.state.backgroundPaused ? TARGET_BYTES : HIGH_WATER_BYTES;
     const allowed = metrics?.complete === true
