@@ -38,10 +38,15 @@ const run = async () => {
     type: 'note',
     tags: [],
     folder: 'inbox',
-    linkedHighlightIds: ['highlight-1'],
+    linkedHighlightIds: ['64f2000000000000000000aa', 'highlight-1'],
     importMeta: { provider: 'evernote', importSessionId: 'session-evernote' }
   });
   stored.isNew = false;
+  stored.$locals = {
+    persistedIdentity: {
+      linkedHighlightIds: ['64f2000000000000000000aa', 'highlight-1']
+    }
+  };
   assert.ok(stored.validateSync(), 'leftover identity on the loaded doc should fail until PUT sanitizes it');
   stored.save = async function saveWithSchema() {
     const err = this.validateSync();
@@ -126,7 +131,7 @@ const run = async () => {
       'Recoverable mistakes belong to the person who can still put things back.'
     );
     assert.equal(stored.folder, null);
-    assert.equal(stored.linkedHighlightIds.length, 0);
+    assert.deepEqual(stored.linkedHighlightIds.map(String), ['64f2000000000000000000aa']);
     assert.equal(stored.importMeta.importSessionId, null);
     assert.equal(stored.asidePieces[0].id, 'held-1');
     assert.equal(stored.validateSync(), null);

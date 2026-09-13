@@ -5,6 +5,7 @@ const { createWikiSourceEvent } = require('../services/wikiSourceEventService');
 const { processWikiSourceEvent } = require('../services/wikiMaintenanceOrchestrator');
 const {
   asObjectIdOrNull,
+  attachPersistedIdentity,
   sanitizeAsidePieces,
   sanitizeNotebookBlocks,
   sanitizeNotebookEntry
@@ -571,15 +572,16 @@ const buildNotebookRouter = ({
           articleTitle: highlight.articleTitle || ''
         });
       }
+      await attachPersistedIdentity(entry);
+      sanitizeNotebookEntry(entry);
       if (!entry.linkedArticleId && highlight.articleId) {
         entry.linkedArticleId = asObjectIdOrNull(highlight.articleId);
       }
-      entry.linkedHighlightIds = entry.linkedHighlightIds || [];
       const nextHighlightId = asObjectIdOrNull(highlightId);
+      entry.linkedHighlightIds = entry.linkedHighlightIds || [];
       if (nextHighlightId && !entry.linkedHighlightIds.some(id => String(id) === String(nextHighlightId))) {
         entry.linkedHighlightIds.push(nextHighlightId);
       }
-      sanitizeNotebookEntry(entry);
       await entry.save();
       await syncNotebookReferences(userId, entry._id, entry.blocks || []);
       await emitWikiSourceEvent({
@@ -695,6 +697,7 @@ const buildNotebookRouter = ({
       }
 
       Object.assign(existing, updates);
+      await attachPersistedIdentity(existing);
       sanitizeNotebookEntry(existing);
       const updated = await existing.save();
       if (updates.blocks !== undefined) {
