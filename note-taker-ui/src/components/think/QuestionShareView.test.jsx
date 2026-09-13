@@ -66,6 +66,7 @@ describe('QuestionShareView', () => {
     expect(screen.queryByTestId('question-share-readings')).not.toBeInTheDocument();
     expect(screen.queryByTestId('question-share-yours')).not.toBeInTheDocument();
     expect(screen.queryByTestId('question-share-brief')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('question-share-presence')).not.toBeInTheDocument();
     expect(screen.queryByText(/Still holds/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Not quite/)).not.toBeInTheDocument();
   });
@@ -166,5 +167,43 @@ describe('QuestionShareView', () => {
     expect(buttons).toHaveLength(1);
     expect(screen.getByText('Already on the page.')).toBeInTheDocument();
     expect(screen.queryByLabelText('How you take this')).not.toBeInTheDocument();
+  });
+
+  it('names who else is at the door and stays silent when nobody is', () => {
+    const { rerender } = render(
+      <QuestionShareView
+        snapshot={questionSnapshot()}
+        here={[{ by: 'Mara' }]}
+      />
+    );
+    expect(screen.getByTestId('question-share-presence')).toHaveTextContent('Mara is here.');
+    rerender(
+      <QuestionShareView
+        snapshot={questionSnapshot()}
+        here={[{ by: 'Athan' }, { by: 'Mara' }]}
+      />
+    );
+    expect(screen.getByTestId('question-share-presence')).toHaveTextContent('Athan and Mara are here.');
+    rerender(
+      <QuestionShareView
+        snapshot={questionSnapshot()}
+        here={[{ by: 'Ada' }, { by: 'Athan' }, { by: 'Mara' }]}
+      />
+    );
+    expect(screen.getByTestId('question-share-presence')).toHaveTextContent('Ada, Athan, and Mara are here.');
+    rerender(<QuestionShareView snapshot={questionSnapshot()} here={[]} />);
+    expect(screen.queryByTestId('question-share-presence')).not.toBeInTheDocument();
+  });
+
+  it('hides presence from compact preview', () => {
+    render(
+      <QuestionShareView
+        snapshot={questionSnapshot({ contributions: [questionContribution()] })}
+        here={[{ by: 'Mara' }]}
+        compact
+      />
+    );
+    expect(screen.queryByTestId('question-share-presence')).not.toBeInTheDocument();
+    expect(screen.getByText('Same fact, different time horizon.')).toBeInTheDocument();
   });
 });

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { usePrefersReducedMotion } from '../../hooks/useMotionPreferences';
-import { QUESTION_SHARE_AGREEMENT, QUESTION_SHARE_COLOPHON, QUESTION_SHARE_OBSERVATION, QUESTION_SHARE_OFFER, QUESTION_SHARE_OWNER_REMAINDER, QUESTION_SHARE_RECEIPT, QUESTION_SHARE_WITHDRAW, QUESTION_SHARE_YOURS } from './thinkShareFixture';
+import { QUESTION_SHARE_AGREEMENT, QUESTION_SHARE_COLOPHON, QUESTION_SHARE_OBSERVATION, QUESTION_SHARE_OFFER, QUESTION_SHARE_OWNER_REMAINDER, QUESTION_SHARE_RECEIPT, QUESTION_SHARE_WITHDRAW, QUESTION_SHARE_YOURS, questionPresenceLine } from './thinkShareFixture';
 
 const asLine = (value) => String(value || '').trim();
 
@@ -195,6 +195,7 @@ const Reading = ({ reading, onWithdraw = null }) => {
 export default function QuestionShareView({
   snapshot,
   compact = false,
+  here = null,
   onOffer = null,
   onWithdraw = null
 }) {
@@ -216,6 +217,7 @@ export default function QuestionShareView({
   const brief = briefOf(snapshot);
   const invite = compact ? null : onOffer;
   const takeBack = compact ? null : onWithdraw;
+  const presence = compact ? '' : questionPresenceLine(here);
 
   return (
     <article
@@ -295,6 +297,16 @@ export default function QuestionShareView({
         </section>
       ) : null}
       {invite ? <OfferReading onOffer={invite} held={yours.length > 0} /> : null}
+      {presence ? (
+        <p
+          className="think-share-view__presence muted small"
+          role="status"
+          aria-live="polite"
+          data-testid="question-share-presence"
+        >
+          {presence}
+        </p>
+      ) : null}
       {compact ? null : <p className="think-share-view__colophon">{QUESTION_SHARE_COLOPHON}</p>}
     </article>
   );

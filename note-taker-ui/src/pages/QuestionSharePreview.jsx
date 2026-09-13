@@ -13,6 +13,7 @@ import {
   THINK_SHARE_REVOKE,
   questionBrief,
   questionContribution,
+  questionPresenceLine,
   questionSnapshot
 } from '../components/think/thinkShareFixture';
 import '../components/think/notebook/notebookShare.css';
@@ -33,6 +34,7 @@ const SCENES = [
   { id: 'conflict', label: 'Conflict' },
   { id: 'taken', label: 'Taken' },
   { id: 'brief', label: 'Brief' },
+  { id: 'presence', label: 'Presence' },
   { id: 'contributor', label: 'Contributor' },
   { id: 'owner', label: 'Owner' },
   { id: 'revised', label: 'Revised' },
@@ -146,14 +148,22 @@ const QuestionSharePreview = () => {
     if (!interpretation) return row;
     return { ...row, interpretation, interpretedBy: 'Athan' };
   });
-  const publicPage = scene === 'brief' ? closed : scene === 'taken' ? taken : scene === 'together' ? together : frozen;
+  const publicPage = scene === 'brief'
+    ? closed
+    : scene === 'taken'
+      ? taken
+      : (scene === 'together' || scene === 'presence')
+        ? together
+        : frozen;
+  const publicHere = scene === 'presence' ? [{ by: 'Mara' }] : [];
   const publicSnapshot = scene === 'contributor'
     ? (takenBack ? frozen : contributor)
     : {
       ...publicPage,
       contributions: publicPage.contributions || []
     };
-  const isPublicPage = scene === 'public' || scene === 'together' || scene === 'taken' || scene === 'contributor' || scene === 'brief';
+  const isPublicPage = scene === 'public' || scene === 'together' || scene === 'taken' || scene === 'contributor' || scene === 'brief' || scene === 'presence';
+  const ownerPresence = scene === 'owner' ? questionPresenceLine([{ by: 'Mara' }]) : '';
 
   return (
     <div className="notebook-share-preview">
@@ -188,6 +198,7 @@ const QuestionSharePreview = () => {
           <main className="shared-concept-page shared-question-page" data-testid="shared-question-page">
             <QuestionShareView
               snapshot={publicSnapshot}
+              here={publicHere}
               onOffer={scene === 'taken' ? null : async () => {}}
               onWithdraw={scene === 'contributor' && !takenBack ? async () => { setTakenBack(true); } : null}
             />
@@ -220,6 +231,11 @@ const QuestionSharePreview = () => {
                 <p className="notebook-share__preview-label">Pending an update</p>
                 <QuestionShareView snapshot={pending} compact />
               </div>
+            ) : null}
+            {ownerPresence ? (
+              <p className="notebook-share__hint" role="status" data-testid="question-share-presence">
+                {ownerPresence}
+              </p>
             ) : null}
             {scene === 'waiting' && waiting.length ? (
               <div className="notebook-share__letters" data-testid="question-share-waiting">

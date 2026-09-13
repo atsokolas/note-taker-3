@@ -3113,6 +3113,25 @@ questionContributionSchema.index({ userId: 1, questionId: 1, createdAt: 1 });
 
 const QuestionContribution = mongoose.model('QuestionContribution', questionContributionSchema);
 
+/* Who is at a published question's door.
+
+   Named presence only: the owner, or a signed-in person who already has
+   an attributed reading on this slug (placed, held, or withdrawn).
+   Unsigned visitors and lurkers are not listed. It is not a visit log,
+   not a cursor, and it never enters the frozen snapshot. TTL is applied
+   when reading, not with a Mongo expire index, so a fake store can
+   project the same cutoff. */
+const questionPresenceSchema = new mongoose.Schema({
+  slug: { type: String, required: true },
+  userId: { type: String, required: true },
+  by: { type: String, required: true },
+  at: { type: Date, required: true }
+});
+
+questionPresenceSchema.index({ slug: 1, userId: 1 }, { unique: true });
+
+const QuestionPresence = mongoose.model('QuestionPresence', questionPresenceSchema);
+
 /* A paper an agent wrote, shared at a link.
 
    Same shape as a shared question, because it is the same idea: the reader
@@ -3464,6 +3483,7 @@ module.exports = {
   SharedConcept,
   SharedQuestion,
   QuestionContribution,
+  QuestionPresence,
   CasebookLineage,
   CaseTeam,
   CrossCaseLink,

@@ -154,6 +154,8 @@ const freezeThinkSnapshot = (preview, publishedAt, extra = {}) => {
   delete body.brief;
   delete body.agreement;
   delete body.observation;
+  delete body.here;
+  delete body.presence;
   const iso = asIso(publishedAt);
   const revised = asIso(extra.revisedAt);
   const correction = publicText(stripTags(extra.correction), 400);
@@ -239,6 +241,81 @@ const projectShareBrief = (share, contributions = [], { includeEmpty = false } =
   };
 };
 
+const PRESENCE_TTL_MS = 75 * 1000;
+
+const presenceViewerId = (value) => String(value || '').trim();
+
+const presenceNameFor = (share, contributions, viewerUserId) => {
+  const viewer = presenceViewerId(viewerUserId);
+  if (!viewer) return '';
+  if (viewer === presenceViewerId(share?.userId)) {
+    return contributionBy(share?.ownerDisplayName);
+  }
+  const row = (Array.isArray(contributions) ? contributions : []).find(
+    (item) => presenceViewerId(item?.contributorUserId) === viewer
+  );
+  return row ? contributionBy(row.by) : '';
+};
+
+const projectPresence = (rows, viewerUserId = '', now = Date.now()) => {
+  const viewer = presenceViewerId(viewerUserId);
+  const cutoff = now - PRESENCE_TTL_MS;
+  const seen = new Set();
+  const here = [];
+  (Array.isArray(rows) ? rows : []).forEach((row) => {
+    const at = new Date(row?.at).getTime();
+    if (!Number.isFinite(at) || at < cutoff) return;
+    if (viewer && presenceViewerId(row?.userId) === viewer) return;
+    const by = contributionBy(row?.by);
+    if (!by || seen.has(by)) return;
+    seen.add(by);
+    here.push({ by });
+  });
+  here.sort((left, right) => left.by.localeCompare(right.by));
+  return here;
+};
+
+const presenceLine = (here) => {
+  const names = (Array.isArray(here) ? here : [])
+    .map((row) => contributionBy(row?.by || row))
+    .filter(Boolean);
+  if (!names.length) return '';
+  if (names.length === 1) return `${names[0]} is here.`;
+  if (names.length === 2) return `${names[0]} and ${names[1]} are here.`;
+  return `${names.slice(0, -1).join(', ')}, and ${names[names.length - 1]} are here.`;
+};
+
+const loadQuestionPresence = async (QuestionPresence, slug) => {
+  if (!QuestionPresence?.find) return [];
+  const key = publicText(slug, 80);
+  if (!key) return [];
+  const found = QuestionPresence.find({ slug: key });
+  const rows = found && typeof found.lean === 'function' ? await found.lean() : await found;
+  return Array.isArray(rows) ? rows : [];
+};
+
+const beatQuestionPresence = async (QuestionPresence, { slug, userId, by } = {}) => {
+  if (!QuestionPresence?.findOneAndUpdate) return null;
+  const key = publicText(slug, 80);
+  const id = presenceViewerId(userId);
+  const name = contributionBy(by);
+  if (!key || !id || !name) return null;
+  const updated = await QuestionPresence.findOneAndUpdate(
+    { slug: key, userId: id },
+    { $set: { slug: key, userId: id, by: name, at: new Date() } },
+    { upsert: true, new: true }
+  );
+  if (!updated) return null;
+  if (typeof updated.lean === 'function') return updated.lean();
+  return updated;
+};
+
+const clearQuestionPresence = async (QuestionPresence, slug) => {
+  const key = publicText(slug, 80);
+  if (!QuestionPresence?.deleteMany || !key) return;
+  await QuestionPresence.deleteMany({ slug: key });
+};
+
 const loadQuestionContributions = async (QuestionContribution, query) => {
   if (!QuestionContribution?.find) return [];
   const found = QuestionContribution.find(query);
@@ -281,7 +358,7 @@ const releaseContributionSlot = async (SharedQuestion, slug) => {
   return updated;
 };
 
-const publicQuestionPage = (share, contributions = [], viewerUserId = '') => {
+const publicQuestionPage = (share, contributions = [], viewerUserId = '', presenceRows = []) => {
   const snapshot = share?.snapshot && typeof share.snapshot === 'object'
     ? { ...share.snapshot }
     : null;
@@ -296,9 +373,12 @@ const publicQuestionPage = (share, contributions = [], viewerUserId = '') => {
   delete snapshot.brief;
   delete snapshot.agreement;
   delete snapshot.observation;
+  delete snapshot.here;
+  delete snapshot.presence;
   const extra = { interpretedBy: share.ownerDisplayName };
   const yours = projectContributionList(yoursContributions(contributions, viewerUserId), extra);
   const brief = projectShareBrief(share, contributions);
+  const here = projectPresence(presenceRows, viewerUserId);
   const viewer = String(viewerUserId || '').trim();
   const published = placedContributions(contributions)
     .map((row) => {
@@ -312,7 +392,8 @@ const publicQuestionPage = (share, contributions = [], viewerUserId = '') => {
     ...snapshot,
     contributions: published,
     ...(yours.length ? { yours } : {}),
-    ...(brief ? { brief } : {})
+    ...(brief ? { brief } : {}),
+    ...(here.length ? { here } : {})
   };
 };
 
@@ -324,7 +405,8 @@ const thinkShareState = (share, {
   preview = null,
   currentHash = '',
   kind = 'question',
-  contributions = []
+  contributions = [],
+  here = null
 } = {}) => {
   const publishable = kind === 'concept'
     ? canPublishConcept(preview)
@@ -362,7 +444,10 @@ const thinkShareState = (share, {
     delete snapshot.contributions;
     delete snapshot.waiting;
     delete snapshot.yours;
+    delete snapshot.here;
+    delete snapshot.presence;
   }
+  const present = kind === 'question' && Array.isArray(here) ? here : null;
   return {
     shared: true,
     publishable,
@@ -376,7 +461,8 @@ const thinkShareState = (share, {
     snapshot,
     ...(readings ? { contributions: readings } : {}),
     ...(waiting && waiting.length ? { waiting } : {}),
-    ...(brief ? { brief } : {})
+    ...(brief ? { brief } : {}),
+    ...(present && present.length ? { here: present } : {})
   };
 };
 
@@ -428,10 +514,13 @@ module.exports = {
   CONTRIBUTION_TAKEN_BACK,
   NOT_PUBLISHED,
   PREVIEW_STALE,
+  PRESENCE_TTL_MS,
   asRow,
+  beatQuestionPresence,
   canPublishConcept,
   canPublishQuestion,
   claimContributionSlot,
+  clearQuestionPresence,
   contributionBy,
   contributionConflict,
   contributionHeld,
@@ -447,11 +536,15 @@ module.exports = {
   liveConceptPreview,
   liveQuestionPreview,
   loadQuestionContributions,
+  loadQuestionPresence,
   missingSnapshot,
   ownerNameOf,
   placedContributions,
+  presenceLine,
+  presenceNameFor,
   projectContribution,
   projectContributionList,
+  projectPresence,
   projectPublicConcept,
   projectPublicQuestion,
   projectShareBrief,

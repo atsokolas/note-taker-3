@@ -114,6 +114,23 @@ export const withdrawQuestionContribution = async (slug, contributionId) => {
   return res.data || { withdrawn: true };
 };
 
+export const getQuestionPresence = async (slug) => {
+  const res = await api.get(
+    `/api/public/questions/${encodeURIComponent(slug)}/presence`,
+    optionalAuthHeaders()
+  );
+  return res.data || {};
+};
+
+export const beatQuestionPresence = async (slug) => {
+  const res = await api.put(
+    `/api/public/questions/${encodeURIComponent(slug)}/presence`,
+    {},
+    optionalAuthHeaders()
+  );
+  return res.data || {};
+};
+
 export const interpretQuestionContribution = async (questionId, contributionId, body = {}) => {
   const res = await api.patch(
     `/api/questions/${encodeURIComponent(questionId)}/share/contributions/${encodeURIComponent(contributionId)}`,

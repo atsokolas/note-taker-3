@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { getPublicQuestion, offerQuestionContribution, withdrawQuestionContribution } from '../api/questions';
 import QuestionShareView from '../components/think/QuestionShareView';
 import { QUESTION_NOT_PUBLISHED } from '../components/think/thinkShareFixture';
+import useQuestionPresence from '../hooks/useQuestionPresence';
 import '../styles/shared-page-column.css';
 
 const useDocumentTitle = (title) => {
@@ -99,6 +100,10 @@ const SharedQuestion = () => {
     (Array.isArray(question.paragraphs) && question.paragraphs[0]?.text)
     || (question.conceptName ? `An open question about ${question.conceptName}.` : 'A question shared from Noeis.')
   ).slice(0, 220);
+  const here = useQuestionPresence(slug, {
+    enabled: Boolean(data) && !loading && !error,
+    seed: data?.here
+  });
 
   useDocumentTitle(data ? `${title} · Noeis` : 'Shared question · Noeis');
   useDocumentMeta('description', description);
@@ -150,6 +155,7 @@ const SharedQuestion = () => {
       <SharedQuestionTopBar onCopy={handleCopy} copyState={copyState} pageUrl={pageUrl} />
       <QuestionShareView
         snapshot={data}
+        here={here}
         onOffer={async (reading) => {
           await offerQuestionContribution(slug, reading);
           const payload = await getPublicQuestion(slug);
