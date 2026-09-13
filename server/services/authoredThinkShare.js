@@ -12,13 +12,19 @@ const { isDuplicateKey, shareSlug } = require('./authoredNotebookShare');
  * C7: a second person may offer a bounded reading beside a published question.
  * That reading is not merged into the snapshot. The owner may later say how
  * they take it; the original writing stays. A new reading is held until
- * the owner places it. Libraries stay private.
+ * the owner places it. The offerer may take it back while the door stays
+ * open. Concurrent place, take, and withdraw keep both acts; they do not
+ * last-write-win. Libraries stay private.
  */
 
 const PREVIEW_STALE = {
   question: 'The question changed since you previewed it. Refresh the preview before sharing.',
   concept: 'The concept changed since you previewed it. Refresh the preview before sharing.'
 };
+
+const CONTRIBUTION_TAKEN_BACK = 'They took this back.';
+const CONTRIBUTION_TAKE_CHANGED = 'This take was already changed.';
+const CONTRIBUTION_HELD = 'Place this reading before you say how you take it.';
 
 const NOT_PUBLISHED = {
   question: 'This question is not published.',
@@ -164,13 +170,15 @@ const projectContribution = (row = {}, extra = {}) => {
   const remainder = contributionRemainder(row.remainder);
   const interpretation = contributionRemainder(row.interpretation);
   const interpretedBy = contributionBy(extra.interpretedBy);
+  const updatedAt = extra.includeUpdatedAt ? asIso(row.updatedAt) : '';
   return {
     id: idOf(row),
     by,
     text,
     ...(remainder ? { remainder } : {}),
     ...(interpretation && interpretedBy ? { interpretation, interpretedBy } : {}),
-    createdAt: asIso(row.createdAt)
+    createdAt: asIso(row.createdAt),
+    ...(updatedAt ? { updatedAt } : {})
   };
 };
 
@@ -179,8 +187,25 @@ const projectContributionList = (rows, extra = {}) => (Array.isArray(rows) ? row
   .filter(Boolean);
 
 const contributionHeld = (row) => row?.held === true;
-const placedContributions = (rows) => (Array.isArray(rows) ? rows : []).filter((row) => !contributionHeld(row));
-const heldContributions = (rows) => (Array.isArray(rows) ? rows : []).filter(contributionHeld);
+const contributionWithdrawn = (row) => Boolean(row?.withdrawnAt);
+const placedContributions = (rows) => (Array.isArray(rows) ? rows : [])
+  .filter((row) => !contributionHeld(row) && !contributionWithdrawn(row));
+const heldContributions = (rows) => (Array.isArray(rows) ? rows : [])
+  .filter((row) => contributionHeld(row) && !contributionWithdrawn(row));
+const contributionConflict = (row, { expectPlaced = false, expectedUpdatedAt = '' } = {}) => {
+  if (contributionWithdrawn(row)) {
+    return { error: CONTRIBUTION_TAKEN_BACK, field: 'withdrawn' };
+  }
+  if (expectPlaced && contributionHeld(row)) {
+    return { error: CONTRIBUTION_HELD, field: 'held' };
+  }
+  const expected = asIso(expectedUpdatedAt);
+  const current = asIso(row?.updatedAt);
+  if (expected && current && expected !== current) {
+    return { error: CONTRIBUTION_TAKE_CHANGED, field: 'updatedAt' };
+  }
+  return null;
+};
 const contributionViewerId = (row) => String(row?.contributorUserId || '').trim();
 const contributionOwnedBy = (row, viewerUserId) => {
   const viewer = String(viewerUserId || '').trim();
@@ -276,7 +301,8 @@ const thinkShareState = (share, {
     ? canPublishConcept(preview)
     : canPublishQuestion(preview);
   const extra = {
-    interpretedBy: share?.ownerDisplayName || preview?.ownerDisplayName
+    interpretedBy: share?.ownerDisplayName || preview?.ownerDisplayName,
+    includeUpdatedAt: kind === 'question'
   };
   const readings = kind === 'question'
     ? projectContributionList(placedContributions(contributions), extra)
@@ -350,8 +376,11 @@ const liveConceptPreview = async ({ User, concept, userId }) => {
 module.exports = {
   CONTRIBUTION_BY_CHARS,
   CONTRIBUTION_CHARS,
+  CONTRIBUTION_HELD,
   CONTRIBUTION_LIMIT,
   CONTRIBUTION_REMAINDER_CHARS,
+  CONTRIBUTION_TAKE_CHANGED,
+  CONTRIBUTION_TAKEN_BACK,
   NOT_PUBLISHED,
   PREVIEW_STALE,
   asRow,
@@ -359,10 +388,12 @@ module.exports = {
   canPublishQuestion,
   claimContributionSlot,
   contributionBy,
+  contributionConflict,
   contributionHeld,
   contributionRemainder,
   contributionSlotFilter,
   contributionText,
+  contributionWithdrawn,
   freezeThinkSnapshot,
   hashPublicConcept,
   hashPublicQuestion,

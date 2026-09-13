@@ -1,7 +1,11 @@
 const {
   CONTRIBUTION_LIMIT,
+  CONTRIBUTION_HELD,
+  CONTRIBUTION_TAKE_CHANGED,
+  CONTRIBUTION_TAKEN_BACK,
   canPublishConcept,
   canPublishQuestion,
+  contributionConflict,
   contributionSlotFilter,
   contributionText,
   freezeThinkSnapshot,
@@ -335,5 +339,78 @@ describe('authored think share', () => {
     }], 'contrib-2');
     expect(placedForOther.contributions[0].mine).toBeUndefined();
     expect(placedForOther.yours).toBeUndefined();
+
+    const withdrawnAt = '2026-09-13T18:00:00.000Z';
+    const stampedAt = '2026-09-13T17:00:00.000Z';
+    expect(contributionConflict({ withdrawnAt })).toEqual({
+      error: CONTRIBUTION_TAKEN_BACK,
+      field: 'withdrawn'
+    });
+    expect(contributionConflict({ held: true }, { expectPlaced: true })).toEqual({
+      error: CONTRIBUTION_HELD,
+      field: 'held'
+    });
+    expect(contributionConflict(
+      { updatedAt: stampedAt, withdrawnAt },
+      { expectedUpdatedAt: '2026-09-13T16:00:00.000Z' }
+    )).toEqual({
+      error: CONTRIBUTION_TAKEN_BACK,
+      field: 'withdrawn'
+    });
+    expect(contributionConflict(
+      { updatedAt: stampedAt },
+      { expectedUpdatedAt: '2026-09-13T16:00:00.000Z' }
+    )).toEqual({
+      error: CONTRIBUTION_TAKE_CHANGED,
+      field: 'updatedAt'
+    });
+    expect(contributionConflict(
+      { updatedAt: stampedAt },
+      { expectedUpdatedAt: stampedAt }
+    )).toBeNull();
+    expect(contributionConflict({ held: true })).toBeNull();
+
+    const withdrawnRows = [{
+      _id: 'gone',
+      by: 'Nia',
+      text: 'I will take this back.',
+      held: true,
+      withdrawnAt,
+      contributorUserId: 'contrib-1',
+      updatedAt: withdrawnAt
+    }, {
+      _id: 'live',
+      by: 'Ada',
+      text: 'Already on the page.',
+      updatedAt: stampedAt
+    }];
+    const silentPage = publicQuestionPage({ snapshot: frozen }, withdrawnRows, 'contrib-1');
+    expect(silentPage.contributions).toEqual([{
+      id: 'live',
+      by: 'Ada',
+      text: 'Already on the page.',
+      createdAt: ''
+    }]);
+    expect(silentPage.yours).toBeUndefined();
+    expect(silentPage.contributions[0].updatedAt).toBeUndefined();
+    expect(JSON.stringify(silentPage)).not.toMatch(/withdrawnAt|I will take this back/);
+
+    const ownerSilent = thinkShareState({
+      slug: 'qslug',
+      ownerDisplayName: 'Athan',
+      snapshot: frozen,
+      contentHash: hash
+    }, {
+      preview,
+      currentHash: hash,
+      kind: 'question',
+      contributions: withdrawnRows
+    });
+    expect(ownerSilent.waiting).toBeUndefined();
+    expect(ownerSilent.contributions[0]).toMatchObject({
+      id: 'live',
+      updatedAt: stampedAt
+    });
+    expect(JSON.stringify(ownerSilent)).not.toMatch(/withdrawnAt|I will take this back/);
   });
 });

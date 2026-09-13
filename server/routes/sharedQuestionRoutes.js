@@ -6,6 +6,7 @@ const {
   asRow,
   claimContributionSlot,
   contributionBy,
+  contributionConflict,
   contributionHeld,
   contributionRemainder,
   contributionText,
@@ -277,19 +278,36 @@ const buildSharedQuestionRouter = ({
         if (!existing) {
           return res.status(404).json({ error: 'That reading is not on this share.' });
         }
-        if (contributionHeld(existing)) {
-          return res.status(409).json({
-            error: 'Place this reading before you say how you take it.',
-            field: 'held'
-          });
+        const conflict = contributionConflict(existing, {
+          expectPlaced: true,
+          expectedUpdatedAt: req.body?.updatedAt
+        });
+        if (conflict) {
+          return res.status(409).json({ error: conflict.error, field: conflict.field });
         }
         const interpretation = contributionRemainder(req.body?.interpretation);
         const updated = await QuestionContribution.findOneAndUpdate(
-          { _id: contributionId, slug: share.slug, held: { $ne: true } },
-          { $set: { interpretation } },
+          {
+            _id: contributionId,
+            slug: share.slug,
+            held: { $ne: true },
+            withdrawnAt: { $exists: false }
+          },
+          { $set: { interpretation, updatedAt: new Date() } },
           { new: true }
         );
         if (!updated) {
+          const raced = asRow(await readLean(QuestionContribution.findOne({
+            _id: contributionId,
+            slug: share.slug
+          })));
+          const racedConflict = contributionConflict(raced, {
+            expectPlaced: true,
+            expectedUpdatedAt: req.body?.updatedAt
+          });
+          if (racedConflict) {
+            return res.status(409).json({ error: racedConflict.error, field: racedConflict.field });
+          }
           return res.status(404).json({ error: 'That reading is not on this share.' });
         }
         const { preview, currentHash } = await liveQuestionPreview({
@@ -339,13 +357,30 @@ const buildSharedQuestionRouter = ({
         if (!existing) {
           return res.status(404).json({ error: 'That reading is not on this share.' });
         }
+        const conflict = contributionConflict(existing);
+        if (conflict) {
+          return res.status(409).json({ error: conflict.error, field: conflict.field });
+        }
         if (contributionHeld(existing)) {
           const placed = await QuestionContribution.findOneAndUpdate(
-            { _id: contributionId, slug: share.slug, held: true },
-            { $set: { held: false } },
+            {
+              _id: contributionId,
+              slug: share.slug,
+              held: true,
+              withdrawnAt: { $exists: false }
+            },
+            { $set: { held: false, updatedAt: new Date() } },
             { new: true }
           );
           if (!placed) {
+            const raced = asRow(await readLean(QuestionContribution.findOne({
+              _id: contributionId,
+              slug: share.slug
+            })));
+            const racedConflict = contributionConflict(raced);
+            if (racedConflict) {
+              return res.status(409).json({ error: racedConflict.error, field: racedConflict.field });
+            }
             return res.status(404).json({ error: 'That reading is not on this share.' });
           }
         }
@@ -486,12 +521,17 @@ const buildSharedQuestionRouter = ({
         if (!contributorUserId) {
           return res.status(404).json({ error: 'That reading is not on this share.' });
         }
-        const removed = await QuestionContribution.findOneAndDelete({
-          _id: contributionId,
-          slug,
-          contributorUserId
-        });
-        if (!removed) {
+        const withdrawn = await QuestionContribution.findOneAndUpdate(
+          {
+            _id: contributionId,
+            slug,
+            contributorUserId,
+            withdrawnAt: { $exists: false }
+          },
+          { $set: { withdrawnAt: new Date(), updatedAt: new Date() } },
+          { new: true }
+        );
+        if (!withdrawn) {
           return res.status(404).json({ error: 'That reading is not on this share.' });
         }
         await releaseContributionSlot(SharedQuestion, slug);

@@ -5,6 +5,7 @@ import {
   QUESTION_SHARE_PLACE,
   QUESTION_SHARE_PRIVACY,
   QUESTION_SHARE_TAKE,
+  QUESTION_SHARE_TAKEN_BACK,
   THINK_SHARE_REVOKE,
   questionContribution,
   questionSnapshot
@@ -24,6 +25,7 @@ const SCENES = [
   { id: 'public', label: 'Recipient' },
   { id: 'together', label: 'Together' },
   { id: 'waiting', label: 'Waiting' },
+  { id: 'conflict', label: 'Conflict' },
   { id: 'taken', label: 'Taken' },
   { id: 'contributor', label: 'Contributor' },
   { id: 'owner', label: 'Owner' },
@@ -75,6 +77,9 @@ const shareFor = (scene) => {
     return { shared: true, slug: 'qslug', stale: false, snapshot: frozen, preview: live, contributions: together.contributions };
   }
   if (scene === 'waiting') {
+    return { shared: true, slug: 'qslug', stale: false, snapshot: frozen, preview: live, contributions: [] };
+  }
+  if (scene === 'conflict') {
     return { shared: true, slug: 'qslug', stale: false, snapshot: frozen, preview: live, contributions: [] };
   }
   return { shared: false, stale: false, snapshot: null, preview: live };
@@ -204,6 +209,11 @@ const QuestionSharePreview = () => {
                   Let this sit beside the question
                 </button>
               </div>
+            ) : null}
+            {scene === 'conflict' ? (
+              <p className="notebook-share__hint" role="status" data-testid="question-share-conflict">
+                {QUESTION_SHARE_TAKEN_BACK}
+              </p>
             ) : null}
             {scene === 'owner' && ownerReadings.length ? (
               <div className="notebook-share__letters" data-testid="question-share-takes">

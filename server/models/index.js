@@ -3083,7 +3083,8 @@ const SharedQuestion = mongoose.model('SharedQuestion', sharedQuestionSchema);
    stay. Inclusion in a later edition is a later, explicit act.
    userId is the question owner. If the offerer was signed in,
    contributorUserId is theirs so they can see a still-held reading
-   and take it back while the door stays open.
+   and take it back while the door stays open. withdrawnAt is a tombstone
+   for concurrent owner acts. The public page stays silent.
    It is not a Library and it is never shown to anyone else. */
 const questionContributionSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
@@ -3094,7 +3095,8 @@ const questionContributionSchema = new mongoose.Schema({
   remainder: { type: String, default: '' },
   interpretation: { type: String, default: '' },
   held: { type: Boolean },
-  contributorUserId: { type: String }
+  contributorUserId: { type: String },
+  withdrawnAt: { type: Date }
 }, { timestamps: true });
 
 questionContributionSchema.index({ slug: 1, createdAt: 1 });
