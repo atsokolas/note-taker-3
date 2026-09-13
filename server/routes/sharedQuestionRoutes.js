@@ -34,8 +34,11 @@ const buildSharedQuestionRouter = ({
   User
 }) => {
   const router = express.Router();
+  const isAgentRequest = (req) => Boolean(
+    req.agentToken || req.authInfo?.tokenSource === 'agent-token' || req.personalAgent
+  );
   const humanOnly = (req, res, next) => {
-    if (req.agentToken || req.authInfo?.tokenSource === 'agent-token' || req.personalAgent) {
+    if (isAgentRequest(req)) {
       return res.status(403).json({ error: 'Only the human owner can do this.' });
     }
     return next();
@@ -451,6 +454,54 @@ const buildSharedQuestionRouter = ({
       return res.status(500).json({ error: 'Failed to offer that reading.' });
     }
   });
+
+  /* The person who offered a reading may take it back while the door
+     stays open. The public page goes silent. The slot opens. Copies
+     already taken stay with their holders. Agents cannot do this. */
+  router.delete(
+    '/api/public/questions/:slug/contributions/:contributionId',
+    optionalAuthenticateToken,
+    (req, res, next) => {
+      if (isAgentRequest(req)) {
+        return res.status(403).json({ error: 'Only the person who offered this can take it back.' });
+      }
+      return next();
+    },
+    async (req, res) => {
+      noStore(res);
+      if (!QuestionContribution) {
+        return res.status(404).json({ error: NOT_PUBLISHED.question });
+      }
+      try {
+        const slug = String(req.params.slug || '').trim();
+        const contributionId = String(req.params.contributionId || '').trim();
+        const contributorUserId = String(req.user?.id || '').trim();
+        if (!slug || !contributionId) {
+          return res.status(404).json({ error: NOT_PUBLISHED.question });
+        }
+        const share = asRow(await readLean(SharedQuestion.findOne({ slug })));
+        if (!share?.snapshot) {
+          return res.status(404).json({ error: NOT_PUBLISHED.question });
+        }
+        if (!contributorUserId) {
+          return res.status(404).json({ error: 'That reading is not on this share.' });
+        }
+        const removed = await QuestionContribution.findOneAndDelete({
+          _id: contributionId,
+          slug,
+          contributorUserId
+        });
+        if (!removed) {
+          return res.status(404).json({ error: 'That reading is not on this share.' });
+        }
+        await releaseContributionSlot(SharedQuestion, slug);
+        return res.status(200).json({ withdrawn: true });
+      } catch (error) {
+        console.error('❌ Error withdrawing question contribution:', error);
+        return res.status(500).json({ error: 'Failed to take that reading back.' });
+      }
+    }
+  );
 
   return router;
 };

@@ -8518,7 +8518,8 @@ textarea.think-share-view__offer-field {
   color: var(--text);
 }
 
-.think-share-view__offer button {
+.think-share-view__offer button,
+.think-share-view__withdraw button {
   font: inherit;
   font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
   font-size: 0.78rem;
@@ -8553,6 +8554,7 @@ textarea.think-share-view__offer-field {
   .think-share-view__offer,
   .think-share-view__offer-receipt,
   .think-share-view__yours,
+  .think-share-view__withdraw,
   .shared-concept-topbar__actions {
     display: none;
   }

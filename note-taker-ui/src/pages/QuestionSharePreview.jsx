@@ -91,12 +91,16 @@ const QuestionSharePreview = () => {
   const [take, setTake] = useState('The horizon is the claim, not the fact.');
   const [takeSaved, setTakeSaved] = useState('');
   const [placed, setPlaced] = useState(false);
+  const [takenBack, setTakenBack] = useState(false);
 
   const setQuery = (nextWidth, nextScene) => {
     const search = new URLSearchParams({ width: nextWidth, scene: nextScene }).toString();
     window.history.replaceState(null, '', `${window.location.pathname}?${search}`);
     setWidth(nextWidth);
-    if (nextScene !== scene) setPlaced(false);
+    if (nextScene !== scene) {
+      setPlaced(false);
+      setTakenBack(false);
+    }
     setScene(nextScene);
   };
 
@@ -115,7 +119,7 @@ const QuestionSharePreview = () => {
   });
   const publicPage = scene === 'taken' ? taken : scene === 'together' ? together : frozen;
   const publicSnapshot = scene === 'contributor'
-    ? contributor
+    ? (takenBack ? frozen : contributor)
     : {
       ...publicPage,
       contributions: publicPage.contributions || []
@@ -156,6 +160,7 @@ const QuestionSharePreview = () => {
             <QuestionShareView
               snapshot={publicSnapshot}
               onOffer={scene === 'taken' ? null : async () => {}}
+              onWithdraw={scene === 'contributor' && !takenBack ? async () => { setTakenBack(true); } : null}
             />
           </main>
         ) : null}

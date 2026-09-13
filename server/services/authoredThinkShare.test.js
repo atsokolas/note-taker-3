@@ -112,11 +112,13 @@ describe('authored think share', () => {
       ...preview,
       contributions: [{ by: 'Leaked', text: 'Should not freeze.' }],
       interpretation: 'Should not freeze.',
-      yours: [{ by: 'Leaked', text: 'Should not freeze.' }]
+      yours: [{ by: 'Leaked', text: 'Should not freeze.' }],
+      mine: true
     }, '2026-09-13T12:00:00.000Z');
     expect(frozen.contributions).toBeUndefined();
     expect(frozen.interpretation).toBeUndefined();
     expect(frozen.yours).toBeUndefined();
+    expect(frozen.mine).toBeUndefined();
     expect(hashPublicQuestion(preview)).toBe(hashPublicQuestion(frozen));
 
     expect(contributionText('  <em>Patience is not avoidance.</em>  '))
@@ -302,7 +304,8 @@ describe('authored think share', () => {
       id: 'live',
       by: 'Ada',
       text: 'Already on the page.',
-      createdAt: ''
+      createdAt: '',
+      mine: true
     }]);
     expect(yoursPage.yours).toEqual([{
       id: 'held-mine',
@@ -324,5 +327,13 @@ describe('authored think share', () => {
     }];
     expect(publicQuestionPage({ snapshot: frozen }, heldMine, 'contrib-3').yours).toBeUndefined();
     expect(publicQuestionPage({ snapshot: frozen }, heldMine).yours).toBeUndefined();
+    const placedForOther = publicQuestionPage({ snapshot: frozen }, [{
+      _id: 'live',
+      by: 'Ada',
+      text: 'Already on the page.',
+      contributorUserId: 'contrib-1'
+    }], 'contrib-2');
+    expect(placedForOther.contributions[0].mine).toBeUndefined();
+    expect(placedForOther.yours).toBeUndefined();
   });
 });

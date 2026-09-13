@@ -120,6 +120,7 @@ describe('QuestionShareModal', () => {
     expect(screen.getByTestId('question-share-preview')).not.toHaveTextContent('Same fact, different time horizon.');
     expect(screen.queryByText('With the author')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Offer a reading' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Take this back' })).not.toBeInTheDocument();
   });
 
   it('keeps a waiting reading off the compact preview until the owner places it', async () => {

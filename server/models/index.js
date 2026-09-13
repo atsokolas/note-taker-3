@@ -3082,7 +3082,8 @@ const SharedQuestion = mongoose.model('SharedQuestion', sharedQuestionSchema);
    later say how they take that reading. The original writing and remainder
    stay. Inclusion in a later edition is a later, explicit act.
    userId is the question owner. If the offerer was signed in,
-   contributorUserId is theirs so they can see a still-held reading.
+   contributorUserId is theirs so they can see a still-held reading
+   and take it back while the door stays open.
    It is not a Library and it is never shown to anyone else. */
 const questionContributionSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
