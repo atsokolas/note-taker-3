@@ -168,6 +168,9 @@ const EssayBlock = ({ block }) => {
 export default function NotebookEssay({ snapshot, compact = false }) {
   if (!snapshot) return null;
   const when = formatPublished(snapshot.publishedAt);
+  const revised = formatPublished(snapshot.revisedAt);
+  const showRevised = Boolean(revised && revised !== when);
+  const correction = String(snapshot.correction || '').trim();
   const by = snapshot.ownerDisplayName
     ? (when ? `Shared by ${snapshot.ownerDisplayName} · ${when}` : `Shared by ${snapshot.ownerDisplayName}`)
     : when;
@@ -182,6 +185,8 @@ export default function NotebookEssay({ snapshot, compact = false }) {
         <p className="notebook-essay__eyebrow">Shared note</p>
         <h1 className="notebook-essay__title">{snapshot.title || 'Untitled'}</h1>
         {by ? <p className="notebook-essay__by">{by}</p> : null}
+        {showRevised ? <p className="notebook-essay__revised">Updated {revised}</p> : null}
+        {correction ? <p className="notebook-essay__correction">{correction}</p> : null}
       </header>
       <div className="notebook-essay__body">
         {blocks.map((block, index) => (

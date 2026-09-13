@@ -177,10 +177,26 @@ const canPublishNotebook = (snapshot) => (
   ))
 );
 
-const freezeNotebookSnapshot = (preview, publishedAt) => {
-  const date = publishedAt instanceof Date ? publishedAt : new Date(publishedAt);
-  const iso = Number.isNaN(date.getTime()) ? '' : date.toISOString();
-  return iso ? { ...preview, publishedAt: iso } : { ...preview };
+const asIso = (value) => {
+  if (!value) return '';
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? '' : date.toISOString();
+};
+
+const freezeNotebookSnapshot = (preview, publishedAt, extra = {}) => {
+  const essay = { ...(preview || {}) };
+  delete essay.publishedAt;
+  delete essay.revisedAt;
+  delete essay.correction;
+  const iso = asIso(publishedAt);
+  const revised = asIso(extra.revisedAt);
+  const correction = publicText(stripTags(extra.correction), 400);
+  return {
+    ...essay,
+    ...(iso ? { publishedAt: iso } : {}),
+    ...(revised && revised !== iso ? { revisedAt: revised } : {}),
+    ...(correction ? { correction } : {})
+  };
 };
 
 const notebookShareState = (share, { preview = null, currentHash = '' } = {}) => {

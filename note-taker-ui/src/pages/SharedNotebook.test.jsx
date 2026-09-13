@@ -46,4 +46,15 @@ describe('a note someone published', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Opening…');
     expect(screen.queryByRole('button', { name: 'Print this note' })).not.toBeInTheDocument();
   });
+
+  it('shows a published correction on the frozen page', async () => {
+    getPublicNotebook.mockResolvedValue(essaySnapshot({
+      revisedAt: '2026-09-13T15:00:00.000Z',
+      correction: 'The exception now leads.'
+    }));
+    render(<SharedNotebook />);
+    expect(await screen.findByText('The exception now leads.')).toBeInTheDocument();
+    expect(screen.getByText(/^Updated /)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Print this note' })).toBeInTheDocument();
+  });
 });

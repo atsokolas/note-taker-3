@@ -130,6 +130,29 @@ describe('authored notebook share', () => {
     expect(hashPublicNotebook(frozen)).toBe(hashPublicNotebook(preview));
   });
 
+  it('keeps the first share date and an optional correction, without hashing them', () => {
+    const preview = projectPublicNotebook(essay(), 'Athan');
+    const revised = freezeNotebookSnapshot(preview, '2026-09-12T12:00:00.000Z', {
+      revisedAt: '2026-09-13T15:00:00.000Z',
+      correction: '  The exception now leads. <em>private</em> '
+    });
+    expect(revised.publishedAt).toBe('2026-09-12T12:00:00.000Z');
+    expect(revised.revisedAt).toBe('2026-09-13T15:00:00.000Z');
+    expect(revised.correction).toBe('The exception now leads. private');
+    expect(hashPublicNotebook(revised)).toBe(hashPublicNotebook(preview));
+    expect(freezeNotebookSnapshot(preview, '2026-09-12T12:00:00.000Z', {
+      revisedAt: '2026-09-12T12:00:00.000Z',
+      correction: '   '
+    }).revisedAt).toBeUndefined();
+    expect(freezeNotebookSnapshot({
+      ...preview,
+      correction: 'A previous sentence.'
+    }, '2026-09-12T12:00:00.000Z', {
+      revisedAt: '2026-09-13T15:00:00.000Z',
+      correction: '  '
+    }).correction).toBeUndefined();
+  });
+
   it('collects article ids for a single source lookup', () => {
     expect(collectArticleIds(essay())).toEqual([ARTICLE]);
   });

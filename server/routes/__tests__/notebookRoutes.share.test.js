@@ -171,6 +171,8 @@ const run = async () => {
     assert.strictEqual(publicRead.body.title, 'Who gets to experiment, and who pays?');
     assert.strictEqual(publicRead.body.ownerDisplayName, 'Athan');
     assert.ok(publicRead.body.publishedAt);
+    assert.ok(!publicRead.body.revisedAt);
+    assert.ok(!publicRead.body.correction);
     assert.ok(!JSON.stringify(publicRead.body).includes('/library?'));
     assert.strictEqual(publicRead.response.headers.get('cache-control').includes('no-store'), true);
 
@@ -183,12 +185,31 @@ const run = async () => {
     const staleUpdate = await share('PUT', { previewHash: created.body.currentHash });
     assert.strictEqual(staleUpdate.response.status, 409);
 
-    const updated = await share('PUT', { previewHash: status.body.currentHash });
+    const firstPublished = created.body.snapshot.publishedAt;
+    const updated = await share('PUT', {
+      previewHash: status.body.currentHash,
+      correction: 'The exception now leads.'
+    });
     assert.strictEqual(updated.response.status, 200, JSON.stringify(updated.body));
     assert.strictEqual(updated.body.stale, false);
     assert.strictEqual(updated.body.slug, slug);
     const afterUpdate = await fetchJson(`${url}/api/public/notebooks/${slug}`);
     assert.strictEqual(afterUpdate.body.blocks[1].text, 'Rewritten in the workshop.');
+    assert.strictEqual(afterUpdate.body.publishedAt, firstPublished);
+    assert.ok(afterUpdate.body.revisedAt);
+    assert.notStrictEqual(afterUpdate.body.revisedAt, firstPublished);
+    assert.strictEqual(afterUpdate.body.correction, 'The exception now leads.');
+
+    entry.blocks[1].text = 'Rewritten again.';
+    const movedAgain = await share();
+    const cleared = await share('PUT', {
+      previewHash: movedAgain.body.currentHash,
+      correction: ''
+    });
+    assert.strictEqual(cleared.response.status, 200, JSON.stringify(cleared.body));
+    const afterClear = await fetchJson(`${url}/api/public/notebooks/${slug}`);
+    assert.strictEqual(afterClear.body.publishedAt, firstPublished);
+    assert.ok(!afterClear.body.correction);
 
     const emptyEntry = { ...essay(), blocks: [], content: '' };
     Object.assign(entry, emptyEntry);

@@ -859,13 +859,17 @@ const buildNotebookRouter = ({
       if (!existing) return res.status(404).json({ error: 'This note is not shared.' });
 
       const now = new Date();
+      const firstPublished = existing.publishedAt || existing.snapshot?.publishedAt || now;
       const updated = await SharedNotebook.findOneAndUpdate(
         { userId, notebookId: entry._id },
         {
           $set: {
-            snapshot: freezeNotebookSnapshot(preview, now),
+            snapshot: freezeNotebookSnapshot(preview, firstPublished, {
+              revisedAt: now,
+              correction: req.body?.correction
+            }),
             contentHash: currentHash,
-            publishedAt: now,
+            publishedAt: firstPublished,
             ownerDisplayName: ownerDisplayName || existing.ownerDisplayName || ''
           }
         },

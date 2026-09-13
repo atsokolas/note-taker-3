@@ -42,6 +42,8 @@ describe('printed notebook paper', () => {
     expect(printCss).toMatch(/\.notebook-essay__copy/);
     expect(printCss).toMatch(/\.notebook-share,/);
     expect(printCss).toMatch(/content:\s*" · " attr\(href\)/);
+    expect(printCss).toMatch(/\.notebook-essay__correction/);
+    expect(printCss.slice(0, printCss.indexOf('--noeis-ink'))).not.toMatch(/correction/);
   });
 
   it('resolves paper tokens on the page even when html still holds dark ink', () => {
