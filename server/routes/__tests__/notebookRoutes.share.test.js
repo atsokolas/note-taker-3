@@ -2,7 +2,7 @@ const assert = require('assert');
 const express = require('express');
 const http = require('http');
 const { buildNotebookRouter } = require('../notebookRoutes');
-const { hashPublicNotebook, projectPublicNotebook } = require('../../services/authoredNotebookShare');
+const { CORRESPONDENCE_LIMIT, hashPublicNotebook, projectPublicNotebook } = require('../../services/authoredNotebookShare');
 
 const USER = '64f200000000000000000001';
 const NOTE = '64f2000000000000000000cc';
@@ -120,6 +120,16 @@ const run = async () => {
         return row;
       },
       findOneAndUpdate: async (query, patch) => {
+        if (patch?.$inc && Object.prototype.hasOwnProperty.call(patch.$inc, 'correspondenceCount')) {
+          const slug = String(query.slug || '').trim();
+          const row = shares.find((entryRow) => entryRow.slug === slug && entryRow.snapshot);
+          if (!row) return null;
+          const delta = Number(patch.$inc.correspondenceCount) || 0;
+          const count = Number(row.correspondenceCount || 0);
+          if (delta > 0 && count >= 40) return null;
+          row.correspondenceCount = Math.max(0, count + delta);
+          return row;
+        }
         const row = shares.find((entryRow) => matchShare(entryRow, query));
         if (!row) return null;
         Object.assign(row, patch.$set || patch);
@@ -139,6 +149,7 @@ const run = async () => {
       }),
       countDocuments: async (query) => letters.filter((row) => matchLetter(row, query)).length,
       create: async (doc) => {
+        await new Promise((resolve) => setImmediate(resolve));
         const row = {
           _id: `letter-${letters.length + 1}`,
           createdAt: new Date('2026-09-13T16:00:00.000Z'),
@@ -155,6 +166,11 @@ const run = async () => {
     method,
     headers: { 'content-type': 'application/json' },
     body: body ? JSON.stringify(body) : undefined
+  });
+  const ask = (targetSlug, text) => fetchJson(`${url}/api/public/notebooks/${targetSlug}/correspondence`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ blockId: 'q1', text })
   });
 
   try {
@@ -199,14 +215,7 @@ const run = async () => {
     assert.ok(!JSON.stringify(publicRead.body).includes('/library?'));
     assert.strictEqual(publicRead.response.headers.get('cache-control').includes('no-store'), true);
 
-    const asked = await fetchJson(`${url}/api/public/notebooks/${slug}/correspondence`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        blockId: 'q1',
-        text: '  <em>Does spare time belong to the person who pays?</em>  '
-      })
-    });
+    const asked = await ask(slug, '  <em>Does spare time belong to the person who pays?</em>  ');
     assert.strictEqual(asked.response.status, 201, JSON.stringify(asked.body));
     assert.deepStrictEqual(asked.body, { sent: true });
     assert.strictEqual(letters.length, 1);
@@ -235,6 +244,19 @@ const run = async () => {
     const stillPublic = await fetchJson(`${url}/api/public/notebooks/${slug}`);
     assert.ok(!stillPublic.body.letters);
     assert.ok(!JSON.stringify(stillPublic.body).includes('Does spare time belong'));
+
+    const burst = await Promise.all(
+      Array.from({ length: 50 }, (_, index) => ask(slug, `A later question ${index}.`))
+    );
+    const accepted = burst.filter((item) => item.response.status === 201);
+    const refused = burst.filter((item) => item.response.status === 409);
+    assert.strictEqual(accepted.length, CORRESPONDENCE_LIMIT - 1);
+    assert.strictEqual(refused.length, 50 - (CORRESPONDENCE_LIMIT - 1));
+    assert.strictEqual(letters.length, CORRESPONDENCE_LIMIT);
+    assert.strictEqual(shares[0].correspondenceCount, CORRESPONDENCE_LIMIT);
+    const overflow = await ask(slug, 'One more.');
+    assert.strictEqual(overflow.response.status, 409);
+    assert.strictEqual(letters.length, CORRESPONDENCE_LIMIT);
 
     entry.blocks[1].text = 'Rewritten in the workshop.';
     const status = await share();
@@ -296,8 +318,18 @@ const run = async () => {
     Object.assign(entry, essay());
     const kept = await share();
     assert.strictEqual(kept.body.shared, false);
-    assert.strictEqual(kept.body.letters.length, 1);
+    assert.strictEqual(kept.body.letters.length, CORRESPONDENCE_LIMIT);
     assert.strictEqual(kept.body.letters[0].text, 'Does spare time belong to the person who pays?');
+
+    const reopened = await share('POST', { previewHash: kept.body.currentHash });
+    assert.strictEqual(reopened.response.status, 201, JSON.stringify(reopened.body));
+    assert.ok(reopened.body.slug);
+    assert.notStrictEqual(reopened.body.slug, slug);
+    const afterNewDoor = await ask(reopened.body.slug, 'After a new door.');
+    assert.strictEqual(afterNewDoor.response.status, 201, JSON.stringify(afterNewDoor.body));
+    const afterReopen = await share();
+    assert.strictEqual(afterReopen.body.letters.length, CORRESPONDENCE_LIMIT + 1);
+    assert.strictEqual(shares[0].correspondenceCount, 1);
   } finally {
     server.close();
   }
