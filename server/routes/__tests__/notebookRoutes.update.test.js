@@ -37,14 +37,19 @@ const run = async () => {
     }],
     type: 'note',
     tags: [],
-    folder: 'inbox',
+    folder: '64f2000000000000000000bb',
+    linkedArticleId: '64f2000000000000000000cc',
+    claimId: '64f2000000000000000000dd',
     linkedHighlightIds: ['64f2000000000000000000aa', 'highlight-1'],
     importMeta: { provider: 'evernote', importSessionId: 'session-evernote' }
   });
   stored.isNew = false;
   stored.$locals = {
     persistedIdentity: {
-      linkedHighlightIds: ['64f2000000000000000000aa', 'highlight-1']
+      linkedHighlightIds: ['64f2000000000000000000aa', 'highlight-1'],
+      folder: '64f2000000000000000000bb',
+      linkedArticleId: '64f2000000000000000000cc',
+      claimId: '64f2000000000000000000dd'
     }
   };
   assert.ok(stored.validateSync(), 'leftover identity on the loaded doc should fail until PUT sanitizes it');
@@ -121,6 +126,7 @@ const run = async () => {
       }],
       type: 'note',
       tags: [],
+      folder: null,
       claimId: null,
       linkedArticleId: null
     });
@@ -131,6 +137,8 @@ const run = async () => {
       'Recoverable mistakes belong to the person who can still put things back.'
     );
     assert.equal(stored.folder, null);
+    assert.equal(stored.claimId, null);
+    assert.equal(stored.linkedArticleId, null);
     assert.deepEqual(stored.linkedHighlightIds.map(String), ['64f2000000000000000000aa']);
     assert.ok(stored.isModified('linkedHighlightIds'));
     assert.equal(stored.importMeta.importSessionId, null);
@@ -175,6 +183,7 @@ const run = async () => {
       }],
       type: 'note',
       tags: [],
+      folder: null,
       claimId: null,
       linkedArticleId: null
     });

@@ -63,6 +63,8 @@ leftover.init({
   }]
 });
 leftover.isNew = false;
+assert.equal(leftover.$__getValue('folder'), undefined);
+assert.equal(leftover.$__getValue('linkedHighlightIds'), undefined);
 assert.ok(leftover.validateSync(), 'loaded leftover identity should fail schema until sanitized');
 sanitizeNotebookEntry(leftover);
 assert.equal(leftover.validateSync(), null);
@@ -88,6 +90,9 @@ sanitizeNotebookEntry(assigned);
 assert.equal(assigned.validateSync(), null);
 
 const keptHighlight = '64f2000000000000000000aa';
+const folderId = '64f2000000000000000000bb';
+const articleId = '64f2000000000000000000cc';
+const claimId = '64f2000000000000000000dd';
 const mixed = new NotebookEntry();
 mixed.init({
   _id: new mongoose.Types.ObjectId(),
@@ -97,18 +102,68 @@ mixed.init({
   blocks: [{ id: 'p1', type: 'paragraph', text: 'Held' }],
   type: 'note',
   tags: [],
+  folder: folderId,
+  claimId,
+  linkedArticleId: articleId,
   linkedHighlightIds: [keptHighlight, 'highlight-1']
 });
 mixed.isNew = false;
 assert.equal(mixed.$__getValue('linkedHighlightIds'), undefined);
-mixed.$locals = { persistedIdentity: { linkedHighlightIds: [keptHighlight, 'highlight-1'] } };
+mixed.$locals = {
+  persistedIdentity: {
+    linkedHighlightIds: [keptHighlight, 'highlight-1'],
+    folder: folderId,
+    claimId,
+    linkedArticleId: articleId
+  }
+};
 sanitizeNotebookEntry(mixed);
 assert.deepEqual(mixed.linkedHighlightIds.map(String), [keptHighlight]);
 assert.ok(!mixed.linkedHighlightIds.map(String).includes('highlight-1'));
+assert.equal(String(mixed.folder), folderId);
+assert.equal(String(mixed.claimId), claimId);
+assert.equal(String(mixed.linkedArticleId), articleId);
 assert.ok(
   mixed.isModified('linkedHighlightIds'),
   'healed mixed highlight ids must be marked so save keeps the valid members'
 );
 assert.equal(mixed.validateSync(), null);
+
+const unlink = new NotebookEntry();
+unlink.init({
+  _id: new mongoose.Types.ObjectId(),
+  userId: new mongoose.Types.ObjectId(),
+  title: 'Held thought',
+  content: '<p>Held</p>',
+  blocks: [{ id: 'p1', type: 'paragraph', text: 'Held' }],
+  type: 'note',
+  tags: [],
+  folder: folderId,
+  claimId,
+  linkedArticleId: articleId,
+  linkedHighlightIds: [keptHighlight, 'highlight-1']
+});
+unlink.isNew = false;
+assert.equal(unlink.$__getValue('linkedHighlightIds'), undefined);
+unlink.$locals = {
+  persistedIdentity: {
+    linkedHighlightIds: [keptHighlight, 'highlight-1'],
+    folder: folderId,
+    claimId,
+    linkedArticleId: articleId
+  }
+};
+unlink.folder = null;
+unlink.claimId = null;
+unlink.linkedArticleId = null;
+assert.equal(unlink.$__getValue('folder'), null);
+assert.equal(unlink.$__getValue('claimId'), null);
+assert.equal(unlink.$__getValue('linkedArticleId'), null);
+sanitizeNotebookEntry(unlink);
+assert.equal(unlink.folder, null);
+assert.equal(unlink.claimId, null);
+assert.equal(unlink.linkedArticleId, null);
+assert.deepEqual(unlink.linkedHighlightIds.map(String), [keptHighlight]);
+assert.ok(unlink.isModified('linkedHighlightIds'));
 
 console.log('notebook identity tests passed');

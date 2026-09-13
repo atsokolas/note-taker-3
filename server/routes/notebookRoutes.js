@@ -696,8 +696,8 @@ const buildNotebookRouter = ({
         });
       }
 
-      Object.assign(existing, updates);
       await attachPersistedIdentity(existing);
+      Object.assign(existing, updates);
       sanitizeNotebookEntry(existing);
       const updated = await existing.save();
       if (updates.blocks !== undefined) {
