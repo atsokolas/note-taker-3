@@ -27,9 +27,11 @@ const { readRetentionReferences } = require('../server/services/wikiRetentionRef
     const plan = await runDailyWikiRetention({ db, now, dryRun: true });
     assert(plan.eligible > 0); assert.equal(plan.expired, 0);
     assert.equal(await db.collection('wikistoragestate').countDocuments(), 0, 'dry run writes nothing');
+    await db.collection('wikistoragestate').insertOne({ _id: STATE_ID, nextRunAt: new Date(now.getTime() + DAY_MS) });
     const budget = await acquireWikiWriteBudget(db);
     assert(budget.allowed);
     assert.equal((await acquireWikiWriteBudget(db)).allowed, false, 'concurrent growth waits');
+    await db.collection('wikistoragestate').updateOne({ _id: STATE_ID }, { $set: { nextRunAt: now } });
     assert((await runDailyWikiRetention({ db, now })).skipped, 'cleanup waits for automatic writes');
     const eventId = new ObjectId();
     await db.collection('wikisourceevents').insertOne({ _id: eventId, userId, status: 'processing', lockedAt: now });
@@ -47,6 +49,7 @@ const { readRetentionReferences } = require('../server/services/wikiRetentionRef
     } } });
     assert.equal(deferredPage.results[0].reason, 'storage_work_in_progress');
     await budget.release();
+    assert.equal((await acquireWikiWriteBudget(db)).reason, 'daily_cleanup_due', 'due cleanup cannot be starved by a busy queue');
     let scans = 0;
     const result = await runDailyWikiRetention({ db, now, readReferences: async database => {
       scans++;
