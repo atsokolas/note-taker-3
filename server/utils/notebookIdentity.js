@@ -68,7 +68,8 @@ const liveRead = (entry, path) => {
 
 const readPath = (entry, path) => {
   const live = liveRead(entry, path);
-  if (live != null && !(Array.isArray(live) && live.length === 0)) return live;
+  // CastError hides leftover values as undefined. Live null is an intentional clear.
+  if (live !== undefined) return live;
   const fromPersisted = dotted(entry.$locals?.persistedIdentity, path);
   if (fromPersisted !== undefined) return fromPersisted;
   return live;
@@ -100,7 +101,7 @@ const attachPersistedIdentity = async (entry) => {
 const writePath = (entry, path, value) => {
   if (typeof entry.set === 'function') {
     entry.set(path, value);
-    // Getters already hid leftover CastErrors as null. Mark the path so save
+    // Getters hide leftover CastErrors as undefined. Mark the path so save
     // writes the healed value instead of leaving the invalid string in Mongo.
     if (typeof entry.markModified === 'function') entry.markModified(path);
     return;
