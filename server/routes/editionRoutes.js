@@ -278,9 +278,8 @@ const buildEditionRouter = ({
     return res.status(500).json({ error: fallback });
   };
 
-  /* One issue per profile per window. Two agents filing the same morning must
-     land in the same paper, not 500 on the unique index — the caller retries
-     the merge against the row that won. */
+  /* Whole-issue rewrite. Filing does not use this: replacing `items` after a
+     duplicate-key miss lets a later loser discard an earlier loser's item. */
   const putIssue = async ({ existing, userId, doc }) => {
     if (existing) {
       return {
@@ -289,6 +288,49 @@ const buildEditionRouter = ({
       };
     }
     return { saved: await Edition.create({ ...doc, userId }), created: true };
+  };
+
+  /* Atomic unique append. Filter + $push so concurrent filers cannot overwrite
+     each other; a miss reloads and retries with only what is still absent. */
+  const appendUniqueItems = async ({ existing, userId, incoming, profile, filedBy, filedAt, writtenBy }) => {
+    let held = existing;
+    let merged = addToHeld(held?.items, incoming, profile, filedBy, filedAt);
+
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      if (merged.items.length > profile.maxItems) {
+        throw new EditionShapeError(
+          `${profile.titleLabel} holds at most ${profile.maxItems} items; this issue would have ${merged.items.length}. An edition that lists everything has chosen nothing.`
+        );
+      }
+      const remaining = merged.added;
+      if (!remaining.length) return { saved: held, added: [] };
+
+      const saved = await Edition.findOneAndUpdate(
+        {
+          _id: held._id,
+          userId,
+          'items.url': { $nin: remaining.map(item => item.url) },
+          'items.itemId': { $nin: remaining.map(item => item.itemId) },
+          $expr: {
+            $lte: [
+              { $add: [{ $size: { $ifNull: ['$items', []] } }, remaining.length] },
+              profile.maxItems
+            ]
+          }
+        },
+        {
+          $push: { items: { $each: remaining } },
+          $set: { writtenBy, updatedAt: new Date() }
+        },
+        { new: true }
+      );
+      if (saved) return { saved, added: remaining };
+
+      held = await Edition.findOne({ _id: held._id, userId });
+      if (!held) throw new Error('No such edition.');
+      merged = addToHeld(held.items, incoming, profile, filedBy, filedAt);
+    }
+    throw new Error('Could not file into this edition.');
   };
 
   /**
@@ -397,31 +439,45 @@ const buildEditionRouter = ({
       let saved;
       let created = false;
       let added = [];
-      for (let attempt = 0; attempt < 2; attempt += 1) {
-        const merged = addToHeld(existing?.items, incoming, profile, filedBy, filedAt);
-        added = merged.added;
-        if (merged.items.length > profile.maxItems) {
+      if (!existing) {
+        const prepared = addToHeld([], incoming, profile, filedBy, filedAt);
+        if (prepared.items.length > profile.maxItems) {
           return res.status(400).json({
-            error: `${profile.titleLabel} holds at most ${profile.maxItems} items; this issue would have ${merged.items.length}. An edition that lists everything has chosen nothing.`
+            error: `${profile.titleLabel} holds at most ${profile.maxItems} items; this issue would have ${prepared.items.length}. An edition that lists everything has chosen nothing.`
           });
         }
-        const writtenBy = filedBy.label ? filedBy : (existing?.writtenBy || filedBy);
         try {
-          const put = await putIssue({
-            existing,
+          saved = await Edition.create({
             userId,
-            doc: existing
-              ? { items: merged.items, writtenBy }
-              : { profile: profile.key, title, windowStart, windowEnd, standfirst, items: merged.items, writtenBy }
+            profile: profile.key,
+            title,
+            windowStart,
+            windowEnd,
+            standfirst,
+            items: prepared.items,
+            writtenBy: filedBy
           });
-          saved = put.saved;
-          created = put.created;
-          break;
+          created = true;
+          added = prepared.added;
         } catch (error) {
-          if (!isDuplicateKey(error) || existing || attempt === 1) throw error;
+          if (!isDuplicateKey(error)) throw error;
           existing = await Edition.findOne({ userId, profile: profile.key, windowStart, windowEnd });
           if (!existing) throw error;
         }
+      }
+      if (!created) {
+        const writtenBy = filedBy.label ? filedBy : (existing.writtenBy || filedBy);
+        const appended = await appendUniqueItems({
+          existing,
+          userId,
+          incoming,
+          profile,
+          filedBy,
+          filedAt,
+          writtenBy
+        });
+        saved = appended.saved;
+        added = appended.added;
       }
 
       return res.status(created ? 201 : 200).json({
