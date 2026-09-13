@@ -549,7 +549,8 @@ const buildEditionRouter = ({
       if (profile) query.profile = profile.key;
       const editions = await Edition.find(query)
         .sort({ windowEnd: -1, createdAt: -1 })
-        .limit(Math.min(Number(req.query?.limit) || 40, 100))
+        /* Inbox already loads 200. The stand can be asked for 500, never more. */
+        .limit(Math.min(Number(req.query?.limit) || 40, 500))
         .lean();
       return res.status(200).json({
         editions: editions.map(edition => serializeEdition(edition, { withItems: false, profiles }))

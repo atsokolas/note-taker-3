@@ -1,6 +1,8 @@
 import assert from 'assert';
+import { z } from 'zod';
 
 import { NoeisApiError, NoeisClient } from '../src/client.js';
+import { readTools } from '../src/tools/read.js';
 
 const jsonOk = (payload) => ({
   ok: true,
@@ -28,6 +30,27 @@ const run = async () => {
     const listed = await client.listEditions({ profile: 'this_week_in_ai' });
     assert.strictEqual(listed.editions[0].id, 'edition-1');
     assert.match(calls[0], /\/api\/editions\?profile=this_week_in_ai/);
+  }
+
+  /* Same bound as GET /api/editions: OpenClaw can ask for 500, not more. */
+  {
+    const schema = z.object(readTools.find(tool => tool.name === 'list_editions').inputSchema);
+    assert.strictEqual(schema.safeParse({ limit: 500 }).success, true);
+    assert.strictEqual(schema.safeParse({ limit: 501 }).success, false);
+  }
+
+  {
+    const calls = [];
+    const client = new NoeisClient({
+      token: 't',
+      env: {},
+      fetchImpl: async (url) => {
+        calls.push(String(url));
+        return jsonOk({ editions: [] });
+      }
+    });
+    await client.listEditions({ profile: 'this_week_in_ai', limit: 500 });
+    assert.match(calls[0], /\/api\/editions\?profile=this_week_in_ai&limit=500/);
   }
 
   {
