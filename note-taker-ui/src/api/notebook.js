@@ -119,3 +119,39 @@ export const sendNotebookCorrespondence = async (slug, body = {}) => {
   );
   return res.data || { sent: true };
 };
+
+const volumeQuery = ({ notebookIds, title, introduction } = {}) => {
+  const query = new URLSearchParams();
+  if (Array.isArray(notebookIds) && notebookIds.length) {
+    query.set('notebookIds', notebookIds.join(','));
+  }
+  if (title != null) query.set('title', title);
+  if (introduction != null) query.set('introduction', introduction);
+  const encoded = query.toString();
+  return encoded ? `?${encoded}` : '';
+};
+
+export const getNotebookVolume = async (draft = {}) => {
+  const res = await api.get(`/api/volumes${volumeQuery(draft)}`, getAuthHeaders());
+  return res.data || { shared: false };
+};
+
+export const publishNotebookVolume = async (body = {}) => {
+  const res = await api.post('/api/volumes', body, getAuthHeaders());
+  return res.data || { shared: false };
+};
+
+export const updateNotebookVolume = async (body = {}) => {
+  const res = await api.put('/api/volumes', body, getAuthHeaders());
+  return res.data || { shared: false };
+};
+
+export const revokeNotebookVolume = async () => {
+  const res = await api.delete('/api/volumes', getAuthHeaders());
+  return res.data || { revoked: true };
+};
+
+export const getPublicVolume = async (slug) => {
+  const res = await api.get(`/api/public/volumes/${encodeURIComponent(slug)}`);
+  return res.data || null;
+};

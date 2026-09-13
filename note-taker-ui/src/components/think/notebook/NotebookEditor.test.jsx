@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import NotebookEditor from './NotebookEditor';
 import { listWikiPages } from '../../../api/wiki';
 import { getArticleEvergreen } from '../../../api/articles';
-import { disposeNotebookSourceCorrection, exportNotebookMarkdown, getNotebookShare, getNotebookSummaries } from '../../../api/notebook';
+import { disposeNotebookSourceCorrection, exportNotebookMarkdown, getNotebookShare, getNotebookSummaries, getNotebookVolume } from '../../../api/notebook';
 import { THINK_WRITING_IDLE_MS } from '../editor/useThinkWritingActivity';
 
 const mockUseEditor = jest.fn();
@@ -87,7 +87,8 @@ jest.mock('../../../api/notebook', () => ({
   updateNotebookEntry: jest.fn(),
   exportNotebookMarkdown: jest.fn(),
   disposeNotebookSourceCorrection: jest.fn(),
-  getNotebookShare: jest.fn(async () => ({ shared: false, preview: null }))
+  getNotebookShare: jest.fn(async () => ({ shared: false, preview: null })),
+  getNotebookVolume: jest.fn(async () => ({ shared: false, catalog: [] }))
 }));
 
 jest.mock('../../../api/wiki', () => ({
@@ -131,6 +132,8 @@ describe('NotebookEditor', () => {
     exportNotebookMarkdown.mockResolvedValue(new Blob(['# Letter\n'], { type: 'text/markdown' }));
     getNotebookShare.mockReset();
     getNotebookShare.mockResolvedValue({ shared: false, preview: null });
+    getNotebookVolume.mockReset();
+    getNotebookVolume.mockResolvedValue({ shared: false, catalog: [] });
     mockUseEditor.mockReturnValue(mockEditor);
     mockEditor.chain.mockReturnValue(mockChain);
     mockEditor.isActive.mockImplementation(() => false);
