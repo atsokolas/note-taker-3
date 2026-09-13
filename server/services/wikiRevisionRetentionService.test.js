@@ -6,6 +6,7 @@ const {
   collectReceiptRetentionReferences,
   pruneWikiRevisionHistory
 } = require('./wikiRevisionRetentionService');
+const { resolveRevisionSnapshot, snapshotCanonicalContentHash } = require('./wikiRevisionService');
 
 const revisions = Array.from({ length: 60 }, (_, index) => ({
   _id: `revision-${index}`,
@@ -19,6 +20,10 @@ revisions[44].claimReview = {
   state: 'accepted',
   events: [{ action: 'accept', actorType: 'human' }]
 };
+for (const index of [42, 43]) {
+  revisions[index].promotionStatus = 'candidate';
+  revisions[index].claimReview = { version: 1, scope: 'claim', state: 'pending', events: [] };
+}
 
 const plan = buildWikiRevisionRetentionPlan({
   revisions,
@@ -35,6 +40,9 @@ assert(plan.keptIds.includes('revision-35'), 'keeps newest rejection');
 assert(plan.keptIds.includes('revision-40'), 'keeps explicit reference');
 assert(plan.keptIds.includes('revision-44'), 'keeps every human-reviewed claim revision');
 assert(plan.keepReasons['revision-44'].includes('human_claim_review'), 'records the human-review retention reason');
+for (const index of [42, 43]) {
+  assert(plan.keepReasons[`revision-${index}`].includes('active_claim_review'), 'keeps every pending cohort member, not only the newest candidate');
+}
 assert(plan.keptIds.includes('revision-45'), 'keeps accepted source event');
 assert(plan.keptIds.includes('revision-50'), 'keeps published head');
 assert(plan.deletedIds.length > 0, 'identifies redundant snapshots');
@@ -56,7 +64,39 @@ assert(pressurePlan.keptIds.includes('revision-45'), 'pressure mode keeps accept
 assert(pressurePlan.keptIds.includes('revision-50'), 'pressure mode keeps the published repo head');
 assert(pressurePlan.deletedIds.length > plan.deletedIds.length, 'pressure mode compacts more unprotected snapshots');
 
+// Retention must preserve the content a protected metadata-only version reads.
+const earlierContent = { title: 'Earlier reasoning', body: { text: 'A premise worth keeping.' }, claims: [] };
+const historyRow = (id, day, fields = {}) => ({
+  _id: id, pageId: 'page-1', createdAt: new Date(Date.UTC(2026, 0, day)),
+  promotionStatus: 'promoted', ...fields
+});
+const unchanged = { snapshotUnchanged: true, contentHash: snapshotCanonicalContentHash(earlierContent) };
+const history = [
+  historyRow('original', 1, { after: { title: 'Original' } }),
+  historyRow('referenced-base', 2, { after: earlierContent }),
+  historyRow('referenced-unchanged', 3, unchanged),
+  historyRow('disposable-full', 4, { after: { title: 'Superseded automatic version' } }),
+  historyRow('second-full', 5, { after: { title: 'Second' } }),
+  historyRow('latest-full', 6, { after: { title: 'Latest' } }),
+  historyRow('latest-unchanged', 7, { snapshotUnchanged: true }),
+  historyRow('latest-pruned', 8, { snapshotPrunedAt: new Date() })
+];
+const dependencyPlan = buildWikiRevisionRetentionPlan({
+  revisions: history, recentLimit: 2, protectedRevisionIds: ['referenced-unchanged']
+});
+assert(dependencyPlan.keepReasons['second-full'].includes('recent_payload'), 'empty rows do not consume the full-version allowance');
+assert(dependencyPlan.keepReasons['referenced-base'].includes('unchanged_snapshot_base'), 'protects the old referenced version beyond the recent allowance');
+assert(dependencyPlan.deletedIds.includes('disposable-full'), 'the preservation check exercises an actual payload prune');
+const retainedHistory = history.map(row => dependencyPlan.deletedIds.includes(row._id)
+  ? { ...row, before: null, after: null, snapshotPrunedAt: new Date() } : row);
+assert.deepStrictEqual(
+  resolveRevisionSnapshot(history.find(row => row._id === 'referenced-unchanged'), retainedHistory),
+  earlierContent,
+  'a referenced unchanged version still resolves exactly after pruning'
+);
+
 const references = collectPageRetentionReferences({
+  aiState: { firstHeadCandidateRevisionId: 'first-head-candidate', maintenanceCandidateRevisionId: 'maintenance-candidate' },
   publicProof: { acceptedClocks: [{ revisionId: 'clock-revision', sourceEventId: 'clock-event' }] },
   freshness: { acceptedThrough: { revisionId: 'fresh-revision', sourceEventId: 'fresh-event' } },
   judgment: {
@@ -74,8 +114,10 @@ assert.deepStrictEqual(references.revisionIds.sort(), [
   'decision-basis-revision',
   'decision-outcome-revision',
   'decision-recorded-revision',
+  'first-head-candidate',
   'fresh-revision',
-  'initial-judgment-revision'
+  'initial-judgment-revision',
+  'maintenance-candidate'
 ]);
 assert.deepStrictEqual(references.sourceEventIds.sort(), ['clock-event', 'fresh-event']);
 assert.strictEqual(references.publishedHeadSha, 'head');
@@ -112,6 +154,7 @@ console.log('wikiRevisionRetentionService tests passed');
     createdAt: new Date(Date.UTC(2026, 6, 25 - index)),
     promotionStatus: 'promoted'
   }));
+  rows.push({ _id: 'old-metadata-only', createdAt: new Date(Date.UTC(2026, 6, 3, 12)), snapshotUnchanged: true });
   const WikiRevision = {
     countDocuments: async () => rows.length,
     aggregate: async () => [{ bytes: 16 * 1024 * 1024 }],
@@ -166,8 +209,9 @@ console.log('wikiRevisionRetentionService tests passed');
     })
   });
   assert.strictEqual(result.skipped, false);
-  assert.strictEqual(result.deletedIds.length, 2);
+  assert.strictEqual(result.deletedIds.length, 3);
   assert.strictEqual(result.compactableSnapshotIds.length, 2);
+  assert(!result.compactableSnapshotIds.includes('old-metadata-only'), 'does not back up and prune a row with no payload');
   assert.strictEqual(result.compactableSnapshotBytes, 16 * 1024 * 1024);
   assert(result.keptIds.includes('byte-revision-21'));
   assert.strictEqual(updated.length, 1);

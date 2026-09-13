@@ -176,7 +176,7 @@ const pruneHeavyRevisionPages = async ({
        it would never inspect. */
     const pageQuery = WikiPage.findOne({ _id: group._id.pageId, userId: group._id.userId });
     const page = typeof pageQuery?.select === 'function'
-      ? await pageQuery.select('externalWatches freshness publicProof judgment')
+      ? await pageQuery.select('externalWatches freshness publicProof judgment aiState.firstHeadCandidateRevisionId aiState.maintenanceCandidateRevisionId')
       : await pageQuery;
     if (!page) continue;
     const result = await pruneWikiRevisionHistory({

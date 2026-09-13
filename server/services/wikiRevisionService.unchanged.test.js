@@ -6,10 +6,7 @@ const {
   snapshotCanonicalContentHash
 } = require('./wikiRevisionService');
 
-/* Two thirds of the cluster was wiki revisions, and most of them recorded that
-   nothing had happened by storing the whole page twice to say so. The repo page
-   alone put on 74MB in three days with its five latest revisions byte-identical.
-   A pass that changed nothing now keeps no payload and says which it is. */
+// Unchanged passes retain verifiable identity without another copy of the page.
 const pageAt = (text) => ({
   _id: 'page-1',
   title: 'Repo wiki',
