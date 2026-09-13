@@ -78,6 +78,14 @@ const shareFor = (scene) => {
   };
 };
 
+const defaultsFor = (scene) => ({
+  title: scene === 'empty' ? '' : 'Who pays?',
+  introduction: scene === 'empty'
+    ? ''
+    : (scene === 'stale' ? 'Rewritten in the workshop.' : 'Two finished notes, one question.'),
+  selection: scene === 'empty' ? ['note-1'] : ['note-1', 'note-2']
+});
+
 const NotebookVolumePreview = () => {
   const params = useMemo(() => new URLSearchParams(window.location.search), []);
   const [width, setWidth] = useState(() => (
@@ -86,12 +94,16 @@ const NotebookVolumePreview = () => {
   const [scene, setScene] = useState(() => (
     SCENES.some((item) => item.id === params.get('scene')) ? params.get('scene') : 'compose'
   ));
+  const [draft, setDraft] = useState(() => defaultsFor(
+    SCENES.some((item) => item.id === params.get('scene')) ? params.get('scene') : 'compose'
+  ));
 
   const setQuery = (nextWidth, nextScene) => {
     const search = new URLSearchParams({ width: nextWidth, scene: nextScene }).toString();
     window.history.replaceState(null, '', `${window.location.pathname}?${search}`);
     setWidth(nextWidth);
     setScene(nextScene);
+    setDraft(defaultsFor(nextScene));
   };
 
   const share = shareFor(scene);
@@ -146,9 +158,17 @@ const NotebookVolumePreview = () => {
             notebookId="note-1"
             status="ready"
             share={share}
-            title={scene === 'empty' ? '' : 'Who pays?'}
-            introduction={scene === 'empty' ? '' : (scene === 'stale' ? 'Rewritten in the workshop.' : 'Two finished notes, one question.')}
-            selection={scene === 'empty' ? ['note-1'] : ['note-1', 'note-2']}
+            title={draft.title}
+            introduction={draft.introduction}
+            selection={draft.selection}
+            onTitle={(title) => setDraft((current) => ({ ...current, title }))}
+            onIntroduction={(introduction) => setDraft((current) => ({ ...current, introduction }))}
+            onToggle={(id) => setDraft((current) => ({
+              ...current,
+              selection: current.selection.includes(id)
+                ? current.selection.filter((item) => item !== id)
+                : [...current.selection, id]
+            }))}
           />
         ) : null}
       </div>

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   getNotebookVolume,
+  previewNotebookVolume,
   publishNotebookVolume,
   revokeNotebookVolume,
   updateNotebookVolume
@@ -295,10 +296,10 @@ export default function NotebookVolume({ notebookId, revision = 0 }) {
     introduction
   ]);
 
-  const load = useCallback(async (nextDraft = draft) => {
+  const previewDraft = useCallback(async (nextDraft = draft) => {
     setError('');
     try {
-      const found = await getNotebookVolume(nextDraft);
+      const found = await previewNotebookVolume(nextDraft);
       setShare(found);
       setStatus('ready');
       return found;
@@ -326,7 +327,7 @@ export default function NotebookVolume({ notebookId, revision = 0 }) {
         setTitle(nextTitle);
         setIntroduction(nextIntro);
         hydrated.current = notebookId;
-        return getNotebookVolume({
+        return previewNotebookVolume({
           notebookIds: nextSelection,
           title: nextTitle,
           introduction: nextIntro
@@ -347,16 +348,16 @@ export default function NotebookVolume({ notebookId, revision = 0 }) {
   useEffect(() => {
     if (seenRevision.current === revision) return;
     seenRevision.current = revision;
-    load();
-  }, [revision, load]);
+    previewDraft();
+  }, [revision, previewDraft]);
 
   useEffect(() => {
     if (hydrated.current !== notebookId || status !== 'ready') return undefined;
     const timer = window.setTimeout(() => {
-      load(draft);
+      previewDraft(draft);
     }, 280);
     return () => window.clearTimeout(timer);
-  }, [draft, load, notebookId, status]);
+  }, [draft, previewDraft, notebookId, status]);
 
   const run = useCallback(async (label, work) => {
     if (busy) return;
@@ -387,16 +388,16 @@ export default function NotebookVolume({ notebookId, revision = 0 }) {
       onIntroduction={setIntroduction}
       onToggle={(id) => setSelection((current) => toggleId(current, id))}
       onMove={(id, delta) => setSelection((current) => moveId(current, id, delta))}
-      onRetry={() => load()}
+      onRetry={() => previewDraft()}
       onCreate={() => run('create', async () => {
-        const preview = await getNotebookVolume(draft);
+        const preview = await previewNotebookVolume(draft);
         return publishNotebookVolume({
           ...draft,
           previewHash: preview?.currentHash
         });
       })}
       onUpdate={() => run('update', async () => {
-        const preview = await getNotebookVolume(draft);
+        const preview = await previewNotebookVolume(draft);
         return updateNotebookVolume({
           ...draft,
           previewHash: preview?.currentHash
@@ -404,7 +405,7 @@ export default function NotebookVolume({ notebookId, revision = 0 }) {
       })}
       onStop={() => run('stop', async () => {
         await revokeNotebookVolume();
-        const next = await getNotebookVolume(draft);
+        const next = await previewNotebookVolume(draft);
         return next || {
           shared: false,
           publishable: false,
