@@ -124,19 +124,19 @@ const buildSharedQuestionRouter = ({
 
   router.delete('/api/questions/:id/share', authenticateToken, humanOnly, async (req, res) => {
     try {
-      const question = await findOwnedQuestion(req.user.id, req.params.id);
-      if (!question) {
-        return res.status(404).json({ error: 'Question not found.' });
+      const questionId = String(req.params.id || '').trim();
+      if (!questionId) {
+        return res.status(404).json({ error: 'No active share for this question.' });
       }
       const result = await SharedQuestion.findOneAndDelete({
         userId: req.user.id,
-        questionId: question._id
+        questionId
       });
       if (!result) {
         return res.status(404).json({ error: 'No active share for this question.' });
       }
       noStore(res);
-      return res.status(200).json({ revoked: true, questionId: String(question._id) });
+      return res.status(200).json({ revoked: true, questionId: String(result.questionId || questionId) });
     } catch (error) {
       console.error('❌ Error revoking shared question:', error);
       return res.status(500).json({ error: 'Failed to revoke share.' });

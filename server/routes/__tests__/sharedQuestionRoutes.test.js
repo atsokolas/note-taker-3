@@ -211,19 +211,22 @@ const run = async () => {
     assert.strictEqual(updated.body.snapshot.correction, 'The exception now leads.');
     assert.strictEqual(updated.body.snapshot.publishedAt, mint.body.snapshot.publishedAt);
 
-    const firstId = question._id;
     Question.rows.splice(0, Question.rows.length);
     const afterDelete = await fetchJson(`${base}/api/public/questions/${mint.body.slug}`);
     assert.strictEqual(afterDelete.response.status, 200);
     assert.strictEqual(afterDelete.body.question.text, 'Rewritten in the workshop.');
-    await Question.create({
-      _id: firstId,
-      userId,
-      text: 'Rewritten in the workshop.',
-      status: 'open',
-      conceptName: 'Compounding',
-      blocks: [{ id: 'p1', type: 'paragraph', text: 'Public paragraph.' }]
-    });
+
+    const revoke = await fetchJson(`${base}/api/questions/${questionId}/share`, { method: 'DELETE' });
+    assert.strictEqual(revoke.response.status, 200);
+    assert.strictEqual(revoke.body.revoked, true);
+
+    const missing = await fetchJson(`${base}/api/public/questions/${mint.body.slug}`);
+    assert.strictEqual(missing.response.status, 404);
+    assert.strictEqual(missing.body.error, 'This question is not published.');
+
+    const revokeAgain = await fetchJson(`${base}/api/questions/${questionId}/share`, { method: 'DELETE' });
+    assert.strictEqual(revokeAgain.response.status, 404);
+    assert.strictEqual(revokeAgain.body.error, 'No active share for this question.');
 
     const legacy = await SharedQuestion.create({
       userId,
@@ -245,13 +248,6 @@ const run = async () => {
     liveLegacy.text = 'Changed after backfill.';
     const frozenLegacy = await fetchJson(`${base}/api/public/questions/legacy-q`);
     assert.strictEqual(frozenLegacy.body.question.text, 'A leftover live pointer.');
-
-    const revoke = await fetchJson(`${base}/api/questions/${questionId}/share`, { method: 'DELETE' });
-    assert.strictEqual(revoke.response.status, 200);
-
-    const missing = await fetchJson(`${base}/api/public/questions/${mint.body.slug}`);
-    assert.strictEqual(missing.response.status, 404);
-    assert.strictEqual(missing.body.error, 'This question is not published.');
   } finally {
     server.close();
   }
