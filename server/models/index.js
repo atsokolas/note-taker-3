@@ -3055,6 +3055,7 @@ const SharedConcept = mongoose.model('SharedConcept', sharedConceptSchema);
  *
  * Same URL contract as a shared notebook. Public reads expose only authored
  * paragraph blocks; highlight refs and library material stay private.
+ * A later reading sits beside the snapshot, counted on this door.
  */
 const sharedQuestionSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
@@ -3063,12 +3064,34 @@ const sharedQuestionSchema = new mongoose.Schema({
   ownerDisplayName: { type: String, default: '' },
   snapshot: { type: mongoose.Schema.Types.Mixed, default: null },
   contentHash: { type: String, default: '' },
-  publishedAt: { type: Date, default: null }
+  publishedAt: { type: Date, default: null },
+  contributionCount: { type: Number, default: 0 }
 }, { timestamps: true });
 
 sharedQuestionSchema.index({ userId: 1, questionId: 1 }, { unique: true });
 
 const SharedQuestion = mongoose.model('SharedQuestion', sharedQuestionSchema);
+
+/* A bounded reading offered beside a published question.
+
+   It is attributed writing the second person chose to put on the public
+   door, not a view of their Library. It never merges into the frozen
+   snapshot. Revoking the share closes the door; the reading stays keyed
+   to that slug, so a later publish is a new address. Inclusion in a later
+   edition is a later, explicit act. */
+const questionContributionSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  questionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Question', required: true, index: true },
+  slug: { type: String, default: '', index: true },
+  by: { type: String, required: true },
+  text: { type: String, required: true },
+  remainder: { type: String, default: '' }
+}, { timestamps: true });
+
+questionContributionSchema.index({ slug: 1, createdAt: 1 });
+questionContributionSchema.index({ userId: 1, questionId: 1, createdAt: 1 });
+
+const QuestionContribution = mongoose.model('QuestionContribution', questionContributionSchema);
 
 /* A paper an agent wrote, shared at a link.
 
@@ -3420,6 +3443,7 @@ module.exports = {
   ReadingLoopEdition,
   SharedConcept,
   SharedQuestion,
+  QuestionContribution,
   CasebookLineage,
   CaseTeam,
   CrossCaseLink,

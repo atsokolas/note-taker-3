@@ -29,6 +29,10 @@ const ShareIncludesList = () => (
       Question text and authored paragraph blocks
     </li>
     <li>
+      <span className="concept-share-modal__includes-icon" aria-hidden="true">✓</span>
+      A later reading sits beside this question, not inside it
+    </li>
+    <li>
       <span className="concept-share-modal__includes-icon concept-share-modal__includes-icon--neg" aria-hidden="true">—</span>
       No library highlights, private notes, or agent thread
     </li>
@@ -142,6 +146,10 @@ const QuestionShareModal = ({ open, questionId, questionText, onClose }) => {
   const reader = state.shared ? (state.snapshot || (stale ? null : state.preview)) : state.preview;
   const pending = stale ? state.preview : null;
   const publishable = state.publishable !== false && Boolean(String(state.preview?.question?.text || questionText || '').trim());
+  const readings = Array.isArray(state.contributions) ? state.contributions : [];
+  const readerView = reader?.question
+    ? { ...reader, contributions: readings }
+    : reader;
 
   return (
     <div
@@ -167,10 +175,10 @@ const QuestionShareModal = ({ open, questionId, questionText, onClose }) => {
           <p className="status-message error-message">{error}</p>
         ) : (
           <div className="concept-share-modal__active">
-            {reader?.question ? (
+            {readerView?.question ? (
               <div className="concept-share-modal__reader" data-testid="question-share-preview">
                 <p className="concept-share-modal__reader-label">What a reader will see</p>
-                <QuestionShareView snapshot={reader} compact />
+                <QuestionShareView snapshot={readerView} compact />
               </div>
             ) : null}
             {pending?.question ? (

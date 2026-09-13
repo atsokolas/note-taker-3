@@ -1,12 +1,17 @@
 const {
+  CONTRIBUTION_LIMIT,
   canPublishConcept,
   canPublishQuestion,
+  contributionSlotFilter,
+  contributionText,
   freezeThinkSnapshot,
   hashPublicConcept,
   hashPublicQuestion,
   missingSnapshot,
+  projectContribution,
   projectPublicConcept,
   projectPublicQuestion,
+  publicQuestionPage,
   thinkShareState
 } = require('./authoredThinkShare');
 
@@ -99,5 +104,82 @@ describe('authored think share', () => {
     }, { preview: moved, currentHash: hashPublicQuestion(moved), kind: 'question' }).stale).toBe(true);
     expect(missingSnapshot({})).toBe(true);
     expect(missingSnapshot({ snapshot: preview })).toBe(false);
+  });
+
+  it('keeps an attributed reading beside the snapshot, not inside it', () => {
+    const preview = projectPublicQuestion({ text: 'What survives compounding?' }, 'Athan');
+    const frozen = freezeThinkSnapshot({
+      ...preview,
+      contributions: [{ by: 'Leaked', text: 'Should not freeze.' }]
+    }, '2026-09-13T12:00:00.000Z');
+    expect(frozen.contributions).toBeUndefined();
+    expect(hashPublicQuestion(preview)).toBe(hashPublicQuestion(frozen));
+
+    expect(contributionText('  <em>Patience is not avoidance.</em>  '))
+      .toBe('Patience is not avoidance.');
+    expect(projectContribution({
+      _id: 'c1',
+      by: ' Mara ',
+      text: '<p>Same fact, different time horizon.</p>',
+      remainder: 'Who pays when the window closes?',
+      createdAt: '2026-09-13T16:00:00.000Z',
+      articleId: 'private',
+      sourcePath: '/library?articleId=secret'
+    })).toEqual({
+      id: 'c1',
+      by: 'Mara',
+      text: 'Same fact, different time horizon.',
+      remainder: 'Who pays when the window closes?',
+      createdAt: '2026-09-13T16:00:00.000Z'
+    });
+    expect(projectContribution({ by: '', text: 'Nameless' })).toBeNull();
+    expect(JSON.stringify(projectContribution({
+      by: 'Mara',
+      text: 'Selected writing.',
+      articleId: 'secret',
+      sourcePath: '/library?articleId=secret'
+    }))).not.toMatch(/library\?/);
+
+    expect(contributionSlotFilter('qslug')).toEqual({
+      slug: 'qslug',
+      snapshot: { $ne: null },
+      $expr: { $lt: [{ $ifNull: ['$contributionCount', 0] }, CONTRIBUTION_LIMIT] }
+    });
+
+    const page = publicQuestionPage({
+      snapshot: {
+        ...frozen,
+        contributions: [{ by: 'Stale', text: 'From the frozen row.' }]
+      }
+    }, [{
+      _id: 'c2',
+      by: 'Mara',
+      text: 'Same fact, different time horizon.',
+      remainder: 'Who pays when the window closes?',
+      createdAt: '2026-09-13T16:00:00.000Z'
+    }]);
+    expect(page.question.text).toBe('What survives compounding?');
+    expect(page.contributions).toEqual([{
+      id: 'c2',
+      by: 'Mara',
+      text: 'Same fact, different time horizon.',
+      remainder: 'Who pays when the window closes?',
+      createdAt: '2026-09-13T16:00:00.000Z'
+    }]);
+
+    const hash = hashPublicQuestion(preview);
+    const shared = thinkShareState({
+      slug: 'qslug',
+      snapshot: frozen,
+      contentHash: hash
+    }, {
+      preview,
+      currentHash: hash,
+      kind: 'question',
+      contributions: [{ _id: 'c2', by: 'Mara', text: 'Same fact, different time horizon.' }]
+    });
+    expect(shared.contributions[0].by).toBe('Mara');
+    expect(shared.snapshot.contributions).toBeUndefined();
+    expect(thinkShareState(null, { preview, kind: 'concept' }).contributions).toBeUndefined();
   });
 });

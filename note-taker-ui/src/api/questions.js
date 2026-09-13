@@ -88,5 +88,13 @@ export const getPublicQuestion = async (slug) => {
   return res.data;
 };
 
+export const offerQuestionContribution = async (slug, body = {}) => {
+  const res = await api.post(
+    `/api/public/questions/${encodeURIComponent(slug)}/contributions`,
+    body
+  );
+  return res.data || { sent: true };
+};
+
 /** @deprecated Use mintQuestionShare */
 export const shareQuestion = mintQuestionShare;
