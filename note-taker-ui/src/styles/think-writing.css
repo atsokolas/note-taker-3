@@ -461,6 +461,27 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
   transform: translate(12px, 0);
 }
 
+.notebook-arrangement__bracket {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 8px;
+  height: var(--passage-height, 28px);
+  border: 1.5px solid var(--noeis-pointer, #6f87ff);
+  border-left: 0;
+  border-radius: 0 3px 3px 0;
+  opacity: 0.55;
+}
+
+.notebook-arrangement:is(:hover, :focus-within, .is-open) .notebook-arrangement__bracket { opacity: 1; }
+
+.notebook-arrangement__shortcut {
+  color: var(--noeis-pointer, #6f87ff);
+  font-family: var(--noeis-font-ui, system-ui, sans-serif);
+  font-size: 0.65rem;
+}
+.notebook-arrangement__shortcut span { color: var(--text-secondary); }
+
 .notebook-arrangement__mark,
 .notebook-arrangement__panel {
   pointer-events: auto;
@@ -479,15 +500,15 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
   background: color-mix(in srgb, var(--vellum-paper, #fbf8f1) 92%, transparent);
   box-shadow: 0 8px 22px rgba(43, 37, 28, 0.1);
   backdrop-filter: blur(12px);
-  color: var(--text-secondary, var(--vellum-muted, #6f6a62));
+  color: var(--noeis-pointer, #6f87ff);
   cursor: pointer;
 }
 
 .notebook-arrangement__mark:hover,
 .notebook-arrangement__mark:focus-visible,
 .notebook-arrangement.is-open .notebook-arrangement__mark {
-  color: var(--text-primary, var(--vellum-ink, #29251f));
-  border-color: color-mix(in srgb, var(--vellum-line, #ded7c9) 92%, var(--vellum-ink, #29251f));
+  color: var(--noeis-pointer, #6f87ff);
+  border-color: var(--noeis-pointer, #6f87ff);
 }
 
 .notebook-arrangement__panel {
@@ -559,6 +580,8 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
   .notebook-arrangement.is-motion {
     transition: top 180ms var(--noeis-ease-standard, cubic-bezier(0.2, 0.8, 0.2, 1));
   }
+
+  .notebook-arrangement.is-motion .notebook-arrangement__bracket { transition: height 180ms var(--noeis-ease-standard), opacity 120ms ease; }
 
   .notebook-arrangement.is-motion .notebook-arrangement__panel {
     animation: notebook-arrangement-in 160ms var(--noeis-ease-standard, cubic-bezier(0.2, 0.8, 0.2, 1)) both;

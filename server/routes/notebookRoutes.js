@@ -740,7 +740,10 @@ const buildNotebookRouter = ({
       res.status(200).json(payload);
     } catch (error) {
       console.error("❌ Error updating notebook entry:", error);
-      res.status(500).json({ error: "Failed to update notebook entry." });
+      const storageFull = error?.code === 8000 && /(?:space|storage) quota|over your.*quota/i.test(error.message || '');
+      res.status(storageFull ? 507 : 500).json(storageFull
+        ? { code: 'storage_full', error: 'Noeis storage is full. Your note was not saved. Keep this page open and retry when storage is available.' }
+        : { error: 'Failed to update notebook entry.' });
     }
   });
 

@@ -11,33 +11,22 @@ const editorShell = (editor) => {
   return prose.closest('.think-notebook-editor__body');
 };
 
-const passageOffsetPx = (editor, piece) => {
-  if (!editor || !piece) return 0;
+// Measure the same grouped passage that Move/Try without operate on. A source
+// attached to a paragraph belongs inside the bracket too.
+const measurePassages = (editor, pieces) => {
   const shell = editorShell(editor);
-  if (!shell?.getBoundingClientRect) return 0;
-  const doc = editor.state?.doc;
-  let pos = null;
-  if (typeof doc?.forEach === 'function') {
-    doc.forEach((_node, offset, index) => {
-      if (index === piece.startIndex) pos = offset + 1;
-    });
-  }
-  let passageTop = 0;
-  try {
-    if (Number.isInteger(pos) && editor.view?.coordsAtPos) {
-      const coords = editor.view.coordsAtPos(pos);
-      if (Number.isFinite(coords?.top)) passageTop = coords.top;
-    }
-  } catch (_err) {
-    passageTop = 0;
-  }
-  if (!passageTop && Number.isInteger(pos) && editor.view?.nodeDOM) {
-    const node = editor.view.nodeDOM(pos);
-    const el = node?.nodeType === 1 ? node : node?.parentElement;
-    if (el?.getBoundingClientRect) passageTop = el.getBoundingClientRect().top;
-  }
-  const shellRect = shell.getBoundingClientRect();
-  return Math.max(0, passageTop - shellRect.top + (shell.scrollTop || 0));
+  const rects = [];
+  editor?.state?.doc?.forEach?.((node, offset, index) => {
+    rects[index] = editor.view.nodeDOM?.(offset)?.getBoundingClientRect?.();
+  });
+  const origin = shell ? shell.getBoundingClientRect().top - (shell.scrollTop || 0) : 0;
+  return pieces.map(piece => {
+    const nodes = rects.slice(piece.startIndex, piece.endIndex + 1).filter(Boolean);
+    if (!shell || !nodes.length) return { top: 0, height: MARK_SIZE_PX };
+    const top = Math.min(...nodes.map(rect => rect.top));
+    const bottom = Math.max(...nodes.map(rect => rect.bottom));
+    return { top: Math.max(0, top - origin), height: Math.max(MARK_SIZE_PX, bottom - top) };
+  });
 };
 
 const readingOffsetPx = (shell) => {
@@ -75,7 +64,9 @@ const NotebookArrangementRail = ({
 }) => {
   const rootRef = useRef(null);
   const [open, setOpen] = useState(false);
-  const [top, setTop] = useState(0);
+  const [bounds, setBounds] = useState({ top: 0, height: MARK_SIZE_PX });
+  const keyboardOpenRef = useRef(false);
+  const markRef = useRef(null);
   const [placeAbove, setPlaceAbove] = useState(false);
   const [trackedIndex, setTrackedIndex] = useState(
     Number.isInteger(currentPieceIndex) ? currentPieceIndex : null
@@ -92,38 +83,38 @@ const NotebookArrangementRail = ({
 
   useLayoutEffect(() => {
     if (!showMark) {
-      setTop(0);
+      setBounds({ top: 0, height: MARK_SIZE_PX });
       setTrackedIndex(null);
       return undefined;
     }
     const sync = () => {
       const shell = editorShell(editor);
-      const offsets = pieces.map((piece) => passageOffsetPx(editor, piece));
+      const positions = measurePassages(editor, pieces);
+      const offsets = positions.map(position => position.top);
       const caretIndex = Number.isInteger(currentPieceIndex) && pieces[currentPieceIndex]
         ? currentPieceIndex
         : null;
-      const nextIndex = followSelection && Number.isInteger(caretIndex)
+      const nextIndex = open && !followSelection && pieces[trackedIndex]
+        ? trackedIndex
+        : followSelection && Number.isInteger(caretIndex)
         ? caretIndex
         : pieceIndexNearOffset(offsets, readingOffsetPx(shell));
       setTrackedIndex(Number.isInteger(nextIndex) ? nextIndex : caretIndex);
-      const raw = Number.isInteger(nextIndex) ? (offsets[nextIndex] || 0) : 0;
-      const maxTop = Math.max(0, (shell?.scrollHeight || shell?.clientHeight || 0) - MARK_SIZE_PX);
-      setTop(Math.max(0, Math.min(raw, maxTop || raw)));
+      const next = positions[nextIndex] || { top: 0, height: MARK_SIZE_PX };
+      setBounds(previous => previous.top === next.top && previous.height === next.height ? previous : next);
     };
     sync();
     const prose = editor?.view?.dom;
-    const shell = editorShell(editor);
+    const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(sync) : null;
+    if (prose) observer?.observe(prose);
     window.addEventListener('resize', sync);
     window.addEventListener('scroll', sync, { passive: true, capture: true });
-    prose?.addEventListener?.('scroll', sync, { passive: true });
-    shell?.addEventListener?.('scroll', sync, { passive: true });
     return () => {
+      observer?.disconnect();
       window.removeEventListener('resize', sync);
       window.removeEventListener('scroll', sync, true);
-      prose?.removeEventListener?.('scroll', sync);
-      shell?.removeEventListener?.('scroll', sync);
     };
-  }, [showMark, editor, pieces, currentPieceIndex, followSelection]);
+  }, [showMark, editor, pieces, currentPieceIndex, followSelection, open, trackedIndex]);
 
   useEffect(() => {
     if (showMark) return undefined;
@@ -132,19 +123,47 @@ const NotebookArrangementRail = ({
   }, [showMark]);
 
   useEffect(() => {
-    if (!open) return undefined;
-    const onKey = (event) => {
-      if (event.key === 'Escape') setOpen(false);
+    if (!enabled || !showMark) return undefined;
+    const onKey = event => {
+      if (event.isComposing || event.keyCode === 229 || event.defaultPrevented) return;
+      const inEditor = editor?.view?.dom?.contains(event.target);
+      const inControls = rootRef.current?.contains(event.target);
+      if ((event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey
+        && event.key === '/' && (inEditor || inControls)) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (open) {
+          setOpen(false);
+          editor?.commands?.focus();
+        } else {
+          keyboardOpenRef.current = true;
+          if (Number.isInteger(currentPieceIndex)) setTrackedIndex(currentPieceIndex);
+          setOpen(true);
+          onReveal?.(currentPieceIndex);
+        }
+      } else if (open && event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        setOpen(false);
+        if (keyboardOpenRef.current) editor?.commands?.focus();
+        else markRef.current?.focus();
+      }
     };
-    const onPointerDown = (event) => {
+    const onPointerDown = event => {
       if (!rootRef.current?.contains(event.target)) setOpen(false);
     };
-    document.addEventListener('keydown', onKey);
+    document.addEventListener('keydown', onKey, true);
     document.addEventListener('pointerdown', onPointerDown);
     return () => {
-      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('keydown', onKey, true);
       document.removeEventListener('pointerdown', onPointerDown);
     };
+  }, [editor, enabled, showMark, open, currentPieceIndex, onReveal]);
+
+  useLayoutEffect(() => {
+    if (open && keyboardOpenRef.current) {
+      rootRef.current?.querySelector('.notebook-arrangement__controls button:not(:disabled)')?.focus();
+    }
   }, [open]);
 
   useLayoutEffect(() => {
@@ -160,7 +179,7 @@ const NotebookArrangementRail = ({
     const nextAbove = panel.offsetHeight + 12 > roomBelow && markRect.top > panel.offsetHeight;
     setPlaceAbove(nextAbove);
     return undefined;
-  }, [open, top, trackedIndex, receipt, asidePieces]);
+  }, [open, bounds.top, trackedIndex, receipt, asidePieces]);
 
   if (!showMark) return null;
 
@@ -174,6 +193,7 @@ const NotebookArrangementRail = ({
 
   const toggleOpen = (event) => {
     event.stopPropagation();
+    keyboardOpenRef.current = false;
     const next = !open;
     setOpen(next);
     if (next) onReveal?.(Number.isInteger(trackedIndex) ? trackedIndex : undefined);
@@ -184,13 +204,17 @@ const NotebookArrangementRail = ({
       ref={rootRef}
       className={`notebook-arrangement${motionOk ? ' is-motion' : ''}${open ? ' is-open' : ''}${placeAbove ? ' is-above' : ''}`}
       data-notebook-arrangement="mark"
-      style={{ top }}
+      style={{ top: bounds.top, '--passage-height': `${bounds.height}px` }}
       onMouseDown={holdSelection}
     >
+      {tracked ? <span className="notebook-arrangement__bracket" aria-hidden="true" /> : null}
       <button
+        ref={markRef}
         type="button"
         className="notebook-arrangement__mark"
         aria-label={markName}
+        aria-keyshortcuts="Meta+/ Control+/"
+        title="Arrange passage (⌘/ · Ctrl+/)"
         aria-expanded={open}
         aria-controls="notebook-arrangement-panel"
         onClick={toggleOpen}
@@ -207,6 +231,7 @@ const NotebookArrangementRail = ({
           {tracked ? (
             <p className="notebook-arrangement__label">{tracked.label}</p>
           ) : null}
+          <small className="notebook-arrangement__shortcut">⌘/ · Ctrl+/ <span>to open · Esc to return</span></small>
           <div className="notebook-arrangement__controls">
             <QuietButton
               disabled={!canMoveUp}

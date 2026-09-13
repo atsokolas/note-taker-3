@@ -1285,13 +1285,13 @@ const NotebookEditor = ({
                 <QuietButton onClick={() => onDelete(entry)} disabled={saving}>Delete</QuietButton>
               </div>
             </details>
-            {editingBody ? (
+            {editingBody || saveState !== 'idle' ? (
               <span className={`think-notebook-save-state is-${saveState}`} role="status" aria-live="polite">
-                {saving || saveState === 'saving' ? 'Saving…' : saveState === 'error' ? 'Could not save · retrying on your next change' : saveState === 'saved' ? 'Saved' : 'Editing'}
+                {saving || saveState === 'saving' ? 'Saving…' : saveState === 'error' ? 'Not saved' : saveState === 'saved' ? 'Saved' : 'Editing'}
+                {saveState === 'error' && !saving ? <QuietButton onClick={commitDraft}>Retry save</QuietButton> : null}
               </span>
-            ) : (
-              <QuietButton onClick={startEditingBody}>Edit</QuietButton>
-            )}
+            ) : null}
+            {!editingBody ? <QuietButton onClick={startEditingBody}>Edit</QuietButton> : null}
           </div>
         </div>
       </div>
