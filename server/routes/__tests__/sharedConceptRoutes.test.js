@@ -200,10 +200,10 @@ const run = async () => {
     const afterDelete = await fetchJson(`${base}/api/public/concepts/${mint.body.slug}`);
     assert.strictEqual(afterDelete.response.status, 200);
     assert.ok(JSON.stringify(afterDelete.body).includes('Rewritten in the workshop.'));
-    await TagMeta.create(concept);
 
     const revoke = await fetchJson(shareUrl, { method: 'DELETE' });
     assert.strictEqual(revoke.response.status, 200, revoke.body.error);
+    assert.strictEqual(revoke.body.revoked, true);
 
     const missing = await fetchJson(`${base}/api/public/concepts/${mint.body.slug}`);
     assert.strictEqual(missing.response.status, 404, missing.body.error);
