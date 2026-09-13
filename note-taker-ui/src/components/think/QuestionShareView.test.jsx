@@ -35,10 +35,37 @@ describe('QuestionShareView', () => {
     expect(screen.queryByLabelText('How you take this')).not.toBeInTheDocument();
   });
 
+  it('closes with a brief beside the readings, not as consensus', () => {
+    render(
+      <QuestionShareView
+        snapshot={questionSnapshot({
+          contributions: [questionContribution({
+            interpretation: 'The horizon is the claim, not the fact.',
+            interpretedBy: 'Athan'
+          })],
+          brief: {
+            agreement: 'The fact is shared. The horizon is not.',
+            remainder: 'The window may close before compounding pays.',
+            observation: 'Watch who is still in the room when the cost arrives.',
+            by: 'Athan'
+          }
+        })}
+      />
+    );
+    expect(screen.getByTestId('question-share-brief')).toHaveTextContent('What holds');
+    expect(screen.getByTestId('question-share-brief')).toHaveTextContent('The fact is shared. The horizon is not.');
+    expect(screen.getByTestId('question-share-brief')).toHaveTextContent('Athan still holds');
+    expect(screen.getByTestId('question-share-brief')).toHaveTextContent('The window may close before compounding pays.');
+    expect(screen.getByTestId('question-share-brief')).toHaveTextContent('What could move this');
+    expect(screen.getByText('Same fact, different time horizon.')).toBeInTheDocument();
+    expect(screen.queryByLabelText('What holds')).not.toBeInTheDocument();
+  });
+
   it('stays silent when nobody has offered a reading', () => {
     render(<QuestionShareView snapshot={questionSnapshot()} />);
     expect(screen.queryByTestId('question-share-readings')).not.toBeInTheDocument();
     expect(screen.queryByTestId('question-share-yours')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('question-share-brief')).not.toBeInTheDocument();
     expect(screen.queryByText(/Still holds/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Not quite/)).not.toBeInTheDocument();
   });

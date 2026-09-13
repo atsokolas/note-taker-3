@@ -174,4 +174,35 @@ describe('SharedQuestion', () => {
     expect(screen.queryByTestId('question-share-readings')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Offer a reading' })).toBeInTheDocument();
   });
+
+  it('closes the public page with a brief, not a debate score', async () => {
+    getPublicQuestion.mockResolvedValueOnce({
+      ownerDisplayName: 'Athan',
+      publishedAt: '2026-06-14T00:00:00Z',
+      question: {
+        text: 'What survives compounding?',
+        status: 'open',
+        paragraphs: [{ id: 'p1', type: 'paragraph', text: 'First paragraph.' }]
+      },
+      contributions: [{
+        id: 'c1',
+        by: 'Mara',
+        text: 'Same fact, different time horizon.',
+        remainder: 'Who pays when the window closes?'
+      }],
+      brief: {
+        agreement: 'The fact is shared. The horizon is not.',
+        remainder: 'The window may close before compounding pays.',
+        observation: 'Watch who is still in the room when the cost arrives.',
+        by: 'Athan'
+      }
+    });
+
+    render(<SharedQuestion />);
+    expect(await screen.findByTestId('question-share-brief')).toHaveTextContent('What holds');
+    expect(screen.getByTestId('question-share-brief')).toHaveTextContent('The fact is shared. The horizon is not.');
+    expect(screen.getByTestId('question-share-brief')).toHaveTextContent('Athan still holds');
+    expect(screen.getByTestId('question-share-readings')).toHaveTextContent('Same fact, different time horizon.');
+    expect(screen.queryByRole('button', { name: 'Save this brief' })).not.toBeInTheDocument();
+  });
 });

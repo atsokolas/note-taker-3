@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { usePrefersReducedMotion } from '../../hooks/useMotionPreferences';
-import { QUESTION_SHARE_COLOPHON, QUESTION_SHARE_OFFER, QUESTION_SHARE_RECEIPT, QUESTION_SHARE_WITHDRAW, QUESTION_SHARE_YOURS } from './thinkShareFixture';
+import { QUESTION_SHARE_AGREEMENT, QUESTION_SHARE_COLOPHON, QUESTION_SHARE_OBSERVATION, QUESTION_SHARE_OFFER, QUESTION_SHARE_OWNER_REMAINDER, QUESTION_SHARE_RECEIPT, QUESTION_SHARE_WITHDRAW, QUESTION_SHARE_YOURS } from './thinkShareFixture';
 
 const asLine = (value) => String(value || '').trim();
 
@@ -22,6 +22,21 @@ const yoursOf = (snapshot) => (
     ? snapshot.yours.filter((item) => asLine(item?.by) && asLine(item?.text))
     : []
 );
+
+const briefOf = (snapshot) => {
+  const brief = snapshot?.brief && typeof snapshot.brief === 'object' ? snapshot.brief : null;
+  if (!brief) return null;
+  const agreement = asLine(brief.agreement);
+  const remainder = asLine(brief.remainder);
+  const observation = asLine(brief.observation);
+  if (!agreement && !remainder && !observation) return null;
+  return {
+    agreement,
+    remainder,
+    observation,
+    by: asLine(brief.by)
+  };
+};
 
 const OfferReading = ({ onOffer, held = false }) => {
   const reduced = usePrefersReducedMotion();
@@ -198,6 +213,7 @@ export default function QuestionShareView({
     : when;
   const readings = readingsOf(snapshot);
   const yours = compact ? [] : yoursOf(snapshot);
+  const brief = briefOf(snapshot);
   const invite = compact ? null : onOffer;
   const takeBack = compact ? null : onWithdraw;
 
@@ -239,6 +255,31 @@ export default function QuestionShareView({
               onWithdraw={takeBack && reading.mine ? takeBack : null}
             />
           ))}
+        </section>
+      ) : null}
+      {brief ? (
+        <section className="think-share-view__brief" data-testid="question-share-brief">
+          <p className="think-share-view__section">A shared brief</p>
+          {brief.agreement ? (
+            <>
+              <p className="think-share-view__brief-label">{QUESTION_SHARE_AGREEMENT}</p>
+              <p>{brief.agreement}</p>
+            </>
+          ) : null}
+          {brief.remainder ? (
+            <>
+              <p className="think-share-view__brief-label">
+                {brief.by ? `${brief.by} still holds` : QUESTION_SHARE_OWNER_REMAINDER}
+              </p>
+              <p className="think-share-view__remainder">{brief.remainder}</p>
+            </>
+          ) : null}
+          {brief.observation ? (
+            <>
+              <p className="think-share-view__brief-label">{QUESTION_SHARE_OBSERVATION}</p>
+              <p>{brief.observation}</p>
+            </>
+          ) : null}
         </section>
       ) : null}
       {yours.length ? (

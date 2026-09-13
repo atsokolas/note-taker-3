@@ -1,5 +1,6 @@
 const express = require('express');
 const {
+  BRIEF_NEEDS_READING,
   CONTRIBUTION_LIMIT,
   NOT_PUBLISHED,
   PREVIEW_STALE,
@@ -16,6 +17,7 @@ const {
   liveQuestionPreview,
   loadQuestionContributions,
   missingSnapshot,
+  placedContributions,
   projectPublicQuestion,
   publicQuestionPage,
   readLean,
@@ -319,6 +321,60 @@ const buildSharedQuestionRouter = ({
       } catch (error) {
         console.error('❌ Error interpreting question contribution:', error);
         return res.status(500).json({ error: 'Failed to save how you take that reading.' });
+      }
+    }
+  );
+
+  /* The owner may close the shared question with what holds, what they
+     still hold, and what could move this. Contributor remainders stay on
+     their readings. Empty clears. It never enters the snapshot. */
+  router.patch(
+    '/api/questions/:id/share/brief',
+    authenticateToken,
+    humanOnly,
+    async (req, res) => {
+      noStore(res);
+      try {
+        const question = await findOwnedQuestion(req.user.id, req.params.id);
+        if (!question) {
+          return res.status(404).json({ error: 'Question not found.' });
+        }
+        const share = asRow(await readLean(SharedQuestion.findOne({
+          userId: req.user.id,
+          questionId: question._id
+        })));
+        if (!share?.snapshot) {
+          return res.status(404).json({ error: 'This question is not shared.' });
+        }
+        const contributions = await readingsFor(share.slug);
+        if (!placedContributions(contributions).length) {
+          return res.status(409).json({
+            error: BRIEF_NEEDS_READING,
+            field: 'brief'
+          });
+        }
+        const brief = {
+          agreement: contributionRemainder(req.body?.agreement),
+          remainder: contributionRemainder(req.body?.remainder),
+          observation: contributionRemainder(req.body?.observation)
+        };
+        const updated = await SharedQuestion.findOneAndUpdate(
+          { _id: share._id, userId: req.user.id },
+          { $set: { brief } },
+          { new: true }
+        );
+        if (!updated) {
+          return res.status(404).json({ error: 'This question is not shared.' });
+        }
+        const { preview, currentHash } = await liveQuestionPreview({
+          User,
+          question,
+          userId: req.user.id
+        });
+        return res.status(200).json(await payload(asRow(updated), { preview, currentHash }));
+      } catch (error) {
+        console.error('❌ Error saving question share brief:', error);
+        return res.status(500).json({ error: 'Failed to save that brief.' });
       }
     }
   );

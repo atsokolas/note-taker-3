@@ -15,6 +15,7 @@ const {
   projectContribution,
   projectPublicConcept,
   projectPublicQuestion,
+  projectShareBrief,
   publicQuestionPage,
   thinkShareState
 } = require('./authoredThinkShare');
@@ -117,12 +118,14 @@ describe('authored think share', () => {
       contributions: [{ by: 'Leaked', text: 'Should not freeze.' }],
       interpretation: 'Should not freeze.',
       yours: [{ by: 'Leaked', text: 'Should not freeze.' }],
-      mine: true
+      mine: true,
+      brief: { agreement: 'Should not freeze.' }
     }, '2026-09-13T12:00:00.000Z');
     expect(frozen.contributions).toBeUndefined();
     expect(frozen.interpretation).toBeUndefined();
     expect(frozen.yours).toBeUndefined();
     expect(frozen.mine).toBeUndefined();
+    expect(frozen.brief).toBeUndefined();
     expect(hashPublicQuestion(preview)).toBe(hashPublicQuestion(frozen));
 
     expect(contributionText('  <em>Patience is not avoidance.</em>  '))
@@ -412,5 +415,54 @@ describe('authored think share', () => {
       updatedAt: stampedAt
     });
     expect(JSON.stringify(ownerSilent)).not.toMatch(/withdrawnAt|I will take this back/);
+
+    const liveRows = [{
+      _id: 'live',
+      by: 'Ada',
+      text: 'Already on the page.',
+      remainder: 'Who pays when the window closes?'
+    }];
+    const shareWithBrief = {
+      slug: 'qslug',
+      ownerDisplayName: 'Athan',
+      snapshot: {
+        ...frozen,
+        brief: { agreement: 'Should not publish from the snapshot.' }
+      },
+      brief: {
+        agreement: '<em>The fact is shared. The horizon is not.</em>',
+        remainder: 'The window may close before compounding pays.',
+        observation: 'Watch who is still in the room when the cost arrives.'
+      }
+    };
+    expect(projectShareBrief({ snapshot: frozen }, [])).toBeNull();
+    expect(projectShareBrief(shareWithBrief, liveRows)).toEqual({
+      agreement: 'The fact is shared. The horizon is not.',
+      remainder: 'The window may close before compounding pays.',
+      observation: 'Watch who is still in the room when the cost arrives.',
+      by: 'Athan'
+    });
+    const briefPage = publicQuestionPage(shareWithBrief, liveRows);
+    expect(briefPage.brief).toEqual({
+      agreement: 'The fact is shared. The horizon is not.',
+      remainder: 'The window may close before compounding pays.',
+      observation: 'Watch who is still in the room when the cost arrives.',
+      by: 'Athan'
+    });
+    expect(briefPage.snapshot).toBeUndefined();
+    expect(publicQuestionPage({ snapshot: frozen, brief: shareWithBrief.brief }, []).brief).toBeUndefined();
+    const ownerBrief = thinkShareState(shareWithBrief, {
+      preview,
+      currentHash: hash,
+      kind: 'question',
+      contributions: liveRows
+    });
+    expect(ownerBrief.brief).toEqual({
+      agreement: 'The fact is shared. The horizon is not.',
+      remainder: 'The window may close before compounding pays.',
+      observation: 'Watch who is still in the room when the cost arrives.',
+      by: 'Athan'
+    });
+    expect(ownerBrief.snapshot.brief).toBeUndefined();
   });
 });

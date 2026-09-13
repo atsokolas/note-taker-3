@@ -2,11 +2,16 @@ import React, { useMemo, useState } from 'react';
 import QuestionShareView from '../components/think/QuestionShareView';
 import {
   QUESTION_NOT_PUBLISHED,
+  QUESTION_SHARE_AGREEMENT,
+  QUESTION_SHARE_BRIEF,
+  QUESTION_SHARE_OBSERVATION,
+  QUESTION_SHARE_OWNER_REMAINDER,
   QUESTION_SHARE_PLACE,
   QUESTION_SHARE_PRIVACY,
   QUESTION_SHARE_TAKE,
   QUESTION_SHARE_TAKEN_BACK,
   THINK_SHARE_REVOKE,
+  questionBrief,
   questionContribution,
   questionSnapshot
 } from '../components/think/thinkShareFixture';
@@ -27,6 +32,7 @@ const SCENES = [
   { id: 'waiting', label: 'Waiting' },
   { id: 'conflict', label: 'Conflict' },
   { id: 'taken', label: 'Taken' },
+  { id: 'brief', label: 'Brief' },
   { id: 'contributor', label: 'Contributor' },
   { id: 'owner', label: 'Owner' },
   { id: 'revised', label: 'Revised' },
@@ -43,6 +49,10 @@ const taken = questionSnapshot({
     interpretation: 'The horizon is the claim, not the fact.',
     interpretedBy: 'Athan'
   })]
+});
+const closed = questionSnapshot({
+  contributions: taken.contributions,
+  brief: questionBrief()
 });
 const contributor = questionSnapshot({
   yours: [questionContribution()]
@@ -69,6 +79,17 @@ const shareFor = (scene) => {
   }
   if (scene === 'taken') {
     return { shared: true, slug: 'qslug', stale: false, snapshot: frozen, preview: live, contributions: taken.contributions };
+  }
+  if (scene === 'brief') {
+    return {
+      shared: true,
+      slug: 'qslug',
+      stale: false,
+      snapshot: frozen,
+      preview: live,
+      contributions: taken.contributions,
+      brief: questionBrief()
+    };
   }
   if (scene === 'contributor') {
     return { shared: true, slug: 'qslug', stale: false, snapshot: frozen, preview: live, contributions: [] };
@@ -97,6 +118,8 @@ const QuestionSharePreview = () => {
   const [takeSaved, setTakeSaved] = useState('');
   const [placed, setPlaced] = useState(false);
   const [takenBack, setTakenBack] = useState(false);
+  const [brief, setBrief] = useState(questionBrief());
+  const [briefSaved, setBriefSaved] = useState(null);
 
   const setQuery = (nextWidth, nextScene) => {
     const search = new URLSearchParams({ width: nextWidth, scene: nextScene }).toString();
@@ -105,6 +128,7 @@ const QuestionSharePreview = () => {
     if (nextScene !== scene) {
       setPlaced(false);
       setTakenBack(false);
+      setBriefSaved(null);
     }
     setScene(nextScene);
   };
@@ -122,14 +146,14 @@ const QuestionSharePreview = () => {
     if (!interpretation) return row;
     return { ...row, interpretation, interpretedBy: 'Athan' };
   });
-  const publicPage = scene === 'taken' ? taken : scene === 'together' ? together : frozen;
+  const publicPage = scene === 'brief' ? closed : scene === 'taken' ? taken : scene === 'together' ? together : frozen;
   const publicSnapshot = scene === 'contributor'
     ? (takenBack ? frozen : contributor)
     : {
       ...publicPage,
       contributions: publicPage.contributions || []
     };
-  const isPublicPage = scene === 'public' || scene === 'together' || scene === 'taken' || scene === 'contributor';
+  const isPublicPage = scene === 'public' || scene === 'together' || scene === 'taken' || scene === 'contributor' || scene === 'brief';
 
   return (
     <div className="notebook-share-preview">
@@ -186,7 +210,7 @@ const QuestionSharePreview = () => {
               <div className="notebook-share__preview" data-testid="question-share-preview">
                 <p className="notebook-share__preview-label">What a reader will see</p>
                 <QuestionShareView
-                  snapshot={{ ...reader, contributions: ownerReadings }}
+                  snapshot={{ ...reader, contributions: ownerReadings, brief: briefSaved || undefined }}
                   compact
                 />
               </div>
@@ -235,6 +259,50 @@ const QuestionSharePreview = () => {
                   onClick={() => setTakeSaved(take)}
                 >
                   Save how you take it
+                </button>
+              </div>
+            ) : null}
+            {scene === 'owner' && ownerReadings.length ? (
+              <div className="notebook-share__letters" data-testid="question-share-brief-form">
+                <label className="notebook-share__url-label" htmlFor="question-share-preview-agreement">
+                  {QUESTION_SHARE_AGREEMENT}
+                </label>
+                <textarea
+                  id="question-share-preview-agreement"
+                  className="notebook-share__correction"
+                  value={brief.agreement}
+                  maxLength={400}
+                  rows={3}
+                  onChange={(event) => setBrief({ ...brief, agreement: event.target.value })}
+                />
+                <label className="notebook-share__url-label" htmlFor="question-share-preview-remainder">
+                  {QUESTION_SHARE_OWNER_REMAINDER}
+                </label>
+                <textarea
+                  id="question-share-preview-remainder"
+                  className="notebook-share__correction"
+                  value={brief.remainder}
+                  maxLength={400}
+                  rows={3}
+                  onChange={(event) => setBrief({ ...brief, remainder: event.target.value })}
+                />
+                <label className="notebook-share__url-label" htmlFor="question-share-preview-observation">
+                  {QUESTION_SHARE_OBSERVATION}
+                </label>
+                <textarea
+                  id="question-share-preview-observation"
+                  className="notebook-share__correction"
+                  value={brief.observation}
+                  maxLength={400}
+                  rows={3}
+                  onChange={(event) => setBrief({ ...brief, observation: event.target.value })}
+                />
+                <p className="notebook-share__hint">{QUESTION_SHARE_BRIEF}</p>
+                <button
+                  type="button"
+                  onClick={() => setBriefSaved(brief)}
+                >
+                  Save this brief
                 </button>
               </div>
             ) : null}

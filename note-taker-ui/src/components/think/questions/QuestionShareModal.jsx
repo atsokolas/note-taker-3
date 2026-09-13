@@ -6,11 +6,16 @@ import {
   mintQuestionShare,
   placeQuestionContribution,
   revokeQuestionShare,
+  saveQuestionShareBrief,
   updateQuestionShare
 } from '../../../api/questions';
 import { usePrefersReducedMotion } from '../../../hooks/useMotionPreferences';
 import QuestionShareView from '../QuestionShareView';
 import {
+  QUESTION_SHARE_AGREEMENT,
+  QUESTION_SHARE_BRIEF,
+  QUESTION_SHARE_OBSERVATION,
+  QUESTION_SHARE_OWNER_REMAINDER,
   QUESTION_SHARE_PLACE,
   QUESTION_SHARE_PRIVACY,
   QUESTION_SHARE_TAKE,
@@ -115,6 +120,83 @@ const PlaceReading = ({ reading, disabled, onPlace }) => {
         {busy ? 'Placing…' : 'Let this sit beside the question'}
       </Button>
     </article>
+  );
+};
+
+const ShareBrief = ({ brief, disabled, onSave }) => {
+  const [agreement, setAgreement] = useState(asLine(brief?.agreement));
+  const [remainder, setRemainder] = useState(asLine(brief?.remainder));
+  const [observation, setObservation] = useState(asLine(brief?.observation));
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    setAgreement(asLine(brief?.agreement));
+    setRemainder(asLine(brief?.remainder));
+    setObservation(asLine(brief?.observation));
+  }, [brief?.agreement, brief?.remainder, brief?.observation]);
+
+  const save = async () => {
+    if (busy || disabled) return;
+    setBusy(true);
+    setError('');
+    try {
+      await onSave({
+        agreement: asLine(agreement),
+        remainder: asLine(remainder),
+        observation: asLine(observation)
+      });
+    } catch (_err) {
+      setError('That brief did not save.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="concept-share-modal__note" data-testid="question-share-brief-form">
+      <label className="concept-share-modal__label" htmlFor="question-share-brief-agreement">
+        {QUESTION_SHARE_AGREEMENT}
+      </label>
+      <textarea
+        id="question-share-brief-agreement"
+        className="concept-share-modal__correction"
+        value={agreement}
+        maxLength={400}
+        rows={3}
+        onChange={(event) => setAgreement(event.target.value)}
+        disabled={disabled || busy}
+      />
+      <label className="concept-share-modal__label" htmlFor="question-share-brief-remainder">
+        {QUESTION_SHARE_OWNER_REMAINDER}
+      </label>
+      <textarea
+        id="question-share-brief-remainder"
+        className="concept-share-modal__correction"
+        value={remainder}
+        maxLength={400}
+        rows={3}
+        onChange={(event) => setRemainder(event.target.value)}
+        disabled={disabled || busy}
+      />
+      <label className="concept-share-modal__label" htmlFor="question-share-brief-observation">
+        {QUESTION_SHARE_OBSERVATION}
+      </label>
+      <textarea
+        id="question-share-brief-observation"
+        className="concept-share-modal__correction"
+        value={observation}
+        maxLength={400}
+        rows={3}
+        onChange={(event) => setObservation(event.target.value)}
+        disabled={disabled || busy}
+      />
+      <p className="muted small">{QUESTION_SHARE_BRIEF}</p>
+      {error ? <p className="status-message error-message">{error}</p> : null}
+      <Button type="button" variant="secondary" onClick={save} disabled={disabled || busy}>
+        {busy ? 'Saving…' : 'Save this brief'}
+      </Button>
+    </div>
   );
 };
 
@@ -248,6 +330,11 @@ const QuestionShareModal = ({ open, questionId, questionText, onClose }) => {
     }
   };
 
+  const handleBrief = async (brief) => {
+    const data = await saveQuestionShareBrief(questionId, brief);
+    setState(data);
+  };
+
   const handleRevoke = async () => {
     if (!window.confirm('Revoke this share link? Anyone with the existing link will lose access immediately.')) return;
     setBusy(true);
@@ -290,8 +377,12 @@ const QuestionShareModal = ({ open, questionId, questionText, onClose }) => {
   const publishable = state.publishable !== false && Boolean(String(state.preview?.question?.text || questionText || '').trim());
   const readings = Array.isArray(state.contributions) ? state.contributions : [];
   const waiting = Array.isArray(state.waiting) ? state.waiting : [];
+  const brief = state.brief && typeof state.brief === 'object' ? state.brief : null;
+  const publicBrief = brief && (asLine(brief.agreement) || asLine(brief.remainder) || asLine(brief.observation))
+    ? brief
+    : undefined;
   const readerView = reader?.question
-    ? { ...reader, contributions: readings, yours: undefined }
+    ? { ...reader, contributions: readings, yours: undefined, brief: publicBrief }
     : reader;
 
   return (
@@ -356,6 +447,9 @@ const QuestionShareModal = ({ open, questionId, questionText, onClose }) => {
                   />
                 ))}
               </div>
+            ) : null}
+            {state.shared && readings.length ? (
+              <ShareBrief brief={brief} disabled={busy} onSave={handleBrief} />
             ) : null}
             {conflict ? (
               <p className="muted small" role="status" data-testid="question-share-conflict">
