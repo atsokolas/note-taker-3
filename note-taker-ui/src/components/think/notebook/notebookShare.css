@@ -330,15 +330,22 @@
     display: none;
   }
 
+  /* White paper. Dark (and automatic) theme ink is pale; a parent color
+     does not override descendant var(--noeis-ink) uses. Reset the tokens
+     the essay and colophon already read. */
   .notebook-share-preview,
   .notebook-share-preview__stage,
   .shared-notebook-page {
+    --noeis-ink: #1c1812;
+    --noeis-ink-subtle: #6b6458;
+    --noeis-rule: rgba(28, 24, 18, 0.18);
     min-height: 0;
     margin: 0;
     padding: 0;
     border: 0;
     background: #fff;
-    color: #1c1812;
+    color: var(--noeis-ink);
+    color-scheme: light;
   }
 
   .shared-notebook-page__inner {
