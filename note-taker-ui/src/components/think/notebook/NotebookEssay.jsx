@@ -203,13 +203,14 @@ const AskAboutPassage = ({ block, onAsk }) => {
   );
 };
 
-const EssayBlock = ({ block, onAsk }) => {
+const EssayBlock = ({ block, onAsk, nested = false }) => {
   const type = block?.type;
   const ask = onAsk && canAskAbout(block)
     ? <AskAboutPassage block={block} onAsk={onAsk} />
     : null;
   if (type === 'heading') {
-    const level = Math.min(Math.max(Number(block.level) || 2, 2), 4);
+    const base = Math.min(Math.max(Number(block.level) || 2, 2), 4);
+    const level = Math.min(base + (nested ? 1 : 0), 4);
     const Tag = `h${level}`;
     return <Tag className="notebook-essay__heading">{block.text}</Tag>;
   }
@@ -268,26 +269,34 @@ const EssayBlock = ({ block, onAsk }) => {
   return null;
 };
 
-export default function NotebookEssay({ snapshot, compact = false, onAsk = null }) {
+export default function NotebookEssay({
+  snapshot,
+  compact = false,
+  onAsk = null,
+  chapter = false
+}) {
   if (!snapshot) return null;
   const when = formatPublished(snapshot.publishedAt);
   const revised = formatPublished(snapshot.revisedAt);
   const showRevised = Boolean(revised && revised !== when);
   const correction = String(snapshot.correction || '').trim();
-  const by = snapshot.ownerDisplayName
-    ? (when ? `Shared by ${snapshot.ownerDisplayName} · ${when}` : `Shared by ${snapshot.ownerDisplayName}`)
-    : when;
+  const TitleTag = chapter ? 'h2' : 'h1';
+  const by = chapter
+    ? (when ? when : '')
+    : (snapshot.ownerDisplayName
+      ? (when ? `Shared by ${snapshot.ownerDisplayName} · ${when}` : `Shared by ${snapshot.ownerDisplayName}`)
+      : when);
   const blocks = Array.isArray(snapshot.blocks) ? snapshot.blocks : [];
-  const invite = compact ? null : onAsk;
+  const invite = compact || chapter ? null : onAsk;
 
   return (
     <article
-      className={['notebook-essay', compact ? 'is-compact' : ''].filter(Boolean).join(' ')}
+      className={['notebook-essay', compact ? 'is-compact' : '', chapter ? 'is-chapter' : ''].filter(Boolean).join(' ')}
       data-testid="notebook-essay"
     >
       <header className="notebook-essay__header">
-        <p className="notebook-essay__eyebrow">Shared note</p>
-        <h1 className="notebook-essay__title">{snapshot.title || 'Untitled'}</h1>
+        {chapter ? null : <p className="notebook-essay__eyebrow">Shared note</p>}
+        <TitleTag className="notebook-essay__title">{snapshot.title || 'Untitled'}</TitleTag>
         {by ? <p className="notebook-essay__by">{by}</p> : null}
         {showRevised ? <p className="notebook-essay__revised">Updated {revised}</p> : null}
         {correction ? <p className="notebook-essay__correction">{correction}</p> : null}
@@ -298,6 +307,7 @@ export default function NotebookEssay({ snapshot, compact = false, onAsk = null 
             key={block.id || `${block.type}-${index}`}
             block={block}
             onAsk={invite}
+            nested={chapter}
           />
         ))}
       </div>

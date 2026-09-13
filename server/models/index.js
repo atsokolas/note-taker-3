@@ -3134,6 +3134,26 @@ notebookCorrespondenceSchema.index({ userId: 1, notebookId: 1, createdAt: 1 });
 
 const NotebookCorrespondence = mongoose.model('NotebookCorrespondence', notebookCorrespondenceSchema);
 
+/* Selected published notebook essays, frozen as one volume.
+
+   Same contract as a shared notebook: the slug is the URL, the snapshot is
+   the version. The catalog is finished public copies, not workshop drafts.
+   Private edits do not move the public collection. An explicit owner update
+   replaces the snapshot under the same URL. Revoking deletes the row. */
+const sharedNotebookVolumeSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  slug: { type: String, required: true, unique: true, index: true },
+  ownerDisplayName: { type: String, default: '' },
+  notebookIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
+  snapshot: { type: mongoose.Schema.Types.Mixed, default: null },
+  contentHash: { type: String, default: '' },
+  publishedAt: { type: Date, default: null }
+}, { timestamps: true });
+
+sharedNotebookVolumeSchema.index({ userId: 1 }, { unique: true });
+
+const SharedNotebookVolume = mongoose.model('SharedNotebookVolume', sharedNotebookVolumeSchema);
+
 /**
  * CasebookLineage — follow, fork, and adopt with frozen origin provenance.
  * Revoking a share never rewrites originHash, originTitle, or originSlug.
@@ -3354,6 +3374,7 @@ module.exports = {
   MorningPaperRecord,
   SharedEdition,
   SharedNotebook,
+  SharedNotebookVolume,
   NotebookCorrespondence,
   Question,
   Board,

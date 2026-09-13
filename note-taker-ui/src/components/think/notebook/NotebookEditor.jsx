@@ -20,6 +20,7 @@ import { createNotebookClaimSlashItems } from './notebookClaimSlash';
 import UseDistinctionHere from '../../wiki/open-sentence/UseDistinctionHere';
 import SourceCorrectionReview from '../SourceCorrectionReview';
 import NotebookShare from './NotebookShare';
+import NotebookVolume from './NotebookVolume';
 import { editorNodesFromDistinctionUse, eligibleDistinctions } from '../../../utils/distinctionUse';
 import { exportNotebookMarkdown, getNotebookSummaries, disposeNotebookSourceCorrection } from '../../../api/notebook';
 import useHighlights from '../../../hooks/useHighlights';
@@ -1312,7 +1313,10 @@ const NotebookEditor = ({
       {error && <p className="status-message error-message">{error}</p>}
       {finishError && <p className="status-message error-message">{finishError}</p>}
       {shareOpen && entry?._id ? (
-        <NotebookShare notebookId={entry._id} revision={shareRevision} />
+        <>
+          <NotebookShare notebookId={entry._id} revision={shareRevision} />
+          <NotebookVolume notebookId={entry._id} revision={shareRevision} />
+        </>
       ) : null}
       {organizeOpen && (
         <div className="notebook-organize-panel">

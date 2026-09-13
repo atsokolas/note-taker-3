@@ -429,6 +429,91 @@
   font-weight: 650;
 }
 
+.notebook-volume__catalog ul,
+.notebook-volume-page__contents ol,
+.notebook-volume-page__sources ul {
+  margin: 0.35rem 0 0;
+  padding: 0;
+  max-width: 62ch;
+}
+
+.notebook-volume__catalog ul,
+.notebook-volume-page__sources ul {
+  list-style: none;
+}
+
+.notebook-volume__catalog li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.35rem 0;
+}
+
+.notebook-volume__catalog label {
+  display: flex;
+  gap: 0.45rem;
+  align-items: baseline;
+}
+
+.notebook-volume__order {
+  display: flex;
+  gap: 0.4rem;
+  align-items: baseline;
+  color: var(--noeis-ink-subtle, #6b6458);
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.78rem;
+}
+
+.notebook-volume__order button {
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 0.16em;
+  cursor: pointer;
+}
+
+.notebook-volume-page__intro {
+  margin: 0 0 1.5rem;
+  max-width: 54ch;
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: 1.05rem;
+  font-style: italic;
+  line-height: 1.5;
+}
+
+.notebook-volume-page__contents,
+.notebook-volume-page__sources {
+  margin: 0 0 1.75rem;
+}
+
+.notebook-volume-page__contents li,
+.notebook-volume-page__sources li {
+  margin: 0.35rem 0 0;
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  line-height: 1.45;
+}
+
+.notebook-volume-page__ideas {
+  display: block;
+  color: var(--noeis-ink-subtle, #6b6458);
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.82rem;
+}
+
+.notebook-essay.is-chapter {
+  margin-top: 2.4rem;
+  padding-top: 1.6rem;
+  border-top: 1px solid var(--noeis-rule, rgba(28, 24, 18, 0.12));
+}
+
+.notebook-essay.is-chapter .notebook-essay__title {
+  font-size: clamp(1.35rem, 2.4vw, 1.85rem);
+}
+
 @media print {
   /* Chrome, copy, and preview controls are screen acts. Paper is the essay. */
   .notebook-share-preview__controls,
@@ -481,7 +566,10 @@
     .notebook-essay__name,
     .notebook-essay__code,
     .notebook-essay__correction
-  ) {
+  ),
+  .notebook-volume-page__intro,
+  .notebook-volume-page__contents li,
+  .notebook-volume-page__sources li {
     color: var(--noeis-ink) !important;
   }
 
@@ -491,6 +579,7 @@
     .notebook-essay__source,
     .notebook-essay__revised
   ),
+  .notebook-volume-page__ideas,
   .shared-notebook-page__colophon {
     color: var(--noeis-ink-subtle) !important;
   }

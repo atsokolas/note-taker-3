@@ -124,7 +124,9 @@ const SharedConcept = lazy(() => import('./pages/SharedConcept'));
 const SharedQuestion = lazy(() => import('./pages/SharedQuestion'));
 const SharedEdition = lazy(() => import('./pages/SharedEdition'));
 const SharedNotebook = lazy(() => import('./pages/SharedNotebook'));
+const SharedNotebookVolume = lazy(() => import('./pages/SharedNotebookVolume'));
 const NotebookSharePreview = lazy(() => import('./pages/NotebookSharePreview'));
+const NotebookVolumePreview = lazy(() => import('./pages/NotebookVolumePreview'));
 const SharedWikiPage = lazy(() => import('./pages/SharedWikiPage'));
 const SharedWikiCollectionPage = lazy(() => import('./pages/SharedWikiCollectionPage'));
 const PublicWikiComparison = lazy(() => import('./pages/PublicWikiComparison'));
@@ -293,11 +295,13 @@ const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess, uiSettings }) => {
           <Route path="/terms" element={<TermsOfUse />} />
           <Route path="/design-preview/open-sentence" element={<OpenSentenceStoryboard />} />
           <Route path="/design-preview/notebook-share" element={<NotebookSharePreview />} />
+          <Route path="/design-preview/notebook-volume" element={<NotebookVolumePreview />} />
           <Route path="/design-preview" element={<DesignPreview />} />
           <Route path="/share/concepts/:slug" element={<SharedConcept />} />
           <Route path="/share/questions/:slug" element={<SharedQuestion />} />
           <Route path="/share/editions/:slug" element={<SharedEdition />} />
           <Route path="/share/notebooks/:slug" element={<SharedNotebook />} />
+          <Route path="/share/volumes/:slug" element={<SharedNotebookVolume />} />
           <Route path="/share/wiki/collection/:idOrSlug" element={<SharedWikiCollectionPage />} />
           <Route path="/share/wiki/:idOrSlug/comparison" element={<PublicWikiComparison />} />
           <Route path="/share/wiki/:idOrSlug" element={<SharedWikiPage />} />
@@ -801,8 +805,10 @@ function App() {
             <Route path="/terms" element={<TermsOfUse />} />
             <Route path="/design-preview/open-sentence" element={<OpenSentenceStoryboard />} />
             <Route path="/design-preview/notebook-share" element={<NotebookSharePreview />} />
+            <Route path="/design-preview/notebook-volume" element={<NotebookVolumePreview />} />
             <Route path="/design-preview" element={<DesignPreview />} />
             <Route path="/share/notebooks/:slug" element={<SharedNotebook />} />
+            <Route path="/share/volumes/:slug" element={<SharedNotebookVolume />} />
             <Route path="/share/concepts/:slug" element={<SharedConcept />} />
             <Route path="/share/wiki/collection/:idOrSlug" element={<SharedWikiCollectionPage />} />
             <Route path="/share/wiki/:idOrSlug/comparison" element={<PublicWikiComparison />} />

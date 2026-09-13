@@ -52,5 +52,6 @@ test('treats shared routes as public even when auth is available', () => {
   expect(isPublicSharePath('/share/wiki/collection/mental-models')).toBe(true);
   expect(isPublicSharePath('/share/concepts/opportunity-cost')).toBe(true);
   expect(isPublicSharePath('/share/notebooks/essay-slug')).toBe(true);
+  expect(isPublicSharePath('/share/volumes/volume-slug')).toBe(true);
   expect(isPublicSharePath('/wiki/workspace')).toBe(false);
 });
