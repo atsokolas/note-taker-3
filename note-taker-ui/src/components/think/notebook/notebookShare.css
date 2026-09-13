@@ -257,6 +257,23 @@
   line-height: 1.5;
 }
 
+.shared-notebook-page__print {
+  margin: 0.85rem 0 0;
+}
+
+.shared-notebook-page__print button {
+  font: inherit;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.84rem;
+  color: var(--noeis-ink-subtle, #6b6458);
+  background: transparent;
+  border: 0;
+  padding: 0.2rem 0;
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+  cursor: pointer;
+}
+
 .shared-notebook-page__quiet {
   margin: 4rem auto;
   max-width: 42ch;
@@ -304,8 +321,51 @@
 }
 
 @media print {
+  /* Chrome, copy, and preview controls are screen acts. Paper is the essay. */
+  .notebook-share-preview__controls,
+  .notebook-share,
+  .shared-notebook-page__home,
+  .shared-notebook-page__print,
   .notebook-essay__copy {
     display: none;
+  }
+
+  .notebook-share-preview,
+  .notebook-share-preview__stage,
+  .shared-notebook-page {
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: #fff;
+    color: #1c1812;
+  }
+
+  .shared-notebook-page__inner {
+    max-width: none;
+    margin: 0;
+  }
+
+  .notebook-essay__header,
+  .notebook-essay__quote,
+  .notebook-essay__heading,
+  .notebook-essay__name,
+  .shared-notebook-page__colophon {
+    break-inside: avoid;
+  }
+
+  .shared-notebook-page__colophon {
+    break-before: avoid;
+  }
+
+  .notebook-essay a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .notebook-essay__source a[href]::after {
+    content: " · " attr(href);
+    font-style: normal;
   }
 }
 
@@ -313,14 +373,16 @@
   .notebook-share__actions button,
   .notebook-share__open,
   .notebook-essay__source a,
-  .notebook-essay__copy button {
+  .notebook-essay__copy button,
+  .shared-notebook-page__print button {
     transition: opacity 160ms ease;
   }
 
   .notebook-share__actions button:hover,
   .notebook-share__open:hover,
   .notebook-essay__source a:hover,
-  .notebook-essay__copy button:hover {
+  .notebook-essay__copy button:hover,
+  .shared-notebook-page__print button:hover {
     opacity: 0.72;
   }
 }
@@ -335,7 +397,8 @@
   .notebook-share__actions button,
   .notebook-share__open,
   .notebook-essay__source a,
-  .notebook-essay__copy button {
+  .notebook-essay__copy button,
+  .shared-notebook-page__print button {
     transition: none;
   }
 }

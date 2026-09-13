@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import NotebookEssay from '../components/think/notebook/NotebookEssay';
+import NotebookPublicPage from '../components/think/notebook/NotebookPublicPage';
 import { NotebookSharePanel } from '../components/think/notebook/NotebookShare';
 import { essaySnapshot } from '../components/think/notebook/notebookShareFixture';
 import '../components/think/notebook/notebookShare.css';
@@ -102,13 +102,7 @@ const NotebookSharePreview = () => {
       >
         {scene === 'public' ? (
           <main className="shared-notebook-page" data-testid="shared-notebook">
-            <div className="shared-notebook-page__inner">
-              <NotebookEssay snapshot={frozen} />
-              <p className="shared-notebook-page__colophon">
-                This is the version that was published. Later private edits do not
-                change it. Ordinary copy of the visible text is allowed.
-              </p>
-            </div>
+            <NotebookPublicPage snapshot={frozen} />
           </main>
         ) : null}
         {scene === 'revoked' ? (

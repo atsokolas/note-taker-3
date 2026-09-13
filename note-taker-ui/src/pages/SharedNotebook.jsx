@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { getPublicNotebook } from '../api/notebook';
-import NotebookEssay from '../components/think/notebook/NotebookEssay';
+import NotebookPublicPage from '../components/think/notebook/NotebookPublicPage';
 import useSeoMetadata from '../hooks/useSeoMetadata';
 import '../components/think/notebook/notebookShare.css';
 
@@ -58,14 +58,7 @@ const SharedNotebook = () => {
 
   return (
     <main className="shared-notebook-page" data-testid="shared-notebook">
-      <div className="shared-notebook-page__inner">
-        <Link to="/" className="shared-notebook-page__home">Noeis</Link>
-        <NotebookEssay snapshot={snapshot} />
-        <p className="shared-notebook-page__colophon">
-          This is the version that was published. Later private edits do not
-          change it. Ordinary copy of the visible text is allowed.
-        </p>
-      </div>
+      <NotebookPublicPage snapshot={snapshot} />
     </main>
   );
 };
