@@ -32,8 +32,25 @@ const makeStore = () => {
   const rows = [];
   let nextId = 1;
   const clone = value => JSON.parse(JSON.stringify(value));
+  const fieldOf = (row, key) => {
+    if (key === 'items.url') return (row.items || []).map(item => item.url);
+    if (key === 'items.itemId') return (row.items || []).map(item => item.itemId);
+    return row[key];
+  };
+  const matchExpr = (row, expr) => {
+    const [left, max] = expr?.$lte || [];
+    const addends = left?.$add;
+    if (!Array.isArray(addends) || addends.length !== 2) return false;
+    return (row.items || []).length + Number(addends[1]) <= Number(max);
+  };
   const matches = (row, query) => Object.entries(query).every(([key, value]) => {
+    if (key === '$expr') return matchExpr(row, value);
     if (value instanceof Date) return new Date(row[key]).getTime() === value.getTime();
+    if (value && typeof value === 'object' && Array.isArray(value.$nin)) {
+      const held = fieldOf(row, key);
+      const haystack = Array.isArray(held) ? held : [held];
+      return value.$nin.every(candidate => !haystack.some(entry => String(entry) === String(candidate)));
+    }
     return String(row[key]) === String(value);
   });
   const attach = row => Object.assign(row, { save: async () => { row.updatedAt = 'now'; } });
@@ -70,6 +87,12 @@ const makeStore = () => {
     findOneAndUpdate: async (query, patch) => {
       const row = rows.find(entry => matches(entry, query));
       if (!row) return null;
+      if (patch && (patch.$set || patch.$push)) {
+        if (patch.$set) Object.assign(row, patch.$set);
+        const each = patch.$push?.items?.$each;
+        if (Array.isArray(each)) row.items = [...(row.items || []), ...each];
+        return attach(row);
+      }
       Object.assign(row, patch);
       return attach(row);
     },
@@ -783,6 +806,58 @@ describe('topics the reader configures, and filing into them', () => {
       expect(raced.body.itemCount).toBe(2);
       expect(raced.body.added).toBe(1);
       expect(Edition.rows).toHaveLength(1);
+    } finally {
+      Edition.findOne = originalFindOne;
+      Edition.create = originalCreate;
+    }
+  });
+
+  /* Two losers of the same create can fetch one snapshot, merge independently,
+     and — if filing replaces `items` — the last write drops the other item
+     while both receipts say added: 1. $push keeps both. */
+  it('keeps every concurrent filing when two agents lose the same create race', async () => {
+    await configure();
+    const first = await send('/api/editions/file', 'POST', { profile: 'biotech', items: [finding()] });
+    expect(first.status).toBe(201);
+
+    const originalFindOne = Edition.findOne;
+    const originalCreate = Edition.create;
+    const snapshot = JSON.parse(JSON.stringify(Edition.rows[0]));
+    Edition.findOne = (query) => {
+      if (query.profile && !query._id) {
+        const stale = Object.assign(JSON.parse(JSON.stringify(snapshot)), { save: async () => {} });
+        return { then: (resolve, reject) => Promise.resolve(stale).then(resolve, reject), lean: async () => JSON.parse(JSON.stringify(snapshot)) };
+      }
+      return originalFindOne(query);
+    };
+    Edition.create = async () => {
+      const error = new Error('E11000 duplicate key');
+      error.code = 11000;
+      throw error;
+    };
+    try {
+      const [second, third] = await Promise.all([
+        send('/api/editions/file', 'POST', {
+          profile: 'biotech',
+          items: [finding({ title: 'A second readout', url: 'https://example.com/two' })]
+        }),
+        send('/api/editions/file', 'POST', {
+          profile: 'biotech',
+          items: [finding({ title: 'A third readout', url: 'https://example.com/three' })]
+        })
+      ]);
+      expect(second.status).toBe(200);
+      expect(third.status).toBe(200);
+      expect(second.body.added).toBe(1);
+      expect(third.body.added).toBe(1);
+      expect(Edition.rows).toHaveLength(1);
+      expect(Edition.rows[0].items.map(row => row.url).sort()).toEqual([
+        'https://example.com/one',
+        'https://example.com/three',
+        'https://example.com/two'
+      ]);
+      const listed = await send('/api/editions');
+      expect(listed.body.editions[0].itemCount).toBe(3);
     } finally {
       Edition.findOne = originalFindOne;
       Edition.create = originalCreate;
