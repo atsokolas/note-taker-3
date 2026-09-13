@@ -140,6 +140,7 @@ describe('NotebookSharePanel', () => {
     expect(screen.getByTestId('notebook-share-preview')).toHaveTextContent('What a reader will see');
     expect(screen.queryByTestId('notebook-share-pending')).not.toBeInTheDocument();
     expect(screen.getByTestId('notebook-publish')).toHaveTextContent('Create share link');
+    expect(screen.queryByRole('button', { name: 'Print this note' })).not.toBeInTheDocument();
   });
 
   it('stays silent when nothing would read as a piece of writing', () => {

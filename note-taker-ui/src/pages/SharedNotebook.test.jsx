@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import SharedNotebook from './SharedNotebook';
 import { getPublicNotebook } from '../api/notebook';
 import { essaySnapshot } from '../components/think/notebook/notebookShareFixture';
@@ -24,15 +24,26 @@ describe('a note someone published', () => {
     expect(document.head.querySelector('meta[name="robots"]')).toHaveAttribute('content', 'noindex,nofollow');
   });
 
+  it('prints the published page, not the workshop chrome', async () => {
+    const print = jest.spyOn(window, 'print').mockImplementation(() => {});
+    getPublicNotebook.mockResolvedValue(essaySnapshot());
+    render(<SharedNotebook />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Print this note' }));
+    expect(print).toHaveBeenCalledTimes(1);
+    print.mockRestore();
+  });
+
   it('says nothing exists rather than that it was withdrawn', async () => {
     getPublicNotebook.mockRejectedValue(new Error('gone'));
     render(<SharedNotebook />);
     expect(await screen.findByText('This note is not published.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Print this note' })).not.toBeInTheDocument();
   });
 
   it('says nothing while it is still opening', () => {
     getPublicNotebook.mockReturnValue(new Promise(() => {}));
     render(<SharedNotebook />);
     expect(screen.getByRole('status')).toHaveTextContent('Opening…');
+    expect(screen.queryByRole('button', { name: 'Print this note' })).not.toBeInTheDocument();
   });
 });

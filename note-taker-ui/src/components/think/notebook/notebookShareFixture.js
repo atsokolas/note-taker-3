@@ -2,6 +2,8 @@ export const NOTEBOOK_SHARE_PRIVACY = 'Anyone with the link can read the version
 
 export const NOTEBOOK_SHARE_REVOKE = 'Copies already taken stay with their holders. This link will go unanswered.';
 
+export const NOTEBOOK_SHARE_COLOPHON = 'This is the version that was published. Later private edits do not change it. Ordinary copy of the visible text is allowed.';
+
 export const ACCESS_WITHHELD = 'Not available at a public address.';
 
 export const essaySnapshot = (over = {}) => ({
