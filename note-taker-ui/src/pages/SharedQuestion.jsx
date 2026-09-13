@@ -4,6 +4,8 @@ import { getPublicQuestion, offerQuestionContribution, withdrawQuestionContribut
 import QuestionShareView from '../components/think/QuestionShareView';
 import { QUESTION_NOT_PUBLISHED } from '../components/think/thinkShareFixture';
 import useQuestionPresence from '../hooks/useQuestionPresence';
+import SharedQuestionCompanion from './SharedQuestionCompanion';
+import { hasShareToken } from './sharedQuestionCompanion';
 import '../styles/shared-page-column.css';
 
 const useDocumentTitle = (title) => {
@@ -166,6 +168,11 @@ const SharedQuestion = () => {
           const payload = await getPublicQuestion(slug);
           setData(payload);
         }}
+      />
+      <SharedQuestionCompanion
+        slug={slug}
+        page={data}
+        signedIn={hasShareToken()}
       />
     </div>
   );
