@@ -76,6 +76,22 @@ const buildAgentChatRouter = ({
     String(result?.capability?.id || '').trim() === 'capability.workspace.organize'
   );
 
+  const bindChatTurn = (thread, requestContext) => {
+    const surface = requestContext && typeof requestContext === 'object' ? requestContext : null;
+    if (isSharedQuestionContext(surface)) {
+      return {
+        thread: thread && isSharedQuestionContext(thread.scope) ? thread : null,
+        chatContext: surface,
+        allowExecutionIntent: false
+      };
+    }
+    return {
+      thread,
+      chatContext: surface || thread?.scope || null,
+      allowExecutionIntent: true
+    };
+  };
+
   const prepareLibraryStructurePlan = async ({
     result = {},
     userId = '',
@@ -573,13 +589,14 @@ const buildAgentChatRouter = ({
 
   router.post('/api/agent/chat', authenticateToken, async (req, res) => {
     try {
-      const thread = await loadThread(String(req.user.id), req.body?.threadId);
+      const loadedThread = await loadThread(String(req.user.id), req.body?.threadId);
+      const { thread, chatContext, allowExecutionIntent } = bindChatTurn(loadedThread, req.body?.context);
       const actor = { actorType: 'user', actorId: String(req.user.id) };
-      if (thread && shouldResolveExecutionIntent(req.body?.message)) {
+      if (allowExecutionIntent && thread && shouldResolveExecutionIntent(req.body?.message)) {
         const resolution = resolveExecutableProposalBundle({
           thread,
           message: req.body?.message,
-          context: req.body?.context || thread?.scope || null
+          context: chatContext
         });
 
         if (Array.isArray(resolution?.invalidatedBundleIds) && resolution.invalidatedBundleIds.length > 0) {
@@ -713,7 +730,6 @@ const buildAgentChatRouter = ({
       }
 
       const entitlements = await getUserAgentEntitlements(String(req.user.id));
-      const chatContext = req.body?.context || thread?.scope || null;
       const generatedResult = await generateCollaborativeReply({
         userId: String(req.user.id),
         message: req.body?.message,
@@ -807,9 +823,9 @@ const buildAgentChatRouter = ({
       if (!res.writableEnded) streamController.abort();
     });
     try {
-      const thread = await loadThread(String(req.user.id), req.body?.threadId);
+      const loadedThread = await loadThread(String(req.user.id), req.body?.threadId);
+      const { thread, chatContext: context } = bindChatTurn(loadedThread, req.body?.context);
       const actor = { actorType: 'user', actorId: String(req.user.id) };
-      const context = req.body?.context || thread?.scope || null;
       if (context?.pageId && !context?.metadata?.exploration && !context?.exploration) {
         emitActivity(res, activityReceipts, {
           stage: 'read_page',
@@ -984,9 +1000,9 @@ const buildAgentChatRouter = ({
         return res.status(403).json({ error: 'This personal agent cannot read/search private workspace content.' });
       }
       const entitlements = await getUserAgentEntitlements(String(req.personalAgent.userId));
-      const thread = await loadThread(String(req.personalAgent.userId), req.body?.threadId);
+      const loadedThread = await loadThread(String(req.personalAgent.userId), req.body?.threadId);
+      const { thread, chatContext } = bindChatTurn(loadedThread, req.body?.context);
 
-      const chatContext = req.body?.context || thread?.scope || null;
       const generatedResult = await generateCollaborativeReply({
         userId: String(req.personalAgent.userId),
         message: req.body?.message,

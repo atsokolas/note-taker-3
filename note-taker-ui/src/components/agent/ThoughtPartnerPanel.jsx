@@ -30,6 +30,7 @@ import AgentPresence from './AgentPresence';
 import { wordBoundaryTrim } from '../../utils/editorialText';
 
 const clean = (value) => String(value || '').trim();
+const isSharedQuestionSurface = (type = '') => clean(type).toLowerCase() === 'shared_question';
 const isAbortError = error => error?.name === 'AbortError' || error?.code === 'ERR_CANCELED';
 const friendlyContextLabel = (type = '') => clean(type).replace(/_/g, ' ') || 'current thought';
 const truncate = (value, limit = 320) => wordBoundaryTrim(value, { maxLength: limit });
@@ -293,6 +294,8 @@ const ThoughtPartnerPanel = ({
     adoptThread: adoptShellThread,
     resetConversation: resetShellConversation
   } = useAgentRail();
+  const boundToPublishedQuestion = isSharedQuestionSurface(contextType);
+  const railThreadId = boundToPublishedQuestion ? '' : clean(shellThreadId);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -316,7 +319,7 @@ const ThoughtPartnerPanel = ({
   const shellMessagesRef = useRef(shellMessages);
   const pendingRequestRef = useRef(null);
   const contextIdentityRef = useRef('');
-  const activeThreadId = clean(threadId || thread?.threadId || shellThreadId);
+  const activeThreadId = clean(threadId || thread?.threadId || railThreadId);
   const isStreamVariant = variant === 'stream';
   const isThreadStreamVariant = isStreamVariant && Boolean(activeThreadId);
   const normalizedPostureOptions = useMemo(
@@ -524,7 +527,7 @@ const ThoughtPartnerPanel = ({
     try {
       const result = await chatWithAgent({
         message,
-        threadId: threadId || clean(thread?.threadId) || clean(shellThreadId) || undefined,
+        threadId: threadId || clean(thread?.threadId) || railThreadId || undefined,
         threadTitle: clean(thread?.title) || contextTitle || title,
         persistThread: true,
         context,
@@ -582,7 +585,7 @@ const ThoughtPartnerPanel = ({
               }))
             };
         hydrateFromThread(threadForUi);
-        adoptShellThread(threadForUi);
+        if (!boundToPublishedQuestion) adoptShellThread(threadForUi);
         loadArtifactDrafts(result.thread.threadId);
         loadRuns(result.thread.threadId);
         if (responseProposedChanges.length === 0) loadProposedChanges(result.thread.threadId);
@@ -617,7 +620,7 @@ const ThoughtPartnerPanel = ({
         setLoading(false);
       }
     }
-  }, [adoptShellThread, context, contextIdentity, contextTitle, disabled, hydrateFromThread, loadArtifactDrafts, loadHarnessMetrics, loadProposedChanges, loadRuns, loadStructureProposals, loadWriteBoundary, loading, messages, onThreadChange, pendingSkillInvocation, replaceProposedChange, replaceStructureProposal, shellThreadId, thread?.threadId, thread?.title, threadId, title]);
+  }, [adoptShellThread, boundToPublishedQuestion, context, contextIdentity, contextTitle, disabled, hydrateFromThread, loadArtifactDrafts, loadHarnessMetrics, loadProposedChanges, loadRuns, loadStructureProposals, loadWriteBoundary, loading, messages, onThreadChange, pendingSkillInvocation, railThreadId, replaceProposedChange, replaceStructureProposal, thread?.threadId, thread?.title, threadId, title]);
 
   const handleExecuteProposalBundle = useCallback((bundle = {}) => {
     const title = clean(bundle?.title);
@@ -629,12 +632,12 @@ const ThoughtPartnerPanel = ({
   useEffect(() => {
     if (clean(thread?.threadId)) {
       hydrateFromThread(thread);
-      adoptShellThread(thread);
+      if (!boundToPublishedQuestion) adoptShellThread(thread);
       setError('');
       return;
     }
-    if (clean(shellThreadId)) {
-      setThreadId(clean(shellThreadId));
+    if (railThreadId) {
+      setThreadId(railThreadId);
       setMessages(Array.isArray(shellMessagesRef.current) ? shellMessagesRef.current : []);
       setError('');
       return;
@@ -655,7 +658,7 @@ const ThoughtPartnerPanel = ({
     setEditingDraftBody('');
     setPendingSkillInvocation(null);
     setError('');
-  }, [adoptShellThread, clearReviewState, contextId, contextType, hydrateFromThread, shellThreadId, thread]);
+  }, [adoptShellThread, boundToPublishedQuestion, clearReviewState, contextId, contextType, hydrateFromThread, railThreadId, thread]);
 
   useEffect(() => {
     if (!activeThreadId) return;
