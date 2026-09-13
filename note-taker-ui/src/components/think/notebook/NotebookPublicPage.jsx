@@ -12,12 +12,12 @@ const PrintNote = () => (
   </p>
 );
 
-export default function NotebookPublicPage({ snapshot }) {
+export default function NotebookPublicPage({ snapshot, onAsk = null }) {
   if (!snapshot) return null;
   return (
     <div className="shared-notebook-page__inner">
       <Link to="/" className="shared-notebook-page__home">Noeis</Link>
-      <NotebookEssay snapshot={snapshot} />
+      <NotebookEssay snapshot={snapshot} onAsk={onAsk} />
       <p className="shared-notebook-page__colophon">{NOTEBOOK_SHARE_COLOPHON}</p>
       <PrintNote />
     </div>

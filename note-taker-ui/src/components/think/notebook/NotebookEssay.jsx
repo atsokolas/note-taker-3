@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { usePrefersReducedMotion } from '../../../hooks/useMotionPreferences';
-import { ACCESS_WITHHELD } from './notebookShareFixture';
+import { ACCESS_WITHHELD, NOTEBOOK_SHARE_ASK } from './notebookShareFixture';
 import './notebookShare.css';
 
 const asLine = (value) => String(value || '').trim();
@@ -114,8 +114,100 @@ const namedKind = (type) => {
   return '';
 };
 
-const EssayBlock = ({ block }) => {
+const canAskAbout = (block) => {
   const type = block?.type;
+  return Boolean(
+    asLine(block?.id)
+    && asLine(block?.text)
+    && (type === 'paragraph' || type === 'quote' || type === 'bullet')
+  );
+};
+
+const AskAboutPassage = ({ block, onAsk }) => {
+  const reduced = usePrefersReducedMotion();
+  const fieldRef = useRef(null);
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [sent, setSent] = useState(false);
+
+  useEffect(() => {
+    if (!open || reduced) return undefined;
+    fieldRef.current?.focus();
+    return undefined;
+  }, [open, reduced]);
+
+  if (sent) {
+    return (
+      <p className="notebook-essay__ask-receipt" role="status">
+        Sent to the author. It stays off this page.
+      </p>
+    );
+  }
+
+  const send = async () => {
+    const question = asLine(text);
+    if (!question || busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      await onAsk(block, question);
+      setSent(true);
+      setOpen(false);
+      setText('');
+    } catch (_askError) {
+      setError('That question did not send.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="notebook-essay__ask" data-testid={`notebook-ask-${block.id}`}>
+      {open ? (
+        <>
+          <label className="notebook-essay__ask-label" htmlFor={`notebook-ask-field-${block.id}`}>
+            Your question
+          </label>
+          <textarea
+            id={`notebook-ask-field-${block.id}`}
+            ref={fieldRef}
+            className="notebook-essay__ask-field"
+            value={text}
+            maxLength={400}
+            rows={3}
+            onChange={(event) => setText(event.target.value)}
+          />
+          <p className="notebook-essay__ask-hint">{NOTEBOOK_SHARE_ASK}</p>
+          {error ? <p className="notebook-essay__ask-error" role="status">{error}</p> : null}
+          <div className="notebook-essay__ask-actions">
+            <button type="button" onClick={send} disabled={busy || !asLine(text)}>
+              {busy ? 'Sending…' : 'Send to the author'}
+            </button>
+            <button
+              type="button"
+              onClick={() => { setOpen(false); setError(''); }}
+              disabled={busy}
+            >
+              Cancel
+            </button>
+          </div>
+        </>
+      ) : (
+        <button type="button" onClick={() => setOpen(true)}>
+          Leave a question
+        </button>
+      )}
+    </div>
+  );
+};
+
+const EssayBlock = ({ block, onAsk }) => {
+  const type = block?.type;
+  const ask = onAsk && canAskAbout(block)
+    ? <AskAboutPassage block={block} onAsk={onAsk} />
+    : null;
   if (type === 'heading') {
     const level = Math.min(Math.max(Number(block.level) || 2, 2), 4);
     const Tag = `h${level}`;
@@ -123,9 +215,12 @@ const EssayBlock = ({ block }) => {
   }
   if (type === 'bullet') {
     return (
-      <p className="notebook-essay__bullet" style={{ '--indent': String(block.indent || 0) }}>
-        {block.text}
-      </p>
+      <div className="notebook-essay__passage">
+        <p className="notebook-essay__bullet" style={{ '--indent': String(block.indent || 0) }}>
+          {block.text}
+        </p>
+        {ask}
+      </div>
     );
   }
   if (type === 'quote') {
@@ -135,6 +230,7 @@ const EssayBlock = ({ block }) => {
         {block.text ? <p>{block.text}</p> : null}
         <SourceLine source={block.source} />
         {clip ? <CopyWithSource clip={clip} /> : null}
+        {ask}
       </blockquote>
     );
   }
@@ -161,11 +257,18 @@ const EssayBlock = ({ block }) => {
     );
   }
   if (type === 'divider') return <hr className="notebook-essay__rule" />;
-  if (block?.text) return <p className="notebook-essay__prose">{block.text}</p>;
+  if (block?.text) {
+    return (
+      <div className="notebook-essay__passage">
+        <p className="notebook-essay__prose">{block.text}</p>
+        {ask}
+      </div>
+    );
+  }
   return null;
 };
 
-export default function NotebookEssay({ snapshot, compact = false }) {
+export default function NotebookEssay({ snapshot, compact = false, onAsk = null }) {
   if (!snapshot) return null;
   const when = formatPublished(snapshot.publishedAt);
   const revised = formatPublished(snapshot.revisedAt);
@@ -175,6 +278,7 @@ export default function NotebookEssay({ snapshot, compact = false }) {
     ? (when ? `Shared by ${snapshot.ownerDisplayName} · ${when}` : `Shared by ${snapshot.ownerDisplayName}`)
     : when;
   const blocks = Array.isArray(snapshot.blocks) ? snapshot.blocks : [];
+  const invite = compact ? null : onAsk;
 
   return (
     <article
@@ -190,7 +294,11 @@ export default function NotebookEssay({ snapshot, compact = false }) {
       </header>
       <div className="notebook-essay__body">
         {blocks.map((block, index) => (
-          <EssayBlock key={block.id || `${block.type}-${index}`} block={block} />
+          <EssayBlock
+            key={block.id || `${block.type}-${index}`}
+            block={block}
+            onAsk={invite}
+          />
         ))}
       </div>
     </article>

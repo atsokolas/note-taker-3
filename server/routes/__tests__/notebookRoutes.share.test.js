@@ -52,7 +52,11 @@ const essay = () => ({
 const run = async () => {
   const entry = essay();
   const shares = [];
+  const letters = [];
   const matchShare = (row, query) => Object.entries(query).every(([key, value]) => (
+    String(row[key]) === String(value)
+  ));
+  const matchLetter = (row, query) => Object.entries(query || {}).every(([key, value]) => (
     String(row[key]) === String(value)
   ));
 
@@ -126,6 +130,23 @@ const run = async () => {
         if (index !== -1) shares.splice(index, 1);
         return { deletedCount: index === -1 ? 0 : 1 };
       }
+    },
+    NotebookCorrespondence: {
+      find: (query) => ({
+        sort: () => ({
+          lean: async () => letters.filter((row) => matchLetter(row, query))
+        })
+      }),
+      countDocuments: async (query) => letters.filter((row) => matchLetter(row, query)).length,
+      create: async (doc) => {
+        const row = {
+          _id: `letter-${letters.length + 1}`,
+          createdAt: new Date('2026-09-13T16:00:00.000Z'),
+          ...doc
+        };
+        letters.push(row);
+        return row;
+      }
     }
   }));
 
@@ -157,6 +178,7 @@ const run = async () => {
     assert.strictEqual(created.response.status, 201, JSON.stringify(created.body));
     assert.strictEqual(created.body.shared, true);
     assert.ok(created.body.slug);
+    assert.deepStrictEqual(created.body.letters, []);
     assert.strictEqual(created.body.snapshot.blocks[0].text, OLD);
     assert.strictEqual(created.body.snapshot.blocks[0].source.href, 'https://example.com/letter');
     const slug = created.body.slug;
@@ -173,8 +195,46 @@ const run = async () => {
     assert.ok(publicRead.body.publishedAt);
     assert.ok(!publicRead.body.revisedAt);
     assert.ok(!publicRead.body.correction);
+    assert.ok(!publicRead.body.letters);
     assert.ok(!JSON.stringify(publicRead.body).includes('/library?'));
     assert.strictEqual(publicRead.response.headers.get('cache-control').includes('no-store'), true);
+
+    const asked = await fetchJson(`${url}/api/public/notebooks/${slug}/correspondence`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        blockId: 'q1',
+        text: '  <em>Does spare time belong to the person who pays?</em>  '
+      })
+    });
+    assert.strictEqual(asked.response.status, 201, JSON.stringify(asked.body));
+    assert.deepStrictEqual(asked.body, { sent: true });
+    assert.strictEqual(letters.length, 1);
+    assert.strictEqual(letters[0].text, 'Does spare time belong to the person who pays?');
+    assert.strictEqual(letters[0].excerpt, OLD);
+    assert.ok(!JSON.stringify(asked.body).includes(OLD));
+
+    const headingAsk = await fetchJson(`${url}/api/public/notebooks/${slug}/correspondence`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ blockId: 'missing', text: 'Why?' })
+    });
+    assert.strictEqual(headingAsk.response.status, 400);
+
+    const emptyAsk = await fetchJson(`${url}/api/public/notebooks/${slug}/correspondence`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ blockId: 'q1', text: '   ' })
+    });
+    assert.strictEqual(emptyAsk.response.status, 400);
+
+    const afterAsk = await share();
+    assert.strictEqual(afterAsk.body.letters.length, 1);
+    assert.strictEqual(afterAsk.body.letters[0].text, 'Does spare time belong to the person who pays?');
+    assert.strictEqual(afterAsk.body.letters[0].excerpt, OLD);
+    const stillPublic = await fetchJson(`${url}/api/public/notebooks/${slug}`);
+    assert.ok(!stillPublic.body.letters);
+    assert.ok(!JSON.stringify(stillPublic.body).includes('Does spare time belong'));
 
     entry.blocks[1].text = 'Rewritten in the workshop.';
     const status = await share();
@@ -226,6 +286,18 @@ const run = async () => {
     const missing = await fetchJson(`${url}/api/public/notebooks/no-such-slug`);
     assert.strictEqual(missing.response.status, 404);
     assert.deepStrictEqual(gone.body, missing.body);
+    const closedDoor = await fetchJson(`${url}/api/public/notebooks/${slug}/correspondence`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ blockId: 'q1', text: 'A later question.' })
+    });
+    assert.strictEqual(closedDoor.response.status, 404);
+    assert.deepStrictEqual(closedDoor.body, gone.body);
+    Object.assign(entry, essay());
+    const kept = await share();
+    assert.strictEqual(kept.body.shared, false);
+    assert.strictEqual(kept.body.letters.length, 1);
+    assert.strictEqual(kept.body.letters[0].text, 'Does spare time belong to the person who pays?');
   } finally {
     server.close();
   }

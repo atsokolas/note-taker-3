@@ -4,6 +4,8 @@ export const NOTEBOOK_SHARE_REVOKE = 'Copies already taken stay with their holde
 
 export const NOTEBOOK_SHARE_COLOPHON = 'This is the version that was published. Later private edits do not change it. Ordinary copy of the visible text is allowed.';
 
+export const NOTEBOOK_SHARE_ASK = 'This stays with the author. It is not published.';
+
 export const ACCESS_WITHHELD = 'Not available at a public address.';
 
 export const essaySnapshot = (over = {}) => ({

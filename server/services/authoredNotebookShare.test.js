@@ -1,8 +1,11 @@
 const {
   ACCESS_OPEN,
   ACCESS_WITHHELD,
+  CORRESPONDENCE_LIMIT,
   canPublishNotebook,
   collectArticleIds,
+  correspondenceText,
+  findCorrespondenceBlock,
   freezeNotebookSnapshot,
   hashPublicNotebook,
   liveNotebookPreview,
@@ -205,5 +208,45 @@ describe('authored notebook share', () => {
     expect(live.publishable).toBe(true);
     expect(live.preview.blocks[1].source.href).toBe('https://example.com/letter');
     expect(live.currentHash).toBe(hashPublicNotebook(live.preview));
+  });
+
+  it('invites a question only on a published sentence, and keeps the letter off the snapshot', () => {
+    const snapshot = freezeNotebookSnapshot(projectPublicNotebook(essay(), 'Athan'), '2026-09-12T12:00:00.000Z');
+    expect(findCorrespondenceBlock(snapshot, 'q1')).toEqual({
+      id: 'q1',
+      type: 'quote',
+      text: 'Two hours a week cannot sustain this.'
+    });
+    expect(findCorrespondenceBlock(snapshot, 'p1')).toMatchObject({ id: 'p1', type: 'paragraph' });
+    expect(findCorrespondenceBlock(snapshot, 'h1')).toBeNull();
+    expect(findCorrespondenceBlock(snapshot, 'missing')).toBeNull();
+    expect(correspondenceText('  <em>Does spare time belong to the person who pays?</em>  '))
+      .toBe('Does spare time belong to the person who pays?');
+    expect(CORRESPONDENCE_LIMIT).toBe(40);
+
+    const withMail = notebookShareState({
+      slug: 'abc',
+      snapshot
+    }, {
+      preview: snapshot,
+      currentHash: hashPublicNotebook(snapshot),
+      letters: [{
+        _id: 'letter-1',
+        blockId: 'q1',
+        excerpt: 'Two hours a week cannot sustain this.',
+        text: '<b>Does spare time belong?</b>',
+        createdAt: '2026-09-13T16:00:00.000Z'
+      }]
+    });
+    expect(withMail.letters).toEqual([{
+      id: 'letter-1',
+      blockId: 'q1',
+      excerpt: 'Two hours a week cannot sustain this.',
+      text: 'Does spare time belong?',
+      createdAt: '2026-09-13T16:00:00.000Z'
+    }]);
+    expect(JSON.stringify(withMail.snapshot)).not.toMatch(/Does spare time belong/);
+    expect(freezeNotebookSnapshot({ ...snapshot, letters: withMail.letters }, snapshot.publishedAt).letters)
+      .toBeUndefined();
   });
 });

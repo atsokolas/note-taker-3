@@ -16,10 +16,14 @@ const {
   disposeAuthoredSourceCorrection
 } = require('../services/authoredSourceCorrection');
 const {
+  CORRESPONDENCE_LIMIT,
   PREVIEW_STALE,
+  correspondenceText,
+  findCorrespondenceBlock,
   freezeNotebookSnapshot,
   isDuplicateKey,
   liveNotebookPreview,
+  loadNotebookCorrespondence,
   notebookShareState,
   shareSlug
 } = require('../services/authoredNotebookShare');
@@ -51,6 +55,7 @@ const buildNotebookRouter = ({
   Question = null,
   NoeisReceipt = null,
   SharedNotebook = null,
+  NotebookCorrespondence = null,
   User = null
 }) => {
   const router = express.Router();
@@ -768,6 +773,16 @@ const buildNotebookRouter = ({
     userId
   });
 
+  const lettersFor = async (userId, notebookId) => loadNotebookCorrespondence(
+    NotebookCorrespondence,
+    { userId, notebookId }
+  );
+
+  const sharePayload = async (userId, notebookId, share, extras) => notebookShareState(share, {
+    ...extras,
+    letters: await lettersFor(userId, notebookId)
+  });
+
   /**
    * Share a notebook essay.
    *
@@ -793,7 +808,7 @@ const buildNotebookRouter = ({
 
       const existing = await SharedNotebook.findOne({ userId, notebookId: entry._id }).lean();
       if (existing) {
-        return res.status(200).json(notebookShareState(existing, { preview, currentHash }));
+        return res.status(200).json(await sharePayload(userId, entry._id, existing, { preview, currentHash }));
       }
 
       const now = new Date();
@@ -807,7 +822,9 @@ const buildNotebookRouter = ({
           contentHash: currentHash,
           publishedAt: now
         });
-        return res.status(201).json(notebookShareState(
+        return res.status(201).json(await sharePayload(
+          userId,
+          entry._id,
           created.toObject ? created.toObject() : created,
           { preview, currentHash }
         ));
@@ -815,7 +832,7 @@ const buildNotebookRouter = ({
         if (!isDuplicateKey(error)) throw error;
         const raced = await SharedNotebook.findOne({ userId, notebookId: entry._id }).lean();
         if (!raced) throw error;
-        return res.status(200).json(notebookShareState(raced, { preview, currentHash }));
+        return res.status(200).json(await sharePayload(userId, entry._id, raced, { preview, currentHash }));
       }
     } catch (error) {
       console.error('❌ Error sharing notebook:', error);
@@ -832,7 +849,7 @@ const buildNotebookRouter = ({
       const { preview, currentHash } = await livePreviewOf(entry, userId);
       const found = await SharedNotebook.findOne({ userId, notebookId: entry._id }).lean();
       noStore(res);
-      return res.status(200).json(notebookShareState(found, { preview, currentHash }));
+      return res.status(200).json(await sharePayload(userId, entry._id, found, { preview, currentHash }));
     } catch (error) {
       console.error('❌ Error reading notebook share:', error);
       return res.status(500).json({ error: 'Failed to read that share.' });
@@ -876,7 +893,7 @@ const buildNotebookRouter = ({
         { new: true }
       );
       const row = updated && typeof updated.toObject === 'function' ? updated.toObject() : updated;
-      return res.status(200).json(notebookShareState(row, { preview, currentHash }));
+      return res.status(200).json(await sharePayload(userId, entry._id, row, { preview, currentHash }));
     } catch (error) {
       console.error('❌ Error updating notebook share:', error);
       return res.status(500).json({ error: 'Failed to update that share.' });
@@ -907,6 +924,48 @@ const buildNotebookRouter = ({
     } catch (error) {
       console.error('❌ Error opening shared notebook:', error);
       return res.status(500).json({ error: 'Failed to open that note.' });
+    }
+  });
+
+  /* A reader leaves a question on one published sentence. The public page
+     never stores or returns it. The author reads it later, still private. */
+  router.post('/api/public/notebooks/:slug/correspondence', async (req, res) => {
+    noStore(res);
+    if (!SharedNotebook || !NotebookCorrespondence) {
+      return res.status(404).json({ error: 'This note is not published.' });
+    }
+    try {
+      const share = await SharedNotebook.findOne({ slug: String(req.params.slug || '').trim() }).lean();
+      if (!share?.snapshot) return res.status(404).json({ error: 'This note is not published.' });
+
+      const block = findCorrespondenceBlock(share.snapshot, req.body?.blockId);
+      if (!block) {
+        return res.status(400).json({ error: 'That passage is not on this note.', field: 'blockId' });
+      }
+      const text = correspondenceText(req.body?.text);
+      if (!text) {
+        return res.status(400).json({ error: 'Write a question first.', field: 'text' });
+      }
+
+      const count = typeof NotebookCorrespondence.countDocuments === 'function'
+        ? await NotebookCorrespondence.countDocuments({ notebookId: share.notebookId })
+        : 0;
+      if (count >= CORRESPONDENCE_LIMIT) {
+        return res.status(409).json({ error: 'This note cannot take another question just now.' });
+      }
+
+      await NotebookCorrespondence.create({
+        userId: share.userId,
+        notebookId: share.notebookId,
+        slug: share.slug,
+        blockId: block.id,
+        excerpt: block.text,
+        text
+      });
+      return res.status(201).json({ sent: true });
+    } catch (error) {
+      console.error('❌ Error receiving notebook correspondence:', error);
+      return res.status(500).json({ error: 'Failed to send that question.' });
     }
   });
 
