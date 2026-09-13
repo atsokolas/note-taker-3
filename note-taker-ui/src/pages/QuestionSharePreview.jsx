@@ -61,6 +61,7 @@ const QuestionSharePreview = () => {
   const [scene, setScene] = useState(() => (
     SCENES.some((item) => item.id === params.get('scene')) ? params.get('scene') : 'compose'
   ));
+  const [offered, setOffered] = useState([]);
 
   const setQuery = (nextWidth, nextScene) => {
     const search = new URLSearchParams({ width: nextWidth, scene: nextScene }).toString();
@@ -72,6 +73,13 @@ const QuestionSharePreview = () => {
   const share = shareFor(scene);
   const reader = share.shared ? (share.snapshot || (share.stale ? null : share.preview)) : share.preview;
   const pending = share.stale ? share.preview : null;
+  const publicSnapshot = {
+    ...(scene === 'together' ? together : frozen),
+    contributions: [
+      ...((scene === 'together' ? together.contributions : []) || []),
+      ...offered
+    ]
+  };
 
   return (
     <div className="notebook-share-preview">
@@ -105,8 +113,17 @@ const QuestionSharePreview = () => {
         {scene === 'public' || scene === 'together' ? (
           <main className="shared-concept-page shared-question-page" data-testid="shared-question-page">
             <QuestionShareView
-              snapshot={scene === 'together' ? together : frozen}
-              onOffer={() => Promise.resolve({ sent: true })}
+              snapshot={publicSnapshot}
+              onOffer={async (reading) => {
+                setOffered((current) => [
+                  ...current,
+                  {
+                    id: `local-${current.length + 1}`,
+                    ...reading,
+                    createdAt: '2026-09-13T16:00:00.000Z'
+                  }
+                ]);
+              }}
             />
           </main>
         ) : null}

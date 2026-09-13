@@ -8467,8 +8467,10 @@ html[data-ui-theme='dark'] body.noeis-editorial .concept-editorial-evidence__ite
 .think-share-view__offer-field {
   display: block;
   width: 100%;
+  box-sizing: border-box;
   margin: 0.35rem 0 0;
   padding: 0.45rem 0.55rem;
+  min-height: 2.4rem;
   border: 1px solid var(--noeis-rule, rgba(28, 24, 18, 0.16));
   background: transparent;
   color: inherit;
@@ -8478,8 +8480,8 @@ html[data-ui-theme='dark'] body.noeis-editorial .concept-editorial-evidence__ite
   resize: none;
 }
 
-input.think-share-view__offer-field {
-  resize: none;
+textarea.think-share-view__offer-field {
+  min-height: 5.2rem;
 }
 
 .think-share-view__offer-error {
