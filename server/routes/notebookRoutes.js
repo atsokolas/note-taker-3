@@ -16,8 +16,8 @@ const {
   disposeAuthoredSourceCorrection
 } = require('../services/authoredSourceCorrection');
 const {
-  CORRESPONDENCE_LIMIT,
   PREVIEW_STALE,
+  claimCorrespondenceSlot,
   correspondenceText,
   findCorrespondenceBlock,
   freezeNotebookSnapshot,
@@ -25,6 +25,7 @@ const {
   liveNotebookPreview,
   loadNotebookCorrespondence,
   notebookShareState,
+  releaseCorrespondenceSlot,
   shareSlug
 } = require('../services/authoredNotebookShare');
 
@@ -820,7 +821,8 @@ const buildNotebookRouter = ({
           ownerDisplayName,
           snapshot: freezeNotebookSnapshot(preview, now),
           contentHash: currentHash,
-          publishedAt: now
+          publishedAt: now,
+          correspondenceCount: 0
         });
         return res.status(201).json(await sharePayload(
           userId,
@@ -947,21 +949,26 @@ const buildNotebookRouter = ({
         return res.status(400).json({ error: 'Write a question first.', field: 'text' });
       }
 
-      const count = typeof NotebookCorrespondence.countDocuments === 'function'
-        ? await NotebookCorrespondence.countDocuments({ notebookId: share.notebookId })
-        : 0;
-      if (count >= CORRESPONDENCE_LIMIT) {
+      const claimed = await claimCorrespondenceSlot(SharedNotebook, share.slug);
+      if (!claimed) {
+        const still = await SharedNotebook.findOne({ slug: share.slug }).lean();
+        if (!still?.snapshot) return res.status(404).json({ error: 'This note is not published.' });
         return res.status(409).json({ error: 'This note cannot take another question just now.' });
       }
 
-      await NotebookCorrespondence.create({
-        userId: share.userId,
-        notebookId: share.notebookId,
-        slug: share.slug,
-        blockId: block.id,
-        excerpt: block.text,
-        text
-      });
+      try {
+        await NotebookCorrespondence.create({
+          userId: share.userId,
+          notebookId: share.notebookId,
+          slug: share.slug,
+          blockId: block.id,
+          excerpt: block.text,
+          text
+        });
+      } catch (error) {
+        await releaseCorrespondenceSlot(SharedNotebook, share.slug);
+        throw error;
+      }
       return res.status(201).json({ sent: true });
     } catch (error) {
       console.error('❌ Error receiving notebook correspondence:', error);

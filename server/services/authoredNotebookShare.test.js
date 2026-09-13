@@ -3,7 +3,9 @@ const {
   ACCESS_WITHHELD,
   CORRESPONDENCE_LIMIT,
   canPublishNotebook,
+  claimCorrespondenceSlot,
   collectArticleIds,
+  correspondenceSlotFilter,
   correspondenceText,
   findCorrespondenceBlock,
   freezeNotebookSnapshot,
@@ -223,6 +225,11 @@ describe('authored notebook share', () => {
     expect(correspondenceText('  <em>Does spare time belong to the person who pays?</em>  '))
       .toBe('Does spare time belong to the person who pays?');
     expect(CORRESPONDENCE_LIMIT).toBe(40);
+    expect(correspondenceSlotFilter('essay-slug')).toEqual({
+      slug: 'essay-slug',
+      snapshot: { $ne: null },
+      $expr: { $lt: [{ $ifNull: ['$correspondenceCount', 0] }, CORRESPONDENCE_LIMIT] }
+    });
 
     const withMail = notebookShareState({
       slug: 'abc',
@@ -248,5 +255,23 @@ describe('authored notebook share', () => {
     expect(JSON.stringify(withMail.snapshot)).not.toMatch(/Does spare time belong/);
     expect(freezeNotebookSnapshot({ ...snapshot, letters: withMail.letters }, snapshot.publishedAt).letters)
       .toBeUndefined();
+  });
+
+  it('claims at most one slot per published door, even when callers overlap', async () => {
+    const row = { slug: 'essay-slug', snapshot: { title: 'A' }, correspondenceCount: 0 };
+    const SharedNotebook = {
+      findOneAndUpdate: async (query, patch) => {
+        expect(query).toEqual(correspondenceSlotFilter('essay-slug'));
+        const count = Number(row.correspondenceCount || 0);
+        if (patch.$inc.correspondenceCount > 0 && count >= CORRESPONDENCE_LIMIT) return null;
+        row.correspondenceCount = count + patch.$inc.correspondenceCount;
+        return { ...row };
+      }
+    };
+    const claimed = await Promise.all(
+      Array.from({ length: CORRESPONDENCE_LIMIT + 15 }, () => claimCorrespondenceSlot(SharedNotebook, 'essay-slug'))
+    );
+    expect(claimed.filter(Boolean)).toHaveLength(CORRESPONDENCE_LIMIT);
+    expect(row.correspondenceCount).toBe(CORRESPONDENCE_LIMIT);
   });
 });

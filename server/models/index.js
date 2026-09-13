@@ -3108,7 +3108,8 @@ const sharedNotebookSchema = new mongoose.Schema({
   ownerDisplayName: { type: String, default: '' },
   snapshot: { type: mongoose.Schema.Types.Mixed, default: null },
   contentHash: { type: String, default: '' },
-  publishedAt: { type: Date, default: null }
+  publishedAt: { type: Date, default: null },
+  correspondenceCount: { type: Number, default: 0 }
 }, { timestamps: true });
 
 sharedNotebookSchema.index({ userId: 1, notebookId: 1 }, { unique: true });

@@ -250,6 +250,40 @@ const loadNotebookCorrespondence = async (NotebookCorrespondence, query) => {
   return Array.isArray(rows) ? rows : [];
 };
 
+// Bound to this published door, not the notebook's lifetime letters.
+// $ifNull lets older rows without correspondenceCount still take a slot.
+const correspondenceSlotFilter = (slug) => ({
+  slug: publicText(slug, 80),
+  snapshot: { $ne: null },
+  $expr: { $lt: [{ $ifNull: ['$correspondenceCount', 0] }, CORRESPONDENCE_LIMIT] }
+});
+
+const claimCorrespondenceSlot = async (SharedNotebook, slug) => {
+  const filter = correspondenceSlotFilter(slug);
+  if (!filter.slug || !SharedNotebook?.findOneAndUpdate) return null;
+  const updated = SharedNotebook.findOneAndUpdate(
+    filter,
+    { $inc: { correspondenceCount: 1 } },
+    { new: true }
+  );
+  if (!updated) return null;
+  if (typeof updated.lean === 'function') return updated.lean();
+  return updated;
+};
+
+const releaseCorrespondenceSlot = async (SharedNotebook, slug) => {
+  const key = publicText(slug, 80);
+  if (!key || !SharedNotebook?.findOneAndUpdate) return null;
+  const updated = SharedNotebook.findOneAndUpdate(
+    { slug: key, correspondenceCount: { $gt: 0 } },
+    { $inc: { correspondenceCount: -1 } },
+    { new: true }
+  );
+  if (!updated) return null;
+  if (typeof updated.lean === 'function') return updated.lean();
+  return updated;
+};
+
 const notebookShareState = (share, { preview = null, currentHash = '', letters = [] } = {}) => {
   const projected = projectCorrespondenceList(letters);
   if (!share) {
@@ -328,7 +362,9 @@ module.exports = {
   PREVIEW_STALE,
   PUBLIC_TYPES,
   canPublishNotebook,
+  claimCorrespondenceSlot,
   collectArticleIds,
+  correspondenceSlotFilter,
   correspondenceText,
   eligibleCorrespondenceBlock,
   findCorrespondenceBlock,
@@ -343,5 +379,6 @@ module.exports = {
   projectCorrespondenceList,
   projectPublicBlock,
   projectPublicNotebook,
+  releaseCorrespondenceSlot,
   shareSlug
 };
