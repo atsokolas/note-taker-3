@@ -129,6 +129,9 @@ const run = async () => {
   const Question = createModel();
   const User = createModel();
   const userId = new mongoose.Types.ObjectId().toString();
+  const contributorId = new mongoose.Types.ObjectId().toString();
+  const otherContributorId = new mongoose.Types.ObjectId().toString();
+  const strangerId = new mongoose.Types.ObjectId().toString();
   const questionId = new mongoose.Types.ObjectId().toString();
 
   await User.create({ _id: userId, displayName: 'Owner' });
@@ -155,10 +158,16 @@ const run = async () => {
 
   const app = express();
   app.use(express.json());
+  const asUser = (id) => ({ 'x-user-id': id });
   app.use(buildSharedQuestionRouter({
     authenticateToken: (req, _res, next) => {
-      req.user = { id: userId };
+      req.user = { id: String(req.headers['x-user-id'] || userId) };
       if (req.headers['x-agent-token']) req.agentToken = true;
+      next();
+    },
+    optionalAuthenticateToken: (req, _res, next) => {
+      const viewer = String(req.headers['x-user-id'] || '').trim();
+      if (viewer) req.user = { id: viewer };
       next();
     },
     SharedQuestion,
@@ -214,10 +223,15 @@ const run = async () => {
       mint.body.contentHash
     );
 
-    const offer = (targetSlug, body) => fetchJson(`${base}/api/public/questions/${targetSlug}/contributions`, {
+    const offer = (targetSlug, body, headers = {}) => fetchJson(`${base}/api/public/questions/${targetSlug}/contributions`, {
       method: 'POST',
+      headers,
       body: JSON.stringify(body)
     });
+    const publicGet = (targetSlug, headers = {}) => fetchJson(
+      `${base}/api/public/questions/${targetSlug}`,
+      { headers }
+    );
 
     const nameless = await offer(mint.body.slug, { text: 'Patience is not avoidance.' });
     assert.strictEqual(nameless.response.status, 400);
@@ -231,25 +245,97 @@ const run = async () => {
       remainder: 'Who pays when the window closes?',
       articleId: 'secret',
       sourcePath: '/library?articleId=secret'
-    });
+    }, asUser(contributorId));
     assert.strictEqual(reading.response.status, 201, JSON.stringify(reading.body));
     assert.deepStrictEqual(reading.body, { sent: true });
+    assert.strictEqual(QuestionContribution.rows[0].contributorUserId, contributorId);
+    assert.strictEqual(String(QuestionContribution.rows[0].userId), String(userId));
 
-    const together = await fetchJson(`${base}/api/public/questions/${mint.body.slug}`);
+    const together = await publicGet(mint.body.slug);
     assert.strictEqual(together.body.question.text, 'What survives compounding?');
     assert.deepStrictEqual(together.body.contributions, []);
     assert.ok(!together.body.waiting);
+    assert.ok(!together.body.yours);
     assert.ok(!together.body.snapshot);
+
+    const yours = await publicGet(mint.body.slug, asUser(contributorId));
+    assert.deepStrictEqual(yours.body.contributions, []);
+    assert.strictEqual(yours.body.yours[0].text, 'Same fact, different time horizon.');
+    assert.strictEqual(yours.body.yours[0].remainder, 'Who pays when the window closes?');
+    assert.ok(!yours.body.waiting);
+    assert.ok(!JSON.stringify(yours.body).includes(contributorId));
+    assert.ok(!JSON.stringify(yours.body).includes('secret'));
+
+    const strangerPage = await publicGet(mint.body.slug, asUser(strangerId));
+    assert.deepStrictEqual(strangerPage.body.contributions, []);
+    assert.ok(!strangerPage.body.yours);
+    assert.ok(!strangerPage.body.waiting);
+
+    const ownerPublic = await publicGet(mint.body.slug, asUser(userId));
+    assert.ok(!ownerPublic.body.yours);
+    assert.ok(!ownerPublic.body.waiting);
+
+    const other = await offer(mint.body.slug, {
+      by: 'Ada',
+      text: 'Another held reading.'
+    }, asUser(otherContributorId));
+    assert.strictEqual(other.response.status, 201);
+    const otherYours = await publicGet(mint.body.slug, asUser(otherContributorId));
+    assert.strictEqual(otherYours.body.yours.length, 1);
+    assert.strictEqual(otherYours.body.yours[0].text, 'Another held reading.');
+    const stillYours = await publicGet(mint.body.slug, asUser(contributorId));
+    assert.strictEqual(stillYours.body.yours.length, 1);
+    assert.strictEqual(stillYours.body.yours[0].text, 'Same fact, different time horizon.');
+    const unsignedStill = await publicGet(mint.body.slug);
+    assert.ok(!unsignedStill.body.yours);
+
+    const strangerShare = await fetchJson(`${base}/api/questions/${questionId}/share`, {
+      headers: asUser(strangerId)
+    });
+    assert.strictEqual(strangerShare.response.status, 404);
+
+    const strangerRevoke = await fetchJson(`${base}/api/questions/${questionId}/share`, {
+      method: 'DELETE',
+      headers: asUser(strangerId)
+    });
+    assert.strictEqual(strangerRevoke.response.status, 404);
+    const strangerUpdate = await fetchJson(`${base}/api/questions/${questionId}/share`, {
+      method: 'PUT',
+      headers: asUser(strangerId),
+      body: JSON.stringify({ previewHash: mint.body.currentHash })
+    });
+    assert.strictEqual(strangerUpdate.response.status, 404);
 
     const ownerSees = await fetchJson(`${base}/api/questions/${questionId}/share`);
     assert.deepStrictEqual(ownerSees.body.contributions, []);
     assert.strictEqual(ownerSees.body.waiting[0].text, 'Same fact, different time horizon.');
     assert.strictEqual(ownerSees.body.waiting[0].remainder, 'Who pays when the window closes?');
+    assert.strictEqual(ownerSees.body.waiting[1].text, 'Another held reading.');
     assert.ok(!JSON.stringify(ownerSees.body.waiting).includes('secret'));
     assert.ok(!ownerSees.body.snapshot.contributions);
     assert.ok(!ownerSees.body.snapshot.waiting);
+    assert.ok(!ownerSees.body.yours);
 
     const contributionId = ownerSees.body.waiting[0].id;
+    const otherId = ownerSees.body.waiting[1].id;
+    const contributorPlace = await fetchJson(
+      `${base}/api/questions/${questionId}/share/contributions/${contributionId}/place`,
+      {
+        method: 'POST',
+        headers: asUser(contributorId)
+      }
+    );
+    assert.strictEqual(contributorPlace.response.status, 404);
+
+    const contributorTake = await fetchJson(
+      `${base}/api/questions/${questionId}/share/contributions/${contributionId}`,
+      {
+        method: 'PATCH',
+        headers: asUser(contributorId),
+        body: JSON.stringify({ interpretation: 'A contributor take.' })
+      }
+    );
+    assert.strictEqual(contributorTake.response.status, 404);
     const earlyTake = await fetchJson(
       `${base}/api/questions/${questionId}/share/contributions/${contributionId}`,
       {
@@ -280,7 +366,8 @@ const run = async () => {
     );
     assert.strictEqual(placed.response.status, 200, JSON.stringify(placed.body));
     assert.strictEqual(placed.body.contributions[0].text, 'Same fact, different time horizon.');
-    assert.ok(!placed.body.waiting);
+    assert.strictEqual(placed.body.waiting[0].id, otherId);
+    assert.strictEqual(placed.body.waiting[0].text, 'Another held reading.');
     assert.ok(!placed.body.snapshot.contributions);
 
     const again = await fetchJson(
@@ -298,6 +385,13 @@ const run = async () => {
     assert.ok(!JSON.stringify(publicPlaced.body.contributions).includes('secret'));
     assert.ok(!JSON.stringify(publicPlaced.body.contributions).includes('library?'));
     assert.ok(!publicPlaced.body.waiting);
+    assert.ok(!publicPlaced.body.yours);
+    const placedYours = await publicGet(mint.body.slug, asUser(contributorId));
+    assert.ok(!placedYours.body.yours);
+    assert.strictEqual(placedYours.body.contributions[0].id, contributionId);
+    const otherStillHeld = await publicGet(mint.body.slug, asUser(otherContributorId));
+    assert.strictEqual(otherStillHeld.body.yours[0].id, otherId);
+    assert.deepStrictEqual(otherStillHeld.body.contributions.map((row) => row.id), [contributionId]);
 
     const agentTake = await fetchJson(
       `${base}/api/questions/${questionId}/share/contributions/${contributionId}`,
@@ -364,8 +458,9 @@ const run = async () => {
     );
     assert.strictEqual(retake.body.contributions[0].interpretation, 'The horizon is the claim, not the fact.');
 
+    const used = SharedQuestion.rows[0].contributionCount;
     const filled = [];
-    for (let i = 1; i < CONTRIBUTION_LIMIT; i += 1) {
+    for (let i = used; i < CONTRIBUTION_LIMIT; i += 1) {
       filled.push(offer(mint.body.slug, { by: 'Mara', text: `Reading ${i + 1}.` }));
     }
     const filledResults = await Promise.all(filled);
@@ -419,6 +514,10 @@ const run = async () => {
     const missing = await fetchJson(`${base}/api/public/questions/${mint.body.slug}`);
     assert.strictEqual(missing.response.status, 404);
     assert.strictEqual(missing.body.error, 'This question is not published.');
+    const goneYours = await publicGet(mint.body.slug, asUser(contributorId));
+    assert.strictEqual(goneYours.response.status, 404);
+    const goneOther = await publicGet(mint.body.slug, asUser(otherContributorId));
+    assert.strictEqual(goneOther.response.status, 404);
 
     const goneDoor = await offer(mint.body.slug, { by: 'Mara', text: 'After revoke.' });
     assert.strictEqual(goneDoor.response.status, 404);

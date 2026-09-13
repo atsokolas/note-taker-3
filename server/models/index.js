@@ -3080,7 +3080,10 @@ const SharedQuestion = mongoose.model('SharedQuestion', sharedQuestionSchema);
    to that slug, so a later publish is a new address. A new reading
    is held until the owner places it beside the question. The owner may
    later say how they take that reading. The original writing and remainder
-   stay. Inclusion in a later edition is a later, explicit act. */
+   stay. Inclusion in a later edition is a later, explicit act.
+   userId is the question owner. If the offerer was signed in,
+   contributorUserId is theirs so they can see a still-held reading.
+   It is not a Library and it is never shown to anyone else. */
 const questionContributionSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   questionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Question', required: true, index: true },
@@ -3089,7 +3092,8 @@ const questionContributionSchema = new mongoose.Schema({
   text: { type: String, required: true },
   remainder: { type: String, default: '' },
   interpretation: { type: String, default: '' },
-  held: { type: Boolean }
+  held: { type: Boolean },
+  contributorUserId: { type: String }
 }, { timestamps: true });
 
 questionContributionSchema.index({ slug: 1, createdAt: 1 });

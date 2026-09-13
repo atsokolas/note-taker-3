@@ -111,10 +111,12 @@ describe('authored think share', () => {
     const frozen = freezeThinkSnapshot({
       ...preview,
       contributions: [{ by: 'Leaked', text: 'Should not freeze.' }],
-      interpretation: 'Should not freeze.'
+      interpretation: 'Should not freeze.',
+      yours: [{ by: 'Leaked', text: 'Should not freeze.' }]
     }, '2026-09-13T12:00:00.000Z');
     expect(frozen.contributions).toBeUndefined();
     expect(frozen.interpretation).toBeUndefined();
+    expect(frozen.yours).toBeUndefined();
     expect(hashPublicQuestion(preview)).toBe(hashPublicQuestion(frozen));
 
     expect(contributionText('  <em>Patience is not avoidance.</em>  '))
@@ -269,5 +271,58 @@ describe('authored think share', () => {
     }]);
     expect(ownerState.waiting[0].held).toBeUndefined();
     expect(ownerState.contributions[0].held).toBeUndefined();
+
+    const yoursPage = publicQuestionPage({
+      ownerDisplayName: 'Athan',
+      snapshot: {
+        ...frozen,
+        yours: [{ by: 'Leaked', text: 'Should not publish.' }]
+      }
+    }, [{
+      _id: 'held-mine',
+      by: 'Mara',
+      text: 'Same fact, different time horizon.',
+      remainder: 'Who pays when the window closes?',
+      held: true,
+      contributorUserId: 'contrib-1',
+      articleId: 'secret'
+    }, {
+      _id: 'held-theirs',
+      by: 'Ada',
+      text: 'Another held reading.',
+      held: true,
+      contributorUserId: 'contrib-2'
+    }, {
+      _id: 'live',
+      by: 'Ada',
+      text: 'Already on the page.',
+      contributorUserId: 'contrib-1'
+    }], 'contrib-1');
+    expect(yoursPage.contributions).toEqual([{
+      id: 'live',
+      by: 'Ada',
+      text: 'Already on the page.',
+      createdAt: ''
+    }]);
+    expect(yoursPage.yours).toEqual([{
+      id: 'held-mine',
+      by: 'Mara',
+      text: 'Same fact, different time horizon.',
+      remainder: 'Who pays when the window closes?',
+      createdAt: ''
+    }]);
+    expect(yoursPage.yours[0].contributorUserId).toBeUndefined();
+    expect(yoursPage.yours[0].held).toBeUndefined();
+    expect(yoursPage.waiting).toBeUndefined();
+    expect(JSON.stringify(yoursPage)).not.toMatch(/contrib-1|contrib-2|secret/);
+    const heldMine = [{
+      _id: 'held-mine',
+      by: 'Mara',
+      text: 'Same fact, different time horizon.',
+      held: true,
+      contributorUserId: 'contrib-1'
+    }];
+    expect(publicQuestionPage({ snapshot: frozen }, heldMine, 'contrib-3').yours).toBeUndefined();
+    expect(publicQuestionPage({ snapshot: frozen }, heldMine).yours).toBeUndefined();
   });
 });

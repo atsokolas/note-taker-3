@@ -23,8 +23,11 @@ const {
   thinkShareState
 } = require('../services/authoredThinkShare');
 
+const passthroughAuth = (_req, _res, next) => next();
+
 const buildSharedQuestionRouter = ({
   authenticateToken,
+  optionalAuthenticateToken = passthroughAuth,
   SharedQuestion,
   QuestionContribution,
   Question,
@@ -356,7 +359,7 @@ const buildSharedQuestionRouter = ({
     }
   );
 
-  router.get('/api/public/questions/:slug', async (req, res) => {
+  router.get('/api/public/questions/:slug', optionalAuthenticateToken, async (req, res) => {
     noStore(res);
     try {
       const slug = String(req.params.slug || '').trim();
@@ -382,7 +385,7 @@ const buildSharedQuestionRouter = ({
         return res.status(404).json({ error: NOT_PUBLISHED.question });
       }
       const contributions = await readingsFor(share.slug);
-      return res.status(200).json(publicQuestionPage(share, contributions));
+      return res.status(200).json(publicQuestionPage(share, contributions, req.user?.id));
     } catch (error) {
       console.error('❌ Error fetching public question:', error);
       return res.status(500).json({ error: 'Failed to fetch shared question.' });
@@ -392,7 +395,7 @@ const buildSharedQuestionRouter = ({
   /* A second person offers selected writing. It is held until the owner
      places it beside the frozen question. Optional remainder included,
      never merged into the snapshot, never a Library. Revoke closes the door. */
-  router.post('/api/public/questions/:slug/contributions', async (req, res) => {
+  router.post('/api/public/questions/:slug/contributions', optionalAuthenticateToken, async (req, res) => {
     noStore(res);
     if (!QuestionContribution) {
       return res.status(404).json({ error: NOT_PUBLISHED.question });
@@ -427,6 +430,7 @@ const buildSharedQuestionRouter = ({
       }
 
       try {
+        const contributorUserId = String(req.user?.id || '').trim();
         await QuestionContribution.create({
           userId: share.userId,
           questionId: share.questionId,
@@ -434,7 +438,8 @@ const buildSharedQuestionRouter = ({
           by,
           text,
           remainder,
-          held: true
+          held: true,
+          ...(contributorUserId ? { contributorUserId } : {})
         });
       } catch (error) {
         await releaseContributionSlot(SharedQuestion, share.slug);

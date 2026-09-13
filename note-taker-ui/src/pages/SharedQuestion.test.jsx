@@ -104,4 +104,41 @@ describe('SharedQuestion', () => {
     expect(screen.getByRole('button', { name: 'Offer a reading' })).toBeInTheDocument();
     expect(screen.queryByLabelText('How you take this')).not.toBeInTheDocument();
   });
+
+  it('lets a signed-in offerer see their held reading without publishing it', async () => {
+    const published = {
+      ownerDisplayName: 'Athan',
+      publishedAt: '2026-06-14T00:00:00Z',
+      question: {
+        text: 'What survives compounding?',
+        status: 'open',
+        paragraphs: [{ id: 'p1', type: 'paragraph', text: 'First paragraph.' }]
+      }
+    };
+    getPublicQuestion
+      .mockResolvedValueOnce(published)
+      .mockResolvedValueOnce({
+        ...published,
+        yours: [{
+          id: 'c1',
+          by: 'Mara',
+          text: 'Same fact, different time horizon.',
+          remainder: 'Who pays when the window closes?'
+        }]
+      });
+    offerQuestionContribution.mockResolvedValue({ sent: true });
+
+    render(<SharedQuestion />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Offer a reading' }));
+    fireEvent.change(screen.getByLabelText('Your name'), { target: { value: 'Mara' } });
+    fireEvent.change(screen.getByLabelText('What you bring'), {
+      target: { value: 'Same fact, different time horizon.' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Offer this reading' }));
+
+    expect(await screen.findByTestId('question-share-yours')).toHaveTextContent('With the author');
+    expect(screen.getByTestId('question-share-yours')).toHaveTextContent('Same fact, different time horizon.');
+    expect(screen.queryByTestId('question-share-readings')).not.toBeInTheDocument();
+    expect(screen.getByText('It is with the author. It is not on the page yet.')).toBeInTheDocument();
+  });
 });

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { usePrefersReducedMotion } from '../../hooks/useMotionPreferences';
-import { QUESTION_SHARE_COLOPHON, QUESTION_SHARE_OFFER, QUESTION_SHARE_RECEIPT } from './thinkShareFixture';
+import { QUESTION_SHARE_COLOPHON, QUESTION_SHARE_OFFER, QUESTION_SHARE_RECEIPT, QUESTION_SHARE_YOURS } from './thinkShareFixture';
 
 const asLine = (value) => String(value || '').trim();
 
@@ -14,6 +14,12 @@ const formatPublished = (value) => {
 const readingsOf = (snapshot) => (
   Array.isArray(snapshot?.contributions)
     ? snapshot.contributions.filter((item) => asLine(item?.by) && asLine(item?.text))
+    : []
+);
+
+const yoursOf = (snapshot) => (
+  Array.isArray(snapshot?.yours)
+    ? snapshot.yours.filter((item) => asLine(item?.by) && asLine(item?.text))
     : []
 );
 
@@ -157,6 +163,7 @@ export default function QuestionShareView({
     ? (when ? `Shared by ${snapshot.ownerDisplayName} · ${when}` : `Shared by ${snapshot.ownerDisplayName}`)
     : when;
   const readings = readingsOf(snapshot);
+  const yours = compact ? [] : yoursOf(snapshot);
   const invite = compact ? null : onOffer;
 
   return (
@@ -192,6 +199,14 @@ export default function QuestionShareView({
           </p>
           {readings.map((reading, index) => (
             <Reading key={reading.id || `${reading.by}-${index}`} reading={reading} />
+          ))}
+        </section>
+      ) : null}
+      {yours.length ? (
+        <section className="think-share-view__yours" data-testid="question-share-yours">
+          <p className="think-share-view__section">{QUESTION_SHARE_YOURS}</p>
+          {yours.map((reading, index) => (
+            <Reading key={reading.id || `yours-${reading.by}-${index}`} reading={reading} />
           ))}
         </section>
       ) : null}

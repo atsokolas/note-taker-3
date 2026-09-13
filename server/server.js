@@ -4849,7 +4849,7 @@ const getCookieValue = (cookieHeader, name) => {
   return decodeURIComponent(match.slice(name.length + 1));
 };
 
-function authenticateToken(req, res, next) {
+const readRequestToken = (req) => {
   const authHeader = req.headers['authorization'] || '';
   const headerToken = authHeader.startsWith('Bearer ')
     ? authHeader.slice(7).trim()
@@ -4859,9 +4859,14 @@ function authenticateToken(req, res, next) {
     getCookieValue(cookieHeader, 'token') ||
     getCookieValue(cookieHeader, 'authToken') ||
     getCookieValue(cookieHeader, 'jwt');
+  return {
+    token: headerToken || cookieToken,
+    tokenSource: headerToken ? 'header' : (cookieToken ? 'cookie' : 'none')
+  };
+};
 
-  const token = headerToken || cookieToken;
-  const tokenSource = headerToken ? 'header' : (cookieToken ? 'cookie' : 'none');
+function authenticateToken(req, res, next) {
+  const { token, tokenSource } = readRequestToken(req);
 
   if (!token) {
     if (process.env.DEBUG_AUTH === 'true') {
@@ -4902,6 +4907,21 @@ function authenticateToken(req, res, next) {
       exp: user.exp
     };
     next();
+  });
+}
+
+function optionalAuthenticateToken(req, res, next) {
+  const { token, tokenSource } = readRequestToken(req);
+  if (!token) return next();
+  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+    if (err || !user) return next();
+    req.user = user;
+    req.authInfo = {
+      tokenSource,
+      iat: user.iat,
+      exp: user.exp
+    };
+    return next();
   });
 }
 
@@ -6768,6 +6788,7 @@ app.use(buildSharedConceptRouter({
 
 app.use(buildSharedQuestionRouter({
   authenticateToken,
+  optionalAuthenticateToken,
   SharedQuestion,
   QuestionContribution,
   Question,

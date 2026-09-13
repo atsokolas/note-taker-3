@@ -83,15 +83,25 @@ export const revokeQuestionShare = async (id) => {
   return res.data || { revoked: true };
 };
 
+const optionalAuthHeaders = () => (
+  typeof localStorage !== 'undefined' && localStorage.getItem('token')
+    ? getAuthHeaders()
+    : undefined
+);
+
 export const getPublicQuestion = async (slug) => {
-  const res = await api.get(`/api/public/questions/${encodeURIComponent(slug)}`);
+  const res = await api.get(
+    `/api/public/questions/${encodeURIComponent(slug)}`,
+    optionalAuthHeaders()
+  );
   return res.data;
 };
 
 export const offerQuestionContribution = async (slug, body = {}) => {
   const res = await api.post(
     `/api/public/questions/${encodeURIComponent(slug)}/contributions`,
-    body
+    body,
+    optionalAuthHeaders()
   );
   return res.data || { sent: true };
 };

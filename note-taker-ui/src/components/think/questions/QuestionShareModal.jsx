@@ -245,7 +245,7 @@ const QuestionShareModal = ({ open, questionId, questionText, onClose }) => {
   const readings = Array.isArray(state.contributions) ? state.contributions : [];
   const waiting = Array.isArray(state.waiting) ? state.waiting : [];
   const readerView = reader?.question
-    ? { ...reader, contributions: readings }
+    ? { ...reader, contributions: readings, yours: undefined }
     : reader;
 
   return (

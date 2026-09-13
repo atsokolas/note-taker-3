@@ -14,6 +14,8 @@ export const QUESTION_SHARE_TAKE = 'The reading stays. This sits beside it.';
 
 export const QUESTION_SHARE_PLACE = 'It is not on the page yet.';
 
+export const QUESTION_SHARE_YOURS = 'With the author';
+
 export const CONCEPT_SHARE_COLOPHON = 'This is the version that was published. Later private edits do not change it.';
 
 export const QUESTION_NOT_PUBLISHED = 'This question is not published.';

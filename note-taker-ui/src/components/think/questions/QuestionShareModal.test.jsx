@@ -100,6 +100,28 @@ describe('QuestionShareModal', () => {
     expect(screen.getByText('The reading stays. This sits beside it.')).toBeInTheDocument();
   });
 
+  it('keeps a contributor held reading off the compact preview', async () => {
+    getQuestionShare.mockResolvedValueOnce({
+      shared: true,
+      slug: 'abc123',
+      snapshot: {
+        ...frozen,
+        yours: [{
+          id: 'c9',
+          by: 'Mara',
+          text: 'Same fact, different time horizon.'
+        }]
+      },
+      preview: frozen,
+      contributions: []
+    });
+    render(<QuestionShareModal open questionId="q1" questionText="What next?" onClose={() => {}} />);
+    expect(await screen.findByTestId('question-share-preview')).toBeInTheDocument();
+    expect(screen.getByTestId('question-share-preview')).not.toHaveTextContent('Same fact, different time horizon.');
+    expect(screen.queryByText('With the author')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Offer a reading' })).not.toBeInTheDocument();
+  });
+
   it('keeps a waiting reading off the compact preview until the owner places it', async () => {
     const reading = {
       id: 'c1',
