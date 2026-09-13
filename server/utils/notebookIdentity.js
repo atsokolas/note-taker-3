@@ -47,10 +47,54 @@ const sanitizeAsidePieces = (pieces) => (
 );
 
 const STALE_IDENTITY_ERROR = /^(blocks|asidePieces|linkedArticleId|folder|claimId|linkedHighlightIds|importMeta|importSessionId)(\.|$)/;
+const PERSISTED_IDENTITY_PROJECTION = {
+  linkedHighlightIds: 1,
+  folder: 1,
+  claimId: 1,
+  linkedArticleId: 1,
+  'importMeta.importSessionId': 1
+};
+
+const dotted = (value, path) => (
+  path.split('.').reduce((cursor, part) => (cursor == null ? cursor : cursor[part]), value)
+);
+
+const identityCastErrors = (entry) => entry.$__?.validationError?.errors || null;
+
+const liveRead = (entry, path) => {
+  if (typeof entry.$__getValue === 'function') return entry.$__getValue(path);
+  return dotted(entry, path);
+};
 
 const readPath = (entry, path) => {
-  if (typeof entry.$__getValue === 'function') return entry.$__getValue(path);
-  return path.split('.').reduce((cursor, part) => (cursor == null ? cursor : cursor[part]), entry);
+  const live = liveRead(entry, path);
+  if (live != null && !(Array.isArray(live) && live.length === 0)) return live;
+  const fromPersisted = dotted(entry.$locals?.persistedIdentity, path);
+  if (fromPersisted !== undefined) return fromPersisted;
+  return live;
+};
+
+const attachPersistedIdentity = async (entry) => {
+  if (!entry || entry.isNew) return entry;
+  const errors = identityCastErrors(entry);
+  if (!errors || !Object.keys(errors).some((key) => STALE_IDENTITY_ERROR.test(key))) return entry;
+  const findOne = entry.constructor?.collection?.findOne;
+  if (typeof findOne !== 'function') return entry;
+  try {
+    const raw = await findOne.call(entry.constructor.collection, { _id: entry._id }, {
+      projection: PERSISTED_IDENTITY_PROJECTION
+    });
+    if (raw) {
+      entry.$locals = entry.$locals || {};
+      entry.$locals.persistedIdentity = {
+        ...raw,
+        ...(entry.$locals.persistedIdentity || {})
+      };
+    }
+  } catch (_error) {
+    // Disconnected tests still heal from in-memory values plus any $locals stash.
+  }
+  return entry;
 };
 
 const writePath = (entry, path, value) => {
@@ -99,6 +143,7 @@ const sanitizeNotebookEntry = (entry) => {
 
 module.exports = {
   asObjectIdOrNull,
+  attachPersistedIdentity,
   sanitizeAsidePieces,
   sanitizeNotebookBlock,
   sanitizeNotebookBlocks,

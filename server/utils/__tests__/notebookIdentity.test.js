@@ -87,4 +87,28 @@ assert.ok(assigned.$__.validationError, 'assigned leftover identity should recor
 sanitizeNotebookEntry(assigned);
 assert.equal(assigned.validateSync(), null);
 
+const keptHighlight = '64f2000000000000000000aa';
+const mixed = new NotebookEntry();
+mixed.init({
+  _id: new mongoose.Types.ObjectId(),
+  userId: new mongoose.Types.ObjectId(),
+  title: 'Held thought',
+  content: '<p>Held</p>',
+  blocks: [{ id: 'p1', type: 'paragraph', text: 'Held' }],
+  type: 'note',
+  tags: [],
+  linkedHighlightIds: [keptHighlight, 'highlight-1']
+});
+mixed.isNew = false;
+assert.equal(mixed.$__getValue('linkedHighlightIds'), undefined);
+mixed.$locals = { persistedIdentity: { linkedHighlightIds: [keptHighlight, 'highlight-1'] } };
+sanitizeNotebookEntry(mixed);
+assert.deepEqual(mixed.linkedHighlightIds.map(String), [keptHighlight]);
+assert.ok(!mixed.linkedHighlightIds.map(String).includes('highlight-1'));
+assert.ok(
+  mixed.isModified('linkedHighlightIds'),
+  'healed mixed highlight ids must be marked so save keeps the valid members'
+);
+assert.equal(mixed.validateSync(), null);
+
 console.log('notebook identity tests passed');
