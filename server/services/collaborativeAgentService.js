@@ -7,7 +7,7 @@ const {
   readLean
 } = require('./authoredThinkShare');
 const { buildLivingThesisCriticMandate } = require('./agentWorkerRoles');
-const { brokerAgentTurn, resolveAgentCapability } = require('./agentCapabilityBroker');
+const { brokerAgentTurn, resolveAgentCapability, isSharedQuestionContext } = require('./agentCapabilityBroker');
 const { resolveAgentModelRoute } = require('./agentModelRouter');
 const {
   PATTERNS: AGENT_INTENT_PATTERNS,
@@ -1047,10 +1047,6 @@ const shouldSearchWorkspaceForWikiPage = ({ message = '', conversationState = {}
   return WIKI_WORKSPACE_RETRIEVAL_RE.test(safeMessage);
 };
 
-const isSharedQuestionScope = (context = {}, contextItem = null) => (
-  toSafeString(contextItem?.type || context?.type).toLowerCase() === 'shared_question'
-);
-
 const shouldSearchWorkspaceForContext = ({
   context = {},
   contextItem = null,
@@ -1059,7 +1055,7 @@ const shouldSearchWorkspaceForContext = ({
   conversationState = {},
   skillInvocation = {}
 } = {}) => {
-  if (isSharedQuestionScope(context, contextItem)) return false;
+  if (isSharedQuestionContext(context, contextItem)) return false;
   if (contextItem?.type === 'wiki_page') {
     return intentDecision.retrievalPolicy === 'workspace' && shouldSearchWorkspaceForWikiPage({
       message,
@@ -2739,7 +2735,7 @@ const buildReply = ({
   }
 
   if (intent === 'plan') {
-    if (isSharedQuestionScope(context, contextItem)) {
+    if (isSharedQuestionContext(context, contextItem)) {
       return contextItem
         ? 'Plan: 1. Stay with the published question and the writing already on this door. 2. Name where the readings differ. 3. Leave private Libraries out of the reply. No workspace change will happen until you approve one.'
         : 'This question is not published.';
@@ -2764,7 +2760,7 @@ const buildReply = ({
   }
 
   if (preparedItems.length === 0) {
-    if (isSharedQuestionScope(context, contextItem)) {
+    if (isSharedQuestionContext(context, contextItem)) {
       if (!contextItem) return 'This question is not published.';
       if (intent === 'retrieve') {
         return 'This conversation is bound to the published question. Nothing from a private Library is in scope.';
@@ -2976,7 +2972,7 @@ const generateCollaborativeReply = async ({
   // The browser describes its private working state; the server resolves the
   // page, sentence and selected source under this user's ownership before any
   // retrieval, model call or action planning can consume it.
-  const sharedQuestionScoped = isSharedQuestionScope(context);
+  let sharedQuestionScoped = isSharedQuestionContext(context);
   const authoredExploration = sharedQuestionScoped
     ? null
     : await resolveExplorationContext({ userId: userObjectId, context, WikiPage, Article });
@@ -3011,6 +3007,16 @@ const generateCollaborativeReply = async ({
     QuestionContribution
   });
   if (authoredExploration && contextItem) contextItem.authoredExploration = authoredExploration;
+  sharedQuestionScoped = isSharedQuestionContext(context, contextItem);
+  if (sharedQuestionScoped) {
+    intentDecision = {
+      ...intentDecision,
+      interactionMode: 'answer',
+      plannerPolicy: 'hidden',
+      proposalPolicy: 'none',
+      retrievalPolicy: 'context'
+    };
+  }
   const shouldSearchWorkspace = shouldSearchWorkspaceForContext({
     context,
     contextItem,
@@ -3064,8 +3070,10 @@ const generateCollaborativeReply = async ({
   });
   const capabilityDecision = resolveAgentCapability({
     intentDecision,
-    skillInvocation,
-    relatedItems
+    skillInvocation: sharedQuestionScoped ? {} : skillInvocation,
+    relatedItems,
+    context,
+    contextItem
   });
   const modelRoute = resolveAgentModelRoute({
     capability: capabilityDecision,
@@ -3197,9 +3205,7 @@ const generateCollaborativeReply = async ({
       searchedWorkspace: Boolean(shouldSearchWorkspace),
       relatedCount: responseItems.length
     },
-    suggestedActions: sharedQuestionScoped
-      ? []
-      : proposalBundle && responseItems.length > 0
+    suggestedActions: proposalBundle && responseItems.length > 0
       ? [
         {
           type: 'restructure_candidates',
@@ -3242,7 +3248,7 @@ module.exports = {
     filterRetrievedItemsForRequest,
     shouldSearchWorkspaceForWikiPage,
     shouldSearchWorkspaceForContext,
-    isSharedQuestionScope,
+    isSharedQuestionContext,
     buildSharedQuestionContextItem
   }
 };

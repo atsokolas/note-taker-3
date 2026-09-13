@@ -21,7 +21,7 @@ const {
   pruneRelatedItemsForContext,
   shouldSearchWorkspaceForWikiPage,
   shouldSearchWorkspaceForContext,
-  isSharedQuestionScope,
+  isSharedQuestionContext,
   buildSharedQuestionContextItem
 } = __testables;
 
@@ -1207,7 +1207,7 @@ const run = async () => {
     false,
     'An unpublished shared question must not fall through to workspace search.'
   );
-  assert.strictEqual(isSharedQuestionScope({ type: 'shared_question' }), true);
+  assert.strictEqual(isSharedQuestionContext({ type: 'shared_question' }), true);
   const unpublishedContext = await resolveContextItem({
     userObjectId: 'viewer-1',
     context: { type: 'shared_question', id: 'gone' },

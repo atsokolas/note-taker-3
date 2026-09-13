@@ -28,6 +28,7 @@ const organizationResult = () => ({
 const run = async () => {
   const threads = [];
   const createdProposals = [];
+  const plannedCalls = [];
   const app = express();
   app.use(express.json());
   app.use(buildAgentChatRouter({
@@ -96,6 +97,7 @@ const run = async () => {
       operations: proposal?.operations || []
     }),
     planLibraryStructureProposal: async ({ request, sourceBundleId }) => {
+      plannedCalls.push({ request, sourceBundleId });
       if (/unsafe/i.test(request)) {
         const error = new Error('The plan referenced an unknown article.');
         error.status = 422;
@@ -157,6 +159,25 @@ const run = async () => {
     assert.strictEqual(failedPayload.proposalBundle, null);
     assert.match(failedPayload.reply, /did not stage or apply anything/i);
     assert.strictEqual(createdProposals.length, 1, 'A rejected plan must create no review object.');
+    assert.strictEqual(plannedCalls.length, 2);
+
+    const sharedResponse = await fetch(`${url}/api/agent/chat`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        message: 'Organize my workspace',
+        context: { type: 'shared_question', id: 'qslug', title: 'What survives compounding?' }
+      })
+    });
+    const sharedPayload = await sharedResponse.json();
+    assert.strictEqual(sharedResponse.status, 200);
+    assert.strictEqual(sharedPayload.capability?.id, 'capability.context.answer');
+    assert.strictEqual(sharedPayload.capability?.effect, 'read');
+    assert.strictEqual(sharedPayload.proposalBundle, null);
+    assert.strictEqual(sharedPayload.structureProposal, undefined);
+    assert.strictEqual(sharedPayload.structurePlanning, undefined);
+    assert.strictEqual(plannedCalls.length, 2, 'A published question must not inspect private folders or articles.');
+    assert.strictEqual(createdProposals.length, 1, 'A published question must not stage a Library structure plan.');
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }
