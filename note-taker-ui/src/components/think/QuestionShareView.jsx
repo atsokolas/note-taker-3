@@ -1,6 +1,22 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { usePrefersReducedMotion } from '../../hooks/useMotionPreferences';
-import { QUESTION_SHARE_AGREEMENT, QUESTION_SHARE_COLOPHON, QUESTION_SHARE_OBSERVATION, QUESTION_SHARE_OFFER, QUESTION_SHARE_OWNER_REMAINDER, QUESTION_SHARE_RECEIPT, QUESTION_SHARE_WITHDRAW, QUESTION_SHARE_YOURS, questionPresenceLine } from './thinkShareFixture';
+import {
+  QUESTION_SHARE_AGREEMENT,
+  QUESTION_SHARE_ALTERNATIVES,
+  QUESTION_SHARE_COLOPHON,
+  QUESTION_SHARE_EVIDENCE_THEN,
+  QUESTION_SHARE_OBSERVATION,
+  QUESTION_SHARE_OFFER,
+  QUESTION_SHARE_OUTCOME,
+  QUESTION_SHARE_OWNER_REMAINDER,
+  QUESTION_SHARE_RECEIPT,
+  QUESTION_SHARE_REVIEW,
+  QUESTION_SHARE_UNCERTAINTY,
+  QUESTION_SHARE_UNRESOLVED,
+  QUESTION_SHARE_WITHDRAW,
+  QUESTION_SHARE_YOURS,
+  questionPresenceLine
+} from './thinkShareFixture';
 
 const asLine = (value) => String(value || '').trim();
 
@@ -35,6 +51,36 @@ const briefOf = (snapshot) => {
     remainder,
     observation,
     by: asLine(brief.by)
+  };
+};
+
+const successionOf = (snapshot) => {
+  const succession = snapshot?.succession && typeof snapshot.succession === 'object'
+    ? snapshot.succession
+    : null;
+  if (!succession) return null;
+  const unresolved = asLine(succession.unresolved);
+  const alternatives = readingsOf({ contributions: succession.alternatives });
+  const evidenceThen = succession.evidenceThen && typeof succession.evidenceThen === 'object'
+    ? succession.evidenceThen
+    : null;
+  if (!unresolved || !alternatives.length || !asLine(evidenceThen?.text)) return null;
+  return {
+    unresolved,
+    alternatives,
+    evidenceThen: {
+      text: asLine(evidenceThen.text),
+      paragraphs: Array.isArray(evidenceThen.paragraphs)
+        ? evidenceThen.paragraphs.filter((block) => asLine(block?.text))
+        : [],
+      publishedAt: evidenceThen.publishedAt
+    },
+    uncertainty: asLine(succession.uncertainty),
+    authority: asLine(succession.authority),
+    review: asLine(succession.review),
+    held: asLine(succession.held),
+    outcome: asLine(succession.outcome),
+    handedAt: succession.handedAt
   };
 };
 
@@ -192,6 +238,62 @@ const Reading = ({ reading, onWithdraw = null }) => {
   );
 };
 
+const Succession = ({ succession }) => {
+  const handed = formatPublished(succession.handedAt);
+  const evidenceWhen = formatPublished(succession.evidenceThen.publishedAt);
+  const showUncertainty = Boolean(
+    succession.uncertainty && succession.uncertainty !== succession.unresolved
+  );
+  return (
+    <section className="think-share-view__succession" data-testid="question-share-succession">
+      <header className="think-share-view__header">
+        <p className="think-share-view__eyebrow">{QUESTION_SHARE_UNRESOLVED}</p>
+        <h1 className="think-share-view__title">{succession.unresolved}</h1>
+        {succession.authority ? (
+          <p className="think-share-view__by">
+            {succession.authority}
+            {handed ? ` handed this on ${handed}` : ' handed this on'}
+          </p>
+        ) : null}
+      </header>
+      {succession.held ? (
+        <>
+          <p className="think-share-view__brief-label">{QUESTION_SHARE_AGREEMENT}</p>
+          <p>{succession.held}</p>
+        </>
+      ) : null}
+      <p className="think-share-view__brief-label">{QUESTION_SHARE_ALTERNATIVES}</p>
+      {succession.alternatives.map((reading, index) => (
+        <Reading key={reading.id || `${reading.by}-${index}`} reading={reading} />
+      ))}
+      <p className="think-share-view__brief-label">{QUESTION_SHARE_EVIDENCE_THEN}</p>
+      <p>{succession.evidenceThen.text}</p>
+      {succession.evidenceThen.paragraphs.map((block) => (
+        <p key={block.id || block.text}>{block.text}</p>
+      ))}
+          {evidenceWhen ? <p className="think-share-view__by">{evidenceWhen}</p> : null}
+          {showUncertainty ? (
+            <>
+              <p className="think-share-view__brief-label">{QUESTION_SHARE_UNCERTAINTY}</p>
+              <p className="think-share-view__remainder">{succession.uncertainty}</p>
+            </>
+          ) : null}
+          {succession.review ? (
+        <>
+          <p className="think-share-view__brief-label">{QUESTION_SHARE_REVIEW}</p>
+          <p>{succession.review}</p>
+        </>
+      ) : null}
+      {succession.outcome ? (
+        <>
+          <p className="think-share-view__brief-label">{QUESTION_SHARE_OUTCOME}</p>
+          <p>{succession.outcome}</p>
+        </>
+      ) : null}
+    </section>
+  );
+};
+
 export default function QuestionShareView({
   snapshot,
   compact = false,
@@ -215,28 +317,35 @@ export default function QuestionShareView({
   const readings = readingsOf(snapshot);
   const yours = compact ? [] : yoursOf(snapshot);
   const brief = briefOf(snapshot);
+  const succession = successionOf(snapshot);
   const invite = compact ? null : onOffer;
   const takeBack = compact ? null : onWithdraw;
   const presence = compact ? '' : questionPresenceLine(here);
+  const frozenIds = new Set(succession ? succession.alternatives.map((row) => asLine(row.id)).filter(Boolean) : []);
+  const laterReadings = succession
+    ? readings.filter((row) => !frozenIds.has(asLine(row.id)))
+    : readings;
 
   return (
     <article
       className={['think-share-view', compact ? 'is-compact' : ''].filter(Boolean).join(' ')}
       data-testid="question-share-view"
     >
-      <header className="think-share-view__header">
-        <p className="think-share-view__eyebrow">Shared question</p>
-        <h1 className="think-share-view__title">{question.text || 'Untitled question'}</h1>
-        {by ? <p className="think-share-view__by">{by}</p> : null}
-        {conceptName || question.status ? (
-          <p className="think-share-view__meta">
-            {[conceptName, question.status].filter(Boolean).join(' · ')}
-          </p>
-        ) : null}
-        {showRevised ? <p className="think-share-view__revised">Updated {revised}</p> : null}
-        {correction ? <p className="think-share-view__correction">{correction}</p> : null}
-      </header>
-      {paragraphs.length ? (
+      {succession ? <Succession succession={succession} /> : (
+        <header className="think-share-view__header">
+          <p className="think-share-view__eyebrow">Shared question</p>
+          <h1 className="think-share-view__title">{question.text || 'Untitled question'}</h1>
+          {by ? <p className="think-share-view__by">{by}</p> : null}
+          {conceptName || question.status ? (
+            <p className="think-share-view__meta">
+              {[conceptName, question.status].filter(Boolean).join(' · ')}
+            </p>
+          ) : null}
+          {showRevised ? <p className="think-share-view__revised">Updated {revised}</p> : null}
+          {correction ? <p className="think-share-view__correction">{correction}</p> : null}
+        </header>
+      )}
+      {succession ? null : paragraphs.length ? (
         <section className="think-share-view__body">
           {paragraphs.map((block) => (
             <p key={block.id || block.text}>{block.text}</p>
@@ -245,12 +354,12 @@ export default function QuestionShareView({
       ) : (
         <p className="think-share-view__silence">This question was shared before it was fully answered.</p>
       )}
-      {readings.length ? (
+      {laterReadings.length ? (
         <section className="think-share-view__readings" data-testid="question-share-readings">
           <p className="think-share-view__section">
-            {readings.length === 1 ? 'Another reading' : 'Other readings'}
+            {laterReadings.length === 1 ? 'Another reading' : 'Other readings'}
           </p>
-          {readings.map((reading, index) => (
+          {laterReadings.map((reading, index) => (
             <Reading
               key={reading.id || `${reading.by}-${index}`}
               reading={reading}
@@ -259,7 +368,7 @@ export default function QuestionShareView({
           ))}
         </section>
       ) : null}
-      {brief ? (
+      {succession || !brief ? null : (
         <section className="think-share-view__brief" data-testid="question-share-brief">
           <p className="think-share-view__section">A shared brief</p>
           {brief.agreement ? (
@@ -283,7 +392,7 @@ export default function QuestionShareView({
             </>
           ) : null}
         </section>
-      ) : null}
+      )}
       {yours.length ? (
         <section className="think-share-view__yours" data-testid="question-share-yours">
           <p className="think-share-view__section">{QUESTION_SHARE_YOURS}</p>

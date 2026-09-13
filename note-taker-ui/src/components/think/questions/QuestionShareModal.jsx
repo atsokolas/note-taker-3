@@ -7,6 +7,7 @@ import {
   placeQuestionContribution,
   revokeQuestionShare,
   saveQuestionShareBrief,
+  saveQuestionShareSuccession,
   updateQuestionShare
 } from '../../../api/questions';
 import { usePrefersReducedMotion } from '../../../hooks/useMotionPreferences';
@@ -15,8 +16,10 @@ import QuestionShareView from '../QuestionShareView';
 import {
   QUESTION_SHARE_AGREEMENT,
   QUESTION_SHARE_BRIEF,
+  QUESTION_SHARE_HAND,
   QUESTION_SHARE_OBSERVATION,
   QUESTION_SHARE_OWNER_REMAINDER,
+  QUESTION_SHARE_OUTCOME,
   QUESTION_SHARE_PLACE,
   QUESTION_SHARE_PRIVACY,
   QUESTION_SHARE_TAKE,
@@ -202,6 +205,52 @@ const ShareBrief = ({ brief, disabled, onSave }) => {
   );
 };
 
+const ShareSuccession = ({ succession, disabled, onSave }) => {
+  const handed = Boolean(asLine(succession?.unresolved));
+  const [outcome, setOutcome] = useState(asLine(succession?.outcome));
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    setOutcome(asLine(succession?.outcome));
+  }, [succession?.outcome]);
+
+  const save = async () => {
+    if (busy || disabled) return;
+    setBusy(true);
+    setError('');
+    try {
+      await onSave({ outcome: asLine(outcome) });
+    } catch (_err) {
+      setError('That handoff did not save.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="concept-share-modal__note" data-testid="question-share-succession-form">
+      <label className="concept-share-modal__label" htmlFor="question-share-succession-outcome">
+        {QUESTION_SHARE_OUTCOME}
+      </label>
+      <textarea
+        id="question-share-succession-outcome"
+        className="concept-share-modal__correction"
+        value={outcome}
+        maxLength={400}
+        rows={3}
+        onChange={(event) => setOutcome(event.target.value)}
+        disabled={disabled || busy}
+      />
+      <p className="muted small">{QUESTION_SHARE_HAND}</p>
+      {error ? <p className="status-message error-message">{error}</p> : null}
+      <Button type="button" variant="secondary" onClick={save} disabled={disabled || busy}>
+        {busy ? 'Saving…' : handed ? 'Save what happened later' : 'Hand this on'}
+      </Button>
+    </div>
+  );
+};
+
 const ShareIncludesList = () => (
   <ul className="concept-share-modal__includes" aria-label="What's included">
     <li>
@@ -341,6 +390,11 @@ const QuestionShareModal = ({ open, questionId, questionText, onClose }) => {
     setState(data);
   };
 
+  const handleSuccession = async (succession) => {
+    const data = await saveQuestionShareSuccession(questionId, succession);
+    setState(data);
+  };
+
   const handleRevoke = async () => {
     if (!window.confirm('Revoke this share link? Anyone with the existing link will lose access immediately.')) return;
     setBusy(true);
@@ -387,8 +441,19 @@ const QuestionShareModal = ({ open, questionId, questionText, onClose }) => {
   const publicBrief = brief && (asLine(brief.agreement) || asLine(brief.remainder) || asLine(brief.observation))
     ? brief
     : undefined;
+  const succession = state.succession && typeof state.succession === 'object' ? state.succession : null;
+  const publicSuccession = succession && asLine(succession.unresolved) ? succession : undefined;
+  const canHand = Boolean(
+    publicBrief && (asLine(publicBrief.remainder) || asLine(publicBrief.observation))
+  );
   const readerView = reader?.question
-    ? { ...reader, contributions: readings, yours: undefined, brief: publicBrief }
+    ? {
+      ...reader,
+      contributions: readings,
+      yours: undefined,
+      brief: publicBrief,
+      succession: publicSuccession
+    }
     : reader;
   const presence = questionPresenceLine(here);
 
@@ -457,6 +522,13 @@ const QuestionShareModal = ({ open, questionId, questionText, onClose }) => {
             ) : null}
             {state.shared && readings.length ? (
               <ShareBrief brief={brief} disabled={busy} onSave={handleBrief} />
+            ) : null}
+            {state.shared && (canHand || publicSuccession) ? (
+              <ShareSuccession
+                succession={succession}
+                disabled={busy}
+                onSave={handleSuccession}
+              />
             ) : null}
             {conflict ? (
               <p className="muted small" role="status" data-testid="question-share-conflict">

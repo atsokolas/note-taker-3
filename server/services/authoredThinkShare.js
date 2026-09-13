@@ -15,8 +15,12 @@ const { isDuplicateKey, shareSlug } = require('./authoredNotebookShare');
  * the owner places it. The offerer may take it back while the door stays
  * open. Concurrent place, take, and withdraw keep both acts; they do not
  * last-write-win. A brief may close the page with what holds, what still
- * holds, and what could move this. Consensus is optional. The companion
- * on that door is bound to this public page only. Libraries stay private.
+ * holds, and what could move this. Consensus is optional. The owner may
+ * later hand that decision to a successor: frozen alternatives, evidence
+ * then, uncertainty, authority, review conditions, and an optional later
+ * outcome. The successor opens at the last unresolved question. The
+ * companion on that door is bound to this public page only. Libraries
+ * stay private.
  */
 
 const PREVIEW_STALE = {
@@ -28,6 +32,7 @@ const CONTRIBUTION_TAKEN_BACK = 'They took this back.';
 const CONTRIBUTION_TAKE_CHANGED = 'This take was already changed.';
 const CONTRIBUTION_HELD = 'Place this reading before you say how you take it.';
 const BRIEF_NEEDS_READING = 'Place a reading before you write a brief.';
+const SUCCESSION_NEEDS_UNRESOLVED = 'Close the brief at an unresolved question before you hand this on.';
 
 const NOT_PUBLISHED = {
   question: 'This question is not published.',
@@ -154,6 +159,9 @@ const freezeThinkSnapshot = (preview, publishedAt, extra = {}) => {
   delete body.brief;
   delete body.agreement;
   delete body.observation;
+  delete body.succession;
+  delete body.unresolved;
+  delete body.alternatives;
   delete body.here;
   delete body.presence;
   const iso = asIso(publishedAt);
@@ -238,6 +246,113 @@ const projectShareBrief = (share, contributions = [], { includeEmpty = false } =
     ...(remainder ? { remainder } : {}),
     ...(observation ? { observation } : {}),
     ...(by ? { by } : {})
+  };
+};
+
+const evidenceThenOf = (share = {}) => {
+  const snapshot = share?.snapshot && typeof share.snapshot === 'object' ? share.snapshot : null;
+  const question = snapshot?.question || {};
+  const text = publicText(question?.text, 8000);
+  if (!text) return null;
+  const paragraphs = (Array.isArray(question.paragraphs) ? question.paragraphs : [])
+    .map((block) => ({
+      id: String(block?.id || ''),
+      type: 'paragraph',
+      text: publicText(block?.text, 8000)
+    }))
+    .filter((block) => block.text);
+  const publishedAt = asIso(snapshot?.publishedAt || share?.publishedAt);
+  return {
+    text,
+    ...(paragraphs.length ? { paragraphs } : {}),
+    ...(publishedAt ? { publishedAt } : {})
+  };
+};
+
+const freezeShareSuccession = (share, contributions = [], { outcome = '', at = new Date() } = {}) => {
+  const alternatives = projectContributionList(
+    placedContributions(contributions),
+    { interpretedBy: share?.ownerDisplayName }
+  );
+  if (!alternatives.length) {
+    return { error: BRIEF_NEEDS_READING, field: 'succession' };
+  }
+  const remainder = contributionRemainder(share?.brief?.remainder);
+  const observation = contributionRemainder(share?.brief?.observation);
+  const unresolved = remainder || observation;
+  if (!unresolved) {
+    return { error: SUCCESSION_NEEDS_UNRESOLVED, field: 'succession' };
+  }
+  const evidenceThen = evidenceThenOf(share);
+  if (!evidenceThen) {
+    return { error: NOT_PUBLISHED.question, field: 'succession' };
+  }
+  const agreement = contributionRemainder(share?.brief?.agreement);
+  const authority = contributionBy(share?.ownerDisplayName);
+  const later = contributionRemainder(outcome);
+  const handedAt = asIso(at) || asIso(new Date());
+  return {
+    succession: {
+      unresolved,
+      alternatives,
+      evidenceThen,
+      ...(remainder ? { uncertainty: remainder } : {}),
+      ...(authority ? { authority } : {}),
+      ...(observation ? { review: observation } : {}),
+      ...(agreement ? { held: agreement } : {}),
+      ...(later ? { outcome: later } : {}),
+      ...(handedAt ? { handedAt } : {})
+    }
+  };
+};
+
+const withSuccessionOutcome = (succession = {}, outcome = '') => {
+  const next = succession && typeof succession === 'object' ? { ...succession } : {};
+  const later = contributionRemainder(outcome);
+  if (later) next.outcome = later;
+  else delete next.outcome;
+  return next;
+};
+
+const projectShareSuccession = (share, { includeEmpty = false } = {}) => {
+  const raw = share?.succession && typeof share.succession === 'object' ? share.succession : null;
+  if (!raw) return null;
+  const unresolved = contributionRemainder(raw.unresolved);
+  const alternatives = projectContributionList(raw.alternatives || []);
+  const evidenceThen = raw.evidenceThen && typeof raw.evidenceThen === 'object'
+    ? {
+      text: publicText(raw.evidenceThen.text, 8000),
+      ...(Array.isArray(raw.evidenceThen.paragraphs)
+        ? {
+          paragraphs: raw.evidenceThen.paragraphs
+            .map((block) => ({
+              id: String(block?.id || ''),
+              type: 'paragraph',
+              text: publicText(block?.text, 8000)
+            }))
+            .filter((block) => block.text)
+        }
+        : {}),
+      ...(asIso(raw.evidenceThen.publishedAt) ? { publishedAt: asIso(raw.evidenceThen.publishedAt) } : {})
+    }
+    : null;
+  if (!unresolved || !alternatives.length || !evidenceThen?.text) return null;
+  const remainder = contributionRemainder(raw.uncertainty);
+  const observation = contributionRemainder(raw.review);
+  const agreement = contributionRemainder(raw.held);
+  const authority = contributionBy(raw.authority || share?.ownerDisplayName);
+  const later = contributionRemainder(raw.outcome);
+  const handedAt = asIso(raw.handedAt);
+  return {
+    unresolved,
+    alternatives,
+    evidenceThen,
+    ...(remainder ? { uncertainty: remainder } : {}),
+    ...(authority ? { authority } : {}),
+    ...(observation ? { review: observation } : {}),
+    ...(agreement ? { held: agreement } : {}),
+    ...(later ? { outcome: later } : (includeEmpty ? { outcome: '' } : {})),
+    ...(handedAt ? { handedAt } : {})
   };
 };
 
@@ -373,11 +488,15 @@ const publicQuestionPage = (share, contributions = [], viewerUserId = '', presen
   delete snapshot.brief;
   delete snapshot.agreement;
   delete snapshot.observation;
+  delete snapshot.succession;
+  delete snapshot.unresolved;
+  delete snapshot.alternatives;
   delete snapshot.here;
   delete snapshot.presence;
   const extra = { interpretedBy: share.ownerDisplayName };
   const yours = projectContributionList(yoursContributions(contributions, viewerUserId), extra);
   const brief = projectShareBrief(share, contributions);
+  const succession = projectShareSuccession(share);
   const here = projectPresence(presenceRows, viewerUserId);
   const viewer = String(viewerUserId || '').trim();
   const published = placedContributions(contributions)
@@ -393,6 +512,7 @@ const publicQuestionPage = (share, contributions = [], viewerUserId = '', presen
     contributions: published,
     ...(yours.length ? { yours } : {}),
     ...(brief ? { brief } : {}),
+    ...(succession ? { succession } : {}),
     ...(here.length ? { here } : {})
   };
 };
@@ -424,6 +544,9 @@ const thinkShareState = (share, {
   const brief = kind === 'question' && share
     ? projectShareBrief(share, contributions, { includeEmpty: true })
     : null;
+  const succession = kind === 'question' && share
+    ? projectShareSuccession(share, { includeEmpty: true })
+    : null;
   if (!share) {
     return {
       shared: false,
@@ -441,6 +564,9 @@ const thinkShareState = (share, {
     delete snapshot.brief;
     delete snapshot.agreement;
     delete snapshot.observation;
+    delete snapshot.succession;
+    delete snapshot.unresolved;
+    delete snapshot.alternatives;
     delete snapshot.contributions;
     delete snapshot.waiting;
     delete snapshot.yours;
@@ -462,6 +588,7 @@ const thinkShareState = (share, {
     ...(readings ? { contributions: readings } : {}),
     ...(waiting && waiting.length ? { waiting } : {}),
     ...(brief ? { brief } : {}),
+    ...(succession ? { succession } : {}),
     ...(present && present.length ? { here: present } : {})
   };
 };
@@ -505,6 +632,7 @@ const liveConceptPreview = async ({ User, concept, userId }) => {
 
 module.exports = {
   BRIEF_NEEDS_READING,
+  SUCCESSION_NEEDS_UNRESOLVED,
   CONTRIBUTION_BY_CHARS,
   CONTRIBUTION_CHARS,
   CONTRIBUTION_HELD,
@@ -528,6 +656,7 @@ module.exports = {
   contributionSlotFilter,
   contributionText,
   contributionWithdrawn,
+  freezeShareSuccession,
   freezeThinkSnapshot,
   hashPublicConcept,
   hashPublicQuestion,
@@ -548,11 +677,13 @@ module.exports = {
   projectPublicConcept,
   projectPublicQuestion,
   projectShareBrief,
+  projectShareSuccession,
   publicQuestionPage,
   readLean,
   releaseContributionSlot,
   sanitizeCard,
   sanitizeParagraphBlocks,
   shareSlug,
-  thinkShareState
+  thinkShareState,
+  withSuccessionOutcome
 };

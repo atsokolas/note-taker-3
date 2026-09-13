@@ -149,6 +149,15 @@ export const saveQuestionShareBrief = async (questionId, body = {}) => {
   return res.data || {};
 };
 
+export const saveQuestionShareSuccession = async (questionId, body = {}) => {
+  const res = await api.patch(
+    `/api/questions/${encodeURIComponent(questionId)}/share/succession`,
+    body,
+    getAuthHeaders()
+  );
+  return res.data || {};
+};
+
 export const placeQuestionContribution = async (questionId, contributionId) => {
   const res = await api.post(
     `/api/questions/${encodeURIComponent(questionId)}/share/contributions/${encodeURIComponent(contributionId)}/place`,
