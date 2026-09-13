@@ -8572,15 +8572,6 @@ textarea.think-share-view__offer-field {
   margin: 1.75rem 0 0;
 }
 
-.shared-question-companion__bound {
-  margin: 0 0 0.7rem;
-  color: var(--text-secondary);
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.82rem;
-  letter-spacing: 0.02em;
-  line-height: 1.45;
-}
-
 .shared-question-companion__ask,
 .shared-question-companion__away {
   font: inherit;
@@ -8610,7 +8601,6 @@ textarea.think-share-view__offer-field {
   .think-share-view__interpretation,
   .think-share-view__presence,
   .shared-question-companion,
-  .shared-question-companion__bound,
   .shared-question-companion .agent-thought-partner {
     transition: none;
     animation: none;

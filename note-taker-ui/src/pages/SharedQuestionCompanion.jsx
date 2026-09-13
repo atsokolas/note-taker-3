@@ -16,7 +16,6 @@ const SharedQuestionCompanion = ({
     <aside className="shared-question-companion" data-testid="shared-question-companion">
       {open ? (
         <>
-          <p className="shared-question-companion__bound">{partner.subtitle}</p>
           <ThoughtPartnerPanel
             contextType={partner.contextType}
             contextId={partner.contextId}

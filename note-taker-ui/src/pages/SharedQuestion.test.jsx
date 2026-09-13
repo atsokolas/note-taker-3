@@ -21,7 +21,7 @@ jest.mock('../components/agent/ThoughtPartnerPanel', () => ({
   __esModule: true,
   default: (props) => (
     <aside data-testid="thought-partner-panel">
-      {props.contextType}:{props.contextId}
+      {props.subtitle}:{props.contextType}:{props.contextId}
     </aside>
   )
 }));
@@ -277,7 +277,7 @@ describe('SharedQuestion', () => {
     render(<SharedQuestion />);
     fireEvent.click(await screen.findByRole('button', { name: 'Ask about this reading' }));
     expect(screen.getByTestId('thought-partner-panel')).toHaveTextContent('shared_question:qslug123');
-    expect(screen.getByTestId('shared-question-companion')).toHaveTextContent("Bound to this published question and Mara's reading.");
+    expect(screen.getByTestId('thought-partner-panel')).toHaveTextContent("Bound to this published question and Mara's reading.");
     expect(screen.getByTestId('shared-question-companion')).not.toHaveTextContent('Ada');
     expect(screen.getByTestId('shared-question-companion')).not.toHaveTextContent('Still with the author.');
   });

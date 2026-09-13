@@ -7,7 +7,7 @@ jest.mock('../components/agent/ThoughtPartnerPanel', () => ({
   __esModule: true,
   default: (props) => (
     <aside data-testid="thought-partner-panel">
-      {props.contextType}:{props.contextId}:{props.placeholder}
+      {props.subtitle}:{props.contextType}:{props.contextId}:{props.placeholder}
     </aside>
   )
 }));
@@ -30,9 +30,8 @@ describe('SharedQuestionCompanion', () => {
     expect(screen.queryByTestId('thought-partner-panel')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Ask about this reading' }));
-    expect(screen.getByText("Bound to this published question, Mara's reading, and the shared brief.")).toBeInTheDocument();
     expect(screen.getByTestId('thought-partner-panel')).toHaveTextContent(
-      'shared_question:qslug:Ask about this published question.'
+      "Bound to this published question, Mara's reading, and the shared brief.:shared_question:qslug:Ask about this published question."
     );
     expect(screen.queryByText('Still with the author.')).not.toBeInTheDocument();
   });
