@@ -25,6 +25,7 @@ const SCENES = [
   { id: 'together', label: 'Together' },
   { id: 'waiting', label: 'Waiting' },
   { id: 'taken', label: 'Taken' },
+  { id: 'contributor', label: 'Contributor' },
   { id: 'owner', label: 'Owner' },
   { id: 'revised', label: 'Revised' },
   { id: 'revoked', label: 'Revoked' }
@@ -40,6 +41,9 @@ const taken = questionSnapshot({
     interpretation: 'The horizon is the claim, not the fact.',
     interpretedBy: 'Athan'
   })]
+});
+const contributor = questionSnapshot({
+  yours: [questionContribution()]
 });
 const revised = questionSnapshot({
   revisedAt: '2026-09-13T15:00:00.000Z',
@@ -63,6 +67,9 @@ const shareFor = (scene) => {
   }
   if (scene === 'taken') {
     return { shared: true, slug: 'qslug', stale: false, snapshot: frozen, preview: live, contributions: taken.contributions };
+  }
+  if (scene === 'contributor') {
+    return { shared: true, slug: 'qslug', stale: false, snapshot: frozen, preview: live, contributions: [] };
   }
   if (scene === 'owner') {
     return { shared: true, slug: 'qslug', stale: false, snapshot: frozen, preview: live, contributions: together.contributions };
@@ -107,11 +114,13 @@ const QuestionSharePreview = () => {
     return { ...row, interpretation, interpretedBy: 'Athan' };
   });
   const publicPage = scene === 'taken' ? taken : scene === 'together' ? together : frozen;
-  const publicSnapshot = {
-    ...publicPage,
-    contributions: publicPage.contributions || []
-  };
-  const isPublicPage = scene === 'public' || scene === 'together' || scene === 'taken';
+  const publicSnapshot = scene === 'contributor'
+    ? contributor
+    : {
+      ...publicPage,
+      contributions: publicPage.contributions || []
+    };
+  const isPublicPage = scene === 'public' || scene === 'together' || scene === 'taken' || scene === 'contributor';
 
   return (
     <div className="notebook-share-preview">

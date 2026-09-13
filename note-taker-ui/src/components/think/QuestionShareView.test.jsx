@@ -38,6 +38,7 @@ describe('QuestionShareView', () => {
   it('stays silent when nobody has offered a reading', () => {
     render(<QuestionShareView snapshot={questionSnapshot()} />);
     expect(screen.queryByTestId('question-share-readings')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('question-share-yours')).not.toBeInTheDocument();
     expect(screen.queryByText(/Still holds/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Not quite/)).not.toBeInTheDocument();
   });
@@ -54,6 +55,36 @@ describe('QuestionShareView', () => {
     expect(screen.queryByRole('button', { name: 'Offer a reading' })).not.toBeInTheDocument();
     expect(screen.queryByText(/Later private edits/)).not.toBeInTheDocument();
     expect(screen.queryByLabelText('How you take this')).not.toBeInTheDocument();
+  });
+
+  it('shows a still-held reading to the person who offered it, not as a public reading', () => {
+    render(
+      <QuestionShareView
+        snapshot={questionSnapshot({ yours: [questionContribution()] })}
+        onOffer={() => {}}
+      />
+    );
+    expect(screen.getByTestId('question-share-yours')).toHaveTextContent('With the author');
+    expect(screen.getByTestId('question-share-yours')).toHaveTextContent('Same fact, different time horizon.');
+    expect(screen.queryByTestId('question-share-readings')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Offer a reading' })).toBeInTheDocument();
+    expect(screen.queryByLabelText('How you take this')).not.toBeInTheDocument();
+  });
+
+  it('hides a held reading from compact preview even if yours is present', () => {
+    render(
+      <QuestionShareView
+        snapshot={questionSnapshot({
+          contributions: [questionContribution({ id: 'live', by: 'Ada', text: 'Already on the page.', remainder: '' })],
+          yours: [questionContribution()]
+        })}
+        compact
+      />
+    );
+    expect(screen.getByText('Already on the page.')).toBeInTheDocument();
+    expect(screen.queryByTestId('question-share-yours')).not.toBeInTheDocument();
+    expect(screen.queryByText('With the author')).not.toBeInTheDocument();
+    expect(screen.queryByText('Same fact, different time horizon.')).not.toBeInTheDocument();
   });
 
   it('offers a named reading with an optional remainder', async () => {

@@ -140,6 +140,7 @@ const freezeThinkSnapshot = (preview, publishedAt, extra = {}) => {
   delete body.interpretation;
   delete body.interpretedBy;
   delete body.waiting;
+  delete body.yours;
   const iso = asIso(publishedAt);
   const revised = asIso(extra.revisedAt);
   const correction = publicText(stripTags(extra.correction), 400);
@@ -179,6 +180,12 @@ const projectContributionList = (rows, extra = {}) => (Array.isArray(rows) ? row
 const contributionHeld = (row) => row?.held === true;
 const placedContributions = (rows) => (Array.isArray(rows) ? rows : []).filter((row) => !contributionHeld(row));
 const heldContributions = (rows) => (Array.isArray(rows) ? rows : []).filter(contributionHeld);
+const contributionViewerId = (row) => String(row?.contributorUserId || '').trim();
+const yoursContributions = (rows, viewerUserId) => {
+  const viewer = String(viewerUserId || '').trim();
+  if (!viewer) return [];
+  return heldContributions(rows).filter((row) => contributionViewerId(row) === viewer);
+};
 
 const loadQuestionContributions = async (QuestionContribution, query) => {
   if (!QuestionContribution?.find) return [];
@@ -222,7 +229,7 @@ const releaseContributionSlot = async (SharedQuestion, slug) => {
   return updated;
 };
 
-const publicQuestionPage = (share, contributions = []) => {
+const publicQuestionPage = (share, contributions = [], viewerUserId = '') => {
   const snapshot = share?.snapshot && typeof share.snapshot === 'object'
     ? { ...share.snapshot }
     : null;
@@ -232,11 +239,13 @@ const publicQuestionPage = (share, contributions = []) => {
   delete snapshot.interpretation;
   delete snapshot.interpretedBy;
   delete snapshot.waiting;
+  delete snapshot.yours;
+  const extra = { interpretedBy: share.ownerDisplayName };
+  const yours = projectContributionList(yoursContributions(contributions, viewerUserId), extra);
   return {
     ...snapshot,
-    contributions: projectContributionList(placedContributions(contributions), {
-      interpretedBy: share.ownerDisplayName
-    })
+    contributions: projectContributionList(placedContributions(contributions), extra),
+    ...(yours.length ? { yours } : {})
   };
 };
 
