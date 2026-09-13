@@ -71,11 +71,24 @@ const capabilityDecision = (capability, overrides = {}) => ({
   ...overrides
 });
 
+const isSharedQuestionContext = (context = {}, contextItem = null) => (
+  clean(contextItem?.type || context?.type).toLowerCase() === 'shared_question'
+);
+
+const sharedQuestionReadCapability = () => capabilityDecision(CAPABILITIES.answer, {
+  reason: 'This conversation is bound to the published question. Workspace writes stay out of scope.'
+});
+
 const resolveAgentCapability = ({
   intentDecision = {},
   skillInvocation = {},
-  relatedItems = []
+  relatedItems = [],
+  context = {},
+  contextItem = null
 } = {}) => {
+  if (isSharedQuestionContext(context, contextItem)) {
+    return sharedQuestionReadCapability();
+  }
   const outputType = clean(skillInvocation?.outputType).toLowerCase();
   const artifactType = artifactTypeFromOutputType(outputType);
   const intent = clean(intentDecision?.replyIntent).toLowerCase();
@@ -147,9 +160,17 @@ const brokerAgentTurn = ({
   relatedItems = [],
   skillInvocation = {}
 } = {}) => {
-  let capability = resolvedCapability && typeof resolvedCapability === 'object'
-    ? { ...resolvedCapability }
-    : resolveAgentCapability({ intentDecision, skillInvocation, relatedItems });
+  let capability = isSharedQuestionContext(context, contextItem)
+    ? sharedQuestionReadCapability()
+    : resolvedCapability && typeof resolvedCapability === 'object'
+      ? { ...resolvedCapability }
+      : resolveAgentCapability({
+        intentDecision,
+        skillInvocation,
+        relatedItems,
+        context,
+        contextItem
+      });
 
   if (capability.availability === 'blocked') {
     return { capability, planner: null, proposalBundle: null };
@@ -188,5 +209,7 @@ const brokerAgentTurn = ({
 module.exports = {
   CAPABILITIES,
   resolveAgentCapability,
-  brokerAgentTurn
+  brokerAgentTurn,
+  isSharedQuestionContext,
+  sharedQuestionReadCapability
 };

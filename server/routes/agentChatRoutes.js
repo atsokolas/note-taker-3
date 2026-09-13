@@ -9,7 +9,7 @@ const {
 } = require('../services/wikiAskService');
 const { findWikiBacklinks: defaultFindWikiBacklinks } = require('../services/wikiBacklinkService');
 const { getWikiSchemaPromptContent } = require('../services/wikiSchemaService');
-const { resolveAgentCapability } = require('../services/agentCapabilityBroker');
+const { resolveAgentCapability, isSharedQuestionContext, sharedQuestionReadCapability } = require('../services/agentCapabilityBroker');
 const { resolveAgentModelRoute } = require('../services/agentModelRouter');
 const {
   planLibraryStructureProposal: defaultPlanLibraryStructureProposal,
@@ -80,9 +80,22 @@ const buildAgentChatRouter = ({
     result = {},
     userId = '',
     message = '',
+    context = {},
     proposalActor = { actorType: 'native_agent', actorId: 'resident' },
     canPropose = true
   } = {}) => {
+    if (isSharedQuestionContext(context) || isSharedQuestionContext(result?.context)) {
+      return {
+        result: {
+          ...result,
+          proposalBundle: null,
+          planner: null,
+          suggestedActions: [],
+          capability: sharedQuestionReadCapability()
+        },
+        draft: null
+      };
+    }
     if (!isLibraryOrganizationTurn(result)) return { result, draft: null };
     if (!canPropose) {
       return {
@@ -700,11 +713,12 @@ const buildAgentChatRouter = ({
       }
 
       const entitlements = await getUserAgentEntitlements(String(req.user.id));
+      const chatContext = req.body?.context || thread?.scope || null;
       const generatedResult = await generateCollaborativeReply({
         userId: String(req.user.id),
         message: req.body?.message,
         history: thread ? threadMessagesToHistory(thread.messages) : req.body?.history,
-        context: req.body?.context || thread?.scope || null,
+        context: chatContext,
         limit: req.body?.limit,
         premiumWebResearchAvailable: entitlements.premiumWebResearchAvailable,
         skillInvocation: req.body?.skillInvocation || {}
@@ -712,7 +726,8 @@ const buildAgentChatRouter = ({
       const preparedStructurePlan = await prepareLibraryStructurePlan({
         result: generatedResult,
         userId: String(req.user.id),
-        message: req.body?.message
+        message: req.body?.message,
+        context: chatContext
       });
       const result = preparedStructurePlan.result;
       const persistedThread = await persistChatTurn({
@@ -840,7 +855,8 @@ const buildAgentChatRouter = ({
       const preparedStructurePlan = await prepareLibraryStructurePlan({
         result,
         userId: String(req.user.id),
-        message: req.body?.message
+        message: req.body?.message,
+        context
       });
       result = preparedStructurePlan.result;
 
@@ -970,11 +986,12 @@ const buildAgentChatRouter = ({
       const entitlements = await getUserAgentEntitlements(String(req.personalAgent.userId));
       const thread = await loadThread(String(req.personalAgent.userId), req.body?.threadId);
 
+      const chatContext = req.body?.context || thread?.scope || null;
       const generatedResult = await generateCollaborativeReply({
         userId: String(req.personalAgent.userId),
         message: req.body?.message,
         history: thread ? threadMessagesToHistory(thread.messages) : req.body?.history,
-        context: req.body?.context || thread?.scope || null,
+        context: chatContext,
         limit: req.body?.limit,
         premiumWebResearchAvailable: entitlements.premiumWebResearchAvailable,
         skillInvocation: req.body?.skillInvocation || {}
@@ -987,6 +1004,7 @@ const buildAgentChatRouter = ({
         result: generatedResult,
         userId: String(req.personalAgent.userId),
         message: req.body?.message,
+        context: chatContext,
         proposalActor: actor,
         canPropose: capabilities.proposeChanges
       });

@@ -1,7 +1,8 @@
 const assert = require('assert');
 const {
   resolveAgentCapability,
-  brokerAgentTurn
+  brokerAgentTurn,
+  isSharedQuestionContext
 } = require('../agentCapabilityBroker');
 
 const intent = (replyIntent, overrides = {}) => ({
@@ -84,6 +85,44 @@ const run = () => {
   });
   assert.strictEqual(organization.capability.id, 'capability.workspace.organize');
   assert.strictEqual(organization.proposalBundle.operations[0].requiresApproval, true);
+
+  const sharedOrganize = brokerAgentTurn({
+    intentDecision: intent('cleanup_structure', {
+      interactionMode: 'act',
+      retrievalPolicy: 'workspace',
+      plannerPolicy: 'show',
+      proposalPolicy: 'stage'
+    }),
+    message: 'Organize my workspace',
+    context: { type: 'shared_question', id: 'qslug', title: 'What survives compounding?' },
+    contextItem: { type: 'shared_question', id: 'qslug', title: 'What survives compounding?' }
+  });
+  assert.strictEqual(sharedOrganize.capability.id, 'capability.context.answer');
+  assert.strictEqual(sharedOrganize.capability.effect, 'read');
+  assert.strictEqual(sharedOrganize.capability.proposalPolicy, 'none');
+  assert.strictEqual(sharedOrganize.planner, null);
+  assert.strictEqual(sharedOrganize.proposalBundle, null);
+  assert.strictEqual(
+    resolveAgentCapability({
+      intentDecision: intent('cleanup_structure', { interactionMode: 'act', proposalPolicy: 'stage' }),
+      context: { type: 'shared_question', id: 'qslug' }
+    }).id,
+    'capability.context.answer',
+    'A published question must not resolve to workspace.organize.'
+  );
+  assert.strictEqual(isSharedQuestionContext({ type: 'shared_question' }), true);
+
+  const passedOrganize = brokerAgentTurn({
+    capability: organization.capability,
+    intentDecision: intent('cleanup_structure', {
+      interactionMode: 'act',
+      proposalPolicy: 'stage'
+    }),
+    message: 'Organize my workspace',
+    context: { type: 'shared_question', id: 'qslug' }
+  });
+  assert.strictEqual(passedOrganize.capability.id, 'capability.context.answer');
+  assert.strictEqual(passedOrganize.proposalBundle, null, 'Brokering must clamp shared-question writes even if organize was already resolved.');
 
   const artifact = brokerAgentTurn({
     intentDecision: intent('summarize'),

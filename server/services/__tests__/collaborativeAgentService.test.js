@@ -8,6 +8,7 @@ const {
   buildReply,
   buildOutputArtifactReply,
   inferReplyIntent,
+  resolveAgentIntent,
   buildOrientationReply,
   resolveContextItem,
   loadGraphRelatedItems,
@@ -21,7 +22,7 @@ const {
   pruneRelatedItemsForContext,
   shouldSearchWorkspaceForWikiPage,
   shouldSearchWorkspaceForContext,
-  isSharedQuestionScope,
+  isSharedQuestionContext,
   buildSharedQuestionContextItem
 } = __testables;
 
@@ -1207,7 +1208,27 @@ const run = async () => {
     false,
     'An unpublished shared question must not fall through to workspace search.'
   );
-  assert.strictEqual(isSharedQuestionScope({ type: 'shared_question' }), true);
+  assert.strictEqual(isSharedQuestionContext({ type: 'shared_question' }), true);
+  const sharedOrganizeIntent = resolveAgentIntent({
+    message: 'Organize my workspace',
+    context: { type: 'shared_question', id: 'qslug' }
+  });
+  assert.strictEqual(
+    sharedOrganizeIntent.replyIntent,
+    'cleanup_structure',
+    'Organize my workspace is still classified as cleanup_structure; the companion must refuse it after that, not by hiding the label.'
+  );
+  assert.strictEqual(sharedOrganizeIntent.proposalPolicy, 'stage');
+  assert.strictEqual(
+    shouldSearchWorkspaceForContext({
+      context: { type: 'shared_question', id: 'qslug' },
+      contextItem: sharedContext,
+      intentDecision: sharedOrganizeIntent,
+      message: 'Organize my workspace'
+    }),
+    false,
+    'A published-question organize request must not search a private Library.'
+  );
   const unpublishedContext = await resolveContextItem({
     userObjectId: 'viewer-1',
     context: { type: 'shared_question', id: 'gone' },
