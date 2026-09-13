@@ -132,6 +132,7 @@ const run = async () => {
     );
     assert.equal(stored.folder, null);
     assert.deepEqual(stored.linkedHighlightIds.map(String), ['64f2000000000000000000aa']);
+    assert.ok(stored.isModified('linkedHighlightIds'));
     assert.equal(stored.importMeta.importSessionId, null);
     assert.equal(stored.asidePieces[0].id, 'held-1');
     assert.equal(stored.validateSync(), null);
