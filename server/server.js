@@ -43,6 +43,7 @@ const {
 } = require('./config/aiClient');
 const { buildEmbeddingId } = require('./ai/embeddingTypes');
 const { buildConnectionScopeQuery } = require('./utils/connectionScopeQuery');
+const { asObjectIdOrNull } = require('./utils/notebookIdentity');
 const {
   sanitizeRetrievalSnippet,
   classifyQuestionEvidenceTone,
@@ -5176,25 +5177,25 @@ const syncNotebookReferences = async (userId, entryId, blocks = []) => {
     const preview = String(block.text || '').slice(0, 180);
 
     const blockType = block.type || '';
-    if ((blockType === 'highlight-ref' || blockType === 'highlight_embed') && block.highlightId) {
+    if ((blockType === 'highlight-ref' || blockType === 'highlight_embed') && asObjectIdOrNull(block.highlightId)) {
       edges.push({
         sourceType: 'notebook',
         sourceId: entryId,
         sourceBlockId: blockId,
         targetType: 'highlight',
-        targetId: block.highlightId,
+        targetId: asObjectIdOrNull(block.highlightId),
         blockPreviewText: preview,
         userId
       });
     }
 
-    if ((blockType === 'article_ref' || blockType === 'article-ref') && block.articleId) {
+    if ((blockType === 'article_ref' || blockType === 'article-ref') && asObjectIdOrNull(block.articleId)) {
       edges.push({
         sourceType: 'notebook',
         sourceId: entryId,
         sourceBlockId: blockId,
         targetType: 'article',
-        targetId: block.articleId,
+        targetId: asObjectIdOrNull(block.articleId),
         blockPreviewText: preview,
         userId
       });
@@ -5212,13 +5213,13 @@ const syncNotebookReferences = async (userId, entryId, blocks = []) => {
       });
     }
 
-    if ((blockType === 'question_ref' || blockType === 'question-ref') && block.questionId) {
+    if ((blockType === 'question_ref' || blockType === 'question-ref') && asObjectIdOrNull(block.questionId)) {
       edges.push({
         sourceType: 'notebook',
         sourceId: entryId,
         sourceBlockId: blockId,
         targetType: 'question',
-        targetId: block.questionId,
+        targetId: asObjectIdOrNull(block.questionId),
         blockPreviewText: preview,
         userId
       });

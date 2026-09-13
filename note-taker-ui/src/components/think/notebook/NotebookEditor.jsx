@@ -26,7 +26,7 @@ import useHighlights from '../../../hooks/useHighlights';
 import useArticles from '../../../hooks/useArticles';
 import useConcepts from '../../../hooks/useConcepts';
 import useQuestions from '../../../hooks/useQuestions';
-import { buildDocFromBlocks, ensureBlockIds, serializeBlocksFromDoc } from '../../../utils/notebookBlocks';
+import { buildDocFromBlocks, ensureBlockIds, isMongoObjectId, serializeBlocksFromDoc } from '../../../utils/notebookBlocks';
 import {
   applyNotebookDoc,
   deletePieceInDocument,
@@ -777,7 +777,7 @@ const NotebookEditor = ({
       type: entryType,
       tags: entryTags,
       claimId: entryType === 'evidence' ? (claimId || null) : null,
-      linkedArticleId: entry.linkedArticleId || null
+      linkedArticleId: isMongoObjectId(entry.linkedArticleId) ? String(entry.linkedArticleId) : null
     };
   }, [claimId, editor, entry, entryTags, entryType]);
 

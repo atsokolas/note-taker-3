@@ -6,7 +6,8 @@ const { processWikiSourceEvent } = require('../services/wikiMaintenanceOrchestra
 const {
   asObjectIdOrNull,
   sanitizeAsidePieces,
-  sanitizeNotebookBlocks
+  sanitizeNotebookBlocks,
+  sanitizeNotebookEntry
 } = require('../utils/notebookIdentity');
 const {
   AuthoredSourceCorrectionError,
@@ -107,7 +108,7 @@ const buildNotebookRouter = ({
       draftTemplateLabel: String(value.draftTemplateLabel || '').trim(),
       externalId: String(value.externalId || '').trim(),
       parentExternalId: String(value.parentExternalId || '').trim(),
-      importSessionId: value.importSessionId || null,
+      importSessionId: asObjectIdOrNull(value.importSessionId),
       importedAt: value.importedAt || new Date(),
       searchableAt: value.searchableAt || null
     };
@@ -234,7 +235,7 @@ const buildNotebookRouter = ({
         content: content || '',
         blocks: nextBlocks,
         asidePieces: sanitizeAsidePieces(Array.isArray(asidePieces) ? asidePieces : []),
-        folder: folder || null,
+        folder: asObjectIdOrNull(folder),
         type: nextType,
         claimId: nextClaimId,
         tags: normalizeTags(tags),
@@ -242,6 +243,7 @@ const buildNotebookRouter = ({
         importMeta: normalizeImportMeta(importMeta),
         userId
       });
+      sanitizeNotebookEntry(newEntry);
       await newEntry.save();
       if (Array.isArray(nextBlocks)) {
         await syncNotebookReferences(userId, newEntry._id, nextBlocks);
@@ -564,18 +566,20 @@ const buildNotebookRouter = ({
           id: createBlockId(),
           type: 'highlight_embed',
           text: highlight.text || '',
-          highlightId,
-          articleId: highlight.articleId || null,
+          highlightId: asObjectIdOrNull(highlightId) || asObjectIdOrNull(highlight._id),
+          articleId: asObjectIdOrNull(highlight.articleId),
           articleTitle: highlight.articleTitle || ''
         });
       }
       if (!entry.linkedArticleId && highlight.articleId) {
-        entry.linkedArticleId = highlight.articleId;
+        entry.linkedArticleId = asObjectIdOrNull(highlight.articleId);
       }
       entry.linkedHighlightIds = entry.linkedHighlightIds || [];
-      if (!entry.linkedHighlightIds.some(id => String(id) === String(highlightId))) {
-        entry.linkedHighlightIds.push(highlightId);
+      const nextHighlightId = asObjectIdOrNull(highlightId);
+      if (nextHighlightId && !entry.linkedHighlightIds.some(id => String(id) === String(nextHighlightId))) {
+        entry.linkedHighlightIds.push(nextHighlightId);
       }
+      sanitizeNotebookEntry(entry);
       await entry.save();
       await syncNotebookReferences(userId, entry._id, entry.blocks || []);
       await emitWikiSourceEvent({
@@ -622,7 +626,7 @@ const buildNotebookRouter = ({
       if (asidePieces !== undefined) {
         updates.asidePieces = sanitizeAsidePieces(Array.isArray(asidePieces) ? asidePieces : []);
       }
-      if (folder !== undefined) updates.folder = folder || null;
+      if (folder !== undefined) updates.folder = asObjectIdOrNull(folder);
       if (tags !== undefined) updates.tags = normalizeTags(tags);
       if (linkedArticleId !== undefined) updates.linkedArticleId = asObjectIdOrNull(linkedArticleId);
       if (importMeta !== undefined) updates.importMeta = normalizeImportMeta(importMeta);
@@ -691,9 +695,14 @@ const buildNotebookRouter = ({
       }
 
       Object.assign(existing, updates);
+      sanitizeNotebookEntry(existing);
       const updated = await existing.save();
       if (updates.blocks !== undefined) {
-        await syncNotebookReferences(userId, updated._id, updated.blocks || []);
+        try {
+          await syncNotebookReferences(userId, updated._id, updated.blocks || []);
+        } catch (error) {
+          console.error('Notebook reference sync failed after save:', error);
+        }
       }
       enqueueNotebookEmbedding(updated);
       await emitWikiSourceEvent({
@@ -707,12 +716,19 @@ const buildNotebookRouter = ({
         sourceUpdatedAt: updated.updatedAt || new Date(),
         metadata: { route: 'update-notebook' }
       });
-      res.status(200).json(await attachAuthoredSourceCorrection({
-        models: correctionModels(),
-        userId,
-        objectType: 'notebook',
-        object: updated
-      }));
+      let payload = updated;
+      try {
+        payload = await attachAuthoredSourceCorrection({
+          models: correctionModels(),
+          userId,
+          objectType: 'notebook',
+          object: updated
+        });
+      } catch (error) {
+        console.error('Notebook source correction attach failed after save:', error);
+        payload = updated.toObject ? updated.toObject() : updated;
+      }
+      res.status(200).json(payload);
     } catch (error) {
       console.error("❌ Error updating notebook entry:", error);
       res.status(500).json({ error: "Failed to update notebook entry." });

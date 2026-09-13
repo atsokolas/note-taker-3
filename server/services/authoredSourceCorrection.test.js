@@ -287,6 +287,33 @@ describe('selectAuthoredSourceCorrection', () => {
     });
     expect(payload.sourceCorrection).toBeUndefined();
   });
+
+  it('does not query corrections with library slugs', async () => {
+    const WikiSourceEvent = {
+      find(query) {
+        const ids = query?.sourceObjectId?.$in || [];
+        if (ids.some((value) => !/^[a-fA-F0-9]{24}$/.test(String(value)))) {
+          throw new Error('Cast to ObjectId failed');
+        }
+        return { sort() { return this; }, lean: async () => [] };
+      }
+    };
+    const payload = await attachAuthoredSourceCorrection({
+      models: { WikiSourceEvent, NoeisReceipt: memoryReceipts() },
+      userId: USER,
+      objectType: 'notebook',
+      object: notebook({
+        blocks: [{
+          id: 'quote-1',
+          type: 'highlight_embed',
+          articleId: 'article-1',
+          highlightId: 'highlight-1',
+          text: OLD
+        }]
+      })
+    });
+    expect(payload.sourceCorrection).toBeUndefined();
+  });
 });
 
 describe('disposeAuthoredSourceCorrection', () => {

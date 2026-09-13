@@ -211,6 +211,13 @@ describe('notebookArrangement', () => {
     expect(payload.blocks).toBeUndefined();
   });
 
+  it('always stores an aside id so the note can save', () => {
+    expect(persistableAsidePiece({
+      nodes: [{ type: 'paragraph', attrs: { blockId: 'held-1' } }]
+    }).id).toBe('held-1');
+    expect(persistableAsidePiece({ index: 2, nodes: [{ type: 'paragraph' }] }).id).toBe('aside-2');
+  });
+
   it('still recovers a legacy aside that only stored lossy blocks', () => {
     const removed = setAsidePieceInDocument(essayDoc, 1);
     const recovered = hydrateAsidePieces([{

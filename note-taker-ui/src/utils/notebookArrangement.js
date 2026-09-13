@@ -163,10 +163,11 @@ export const nodesFromAsidePiece = (piece) => {
 
 export const persistableAsidePiece = (piece) => {
   const nodes = nodesFromAsidePiece(piece);
+  const index = Number.isInteger(piece?.index) ? piece.index : 0;
   return {
-    id: piece.id,
-    label: piece.label || '',
-    index: Number.isInteger(piece.index) ? piece.index : 0,
+    id: piece?.id || nodes[0]?.attrs?.blockId || `aside-${index}`,
+    label: piece?.label || '',
+    index,
     nodes
   };
 };
