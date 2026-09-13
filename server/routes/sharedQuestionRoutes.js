@@ -11,13 +11,18 @@ const {
   contributionHeld,
   contributionRemainder,
   contributionText,
+  beatQuestionPresence,
+  clearQuestionPresence,
   freezeThinkSnapshot,
   hashPublicQuestion,
   isDuplicateKey,
   liveQuestionPreview,
   loadQuestionContributions,
+  loadQuestionPresence,
   missingSnapshot,
   placedContributions,
+  presenceNameFor,
+  projectPresence,
   projectPublicQuestion,
   publicQuestionPage,
   readLean,
@@ -33,6 +38,7 @@ const buildSharedQuestionRouter = ({
   optionalAuthenticateToken = passthroughAuth,
   SharedQuestion,
   QuestionContribution,
+  QuestionPresence,
   Question,
   User
 }) => {
@@ -62,11 +68,21 @@ const buildSharedQuestionRouter = ({
     { slug: String(slug || '').trim() }
   );
 
-  const payload = async (share, extras) => thinkShareState(share, {
-    ...extras,
-    kind: 'question',
-    contributions: share?.slug ? await readingsFor(share.slug) : []
-  });
+  const payload = async (share, extras = {}) => {
+    const contributions = share?.slug ? await readingsFor(share.slug) : [];
+    const here = share?.slug
+      ? projectPresence(
+        await loadQuestionPresence(QuestionPresence, share.slug),
+        extras.viewerUserId
+      )
+      : [];
+    return thinkShareState(share, {
+      ...extras,
+      kind: 'question',
+      contributions,
+      here
+    });
+  };
 
   const freezeLegacy = async (share, preview, currentHash) => {
     if (!missingSnapshot(share) || !preview) return share;
@@ -120,7 +136,7 @@ const buildSharedQuestionRouter = ({
       })));
       if (existing) {
         const frozen = await freezeLegacy(existing, preview, existing.contentHash || currentHash);
-        return res.status(200).json(await payload(frozen, { preview, currentHash }));
+        return res.status(200).json(await payload(frozen, { preview, currentHash, viewerUserId: req.user.id }));
       }
 
       const now = new Date();
@@ -135,7 +151,7 @@ const buildSharedQuestionRouter = ({
           publishedAt: now,
           contributionCount: 0
         });
-        return res.status(201).json(await payload(asRow(created), { preview, currentHash }));
+        return res.status(201).json(await payload(asRow(created), { preview, currentHash, viewerUserId: req.user.id }));
       } catch (error) {
         if (!isDuplicateKey(error)) throw error;
         const raced = asRow(await readLean(SharedQuestion.findOne({
@@ -143,7 +159,7 @@ const buildSharedQuestionRouter = ({
           questionId: question._id
         })));
         if (!raced) throw error;
-        return res.status(200).json(await payload(raced, { preview, currentHash }));
+        return res.status(200).json(await payload(raced, { preview, currentHash, viewerUserId: req.user.id }));
       }
     } catch (error) {
       console.error('❌ Error minting shared question:', error);
@@ -164,6 +180,7 @@ const buildSharedQuestionRouter = ({
       if (!result) {
         return res.status(404).json({ error: 'No active share for this question.' });
       }
+      await clearQuestionPresence(QuestionPresence, result.slug);
       noStore(res);
       return res.status(200).json({ revoked: true, questionId: String(result.questionId || questionId) });
     } catch (error) {
@@ -191,7 +208,7 @@ const buildSharedQuestionRouter = ({
         share = await freezeLegacy(share, preview, currentHash);
       }
       noStore(res);
-      return res.status(200).json(await payload(share, { preview, currentHash }));
+      return res.status(200).json(await payload(share, { preview, currentHash, viewerUserId: req.user.id }));
     } catch (error) {
       console.error('❌ Error reading shared question state:', error);
       return res.status(500).json({ error: 'Failed to read share state.' });
@@ -239,7 +256,7 @@ const buildSharedQuestionRouter = ({
         },
         { new: true }
       );
-      return res.status(200).json(await payload(asRow(updated), { preview, currentHash }));
+      return res.status(200).json(await payload(asRow(updated), { preview, currentHash, viewerUserId: req.user.id }));
     } catch (error) {
       console.error('❌ Error updating shared question:', error);
       return res.status(500).json({ error: 'Failed to update that share.' });
@@ -317,7 +334,7 @@ const buildSharedQuestionRouter = ({
           question,
           userId: req.user.id
         });
-        return res.status(200).json(await payload(share, { preview, currentHash }));
+        return res.status(200).json(await payload(share, { preview, currentHash, viewerUserId: req.user.id }));
       } catch (error) {
         console.error('❌ Error interpreting question contribution:', error);
         return res.status(500).json({ error: 'Failed to save how you take that reading.' });
@@ -371,7 +388,7 @@ const buildSharedQuestionRouter = ({
           question,
           userId: req.user.id
         });
-        return res.status(200).json(await payload(asRow(updated), { preview, currentHash }));
+        return res.status(200).json(await payload(asRow(updated), { preview, currentHash, viewerUserId: req.user.id }));
       } catch (error) {
         console.error('❌ Error saving question share brief:', error);
         return res.status(500).json({ error: 'Failed to save that brief.' });
@@ -445,7 +462,7 @@ const buildSharedQuestionRouter = ({
           question,
           userId: req.user.id
         });
-        return res.status(200).json(await payload(share, { preview, currentHash }));
+        return res.status(200).json(await payload(share, { preview, currentHash, viewerUserId: req.user.id }));
       } catch (error) {
         console.error('❌ Error placing question contribution:', error);
         return res.status(500).json({ error: 'Failed to place that reading.' });
@@ -479,10 +496,74 @@ const buildSharedQuestionRouter = ({
         return res.status(404).json({ error: NOT_PUBLISHED.question });
       }
       const contributions = await readingsFor(share.slug);
-      return res.status(200).json(publicQuestionPage(share, contributions, req.user?.id));
+      const presenceRows = await loadQuestionPresence(QuestionPresence, share.slug);
+      return res.status(200).json(publicQuestionPage(share, contributions, req.user?.id, presenceRows));
     } catch (error) {
       console.error('❌ Error fetching public question:', error);
       return res.status(500).json({ error: 'Failed to fetch shared question.' });
+    }
+  });
+
+  /* Named presence at a live door: the owner or an attributed contributor.
+     Unsigned visitors and lurkers are not listed. Agents cannot beat.
+     Compact preview and the frozen snapshot stay silent. */
+  router.put('/api/public/questions/:slug/presence', optionalAuthenticateToken, async (req, res) => {
+    noStore(res);
+    if (isAgentRequest(req)) {
+      return res.status(403).json({ error: 'Only a person at this door can say they are here.' });
+    }
+    try {
+      const slug = String(req.params.slug || '').trim();
+      if (!slug) {
+        return res.status(400).json({ error: 'Slug is required.' });
+      }
+      const share = asRow(await readLean(SharedQuestion.findOne({ slug })));
+      if (!share?.snapshot) {
+        return res.status(404).json({ error: NOT_PUBLISHED.question });
+      }
+      const viewer = String(req.user?.id || '').trim();
+      const contributions = await readingsFor(share.slug);
+      const by = presenceNameFor(share, contributions, viewer);
+      if (by) {
+        await beatQuestionPresence(QuestionPresence, {
+          slug: share.slug,
+          userId: viewer,
+          by
+        });
+      }
+      const here = projectPresence(
+        await loadQuestionPresence(QuestionPresence, share.slug),
+        viewer
+      );
+      return res.status(200).json({
+        present: Boolean(by),
+        ...(here.length ? { here } : {})
+      });
+    } catch (error) {
+      console.error('❌ Error recording question presence:', error);
+      return res.status(500).json({ error: 'Failed to say you are here.' });
+    }
+  });
+
+  router.get('/api/public/questions/:slug/presence', optionalAuthenticateToken, async (req, res) => {
+    noStore(res);
+    try {
+      const slug = String(req.params.slug || '').trim();
+      if (!slug) {
+        return res.status(400).json({ error: 'Slug is required.' });
+      }
+      const share = asRow(await readLean(SharedQuestion.findOne({ slug })));
+      if (!share?.snapshot) {
+        return res.status(404).json({ error: NOT_PUBLISHED.question });
+      }
+      const here = projectPresence(
+        await loadQuestionPresence(QuestionPresence, share.slug),
+        req.user?.id
+      );
+      return res.status(200).json(here.length ? { here } : {});
+    } catch (error) {
+      console.error('❌ Error fetching question presence:', error);
+      return res.status(500).json({ error: 'Failed to see who is here.' });
     }
   });
 

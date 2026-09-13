@@ -10,6 +10,7 @@ import {
   updateQuestionShare
 } from '../../../api/questions';
 import { usePrefersReducedMotion } from '../../../hooks/useMotionPreferences';
+import useQuestionPresence from '../../../hooks/useQuestionPresence';
 import QuestionShareView from '../QuestionShareView';
 import {
   QUESTION_SHARE_AGREEMENT,
@@ -21,7 +22,8 @@ import {
   QUESTION_SHARE_TAKE,
   QUESTION_SHARE_TAKE_CHANGED,
   QUESTION_SHARE_TAKEN_BACK,
-  THINK_SHARE_REVOKE
+  THINK_SHARE_REVOKE,
+  questionPresenceLine
 } from '../thinkShareFixture';
 
 const buildShareUrl = (slug) => {
@@ -231,6 +233,10 @@ const QuestionShareModal = ({ open, questionId, questionText, onClose }) => {
   const [copyStatus, setCopyStatus] = useState('');
   const [correction, setCorrection] = useState('');
   const [conflict, setConflict] = useState('');
+  const here = useQuestionPresence(state.slug, {
+    enabled: open && Boolean(state.shared && state.slug),
+    seed: state.here
+  });
 
   useEffect(() => {
     if (!open || !questionId) return undefined;
@@ -384,6 +390,7 @@ const QuestionShareModal = ({ open, questionId, questionText, onClose }) => {
   const readerView = reader?.question
     ? { ...reader, contributions: readings, yours: undefined, brief: publicBrief }
     : reader;
+  const presence = questionPresenceLine(here);
 
   return (
     <div
@@ -454,6 +461,11 @@ const QuestionShareModal = ({ open, questionId, questionText, onClose }) => {
             {conflict ? (
               <p className="muted small" role="status" data-testid="question-share-conflict">
                 {conflict}
+              </p>
+            ) : null}
+            {presence ? (
+              <p className="muted small" role="status" aria-live="polite" data-testid="question-share-presence">
+                {presence}
               </p>
             ) : null}
             {!reader?.question && !publishable ? (

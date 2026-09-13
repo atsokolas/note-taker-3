@@ -98,10 +98,24 @@ const createModel = () => {
         row.contributionCount = Math.max(0, count + delta);
         return options.new === false ? null : row;
       }
-      const row = rows.find((item) => matchesQuery(item, query));
-      if (!row) return null;
+      let row = rows.find((item) => matchesQuery(item, query));
+      if (!row) {
+        if (!options.upsert) return null;
+        row = {
+          _id: new mongoose.Types.ObjectId().toString(),
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+        rows.push(row);
+      }
       Object.assign(row, update.$set || update);
       return options.new === false ? null : row;
+    },
+    async deleteMany(query = {}) {
+      const kept = rows.filter((item) => !matchesQuery(item, query));
+      const deletedCount = rows.length - kept.length;
+      rows.splice(0, rows.length, ...kept);
+      return { deletedCount };
     },
     find(query = {}) {
       const found = rows.filter((item) => matchesQuery(item, query));
@@ -132,6 +146,7 @@ const fetchJson = async (url, options = {}) => {
 const run = async () => {
   const SharedQuestion = createModel();
   const QuestionContribution = createModel();
+  const QuestionPresence = createModel();
   const Question = createModel();
   const User = createModel();
   const userId = new mongoose.Types.ObjectId().toString();
@@ -179,6 +194,7 @@ const run = async () => {
     },
     SharedQuestion,
     QuestionContribution,
+    QuestionPresence,
     Question,
     User
   }));
@@ -226,6 +242,7 @@ const run = async () => {
     assert.strictEqual(tooSoonBrief.response.status, 409);
     assert.strictEqual(tooSoonBrief.body.error, BRIEF_NEEDS_READING);
     assert.ok(!publicRead.body.brief);
+    assert.ok(!publicRead.body.here);
     assert.deepStrictEqual(publicRead.body.question.paragraphs, [
       { id: 'p1', type: 'paragraph', text: 'Public paragraph.' },
       { id: 'p2', type: 'paragraph', text: 'Another authored paragraph.' }
@@ -797,8 +814,94 @@ const run = async () => {
     assert.strictEqual(twice.response.status, 404);
     assert.strictEqual(remintRow.contributionCount, 0);
 
+    const unsignedBeat = await fetchJson(`${base}/api/public/questions/${remint.body.slug}/presence`, {
+      method: 'PUT'
+    });
+    assert.strictEqual(unsignedBeat.response.status, 200);
+    assert.strictEqual(unsignedBeat.body.present, false);
+    assert.ok(!unsignedBeat.body.here);
+    assert.strictEqual(QuestionPresence.rows.length, 0);
+
+    const lurkerBeat = await fetchJson(`${base}/api/public/questions/${remint.body.slug}/presence`, {
+      method: 'PUT',
+      headers: asUser(strangerId)
+    });
+    assert.strictEqual(lurkerBeat.response.status, 200);
+    assert.strictEqual(lurkerBeat.body.present, false);
+    assert.ok(!lurkerBeat.body.here);
+    assert.strictEqual(QuestionPresence.rows.length, 0);
+
+    const agentBeat = await fetchJson(`${base}/api/public/questions/${remint.body.slug}/presence`, {
+      method: 'PUT',
+      headers: { ...asUser(userId), 'x-agent-token': '1' }
+    });
+    assert.strictEqual(agentBeat.response.status, 403);
+
+    const unpublishedBeat = await fetchJson(`${base}/api/public/questions/no-such/presence`, {
+      method: 'PUT',
+      headers: asUser(userId)
+    });
+    assert.strictEqual(unpublishedBeat.response.status, 404);
+
+    const ownerBeat = await fetchJson(`${base}/api/public/questions/${remint.body.slug}/presence`, {
+      method: 'PUT',
+      headers: asUser(userId)
+    });
+    assert.strictEqual(ownerBeat.response.status, 200, JSON.stringify(ownerBeat.body));
+    assert.strictEqual(ownerBeat.body.present, true);
+    assert.ok(!ownerBeat.body.here);
+    assert.strictEqual(QuestionPresence.rows.length, 1);
+
+    const ownerBeatAgain = await fetchJson(`${base}/api/public/questions/${remint.body.slug}/presence`, {
+      method: 'PUT',
+      headers: asUser(userId)
+    });
+    assert.strictEqual(ownerBeatAgain.response.status, 200);
+    assert.strictEqual(QuestionPresence.rows.length, 1);
+
+    const contributorBeat = await fetchJson(`${base}/api/public/questions/${remint.body.slug}/presence`, {
+      method: 'PUT',
+      headers: asUser(contributorId)
+    });
+    assert.strictEqual(contributorBeat.response.status, 200, JSON.stringify(contributorBeat.body));
+    assert.strictEqual(contributorBeat.body.present, true);
+    assert.deepStrictEqual(contributorBeat.body.here, [{ by: 'Owner' }]);
+    assert.ok(!JSON.stringify(contributorBeat.body.here).includes('userId'));
+    assert.ok(!JSON.stringify(contributorBeat.body.here).includes('"at"'));
+
+    const ownerPoll = await fetchJson(
+      `${base}/api/public/questions/${remint.body.slug}/presence`,
+      { headers: asUser(userId) }
+    );
+    assert.deepStrictEqual(ownerPoll.body.here, [{ by: 'Mara' }]);
+
+    const unsignedPoll = await fetchJson(`${base}/api/public/questions/${remint.body.slug}/presence`);
+    assert.deepStrictEqual(unsignedPoll.body.here.map((row) => row.by).sort(), ['Mara', 'Owner']);
+
+    const publicHere = await publicGet(remint.body.slug);
+    assert.deepStrictEqual(publicHere.body.here.map((row) => row.by).sort(), ['Mara', 'Owner']);
+    assert.ok(!publicHere.body.snapshot);
+    assert.ok(!JSON.stringify(publicHere.body).includes('"presence"'));
+
+    const ownerShare = await fetchJson(`${base}/api/questions/${questionId}/share`);
+    assert.deepStrictEqual(ownerShare.body.here, [{ by: 'Mara' }]);
+    assert.ok(!ownerShare.body.snapshot.here);
+
+    QuestionPresence.rows.push({
+      _id: 'stale',
+      slug: remint.body.slug,
+      userId: otherContributorId,
+      by: 'Ada',
+      at: new Date(Date.now() - 80 * 1000)
+    });
+    const stalePoll = await fetchJson(`${base}/api/public/questions/${remint.body.slug}/presence`);
+    assert.deepStrictEqual(stalePoll.body.here.map((row) => row.by).sort(), ['Mara', 'Owner']);
+
     const closeLater = await fetchJson(`${base}/api/questions/${questionId}/share`, { method: 'DELETE' });
     assert.strictEqual(closeLater.response.status, 200);
+    assert.strictEqual(QuestionPresence.rows.length, 0);
+    const gonePresence = await fetchJson(`${base}/api/public/questions/${remint.body.slug}/presence`);
+    assert.strictEqual(gonePresence.response.status, 404);
     const revokeAgain = await fetchJson(`${base}/api/questions/${questionId}/share`, { method: 'DELETE' });
     assert.strictEqual(revokeAgain.response.status, 404);
     assert.strictEqual(revokeAgain.body.error, 'No active share for this question.');

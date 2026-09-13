@@ -10,7 +10,9 @@ jest.mock('../../../api/questions', () => ({
   placeQuestionContribution: jest.fn(),
   revokeQuestionShare: jest.fn(),
   saveQuestionShareBrief: jest.fn(),
-  updateQuestionShare: jest.fn()
+  updateQuestionShare: jest.fn(),
+  beatQuestionPresence: jest.fn(),
+  getQuestionPresence: jest.fn()
 }));
 
 const {
@@ -20,7 +22,9 @@ const {
   placeQuestionContribution,
   revokeQuestionShare,
   saveQuestionShareBrief,
-  updateQuestionShare
+  updateQuestionShare,
+  beatQuestionPresence,
+  getQuestionPresence
 } = require('../../../api/questions');
 
 const frozen = questionSnapshot();
@@ -42,6 +46,10 @@ describe('QuestionShareModal', () => {
     revokeQuestionShare.mockReset();
     saveQuestionShareBrief.mockReset();
     updateQuestionShare.mockReset();
+    beatQuestionPresence.mockReset();
+    getQuestionPresence.mockReset();
+    beatQuestionPresence.mockResolvedValue({ present: true });
+    getQuestionPresence.mockResolvedValue({});
     window.confirm = jest.fn(() => true);
   });
 
@@ -342,5 +350,25 @@ describe('QuestionShareModal', () => {
     expect(await screen.findByTestId('question-share-brief')).toHaveTextContent('The fact is shared. The horizon is not.');
     expect(screen.getByTestId('question-share-preview')).toHaveTextContent('Same fact, different time horizon.');
     expect(screen.getByText('Consensus is optional. Empty stays off the page.')).toBeInTheDocument();
+  });
+
+  it('names who else is at the door outside the compact preview', async () => {
+    getQuestionShare.mockResolvedValueOnce({
+      shared: true,
+      slug: 'abc123',
+      snapshot: frozen,
+      preview: frozen,
+      contributions: [{
+        id: 'c1',
+        by: 'Mara',
+        text: 'Same fact, different time horizon.'
+      }],
+      here: [{ by: 'Mara' }]
+    });
+    beatQuestionPresence.mockResolvedValue({ present: true, here: [{ by: 'Mara' }] });
+    getQuestionPresence.mockResolvedValue({ here: [{ by: 'Mara' }] });
+    render(<QuestionShareModal open questionId="q1" questionText="What next?" onClose={() => {}} />);
+    expect(await screen.findByTestId('question-share-presence')).toHaveTextContent('Mara is here.');
+    expect(screen.getByTestId('question-share-preview')).not.toHaveTextContent('Mara is here.');
   });
 });

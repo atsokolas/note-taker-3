@@ -30,6 +30,16 @@ export const QUESTION_SHARE_YOURS = 'With the author';
 
 export const QUESTION_SHARE_WITHDRAW = 'Take this back';
 
+export const questionPresenceLine = (here) => {
+  const names = (Array.isArray(here) ? here : [])
+    .map((row) => String(row?.by || row || '').trim())
+    .filter(Boolean);
+  if (!names.length) return '';
+  if (names.length === 1) return `${names[0]} is here.`;
+  if (names.length === 2) return `${names[0]} and ${names[1]} are here.`;
+  return `${names.slice(0, -1).join(', ')}, and ${names[names.length - 1]} are here.`;
+};
+
 export const CONCEPT_SHARE_COLOPHON = 'This is the version that was published. Later private edits do not change it.';
 
 export const QUESTION_NOT_PUBLISHED = 'This question is not published.';

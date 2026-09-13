@@ -170,6 +170,7 @@ const {
   SharedConcept,
   SharedQuestion,
   QuestionContribution,
+  QuestionPresence,
   CasebookLineage,
   CaseTeam,
   CrossCaseLink,
@@ -6791,6 +6792,7 @@ app.use(buildSharedQuestionRouter({
   optionalAuthenticateToken,
   SharedQuestion,
   QuestionContribution,
+  QuestionPresence,
   Question,
   User
 }));

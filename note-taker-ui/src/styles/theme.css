@@ -8564,6 +8564,10 @@ textarea.think-share-view__offer-field {
   gap: 0.85rem;
 }
 
+.think-share-view__presence {
+  margin: 1.15rem 0 0;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .concept-share-modal__reader,
   .think-share-view,
@@ -8571,7 +8575,8 @@ textarea.think-share-view__offer-field {
   .think-share-view__readings,
   .think-share-view__yours,
   .think-share-view__brief,
-  .think-share-view__interpretation {
+  .think-share-view__interpretation,
+  .think-share-view__presence {
     transition: none;
   }
 }
@@ -8581,6 +8586,7 @@ textarea.think-share-view__offer-field {
   .think-share-view__offer-receipt,
   .think-share-view__yours,
   .think-share-view__withdraw,
+  .think-share-view__presence,
   .shared-concept-topbar__actions {
     display: none;
   }

@@ -12,16 +12,28 @@ import SharedQuestion from './SharedQuestion';
 jest.mock('../api/questions', () => ({
   getPublicQuestion: jest.fn(),
   offerQuestionContribution: jest.fn(),
-  withdrawQuestionContribution: jest.fn()
+  withdrawQuestionContribution: jest.fn(),
+  beatQuestionPresence: jest.fn(),
+  getQuestionPresence: jest.fn()
 }));
 
-const { getPublicQuestion, offerQuestionContribution, withdrawQuestionContribution } = require('../api/questions');
+const {
+  getPublicQuestion,
+  offerQuestionContribution,
+  withdrawQuestionContribution,
+  beatQuestionPresence,
+  getQuestionPresence
+} = require('../api/questions');
 
 describe('SharedQuestion', () => {
   beforeEach(() => {
     getPublicQuestion.mockReset();
     offerQuestionContribution.mockReset();
     withdrawQuestionContribution.mockReset();
+    beatQuestionPresence.mockReset();
+    getQuestionPresence.mockReset();
+    beatQuestionPresence.mockResolvedValue({ present: false });
+    getQuestionPresence.mockResolvedValue({});
   });
 
   it('renders public question content without auth chrome', async () => {
@@ -204,5 +216,22 @@ describe('SharedQuestion', () => {
     expect(screen.getByTestId('question-share-brief')).toHaveTextContent('Athan still holds');
     expect(screen.getByTestId('question-share-readings')).toHaveTextContent('Same fact, different time horizon.');
     expect(screen.queryByRole('button', { name: 'Save this brief' })).not.toBeInTheDocument();
+  });
+
+  it('names who else is at the door and stays silent when nobody is', async () => {
+    getPublicQuestion.mockResolvedValueOnce({
+      ownerDisplayName: 'Athan',
+      publishedAt: '2026-06-14T00:00:00Z',
+      question: {
+        text: 'What survives compounding?',
+        status: 'open',
+        paragraphs: [{ id: 'p1', type: 'paragraph', text: 'First paragraph.' }]
+      },
+      here: [{ by: 'Mara' }]
+    });
+    getQuestionPresence.mockResolvedValue({ here: [{ by: 'Mara' }] });
+
+    render(<SharedQuestion />);
+    expect(await screen.findByTestId('question-share-presence')).toHaveTextContent('Mara is here.');
   });
 });

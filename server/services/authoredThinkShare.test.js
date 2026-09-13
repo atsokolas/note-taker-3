@@ -12,7 +12,11 @@ const {
   hashPublicConcept,
   hashPublicQuestion,
   missingSnapshot,
+  presenceLine,
+  presenceNameFor,
+  PRESENCE_TTL_MS,
   projectContribution,
+  projectPresence,
   projectPublicConcept,
   projectPublicQuestion,
   projectShareBrief,
@@ -464,5 +468,64 @@ describe('authored think share', () => {
       by: 'Athan'
     });
     expect(ownerBrief.snapshot.brief).toBeUndefined();
+
+    expect(presenceNameFor({ userId: 'owner-1', ownerDisplayName: 'Athan' }, [], 'owner-1')).toBe('Athan');
+    expect(presenceNameFor({ userId: 'owner-1', ownerDisplayName: 'Athan' }, [{
+      contributorUserId: 'contrib-1',
+      by: 'Mara'
+    }], 'contrib-1')).toBe('Mara');
+    expect(presenceNameFor({ userId: 'owner-1', ownerDisplayName: 'Athan' }, [{
+      contributorUserId: 'contrib-1',
+      by: 'Mara',
+      held: true,
+      withdrawnAt: new Date()
+    }], 'contrib-1')).toBe('Mara');
+    expect(presenceNameFor({ userId: 'owner-1' }, [], 'stranger')).toBe('');
+    expect(presenceNameFor({ userId: 'owner-1', ownerDisplayName: 'Athan' }, liveRows, '')).toBe('');
+
+    const now = Date.parse('2026-09-13T18:00:00.000Z');
+    expect(projectPresence([
+      { userId: 'owner-1', by: 'Athan', at: new Date(now) },
+      { userId: 'contrib-1', by: 'Mara', at: new Date(now) },
+      { userId: 'stale', by: 'Ada', at: new Date(now - PRESENCE_TTL_MS - 1) },
+      { userId: 'dup', by: 'Mara', at: new Date(now) }
+    ], 'owner-1', now)).toEqual([{ by: 'Mara' }]);
+    expect(presenceLine([{ by: 'Mara' }])).toBe('Mara is here.');
+    expect(presenceLine([{ by: 'Athan' }, { by: 'Mara' }])).toBe('Athan and Mara are here.');
+    expect(presenceLine([{ by: 'Ada' }, { by: 'Athan' }, { by: 'Mara' }])).toBe('Ada, Athan, and Mara are here.');
+    expect(presenceLine([])).toBe('');
+
+    const frozenHere = freezeThinkSnapshot({
+      ...preview,
+      here: [{ by: 'Mara' }],
+      presence: [{ by: 'Mara' }]
+    }, '2026-09-13T12:00:00.000Z');
+    expect(frozenHere.here).toBeUndefined();
+    expect(frozenHere.presence).toBeUndefined();
+
+    const pageWithHere = publicQuestionPage({
+      snapshot: { ...frozen, here: [{ by: 'Should not freeze.' }] }
+    }, liveRows, 'owner-1', [
+      { userId: 'contrib-1', by: 'Mara', at: new Date() }
+    ]);
+    expect(pageWithHere.here).toEqual([{ by: 'Mara' }]);
+    expect(publicQuestionPage({ snapshot: frozen }, liveRows).here).toBeUndefined();
+
+    const ownerHere = thinkShareState(shareWithBrief, {
+      preview,
+      currentHash: hash,
+      kind: 'question',
+      contributions: liveRows,
+      here: [{ by: 'Mara' }]
+    });
+    expect(ownerHere.here).toEqual([{ by: 'Mara' }]);
+    expect(ownerHere.snapshot.here).toBeUndefined();
+    expect(thinkShareState(shareWithBrief, {
+      preview,
+      currentHash: hash,
+      kind: 'question',
+      contributions: liveRows,
+      here: []
+    }).here).toBeUndefined();
   });
 });
