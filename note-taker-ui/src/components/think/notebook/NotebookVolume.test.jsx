@@ -2,10 +2,11 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import NotebookVolume, { NotebookVolumePanel } from './NotebookVolume';
 import { volumeSnapshot } from './notebookShareFixture';
-import { getNotebookVolume, publishNotebookVolume } from '../../../api/notebook';
+import { getNotebookVolume, previewNotebookVolume, publishNotebookVolume } from '../../../api/notebook';
 
 jest.mock('../../../api/notebook', () => ({
   getNotebookVolume: jest.fn(),
+  previewNotebookVolume: jest.fn(),
   publishNotebookVolume: jest.fn(),
   revokeNotebookVolume: jest.fn(),
   updateNotebookVolume: jest.fn()
@@ -92,25 +93,25 @@ describe('NotebookVolumePanel', () => {
 describe('NotebookVolume', () => {
   beforeEach(() => {
     getNotebookVolume.mockReset();
+    previewNotebookVolume.mockReset();
     publishNotebookVolume.mockReset();
+    getNotebookVolume.mockResolvedValue({
+      shared: false,
+      catalog,
+      selection: [],
+      title: '',
+      introduction: ''
+    });
+    previewNotebookVolume.mockResolvedValue({
+      shared: false,
+      catalog,
+      publishable: true,
+      currentHash: 'hash-1',
+      preview: volumeSnapshot({ publishedAt: undefined })
+    });
   });
 
   it('publishes the current through-line after confirming the preview hash', async () => {
-    getNotebookVolume
-      .mockResolvedValueOnce({
-        shared: false,
-        catalog,
-        selection: [],
-        title: '',
-        introduction: ''
-      })
-      .mockResolvedValue({
-        shared: false,
-        catalog,
-        publishable: true,
-        currentHash: 'hash-1',
-        preview: volumeSnapshot({ publishedAt: undefined })
-      });
     publishNotebookVolume.mockResolvedValue({
       shared: true,
       slug: 'volume-slug',
@@ -135,5 +136,28 @@ describe('NotebookVolume', () => {
       introduction: 'Two finished notes, one question.',
       previewHash: 'hash-1'
     });
+    expect(previewNotebookVolume).toHaveBeenCalled();
+    expect(getNotebookVolume.mock.calls.every((call) => call.length === 0)).toBe(true);
+  });
+
+  it('previews unpublished title and introduction without putting them on GET', async () => {
+    render(<NotebookVolume notebookId="note-1" />);
+    await screen.findByTestId('notebook-volume-title');
+    getNotebookVolume.mockClear();
+    previewNotebookVolume.mockClear();
+
+    fireEvent.change(screen.getByTestId('notebook-volume-title'), {
+      target: { value: 'Who pays?' }
+    });
+    fireEvent.change(screen.getByTestId('notebook-volume-intro'), {
+      target: { value: 'Unpublished through-line.' }
+    });
+
+    await waitFor(() => expect(previewNotebookVolume).toHaveBeenCalledWith({
+      notebookIds: ['note-1'],
+      title: 'Who pays?',
+      introduction: 'Unpublished through-line.'
+    }));
+    expect(getNotebookVolume).not.toHaveBeenCalled();
   });
 });

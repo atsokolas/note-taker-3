@@ -120,19 +120,17 @@ export const sendNotebookCorrespondence = async (slug, body = {}) => {
   return res.data || { sent: true };
 };
 
-const volumeQuery = ({ notebookIds, title, introduction } = {}) => {
-  const query = new URLSearchParams();
-  if (Array.isArray(notebookIds) && notebookIds.length) {
-    query.set('notebookIds', notebookIds.join(','));
-  }
-  if (title != null) query.set('title', title);
-  if (introduction != null) query.set('introduction', introduction);
-  const encoded = query.toString();
-  return encoded ? `?${encoded}` : '';
+export const getNotebookVolume = async () => {
+  const res = await api.get('/api/volumes', getAuthHeaders());
+  return res.data || { shared: false };
 };
 
-export const getNotebookVolume = async (draft = {}) => {
-  const res = await api.get(`/api/volumes${volumeQuery(draft)}`, getAuthHeaders());
+export const previewNotebookVolume = async (draft = {}) => {
+  const res = await api.post('/api/volumes/preview', {
+    notebookIds: Array.isArray(draft.notebookIds) ? draft.notebookIds : [],
+    title: draft.title,
+    introduction: draft.introduction
+  }, getAuthHeaders());
   return res.data || { shared: false };
 };
 

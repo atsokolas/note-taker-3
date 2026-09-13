@@ -134,6 +134,11 @@ const run = async () => {
     headers: { 'content-type': 'application/json' },
     body: body ? JSON.stringify(body) : undefined
   });
+  const preview = (body) => fetchJson(`${url}/api/volumes/preview`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body)
+  });
 
   try {
     const empty = await owner();
@@ -171,7 +176,18 @@ const run = async () => {
     });
     assert.strictEqual(silent.response.status, 409);
 
-    const ready = await fetchJson(`${url}/api/volumes?notebookIds=${NOTE_A},${NOTE_B}&title=${encodeURIComponent('Who pays?')}&introduction=${encodeURIComponent('Two finished notes, one question.')}`);
+    const leaked = await fetchJson(`${url}/api/volumes?notebookIds=${NOTE_A},${NOTE_B}&title=${encodeURIComponent('Unpublished secret')}&introduction=${encodeURIComponent('Do not log this through-line.')}`);
+    assert.strictEqual(leaked.response.status, 200);
+    assert.ok(!JSON.stringify(leaked.body).includes('Unpublished secret'));
+    assert.ok(!JSON.stringify(leaked.body).includes('Do not log this through-line.'));
+    assert.strictEqual(leaked.body.publishable, false);
+
+    const ready = await preview({
+      notebookIds: [NOTE_A, NOTE_B],
+      title: 'Who pays?',
+      introduction: 'Two finished notes, one question.'
+    });
+    assert.strictEqual(ready.response.status, 200, JSON.stringify(ready.body));
     assert.strictEqual(ready.body.publishable, true);
     const created = await owner('POST', {
       title: 'Who pays?',
@@ -229,7 +245,11 @@ const run = async () => {
     });
     assert.strictEqual(staleUpdate.response.status, 409);
 
-    const next = await fetchJson(`${url}/api/volumes?notebookIds=${NOTE_B},${NOTE_A}&title=${encodeURIComponent('Who pays?')}&introduction=${encodeURIComponent('The later note now leads.')}`);
+    const next = await preview({
+      notebookIds: [NOTE_B, NOTE_A],
+      title: 'Who pays?',
+      introduction: 'The later note now leads.'
+    });
     const updated = await owner('PUT', {
       title: 'Who pays?',
       introduction: 'The later note now leads.',
@@ -267,7 +287,11 @@ const run = async () => {
     assert.strictEqual(missing.response.status, 404);
     assert.deepStrictEqual(gone.body, missing.body);
 
-    const reopenedReady = await fetchJson(`${url}/api/volumes?notebookIds=${NOTE_A},${NOTE_B}&title=${encodeURIComponent('Who pays?')}&introduction=${encodeURIComponent('A later collection.')}`);
+    const reopenedReady = await preview({
+      notebookIds: [NOTE_A, NOTE_B],
+      title: 'Who pays?',
+      introduction: 'A later collection.'
+    });
     assert.strictEqual(reopenedReady.response.status, 200, JSON.stringify(reopenedReady.body));
     assert.strictEqual(reopenedReady.body.shared, false, JSON.stringify(reopenedReady.body));
     assert.strictEqual(reopenedReady.body.publishable, true, JSON.stringify(reopenedReady.body));

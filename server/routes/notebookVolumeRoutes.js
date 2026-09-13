@@ -62,6 +62,22 @@ const buildNotebookVolumeRouter = ({
     });
   };
 
+  const draftFromBody = (body = {}) => {
+    const draft = {};
+    const ids = Array.isArray(body?.notebookIds)
+      ? body.notebookIds
+      : String(body?.notebookIds || '').split(',');
+    const notebookIds = ids
+      .map((value) => String(value || '').trim())
+      .filter(Boolean);
+    if (notebookIds.length) draft.notebookIds = notebookIds;
+    if (Object.prototype.hasOwnProperty.call(body || {}, 'title')) draft.title = body.title;
+    if (Object.prototype.hasOwnProperty.call(body || {}, 'introduction')) {
+      draft.introduction = body.introduction;
+    }
+    return draft;
+  };
+
   const freezeFromBody = async (userId, body, existing = null) => {
     const catalog = await loadPublishedCatalog(SharedNotebook, userId);
     const ownerDisplayName = existing?.ownerDisplayName || await ownerNameOf(userId);
@@ -94,25 +110,29 @@ const buildNotebookVolumeRouter = ({
     return { selected, preview, currentHash, ownerDisplayName };
   };
 
+  /* Published state only. Workshop title/introduction stay off this URL so
+     access logs cannot retain unpublished drafts. Compose through POST /preview. */
   router.get('/api/volumes', authenticateToken, async (req, res) => {
     if (!SharedNotebookVolume) return res.status(503).json({ error: 'Sharing is not available.' });
     try {
       const found = await SharedNotebookVolume.findOne({ userId: req.user.id }).lean();
-      const notebookIds = String(req.query.notebookIds || '')
-        .split(',')
-        .map((value) => value.trim())
-        .filter(Boolean);
-      const draft = {};
-      if (notebookIds.length) draft.notebookIds = notebookIds;
-      if (Object.prototype.hasOwnProperty.call(req.query, 'title')) draft.title = req.query.title;
-      if (Object.prototype.hasOwnProperty.call(req.query, 'introduction')) {
-        draft.introduction = req.query.introduction;
-      }
       noStore(res);
-      return res.status(200).json(await volumePayload(req.user.id, found, draft));
+      return res.status(200).json(await volumePayload(req.user.id, found));
     } catch (error) {
       console.error('❌ Error reading notebook volume:', error);
       return res.status(500).json({ error: 'Failed to read that volume.' });
+    }
+  });
+
+  router.post('/api/volumes/preview', authenticateToken, async (req, res) => {
+    if (!SharedNotebookVolume) return res.status(503).json({ error: 'Sharing is not available.' });
+    try {
+      const found = await SharedNotebookVolume.findOne({ userId: req.user.id }).lean();
+      noStore(res);
+      return res.status(200).json(await volumePayload(req.user.id, found, draftFromBody(req.body)));
+    } catch (error) {
+      console.error('❌ Error previewing notebook volume:', error);
+      return res.status(500).json({ error: 'Failed to preview that volume.' });
     }
   });
 
