@@ -1,4 +1,4 @@
-export const QUESTION_SHARE_PRIVACY = 'Anyone with the link can read the version you share. A later reading sits beside it, not inside it. Later private edits stay in the workshop. Library highlights stay private.';
+export const QUESTION_SHARE_PRIVACY = 'Anyone with the link can read the version you share. A later reading sits beside it once you place it, not inside it. Later private edits stay in the workshop. Library highlights stay private.';
 
 export const CONCEPT_SHARE_PRIVACY = 'Anyone with the link can read the version you share. Later private edits stay in the workshop. Your Library stays private.';
 
@@ -6,9 +6,13 @@ export const THINK_SHARE_REVOKE = 'Copies already taken stay with their holders.
 
 export const QUESTION_SHARE_COLOPHON = 'This is the version that was published. A later reading sits beside it. Later private edits do not change it.';
 
-export const QUESTION_SHARE_OFFER = 'Only these words leave your side. Your Library stays private. What you still hold is optional.';
+export const QUESTION_SHARE_OFFER = 'Only these words leave your side. Your Library stays private. They are not on the page until the author places them.';
+
+export const QUESTION_SHARE_RECEIPT = 'It is with the author. It is not on the page yet.';
 
 export const QUESTION_SHARE_TAKE = 'The reading stays. This sits beside it.';
+
+export const QUESTION_SHARE_PLACE = 'It is not on the page yet.';
 
 export const CONCEPT_SHARE_COLOPHON = 'This is the version that was published. Later private edits do not change it.';
 

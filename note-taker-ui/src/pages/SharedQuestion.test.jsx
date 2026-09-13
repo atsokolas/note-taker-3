@@ -44,7 +44,7 @@ describe('SharedQuestion', () => {
     expect(screen.queryByTestId('question-share-readings')).not.toBeInTheDocument();
   });
 
-  it('offers a reading and keeps it beside the question', async () => {
+  it('offers a reading that stays off the page until the author places it', async () => {
     const published = {
       ownerDisplayName: 'Athan',
       publishedAt: '2026-06-14T00:00:00Z',
@@ -54,21 +54,8 @@ describe('SharedQuestion', () => {
         paragraphs: [{ id: 'p1', type: 'paragraph', text: 'First paragraph.' }]
       }
     };
-    const together = {
-      ...published,
-      contributions: [{
-        id: 'c1',
-        by: 'Mara',
-        text: 'Same fact, different time horizon.',
-        remainder: 'Who pays when the window closes?'
-      }]
-    };
-    let offered = false;
-    getPublicQuestion.mockImplementation(async () => (offered ? together : published));
-    offerQuestionContribution.mockImplementation(async () => {
-      offered = true;
-      return { sent: true };
-    });
+    getPublicQuestion.mockResolvedValue(published);
+    offerQuestionContribution.mockResolvedValue({ sent: true });
 
     render(<SharedQuestion />);
     fireEvent.click(await screen.findByRole('button', { name: 'Offer a reading' }));
@@ -87,9 +74,8 @@ describe('SharedQuestion', () => {
       remainder: 'Who pays when the window closes?'
     }));
     await waitFor(() => {
-      expect(screen.getByTestId('question-share-readings')).toHaveTextContent('Same fact, different time horizon.');
-      expect(screen.getByText('Still holds: Who pays when the window closes?')).toBeInTheDocument();
-      expect(screen.getByText('It is on this page, beside the question.')).toBeInTheDocument();
+      expect(screen.queryByTestId('question-share-readings')).not.toBeInTheDocument();
+      expect(screen.getByText('It is with the author. It is not on the page yet.')).toBeInTheDocument();
     });
   });
 

@@ -219,5 +219,55 @@ describe('authored think share', () => {
     });
     expect(shared.snapshot.contributions).toBeUndefined();
     expect(thinkShareState(null, { preview, kind: 'concept' }).contributions).toBeUndefined();
+
+    const heldPage = publicQuestionPage({
+      ownerDisplayName: 'Athan',
+      snapshot: frozen
+    }, [{
+      _id: 'held',
+      by: 'Mara',
+      text: 'Same fact, different time horizon.',
+      held: true
+    }, {
+      _id: 'legacy',
+      by: 'Ada',
+      text: 'An earlier reading without the hold field.'
+    }]);
+    expect(heldPage.contributions).toEqual([{
+      id: 'legacy',
+      by: 'Ada',
+      text: 'An earlier reading without the hold field.',
+      createdAt: ''
+    }]);
+    expect(heldPage.waiting).toBeUndefined();
+
+    const ownerState = thinkShareState({
+      slug: 'qslug',
+      ownerDisplayName: 'Athan',
+      snapshot: frozen,
+      contentHash: hash
+    }, {
+      preview,
+      currentHash: hash,
+      kind: 'question',
+      contributions: [
+        { _id: 'held', by: 'Mara', text: 'Same fact, different time horizon.', held: true },
+        { _id: 'live', by: 'Ada', text: 'Already on the page.' }
+      ]
+    });
+    expect(ownerState.contributions).toEqual([{
+      id: 'live',
+      by: 'Ada',
+      text: 'Already on the page.',
+      createdAt: ''
+    }]);
+    expect(ownerState.waiting).toEqual([{
+      id: 'held',
+      by: 'Mara',
+      text: 'Same fact, different time horizon.',
+      createdAt: ''
+    }]);
+    expect(ownerState.waiting[0].held).toBeUndefined();
+    expect(ownerState.contributions[0].held).toBeUndefined();
   });
 });

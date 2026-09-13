@@ -73,6 +73,7 @@ describe('QuestionShareView', () => {
       text: 'Same fact, different time horizon.',
       remainder: 'Who pays when the window closes?'
     }));
-    expect(await screen.findByText('It is on this page, beside the question.')).toBeInTheDocument();
+    expect(await screen.findByText('It is with the author. It is not on the page yet.')).toBeInTheDocument();
+    expect(screen.queryByTestId('question-share-readings')).not.toBeInTheDocument();
   });
 });

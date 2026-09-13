@@ -3076,10 +3076,11 @@ const SharedQuestion = mongoose.model('SharedQuestion', sharedQuestionSchema);
 
    It is attributed writing the second person chose to put on the public
    door, not a view of their Library. It never merges into the frozen
-   snapshot. Revoking the share closes the door; the reading stays keyed
-   to that slug, so a later publish is a new address. The owner may later
-   say how they take that reading. The original writing and remainder stay.
-   Inclusion in a later edition is a later, explicit act. */
+   snapshot.    Revoking the share closes the door; the reading stays keyed
+   to that slug, so a later publish is a new address. A new reading
+   is held until the owner places it beside the question. The owner may
+   later say how they take that reading. The original writing and remainder
+   stay. Inclusion in a later edition is a later, explicit act. */
 const questionContributionSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   questionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Question', required: true, index: true },
@@ -3087,7 +3088,8 @@ const questionContributionSchema = new mongoose.Schema({
   by: { type: String, required: true },
   text: { type: String, required: true },
   remainder: { type: String, default: '' },
-  interpretation: { type: String, default: '' }
+  interpretation: { type: String, default: '' },
+  held: { type: Boolean }
 }, { timestamps: true });
 
 questionContributionSchema.index({ slug: 1, createdAt: 1 });

@@ -4,12 +4,14 @@ import {
   getQuestionShare,
   interpretQuestionContribution,
   mintQuestionShare,
+  placeQuestionContribution,
   revokeQuestionShare,
   updateQuestionShare
 } from '../../../api/questions';
 import { usePrefersReducedMotion } from '../../../hooks/useMotionPreferences';
 import QuestionShareView from '../QuestionShareView';
 import {
+  QUESTION_SHARE_PLACE,
   QUESTION_SHARE_PRIVACY,
   QUESTION_SHARE_TAKE,
   THINK_SHARE_REVOKE
@@ -73,6 +75,39 @@ const TakeReading = ({ reading, disabled, onSave }) => {
   );
 };
 
+const PlaceReading = ({ reading, disabled, onPlace }) => {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  const place = async () => {
+    if (busy || disabled || !reading.id) return;
+    setBusy(true);
+    setError('');
+    try {
+      await onPlace(reading.id);
+    } catch (_err) {
+      setError('That reading did not sit beside the question.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <article className="concept-share-modal__note" data-testid={`question-share-waiting-${reading.id}`}>
+      <p className="concept-share-modal__waiting-by">{reading.by}</p>
+      <p className="concept-share-modal__waiting-text">{reading.text}</p>
+      {asLine(reading.remainder) ? (
+        <p className="muted small">Still holds: {asLine(reading.remainder)}</p>
+      ) : null}
+      <p className="muted small">{QUESTION_SHARE_PLACE}</p>
+      {error ? <p className="status-message error-message">{error}</p> : null}
+      <Button type="button" variant="secondary" onClick={place} disabled={disabled || busy}>
+        {busy ? 'Placing…' : 'Let this sit beside the question'}
+      </Button>
+    </article>
+  );
+};
+
 const ShareIncludesList = () => (
   <ul className="concept-share-modal__includes" aria-label="What's included">
     <li>
@@ -81,7 +116,7 @@ const ShareIncludesList = () => (
     </li>
     <li>
       <span className="concept-share-modal__includes-icon" aria-hidden="true">✓</span>
-      A later reading sits beside this question, not inside it
+      A later reading sits beside this question once you place it, not inside it
     </li>
     <li>
       <span className="concept-share-modal__includes-icon concept-share-modal__includes-icon--neg" aria-hidden="true">—</span>
@@ -162,6 +197,11 @@ const QuestionShareModal = ({ open, questionId, questionText, onClose }) => {
     setState(data);
   };
 
+  const handlePlace = async (contributionId) => {
+    const data = await placeQuestionContribution(questionId, contributionId);
+    setState(data);
+  };
+
   const handleRevoke = async () => {
     if (!window.confirm('Revoke this share link? Anyone with the existing link will lose access immediately.')) return;
     setBusy(true);
@@ -203,6 +243,7 @@ const QuestionShareModal = ({ open, questionId, questionText, onClose }) => {
   const pending = stale ? state.preview : null;
   const publishable = state.publishable !== false && Boolean(String(state.preview?.question?.text || questionText || '').trim());
   const readings = Array.isArray(state.contributions) ? state.contributions : [];
+  const waiting = Array.isArray(state.waiting) ? state.waiting : [];
   const readerView = reader?.question
     ? { ...reader, contributions: readings }
     : reader;
@@ -244,6 +285,18 @@ const QuestionShareModal = ({ open, questionId, questionText, onClose }) => {
               >
                 <p className="concept-share-modal__reader-label">Pending an update</p>
                 <QuestionShareView snapshot={pending} compact />
+              </div>
+            ) : null}
+            {state.shared && waiting.length ? (
+              <div className="concept-share-modal__takes" data-testid="question-share-waiting">
+                {waiting.map((reading) => (
+                  <PlaceReading
+                    key={reading.id || reading.by}
+                    reading={reading}
+                    disabled={busy}
+                    onPlace={handlePlace}
+                  />
+                ))}
               </div>
             ) : null}
             {state.shared && readings.length ? (

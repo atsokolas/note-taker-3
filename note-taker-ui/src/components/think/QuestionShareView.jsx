@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { usePrefersReducedMotion } from '../../hooks/useMotionPreferences';
-import { QUESTION_SHARE_COLOPHON, QUESTION_SHARE_OFFER } from './thinkShareFixture';
+import { QUESTION_SHARE_COLOPHON, QUESTION_SHARE_OFFER, QUESTION_SHARE_RECEIPT } from './thinkShareFixture';
 
 const asLine = (value) => String(value || '').trim();
 
@@ -37,7 +37,7 @@ const OfferReading = ({ onOffer }) => {
   if (sent) {
     return (
       <p className="think-share-view__offer-receipt" role="status">
-        It is on this page, beside the question.
+        {QUESTION_SHARE_RECEIPT}
       </p>
     );
   }

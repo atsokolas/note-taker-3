@@ -11,7 +11,8 @@ const { isDuplicateKey, shareSlug } = require('./authoredNotebookShare');
  *
  * C7: a second person may offer a bounded reading beside a published question.
  * That reading is not merged into the snapshot. The owner may later say how
- * they take it; the original writing stays. Libraries stay private.
+ * they take it; the original writing stays. A new reading is held until
+ * the owner places it. Libraries stay private.
  */
 
 const PREVIEW_STALE = {
@@ -138,6 +139,7 @@ const freezeThinkSnapshot = (preview, publishedAt, extra = {}) => {
   delete body.contribution;
   delete body.interpretation;
   delete body.interpretedBy;
+  delete body.waiting;
   const iso = asIso(publishedAt);
   const revised = asIso(extra.revisedAt);
   const correction = publicText(stripTags(extra.correction), 400);
@@ -173,6 +175,10 @@ const projectContribution = (row = {}, extra = {}) => {
 const projectContributionList = (rows, extra = {}) => (Array.isArray(rows) ? rows : [])
   .map((row) => projectContribution(row, extra))
   .filter(Boolean);
+
+const contributionHeld = (row) => row?.held === true;
+const placedContributions = (rows) => (Array.isArray(rows) ? rows : []).filter((row) => !contributionHeld(row));
+const heldContributions = (rows) => (Array.isArray(rows) ? rows : []).filter(contributionHeld);
 
 const loadQuestionContributions = async (QuestionContribution, query) => {
   if (!QuestionContribution?.find) return [];
@@ -225,9 +231,10 @@ const publicQuestionPage = (share, contributions = []) => {
   delete snapshot.contribution;
   delete snapshot.interpretation;
   delete snapshot.interpretedBy;
+  delete snapshot.waiting;
   return {
     ...snapshot,
-    contributions: projectContributionList(contributions, {
+    contributions: projectContributionList(placedContributions(contributions), {
       interpretedBy: share.ownerDisplayName
     })
   };
@@ -246,10 +253,14 @@ const thinkShareState = (share, {
   const publishable = kind === 'concept'
     ? canPublishConcept(preview)
     : canPublishQuestion(preview);
+  const extra = {
+    interpretedBy: share?.ownerDisplayName || preview?.ownerDisplayName
+  };
   const readings = kind === 'question'
-    ? projectContributionList(contributions, {
-      interpretedBy: share?.ownerDisplayName || preview?.ownerDisplayName
-    })
+    ? projectContributionList(placedContributions(contributions), extra)
+    : null;
+  const waiting = kind === 'question' && share
+    ? projectContributionList(heldContributions(contributions), extra)
     : null;
   if (!share) {
     return {
@@ -272,7 +283,8 @@ const thinkShareState = (share, {
     stale: Boolean(share.contentHash && currentHash && share.contentHash !== currentHash),
     preview,
     snapshot: share.snapshot || null,
-    ...(readings ? { contributions: readings } : {})
+    ...(readings ? { contributions: readings } : {}),
+    ...(waiting && waiting.length ? { waiting } : {})
   };
 };
 
@@ -325,18 +337,21 @@ module.exports = {
   canPublishQuestion,
   claimContributionSlot,
   contributionBy,
+  contributionHeld,
   contributionRemainder,
   contributionSlotFilter,
   contributionText,
   freezeThinkSnapshot,
   hashPublicConcept,
   hashPublicQuestion,
+  heldContributions,
   isDuplicateKey,
   liveConceptPreview,
   liveQuestionPreview,
   loadQuestionContributions,
   missingSnapshot,
   ownerNameOf,
+  placedContributions,
   projectContribution,
   projectContributionList,
   projectPublicConcept,
