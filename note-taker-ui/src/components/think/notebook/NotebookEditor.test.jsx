@@ -1287,6 +1287,26 @@ describe('NotebookEditor', () => {
       expect(screen.getByPlaceholderText('Title')).toHaveValue('Keep these words');
     });
 
+    it('retries the retained draft without another edit and waits for acknowledgement', async () => {
+      let flush;
+      let finishRetry;
+      const onSave = jest.fn()
+        .mockRejectedValueOnce(new Error('Storage full'))
+        .mockImplementationOnce(() => new Promise(resolve => { finishRetry = resolve; }));
+      render(<NotebookEditor entry={{ _id: 'note-1', title: 'Before', blocks: [] }} onSave={onSave} onRegisterSave={value => { flush = value; }} />);
+      fireEvent.change(screen.getByPlaceholderText('Title'), { target: { value: 'Keep these words' } });
+      await act(async () => { await flush(); });
+      expect(screen.getByRole('status')).toHaveTextContent('Not saved');
+      await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Retry save' })); });
+      expect(onSave).toHaveBeenCalledTimes(2);
+      expect(onSave.mock.calls[1][0]).toEqual(onSave.mock.calls[0][0]);
+      expect(screen.getByRole('status')).toHaveTextContent('Saving');
+      expect(screen.getByPlaceholderText('Title')).toHaveValue('Keep these words');
+      await act(async () => { finishRetry({}); });
+      expect(screen.getByRole('status')).toHaveTextContent('Saved');
+      expect(screen.queryByRole('button', { name: 'Retry save' })).not.toBeInTheDocument();
+    });
+
     it('finishes edits made during the navigation flush before reporting Saved', async () => {
       let flush;
       let finishSave;

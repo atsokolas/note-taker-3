@@ -1,6 +1,6 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
-import SharedQuestionCompanion from './SharedQuestionCompanion';
+import SharedQuestionCompanion from './SharedQuestionCompanion.jsx';
 import { questionBrief, questionContribution, questionSnapshot } from '../components/think/thinkShareFixture';
 
 jest.mock('../components/agent/ThoughtPartnerPanel', () => ({

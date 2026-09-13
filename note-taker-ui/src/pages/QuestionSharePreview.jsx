@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import QuestionShareView from '../components/think/QuestionShareView';
-import SharedQuestionCompanion from './SharedQuestionCompanion';
+import SharedQuestionCompanion from './SharedQuestionCompanion.jsx';
 import {
   QUESTION_NOT_PUBLISHED,
   QUESTION_SHARE_AGREEMENT,

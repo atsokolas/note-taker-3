@@ -115,4 +115,69 @@ describe('NotebookArrangementRail', () => {
       name: 'Arrange this passage: The exception is when the downside lands on someone else.'
     })).toBeInTheDocument();
   });
+  it.each(['metaKey', 'ctrlKey'])('opens the caret passage with %s+/ and returns focus with Escape', modifier => {
+    const prose = document.createElement('div');
+    prose.tabIndex = 0;
+    document.body.appendChild(prose);
+    const focus = jest.fn(() => prose.focus());
+    const editor = { view: { dom: prose }, commands: { focus } };
+    const onReveal = jest.fn();
+    const { unmount } = renderRail({ editor, onReveal });
+    try {
+      fireEvent.keyDown(document.body, { key: '/', [modifier]: true });
+      expect(screen.queryByRole('group')).not.toBeInTheDocument();
+      fireEvent.keyDown(prose, { key: '/', [modifier]: true, isComposing: true });
+      expect(screen.queryByRole('group')).not.toBeInTheDocument();
+      fireEvent.keyDown(prose, { key: '/', [modifier]: true });
+      expect(onReveal).toHaveBeenCalledWith(1);
+      expect(screen.getByRole('button', { name: 'Move up' })).toHaveFocus();
+      prose.addEventListener('keydown', event => event.preventDefault());
+      prose.focus();
+      fireEvent.keyDown(prose, { key: 'Escape' });
+      expect(screen.queryByRole('group')).not.toBeInTheDocument();
+      expect(prose).toHaveFocus();
+      expect(focus).toHaveBeenCalledTimes(1);
+    } finally {
+      unmount();
+      prose.remove();
+    }
+  });
+
+  it('brackets the paragraph and its attached source, follows reflow, and holds the target while the panel has focus', () => {
+    const shell = document.createElement('div');
+    shell.className = 'think-notebook-editor__body';
+    const prose = document.createElement('div');
+    shell.appendChild(prose);
+    document.body.appendChild(shell);
+    let shellTop = 100;
+    let sourceBottom = 360;
+    shell.getBoundingClientRect = () => ({ top: shellTop });
+    const rects = [
+      () => ({ top: shellTop + 10, bottom: shellTop + 50 }),
+      () => ({ top: shellTop + 100, bottom: shellTop + 140 }),
+      () => ({ top: shellTop + 150, bottom: shellTop + sourceBottom })
+    ];
+    const editor = {
+      state: { doc: { forEach: fn => rects.forEach((_, index) => fn({}, index, index)) } },
+      view: { dom: prose, nodeDOM: index => ({ getBoundingClientRect: rects[index] }) }
+    };
+    const { container, rerender, unmount } = renderRail({ editor });
+    try {
+      const rail = container.querySelector('[data-notebook-arrangement]');
+      expect(rail).toHaveStyle({ top: '100px', '--passage-height': '260px' });
+      sourceBottom = 420;
+      fireEvent(window, new Event('resize'));
+      expect(rail).toHaveStyle({ '--passage-height': '320px' });
+      openArrange();
+      rerender(<NotebookArrangementRail editor={editor} pieces={pieces} currentPieceIndex={1} enabled />);
+      shellTop = 140;
+      fireEvent.scroll(window);
+      expect(screen.getByRole('group')).toHaveAccessibleName(`This passage: ${pieces[1].label}`);
+      expect(rail).toHaveStyle({ top: '100px', '--passage-height': '320px' });
+    } finally {
+      unmount();
+      shell.remove();
+    }
+  });
+
 });

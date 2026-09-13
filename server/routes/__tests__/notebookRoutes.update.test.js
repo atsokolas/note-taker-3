@@ -198,6 +198,21 @@ const run = async () => {
     assert.equal(stored.blocks[1].articleId, null);
     assert.equal(stored.asidePieces[0].nodes[0].attrs.blockId, 'held-1');
     assert.equal(stored.asidePieces[0].blocks[0].articleId, null);
+
+    stored.save = async () => {
+      throw Object.assign(new Error('you are over your space quota, using 512 MB of 512 MB.'), { code: 8000 });
+    };
+    const full = await putNote(url, { title: 'Keep my words' });
+    assert.equal(full.status, 507);
+    assert.equal(full.payload.code, 'storage_full');
+    assert.match(full.payload.error, /not saved.*Keep this page open/);
+
+    stored.save = async () => {
+      throw Object.assign(new Error('Some other Atlas error'), { code: 8000 });
+    };
+    const unrelated = await putNote(url, { title: 'Keep my words' });
+    assert.equal(unrelated.status, 500);
+    assert.equal(unrelated.payload.error, 'Failed to update notebook entry.');
   } finally {
     server.close();
   }
