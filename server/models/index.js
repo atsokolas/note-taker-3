@@ -3056,6 +3056,7 @@ const SharedConcept = mongoose.model('SharedConcept', sharedConceptSchema);
  * Same URL contract as a shared notebook. Public reads expose only authored
  * paragraph blocks; highlight refs and library material stay private.
  * A later reading sits beside the snapshot, counted on this door.
+ * A brief may close the page; it is not inside the snapshot.
  */
 const sharedQuestionSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
@@ -3065,7 +3066,15 @@ const sharedQuestionSchema = new mongoose.Schema({
   snapshot: { type: mongoose.Schema.Types.Mixed, default: null },
   contentHash: { type: String, default: '' },
   publishedAt: { type: Date, default: null },
-  contributionCount: { type: Number, default: 0 }
+  contributionCount: { type: Number, default: 0 },
+  brief: {
+    type: new mongoose.Schema({
+      agreement: { type: String, default: '' },
+      remainder: { type: String, default: '' },
+      observation: { type: String, default: '' }
+    }, { _id: false }),
+    default: () => ({ agreement: '', remainder: '', observation: '' })
+  }
 }, { timestamps: true });
 
 sharedQuestionSchema.index({ userId: 1, questionId: 1 }, { unique: true });

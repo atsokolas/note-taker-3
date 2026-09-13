@@ -9,6 +9,7 @@ jest.mock('../../../api/questions', () => ({
   mintQuestionShare: jest.fn(),
   placeQuestionContribution: jest.fn(),
   revokeQuestionShare: jest.fn(),
+  saveQuestionShareBrief: jest.fn(),
   updateQuestionShare: jest.fn()
 }));
 
@@ -18,6 +19,7 @@ const {
   mintQuestionShare,
   placeQuestionContribution,
   revokeQuestionShare,
+  saveQuestionShareBrief,
   updateQuestionShare
 } = require('../../../api/questions');
 
@@ -38,6 +40,7 @@ describe('QuestionShareModal', () => {
     mintQuestionShare.mockReset();
     placeQuestionContribution.mockReset();
     revokeQuestionShare.mockReset();
+    saveQuestionShareBrief.mockReset();
     updateQuestionShare.mockReset();
     window.confirm = jest.fn(() => true);
   });
@@ -150,6 +153,7 @@ describe('QuestionShareModal', () => {
     expect(screen.getByTestId('question-share-preview')).not.toHaveTextContent('Same fact, different time horizon.');
     expect(screen.queryByLabelText('How you take this')).not.toBeInTheDocument();
     expect(screen.getByText('It is not on the page yet.')).toBeInTheDocument();
+    expect(screen.queryByLabelText('What holds')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Let this sit beside the question' }));
     await waitFor(() => expect(placeQuestionContribution).toHaveBeenCalledWith('q1', 'c1'));
     expect(await screen.findByTestId('question-share-preview')).toHaveTextContent('Same fact, different time horizon.');
@@ -286,5 +290,57 @@ describe('QuestionShareModal', () => {
     );
     expect(screen.queryByText('That take did not save.')).not.toBeInTheDocument();
     expect(getQuestionShare).toHaveBeenCalledTimes(2);
+  });
+
+  it('saves a brief beside placed readings without inventing consensus', async () => {
+    const reading = {
+      id: 'c1',
+      by: 'Mara',
+      text: 'Same fact, different time horizon.',
+      remainder: 'Who pays when the window closes?'
+    };
+    const brief = {
+      agreement: 'The fact is shared. The horizon is not.',
+      remainder: 'The window may close before compounding pays.',
+      observation: 'Watch who is still in the room when the cost arrives.',
+      by: 'Athan'
+    };
+    getQuestionShare.mockResolvedValueOnce({
+      shared: true,
+      slug: 'abc123',
+      snapshot: frozen,
+      preview: frozen,
+      contributions: [reading],
+      brief: { agreement: '', remainder: '', observation: '', by: 'Athan' }
+    });
+    saveQuestionShareBrief.mockResolvedValueOnce({
+      shared: true,
+      slug: 'abc123',
+      snapshot: frozen,
+      preview: frozen,
+      contributions: [reading],
+      brief
+    });
+    render(<QuestionShareModal open questionId="q1" questionText="What next?" onClose={() => {}} />);
+    expect(await screen.findByTestId('question-share-brief-form')).toBeInTheDocument();
+    expect(screen.queryByTestId('question-share-brief')).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('What holds'), {
+      target: { value: 'The fact is shared. The horizon is not.' }
+    });
+    fireEvent.change(screen.getByLabelText('What you still hold'), {
+      target: { value: 'The window may close before compounding pays.' }
+    });
+    fireEvent.change(screen.getByLabelText('What could move this'), {
+      target: { value: 'Watch who is still in the room when the cost arrives.' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save this brief' }));
+    await waitFor(() => expect(saveQuestionShareBrief).toHaveBeenCalledWith('q1', {
+      agreement: 'The fact is shared. The horizon is not.',
+      remainder: 'The window may close before compounding pays.',
+      observation: 'Watch who is still in the room when the cost arrives.'
+    }));
+    expect(await screen.findByTestId('question-share-brief')).toHaveTextContent('The fact is shared. The horizon is not.');
+    expect(screen.getByTestId('question-share-preview')).toHaveTextContent('Same fact, different time horizon.');
+    expect(screen.getByText('Consensus is optional. Empty stays off the page.')).toBeInTheDocument();
   });
 });

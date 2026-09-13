@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 
 const { buildSharedQuestionRouter } = require('../sharedQuestionRoutes');
 const {
+  BRIEF_NEEDS_READING,
   CONTRIBUTION_LIMIT,
   CONTRIBUTION_HELD,
   CONTRIBUTION_TAKE_CHANGED,
@@ -218,6 +219,13 @@ const run = async () => {
     assert.strictEqual(publicRead.body.question.text, 'What survives compounding?');
     assert.deepStrictEqual(publicRead.body.contributions, []);
     assert.deepStrictEqual(mint.body.contributions, []);
+    const tooSoonBrief = await fetchJson(`${base}/api/questions/${questionId}/share/brief`, {
+      method: 'PATCH',
+      body: JSON.stringify({ agreement: 'Too soon.' })
+    });
+    assert.strictEqual(tooSoonBrief.response.status, 409);
+    assert.strictEqual(tooSoonBrief.body.error, BRIEF_NEEDS_READING);
+    assert.ok(!publicRead.body.brief);
     assert.deepStrictEqual(publicRead.body.question.paragraphs, [
       { id: 'p1', type: 'paragraph', text: 'Public paragraph.' },
       { id: 'p2', type: 'paragraph', text: 'Another authored paragraph.' }
@@ -573,6 +581,57 @@ const run = async () => {
     );
     assert.notStrictEqual(matchingTake.body.contributions[0].updatedAt, stamped);
 
+    const agentBrief = await fetchJson(`${base}/api/questions/${questionId}/share/brief`, {
+      method: 'PATCH',
+      headers: { 'x-agent-token': '1' },
+      body: JSON.stringify({ agreement: 'An agent brief.' })
+    });
+    assert.strictEqual(agentBrief.response.status, 403);
+    const strangerBrief = await fetchJson(`${base}/api/questions/${questionId}/share/brief`, {
+      method: 'PATCH',
+      headers: asUser(strangerId),
+      body: JSON.stringify({ agreement: 'A stranger brief.' })
+    });
+    assert.strictEqual(strangerBrief.response.status, 404);
+    const savedBrief = await fetchJson(`${base}/api/questions/${questionId}/share/brief`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        agreement: '<em>The fact is shared. The horizon is not.</em>',
+        remainder: 'The window may close before compounding pays.',
+        observation: 'Watch who is still in the room when the cost arrives.',
+        articleId: 'secret'
+      })
+    });
+    assert.strictEqual(savedBrief.response.status, 200, JSON.stringify(savedBrief.body));
+    assert.deepStrictEqual(savedBrief.body.brief, {
+      agreement: 'The fact is shared. The horizon is not.',
+      remainder: 'The window may close before compounding pays.',
+      observation: 'Watch who is still in the room when the cost arrives.',
+      by: 'Owner'
+    });
+    assert.ok(!savedBrief.body.snapshot.brief);
+    assert.ok(!JSON.stringify(savedBrief.body.snapshot).includes('secret'));
+    const publicBrief = await fetchJson(`${base}/api/public/questions/${mint.body.slug}`);
+    assert.deepStrictEqual(publicBrief.body.brief, savedBrief.body.brief);
+    assert.ok(!publicBrief.body.snapshot);
+    const emptyBrief = await fetchJson(`${base}/api/questions/${questionId}/share/brief`, {
+      method: 'PATCH',
+      body: JSON.stringify({ agreement: '   ', remainder: '', observation: '' })
+    });
+    assert.strictEqual(emptyBrief.response.status, 200);
+    assert.deepStrictEqual(emptyBrief.body.brief, { agreement: '', remainder: '', observation: '', by: 'Owner' });
+    const silentBrief = await fetchJson(`${base}/api/public/questions/${mint.body.slug}`);
+    assert.ok(!silentBrief.body.brief);
+    const restoredBrief = await fetchJson(`${base}/api/questions/${questionId}/share/brief`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        agreement: 'The fact is shared. The horizon is not.',
+        remainder: 'The window may close before compounding pays.',
+        observation: 'Watch who is still in the room when the cost arrives.'
+      })
+    });
+    assert.strictEqual(restoredBrief.response.status, 200);
+
     const used = SharedQuestion.rows[0].contributionCount;
     const filled = [];
     for (let i = used; i < CONTRIBUTION_LIMIT; i += 1) {
@@ -616,6 +675,8 @@ const run = async () => {
     assert.strictEqual(updated.body.snapshot.publishedAt, mint.body.snapshot.publishedAt);
     assert.strictEqual(updated.body.contributions[0].interpretation, 'The horizon is still the claim.');
     assert.strictEqual(updated.body.contributions[0].text, 'Same fact, different time horizon.');
+    assert.strictEqual(updated.body.brief.agreement, 'The fact is shared. The horizon is not.');
+    assert.ok(!updated.body.snapshot.brief);
 
     Question.rows.splice(0, Question.rows.length);
     const afterDelete = await fetchJson(`${base}/api/public/questions/${mint.body.slug}`);
@@ -656,6 +717,11 @@ const run = async () => {
       { method: 'POST' }
     );
     assert.strictEqual(gonePlace.response.status, 404);
+    const goneBrief = await fetchJson(`${base}/api/questions/${questionId}/share/brief`, {
+      method: 'PATCH',
+      body: JSON.stringify({ agreement: 'After revoke.' })
+    });
+    assert.strictEqual(goneBrief.response.status, 404);
 
     await Question.create({
       _id: questionId,
@@ -685,9 +751,19 @@ const run = async () => {
       { method: 'POST' }
     );
     assert.strictEqual(placeLater.response.status, 200);
+    const remintBrief = await fetchJson(`${base}/api/questions/${questionId}/share/brief`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        agreement: 'A later door can still close.',
+        observation: 'See whether the second address is enough.'
+      })
+    });
+    assert.strictEqual(remintBrief.response.status, 200, JSON.stringify(remintBrief.body));
     const placedLater = await fetchJson(`${base}/api/public/questions/${remint.body.slug}`);
     assert.strictEqual(placedLater.body.contributions.length, 1);
     assert.strictEqual(placedLater.body.contributions[0].text, 'A later door.');
+    assert.strictEqual(placedLater.body.brief.agreement, 'A later door can still close.');
+    assert.ok(!placedLater.body.brief.remainder);
     const laterMine = await publicGet(remint.body.slug, asUser(contributorId));
     assert.strictEqual(laterMine.body.contributions[0].mine, true);
     const withdrawPlaced = await fetchJson(
@@ -697,6 +773,7 @@ const run = async () => {
     assert.strictEqual(withdrawPlaced.response.status, 200, JSON.stringify(withdrawPlaced.body));
     const afterPlacedWithdraw = await publicGet(remint.body.slug);
     assert.deepStrictEqual(afterPlacedWithdraw.body.contributions, []);
+    assert.ok(!afterPlacedWithdraw.body.brief);
     const ownerAfterWithdraw = await fetchJson(`${base}/api/questions/${questionId}/share`);
     assert.deepStrictEqual(ownerAfterWithdraw.body.contributions, []);
     assert.ok(!ownerAfterWithdraw.body.waiting);

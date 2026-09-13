@@ -14,7 +14,9 @@ const { isDuplicateKey, shareSlug } = require('./authoredNotebookShare');
  * they take it; the original writing stays. A new reading is held until
  * the owner places it. The offerer may take it back while the door stays
  * open. Concurrent place, take, and withdraw keep both acts; they do not
- * last-write-win. Libraries stay private.
+ * last-write-win. A brief may close the page with what holds, what still
+ * holds, and what could move this. Consensus is optional. Libraries stay
+ * private.
  */
 
 const PREVIEW_STALE = {
@@ -25,6 +27,7 @@ const PREVIEW_STALE = {
 const CONTRIBUTION_TAKEN_BACK = 'They took this back.';
 const CONTRIBUTION_TAKE_CHANGED = 'This take was already changed.';
 const CONTRIBUTION_HELD = 'Place this reading before you say how you take it.';
+const BRIEF_NEEDS_READING = 'Place a reading before you write a brief.';
 
 const NOT_PUBLISHED = {
   question: 'This question is not published.',
@@ -148,6 +151,9 @@ const freezeThinkSnapshot = (preview, publishedAt, extra = {}) => {
   delete body.waiting;
   delete body.yours;
   delete body.mine;
+  delete body.brief;
+  delete body.agreement;
+  delete body.observation;
   const iso = asIso(publishedAt);
   const revised = asIso(extra.revisedAt);
   const correction = publicText(stripTags(extra.correction), 400);
@@ -215,6 +221,24 @@ const yoursContributions = (rows, viewerUserId) => (
   heldContributions(rows).filter((row) => contributionOwnedBy(row, viewerUserId))
 );
 
+const projectShareBrief = (share, contributions = [], { includeEmpty = false } = {}) => {
+  if (!placedContributions(contributions).length) return null;
+  const agreement = contributionRemainder(share?.brief?.agreement);
+  const remainder = contributionRemainder(share?.brief?.remainder);
+  const observation = contributionRemainder(share?.brief?.observation);
+  if (!includeEmpty && !agreement && !remainder && !observation) return null;
+  const by = contributionBy(share?.ownerDisplayName);
+  if (includeEmpty) {
+    return { agreement, remainder, observation, ...(by ? { by } : {}) };
+  }
+  return {
+    ...(agreement ? { agreement } : {}),
+    ...(remainder ? { remainder } : {}),
+    ...(observation ? { observation } : {}),
+    ...(by ? { by } : {})
+  };
+};
+
 const loadQuestionContributions = async (QuestionContribution, query) => {
   if (!QuestionContribution?.find) return [];
   const found = QuestionContribution.find(query);
@@ -269,8 +293,12 @@ const publicQuestionPage = (share, contributions = [], viewerUserId = '') => {
   delete snapshot.waiting;
   delete snapshot.yours;
   delete snapshot.mine;
+  delete snapshot.brief;
+  delete snapshot.agreement;
+  delete snapshot.observation;
   const extra = { interpretedBy: share.ownerDisplayName };
   const yours = projectContributionList(yoursContributions(contributions, viewerUserId), extra);
+  const brief = projectShareBrief(share, contributions);
   const viewer = String(viewerUserId || '').trim();
   const published = placedContributions(contributions)
     .map((row) => {
@@ -283,7 +311,8 @@ const publicQuestionPage = (share, contributions = [], viewerUserId = '') => {
   return {
     ...snapshot,
     contributions: published,
-    ...(yours.length ? { yours } : {})
+    ...(yours.length ? { yours } : {}),
+    ...(brief ? { brief } : {})
   };
 };
 
@@ -310,6 +339,9 @@ const thinkShareState = (share, {
   const waiting = kind === 'question' && share
     ? projectContributionList(heldContributions(contributions), extra)
     : null;
+  const brief = kind === 'question' && share
+    ? projectShareBrief(share, contributions, { includeEmpty: true })
+    : null;
   if (!share) {
     return {
       shared: false,
@@ -319,6 +351,17 @@ const thinkShareState = (share, {
       currentHash,
       ...(readings ? { contributions: readings } : {})
     };
+  }
+  const snapshot = share.snapshot && typeof share.snapshot === 'object'
+    ? { ...share.snapshot }
+    : null;
+  if (snapshot) {
+    delete snapshot.brief;
+    delete snapshot.agreement;
+    delete snapshot.observation;
+    delete snapshot.contributions;
+    delete snapshot.waiting;
+    delete snapshot.yours;
   }
   return {
     shared: true,
@@ -330,9 +373,10 @@ const thinkShareState = (share, {
     currentHash,
     stale: Boolean(share.contentHash && currentHash && share.contentHash !== currentHash),
     preview,
-    snapshot: share.snapshot || null,
+    snapshot,
     ...(readings ? { contributions: readings } : {}),
-    ...(waiting && waiting.length ? { waiting } : {})
+    ...(waiting && waiting.length ? { waiting } : {}),
+    ...(brief ? { brief } : {})
   };
 };
 
@@ -374,6 +418,7 @@ const liveConceptPreview = async ({ User, concept, userId }) => {
 };
 
 module.exports = {
+  BRIEF_NEEDS_READING,
   CONTRIBUTION_BY_CHARS,
   CONTRIBUTION_CHARS,
   CONTRIBUTION_HELD,
@@ -409,6 +454,7 @@ module.exports = {
   projectContributionList,
   projectPublicConcept,
   projectPublicQuestion,
+  projectShareBrief,
   publicQuestionPage,
   readLean,
   releaseContributionSlot,

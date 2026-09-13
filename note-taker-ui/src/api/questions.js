@@ -123,6 +123,15 @@ export const interpretQuestionContribution = async (questionId, contributionId, 
   return res.data || {};
 };
 
+export const saveQuestionShareBrief = async (questionId, body = {}) => {
+  const res = await api.patch(
+    `/api/questions/${encodeURIComponent(questionId)}/share/brief`,
+    body,
+    getAuthHeaders()
+  );
+  return res.data || {};
+};
+
 export const placeQuestionContribution = async (questionId, contributionId) => {
   const res = await api.post(
     `/api/questions/${encodeURIComponent(questionId)}/share/contributions/${encodeURIComponent(contributionId)}/place`,

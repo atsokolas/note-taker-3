@@ -18,6 +18,14 @@ export const QUESTION_SHARE_TAKEN_BACK = 'They took this back.';
 
 export const QUESTION_SHARE_TAKE_CHANGED = 'This take was already changed.';
 
+export const QUESTION_SHARE_BRIEF = 'Consensus is optional. Empty stays off the page.';
+
+export const QUESTION_SHARE_AGREEMENT = 'What holds';
+
+export const QUESTION_SHARE_OWNER_REMAINDER = 'What you still hold';
+
+export const QUESTION_SHARE_OBSERVATION = 'What could move this';
+
 export const QUESTION_SHARE_YOURS = 'With the author';
 
 export const QUESTION_SHARE_WITHDRAW = 'Take this back';
@@ -46,6 +54,14 @@ export const questionContribution = (over = {}) => ({
   text: 'Same fact, different time horizon.',
   remainder: 'Who pays when the window closes?',
   createdAt: '2026-09-13T16:00:00.000Z',
+  ...over
+});
+
+export const questionBrief = (over = {}) => ({
+  agreement: 'The fact is shared. The horizon is not.',
+  remainder: 'The window may close before compounding pays.',
+  observation: 'Watch who is still in the room when the cost arrives.',
+  by: 'Athan',
   ...over
 });
 

@@ -8429,7 +8429,8 @@ html[data-ui-theme='dark'] body.noeis-editorial .concept-editorial-evidence__ite
 }
 
 .think-share-view__readings,
-.think-share-view__yours {
+.think-share-view__yours,
+.think-share-view__brief {
   display: grid;
   gap: 1rem;
   padding-top: 0.35rem;
@@ -8459,6 +8460,30 @@ html[data-ui-theme='dark'] body.noeis-editorial .concept-editorial-evidence__ite
 .think-share-view__remainder {
   color: var(--text-secondary);
   font-style: italic;
+}
+
+.think-share-view__brief {
+  gap: 0.35rem;
+}
+
+.think-share-view__brief p {
+  margin: 0;
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  line-height: 1.55;
+}
+
+.think-share-view__brief-label {
+  margin: 0.35rem 0 0;
+  color: var(--text-secondary);
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.think-share-view__brief-label:first-of-type {
+  margin-top: 0;
 }
 
 .think-share-view__interpretation {
@@ -8545,6 +8570,7 @@ textarea.think-share-view__offer-field {
   .think-share-view__offer,
   .think-share-view__readings,
   .think-share-view__yours,
+  .think-share-view__brief,
   .think-share-view__interpretation {
     transition: none;
   }
