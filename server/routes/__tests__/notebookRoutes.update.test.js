@@ -24,16 +24,25 @@ const putNote = async (url, body) => {
 
 const run = async () => {
   const userId = new mongoose.Types.ObjectId();
-  const stored = new NotebookEntry({
+  const stored = new NotebookEntry();
+  stored.init({
     _id: new mongoose.Types.ObjectId('507f1f77bcf86cd799439011'),
     userId,
     title: 'Who gets to experiment, and who pays?',
     content: '<p>Hello</p>',
     blocks: [{ id: 'p1', type: 'paragraph', text: 'Hello' }],
-    asidePieces: [],
+    asidePieces: [{
+      nodes: [{ type: 'paragraph', attrs: { blockId: 'held-1' } }],
+      blocks: [{ type: 'paragraph', text: 'Held' }]
+    }],
     type: 'note',
-    tags: []
+    tags: [],
+    folder: 'inbox',
+    linkedHighlightIds: ['highlight-1'],
+    importMeta: { provider: 'evernote', importSessionId: 'session-evernote' }
   });
+  stored.isNew = false;
+  assert.ok(stored.validateSync(), 'leftover identity on the loaded doc should fail until PUT sanitizes it');
   stored.save = async function saveWithSchema() {
     const err = this.validateSync();
     if (err) throw err;
@@ -67,7 +76,9 @@ const run = async () => {
     },
     parseClaimId: () => null,
     normalizeTags: (tags) => (Array.isArray(tags) ? tags : []),
-    syncNotebookReferences: async () => {},
+    syncNotebookReferences: async () => {
+      throw new Error('reference graph unavailable');
+    },
     enqueueNotebookEmbedding: () => {},
     trackEvent: () => {},
     EVENT_NAMES: {},
@@ -103,7 +114,6 @@ const run = async () => {
         type: 'paragraph',
         text: 'Recoverable mistakes belong to the person who can still put things back.'
       }],
-      asidePieces: [],
       type: 'note',
       tags: [],
       claimId: null,
@@ -115,6 +125,11 @@ const run = async () => {
       stored.blocks[0].text,
       'Recoverable mistakes belong to the person who can still put things back.'
     );
+    assert.equal(stored.folder, null);
+    assert.equal(stored.linkedHighlightIds.length, 0);
+    assert.equal(stored.importMeta.importSessionId, null);
+    assert.equal(stored.asidePieces[0].id, 'held-1');
+    assert.equal(stored.validateSync(), null);
 
     const previousFailure = await putNote(url, {
       title: 'Who gets to experiment, and who pays?',

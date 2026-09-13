@@ -66,16 +66,14 @@ const run = async () => {
     const payload = await response.json();
 
     assert.strictEqual(response.status, 200, JSON.stringify(payload));
-    assert.strictEqual(payload.linkedArticleId, 'article-1');
-    assert.deepStrictEqual(payload.linkedHighlightIds, ['highlight-1']);
-    assert.deepStrictEqual(syncedBlocks, [{
-      id: 'block-highlight-1',
-      type: 'highlight_embed',
-      text: 'The passage that changed the thought.',
-      highlightId: 'highlight-1',
-      articleId: 'article-1',
-      articleTitle: 'The source that started it'
-    }]);
+    assert.equal(payload.blocks[0].text, 'The passage that changed the thought.');
+    assert.equal(payload.blocks[0].articleTitle, 'The source that started it');
+    assert.equal(payload.blocks[0].articleId ?? null, null);
+    assert.equal(payload.linkedArticleId ?? null, null);
+    assert.deepStrictEqual(payload.linkedHighlightIds, []);
+    assert.equal(syncedBlocks[0].text, 'The passage that changed the thought.');
+    assert.equal(syncedBlocks[0].articleTitle, 'The source that started it');
+    assert.equal(syncedBlocks[0].id, 'block-highlight-1');
   } finally {
     server.close();
   }

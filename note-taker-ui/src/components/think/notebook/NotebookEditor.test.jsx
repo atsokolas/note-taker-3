@@ -269,7 +269,15 @@ describe('NotebookEditor', () => {
     });
     render(
       <NotebookEditor
-        entry={{ _id: 'essay-1', title: 'Letter', content: '', blocks: [], type: 'note', tags: [] }}
+        entry={{
+          _id: 'essay-1',
+          title: 'Letter',
+          content: '',
+          blocks: [],
+          type: 'note',
+          tags: [],
+          linkedArticleId: 'article-1'
+        }}
         saving={false}
         error=""
         onSave={onSave}
@@ -288,6 +296,7 @@ describe('NotebookEditor', () => {
     expect(payload.blocks[1].articleId).toBeUndefined();
     expect(payload.blocks[1].sourcePath).toBe('/library?articleId=article-1#passage=exact');
     expect(payload.asidePieces).toEqual([]);
+    expect(payload.linkedArticleId).toBeNull();
   });
 
   it('keeps the exact Library passage visible beside a derived notebook page', () => {

@@ -3,6 +3,7 @@ const { persistNoeisReceipt, serializeStoredReceipt } = require('./noeisReceiptS
 const { diffSegments } = require('./claimRevisionReviewService');
 const { createWikiSourceEvent } = require('./wikiSourceEventService');
 const { wordBoundaryTrim } = require('../lib/editorialText');
+const { asObjectIdOrNull } = require('../utils/notebookIdentity');
 
 /**
  * C5 first deliverable: one recorded source correction meets one recorded
@@ -184,7 +185,9 @@ const findCorrectionEvent = async ({ WikiSourceEvent, userId, identity }) => {
 };
 
 const listCorrectionEvents = async ({ WikiSourceEvent, userId, sourceObjectIds = [] }) => {
-  const ids = [...new Set((Array.isArray(sourceObjectIds) ? sourceObjectIds : []).map(id).filter(Boolean))];
+  const ids = [...new Set((Array.isArray(sourceObjectIds) ? sourceObjectIds : []).map(id).filter(Boolean))]
+    .map(asObjectIdOrNull)
+    .filter(Boolean);
   if (!WikiSourceEvent?.find || !ids.length) return [];
   let query = WikiSourceEvent.find({
     userId,
