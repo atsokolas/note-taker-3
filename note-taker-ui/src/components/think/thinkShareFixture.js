@@ -14,6 +14,10 @@ export const QUESTION_SHARE_TAKE = 'The reading stays. This sits beside it.';
 
 export const QUESTION_SHARE_PLACE = 'It is not on the page yet.';
 
+export const QUESTION_SHARE_TAKEN_BACK = 'They took this back.';
+
+export const QUESTION_SHARE_TAKE_CHANGED = 'This take was already changed.';
+
 export const QUESTION_SHARE_YOURS = 'With the author';
 
 export const QUESTION_SHARE_WITHDRAW = 'Take this back';

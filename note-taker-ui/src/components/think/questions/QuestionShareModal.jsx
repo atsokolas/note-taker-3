@@ -14,6 +14,8 @@ import {
   QUESTION_SHARE_PLACE,
   QUESTION_SHARE_PRIVACY,
   QUESTION_SHARE_TAKE,
+  QUESTION_SHARE_TAKE_CHANGED,
+  QUESTION_SHARE_TAKEN_BACK,
   THINK_SHARE_REVOKE
 } from '../thinkShareFixture';
 
@@ -27,6 +29,14 @@ const actionErrorOf = (error, fallback) => (
 );
 
 const asLine = (value) => String(value || '').trim();
+
+const conflictLineOf = (error) => {
+  if (error?.response?.status !== 409) return '';
+  const field = error?.response?.data?.field;
+  if (field === 'withdrawn') return QUESTION_SHARE_TAKEN_BACK;
+  if (field === 'updatedAt') return QUESTION_SHARE_TAKE_CHANGED;
+  return '';
+};
 
 const TakeReading = ({ reading, disabled, onSave }) => {
   const [text, setText] = useState(asLine(reading.interpretation));
@@ -43,7 +53,7 @@ const TakeReading = ({ reading, disabled, onSave }) => {
     setBusy(true);
     setError('');
     try {
-      await onSave(reading.id, asLine(text));
+      await onSave(reading.id, asLine(text), reading.updatedAt);
     } catch (_err) {
       setError('That take did not save.');
     } finally {
@@ -138,6 +148,7 @@ const QuestionShareModal = ({ open, questionId, questionText, onClose }) => {
   const [error, setError] = useState('');
   const [copyStatus, setCopyStatus] = useState('');
   const [correction, setCorrection] = useState('');
+  const [conflict, setConflict] = useState('');
 
   useEffect(() => {
     if (!open || !questionId) return undefined;
@@ -146,6 +157,7 @@ const QuestionShareModal = ({ open, questionId, questionText, onClose }) => {
     setError('');
     setCopyStatus('');
     setCorrection('');
+    setConflict('');
     getQuestionShare(questionId)
       .then((data) => {
         if (cancelled) return;
@@ -165,6 +177,7 @@ const QuestionShareModal = ({ open, questionId, questionText, onClose }) => {
   const handleMint = async () => {
     setBusy(true);
     setError('');
+    setConflict('');
     try {
       const data = await mintQuestionShare(questionId, { previewHash: state.currentHash });
       setState(data);
@@ -178,6 +191,7 @@ const QuestionShareModal = ({ open, questionId, questionText, onClose }) => {
   const handleUpdate = async () => {
     setBusy(true);
     setError('');
+    setConflict('');
     try {
       const data = await updateQuestionShare(questionId, {
         previewHash: state.currentHash,
@@ -192,14 +206,46 @@ const QuestionShareModal = ({ open, questionId, questionText, onClose }) => {
     }
   };
 
-  const handleTake = async (contributionId, interpretation) => {
-    const data = await interpretQuestionContribution(questionId, contributionId, { interpretation });
-    setState(data);
+  const refreshShare = async () => {
+    const data = await getQuestionShare(questionId);
+    setState(data || { shared: false });
+  };
+
+  const handleTake = async (contributionId, interpretation, updatedAt) => {
+    try {
+      const data = await interpretQuestionContribution(questionId, contributionId, {
+        interpretation,
+        ...(asLine(updatedAt) ? { updatedAt: asLine(updatedAt) } : {})
+      });
+      setState(data);
+      setConflict('');
+    } catch (err) {
+      const line = conflictLineOf(err);
+      if (!line) throw err;
+      setConflict(line);
+      try {
+        await refreshShare();
+      } catch (_refresh) {
+        // The collision line is the receipt; a refresh failure does not replace it.
+      }
+    }
   };
 
   const handlePlace = async (contributionId) => {
-    const data = await placeQuestionContribution(questionId, contributionId);
-    setState(data);
+    try {
+      const data = await placeQuestionContribution(questionId, contributionId);
+      setState(data);
+      setConflict('');
+    } catch (err) {
+      const line = conflictLineOf(err);
+      if (!line) throw err;
+      setConflict(line);
+      try {
+        await refreshShare();
+      } catch (_refresh) {
+        // The collision line is the receipt; a refresh failure does not replace it.
+      }
+    }
   };
 
   const handleRevoke = async () => {
@@ -310,6 +356,11 @@ const QuestionShareModal = ({ open, questionId, questionText, onClose }) => {
                   />
                 ))}
               </div>
+            ) : null}
+            {conflict ? (
+              <p className="muted small" role="status" data-testid="question-share-conflict">
+                {conflict}
+              </p>
             ) : null}
             {!reader?.question && !publishable ? (
               <p className="muted small" data-testid="question-share-silence">Nothing to share yet.</p>

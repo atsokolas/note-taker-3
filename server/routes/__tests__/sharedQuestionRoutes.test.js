@@ -5,6 +5,9 @@ const mongoose = require('mongoose');
 const { buildSharedQuestionRouter } = require('../sharedQuestionRoutes');
 const {
   CONTRIBUTION_LIMIT,
+  CONTRIBUTION_HELD,
+  CONTRIBUTION_TAKE_CHANGED,
+  CONTRIBUTION_TAKEN_BACK,
   hashPublicQuestion,
   projectPublicQuestion
 } = require('../../services/authoredThinkShare');
@@ -66,9 +69,11 @@ const createModel = () => {
       return new Query(row || null);
     },
     async create(payload = {}) {
+      const now = new Date();
       const row = {
         _id: new mongoose.Types.ObjectId().toString(),
-        createdAt: new Date(),
+        createdAt: now,
+        updatedAt: now,
         ...payload
       };
       rows.push(row);
@@ -333,6 +338,19 @@ const run = async () => {
     assert.strictEqual(SharedQuestion.rows[0].contributionCount, countBefore - 1);
     const afterHeldWithdraw = await publicGet(mint.body.slug, asUser(withdrawerId));
     assert.ok(!afterHeldWithdraw.body.yours);
+    const placeTakenBack = await fetchJson(
+      `${base}/api/questions/${questionId}/share/contributions/${extraId}/place`,
+      { method: 'POST' }
+    );
+    assert.strictEqual(placeTakenBack.response.status, 409);
+    assert.strictEqual(placeTakenBack.body.error, CONTRIBUTION_TAKEN_BACK);
+    assert.strictEqual(placeTakenBack.body.field, 'withdrawn');
+    const ownerAfterTakeBack = await fetchJson(`${base}/api/questions/${questionId}/share`);
+    assert.ok(!ownerAfterTakeBack.body.waiting?.some((row) => row.id === extraId));
+    assert.ok(!JSON.stringify(ownerAfterTakeBack.body).includes('withdrawnAt'));
+    const publicAfterTakeBack = await publicGet(mint.body.slug);
+    assert.ok(!publicAfterTakeBack.body.contributions?.some((row) => row.id === extraId));
+    assert.ok(!JSON.stringify(publicAfterTakeBack.body).includes('withdrawnAt'));
     const againOffer = await offer(mint.body.slug, {
       by: 'Nia',
       text: 'A second try.'
@@ -401,6 +419,8 @@ const run = async () => {
       }
     );
     assert.strictEqual(earlyTake.response.status, 409);
+    assert.strictEqual(earlyTake.body.error, CONTRIBUTION_HELD);
+    assert.strictEqual(earlyTake.body.field, 'held');
 
     const agentPlace = await fetchJson(
       `${base}/api/questions/${questionId}/share/contributions/${contributionId}/place`,
@@ -423,6 +443,7 @@ const run = async () => {
     );
     assert.strictEqual(placed.response.status, 200, JSON.stringify(placed.body));
     assert.strictEqual(placed.body.contributions[0].text, 'Same fact, different time horizon.');
+    assert.ok(placed.body.contributions[0].updatedAt);
     assert.strictEqual(placed.body.waiting[0].id, otherId);
     assert.strictEqual(placed.body.waiting[0].text, 'Another held reading.');
     assert.ok(!placed.body.snapshot.contributions);
@@ -439,6 +460,7 @@ const run = async () => {
     assert.strictEqual(publicPlaced.body.contributions[0].by, 'Mara');
     assert.strictEqual(publicPlaced.body.contributions[0].text, 'Same fact, different time horizon.');
     assert.strictEqual(publicPlaced.body.contributions[0].remainder, 'Who pays when the window closes?');
+    assert.ok(!publicPlaced.body.contributions[0].updatedAt);
     assert.ok(!JSON.stringify(publicPlaced.body.contributions).includes('secret'));
     assert.ok(!JSON.stringify(publicPlaced.body.contributions).includes('library?'));
     assert.ok(!publicPlaced.body.waiting);
@@ -516,6 +538,40 @@ const run = async () => {
       }
     );
     assert.strictEqual(retake.body.contributions[0].interpretation, 'The horizon is the claim, not the fact.');
+    const stamped = retake.body.contributions[0].updatedAt;
+    assert.ok(stamped);
+    const staleTake = await fetchJson(
+      `${base}/api/questions/${questionId}/share/contributions/${contributionId}`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({
+          interpretation: 'A later overwrite.',
+          updatedAt: '2020-01-01T00:00:00.000Z'
+        })
+      }
+    );
+    assert.strictEqual(staleTake.response.status, 409);
+    assert.strictEqual(staleTake.body.error, CONTRIBUTION_TAKE_CHANGED);
+    assert.strictEqual(staleTake.body.field, 'updatedAt');
+    const afterStale = await fetchJson(`${base}/api/questions/${questionId}/share`);
+    assert.strictEqual(afterStale.body.contributions[0].interpretation, 'The horizon is the claim, not the fact.');
+    assert.strictEqual(afterStale.body.contributions[0].updatedAt, stamped);
+    const matchingTake = await fetchJson(
+      `${base}/api/questions/${questionId}/share/contributions/${contributionId}`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({
+          interpretation: 'The horizon is still the claim.',
+          updatedAt: stamped
+        })
+      }
+    );
+    assert.strictEqual(matchingTake.response.status, 200, JSON.stringify(matchingTake.body));
+    assert.strictEqual(
+      matchingTake.body.contributions[0].interpretation,
+      'The horizon is still the claim.'
+    );
+    assert.notStrictEqual(matchingTake.body.contributions[0].updatedAt, stamped);
 
     const used = SharedQuestion.rows[0].contributionCount;
     const filled = [];
@@ -558,7 +614,7 @@ const run = async () => {
     assert.strictEqual(updated.body.snapshot.question.text, 'Rewritten in the workshop.');
     assert.strictEqual(updated.body.snapshot.correction, 'The exception now leads.');
     assert.strictEqual(updated.body.snapshot.publishedAt, mint.body.snapshot.publishedAt);
-    assert.strictEqual(updated.body.contributions[0].interpretation, 'The horizon is the claim, not the fact.');
+    assert.strictEqual(updated.body.contributions[0].interpretation, 'The horizon is still the claim.');
     assert.strictEqual(updated.body.contributions[0].text, 'Same fact, different time horizon.');
 
     Question.rows.splice(0, Question.rows.length);
@@ -646,11 +702,23 @@ const run = async () => {
     assert.ok(!ownerAfterWithdraw.body.waiting);
     const remintRow = SharedQuestion.rows.find((row) => row.slug === remint.body.slug);
     assert.strictEqual(remintRow.contributionCount, 0);
+    const interpretTakenBack = await fetchJson(
+      `${base}/api/questions/${questionId}/share/contributions/${laterId}`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ interpretation: 'After they left.' })
+      }
+    );
+    assert.strictEqual(interpretTakenBack.response.status, 409);
+    assert.strictEqual(interpretTakenBack.body.error, CONTRIBUTION_TAKEN_BACK);
+    assert.strictEqual(interpretTakenBack.body.field, 'withdrawn');
+    assert.strictEqual(remintRow.contributionCount, 0);
     const twice = await fetchJson(
       `${base}/api/public/questions/${remint.body.slug}/contributions/${laterId}`,
       { method: 'DELETE', headers: asUser(contributorId) }
     );
     assert.strictEqual(twice.response.status, 404);
+    assert.strictEqual(remintRow.contributionCount, 0);
 
     const closeLater = await fetchJson(`${base}/api/questions/${questionId}/share`, { method: 'DELETE' });
     assert.strictEqual(closeLater.response.status, 200);
