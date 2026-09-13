@@ -21,7 +21,7 @@ export const readTools = [
     description: 'List the editions already filed for this reader, newest window first. Check here before filing so you continue a run rather than starting a second one, and so you know which issue number is next.',
     inputSchema: {
       profile: z.string().optional().describe('Narrow to one paper, e.g. this_week_in_ai.'),
-      limit: z.number().min(1).max(100).optional()
+      limit: z.number().min(1).max(500).optional()
     },
     handler: (client, args) => client.listEditions(args)
   },

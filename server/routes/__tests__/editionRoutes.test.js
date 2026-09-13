@@ -76,7 +76,15 @@ const makeStore = () => {
     },
     find: (query) => {
       const found = rows.filter(row => matches(row, query));
-      const chain = { sort: () => chain, limit: () => chain, lean: async () => clone(found) };
+      let cap = found.length;
+      const chain = {
+        sort: () => chain,
+        limit: (n) => {
+          cap = Number(n);
+          return chain;
+        },
+        lean: async () => clone(found.slice(0, Number.isFinite(cap) ? Math.max(0, cap) : found.length))
+      };
       return chain;
     },
     create: async (doc) => {
@@ -576,6 +584,27 @@ describe('the newsstand', () => {
     expect(res.body.editions).toHaveLength(1);
     expect(res.body.editions[0].items).toBeUndefined();
     expect(res.body.editions[0].itemCount).toBe(2);
+  });
+
+  /* OpenClaw lists the stand before filing so it continues a run. A hundred
+     was a season of a daily paper; the clamp ate the rest. Five hundred is
+     still a bound — not a scan of everything. */
+  it('lets the stand list grow past a hundred, and still clamps', async () => {
+    for (let i = 0; i < 520; i += 1) {
+      Edition.rows.push({
+        _id: `edition-stand-${i + 1}`,
+        userId: 'user-1',
+        profile: 'this_week_in_ai',
+        title: `Issue ${i + 1}`,
+        items: [],
+        createdAt: 'then',
+        updatedAt: 'then'
+      });
+    }
+    expect((await send('/api/editions')).body.editions).toHaveLength(40);
+    expect((await send('/api/editions?limit=200')).body.editions).toHaveLength(200);
+    expect((await send('/api/editions?limit=500')).body.editions).toHaveLength(500);
+    expect((await send('/api/editions?limit=999')).body.editions).toHaveLength(500);
   });
 
   it('opens one edition, and says so when there is none', async () => {
