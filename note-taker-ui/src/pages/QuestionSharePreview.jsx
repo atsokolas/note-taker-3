@@ -4,6 +4,7 @@ import {
   QUESTION_NOT_PUBLISHED,
   QUESTION_SHARE_PRIVACY,
   THINK_SHARE_REVOKE,
+  questionContribution,
   questionSnapshot
 } from '../components/think/thinkShareFixture';
 import '../components/think/notebook/notebookShare.css';
@@ -19,12 +20,16 @@ const SCENES = [
   { id: 'published', label: 'Published' },
   { id: 'stale', label: 'Stale' },
   { id: 'public', label: 'Recipient' },
+  { id: 'together', label: 'Together' },
   { id: 'revised', label: 'Revised' },
   { id: 'revoked', label: 'Revoked' }
 ];
 
 const live = questionSnapshot({ publishedAt: undefined });
 const frozen = questionSnapshot();
+const together = questionSnapshot({
+  contributions: [questionContribution()]
+});
 const revised = questionSnapshot({
   revisedAt: '2026-09-13T15:00:00.000Z',
   correction: 'The exception now leads.',
@@ -37,10 +42,13 @@ const revised = questionSnapshot({
 
 const shareFor = (scene) => {
   if (scene === 'published') {
-    return { shared: true, slug: 'qslug', stale: false, snapshot: frozen, preview: live };
+    return { shared: true, slug: 'qslug', stale: false, snapshot: frozen, preview: live, contributions: [] };
   }
   if (scene === 'stale') {
-    return { shared: true, slug: 'qslug', stale: true, snapshot: frozen, preview: revised };
+    return { shared: true, slug: 'qslug', stale: true, snapshot: frozen, preview: revised, contributions: [] };
+  }
+  if (scene === 'together') {
+    return { shared: true, slug: 'qslug', stale: false, snapshot: frozen, preview: live, contributions: together.contributions };
   }
   return { shared: false, stale: false, snapshot: null, preview: live };
 };
@@ -53,6 +61,7 @@ const QuestionSharePreview = () => {
   const [scene, setScene] = useState(() => (
     SCENES.some((item) => item.id === params.get('scene')) ? params.get('scene') : 'compose'
   ));
+  const [offered, setOffered] = useState([]);
 
   const setQuery = (nextWidth, nextScene) => {
     const search = new URLSearchParams({ width: nextWidth, scene: nextScene }).toString();
@@ -64,6 +73,13 @@ const QuestionSharePreview = () => {
   const share = shareFor(scene);
   const reader = share.shared ? (share.snapshot || (share.stale ? null : share.preview)) : share.preview;
   const pending = share.stale ? share.preview : null;
+  const publicSnapshot = {
+    ...(scene === 'together' ? together : frozen),
+    contributions: [
+      ...((scene === 'together' ? together.contributions : []) || []),
+      ...offered
+    ]
+  };
 
   return (
     <div className="notebook-share-preview">
@@ -94,9 +110,21 @@ const QuestionSharePreview = () => {
         style={{ '--preview-width': `${WIDTHS.find((item) => item.id === width)?.px || 1440}px` }}
         data-testid="question-share-preview-stage"
       >
-        {scene === 'public' ? (
+        {scene === 'public' || scene === 'together' ? (
           <main className="shared-concept-page shared-question-page" data-testid="shared-question-page">
-            <QuestionShareView snapshot={frozen} />
+            <QuestionShareView
+              snapshot={publicSnapshot}
+              onOffer={async (reading) => {
+                setOffered((current) => [
+                  ...current,
+                  {
+                    id: `local-${current.length + 1}`,
+                    ...reading,
+                    createdAt: '2026-09-13T16:00:00.000Z'
+                  }
+                ]);
+              }}
+            />
           </main>
         ) : null}
         {scene === 'revised' ? (
@@ -109,13 +137,16 @@ const QuestionSharePreview = () => {
             <p className="muted">{QUESTION_NOT_PUBLISHED}</p>
           </main>
         ) : null}
-        {scene !== 'public' && scene !== 'revised' && scene !== 'revoked' ? (
+        {scene !== 'public' && scene !== 'together' && scene !== 'revised' && scene !== 'revoked' ? (
           <section className="notebook-share" data-testid="question-share-modal">
             <p className="notebook-share__privacy">{QUESTION_SHARE_PRIVACY}</p>
             {reader ? (
               <div className="notebook-share__preview" data-testid="question-share-preview">
                 <p className="notebook-share__preview-label">What a reader will see</p>
-                <QuestionShareView snapshot={reader} compact />
+                <QuestionShareView
+                  snapshot={{ ...reader, contributions: share.contributions || [] }}
+                  compact
+                />
               </div>
             ) : null}
             {pending ? (

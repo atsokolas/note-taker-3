@@ -3,7 +3,11 @@ const express = require('express');
 const mongoose = require('mongoose');
 
 const { buildSharedQuestionRouter } = require('../sharedQuestionRoutes');
-const { hashPublicQuestion, projectPublicQuestion } = require('../../services/authoredThinkShare');
+const {
+  CONTRIBUTION_LIMIT,
+  hashPublicQuestion,
+  projectPublicQuestion
+} = require('../../services/authoredThinkShare');
 
 const listen = (app) => new Promise((resolve) => {
   const server = app.listen(0, '127.0.0.1', () => resolve(server));
@@ -74,10 +78,32 @@ const createModel = () => {
       return removed;
     },
     async findOneAndUpdate(query = {}, update = {}, options = {}) {
+      if (update?.$inc && Object.prototype.hasOwnProperty.call(update.$inc, 'contributionCount')) {
+        const slug = String(query.slug || '').trim();
+        const row = rows.find((item) => item.slug === slug && item.snapshot);
+        if (!row) return null;
+        const delta = Number(update.$inc.contributionCount) || 0;
+        const count = Number(row.contributionCount || 0);
+        if (delta > 0 && count >= CONTRIBUTION_LIMIT) return null;
+        if (delta < 0 && count <= 0) return null;
+        row.contributionCount = Math.max(0, count + delta);
+        return options.new === false ? null : row;
+      }
       const row = rows.find((item) => matchesQuery(item, query));
       if (!row) return null;
       Object.assign(row, update.$set || update);
       return options.new === false ? null : row;
+    },
+    find(query = {}) {
+      const found = rows.filter((item) => matchesQuery(item, query));
+      return {
+        sort() {
+          return {
+            lean: async () => found
+          };
+        },
+        lean: async () => found
+      };
     }
   };
 };
@@ -96,6 +122,7 @@ const fetchJson = async (url, options = {}) => {
 
 const run = async () => {
   const SharedQuestion = createModel();
+  const QuestionContribution = createModel();
   const Question = createModel();
   const User = createModel();
   const userId = new mongoose.Types.ObjectId().toString();
@@ -132,6 +159,7 @@ const run = async () => {
       next();
     },
     SharedQuestion,
+    QuestionContribution,
     Question,
     User
   }));
@@ -170,6 +198,8 @@ const run = async () => {
     const publicRead = await fetchJson(`${base}/api/public/questions/${mint.body.slug}`);
     assert.strictEqual(publicRead.response.status, 200);
     assert.strictEqual(publicRead.body.question.text, 'What survives compounding?');
+    assert.deepStrictEqual(publicRead.body.contributions, []);
+    assert.deepStrictEqual(mint.body.contributions, []);
     assert.deepStrictEqual(publicRead.body.question.paragraphs, [
       { id: 'p1', type: 'paragraph', text: 'Public paragraph.' },
       { id: 'p2', type: 'paragraph', text: 'Another authored paragraph.' }
@@ -180,6 +210,52 @@ const run = async () => {
       hashPublicQuestion(projectPublicQuestion(question, 'Owner')),
       mint.body.contentHash
     );
+
+    const offer = (targetSlug, body) => fetchJson(`${base}/api/public/questions/${targetSlug}/contributions`, {
+      method: 'POST',
+      body: JSON.stringify(body)
+    });
+
+    const nameless = await offer(mint.body.slug, { text: 'Patience is not avoidance.' });
+    assert.strictEqual(nameless.response.status, 400);
+
+    const empty = await offer(mint.body.slug, { by: 'Mara', text: '   ' });
+    assert.strictEqual(empty.response.status, 400);
+
+    const reading = await offer(mint.body.slug, {
+      by: ' <em>Mara</em> ',
+      text: '<p>Same fact, different time horizon.</p>',
+      remainder: 'Who pays when the window closes?',
+      articleId: 'secret',
+      sourcePath: '/library?articleId=secret'
+    });
+    assert.strictEqual(reading.response.status, 201, JSON.stringify(reading.body));
+    assert.deepStrictEqual(reading.body, { sent: true });
+
+    const together = await fetchJson(`${base}/api/public/questions/${mint.body.slug}`);
+    assert.strictEqual(together.body.question.text, 'What survives compounding?');
+    assert.strictEqual(together.body.contributions.length, 1);
+    assert.strictEqual(together.body.contributions[0].by, 'Mara');
+    assert.strictEqual(together.body.contributions[0].text, 'Same fact, different time horizon.');
+    assert.strictEqual(together.body.contributions[0].remainder, 'Who pays when the window closes?');
+    assert.ok(!JSON.stringify(together.body.contributions).includes('secret'));
+    assert.ok(!JSON.stringify(together.body.contributions).includes('library?'));
+    assert.ok(!together.body.snapshot);
+
+    const ownerSees = await fetchJson(`${base}/api/questions/${questionId}/share`);
+    assert.strictEqual(ownerSees.body.contributions[0].text, 'Same fact, different time horizon.');
+    assert.ok(!ownerSees.body.snapshot.contributions);
+
+    const filled = [];
+    for (let i = 1; i < CONTRIBUTION_LIMIT; i += 1) {
+      filled.push(offer(mint.body.slug, { by: 'Mara', text: `Reading ${i + 1}.` }));
+    }
+    const filledResults = await Promise.all(filled);
+    assert.ok(filledResults.every((item) => item.response.status === 201));
+
+    const overflow = await offer(mint.body.slug, { by: 'Mara', text: 'One more.' });
+    assert.strictEqual(overflow.response.status, 409);
+    assert.strictEqual(SharedQuestion.rows[0].contributionCount, CONTRIBUTION_LIMIT);
 
     question.text = 'Rewritten in the workshop.';
     question.blocks.push({ id: 'p3', type: 'paragraph', text: 'A later private paragraph.' });
@@ -224,6 +300,34 @@ const run = async () => {
     assert.strictEqual(missing.response.status, 404);
     assert.strictEqual(missing.body.error, 'This question is not published.');
 
+    const goneDoor = await offer(mint.body.slug, { by: 'Mara', text: 'After revoke.' });
+    assert.strictEqual(goneDoor.response.status, 404);
+
+    await Question.create({
+      _id: questionId,
+      userId,
+      text: 'What survives compounding?',
+      status: 'open',
+      conceptName: 'Compounding',
+      blocks: [{ id: 'p1', type: 'paragraph', text: 'Public paragraph.' }]
+    });
+    const reopen = await fetchJson(`${base}/api/questions/${questionId}/share`);
+    assert.strictEqual(reopen.body.shared, false);
+    const remint = await fetchJson(`${base}/api/questions/${questionId}/share`, {
+      method: 'POST',
+      body: JSON.stringify({ previewHash: reopen.body.currentHash })
+    });
+    assert.strictEqual(remint.response.status, 201);
+    assert.notStrictEqual(remint.body.slug, mint.body.slug);
+    assert.deepStrictEqual(remint.body.contributions, []);
+    const nextDoor = await offer(remint.body.slug, { by: 'Mara', text: 'A later door.' });
+    assert.strictEqual(nextDoor.response.status, 201);
+    const newPage = await fetchJson(`${base}/api/public/questions/${remint.body.slug}`);
+    assert.strictEqual(newPage.body.contributions.length, 1);
+    assert.strictEqual(newPage.body.contributions[0].text, 'A later door.');
+
+    const closeLater = await fetchJson(`${base}/api/questions/${questionId}/share`, { method: 'DELETE' });
+    assert.strictEqual(closeLater.response.status, 200);
     const revokeAgain = await fetchJson(`${base}/api/questions/${questionId}/share`, { method: 'DELETE' });
     assert.strictEqual(revokeAgain.response.status, 404);
     assert.strictEqual(revokeAgain.body.error, 'No active share for this question.');

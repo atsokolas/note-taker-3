@@ -8407,10 +8407,121 @@ html[data-ui-theme='dark'] body.noeis-editorial .concept-editorial-evidence__ite
   line-height: 1.45;
 }
 
+.think-share-view__readings {
+  display: grid;
+  gap: 1rem;
+  padding-top: 0.35rem;
+  border-top: 1px solid var(--noeis-rule, rgba(28, 24, 18, 0.12));
+}
+
+.think-share-view__reading {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.think-share-view__reading-by {
+  margin: 0;
+  color: var(--text-secondary);
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.78rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+}
+
+.think-share-view__reading p {
+  margin: 0;
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  line-height: 1.55;
+}
+
+.think-share-view__remainder {
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.think-share-view__offer,
+.think-share-view__offer-actions {
+  margin-top: 0.2rem;
+}
+
+.think-share-view__offer-label,
+.think-share-view__offer-hint,
+.think-share-view__offer-error,
+.think-share-view__offer-receipt {
+  margin: 0.35rem 0 0;
+  color: var(--text-secondary);
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+  line-height: 1.45;
+}
+
+.think-share-view__offer-label {
+  display: block;
+  margin-top: 0.45rem;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.think-share-view__offer-field {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0.35rem 0 0;
+  padding: 0.45rem 0.55rem;
+  min-height: 2.4rem;
+  border: 1px solid var(--noeis-rule, rgba(28, 24, 18, 0.16));
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  resize: none;
+}
+
+textarea.think-share-view__offer-field {
+  min-height: 5.2rem;
+}
+
+.think-share-view__offer-error {
+  color: var(--text);
+}
+
+.think-share-view__offer button {
+  font: inherit;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 0;
+  padding: 0.2rem 0;
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+  cursor: pointer;
+}
+
+.think-share-view__offer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .concept-share-modal__reader,
-  .think-share-view {
+  .think-share-view,
+  .think-share-view__offer,
+  .think-share-view__readings {
     transition: none;
+  }
+}
+
+@media print {
+  .think-share-view__offer,
+  .think-share-view__offer-receipt,
+  .shared-concept-topbar__actions {
+    display: none;
   }
 }
 

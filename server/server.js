@@ -169,6 +169,7 @@ const {
   VectorItem,
   SharedConcept,
   SharedQuestion,
+  QuestionContribution,
   CasebookLineage,
   CaseTeam,
   CrossCaseLink,
@@ -6768,6 +6769,7 @@ app.use(buildSharedConceptRouter({
 app.use(buildSharedQuestionRouter({
   authenticateToken,
   SharedQuestion,
+  QuestionContribution,
   Question,
   User
 }));

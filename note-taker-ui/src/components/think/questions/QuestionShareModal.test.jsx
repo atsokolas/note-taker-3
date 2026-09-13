@@ -70,5 +70,25 @@ describe('QuestionShareModal', () => {
     expect(await screen.findByTestId('question-share-preview')).toHaveTextContent('What survives compounding?');
     expect(screen.getByTestId('question-share-pending')).toHaveTextContent('Rewritten in the workshop.');
     expect(screen.getByTestId('question-update-share')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Offer a reading' })).not.toBeInTheDocument();
+  });
+
+  it('shows a later reading in the compact preview, not as a private letter', async () => {
+    getQuestionShare.mockResolvedValueOnce({
+      shared: true,
+      slug: 'abc123',
+      snapshot: frozen,
+      preview: frozen,
+      contributions: [{
+        id: 'c1',
+        by: 'Mara',
+        text: 'Same fact, different time horizon.',
+        remainder: 'Who pays when the window closes?'
+      }]
+    });
+    render(<QuestionShareModal open questionId="q1" questionText="What next?" onClose={() => {}} />);
+    expect(await screen.findByTestId('question-share-preview')).toHaveTextContent('Same fact, different time horizon.');
+    expect(screen.getByTestId('question-share-preview')).toHaveTextContent('Still holds: Who pays when the window closes?');
+    expect(screen.queryByRole('button', { name: 'Offer a reading' })).not.toBeInTheDocument();
   });
 });

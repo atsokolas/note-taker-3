@@ -2,12 +2,15 @@ const crypto = require('crypto');
 const { isDuplicateKey, shareSlug } = require('./authoredNotebookShare');
 
 /**
- * C6: a shared question or concept leaves the workshop as a frozen snapshot.
+ * C6/C7: a shared question or concept leaves the workshop as a frozen snapshot.
  *
  * Same URL contract as a notebook share — one slug, an explicit freeze, an
  * explicit later update under that URL. Private edits never rewrite the
  * published copy. Wiki shares stay live. This file replaces the inline
  * sanitizers that used to assemble a public page from live documents.
+ *
+ * C7: a second person may offer a bounded reading beside a published question.
+ * That reading is not merged into the snapshot. Libraries stay private.
  */
 
 const PREVIEW_STALE = {
@@ -19,6 +22,11 @@ const NOT_PUBLISHED = {
   question: 'This question is not published.',
   concept: 'This concept is not published.'
 };
+
+const CONTRIBUTION_LIMIT = 12;
+const CONTRIBUTION_CHARS = 800;
+const CONTRIBUTION_REMAINDER_CHARS = 400;
+const CONTRIBUTION_BY_CHARS = 80;
 
 const publicText = (value = '', limit = 8000) => String(value == null ? '' : value)
   .replace(/\s+/g, ' ')
@@ -43,6 +51,8 @@ const readLean = async (query) => {
 };
 
 const asRow = (doc) => (doc && typeof doc.toObject === 'function' ? doc.toObject() : doc);
+
+const idOf = (row) => String(row?._id || row?.id || '');
 
 const sanitizeParagraphBlocks = (blocks = []) => (
   (Array.isArray(blocks) ? blocks : [])
@@ -123,6 +133,8 @@ const freezeThinkSnapshot = (preview, publishedAt, extra = {}) => {
   delete body.publishedAt;
   delete body.revisedAt;
   delete body.correction;
+  delete body.contributions;
+  delete body.contribution;
   const iso = asIso(publishedAt);
   const revised = asIso(extra.revisedAt);
   const correction = publicText(stripTags(extra.correction), 400);
@@ -134,21 +146,105 @@ const freezeThinkSnapshot = (preview, publishedAt, extra = {}) => {
   };
 };
 
+const contributionBy = (value) => publicText(stripTags(value), CONTRIBUTION_BY_CHARS);
+const contributionText = (value) => publicText(stripTags(value), CONTRIBUTION_CHARS);
+const contributionRemainder = (value) => publicText(stripTags(value), CONTRIBUTION_REMAINDER_CHARS);
+
+const projectContribution = (row = {}) => {
+  const by = contributionBy(row.by);
+  const text = contributionText(row.text);
+  if (!by || !text) return null;
+  const remainder = contributionRemainder(row.remainder);
+  return {
+    id: idOf(row),
+    by,
+    text,
+    ...(remainder ? { remainder } : {}),
+    createdAt: asIso(row.createdAt)
+  };
+};
+
+const projectContributionList = (rows) => (Array.isArray(rows) ? rows : [])
+  .map(projectContribution)
+  .filter(Boolean);
+
+const loadQuestionContributions = async (QuestionContribution, query) => {
+  if (!QuestionContribution?.find) return [];
+  const found = QuestionContribution.find(query);
+  const sorted = found?.sort ? found.sort({ createdAt: 1, _id: 1 }) : found;
+  const rows = sorted && typeof sorted.lean === 'function' ? await sorted.lean() : await sorted;
+  return Array.isArray(rows) ? rows : [];
+};
+
+// Bound to this published door, not the question's lifetime readings.
+// $ifNull lets older rows without contributionCount still take a slot.
+const contributionSlotFilter = (slug) => ({
+  slug: publicText(slug, 80),
+  snapshot: { $ne: null },
+  $expr: { $lt: [{ $ifNull: ['$contributionCount', 0] }, CONTRIBUTION_LIMIT] }
+});
+
+const claimContributionSlot = async (SharedQuestion, slug) => {
+  const filter = contributionSlotFilter(slug);
+  if (!filter.slug || !SharedQuestion?.findOneAndUpdate) return null;
+  const updated = SharedQuestion.findOneAndUpdate(
+    filter,
+    { $inc: { contributionCount: 1 } },
+    { new: true }
+  );
+  if (!updated) return null;
+  if (typeof updated.lean === 'function') return updated.lean();
+  return updated;
+};
+
+const releaseContributionSlot = async (SharedQuestion, slug) => {
+  const key = publicText(slug, 80);
+  if (!key || !SharedQuestion?.findOneAndUpdate) return null;
+  const updated = SharedQuestion.findOneAndUpdate(
+    { slug: key, contributionCount: { $gt: 0 } },
+    { $inc: { contributionCount: -1 } },
+    { new: true }
+  );
+  if (!updated) return null;
+  if (typeof updated.lean === 'function') return updated.lean();
+  return updated;
+};
+
+const publicQuestionPage = (share, contributions = []) => {
+  const snapshot = share?.snapshot && typeof share.snapshot === 'object'
+    ? { ...share.snapshot }
+    : null;
+  if (!snapshot) return null;
+  delete snapshot.contributions;
+  delete snapshot.contribution;
+  return {
+    ...snapshot,
+    contributions: projectContributionList(contributions)
+  };
+};
+
 const missingSnapshot = (share) => (
   !share?.snapshot || typeof share.snapshot !== 'object'
 );
 
-const thinkShareState = (share, { preview = null, currentHash = '', kind = 'question' } = {}) => {
+const thinkShareState = (share, {
+  preview = null,
+  currentHash = '',
+  kind = 'question',
+  contributions = []
+} = {}) => {
   const publishable = kind === 'concept'
     ? canPublishConcept(preview)
     : canPublishQuestion(preview);
+  const readings = kind === 'question' ? projectContributionList(contributions) : null;
   if (!share) {
     return {
       shared: false,
       publishable,
       ownerDisplayName: preview?.ownerDisplayName || '',
       preview,
-      currentHash
+      currentHash,
+      ...(readings ? { contributions: readings } : {})
     };
   }
   return {
@@ -161,7 +257,8 @@ const thinkShareState = (share, { preview = null, currentHash = '', kind = 'ques
     currentHash,
     stale: Boolean(share.contentHash && currentHash && share.contentHash !== currentHash),
     preview,
-    snapshot: share.snapshot || null
+    snapshot: share.snapshot || null,
+    ...(readings ? { contributions: readings } : {})
   };
 };
 
@@ -203,22 +300,36 @@ const liveConceptPreview = async ({ User, concept, userId }) => {
 };
 
 module.exports = {
+  CONTRIBUTION_BY_CHARS,
+  CONTRIBUTION_CHARS,
+  CONTRIBUTION_LIMIT,
+  CONTRIBUTION_REMAINDER_CHARS,
   NOT_PUBLISHED,
   PREVIEW_STALE,
   asRow,
   canPublishConcept,
   canPublishQuestion,
+  claimContributionSlot,
+  contributionBy,
+  contributionRemainder,
+  contributionSlotFilter,
+  contributionText,
   freezeThinkSnapshot,
   hashPublicConcept,
   hashPublicQuestion,
   isDuplicateKey,
   liveConceptPreview,
   liveQuestionPreview,
+  loadQuestionContributions,
   missingSnapshot,
   ownerNameOf,
+  projectContribution,
+  projectContributionList,
   projectPublicConcept,
   projectPublicQuestion,
+  publicQuestionPage,
   readLean,
+  releaseContributionSlot,
   sanitizeCard,
   sanitizeParagraphBlocks,
   shareSlug,
