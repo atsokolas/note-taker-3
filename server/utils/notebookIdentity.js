@@ -56,6 +56,9 @@ const readPath = (entry, path) => {
 const writePath = (entry, path, value) => {
   if (typeof entry.set === 'function') {
     entry.set(path, value);
+    // Getters already hid leftover CastErrors as null. Mark the path so save
+    // writes the healed value instead of leaving the invalid string in Mongo.
+    if (typeof entry.markModified === 'function') entry.markModified(path);
     return;
   }
   const parts = path.split('.');

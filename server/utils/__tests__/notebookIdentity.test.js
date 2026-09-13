@@ -66,6 +66,11 @@ leftover.isNew = false;
 assert.ok(leftover.validateSync(), 'loaded leftover identity should fail schema until sanitized');
 sanitizeNotebookEntry(leftover);
 assert.equal(leftover.validateSync(), null);
+assert.ok(
+  leftover.isModified('importMeta.importSessionId') || leftover.isModified('importMeta'),
+  'healed session id must be marked so save writes null to Mongo'
+);
+assert.ok(leftover.isModified('folder'), 'healed folder must be marked so save writes null to Mongo');
 
 const assigned = new NotebookEntry({
   userId: new mongoose.Types.ObjectId(),
