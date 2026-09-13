@@ -3029,24 +3029,21 @@ readingLoopEditionSchema.index({ userId: 1, 'history.key': 1 });
 const ReadingLoopEdition = mongoose.model('ReadingLoopEdition', readingLoopEditionSchema);
 
 /**
- * SharedConcept — public read-only snapshot of a concept.
+ * SharedConcept — a frozen public snapshot of a concept.
  *
- * Concepts live virtually (assembled from highlights + ConceptNote + workbench
- * state at read-time), so a "share" is really a slug → (userId, conceptName)
- * pointer. The public route resolves the pointer and assembles the read-only
- * snapshot at request time using the same loaders the owner sees.
- *
- * One row per (userId, conceptName) — toggling share off deletes the row,
- * toggling back on mints a fresh slug. We don't keep historical slugs because
- * regenerating is the de-facto revocation flow.
+ * Same URL contract as a shared notebook: the slug is the URL, the snapshot
+ * is the version. Private workbench edits do not move the public copy. An
+ * explicit owner update replaces the snapshot under the same URL. Revoking
+ * deletes the row. ConceptNote and private source trails never enter.
  */
 const sharedConceptSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   conceptName: { type: String, required: true, trim: true },
   slug: { type: String, required: true, unique: true, index: true },
-  // Owner display name shown to public viewers; cached at mint time so we can
-  // surface "Shared by X" without joining User on the public read path.
-  ownerDisplayName: { type: String, default: '' }
+  ownerDisplayName: { type: String, default: '' },
+  snapshot: { type: mongoose.Schema.Types.Mixed, default: null },
+  contentHash: { type: String, default: '' },
+  publishedAt: { type: Date, default: null }
 }, { timestamps: true });
 
 sharedConceptSchema.index({ userId: 1, conceptName: 1 }, { unique: true });
@@ -3054,15 +3051,19 @@ sharedConceptSchema.index({ userId: 1, conceptName: 1 }, { unique: true });
 const SharedConcept = mongoose.model('SharedConcept', sharedConceptSchema);
 
 /**
- * SharedQuestion — public read-only snapshot of a question thread.
- * Stores slug → (userId, questionId). Public reads expose only authored
+ * SharedQuestion — a frozen public snapshot of a question thread.
+ *
+ * Same URL contract as a shared notebook. Public reads expose only authored
  * paragraph blocks; highlight refs and library material stay private.
  */
 const sharedQuestionSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   questionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Question', required: true },
   slug: { type: String, required: true, unique: true, index: true },
-  ownerDisplayName: { type: String, default: '' }
+  ownerDisplayName: { type: String, default: '' },
+  snapshot: { type: mongoose.Schema.Types.Mixed, default: null },
+  contentHash: { type: String, default: '' },
+  publishedAt: { type: Date, default: null }
 }, { timestamps: true });
 
 sharedQuestionSchema.index({ userId: 1, questionId: 1 }, { unique: true });

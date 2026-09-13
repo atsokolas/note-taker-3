@@ -1,38 +1,47 @@
 const express = require('express');
-const crypto = require('crypto');
+const {
+  NOT_PUBLISHED,
+  PREVIEW_STALE,
+  asRow,
+  freezeThinkSnapshot,
+  hashPublicConcept,
+  isDuplicateKey,
+  liveConceptPreview,
+  missingSnapshot,
+  projectPublicConcept,
+  readLean,
+  shareSlug,
+  thinkShareState
+} = require('../services/authoredThinkShare');
 
 /**
  * Public concept share routes.
  *
- * Three endpoints:
- *  - POST   /api/concepts/:name/share  (auth)  → mint or return existing slug
- *  - DELETE /api/concepts/:name/share  (auth)  → revoke (delete the row)
- *  - GET    /api/public/concepts/:slug (open)  → read-only snapshot
- *
- * Concepts in this app live virtually (assembled from highlights tagged with
- * a name + ConceptNote + workbench state at read time). The share row is just
- * a slug → (userId, conceptName) pointer; the public read assembles the
- * snapshot from the same loaders the owner sees, then strips PII.
+ * Same grammar as a shared notebook: freeze at POST, explicit PUT under the
+ * same slug, public GET returns the stored snapshot. ConceptNote and private
+ * source trails never enter the snapshot.
  */
-
-const SLUG_BYTES = 9; // 12-char base64url is plenty of entropy and short enough to read aloud.
-
-const generateSlug = () => crypto.randomBytes(SLUG_BYTES)
-  .toString('base64')
-  .replace(/\+/g, '-')
-  .replace(/\//g, '_')
-  .replace(/=+$/g, '');
 
 const buildSharedConceptRouter = ({
   authenticateToken,
   SharedConcept,
   TagMeta,
-  ConceptNote,
+  ConceptNote: _ConceptNote,
   User,
   escapeRegExp,
-  getConceptRelated
+  getConceptRelated: _getConceptRelated
 }) => {
   const router = express.Router();
+  const humanOnly = (req, res, next) => {
+    if (req.agentToken || req.authInfo?.tokenSource === 'agent-token' || req.personalAgent) {
+      return res.status(403).json({ error: 'Only the human owner can do this.' });
+    }
+    return next();
+  };
+  const noStore = (res) => {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.set('Pragma', 'no-cache');
+  };
 
   const findConceptByName = async (userId, rawName) => {
     const safeName = String(rawName || '').trim();
@@ -43,8 +52,36 @@ const buildSharedConceptRouter = ({
     });
   };
 
-  // POST /api/concepts/:name/share — mint or return existing slug.
-  router.post('/api/concepts/:name/share', authenticateToken, async (req, res) => {
+  const payload = (share, extras) => thinkShareState(share, { ...extras, kind: 'concept' });
+
+  const freezeLegacy = async (share, preview, currentHash) => {
+    if (!missingSnapshot(share) || !preview) return share;
+    const now = share.publishedAt || share.createdAt || new Date();
+    const updated = await SharedConcept.findOneAndUpdate(
+      {
+        _id: share._id,
+        $or: [
+          { snapshot: null },
+          { snapshot: { $exists: false } },
+          { contentHash: '' },
+          { contentHash: null }
+        ]
+      },
+      {
+        $set: {
+          snapshot: freezeThinkSnapshot(preview, now),
+          contentHash: currentHash,
+          publishedAt: now
+        }
+      },
+      { new: true }
+    );
+    if (updated) return asRow(updated);
+    const raced = asRow(await readLean(SharedConcept.findOne({ _id: share._id })));
+    return raced || share;
+  };
+
+  router.post('/api/concepts/:name/share', authenticateToken, humanOnly, async (req, res) => {
     try {
       const conceptName = String(req.params.name || '').trim();
       if (!conceptName) {
@@ -54,64 +91,48 @@ const buildSharedConceptRouter = ({
       if (!concept) {
         return res.status(404).json({ error: 'Concept not found.' });
       }
+      const { preview, currentHash, ownerDisplayName, publishable } = await liveConceptPreview({
+        User,
+        concept,
+        userId: req.user.id
+      });
+      if (!publishable) {
+        return res.status(409).json({ error: 'Nothing to share yet.', field: 'preview' });
+      }
+      const previewHash = String(req.body?.previewHash || '').trim();
+      if (previewHash && previewHash !== currentHash) {
+        return res.status(409).json({ error: PREVIEW_STALE.concept, field: 'previewHash' });
+      }
 
-      // Idempotent: returning the existing share keeps the link stable across
-      // accidental double-clicks. Revoke + re-mint is the way to rotate.
-      const existing = await SharedConcept.findOne({
+      const existing = asRow(await readLean(SharedConcept.findOne({
         userId: req.user.id,
         conceptName: concept.name
-      });
+      })));
       if (existing) {
-        return res.status(200).json({
-          slug: existing.slug,
-          conceptName: existing.conceptName,
-          createdAt: existing.createdAt
-        });
+        const frozen = await freezeLegacy(existing, preview, existing.contentHash || currentHash);
+        return res.status(200).json(payload(frozen, { preview, currentHash }));
       }
 
-      let owner = null;
-      try {
-        owner = await User.findById(req.user.id).select('email name displayName');
-      } catch (_err) {
-        owner = null;
-      }
-      const ownerDisplayName = String(
-        owner?.displayName
-        || owner?.name
-        || (owner?.email || '').split('@')[0]
-        || ''
-      ).trim();
-
-      // Retry once on the unlikely slug collision.
-      let slug = generateSlug();
+      const now = new Date();
       try {
         const created = await SharedConcept.create({
           userId: req.user.id,
           conceptName: concept.name,
-          slug,
-          ownerDisplayName
+          slug: shareSlug(),
+          ownerDisplayName,
+          snapshot: freezeThinkSnapshot(preview, now),
+          contentHash: currentHash,
+          publishedAt: now
         });
-        return res.status(201).json({
-          slug: created.slug,
-          conceptName: created.conceptName,
-          createdAt: created.createdAt
-        });
-      } catch (err) {
-        if (err && err.code === 11000) {
-          slug = generateSlug();
-          const created = await SharedConcept.create({
-            userId: req.user.id,
-            conceptName: concept.name,
-            slug,
-            ownerDisplayName
-          });
-          return res.status(201).json({
-            slug: created.slug,
-            conceptName: created.conceptName,
-            createdAt: created.createdAt
-          });
-        }
-        throw err;
+        return res.status(201).json(payload(asRow(created), { preview, currentHash }));
+      } catch (error) {
+        if (!isDuplicateKey(error)) throw error;
+        const raced = asRow(await readLean(SharedConcept.findOne({
+          userId: req.user.id,
+          conceptName: concept.name
+        })));
+        if (!raced) throw error;
+        return res.status(200).json(payload(raced, { preview, currentHash }));
       }
     } catch (error) {
       console.error('❌ Error minting shared concept:', error);
@@ -119,8 +140,7 @@ const buildSharedConceptRouter = ({
     }
   });
 
-  // DELETE /api/concepts/:name/share — revoke the share.
-  router.delete('/api/concepts/:name/share', authenticateToken, async (req, res) => {
+  router.delete('/api/concepts/:name/share', authenticateToken, humanOnly, async (req, res) => {
     try {
       const conceptName = String(req.params.name || '').trim();
       if (!conceptName) {
@@ -133,6 +153,7 @@ const buildSharedConceptRouter = ({
       if (!result) {
         return res.status(404).json({ error: 'No active share for this concept.' });
       }
+      noStore(res);
       return res.status(200).json({ revoked: true, conceptName });
     } catch (error) {
       console.error('❌ Error revoking shared concept:', error);
@@ -140,89 +161,114 @@ const buildSharedConceptRouter = ({
     }
   });
 
-  // GET /api/concepts/:name/share — read the current share state for the owner.
   router.get('/api/concepts/:name/share', authenticateToken, async (req, res) => {
     try {
       const conceptName = String(req.params.name || '').trim();
       if (!conceptName) {
         return res.status(400).json({ error: 'Concept name is required.' });
       }
-      const share = await SharedConcept.findOne({
+      const concept = await findConceptByName(req.user.id, conceptName);
+      if (!concept) {
+        return res.status(404).json({ error: 'Concept not found.' });
+      }
+      const { preview, currentHash } = await liveConceptPreview({
+        User,
+        concept,
+        userId: req.user.id
+      });
+      let share = asRow(await readLean(SharedConcept.findOne({
         userId: req.user.id,
         conceptName: new RegExp(`^${escapeRegExp(conceptName)}$`, 'i')
-      });
-      if (!share) {
-        return res.status(200).json({ shared: false });
+      })));
+      if (share && missingSnapshot(share)) {
+        share = await freezeLegacy(share, preview, currentHash);
       }
-      return res.status(200).json({
-        shared: true,
-        slug: share.slug,
-        createdAt: share.createdAt
-      });
+      noStore(res);
+      return res.status(200).json(payload(share, { preview, currentHash }));
     } catch (error) {
       console.error('❌ Error reading shared concept state:', error);
       return res.status(500).json({ error: 'Failed to read share state.' });
     }
   });
 
-  // GET /api/public/concepts/:slug — public read-only snapshot. No auth.
+  router.put('/api/concepts/:name/share', authenticateToken, humanOnly, async (req, res) => {
+    try {
+      const conceptName = String(req.params.name || '').trim();
+      if (!conceptName) {
+        return res.status(400).json({ error: 'Concept name is required.' });
+      }
+      const concept = await findConceptByName(req.user.id, conceptName);
+      if (!concept) {
+        return res.status(404).json({ error: 'Concept not found.' });
+      }
+      const { preview, currentHash, ownerDisplayName, publishable } = await liveConceptPreview({
+        User,
+        concept,
+        userId: req.user.id
+      });
+      if (!publishable) {
+        return res.status(409).json({ error: 'Nothing to share yet.', field: 'preview' });
+      }
+      const previewHash = String(req.body?.previewHash || '').trim();
+      if (!previewHash || previewHash !== currentHash) {
+        return res.status(409).json({ error: PREVIEW_STALE.concept, field: 'previewHash' });
+      }
+      const existing = asRow(await readLean(SharedConcept.findOne({
+        userId: req.user.id,
+        conceptName: new RegExp(`^${escapeRegExp(conceptName)}$`, 'i')
+      })));
+      if (!existing) return res.status(404).json({ error: 'This concept is not shared.' });
+
+      const now = new Date();
+      const firstPublished = existing.publishedAt || existing.snapshot?.publishedAt || now;
+      const updated = await SharedConcept.findOneAndUpdate(
+        { userId: req.user.id, conceptName: existing.conceptName },
+        {
+          $set: {
+            snapshot: freezeThinkSnapshot(preview, firstPublished, {
+              revisedAt: now,
+              correction: req.body?.correction
+            }),
+            contentHash: currentHash,
+            publishedAt: firstPublished,
+            ownerDisplayName: ownerDisplayName || existing.ownerDisplayName || ''
+          }
+        },
+        { new: true }
+      );
+      return res.status(200).json(payload(asRow(updated), { preview, currentHash }));
+    } catch (error) {
+      console.error('❌ Error updating shared concept:', error);
+      return res.status(500).json({ error: 'Failed to update that share.' });
+    }
+  });
+
   router.get('/api/public/concepts/:slug', async (req, res) => {
+    noStore(res);
     try {
       const slug = String(req.params.slug || '').trim();
       if (!slug) {
         return res.status(400).json({ error: 'Slug is required.' });
       }
-      const share = await SharedConcept.findOne({ slug });
+      let share = asRow(await readLean(SharedConcept.findOne({ slug })));
       if (!share) {
-        return res.status(404).json({ error: 'Shared concept not found.' });
+        return res.status(404).json({ error: NOT_PUBLISHED.concept });
       }
-      const concept = await TagMeta.findOne({
-        userId: share.userId,
-        name: new RegExp(`^${escapeRegExp(share.conceptName)}$`, 'i')
-      });
-      if (!concept) {
-        // Owner deleted the underlying concept after sharing; treat as 404
-        // rather than leaking a stale pointer.
-        return res.status(404).json({ error: 'Shared concept no longer exists.' });
-      }
-
-      // Snapshot the workbench state at read time. The hypothesis HTML is
-      // user-authored markup that we sanitize on write; safe to expose.
-      const workbench = (concept.ideaWorkbench && typeof concept.ideaWorkbench === 'object')
-        ? concept.ideaWorkbench
-        : {};
-      const cards = Array.isArray(workbench.cards) ? workbench.cards : [];
-      const supports = cards.filter(card => card?.zone === 'supports');
-      const contradictions = cards.filter(card => card?.zone === 'contradictions');
-      const questions = cards.filter(card => card?.zone === 'questions');
-
-      // Strip user-private fields from cards (no source paths to private
-      // articles, no agent annotations). Public cards keep the authored
-      // argument, not the private provenance trail.
-      const sanitizeCard = (card) => ({
-        id: String(card?.id || ''),
-        type: String(card?.type || ''),
-        title: String(card?.title || ''),
-        content: String(card?.content || ''),
-        whyItMatters: String(card?.whyItMatters || ''),
-        strength: String(card?.strength || ''),
-        confidence: String(card?.confidence || '')
-      });
-
-      return res.status(200).json({
-        slug: share.slug,
-        sharedAt: share.createdAt,
-        ownerDisplayName: share.ownerDisplayName || '',
-        concept: {
-          name: concept.name,
-          description: String(concept.description || ''),
-          hypothesisHtml: String(workbench?.hypothesis?.html || ''),
-          framing: String(workbench?.header?.prompt || ''),
-          supports: supports.map(sanitizeCard),
-          contradictions: contradictions.map(sanitizeCard),
-          questions: questions.map(sanitizeCard)
+      if (missingSnapshot(share)) {
+        const concept = await readLean(TagMeta.findOne({
+          userId: share.userId,
+          name: new RegExp(`^${escapeRegExp(share.conceptName)}$`, 'i')
+        }));
+        if (!concept) {
+          return res.status(404).json({ error: NOT_PUBLISHED.concept });
         }
-      });
+        const preview = projectPublicConcept(concept, share.ownerDisplayName || '');
+        share = await freezeLegacy(share, preview, hashPublicConcept(preview));
+      }
+      if (!share?.snapshot) {
+        return res.status(404).json({ error: NOT_PUBLISHED.concept });
+      }
+      return res.status(200).json(share.snapshot);
     } catch (error) {
       console.error('❌ Error fetching public concept:', error);
       return res.status(500).json({ error: 'Failed to fetch shared concept.' });

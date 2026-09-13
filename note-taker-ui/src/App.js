@@ -127,6 +127,8 @@ const SharedNotebook = lazy(() => import('./pages/SharedNotebook'));
 const SharedNotebookVolume = lazy(() => import('./pages/SharedNotebookVolume'));
 const NotebookSharePreview = lazy(() => import('./pages/NotebookSharePreview'));
 const NotebookVolumePreview = lazy(() => import('./pages/NotebookVolumePreview'));
+const QuestionSharePreview = lazy(() => import('./pages/QuestionSharePreview'));
+const ConceptSharePreview = lazy(() => import('./pages/ConceptSharePreview'));
 const SharedWikiPage = lazy(() => import('./pages/SharedWikiPage'));
 const SharedWikiCollectionPage = lazy(() => import('./pages/SharedWikiCollectionPage'));
 const PublicWikiComparison = lazy(() => import('./pages/PublicWikiComparison'));
@@ -296,6 +298,8 @@ const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess, uiSettings }) => {
           <Route path="/design-preview/open-sentence" element={<OpenSentenceStoryboard />} />
           <Route path="/design-preview/notebook-share" element={<NotebookSharePreview />} />
           <Route path="/design-preview/notebook-volume" element={<NotebookVolumePreview />} />
+          <Route path="/design-preview/question-share" element={<QuestionSharePreview />} />
+          <Route path="/design-preview/concept-share" element={<ConceptSharePreview />} />
           <Route path="/design-preview" element={<DesignPreview />} />
           <Route path="/share/concepts/:slug" element={<SharedConcept />} />
           <Route path="/share/questions/:slug" element={<SharedQuestion />} />
@@ -806,6 +810,8 @@ function App() {
             <Route path="/design-preview/open-sentence" element={<OpenSentenceStoryboard />} />
             <Route path="/design-preview/notebook-share" element={<NotebookSharePreview />} />
             <Route path="/design-preview/notebook-volume" element={<NotebookVolumePreview />} />
+            <Route path="/design-preview/question-share" element={<QuestionSharePreview />} />
+            <Route path="/design-preview/concept-share" element={<ConceptSharePreview />} />
             <Route path="/design-preview" element={<DesignPreview />} />
             <Route path="/share/notebooks/:slug" element={<SharedNotebook />} />
             <Route path="/share/volumes/:slug" element={<SharedNotebookVolume />} />

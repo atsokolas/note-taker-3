@@ -22,9 +22,8 @@ describe('SharedQuestion', () => {
 
   it('renders public question content without auth chrome', async () => {
     getPublicQuestion.mockResolvedValueOnce({
-      slug: 'qslug123',
       ownerDisplayName: 'Athan',
-      sharedAt: '2026-06-14T00:00:00Z',
+      publishedAt: '2026-06-14T00:00:00Z',
       question: {
         text: 'What survives compounding?',
         status: 'open',
@@ -37,7 +36,7 @@ describe('SharedQuestion', () => {
 
     await waitFor(() => expect(screen.getByRole('heading', { level: 1, name: 'What survives compounding?' })).toBeInTheDocument());
     expect(screen.getByText('First paragraph.')).toBeInTheDocument();
-    expect(screen.getByText(/Public page ready: citations included, private source notes withheld\./)).toBeInTheDocument();
+    expect(screen.getByText(/This is the version that was published/)).toBeInTheDocument();
     expect(screen.getByTestId('shared-question-topbar')).toBeInTheDocument();
   });
 });

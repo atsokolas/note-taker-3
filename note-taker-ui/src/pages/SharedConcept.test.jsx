@@ -22,24 +22,22 @@ const { getPublicConcept } = require('../api/concepts');
 const renderAtSlug = () => render(<SharedConcept />);
 
 const baseConcept = {
-  slug: 'abc123',
   ownerDisplayName: 'Athan',
-  sharedAt: '2026-04-25T00:00:00Z',
+  publishedAt: '2026-04-25T00:00:00Z',
   concept: {
     name: 'Compounding interest',
     framing: 'Money compounds; understanding compounds.',
     description: 'A concept about how small advantages compound.',
     hypothesisHtml: '<p>Time + reinvestment beats picking the right asset.</p>',
     supports: [
-      { id: 's1', type: 'Highlight', title: 'Buffett on holding', content: 'Compounders need patience.', source: 'Berkshire letter' }
+      { id: 's1', type: 'Highlight', title: 'Buffett on holding', content: 'Compounders need patience.' }
     ],
     contradictions: [
-      { id: 'c1', type: 'Article', title: 'Disruption', content: 'Tech can shorten compounding windows.', source: 'HBR' }
+      { id: 'c1', type: 'Article', title: 'Disruption', content: 'Tech can shorten compounding windows.' }
     ],
     questions: [
       { id: 'q1', title: 'What survives 100 years?', content: '' }
-    ],
-    note: { title: 'Owner note', content: '<p>Side note.</p>', updatedAt: '2026-04-20T00:00:00Z' }
+    ]
   }
 };
 
@@ -68,7 +66,7 @@ describe('SharedConcept', () => {
     // Attribution intentionally appears in both the page header and the
     // sticky bar — assert at least one rendered.
     expect(screen.getAllByText(/Shared by Athan/).length).toBeGreaterThan(0);
-    expect(screen.getByText(/min read/)).toBeInTheDocument();
+    expect(screen.getByText(/This is the version that was published/)).toBeInTheDocument();
     // Cards
     expect(screen.getByText('Buffett on holding')).toBeInTheDocument();
     expect(screen.getByText('Disruption')).toBeInTheDocument();
@@ -94,7 +92,7 @@ describe('SharedConcept', () => {
     getPublicConcept.mockRejectedValueOnce({ response: { status: 404 } });
     renderAtSlug();
     await waitFor(() => expect(screen.getByText('Not available')).toBeInTheDocument());
-    expect(screen.getByText(/doesn't exist or was revoked/)).toBeInTheDocument();
+    expect(screen.getByText(/doesn't exist or was revoked|This concept is not published/)).toBeInTheDocument();
     // Topbar (brand) still shown so the 404 doesn't feel like a dead end.
     expect(screen.getByTestId('shared-concept-topbar')).toBeInTheDocument();
   });

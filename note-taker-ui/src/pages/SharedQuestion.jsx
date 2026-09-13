@@ -1,19 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { getPublicQuestion } from '../api/questions';
-import { buildSharePreviewReceipt } from '../utils/connectionMagicMoment';
+import QuestionShareView from '../components/think/QuestionShareView';
+import { QUESTION_NOT_PUBLISHED } from '../components/think/thinkShareFixture';
 import '../styles/shared-page-column.css';
-
-const formatDate = (value) => {
-  if (!value) return '';
-  try {
-    return new Date(value).toLocaleDateString(undefined, {
-      month: 'short', day: 'numeric', year: 'numeric'
-    });
-  } catch (_err) {
-    return '';
-  }
-};
 
 const useDocumentTitle = (title) => {
   useEffect(() => {
@@ -92,9 +82,8 @@ const SharedQuestion = () => {
       })
       .catch((err) => {
         if (cancelled) return;
-        const status = err?.response?.status;
-        setError(status === 404
-          ? 'This shared question does not exist or was revoked.'
+        setError(err?.response?.status === 404
+          ? QUESTION_NOT_PUBLISHED
           : err?.response?.data?.error || 'Failed to load shared question.');
         setLoading(false);
       });
@@ -106,14 +95,9 @@ const SharedQuestion = () => {
   const question = data?.question || {};
   const pageUrl = typeof window !== 'undefined' ? window.location.href : '';
   const title = question.text || 'Shared question';
-  const ownerLine = data?.ownerDisplayName ? `Shared by ${data.ownerDisplayName}` : 'Shared via Noeis';
-  const conceptName = String(question.conceptName || '').trim();
-  const answerBlocks = useMemo(() => (
-    Array.isArray(question.paragraphs) ? question.paragraphs.filter((block) => block?.text) : []
-  ), [question.paragraphs]);
   const description = (
-    answerBlocks[0]?.text
-    || (conceptName ? `An open question about ${conceptName}.` : 'A question shared from Noeis.')
+    (Array.isArray(question.paragraphs) && question.paragraphs[0]?.text)
+    || (question.conceptName ? `An open question about ${question.conceptName}.` : 'A question shared from Noeis.')
   ).slice(0, 220);
 
   useDocumentTitle(data ? `${title} · Noeis` : 'Shared question · Noeis');
@@ -164,44 +148,7 @@ const SharedQuestion = () => {
   return (
     <div className="shared-concept-page shared-question-page" data-testid="shared-question-page">
       <SharedQuestionTopBar onCopy={handleCopy} copyState={copyState} pageUrl={pageUrl} />
-
-      <header className="shared-concept-page__header">
-        <span className="shared-concept-page__eyebrow">Shared question</span>
-        <h1 className="shared-concept-page__title">{title}</h1>
-        <p className="shared-concept-page__description">
-          {buildSharePreviewReceipt()}
-        </p>
-        <p className="shared-concept-page__meta muted small">
-          {ownerLine}
-          {data?.sharedAt ? <> · {formatDate(data.sharedAt)}</> : null}
-          {conceptName ? <> · {conceptName}</> : null}
-          {question.status ? <> · {question.status}</> : null}
-        </p>
-      </header>
-
-      {answerBlocks.length > 0 ? (
-        <section className="shared-concept-page__hypothesis">
-          <h2 className="shared-concept-page__section-title">Answer notes</h2>
-          <div className="shared-concept-page__prose">
-            {answerBlocks.map((block) => (
-              <p key={block.id || block.text}>{block.text}</p>
-            ))}
-          </div>
-        </section>
-      ) : (
-        <section className="shared-concept-page__hypothesis">
-          <h2 className="shared-concept-page__section-title">Still open</h2>
-          <p className="shared-concept-page__prose">
-            This question has been shared before it was fully answered.
-          </p>
-        </section>
-      )}
-
-      <footer className="shared-concept-page__footer">
-        <p className="muted small">
-          Built in <Link to="/" className="shared-concept-page__home-link">Noeis</Link> — a thinking workspace for serious readers.
-        </p>
-      </footer>
+      <QuestionShareView snapshot={data} />
     </div>
   );
 };
