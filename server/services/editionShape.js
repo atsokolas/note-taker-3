@@ -65,6 +65,9 @@ const profileKeysFor = (profiles = null) => Array.from(new Set([
 
 const startOfUtcDay = (value) => {
   const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    throw new EditionShapeError('That is not a date.', { field: 'now' });
+  }
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
 };
 

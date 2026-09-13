@@ -29,32 +29,55 @@ const {
  * nothing here is public.
  */
 
-/* Who is writing. An agent's own claim about its name is not evidence, so
-   this reads the token first and only falls back to what the caller said. */
+/* Who is writing. The token's label is evidence; `name` was never set, so the
+   masthead used to go blank and a non-ObjectId token id used to 500 the save. */
 const scribe = (req = {}) => ({
-  label: String(req.agentToken?.name || req.body?.writtenBy || '').trim().slice(0, 200),
-  agentTokenId: req.agentToken?.id || null
+  label: String(req.agentToken?.label || req.agentToken?.name || req.body?.writtenBy || '').trim().slice(0, 200),
+  agentTokenId: String(req.agentToken?.id || req.agentToken?._id || '').trim()
 });
 
-const serializeItem = (item = {}) => ({
-  itemId: item.itemId,
-  title: item.title,
-  url: item.url,
-  sourceLabel: item.sourceLabel || '',
-  sourceDate: item.sourceDate || '',
-  section: item.section || '',
-  finding: item.finding,
-  boundary: item.boundary,
-  note: item.note || '',
-  filedBy: item.filedBy?.label || '',
-  filedAt: item.filedAt || null,
-  savedArticleId: item.savedArticleId ? String(item.savedArticleId) : null,
-  readerStatus: item.readerState?.status || 'new'
-});
+/* Normalized against the same standard as a whole edition — a boundary is
+   required here too, or the daily door becomes the way around it. */
+const addToHeld = (held, incoming, profile, filedBy, filedAt) => {
+  const kept = (held || []).map(item => (item.toObject ? item.toObject() : item));
+  const keptUrls = new Set(kept.map(item => item.url));
+  const usedIds = new Set(kept.map(item => item.itemId));
+  const added = [];
+  incoming.forEach((raw, index) => {
+    const item = normalizeItem(raw, kept.length + index, profile);
+    if (keptUrls.has(item.url)) return;
+    if (usedIds.has(item.itemId)) {
+      throw new EditionShapeError(`Two items share the id "${item.itemId}".`, { field: 'itemId' });
+    }
+    keptUrls.add(item.url);
+    usedIds.add(item.itemId);
+    added.push({ ...item, filedBy, filedAt });
+  });
+  return { added, items: [...kept, ...added] };
+};
+
+const serializeItem = (item) => {
+  const row = item || {};
+  return {
+    itemId: row.itemId,
+    title: row.title,
+    url: row.url,
+    sourceLabel: row.sourceLabel || '',
+    sourceDate: row.sourceDate || '',
+    section: row.section || '',
+    finding: row.finding,
+    boundary: row.boundary,
+    note: row.note || '',
+    filedBy: row.filedBy?.label || '',
+    filedAt: row.filedAt || null,
+    savedArticleId: row.savedArticleId ? String(row.savedArticleId) : null,
+    readerStatus: row.readerState?.status || 'new'
+  };
+};
 
 const serializeEdition = (edition = {}, { withItems = true, profiles = null } = {}) => {
   const profile = resolveEditionProfile(edition.profile, { profiles });
-  const items = (edition.items || []).map(serializeItem);
+  const items = (Array.isArray(edition.items) ? edition.items : []).map(serializeItem);
   return {
     _id: String(edition._id),
     profile: edition.profile,
@@ -126,7 +149,9 @@ const serializeProfile = (profile = {}) => ({
   title: profile.title,
   issueLabel: profile.issueLabel || 'Issue',
   cadence: profile.cadence || 'weekly',
-  sections: (profile.sections || []).map(section => ({ key: section.key, label: section.label })),
+  sections: (profile.sections || [])
+    .filter(section => section && section.key && section.label)
+    .map(section => ({ key: section.key, label: section.label })),
   minItems: profile.minItems ?? 1,
   maxItems: profile.maxItems ?? 15,
   configuredBy: profile.configuredBy?.label || ''
@@ -159,7 +184,9 @@ const buildEditionRouter = ({
       titleLabel: row.title,
       issueLabel: row.issueLabel || 'Issue',
       cadence: row.cadence || 'weekly',
-      sections: (row.sections || []).map(section => ({ key: section.key, label: section.label })),
+      sections: (row.sections || [])
+        .filter(section => section && section.key && section.label)
+        .map(section => ({ key: section.key, label: section.label })),
       minItems: Number.isFinite(row.minItems) ? row.minItems : 1,
       maxItems: Number.isFinite(row.maxItems) ? row.maxItems : 15
     }]));
@@ -234,8 +261,34 @@ const buildEditionRouter = ({
     if (error instanceof EditionShapeError) {
       return res.status(400).json({ error: error.message, field: error.field || '' });
     }
+    /* A profile key or "undefined" used as an edition id is not an edition.
+       Mongoose throws CastError; the in-memory tests never saw it, and OpenClaw
+       reported HTTP 500 on the required read. */
+    if (error?.name === 'CastError' && (error.path === '_id' || error.path === 'id')) {
+      return res.status(404).json({ error: 'No such edition.' });
+    }
+    if (error?.name === 'ValidationError') {
+      const first = Object.values(error.errors || {})[0];
+      return res.status(400).json({
+        error: first?.message || 'That edition could not be saved.',
+        field: first?.path || ''
+      });
+    }
     console.error(`❌ ${fallback}`, error);
     return res.status(500).json({ error: fallback });
+  };
+
+  /* One issue per profile per window. Two agents filing the same morning must
+     land in the same paper, not 500 on the unique index — the caller retries
+     the merge against the row that won. */
+  const putIssue = async ({ existing, userId, doc }) => {
+    if (existing) {
+      return {
+        saved: await Edition.findOneAndUpdate({ _id: existing._id, userId }, doc, { new: true }),
+        created: false
+      };
+    }
+    return { saved: await Edition.create({ ...doc, userId }), created: true };
   };
 
   /**
@@ -279,8 +332,8 @@ const buildEditionRouter = ({
       const maxItems = Math.min(Math.max(Number(req.body?.maxItems) || 15, 1), 40);
       const minItems = Math.min(Math.max(Number(req.body?.minItems) || 1, 1), maxItems);
       const configuredBy = {
-        label: String(req.body?.configuredBy || req.agentToken?.name || '').trim().slice(0, 200),
-        agentTokenId: req.agentToken?.id || null
+        label: String(req.body?.configuredBy || req.agentToken?.label || req.agentToken?.name || '').trim().slice(0, 200),
+        agentTokenId: String(req.agentToken?.id || req.agentToken?._id || '').trim()
       };
       const doc = { key, title, issueLabel: String(req.body?.issueLabel || 'Issue').trim().slice(0, 60) || 'Issue', cadence, sections: nextSections, minItems, maxItems, configuredBy };
       const saved = existing
@@ -335,50 +388,43 @@ const buildEditionRouter = ({
       if (!incoming.length) return res.status(400).json({ error: 'items is required: what you found, with a boundary on each.' });
 
       const { windowStart, windowEnd } = windowFor(profile.cadence || 'weekly', req.body?.now ? new Date(req.body.now) : new Date());
-      const existing = await Edition.findOne({ userId, profile: profile.key, windowStart, windowEnd });
-      const kept = (existing?.items || []).map(item => (item.toObject ? item.toObject() : item));
-      const keptUrls = new Set(kept.map(item => item.url));
-
-      /* Normalized against the same standard as a whole edition — a boundary
-         is required here too, or the daily door becomes the way around it. */
       const filedBy = scribe(req);
       const filedAt = new Date();
-      const added = [];
-      const usedIds = new Set(kept.map(item => item.itemId));
-      incoming.forEach((raw, index) => {
-        const item = normalizeItem(raw, kept.length + index, profile);
-        if (keptUrls.has(item.url)) return;
-        if (usedIds.has(item.itemId)) {
-          throw new EditionShapeError(`Two items share the id "${item.itemId}".`, { field: 'itemId' });
-        }
-        keptUrls.add(item.url);
-        usedIds.add(item.itemId);
-        added.push({ ...item, filedBy, filedAt });
-      });
+      const title = String(req.body?.title || '').trim().slice(0, 300) || profile.titleLabel;
+      const standfirst = String(req.body?.standfirst || '').trim().slice(0, 2400);
 
-      const items = [...kept, ...added];
-      if (items.length > profile.maxItems) {
-        return res.status(400).json({
-          error: `${profile.titleLabel} holds at most ${profile.maxItems} items; this issue would have ${items.length}. An edition that lists everything has chosen nothing.`
-        });
+      let existing = await Edition.findOne({ userId, profile: profile.key, windowStart, windowEnd });
+      let saved;
+      let created = false;
+      let added = [];
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const merged = addToHeld(existing?.items, incoming, profile, filedBy, filedAt);
+        added = merged.added;
+        if (merged.items.length > profile.maxItems) {
+          return res.status(400).json({
+            error: `${profile.titleLabel} holds at most ${profile.maxItems} items; this issue would have ${merged.items.length}. An edition that lists everything has chosen nothing.`
+          });
+        }
+        const writtenBy = filedBy.label ? filedBy : (existing?.writtenBy || filedBy);
+        try {
+          const put = await putIssue({
+            existing,
+            userId,
+            doc: existing
+              ? { items: merged.items, writtenBy }
+              : { profile: profile.key, title, windowStart, windowEnd, standfirst, items: merged.items, writtenBy }
+          });
+          saved = put.saved;
+          created = put.created;
+          break;
+        } catch (error) {
+          if (!isDuplicateKey(error) || existing || attempt === 1) throw error;
+          existing = await Edition.findOne({ userId, profile: profile.key, windowStart, windowEnd });
+          if (!existing) throw error;
+        }
       }
 
-      const writtenBy = filedBy.label ? filedBy : (existing?.writtenBy || filedBy);
-
-      const saved = existing
-        ? await Edition.findOneAndUpdate({ _id: existing._id, userId }, { items, writtenBy }, { new: true })
-        : await Edition.create({
-          userId,
-          profile: profile.key,
-          title: String(req.body?.title || '').trim().slice(0, 300) || profile.titleLabel,
-          windowStart,
-          windowEnd,
-          standfirst: String(req.body?.standfirst || '').trim().slice(0, 2400),
-          items,
-          writtenBy
-        });
-
-      return res.status(existing ? 200 : 201).json({
+      return res.status(created ? 201 : 200).json({
         ...serializeEdition(saved, { profiles }),
         added: added.length,
         alreadyHeld: incoming.length - added.length
@@ -405,17 +451,33 @@ const buildEditionRouter = ({
          Identity follows the source URL, so a reorder does not mint a new item. */
       const writtenBy = scribe(req);
       const now = new Date();
-      const items = retainHeldItems(built.items, existing?.items || [], writtenBy, now);
+      let held = existing;
+      let saved;
+      let created = false;
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const items = retainHeldItems(built.items, held?.items || [], writtenBy, now);
+        try {
+          const put = await putIssue({
+            existing: held,
+            userId,
+            doc: { ...built, items, writtenBy }
+          });
+          saved = put.saved;
+          created = put.created;
+          break;
+        } catch (error) {
+          if (!isDuplicateKey(error) || held || attempt === 1) throw error;
+          held = await Edition.findOne({
+            userId,
+            profile: built.profile,
+            windowStart: built.windowStart,
+            windowEnd: built.windowEnd
+          });
+          if (!held) throw error;
+        }
+      }
 
-      const saved = existing
-        ? await Edition.findOneAndUpdate(
-          { _id: existing._id, userId },
-          { ...built, items, writtenBy },
-          { new: true }
-        )
-        : await Edition.create({ ...built, items, writtenBy, userId });
-
-      return res.status(existing ? 200 : 201).json(serializeEdition(saved, { profiles }));
+      return res.status(created ? 201 : 200).json(serializeEdition(saved, { profiles }));
     } catch (error) {
       return refuse(res, error, 'Failed to file the edition.');
     }

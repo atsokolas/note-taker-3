@@ -1726,10 +1726,12 @@ const editionItemSchema = new mongoose.Schema({
   note: { type: String, default: '', trim: true },
   /* Which agent filed this one. The masthead names whoever wrote the issue
      last, which stops being the whole truth the moment two agents keep the
-     same paper — a section is entitled to its own byline. */
+     same paper — a section is entitled to its own byline. Stored as a string
+     because we print the label, we never join on the token — ObjectId here
+     turned a malformed token id into a 500 on the paper. */
   filedBy: {
     label: { type: String, default: '', trim: true },
-    agentTokenId: { type: mongoose.Schema.Types.ObjectId, ref: 'AgentToken', default: null }
+    agentTokenId: { type: String, default: '', trim: true }
   },
   filedAt: { type: Date, default: null },
   savedArticleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Article', default: null },
@@ -1756,7 +1758,7 @@ const editionSchema = new mongoose.Schema({
      reader is entitled to know which of their agents to argue with. */
   writtenBy: {
     label: { type: String, default: '', trim: true },
-    agentTokenId: { type: mongoose.Schema.Types.ObjectId, ref: 'AgentToken', default: null }
+    agentTokenId: { type: String, default: '', trim: true }
   }
 }, { timestamps: true });
 
@@ -1799,7 +1801,7 @@ const editionProfileSchema = new mongoose.Schema({
   /* Who asked for it. A topic configured by an agent says which one. */
   configuredBy: {
     label: { type: String, default: '', trim: true },
-    agentTokenId: { type: mongoose.Schema.Types.ObjectId, ref: 'AgentToken', default: null }
+    agentTokenId: { type: String, default: '', trim: true }
   }
 }, { timestamps: true });
 

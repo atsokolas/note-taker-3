@@ -831,7 +831,8 @@ export class NoeisClient {
   }
 
   /* Add to the issue this moment belongs to, without resending the ones
-     already filed. The window comes from the topic's cadence. */
+     already filed. The window comes from the topic's cadence. The body is
+     what the API actually settled — added/alreadyHeld — not a second story. */
   fileEditionItems({ profile, items, title, standfirst, now } = {}) {
     return this.request('/api/editions/file', {
       method: 'POST',
@@ -840,11 +841,24 @@ export class NoeisClient {
   }
 
   listEditions({ profile, limit } = {}) {
-    return this.request('/api/editions', { query: { profile, limit } });
+    return this.request('/api/editions', { query: { profile, limit } }).then((payload) => {
+      const editions = Array.isArray(payload?.editions) ? payload.editions : [];
+      return {
+        ...payload,
+        editions: editions.map(edition => ({ ...edition, id: pickId(edition) }))
+      };
+    });
   }
 
   getEdition({ editionId } = {}) {
-    return this.request(`/api/editions/${encodeURIComponent(editionId)}`);
+    const id = pickId(editionId);
+    if (!id) {
+      return Promise.reject(new NoeisApiError('editionId is required.', { status: 400 }));
+    }
+    return this.request(`/api/editions/${encodeURIComponent(id)}`).then(edition => ({
+      ...edition,
+      id: pickId(edition)
+    }));
   }
 
   /* The API answers 202 the moment it accepts a source and does the real work
