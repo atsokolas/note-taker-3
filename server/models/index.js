@@ -1263,6 +1263,7 @@ const wikiRevisionSchema = new mongoose.Schema({
   before: { type: mongoose.Schema.Types.Mixed, default: null },
   after: { type: mongoose.Schema.Types.Mixed, default: null },
   snapshotPrunedAt: { type: Date, default: null },
+  snapshotExpiryPolicy: { type: String, default: '' },
   /* A maintenance pass that changed nothing used to record that fact by storing
      the whole page twice. Repo-page revisions ran 1.5MB each and the wiki's
      revisions grew to two thirds of the cluster.

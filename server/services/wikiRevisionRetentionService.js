@@ -87,7 +87,9 @@ const buildWikiRevisionRetentionPlan = ({
   protectedRevisionIds = [],
   acceptedSourceEventIds = [],
   publishedHeadSha = '',
-  recentLimit = 20
+  recentLimit = 20,
+  automaticExpiry = false,
+  now = new Date()
 } = {}) => {
   const ordered = [...revisions].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   const protectedIds = new Set(protectedRevisionIds.map(cleanId).filter(Boolean));
@@ -104,10 +106,10 @@ const buildWikiRevisionRetentionPlan = ({
   ordered.slice(0, recentLimit).forEach((revision) => keep(revision, 'recent'));
   ordered.filter(hasRetainedSnapshot).slice(0, recentLimit)
     .forEach(revision => keep(revision, 'recent_payload'));
-  if (ordered.length) keep(ordered[ordered.length - 1], 'original');
+  if (!automaticExpiry && ordered.length) keep(ordered[ordered.length - 1], 'original');
 
   const olderMonths = new Set();
-  ordered.slice(recentLimit).forEach((revision) => {
+  (automaticExpiry ? [] : ordered.slice(recentLimit)).forEach((revision) => {
     const key = monthKey(revision.createdAt);
     if (key && !olderMonths.has(key)) {
       olderMonths.add(key);
@@ -121,6 +123,14 @@ const buildWikiRevisionRetentionPlan = ({
   });
 
   ordered.forEach((revision) => {
+    if (automaticExpiry) {
+      if (!['agent', 'system'].includes(revision.actorType)
+        || !['created', 'agent_maintenance', 'agent_candidate', 'source_event', 'valuation_refreshed'].includes(revision.reason)) {
+        keep(revision, 'human_or_unknown_origin');
+      }
+      const age = now.getTime() - new Date(revision.createdAt).getTime();
+      if (!Number.isFinite(age) || age <= 24 * 60 * 60 * 1000) keep(revision, 'last_24_hours');
+    }
     const reviewState = String(revision?.claimReview?.state || '').trim();
     const reviewEvents = Array.isArray(revision?.claimReview?.events) ? revision.claimReview.events : [];
     if (revision?.claimReview?.scope === 'claim'

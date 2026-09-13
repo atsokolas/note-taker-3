@@ -158,104 +158,103 @@ September cleanup was also independently rechecked: all 990 IDs remain present
 with pruned bodies. No current article, note, Wiki, receipt or vector was deleted.
 
 
-## Proposed ongoing policy — awaiting the user's choice
+## Accepted daily retention — September 13
 
-The user authorized deleting unneeded production data and requested a lasting
-retention approach. A separate question asks whether old automatic versions should
-expire entirely or remain recoverable in external backups. No recurring job or
-automatic deletion setting is enabled by this document.
+Athan approved automatic expiry of obsolete automatic snapshot bodies and specified
+**one cleanup per day**. Old automatic bodies expire; they do not accumulate in an
+unlimited external archive. Earlier private recovery backups remain untouched.
 
-Recommended product policy:
+The policy keeps the latest three full snapshots and everything from the last
+24 hours, plus human or unknown-origin versions, human review, active candidates,
+published heads, proof, decisions, authored references and unchanged-version bases.
+Calendar-only original/monthly copies no longer keep automatic bodies forever.
+Revision IDs, summaries, source-event links and review metadata remain online.
+Expired rows retain `snapshotPrunedAt` and record `snapshotExpiryPolicy`; the existing
+snapshot resolver returns no body for expired content instead of guessing a version.
 
-- Keep current content without an expiry, and protect human edits/reviews, active
-  candidates and versions referenced by accepted proof, decisions or authored work.
-- For other automatic snapshots, keep the latest three complete versions per Wiki
-  and every version from the last 24 hours. Keep compact revision IDs, chronology,
-  summaries and source-event links when older full payloads expire.
-- Distinguish an expired automatic body from a recoverable external archive in
-  metadata and reader copy. An unavailable historical body must not silently open
-  a different version or promise a restore that does not exist.
-- Do not retain an automatic original/monthly copy solely because it is a calendar
-  checkpoint. Keep it if it has a real protected reference or human significance.
-- Treat repeated review candidates as a bounded history of proposals; preserve the
-  currently reviewable candidate and meaningful acceptance history.
-- Run retention before pressure becomes an outage. Use a 400 MiB high-water mark
-  on the 512 MiB cluster, reclaim toward 350 MiB, and retain an explicit headroom
-  reserve for user saves. Counts are secondary to measured bytes.
-- If protected content alone exceeds the budget, report that directly and defer
-  expensive automatic rebuilds before generating another large snapshot. Never
-  silently delete protected material to meet a quota.
-- Expire only terminal, unreferenced operational detail under a separately tested
-  policy. Maintenance comparisons and source-event links can support proof; their
-  age alone does not establish that they are disposable.
+The server replaces its report-only governor with `runDailyWikiRetention`.
+A single MongoDB state document stores next-run time, lease, last completion,
+actual expired count, payload bytes reclaimed and measured net cluster change.
+The timer checks every 15 minutes, but the atomic due-time claim allows only one
+cleanup every 24 hours across deployments and server instances. Failed/interrupted
+runs retain their partial receipt and are visible; their next daily slot remains
+scheduled. Native compare-and-swap updates preserve all other revision fields and
+remove the compressed payload archive as well as before/after bodies.
 
-Implementation acceptance:
+The scan checks every application collection for incoming references, excluding
+old snapshot bodies themselves and terminal operational links. It deduplicates
+references inside MongoDB and aborts on excessive nesting or failed measurement.
+It scans references again after planning, rereads each affected page and its
+revision policy, and checks page/revision timestamps and review metadata before
+mutation. A shared renewable lease serializes background Wiki growth with cleanup.
+This is not a general database-wide lock on human activity; human edits/reviews
+remain available and changed records are skipped.
 
-1. Centralize one eligibility policy shared by dry run and application. Return a
-   reason for both preservation and expiry; never weaken quality/publication gates.
-2. Preserve payload dependencies of metadata-only unchanged revisions. Keep a
-   referenced base payload until every retained dependent can still resolve exactly.
-   This dependency guard is implemented and tested locally. The current production
-   collection contains zero `snapshotUnchanged` revisions;
-   this future requirement is not an unverified dependency in the manual recovery.
-3. Recheck current review/reference/version guards immediately before mutation;
-   fail closed on incomplete reference scans or changed data.
-4. If external backup is selected, configure a durable destination independent of
-   Atlas and the ephemeral application filesystem, verify it before expiry, and
-   define a finite backup lifetime. A local laptop or an unconfigured env variable
-   is not an always-on production retention service.
-5. Test several simulated weeks of maintenance: unchanged passes, changed claims,
-   accumulating candidates, active/human references, interrupted cleanup and a
-   full cluster. Verify a bounded byte trend and retained readers, not just counts.
-6. After deployment, prove a scheduled pass actually reclaimed eligible bytes and
-   that a Notebook save/reload works. Logs saying 'would delete' are not completion.
+Background source-event and scheduled maintenance work measures cluster usage
+before starting, leaving an 8 MiB allowance below the 400 MiB ceiling. When space
+is tight or measurement is incomplete, source events remain pending and pages stay
+due. After a pause, work resumes below **380 MiB**, the revised target from the
+measured roughly 376 MiB baseline. The 112 MiB beyond the ceiling is working
+headroom, not permission to delete protected material. This guard covers automatic
+Wiki maintenance; it cannot guarantee unlimited capacity for imports or human work.
+Operational comparisons and source-event documents are not deleted by this policy.
 
-## Implementation map for the next slice
+An authenticated `/api/system/storage` endpoint supplies aggregate status without
+private page or revision identities. Cleanup failure or a storage pause appears in
+the existing System Status control. Healthy storage stays silent. A failed status
+poll alone does not claim that saves are broken.
 
-Extend `server/services/wikiRevisionRetentionService.js` as the single policy
-owner. Replace the private operator's lean-history override with that shared
-policy when it is accepted. Count recent **full payloads**, not metadata-only
-rows, and make automatic eligibility explicit from actor/reason metadata. Unknown
-origin or incomplete reference data must preserve a version, with a diagnostic
-reason. Avoid duplicating one-off retention rules in the writer and scheduler. The legacy
-`scripts/prune_wiki_revisions.js` still has a different record-deletion contract;
-it was not used for this recovery and must not become the unattended worker.
+## Implementation and verification
 
-`server/services/wikiStorageGovernorService.js` should measure the complete
-cluster budget and apply that same plan through an explicit expiry or verified
-external-backup policy. `server/server.js` should schedule the working policy;
-merely setting its current apply environment variable cannot activate deletion.
-Keep retention failures separate from successful user writes. Reserve capacity
-for Notebook saves and show an actionable storage failure through existing system
-status rather than an endless "retry on your next change" message.
+New production files replace the old server report-only path:
+- `wikiAutomaticRetentionService.js`: durable daily execution, shared write guard,
+  compact receipt and status projection.
+- `wikiRetentionReferences.js`: reusable reference-only BSON traversal, replacing
+  reliance on the private recovery operator for automatic reference checks.
+- `useStorageStatus.js`: server-backed failure producer for the existing status UI.
 
-`server/services/mongoBackupService.js` already supplies local manifest/hash/ID
-verification. If external retention is chosen, adapt that verification boundary
-to the durable destination rather than adding a second backup format. Decide the
-external recovery window explicitly; retaining every obsolete automatic copy
-forever elsewhere just moves the accumulation.
+The legacy manual governor remains available with its verified-backup contract.
+Ordinary revision creation no longer attempts implicit pruning without a backup.
+No current Notebook, article, Wiki, receipt or vector deletion is introduced.
 
-An acceptance receipt must name: actual scheduled execution time, policy version,
-bytes before/after, eligible/protected counts with reasons, backup verification
-when required, unchanged current-content identities, and successful save/readback.
-If protected data prevents the target budget, say so and defer costly automatic
-work. Do not label an advisory dry run as a successful retention pass.
+Local verification:
+- `npm run wiki:storage:test`: codec/archive/native backup, old planner/governor,
+  automatic eligibility, dependencies, and six simulated weeks of changes.
+- `WIKI_STORAGE_TEST_URI=mongodb://127.0.0.1:27029/test node scripts/test_wiki_daily_retention.js`:
+  isolated real MongoDB, actual byte reclamation, exact retained metadata, new proof
+  and review references, daily cadence, concurrent workers, failure receipts,
+  pressure/recovery, source-event requeue and scheduled-page deferral. Temporary
+  database removed. No model calls.
+- `npm run proof:alphabet:test`: acceptance, revision readers and public leakage.
+- Scheduled maintenance, maintenance serialization and source-event worker tests.
+- Authenticated storage-route success, unauthorized access and sanitized failure.
+- 17 frontend status tests and production frontend build passed.
+- Chromium preview against the isolated Notebook QA API at 1440, 1320 and 430px,
+  with reduced motion: failure message opens in System Status and clears on recovery.
+  Screenshots: `output/daily-storage-qa/`. This is a controlled status fixture,
+  separate from production server verification.
 
-## Evidence and user test
+The pre-existing `systemRoutes.health.test.js` expects health without the vector
+index added on main; it fails against current main's response and remains untouched.
+The new storage-route test is independent of that stale health fixture.
 
-Read-only inventory: `/tmp/noeis-storage-inventory.json` and
-`/tmp/noeis-revision-detail.log`. Private recovery directory:
-`~/.codex/backups/noeis/wiki-storage/2026-09-13/`.
+Production read-only policy review and release verification are in progress.
+Do not treat local tests as deployed or authenticated production proof.
 
-The September 13 operator and reference projection live in ignored `tmp/` in
-`/Users/athantsokolas/.codex/worktrees/noeis-storage-retention-2026-09-13`.
-Recovery uses a per-process public DNS resolver because the machine's local DNS
-proxy intermittently times out. No system DNS or Wi-Fi setting was changed.
+## User test and remaining boundaries
 
-Local validation: storage codec/archival/backup/retention/budget suites, the
-revision/unchanged-revision tests and public-proof alphabet suites passed. No paid model calls or release occurred.
+Copy any unsaved text safely first. In production Think, edit a Notebook paragraph,
+wait for Saved, then reload and confirm the words remain. Existing Wiki reading,
+source links and pending reviews should continue to open normally. When healthy,
+there is no new storage badge or toast to dismiss.
 
-After write headroom is restored, keep the currently unsaved production Notebook
-open. Copy unsaved words somewhere safe, make a small edit and wait for Saved;
-reload only after saving and confirm the words remain. Also open the repo Wiki and
-an active dossier review to confirm their current content and source links remain.
+A production daily-worker receipt and live write/readback are still required to
+claim the new policy is operating. A later daily cycle is longitudinal evidence,
+not something a first deployment can prove. Protected/current content can still
+outgrow a 512 MiB cluster; in that case the policy must keep background work queued
+and make the capacity problem visible rather than deleting knowledge.
+
+Private recovery receipts and backups from the earlier completed cleanup remain at
+`/Users/athantsokolas/.codex/backups/noeis/wiki-storage/2026-09-13/`.
+The separate Notebook shortcut/blue-bracket/explicit-retry branch remains unreleased
+and is not bundled into this retention change.

@@ -110,7 +110,8 @@ const drainWikiSourceEventQueue = async ({
     results.push(...next);
   }
   return {
-    processed: results.filter(result => !result.error).length,
+    processed: results.filter(result => !result.error && !result.deferred).length,
+    deferred: results.filter(result => result.deferred).length,
     failed: results.filter(result => result.error).length,
     results
   };
