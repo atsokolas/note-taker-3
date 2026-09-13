@@ -10,7 +10,8 @@ const { isDuplicateKey, shareSlug } = require('./authoredNotebookShare');
  * sanitizers that used to assemble a public page from live documents.
  *
  * C7: a second person may offer a bounded reading beside a published question.
- * That reading is not merged into the snapshot. Libraries stay private.
+ * That reading is not merged into the snapshot. The owner may later say how
+ * they take it; the original writing stays. Libraries stay private.
  */
 
 const PREVIEW_STALE = {
@@ -135,6 +136,8 @@ const freezeThinkSnapshot = (preview, publishedAt, extra = {}) => {
   delete body.correction;
   delete body.contributions;
   delete body.contribution;
+  delete body.interpretation;
+  delete body.interpretedBy;
   const iso = asIso(publishedAt);
   const revised = asIso(extra.revisedAt);
   const correction = publicText(stripTags(extra.correction), 400);
@@ -150,22 +153,25 @@ const contributionBy = (value) => publicText(stripTags(value), CONTRIBUTION_BY_C
 const contributionText = (value) => publicText(stripTags(value), CONTRIBUTION_CHARS);
 const contributionRemainder = (value) => publicText(stripTags(value), CONTRIBUTION_REMAINDER_CHARS);
 
-const projectContribution = (row = {}) => {
+const projectContribution = (row = {}, extra = {}) => {
   const by = contributionBy(row.by);
   const text = contributionText(row.text);
   if (!by || !text) return null;
   const remainder = contributionRemainder(row.remainder);
+  const interpretation = contributionRemainder(row.interpretation);
+  const interpretedBy = contributionBy(extra.interpretedBy);
   return {
     id: idOf(row),
     by,
     text,
     ...(remainder ? { remainder } : {}),
+    ...(interpretation && interpretedBy ? { interpretation, interpretedBy } : {}),
     createdAt: asIso(row.createdAt)
   };
 };
 
-const projectContributionList = (rows) => (Array.isArray(rows) ? rows : [])
-  .map(projectContribution)
+const projectContributionList = (rows, extra = {}) => (Array.isArray(rows) ? rows : [])
+  .map((row) => projectContribution(row, extra))
   .filter(Boolean);
 
 const loadQuestionContributions = async (QuestionContribution, query) => {
@@ -217,9 +223,13 @@ const publicQuestionPage = (share, contributions = []) => {
   if (!snapshot) return null;
   delete snapshot.contributions;
   delete snapshot.contribution;
+  delete snapshot.interpretation;
+  delete snapshot.interpretedBy;
   return {
     ...snapshot,
-    contributions: projectContributionList(contributions)
+    contributions: projectContributionList(contributions, {
+      interpretedBy: share.ownerDisplayName
+    })
   };
 };
 
@@ -236,7 +246,11 @@ const thinkShareState = (share, {
   const publishable = kind === 'concept'
     ? canPublishConcept(preview)
     : canPublishQuestion(preview);
-  const readings = kind === 'question' ? projectContributionList(contributions) : null;
+  const readings = kind === 'question'
+    ? projectContributionList(contributions, {
+      interpretedBy: share?.ownerDisplayName || preview?.ownerDisplayName
+    })
+    : null;
   if (!share) {
     return {
       shared: false,

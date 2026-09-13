@@ -8331,6 +8331,13 @@ html[data-ui-theme='dark'] body.noeis-editorial .concept-editorial-evidence__ite
   gap: 8px;
 }
 
+.concept-share-modal__takes {
+  display: grid;
+  gap: 1rem;
+  padding: 0.7rem 0 0.35rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
 .think-share-view {
   display: grid;
   gap: 1.1rem;
@@ -8439,6 +8446,14 @@ html[data-ui-theme='dark'] body.noeis-editorial .concept-editorial-evidence__ite
   font-style: italic;
 }
 
+.think-share-view__interpretation {
+  margin-top: 0.15rem;
+  padding-left: 0.85rem;
+  border-left: 1px solid var(--noeis-rule, rgba(28, 24, 18, 0.12));
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
 .think-share-view__offer,
 .think-share-view__offer-actions {
   margin-top: 0.2rem;
@@ -8512,7 +8527,8 @@ textarea.think-share-view__offer-field {
   .concept-share-modal__reader,
   .think-share-view,
   .think-share-view__offer,
-  .think-share-view__readings {
+  .think-share-view__readings,
+  .think-share-view__interpretation {
     transition: none;
   }
 }

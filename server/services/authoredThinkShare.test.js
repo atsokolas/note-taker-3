@@ -110,9 +110,11 @@ describe('authored think share', () => {
     const preview = projectPublicQuestion({ text: 'What survives compounding?' }, 'Athan');
     const frozen = freezeThinkSnapshot({
       ...preview,
-      contributions: [{ by: 'Leaked', text: 'Should not freeze.' }]
+      contributions: [{ by: 'Leaked', text: 'Should not freeze.' }],
+      interpretation: 'Should not freeze.'
     }, '2026-09-13T12:00:00.000Z');
     expect(frozen.contributions).toBeUndefined();
+    expect(frozen.interpretation).toBeUndefined();
     expect(hashPublicQuestion(preview)).toBe(hashPublicQuestion(frozen));
 
     expect(contributionText('  <em>Patience is not avoidance.</em>  '))
@@ -132,6 +134,27 @@ describe('authored think share', () => {
       remainder: 'Who pays when the window closes?',
       createdAt: '2026-09-13T16:00:00.000Z'
     });
+    expect(projectContribution({
+      _id: 'c1',
+      by: 'Mara',
+      text: 'Same fact, different time horizon.',
+      remainder: 'Who pays when the window closes?',
+      interpretation: '<em>The horizon is the claim, not the fact.</em>',
+      createdAt: '2026-09-13T16:00:00.000Z'
+    }, { interpretedBy: 'Athan <athan@lab.org>' })).toEqual({
+      id: 'c1',
+      by: 'Mara',
+      text: 'Same fact, different time horizon.',
+      remainder: 'Who pays when the window closes?',
+      interpretation: 'The horizon is the claim, not the fact.',
+      interpretedBy: 'Athan',
+      createdAt: '2026-09-13T16:00:00.000Z'
+    });
+    expect(projectContribution({
+      by: 'Mara',
+      text: 'Selected writing.',
+      interpretation: 'A private take.'
+    })).not.toHaveProperty('interpretation');
     expect(projectContribution({ by: '', text: 'Nameless' })).toBeNull();
     expect(JSON.stringify(projectContribution({
       by: 'Mara',
@@ -147,23 +170,29 @@ describe('authored think share', () => {
     });
 
     const page = publicQuestionPage({
+      ownerDisplayName: 'Athan',
       snapshot: {
         ...frozen,
-        contributions: [{ by: 'Stale', text: 'From the frozen row.' }]
+        contributions: [{ by: 'Stale', text: 'From the frozen row.' }],
+        interpretation: 'Should not freeze.'
       }
     }, [{
       _id: 'c2',
       by: 'Mara',
       text: 'Same fact, different time horizon.',
       remainder: 'Who pays when the window closes?',
+      interpretation: 'The horizon is the claim, not the fact.',
       createdAt: '2026-09-13T16:00:00.000Z'
     }]);
     expect(page.question.text).toBe('What survives compounding?');
+    expect(page.interpretation).toBeUndefined();
     expect(page.contributions).toEqual([{
       id: 'c2',
       by: 'Mara',
       text: 'Same fact, different time horizon.',
       remainder: 'Who pays when the window closes?',
+      interpretation: 'The horizon is the claim, not the fact.',
+      interpretedBy: 'Athan',
       createdAt: '2026-09-13T16:00:00.000Z'
     }]);
 
@@ -176,9 +205,18 @@ describe('authored think share', () => {
       preview,
       currentHash: hash,
       kind: 'question',
-      contributions: [{ _id: 'c2', by: 'Mara', text: 'Same fact, different time horizon.' }]
+      contributions: [{
+        _id: 'c2',
+        by: 'Mara',
+        text: 'Same fact, different time horizon.',
+        interpretation: 'The horizon is the claim, not the fact.'
+      }]
     });
-    expect(shared.contributions[0].by).toBe('Mara');
+    expect(shared.contributions[0]).toMatchObject({
+      by: 'Mara',
+      interpretation: 'The horizon is the claim, not the fact.',
+      interpretedBy: 'Athan'
+    });
     expect(shared.snapshot.contributions).toBeUndefined();
     expect(thinkShareState(null, { preview, kind: 'concept' }).contributions).toBeUndefined();
   });

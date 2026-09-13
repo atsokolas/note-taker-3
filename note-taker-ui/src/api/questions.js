@@ -96,5 +96,14 @@ export const offerQuestionContribution = async (slug, body = {}) => {
   return res.data || { sent: true };
 };
 
+export const interpretQuestionContribution = async (questionId, contributionId, body = {}) => {
+  const res = await api.patch(
+    `/api/questions/${encodeURIComponent(questionId)}/share/contributions/${encodeURIComponent(contributionId)}`,
+    body,
+    getAuthHeaders()
+  );
+  return res.data || {};
+};
+
 /** @deprecated Use mintQuestionShare */
 export const shareQuestion = mintQuestionShare;

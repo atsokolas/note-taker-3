@@ -15,12 +15,31 @@ describe('QuestionShareView', () => {
     expect(screen.getByText('Same fact, different time horizon.')).toBeInTheDocument();
     expect(screen.getByText('Still holds: Who pays when the window closes?')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Offer a reading' })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('How you take this')).not.toBeInTheDocument();
+  });
+
+  it('keeps the owner take beside the reading, not in its place', () => {
+    render(
+      <QuestionShareView
+        snapshot={questionSnapshot({
+          contributions: [questionContribution({
+            interpretation: 'The horizon is the claim, not the fact.',
+            interpretedBy: 'Athan'
+          })]
+        })}
+      />
+    );
+    expect(screen.getByText('Same fact, different time horizon.')).toBeInTheDocument();
+    expect(screen.getByText('Still holds: Who pays when the window closes?')).toBeInTheDocument();
+    expect(screen.getByText('Athan — Not quite: The horizon is the claim, not the fact.')).toBeInTheDocument();
+    expect(screen.queryByLabelText('How you take this')).not.toBeInTheDocument();
   });
 
   it('stays silent when nobody has offered a reading', () => {
     render(<QuestionShareView snapshot={questionSnapshot()} />);
     expect(screen.queryByTestId('question-share-readings')).not.toBeInTheDocument();
     expect(screen.queryByText(/Still holds/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Not quite/)).not.toBeInTheDocument();
   });
 
   it('hides the invite in compact preview and still shows the reading', () => {
@@ -34,6 +53,7 @@ describe('QuestionShareView', () => {
     expect(screen.getByText('Same fact, different time horizon.')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Offer a reading' })).not.toBeInTheDocument();
     expect(screen.queryByText(/Later private edits/)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('How you take this')).not.toBeInTheDocument();
   });
 
   it('offers a named reading with an optional remainder', async () => {
