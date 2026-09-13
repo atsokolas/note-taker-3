@@ -18,29 +18,38 @@ const listen = (app) => new Promise((resolve) => {
 const run = async () => {
   const trackedEvents = [];
   const savedThreads = [];
+  const generatedCalls = [];
   let observedExecuteArgs = null;
+  let resolveCount = 0;
   const thread = {
     _id: 'thread-1',
-    scope: { type: 'concept', id: 'concept-1', title: 'World Models' },
+    scope: { type: 'workspace', id: 'library', title: 'Library' },
     proposalBundles: [
       {
         bundleId: 'bundle-1',
-        title: 'Rewrite World Models',
+        title: 'Clean up Library',
         status: 'pending',
+        target: { type: 'workspace', id: 'library', title: 'Library' },
         operations: [
           {
-            opId: 'content-change',
-            type: 'propose_content_change',
-            title: 'Rewrite World Models',
+            opId: 'organize-workspace',
+            type: 'organize_workspace',
+            title: 'Clean up Library',
             executionMode: 'proposed_change',
             riskLevel: 'low',
             requiresApproval: false,
-            target: { type: 'concept', id: 'concept-1', title: 'World Models' }
+            target: { type: 'workspace', id: 'library', title: 'Library' }
           }
         ]
       }
     ],
-    messages: [],
+    messages: [
+      {
+        role: 'assistant',
+        text: 'I staged Clean up Library.',
+        proposalBundle: { bundleId: 'bundle-1', title: 'Clean up Library' }
+      }
+    ],
     async save() {
       savedThreads.push(this.messages.length);
       return this;
@@ -60,7 +69,10 @@ const run = async () => {
     },
     authenticatePersonalAgentKey: (_req, _res, next) => next(),
     getUserAgentEntitlements: async () => ({ premiumWebResearchAvailable: false }),
-    generateCollaborativeReply: async () => ({ reply: 'unused in this test' }),
+    generateCollaborativeReply: async (args = {}) => {
+      generatedCalls.push(args);
+      return { reply: 'This conversation is bound to the published question.' };
+    },
     normalizePersonalAgentCapabilities: (input) => input || {},
     mongoose: {
       Types: {
@@ -131,17 +143,17 @@ const run = async () => {
       runId: 'run-1',
       threadId: 'thread-1',
       sourceBundleId: bundleId,
-      title: 'Rewrite World Models',
+      title: 'Clean up Library',
       status: 'pending',
       createdBy: { actorType: 'user', actorId: 'user-1' },
       lastActor: { actorType: 'user', actorId: 'user-1' },
-      currentOpId: 'content-change',
+      currentOpId: 'organize-workspace',
       blockedOpId: '',
       steps: [
         {
-          opId: 'content-change',
-          type: 'propose_content_change',
-          title: 'Rewrite World Models',
+          opId: 'organize-workspace',
+          type: 'organize_workspace',
+          title: 'Clean up Library',
           executionMode: 'proposed_change',
           riskLevel: 'low',
           requiresApproval: false,
@@ -186,10 +198,13 @@ const run = async () => {
     createThreadForHandoff: async () => ({}),
     sanitizeAgentHandoffDoc: (doc = {}) => doc,
     shouldResolveExecutionIntent: () => true,
-    resolveExecutableProposalBundle: () => ({
-      status: 'matched',
-      bundle: thread.proposalBundles[0]
-    }),
+    resolveExecutableProposalBundle: () => {
+      resolveCount += 1;
+      return {
+        status: 'matched',
+        bundle: thread.proposalBundles[0]
+      };
+    },
     applyProposalBundleInvalidations: () => thread,
     sanitizeAgentArtifactDraftDoc: (doc = {}) => doc,
     threadMessagesToHistory: (messages) => messages,
@@ -225,11 +240,38 @@ const run = async () => {
     assert.strictEqual(payload.run?.status, 'completed', 'The resolved bundle should execute through the run engine.');
     assert.strictEqual(observedExecuteArgs?.approvePendingApprovalSteps, true, 'Explicit chat execution should approve the matched pending bundle.');
     assert.ok(savedThreads.length > 0, 'The thread should be persisted after the execution-intent turn.');
+    assert.strictEqual(resolveCount, 1, 'Library execution should resolve the pending bundle.');
     assert.deepStrictEqual(
       trackedEvents.map((entry) => entry.event),
       ['agent_execution_intent_matched', 'agent_run_started', 'agent_run_completed'],
       'Execution-intent route coverage should emit resolution and run lifecycle analytics.'
     );
+
+    const sharedResponse = await fetch(`${url}/api/agent/chat`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({
+        threadId: 'thread-1',
+        message: 'do it',
+        persistThread: true,
+        context: { type: 'shared_question', id: 'qslug', title: 'What survives compounding?' }
+      })
+    });
+    const sharedPayload = await sharedResponse.json();
+    assert.strictEqual(sharedResponse.status, 200);
+    assert.notStrictEqual(sharedPayload.mode, 'execution_intent', 'A published question must not enter execution-intent mode.');
+    assert.strictEqual(sharedPayload.proposalResolution, undefined);
+    assert.strictEqual(sharedPayload.run, undefined);
+    assert.strictEqual(resolveCount, 1, 'A published question must not resolve a pending Library bundle.');
+    assert.strictEqual(generatedCalls.length, 1, 'A published question should fall through to bound-page conversation.');
+    assert.strictEqual(generatedCalls[0].history, undefined);
+    assert.deepStrictEqual(
+      generatedCalls[0].context,
+      { type: 'shared_question', id: 'qslug', title: 'What survives compounding?' }
+    );
+    assert.match(sharedPayload.reply, /published question/i);
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }

@@ -2,6 +2,15 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import ThoughtPartnerPanel from './ThoughtPartnerPanel';
 
+jest.mock('../../agent/AgentRailContext', () => ({
+  useAgentRail: jest.fn(() => ({
+    threadId: '',
+    messages: [],
+    adoptThread: jest.fn(),
+    resetConversation: jest.fn()
+  }))
+}));
+
 jest.mock('../../api/agent', () => ({
   acceptAgentProposedChange: jest.fn(),
   applyAgentStructureProposal: jest.fn(),
@@ -43,6 +52,7 @@ const {
   rollbackAgentStructureProposal,
   updateAgentStructureProposal
 } = require('../../api/agent');
+const { useAgentRail } = require('../../agent/AgentRailContext');
 
 describe('ThoughtPartnerPanel', () => {
   const originalMatchMedia = window.matchMedia;
@@ -59,6 +69,12 @@ describe('ThoughtPartnerPanel', () => {
     listAgentStructureProposals.mockResolvedValue({ proposals: [] });
     approveAgentProtocolApproval.mockResolvedValue({});
     rejectAgentProtocolApproval.mockResolvedValue({});
+    useAgentRail.mockReturnValue({
+      threadId: '',
+      messages: [],
+      adoptThread: jest.fn(),
+      resetConversation: jest.fn()
+    });
   });
 
   afterEach(() => {
@@ -1117,5 +1133,42 @@ describe('ThoughtPartnerPanel', () => {
       threadId: 'thread-1'
     });
     await screen.findByText('The cleanup thread is ready for the next move.');
+  });
+
+  it('does not reuse a Library shell thread on a published question', async () => {
+    const adoptThread = jest.fn();
+    useAgentRail.mockReturnValue({
+      threadId: 'library-thread',
+      messages: [{ role: 'assistant', text: 'I staged Clean up Library.' }],
+      adoptThread,
+      resetConversation: jest.fn()
+    });
+    chatWithAgent.mockResolvedValue({
+      reply: 'This conversation is bound to the published question.'
+    });
+
+    render(
+      <ThoughtPartnerPanel
+        contextType="shared_question"
+        contextId="qslug"
+        contextTitle="What survives compounding?"
+        placeholder="Ask about this published question."
+        submitLabel="Ask"
+      />
+    );
+
+    fireEvent.change(screen.getByPlaceholderText('Ask about this published question.'), {
+      target: { value: 'do it' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Ask' }));
+
+    await waitFor(() => expect(chatWithAgent).toHaveBeenCalledTimes(1));
+    expect(chatWithAgent.mock.calls[0][0].threadId).toBeUndefined();
+    expect(chatWithAgent.mock.calls[0][0].context).toMatchObject({
+      type: 'shared_question',
+      id: 'qslug'
+    });
+    expect(screen.queryByText('I staged Clean up Library.')).not.toBeInTheDocument();
+    expect(adoptThread).not.toHaveBeenCalled();
   });
 });
