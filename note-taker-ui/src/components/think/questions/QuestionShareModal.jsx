@@ -7,6 +7,7 @@ import {
   placeQuestionContribution,
   revokeQuestionShare,
   saveQuestionShareBrief,
+  saveQuestionShareMandate,
   saveQuestionShareSuccession,
   updateQuestionShare
 } from '../../../api/questions';
@@ -16,15 +17,25 @@ import QuestionShareView from '../QuestionShareView';
 import {
   QUESTION_SHARE_AGREEMENT,
   QUESTION_SHARE_BRIEF,
+  QUESTION_SHARE_BUDGET,
+  QUESTION_SHARE_END_MANDATE,
   QUESTION_SHARE_HAND,
+  QUESTION_SHARE_MANDATE,
+  QUESTION_SHARE_NAME_MANDATE,
   QUESTION_SHARE_OBSERVATION,
+  QUESTION_SHARE_OWNER,
   QUESTION_SHARE_OWNER_REMAINDER,
   QUESTION_SHARE_OUTCOME,
   QUESTION_SHARE_PLACE,
   QUESTION_SHARE_PRIVACY,
+  QUESTION_SHARE_REVIEW_ROUTE,
+  QUESTION_SHARE_SCOPE,
+  QUESTION_SHARE_STOP,
   QUESTION_SHARE_TAKE,
   QUESTION_SHARE_TAKE_CHANGED,
   QUESTION_SHARE_TAKEN_BACK,
+  QUESTION_SHARE_TOOLS,
+  AGENT_MANDATE_TOOLS,
   THINK_SHARE_REVOKE,
   questionPresenceLine
 } from '../thinkShareFixture';
@@ -251,6 +262,155 @@ const ShareSuccession = ({ succession, disabled, onSave }) => {
   );
 };
 
+const ShareMandate = ({ mandate, ownerName, disabled, onSave, onEnd }) => {
+  const live = mandate?.status === 'live';
+  const [owner, setOwner] = useState(asLine(mandate?.owner) || asLine(ownerName));
+  const [scope, setScope] = useState(asLine(mandate?.scope) || 'This published question.');
+  const [tools, setTools] = useState(asLine(mandate?.tools) || AGENT_MANDATE_TOOLS);
+  const [budget, setBudget] = useState(String(mandate?.budget?.asks || 3));
+  const [stop, setStop] = useState(asLine(mandate?.stop));
+  const [review, setReview] = useState(asLine(mandate?.review));
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (live) return;
+    setOwner(asLine(mandate?.owner) || asLine(ownerName));
+    setScope(asLine(mandate?.scope) || 'This published question.');
+    setTools(asLine(mandate?.tools) || AGENT_MANDATE_TOOLS);
+    setBudget(String(mandate?.budget?.asks || 3));
+    setStop(asLine(mandate?.stop));
+    setReview(asLine(mandate?.review));
+  }, [live, mandate, ownerName]);
+
+  const save = async () => {
+    if (busy || disabled) return;
+    setBusy(true);
+    setError('');
+    try {
+      await onSave({
+        owner: asLine(owner),
+        scope: asLine(scope),
+        tools: asLine(tools),
+        budget: Number(budget),
+        stop: asLine(stop),
+        review: asLine(review)
+      });
+    } catch (_err) {
+      setError('That assignment did not save.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const end = async () => {
+    if (busy || disabled) return;
+    setBusy(true);
+    setError('');
+    try {
+      await onEnd();
+    } catch (_err) {
+      setError('That assignment did not end.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (live) {
+    return (
+      <div className="concept-share-modal__note" data-testid="question-share-mandate-form">
+        <p className="muted small">{QUESTION_SHARE_MANDATE}</p>
+        {error ? <p className="status-message error-message">{error}</p> : null}
+        <Button type="button" variant="secondary" onClick={end} disabled={disabled || busy}>
+          {busy ? 'Saving…' : QUESTION_SHARE_END_MANDATE}
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="concept-share-modal__note" data-testid="question-share-mandate-form">
+      <label className="concept-share-modal__label" htmlFor="question-share-mandate-owner">
+        {QUESTION_SHARE_OWNER}
+      </label>
+      <input
+        id="question-share-mandate-owner"
+        className="concept-share-modal__url"
+        value={owner}
+        maxLength={80}
+        onChange={(event) => setOwner(event.target.value)}
+        disabled={disabled || busy}
+      />
+      <label className="concept-share-modal__label" htmlFor="question-share-mandate-scope">
+        {QUESTION_SHARE_SCOPE}
+      </label>
+      <textarea
+        id="question-share-mandate-scope"
+        className="concept-share-modal__correction"
+        value={scope}
+        maxLength={400}
+        rows={2}
+        onChange={(event) => setScope(event.target.value)}
+        disabled={disabled || busy}
+      />
+      <label className="concept-share-modal__label" htmlFor="question-share-mandate-tools">
+        {QUESTION_SHARE_TOOLS}
+      </label>
+      <textarea
+        id="question-share-mandate-tools"
+        className="concept-share-modal__correction"
+        value={tools}
+        maxLength={400}
+        rows={2}
+        onChange={(event) => setTools(event.target.value)}
+        disabled={disabled || busy}
+      />
+      <label className="concept-share-modal__label" htmlFor="question-share-mandate-budget">
+        {QUESTION_SHARE_BUDGET}
+      </label>
+      <input
+        id="question-share-mandate-budget"
+        className="concept-share-modal__url"
+        type="number"
+        min={1}
+        max={20}
+        value={budget}
+        onChange={(event) => setBudget(event.target.value)}
+        disabled={disabled || busy}
+      />
+      <label className="concept-share-modal__label" htmlFor="question-share-mandate-stop">
+        {QUESTION_SHARE_STOP}
+      </label>
+      <textarea
+        id="question-share-mandate-stop"
+        className="concept-share-modal__correction"
+        value={stop}
+        maxLength={400}
+        rows={2}
+        onChange={(event) => setStop(event.target.value)}
+        disabled={disabled || busy}
+      />
+      <label className="concept-share-modal__label" htmlFor="question-share-mandate-review">
+        {QUESTION_SHARE_REVIEW_ROUTE}
+      </label>
+      <textarea
+        id="question-share-mandate-review"
+        className="concept-share-modal__correction"
+        value={review}
+        maxLength={400}
+        rows={2}
+        onChange={(event) => setReview(event.target.value)}
+        disabled={disabled || busy}
+      />
+      <p className="muted small">{QUESTION_SHARE_MANDATE}</p>
+      {error ? <p className="status-message error-message">{error}</p> : null}
+      <Button type="button" variant="secondary" onClick={save} disabled={disabled || busy}>
+        {busy ? 'Saving…' : QUESTION_SHARE_NAME_MANDATE}
+      </Button>
+    </div>
+  );
+};
+
 const ShareIncludesList = () => (
   <ul className="concept-share-modal__includes" aria-label="What's included">
     <li>
@@ -395,6 +555,16 @@ const QuestionShareModal = ({ open, questionId, questionText, onClose }) => {
     setState(data);
   };
 
+  const handleMandate = async (fields) => {
+    const data = await saveQuestionShareMandate(questionId, fields);
+    setState(data);
+  };
+
+  const handleMandateEnd = async () => {
+    const data = await saveQuestionShareMandate(questionId, { end: true });
+    setState(data);
+  };
+
   const handleRevoke = async () => {
     if (!window.confirm('Revoke this share link? Anyone with the existing link will lose access immediately.')) return;
     setBusy(true);
@@ -443,6 +613,8 @@ const QuestionShareModal = ({ open, questionId, questionText, onClose }) => {
     : undefined;
   const succession = state.succession && typeof state.succession === 'object' ? state.succession : null;
   const publicSuccession = succession && asLine(succession.unresolved) ? succession : undefined;
+  const mandate = state.mandate && typeof state.mandate === 'object' ? state.mandate : null;
+  const publicMandate = mandate && asLine(mandate.owner) && asLine(mandate.scope) ? mandate : undefined;
   const canHand = Boolean(
     publicBrief && (asLine(publicBrief.remainder) || asLine(publicBrief.observation))
   );
@@ -452,7 +624,8 @@ const QuestionShareModal = ({ open, questionId, questionText, onClose }) => {
       contributions: readings,
       yours: undefined,
       brief: publicBrief,
-      succession: publicSuccession
+      succession: publicSuccession,
+      mandate: publicMandate
     }
     : reader;
   const presence = questionPresenceLine(here);
@@ -528,6 +701,15 @@ const QuestionShareModal = ({ open, questionId, questionText, onClose }) => {
                 succession={succession}
                 disabled={busy}
                 onSave={handleSuccession}
+              />
+            ) : null}
+            {state.shared ? (
+              <ShareMandate
+                mandate={mandate}
+                ownerName={state.ownerDisplayName}
+                disabled={busy}
+                onSave={handleMandate}
+                onEnd={handleMandateEnd}
               />
             ) : null}
             {conflict ? (

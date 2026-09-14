@@ -22,6 +22,8 @@ export const QUESTION_SHARE_BRIEF = 'Consensus is optional. Empty stays off the 
 
 export const QUESTION_SHARE_HAND = 'A successor opens at the last unresolved question. Alternatives, evidence then, and who decided travel. Empty outcome stays off the page.';
 
+export const QUESTION_SHARE_MANDATE = 'An agent assignment names an owner, scope, tools, budget, stop, and review. The agent pauses when that authority lapses.';
+
 export const QUESTION_SHARE_AGREEMENT = 'What holds';
 
 export const QUESTION_SHARE_OWNER_REMAINDER = 'What you still hold';
@@ -37,6 +39,24 @@ export const QUESTION_SHARE_EVIDENCE_THEN = 'Evidence then';
 export const QUESTION_SHARE_UNCERTAINTY = 'What was uncertain';
 
 export const QUESTION_SHARE_REVIEW = 'When to look again';
+
+export const QUESTION_SHARE_OWNER = 'Accountable owner';
+
+export const QUESTION_SHARE_SCOPE = 'Scope';
+
+export const QUESTION_SHARE_TOOLS = 'Tools';
+
+export const QUESTION_SHARE_BUDGET = 'Budget';
+
+export const QUESTION_SHARE_STOP = 'Stop when';
+
+export const QUESTION_SHARE_REVIEW_ROUTE = 'Review route';
+
+export const QUESTION_SHARE_END_MANDATE = 'End this assignment';
+
+export const QUESTION_SHARE_NAME_MANDATE = 'Name this assignment';
+
+export const AGENT_MANDATE_TOOLS = 'Ask about this published question (the public page only).';
 
 export const QUESTION_SHARE_OUTCOME = 'What happened later';
 
@@ -104,6 +124,25 @@ export const questionSuccession = (over = {}) => ({
   handedAt: '2026-09-13T18:00:00.000Z',
   ...over
 });
+
+export const questionMandate = (over = {}) => ({
+  owner: 'Athan',
+  scope: 'This published question.',
+  tools: AGENT_MANDATE_TOOLS,
+  budget: { asks: 3, remaining: 3, spent: 0 },
+  stop: 'Stop when the successor writes what happened later.',
+  review: 'Return to this door to end or renew the assignment.',
+  status: 'live',
+  openedAt: '2026-09-14T00:20:00.000Z',
+  ...over
+});
+
+export const mandateBudgetLine = (mandate) => {
+  const remaining = Number(mandate?.budget?.remaining);
+  if (!Number.isFinite(remaining) || remaining < 0) return '';
+  if (remaining === 1) return 'One ask remains on this assignment.';
+  return `${remaining} asks remain on this assignment.`;
+};
 
 export const conceptSnapshot = (over = {}) => ({
   ownerDisplayName: 'Athan',

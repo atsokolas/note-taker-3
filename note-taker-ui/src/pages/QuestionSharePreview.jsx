@@ -14,6 +14,7 @@ import {
   THINK_SHARE_REVOKE,
   questionBrief,
   questionContribution,
+  questionMandate,
   questionPresenceLine,
   questionSnapshot,
   questionSuccession
@@ -37,6 +38,8 @@ const SCENES = [
   { id: 'taken', label: 'Taken' },
   { id: 'brief', label: 'Brief' },
   { id: 'successor', label: 'Successor' },
+  { id: 'mandate', label: 'Mandate' },
+  { id: 'paused', label: 'Paused' },
   { id: 'presence', label: 'Presence' },
   { id: 'companion', label: 'Companion' },
   { id: 'contributor', label: 'Contributor' },
@@ -66,6 +69,20 @@ const handed = questionSnapshot({
   succession: questionSuccession({
     alternatives: taken.contributions,
     outcome: 'The window closed. The latecomer paid.'
+  })
+});
+const mandated = questionSnapshot({
+  contributions: taken.contributions,
+  brief: questionBrief(),
+  mandate: questionMandate()
+});
+const paused = questionSnapshot({
+  contributions: taken.contributions,
+  brief: questionBrief(),
+  mandate: questionMandate({
+    status: 'paused',
+    pause: 'This assignment ended. The agent is paused.',
+    budget: { asks: 3, remaining: 0, spent: 3 }
   })
 });
 const contributor = questionSnapshot({
@@ -162,6 +179,10 @@ const QuestionSharePreview = () => {
   });
   const publicPage = scene === 'successor'
     ? handed
+    : scene === 'mandate'
+    ? mandated
+    : scene === 'paused'
+    ? paused
     : scene === 'brief' || scene === 'companion'
     ? closed
     : scene === 'taken'
@@ -176,7 +197,7 @@ const QuestionSharePreview = () => {
       ...publicPage,
       contributions: publicPage.contributions || []
     };
-  const isPublicPage = scene === 'public' || scene === 'together' || scene === 'taken' || scene === 'contributor' || scene === 'brief' || scene === 'successor' || scene === 'presence' || scene === 'companion';
+  const isPublicPage = scene === 'public' || scene === 'together' || scene === 'taken' || scene === 'contributor' || scene === 'brief' || scene === 'successor' || scene === 'mandate' || scene === 'paused' || scene === 'presence' || scene === 'companion';
   const ownerPresence = scene === 'owner' ? questionPresenceLine([{ by: 'Mara' }]) : '';
 
   return (
@@ -219,7 +240,7 @@ const QuestionSharePreview = () => {
             <SharedQuestionCompanion
               slug="qslug"
               page={publicSnapshot}
-              signedIn={scene === 'companion'}
+              signedIn={scene === 'companion' || scene === 'mandate' || scene === 'paused'}
               defaultOpen={scene === 'companion'}
             />
           </main>

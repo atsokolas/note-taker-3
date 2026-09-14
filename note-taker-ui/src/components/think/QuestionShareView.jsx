@@ -3,18 +3,25 @@ import { usePrefersReducedMotion } from '../../hooks/useMotionPreferences';
 import {
   QUESTION_SHARE_AGREEMENT,
   QUESTION_SHARE_ALTERNATIVES,
+  QUESTION_SHARE_BUDGET,
   QUESTION_SHARE_COLOPHON,
   QUESTION_SHARE_EVIDENCE_THEN,
   QUESTION_SHARE_OBSERVATION,
   QUESTION_SHARE_OFFER,
   QUESTION_SHARE_OUTCOME,
+  QUESTION_SHARE_OWNER,
   QUESTION_SHARE_OWNER_REMAINDER,
   QUESTION_SHARE_RECEIPT,
   QUESTION_SHARE_REVIEW,
+  QUESTION_SHARE_REVIEW_ROUTE,
+  QUESTION_SHARE_SCOPE,
+  QUESTION_SHARE_STOP,
+  QUESTION_SHARE_TOOLS,
   QUESTION_SHARE_UNCERTAINTY,
   QUESTION_SHARE_UNRESOLVED,
   QUESTION_SHARE_WITHDRAW,
   QUESTION_SHARE_YOURS,
+  mandateBudgetLine,
   questionPresenceLine
 } from './thinkShareFixture';
 
@@ -81,6 +88,38 @@ const successionOf = (snapshot) => {
     held: asLine(succession.held),
     outcome: asLine(succession.outcome),
     handedAt: succession.handedAt
+  };
+};
+
+const mandateOf = (snapshot) => {
+  const mandate = snapshot?.mandate && typeof snapshot.mandate === 'object'
+    ? snapshot.mandate
+    : null;
+  if (!mandate) return null;
+  const owner = asLine(mandate.owner);
+  const scope = asLine(mandate.scope);
+  const tools = asLine(mandate.tools);
+  const stop = asLine(mandate.stop);
+  const review = asLine(mandate.review);
+  const asks = Number(mandate.budget?.asks);
+  if (!owner || !scope || !tools || !stop || !review || !asks) return null;
+  const remaining = Number(mandate.budget?.remaining);
+  const spent = Number(mandate.budget?.spent) || 0;
+  const paused = mandate.status === 'paused' || Boolean(asLine(mandate.pause)) || remaining <= 0;
+  return {
+    owner,
+    scope,
+    tools,
+    budget: {
+      asks,
+      remaining: Number.isFinite(remaining) ? remaining : asks - spent,
+      spent
+    },
+    stop,
+    review,
+    status: paused ? 'paused' : 'live',
+    pause: asLine(mandate.pause),
+    openedAt: mandate.openedAt
   };
 };
 
@@ -294,6 +333,32 @@ const Succession = ({ succession }) => {
   );
 };
 
+const Mandate = ({ mandate, compact = false }) => {
+  const remaining = mandate.status === 'live' ? mandateBudgetLine(mandate) : '';
+  return (
+    <section className="think-share-view__mandate" data-testid="question-share-mandate">
+      <p className="think-share-view__section">An agent assignment</p>
+      <p className="think-share-view__brief-label">{QUESTION_SHARE_OWNER}</p>
+      <p>{mandate.owner}</p>
+      <p className="think-share-view__brief-label">{QUESTION_SHARE_SCOPE}</p>
+      <p>{mandate.scope}</p>
+      <p className="think-share-view__brief-label">{QUESTION_SHARE_TOOLS}</p>
+      <p>{mandate.tools}</p>
+      <p className="think-share-view__brief-label">{QUESTION_SHARE_BUDGET}</p>
+      <p>{mandate.budget.asks === 1 ? 'One ask' : `${mandate.budget.asks} asks`}</p>
+      <p className="think-share-view__brief-label">{QUESTION_SHARE_STOP}</p>
+      <p>{mandate.stop}</p>
+      <p className="think-share-view__brief-label">{QUESTION_SHARE_REVIEW_ROUTE}</p>
+      <p>{mandate.review}</p>
+      {mandate.pause ? (
+        <p className="think-share-view__remainder">{mandate.pause}</p>
+      ) : remaining && !compact ? (
+        <p className="think-share-view__remainder">{remaining}</p>
+      ) : null}
+    </section>
+  );
+};
+
 export default function QuestionShareView({
   snapshot,
   compact = false,
@@ -318,6 +383,7 @@ export default function QuestionShareView({
   const yours = compact ? [] : yoursOf(snapshot);
   const brief = briefOf(snapshot);
   const succession = successionOf(snapshot);
+  const mandate = mandateOf(snapshot);
   const invite = compact ? null : onOffer;
   const takeBack = compact ? null : onWithdraw;
   const presence = compact ? '' : questionPresenceLine(here);
@@ -393,6 +459,7 @@ export default function QuestionShareView({
           ) : null}
         </section>
       )}
+      {mandate ? <Mandate mandate={mandate} compact={compact} /> : null}
       {yours.length ? (
         <section className="think-share-view__yours" data-testid="question-share-yours">
           <p className="think-share-view__section">{QUESTION_SHARE_YOURS}</p>

@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import ThoughtPartnerPanel from '../components/agent/ThoughtPartnerPanel';
 import { buildSharedQuestionCompanion } from './sharedQuestionCompanion';
 
+const asLine = (value) => String(value || '').trim();
+
 const SharedQuestionCompanion = ({
   slug,
   page,
@@ -11,6 +13,17 @@ const SharedQuestionCompanion = ({
   const partner = buildSharedQuestionCompanion({ slug, page });
   const [open, setOpen] = useState(Boolean(defaultOpen));
   if (!signedIn || !partner) return null;
+  const mandate = page?.mandate && typeof page.mandate === 'object' ? page.mandate : null;
+  const pause = asLine(mandate?.pause) || (mandate?.status === 'paused' ? 'The agent is paused.' : '');
+  if (pause) {
+    return (
+      <aside className="shared-question-companion" data-testid="shared-question-companion">
+        <p className="shared-question-companion__pause" role="status">
+          {pause}
+        </p>
+      </aside>
+    );
+  }
 
   return (
     <aside className="shared-question-companion" data-testid="shared-question-companion">
