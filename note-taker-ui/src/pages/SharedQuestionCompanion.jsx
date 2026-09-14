@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import ThoughtPartnerPanel from '../components/agent/ThoughtPartnerPanel';
-import { mandateBudgetLine } from '../components/think/thinkShareFixture';
 import { buildSharedQuestionCompanion } from './sharedQuestionCompanion';
 
 const asLine = (value) => String(value || '').trim();
@@ -25,7 +24,6 @@ const SharedQuestionCompanion = ({
       </aside>
     );
   }
-  const remaining = mandate?.status === 'live' ? mandateBudgetLine(mandate) : '';
 
   return (
     <aside className="shared-question-companion" data-testid="shared-question-companion">
@@ -42,9 +40,6 @@ const SharedQuestionCompanion = ({
             title="Ask about this reading"
             submitLabel="Ask"
           />
-          {remaining ? (
-            <p className="shared-question-companion__budget muted small">{remaining}</p>
-          ) : null}
           <button
             type="button"
             className="shared-question-companion__away"
@@ -54,18 +49,13 @@ const SharedQuestionCompanion = ({
           </button>
         </>
       ) : (
-        <>
-          <button
-            type="button"
-            className="shared-question-companion__ask"
-            onClick={() => setOpen(true)}
-          >
-            Ask about this reading
-          </button>
-          {remaining ? (
-            <p className="shared-question-companion__budget muted small">{remaining}</p>
-          ) : null}
-        </>
+        <button
+          type="button"
+          className="shared-question-companion__ask"
+          onClick={() => setOpen(true)}
+        >
+          Ask about this reading
+        </button>
       )}
     </aside>
   );

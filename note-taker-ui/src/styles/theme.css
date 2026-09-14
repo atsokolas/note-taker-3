@@ -8602,16 +8602,12 @@ textarea.think-share-view__offer-field {
   margin-top: 0.7rem;
 }
 
-.shared-question-companion__pause,
-.shared-question-companion__budget {
+.shared-question-companion__pause {
   margin: 0.55rem 0 0;
   color: var(--text-secondary);
   font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
   font-size: 0.82rem;
   line-height: 1.45;
-}
-
-.shared-question-companion__pause {
   font-style: italic;
 }
 
