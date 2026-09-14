@@ -3058,6 +3058,8 @@ const SharedConcept = mongoose.model('SharedConcept', sharedConceptSchema);
  * paragraph blocks; highlight refs and library material stay private.
  * A later reading sits beside the snapshot, counted on this door.
  * A brief may close the page; it is not inside the snapshot.
+ * A successor handoff freezes the decision beside that brief. It is
+ * not inside the snapshot. Empty outcome stays off the page.
  */
 const sharedQuestionSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
@@ -3075,7 +3077,8 @@ const sharedQuestionSchema = new mongoose.Schema({
       observation: { type: String, default: '' }
     }, { _id: false }),
     default: () => ({ agreement: '', remainder: '', observation: '' })
-  }
+  },
+  succession: { type: mongoose.Schema.Types.Mixed, default: null }
 }, { timestamps: true });
 
 sharedQuestionSchema.index({ userId: 1, questionId: 1 }, { unique: true });

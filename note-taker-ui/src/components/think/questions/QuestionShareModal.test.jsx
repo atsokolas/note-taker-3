@@ -10,6 +10,7 @@ jest.mock('../../../api/questions', () => ({
   placeQuestionContribution: jest.fn(),
   revokeQuestionShare: jest.fn(),
   saveQuestionShareBrief: jest.fn(),
+  saveQuestionShareSuccession: jest.fn(),
   updateQuestionShare: jest.fn(),
   beatQuestionPresence: jest.fn(),
   getQuestionPresence: jest.fn()
@@ -22,6 +23,7 @@ const {
   placeQuestionContribution,
   revokeQuestionShare,
   saveQuestionShareBrief,
+  saveQuestionShareSuccession,
   updateQuestionShare,
   beatQuestionPresence,
   getQuestionPresence
@@ -45,6 +47,7 @@ describe('QuestionShareModal', () => {
     placeQuestionContribution.mockReset();
     revokeQuestionShare.mockReset();
     saveQuestionShareBrief.mockReset();
+    saveQuestionShareSuccession.mockReset();
     updateQuestionShare.mockReset();
     beatQuestionPresence.mockReset();
     getQuestionPresence.mockReset();
@@ -350,6 +353,68 @@ describe('QuestionShareModal', () => {
     expect(await screen.findByTestId('question-share-brief')).toHaveTextContent('The fact is shared. The horizon is not.');
     expect(screen.getByTestId('question-share-preview')).toHaveTextContent('Same fact, different time horizon.');
     expect(screen.getByText('Consensus is optional. Empty stays off the page.')).toBeInTheDocument();
+  });
+
+  it('hands the closed brief to a successor and opens the preview at the unresolved question', async () => {
+    const reading = {
+      id: 'c1',
+      by: 'Mara',
+      text: 'Same fact, different time horizon.',
+      remainder: 'Who pays when the window closes?'
+    };
+    const brief = {
+      agreement: 'The fact is shared. The horizon is not.',
+      remainder: 'The window may close before compounding pays.',
+      observation: 'Watch who is still in the room when the cost arrives.',
+      by: 'Athan'
+    };
+    const succession = {
+      unresolved: 'The window may close before compounding pays.',
+      alternatives: [reading],
+      evidenceThen: {
+        text: 'What survives compounding?',
+        paragraphs: [{ id: 'p1', type: 'paragraph', text: 'Time plus reinvestment beats picking once.' }]
+      },
+      authority: 'Athan',
+      review: 'Watch who is still in the room when the cost arrives.',
+      held: 'The fact is shared. The horizon is not.',
+      handedAt: '2026-09-13T18:00:00.000Z'
+    };
+    getQuestionShare.mockResolvedValueOnce({
+      shared: true,
+      slug: 'abc123',
+      snapshot: frozen,
+      preview: frozen,
+      contributions: [reading],
+      brief
+    });
+    saveQuestionShareSuccession.mockResolvedValueOnce({
+      shared: true,
+      slug: 'abc123',
+      snapshot: frozen,
+      preview: frozen,
+      contributions: [reading],
+      brief,
+      succession: {
+        ...succession,
+        outcome: 'The window closed. The latecomer paid.'
+      }
+    });
+    render(<QuestionShareModal open questionId="q1" questionText="What next?" onClose={() => {}} />);
+    expect(await screen.findByTestId('question-share-succession-form')).toBeInTheDocument();
+    expect(screen.queryByTestId('question-share-succession')).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('What happened later'), {
+      target: { value: 'The window closed. The latecomer paid.' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Hand this on' }));
+    await waitFor(() => expect(saveQuestionShareSuccession).toHaveBeenCalledWith('q1', {
+      outcome: 'The window closed. The latecomer paid.'
+    }));
+    expect(await screen.findByTestId('question-share-succession')).toHaveTextContent(
+      'The window may close before compounding pays.'
+    );
+    expect(screen.getByTestId('question-share-preview')).toHaveTextContent('The window closed. The latecomer paid.');
+    expect(screen.getByRole('button', { name: 'Save what happened later' })).toBeInTheDocument();
   });
 
   it('names who else is at the door outside the compact preview', async () => {

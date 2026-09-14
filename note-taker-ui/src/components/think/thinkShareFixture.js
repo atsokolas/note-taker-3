@@ -20,11 +20,25 @@ export const QUESTION_SHARE_TAKE_CHANGED = 'This take was already changed.';
 
 export const QUESTION_SHARE_BRIEF = 'Consensus is optional. Empty stays off the page.';
 
+export const QUESTION_SHARE_HAND = 'A successor opens at the last unresolved question. Alternatives, evidence then, and who decided travel. Empty outcome stays off the page.';
+
 export const QUESTION_SHARE_AGREEMENT = 'What holds';
 
 export const QUESTION_SHARE_OWNER_REMAINDER = 'What you still hold';
 
 export const QUESTION_SHARE_OBSERVATION = 'What could move this';
+
+export const QUESTION_SHARE_UNRESOLVED = 'Still open';
+
+export const QUESTION_SHARE_ALTERNATIVES = 'Alternatives then';
+
+export const QUESTION_SHARE_EVIDENCE_THEN = 'Evidence then';
+
+export const QUESTION_SHARE_UNCERTAINTY = 'What was uncertain';
+
+export const QUESTION_SHARE_REVIEW = 'When to look again';
+
+export const QUESTION_SHARE_OUTCOME = 'What happened later';
 
 export const QUESTION_SHARE_YOURS = 'With the author';
 
@@ -72,6 +86,22 @@ export const questionBrief = (over = {}) => ({
   remainder: 'The window may close before compounding pays.',
   observation: 'Watch who is still in the room when the cost arrives.',
   by: 'Athan',
+  ...over
+});
+
+export const questionSuccession = (over = {}) => ({
+  unresolved: 'The window may close before compounding pays.',
+  alternatives: [questionContribution()],
+  evidenceThen: {
+    text: 'What survives compounding?',
+    paragraphs: [{ id: 'p1', type: 'paragraph', text: 'Time plus reinvestment beats picking once.' }],
+    publishedAt: '2026-09-13T12:00:00.000Z'
+  },
+  uncertainty: 'The window may close before compounding pays.',
+  authority: 'Athan',
+  review: 'Watch who is still in the room when the cost arrives.',
+  held: 'The fact is shared. The horizon is not.',
+  handedAt: '2026-09-13T18:00:00.000Z',
   ...over
 });
 

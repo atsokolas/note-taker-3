@@ -1,7 +1,7 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import QuestionShareView from './QuestionShareView';
-import { questionContribution, questionSnapshot } from './thinkShareFixture';
+import { questionContribution, questionSnapshot, questionSuccession } from './thinkShareFixture';
 
 describe('QuestionShareView', () => {
   it('keeps a later reading beside the frozen question', () => {
@@ -59,6 +59,57 @@ describe('QuestionShareView', () => {
     expect(screen.getByTestId('question-share-brief')).toHaveTextContent('What could move this');
     expect(screen.getByText('Same fact, different time horizon.')).toBeInTheDocument();
     expect(screen.queryByLabelText('What holds')).not.toBeInTheDocument();
+  });
+
+  it('opens a successor at the last unresolved question and keeps an empty outcome off the page', () => {
+    render(
+      <QuestionShareView
+        snapshot={questionSnapshot({
+          contributions: [questionContribution()],
+          brief: {
+            agreement: 'The fact is shared. The horizon is not.',
+            remainder: 'The window may close before compounding pays.',
+            observation: 'Watch who is still in the room when the cost arrives.',
+            by: 'Athan'
+          },
+          succession: questionSuccession()
+        })}
+      />
+    );
+    expect(screen.getByRole('heading', { name: 'The window may close before compounding pays.' })).toBeInTheDocument();
+    expect(screen.getByTestId('question-share-succession')).toHaveTextContent('Still open');
+    expect(screen.getByTestId('question-share-succession')).toHaveTextContent('Athan handed this on');
+    expect(screen.getByTestId('question-share-succession')).toHaveTextContent('Same fact, different time horizon.');
+    expect(screen.getByTestId('question-share-succession')).toHaveTextContent('What survives compounding?');
+    expect(screen.getByTestId('question-share-succession')).toHaveTextContent('Watch who is still in the room when the cost arrives.');
+    expect(screen.queryByText('What happened later')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('question-share-brief')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('question-share-readings')).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'What survives compounding?' })).not.toBeInTheDocument();
+  });
+
+  it('records a later outcome and keeps a later reading beside the freeze', () => {
+    render(
+      <QuestionShareView
+        snapshot={questionSnapshot({
+          contributions: [
+            questionContribution(),
+            questionContribution({
+              id: 'c2',
+              by: 'Ada',
+              text: 'A reading after the handoff.',
+              remainder: ''
+            })
+          ],
+          succession: questionSuccession({
+            outcome: 'The window closed. The latecomer paid.'
+          })
+        })}
+      />
+    );
+    expect(screen.getByTestId('question-share-succession')).toHaveTextContent('The window closed. The latecomer paid.');
+    expect(screen.getByTestId('question-share-readings')).toHaveTextContent('A reading after the handoff.');
+    expect(screen.getByTestId('question-share-readings')).not.toHaveTextContent('Same fact, different time horizon.');
   });
 
   it('stays silent when nobody has offered a reading', () => {

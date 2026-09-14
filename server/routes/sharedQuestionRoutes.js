@@ -13,6 +13,7 @@ const {
   contributionText,
   beatQuestionPresence,
   clearQuestionPresence,
+  freezeShareSuccession,
   freezeThinkSnapshot,
   hashPublicQuestion,
   isDuplicateKey,
@@ -24,11 +25,13 @@ const {
   presenceNameFor,
   projectPresence,
   projectPublicQuestion,
+  projectShareSuccession,
   publicQuestionPage,
   readLean,
   releaseContributionSlot,
   shareSlug,
-  thinkShareState
+  thinkShareState,
+  withSuccessionOutcome
 } = require('../services/authoredThinkShare');
 
 const passthroughAuth = (_req, _res, next) => next();
@@ -392,6 +395,66 @@ const buildSharedQuestionRouter = ({
       } catch (error) {
         console.error('❌ Error saving question share brief:', error);
         return res.status(500).json({ error: 'Failed to save that brief.' });
+      }
+    }
+  );
+
+  /* The owner may hand the closed brief to a successor. Alternatives,
+     evidence then, uncertainty, authority, and review freeze from the
+     records. A later outcome may be written afterwards. Empty stays off
+     the page. It never enters the snapshot. */
+  router.patch(
+    '/api/questions/:id/share/succession',
+    authenticateToken,
+    humanOnly,
+    async (req, res) => {
+      noStore(res);
+      try {
+        const question = await findOwnedQuestion(req.user.id, req.params.id);
+        if (!question) {
+          return res.status(404).json({ error: 'Question not found.' });
+        }
+        const share = asRow(await readLean(SharedQuestion.findOne({
+          userId: req.user.id,
+          questionId: question._id
+        })));
+        if (!share?.snapshot) {
+          return res.status(404).json({ error: 'This question is not shared.' });
+        }
+        const contributions = await readingsFor(share.slug);
+        const existing = projectShareSuccession(share);
+        let succession;
+        if (existing) {
+          succession = withSuccessionOutcome(share.succession, req.body?.outcome);
+        } else {
+          const frozen = freezeShareSuccession(share, contributions, {
+            outcome: req.body?.outcome
+          });
+          if (frozen.error) {
+            return res.status(409).json({
+              error: frozen.error,
+              field: frozen.field || 'succession'
+            });
+          }
+          succession = frozen.succession;
+        }
+        const updated = await SharedQuestion.findOneAndUpdate(
+          { _id: share._id, userId: req.user.id },
+          { $set: { succession } },
+          { new: true }
+        );
+        if (!updated) {
+          return res.status(404).json({ error: 'This question is not shared.' });
+        }
+        const { preview, currentHash } = await liveQuestionPreview({
+          User,
+          question,
+          userId: req.user.id
+        });
+        return res.status(200).json(await payload(asRow(updated), { preview, currentHash, viewerUserId: req.user.id }));
+      } catch (error) {
+        console.error('❌ Error handing the question on:', error);
+        return res.status(500).json({ error: 'Failed to hand that decision on.' });
       }
     }
   );

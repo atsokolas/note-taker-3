@@ -15,7 +15,8 @@ import {
   questionBrief,
   questionContribution,
   questionPresenceLine,
-  questionSnapshot
+  questionSnapshot,
+  questionSuccession
 } from '../components/think/thinkShareFixture';
 import '../components/think/notebook/notebookShare.css';
 
@@ -35,6 +36,7 @@ const SCENES = [
   { id: 'conflict', label: 'Conflict' },
   { id: 'taken', label: 'Taken' },
   { id: 'brief', label: 'Brief' },
+  { id: 'successor', label: 'Successor' },
   { id: 'presence', label: 'Presence' },
   { id: 'companion', label: 'Companion' },
   { id: 'contributor', label: 'Contributor' },
@@ -57,6 +59,14 @@ const taken = questionSnapshot({
 const closed = questionSnapshot({
   contributions: taken.contributions,
   brief: questionBrief()
+});
+const handed = questionSnapshot({
+  contributions: taken.contributions,
+  brief: questionBrief(),
+  succession: questionSuccession({
+    alternatives: taken.contributions,
+    outcome: 'The window closed. The latecomer paid.'
+  })
 });
 const contributor = questionSnapshot({
   yours: [questionContribution()]
@@ -150,7 +160,9 @@ const QuestionSharePreview = () => {
     if (!interpretation) return row;
     return { ...row, interpretation, interpretedBy: 'Athan' };
   });
-  const publicPage = scene === 'brief' || scene === 'companion'
+  const publicPage = scene === 'successor'
+    ? handed
+    : scene === 'brief' || scene === 'companion'
     ? closed
     : scene === 'taken'
       ? taken
@@ -164,7 +176,7 @@ const QuestionSharePreview = () => {
       ...publicPage,
       contributions: publicPage.contributions || []
     };
-  const isPublicPage = scene === 'public' || scene === 'together' || scene === 'taken' || scene === 'contributor' || scene === 'brief' || scene === 'presence' || scene === 'companion';
+  const isPublicPage = scene === 'public' || scene === 'together' || scene === 'taken' || scene === 'contributor' || scene === 'brief' || scene === 'successor' || scene === 'presence' || scene === 'companion';
   const ownerPresence = scene === 'owner' ? questionPresenceLine([{ by: 'Mara' }]) : '';
 
   return (

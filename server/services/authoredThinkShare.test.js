@@ -3,11 +3,14 @@ const {
   CONTRIBUTION_HELD,
   CONTRIBUTION_TAKE_CHANGED,
   CONTRIBUTION_TAKEN_BACK,
+  BRIEF_NEEDS_READING,
+  SUCCESSION_NEEDS_UNRESOLVED,
   canPublishConcept,
   canPublishQuestion,
   contributionConflict,
   contributionSlotFilter,
   contributionText,
+  freezeShareSuccession,
   freezeThinkSnapshot,
   hashPublicConcept,
   hashPublicQuestion,
@@ -20,8 +23,10 @@ const {
   projectPublicConcept,
   projectPublicQuestion,
   projectShareBrief,
+  projectShareSuccession,
   publicQuestionPage,
-  thinkShareState
+  thinkShareState,
+  withSuccessionOutcome
 } = require('./authoredThinkShare');
 
 describe('authored think share', () => {
@@ -123,13 +128,16 @@ describe('authored think share', () => {
       interpretation: 'Should not freeze.',
       yours: [{ by: 'Leaked', text: 'Should not freeze.' }],
       mine: true,
-      brief: { agreement: 'Should not freeze.' }
+      brief: { agreement: 'Should not freeze.' },
+      succession: { unresolved: 'Should not freeze.' }
     }, '2026-09-13T12:00:00.000Z');
     expect(frozen.contributions).toBeUndefined();
     expect(frozen.interpretation).toBeUndefined();
     expect(frozen.yours).toBeUndefined();
     expect(frozen.mine).toBeUndefined();
     expect(frozen.brief).toBeUndefined();
+    expect(frozen.succession).toBeUndefined();
+    expect(frozen.succession).toBeUndefined();
     expect(hashPublicQuestion(preview)).toBe(hashPublicQuestion(frozen));
 
     expect(contributionText('  <em>Patience is not avoidance.</em>  '))
@@ -468,6 +476,60 @@ describe('authored think share', () => {
       by: 'Athan'
     });
     expect(ownerBrief.snapshot.brief).toBeUndefined();
+
+    const handed = freezeShareSuccession(shareWithBrief, liveRows, {
+      outcome: '<em>The window closed. The latecomer paid.</em>',
+      at: '2026-09-13T18:00:00.000Z'
+    });
+    expect(handed.error).toBeUndefined();
+    expect(handed.succession).toEqual({
+      unresolved: 'The window may close before compounding pays.',
+      alternatives: [{
+        id: 'live',
+        by: 'Ada',
+        text: 'Already on the page.',
+        remainder: 'Who pays when the window closes?',
+        createdAt: ''
+      }],
+      evidenceThen: {
+        text: 'What survives compounding?',
+        publishedAt: '2026-09-13T12:00:00.000Z'
+      },
+      uncertainty: 'The window may close before compounding pays.',
+      authority: 'Athan',
+      review: 'Watch who is still in the room when the cost arrives.',
+      held: 'The fact is shared. The horizon is not.',
+      outcome: 'The window closed. The latecomer paid.',
+      handedAt: '2026-09-13T18:00:00.000Z'
+    });
+    expect(freezeShareSuccession(shareWithBrief, []).error).toBe(BRIEF_NEEDS_READING);
+    expect(freezeShareSuccession({
+      ...shareWithBrief,
+      brief: { agreement: 'What holds.', remainder: '', observation: '' }
+    }, liveRows).error).toBe(SUCCESSION_NEEDS_UNRESOLVED);
+    expect(projectShareSuccession({
+      ownerDisplayName: 'Athan',
+      succession: { unresolved: 'Invented.', alternatives: [], evidenceThen: { text: 'What survives compounding?' } }
+    })).toBeNull();
+    const shareWithSuccession = { ...shareWithBrief, succession: handed.succession };
+    const publicHanded = publicQuestionPage(shareWithSuccession, liveRows);
+    expect(publicHanded.succession.unresolved).toBe('The window may close before compounding pays.');
+    expect(publicHanded.succession.outcome).toBe('The window closed. The latecomer paid.');
+    expect(publicHanded.snapshot).toBeUndefined();
+    expect(publicQuestionPage({
+      snapshot: frozen,
+      succession: { unresolved: 'Should not publish from the snapshot.' }
+    }, liveRows).succession).toBeUndefined();
+    const ownerHanded = thinkShareState(shareWithSuccession, {
+      preview,
+      currentHash: hash,
+      kind: 'question',
+      contributions: liveRows
+    });
+    expect(ownerHanded.succession.unresolved).toBe('The window may close before compounding pays.');
+    expect(ownerHanded.snapshot.succession).toBeUndefined();
+    expect(withSuccessionOutcome(handed.succession, '').outcome).toBeUndefined();
+    expect(withSuccessionOutcome(handed.succession, 'A later mixed result.').outcome).toBe('A later mixed result.');
 
     expect(presenceNameFor({ userId: 'owner-1', ownerDisplayName: 'Athan' }, [], 'owner-1')).toBe('Athan');
     expect(presenceNameFor({ userId: 'owner-1', ownerDisplayName: 'Athan' }, [{

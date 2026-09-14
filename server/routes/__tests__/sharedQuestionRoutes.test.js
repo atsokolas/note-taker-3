@@ -5,6 +5,7 @@ const mongoose = require('mongoose');
 const { buildSharedQuestionRouter } = require('../sharedQuestionRoutes');
 const {
   BRIEF_NEEDS_READING,
+  SUCCESSION_NEEDS_UNRESOLVED,
   CONTRIBUTION_LIMIT,
   CONTRIBUTION_HELD,
   CONTRIBUTION_TAKE_CHANGED,
@@ -639,6 +640,12 @@ const run = async () => {
     assert.deepStrictEqual(emptyBrief.body.brief, { agreement: '', remainder: '', observation: '', by: 'Owner' });
     const silentBrief = await fetchJson(`${base}/api/public/questions/${mint.body.slug}`);
     assert.ok(!silentBrief.body.brief);
+    const tooSoonHand = await fetchJson(`${base}/api/questions/${questionId}/share/succession`, {
+      method: 'PATCH',
+      body: JSON.stringify({ outcome: 'The window closed.' })
+    });
+    assert.strictEqual(tooSoonHand.response.status, 409);
+    assert.strictEqual(tooSoonHand.body.error, SUCCESSION_NEEDS_UNRESOLVED);
     const restoredBrief = await fetchJson(`${base}/api/questions/${questionId}/share/brief`, {
       method: 'PATCH',
       body: JSON.stringify({
@@ -648,6 +655,46 @@ const run = async () => {
       })
     });
     assert.strictEqual(restoredBrief.response.status, 200);
+    const agentHand = await fetchJson(`${base}/api/questions/${questionId}/share/succession`, {
+      method: 'PATCH',
+      headers: { 'x-agent-token': '1' },
+      body: JSON.stringify({ outcome: 'An agent outcome.' })
+    });
+    assert.strictEqual(agentHand.response.status, 403);
+    const strangerHand = await fetchJson(`${base}/api/questions/${questionId}/share/succession`, {
+      method: 'PATCH',
+      headers: asUser(strangerId),
+      body: JSON.stringify({ outcome: 'A stranger outcome.' })
+    });
+    assert.strictEqual(strangerHand.response.status, 404);
+    const handed = await fetchJson(`${base}/api/questions/${questionId}/share/succession`, {
+      method: 'PATCH',
+      body: JSON.stringify({ outcome: '<em>The window closed. The latecomer paid.</em>' })
+    });
+    assert.strictEqual(handed.response.status, 200, JSON.stringify(handed.body));
+    assert.strictEqual(handed.body.succession.unresolved, 'The window may close before compounding pays.');
+    assert.strictEqual(handed.body.succession.authority, 'Owner');
+    assert.strictEqual(handed.body.succession.outcome, 'The window closed. The latecomer paid.');
+    assert.ok(handed.body.succession.alternatives.length >= 1);
+    assert.strictEqual(handed.body.succession.evidenceThen.text, 'What survives compounding?');
+    assert.ok(!handed.body.snapshot.succession);
+    const publicHanded = await fetchJson(`${base}/api/public/questions/${mint.body.slug}`);
+    assert.strictEqual(publicHanded.body.succession.unresolved, 'The window may close before compounding pays.');
+    assert.strictEqual(publicHanded.body.succession.outcome, 'The window closed. The latecomer paid.');
+    assert.ok(!publicHanded.body.snapshot);
+    const clearedOutcome = await fetchJson(`${base}/api/questions/${questionId}/share/succession`, {
+      method: 'PATCH',
+      body: JSON.stringify({ outcome: '   ' })
+    });
+    assert.strictEqual(clearedOutcome.response.status, 200);
+    assert.ok(!clearedOutcome.body.succession.outcome);
+    const silentOutcome = await fetchJson(`${base}/api/public/questions/${mint.body.slug}`);
+    assert.ok(!silentOutcome.body.succession.outcome);
+    const restoredOutcome = await fetchJson(`${base}/api/questions/${questionId}/share/succession`, {
+      method: 'PATCH',
+      body: JSON.stringify({ outcome: 'The window closed. The latecomer paid.' })
+    });
+    assert.strictEqual(restoredOutcome.body.succession.outcome, 'The window closed. The latecomer paid.');
 
     const used = SharedQuestion.rows[0].contributionCount;
     const filled = [];
@@ -694,6 +741,8 @@ const run = async () => {
     assert.strictEqual(updated.body.contributions[0].text, 'Same fact, different time horizon.');
     assert.strictEqual(updated.body.brief.agreement, 'The fact is shared. The horizon is not.');
     assert.ok(!updated.body.snapshot.brief);
+    assert.strictEqual(updated.body.succession.evidenceThen.text, 'What survives compounding?');
+    assert.ok(!updated.body.snapshot.succession);
 
     Question.rows.splice(0, Question.rows.length);
     const afterDelete = await fetchJson(`${base}/api/public/questions/${mint.body.slug}`);

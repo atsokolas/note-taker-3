@@ -235,6 +235,54 @@ describe('SharedQuestion', () => {
     expect(screen.queryByRole('button', { name: 'Save this brief' })).not.toBeInTheDocument();
   });
 
+  it('opens a successor at the last unresolved question on the public page', async () => {
+    getPublicQuestion.mockResolvedValueOnce({
+      ownerDisplayName: 'Athan',
+      publishedAt: '2026-06-14T00:00:00Z',
+      question: {
+        text: 'What survives compounding?',
+        status: 'open',
+        paragraphs: [{ id: 'p1', type: 'paragraph', text: 'First paragraph.' }]
+      },
+      contributions: [{
+        id: 'c1',
+        by: 'Mara',
+        text: 'Same fact, different time horizon.',
+        remainder: 'Who pays when the window closes?'
+      }],
+      brief: {
+        agreement: 'The fact is shared. The horizon is not.',
+        remainder: 'The window may close before compounding pays.',
+        observation: 'Watch who is still in the room when the cost arrives.',
+        by: 'Athan'
+      },
+      succession: {
+        unresolved: 'The window may close before compounding pays.',
+        alternatives: [{
+          id: 'c1',
+          by: 'Mara',
+          text: 'Same fact, different time horizon.',
+          remainder: 'Who pays when the window closes?'
+        }],
+        evidenceThen: {
+          text: 'What survives compounding?',
+          paragraphs: [{ id: 'p1', type: 'paragraph', text: 'First paragraph.' }]
+        },
+        authority: 'Athan',
+        review: 'Watch who is still in the room when the cost arrives.',
+        held: 'The fact is shared. The horizon is not.',
+        outcome: 'The window closed. The latecomer paid.',
+        handedAt: '2026-09-13T18:00:00.000Z'
+      }
+    });
+
+    render(<SharedQuestion />);
+    expect(await screen.findByRole('heading', { level: 1, name: 'The window may close before compounding pays.' })).toBeInTheDocument();
+    expect(screen.getByTestId('question-share-succession')).toHaveTextContent('The window closed. The latecomer paid.');
+    expect(screen.queryByRole('heading', { name: 'What survives compounding?' })).not.toBeInTheDocument();
+    expect(screen.queryByTestId('question-share-brief')).not.toBeInTheDocument();
+  });
+
   it('names who else is at the door and stays silent when nobody is', async () => {
     getPublicQuestion.mockResolvedValueOnce({
       ownerDisplayName: 'Athan',
