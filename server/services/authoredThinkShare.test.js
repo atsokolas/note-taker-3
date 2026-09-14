@@ -5,11 +5,15 @@ const {
   CONTRIBUTION_TAKEN_BACK,
   BRIEF_NEEDS_READING,
   SUCCESSION_NEEDS_UNRESOLVED,
+  MANDATE_NEEDS_FIELDS,
   canPublishConcept,
   canPublishQuestion,
+  claimShareAgentAsk,
   contributionConflict,
   contributionSlotFilter,
   contributionText,
+  endShareMandate,
+  freezeShareMandate,
   freezeShareSuccession,
   freezeThinkSnapshot,
   hashPublicConcept,
@@ -23,11 +27,13 @@ const {
   projectPublicConcept,
   projectPublicQuestion,
   projectShareBrief,
+  projectShareMandate,
   projectShareSuccession,
   publicQuestionPage,
   thinkShareState,
   withSuccessionOutcome
 } = require('./authoredThinkShare');
+const { AGENT_MANDATE_PAUSE, AGENT_MANDATE_TOOLS } = require('./governedResearch');
 
 describe('authored think share', () => {
   it('projects question paragraphs and withholds library doors', () => {
@@ -120,7 +126,7 @@ describe('authored think share', () => {
     expect(missingSnapshot({ snapshot: preview })).toBe(false);
   });
 
-  it('keeps an attributed reading beside the snapshot, not inside it', () => {
+  it('keeps an attributed reading beside the snapshot, not inside it', async () => {
     const preview = projectPublicQuestion({ text: 'What survives compounding?' }, 'Athan');
     const frozen = freezeThinkSnapshot({
       ...preview,
@@ -530,6 +536,81 @@ describe('authored think share', () => {
     expect(ownerHanded.snapshot.succession).toBeUndefined();
     expect(withSuccessionOutcome(handed.succession, '').outcome).toBeUndefined();
     expect(withSuccessionOutcome(handed.succession, 'A later mixed result.').outcome).toBe('A later mixed result.');
+
+    const named = freezeShareMandate({
+      ...shareWithBrief,
+      userId: 'owner-1'
+    }, {
+      scope: 'This published question.',
+      stop: 'Stop when the successor writes what happened later.',
+      review: 'Return to this door to end or renew the assignment.',
+      budget: 2
+    }, { now: '2026-09-14T00:20:00.000Z' });
+    expect(named.error).toBeUndefined();
+    expect(named.mandate.owner).toBe('Athan');
+    expect(named.mandate.ownerId).toBe('owner-1');
+    expect(named.mandate.tools).toBe(AGENT_MANDATE_TOOLS);
+    expect(named.mandate.budget.asks).toBe(2);
+    expect(freezeShareMandate({}, { scope: 'No snapshot.' }).error).toBe('This question is not published.');
+    expect(freezeShareMandate(shareWithBrief, { owner: 'Athan' }).error).toBe(MANDATE_NEEDS_FIELDS);
+    expect(projectShareMandate({
+      mandate: { owner: 'Athan', scope: 'Invented without the rest.' }
+    })).toBeNull();
+    const shareWithMandate = { ...shareWithBrief, userId: 'owner-1', mandate: named.mandate };
+    const publicMandated = publicQuestionPage(shareWithMandate, liveRows);
+    expect(publicMandated.mandate.owner).toBe('Athan');
+    expect(publicMandated.mandate.scope).toBe('This published question.');
+    expect(publicMandated.mandate.ownerId).toBeUndefined();
+    expect(projectShareMandate({
+      userId: 'gone',
+      mandate: named.mandate
+    }).pause).toBe(AGENT_MANDATE_PAUSE.owner);
+    expect(publicQuestionPage({
+      snapshot: frozen,
+      mandate: { owner: 'Should not publish from the snapshot.' }
+    }, liveRows).mandate).toBeUndefined();
+    const ownerMandated = thinkShareState(shareWithMandate, {
+      preview,
+      currentHash: hash,
+      kind: 'question',
+      contributions: liveRows
+    });
+    expect(ownerMandated.mandate.review).toBe('Return to this door to end or renew the assignment.');
+    expect(ownerMandated.snapshot.mandate).toBeUndefined();
+    const ended = endShareMandate(named.mandate, { now: '2026-09-14T00:21:00.000Z' });
+    expect(ended.status).toBe('paused');
+    expect(ended.pause).toBe(AGENT_MANDATE_PAUSE.ended);
+    expect(projectShareMandate({ mandate: ended }).pause).toBe(AGENT_MANDATE_PAUSE.ended);
+
+    const store = { share: { slug: 'qslug', userId: 'owner-1', mandate: { ...named.mandate } } };
+    const SharedQuestion = {
+      findOne(query = {}) {
+        const match = query.slug === store.share.slug ? store.share : null;
+        return {
+          select() {
+            return match;
+          }
+        };
+      },
+      async findOneAndUpdate(filter, update) {
+        if (filter['mandate.budget.remaining'] && store.share.mandate.budget.remaining <= 0) return null;
+        if (update.$inc) {
+          store.share.mandate.budget.spent += update.$inc['mandate.budget.spent'];
+          store.share.mandate.budget.remaining += update.$inc['mandate.budget.remaining'];
+        }
+        if (update.$set?.mandate) store.share.mandate = update.$set.mandate;
+        return store.share;
+      }
+    };
+    expect(await claimShareAgentAsk(SharedQuestion, { slug: 'qslug' })).toEqual({ ok: true });
+    expect(store.share.mandate.budget.remaining).toBe(1);
+    expect(await claimShareAgentAsk(SharedQuestion, { slug: 'qslug' })).toEqual({ ok: true });
+    expect(store.share.mandate.status).toBe('paused');
+    expect(await claimShareAgentAsk(SharedQuestion, { slug: 'qslug' })).toEqual({
+      paused: true,
+      reason: AGENT_MANDATE_PAUSE.budget
+    });
+    expect(await claimShareAgentAsk(SharedQuestion, { slug: 'missing' })).toEqual({ ok: true });
 
     expect(presenceNameFor({ userId: 'owner-1', ownerDisplayName: 'Athan' }, [], 'owner-1')).toBe('Athan');
     expect(presenceNameFor({ userId: 'owner-1', ownerDisplayName: 'Athan' }, [{

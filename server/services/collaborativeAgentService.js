@@ -4,10 +4,11 @@ const {
   loadQuestionContributions,
   publicQuestionPage,
   asRow,
-  readLean
+  readLean,
+  claimShareAgentAsk
 } = require('./authoredThinkShare');
 const { buildLivingThesisCriticMandate } = require('./agentWorkerRoles');
-const { brokerAgentTurn, resolveAgentCapability, isSharedQuestionContext } = require('./agentCapabilityBroker');
+const { brokerAgentTurn, resolveAgentCapability, isSharedQuestionContext, sharedQuestionReadCapability } = require('./agentCapabilityBroker');
 const { resolveAgentModelRoute } = require('./agentModelRouter');
 const {
   PATTERNS: AGENT_INTENT_PATTERNS,
@@ -2232,7 +2233,7 @@ const resolveContextItem = async ({
     if (!slug || !SharedQuestion?.findOne) return null;
     const found = SharedQuestion.findOne({ slug });
     const selected = typeof found?.select === 'function'
-      ? found.select('slug snapshot ownerDisplayName publishedAt brief')
+      ? found.select('slug snapshot ownerDisplayName publishedAt brief mandate userId')
       : found;
     const share = asRow(await readLean(selected));
     const page = publicQuestionPage(
@@ -3016,6 +3017,37 @@ const generateCollaborativeReply = async ({
       proposalPolicy: 'none',
       retrievalPolicy: 'context'
     };
+    const claim = await claimShareAgentAsk(SharedQuestion, {
+      slug: toSafeString(context?.id || contextItem?.id)
+    });
+    if (claim?.paused) {
+      const capability = sharedQuestionReadCapability();
+      return {
+        mode: 'internal_only',
+        premiumWebResearchAvailable: Boolean(premiumWebResearchAvailable),
+        reply: claim.reason,
+        intent: intentDecision,
+        capability,
+        modelRoute: resolveAgentModelRoute({
+          capability,
+          intentDecision,
+          skillInvocation: {}
+        }),
+        planner: null,
+        proposalBundle: null,
+        context: contextItem ? {
+          type: contextItem.type,
+          id: contextItem.id,
+          title: contextItem.title,
+          snippet: contextItem.snippet,
+          updatedAt: contextItem.updatedAt ? new Date(contextItem.updatedAt).toISOString() : null
+        } : null,
+        relatedItems: [],
+        citations: [],
+        retrieval: { searchedWorkspace: false, relatedCount: 0 },
+        suggestedActions: []
+      };
+    }
   }
   const shouldSearchWorkspace = shouldSearchWorkspaceForContext({
     context,

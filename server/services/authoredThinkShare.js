@@ -1,5 +1,13 @@
 const crypto = require('crypto');
 const { isDuplicateKey, shareSlug } = require('./authoredNotebookShare');
+const {
+  AGENT_MANDATE_PAUSE,
+  evaluateAgentMandate,
+  MANDATE_NEEDS_FIELDS,
+  openAgentMandate,
+  pauseAgentMandate,
+  projectAgentMandate
+} = require('./governedResearch');
 
 /**
  * C6/C7: a shared question or concept leaves the workshop as a frozen snapshot.
@@ -18,9 +26,10 @@ const { isDuplicateKey, shareSlug } = require('./authoredNotebookShare');
  * holds, and what could move this. Consensus is optional. The owner may
  * later hand that decision to a successor: frozen alternatives, evidence
  * then, uncertainty, authority, review conditions, and an optional later
- * outcome. The successor opens at the last unresolved question. The
- * companion on that door is bound to this public page only. Libraries
- * stay private.
+ * outcome. The successor opens at the last unresolved question. An agent
+ * mandate on that door names an owner, scope, tools, budget, stop, and
+ * review, and pauses when ownership or authority lapses. The companion
+ * is bound to this public page only. Libraries stay private.
  */
 
 const PREVIEW_STALE = {
@@ -162,6 +171,7 @@ const freezeThinkSnapshot = (preview, publishedAt, extra = {}) => {
   delete body.succession;
   delete body.unresolved;
   delete body.alternatives;
+  delete body.mandate;
   delete body.here;
   delete body.presence;
   const iso = asIso(publishedAt);
@@ -356,6 +366,109 @@ const projectShareSuccession = (share, { includeEmpty = false } = {}) => {
   };
 };
 
+const freezeShareMandate = (share, fields = {}, { now = new Date() } = {}) => {
+  if (!share?.snapshot || typeof share.snapshot !== 'object') {
+    return { error: NOT_PUBLISHED.question, field: 'mandate' };
+  }
+  try {
+    return {
+      mandate: openAgentMandate({
+        owner: fields.owner || share.ownerDisplayName,
+        ownerId: share.userId,
+        scope: fields.scope,
+        tools: fields.tools,
+        budget: fields.budget,
+        stop: fields.stop,
+        review: fields.review,
+        now
+      })
+    };
+  } catch (error) {
+    return {
+      error: error.message || MANDATE_NEEDS_FIELDS,
+      field: 'mandate'
+    };
+  }
+};
+
+const endShareMandate = (mandate, { now = new Date() } = {}) => (
+  pauseAgentMandate(mandate, { reason: AGENT_MANDATE_PAUSE.ended, now })
+);
+
+const projectShareMandate = (share) => {
+  const projected = projectAgentMandate(share?.mandate);
+  if (!projected) return null;
+  const evaluation = evaluateAgentMandate(share?.mandate, { ownerId: share?.userId });
+  if (!evaluation.lapsed || projected.status === 'paused') return projected;
+  return {
+    ...projected,
+    status: 'paused',
+    pause: evaluation.reason
+  };
+};
+
+const persistShareMandate = async (SharedQuestion, slug, mandate) => {
+  if (!SharedQuestion?.findOneAndUpdate) return mandate;
+  const updated = asRow(await SharedQuestion.findOneAndUpdate(
+    { slug },
+    { $set: { mandate } },
+    { new: true }
+  ));
+  return updated?.mandate || mandate;
+};
+
+const claimShareAgentAsk = async (SharedQuestion, { slug = '', now = new Date() } = {}) => {
+  const key = String(slug || '').trim();
+  if (!key || !SharedQuestion?.findOne) return { ok: true };
+  const found = SharedQuestion.findOne({ slug: key });
+  const selected = typeof found?.select === 'function'
+    ? found.select('userId mandate')
+    : found;
+  const share = asRow(await readLean(selected));
+  const raw = share?.mandate && typeof share.mandate === 'object' ? share.mandate : null;
+  if (!projectShareMandate({ mandate: raw })) return { ok: true };
+  const evaluation = evaluateAgentMandate(raw, { ownerId: share.userId, now });
+  if (evaluation.lapsed) {
+    if (raw.status === 'live' && !raw.pausedAt) {
+      await persistShareMandate(
+        SharedQuestion,
+        key,
+        pauseAgentMandate(raw, { reason: evaluation.reason, now })
+      );
+    }
+    return { paused: true, reason: evaluation.reason };
+  }
+  if (!SharedQuestion.findOneAndUpdate) {
+    return { paused: true, reason: AGENT_MANDATE_PAUSE.budget };
+  }
+  const updated = asRow(await SharedQuestion.findOneAndUpdate(
+    {
+      slug: key,
+      'mandate.status': 'live',
+      'mandate.budget.remaining': { $gt: 0 }
+    },
+    {
+      $inc: {
+        'mandate.budget.spent': 1,
+        'mandate.budget.remaining': -1
+      }
+    },
+    { new: true }
+  ));
+  const remaining = Number(updated?.mandate?.budget?.remaining);
+  if (!updated?.mandate || Number.isNaN(remaining)) {
+    return { paused: true, reason: AGENT_MANDATE_PAUSE.budget };
+  }
+  if (remaining <= 0) {
+    await persistShareMandate(
+      SharedQuestion,
+      key,
+      pauseAgentMandate(updated.mandate, { reason: AGENT_MANDATE_PAUSE.budget, now })
+    );
+  }
+  return { ok: true };
+};
+
 const PRESENCE_TTL_MS = 75 * 1000;
 
 const presenceViewerId = (value) => String(value || '').trim();
@@ -491,12 +604,14 @@ const publicQuestionPage = (share, contributions = [], viewerUserId = '', presen
   delete snapshot.succession;
   delete snapshot.unresolved;
   delete snapshot.alternatives;
+  delete snapshot.mandate;
   delete snapshot.here;
   delete snapshot.presence;
   const extra = { interpretedBy: share.ownerDisplayName };
   const yours = projectContributionList(yoursContributions(contributions, viewerUserId), extra);
   const brief = projectShareBrief(share, contributions);
   const succession = projectShareSuccession(share);
+  const mandate = projectShareMandate(share);
   const here = projectPresence(presenceRows, viewerUserId);
   const viewer = String(viewerUserId || '').trim();
   const published = placedContributions(contributions)
@@ -513,6 +628,7 @@ const publicQuestionPage = (share, contributions = [], viewerUserId = '', presen
     ...(yours.length ? { yours } : {}),
     ...(brief ? { brief } : {}),
     ...(succession ? { succession } : {}),
+    ...(mandate ? { mandate } : {}),
     ...(here.length ? { here } : {})
   };
 };
@@ -547,6 +663,9 @@ const thinkShareState = (share, {
   const succession = kind === 'question' && share
     ? projectShareSuccession(share, { includeEmpty: true })
     : null;
+  const mandate = kind === 'question' && share
+    ? projectShareMandate(share)
+    : null;
   if (!share) {
     return {
       shared: false,
@@ -567,6 +686,7 @@ const thinkShareState = (share, {
     delete snapshot.succession;
     delete snapshot.unresolved;
     delete snapshot.alternatives;
+    delete snapshot.mandate;
     delete snapshot.contributions;
     delete snapshot.waiting;
     delete snapshot.yours;
@@ -589,6 +709,7 @@ const thinkShareState = (share, {
     ...(waiting && waiting.length ? { waiting } : {}),
     ...(brief ? { brief } : {}),
     ...(succession ? { succession } : {}),
+    ...(mandate ? { mandate } : {}),
     ...(present && present.length ? { here: present } : {})
   };
 };
@@ -633,6 +754,7 @@ const liveConceptPreview = async ({ User, concept, userId }) => {
 module.exports = {
   BRIEF_NEEDS_READING,
   SUCCESSION_NEEDS_UNRESOLVED,
+  MANDATE_NEEDS_FIELDS,
   CONTRIBUTION_BY_CHARS,
   CONTRIBUTION_CHARS,
   CONTRIBUTION_HELD,
@@ -648,6 +770,7 @@ module.exports = {
   canPublishConcept,
   canPublishQuestion,
   claimContributionSlot,
+  claimShareAgentAsk,
   clearQuestionPresence,
   contributionBy,
   contributionConflict,
@@ -656,6 +779,8 @@ module.exports = {
   contributionSlotFilter,
   contributionText,
   contributionWithdrawn,
+  endShareMandate,
+  freezeShareMandate,
   freezeShareSuccession,
   freezeThinkSnapshot,
   hashPublicConcept,
@@ -677,6 +802,7 @@ module.exports = {
   projectPublicConcept,
   projectPublicQuestion,
   projectShareBrief,
+  projectShareMandate,
   projectShareSuccession,
   publicQuestionPage,
   readLean,

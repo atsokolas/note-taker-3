@@ -6,6 +6,7 @@ const { buildSharedQuestionRouter } = require('../sharedQuestionRoutes');
 const {
   BRIEF_NEEDS_READING,
   SUCCESSION_NEEDS_UNRESOLVED,
+  MANDATE_NEEDS_FIELDS,
   CONTRIBUTION_LIMIT,
   CONTRIBUTION_HELD,
   CONTRIBUTION_TAKE_CHANGED,
@@ -13,6 +14,7 @@ const {
   hashPublicQuestion,
   projectPublicQuestion
 } = require('../../services/authoredThinkShare');
+const { AGENT_MANDATE_PAUSE, AGENT_MANDATE_TOOLS } = require('../../services/governedResearch');
 
 const listen = (app) => new Promise((resolve) => {
   const server = app.listen(0, '127.0.0.1', () => resolve(server));
@@ -696,6 +698,85 @@ const run = async () => {
     });
     assert.strictEqual(restoredOutcome.body.succession.outcome, 'The window closed. The latecomer paid.');
 
+    const incompleteMandate = await fetchJson(`${base}/api/questions/${questionId}/share/mandate`, {
+      method: 'PATCH',
+      body: JSON.stringify({ owner: 'Owner' })
+    });
+    assert.strictEqual(incompleteMandate.response.status, 409);
+    assert.strictEqual(incompleteMandate.body.error, MANDATE_NEEDS_FIELDS);
+    const agentMandate = await fetchJson(`${base}/api/questions/${questionId}/share/mandate`, {
+      method: 'PATCH',
+      headers: { 'x-agent-token': '1' },
+      body: JSON.stringify({
+        scope: 'This published question.',
+        stop: 'Stop when the successor writes what happened later.',
+        review: 'Return to this door to end or renew the assignment.',
+        budget: 2
+      })
+    });
+    assert.strictEqual(agentMandate.response.status, 403);
+    const strangerMandate = await fetchJson(`${base}/api/questions/${questionId}/share/mandate`, {
+      method: 'PATCH',
+      headers: asUser(strangerId),
+      body: JSON.stringify({
+        scope: 'This published question.',
+        stop: 'Stop when the successor writes what happened later.',
+        review: 'Return to this door to end or renew the assignment.',
+        budget: 2
+      })
+    });
+    assert.strictEqual(strangerMandate.response.status, 404);
+    const namedMandate = await fetchJson(`${base}/api/questions/${questionId}/share/mandate`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        scope: 'This published question.',
+        stop: 'Stop when the successor writes what happened later.',
+        review: 'Return to this door to end or renew the assignment.',
+        budget: 2
+      })
+    });
+    assert.strictEqual(namedMandate.response.status, 200, JSON.stringify(namedMandate.body));
+    assert.strictEqual(namedMandate.body.mandate.owner, 'Owner');
+    assert.strictEqual(namedMandate.body.mandate.tools, AGENT_MANDATE_TOOLS);
+    assert.strictEqual(namedMandate.body.mandate.budget.asks, 2);
+    assert.strictEqual(namedMandate.body.mandate.status, 'live');
+    assert.ok(!namedMandate.body.mandate.ownerId);
+    assert.ok(!namedMandate.body.snapshot.mandate);
+    const publicMandate = await fetchJson(`${base}/api/public/questions/${mint.body.slug}`);
+    assert.strictEqual(publicMandate.body.mandate.scope, 'This published question.');
+    assert.ok(!publicMandate.body.snapshot);
+    const rewriteLive = await fetchJson(`${base}/api/questions/${questionId}/share/mandate`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        scope: 'A different assignment.',
+        stop: 'Stop now.',
+        review: 'Review here.',
+        budget: 3
+      })
+    });
+    assert.strictEqual(rewriteLive.response.status, 409);
+    const endedMandate = await fetchJson(`${base}/api/questions/${questionId}/share/mandate`, {
+      method: 'PATCH',
+      body: JSON.stringify({ end: true })
+    });
+    assert.strictEqual(endedMandate.response.status, 200);
+    assert.strictEqual(endedMandate.body.mandate.status, 'paused');
+    assert.strictEqual(endedMandate.body.mandate.pause, AGENT_MANDATE_PAUSE.ended);
+    const publicPaused = await fetchJson(`${base}/api/public/questions/${mint.body.slug}`);
+    assert.strictEqual(publicPaused.body.mandate.pause, AGENT_MANDATE_PAUSE.ended);
+    const renewedMandate = await fetchJson(`${base}/api/questions/${questionId}/share/mandate`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        scope: 'This published question.',
+        stop: 'Stop when the successor writes what happened later.',
+        review: 'Return to this door to end or renew the assignment.',
+        budget: 1
+      })
+    });
+    assert.strictEqual(renewedMandate.response.status, 200);
+    assert.strictEqual(renewedMandate.body.mandate.status, 'live');
+    assert.strictEqual(renewedMandate.body.mandate.budget.asks, 1);
+
     const used = SharedQuestion.rows[0].contributionCount;
     const filled = [];
     for (let i = used; i < CONTRIBUTION_LIMIT; i += 1) {
@@ -743,6 +824,8 @@ const run = async () => {
     assert.ok(!updated.body.snapshot.brief);
     assert.strictEqual(updated.body.succession.evidenceThen.text, 'What survives compounding?');
     assert.ok(!updated.body.snapshot.succession);
+    assert.strictEqual(updated.body.mandate.budget.asks, 1);
+    assert.ok(!updated.body.snapshot.mandate);
 
     Question.rows.splice(0, Question.rows.length);
     const afterDelete = await fetchJson(`${base}/api/public/questions/${mint.body.slug}`);

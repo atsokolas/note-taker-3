@@ -10,6 +10,7 @@ jest.mock('../../../api/questions', () => ({
   placeQuestionContribution: jest.fn(),
   revokeQuestionShare: jest.fn(),
   saveQuestionShareBrief: jest.fn(),
+  saveQuestionShareMandate: jest.fn(),
   saveQuestionShareSuccession: jest.fn(),
   updateQuestionShare: jest.fn(),
   beatQuestionPresence: jest.fn(),
@@ -23,6 +24,7 @@ const {
   placeQuestionContribution,
   revokeQuestionShare,
   saveQuestionShareBrief,
+  saveQuestionShareMandate,
   saveQuestionShareSuccession,
   updateQuestionShare,
   beatQuestionPresence,
@@ -47,6 +49,7 @@ describe('QuestionShareModal', () => {
     placeQuestionContribution.mockReset();
     revokeQuestionShare.mockReset();
     saveQuestionShareBrief.mockReset();
+    saveQuestionShareMandate.mockReset();
     saveQuestionShareSuccession.mockReset();
     updateQuestionShare.mockReset();
     beatQuestionPresence.mockReset();
@@ -415,6 +418,70 @@ describe('QuestionShareModal', () => {
     );
     expect(screen.getByTestId('question-share-preview')).toHaveTextContent('The window closed. The latecomer paid.');
     expect(screen.getByRole('button', { name: 'Save what happened later' })).toBeInTheDocument();
+  });
+
+  it('names an agent assignment and can end it', async () => {
+    const named = {
+      owner: 'Athan',
+      scope: 'This published question.',
+      tools: 'Ask about this published question (the public page only).',
+      budget: { asks: 3, remaining: 3, spent: 0 },
+      stop: 'Stop when the successor writes what happened later.',
+      review: 'Return to this door to end or renew the assignment.',
+      status: 'live'
+    };
+    getQuestionShare.mockResolvedValueOnce({
+      shared: true,
+      slug: 'abc123',
+      snapshot: frozen,
+      preview: frozen,
+      ownerDisplayName: 'Athan'
+    });
+    saveQuestionShareMandate
+      .mockResolvedValueOnce({
+        shared: true,
+        slug: 'abc123',
+        snapshot: frozen,
+        preview: frozen,
+        ownerDisplayName: 'Athan',
+        mandate: named
+      })
+      .mockResolvedValueOnce({
+        shared: true,
+        slug: 'abc123',
+        snapshot: frozen,
+        preview: frozen,
+        ownerDisplayName: 'Athan',
+        mandate: {
+          ...named,
+          status: 'paused',
+          pause: 'This assignment ended. The agent is paused.'
+        }
+      });
+    render(<QuestionShareModal open questionId="q1" questionText="What next?" onClose={() => {}} />);
+    expect(await screen.findByTestId('question-share-mandate-form')).toBeInTheDocument();
+    expect(screen.queryByTestId('question-share-mandate')).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Stop when'), {
+      target: { value: 'Stop when the successor writes what happened later.' }
+    });
+    fireEvent.change(screen.getByLabelText('Review route'), {
+      target: { value: 'Return to this door to end or renew the assignment.' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Name this assignment' }));
+    await waitFor(() => expect(saveQuestionShareMandate).toHaveBeenCalledWith('q1', {
+      owner: 'Athan',
+      scope: 'This published question.',
+      tools: 'Ask about this published question (the public page only).',
+      budget: 3,
+      stop: 'Stop when the successor writes what happened later.',
+      review: 'Return to this door to end or renew the assignment.'
+    }));
+    expect(await screen.findByTestId('question-share-mandate')).toHaveTextContent('This published question.');
+    fireEvent.click(screen.getByRole('button', { name: 'End this assignment' }));
+    await waitFor(() => expect(saveQuestionShareMandate).toHaveBeenCalledWith('q1', { end: true }));
+    expect(await screen.findByTestId('question-share-mandate')).toHaveTextContent(
+      'This assignment ended. The agent is paused.'
+    );
   });
 
   it('names who else is at the door outside the compact preview', async () => {

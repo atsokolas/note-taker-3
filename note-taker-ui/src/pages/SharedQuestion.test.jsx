@@ -283,6 +283,37 @@ describe('SharedQuestion', () => {
     expect(screen.queryByTestId('question-share-brief')).not.toBeInTheDocument();
   });
 
+  it('names an agent assignment on the public page and pauses the companion when it lapses', async () => {
+    window.localStorage.setItem('token', 'reader-token');
+    getPublicQuestion.mockResolvedValueOnce({
+      ownerDisplayName: 'Athan',
+      publishedAt: '2026-06-14T00:00:00Z',
+      question: {
+        text: 'What survives compounding?',
+        status: 'open',
+        paragraphs: [{ id: 'p1', type: 'paragraph', text: 'First paragraph.' }]
+      },
+      mandate: {
+        owner: 'Athan',
+        scope: 'This published question.',
+        tools: 'Ask about this published question (the public page only).',
+        budget: { asks: 3, remaining: 0, spent: 3 },
+        stop: 'Stop when the successor writes what happened later.',
+        review: 'Return to this door to end or renew the assignment.',
+        status: 'paused',
+        pause: 'This assignment ended. The agent is paused.'
+      }
+    });
+
+    render(<SharedQuestion />);
+    expect(await screen.findByTestId('question-share-mandate')).toHaveTextContent('Accountable owner');
+    expect(screen.getByTestId('question-share-mandate')).toHaveTextContent('This published question.');
+    expect(screen.getByTestId('shared-question-companion')).toHaveTextContent(
+      'This assignment ended. The agent is paused.'
+    );
+    expect(screen.queryByRole('button', { name: 'Ask about this reading' })).not.toBeInTheDocument();
+  });
+
   it('names who else is at the door and stays silent when nobody is', async () => {
     getPublicQuestion.mockResolvedValueOnce({
       ownerDisplayName: 'Athan',

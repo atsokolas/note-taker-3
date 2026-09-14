@@ -8431,7 +8431,8 @@ html[data-ui-theme='dark'] body.noeis-editorial .concept-editorial-evidence__ite
 .think-share-view__readings,
 .think-share-view__yours,
 .think-share-view__brief,
-.think-share-view__succession {
+.think-share-view__succession,
+.think-share-view__mandate {
   display: grid;
   gap: 1rem;
   padding-top: 0.35rem;
@@ -8464,7 +8465,8 @@ html[data-ui-theme='dark'] body.noeis-editorial .concept-editorial-evidence__ite
 }
 
 .think-share-view__brief,
-.think-share-view__succession {
+.think-share-view__succession,
+.think-share-view__mandate {
   gap: 0.35rem;
 }
 
@@ -8474,7 +8476,8 @@ html[data-ui-theme='dark'] body.noeis-editorial .concept-editorial-evidence__ite
 }
 
 .think-share-view__brief p,
-.think-share-view__succession p {
+.think-share-view__succession p,
+.think-share-view__mandate p {
   margin: 0;
   font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
   line-height: 1.55;
@@ -8599,6 +8602,19 @@ textarea.think-share-view__offer-field {
   margin-top: 0.7rem;
 }
 
+.shared-question-companion__pause,
+.shared-question-companion__budget {
+  margin: 0.55rem 0 0;
+  color: var(--text-secondary);
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.shared-question-companion__pause {
+  font-style: italic;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .concept-share-modal__reader,
   .think-share-view,
@@ -8607,6 +8623,7 @@ textarea.think-share-view__offer-field {
   .think-share-view__yours,
   .think-share-view__brief,
   .think-share-view__succession,
+  .think-share-view__mandate,
   .think-share-view__interpretation,
   .think-share-view__presence,
   .shared-question-companion,

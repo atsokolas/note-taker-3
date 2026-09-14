@@ -13,6 +13,8 @@ const {
   contributionText,
   beatQuestionPresence,
   clearQuestionPresence,
+  endShareMandate,
+  freezeShareMandate,
   freezeShareSuccession,
   freezeThinkSnapshot,
   hashPublicQuestion,
@@ -25,6 +27,7 @@ const {
   presenceNameFor,
   projectPresence,
   projectPublicQuestion,
+  projectShareMandate,
   projectShareSuccession,
   publicQuestionPage,
   readLean,
@@ -455,6 +458,76 @@ const buildSharedQuestionRouter = ({
       } catch (error) {
         console.error('❌ Error handing the question on:', error);
         return res.status(500).json({ error: 'Failed to hand that decision on.' });
+      }
+    }
+  );
+
+  /* The owner may name an agent assignment on this door. Owner, scope,
+     tools, budget, stop, and review are required. Later calls may end
+     it. The companion pauses when the assignment lapses. It never
+     enters the snapshot. Wiki watches and living-team exposure stay
+     where they are. */
+  router.patch(
+    '/api/questions/:id/share/mandate',
+    authenticateToken,
+    humanOnly,
+    async (req, res) => {
+      noStore(res);
+      try {
+        const question = await findOwnedQuestion(req.user.id, req.params.id);
+        if (!question) {
+          return res.status(404).json({ error: 'Question not found.' });
+        }
+        const share = asRow(await readLean(SharedQuestion.findOne({
+          userId: req.user.id,
+          questionId: question._id
+        })));
+        if (!share?.snapshot) {
+          return res.status(404).json({ error: 'This question is not shared.' });
+        }
+        const existing = projectShareMandate(share);
+        let mandate;
+        if (existing && existing.status === 'live' && req.body?.end) {
+          mandate = endShareMandate(share.mandate);
+        } else if (existing && existing.status === 'live') {
+          return res.status(409).json({
+            error: 'End this assignment before you name another.',
+            field: 'mandate'
+          });
+        } else {
+          const frozen = freezeShareMandate(share, {
+            owner: req.body?.owner,
+            scope: req.body?.scope,
+            tools: req.body?.tools,
+            budget: req.body?.budget,
+            stop: req.body?.stop,
+            review: req.body?.review
+          });
+          if (frozen.error) {
+            return res.status(409).json({
+              error: frozen.error,
+              field: frozen.field || 'mandate'
+            });
+          }
+          mandate = frozen.mandate;
+        }
+        const updated = await SharedQuestion.findOneAndUpdate(
+          { _id: share._id, userId: req.user.id },
+          { $set: { mandate } },
+          { new: true }
+        );
+        if (!updated) {
+          return res.status(404).json({ error: 'This question is not shared.' });
+        }
+        const { preview, currentHash } = await liveQuestionPreview({
+          User,
+          question,
+          userId: req.user.id
+        });
+        return res.status(200).json(await payload(asRow(updated), { preview, currentHash, viewerUserId: req.user.id }));
+      } catch (error) {
+        console.error('❌ Error naming the agent assignment:', error);
+        return res.status(500).json({ error: 'Failed to name that assignment.' });
       }
     }
   );

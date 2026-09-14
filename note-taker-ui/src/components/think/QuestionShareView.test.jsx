@@ -1,7 +1,7 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import QuestionShareView from './QuestionShareView';
-import { questionContribution, questionSnapshot, questionSuccession } from './thinkShareFixture';
+import { questionContribution, questionMandate, questionSnapshot, questionSuccession } from './thinkShareFixture';
 
 describe('QuestionShareView', () => {
   it('keeps a later reading beside the frozen question', () => {
@@ -110,6 +110,43 @@ describe('QuestionShareView', () => {
     expect(screen.getByTestId('question-share-succession')).toHaveTextContent('The window closed. The latecomer paid.');
     expect(screen.getByTestId('question-share-readings')).toHaveTextContent('A reading after the handoff.');
     expect(screen.getByTestId('question-share-readings')).not.toHaveTextContent('Same fact, different time horizon.');
+  });
+
+  it('names an agent assignment and keeps an incomplete one off the page', () => {
+    render(
+      <QuestionShareView
+        snapshot={questionSnapshot({
+          contributions: [questionContribution()],
+          mandate: questionMandate({ budget: { asks: 3, remaining: 2, spent: 1 } })
+        })}
+      />
+    );
+    expect(screen.getByTestId('question-share-mandate')).toHaveTextContent('Athan');
+    expect(screen.getByTestId('question-share-mandate')).toHaveTextContent('This published question.');
+    expect(screen.getByTestId('question-share-mandate')).toHaveTextContent('Ask about this published question');
+    expect(screen.getByTestId('question-share-mandate')).toHaveTextContent('2 asks remain on this assignment.');
+    expect(screen.queryByTestId('question-share-mandate')).not.toHaveTextContent('owner-1');
+  });
+
+  it('keeps an incomplete assignment off the page', () => {
+    render(<QuestionShareView snapshot={questionSnapshot({ mandate: { owner: 'Athan' } })} />);
+    expect(screen.queryByTestId('question-share-mandate')).not.toBeInTheDocument();
+  });
+
+  it('shows when the agent assignment paused', () => {
+    render(
+      <QuestionShareView
+        snapshot={questionSnapshot({
+          mandate: questionMandate({
+            status: 'paused',
+            pause: 'This assignment ended. The agent is paused.',
+            budget: { asks: 3, remaining: 0, spent: 3 }
+          })
+        })}
+      />
+    );
+    expect(screen.getByTestId('question-share-mandate')).toHaveTextContent('This assignment ended. The agent is paused.');
+    expect(screen.queryByText('asks remain')).not.toBeInTheDocument();
   });
 
   it('stays silent when nobody has offered a reading', () => {
