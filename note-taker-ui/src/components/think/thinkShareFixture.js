@@ -34,6 +34,8 @@ export const QUESTION_SHARE_BRIEF = 'Consensus is optional. Empty stays off the 
 
 export const QUESTION_SHARE_HAND = 'A successor opens at the last unresolved question. Alternatives, evidence then, and who decided travel. Empty outcome stays off the page.';
 
+export const QUESTION_SHARE_ARCHIVE = 'What happened sits beside what was considered then. The other future is not something this record can know.';
+
 export const QUESTION_SHARE_MANDATE = 'An agent assignment names an owner, scope, tools, budget, stop, and review. The agent pauses when that authority lapses.';
 
 export const QUESTION_SHARE_AGREEMENT = 'What holds';
@@ -45,6 +47,10 @@ export const QUESTION_SHARE_OBSERVATION = 'What could move this';
 export const QUESTION_SHARE_UNRESOLVED = 'Still open';
 
 export const QUESTION_SHARE_ALTERNATIVES = 'Alternatives then';
+
+export const QUESTION_SHARE_NEARLY = 'What we nearly did';
+
+export const QUESTION_SHARE_ARCHIVE_SILENCE = 'The other future is not in this record.';
 
 export const QUESTION_SHARE_EVIDENCE_THEN = 'Evidence then';
 
@@ -189,6 +195,15 @@ export const questionShareSuccessionOf = (snapshot) => {
   };
 };
 
+export const questionShareArchiveOf = (succession) => {
+  const happened = asRecordLine(succession?.outcome);
+  const nearly = Array.isArray(succession?.alternatives)
+    ? succession.alternatives.filter((item) => asRecordLine(item?.by) && asRecordLine(item?.text))
+    : [];
+  if (!happened || !nearly.length) return null;
+  return { nearly, happened };
+};
+
 export const questionShareMandateOf = (snapshot) => {
   const mandate = snapshot?.mandate && typeof snapshot.mandate === 'object'
     ? snapshot.mandate
@@ -277,13 +292,17 @@ export const buildQuestionShareRecordsMarkdown = (bundle) => {
       lines.push('');
     }
     if (succession.held) lines.push('## What holds', '', succession.held, '');
-    lines.push('## Alternatives then', '');
+    const archived = questionShareArchiveOf(succession);
+    lines.push(archived ? `## ${QUESTION_SHARE_NEARLY}` : `## ${QUESTION_SHARE_ALTERNATIVES}`, '');
     (Array.isArray(succession.alternatives) ? succession.alternatives : []).forEach((reading) => {
       if (!reading?.by || !reading?.text) return;
       lines.push(`### ${reading.by}`, '', reading.text);
       if (reading.remainder) lines.push('', `Still holds: ${reading.remainder}`);
       lines.push('');
     });
+    if (archived) {
+      lines.push(`## ${QUESTION_SHARE_OUTCOME}`, '', archived.happened, '', QUESTION_SHARE_ARCHIVE_SILENCE, '');
+    }
     if (succession.evidenceThen?.text) {
       lines.push('## Evidence then', '', succession.evidenceThen.text, '');
     }
@@ -291,7 +310,6 @@ export const buildQuestionShareRecordsMarkdown = (bundle) => {
       lines.push('## What was uncertain', '', succession.uncertainty, '');
     }
     if (succession.review) lines.push('## When to look again', '', succession.review, '');
-    if (succession.outcome) lines.push('## What happened later', '', succession.outcome, '');
   } else {
     lines.push('# An agent assignment', '');
   }

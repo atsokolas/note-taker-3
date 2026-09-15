@@ -38,6 +38,7 @@ const SCENES = [
   { id: 'taken', label: 'Taken' },
   { id: 'brief', label: 'Brief' },
   { id: 'successor', label: 'Successor' },
+  { id: 'archive', label: 'Archive' },
   { id: 'mandate', label: 'Mandate' },
   { id: 'paused', label: 'Paused' },
   { id: 'presence', label: 'Presence' },
@@ -64,6 +65,13 @@ const closed = questionSnapshot({
   brief: questionBrief()
 });
 const handed = questionSnapshot({
+  contributions: taken.contributions,
+  brief: questionBrief(),
+  succession: questionSuccession({
+    alternatives: taken.contributions
+  })
+});
+const archived = questionSnapshot({
   contributions: taken.contributions,
   brief: questionBrief(),
   succession: questionSuccession({
@@ -179,6 +187,8 @@ const QuestionSharePreview = () => {
   });
   const publicPage = scene === 'successor'
     ? handed
+    : scene === 'archive'
+    ? archived
     : scene === 'mandate'
     ? mandated
     : scene === 'paused'
@@ -197,7 +207,7 @@ const QuestionSharePreview = () => {
       ...publicPage,
       contributions: publicPage.contributions || []
     };
-  const isPublicPage = scene === 'public' || scene === 'together' || scene === 'taken' || scene === 'contributor' || scene === 'brief' || scene === 'successor' || scene === 'mandate' || scene === 'paused' || scene === 'presence' || scene === 'companion';
+  const isPublicPage = scene === 'public' || scene === 'together' || scene === 'taken' || scene === 'contributor' || scene === 'brief' || scene === 'successor' || scene === 'archive' || scene === 'mandate' || scene === 'paused' || scene === 'presence' || scene === 'companion';
   const ownerPresence = scene === 'owner' ? questionPresenceLine([{ by: 'Mara' }]) : '';
 
   return (

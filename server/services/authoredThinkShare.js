@@ -30,7 +30,9 @@ const {
  * mandate on that door names an owner, scope, tools, budget, stop, and
  * review, and pauses when ownership or authority lapses. Those two records
  * can leave as one readable file and return, or say what cannot transfer.
- * The companion is bound to this public page only. Libraries stay private.
+ * When a later outcome is recorded, the considered alternatives stay as they
+ * were written then and sit beside what happened. The unchosen future is not
+ * invented. The companion is bound to this public page only. Libraries stay private.
  */
 
 const PREVIEW_STALE = {
@@ -56,6 +58,10 @@ const SHARE_RECORD_UNKNOWN = 'This is not a successor record or named assignment
 const SHARE_RECORD_VERSION_ERROR = 'This record uses an unknown export version.';
 const SHARE_RECORD_UNSTRUCTURED = 'This readable copy has no structured record to return.';
 const SHARE_RECORD_FOOTER = 'This file is the successor record and the named assignment. It does not take the live companion, remaining asks on this door, who is here, the private Library, or unplaced readings.';
+const SHARE_RECORD_NEARLY = 'What we nearly did';
+const SHARE_RECORD_ALTERNATIVES = 'Alternatives then';
+const SHARE_RECORD_OUTCOME = 'What happened later';
+const SHARE_RECORD_ARCHIVE_SILENCE = 'The other future is not in this record.';
 const SHARE_RECORD_GAPS = Object.freeze([
   'The account that owns this door',
   'Remaining asks as a live counter',
@@ -833,6 +839,13 @@ const shareRecordWriteCollision = (inspected = {}, current = {}) => {
   };
 };
 
+const shareRecordArchiveOf = (succession) => {
+  const happened = contributionRemainder(succession?.outcome);
+  const nearly = Array.isArray(succession?.alternatives) ? succession.alternatives : [];
+  if (!happened || !nearly.length) return null;
+  return { nearly, happened };
+};
+
 const portableShareRecords = (share) => {
   const succession = projectShareSuccession(share);
   const mandate = projectShareMandate(share);
@@ -882,13 +895,17 @@ const buildShareRecordMarkdown = (bundle) => {
       lines.push('');
     }
     if (succession.held) lines.push('## What holds', '', succession.held, '');
-    lines.push('## Alternatives then', '');
+    const archived = shareRecordArchiveOf(succession);
+    lines.push(`## ${archived ? SHARE_RECORD_NEARLY : SHARE_RECORD_ALTERNATIVES}`, '');
     (Array.isArray(succession.alternatives) ? succession.alternatives : []).forEach((reading) => {
       if (!reading?.by || !reading?.text) return;
       lines.push(`### ${reading.by}`, '', reading.text);
       if (reading.remainder) lines.push('', `Still holds: ${reading.remainder}`);
       lines.push('');
     });
+    if (archived) {
+      lines.push(`## ${SHARE_RECORD_OUTCOME}`, '', archived.happened, '', SHARE_RECORD_ARCHIVE_SILENCE, '');
+    }
     if (succession.evidenceThen?.text) {
       lines.push('## Evidence then', '', succession.evidenceThen.text, '');
       (Array.isArray(succession.evidenceThen.paragraphs) ? succession.evidenceThen.paragraphs : [])
@@ -899,7 +916,6 @@ const buildShareRecordMarkdown = (bundle) => {
       lines.push('## What was uncertain', '', succession.uncertainty, '');
     }
     if (succession.review) lines.push('## When to look again', '', succession.review, '');
-    if (succession.outcome) lines.push('## What happened later', '', succession.outcome, '');
   } else {
     lines.push('# An agent assignment', '');
   }
@@ -1117,9 +1133,11 @@ module.exports = {
   PRESENCE_TTL_MS,
   SHARE_RECORD_COLLISION_MANDATE,
   SHARE_RECORD_COLLISION_SUCCESSION,
+  SHARE_RECORD_ARCHIVE_SILENCE,
   SHARE_RECORD_FOOTER,
   SHARE_RECORD_GAPS,
   SHARE_RECORD_KIND,
+  SHARE_RECORD_NEARLY,
   SHARE_RECORD_SILENCE,
   SHARE_RECORD_UNKNOWN,
   SHARE_RECORD_UNSTRUCTURED,
@@ -1174,6 +1192,7 @@ module.exports = {
   releaseContributionSlot,
   sanitizeCard,
   sanitizeParagraphBlocks,
+  shareRecordArchiveOf,
   shareRecordFilename,
   shareRecordStateFilter,
   shareRecordWriteCollision,

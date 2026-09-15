@@ -420,6 +420,9 @@ describe('QuestionShareModal', () => {
       'The window may close before compounding pays.'
     );
     expect(screen.getByTestId('question-share-preview')).toHaveTextContent('The window closed. The latecomer paid.');
+    expect(screen.getByTestId('question-share-preview')).toHaveTextContent('What we nearly did');
+    expect(screen.getByTestId('question-share-preview')).toHaveTextContent('The other future is not in this record.');
+    expect(screen.getByText(/What happened sits beside what was considered then/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Save what happened later' })).toBeInTheDocument();
   });
 
