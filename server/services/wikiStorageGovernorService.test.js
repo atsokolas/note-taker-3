@@ -29,10 +29,11 @@ assert.deepStrictEqual(buildOperationalRetentionPlan({
   deleteIds: [ids.runDelete]
 });
 
+const sortSpecs = [];
 class Query {
   constructor(rows) { this.rows = rows; this.max = 0; }
   select() { return this; }
-  sort() { return this; }
+  sort(spec) { sortSpecs.push(spec); return this; }
   limit(value) { this.max = value; return this; }
   lean() { return Promise.resolve(this.max ? this.rows.slice(0, this.max) : this.rows); }
   then(resolve, reject) { return this.lean().then(resolve, reject); }
@@ -139,6 +140,8 @@ const oldRows = values => values.map(_id => ({ _id, createdAt: new Date('2026-05
   assert.strictEqual(result.sourceEvents.protected, 3);
   assert.strictEqual(result.maintenanceRuns.backup.verified, true);
   assert.strictEqual(result.sourceEvents.backup.verified, true);
+  assert.deepStrictEqual(sortSpecs, [{ _id: 1 }, { _id: 1 }, { _id: 1 }],
+    'operational retention uses a stable, index-backed order');
   console.log('wikiStorageGovernorService tests passed');
 })().catch((error) => {
   console.error(error);
