@@ -37,6 +37,10 @@ const {
   SHARE_RECORD_FOOTER,
   SHARE_RECORD_KIND,
   SHARE_RECORD_SILENCE,
+  SHARE_RECORD_COLLISION_MANDATE,
+  SHARE_RECORD_COLLISION_SUCCESSION,
+  shareRecordStateFilter,
+  shareRecordWriteCollision,
   thinkShareState,
   withSuccessionOutcome
 } = require('./authoredThinkShare');
@@ -626,6 +630,18 @@ describe('authored think share', () => {
     expect(migrated.$set.succession.unresolved).toBe(exported.succession.unresolved);
     expect(migrated.$set.mandate.ownerId).toBe('owner-2');
     expect(migrated.$set.mandate.budget.remaining).toBe(2);
+    expect(shareRecordStateFilter(emptyDoor)).toEqual({ succession: null, mandate: null });
+    expect(shareRecordStateFilter(recordsShare)).toEqual({
+      succession: recordsShare.succession,
+      mandate: recordsShare.mandate
+    });
+    expect(shareRecordWriteCollision(emptyDoor, {
+      succession: exported.succession
+    }).collisions).toContain(SHARE_RECORD_COLLISION_SUCCESSION);
+    expect(shareRecordWriteCollision(emptyDoor, {
+      userId: 'owner-2',
+      mandate: named.mandate
+    }).collisions).toContain(SHARE_RECORD_COLLISION_MANDATE);
     expect(migrated.cannotTransfer).toContain('The public address of that door');
     expect(migrated.cannotTransfer).toContain('Remaining asks as a live counter');
     const collision = applyShareRecordImport({

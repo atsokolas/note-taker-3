@@ -33,6 +33,8 @@ const {
   publicQuestionPage,
   readLean,
   releaseContributionSlot,
+  shareRecordStateFilter,
+  shareRecordWriteCollision,
   shareSlug,
   thinkShareState,
   withSuccessionOutcome
@@ -90,6 +92,30 @@ const buildSharedQuestionRouter = ({
       here
     });
   };
+
+  const commitInspectedShare = async (share, userId, $set) => {
+    const updated = asRow(await SharedQuestion.findOneAndUpdate(
+      { _id: share._id, userId, ...shareRecordStateFilter(share) },
+      { $set },
+      { new: true }
+    ));
+    if (updated) return { updated };
+    const raced = asRow(await readLean(SharedQuestion.findOne({
+      _id: share._id,
+      userId
+    })));
+    if (!raced?.snapshot) {
+      return { error: 'This question is not shared.', status: 404 };
+    }
+    return { status: 409, ...shareRecordWriteCollision(share, raced) };
+  };
+
+  const rejectCommit = (res, committed, extras = {}) => res.status(committed.status || 409).json({
+    error: committed.error,
+    ...(committed.field ? { field: committed.field } : {}),
+    ...(committed.collisions ? { collisions: committed.collisions } : {}),
+    ...extras
+  });
 
   const freezeLegacy = async (share, preview, currentHash) => {
     if (!missingSnapshot(share) || !preview) return share;
@@ -442,20 +468,14 @@ const buildSharedQuestionRouter = ({
           }
           succession = frozen.succession;
         }
-        const updated = await SharedQuestion.findOneAndUpdate(
-          { _id: share._id, userId: req.user.id },
-          { $set: { succession } },
-          { new: true }
-        );
-        if (!updated) {
-          return res.status(404).json({ error: 'This question is not shared.' });
-        }
+        const committed = await commitInspectedShare(share, req.user.id, { succession });
+        if (!committed.updated) return rejectCommit(res, committed);
         const { preview, currentHash } = await liveQuestionPreview({
           User,
           question,
           userId: req.user.id
         });
-        return res.status(200).json(await payload(asRow(updated), { preview, currentHash, viewerUserId: req.user.id }));
+        return res.status(200).json(await payload(committed.updated, { preview, currentHash, viewerUserId: req.user.id }));
       } catch (error) {
         console.error('❌ Error handing the question on:', error);
         return res.status(500).json({ error: 'Failed to hand that decision on.' });
@@ -512,20 +532,14 @@ const buildSharedQuestionRouter = ({
           }
           mandate = frozen.mandate;
         }
-        const updated = await SharedQuestion.findOneAndUpdate(
-          { _id: share._id, userId: req.user.id },
-          { $set: { mandate } },
-          { new: true }
-        );
-        if (!updated) {
-          return res.status(404).json({ error: 'This question is not shared.' });
-        }
+        const committed = await commitInspectedShare(share, req.user.id, { mandate });
+        if (!committed.updated) return rejectCommit(res, committed);
         const { preview, currentHash } = await liveQuestionPreview({
           User,
           question,
           userId: req.user.id
         });
-        return res.status(200).json(await payload(asRow(updated), { preview, currentHash, viewerUserId: req.user.id }));
+        return res.status(200).json(await payload(committed.updated, { preview, currentHash, viewerUserId: req.user.id }));
       } catch (error) {
         console.error('❌ Error naming the agent assignment:', error);
         return res.status(500).json({ error: 'Failed to name that assignment.' });
@@ -566,14 +580,9 @@ const buildSharedQuestionRouter = ({
         }
         let updated = share;
         if (Object.keys(plan.$set || {}).length) {
-          updated = asRow(await SharedQuestion.findOneAndUpdate(
-            { _id: share._id, userId: req.user.id },
-            { $set: plan.$set },
-            { new: true }
-          ));
-          if (!updated) {
-            return res.status(404).json({ error: 'This question is not shared.' });
-          }
+          const committed = await commitInspectedShare(share, req.user.id, plan.$set);
+          if (!committed.updated) return rejectCommit(res, committed, { field: 'records' });
+          updated = committed.updated;
         }
         const { preview, currentHash } = await liveQuestionPreview({
           User,

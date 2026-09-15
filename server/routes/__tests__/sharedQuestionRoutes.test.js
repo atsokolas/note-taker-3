@@ -11,6 +11,8 @@ const {
   CONTRIBUTION_HELD,
   CONTRIBUTION_TAKE_CHANGED,
   CONTRIBUTION_TAKEN_BACK,
+  SHARE_RECORD_COLLISION_MANDATE,
+  SHARE_RECORD_COLLISION_SUCCESSION,
   hashPublicQuestion,
   projectPublicQuestion
 } = require('../../services/authoredThinkShare');
@@ -22,6 +24,7 @@ const listen = (app) => new Promise((resolve) => {
 
 const matchesValue = (actual, expected) => {
   if (expected instanceof RegExp) return expected.test(String(actual || ''));
+  if (expected == null) return actual == null;
   if (expected && typeof expected === 'object' && !Array.isArray(expected)) {
     if (Object.prototype.hasOwnProperty.call(expected, '$exists')) {
       const exists = actual !== undefined && actual !== null;
@@ -33,12 +36,18 @@ const matchesValue = (actual, expected) => {
     if (Object.prototype.hasOwnProperty.call(expected, '$ne')) {
       return actual !== expected.$ne;
     }
+    try {
+      return JSON.stringify(actual ?? null) === JSON.stringify(expected);
+    } catch (_error) {
+      return false;
+    }
   }
   return String(actual || '') === String(expected || '');
 };
 
 const matchesQuery = (row, query = {}) => Object.entries(query).every(([key, expected]) => {
   if (key === '$or') return expected.some((clause) => matchesQuery(row, clause));
+  if (key === '$and') return expected.every((clause) => matchesQuery(row, clause));
   return matchesValue(row[key], expected);
 });
 
@@ -144,6 +153,26 @@ const fetchJson = async (url, options = {}) => {
   });
   const body = await response.json();
   return { response, body };
+};
+
+const holdShareWrites = (model, shareId) => {
+  const original = model.findOneAndUpdate;
+  let started = 0;
+  let release = () => {};
+  const ready = new Promise((resolve) => {
+    release = resolve;
+  });
+  model.findOneAndUpdate = async (query, update, options) => {
+    if (String(query._id) === String(shareId)) {
+      started += 1;
+      if (started >= 2) release();
+      await ready;
+    }
+    return original.call(model, query, update, options);
+  };
+  return () => {
+    model.findOneAndUpdate = original;
+  };
 };
 
 const run = async () => {
@@ -873,6 +902,169 @@ const run = async () => {
     });
     assert.strictEqual(collide.response.status, 409);
     assert.ok(String(collide.body.error).includes('different successor record'));
+
+    const openDoor = async () => {
+      const id = new mongoose.Types.ObjectId().toString();
+      await Question.create({
+        _id: id,
+        userId,
+        text: 'What survives compounding?',
+        status: 'open',
+        conceptName: 'Compounding',
+        blocks: [{ id: 'p1', type: 'paragraph', text: 'Public paragraph.' }]
+      });
+      const minted = await fetchJson(`${base}/api/questions/${id}/share`, { method: 'POST' });
+      assert.strictEqual(minted.response.status, 201, JSON.stringify(minted.body));
+      return {
+        id,
+        minted,
+        share: SharedQuestion.rows.find((row) => String(row.questionId) === id)
+      };
+    };
+    const importRecords = (id, records) => fetchJson(`${base}/api/questions/${id}/share/records`, {
+      method: 'POST',
+      body: JSON.stringify({
+        kind: 'question-share-records',
+        version: 1,
+        ...records
+      })
+    });
+    const oneWriteWins = (results) => {
+      const won = results.filter((item) => item.response.status === 200);
+      const lost = results.filter((item) => item.response.status === 409);
+      assert.strictEqual(won.length, 1, JSON.stringify(results.map((item) => ({
+        status: item.response.status,
+        body: item.body
+      }))));
+      assert.strictEqual(lost.length, 1, JSON.stringify(lost.map((item) => item.body)));
+      assert.ok(lost[0].body.collisions?.length);
+      return { won: won[0], lost: lost[0] };
+    };
+
+    const concurrentDoor = await openDoor();
+    const restoreConcurrent = holdShareWrites(SharedQuestion, concurrentDoor.share._id);
+    let concurrentImports;
+    try {
+      concurrentImports = await Promise.all([
+        importRecords(concurrentDoor.id, {
+          succession: {
+            ...restoredOutcome.body.succession,
+            unresolved: 'Imported first.'
+          }
+        }),
+        importRecords(concurrentDoor.id, {
+          succession: {
+            ...restoredOutcome.body.succession,
+            unresolved: 'Imported second.'
+          }
+        })
+      ]);
+    } finally {
+      restoreConcurrent();
+    }
+    const concurrent = oneWriteWins(concurrentImports);
+    assert.ok(concurrent.lost.body.collisions.includes(SHARE_RECORD_COLLISION_SUCCESSION));
+    assert.ok(
+      concurrent.won.body.succession.unresolved === 'Imported first.'
+      || concurrent.won.body.succession.unresolved === 'Imported second.'
+    );
+    const afterConcurrent = await fetchJson(`${base}/api/questions/${concurrentDoor.id}/share`);
+    assert.strictEqual(
+      afterConcurrent.body.succession.unresolved,
+      concurrent.won.body.succession.unresolved
+    );
+    assert.ok(
+      afterConcurrent.body.succession.unresolved === 'Imported first.'
+      || afterConcurrent.body.succession.unresolved === 'Imported second.'
+    );
+
+    const mandateDoor = await openDoor();
+    const restoreMandateRace = holdShareWrites(SharedQuestion, mandateDoor.share._id);
+    let mandateRace;
+    try {
+      mandateRace = await Promise.all([
+        importRecords(mandateDoor.id, {
+          mandate: {
+            owner: 'Imported owner',
+            scope: 'Imported assignment.',
+            tools: AGENT_MANDATE_TOOLS,
+            budget: { asks: 2, remaining: 2, spent: 0 },
+            stop: 'Stop when the successor writes what happened later.',
+            review: 'Return to this door to end or renew the assignment.',
+            status: 'live'
+          }
+        }),
+        fetchJson(`${base}/api/questions/${mandateDoor.id}/share/mandate`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            owner: 'Named owner',
+            scope: 'Named on this door.',
+            stop: 'Stop now.',
+            review: 'Review here.',
+            budget: 1
+          })
+        })
+      ]);
+    } finally {
+      restoreMandateRace();
+    }
+    const mandateWinner = oneWriteWins(mandateRace);
+    assert.ok(mandateWinner.lost.body.collisions.includes(SHARE_RECORD_COLLISION_MANDATE));
+    const afterMandate = await fetchJson(`${base}/api/questions/${mandateDoor.id}/share`);
+    assert.strictEqual(afterMandate.body.mandate.scope, mandateWinner.won.body.mandate.scope);
+    assert.ok(
+      afterMandate.body.mandate.scope === 'Imported assignment.'
+      || afterMandate.body.mandate.scope === 'Named on this door.'
+    );
+    assert.strictEqual(
+      afterMandate.body.mandate.budget.asks,
+      afterMandate.body.mandate.scope === 'Imported assignment.' ? 2 : 1
+    );
+
+    const successionDoor = await openDoor();
+    await QuestionContribution.create({
+      userId,
+      questionId: successionDoor.id,
+      slug: successionDoor.minted.body.slug,
+      by: 'Mara',
+      text: 'Same fact, different time horizon.',
+      remainder: 'Who pays when the window closes?',
+      held: false
+    });
+    successionDoor.share.brief = {
+      agreement: 'The fact is shared. The horizon is not.',
+      remainder: 'Handed from this door.',
+      observation: 'Watch the cost arrive.'
+    };
+    const restoreSuccessionRace = holdShareWrites(SharedQuestion, successionDoor.share._id);
+    let successionRace;
+    try {
+      successionRace = await Promise.all([
+        importRecords(successionDoor.id, {
+          succession: {
+            ...restoredOutcome.body.succession,
+            unresolved: 'Imported successor.'
+          }
+        }),
+        fetchJson(`${base}/api/questions/${successionDoor.id}/share/succession`, {
+          method: 'PATCH',
+          body: JSON.stringify({ outcome: 'The window closed.' })
+        })
+      ]);
+    } finally {
+      restoreSuccessionRace();
+    }
+    const successionWinner = oneWriteWins(successionRace);
+    assert.ok(successionWinner.lost.body.collisions.includes(SHARE_RECORD_COLLISION_SUCCESSION));
+    const afterSuccession = await fetchJson(`${base}/api/questions/${successionDoor.id}/share`);
+    assert.strictEqual(
+      afterSuccession.body.succession.unresolved,
+      successionWinner.won.body.succession.unresolved
+    );
+    assert.ok(
+      afterSuccession.body.succession.unresolved === 'Imported successor.'
+      || afterSuccession.body.succession.unresolved === 'Handed from this door.'
+    );
 
     const used = SharedQuestion.rows[0].contributionCount;
     const filled = [];
