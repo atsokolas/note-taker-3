@@ -28,8 +28,9 @@ const {
  * then, uncertainty, authority, review conditions, and an optional later
  * outcome. The successor opens at the last unresolved question. An agent
  * mandate on that door names an owner, scope, tools, budget, stop, and
- * review, and pauses when ownership or authority lapses. The companion
- * is bound to this public page only. Libraries stay private.
+ * review, and pauses when ownership or authority lapses. Those two records
+ * can leave as one readable file and return, or say what cannot transfer.
+ * The companion is bound to this public page only. Libraries stay private.
  */
 
 const PREVIEW_STALE = {
@@ -47,6 +48,24 @@ const NOT_PUBLISHED = {
   question: 'This question is not published.',
   concept: 'This concept is not published.'
 };
+
+const SHARE_RECORD_KIND = 'question-share-records';
+const SHARE_RECORD_VERSION = 1;
+const SHARE_RECORD_SILENCE = 'This door has no successor record or named assignment.';
+const SHARE_RECORD_UNKNOWN = 'This is not a successor record or named assignment.';
+const SHARE_RECORD_VERSION_ERROR = 'This record uses an unknown export version.';
+const SHARE_RECORD_UNSTRUCTURED = 'This readable copy has no structured record to return.';
+const SHARE_RECORD_FOOTER = 'This file is the successor record and the named assignment. It does not take the live companion, remaining asks on this door, who is here, the private Library, or unplaced readings.';
+const SHARE_RECORD_GAPS = Object.freeze([
+  'The account that owns this door',
+  'Remaining asks as a live counter',
+  'Live companion conversation',
+  'Who is at the door now',
+  'Private Library, workshop, and unplaced readings',
+  'Live contribution rows; alternatives travel as frozen text'
+]);
+const SHARE_RECORD_COLLISION_SUCCESSION = 'This door already has a different successor record.';
+const SHARE_RECORD_COLLISION_MANDATE = 'This door already has a live assignment.';
 
 const CONTRIBUTION_LIMIT = 12;
 const CONTRIBUTION_CHARS = 800;
@@ -751,6 +770,307 @@ const liveConceptPreview = async ({ User, concept, userId }) => {
   };
 };
 
+const shareRecordFilename = (bundle = {}) => {
+  const title = publicText(bundle.succession?.unresolved || 'agent-assignment', 80)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60);
+  return `${title || 'question-records'}.md`;
+};
+
+const fingerprintSuccession = (row) => JSON.stringify({
+  unresolved: row?.unresolved || '',
+  alternatives: (Array.isArray(row?.alternatives) ? row.alternatives : []).map((item) => ({
+    by: item?.by || '',
+    text: item?.text || '',
+    remainder: item?.remainder || ''
+  })),
+  evidence: row?.evidenceThen?.text || '',
+  uncertainty: row?.uncertainty || '',
+  review: row?.review || '',
+  held: row?.held || '',
+  outcome: row?.outcome || ''
+});
+
+const fingerprintMandate = (row) => JSON.stringify({
+  owner: row?.owner || '',
+  scope: row?.scope || '',
+  tools: row?.tools || '',
+  asks: Number(row?.budget?.asks) || 0,
+  stop: row?.stop || '',
+  review: row?.review || '',
+  status: row?.status === 'paused' ? 'paused' : 'live'
+});
+
+const portableShareRecords = (share) => {
+  const succession = projectShareSuccession(share);
+  const mandate = projectShareMandate(share);
+  if (!succession && !mandate) return null;
+  const slug = publicText(share?.slug, 80);
+  return {
+    kind: SHARE_RECORD_KIND,
+    version: SHARE_RECORD_VERSION,
+    door: {
+      slug,
+      ...(slug ? { path: `/share/questions/${slug}` } : {})
+    },
+    ...(succession ? { succession } : {}),
+    ...(mandate ? { mandate } : {})
+  };
+};
+
+const exportShareRecords = (share, { now = new Date() } = {}) => {
+  const portable = portableShareRecords(share);
+  if (!portable) return { error: SHARE_RECORD_SILENCE };
+  return {
+    ...portable,
+    exportedAt: asIso(now) || asIso(new Date()),
+    cannotTransfer: [...SHARE_RECORD_GAPS]
+  };
+};
+
+const formatShareRecordDay = (value) => {
+  const iso = asIso(value);
+  if (!iso) return '';
+  const date = new Date(iso);
+  return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+};
+
+const buildShareRecordMarkdown = (bundle) => {
+  const portable = bundle && typeof bundle === 'object' ? bundle : {};
+  const succession = portable.succession;
+  const mandate = portable.mandate;
+  const lines = [];
+  if (succession?.unresolved) {
+    lines.push(`# ${succession.unresolved}`, '');
+    if (succession.authority) {
+      const when = formatShareRecordDay(succession.handedAt);
+      lines.push(when
+        ? `${succession.authority} handed this on ${when}.`
+        : `${succession.authority} handed this on.`);
+      lines.push('');
+    }
+    if (succession.held) lines.push('## What holds', '', succession.held, '');
+    lines.push('## Alternatives then', '');
+    (Array.isArray(succession.alternatives) ? succession.alternatives : []).forEach((reading) => {
+      if (!reading?.by || !reading?.text) return;
+      lines.push(`### ${reading.by}`, '', reading.text);
+      if (reading.remainder) lines.push('', `Still holds: ${reading.remainder}`);
+      lines.push('');
+    });
+    if (succession.evidenceThen?.text) {
+      lines.push('## Evidence then', '', succession.evidenceThen.text, '');
+      (Array.isArray(succession.evidenceThen.paragraphs) ? succession.evidenceThen.paragraphs : [])
+        .filter((block) => publicText(block?.text) && publicText(block.text) !== succession.evidenceThen.text)
+        .forEach((block) => lines.push(block.text, ''));
+    }
+    if (succession.uncertainty && succession.uncertainty !== succession.unresolved) {
+      lines.push('## What was uncertain', '', succession.uncertainty, '');
+    }
+    if (succession.review) lines.push('## When to look again', '', succession.review, '');
+    if (succession.outcome) lines.push('## What happened later', '', succession.outcome, '');
+  } else {
+    lines.push('# An agent assignment', '');
+  }
+  if (mandate?.owner) {
+    lines.push('## An agent assignment', '');
+    lines.push(`Accountable owner: ${mandate.owner}`);
+    lines.push(`Scope: ${mandate.scope}`);
+    lines.push(`Tools: ${mandate.tools}`);
+    const asks = Number(mandate.budget?.asks) || 0;
+    lines.push(`Budget: ${asks === 1 ? 'One ask' : `${asks} asks`}`);
+    lines.push(`Stop when: ${mandate.stop}`);
+    lines.push(`Review route: ${mandate.review}`);
+    if (mandate.pause) lines.push('', mandate.pause);
+    lines.push('');
+  }
+  lines.push('---', '', SHARE_RECORD_FOOTER);
+  if (portable.door?.path) {
+    lines.push('', `The public door was ${portable.door.path}.`);
+  }
+  const fence = {
+    kind: SHARE_RECORD_KIND,
+    version: SHARE_RECORD_VERSION,
+    ...(asIso(portable.exportedAt) ? { exportedAt: asIso(portable.exportedAt) } : {}),
+    door: portable.door || { slug: '' },
+    ...(succession ? { succession } : {}),
+    ...(mandate ? { mandate } : {})
+  };
+  lines.push('', '```json', JSON.stringify(fence, null, 2), '```', '');
+  return lines.join('\n');
+};
+
+const readShareRecordInput = (raw) => {
+  if (raw == null) return '';
+  if (typeof raw === 'string') return raw;
+  if (typeof raw !== 'object' || Array.isArray(raw)) return '';
+  if (typeof raw.markdown === 'string') return raw.markdown;
+  if (raw.records && typeof raw.records === 'object') return raw.records;
+  if (raw.kind === SHARE_RECORD_KIND) return raw;
+  return raw;
+};
+
+const parseShareRecordBundle = (raw) => {
+  const input = readShareRecordInput(raw);
+  let parsed = input;
+  if (typeof input === 'string') {
+    const text = input.trim();
+    if (!text) return { error: SHARE_RECORD_SILENCE };
+    if (text.startsWith('{')) {
+      try {
+        parsed = JSON.parse(text);
+      } catch (_error) {
+        return { error: SHARE_RECORD_UNSTRUCTURED };
+      }
+    } else {
+      const fence = text.match(/```json\s*([\s\S]*?)```/i);
+      if (!fence) return { error: SHARE_RECORD_UNSTRUCTURED };
+      try {
+        parsed = JSON.parse(fence[1]);
+      } catch (_error) {
+        return { error: SHARE_RECORD_UNSTRUCTURED };
+      }
+    }
+  }
+  if (!parsed || parsed.kind !== SHARE_RECORD_KIND) {
+    return { error: SHARE_RECORD_UNKNOWN };
+  }
+  if (Number(parsed.version) !== SHARE_RECORD_VERSION) {
+    return { error: SHARE_RECORD_VERSION_ERROR };
+  }
+  const share = {
+    slug: publicText(parsed.door?.slug, 80),
+    succession: parsed.succession,
+    mandate: parsed.mandate
+  };
+  const succession = projectShareSuccession(share);
+  const mandate = projectShareMandate(share);
+  if (!succession && !mandate) return { error: SHARE_RECORD_SILENCE };
+  return {
+    kind: SHARE_RECORD_KIND,
+    version: SHARE_RECORD_VERSION,
+    exportedAt: asIso(parsed.exportedAt) || '',
+    door: {
+      slug: publicText(parsed.door?.slug, 80),
+      path: publicText(parsed.door?.path, 200)
+    },
+    ...(succession ? { succession } : {}),
+    ...(mandate ? { mandate } : {})
+  };
+};
+
+const materializeImportedMandate = (mandate, { userId, now = new Date() } = {}) => {
+  const opened = openAgentMandate({
+    owner: mandate.owner,
+    ownerId: userId,
+    scope: mandate.scope,
+    tools: mandate.tools,
+    budget: mandate.budget?.asks,
+    stop: mandate.stop,
+    review: mandate.review,
+    now: mandate.openedAt || now
+  });
+  if (mandate.status === 'paused' || mandate.pause) {
+    return pauseAgentMandate(opened, {
+      reason: mandate.pause,
+      now: mandate.pausedAt || now
+    });
+  }
+  return opened;
+};
+
+const inspectShareRecordImport = (raw, share, { userId } = {}) => {
+  const parsed = parseShareRecordBundle(raw);
+  if (parsed.error) return { ...parsed, status: 400 };
+  if (!share?.snapshot) {
+    return { error: NOT_PUBLISHED.question, status: 404 };
+  }
+  const sameDoor = Boolean(
+    parsed.door.slug && parsed.door.slug === publicText(share.slug, 80)
+  );
+  const cannotTransfer = [
+    ...(parsed.door.slug && !sameDoor ? ['The public address of that door'] : []),
+    ...SHARE_RECORD_GAPS
+  ];
+  const existingSuccession = projectShareSuccession(share);
+  const existingMandate = projectShareMandate(share);
+  const collisions = [];
+  const retained = [];
+  const restore = {};
+
+  if (parsed.succession) {
+    if (existingSuccession) {
+      if (fingerprintSuccession(existingSuccession) === fingerprintSuccession(parsed.succession)) {
+        retained.push('successor');
+      } else {
+        collisions.push(SHARE_RECORD_COLLISION_SUCCESSION);
+      }
+    } else {
+      restore.succession = parsed.succession;
+      retained.push('successor');
+    }
+  }
+
+  if (parsed.mandate) {
+    if (existingMandate) {
+      if (fingerprintMandate(existingMandate) === fingerprintMandate(parsed.mandate)) {
+        retained.push('mandate');
+      } else if (existingMandate.status === 'live') {
+        collisions.push(SHARE_RECORD_COLLISION_MANDATE);
+      } else {
+        restore.mandate = parsed.mandate;
+        retained.push('mandate');
+      }
+    } else {
+      restore.mandate = parsed.mandate;
+      retained.push('mandate');
+    }
+  }
+
+  if (!retained.length) {
+    return {
+      error: collisions[0] || SHARE_RECORD_SILENCE,
+      status: collisions.length ? 409 : 400,
+      collisions,
+      cannotTransfer
+    };
+  }
+
+  return {
+    ok: true,
+    parsed,
+    sameDoor,
+    retained,
+    restore,
+    collisions,
+    cannotTransfer,
+    userId: String(userId || share.userId || '').trim()
+  };
+};
+
+const applyShareRecordImport = (raw, share, { userId, now = new Date() } = {}) => {
+  const inspection = inspectShareRecordImport(raw, share, { userId });
+  if (!inspection.ok) return inspection;
+  const $set = {};
+  if (inspection.restore.succession) $set.succession = inspection.restore.succession;
+  if (inspection.restore.mandate) {
+    try {
+      $set.mandate = materializeImportedMandate(inspection.restore.mandate, {
+        userId: inspection.userId,
+        now
+      });
+    } catch (error) {
+      return {
+        error: error.message || MANDATE_NEEDS_FIELDS,
+        status: 409,
+        cannotTransfer: inspection.cannotTransfer
+      };
+    }
+  }
+  return { ...inspection, $set };
+};
+
 module.exports = {
   BRIEF_NEEDS_READING,
   SUCCESSION_NEEDS_UNRESOLVED,
@@ -765,8 +1085,20 @@ module.exports = {
   NOT_PUBLISHED,
   PREVIEW_STALE,
   PRESENCE_TTL_MS,
+  SHARE_RECORD_COLLISION_MANDATE,
+  SHARE_RECORD_COLLISION_SUCCESSION,
+  SHARE_RECORD_FOOTER,
+  SHARE_RECORD_GAPS,
+  SHARE_RECORD_KIND,
+  SHARE_RECORD_SILENCE,
+  SHARE_RECORD_UNKNOWN,
+  SHARE_RECORD_UNSTRUCTURED,
+  SHARE_RECORD_VERSION,
+  SHARE_RECORD_VERSION_ERROR,
+  applyShareRecordImport,
   asRow,
   beatQuestionPresence,
+  buildShareRecordMarkdown,
   canPublishConcept,
   canPublishQuestion,
   claimContributionSlot,
@@ -780,11 +1112,13 @@ module.exports = {
   contributionText,
   contributionWithdrawn,
   endShareMandate,
+  exportShareRecords,
   freezeShareMandate,
   freezeShareSuccession,
   freezeThinkSnapshot,
   hashPublicConcept,
   hashPublicQuestion,
+  inspectShareRecordImport,
   heldContributions,
   isDuplicateKey,
   liveConceptPreview,
@@ -793,6 +1127,7 @@ module.exports = {
   loadQuestionPresence,
   missingSnapshot,
   ownerNameOf,
+  parseShareRecordBundle,
   placedContributions,
   presenceLine,
   presenceNameFor,
@@ -809,6 +1144,7 @@ module.exports = {
   releaseContributionSlot,
   sanitizeCard,
   sanitizeParagraphBlocks,
+  shareRecordFilename,
   shareSlug,
   thinkShareState,
   withSuccessionOutcome

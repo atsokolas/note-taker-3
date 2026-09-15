@@ -9,6 +9,7 @@ import {
   saveQuestionShareBrief,
   saveQuestionShareMandate,
   saveQuestionShareSuccession,
+  importQuestionShareRecords,
   updateQuestionShare
 } from '../../../api/questions';
 import { usePrefersReducedMotion } from '../../../hooks/useMotionPreferences';
@@ -17,6 +18,7 @@ import QuestionShareView from '../QuestionShareView';
 import {
   QUESTION_SHARE_AGREEMENT,
   QUESTION_SHARE_BRIEF,
+  QUESTION_SHARE_BRING_RECORDS,
   QUESTION_SHARE_BUDGET,
   QUESTION_SHARE_END_MANDATE,
   QUESTION_SHARE_HAND,
@@ -28,16 +30,20 @@ import {
   QUESTION_SHARE_OUTCOME,
   QUESTION_SHARE_PLACE,
   QUESTION_SHARE_PRIVACY,
+  QUESTION_SHARE_RECORDS_HINT,
   QUESTION_SHARE_REVIEW_ROUTE,
   QUESTION_SHARE_SCOPE,
   QUESTION_SHARE_STOP,
   QUESTION_SHARE_TAKE,
   QUESTION_SHARE_TAKE_CHANGED,
+  QUESTION_SHARE_TAKE_RECORDS,
   QUESTION_SHARE_TAKEN_BACK,
   QUESTION_SHARE_TOOLS,
   AGENT_MANDATE_TOOLS,
   THINK_SHARE_REVOKE,
-  questionPresenceLine
+  downloadQuestionShareRecords,
+  questionPresenceLine,
+  shareRecordReceipt
 } from '../thinkShareFixture';
 
 const buildShareUrl = (slug) => {
@@ -411,6 +417,72 @@ const ShareMandate = ({ mandate, ownerName, disabled, onSave, onEnd }) => {
   );
 };
 
+const ShareRecords = ({
+  snapshot,
+  slug,
+  canTake = false,
+  disabled,
+  onBring
+}) => {
+  const fileRef = useRef(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [receipt, setReceipt] = useState('');
+
+  const take = () => {
+    if (!canTake || busy || disabled) return;
+    downloadQuestionShareRecords(snapshot, slug);
+  };
+
+  const bring = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file || busy || disabled) return;
+    setBusy(true);
+    setError('');
+    setReceipt('');
+    try {
+      const markdown = await file.text();
+      const data = await onBring(markdown);
+      setReceipt(shareRecordReceipt(data?.records) || 'Those records returned.');
+    } catch (err) {
+      setError(err?.response?.data?.error || 'Those records did not return.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="concept-share-modal__note" data-testid="question-share-records-form">
+      <p className="muted small">{QUESTION_SHARE_RECORDS_HINT}</p>
+      {error ? <p className="status-message error-message">{error}</p> : null}
+      {receipt ? <p className="muted small" role="status">{receipt}</p> : null}
+      <div className="concept-share-modal__actions">
+        {canTake ? (
+          <Button type="button" variant="secondary" onClick={take} disabled={disabled || busy}>
+            {QUESTION_SHARE_TAKE_RECORDS}
+          </Button>
+        ) : null}
+        <QuietButton
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          disabled={disabled || busy}
+        >
+          {busy ? 'Returning…' : QUESTION_SHARE_BRING_RECORDS}
+        </QuietButton>
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".md,.json,text/markdown,application/json"
+          hidden
+          aria-label={QUESTION_SHARE_BRING_RECORDS}
+          onChange={bring}
+        />
+      </div>
+    </div>
+  );
+};
+
 const ShareIncludesList = () => (
   <ul className="concept-share-modal__includes" aria-label="What's included">
     <li>
@@ -565,6 +637,12 @@ const QuestionShareModal = ({ open, questionId, questionText, onClose }) => {
     setState(data);
   };
 
+  const handleBringRecords = async (markdown) => {
+    const data = await importQuestionShareRecords(questionId, { markdown });
+    setState(data);
+    return data;
+  };
+
   const handleRevoke = async () => {
     if (!window.confirm('Revoke this share link? Anyone with the existing link will lose access immediately.')) return;
     setBusy(true);
@@ -710,6 +788,15 @@ const QuestionShareModal = ({ open, questionId, questionText, onClose }) => {
                 disabled={busy}
                 onSave={handleMandate}
                 onEnd={handleMandateEnd}
+              />
+            ) : null}
+            {state.shared ? (
+              <ShareRecords
+                snapshot={readerView}
+                slug={state.slug}
+                canTake={Boolean(publicSuccession || publicMandate)}
+                disabled={busy}
+                onBring={handleBringRecords}
               />
             ) : null}
             {conflict ? (

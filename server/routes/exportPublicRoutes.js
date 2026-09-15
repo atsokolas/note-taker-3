@@ -1,9 +1,18 @@
 const express = require('express');
+const {
+  NOT_PUBLISHED,
+  asRow,
+  buildShareRecordMarkdown,
+  exportShareRecords,
+  readLean,
+  shareRecordFilename
+} = require('../services/authoredThinkShare');
 
 const buildExportPublicRouter = ({
   mongoose,
   authenticateToken,
   NotebookEntry,
+  SharedQuestion,
   createBlockId,
   ensureNotebookBlocks,
   buildNotebookMarkdown,
@@ -15,6 +24,17 @@ const buildExportPublicRouter = ({
   buildConceptMarkdown
 }) => {
   const router = express.Router();
+
+  const fileSlug = (value, fallback) => {
+    if (typeof slugify === 'function') {
+      const named = slugify(value || fallback || 'question-records');
+      if (named) return named;
+    }
+    return String(value || fallback || 'question-records')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'question-records';
+  };
 
   router.get('/api/export/notebook/:id', authenticateToken, async (req, res) => {
     try {
@@ -102,6 +122,42 @@ const buildExportPublicRouter = ({
     } catch (error) {
       console.error('❌ Error loading public concept:', error);
       res.status(500).json({ error: 'Failed to load public concept.' });
+    }
+  });
+
+  /* Portable C8 records: successor handoff and/or named mandate. Same
+     attachment pattern as notebook markdown. Unpublished or empty stay
+     silent. The structured fence is the round-trip; remaining asks,
+     account binding, companion, presence, and Library do not travel. */
+  router.get('/api/export/questions/:slug', async (req, res) => {
+    try {
+      const slug = String(req.params.slug || '').trim();
+      if (!slug || !SharedQuestion?.findOne) {
+        return res.status(404).json({ error: NOT_PUBLISHED.question });
+      }
+      const share = asRow(await readLean(SharedQuestion.findOne({ slug })));
+      if (!share?.snapshot) {
+        return res.status(404).json({ error: NOT_PUBLISHED.question });
+      }
+      const bundle = exportShareRecords(share);
+      if (bundle.error) {
+        return res.status(404).json({ error: bundle.error });
+      }
+      const wantsJson = String(req.query.format || '').trim() === 'json'
+        || String(req.headers.accept || '').includes('application/json');
+      if (wantsJson) {
+        res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+        return res.status(200).json(bundle);
+      }
+      const markdown = buildShareRecordMarkdown(bundle);
+      const stem = shareRecordFilename(bundle).replace(/\.md$/, '');
+      const fileName = `${fileSlug(bundle.succession?.unresolved || stem, 'question-records')}.md`;
+      res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+      return res.status(200).send(markdown);
+    } catch (error) {
+      console.error('❌ Error exporting question records:', error);
+      return res.status(500).json({ error: 'Failed to export those records.' });
     }
   });
 

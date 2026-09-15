@@ -8579,6 +8579,24 @@ textarea.think-share-view__offer-field {
   margin: 1.15rem 0 0;
 }
 
+.think-share-view__export {
+  margin: 1.15rem 0 0;
+}
+
+.think-share-view__export button {
+  font: inherit;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 0;
+  padding: 0.2rem 0;
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+  cursor: pointer;
+}
+
 .shared-question-companion {
   margin: 1.75rem 0 0;
 }
@@ -8622,6 +8640,7 @@ textarea.think-share-view__offer-field {
   .think-share-view__mandate,
   .think-share-view__interpretation,
   .think-share-view__presence,
+  .think-share-view__export,
   .shared-question-companion,
   .shared-question-companion .agent-thought-partner {
     transition: none;
@@ -8635,6 +8654,7 @@ textarea.think-share-view__offer-field {
   .think-share-view__yours,
   .think-share-view__withdraw,
   .think-share-view__presence,
+  .think-share-view__export,
   .shared-question-companion,
   .shared-concept-topbar__actions {
     display: none;

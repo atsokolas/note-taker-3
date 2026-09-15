@@ -149,12 +149,58 @@ describe('QuestionShareView', () => {
     expect(screen.queryByText('asks remain')).not.toBeInTheDocument();
   });
 
+  it('lets a reader take the successor record as a readable file', () => {
+    const createObjectURL = jest.fn(() => 'blob:records');
+    const revokeObjectURL = jest.fn();
+    const click = jest.fn();
+    const originalCreate = URL.createObjectURL;
+    const originalRevoke = URL.revokeObjectURL;
+    URL.createObjectURL = createObjectURL;
+    URL.revokeObjectURL = revokeObjectURL;
+    render(
+      <QuestionShareView
+        snapshot={questionSnapshot({
+          succession: questionSuccession(),
+          mandate: questionMandate()
+        })}
+        slug="qslug"
+      />
+    );
+    const createElement = document.createElement.bind(document);
+    const spy = jest.spyOn(document, 'createElement').mockImplementation((tag) => {
+      if (tag === 'a') {
+        return { href: '', download: '', click };
+      }
+      return createElement(tag);
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Take these records' }));
+    expect(createObjectURL).toHaveBeenCalled();
+    expect(createObjectURL.mock.calls[0][0]).toBeInstanceOf(Blob);
+    expect(click).toHaveBeenCalled();
+    expect(revokeObjectURL).toHaveBeenCalled();
+    spy.mockRestore();
+    URL.createObjectURL = originalCreate;
+    URL.revokeObjectURL = originalRevoke;
+  });
+
+  it('hides the file in compact preview', () => {
+    render(
+      <QuestionShareView
+        snapshot={questionSnapshot({ succession: questionSuccession() })}
+        slug="qslug"
+        compact
+      />
+    );
+    expect(screen.queryByRole('button', { name: 'Take these records' })).not.toBeInTheDocument();
+  });
+
   it('stays silent when nobody has offered a reading', () => {
     render(<QuestionShareView snapshot={questionSnapshot()} />);
     expect(screen.queryByTestId('question-share-readings')).not.toBeInTheDocument();
     expect(screen.queryByTestId('question-share-yours')).not.toBeInTheDocument();
     expect(screen.queryByTestId('question-share-brief')).not.toBeInTheDocument();
     expect(screen.queryByTestId('question-share-presence')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Take these records' })).not.toBeInTheDocument();
     expect(screen.queryByText(/Still holds/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Not quite/)).not.toBeInTheDocument();
   });

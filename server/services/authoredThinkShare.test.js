@@ -6,6 +6,8 @@ const {
   BRIEF_NEEDS_READING,
   SUCCESSION_NEEDS_UNRESOLVED,
   MANDATE_NEEDS_FIELDS,
+  applyShareRecordImport,
+  buildShareRecordMarkdown,
   canPublishConcept,
   canPublishQuestion,
   claimShareAgentAsk,
@@ -13,12 +15,14 @@ const {
   contributionSlotFilter,
   contributionText,
   endShareMandate,
+  exportShareRecords,
   freezeShareMandate,
   freezeShareSuccession,
   freezeThinkSnapshot,
   hashPublicConcept,
   hashPublicQuestion,
   missingSnapshot,
+  parseShareRecordBundle,
   presenceLine,
   presenceNameFor,
   PRESENCE_TTL_MS,
@@ -30,6 +34,9 @@ const {
   projectShareMandate,
   projectShareSuccession,
   publicQuestionPage,
+  SHARE_RECORD_FOOTER,
+  SHARE_RECORD_KIND,
+  SHARE_RECORD_SILENCE,
   thinkShareState,
   withSuccessionOutcome
 } = require('./authoredThinkShare');
@@ -581,6 +588,55 @@ describe('authored think share', () => {
     expect(ended.status).toBe('paused');
     expect(ended.pause).toBe(AGENT_MANDATE_PAUSE.ended);
     expect(projectShareMandate({ mandate: ended }).pause).toBe(AGENT_MANDATE_PAUSE.ended);
+
+    const recordsShare = {
+      ...shareWithSuccession,
+      slug: 'qslug',
+      userId: 'owner-1',
+      mandate: named.mandate
+    };
+    expect(exportShareRecords({ snapshot: frozen, slug: 'qslug' }).error).toBe(SHARE_RECORD_SILENCE);
+    const exported = exportShareRecords(recordsShare, { now: '2026-09-15T00:10:00.000Z' });
+    expect(exported.kind).toBe(SHARE_RECORD_KIND);
+    expect(exported.door.path).toBe('/share/questions/qslug');
+    expect(exported.succession.unresolved).toBe('The window may close before compounding pays.');
+    expect(exported.mandate.owner).toBe('Athan');
+    expect(exported.mandate.ownerId).toBeUndefined();
+    expect(exported.cannotTransfer).toContain('Remaining asks as a live counter');
+    const markdown = buildShareRecordMarkdown(exported);
+    expect(markdown).toContain('# The window may close before compounding pays.');
+    expect(markdown).toContain(SHARE_RECORD_FOOTER);
+    expect(markdown).toContain('```json');
+    const parsed = parseShareRecordBundle(markdown);
+    expect(parsed.succession.unresolved).toBe(exported.succession.unresolved);
+    expect(parsed.mandate.scope).toBe(exported.mandate.scope);
+    const sameDoor = applyShareRecordImport(markdown, recordsShare, { userId: 'owner-1' });
+    expect(sameDoor.ok).toBe(true);
+    expect(sameDoor.sameDoor).toBe(true);
+    expect(sameDoor.retained).toEqual(['successor', 'mandate']);
+    expect(sameDoor.$set).toEqual({});
+    const emptyDoor = {
+      slug: 'other-door',
+      userId: 'owner-2',
+      snapshot: frozen
+    };
+    const migrated = applyShareRecordImport(markdown, emptyDoor, { userId: 'owner-2' });
+    expect(migrated.ok).toBe(true);
+    expect(migrated.sameDoor).toBe(false);
+    expect(migrated.$set.succession.unresolved).toBe(exported.succession.unresolved);
+    expect(migrated.$set.mandate.ownerId).toBe('owner-2');
+    expect(migrated.$set.mandate.budget.remaining).toBe(2);
+    expect(migrated.cannotTransfer).toContain('The public address of that door');
+    expect(migrated.cannotTransfer).toContain('Remaining asks as a live counter');
+    const collision = applyShareRecordImport({
+      ...exported,
+      succession: {
+        ...exported.succession,
+        unresolved: 'A different unresolved question.'
+      }
+    }, recordsShare, { userId: 'owner-1' });
+    expect(collision.collisions).toContain('This door already has a different successor record.');
+    expect(parseShareRecordBundle('# Only prose\n').error).toMatch(/no structured record/);
 
     const store = { share: { slug: 'qslug', userId: 'owner-1', mandate: { ...named.mandate } } };
     const SharedQuestion = {

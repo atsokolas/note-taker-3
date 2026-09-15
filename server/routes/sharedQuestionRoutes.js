@@ -4,6 +4,7 @@ const {
   CONTRIBUTION_LIMIT,
   NOT_PUBLISHED,
   PREVIEW_STALE,
+  applyShareRecordImport,
   asRow,
   claimContributionSlot,
   contributionBy,
@@ -528,6 +529,70 @@ const buildSharedQuestionRouter = ({
       } catch (error) {
         console.error('❌ Error naming the agent assignment:', error);
         return res.status(500).json({ error: 'Failed to name that assignment.' });
+      }
+    }
+  );
+
+  /* The owner may return a portable successor record and/or named
+     assignment to this door. Same-door identity is retained. Remaining
+     asks, account binding, companion, presence, and Library do not
+     transfer. A different live record is a named collision. */
+  router.post(
+    '/api/questions/:id/share/records',
+    authenticateToken,
+    humanOnly,
+    async (req, res) => {
+      noStore(res);
+      try {
+        const question = await findOwnedQuestion(req.user.id, req.params.id);
+        if (!question) {
+          return res.status(404).json({ error: 'Question not found.' });
+        }
+        const share = asRow(await readLean(SharedQuestion.findOne({
+          userId: req.user.id,
+          questionId: question._id
+        })));
+        if (!share?.snapshot) {
+          return res.status(404).json({ error: 'This question is not shared.' });
+        }
+        const plan = applyShareRecordImport(req.body, share, { userId: req.user.id });
+        if (!plan.ok) {
+          return res.status(plan.status || 400).json({
+            error: plan.error,
+            field: 'records',
+            ...(plan.cannotTransfer ? { cannotTransfer: plan.cannotTransfer } : {}),
+            ...(plan.collisions ? { collisions: plan.collisions } : {})
+          });
+        }
+        let updated = share;
+        if (Object.keys(plan.$set || {}).length) {
+          updated = asRow(await SharedQuestion.findOneAndUpdate(
+            { _id: share._id, userId: req.user.id },
+            { $set: plan.$set },
+            { new: true }
+          ));
+          if (!updated) {
+            return res.status(404).json({ error: 'This question is not shared.' });
+          }
+        }
+        const { preview, currentHash } = await liveQuestionPreview({
+          User,
+          question,
+          userId: req.user.id
+        });
+        return res.status(200).json({
+          ...(await payload(updated, { preview, currentHash, viewerUserId: req.user.id })),
+          records: {
+            retained: plan.retained,
+            restored: Object.keys(plan.$set || {}),
+            sameDoor: plan.sameDoor,
+            cannotTransfer: plan.cannotTransfer,
+            collisions: plan.collisions
+          }
+        });
+      } catch (error) {
+        console.error('❌ Error returning question records:', error);
+        return res.status(500).json({ error: 'Failed to return those records.' });
       }
     }
   );

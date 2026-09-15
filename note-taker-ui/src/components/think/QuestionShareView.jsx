@@ -16,13 +16,17 @@ import {
   QUESTION_SHARE_REVIEW_ROUTE,
   QUESTION_SHARE_SCOPE,
   QUESTION_SHARE_STOP,
+  QUESTION_SHARE_TAKE_RECORDS,
   QUESTION_SHARE_TOOLS,
   QUESTION_SHARE_UNCERTAINTY,
   QUESTION_SHARE_UNRESOLVED,
   QUESTION_SHARE_WITHDRAW,
   QUESTION_SHARE_YOURS,
+  downloadQuestionShareRecords,
   mandateBudgetLine,
-  questionPresenceLine
+  questionPresenceLine,
+  questionShareMandateOf,
+  questionShareSuccessionOf
 } from './thinkShareFixture';
 
 const asLine = (value) => String(value || '').trim();
@@ -58,68 +62,6 @@ const briefOf = (snapshot) => {
     remainder,
     observation,
     by: asLine(brief.by)
-  };
-};
-
-const successionOf = (snapshot) => {
-  const succession = snapshot?.succession && typeof snapshot.succession === 'object'
-    ? snapshot.succession
-    : null;
-  if (!succession) return null;
-  const unresolved = asLine(succession.unresolved);
-  const alternatives = readingsOf({ contributions: succession.alternatives });
-  const evidenceThen = succession.evidenceThen && typeof succession.evidenceThen === 'object'
-    ? succession.evidenceThen
-    : null;
-  if (!unresolved || !alternatives.length || !asLine(evidenceThen?.text)) return null;
-  return {
-    unresolved,
-    alternatives,
-    evidenceThen: {
-      text: asLine(evidenceThen.text),
-      paragraphs: Array.isArray(evidenceThen.paragraphs)
-        ? evidenceThen.paragraphs.filter((block) => asLine(block?.text))
-        : [],
-      publishedAt: evidenceThen.publishedAt
-    },
-    uncertainty: asLine(succession.uncertainty),
-    authority: asLine(succession.authority),
-    review: asLine(succession.review),
-    held: asLine(succession.held),
-    outcome: asLine(succession.outcome),
-    handedAt: succession.handedAt
-  };
-};
-
-const mandateOf = (snapshot) => {
-  const mandate = snapshot?.mandate && typeof snapshot.mandate === 'object'
-    ? snapshot.mandate
-    : null;
-  if (!mandate) return null;
-  const owner = asLine(mandate.owner);
-  const scope = asLine(mandate.scope);
-  const tools = asLine(mandate.tools);
-  const stop = asLine(mandate.stop);
-  const review = asLine(mandate.review);
-  const asks = Number(mandate.budget?.asks);
-  if (!owner || !scope || !tools || !stop || !review || !asks) return null;
-  const remaining = Number(mandate.budget?.remaining);
-  const spent = Number(mandate.budget?.spent) || 0;
-  const paused = mandate.status === 'paused' || Boolean(asLine(mandate.pause)) || remaining <= 0;
-  return {
-    owner,
-    scope,
-    tools,
-    budget: {
-      asks,
-      remaining: Number.isFinite(remaining) ? remaining : asks - spent,
-      spent
-    },
-    stop,
-    review,
-    status: paused ? 'paused' : 'live',
-    pause: asLine(mandate.pause),
-    openedAt: mandate.openedAt
   };
 };
 
@@ -363,6 +305,7 @@ export default function QuestionShareView({
   snapshot,
   compact = false,
   here = null,
+  slug = '',
   onOffer = null,
   onWithdraw = null
 }) {
@@ -382,8 +325,8 @@ export default function QuestionShareView({
   const readings = readingsOf(snapshot);
   const yours = compact ? [] : yoursOf(snapshot);
   const brief = briefOf(snapshot);
-  const succession = successionOf(snapshot);
-  const mandate = mandateOf(snapshot);
+  const succession = questionShareSuccessionOf(snapshot);
+  const mandate = questionShareMandateOf(snapshot);
   const invite = compact ? null : onOffer;
   const takeBack = compact ? null : onWithdraw;
   const presence = compact ? '' : questionPresenceLine(here);
@@ -473,6 +416,17 @@ export default function QuestionShareView({
         </section>
       ) : null}
       {invite ? <OfferReading onOffer={invite} held={yours.length > 0} /> : null}
+      {compact || !(succession || mandate) ? null : (
+        <p className="think-share-view__export">
+          <button
+            type="button"
+            data-testid="question-share-take-records"
+            onClick={() => downloadQuestionShareRecords(snapshot, slug)}
+          >
+            {QUESTION_SHARE_TAKE_RECORDS}
+          </button>
+        </p>
+      )}
       {presence ? (
         <p
           className="think-share-view__presence muted small"
