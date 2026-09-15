@@ -3,9 +3,11 @@ import { usePrefersReducedMotion } from '../../hooks/useMotionPreferences';
 import {
   QUESTION_SHARE_AGREEMENT,
   QUESTION_SHARE_ALTERNATIVES,
+  QUESTION_SHARE_ARCHIVE_SILENCE,
   QUESTION_SHARE_BUDGET,
   QUESTION_SHARE_COLOPHON,
   QUESTION_SHARE_EVIDENCE_THEN,
+  QUESTION_SHARE_NEARLY,
   QUESTION_SHARE_OBSERVATION,
   QUESTION_SHARE_OFFER,
   QUESTION_SHARE_OUTCOME,
@@ -25,6 +27,7 @@ import {
   downloadQuestionShareRecords,
   mandateBudgetLine,
   questionPresenceLine,
+  questionShareArchiveOf,
   questionShareMandateOf,
   questionShareSuccessionOf
 } from './thinkShareFixture';
@@ -225,6 +228,24 @@ const Succession = ({ succession }) => {
   const showUncertainty = Boolean(
     succession.uncertainty && succession.uncertainty !== succession.unresolved
   );
+  const archive = questionShareArchiveOf(succession);
+  const alternatives = (
+    <>
+      <p className="think-share-view__brief-label">
+        {archive ? QUESTION_SHARE_NEARLY : QUESTION_SHARE_ALTERNATIVES}
+      </p>
+      {succession.alternatives.map((reading, index) => (
+        <Reading key={reading.id || `${reading.by}-${index}`} reading={reading} />
+      ))}
+    </>
+  );
+  const happened = archive ? (
+    <>
+      <p className="think-share-view__brief-label">{QUESTION_SHARE_OUTCOME}</p>
+      <p>{archive.happened}</p>
+      <p className="think-share-view__archive-silence">{QUESTION_SHARE_ARCHIVE_SILENCE}</p>
+    </>
+  ) : null;
   return (
     <section className="think-share-view__succession" data-testid="question-share-succession">
       <header className="think-share-view__header">
@@ -243,32 +264,28 @@ const Succession = ({ succession }) => {
           <p>{succession.held}</p>
         </>
       ) : null}
-      <p className="think-share-view__brief-label">{QUESTION_SHARE_ALTERNATIVES}</p>
-      {succession.alternatives.map((reading, index) => (
-        <Reading key={reading.id || `${reading.by}-${index}`} reading={reading} />
-      ))}
+      {archive ? (
+        <div className="think-share-view__archive" data-testid="question-share-archive">
+          {alternatives}
+          {happened}
+        </div>
+      ) : alternatives}
       <p className="think-share-view__brief-label">{QUESTION_SHARE_EVIDENCE_THEN}</p>
       <p>{succession.evidenceThen.text}</p>
       {succession.evidenceThen.paragraphs.map((block) => (
         <p key={block.id || block.text}>{block.text}</p>
       ))}
-          {evidenceWhen ? <p className="think-share-view__by">{evidenceWhen}</p> : null}
-          {showUncertainty ? (
-            <>
-              <p className="think-share-view__brief-label">{QUESTION_SHARE_UNCERTAINTY}</p>
-              <p className="think-share-view__remainder">{succession.uncertainty}</p>
-            </>
-          ) : null}
-          {succession.review ? (
+      {evidenceWhen ? <p className="think-share-view__by">{evidenceWhen}</p> : null}
+      {showUncertainty ? (
+        <>
+          <p className="think-share-view__brief-label">{QUESTION_SHARE_UNCERTAINTY}</p>
+          <p className="think-share-view__remainder">{succession.uncertainty}</p>
+        </>
+      ) : null}
+      {succession.review ? (
         <>
           <p className="think-share-view__brief-label">{QUESTION_SHARE_REVIEW}</p>
           <p>{succession.review}</p>
-        </>
-      ) : null}
-      {succession.outcome ? (
-        <>
-          <p className="think-share-view__brief-label">{QUESTION_SHARE_OUTCOME}</p>
-          <p>{succession.outcome}</p>
         </>
       ) : null}
     </section>

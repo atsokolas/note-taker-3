@@ -36,9 +36,12 @@ const {
   publicQuestionPage,
   SHARE_RECORD_FOOTER,
   SHARE_RECORD_KIND,
+  SHARE_RECORD_NEARLY,
+  SHARE_RECORD_ARCHIVE_SILENCE,
   SHARE_RECORD_SILENCE,
   SHARE_RECORD_COLLISION_MANDATE,
   SHARE_RECORD_COLLISION_SUCCESSION,
+  shareRecordArchiveOf,
   shareRecordStateFilter,
   shareRecordWriteCollision,
   thinkShareState,
@@ -547,6 +550,17 @@ describe('authored think share', () => {
     expect(ownerHanded.snapshot.succession).toBeUndefined();
     expect(withSuccessionOutcome(handed.succession, '').outcome).toBeUndefined();
     expect(withSuccessionOutcome(handed.succession, 'A later mixed result.').outcome).toBe('A later mixed result.');
+    expect(shareRecordArchiveOf(handed.succession).happened).toBe('The window closed. The latecomer paid.');
+    expect(shareRecordArchiveOf({ ...handed.succession, outcome: '' })).toBeNull();
+    const openHandoff = freezeShareSuccession(shareWithBrief, liveRows, { at: '2026-09-13T18:00:00.000Z' });
+    const openMarkdown = buildShareRecordMarkdown({
+      kind: SHARE_RECORD_KIND,
+      version: 1,
+      succession: openHandoff.succession
+    });
+    expect(openMarkdown).toContain('## Alternatives then');
+    expect(openMarkdown).not.toContain(`## ${SHARE_RECORD_NEARLY}`);
+    expect(openMarkdown).not.toContain(SHARE_RECORD_ARCHIVE_SILENCE);
 
     const named = freezeShareMandate({
       ...shareWithBrief,
@@ -609,6 +623,9 @@ describe('authored think share', () => {
     expect(exported.cannotTransfer).toContain('Remaining asks as a live counter');
     const markdown = buildShareRecordMarkdown(exported);
     expect(markdown).toContain('# The window may close before compounding pays.');
+    expect(markdown).toContain(`## ${SHARE_RECORD_NEARLY}`);
+    expect(markdown).toContain(SHARE_RECORD_ARCHIVE_SILENCE);
+    expect(markdown).not.toContain('## Alternatives then');
     expect(markdown).toContain(SHARE_RECORD_FOOTER);
     expect(markdown).toContain('```json');
     const parsed = parseShareRecordBundle(markdown);

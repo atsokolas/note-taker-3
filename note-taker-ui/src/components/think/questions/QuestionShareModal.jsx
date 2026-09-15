@@ -17,6 +17,7 @@ import useQuestionPresence from '../../../hooks/useQuestionPresence';
 import QuestionShareView from '../QuestionShareView';
 import {
   QUESTION_SHARE_AGREEMENT,
+  QUESTION_SHARE_ARCHIVE,
   QUESTION_SHARE_BRIEF,
   QUESTION_SHARE_BRING_RECORDS,
   QUESTION_SHARE_BUDGET,
@@ -259,7 +260,7 @@ const ShareSuccession = ({ succession, disabled, onSave }) => {
         onChange={(event) => setOutcome(event.target.value)}
         disabled={disabled || busy}
       />
-      <p className="muted small">{QUESTION_SHARE_HAND}</p>
+      <p className="muted small">{handed ? QUESTION_SHARE_ARCHIVE : QUESTION_SHARE_HAND}</p>
       {error ? <p className="status-message error-message">{error}</p> : null}
       <Button type="button" variant="secondary" onClick={save} disabled={disabled || busy}>
         {busy ? 'Saving…' : handed ? 'Save what happened later' : 'Hand this on'}

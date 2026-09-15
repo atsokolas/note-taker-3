@@ -8428,6 +8428,22 @@ html[data-ui-theme='dark'] body.noeis-editorial .concept-editorial-evidence__ite
   line-height: 1.45;
 }
 
+.think-share-view__archive {
+  display: grid;
+  gap: 1rem;
+  padding: 0.1rem 0 0.1rem 0.9rem;
+  border-left: 1px solid var(--noeis-rule, rgba(28, 24, 18, 0.12));
+}
+
+.think-share-view__archive-silence {
+  margin: 0;
+  color: var(--text-secondary);
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.84rem;
+  line-height: 1.45;
+  font-style: italic;
+}
+
 .think-share-view__readings,
 .think-share-view__yours,
 .think-share-view__brief,
@@ -8637,6 +8653,7 @@ textarea.think-share-view__offer-field {
   .think-share-view__yours,
   .think-share-view__brief,
   .think-share-view__succession,
+  .think-share-view__archive,
   .think-share-view__mandate,
   .think-share-view__interpretation,
   .think-share-view__presence,

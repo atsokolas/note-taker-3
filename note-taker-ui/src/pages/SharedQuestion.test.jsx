@@ -279,6 +279,8 @@ describe('SharedQuestion', () => {
     render(<SharedQuestion />);
     expect(await screen.findByRole('heading', { level: 1, name: 'The window may close before compounding pays.' })).toBeInTheDocument();
     expect(screen.getByTestId('question-share-succession')).toHaveTextContent('The window closed. The latecomer paid.');
+    expect(screen.getByTestId('question-share-archive')).toHaveTextContent('What we nearly did');
+    expect(screen.getByTestId('question-share-archive')).toHaveTextContent('The other future is not in this record.');
     expect(screen.queryByRole('heading', { name: 'What survives compounding?' })).not.toBeInTheDocument();
     expect(screen.queryByTestId('question-share-brief')).not.toBeInTheDocument();
   });

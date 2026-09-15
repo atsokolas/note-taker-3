@@ -82,6 +82,10 @@ describe('QuestionShareView', () => {
     expect(screen.getByTestId('question-share-succession')).toHaveTextContent('Same fact, different time horizon.');
     expect(screen.getByTestId('question-share-succession')).toHaveTextContent('What survives compounding?');
     expect(screen.getByTestId('question-share-succession')).toHaveTextContent('Watch who is still in the room when the cost arrives.');
+    expect(screen.getByTestId('question-share-succession')).toHaveTextContent('Alternatives then');
+    expect(screen.queryByTestId('question-share-archive')).not.toBeInTheDocument();
+    expect(screen.queryByText('What we nearly did')).not.toBeInTheDocument();
+    expect(screen.queryByText('The other future is not in this record.')).not.toBeInTheDocument();
     expect(screen.queryByText('What happened later')).not.toBeInTheDocument();
     expect(screen.queryByTestId('question-share-brief')).not.toBeInTheDocument();
     expect(screen.queryByTestId('question-share-readings')).not.toBeInTheDocument();
@@ -108,6 +112,12 @@ describe('QuestionShareView', () => {
       />
     );
     expect(screen.getByTestId('question-share-succession')).toHaveTextContent('The window closed. The latecomer paid.');
+    expect(screen.getByTestId('question-share-archive')).toHaveTextContent('What we nearly did');
+    expect(screen.getByTestId('question-share-archive')).toHaveTextContent('Same fact, different time horizon.');
+    expect(screen.getByTestId('question-share-archive')).toHaveTextContent('The window closed. The latecomer paid.');
+    expect(screen.getByTestId('question-share-archive')).toHaveTextContent('The other future is not in this record.');
+    expect(screen.getByTestId('question-share-succession')).not.toHaveTextContent('Alternatives then');
+    expect(screen.getByTestId('question-share-succession')).not.toHaveTextContent('would have');
     expect(screen.getByTestId('question-share-readings')).toHaveTextContent('A reading after the handoff.');
     expect(screen.getByTestId('question-share-readings')).not.toHaveTextContent('Same fact, different time horizon.');
   });
