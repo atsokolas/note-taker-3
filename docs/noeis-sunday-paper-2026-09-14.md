@@ -86,9 +86,9 @@ reading position stay on this device. Saved thoughts are account-persistent.
 
 ## Verification
 
-- 109 frontend tests across 10 suites: private reader, domain helpers, arrival
+- 105 frontend tests across 8 suites: private reader, domain helpers, arrival
   races, source list, thought drafts/conflicts/account scope, HTML text extraction,
-  public sharing, public paper and responsive/motion style contracts.
+  public sharing, public paper. Real browser checks cover responsive/motion behavior.
 - 82 existing backend tests: Edition routes, shapes and cadence.
 - Real local Mongo/Express integration: unique concurrent first write, stale-version
   refusal, owner isolation, agent denial, quote and reflection readback, bounded
@@ -100,7 +100,9 @@ reading position stay on this device. Saved thoughts are account-persistent.
   no tablet focus reflow; keyboard Escape/focus return; named empty sections.
   Chromium additionally verifies real Keep/source content, selection/quote note
   save/reload, reflection/reload, Later/unreadable/reload, resume and publication
-  switching. Zero page errors. WebKit is not physical iPhone/native Safari proof.
+  switching. Chromium/WebKit also verify exact source return at 1320/390px
+  and print retains findings/boundaries while excluding private thoughts/actions.
+  Zero page errors. WebKit is not physical iPhone/native Safari proof.
 - Screenshots and machine receipt: local `output/sunday-paper/`; test/build logs:
   ignored `tmp/`. Fixtures are labelled and stored only in `noeis_sunday_paper_qa`.
 
