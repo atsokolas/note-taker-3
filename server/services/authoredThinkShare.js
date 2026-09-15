@@ -803,6 +803,36 @@ const fingerprintMandate = (row) => JSON.stringify({
   status: row?.status === 'paused' ? 'paused' : 'live'
 });
 
+/* Import and live edits inspect, then write. The write must still see
+   that inspected successor and assignment, or it is a named collision
+   rather than a silent last write. */
+const shareRecordStateFilter = (share = {}) => ({
+  succession: share.succession ?? null,
+  mandate: share.mandate ?? null
+});
+
+const shareRecordWriteCollision = (inspected = {}, current = {}) => {
+  const collisions = [];
+  if (
+    fingerprintSuccession(projectShareSuccession(inspected))
+    !== fingerprintSuccession(projectShareSuccession(current))
+  ) {
+    collisions.push(SHARE_RECORD_COLLISION_SUCCESSION);
+  }
+  if (
+    fingerprintMandate(projectShareMandate(inspected))
+    !== fingerprintMandate(projectShareMandate(current))
+  ) {
+    collisions.push(SHARE_RECORD_COLLISION_MANDATE);
+  }
+  if (!collisions.length) collisions.push(SHARE_RECORD_COLLISION_SUCCESSION);
+  return {
+    error: collisions[0],
+    field: collisions[0] === SHARE_RECORD_COLLISION_MANDATE ? 'mandate' : 'succession',
+    collisions
+  };
+};
+
 const portableShareRecords = (share) => {
   const succession = projectShareSuccession(share);
   const mandate = projectShareMandate(share);
@@ -1145,6 +1175,8 @@ module.exports = {
   sanitizeCard,
   sanitizeParagraphBlocks,
   shareRecordFilename,
+  shareRecordStateFilter,
+  shareRecordWriteCollision,
   shareSlug,
   thinkShareState,
   withSuccessionOutcome
