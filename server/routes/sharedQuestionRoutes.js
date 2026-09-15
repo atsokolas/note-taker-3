@@ -94,8 +94,9 @@ const buildSharedQuestionRouter = ({
   };
 
   const commitInspectedShare = async (share, userId, $set) => {
+    const inspected = shareRecordStateFilter(share);
     const updated = asRow(await SharedQuestion.findOneAndUpdate(
-      { _id: share._id, userId, ...shareRecordStateFilter(share) },
+      { _id: share._id, userId, ...inspected },
       { $set },
       { new: true }
     ));
@@ -107,7 +108,7 @@ const buildSharedQuestionRouter = ({
     if (!raced?.snapshot) {
       return { error: 'This question is not shared.', status: 404 };
     }
-    return { status: 409, ...shareRecordWriteCollision(share, raced) };
+    return { status: 409, ...shareRecordWriteCollision(inspected, raced) };
   };
 
   const rejectCommit = (res, committed, extras = {}) => res.status(committed.status || 409).json({
