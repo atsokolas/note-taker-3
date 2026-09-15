@@ -167,6 +167,15 @@ export const saveQuestionShareMandate = async (questionId, body = {}) => {
   return res.data || {};
 };
 
+export const importQuestionShareRecords = async (questionId, body = {}) => {
+  const res = await api.post(
+    `/api/questions/${encodeURIComponent(questionId)}/share/records`,
+    body,
+    getAuthHeaders()
+  );
+  return res.data || {};
+};
+
 export const placeQuestionContribution = async (questionId, contributionId) => {
   const res = await api.post(
     `/api/questions/${encodeURIComponent(questionId)}/share/contributions/${encodeURIComponent(contributionId)}/place`,

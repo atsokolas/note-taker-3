@@ -87,6 +87,39 @@ const run = async () => {
       status: 'open',
       updatedAt: new Date()
     }]),
+    SharedQuestion: {
+      findOne(query = {}) {
+        if (query.slug === 'qslug') {
+          return new Query({
+            slug: 'qslug',
+            snapshot: {
+              ownerDisplayName: 'Athan',
+              question: { text: 'What survives compounding?' }
+            },
+            succession: {
+              unresolved: 'The window may close before compounding pays.',
+              alternatives: [{
+                id: 'c1',
+                by: 'Mara',
+                text: 'Same fact, different time horizon.'
+              }],
+              evidenceThen: { text: 'What survives compounding?' },
+              authority: 'Athan'
+            },
+            mandate: {
+              owner: 'Athan',
+              scope: 'This published question.',
+              tools: 'Ask about this published question (the public page only).',
+              budget: { asks: 2, remaining: 2, spent: 0 },
+              stop: 'Stop when the successor writes what happened later.',
+              review: 'Return to this door to end or renew the assignment.',
+              status: 'live'
+            }
+          });
+        }
+        return new Query(null);
+      }
+    },
     buildConceptMarkdown: () => ''
   }));
 
@@ -101,6 +134,23 @@ const run = async () => {
     assert.strictEqual(body.relatedCounts.questions, 1);
     assert.deepStrictEqual(body.questions, []);
     assert.ok(!JSON.stringify(body).includes(privateQuestionText));
+
+    const missing = await fetchJson(`http://127.0.0.1:${port}/api/export/questions/missing`);
+    assert.strictEqual(missing.response.status, 404);
+    const jsonExport = await fetchJson(`http://127.0.0.1:${port}/api/export/questions/qslug?format=json`);
+    assert.strictEqual(jsonExport.response.status, 200, jsonExport.body.error);
+    assert.strictEqual(jsonExport.body.kind, 'question-share-records');
+    assert.strictEqual(jsonExport.body.door.slug, 'qslug');
+    assert.strictEqual(jsonExport.body.succession.unresolved, 'The window may close before compounding pays.');
+    assert.ok(!jsonExport.body.mandate.ownerId);
+    assert.ok(!JSON.stringify(jsonExport.body).includes(privateQuestionText));
+    const markdownResponse = await fetch(`http://127.0.0.1:${port}/api/export/questions/qslug`);
+    assert.strictEqual(markdownResponse.status, 200);
+    const markdown = await markdownResponse.text();
+    assert.ok(markdown.includes('# The window may close before compounding pays.'));
+    assert.ok(markdown.includes('```json'));
+    assert.ok(markdown.includes('"kind": "question-share-records"'));
+    assert.ok(String(markdownResponse.headers.get('content-disposition') || '').includes('.md'));
   } finally {
     server.close();
   }

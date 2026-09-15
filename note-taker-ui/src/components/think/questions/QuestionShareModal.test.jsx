@@ -12,6 +12,7 @@ jest.mock('../../../api/questions', () => ({
   saveQuestionShareBrief: jest.fn(),
   saveQuestionShareMandate: jest.fn(),
   saveQuestionShareSuccession: jest.fn(),
+  importQuestionShareRecords: jest.fn(),
   updateQuestionShare: jest.fn(),
   beatQuestionPresence: jest.fn(),
   getQuestionPresence: jest.fn()
@@ -26,6 +27,7 @@ const {
   saveQuestionShareBrief,
   saveQuestionShareMandate,
   saveQuestionShareSuccession,
+  importQuestionShareRecords,
   updateQuestionShare,
   beatQuestionPresence,
   getQuestionPresence
@@ -51,6 +53,7 @@ describe('QuestionShareModal', () => {
     saveQuestionShareBrief.mockReset();
     saveQuestionShareMandate.mockReset();
     saveQuestionShareSuccession.mockReset();
+    importQuestionShareRecords.mockReset();
     updateQuestionShare.mockReset();
     beatQuestionPresence.mockReset();
     getQuestionPresence.mockReset();
@@ -481,6 +484,53 @@ describe('QuestionShareModal', () => {
     await waitFor(() => expect(saveQuestionShareMandate).toHaveBeenCalledWith('q1', { end: true }));
     expect(await screen.findByTestId('question-share-mandate')).toHaveTextContent(
       'This assignment ended. The agent is paused.'
+    );
+  });
+
+  it('returns a portable record to a published door and names what cannot transfer', async () => {
+    const succession = {
+      unresolved: 'The window may close before compounding pays.',
+      alternatives: [{
+        id: 'c1',
+        by: 'Mara',
+        text: 'Same fact, different time horizon.'
+      }],
+      evidenceThen: { text: 'What survives compounding?' },
+      authority: 'Athan'
+    };
+    getQuestionShare.mockResolvedValueOnce({
+      shared: true,
+      slug: 'abc123',
+      snapshot: frozen,
+      preview: frozen
+    });
+    importQuestionShareRecords.mockResolvedValueOnce({
+      shared: true,
+      slug: 'abc123',
+      snapshot: frozen,
+      preview: frozen,
+      succession,
+      records: {
+        retained: ['successor'],
+        restored: ['succession'],
+        sameDoor: false,
+        cannotTransfer: ['The public address of that door'],
+        collisions: []
+      }
+    });
+    render(<QuestionShareModal open questionId="q1" questionText="What next?" onClose={() => {}} />);
+    expect(await screen.findByTestId('question-share-records-form')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Take these records' })).not.toBeInTheDocument();
+    const markdown = '```json\n{"kind":"question-share-records","version":1}\n```\n';
+    const file = new File([markdown], 'records.md', { type: 'text/markdown' });
+    file.text = async () => markdown;
+    fireEvent.change(screen.getByLabelText('Bring records in'), { target: { files: [file] } });
+    await waitFor(() => expect(importQuestionShareRecords).toHaveBeenCalled());
+    expect(importQuestionShareRecords.mock.calls[0][0]).toBe('q1');
+    expect(importQuestionShareRecords.mock.calls[0][1].markdown).toContain('question-share-records');
+    expect(await screen.findByText(/The successor record can sit here/)).toBeInTheDocument();
+    expect(await screen.findByTestId('question-share-succession')).toHaveTextContent(
+      'The window may close before compounding pays.'
     );
   });
 

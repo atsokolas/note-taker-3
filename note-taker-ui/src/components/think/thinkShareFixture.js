@@ -18,6 +18,18 @@ export const QUESTION_SHARE_TAKEN_BACK = 'They took this back.';
 
 export const QUESTION_SHARE_TAKE_CHANGED = 'This take was already changed.';
 
+export const QUESTION_SHARE_TAKE_RECORDS = 'Take these records';
+
+export const QUESTION_SHARE_BRING_RECORDS = 'Bring records in';
+
+export const QUESTION_SHARE_RECORDS_HINT = 'This file is the successor record and the named assignment. Remaining asks, the live companion, and the private Library stay here.';
+
+export const QUESTION_SHARE_RECORDS_FOOTER = 'This file is the successor record and the named assignment. It does not take the live companion, remaining asks on this door, who is here, the private Library, or unplaced readings.';
+
+export const SHARE_RECORD_KIND = 'question-share-records';
+
+export const SHARE_RECORD_VERSION = 1;
+
 export const QUESTION_SHARE_BRIEF = 'Consensus is optional. Empty stays off the page.';
 
 export const QUESTION_SHARE_HAND = 'A successor opens at the last unresolved question. Alternatives, evidence then, and who decided travel. Empty outcome stays off the page.';
@@ -142,6 +154,205 @@ export const mandateBudgetLine = (mandate) => {
   if (!Number.isFinite(remaining) || remaining < 0) return '';
   if (remaining === 1) return 'One ask remains on this assignment.';
   return `${remaining} asks remain on this assignment.`;
+};
+
+const asRecordLine = (value) => String(value || '').trim();
+
+export const questionShareSuccessionOf = (snapshot) => {
+  const succession = snapshot?.succession && typeof snapshot.succession === 'object'
+    ? snapshot.succession
+    : null;
+  if (!succession) return null;
+  const unresolved = asRecordLine(succession.unresolved);
+  const alternatives = (Array.isArray(succession.alternatives) ? succession.alternatives : [])
+    .filter((item) => asRecordLine(item?.by) && asRecordLine(item?.text));
+  const evidenceThen = succession.evidenceThen && typeof succession.evidenceThen === 'object'
+    ? succession.evidenceThen
+    : null;
+  if (!unresolved || !alternatives.length || !asRecordLine(evidenceThen?.text)) return null;
+  return {
+    unresolved,
+    alternatives,
+    evidenceThen: {
+      text: asRecordLine(evidenceThen.text),
+      paragraphs: Array.isArray(evidenceThen.paragraphs)
+        ? evidenceThen.paragraphs.filter((block) => asRecordLine(block?.text))
+        : [],
+      publishedAt: evidenceThen.publishedAt
+    },
+    uncertainty: asRecordLine(succession.uncertainty),
+    authority: asRecordLine(succession.authority),
+    review: asRecordLine(succession.review),
+    held: asRecordLine(succession.held),
+    outcome: asRecordLine(succession.outcome),
+    handedAt: succession.handedAt
+  };
+};
+
+export const questionShareMandateOf = (snapshot) => {
+  const mandate = snapshot?.mandate && typeof snapshot.mandate === 'object'
+    ? snapshot.mandate
+    : null;
+  if (!mandate) return null;
+  const owner = asRecordLine(mandate.owner);
+  const scope = asRecordLine(mandate.scope);
+  const tools = asRecordLine(mandate.tools);
+  const stop = asRecordLine(mandate.stop);
+  const review = asRecordLine(mandate.review);
+  const asks = Number(mandate.budget?.asks);
+  if (!owner || !scope || !tools || !stop || !review || !asks) return null;
+  const remaining = Number(mandate.budget?.remaining);
+  const spent = Number(mandate.budget?.spent) || 0;
+  const paused = mandate.status === 'paused' || Boolean(asRecordLine(mandate.pause)) || remaining <= 0;
+  return {
+    owner,
+    scope,
+    tools,
+    budget: {
+      asks,
+      remaining: Number.isFinite(remaining) ? remaining : asks - spent,
+      spent
+    },
+    stop,
+    review,
+    status: paused ? 'paused' : 'live',
+    pause: asRecordLine(mandate.pause),
+    openedAt: mandate.openedAt
+  };
+};
+
+export const questionShareRecordsOf = (snapshot) => {
+  const succession = questionShareSuccessionOf(snapshot);
+  const mandate = questionShareMandateOf(snapshot);
+  if (!succession && !mandate) return null;
+  return {
+    ...(succession ? { succession } : {}),
+    ...(mandate ? { mandate } : {})
+  };
+};
+
+const shareRecordSlug = (value) => (
+  String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60) || 'question-records'
+);
+
+export const buildQuestionShareRecords = (snapshot, { slug = '', now } = {}) => {
+  const records = questionShareRecordsOf(snapshot);
+  if (!records) return null;
+  const key = asRecordLine(slug);
+  return {
+    kind: SHARE_RECORD_KIND,
+    version: SHARE_RECORD_VERSION,
+    exportedAt: now || new Date().toISOString(),
+    door: {
+      slug: key,
+      ...(key ? { path: `/share/questions/${key}` } : {})
+    },
+    ...records
+  };
+};
+
+const shareRecordDay = (value) => {
+  if (!value) return '';
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+};
+
+export const buildQuestionShareRecordsMarkdown = (bundle) => {
+  if (!bundle) return '';
+  const succession = bundle.succession;
+  const mandate = bundle.mandate;
+  const lines = [];
+  if (succession?.unresolved) {
+    lines.push(`# ${succession.unresolved}`, '');
+    if (succession.authority) {
+      const when = shareRecordDay(succession.handedAt);
+      lines.push(when
+        ? `${succession.authority} handed this on ${when}.`
+        : `${succession.authority} handed this on.`);
+      lines.push('');
+    }
+    if (succession.held) lines.push('## What holds', '', succession.held, '');
+    lines.push('## Alternatives then', '');
+    (Array.isArray(succession.alternatives) ? succession.alternatives : []).forEach((reading) => {
+      if (!reading?.by || !reading?.text) return;
+      lines.push(`### ${reading.by}`, '', reading.text);
+      if (reading.remainder) lines.push('', `Still holds: ${reading.remainder}`);
+      lines.push('');
+    });
+    if (succession.evidenceThen?.text) {
+      lines.push('## Evidence then', '', succession.evidenceThen.text, '');
+    }
+    if (succession.uncertainty && succession.uncertainty !== succession.unresolved) {
+      lines.push('## What was uncertain', '', succession.uncertainty, '');
+    }
+    if (succession.review) lines.push('## When to look again', '', succession.review, '');
+    if (succession.outcome) lines.push('## What happened later', '', succession.outcome, '');
+  } else {
+    lines.push('# An agent assignment', '');
+  }
+  if (mandate?.owner) {
+    lines.push('## An agent assignment', '');
+    lines.push(`Accountable owner: ${mandate.owner}`);
+    lines.push(`Scope: ${mandate.scope}`);
+    lines.push(`Tools: ${mandate.tools}`);
+    const asks = Number(mandate.budget?.asks) || 0;
+    lines.push(`Budget: ${asks === 1 ? 'One ask' : `${asks} asks`}`);
+    lines.push(`Stop when: ${mandate.stop}`);
+    lines.push(`Review route: ${mandate.review}`);
+    if (mandate.pause) lines.push('', mandate.pause);
+    lines.push('');
+  }
+  lines.push('---', '', QUESTION_SHARE_RECORDS_FOOTER);
+  if (bundle.door?.path) {
+    lines.push('', `The public door was ${bundle.door.path}.`);
+  }
+  const fence = {
+    kind: SHARE_RECORD_KIND,
+    version: SHARE_RECORD_VERSION,
+    ...(bundle.exportedAt ? { exportedAt: bundle.exportedAt } : {}),
+    door: bundle.door || { slug: '' },
+    ...(succession ? { succession } : {}),
+    ...(mandate ? { mandate } : {})
+  };
+  lines.push('', '```json', JSON.stringify(fence, null, 2), '```', '');
+  return lines.join('\n');
+};
+
+export const downloadQuestionShareRecords = (snapshot, slug) => {
+  const bundle = buildQuestionShareRecords(snapshot, { slug });
+  if (!bundle || typeof document === 'undefined') return false;
+  const markdown = buildQuestionShareRecordsMarkdown(bundle);
+  const filename = `${shareRecordSlug(bundle.succession?.unresolved || 'agent-assignment')}.md`;
+  const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+  return true;
+};
+
+export const shareRecordReceipt = (records) => {
+  if (!records) return '';
+  const bits = [];
+  if ((records.retained || []).includes('successor') || (records.restored || []).includes('succession')) {
+    bits.push(records.sameDoor
+      ? 'The successor record returned to this door.'
+      : 'The successor record can sit here. The public address does not transfer.');
+  }
+  if ((records.retained || []).includes('mandate') || (records.restored || []).includes('mandate')) {
+    bits.push('The named assignment returned. Remaining asks stay with this door.');
+  }
+  (Array.isArray(records.collisions) ? records.collisions : []).forEach((line) => {
+    if (asRecordLine(line)) bits.push(line);
+  });
+  return bits.join(' ');
 };
 
 export const conceptSnapshot = (over = {}) => ({

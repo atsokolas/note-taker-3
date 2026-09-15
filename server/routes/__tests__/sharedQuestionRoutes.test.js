@@ -777,6 +777,103 @@ const run = async () => {
     assert.strictEqual(renewedMandate.body.mandate.status, 'live');
     assert.strictEqual(renewedMandate.body.mandate.budget.asks, 1);
 
+    const emptyRecords = await fetchJson(`${base}/api/questions/${questionId}/share/records`, {
+      method: 'POST',
+      body: JSON.stringify({ kind: 'question-share-records', version: 1 })
+    });
+    assert.strictEqual(emptyRecords.response.status, 400);
+    const taken = await fetchJson(`${base}/api/questions/${questionId}/share/records`, {
+      method: 'POST',
+      body: JSON.stringify({
+        kind: 'question-share-records',
+        version: 1,
+        door: { slug: mint.body.slug, path: `/share/questions/${mint.body.slug}` },
+        succession: restoredOutcome.body.succession,
+        mandate: renewedMandate.body.mandate
+      })
+    });
+    assert.strictEqual(taken.response.status, 200, JSON.stringify(taken.body));
+    assert.deepStrictEqual(taken.body.records.retained, ['successor', 'mandate']);
+    assert.deepStrictEqual(taken.body.records.restored, []);
+    assert.strictEqual(taken.body.records.sameDoor, true);
+    assert.ok(taken.body.records.cannotTransfer.includes('Remaining asks as a live counter'));
+    assert.strictEqual(taken.body.mandate.budget.asks, 1);
+
+    const agentRecords = await fetchJson(`${base}/api/questions/${questionId}/share/records`, {
+      method: 'POST',
+      headers: { 'x-agent-token': '1' },
+      body: JSON.stringify({ kind: 'question-share-records', version: 1 })
+    });
+    assert.strictEqual(agentRecords.response.status, 403);
+    const strangerRecords = await fetchJson(`${base}/api/questions/${questionId}/share/records`, {
+      method: 'POST',
+      headers: asUser(strangerId),
+      body: JSON.stringify({
+        kind: 'question-share-records',
+        version: 1,
+        succession: restoredOutcome.body.succession
+      })
+    });
+    assert.strictEqual(strangerRecords.response.status, 404);
+
+    const otherQuestionId = new mongoose.Types.ObjectId().toString();
+    await Question.create({
+      _id: otherQuestionId,
+      userId,
+      text: 'What survives compounding?',
+      status: 'open',
+      conceptName: 'Compounding',
+      blocks: [{ id: 'p1', type: 'paragraph', text: 'Public paragraph.' }]
+    });
+    const otherMint = await fetchJson(`${base}/api/questions/${otherQuestionId}/share`, {
+      method: 'POST'
+    });
+    assert.strictEqual(otherMint.response.status, 201, JSON.stringify(otherMint.body));
+    const migrated = await fetchJson(`${base}/api/questions/${otherQuestionId}/share/records`, {
+      method: 'POST',
+      body: JSON.stringify({
+        kind: 'question-share-records',
+        version: 1,
+        door: { slug: mint.body.slug, path: `/share/questions/${mint.body.slug}` },
+        succession: restoredOutcome.body.succession,
+        mandate: {
+          owner: 'Athan',
+          scope: 'This published question.',
+          tools: AGENT_MANDATE_TOOLS,
+          budget: { asks: 2, remaining: 1, spent: 1 },
+          stop: 'Stop when the successor writes what happened later.',
+          review: 'Return to this door to end or renew the assignment.',
+          status: 'live'
+        }
+      })
+    });
+    assert.strictEqual(migrated.response.status, 200, JSON.stringify(migrated.body));
+    assert.ok(migrated.body.records.restored.includes('succession'));
+    assert.ok(migrated.body.records.restored.includes('mandate'));
+    assert.strictEqual(migrated.body.records.sameDoor, false);
+    assert.ok(migrated.body.records.cannotTransfer.includes('The public address of that door'));
+    assert.strictEqual(migrated.body.succession.unresolved, 'The window may close before compounding pays.');
+    assert.strictEqual(migrated.body.mandate.budget.asks, 2);
+    assert.strictEqual(migrated.body.mandate.budget.remaining, 2);
+    assert.ok(!migrated.body.mandate.ownerId);
+    const publicMigrated = await fetchJson(`${base}/api/public/questions/${otherMint.body.slug}`);
+    assert.strictEqual(publicMigrated.body.succession.unresolved, 'The window may close before compounding pays.');
+    assert.ok(!publicMigrated.body.snapshot);
+
+    const collide = await fetchJson(`${base}/api/questions/${otherQuestionId}/share/records`, {
+      method: 'POST',
+      body: JSON.stringify({
+        kind: 'question-share-records',
+        version: 1,
+        succession: {
+          ...restoredOutcome.body.succession,
+          unresolved: 'A different unresolved question.'
+        }
+      })
+    });
+    assert.strictEqual(collide.response.status, 409);
+    assert.ok(String(collide.body.error).includes('different successor record'));
+
     const used = SharedQuestion.rows[0].contributionCount;
     const filled = [];
     for (let i = used; i < CONTRIBUTION_LIMIT; i += 1) {

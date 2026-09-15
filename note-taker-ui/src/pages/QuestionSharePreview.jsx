@@ -233,6 +233,7 @@ const QuestionSharePreview = () => {
           <main className="shared-concept-page shared-question-page" data-testid="shared-question-page">
             <QuestionShareView
               snapshot={publicSnapshot}
+              slug="qslug"
               here={publicHere}
               onOffer={scene === 'taken' ? null : async () => {}}
               onWithdraw={scene === 'contributor' && !takenBack ? async () => { setTakenBack(true); } : null}
@@ -247,7 +248,7 @@ const QuestionSharePreview = () => {
         ) : null}
         {scene === 'revised' ? (
           <main className="shared-concept-page shared-question-page" data-testid="shared-question-revised">
-            <QuestionShareView snapshot={revised} />
+            <QuestionShareView snapshot={revised} slug="qslug" />
           </main>
         ) : null}
         {scene === 'revoked' ? (

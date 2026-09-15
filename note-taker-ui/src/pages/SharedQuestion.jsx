@@ -157,6 +157,7 @@ const SharedQuestion = () => {
       <SharedQuestionTopBar onCopy={handleCopy} copyState={copyState} pageUrl={pageUrl} />
       <QuestionShareView
         snapshot={data}
+        slug={slug}
         here={here}
         onOffer={async (reading) => {
           await offerQuestionContribution(slug, reading);

@@ -7371,6 +7371,7 @@ app.use(buildExportPublicRouter({
   mongoose,
   authenticateToken,
   NotebookEntry,
+  SharedQuestion,
   createBlockId,
   ensureNotebookBlocks,
   buildNotebookMarkdown,
