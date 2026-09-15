@@ -251,10 +251,23 @@ const noteSchema = new mongoose.Schema({
   title: { type: String, required: true, trim: true },
   content: { type: String, default: '' },
   checklist: [checklistItemSchema],
+  editionContext: {
+    type: new mongoose.Schema({
+      editionId: { type: mongoose.Schema.Types.ObjectId, required: true },
+      itemId: { type: String, default: '' },
+      quote: { type: String, default: '', maxlength: 1000 },
+      revision: { type: Number, required: true, min: 1 }
+    }, { _id: false }),
+    default: undefined
+  },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
 }, { timestamps: true });
 
 noteSchema.index({ userId: 1, updatedAt: -1 });
+
+noteSchema.index({ userId: 1, 'editionContext.editionId': 1, 'editionContext.itemId': 1 }, {
+  unique: true, partialFilterExpression: { 'editionContext.editionId': { $type: 'objectId' } }
+});
 
 const Note = mongoose.model('Note', noteSchema);
 

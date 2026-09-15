@@ -676,6 +676,7 @@ const { buildReadingLoopRouter } = require('./routes/readingLoopRoutes');
 const { buildPersonalAgentRouter } = require('./routes/personalAgentRoutes');
 const { buildAgentTokenRouter } = require('./routes/agentTokenRoutes');
 const { buildEditionRouter } = require('./routes/editionRoutes');
+const { buildEditionThoughtRouter } = require('./routes/editionThoughtRoutes');
 
 /* An agent writes the paper; only its reader takes from it or throws it out. */
 const requireHumanReader = (req, res, next) => {
@@ -6825,6 +6826,8 @@ app.use(buildPersonalAgentRouter({
    Hermes — maintains the paper. Taking a source into the library and throwing
    an edition away stay human: an agent that could do either could quietly
    rewrite what it told you last week. */
+app.use(buildEditionThoughtRouter({ auth: authenticateUserOrAgentToken, humanOnly: requireHumanReader, Edition, Note }));
+
 app.use(buildEditionRouter({
   auth: authenticateUserOrAgentToken,
   humanOnly: requireHumanReader,

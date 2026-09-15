@@ -98,3 +98,13 @@ export const revokeEditionShare = async (id) => {
   const res = await api.delete(`/api/editions/${encodeURIComponent(id)}/share`, getAuthHeaders());
   return res.data || { revoked: true };
 };
+
+/** Human-owned marginal notes are separate from the editorial snapshot. */
+export const getEditionThoughts = async id => {
+  const res = await api.get(`/api/editions/${encodeURIComponent(id)}/thoughts`, getAuthHeaders());
+  return res.data.thoughts || [];
+};
+export const saveEditionThought = async (id, thought) => {
+  const res = await api.put(`/api/editions/${encodeURIComponent(id)}/thoughts`, thought, getAuthHeaders());
+  return res.data;
+};
