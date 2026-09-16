@@ -137,3 +137,15 @@ into the local fixture only. Nothing here edits your production Library.
    selected quotation and your words. Leave a closing reflection and revisit it.
 5. Scroll to another finding and return to Editions. Use Back to where you stopped.
    Toggle Just read and check that the lines stay exactly where they were.
+
+## Release closure — September 16
+
+Review found the legacy Notes API could list or mutate Edition thoughts without
+the Edition revision check. Legacy list/edit/delete now exclude notes with an
+Edition context; the real-Mongo integration proves isolation and that ordinary
+notes still support creation, editing and deletion. No replacement subsystem.
+
+The production Note partial unique index was created and read back before rollout;
+there were zero Edition thoughts before installation and no content was migrated.
+Fresh frontend tests, backend tests and optimized build pass. Release and hosted
+acceptance receipts are recorded separately after deployment.

@@ -7,6 +7,7 @@ const path = require('path');
 const fs = require('fs');
 const { buildEditionRouter } = require('../server/routes/editionRoutes');
 const { buildEditionThoughtRouter } = require('../server/routes/editionThoughtRoutes');
+const { buildLegacyContentRouter } = require('../server/routes/legacyContentRoutes');
 const uri = process.env.EDITION_QA_MONGO_URI || 'mongodb://127.0.0.1:27030/noeis_sunday_paper_qa';
 if (!/^mongodb:\/\/127\.0\.0\.1:\d+\/noeis_sunday_paper_qa$/.test(uri))
   throw new Error('Only the isolated local Edition QA database is allowed.');
@@ -113,6 +114,7 @@ const humanOnly = (req, res, next) => (req.user.agent ? res.sendStatus(403) : ne
   const app = express();
   app.use(express.json());
   app.use(buildEditionThoughtRouter({ auth, humanOnly, Edition, Note }));
+  app.use(buildLegacyContentRouter({ authenticateToken: auth, mongoose, Note, normalizeChecklist: (rows) => rows || [] }));
   app.use(
     buildEditionRouter({
       auth,
@@ -244,6 +246,16 @@ const humanOnly = (req, res, next) => (req.user.agent ? res.sendStatus(403) : ne
     );
     const notes = await request(`${route}/thoughts`);
     assert.equal(notes.body.thoughts.length, 2);
+    const privateNote = await Note.findOne({ userId: owner, 'editionContext.itemId': 'room' });
+    const ordinary = await request('/api/notes', 'POST', { title: 'Ordinary note', content: 'Original' });
+    assert.equal(ordinary.status, 201);
+    const legacyList = await request('/api/notes');
+    assert.deepEqual(legacyList.body.map((note) => note._id), [ordinary.body._id]);
+    assert.equal((await request(`/api/notes/${privateNote._id}`, 'PATCH', { content: 'Bypass' })).status, 404);
+    assert.equal((await request(`/api/notes/${privateNote._id}`, 'DELETE')).status, 404);
+    assert.equal((await request(`/api/notes/${ordinary.body._id}`, 'PATCH', { content: 'Revised' })).body.content, 'Revised');
+    assert.equal((await request(`/api/notes/${ordinary.body._id}`, 'DELETE')).status, 200);
+    assert.equal((await request(`${route}/thoughts`)).body.thoughts.find((note) => note.itemId === 'room').content, 'Revised private reason');
     assert.equal(
       notes.body.thoughts.find((n) => n.itemId === 'room').content,
       'Revised private reason'
