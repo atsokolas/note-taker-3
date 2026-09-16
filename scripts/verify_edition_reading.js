@@ -114,7 +114,7 @@ const humanOnly = (req, res, next) => (req.user.agent ? res.sendStatus(403) : ne
   const app = express();
   app.use(express.json());
   app.use(buildEditionThoughtRouter({ auth, humanOnly, Edition, Note }));
-  app.use(buildLegacyContentRouter({ authenticateToken: auth, mongoose, Note, normalizeChecklist: (rows) => rows || [] }));
+  if (!serve) app.use(buildLegacyContentRouter({ authenticateToken: auth, mongoose, Note, normalizeChecklist: (rows) => rows || [] }));
   app.use(
     buildEditionRouter({
       auth,
