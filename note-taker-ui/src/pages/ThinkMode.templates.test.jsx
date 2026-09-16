@@ -530,6 +530,71 @@ describe('ThinkMode template integration', () => {
     expect(screen.queryByTestId('concept-investigation-panel')).not.toBeInTheDocument();
   });
 
+  it('drops conceptId and v when selecting another Concept after a versioned definition link', async () => {
+    useSearchParamsMock.mockReturnValue([
+      new URLSearchParams('tab=concepts&concept=Room+to+be+wrong&conceptId=concept-1&v=aabbccdd'),
+      mockSetSearchParams
+    ]);
+    useConcepts.mockReturnValue({
+      concepts: [
+        { _id: 'concept-1', name: 'Room to be wrong', count: 0, description: 'A mistake that teaches the map.' },
+        { _id: 'concept-2', name: 'Other Concept', count: 0, description: 'A different distinction.' }
+      ],
+      loading: false,
+      loaded: true,
+      error: '',
+      refresh: refreshConceptsMock
+    });
+    useConcept.mockReturnValue({
+      concept: {
+        _id: 'concept-1',
+        name: 'Room to be wrong',
+        description: 'A mistake that teaches the map.',
+        pinnedHighlightIds: [],
+        pinnedArticleIds: [],
+        pinnedNoteIds: []
+      },
+      loading: false,
+      error: '',
+      refresh: jest.fn(),
+      setConcept: jest.fn()
+    });
+
+    const { rerender } = render(<MemoryRouter><ThinkMode /></MemoryRouter>);
+
+    expect(useConcept).toHaveBeenCalledWith('concept-1', expect.objectContaining({ enabled: true }));
+    const shelf = await screen.findByTestId('think-shelf-rail');
+    fireEvent.click(within(shelf).getByRole('button', { name: 'Other Concept' }));
+
+    const [nextParams] = mockSetSearchParams.mock.calls.at(-1);
+    expect(nextParams.get('tab')).toBe('concepts');
+    expect(nextParams.get('concept')).toBe('Other Concept');
+    expect(nextParams.has('conceptId')).toBe(false);
+    expect(nextParams.has('v')).toBe(false);
+
+    useSearchParamsMock.mockReturnValue([nextParams, mockSetSearchParams]);
+    useConcept.mockReturnValue({
+      concept: {
+        _id: 'concept-2',
+        name: 'Other Concept',
+        description: 'A different distinction.',
+        pinnedHighlightIds: [],
+        pinnedArticleIds: [],
+        pinnedNoteIds: []
+      },
+      loading: false,
+      error: '',
+      refresh: jest.fn(),
+      setConcept: jest.fn()
+    });
+    rerender(<MemoryRouter><ThinkMode /></MemoryRouter>);
+
+    expect(useConcept).toHaveBeenLastCalledWith('Other Concept', expect.objectContaining({ enabled: true }));
+    expect(useIdeaWorkbenchModel).toHaveBeenLastCalledWith(expect.objectContaining({
+      concept: expect.objectContaining({ _id: 'concept-2', name: 'Other Concept' })
+    }));
+  });
+
   it('resolves an id-only Library handoff to the canonical Concept workspace', async () => {
     const exactConceptId = '64f100000000000000000020';
     useSearchParamsMock.mockReturnValue([
