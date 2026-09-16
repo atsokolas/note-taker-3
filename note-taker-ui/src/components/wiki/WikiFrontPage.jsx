@@ -13,7 +13,6 @@ import { buildWikiFrontSurfaceDescriptor } from './wikiSurfaceModel';
 import { dedupePagesByRepoKey } from './wikiRepoDedupeModel';
 import { canonicalWikiPages } from './wikiTitleGroupModel';
 import {
-  collectionPageId,
   collectionRowCopy,
   collectionSearchHit,
   filterCollectionPages,

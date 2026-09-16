@@ -2108,7 +2108,7 @@ const WikiPageReadView = ({
       if (claim?.claimId) map.set(claim.claimId, claim);
     });
     return map;
-  }, [page?.claims, previewPage]);
+  }, [page, previewPage]);
 
   const retiredClaims = useMemo(() => (
     (page?.claims || []).filter(claim => claim?.checkInStatus === 'retired' || claim?.retiredAt)
