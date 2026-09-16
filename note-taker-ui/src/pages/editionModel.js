@@ -167,15 +167,6 @@ export const standLayout = (edition = null) => {
   };
 };
 
-/** Grid count from the configuration, never a hardcoded three. */
-export const editionColumnStyle = (count = 0) => {
-  const n = Math.max(0, Math.floor(Number(count) || 0));
-  return {
-    '--edition-columns': String(n),
-    '--edition-columns-narrow': String(Math.min(Math.max(n, 1), 2))
-  };
-};
-
 /**
  * Who filed a column.
  *

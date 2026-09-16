@@ -1,6 +1,6 @@
 import {
   byInboxEdition, byPaper, bylineFor, bySection, closesLine, datelineLine,
-  editionColumnStyle, gapLine, inboxEditionLine, issueLine, publicSourceHref,
+  gapLine, inboxEditionLine, issueLine, publicSourceHref,
   runLine, sourceLinks, standLayout, stateOf, takenLine, windowLine
 } from './editionModel';
 
@@ -119,16 +119,7 @@ describe('reading it in sections', () => {
     expect(standLayout(null).ready).toBe(false);
   });
 
-  it('writes the column count the configuration named', () => {
-    expect(editionColumnStyle(5)).toEqual({
-      '--edition-columns': '5',
-      '--edition-columns-narrow': '2'
-    });
-    expect(editionColumnStyle(1)).toEqual({
-      '--edition-columns': '1',
-      '--edition-columns-narrow': '1'
-    });
-  });
+
 });
 
 describe('whether an agent kept its promise', () => {

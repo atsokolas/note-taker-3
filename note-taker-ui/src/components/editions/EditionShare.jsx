@@ -16,7 +16,7 @@ import EditionPaper from './EditionPaper';
  * stranger will read; creating the link freezes that version.
  */
 
-const PRIVACY = 'Anyone with the link can read the version you share. Your Library and reading activity stay private.';
+const PRIVACY = 'Anyone with the link can read the version you share. Your Library and reading activity stay private. Your personal thoughts are never included.';
 
 const shareHref = (slug) => (
   typeof window === 'undefined' ? `/share/editions/${slug}` : `${window.location.origin}/share/editions/${slug}`

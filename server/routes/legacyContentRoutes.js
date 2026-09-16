@@ -115,7 +115,8 @@ const buildLegacyContentRouter = ({
   router.get('/api/notes', authenticateToken, async (req, res) => {
     try {
       const userId = req.user.id;
-      const notes = await Note.find({ userId }).sort({ updatedAt: -1 });
+      // Edition thoughts share storage, but require their own revision-checked API.
+      const notes = await Note.find({ userId, editionContext: { $exists: false } }).sort({ updatedAt: -1 });
       res.status(200).json(notes);
     } catch (error) {
       console.error("❌ Error fetching notes:", error);
@@ -162,7 +163,7 @@ const buildLegacyContentRouter = ({
       if (checklist !== undefined) updates.checklist = normalizeChecklist(checklist);
 
       const updatedNote = await Note.findOneAndUpdate(
-        { _id: id, userId },
+        { _id: id, userId, editionContext: { $exists: false } },
         updates,
         { new: true }
       );
@@ -186,7 +187,7 @@ const buildLegacyContentRouter = ({
       const userId = req.user.id;
       const { id } = req.params;
 
-      const deletedNote = await Note.findOneAndDelete({ _id: id, userId });
+      const deletedNote = await Note.findOneAndDelete({ _id: id, userId, editionContext: { $exists: false } });
       if (!deletedNote) {
         return res.status(404).json({ error: "Note not found or you do not have permission to delete it." });
       }
