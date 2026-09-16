@@ -3,6 +3,7 @@ const {
   buildWikiOpenQuestionRows,
   filterWikiOpenQuestions
 } = require('../services/wikiOpenQuestionsService');
+const { normalizeInquiry } = require('../utils/questionInquiry');
 
 const buildConceptQuestionBoardRouter = ({
   mongoose,
@@ -342,7 +343,8 @@ const buildConceptQuestionBoardRouter = ({
         blocks = [],
         linkedHighlightId = null,
         linkedHighlightIds = [],
-        linkedNotebookEntryId = null
+        linkedNotebookEntryId = null,
+        inquiry
       } = req.body;
       if (!text || !text.trim()) return res.status(400).json({ error: "Question text is required." });
       const highlightIds = [
@@ -360,6 +362,7 @@ const buildConceptQuestionBoardRouter = ({
         linkedHighlightId,
         linkedHighlightIds: highlightIds,
         linkedNotebookEntryId,
+        ...(inquiry === undefined ? {} : { inquiry: normalizeInquiry(inquiry) }),
         userId
       });
       enqueueQuestionEmbedding(question);
@@ -374,10 +377,11 @@ const buildConceptQuestionBoardRouter = ({
     try {
       const userId = req.user.id;
       const { id } = req.params;
-      const { text, settledBy, status, linkedTagName, conceptName, blocks, linkedHighlightId, linkedHighlightIds, linkedNotebookEntryId } = req.body;
+      const { text, settledBy, status, linkedTagName, conceptName, blocks, linkedHighlightId, linkedHighlightIds, linkedNotebookEntryId, inquiry } = req.body;
       const payload = {};
       if (text !== undefined) payload.text = text;
       if (settledBy !== undefined) payload.settledBy = String(settledBy || '').trim();
+      if (inquiry !== undefined) payload.inquiry = normalizeInquiry(inquiry);
       if (status !== undefined) payload.status = status;
       if (linkedTagName !== undefined) payload.linkedTagName = linkedTagName;
       if (conceptName !== undefined) {

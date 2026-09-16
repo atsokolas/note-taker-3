@@ -2456,6 +2456,7 @@ const ThinkMode = () => {
         /* Only sent when the caller had an opinion about it, so saving the
            question's body cannot quietly erase what would settle it. */
         ...(payload.settledBy === undefined ? {} : { settledBy: payload.settledBy }),
+        ...(payload.inquiry === undefined ? {} : { inquiry: payload.inquiry }),
         status: payload.status,
         conceptName: payload.conceptName || payload.linkedTagName || '',
         blocks: payload.blocks || [],

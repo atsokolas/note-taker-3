@@ -12970,3 +12970,125 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
   font-size: 0.92rem;
   line-height: 1.45;
 }
+
+/* A requested Library look on the question. Same room as Find, not a
+   second research platform: ordinary language, explicit Library scope,
+   and a run that stays bound to the wording that was asked. */
+.question-inquiry {
+  display: grid;
+  gap: 10px;
+  margin: 18px 0 8px;
+  max-width: 58ch;
+  padding-top: 16px;
+  border-top: 1px solid color-mix(in srgb, var(--border-subtle) 82%, transparent);
+}
+
+.question-inquiry h3 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.question-inquiry__scope,
+.question-inquiry__enough,
+.question-inquiry__status,
+.question-inquiry__gaps,
+.question-inquiry__quiet,
+.question-inquiry__earlier p {
+  margin: 0;
+  color: color-mix(in srgb, var(--text-muted) 88%, transparent);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.question-inquiry__label {
+  display: grid;
+  gap: 6px;
+}
+
+.question-inquiry__label span {
+  color: color-mix(in srgb, var(--text-muted) 90%, transparent);
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.question-inquiry__field {
+  width: 100%;
+  min-height: 4.5rem;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+.question-inquiry__actions,
+.question-inquiry__passage-actions,
+.question-inquiry__earlier {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.question-inquiry button {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: var(--surface);
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+
+.question-inquiry button:focus-visible,
+.question-inquiry a:focus-visible,
+.question-inquiry textarea:focus-visible {
+  outline: 2px solid var(--noeis-focus, var(--focus-ring, #3b6ee8));
+  outline-offset: 2px;
+}
+
+.question-inquiry button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.question-inquiry__passages {
+  display: grid;
+  gap: 12px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.question-inquiry__source {
+  margin: 0 0 4px;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.question-inquiry__passages blockquote {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.question-inquiry__passages a {
+  color: inherit;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .question-inquiry * {
+    transition: none !important;
+    animation: none !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -1832,6 +1832,39 @@ const questionSchema = new mongoose.Schema({
      catching the question is more urgent than knowing its answer shape — but
      an empty one is said out loud rather than left blank. */
   settledBy: { type: String, default: '', trim: true },
+  /* A requested Library look bound to this question. Not an agent run:
+     the companion and AgentRun stay out of this write path. Looking is
+     session-local; only terminal states are stored. */
+  inquiry: {
+    brief: { type: String, default: '', trim: true },
+    scope: { type: String, default: 'library', trim: true },
+    run: {
+      id: { type: String, default: '' },
+      status: {
+        type: String,
+        enum: ['idle', 'stopped', 'partial', 'miss', 'complete'],
+        default: 'idle'
+      },
+      boundQuestion: { type: String, default: '' },
+      boundBrief: { type: String, default: '' },
+      boundScope: { type: String, default: 'library' },
+      boundEnough: { type: String, default: '' },
+      startedAt: { type: Date, default: null },
+      finishedAt: { type: Date, default: null },
+      passages: [{
+        _id: false,
+        key: { type: String, default: '' },
+        kind: { type: String, default: 'article' },
+        articleId: { type: String, default: '' },
+        highlightId: { type: String, default: '' },
+        title: { type: String, default: '' },
+        passage: { type: String, default: '' },
+        href: { type: String, default: '' }
+      }],
+      gaps: { type: String, default: '' },
+      silence: { type: String, default: '' }
+    }
+  },
   status: { type: String, enum: ['open', 'answered'], default: 'open' },
   linkedTagName: { type: String, default: '' },
   conceptName: { type: String, default: '' },

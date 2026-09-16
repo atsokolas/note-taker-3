@@ -6,6 +6,7 @@ import { getAuthHeaders } from '../hooks/useAuthHeaders';
  * @property {string} _id
  * @property {string} text
  * @property {string} settledBy  What would close the loop, if anything named yet
+ * @property {object} [inquiry]  Requested Library look bound to this question
  * @property {string} status
  * @property {string} linkedTagName
  * @property {string} [createdAt]
