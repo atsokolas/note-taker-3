@@ -88,7 +88,7 @@ const fixture = () => ({
 
 async function installMocks(page) {
   let note = fixture();
-  await page.route(/.*\/(api\/|get-articles|folders).*/, async (route) => {
+  await page.route(/.*\/(api\/|articles\/|get-articles|folders).*/, async (route) => {
     const request = route.request();
     const url = new URL(request.url());
     const requestPath = url.pathname;
@@ -109,6 +109,7 @@ async function installMocks(page) {
     }
     if (requestPath === '/api/authored-explorations') return json(route, { explorations: [] });
     if (requestPath === '/api/highlights') return json(route, []);
+    if (requestPath === '/articles/article-1/evergreen') return json(route, { _id: 'article-1', evergreen: false });
     if (requestPath === '/get-articles' || requestPath === '/folders') return json(route, []);
     if (method === 'GET') return json(route, []);
     return json(route, { ok: true });
@@ -120,9 +121,15 @@ async function openCraftNote(page, width) {
   await page.setViewportSize({ width, height: width <= 430 ? 844 : 980 });
   const token = await installDevAuth(page);
   await installMocks(page);
-  await page.goto(appendDevToken(`/think?tab=notebook&entryId=${NOTE_ID}`, token));
+  await page.goto(appendDevToken(`/think?tab=notebook&entryId=${NOTE_ID}`, token), { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => (
+    document.querySelector('.think-notebook-title-input')?.value?.includes('Who gets to experiment')
+  ));
   await expect(page.getByRole('textbox', { name: 'Title' })).toHaveValue(/Who gets to experiment/);
   await expect(page.locator('.ProseMirror')).toContainText('A useful tool should let a thought stay incomplete');
+  await expect.poll(() => page.locator('.think-notebook-title-input').evaluate(element => (
+    Number.parseFloat(window.getComputedStyle(element).fontSize)
+  ))).toBe(width <= 430 ? 31 : 38);
 }
 
 test('Think craft preserves the quiet draft and one focused context area', async ({ page }) => {
@@ -130,6 +137,35 @@ test('Think craft preserves the quiet draft and one focused context area', async
   await expect(page.locator('aside[aria-label="Note context"]')).toBeHidden();
   await expect(page.getByText('A line you left yourself')).toBeVisible();
   await expect(page.getByLabel('A line you left yourself').getByText('Return to the distinction between reversibility and consequence.')).toBeVisible();
+  const geometry = await page.evaluate(() => {
+    const title = document.querySelector('.think-notebook-title-input');
+    const writing = document.querySelector('.ProseMirror');
+    const note = document.querySelector('.think-notes__note');
+    const titleStyle = window.getComputedStyle(title);
+    const titleBox = title.getBoundingClientRect();
+    const writingBox = writing.getBoundingClientRect();
+    const noteBox = note.getBoundingClientRect();
+    return {
+      titleFontSize: Number.parseFloat(titleStyle.fontSize),
+      titleLineHeight: Number.parseFloat(titleStyle.lineHeight),
+      titleHeight: titleBox.height,
+      writingGap: writingBox.top - titleBox.bottom,
+      writingTop: writingBox.top,
+      viewportHeight: window.innerHeight,
+      noteWidth: noteBox.width
+    };
+  });
+  expect(geometry.titleFontSize).toBeGreaterThanOrEqual(36);
+  expect(geometry.titleFontSize).toBeLessThanOrEqual(40);
+  expect(geometry.titleLineHeight).toBeLessThanOrEqual(46);
+  expect(geometry.titleHeight).toBeLessThan(150);
+  // The fixture carries both a next-time line and its source provenance.
+  // Those are meaningful context, so guard the visible writing position
+  // rather than pretending the whole interval is empty margin.
+  expect(geometry.writingGap).toBeLessThan(240);
+  expect(geometry.writingTop).toBeLessThan(geometry.viewportHeight * 0.85);
+  expect(geometry.noteWidth).toBeGreaterThanOrEqual(620);
+  expect(geometry.noteWidth).toBeLessThanOrEqual(680);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.screenshot({ path: path.join(ARTIFACT_DIR, '01-resting-draft.png'), fullPage: true });
   await page.locator('.think-next-line').screenshot({ path: path.join(ARTIFACT_DIR, '06-next-time-line.png') });
@@ -173,6 +209,13 @@ test('Think craft keeps context reachable at tablet widths', async ({ page }) =>
 test('Think craft becomes a single focused writing flow on phone', async ({ page }) => {
   await openCraftNote(page, 390);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  const titleFontSize = await page.locator('.think-notebook-title-input').evaluate(element => (
+    Number.parseFloat(window.getComputedStyle(element).fontSize)
+  ));
+  expect(titleFontSize).toBeGreaterThanOrEqual(30);
+  expect(titleFontSize).toBeLessThanOrEqual(34);
+  await expect(page.getByLabel('Note utilities')).toContainText('Saved');
+  await expect(page.getByLabel('Note utilities')).not.toContainText('Edit');
   await page.getByRole('button', { name: 'Material' }).click();
   await expect(page.getByRole('heading', { name: 'Beside this note' })).toBeVisible();
   await expect(page.locator('.think-notes__note')).toHaveAttribute('aria-hidden', 'true');

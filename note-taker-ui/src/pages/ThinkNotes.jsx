@@ -25,7 +25,6 @@ import {
   readRecentNoteIds,
   resolveOpenNoteId
 } from './thinkNotesModel';
-import '../styles/think-notes.css';
 import { plainTextFrom } from '../utils/editorialText';
 
 // Think.
@@ -391,6 +390,7 @@ const ThinkNotes = () => {
                   <RoomShelfButton
                     active={item.isOpen}
                     nested
+                    className="think-notes__note-link"
                     onClick={() => openNote(item.id)}
                   >
                     <span>{item.title}</span>

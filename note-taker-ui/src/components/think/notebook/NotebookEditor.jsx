@@ -1493,13 +1493,10 @@ const NotebookEditor = ({
                 ? 'Saving…'
                 : saveState === 'error' || workbench.saveState === 'error'
                 ? 'Not saved'
-                : saveState === 'saved' || workbench.saveState === 'saved'
-                ? 'Saved'
-                : 'Ready'}
+                : 'Saved'}
             </span>
             <QuietButton data-context-trigger="material" aria-pressed={activeContext === 'material'} onClick={() => openMaterial()}>Material</QuietButton>
             <QuietButton data-context-trigger="partner" aria-pressed={activeContext === 'partner'} onClick={() => onOpenContext?.('partner')}>Partner</QuietButton>
-            {!editingBody ? <QuietButton onClick={startEditingBody}>Edit</QuietButton> : null}
             <details className="think-notebook-utility__more">
               <summary className="ui-quiet-button">More</summary>
               <div>
