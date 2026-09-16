@@ -297,6 +297,18 @@ describe('LibraryPassagePicker', () => {
     expect(screen.queryByRole('listitem')).not.toBeInTheDocument();
   });
 
+  it('keeps a bound-question match whose words sit past the opening of the article', async () => {
+    const later = `${'Opening inventory. '.repeat(40)}Who bears the downside of a recoverable mistake?`;
+    const search = jest.fn().mockResolvedValue({
+      articles: [{ _id: 'letter', title: 'Household letter', content: later }],
+      highlights: []
+    });
+    renderPicker({ boundQuestion: 'Who bears the downside?' }, { search });
+    const item = await screen.findByRole('listitem');
+    expect(item).toHaveTextContent(/bears the downside/i);
+    expect(screen.queryByText(/Nothing you already have speaks to/)).not.toBeInTheDocument();
+  });
+
   it('searches from the bound question and stays silent when nothing speaks to it', async () => {
     const search = jest.fn().mockResolvedValue({
       articles: [{

@@ -4,7 +4,8 @@ import {
   needleFromQuestion,
   passageIsStale,
   passageSpeaksToQuery,
-  qualifyLibraryRows
+  qualifyLibraryRows,
+  snippetAroundQuery
 } from './libraryPassageRetrieval';
 
 describe('libraryPassageRetrieval', () => {
@@ -58,6 +59,27 @@ describe('libraryPassageRetrieval', () => {
       'highlight:kept:h1',
       'article:kept'
     ]);
+  });
+
+  it('keeps an article whose matching line sits past the opening', () => {
+    const body = `${'Opening inventory. '.repeat(40)}Patience is not the same as avoidance.`;
+    expect(snippetAroundQuery(body, 'patience avoidance').toLowerCase()).toContain('patience');
+    const rows = librarySearchRows({
+      articles: [{ _id: 'later', title: 'Household routines', content: body }]
+    }, { query: 'patience avoidance' });
+    expect(qualifyLibraryRows(rows, { query: 'patience avoidance', mode: 'search' }).map((row) => row.key))
+      .toEqual(['article:later']);
+  });
+
+  it('still drops a returned article that never speaks to the request', () => {
+    const rows = librarySearchRows({
+      articles: [{
+        _id: 'routines',
+        title: 'Household routines',
+        content: 'Patience is not the same as avoidance.'
+      }]
+    }, { query: 'bears downside' });
+    expect(qualifyLibraryRows(rows, { query: 'bears downside', mode: 'search' })).toEqual([]);
   });
 
   it('names a useful non-result against the actual question', () => {

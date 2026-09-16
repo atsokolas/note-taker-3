@@ -48,7 +48,23 @@ export const librarySearchSilence = ({ query = '', boundQuestion = '', mode = 's
   return `Nothing in your Library matches “${needle}”.`;
 };
 
-export const librarySearchRows = (payload = {}) => {
+export const snippetAroundQuery = (text, query, { limit = 280 } = {}) => {
+  const body = clean(text);
+  if (!body) return '';
+  const needed = tokensOf(query);
+  const hay = body.toLowerCase();
+  let at = -1;
+  needed.forEach((token) => {
+    const index = hay.indexOf(token);
+    if (index >= 0 && (at < 0 || index < at)) at = index;
+  });
+  if (at < 0) return body.slice(0, limit);
+  const start = Math.max(0, at - Math.floor(limit / 3));
+  const windowed = body.slice(start, start + limit).trim();
+  return start > 0 ? `… ${windowed}` : windowed;
+};
+
+export const librarySearchRows = (payload = {}, { query = '' } = {}) => {
   const seen = new Set();
   const rows = [];
   const add = (row) => {
@@ -67,14 +83,19 @@ export const librarySearchRows = (payload = {}) => {
     passage: clean(highlight.text || highlight.anchor?.text),
     highlight
   }));
-  (Array.isArray(payload?.articles) ? payload.articles : []).forEach((article) => add({
-    kind: 'article',
-    articleId: idOf(article),
-    highlightId: '',
-    title: String(article.title || '').trim() || 'Untitled source',
-    passage: clean(article.content || article.firstGraph),
-    article
-  }));
+  (Array.isArray(payload?.articles) ? payload.articles : []).forEach((article) => {
+    const raw = article.content || article.firstGraph;
+    add({
+      kind: 'article',
+      articleId: idOf(article),
+      highlightId: '',
+      title: String(article.title || '').trim() || 'Untitled source',
+      passage: String(query || '').trim()
+        ? (snippetAroundQuery(raw, query) || clean(raw))
+        : clean(raw),
+      article
+    });
+  });
   return rows;
 };
 
