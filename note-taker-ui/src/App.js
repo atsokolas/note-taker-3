@@ -59,6 +59,7 @@ import './styles/brand-energy.css';
 import './styles/editions.css';
 import './styles/design-preview.css';
 import './styles/stitch-editorial.css';
+import './styles/think-notes.css';
 import './surface/surface-frame.css';
 import './styles/semantic-theme.css';
 

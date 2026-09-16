@@ -6,8 +6,8 @@
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-columns: minmax(0, 220px) minmax(420px, 1fr) minmax(230px, 280px);
-  gap: clamp(28px, 4vw, 56px);
+  grid-template-columns: minmax(0, 184px) minmax(0, 660px) minmax(245px, 1fr);
+  gap: 42px;
   align-items: start;
   width: 100%;
   padding: clamp(24px, 4vh, 48px) 0 clamp(80px, 16vh, 160px);
@@ -61,7 +61,7 @@
 .think-notes__note {
   scroll-margin-top: 104px;
   min-width: 0;
-  max-width: 720px;
+  max-width: 660px;
   opacity: 1;
   transition: opacity 140ms cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -237,11 +237,6 @@
     box-shadow: none;
   }
 
-  .think-notes .think-notebook-title-input,
-  .think-notes .think-notebook-title-input:focus {
-    font-size: clamp(1.9rem, 8.5vw, 2.12rem);
-  }
-
   .think-notes .ProseMirror { font-size: 1.12rem; }
   .think-notes .think-notebook-utility { gap: 9px; overflow-x: auto; }
 }
@@ -306,19 +301,21 @@ body.noeis-editorial .think-notes .think-notebook-editor-actions-right > .ui-qui
   display: inline-flex;
 }
 
-/* The title is the note's headline, not a form field. */
-.think-notes .think-notebook-title-input,
-.think-notes .think-notebook-title-input:focus {
+/* The title is the note's headline, not a form field. The body scope is
+   deliberate: the older editorial notebook treatment has the same class
+   specificity and otherwise turns this private writing page into a cover. */
+body.noeis-editorial .think-notes .think-notebook-title-input,
+body.noeis-editorial .think-notes .think-notebook-title-input:focus {
   padding: 0 !important;
   border: 0 !important;
   border-radius: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
   font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif !important;
-  font-size: clamp(1.9rem, 3.2vw, 2.6rem);
+  font-size: 2.375rem;
   font-weight: 400;
-  line-height: 1.12;
-  letter-spacing: -0.012em;
+  line-height: 1.14;
+  letter-spacing: -0.025em;
   /* It is a textarea now: no scrollbar, no drag handle, and it wraps. */
   width: 100%;
   overflow: hidden;
@@ -327,12 +324,34 @@ body.noeis-editorial .think-notes .think-notebook-editor-actions-right > .ui-qui
   word-break: break-word;
 }
 
+/* Keep the production editor's durable save and document behavior, while
+   removing the legacy workbench spacing around it. Each separation below has
+   one owner: the utility-to-title gap, then the editor's title-to-writing gap. */
+body.noeis-editorial .think-notes .think-notebook-editor {
+  gap: 24px;
+}
+
+body.noeis-editorial .think-notes .think-notebook-editor-header {
+  gap: 30px;
+  margin-bottom: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+@media (max-width: 760px) {
+  body.noeis-editorial .think-notes .think-notebook-title-input,
+  body.noeis-editorial .think-notes .think-notebook-title-input:focus {
+    font-size: 1.9375rem;
+    line-height: 1.16;
+  }
+}
+
 .think-notes .think-notebook-utility {
   display: flex;
   align-items: center;
   gap: 12px;
   min-height: 36px;
-  margin-bottom: 24px;
+  margin-bottom: 0;
   border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 52%, transparent);
   font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
 }
@@ -522,6 +541,12 @@ body.noeis-editorial .think-notes .think-notebook-editor-actions-right,
   color: var(--text-secondary);
   font-size: 0.8rem;
   line-height: 1.5;
+}
+
+.think-notes__note-link {
+  display: grid;
+  justify-content: stretch;
+  gap: 5px;
 }
 .think-notes__writing-origin {
   color: var(--text-muted);

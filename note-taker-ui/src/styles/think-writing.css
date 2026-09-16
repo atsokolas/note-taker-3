@@ -142,9 +142,9 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
    the measure, then fade the rails — the sequential lump coming off typing. */
 @media (min-width: 1181px) {
   .think-notes {
-    /* Pixel tracks interpolate; minmax() to 30px is discrete and reads as
-       rails jumping after the words have already started to go. */
-    grid-template-columns: 220px minmax(420px, 1fr) 280px;
+    /* Match the writing composition at rest. Focus may compress the outer
+       tracks, while the note itself keeps its 660px reading measure. */
+    grid-template-columns: 184px minmax(0, 660px) minmax(245px, 1fr);
   }
 
   /* Whether the rails are there is not a motion question — only how they
@@ -158,11 +158,11 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
   }
 
   body:is(.think-rails-away, .think-focus-held) .think-notes:has([data-writing-rail='left']:is(:hover, :focus-within)) {
-    grid-template-columns: 220px minmax(420px, 1fr) 30px;
+    grid-template-columns: 184px minmax(420px, 1fr) 30px;
   }
 
   body:is(.think-rails-away, .think-focus-held) .think-notes:has([data-writing-rail='right']:is(:hover, :focus-within)) {
-    grid-template-columns: 30px minmax(420px, 1fr) 280px;
+    grid-template-columns: 30px minmax(420px, 1fr) 245px;
   }
 }
 
@@ -176,11 +176,11 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
   }
 
   .think-notes [data-writing-rail='left'] {
-    --think-rail-rest: 220px;
+    --think-rail-rest: 184px;
   }
 
   .think-notes [data-writing-rail='right'] {
-    --think-rail-rest: 280px;
+    --think-rail-rest: 245px;
   }
 
   /* Outrank stitch-editorial's resting 250/300 (and 260/320 under 1360px).
