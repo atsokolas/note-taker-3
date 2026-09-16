@@ -6,6 +6,7 @@ import AgentSkillDock from '../../agent/AgentSkillDock';
 import AuthoredWorkOrigin from '../AuthoredWorkOrigin';
 import FindWhatIAlreadyHave from '../../wiki/open-sentence/FindWhatIAlreadyHave';
 import QuestionInquiry from './QuestionInquiry';
+import QuestionMissingMiddle from './QuestionMissingMiddle';
 import {
   alreadyUsedHere,
   mergeQuestionHighlightLinks,
@@ -186,6 +187,12 @@ const QuestionEditor = ({
         excluded={recordedUses}
         onPlace={placeFoundPassage}
         onSave={(inquiry) => persist(blocksDraft, { inquiry })}
+      />
+      <QuestionMissingMiddle
+        boundQuestion={titleDraft}
+        placed={recordedUses}
+        excluded={recordedUses}
+        onPlace={placeFoundPassage}
       />
       <QuestionBlocksEditor
         blocks={blocksDraft}

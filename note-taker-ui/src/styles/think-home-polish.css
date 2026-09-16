@@ -12974,7 +12974,8 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
 /* A requested Library look on the question. Same room as Find, not a
    second research platform: ordinary language, explicit Library scope,
    and a run that stays bound to the wording that was asked. */
-.question-inquiry {
+.question-inquiry,
+.question-missing-middle {
   display: grid;
   gap: 10px;
   margin: 18px 0 8px;
@@ -12983,7 +12984,8 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
   border-top: 1px solid color-mix(in srgb, var(--border-subtle) 82%, transparent);
 }
 
-.question-inquiry h3 {
+.question-inquiry h3,
+.question-missing-middle h3 {
   margin: 0;
   color: var(--text-primary);
   font-size: 0.95rem;
@@ -12996,7 +12998,10 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
 .question-inquiry__status,
 .question-inquiry__gaps,
 .question-inquiry__quiet,
-.question-inquiry__earlier p {
+.question-inquiry__earlier p,
+.question-missing-middle__lede,
+.question-missing-middle__status,
+.question-missing-middle__silence {
   margin: 0;
   color: color-mix(in srgb, var(--text-muted) 88%, transparent);
   font-size: 0.88rem;
@@ -13008,7 +13013,8 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
   gap: 6px;
 }
 
-.question-inquiry__label span {
+.question-inquiry__label span,
+.question-missing-middle__end span {
   color: color-mix(in srgb, var(--text-muted) 90%, transparent);
   font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
   font-size: 0.66rem;
@@ -13027,14 +13033,16 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
 
 .question-inquiry__actions,
 .question-inquiry__passage-actions,
-.question-inquiry__earlier {
+.question-inquiry__earlier,
+.question-missing-middle__actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
 }
 
-.question-inquiry button {
+.question-inquiry button,
+.question-missing-middle button {
   min-height: 44px;
   padding: 0 12px;
   border: 1px solid var(--border-subtle);
@@ -13047,12 +13055,15 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
 
 .question-inquiry button:focus-visible,
 .question-inquiry a:focus-visible,
-.question-inquiry textarea:focus-visible {
+.question-inquiry textarea:focus-visible,
+.question-missing-middle button:focus-visible,
+.question-missing-middle a:focus-visible {
   outline: 2px solid var(--noeis-focus, var(--focus-ring, #3b6ee8));
   outline-offset: 2px;
 }
 
-.question-inquiry button:disabled {
+.question-inquiry button:disabled,
+.question-missing-middle button:disabled {
   cursor: default;
   opacity: 0.55;
 }
@@ -13071,7 +13082,8 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
   font-weight: 600;
 }
 
-.question-inquiry__passages blockquote {
+.question-inquiry__passages blockquote,
+.question-missing-middle blockquote {
   margin: 0;
   padding: 0;
   border: 0;
@@ -13081,12 +13093,23 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
   line-height: 1.5;
 }
 
-.question-inquiry__passages a {
+.question-inquiry__passages a,
+.question-missing-middle a {
   color: inherit;
 }
 
+.question-missing-middle__end {
+  margin: 0;
+}
+
+.question-missing-middle__bridge {
+  display: grid;
+  gap: 10px;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .question-inquiry * {
+  .question-inquiry *,
+  .question-missing-middle * {
     transition: none !important;
     animation: none !important;
     scroll-behavior: auto !important;
