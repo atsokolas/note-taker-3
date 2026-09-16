@@ -43,12 +43,21 @@ export default function QuestionInquiry({
   const cancelled = useRef(false);
   const lookingRef = useRef(false);
   const generation = useRef(0);
+  const questionId = question?._id;
+
+  useEffect(() => {
+    generation.current += 1;
+    cancelled.current = true;
+    lookingRef.current = false;
+    setLooking(false);
+  }, [questionId]);
 
   useEffect(() => {
     setBrief(inquiry.brief);
-  }, [question?._id, inquiry.brief]);
+  }, [questionId, inquiry.brief]);
 
   useEffect(() => () => {
+    generation.current += 1;
     cancelled.current = true;
     lookingRef.current = false;
   }, []);
@@ -69,7 +78,6 @@ export default function QuestionInquiry({
     cancelled.current = false;
     lookingRef.current = true;
     setLooking(true);
-    persist({ brief: String(brief || '').trim() });
     try {
       const run = await runLibraryInquiry({
         search,
@@ -80,6 +88,20 @@ export default function QuestionInquiry({
       });
       if (gen !== generation.current) return;
       persist({ brief: String(brief || '').trim(), run });
+    } catch (_failure) {
+      if (gen !== generation.current) return;
+      persist({
+        brief: String(brief || '').trim(),
+        run: {
+          ...stoppedInquiryRun({
+            question: boundQuestion || question.text,
+            brief,
+            enough: question.settledBy
+          }),
+          status: 'miss',
+          silence: 'Library search could not finish.'
+        }
+      });
     } finally {
       if (gen === generation.current) {
         lookingRef.current = false;

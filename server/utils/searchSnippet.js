@@ -25,6 +25,26 @@ const queryTokens = (query = '') => (
     .filter((token) => token.length > 2 && !STOP_WORDS.has(token))
 );
 
+const escapeRegExp = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/* Highlights cannot require the whole joined query as one substring.
+   “patience avoidance” is two words; a saved line that holds both still counts. */
+const highlightFieldMatch = (query = '') => {
+  const tokens = queryTokens(query);
+  const needles = tokens.length ? tokens : [String(query || '').trim()].filter(Boolean);
+  return {
+    $or: needles.flatMap((token) => {
+      const r = new RegExp(escapeRegExp(token), 'i');
+      return [
+        { 'highlights.text': r },
+        { 'highlights.note': r },
+        { 'highlights.tags': r },
+        { title: r }
+      ];
+    })
+  };
+};
+
 /* Open the line that earned the match, not the first 280 characters.
    Find and the Search page both read this preview; a leading slice drops
    ordinary long articles after the client re-checks the truncated text. */
@@ -46,5 +66,6 @@ const snippetAroundQuery = (text, query, { limit = SNIPPET_LIMIT } = {}) => {
 module.exports = {
   SNIPPET_LIMIT,
   queryTokens,
+  highlightFieldMatch,
   snippetAroundQuery
 };

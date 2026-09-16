@@ -100,7 +100,7 @@ export const passagesFromLibrarySearch = (payload, query) => {
       ? buildCanonicalHighlightPath({ articleId: row.articleId, highlightId: row.highlightId })
       : buildCanonicalArticlePath(row.articleId)
   );
-  return qualifyLibraryRows(librarySearchRows(payload), { query, mode: 'search' })
+  return qualifyLibraryRows(librarySearchRows(payload, { query }), { query, mode: 'search' })
     .slice(0, INQUIRY_PASSAGE_LIMIT)
     .map((row) => normalizeInquiryPassage({
       ...row,
@@ -247,14 +247,14 @@ export const runLibraryInquiry = async ({
       now
     });
   }
-  const payload = await search({ q: query, type: ['article', 'highlight'] });
-  const qualified = qualifyLibraryRows(librarySearchRows(payload), { query, mode: 'search' });
+  const payload = await search({ q: textOf(brief), type: ['article', 'highlight'] });
+  const qualified = qualifyLibraryRows(librarySearchRows(payload, { query }), { query, mode: 'search' });
   const passages = passagesFromLibrarySearch(payload, query);
   if (cancelled?.current) {
     return finishInquiryRun({
       looking,
       passages,
-      query,
+      query: textOf(brief),
       stopped: true,
       capped: qualified.length > INQUIRY_PASSAGE_LIMIT,
       now
@@ -263,7 +263,7 @@ export const runLibraryInquiry = async ({
   return finishInquiryRun({
     looking,
     passages,
-    query,
+    query: textOf(brief),
     capped: qualified.length > INQUIRY_PASSAGE_LIMIT,
     now
   });

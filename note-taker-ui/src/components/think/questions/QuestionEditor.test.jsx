@@ -1,6 +1,7 @@
 import React from 'react';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import QuestionEditor from './QuestionEditor';
+import { searchKeyword } from '../../../api/retrieval';
 
 jest.mock('../../../hooks/useHighlights', () => () => ({
   highlights: [],
@@ -16,6 +17,10 @@ jest.mock('../../return-queue/ReturnLaterControl', () => function ReturnLaterCon
 jest.mock('../../agent/AgentSkillDock', () => function AgentSkillDock() {
   return <div data-testid="agent-skill-dock" />;
 });
+
+jest.mock('../../../api/retrieval', () => ({
+  searchKeyword: jest.fn()
+}));
 
 jest.mock('../../wiki/open-sentence/LibraryPassagePicker', () => function LibraryPassagePicker({ open, onPlace, boundQuestion }) {
   if (!open) return null;
@@ -295,5 +300,50 @@ describe('QuestionEditor', () => {
       linkedHighlightId: 'highlight-origin',
       blocks: [expect.objectContaining({ id: 'block-1', text: 'Edited after placing.' })]
     }));
+  });
+
+  it('saves an inquiry result without rewriting the question being edited', async () => {
+    searchKeyword.mockResolvedValue({
+      articles: [{
+        _id: 'letter',
+        title: 'Household letter',
+        content: 'Patience is not the same as avoidance.'
+      }],
+      highlights: []
+    });
+    const onSave = jest.fn();
+    render(
+      <QuestionEditor
+        question={{
+          _id: 'question-1',
+          text: 'Who bears the downside?',
+          blocks: [{ id: 'block-1', type: 'paragraph', text: 'A distinction still open.' }]
+        }}
+        saving={false}
+        error={null}
+        onSave={onSave}
+      />
+    );
+    fireEvent.change(screen.getByDisplayValue('Who bears the downside?'), {
+      target: { value: 'Whose recoverable mistake is this?' }
+    });
+    fireEvent.change(screen.getByPlaceholderText(/patience from avoidance/i), {
+      target: { value: 'Find an example that separates patience from avoidance.' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Look through your Library' }));
+    await waitFor(() => expect(onSave).toHaveBeenCalled());
+    const payload = onSave.mock.calls.at(-1)[0];
+    expect(payload).toEqual({
+      _id: 'question-1',
+      inquiry: expect.objectContaining({
+        brief: 'Find an example that separates patience from avoidance.',
+        run: expect.objectContaining({
+          status: 'complete',
+          boundQuestion: 'Whose recoverable mistake is this?'
+        })
+      })
+    });
+    expect(payload.text).toBeUndefined();
+    expect(payload.blocks).toBeUndefined();
   });
 });

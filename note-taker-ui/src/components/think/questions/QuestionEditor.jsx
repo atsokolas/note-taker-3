@@ -185,7 +185,7 @@ const QuestionEditor = ({
         boundQuestion={titleDraft}
         excluded={recordedUses}
         onPlace={placeFoundPassage}
-        onSave={(inquiry) => persist(blocksDraft, { inquiry })}
+        onSave={(inquiry) => onSave({ _id: question._id, inquiry })}
       />
       <QuestionBlocksEditor
         blocks={blocksDraft}

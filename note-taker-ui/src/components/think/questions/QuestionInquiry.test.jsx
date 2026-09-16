@@ -92,7 +92,7 @@ describe('QuestionInquiry', () => {
     await waitFor(() => expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
       run: expect.objectContaining({
         status: 'miss',
-        silence: 'Nothing you already have speaks to “find bears downside”.'
+        silence: 'Nothing you already have speaks to “Find who bears the downside.”.'
       })
     })));
   });
@@ -127,5 +127,66 @@ describe('QuestionInquiry', () => {
     });
     const runs = onSave.mock.calls.map((call) => call[0].run?.status).filter(Boolean);
     expect(runs.at(-1)).toBe('stopped');
+  });
+
+  it('does not write a stopped look onto the next question', async () => {
+    const onSave = jest.fn();
+    let resolveSearch;
+    const search = jest.fn(() => new Promise((resolve) => { resolveSearch = resolve; }));
+    const { rerender } = render(
+      <QuestionInquiry
+        question={question}
+        boundQuestion={question.text}
+        onSave={onSave}
+        search={search}
+      />
+    );
+    fireEvent.change(screen.getByPlaceholderText(/patience from avoidance/i), {
+      target: { value: 'Find an example that separates patience from avoidance.' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Look through your Library' }));
+    expect(screen.getByText('Looking through your Library.')).toBeInTheDocument();
+
+    rerender(
+      <QuestionInquiry
+        question={{
+          _id: 'q2',
+          text: 'A different question',
+          inquiry: { brief: '', run: { status: 'idle', passages: [] } }
+        }}
+        boundQuestion="A different question"
+        onSave={onSave}
+        search={search}
+      />
+    );
+    expect(screen.queryByText('Looking through your Library.')).not.toBeInTheDocument();
+    await resolveSearch({
+      articles: [{ _id: 'letter', title: 'Household letter', content: 'Patience is not the same as avoidance.' }],
+      highlights: []
+    });
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it('names a failed look instead of staying silent', async () => {
+    const onSave = jest.fn();
+    const search = jest.fn().mockRejectedValue(new Error('offline'));
+    render(
+      <QuestionInquiry
+        question={question}
+        boundQuestion={question.text}
+        onSave={onSave}
+        search={search}
+      />
+    );
+    fireEvent.change(screen.getByPlaceholderText(/patience from avoidance/i), {
+      target: { value: 'Find an example that separates patience from avoidance.' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Look through your Library' }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
+      run: expect.objectContaining({
+        status: 'miss',
+        silence: 'Library search could not finish.'
+      })
+    })));
   });
 });

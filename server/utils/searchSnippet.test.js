@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { snippetAroundQuery } = require('./searchSnippet');
+const { snippetAroundQuery, highlightFieldMatch } = require('./searchSnippet');
 
 const run = () => {
   const opening = 'Opening inventory. '.repeat(40);
@@ -20,6 +20,19 @@ const run = () => {
     'HTML articles should match on visible words, not tags.'
   );
   assert.strictEqual(snippetAroundQuery('', 'Nomad'), '');
+
+  const highlightMatch = highlightFieldMatch(
+    'Find an example that separates patience from avoidance.'
+  );
+  const textClauses = highlightMatch.$or.filter((clause) => clause['highlights.text']);
+  assert.ok(
+    textClauses.some((clause) => clause['highlights.text'].test('Patience is not the same as avoidance.')),
+    'A highlight should match on its own words, not the joined brief.'
+  );
+  assert.ok(
+    !textClauses.some((clause) => String(clause['highlights.text']) === String(/find example separates patience avoidance/i)),
+    'Highlight retrieval must not require the whole token dump as one substring.'
+  );
 };
 
 if (require.main === module) {
