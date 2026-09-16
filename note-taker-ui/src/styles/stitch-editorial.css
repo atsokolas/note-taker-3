@@ -5840,6 +5840,20 @@ body.noeis-editorial .concept-editorial-view__header p {
   color: color-mix(in srgb, var(--vellum-ink) 82%, transparent);
 }
 
+body.noeis-editorial .concept-editorial-view__header p.concept-editorial-view__recorded {
+  font-family: inherit;
+  font-size: 0.92rem;
+  line-height: 1.4;
+  font-style: normal;
+  color: color-mix(in srgb, var(--vellum-ink) 62%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.noeis-editorial .concept-editorial-view__recorded {
+    transition: none;
+  }
+}
+
 body.noeis-editorial .concept-editorial-view__manuscript {
   display: grid;
   gap: 26px;

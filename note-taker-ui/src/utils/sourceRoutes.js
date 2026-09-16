@@ -4,6 +4,17 @@ const idOf = (value) => clean(value?._id || value?.id || value);
 
 export const isExternalSourceHref = (href = '') => /^https?:\/\//i.test(clean(href));
 
+export const buildConceptPath = ({ name = '', conceptId = '', versionId = '' } = {}) => {
+  const concept = clean(name);
+  const id = clean(conceptId);
+  if (!concept && !id) return '';
+  const params = new URLSearchParams({ tab: 'concepts' });
+  params.set('concept', concept || id);
+  if (id && id !== concept) params.set('conceptId', id);
+  if (clean(versionId)) params.set('v', clean(versionId));
+  return `/think?${params.toString()}`;
+};
+
 export const isLibraryHref = (href = '') => /^\/library(\?|$)/.test(clean(href));
 
 /** highlight:article:highlight or article:article — the origin a Why keeps. */
@@ -82,7 +93,7 @@ const buildOwnedSourcePath = (source = {}) => {
   if (type === 'highlight' && objectId && parentObjectId) {
     return buildCanonicalHighlightPath({ articleId: parentObjectId, highlightId: objectId });
   }
-  if (type === 'concept' && objectId) return `/think?tab=concepts&concept=${encodeURIComponent(objectId)}`;
+  if (type === 'concept' && objectId) return buildConceptPath({ name: objectId, conceptId: objectId });
   if (type === 'question' && objectId) return `/think?tab=questions&questionId=${encodeURIComponent(objectId)}`;
   if ((type === 'notebook' || type === 'note') && objectId) {
     return `/think?tab=notebook&entryId=${encodeURIComponent(objectId)}`;

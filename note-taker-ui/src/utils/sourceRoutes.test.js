@@ -2,6 +2,7 @@ import {
   buildAuthoredContinuationPath,
   buildCanonicalArticlePath,
   buildCanonicalHighlightPath,
+  buildConceptPath,
   buildSourceOpenPath,
   buildSourceOriginPath,
   isExternalSourceHref,
@@ -23,6 +24,15 @@ describe('sourceRoutes', () => {
       .toBe('/library?articleId=article-1&highlightId=highlight-1');
     expect(buildCanonicalHighlightPath({ highlightId: 'highlight-1' }))
       .toBe('/library');
+  });
+
+  it('opens a concept by name and optional recorded version', () => {
+    expect(buildConceptPath({ name: 'Room to be wrong' })).toBe('/think?tab=concepts&concept=Room+to+be+wrong');
+    expect(buildConceptPath({
+      name: 'Room to be wrong',
+      conceptId: 'concept-1',
+      versionId: 'abc'
+    })).toBe('/think?tab=concepts&concept=Room+to+be+wrong&conceptId=concept-1&v=abc');
   });
 
   it('prefers an owned Library identity over the original public URL', () => {

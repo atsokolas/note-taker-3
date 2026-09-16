@@ -1,4 +1,6 @@
 import {
+  DISTINCTION_SOURCE_CONCEPT,
+  DISTINCTION_SOURCE_NOTEBOOK,
   DISTINCTION_SOURCE_TYPE,
   distinctionExternalId,
   distinctionHref,
@@ -10,8 +12,11 @@ import {
   findRetainedDistinction,
   heldInstrumentForOwner,
   heldInstrumentFrom,
+  isLexicalOnlyMatch,
   keepNewerHeldInstrument,
   liveDefinitionAfterFailure,
+  liveDefinitionMoved,
+  missingSourceCopy,
   quoteBlockFromDistinctionUse,
   recordFailedApplication,
   recordedDefinition,
@@ -94,12 +99,14 @@ describe('distinctionUse', () => {
     ])).toEqual([
       {
         sourceId: 'note-1',
+        sourceKind: DISTINCTION_SOURCE_NOTEBOOK,
         name: room.name,
         definition: room.definition,
         href: '/think?tab=notebook&entryId=note-1'
       },
       {
         sourceId: 'note-4',
+        sourceKind: DISTINCTION_SOURCE_NOTEBOOK,
         name: 'Whose downside?',
         definition: 'Who pays when the experiment fails.',
         href: '/think?tab=notebook&entryId=note-4'
@@ -147,6 +154,88 @@ describe('distinctionUse', () => {
     expect(findRetainedDistinction([created], 'distinction:work-1').sourceId).toBe('note-1');
     expect(distinctionExternalId({ id: 'work-1' })).toBe('distinction:work-1');
     expect(distinctionHref('note-1')).toBe('/think?tab=notebook&entryId=note-1');
+  });
+
+  it('retains a named distinction as a Concept definition, then keeps two uses on that version', async () => {
+    const saveConcept = jest.fn(async (name, payload) => ({
+      _id: 'concept-1',
+      name,
+      description: payload.description
+    }));
+    const first = await retainDistinction({
+      concepts: [],
+      saveConcept,
+      name: room.name,
+      definition: room.definition
+    });
+    expect(saveConcept).toHaveBeenCalledTimes(1);
+    expect(first).toMatchObject({
+      ...room,
+      sourceId: 'concept-1',
+      sourceKind: DISTINCTION_SOURCE_CONCEPT
+    });
+    expect(first.sourceHref).toContain('tab=concepts');
+    expect(first.sourceHref).toContain(`v=${first.versionId}`);
+    const parenting = distinctionRecord({
+      ...first,
+      against: 'Children need room to make recoverable mistakes.'
+    });
+    const rollout = distinctionRecord({
+      ...first,
+      against: 'Ship the rollback while the blast radius is still yours.'
+    });
+    expect(parenting.versionId).toBe(rollout.versionId);
+    expect(recordedDefinition(rollout).definition).toBe(room.definition);
+    const again = await retainDistinction({
+      concepts: [{ _id: 'concept-1', name: room.name, description: room.definition }],
+      saveConcept,
+      name: room.name,
+      definition: room.definition
+    });
+    expect(saveConcept).toHaveBeenCalledTimes(1);
+    expect(again.sourceId).toBe('concept-1');
+  });
+
+  it('lists a written Concept definition and suppresses labels, cruft, and mere name matches', () => {
+    expect(eligibleDistinctions([
+      { _id: 'concept-1', name: room.name, description: room.definition },
+      { _id: 'concept-2', name: 'ai', description: '' },
+      { _id: 'concept-3', name: 'Hidden', description: room.definition, hiddenFromHome: true },
+      { _id: 'concept-4', name: 'Debug', description: room.definition, debugOnly: true },
+      { _id: 'concept-5', name: 'Old', description: room.definition, archived: true },
+      {
+        _id: 'note-1',
+        title: room.name,
+        snippet: room.definition,
+        importMeta: { sourceType: DISTINCTION_SOURCE_TYPE }
+      }
+    ])).toEqual([
+      {
+        sourceId: 'concept-1',
+        sourceKind: DISTINCTION_SOURCE_CONCEPT,
+        name: room.name,
+        definition: room.definition,
+        href: '/think?tab=concepts&concept=Room+to+be+wrong&conceptId=concept-1'
+      }
+    ]);
+    expect(isLexicalOnlyMatch(
+      'The phrase room to be wrong shows up in this memo.',
+      room
+    )).toBe(true);
+    expect(isLexicalOnlyMatch(
+      'A mistake that teaches the map, versus one that strands you, in a product rollback.',
+      room
+    )).toBe(false);
+    expect(missingSourceCopy('missing', DISTINCTION_SOURCE_CONCEPT))
+      .toBe('The concept is gone. These are the words used here.');
+    expect(liveDefinitionMoved(
+      { name: room.name, description: 'Whose downside?' },
+      distinctionVersionId(room)
+    )).toBe(true);
+    expect(liveDefinitionMoved(
+      { name: room.name, description: room.definition },
+      distinctionVersionId(room)
+    )).toBe(false);
   });
 
   it('places the recorded wording in a second notebook as a quote, not a live link', () => {

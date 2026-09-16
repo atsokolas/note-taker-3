@@ -15,11 +15,21 @@ jest.mock('../../../api/notebook', () => ({
   createNotebookEntry: jest.fn(async () => null),
   updateNotebookEntry: jest.fn(async () => null)
 }));
+jest.mock('../../../api/concepts', () => ({
+  getConcepts: jest.fn(async () => []),
+  getConcept: jest.fn(async () => {
+    const error = new Error('Concept not found.');
+    error.response = { status: 404 };
+    throw error;
+  }),
+  updateConcept: jest.fn(async () => null)
+}));
 import {
   getNotebookEntry,
   getNotebookSummaries,
   updateNotebookEntry
 } from '../../../api/notebook';
+import { getConcept, getConcepts, updateConcept } from '../../../api/concepts';
 import {
   acceptWording,
   beginCarry,
@@ -1296,6 +1306,9 @@ describe('OpenSentence', () => {
     getNotebookSummaries.mockReset();
     getNotebookEntry.mockReset();
     updateNotebookEntry.mockReset();
+    getConcepts.mockReset();
+    getConcept.mockReset();
+    updateConcept.mockReset();
     getNotebookSummaries.mockImplementation(() => new Promise(() => {}));
     getNotebookEntry.mockImplementation(async () => {
       const error = new Error('Notebook entry not found.');
@@ -1303,6 +1316,13 @@ describe('OpenSentence', () => {
       throw error;
     });
     updateNotebookEntry.mockImplementation(async () => null);
+    getConcepts.mockResolvedValue([]);
+    getConcept.mockImplementation(async () => {
+      const error = new Error('Concept not found.');
+      error.response = { status: 404 };
+      throw error;
+    });
+    updateConcept.mockResolvedValue(null);
   });
 
   afterEach(() => {
@@ -2731,6 +2751,77 @@ describe('OpenSentence', () => {
     );
     expect(await screen.findByText(STORYBOARD_DISTINCTION)).toBeInTheDocument();
     expect(await screen.findByText('The notebook page is gone. These are the words used here.')).toBeInTheDocument();
+  });
+
+  it('keeps the recorded definition when the concept is gone', async () => {
+    const applied = applyInstrument(
+      openExploration(createExploration({
+        originalText: STORYBOARD_COMPUTE_SENTENCE,
+        source: STORYBOARD_COMPUTE_SOURCE
+      })),
+      distinctionRecord({
+        name: STORYBOARD_INSTRUMENT_NAME,
+        definition: STORYBOARD_DISTINCTION,
+        sourceId: 'concept-gone',
+        sourceKind: 'concept'
+      })
+    );
+    render(
+      <MemoryRouter>
+        <OpenSentence exploration={applied} />
+      </MemoryRouter>
+    );
+    expect(await screen.findByText(STORYBOARD_DISTINCTION)).toBeInTheDocument();
+    expect(await screen.findByText('The concept is gone. These are the words used here.')).toBeInTheDocument();
+  });
+
+  it('applies a saved Concept definition in a second context and keeps those words', async () => {
+    const concept = {
+      _id: 'concept-1',
+      name: STORYBOARD_INSTRUMENT_NAME,
+      description: STORYBOARD_DISTINCTION
+    };
+    getNotebookSummaries.mockResolvedValue([]);
+    getConcepts.mockResolvedValue([concept]);
+    getConcept.mockResolvedValue(concept);
+    const compute = openExploration(createExploration({
+      originalText: STORYBOARD_COMPUTE_SENTENCE,
+      source: STORYBOARD_COMPUTE_SOURCE
+    }));
+    const onChange = jest.fn();
+    const { rerender } = render(
+      <MemoryRouter>
+        <OpenSentence
+          exploration={compute}
+          onChange={onChange}
+          authorship={{ ready: true, owner: 'owner-1' }}
+        />
+      </MemoryRouter>
+    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Use this here' }));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
+      instrument: expect.objectContaining({
+        name: STORYBOARD_INSTRUMENT_NAME,
+        definition: STORYBOARD_DISTINCTION,
+        sourceId: 'concept-1',
+        sourceKind: 'concept'
+      })
+    }));
+    const applied = onChange.mock.calls[0][0];
+    rerender(
+      <MemoryRouter>
+        <OpenSentence
+          exploration={applied}
+          authorship={{ ready: true, owner: 'owner-1' }}
+        />
+      </MemoryRouter>
+    );
+    expect(await screen.findByText('Used here as written.')).toBeInTheDocument();
+    expect(screen.getAllByText(STORYBOARD_DISTINCTION).length).toBeGreaterThan(0);
+    expect(screen.getByRole('link', { name: 'Open the definition' })).toHaveAttribute(
+      'href',
+      expect.stringContaining('tab=concepts')
+    );
   });
 
   it('lets a named instrument be the way home when that sentence has no distinction', () => {
