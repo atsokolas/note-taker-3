@@ -1,6 +1,13 @@
 import { collectWikiText } from './wikiPageMetrics';
+import { surroundingFromArticle } from './open-sentence/openSentenceJourney';
+import { citationOccurrence } from './wikiCopyReference';
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
+const clean = (value) => String(value || '').trim();
+const normalizeClaimText = (value = '') => String(value || '')
+  .replace(/\s+/g, ' ')
+  .trim()
+  .toLowerCase();
 
 export const MAX_PANEL_TRAIL = 5;
 
@@ -32,6 +39,76 @@ export const surroundingFromSource = (source = {}) => sourceSurrounding({
   excerpt: source?.snippet || source?.quote || source?.excerpt || source?.text || '',
   aroundBefore: source?.aroundBefore || source?.before || source?.contextBefore || '',
   aroundAfter: source?.aroundAfter || source?.after || source?.contextAfter || ''
+});
+
+export const sourceArticleId = (source = {}) => {
+  const type = clean(source?.type || source?.sourceType).toLowerCase();
+  const objectId = clean(source?.objectId || source?.sourceObjectId || source?.sourceId || source?.articleId);
+  const parentId = clean(source?.parentObjectId || source?.parentArticleId || source?.articleId || source?.metadata?.articleId);
+  if (type === 'article' && objectId) return objectId;
+  if (type === 'highlight') return parentId;
+  return parentId || (type !== 'highlight' ? objectId : '');
+};
+
+export const sourceHighlightId = (source = {}) => {
+  const type = clean(source?.type || source?.sourceType).toLowerCase();
+  const highlightId = clean(source?.highlightId || source?.objectId || source?.sourceObjectId);
+  if (type === 'highlight') return highlightId;
+  return clean(source?.highlightId);
+};
+
+export const resolveLibraryHighlight = ({ source = {}, highlights = [] } = {}) => {
+  const highlightId = sourceHighlightId(source);
+  if (!highlightId) return null;
+  return (Array.isArray(highlights) ? highlights : []).find((entry) => (
+    clean(entry?._id || entry?.id) === highlightId
+  )) || null;
+};
+
+export const surroundingFromLibrarySource = ({
+  source = {},
+  article = null,
+  highlight = null
+} = {}) => {
+  const quoted = clean(
+    highlight?.text
+    || highlight?.anchor?.text
+    || source?.quote
+    || source?.excerpt
+    || source?.snippet
+    || source?.text
+  );
+  const saved = surroundingFromSource(source);
+  const around = surroundingFromArticle({
+    article,
+    highlight: highlight || {
+      text: quoted,
+      anchor: {
+        text: quoted,
+        prefix: saved.aroundBefore,
+        suffix: saved.aroundAfter,
+        startOffsetApprox: source?.startOffsetApprox
+      }
+    }
+  });
+  return sourceSurrounding({
+    excerpt: quoted,
+    aroundBefore: around.aroundBefore || saved.aroundBefore,
+    aroundAfter: around.aroundAfter || saved.aroundAfter
+  });
+};
+
+export const citedSourceOccurrence = ({
+  page = null,
+  source = null,
+  claimId = '',
+  citationIndex = 0
+} = {}) => citationOccurrence({
+  pageId: page?._id || page?.id,
+  revisionId: page?.rev || '',
+  claimId,
+  sourceId: source?._id || source?.id || '',
+  citationIndex
 });
 
 const claimMap = (page = {}) => {
@@ -80,6 +157,31 @@ export const compareWikiPages = (current = null, next = null) => {
     }
   }
   return changes;
+};
+
+export const changedClaimIdsFromPages = (current = null, next = null) => (
+  compareWikiPages(current, next)
+    .map((change) => clean(change?.id))
+    .filter((id) => id && id !== 'body')
+);
+
+export const changedClaimIdsFromVisit = ({
+  page = null,
+  added = [],
+  changed = []
+} = {}) => {
+  const addedSet = new Set((Array.isArray(added) ? added : []).map(normalizeClaimText).filter(Boolean));
+  const changedSet = new Set((Array.isArray(changed) ? changed : [])
+    .map((entry) => normalizeClaimText(entry?.text || entry))
+    .filter(Boolean));
+  if (!addedSet.size && !changedSet.size) return [];
+  return (Array.isArray(page?.claims) ? page.claims : [])
+    .filter((claim) => {
+      const text = normalizeClaimText(claim?.text);
+      return text && (addedSet.has(text) || changedSet.has(text));
+    })
+    .map((claim) => clean(claim?.claimId || claim?._id || claim?.id))
+    .filter(Boolean);
 };
 
 export const candidateFootprint = ({ current = null, candidate = null } = {}) => {

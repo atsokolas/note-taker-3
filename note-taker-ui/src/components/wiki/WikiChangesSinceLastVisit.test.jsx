@@ -94,6 +94,21 @@ describe('WikiChangesSinceLastVisit', () => {
     expect(screen.getByRole('button', { name: 'Show me' })).toBeInTheDocument();
   });
 
+  it('asks the page to show only the changed claims', () => {
+    const onShowInPage = jest.fn();
+    render(
+      <WikiChangesSinceLastVisit
+        lastViewedAt={new Date().toISOString()}
+        added={['new']}
+        removed={[]}
+        onMarkReviewed={() => {}}
+        onShowInPage={onShowInPage}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Show only what changed' }));
+    expect(onShowInPage).toHaveBeenCalledTimes(1);
+  });
+
   it('renders only an "added" group when nothing was removed', () => {
     render(
       <WikiChangesSinceLastVisit

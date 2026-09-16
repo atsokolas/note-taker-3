@@ -88,6 +88,16 @@ const WikiChangesSinceLastVisit = ({
           >
             {expanded ? 'Hide' : 'Show me'}
           </button>
+          {typeof onShowInPage === 'function' ? (
+            <button
+              type="button"
+              className="wiki-changes-banner__toggle"
+              onClick={onShowInPage}
+              data-testid="wiki-changes-banner-show-in-page"
+            >
+              Show only what changed
+            </button>
+          ) : null}
           <button
             type="button"
             className="wiki-changes-banner__primary"

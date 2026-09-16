@@ -220,6 +220,34 @@ describe('renderTiptapDoc', () => {
     expect(screen.getByText('A disputed claim.')).toHaveAttribute('data-claim-id', 'claim-1');
   });
 
+  it('marks changed claims without inventing a class on unchanged ones', () => {
+    render(
+      <MemoryRouter>
+        {renderTiptapDoc({
+          type: 'doc',
+          content: [{
+            type: 'paragraph',
+            content: [
+              {
+                type: 'text',
+                text: 'Changed line.',
+                marks: [{ type: 'claim', attrs: { claimId: 'claim-new', support: 'supported', citationIndexes: [1] } }]
+              },
+              { type: 'text', text: ' ' },
+              {
+                type: 'text',
+                text: 'Stable line.',
+                marks: [{ type: 'claim', attrs: { claimId: 'claim-stable', support: 'supported', citationIndexes: [1] } }]
+              }
+            ]
+          }]
+        }, { changedClaimIds: new Set(['claim-new']) })}
+      </MemoryRouter>
+    );
+    expect(screen.getByText('Changed line.')).toHaveClass('wiki-read__changed-passage');
+    expect(screen.getByText('Stable line.')).not.toHaveClass('wiki-read__changed-passage');
+  });
+
   it('strips model source-range citation artifacts from prose', () => {
     render(
       <div>
