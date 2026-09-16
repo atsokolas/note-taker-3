@@ -8,7 +8,7 @@ import { filterReturnViewItems } from '../../utils/cruftSuppression';
 import { formatSurfaceDate } from '../../utils/dateDisplay';
 import { useNoeisAgentSurface } from '../../agent/AgentRailContext';
 import WikiCreationComposer from './WikiCreationComposer';
-import { WIKI_KINDS, WIKI_KIND_LABELS, wikiKindForPage } from './wikiFacetModel';
+import { WIKI_KINDS, WIKI_KIND_LABELS } from './wikiFacetModel';
 import { buildWikiFrontSurfaceDescriptor } from './wikiSurfaceModel';
 import { dedupePagesByRepoKey } from './wikiRepoDedupeModel';
 import { canonicalWikiPages } from './wikiTitleGroupModel';
@@ -18,14 +18,6 @@ import {
   filterCollectionPages,
   pendingWikiProposal
 } from './wikiCollectionModel';
-import {
-  RoomShelf,
-  RoomShelfButton,
-  RoomShelfList,
-  RoomShelfMeta,
-  RoomShelfSection,
-  roomShelfItemClass
-} from '../collection/RoomShelf';
 import '../../styles/wiki-critical.css';
 import '../../styles/wiki-collection.css';
 
@@ -66,6 +58,89 @@ const openExistingAgent = () => {
   window.dispatchEvent(new Event('noeis:open-agent'));
 };
 
+const CollectionNavButton = ({ active, onClick, children }) => (
+  <button
+    type="button"
+    className={`wiki-collection__nav-btn${active ? ' is-active' : ''}`}
+    aria-pressed={active}
+    onClick={onClick}
+  >
+    {children}
+  </button>
+);
+
+const CollectionNav = ({
+  wikiFilter,
+  proposedCount,
+  pageCount,
+  onSelect,
+  onNavigate
+}) => (
+  <>
+    <p className="wiki-collection__nav-title">Wiki</p>
+    <div className="wiki-collection__nav-group">
+      {[
+        ['all', 'All pages'],
+        ['proposed', 'Proposed changes'],
+        ['recent', 'Recently changed']
+      ].map(([value, label]) => (
+        <CollectionNavButton
+          key={value}
+          active={wikiFilter === value}
+          onClick={() => onSelect(value)}
+        >
+          <span>{label}</span>
+          {value === 'proposed' && proposedCount > 0
+            ? <span className="wiki-collection__nav-count">{proposedCount}</span>
+            : null}
+        </CollectionNavButton>
+      ))}
+    </div>
+    <div className="wiki-collection__nav-group">
+      <p className="wiki-collection__nav-label">Types</p>
+      {WIKI_KINDS.map((item) => (
+        <CollectionNavButton
+          key={item}
+          active={wikiFilter === `kind:${item}`}
+          onClick={() => onSelect(`kind:${item}`)}
+        >
+          <span>{WIKI_KIND_LABELS[item]}</span>
+        </CollectionNavButton>
+      ))}
+    </div>
+    <div className="wiki-collection__nav-group">
+      <p className="wiki-collection__nav-label">Workspace</p>
+      <Link
+        className="wiki-collection__nav-btn wiki-collection__nav-btn--link"
+        to="/wiki/workspace?view=graph"
+        onClick={onNavigate}
+      >
+        Map & disagreements
+      </Link>
+      <Link
+        className="wiki-collection__nav-btn wiki-collection__nav-btn--link"
+        to="/wiki/contradictions"
+        onClick={onNavigate}
+      >
+        Disagreements
+      </Link>
+      <Link
+        className="wiki-collection__nav-btn wiki-collection__nav-btn--link"
+        to="/wiki/workspace?view=list"
+        onClick={onNavigate}
+      >
+        Full workspace
+      </Link>
+    </div>
+    <p className="wiki-collection__nav-foot">
+      A collection of living pages.
+      <span>
+        {pageCount} page{pageCount === 1 ? '' : 's'}
+      </span>
+    </p>
+  </>
+);
+
 const WikiFrontPage = ({ initialKind = '' }) => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -84,7 +159,7 @@ const WikiFrontPage = ({ initialKind = '' }) => {
   const [wikiSearch, setWikiSearch] = useState('');
   const [searchPages, setSearchPages] = useState(null);
   const [composerOpen, setComposerOpen] = useState(false);
-  const [mobileShelfOpen, setMobileShelfOpen] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const searchParams = new URLSearchParams(location.search);
   const requestedKind = searchParams.get('kind') || initialKind;
   const requestedView = searchParams.get('view');
@@ -108,6 +183,7 @@ const WikiFrontPage = ({ initialKind = '' }) => {
     else if (['proposed', 'recent'].includes(value)) next.set('view', value);
     const query = next.toString();
     navigate(`${location.pathname}${query ? `?${query}` : ''}`, { replace: true });
+    setMobileNavOpen(false);
   };
 
   useEffect(() => {
@@ -199,12 +275,6 @@ const WikiFrontPage = ({ initialKind = '' }) => {
     markWikiOnboardingComplete();
   }, [error, hasAnyWikiContent, loading, onboardingComplete]);
 
-  const wikiKindCounts = useMemo(() => {
-    const counts = Object.fromEntries(WIKI_KINDS.map(kind => [kind, 0]));
-    canonicalPages.forEach((page) => { counts[wikiKindForPage(page)] += 1; });
-    return counts;
-  }, [canonicalPages]);
-
   const proposedCount = useMemo(
     () => canonicalPages.filter(pendingWikiProposal).length,
     [canonicalPages]
@@ -223,70 +293,39 @@ const WikiFrontPage = ({ initialKind = '' }) => {
     [kind, scope, sourcePages, wikiSearch]
   );
 
+  const nav = (
+    <CollectionNav
+      wikiFilter={wikiFilter}
+      proposedCount={proposedCount}
+      pageCount={canonicalPages.length}
+      onSelect={selectWikiFilter}
+      onNavigate={() => setMobileNavOpen(false)}
+    />
+  );
+
   const renderCollection = (emptyComposer = false) => (
     <div className="wiki-collection__shell">
-      <RoomShelf
-        className={`wiki-living-nav${mobileShelfOpen ? ' is-mobile-open' : ''}`}
-        aria-label="Wiki views"
-        label="Wiki"
-        count={canonicalPages.length || undefined}
+      <nav
+        className={`wiki-collection__nav${mobileNavOpen ? ' is-open' : ''}`}
+        aria-label="Wiki navigation"
       >
-        <button
-          type="button"
-          className="wiki-living-nav__mobile-toggle"
-          aria-expanded={mobileShelfOpen}
-          onClick={() => setMobileShelfOpen(value => !value)}
-        >
-          <span>Browse wikis</span>
-          {canonicalPages.length ? <RoomShelfMeta>{canonicalPages.length}</RoomShelfMeta> : null}
-        </button>
-        <RoomShelfList className="wiki-living-nav__primary">
-          {[
-            ['all', 'All pages', canonicalPages.length],
-            ['proposed', 'Proposed changes', proposedCount],
-            ['recent', 'Recently changed']
-          ].map(([value, label, count]) => (
-            <li key={value}>
-              <RoomShelfButton
-                active={wikiFilter === value}
-                aria-pressed={wikiFilter === value}
-                onClick={() => selectWikiFilter(value)}
-              >
-                <span>{label}</span>
-                {Number.isFinite(count) && count > 0 ? <RoomShelfMeta>{count}</RoomShelfMeta> : null}
-              </RoomShelfButton>
-            </li>
-          ))}
-        </RoomShelfList>
-        <RoomShelfSection className="wiki-living-nav__kinds" label="Subjects">
-          <RoomShelfList>
-            {WIKI_KINDS.map((item) => (
-              <li key={item}>
-                <RoomShelfButton
-                  active={wikiFilter === `kind:${item}`}
-                  nested
-                  aria-pressed={wikiFilter === `kind:${item}`}
-                  onClick={() => selectWikiFilter(`kind:${item}`)}
-                >
-                  <span>{WIKI_KIND_LABELS[item]}</span>
-                  <RoomShelfMeta>{wikiKindCounts[item]}</RoomShelfMeta>
-                </RoomShelfButton>
-              </li>
-            ))}
-          </RoomShelfList>
-        </RoomShelfSection>
-        <RoomShelfSection className="wiki-living-nav__workspace" label="Workspace">
-          <RoomShelfList>
-            <li><Link className={roomShelfItemClass({ nested: true })} to="/wiki/workspace?view=graph">Map & disagreements</Link></li>
-            <li><Link className={roomShelfItemClass({ nested: true })} to="/wiki/contradictions">Disagreements</Link></li>
-            <li><Link className={roomShelfItemClass({ nested: true })} to="/wiki/workspace?view=list">Full workspace</Link></li>
-          </RoomShelfList>
-        </RoomShelfSection>
-      </RoomShelf>
+        {nav}
+      </nav>
 
       <section className="wiki-collection__stage" aria-labelledby="wiki-collection-title">
         <header className="wiki-collection__head">
-          <h1 id="wiki-collection-title">Wiki</h1>
+          <div className="wiki-collection__title-row">
+            <button
+              type="button"
+              className="wiki-collection__nav-toggle"
+              aria-label="Wiki navigation"
+              aria-expanded={mobileNavOpen}
+              onClick={() => setMobileNavOpen(value => !value)}
+            >
+              ☰
+            </button>
+            <h1 id="wiki-collection-title">Wiki</h1>
+          </div>
           <div className="wiki-collection__actions">
             {proposedCount ? (
               <button
@@ -297,7 +336,7 @@ const WikiFrontPage = ({ initialKind = '' }) => {
                 {proposedCount} proposed change{proposedCount === 1 ? '' : 's'}
               </button>
             ) : null}
-            <button type="button" className="wiki-collection__text" onClick={() => setComposerOpen(true)}>
+            <button type="button" className="wiki-collection__text wiki-collection__newpage" onClick={() => setComposerOpen(true)}>
               + New page
             </button>
             <button type="button" className="wiki-collection__text" onClick={openExistingAgent}>
@@ -307,6 +346,10 @@ const WikiFrontPage = ({ initialKind = '' }) => {
         </header>
 
         <div className="wiki-collection__search">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="10.5" cy="10.5" r="6.5" />
+            <path d="m16 16 4.5 4.5" />
+          </svg>
           <input
             id="wikiQuery"
             type="search"

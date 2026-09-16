@@ -868,7 +868,10 @@ function App() {
         brandEnergy={uiSettings.brandEnergy}
         surface={surface}
         /* Think owns its thought partner inside the writing surface. The shell
-           must never mount a second, generic agent beside it. */
+           must never mount a second, generic agent beside it. The Wiki
+           collection keeps the steward reachable from Ask, not as a resting
+           column beside the list. */
+        agentOnDemand={shellLocation.pathname === '/wiki' || shellLocation.pathname === '/wiki/dossiers'}
         rightRail={hasContextualAgentRail(shellLocation.pathname)
           && !(shellLocation.pathname === '/think' || shellLocation.pathname.startsWith('/think/'))
           ? <AgentRail />

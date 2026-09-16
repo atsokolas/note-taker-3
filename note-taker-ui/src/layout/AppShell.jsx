@@ -4,10 +4,19 @@ import BrandGradient from '../components/BrandGradient';
 // The rail is rendered here, beside the routed column, so that changing routes
 // changes the column and nothing else. Mounting it inside a page would make it
 // arrive and leave with that page, which is precisely what it must not do.
-const AppShell = ({ leftNav, topBar, children, rightRail = null, brandEnergy = true, surface = null }) => {
+const AppShell = ({
+  leftNav,
+  topBar,
+  children,
+  rightRail = null,
+  brandEnergy = true,
+  surface = null,
+  agentOnDemand = false
+}) => {
   const [agentOpen, setAgentOpen] = useState(false);
   const [compact, setCompact] = useState(() => window.matchMedia?.('(max-width: 1080px)').matches);
-  const onDemand = surface?.room === 'library' || compact;
+  const onDemand = Boolean(agentOnDemand) || surface?.room === 'library' || compact;
+  const showAgentTrigger = onDemand && !agentOnDemand;
   useEffect(() => {
     const media = window.matchMedia?.('(max-width: 1080px)');
     const change = () => setCompact(Boolean(media?.matches));
@@ -80,16 +89,18 @@ const AppShell = ({ leftNav, topBar, children, rightRail = null, brandEnergy = t
           <div className="app-shell-new__column">{children}</div>
           {rightRail ? (
             <>
-              <button
-                ref={triggerRef}
-                type="button"
-                className="agent-rail-drawer__trigger"
-                aria-expanded={agentOpen}
-                aria-controls="noeis-agent-drawer"
-                onClick={() => setAgentOpen(true)}
-              >
-                {surface?.room === 'library' ? 'Ask about this' : 'Agent'}
-              </button>
+              {showAgentTrigger ? (
+                <button
+                  ref={triggerRef}
+                  type="button"
+                  className="agent-rail-drawer__trigger"
+                  aria-expanded={agentOpen}
+                  aria-controls="noeis-agent-drawer"
+                  onClick={() => setAgentOpen(true)}
+                >
+                  {surface?.room === 'library' ? 'Ask about this' : 'Agent'}
+                </button>
+              ) : null}
               <div
                 id="noeis-agent-drawer"
                 className="agent-rail-drawer"

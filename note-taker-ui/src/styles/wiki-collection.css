@@ -1,7 +1,7 @@
-/* Quiet Wiki collection. Replaces the morning-paper default composition
-   (masthead, headline, desk counts, Continue, maintenance table) that used
-   to live in wiki-front-page.css / WikiFrontPage.jsx. Workspace, map, and
-   create-page remain reachable from the shelf. */
+/* Quiet Wiki collection. Compact 184px nav beside title, search, and one
+   list — the HTML index composition. Replaces the mixed-front RoomShelf
+   catalog and idle steward column. Workspace, map, create, and Ask remain
+   reachable. */
 
 body.noeis-editorial.wiki-front-page-route .brand-gradient,
 body.noeis-editorial.wiki-front-page-route .topbar .brand-gradient {
@@ -16,19 +16,109 @@ body.noeis-editorial.wiki-front-page-route .topbar .brand-gradient {
   padding: 42px 32px 90px;
 }
 
-.wiki-collection__shell .wiki-living-nav {
+.wiki-collection__shell {
+  display: grid;
+  grid-template-columns: 184px minmax(0, 1fr);
+  gap: 40px;
+  align-items: start;
+  min-height: calc(100vh - 108px);
+}
+
+.wiki-collection__nav {
   min-width: 0;
-  padding: 8px 0 48px;
+  position: sticky;
+  top: 28px;
+  padding-top: 8px;
 }
 
-.wiki-collection__shell .wiki-living-nav__mobile-toggle {
+.wiki-collection__nav-title,
+.wiki-collection__nav-label {
+  margin: 0 12px 11px;
+  font-size: 10px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--muted, #676e62);
+}
+
+.wiki-collection__nav-title {
+  margin: 0 12px 18px;
+}
+
+.wiki-collection__nav-group {
+  display: grid;
+}
+
+.wiki-collection__nav-group + .wiki-collection__nav-group {
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid var(--noeis-rule, var(--vellum-line, #dcded3));
+}
+
+.wiki-collection__nav-btn {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+  min-height: 39px;
+  text-align: left;
+  padding: 9px 12px;
+  color: var(--muted, #676e62);
+  font-size: 12px;
+  line-height: 1.5;
+  position: relative;
+  border: 0;
+  border-radius: 2px;
+  background: none;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.wiki-collection__nav-btn:hover {
+  background: var(--wash, #efeee6);
+  color: var(--ink, #30362e);
+}
+
+.wiki-collection__nav-btn.is-active {
+  background: var(--sagewash, #e7eddf);
+  color: var(--ink, #30362e);
+}
+
+.wiki-collection__nav-btn.is-active:before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 2px;
+  background: var(--sage, #506346);
+}
+
+.wiki-collection__nav-count {
+  margin-left: auto;
+  font-size: 10px;
+}
+
+.wiki-collection__nav-foot {
+  margin: 28px 12px 0;
+  font-size: 10px;
+  color: var(--muted, #676e62);
+  line-height: 1.65;
+}
+
+.wiki-collection__nav-foot span {
+  display: block;
+}
+
+.wiki-collection__nav-toggle {
   display: none;
-}
-
-@media (max-width: 1440px) {
-  .wiki-collection {
-    width: min(100%, 1280px);
-  }
+  min-height: 36px;
+  min-width: 36px;
+  font-size: 19px;
+  border: 0;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
 }
 
 .wiki-collection__stage {
@@ -43,6 +133,13 @@ body.noeis-editorial.wiki-front-page-route .topbar .brand-gradient {
   gap: 20px;
   padding: 0 0 22px;
   border-bottom: 1px solid var(--noeis-rule, var(--vellum-line, #dcded3));
+}
+
+.wiki-collection__title-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
 }
 
 .wiki-collection__head h1 {
@@ -100,6 +197,17 @@ body.noeis-editorial.wiki-front-page-route .topbar .brand-gradient {
   padding: 16px 0 14px;
   border-bottom: 1px solid var(--noeis-rule, var(--vellum-line, #dcded3));
   color: var(--muted, #676e62);
+}
+
+.wiki-collection__search svg {
+  height: 17px;
+  width: 17px;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex-shrink: 0;
 }
 
 .wiki-collection__search input {
@@ -263,12 +371,16 @@ body.noeis-editorial.wiki-front-page-route .topbar .brand-gradient {
     gap: 34px;
   }
 
+  .wiki-collection__stage {
+    max-width: none;
+  }
+
   .wiki-collection__head h1 {
     font-size: 38px;
   }
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 900px) {
   .wiki-collection {
     padding: 30px 24px 65px;
   }
@@ -278,57 +390,12 @@ body.noeis-editorial.wiki-front-page-route .topbar .brand-gradient {
     gap: 25px;
   }
 
-  .wiki-collection__title {
-    font-size: 23px;
-  }
-}
-
-@media (max-width: 768px) {
-  .wiki-collection__shell {
-    display: block;
-  }
-
-  .wiki-living-nav {
-    margin-bottom: 18px;
-  }
-
-  .wiki-collection__shell .wiki-living-nav__mobile-toggle {
-    display: flex;
-    width: 100%;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    color: inherit;
-    font: 0.78rem/1.4 var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-  }
-
-  .wiki-collection__shell .wiki-living-nav:not(.is-mobile-open) > :not(.wiki-living-nav__mobile-toggle) {
-    display: none;
-  }
-
-  .wiki-collection__shell .wiki-living-nav.is-mobile-open .wiki-living-nav__primary,
-  .wiki-collection__shell .wiki-living-nav.is-mobile-open .wiki-living-nav__kinds,
-  .wiki-collection__shell .wiki-living-nav.is-mobile-open .wiki-living-nav__workspace {
-    margin-top: 18px;
-  }
-}
-
-@media (max-width: 390px) {
-  .wiki-collection {
-    padding: 24px 22px 60px;
-  }
-
-  .wiki-collection__head {
-    gap: 13px;
-    padding-bottom: 17px;
+  .wiki-collection__nav-btn {
+    font-size: 11px;
   }
 
   .wiki-collection__head h1 {
-    font-size: 36px;
+    font-size: 37px;
   }
 
   .wiki-collection__title {
@@ -342,6 +409,76 @@ body.noeis-editorial.wiki-front-page-route .topbar .brand-gradient {
   .wiki-collection__open {
     opacity: 1;
   }
+}
+
+@media (max-width: 640px) {
+  .wiki-collection {
+    padding: 24px 22px 60px;
+  }
+
+  .wiki-collection__shell {
+    display: block;
+    min-height: 0;
+  }
+
+  .wiki-collection__nav {
+    display: none;
+    position: static;
+    margin: 0 0 18px;
+    padding: 0;
+  }
+
+  .wiki-collection__nav.is-open {
+    display: block;
+  }
+
+  .wiki-collection__nav-toggle {
+    display: inline-block;
+  }
+
+  .wiki-collection__head {
+    gap: 13px;
+    padding-bottom: 17px;
+  }
+
+  .wiki-collection__head h1 {
+    font-size: 36px;
+  }
+
+  .wiki-collection__actions {
+    gap: 10px;
+  }
+
+  .wiki-collection__actions .wiki-collection__text {
+    font-size: 10px;
+  }
+
+  .wiki-collection__newpage {
+    display: none;
+  }
+
+  .wiki-collection__search {
+    padding: 13px 0;
+    gap: 8px;
+  }
+
+  .wiki-collection__search input {
+    font-size: 12px;
+  }
+
+  .wiki-collection__title {
+    font-size: 23px;
+  }
+
+  .wiki-collection__dek {
+    font-size: 16px;
+  }
+
+  .wiki-collection__open {
+    opacity: 1;
+    font-size: 10px;
+    min-width: 35px;
+  }
 
   .wiki-collection__meta {
     display: block;
@@ -349,6 +486,16 @@ body.noeis-editorial.wiki-front-page-route .topbar .brand-gradient {
 
   .wiki-collection__pending {
     margin-top: 8px;
+  }
+
+  .wiki-collection__label {
+    font-size: 9px;
+  }
+}
+
+@media (max-width: 390px) {
+  .wiki-collection {
+    padding: 24px 22px 60px;
   }
 }
 
@@ -367,7 +514,8 @@ body.noeis-editorial.wiki-front-page-route .topbar .brand-gradient {
 }
 
 @media print {
-  .wiki-living-nav,
+  .wiki-collection__nav,
+  .wiki-collection__nav-toggle,
   .wiki-collection__actions,
   .wiki-collection__search,
   .wiki-collection__open,
