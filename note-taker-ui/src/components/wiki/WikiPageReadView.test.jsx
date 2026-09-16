@@ -3113,6 +3113,7 @@ describe('WikiPageReadView', () => {
       .toHaveTextContent('UNIQUE_HISTORICAL_SENTENCE from a retained revision.');
     expect(document.querySelector('.wiki-read__body'))
       .not.toHaveTextContent('Memory compounds with review.');
+    expect(document.querySelector('.wiki-reader-context')).not.toHaveTextContent('rev-retained');
   });
 
   it('opens the cited source and expands surrounding from the owned article', async () => {

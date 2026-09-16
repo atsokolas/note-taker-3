@@ -2426,7 +2426,7 @@ const WikiPageReadView = ({
       type: 'reference',
       text: firstParagraphText(snapshot.body) || snapshot.plainText || '',
       pageId,
-      revisionId: revision?._id || revision?.id || snapshot.rev,
+      revisionId: snapshot.rev || '',
       historical: true
     });
   }, [openContextPanel, pageId]);

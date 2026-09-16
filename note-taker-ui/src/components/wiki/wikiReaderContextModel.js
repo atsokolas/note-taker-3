@@ -209,11 +209,16 @@ export const historicalRevisionSnapshot = (revision = null) => {
   const after = revision?.after || null;
   const before = revision?.before || null;
   const hasArticle = (page) => Boolean(collectWikiText(page?.body || page?.plainText || ''));
-  const snapshot = hasArticle(after) ? after : (hasArticle(before) ? before : null);
+  const retained = hasArticle(after) ? 'after' : (hasArticle(before) ? 'before' : null);
+  const snapshot = retained === 'after' ? after : (retained === 'before' ? before : null);
   if (!snapshot) return null;
+  const thisRevisionId = clean(revision?.to || revision?._id || revision?.id);
   return clone({
     ...snapshot,
-    rev: snapshot.rev || revision?.to || revision?._id,
+    retained,
+    rev: retained === 'after'
+      ? (snapshot.rev || thisRevisionId)
+      : (snapshot.rev || ''),
     title: snapshot.title || revision?.summary?.title || after?.title || before?.title || '',
     updatedAt: snapshot.updatedAt || revision?.createdAt || null
   });
