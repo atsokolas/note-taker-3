@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { MemoryRouter } from 'react-router-dom';
 import * as router from 'react-router-dom';
 import Library from './Library';
+import { getLibraryCollection } from '../api/libraryCollection';
 import useFolders from '../hooks/useFolders';
 import useLibraryArticles from '../hooks/useLibraryArticles';
 import useArticleDetail from '../hooks/useArticleDetail';
@@ -12,9 +13,11 @@ import { getConnectionsForItem } from '../api/connections';
 import { startLibraryFilingSuggestions } from '../api/library';
 import { listReturnQueue } from '../api/returnQueue';
 
+const useActualNavigate = router.useNavigate;
 const mockNavigate = jest.fn();
 const mockDeclareSurface = jest.fn();
 
+jest.mock('../api/libraryCollection', () => ({ getLibraryCollection: jest.fn(async () => ({ items: [{ _id: 'article-1', title: 'Open article' }], total: 1, nextOffset: null })) }));
 jest.mock('../hooks/useFolders', () => jest.fn());
 jest.mock('../hooks/useLibraryArticles', () => jest.fn());
 jest.mock('../hooks/useArticleDetail', () => jest.fn());
@@ -106,7 +109,7 @@ jest.mock('../api/articles', () => ({
   moveArticleToFolder: jest.fn()
 }));
 jest.mock('../api/returnQueue', () => ({
-  listReturnQueue: jest.fn(() => Promise.resolve([]))
+  listReturnQueue: jest.fn(() => new Promise(() => {}))
 }));
 jest.mock('../api/questions', () => ({
   createQuestion: jest.fn()
@@ -140,7 +143,10 @@ jest.mock('../api', () => ({
 }));
 
 const renderLibrary = (path = '/library?scope=all') => {
-  jest.spyOn(router, 'useNavigate').mockReturnValue(mockNavigate);
+  jest.spyOn(router, 'useNavigate').mockImplementation(() => {
+      const navigate = useActualNavigate();
+      return (...args) => { mockNavigate(...args); navigate(...args); };
+    });
   return render(
     <MemoryRouter initialEntries={[path]}>
       <Library />
@@ -158,7 +164,8 @@ describe('Library agent rail', () => {
     getConnectionsForItem.mockResolvedValue({ outgoing: [], incoming: [] });
     /* restoreAllMocks unwinds factory implementations: everything the room
        reads on mount has to be taught again here. */
-    listReturnQueue.mockResolvedValue([]);
+    listReturnQueue.mockReturnValue(new Promise(() => {}));
+    getLibraryCollection.mockResolvedValue({ items: [{ _id: 'article-1', title: 'Open article' }], total: 1, nextOffset: null });
     startLibraryFilingSuggestions.mockResolvedValue({
       thread: { threadId: 'thread-filing-1' },
       receipt: {
@@ -235,8 +242,8 @@ describe('Library agent rail', () => {
     const main = screen.getByTestId('library-main');
 
     expect(screen.queryByTestId('library-left')).not.toBeInTheDocument();
-    expect(screen.getByLabelText('Search articles')).toBeInTheDocument();
-    expect(main).toContainElement(screen.getByLabelText('Search articles'));
+    expect(screen.getByLabelText('Find a title, passage, or thought')).toBeInTheDocument();
+    expect(main).toContainElement(screen.getByLabelText('Find a title, passage, or thought'));
   });
 
   it('defaults to reading-room browse with cabinet closed until opened', () => {
@@ -251,18 +258,11 @@ describe('Library agent rail', () => {
     expect(screen.getByRole('button', { name: 'Review filing' })).toBeInTheDocument();
   });
 
-  it('puts Later, Set aside, and Kept at the top of the Library column', () => {
+  it('offers Later, desk, and Keepers once in the quiet left navigation', () => {
     renderLibrary();
-
-    const places = screen.getByRole('navigation', { name: 'Library places' });
-    expect(within(places).getByRole('link', { name: 'Later' }))
-      .toHaveAttribute('href', '/library?scope=later');
-    expect(within(places).getByRole('link', { name: 'Set aside' }))
-      .toHaveAttribute('href', '/library?scope=set-aside');
-    expect(within(places).getByRole('link', { name: 'Kept' }))
-      .toHaveAttribute('href', '/library?scope=kept');
-    expect(screen.queryByText(/^Feed$/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/Feed \(0\)/)).not.toBeInTheDocument();
+    const shelves = screen.getByRole('navigation', { name: 'Shelves' });
+    for (const name of ['Later', 'On the desk', 'Keepers']) expect(within(shelves).getByRole('button', { name })).toBeInTheDocument();
+    expect(screen.queryByRole('navigation', { name: 'Library places' })).not.toBeInTheDocument();
   });
 
   it('names a screened topic in the Library places, never the word Feed', () => {
@@ -293,8 +293,7 @@ describe('Library agent rail', () => {
 
     renderLibrary();
 
-    expect(screen.getByRole('link', { name: 'Newsletters' }))
-      .toHaveAttribute('href', '/library?scope=feed&topic=news');
+    expect(screen.getByRole('button', { name: 'Newsletters' })).toBeInTheDocument();
     expect(screen.queryByText(/^Feed$/)).not.toBeInTheDocument();
   });
 
@@ -319,8 +318,8 @@ describe('Library agent rail', () => {
 
     // Folders live on the shelf rail now rather than inside the middle.
     const shelves = screen.getByRole('navigation', { name: 'Shelves' });
-    expect(within(shelves).getByRole('button', { name: /At home/ })).toBeInTheDocument();
-    expect(within(shelves).getByRole('button', { name: /Highlights/ })).toBeInTheDocument();
+    expect(within(shelves).getByRole('button', { name: /All sources/ })).toBeInTheDocument();
+    expect(within(shelves).getByRole('button', { name: /Passages/ })).toBeInTheDocument();
   });
 
   it('exposes an explicit low-signal review action from the reading room lead', () => {
@@ -330,8 +329,11 @@ describe('Library agent rail', () => {
   });
 
   it('reads in one column with source work attached and no duplicate agent', async () => {
+    jest.spyOn(router, 'useSearchParams').mockReturnValue([
+      new URLSearchParams('scope=all&articleId=article-1'),
+      jest.fn()
+    ]);
     renderLibrary();
-    fireEvent.click(screen.getByRole('button', { name: 'Open article' }));
 
     await waitFor(() => {
       expect(document.querySelector('.library-page-shell.is-reading')).toBeInTheDocument();

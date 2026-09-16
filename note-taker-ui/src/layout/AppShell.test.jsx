@@ -2,6 +2,9 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import AppShell from './AppShell';
 
 describe('AppShell landmarks', () => {
+  const media = window.matchMedia;
+  beforeEach(() => { window.matchMedia = () => ({ matches: true, addEventListener() {}, removeEventListener() {} }); });
+  afterEach(() => { window.matchMedia = media; });
   it('provides a stable skip target without adding a duplicate main landmark', () => {
     render(
       <AppShell topBar={<header>Top bar</header>}>

@@ -3,6 +3,7 @@ import ArticleReader from './ArticleReader';
 import { MemoryRouter, useNavigate } from 'react-router-dom';
 import * as Router from 'react-router-dom';
 import { writeReturnTicket } from './wiki/open-sentence/openSentenceJourney';
+import { getArticleReadingState, saveArticleReadingState } from '../api/articleReadingState';
 import { createHighlight } from '../api/highlights';
 import { libraryExplorations } from '../api/authoredExplorations';
 jest.mock('../api/authoredExplorations', () => ({
@@ -20,6 +21,7 @@ import {
 import { cleanSourceTextForDisplay } from '../utils/sourceDisplayText';
 import { passageFromSelection } from './wiki/open-sentence/LibraryPassagePicker';
 
+jest.mock('../api/articleReadingState', () => ({ getArticleReadingState: jest.fn(async () => null), saveArticleReadingState: jest.fn(async () => {}) }));
 jest.mock('../api/highlights', () => ({
   createHighlight: jest.fn()
 }));
@@ -46,6 +48,8 @@ jest.mock('../motion/columnMotion', () => {
 });
 
 beforeEach(() => {
+  getArticleReadingState.mockResolvedValue(null);
+  saveArticleReadingState.mockResolvedValue();
   libraryExplorations.load.mockResolvedValue({ userId: 'owner-1', explorations: [] });
 });
 

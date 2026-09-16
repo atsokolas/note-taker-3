@@ -241,6 +241,22 @@ articleSchema.index(
 
 const Article = mongoose.model('Article', articleSchema);
 
+// Reading is private continuity, not an edit to the source or its saved date.
+const articleReadingStateSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, required: true },
+  articleId: { type: mongoose.Schema.Types.ObjectId, required: true },
+  anchor: {
+    text: { type: String, required: true, maxlength: 6000 },
+    prefix: { type: String, default: '', maxlength: 240 },
+    suffix: { type: String, default: '', maxlength: 240 },
+    startOffsetApprox: { type: Number, required: true, min: 0 }
+  },
+  ratio: { type: Number, required: true, min: 0, max: 1 },
+  visitedAt: { type: Date, required: true }
+}, { timestamps: true });
+articleReadingStateSchema.index({ userId: 1, articleId: 1 }, { unique: true });
+const ArticleReadingState = mongoose.model('ArticleReadingState', articleReadingStateSchema);
+
 // --- NOTEBOOK: Schema for freeform notes with checklists ---
 const checklistItemSchema = new mongoose.Schema({
   text: { type: String, required: true, trim: true },
@@ -3436,6 +3452,7 @@ module.exports = {
   Recommendation,
   Folder,
   Article,
+  ArticleReadingState,
   Note,
   NotebookEntry,
   NotebookFolder,

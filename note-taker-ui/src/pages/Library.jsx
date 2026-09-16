@@ -37,14 +37,14 @@ import { isImboxArticle, mergeArticles, placementOf } from './placementModel';
 import { isProceduralShelf } from './readingDriftModel';
 import { useAgentRail, useNoeisAgentSurface } from '../agent/AgentRailContext';
 import { takeFirstPaint } from '../motion/columnMotion';
-import LibraryColumn from '../components/library/LibraryColumn';
-import LibraryFeedColumn from '../components/library/LibraryFeedColumn';
+import LibraryCollection from '../components/library/LibraryCollection';
+import { buildArticlePassageHref } from '../utils/articlePassageAnchor';
 import LibraryShelfNav from '../components/library/LibraryShelfNav';
-import LibraryPlaces from '../components/library/LibraryPlaces';
 import LibraryActions from '../components/library/LibraryActions';
 import ScreenWord from '../components/library/ScreenWord';
 import '../styles/library-column.css';
 import '../styles/reader-editorial.css';
+import '../styles/library-collection.css';
 
 const SOURCE_TYPES = new Set(['article', 'highlight', 'note']);
 
@@ -88,7 +88,8 @@ const Library = () => {
       parentId: browseParentId
     })
     : '';
-  const [selectedArticleId, setSelectedArticleId] = useState('');
+  const selectedArticleId = requestedArticleId;
+  const [collectionRevision, setCollectionRevision] = useState(0);
   const [moveModalOpen, setMoveModalOpen] = useState(false);
   const [articleToMove, setArticleToMove] = useState(null);
   const [moveError, setMoveError] = useState('');
@@ -128,7 +129,9 @@ const Library = () => {
   // The room projection belongs to Library, not merely its index. Keep it
   // alive while a source is open so shelves and counts do not disappear and
   // the legacy full-corpus loaders do not return behind the reader.
-  const roomProjectionEnabled = scope === 'all' || scope === 'feed';
+  const collectionView = scope !== 'highlights' && sourceView === 'recent';
+  const roomProjectionEnabled = scope !== 'highlights';
+  const collectionSort = ['oldest', 'title'].includes(searchParams.get('sort')) ? searchParams.get('sort') : 'recent';
   const libraryRoom = useLibraryRoom({
     view: sourceView,
     showSuppressed: showSuppressedItems,
@@ -158,7 +161,7 @@ const Library = () => {
     query: articleQuery,
     sort: 'recent',
     includeSuppressed: showSuppressedItems,
-    enabled: !roomProjectionEnabled || Boolean(libraryRoom.error) || scope === 'feed'
+    enabled: !collectionView
   });
   const {
     article: selectedArticle,
@@ -180,23 +183,9 @@ const Library = () => {
     return { workspaceType: 'library', workspaceId: '' };
   }, [selectedArticleId]);
 
-  /* Changing shelf drops the source you were reading — except when the URL is
-     still naming one. A link into an exact source arrives with both a scope and
-     an articleId, and this effect ran after the scope settled and cleared the
-     selection the other effect had just made, so the link opened the Library
-     rather than the source it named. */
   useEffect(() => {
-    if (requestedArticleId) return;
-    setSelectedArticleId('');
-    setActiveHighlightId('');
-  }, [scope, folderId, requestedArticleId]);
-
-  useEffect(() => {
-    if (!requestedArticleId) return;
-    if (requestedArticleId === selectedArticleId) return;
-    setSelectedArticleId(requestedArticleId);
-    localStorage.setItem('library.lastArticleId', requestedArticleId);
-  }, [requestedArticleId, selectedArticleId]);
+    if (!requestedArticleId) setActiveHighlightId('');
+  }, [requestedArticleId]);
 
   useEffect(() => {
     if (!selectedArticleId) return;
@@ -360,7 +349,7 @@ const Library = () => {
     params.delete('articleId');
     params.delete('highlightId');
     clearBrowseSelectionParams(params);
-    setSearchParams(params);
+    setSearchParams(params, { replace: true });
   }, [scope, searchParams, setSearchParams]);
 
   const handleSelectFolder = useCallback((id) => {
@@ -402,8 +391,6 @@ const Library = () => {
   const handleSelectArticle = useCallback((id, options = {}) => {
     const nextId = String(id || '').trim();
     const highlightId = String(options?.highlightId || '').trim();
-    setSelectedArticleId(nextId);
-    if (nextId) localStorage.setItem('library.lastArticleId', nextId);
     const params = new URLSearchParams(searchParams);
     if (nextId) {
       params.set('articleId', nextId);
@@ -417,8 +404,11 @@ const Library = () => {
       params.delete('highlightId');
     }
     clearBrowseSelectionParams(params);
-    setSearchParams(params, { replace: false });
-  }, [searchParams, setSearchParams]);
+    if (options.thought) params.set('thought', '1'); else params.delete('thought');
+    if (options.searchMissing) params.set('searchMissing', '1'); else params.delete('searchMissing');
+    const passageHref = options.anchor ? buildArticlePassageHref({ articleId: nextId, anchor: options.anchor }) : '';
+    navigate({ pathname: '/library', search: params.toString(), hash: passageHref.includes('#') ? passageHref.slice(passageHref.indexOf('#')) : '' });
+  }, [searchParams, navigate]);
 
   const handleOpenSource = useCallback((source) => {
     const type = String(source?.type || 'article').trim();
@@ -463,6 +453,7 @@ const Library = () => {
     );
     try {
       const updated = await moveArticleToFolder(articleToMove._id, nextFolderId);
+      setCollectionRevision(revision => revision + 1);
       if (updated) {
         setAllArticles(prevArticles =>
           prevArticles.map(article =>
@@ -477,17 +468,17 @@ const Library = () => {
         window.setTimeout(() => setLandedFolderId(''), 250);
       }
       if (scope === 'folder' && nextFolderId !== folderId && selectedArticleId === articleToMove._id) {
-        setSelectedArticleId('');
+        handleSelectArticle('');
       }
       if (scope === 'unfiled' && nextFolderId && selectedArticleId === articleToMove._id) {
-        setSelectedArticleId('');
+        handleSelectArticle('');
       }
     } catch (err) {
       setMoveError(err.response?.data?.error || 'Failed to move article.');
       setAllArticles(previous);
       setMoving(false);
     }
-  }, [allArticles, articleToMove, closeMoveModal, folderId, folders, scope, selectedArticleId, setAllArticles]);
+  }, [allArticles, articleToMove, closeMoveModal, folderId, folders, handleSelectArticle, scope, selectedArticleId, setAllArticles]);
 
   /* A piece let go over a drawer: file it there. The modal's twin without
      the modal — same optimistic folder, same landing flash, same revert —
@@ -508,6 +499,7 @@ const Library = () => {
     );
     try {
       const updated = await moveArticleToFolder(id, target);
+      setCollectionRevision(revision => revision + 1);
       if (updated) {
         setAllArticles(prevArticles =>
           prevArticles.map(article =>
@@ -788,6 +780,7 @@ const Library = () => {
   const handleToggleEvergreen = useCallback(async (articleId, evergreen) => {
     const before = allArticles.find(item => String(item._id) === String(articleId));
     const saved = await setArticleEvergreen(articleId, evergreen);
+      setCollectionRevision(revision => revision + 1);
     const next = Boolean(saved?.evergreen ?? evergreen);
     setAllArticles(current => current.map(item => (
       String(item._id) === String(articleId) ? { ...item, evergreen: next, evergreenAt: saved?.evergreenAt ?? item.evergreenAt } : item
@@ -823,6 +816,7 @@ const Library = () => {
     const previousArticle = known.find((item) => String(item._id || item.id) === String(articleId)) || {};
     const previous = placementOf(previousArticle);
     const saved = await setArticlePlacement(articleId, placement);
+      setCollectionRevision(revision => revision + 1);
     const next = saved?.placement || placement;
     const stamp = Object.prototype.hasOwnProperty.call(saved || {}, 'placementAt')
       ? saved.placementAt
@@ -967,8 +961,8 @@ const Library = () => {
   );
   const exactBrowseSource = sourceDetailState.source?.source || sourceDetailState.source || null;
   const exactSourceTitle = String(selectedArticle?.title || exactBrowseSource?.title || '').trim();
-  const exactSourceType = selectedArticleId ? 'article' : (browseSourceType || 'library_workspace');
-  const exactSourceId = selectedArticleId || browseSourceId || 'library';
+  const exactSourceType = selectedArticleId ? 'article' : (browseSourceType || (shelfFolderId ? 'folder' : 'library_workspace'));
+  const exactSourceId = selectedArticleId || browseSourceId || shelfFolderId || 'library';
 
   /* The Library owns source identity; the persistent shell owns the room. A
      selected highlight or imported note must not collapse back to a generic
@@ -977,37 +971,18 @@ const Library = () => {
     room: 'library',
     objectType: exactSourceType,
     objectId: exactSourceId,
-    title: exactSourceTitle || 'Library',
+    title: exactSourceTitle || selectedFolderName || 'Library',
     orientation: exactSourceId === 'library'
       ? 'Recover source material, its provenance, and the thinking it already supports.'
       : 'Inspect this exact source, where it came from, and where it can move next.'
   };
 
-  /* The cabinet stopped being the face of the Library: the reading is what
-     greets you, and the shelves are a faint list beside it. Folder, unfiled and
-     highlight scopes still open the older cabinet views — behind the reading
-     rather than in front of it. */
-  /* Kept reads like the shelf, because it is the shelf — a narrower one. */
-  const isDedicatedShelf = !isReadingView && ['kept', 'later', 'set-aside'].includes(scope);
-  const isFeedColumn = !isReadingView && scope === 'feed';
-  /* 720px is a reading measure — the line length prose wants. Highlights is
-     not prose: it is a filter bar and a grid of cards, and inside the measure
-     it sat two hundred pixels narrower than the room it was in, indented from
-     both edges for no reason anyone could see. A list gets the room. */
-  const isListView = !isReadingView && scope === 'highlights';
-  const feedFolder = useMemo(() => {
-    if (scope !== 'feed') return null;
-    const fromCabinet = folders.find((item) => item._id === topicId);
-    if (fromCabinet) return fromCabinet;
-    const fromRail = (libraryRoom.feedTopics || []).find((topic) => topic.id === topicId);
-    return fromRail ? { _id: fromRail.id, name: fromRail.name, asFeed: true } : { _id: topicId, name: '', asFeed: true };
-  }, [folders, libraryRoom.feedTopics, scope, topicId]);
   const screenableFolder = useMemo(() => {
-    if (scope !== 'folder' || !folderId) return null;
-    const folder = folders.find((item) => item._id === folderId);
+    if (!['folder', 'feed'].includes(scope) || !shelfFolderId) return null;
+    const folder = folders.find((item) => item._id === shelfFolderId);
     if (!folder || isProceduralShelf(folder.name)) return null;
     return folder;
-  }, [folderId, folders, scope]);
+  }, [shelfFolderId, folders, scope]);
   /* The canon is the only shelf that reaches outside the article store, so it
      is the only one that fetches — and only while it is the shelf on screen. */
   useEffect(() => {
@@ -1033,27 +1008,6 @@ const Library = () => {
     return () => { cancelled = true; };
   }, [scope]);
 
-  const keptCount = useMemo(
-    () => libraryTotalsReady
-      ? projectedShelfCounts?.keptArticles
-        ?? allArticles.filter(item => item?.evergreen).length
-      : undefined,
-    [allArticles, libraryTotalsReady, projectedShelfCounts]
-  );
-  const laterCount = useMemo(
-    () => libraryTotalsReady
-      ? projectedShelfCounts?.laterArticles
-        ?? allArticles.filter(item => placementOf(item) === 'later').length
-      : undefined,
-    [allArticles, libraryTotalsReady, projectedShelfCounts]
-  );
-  const setAsideCount = useMemo(
-    () => libraryTotalsReady
-      ? projectedShelfCounts?.setAsideArticles
-        ?? allArticles.filter(item => placementOf(item) === 'setAside').length
-      : undefined,
-    [allArticles, libraryTotalsReady, projectedShelfCounts]
-  );
   const pileArticles = useMemo(
     () => mergeArticles(allArticles, libraryRoom.piles?.later, libraryRoom.piles?.setAside),
     [allArticles, libraryRoom.piles]
@@ -1081,7 +1035,6 @@ const Library = () => {
     return promiseLedger(promiseEntries, byId);
   }, [promiseEntries, allArticles]);
   const columnEntering = useMemo(() => takeFirstPaint('library-shelf'), []);
-  const readingEntering = Boolean(selectedArticleId) || columnEntering;
 
   /* One persistent agent, narrowed to the same exact source as the room. The
      page no longer mounts a second Librarian identity beside it. */
@@ -1090,12 +1043,12 @@ const Library = () => {
     librarySurfaceDescriptor,
     {
       subject: openedSentenceText || librarySubject({
-        article: exactSourceId !== 'library' ? { title: exactSourceTitle } : null,
-        count: corpusTotal
+        article: exactSourceId !== 'library' ? { title: exactSourceTitle || selectedFolderName } : null,
+        count: 0
       }),
       // Unknown stays unknown: corpusTotal is undefined until the shelf is read,
       // and the rail says nothing rather than claiming a corpus of zero.
-      boundSources: Number.isFinite(corpusTotal) ? corpusTotal : null,
+      boundSources: selectedArticleId && selectedArticle ? 1 : null,
       lines: exactSourceId === 'library'
         ? []
         : [
@@ -1106,11 +1059,7 @@ const Library = () => {
             ? { id: 'references', text: `Used in ${articleReferenceCount} note${articleReferenceCount === 1 ? '' : 's'} or collection${articleReferenceCount === 1 ? '' : 's'}.` }
             : null
         ].filter(Boolean),
-      empty: corpusTotal == null
-        ? 'Reading your shelf…'
-        : corpusTotal
-          ? 'Nothing to retrieve until you ask.'
-          : 'Nothing on the shelf to retrieve from yet.'
+      empty: 'Nothing to retrieve until you ask.'
     },
     {
       // Accepting keeps the line where the human's loose material already goes.
@@ -1227,8 +1176,8 @@ const Library = () => {
           Highlights is a shelf like any other; choosing it puts you in your
           highlights with the same folders alongside. */}
       <LibraryShelfNav
+        reading={isReadingView}
         landedFolderId={landedFolderId}
-        count={corpusTotal}
         folders={folders}
         folderCounts={folderCounts}
         foldersLoading={foldersLoading}
@@ -1238,8 +1187,6 @@ const Library = () => {
         sourceView={sourceView}
         unfiledCount={unfiledCount}
         feedTopics={libraryRoom.feedTopics}
-        query={articleQuery}
-        onQueryChange={handleArticleQueryChange}
         onSelectScope={handleSelectScope}
         onSelectFolder={handleSelectFolder}
         onMoveFolder={handleMoveFolder}
@@ -1249,80 +1196,25 @@ const Library = () => {
         className={columnEntering ? 'wfp-anim wfp-anim--1' : ''}
       />
       <div className="library-page-shell__column">
-        {isReadingView ? (
-          <div className="library-page-shell__column-head">
-            <button type="button" className="library-reader__back" onClick={() => handleSelectArticle('')}>
-              ← At home
-            </button>
-          </div>
-        ) : (
-          <div className="library-browse-head">
-            <LibraryPlaces
-              feedTopics={libraryRoom.feedTopics}
-              later={laterCount}
-              setAside={setAsideCount}
-              kept={keptCount}
-              scope={scope}
-            />
-            <LibraryActions
-              organizeLaunching={organizeLaunching}
-              showSuppressedItems={showSuppressedItems}
-              onOrganize={handleOrganizeLibrary}
-              onToggleSuppressed={handleToggleSuppressedItems}
-            />
-          </div>
-        )}
-        {/* The locked middle: the reading you were in, then the sources as a
-            list of title, source and date. LibraryMain still renders every
-            other scope — folders, unfiled, highlights — because those are its
-            own views and the lock does not redraw them. */}
-        <div
-          className={`library-reader ${readingEntering ? 'wfp-anim wfp-anim--1' : ''} ${isDedicatedShelf || isFeedColumn || isListView ? 'is-shelf' : ''}`}
-          data-testid="library-main"
-        >
-          {isFeedColumn ? (
-            <LibraryFeedColumn
-              folder={feedFolder}
-              articles={articles}
-              pileArticles={pileArticles}
-              ledger={ledger}
-              loading={articlesLoading}
-              error={articlesError}
-              onSelectArticle={handleSelectArticle}
-              onScreen={handleScreenFolder}
-              onPileDone={(articleId) => handleTogglePlacement(articleId, 'stream')}
-              onPlace={handleTogglePlacement}
-            />
-          ) : isDedicatedShelf ? (
-            <LibraryColumn
-              shelf={scope}
-              articles={articles}
-              allArticles={allArticles}
-              loading={articlesLoading}
-              error={articlesError}
-              query={articleQuery}
-              onQueryChange={handleArticleQueryChange}
-              onSelectArticle={handleSelectArticle}
-              keptPages={keptPages}
-              letGo={letGo}
-              onUndoLetGo={handleUndoLetGo}
-              entering={columnEntering}
-            />
-          ) : (
-            <>
-              {screenableFolder ? (
-                <div className="library-folder-screen">
-                  <ScreenWord
-                    asFeed={Boolean(screenableFolder.asFeed)}
-                    sentence={screenableFolder.name}
-                    onScreen={handleScreenFolder}
-                  />
-                </div>
-              ) : null}
-              {mainPanel}
-              {readingContext}
-            </>
-          )}
+        {isReadingView ? <div className="library-page-shell__column-head">
+          <button type="button" className="library-reader__back" onClick={() => handleSelectArticle('')}>← Back to collection</button>
+        </div> : null}
+        <div className={`library-reader ${!isReadingView ? 'is-shelf' : ''}`} data-testid="library-main">
+          {collectionView ? <LibraryCollection
+            scope={scope} folderId={shelfFolderId} folderName={selectedFolderName} revision={collectionRevision}
+            query={articleQuery} sort={collectionSort} onQueryChange={handleArticleQueryChange}
+            onSortChange={value => { const params = new URLSearchParams(searchParams); params.set('sort', value); setSearchParams(params); }}
+            showSuppressed={showSuppressedItems} selectedArticleId={selectedArticleId}
+            onSelectArticle={handleSelectArticle} onPlace={handleTogglePlacement} onMove={openMoveModal}
+            keptPages={keptPages} letGo={letGo} onUndoLetGo={handleUndoLetGo}
+            tools={<LibraryActions organizeLaunching={organizeLaunching} showSuppressedItems={showSuppressedItems}
+              onOrganize={handleOrganizeLibrary} onToggleSuppressed={handleToggleSuppressedItems} />}
+          /> : null}
+          {!isReadingView && screenableFolder ? <div className="library-folder-screen">
+            <ScreenWord asFeed={Boolean(screenableFolder.asFeed)} sentence={screenableFolder.name} onScreen={handleScreenFolder} />
+          </div> : null}
+          {isReadingView || !collectionView ? mainPanel : null}
+          {readingContext}
         </div>
       </div>
       <MoveToFolderModal

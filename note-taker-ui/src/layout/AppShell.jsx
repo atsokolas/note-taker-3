@@ -6,14 +6,25 @@ import BrandGradient from '../components/BrandGradient';
 // arrive and leave with that page, which is precisely what it must not do.
 const AppShell = ({ leftNav, topBar, children, rightRail = null, brandEnergy = true, surface = null }) => {
   const [agentOpen, setAgentOpen] = useState(false);
+  const [compact, setCompact] = useState(() => window.matchMedia?.('(max-width: 1080px)').matches);
+  const onDemand = surface?.room === 'library' || compact;
+  useEffect(() => {
+    const media = window.matchMedia?.('(max-width: 1080px)');
+    const change = () => setCompact(Boolean(media?.matches));
+    const open = () => setAgentOpen(true);
+    media?.addEventListener('change', change);
+    window.addEventListener('noeis:open-agent', open);
+    return () => { media?.removeEventListener('change', change); window.removeEventListener('noeis:open-agent', open); };
+  }, []);
   const triggerRef = useRef(null);
   const drawerRef = useRef(null);
 
   useEffect(() => {
-    if (!agentOpen) return undefined;
+    if (!agentOpen || !onDemand) return undefined;
     const focusTarget = drawerRef.current?.querySelector('input, button, a, [tabindex="0"]');
     focusTarget?.focus();
     const containDrawerFocus = (event) => {
+      if (event.defaultPrevented) return;
       if (event.key === 'Escape') {
         setAgentOpen(false);
         window.requestAnimationFrame(() => triggerRef.current?.focus());
@@ -36,7 +47,7 @@ const AppShell = ({ leftNav, topBar, children, rightRail = null, brandEnergy = t
     };
     window.addEventListener('keydown', containDrawerFocus);
     return () => window.removeEventListener('keydown', containDrawerFocus);
-  }, [agentOpen]);
+  }, [agentOpen, onDemand]);
 
   const closeAgent = () => {
     setAgentOpen(false);
@@ -45,7 +56,7 @@ const AppShell = ({ leftNav, topBar, children, rightRail = null, brandEnergy = t
 
   return (
     <div
-      className={`app-shell-new app-shell-new--stitch ${leftNav ? 'app-shell-new--with-nav' : 'app-shell-new--navless'}`}
+      className={`app-shell-new app-shell-new--stitch ${onDemand ? 'app-shell-new--agent-on-demand' : ''} ${leftNav ? 'app-shell-new--with-nav' : 'app-shell-new--navless'}`}
       data-noeis-surface={surface?.room || undefined}
       data-noeis-object-type={surface?.objectType || undefined}
       data-noeis-object-id={surface?.objectId || undefined}
@@ -77,7 +88,7 @@ const AppShell = ({ leftNav, topBar, children, rightRail = null, brandEnergy = t
                 aria-controls="noeis-agent-drawer"
                 onClick={() => setAgentOpen(true)}
               >
-                Agent
+                {surface?.room === 'library' ? 'Ask about this' : 'Agent'}
               </button>
               <div
                 id="noeis-agent-drawer"
@@ -96,6 +107,7 @@ const AppShell = ({ leftNav, topBar, children, rightRail = null, brandEnergy = t
                   role={agentOpen ? 'dialog' : undefined}
                   aria-modal={agentOpen || undefined}
                   aria-label={agentOpen ? 'Agent context' : undefined}
+                  inert={onDemand && !agentOpen ? true : undefined}
                 >
                   <button
                     type="button"

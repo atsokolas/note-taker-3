@@ -15,6 +15,7 @@ const SelectionMenu = React.forwardRef(({
   rect,
   saving,
   onHighlight,
+  onThought,
   onAskLibrarian,
   onWorkWithPassage,
 }, ref) => {
@@ -27,6 +28,7 @@ const SelectionMenu = React.forwardRef(({
      A menu pinned above a selection near the top of the window gets clamped
      to top: 8 and lands on the words instead of near them. */
   const [placeBelow, setPlaceBelow] = useState(false);
+  const [center, setCenter] = useState(null);
 
   const setRefs = useCallback((node) => {
     innerRef.current = node;
@@ -46,6 +48,8 @@ const SelectionMenu = React.forwardRef(({
     if (!rect) return;
     const height = innerRef.current?.offsetHeight || 0;
     setPlaceBelow(rect.top - SELECTION_GAP_PX - height < 12);
+    const half = (innerRef.current?.offsetWidth || 0) / 2;
+    setCenter(Math.max(half + 12, Math.min(window.innerWidth - half - 12, rect.left + rect.width / 2)));
   }, [rect?.top, rect?.height, rect]);
 
   useEffect(() => {
@@ -89,7 +93,7 @@ const SelectionMenu = React.forwardRef(({
     top: placeBelow
       ? rect.top + (rect.height || 0) + SELECTION_GAP_PX
       : rect.top - SELECTION_GAP_PX,
-    left: rect.left + rect.width / 2
+    left: center ?? rect.left + rect.width / 2
   };
 
   return createPortal((
@@ -110,6 +114,7 @@ const SelectionMenu = React.forwardRef(({
         <button type="button" className="selection-menu-button" onClick={() => onHighlight?.()} disabled={saving}>
           {saving ? 'Saving...' : 'Highlight'}
         </button>
+        {onThought ? <button type="button" className="selection-menu-button" onClick={onThought} disabled={saving}>Leave a thought</button> : null}
         <button type="button" className="selection-menu-button is-muted" onClick={onAskLibrarian} disabled={saving}>
           Ask about this
         </button>

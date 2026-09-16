@@ -34,6 +34,7 @@ const buildLegacyContentRouter = ({
   Folder,
   normalizePdfs,
   Article,
+  ArticleReadingState = null,
   enqueueArticleEmbedding,
   deleteArticleEmbeddingState,
   safeMapEmbedding,
@@ -722,6 +723,9 @@ const buildLegacyContentRouter = ({
       const { id } = req.params;
       const userId = req.user.id;
       const result = await Article.findOneAndDelete({ _id: id, userId: userId });
+      // Retryable even after the source is gone. A concurrent reading write
+      // rechecks ownership after saving and removes its own orphan as well.
+      if (ArticleReadingState) await ArticleReadingState.deleteMany({ userId, articleId: id });
       if (result) {
         const ids = [
           buildEmbeddingId({ userId: String(userId), objectType: 'article', objectId: String(result._id) }),

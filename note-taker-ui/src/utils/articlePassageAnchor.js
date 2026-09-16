@@ -87,6 +87,7 @@ const sourceUnits = (root, readableNodes) => {
         units.push(syntheticSpace());
         return;
       }
+      if (child.matches?.('[data-reader-control]')) return;
       const storedHighlight = child.matches?.('mark.highlight[data-highlight-id]');
       if (!storedHighlight) units.push(syntheticSpace());
       visit(child);
@@ -169,7 +170,7 @@ const canonicalizeUnits = (initial) => {
   return collapseWhitespace(units);
 };
 
-const canonicalSnapshot = (root) => {
+export const canonicalArticleSnapshot = (root) => {
   // Reuse the reader's snapshot to preserve its exclusions, then carry the
   // same import cleanup as the chooser through units that still point home.
   const snapshot = buildTextSnapshot(root);
@@ -204,7 +205,7 @@ export const resolveExactArticlePassage = (fullText = '', anchor = null) => {
 
 export const markExactArticlePassage = (root, anchor) => {
   if (!root) return { status: 'missing' };
-  const snapshot = canonicalSnapshot(root);
+  const snapshot = canonicalArticleSnapshot(root);
   const resolved = resolveExactArticlePassage(snapshot.fullText, anchor);
   if (resolved.status !== 'found') return resolved;
   const segments = [];

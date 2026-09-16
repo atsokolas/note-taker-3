@@ -113,6 +113,7 @@ const {
   Recommendation,
   Folder,
   Article,
+  ArticleReadingState,
   Note,
   NotebookEntry,
   NotebookFolder,
@@ -694,6 +695,8 @@ const { buildAgentActionRouter } = require('./routes/agentActionRoutes');
 const { buildAgentRunRouter } = require('./routes/agentRunRoutes');
 const { buildAgentProposedChangeRouter } = require('./routes/agentProposedChangeRoutes');
 const { buildAgentStructureProposalRouter } = require('./routes/agentStructureProposalRoutes');
+const { buildArticleReadingStateRouter } = require('./routes/articleReadingStateRoutes');
+const { buildLibraryCollectionRouter } = require('./routes/libraryCollectionRoutes');
 const { buildAgentChatRouter } = require('./routes/agentChatRoutes');
 const { buildAgentArtifactDraftRouter } = require('./routes/agentArtifactDraftRoutes');
 const {
@@ -5320,6 +5323,7 @@ app.use(buildLegacyContentRouter({
   Folder,
   normalizePdfs,
   Article,
+  ArticleReadingState,
   enqueueArticleEmbedding,
   deleteArticleEmbeddingState,
   safeMapEmbedding,
@@ -6827,6 +6831,8 @@ app.use(buildPersonalAgentRouter({
    an edition away stay human: an agent that could do either could quietly
    rewrite what it told you last week. */
 app.use(buildEditionThoughtRouter({ auth: authenticateUserOrAgentToken, humanOnly: requireHumanReader, Edition, Note }));
+app.use(buildArticleReadingStateRouter({ auth: authenticateUserOrAgentToken, humanOnly: requireHumanReader, Article, ArticleReadingState }));
+app.use(buildLibraryCollectionRouter({ auth: authenticateUserOrAgentToken, humanOnly: requireHumanReader, mongoose, Article, ArticleReadingState }));
 
 app.use(buildEditionRouter({
   auth: authenticateUserOrAgentToken,

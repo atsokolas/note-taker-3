@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { QuietButton } from './ui';
 import { createHighlight } from '../api/highlights';
@@ -8,7 +9,9 @@ import PlacementSwitch from './PlacementSwitch';
 import useTourSignal from '../tour/useTourSignal';
 import useTextSelection from './reader/useTextSelection';
 import SelectionMenu from './reader/SelectionMenu';
+import PassageThought from './reader/PassageThought';
 import ReadFresh, { useReadFresh } from './reader/ReadFresh';
+import useArticleReadingPlace from './reader/useArticleReadingPlace';
 import MagneticReadingRail from './reader/MagneticReadingRail';
 import PassageDoor from './reader/PassageDoorView';
 import OpenedLibraryPassage, { LibraryOriginReturn } from './wiki/open-sentence/OpenedLibraryPassage';
@@ -89,13 +92,16 @@ const ArticleReader = ({
 }) => {
   const contentRef = useRef(null);
   const navigate = useNavigate();
-  const location = useLocation();
+  const location = useLocation() || { search: '', hash: '' };
   const titleRef = useRef(null);
   const readerRootRef = useRef(null);
   const menuRef = useRef(null);
   const reducedMotion = usePrefersReducedMotion();
   const [saveError, setSaveError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [thought, setThought] = useState(null);
+  const thoughtRequest = useRef('');
+  useEffect(() => { setThought(null); }, [article?._id]);
   const articleId = article?._id;
   const reading = useReadFresh(readerRootRef, articleId, '.article-reader-content p, .article-reader-content blockquote, .article-reader-content h2');
   const articlePlacement = article?.placement;
@@ -148,7 +154,7 @@ const ArticleReader = ({
     readLocation();
     window.addEventListener('hashchange', readLocation);
     return () => window.removeEventListener('hashchange', readLocation);
-  }, [articleId]);
+  }, [articleId, location.hash, location.search]);
   const passageFragment = useMemo(
     () => (String(articleId || '') === passageLocation.articleId
       ? readArticlePassageFragment(passageLocation.hash, articleId)
@@ -156,18 +162,27 @@ const ArticleReader = ({
     [articleId, passageLocation]
   );
   const passageReturn = useMemo(() => {
-    if (passageFragment.status !== 'ready') {
+    if (passageFragment.status !== 'ready' || focusedHighlightId) {
       return { html, status: passageFragment.status };
     }
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, 'text/html');
     const resolved = markExactArticlePassage(doc.body, passageFragment.anchor);
     return { html: doc.body.innerHTML, status: resolved.status };
-  }, [html, passageFragment]);
+  }, [html, passageFragment, focusedHighlightId]);
   const contentMarkup = useMemo(() => ({ __html: passageReturn.html }), [passageReturn.html]);
   const focusedHighlight = useMemo(() => (
     highlights.find((item) => String(item?._id || item?.id || '') === String(focusedHighlightId)) || null
   ), [focusedHighlightId, highlights]);
+  useEffect(() => {
+    const requested = new URLSearchParams(location.search).get('thought') === '1';
+    const request = `${articleId}:${focusedHighlightId}:${location.key || location.search}`;
+    if (!requested) { thoughtRequest.current = ''; return; }
+    if (focusedHighlight && thoughtRequest.current !== request) {
+      thoughtRequest.current = request;
+      setThought(focusedHighlight);
+    }
+  }, [articleId, focusedHighlightId, focusedHighlight, location.key, location.search]);
   const focusedPassageIsInArticle = Boolean(focusedHighlightId)
     && html.includes(`data-highlight-id="highlight-${focusedHighlightId}"`);
   const isHighlightOnlyImport = Boolean(article)
@@ -262,6 +277,12 @@ const ArticleReader = ({
     }
     return '';
   })();
+
+  const readingPlace = useArticleReadingPlace({
+    articleId, contentRef, contentKey: article?.content,
+    explicitDestination: Boolean(focusedHighlightId || location.hash || new URLSearchParams(location.search).has('searchMissing') || location.state?.explicitPassage),
+    enabled: Boolean(articleId && hasReadableContent(article?.content))
+  });
 
   if (!article) {
     return (
@@ -370,6 +391,7 @@ const ArticleReader = ({
               navigate({ pathname: '/library', search: params.toString(), hash: '' });
             });
           }}
+          onThought={() => persistHighlight(setThought)}
           onAskLibrarian={() => handleSaveAndOpen(onAskLibrarian, 'The agent is unavailable here.')}
         />
       )}
@@ -426,8 +448,15 @@ const ArticleReader = ({
           )}
         </div>
       </div>
+      {new URLSearchParams(location.search).has('searchMissing') ? <p role="status">The matching text could not be located in the readable source. Your source record is still here.</p> : null}
       {passageReturnStatus ? (
         <p className="status-message" role="status">{passageReturnStatus}</p>
+      ) : null}
+      {readingPlace.arrival ? createPortal(
+        <div className="article-reading-arrival" role="status" data-reader-control>
+          <span>{readingPlace.arrival}</span>
+          <button type="button" onClick={readingPlace.startAtTop}>Start at top</button>
+        </div>, document.body
       ) : null}
       {!focusedHighlight && passageFragment.status === 'ready' ? (
         <LibraryOriginReturn ticket={matchingReturnTicket({ articleId, passage: passageFragment.anchor.text, anchor: passageFragment.anchor })} />
@@ -497,6 +526,9 @@ const ArticleReader = ({
           article opened onto a panel instead of onto its text. It is the same
           record; it is now at the end, where you read it after the piece
           rather than instead of starting it. */}
+      {thought ? <PassageThought key={thought._id} articleId={articleId} highlight={thought} contentRef={contentRef}
+        contentHtml={contentMarkup.__html} onSaved={onHighlightReplace} onClose={() => setThought(null)} /> : null}
+      {focusedHighlight?.note && !thought ? <button className="article-thought-reopen" onClick={() => setThought(focusedHighlight)}>Your thought: {focusedHighlight.note}</button> : null}
       {sourceTrace}
       <MagneticReadingRail rootRef={readerRootRef} contentRef={contentRef} />
       {saveError && <p className="status-message error-message">{saveError}</p>}
