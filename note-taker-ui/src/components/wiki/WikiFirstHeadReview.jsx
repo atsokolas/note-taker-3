@@ -9,7 +9,17 @@ import { Button } from '../ui';
 import renderTiptapDoc from './renderTiptapDoc';
 import '../../styles/wiki-first-head-review.css';
 
-const WikiFirstHeadReview = ({ page, pageId, onPageUpdate }) => {
+const staleMessage = 'The current page changed after this proposal was prepared. Your newer version will not be replaced.';
+
+const WikiFirstHeadReview = ({
+  page,
+  pageId,
+  onPageUpdate,
+  onPreview,
+  previewActive = false,
+  onNotNow,
+  onAccepted
+}) => {
   const systemStatus = useSystemStatusControls();
   const firstHeadAwaiting = page?.aiState?.candidateStatus === 'awaiting_first_head_acceptance';
   const maintenanceAwaiting = page?.aiState?.candidateStatus === 'awaiting_maintenance_acceptance';
@@ -140,24 +150,29 @@ const WikiFirstHeadReview = ({ page, pageId, onPageUpdate }) => {
     systemStatus.clearRecoverableFailure?.();
     systemStatus.setBackgroundWork?.({
       label: 'First trusted head',
-      stage: decision === 'accept' ? 'Accepting reviewed research' : 'Rejecting candidate'
+      stage: decision === 'accept' ? 'Accepting reviewed research' : 'Keeping the current version'
     });
     try {
       const result = await reviewWikiFirstHeadCandidate(pageId, decision);
       if (result?.page) onPageUpdate?.(result.page);
       systemStatus.setLatestReceipt?.({
-        title: result?.receipt?.title || (decision === 'accept' ? 'First trusted head accepted.' : 'Research candidate rejected.'),
+        title: result?.receipt?.title || (decision === 'accept' ? 'First trusted head accepted.' : 'Current version kept.'),
         summary: result?.receipt?.summary || '',
         status: decision === 'accept' ? 'completed' : 'needs_review',
         href: `/wiki/workspace?page=${encodeURIComponent(pageId)}`
       });
+      if (decision === 'accept') onAccepted?.(result);
     } catch (requestError) {
-      const message = requestError?.response?.data?.error || requestError?.message || 'Could not record the first-head decision.';
+      const stale = requestError?.response?.data?.code === 'WIKI_RESEARCH_CANDIDATE_STALE'
+        || requestError?.response?.status === 409;
+      const message = stale
+        ? staleMessage
+        : (requestError?.response?.data?.error || requestError?.message || 'Could not record the first-head decision.');
       setError(message);
       systemStatus.setRecoverableFailure?.({
         stage: 'First trusted head',
         message,
-        retryable: true
+        retryable: !stale
       });
     } finally {
       setBusy('');
@@ -177,21 +192,29 @@ const WikiFirstHeadReview = ({ page, pageId, onPageUpdate }) => {
         <span>Private candidate</span>
       </div>
       <p>
-        The generated research has not replaced your trusted private page. Read the candidate, then explicitly accept or reject it.
+        The generated research has not replaced your trusted private page. Read the whole candidate, then accept it, keep the current version, or leave it for later.
       </p>
       <dl className="wiki-first-head__facts">
         <div><dt>Words</dt><dd>{Number(summary.wordCount || 0).toLocaleString()}</dd></div>
         <div><dt>Claims</dt><dd>{Number(summary.claimCount || 0).toLocaleString()}</dd></div>
         <div><dt>Sources</dt><dd>{Number(summary.sourceCount || 0).toLocaleString()}</dd></div>
       </dl>
-      <details className="wiki-first-head__preview" open>
-        <summary>Read candidate article</summary>
-        {candidatePage?.body ? (
-          <article>{renderTiptapDoc(candidatePage.body)}</article>
-        ) : (
-          <p>{error || 'Loading the candidate…'}</p>
-        )}
-      </details>
+      {typeof onPreview === 'function' ? (
+        <div className="wiki-first-head__actions">
+          <Button type="button" variant="secondary" onClick={() => onPreview(candidatePage)} disabled={!candidatePage}>
+            {previewActive ? 'Back to current version' : 'Read it in the page'}
+          </Button>
+        </div>
+      ) : (
+        <details className="wiki-first-head__preview" open>
+          <summary>Read candidate article</summary>
+          {candidatePage?.body ? (
+            <article>{renderTiptapDoc(candidatePage.body)}</article>
+          ) : (
+            <p>{error || 'Loading the candidate…'}</p>
+          )}
+        </details>
+      )}
       <label className="wiki-first-head__confirmation">
         <input
           type="checkbox"
@@ -206,8 +229,13 @@ const WikiFirstHeadReview = ({ page, pageId, onPageUpdate }) => {
           {busy === 'accept' ? 'Accepting…' : firstHeadReview ? 'Accept trusted head' : 'Accept maintenance'}
         </Button>
         <Button type="button" variant="secondary" onClick={() => decide('reject')} disabled={Boolean(busy)}>
-          {busy === 'reject' ? 'Rejecting…' : 'Reject draft'}
+          {busy === 'reject' ? 'Keeping…' : 'Keep current version'}
         </Button>
+        {typeof onNotNow === 'function' ? (
+          <Button type="button" variant="ghost" onClick={onNotNow} disabled={Boolean(busy)}>
+            Not now
+          </Button>
+        ) : null}
       </div>
       {error ? <p className="wiki-first-head__error" role="alert">{error}</p> : null}
     </section>

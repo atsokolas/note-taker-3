@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { wikiPagePath } from '../../utils/wikiFeatureFlags';
+import { wikiReadPath } from '../../utils/wikiFeatureFlags';
 import { normalizeSpaces } from '../../utils/editorialText';
 
 /**
@@ -111,7 +111,7 @@ const renderWikiLinkTarget = ({ label = '', page = null, key = '', options = {} 
       <Link
         key={key}
         className="wiki-internal-link"
-        to={wikiPagePath(targetId)}
+        to={wikiReadPath(targetId)}
         data-wiki-page-id={targetId}
         data-wiki-title={targetTitle}
       >

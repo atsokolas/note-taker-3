@@ -134,9 +134,10 @@ export const getLastVisitState = (pageId) => {
 
 /**
  * Snapshot the current claim texts as the user's "last visit" state.
- * Called when the user explicitly clicks "Mark reviewed" — never auto-
- * snapshots so the banner doesn't dismiss itself before the user has
- * read it.
+ * Called when the user explicitly clicks "I've seen these changes" —
+ * a private reading marker, never an acceptance or a reviewed date.
+ * Never auto-snapshots so the banner doesn't dismiss itself before
+ * the user has read it.
  */
 export const recordVisit = (pageId, doc, claims = []) => {
   if (!safePageId(pageId)) return null;
@@ -203,8 +204,54 @@ export const diffClaimLedgerSnapshots = (snapshot = [], current = []) => {
   return changed.slice(0, SNAPSHOT_CAP);
 };
 
+const PRIVATE_KEY_PREFIX = 'noeis.wiki.private.';
+
+const privateKey = (pageId) => `${PRIVATE_KEY_PREFIX}${safePageId(pageId)}`;
+
+const emptyPrivateNotes = () => ({ thought: '', reason: '' });
+
+/**
+ * Private thought / acceptance reason. Device-local only. Never part of
+ * the Wiki page, search haystack, or public serializer.
+ */
+export const getPrivateWikiNotes = (pageId) => {
+  if (!safePageId(pageId)) return emptyPrivateNotes();
+  const storage = safeStorage();
+  if (!storage) return emptyPrivateNotes();
+  try {
+    const raw = storage.getItem(privateKey(pageId));
+    if (!raw) return emptyPrivateNotes();
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return emptyPrivateNotes();
+    return {
+      thought: String(parsed.thought || ''),
+      reason: String(parsed.reason || '')
+    };
+  } catch (_err) {
+    return emptyPrivateNotes();
+  }
+};
+
+export const savePrivateWikiNotes = (pageId, patch = {}) => {
+  if (!safePageId(pageId)) return emptyPrivateNotes();
+  const storage = safeStorage();
+  if (!storage) return emptyPrivateNotes();
+  const current = getPrivateWikiNotes(pageId);
+  const next = {
+    thought: patch.thought !== undefined ? String(patch.thought) : current.thought,
+    reason: patch.reason !== undefined ? String(patch.reason) : current.reason
+  };
+  try {
+    storage.setItem(privateKey(pageId), JSON.stringify(next));
+  } catch (_err) {
+    // Quota exceeded or similar — best-effort only.
+  }
+  return next;
+};
+
 export const __testables = {
   STORAGE_KEY_PREFIX,
+  PRIVATE_KEY_PREFIX,
   SNAPSHOT_CAP,
   normalizeClaimText,
   normalizeSupport

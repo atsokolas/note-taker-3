@@ -90,6 +90,8 @@ describe('WikiChangesSinceLastVisit', () => {
     );
     fireEvent.click(screen.getByTestId('wiki-changes-banner-mark-reviewed'));
     expect(onMarkReviewed).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button', { name: 'I’ve seen these changes' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Show me' })).toBeInTheDocument();
   });
 
   it('renders only an "added" group when nothing was removed', () => {

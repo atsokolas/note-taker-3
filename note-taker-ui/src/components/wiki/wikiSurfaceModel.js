@@ -61,9 +61,9 @@ export const buildWikiSurfaceDescriptor = ({
 export const buildWikiFrontSurfaceDescriptor = () => ({
   room: 'wiki',
   objectType: 'wiki_front',
-  objectId: 'morning-paper',
-  title: 'Your living wikis',
-  projection: 'morning_paper',
+  objectId: 'collection',
+  title: 'Wiki',
+  projection: 'collection',
   mode: 'read'
 });
 

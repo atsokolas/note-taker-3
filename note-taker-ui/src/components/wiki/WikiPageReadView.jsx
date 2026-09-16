@@ -22,13 +22,15 @@ import {
   streamMaintainWikiPage,
   trackCompanyDossierInJudgment,
   updateWikiPage,
-  acceptOpenedSentenceWording
+  acceptOpenedSentenceWording,
+  getWikiFirstHeadCandidate,
+  reviewWikiFirstHeadCandidate
 } from '../../api/wiki';
 import { startKnowledgeMovementInvestigation } from '../../api/knowledgeMovements';
 import { getConnectionsForItem } from '../../api/connections';
 import { recordClaimCheckIn, recordWikiPageVisit } from '../../api/dailyLoop';
 import { trackWikiQaPromoted, trackWikiReadModePageView } from '../../utils/wikiAnalytics';
-import { wikiPagePath } from '../../utils/wikiFeatureFlags';
+import { wikiPagePath, wikiReadPath } from '../../utils/wikiFeatureFlags';
 import { resolveSourceDoors } from '../../utils/sourceRoutes';
 import { cleanSourceTextForDisplay } from '../../utils/sourceDisplayText';
 import ClaimCitationPopover from './ClaimCitationPopover';
@@ -52,8 +54,18 @@ import {
   diffClaimSnapshots,
   extractClaimTexts,
   getLastVisitState,
-  recordVisit
+  getPrivateWikiNotes,
+  recordVisit,
+  savePrivateWikiNotes
 } from './wikiVisitTracker';
+import WikiReaderContext from './WikiReaderContext';
+import {
+  historicalRevisionSnapshot,
+  popReaderPanel,
+  pushReaderPanel,
+  surroundingFromSource
+} from './wikiReaderContextModel';
+import { wikiPassageReference } from './wikiCopyReference';
 import { SUPPORT_STATES } from './extensions/Claim';
 import { AGENT_DISPLAY_NAME } from '../../constants/agentIdentity';
 import { useSystemStatusControls } from '../../system/SystemStatusContext';
@@ -92,6 +104,7 @@ import WikiInvestmentMaintenanceComparison from './WikiInvestmentMaintenanceComp
 import WikiDossierCaseCover from './WikiDossierCaseCover';
 import WikiWeekendReadingsPublication from './WikiWeekendReadingsPublication';
 import '../../styles/wiki-claim-focus.css';
+import '../../styles/wiki-reader-context.css';
 import DecisionCreateForm from './decisions/DecisionCreateForm';
 import DecisionReviewPanel from './decisions/DecisionReviewPanel';
 import { selectableAcceptedRevisions } from './decisions/acceptedRevisionIdentity';
@@ -109,7 +122,6 @@ const WikiChangesSinceLastVisit = lazy(() => import('./WikiChangesSinceLastVisit
 const WikiDiscussions = lazy(() => import('./WikiDiscussions'));
 
 const emptyDoc = { type: 'doc', content: [{ type: 'paragraph' }] };
-const WIKI_READ_RAIL_OPEN_MIGRATION_KEY = 'noeis.wiki.read.rail_open_v2';
 
 const labelFor = (value = '') => humanizeLabel(value);
 
@@ -1236,6 +1248,18 @@ const WikiPageReadView = ({
   const [revisions, setRevisions] = useState([]);
   const [openedClaimId, setOpenedClaimId] = useState('');
   const [openedExploration, setOpenedExploration] = useState(null);
+  const [panelTrail, setPanelTrail] = useState([]);
+  const [surroundingOpen, setSurroundingOpen] = useState(false);
+  const [previewMode, setPreviewMode] = useState(null);
+  const [previewPage, setPreviewPage] = useState(null);
+  const [candidatePayload, setCandidatePayload] = useState(null);
+  const [acceptBusy, setAcceptBusy] = useState('');
+  const [acceptError, setAcceptError] = useState('');
+  const [staleCandidate, setStaleCandidate] = useState(false);
+  const [privateReason, setPrivateReason] = useState('');
+  const [privateThought, setPrivateThought] = useState('');
+  const [showChangedOnly, setShowChangedOnly] = useState(false);
+  const [copyStatus, setCopyStatus] = useState('');
   const wikiSurfaceDescriptor = buildWikiSurfaceDescriptor({
     page,
     pageId,
@@ -1274,22 +1298,18 @@ const WikiPageReadView = ({
   useEffect(() => {
     setActiveTab(requestedReadTab);
   }, [requestedReadTab]);
-  // The living article opens with context available on desktop. A reader's
-  // explicit collapse remains respected; mobile agent context is a separate
-  // drawer so the article remains the primary plane.
   // Wikipedia / Tolkien Gateway reading shape — body owns the canvas.
+  // Context is optional. A previous explicit open is respected; a citation
+  // or proposal can temporarily open the rail without rewriting that choice
+  // until the reader hides it again.
   const [railCollapsed, setRailCollapsed] = useState(() => {
     if (shouldOpenTrace) return false;
     try {
-      if (window.localStorage?.getItem(WIKI_READ_RAIL_OPEN_MIGRATION_KEY) !== 'true') {
-        window.localStorage?.setItem(WIKI_READ_RAIL_OPEN_MIGRATION_KEY, 'true');
-        window.localStorage?.setItem('noeis.wiki.read.rail_collapsed', '0');
-        return false;
-      }
       const raw = window.localStorage?.getItem('noeis.wiki.read.rail_collapsed');
-      return raw === '1' || raw === 'true';
+      if (raw === '0' || raw === 'false') return false;
+      return true;
     } catch (_e) {
-      return false;
+      return true;
     }
   });
   useEffect(() => {
@@ -1310,6 +1330,7 @@ const WikiPageReadView = ({
   const recentParagraphTimersRef = useRef(new Map());
   const pageTransitionTimerRef = useRef(null);
   const reducedMotionRef = useRef(reducedMotion);
+  const urlIntentRef = useRef('');
 
   const focusRequestedClaimNode = useCallback(node => {
     if (!node) return;
@@ -1560,6 +1581,29 @@ const WikiPageReadView = ({
       const target = event.target;
       const tag = target?.tagName || '';
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes(tag) || target?.isContentEditable) return;
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        if (surroundingOpen) {
+          setSurroundingOpen(false);
+          return;
+        }
+        if (panelTrail.length) {
+          const next = popReaderPanel(panelTrail);
+          setPanelTrail(next.trail);
+          if (!next.trail.length) setSurroundingOpen(false);
+          return;
+        }
+        if (previewMode) {
+          setPreviewMode(null);
+          setPreviewPage(null);
+          setShowChangedOnly(false);
+          return;
+        }
+        if (!railCollapsed) {
+          setRailCollapsed(true);
+        }
+        return;
+      }
       if (event.key.toLowerCase() === 'e' && !event.metaKey && !event.ctrlKey && !event.altKey) {
         event.preventDefault();
         onEdit?.();
@@ -1567,7 +1611,7 @@ const WikiPageReadView = ({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onEdit, workspaceMode]);
+  }, [onEdit, panelTrail, previewMode, railCollapsed, surroundingOpen, workspaceMode]);
 
   const handleMaintain = useCallback(async () => {
     systemStatus.clearRecoverableFailure();
@@ -1915,11 +1959,33 @@ const WikiPageReadView = ({
   const handleCitationClick = useCallback((event) => {
     const target = event.target.closest?.('.wiki-claim-citation');
     if (!target) return;
-    const refId = target.getAttribute('data-footnote-target') || '';
-    if (!refId) return;
     event.preventDefault();
-    if (scrollToElementId(refId)) highlightReference(refId);
-  }, [highlightReference]);
+    const claimNode = target.closest?.('[data-claim-id]') || target;
+    const claimId = claimNode.getAttribute('data-claim-id') || '';
+    const indexes = parseIndexAttribute(target.getAttribute('data-citation-indexes'));
+    const citationIndex = indexes[0] || Number(String(target.getAttribute('aria-label') || '').replace(/\D+/g, '')) || 1;
+    const reading = previewPage || page;
+    const source = (reading?.sourceRefs || [])[citationIndex - 1];
+    const claim = (reading?.claims || []).find(entry => idsMatch(entry?.claimId, claimId));
+    const checking = claim?.text || claimNode.textContent || '';
+    setActiveClaim(null);
+    setSurroundingOpen(false);
+    setPanelTrail(current => pushReaderPanel(current, {
+      type: 'source',
+      returnTo: 'sources',
+      source: source || {},
+      checking,
+      surround: surroundingFromSource(source),
+      revisionId: reading?.rev || '',
+      claimId,
+      citationIndex,
+      historical: previewMode === 'history',
+      proposed: previewMode === 'candidate'
+    }));
+    setRailCollapsed(false);
+    const refId = target.getAttribute('data-footnote-target') || '';
+    if (refId && scrollToElementId(refId)) highlightReference(refId);
+  }, [highlightReference, page, previewMode, previewPage]);
 
   // AT-288: wikilinks render as raw <a href="/wiki/:id"> (see renderTiptapDoc).
   // Intercept plain left-clicks so concept-to-concept navigation stays in-app
@@ -1935,13 +2001,15 @@ const WikiPageReadView = ({
     event.preventDefault();
     if (previewTimerRef.current) clearTimeout(previewTimerRef.current);
     setPreview(null);
-    const go = () => navigate(wikiPagePath(targetPageId));
+    const go = () => navigate(wikiReadPath(targetPageId), {
+      state: { fromWikiPageId: pageId, fromWikiTitle: page?.title || '' }
+    });
     if (typeof document !== 'undefined' && typeof document.startViewTransition === 'function') {
       swallowSkippedViewTransition(document.startViewTransition(go));
     } else {
       go();
     }
-  }, [navigate]);
+  }, [navigate, page?.title, pageId]);
 
   useEffect(() => {
     if (typeof window.matchMedia !== 'function') return undefined;
@@ -2037,11 +2105,11 @@ const WikiPageReadView = ({
 
   const claimLedgerById = useMemo(() => {
     const map = new Map();
-    (page?.claims || []).forEach((claim) => {
+    ((previewPage || page)?.claims || []).forEach((claim) => {
       if (claim?.claimId) map.set(claim.claimId, claim);
     });
     return map;
-  }, [page?.claims]);
+  }, [page?.claims, previewPage]);
 
   const retiredClaims = useMemo(() => (
     (page?.claims || []).filter(claim => claim?.checkInStatus === 'retired' || claim?.retiredAt)
@@ -2143,6 +2211,266 @@ const WikiPageReadView = ({
     setLastVisit(next);
   }, [page, pageId]);
 
+  const contextPanel = panelTrail[panelTrail.length - 1] || null;
+  const railHidden = railCollapsed && !contextPanel;
+  const fromWikiPageId = normalizeId(location.state?.fromWikiPageId);
+  const awaitingCandidate = [
+    'awaiting_first_head_acceptance',
+    'awaiting_maintenance_acceptance'
+  ].includes(page?.aiState?.candidateStatus);
+
+  useEffect(() => {
+    if (!pageId) return undefined;
+    const notes = getPrivateWikiNotes(pageId);
+    setPrivateReason(notes.reason);
+    setPrivateThought(notes.thought);
+    return undefined;
+  }, [pageId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!awaitingCandidate || !pageId) {
+      setCandidatePayload(null);
+      setStaleCandidate(false);
+      return undefined;
+    }
+    getWikiFirstHeadCandidate(pageId)
+      .then((result) => {
+        if (!cancelled) {
+          setCandidatePayload(result);
+          setStaleCandidate(false);
+        }
+      })
+      .catch((requestError) => {
+        if (!cancelled) {
+          setCandidatePayload(null);
+          if (requestError?.response?.status === 409) setStaleCandidate(true);
+        }
+      });
+    return () => { cancelled = true; };
+  }, [awaitingCandidate, pageId, page?.aiState?.candidateStatus]);
+
+  const openContextPanel = useCallback((panel) => {
+    setPanelTrail(current => pushReaderPanel(current, panel));
+    setRailCollapsed(false);
+  }, []);
+
+  const closeContextPanels = useCallback(() => {
+    setPanelTrail([]);
+    setSurroundingOpen(false);
+  }, []);
+
+  const handleContextBack = useCallback(() => {
+    setPanelTrail((current) => {
+      const next = popReaderPanel(current);
+      setSurroundingOpen(false);
+      return next.trail;
+    });
+  }, []);
+
+  const exitIsolatedPreview = useCallback(() => {
+    setPreviewMode(null);
+    setPreviewPage(null);
+    setShowChangedOnly(false);
+  }, []);
+
+  const openCandidatePreview = useCallback((candidatePage = candidatePayload?.candidate) => {
+    if (!candidatePage) return;
+    if (previewMode === 'candidate') {
+      exitIsolatedPreview();
+      return;
+    }
+    setPreviewMode('candidate');
+    setPreviewPage(candidatePage);
+    setShowChangedOnly(false);
+    openContextPanel({
+      type: 'review',
+      title: 'A proposed revision, not yet the page.',
+      reason: candidatePayload?.summary?.reason || '',
+      currentText: firstParagraphText(page?.body) || page?.plainText || '',
+      proposedText: firstParagraphText(candidatePage?.body) || candidatePage?.plainText || '',
+      revisionId: candidatePayload?.revisionId || ''
+    });
+  }, [candidatePayload, exitIsolatedPreview, openContextPanel, page, previewMode]);
+
+  const handleAcceptCandidate = useCallback(async () => {
+    if (acceptBusy || !pageId) return;
+    setAcceptBusy('accept');
+    setAcceptError('');
+    try {
+      const result = await reviewWikiFirstHeadCandidate(pageId, 'accept');
+      if (result?.page) {
+        latestPageRef.current = result.page;
+        setPage(result.page);
+      }
+      exitIsolatedPreview();
+      setCandidatePayload(null);
+      setStaleCandidate(false);
+      setPanelTrail([{ type: 'reason', revisionId: result?.page?.rev || '' }]);
+      setRailCollapsed(false);
+    } catch (requestError) {
+      const stale = requestError?.response?.data?.code === 'WIKI_RESEARCH_CANDIDATE_STALE'
+        || requestError?.response?.status === 409;
+      setStaleCandidate(stale);
+      if (stale) {
+        exitIsolatedPreview();
+        setAcceptError('');
+      } else {
+        setAcceptError(requestError?.response?.data?.error || requestError?.message || 'Could not accept this revision.');
+      }
+    } finally {
+      setAcceptBusy('');
+    }
+  }, [acceptBusy, exitIsolatedPreview, pageId]);
+
+  const handleKeepCurrent = useCallback(async () => {
+    if (acceptBusy || !pageId) return;
+    setAcceptBusy('keep');
+    setAcceptError('');
+    try {
+      const result = await reviewWikiFirstHeadCandidate(pageId, 'reject');
+      if (result?.page) {
+        latestPageRef.current = result.page;
+        setPage(result.page);
+      }
+      exitIsolatedPreview();
+      setCandidatePayload(null);
+      closeContextPanels();
+    } catch (requestError) {
+      setAcceptError(requestError?.response?.data?.error || requestError?.message || 'Could not keep the current version.');
+    } finally {
+      setAcceptBusy('');
+    }
+  }, [acceptBusy, closeContextPanels, exitIsolatedPreview, pageId]);
+
+  const handleNotNow = useCallback(() => {
+    exitIsolatedPreview();
+    closeContextPanels();
+  }, [closeContextPanels, exitIsolatedPreview]);
+
+  const handleOpenHistoryRevision = useCallback((revision) => {
+    const snapshot = historicalRevisionSnapshot(revision);
+    if (!snapshot) return;
+    setPreviewMode('history');
+    setPreviewPage(snapshot);
+    setShowChangedOnly(false);
+    openContextPanel({
+      type: 'reference',
+      text: firstParagraphText(snapshot.body) || snapshot.plainText || '',
+      pageId,
+      revisionId: revision?._id || revision?.id || snapshot.rev,
+      historical: true
+    });
+  }, [openContextPanel, pageId]);
+
+  const handleCopyReference = useCallback(async () => {
+    const reading = previewPage || page;
+    const text = contextPanel?.checking || contextPanel?.text || firstParagraphText(reading?.body) || '';
+    const clip = wikiPassageReference({
+      page: reading,
+      text,
+      claimId: contextPanel?.claimId || '',
+      revisionId: contextPanel?.revisionId || reading?.rev || '',
+      sources: contextPanel?.source ? [contextPanel.source] : (reading?.sourceRefs || []),
+      proposed: previewMode === 'candidate' || contextPanel?.proposed,
+      historical: previewMode === 'history' || contextPanel?.historical
+    });
+    if (!clip) return;
+    try {
+      await navigator.clipboard.writeText(clip);
+      setCopyStatus('Copied with reference.');
+    } catch (_error) {
+      setCopyStatus('Clipboard permission blocked copy.');
+    }
+  }, [contextPanel, page, previewMode, previewPage]);
+
+  const handlePrivateReasonChange = useCallback((value) => {
+    setPrivateReason(value);
+    savePrivateWikiNotes(pageId, { reason: value });
+  }, [pageId]);
+
+  const handleThoughtChange = useCallback((value) => {
+    setPrivateThought(value);
+    savePrivateWikiNotes(pageId, { thought: value });
+  }, [pageId]);
+
+  const handleFollowLinkedPage = useCallback((relatedId) => {
+    navigate(wikiReadPath(relatedId), {
+      state: { fromWikiPageId: pageId, fromWikiTitle: page?.title || '' }
+    });
+  }, [navigate, page?.title, pageId]);
+
+  const handleOpenSourcesPanel = useCallback(() => {
+    openContextPanel({
+      type: 'sources',
+      revisionId: (previewPage || page)?.rev || '',
+      historical: previewMode === 'history'
+    });
+  }, [openContextPanel, page, previewMode, previewPage]);
+
+  const handleOpenHistoryPanel = useCallback(() => {
+    openContextPanel({ type: 'history' });
+  }, [openContextPanel]);
+
+  const handleOpenThoughtPanel = useCallback(() => {
+    openContextPanel({
+      type: 'thought',
+      text: firstParagraphText((previewPage || page)?.body) || '',
+      revisionId: (previewPage || page)?.rev || '',
+      historical: previewMode === 'history'
+    });
+  }, [openContextPanel, page, previewMode, previewPage]);
+
+  const handleOpenSourceFromList = useCallback((source, citationIndex) => {
+    openContextPanel({
+      type: 'source',
+      returnTo: 'sources',
+      source,
+      surround: surroundingFromSource(source),
+      citationIndex,
+      revisionId: (previewPage || page)?.rev || '',
+      historical: previewMode === 'history',
+      proposed: previewMode === 'candidate'
+    });
+  }, [openContextPanel, page, previewMode, previewPage]);
+
+  const handleShowChangedInPage = useCallback(() => {
+    setShowChangedOnly(true);
+    setRailCollapsed(true);
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(traceSearch || '');
+    const review = params.get('review') === '1';
+    const revisionId = params.get('rev') || '';
+    const intent = `${review ? 'review' : ''}|${revisionId}`;
+    if (!review && !revisionId) return;
+    if (urlIntentRef.current === intent) return;
+    if (review) {
+      if (!candidatePayload?.candidate) return;
+      urlIntentRef.current = intent;
+      setPreviewMode('candidate');
+      setPreviewPage(candidatePayload.candidate);
+      setShowChangedOnly(false);
+      setPanelTrail([{
+        type: 'review',
+        title: 'A proposed revision, not yet the page.',
+        reason: candidatePayload?.summary?.reason || '',
+        currentText: firstParagraphText(page?.body) || page?.plainText || '',
+        proposedText: firstParagraphText(candidatePayload.candidate?.body) || candidatePayload.candidate?.plainText || '',
+        revisionId: candidatePayload?.revisionId || ''
+      }]);
+      setRailCollapsed(false);
+      return;
+    }
+    if (revisionId && revisions.length) {
+      const match = revisions.find(entry => idsMatch(entry?._id || entry?.id, revisionId));
+      if (!match) return;
+      urlIntentRef.current = intent;
+      handleOpenHistoryRevision(match);
+    }
+  }, [candidatePayload, handleOpenHistoryRevision, page?.body, page?.plainText, revisions, traceSearch]);
+
   const loadMarkdown = useCallback(async () => {
     setMarkdownStatus('');
     try {
@@ -2184,9 +2512,10 @@ const WikiPageReadView = ({
     setMarkdownStatus('Markdown downloaded.');
   }, [loadMarkdown, page?.slug, page?.title]);
 
+  const readingPage = previewPage || page;
   const strippedBody = useMemo(
-    () => stripLeadingDuplicateTitleHeading(page?.body || emptyDoc, page?.title || ''),
-    [page?.body, page?.title]
+    () => stripLeadingDuplicateTitleHeading(readingPage?.body || emptyDoc, readingPage?.title || page?.title || ''),
+    [page?.title, readingPage?.body, readingPage?.title]
   );
   const bodyTocItems = useMemo(() => extractTocItems(strippedBody), [strippedBody]);
   const displayBody = useMemo(() => {
@@ -2656,7 +2985,7 @@ const WikiPageReadView = ({
   const repoComparisonPendingShare = repoComparisonAvailable && !publicShareReady;
   return (
     <main
-      className={`wiki-page wiki-read wiki-read--type-${readPageType}${standardWikiPage ? ' wiki-read--standard' : ''}${weekendReadingsPage ? ' wiki-read--research-edition' : ''}`}
+      className={`wiki-page wiki-read wiki-read--type-${readPageType}${standardWikiPage ? ' wiki-read--standard' : ''}${weekendReadingsPage ? ' wiki-read--research-edition' : ''}${previewMode === 'candidate' ? ' wiki-read--preview' : ''}${previewMode === 'history' ? ' wiki-read--historical' : ''}${showChangedOnly ? ' wiki-read--diff-only' : ''}`}
       data-state={pageTransitionState}
       data-page-transition-state={pageTransitionState}
     >
@@ -2815,7 +3144,7 @@ const WikiPageReadView = ({
           </section>
         </details>
       ) : null}
-      <div className={`wiki-read__layout${railCollapsed ? ' wiki-read__layout--rail-collapsed' : ''}`}>
+      <div className={`wiki-read__layout${railHidden ? ' wiki-read__layout--rail-collapsed' : ''}${contextPanel ? ' wiki-read__layout--panel-open' : ''}`}>
         {!standardWikiPage || !mobileStandardReader ? <aside className={`wiki-read__toc wiki-read__left-rail${standardWikiPage ? ' wiki-read__toc--desktop' : ''}`} aria-label="Wiki navigation">
           {repoDossierMode && repoSectionNav.length ? (
             <nav className="wiki-read__repo-dossier-toc" aria-label="Repository dossier contents">
@@ -3121,8 +3450,12 @@ const WikiPageReadView = ({
                 </button>
               </div> : null}
               {standardWikiPage ? <nav className="wiki-read__continuation-actions wiki-read__continuation-actions--standard" aria-label="Continue this page">
-                {openSentenceEnabled ? <ReadFresh {...reading} /> : null}
-                {(page.sourceRefs || []).length ? <a href="#wiki-read-references-title">Sources</a> : null}
+                {openSentenceEnabled && !previewMode ? <ReadFresh {...reading} /> : null}
+                {(readingPage?.sourceRefs || page.sourceRefs || []).length ? (
+                  <button type="button" onClick={handleOpenSourcesPanel}>Sources</button>
+                ) : null}
+                <button type="button" onClick={handleOpenHistoryPanel}>History</button>
+                <button type="button" onClick={handleOpenThoughtPanel}>Take this further</button>
                 {continuationBasis ? (
                   <button
                     type="button"
@@ -3131,7 +3464,9 @@ const WikiPageReadView = ({
                   >
                     {continuationState.busy ? 'Opening Think…' : 'Continue in Think'}
                   </button>
-                ) : null}
+                ) : (
+                  <Link to="/think?tab=home">Open Think</Link>
+                )}
                 {typeof onEdit === 'function' ? <button type="button" onClick={onEdit}>Edit article</button> : null}
               </nav> : null}
             </div>
@@ -3171,8 +3506,32 @@ const WikiPageReadView = ({
               aria-labelledby="wiki-read-tab-article"
             >
               <section className="wiki-read__article-panel">
+              {fromWikiPageId ? (
+                <div className="wiki-read__return-thread">
+                  <span>You arrived from another page.</span>
+                  <Link to={wikiReadPath(fromWikiPageId)}>Return to {location.state?.fromWikiTitle || 'the previous page'}</Link>
+                </div>
+              ) : null}
+              {awaitingCandidate && previewMode !== 'candidate' ? (
+                <div className="wiki-read__acceptance-receipt">
+                  <span>A proposed revision is waiting. It is not the current page.</span>
+                  <button type="button" onClick={() => openCandidatePreview()}>Read the proposal</button>
+                </div>
+              ) : null}
+              {previewMode === 'candidate' ? (
+                <div className="wiki-read__preview-strip">
+                  <span>Proposed wording · not accepted. This is not the current page.</span>
+                  <button type="button" onClick={exitIsolatedPreview}>Return to the current page</button>
+                </div>
+              ) : null}
+              {previewMode === 'history' ? (
+                <div className="wiki-read__history-banner">
+                  <span>Earlier version. These are the words as they were.</span>
+                  <button type="button" onClick={exitIsolatedPreview}>Return to the current page</button>
+                </div>
+              ) : null}
               <section
-                className={`wiki-read__body${bodyTransitionClass}`}
+                className={`wiki-read__body${bodyTransitionClass}${previewMode ? ' is-preview' : ''}${showChangedOnly ? ' is-diff-only' : ''}`}
                 data-state={pageTransitionState}
                 data-page-transition-state={pageTransitionState}
               >
@@ -3188,16 +3547,16 @@ const WikiPageReadView = ({
                   />
                 ) : (
                   <WikiOpenSentenceProvider
-                    enabled={openSentenceEnabled}
+                    enabled={openSentenceEnabled && !previewMode}
                     readFresh={reading.readFresh}
                     page={page}
                     pageId={pageId}
                     revisions={revisions}
                     onOpenedClaim={setOpenedClaimId}
                     onOpenedExploration={setOpenedExploration}
-                    durable
-                    onAcceptWording={openSentenceEnabled ? acceptOpenedWording : undefined}
-                    onMakeTitle={openSentenceEnabled ? makeOpenedTitle : undefined}
+                    durable={!previewMode}
+                    onAcceptWording={openSentenceEnabled && !previewMode ? acceptOpenedWording : undefined}
+                    onMakeTitle={openSentenceEnabled && !previewMode ? makeOpenedTitle : undefined}
                   >
                     {renderTiptapDoc(displayBody, {
                       tocItems,
@@ -3209,14 +3568,14 @@ const WikiPageReadView = ({
                       focusedClaimId,
                       focusedClaimRef: focusRequestedClaimNode,
                       kinFootnote: listeningRef,
-                      wrapParagraph: openSentenceEnabled ? wrapOpenableParagraph : undefined
+                      wrapParagraph: openSentenceEnabled && !previewMode ? wrapOpenableParagraph : undefined
                     })}
                   </WikiOpenSentenceProvider>
                 )}
               </section>
                 {showMarginalia ? (
                   <WikiReadMarginalia
-                    sources={page.sourceRefs || []}
+                    sources={readingPage?.sourceRefs || page.sourceRefs || []}
                     citations={footnoteCitations}
                     onJumpToReference={(refId) => {
                       if (scrollToElementId(refId)) highlightReference(refId);
@@ -3241,6 +3600,14 @@ const WikiPageReadView = ({
                     <WikiFirstHeadReview
                       page={page}
                       pageId={pageId}
+                      previewActive={previewMode === 'candidate'}
+                      onPreview={openCandidatePreview}
+                      onNotNow={handleNotNow}
+                      onAccepted={() => {
+                        setPanelTrail([{ type: 'reason' }]);
+                        setRailCollapsed(false);
+                        exitIsolatedPreview();
+                      }}
                       onPageUpdate={(nextPage) => {
                         if (!nextPage) return;
                         latestPageRef.current = nextPage;
@@ -3268,7 +3635,7 @@ const WikiPageReadView = ({
                 </details>
               ) : null}
               <WikiReadReferences
-                sources={page.sourceRefs || []}
+                sources={(readingPage?.sourceRefs || page.sourceRefs) || []}
                 citations={footnoteCitations}
                 highlightedRef={listeningRef}
                 onListen={setKinRef}
@@ -3467,10 +3834,10 @@ const WikiPageReadView = ({
           )}
         </article>
         <aside
-          className={`wiki-read__rail${railCollapsed ? ' wiki-read__rail--collapsed' : ''}`}
+          className={`wiki-read__rail${railHidden ? ' wiki-read__rail--collapsed' : ''}`}
           aria-label="Page context"
         >
-          {railCollapsed ? (
+          {railHidden ? (
             <button
               type="button"
               className="wiki-read__rail-toggle wiki-read__rail-toggle--show"
@@ -3482,7 +3849,7 @@ const WikiPageReadView = ({
               <span aria-hidden="true">›</span>
               <span className="wiki-read__rail-toggle-label">Show context</span>
             </button>
-          ) : !nonCriticalReady ? (
+          ) : !nonCriticalReady && !contextPanel ? (
             <div
               id="wiki-read-rail-content"
               className="wiki-read__rail-content wiki-read__rail-content--loading"
@@ -3497,7 +3864,10 @@ const WikiPageReadView = ({
                 <button
                   type="button"
                   className="wiki-read__rail-toggle wiki-read__rail-toggle--hide"
-                  onClick={() => setRailCollapsed(true)}
+                  onClick={() => {
+                    closeContextPanels();
+                    setRailCollapsed(true);
+                  }}
                   aria-expanded="true"
                   aria-controls="wiki-read-rail-content"
                   title="Hide context"
@@ -3505,7 +3875,38 @@ const WikiPageReadView = ({
                   <span aria-hidden="true">›</span>
                   <span className="wiki-read__rail-toggle-label">Hide</span>
                 </button>
-                {standardWikiPage ? <section className="wiki-read__infobox wiki-read__infobox--structured wiki-read__infobox--primary">
+                {contextPanel ? (
+                  <WikiReaderContext
+                    panel={contextPanel}
+                    page={readingPage || page}
+                    candidate={candidatePayload?.candidate || null}
+                    revisions={revisions}
+                    preview={previewMode === 'candidate'}
+                    surroundingOpen={surroundingOpen}
+                    privateReason={privateReason}
+                    thought={privateThought}
+                    onClose={closeContextPanels}
+                    onBack={handleContextBack}
+                    onOpenSource={handleOpenSourceFromList}
+                    onToggleSurround={() => setSurroundingOpen(open => !open)}
+                    onPreview={() => openCandidatePreview()}
+                    onAccept={handleAcceptCandidate}
+                    onKeepCurrent={handleKeepCurrent}
+                    onNotNow={handleNotNow}
+                    onOpenHistoryRevision={handleOpenHistoryRevision}
+                    onSeenChanges={handleMarkReviewed}
+                    onPrivateReasonChange={handlePrivateReasonChange}
+                    onThoughtChange={handleThoughtChange}
+                    onContinueInThink={continuationBasis ? handleContinueInThink : () => navigate('/think?tab=home')}
+                    onFollowPage={handleFollowLinkedPage}
+                    onCopyReference={handleCopyReference}
+                    onShowInPage={handleShowChangedInPage}
+                    acceptBusy={acceptBusy}
+                    acceptError={acceptError || copyStatus}
+                    stale={staleCandidate}
+                  />
+                ) : null}
+                {!contextPanel && standardWikiPage ? <section className="wiki-read__infobox wiki-read__infobox--structured wiki-read__infobox--primary">
                   <h2>About this page</h2>
                   <p className="wiki-read__infobox-type">{labelFor(page.pageType || 'topic')}</p>
                   <dl>
@@ -3514,7 +3915,7 @@ const WikiPageReadView = ({
                     ))}
                   </dl>
                 </section> : null}
-                {!standardWikiPage ? <section className="wiki-read__infobox wiki-read__infobox--structured">
+                {!contextPanel && !standardWikiPage ? <section className="wiki-read__infobox wiki-read__infobox--structured">
                   <h2>{labelFor(page.pageType || 'topic')}</h2>
                   <dl>
                     {infoboxRows.map(row => (
@@ -3522,6 +3923,8 @@ const WikiPageReadView = ({
                     ))}
                   </dl>
                 </section> : null}
+                {!contextPanel ? (
+                <>
                 <details className="wiki-read__rail-details">
                   <summary>Page details</summary>
                   <div className="wiki-read__rail-details-panel">
@@ -3592,6 +3995,8 @@ const WikiPageReadView = ({
                       })}
                     </ol>
                   </section>
+                ) : null}
+                </>
                 ) : null}
               </Suspense>
             </div>

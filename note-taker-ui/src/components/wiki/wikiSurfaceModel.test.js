@@ -69,7 +69,7 @@ describe('wiki surface model', () => {
     expect(wikiAllowsOpenSentence({ judgment: { kind: 'living_thesis' } })).toBe(false);
   });
 
-  it('names the empty workspace and Morning Paper without inventing a page identity', () => {
+  it('names the empty workspace and Wiki collection without inventing a page identity', () => {
     expect(buildWikiSurfaceDescriptor({ view: 'list' })).toEqual(expect.objectContaining({
       objectType: 'wiki_workspace',
       objectId: 'list',
@@ -79,8 +79,9 @@ describe('wiki surface model', () => {
     }));
     expect(buildWikiFrontSurfaceDescriptor()).toEqual(expect.objectContaining({
       objectType: 'wiki_front',
-      objectId: 'morning-paper',
-      projection: 'morning_paper'
+      objectId: 'collection',
+      title: 'Wiki',
+      projection: 'collection'
     }));
   });
 });

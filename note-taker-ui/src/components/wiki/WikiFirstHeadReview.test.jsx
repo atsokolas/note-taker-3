@@ -78,7 +78,7 @@ test('supports rejecting a maintenance candidate without acceptance confirmation
   reviewWikiFirstHeadCandidate.mockResolvedValue({ page: maintenancePage, receipt: {} });
   render(<WikiFirstHeadReview page={maintenancePage} pageId="page-1" />);
 
-  const reject = await screen.findByRole('button', { name: 'Reject draft' });
+  const reject = await screen.findByRole('button', { name: 'Keep current version' });
   fireEvent.click(reject);
   await waitFor(() => expect(reviewWikiFirstHeadCandidate).toHaveBeenCalledWith('page-1', 'reject'));
 });
@@ -126,4 +126,12 @@ test('blocks legacy adoption until the owner records a judgment', () => {
 
   expect(screen.getByText(/Record your actual current judgment/i)).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Adopt current head' })).not.toBeInTheDocument();
+});
+
+test('can wait without deciding', async () => {
+  const onNotNow = jest.fn();
+  render(<WikiFirstHeadReview page={page} pageId="page-1" onNotNow={onNotNow} />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Not now' }));
+  expect(onNotNow).toHaveBeenCalled();
+  expect(reviewWikiFirstHeadCandidate).not.toHaveBeenCalled();
 });
