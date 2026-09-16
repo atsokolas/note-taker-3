@@ -2,6 +2,7 @@ import {
   INQUIRY_SCOPE,
   bindInquiryToCurrentQuestion,
   inquiryAddressesEarlierWording,
+  inquiryIsDependable,
   normalizeInquiry,
   runLibraryInquiry
 } from './questionInquiry';
@@ -126,5 +127,28 @@ describe('questionInquiry', () => {
       scope: INQUIRY_SCOPE,
       run: expect.objectContaining({ status: 'idle', boundQuestion: 'Who bears the downside?' })
     }));
+  });
+
+  it('treats a complete or useful partial look as dependable, and a miss as not', () => {
+    expect(inquiryIsDependable({
+      inquiry: {
+        run: {
+          status: 'complete',
+          passages: [{ articleId: 'letter', passage: 'Patience is not avoidance.' }]
+        }
+      }
+    })).toBe(true);
+    expect(inquiryIsDependable({
+      inquiry: {
+        run: {
+          status: 'partial',
+          passages: [{ articleId: 'letter', passage: 'Patience is not avoidance.' }]
+        }
+      }
+    })).toBe(true);
+    expect(inquiryIsDependable({
+      inquiry: { run: { status: 'miss', passages: [], silence: 'Nothing useful came back.' } }
+    })).toBe(false);
+    expect(inquiryIsDependable({ inquiry: { run: { status: 'complete', passages: [] } } })).toBe(false);
   });
 });

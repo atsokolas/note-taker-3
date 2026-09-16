@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { normalizeInquiry } = require('./questionInquiry');
+const { inquiryIsDependable, normalizeInquiry } = require('./questionInquiry');
 
 const run = () => {
   const looking = normalizeInquiry({
@@ -13,6 +13,17 @@ const run = () => {
     normalizeInquiry({ run: { status: 'complete', boundQuestion: 'Who bears the downside?' } }).run.status,
     'complete'
   );
+  assert.strictEqual(inquiryIsDependable({
+    inquiry: {
+      run: {
+        status: 'complete',
+        passages: [{ articleId: 'letter', passage: 'Patience is not avoidance.' }]
+      }
+    }
+  }), true);
+  assert.strictEqual(inquiryIsDependable({
+    inquiry: { run: { status: 'miss', passages: [] } }
+  }), false);
 };
 
 if (require.main === module) {

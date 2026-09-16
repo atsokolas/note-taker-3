@@ -34,10 +34,11 @@ const collection = (rows) => ({
   findOne: async (query = {}) => rows.find((row) => mongoMatch(row, query)) || null
 });
 
-const modelsOf = ({ entries = [], articles = [], folders = [] } = {}) => ({
+const modelsOf = ({ entries = [], articles = [], folders = [], questions = [] } = {}) => ({
   ReturnQueueEntry: collection(entries),
   Article: collection(articles),
-  Folder: collection(folders)
+  Folder: collection(folders),
+  Question: collection(questions)
 });
 
 const article = (id, extras = {}) => asDoc({
@@ -53,10 +54,30 @@ const article = (id, extras = {}) => asDoc({
   folder: extras.folder || null
 });
 
+const question = (id, extras = {}) => asDoc({
+  _id: id,
+  userId: USER,
+  text: extras.text === undefined ? 'Who bears the downside?' : extras.text,
+  status: extras.status || 'open',
+  inquiry: extras.inquiry === undefined ? {
+    brief: 'Find an example that separates patience from avoidance.',
+    run: {
+      status: 'complete',
+      boundQuestion: 'Who bears the downside?',
+      boundBrief: 'Find an example that separates patience from avoidance.',
+      passages: [{
+        articleId: 'a-letter',
+        title: 'Household letter',
+        passage: 'Patience is not the same as avoidance.'
+      }]
+    }
+  } : extras.inquiry
+});
+
 const entry = (id, extras = {}) => asDoc({
   _id: id,
   userId: USER,
-  itemType: 'article',
+  itemType: extras.itemType || 'article',
   itemId: extras.itemId || 'a-costco',
   reason: extras.reason === undefined ? 'the margin note on returns' : extras.reason,
   dueAt: extras.dueAt === undefined ? new Date('2026-08-31T09:00:00.000Z') : extras.dueAt,
@@ -284,6 +305,120 @@ const entry = (id, extras = {}) => asDoc({
     })
   });
   assert.strictEqual(reasonFromArticle[0].reason, 'the margin note on returns');
+
+  const inquiryEntry = entry('q-inquiry', {
+    itemType: 'question',
+    itemId: 'question-downside',
+    reason: ''
+  });
+  const inquiryQuestion = question('question-downside');
+  const inquiryReturn = await fireAskedBack({
+    userId: USER,
+    now: TODAY,
+    timezone: 'UTC',
+    models: modelsOf({
+      entries: [inquiryEntry],
+      questions: [inquiryQuestion]
+    })
+  });
+  assert.strictEqual(inquiryReturn.length, 1);
+  assert.strictEqual(inquiryReturn[0].itemType, 'question');
+  assert.strictEqual(inquiryReturn[0].questionId, 'question-downside');
+  assert.strictEqual(inquiryReturn[0].articleId, '');
+  assert.strictEqual(inquiryReturn[0].title, 'Who bears the downside?');
+  assert.strictEqual(inquiryReturn[0].href, '/think?tab=questions&questionId=question-downside');
+  assert.strictEqual(inquiryReturn[0].reason, 'Find an example that separates patience from avoidance.');
+  assert.strictEqual(inquiryEntry.status, 'completed');
+  assert.strictEqual(inquiryEntry.lastFiredOn, '2026-08-31');
+
+  const missEntry = entry('q-miss', {
+    itemType: 'question',
+    itemId: 'question-miss',
+    reason: 'bring this back'
+  });
+  const missReturn = await fireAskedBack({
+    userId: USER,
+    now: TODAY,
+    timezone: 'UTC',
+    models: modelsOf({
+      entries: [missEntry],
+      questions: [question('question-miss', {
+        inquiry: { run: { status: 'miss', passages: [], silence: 'Nothing useful came back.' } }
+      })]
+    })
+  });
+  assert.deepStrictEqual(missReturn, []);
+  assert.strictEqual(missEntry.status, 'pending');
+
+  const answeredEntry = entry('q-answered', {
+    itemType: 'question',
+    itemId: 'question-answered'
+  });
+  const answeredReturn = await fireAskedBack({
+    userId: USER,
+    now: TODAY,
+    timezone: 'UTC',
+    models: modelsOf({
+      entries: [answeredEntry],
+      questions: [question('question-answered', { status: 'answered' })]
+    })
+  });
+  assert.deepStrictEqual(answeredReturn, []);
+  assert.strictEqual(answeredEntry.status, 'pending');
+
+  const goneQuestion = entry('q-gone-question', {
+    itemType: 'question',
+    itemId: 'missing-question'
+  });
+  await fireAskedBack({
+    userId: USER,
+    now: TODAY,
+    timezone: 'UTC',
+    models: modelsOf({ entries: [goneQuestion], questions: [] })
+  });
+  assert.strictEqual(goneQuestion.status, 'completed');
+  assert.strictEqual(goneQuestion.fired, null);
+
+  const crowded = await fireAskedBack({
+    userId: USER,
+    now: TODAY,
+    timezone: 'UTC',
+    models: modelsOf({
+      entries: [
+        entry('q-overdue-a', { itemId: 'a1', dueAt: new Date('2026-08-20T09:00:00.000Z') }),
+        entry('q-overdue-b', { itemId: 'a2', dueAt: new Date('2026-08-21T09:00:00.000Z') }),
+        entry('q-overdue-c', { itemId: 'a3', dueAt: new Date('2026-08-22T09:00:00.000Z') }),
+        entry('q-inquiry-slot', {
+          itemType: 'question',
+          itemId: 'question-downside',
+          reason: '',
+          dueAt: new Date('2026-08-31T09:00:00.000Z')
+        }),
+        entry('q-inquiry-second', {
+          itemType: 'question',
+          itemId: 'question-second',
+          reason: '',
+          dueAt: new Date('2026-08-31T10:00:00.000Z')
+        })
+      ],
+      articles: [
+        article('a1', { title: 'Overdue A' }),
+        article('a2', { title: 'Overdue B' }),
+        article('a3', { title: 'Overdue C' })
+      ],
+      questions: [
+        question('question-downside'),
+        question('question-second', { text: 'Whose recoverable mistake is this?' })
+      ]
+    })
+  });
+  assert.deepStrictEqual(crowded.map((row) => row.title), [
+    'Overdue A',
+    'Overdue B',
+    'Who bears the downside?'
+  ]);
+  assert.strictEqual(crowded.filter((row) => row.itemType === 'question').length, 1);
+  assert.strictEqual(crowded[2].href, '/think?tab=questions&questionId=question-downside');
 
   console.log('kairosFireService tests passed');
 })().catch((error) => {

@@ -60,4 +60,23 @@ describe('MorningAskedBack', () => {
     ));
     await waitFor(() => expect(screen.queryByRole('link', { name: 'The Costco 10-K' })).not.toBeInTheDocument());
   });
+
+  it('opens a returned inquiry on the original question, not the Library', () => {
+    render(
+      <MemoryRouter>
+        <MorningAskedBack askedBack={[{
+          itemType: 'question',
+          questionId: 'q-downside',
+          queueId: 'queue-question',
+          title: 'Who bears the downside?',
+          href: '/think?tab=questions&questionId=q-downside',
+          reason: 'the look you asked for'
+        }]} />
+      </MemoryRouter>
+    );
+    expect(screen.getByRole('link', { name: 'Who bears the downside?' }))
+      .toHaveAttribute('href', '/think?tab=questions&questionId=q-downside');
+    expect(screen.getByLabelText('Asked back')).toHaveTextContent('the look you asked for');
+    expect(screen.queryByRole('link', { name: /library/i })).not.toBeInTheDocument();
+  });
 });

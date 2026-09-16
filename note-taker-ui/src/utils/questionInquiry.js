@@ -77,6 +77,12 @@ export const normalizeInquiry = (inquiry = {}) => ({
   run: normalizeInquiryRun(inquiry.run)
 });
 
+export const inquiryIsDependable = (question) => {
+  const run = normalizeInquiry(question?.inquiry).run;
+  if (run.status !== 'complete' && run.status !== 'partial') return false;
+  return run.passages.some((row) => row.passage || row.articleId);
+};
+
 export const needleFromBrief = (brief, question) => (
   needleFromQuestion(brief) || needleFromQuestion(question)
 );

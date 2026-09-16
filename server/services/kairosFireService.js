@@ -1,4 +1,7 @@
+const { inquiryIsDependable } = require('../utils/questionInquiry');
+
 const ASKED_BACK_CAP = 3;
+const INQUIRY_RETURN_CAP = 1;
 
 const localDateForTimezone = (date = new Date(), timezone = 'UTC') => {
   try {
@@ -37,11 +40,20 @@ const isQualityArticle = (article) => {
   return Boolean(clean(article.title));
 };
 
+const isQualityQuestion = (question) => {
+  if (!question) return false;
+  if (String(question.status || 'open') === 'answered') return false;
+  if (!clean(question.text)) return false;
+  return inquiryIsDependable(question);
+};
+
 const homeOf = (article, folder) => (
   folder?.asFeed === true ? 'feed' : 'imbox'
 );
 
 const articleHref = (articleId) => `/library?articleId=${encodeURIComponent(articleId)}`;
+
+const questionHref = (questionId) => `/think?tab=questions&questionId=${encodeURIComponent(questionId)}`;
 
 const localDay = (value, timezone, today) => {
   if (!value) return today;
@@ -82,7 +94,12 @@ const rankEntries = (left, right, timezone, today) => {
   return new Date(left.dueAt || 0).getTime() - new Date(right.dueAt || 0).getTime();
 };
 
-const snapshotOf = ({ entry, article, folder }) => {
+const idsOfType = (entries, type) => [...new Set((entries || [])
+  .filter((row) => String(row.itemType || '') === type)
+  .map((row) => String(row.itemId || ''))
+  .filter(Boolean))];
+
+const snapshotOfArticle = ({ entry, article, folder }) => {
   const articleId = idOf(article) || String(entry.itemId || '');
   return {
     title: clean(article.title, 280),
@@ -96,22 +113,82 @@ const snapshotOf = ({ entry, article, folder }) => {
   };
 };
 
-const askedBackItem = (entry, snapshot, lastFiredOn) => ({
-  articleId: String(entry.itemId || ''),
-  queueId: idOf(entry),
-  title: snapshot.title,
-  href: snapshot.href,
-  reason: snapshot.reason,
-  fromPlacement: snapshot.fromPlacement,
-  home: snapshot.home,
-  fromAt: snapshot.fromAt || null,
-  lastFiredOn
-});
+const snapshotOfQuestion = ({ entry, question }) => {
+  const questionId = idOf(question) || String(entry.itemId || '');
+  const brief = question?.inquiry?.run?.boundBrief || question?.inquiry?.brief;
+  return {
+    title: clean(question.text, 280),
+    href: questionHref(questionId),
+    reason: clean(entry.reason) || clean(brief) || 'the look you asked for',
+    fromPlacement: '',
+    home: '',
+    fromAt: null
+  };
+};
+
+const askedBackItem = (entry, snapshot, lastFiredOn) => {
+  const itemType = String(entry.itemType || 'article');
+  const itemId = String(entry.itemId || '');
+  const base = {
+    itemType,
+    queueId: idOf(entry),
+    title: snapshot.title,
+    href: snapshot.href,
+    reason: snapshot.reason,
+    fromPlacement: snapshot.fromPlacement || '',
+    home: snapshot.home || '',
+    fromAt: snapshot.fromAt || null,
+    lastFiredOn
+  };
+  if (itemType === 'question') {
+    return { ...base, questionId: itemId, articleId: '' };
+  }
+  return { ...base, articleId: itemId, questionId: '' };
+};
 
 const completeQuietly = async (entry, now) => {
   entry.status = 'completed';
   entry.completedAt = now;
   if (typeof entry.save === 'function') await entry.save();
+};
+
+const markFired = async (entry, snapshot, { now, today }) => {
+  entry.lastFiredOn = today;
+  entry.fired = snapshot;
+  if (entry.cadence === 'weekly' || entry.cadence === 'monthly') {
+    entry.status = 'pending';
+    entry.completedAt = null;
+    entry.dueAt = advanceDueAt(entry.dueAt, entry.cadence, now);
+  } else {
+    entry.status = 'completed';
+    entry.completedAt = now;
+  }
+  if (typeof entry.save === 'function') await entry.save();
+};
+
+const selectAskedBack = (reprints, due) => {
+  const pool = [
+    ...reprints.map((row) => ({ ...row, reprint: true })),
+    ...due.map((row) => ({ ...row, reprint: false }))
+  ];
+  const hasQuestion = pool.some((row) => row.kind === 'question');
+  const articleCap = ASKED_BACK_CAP - (hasQuestion ? INQUIRY_RETURN_CAP : 0);
+  const selected = [];
+  let questions = 0;
+  let articles = 0;
+  for (const row of pool) {
+    if (selected.length >= ASKED_BACK_CAP) break;
+    if (row.kind === 'question') {
+      if (questions >= INQUIRY_RETURN_CAP) continue;
+      selected.push(row);
+      questions += 1;
+      continue;
+    }
+    if (articles >= articleCap) continue;
+    selected.push(row);
+    articles += 1;
+  }
+  return selected;
 };
 
 const fireAskedBack = async ({
@@ -124,16 +201,18 @@ const fireAskedBack = async ({
   const today = localDateForTimezone(now, timezone);
   const entries = await loadRows(models.ReturnQueueEntry.find({
     userId,
-    itemType: 'article',
+    itemType: { $in: ['article', 'question'] },
     $or: [{ status: 'pending' }, { lastFiredOn: today }]
   }));
   if (!entries.length) return [];
 
-  const articleIds = [...new Set(entries.map((row) => String(row.itemId || '')).filter(Boolean))];
-  const articles = await loadRows(models.Article?.find?.({
-    _id: { $in: articleIds },
-    userId
-  }));
+  const articleIds = idsOfType(entries, 'article');
+  const articles = articleIds.length
+    ? await loadRows(models.Article?.find?.({
+      _id: { $in: articleIds },
+      userId
+    }))
+    : [];
   const articlesById = new Map(articles.map((row) => [idOf(row), row]));
 
   const folderIds = [...new Set(articles
@@ -144,60 +223,84 @@ const fireAskedBack = async ({
     : [];
   const foldersById = new Map(folders.map((row) => [idOf(row), row]));
 
+  const questionIds = idsOfType(entries, 'question');
+  const questions = questionIds.length
+    ? await loadRows(models.Question?.find?.({
+      _id: { $in: questionIds },
+      userId
+    }))
+    : [];
+  const questionsById = new Map(questions.map((row) => [idOf(row), row]));
+
   const reprints = [];
   const due = [];
 
   for (const entry of entries) {
-    if (String(entry.itemType || '') !== 'article') continue;
-    const article = articlesById.get(String(entry.itemId || ''));
+    const itemType = String(entry.itemType || '');
     const alreadyFired = String(entry.lastFiredOn || '') === today;
 
+    if (itemType === 'article') {
+      const article = articlesById.get(String(entry.itemId || ''));
+      if (alreadyFired) {
+        if (!isQualityArticle(article) || !entry.fired?.title) {
+          if (entry.status === 'pending') await completeQuietly(entry, now);
+          continue;
+        }
+        reprints.push({ kind: 'article', entry, article });
+        continue;
+      }
+      if (entry.status !== 'pending' || !isDue(entry, timezone, today)) continue;
+      if (!article) {
+        await completeQuietly(entry, now);
+        continue;
+      }
+      if (!isQualityArticle(article)) continue;
+      due.push({ kind: 'article', entry, article });
+      continue;
+    }
+
+    if (itemType !== 'question') continue;
+    const question = questionsById.get(String(entry.itemId || ''));
     if (alreadyFired) {
-      if (!isQualityArticle(article) || !entry.fired?.title) {
+      if (!isQualityQuestion(question) || !entry.fired?.title) {
         if (entry.status === 'pending') await completeQuietly(entry, now);
         continue;
       }
-      reprints.push({ entry, article });
+      reprints.push({ kind: 'question', entry, question });
       continue;
     }
-
     if (entry.status !== 'pending' || !isDue(entry, timezone, today)) continue;
-    if (!article) {
+    if (!question) {
       await completeQuietly(entry, now);
       continue;
     }
-    if (!isQualityArticle(article)) continue;
-    due.push({ entry, article });
+    if (!isQualityQuestion(question)) continue;
+    due.push({ kind: 'question', entry, question });
   }
 
   reprints.sort((left, right) => rankEntries(left.entry, right.entry, timezone, today));
   due.sort((left, right) => rankEntries(left.entry, right.entry, timezone, today));
 
-  const askedBack = reprints
-    .slice(0, ASKED_BACK_CAP)
-    .map(({ entry }) => askedBackItem(entry, entry.fired, today));
-
-  const remaining = ASKED_BACK_CAP - askedBack.length;
-  for (const { entry, article } of due.slice(0, remaining)) {
-    const folder = foldersById.get(idOf(article.folder));
-    const snapshot = snapshotOf({ entry, article, folder });
-    article.placement = 'stream';
-    article.placementAt = null;
-    article.placementReason = '';
-    if (typeof article.save === 'function') await article.save();
-
-    entry.lastFiredOn = today;
-    entry.fired = snapshot;
-    if (entry.cadence === 'weekly' || entry.cadence === 'monthly') {
-      entry.status = 'pending';
-      entry.completedAt = null;
-      entry.dueAt = advanceDueAt(entry.dueAt, entry.cadence, now);
-    } else {
-      entry.status = 'completed';
-      entry.completedAt = now;
+  const askedBack = [];
+  for (const row of selectAskedBack(reprints, due)) {
+    if (row.reprint) {
+      askedBack.push(askedBackItem(row.entry, row.entry.fired, today));
+      continue;
     }
-    if (typeof entry.save === 'function') await entry.save();
-    askedBack.push(askedBackItem(entry, snapshot, today));
+    if (row.kind === 'article') {
+      const folder = foldersById.get(idOf(row.article.folder));
+      const snapshot = snapshotOfArticle({ entry: row.entry, article: row.article, folder });
+      row.article.placement = 'stream';
+      row.article.placementAt = null;
+      row.article.placementReason = '';
+      if (typeof row.article.save === 'function') await row.article.save();
+      await markFired(row.entry, snapshot, { now, today });
+      askedBack.push(askedBackItem(row.entry, snapshot, today));
+      continue;
+    }
+    const snapshot = snapshotOfQuestion({ entry: row.entry, question: row.question });
+    await markFired(row.entry, snapshot, { now, today });
+    askedBack.push(askedBackItem(row.entry, snapshot, today));
   }
 
   return askedBack;
@@ -205,6 +308,7 @@ const fireAskedBack = async ({
 
 module.exports = {
   ASKED_BACK_CAP,
+  INQUIRY_RETURN_CAP,
   fireAskedBack,
   normalizeCadence
 };
