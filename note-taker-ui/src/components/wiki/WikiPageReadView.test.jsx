@@ -3145,21 +3145,25 @@ describe('WikiPageReadView', () => {
 
     renderReadView();
     await flushDeferredWikiReadWork();
-    fireEvent.click(await screen.findByRole('button', { name: 'Backlink to source 1' }));
+    const citation = await screen.findByRole('button', { name: 'Backlink to source 1' });
+    await act(async () => {
+      fireEvent.click(citation);
+    });
 
-    expect(await screen.findByRole('heading', { name: 'Memory article' })).toBeInTheDocument();
-    expect(screen.getByText(/passage claim-1/)).toBeInTheDocument();
-    expect(screen.getByText('Source snippet sits here.')).toBeInTheDocument();
+    const context = document.querySelector('.wiki-reader-context');
+    expect(context).toHaveTextContent('Memory article');
+    expect(context).toHaveTextContent('passage claim-1');
+    expect(context.querySelector('.wiki-reader-context__quote')).toHaveTextContent('Source snippet sits here.');
     const expand = await screen.findByRole('button', { name: 'Read a little around it' });
     fireEvent.click(expand);
-    expect(screen.getByText(/Before the cited line/)).toBeInTheDocument();
-    expect(screen.getByText(/After the cited line continues/)).toBeInTheDocument();
+    expect(context).toHaveTextContent('Before the cited line');
+    expect(context).toHaveTextContent('After the cited line continues');
 
     fireEvent.keyDown(window, { key: 'Escape' });
-    expect(screen.queryByText(/Before the cited line/)).not.toBeInTheDocument();
-    expect(screen.getByText('Source snippet sits here.')).toBeInTheDocument();
+    expect(context.querySelector('.wiki-reader-context__neighbor')).not.toBeInTheDocument();
+    expect(context.querySelector('.wiki-reader-context__quote')).toHaveTextContent('Source snippet sits here.');
     fireEvent.keyDown(window, { key: 'Escape' });
-    expect(screen.queryByRole('heading', { name: 'Memory article' })).not.toBeInTheDocument();
+    expect(document.querySelector('.wiki-reader-context')).not.toBeInTheDocument();
   });
 
   it('does not invent surrounding when the cited line is missing from the article', async () => {
@@ -3188,11 +3192,16 @@ describe('WikiPageReadView', () => {
 
     renderReadView();
     await flushDeferredWikiReadWork();
-    fireEvent.click(await screen.findByRole('button', { name: 'Backlink to source 1' }));
+    const citation = await screen.findByRole('button', { name: 'Backlink to source 1' });
+    await act(async () => {
+      fireEvent.click(citation);
+    });
 
-    expect(await screen.findByText('A similar-sounding neighbor was not attached.')).toBeInTheDocument();
+    const context = document.querySelector('.wiki-reader-context');
+    expect(context.querySelector('.wiki-reader-context__quote'))
+      .toHaveTextContent('A similar-sounding neighbor was not attached.');
     expect(screen.getByRole('button', { name: 'No surrounding text available' })).toBeDisabled();
-    expect(screen.queryByText(/Getting lost/)).not.toBeInTheDocument();
+    expect(context).not.toHaveTextContent('Getting lost');
   });
 
   it('marks only last-visit changes in the page and leaves the rest visible when nothing qualifies', async () => {
