@@ -1,4 +1,5 @@
 const express = require('express');
+const { librarySearchArticleMatch } = require('../utils/articleVisibility');
 
 const SEARCH_SCOPE_VALUES = new Set(['all', 'articles', 'highlights', 'notebook']);
 const SEARCH_TYPE_VALUES = new Set(['article', 'highlight', 'notebook', 'note', 'claim', 'evidence']);
@@ -398,7 +399,7 @@ const buildSearchRetrievalRouter = ({
       const [articleRows, highlightRows, notebookRows] = await Promise.all([
         includeArticles
           ? Article.aggregate([
-              { $match: { userId: userObjectId, $text: { $search: q } } },
+              { $match: librarySearchArticleMatch(userObjectId, { $text: { $search: q } }) },
               ...(tagRegexes.length > 0 ? [{ $match: { 'highlights.tags': { $in: tagRegexes } } }] : []),
               { $addFields: { _score: { $meta: 'textScore' } } },
               { $sort: { _score: -1, updatedAt: -1 } },
@@ -408,7 +409,7 @@ const buildSearchRetrievalRouter = ({
           : Promise.resolve([]),
         includeHighlights
           ? Article.aggregate([
-              { $match: { userId: userObjectId, $text: { $search: q } } },
+              { $match: librarySearchArticleMatch(userObjectId, { $text: { $search: q } }) },
               ...(tagRegexes.length > 0 ? [{ $match: { 'highlights.tags': { $in: tagRegexes } } }] : []),
               { $addFields: { _score: { $meta: 'textScore' } } },
               { $project: { title: 1, highlights: 1, _score: 1 } },
@@ -495,10 +496,9 @@ const buildSearchRetrievalRouter = ({
       }));
 
       if (articles.length === 0 && includeArticles) {
-        const articleFallback = await Article.find({
-          userId,
+        const articleFallback = await Article.find(librarySearchArticleMatch(userId, {
           $or: [{ title: queryRegex }, { content: queryRegex }]
-        })
+        }))
           .select('title content url updatedAt')
           .sort({ updatedAt: -1 })
           .limit(20)
@@ -515,7 +515,7 @@ const buildSearchRetrievalRouter = ({
 
       if (highlights.length === 0 && includeHighlights) {
         const highlightFallback = await Article.aggregate([
-          { $match: { userId: userObjectId } },
+          { $match: librarySearchArticleMatch(userObjectId) },
           { $unwind: '$highlights' },
           ...(tagRegexes.length > 0 ? [{ $match: { 'highlights.tags': { $in: tagRegexes } } }] : []),
           ...(highlightTypeFilters.length > 0 ? [{ $match: { 'highlights.type': { $in: highlightTypeFilters } } }] : []),

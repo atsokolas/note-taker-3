@@ -18,6 +18,12 @@
   justify-content: space-between;
 }
 
+.library-passage-picker__head > div {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
 .library-passage-picker :is(h3, h4, p) { margin: 0; }
 
 .library-passage-picker__eyebrow,

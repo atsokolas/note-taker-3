@@ -9,6 +9,13 @@ import { buildArticlePassageHref } from '../../../utils/articlePassageAnchor';
 import { buildCanonicalArticlePath, buildCanonicalHighlightPath } from '../../../utils/sourceRoutes';
 import { cleanSourceTextForDisplay } from '../../../utils/sourceDisplayText';
 import { alreadyUsedHere } from '../../../utils/libraryPassageUse';
+import {
+  librarySearchRows,
+  librarySearchSilence,
+  needleFromQuestion,
+  passageIsStale,
+  qualifyLibraryRows
+} from '../../../utils/libraryPassageRetrieval';
 import { surroundingFromArticle } from './openSentenceJourney';
 import './library-passage-picker.css';
 
@@ -31,51 +38,25 @@ export const loadOwnedArticle = async (articleId) => {
   };
 };
 
-const resultRows = (payload = {}) => {
-  const seen = new Set();
-  const rows = [];
-  const add = (row) => {
-    const key = row.kind === 'highlight'
-      ? `highlight:${row.articleId}:${row.highlightId}`
-      : `article:${row.articleId}`;
-    if (!row.articleId || seen.has(key)) return;
-    seen.add(key);
-    rows.push({ ...row, key });
-  };
-  (Array.isArray(payload?.highlights) ? payload.highlights : []).forEach((highlight) => add({
-    kind: 'highlight',
-    articleId: idOf(highlight.articleId),
-    highlightId: idOf(highlight),
-    title: String(highlight.articleTitle || '').trim() || 'Untitled source',
-    passage: clean(highlight.text || highlight.anchor?.text),
-    highlight
-  }));
-  (Array.isArray(payload?.articles) ? payload.articles : []).forEach((article) => add({
-    kind: 'article',
-    articleId: idOf(article),
-    highlightId: '',
-    title: String(article.title || '').trim() || 'Untitled source',
-    passage: clean(article.content || article.firstGraph),
-    article
-  }));
-  return rows;
-};
-
 const excludedPassage = (candidate, excluded = []) => alreadyUsedHere(candidate, excluded);
+const rowsFromPayload = (payload, { query, mode }) => (
+  qualifyLibraryRows(librarySearchRows(payload), { query, mode })
+);
 
 const passageFromHighlight = ({ article, highlight }) => {
   const articleId = idOf(article);
   const highlightId = idOf(highlight);
   const passage = clean(highlight?.text || highlight?.anchor?.text);
   const around = surroundingFromArticle({ article, highlight });
+  const stale = passageIsStale({ passage, articleText: article?.content });
   return {
     title: String(article?.title || highlight?.articleTitle || '').trim() || 'Untitled source',
     passage,
     aroundBefore: around.aroundBefore,
     aroundAfter: around.aroundAfter,
     qualification: 'Saved passage · chosen from Library',
-    available: Boolean(passage),
-    stale: false,
+    available: Boolean(passage) && !stale,
+    stale,
     href: buildCanonicalHighlightPath({ articleId, highlightId }),
     originalHref: String(article?.url || '').trim(),
     isLibrary: true,
@@ -119,6 +100,7 @@ export const passageFromSelection = ({ article, text, start, end }) => {
 
 const LibraryPassagePicker = ({
   open = false,
+  boundQuestion = '',
   excluded = [],
   onDismiss = () => {},
   onPlace = () => {},
@@ -142,6 +124,7 @@ const LibraryPassagePicker = ({
   const returnFocusKey = useRef('');
   const focusPreviewOnOpen = useRef(false);
   const focusResultOnBack = useRef(false);
+  const seededForOpen = useRef(false);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -158,11 +141,26 @@ const LibraryPassagePicker = ({
   useEffect(() => {
     if (!open) {
       requestId.current += 1;
+      seededForOpen.current = false;
       setLoading(false);
+      setQuery('');
+      setMode('search');
+      setPreview(null);
+      setRows([]);
+      setError('');
+      setFolderId('');
       focusPreviewOnOpen.current = false;
       focusResultOnBack.current = false;
+      return undefined;
+    }
+    if (!seededForOpen.current) {
+      seededForOpen.current = true;
+      setQuery(needleFromQuestion(boundQuestion));
     }
     return () => { requestId.current += 1; };
+    // Seed once per open from the question that asked. A later edit of the
+    // question must not rewrite a search the person is already typing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- boundQuestion is read only at open
   }, [open]);
 
   useEffect(() => {
@@ -202,7 +200,7 @@ const LibraryPassagePicker = ({
     const timer = window.setTimeout(async () => {
       try {
         const payload = await search({ q: needle, type: ['article', 'highlight'] });
-        if (requestId.current === active) setRows(resultRows(payload));
+        if (requestId.current === active) setRows(rowsFromPayload(payload, { query: needle, mode: 'search' }));
       } catch (_failure) {
         if (requestId.current === active) {
           setRows([]);
@@ -230,7 +228,7 @@ const LibraryPassagePicker = ({
       limit: BROWSE_LIMIT
     }).then((articles) => {
       if (requestId.current !== active) return;
-      setRows(resultRows({ articles }));
+      setRows(rowsFromPayload({ articles }, { mode: 'browse' }));
     }).catch(() => {
       if (requestId.current !== active) return;
       setRows([]);
@@ -282,9 +280,12 @@ const LibraryPassagePicker = ({
     ? passageFromHighlight({ article: preview.article, highlight: preview.selectedHighlight })
     : passageFromSelection({ article: preview?.article, text: articleText, ...selection });
   const selectionTooLong = !preview?.selectedHighlight && chosen.passage.length > ARTICLE_SELECTION_LIMIT;
+  const staleChosen = Boolean(preview?.selectedHighlight && chosen.stale);
   const mayPlace = Boolean(chosen.passage)
     && !selectionTooLong
+    && !staleChosen
     && !excludedPassage(chosen, excluded);
+  const boundLine = String(boundQuestion || '').trim();
   const browseName = folderId
     ? (folders.find((folder) => idOf(folder) === folderId)?.name || 'this shelf')
     : 'all Library sources';
@@ -293,8 +294,11 @@ const LibraryPassagePicker = ({
     <section className="library-passage-picker" role="dialog" aria-label="Find what I already have">
       <header className="library-passage-picker__head">
         <div>
-          <p className="library-passage-picker__eyebrow">Your Library</p>
+          <p className="library-passage-picker__eyebrow">
+            {boundLine ? 'For this question' : 'Your Library'}
+          </p>
           <h3>Find what I already have</h3>
+          {boundLine ? <p className="library-passage-picker__quiet">{boundLine}</p> : null}
         </div>
         <button type="button" onClick={onDismiss}>Close</button>
       </header>
@@ -317,13 +321,13 @@ const LibraryPassagePicker = ({
                     key={idOf(highlight)}
                     type="button"
                     className={idOf(preview.selectedHighlight) === idOf(highlight) ? 'is-selected' : ''}
-                    disabled={!candidate.passage || excludedPassage(candidate, excluded)}
+                    disabled={!candidate.passage || candidate.stale || excludedPassage(candidate, excluded)}
                     onClick={() => {
                       setPreview((current) => ({ ...current, selectedHighlight: highlight }));
                       setSelection({ start: 0, end: 0 });
                     }}
                   >
-                    {candidate.passage || 'Passage unavailable'}
+                    {candidate.stale ? 'These words are no longer in the source.' : (candidate.passage || 'Passage unavailable')}
                   </button>
                 );
               })}
@@ -353,7 +357,9 @@ const LibraryPassagePicker = ({
             <p className="library-passage-picker__quiet">
               {selectionTooLong
                 ? `Choose a shorter passage. This selection is ${chosen.passage.length.toLocaleString()} characters.`
-                : 'You already used this here.'}
+                : staleChosen
+                  ? 'These words are no longer in the source.'
+                  : 'You already used this here.'}
             </p>
           ) : null}
           <div className="library-passage-picker__actions">
@@ -397,7 +403,9 @@ const LibraryPassagePicker = ({
           </div>
           {mode === 'search' ? (
             <label className="library-passage-picker__search">
-              <span>Search passages and articles</span>
+              <span>
+                {boundLine ? 'Search your Library for this question' : 'Search passages and articles'}
+              </span>
               <input
                 autoFocus
                 type="search"
@@ -449,8 +457,13 @@ const LibraryPassagePicker = ({
           ) : null}
           {!loading && !error && !rows.length && (mode === 'browse' || query.trim().length >= 3) ? (
             <p className="library-passage-picker__quiet">
-              {mode === 'browse' ? `No sources are filed in ${browseName}.` : `Nothing in your Library matches “${query.trim()}”.`}
+              {mode === 'browse'
+                ? `No sources are filed in ${browseName}.`
+                : librarySearchSilence({ query, boundQuestion, mode })}
             </p>
+          ) : null}
+          {!loading && !error && mode === 'search' && rows.length ? (
+            <p className="library-passage-picker__quiet">Matches in your Library · not every source.</p>
           ) : null}
           {!loading && !error && mode === 'browse' && rows.length ? (
             <p className="library-passage-picker__quiet">

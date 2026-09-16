@@ -3,6 +3,7 @@ import LibraryPassagePicker from './LibraryPassagePicker';
 
 // One Library search/placement control for a saved question or exploration.
 export default function FindWhatIAlreadyHave({
+  boundQuestion = '',
   excluded = [],
   onPlace = () => {},
   onUndo = () => {},
@@ -29,6 +30,7 @@ export default function FindWhatIAlreadyHave({
       <LibraryPassagePicker
         {...pickerProps}
         open={open}
+        boundQuestion={boundQuestion}
         excluded={excluded}
         onDismiss={close}
         onPlace={(source) => {

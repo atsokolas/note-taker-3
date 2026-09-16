@@ -9,15 +9,7 @@ const {
   fetchReadableArticle: defaultFetchReadableArticle,
   paragraphsToHtml
 } = require('../services/readableArticle');
-
-const applyDefaultArticleVisibility = (match, { includeSuppressed = false } = {}) => {
-  if (includeSuppressed) return match;
-  return {
-    ...match,
-    debugOnly: { $ne: true },
-    archived: { $ne: true }
-  };
-};
+const { applyDefaultArticleVisibility } = require('../utils/articleVisibility');
 
 const ARTICLE_PLACEMENTS = new Set(['stream', 'later', 'setAside']);
 

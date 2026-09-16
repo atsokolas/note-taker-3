@@ -49,7 +49,6 @@ export const getChallengeEvidenceBalance = (block = {}) => {
 const QuestionBlocksEditor = ({
   blocks,
   onChange,
-  onInsertHighlight,
   challengeEvidenceByBlockId = {}
 }) => {
   const { highlightMap } = useHighlights({ enabled: true });
@@ -203,7 +202,6 @@ const QuestionBlocksEditor = ({
       ))}
       <div className="think-question-block-toolbar">
         <Button variant="secondary" onClick={handleAddParagraph}>Add paragraph</Button>
-        <Button variant="secondary" onClick={onInsertHighlight}>Add highlight</Button>
       </div>
     </div>
   );

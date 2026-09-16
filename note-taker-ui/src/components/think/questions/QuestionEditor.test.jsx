@@ -17,25 +17,25 @@ jest.mock('../../agent/AgentSkillDock', () => function AgentSkillDock() {
   return <div data-testid="agent-skill-dock" />;
 });
 
-jest.mock('../notebook/InsertHighlightModal', () => function InsertHighlightModal() {
-  return null;
-});
-
-jest.mock('../../wiki/open-sentence/LibraryPassagePicker', () => function LibraryPassagePicker({ open, onPlace }) {
+jest.mock('../../wiki/open-sentence/LibraryPassagePicker', () => function LibraryPassagePicker({ open, onPlace, boundQuestion }) {
   if (!open) return null;
   return (
-    <button
-      type="button"
-      onClick={() => onPlace({
-        articleId: 'article-nomad',
-        highlightId: 'highlight-nomad',
-        title: 'Nomad',
-        passage: 'A wrong turn can still leave another attempt.',
-        href: '/library?articleId=article-nomad&highlightId=highlight-nomad'
-      })}
-    >
-      Place here
-    </button>
+    <div>
+      {boundQuestion ? <p>For this question</p> : null}
+      {boundQuestion ? <p>{boundQuestion}</p> : null}
+      <button
+        type="button"
+        onClick={() => onPlace({
+          articleId: 'article-nomad',
+          highlightId: 'highlight-nomad',
+          title: 'Nomad',
+          passage: 'A wrong turn can still leave another attempt.',
+          href: '/library?articleId=article-nomad&highlightId=highlight-nomad'
+        })}
+      >
+        Place here
+      </button>
+    </div>
   );
 });
 
@@ -176,6 +176,8 @@ describe('QuestionEditor', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Find what I already have' }));
+    expect(screen.getByText('For this question')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Add highlight' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Place here' }));
 
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({

@@ -296,4 +296,37 @@ describe('LibraryPassagePicker', () => {
     await act(async () => resolveSearch({ articles: [article], highlights: [] }));
     expect(screen.queryByRole('listitem')).not.toBeInTheDocument();
   });
+
+  it('searches from the bound question and stays silent when nothing speaks to it', async () => {
+    const search = jest.fn().mockResolvedValue({
+      articles: [{
+        _id: 'routines',
+        title: 'Household routines',
+        content: 'Patience is not the same as avoidance.'
+      }],
+      highlights: []
+    });
+    renderPicker({ boundQuestion: 'Who bears the downside?' }, { search });
+    expect(screen.getByText('For this question')).toBeInTheDocument();
+    expect(screen.getByText('Who bears the downside?')).toBeInTheDocument();
+    await waitFor(() => expect(search).toHaveBeenCalledWith({
+      q: 'bears downside',
+      type: ['article', 'highlight']
+    }));
+    expect(await screen.findByText('Nothing you already have speaks to “bears downside”.')).toBeInTheDocument();
+    expect(screen.queryByRole('listitem')).not.toBeInTheDocument();
+  });
+
+  it('does not place a saved passage whose words left the source', async () => {
+    const utils = renderPicker({}, {
+      loadArticle: jest.fn().mockResolvedValue({
+        article: { ...article, content: 'The later edition dropped the wandering sentence.' },
+        highlights: [highlight]
+      })
+    });
+    fireEvent.click(await searchForNomad());
+    expect(await screen.findByRole('button', { name: 'Place here' })).toBeDisabled();
+    expect(screen.getAllByText('These words are no longer in the source.').length).toBeGreaterThan(0);
+    expect(utils.onPlace).not.toHaveBeenCalled();
+  });
 });
