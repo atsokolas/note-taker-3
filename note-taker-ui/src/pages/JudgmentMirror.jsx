@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { getJudgmentMirror } from '../api/dailyLoop';
+import { getDecisions } from '../api/decisions';
 import { takeFirstPaint } from '../motion/columnMotion';
 import { bandLine } from './institutionModel';
 import '../styles/judgment.css';
@@ -23,6 +24,81 @@ const date = (value) => (
 );
 
 const openStats = (stats = {}) => STAT_ORDER.map((key) => stats[key]).filter(Boolean);
+const list = value => Array.isArray(value) ? value : [];
+const safeHref = value => {
+  const href = String(value || '').trim();
+  return href.startsWith('/') && !href.startsWith('//') ? href : '';
+};
+
+const RetainedSources = ({ title, sources = [], empty }) => (
+  <details className="judgment-mirror__sources">
+    <summary>{title}{sources.length ? ` · ${sources.length}` : ''}</summary>
+    {sources.length ? (
+      <ul>
+        {sources.map(source => (
+          <li key={source.sourceRefId}>
+            <strong>{source.title || 'Untitled retained source'}</strong>
+            {source.snippet ? <blockquote>{source.snippet}</blockquote> : <p>Source text was not retained in this record.</p>}
+            {source.attachedAt ? <time>Attached {date(source.attachedAt)}</time> : <small>Attachment date unknown</small>}
+          </li>
+        ))}
+      </ul>
+    ) : <p>{empty}</p>}
+  </details>
+);
+
+const DecisionReplay = ({ item }) => {
+  const [revealed, setRevealed] = useState(false);
+  const decision = item?.decision || {};
+  const basis = item?.basis;
+  const outcome = item?.outcome || {};
+  const reviewHref = safeHref(item?.subject?.href);
+  return (
+    <article className="judgment-mirror__decision">
+      <header>
+        <p>{decision.status || 'Recorded decision'} · {date(decision.decidedAt || decision.acceptedAt || decision.createdAt)}</p>
+        <h3>{decision.summary || 'Untitled decision'}</h3>
+      </header>
+      {basis ? (
+        <dl>
+          <div><dt>View then</dt><dd>{basis.heldView || 'No held view was retained.'}</dd></div>
+          <div><dt>Expected</dt><dd>{decision.expectedOutcome || 'No expectation was recorded.'}</dd></div>
+          <div><dt>Test then</dt><dd>{basis.criterion || 'No reconsideration condition was recorded.'}</dd></div>
+          <div><dt>Objection then</dt><dd>{basis.objection || 'No objection was recorded with this decision.'}</dd></div>
+        </dl>
+      ) : (
+        <p className="judgment-mirror__silence">The retained decision-time basis could not be verified. Current case text is not substituted for it.</p>
+      )}
+      <RetainedSources
+        title="What was attached then?"
+        sources={list(basis?.attachedSources)}
+        empty="No retained source excerpt was attached to this decision."
+      />
+      {!revealed ? (
+        <button type="button" className="judgment-mirror__reveal" onClick={() => setRevealed(true)}>Show what happened</button>
+      ) : (
+        <div className="judgment-mirror__after" aria-live="polite">
+          <p className="judgment-mirror__eyebrow">What happened</p>
+          {outcome.state === 'observed' ? (
+            <>
+              <p><strong>{String(outcome.result || 'Observed').replaceAll('_', ' ')}</strong>{outcome.summary ? ` · ${outcome.summary}` : ''}</p>
+              {outcome.calibrationNote ? <p>{outcome.calibrationNote}</p> : null}
+            </>
+          ) : (
+            <p>No verified outcome has been recorded for this decision.</p>
+          )}
+          <RetainedSources
+            title="What arrived afterward"
+            sources={list(basis?.laterSources)}
+            empty="No later case attachment is established in this record. This is not a claim that no later material exists."
+          />
+          {reviewHref ? <Link to={reviewHref}>Open the decision review</Link> : null}
+          <small>Revealing this record changes no view, action, test, or assessment.</small>
+        </div>
+      )}
+    </article>
+  );
+};
 
 const JudgmentMirror = () => {
   const [params] = useSearchParams();
@@ -30,6 +106,8 @@ const JudgmentMirror = () => {
   const [mirror, setMirror] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [decisions, setDecisions] = useState(null);
+  const [decisionError, setDecisionError] = useState('');
   const arriving = useMemo(() => takeFirstPaint(`judgment-mirror:${stat || 'home'}`), [stat]);
 
   useEffect(() => {
@@ -52,6 +130,14 @@ const JudgmentMirror = () => {
     })();
     return () => { cancelled = true; };
   }, [stat]);
+
+  useEffect(() => {
+    let cancelled = false;
+    getDecisions({ filter: 'all', limit: 50, windowDays: 365 })
+      .then(result => { if (!cancelled) setDecisions(result); })
+      .catch(() => { if (!cancelled) setDecisionError('The decision record could not be read.'); });
+    return () => { cancelled = true; };
+  }, []);
 
   const step = (n) => (arriving ? `wfp-anim wfp-anim--${n}` : '');
   const ledger = mirror?.mirror || mirror || {};
@@ -140,6 +226,25 @@ const JudgmentMirror = () => {
               ))}
             </section>
           ) : null}
+
+          <section id="decisions" className="judgment-mirror__decisions" aria-labelledby="judgment-mirror-decisions-title">
+            <h2 id="judgment-mirror-decisions-title">Decisions</h2>
+            {decisionError ? <p className="judgment__error" role="alert">{decisionError}</p> : null}
+            {!decisionError && decisions && !list(decisions.items).length ? (
+              <p className="judgment-mirror__silence">No retained decisions yet.</p>
+            ) : null}
+            {list(decisions?.items).length ? (
+              <div className="judgment-mirror__decision-list">
+                {decisions.items.map(item => <DecisionReplay key={item.id} item={item} />)}
+              </div>
+            ) : null}
+            {decisions?.nextCursor ? (
+              <p className="judgment-mirror__silence">Showing the first 50 decisions. Open a case for the complete record.</p>
+            ) : null}
+            {decisions?.coverage?.truncated ? (
+              <p className="judgment-mirror__silence">Decision coverage is limited to {decisions.coverage.pageLimit} scanned cases.</p>
+            ) : null}
+          </section>
 
           {!hasDoors || recorded.length || coverage.totalClaims != null ? (
             <section className="judgment-mirror__record">

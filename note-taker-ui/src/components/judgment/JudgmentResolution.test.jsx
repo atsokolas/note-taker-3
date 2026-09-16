@@ -14,7 +14,10 @@ test('sets a human test against the exact held sentence', async () => {
   render(<JudgmentResolution pageId="page-1" claim="The claim." judgment={{ verdicts: [] }} onSaved={saved} />);
   fireEvent.click(screen.getByRole('button', { name: /what would change your mind/i }));
   fireEvent.change(screen.getByLabelText(/i would change my mind if/i), { target: { value: 'Revenue falls.' } });
-  fireEvent.click(screen.getByRole('button', { name: /set the test/i }));
+  fireEvent.click(screen.getByRole('button', { name: /preview this test/i }));
+  expect(screen.getByText(/nothing has changed yet/i)).toBeInTheDocument();
+  expect(setJudgmentResolution).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: /record this test/i }));
   await waitFor(() => expect(setJudgmentResolution).toHaveBeenCalledWith(expect.objectContaining({
     pageId: 'page-1', expectedClaim: 'The claim.', criteria: 'Revenue falls.'
   })));

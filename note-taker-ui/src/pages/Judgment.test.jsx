@@ -8,7 +8,6 @@ import { useNoeisSurface } from '../surface/NoeisSurfaceContext';
 import { clearSentenceHandoff, peekSentenceHandoff, resetFirstPaint } from '../motion/columnMotion';
 import { SystemStatusProvider } from '../system/SystemStatusContext';
 import {
-  getCompanyDossierJudgmentReview,
   getJudgmentChangeProposal,
   getJudgmentLibraryEvidence,
   getWikiPage,
@@ -21,6 +20,10 @@ import {
   updateWikiPage
 } from '../api/wiki';
 import { streamChatWithAgent } from '../api/agent';
+import {
+  getJudgmentResponseThread,
+  saveJudgmentResponseThread
+} from '../api/judgmentResolution';
 
 jest.mock('../api/articles', () => ({ getArticles: jest.fn(() => Promise.resolve([])) }));
 jest.mock('../api/folders', () => ({
@@ -37,7 +40,6 @@ jest.mock('../surface/NoeisSurfaceContext', () => ({
 jest.mock('../api/wiki', () => ({
   askWikiPage: jest.fn(),
   createWikiPage: jest.fn(),
-  getCompanyDossierJudgmentReview: jest.fn(),
   getJudgmentChangeProposal: jest.fn(),
   getJudgmentLibraryEvidence: jest.fn(),
   getWikiPage: jest.fn(),
@@ -60,6 +62,8 @@ jest.mock('../api/dailyLoop', () => ({
 }));
 
 jest.mock('../api/judgmentResolution', () => ({
+  getJudgmentResponseThread: jest.fn(() => Promise.resolve({ observation: {}, draft: null })),
+  saveJudgmentResponseThread: jest.fn(),
   recordJudgmentOutcome: jest.fn(),
   resolveJudgmentLesson: jest.fn(),
   recordJudgmentVerdict: jest.fn(),
@@ -212,7 +216,11 @@ beforeEach(() => {
   listWikiPages.mockResolvedValue([]);
   listCompanyDossierJudgmentReviews.mockResolvedValue([]);
   listWikiSourceEvents.mockResolvedValue([]);
-  getCompanyDossierJudgmentReview.mockResolvedValue(null);
+  getJudgmentResponseThread.mockResolvedValue({ observation: {}, draft: null });
+  saveJudgmentResponseThread.mockImplementation(async payload => ({
+    draft: { ...payload, version: (payload.expectedVersion || 0) + 1 },
+    observation: {}
+  }));
   getJudgmentChangeProposal.mockResolvedValue(null);
   proposeJudgmentChange.mockImplementation(async (_pageId, proposed) => judgmentChangeProposal(proposed));
   resolveJudgmentChange.mockImplementation(async (_pageId, _receiptId, action) => {
@@ -237,7 +245,7 @@ describe('Judgment index', () => {
   it('declares the claim-first Judgment index to the persistent shell', async () => {
     renderIndex();
 
-    await screen.findByLabelText('Hold a sentence');
+    await screen.findByLabelText('Hold a view');
     expect(useNoeisSurface).toHaveBeenCalledWith(expect.objectContaining({
       room: 'judgment',
       objectType: 'judgment_index',
@@ -314,7 +322,7 @@ describe('Judgment index', () => {
 
     renderIndex();
 
-    expect(await screen.findByLabelText('Hold a sentence')).toBeInTheDocument();
+    expect(await screen.findByLabelText('Hold a view')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('One sentence you think is true.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Hold it' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /company case/i })).not.toBeInTheDocument();
@@ -749,11 +757,14 @@ describe('Judgment claim', () => {
 
   it('asks the owner to review accepted dossier research without changing the judgment', async () => {
     getWikiPage.mockResolvedValue(judgmentPage());
-    getCompanyDossierJudgmentReview.mockResolvedValue(dossierResearchReview());
+    listCompanyDossierJudgmentReviews.mockResolvedValue([dossierResearchReview()]);
 
     renderDetail();
 
     expect(await screen.findByText('Accepted research · your view is unchanged')).toBeInTheDocument();
+    const cue = screen.getByRole('button', { name: /supply evidence strengthened/i });
+    await waitFor(() => expect(cue).toBeEnabled());
+    fireEvent.click(cue);
     expect(screen.getByText('Supply evidence strengthened while export risk widened.')).toBeInTheDocument();
     expect(screen.getByText('CoWoS supply expanded faster than expected.')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Read the accepted research' }))
@@ -763,13 +774,54 @@ describe('Judgment claim', () => {
     expect(updateWikiPage).not.toHaveBeenCalled();
   });
 
-  it('lets the owner keep the judgment without writing it again', async () => {
+  it('keeps separate response threads for several pending observations', async () => {
     getWikiPage.mockResolvedValue(judgmentPage());
-    getCompanyDossierJudgmentReview.mockResolvedValue(dossierResearchReview());
+    const second = {
+      ...dossierResearchReview(),
+      id: 'company-dossier-judgment-review:wiki-nvidia:candidate-2',
+      provenance: {
+        ...dossierResearchReview().provenance,
+        comparison: {
+          ...dossierResearchReview().provenance.comparison,
+          headline: 'A second cohort changed the demand picture.'
+        }
+      }
+    };
+    listCompanyDossierJudgmentReviews.mockResolvedValue([dossierResearchReview(), second]);
 
     renderDetail();
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Keep this view' }));
+    const firstCue = await screen.findByRole('button', { name: /supply evidence strengthened/i });
+    const secondCue = screen.getByRole('button', { name: /a second cohort/i });
+    await waitFor(() => {
+      expect(firstCue).toBeEnabled();
+      expect(secondCue).toBeEnabled();
+    });
+    fireEvent.click(screen.getByRole('button', { name: /a second cohort/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Keep' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Preview response' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Record this response' }));
+
+    await waitFor(() => expect(resolveCompanyDossierJudgmentReview).toHaveBeenCalledWith(
+      'wiki-nvidia',
+      second.id,
+      'kept'
+    ));
+    expect(screen.getByRole('button', { name: /supply evidence strengthened/i })).toBeInTheDocument();
+  });
+
+  it('lets the owner keep the judgment without writing it again', async () => {
+    getWikiPage.mockResolvedValue(judgmentPage());
+    listCompanyDossierJudgmentReviews.mockResolvedValue([dossierResearchReview()]);
+
+    renderDetail();
+
+    const cue = await screen.findByRole('button', { name: /supply evidence strengthened/i });
+    await waitFor(() => expect(cue).toBeEnabled());
+    fireEvent.click(cue);
+    fireEvent.click(screen.getByRole('button', { name: 'Keep' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Preview response' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Record this response' }));
 
     await waitFor(() => expect(resolveCompanyDossierJudgmentReview).toHaveBeenCalledWith(
       'wiki-nvidia',
@@ -782,7 +834,7 @@ describe('Judgment claim', () => {
 
   it('resolves a review as revised only after the owner changes the judgment', async () => {
     getWikiPage.mockResolvedValue(judgmentPage());
-    getCompanyDossierJudgmentReview.mockResolvedValue(dossierResearchReview());
+    listCompanyDossierJudgmentReviews.mockResolvedValue([dossierResearchReview()]);
     resolveJudgmentChange.mockResolvedValue({
       page: {
         ...judgmentPage(),
@@ -793,13 +845,16 @@ describe('Judgment claim', () => {
 
     renderDetail();
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Revise the view' }));
-    const opinion = screen.getByLabelText('What you hold');
-    expect(opinion).toHaveFocus();
+    const cue = await screen.findByRole('button', { name: /supply evidence strengthened/i });
+    await waitFor(() => expect(cue).toBeEnabled());
+    fireEvent.click(cue);
+    fireEvent.click(screen.getByRole('button', { name: 'Different' }));
+    fireEvent.change(screen.getByLabelText('Proposed wording'), {
+      target: { value: 'Capacity is easing faster than demand is compounding.' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Preview response' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Record this response' }));
     expect(resolveCompanyDossierJudgmentReview).not.toHaveBeenCalled();
-
-    fireEvent.change(opinion, { target: { value: 'Capacity is easing faster than demand is compounding.' } });
-    fireEvent.blur(opinion);
 
     await screen.findByRole('button', { name: 'Accept' });
     fireEvent.click(screen.getByRole('button', { name: 'Accept' }));
@@ -1225,7 +1280,7 @@ describe('the agent rail', () => {
     await waitFor(() => expect(listWikiPages).toHaveBeenCalled());
     await waitFor(() => expect(document.querySelector('.judgment__new')).toHaveClass('is-alone'));
 
-    fireEvent.change(screen.getByLabelText('Hold a sentence'), {
+    fireEvent.change(screen.getByLabelText('Hold a view'), {
       target: { value: 'Demand still outruns deliverable capacity.' }
     });
     fireEvent.click(screen.getByRole('button', { name: 'Hold it' }));
@@ -1242,7 +1297,7 @@ describe('the agent rail', () => {
       .toHaveAttribute('href', '/judgment/wiki-new');
     expect(content.getByText('held · today')).toBeInTheDocument();
     expect(content.getByText('Noted. I’ll look for what cuts against it.')).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByLabelText('Hold a sentence')).toHaveValue(''));
+    await waitFor(() => expect(screen.getByLabelText('Hold a view')).toHaveValue(''));
   });
 
   it('slides an existing hold forward instead of writing a second copy', async () => {
@@ -1263,8 +1318,8 @@ describe('the agent rail', () => {
     expect(await content.findByRole('link', { name: 'NVIDIA' })).toBeInTheDocument();
 
     /* A room that already holds something waits to be asked. */
-    fireEvent.click(screen.getByRole('button', { name: 'Hold a sentence' }));
-    fireEvent.change(screen.getByLabelText('Hold a sentence'), {
+    fireEvent.click(screen.getByRole('button', { name: 'Hold a view' }));
+    fireEvent.change(screen.getByLabelText('Hold a view'), {
       target: { value: 'NVIDIA demand still outruns deliverable capacity.' }
     });
     fireEvent.click(screen.getByRole('button', { name: 'Hold it' }));
@@ -1275,7 +1330,7 @@ describe('the agent rail', () => {
     expect(content.getByRole('link', { name: 'NVIDIA' }).closest('li'))
       .toHaveTextContent('You already hold this — 21 days.');
     expect(content.queryByText(/Noted\. I’ll look for what cuts against it/)).not.toBeInTheDocument();
-    await waitFor(() => expect(screen.getByLabelText('Hold a sentence')).toHaveValue(''));
+    await waitFor(() => expect(screen.getByLabelText('Hold a view')).toHaveValue(''));
   });
 
   /* The index needs one sentence and a provenance line per judgment. Asking
@@ -1962,51 +2017,25 @@ describe('What a belief rests on', () => {
   });
 });
 
-describe('The drift, above the claims', () => {
-  const DAY = 24 * 60 * 60 * 1000;
-  const daysAgo = days => new Date(Date.now() - days * DAY).toISOString();
-  const many = (topic, days, count) => Array.from({ length: count }, (_, i) => ({
-    _id: `${topic}${days}${i}`, createdAt: daysAgo(days), folder: { _id: topic, name: topic }
-  }));
-
-  it('draws where the reading has been going, at the top of the index', async () => {
-    const { getArticles } = require('../api/articles');
-    getArticles.mockResolvedValue([...many('Capacity', 70, 5), ...many('Power', 4, 5)]);
+describe('The casebook collection', () => {
+  it('keeps one searchable list and leaves reading analytics out of the default view', async () => {
     listWikiPages.mockResolvedValue([judgmentPage()]);
-
-    renderIndex();
-
-    expect(await screen.findByText('Where your reading is going')).toBeInTheDocument();
-    // Above the claims it produced: this is the weather, not another claim.
-    const drift = document.querySelector('.drift');
-    const list = document.querySelector('.judgment__index');
-    expect(drift.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  });
-
-  it('still lists the claims when the reading cannot be read', async () => {
-    const { getArticles } = require('../api/articles');
-    getArticles.mockRejectedValue(new Error('nope'));
-    listWikiPages.mockResolvedValue([judgmentPage()]);
-    renderIndex();
-    expect(await within(document.querySelector('.judgment-room__content'))
-      .findByRole('link', { name: 'NVIDIA' })).toBeInTheDocument();
-  });
-
-  it('does not mistake a fast casebook for an empty reading history', async () => {
-    const { getArticles } = require('../api/articles');
-    let releaseReading;
-    getArticles.mockReturnValue(new Promise((resolve) => { releaseReading = resolve; }));
-    listWikiPages.mockResolvedValue([judgmentPage()]);
-
     renderIndex();
 
     expect(await within(document.querySelector('.judgment-room__content'))
       .findByRole('link', { name: 'NVIDIA' })).toBeInTheDocument();
-    expect(screen.getByText('Reading back the last three months…')).toBeInTheDocument();
-    expect(screen.queryByText(/file a little more/i)).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Search the casebook')).toBeInTheDocument();
+    expect(screen.queryByText('Where your reading is going')).not.toBeInTheDocument();
+  });
 
-    await act(async () => { releaseReading([]); });
-    expect(screen.queryByText('Reading back the last three months…')).not.toBeInTheDocument();
+  it('filters the list without creating a second collection', async () => {
+    listWikiPages.mockResolvedValue([judgmentPage()]);
+    renderIndex();
+    await screen.findByRole('link', { name: 'NVIDIA' });
+
+    fireEvent.change(screen.getByLabelText('Search the casebook'), { target: { value: 'unrelated' } });
+    expect(screen.queryByRole('link', { name: 'NVIDIA' })).not.toBeInTheDocument();
+    expect(screen.getByText('Nothing in this view.')).toBeInTheDocument();
   });
 });
 
@@ -2026,7 +2055,7 @@ describe('The index while it is still loading', () => {
     /* The way to hold one is there the whole time. It is the invitation rather
        than the open field, because a room still being read is not yet known to
        be empty, and only an empty room asks. */
-    expect(screen.getByRole('button', { name: 'Hold a sentence' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Hold a view' })).toBeInTheDocument();
 
     await act(async () => { release([judgmentPage()]); });
     expect(await within(document.querySelector('.judgment-room__content'))
@@ -2043,21 +2072,21 @@ describe('The index while it is still loading', () => {
 
     const content = within(document.querySelector('.judgment-room__content'));
     expect(await content.findByRole('link', { name: 'NVIDIA' })).toBeInTheDocument();
-    expect(screen.queryByLabelText('Hold a sentence')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Hold a view')).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Hold a sentence' }));
-    expect(screen.getByLabelText('Hold a sentence')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Hold a view' }));
+    expect(screen.getByLabelText('Hold a view')).toBeInTheDocument();
 
     /* Opened by hand, so it can be closed by hand. */
     fireEvent.click(screen.getByRole('button', { name: 'Not now' }));
-    expect(screen.queryByLabelText('Hold a sentence')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Hold a view')).not.toBeInTheDocument();
   });
 
   it('still offers the hold once it knows the index really is empty', async () => {
     listWikiPages.mockResolvedValue([]);
     listWikiSourceEvents.mockResolvedValue([]);
     renderIndex();
-    expect(await screen.findByLabelText('Hold a sentence')).toBeInTheDocument();
+    expect(await screen.findByLabelText('Hold a view')).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.queryByText('Reading back what you hold…')).not.toBeInTheDocument();
     });

@@ -174,31 +174,3 @@ export const replayDecision = (page = {}, ledger = {}) => {
     pivotal: frames.filter((frame) => frame.pivotal).map((frame) => frame.factId)
   };
 };
-
-const tokens = (value) => clean(value).toLowerCase().split(/[^a-z0-9]+/i).filter((word) => word.length > 3);
-
-export const proposeLessons = ({ livePage, settledPages = [] } = {}) => {
-  if (['parked', 'closed', 'archived'].includes(clean(livePage?.judgment?.status))) return [];
-  const liveClaim = clean(livePage?.judgment?.currentJudgment);
-  const liveSources = new Set(list(livePage?.sourceRefs).map(idOf));
-  return list(settledPages).flatMap((page) => {
-    if (idOf(page) === idOf(livePage)) return [];
-    const lessons = list(page?.judgment?.lessons);
-    if (!lessons.length) return [];
-    const settledClaim = clean(page?.judgment?.currentJudgment);
-    const shared = list(page?.sourceRefs).some((ref) => liveSources.has(idOf(ref)));
-    const words = tokens(liveClaim).filter((word) => tokens(settledClaim).includes(word)).length;
-    if (!shared && words < 2) return [];
-    return lessons.map((lesson) => ({
-      applicationId: `${idOf(page)}:${lesson.lessonId}`,
-      lessonId: lesson.lessonId,
-      text: lesson.text,
-      sourcePageId: idOf(page),
-      sourceClaim: settledClaim,
-      proposed: true,
-      asserted: false,
-      status: 'proposed',
-      relevance: shared ? 'shared evidence' : 'the same words'
-    }));
-  });
-};

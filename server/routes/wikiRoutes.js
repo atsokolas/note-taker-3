@@ -1834,6 +1834,7 @@ const buildWikiRouter = ({
   IntegrationConnection = null,
   ImportSession = null,
   NoeisReceipt = null,
+  JudgmentResponseDraft = null,
   Article = null,
   VectorItem = null,
   NotebookEntry = null,
@@ -4703,6 +4704,7 @@ const buildWikiRouter = ({
       if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
       const receipt = await resolveDossierJudgmentReview({
         NoeisReceipt,
+        JudgmentResponseDraft,
         userId: req.user.id,
         page,
         receiptId: req.body?.receiptId,

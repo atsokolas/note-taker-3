@@ -4,7 +4,6 @@ import {
   VERDICT_LABEL,
   explainDate,
   inferPrecision,
-  proposeLessons,
   reconstructAt,
   replayDecision
 } from './judgmentLedgerClient';
@@ -15,7 +14,6 @@ export {
   VERDICT_LABEL,
   explainDate,
   inferPrecision,
-  proposeLessons,
   reconstructAt,
   replayDecision
 };

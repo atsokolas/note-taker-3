@@ -7,7 +7,6 @@ const {
   explainDate,
   ledgerFor,
   outcomeRecord,
-  proposeLessons,
   reconstructAt,
   replayDecision
 } = require('./judgmentLedger');
@@ -304,7 +303,7 @@ describe('outcomes and the one-question postmortem', () => {
   });
 });
 
-describe('lessons flow forward as proposals', () => {
+describe('lessons move only after an explicit choice', () => {
   const settled = {
     _id: 'settled-1',
     sourceRefs: [{ _id: 'src-10k' }],
@@ -321,20 +320,13 @@ describe('lessons flow forward as proposals', () => {
     why: [{ reasonId: 'why-1', text: 'Lead times.', sourceRefIds: ['src-10k'] }]
   }, { sourceRefs: [{ _id: 'src-10k', citationLabel: '10-K' }] });
 
-  it('surfaces a settled lesson only on a relevant live case, as a proposal', () => {
-    const proposals = proposeLessons({ livePage: live, settledPages: [settled] });
-    expect(proposals).toHaveLength(1);
-    expect(proposals[0]).toMatchObject({
-      text: 'Watch conversion, not announcements.',
-      proposed: true,
-      asserted: false,
-      status: 'proposed'
-    });
-    expect(proposeLessons({ livePage: settled, settledPages: [settled] })).toEqual([]);
-  });
-
   it('accepts, rejects, narrows, or retires without rewriting the original', () => {
-    const proposed = proposeLessons({ livePage: live, settledPages: [settled] })[0];
+    const proposed = {
+      applicationId: 'apply-1',
+      lessonId: 'l-power',
+      text: 'Watch conversion, not announcements.',
+      sourcePageId: 'settled-1'
+    };
     const accepted = applyLessonResolution({
       livePage: live,
       lesson: proposed,
@@ -364,7 +356,7 @@ describe('lessons flow forward as proposals', () => {
 
 describe('the ledger does not invent a score', () => {
   it('reads as clocks, replay, and lessons — never a tally', () => {
-    const view = ledgerFor({ page: page(), settledPages: [] });
+    const view = ledgerFor({ page: page() });
     expect(view.clocks.length).toBeGreaterThan(0);
     expect(JSON.stringify(view)).not.toMatch(/strongest|confetti|toast|gamif|score/i);
   });

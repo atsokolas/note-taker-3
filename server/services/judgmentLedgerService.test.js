@@ -19,7 +19,7 @@ class Query {
   then(resolve, reject) { return Promise.resolve(this.value).then(resolve, reject); }
 }
 
-function modelsFor(page, receipts = new Map(), revisions = []) {
+function modelsFor(page, receipts = new Map(), revisions = [], sourcePage = null) {
   function WikiRevision(data) { Object.assign(this, data); }
   WikiRevision.db = { base: mongoose };
   WikiRevision.prototype.save = async function save() { revisions.push(this); return this; };
@@ -32,7 +32,13 @@ function modelsFor(page, receipts = new Map(), revisions = []) {
   return {
     WikiPage: {
       db: { startSession: async () => session },
-      findOne: query => new Query(String(query._id) === PAGE_ID && String(query.userId) === USER_ID ? page : null)
+      findOne: query => new Query(
+        String(query.userId) === USER_ID && String(query._id) === PAGE_ID
+          ? page
+          : String(query.userId) === USER_ID && String(query._id) === SOURCE_PAGE
+            ? sourcePage
+            : null
+      )
     },
     WikiRevision,
     NoeisReceipt: {
@@ -126,7 +132,15 @@ describe('judgment ledger persistence', () => {
 
   it('accepts a lesson onto a live case and leaves the original text untouched', async () => {
     const page = pageOf();
-    const models = modelsFor(page);
+    const source = {
+      ...pageOf(),
+      _id: SOURCE_PAGE,
+      judgment: {
+        ...pageOf().judgment,
+        lessons: [{ lessonId: 'l-power', text: 'Watch conversion, not announcements.' }]
+      }
+    };
+    const models = modelsFor(page, new Map(), [], source);
     const original = page.judgment.lessons.find((row) => row.lessonId === 'keep-me');
     const applied = await resolveLesson({
       ...models, userId: USER_ID, pageId: PAGE_ID, requestId: 'lesson-1', expectedClaim: CLAIM,
@@ -136,6 +150,58 @@ describe('judgment ledger persistence', () => {
     expect(applied.artifact.status).toBe('accepted');
     expect(original.text).toBe('Original lesson.');
     expect(page.judgment.lessons.find((row) => row.lessonId === 'keep-me').text).toBe('Original lesson.');
+  });
+
+  it('carries an owned lesson with its decision context without copying it into evidence', async () => {
+    const page = pageOf();
+    const sourceRevisionId = new mongoose.Types.ObjectId();
+    const source = {
+      ...pageOf(),
+      _id: SOURCE_PAGE,
+      judgment: {
+        ...pageOf().judgment,
+        currentJudgment: 'Conversion matters more than announcements.',
+        resolutionCriteria: 'Conversion falls below 30%.',
+        lessons: [{ lessonId: 'l-power', text: 'Watch conversion, not announcements.', outcomeId: 'outcome-1' }],
+        outcomes: [{
+          outcomeId: 'outcome-1', answer: 'Power constrained conversion.', verdictId: 'verdict-2',
+          sourceRefIds: [SOURCE_ID], revisionId: sourceRevisionId
+        }],
+        verdicts: [{ verdictId: 'verdict-2', result: 'partly', criteriaSnapshot: 'Conversion falls below 30%.' }]
+      }
+    };
+    const sourceRevision = {
+      _id: sourceRevisionId,
+      userId: USER_ID,
+      pageId: SOURCE_PAGE,
+      before: { judgment: { currentJudgment: 'Conversion matters more than announcements.', resolutionCriteria: 'Conversion falls below 30%.' } }
+    };
+    const models = modelsFor(page, new Map(), [sourceRevision], source);
+    const applied = await resolveLesson({
+      ...models, userId: USER_ID, pageId: PAGE_ID, requestId: 'lesson-carry-1', expectedClaim: CLAIM,
+      lessonId: 'l-power', sourcePageId: SOURCE_PAGE, sourceText: 'Client text is ignored.',
+      status: 'accepted', note: 'The cohort is earlier here.', explicitTransfer: true, now
+    });
+
+    expect(applied.artifact.sourceText).toBe('Watch conversion, not announcements.');
+    expect(applied.artifact.sourceHeldView).toBe('Conversion matters more than announcements.');
+    expect(applied.artifact.sourceCriterionSnapshot).toBe('Conversion falls below 30%.');
+    expect(applied.artifact.sourceResultSnapshot).toBe('Power constrained conversion.');
+    expect(page.judgment.lessons).toHaveLength(1);
+    expect(page.judgment.lessonApplications).toHaveLength(1);
+
+    const detached = await resolveLesson({
+      ...models, userId: USER_ID, pageId: PAGE_ID, requestId: 'lesson-carry-2', expectedClaim: CLAIM,
+      applicationId: applied.artifact.applicationId, lessonId: 'l-power', sourcePageId: SOURCE_PAGE,
+      status: 'retired', explicitTransfer: true, now
+    });
+
+    expect(detached.artifact.status).toBe('retired');
+    expect(detached.artifact.applicationId).toBe(applied.artifact.applicationId);
+    expect(page.judgment.lessonApplications).toHaveLength(2);
+    expect(page.judgment.lessons).toEqual(expect.arrayContaining([
+      expect.objectContaining({ lessonId: 'keep-me', text: 'Original lesson.' })
+    ]));
   });
 
   it('refuses a generic activity log clock', async () => {

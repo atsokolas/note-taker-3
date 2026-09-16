@@ -1,79 +1,27 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import JudgmentShelf from './JudgmentShelf';
 
 const items = [
-  {
-    id: 'claim-1',
-    headline: 'Compute',
-    title: 'Compute',
-    sentence: 'AI compute remains scarce.',
-    state: 'arrived',
-    decisionCount: 2,
-    outcomeCount: 1,
-    lessons: [{ id: 'lesson-1' }]
-  },
-  {
-    id: 'claim-2',
-    headline: 'Member surplus supports renewal.',
-    sentence: 'Member surplus supports renewal.',
-    decisionCount: 1,
-    outcomeCount: 0,
-    lessons: []
-  }
+  { id: 'claim-1', headline: 'Compute', sentence: 'AI compute remains scarce.', state: 'arrived', decisionCount: 2 },
+  { id: 'claim-2', headline: 'Renewal', sentence: 'Member surplus supports renewal.', state: 'parked', decisionCount: 1 }
 ];
 
-const renderShelf = (props = {}) => render(
-  <MemoryRouter>
-    <JudgmentShelf items={items} {...props} />
-  </MemoryRouter>
-);
-
 describe('JudgmentShelf', () => {
-  it('uses the shared shelf grammar for cases and casebook counts', () => {
-    renderShelf({ activeId: 'claim-1' });
-
-    expect(screen.getByRole('navigation', { name: 'Judgments' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Compute/i })).toHaveAttribute('aria-current', 'page');
-    expect(screen.getByText('Claims').parentElement).toHaveTextContent('2');
-    expect(screen.getByText('Decisions').parentElement).toHaveTextContent('3');
-    expect(screen.getByText('Outcomes').parentElement).toHaveTextContent('1');
-    expect(screen.getByText('Lessons').parentElement).toHaveTextContent('1');
-  });
-
-  it('does not show casebook zeros', () => {
+  it('keeps navigation compact while the main page owns the one case list', () => {
     render(
       <MemoryRouter>
-        <JudgmentShelf items={[{ id: 'c1', headline: 'A claim.', sentence: 'A claim.' }]} />
+        <JudgmentShelf items={items} collectionView="open" />
       </MemoryRouter>
     );
 
-    expect(screen.getByText('Claims')).toBeInTheDocument();
-    expect(screen.queryByText('Decisions')).not.toBeInTheDocument();
-    expect(screen.queryByText('Outcomes')).not.toBeInTheDocument();
-    expect(screen.queryByText('Lessons')).not.toBeInTheDocument();
-  });
-
-  it('searches the visible cases without mutating the casebook', () => {
-    renderShelf();
-
-    fireEvent.change(screen.getByRole('searchbox', { name: 'Search judgments' }), {
-      target: { value: 'member' }
-    });
-
-    expect(screen.queryByRole('link', { name: /Compute/i })).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Member surplus supports renewal/i })).toBeInTheDocument();
-    expect(screen.getByText('Claims').parentElement).toHaveTextContent('2');
-  });
-
-  it('still finds a named case by the claim under the title', () => {
-    renderShelf();
-
-    fireEvent.change(screen.getByRole('searchbox', { name: 'Search judgments' }), {
-      target: { value: 'scarce' }
-    });
-
-    expect(screen.getByRole('link', { name: /Compute/i })).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Judgment' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Open cases 1' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: 'Set aside 1' })).toHaveAttribute('href', '/judgment?view=parked');
+    expect(screen.getByRole('link', { name: 'Decisions 3' })).toHaveAttribute('href', '/judgment/mirror#decisions');
+    expect(screen.getByRole('link', { name: 'The Mirror' })).toHaveAttribute('href', '/judgment/mirror');
+    expect(screen.queryByText('Compute')).not.toBeInTheDocument();
+    expect(screen.queryByRole('searchbox')).not.toBeInTheDocument();
   });
 });

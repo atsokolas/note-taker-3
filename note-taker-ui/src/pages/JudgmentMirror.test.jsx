@@ -1,12 +1,17 @@
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import * as router from 'react-router-dom';
 import JudgmentMirror from './JudgmentMirror';
 import { getJudgmentMirror } from '../api/dailyLoop';
+import { getDecisions } from '../api/decisions';
 
 jest.mock('../api/dailyLoop', () => ({
   __esModule: true,
   getJudgmentMirror: jest.fn()
+}));
+jest.mock('../api/decisions', () => ({
+  __esModule: true,
+  getDecisions: jest.fn()
 }));
 
 const doors = {
@@ -60,6 +65,7 @@ const doors = {
 describe('JudgmentMirror', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    getDecisions.mockResolvedValue({ items: [], nextCursor: null, coverage: { truncated: false } });
   });
 
   afterEach(() => {
@@ -139,5 +145,45 @@ describe('JudgmentMirror', () => {
     expect(await screen.findByText(/not a sample of everything you thought/)).toBeInTheDocument();
     expect(screen.getByText(/Too few named outcomes/)).toBeInTheDocument();
     expect(document.body.textContent).not.toMatch(/leaderboard|rank|shame/i);
+  });
+
+  it('replays the retained decision before revealing its verified outcome', async () => {
+    getJudgmentMirror.mockResolvedValue({ metrics: { verdictRecord: {} }, coverage: {}, due: [], verdicts: [] });
+    getDecisions.mockResolvedValue({
+      nextCursor: null,
+      coverage: { truncated: false },
+      items: [{
+        id: 'decision:page:one',
+        decision: {
+          status: 'reviewed',
+          summary: 'Wait for the second cohort.',
+          expectedOutcome: 'The pattern repeats without assistance.',
+          acceptedAt: '2026-08-01T12:00:00.000Z'
+        },
+        basis: {
+          heldView: 'The cue improves retrieval.',
+          criterion: 'The second cohort cannot find the source.',
+          objection: 'The first cohort received help.',
+          attachedSources: [{
+            sourceRefId: 'source-1',
+            title: 'First cohort notes',
+            snippet: 'Four readers asked for help.',
+            attachedAt: '2026-07-31T12:00:00.000Z'
+          }],
+          laterSources: []
+        },
+        outcome: { state: 'observed', result: 'mixed', summary: 'Two readers still needed help.' },
+        subject: { href: '/wiki/workspace?page=page-1#decision-one' },
+        continuity: { complete: true, missing: [] }
+      }]
+    });
+    render(<router.MemoryRouter><JudgmentMirror /></router.MemoryRouter>);
+
+    expect(await screen.findByRole('heading', { name: 'Wait for the second cohort.' })).toBeInTheDocument();
+    expect(screen.getByText('Four readers asked for help.')).toBeInTheDocument();
+    expect(screen.queryByText(/Two readers still needed help/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Show what happened' }));
+    expect(screen.getByText(/Two readers still needed help/)).toBeInTheDocument();
+    expect(screen.getByText(/changes no view, action, test, or assessment/i)).toBeInTheDocument();
   });
 });

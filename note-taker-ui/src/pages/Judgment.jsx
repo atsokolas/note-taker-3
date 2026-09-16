@@ -1,9 +1,8 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import {
   createWikiPage,
   downloadJudgmentPamphlet,
-  getCompanyDossierJudgmentReview,
   getJudgmentChangeProposal,
   getJudgmentLibraryEvidence,
   getWikiPage,
@@ -16,12 +15,9 @@ import {
   resolveJudgmentChange,
   updateWikiPage
 } from '../api/wiki';
-import { getArticles } from '../api/articles';
-import { getFolders } from '../api/folders';
 import { recordClaimFalsifiability } from '../api/dailyLoop';
 import { useNoeisAgentSurface } from '../agent/AgentRailContext';
 import EvergreenToggle from '../components/EvergreenToggle';
-import ReadingDrift from '../components/ReadingDrift';
 import JudgmentShelf from '../components/collection/JudgmentShelf';
 import AriadneThread from '../components/judgment/AriadneThread';
 import DossierResearchReview from '../components/judgment/DossierResearchReview';
@@ -369,7 +365,7 @@ const JudgmentChangeReview = ({
   );
 };
 
-const JudgmentIndex = ({ items, articles, folders = [], loading, readingLoading, readingUnreadable, onHeld }) => {
+const JudgmentIndex = ({ items, loading, onHeld, collectionView = 'open' }) => {
   const arriving = useMemo(() => takeFirstPaint('judgment-index'), []);
   const enter = arriving ? 'wfp-anim wfp-anim--2' : 'judgment-return';
 
@@ -382,6 +378,8 @@ const JudgmentIndex = ({ items, articles, folders = [], loading, readingLoading,
   const [arrivingSentence, setArrivingSentence] = useState('');
   const [partnerNote, setPartnerNote] = useState('');
   const [forwardId, setForwardId] = useState('');
+  const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState('all');
   const inputRef = useRef(null);
   const rowRefs = useRef(new Map());
   const pendingClearRef = useRef(0);
@@ -406,6 +404,17 @@ const JudgmentIndex = ({ items, articles, folders = [], loading, readingLoading,
   /* Nothing held yet: the room has nothing to interrupt, so it asks. */
   const alone = !items.length && !loading;
   const holdingOpen = holding || alone;
+  const visibleItems = useMemo(() => {
+    const needle = normalizeSpaces(query).toLowerCase();
+    return items.filter(item => {
+      if (collectionView === 'parked' ? item.state !== 'parked' : item.state === 'parked') return false;
+      if (filter === 'new' && !item.pendingDossierResearch) return false;
+      if (!needle) return true;
+      const lessons = Array.isArray(item.lessons) ? item.lessons : [];
+      return [item.title, item.headline, item.sentence, item.note, ...lessons.map(lesson => lesson.text)]
+        .some(value => normalizeSpaces(value).toLowerCase().includes(needle));
+    });
+  }, [collectionView, filter, items, query]);
 
   const submitClaim = useCallback(async (event) => {
     event?.preventDefault?.();
@@ -468,12 +477,9 @@ const JudgmentIndex = ({ items, articles, folders = [], loading, readingLoading,
 
   return (
     <main className="judgment judgment--index" aria-labelledby="judgment-index-title">
-      <h1 className="sr-only" id="judgment-index-title">All judgments</h1>
-      {/* Where the reading has been going, above the beliefs it produced. It
-          is the one thing in the product that asks nothing of you, and it
-          belongs at the top of the room that asks the most: this is the
-          weather over the claims, not another claim. */}
-      <ReadingDrift articles={articles} folders={folders} loading={readingLoading} unreadable={readingUnreadable} />
+      <h1 className="judgment__collection-title" id="judgment-index-title">
+        {collectionView === 'parked' ? 'Set aside' : 'Judgment'}
+      </h1>
       {/* One prompt. The verb is hold a sentence — not a company case, not
           a door back to this morning's paper. The sentence you type is the
           claim. Company research still lives on Wiki for people who already
@@ -491,7 +497,7 @@ const JudgmentIndex = ({ items, articles, folders = [], loading, readingLoading,
           className={`judgment__new ${enter}${alone ? ' is-alone' : ''}`}
           onSubmit={submitClaim}
         >
-          <label htmlFor="judgment-new-claim">Hold a sentence</label>
+          <label htmlFor="judgment-new-claim">Hold a view</label>
           <input
             id="judgment-new-claim"
             ref={inputRef}
@@ -523,13 +529,32 @@ const JudgmentIndex = ({ items, articles, folders = [], loading, readingLoading,
         </form>
       ) : (
         <button type="button" className={`judgment__hold-door ${enter}`} onClick={() => setHolding(true)}>
-          Hold a sentence
+          Hold a view
         </button>
       )}
       {items.length ? (
         <>
+          <div className={`judgment__find ${enter}`}>
+            <label htmlFor="judgment-find">Search the casebook</label>
+            <div>
+              <input
+                id="judgment-find"
+                type="search"
+                value={query}
+                onChange={event => setQuery(event.target.value)}
+                placeholder="Find a view, a reason, a decision…"
+              />
+              <select aria-label="Filter cases" value={filter} onChange={event => setFilter(event.target.value)}>
+                <option value="all">All open cases</option>
+                <option value="new">New observations</option>
+              </select>
+            </div>
+            <p>
+              {visibleItems.length} {visibleItems.length === 1 ? 'case' : 'cases'} · searches {items.length >= 500 ? 'up to 500 loaded cases' : 'this private casebook'}
+            </p>
+          </div>
           <ul className={`judgment__index ${enter}`}>
-            {items.map(item => (
+            {visibleItems.map(item => (
               <li
                 key={item.id}
                 data-state={item.state}
@@ -570,6 +595,12 @@ const JudgmentIndex = ({ items, articles, folders = [], loading, readingLoading,
               </li>
             ))}
           </ul>
+          {!visibleItems.length ? (
+            <div className="judgment__no-match">
+              <h2>Nothing in this view.</h2>
+              <p>Try another phrase or return to all open cases. A quiet shelf is not a claim that every question is settled.</p>
+            </div>
+          ) : null}
           {/* One way in to the week, from the surface the week is mostly
               about — its own back-link says All judgments. Not a row of doors
               this time: the week is the only one of the three that is not
@@ -810,9 +841,11 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
      and null means we cannot say either way yet. */
   const [libraryCandidates, setLibraryCandidates] = useState(null);
   const [kin, setKin] = useState(null);
-  const [researchReview, setResearchReview] = useState(null);
+  const [researchReviews, setResearchReviews] = useState([]);
   const [researchReviewBusy, setResearchReviewBusy] = useState(false);
   const [researchReviewError, setResearchReviewError] = useState('');
+  const [openReviewId, setOpenReviewId] = useState('');
+  const [changeReviewId, setChangeReviewId] = useState('');
   const [changeProposal, setChangeProposal] = useState(null);
   const [changeProposalBusy, setChangeProposalBusy] = useState(false);
   const [changeProposalError, setChangeProposalError] = useState('');
@@ -858,8 +891,10 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
           getWikiPage(pageId, { reader: 1 }),
           listWikiSourceEvents({ limit: SOURCE_EVENT_LIMIT }).catch(() => []),
           Promise.resolve()
-            .then(() => getCompanyDossierJudgmentReview(pageId))
-            .then(review => ({ review }))
+            .then(() => listCompanyDossierJudgmentReviews({ limit: 500 }))
+            .then(reviews => ({
+              reviews: reviews.filter(review => String(review?.provenance?.pageId || '') === String(pageId))
+            }))
             .catch(reviewError => ({ reviewError })),
           Promise.resolve()
             .then(() => getJudgmentChangeProposal(pageId))
@@ -869,7 +904,7 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
         if (cancelled) return;
         setPage(loaded);
         setOvernight(selectOvernightLine(loaded, events));
-        setResearchReview(reviewResult.review || null);
+        setResearchReviews(reviewResult.reviews || []);
         setResearchReviewError(reviewResult.reviewError
           ? 'The accepted-research review could not be loaded. Your judgment was not changed.'
           : '');
@@ -894,6 +929,7 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
      the previous hold must not sit here. */
   const heldClaim = String(page?._id || '') === String(pageId)
     ? oneSentence(page?.judgment?.currentJudgment || '') : '';
+  const researchReview = researchReviews[0] || null;
   useEffect(() => {
     let cancelled = false;
     let announced = false;
@@ -950,6 +986,15 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
   }, [pageId, heldClaim, libraryAttempt, systemStatus]);
 
   const view = useMemo(() => (page ? projectJudgment(page) : null), [page]);
+  const caseView = useMemo(() => {
+    if (!view) return null;
+    const recordedTest = normalizeSpaces(page?.judgment?.resolutionCriteria).toLowerCase();
+    if (!recordedTest) return view;
+    return {
+      ...view,
+      changeMindIf: view.changeMindIf.filter(line => normalizeSpaces(line?.text).toLowerCase() !== recordedTest)
+    };
+  }, [page?.judgment?.resolutionCriteria, view]);
   /* Almost always ''. On the one day a year it is not, it is the only thing
      on this page nobody asked for. */
   const anniversary = useMemo(() => describeAnniversary({
@@ -1150,13 +1195,15 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
     }
   }, [page, pageId]);
 
-  const resolveResearchReview = useCallback(async (resolution) => {
-    if (!researchReview?.id || researchReviewBusy) return null;
+  const resolveResearchReview = useCallback(async (resolution, target = researchReview) => {
+    if (!target?.id || researchReviewBusy) return null;
     setResearchReviewBusy(true);
     setResearchReviewError('');
     try {
-      const resolved = await resolveCompanyDossierJudgmentReview(pageId, researchReview.id, resolution);
-      setResearchReview(resolved?.status === 'awaiting_review' ? resolved : null);
+      const resolved = await resolveCompanyDossierJudgmentReview(pageId, target.id, resolution);
+      setResearchReviews(current => current
+        .map(review => String(review.id) === String(target.id) ? resolved : review)
+        .filter(review => review?.status === 'awaiting_review'));
       return resolved;
     } catch (reviewError) {
       setResearchReviewError(
@@ -1204,11 +1251,13 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
           revisionId: resolved.revisionId,
           nextReviewAt: resolved.page?.judgment?.nextReviewAt
         }));
-        const prior = oneSentence(researchReview?.provenance?.judgmentAtAcceptance || '');
+        const linkedReview = researchReviews.find(review => String(review.id) === String(changeReviewId)) || null;
+        const prior = oneSentence(linkedReview?.provenance?.judgmentAtAcceptance || '');
         const accepted = oneSentence(resolved.page?.judgment?.currentJudgment || '');
-        if (researchReview?.status === 'awaiting_review' && accepted && accepted !== prior) {
-          await resolveResearchReview('revised');
+        if (linkedReview?.status === 'awaiting_review' && accepted && accepted !== prior) {
+          await resolveResearchReview('revised', linkedReview);
         }
+        setChangeReviewId('');
       }
     } catch (changeError) {
       setChangeProposalError(
@@ -1219,7 +1268,7 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
     } finally {
       setChangeProposalBusy(false);
     }
-  }, [changeProposal, changeProposalBusy, pageId, researchReview, resolveResearchReview]);
+  }, [changeProposal, changeProposalBusy, pageId, changeReviewId, researchReviews, resolveResearchReview]);
 
   /* What the rail is looking at, and what it may do on this page's behalf.
      Asking happens there; this page only supplies the corpus and the write. */
@@ -1360,15 +1409,28 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
         <p className="judgment__landing" role="status">{landing}</p>
       ) : null}
 
-      <DossierResearchReview
-        pageId={pageId}
-        review={researchReview}
-        busy={researchReviewBusy}
-        error={researchReviewError}
-        onKeep={() => resolveResearchReview('kept')}
-        onRevise={() => document.getElementById('judgment-opinion')?.focus()}
-      />
-      {!researchReview && researchReviewError ? (
+      {researchReviews.map(review => (
+        <DossierResearchReview
+          key={review.id}
+          pageId={pageId}
+          review={review}
+          expanded={String(openReviewId) === String(review.id)}
+          onExpandedChange={next => setOpenReviewId(next ? review.id : '')}
+          busy={researchReviewBusy}
+          error={researchReviewError}
+          onKeep={() => resolveResearchReview('kept', review)}
+          onRevise={async (proposedView) => {
+            if (normalizeSpaces(proposedView)) {
+              setChangeReviewId(review.id);
+              await writeClaim(proposedView);
+              setLanding('Your proposed wording is ready for review. The held view is unchanged.');
+              return;
+            }
+            document.getElementById('judgment-opinion')?.focus();
+          }}
+        />
+      ))}
+      {!researchReviews.length && researchReviewError ? (
         <p className="judgment-research-review__error" role="alert">{researchReviewError}</p>
       ) : null}
 
@@ -1379,7 +1441,7 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
           machinery first. The reasons come before the record of them. */}
       <div className={step(3)}>
         <JudgmentCase
-          view={view}
+          view={caseView}
           boundSources={verdictEvidenceOptions(page)}
           onWrite={writeLine}
           onSettle={setArrivingId}
@@ -1420,6 +1482,7 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
               claim={view.claim}
               page={page}
               judgment={page.judgment}
+              destinations={dependencyOptions}
               onSaved={(next) => {
                 if (next) setPage(current => ({ ...current, judgment: next }));
               }}
@@ -1470,17 +1533,11 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
 
 const Judgment = () => {
   const { pageId = '' } = useParams();
+  const [searchParams] = useSearchParams();
+  const collectionView = searchParams.get('view') === 'parked' ? 'parked' : 'open';
   const [items, setItems] = useState([]);
   const [indexPages, setIndexPages] = useState([]);
   const [indexLoading, setIndexLoading] = useState(true);
-  const [articles, setArticles] = useState([]);
-  /* The cabinet, so the drift reads the drawer a piece lives in rather than
-     the leaf it was filed in. Fails the same silent way as the reading: a
-     drift without its cabinet reads exact leaves, which is coarser but never
-     wrong. */
-  const [driftFolders, setDriftFolders] = useState([]);
-  const [readingLoading, setReadingLoading] = useState(true);
-  const [readingUnreadable, setReadingUnreadable] = useState(false);
   const [indexError, setIndexError] = useState('');
 
   useEffect(() => {
@@ -1493,33 +1550,6 @@ const Judgment = () => {
     (async () => {
       setIndexLoading(true);
       setIndexError('');
-
-      /* Drift is supporting context, never a release gate for the casebook.
-         Start it beside the index and let it settle independently. */
-      if (!pageId) {
-        setReadingLoading(true);
-        setReadingUnreadable(false);
-        Promise.resolve().then(() => getArticles())
-          .then(read => {
-            if (cancelled) return;
-            setArticles(Array.isArray(read) ? read : []);
-            setReadingLoading(false);
-            setReadingUnreadable(false);
-          })
-          .catch(() => {
-            if (!cancelled) {
-              setReadingLoading(false);
-              setReadingUnreadable(true);
-            }
-          });
-        Promise.resolve().then(() => getFolders())
-          .then(read => {
-            if (!cancelled) setDriftFolders(Array.isArray(read) ? read : []);
-          })
-          .catch(() => {
-            if (!cancelled) setDriftFolders([]);
-          });
-      }
 
       try {
         /* The index renders one sentence and a provenance line per judgment.
@@ -1592,11 +1622,8 @@ const Judgment = () => {
             <>
               <JudgmentIndex
                 items={items}
-                articles={articles}
-                folders={driftFolders}
                 loading={indexLoading}
-                readingLoading={readingLoading}
-                readingUnreadable={readingUnreadable}
+                collectionView={collectionView}
                 onHeld={(item) => setItems((current) => {
                   const rest = current.filter((row) => String(row.id) !== String(item.id));
                   const prior = current.find((row) => String(row.id) === String(item.id));
@@ -1614,7 +1641,7 @@ const Judgment = () => {
           )}
       </div>
       <aside className="judgment-room__shelf">
-        <JudgmentShelf items={items} activeId={pageId} />
+        <JudgmentShelf items={items} activeId={pageId} collectionView={collectionView} />
       </aside>
     </div>
   );

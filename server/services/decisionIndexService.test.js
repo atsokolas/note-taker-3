@@ -204,7 +204,19 @@ const models = {
   const acceptedBefore = {
     ...clone(page),
     claims: [{ ...clone(page.claims[0]), text: 'An earlier exact claim.' }],
-    judgment: { ...clone(page.judgment), decisions: [] }
+    sourceRefs: [{
+      ...clone(page.sourceRefs[0]),
+      title: 'Owned evidence at decision time',
+      snippet: 'The retained excerpt used for this decision.',
+      createdAt: '2026-07-18T12:00:00.000Z'
+    }],
+    judgment: {
+      ...clone(page.judgment),
+      currentJudgment: 'Run a bounded observation.',
+      resolutionCriteria: 'The second cohort does not repeat the result.',
+      against: [{ reasonId: 'against-1', text: 'The first cohort may have received unusual assistance.' }],
+      decisions: []
+    }
   };
   const acceptedBasis = {
     ...clone(acceptedBefore),
@@ -325,7 +337,20 @@ const models = {
   provenDecision.outcome.recordHash = outcomeRecordHash(provenDecision.outcome);
   const recordedPage = { ...clone(page), claims: clone(acceptedBasis.claims), judgment: { ...clone(page.judgment), decisions: [recordedDecision] } };
   const takenPage = { ...clone(recordedPage), judgment: { ...clone(recordedPage.judgment), decisions: [takenDecision] } };
-  const provenPage = { ...page, judgment: { ...page.judgment, decisions: [provenDecision] } };
+  const provenPage = {
+    ...page,
+    sourceRefs: [
+      ...page.sourceRefs,
+      {
+        _id: '64f500000000000000000029',
+        type: 'external',
+        title: 'Later cohort note',
+        snippet: 'Material attached after the decision.',
+        createdAt: '2026-07-25T12:00:00.000Z'
+      }
+    ],
+    judgment: { ...page.judgment, decisions: [provenDecision] }
+  };
   const revisions = [
     acceptedRevision,
     { _id: recordedRevisionId, userId: USER_ID, pageId: PAGE_ID, actorType: 'user', promotionStatus: 'promoted', before: acceptedBasis, after: recordedPage },
@@ -372,6 +397,28 @@ const models = {
   assert.deepStrictEqual(proven.items[0].outcome.evidence.map(ref => ref.id), [ARTICLE_ID]);
   assert.strictEqual(proven.items[0].outcome.state, 'observed');
   assert.deepStrictEqual(proven.items[0].continuity.missing, []);
+  assert.deepStrictEqual(proven.items[0].basis, {
+    heldView: 'Run a bounded observation.',
+    criterion: 'The second cohort does not repeat the result.',
+    objection: 'The first cohort may have received unusual assistance.',
+    acceptedAt: decisionAcceptedAt,
+    attachedSources: [{
+      sourceRefId: SOURCE_REF_ID,
+      type: 'article',
+      title: 'Owned evidence at decision time',
+      snippet: 'The retained excerpt used for this decision.',
+      url: '',
+      attachedAt: '2026-07-18T12:00:00.000Z'
+    }],
+    laterSources: [{
+      sourceRefId: '64f500000000000000000029',
+      type: 'external',
+      title: 'Later cohort note',
+      snippet: 'Material attached after the decision.',
+      url: '',
+      attachedAt: '2026-07-25T12:00:00.000Z'
+    }]
+  });
 
   const directlyTakenDecision = { ...clone(recordedDecision), status: 'taken', decidedAt: decisionAcceptedAt };
   const directlyReviewedDecision = { ...clone(provenDecision), decidedAt: decisionAcceptedAt };

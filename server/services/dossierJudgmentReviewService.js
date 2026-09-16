@@ -10,6 +10,52 @@ const clean = (value = '', limit = 600) => String(value || '')
   .slice(0, limit);
 
 const id = value => clean(value?._id || value?.id || value, 100);
+const list = value => Array.isArray(value) ? value : [];
+const plain = value => value?.toObject ? value.toObject({ virtuals: false }) : value;
+const recordedResponse = draft => {
+  const value = plain(draft);
+  if (!value?.response) return null;
+  return {
+    response: clean(value.response, 32),
+    proposedView: clean(value.proposedView, 8000),
+    reason: clean(value.reason, 4000),
+    action: clean(value.action, 32),
+    proposedAction: clean(value.proposedAction, 4000),
+    baseClaim: clean(value.baseClaim, 8000),
+    criterionSnapshot: {
+      text: clean(value.criterionSnapshot?.text, 2000),
+      horizonAt: value.criterionSnapshot?.horizonAt || null,
+      setAt: value.criterionSnapshot?.setAt || null,
+      receiptId: clean(value.criterionSnapshot?.receiptId, 240),
+      claimHash: clean(value.criterionSnapshot?.claimHash, 128)
+    },
+    draftVersion: Math.max(1, Number(value.version) || 1)
+  };
+};
+
+const conditionAtAcceptance = (page, now) => {
+  const acceptedAt = new Date(now || 0).getTime();
+  const version = list(page?.judgment?.resolutionHistory)
+    .filter(entry => new Date(entry?.setAt || 0).getTime() <= acceptedAt)
+    .sort((left, right) => new Date(left?.setAt || 0) - new Date(right?.setAt || 0))
+    .at(-1);
+  if (!version) {
+    return {
+      text: clean(page?.judgment?.resolutionCriteria, 2000),
+      horizonAt: page?.judgment?.resolutionHorizonAt || null,
+      setAt: page?.judgment?.resolutionSetAt || null,
+      receiptId: '',
+      claimHash: ''
+    };
+  }
+  return {
+    text: clean(version.criteria, 2000),
+    horizonAt: version.horizonAt || null,
+    setAt: version.setAt || null,
+    receiptId: clean(version.receiptId, 240),
+    claimHash: clean(version.claimHash, 128)
+  };
+};
 
 class DossierJudgmentReviewError extends Error {
   constructor(message, statusCode = 409, code = 'DOSSIER_JUDGMENT_REVIEW_INVALID') {
@@ -70,6 +116,7 @@ const buildDossierJudgmentReviewReceipt = ({
       sourceEventId: id(comparison?.sourceEventId),
       acceptedAt: now,
       judgmentAtAcceptance: judgment,
+      conditionAtAcceptance: conditionAtAcceptance(page, now),
       comparison: acceptedComparison
     },
     touched: [{ type: 'wiki_page', id: pageId, title: clean(page.title, 240) }],
@@ -111,6 +158,7 @@ const listDossierJudgmentReviews = async ({ NoeisReceipt, userId, limit = 200 } 
 
 const resolveDossierJudgmentReview = async ({
   NoeisReceipt,
+  JudgmentResponseDraft = null,
   userId,
   page,
   receiptId,
@@ -151,6 +199,25 @@ const resolveDossierJudgmentReview = async ({
       'DOSSIER_JUDGMENT_NOT_REVISED'
     );
   }
+  const draft = JudgmentResponseDraft?.findOne
+    ? await resolveQuery(JudgmentResponseDraft.findOne({
+      userId,
+      pageId,
+      observationId: receipt.id,
+      status: 'active'
+    }))
+    : null;
+  const response = recordedResponse(draft);
+  if (response && (
+    (selected === 'kept' && response.response !== 'keep')
+    || (selected === 'revised' && !['narrow', 'different'].includes(response.response))
+  )) {
+    throw new DossierJudgmentReviewError(
+      'The saved response no longer matches this resolution. Reopen it before recording.',
+      409,
+      'DOSSIER_JUDGMENT_RESPONSE_MISMATCH'
+    );
+  }
 
   const completedReceipt = {
     ...receipt,
@@ -162,7 +229,8 @@ const resolveDossierJudgmentReview = async ({
       ...receipt.provenance,
       resolution: selected,
       resolvedAt: now,
-      judgmentAfterReview: current
+      judgmentAfterReview: current,
+      ...(response ? { recordedResponse: { ...response, recordedAt: now } } : {})
     },
     completedAt: now,
     nextAction: { type: 'open_judgment', id: pageId, title: 'Open the company case' }
@@ -177,7 +245,24 @@ const resolveDossierJudgmentReview = async ({
   }, {
     $set: { ...safeReceipt, userId }
   }, { new: true }));
-  if (updated) return serializeStoredReceipt(updated);
+  if (updated) {
+    if (draft && JudgmentResponseDraft?.findOneAndUpdate) {
+      try {
+        await resolveQuery(JudgmentResponseDraft.findOneAndUpdate({
+          userId,
+          pageId,
+          observationId: receipt.id,
+          version: response.draftVersion,
+          status: 'active'
+        }, {
+          $set: { status: 'completed', completedAt: now }
+        }));
+      } catch (error) {
+        console.error('Failed to retire completed judgment response draft.', error);
+      }
+    }
+    return serializeStoredReceipt(updated);
+  }
 
   const latest = serializeStoredReceipt(await resolveQuery(NoeisReceipt.findOne({
     userId,
@@ -194,6 +279,7 @@ const resolveDossierJudgmentReview = async ({
 module.exports = {
   DossierJudgmentReviewError,
   buildDossierJudgmentReviewReceipt,
+  conditionAtAcceptance,
   compactComparison,
   listDossierJudgmentReviews,
   loadDossierJudgmentReview,

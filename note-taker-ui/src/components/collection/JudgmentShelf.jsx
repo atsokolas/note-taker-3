@@ -1,6 +1,5 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { handOffSentence } from '../../motion/columnMotion';
 import {
   RoomShelf,
   RoomShelfList,
@@ -9,74 +8,58 @@ import {
   roomShelfItemClass
 } from './RoomShelf';
 
-const includes = (value, query) => String(value || '').toLowerCase().includes(query);
-
-const JudgmentShelf = ({ items = [], activeId = '' }) => {
-  const [query, setQuery] = useState('');
-  const normalizedQuery = query.trim().toLowerCase();
-  const visible = useMemo(() => (
-    normalizedQuery
-      ? items.filter((item) => (
-        includes(item.headline, normalizedQuery)
-        || includes(item.sentence, normalizedQuery)
-        || includes(item.title, normalizedQuery)
-      ))
-      : items
-  ), [items, normalizedQuery]);
+/* The shelf names rooms; the casebook itself owns the one case list and its
+   search. Keeping rows here as well made a second, smaller collection that
+   disagreed with the main one as soon as filters or parking were involved. */
+const JudgmentShelf = ({ items = [], activeId = '', collectionView = 'open' }) => {
   const counts = useMemo(() => ({
-    decisions: items.reduce((sum, item) => sum + Number(item.decisionCount || 0), 0),
-    outcomes: items.reduce((sum, item) => sum + Number(item.outcomeCount || 0), 0),
-    lessons: items.reduce((sum, item) => sum + (Array.isArray(item.lessons) ? item.lessons.length : 0), 0)
+    open: items.filter(item => item.state !== 'parked').length,
+    parked: items.filter(item => item.state === 'parked').length,
+    decisions: items.reduce((sum, item) => sum + Number(item.decisionCount || 0), 0)
   }), [items]);
+  const inCase = Boolean(activeId);
 
   return (
     <RoomShelf
       as="nav"
       className="judgment-shelf"
-      aria-label="Judgments"
+      aria-label="Judgment"
       label="Judgment"
       count={items.length}
-      search={query}
-      searchLabel="Search judgments"
-      searchPlaceholder="Search Judgment"
-      onSearchChange={setQuery}
     >
-      <RoomShelfSection label="Open cases">
-        {visible.length ? (
-          <RoomShelfList>
-            {visible.slice(0, 8).map((item) => {
-              const label = item.headline || item.sentence;
-              return (
-                <li key={item.id}>
-                  <Link
-                    className={roomShelfItemClass({ active: String(item.id) === String(activeId) })}
-                    aria-current={String(item.id) === String(activeId) ? 'page' : undefined}
-                    to={`/judgment/${encodeURIComponent(item.id)}`}
-                    onClick={(event) => handOffSentence(label, event.currentTarget)}
-                  >
-                    <span>{label}</span>
-                    {item.state === 'arrived' ? <RoomShelfMeta>New</RoomShelfMeta> : null}
-                  </Link>
-                </li>
-              );
-            })}
-          </RoomShelfList>
-        ) : <p className="judgment-shelf__empty">No matching cases.</p>}
-      </RoomShelfSection>
-
-      <RoomShelfSection label="Casebook">
+      <RoomShelfSection label="The casebook">
         <RoomShelfList>
-          <li><Link className={roomShelfItemClass()} to="/judgment"><span>Claims</span>{items.length ? <RoomShelfMeta>{items.length}</RoomShelfMeta> : null}</Link></li>
+          <li>
+            <Link
+              className={roomShelfItemClass({ active: !inCase && collectionView === 'open' })}
+              aria-current={!inCase && collectionView === 'open' ? 'page' : undefined}
+              to="/judgment"
+            >
+              <span>Open cases</span>
+              {counts.open ? <RoomShelfMeta>{counts.open}</RoomShelfMeta> : null}
+            </Link>
+          </li>
+          <li>
+            <Link
+              className={roomShelfItemClass({ active: !inCase && collectionView === 'parked' })}
+              aria-current={!inCase && collectionView === 'parked' ? 'page' : undefined}
+              to="/judgment?view=parked"
+            >
+              <span>Set aside</span>
+              {counts.parked ? <RoomShelfMeta>{counts.parked}</RoomShelfMeta> : null}
+            </Link>
+          </li>
+        </RoomShelfList>
+      </RoomShelfSection>
+      <RoomShelfSection label="The record">
+        <RoomShelfList>
+          <li>
+            <Link className={roomShelfItemClass()} to="/judgment/mirror#decisions">
+              <span>Decisions</span>
+              {counts.decisions ? <RoomShelfMeta>{counts.decisions}</RoomShelfMeta> : null}
+            </Link>
+          </li>
           <li><Link className={roomShelfItemClass()} to="/judgment/mirror"><span>The Mirror</span></Link></li>
-          {counts.decisions ? (
-            <li><span className={roomShelfItemClass()}><span>Decisions</span><RoomShelfMeta>{counts.decisions}</RoomShelfMeta></span></li>
-          ) : null}
-          {counts.outcomes ? (
-            <li><span className={roomShelfItemClass()}><span>Outcomes</span><RoomShelfMeta>{counts.outcomes}</RoomShelfMeta></span></li>
-          ) : null}
-          {counts.lessons ? (
-            <li><span className={roomShelfItemClass()}><span>Lessons</span><RoomShelfMeta>{counts.lessons}</RoomShelfMeta></span></li>
-          ) : null}
         </RoomShelfList>
       </RoomShelfSection>
     </RoomShelf>

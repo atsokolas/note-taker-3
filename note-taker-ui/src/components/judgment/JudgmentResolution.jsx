@@ -44,6 +44,7 @@ const JudgmentResolution = ({
   openTest = 0
 }) => {
   const [settingTest, setSettingTest] = useState(false);
+  const [previewingTest, setPreviewingTest] = useState(false);
   const [criteria, setCriteria] = useState(judgment.resolutionCriteria || '');
   const [horizon, setHorizon] = useState(dateInput(judgment.resolutionHorizonAt));
   const [choosingVerdict, setChoosingVerdict] = useState(false);
@@ -89,7 +90,10 @@ const JudgmentResolution = ({
       criteria,
       horizonAt: horizon ? new Date(`${horizon}T12:00:00`).toISOString() : null
     }));
-    if (response) setSettingTest(false);
+    if (response) {
+      setSettingTest(false);
+      setPreviewingTest(false);
+    }
   };
 
   const saveVerdict = async () => {
@@ -134,22 +138,53 @@ const JudgmentResolution = ({
 
       {settingTest ? (
         <div className="judgment-resolution__test">
-          <label htmlFor="judgment-resolution-criteria">I would change my mind if</label>
-          <textarea
-            id="judgment-resolution-criteria"
-            rows={2}
-            value={criteria}
-            onChange={event => setCriteria(event.target.value)}
-            placeholder="Name the observable thing."
-            autoFocus
-          />
-          <label className="judgment-resolution__date" htmlFor="judgment-resolution-horizon">
-            By <input id="judgment-resolution-horizon" type="date" value={horizon} onChange={event => setHorizon(event.target.value)} />
-          </label>
-          <div className="judgment-resolution__actions">
-            <button type="button" disabled={busy || !clean(criteria)} onClick={saveTest}>{busy ? 'Inking…' : 'Set the test'}</button>
-            <button type="button" className="is-quiet" disabled={busy} onClick={() => setSettingTest(false)}>Not now</button>
-          </div>
+          {previewingTest ? (
+            <div className="judgment-resolution__preview" aria-live="polite">
+              <p className="judgment-resolution__preview-label">Nothing has changed yet</p>
+              {judgment.resolutionCriteria ? (
+                <div className="judgment-resolution__comparison">
+                  <div>
+                    <span>Now</span>
+                    <p>{judgment.resolutionCriteria}</p>
+                    {judgment.resolutionHorizonAt ? <small>By {dateLabel(judgment.resolutionHorizonAt)}</small> : null}
+                  </div>
+                  <div>
+                    <span>Proposed</span>
+                    <p>{clean(criteria)}</p>
+                    {horizon ? <small>By {dateLabel(`${horizon}T12:00:00`)}</small> : null}
+                  </div>
+                </div>
+              ) : (
+                <blockquote>{clean(criteria)}</blockquote>
+              )}
+              <p className="judgment-resolution__preview-note">
+                Future observations will be judged against this wording. Earlier observations keep the test they met.
+              </p>
+              <div className="judgment-resolution__actions">
+                <button type="button" disabled={busy} onClick={saveTest}>{busy ? 'Recording…' : 'Record this test'}</button>
+                <button type="button" className="is-quiet" disabled={busy} onClick={() => setPreviewingTest(false)}>Keep editing</button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <label htmlFor="judgment-resolution-criteria">I would change my mind if</label>
+              <textarea
+                id="judgment-resolution-criteria"
+                rows={2}
+                value={criteria}
+                onChange={event => setCriteria(event.target.value)}
+                placeholder="Name the observable thing."
+                autoFocus
+              />
+              <label className="judgment-resolution__date" htmlFor="judgment-resolution-horizon">
+                By <input id="judgment-resolution-horizon" type="date" value={horizon} onChange={event => setHorizon(event.target.value)} />
+              </label>
+              <div className="judgment-resolution__actions">
+                <button type="button" disabled={busy || !clean(criteria)} onClick={() => setPreviewingTest(true)}>Preview this test</button>
+                <button type="button" className="is-quiet" disabled={busy} onClick={() => setSettingTest(false)}>Not now</button>
+              </div>
+            </>
+          )}
         </div>
       ) : judgment.resolutionCriteria ? (
         <p className="judgment-resolution__criteria">

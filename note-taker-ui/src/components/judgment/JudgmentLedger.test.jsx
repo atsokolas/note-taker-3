@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import JudgmentLedger from './JudgmentLedger';
 import {
   getJudgmentLedger,
@@ -74,18 +75,7 @@ const ledger = {
     question: 'Did it hold for the reasons you thought?',
     verdictId: 'v1',
     verdict: 'held_up'
-  },
-  proposals: [{
-    applicationId: 'apply-1',
-    lessonId: 'l-power',
-    text: 'Watch conversion, not announcements.',
-    sourcePageId: 'settled-1',
-    sourceClaim: 'Compute stays scarce through 2027.',
-    proposed: true,
-    asserted: false,
-    status: 'proposed',
-    relevance: 'shared evidence'
-  }]
+  }
 };
 
 describe('JudgmentLedger', () => {
@@ -133,15 +123,57 @@ describe('JudgmentLedger', () => {
     })));
   });
 
-  it('proposes a settled lesson and will not assert it', async () => {
+  it('carries a user-chosen lesson to a user-chosen case without calling it evidence', async () => {
     resolveJudgmentLesson.mockResolvedValue({ judgment: page.judgment });
-    render(<JudgmentLedger pageId={page._id} claim={page.judgment.currentJudgment} page={page} judgment={page.judgment} />);
-    expect(await screen.findByText('Watch conversion, not announcements.')).toBeInTheDocument();
-    expect(screen.getByText(/Not asserted/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Keep it here' }));
+    const withLesson = {
+      ...page.judgment,
+      lessons: [{ lessonId: 'l-power', text: 'Watch conversion, not announcements.' }]
+    };
+    render(
+      <JudgmentLedger
+        pageId={page._id}
+        claim={page.judgment.currentJudgment}
+        page={page}
+        judgment={withLesson}
+        destinations={[{ id: 'case-2', headline: 'Capacity discipline', sentence: 'Capacity stays constrained.' }]}
+      />
+    );
+    await screen.findByText('Watch conversion, not announcements.');
+    fireEvent.click(screen.getByRole('button', { name: 'Keep this beside another case' }));
+    fireEvent.change(screen.getByLabelText('Keep this beside'), { target: { value: 'case-2' } });
+    fireEvent.change(screen.getByLabelText('What might be different here?'), { target: { value: 'A different cohort.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Keep it beside that case' }));
     await waitFor(() => expect(resolveJudgmentLesson).toHaveBeenCalledWith(expect.objectContaining({
+      pageId: 'case-2',
+      expectedClaim: 'Capacity stays constrained.',
       status: 'accepted',
-      lessonId: 'l-power'
+      lessonId: 'l-power',
+      sourcePageId: page._id,
+      explicitTransfer: true
+    })));
+  });
+
+  it('labels carried context and can detach it without changing the case', async () => {
+    resolveJudgmentLesson.mockResolvedValue({ judgment: page.judgment });
+    const withCarried = {
+      ...page.judgment,
+      lessonApplications: [{
+        applicationId: 'apply-1', lessonId: 'l-power', sourcePageId: 'case-1',
+        sourceText: 'Watch conversion, not announcements.', status: 'accepted',
+        note: 'A different cohort.', receiptId: 'receipt-1'
+      }]
+    };
+    render(
+      <MemoryRouter>
+        <JudgmentLedger pageId={page._id} claim={page.judgment.currentJudgment} page={page} judgment={withCarried} />
+      </MemoryRouter>
+    );
+    expect(await screen.findByText(/your lesson, not new evidence/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Detach' }));
+    await waitFor(() => expect(resolveJudgmentLesson).toHaveBeenCalledWith(expect.objectContaining({
+      applicationId: 'apply-1',
+      status: 'retired',
+      explicitTransfer: true
     })));
   });
 

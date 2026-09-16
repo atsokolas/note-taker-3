@@ -16,6 +16,30 @@ class Query {
 
 const run = async () => {
   const rows = [];
+  const drafts = [{
+    userId: 'owner-1',
+    pageId: 'page-1',
+    observationId: '',
+    response: 'different',
+    proposedView: 'Costco can compound, but renewal risk is higher.',
+    reason: 'The renewal evidence changed the range.',
+    action: 'not_reconsidered',
+    baseClaim: 'Costco can compound.',
+    criterionSnapshot: { text: 'Renewal falls below 88%.' },
+    version: 3,
+    status: 'active'
+  }];
+  const JudgmentResponseDraft = {
+    findOne(query) {
+      return new Query(drafts.find(row => Object.entries(query).every(([key, value]) => String(row[key]) === String(value))) || null);
+    },
+    async findOneAndUpdate(query, update) {
+      const draft = drafts.find(row => Object.entries(query).every(([key, value]) => String(row[key]) === String(value)));
+      if (!draft) return null;
+      Object.assign(draft, update.$set);
+      return draft;
+    }
+  };
   const NoeisReceipt = {
     find(query) {
       return new Query(rows.filter(row => (
@@ -52,7 +76,16 @@ const run = async () => {
   const page = {
     _id: 'page-1',
     title: 'COST investment dossier',
-    judgment: { kind: 'thesis', currentJudgment: 'Costco can compound.' },
+    judgment: {
+      kind: 'thesis',
+      currentJudgment: 'Costco can compound.',
+      resolutionHistory: [{
+        criteria: 'Renewal falls below 88%.',
+        setAt: '2026-08-20T12:00:00.000Z',
+        receiptId: 'test-1',
+        claimHash: 'claim-1'
+      }]
+    },
     investmentDossier: { company: { ticker: 'COST' } }
   };
   const receipt = buildDossierJudgmentReviewReceipt({
@@ -70,7 +103,9 @@ const run = async () => {
   });
   assert.equal(receipt.status, 'awaiting_review');
   assert.equal(receipt.provenance.judgmentAtAcceptance, 'Costco can compound.');
+  assert.equal(receipt.provenance.conditionAtAcceptance.text, 'Renewal falls below 88%.');
   assert.equal(receipt.provenance.sourceEventId, 'event-1');
+  drafts[0].observationId = receipt.id;
   await NoeisReceipt.findOneAndUpdate(
     { receiptId: receipt.id },
     { $set: { ...receipt, receiptId: receipt.id, userId: 'owner-1' } }
@@ -92,6 +127,7 @@ const run = async () => {
   page.judgment.currentJudgment = 'Costco can compound, but renewal risk is higher.';
   const resolved = await resolveDossierJudgmentReview({
     NoeisReceipt,
+    JudgmentResponseDraft,
     userId: 'owner-1',
     page,
     receiptId: receipt.id,
@@ -101,6 +137,10 @@ const run = async () => {
   assert.equal(resolved.status, 'completed');
   assert.equal(resolved.provenance.resolution, 'revised');
   assert.equal(resolved.provenance.judgmentAfterReview, page.judgment.currentJudgment);
+  assert.equal(resolved.provenance.recordedResponse.response, 'different');
+  assert.equal(resolved.provenance.recordedResponse.action, 'not_reconsidered');
+  assert.equal(resolved.provenance.recordedResponse.criterionSnapshot.text, 'Renewal falls below 88%.');
+  assert.equal(drafts[0].status, 'completed');
   assert.deepEqual(await listDossierJudgmentReviews({ NoeisReceipt, userId: 'owner-1' }), []);
 
   const replay = await resolveDossierJudgmentReview({
