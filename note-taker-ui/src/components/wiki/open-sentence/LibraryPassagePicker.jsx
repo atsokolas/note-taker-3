@@ -158,6 +158,9 @@ const LibraryPassagePicker = ({
       setQuery(needleFromQuestion(boundQuestion));
     }
     return () => { requestId.current += 1; };
+    // Seed once per open from the question that asked. A later edit of the
+    // question must not rewrite a search the person is already typing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- boundQuestion is read only at open
   }, [open]);
 
   useEffect(() => {
