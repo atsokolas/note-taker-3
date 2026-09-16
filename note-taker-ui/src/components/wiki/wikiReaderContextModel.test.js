@@ -7,6 +7,7 @@ import {
   sourceSurrounding,
   surroundingFromSource
 } from './wikiReaderContextModel';
+import { collectWikiText } from './wikiPageMetrics';
 
 describe('wikiReaderContextModel', () => {
   it('nests inspect panels and returns to the previous view', () => {
@@ -63,5 +64,26 @@ describe('wikiReaderContextModel', () => {
       createdAt: '2026-09-03T00:00:00.000Z',
       _id: 'rev-2'
     }).plainText).toBe('The earlier words.');
+  });
+
+  it('keeps the retained body when the list only supplies after.claims', () => {
+    const snapshot = historicalRevisionSnapshot({
+      _id: 'rev-list',
+      createdAt: '2026-09-16T00:00:00.000Z',
+      after: { claims: [{ claimId: 's2', text: 'A later sentence.' }] },
+      before: {
+        title: 'Strategy is a set of choices',
+        body: {
+          type: 'doc',
+          content: [{ type: 'paragraph', content: [{ type: 'text', text: 'UNIQUE_HISTORICAL_SENTENCE from a retained revision.' }] }]
+        },
+        claims: [{ claimId: 's2', text: 'The earlier words.' }]
+      }
+    });
+    expect(snapshot).not.toBeNull();
+    expect(collectWikiText(snapshot.body)).toBe('UNIQUE_HISTORICAL_SENTENCE from a retained revision.');
+    expect(historicalRevisionSnapshot({
+      after: { claims: [{ claimId: 's2', text: 'A later sentence.' }] }
+    })).toBeNull();
   });
 });
