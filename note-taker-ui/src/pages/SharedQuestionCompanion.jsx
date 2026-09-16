@@ -37,7 +37,7 @@ const SharedQuestionCompanion = ({
             placeholder={partner.placeholder}
             emptyStateText={partner.emptyStateText}
             promptTemplates={partner.promptTemplates}
-            title="Ask about this reading"
+            title={partner.askLabel}
             submitLabel="Ask"
           />
           <button
@@ -54,7 +54,7 @@ const SharedQuestionCompanion = ({
           className="shared-question-companion__ask"
           onClick={() => setOpen(true)}
         >
-          Ask about this reading
+          {partner.askLabel}
         </button>
       )}
     </aside>

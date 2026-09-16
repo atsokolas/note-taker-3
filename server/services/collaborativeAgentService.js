@@ -5,7 +5,9 @@ const {
   publicQuestionPage,
   asRow,
   readLean,
-  claimShareAgentAsk
+  claimShareAgentAsk,
+  shareRecordArchiveOf,
+  shareRecordSuccessionLines
 } = require('./authoredThinkShare');
 const { buildLivingThesisCriticMandate } = require('./agentWorkerRoles');
 const { brokerAgentTurn, resolveAgentCapability, isSharedQuestionContext, sharedQuestionReadCapability } = require('./agentCapabilityBroker');
@@ -1067,30 +1069,51 @@ const shouldSearchWorkspaceForContext = ({
   return intentDecision.retrievalPolicy === 'workspace' || !contextItem;
 };
 
+const boundReadingLines = (readings) => readings.flatMap((row) => {
+  const by = toSafeString(row.by);
+  const lines = [`${by}: ${toSafeString(row.text)}`];
+  if (toSafeString(row.remainder)) lines.push(`${by} still holds: ${toSafeString(row.remainder)}`);
+  if (toSafeString(row.interpretation)) {
+    const takenBy = toSafeString(row.interpretedBy) || 'Owner';
+    lines.push(`${takenBy} — Not quite: ${toSafeString(row.interpretation)}`);
+  }
+  return lines;
+});
+
+const sharedQuestionHasSuccessor = (contextItem) => (
+  Array.isArray(contextItem?.relatedItems)
+  && contextItem.relatedItems.some((item) => toSafeString(item?.type) === 'succession')
+);
+
 const buildSharedQuestionContextItem = (page, slug) => {
   const questionText = toSafeString(page?.question?.text);
-  if (!questionText) return null;
+  const succession = page?.succession && typeof page.succession === 'object' ? page.succession : null;
+  const unresolved = toSafeString(succession?.unresolved);
+  const alternatives = (Array.isArray(succession?.alternatives) ? succession.alternatives : [])
+    .filter((row) => toSafeString(row?.by) && toSafeString(row?.text));
+  const evidenceThen = succession?.evidenceThen && typeof succession.evidenceThen === 'object'
+    ? succession.evidenceThen
+    : null;
+  const handed = Boolean(unresolved && alternatives.length && toSafeString(evidenceThen?.text));
+  if (!handed && !questionText) return null;
   const paragraphs = (Array.isArray(page?.question?.paragraphs) ? page.question.paragraphs : [])
     .map((block) => toSafeString(block?.text))
     .filter(Boolean);
   const readings = (Array.isArray(page?.contributions) ? page.contributions : [])
     .filter((row) => toSafeString(row?.by) && toSafeString(row?.text));
-  const brief = page?.brief && typeof page.brief === 'object' ? page.brief : null;
+  const frozenIds = new Set(handed
+    ? alternatives.map((row) => toSafeString(row.id)).filter(Boolean)
+    : []);
+  const laterReadings = handed
+    ? readings.filter((row) => !frozenIds.has(toSafeString(row.id)))
+    : readings;
+  const brief = !handed && page?.brief && typeof page.brief === 'object' ? page.brief : null;
   const briefAgreement = toSafeString(brief?.agreement);
   const briefRemainder = toSafeString(brief?.remainder);
   const briefObservation = toSafeString(brief?.observation);
   const briefBy = toSafeString(brief?.by);
   const hasBrief = Boolean(briefAgreement || briefRemainder || briefObservation);
-  const readingLines = readings.flatMap((row) => {
-    const by = toSafeString(row.by);
-    const lines = [`${by}: ${toSafeString(row.text)}`];
-    if (toSafeString(row.remainder)) lines.push(`${by} still holds: ${toSafeString(row.remainder)}`);
-    if (toSafeString(row.interpretation)) {
-      const takenBy = toSafeString(row.interpretedBy) || 'Owner';
-      lines.push(`${takenBy} — Not quite: ${toSafeString(row.interpretation)}`);
-    }
-    return lines;
-  });
+  const readingLines = boundReadingLines(laterReadings);
   const briefLines = hasBrief
     ? [
       briefAgreement ? `What holds: ${briefAgreement}` : '',
@@ -1098,14 +1121,38 @@ const buildSharedQuestionContextItem = (page, slug) => {
       briefObservation ? `What could move this: ${briefObservation}` : ''
     ].filter(Boolean)
     : [];
+  const successorText = handed
+    ? shareRecordSuccessionLines(succession).join('\n').trim()
+    : '';
+  const archived = handed ? shareRecordArchiveOf(succession) : null;
+  const title = handed ? unresolved : questionText;
   return {
     type: 'shared_question',
     id: slug,
-    title: questionText,
-    snippet: truncate(paragraphs[0] || questionText, 420),
-    fullText: [questionText, ...paragraphs, ...readingLines, ...briefLines].join('\n\n'),
+    title,
+    snippet: truncate(
+      handed
+        ? (toSafeString(succession.held) || toSafeString(evidenceThen.text) || unresolved)
+        : (paragraphs[0] || questionText),
+      420
+    ),
+    fullText: handed
+      ? [successorText, ...readingLines].filter(Boolean).join('\n\n')
+      : [questionText, ...paragraphs, ...readingLines, ...briefLines].join('\n\n'),
     relatedItems: [
-      ...readings.map((row) => ({
+      ...(handed ? [{
+        type: 'succession',
+        id: `${slug}:succession`,
+        title: unresolved,
+        snippet: truncate(toSafeString(succession.held) || toSafeString(evidenceThen.text) || unresolved, 220)
+      }] : []),
+      ...(archived ? [{
+        type: 'archive',
+        id: `${slug}:archive`,
+        title: 'What we nearly did',
+        snippet: truncate(archived.happened, 220)
+      }] : []),
+      ...laterReadings.map((row) => ({
         type: 'reading',
         id: toSafeString(row.id),
         title: toSafeString(row.by),
@@ -1540,10 +1587,18 @@ const buildPartnerSystemPrompt = ({ intent = '', intentDecision = null, contextI
   const sharedQuestionHint = contextItem?.type === 'shared_question'
     ? [
         'This conversation is bound to a published question door.',
-        'Use only the published question, placed attributed readings, and shared brief below.',
+        sharedQuestionHasSuccessor(contextItem)
+          ? 'Use only the successor record, later placed readings on this door, and conversation history below.'
+          : 'Use only the published question, placed attributed readings, and shared brief below.',
+        sharedQuestionHasSuccessor(contextItem)
+          ? 'Answer from the frozen handoff: alternatives then, evidence then, uncertainty, authority, review, and later outcome if one is recorded. Never invent an institutional lesson or an unchosen future.'
+          : '',
         'Never use or invent Library notes, unpublished workshop edits, held readings, presence, or visit logs.',
-        'If a reading is not in the bound writing, say it is not on this door rather than fetching a private Library.'
-      ].join(' ')
+        sharedQuestionHasSuccessor(contextItem)
+          ? 'If a later outcome is recorded, keep the considered alternatives as they were written then. The other future is not in this record.'
+          : '',
+        'If a reading or lesson is not in the bound writing, say it is not on this door rather than fetching a private Library.'
+      ].filter(Boolean).join(' ')
     : '';
   const livingThesisCriticHint = replyIntent === 'challenge' && contextItem?.judgmentKind === 'thesis'
     ? buildLivingThesisCriticMandate()
@@ -1553,7 +1608,9 @@ const buildPartnerSystemPrompt = ({ intent = '', intentDecision = null, contextI
       ? 'You are a grounded thought partner at a published question.'
       : 'You are a grounded thought partner inside a private research workspace.',
     contextItem?.type === 'shared_question'
-      ? 'Use only the published question, placed readings, shared brief, and conversation history provided to you.'
+      ? (sharedQuestionHasSuccessor(contextItem)
+        ? 'Use only the successor record, later placed readings on this door, and conversation history provided to you.'
+        : 'Use only the published question, placed readings, shared brief, and conversation history provided to you.')
       : 'Use only the workspace context, retrieved internal material, and conversation history provided to you.',
     'Do not invent sources, titles, quotes, or facts that are not present in the provided material.',
     'If the evidence is thin, say that directly and suggest the sharpest next move.',
@@ -1599,7 +1656,7 @@ const buildPartnerGroundingBlock = ({
       ? `${contextItem.type === 'wiki_page'
         ? 'Selected wiki page body'
         : contextItem.type === 'shared_question'
-          ? 'Published question'
+          ? (sharedQuestionHasSuccessor(contextItem) ? 'Successor record' : 'Published question')
           : 'Selected body'}:\n"""${truncateRawAtSentenceBoundary(contextItem.fullText, 6000)}"""`
       : '',
     contextItem?.sourceText ? `Attached wiki sources:\n${contextItem.sourceText}` : '',
@@ -2233,7 +2290,7 @@ const resolveContextItem = async ({
     if (!slug || !SharedQuestion?.findOne) return null;
     const found = SharedQuestion.findOne({ slug });
     const selected = typeof found?.select === 'function'
-      ? found.select('slug snapshot ownerDisplayName publishedAt brief mandate userId')
+      ? found.select('slug snapshot ownerDisplayName publishedAt brief succession mandate userId')
       : found;
     const share = asRow(await readLean(selected));
     const page = publicQuestionPage(
@@ -2737,9 +2794,10 @@ const buildReply = ({
 
   if (intent === 'plan') {
     if (isSharedQuestionContext(context, contextItem)) {
-      return contextItem
-        ? 'Plan: 1. Stay with the published question and the writing already on this door. 2. Name where the readings differ. 3. Leave private Libraries out of the reply. No workspace change will happen until you approve one.'
-        : 'This question is not published.';
+      if (!contextItem) return 'This question is not published.';
+      return sharedQuestionHasSuccessor(contextItem)
+        ? 'Plan: 1. Stay with the successor record and the writing already on this door. 2. Name the recorded alternatives, evidence then, and later outcome if one exists. 3. Do not invent an unchosen future or a private Library. No workspace change will happen until you approve one.'
+        : 'Plan: 1. Stay with the published question and the writing already on this door. 2. Name where the readings differ. 3. Leave private Libraries out of the reply. No workspace change will happen until you approve one.';
     }
     const claim = contextSignals.coreClaim || contextSignals.supportPoint;
     if (/\b(?:test|claim|evidence|falsif)\b/i.test(message)) {
@@ -2764,7 +2822,9 @@ const buildReply = ({
     if (isSharedQuestionContext(context, contextItem)) {
       if (!contextItem) return 'This question is not published.';
       if (intent === 'retrieve') {
-        return 'This conversation is bound to the published question. Nothing from a private Library is in scope.';
+        return sharedQuestionHasSuccessor(contextItem)
+          ? 'This conversation is bound to the successor record on this door. Nothing from a private Library is in scope.'
+          : 'This conversation is bound to the published question. Nothing from a private Library is in scope.';
       }
     }
     if (contextItem?.type === 'wiki_page') {

@@ -251,8 +251,8 @@ const QuestionSharePreview = () => {
             <SharedQuestionCompanion
               slug="qslug"
               page={publicSnapshot}
-              signedIn={scene === 'companion' || scene === 'mandate' || scene === 'paused'}
-              defaultOpen={scene === 'companion'}
+              signedIn={scene === 'companion' || scene === 'successor' || scene === 'archive' || scene === 'mandate' || scene === 'paused'}
+              defaultOpen={scene === 'companion' || scene === 'successor' || scene === 'archive'}
             />
           </main>
         ) : null}
