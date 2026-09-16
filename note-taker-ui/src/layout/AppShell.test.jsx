@@ -76,4 +76,33 @@ describe('AppShell landmarks', () => {
     fireEvent.keyDown(window, { key: 'Tab' });
     expect(close).toHaveFocus();
   });
+
+  it('keeps the Wiki collection steward off the resting rail', () => {
+    window.matchMedia = () => ({ matches: false, addEventListener() {}, removeEventListener() {} });
+    const { container, rerender } = render(
+      <AppShell
+        topBar={<header>Top bar</header>}
+        surface={{ room: 'wiki', objectType: 'wiki_front', objectId: 'collection' }}
+        agentOnDemand
+        rightRail={<aside aria-label="Wiki Steward">Steward</aside>}
+      >
+        <main>Wiki collection</main>
+      </AppShell>
+    );
+
+    expect(container.firstChild).toHaveClass('app-shell-new--agent-on-demand');
+    expect(screen.queryByRole('button', { name: 'Agent' })).not.toBeInTheDocument();
+
+    rerender(
+      <AppShell
+        topBar={<header>Top bar</header>}
+        surface={{ room: 'wiki', objectType: 'wiki_page', objectId: 'page-1' }}
+        rightRail={<aside aria-label="Wiki Steward">Steward</aside>}
+      >
+        <main>Wiki article</main>
+      </AppShell>
+    );
+
+    expect(container.firstChild).not.toHaveClass('app-shell-new--agent-on-demand');
+  });
 });

@@ -86,6 +86,24 @@ describe('WikiFrontPage collection', () => {
       .toHaveAttribute('href', '/wiki/workspace?view=graph');
   });
 
+  it('uses compact navigation beside the list instead of a catalog shelf', async () => {
+    render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Wiki' })).toBeInTheDocument();
+    expect(document.querySelector('.room-shelf')).not.toBeInTheDocument();
+    expect(screen.queryByText('Browse wikis')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Wiki views')).not.toBeInTheDocument();
+    const nav = screen.getByRole('navigation', { name: 'Wiki navigation' });
+    expect(nav).toHaveClass('wiki-collection__nav');
+    expect(within(nav).getByRole('button', { name: 'All pages' })).toBeInTheDocument();
+    expect(within(nav).getByRole('button', { name: 'Proposed changes' })).toBeInTheDocument();
+    expect(within(nav).getByRole('button', { name: 'Recently changed' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'First Principles Thinking' }).closest('.wiki-collection__stage'))
+      .not.toBeNull();
+    expect(screen.getByRole('button', { name: 'Ask' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '+ New page' })).toBeInTheDocument();
+  });
+
   it('opens accepted pages without waiting for a Daily Loop briefing', async () => {
     let resolvePages;
     listWikiPages.mockReturnValueOnce(new Promise((resolve) => { resolvePages = resolve; }));
