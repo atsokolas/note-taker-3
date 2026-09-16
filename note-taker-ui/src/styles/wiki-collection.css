@@ -235,9 +235,6 @@ body.noeis-editorial.wiki-front-page-route .topbar .brand-gradient {
 .wiki-collection__foot {
   font-size: 10px;
   color: var(--muted, #676e62);
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
   margin-top: 22px;
 }
 

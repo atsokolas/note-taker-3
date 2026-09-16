@@ -117,7 +117,6 @@ import { humanizeLabel } from '../../utils/humanizeLabel';
 
 const WikiAskComposer = lazy(() => import('./WikiAskComposer'));
 const WikiAutolinkSuggestions = lazy(() => import('./WikiAutolinkSuggestions'));
-const WikiBuildPageComposer = lazy(() => import('./WikiBuildPageComposer'));
 const WikiChangesSinceLastVisit = lazy(() => import('./WikiChangesSinceLastVisit'));
 const WikiDiscussions = lazy(() => import('./WikiDiscussions'));
 
@@ -3011,7 +3010,6 @@ const WikiPageReadView = ({
                 changed={visitDiff.changed}
                 onMarkReviewed={handleMarkReviewed}
               />
-              <WikiBuildPageComposer compact className="wiki-read__build-page" />
             </>
           ) : null}
         </Suspense>

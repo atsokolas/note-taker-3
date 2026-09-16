@@ -951,6 +951,7 @@ describe('WikiPageReadView', () => {
     expect(container.querySelector('.wiki-read__toc')).toHaveTextContent('Contents');
 
     await flushDeferredWikiReadWork();
+    expect(screen.queryByLabelText('Ask thought partner to build a page')).not.toBeInTheDocument();
     const pageContext = screen.getByRole('complementary', { name: 'Page context' });
     const showContext = within(pageContext).queryByRole('button', { name: /show context/i });
     if (showContext) await act(async () => { fireEvent.click(showContext); });
