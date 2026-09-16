@@ -33,6 +33,7 @@ import { startKnowledgeMovementInvestigation } from '../../api/knowledgeMovement
 import { getConnectionsForItem } from '../../api/connections';
 import { recordClaimCheckIn, recordWikiPageVisit } from '../../api/dailyLoop';
 import authoredExplorations from '../../api/authoredExplorations';
+import api from '../../api';
 
 const mockUseNoeisSurface = jest.fn();
 
@@ -61,6 +62,13 @@ jest.mock('../../api/wiki', () => ({
   acceptOpenedSentenceWording: jest.fn(),
   getWikiFirstHeadCandidate: jest.fn(),
   reviewWikiFirstHeadCandidate: jest.fn()
+}));
+
+jest.mock('../../api', () => ({
+  __esModule: true,
+  default: {
+    get: jest.fn()
+  }
 }));
 
 jest.mock('../../api/knowledgeMovements', () => ({
@@ -277,6 +285,8 @@ describe('WikiPageReadView', () => {
     window.matchMedia = jest.fn().mockReturnValue({ matches: false });
     window.localStorage.clear();
     window.sessionStorage.clear();
+    api.get.mockReset();
+    api.get.mockRejectedValue(new Error('no article'));
   });
 
   it('keeps the accepted-revision decision workspace below an ordinary Wiki article', async () => {
@@ -3103,5 +3113,205 @@ describe('WikiPageReadView', () => {
       .toHaveTextContent('UNIQUE_HISTORICAL_SENTENCE from a retained revision.');
     expect(document.querySelector('.wiki-read__body'))
       .not.toHaveTextContent('Memory compounds with review.');
+  });
+
+  it('opens the cited source and expands surrounding from the owned article', async () => {
+    getWikiPage.mockResolvedValueOnce({
+      ...page,
+      rev: 'rev-3',
+      sourceRefs: [{
+        _id: 'source-highlight',
+        type: 'highlight',
+        objectId: 'highlight-1',
+        parentObjectId: 'article-1',
+        title: 'Memory article',
+        snippet: 'Source snippet sits here.'
+      }]
+    });
+    api.get.mockImplementation((url) => {
+      if (String(url).includes('/highlights')) {
+        return Promise.resolve({
+          data: [{ _id: 'highlight-1', text: 'Source snippet sits here.' }]
+        });
+      }
+      return Promise.resolve({
+        data: {
+          _id: 'article-1',
+          title: 'Memory article',
+          content: '<p>Before the cited line. Source snippet sits here. After the cited line continues.</p>'
+        }
+      });
+    });
+
+    renderReadView();
+    await flushDeferredWikiReadWork();
+    const citation = await screen.findByRole('button', { name: 'Backlink to source 1' });
+    await act(async () => {
+      fireEvent.click(citation);
+    });
+
+    const context = document.querySelector('.wiki-reader-context');
+    expect(context).toHaveTextContent('Memory article');
+    expect(context).toHaveTextContent('passage claim-1');
+    expect(context.querySelector('.wiki-reader-context__quote')).toHaveTextContent('Source snippet sits here.');
+    const expand = await screen.findByRole('button', { name: 'Read a little around it' });
+    fireEvent.click(expand);
+    expect(context).toHaveTextContent('Before the cited line');
+    expect(context).toHaveTextContent('After the cited line continues');
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(context.querySelector('.wiki-reader-context__neighbor')).not.toBeInTheDocument();
+    expect(context.querySelector('.wiki-reader-context__quote')).toHaveTextContent('Source snippet sits here.');
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(document.querySelector('.wiki-reader-context')).not.toBeInTheDocument();
+  });
+
+  it('does not invent surrounding when the cited line is missing from the article', async () => {
+    getWikiPage.mockResolvedValueOnce({
+      ...page,
+      sourceRefs: [{
+        _id: 'source-highlight',
+        type: 'highlight',
+        objectId: 'highlight-1',
+        parentObjectId: 'article-1',
+        title: 'Memory article',
+        snippet: 'A similar-sounding neighbor was not attached.'
+      }]
+    });
+    api.get.mockImplementation((url) => {
+      if (String(url).includes('/highlights')) {
+        return Promise.resolve({ data: [{ _id: 'highlight-1', text: 'A similar-sounding neighbor was not attached.' }] });
+      }
+      return Promise.resolve({
+        data: {
+          _id: 'article-1',
+          content: '<p>Getting lost was part of the work. That is a different kind of care.</p>'
+        }
+      });
+    });
+
+    renderReadView();
+    await flushDeferredWikiReadWork();
+    const citation = await screen.findByRole('button', { name: 'Backlink to source 1' });
+    await act(async () => {
+      fireEvent.click(citation);
+    });
+
+    const context = document.querySelector('.wiki-reader-context');
+    expect(context.querySelector('.wiki-reader-context__quote'))
+      .toHaveTextContent('A similar-sounding neighbor was not attached.');
+    expect(screen.getByRole('button', { name: 'No surrounding text available' })).toBeDisabled();
+    expect(context).not.toHaveTextContent('Getting lost');
+  });
+
+  it('marks only last-visit changes in the page and leaves the rest visible when nothing qualifies', async () => {
+    getWikiPage.mockResolvedValueOnce({
+      ...page,
+      body: {
+        type: 'doc',
+        content: [
+          {
+            type: 'paragraph',
+            content: [{
+              type: 'text',
+              text: 'Memory compounds with review.',
+              marks: [{
+                type: 'claim',
+                attrs: { claimId: 'claim-1', support: 'supported', citationIndexes: [1] }
+              }]
+            }]
+          },
+          {
+            type: 'paragraph',
+            content: [{
+              type: 'text',
+              text: 'Still here.',
+              marks: [{
+                type: 'claim',
+                attrs: { claimId: 'claim-stable', support: 'supported', citationIndexes: [1] }
+              }]
+            }]
+          }
+        ]
+      },
+      claims: [
+        { claimId: 'claim-1', text: 'Memory compounds with review.', support: 'supported' },
+        { claimId: 'claim-stable', text: 'Still here.', support: 'supported' }
+      ]
+    });
+    window.localStorage.setItem('noeis.wiki.visit.wiki-1', JSON.stringify({
+      lastViewedAt: new Date(Date.now() - 60_000).toISOString(),
+      claimSnapshot: ['still here.'],
+      ledgerSnapshot: []
+    }));
+
+    renderReadView();
+    await flushDeferredWikiReadWork();
+    fireEvent.click(await screen.findByRole('button', { name: 'Show only what changed' }));
+
+    expect(screen.getByText('Memory compounds with review.')).toHaveClass('wiki-read__changed-passage');
+    expect(screen.getByText('Still here.')).not.toHaveClass('wiki-read__changed-passage');
+    expect(document.querySelector('.wiki-read--diff-only')).toBeInTheDocument();
+  });
+
+  it('keeps a private accept reason on this device, not on the page', async () => {
+    getWikiPage.mockResolvedValueOnce({
+      ...page,
+      aiState: { candidateStatus: 'awaiting_maintenance_acceptance' }
+    });
+    getWikiFirstHeadCandidate.mockResolvedValueOnce({
+      kind: 'maintenance',
+      candidate: {
+        body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Proposed wording.' }] }] },
+        plainText: 'Proposed wording.'
+      }
+    });
+    reviewWikiFirstHeadCandidate.mockResolvedValueOnce({
+      page: { ...page, rev: 'rev-accepted' }
+    });
+
+    renderReadView();
+    await flushDeferredWikiReadWork();
+    fireEvent.click(await screen.findByRole('button', { name: 'Read the proposal' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Accept revision' }));
+
+    const reason = await screen.findByLabelText('Your reason · private');
+    fireEvent.change(reason, { target: { value: 'UNIQUE_PRIVATE_REASON' } });
+    expect(JSON.parse(window.localStorage.getItem('noeis.wiki.private.wiki-1')).reason)
+      .toBe('UNIQUE_PRIVATE_REASON');
+    expect(updateWikiPage).not.toHaveBeenCalled();
+    expect(reviewWikiFirstHeadCandidate).toHaveBeenCalledWith('wiki-1', 'accept');
+    expect(reviewWikiFirstHeadCandidate.mock.calls[0][1]).not.toEqual(expect.objectContaining({
+      reason: 'UNIQUE_PRIVATE_REASON'
+    }));
+  });
+
+  it('takes the open thought into Think from an accepted revision', async () => {
+    const wikiPageId = '64f000000000000000000030';
+    const revisionId = '64f000000000000000000050';
+    listWikiRevisions.mockResolvedValueOnce([{
+      _id: revisionId,
+      promotionStatus: 'promoted',
+      after: { claims: [{ claimId: 'claim-1', text: 'Memory compounds with review.' }] },
+      claimReview: {
+        state: 'accepted',
+        targetClaimId: 'claim-1',
+        events: [{ action: 'accept', receiptId: 'receipt-1' }]
+      }
+    }]);
+    const navigate = jest.fn();
+    jest.spyOn(router, 'useNavigate').mockReturnValue(navigate);
+
+    renderReadView({ pageId: wikiPageId });
+    await flushDeferredWikiReadWork();
+    fireEvent.click(await screen.findByRole('button', { name: 'Take this further' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Take this into Think' }));
+
+    await waitFor(() => expect(startKnowledgeMovementInvestigation).toHaveBeenCalledWith({
+      wikiPageId,
+      revisionId,
+      claimId: 'claim-1'
+    }));
+    expect(navigate).toHaveBeenCalledWith('/think?tab=concepts&conceptId=64f000000000000000000099');
   });
 });

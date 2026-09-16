@@ -252,11 +252,12 @@ const renderTextNode = (node, key, options = {}) => {
     const footnoteId = Number.isFinite(firstVisibleIndex)
       ? citationAnchorId({ claimId: attrs['data-claim-id'], citationIndex: firstVisibleIndex, fallback: key })
       : '';
+    const changed = options.changedClaimIds?.has?.(attrs['data-claim-id']);
     return (
       <React.Fragment key={key}>
         <span
           ref={focused ? options.focusedClaimRef : undefined}
-          className={`wiki-claim${retired ? ' wiki-claim--retired' : ''}${focused ? ' wiki-claim-citation--targeted' : ''}`}
+          className={`wiki-claim${retired ? ' wiki-claim--retired' : ''}${focused ? ' wiki-claim-citation--targeted' : ''}${changed ? ' wiki-read__changed-passage' : ''}`}
           tabIndex={focused ? -1 : undefined}
           title={retired && ledgerClaim?.retiredAt ? `Retired ${new Date(ledgerClaim.retiredAt).toLocaleDateString()}` : undefined}
           {...attrs}

@@ -26,6 +26,8 @@ import {
   getWikiFirstHeadCandidate,
   reviewWikiFirstHeadCandidate
 } from '../../api/wiki';
+import api from '../../api';
+import { getAuthHeaders } from '../../hooks/useAuthHeaders';
 import { startKnowledgeMovementInvestigation } from '../../api/knowledgeMovements';
 import { getConnectionsForItem } from '../../api/connections';
 import { recordClaimCheckIn, recordWikiPageVisit } from '../../api/dailyLoop';
@@ -60,10 +62,15 @@ import {
 } from './wikiVisitTracker';
 import WikiReaderContext from './WikiReaderContext';
 import {
+  changedClaimIdsFromPages,
+  changedClaimIdsFromVisit,
+  citedSourceOccurrence,
   historicalRevisionSnapshot,
   popReaderPanel,
   pushReaderPanel,
-  surroundingFromSource
+  resolveLibraryHighlight,
+  sourceArticleId,
+  surroundingFromLibrarySource
 } from './wikiReaderContextModel';
 import { wikiPassageReference } from './wikiCopyReference';
 import { SUPPORT_STATES } from './extensions/Claim';
@@ -436,6 +443,19 @@ const formatOptionalDate = (value, fallback = '') => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return String(value);
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+};
+
+const loadOwnedLibraryArticle = async (articleId) => {
+  const id = String(articleId || '').trim();
+  if (!id) return { article: null, highlights: [] };
+  const [articleResponse, highlightResponse] = await Promise.all([
+    api.get(`/articles/${encodeURIComponent(id)}`, getAuthHeaders()),
+    api.get(`/api/articles/${encodeURIComponent(id)}/highlights`, getAuthHeaders())
+  ]);
+  return {
+    article: articleResponse?.data || null,
+    highlights: Array.isArray(highlightResponse?.data) ? highlightResponse.data : []
+  };
 };
 
 const hasSharedWikiProvenance = (adoptedFrom = {}) => {
@@ -1258,6 +1278,7 @@ const WikiPageReadView = ({
   const [privateReason, setPrivateReason] = useState('');
   const [privateThought, setPrivateThought] = useState('');
   const [showChangedOnly, setShowChangedOnly] = useState(false);
+  const [diffClaimIds, setDiffClaimIds] = useState([]);
   const [copyStatus, setCopyStatus] = useState('');
   const wikiSurfaceDescriptor = buildWikiSurfaceDescriptor({
     page,
@@ -1596,6 +1617,7 @@ const WikiPageReadView = ({
           setPreviewMode(null);
           setPreviewPage(null);
           setShowChangedOnly(false);
+          setDiffClaimIds([]);
           return;
         }
         if (!railCollapsed) {
@@ -1955,6 +1977,58 @@ const WikiPageReadView = ({
 
   const listeningRef = kinRef || highlightedRef;
 
+  const openCitedSource = useCallback(async ({
+    source = {},
+    checking = '',
+    claimId = '',
+    citationIndex = 0,
+    returnTo = 'sources'
+  } = {}) => {
+    const reading = previewPage || page;
+    const occurrence = citedSourceOccurrence({
+      page: reading,
+      source,
+      claimId,
+      citationIndex
+    });
+    const surround = surroundingFromLibrarySource({ source });
+    setSurroundingOpen(false);
+    setPanelTrail(current => pushReaderPanel(current, {
+      type: 'source',
+      returnTo,
+      source: source || {},
+      checking,
+      surround,
+      occurrence,
+      revisionId: reading?.rev || occurrence.revisionId || '',
+      claimId,
+      citationIndex,
+      historical: previewMode === 'history',
+      proposed: previewMode === 'candidate'
+    }));
+    setRailCollapsed(false);
+    const articleId = sourceArticleId(source);
+    if (!articleId || surround.canExpand) return;
+    try {
+      const { article, highlights } = await loadOwnedLibraryArticle(articleId);
+      const highlight = resolveLibraryHighlight({ source, highlights });
+      const next = surroundingFromLibrarySource({ source, article, highlight });
+      setPanelTrail((current) => {
+        const last = current[current.length - 1];
+        if (
+          last?.type !== 'source'
+          || last?.claimId !== claimId
+          || Number(last?.citationIndex || 0) !== Number(citationIndex || 0)
+        ) {
+          return current;
+        }
+        return [...current.slice(0, -1), { ...last, surround: next }];
+      });
+    } catch (_error) {
+      // Keep the cited excerpt. Do not invent surrounding text.
+    }
+  }, [page, previewMode, previewPage]);
+
   const handleCitationClick = useCallback((event) => {
     const target = event.target.closest?.('.wiki-claim-citation');
     if (!target) return;
@@ -1968,23 +2042,16 @@ const WikiPageReadView = ({
     const claim = (reading?.claims || []).find(entry => idsMatch(entry?.claimId, claimId));
     const checking = claim?.text || claimNode.textContent || '';
     setActiveClaim(null);
-    setSurroundingOpen(false);
-    setPanelTrail(current => pushReaderPanel(current, {
-      type: 'source',
-      returnTo: 'sources',
-      source: source || {},
+    openCitedSource({
+      source,
       checking,
-      surround: surroundingFromSource(source),
-      revisionId: reading?.rev || '',
       claimId,
       citationIndex,
-      historical: previewMode === 'history',
-      proposed: previewMode === 'candidate'
-    }));
-    setRailCollapsed(false);
+      returnTo: 'sources'
+    });
     const refId = target.getAttribute('data-footnote-target') || '';
     if (refId && scrollToElementId(refId)) highlightReference(refId);
-  }, [highlightReference, page, previewMode, previewPage]);
+  }, [highlightReference, openCitedSource, page, previewPage]);
 
   // AT-288: wikilinks render as raw <a href="/wiki/:id"> (see renderTiptapDoc).
   // Intercept plain left-clicks so concept-to-concept navigation stays in-app
@@ -2271,6 +2338,7 @@ const WikiPageReadView = ({
     setPreviewMode(null);
     setPreviewPage(null);
     setShowChangedOnly(false);
+    setDiffClaimIds([]);
   }, []);
 
   const openCandidatePreview = useCallback((candidatePage = candidatePayload?.candidate) => {
@@ -2353,6 +2421,7 @@ const WikiPageReadView = ({
     setPreviewMode('history');
     setPreviewPage(snapshot);
     setShowChangedOnly(false);
+    setDiffClaimIds([]);
     openContextPanel({
       type: 'reference',
       text: firstParagraphText(snapshot.body) || snapshot.plainText || '',
@@ -2421,22 +2490,23 @@ const WikiPageReadView = ({
   }, [openContextPanel, page, previewMode, previewPage]);
 
   const handleOpenSourceFromList = useCallback((source, citationIndex) => {
-    openContextPanel({
-      type: 'source',
-      returnTo: 'sources',
+    openCitedSource({
       source,
-      surround: surroundingFromSource(source),
       citationIndex,
-      revisionId: (previewPage || page)?.rev || '',
-      historical: previewMode === 'history',
-      proposed: previewMode === 'candidate'
+      returnTo: 'sources'
     });
-  }, [openContextPanel, page, previewMode, previewPage]);
+  }, [openCitedSource]);
 
   const handleShowChangedInPage = useCallback(() => {
-    setShowChangedOnly(true);
-    setRailCollapsed(true);
-  }, []);
+    const ids = changedClaimIdsFromVisit({
+      page,
+      added: visitDiff.added,
+      changed: visitDiff.changed
+    });
+    setDiffClaimIds(ids);
+    setShowChangedOnly(Boolean(ids.length));
+    if (ids.length) setRailCollapsed(true);
+  }, [page, visitDiff.added, visitDiff.changed]);
 
   useEffect(() => {
     const params = new URLSearchParams(traceSearch || '');
@@ -2451,6 +2521,7 @@ const WikiPageReadView = ({
       setPreviewMode('candidate');
       setPreviewPage(candidatePayload.candidate);
       setShowChangedOnly(false);
+      setDiffClaimIds([]);
       setPanelTrail([{
         type: 'review',
         title: 'A proposed revision, not yet the page.',
@@ -2521,6 +2592,14 @@ const WikiPageReadView = ({
     if (!isRepoDossierPage(page)) return strippedBody;
     return applyRepoDossierSectionAnchors(strippedBody, bodyTocItems);
   }, [page, strippedBody, bodyTocItems]);
+  const previewDiffIds = useMemo(() => (
+    previewMode === 'candidate' ? changedClaimIdsFromPages(page, previewPage) : []
+  ), [page, previewMode, previewPage]);
+  const markedClaimIds = useMemo(() => {
+    if (showChangedOnly && diffClaimIds.length) return new Set(diffClaimIds);
+    if (previewMode === 'candidate' && previewDiffIds.length) return new Set(previewDiffIds);
+    return undefined;
+  }, [diffClaimIds, previewDiffIds, previewMode, showChangedOnly]);
   const repoDossierMode = isRepoDossierPage(page);
   const repoSectionNav = useMemo(
     () => (repoDossierMode ? buildRepoDossierSectionNav({ tocItems: bodyTocItems }) : []),
@@ -2984,7 +3063,7 @@ const WikiPageReadView = ({
   const repoComparisonPendingShare = repoComparisonAvailable && !publicShareReady;
   return (
     <main
-      className={`wiki-page wiki-read wiki-read--type-${readPageType}${standardWikiPage ? ' wiki-read--standard' : ''}${weekendReadingsPage ? ' wiki-read--research-edition' : ''}${previewMode === 'candidate' ? ' wiki-read--preview' : ''}${previewMode === 'history' ? ' wiki-read--historical' : ''}${showChangedOnly ? ' wiki-read--diff-only' : ''}`}
+      className={`wiki-page wiki-read wiki-read--type-${readPageType}${standardWikiPage ? ' wiki-read--standard' : ''}${weekendReadingsPage ? ' wiki-read--research-edition' : ''}${previewMode === 'candidate' ? ' wiki-read--preview' : ''}${previewMode === 'history' ? ' wiki-read--historical' : ''}${showChangedOnly && diffClaimIds.length ? ' wiki-read--diff-only' : ''}`}
       data-state={pageTransitionState}
       data-page-transition-state={pageTransitionState}
     >
@@ -3009,6 +3088,7 @@ const WikiPageReadView = ({
                 removed={visitDiff.removed}
                 changed={visitDiff.changed}
                 onMarkReviewed={handleMarkReviewed}
+                onShowInPage={handleShowChangedInPage}
               />
             </>
           ) : null}
@@ -3529,7 +3609,7 @@ const WikiPageReadView = ({
                 </div>
               ) : null}
               <section
-                className={`wiki-read__body${bodyTransitionClass}${previewMode ? ' is-preview' : ''}${showChangedOnly ? ' is-diff-only' : ''}`}
+                className={`wiki-read__body${bodyTransitionClass}${previewMode ? ' is-preview' : ''}${showChangedOnly && diffClaimIds.length ? ' is-diff-only' : ''}`}
                 data-state={pageTransitionState}
                 data-page-transition-state={pageTransitionState}
               >
@@ -3566,6 +3646,7 @@ const WikiPageReadView = ({
                       focusedClaimId,
                       focusedClaimRef: focusRequestedClaimNode,
                       kinFootnote: listeningRef,
+                      changedClaimIds: markedClaimIds,
                       wrapParagraph: openSentenceEnabled && !previewMode ? wrapOpenableParagraph : undefined
                     })}
                   </WikiOpenSentenceProvider>

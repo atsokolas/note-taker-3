@@ -75,6 +75,8 @@ const WikiReaderContext = ({
         <p className="wiki-reader-context__meta">
           {clean(source.kind || source.type || 'Source')}
           {source.date || source.createdAt ? ` · ${new Date(source.date || source.createdAt).toLocaleDateString()}` : ''}
+          {panel.occurrence?.claimId ? ` · passage ${panel.occurrence.claimId}` : ''}
+          {panel.occurrence?.citationIndex ? ` · source ${panel.occurrence.citationIndex}` : ''}
         </p>
         <h2>{clean(source.title) || 'Untitled source'}</h2>
         {panel.checking ? (

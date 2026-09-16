@@ -1,10 +1,14 @@
 import {
   candidateFootprint,
+  changedClaimIdsFromPages,
+  changedClaimIdsFromVisit,
   compareWikiPages,
   historicalRevisionSnapshot,
   popReaderPanel,
   pushReaderPanel,
+  sourceArticleId,
   sourceSurrounding,
+  surroundingFromLibrarySource,
   surroundingFromSource
 } from './wikiReaderContextModel';
 import { collectWikiText } from './wikiPageMetrics';
@@ -36,6 +40,64 @@ describe('wikiReaderContextModel', () => {
       snippet: 'The cited sentence.',
       aroundBefore: 'A prior sentence.'
     })).toMatchObject({ excerpt: 'The cited sentence.', canExpand: true });
+  });
+
+  it('slices surrounding from the owned article and stays silent when the line is missing', () => {
+    const source = {
+      type: 'highlight',
+      objectId: 'highlight-1',
+      parentObjectId: 'article-1',
+      snippet: 'A wrong turn you can walk back from still teaches the map.'
+    };
+    const article = {
+      content: '<p>Getting lost was part of the work. A wrong turn you can walk back from still teaches the map. That is a different kind of care.</p>'
+    };
+    const around = surroundingFromLibrarySource({
+      source,
+      article,
+      highlight: { _id: 'highlight-1', text: source.snippet }
+    });
+    expect(around.excerpt).toBe(source.snippet);
+    expect(around.canExpand).toBe(true);
+    expect(around.aroundBefore).toContain('Getting lost');
+    expect(around.aroundAfter).toContain('different kind of care');
+    expect(sourceArticleId(source)).toBe('article-1');
+    expect(surroundingFromLibrarySource({
+      source: { snippet: 'A similar-sounding neighbor was not attached.' },
+      article,
+      highlight: { text: 'A similar-sounding neighbor was not attached.' }
+    })).toMatchObject({
+      excerpt: 'A similar-sounding neighbor was not attached.',
+      aroundBefore: '',
+      aroundAfter: '',
+      canExpand: false
+    });
+  });
+
+  it('marks only claim ids that actually changed', () => {
+    const current = {
+      claims: [
+        { claimId: 'stable', text: 'Unchanged sentence.', citationIds: ['a'] },
+        { claimId: 'moved', text: 'Old wording.', citationIds: ['a'] }
+      ]
+    };
+    const next = {
+      claims: [
+        { claimId: 'stable', text: 'Unchanged sentence.', citationIds: ['a'] },
+        { claimId: 'moved', text: 'New wording.', citationIds: ['a'] }
+      ]
+    };
+    expect(changedClaimIdsFromPages(current, next)).toEqual(['moved']);
+    expect(changedClaimIdsFromVisit({
+      page: {
+        claims: [
+          { claimId: 'claim-1', text: 'Memory compounds with review.' },
+          { claimId: 'claim-stable', text: 'Still here.' }
+        ]
+      },
+      added: ['memory compounds with review.']
+    })).toEqual(['claim-1']);
+    expect(changedClaimIdsFromVisit({ page: current, added: [], changed: [] })).toEqual([]);
   });
 
   it('describes the whole candidate against the current page without mixing the two', () => {
