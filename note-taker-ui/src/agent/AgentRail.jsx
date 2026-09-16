@@ -205,6 +205,7 @@ const AgentRail = () => {
         <p className="agent-rail__role-description">{surface.roleDescription}</p>
       ) : null}
 
+      {surface.room === 'library' ? <p className="agent-rail__caption">Scope: {surface.objectType === 'article' ? 'This source' : surface.objectType === 'folder' ? 'This shelf' : 'Library'}</p> : null}
       {surface.subject ? (
         <p className="agent-rail__subject" key={surface.id || surface.subject}>
           <span>Now with</span>

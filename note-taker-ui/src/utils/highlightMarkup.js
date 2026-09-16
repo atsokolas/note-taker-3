@@ -17,7 +17,7 @@ export const buildTextSnapshot = (root) => {
 
   while ((current = walker.nextNode())) {
     const parentTag = current.parentElement?.tagName?.toUpperCase() || '';
-    if (SKIP_TEXT_TAGS.has(parentTag)) continue;
+    if (SKIP_TEXT_TAGS.has(parentTag) || current.parentElement?.closest('[data-reader-control]')) continue;
     const value = current.nodeValue || '';
     if (!value) continue;
     const start = fullText.length;

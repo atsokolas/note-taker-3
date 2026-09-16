@@ -171,6 +171,7 @@ export const AgentRailProvider = ({ children }) => {
   }, []);
 
   const ask = useCallback(async (question, options = {}) => {
+    window.dispatchEvent(new Event('noeis:open-agent'));
     const revision = surfaceRevision.current;
     if (pendingRequest.current) return;
     if (!agentAvailable) {

@@ -44,7 +44,7 @@ describe('SelectionMenu', () => {
     render(<SelectionMenu {...baseProps} rect={{ top: 537, left: 748, width: 630, height: 20 }} />);
     const menu = document.querySelector('.selection-menu');
     expect(menu.style.top).toBe('507px');
-    expect(menu.style.left).toBe('1063px');
+    expect(menu.style.left).toBe(`${window.innerWidth - 12}px`);
     expect(menu.className).not.toContain('selection-menu--below');
   });
 

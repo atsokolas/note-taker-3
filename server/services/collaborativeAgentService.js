@@ -2388,10 +2388,20 @@ const resolveContextItem = async ({
   return null;
 };
 
+// Library names its retrieval boundary explicitly. A malformed narrow scope
+// stays empty rather than falling through to a workspace-wide search.
+const libraryRetrievalFilter = (context = {}) => {
+  if (context.metadata?.room !== 'library') return null;
+  if (context.type === 'article') return { _id: mongoose.isValidObjectId(context.id) ? context.id : null };
+  if (context.type === 'folder') return { folder: mongoose.isValidObjectId(context.id) ? context.id : null, ...(mongoose.isValidObjectId(context.id) ? {} : { _id: null }) };
+  return context.type === 'workspace' && context.id === 'library' ? {} : { _id: null };
+};
+
 const searchInternalItems = async ({
   userObjectId,
   tokens = [],
   limit = DEFAULT_LIMIT,
+  libraryFilter = null,
   Article,
   NotebookEntry,
   TagMeta
@@ -2403,6 +2413,7 @@ const searchInternalItems = async ({
   const [articles, notes, concepts] = await Promise.all([
     Article.find({
       userId: userObjectId,
+      ...(libraryFilter || {}),
       $or: [
         { title: regex },
         { content: regex }
@@ -2412,7 +2423,7 @@ const searchInternalItems = async ({
       .sort({ updatedAt: -1 })
       .limit(SEARCH_MODEL_LIMIT)
       .lean(),
-    NotebookEntry.find({
+    libraryFilter ? [] : NotebookEntry.find({
       userId: userObjectId,
       $or: [
         { title: regex },
@@ -2424,7 +2435,7 @@ const searchInternalItems = async ({
       .sort({ updatedAt: -1 })
       .limit(SEARCH_MODEL_LIMIT)
       .lean(),
-    TagMeta.find({
+    libraryFilter ? [] : TagMeta.find({
       userId: userObjectId,
       $or: [
         { name: regex },
@@ -3109,6 +3120,7 @@ const generateCollaborativeReply = async ({
       };
     }
   }
+  const libraryFilter = libraryRetrievalFilter(context);
   const shouldSearchWorkspace = shouldSearchWorkspaceForContext({
     context,
     contextItem,
@@ -3122,12 +3134,13 @@ const generateCollaborativeReply = async ({
       userObjectId,
       tokens,
       limit: safeLimit,
+      libraryFilter,
       Article,
       NotebookEntry,
       TagMeta
     })
     : [];
-  const graphItems = sharedQuestionScoped
+  const graphItems = sharedQuestionScoped || libraryFilter
     ? []
     : await loadGraphRelatedItems({
       userObjectId,
@@ -3141,7 +3154,7 @@ const generateCollaborativeReply = async ({
       WikiPage,
       Question
     });
-  const workspaceRetrievalItems = sharedQuestionScoped
+  const workspaceRetrievalItems = libraryFilter ? searchedItems : sharedQuestionScoped
     ? (Array.isArray(contextItem?.relatedItems) ? contextItem.relatedItems : [])
     : intentDecision.replyIntent === 'retrieve'
       && intentDecision.retrievalPolicy === 'workspace'
@@ -3320,6 +3333,8 @@ const generateCollaborativeReply = async ({
 module.exports = {
   generateCollaborativeReply,
   __testables: {
+    libraryRetrievalFilter,
+    searchInternalItems,
     tokenize,
     buildTokenRegex,
     matchedExcerpt,
