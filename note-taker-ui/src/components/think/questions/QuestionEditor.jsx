@@ -13,6 +13,7 @@ import {
   questionBlockFromPassage,
   recordedUsesFromQuestionBlocks
 } from '../../../utils/libraryPassageUse';
+import { inquiryIsDependable, normalizeInquiry } from '../../../utils/questionInquiry';
 
 const createId = () => {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
@@ -124,6 +125,10 @@ const QuestionEditor = ({
     );
   }
 
+  const returnLaterReason = inquiryIsDependable(question)
+    ? (normalizeInquiry(question.inquiry).run.boundBrief || 'the look you asked for')
+    : (titleDraft || question.text || 'Question');
+
   return (
     <div className={`think-question-editor${variant === 'editorial' ? ' is-editorial' : ''}`}>
       <div className="think-question-editor-header">
@@ -150,8 +155,8 @@ const QuestionEditor = ({
         <div className="think-question-editor-actions">
           <ReturnLaterControl
             itemType="question"
-            itemId={question?._id}
-            defaultReason={titleDraft || question?.text || 'Question'}
+            itemId={question._id}
+            defaultReason={returnLaterReason}
           />
           {onSynthesize && (
             <Button variant="secondary" onClick={() => onSynthesize(question)}>Synthesize</Button>

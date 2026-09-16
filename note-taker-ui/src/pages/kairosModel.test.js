@@ -1,4 +1,4 @@
-import { KAIROS_EYEBROW, KAIROS_SENTENCE, addDays, askedBackLine, kairosSentence, nextMonday, paperAskedBack, pendingRemindOf, promiseLedger, remindPresets } from './kairosModel';
+import { KAIROS_EYEBROW, KAIROS_SENTENCE, addDays, askedBackHref, askedBackLine, kairosSentence, nextMonday, paperAskedBack, pendingRemindOf, promiseLedger, remindPresets } from './kairosModel';
 
 const NOW = new Date('2026-08-31T15:00:00');
 
@@ -26,6 +26,14 @@ describe('kairos', () => {
       { articleId: 'a2', title: '' },
       { title: 'No identity' }
     ]).map((row) => row.articleId)).toEqual(['a1']);
+    expect(paperAskedBack([
+      { questionId: 'q-downside', title: 'Who bears the downside?', href: '/think?tab=questions&questionId=q-downside' },
+      { questionId: 'q-empty', title: '   ' }
+    ]).map((row) => row.questionId)).toEqual(['q-downside']);
+    expect(askedBackHref({
+      questionId: 'q-downside',
+      href: '/think?tab=questions&questionId=q-downside'
+    })).toBe('/think?tab=questions&questionId=q-downside');
     expect(askedBackLine({
       fromPlacement: 'setAside',
       fromAt: '2026-08-25T09:00:00.000Z',
@@ -37,6 +45,11 @@ describe('kairos', () => {
       reason: 'the margin note on returns'
     })).toMatch(/from the margin note on returns/);
     expect(askedBackLine({ title: 'The Costco 10-K' })).toBe('');
+    expect(askedBackLine({
+      itemType: 'question',
+      questionId: 'q-downside',
+      reason: 'the look you asked for'
+    })).toBe('the look you asked for');
   });
 
   it('finds the pending remind for one article', () => {

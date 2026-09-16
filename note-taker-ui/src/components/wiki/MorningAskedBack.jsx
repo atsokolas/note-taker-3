@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { updateReturnQueueEntry } from '../../api/returnQueue';
-import { addDays, askedBackLine, kairosSentence, KAIROS_EYEBROW, paperAskedBack } from '../../pages/kairosModel';
+import { addDays, askedBackHref, askedBackLine, kairosSentence, KAIROS_EYEBROW, paperAskedBack } from '../../pages/kairosModel';
 
 const MorningAskedBack = ({ askedBack, pulse = false }) => {
   const [gone, setGone] = useState(() => new Set());
   const [busy, setBusy] = useState('');
-  const items = paperAskedBack(askedBack).filter((row) => !gone.has(String(row.queueId || row.articleId)));
+  const items = paperAskedBack(askedBack).filter((row) => !gone.has(String(row.queueId || row.articleId || row.questionId)));
   if (!items.length) return null;
 
   const snooze = async (item) => {
@@ -45,8 +45,8 @@ const MorningAskedBack = ({ askedBack, pulse = false }) => {
         {items.map((item) => {
           const line = askedBackLine(item);
           return (
-            <li key={item.queueId || item.articleId}>
-              <Link to={item.href || `/library?articleId=${encodeURIComponent(item.articleId)}`}>
+            <li key={item.queueId || item.articleId || item.questionId}>
+              <Link to={askedBackHref(item)}>
                 {item.title}
               </Link>
               {line ? <p className="wiki-front-page__asked-back-line">{line}</p> : null}

@@ -50,6 +50,22 @@ assert.match(askedBackMail.html, /The Costco 10-K/);
 assert.doesNotMatch(askedBackMail.html, /Reminders/);
 assert.match(askedBackMail.text, /You asked for this back/);
 
+const inquiryMail = renderMorningPaperEmail({
+  briefing: {
+    askedBack: [{
+      title: 'Who bears the downside?',
+      href: '/think?tab=questions&questionId=q-downside',
+      itemType: 'question',
+      questionId: 'q-downside',
+      reason: 'the look you asked for'
+    }]
+  },
+  unsubscribeUrl: 'https://www.noeis.io/api/morning-paper/unsubscribe?token=x'
+});
+assert.match(inquiryMail.html, /Who bears the downside\?/);
+assert.match(inquiryMail.html, /think\?tab=questions&amp;questionId=q-downside/);
+assert.doesNotMatch(inquiryMail.html, /\/library\?articleId=/);
+
 const movement = {
   id: 'contradiction:p1:c1:e1',
   kind: 'contradiction',

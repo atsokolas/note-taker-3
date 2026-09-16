@@ -10,7 +10,8 @@ jest.mock('../../../hooks/useHighlights', () => () => ({
   error: null
 }));
 
-jest.mock('../../return-queue/ReturnLaterControl', () => function ReturnLaterControl() {
+jest.mock('../../return-queue/ReturnLaterControl', () => function ReturnLaterControl(props) {
+  ReturnLaterControl.lastProps = props;
   return <button type="button">Return later</button>;
 });
 
@@ -345,5 +346,31 @@ describe('QuestionEditor', () => {
     });
     expect(payload.text).toBeUndefined();
     expect(payload.blocks).toBeUndefined();
+  });
+
+  it('asks Paper to bring back the look, not a duplicate of the question title', () => {
+    const ReturnLaterControl = jest.requireMock('../../return-queue/ReturnLaterControl');
+    render(
+      <QuestionEditor
+        question={{
+          _id: 'question-1',
+          text: 'Who bears the downside?',
+          inquiry: {
+            brief: 'Find an example that separates patience from avoidance.',
+            run: {
+              status: 'complete',
+              boundBrief: 'Find an example that separates patience from avoidance.',
+              passages: [{ articleId: 'letter', passage: 'Patience is not avoidance.' }]
+            }
+          },
+          blocks: []
+        }}
+        saving={false}
+        error={null}
+        onSave={jest.fn()}
+      />
+    );
+    expect(ReturnLaterControl.lastProps.defaultReason)
+      .toBe('Find an example that separates patience from avoidance.');
   });
 });

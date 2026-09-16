@@ -68,8 +68,19 @@ export const remindPresets = (now = new Date()) => Object.freeze([
   { id: 'every-monday', label: 'Every Monday', dueAt: nextMonday(now), cadence: 'weekly' }
 ]);
 
+const askedBackId = (row = {}) => clean(row.articleId) || clean(row.questionId);
+
+export const askedBackHref = (item = {}) => {
+  if (clean(item.href)) return item.href;
+  if (clean(item.questionId)) {
+    return `/think?tab=questions&questionId=${encodeURIComponent(item.questionId)}`;
+  }
+  if (clean(item.articleId)) return `/library?articleId=${encodeURIComponent(item.articleId)}`;
+  return '';
+};
+
 export const paperAskedBack = (rows = []) => (Array.isArray(rows) ? rows : [])
-  .filter((row) => row?.articleId && clean(row.title))
+  .filter((row) => askedBackId(row) && clean(row.title))
   .slice(0, 3);
 
 const weekdayOf = (value) => {
@@ -79,6 +90,9 @@ const weekdayOf = (value) => {
 };
 
 export const askedBackLine = (item = {}) => {
+  if (item.itemType === 'question' || item.questionId) {
+    return clean(item.reason);
+  }
   const pile = item.fromPlacement === 'later'
     ? 'later'
     : item.fromPlacement === 'setAside'
