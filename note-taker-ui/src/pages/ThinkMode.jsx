@@ -370,6 +370,11 @@ const clearInvestigationContext = params => {
   INVESTIGATION_QUERY_KEYS.forEach(key => params.delete(key));
   return params;
 };
+const leaveConceptPin = params => {
+  clearInvestigationContext(params);
+  params.delete('v');
+  return params;
+};
 
 const ThinkMode = () => {
   const navigate = useNavigate();
@@ -694,7 +699,7 @@ const ThinkMode = () => {
     : (queryConceptName || (requestedConceptId ? String(concept?.name || '').trim() : ''));
   const closeInvestigation = useCallback(() => {
     const params = new URLSearchParams(searchParams);
-    clearInvestigationContext(params);
+    leaveConceptPin(params);
     if (selectedName) params.set('concept', selectedName);
     else params.delete('concept');
     setSearchParams(params, { replace: true });
@@ -764,6 +769,7 @@ const ThinkMode = () => {
       const params = new URLSearchParams(searchParams);
       params.set('tab', 'notebook');
       params.delete('concept');
+      leaveConceptPin(params);
       params.delete('questionId');
       params.delete('threadId');
       params.delete('handoffId');
@@ -1598,6 +1604,7 @@ const ThinkMode = () => {
     const params = new URLSearchParams(searchParams);
     params.set('tab', 'concepts');
     params.set('concept', name);
+    leaveConceptPin(params);
     params.delete('scopeType');
     params.delete('scopeId');
     setSearchParams(params);
@@ -1643,6 +1650,7 @@ const ThinkMode = () => {
     }
     if (view !== 'concepts') {
       params.delete('concept');
+      leaveConceptPin(params);
     }
     if (view !== 'questions') {
       params.delete('questionId');
