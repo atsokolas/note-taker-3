@@ -149,3 +149,41 @@ The production Note partial unique index was created and read back before rollou
 there were zero Edition thoughts before installation and no content was migrated.
 Fresh frontend tests, backend tests and optimized build pass. Release and hosted
 acceptance receipts are recorded separately after deployment.
+
+PR [#430](https://github.com/atsokolas/note-taker-3/pull/430) merged at
+2026-09-16 12:45 UTC as `d6e5fec507b1f12b1256d094c3465aced1176d5e`.
+The hosted API reports that commit; the Vercel production deployment passed.
+Fresh verification: 105 frontend tests; 92 backend tests; standalone Library
+placement and kept-scope checks; real Mongo integration; optimized build and diff
+check. Local Chromium/WebKit again passed all eight viewport combinations.
+
+The reusable local preview now mounts legacy note routes only for integration
+checks, so their unrelated article handlers cannot intercept preview source text.
+This is a verification-harness correction; production routing is unchanged.
+
+Production API acceptance on the verified QA account passed concurrent first-write
+uniqueness, exact thought readback, legacy-note exclusion, and private-note exclusion
+from the public-share preview. Temporary fixture records are individually scoped
+and removed afterward; no existing user note or Edition is edited. No live model
+calls or external article fetches are part of this acceptance.
+
+One browser attempt reached the previous frontend during rollout. A subsequent
+WebKit run completed the reading interactions but reported two health-probe
+access-control errors around navigation. The live health response has the correct
+CORS header; three fresh WebKit cross-origin health probes returned 200 with no
+page errors. These transient failures are retained separately from final acceptance.
+
+Final authenticated production acceptance passed in Chromium and WebKit at
+1320px and 390px: exact Source scroll return and focus restoration, no horizontal
+overflow, Unicode thought and closing-reflection save/reload, and zero page errors.
+One in-flight thought GET was cancelled by deliberate navigation; saved content was
+read back afterward. All temporary production Edition, Article and Note records
+were removed and their absence verified. Receipt: local
+`output/sunday-paper/production-receipt.json`; index proof:
+`production-index.json`; screenshots: `production-{chromium,webkit}-{1320,390}.png`.
+
+Remaining acceptance is physical-device/native Safari/IME and voluntary returns
+across days. Automated WebKit plus synthetic composition/Unicode input does not
+prove a real device keyboard. Resume and unsaved drafts remain intentionally
+local; ungrounded connections remain omitted. No implementation or deployment
+blocker remains for this release.
