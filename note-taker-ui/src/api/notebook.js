@@ -49,6 +49,15 @@ export const getNotebookEntry = async (id) => {
   return res.data;
 };
 
+export const updateNotebookWorkbench = async (id, workingState, expectedRevision = 0) => {
+  const res = await api.put(
+    `/api/notebook/${encodeURIComponent(id)}/workbench`,
+    { workingState, expectedRevision },
+    getAuthHeaders()
+  );
+  return res.data?.workingState || null;
+};
+
 export const createNotebookEntry = async (payload) => {
   const res = await api.post('/api/notebook', payload, getAuthHeaders());
   summariesCache.reset();

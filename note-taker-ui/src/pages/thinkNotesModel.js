@@ -79,6 +79,7 @@ export const buildNoteShelf = ({ notes = [], openId = '', expanded = false, limi
   .map(entry => ({
     id: idOf(entry),
     title: noteTitle(entry),
+    nextTimeLine: normalizeSpaces(entry?.workingState?.nextTimeLine?.text),
     updatedAt: entry?.updatedAt || entry?.createdAt || null,
     isOpen: idOf(entry) === normalizeSpaces(openId)
   }))

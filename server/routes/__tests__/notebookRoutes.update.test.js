@@ -199,6 +199,10 @@ const run = async () => {
     assert.equal(stored.asidePieces[0].nodes[0].attrs.blockId, 'held-1');
     assert.equal(stored.asidePieces[0].blocks[0].articleId, null);
 
+    const bodyFirst = await putNote(url, { title: '' });
+    assert.equal(bodyFirst.status, 200);
+    assert.equal(stored.title, '', 'a body-first note must not receive a generated title');
+
     stored.save = async () => {
       throw Object.assign(new Error('you are over your space quota, using 512 MB of 512 MB.'), { code: 8000 });
     };

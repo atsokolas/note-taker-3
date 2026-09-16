@@ -72,6 +72,8 @@ describe('NotebookArrangementRail', () => {
     expect(onReveal).toHaveBeenCalledWith(1);
     fireEvent.click(screen.getByRole('button', { name: 'Move up' }));
     fireEvent.click(screen.getByRole('button', { name: 'Try without this passage' }));
+    expect(screen.queryByRole('button', { name: 'Delete this passage' })).not.toBeInTheDocument();
+    openArrange();
     fireEvent.click(screen.getByRole('button', { name: 'Delete this passage' }));
 
     expect(onMove).toHaveBeenCalledWith('up', 1);
@@ -85,7 +87,10 @@ describe('NotebookArrangementRail', () => {
     renderRail({
       currentPieceIndex: 0,
       asidePieces: [{ id: 'aside-1', label: 'The exception is when the downside lands on someone else.' }],
-      receipt: { label: 'Undo moving “The exception is when the downside lands on someone else.”' },
+      receipt: {
+        label: 'Undo moving “The exception is when the downside lands on someone else.”',
+        operation: { kind: 'move' }
+      },
       onUndo,
       onRestore
     });

@@ -842,6 +842,7 @@ describe('NotebookEditor', () => {
       .find((doc) => Array.isArray(doc?.content) && doc.content.length === 1);
     expect(asideDoc.content.map((node) => node.attrs.blockId)).toEqual(['rule']);
     mockEditor.getJSON.mockReturnValue({ type: 'doc', content: [rule] });
+    openArrangement();
     fireEvent.click(screen.getByRole('button', { name: 'Bring back: The exception is when the downside lands on someone who never chose the experiment.' }));
     expect(mockEditor.commands.setContent.mock.calls.at(-1)[0].content.map((node) => node.attrs.blockId)).toEqual(['rule', 'exception']);
   });
@@ -919,6 +920,7 @@ describe('NotebookEditor', () => {
     openArrangement();
     fireEvent.click(screen.getByRole('button', { name: 'Try without this passage' }));
     mockEditor.getJSON.mockReturnValue({ type: 'doc', content: [closer] });
+    openArrangement();
     fireEvent.click(screen.getByRole('button', { name: 'Bring back: See this source' }));
     expect(mockEditor.commands.setContent.mock.calls.at(-1)[0].content[0]).toEqual(marked);
   });

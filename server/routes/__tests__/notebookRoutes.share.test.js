@@ -34,6 +34,12 @@ const essay = () => ({
   _id: NOTE,
   userId: USER,
   title: 'Who gets to experiment, and who pays?',
+  workingState: {
+    materials: [{ id: 'private-material', text: 'Private staged source.' }],
+    trials: [{ id: 'private-trial', trialText: 'Private alternate wording.' }],
+    looseThoughts: [{ id: 'private-thought', text: 'Private loose thought.' }],
+    nextTimeLine: { text: 'Private return line.' }
+  },
   blocks: [{
     id: 'q1',
     type: 'highlight_embed',
@@ -181,6 +187,10 @@ const run = async () => {
     assert.strictEqual(before.body.preview.blocks[0].source.href, 'https://example.com/letter');
     assert.ok(!JSON.stringify(before.body.preview).includes('/library?'));
     assert.ok(!JSON.stringify(before.body.preview).includes(ARTICLE));
+    assert.ok(!JSON.stringify(before.body.preview).includes('Private staged source.'));
+    assert.ok(!JSON.stringify(before.body.preview).includes('Private alternate wording.'));
+    assert.ok(!JSON.stringify(before.body.preview).includes('Private loose thought.'));
+    assert.ok(!JSON.stringify(before.body.preview).includes('Private return line.'));
 
     const agent = await fetchJson(`${url}/api/notebook/${NOTE}/share`, {
       method: 'POST',
@@ -212,6 +222,10 @@ const run = async () => {
     assert.ok(!publicRead.body.revisedAt);
     assert.ok(!publicRead.body.correction);
     assert.ok(!publicRead.body.letters);
+    assert.ok(!JSON.stringify(publicRead.body).includes('Private staged source.'));
+    assert.ok(!JSON.stringify(publicRead.body).includes('Private alternate wording.'));
+    assert.ok(!JSON.stringify(publicRead.body).includes('Private loose thought.'));
+    assert.ok(!JSON.stringify(publicRead.body).includes('Private return line.'));
     assert.ok(!JSON.stringify(publicRead.body).includes('/library?'));
     assert.strictEqual(publicRead.response.headers.get('cache-control').includes('no-store'), true);
 

@@ -78,7 +78,7 @@ describe('ThinkNotes first paint', () => {
 
     expect(container.querySelector('.room-shelf__count')).toBeNull();
     expect(container.querySelector('.room-shelf__item-meta')).toBeNull();
-    expect(screen.getByRole('button', { name: 'Start a note' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /New note/ })).toBeDisabled();
 
     await act(async () => {
       resolveShelf([{ _id: 'note-1', title: 'A real note', updatedAt: '2026-08-29T12:00:00.000Z' }]);
@@ -123,8 +123,7 @@ describe('ThinkNotes first paint', () => {
     render(<ThinkNotes />);
     await screen.findByText('A thought does not need a source to begin. Start a note and see where it takes you.');
     expect(api.post).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', {name:'Start a note'}));
-    fireEvent.click(screen.getByRole('button', {name:'Opening a new note…'}));
+    fireEvent.click(screen.getByRole('button', { name: /New note/ }));
     await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1));
     expect(api.post.mock.calls[0].slice(0,2)).toEqual(['/api/notebook', {title:'', content:'', blocks:[], type:'note', source:'think'}]);
     await act(async () => finishCreate({data:{_id:'new-note',title:'Untitled',blocks:[]}}));
@@ -162,12 +161,12 @@ describe('ThinkNotes first paint', () => {
     render(<ThinkNotes />);
     await screen.findByText('Editor');
     mockFlush.mockResolvedValue(false);
-    fireEvent.click(screen.getByRole('button',{name:'Start a note'}));
-    await waitFor(() => expect(screen.getByRole('button',{name:'Start a note'})).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: /New note/ }));
+    await waitFor(() => expect(screen.getByRole('button', { name: /New note/ })).toBeEnabled());
     expect(api.post).not.toHaveBeenCalled();
     mockFlush.mockResolvedValue(true);
     api.post.mockRejectedValue(new Error('Acknowledgement lost'));
-    fireEvent.click(screen.getByRole('button',{name:'Start a note'}));
+    fireEvent.click(screen.getByRole('button', { name: /New note/ }));
     await screen.findByText('Could not confirm the new note. Reload Think to check your recent notes before trying again.');
     expect(screen.getByTestId('open-note')).toHaveTextContent('note-1');
     expect(api.post).toHaveBeenCalledTimes(1);
@@ -178,9 +177,10 @@ describe('ThinkNotes first paint', () => {
     authoredExplorations.search.mockResolvedValue({ results: [{ kind: 'exploration', id: 'work-1', pageId: 'page-1', claimId: 'claim-1', title: 'Room to return', label: 'Question', excerpt: 'What makes room for the second attempt?', matchStart: 16, matchLength: 11 }], limited: false });
     render(<ThinkNotes />);
     await screen.findByText('Editor');
-    fireEvent.click(screen.getByRole('button', { name: 'Find writing' }));
-    expect(screen.getByRole('searchbox', { name: 'Find your writing' })).toHaveFocus();
-    fireEvent.change(screen.getByRole('searchbox', { name: 'Find your writing' }), { target: { value: 'the second' } });
+    const search = screen.getByRole('searchbox', { name: 'Find your writing' });
+    search.focus();
+    expect(search).toHaveFocus();
+    fireEvent.change(search, { target: { value: 'the second' } });
     expect(screen.getByText('Looking through your writing…')).toBeInTheDocument();
     const results = await screen.findByRole('region', { name: 'Found in your writing' });
     const match = await within(results).findByRole('link', { name: /Room to return/ });

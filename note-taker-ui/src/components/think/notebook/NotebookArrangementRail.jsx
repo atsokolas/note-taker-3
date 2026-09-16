@@ -59,6 +59,8 @@ const NotebookArrangementRail = ({
   onMove,
   onUndo,
   onSetAside,
+  onTryWording,
+  onHoldThought,
   onRestore,
   onDeletePiece
 }) => {
@@ -199,6 +201,11 @@ const NotebookArrangementRail = ({
     if (next) onReveal?.(Number.isInteger(trackedIndex) ? trackedIndex : undefined);
   };
 
+  const leaveRail = (action) => {
+    setOpen(false);
+    action?.();
+  };
+
   return (
     <div
       ref={rootRef}
@@ -248,18 +255,30 @@ const NotebookArrangementRail = ({
             <QuietButton
               disabled={!enabled || !tracked}
               aria-label="Try without this passage"
-              onClick={() => onSetAside?.(trackedIndex)}
+              onClick={() => leaveRail(() => onSetAside?.(trackedIndex))}
             >
               Try without
             </QuietButton>
             <QuietButton
               disabled={!enabled || !tracked}
+              onClick={() => leaveRail(() => onTryWording?.(trackedIndex))}
+            >
+              Try another wording
+            </QuietButton>
+            <QuietButton
+              disabled={!enabled || !tracked}
+              onClick={() => leaveRail(() => onHoldThought?.(trackedIndex))}
+            >
+              Hold a thought
+            </QuietButton>
+            <QuietButton
+              disabled={!enabled || !tracked}
               aria-label="Delete this passage"
-              onClick={() => onDeletePiece?.(trackedIndex)}
+              onClick={() => leaveRail(() => onDeletePiece?.(trackedIndex))}
             >
               Delete
             </QuietButton>
-            {receipt ? (
+            {receipt?.operation ? (
               <QuietButton onClick={onUndo}>
                 {receipt.label}
               </QuietButton>
