@@ -1,4 +1,4 @@
-import { buildLibraryColumn, continueLine, librarySubject, sourceLabel } from './libraryColumnModel';
+import { librarySubject, sourceLabel } from './libraryColumnModel';
 
 const article = (overrides = {}) => ({
   _id: 'a1',
@@ -24,78 +24,6 @@ describe('sourceLabel', () => {
   });
 });
 
-describe('buildLibraryColumn', () => {
-  const articles = [
-    article({ _id: 'a1', title: 'Old but marked up', highlights: [{ _id: 'h1' }, { _id: 'h2' }], updatedAt: '2026-01-01T00:00:00.000Z', source: 'SemiAnalysis', summary: 'A technical read.' }),
-    article({ _id: 'a2', title: 'Newest', updatedAt: '2026-08-14T00:00:00.000Z', source: 'Nvidia' }),
-    article({ _id: 'a3', title: 'Middle', updatedAt: '2026-05-01T00:00:00.000Z' })
-  ];
-
-  it('continues the source you left highlights in, not merely the newest', () => {
-    const { continueItem } = buildLibraryColumn({ articles });
-
-    expect(continueItem).toEqual(expect.objectContaining({
-      id: 'a1',
-      title: 'Old but marked up',
-      source: 'SemiAnalysis',
-      dek: 'A technical read.'
-    }));
-  });
-
-  it('lists the rest newest first and never twice', () => {
-    const { rows } = buildLibraryColumn({ articles });
-
-    expect(rows.map(row => row.id)).toEqual(['a2', 'a3']);
-    expect(rows[0]).toEqual(expect.objectContaining({ title: 'Newest', source: 'Nvidia' }));
-  });
-
-  it('prefers the full corpus over the current filter when both are present', () => {
-    const { rows } = buildLibraryColumn({ articles: [articles[1]], allArticles: articles });
-
-    expect(rows.map(row => row.id)).toEqual(['a2', 'a3']);
-  });
-
-  it('hides parked articles from Continue and the shelf', () => {
-    const { continueItem, rows } = buildLibraryColumn({
-      articles: [
-        ...articles,
-        article({
-          _id: 'parked',
-          title: 'Owed a move',
-          placement: 'later',
-          highlights: [{ _id: 'h-parked' }],
-          updatedAt: '2026-08-20T00:00:00.000Z'
-        })
-      ]
-    });
-
-    expect(continueItem.id).toBe('a1');
-    expect(rows.map(row => row.id)).toEqual(['a2', 'a3']);
-  });
-
-  it('forgets a screened folder from Continue and the shelf', () => {
-    const { continueItem, rows } = buildLibraryColumn({
-      articles: [
-        ...articles,
-        article({
-          _id: 'newsletter',
-          title: 'A weekly letter',
-          highlights: [{ _id: 'h-feed' }],
-          folder: { _id: 'news', name: 'Newsletters', asFeed: true },
-          updatedAt: '2026-08-20T00:00:00.000Z'
-        })
-      ]
-    });
-
-    expect(continueItem.id).toBe('a1');
-    expect(rows.map(row => row.id)).toEqual(['a2', 'a3']);
-  });
-
-  it('has nothing to continue on an empty shelf', () => {
-    expect(buildLibraryColumn({ articles: [] })).toEqual({ continueItem: null, rows: [] });
-  });
-});
-
 describe('librarySubject', () => {
   it('names the source being read', () => {
     expect(librarySubject({ article: { title: 'Inside the Model Spec' }, count: 12 }))
@@ -106,42 +34,5 @@ describe('librarySubject', () => {
     expect(librarySubject({ count: 12 })).toBe('12 sources on the shelf.');
     expect(librarySubject({ count: 1 })).toBe('1 source on the shelf.');
     expect(librarySubject({ count: 0 })).toBe('Your library.');
-  });
-});
-
-/* Continue remembers the exact place.
-   The furthest point you marked in a piece, and the day you marked it —
-   both derived from highlights that already exist, never a new store. */
-describe('where you left off', () => {
-  const at = '2026-09-01T12:00:00.000Z';
-
-  it('says how far through you were and when', () => {
-    expect(continueLine({ lastPlace: { ratio: 0.4, at } }, new Date('2026-09-03T12:00:00.000Z')))
-      .toBe('You were 40% through, Tuesday.');
-  });
-
-  it('names a day beyond the week by its date, not a stale weekday', () => {
-    expect(continueLine({ lastPlace: { ratio: 0.4, at: '2026-07-02T12:00:00.000Z' } }, new Date('2026-09-03T12:00:00.000Z')))
-      .toBe('You were 40% through, Jul 2.');
-  });
-
-  it('rounds to a number a person would say', () => {
-    expect(continueLine({ lastPlace: { ratio: 0.4444, at } }, new Date('2026-09-03T12:00:00.000Z')))
-      .toContain('44% through');
-  });
-
-  it('says nothing when the place is unknown, rather than nought percent', () => {
-    expect(continueLine({ lastPlace: { ratio: null, at } })).toBe('');
-    expect(continueLine({ lastPlace: null })).toBe('');
-    expect(continueLine({})).toBe('');
-  });
-
-  it('says nothing when you have not marked anything yet', () => {
-    expect(continueLine({ lastPlace: { ratio: 0.4, at: null } })).toBe('');
-  });
-
-  it('never claims you were nowhere, or all the way through', () => {
-    expect(continueLine({ lastPlace: { ratio: 0, at } })).toBe('');
-    expect(continueLine({ lastPlace: { ratio: 1, at } })).toBe('');
   });
 });

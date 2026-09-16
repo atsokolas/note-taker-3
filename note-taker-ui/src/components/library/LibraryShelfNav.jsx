@@ -72,11 +72,12 @@ const LibraryShelfNav = ({
   foldersLoading = false,
   foldersError = '',
   scope = 'all',
+  reading = false,
   folderId = '',
   sourceView = 'recent',
   unfiledCount,
   feedTopics = [],
-  query = '',
+  query,
   onQueryChange,
   onSelectScope,
   onSelectFolder,
@@ -278,15 +279,13 @@ const LibraryShelfNav = ({
             active={scope === 'all'}
             onClick={() => onSelectScope?.('all')}
           >
-            {/* Not all of them. This list is every source that is not in a
-                pile and not in a folder you screened as a feed — and its
-                count has always been that same set, so only the word was
-                wrong. "Home" is what the switch on a source calls this, so
-                the room and the control now use one word for one place. */}
-            <span>At home</span>
+            <span>All sources</span>
             {Number.isFinite(count) ? <RoomShelfMeta>{count}</RoomShelfMeta> : null}
           </RoomShelfButton>
         </li>
+        {[['set-aside', 'On the desk'], ['later', 'Later'], ['kept', 'Keepers']].map(([value, label]) => (
+          <li key={value}><RoomShelfButton active={scope === value} onClick={() => onSelectScope?.(value)}>{label}</RoomShelfButton></li>
+        ))}
         {topics.map((topic) => (
           <FeedTopic
             key={topic.id}
@@ -309,7 +308,7 @@ const LibraryShelfNav = ({
             active={scope === 'highlights'}
             onClick={() => onSelectScope?.('highlights')}
           >
-            <span>Highlights</span>
+            <span>Passages</span>
           </RoomShelfButton>
         </li>
       </RoomShelfList>
@@ -451,6 +450,7 @@ const LibraryShelfNav = ({
           ) : null}
         </RoomShelfSection>
       ) : null}
+      <button type="button" className="library-shelf-ask" onClick={() => window.dispatchEvent(new Event('noeis:open-agent'))}>Ask about {reading ? 'this source' : folderId ? 'this shelf' : 'Library'}</button>
     </RoomShelf>
   );
 };

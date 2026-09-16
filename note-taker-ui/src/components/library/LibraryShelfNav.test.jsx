@@ -35,9 +35,9 @@ describe('LibraryShelfNav', () => {
 
     it('is one faint list: the ways of moving, the shelves, and the filing', () => {
       renderNav();
-      expect(screen.getByRole('button', { name: 'At home' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'All sources' })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Unfiled 6' })).toBeInTheDocument();
-      expect(screen.getByRole('searchbox', { name: 'Search library' })).toBeInTheDocument();
+      expect(screen.queryByRole('searchbox', { name: 'Search library' })).not.toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Investing' })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Review filing' })).toBeInTheDocument();
       // Nothing is folded away where the reading was never displaced.
@@ -100,8 +100,8 @@ describe('LibraryShelfNav', () => {
 
     it('keeps the three ways of moving out and folds the cabinet shut', () => {
       renderNav();
-      expect(screen.getByRole('button', { name: 'At home' })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Highlights' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'All sources' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Passages' })).toBeInTheDocument();
       // The folder names and the filing chore no longer sit above the reading.
       expect(screen.queryByRole('button', { name: 'Investing' })).not.toBeInTheDocument();
       expect(screen.queryByRole('button', { name: 'Review filing' })).not.toBeInTheDocument();
@@ -131,11 +131,11 @@ describe('LibraryShelfNav', () => {
       expect(screen.getByRole('button', { name: 'Review filing' })).toBeInTheDocument();
     });
 
-    it('does not carry the three places, at any width', () => {
+    it('keeps placement and Keepers directly available at every width', () => {
       renderNav({});
-      expect(screen.queryByRole('button', { name: /^Later/ })).not.toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: /^Set aside/ })).not.toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: /^Kept/ })).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^Later/ })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^On the desk/ })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^Keepers/ })).toBeInTheDocument();
     });
   });
 
@@ -146,25 +146,25 @@ describe('LibraryShelfNav', () => {
   describe('the three places', () => {
     beforeEach(() => setViewport(false));
 
-    it('is not in the cabinet', () => {
+    it('offers collection scopes only once', () => {
       renderNav({});
       const labels = [...document.querySelectorAll('.library-shelf__scopes button')].map(b => b.textContent);
-      expect(labels).toEqual(['At home', 'Unfiled6', 'Highlights']);
+      expect(labels).toEqual(['All sources', 'On the desk', 'Later', 'Keepers', 'Unfiled6', 'Passages']);
     });
 
     it('leaves the cabinet to the shelves and the ways of narrowing', () => {
       renderNav({});
-      expect(screen.getByRole('button', { name: 'At home' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'All sources' })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Unfiled 6' })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Highlights' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Passages' })).toBeInTheDocument();
     });
 
     it('keeps counts silent until the Library has actually answered', () => {
       renderNav({ count: undefined, unfiledCount: undefined });
 
-      expect(screen.getByRole('button', { name: 'At home' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'All sources' })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Unfiled' })).toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: /At home 0/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /All sources 0/ })).not.toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /Unfiled 0/ })).not.toBeInTheDocument();
     });
   });
@@ -172,15 +172,15 @@ describe('LibraryShelfNav', () => {
   describe('screened topics', () => {
     beforeEach(() => setViewport(false));
 
-    it('prints the folder name in living ink under At home, never the word Feed', () => {
+    it('prints the folder name in living ink under All sources, never the word Feed', () => {
       const onSelectFolder = jest.fn();
       renderNav({
         feedTopics: [{ id: 'news', name: 'Newsletters' }],
         onSelectFolder
       });
       const labels = [...document.querySelectorAll('.library-shelf__scopes button')].map(b => b.textContent);
-      expect(labels[0]).toBe('At home');
-      expect(labels[1]).toBe('Newsletters');
+      expect(labels[0]).toBe('All sources');
+      expect(labels).toContain('Newsletters');
       expect(screen.queryByText(/^Feed/)).not.toBeInTheDocument();
       fireEvent.click(screen.getByRole('button', { name: 'Newsletters' }));
       expect(onSelectFolder).toHaveBeenCalledWith('news');
@@ -201,7 +201,7 @@ describe('LibraryShelfNav', () => {
       setViewport(true);
       renderNav({ feedTopics: [{ id: 'news', name: 'Newsletters' }] });
       expect(screen.getByRole('button', { name: 'Newsletters' })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'At home' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'All sources' })).toBeInTheDocument();
     });
 
     it('flies the screened name onto the rail', () => {
