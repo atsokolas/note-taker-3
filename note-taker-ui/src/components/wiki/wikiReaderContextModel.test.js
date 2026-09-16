@@ -125,7 +125,11 @@ describe('wikiReaderContextModel', () => {
       after: { title: 'Earlier page', plainText: 'The earlier words.' },
       createdAt: '2026-09-03T00:00:00.000Z',
       _id: 'rev-2'
-    }).plainText).toBe('The earlier words.');
+    })).toMatchObject({
+      plainText: 'The earlier words.',
+      retained: 'after',
+      rev: 'rev-2'
+    });
   });
 
   it('keeps the retained body when the list only supplies after.claims', () => {
@@ -144,8 +148,34 @@ describe('wikiReaderContextModel', () => {
     });
     expect(snapshot).not.toBeNull();
     expect(collectWikiText(snapshot.body)).toBe('UNIQUE_HISTORICAL_SENTENCE from a retained revision.');
+    expect(snapshot.retained).toBe('before');
+    expect(snapshot.rev).not.toBe('rev-list');
     expect(historicalRevisionSnapshot({
       after: { claims: [{ claimId: 's2', text: 'A later sentence.' }] }
     })).toBeNull();
+  });
+
+  it('identifies this revision only when the after snapshot actually has the article', () => {
+    const afterSnapshot = historicalRevisionSnapshot({
+      _id: 'rev-2',
+      createdAt: '2026-09-03T00:00:00.000Z',
+      after: {
+        title: 'Strategy is a set of choices',
+        body: {
+          type: 'doc',
+          content: [{ type: 'paragraph', content: [{ type: 'text', text: 'The later words.' }] }]
+        }
+      },
+      before: {
+        title: 'Strategy is a set of choices',
+        body: {
+          type: 'doc',
+          content: [{ type: 'paragraph', content: [{ type: 'text', text: 'The earlier words.' }] }]
+        }
+      }
+    });
+    expect(afterSnapshot.retained).toBe('after');
+    expect(afterSnapshot.rev).toBe('rev-2');
+    expect(collectWikiText(afterSnapshot.body)).toBe('The later words.');
   });
 });
