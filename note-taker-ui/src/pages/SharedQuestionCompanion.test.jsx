@@ -1,7 +1,7 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import SharedQuestionCompanion from './SharedQuestionCompanion.jsx';
-import { questionBrief, questionContribution, questionSnapshot } from '../components/think/thinkShareFixture';
+import { questionBrief, questionContribution, questionSnapshot, questionSuccession } from '../components/think/thinkShareFixture';
 
 jest.mock('../components/agent/ThoughtPartnerPanel', () => ({
   __esModule: true,
@@ -34,6 +34,29 @@ describe('SharedQuestionCompanion', () => {
       "Bound to this published question, Mara's reading, and the shared brief.:shared_question:qslug:Ask about this published question."
     );
     expect(screen.queryByText('Still with the author.')).not.toBeInTheDocument();
+  });
+
+  it('opens the existing companion on a successor record', () => {
+    render(
+      <SharedQuestionCompanion
+        slug="qslug"
+        page={questionSnapshot({
+          contributions: [questionContribution()],
+          brief: questionBrief(),
+          yours: [questionContribution({ id: 'held', by: 'Ada', text: 'Still with the author.' })],
+          succession: questionSuccession({
+            outcome: 'The window closed. The latecomer paid.'
+          })
+        })}
+        signedIn
+        defaultOpen
+      />
+    );
+    expect(screen.getByTestId('thought-partner-panel')).toHaveTextContent(
+      'Bound to this successor record and what happened later.:shared_question:qslug:Ask about this handoff.'
+    );
+    expect(screen.queryByText('Still with the author.')).not.toBeInTheDocument();
+    expect(screen.queryByText(/lesson|Library/i)).not.toBeInTheDocument();
   });
 
   it('pauses the ask when the assignment lapses', () => {

@@ -1131,12 +1131,14 @@ const run = async () => {
     held: true,
     contributorUserId: 'viewer-1'
   };
+  const shareSelects = [];
   const makeShareModels = ({ share = null, contributions = [] } = {}) => ({
     SharedQuestion: {
       findOne(query = {}) {
         const run = async () => (query.slug === share?.slug ? share : null);
         return {
-          select() {
+          select(fields) {
+            shareSelects.push(fields);
             return { lean: run };
           },
           lean: run
@@ -1258,6 +1260,7 @@ const run = async () => {
     contextItem: sharedContext,
     relatedItems: sharedContext.relatedItems
   });
+  assert.ok(shareSelects.some((fields) => String(fields).includes('succession')), 'Companion hydration must select the successor record.');
   assert.match(sharedMessages[0].content, /published question door/i);
   assert.match(sharedMessages[1].content, /Published question:/);
   assert.ok(!/Ask about your notes, concepts, and articles/i.test(sharedMessages[0].content));
@@ -1267,6 +1270,122 @@ const run = async () => {
       yours: [{ by: 'Ada', text: 'held' }],
       here: [{ by: 'Mara' }]
     }, 'qslug').fullText.includes('held')
+  );
+
+  const handedShare = {
+    ...publishedShare,
+    succession: {
+      unresolved: 'The window may close before compounding pays.',
+      alternatives: [{
+        id: 'c1',
+        by: 'Mara',
+        text: 'Same fact, different time horizon.',
+        remainder: 'Who pays when the window closes?'
+      }],
+      evidenceThen: {
+        text: 'What survives compounding?',
+        paragraphs: [{ id: 'p1', type: 'paragraph', text: 'Time plus reinvestment beats picking once.' }],
+        publishedAt: '2026-09-13T12:00:00.000Z'
+      },
+      uncertainty: 'The window may close before compounding pays.',
+      authority: 'Athan',
+      review: 'Watch who is still in the room when the cost arrives.',
+      held: 'The fact is shared. The horizon is not.',
+      outcome: 'The window closed. The latecomer paid.',
+      handedAt: '2026-09-13T18:00:00.000Z'
+    }
+  };
+  const laterReading = {
+    _id: 'later-1',
+    by: 'Nia',
+    text: 'A reading placed after the handoff.',
+    held: false
+  };
+  const successorContext = await resolveContextItem({
+    userObjectId: 'viewer-1',
+    context: { type: 'shared_question', id: 'qslug', title: 'What survives compounding?' },
+    Article: null,
+    NotebookEntry: null,
+    TagMeta: null,
+    WikiPage: null,
+    ...makeShareModels({
+      share: handedShare,
+      contributions: [placedReading, heldReading, laterReading]
+    })
+  });
+  assert.strictEqual(successorContext.title, 'The window may close before compounding pays.');
+  assert.ok(successorContext.fullText.includes('The window may close before compounding pays.'));
+  assert.ok(successorContext.fullText.includes('What we nearly did'));
+  assert.ok(successorContext.fullText.includes('The window closed. The latecomer paid.'));
+  assert.ok(successorContext.fullText.includes('The other future is not in this record.'));
+  assert.ok(successorContext.fullText.includes('Same fact, different time horizon.'));
+  assert.ok(successorContext.fullText.includes('A reading placed after the handoff.'));
+  assert.ok(successorContext.fullText.includes('What survives compounding?'));
+  assert.ok(!successorContext.fullText.includes('A private held reading.'));
+  assert.ok(!/would have|institutional lesson|Library/i.test(successorContext.fullText));
+  assert.deepStrictEqual(
+    successorContext.relatedItems.map((item) => item.type).sort(),
+    ['archive', 'reading', 'succession']
+  );
+  assert.ok(!successorContext.relatedItems.some((item) => item.type === 'article' || item.type === 'brief'));
+  assert.strictEqual(
+    shouldSearchWorkspaceForContext({
+      context: { type: 'shared_question', id: 'qslug' },
+      contextItem: successorContext,
+      intentDecision: { retrievalPolicy: 'workspace' }
+    }),
+    false,
+    'Successor companion must not search a private Library.'
+  );
+  const successorRetrieve = buildReply({
+    message: 'Find related notes in my library.',
+    context: { type: 'shared_question', id: 'qslug' },
+    contextItem: successorContext,
+    relatedItems: [],
+    intentDecision: { replyIntent: 'retrieve', interactionMode: 'answer' }
+  });
+  assert.match(successorRetrieve, /successor record/i);
+  assert.ok(!/workspace/i.test(successorRetrieve), 'Successor retrieve silence must not mention a private workspace.');
+  const successorPlan = buildReply({
+    message: 'Make a plan',
+    context: { type: 'shared_question', id: 'qslug' },
+    contextItem: successorContext,
+    relatedItems: successorContext.relatedItems,
+    intentDecision: { replyIntent: 'plan', interactionMode: 'plan' }
+  });
+  assert.match(successorPlan, /successor record/i);
+  assert.match(successorPlan, /unchosen future/i);
+  const successorMessages = buildPartnerChatMessages({
+    message: 'What did we nearly do?',
+    context: { type: 'shared_question', id: 'qslug' },
+    contextItem: successorContext,
+    relatedItems: successorContext.relatedItems
+  });
+  assert.match(successorMessages[0].content, /successor record/i);
+  assert.match(successorMessages[0].content, /invent an institutional lesson/i);
+  assert.match(successorMessages[1].content, /Successor record:/);
+  assert.ok(!/Ask about your notes, concepts, and articles/i.test(successorMessages[0].content));
+
+  const openHanded = await resolveContextItem({
+    userObjectId: 'viewer-1',
+    context: { type: 'shared_question', id: 'qslug' },
+    ...makeShareModels({
+      share: {
+        ...handedShare,
+        succession: {
+          ...handedShare.succession,
+          outcome: ''
+        }
+      },
+      contributions: [placedReading, heldReading]
+    })
+  });
+  assert.ok(openHanded.fullText.includes('Alternatives then'));
+  assert.ok(!openHanded.fullText.includes('What we nearly did'));
+  assert.ok(!openHanded.fullText.includes('The other future is not in this record.'));
+  assert.deepStrictEqual(
+    openHanded.relatedItems.map((item) => item.type),
+    ['succession']
   );
 };
 

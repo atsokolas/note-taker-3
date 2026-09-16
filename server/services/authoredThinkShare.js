@@ -32,7 +32,8 @@ const {
  * can leave as one readable file and return, or say what cannot transfer.
  * When a later outcome is recorded, the considered alternatives stay as they
  * were written then and sit beside what happened. The unchosen future is not
- * invented. The companion is bound to this public page only. Libraries stay private.
+ * invented. The companion is bound to this public page and its successor
+ * record. Libraries, held readings, and workshop edits stay private.
  */
 
 const PREVIEW_STALE = {
@@ -880,45 +881,48 @@ const formatShareRecordDay = (value) => {
   return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 };
 
+const shareRecordSuccessionLines = (succession) => {
+  if (!succession?.unresolved) return [];
+  const lines = [`# ${succession.unresolved}`, ''];
+  if (succession.authority) {
+    const when = formatShareRecordDay(succession.handedAt);
+    lines.push(when
+      ? `${succession.authority} handed this on ${when}.`
+      : `${succession.authority} handed this on.`);
+    lines.push('');
+  }
+  if (succession.held) lines.push('## What holds', '', succession.held, '');
+  const archived = shareRecordArchiveOf(succession);
+  lines.push(`## ${archived ? SHARE_RECORD_NEARLY : SHARE_RECORD_ALTERNATIVES}`, '');
+  (Array.isArray(succession.alternatives) ? succession.alternatives : []).forEach((reading) => {
+    if (!reading?.by || !reading?.text) return;
+    lines.push(`### ${reading.by}`, '', reading.text);
+    if (reading.remainder) lines.push('', `Still holds: ${reading.remainder}`);
+    lines.push('');
+  });
+  if (archived) {
+    lines.push(`## ${SHARE_RECORD_OUTCOME}`, '', archived.happened, '', SHARE_RECORD_ARCHIVE_SILENCE, '');
+  }
+  if (succession.evidenceThen?.text) {
+    lines.push('## Evidence then', '', succession.evidenceThen.text, '');
+    (Array.isArray(succession.evidenceThen.paragraphs) ? succession.evidenceThen.paragraphs : [])
+      .filter((block) => publicText(block?.text) && publicText(block.text) !== succession.evidenceThen.text)
+      .forEach((block) => lines.push(block.text, ''));
+  }
+  if (succession.uncertainty && succession.uncertainty !== succession.unresolved) {
+    lines.push('## What was uncertain', '', succession.uncertainty, '');
+  }
+  if (succession.review) lines.push('## When to look again', '', succession.review, '');
+  return lines;
+};
+
 const buildShareRecordMarkdown = (bundle) => {
   const portable = bundle && typeof bundle === 'object' ? bundle : {};
   const succession = portable.succession;
   const mandate = portable.mandate;
-  const lines = [];
-  if (succession?.unresolved) {
-    lines.push(`# ${succession.unresolved}`, '');
-    if (succession.authority) {
-      const when = formatShareRecordDay(succession.handedAt);
-      lines.push(when
-        ? `${succession.authority} handed this on ${when}.`
-        : `${succession.authority} handed this on.`);
-      lines.push('');
-    }
-    if (succession.held) lines.push('## What holds', '', succession.held, '');
-    const archived = shareRecordArchiveOf(succession);
-    lines.push(`## ${archived ? SHARE_RECORD_NEARLY : SHARE_RECORD_ALTERNATIVES}`, '');
-    (Array.isArray(succession.alternatives) ? succession.alternatives : []).forEach((reading) => {
-      if (!reading?.by || !reading?.text) return;
-      lines.push(`### ${reading.by}`, '', reading.text);
-      if (reading.remainder) lines.push('', `Still holds: ${reading.remainder}`);
-      lines.push('');
-    });
-    if (archived) {
-      lines.push(`## ${SHARE_RECORD_OUTCOME}`, '', archived.happened, '', SHARE_RECORD_ARCHIVE_SILENCE, '');
-    }
-    if (succession.evidenceThen?.text) {
-      lines.push('## Evidence then', '', succession.evidenceThen.text, '');
-      (Array.isArray(succession.evidenceThen.paragraphs) ? succession.evidenceThen.paragraphs : [])
-        .filter((block) => publicText(block?.text) && publicText(block.text) !== succession.evidenceThen.text)
-        .forEach((block) => lines.push(block.text, ''));
-    }
-    if (succession.uncertainty && succession.uncertainty !== succession.unresolved) {
-      lines.push('## What was uncertain', '', succession.uncertainty, '');
-    }
-    if (succession.review) lines.push('## When to look again', '', succession.review, '');
-  } else {
-    lines.push('# An agent assignment', '');
-  }
+  const lines = succession?.unresolved
+    ? shareRecordSuccessionLines(succession)
+    : ['# An agent assignment', ''];
   if (mandate?.owner) {
     lines.push('## An agent assignment', '');
     lines.push(`Accountable owner: ${mandate.owner}`);
@@ -1194,6 +1198,7 @@ module.exports = {
   sanitizeParagraphBlocks,
   shareRecordArchiveOf,
   shareRecordFilename,
+  shareRecordSuccessionLines,
   shareRecordStateFilter,
   shareRecordWriteCollision,
   shareSlug,

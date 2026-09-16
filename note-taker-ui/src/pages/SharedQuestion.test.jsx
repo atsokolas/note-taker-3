@@ -285,6 +285,57 @@ describe('SharedQuestion', () => {
     expect(screen.queryByTestId('question-share-brief')).not.toBeInTheDocument();
   });
 
+  it('lets a signed-in successor ask about the frozen handoff, not a private Library', async () => {
+    window.localStorage.setItem('token', 'reader-token');
+    getPublicQuestion.mockResolvedValueOnce({
+      ownerDisplayName: 'Athan',
+      publishedAt: '2026-06-14T00:00:00Z',
+      question: {
+        text: 'What survives compounding?',
+        status: 'open',
+        paragraphs: [{ id: 'p1', type: 'paragraph', text: 'First paragraph.' }]
+      },
+      contributions: [{
+        id: 'c1',
+        by: 'Mara',
+        text: 'Same fact, different time horizon.',
+        remainder: 'Who pays when the window closes?'
+      }],
+      yours: [{
+        id: 'held',
+        by: 'Ada',
+        text: 'Still with the author.'
+      }],
+      succession: {
+        unresolved: 'The window may close before compounding pays.',
+        alternatives: [{
+          id: 'c1',
+          by: 'Mara',
+          text: 'Same fact, different time horizon.',
+          remainder: 'Who pays when the window closes?'
+        }],
+        evidenceThen: {
+          text: 'What survives compounding?',
+          paragraphs: [{ id: 'p1', type: 'paragraph', text: 'First paragraph.' }]
+        },
+        authority: 'Athan',
+        review: 'Watch who is still in the room when the cost arrives.',
+        held: 'The fact is shared. The horizon is not.',
+        outcome: 'The window closed. The latecomer paid.',
+        handedAt: '2026-09-13T18:00:00.000Z'
+      }
+    });
+
+    render(<SharedQuestion />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Ask about this handoff' }));
+    expect(screen.getByTestId('thought-partner-panel')).toHaveTextContent(
+      'Bound to this successor record and what happened later.:shared_question:qslug123'
+    );
+    expect(screen.getByTestId('shared-question-companion')).not.toHaveTextContent('Ada');
+    expect(screen.getByTestId('shared-question-companion')).not.toHaveTextContent('Still with the author.');
+    expect(screen.getByTestId('shared-question-companion')).not.toHaveTextContent(/lesson|Library/i);
+  });
+
   it('names an agent assignment on the public page and pauses the companion when it lapses', async () => {
     window.localStorage.setItem('token', 'reader-token');
     getPublicQuestion.mockResolvedValueOnce({
