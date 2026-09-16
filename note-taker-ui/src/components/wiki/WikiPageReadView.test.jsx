@@ -3073,4 +3073,35 @@ describe('WikiPageReadView', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     expect(screen.getByText('Memory compounds with review.')).toBeInTheDocument();
   });
+
+  it('opens a retained historical body when the list only includes after.claims', async () => {
+    listWikiRevisions.mockResolvedValue([{
+      _id: 'rev-retained',
+      createdAt: '2026-09-03T00:00:00.000Z',
+      reason: 'Kept the earlier wording.',
+      after: { claims: [{ claimId: 'claim-1', text: 'Memory compounds with review.' }] },
+      before: {
+        title: 'Enterprise AI Memory',
+        body: {
+          type: 'doc',
+          content: [{
+            type: 'paragraph',
+            content: [{ type: 'text', text: 'UNIQUE_HISTORICAL_SENTENCE from a retained revision.' }]
+          }]
+        },
+        claims: [{ claimId: 'claim-1', text: 'UNIQUE_HISTORICAL_SENTENCE from a retained revision.' }]
+      }
+    }]);
+
+    renderReadView();
+    await flushDeferredWikiReadWork();
+    fireEvent.click(await screen.findByRole('button', { name: 'History' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Read this version' }));
+
+    expect(await screen.findByText('Earlier version. These are the words as they were.')).toBeInTheDocument();
+    expect(document.querySelector('.wiki-read__body'))
+      .toHaveTextContent('UNIQUE_HISTORICAL_SENTENCE from a retained revision.');
+    expect(document.querySelector('.wiki-read__body'))
+      .not.toHaveTextContent('Memory compounds with review.');
+  });
 });

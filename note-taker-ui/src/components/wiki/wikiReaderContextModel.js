@@ -104,14 +104,15 @@ export const candidateFootprint = ({ current = null, candidate = null } = {}) =>
 };
 
 export const historicalRevisionSnapshot = (revision = null) => {
-  const after = revision?.after;
-  const before = revision?.before;
-  const snapshot = after || before;
+  const after = revision?.after || null;
+  const before = revision?.before || null;
+  const hasArticle = (page) => Boolean(collectWikiText(page?.body || page?.plainText || ''));
+  const snapshot = hasArticle(after) ? after : (hasArticle(before) ? before : null);
   if (!snapshot) return null;
   return clone({
     ...snapshot,
     rev: snapshot.rev || revision?.to || revision?._id,
-    title: snapshot.title || revision?.summary?.title || '',
+    title: snapshot.title || revision?.summary?.title || after?.title || before?.title || '',
     updatedAt: snapshot.updatedAt || revision?.createdAt || null
   });
 };

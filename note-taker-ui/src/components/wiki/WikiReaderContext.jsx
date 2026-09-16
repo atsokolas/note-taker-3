@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { wikiReadPath } from '../../utils/wikiFeatureFlags';
 import { displayWikiPageTitle } from './wikiRepoDossierModel';
-import { candidateFootprint } from './wikiReaderContextModel';
+import { candidateFootprint, historicalRevisionSnapshot } from './wikiReaderContextModel';
 import { wikiRevisionLabel } from './wikiCopyReference';
 
 const clean = (value) => String(value || '').trim();
@@ -206,7 +206,7 @@ const WikiReaderContext = ({
         <h2>How the page changed</h2>
         <p className="wiki-reader-context__quiet">Recorded versions and reasons — not a claim about what you privately believed.</p>
         {events.length ? events.map((revision) => {
-          const snapshot = revision.after || revision.before;
+          const snapshot = historicalRevisionSnapshot(revision);
           const available = Boolean(snapshot);
           return (
             <div key={revision._id || revision.id} className="wiki-reader-context__history">
