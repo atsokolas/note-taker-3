@@ -1,48 +1,11 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import * as router from 'react-router-dom';
 import WikiFrontPage from './WikiFrontPage';
-import { getMorningPaperColumns, listWikiPages } from '../../api/wiki';
-import { getDailyLoop } from '../../api/dailyLoop';
-import useLibraryRoom from '../../hooks/useLibraryRoom';
+import { listWikiPages } from '../../api/wiki';
 
-/* Movement return stays behind operations. Morning Paper is not a second hub. */
-jest.mock('./WeeklyDigest', () => () => null);
-
-jest.mock('../../api/knowledgeMovements', () => ({
-  getWeeklyMovements: jest.fn().mockResolvedValue({ groups: [], quiet: true })
-}));
 jest.mock('../../api/wiki', () => ({
-  listWikiPages: jest.fn(),
-  /* A quiet morning, so the paper's columns stay out of a suite that is
-     about something else. */
-  getMorningPaperColumns: jest.fn(() => Promise.resolve({}))
-}));
-jest.mock('../../hooks/useLibraryRoom', () => ({
-  __esModule: true,
-  default: jest.fn(() => ({
-    loading: false,
-    error: '',
-    feedTopics: [],
-    folders: [],
-    shelfCounts: {},
-    piles: { later: [], setAside: [] },
-    sources: [],
-    coverage: null,
-    counts: {},
-    nextCursor: null,
-    hasMore: false,
-    refresh: jest.fn()
-  }))
-}));
-jest.mock('../../api/dailyLoop', () => ({
-  getDailyLoop: jest.fn(),
-  armReadingWatch: jest.fn(),
-  disarmWatcher: jest.fn(),
-  recordClaimCheckIn: jest.fn(),
-  recordClaimFalsifiability: jest.fn(),
-  recordClaimVerdict: jest.fn(),
-  disposeConsequence: jest.fn()
+  listWikiPages: jest.fn()
 }));
 jest.mock('../../utils/wikiFeatureFlags', () => ({
   wikiPagePath: pageId => `/wiki/workspace?page=${pageId}`,
@@ -56,11 +19,6 @@ jest.mock('./decisions/DecisionsIndex', () => () => null);
 jest.mock('../agent/AgentContextShell', () => ({ children }) => <>{children}</>);
 jest.mock('../agent/ThoughtPartnerPanel', () => () => null);
 jest.mock('../../layout/RightDrawer', () => ({ children }) => <>{children}</>);
-jest.mock('./WikiMovementReturnSurface', () => ({ onPresenceChange }) => (
-  <section aria-label="What changed return surface">
-    <button type="button" onClick={() => onPresenceChange(true)}>Movement present</button>
-  </section>
-));
 
 const page = {
   _id: '64f100000000000000000001',
@@ -74,64 +32,34 @@ const page = {
 
 describe('WikiFrontPage movement return surface', () => {
   beforeEach(() => {
-    /* A quiet morning: these suites are about the index, not the columns. */
-    getMorningPaperColumns.mockResolvedValue({});
     jest.clearAllMocks();
     localStorage.clear();
     jest.spyOn(router, 'useNavigate').mockReturnValue(jest.fn());
-    useLibraryRoom.mockReturnValue({
-      loading: false,
-      error: '',
-      feedTopics: [],
-      folders: [],
-      shelfCounts: {},
-      piles: { later: [], setAside: [] },
-      sources: [],
-      coverage: null,
-      counts: {},
-      nextCursor: null,
-      hasMore: false,
-      refresh: jest.fn()
-    });
     listWikiPages.mockResolvedValue([page]);
-    getDailyLoop.mockResolvedValue({
-      briefing: {
-        generatedAt: '2026-08-07T13:00:00.000Z',
-        summary: 'A generic fallback briefing should yield to a real movement.',
-        counts: { newSources: 0, recentlyUpdatedPages: 1, driftingPages: 0 },
-        recentlyUpdatedPages: [page],
-        driftingPages: [],
-        totalPages: 1
-      }
-    });
   });
 
   afterEach(() => jest.restoreAllMocks());
 
-  it('opens operations when a movement is present, without inventing a work-is-ready lead', async () => {
+  it('keeps map and workspace reachable without inventing a work-is-ready lead', async () => {
     render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
 
-    expect(await screen.findByText(/generic fallback briefing/i)).toBeInTheDocument();
-    expect(screen.getByRole('region', { name: 'What changed return surface' })).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Movement present' }));
-
-    await waitFor(() => {
-      expect(screen.getByText('Review and system activity').closest('details')).toHaveAttribute('open');
-    });
-    expect(screen.getByText(/generic fallback briefing/i)).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Wiki' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Inference economics' })).toHaveAttribute('href', '/wiki/read/64f100000000000000000001');
+    expect(screen.getByRole('link', { name: 'Map & disagreements' }))
+      .toHaveAttribute('href', '/wiki/workspace?view=graph');
+    expect(screen.getByRole('link', { name: 'Full workspace' }))
+      .toHaveAttribute('href', '/wiki/workspace?view=list');
     expect(screen.queryByText(/needs your review/i)).not.toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 1, name: 'Your living wikis' })).toBeInTheDocument();
-    expect(screen.getAllByRole('link', { name: 'Inference economics' }).length).toBeGreaterThan(0);
+    expect(screen.queryByLabelText('Current Wiki briefing')).not.toBeInTheDocument();
   });
 
-  it('keeps the movement return surface visible for an empty Wiki corpus', async () => {
+  it('keeps workspace reachable for an empty Wiki corpus', async () => {
     localStorage.setItem('noeis.wikiOnboardingComplete', 'true');
     listWikiPages.mockResolvedValueOnce([]);
 
     render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
 
-    expect(await screen.findByRole('heading', { name: /No news yet/i })).toBeInTheDocument();
-    expect(screen.getByRole('region', { name: 'What changed return surface' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Wiki' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Full workspace' })).toBeInTheDocument();
   });
 });

@@ -753,8 +753,8 @@ function App() {
             <Route path="/map" element={<MapView />} />
             <Route path="/return-queue" element={<ReturnQueue />} />
             <Route path="/review" element={<ReviewMode />} />
-            {/* AT-394: /wiki is the newspaper front page; the maintenance
-                workspace stays one hairline away at /wiki/workspace. */}
+            {/* /wiki is the quiet collection; the maintenance workspace stays
+                one hairline away at /wiki/workspace. */}
             {/* Judgment: the index is a list of claim sentences; opening one
                 is the claim itself. */}
             <Route path="/judgment" element={<Judgment />} />

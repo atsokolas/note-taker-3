@@ -2,19 +2,9 @@ import React, { useMemo, useState } from 'react';
 import { wordBoundaryTrim } from '../../utils/editorialText';
 
 /**
- * WikiChangesSinceLastVisit — top-of-page banner that surfaces what
- * changed on a wiki page since the owner last viewed it.
- *
- * Renders only when there is an actual diff (added or removed claim
- * texts) AND there's a previous visit timestamp — first-time visitors
- * see nothing.
- *
- * Props:
- *  - lastViewedAt:  ISO string of the previous visit (drives the meta line)
- *  - added:         normalized claim texts new since the last visit
- *  - removed:       normalized claim texts removed since the last visit
- *  - changed:       claim ledger changes for existing claim texts
- *  - onMarkReviewed: () => void; snapshots current state and dismisses
+ * WikiChangesSinceLastVisit — a private reading marker for what changed
+ * since the owner last looked. Seeing the changes does not accept a
+ * candidate or stamp a reviewed/verified date.
  */
 
 const PREVIEW_COUNT = 3;
@@ -46,7 +36,8 @@ const WikiChangesSinceLastVisit = ({
   added = [],
   removed = [],
   changed = [],
-  onMarkReviewed
+  onMarkReviewed,
+  onShowInPage
 }) => {
   const [expanded, setExpanded] = useState(false);
 
@@ -95,7 +86,7 @@ const WikiChangesSinceLastVisit = ({
             aria-expanded={expanded}
             data-testid="wiki-changes-banner-toggle"
           >
-            {expanded ? 'Hide' : 'View diff'}
+            {expanded ? 'Hide' : 'Show me'}
           </button>
           <button
             type="button"
@@ -103,7 +94,7 @@ const WikiChangesSinceLastVisit = ({
             onClick={onMarkReviewed}
             data-testid="wiki-changes-banner-mark-reviewed"
           >
-            Mark reviewed
+            I’ve seen these changes
           </button>
         </div>
       </div>

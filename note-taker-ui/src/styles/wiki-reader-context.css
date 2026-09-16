@@ -1,0 +1,286 @@
+.wiki-reader-context {
+  min-width: 0;
+  color: var(--ink, #30362e);
+}
+
+.wiki-reader-context__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.wiki-reader-context__kicker {
+  display: block;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted, #676e62);
+  margin: 16px 0 8px;
+}
+
+.wiki-reader-context h2 {
+  font-family: var(--serif, Georgia, serif);
+  font-weight: 400;
+  font-size: 27px;
+  line-height: 1.2;
+  letter-spacing: -0.55px;
+  margin: 0 0 14px;
+}
+
+.wiki-reader-context p,
+.wiki-reader-context__meta,
+.wiki-reader-context__quiet {
+  font-size: 12px;
+  line-height: 1.7;
+  margin: 0 0 12px;
+  color: var(--muted, #676e62);
+}
+
+.wiki-reader-context__quote {
+  font-family: var(--serif, Georgia, serif);
+  font-size: 18px;
+  line-height: 1.58;
+  margin: 13px 0 20px;
+  border-left: 2px solid #b8c5a8;
+  padding-left: 14px;
+  color: inherit;
+}
+
+.wiki-reader-context__old,
+.wiki-reader-context__new {
+  font-family: var(--serif, Georgia, serif);
+  line-height: 1.6;
+  padding-left: 12px;
+  margin: 0 0 16px;
+}
+
+.wiki-reader-context__old {
+  border-left: 2px solid #c9c9bc;
+  color: #676d60;
+}
+
+.wiki-reader-context__new {
+  border-left: 2px solid #9dad89;
+}
+
+.wiki-reader-context__close,
+.wiki-reader-context__back,
+.wiki-reader-context__text,
+.wiki-reader-context__link,
+.wiki-reader-context__actions button {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--sage, #506346);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  cursor: pointer;
+  font: inherit;
+  min-height: 32px;
+}
+
+.wiki-reader-context__close {
+  min-height: 32px;
+  min-width: 32px;
+  font-size: 20px;
+  text-decoration: none;
+  color: var(--muted, #676e62);
+}
+
+.wiki-reader-context__link,
+.wiki-reader-context__history {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--noeis-rule, #dcded3);
+}
+
+.wiki-reader-context__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px 13px;
+  margin: 19px 0 13px;
+}
+
+.wiki-reader-context__primary {
+  background: var(--ink, #30362e) !important;
+  color: var(--paper, #f8f6f1) !important;
+  text-decoration: none !important;
+  padding: 8px 13px !important;
+  border-radius: 4px;
+}
+
+.wiki-reader-context__field {
+  width: 100%;
+  min-height: 105px;
+  background: #f8f8f1;
+  border: 1px solid #cdd3c0;
+  border-radius: 3px;
+  padding: 10px;
+  font: 16px/1.6 var(--serif, Georgia, serif);
+  resize: vertical;
+}
+
+.wiki-reader-context__error {
+  border-left: 2px solid #aa7c52;
+  padding-left: 12px;
+  color: #86633c;
+}
+
+.wiki-reader-context__footprint {
+  border-top: 1px solid var(--noeis-rule, #dcded3);
+  border-bottom: 1px solid var(--noeis-rule, #dcded3);
+  padding: 14px 0;
+  margin: 8px 0 18px;
+}
+
+.wiki-reader-context__neighbor {
+  font-family: var(--serif, Georgia, serif);
+  font-size: 17px;
+  line-height: 1.66;
+  color: #616b57;
+}
+
+.wiki-read__preview-strip,
+.wiki-read__history-banner,
+.wiki-read__return-thread,
+.wiki-read__acceptance-receipt {
+  border-top: 1px solid var(--noeis-rule, #dcded3);
+  border-bottom: 1px solid var(--noeis-rule, #dcded3);
+  padding: 12px 0;
+  margin: 18px 0 24px;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  font-size: 12px;
+  color: var(--muted, #676e62);
+}
+
+.wiki-read__preview-strip {
+  border-color: #d6c9af;
+  color: #866a38;
+}
+
+.wiki-read__body.is-preview .wiki-read__article,
+.wiki-read--preview .wiki-read__article {
+  background: #f2efe3;
+}
+
+.wiki-read__changed-passage {
+  position: relative;
+}
+
+.wiki-read__changed-passage:before {
+  content: '';
+  position: absolute;
+  left: -16px;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  background: #99ac85;
+}
+
+.wiki-read--diff-only .wiki-read__body [data-claim-id]:not(.wiki-read__changed-passage) {
+  opacity: 0.42;
+}
+
+@media (max-width: 1339px) {
+  .wiki-read__layout.wiki-read__layout--panel-open .wiki-read__toc,
+  .wiki-read__layout.wiki-read__layout--panel-open .wiki-read__article {
+    display: none;
+  }
+
+  .wiki-read__layout.wiki-read__layout--panel-open .wiki-read__rail {
+    display: block;
+    grid-column: 1 / -1;
+    width: 100%;
+    max-width: 680px;
+    margin: 0 auto;
+  }
+}
+
+@media (max-width: 1440px) {
+  .wiki-reader-context h2 {
+    font-size: 25px;
+  }
+}
+
+@media (max-width: 1024px) {
+  .wiki-read__preview-strip,
+  .wiki-read__history-banner,
+  .wiki-read__return-thread,
+  .wiki-read__acceptance-receipt {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 768px) {
+  .wiki-reader-context h2 {
+    font-size: 23px;
+  }
+
+  .wiki-read__layout.wiki-read__layout--panel-open .wiki-read__rail {
+    padding: 8px 0 48px;
+  }
+}
+
+@media (max-width: 390px) {
+  .wiki-reader-context__quote {
+    font-size: 16px;
+  }
+
+  .wiki-reader-context__actions {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wiki-reader-context {
+    animation: none;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .wiki-reader-context {
+    animation: wiki-reader-context-appear 140ms ease-out;
+  }
+}
+
+@keyframes wiki-reader-context-appear {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media print {
+  .wiki-read__preview-strip,
+  .wiki-read__history-banner,
+  .wiki-read__return-thread,
+  .wiki-read__acceptance-receipt,
+  .wiki-reader-context,
+  .wiki-read__rail,
+  .wiki-read__topline,
+  .wiki-changes-banner,
+  .wiki-read__exports,
+  .wiki-read__article-tools {
+    display: none !important;
+  }
+
+  body:has(.wiki-read__preview-strip) .wiki-read__article,
+  body:has(.wiki-read__history-banner) .wiki-read__article {
+    display: none !important;
+  }
+
+  body:has(.wiki-read__preview-strip)::before,
+  body:has(.wiki-read__history-banner)::before {
+    content: 'A proposal or earlier version is being previewed. Export the current version from the page for an unambiguous copy.';
+    display: block;
+    padding: 24px;
+    font: 14pt Georgia, serif;
+  }
+}

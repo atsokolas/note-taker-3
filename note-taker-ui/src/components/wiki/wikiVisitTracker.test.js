@@ -4,7 +4,9 @@ import {
   extractClaimLedgerSnapshot,
   extractClaimTexts,
   getLastVisitState,
+  getPrivateWikiNotes,
   recordVisit,
+  savePrivateWikiNotes,
   __testables
 } from './wikiVisitTracker';
 
@@ -170,6 +172,22 @@ describe('wikiVisitTracker', () => {
 
     it('returns null without throwing when the pageId is empty', () => {
       expect(recordVisit('', { type: 'doc', content: [] })).toBeNull();
+    });
+  });
+
+  describe('private notes', () => {
+    it('stores thought and reason locally without mixing them into visit snapshots', () => {
+      const saved = savePrivateWikiNotes('wiki-1', {
+        thought: 'What does this make me question?',
+        reason: 'UNIQUE_PRIVATE_REASON'
+      });
+      expect(saved).toEqual({
+        thought: 'What does this make me question?',
+        reason: 'UNIQUE_PRIVATE_REASON'
+      });
+      expect(getPrivateWikiNotes('wiki-1')).toEqual(saved);
+      expect(window.localStorage.getItem('noeis.wiki.visit.wiki-1')).toBeNull();
+      expect(JSON.stringify(getLastVisitState('wiki-1'))).not.toContain('UNIQUE_PRIVATE_REASON');
     });
   });
 

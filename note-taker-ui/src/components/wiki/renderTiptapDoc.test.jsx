@@ -102,7 +102,7 @@ describe('renderTiptapDoc', () => {
     );
 
     const link = screen.getByRole('link', { name: 'Compounding interest' });
-    expect(link).toHaveAttribute('href', '/wiki/workspace?page=wiki-related');
+    expect(link).toHaveAttribute('href', '/wiki/read/wiki-related');
     expect(link).toHaveAttribute('data-wiki-page-id', 'wiki-related');
     expect(link).toHaveAttribute('data-wiki-title', 'Compounding interest');
   });
@@ -166,7 +166,7 @@ describe('renderTiptapDoc', () => {
     );
 
     const link = screen.getByRole('link', { name: 'Circle of Competence' });
-    expect(link).toHaveAttribute('href', '/wiki/workspace?page=wiki-circle');
+    expect(link).toHaveAttribute('href', '/wiki/read/wiki-circle');
     expect(link).toHaveAttribute('data-wiki-page-id', 'wiki-circle');
     expect(screen.getByText(/Investors need a/)).not.toHaveTextContent('[[');
     expect(document.body.textContent).not.toContain('[[');

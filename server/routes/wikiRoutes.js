@@ -1750,6 +1750,20 @@ const WIKI_CANON_FIELDS = Object.freeze([
   'claims.claimId', 'claims.checkInStatus', 'claims.retiredAt'
 ]);
 
+/* Collection search may read the current page: title and accepted body
+   text. Candidate drafts, quality-review reasons, and private notes are a
+   different object and must not become a way to find a page. */
+const WIKI_COLLECTION_SEARCH_FIELDS = Object.freeze(['title', 'plainText']);
+
+const wikiCollectionSearchClause = (q = '') => {
+  const needle = String(q || '').trim();
+  if (!needle) return null;
+  const regex = new RegExp(escapeRegExp(needle), 'i');
+  return {
+    $or: WIKI_COLLECTION_SEARCH_FIELDS.map(field => ({ [field]: regex }))
+  };
+};
+
 const WIKI_PAGE_SUMMARY_FIELDS = Object.freeze([
   '_id', 'slug', 'title', 'pageType', 'status', 'visibility', 'createdFrom',
   'plainText', 'freshness', 'publicProof', 'lastReviewedAt', 'hiddenFromHome',
@@ -3752,11 +3766,8 @@ const buildWikiRouter = ({
       if (visibility?.value) query.visibility = visibility.value;
       if (pageType?.value) query.pageType = pageTypeQueryValue(pageType);
 
-      const q = String(req.query.q || '').trim();
-      if (q) {
-        const regex = new RegExp(escapeRegExp(q), 'i');
-        query.$or = [{ title: regex }, { plainText: regex }];
-      }
+      const searchClause = wikiCollectionSearchClause(req.query.q);
+      if (searchClause) Object.assign(query, searchClause);
 
       const limit = Math.max(1, Math.min(Number(req.query.limit) || 100, 500));
       const requestedPagedScan = req.query.scanCursor !== undefined;
@@ -9260,6 +9271,8 @@ module.exports = {
   serializePublicWikiPage,
   serializeWikiPage,
   slugify,
+  wikiCollectionSearchClause,
+  WIKI_COLLECTION_SEARCH_FIELDS,
   WIKI_JUDGMENT_INDEX_FIELDS,
   WIKI_PAGE_SUMMARY_FIELDS
 };

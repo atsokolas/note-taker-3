@@ -59,6 +59,9 @@ assert.ok(!JSON.stringify(stamped).includes('Born: Unknown'));
 // all read "No body yet."
 assert.ok(has('plainText'), 'plainText is the preview source once body is gone');
 assert.ok(!has('body'), 'the ProseMirror document is the single largest field and no list renders it');
+assert.ok(!asksFor('aiState.firstHeadCandidateSummary'), 'candidate drafts are not a collection search field');
+assert.ok(!asksFor('aiState.lastCandidateSummary'), 'rejected candidate copy is not a collection search field');
+assert.ok(!has('qualityReview'), 'private review reasons are not a collection search field');
 
 /* ------------------------------------------------------------------ *
  * Identity, not content.

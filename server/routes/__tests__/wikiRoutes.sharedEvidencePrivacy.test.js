@@ -61,6 +61,9 @@ const run = () => {
   assert.ok(!wire.includes('private question'), 'a discussion was published');
   assert.strictEqual(shared.judgment, undefined);
   assert.strictEqual(shared.claims, undefined);
+  assert.strictEqual(shared.privateReason, undefined);
+  assert.strictEqual(shared.thought, undefined);
+  assert.strictEqual(shared.aiState, undefined);
 
   const dossier = serializePublicWikiPage({
     ...page,
