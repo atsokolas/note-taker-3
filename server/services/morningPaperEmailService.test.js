@@ -63,7 +63,7 @@ const inquiryMail = renderMorningPaperEmail({
   unsubscribeUrl: 'https://www.noeis.io/api/morning-paper/unsubscribe?token=x'
 });
 assert.match(inquiryMail.html, /Who bears the downside\?/);
-assert.match(inquiryMail.html, /think\?tab=questions&questionId=q-downside/);
+assert.match(inquiryMail.html, /think\?tab=questions&amp;questionId=q-downside/);
 assert.doesNotMatch(inquiryMail.html, /\/library\?articleId=/);
 
 const movement = {
