@@ -2,7 +2,6 @@ import {
   INQUIRY_SCOPE,
   bindInquiryToCurrentQuestion,
   inquiryAddressesEarlierWording,
-  needleFromBrief,
   normalizeInquiry,
   runLibraryInquiry
 } from './questionInquiry';
@@ -29,7 +28,7 @@ describe('questionInquiry', () => {
       createId
     });
     expect(search).toHaveBeenCalledWith({
-      q: needleFromBrief('Find an example that separates patience from avoidance.'),
+      q: 'Find an example that separates patience from avoidance.',
       type: ['article', 'highlight']
     });
     expect(run).toEqual(expect.objectContaining({
@@ -65,8 +64,33 @@ describe('questionInquiry', () => {
     });
     expect(run.status).toBe('miss');
     expect(run.passages).toEqual([]);
-    expect(run.silence).toBe('Nothing you already have speaks to “find bears downside”.');
+    expect(run.silence).toBe('Nothing you already have speaks to “Find who bears the downside.”.');
     expect(run.gaps).toBe('Nothing named yet that would be enough.');
+  });
+
+  it('keeps a highlight whose words sit in the brief without forming that phrase', async () => {
+    const run = await runLibraryInquiry({
+      search: jest.fn().mockResolvedValue({
+        articles: [],
+        highlights: [{
+          _id: 'h1',
+          articleId: 'letter',
+          articleTitle: 'Household letter',
+          text: 'Patience is not the same as avoidance.'
+        }]
+      }),
+      brief: 'Find an example that separates patience from avoidance.',
+      question: 'Who bears the downside?',
+      enough: 'A case where waiting is not hiding.',
+      now,
+      createId
+    });
+    expect(run.status).toBe('complete');
+    expect(run.passages).toEqual([expect.objectContaining({
+      highlightId: 'h1',
+      passage: 'Patience is not the same as avoidance.',
+      href: '/library?articleId=letter&highlightId=h1'
+    })]);
   });
 
   it('keeps a stopped look from rewriting an edited question', async () => {

@@ -2452,14 +2452,16 @@ const ThinkMode = () => {
     setQuestionError('');
     try {
       const updated = await updateQuestion(payload._id, {
-        text: payload.text,
-        /* Only sent when the caller had an opinion about it, so saving the
-           question's body cannot quietly erase what would settle it. */
+        /* Field-scoped: an inquiry result must not rewrite title or blocks
+           that were edited while the look was still in flight. */
+        ...(payload.text === undefined ? {} : { text: payload.text }),
         ...(payload.settledBy === undefined ? {} : { settledBy: payload.settledBy }),
         ...(payload.inquiry === undefined ? {} : { inquiry: payload.inquiry }),
-        status: payload.status,
-        conceptName: payload.conceptName || payload.linkedTagName || '',
-        blocks: payload.blocks || [],
+        ...(payload.status === undefined ? {} : { status: payload.status }),
+        ...(payload.conceptName === undefined && payload.linkedTagName === undefined
+          ? {}
+          : { conceptName: payload.conceptName || payload.linkedTagName || '' }),
+        ...(payload.blocks === undefined ? {} : { blocks: payload.blocks || [] }),
         ...(payload.linkedHighlightIds === undefined ? {} : { linkedHighlightIds: payload.linkedHighlightIds }),
         ...(payload.linkedHighlightId === undefined ? {} : { linkedHighlightId: payload.linkedHighlightId })
       });

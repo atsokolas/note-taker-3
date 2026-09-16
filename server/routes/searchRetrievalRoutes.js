@@ -1,6 +1,6 @@
 const express = require('express');
 const { librarySearchArticleMatch } = require('../utils/articleVisibility');
-const { snippetAroundQuery } = require('../utils/searchSnippet');
+const { snippetAroundQuery, highlightFieldMatch } = require('../utils/searchSnippet');
 
 const SEARCH_SCOPE_VALUES = new Set(['all', 'articles', 'highlights', 'notebook']);
 const SEARCH_TYPE_VALUES = new Set(['article', 'highlight', 'notebook', 'note', 'claim', 'evidence']);
@@ -418,14 +418,7 @@ const buildSearchRetrievalRouter = ({
               ...(tagRegexes.length > 0 ? [{ $match: { 'highlights.tags': { $in: tagRegexes } } }] : []),
               ...(highlightTypeFilters.length > 0 ? [{ $match: { 'highlights.type': { $in: highlightTypeFilters } } }] : []),
               {
-                $match: {
-                  $or: [
-                    { 'highlights.text': queryRegex },
-                    { 'highlights.note': queryRegex },
-                    { 'highlights.tags': queryRegex },
-                    { title: queryRegex }
-                  ]
-                }
+                $match: highlightFieldMatch(q)
               },
               {
                 $project: {
@@ -521,14 +514,7 @@ const buildSearchRetrievalRouter = ({
           ...(tagRegexes.length > 0 ? [{ $match: { 'highlights.tags': { $in: tagRegexes } } }] : []),
           ...(highlightTypeFilters.length > 0 ? [{ $match: { 'highlights.type': { $in: highlightTypeFilters } } }] : []),
           {
-            $match: {
-              $or: [
-                { 'highlights.text': queryRegex },
-                { 'highlights.note': queryRegex },
-                { 'highlights.tags': queryRegex },
-                { title: queryRegex }
-              ]
-            }
+            $match: highlightFieldMatch(q)
           },
           {
             $project: {
