@@ -1058,6 +1058,7 @@ const PocketBody = ({
   ) : null;
   const findAlreadyHave = composing ? (
     <FindWhatIAlreadyHave
+      boundQuestion={exploration.question}
       excluded={sources}
       canUndo={Boolean(previousChoice)}
       onUndo={() => {

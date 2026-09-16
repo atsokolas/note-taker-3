@@ -24,7 +24,6 @@ describe('QuestionBlocksEditor', () => {
           sourcePath
         }]}
         onChange={jest.fn()}
-        onInsertHighlight={jest.fn()}
       />
     );
 
@@ -46,7 +45,6 @@ describe('QuestionBlocksEditor', () => {
           sourcePath: '/library?articleId=article-2#passage=wrong'
         }]}
         onChange={jest.fn()}
-        onInsertHighlight={jest.fn()}
       />
     );
 
@@ -77,7 +75,6 @@ describe('QuestionBlocksEditor', () => {
           sourcePath: '/library?articleId=article-1&highlightId=highlight-1'
         }]}
         onChange={jest.fn()}
-        onInsertHighlight={jest.fn()}
       />
     );
 
@@ -110,7 +107,6 @@ describe('QuestionBlocksEditor', () => {
           articleTitle: 'A beautiful source'
         }]}
         onChange={jest.fn()}
-        onInsertHighlight={jest.fn()}
       />
     );
 
@@ -154,7 +150,6 @@ describe('QuestionBlocksEditor', () => {
       <QuestionBlocksEditor
         blocks={[{ id: 'block-1', type: 'paragraph', text: 'What would change this?' }]}
         onChange={onChange}
-        onInsertHighlight={jest.fn()}
       />
     );
 
@@ -172,7 +167,6 @@ describe('QuestionBlocksEditor', () => {
       <QuestionBlocksEditor
         blocks={[{ id: 'block-1', type: 'paragraph', text: 'The central claim to test.' }]}
         onChange={onChange}
-        onInsertHighlight={jest.fn()}
       />
     );
 
@@ -201,7 +195,6 @@ describe('QuestionBlocksEditor', () => {
           challenge: { enabled: true, createdAt: '2026-06-01T12:00:00.000Z', note: '' }
         }]}
         onChange={onChange}
-        onInsertHighlight={jest.fn()}
       />
     );
 
@@ -241,7 +234,6 @@ describe('QuestionBlocksEditor', () => {
           }
         }]}
         onChange={jest.fn()}
-        onInsertHighlight={jest.fn()}
       />
     );
 
@@ -267,7 +259,6 @@ describe('QuestionBlocksEditor', () => {
           }
         }]}
         onChange={jest.fn()}
-        onInsertHighlight={jest.fn()}
         challengeEvidenceByBlockId={{
           'block-1': {
             support: [{ stance: 'support', title: 'Live support' }],

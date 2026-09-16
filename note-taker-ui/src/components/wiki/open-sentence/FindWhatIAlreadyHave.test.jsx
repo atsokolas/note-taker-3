@@ -41,6 +41,26 @@ describe('FindWhatIAlreadyHave', () => {
     expect(screen.getByRole('button', { name: 'Find what I already have' })).toHaveFocus();
   });
 
+  it('binds the search to the question that asked', async () => {
+    const search = jest.fn().mockResolvedValue({ articles: [], highlights: [] });
+    render(
+      <FindWhatIAlreadyHave
+        boundQuestion="Who bears the downside?"
+        pickerProps={{
+          ...pickerProps(),
+          search
+        }}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Find what I already have' }));
+    expect(screen.getByText('For this question')).toBeInTheDocument();
+    await waitFor(() => expect(search).toHaveBeenCalledWith({
+      q: 'bears downside',
+      type: ['article', 'highlight']
+    }));
+    expect(await screen.findByText('Nothing you already have speaks to “bears downside”.')).toBeInTheDocument();
+  });
+
   it('offers undo only after a placement', () => {
     const onUndo = jest.fn();
     const { rerender } = render(<FindWhatIAlreadyHave onUndo={onUndo} />);
