@@ -13,7 +13,7 @@ const STOP_WORDS = new Set([
   'why', 'with', 'you', 'your'
 ]);
 
-const tokensOf = (value) => (
+export const tokensOf = (value) => (
   (String(value || '').toLowerCase().match(/[a-z0-9']+/g) || [])
     .filter((token) => token.length > 2 && !STOP_WORDS.has(token))
 );
