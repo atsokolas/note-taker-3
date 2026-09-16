@@ -5,6 +5,7 @@ import ReturnLaterControl from '../../return-queue/ReturnLaterControl';
 import AgentSkillDock from '../../agent/AgentSkillDock';
 import AuthoredWorkOrigin from '../AuthoredWorkOrigin';
 import FindWhatIAlreadyHave from '../../wiki/open-sentence/FindWhatIAlreadyHave';
+import QuestionInquiry from './QuestionInquiry';
 import {
   alreadyUsedHere,
   mergeQuestionHighlightLinks,
@@ -85,7 +86,8 @@ const QuestionEditor = ({
       text: titleDraft.trim() || 'Untitled question',
       blocks,
       linkedHighlightIds,
-      linkedHighlightId: linkedHighlightIds[0] || null
+      linkedHighlightId: linkedHighlightIds[0] || null,
+      ...(options?.inquiry === undefined ? {} : { inquiry: options.inquiry })
     });
   };
 
@@ -178,6 +180,13 @@ const QuestionEditor = ({
           onPlace={placeFoundPassage}
         />
       </div>
+      <QuestionInquiry
+        question={question}
+        boundQuestion={titleDraft}
+        excluded={recordedUses}
+        onPlace={placeFoundPassage}
+        onSave={(inquiry) => persist(blocksDraft, { inquiry })}
+      />
       <QuestionBlocksEditor
         blocks={blocksDraft}
         onChange={setBlocksDraft}
