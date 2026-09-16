@@ -517,14 +517,19 @@ const NotebookEditor = ({
         const notes = typeof getNotebookSummaries === 'function'
           ? await getNotebookSummaries()
           : [];
-        if (!cancelled) setSavedDistinctions(eligibleDistinctions(notes));
+        if (!cancelled) {
+          setSavedDistinctions(eligibleDistinctions([
+            ...(Array.isArray(notes) ? notes : []),
+            ...(Array.isArray(concepts) ? concepts : [])
+          ]));
+        }
       } catch (_ignored) {
         if (!cancelled) setSavedDistinctions([]);
       }
     };
     load();
     return () => { cancelled = true; };
-  }, [entry?._id]);
+  }, [concepts, entry?._id]);
 
   const highlightExtension = useMemo(
     () => HighlightRefNode.configure({

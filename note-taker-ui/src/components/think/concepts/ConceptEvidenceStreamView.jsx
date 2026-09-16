@@ -9,6 +9,7 @@ import { AGENT_DISPLAY_NAME } from '../../../constants/agentIdentity';
 import AgentTicker from '../../agent/AgentTicker';
 import { EditorialSideRailCollapsible } from '../EditorialSideRail';
 import { wordBoundaryTrim } from '../../../utils/editorialText';
+import { liveDefinitionMoved } from '../../../utils/distinctionUse';
 
 const clean = (value) => String(value || '').trim();
 const truncate = (value = '', limit = 220) => wordBoundaryTrim(value, { maxLength: limit });
@@ -366,7 +367,8 @@ const ConceptEvidenceStreamView = ({
   isReceivingDrop = false,
   onRunAction,
   onOpenTemplatePicker,
-  onShareConcept
+  onShareConcept,
+  recordedVersionId = ''
 }) => {
   const supportCards = useMemo(
     () => model.state.cards.filter((card) => card.zone === 'supports'),
@@ -381,6 +383,7 @@ const ConceptEvidenceStreamView = ({
     [model.state.cards]
   );
   const framingLine = clean(concept?.description) || clean(model.state.header.prompt) || "What's the core insight here?";
+  const recordedMoved = liveDefinitionMoved(concept, recordedVersionId);
   const hasMeaningfulDraft = stripHtml(model.state.hypothesis.html).length > 0;
   const hasStagedMaterial = model.state.cards.length > 0;
   const hasAgentTrail = model.state.agent.messages.length > 0
@@ -451,6 +454,11 @@ const ConceptEvidenceStreamView = ({
             ? 'Start with the claim in your own words. Pull support, tension, and remembered sources into the rail when the page has something worth testing.'
             : framingLine}
         </p>
+        {recordedMoved ? (
+          <p className="concept-editorial-view__recorded">
+            This page now says something else. The use kept the earlier wording.
+          </p>
+        ) : null}
       </header>
 
       <article className="concept-editorial-view__manuscript">

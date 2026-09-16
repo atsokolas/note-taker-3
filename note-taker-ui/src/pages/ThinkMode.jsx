@@ -4321,6 +4321,7 @@ const ThinkMode = () => {
               onRunAction={setConceptEditorialSection}
               onOpenTemplatePicker={openTemplatePicker}
               onShareConcept={() => setConceptShareModalOpen(true)}
+              recordedVersionId={searchParams.get('v') || ''}
             />
           ) : (
             <SurfaceCard className="think-concepts-empty-state">

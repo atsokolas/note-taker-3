@@ -5,6 +5,7 @@ import { listWikiPages } from '../../../api/wiki';
 import { getArticleEvergreen } from '../../../api/articles';
 import { disposeNotebookSourceCorrection, exportNotebookMarkdown, getNotebookShare, getNotebookSummaries, getNotebookVolume, previewNotebookVolume } from '../../../api/notebook';
 import { THINK_WRITING_IDLE_MS } from '../editor/useThinkWritingActivity';
+import useConcepts from '../../../hooks/useConcepts';
 
 const mockUseEditor = jest.fn();
 const mockChain = {
@@ -72,7 +73,7 @@ jest.mock('../../../hooks/useHighlights', () => () => ({
 }));
 
 jest.mock('../../../hooks/useArticles', () => () => ({ articles: [] }));
-jest.mock('../../../hooks/useConcepts', () => () => ({ concepts: [] }));
+jest.mock('../../../hooks/useConcepts', () => jest.fn(() => ({ concepts: [] })));
 jest.mock('../../../hooks/useQuestions', () => () => ({ questions: [] }));
 
 jest.mock('../../../api/organize', () => ({
@@ -129,6 +130,7 @@ describe('NotebookEditor', () => {
     // own async contract tests, and a pending read avoids post-assertion state.
     getArticleEvergreen.mockReturnValue(new Promise(() => {}));
     getNotebookSummaries.mockReturnValue(new Promise(() => {}));
+    useConcepts.mockReturnValue({ concepts: [] });
     exportNotebookMarkdown.mockReset();
     exportNotebookMarkdown.mockResolvedValue(new Blob(['# Letter\n'], { type: 'text/markdown' }));
     getNotebookShare.mockReset();
@@ -601,6 +603,41 @@ describe('NotebookEditor', () => {
           type: 'paragraph',
           content: [{ type: 'text', text: 'A mistake that teaches the map, versus one that strands you.' }]
         }]
+      })
+    ]));
+  });
+
+  it('applies a Concept definition with the recorded version, not a live rewrite', async () => {
+    getNotebookSummaries.mockResolvedValue([]);
+    useConcepts.mockReturnValue({
+      concepts: [{
+        _id: 'concept-1',
+        name: 'Room to be wrong',
+        description: 'A mistake that teaches the map, versus one that strands you.'
+      }]
+    });
+    render(
+      <NotebookEditor
+        entry={{ _id: 'note-2', title: 'Second use', content: '<p>Draft</p>', blocks: [], type: 'note', tags: [] }}
+        saving={false}
+        error=""
+        onSave={jest.fn()}
+        onDelete={jest.fn()}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Insert material' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Use this here' }));
+    expect(mockChain.insertContent).toHaveBeenCalledWith(expect.arrayContaining([
+      expect.objectContaining({
+        type: 'heading',
+        content: [{ type: 'text', text: 'Room to be wrong' }]
+      }),
+      expect.objectContaining({
+        type: 'blockquote',
+        attrs: expect.objectContaining({
+          articleTitle: 'Room to be wrong',
+          sourcePath: expect.stringMatching(/tab=concepts.*v=/)
+        })
       })
     ]));
   });

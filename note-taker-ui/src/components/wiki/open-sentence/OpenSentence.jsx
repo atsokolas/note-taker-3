@@ -84,6 +84,7 @@ import AuthoredWriting, { AuthoredContext } from './AuthoredWriting';
 import FindWhatIAlreadyHave from './FindWhatIAlreadyHave';
 import UseDistinctionHere from './UseDistinctionHere';
 import {
+  DISTINCTION_SOURCE_CONCEPT,
   DISTINCTION_SOURCE_TYPE,
   distinctionExternalId,
   distinctionRecord,
@@ -92,6 +93,7 @@ import {
   heldInstrumentFrom,
   keepNewerHeldInstrument,
   liveDefinitionAfterFailure,
+  missingSourceCopy,
   recordedDefinition,
   retainDistinction,
   retainDistinctionPayload,
@@ -100,6 +102,7 @@ import {
   updateDistinctionPayload
 } from '../../../utils/distinctionUse';
 import { createNotebookEntry, getNotebookEntry, getNotebookSummaries, updateNotebookEntry } from '../../../api/notebook';
+import { getConcept, getConcepts, updateConcept } from '../../../api/concepts';
 import './open-sentence.css';
 
 const selectionInside = (root) => {
@@ -241,9 +244,7 @@ const RecordedDefinition = ({
     <>
       <p className="open-sentence-pocket__prior-writing">{recorded.definition}</p>
       <p className="open-sentence-pocket__qualification">
-        {status === 'missing' || status === 'foreign'
-          ? 'The notebook page is gone. These are the words used here.'
-          : 'Used here as written.'}
+        {missingSourceCopy(status, instrument.sourceKind)}
       </p>
       {instrument.inapplicable ? (
         <p className="open-sentence-pocket__qualification">
@@ -279,8 +280,13 @@ const RecordedDefinition = ({
   );
 };
 
-const persistNarrowedDefinition = async ({ mocked, sourceId, live }) => {
+const persistNarrowedDefinition = async ({ mocked, sourceId, sourceKind, live }) => {
   if (mocked || !sourceId || !live) return live;
+  if (sourceKind === DISTINCTION_SOURCE_CONCEPT) {
+    await getConcept(sourceId);
+    await updateConcept(live.name, { description: live.definition });
+    return live;
+  }
   const note = await getNotebookEntry(sourceId);
   if (shouldUpdateExistingDistinction(note, live)) {
     const payload = updateDistinctionPayload({
@@ -299,7 +305,13 @@ const persistNarrowedDefinition = async ({ mocked, sourceId, live }) => {
   return live;
 };
 
-const NARROW_SAVE_FAILED = 'The narrower wording is here. The notebook note did not save.';
+const NARROW_SAVE_FAILED = {
+  [DISTINCTION_SOURCE_CONCEPT]: 'The narrower wording is here. The concept did not save.',
+  notebook: 'The narrower wording is here. The notebook note did not save.'
+};
+const narrowSaveFailedCopy = (sourceKind) => (
+  NARROW_SAVE_FAILED[sourceKind] || NARROW_SAVE_FAILED.notebook
+);
 
 const ApplicationJudgment = ({
   pocketId,
@@ -351,11 +363,12 @@ const ApplicationJudgment = ({
       await persistNarrowedDefinition({
         mocked,
         sourceId: instrument.sourceId,
+        sourceKind: instrument.sourceKind,
         live: nextLive
       });
       adoptLive(nextLive);
     } catch (_failed) {
-      setSaveError(NARROW_SAVE_FAILED);
+      setSaveError(narrowSaveFailedCopy(instrument.sourceKind));
     } finally {
       setSaving(false);
     }
@@ -437,7 +450,7 @@ const ApplicationJudgment = ({
       ) : (
         <>
           <p className="open-sentence-pocket__save" role="status">
-            {saveError || NARROW_SAVE_FAILED}
+            {saveError || narrowSaveFailedCopy(instrument.sourceKind)}
           </p>
           <button type="button" onClick={() => saveLive(live)} disabled={saving}>
             Try saving again
@@ -469,6 +482,7 @@ const DistinctionField = ({
   const instrumentName = instrument?.name || '';
   const instrumentDefinition = instrument?.definition || '';
   const instrumentSourceId = instrument?.sourceId || '';
+  const instrumentSourceKind = instrument?.sourceKind || '';
   const instrumentAgainst = instrument?.against || '';
   const instrumentOwnerId = instrument?.ownerId || '';
   const externalId = distinctionExternalId(authorship?.record?.saved);
@@ -492,10 +506,15 @@ const DistinctionField = ({
     let cancelled = false;
     (async () => {
       try {
-        const notes = await getNotebookSummaries({ force: true });
+        const [notes, concepts] = await Promise.all([
+          getNotebookSummaries({ force: true }),
+          getConcepts({ force: true }).catch(() => [])
+        ]);
         const retained = await retainDistinction({
           notes,
+          concepts,
           createNote: createNotebookEntry,
+          saveConcept: (title, payload) => updateConcept(title, payload),
           name: instrumentName,
           definition: instrumentDefinition,
           externalId
@@ -531,19 +550,22 @@ const DistinctionField = ({
       name: instrumentName,
       definition: instrumentDefinition,
       sourceId: instrumentSourceId,
+      sourceKind: instrumentSourceKind,
       ownerId: instrumentOwnerId
     });
     const load = async () => {
       try {
-        const note = await getNotebookEntry(instrumentSourceId);
-        if (!cancelled) setSourceState(sourceStatus(used, note));
+        const live = used?.sourceKind === DISTINCTION_SOURCE_CONCEPT
+          ? await getConcept(instrumentSourceId)
+          : await getNotebookEntry(instrumentSourceId);
+        if (!cancelled) setSourceState(sourceStatus(used, live));
       } catch (_ignored) {
         if (!cancelled) setSourceState('missing');
       }
     };
     load();
     return () => { cancelled = true; };
-  }, [mocked, instrumentName, instrumentDefinition, instrumentSourceId, instrumentOwnerId]);
+  }, [mocked, instrumentName, instrumentDefinition, instrumentSourceId, instrumentSourceKind, instrumentOwnerId]);
 
   return (
     <>
@@ -1299,9 +1321,13 @@ const OpenSentence = ({
     if (!live?.sourceId) return;
     const next = eligibleDistinctions([{
       _id: live.sourceId,
-      title: live.name,
-      snippet: live.definition,
-      importMeta: { sourceType: DISTINCTION_SOURCE_TYPE }
+      ...(live.sourceKind === DISTINCTION_SOURCE_CONCEPT
+        ? { name: live.name, description: live.definition }
+        : {
+          title: live.name,
+          snippet: live.definition,
+          importMeta: { sourceType: DISTINCTION_SOURCE_TYPE }
+        })
     }])[0];
     if (!next) return;
     setSavedDistinctions((list) => {
@@ -1373,10 +1399,16 @@ const OpenSentence = ({
     let cancelled = false;
     const load = async () => {
       try {
-        const notes = typeof getNotebookSummaries === 'function'
-          ? await getNotebookSummaries({ force: true })
-          : [];
-        if (!cancelled) setSavedDistinctions(eligibleDistinctions(notes));
+        const [notes, concepts] = await Promise.all([
+          typeof getNotebookSummaries === 'function'
+            ? getNotebookSummaries({ force: true })
+            : [],
+          getConcepts({ force: true }).catch(() => [])
+        ]);
+        if (!cancelled) setSavedDistinctions(eligibleDistinctions([
+          ...(Array.isArray(notes) ? notes : []),
+          ...(Array.isArray(concepts) ? concepts : [])
+        ]));
       } catch (_ignored) {
         if (!cancelled) setSavedDistinctions([]);
       } finally {

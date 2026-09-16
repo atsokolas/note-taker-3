@@ -307,4 +307,20 @@ describe('Concept evidence shell surfaces', () => {
     expect(screen.queryByTestId('concept-evidence-dropzone')).not.toBeInTheDocument();
     expect(screen.queryByText(/Drag evidence here/i)).not.toBeInTheDocument();
   });
+
+  it('says when this page moved after a recorded use', () => {
+    const model = buildModel();
+    render(
+      <ConceptEvidenceStreamView
+        concept={{
+          _id: 'concept-1',
+          name: 'Room to be wrong',
+          description: 'Whose downside?'
+        }}
+        model={model}
+        recordedVersionId="aaaaaaaaaaaaaaaa"
+      />
+    );
+    expect(screen.getByText('This page now says something else. The use kept the earlier wording.')).toBeInTheDocument();
+  });
 });
