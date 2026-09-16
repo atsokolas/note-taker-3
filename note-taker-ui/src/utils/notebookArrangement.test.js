@@ -11,6 +11,8 @@ import {
   pieceIndexForSelection,
   pieceIndexNearOffset,
   restorePieceInDocument,
+  removePieceById,
+  repositionPieceByAnchors,
   setAsidePieceInDocument
 } from './notebookArrangement';
 
@@ -148,6 +150,35 @@ describe('notebookArrangement', () => {
     const restored = restorePieceInDocument(removed.doc, removed.aside);
     expect(restored.doc.content.map((node) => node.attrs.blockId))
       .toEqual(essayDoc.content.map((node) => node.attrs.blockId));
+  });
+
+  it('restores by stable neighbors without erasing writing added afterward', () => {
+    const removed = setAsidePieceInDocument(essayDoc, 1);
+    const later = paragraph('A fresh paragraph written afterward.', 'fresh');
+    const changed = { ...removed.doc, content: [removed.doc.content[0], later, removed.doc.content[1]] };
+    const restored = restorePieceInDocument(changed, removed.aside);
+    expect(restored.doc.content.map((node) => node.attrs.blockId)).toEqual([
+      'rule', 'exception', 'quote-The cost is borne by people who did not volunteer.', 'fresh', 'close'
+    ]);
+  });
+
+  it('undoes a move by identity while retaining later paragraphs', () => {
+    const moved = movePieceInDocument(essayDoc, 1, 'up');
+    const changed = { ...moved.doc, content: [...moved.doc.content, paragraph('Later', 'later')] };
+    const restored = repositionPieceByAnchors(changed, 'exception', { beforeId: 'rule', afterId: 'close' });
+    expect(restored.moved).toBe(true);
+    expect(restored.doc.content.map((node) => node.attrs.blockId)).toEqual([
+      'rule', 'exception', 'quote-The cost is borne by people who did not volunteer.', 'close', 'later'
+    ]);
+  });
+
+  it('undoes a bring-back by identity while retaining later paragraphs', () => {
+    const removed = setAsidePieceInDocument(essayDoc, 1);
+    const restored = restorePieceInDocument(removed.doc, removed.aside);
+    const changed = { ...restored.doc, content: [...restored.doc.content, paragraph('Later', 'later')] };
+    const undone = removePieceById(changed, removed.aside.id);
+    expect(undone.deleted).toBe(true);
+    expect(undone.doc.content.map((node) => node.attrs.blockId)).toEqual(['rule', 'close', 'later']);
   });
 
   it('restores a later passage after the citation that belongs to the preceding prose', () => {

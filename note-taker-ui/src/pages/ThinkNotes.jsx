@@ -35,8 +35,6 @@ import { plainTextFrom } from '../utils/editorialText';
 // other notes faint beside it. The agent fetches into the note from the rail;
 // the note only changes when the human accepts what came back.
 
-const FETCH_QUESTION = 'Find a source in my library worth pulling into this note. Answer in one sentence.';
-
 const WritingMatch = ({ item }) => {
   const text = item.excerpt || '';
   const start = Math.max(0, Math.min(text.length, item.matchStart || 0));
@@ -76,9 +74,48 @@ const ThinkNotes = () => {
   };
   const [shelfExpanded, setShelfExpanded] = useState(false);
   const [queuedPrompt, setQueuedPrompt] = useState(null);
+  const [contextByNote, setContextByNote] = useState({});
+  const [contextPortal, setContextPortal] = useState(null);
+  const [partnerTrial, setPartnerTrial] = useState(null);
+  const registerPartnerTrial = useCallback((handler) => setPartnerTrial(() => handler), []);
+  const [compactContext, setCompactContext] = useState(false);
   const [authoredWork, setAuthoredWork] = useState([]);
   const [authoredError, setAuthoredError] = useState('');
   const arriving = useMemo(() => takeFirstPaint('think-notes'), []);
+  const activeContext = contextByNote[openId] || null;
+  const openContext = useCallback((mode) => {
+    if (!openId) return;
+    setContextByNote(current => ({ ...current, [openId]: mode }));
+  }, [openId]);
+  const closeContext = useCallback(() => {
+    if (!openId) return;
+    setContextByNote(current => ({ ...current, [openId]: null }));
+  }, [openId]);
+  const queuePartner = useCallback((prompt) => {
+    openContext('partner');
+    setQueuedPrompt(prompt);
+  }, [openContext]);
+  useEffect(() => {
+    const media = window.matchMedia?.('(max-width: 1180px)');
+    if (!media) return undefined;
+    const sync = () => setCompactContext(media.matches);
+    sync();
+    media.addEventListener?.('change', sync);
+    return () => media.removeEventListener?.('change', sync);
+  }, []);
+  const contextTakesFocus = Boolean(activeContext && compactContext);
+  useEffect(() => {
+    if (!activeContext) return undefined;
+    const onKeyDown = (event) => {
+      if (event.key !== 'Escape' || event.defaultPrevented || event.isComposing) return;
+      event.preventDefault();
+      const closedMode = activeContext;
+      closeContext();
+      window.requestAnimationFrame?.(() => noteSurface.current?.querySelector(`[data-context-trigger="${closedMode}"]`)?.focus?.());
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [activeContext, closeContext]);
 
   useEffect(() => {
     let cancelled = false;
@@ -275,8 +312,8 @@ const ThinkNotes = () => {
   const step = (n) => (arriving ? `wfp-anim wfp-anim--${n}` : 'think-notes__return');
 
   return (
-    <div className="think-notes">
-      <aside className="think-notes__shelf" aria-label="Think navigation">
+    <div className={`think-notes${activeContext ? ' has-context' : ''}`}>
+      <aside className="think-notes__shelf" aria-label="Think navigation" inert={contextTakesFocus ? '' : undefined} aria-hidden={contextTakesFocus || undefined}>
         <FocusMode inRail />
         <RoomShelf
           as="div"
@@ -303,6 +340,15 @@ const ThinkNotes = () => {
             <li><RoomShelfButton onClick={() => openThinkView('concepts')}><span>Concepts</span></RoomShelfButton></li>
             <li><RoomShelfButton onClick={() => openThinkView('questions')}><span>Questions</span></RoomShelfButton></li>
           </RoomShelfList>
+          <button
+            type="button"
+            className="think-notes__new"
+            onClick={startNote}
+            disabled={creating || loading || loadingEntry}
+          >
+            {creating ? 'Opening…' : '+ New note'}
+          </button>
+          {creationError ? <p role="status" className="room-shelf__description">{creationError}</p> : null}
           {phrase ? (
             <RoomShelfSection label="Found in your writing">
               <p className="room-shelf__description">Notes and private explorations</p>
@@ -348,6 +394,7 @@ const ThinkNotes = () => {
                     onClick={() => openNote(item.id)}
                   >
                     <span>{item.title}</span>
+                    {item.nextTimeLine ? <span className="think-notes__return-note">{item.nextTimeLine}</span> : null}
                   </RoomShelfButton>
                 </li>
               ))}
@@ -371,17 +418,9 @@ const ThinkNotes = () => {
         className={`think-notes__note${loadingEntry ? ' is-loading' : ''}`}
         aria-labelledby="think-note-title"
         aria-busy={loadingEntry ? 'true' : undefined}
+        inert={contextTakesFocus ? '' : undefined}
+        aria-hidden={contextTakesFocus || undefined}
       >
-        <div className="think-notes__start">
-          <button type="button" onClick={startNote} disabled={creating || loading || loadingEntry}>
-            {creating ? 'Opening a new note…' : 'Start a note'}
-          </button>
-          <button type="button" className="think-notes__find" onClick={() => {
-            searchInput.current?.focus({ preventScroll: true });
-            searchInput.current?.scrollIntoView?.({ block: 'center' });
-          }}>Find writing</button>
-          {creationError ? <p role="status">{creationError}</p> : null}
-        </div>
         {entryMatchesRoute ? (
           <div className={step(2)}>
             <NotebookEditor
@@ -393,11 +432,20 @@ const ThinkNotes = () => {
               onSave={saveEntry}
               onRegisterSave={registerSave}
               startWriting={freshId === openId}
-              onInvokeAgentSkill={setQueuedPrompt}
+              onInvokeAgentSkill={queuePartner}
               showInlineAgentDock={false}
               agentContextType="notebook"
               agentContextId={openId}
               agentContextTitle={entry.title || 'Note'}
+              activeContext={activeContext}
+              onOpenContext={openContext}
+              contextPortal={contextPortal}
+              quietWorkspace
+              onWorkingStateChange={(workingState) => {
+                setEntry(current => current ? { ...current, workingState } : current);
+                setNotes(current => current.map(item => String(item?._id) === openId ? { ...item, workingState } : item));
+              }}
+              onRegisterPartnerTrial={registerPartnerTrial}
               onSourceCorrectionSettled={(result) => {
                 if (result?.entry) setEntry(result.entry);
                 else if (result?.sourceCorrection) {
@@ -405,19 +453,6 @@ const ThinkNotes = () => {
                 }
               }}
             />
-            {/* A quiet shortcut into the same partner beside the document. */}
-            <button
-              type="button"
-              className="think-notes__door"
-              onClick={() => setQueuedPrompt({
-                id: `note-source:${openId}:${Date.now()}`,
-                prompt: FETCH_QUESTION,
-                contextType: 'notebook',
-                contextId: openId
-              })}
-            >
-              Ask the thought partner to find a source
-            </button>
           </div>
         ) : (
           <p className={`think-notes__quiet ${step(2)}`} role="status">
@@ -429,30 +464,36 @@ const ThinkNotes = () => {
       </main>
 
       <aside
-        className={`think-notes__partner ${step(3)}`}
-        aria-label="Thought partner"
-        data-writing-rail="right"
-        data-writing-rail-label="Partner"
+        className="think-notes__partner"
+        aria-label="Note context"
+        hidden={!activeContext}
       >
-        <ThoughtPartnerPanel
-          variant="stream"
-          contextType="notebook"
-          contextId={entryMatchesRoute ? openId : ''}
-          contextTitle={entryMatchesRoute ? entry?.title || 'Note' : 'Think'}
-          contextMetadata={entryMatchesRoute ? { primaryText: noteContextText } : null}
-          queuedPrompt={queuedPrompt}
-          title="Thought partner"
-          subtitle="Working beside this note"
-          placeholder="Challenge, connect, or develop this thought…"
-          promptTemplates={[
-            'Find a source that changes this note.',
-            'What is still unresolved on this page?',
-            'Challenge the weakest assumption on this page.'
-          ]}
-          passiveStatusText="Keep writing. I will stay quiet until you ask me to connect, challenge, or develop the page."
-          emptyStateText="Ask when you want another mind in the room."
-          submitLabel="↗"
-        />
+        <div className="think-notes__context-head">
+          <div role="tablist" aria-label="Note context">
+            <button type="button" role="tab" aria-selected={activeContext === 'material'} onClick={() => openContext('material')}>Material</button>
+            <button type="button" role="tab" aria-selected={activeContext === 'partner'} onClick={() => openContext('partner')}>Partner</button>
+          </div>
+          <button type="button" className="think-notes__context-close" onClick={closeContext} aria-label="Close note context">Close</button>
+        </div>
+        <div ref={setContextPortal} hidden={activeContext !== 'material'} />
+        <div hidden={activeContext !== 'partner'}>
+          <ThoughtPartnerPanel
+            variant="stream"
+            contextType="notebook"
+            contextId={entryMatchesRoute ? openId : ''}
+            contextTitle={entryMatchesRoute ? entry?.title || 'Note' : 'Think'}
+            contextMetadata={entryMatchesRoute ? { primaryText: noteContextText } : null}
+            queuedPrompt={queuedPrompt}
+            title="Thought partner"
+            subtitle="This note, when you ask"
+            placeholder="Ask about this note or selected words…"
+            promptTemplates={[]}
+            passiveStatusText="Keep writing. The partner will stay quiet until you ask."
+            emptyStateText="Ask when you want another mind in the room."
+            submitLabel="↗"
+            onTryWording={partnerTrial}
+          />
+        </div>
       </aside>
     </div>
   );

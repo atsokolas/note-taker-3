@@ -309,15 +309,74 @@ const notebookAsidePieceSchema = new mongoose.Schema({
   id: { type: String, required: true },
   label: { type: String, default: '' },
   index: { type: Number, default: 0 },
+  beforeId: { type: String, default: '' },
+  afterId: { type: String, default: '' },
   nodes: { type: [mongoose.Schema.Types.Mixed], default: [] },
   blocks: { type: [notebookBlockSchema] }
 }, { _id: false });
 
+const notebookWorkbenchTargetSchema = new mongoose.Schema({
+  blockId: { type: String, default: '', maxlength: 160 },
+  offset: { type: Number, default: 0, min: 0 },
+  baseText: { type: String, default: '', maxlength: 20000 }
+}, { _id: false });
+
+const notebookWorkbenchMaterialSchema = new mongoose.Schema({
+  id: { type: String, required: true, maxlength: 160 },
+  kind: { type: String, enum: ['highlight', 'article', 'concept', 'question', 'wiki'], required: true },
+  title: { type: String, default: '', maxlength: 1000 },
+  text: { type: String, default: '', maxlength: 30000 },
+  sourceId: { type: String, default: '', maxlength: 200 },
+  articleId: { type: String, default: '', maxlength: 200 },
+  highlightId: { type: String, default: '', maxlength: 200 },
+  sourcePath: { type: String, default: '', maxlength: 3000 },
+  target: { type: notebookWorkbenchTargetSchema, default: () => ({}) },
+  insertedBlockId: { type: String, default: '', maxlength: 160 },
+  createdAt: { type: Date, default: Date.now }
+}, { _id: false });
+
+const notebookWorkbenchTrialSchema = new mongoose.Schema({
+  id: { type: String, required: true, maxlength: 160 },
+  target: { type: notebookWorkbenchTargetSchema, required: true },
+  alternative: { type: String, default: '', maxlength: 30000 },
+  origin: { type: String, enum: ['human', 'partner'], default: 'human' },
+  updatedAt: { type: Date, default: Date.now }
+}, { _id: false });
+
+const notebookWorkbenchThoughtSchema = new mongoose.Schema({
+  id: { type: String, required: true, maxlength: 160 },
+  text: { type: String, required: true, maxlength: 30000 },
+  target: { type: notebookWorkbenchTargetSchema, default: () => ({}) },
+  createdAt: { type: Date, default: Date.now }
+}, { _id: false });
+
+const notebookWorkbenchNextLineSchema = new mongoose.Schema({
+  text: { type: String, default: '', maxlength: 4000 },
+  target: { type: notebookWorkbenchTargetSchema, default: () => ({}) },
+  updatedAt: { type: Date, default: null }
+}, { _id: false });
+
+const notebookWorkbenchContinuitySchema = new mongoose.Schema({
+  target: { type: notebookWorkbenchTargetSchema, default: () => ({}) },
+  scrollY: { type: Number, default: 0, min: 0 },
+  updatedAt: { type: Date, default: null }
+}, { _id: false });
+
+const notebookWorkbenchSchema = new mongoose.Schema({
+  revision: { type: Number, default: 0, min: 0 },
+  materials: { type: [notebookWorkbenchMaterialSchema], default: [] },
+  trials: { type: [notebookWorkbenchTrialSchema], default: [] },
+  looseThoughts: { type: [notebookWorkbenchThoughtSchema], default: [] },
+  nextTimeLine: { type: notebookWorkbenchNextLineSchema, default: () => ({}) },
+  continuity: { type: notebookWorkbenchContinuitySchema, default: () => ({}) }
+}, { _id: false });
+
 const notebookEntrySchema = new mongoose.Schema({
-  title: { type: String, required: true, trim: true },
+  title: { type: String, default: '', trim: true },
   content: { type: String, default: '' },
   blocks: { type: [notebookBlockSchema], default: [] },
   asidePieces: { type: [notebookAsidePieceSchema], default: [] },
+  workingState: { type: notebookWorkbenchSchema, default: () => ({}) },
   folder: { type: mongoose.Schema.Types.ObjectId, ref: 'NotebookFolder', default: null },
   type: { type: String, enum: ['claim', 'evidence', 'note'], default: 'note' },
   claimId: { type: mongoose.Schema.Types.ObjectId, default: null },

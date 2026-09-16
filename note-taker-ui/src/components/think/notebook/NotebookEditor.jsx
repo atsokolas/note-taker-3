@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { NodeViewWrapper, ReactNodeViewRenderer, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -36,6 +37,8 @@ import {
   hydrateAsidePieces,
   movePieceInDocument,
   persistableAsidePiece,
+  removePieceById,
+  repositionPieceByAnchors,
   pieceIndexForSelection,
   restorePieceInDocument,
   setAsidePieceInDocument
@@ -46,6 +49,23 @@ import { AGENT_DISPLAY_NAME } from '../../../constants/agentIdentity';
 import { resolveNotebookSource } from './notebookSourceModel';
 import useNotebookSourceEvergreen from './useNotebookSourceEvergreen';
 import NotebookArrangementRail from './NotebookArrangementRail';
+import NotebookWorkbenchPanel from './NotebookWorkbenchPanel';
+import useNotebookWorkbench from './useNotebookWorkbench';
+import {
+  NotebookWorkbenchDecorations,
+  setNotebookWorkbenchDecorations
+} from './notebookWorkbenchDecorations';
+import {
+  citationTargetsForMaterial,
+  deleteEditorBlockById,
+  focusEditorTarget,
+  insertAfterEditorTarget,
+  privateRecoveryFile,
+  replaceEditorTargetText,
+  resolveEditorTarget,
+  sourceNodeForMaterial,
+  targetFromEditor
+} from '../../../utils/notebookWorkbench';
 import '../../../styles/think-writing.css';
 
 const AUTOSAVE_DELAY_MS = 850;
@@ -53,6 +73,12 @@ const AUTOSAVE_DELAY_MS = 850;
 const createId = () => {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
   return `block-${Math.random().toString(36).slice(2, 9)}-${Date.now()}`;
+};
+
+const jsonNodeText = (node) => {
+  if (!node) return '';
+  if (node.type === 'text') return node.text || '';
+  return (node.content || []).map(jsonNodeText).join('');
 };
 
 const ITEM_TYPES = [
@@ -356,7 +382,13 @@ const NotebookEditor = ({
   agentContextId = '',
   agentContextTitle = '',
   sourceEvergreen = null,
-  onSourceCorrectionSettled = null
+  onSourceCorrectionSettled = null,
+  activeContext = null,
+  onOpenContext = null,
+  contextPortal = null,
+  onWorkingStateChange = null,
+  onRegisterPartnerTrial = null,
+  quietWorkspace = false
 }) => {
   const liveSourceEvergreen = useNotebookSourceEvergreen(entry);
   const resolvedSourceEvergreen = sourceEvergreen || liveSourceEvergreen;
@@ -373,6 +405,7 @@ const NotebookEditor = ({
   const [saveState, setSaveState] = useState('idle');
   const [agentThreadPulse, setAgentThreadPulse] = useState(false);
   const [insertMode, setInsertMode] = useState('');
+  const [stageSelection, setStageSelection] = useState(false);
   const [wikiPages, setWikiPages] = useState([]);
   const [wikiPagesLoading, setWikiPagesLoading] = useState(false);
   const [insertMenuOpen, setInsertMenuOpen] = useState(false);
@@ -394,6 +427,18 @@ const NotebookEditor = ({
   const [claimEvidenceLoading, setClaimEvidenceLoading] = useState(false);
   const [organizeError, setOrganizeError] = useState('');
   const [sourceCorrection, setSourceCorrection] = useState(entry?.sourceCorrection || null);
+  const [workbenchView, setWorkbenchView] = useState('material');
+  const [heldTarget, setHeldTarget] = useState(null);
+  const [activeTrialId, setActiveTrialId] = useState('');
+  const [ephemeralTrial, setEphemeralTrial] = useState(null);
+  const [trialPreview, setTrialPreview] = useState('original');
+  const [workbenchReceipt, setWorkbenchReceipt] = useState(null);
+  const [nextLineDismissed, setNextLineDismissed] = useState(false);
+  const workbench = useNotebookWorkbench(entry, { onEntryChange: onWorkingStateChange });
+  const updateWorkbench = workbench.update;
+  const flushWorkbench = workbench.flush;
+  const workbenchTrials = workbench.state.trials;
+  const continuityRestoredRef = useRef('');
   const navigate = useNavigate();
   const { highlights, highlightMap, loading: highlightsLoading, error: highlightsError } = useHighlights();
   const { articles } = useArticles({ enabled: insertMode === 'article' });
@@ -513,6 +558,7 @@ const NotebookEditor = ({
       Placeholder.configure({ placeholder: 'Write freely… Type / for commands.' }),
       ListIndentExtension,
       BlockIdExtension,
+      NotebookWorkbenchDecorations,
       highlightExtension,
       ArticleRefNode,
       ConceptRefNode,
@@ -556,6 +602,14 @@ const NotebookEditor = ({
   useEffect(() => {
     setEditingBody(startWriting);
     setBodyHasFocus(false);
+    setHeldTarget(null);
+    setActiveTrialId('');
+    setEphemeralTrial(null);
+    setTrialPreview('original');
+    setWorkbenchView('material');
+    setWorkbenchReceipt(null);
+    setNextLineDismissed(false);
+    setStageSelection(false);
     const focusFrame = startWriting
       ? window.requestAnimationFrame?.(() => editor?.commands.focus('start'))
       : null;
@@ -771,7 +825,7 @@ const NotebookEditor = ({
     const blocks = serializeBlocksFromDoc(normalized.node);
     return {
       id: entry._id,
-      title: titleDraftRef.current.trim() || 'Untitled note',
+      title: titleDraftRef.current.trim(),
       content: editor.getHTML(),
       blocks,
       asidePieces: hydrateAsidePieces(asidePiecesRef.current),
@@ -815,12 +869,38 @@ const NotebookEditor = ({
 
   useEffect(() => {
     onRegisterSave?.(async () => {
+      const continuityTarget = targetFromEditor(editor);
+      if (continuityTarget?.blockId) {
+        updateWorkbench(current => ({
+          ...current,
+          continuity: {
+            target: continuityTarget,
+            scrollY: Math.max(0, window.scrollY || 0),
+            updatedAt: new Date().toISOString()
+          }
+        }));
+      }
       let saved;
       do { saved = await commitDraft(); } while (saved && dirtyRef.current);
-      return saved;
+      if (!saved) return false;
+      return flushWorkbench();
     });
     return () => onRegisterSave?.(null);
-  }, [commitDraft, onRegisterSave]);
+  }, [commitDraft, editor, flushWorkbench, onRegisterSave, updateWorkbench]);
+
+  useEffect(() => {
+    const entryId = String(entry?._id || '');
+    if (!editor || !entryId || continuityRestoredRef.current === entryId) return undefined;
+    continuityRestoredRef.current = entryId;
+    const explicitIntent = [...new URLSearchParams(window.location.search).keys()]
+      .some(key => !['tab', 'entryId'].includes(key));
+    if (explicitIntent || !workbench.state.continuity?.target?.blockId) return undefined;
+    const frame = window.requestAnimationFrame(() => {
+      focusEditorTarget(editor, workbench.state.continuity.target);
+      window.scrollTo?.({ top: workbench.state.continuity.scrollY || 0, behavior: 'auto' });
+    });
+    return () => window.cancelAnimationFrame?.(frame);
+  }, [editor, entry?._id, workbench.state.continuity]);
 
   const scheduleSave = useCallback(() => {
     dirtyRef.current = true;
@@ -958,7 +1038,9 @@ const NotebookEditor = ({
   const handleAskSelection = (selectedText) => {
     const passage = String(selectedText || '').trim();
     if (!passage || !onInvokeAgentSkill) return;
+    setHeldTarget(targetFromEditor(editor));
     setAgentThreadPulse(true);
+    onOpenContext?.('partner');
     window.setTimeout(() => setAgentThreadPulse(false), 720);
     onInvokeAgentSkill({
       id: `notebook-selection-${entry?._id || 'draft'}-${Date.now()}`,
@@ -977,11 +1059,10 @@ const NotebookEditor = ({
     window.requestAnimationFrame?.(() => focusPieceInEditor(editor, pieceIndex));
   };
 
-  const rememberArrangement = (restoreDoc, label, extra = {}) => {
+  const rememberArrangement = (label, operation) => {
     setArrangementReceipt({
       label,
-      restoreDoc,
-      ...extra
+      operation
     });
     startEditingBody();
     scheduleSave();
@@ -990,17 +1071,46 @@ const NotebookEditor = ({
   const handleArrangeMove = (direction, pieceIndex = currentPieceIndex) => {
     if (!editor || !Number.isInteger(pieceIndex)) return;
     const previous = editor.getJSON();
+    const previousPieces = groupDocPieces(previous);
+    const movedPiece = previousPieces[pieceIndex];
     const result = movePieceInDocument(previous, pieceIndex, direction);
     if (!result?.moved) return;
     applyNotebookDoc(editor, result.doc);
     focusPieceInEditor(editor, result.toIndex);
-    rememberArrangement(previous, `Undo moving “${result.label}”`);
+    rememberArrangement(`Undo moving “${result.label}”`, {
+      type: 'move',
+      pieceId: movedPiece?.nodes?.[0]?.attrs?.blockId || '',
+      beforeId: previousPieces[pieceIndex - 1]?.nodes?.[0]?.attrs?.blockId || '',
+      afterId: previousPieces[pieceIndex + 1]?.nodes?.[0]?.attrs?.blockId || ''
+    });
   };
 
   const handleArrangeUndo = () => {
-    if (!editor || !arrangementReceipt?.restoreDoc) return;
-    applyNotebookDoc(editor, arrangementReceipt.restoreDoc);
-    if (arrangementReceipt.restoreAside) writeAsidePieces(hydrateAsidePieces(arrangementReceipt.restoreAside));
+    if (!editor || !arrangementReceipt?.operation) return;
+    const operation = arrangementReceipt.operation;
+    const current = editor.getJSON();
+    let nextDoc = current;
+    let applied = false;
+    if (operation.type === 'move') {
+      const result = repositionPieceByAnchors(current, operation.pieceId, operation);
+      nextDoc = result.doc;
+      applied = result.moved;
+    } else if (operation.type === 'set-aside') {
+      const result = restorePieceInDocument(current, operation.piece);
+      nextDoc = result.doc;
+      applied = result.restored;
+      if (applied) writeAsidePieces((items) => items.filter((item) => item.id !== operation.piece.id));
+    } else if (operation.type === 'bring-back') {
+      const result = removePieceById(current, operation.piece.id);
+      nextDoc = result.doc;
+      applied = result.deleted;
+      if (applied) writeAsidePieces((items) => [...items, operation.piece]);
+    }
+    if (!applied) {
+      setArrangementReceipt({ label: 'That passage moved again. Choose its destination to continue.', operation: null });
+      return;
+    }
+    applyNotebookDoc(editor, nextDoc);
     setArrangementReceipt(null);
     startEditingBody();
     scheduleSave();
@@ -1009,24 +1119,31 @@ const NotebookEditor = ({
   const handleSetAside = (pieceIndex) => {
     if (!editor) return;
     const previous = editor.getJSON();
-    const previousAside = asidePiecesRef.current;
     const { doc, aside } = setAsidePieceInDocument(previous, pieceIndex);
     if (!aside) return;
     writeAsidePieces((current) => ([...current, persistableAsidePiece(aside)]));
     applyNotebookDoc(editor, doc);
-    rememberArrangement(previous, `Undo setting aside “${aside.label}”`, { restoreAside: previousAside });
+    rememberArrangement(`Undo setting aside “${aside.label}”`, {
+      type: 'set-aside',
+      piece: persistableAsidePiece(aside)
+    });
   };
 
   const handleRestoreAside = (id) => {
     if (!editor) return;
     const piece = asidePiecesRef.current.find((item) => item.id === id);
     if (!piece) return;
-    const previous = editor.getJSON();
-    const previousAside = asidePiecesRef.current;
-    const restored = restorePieceInDocument(previous, persistableAsidePiece(piece));
+    const restored = restorePieceInDocument(editor.getJSON(), persistableAsidePiece(piece));
+    if (!restored.restored) {
+      setArrangementReceipt({ label: 'Choose where this passage should return.', operation: null });
+      return;
+    }
     writeAsidePieces((current) => current.filter((item) => item.id !== id));
     applyNotebookDoc(editor, restored.doc);
-    rememberArrangement(previous, `Undo bringing back “${piece.label}”`, { restoreAside: previousAside });
+    rememberArrangement(`Undo bringing back “${piece.label}”`, {
+      type: 'bring-back',
+      piece: persistableAsidePiece(piece)
+    });
   };
 
   const handleDeletePiece = (pieceIndex) => {
@@ -1041,6 +1158,267 @@ const NotebookEditor = ({
     setArrangementReceipt(null);
     startEditingBody();
     scheduleSave();
+  };
+
+  const targetForPiece = (pieceIndex = currentPieceIndex) => {
+    const piece = arrangementPieces[pieceIndex];
+    const node = piece?.nodes?.[0];
+    const blockId = String(node?.attrs?.blockId || '');
+    if (!blockId) return targetFromEditor(editor);
+    return { blockId, offset: 0, baseText: jsonNodeText(node) };
+  };
+
+  const holdCurrentPlace = (pieceIndex = currentPieceIndex) => {
+    const next = targetForPiece(pieceIndex) || targetFromEditor(editor);
+    setHeldTarget(next);
+    return next;
+  };
+
+  const openMaterial = (pieceIndex = currentPieceIndex) => {
+    holdCurrentPlace(pieceIndex);
+    setWorkbenchView('material');
+    setTrialPreview('original');
+    onOpenContext?.('material');
+  };
+
+  const stageMaterial = (item) => {
+    const target = heldTarget || targetFromEditor(editor) || { blockId: '', offset: 0, baseText: '' };
+    workbench.update(current => ({
+      ...current,
+      materials: [...current.materials, { ...item, id: createId(), target, createdAt: new Date().toISOString() }]
+    }));
+    setWorkbenchView('material');
+    onOpenContext?.('material');
+  };
+
+  const removeMaterial = (id) => workbench.update(current => ({
+    ...current,
+    materials: current.materials.filter(item => item.id !== id)
+  }));
+
+  const insertMaterial = (material) => {
+    const target = heldTarget?.blockId ? heldTarget : material.target;
+    const node = sourceNodeForMaterial(material);
+    const result = insertAfterEditorTarget(editor, target, node);
+    if (!result.applied) {
+      setWorkbenchReceipt({ type: 'error', text: 'Choose a place in the draft before inserting this source.' });
+      return;
+    }
+    const insertedBlockId = node.attrs.blockId;
+    workbench.update(current => ({
+      ...current,
+      materials: current.materials.map(item => item.id === material.id ? { ...item, insertedBlockId } : item)
+    }));
+    setWorkbenchReceipt({
+      type: 'insert',
+      text: 'Passage added here. Its source came with it.',
+      insertedBlockId,
+      materialId: material.id
+    });
+    scheduleSave();
+    focusEditorTarget(editor, target);
+  };
+
+  const undoWorkbenchReceipt = () => {
+    if (workbenchReceipt?.type === 'insert' && deleteEditorBlockById(editor, workbenchReceipt.insertedBlockId)) {
+      workbench.update(current => ({
+        ...current,
+        materials: current.materials.map(item => item.id === workbenchReceipt.materialId ? { ...item, insertedBlockId: '' } : item)
+      }));
+      scheduleSave();
+    } else if (workbenchReceipt?.type === 'thought' && deleteEditorBlockById(editor, workbenchReceipt.insertedBlockId)) {
+      workbench.update(current => ({ ...current, looseThoughts: [...current.looseThoughts, workbenchReceipt.thought] }));
+      scheduleSave();
+    } else if (workbenchReceipt?.type === 'trial') {
+      const target = { ...workbenchReceipt.target, baseText: workbenchReceipt.after };
+      const undone = replaceEditorTargetText(editor, target, workbenchReceipt.before);
+      if (undone.applied) scheduleSave();
+      else setWorkbenchReceipt({ type: 'error', text: 'The paragraph changed again, so both versions were kept.' });
+      return;
+    } else if (workbenchReceipt?.type === 'next-line') {
+      workbench.update(current => ({ ...current, nextTimeLine: workbenchReceipt.previous }));
+    }
+    setWorkbenchReceipt(null);
+  };
+
+  const startTrial = (pieceIndex = currentPieceIndex) => {
+    const nextTarget = targetForPiece(pieceIndex);
+    if (!nextTarget?.blockId) return;
+    const existing = workbench.state.trials.find(item => item.target?.blockId === nextTarget.blockId);
+    const trial = existing || {
+      id: createId(),
+      target: nextTarget,
+      alternative: '',
+      origin: 'human',
+      updatedAt: new Date().toISOString()
+    };
+    setHeldTarget(nextTarget);
+    setEphemeralTrial(existing ? null : trial);
+    setActiveTrialId(trial.id);
+    setWorkbenchView('trial');
+    setTrialPreview('original');
+    onOpenContext?.('material');
+  };
+
+  useEffect(() => {
+    if (!onRegisterPartnerTrial) return undefined;
+    onRegisterPartnerTrial((alternative) => {
+      const nextTarget = heldTarget?.blockId ? heldTarget : targetFromEditor(editor);
+      const wording = String(alternative || '').trim();
+      if (!nextTarget?.blockId || !wording) return false;
+      const existing = workbenchTrials.find(item => item.target?.blockId === nextTarget.blockId);
+      const trial = {
+        ...(existing || {}),
+        id: existing?.id || createId(),
+        target: nextTarget,
+        alternative: wording,
+        origin: 'partner',
+        updatedAt: new Date().toISOString()
+      };
+      updateWorkbench(current => ({
+        ...current,
+        trials: [...current.trials.filter(item => item.id !== trial.id), trial]
+      }));
+      setActiveTrialId(trial.id);
+      setEphemeralTrial(null);
+      setWorkbenchView('trial');
+      setTrialPreview('original');
+      onOpenContext?.('material');
+      return true;
+    });
+    return () => onRegisterPartnerTrial(null);
+  }, [editor, heldTarget, onOpenContext, onRegisterPartnerTrial, updateWorkbench, workbenchTrials]);
+
+  const holdThoughtFromPiece = (pieceIndex = currentPieceIndex) => {
+    holdCurrentPlace(pieceIndex);
+    setWorkbenchView('material');
+    onOpenContext?.('material');
+  };
+
+  const activeTrial = workbench.state.trials.find(item => item.id === activeTrialId) || ephemeralTrial;
+  const activeTrialResolution = activeTrial
+    ? resolveEditorTarget(editor, activeTrial.target, { requireSameText: true })
+    : { status: 'missing' };
+  const activeTargetResolution = resolveEditorTarget(editor, heldTarget);
+
+  const changeTrial = (alternative) => {
+    const next = { ...activeTrial, alternative, updatedAt: new Date().toISOString() };
+    setEphemeralTrial(next);
+    if (!alternative.trim()) return;
+    workbench.update(current => ({
+      ...current,
+      trials: [...current.trials.filter(item => item.id !== next.id), next]
+    }));
+  };
+
+  const discardTrial = () => {
+    workbench.update(current => ({ ...current, trials: current.trials.filter(item => item.id !== activeTrialId) }));
+    setEphemeralTrial(null);
+    setActiveTrialId('');
+    setTrialPreview('original');
+    setWorkbenchView('material');
+  };
+
+  const useTrial = () => {
+    if (!activeTrial?.alternative?.trim()) return;
+    const result = replaceEditorTargetText(editor, activeTrial.target, activeTrial.alternative);
+    if (!result.applied) return;
+    workbench.update(current => ({ ...current, trials: current.trials.filter(item => item.id !== activeTrial.id) }));
+    setWorkbenchReceipt({
+      type: 'trial',
+      text: 'This wording is now in the draft.',
+      target: activeTrial.target,
+      before: activeTrial.target.baseText,
+      after: activeTrial.alternative
+    });
+    setActiveTrialId('');
+    setEphemeralTrial(null);
+    setTrialPreview('original');
+    setWorkbenchView('material');
+    scheduleSave();
+  };
+
+  const reviewTrial = () => {
+    if (!activeTrial || !activeTrialResolution.currentText) return;
+    const next = {
+      ...activeTrial,
+      target: { ...activeTrial.target, baseText: activeTrialResolution.currentText },
+      updatedAt: new Date().toISOString()
+    };
+    setEphemeralTrial(next);
+    workbench.update(current => ({
+      ...current,
+      trials: [...current.trials.filter(item => item.id !== next.id), next]
+    }));
+  };
+
+  const holdThought = (value) => {
+    const thoughtText = String(value || '').trim();
+    if (!thoughtText) return;
+    const target = heldTarget || targetFromEditor(editor) || { blockId: '', offset: 0, baseText: '' };
+    workbench.update(current => ({
+      ...current,
+      looseThoughts: [...current.looseThoughts, { id: createId(), text: thoughtText, target, createdAt: new Date().toISOString() }]
+    }));
+  };
+
+  const insertThought = (thought) => {
+    const blockId = `thought-${thought.id}`;
+    const result = insertAfterEditorTarget(editor, thought.target, {
+      type: 'paragraph', attrs: { blockId }, content: [{ type: 'text', text: thought.text }]
+    });
+    if (!result.applied) {
+      setWorkbenchReceipt({ type: 'error', text: 'That sentence moved. Choose another place; the thought is still safe here.' });
+      return;
+    }
+    workbench.update(current => ({ ...current, looseThoughts: current.looseThoughts.filter(item => item.id !== thought.id) }));
+    setWorkbenchReceipt({ type: 'thought', text: 'Thought moved into the draft.', thought, insertedBlockId: blockId });
+    scheduleSave();
+  };
+
+  const saveNextLine = (line) => {
+    const previous = workbench.state.nextTimeLine;
+    const target = heldTarget || targetFromEditor(editor) || { blockId: '', offset: 0, baseText: '' };
+    workbench.update(current => ({
+      ...current,
+      nextTimeLine: { text: String(line || '').trim(), target, updatedAt: new Date().toISOString() }
+    }));
+    setNextLineDismissed(false);
+    setWorkbenchReceipt({ type: 'next-line', text: 'Your line will be here next time.', previous });
+  };
+
+  const clearNextLine = () => {
+    const previous = workbench.state.nextTimeLine;
+    workbench.update(current => ({
+      ...current,
+      nextTimeLine: { text: '', target: { blockId: '', offset: 0, baseText: '' }, updatedAt: null }
+    }));
+    setWorkbenchReceipt({ type: 'next-line', text: 'Next-time line cleared.', previous });
+  };
+
+  useEffect(() => {
+    setNotebookWorkbenchDecorations(editor, {
+      targetBlockId: activeContext === 'material' ? heldTarget?.blockId : '',
+      preview: workbenchView === 'trial' && trialPreview === 'trial' && activeTrialResolution.status === 'ready'
+        ? { blockId: activeTrial?.target?.blockId, text: activeTrial?.alternative }
+        : null
+    });
+  }, [activeContext, activeTrial, activeTrialResolution.status, editor, heldTarget?.blockId, trialPreview, workbenchView]);
+
+  const handleRecoveryExport = () => {
+    const file = privateRecoveryFile({
+      entry: { ...entry, title: titleDraftRef.current },
+      canonical: editor?.getJSON?.(),
+      workingState: workbench.state,
+      asidePieces: asidePiecesRef.current
+    });
+    const blob = new Blob([JSON.stringify(file, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${titleDraftRef.current || 'notebook-note'}-private-recovery.json`;
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   const handleExport = async () => {
@@ -1102,6 +1480,44 @@ const NotebookEditor = ({
   return (
     <div className="think-notebook-editor">
       <div className="think-notebook-editor-header">
+        {quietWorkspace ? (
+          <div className="think-notebook-utility" aria-label="Note utilities">
+            <span className="think-notebook-utility__kind">{entryType || 'note'}</span>
+            <span className={`think-notebook-save-state is-${saveState}`} role="status" aria-live="polite">
+              {saving || saveState === 'saving' || workbench.saveState === 'saving'
+                ? 'Saving…'
+                : saveState === 'error' || workbench.saveState === 'error'
+                ? 'Not saved'
+                : saveState === 'saved' || workbench.saveState === 'saved'
+                ? 'Saved'
+                : 'Ready'}
+            </span>
+            <QuietButton data-context-trigger="material" aria-pressed={activeContext === 'material'} onClick={() => openMaterial()}>Material</QuietButton>
+            <QuietButton data-context-trigger="partner" aria-pressed={activeContext === 'partner'} onClick={() => onOpenContext?.('partner')}>Partner</QuietButton>
+            {!editingBody ? <QuietButton onClick={startEditingBody}>Edit</QuietButton> : null}
+            <details className="think-notebook-utility__more">
+              <summary className="ui-quiet-button">More</summary>
+              <div>
+                <QuietButton onClick={handleExport}>Export draft</QuietButton>
+                <QuietButton onClick={handleRecoveryExport}>Private recovery file</QuietButton>
+                <QuietButton onClick={handleShare}>{shareOpen ? 'Close share' : 'Share snapshot'}</QuietButton>
+                <QuietButton onClick={() => setOrganizeOpen(previous => !previous)}>Structure</QuietButton>
+              </div>
+            </details>
+          </div>
+        ) : null}
+        {quietWorkspace && workbench.state.nextTimeLine?.text && !nextLineDismissed ? (
+          <aside className="think-next-line" aria-label="A line you left yourself">
+            <span>A line you left yourself</span>
+            <p>{workbench.state.nextTimeLine.text}</p>
+            <div>
+              <QuietButton onClick={() => focusEditorTarget(editor, workbench.state.nextTimeLine.target)}>Pick up here →</QuietButton>
+              <QuietButton onClick={() => setNextLineDismissed(true)}>Not now</QuietButton>
+              <QuietButton onClick={() => { openMaterial(); }}>Edit</QuietButton>
+              <QuietButton onClick={clearNextLine}>Clear this line</QuietButton>
+            </div>
+          </aside>
+        ) : null}
         <div className="think-notebook-title-block">
           <h1 className="sr-only">{titleDraft || entry?.title || 'Untitled notebook page'}</h1>
           <span className="think-notebook-title-kicker">Document title</span>
@@ -1134,9 +1550,11 @@ const NotebookEditor = ({
             placeholder="Title"
           />
           {metaLine ? <p className="think-notebook-title-meta" id={metaId}>{metaLine}</p> : null}
-          <p className="think-notebook-title-hint">
-            Write naturally. Use ## for a heading, - for a list, &gt; for a quote, @ for a source, [[ for a concept, or / for anything else.
-          </p>
+          {!quietWorkspace ? (
+            <p className="think-notebook-title-hint">
+              Write naturally. Use ## for a heading, - for a list, &gt; for a quote, @ for a source, [[ for a concept, or / for anything else.
+            </p>
+          ) : null}
         </div>
         {notebookSourceMeta && (
           <div className={`think-notebook-editor-provenance think-notebook-editor-provenance--${notebookSourceMeta.kind}`}>
@@ -1187,7 +1605,7 @@ const NotebookEditor = ({
             onSourceCorrectionSettled?.(result);
           }}
         />
-        <div className="think-notebook-editor-actions">
+        {!quietWorkspace ? <div className="think-notebook-editor-actions">
           <div className="think-notebook-editor-actions-left">
             {onCreate && (
               <Button variant="secondary" onClick={onCreate}>
@@ -1293,7 +1711,7 @@ const NotebookEditor = ({
             ) : null}
             {!editingBody ? <QuietButton onClick={startEditingBody}>Edit</QuietButton> : null}
           </div>
-        </div>
+        </div> : null}
       </div>
       {showInlineAgentDock ? (
         <AgentSkillDock
@@ -1311,7 +1729,14 @@ const NotebookEditor = ({
         />
       ) : null}
       {error && <p className="status-message error-message">{error}</p>}
+      {workbench.error && <p className="status-message error-message">{workbench.error} <QuietButton onClick={workbench.flush}>Retry nearby material</QuietButton></p>}
       {finishError && <p className="status-message error-message">{finishError}</p>}
+      {workbenchReceipt ? (
+        <p className={`notebook-workbench-receipt is-${workbenchReceipt.type}`} role="status">
+          {workbenchReceipt.text}
+          {['insert', 'thought', 'trial', 'next-line'].includes(workbenchReceipt.type) ? <QuietButton onClick={undoWorkbenchReceipt}>Undo</QuietButton> : null}
+        </p>
+      ) : null}
       {shareOpen && entry?._id ? (
         <>
           <NotebookShare notebookId={entry._id} revision={shareRevision} />
@@ -1436,6 +1861,17 @@ const NotebookEditor = ({
         onBlur={(event) => {
           if (!event.currentTarget.contains(event.relatedTarget)) {
             setBodyHasFocus(false);
+            const continuityTarget = targetFromEditor(editor);
+            if (continuityTarget?.blockId) {
+              workbench.update(current => ({
+                ...current,
+                continuity: {
+                  target: continuityTarget,
+                  scrollY: Math.max(0, window.scrollY || 0),
+                  updatedAt: new Date().toISOString()
+                }
+              }));
+            }
             commitDraft();
           }
         }}
@@ -1463,11 +1899,48 @@ const NotebookEditor = ({
         onMove={handleArrangeMove}
         onUndo={handleArrangeUndo}
         onSetAside={handleSetAside}
+        onTryWording={startTrial}
+        onHoldThought={holdThoughtFromPiece}
         onRestore={handleRestoreAside}
         onDeletePiece={handleDeletePiece}
       />
       </div>
       <AuthoredWorkOrigin importMeta={entry.importMeta} sourceBlocks={entry.blocks} />
+      {contextPortal && activeContext === 'material' ? createPortal(
+        <NotebookWorkbenchPanel
+          mode={workbenchView}
+          workingState={workbench.state}
+          targetStatus={activeTargetResolution.status}
+          citationTargets={(item) => citationTargetsForMaterial(editor?.getJSON?.(), item)}
+          asidePieces={asidePieces}
+          activeTrial={activeTrial}
+          trialStatus={activeTrialResolution.status}
+          thoughtTarget={heldTarget}
+          onChooseSource={(mode) => {
+            holdCurrentPlace();
+            setStageSelection(true);
+            setInsertMode(mode);
+          }}
+          onInsertMaterial={insertMaterial}
+          onRemoveMaterial={removeMaterial}
+          onGoToMaterial={(blockId) => focusEditorTarget(editor, { blockId })}
+          onJot={holdThought}
+          onInsertThought={insertThought}
+          onGoToThought={(item) => focusEditorTarget(editor, item.target)}
+          onDiscardThought={(id) => workbench.update(current => ({ ...current, looseThoughts: current.looseThoughts.filter(item => item.id !== id) }))}
+          onRestoreAside={handleRestoreAside}
+          onChangeTrial={changeTrial}
+          onPreviewTrial={setTrialPreview}
+          onKeepOriginal={() => { setTrialPreview('original'); setWorkbenchView('material'); }}
+          onUseTrial={useTrial}
+          onReviewTrial={reviewTrial}
+          onDiscardTrial={discardTrial}
+          onSaveNextLine={saveNextLine}
+          onGoToNextLine={() => focusEditorTarget(editor, workbench.state.nextTimeLine.target)}
+          onClearNextLine={clearNextLine}
+        />,
+        contextPortal
+      ) : null}
       <InsertHighlightModal
         open={insertMode === 'highlight'}
         highlights={highlights}
@@ -1475,10 +1948,24 @@ const NotebookEditor = ({
         error={highlightsError}
         onClose={() => {
           referenceTriggerRef.current = null;
+          setStageSelection(false);
           setInsertMode('');
         }}
         onSelect={(highlight) => {
-          handleInsertHighlight(highlight);
+          if (stageSelection) {
+            stageMaterial({
+              kind: 'highlight',
+              title: highlight.articleTitle || 'Saved passage',
+              text: highlight.text || '',
+              sourceId: String(highlight._id || ''),
+              highlightId: String(highlight._id || ''),
+              articleId: String(highlight.articleId || ''),
+              sourcePath: highlight.articleId
+                ? `/library?articleId=${encodeURIComponent(highlight.articleId)}${highlight._id ? `&highlightId=${encodeURIComponent(highlight._id)}` : ''}`
+                : ''
+            });
+          } else handleInsertHighlight(highlight);
+          setStageSelection(false);
           setInsertMode('');
         }}
       />
@@ -1492,10 +1979,21 @@ const NotebookEditor = ({
         placeholder="Search articles..."
         onClose={() => {
           referenceTriggerRef.current = null;
+          setStageSelection(false);
           setInsertMode('');
         }}
         onSelect={(item) => {
-          handleInsertArticle(item);
+          if (stageSelection) {
+            stageMaterial({
+              kind: 'article',
+              title: item.title || 'Untitled article',
+              text: '',
+              sourceId: String(item._id || ''),
+              articleId: String(item._id || ''),
+              sourcePath: item._id ? `/library?articleId=${encodeURIComponent(item._id)}` : ''
+            });
+          } else handleInsertArticle(item);
+          setStageSelection(false);
           setInsertMode('');
         }}
       />

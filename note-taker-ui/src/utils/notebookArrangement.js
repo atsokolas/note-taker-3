@@ -168,6 +168,8 @@ export const persistableAsidePiece = (piece) => {
     id: piece?.id || nodes[0]?.attrs?.blockId || `aside-${index}`,
     label: piece?.label || '',
     index,
+    beforeId: piece?.beforeId || '',
+    afterId: piece?.afterId || '',
     nodes
   };
 };
@@ -177,6 +179,8 @@ export const hydrateAsidePieces = (pieces = []) => (
 );
 
 const flattenPieces = (pieces) => pieces.flatMap((piece) => piece.nodes);
+
+const pieceId = (piece) => String(piece?.nodes?.[0]?.attrs?.blockId || '');
 
 const withContent = (doc, content) => ({
   type: doc?.type || 'doc',
@@ -216,6 +220,8 @@ export const setAsidePieceInDocument = (doc, pieceIndex) => {
       id: piece.nodes[0]?.attrs?.blockId || `aside-${pieceIndex}`,
       label: piece.label,
       index: pieceIndex,
+      beforeId: pieceId(pieces[pieceIndex - 1]),
+      afterId: pieceId(pieces[pieceIndex + 1]),
       nodes: piece.nodes
     },
     pieces: groupDocPieces(withContent(doc, flattenPieces(remaining)))
@@ -227,15 +233,54 @@ export const restorePieceInDocument = (doc, aside) => {
   if (!nodes.length) return { restored: false, doc };
   const content = Array.isArray(doc?.content) ? [...doc.content] : [];
   const pieces = groupDocPieces({ type: 'doc', content });
-  const pieceIndex = Number.isInteger(aside.index) ? aside.index : pieces.length;
-  const insertAt = pieceIndex < 0 || pieceIndex >= pieces.length
-    ? content.length
-    : pieces[pieceIndex].startIndex;
+  const before = aside?.beforeId && pieces.find((piece) => pieceId(piece) === aside.beforeId);
+  const after = aside?.afterId && pieces.find((piece) => pieceId(piece) === aside.afterId);
+  const hasStableAnchors = Boolean(aside?.beforeId || aside?.afterId);
+  if (hasStableAnchors && !before && !after) {
+    return { restored: false, needsDestination: true, doc };
+  }
+  const legacyIndex = Number.isInteger(aside.index) ? aside.index : pieces.length;
+  const insertAt = before
+    ? before.endIndex + 1
+    : after
+      ? after.startIndex
+      : legacyIndex < 0 || legacyIndex >= pieces.length
+        ? content.length
+        : pieces[legacyIndex].startIndex;
   content.splice(insertAt, 0, ...nodes);
   return {
     restored: true,
     doc: withContent(doc, content)
   };
+};
+
+export const pieceIndexById = (doc, id) => {
+  if (!id) return null;
+  const index = groupDocPieces(doc).findIndex((piece) => pieceId(piece) === String(id));
+  return index >= 0 ? index : null;
+};
+
+export const removePieceById = (doc, id) => {
+  const pieceIndex = pieceIndexById(doc, id);
+  return Number.isInteger(pieceIndex)
+    ? deletePieceInDocument(doc, pieceIndex)
+    : { deleted: false, doc, pieces: groupDocPieces(doc) };
+};
+
+export const repositionPieceByAnchors = (doc, id, { beforeId = '', afterId = '' } = {}) => {
+  const currentIndex = pieceIndexById(doc, id);
+  if (!Number.isInteger(currentIndex)) return { moved: false, doc };
+  const pieces = groupDocPieces(doc);
+  const moving = pieces[currentIndex];
+  const remaining = pieces.filter((_, index) => index !== currentIndex);
+  const beforeIndex = beforeId ? remaining.findIndex((piece) => pieceId(piece) === beforeId) : -1;
+  const afterIndex = afterId ? remaining.findIndex((piece) => pieceId(piece) === afterId) : -1;
+  if ((beforeId || afterId) && beforeIndex < 0 && afterIndex < 0) {
+    return { moved: false, needsDestination: true, doc };
+  }
+  const insertAt = beforeIndex >= 0 ? beforeIndex + 1 : afterIndex >= 0 ? afterIndex : 0;
+  remaining.splice(insertAt, 0, moving);
+  return { moved: true, doc: withContent(doc, flattenPieces(remaining)), pieceIndex: insertAt };
 };
 
 export const deletePieceInDocument = (doc, pieceIndex) => {

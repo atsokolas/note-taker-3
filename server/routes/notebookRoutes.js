@@ -1,4 +1,5 @@
 const { plainNotebookText } = require('../services/authoredWorkDiscovery');
+const { sanitizeNotebookWorkbench } = require('../utils/notebookWorkbench');
 const express = require('express');
 const mongoose = require('mongoose');
 const { createWikiSourceEvent } = require('../services/wikiSourceEventService');
@@ -173,6 +174,7 @@ const buildNotebookRouter = ({
               title: 1,
               folder: 1,
               type: 1,
+              'workingState.nextTimeLine.text': 1,
               ...(compact ? {} : {
                 claimId: 1, tags: 1, linkedArticleId: 1, linkedHighlightIds: 1, importMeta: 1,
                 blockCount: { $size: { $ifNull: ['$blocks', []] } }
@@ -238,7 +240,7 @@ const buildNotebookRouter = ({
         }
       }
       const newEntry = new NotebookEntry({
-        title: (title || 'Untitled').trim(),
+        title: String(title || '').trim(),
         content: content || '',
         blocks: nextBlocks,
         asidePieces: sanitizeAsidePieces(Array.isArray(asidePieces) ? asidePieces : []),
@@ -613,6 +615,46 @@ const buildNotebookRouter = ({
     }
   });
 
+  /* Private workbench state has its own revisioned write seam. A trial,
+     staged source, or held thought must never overwrite a newer draft merely
+     because a side panel saved later. */
+  router.put('/api/notebook/:id/workbench', authenticateToken, humanOnly, async (req, res) => {
+    try {
+      const userId = req.user.id;
+      const expectedRevision = Math.max(0, Number.parseInt(req.body?.expectedRevision, 10) || 0);
+      const next = sanitizeNotebookWorkbench(req.body?.workingState, {
+        revision: expectedRevision + 1
+      });
+      const revisionMatch = expectedRevision === 0
+        ? { $or: [
+          { 'workingState.revision': 0 },
+          { 'workingState.revision': { $exists: false } },
+          { workingState: { $exists: false } }
+        ] }
+        : { 'workingState.revision': expectedRevision };
+      const updated = await NotebookEntry.findOneAndUpdate(
+        { _id: req.params.id, userId, ...revisionMatch },
+        { $set: { workingState: next } },
+        { new: true, runValidators: true, timestamps: false }
+      );
+      if (updated) {
+        noStore(res);
+        return res.status(200).json({ workingState: updated.workingState || next });
+      }
+      const existing = await NotebookEntry.findOne({ _id: req.params.id, userId });
+      if (!existing) return res.status(404).json({ error: 'Notebook entry not found.' });
+      noStore(res);
+      return res.status(409).json({
+        code: 'workbench_conflict',
+        error: 'This note changed elsewhere. Review the newer nearby material before retrying.',
+        workingState: sanitizeNotebookWorkbench(existing.workingState)
+      });
+    } catch (error) {
+      console.error('❌ Error updating notebook workbench:', error);
+      return res.status(500).json({ error: 'Failed to save nearby material.' });
+    }
+  });
+
   router.put('/api/notebook/:id', authenticateToken, async (req, res) => {
     try {
       const userId = req.user.id;
@@ -623,7 +665,7 @@ const buildNotebookRouter = ({
         return res.status(404).json({ error: "Notebook entry not found." });
       }
       const updates = {};
-      if (title !== undefined) updates.title = title.trim() || 'Untitled';
+      if (title !== undefined) updates.title = String(title || '').trim();
       if (content !== undefined) updates.content = content;
       if (blocks !== undefined) {
         updates.blocks = sanitizeNotebookBlocks(Array.isArray(blocks) ? blocks : []);

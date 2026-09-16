@@ -34,7 +34,13 @@ test('exports a finished essay with source links and distinguishable quotation',
       id: 'held',
       label: 'A discarded draft opening',
       blocks: [{ id: 'held-1', type: 'paragraph', text: 'This must not leave the workshop.' }]
-    }]
+    }],
+    workingState: {
+      materials: [{ id: 'm1', text: 'Private staged source.' }],
+      trials: [{ id: 't1', trialText: 'Private alternate wording.' }],
+      looseThoughts: [{ id: 'l1', text: 'Private loose thought.' }],
+      nextTimeLine: { text: 'Private return line.' }
+    }
   });
 
   assert.match(markdown, /^# Who gets to experiment, and who pays\?\n/);
@@ -42,6 +48,10 @@ test('exports a finished essay with source links and distinguishable quotation',
   assert.match(markdown, /^> The cost is borne by people who did not volunteer\.$/m);
   assert.match(markdown, /> — \[A beautiful source\]\(\/library\?articleId=article-1#passage=exact\)/);
   assert.equal(markdown.includes('This must not leave the workshop.'), false);
+  assert.equal(markdown.includes('Private staged source.'), false);
+  assert.equal(markdown.includes('Private alternate wording.'), false);
+  assert.equal(markdown.includes('Private loose thought.'), false);
+  assert.equal(markdown.includes('Private return line.'), false);
 });
 
 test('uses the heading’s actual opening line', () => {

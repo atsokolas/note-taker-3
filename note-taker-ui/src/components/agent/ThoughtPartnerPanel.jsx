@@ -286,6 +286,7 @@ const ThoughtPartnerPanel = ({
   posture = '',
   postureOptions = [],
   onPostureChange = null,
+  onTryWording = null,
   passiveStatusText = 'Quiet mode is active. The agent is watching for reusable structure without steering the draft.'
 }) => {
   const {
@@ -1792,6 +1793,11 @@ const ThoughtPartnerPanel = ({
           >
             <p className="agent-thought-partner__message-role">{message.role === 'assistant' ? AGENT_DISPLAY_NAME : 'You'}</p>
             <p>{message.text}</p>
+            {message.role === 'assistant' && onTryWording && clean(message.text) ? (
+              <QuietButton type="button" onClick={() => onTryWording(message.text)}>
+                Try as alternate wording
+              </QuietButton>
+            ) : null}
             {message.role === 'assistant' && message.proposalBundle && (
               <div className="agent-thought-partner__draft-workflow">
                 <div className="agent-thought-partner__draft-workflow-head">
