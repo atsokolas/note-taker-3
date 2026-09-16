@@ -40,7 +40,7 @@ export const loadOwnedArticle = async (articleId) => {
 
 const excludedPassage = (candidate, excluded = []) => alreadyUsedHere(candidate, excluded);
 const rowsFromPayload = (payload, { query, mode }) => (
-  qualifyLibraryRows(librarySearchRows(payload), { query, mode })
+  qualifyLibraryRows(librarySearchRows(payload, { query }), { query, mode })
 );
 
 const passageFromHighlight = ({ article, highlight }) => {

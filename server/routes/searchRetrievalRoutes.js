@@ -1,5 +1,6 @@
 const express = require('express');
 const { librarySearchArticleMatch } = require('../utils/articleVisibility');
+const { snippetAroundQuery } = require('../utils/searchSnippet');
 
 const SEARCH_SCOPE_VALUES = new Set(['all', 'articles', 'highlights', 'notebook']);
 const SEARCH_TYPE_VALUES = new Set(['article', 'highlight', 'notebook', 'note', 'claim', 'evidence']);
@@ -466,7 +467,7 @@ const buildSearchRetrievalRouter = ({
       let articles = (articleRows || []).map(row => ({
         _id: row._id,
         title: row.title || 'Untitled article',
-        content: buildQueueSnippet(row.content || '', row.title || ''),
+        content: snippetAroundQuery(row.content || '', q) || buildQueueSnippet(row.content || '', row.title || ''),
         url: row.url || '',
         updatedAt: row.updatedAt || null,
         score: row._score || 0
@@ -506,7 +507,7 @@ const buildSearchRetrievalRouter = ({
         articles = articleFallback.map(row => ({
           _id: row._id,
           title: row.title || 'Untitled article',
-          content: buildQueueSnippet(row.content || '', row.title || ''),
+          content: snippetAroundQuery(row.content || '', q) || buildQueueSnippet(row.content || '', row.title || ''),
           url: row.url || '',
           updatedAt: row.updatedAt || null,
           score: 0
