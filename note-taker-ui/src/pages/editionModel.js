@@ -327,7 +327,11 @@ export const sourceLinks = (edition = null) => {
     const label = [item.sourceLabel, item.title].filter(Boolean).join(' · ')
       || hostOf(href)
       || href;
-    links.push({ href, label });
+    links.push({
+      href,
+      label,
+      sourceDate: String(item.sourceDate || '').trim()
+    });
   });
   return links;
 };

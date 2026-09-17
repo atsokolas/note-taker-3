@@ -299,6 +299,14 @@
   line-height: 1.45;
 }
 
+.edition-sources__date {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
 .edition-share__url-label {
   display: block;
   margin: 0 0 6px;
@@ -535,4 +543,3 @@
 @media (max-width: 640px) {
   .edition-inbox__items { padding-left: 10px; }
 }
-
