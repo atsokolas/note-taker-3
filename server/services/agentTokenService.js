@@ -28,6 +28,8 @@ const sanitizeAgentToken = (doc = {}) => {
     id: object?._id,
     userId: object?.userId,
     label: object?.label || '',
+    runtime: object?.runtime || '',
+    connectionSessionId: object?.connectionSessionId || '',
     scopes: normalizeAgentTokenScopes(object?.scopes || []),
     dailyQuota: object?.dailyQuota ?? null,
     callsToday: Number(object?.callsToday || 0),

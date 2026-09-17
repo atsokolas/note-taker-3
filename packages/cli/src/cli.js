@@ -11,7 +11,7 @@ import { DEFAULT_API_URL, DEFAULT_APP_URL, readConfig, resolveAuth, writeConfig 
 const HELP = `Noeis CLI
 
 Usage:
-  noeis connect [claude-code|codex|hermes|openclaw|opencode] [--label name] [--no-browser]
+  noeis connect [claude-code|codex|hermes|openclaw|opencode] [--scope read|read-write] [--label name] [--no-browser]
   noeis mcp [--help]
   noeis login [--token ntk_at_...] [--api-url https://note-taker-3-unrg.onrender.com]
   noeis pages list [--query text] [--status draft|published|archived] [--page-type type] [--limit n] [--json]
@@ -30,10 +30,12 @@ Environment:
 const CONNECT_HELP = `Noeis agent connect
 
 Usage:
-  noeis connect [claude-code|codex|hermes|openclaw|opencode] [options]
+  noeis connect [claude-code|codex|hermes|openclaw|opencode] [--scope read|read-write] [options]
 
 Options:
   --label <name>       Label shown on the Noeis browser approval screen
+  --scope <read|read-write>
+                       Requested grant. Defaults to read
   --api-url <url>      API URL, defaults to ${DEFAULT_API_URL}
   --app-url <url>      Browser approval app URL, defaults to ${DEFAULT_APP_URL}
   --no-browser         Print the approval URL without opening a browser
@@ -41,8 +43,8 @@ Options:
   --timeout <seconds>  Wait time for browser approval, defaults to 300
 
 Examples:
-  noeis connect openclaw
-  noeis connect hermes
+  noeis connect openclaw --scope read
+  noeis connect hermes --scope read-write
   noeis connect codex --no-browser
 `;
 
@@ -112,6 +114,13 @@ const normalizeRuntime = (value = '') => {
 
 const runtimeLabel = (runtime = 'agent') => RUNTIME_LABELS[runtime] || 'Noeis agent';
 
+const resolveConnectScopes = (value = 'read') => {
+  const scope = String(value || 'read').trim().toLowerCase();
+  if (scope === 'read') return ['read'];
+  if (scope === 'read-write' || scope === 'agent-write') return ['read', 'agent-write'];
+  throw new NoeisCliError('Unsupported --scope. Use read or read-write.');
+};
+
 const safeReadJson = (filePath) => {
   try {
     return JSON.parse(fs.readFileSync(filePath, 'utf8'));
@@ -130,9 +139,28 @@ const ensurePrivateDir = (dirPath) => {
   }
 };
 
+const writePrivateFileAtomic = (filePath, content) => {
+  const directory = path.dirname(filePath);
+  ensurePrivateDir(directory);
+  const temporaryPath = path.join(
+    directory,
+    `.${path.basename(filePath)}.${process.pid}.${Math.random().toString(36).slice(2)}.tmp`
+  );
+  try {
+    fs.writeFileSync(temporaryPath, content, { mode: 0o600 });
+    fs.renameSync(temporaryPath, filePath);
+    fs.chmodSync(filePath, 0o600);
+  } finally {
+    try {
+      fs.unlinkSync(temporaryPath);
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+    }
+  }
+};
+
 const writeJsonFile = (filePath, value) => {
-  ensurePrivateDir(path.dirname(filePath));
-  fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
+  writePrivateFileAtomic(filePath, `${JSON.stringify(value, null, 2)}\n`);
 };
 
 const mcpServerConfig = ({ configDir, apiUrl }) => ({
@@ -165,12 +193,11 @@ args = ["mcp"]${envLine}
   const next = /\[mcp_servers\.noeis-wiki\][\s\S]*?(?=\n\[|\s*$)/m.test(current)
     ? current.replace(/\[mcp_servers\.noeis-wiki\][\s\S]*?(?=\n\[|\s*$)/m, block.trimEnd())
     : `${current.trimEnd()}${current.trim() ? '\n\n' : ''}${block}`;
-  fs.writeFileSync(filePath, `${next.trimEnd()}\n`, { mode: 0o600 });
+  writePrivateFileAtomic(filePath, `${next.trimEnd()}\n`);
 };
 
 const writeOpenClawRootConfig = ({ filePath, server }) => {
   const config = safeReadJson(filePath);
-  delete config.meta;
   config.mcp = {
     ...(config.mcp || {}),
     servers: {
@@ -304,6 +331,7 @@ const runConnect = async (args, context) => {
   const appUrl = optionValue(args, '--app-url', auth.appUrl || DEFAULT_APP_URL);
   const apiUrl = optionValue(args, '--api-url', auth.apiUrl || DEFAULT_API_URL);
   const label = optionValue(args, '--label', `${runtimeLabel(runtime)} local`);
+  const requestedScopes = resolveConnectScopes(optionValue(args, '--scope', 'read'));
   const timeoutSec = Math.max(15, Math.min(Number(optionValue(args, '--timeout', '300')) || 300, 1800));
   const fetchImpl = context.fetchImpl || global.fetch;
   const io = context.io || { stdout: process.stdout, stderr: process.stderr };
@@ -318,7 +346,7 @@ const runConnect = async (args, context) => {
       label,
       appUrl,
       apiUrl,
-      scopes: ['read', 'agent-write']
+      scopes: requestedScopes
     }
   });
   const session = created.session || {};
@@ -351,6 +379,27 @@ const runConnect = async (args, context) => {
   }
   if (!approved?.secret) throw new NoeisCliError('Timed out waiting for browser approval.');
 
+  const client = new NoeisCliClient({
+    token: approved.secret,
+    apiUrl,
+    fetchImpl,
+    env: {
+      ...(context.env || process.env),
+      NOEIS_TOKEN: approved.secret,
+      NOEIS_API_URL: apiUrl
+    }
+  });
+  const connectionInfo = await client.getConnectionInfo();
+  const issuedScopes = Array.isArray(connectionInfo?.grant?.scopes)
+    ? [...new Set(connectionInfo.grant.scopes)].sort()
+    : [];
+  const expectedScopes = [...requestedScopes].sort();
+  if (JSON.stringify(issuedScopes) !== JSON.stringify(expectedScopes)) {
+    throw new NoeisCliError(
+      `Issued grant scope mismatch. Requested ${expectedScopes.join(', ')}, received ${issuedScopes.join(', ') || 'unknown'}.`
+    );
+  }
+
   const configPath = writeConfig({ ...readConfig(context), token: approved.secret, apiUrl, appUrl }, context);
   let runtimeConfigPath = '';
   if (!hasFlag(args, '--no-config')) {
@@ -362,19 +411,16 @@ const runConnect = async (args, context) => {
     });
   }
 
-  try {
-    const client = new NoeisCliClient({ token: approved.secret, apiUrl, fetchImpl, env: { ...(context.env || process.env), NOEIS_TOKEN: approved.secret, NOEIS_API_URL: apiUrl } });
-    await client.listPages({ limit: 1 });
-    io.stdout.write(`Connected ${runtimeLabel(runtime)} with read/write Noeis access.\n`);
-  } catch (error) {
-    io.stderr.write(`Connected, but the access check failed: ${error.message || error}\n`);
-  }
+  const scopeLabel = requestedScopes.includes('agent-write') ? 'read/write' : 'read-only';
+  io.stdout.write(`Connected ${runtimeLabel(runtime)} with ${scopeLabel} Noeis access.\n`);
+  io.stdout.write(`Verified workspace ${connectionInfo?.workspace?.label || connectionInfo?.workspace?.id || 'identity unavailable'}.\n`);
   io.stdout.write(`Saved Noeis CLI config to ${configPath}\n`);
   const runtimeConfigPaths = Array.isArray(runtimeConfigPath) ? runtimeConfigPath : (runtimeConfigPath ? [runtimeConfigPath] : []);
   runtimeConfigPaths.forEach((filePath) => {
     io.stdout.write(`Updated ${runtimeLabel(runtime)} MCP config at ${filePath}\n`);
   });
   if (runtimeConfigPaths.length) io.stdout.write(`Runtime config reads the token from ${configPath}; no raw token was copied into MCP config.\n`);
+  if (runtimeConfigPaths.length) io.stdout.write(`Reload ${runtimeLabel(runtime)}, then call connection_info there to confirm the runtime loaded its tools.\n`);
   if (hasFlag(args, '--print-token')) io.stdout.write(`${approved.secret}\n`);
 };
 

@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import DataIntegrations from './DataIntegrations';
 import api from '../api';
 import { chatWithAgent } from '../api/agent';
-import { getEmbeddingJobStatus } from '../api/ai';
+import { getEmbeddingJobStatus, retryEmbeddingJob } from '../api/ai';
 import { getConcepts, updateConcept } from '../api/concepts';
 import { getAllHighlights } from '../api/highlights';
 import {
@@ -12,6 +12,7 @@ import {
   checkReadwiseConnection,
   connectReadwiseToken,
   createImportSession,
+  disconnectImportConnection,
   exportToNotionPage,
   getActiveImportSession,
   listImportConnections,
@@ -42,7 +43,8 @@ jest.mock('../api/highlights', () => ({
 }));
 
 jest.mock('../api/ai', () => ({
-  getEmbeddingJobStatus: jest.fn()
+  getEmbeddingJobStatus: jest.fn(),
+  retryEmbeddingJob: jest.fn()
 }));
 
 jest.mock('../api/imports', () => ({
@@ -50,6 +52,7 @@ jest.mock('../api/imports', () => ({
   checkReadwiseConnection: jest.fn(),
   connectReadwiseToken: jest.fn(),
   createImportSession: jest.fn(),
+  disconnectImportConnection: jest.fn(),
   exportToNotionPage: jest.fn(),
   getActiveImportSession: jest.fn(),
   listImportConnections: jest.fn(),
@@ -104,6 +107,24 @@ describe('DataIntegrations first insight workflow', () => {
       result: {},
       activation: {}
     });
+    disconnectImportConnection.mockResolvedValue({
+      connection: {
+        id: 'rw-1',
+        provider: 'readwise',
+        accountLabel: 'Reader',
+        status: 'revoked',
+        health: 'unknown',
+        lastSyncAt: '2026-09-17T10:04:00.000Z',
+        lastSyncResult: { importedArticles: 3, importedHighlights: 12 }
+      },
+      boundaries: {
+        futureAccess: 'stopped',
+        importedContent: 'retained',
+        completedWork: 'unchanged',
+        providerRevocation: 'not_confirmed',
+        inFlightWork: 'not_cancelled'
+      }
+    });
     updateImportSession.mockImplementation(async (_id, payload) => ({
       id: 'session-1',
       provider: 'files',
@@ -122,6 +143,20 @@ describe('DataIntegrations first insight workflow', () => {
       counts: { queued: 0, running: 0, failed: 0, abandoned: 0, completed: 0, total: 0 },
       failedJobs: []
     });
+    retryEmbeddingJob.mockResolvedValue({
+      job: {
+        id: 'job-1',
+        collection: 'articles',
+        objectId: 'article-1',
+        status: 'queued',
+        attemptCount: 1,
+        lastError: ''
+      },
+      recovery: {
+        kind: 'retry_search_for_existing_object',
+        reimported: false
+      }
+    });
   });
 
   it('renders as the single source section owned by Connections', async () => {
@@ -133,6 +168,80 @@ describe('DataIntegrations first insight workflow', () => {
 
     expect(await screen.findByTestId('connections-sources')).toBeInTheDocument();
     expect(container.querySelector('.ui-page')).not.toBeInTheDocument();
+  });
+
+  it('separates connected accounts from sources and one-time operations not yet added', async () => {
+    listImportConnections.mockImplementation(async ({ provider } = {}) => (
+      provider === 'readwise'
+        ? [{
+          id: 'rw-1',
+          provider: 'readwise',
+          accountLabel: 'Reader',
+          status: 'connected',
+          health: 'healthy',
+          lastValidatedAt: '2026-09-17T10:00:00.000Z',
+          lastSyncAt: '2026-09-17T10:04:00.000Z',
+          lastSyncResult: {
+            importedArticles: 3,
+            importedHighlights: 12,
+            indexingFailures: 0
+          }
+        }]
+        : []
+    ));
+
+    render(
+      <MemoryRouter>
+        <DataIntegrations />
+      </MemoryRouter>
+    );
+
+    await screen.findByText('Reader');
+    const connected = screen.getByRole('region', { name: 'Your sources' });
+    expect(within(connected).getByText('Reader')).toBeInTheDocument();
+    expect(within(connected).getByText('Imported into NOEIS')).toBeInTheDocument();
+    expect(within(connected).queryByText('Notion')).not.toBeInTheDocument();
+
+    const available = screen.getByRole('region', { name: 'Add a source' });
+    expect(within(available).getByText('Notion')).toBeInTheDocument();
+    expect(within(available).getByText('Evernote')).toBeInTheDocument();
+    expect(within(available).getByText('Files and text')).toBeInTheDocument();
+    expect(within(available).getByText(/One-time imports do not stay connected/i)).toBeInTheDocument();
+  });
+
+  it('disconnects only future provider access and keeps imported material explicit', async () => {
+    listImportConnections.mockImplementation(async ({ provider } = {}) => (
+      provider === 'readwise'
+        ? [{
+          id: 'rw-1',
+          provider: 'readwise',
+          accountLabel: 'Reader',
+          mode: 'api_token',
+          status: 'connected',
+          health: 'healthy',
+          lastSyncAt: '2026-09-17T10:04:00.000Z',
+          lastSyncResult: { importedArticles: 3, importedHighlights: 12 }
+        }]
+        : []
+    ));
+
+    render(
+      <MemoryRouter>
+        <DataIntegrations />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(await screen.findByTestId('import-source-card-readwise'));
+    fireEvent.click(await screen.findByRole('button', { name: 'Disconnect import access' }));
+
+    expect(screen.getByText(/Future imports using this credential will stop/i)).toBeInTheDocument();
+    expect(screen.getByText(/Already imported sources, highlights, and notes stay/i)).toBeInTheDocument();
+    expect(screen.getByText(/does not revoke access at Readwise/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm disconnect' }));
+    await waitFor(() => expect(disconnectImportConnection).toHaveBeenCalledWith('rw-1'));
+    expect(await screen.findByText('Import access disconnected. Saved material remains.')).toBeInTheDocument();
+    expect(screen.getByText('Access revoked')).toBeInTheDocument();
   });
 
   it('shows which connected sources are feeding the return loop', async () => {
@@ -422,7 +531,7 @@ describe('DataIntegrations first insight workflow', () => {
     );
 
     expect(await screen.findByText(/Browser approval did not finish/i)).toBeInTheDocument();
-    expect(screen.getByTestId('import-source-card-readwise')).toHaveAttribute('aria-pressed', 'true');
+    expect(await screen.findByTestId('import-source-card-readwise')).toHaveAttribute('aria-pressed', 'true');
     expect(window.location.search).not.toContain('readwise=error');
     expect(window.location.search).not.toContain('source=readwise');
     expect(window.location.hash).toBe('#readwise');
@@ -603,6 +712,34 @@ describe('DataIntegrations first insight workflow', () => {
     expect(screen.getByText(/Latest: articles — HF 429 rate limit exceeded/i)).toBeInTheDocument();
   });
 
+  it('retries only the failed search job without reimporting the source', async () => {
+    listImportConnections.mockResolvedValue([]);
+    getEmbeddingJobStatus.mockResolvedValue({
+      status: 'warning',
+      counts: { queued: 0, running: 0, failed: 1, abandoned: 0, completed: 0, total: 1 },
+      failedJobs: [{
+        id: 'job-1',
+        collection: 'articles',
+        objectId: 'article-1',
+        status: 'failed',
+        lastError: 'HF 429 rate limit exceeded'
+      }]
+    });
+
+    render(
+      <MemoryRouter>
+        <DataIntegrations />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Retry search for this source' }));
+
+    await waitFor(() => expect(retryEmbeddingJob).toHaveBeenCalledWith('job-1'));
+    expect(await screen.findByText('Search retry queued. The source was not imported again.')).toBeInTheDocument();
+    expect(syncReadwiseConnection).not.toHaveBeenCalled();
+    expect(syncNotionConnection).not.toHaveBeenCalled();
+  });
+
   it('explains why Evernote uses ENEX instead of browser OAuth today', async () => {
     render(
       <MemoryRouter>
@@ -741,6 +878,13 @@ describe('DataIntegrations first insight workflow', () => {
         articles: 2,
         highlights: 5,
         sampleTitles: ['Deep Work', 'Systems Thinking'],
+        samplePassages: [{
+          sourceTitle: 'Deep Work',
+          author: 'Cal Newport',
+          externalId: 'highlight-1',
+          passage: 'Clarity about what matters provides clarity about what does not.',
+          annotation: 'Attention needs a boundary.'
+        }],
         warnings: ['Preview is sampled from the first page of your Readwise export.']
       },
       session: {
@@ -753,6 +897,13 @@ describe('DataIntegrations first insight workflow', () => {
           articles: 2,
           highlights: 5,
           sampleTitles: ['Deep Work', 'Systems Thinking'],
+          samplePassages: [{
+            sourceTitle: 'Deep Work',
+            author: 'Cal Newport',
+            externalId: 'highlight-1',
+            passage: 'Clarity about what matters provides clarity about what does not.',
+            annotation: 'Attention needs a boundary.'
+          }],
           warnings: ['Preview is sampled from the first page of your Readwise export.']
         },
         progress: { stage: 'preview_ready', percent: 15, indexingState: 'not_started' }
@@ -774,6 +925,9 @@ describe('DataIntegrations first insight workflow', () => {
     }));
     expect(await screen.findByText('Preview snapshot')).toBeInTheDocument();
     expect(screen.getByText(/Deep Work/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'See how it arrives' }));
+    expect(screen.getByText('Clarity about what matters provides clarity about what does not.')).toBeInTheDocument();
+    expect(screen.getByText('Attention needs a boundary.')).toBeInTheDocument();
   });
 
   it('checks a saved Readwise connection without starting sync', async () => {
@@ -1088,7 +1242,7 @@ describe('DataIntegrations first insight workflow', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /Notion/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /Notion/i }));
     fireEvent.click(screen.getByRole('button', { name: 'Connect Notion' }));
 
     const inlineWarning = await screen.findByTestId('notion-setup-warning');

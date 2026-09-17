@@ -6866,6 +6866,7 @@ app.use(buildEditionRouter({
 app.use(buildAgentTokenRouter({
   mongoose,
   authenticateToken,
+  authenticateConnection: authenticateUserOrAgentToken,
   AgentToken,
   ConnectorActionLog,
   createAgentTokenSecret,

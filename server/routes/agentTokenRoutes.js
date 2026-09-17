@@ -1,8 +1,11 @@
 const express = require('express');
 
+const SUPPORTED_AGENT_SCOPES = new Set(['read', 'agent-write']);
+
 const buildAgentTokenRouter = ({
   mongoose,
   authenticateToken,
+  authenticateConnection = authenticateToken,
   AgentToken,
   ConnectorActionLog = null,
   createAgentTokenSecret,
@@ -11,6 +14,17 @@ const buildAgentTokenRouter = ({
   sanitizeAgentToken
 }) => {
   const router = express.Router();
+
+  const readRequestedScopes = (value) => {
+    const requested = (Array.isArray(value) ? value : value ? [value] : ['read'])
+      .map(scope => String(scope || '').trim())
+      .filter(Boolean);
+    const unsupported = requested.filter(scope => !SUPPORTED_AGENT_SCOPES.has(scope));
+    if (unsupported.length > 0) {
+      return { error: `Unsupported scope: ${unsupported.join(', ')}.` };
+    }
+    return { scopes: normalizeAgentTokenScopes(requested) };
+  };
 
   const parseExpiry = (value) => {
     if (!value) return null;
@@ -75,6 +89,38 @@ const buildAgentTokenRouter = ({
     }
   });
 
+  router.get('/api/agent-connection', authenticateConnection, async (req, res) => {
+    if (!req.agentToken) {
+      return res.status(403).json({ error: 'An agent token is required for connection verification.' });
+    }
+    const scopes = normalizeAgentTokenScopes(req.agentToken.scopes || []);
+    return res.status(200).json({
+      format: 'noeis.agent-connection',
+      version: 1,
+      workspace: {
+        id: String(req.user?.id || ''),
+        label: 'NOEIS workspace'
+      },
+      grant: {
+        id: String(req.agentToken.id || req.agentToken._id || ''),
+        label: req.agentToken.label || 'Agent connection',
+        scopes,
+        status: req.agentToken.status || 'active',
+        expiresAt: req.agentToken.expiresAt || null
+      },
+      capabilities: {
+        read: scopes.includes('read') || scopes.includes('agent-write'),
+        agentWrite: scopes.includes('agent-write')
+      },
+      evidence: {
+        source: 'authenticated_server_response',
+        checkedAt: new Date().toISOString()
+      },
+      contentRead: false,
+      contentWritten: false
+    });
+  });
+
   router.post('/api/agent-tokens', authenticateToken, async (req, res) => {
     try {
       const label = String(req.body?.label || '').trim();
@@ -93,6 +139,10 @@ const buildAgentTokenRouter = ({
       if (expiresAt && expiresAt.getTime() <= Date.now()) {
         return res.status(400).json({ error: 'expiresAt must be in the future.' });
       }
+      const requestedScopes = readRequestedScopes(req.body?.scopes);
+      if (requestedScopes.error) {
+        return res.status(400).json({ error: requestedScopes.error });
+      }
 
       const secret = createAgentTokenSecret();
       const created = await AgentToken.create({
@@ -100,7 +150,7 @@ const buildAgentTokenRouter = ({
         label: label.slice(0, 100),
         hashedSecret: hashAgentTokenSecret(secret),
         secretPrefix: `${secret.slice(0, 12)}...`,
-        scopes: normalizeAgentTokenScopes(req.body?.scopes || []),
+        scopes: requestedScopes.scopes,
         dailyQuota,
         callsToday: 0,
         quotaWindowStartedAt: new Date(Date.UTC(

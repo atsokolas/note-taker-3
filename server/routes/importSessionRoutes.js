@@ -37,6 +37,19 @@ const sanitizeUniqueStringList = (value) => {
   });
 };
 
+const sanitizePreviewPassages = (value) => (
+  (Array.isArray(value) ? value : [])
+    .map(sample => ({
+      sourceTitle: toTrimmedString(sample?.sourceTitle).slice(0, 300),
+      author: toTrimmedString(sample?.author).slice(0, 200),
+      externalId: toTrimmedString(sample?.externalId).slice(0, 160),
+      passage: toTrimmedString(sample?.passage).slice(0, 1200),
+      annotation: toTrimmedString(sample?.annotation).slice(0, 1000)
+    }))
+    .filter(sample => sample.passage)
+    .slice(0, 3)
+);
+
 const parseOptionalDate = (value) => {
   if (!value) return null;
   const parsed = new Date(value);
@@ -359,6 +372,9 @@ const buildImportSessionRouter = ({
           sampleAuthors: sanitizeUniqueStringList(payload.preview.sampleAuthors || session.preview?.sampleAuthors),
           sampleTags: sanitizeUniqueStringList(payload.preview.sampleTags || session.preview?.sampleTags),
           sampleDatabases: sanitizeUniqueStringList(payload.preview.sampleDatabases || session.preview?.sampleDatabases),
+          samplePassages: payload.preview.samplePassages !== undefined
+            ? sanitizePreviewPassages(payload.preview.samplePassages)
+            : sanitizePreviewPassages(session.preview?.samplePassages),
           sampleRows: Math.max(0, toSafeNumber(payload.preview.sampleRows, session.preview?.sampleRows || 0)),
           warningCodes: sanitizeUniqueStringList(payload.preview.warningCodes || session.preview?.warningCodes),
           lastPreviewedAt: payload.preview.lastPreviewedAt !== undefined

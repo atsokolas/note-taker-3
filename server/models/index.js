@@ -2270,6 +2270,8 @@ const PersonalAgent = mongoose.model('PersonalAgent', personalAgentSchema);
 const agentTokenSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   label: { type: String, required: true, trim: true },
+  runtime: { type: String, default: '', trim: true },
+  connectionSessionId: { type: String, default: '', trim: true },
   hashedSecret: { type: String, required: true, trim: true },
   secretPrefix: { type: String, default: '', trim: true },
   scopes: { type: [String], enum: ['read', 'agent-write'], default: ['read'] },
@@ -2916,6 +2918,7 @@ const importSessionSchema = new mongoose.Schema({
     sampleAuthors: { type: [String], default: [] },
     sampleTags: { type: [String], default: [] },
     sampleDatabases: { type: [String], default: [] },
+    samplePassages: { type: [mongoose.Schema.Types.Mixed], default: [] },
     sampleRows: { type: Number, default: 0 },
     warningCodes: { type: [String], default: [] },
     lastPreviewedAt: { type: Date, default: null },

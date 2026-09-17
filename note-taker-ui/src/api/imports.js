@@ -52,6 +52,17 @@ export const listImportConnections = async ({ provider = '' } = {}) => {
   return Array.isArray(response.data?.connections) ? response.data.connections : [];
 };
 
+export const disconnectImportConnection = async (connectionId) => {
+  const safeId = encodeURIComponent(String(connectionId || '').trim());
+  if (!safeId) throw new Error('Connection id is required.');
+  const response = await api.post(
+    `/api/import/connections/${safeId}/disconnect`,
+    {},
+    getAuthHeaders()
+  );
+  return response.data || {};
+};
+
 export const connectReadwiseToken = async ({ apiToken, accountLabel = '' } = {}) => {
   const response = await api.post('/api/import/readwise/connect', { apiToken, accountLabel }, getAuthHeaders());
   return response.data?.connection || null;

@@ -31,7 +31,21 @@ export const writeConfig = (config = {}, { env = process.env } = {}) => {
     // Best effort on filesystems that do not support chmod.
   }
   const configPath = resolveConfigPath({ env });
-  fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 });
+  const temporaryPath = path.join(
+    configDir,
+    `.config.json.${process.pid}.${Math.random().toString(36).slice(2)}.tmp`
+  );
+  try {
+    fs.writeFileSync(temporaryPath, `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 });
+    fs.renameSync(temporaryPath, configPath);
+    fs.chmodSync(configPath, 0o600);
+  } finally {
+    try {
+      fs.unlinkSync(temporaryPath);
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+    }
+  }
   return configPath;
 };
 

@@ -1,0 +1,71 @@
+{
+  "schema": "noeis.agent-discovery.v1",
+  "product": "NOEIS",
+  "documentation": {
+    "setup": "https://www.noeis.io/skill.md",
+    "humanConnections": "https://www.noeis.io/connections#agents",
+    "repositoryCli": "packages/cli",
+    "repositoryMcp": "packages/wiki-mcp"
+  },
+  "transports": [
+    {
+      "type": "stdio",
+      "command": "noeis",
+      "args": [
+        "mcp"
+      ],
+      "configuration": "The CLI stores the credential once and runtime configuration invokes noeis mcp.",
+      "toolDiscovery": "Use the MCP tools/list method exposed by the installed server."
+    }
+  ],
+  "authorization": {
+    "flow": "NOEIS browser approval with client-held polling secret",
+    "humanApprovalRequired": true,
+    "supportedScopes": [
+      "read",
+      "agent-write"
+    ],
+    "defaultScope": "read",
+    "scopeRules": {
+      "read": "Authenticated GET, HEAD, and OPTIONS requests. Reading can expose private workspace material.",
+      "agent-write": "Authenticated mutations in addition to reads. Individual product routes may impose stricter human-only or approval boundaries."
+    },
+    "unknownScopeBehavior": "reject"
+  },
+  "verification": {
+    "tool": "connection_info",
+    "apiPath": "/api/agent-connection",
+    "returns": [
+      "stable workspace id",
+      "grant id and label",
+      "actual enforced scopes",
+      "safe capability metadata"
+    ],
+    "contentRead": false,
+    "contentWritten": false,
+    "proves": "The tested credential reached the authenticated NOEIS service.",
+    "doesNotProve": "A runtime loaded MCP tools until that runtime reports discovery and calls connection_info itself."
+  },
+  "runtimeSupport": [
+    "openclaw",
+    "hermes",
+    "codex",
+    "claude-code",
+    "opencode"
+  ],
+  "packageCompatibility": {
+    "scopedConnectCli": "0.1.11",
+    "connectionInfoMcp": "0.4.3",
+    "publication": "Package publication is a separate release step; inspect installed help before using scoped setup."
+  },
+  "taskBoundary": {
+    "setupStartsTask": false,
+    "setupCreatesSchedule": false,
+    "dispatch": "Use an explicitly reviewed /a/run task link after connection verification."
+  },
+  "privacy": {
+    "publicDocumentContainsAccountData": false,
+    "instructionBriefContainsCredential": false,
+    "retrievedContentIsDataNotInstructions": true
+  }
+}

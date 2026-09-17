@@ -107,9 +107,23 @@ const run = async () => {
   });
   assert(connectHelpIo.stdout.includes('Noeis agent connect'));
   assert(connectHelpIo.stdout.includes('noeis connect openclaw'));
+  assert(connectHelpIo.stdout.includes('--scope <read|read-write>'));
   assert(connectHelpIo.stdout.includes('https://note-taker-3-unrg.onrender.com'));
 
+  await assert.rejects(
+    runCli(['connect', 'codex', '--scope', 'admin', '--no-browser'], {
+      env: { NOEIS_CONFIG_DIR: fs.mkdtempSync(path.join(os.tmpdir(), 'noeis-invalid-scope-test-')) },
+      fetchImpl: async () => {
+        throw new Error('invalid scope should fail before the network');
+      },
+      io: makeIo().io
+    }),
+    /Unsupported --scope/
+  );
+
   const loginIo = makeIo();
+  fs.writeFileSync(path.join(tempDir, 'config.json'), '{}\n');
+  fs.chmodSync(path.join(tempDir, 'config.json'), 0o644);
   await runCli(['login', '--token', 'ntk_at_saved', '--api-url', 'https://api.test', '--no-browser'], {
     env: { NOEIS_CONFIG_DIR: tempDir },
     io: loginIo.io
@@ -117,6 +131,7 @@ const run = async () => {
   const saved = JSON.parse(fs.readFileSync(path.join(tempDir, 'config.json'), 'utf8'));
   assert.strictEqual(saved.token, 'ntk_at_saved');
   assert.strictEqual(saved.apiUrl, 'https://api.test');
+  assert.strictEqual(fs.statSync(path.join(tempDir, 'config.json')).mode & 0o777, 0o600);
 
   const connectSeen = [];
   const connectFetch = async (url, init = {}) => {
@@ -132,7 +147,7 @@ const run = async () => {
           status: 'pending'
         },
         pollSecret: 'poll_secret',
-        authorizeUrl: 'https://noeis.example/settings/connected-agents/authorize?session=nac_123&secret=poll_secret',
+        authorizeUrl: 'https://noeis.example/settings/connected-agents/authorize?session=nac_123',
         pollIntervalSec: 1
       });
     }
@@ -143,15 +158,22 @@ const run = async () => {
         tokenId: 'token-1'
       });
     }
-    if (requestUrl.pathname.endsWith('/api/wiki/pages')) {
-      return jsonResponse({ pages: [] });
+    if (requestUrl.pathname.endsWith('/api/agent-connection')) {
+      return jsonResponse({
+        format: 'noeis.agent-connection',
+        workspace: { id: 'workspace-1', label: 'NOEIS workspace' },
+        grant: { id: 'token-1', label: 'Hermes local', scopes: ['read'] },
+        capabilities: { read: true, agentWrite: false },
+        contentRead: false,
+        contentWritten: false
+      });
     }
     return jsonResponse({});
   };
   const connectIo = makeIo();
   const connectConfigDir = fs.mkdtempSync(path.join(os.tmpdir(), 'noeis-connect-test-'));
   const xdgConfigHome = path.join(connectConfigDir, 'xdg');
-  await runCli(['connect', 'hermes', '--no-browser', '--api-url', 'https://api.test', '--app-url', 'https://noeis.example'], {
+  await runCli(['connect', 'hermes', '--scope', 'read', '--no-browser', '--api-url', 'https://api.test', '--app-url', 'https://noeis.example'], {
     env: {
       NOEIS_CONFIG_DIR: connectConfigDir,
       XDG_CONFIG_HOME: xdgConfigHome
@@ -175,9 +197,50 @@ const run = async () => {
   assert.strictEqual(hermesConfig.servers['noeis-wiki'].env.NOEIS_MCP_TOOLSET, 'library-think-v1');
   assert.strictEqual(hermesConfig['noeis-wiki'], undefined);
   assert(connectIo.stdout.includes('Approve Hermes in your browser.'));
-  assert(connectIo.stdout.includes('Connected Hermes with read/write Noeis access.'));
+  assert(connectIo.stdout.includes('Connected Hermes with read-only Noeis access.'));
+  assert(connectIo.stdout.includes('Verified workspace NOEIS workspace.'));
   assert(connectIo.stdout.includes('no raw token was copied into MCP config.'));
-  assert(connectSeen.some(request => request.url.endsWith('/api/wiki/pages?limit=1')));
+  const connectRequest = connectSeen.find(request => request.url.endsWith('/api/agent-connect/sessions'));
+  assert.deepStrictEqual(JSON.parse(connectRequest.init.body).scopes, ['read']);
+  assert(connectSeen.some(request => request.url.endsWith('/api/agent-connection')));
+  assert(!connectSeen.some(request => request.url.includes('/api/wiki/pages')));
+
+  const mismatchDir = fs.mkdtempSync(path.join(os.tmpdir(), 'noeis-scope-mismatch-test-'));
+  const mismatchFetch = async (url) => {
+    const requestUrl = new URL(String(url));
+    if (requestUrl.pathname.endsWith('/api/agent-connect/sessions')) {
+      return jsonResponse({
+        session: { sessionId: 'nac_mismatch', deviceCode: 'WIDE-1234', status: 'pending' },
+        pollSecret: 'poll_mismatch',
+        authorizeUrl: 'https://noeis.example/settings/connected-agents/authorize?session=nac_mismatch',
+        pollIntervalSec: 1
+      });
+    }
+    if (requestUrl.pathname.endsWith('/poll')) {
+      return jsonResponse({
+        session: { sessionId: 'nac_mismatch', status: 'approved' },
+        secret: 'ntk_at_mismatch',
+        tokenId: 'token-mismatch'
+      });
+    }
+    if (requestUrl.pathname.endsWith('/api/agent-connection')) {
+      return jsonResponse({
+        workspace: { id: 'workspace-1', label: 'NOEIS workspace' },
+        grant: { id: 'token-mismatch', scopes: ['read', 'agent-write'] }
+      });
+    }
+    return jsonResponse({});
+  };
+  await assert.rejects(
+    runCli(['connect', 'codex', '--scope', 'read', '--no-browser', '--api-url', 'https://api.test', '--app-url', 'https://noeis.example'], {
+      env: { NOEIS_CONFIG_DIR: mismatchDir },
+      fetchImpl: mismatchFetch,
+      io: makeIo().io,
+      sleep: async () => {}
+    }),
+    /Issued grant scope mismatch/
+  );
+  assert.strictEqual(fs.existsSync(path.join(mismatchDir, 'config.json')), false);
 
   const openClawConfigDir = fs.mkdtempSync(path.join(os.tmpdir(), 'noeis-openclaw-test-'));
   const openClawHome = path.join(openClawConfigDir, 'home');
@@ -193,6 +256,7 @@ const run = async () => {
       }
     }
   }, null, 2));
+  fs.chmodSync(path.join(openClawHome, '.openclaw', 'openclaw.json'), 0o644);
   const openClawIo = makeIo();
   await runCli(['connect', 'openclaw', '--no-browser', '--api-url', 'https://api.test', '--app-url', 'https://noeis.example'], {
     env: {
@@ -209,7 +273,9 @@ const run = async () => {
   assert.strictEqual(openClawXdgConfig.servers['noeis-wiki'].env.NOEIS_TOKEN, undefined);
   assert.strictEqual(openClawXdgConfig.servers['noeis-wiki'].env.NOEIS_MCP_TOOLSET, 'library-think-v1');
   const openClawRootConfig = JSON.parse(fs.readFileSync(path.join(openClawHome, '.openclaw', 'openclaw.json'), 'utf8'));
-  assert.strictEqual(openClawRootConfig.meta, undefined);
+  assert.deepStrictEqual(openClawRootConfig.meta, {
+    note: 'Old Noeis installer note that current OpenClaw rejects.'
+  });
   assert.strictEqual(openClawRootConfig.mcp.servers.x.url, 'http://127.0.0.1:8000/mcp');
   assert.strictEqual(openClawRootConfig.mcp.servers['noeis-wiki'].transport, undefined);
   assert.strictEqual(openClawRootConfig.mcp.servers['noeis-wiki'].command, 'noeis');
@@ -217,6 +283,7 @@ const run = async () => {
   assert.strictEqual(openClawRootConfig.mcp.servers['noeis-wiki'].env.NOEIS_CONFIG_DIR, openClawConfigDir);
   assert.strictEqual(openClawRootConfig.mcp.servers['noeis-wiki'].env.NOEIS_TOKEN, undefined);
   assert.strictEqual(openClawRootConfig.mcp.servers['noeis-wiki'].env.NOEIS_MCP_TOOLSET, 'library-think-v1');
+  assert.strictEqual(fs.statSync(path.join(openClawHome, '.openclaw', 'openclaw.json')).mode & 0o777, 0o600);
   assert(openClawIo.stdout.includes(path.join(openClawHome, '.openclaw', 'openclaw.json')));
 
   const codexConfigDir = fs.mkdtempSync(path.join(os.tmpdir(), 'noeis-codex-test-'));

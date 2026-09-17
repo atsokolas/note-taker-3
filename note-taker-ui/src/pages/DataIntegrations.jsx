@@ -4,7 +4,7 @@ import { useSystemStatusControls } from '../system/SystemStatusContext';
 import api from '../api';
 import { Button, Card } from '../components/ui';
 import { chatWithAgent, fetchNotionPagesViaAgent } from '../api/agent';
-import { getEmbeddingJobStatus } from '../api/ai';
+import { getEmbeddingJobStatus, retryEmbeddingJob } from '../api/ai';
 import NotionAgentFetchCard from '../components/integrations/NotionAgentFetchCard';
 import ConnectionReceiptCard from '../components/integrations/ConnectionReceiptCard';
 import {
@@ -12,6 +12,7 @@ import {
   buildNotionConnectionReceipt,
   buildReadwiseConnectionReceipt
 } from '../components/integrations/connectionReceiptModel';
+import { projectSourceConnection } from '../components/integrations/connectionsModel';
 import SurfaceNotice from '../components/feedback/SurfaceNotice';
 import { normalizeSystemReceipt } from '../system/systemStatusModel';
 import { updateConcept, getConcepts } from '../api/concepts';
@@ -21,6 +22,7 @@ import {
   checkReadwiseConnection,
   connectReadwiseToken,
   createImportSession,
+  disconnectImportConnection,
   exportToNotionPage,
   getActiveImportSession,
   listImportConnections,
@@ -617,21 +619,34 @@ const DataIntegrations = () => {
     if (SOURCE_OPTIONS.some(option => option.key === source)) {
       explicitSourceSelectionRef.current = true;
       setSelectedSource(source);
+      setPreviewPassageOpen(false);
     }
   }, []);
+  const selectSourceFromAction = useCallback((source) => {
+    selectSource(source);
+    const next = `${window.location.pathname}${window.location.search}#${source}`;
+    window.history.pushState({}, '', next);
+  }, [selectSource]);
   const [importStatus, setImportStatus] = useState({ tone: '', message: '' });
   const [importStats, setImportStats] = useState(null);
   const [lastImportSourceLabel, setLastImportSourceLabel] = useState('');
   const [currentSession, setCurrentSession] = useState(null);
   const [sessionLoading, setSessionLoading] = useState(true);
   const [embeddingJobStatus, setEmbeddingJobStatus] = useState(null);
+  const [indexRetryingId, setIndexRetryingId] = useState('');
+  const [indexRetryStatus, setIndexRetryStatus] = useState('');
   const [organizeLaunching, setOrganizeLaunching] = useState(false);
   const [importing, setImporting] = useState({ csv: false, md: false, enex: false, manual: false, paste: false });
   const [previewing, setPreviewing] = useState({ readwise: false, notion: false, evernote: false });
+  const [previewPassageOpen, setPreviewPassageOpen] = useState(false);
   const [readwiseToken, setReadwiseToken] = useState('');
   const [readwiseLabel, setReadwiseLabel] = useState('Readwise');
   const [readwiseConnection, setReadwiseConnection] = useState(null);
   const [readwiseConnections, setReadwiseConnections] = useState([]);
+  const [sourceConnectionsLoading, setSourceConnectionsLoading] = useState(true);
+  const [disconnectCandidate, setDisconnectCandidate] = useState(null);
+  const [disconnectingId, setDisconnectingId] = useState('');
+  const [disconnectStatus, setDisconnectStatus] = useState('');
   const [readwiseConnecting, setReadwiseConnecting] = useState(false);
   const [readwiseMcpConnecting, setReadwiseMcpConnecting] = useState(false);
   const [readwiseChecking, setReadwiseChecking] = useState(false);
@@ -688,6 +703,40 @@ const DataIntegrations = () => {
       cancelled = true;
     };
   }, []);
+
+  const handleRetryEmbeddingJob = async (jobId) => {
+    const safeId = String(jobId || '').trim();
+    if (!safeId || indexRetryingId) return;
+    setIndexRetryingId(safeId);
+    setIndexRetryStatus('');
+    try {
+      const response = await retryEmbeddingJob(safeId);
+      setEmbeddingJobStatus(previous => {
+        if (!previous) return previous;
+        const failedJobs = (previous.failedJobs || []).filter(job => String(job.id) !== safeId);
+        const counts = {
+          ...(previous.counts || {}),
+          failed: Math.max(0, Number(previous.counts?.failed || 0) - 1),
+          abandoned: Math.max(0, Number(previous.counts?.abandoned || 0)),
+          queued: Number(previous.counts?.queued || 0) + 1
+        };
+        return {
+          ...previous,
+          status: failedJobs.length ? 'warning' : 'working',
+          counts,
+          failedJobs
+        };
+      });
+      const didReimport = response?.recovery?.reimported === true;
+      setIndexRetryStatus(didReimport
+        ? 'Search retry queued, but the server did not confirm an isolated retry.'
+        : 'Search retry queued. The source was not imported again.');
+    } catch (error) {
+      setIndexRetryStatus(error.response?.data?.error || 'Search preparation could not be retried.');
+    } finally {
+      setIndexRetryingId('');
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -747,7 +796,10 @@ const DataIntegrations = () => {
         setReadwiseConnection(latestReadwise);
         setNotionConnection(Array.isArray(notion) ? notion[0] || null : null);
         if (latestReadwise?.accountLabel) setReadwiseLabel(latestReadwise.accountLabel);
-      }).catch(error => console.error('Failed to load source connections:', error));
+      }).catch(error => console.error('Failed to load source connections:', error))
+        .finally(() => {
+          if (!cancelled) setSourceConnectionsLoading(false);
+        });
       return () => { cancelled = true; };
     }
     if (capabilityConnectionsLoading) return;
@@ -758,6 +810,7 @@ const DataIntegrations = () => {
     setReadwiseConnection(latestReadwise);
     setNotionConnection(notion[0] || null);
     if (latestReadwise?.accountLabel) setReadwiseLabel(latestReadwise.accountLabel);
+    setSourceConnectionsLoading(false);
     return undefined;
   }, [capabilityConnections, capabilityConnectionsLoading, capabilityProviderMounted]);
 
@@ -948,6 +1001,19 @@ const DataIntegrations = () => {
       }
     });
   }, [selectedSource]);
+
+  useEffect(() => {
+    const restoreSourceFromHistory = () => {
+      const source = getRequestedSourceFromLocation();
+      if (source) selectSource(source);
+    };
+    window.addEventListener('hashchange', restoreSourceFromHistory);
+    window.addEventListener('popstate', restoreSourceFromHistory);
+    return () => {
+      window.removeEventListener('hashchange', restoreSourceFromHistory);
+      window.removeEventListener('popstate', restoreSourceFromHistory);
+    };
+  }, [selectSource]);
 
   const handleOrganizeImport = async () => {
     const safeSessionId = String(currentSession?.id || currentSession?._id || '').trim();
@@ -1536,6 +1602,37 @@ const DataIntegrations = () => {
       setStatus(error.response?.data?.error || 'Failed to check Notion connection.', 'error');
     } finally {
       setNotionChecking(false);
+    }
+  };
+
+  const handleDisconnectConnection = async () => {
+    const candidate = disconnectCandidate;
+    const connectionId = String(candidate?.id || '').trim();
+    if (!connectionId || disconnectingId) return;
+    setDisconnectingId(connectionId);
+    setDisconnectStatus('');
+    try {
+      const response = await disconnectImportConnection(connectionId);
+      const updated = response?.connection || {
+        ...candidate,
+        status: 'revoked',
+        health: 'unknown'
+      };
+      if (candidate.provider === 'readwise') {
+        setReadwiseConnections(previous => previous.map(connection => (
+          String(connection?.id) === connectionId ? updated : connection
+        )));
+        setReadwiseConnection(updated);
+      } else if (candidate.provider === 'notion') {
+        setNotionConnection(updated);
+      }
+      setDisconnectCandidate(null);
+      setDisconnectStatus('Import access disconnected. Saved material remains.');
+      await refreshCapabilities();
+    } catch (error) {
+      setDisconnectStatus(error.response?.data?.error || 'Import access could not be disconnected.');
+    } finally {
+      setDisconnectingId('');
     }
   };
 
@@ -2425,94 +2522,174 @@ const DataIntegrations = () => {
     if (sourceKey === 'evernote' || sourceKey === 'files') return manualLoopTone;
     return 'neutral';
   };
+  const uniqueReadwiseConnections = (readwiseConnections.length
+    ? readwiseConnections
+    : [readwiseConnection].filter(Boolean))
+    .filter((connection, index, rows) => (
+      connection?.id
+      && rows.findIndex(row => String(row?.id) === String(connection.id)) === index
+    ));
+  const connectedSourceRows = [
+    ...uniqueReadwiseConnections.map(connection => projectSourceConnection({
+      provider: 'readwise',
+      connection,
+      session: currentSession?.provider === 'readwise'
+        && (!currentSession.connectionId || String(currentSession.connectionId) === String(connection.id))
+        ? currentSession
+        : null
+    })),
+    ...(notionConnection?.id ? [projectSourceConnection({
+      provider: 'notion',
+      connection: notionConnection,
+      session: currentSession?.provider === 'notion' ? currentSession : null
+    })] : [])
+  ];
+  const connectedProviderKeys = new Set(connectedSourceRows.map(row => row.provider));
+  const availableSourceOptions = SOURCE_OPTIONS.filter(option => (
+    ['evernote', 'files'].includes(option.key)
+    || (!sourceConnectionsLoading && !connectedProviderKeys.has(option.key))
+  ));
 
   const sourceContent = (
     <>
-      <Card className="settings-card connections-return-loop" data-testid="connections-return-loop">
-        <div className="connections-return-loop__header">
+      <section className="connections-source-group" aria-label="Your sources">
+        <div className="connections-section-heading">
           <div>
-            <p className="muted-label">Return loop</p>
-            <h2>What is feeding Morning Paper?</h2>
-            <p className="muted">
-              Connected sources add fresh material; scheduled wiki maintenance checks due pages about every six hours.
-            </p>
-          </div>
-          <div className="connections-return-loop__summary" aria-label={`${connectedLoopCount} source handoffs active`}>
-            <strong>{connectedLoopCount}</strong>
-            <span>active handoffs</span>
+            <h2>Your sources</h2>
+            <p>Authorization, import, and search readiness are shown separately.</p>
           </div>
         </div>
+        {connectedSourceRows.length ? (
+          <div className="connections-rows">
+            {connectedSourceRows.map((source, index) => {
+              const sourceOption = SOURCE_OPTIONS.find(option => option.key === source.provider);
+              return (
+                <button
+                  key={source.id}
+                  type="button"
+                  className={`connections-row connections-source-row connections-row--${source.tone} import-source-card import-source-card--${getSourceCardTone(source.provider)} ${selectedSource === source.provider ? 'is-active' : ''}`}
+                  aria-pressed={selectedSource === source.provider}
+                  data-testid={index === connectedSourceRows.findIndex(row => row.provider === source.provider)
+                    ? `import-source-card-${source.provider}`
+                    : undefined}
+                  onClick={() => selectSourceFromAction(source.provider)}
+                >
+                  <span className="connections-sigil" aria-hidden="true">{source.providerLabel.slice(0, 1)}</span>
+                  <span className="connections-row-title">
+                    <strong>{source.label}</strong>
+                    <small>
+                      {source.providerLabel}{sourceOption?.subtitle ? ` · ${sourceOption.subtitle}` : ''}
+                    </small>
+                  </span>
+                  <span className="connections-row-state">
+                    <span className="connections-state-dot" aria-hidden="true" />
+                    <strong>{source.stateLabel}</strong>
+                    <small>{source.detail}</small>
+                  </span>
+                  <span className="connections-text-button connections-row-action">{source.nextAction} →</span>
+                </button>
+              );
+            })}
+          </div>
+        ) : sourceConnectionsLoading ? (
+          <div className="connections-empty">
+            <p>Checking source accounts…</p>
+          </div>
+        ) : (
+          <div className="connections-empty">
+            <h3>No live source accounts yet.</h3>
+            <p>One-time imports remain available below without pretending to stay connected.</p>
+          </div>
+        )}
+      </section>
+
+      <section className="connections-source-group connections-add-source" aria-label="Add a source">
+        <div className="connections-section-heading">
+          <div>
+            <h2>Add a source</h2>
+            <p>One-time imports do not stay connected.</p>
+          </div>
+        </div>
+        <div className="connections-rows connections-available-rows">
+          {availableSourceOptions.map((option) => {
+            const cardTone = getSourceCardTone(option.key);
+            const isOneTime = ['evernote', 'files'].includes(option.key);
+            return (
+              <button
+                key={option.key}
+                type="button"
+                className={`connections-row connections-source-row connections-row--off import-source-card import-source-card--${cardTone} ${selectedSource === option.key ? 'is-active' : ''}`}
+                aria-pressed={selectedSource === option.key}
+                data-testid={`import-source-card-${option.key}`}
+                onClick={() => selectSourceFromAction(option.key)}
+              >
+                <span className="connections-sigil" aria-hidden="true">{option.title.slice(0, 1)}</span>
+                <span className="connections-row-title">
+                  <strong>{option.title}</strong>
+                  <small>{option.subtitle}</small>
+                </span>
+                <span className="connections-row-state">
+                  <strong>{isOneTime ? 'One-time operation' : 'Not connected'}</strong>
+                  <small>{option.helper}</small>
+                </span>
+                <span className="connections-text-button connections-row-action">{isOneTime ? 'Import' : 'Connect'} →</span>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      <details
+        className="connections-fold connections-return-loop"
+        data-testid="connections-return-loop"
+        open={Boolean(indexingWarning || embeddingJobWarning)}
+      >
+        <summary>
+          <span>
+            <strong>What is feeding Morning Paper?</strong>
+            <small>{connectedLoopCount} active handoffs · inspect downstream consequences</small>
+          </span>
+        </summary>
+        <p className="muted">
+          Connected sources add fresh material; scheduled wiki maintenance checks due pages about every six hours.
+        </p>
         <div className="connections-return-loop__grid">
           <div className={`connections-return-loop__feed connections-return-loop__feed--${readwiseLoopTone}`}>
             <span className="connections-return-loop__dot" aria-hidden="true" />
-            <div>
-              <p className="muted-label">Readwise</p>
-              <strong>{readwiseFeedStatus}</strong>
-              <p className="muted small">{readwiseFeedDetail}</p>
-            </div>
+            <div><p className="muted-label">Readwise</p><strong>{readwiseFeedStatus}</strong><p className="muted small">{readwiseFeedDetail}</p></div>
           </div>
           <div className={`connections-return-loop__feed connections-return-loop__feed--${notionLoopTone}`}>
             <span className="connections-return-loop__dot" aria-hidden="true" />
-            <div>
-              <p className="muted-label">Notion</p>
-              <strong>{notionFeedStatus}</strong>
-              <p className="muted small">{notionFeedDetail}</p>
-            </div>
+            <div><p className="muted-label">Notion</p><strong>{notionFeedStatus}</strong><p className="muted small">{notionFeedDetail}</p></div>
           </div>
           <div className={`connections-return-loop__feed connections-return-loop__feed--${manualLoopTone}`}>
             <span className="connections-return-loop__dot" aria-hidden="true" />
-            <div>
-              <p className="muted-label">Files, Evernote, CSV</p>
-              <strong>{manualFeedStatus}</strong>
-              <p className="muted small">{manualFeedDetail}</p>
-            </div>
+            <div><p className="muted-label">Files, Evernote, CSV</p><strong>{manualFeedStatus}</strong><p className="muted small">{manualFeedDetail}</p></div>
           </div>
         </div>
         <p className="connections-return-loop__handoff">{returnLoopHandoff}</p>
         {indexingWarning ? (
-          <SurfaceNotice
-            className="data-integrations-page__notice"
-            variant="warning"
-            title="Semantic indexing needs another pass"
-          >
+          <SurfaceNotice className="data-integrations-page__notice" variant="warning" title="Semantic indexing needs another pass">
             <p>{indexingWarning.message}</p>
           </SurfaceNotice>
         ) : null}
         {embeddingJobWarning ? (
-          <SurfaceNotice
-            className="data-integrations-page__notice"
-            variant="warning"
-            title="Background indexing needs a retry"
-          >
+          <SurfaceNotice className="data-integrations-page__notice" variant="warning" title="Background indexing needs a retry">
             <p>{embeddingJobWarning.message}</p>
+            {embeddingJobStatus?.failedJobs?.[0]?.id ? (
+              <button
+                type="button"
+                className="connections-text-button"
+                disabled={Boolean(indexRetryingId)}
+                onClick={() => handleRetryEmbeddingJob(embeddingJobStatus.failedJobs[0].id)}
+              >
+                {indexRetryingId ? 'Retrying search…' : 'Retry search for this source'}
+              </button>
+            ) : null}
           </SurfaceNotice>
         ) : null}
-      </Card>
-
-      <Card className="settings-card">
-        <h2>Choose a source</h2>
-        <p className="muted">The goal is a source-aware path: import, preserve context, then activate the material inside Think.</p>
-        <div className="import-source-grid">
-          {SOURCE_OPTIONS.map((option) => {
-            const cardTone = getSourceCardTone(option.key);
-            return (
-            <button
-              key={option.key}
-              type="button"
-              className={`import-source-card import-source-card--${cardTone} ${selectedSource === option.key ? 'is-active' : ''}`}
-              aria-pressed={selectedSource === option.key}
-              data-testid={`import-source-card-${option.key}`}
-              onClick={() => selectSource(option.key)}
-            >
-              <span className={`import-source-status import-source-status--${cardTone}`}>{option.status}</span>
-              <h3>{option.title}</h3>
-              <p>{option.subtitle}</p>
-              <span className="import-source-helper">{option.helper}</span>
-            </button>
-            );
-          })}
-        </div>
-      </Card>
+        {indexRetryStatus ? <p className="connections-copy-status" role="status">{indexRetryStatus}</p> : null}
+      </details>
 
       {(sessionMessage || importStatus.message || importStats || currentSession) && (
         <Card className="settings-card">
@@ -2546,8 +2723,12 @@ const DataIntegrations = () => {
                 <strong>{currentSession.progress.stage || 'draft'}</strong>
               </div>
               <div className="import-session-metric">
-                <span className="muted-label">Progress</span>
-                <strong>{currentSession.progress.percent || 0}%</strong>
+                <span className="muted-label">Measured items</span>
+                <strong>
+                  {Number(currentSession.progress.itemsTotal || 0) > 0
+                    ? `${Number(currentSession.progress.itemsProcessed || 0)} of ${Number(currentSession.progress.itemsTotal)}`
+                    : 'Awaiting a measured result'}
+                </strong>
               </div>
               <div className="import-session-metric">
                 <span className="muted-label">Semantic readiness</span>
@@ -2589,6 +2770,36 @@ const DataIntegrations = () => {
               ) : null}
               {selectedSourcePreview.warnings?.length ? (
                 <p className="muted small">{selectedSourcePreview.warnings.join(' · ')}</p>
+              ) : null}
+              {selectedSourcePreview.samplePassages?.[0] ? (
+                <div className="connections-preview-passage">
+                  <button
+                    type="button"
+                    className="connections-text-button"
+                    aria-expanded={previewPassageOpen}
+                    onClick={() => setPreviewPassageOpen(open => !open)}
+                  >
+                    {previewPassageOpen ? 'Fold preview' : 'See how it arrives'}
+                  </button>
+                  {previewPassageOpen ? (
+                    <figure>
+                      <figcaption>
+                        <strong>{selectedSourcePreview.samplePassages[0].sourceTitle || 'Previewed source'}</strong>
+                        {selectedSourcePreview.samplePassages[0].author
+                          ? <span>{selectedSourcePreview.samplePassages[0].author}</span>
+                          : null}
+                      </figcaption>
+                      <blockquote>{selectedSourcePreview.samplePassages[0].passage}</blockquote>
+                      {selectedSourcePreview.samplePassages[0].annotation ? (
+                        <div>
+                          <span className="muted-label">Your annotation</span>
+                          <p>{selectedSourcePreview.samplePassages[0].annotation}</p>
+                        </div>
+                      ) : null}
+                      <small>Source, marked passage, and annotation stay together in the Library.</small>
+                    </figure>
+                  ) : null}
+                </div>
               ) : null}
             </div>
           ) : null}
@@ -2681,13 +2892,17 @@ const DataIntegrations = () => {
               <a href={READWISE_MCP_DOCS_URL} target="_blank" rel="noopener noreferrer">Readwise MCP setup</a>
             </div>
           </div>
-          <ConnectionReceiptCard
-            receipt={readwiseReceipt}
-            testId="readwise-sync-receipt"
-            providerLabel="Readwise"
-            onNextAction={handleReadwiseSync}
-            nextActionBusy={readwiseSyncing}
-          />
+          {sourceConnectionsLoading ? (
+            <p className="muted small" role="status">Checking saved Readwise access…</p>
+          ) : (
+            <ConnectionReceiptCard
+              receipt={readwiseReceipt}
+              testId="readwise-sync-receipt"
+              providerLabel="Readwise"
+              onNextAction={handleReadwiseSync}
+              nextActionBusy={readwiseSyncing}
+            />
+          )}
           <details className="import-callout" style={{ marginBottom: 18 }}>
             <summary className="muted-label">Advanced: direct sync with API token</summary>
             <p className="muted small">Use this only when you want Noeis to run the legacy Readwise export sync itself. Browser approval is the default connection path for agents.</p>
@@ -2770,6 +2985,18 @@ const DataIntegrations = () => {
                 </div>
               ) : null}
               {readwiseConnection.mode === 'mcp_remote' && readwiseConnection.externalAccountId ? <p className="muted small">MCP server: {readwiseConnection.externalAccountId}</p> : null}
+              {readwiseConnection.status === 'connected' ? (
+                <button
+                  type="button"
+                  className="connections-text-button connections-danger"
+                  onClick={() => setDisconnectCandidate({
+                    ...readwiseConnection,
+                    provider: 'readwise'
+                  })}
+                >
+                  Disconnect import access
+                </button>
+              ) : null}
             </div>
           ) : null}
           <div className="settings-import-row">
@@ -2799,13 +3026,17 @@ const DataIntegrations = () => {
         <Card className="settings-card" id="notion">
           <h2>Notion import</h2>
           <p className="muted">Connect Notion once, then sync accessible pages plus database row content into notebook entries that the model can retrieve.</p>
-          <ConnectionReceiptCard
-            receipt={notionReceipt}
-            testId="notion-sync-receipt"
-            providerLabel="Notion"
-            onNextAction={handleNotionSync}
-            nextActionBusy={notionSyncing}
-          />
+          {sourceConnectionsLoading ? (
+            <p className="muted small" role="status">Checking saved Notion access…</p>
+          ) : (
+            <ConnectionReceiptCard
+              receipt={notionReceipt}
+              testId="notion-sync-receipt"
+              providerLabel="Notion"
+              onNextAction={handleNotionSync}
+              nextActionBusy={notionSyncing}
+            />
+          )}
           {notionConnection?.lastSyncAt ? (
             <p className="muted small">Where it lands: Library search, Think retrieval, and Morning Paper source maintenance.</p>
           ) : null}
@@ -2896,6 +3127,18 @@ const DataIntegrations = () => {
                     {notionExportResult.title || 'Open in Notion'}
                   </a>
                 </p>
+              ) : null}
+              {notionConnection.status === 'connected' ? (
+                <button
+                  type="button"
+                  className="connections-text-button connections-danger"
+                  onClick={() => setDisconnectCandidate({
+                    ...notionConnection,
+                    provider: 'notion'
+                  })}
+                >
+                  Disconnect import access
+                </button>
               ) : null}
             </div>
           ) : (
@@ -3098,6 +3341,33 @@ const DataIntegrations = () => {
           </Card>
         </>
       )}
+
+      {disconnectCandidate ? (
+        <section className="connections-revoke-confirm" role="alert" aria-label="Disconnect import access">
+          <h3>Disconnect {disconnectCandidate.accountLabel || getProviderLabel(disconnectCandidate.provider)}?</h3>
+          <p>Future imports using this credential will stop. Already imported sources, highlights, and notes stay in NOEIS.</p>
+          <p>This removes the local credential. It does not revoke access at {getProviderLabel(disconnectCandidate.provider)}, cancel in-flight work, recall retrieved data, or undo completed work.</p>
+          <div className="connections-actions">
+            <button
+              type="button"
+              className="ui-button ui-button-primary"
+              disabled={Boolean(disconnectingId)}
+              onClick={handleDisconnectConnection}
+            >
+              {disconnectingId ? 'Disconnecting…' : 'Confirm disconnect'}
+            </button>
+            <button
+              type="button"
+              className="connections-text-button"
+              disabled={Boolean(disconnectingId)}
+              onClick={() => setDisconnectCandidate(null)}
+            >
+              Keep connected
+            </button>
+          </div>
+        </section>
+      ) : null}
+      {disconnectStatus ? <p className="connections-copy-status" role="status">{disconnectStatus}</p> : null}
 
       {showActivationPanel && (
         <Card className="settings-card first-insight-card" data-testid="first-insight-card">

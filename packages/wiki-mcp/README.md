@@ -59,14 +59,19 @@ Install the CLI and connect the runtime you use:
 
 ```bash
 npm i -g @noeis/noeis-cli
-noeis connect hermes
+noeis connect hermes --scope read
 # or
-noeis connect openclaw
+noeis connect openclaw --scope read
 # or
-noeis connect codex
+noeis connect codex --scope read
 ```
 
-The CLI opens Noeis in your browser, asks you to approve the local agent, writes the runtime MCP config, and runs an access check. The generated MCP config calls `noeis mcp`; it reads the token from the Noeis CLI config instead of copying the raw token into every runtime config.
+The CLI opens Noeis for human approval, verifies grant/workspace metadata, and
+writes runtime MCP config. The generated config calls `noeis mcp`; it reads the
+credential from the Noeis CLI config instead of copying it into every runtime.
+Reload the runtime and call `connection_info` there before claiming its tools are
+loaded. Use `--scope read-write` only after the human explicitly chooses the
+broader grant.
 
 Public package status: `@noeis/noeis-cli` and `@noeis/wiki-mcp` are published on npm.
 
@@ -96,7 +101,7 @@ For cron jobs, shell scripts, or custom runtimes that do not speak MCP, install 
 
 ```bash
 npm i -g @noeis/noeis-cli
-noeis connect hermes
+noeis connect hermes --scope read
 noeis ingest https://example.com/research
 noeis pages list
 ```
@@ -176,9 +181,12 @@ For local development:
 Both lists below are the complete tool surface, checked against `toolDefinitions`
 by `test/server.test.js` — a tool added without a line here fails the suite.
 
-Read tools return normalized JSON, so an agent can list pages, choose one, read
-it, inspect references, and catch up on recent activity with a read-scoped token:
+Read tools return normalized JSON. Start with `connection_info` after setup: it
+verifies the authenticated workspace and issued grant without reading user content.
+Then an agent can list pages, choose one, read it, inspect references, and catch up
+on recent activity with a read-scoped token:
 
+- `connection_info`
 - `list_edition_profiles`
 - `list_editions`
 - `get_edition`
