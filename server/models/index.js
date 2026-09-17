@@ -724,6 +724,12 @@ const judgmentLessonApplicationSchema = new mongoose.Schema({
   narrowedText: { type: String, default: '', trim: true },
   note: { type: String, default: '', trim: true },
   relevance: { type: String, default: '', trim: true },
+  sourceOutcomeId: { type: String, default: '', trim: true },
+  sourceVerdictId: { type: String, default: '', trim: true },
+  sourceHeldView: { type: String, default: '', trim: true },
+  sourceCriterionSnapshot: { type: String, default: '', trim: true },
+  sourceResultSnapshot: { type: String, default: '', trim: true },
+  sourceEvidenceRefIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
   revisionId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiRevision', default: null },
   receiptId: { type: String, default: '', trim: true },
   claimHash: { type: String, default: '', trim: true }
@@ -3536,6 +3542,73 @@ const decisionMemoryEventSchema = new mongoose.Schema({
 decisionMemoryEventSchema.index({ userId: 1, at: -1 });
 
 const DecisionMemoryEvent = mongoose.model('DecisionMemoryEvent', decisionMemoryEventSchema);
+
+/* One observation may be reported by several documents. This record names
+   that relationship explicitly instead of deriving it from similar words,
+   dates, or embeddings. Source text remains on the owned source events. */
+const judgmentObservationLineageMemberSchema = new mongoose.Schema({
+  sourceEventId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiSourceEvent', required: true },
+  role: { type: String, enum: ['origin', 'derivative', 'account', 'unknown'], default: 'account' },
+  note: { type: String, default: '', trim: true },
+  sourceVersion: { type: String, default: '', trim: true }
+}, { _id: false });
+
+const judgmentObservationLineageSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  familyId: { type: String, required: true, trim: true },
+  label: { type: String, default: '', trim: true },
+  status: { type: String, enum: ['proposed', 'accepted', 'rejected'], default: 'proposed', index: true },
+  members: { type: [judgmentObservationLineageMemberSchema], default: [] },
+  proposedBy: { type: String, enum: ['user', 'agent', 'system'], default: 'user' },
+  acceptedAt: { type: Date, default: null },
+  rejectedAt: { type: Date, default: null }
+}, { timestamps: true });
+
+judgmentObservationLineageSchema.index({ userId: 1, familyId: 1 }, { unique: true });
+judgmentObservationLineageSchema.index(
+  { userId: 1, 'members.sourceEventId': 1, status: 1 },
+  { name: 'judgment_observation_lineage_lookup' }
+);
+
+const JudgmentObservationLineage = mongoose.model(
+  'JudgmentObservationLineage',
+  judgmentObservationLineageSchema
+);
+
+/* A half-written answer is continuity, not evidence. It lives outside the
+   Wiki page so it cannot enter revisions, public projections, search, or an
+   export by accident. One owner gets one private thread per observation. */
+const judgmentResponseDraftSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  pageId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiPage', required: true, index: true },
+  observationId: { type: String, required: true, trim: true },
+  baseClaim: { type: String, required: true, trim: true },
+  criterionSnapshot: {
+    text: { type: String, default: '', trim: true },
+    horizonAt: { type: Date, default: null },
+    setAt: { type: Date, default: null },
+    receiptId: { type: String, default: '', trim: true },
+    claimHash: { type: String, default: '', trim: true }
+  },
+  response: { type: String, enum: ['', 'keep', 'narrow', 'different', 'uncertain'], default: '' },
+  proposedView: { type: String, default: '', trim: true },
+  reason: { type: String, default: '', trim: true },
+  action: { type: String, enum: ['', 'unchanged', 'change', 'not_reconsidered'], default: '' },
+  proposedAction: { type: String, default: '', trim: true },
+  returnQuestion: { type: String, default: '', trim: true },
+  activeField: { type: String, default: '', trim: true },
+  caretOffset: { type: Number, min: 0, default: 0 },
+  version: { type: Number, min: 1, default: 1 },
+  status: { type: String, enum: ['active', 'completed'], default: 'active', index: true },
+  completedAt: { type: Date, default: null }
+}, { timestamps: true });
+
+judgmentResponseDraftSchema.index(
+  { userId: 1, pageId: 1, observationId: 1 },
+  { unique: true }
+);
+
+const JudgmentResponseDraft = mongoose.model('JudgmentResponseDraft', judgmentResponseDraftSchema);
 const AuthoredExploration = buildAuthoredExplorationModel(mongoose);
 
 module.exports = {
@@ -3620,6 +3693,8 @@ module.exports = {
   ResearchMandate,
   InstitutionalHold,
   DecisionMemoryEvent,
+  JudgmentObservationLineage,
+  JudgmentResponseDraft,
   AuthoredExploration,
   dropLegacyConnectionIndex
 };

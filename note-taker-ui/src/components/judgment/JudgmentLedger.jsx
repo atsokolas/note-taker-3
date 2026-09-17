@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { usePrefersReducedMotion } from '../../hooks/useMotionPreferences';
 import {
   getJudgmentLedger,
@@ -30,13 +31,6 @@ const RESULT = [
   { id: 'missed', label: 'It missed' },
   { id: 'mixed', label: 'Mixed' },
   { id: 'silent', label: 'Leave it' }
-];
-
-const RESOLVE = [
-  { id: 'accepted', label: 'Keep it here' },
-  { id: 'narrowed', label: 'Narrow it' },
-  { id: 'rejected', label: 'Not this case' },
-  { id: 'retired', label: 'Retire it' }
 ];
 
 /**
@@ -108,7 +102,7 @@ const Trace = ({ reconstructed }) => {
   );
 };
 
-const JudgmentLedger = ({ pageId, claim, page, judgment = {}, onSaved }) => {
+const JudgmentLedger = ({ pageId, claim, page, judgment = {}, destinations = [], onSaved }) => {
   const reduced = usePrefersReducedMotion();
   const [ledger, setLedger] = useState(null);
   const [at, setAt] = useState('');
@@ -119,7 +113,10 @@ const JudgmentLedger = ({ pageId, claim, page, judgment = {}, onSaved }) => {
   const [lesson, setLesson] = useState('');
   const [confidence, setConfidence] = useState('');
   const [result, setResult] = useState('');
-  const [narrowed, setNarrowed] = useState('');
+  const [transferLessonId, setTransferLessonId] = useState('');
+  const [destinationId, setDestinationId] = useState('');
+  const [difference, setDifference] = useState('');
+  const [transferReceipt, setTransferReceipt] = useState('');
 
   const moments = useMemo(() => momentsFrom(ledger || {}, page), [ledger, page]);
   const traveling = Boolean(at) && !isNow(moments, at);
@@ -132,9 +129,15 @@ const JudgmentLedger = ({ pageId, claim, page, judgment = {}, onSaved }) => {
   const clocks = (Array.isArray(ledger?.clocks) && ledger.clocks.length)
     ? ledger.clocks
     : (Array.isArray(judgment?.clocks) ? judgment.clocks : []);
-  const proposals = Array.isArray(ledger?.proposals) && ledger.proposals.length
-    ? ledger.proposals
-    : (Array.isArray(ledger?.lessons) ? ledger.lessons : []);
+  const lessons = Array.isArray(judgment?.lessons) ? judgment.lessons : [];
+  const carriedLessons = useMemo(() => {
+    const latest = new Map();
+    (Array.isArray(judgment?.lessonApplications) ? judgment.lessonApplications : [])
+      .forEach(application => latest.set(application.applicationId, application));
+    return Array.from(latest.values()).filter(application => (
+      application.status === 'accepted' || application.status === 'narrowed'
+    ));
+  }, [judgment?.lessonApplications]);
 
   const load = useCallback(async (instant = '') => {
     if (!pageId) return;
@@ -227,21 +230,50 @@ const JudgmentLedger = ({ pageId, claim, page, judgment = {}, onSaved }) => {
     }
   };
 
-  const resolveProposal = async (proposal, status) => {
+  const carryLesson = async () => {
+    const source = lessons.find(item => item.lessonId === transferLessonId);
+    const destination = destinations.find(item => String(item.id) === String(destinationId));
+    if (!source || !destination || busy) return;
+    setBusy(true);
+    setError('');
+    setTransferReceipt('');
+    try {
+      await resolveJudgmentLesson({
+        pageId: destination.id,
+        expectedClaim: destination.sentence,
+        lessonId: source.lessonId,
+        sourcePageId: pageId,
+        status: 'accepted',
+        note: difference,
+        relevance: 'chosen by the owner',
+        explicitTransfer: true
+      });
+      setTransferReceipt(`Kept beside ${destination.headline || destination.sentence}.`);
+      setTransferLessonId('');
+      setDestinationId('');
+      setDifference('');
+    } catch (failure) {
+      setError(failure?.response?.data?.error || failure?.message || 'That lesson was not carried over.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const detachLesson = async application => {
     await run(() => resolveJudgmentLesson({
       pageId,
       expectedClaim: claim,
-      applicationId: proposal.applicationId,
-      lessonId: proposal.lessonId,
-      sourcePageId: proposal.sourcePageId,
-      sourceText: proposal.text,
-      status,
-      narrowedText: status === 'narrowed' ? narrowed : '',
-      relevance: proposal.relevance
+      applicationId: application.applicationId,
+      lessonId: application.lessonId,
+      sourcePageId: application.sourcePageId,
+      status: 'retired',
+      note: application.note,
+      relevance: application.relevance,
+      explicitTransfer: true
     }));
   };
 
-  if (!clocks.length && !postmortem && !proposals.length && !replay.frames.length) return null;
+  if (!clocks.length && !postmortem && !lessons.length && !carriedLessons.length && !replay.frames.length) return null;
 
   return (
     <section
@@ -344,34 +376,64 @@ const JudgmentLedger = ({ pageId, claim, page, judgment = {}, onSaved }) => {
         </div>
       ) : null}
 
-      {proposals.length ? (
+      {lessons.length && destinations.length ? (
         <div className="judgment-lessons-forward">
-          <h3>A lesson from a settled case</h3>
-          {proposals.map((proposal) => (
-            <article key={proposal.applicationId}>
-              <p>{proposal.text}</p>
-              <small>Proposed from “{proposal.sourceClaim}” · {proposal.relevance}. Not asserted.</small>
-              {proposal.status === 'proposed' ? (
-                <div className="judgment-resolution__actions">
-                  {RESOLVE.map((row) => (
-                    <button
-                      key={row.id}
-                      type="button"
-                      disabled={busy}
-                      onClick={() => resolveProposal(proposal, row.id)}
-                    >
-                      {row.label}
-                    </button>
-                  ))}
+          <h3>Lessons from this case</h3>
+          {lessons.map(item => (
+            <article key={item.lessonId}>
+              <p>{item.text}</p>
+              {transferLessonId === item.lessonId ? (
+                <div className="judgment-lesson-transfer">
+                  <label>Keep this beside
+                    <select value={destinationId} onChange={event => setDestinationId(event.target.value)}>
+                      <option value="">Choose another case</option>
+                      {destinations.map(destination => (
+                        <option key={destination.id} value={destination.id}>
+                          {destination.headline || destination.sentence}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>What might be different here?
+                    <input value={difference} onChange={event => setDifference(event.target.value)} placeholder="Optional context in your words" />
+                  </label>
+                  <div className="judgment-resolution__actions">
+                    <button type="button" disabled={busy || !destinationId} onClick={carryLesson}>Keep it beside that case</button>
+                    <button type="button" className="is-quiet" disabled={busy} onClick={() => setTransferLessonId('')}>Never mind</button>
+                  </div>
                 </div>
-              ) : null}
-              {proposal.status === 'proposed' ? (
-                <input
-                  value={narrowed}
-                  onChange={(event) => setNarrowed(event.target.value)}
-                  placeholder="Narrow the wording, if it only partly applies."
-                />
-              ) : null}
+              ) : (
+                <button type="button" className="is-quiet" onClick={() => setTransferLessonId(item.lessonId)}>
+                  Keep this beside another case
+                </button>
+              )}
+            </article>
+          ))}
+          {transferReceipt ? <p role="status">{transferReceipt}</p> : null}
+        </div>
+      ) : null}
+
+      {carriedLessons.length ? (
+        <div className="judgment-lessons-carried">
+          <h3>Brought from another decision</h3>
+          {carriedLessons.map(application => (
+            <article key={`${application.applicationId}:${application.receiptId}`}>
+              <p>{application.narrowedText || application.sourceText}</p>
+              <small>You brought this from an earlier decision. Your lesson, not new evidence.</small>
+              {application.note ? <p>What might be different here: {application.note}</p> : null}
+              <details>
+                <summary>What this lesson came from</summary>
+                {application.sourceHeldView ? <p>View then: {application.sourceHeldView}</p> : null}
+                {application.sourceCriterionSnapshot ? <p>Test then: {application.sourceCriterionSnapshot}</p> : null}
+                {application.sourceResultSnapshot ? <p>What happened there: {application.sourceResultSnapshot}</p> : null}
+                {!application.sourceHeldView && !application.sourceCriterionSnapshot && !application.sourceResultSnapshot
+                  ? <p>The earlier basis was not retained in this legacy link.</p>
+                  : null}
+              </details>
+              <div className="judgment-resolution__actions">
+                <Link to={`/judgment/${application.sourcePageId}`}>Open the earlier case</Link>
+                <button type="button" className="is-quiet" disabled={busy} onClick={() => detachLesson(application)}>Detach</button>
+              </div>
             </article>
           ))}
         </div>

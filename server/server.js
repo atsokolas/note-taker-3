@@ -179,6 +179,8 @@ const {
   ResearchMandate,
   InstitutionalHold,
   DecisionMemoryEvent,
+  JudgmentObservationLineage,
+  JudgmentResponseDraft,
   WikiPage,
   WikiProposal,
   WikiRevision,
@@ -671,6 +673,7 @@ const { buildSystemLoopRouter } = require('./routes/systemLoopRoutes');
 const { buildDecisionIndexRouter } = require('./routes/decisionIndexRoutes');
 const { buildDecisionMutationRouter } = require('./routes/decisionMutationRoutes');
 const { buildJudgmentResolutionRouter } = require('./routes/judgmentResolutionRoutes');
+const { buildJudgmentThreadRouter } = require('./routes/judgmentThreadRoutes');
 const { buildDecisionMemoryRouter } = require('./routes/decisionMemoryRoutes');
 const { buildLibraryRelevanceRouter } = require('./routes/libraryRelevanceRoutes');
 const { buildReadingLoopRouter } = require('./routes/readingLoopRoutes');
@@ -5492,6 +5495,15 @@ app.use(buildJudgmentResolutionRouter({
   DecisionMemoryEvent
 }));
 
+app.use(buildJudgmentThreadRouter({
+  authenticateToken: authenticateUserOrAgentToken,
+  WikiPage,
+  NoeisReceipt,
+  WikiSourceEvent,
+  JudgmentObservationLineage,
+  JudgmentResponseDraft
+}));
+
 app.use(buildDecisionMemoryRouter({
   authenticateToken: authenticateUserOrAgentToken,
   WikiPage,
@@ -5551,6 +5563,7 @@ app.use(buildWikiRouter({
   IntegrationConnection,
   ImportSession,
   NoeisReceipt,
+  JudgmentResponseDraft,
   Article,
   VectorItem,
   NotebookEntry,

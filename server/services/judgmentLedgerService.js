@@ -7,8 +7,7 @@ const {
   clockFact,
   ledgerFor,
   outcomeRecord,
-  postmortemQuestion,
-  proposeLessons
+  postmortemQuestion
 } = require('./judgmentLedger');
 
 class JudgmentLedgerError extends Error {
@@ -177,7 +176,7 @@ const persistMutation = async ({
       const before = snapshotPage(page);
       const revisionId = safeObjectId(WikiRevision);
       ensureLedgerFields(page);
-      const artifact = mutate({ page, hash, actedAt, revisionId, receiptId: key });
+      const artifact = await mutate({ page, hash, actedAt, revisionId, receiptId: key, session });
       page.markModified?.('judgment');
       await page.save({ session });
       const revision = await createWikiRevision({
@@ -331,27 +330,76 @@ const recordOutcome = async ({
 
 const resolveLesson = async ({
   userId, pageId, requestId, expectedClaim, applicationId = '', lessonId, sourcePageId,
-  sourceText = '', status, narrowedText = '', note = '', relevance = '',
+  sourceText = '', status, narrowedText = '', note = '', relevance = '', explicitTransfer = false,
   WikiPage, WikiRevision, NoeisReceipt, now = () => new Date()
 } = {}) => {
   const current = now();
+  let resolvedSourceText = clean(sourceText, 2000);
   const payload = {
     applicationId: clean(applicationId, 80),
     lessonId: clean(lessonId, 120),
     sourcePageId: id(sourcePageId),
     status: clean(status, 40),
     narrowedText: clean(narrowedText, 2000),
-    note: clean(note, 2000)
+    note: clean(note, 2000),
+    explicitTransfer: Boolean(explicitTransfer)
   };
+  if (payload.explicitTransfer && !['accepted', 'retired'].includes(payload.status)) {
+    throw new JudgmentLedgerError('Carried context can be kept or detached.', 400, 'invalid_transfer_status');
+  }
   return persistMutation({
     action: 'lesson', userId, pageId, requestId, expectedClaim, payload,
     WikiPage, WikiRevision, NoeisReceipt, now: () => current,
-    mutate: ({ page, hash, actedAt, revisionId, receiptId: key }) => {
+    mutate: async ({ page, hash, actedAt, revisionId, receiptId: key, session }) => {
       ensureLedgerFields(page);
+      if (payload.explicitTransfer && payload.status === 'retired') {
+        const prior = [...list(page.judgment.lessonApplications)].reverse().find(candidate => (
+          clean(candidate?.applicationId, 80) === payload.applicationId
+          && ['accepted', 'narrowed'].includes(clean(candidate?.status, 40))
+        ));
+        if (!prior) {
+          throw new JudgmentLedgerError('That carried lesson is no longer attached.', 409, 'transfer_missing');
+        }
+        const artifact = {
+          ...plain(prior),
+          status: 'retired',
+          resolvedAt: actedAt,
+          revisionId,
+          receiptId: key,
+          claimHash: hash
+        };
+        page.judgment.lessonApplications.push(artifact);
+        return artifact;
+      }
+      let sourceLesson = null;
+      let sourcePage = null;
+      if (payload.sourcePageId) {
+        if (payload.explicitTransfer && payload.sourcePageId === id(page)) {
+          throw new JudgmentLedgerError('Choose another case for this lesson.', 409, 'invalid_destination');
+        }
+        const query = WikiPage.findOne({
+          _id: payload.sourcePageId,
+          userId,
+          status: { $ne: 'archived' }
+        });
+        sourcePage = await resolveQuery(queryInSession(query, session));
+        if (!sourcePage) {
+          throw new JudgmentLedgerError('The lesson source is unavailable.', 404, 'source_not_found');
+        }
+        const matches = list(sourcePage?.judgment?.lessons)
+          .filter(candidate => clean(candidate?.lessonId, 120) === payload.lessonId);
+        if (matches.length !== 1) {
+          throw new JudgmentLedgerError('The lesson changed or is unavailable.', 409, 'stale_lesson');
+        }
+        sourceLesson = matches[0];
+        resolvedSourceText = clean(sourceLesson.text, 2000);
+      } else if (payload.explicitTransfer) {
+        throw new JudgmentLedgerError('Choose the lesson source.', 400, 'source_required');
+      }
       const settled = {
         applicationId: payload.applicationId,
         lessonId: payload.lessonId,
-        text: clean(sourceText, 2000),
+        text: resolvedSourceText,
         sourcePageId: payload.sourcePageId,
         pageId: payload.sourcePageId
       };
@@ -364,9 +412,43 @@ const resolveLesson = async ({
         at: actedAt
       });
       const originalLessons = list(page.judgment.lessons).map((row) => ({ ...plain(row) }));
-      const artifact = { ...application, revisionId, receiptId: key, claimHash: hash };
+      const sourceOutcome = sourceLesson
+        ? list(sourcePage?.judgment?.outcomes).find(candidate => (
+          clean(candidate?.outcomeId, 160) === clean(sourceLesson?.outcomeId, 160)
+        ))
+        : null;
+      const sourceVerdict = sourceOutcome
+        ? list(sourcePage?.judgment?.verdicts).find(candidate => (
+          clean(candidate?.verdictId, 160) === clean(sourceOutcome?.verdictId, 160)
+        ))
+        : null;
+      const sourceRevisionQuery = sourceOutcome?.revisionId
+        ? WikiRevision.findOne({
+          _id: sourceOutcome.revisionId,
+          userId,
+          pageId: payload.sourcePageId
+        })
+        : null;
+      const sourceRevision = sourceRevisionQuery
+        ? await resolveQuery(queryInSession(sourceRevisionQuery, session))
+        : null;
+      const sourceJudgment = plain(sourceRevision?.before?.judgment) || null;
+      const artifact = {
+        ...application,
+        ...(payload.explicitTransfer ? {
+          sourceOutcomeId: clean(sourceOutcome?.outcomeId, 160),
+          sourceVerdictId: clean(sourceVerdict?.verdictId, 160),
+          sourceHeldView: clean(sourceJudgment?.currentJudgment, 8000),
+          sourceCriterionSnapshot: clean(sourceVerdict?.criteriaSnapshot || sourceJudgment?.resolutionCriteria, 2000),
+          sourceResultSnapshot: clean(sourceOutcome?.answer || sourceOutcome?.result, 4000),
+          sourceEvidenceRefIds: unique(sourceOutcome?.sourceRefIds)
+        } : {}),
+        revisionId,
+        receiptId: key,
+        claimHash: hash
+      };
       page.judgment.lessonApplications.push(artifact);
-      if (lesson) {
+      if (lesson && !payload.explicitTransfer) {
         const already = originalLessons.some((row) => clean(row.lessonId) === lesson.lessonId);
         if (!already) page.judgment.lessons.push(lesson);
       }
@@ -404,21 +486,16 @@ const readLedger = async ({
       .sort({ createdAt: 1 })
     : null;
   const revisions = revisionQuery ? await (revisionQuery.lean ? revisionQuery.lean() : revisionQuery) : [];
-  const othersQuery = WikiPage.find({
-    userId, status: { $ne: 'archived' }, _id: { $ne: page._id }
-  }).select('_id title sourceRefs._id judgment.currentJudgment judgment.status judgment.lessons judgment.verdicts judgment.outcomes judgment.dependsOn judgment.why.sourceRefIds judgment.against.sourceRefIds');
-  const settledPages = othersQuery ? await (othersQuery.lean ? othersQuery.lean() : othersQuery) : [];
   const ledger = ledgerFor({
     page,
     revisions: revisions || [],
-    settledPages: settledPages || [],
     at
   });
   return {
     ...ledger,
     pageId: id(page),
     generatedAt: (now instanceof Date ? now : new Date(now)).toISOString(),
-    proposals: proposeLessons({ livePage: page, settledPages: settledPages || [] })
+    proposals: []
   };
 };
 

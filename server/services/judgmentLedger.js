@@ -20,7 +20,6 @@ const CONFIDENCE = Object.freeze(['certain', 'probable', 'uncertain', '']);
 const OUTCOME_RESULTS = Object.freeze(['held', 'missed', 'mixed', 'silent', 'unknown']);
 const LESSON_RESOLUTIONS = Object.freeze(['accepted', 'rejected', 'narrowed', 'retired']);
 const VERDICTS = Object.freeze(['held_up', 'broke', 'partly', 'unresolvable', 'right_for_wrong_reasons']);
-const SETTLED = new Set(['parked', 'closed', 'archived']);
 
 const CLOCK_LABEL = Object.freeze({
   evidence: 'When the world spoke',
@@ -88,16 +87,6 @@ const isConfidence = (value) => CONFIDENCE.includes(String(value || ''));
 const isLessonResolution = (value) => LESSON_RESOLUTIONS.includes(String(value || ''));
 
 const uniqueIds = (values) => Array.from(new Set(list(values).map(idOf).filter(Boolean)));
-
-const tokens = (value) => clean(value, 8000)
-  .toLowerCase()
-  .split(/[^a-z0-9]+/i)
-  .filter((word) => word.length > 3);
-
-const overlap = (left, right) => {
-  const other = new Set(tokens(right));
-  return tokens(left).filter((word) => other.has(word)).length;
-};
 
 const knownAt = (stamp, at) => {
   const when = time(stamp);
@@ -641,79 +630,6 @@ const outcomeRecord = ({
   });
 };
 
-const liveStatus = (page = {}) => {
-  const status = clean(plain(page)?.judgment?.status);
-  return !SETTLED.has(status);
-};
-
-const claimText = (page = {}) => clean(
-  plain(page)?.judgment?.currentJudgment || plain(page)?.title,
-  8000
-);
-
-const sourceIdsOf = (page = {}) => uniqueIds([
-  ...list(plain(page)?.sourceRefs).map(idOf),
-  ...list(plain(page)?.judgment?.why).flatMap((line) => list(line.sourceRefIds)),
-  ...list(plain(page)?.judgment?.against).flatMap((line) => list(line.sourceRefIds))
-]);
-
-const dependsOnIds = (page = {}) => uniqueIds(list(plain(page)?.judgment?.dependsOn).map((row) => row.pageId));
-
-const relevance = (live, settled) => {
-  if (idOf(live) && idOf(live) === idOf(settled)) return null;
-  const sharedEdge = dependsOnIds(live).some((pageId) => (
-    pageId === idOf(settled) || dependsOnIds(settled).includes(pageId)
-  )) || dependsOnIds(settled).includes(idOf(live));
-  if (sharedEdge) return 'kinship';
-  const liveSources = new Set(sourceIdsOf(live));
-  if (sourceIdsOf(settled).some((sourceId) => liveSources.has(sourceId))) return 'shared evidence';
-  if (overlap(claimText(live), claimText(settled)) >= 2) return 'the same words';
-  return null;
-};
-
-const settledLessons = (pages = []) => list(pages).flatMap((page) => {
-  const judgment = plain(page)?.judgment || {};
-  const closed = SETTLED.has(clean(judgment.status)) || list(judgment.verdicts).length > 0 || list(judgment.outcomes).length > 0;
-  if (!closed) return [];
-  return list(judgment.lessons).map((lesson) => ({
-    lessonId: clean(lesson.lessonId, 120),
-    text: clean(lesson.text, 2000),
-    at: iso(lesson.at),
-    closedAs: clean(lesson.closedAs, 40),
-    pageId: idOf(page),
-    claim: claimText(page)
-  })).filter((lesson) => lesson.lessonId && lesson.text);
-});
-
-const alreadyResolved = (live, lesson) => list(plain(live)?.judgment?.lessonApplications).some((row) => (
-  clean(row.lessonId) === lesson.lessonId
-  && idOf(row.sourcePageId) === lesson.pageId
-));
-
-const proposeLessons = ({ livePage, settledPages = [] } = {}) => {
-  if (!liveStatus(livePage)) return [];
-  return settledLessons(settledPages)
-    .filter((lesson) => lesson.pageId !== idOf(livePage))
-    .filter((lesson) => !alreadyResolved(livePage, lesson))
-    .map((lesson) => {
-      const settled = list(settledPages).find((page) => idOf(page) === lesson.pageId);
-      const why = settled ? relevance(livePage, settled) : null;
-      if (!why) return null;
-      return {
-        applicationId: `apply_${digest(`${idOf(livePage)}:${lesson.pageId}:${lesson.lessonId}`).slice(0, 24)}`,
-        lessonId: lesson.lessonId,
-        text: lesson.text,
-        sourcePageId: lesson.pageId,
-        sourceClaim: lesson.claim,
-        proposed: true,
-        asserted: false,
-        relevance: why,
-        status: 'proposed'
-      };
-    })
-    .filter(Boolean);
-};
-
 const applyLessonResolution = ({
   livePage,
   lesson,
@@ -771,7 +687,7 @@ const momentsOf = (page = {}, revisions = []) => {
     .map((date) => date.toISOString());
 };
 
-const ledgerFor = ({ page, revisions = [], settledPages = [], at = null } = {}) => {
+const ledgerFor = ({ page, revisions = [], at = null } = {}) => {
   const reconstructed = at ? reconstructAt({ page, revisions, at }) : null;
   const replay = replayDecision(page);
   const latestVerdict = list(plain(page)?.judgment?.verdicts).at(-1) || null;
@@ -789,7 +705,7 @@ const ledgerFor = ({ page, revisions = [], settledPages = [], at = null } = {}) 
       }
       : null,
     outcomes: list(plain(page)?.judgment?.outcomes),
-    lessons: proposeLessons({ livePage: page, settledPages })
+    lessons: []
   };
 };
 
@@ -816,7 +732,6 @@ module.exports = {
   momentsOf,
   outcomeRecord,
   postmortemQuestion,
-  proposeLessons,
   reconstructAt,
   replayDecision
 };

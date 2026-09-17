@@ -299,7 +299,8 @@ const buildJudgmentResolutionRouter = ({
         status: req.body?.status,
         narrowedText: req.body?.narrowedText,
         note: req.body?.note,
-        relevance: req.body?.relevance
+        relevance: req.body?.relevance,
+        explicitTransfer: req.body?.explicitTransfer === true
       });
       return res.status(result.idempotent ? 200 : 201).json(serialize(result));
     } catch (error) {

@@ -64,18 +64,54 @@ const sourceBasisComparable = source => ({
   parentObjectId: id(source?.parentObjectId),
   url: clean(source?.url, 2000)
 });
+const retainedSource = source => ({
+  sourceRefId: id(source),
+  type: clean(source?.type, 80),
+  title: clean(source?.title || source?.citationLabel, 500),
+  snippet: clean(source?.snippet, 4000),
+  url: clean(source?.url, 2000),
+  attachedAt: iso(source?.createdAt)
+});
 const exactSingleBy = (rows, key) => {
   const found = list(rows).filter(row => key(row));
   return found.length === 1 ? found[0] : null;
+};
+const timeMs = value => {
+  const normalized = iso(value);
+  return normalized ? new Date(normalized).getTime() : null;
+};
+const decisionBasis = ({ acceptedBasis, currentPage, decision }) => {
+  const acceptedSources = list(acceptedBasis?.sourceRefs);
+  const acceptedIds = new Set(acceptedSources.map(id).filter(Boolean));
+  const attachedSources = uniqueIds(decision?.sourceRefIds)
+    .map(sourceRefId => exactSingleBy(acceptedSources, source => id(source) === sourceRefId))
+    .filter(Boolean)
+    .map(retainedSource);
+  const acceptedAt = timeMs(decision?.acceptedAt || decision?.createdAt);
+  const laterSources = list(currentPage?.sourceRefs)
+    .filter(source => {
+      if (acceptedIds.has(id(source))) return false;
+      const attachedAt = timeMs(source?.createdAt);
+      return acceptedAt !== null && attachedAt !== null && attachedAt > acceptedAt;
+    })
+    .map(retainedSource);
+  return {
+    heldView: clean(acceptedBasis?.judgment?.currentJudgment, 8000),
+    criterion: clean(acceptedBasis?.judgment?.resolutionCriteria, 4000),
+    objection: clean(
+      acceptedBasis?.judgment?.strongestCounterargument
+      || list(acceptedBasis?.judgment?.against)[0]?.text,
+      4000
+    ),
+    acceptedAt: iso(decision?.acceptedAt || decision?.createdAt),
+    attachedSources,
+    laterSources
+  };
 };
 const sameIdSet = (left, right) => JSON.stringify(uniqueIds(left).sort())
   === JSON.stringify(uniqueIds(right).sort());
 const safeHash = (hashFn, value) => {
   try { return hashFn(value); } catch (_error) { return ''; }
-};
-const timeMs = value => {
-  const normalized = iso(value);
-  return normalized ? new Date(normalized).getTime() : null;
 };
 const acceptedDecisionProvenance = decision => ({
   acceptedRevisionId: id(decision?.acceptedRevisionId),
@@ -521,6 +557,7 @@ const loadContinuityResolver = async ({ pages, userId, models, asOf = new Date()
       outcomeRecordHash: decision.status === 'reviewed'
         ? clean(decision?.outcome?.recordHash, 128) || null
         : null,
+      basis: acceptedValid ? decisionBasis({ acceptedBasis, currentPage: page, decision }) : null,
       complete: missing.length === 0 && outcomeComplete,
       missing
     };
@@ -633,6 +670,9 @@ const serializeDecision = ({ page, decision, evidenceResolver, continuityResolve
   const continuity = continuityResolver
     ? continuityResolver(page, decision)
     : { acceptedRevisionId: null, complete: false, missing: ['accepted_revision_id'] };
+  const basis = continuity.basis || null;
+  const continuityProof = { ...continuity };
+  delete continuityProof.basis;
   const missing = [...list(continuity.missing)];
   if (missingClaimIds.length) missing.push('related_claims');
   if (missingSourceRefIds.length) missing.push('source_references');
@@ -654,8 +694,10 @@ const serializeDecision = ({ page, decision, evidenceResolver, continuityResolve
       horizon: clean(decision.horizon, 500), successCriteria: list(decision.successCriteria).map(value => clean(value, 500)).filter(Boolean),
       status: clean(decision.status, 40), origin: decision.createdBy === 'ai_proposed' ? 'ai_proposed' : 'user',
       outcomeDueAt: iso(decision.outcomeDueAt),
-      decidedAt: iso(decision.decidedAt), reviewAt: iso(decision.reviewAt), createdAt: iso(decision.createdAt)
+      decidedAt: iso(decision.decidedAt), reviewAt: iso(decision.reviewAt), createdAt: iso(decision.createdAt),
+      acceptedAt: iso(decision.acceptedAt)
     },
+    basis,
     dueState: dueState({ decision, asOf }),
     currentWikiContext: {
       governingQuestion: clean(page?.judgment?.governingQuestion, 2000),
@@ -691,7 +733,7 @@ const serializeDecision = ({ page, decision, evidenceResolver, continuityResolve
       reviewedAt: iso(decision?.outcome?.reviewedAt),
       receiptId: clean(decision?.outcome?.receiptId, 300) || null
     },
-    continuity: { ...continuity, complete: completeContinuity, missing: Array.from(new Set(missing)) }
+    continuity: { ...continuityProof, complete: completeContinuity, missing: Array.from(new Set(missing)) }
   };
 };
 

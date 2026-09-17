@@ -50,6 +50,32 @@ export const getJudgmentLedger = async ({ pageId, at = '' } = {}) => {
   return response.data || {};
 };
 
+export const getJudgmentResponseThread = async ({ pageId, observationId }) => {
+  const response = await api.get(
+    `/api/judgment/pages/${safe(pageId)}/observations/${safe(observationId)}/thread`,
+    getAuthHeaders()
+  );
+  return response.data || {};
+};
+
+export const saveJudgmentResponseThread = async ({ pageId, observationId, ...draft }) => {
+  const response = await api.put(
+    `/api/judgment/pages/${safe(pageId)}/observations/${safe(observationId)}/thread`,
+    draft,
+    getAuthHeaders()
+  );
+  return response.data || {};
+};
+
+export const reviewObservationLineage = async ({ familyId, expectedVersion, action }) => {
+  const response = await api.post(
+    `/api/judgment/source-lineage/${safe(familyId)}/${action === 'accept' ? 'accept' : 'reject'}`,
+    { expectedVersion },
+    getAuthHeaders()
+  );
+  return response.data || {};
+};
+
 export const recordJudgmentClock = async ({
   pageId, expectedClaim, clock, occurredAt = null, precision = '', authoredBy = 'user',
   sourceRefIds = [], sourceLabel = '', summary = '', causalKind = 'evidence', relatedId = ''
@@ -82,13 +108,13 @@ export const recordJudgmentOutcome = async ({
 
 export const resolveJudgmentLesson = async ({
   pageId, expectedClaim, applicationId = '', lessonId, sourcePageId, sourceText = '',
-  status, narrowedText = '', note = '', relevance = ''
+  status, narrowedText = '', note = '', relevance = '', explicitTransfer = false
 }) => {
   const response = await api.post(
     `/api/judgment/pages/${safe(pageId)}/lessons`,
     {
       requestId: requestId(), expectedClaim, applicationId, lessonId, sourcePageId,
-      sourceText, status, narrowedText, note, relevance
+      sourceText, status, narrowedText, note, relevance, explicitTransfer
     },
     getAuthHeaders()
   );
