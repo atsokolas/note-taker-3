@@ -195,6 +195,48 @@ const buildAiMaintenanceRouter = ({
     }
   });
 
+  router.post('/api/ai/embedding-jobs/:id/retry', authenticateToken, async (req, res) => {
+    if (!EmbeddingJob?.findOne) {
+      return res.status(503).json({ error: 'Durable search jobs are unavailable.' });
+    }
+    try {
+      const jobId = String(req.params.id || '').trim();
+      if (!jobId) return res.status(400).json({ error: 'Search job id is required.' });
+      const userId = String(req.user.id || '');
+      const job = await EmbeddingJob.findOne({
+        _id: jobId,
+        'payload.userId': userId
+      });
+      if (!job) return res.status(404).json({ error: 'Search job not found.' });
+      if (!['failed', 'abandoned'].includes(String(job.status || '').toLowerCase())) {
+        return res.status(409).json({ error: `Search job is ${job.status || 'not retryable'}.` });
+      }
+
+      job.status = 'queued';
+      job.nextRunAt = new Date();
+      job.lockedAt = null;
+      job.lastError = '';
+      job.completedAt = null;
+      await job.save();
+
+      return res.status(200).json({
+        job: serializeEmbeddingJob(job),
+        recovery: {
+          kind: 'retry_search_for_existing_object',
+          objectId: String(job.objectId || ''),
+          collection: String(job.collection || ''),
+          reimported: false
+        }
+      });
+    } catch (error) {
+      if (error?.name === 'CastError') {
+        return res.status(400).json({ error: 'Search job id is invalid.' });
+      }
+      console.error('❌ Failed to retry embedding job:', error);
+      return res.status(500).json({ error: 'Failed to retry search preparation.' });
+    }
+  });
+
   router.get('/api/ai/hf-smoke', authenticateToken, async (req, res) => {
     try {
       const data = await checkUpstreamHealth({ requestId: req.requestId });

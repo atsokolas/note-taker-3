@@ -1,7 +1,8 @@
-import React, { useCallback, useState } from 'react';
-import { Card, Page } from '../components/ui';
-import AgentQuickStartCard from '../components/integrations/AgentQuickStartCard';
+import React, { useEffect, useState } from 'react';
+import { Page } from '../components/ui';
 import AgentLaunchLinkCard from '../components/integrations/AgentLaunchLinkCard';
+import ConnectionsActivity from '../components/integrations/ConnectionsActivity';
+import ConnectionsAgents from '../components/integrations/ConnectionsAgents';
 import ExternalBridgeCard from '../components/integrations/ExternalBridgeCard';
 import HandoffQueueCard from '../components/integrations/HandoffQueueCard';
 import OrchestrationPolicyCard from '../components/integrations/OrchestrationPolicyCard';
@@ -11,56 +12,31 @@ import useHandoffs from '../hooks/useHandoffs';
 import useAgentBridge from '../hooks/integrations/useAgentBridge';
 import useAgentEntitlements from '../hooks/integrations/useAgentEntitlements';
 import useAgentProtocolPolicy from '../hooks/integrations/useAgentProtocolPolicy';
+import useAgentTokens from '../hooks/integrations/useAgentTokens';
 import usePersonalAgents from '../hooks/integrations/usePersonalAgents';
 import DataIntegrations from './DataIntegrations';
 import ExtensionCaptureCard from '../onboarding/ExtensionCaptureCard';
 
 const Integrations = () => {
-  const [showAdvancedAgentSettings, setShowAdvancedAgentSettings] = useState(false);
   const [showTaskLinkBuilder, setShowTaskLinkBuilder] = useState(false);
   const [showConnectionDetails, setShowConnectionDetails] = useState(false);
-  const [copiedCommand, setCopiedCommand] = useState('');
+  const [activeTab, setActiveTab] = useState(() => {
+    const hash = String(window.location.hash || '').replace(/^#/, '');
+    return ['agents', 'activity'].includes(hash) ? hash : 'sources';
+  });
 
   const personalAgentsModel = usePersonalAgents();
   const entitlementsModel = useAgentEntitlements();
   const policyModel = useAgentProtocolPolicy();
   const bridgeModel = useAgentBridge();
+  const agentTokensModel = useAgentTokens();
 
-  const formatDate = useCallback((value) => {
+  const formatDate = (value) => {
     if (!value) return '';
     const parsed = new Date(value);
     if (Number.isNaN(parsed.getTime())) return '';
     return parsed.toLocaleString();
-  }, []);
-
-  const handleCopySetupCommand = useCallback(async (id, value) => {
-    try {
-      await navigator.clipboard.writeText(value);
-      setCopiedCommand(id);
-      window.setTimeout(() => setCopiedCommand(current => (current === id ? '' : current)), 1800);
-    } catch (error) {
-      setCopiedCommand(`${id}:error`);
-    }
-  }, []);
-
-  const renderCommandBlock = useCallback((id, value) => {
-    const isCopied = copiedCommand === id;
-    const isError = copiedCommand === `${id}:error`;
-    return (
-      <div className="agent-connect-simple-card__command">
-        <pre>{value}</pre>
-        <button
-          type="button"
-          className="agent-connect-simple-card__copy-button"
-          onClick={() => handleCopySetupCommand(id, value)}
-          aria-label={`Copy ${id.replace(/-/g, ' ')}`}
-        >
-          {isCopied ? 'Copied' : 'Copy'}
-        </button>
-        {isError ? <span role="status">Select and copy manually</span> : null}
-      </div>
-    );
-  }, [copiedCommand, handleCopySetupCommand]);
+  };
 
   const handoffsModel = useHandoffs({
     enabled: true,
@@ -68,132 +44,133 @@ const Integrations = () => {
     initialStatusFilter: 'all'
   });
 
+  useEffect(() => {
+    const syncTabFromHash = () => {
+      const hash = String(window.location.hash || '').replace(/^#/, '');
+      if (['sources', 'agents', 'activity'].includes(hash)) setActiveTab(hash);
+      else if (['readwise', 'notion', 'evernote', 'files', 'capture'].includes(hash)) setActiveTab('sources');
+    };
+    window.addEventListener('hashchange', syncTabFromHash);
+    window.addEventListener('popstate', syncTabFromHash);
+    return () => {
+      window.removeEventListener('hashchange', syncTabFromHash);
+      window.removeEventListener('popstate', syncTabFromHash);
+    };
+  }, []);
+
+  const selectTab = (tab) => {
+    setActiveTab(tab);
+    const next = `${window.location.pathname}${window.location.search}#${tab}`;
+    window.history.pushState({}, '', next);
+  };
+
   return (
-    <Page className="settings-page integrations-page">
-      <div className="page-header integrations-page__header">
-        <p className="muted-label">Connections</p>
-        <h1>Connect sources and agents</h1>
-        <p className="muted">One center for reading sources, trusted agents, and advanced bridge settings.</p>
+    <Page className="settings-page integrations-page connections-hub">
+      <header className="connections-hub__header">
+        <h1>Connections</h1>
+        <p>Bring your reading in. Choose who can work with it.</p>
+      </header>
+
+      <div className="connections-tabs" role="tablist" aria-label="Connections views">
+        {[
+          ['sources', 'Sources', ''],
+          ['agents', 'Agents', agentTokensModel.sortedTokens?.length || ''],
+          ['activity', 'Activity', '']
+        ].map(([id, label, count]) => (
+          <button
+            key={id}
+            id={`connections-tab-${id}`}
+            type="button"
+            role="tab"
+            aria-controls={`connections-panel-${id}`}
+            aria-selected={activeTab === id}
+            tabIndex={activeTab === id ? 0 : -1}
+            className={activeTab === id ? 'is-active' : ''}
+            onClick={() => selectTab(id)}
+          >
+            {label}{count !== '' ? <small>{count}</small> : null}
+          </button>
+        ))}
       </div>
 
-      <section id="sources" className="connections-section" aria-labelledby="connections-sources-heading">
-        <Card className="settings-card connections-section__intro">
-          <p className="muted-label">Sources</p>
-          <h2 id="connections-sources-heading">Bring in your reading layer</h2>
-          <p className="muted">
-            Readwise browser OAuth is the primary path. Notion, Evernote, and file import stay on the same surface — API tokens live under Advanced.
-          </p>
-        </Card>
-        {/* Capture is a source too — and until now the only way into the extension
-            was a link buried in the account menu. /connections#capture lands here. */}
-        <Card className="settings-card connections-section__capture">
-          <ExtensionCaptureCard heading="Capture" />
-        </Card>
-        <DataIntegrations />
-      </section>
+      <div
+        id={`connections-panel-${activeTab}`}
+        role="tabpanel"
+        aria-labelledby={`connections-tab-${activeTab}`}
+        className="connections-tab-panel"
+      >
+        {activeTab === 'sources' ? (
+          <section id="sources" aria-label="Sources">
+            <DataIntegrations />
+            <details id="capture" className="connections-fold connections-capture">
+              <summary>
+                <span>
+                  <strong>Browser saver</strong>
+                  <small>A page or passage, while you read.</small>
+                </span>
+                <em>Check setup →</em>
+              </summary>
+              <ExtensionCaptureCard heading="Browser saver" />
+            </details>
+          </section>
+        ) : null}
 
-      <section id="agents" className="connections-section" aria-labelledby="connections-agents-heading">
-        <Card className="settings-card agent-connect-simple-card">
-          <div className="agent-connect-simple-card__copy">
-            <p className="muted-label">Agents</p>
-            <h2 id="connections-agents-heading">Connect an agent to Noeis</h2>
-            <p className="muted">
-              Point OpenClaw, Hermes, Codex, Claude Code, or a custom worker at Noeis. The browser approval step grants access and the CLI writes the local config.
-            </p>
-            <ol className="agent-connect-simple-card__steps">
-              <li><span>01</span> Point your agent to <a href="/skill.md">skill.md</a></li>
-              <li><span>02</span> Authenticate and grant access</li>
-            </ol>
-          </div>
+        {activeTab === 'agents' ? (
+          <section id="agents" aria-label="Agents">
+            <ConnectionsAgents
+              tokenModel={agentTokensModel}
+              onOpenTaskLink={() => setShowTaskLinkBuilder(previous => !previous)}
+            />
+            {showTaskLinkBuilder ? (
+              <div className="connections-nested-panel">
+                <AgentLaunchLinkCard compact />
+              </div>
+            ) : null}
 
-          <div className="agent-connect-simple-card__terminal" aria-label="Agent setup commands">
-            <div className="agent-connect-simple-card__terminal-bar">Get started</div>
-            <div className="agent-connect-simple-card__terminal-body">
-              <p>Tell your agent to:</p>
-              {renderCommandBlock('agent-instruction', 'Read https://www.noeis.io/skill.md and get me set up with Noeis')}
-              <p>Or run:</p>
-              {renderCommandBlock('npm-install', 'npm install -g @noeis/noeis-cli')}
-              {renderCommandBlock('connect-openclaw', 'noeis connect openclaw')}
-            </div>
-            <div className="agent-connect-simple-card__runtime-row">
-              <span>Works with:</span>
-              <strong>OpenClaw</strong>
-              <strong>Hermes</strong>
-              <strong>Codex</strong>
-              <strong>Claude Code</strong>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="settings-card integrations-compact-actions">
-          <button
-            type="button"
-            className="integrations-compact-actions__button"
-            onClick={() => setShowTaskLinkBuilder((previous) => !previous)}
-          >
-            <span>
-              <strong>Create an agent task link</strong>
-              <em>Make a shareable /a/run link for a review, research pass, or wiki task.</em>
-            </span>
-            <b>{showTaskLinkBuilder ? 'Hide' : 'Open'}</b>
-          </button>
-          {showTaskLinkBuilder ? <AgentLaunchLinkCard compact /> : null}
-        </Card>
-      </section>
-
-      <section id="advanced" className="connections-section" aria-labelledby="connections-advanced-heading">
-        <details
-          className="integrations-advanced-details"
-          open={showConnectionDetails}
-          onToggle={(event) => setShowConnectionDetails(event.currentTarget.open)}
-        >
-          <summary>
-            <span>
-              <strong id="connections-advanced-heading">Advanced</strong>
-              <em>MCP snippets, bridge tokens, handoff queues, specialist routing, and API fallbacks.</em>
-            </span>
-            <b>{showConnectionDetails ? 'Hide' : 'Show'}</b>
-          </summary>
-
-          {showConnectionDetails ? (
-            <>
-              <WikiMcpConnectCard />
-
-              <ExternalBridgeCard
-                bridgeModel={bridgeModel}
-                sortedAgents={personalAgentsModel.sortedAgents}
-              />
-
-              <HandoffQueueCard
-                handoffsModel={handoffsModel}
-                sortedAgents={personalAgentsModel.sortedAgents}
-                formatDate={formatDate}
-              />
-
-              <AgentQuickStartCard
-                agentModel={personalAgentsModel}
-                showAdvanced={showAdvancedAgentSettings}
-                onToggleAdvanced={() => setShowAdvancedAgentSettings((previous) => !previous)}
-              />
-
-              {showAdvancedAgentSettings && (
+            <details
+              id="advanced"
+              className="integrations-advanced-details connections-advanced"
+              open={showConnectionDetails}
+              onToggle={(event) => setShowConnectionDetails(event.currentTarget.open)}
+            >
+              <summary>
+                <span>
+                  <strong>Advanced</strong>
+                  <em>Bridge tokens, handoff queues, specialist routing, and MCP details.</em>
+                </span>
+                <b>{showConnectionDetails ? 'Hide' : 'Show'}</b>
+              </summary>
+              {showConnectionDetails ? (
                 <>
+                  <WikiMcpConnectCard />
+                  <ExternalBridgeCard
+                    bridgeModel={bridgeModel}
+                    sortedAgents={personalAgentsModel.sortedAgents}
+                  />
+                  <HandoffQueueCard
+                    handoffsModel={handoffsModel}
+                    sortedAgents={personalAgentsModel.sortedAgents}
+                    formatDate={formatDate}
+                  />
                   <PersonalAgentsCard
                     agentModel={personalAgentsModel}
                     entitlementsModel={entitlementsModel}
                     formatDate={formatDate}
                   />
-
                   <OrchestrationPolicyCard
                     policyModel={policyModel}
                     sortedAgents={personalAgentsModel.sortedAgents}
                   />
                 </>
-              )}
-            </>
-          ) : null}
-        </details>
-      </section>
+              ) : null}
+            </details>
+          </section>
+        ) : null}
+
+        {activeTab === 'activity' ? (
+          <ConnectionsActivity tokens={agentTokensModel.sortedTokens} />
+        ) : null}
+      </div>
     </Page>
   );
 };

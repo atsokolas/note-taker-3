@@ -33,6 +33,14 @@ const createEmbeddingJobModel = (jobs = [], queryRef = {}) => ({
       async lean() { return jobs; }
     };
     return chain;
+  },
+  async findOne(query) {
+    queryRef.retryQuery = query;
+    const job = jobs.find(row => String(row._id) === String(query._id)
+      && String(row.payload?.userId) === String(query['payload.userId']));
+    if (!job) return null;
+    job.save = async () => job;
+    return job;
   }
 });
 
@@ -49,6 +57,7 @@ const run = async () => {
         status: 'failed',
         attemptCount: 3,
         lastError: 'HF 429 rate limit exceeded '.repeat(20),
+        payload: { userId: 'user-1' },
         updatedAt: '2026-06-25T12:00:00.000Z'
       },
       {
@@ -91,6 +100,20 @@ const run = async () => {
   assert.strictEqual(res.body.failedJobs.length, 1);
   assert.strictEqual(res.body.failedJobs[0].id, 'job-1');
   assert(res.body.failedJobs[0].lastError.length <= 240);
+
+  const retryHandler = getRouteHandler(router, '/api/ai/embedding-jobs/:id/retry');
+  const retryRes = createResponse();
+  await retryHandler({ user: { id: 'user-1' }, params: { id: 'job-1' } }, retryRes);
+  assert.deepStrictEqual(queryRef.retryQuery, {
+    _id: 'job-1',
+    'payload.userId': 'user-1'
+  });
+  assert.strictEqual(retryRes.statusCode, 200);
+  assert.strictEqual(retryRes.body.job.status, 'queued');
+  assert.strictEqual(retryRes.body.job.attemptCount, 3);
+  assert.strictEqual(retryRes.body.job.lastError, '');
+  assert.strictEqual(retryRes.body.recovery.kind, 'retry_search_for_existing_object');
+  assert.strictEqual(retryRes.body.recovery.reimported, false);
 
   const emptyRouter = buildAiMaintenanceRouter({
     authenticateToken: (_req, _res, next) => next()

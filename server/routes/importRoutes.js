@@ -1612,6 +1612,44 @@ const buildImportRouter = ({
     }
   });
 
+  router.post('/api/import/connections/:id/disconnect', authenticateToken, async (req, res) => {
+    try {
+      const connectionId = toTrimmedString(req.params.id);
+      if (!connectionId) return res.status(400).json({ error: 'connection id is required.' });
+      const connection = await IntegrationConnection.findOne({
+        _id: connectionId,
+        userId: req.user.id
+      });
+      if (!connection) return res.status(404).json({ error: 'Import connection not found.' });
+
+      connection.status = 'revoked';
+      connection.health = 'unknown';
+      connection.encryptedAccessToken = '';
+      connection.encryptedRefreshToken = '';
+      connection.lastError = '';
+      await connection.save();
+
+      return res.status(200).json({
+        connection: sanitizeConnection(
+          typeof connection.toObject === 'function' ? connection.toObject() : connection
+        ),
+        boundaries: {
+          futureAccess: 'stopped',
+          importedContent: 'retained',
+          completedWork: 'unchanged',
+          providerRevocation: 'not_confirmed',
+          inFlightWork: 'not_cancelled'
+        }
+      });
+    } catch (error) {
+      if (error?.name === 'CastError') {
+        return res.status(400).json({ error: 'connection id is invalid.' });
+      }
+      console.error('Failed to disconnect import connection:', error);
+      return res.status(500).json({ error: 'Failed to disconnect import connection.' });
+    }
+  });
+
   router.post('/api/import/readwise/connect', authenticateToken, async (req, res) => {
     try {
       const apiToken = toTrimmedString(req.body?.apiToken);
