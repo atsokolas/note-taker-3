@@ -17,7 +17,10 @@ const useActualNavigate = router.useNavigate;
 const mockNavigate = jest.fn();
 const mockDeclareSurface = jest.fn();
 
-jest.mock('../api/libraryCollection', () => ({ getLibraryCollection: jest.fn(async () => ({ items: [{ _id: 'article-1', title: 'Open article' }], total: 1, nextOffset: null })) }));
+jest.mock('../api/libraryCollection', () => ({
+  getLibraryCollection: jest.fn(async () => ({ items: [{ _id: 'article-1', title: 'Open article' }], total: 1, nextOffset: null })),
+  getLibraryCollectionTraces: jest.fn(async () => [])
+}));
 jest.mock('../hooks/useFolders', () => jest.fn());
 jest.mock('../hooks/useLibraryArticles', () => jest.fn());
 jest.mock('../hooks/useArticleDetail', () => jest.fn());

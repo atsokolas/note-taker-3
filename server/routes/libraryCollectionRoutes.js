@@ -10,7 +10,7 @@ const excerpt = (text, query = '') => {
 };
 const personalTrace = (article) => {
   const highlights = article.highlights || [];
-  const note = [...highlights]
+  const note = article.lastNotedHighlight || [...highlights]
     .reverse()
     .find((item) => String(item.note || '').trim());
   if (note)
@@ -25,7 +25,7 @@ const personalTrace = (article) => {
       kind: 'continue',
       text: article.readingState.anchor.text.slice(0, 280)
     };
-  const marked = highlights[highlights.length - 1];
+  const marked = article.lastHighlight || highlights[highlights.length - 1];
   return marked
     ? {
         kind: 'passage',
@@ -34,6 +34,37 @@ const personalTrace = (article) => {
         anchor: marked.anchor
       }
     : null;
+};
+
+const traceSummariesFor = async (Article, match) => {
+  if (typeof Article?.aggregate !== 'function') return [];
+  let aggregation = Article.aggregate([
+    { $match: match },
+    {
+      $project: {
+        lastHighlight: { $arrayElemAt: ['$highlights', -1] },
+        lastNotedHighlight: {
+          $arrayElemAt: [
+            {
+              $filter: {
+                input: { $ifNull: ['$highlights', []] },
+                as: 'highlight',
+                cond: {
+                  $regexMatch: {
+                    input: { $ifNull: ['$$highlight.note', ''] },
+                    regex: /\S/
+                  }
+                }
+              }
+            },
+            -1
+          ]
+        }
+      }
+    }
+  ]);
+  if (aggregation?.option) aggregation = aggregation.option({ maxTimeMS: 10000 });
+  return aggregation;
 };
 const searchMatch = (article, query) => {
   if (!query) return null;
@@ -74,6 +105,30 @@ const buildLibraryCollectionRouter = ({
   ArticleReadingState
 }) => {
   const router = express.Router();
+  router.get('/api/library/collection/traces', auth, humanOnly, async (req, res) => {
+    const ids = [...new Set(String(req.query.ids || '').split(',').map(value => value.trim()).filter(Boolean))];
+    if (!ids.length || ids.length > 100 || ids.some(id => !mongoose.isValidObjectId(id))) {
+      return res.sendStatus(400);
+    }
+    try {
+      const userId = new mongoose.Types.ObjectId(req.user.id);
+      const rows = await traceSummariesFor(Article, {
+        userId,
+        _id: { $in: ids.map(id => new mongoose.Types.ObjectId(id)) }
+      });
+      return res
+        .set('Cache-Control', 'no-store')
+        .json({
+          traces: rows.map(row => ({
+            articleId: String(row._id),
+            trace: personalTrace(row)
+          })).filter(row => row.trace)
+        });
+    } catch (_) {
+      return res.status(503).json({ error: 'Personal traces could not load.' });
+    }
+  });
+
   router.get('/api/library/collection', auth, humanOnly, async (req, res) => {
     const {
       scope = 'all',
@@ -130,8 +185,9 @@ const buildLibraryCollectionRouter = ({
               createdAt: sort === 'oldest' ? 1 : -1,
               _id: sort === 'oldest' ? 1 : -1
             };
-      const selection =
-        'title url author siteName createdAt folder evergreen placement content highlights';
+      const metadataSelection =
+        'title url author siteName createdAt folder evergreen placement';
+      const searchSelection = `${metadataSelection} content highlights`;
       let total, rows;
       if (needle) {
         // Search the owned corpus, not the loaded page. Streaming keeps the
@@ -140,7 +196,7 @@ const buildLibraryCollectionRouter = ({
         total = 0;
         rows = [];
         const cursor = Article.find(match)
-          .select(selection)
+          .select(searchSelection)
           .sort(ordering)
           .maxTimeMS(10000)
           .lean()
@@ -159,7 +215,7 @@ const buildLibraryCollectionRouter = ({
         [total, rows] = await Promise.all([
           Article.countDocuments(match).maxTimeMS(10000),
           Article.find(match)
-            .select(selection)
+            .select(metadataSelection)
             .sort(ordering)
             .skip(Number(offset))
             .limit(Number(limit))

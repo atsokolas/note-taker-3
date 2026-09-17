@@ -3,6 +3,7 @@ import { clearCachedPrefix } from '../utils/cache';
 import {
   getLibraryRoom,
   getLibraryRelevance,
+  getLibraryShelves,
   getLibrarySourceDetail
 } from './libraryRelevance';
 
@@ -76,6 +77,34 @@ describe('Library relevance API', () => {
     expect(api.get).toHaveBeenCalledTimes(1);
     expect(api.get).toHaveBeenCalledWith(
       '/api/library/room?view=recent&limit=40',
+      { headers: { Authorization: 'Bearer test-only' } }
+    );
+  });
+
+  it('loads the lightweight shelf projection without requesting source relevance', async () => {
+    const payload = {
+      room: 'library',
+      shelves: {
+        folders: [],
+        counts: {
+          articles: 1,
+          rawArticles: 1,
+          unfiledArticles: 1,
+          keptArticles: 0,
+          laterArticles: 0,
+          setAsideArticles: 0,
+          suppressedArticles: 0
+        },
+        piles: { later: [], setAside: [] },
+        feedTopics: []
+      },
+      generatedAt: '2026-09-17T12:00:00.000Z'
+    };
+    api.get.mockResolvedValue({ data: payload });
+
+    await expect(getLibraryShelves()).resolves.toBe(payload);
+    expect(api.get).toHaveBeenCalledWith(
+      '/api/library/shelves',
       { headers: { Authorization: 'Bearer test-only' } }
     );
   });

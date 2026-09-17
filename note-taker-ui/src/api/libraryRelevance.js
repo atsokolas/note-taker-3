@@ -82,6 +82,43 @@ const requireLibraryRoom = (data, { view }) => {
   return data;
 };
 
+const requireLibraryShelves = data => {
+  if (
+    data?.room !== 'library'
+    || !isPlainObject(data?.shelves)
+    || !Array.isArray(data.shelves.folders)
+    || !isPlainObject(data.shelves.counts)
+    || ['articles', 'rawArticles', 'unfiledArticles', 'keptArticles', 'laterArticles', 'setAsideArticles', 'suppressedArticles']
+      .some(key => !Number.isFinite(data.shelves.counts[key]) || data.shelves.counts[key] < 0)
+    || !isPlainObject(data.shelves.piles)
+    || !Array.isArray(data.shelves.piles.later)
+    || !Array.isArray(data.shelves.piles.setAside)
+    || !Array.isArray(data.shelves.feedTopics)
+    || typeof data.generatedAt !== 'string'
+    || !data.generatedAt.trim()
+  ) {
+    throw new Error('Library shelves response is malformed.');
+  }
+  return data;
+};
+
+export const getLibraryShelves = async ({ showSuppressed = false, force = false } = {}) => {
+  const params = new URLSearchParams();
+  if (showSuppressed) params.set('showSuppressed', '1');
+  const query = params.toString();
+  const path = `/api/library/shelves${query ? `?${query}` : ''}`;
+  const authHeaders = getAuthHeaders();
+  const authScope = cacheScopeFor(authHeaders);
+  return fetchWithCache(
+    `library-room:${authScope}:${path}`,
+    async () => {
+      const response = await api.get(path, authHeaders);
+      return requireLibraryShelves(response.data);
+    },
+    { ttlMs: 30_000, force: Boolean(force) }
+  );
+};
+
 export const getLibraryRoom = async ({
   view = 'recent',
   limit = 40,

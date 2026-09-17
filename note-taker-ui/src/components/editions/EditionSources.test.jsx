@@ -12,7 +12,7 @@ import {
 const edition = {
   _id: 'e2',
   items: [
-    { title: 'A Unified Framework for VLA Agents', url: 'https://example.com/vla', sourceLabel: 'arXiv' },
+    { title: 'A Unified Framework for VLA Agents', url: 'https://example.com/vla', sourceLabel: 'arXiv', sourceDate: 'September 3, 2026' },
     { title: 'Duplicate href', url: 'https://example.com/vla', sourceLabel: 'arXiv' },
     { title: 'Unsafe', url: 'javascript:alert(1)' },
     { title: 'A second paper', url: 'https://example.com/two', sourceLabel: 'Lab Blog' }
@@ -53,6 +53,7 @@ describe('the sources of an issue', () => {
     expect(list).toHaveAttribute('open');
     expect(screen.getByRole('link', { name: 'arXiv · A Unified Framework for VLA Agents' }))
       .toHaveAttribute('href', 'https://example.com/vla');
+    expect(screen.getByText('September 3, 2026')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Lab Blog · A second paper' }))
       .toHaveAttribute('href', 'https://example.com/two');
     expect(screen.queryByRole('link', { name: /Unsafe/ })).not.toBeInTheDocument();

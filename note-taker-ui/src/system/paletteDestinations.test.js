@@ -23,6 +23,7 @@ describe('the palette index', () => {
     const rows = buildPaletteDestinations();
     expect(labels(rows)).not.toContain('Review');
     expect(labels(rows)).not.toContain('Map');
+    expect(labels(rows)).not.toContain('Growth');
     expect(rows.some(row => row.path === '/review' || row.path === '/map')).toBe(false);
   });
 

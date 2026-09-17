@@ -63,6 +63,9 @@ export const EditionSourcesList = ({ sources, listId, listRef }) => (
           <a href={source.href} target="_blank" rel="noopener noreferrer">
             {source.label}
           </a>
+          {source.sourceDate ? (
+            <span className="edition-sources__date">{source.sourceDate}</span>
+          ) : null}
         </li>
       ))}
     </ul>

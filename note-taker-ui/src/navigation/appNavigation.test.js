@@ -82,7 +82,7 @@ describe('appNavigation', () => {
       expect(secondaryLabels).not.toContain(label);
     });
     /* Exact, so a room cannot creep back in unnoticed. */
-    expect(secondaryLabels).toEqual(['Growth', 'How To Use']);
+    expect(secondaryLabels).toEqual(['How To Use']);
   });
 
   /* Every letter is the room's own initial, so the rule is guessable and the

@@ -8,6 +8,7 @@ import React, {
 import { Link } from 'react-router-dom';
 import {
   getLibraryCollection,
+  getLibraryCollectionTraces,
   getLibraryPeek
 } from '../../api/libraryCollection';
 import LibrarySourcePeek, { sourcePassage } from './LibrarySourcePeek';
@@ -132,6 +133,19 @@ export default function LibraryCollection({
           nextOffset: next
         }));
         loaded.current = offset + items.length;
+        const traceGeneration = generation;
+        getLibraryCollectionTraces(items.filter(item => !item.trace).map(item => item._id))
+          .then((traces) => {
+            if (request.current !== traceGeneration || !traces.length) return;
+            const byId = new Map(traces.map(row => [String(row.articleId), row.trace]));
+            setState(current => ({
+              ...current,
+              items: current.items.map(item => (
+                byId.has(String(item._id)) ? { ...item, trace: byId.get(String(item._id)) } : item
+              ))
+            }));
+          })
+          .catch(() => {});
       } catch (_) {
         if (request.current === generation)
           setState((current) => ({

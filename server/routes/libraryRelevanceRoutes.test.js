@@ -134,6 +134,13 @@ const server = app.listen(0, '127.0.0.1', async () => {
     assert.deepStrictEqual(room.body.shelves.piles, { later: [], setAside: [] });
     assert.deepStrictEqual(room.body.shelves.feedTopics, []);
 
+    const shelves = await request('/api/library/shelves');
+    assert.strictEqual(shelves.response.status, 200);
+    assert.strictEqual(shelves.body.room, 'library');
+    assert.strictEqual(shelves.body.sources, undefined);
+    assert.strictEqual(shelves.body.shelves.counts.articles, 1);
+    assert.deepStrictEqual(shelves.body.shelves.folders.map(folder => folder.name), ['AI & Computing']);
+
     const invalidCursor = await request(
       '/api/library/relevance?view=recent&sourceScope=mixed&cursor=not-a-cursor'
     );

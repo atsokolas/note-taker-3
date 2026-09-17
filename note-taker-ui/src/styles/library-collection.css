@@ -394,14 +394,6 @@ body.noeis-editorial .library-collection-search input {
   display: none;
 }
 
-.library-page-shell.is-reading .library-page-shell__column-head {
-  position: sticky;
-  top: 94px;
-  z-index: 30;
-  padding-block: 8px;
-  background: var(--noeis-paper, #f7f4ed);
-}
-
 @media (max-width: 480px) {
   .selection-menu {
     min-width: 0;

@@ -8,7 +8,10 @@ const {
   buildMixedLibraryRelevancePage,
   decodeCursor
 } = require('../services/libraryMixedSourceService');
-const { buildLibraryRoomProjection } = require('../services/libraryRoomProjectionService');
+const {
+  buildLibraryRoomProjection,
+  buildLibraryShelvesProjection
+} = require('../services/libraryRoomProjectionService');
 
 const parseLimit = value => {
   if (value === undefined || value === null || value === '') return 40;
@@ -24,6 +27,29 @@ const buildLibraryRelevanceRouter = ({
   ...models
 } = {}) => {
   const router = express.Router();
+
+  router.get('/api/library/shelves', authenticateToken, async (req, res) => {
+    const showSuppressed = String(req.query.showSuppressed || '0').trim();
+    if (!['0', '1'].includes(showSuppressed)) {
+      return res.status(400).json({ error: 'showSuppressed must be 0 or 1.' });
+    }
+    try {
+      const shelves = await buildLibraryShelvesProjection({
+        userId: req.user.id,
+        models,
+        getFoldersWithCounts,
+        includeSuppressed: showSuppressed === '1'
+      });
+      return res.status(200).json({
+        room: 'library',
+        shelves,
+        generatedAt: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Error building Library shelves projection:', error);
+      return res.status(500).json({ error: 'Failed to load Library shelves.' });
+    }
+  });
 
   router.get('/api/library/room', authenticateToken, async (req, res) => {
     const view = String(req.query.view || 'recent').trim();
