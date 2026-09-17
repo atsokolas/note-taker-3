@@ -179,6 +179,7 @@ const {
   ResearchMandate,
   InstitutionalHold,
   DecisionMemoryEvent,
+  JudgmentObservationLineage,
   JudgmentResponseDraft,
   WikiPage,
   WikiProposal,
@@ -5498,6 +5499,8 @@ app.use(buildJudgmentThreadRouter({
   authenticateToken: authenticateUserOrAgentToken,
   WikiPage,
   NoeisReceipt,
+  WikiSourceEvent,
+  JudgmentObservationLineage,
   JudgmentResponseDraft
 }));
 

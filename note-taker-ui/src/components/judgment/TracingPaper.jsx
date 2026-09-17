@@ -2,14 +2,15 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { usePrefersReducedMotion } from '../../hooks/useMotionPreferences';
 import { chooseCaseStress, draftCaseStress, getCaseStress } from '../../api/judgmentResolution';
 import { STRESS_KIND } from '../../pages/institutionModel';
+import useControlledDisclosure from './useControlledDisclosure';
 
-const TracingPaper = ({ pageId }) => {
+const TracingPaper = ({ pageId, expanded, onExpandedChange }) => {
   const reduced = usePrefersReducedMotion();
   const [overlay, setOverlay] = useState(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState('');
   const [turned, setTurned] = useState('');
-  const [open, setOpen] = useState(false);
+  const { controlled, open, setOpen, triggerRef } = useControlledDisclosure({ expanded, onExpandedChange });
 
   const load = useCallback(async () => {
     if (!pageId) return;
@@ -43,11 +44,11 @@ const TracingPaper = ({ pageId }) => {
     }
   };
 
-  if (!sheets.length && !open) {
+  if ((!sheets.length && !open) || (controlled && !open)) {
     return (
       <section className={`tracing-paper${reduced ? ' is-still' : ''}`}>
-        <button type="button" className="tracing-paper__quiet" onClick={() => setOpen(true)}>
-          Lay tracing paper
+        <button ref={triggerRef} type="button" className="tracing-paper__quiet" onClick={() => setOpen(true)}>
+          {sheets.length ? 'Open tracing paper' : 'Lay tracing paper'}
         </button>
       </section>
     );
@@ -117,7 +118,7 @@ const TracingPaper = ({ pageId }) => {
           <button type="submit" disabled={Boolean(busy) || !turned}>Lay the sheet</button>
         </form>
       ) : (
-        <button type="button" className="tracing-paper__quiet" onClick={() => setOpen(true)}>
+        <button ref={triggerRef} type="button" className="tracing-paper__quiet" onClick={() => setOpen(true)}>
           Another sheet
         </button>
       )}

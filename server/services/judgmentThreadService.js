@@ -7,6 +7,7 @@ const id = value => clean(value?._id || value?.id || value, 240);
 const list = value => Array.isArray(value) ? value : [];
 const plain = value => value?.toObject ? value.toObject({ virtuals: false }) : value;
 const resolveQuery = query => query?.then ? query : Promise.resolve(query);
+const { readObservationLineage } = require('./judgmentObservationLineageService');
 
 const RESPONSES = new Set(['', 'keep', 'narrow', 'different', 'uncertain']);
 const ACTIONS = new Set(['', 'unchanged', 'change', 'not_reconsidered']);
@@ -112,11 +113,16 @@ const serializeDraft = value => {
 };
 
 const readJudgmentThread = async ({
-  WikiPage, NoeisReceipt, JudgmentResponseDraft, userId, pageId, observationId
+  WikiPage, NoeisReceipt, JudgmentResponseDraft, WikiSourceEvent,
+  JudgmentObservationLineage, userId, pageId, observationId
 } = {}) => {
   requireModels({ WikiPage, NoeisReceipt, JudgmentResponseDraft });
   const context = await loadContext({ WikiPage, NoeisReceipt, userId, pageId, observationId });
-  const draft = await resolveQuery(JudgmentResponseDraft.findOne({ userId, pageId, observationId, status: 'active' }));
+  const sourceEventId = id(context.receipt.provenance?.sourceEventId);
+  const [draft, lineage] = await Promise.all([
+    resolveQuery(JudgmentResponseDraft.findOne({ userId, pageId, observationId, status: 'active' })),
+    readObservationLineage({ JudgmentObservationLineage, WikiSourceEvent, userId, sourceEventId })
+  ]);
   return {
     draft: serializeDraft(draft),
     observation: {
@@ -125,10 +131,11 @@ const readJudgmentThread = async ({
       baseClaim: context.baseClaim,
       criterionSnapshot: context.criterionSnapshot,
       currentCriterion: currentCriterion(context.page),
-      sourceEventId: id(context.receipt.provenance?.sourceEventId),
+      sourceEventId,
       sourceLabel: clean(context.receipt.sourceLabel, 240),
       acceptedAt: context.receipt.provenance?.acceptedAt || null,
-      recordedAt: context.receipt.createdAt || null
+      recordedAt: context.receipt.createdAt || null,
+      lineage
     }
   };
 };

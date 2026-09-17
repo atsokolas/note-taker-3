@@ -67,6 +67,15 @@ export const saveJudgmentResponseThread = async ({ pageId, observationId, ...dra
   return response.data || {};
 };
 
+export const reviewObservationLineage = async ({ familyId, expectedVersion, action }) => {
+  const response = await api.post(
+    `/api/judgment/source-lineage/${safe(familyId)}/${action === 'accept' ? 'accept' : 'reject'}`,
+    { expectedVersion },
+    getAuthHeaders()
+  );
+  return response.data || {};
+};
+
 export const recordJudgmentClock = async ({
   pageId, expectedClaim, clock, occurredAt = null, precision = '', authoredBy = 'user',
   sourceRefIds = [], sourceLabel = '', summary = '', causalKind = 'evidence', relatedId = ''

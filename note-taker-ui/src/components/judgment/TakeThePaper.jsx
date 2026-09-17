@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { exportDecisionMemory, holdDecisionCase, importDecisionMemory } from '../../api/judgmentResolution';
 import { useSystemStatusControls } from '../../system/SystemStatusContext';
+import useControlledDisclosure from './useControlledDisclosure';
 
-const TakeThePaper = ({ pageId }) => {
+const TakeThePaper = ({ pageId, expanded, onExpandedChange }) => {
   const systemStatus = useSystemStatusControls();
   const [error, setError] = useState('');
   const [busy, setBusy] = useState('');
-  const [open, setOpen] = useState(false);
+  const { open, setOpen, triggerRef } = useControlledDisclosure({ expanded, onExpandedChange });
 
   const download = async () => {
     if (busy) return;
@@ -80,7 +81,7 @@ const TakeThePaper = ({ pageId }) => {
   if (!open) {
     return (
       <section className="take-the-paper">
-        <button type="button" className="take-the-paper__quiet" onClick={() => setOpen(true)}>
+        <button ref={triggerRef} type="button" className="take-the-paper__quiet" onClick={() => setOpen(true)}>
           Take the paper with you
         </button>
       </section>

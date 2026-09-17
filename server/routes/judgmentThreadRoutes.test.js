@@ -21,6 +21,14 @@ app.use(buildJudgmentThreadRouter({
     calls.push(['save', input]);
     return { draft: { response: input.response, version: 1 } };
   },
+  proposeLineage: async input => {
+    calls.push(['propose-lineage', input]);
+    return { familyId: input.familyId, status: 'proposed', version: 0 };
+  },
+  reviewLineage: async input => {
+    calls.push(['review-lineage', input]);
+    return { familyId: input.familyId, status: 'accepted', version: 1 };
+  }
 }));
 
 const server = app.listen(0, '127.0.0.1', async () => {
@@ -42,6 +50,16 @@ const server = app.listen(0, '127.0.0.1', async () => {
     assert.deepStrictEqual(calls.map(call => call[0]), ['read', 'save']);
     assert.strictEqual(calls[1][1].userId, 'user-1');
     assert.strictEqual(calls[1][1].observationId, OBSERVATION_ID);
+    const proposalPath = '/api/judgment/source-lineage/proposals';
+    assert.strictEqual((await request('POST', proposalPath, {
+      familyId: 'family-1',
+      members: [{ sourceEventId: '64f500000000000000000011' }, { sourceEventId: '64f500000000000000000012' }]
+    }, 'agent')).response.status, 200);
+    assert.strictEqual(calls[2][1].proposedBy, 'agent');
+    const reviewPath = '/api/judgment/source-lineage/family-1/accept';
+    assert.strictEqual((await request('POST', reviewPath, { expectedVersion: 0 }, 'agent')).response.status, 403);
+    assert.strictEqual((await request('POST', reviewPath, { expectedVersion: 0 })).response.status, 200);
+    assert.strictEqual(calls[3][0], 'review-lineage');
     console.log('judgmentThreadRoutes tests passed');
   } catch (error) {
     console.error(error);

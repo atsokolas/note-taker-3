@@ -30,6 +30,7 @@ import AriadneLineage from '../components/judgment/AriadneLineage';
 import TracingPaper from '../components/judgment/TracingPaper';
 import NightWatch from '../components/judgment/NightWatch';
 import TakeThePaper from '../components/judgment/TakeThePaper';
+import JudgmentContextTools from '../components/judgment/JudgmentContextTools';
 import { CasebookPreview } from './PublicCasebook';
 import { flySentenceInto, handOffSentence, takeFirstPaint, ENTER_DURATION_MS, prefersReducedMotion } from '../motion/columnMotion';
 import { usePrefersReducedMotion } from '../hooks/useMotionPreferences';
@@ -1504,12 +1505,12 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
       {/* Every tool is one verb until you press it, or until it has something
           to say; then it takes its own width beneath the row. Each keeps its
           own state — the row only decides where it sits. */}
-      <div className="judgment-tools" role="group" aria-label="What you can still do">
-        <AriadneLineage pageId={pageId} />
-        <TracingPaper pageId={pageId} />
-        <NightWatch pageId={pageId} />
-        <CasebookPreview pageId={pageId} />
-        <TakeThePaper pageId={pageId} />
+      <JudgmentContextTools>
+        <AriadneLineage contextId="lineage" pageId={pageId} />
+        <TracingPaper contextId="stress" pageId={pageId} />
+        <NightWatch contextId="watch" pageId={pageId} />
+        <CasebookPreview contextId="public" pageId={pageId} />
+        <TakeThePaper contextId="portable" pageId={pageId} />
         <button type="button" className="judgment__print" onClick={printPamphlet} disabled={printing}>
           {printing ? 'Setting it…' : 'Print this as one page'}
         </button>
@@ -1523,7 +1524,7 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
             setPage(current => ({ ...current, evergreen: saved?.evergreen ?? next, evergreenAt: saved?.evergreenAt ?? null }));
           }}
         />
-      </div>
+      </JudgmentContextTools>
       {printError ? <p className="judgment__print-error" role="alert">{printError}</p> : null}
 
       {error ? <p className="judgment__error" role="alert">{error}</p> : null}

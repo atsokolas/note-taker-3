@@ -8,15 +8,16 @@ import {
   rejectCaseLineage
 } from '../../api/judgmentResolution';
 import { casePath, hasThread } from '../../pages/institutionModel';
+import useControlledDisclosure from './useControlledDisclosure';
 
-const AriadneLineage = ({ pageId }) => {
+const AriadneLineage = ({ pageId, expanded, onExpandedChange }) => {
   const reduced = usePrefersReducedMotion();
   const [thread, setThread] = useState(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState('');
   const [toPageId, setToPageId] = useState('');
   const [shared, setShared] = useState('');
-  const [open, setOpen] = useState(false);
+  const { controlled, open, setOpen, triggerRef } = useControlledDisclosure({ expanded, onExpandedChange });
 
   const load = useCallback(async () => {
     if (!pageId) return;
@@ -50,11 +51,11 @@ const AriadneLineage = ({ pageId }) => {
   const knots = Array.isArray(thread?.knots) ? thread.knots : [];
   const cut = Array.isArray(thread?.cut) ? thread.cut : [];
   const contradictions = Array.isArray(thread?.contradictions) ? thread.contradictions : [];
-  if (!hasThread(thread) && !open && !cut.length) {
+  if ((!hasThread(thread) && !open && !cut.length) || (controlled && !open)) {
     return (
       <section className={`ariadne-lineage${reduced ? ' is-still' : ''}`}>
-        <button type="button" className="ariadne-lineage__quiet" onClick={() => setOpen(true)}>
-          Thread a later case
+        <button ref={triggerRef} type="button" className="ariadne-lineage__quiet" onClick={() => setOpen(true)}>
+          {hasThread(thread) ? 'Open case thread' : 'Thread a later case'}
         </button>
       </section>
     );
@@ -130,7 +131,7 @@ const AriadneLineage = ({ pageId }) => {
           <button type="submit" disabled={Boolean(busy) || !toPageId || !shared}>Thread them</button>
         </form>
       ) : (
-        <button type="button" className="ariadne-lineage__quiet" onClick={() => setOpen(true)}>
+        <button ref={triggerRef} type="button" className="ariadne-lineage__quiet" onClick={() => setOpen(true)}>
           Thread another case
         </button>
       )}

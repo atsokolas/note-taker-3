@@ -7,14 +7,15 @@ import {
   openCaseWatch,
   reverseWatchProposal
 } from '../../api/judgmentResolution';
+import useControlledDisclosure from './useControlledDisclosure';
 
-const NightWatch = ({ pageId }) => {
+const NightWatch = ({ pageId, expanded, onExpandedChange }) => {
   const systemStatus = useSystemStatusControls();
   const [watch, setWatch] = useState(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState('');
   const [purpose, setPurpose] = useState('');
-  const [open, setOpen] = useState(false);
+  const { controlled, open, setOpen, triggerRef } = useControlledDisclosure({ expanded, onExpandedChange });
 
   const load = useCallback(async () => {
     if (!pageId) return;
@@ -54,18 +55,19 @@ const NightWatch = ({ pageId }) => {
   };
 
   const proposals = Array.isArray(watch?.proposals) ? watch.proposals : [];
-  if (watch?.killed) {
+  if (watch?.killed && (!controlled || open)) {
     return (
-      <section className="night-watch">
+      <section className="night-watch" aria-labelledby="night-watch-title">
+        <h2 id="night-watch-title">The night watch</h2>
         <p className="night-watch__silence">The watch was killed. Nothing writes itself in.</p>
       </section>
     );
   }
-  if ((!watch || watch.silent) && !open && !proposals.length) {
+  if (((!watch || watch.silent) && !open && !proposals.length) || (controlled && !open)) {
     return (
       <section className="night-watch">
-        <button type="button" className="night-watch__quiet" onClick={() => setOpen(true)}>
-          Name a watch
+        <button ref={triggerRef} type="button" className="night-watch__quiet" onClick={() => setOpen(true)}>
+          {watch?.purpose || proposals.length || watch?.killed ? 'Open the night watch' : 'Name a watch'}
         </button>
         {watch?.note ? <p className="night-watch__silence">{watch.note}</p> : null}
       </section>

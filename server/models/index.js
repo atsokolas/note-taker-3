@@ -3543,6 +3543,38 @@ decisionMemoryEventSchema.index({ userId: 1, at: -1 });
 
 const DecisionMemoryEvent = mongoose.model('DecisionMemoryEvent', decisionMemoryEventSchema);
 
+/* One observation may be reported by several documents. This record names
+   that relationship explicitly instead of deriving it from similar words,
+   dates, or embeddings. Source text remains on the owned source events. */
+const judgmentObservationLineageMemberSchema = new mongoose.Schema({
+  sourceEventId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiSourceEvent', required: true },
+  role: { type: String, enum: ['origin', 'derivative', 'account', 'unknown'], default: 'account' },
+  note: { type: String, default: '', trim: true },
+  sourceVersion: { type: String, default: '', trim: true }
+}, { _id: false });
+
+const judgmentObservationLineageSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  familyId: { type: String, required: true, trim: true },
+  label: { type: String, default: '', trim: true },
+  status: { type: String, enum: ['proposed', 'accepted', 'rejected'], default: 'proposed', index: true },
+  members: { type: [judgmentObservationLineageMemberSchema], default: [] },
+  proposedBy: { type: String, enum: ['user', 'agent', 'system'], default: 'user' },
+  acceptedAt: { type: Date, default: null },
+  rejectedAt: { type: Date, default: null }
+}, { timestamps: true });
+
+judgmentObservationLineageSchema.index({ userId: 1, familyId: 1 }, { unique: true });
+judgmentObservationLineageSchema.index(
+  { userId: 1, 'members.sourceEventId': 1, status: 1 },
+  { name: 'judgment_observation_lineage_lookup' }
+);
+
+const JudgmentObservationLineage = mongoose.model(
+  'JudgmentObservationLineage',
+  judgmentObservationLineageSchema
+);
+
 /* A half-written answer is continuity, not evidence. It lives outside the
    Wiki page so it cannot enter revisions, public projections, search, or an
    export by accident. One owner gets one private thread per observation. */
@@ -3661,6 +3693,7 @@ module.exports = {
   ResearchMandate,
   InstitutionalHold,
   DecisionMemoryEvent,
+  JudgmentObservationLineage,
   JudgmentResponseDraft,
   AuthoredExploration,
   dropLegacyConnectionIndex

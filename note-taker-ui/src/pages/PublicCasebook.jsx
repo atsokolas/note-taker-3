@@ -9,6 +9,7 @@ import {
 import { CLOCK_LABEL, VERDICT_LABEL } from './judgmentLedgerClient';
 import { wikiPagePath } from '../utils/wikiFeatureFlags';
 import { describeReturn, readLastSeen, rememberSeen } from './publicReturn';
+import useControlledDisclosure from '../components/judgment/useControlledDisclosure';
 import '../styles/public-casebook.css';
 
 const months = Object.freeze([
@@ -312,8 +313,8 @@ const PublicCasebook = ({
 export default PublicCasebook;
 export { formatDay, hasAuthToken };
 
-export const CasebookPreview = ({ pageId }) => {
-  const [open, setOpen] = useState(false);
+export const CasebookPreview = ({ pageId, expanded, onExpandedChange }) => {
+  const { controlled, open, setOpen, triggerRef } = useControlledDisclosure({ expanded, onExpandedChange });
   const [folio, setFolio] = useState(null);
   useEffect(() => {
     if (!open || !pageId) return undefined;
@@ -328,6 +329,21 @@ export const CasebookPreview = ({ pageId }) => {
     return () => { cancelled = true; };
   }, [open, pageId]);
   if (!pageId) return null;
+  if (controlled) {
+    if (!open) {
+      return (
+        <section className="public-casebook-preview">
+          <button ref={triggerRef} type="button" onClick={() => setOpen(true)}>What a visitor would see</button>
+        </section>
+      );
+    }
+    return (
+      <section className="public-casebook-preview" aria-labelledby="public-casebook-preview-title">
+        <h2 id="public-casebook-preview-title">What a visitor would see</h2>
+        {folio ? <PublicCasebook casebook={folio} idOrSlug={pageId} preview /> : <p className="public-casebook__privacy">Nothing public is sealed yet.</p>}
+      </section>
+    );
+  }
   return (
     <details
       className="public-casebook-preview"
