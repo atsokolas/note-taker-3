@@ -808,6 +808,12 @@
   padding-top: 20px;
 }
 
+.library-page-shell.is-reading .library-page-shell__column-head {
+  width: min(100%, 720px);
+  margin-inline: auto;
+  padding-inline: 20px;
+}
+
 .library-page-shell__doors {
   display: flex;
   flex-wrap: wrap;
