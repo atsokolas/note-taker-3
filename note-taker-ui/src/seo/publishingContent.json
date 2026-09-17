@@ -80,6 +80,11 @@
       "description": "A starter graph for intrinsic value, moats, owner earnings, capital allocation, and margin of safety."
     }
   ],
+  "agentGuide": {
+    "title": "Connect an Agent to NOEIS",
+    "description": "Request the exact access, keep approval human, verify the intended runtime, and repair only the failed setup step.",
+    "href": "/skill.md"
+  },
   "guides": [
     {
       "slug": "ai-second-brain",

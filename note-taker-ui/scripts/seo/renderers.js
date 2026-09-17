@@ -26,6 +26,12 @@ const renderGuideCards = (content) => content.guides.map((guide) => `
         <p>${escapeHtml(guide.description)}</p>
       </a>`).join('');
 
+const renderAgentGuideCard = (content) => content.agentGuide ? `
+      <a class="subcard guide-card" href="${escapeHtml(content.agentGuide.href)}">
+        <h2>${escapeHtml(content.agentGuide.title)}</h2>
+        <p>${escapeHtml(content.agentGuide.description)}</p>
+      </a>` : '';
+
 const renderStarterPackCards = (content) => (Array.isArray(content.examples) ? content.examples : []).map((pack) => `
       <a class="subcard guide-card" href="${escapeHtml(pack.href)}">
         <h2>${escapeHtml(pack.title)}</h2>
@@ -251,7 +257,7 @@ const renderHomeFallback = (content) => `
   </main>`;
 
 const renderGuideHubPage = (content) => {
-  const guides = renderGuideCards(content);
+  const guides = `${renderAgentGuideCard(content)}${renderGuideCards(content)}`;
   const canonical = buildUrl(content.site.host, '/guides');
   return `<!DOCTYPE html>
 <html lang="en">
