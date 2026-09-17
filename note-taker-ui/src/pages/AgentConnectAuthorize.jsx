@@ -13,7 +13,6 @@ const AgentConnectAuthorize = ({ searchOverride = '' }) => {
   const queryString = searchOverride || location.search;
   const params = useMemo(() => new URLSearchParams(queryString), [queryString]);
   const sessionId = params.get('session') || '';
-  const pollSecret = params.get('secret') || '';
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(Boolean(sessionId));
   const [error, setError] = useState('');
@@ -52,7 +51,9 @@ const AgentConnectAuthorize = ({ searchOverride = '' }) => {
     setApproving(true);
     setError('');
     try {
-      const data = await approveAgentConnectSession(sessionId, { pollSecret });
+      const data = await approveAgentConnectSession(sessionId, {
+        deviceCode: session?.deviceCode || ''
+      });
       setSession(data.session || session);
       setApproved(true);
     } catch (err) {
@@ -63,43 +64,65 @@ const AgentConnectAuthorize = ({ searchOverride = '' }) => {
   };
 
   const status = session?.status || 'pending';
-  const canApprove = Boolean(sessionId && pollSecret && session && status === 'pending' && !approved);
+  const canApprove = Boolean(sessionId && session?.deviceCode && status === 'pending' && !approved);
+  const readOnly = (session?.scopes || []).length === 1 && session.scopes[0] === 'read';
+  const permissionLabel = readOnly ? 'Read only' : 'Read and write';
+  const expiresAt = session?.expiresAt ? new Date(session.expiresAt) : null;
+  const expiryLabel = expiresAt && !Number.isNaN(expiresAt.getTime())
+    ? expiresAt.toLocaleString()
+    : 'Not provided';
 
   return (
-    <Page className="settings-page agent-connect-authorize-page">
-      <div className="page-header">
-        <p className="muted-label">Connected agents</p>
-        <h1>Approve local agent</h1>
-        <p className="muted">
-          This lets the local agent use Noeis through the same connected-agent token system you can revoke in Settings.
-        </p>
-      </div>
+    <Page className="settings-page agent-connect-authorize-page connections-approval-page">
+      <header className="connections-hub__header">
+        <p className="muted-label">Human approval</p>
+        <h1>Is this the request you started?</h1>
+        <p>Check the runtime, account destination, comparison code, and actual permission before approving.</p>
+      </header>
 
-      <Card className="settings-card agent-connect-authorize-card">
+      <Card className="settings-card agent-connect-authorize-card connections-approval-card">
         {loading ? (
           <p className="muted">Loading connection request...</p>
         ) : error && !session ? (
           <>
             <h2>Connection unavailable</h2>
             <p className="muted">{error}</p>
-            <Link to="/integrations" className="ui-button ui-button-secondary">Open integrations</Link>
+            <Link to="/connections#agents" className="ui-button ui-button-secondary">Open Connections</Link>
           </>
         ) : (
           <>
-            <div className="settings-appearance-header">
+            <div className="connections-approval-card__account">
               <div>
-                <h2>{session?.runtimeLabel || session?.label || 'Local agent'}</h2>
-                <p className="muted">
-                  {session?.label || 'Local agent'} is asking to connect to this Noeis workspace.
-                </p>
+                <p className="muted-label">Connection requesting access</p>
+                <h2>{session?.label || 'Local agent'}</h2>
+                <p>{session?.runtimeLabel || 'Agent runtime'} · self-reported</p>
               </div>
               <p className="muted-label">{status}</p>
             </div>
 
             <div className="agent-connect-authorize-card__code">
-              <span>Device code</span>
+              <span>Comparison code</span>
               <strong>{session?.deviceCode || 'Unknown'}</strong>
             </div>
+
+            <dl className="connections-approval-facts">
+              <div>
+                <dt>Actual permission request</dt>
+                <dd>{permissionLabel}</dd>
+              </div>
+              <div>
+                <dt>NOEIS API</dt>
+                <dd>{session?.requestedApiUrl || 'Default NOEIS service'}</dd>
+              </div>
+              <div>
+                <dt>Request expires</dt>
+                <dd>{expiryLabel}</dd>
+              </div>
+              <div>
+                <dt>After connecting</dt>
+                <dd>Verify access, then stop</dd>
+              </div>
+            </dl>
 
             <div className="agent-connect-authorize-card__scope-list">
               {(session?.scopes || []).map((scope) => (
@@ -109,11 +132,14 @@ const AgentConnectAuthorize = ({ searchOverride = '' }) => {
                 </div>
               ))}
             </div>
+            <p className="connections-approval-note">
+              The runtime and connection name are self-reported. Approval creates this exact grant; it does not prove the runtime loaded its tools or start a task.
+            </p>
 
             {approved || status === 'approved' ? (
               <div className="agent-connect-authorize-card__success" role="status">
-                <strong>Agent connected.</strong>
-                <p className="muted small">Return to your terminal. The CLI will finish writing the MCP config.</p>
+                <strong>Access approved.</strong>
+                <p className="muted small">Return to the agent. It still needs to load its tools and call connection_info before the connection is verified.</p>
               </div>
             ) : status === 'expired' ? (
               <div className="agent-connect-authorize-card__success" role="status">
@@ -130,9 +156,9 @@ const AgentConnectAuthorize = ({ searchOverride = '' }) => {
                     onClick={handleApprove}
                     disabled={!canApprove || approving}
                   >
-                    {approving ? 'Approving...' : 'Approve agent'}
+                    {approving ? 'Approving...' : `Approve ${readOnly ? 'read access' : 'read and write access'}`}
                   </button>
-                  <Link to="/integrations" className="ui-button ui-button-secondary">Cancel</Link>
+                  <Link to="/connections#agents" className="ui-button ui-button-secondary">Decline for now</Link>
                 </div>
               </>
             )}

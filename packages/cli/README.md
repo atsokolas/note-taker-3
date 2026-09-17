@@ -12,33 +12,51 @@ This installs the `noeis` command.
 
 ## Connect an agent
 
-The normal setup path opens Noeis in your browser, asks you to approve the local agent, writes the CLI token, writes the runtime MCP config, and runs an access check:
+The normal setup path requests read-only access, opens Noeis for human approval,
+verifies workspace/grant metadata, writes the CLI credential, and writes the
+runtime MCP config:
 
 ```bash
-noeis connect hermes
+noeis connect hermes --scope read
 # or
-noeis connect openclaw
+noeis connect openclaw --scope read
 # or
-noeis connect codex
+noeis connect codex --scope read
 ```
 
 Supported runtime names: `claude-code`, `codex`, `hermes`, `openclaw`, and `opencode`.
 
+Use `--scope read-write` only when the human explicitly chose the broader
+`read` + `agent-write` grant. Unknown scopes are rejected instead of widened or
+silently replaced.
+
 The generated runtime MCP config calls `noeis mcp`. The raw token stays in one place: the Noeis CLI config, normally `~/.config/noeis/config.json`. Generated MCP configs should not copy `NOEIS_TOKEN`.
 
-For OpenClaw, `noeis connect openclaw` writes both the XDG MCP file and `~/.openclaw/openclaw.json`, because OpenClaw installs differ in which config path they read.
+For OpenClaw, `noeis connect openclaw --scope read` writes both the XDG MCP file
+and `~/.openclaw/openclaw.json`, because OpenClaw installs differ in which config
+path they read.
 
 For local/self-hosted API targets, pass both URLs:
 
 ```bash
-noeis connect hermes --api-url http://localhost:5500 --app-url http://localhost:3000
+noeis connect hermes --scope read --api-url http://localhost:5500 --app-url http://localhost:3000
 ```
 
 If the browser cannot open automatically:
 
 ```bash
-noeis connect hermes --no-browser
+noeis connect hermes --scope read --no-browser
 ```
+
+The approval URL contains only the opaque session reference. The CLI retains its
+polling secret. Only the human approves after comparing the code, runtime, account
+destination, expiry, and actual scopes.
+
+After approval, the CLI calls the metadata-only `/api/agent-connection` endpoint.
+The matching MCP tool is `connection_info`; it returns stable workspace/grant
+identity without reading or creating user content. Writing runtime config does not
+prove that runtime loaded its tools, so reload the runtime and call
+`connection_info` there before reporting setup complete.
 
 ## Agent launch links
 

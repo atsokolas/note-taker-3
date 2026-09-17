@@ -108,6 +108,18 @@ const run = async () => {
       req.user = { id: 'user-1' };
       next();
     },
+    authenticateConnection: (req, _res, next) => {
+      req.user = { id: 'user-1' };
+      req.agentToken = sanitizeAgentToken({
+        _id: 'connection-token-1',
+        userId: 'user-1',
+        label: 'Research companion',
+        runtime: 'codex',
+        scopes: ['read'],
+        status: 'active'
+      });
+      next();
+    },
     AgentToken,
     ConnectorActionLog,
     createAgentTokenSecret: () => `ntk_at_secret_${++issueCount}`,
@@ -133,6 +145,28 @@ const run = async () => {
     assert.strictEqual(create.body.token.hashedSecret, undefined);
     assert.strictEqual(create.body.token.secret, undefined);
     assert.strictEqual(AgentToken.rows[0].hashedSecret, hashAgentTokenSecret('ntk_at_secret_1'));
+
+    const unsupportedScope = await fetchJson(`${baseUrl}/api/agent-tokens`, {
+      method: 'POST',
+      body: JSON.stringify({
+        label: 'Unsafe token',
+        scopes: ['read', 'admin']
+      })
+    });
+    assert.strictEqual(unsupportedScope.response.status, 400);
+    assert.match(unsupportedScope.body.error, /unsupported scope/i);
+    assert.strictEqual(AgentToken.rows.length, 1);
+
+    const connectionInfo = await fetchJson(`${baseUrl}/api/agent-connection`);
+    assert.strictEqual(connectionInfo.response.status, 200);
+    assert.strictEqual(connectionInfo.body.format, 'noeis.agent-connection');
+    assert.strictEqual(connectionInfo.body.workspace.id, 'user-1');
+    assert.strictEqual(connectionInfo.body.grant.id, 'connection-token-1');
+    assert.strictEqual(connectionInfo.body.grant.label, 'Research companion');
+    assert.deepStrictEqual(connectionInfo.body.grant.scopes, ['read']);
+    assert.strictEqual(connectionInfo.body.capabilities.agentWrite, false);
+    assert.strictEqual(connectionInfo.body.contentRead, false);
+    assert.strictEqual(connectionInfo.body.contentWritten, false);
 
     const list = await fetchJson(`${baseUrl}/api/agent-tokens`);
     assert.strictEqual(list.response.status, 200);

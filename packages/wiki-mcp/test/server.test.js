@@ -43,6 +43,17 @@ const run = async () => {
     fetchImpl: async (url, init) => {
       seenRequests.push({ url: String(url), init });
       const requestUrl = new URL(String(url));
+      if (requestUrl.pathname.endsWith('/api/agent-connection')) {
+        return jsonResponse({
+          format: 'noeis.agent-connection',
+          version: 1,
+          workspace: { id: 'workspace-1', label: 'NOEIS workspace' },
+          grant: { id: 'token-1', label: 'Research companion', scopes: ['read'] },
+          capabilities: { read: true, agentWrite: false },
+          contentRead: false,
+          contentWritten: false
+        });
+      }
       if (requestUrl.pathname.endsWith('/schema')) return jsonResponse({ content: '# Wiki Schema' });
       if (requestUrl.pathname.endsWith('/lint')) return jsonResponse({ runId: 'lint-1', findings: [] });
       if (requestUrl.pathname.endsWith('/briefing')) return jsonResponse({ summary: 'Updated today' });
@@ -256,6 +267,11 @@ const run = async () => {
   assert.strictEqual(pages[0].title, 'Compounding');
   assert(seenRequests[0].url.includes('/api/wiki/pages?q=compound&limit=5'));
   assert.strictEqual(seenRequests[0].init.headers.Authorization, 'Bearer ntk_at_test');
+
+  const connectionInfo = await toolDefinitions.find(tool => tool.name === 'connection_info').handler(client, {});
+  assert.strictEqual(connectionInfo.workspace.id, 'workspace-1');
+  assert.deepStrictEqual(connectionInfo.grant.scopes, ['read']);
+  assert.strictEqual(connectionInfo.contentRead, false);
 
   const searchPages = toolDefinitions.find(tool => tool.name === 'search_pages');
   const hits = await searchPages.handler(client, { query: 'reinvested', limit: 5 });

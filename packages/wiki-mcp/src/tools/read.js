@@ -11,6 +11,12 @@ const pageIdShape = {
 
 export const readTools = [
   {
+    name: 'connection_info',
+    description: 'Verify this exact NOEIS grant with a metadata-only authenticated read. Returns stable workspace identity and enforced scopes without reading or creating user content.',
+    inputSchema: {},
+    handler: (client) => client.getConnectionInfo()
+  },
+  {
     name: 'list_edition_profiles',
     description: 'List the reader\'s edition topics: what each paper is called, its sections, and how often it comes out (daily, weekly, monthly). Call this before filing so you use a topic that exists and a section it actually has.',
     inputSchema: {},

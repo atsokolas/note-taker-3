@@ -242,6 +242,10 @@ export class NoeisClient {
     }
   }
 
+  getConnectionInfo() {
+    return this.request('/api/agent-connection');
+  }
+
   buildUrl(path, query = {}) {
     const url = new URL(path, `${this.apiUrl}/`);
     Object.entries(query || {}).forEach(([key, value]) => {
