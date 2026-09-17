@@ -135,7 +135,8 @@ const Library = () => {
   const libraryRoom = useLibraryRoom({
     view: sourceView,
     showSuppressed: showSuppressedItems,
-    enabled: roomProjectionEnabled
+    enabled: roomProjectionEnabled,
+    includeSources: !collectionView
   });
   const legacyFolders = useFolders({ enabled: !roomProjectionEnabled || Boolean(libraryRoom.error) });
   const folders = roomProjectionEnabled && !libraryRoom.error

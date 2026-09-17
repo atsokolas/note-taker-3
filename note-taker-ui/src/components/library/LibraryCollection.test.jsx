@@ -1,9 +1,10 @@
 import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import LibraryCollection from './LibraryCollection';
 import {
   getLibraryCollection,
+  getLibraryCollectionTraces,
   getLibraryPeek
 } from '../../api/libraryCollection';
 import { saveArticleReadingState } from '../../api/articleReadingState';
@@ -35,6 +36,7 @@ beforeEach(() => {
     total: 1,
     nextOffset: null
   });
+  getLibraryCollectionTraces.mockResolvedValue([]);
   getLibraryPeek.mockResolvedValue({
     ...row,
     content: '<p>The real passage that the reader can return to.</p>',
@@ -67,6 +69,20 @@ test('a title opens directly while Peek never saves a reading position and Escap
   expect(
     screen.queryByRole('button', { name: 'Read from here →' })
   ).not.toBeInTheDocument();
+});
+
+test('paints the collection before personal traces finish enriching it', async () => {
+  let resolveTraces;
+  getLibraryCollectionTraces.mockReturnValue(new Promise(resolve => { resolveTraces = resolve; }));
+  renderCollection();
+
+  expect(await screen.findByRole('button', { name: 'A quiet reading' })).toBeInTheDocument();
+  expect(screen.queryByText('A thought already held')).not.toBeInTheDocument();
+
+  await act(async () => {
+    resolveTraces([{ articleId: 'a', trace: { kind: 'thought', text: 'A thought already held' } }]);
+  });
+  expect(screen.getByText('A thought already held')).toBeInTheDocument();
 });
 test('one Peek at a time, including keyboard search access', async () => {
   getLibraryCollection.mockResolvedValue({

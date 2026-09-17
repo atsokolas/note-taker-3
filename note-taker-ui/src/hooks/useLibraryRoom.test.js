@@ -1,10 +1,11 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import useLibraryRoom from './useLibraryRoom';
-import { getLibraryRelevance, getLibraryRoom } from '../api/libraryRelevance';
+import { getLibraryRelevance, getLibraryRoom, getLibraryShelves } from '../api/libraryRelevance';
 
 jest.mock('../api/libraryRelevance', () => ({
   getLibraryRelevance: jest.fn(),
-  getLibraryRoom: jest.fn()
+  getLibraryRoom: jest.fn(),
+  getLibraryShelves: jest.fn()
 }));
 
 const roomPayload = {
@@ -33,6 +34,7 @@ describe('useLibraryRoom', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     getLibraryRoom.mockResolvedValue(roomPayload);
+    getLibraryShelves.mockResolvedValue({ shelves: roomPayload.shelves });
   });
 
   it('hydrates the landing room from one projection request', async () => {
@@ -42,12 +44,26 @@ describe('useLibraryRoom', () => {
     expect(getLibraryRoom).toHaveBeenCalledWith({
       view: 'recent',
       limit: 40,
-      showSuppressed: false
+      showSuppressed: false,
+      force: false
     });
     expect(result.current.sources).toHaveLength(1);
     expect(result.current.folders[0].name).toBe('AI');
     expect(result.current.shelfCounts.articles).toBe(2);
     expect(result.current.feedTopics[0].name).toBe('Newsletters');
+  });
+
+  it('loads shelves without mixed-source relevance for the collection view', async () => {
+    const { result } = renderHook(() => useLibraryRoom({ includeSources: false }));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(getLibraryShelves).toHaveBeenCalledWith({
+      showSuppressed: false,
+      force: false
+    });
+    expect(getLibraryRoom).not.toHaveBeenCalled();
+    expect(result.current.sources).toEqual([]);
+    expect(result.current.folders[0].name).toBe('AI');
   });
 
   it('lets Keep bump the shelf count before the room refetches', async () => {
@@ -79,7 +95,8 @@ describe('useLibraryRoom', () => {
     expect(getLibraryRoom).toHaveBeenCalledWith({
       view: 'needs_review',
       limit: 3,
-      showSuppressed: false
+      showSuppressed: false,
+      force: false
     });
   });
 

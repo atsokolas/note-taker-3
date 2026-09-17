@@ -52,12 +52,10 @@ const feedArrivals = async (Article, query, feedFolderIds) => {
   ]);
 };
 
-const buildLibraryRoomProjection = async ({
+const buildLibraryShelvesProjection = async ({
   userId,
   models = {},
   getFoldersWithCounts,
-  view = 'recent',
-  limit = 40,
   includeSuppressed = false
 } = {}) => {
   const { Article } = models;
@@ -75,14 +73,7 @@ const buildLibraryRoomProjection = async ({
   const laterQuery = { ...visibleQuery, placement: 'later' };
   const setAsideQuery = { ...visibleQuery, placement: 'setAside' };
 
-  const [relevance, rawArticles, visibleArticles, unfiledArticles, keptArticles, laterArticles, setAsideArticles, laterPile, setAsidePile, arrivals, ordinaryVisibleArticles] = await Promise.all([
-    buildMixedLibraryRelevancePage({
-      userId,
-      models,
-      view,
-      limit,
-      includeSuppressed
-    }),
+  const [rawArticles, visibleArticles, unfiledArticles, keptArticles, laterArticles, setAsideArticles, laterPile, setAsidePile, arrivals, ordinaryVisibleArticles] = await Promise.all([
     count(Article, { userId }),
     count(Article, imboxQuery),
     count(Article, {
@@ -99,28 +90,52 @@ const buildLibraryRoomProjection = async ({
   ]);
 
   return {
-    ...relevance,
-    shelves: {
-      folders: Array.isArray(folders) ? folders : [],
-      counts: {
-        articles: visibleArticles,
-        rawArticles,
-        unfiledArticles,
-        keptArticles,
-        laterArticles,
-        setAsideArticles,
-        suppressedArticles: Math.max(0, rawArticles - ordinaryVisibleArticles)
-      },
-      piles: {
-        later: laterPile,
-        setAside: setAsidePile
-      },
-      feedTopics: rankFeedTopics(folders, arrivals)
-    }
+    folders: Array.isArray(folders) ? folders : [],
+    counts: {
+      articles: visibleArticles,
+      rawArticles,
+      unfiledArticles,
+      keptArticles,
+      laterArticles,
+      setAsideArticles,
+      suppressedArticles: Math.max(0, rawArticles - ordinaryVisibleArticles)
+    },
+    piles: {
+      later: laterPile,
+      setAside: setAsidePile
+    },
+    feedTopics: rankFeedTopics(folders, arrivals)
   };
+};
+
+const buildLibraryRoomProjection = async ({
+  userId,
+  models = {},
+  getFoldersWithCounts,
+  view = 'recent',
+  limit = 40,
+  includeSuppressed = false
+} = {}) => {
+  const [relevance, shelves] = await Promise.all([
+    buildMixedLibraryRelevancePage({
+      userId,
+      models,
+      view,
+      limit,
+      includeSuppressed
+    }),
+    buildLibraryShelvesProjection({
+      userId,
+      models,
+      getFoldersWithCounts,
+      includeSuppressed
+    })
+  ]);
+  return { ...relevance, shelves };
 };
 
 module.exports = {
   buildLibraryRoomProjection,
+  buildLibraryShelvesProjection,
   visibleArticleQuery
 };
