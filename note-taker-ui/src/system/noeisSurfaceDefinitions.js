@@ -117,7 +117,6 @@ export const NOEIS_SURFACE_DEFINITIONS = Object.freeze([
     id: 'surface.growth',
     name: 'Growth',
     route: '/marketing-analytics',
-    navigationGroup: 'secondary',
     activePrefixes: ['/marketing-analytics', '/search-console-opportunities'],
     authenticatedPrefixes: ['/marketing-analytics', '/search-console-opportunities']
   }),

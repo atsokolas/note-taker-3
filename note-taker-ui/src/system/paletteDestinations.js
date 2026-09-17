@@ -11,16 +11,17 @@ import { rankFeedTopics } from '../pages/feedModel';
  * folder. The only search affordance in the top bar reached none of the five
  * places a reader actually keeps things in.
  *
- * So nothing here is typed twice. Rooms come from the surface definitions,
- * which is what the nav reads; the desk's places come from the places model,
- * which is what the strip reads; screened folders come from rankFeedTopics,
+ * So nothing here is typed twice. Advertised surfaces come from the surface
+ * definitions, which is what the nav reads; the desk's places come from the
+ * places model, which is what the strip reads; screened folders come from rankFeedTopics,
  * which is what the rail reads. A room added to the definitions arrives in
  * the palette on its own, and a room deleted from them leaves.
  *
  * Note that a room's `authenticatedPrefixes` are deliberately not read here.
  * `/review` and `/map` still appear among Think's prefixes because old links
  * must keep resolving; a prefix is a door that still opens, not a place worth
- * offering. Only a surface's own `route` is a destination.
+ * offering. Surfaces without a navigation group are operator tools: their
+ * routes still resolve, but the palette does not advertise them as places.
  */
 
 const clean = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
@@ -76,6 +77,7 @@ export const placementCommands = ({ subject = null } = {}) => {
 
 export const buildPaletteDestinations = ({ folders = [], articles = [] } = {}) => {
   const surfaces = NOEIS_SURFACE_DEFINITIONS
+    .filter(definition => definition.navigationGroup)
     .map(definition => ({
       id: definition.id,
       label: clean(definition.name),
