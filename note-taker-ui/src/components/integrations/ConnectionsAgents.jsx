@@ -20,8 +20,6 @@ const runtimeLabel = (runtime = '') => (
   || String(runtime || 'Agent')
 );
 
-const resolveTokenId = (token = {}) => String(token.id || token._id || '');
-
 const downloadText = (filename, text, type) => {
   const url = URL.createObjectURL(new Blob([text], { type }));
   const anchor = document.createElement('a');
