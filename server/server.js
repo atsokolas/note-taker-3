@@ -3556,15 +3556,20 @@ const normalizeReturnQueueItemType = (value) => {
 const UI_SETTINGS_DEFAULTS = Object.freeze({
   typographyScale: 'default',
   density: 'comfortable',
-  theme: 'light',
-  accent: 'blue',
-  brandEnergy: true
+  theme: 'auto',
+  accent: 'electric',
+  brandEnergy: true,
+  motion: 'system'
 });
 
 const UI_SETTINGS_TYPOGRAPHY_VALUES = new Set(['small', 'default', 'large']);
 const UI_SETTINGS_DENSITY_VALUES = new Set(['comfortable', 'compact']);
-const UI_SETTINGS_THEME_VALUES = new Set(['light', 'dark']);
-const UI_SETTINGS_ACCENT_VALUES = new Set(['blue', 'emerald', 'amber', 'rose']);
+const UI_SETTINGS_THEME_VALUES = new Set(['auto', 'light', 'dark']);
+const UI_SETTINGS_ACCENT_VALUES = new Set([
+  'electric', 'violet', 'indigo',
+  'blue', 'emerald', 'amber', 'rose'
+]);
+const UI_SETTINGS_MOTION_VALUES = new Set(['system', 'reduced']);
 const UI_SETTINGS_SCOPE_TYPE_VALUES = new Set(['global', 'workspace', 'concept', 'question', 'notebook']);
 
 const normalizeUiSettingsValue = (value, allowedValues, fallbackValue) => {
@@ -3614,7 +3619,12 @@ const normalizeUiSettingsPayload = (input = {}) => ({
       ? false
       : (String(input.brandEnergy || '').trim().toLowerCase() === 'true'
         ? true
-        : UI_SETTINGS_DEFAULTS.brandEnergy))
+        : UI_SETTINGS_DEFAULTS.brandEnergy)),
+  motion: normalizeUiSettingsValue(
+    input.motion,
+    UI_SETTINGS_MOTION_VALUES,
+    UI_SETTINGS_DEFAULTS.motion
+  )
 });
 
 const buildUiSettingsResponse = (doc, scope = { workspaceType: 'global', workspaceId: '' }) => {
@@ -3623,7 +3633,8 @@ const buildUiSettingsResponse = (doc, scope = { workspaceType: 'global', workspa
     ...UI_SETTINGS_DEFAULTS,
     ...normalized,
     workspaceType: scope.workspaceType || 'global',
-    workspaceId: scope.workspaceId || ''
+    workspaceId: scope.workspaceId || '',
+    updatedAt: doc?.updatedAt ? new Date(doc.updatedAt).toISOString() : null
   };
 };
 

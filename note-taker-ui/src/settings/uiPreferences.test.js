@@ -27,7 +27,8 @@ describe('uiPreferences', () => {
       density: 'compact',
       theme: 'dark',
       accent: 'electric',
-      brandEnergy: false
+      brandEnergy: false,
+      motion: 'system'
     };
 
     persistUiSettingsToStorage(saved);

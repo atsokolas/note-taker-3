@@ -18,20 +18,27 @@ export const DEFAULT_UI_SETTINGS = {
   density: 'comfortable',
   theme: 'auto',
   accent: 'electric',
-  brandEnergy: true
+  brandEnergy: true,
+  motion: 'system'
 };
 
 const TYPOGRAPHY_VALUES = new Set(['small', 'default', 'large']);
 const DENSITY_VALUES = new Set(['comfortable', 'compact']);
+const MOTION_VALUES = new Set(['system', 'reduced']);
 
 // Theme accepts three real values now. 'auto' tracks OS via prefers-color-
 // scheme so a user who never opens settings still gets the right look.
 // Persisted values from before this PR ('dark') still normalize cleanly.
 export const THEME_VALUES = new Set(['auto', 'light', 'dark']);
 export const THEME_OPTIONS = [
-  { value: 'auto', label: 'Auto', shortLabel: 'Auto' },
+  { value: 'auto', label: 'System', shortLabel: 'System' },
   { value: 'light', label: 'Light', shortLabel: 'Light' },
   { value: 'dark', label: 'Dark', shortLabel: 'Dark' }
+];
+
+export const MOTION_OPTIONS = [
+  { value: 'system', label: 'Follow device' },
+  { value: 'reduced', label: 'Less motion' }
 ];
 
 const ACCENT_VALUES = new Set(ACCENT_OPTIONS.map(option => option.value));
@@ -49,13 +56,38 @@ const normalizeBoolean = (value, fallbackValue = true) => {
   return fallbackValue;
 };
 
+const LEGACY_ACCENT_MAP = {
+  blue: 'electric',
+  emerald: 'electric',
+  amber: 'indigo',
+  rose: 'violet'
+};
+
+const normalizeAccent = (value) => {
+  const candidate = String(value || '').trim().toLowerCase();
+  if (ACCENT_VALUES.has(candidate)) return candidate;
+  if (LEGACY_ACCENT_MAP[candidate]) return LEGACY_ACCENT_MAP[candidate];
+  return DEFAULT_UI_SETTINGS.accent;
+};
+
 export const normalizeUiSettings = (input = {}) => ({
   typographyScale: normalizeOption(input.typographyScale, TYPOGRAPHY_VALUES, DEFAULT_UI_SETTINGS.typographyScale),
   density: normalizeOption(input.density, DENSITY_VALUES, DEFAULT_UI_SETTINGS.density),
   theme: normalizeOption(input.theme, THEME_VALUES, DEFAULT_UI_SETTINGS.theme),
-  accent: normalizeOption(input.accent, ACCENT_VALUES, DEFAULT_UI_SETTINGS.accent),
-  brandEnergy: normalizeBoolean(input.brandEnergy, DEFAULT_UI_SETTINGS.brandEnergy)
+  accent: normalizeAccent(input.accent),
+  brandEnergy: normalizeBoolean(input.brandEnergy, DEFAULT_UI_SETTINGS.brandEnergy),
+  motion: normalizeOption(input.motion, MOTION_VALUES, DEFAULT_UI_SETTINGS.motion)
 });
+
+export const effectiveReducedMotion = (motionPreference, mediaQuery) => {
+  const pref = normalizeOption(motionPreference, MOTION_VALUES, DEFAULT_UI_SETTINGS.motion);
+  if (pref === 'reduced') return true;
+  if (mediaQuery && typeof mediaQuery.matches === 'boolean') return mediaQuery.matches;
+  if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }
+  return false;
+};
 
 export const persistUiSettingsToStorage = (settings, storage = window.localStorage) => {
   try {
@@ -107,6 +139,12 @@ export const applyUiSettingsToRoot = (root, settings) => {
     brandEnergy: normalized.brandEnergy,
     accent
   }));
+
+  const reducedMotion = effectiveReducedMotion(normalized.motion);
+  root.setAttribute('data-ui-motion', reducedMotion ? 'reduced' : 'system');
+  if (typeof document !== 'undefined' && document.body) {
+    document.body.classList.toggle('noeis-reduced-motion', reducedMotion);
+  }
 
   return normalized;
 };

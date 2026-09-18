@@ -20,6 +20,7 @@ import {
   normalizeUiSettings,
   persistUiSettingsToStorage
 } from './settings/uiPreferences';
+import { TemporaryAppearanceProvider, TemporaryAppearanceBar } from './settings/TemporaryAppearanceContext';
 import { Page } from './components/ui';
 import AppShell from './layout/AppShell';
 import TopBar from './layout/TopBar';
@@ -609,6 +610,7 @@ function App() {
   const handleLogout = () => {
     clearStoredTokens();
     setIsAuthenticated(false);
+    persistUiSettingsToStorage(normalizeUiSettings(loadUiSettingsFromStorage()));
     window.location.href = '/';
   };
 
@@ -617,6 +619,7 @@ function App() {
   };
 
   const handleUiSettingsChange = async (updates) => {
+    const previous = uiSettings;
     const optimistic = normalizeUiSettings({ ...uiSettings, ...updates });
     setUiSettings(optimistic);
     if (!isAuthenticated) return;
@@ -628,9 +631,41 @@ function App() {
       persistUiSettingsToStorage(normalized);
     } catch (error) {
       console.error('Failed to save UI settings:', error);
+      setUiSettings(previous);
+      applyUiSettingsToRoot(document.documentElement, previous);
     } finally {
       setUiSettingsSaving(false);
     }
+  };
+
+  const handleAppearanceCommit = async (patch, nextDraft) => {
+    const optimistic = normalizeUiSettings({ ...uiSettings, ...patch });
+    setUiSettingsSaving(true);
+    try {
+      const saved = await saveUiSettings(optimistic);
+      const normalized = normalizeUiSettings(saved);
+      setUiSettings(normalized);
+      persistUiSettingsToStorage(normalized);
+      return { ok: true, settings: normalized };
+    } catch (error) {
+      console.error('Failed to save appearance settings:', error);
+      applyUiSettingsToRoot(document.documentElement, uiSettings);
+      return { ok: false };
+    } finally {
+      setUiSettingsSaving(false);
+    }
+  };
+
+  const handleAppearanceUndo = async (receipt) => {
+    const undoPatch = {};
+    receipt.keys.forEach((key) => {
+      undoPatch[key] = receipt.before[key];
+    });
+    const stillCurrent = receipt.keys.every((key) => uiSettings[key] === receipt.after[key]);
+    if (!stillCurrent) {
+      return { ok: false, partial: true };
+    }
+    return handleAppearanceCommit(undoPatch, normalizeUiSettings({ ...uiSettings, ...undoPatch }));
   };
 
   const openPalette = useCallback(() => {
@@ -780,8 +815,8 @@ function App() {
               element={(
                 <Settings
                   uiSettings={uiSettings}
-                  uiSettingsSaving={uiSettingsSaving}
-                  onUiSettingsChange={handleUiSettingsChange}
+                  onAppearanceCommit={handleAppearanceCommit}
+                  onAppearanceUndo={handleAppearanceUndo}
                 />
               )}
             />
@@ -864,6 +899,15 @@ function App() {
     );
 
     return (
+      <TemporaryAppearanceProvider
+        committedSettings={uiSettings}
+        onKeepTemporary={(draft) => handleAppearanceCommit(
+          Object.fromEntries(
+            Object.entries(draft).filter(([key, value]) => uiSettings[key] !== value)
+          ),
+          draft
+        )}
+      >
       <AppShell
         brandEnergy={uiSettings.brandEnergy}
         surface={surface}
@@ -908,7 +952,9 @@ function App() {
         )}
       >
         {routes}
+        <TemporaryAppearanceBar />
       </AppShell>
+      </TemporaryAppearanceProvider>
     );
   };
 

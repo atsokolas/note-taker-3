@@ -24,6 +24,7 @@ import { useNoeisCapabilities } from '../system/noeisCapabilityContext';
 import { displayWikiPageTitle } from './wiki/wikiRepoDossierModel';
 import { normalizeSpaces } from '../utils/editorialText';
 import { buildPaletteDestinations } from '../system/paletteDestinations';
+import { buildSettingsPaletteRows } from '../settings/settingsRegistry';
 import { getFolders } from '../api/folders';
 
 const EMPTY_GROUPS = {
@@ -271,7 +272,10 @@ const CommandPalette = ({ open, onClose }) => {
      Map — two dissolved rooms — and had never heard of Judgment, the three
      places on the desk, or a single screened folder. */
   const pages = useMemo(
-    () => buildPaletteDestinations({ folders, articles: shelfArticles }),
+    () => [
+      ...buildPaletteDestinations({ folders, articles: shelfArticles }),
+      ...buildSettingsPaletteRows()
+    ],
     [folders, shelfArticles]
   );
 
