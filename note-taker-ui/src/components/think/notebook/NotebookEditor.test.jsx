@@ -191,6 +191,39 @@ describe('NotebookEditor', () => {
     expect(screen.getByRole('button', { name: 'Bold' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Italic' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Quote' })).toBeInTheDocument();
+  });
+
+  it('opens More below the note utilities instead of covering the title', () => {
+    render(
+      <NotebookEditor
+        quietWorkspace
+        entry={{ _id: 'note-1', title: 'Playing to Win', content: '<p>Draft</p>', blocks: [], type: 'note', tags: [] }}
+        saving={false}
+        error=""
+        onSave={jest.fn()}
+        onDelete={jest.fn()}
+      />
+    );
+
+    const title = screen.getByPlaceholderText('Title');
+    fireEvent.click(screen.getByText('More'));
+    const exportDraft = screen.getByRole('button', { name: 'Export draft' });
+    expect(exportDraft).toBeVisible();
+    expect(title.compareDocumentPosition(exportDraft) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(0);
+    expect(exportDraft.compareDocumentPosition(title) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('keeps unused quote button coverage', () => {
+    render(
+      <NotebookEditor
+        entry={{ _id: 'note-1', title: '', content: '<p>Draft</p>', blocks: [], type: 'note', tags: [] }}
+        saving={false}
+        error=""
+        onSave={jest.fn()}
+        onDelete={jest.fn()}
+      />
+    );
+    expect(screen.getByRole('button', { name: 'Quote' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Paragraph' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Heading' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Evidence block' })).not.toBeInTheDocument();

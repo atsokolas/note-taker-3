@@ -238,7 +238,7 @@
   }
 
   .think-notes .ProseMirror { font-size: 1.12rem; }
-  .think-notes .think-notebook-utility { gap: 9px; overflow-x: auto; }
+  .think-notes .think-notebook-utility { gap: 9px; }
 }
 
 @media (max-width: 640px) {
@@ -349,11 +349,15 @@ body.noeis-editorial .think-notes .think-notebook-editor-header {
 .think-notes .think-notebook-utility {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 12px;
   min-height: 36px;
   margin-bottom: 0;
   border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 52%, transparent);
   font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+}
+.think-notes .think-notebook-utility:has(.think-notebook-utility__more[open]) {
+  align-items: flex-start;
 }
 .think-notebook-utility__kind {
   margin-right: auto;
@@ -370,15 +374,12 @@ body.noeis-editorial .think-notes .think-notebook-editor-header {
   background: transparent;
   font-size: 0.72rem;
 }
-.think-notebook-utility__more { position: relative; }
 .think-notebook-utility__more > summary { cursor: pointer; list-style: none; }
+.think-notebook-utility__more > summary::-webkit-details-marker { display: none; }
 .think-notebook-utility__more > div {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  z-index: 8;
   display: grid;
   width: max-content;
+  margin-top: 8px;
   padding: 8px;
   border: 1px solid var(--vellum-line);
   border-radius: 10px;

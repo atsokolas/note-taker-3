@@ -152,4 +152,11 @@ describe('SelectionMenu', () => {
     expect(onAskLibrarian).toHaveBeenCalledTimes(1);
   });
 
+  it('offers Leave a thought when the reader can annotate', () => {
+    const onThought = jest.fn();
+    render(<SelectionMenu {...baseProps} onThought={onThought} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Leave a thought' }));
+    expect(onThought).toHaveBeenCalledTimes(1);
+  });
+
 });

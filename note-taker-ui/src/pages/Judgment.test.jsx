@@ -190,11 +190,13 @@ const withRail = (children) => (
 
 const renderDetail = () => {
   jest.spyOn(router, 'useParams').mockReturnValue({ pageId: 'wiki-nvidia' });
+  jest.spyOn(router, 'useNavigate').mockReturnValue(navigate);
   return render(withRail(<Judgment />));
 };
 
 const renderDetailWithStatus = (controls) => {
   jest.spyOn(router, 'useParams').mockReturnValue({ pageId: 'wiki-nvidia' });
+  jest.spyOn(router, 'useNavigate').mockReturnValue(navigate);
   return render(
     <SystemStatusProvider value={controls}>
       {withRail(<Judgment />)}
@@ -202,8 +204,11 @@ const renderDetailWithStatus = (controls) => {
   );
 };
 
+const navigate = jest.fn();
+
 const renderIndex = () => {
   jest.spyOn(router, 'useParams').mockReturnValue({});
+  jest.spyOn(router, 'useNavigate').mockReturnValue(navigate);
   return render(withRail(<Judgment />));
 };
 
@@ -1271,12 +1276,11 @@ describe('the agent rail', () => {
     // shape are a question being investigated — and refuse the whole thing
     // with a 400. This is the shipped bug that test did not exist to catch.
     const { createWikiPage, updateWikiPage } = require('../api/wiki');
-    jest.spyOn(router, 'useParams').mockReturnValue({});
     listWikiPages.mockResolvedValue([]);
     createWikiPage.mockResolvedValue({ _id: 'wiki-new' });
     updateWikiPage.mockResolvedValue({});
 
-    render(<Judgment />);
+    renderIndex();
     await waitFor(() => expect(listWikiPages).toHaveBeenCalled());
     await waitFor(() => expect(document.querySelector('.judgment__new')).toHaveClass('is-alone'));
 
@@ -1292,17 +1296,11 @@ describe('the agent rail', () => {
     const [, payload] = updateWikiPage.mock.calls[0];
     expect(payload.judgment.currentJudgment).toBe('Demand still outruns deliverable capacity.');
     expect(payload.judgment.kind).toBeUndefined();
-    const content = within(document.querySelector('.judgment-room__content'));
-    expect(await content.findByRole('link', { name: 'Demand still outruns deliverable capacity.' }))
-      .toHaveAttribute('href', '/judgment/wiki-new');
-    expect(content.getByText('held · today')).toBeInTheDocument();
-    expect(content.getByText('Noted. I’ll look for what cuts against it.')).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByLabelText('Hold a view')).toHaveValue(''));
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/judgment/wiki-new'));
   });
 
   it('slides an existing hold forward instead of writing a second copy', async () => {
     const { createWikiPage, updateWikiPage } = require('../api/wiki');
-    jest.spyOn(router, 'useParams').mockReturnValue({});
     listWikiPages.mockResolvedValue([judgmentPage()]);
     createWikiPage.mockResolvedValue({
       _id: 'wiki-nvidia',
@@ -1313,7 +1311,7 @@ describe('the agent rail', () => {
       }
     });
 
-    render(<Judgment />);
+    renderIndex();
     const content = within(document.querySelector('.judgment-room__content'));
     expect(await content.findByRole('link', { name: 'NVIDIA' })).toBeInTheDocument();
 
@@ -1326,11 +1324,7 @@ describe('the agent rail', () => {
 
     await waitFor(() => expect(createWikiPage).toHaveBeenCalled());
     expect(updateWikiPage).not.toHaveBeenCalled();
-    await waitFor(() => expect(content.getByRole('link', { name: 'NVIDIA' }).closest('li')).toHaveClass('is-forward'));
-    expect(content.getByRole('link', { name: 'NVIDIA' }).closest('li'))
-      .toHaveTextContent('You already hold this — 21 days.');
-    expect(content.queryByText(/Noted\. I’ll look for what cuts against it/)).not.toBeInTheDocument();
-    await waitFor(() => expect(screen.getByLabelText('Hold a view')).toHaveValue(''));
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/judgment/wiki-nvidia'));
   });
 
   /* The index needs one sentence and a provenance line per judgment. Asking

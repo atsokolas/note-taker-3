@@ -391,7 +391,15 @@ const ArticleReader = ({
               navigate({ pathname: '/library', search: params.toString(), hash: '' });
             });
           }}
-          onThought={() => persistHighlight(setThought)}
+          onThought={() => persistHighlight(highlight => {
+            setThought(highlight);
+            const params = new URLSearchParams(location.search);
+            params.set('articleId', articleId);
+            params.set('highlightId', highlight._id);
+            params.delete('exploration');
+            params.set('thought', '1');
+            navigate({ pathname: '/library', search: params.toString(), hash: '' });
+          })}
           onAskLibrarian={() => handleSaveAndOpen(onAskLibrarian, 'The agent is unavailable here.')}
         />
       )}
