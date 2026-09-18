@@ -36,6 +36,10 @@ export default function PassageThought({
   }, [contentRef, contentHtml, highlight._id]);
   useEffect(() => {
     field.current?.focus({ preventScroll: true });
+    field.current?.closest('.article-passage-thought')?.scrollIntoView?.({
+      block: 'nearest',
+      behavior: 'smooth'
+    });
   }, [host]);
   const close = () => {
     onClose();

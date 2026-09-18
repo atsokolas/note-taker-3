@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   createWikiPage,
   downloadJudgmentPamphlet,
@@ -32,7 +32,7 @@ import NightWatch from '../components/judgment/NightWatch';
 import TakeThePaper from '../components/judgment/TakeThePaper';
 import JudgmentContextTools from '../components/judgment/JudgmentContextTools';
 import { CasebookPreview } from './PublicCasebook';
-import { flySentenceInto, handOffSentence, takeFirstPaint, ENTER_DURATION_MS, prefersReducedMotion } from '../motion/columnMotion';
+import { flySentenceInto, handOffSentence, takeFirstPaint } from '../motion/columnMotion';
 import { usePrefersReducedMotion } from '../hooks/useMotionPreferences';
 import { useSystemStatusControls } from '../system/SystemStatusContext';
 import {
@@ -50,7 +50,6 @@ import {
   formatHoldAge,
   formatLedgerDate,
   oneSentence,
-  PARTNER_ACK,
   projectJudgment,
   selectOvernightLine,
   verdictEvidenceOptions,
@@ -367,6 +366,7 @@ const JudgmentChangeReview = ({
 };
 
 const JudgmentIndex = ({ items, loading, onHeld, collectionView = 'open' }) => {
+  const navigate = useNavigate();
   const arriving = useMemo(() => takeFirstPaint('judgment-index'), []);
   const enter = arriving ? 'wfp-anim wfp-anim--2' : 'judgment-return';
 
@@ -375,33 +375,13 @@ const JudgmentIndex = ({ items, loading, onHeld, collectionView = 'open' }) => {
   const [holding, setHolding] = useState(false);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState('');
-  const [arrivingId, setArrivingId] = useState('');
-  const [arrivingSentence, setArrivingSentence] = useState('');
-  const [partnerNote, setPartnerNote] = useState('');
-  const [forwardId, setForwardId] = useState('');
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('all');
   const inputRef = useRef(null);
-  const rowRefs = useRef(new Map());
-  const pendingClearRef = useRef(0);
-
-  useEffect(() => () => window.clearTimeout(pendingClearRef.current), []);
-
-  useLayoutEffect(() => {
-    if (!arrivingId || !arrivingSentence) return undefined;
-    const node = rowRefs.current.get(arrivingId);
-    const flown = node ? flySentenceInto(node, arrivingSentence) : false;
-    const wait = prefersReducedMotion() || !flown ? 0 : ENTER_DURATION_MS;
-    pendingClearRef.current = window.setTimeout(() => {
-      setDraft('');
-      setCreating(false);
-    }, wait);
-    return undefined;
-  }, [arrivingId, arrivingSentence]);
 
   /* The claim is the page. A judgment is a wiki page carrying a judgment
      contract, so writing one down creates that page and puts the sentence in
-     it. The sentence lifts into the casebook; the input lets go after it lands. */
+     it. Holding it opens the case so building can start immediately. */
   /* Nothing held yet: the room has nothing to interrupt, so it asks. */
   const alone = !items.length && !loading;
   const holdingOpen = holding || alone;
@@ -423,12 +403,6 @@ const JudgmentIndex = ({ items, loading, onHeld, collectionView = 'open' }) => {
     if (!sentence || creating) return;
     setCreating(true);
     setCreateError('');
-    setPartnerNote('');
-    setForwardId('');
-    /* The first sentence held turns an empty room into a full one, which would
-       otherwise fold the field away mid-thought — and take the line confirming
-       what just happened with it. */
-    setHolding(true);
     try {
       const held = await createJudgment(sentence, {
         createPage: createWikiPage,
@@ -450,25 +424,18 @@ const JudgmentIndex = ({ items, loading, onHeld, collectionView = 'open' }) => {
         pendingDossierResearch: false
       };
       onHeld?.(item);
-      if (held.reused) {
-        setForwardId(held.id);
-        const wait = prefersReducedMotion() ? 0 : ENTER_DURATION_MS;
-        pendingClearRef.current = window.setTimeout(() => {
-          setDraft('');
-          setCreating(false);
-        }, wait);
-        return;
+      if (!held.reused) {
+        const origin = inputRef.current;
+        if (origin) handOffSentence(sentence, origin);
       }
-      const origin = inputRef.current;
-      if (origin) handOffSentence(sentence, origin);
-      setArrivingSentence(sentence);
-      setArrivingId(held.id);
-      setPartnerNote(PARTNER_ACK);
+      navigate(`/judgment/${held.id}`);
+      setDraft('');
+      setCreating(false);
     } catch (error) {
       setCreateError(error?.message || 'The judgment could not be created.');
       setCreating(false);
     }
-  }, [creating, draft, onHeld]);
+  }, [creating, draft, navigate, onHeld]);
 
   // The index is a title column, not a thing to interrogate. The rail
   // stays where it is and waits for one of them to be opened.
@@ -524,9 +491,6 @@ const JudgmentIndex = ({ items, loading, onHeld, collectionView = 'open' }) => {
             ) : null}
             {createError ? <span role="alert">{createError}</span> : null}
           </div>
-          {partnerNote ? (
-            <p className="judgment__partner-note" role="status">{partnerNote}</p>
-          ) : null}
         </form>
       ) : (
         <button type="button" className={`judgment__hold-door ${enter}`} onClick={() => setHolding(true)}>
@@ -559,14 +523,9 @@ const JudgmentIndex = ({ items, loading, onHeld, collectionView = 'open' }) => {
               <li
                 key={item.id}
                 data-state={item.state}
-                className={forwardId === item.id ? 'is-forward' : ''}
               >
                 <Link
                   to={`/judgment/${item.id}`}
-                  ref={(node) => {
-                    if (node) rowRefs.current.set(item.id, node);
-                    else rowRefs.current.delete(item.id);
-                  }}
                   onClick={(event) => handOffSentence(item.headline, event.currentTarget)}
                 >
                   {item.headline}

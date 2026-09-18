@@ -62,6 +62,15 @@ describe('Think writing focus mode', () => {
     expect(stitch).toContain('grid-template-columns: 260px minmax(0, 1fr) 320px;');
   });
 
+  it('lets the Think More menu grow the header instead of overlaying the title', () => {
+    const notes = fs.readFileSync(path.join(__dirname, 'think-notes.css'), 'utf8');
+    const moreMenu = notes.match(/\.think-notebook-utility__more > div \{[^}]+\}/);
+    expect(moreMenu?.[0]).toBeTruthy();
+    expect(moreMenu?.[0]).not.toMatch(/position:\s*absolute/);
+    expect(notes).toMatch(/\.think-notebook-utility__more > summary::-webkit-details-marker/);
+    expect(notes).not.toMatch(/@media \(max-width: 760px\)[\s\S]*\.think-notes \.think-notebook-utility \{[^}]*overflow-x:\s*auto;/);
+  });
+
   it('keeps notebook arrangement off the essay until a small right-rail mark is opened', () => {
     expect(css).toContain('.notebook-arrangement {');
     expect(css).toContain('right: 0;');

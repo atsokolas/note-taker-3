@@ -23,14 +23,18 @@ import { passageFromSelection } from './wiki/open-sentence/LibraryPassagePicker'
 
 jest.mock('../api/articleReadingState', () => ({ getArticleReadingState: jest.fn(async () => null), saveArticleReadingState: jest.fn(async () => {}) }));
 jest.mock('../api/highlights', () => ({
-  createHighlight: jest.fn()
+  createHighlight: jest.fn(),
+  updateHighlight: jest.fn()
 }));
 jest.mock('../api/wiki', () => ({
   listWikiPages: jest.fn(async () => [])
 }));
-jest.mock('./reader/SelectionMenu', () => ({ onAskLibrarian, onWorkWithPassage }) => (
-  <><button type="button" onClick={onAskLibrarian}>Ask about this</button>
-  <button type="button" onClick={onWorkWithPassage}>Work with this passage</button></>
+jest.mock('./reader/SelectionMenu', () => ({ onAskLibrarian, onWorkWithPassage, onThought }) => (
+  <>
+    <button type="button" onClick={onAskLibrarian}>Ask about this</button>
+    <button type="button" onClick={onWorkWithPassage}>Work with this passage</button>
+    {onThought ? <button type="button" onClick={onThought}>Leave a thought</button> : null}
+  </>
 ));
 jest.mock('./reader/MagneticReadingRail', () => () => <div data-testid="magnetic-reading-rail" />);
 jest.mock('./reader/useTextSelection', () => jest.fn());
@@ -137,6 +141,57 @@ describe('ArticleReader', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Work with this passage' }));
     await waitFor(() => expect(useNavigate()).toHaveBeenCalledWith({ pathname: '/library', search: 'scope=kept&folder=folder-1&articleId=article-1&highlightId=highlight-new&exploration=1', hash: '' }));
     expect(createHighlight).toHaveBeenCalledWith(expect.objectContaining({ articleId: 'article-1', text: selection.text, anchor: selection.anchor }));
+  });
+
+  it('opens an annotation field after Leave a thought instead of only highlighting', async () => {
+    window.history.replaceState({}, '', '/library?articleId=article-1');
+    const selection = {
+      text: 'A passage worth keeping.',
+      anchor: { prefix: 'Before. ', suffix: ' After.', startOffsetApprox: 8 },
+      isOpen: true
+    };
+    useTextSelection.mockReturnValue({ selectionState: selection, clearSelection: jest.fn() });
+    createHighlight.mockResolvedValue({ _id: 'highlight-thought', text: selection.text, note: '' });
+    render(
+      <MemoryRouter initialEntries={['/library?articleId=article-1']}>
+        <ArticleReader
+          article={{ _id: 'article-1', title: 'A real source', content: `<p>${selection.text}</p>` }}
+          highlights={[]}
+        />
+      </MemoryRouter>
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Leave a thought' }));
+    expect(await screen.findByRole('textbox', { name: 'Your thought' })).toBeVisible();
+    await waitFor(() => expect(useNavigate()).toHaveBeenCalledWith({
+      pathname: '/library',
+      search: 'articleId=article-1&highlightId=highlight-thought&thought=1',
+      hash: ''
+    }));
+    expect(createHighlight).toHaveBeenCalledWith(expect.objectContaining({
+      articleId: 'article-1',
+      text: selection.text,
+      anchor: selection.anchor
+    }));
+  });
+
+  it('opens the thought editor when arriving to annotate a saved passage', async () => {
+    window.history.replaceState({}, '', '/library?articleId=article-1&highlightId=highlight-1&thought=1');
+    jest.spyOn(Router, 'useLocation').mockImplementation(() => ({
+      pathname: '/library',
+      search: window.location.search,
+      hash: '',
+      key: 'thought-arrival'
+    }));
+    render(
+      <MemoryRouter initialEntries={['/library?articleId=article-1&highlightId=highlight-1&thought=1']}>
+        <ArticleReader
+          article={{ _id: 'article-1', content: '<p>A source sentence.</p>' }}
+          highlights={[{ _id: 'highlight-1', text: 'A source sentence.', note: '' }]}
+          focusedHighlightId="highlight-1"
+        />
+      </MemoryRouter>
+    );
+    expect(await screen.findByRole('textbox', { name: 'Your thought' })).toBeVisible();
   });
 
   it('explains an oversized passage before creating a highlight', () => {
