@@ -1,7 +1,7 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getEditionInbox, saveEditionItemLater, setEditionItemState } from '../../api/editions';
 import { byInboxEdition, inboxEditionLine } from '../../pages/editionModel';
+import useEditionArrivals, { rowKey } from './useEditionArrivals';
 
 /**
  * What arrived, before the papers themselves.
@@ -11,8 +11,6 @@ import { byInboxEdition, inboxEditionLine } from '../../pages/editionModel';
  */
 
 const LATER = '/library?scope=later';
-const rowKey = (row) => `${row.editionId}:${row.itemId}`;
-
 const filedLine = (row) => {
   if (!row.filedAt) return '';
   const date = new Date(row.filedAt);
@@ -107,101 +105,10 @@ const InboxEdition = ({ group, busy, onLater, onDismiss }) => {
 };
 
 const EditionInbox = () => {
-  const [items, setItems] = useState(null);
-  const [error, setError] = useState('');
-  const [pending, setPending] = useState(0);
-  const [busy, setBusy] = useState('');
-  const [receipt, setReceipt] = useState(null);
-  const [undo, setUndo] = useState(null);
-  const [more, setMore] = useState(0);
-  const held = useRef(new Set());
-  const nextCursor = useRef('');
-
-  const absorb = useCallback((page, { replace = false } = {}) => {
-    const incoming = page.items || [];
-    nextCursor.current = page.nextCursor || '';
-    setMore(page.remaining || 0);
-    setItems((current) => {
-      const base = replace || !current ? [] : current;
-      const seen = new Set(base.map(rowKey));
-      const added = incoming.filter(row => !seen.has(rowKey(row)));
-      added.forEach(row => held.current.add(rowKey(row)));
-      return replace ? incoming : [...base, ...added];
-    });
-  }, []);
-
-  const load = useCallback(async ({ cursor = '', replace = false } = {}) => {
-    setError('');
-    try {
-      absorb(await getEditionInbox({ cursor }), { replace });
-    } catch (loadError) {
-      setError(loadError?.response?.data?.error || 'New items did not load.');
-      if (!cursor) setItems((current) => current || []);
-    }
-  }, [absorb]);
-
-  useEffect(() => { load({ replace: true }); }, [load]);
-
-  useEffect(() => {
-    const onVisible = () => {
-      if (document.visibilityState !== 'visible') return;
-      getEditionInbox()
-        .then((page) => {
-          const unseen = (page.items || []).filter(row => !held.current.has(rowKey(row)));
-          if (unseen.length) setPending(unseen.length);
-        })
-        .catch(() => {});
-    };
-    document.addEventListener('visibilitychange', onVisible);
-    return () => document.removeEventListener('visibilitychange', onVisible);
-  }, []);
-
-  const act = async (row, label, work) => {
-    const key = `${rowKey(row)}:${label}`;
-    if (busy) return;
-    setBusy(key);
-    setError('');
-    try {
-      await work();
-      held.current.delete(rowKey(row));
-      setItems(current => (current || []).filter(entry => rowKey(entry) !== rowKey(row)));
-    } catch (actionError) {
-      setError(actionError?.response?.data?.error || actionError?.message || 'That did not complete.');
-    } finally {
-      setBusy('');
-    }
-  };
-
-  const dismiss = (row) => act(row, 'dismiss', async () => {
-    await setEditionItemState(row.editionId, row.itemId, 'dismissed');
-    setUndo(row);
-    setReceipt(null);
-  });
-
-  const undoDismiss = async () => {
-    if (!undo || busy) return;
-    const row = undo;
-    setBusy('undo');
-    try {
-      await setEditionItemState(row.editionId, row.itemId, 'new');
-      held.current.add(rowKey(row));
-      setItems(current => [row, ...(current || [])]);
-      setUndo(null);
-    } catch (actionError) {
-      setError(actionError?.response?.data?.error || 'Could not restore that item.');
-    } finally {
-      setBusy('');
-    }
-  };
-
-  const later = (row) => act(row, 'later', async () => {
-    const result = await saveEditionItemLater(row.editionId, row.itemId);
-    if (result?.placed === false) {
-      throw new Error(result.error || 'Saved to Library; could not move to Later — Retry');
-    }
-    setUndo(null);
-    setReceipt({ fromSetAside: Boolean(result?.fromSetAside) });
-  });
+  const {
+    items, error, pending, busy, receipt, undo, more,
+    load, loadMore, showPending, dismiss, later, undoChoice
+  } = useEditionArrivals();
 
   const groups = useMemo(() => byInboxEdition(items || []), [items]);
 
@@ -218,7 +125,7 @@ const EditionInbox = () => {
 
       {pending ? (
         <p className="edition-inbox__status">
-          <button type="button" onClick={() => { setPending(0); load({ replace: true }); }}>
+          <button type="button" onClick={showPending}>
             {`Show ${pending} new item${pending === 1 ? '' : 's'}`}
           </button>
         </p>
@@ -235,7 +142,7 @@ const EditionInbox = () => {
       {undo ? (
         <p className="edition-inbox__status">
           Dismissed.
-          <button type="button" onClick={undoDismiss} disabled={Boolean(busy)}>Undo</button>
+          <button type="button" onClick={undoChoice} disabled={Boolean(busy)}>Undo</button>
         </p>
       ) : null}
 
@@ -257,7 +164,7 @@ const EditionInbox = () => {
 
       {more && !pending ? (
         <p className="edition-inbox__status">
-          <button type="button" onClick={() => load({ cursor: nextCursor.current })}>
+          <button type="button" onClick={loadMore}>
             {`Show ${more} new items`}
           </button>
         </p>
