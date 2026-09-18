@@ -1,5 +1,6 @@
 const assert = require('assert');
 const { buildImportRouter } = require('../importRoutes');
+const { encryptSecret } = require('../../utils/integrationSecrets');
 
 const getHandler = (router, routePath) => {
   const layer = router.stack.find(entry => entry.route?.path === routePath);
@@ -20,16 +21,45 @@ const response = () => ({
   }
 });
 
-const run = async () => {
+const buildTestRouter = ({ IntegrationConnection, ImportSession = null }) => buildImportRouter({
+  authenticateToken: (_req, _res, next) => next(),
+  upload: { single: () => (_req, _res, next) => next() },
+  Papa: {},
+  findRowValue: () => '',
+  slugify: value => value,
+  parseTagList: () => [],
+  Article: {},
+  trackEvent: () => {},
+  EVENT_NAMES: {},
+  path: {},
+  crypto: {},
+  TagMeta: {},
+  NotebookEntry: {},
+  AgentStructureProposal: {},
+  ImportSession: ImportSession || {
+    async findOne() {
+      return null;
+    }
+  },
+  IntegrationConnection,
+  syncNotebookReferences: async () => {},
+  enqueueArticleEmbedding: async () => {},
+  enqueueHighlightEmbedding: async () => {},
+  enqueueNotebookEmbedding: async () => {}
+});
+
+const runDisconnectClearsCredentials = async () => {
   const connection = {
     _id: 'connection-1',
     userId: 'user-1',
     provider: 'readwise',
+    mode: 'api_token',
     accountLabel: 'Reader',
     status: 'connected',
     health: 'healthy',
     encryptedAccessToken: 'encrypted-access',
     encryptedRefreshToken: 'encrypted-refresh',
+    encryptedApiToken: encryptSecret('readwise-personal-token'),
     lastSyncAt: new Date('2026-09-17T10:00:00.000Z'),
     lastSyncResult: {
       importedArticles: 3,
@@ -51,28 +81,7 @@ const run = async () => {
         : null;
     }
   };
-  const router = buildImportRouter({
-    authenticateToken: (_req, _res, next) => next(),
-    upload: { single: () => (_req, _res, next) => next() },
-    Papa: {},
-    findRowValue: () => '',
-    slugify: value => value,
-    parseTagList: () => [],
-    Article: {},
-    trackEvent: () => {},
-    EVENT_NAMES: {},
-    path: {},
-    crypto: {},
-    TagMeta: {},
-    NotebookEntry: {},
-    AgentStructureProposal: {},
-    ImportSession: {},
-    IntegrationConnection,
-    syncNotebookReferences: async () => {},
-    enqueueArticleEmbedding: async () => {},
-    enqueueHighlightEmbedding: async () => {},
-    enqueueNotebookEmbedding: async () => {}
-  });
+  const router = buildTestRouter({ IntegrationConnection });
 
   const handler = getHandler(router, '/api/import/connections/:id/disconnect');
   const res = response();
@@ -86,11 +95,104 @@ const run = async () => {
   assert.strictEqual(connection.status, 'revoked');
   assert.strictEqual(connection.encryptedAccessToken, '');
   assert.strictEqual(connection.encryptedRefreshToken, '');
+  assert.strictEqual(connection.encryptedApiToken, '');
   assert.strictEqual(res.body.connection.lastSyncAt, '2026-09-17T10:00:00.000Z');
   assert.strictEqual(res.body.boundaries.importedContent, 'retained');
   assert.strictEqual(res.body.boundaries.completedWork, 'unchanged');
   assert.strictEqual(res.body.boundaries.providerRevocation, 'not_confirmed');
   assert.strictEqual(res.body.boundaries.inFlightWork, 'not_cancelled');
+};
+
+const runRevokedApiTokenCannotPreviewOrSync = async () => {
+  const connection = {
+    _id: 'connection-revoked',
+    userId: 'user-1',
+    provider: 'readwise',
+    mode: 'api_token',
+    accountLabel: 'Readwise',
+    status: 'revoked',
+    health: 'unknown',
+    encryptedApiToken: encryptSecret('stale-readwise-token'),
+    encryptedAccessToken: '',
+    encryptedRefreshToken: '',
+    lastError: '',
+    async save() {
+      return this;
+    },
+    toObject() {
+      return {
+        _id: this._id,
+        provider: this.provider,
+        mode: this.mode,
+        accountLabel: this.accountLabel,
+        status: this.status,
+        health: this.health,
+        lastError: this.lastError
+      };
+    }
+  };
+
+  const importSession = {
+    _id: 'session-1',
+    userId: 'user-1',
+    provider: 'readwise',
+    status: 'draft',
+    sourceLabel: 'Readwise',
+    progress: { stage: 'draft', percent: 0 },
+    async save() {
+      return this;
+    }
+  };
+
+  const IntegrationConnection = {
+    async findOne(query) {
+      if (
+        String(query._id) === connection._id
+        && query.userId === connection.userId
+        && query.provider === 'readwise'
+      ) {
+        return connection;
+      }
+      return null;
+    }
+  };
+
+  const ImportSession = {
+    async findOne(query) {
+      if (String(query._id) === importSession._id && query.userId === importSession.userId) {
+        return importSession;
+      }
+      return null;
+    }
+  };
+
+  const router = buildTestRouter({ IntegrationConnection, ImportSession });
+  const previewHandler = getHandler(router, '/api/import/readwise/preview');
+  const syncHandler = getHandler(router, '/api/import/readwise/sync');
+
+  const previewRes = response();
+  await previewHandler({
+    user: { id: 'user-1' },
+    body: { connectionId: 'connection-revoked', importSessionId: 'session-1' }
+  }, previewRes);
+
+  assert.strictEqual(previewRes.statusCode, 409);
+  assert.match(previewRes.body.error, /did not return anything Noeis can read with/i);
+
+  const syncRes = response();
+  await syncHandler({
+    user: { id: 'user-1' },
+    body: { connectionId: 'connection-revoked', importSessionId: 'session-1' }
+  }, syncRes);
+
+  assert.strictEqual(syncRes.statusCode, 409);
+  assert.match(syncRes.body.error, /did not return anything Noeis can read with/i);
+  assert.notStrictEqual(connection.health, 'healthy', 'Revoked sync must not mark the connection healthy.');
+};
+
+const run = async () => {
+  await runDisconnectClearsCredentials();
+  await runRevokedApiTokenCannotPreviewOrSync();
 };
 
 run().catch((error) => {

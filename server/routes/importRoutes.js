@@ -733,6 +733,9 @@ const buildImportRouter = ({
    * documents for export, and it does not expire out from under a long import.
    */
   const resolveReadwiseCredential = (connection) => {
+    if (connection?.status === 'revoked') {
+      return null;
+    }
     if (connection?.encryptedApiToken) {
       return { token: decryptSecret(connection.encryptedApiToken), tokenType: 'api' };
     }
@@ -1626,6 +1629,7 @@ const buildImportRouter = ({
       connection.health = 'unknown';
       connection.encryptedAccessToken = '';
       connection.encryptedRefreshToken = '';
+      connection.encryptedApiToken = '';
       connection.lastError = '';
       await connection.save();
 
@@ -1835,6 +1839,9 @@ const buildImportRouter = ({
       });
       if (!connection) {
         return res.status(404).json({ error: 'Readwise connection not found.' });
+      }
+      if (connection.status === 'revoked') {
+        return res.status(400).json({ error: 'This Readwise connection was disconnected.' });
       }
       if (connection.mode === 'mcp_remote') {
         return res.status(200).json({
