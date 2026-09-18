@@ -28,6 +28,7 @@ const EXEMPT_PREFIXES = [
   '/register',
   '/login',
   '/a/run/',
+  '/settings',
   '/settings/connected-agents'
 ];
 

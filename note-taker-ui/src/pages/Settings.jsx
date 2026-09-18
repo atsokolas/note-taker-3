@@ -1,486 +1,232 @@
-import React, { useEffect, useState } from 'react';
-import Export from './Export';
-import { Page, Card, Button } from '../components/ui';
-import { Link } from 'react-router-dom';
-import { ACCENT_OPTIONS, THEME_OPTIONS } from '../settings/uiPreferences';
-import { resetTourState } from '../api/tourApi';
-import { getMarketingFunnelSnapshot } from '../api/marketingAnalytics';
-import { getWikiSchema, revertWikiSchema, saveWikiSchema, suggestWikiSchemaUpdates } from '../api/wiki';
-import ConnectedAgentsCard from '../components/integrations/ConnectedAgentsCard';
-import useAgentTokens from '../hooks/integrations/useAgentTokens';
-import { trackWikiSchemaSaved, trackWikiSchemaSuggested } from '../utils/wikiAnalytics';
-import { isWikiReadModeV2Enabled } from '../utils/wikiFeatureFlags';
-import { TOUR_CACHE_KEY } from '../tour/tourConfig';
-import MorningPaperEmailSettingsCard from '../components/settings/MorningPaperEmailSettingsCard';
-import SystemInventoryCard from '../components/settings/SystemInventoryCard';
-
-const TYPOGRAPHY_OPTIONS = [
-  { value: 'small', label: 'Small' },
-  { value: 'default', label: 'Default' },
-  { value: 'large', label: 'Large' }
-];
-
-const DENSITY_OPTIONS = [
-  { value: 'comfortable', label: 'Comfortable' },
-  { value: 'compact', label: 'Compact' }
-];
-
-const WIKI_SCHEMA_MAX_CHARS = 8000;
-
-const formatEntryLabel = (value = '') => {
-  const cleaned = String(value || '').trim();
-  if (!cleaned || cleaned === '(unknown)') return 'Unknown entry';
-  return cleaned
-    .split('-')
-    .filter(Boolean)
-    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
-    .join(' ');
-};
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import '../styles/settings-redesign.css';
+import SettingsShell from '../components/settings/SettingsShell';
+import AppearanceSection from '../components/settings/AppearanceSection';
+import DeliverySection from '../components/settings/DeliverySection';
+import DataSection from '../components/settings/DataSection';
+import AdvancedSection from '../components/settings/AdvancedSection';
+import { normalizeUiSettings, UI_SETTINGS_STORAGE_KEY } from '../settings/uiPreferences';
+import {
+  appearanceDiffKeys,
+  mergeRemoteIntoDraft,
+  pickAppearancePatch
+} from '../settings/appearanceFieldModel';
+import { parseSettingsLocation } from '../settings/settingsRegistry';
+import {
+  captureSettingsReturnPath,
+  clearSettingsReturnPath,
+  readSettingsReturnPath,
+  returnLinkLabel
+} from '../settings/settingsReturnPath';
 
 const Settings = ({
-  uiSettings = { typographyScale: 'default', density: 'comfortable', theme: 'dark', accent: 'electric', brandEnergy: true },
-  uiSettingsSaving = false,
-  onUiSettingsChange = () => {}
+  uiSettings = normalizeUiSettings(),
+  onAppearanceCommit = async () => ({ ok: false }),
+  onAppearanceUndo = async () => ({ ok: false })
 }) => {
-  const [marketingFunnel, setMarketingFunnel] = useState(null);
-  const [marketingLoading, setMarketingLoading] = useState(true);
-  const [marketingError, setMarketingError] = useState('');
-  const [wikiSchemaDraft, setWikiSchemaDraft] = useState('');
-  const [wikiSchemaSnapshots, setWikiSchemaSnapshots] = useState([]);
-  const [wikiSchemaSuggestion, setWikiSchemaSuggestion] = useState(null);
-  const [wikiSchemaLoading, setWikiSchemaLoading] = useState(false);
-  const [wikiSchemaSaving, setWikiSchemaSaving] = useState(false);
-  const [wikiSchemaLoadPending, setWikiSchemaLoadPending] = useState(true);
-  const [wikiSchemaError, setWikiSchemaError] = useState('');
-  const [wikiSchemaStatus, setWikiSchemaStatus] = useState('');
-  const wikiSchemaEnabled = isWikiReadModeV2Enabled();
-  const agentTokensModel = useAgentTokens();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const parsed = parseSettingsLocation(location.search, location.hash);
+  const [section, setSection] = useState(parsed.section);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [committed, setCommitted] = useState(() => normalizeUiSettings(uiSettings));
+  const [draft, setDraft] = useState(() => normalizeUiSettings(uiSettings));
+  const [editBase, setEditBase] = useState(() => normalizeUiSettings(uiSettings));
+  const [saveState, setSaveState] = useState('idle');
+  const [lastReceipt, setLastReceipt] = useState(null);
+  const [remoteBaseline, setRemoteBaseline] = useState(null);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const returnMeta = readSettingsReturnPath();
+  const pendingSaveRef = useRef(0);
 
   useEffect(() => {
-    let cancelled = false;
-    const loadMarketingFunnel = async () => {
-      setMarketingLoading(true);
-      setMarketingError('');
-      try {
-        const snapshot = await getMarketingFunnelSnapshot({ days: 30 });
-        if (!cancelled) {
-          setMarketingFunnel(snapshot);
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setMarketingError(error?.response?.data?.error || 'Failed to load funnel snapshot.');
-        }
-      } finally {
-        if (!cancelled) {
-          setMarketingLoading(false);
-        }
-      }
-    };
-    loadMarketingFunnel();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!wikiSchemaEnabled) {
-      setWikiSchemaLoadPending(false);
-      return undefined;
+    const normalized = normalizeUiSettings(uiSettings);
+    setCommitted(normalized);
+    if (!appearanceDiffKeys(draft, editBase).length) {
+      setDraft(normalized);
+      setEditBase(normalized);
     }
-    let cancelled = false;
-    const loadWikiSchema = async () => {
-      setWikiSchemaLoadPending(true);
-      setWikiSchemaError('');
-      try {
-        const settings = await getWikiSchema();
-        if (!cancelled) {
-          setWikiSchemaDraft(settings.content || '');
-          setWikiSchemaSnapshots(Array.isArray(settings.snapshots) ? settings.snapshots : []);
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setWikiSchemaError(error?.response?.data?.error || 'Failed to load wiki schema.');
-        }
-      } finally {
-        if (!cancelled) setWikiSchemaLoadPending(false);
-      }
-    };
-    loadWikiSchema();
-    return () => {
-      cancelled = true;
-    };
-  }, [wikiSchemaEnabled]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- only sync when server ack changes, not while editing
+  }, [uiSettings]);
 
-  const funnelTotals = marketingFunnel?.totals || {
-    signupViewed: 0,
-    signupStarted: 0,
-    signupsCompleted: 0,
-    activatedUsers: 0
-  };
+  useEffect(() => {
+    if (location.state?.returnTo) {
+      captureSettingsReturnPath(location, { fromPath: location.state.returnTo, label: location.state.returnLabel });
+    }
+  }, [location]);
 
-  const handleSuggestWikiSchemaUpdates = async () => {
-    setWikiSchemaLoading(true);
-    setWikiSchemaError('');
-    try {
-      const result = await suggestWikiSchemaUpdates({ currentSchema: wikiSchemaDraft });
-      setWikiSchemaSuggestion(result);
-      trackWikiSchemaSuggested({
-        runId: result?.runId || '',
-        suggestionCount: Array.isArray(result?.suggestions) ? result.suggestions.length : 0
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const next = parseSettingsLocation(location.search, location.hash);
+    setSection(next.section);
+    const focus = params.get('focus');
+    if (focus) {
+      window.requestAnimationFrame(() => {
+        const target = document.getElementById(focus);
+        if (target) {
+          const fold = target.closest('details');
+          if (fold) fold.open = true;
+          target.classList.add('settings-redesign__anchor-flash');
+          target.scrollIntoView({ block: 'center', behavior: 'auto' });
+          const focusable = target.matches('input,textarea,select,button')
+            ? target
+            : target.querySelector('input,select,textarea,button');
+          focusable?.focus({ preventScroll: true });
+          window.setTimeout(() => target.classList.remove('settings-redesign__anchor-flash'), 2000);
+        }
       });
-    } catch (error) {
-      setWikiSchemaError(error?.response?.data?.error || 'Failed to suggest schema updates.');
-    } finally {
-      setWikiSchemaLoading(false);
     }
-  };
+  }, [location.search, location.hash]);
 
-  const handleWikiSchemaDraftChange = (event) => {
-    const raw = event.target.value || '';
-    if (raw.length > WIKI_SCHEMA_MAX_CHARS) {
-      setWikiSchemaDraft(raw.slice(0, WIKI_SCHEMA_MAX_CHARS));
-      setWikiSchemaStatus(`Schema is capped at ${WIKI_SCHEMA_MAX_CHARS.toLocaleString()} characters.`);
+  useEffect(() => {
+    const onStorage = (event) => {
+      if (event.key !== UI_SETTINGS_STORAGE_KEY || !event.newValue) return;
+      try {
+        const remote = normalizeUiSettings(JSON.parse(event.newValue));
+        if (appearanceDiffKeys(draft, editBase).length) {
+          setRemoteBaseline(remote);
+        } else {
+          setCommitted(remote);
+          setDraft(remote);
+          setEditBase(remote);
+        }
+      } catch (_error) {
+        // ignore malformed cache
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, [draft, editBase]);
+
+  const handleApply = useCallback(async (_patch, nextDraft) => {
+    const patch = pickAppearancePatch(committed, nextDraft);
+    if (!Object.keys(patch).length) return;
+    const opId = pendingSaveRef.current + 1;
+    pendingSaveRef.current = opId;
+    setSaveState('saving');
+    const before = { ...committed };
+    const result = await onAppearanceCommit(patch, nextDraft);
+    if (pendingSaveRef.current !== opId) return;
+    if (result?.ok) {
+      const after = normalizeUiSettings(result.settings || nextDraft);
+      setLastReceipt({ before, after, keys: Object.keys(patch) });
+      setSaveState('saved');
+      setEditBase(after);
+      setDraft(after);
+      setRemoteBaseline(null);
+    } else {
+      setSaveState('failed');
+    }
+  }, [committed, onAppearanceCommit]);
+
+  const handleCancel = useCallback(() => {
+    setDraft(committed);
+    setEditBase(committed);
+    setSaveState('idle');
+    setRemoteBaseline(null);
+  }, [committed]);
+
+  const handleUndo = useCallback(async () => {
+    if (!lastReceipt) return;
+    const result = await onAppearanceUndo(lastReceipt);
+    if (result?.ok) {
+      setLastReceipt(null);
+      setSaveState('idle');
+    }
+  }, [lastReceipt, onAppearanceUndo]);
+
+  const handleAdoptRemote = useCallback(() => {
+    if (!remoteBaseline) return;
+    const merged = mergeRemoteIntoDraft(draft, editBase, remoteBaseline);
+    setDraft(merged);
+    setEditBase(remoteBaseline);
+    setCommitted(remoteBaseline);
+    setRemoteBaseline(null);
+  }, [draft, editBase, remoteBaseline]);
+
+  const sectionContent = useMemo(() => {
+    if (section === 'appearance') {
+      return (
+        <AppearanceSection
+          committed={committed}
+          draft={draft}
+          onDraftChange={setDraft}
+          onApply={handleApply}
+          onCancel={handleCancel}
+          saveState={saveState}
+          lastReceipt={lastReceipt}
+          onUndo={handleUndo}
+          remoteBaseline={remoteBaseline}
+          onAdoptRemoteBaseline={handleAdoptRemote}
+          onDismissRemote={() => setRemoteBaseline(null)}
+        />
+      );
+    }
+    if (section === 'delivery') return <DeliverySection />;
+    if (section === 'data') return <DataSection />;
+    return <AdvancedSection uiSettings={committed} section={section} />;
+  }, [
+    section,
+    committed,
+    draft,
+    handleApply,
+    handleCancel,
+    saveState,
+    lastReceipt,
+    handleUndo,
+    remoteBaseline,
+    handleAdoptRemote
+  ]);
+
+  const handleSearchSelect = (entry) => {
+    if (entry.externalPath) {
+      navigate(entry.externalPath);
       return;
     }
-    setWikiSchemaDraft(raw);
-    setWikiSchemaStatus('');
-  };
-
-  const handleSaveWikiSchema = async () => {
-    setWikiSchemaSaving(true);
-    setWikiSchemaStatus('');
-    setWikiSchemaError('');
-    try {
-      const settings = await saveWikiSchema(wikiSchemaDraft);
-      setWikiSchemaDraft(settings.content || '');
-      setWikiSchemaSnapshots(Array.isArray(settings.snapshots) ? settings.snapshots : []);
-      setWikiSchemaStatus('Wiki schema saved.');
-      trackWikiSchemaSaved({
-        contentLength: String(settings.content || '').length,
-        snapshotCount: Array.isArray(settings.snapshots) ? settings.snapshots.length : 0
-      });
-    } catch (error) {
-      setWikiSchemaError(error?.response?.data?.error || 'Failed to save wiki schema.');
-    } finally {
-      setWikiSchemaSaving(false);
+    if (entry.action === 'help') {
+      setHelpOpen(true);
+      setSearchQuery('');
+      return;
     }
-  };
-
-  const handleRevertWikiSchema = async (snapshotId) => {
-    if (!snapshotId) return;
-    setWikiSchemaSaving(true);
-    setWikiSchemaStatus('');
-    setWikiSchemaError('');
-    try {
-      const settings = await revertWikiSchema(snapshotId);
-      setWikiSchemaDraft(settings.content || '');
-      setWikiSchemaSnapshots(Array.isArray(settings.snapshots) ? settings.snapshots : []);
-      setWikiSchemaStatus('Wiki schema reverted.');
-    } catch (error) {
-      setWikiSchemaError(error?.response?.data?.error || 'Failed to revert wiki schema.');
-    } finally {
-      setWikiSchemaSaving(false);
-    }
+    setSearchQuery('');
+    setSection(entry.section);
+    navigate(`/settings?section=${entry.section}&focus=${entry.focusId || entry.id}`, { replace: true });
   };
 
   return (
-    <Page className="settings-page">
-      <div className="page-header">
-        <p className="muted-label">Mode</p>
-        <h1>Settings</h1>
-        <p className="muted">Export your data and keep your workspace organized.</p>
-      </div>
-      <Card className="settings-card">
-        <div className="settings-appearance-header">
-          <div>
-            <h2>Workspace appearance</h2>
-            <p className="muted">Adjust typography scale, layout density, and color style.</p>
-          </div>
-          <p className="muted-label">{uiSettingsSaving ? 'Saving…' : 'Saved'}</p>
+    <div className="settings-redesign">
+      {returnMeta ? (
+        <div className="settings-return-link">
+          <Link to={returnMeta.path} onClick={() => clearSettingsReturnPath()}>
+            {returnLinkLabel(returnMeta)}
+          </Link>
         </div>
-
-        <div className="settings-option-group">
-          <p className="muted-label">Typography</p>
-          <div className="settings-option-row">
-            {TYPOGRAPHY_OPTIONS.map(option => (
-              <button
-                key={option.value}
-                type="button"
-                className={`settings-option-button${uiSettings.typographyScale === option.value ? ' is-active' : ''}`}
-                onClick={() => onUiSettingsChange({ typographyScale: option.value })}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="settings-option-group">
-          <p className="muted-label">Density</p>
-          <div className="settings-option-row">
-            {DENSITY_OPTIONS.map(option => (
-              <button
-                key={option.value}
-                type="button"
-                className={`settings-option-button${uiSettings.density === option.value ? ' is-active' : ''}`}
-                onClick={() => onUiSettingsChange({ density: option.value })}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="settings-option-group">
-          <p className="muted-label">Theme</p>
-          <div className="settings-option-row">
-            {THEME_OPTIONS.map(option => (
-              <button
-                key={option.value}
-                type="button"
-                className={`settings-option-button${uiSettings.theme === option.value ? ' is-active' : ''}`}
-                onClick={() => onUiSettingsChange({ theme: option.value })}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-          <p className="muted small" style={{ marginTop: 8 }}>
-            Auto follows your system appearance. Light and dark remain explicit choices.
-          </p>
-        </div>
-
-        <div className="settings-option-group">
-          <p className="muted-label">Accent color</p>
-          <div className="settings-option-row">
-            {ACCENT_OPTIONS.map(option => (
-              <button
-                key={option.value}
-                type="button"
-                className={`settings-option-button settings-accent-button${uiSettings.accent === option.value ? ' is-active' : ''}`}
-                onClick={() => onUiSettingsChange({ accent: option.value })}
-              >
-                <span className="settings-accent-swatch" style={{ background: option.color }} />
-                {option.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="settings-option-group">
-          <p className="muted-label">Brand energy</p>
-          <div className="settings-option-row">
-            <button
-              type="button"
-              className={`settings-option-button${uiSettings.brandEnergy ? ' is-active' : ''}`}
-              onClick={() => onUiSettingsChange({ brandEnergy: true })}
-            >
-              On
-            </button>
-            <button
-              type="button"
-              className={`settings-option-button${!uiSettings.brandEnergy ? ' is-active' : ''}`}
-              onClick={() => onUiSettingsChange({ brandEnergy: false })}
-            >
-              Off
-            </button>
-          </div>
-        </div>
-      </Card>
-
-      <SystemInventoryCard Card={Card} theme={uiSettings.theme} />
-
-      <MorningPaperEmailSettingsCard Card={Card} Button={Button} />
-
-      <Card className="settings-card">
-        <h2>Onboarding</h2>
-        <p className="muted">Need a refresher? Restart the onboarding guide.</p>
-        <Button
-          variant="secondary"
-          onClick={async () => {
-            try {
-              await resetTourState();
-            } catch (error) {
-              console.error('Failed to reset tour state:', error);
-            }
-            localStorage.removeItem(TOUR_CACHE_KEY);
-          }}
-        >
-          Restart Onboarding
-        </Button>
-      </Card>
-      <Card className="settings-card">
-        <h2>Connections</h2>
-        <p className="muted">Sources, agents, and advanced bridge settings live in one center.</p>
-        <Link to="/connections" className="ui-button ui-button-secondary">
-          Open connections
-        </Link>
-      </Card>
-      <ConnectedAgentsCard tokenModel={agentTokensModel} />
-      {wikiSchemaEnabled ? (
-      <Card className="settings-card">
-        <div className="settings-appearance-header">
-          <div>
-            <h2>Wiki schema</h2>
-            <p className="muted">Free-form markdown instructions appended to wiki maintenance, ingest, and ask prompts.</p>
-          </div>
-          <p className="muted-label">
-            {wikiSchemaSaving ? 'Saving…' : `${wikiSchemaDraft.length.toLocaleString()} / ${WIKI_SCHEMA_MAX_CHARS.toLocaleString()}`}
-          </p>
-        </div>
-        {wikiSchemaLoadPending ? (
-          <p className="muted">Loading wiki schema…</p>
-        ) : (
-          <textarea
-            className="settings-wiki-schema-editor noeis-form-control"
-            value={wikiSchemaDraft}
-            onChange={handleWikiSchemaDraftChange}
-            placeholder="Paste the current wiki schema markdown here."
-            aria-label="Current wiki schema"
-            maxLength={WIKI_SCHEMA_MAX_CHARS}
-            rows={12}
-            style={{ width: '100%', marginTop: 12 }}
-          />
-        )}
-        <div className="settings-option-row" style={{ marginTop: 12 }}>
-          <Button
-            variant="secondary"
-            onClick={handleSaveWikiSchema}
-            disabled={wikiSchemaSaving || wikiSchemaLoadPending}
-          >
-            Save wiki schema
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={handleSuggestWikiSchemaUpdates}
-            disabled={wikiSchemaLoading || wikiSchemaLoadPending}
-          >
-            {wikiSchemaLoading ? 'Suggesting...' : 'Suggest schema updates'}
-          </Button>
-        </div>
-        {wikiSchemaStatus && <p className="status-message">{wikiSchemaStatus}</p>}
-        {wikiSchemaError && <p className="status-message error-message">{wikiSchemaError}</p>}
-        <div className="settings-option-group">
-          <p className="muted-label">Snapshots</p>
-          {wikiSchemaSnapshots.length === 0 ? (
-            <p className="muted small">No saved snapshots yet.</p>
-          ) : (
-            <div className="settings-option-row" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
-              {wikiSchemaSnapshots.slice(0, 5).map((snapshot) => (
-                <button
-                  key={snapshot.id}
-                  type="button"
-                  className="settings-option-button"
-                  onClick={() => handleRevertWikiSchema(snapshot.id)}
-                  disabled={wikiSchemaSaving}
-                >
-                  Revert to {snapshot.createdAt ? new Date(snapshot.createdAt).toLocaleString() : 'snapshot'}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-        {wikiSchemaSuggestion?.summary && (
-          <div className="settings-option-group">
-            <p className="muted">{wikiSchemaSuggestion.summary}</p>
-            <textarea
-              className="noeis-form-control"
-              readOnly
-              aria-label="Suggested wiki schema patch"
-              value={wikiSchemaSuggestion.proposedPatch || ''}
-              rows={10}
-            />
-          </div>
-        )}
-      </Card>
       ) : null}
-      <Card className="settings-card">
-        <h2>Organic funnel</h2>
-        <p className="muted">Last 30 days of SEO/AEO traffic progressing from signup view to activated user.</p>
-        {marketingLoading && <p className="muted">Loading funnel snapshot…</p>}
-        {!marketingLoading && marketingError && <p className="status-message error-message">{marketingError}</p>}
-        {!marketingLoading && !marketingError && (
-          <>
-            <div className="settings-option-row" style={{ alignItems: 'stretch', flexWrap: 'wrap' }}>
-              <div className="settings-option-button is-active" style={{ minWidth: 140 }}>
-                <span className="muted-label">Viewed</span>
-                <div>{funnelTotals.signupViewed}</div>
-              </div>
-              <div className="settings-option-button is-active" style={{ minWidth: 140 }}>
-                <span className="muted-label">Started</span>
-                <div>{funnelTotals.signupStarted}</div>
-              </div>
-              <div className="settings-option-button is-active" style={{ minWidth: 140 }}>
-                <span className="muted-label">Signed up</span>
-                <div>{funnelTotals.signupsCompleted}</div>
-              </div>
-              <div className="settings-option-button is-active" style={{ minWidth: 140 }}>
-                <span className="muted-label">Activated</span>
-                <div>{funnelTotals.activatedUsers}</div>
-              </div>
-            </div>
-
-            <div className="settings-option-group">
-              <p className="muted-label">Top entry pages</p>
-              {(marketingFunnel?.byEntry || []).length === 0 ? (
-                <p className="muted small">No attributed marketing entries yet.</p>
-              ) : (
-                <div className="settings-option-row" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
-                  {marketingFunnel.byEntry.slice(0, 5).map((row) => (
-                    <div key={row.entry} className="settings-option-button" style={{ justifyContent: 'space-between' }}>
-                      <span>{formatEntryLabel(row.entry)}</span>
-                      <span className="muted small">
-                        {row.signupsCompleted} signups · {row.activatedUsers} activated
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="settings-option-group">
-              <p className="muted-label">Top sources</p>
-              {(marketingFunnel?.bySource || []).length === 0 ? (
-                <p className="muted small">No source data yet.</p>
-              ) : (
-                <div className="settings-option-row" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
-                  {marketingFunnel.bySource.slice(0, 5).map((row) => (
-                    <div key={`${row.utmSource}-${row.utmMedium}`} className="settings-option-button" style={{ justifyContent: 'space-between' }}>
-                      <span>{`${row.utmSource} / ${row.utmMedium}`}</span>
-                      <span className="muted small">
-                        {row.activatedUsers} activated
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="settings-option-row" style={{ marginTop: 16 }}>
-              <Link to="/marketing-analytics" className="ui-button ui-button-secondary">
-                Open full analytics
-              </Link>
-              <Link to="/search-console-opportunities" className="ui-button ui-button-secondary">
-                Open Search Console importer
-              </Link>
-            </div>
-          </>
-        )}
-      </Card>
-      <Card className="settings-card">
-        <h2>Growth ops</h2>
-        <p className="muted">Turn Search Console exports into concrete page actions and keep the editorial backlog query-driven.</p>
-        <div className="settings-option-row">
-          <Link to="/search-console-opportunities" className="ui-button ui-button-secondary">
-            Review opportunities
-          </Link>
-          <Link to="/marketing-analytics" className="ui-button ui-button-secondary">
-            Review funnel performance
-          </Link>
-        </div>
-      </Card>
-      <Export embedded />
-    </Page>
+      <SettingsShell
+        section={section}
+        onSectionChange={(next) => {
+          setSection(next);
+          navigate(`/settings?section=${next}`, { replace: true });
+        }}
+        searchQuery={searchQuery}
+        onSearchQueryChange={setSearchQuery}
+        onSearchSelect={handleSearchSelect}
+        onHelp={() => setHelpOpen(true)}
+      >
+        {sectionContent}
+      </SettingsShell>
+      {helpOpen ? (
+        <dialog className="settings-redesign__dialog" open>
+          <h2 style={{ fontFamily: 'var(--noeis-serif, Georgia, serif)', fontWeight: 400 }}>A little help, not a reset</h2>
+          <p className="settings-redesign__help">Use the search field to find a setting. Escape closes dialogs without discarding drafts.</p>
+          <Link to="/how-to-use" className="settings-redesign__link" onClick={() => setHelpOpen(false)}>Open full help</Link>
+          <div style={{ marginTop: '1rem' }}>
+            <button type="button" className="settings-redesign__btn" onClick={() => setHelpOpen(false)}>Back to settings</button>
+          </div>
+        </dialog>
+      ) : null}
+    </div>
   );
 };
 

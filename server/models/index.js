@@ -2046,9 +2046,14 @@ const WorkingMemoryItem = mongoose.model('WorkingMemoryItem', workingMemoryItemS
 const uiSettingsSchema = new mongoose.Schema({
   typographyScale: { type: String, enum: ['small', 'default', 'large'], default: 'default' },
   density: { type: String, enum: ['comfortable', 'compact'], default: 'comfortable' },
-  theme: { type: String, enum: ['light', 'dark'], default: 'light' },
-  accent: { type: String, enum: ['blue', 'emerald', 'amber', 'rose'], default: 'blue' },
+  theme: { type: String, enum: ['auto', 'light', 'dark'], default: 'auto' },
+  accent: {
+    type: String,
+    enum: ['electric', 'violet', 'indigo', 'blue', 'emerald', 'amber', 'rose'],
+    default: 'electric'
+  },
   brandEnergy: { type: Boolean, default: true },
+  motion: { type: String, enum: ['system', 'reduced'], default: 'system' },
   workspaceType: { type: String, default: 'global', trim: true },
   workspaceId: { type: String, default: '', trim: true },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
