@@ -1,26 +1,64 @@
 import React from 'react';
-import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import Editions from './Editions';
 import * as api from '../api/editions';
 import backendApi from '../api';
 let mockId;
+let mockSearch;
 const mockNavigate = jest.fn();
 jest.mock('react-router-dom', () => ({
   Link: ({ to, children, ...props }) => <a href={to} {...props}>{children}</a>,
   useNavigate: () => mockNavigate, useParams: () => ({ id: mockId }),
-  useSearchParams: () => [new URLSearchParams()]
+  useSearchParams: () => [new URLSearchParams(mockSearch)]
 }));
 jest.mock('../api/editions');
 jest.mock('../api', () => ({ get: jest.fn().mockResolvedValue({ data: { content: '<p>Saved source.</p>' } }) }));
+jest.mock('../components/editions/editionReadingState', () => ({
+  ...jest.requireActual('../components/editions/editionReadingState'),
+  readEditionLocal: jest.fn()
+}));
+const readingState = require('../components/editions/editionReadingState');
 const item = { itemId: 'one', title: 'A useful distinction', finding: 'Being informed is different from being able to use information.', boundary: 'One study cannot establish a universal rule.', sourceLabel: 'Research', url: 'https://example.com/source', section: 'ideas', filedBy: 'Jarvis' };
 const edition = { _id: 'e1', profile: 'weekend', profileLabel: 'Weekend Readings', title: 'Weekend Readings', number: 2, windowStart: '2026-09-01', windowEnd: '2099-09-07', sections: [{ key: 'ideas', label: 'Ideas' }, { key: 'limits', label: 'Counterevidence' }], items: [item] };
 beforeEach(() => {
-  jest.clearAllMocks(); mockId = undefined;
+  jest.clearAllMocks(); mockId = undefined; mockSearch = '';
+  readingState.readEditionLocal.mockReturnValue(null);
   backendApi.get.mockResolvedValue({ data: { content: '<p>Saved source.</p>' } });
   api.listEditions.mockResolvedValue([edition]); api.getEdition.mockResolvedValue(edition);
   api.getEditionThoughts.mockResolvedValue([]); api.getEditionShare.mockResolvedValue({ shared: false });
   api.getEditionInbox.mockResolvedValue({ items: [], remaining: 0 });
   api.setEditionItemState.mockResolvedValue({});
+});
+it('opens the newest issue while retaining only the remembered publication', async () => {
+  const old = { ...edition, _id: 'old', number: 1, windowStart: '2026-08-01', windowEnd: '2026-08-07' };
+  const current = { ...edition, _id: 'current', number: 3, windowStart: '2026-09-13', windowEnd: '2099-09-19' };
+  readingState.readEditionLocal.mockImplementation((issueId) => issueId === 'last'
+    ? { issueId: 'old', profile: edition.profile, itemId: 'one' }
+    : null);
+  api.listEditions.mockResolvedValue([current, old]);
+  api.getEdition.mockImplementation(async issueId => issueId === 'current' ? current : old);
+  render(<Editions />);
+  await screen.findByText(item.finding);
+  expect(api.getEdition).toHaveBeenCalledWith('current');
+  expect(screen.getByRole('combobox', { name: 'Dated issue' })).toHaveValue('current');
+});
+
+it('powers through full arrivals without clearing untouched findings', async () => {
+  mockSearch = 'power=1';
+  api.getEditionInbox.mockResolvedValue({
+    items: [{
+      ...item, editionId: 'e1', profileLabel: 'Weekend Readings', issueLabel: 'Edition', number: 3
+    }],
+    remaining: 0
+  });
+  render(<Editions />);
+  expect(await screen.findByRole('heading', { name: item.title })).toBeVisible();
+  expect(screen.getByText(item.boundary)).toBeVisible();
+  expect(api.getEditionInbox).toHaveBeenCalledWith({ cursor: '', limit: 40, view: 'power' });
+  await waitFor(() => expect(document.querySelector('.power-item')).toHaveClass('is-active'));
+  fireEvent.keyDown(document, { key: 'e' });
+  await waitFor(() => expect(api.setEditionItemState).toHaveBeenCalledWith('e1', 'one', 'opened'));
+  expect(await screen.findByRole('heading', { name: 'All caught up.' })).toBeVisible();
 });
 it('opens the finding and its boundary, preserves empty sections, and keeps global arrivals outside the paper', async () => {
   render(<Editions />);

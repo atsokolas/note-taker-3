@@ -400,7 +400,10 @@ const inboxSortAt = (item = {}, edition = {}) => {
 
 const inboxCursorOf = (row) => `${row.sortAt}:${row.editionId}:${row.itemId}`;
 
-const collectInbox = (editions = [], { cursor = '', limit = 20, profiles = null } = {}) => {
+const collectInbox = (
+  editions = [],
+  { cursor = '', limit = 20, profiles = null, withContent = false } = {}
+) => {
   const rows = [];
   (editions || []).forEach((edition) => {
     const profile = resolveEditionProfile(edition.profile, { profiles });
@@ -420,6 +423,13 @@ const collectInbox = (editions = [], { cursor = '', limit = 20, profiles = null 
         issueLabel: profile?.issueLabel || edition.issueLabel || 'Issue',
         number: edition.number ?? null,
         filedAt: item.filedAt || null,
+        ...(withContent ? {
+          finding: item.finding,
+          boundary: item.boundary,
+          note: item.note || '',
+          filedBy: item.filedBy?.label || '',
+          savedArticleId: item.savedArticleId ? String(item.savedArticleId) : null
+        } : {}),
         sortAt
       });
     });

@@ -38,10 +38,11 @@ export const removeEdition = async (id) => {
   return res.data || null;
 };
 
-export const getEditionInbox = async ({ cursor = '', limit } = {}) => {
+export const getEditionInbox = async ({ cursor = '', limit, view = '' } = {}) => {
   const params = new URLSearchParams();
   if (cursor) params.set('cursor', cursor);
   if (limit) params.set('limit', String(limit));
+  if (view) params.set('view', view);
   const query = params.toString();
   const res = await api.get(`/api/editions/inbox${query ? `?${query}` : ''}`, getAuthHeaders());
   return res.data || { items: [], hasMore: false, nextCursor: '' };

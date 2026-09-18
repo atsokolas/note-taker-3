@@ -1,7 +1,8 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { getEdition, listEditions } from '../api/editions';
 import EditionInbox from '../components/editions/EditionInbox';
+import EditionPowerThrough from '../components/editions/EditionPowerThrough';
 import EditionReading from '../components/editions/EditionReading';
 import EditionPanel from '../components/editions/EditionPanel';
 import { readEditionLocal } from '../components/editions/editionReadingState';
@@ -18,7 +19,8 @@ export default function Editions() {
   const [focus, setFocus] = useState(false);
   const [remembered] = useState(() => readEditionLocal('last', 'place'));
   const requested = id || params.get('issue');
-  const selectedId = requested || (!params.get('paper') ? remembered?.issueId : null);
+  const selectedId = requested || null;
+  const power = params.get('power') === '1';
   useEffect(() => {
     let active = true;
     listEditions({ limit: 500 })
@@ -38,6 +40,7 @@ export default function Editions() {
   const paper =
     papers.find((p) => p.issues.some((issue) => issue._id === selectedId)) ||
     papers.find((p) => p.profile === params.get('paper')) ||
+    papers.find((p) => p.profile === remembered?.profile) ||
     papers[0];
   const issue = paper?.issues.find((row) => row._id === selectedId) || paper?.issues[paper.current];
   const choose = (issueId) => {
@@ -45,6 +48,28 @@ export default function Editions() {
     navigate(`/editions/${encodeURIComponent(issueId)}`);
   };
   const openUtility = (kind, event) => setUtility({ kind, origin: event.currentTarget });
+  const closePower = useCallback(() => navigate('/editions'), [navigate]);
+
+  useEffect(() => {
+    if (power) return undefined;
+    const openPower = (event) => {
+      if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return;
+      if (event.target?.matches?.('input, textarea, select, [contenteditable="true"]')) return;
+      if (event.key.toLowerCase() !== 'o') return;
+      event.preventDefault();
+      navigate('/editions?power=1');
+    };
+    document.addEventListener('keydown', openPower);
+    return () => document.removeEventListener('keydown', openPower);
+  }, [navigate, power]);
+
+  if (power) {
+    return (
+      <div className="edition-reading edition-reading--power" data-testid="editions-stand">
+        <EditionPowerThrough onClose={closePower} />
+      </div>
+    );
+  }
 
   return (
     <div className={`edition-reading${focus ? ' is-focused' : ''}`} data-testid="editions-stand">
@@ -69,6 +94,7 @@ export default function Editions() {
           </select>
         </label>
         <nav aria-label="Editions utilities">
+          <button onClick={() => navigate('/editions?power=1')}>Power through</button>
           <button onClick={(event) => openUtility('arrivals', event)}>New arrivals</button>
           <Link to="/library?scope=later">Later</Link>
           <button onClick={(event) => openUtility('archive', event)}>Archive</button>

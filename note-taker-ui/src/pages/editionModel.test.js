@@ -315,8 +315,8 @@ describe('the sources an issue cites', () => {
         { title: 'Another', url: 'https://example.com/b' }
       ]
     })).toEqual([
-      { href: 'https://example.com/a', label: 'arXiv · A paper' },
-      { href: 'https://example.com/b', label: 'Another' }
+      { href: 'https://example.com/a', label: 'arXiv · A paper', sourceDate: '' },
+      { href: 'https://example.com/b', label: 'Another', sourceDate: '' }
     ]);
   });
 
@@ -337,8 +337,7 @@ describe('the sources an issue cites', () => {
 
   it('falls back to the host rather than a placeholder name', () => {
     expect(sourceLinks({ items: [{ url: 'https://www.example.com/p' }] })).toEqual([
-      { href: 'https://www.example.com/p', label: 'example.com' }
+      { href: 'https://www.example.com/p', label: 'example.com', sourceDate: '' }
     ]);
   });
 });
-

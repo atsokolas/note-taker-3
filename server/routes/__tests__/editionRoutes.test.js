@@ -524,6 +524,12 @@ describe('the newsstand', () => {
       const inbox = await send('/api/editions/inbox');
       expect(inbox.status).toBe(200);
       expect(inbox.body.items).toHaveLength(2);
+      expect(inbox.body.items[0].finding).toBeUndefined();
+      const power = await send('/api/editions/inbox?view=power');
+      expect(power.body.items[0]).toMatchObject({
+        finding: expect.any(String),
+        boundary: expect.any(String)
+      });
       await send(`/api/editions/${made.body._id}/items/item-1/state`, 'POST', { status: 'opened' });
       const after = await send('/api/editions/inbox');
       expect(after.body.items.map(row => row.itemId)).toEqual(['item-2']);

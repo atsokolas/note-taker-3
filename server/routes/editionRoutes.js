@@ -573,7 +573,8 @@ const buildEditionRouter = ({
       return res.status(200).json(collectInbox(editions, {
         cursor: String(req.query?.cursor || ''),
         limit: Number(req.query?.limit) || 20,
-        profiles
+        profiles,
+        withContent: req.query?.view === 'power'
       }));
     } catch (error) {
       return refuse(res, error, 'Failed to open new items.');

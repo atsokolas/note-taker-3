@@ -301,5 +301,28 @@ describe('keeping a reader’s place in a rewritten week', () => {
     expect(inbox.items).toHaveLength(1);
     expect(inbox.items[0].itemId).toBe('fresh');
     expect(inbox.items[0].finding).toBeUndefined();
+
+    const power = collectInbox([
+      {
+        _id: 'e1',
+        profile: 'this_week_in_ai',
+        title: 'This Week in AI',
+        createdAt: '2026-09-01',
+        items: [
+          {
+            itemId: 'fresh', title: 'Fresh', url: 'https://example.com/b',
+            finding: 'A useful finding.', boundary: 'One lab only.', note: 'Read beside Tuesday.',
+            filedBy: { label: 'Jarvis' }, savedArticleId: 'article-1', filedAt: '2026-09-09'
+          }
+        ]
+      }
+    ], { withContent: true });
+    expect(power.items[0]).toMatchObject({
+      finding: 'A useful finding.',
+      boundary: 'One lab only.',
+      note: 'Read beside Tuesday.',
+      filedBy: 'Jarvis',
+      savedArticleId: 'article-1'
+    });
   });
 });
