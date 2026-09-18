@@ -54,7 +54,7 @@ const Settings = ({
     if (location.state?.returnTo) {
       captureSettingsReturnPath(location, { fromPath: location.state.returnTo, label: location.state.returnLabel });
     }
-  }, [location.state]);
+  }, [location]);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);

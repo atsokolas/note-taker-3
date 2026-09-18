@@ -15,7 +15,6 @@ const AdvancedSection = ({ uiSettings = {}, section = 'advanced' }) => {
   const wikiEnabled = isWikiReadModeV2Enabled();
   const [wikiDraft, setWikiDraft] = useState('');
   const [wikiBaseline, setWikiBaseline] = useState('');
-  const [wikiRevision, setWikiRevision] = useState('');
   const [snapshots, setSnapshots] = useState([]);
   const [wikiLoading, setWikiLoading] = useState(wikiEnabled);
   const [wikiSaving, setWikiSaving] = useState(false);
@@ -39,7 +38,6 @@ const AdvancedSection = ({ uiSettings = {}, section = 'advanced' }) => {
         const content = settings.content || '';
         setWikiDraft(content);
         setWikiBaseline(content);
-        setWikiRevision(settings.revision || settings.updatedAt || '');
         setSnapshots(Array.isArray(settings.snapshots) ? settings.snapshots : []);
       })
       .catch((error) => {
