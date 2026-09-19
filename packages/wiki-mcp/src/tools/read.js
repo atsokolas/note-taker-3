@@ -52,6 +52,15 @@ export const readTools = [
     handler: (client, args) => client.listPages(args)
   },
   {
+    name: 'list_judgment_pages',
+    description: 'List the reader\'s living Judgment cases: the governing question, the held sentence, its status, and confidence. Use this before creating a case so a new line of inquiry does not duplicate an existing judgment.',
+    inputSchema: {
+      status: optionalEnum(statuses),
+      limit: z.number().min(1).max(500).optional().default(100)
+    },
+    handler: (client, args) => client.listJudgmentPages(args)
+  },
+  {
     name: 'get_page',
     description: 'Read one full wiki page, including body text, source references, claims, and infobox metadata.',
     inputSchema: pageIdShape,

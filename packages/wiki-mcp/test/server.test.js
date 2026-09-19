@@ -3,6 +3,7 @@ import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
+import { z } from 'zod';
 
 import { NoeisClient } from '../src/client.js';
 import { createMcpServer, toolDefinitions } from '../src/server.js';
@@ -23,6 +24,22 @@ const run = async () => {
     toolDefinitions.map(tool => tool.name).sort(),
     'README tool list and toolDefinitions disagree'
   );
+
+  const createJudgmentSchema = z.object(toolDefinitions.find(tool => tool.name === 'create_judgment_page').inputSchema);
+  const updateJudgmentSchema = z.object(toolDefinitions.find(tool => tool.name === 'update_judgment_page').inputSchema);
+  assert.strictEqual(createJudgmentSchema.safeParse({
+    title: 'Compounding case',
+    governingQuestion: 'Will returns remain above the cost of capital?'
+  }).success, false, 'a Judgment case needs a held sentence');
+  assert.strictEqual(createJudgmentSchema.safeParse({
+    title: 'Compounding case',
+    governingQuestion: 'Will returns remain above the cost of capital?',
+    currentJudgment: 'Returns remain above the cost of capital while reinvestment capacity persists.'
+  }).success, true);
+  assert.strictEqual(updateJudgmentSchema.safeParse({
+    pageId: 'page-1',
+    status: 'decision_ready'
+  }).success, false, 'agents cannot mark a case decision-ready through MCP');
 
   const seenRequests = [];
   const jsonResponse = (payload) => ({
@@ -254,6 +271,13 @@ const run = async () => {
           pageType: 'concept',
           slug: 'compounding',
           plainText: 'Compounding is the engine that turns reinvested returns into durable advantage.',
+          judgment: {
+            kind: 'thesis',
+            governingQuestion: 'Will compounding remain durable?',
+            currentJudgment: 'Compounding remains durable when returns can be reinvested.',
+            status: 'monitoring',
+            confidence: 0.7
+          },
           updatedAt: '2026-05-16T12:00:00.000Z'
         }
       ]);
@@ -267,6 +291,10 @@ const run = async () => {
   assert.strictEqual(pages[0].title, 'Compounding');
   assert(seenRequests[0].url.includes('/api/wiki/pages?q=compound&limit=5'));
   assert.strictEqual(seenRequests[0].init.headers.Authorization, 'Bearer ntk_at_test');
+
+  const judgmentPages = await toolDefinitions.find(tool => tool.name === 'list_judgment_pages').handler(client, {});
+  assert.strictEqual(judgmentPages[0].currentJudgment, 'Compounding remains durable when returns can be reinvested.');
+  assert(seenRequests.some(request => request.url.includes('/api/wiki/pages?limit=100&projection=judgment')));
 
   const connectionInfo = await toolDefinitions.find(tool => tool.name === 'connection_info').handler(client, {});
   assert.strictEqual(connectionInfo.workspace.id, 'workspace-1');
@@ -303,6 +331,34 @@ const run = async () => {
   });
   assert.strictEqual(createPage.id, 'page-created');
   assert(seenRequests.some(request => request.url.endsWith('/api/wiki/pages') && request.init.method === 'POST'));
+
+  const judgmentPage = await toolDefinitions.find(tool => tool.name === 'create_judgment_page').handler(client, {
+    title: 'Compounding case',
+    governingQuestion: 'Will reinvestment keep compounding value?',
+    currentJudgment: 'Compounding remains durable when returns can be reinvested.',
+    confidence: 0.7,
+    strongestCounterargument: 'Competition can erase returns.'
+  });
+  assert.strictEqual(judgmentPage.id, 'page-created');
+  const judgmentCreateRequest = seenRequests.find(request => (
+    request.url.endsWith('/api/wiki/pages')
+    && request.init.method === 'POST'
+    && JSON.parse(request.init.body).preset === 'living_thesis'
+  ));
+  assert(judgmentCreateRequest, 'create_judgment_page must use the living-thesis API contract');
+  assert.strictEqual(JSON.parse(judgmentCreateRequest.init.body).judgment.currentJudgment, 'Compounding remains durable when returns can be reinvested.');
+
+  await toolDefinitions.find(tool => tool.name === 'update_judgment_page').handler(client, {
+    pageId: 'page-1',
+    currentJudgment: 'Compounding remains durable while returns exceed the cost of capital.',
+    why: [{ text: 'Reinvestment compounds only above the hurdle rate.' }]
+  });
+  const judgmentUpdateRequest = seenRequests.find(request => (
+    request.url.endsWith('/api/wiki/pages/page-1')
+    && request.init.method === 'PATCH'
+    && JSON.parse(request.init.body).judgment?.currentJudgment === 'Compounding remains durable while returns exceed the cost of capital.'
+  ));
+  assert(judgmentUpdateRequest, 'update_judgment_page must write through the revisioned page endpoint');
 
   await toolDefinitions.find(tool => tool.name === 'update_page').handler(client, {
     pageId: 'page-1',

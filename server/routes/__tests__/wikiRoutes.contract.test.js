@@ -2814,6 +2814,51 @@ const run = async () => {
       String(record.agentTokenId) === agentTokenId
     )));
 
+    const agentJudgmentCreate = await request(url, '/api/wiki/pages', {
+      method: 'POST',
+      headers: { 'x-agent-token-id': agentTokenId },
+      body: JSON.stringify({
+        title: 'Agent-maintained compounding case',
+        preset: 'living_thesis',
+        governingQuestion: 'Will returns above the cost of capital remain available?',
+        judgment: {
+          currentJudgment: 'Returns remain above the cost of capital while reinvestment capacity persists.',
+          confidence: 0.7,
+          why: [{ text: 'The company still has productive reinvestment opportunities.' }],
+          strongestCounterargument: 'Competition can compress returns.'
+        }
+      })
+    });
+    assert.strictEqual(agentJudgmentCreate.res.status, 201, agentJudgmentCreate.text);
+    assert.strictEqual(agentJudgmentCreate.body.judgment.currentJudgment, 'Returns remain above the cost of capital while reinvestment capacity persists.');
+    assert.strictEqual(agentJudgmentCreate.body.judgment.governingQuestion, 'Will returns above the cost of capital remain available?');
+    await new Promise(resolve => setTimeout(resolve, 5));
+    assert.ok(ConnectorActionLog.records.some(record => (
+      record.action === 'create_judgment_page'
+      && String(record.targetId) === String(agentJudgmentCreate.body._id)
+      && String(record.agentTokenId) === agentTokenId
+    )));
+
+    const agentJudgmentUpdate = await request(url, `/api/wiki/pages/${agentJudgmentCreate.body._id}`, {
+      method: 'PATCH',
+      headers: { 'x-agent-token-id': agentTokenId },
+      body: JSON.stringify({
+        judgment: {
+          currentJudgment: 'Returns remain above the cost of capital while reinvestment capacity and pricing power persist.',
+          why: [{ text: 'The company still has productive reinvestment opportunities.' }],
+          against: [{ text: 'Competition can compress returns.' }]
+        }
+      })
+    });
+    assert.strictEqual(agentJudgmentUpdate.res.status, 200, agentJudgmentUpdate.text);
+    assert.strictEqual(agentJudgmentUpdate.body.judgment.against[0].text, 'Competition can compress returns.');
+    await new Promise(resolve => setTimeout(resolve, 5));
+    assert.ok(ConnectorActionLog.records.some(record => (
+      record.action === 'update_judgment_page'
+      && String(record.targetId) === String(agentJudgmentCreate.body._id)
+      && String(record.agentTokenId) === agentTokenId
+    )));
+
     const pageCountBeforeReservedCreate = WikiPage.records.length;
     const reservedCreate = await request(url, '/api/wiki/pages', {
       method: 'POST',

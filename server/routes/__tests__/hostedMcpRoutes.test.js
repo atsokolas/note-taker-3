@@ -122,6 +122,9 @@ const run = async () => {
     }, { Authorization: 'Bearer ntk_at_test' });
     const tools = await responsePayload(listed);
     assert(tools.result.tools.some(tool => tool.name === 'list_pages'));
+    ['list_judgment_pages', 'create_judgment_page', 'update_judgment_page'].forEach(name => {
+      assert(tools.result.tools.some(tool => tool.name === name), `${name} must be available over hosted MCP`);
+    });
   } finally {
     await realApp.close();
   }

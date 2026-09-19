@@ -215,6 +215,7 @@ on recent activity with a read-scoped token:
 - `list_editions`
 - `get_edition`
 - `list_pages`
+- `list_judgment_pages`
 - `get_page`
 - `get_page_markdown`
 - `search_pages`
@@ -248,6 +249,8 @@ Write tools require a token with the `agent-write` scope. Read-only tokens recei
 
 - `create_page`
 - `update_page`
+- `create_judgment_page`
+- `update_judgment_page`
 - `archive_page`
 - `create_edition`
 - `configure_edition`

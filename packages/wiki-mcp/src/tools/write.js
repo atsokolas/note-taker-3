@@ -27,7 +27,67 @@ const editionItemShape = z.object({
 
 const sourceShape = z.record(z.any()).describe('Source object accepted by the Noeis wiki API. For URL ingest use { type: "url", url }. For pasted text use { type: "text", text, title? }.');
 
+const judgmentReasonShape = z.object({
+  text: z.string().min(1).describe('The reason in one clear sentence.'),
+  sourceRefIds: z.array(z.string()).optional().describe('Attached wiki source ids that support this reason.'),
+  sourceLabel: z.string().optional().describe('A short source label when the evidence is not yet attached.')
+});
+const judgmentAssumptionShape = z.object({
+  text: z.string().min(1),
+  status: z.enum(['unreviewed', 'holds', 'weakened', 'failed']).optional(),
+  confidence: z.number().min(0).max(1).optional(),
+  sourceRefIds: z.array(z.string()).optional()
+});
+const judgmentUnknownShape = z.object({
+  question: z.string().min(1),
+  priority: z.enum(['critical', 'high', 'medium', 'low']).optional(),
+  status: z.enum(['open', 'researching', 'answered', 'deferred']).optional(),
+  answer: z.string().optional(),
+  sourceRefIds: z.array(z.string()).optional()
+});
+const judgmentFalsifierShape = z.object({
+  text: z.string().min(1),
+  observableSignal: z.string().optional(),
+  status: z.enum(['unobserved', 'warning', 'triggered', 'retired']).optional(),
+  sourceRefIds: z.array(z.string()).optional()
+});
+const judgmentFields = {
+  currentJudgment: z.string().min(1).optional().describe('The best-held sentence today. State what the evidence supports; do not overclaim.'),
+  status: z.enum(['framing', 'researching', 'challenged', 'monitoring', 'parked']).optional(),
+  decisionPosture: z.enum(['investigate', 'watch', 'avoid', 'no_action']).optional(),
+  confidence: z.number().min(0).max(1).optional(),
+  strongestCounterargument: z.string().optional(),
+  why: z.array(judgmentReasonShape).max(100).optional().describe('Replacement list of reasons supporting the case.'),
+  against: z.array(judgmentReasonShape).max(100).optional().describe('Replacement list of reasons against the case.'),
+  assumptions: z.array(judgmentAssumptionShape).max(100).optional().describe('Replacement list of assumptions.'),
+  unknowns: z.array(judgmentUnknownShape).max(100).optional().describe('Replacement list of open questions.'),
+  falsifiers: z.array(judgmentFalsifierShape).max(100).optional().describe('Replacement list of observable conditions that would weaken the case.')
+};
+
 export const writeTools = [
+  {
+    name: 'create_judgment_page',
+    description: 'Create a private living Judgment case with a governing question and a provisional held sentence. Search/list judgment pages first to avoid a duplicate. This creates a revisioned, agent-attributed case; it never publishes, takes an external action, or resolves the judgment.',
+    inputSchema: {
+      title: z.string().min(1).describe('Short name for the case.'),
+      governingQuestion: z.string().min(1).describe('The consequential question this case maintains.'),
+      ...judgmentFields,
+      currentJudgment: z.string().min(1).describe('The best-held sentence today.'),
+      sourceScope: optionalEnum(['entire_library', 'selected_sources', 'current_item']),
+      initialSourceRef: z.record(z.any()).optional(),
+      initialSourceRefs: z.array(z.record(z.any())).max(8).optional()
+    },
+    handler: (client, args) => client.createJudgmentPage(args)
+  },
+  {
+    name: 'update_judgment_page',
+    description: 'Maintain a living Judgment case by updating its held sentence, counterargument, and evidence structure. Read the page first and provide each list in full when replacing it. No agent tool can resolve a judgment, record an outcome, or execute a decision; those remain human actions.',
+    inputSchema: {
+      ...pageIdShape,
+      ...judgmentFields
+    },
+    handler: (client, args) => client.updateJudgmentPage(args)
+  },
   {
     name: 'create_page',
     description: 'Create a new private draft wiki page. Use this only after checking search_pages/list_pages to avoid duplicates. Requires an agent-write token.',

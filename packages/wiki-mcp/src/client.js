@@ -58,6 +58,14 @@ const normalizePageSummary = (page = {}) => ({
   updatedAt: page.updatedAt || page.lastReviewedAt || page.createdAt || null
 });
 
+const normalizeJudgmentSummary = (page = {}) => ({
+  ...normalizePageSummary(page),
+  governingQuestion: page.judgment?.governingQuestion || '',
+  currentJudgment: page.judgment?.currentJudgment || '',
+  judgmentStatus: page.judgment?.status || 'framing',
+  confidence: page.judgment?.confidence ?? null
+});
+
 const normalizeSearchHit = (page = {}, query = '') => ({
   ...normalizePageSummary(page),
   snippet: snippetFromPage(page, query)
@@ -313,6 +321,16 @@ export class NoeisClient {
   listPages(args = {}) {
     return this.request('/api/wiki/pages', { query: args }).then(pages => (
       normalizeArrayPayload(pages, 'pages').map(normalizePageSummary)
+    ));
+  }
+
+  listJudgmentPages({ status, limit = 100 } = {}) {
+    return this.request('/api/wiki/pages', {
+      query: { status, limit, projection: 'judgment' }
+    }).then(pages => (
+      normalizeArrayPayload(pages, 'pages')
+        .filter(page => Boolean(page?.judgment?.kind))
+        .map(normalizeJudgmentSummary)
     ));
   }
 
@@ -780,7 +798,7 @@ export class NoeisClient {
     });
   }
 
-  createPage({ title, pageType, body, sourceScope, initialSourceRef, initialSourceRefs, createdFrom } = {}) {
+  createPage({ title, pageType, body, sourceScope, initialSourceRef, initialSourceRefs, createdFrom, preset, governingQuestion, judgment } = {}) {
     return this.request('/api/wiki/pages', {
       method: 'POST',
       body: {
@@ -790,12 +808,15 @@ export class NoeisClient {
         sourceScope,
         initialSourceRef,
         initialSourceRefs,
-        createdFrom
+        createdFrom,
+        preset,
+        governingQuestion,
+        judgment
       }
     }).then(normalizeFullPage);
   }
 
-  updatePage({ pageId, title, body, pageType, status, visibility, sourceScope } = {}) {
+  updatePage({ pageId, title, body, pageType, status, visibility, sourceScope, judgment } = {}) {
     return this.request(`/api/wiki/pages/${encodeURIComponent(pageId)}`, {
       method: 'PATCH',
       body: {
@@ -804,9 +825,53 @@ export class NoeisClient {
         pageType,
         status,
         visibility,
-        sourceScope
+        sourceScope,
+        judgment
       }
     }).then(normalizeFullPage);
+  }
+
+  createJudgmentPage({
+    title,
+    governingQuestion,
+    currentJudgment,
+    status,
+    decisionPosture,
+    confidence,
+    strongestCounterargument,
+    why,
+    against,
+    assumptions,
+    unknowns,
+    falsifiers,
+    sourceScope,
+    initialSourceRef,
+    initialSourceRefs
+  } = {}) {
+    return this.createPage({
+      title,
+      preset: 'living_thesis',
+      governingQuestion,
+      sourceScope,
+      initialSourceRef,
+      initialSourceRefs,
+      judgment: {
+        currentJudgment,
+        status,
+        decisionPosture,
+        confidence,
+        strongestCounterargument,
+        why,
+        against,
+        assumptions,
+        unknowns,
+        falsifiers
+      }
+    });
+  }
+
+  updateJudgmentPage({ pageId, ...judgment } = {}) {
+    return this.updatePage({ pageId, judgment });
   }
 
   archivePage({ pageId }) {

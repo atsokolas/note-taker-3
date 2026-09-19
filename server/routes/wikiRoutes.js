@@ -1952,7 +1952,9 @@ const buildWikiRouter = ({
       targetType = 'wiki_lint_run';
       targetId = String(params.runId || '');
     } else if (path === '/api/wiki/pages') {
-      action = method === 'POST' ? 'create_page' : 'list_pages';
+      action = method === 'POST'
+        ? (req.body?.preset === 'living_thesis' ? 'create_judgment_page' : 'create_page')
+        : 'list_pages';
       targetType = method === 'POST' ? 'wiki_page' : 'wiki';
       targetId = serializeId(responseBody.page?._id || responseBody.page?.id || responseBody._id || responseBody.id) || '';
     } else if (path.includes('/api/wiki/pages/') && path.includes('/markdown')) {
@@ -2008,7 +2010,9 @@ const buildWikiRouter = ({
       targetType = 'wiki_page';
       targetId = String(params.id || '');
     } else if (path.startsWith('/api/wiki/pages/')) {
-      action = method === 'PATCH' ? 'update_page' : method === 'DELETE' ? 'archive_page' : 'get_page';
+      action = method === 'PATCH'
+        ? (req.body?.judgment !== undefined ? 'update_judgment_page' : 'update_page')
+        : method === 'DELETE' ? 'archive_page' : 'get_page';
       targetType = 'wiki_page';
       targetId = String(params.id || '');
     } else if (path === '/api/wiki/briefing') {
@@ -3941,9 +3945,29 @@ const buildWikiRouter = ({
       if (livingThesisPreset && !governingQuestion) {
         return res.status(400).json({ error: 'A governing question is required for a living thesis.' });
       }
+      if (!livingThesisPreset && req.body?.judgment !== undefined) {
+        return res.status(400).json({ error: 'An initial judgment requires the living_thesis preset.' });
+      }
       const body = livingThesisPreset
         ? buildLivingThesisBody()
         : (normalizeBodyDoc(req.body?.body) || emptyDoc());
+      const actorType = req.agentToken ? 'agent' : 'user';
+      const judgment = livingThesisPreset ? normalizeJudgment({
+        input: {
+          ...(req.body?.judgment || {}),
+          kind: 'thesis',
+          governingQuestion,
+          status: req.body?.judgment?.status || 'framing',
+          decisionPosture: req.body?.judgment?.decisionPosture || 'investigate',
+          startedAt: req.body?.judgment?.startedAt || new Date(),
+          causalModel: req.body?.judgment?.causalModel || { summary: '', nodes: [], edges: [] },
+          assumptions: req.body?.judgment?.assumptions || [],
+          unknowns: req.body?.judgment?.unknowns || [],
+          falsifiers: req.body?.judgment?.falsifiers || [],
+          decisions: req.body?.judgment?.decisions || []
+        },
+        actorType
+      }) : null;
       const page = new WikiPage({
         userId: req.user.id,
         title,
@@ -3964,20 +3988,7 @@ const buildWikiRouter = ({
             }
           }
         } : {}),
-        judgment: livingThesisPreset ? normalizeJudgment({
-          input: {
-            kind: 'thesis',
-            governingQuestion,
-            status: 'framing',
-            decisionPosture: 'investigate',
-            startedAt: new Date(),
-            causalModel: { summary: '', nodes: [], edges: [] },
-            assumptions: [],
-            unknowns: [],
-            falsifiers: [],
-            decisions: []
-          }
-        }) : null
+        judgment
       });
       refreshPageClaims(page);
       await page.save();
@@ -3987,7 +3998,7 @@ const buildWikiRouter = ({
         userId: req.user.id,
         page,
         reason: 'created',
-        actorType: 'user',
+        actorType,
         summary: `Created "${page.title}".`
       });
       trackWikiEvent(req, EVENT_NAMES.WIKI_PAGE_CREATED, {
