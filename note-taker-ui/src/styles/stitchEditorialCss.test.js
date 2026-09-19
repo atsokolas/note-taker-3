@@ -227,4 +227,12 @@ describe('stitch editorial CSS tokens', () => {
     expect(reader).toContain('color: var(--ink-agent, var(--vellum-ink))');
     expect(reader).toMatch(/html\[data-ui-theme='dark'\][\s\S]*mark\.highlight/);
   });
+
+  it('lets a saved highlight wrap without splitting the rest of the word', () => {
+    const theme = fs.readFileSync(path.join(__dirname, 'theme.css'), 'utf8');
+    const rule = theme.match(/\.article-reader-content mark\.highlight \{[^}]+\}/)?.[0] || '';
+    expect(rule).toContain('box-decoration-break: clone');
+    expect(rule).toContain('-webkit-box-decoration-break: clone');
+    expect(rule).not.toMatch(/padding:\s*0 2px/);
+  });
 });

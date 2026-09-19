@@ -35,11 +35,8 @@ export default function PassageThought({
     return () => node.remove();
   }, [contentRef, contentHtml, highlight._id]);
   useEffect(() => {
+    if (!host) return;
     field.current?.focus({ preventScroll: true });
-    field.current?.closest('.article-passage-thought')?.scrollIntoView?.({
-      block: 'nearest',
-      behavior: 'smooth'
-    });
   }, [host]);
   const close = () => {
     onClose();
@@ -86,7 +83,6 @@ export default function PassageThought({
           rows={3}
         />
       </label>
-      {!host ? <blockquote>{highlight.text}</blockquote> : null}
       <div>
         <button type="submit" disabled={saving}>
           {saving ? 'Saving…' : 'Keep thought'}
@@ -98,11 +94,6 @@ export default function PassageThought({
       {error ? <p role="alert">{error}</p> : null}
     </form>
   );
-  return host ? (
-    createPortal(editor, host)
-  ) : (
-    <aside className="article-passage-thought" data-reader-control>
-      {editor}
-    </aside>
-  );
+  if (!host) return null;
+  return createPortal(editor, host);
 }

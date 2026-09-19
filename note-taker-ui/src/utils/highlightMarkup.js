@@ -77,6 +77,39 @@ export const resolveHighlightOffsets = (root, highlight) => {
   return ranked[0];
 };
 
+export const expandOffsetsToWordBoundaries = (fullText, start, end) => {
+  if (!fullText || end <= start) return { start, end };
+  const isWordChar = (index) => /[\p{L}\p{N}'’]/u.test(fullText.charAt(index));
+  let nextStart = start;
+  let nextEnd = end;
+  while (nextStart > 0 && isWordChar(nextStart) && isWordChar(nextStart - 1)) nextStart -= 1;
+  while (nextEnd < fullText.length && isWordChar(nextEnd - 1) && isWordChar(nextEnd)) nextEnd += 1;
+  return { start: nextStart, end: nextEnd };
+};
+
+export const snapHighlightToWords = (root, text, anchor) => {
+  const sourceText = String(text || '');
+  if (!root || !sourceText) return { text: sourceText, anchor };
+  const resolved = resolveHighlightOffsets(root, { text: sourceText, anchor });
+  if (!resolved) return { text: sourceText, anchor };
+  const { fullText } = buildTextSnapshot(root);
+  const expanded = expandOffsetsToWordBoundaries(fullText, resolved.start, resolved.end);
+  if (expanded.start === resolved.start && expanded.end === resolved.end) {
+    return { text: sourceText, anchor };
+  }
+  const nextText = fullText.slice(expanded.start, expanded.end);
+  return {
+    text: nextText,
+    anchor: {
+      ...(anchor || {}),
+      text: nextText,
+      prefix: fullText.slice(Math.max(0, expanded.start - 30), expanded.start),
+      suffix: fullText.slice(expanded.end, expanded.end + 30),
+      startOffsetApprox: expanded.start
+    }
+  };
+};
+
 const wrapTextNodeSegment = (node, start, end, highlightId, color) => {
   if (!node || end <= start) return;
   let target = node;
@@ -97,8 +130,8 @@ const wrapTextNodeSegment = (node, start, end, highlightId, color) => {
 export const applyStoredHighlight = (root, highlight) => {
   const resolved = resolveHighlightOffsets(root, highlight);
   if (!resolved) return;
-  const { start, end } = resolved;
-  const { nodes } = buildTextSnapshot(root);
+  const { fullText, nodes } = buildTextSnapshot(root);
+  const { start, end } = expandOffsetsToWordBoundaries(fullText, resolved.start, resolved.end);
   nodes
     .filter(({ end: nodeEnd, start: nodeStart }) => nodeEnd > start && nodeStart < end)
     .forEach(({ node, start: nodeStart }) => {

@@ -60,3 +60,22 @@ test('a failed save retains the draft and supports retry', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Keep thought' }));
   await waitFor(() => expect(inputs.onClose).toHaveBeenCalled());
 });
+test('does not move the page when the passage mark is not in the article yet', () => {
+  const originalScroll = Element.prototype.scrollIntoView;
+  Element.prototype.scrollIntoView = jest.fn();
+  const empty = { current: document.createElement('div') };
+  const { container } = render(
+    <PassageThought
+      articleId="a1"
+      highlight={{ _id: 'missing', text: 'gone', note: '' }}
+      contentRef={empty}
+      contentHtml=""
+      onSaved={jest.fn()}
+      onClose={jest.fn()}
+    />
+  );
+  expect(container.querySelector('.article-passage-thought')).toBeNull();
+  expect(screen.queryByRole('textbox', { name: 'Your thought' })).not.toBeInTheDocument();
+  expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
+  Element.prototype.scrollIntoView = originalScroll;
+});

@@ -134,6 +134,62 @@ describe('LibraryContext', () => {
     }));
   });
 
+  it('shows saved thoughts on the reading rail', () => {
+    renderContext({
+      articleHighlights: [
+        {
+          _id: 'highlight-1',
+          text: 'They look you in the eye.',
+          note: 'This is the tell.',
+          tags: [],
+          createdAt: '2026-05-01T00:00:00Z'
+        }
+      ]
+    });
+
+    expect(screen.getByText('They look you in the eye.')).toBeVisible();
+    expect(screen.getByText('This is the tell.')).toBeVisible();
+  });
+
+  it('lets the focused highlight be annotated from the rail', async () => {
+    const onUpdateHighlight = jest.fn().mockResolvedValue({ note: 'A private thought' });
+    renderContext({
+      onUpdateHighlight,
+      activeHighlightId: 'highlight-1',
+      articleHighlights: [
+        {
+          _id: 'highlight-1',
+          text: 'They look you in the eye.',
+          note: '',
+          tags: []
+        }
+      ]
+    });
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Your thought' }), {
+      target: { value: 'A private thought' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Keep thought' }));
+
+    await waitFor(() => expect(onUpdateHighlight).toHaveBeenCalledWith('highlight-1', { note: 'A private thought' }));
+  });
+
+  it('finds a highlight by the thought left on it', () => {
+    renderContext({
+      articleHighlights: [
+        { _id: 'h1', text: 'Visible sentence.', note: 'Hidden tell.', tags: [] },
+        { _id: 'h2', text: 'Another sentence.', note: '', tags: [] }
+      ]
+    });
+
+    fireEvent.change(screen.getByPlaceholderText('Search highlights...'), {
+      target: { value: 'Hidden tell' }
+    });
+
+    expect(screen.getByText('Visible sentence.')).toBeVisible();
+    expect(screen.queryByText('Another sentence.')).not.toBeInTheDocument();
+  });
+
   it('whispers Why back to the claim when this feed row was filed', async () => {
     listWikiPages.mockResolvedValue([{
       _id: 'wiki-compute',
