@@ -60,7 +60,10 @@ const ConnectedAgentsCard = ({ tokenModel }) => {
       <div className="settings-appearance-header">
         <div>
           <h2>Connected agents</h2>
-          <p className="muted">Issue and manage workspace tokens for external agents.</p>
+          <p className="muted">
+            Issue and manage workspace tokens for external agents. Meta Muse uses the same Bearer token against the OpenAPI spec at
+            {' '}<code>/api/v1/openapi.json</code> — not an OAuth browser flow.
+          </p>
           {/* The one thing a connected agent can make that the reader reads.
               This is where you are standing when you connect the agent that
               would file one, and it was the only screen in the product from

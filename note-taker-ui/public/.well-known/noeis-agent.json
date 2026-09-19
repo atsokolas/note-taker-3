@@ -5,7 +5,8 @@
     "setup": "https://www.noeis.io/skill.md",
     "humanConnections": "https://www.noeis.io/connections#agents",
     "repositoryCli": "packages/cli",
-    "repositoryMcp": "packages/wiki-mcp"
+    "repositoryMcp": "packages/wiki-mcp",
+    "museConnector": "https://note-taker-3-unrg.onrender.com/api/v1/docs"
   },
   "transports": [
     {
@@ -16,6 +17,14 @@
       ],
       "configuration": "The CLI stores the credential once and runtime configuration invokes noeis mcp.",
       "toolDiscovery": "Use the MCP tools/list method exposed by the installed server."
+    },
+    {
+      "type": "openapi",
+      "runtime": "muse",
+      "spec": "https://note-taker-3-unrg.onrender.com/api/v1/openapi.json",
+      "docs": "https://note-taker-3-unrg.onrender.com/api/v1/docs",
+      "authorization": "HTTP Bearer Connected-agents token (ntk_at_…). Not OAuth.",
+      "toolDiscovery": "OpenAPI 3 operations on /api/v1."
     }
   ],
   "authorization": {
@@ -51,7 +60,8 @@
     "hermes",
     "codex",
     "claude-code",
-    "opencode"
+    "opencode",
+    "muse"
   ],
   "packageCompatibility": {
     "scopedConnectCli": "0.1.11",
