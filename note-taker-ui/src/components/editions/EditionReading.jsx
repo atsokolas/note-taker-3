@@ -14,15 +14,24 @@ import {
   writeEditionLocal
 } from './editionReadingState';
 
+const ShareIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M8 9H5v12h14V9h-3M12 15V2m-4 4 4-4 4 4" />
+  </svg>
+);
+
 export default function EditionReading({
   issue,
-  issues,
+  paperTitle = '',
+  issueLabel,
   onChoose,
   focusItem,
   focus,
   onFocus,
   utilityOpen,
-  onInspect
+  onInspect,
+  showBrowse = false,
+  onBrowse
 }) {
   const { edition, pending, error, busy, receipts, act, showPending } = useEditionIssue(issue._id);
   const root = useRef(null);
@@ -136,46 +145,61 @@ export default function EditionReading({
   };
   const row = edition || issue;
   const status = stateOf(row);
+  const collectionState = status === 'closed'
+    ? 'Collection ended'
+    : status === 'filling'
+      ? 'Still filling'
+      : 'Collection window ahead';
+  const mastheadTitle = paperTitle || edition?.profileLabel || edition?.title || issue.title || '';
   const newCount =
     pending?.items?.filter((item) => !edition?.items?.some((held) => held.itemId === item.itemId))
       .length || 0;
   const currentPeek = peek && edition?.items.find((item) => item.itemId === peek.itemId);
   return (
     <div ref={root} data-testid="edition-read">
-      {!issue.title && edition ? (
-        <header className="edition-nameplate">
-          <h1>{edition.profileLabel || edition.title}</h1>
-        </header>
-      ) : null}
-      <div className="reading-dateline">
-        <label>
-          <span className="sr-only">Dated issue</span>
-          <select
-            aria-label="Dated issue"
-            value={issue._id}
-            onChange={(event) => onChoose(event.target.value)}
+      <div className="edition-paper-tools">
+        {showBrowse ? (
+          <button
+            type="button"
+            className="edition-paper-tools__browse"
+            aria-haspopup="dialog"
+            aria-label="Browse publications and issues"
+            onClick={onBrowse}
           >
-            {(issues.length ? issues : [row]).map((item) => (
-              <option key={item._id} value={item._id}>
-                {[issueLine(item), datelineLine(item)].filter(Boolean).join(' · ') || 'This issue'}
-              </option>
-            ))}
-          </select>
-        </label>
-        <span>
-          {status === 'closed'
-            ? 'Collection ended'
-            : status === 'filling'
-              ? 'Still filling'
-              : 'Collection window ahead'}
-        </span>
-        <EditionShare editionId={issue._id} edition={edition} />
-      </div>
-      <div className="reading-intro">
-        {row.standfirst ? <p>{row.standfirst}</p> : <span />}
-        <button ref={focusButton} onClick={() => onFocus(!focus)} aria-pressed={focus}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+              <rect x="3" y="4" width="18" height="16" rx="1" />
+              <path d="M9 4v16" />
+            </svg>
+            Editions
+          </button>
+        ) : null}
+        <button
+          ref={focusButton}
+          type="button"
+          className="edition-paper-tools__just-read"
+          onClick={() => onFocus(!focus)}
+          aria-pressed={focus}
+        >
           Just read
         </button>
+        <div className="edition-paper-tools__share">
+          <EditionShare editionId={issue._id} edition={edition} triggerIcon={<ShareIcon />} />
+        </div>
+      </div>
+      {mastheadTitle ? (
+        <header className="edition-nameplate">
+          <h1>{mastheadTitle}</h1>
+        </header>
+      ) : null}
+      <div className="reading-dateline" aria-label="Issue dateline">
+        <span className="reading-dateline__number">
+          {issueLine({ ...row, issueLabel }) || issueLine(row)}
+        </span>
+        <span className="reading-dateline__when">{datelineLine(row)}</span>
+        <span className="reading-dateline__state">{collectionState}</span>
+      </div>
+      <div className="reading-intro">
+        {row.standfirst ? <p>{row.standfirst}</p> : null}
       </div>
       {focus ? (
         <button className="reading-focus-exit" onClick={() => onFocus(false)}>

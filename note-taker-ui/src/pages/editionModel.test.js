@@ -1,7 +1,8 @@
 import {
   byInboxEdition, byPaper, bylineFor, bySection, closesLine, datelineLine,
-  gapLine, inboxEditionLine, issueLine, publicSourceHref,
-  runLine, sourceLinks, standLayout, stateOf, takenLine, windowLine
+  gapLine, inboxEditionLine, issueLine, issueShelfMeta, issuesShelfLabel,
+  publicSourceHref, resolvePaperIssueId, runLine, shelfIssuesForPaper,
+  sourceLinks, standLayout, stateOf, takenLine, windowLine
 } from './editionModel';
 
 describe('the window a paper covers', () => {
@@ -339,5 +340,38 @@ describe('the sources an issue cites', () => {
     expect(sourceLinks({ items: [{ url: 'https://www.example.com/p' }] })).toEqual([
       { href: 'https://www.example.com/p', label: 'example.com', sourceDate: '' }
     ]);
+  });
+});
+
+describe('the editions shelf', () => {
+  const issues = [
+    { _id: 'i1', windowStart: '2026-09-06', windowEnd: '2026-09-12', number: 2 },
+    { _id: 'i2', windowStart: '2026-09-13', windowEnd: '2026-09-19', number: 3 },
+    { _id: 'i0', windowStart: '2026-08-30', windowEnd: '2026-09-05', number: 1 }
+  ];
+
+  it('labels the issue section from the open issue year', () => {
+    expect(issuesShelfLabel(issues, 'i2')).toBe('Issues · 2026');
+  });
+
+  it('keeps a historical selection visible outside the recent window', () => {
+    const many = Array.from({ length: 14 }, (_, index) => ({
+      _id: `e${index}`,
+      windowStart: `2026-01-${String(index + 1).padStart(2, '0')}`,
+      windowEnd: `2026-01-${String(index + 1).padStart(2, '0')}`
+    }));
+    const rows = shelfIssuesForPaper(many, 'e0', 12);
+    expect(rows.some((row) => row._id === 'e0')).toBe(true);
+    expect(rows.length).toBe(13);
+  });
+
+  it('returns the remembered issue for a paper when it still exists', () => {
+    const paper = { profile: 'weekend', issues, current: 1 };
+    expect(resolvePaperIssueId(paper, () => ({ issueId: 'i0' }))).toBe('i0');
+    expect(resolvePaperIssueId(paper, () => ({ issueId: 'missing' }))).toBe('i2');
+  });
+
+  it('formats issue numbers for the shelf meta column', () => {
+    expect(issueShelfMeta({ number: 3 }, 'Edition')).toBe('No. 3');
   });
 });
