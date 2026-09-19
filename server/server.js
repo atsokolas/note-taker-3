@@ -679,6 +679,7 @@ const { buildLibraryRelevanceRouter } = require('./routes/libraryRelevanceRoutes
 const { buildReadingLoopRouter } = require('./routes/readingLoopRoutes');
 const { buildPersonalAgentRouter } = require('./routes/personalAgentRoutes');
 const { buildAgentTokenRouter } = require('./routes/agentTokenRoutes');
+const { buildHostedMcpRouter } = require('./routes/hostedMcpRoutes');
 const { buildEditionRouter } = require('./routes/editionRoutes');
 const { buildEditionThoughtRouter } = require('./routes/editionThoughtRoutes');
 
@@ -4918,6 +4919,11 @@ function optionalAuthenticateToken(req, res, next) {
 }
 
 const authenticateAgentToken = buildAuthenticateAgentToken({ AgentToken });
+const authenticateMcpToken = buildAuthenticateAgentToken({
+  AgentToken,
+  requiredScope: 'read',
+  consume: false
+});
 
 function authenticateUserOrAgentToken(req, res, next) {
   const authHeader = req.headers['authorization'] || '';
@@ -6885,6 +6891,8 @@ app.use(buildAgentTokenRouter({
   normalizeAgentTokenScopes,
   sanitizeAgentToken
 }));
+
+app.use(buildHostedMcpRouter({ authenticateAgentToken: authenticateMcpToken }));
 
 app.use(buildAgentConnectRouter({
   authenticateToken,

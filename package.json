@@ -43,6 +43,7 @@
     "wiki:storage": "node scripts/run_wiki_storage_governor.js",
     "wiki:storage:test": "node server/services/wikiRevisionHistoryArchive.test.js && node server/services/wikiRevisionHistoryArchivalService.test.js && node server/services/mongoBackupService.test.js && node server/services/wikiRevisionRetentionService.test.js && node server/services/wikiStorageGovernorService.test.js && node server/services/wikiStorageGovernorService.budget.test.js && node server/services/wikiAutomaticRetentionService.test.js && node server/services/wikiRetentionReferences.test.js",
     "agent:approval-smoke": "node scripts/run_agent_memory_approval_smoke.js",
+    "mcp:test": "node server/services/__tests__/agentTokenService.test.js && node server/routes/__tests__/hostedMcpRoutes.test.js && npm --prefix packages/wiki-mcp test",
     "smoke:server": "node scripts/run_server_smoke.js",
     "smoke:imports": "node scripts/test_import_integrations_smoke.js",
     "test:server": "node scripts/run_server_jest.js",
@@ -63,6 +64,7 @@
   "homepage": "https://github.com/atsokolas/note-taker-3#readme",
   "type": "commonjs",
   "dependencies": {
+    "@modelcontextprotocol/sdk": "1.29.0",
     "axios": "^1.8.2",
     "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
@@ -75,6 +77,7 @@
     "multer": "^1.4.5-lts.1",
     "papaparse": "^5.4.1",
     "react-router-dom": "^7.6.2",
+    "zod": "^3.25.76",
     "pdfkit": "^0.15.0",
     "archiver": "^7.0.1",
     "@huggingface/inference": "^2.8.1"

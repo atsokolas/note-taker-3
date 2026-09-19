@@ -103,6 +103,21 @@ const run = async () => {
   await runMiddleware(middleware, writeReq, writeRes);
   assert.strictEqual(writeRes.statusCode, 403);
 
+  const gatewayMiddleware = buildAuthenticateAgentToken({
+    AgentToken,
+    now: () => now,
+    requiredScope: 'read',
+    consume: false
+  });
+  const gatewayReq = {
+    method: 'POST',
+    headers: { authorization: 'Bearer ntk_at_active' }
+  };
+  const gatewayRes = createResponse();
+  await runMiddleware(gatewayMiddleware, gatewayReq, gatewayRes);
+  assert.strictEqual(gatewayReq.user.id, 'user-1');
+  assert.strictEqual(activeToken.callsToday, 0);
+
   const revokedToken = {
     ...activeToken,
     hashedSecret: hashAgentTokenSecret('ntk_at_revoked'),

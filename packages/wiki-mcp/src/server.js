@@ -40,7 +40,8 @@ const errorContent = (error) => ({
   ]
 });
 
-export const createMcpServer = ({ client = new NoeisClient() } = {}) => {
+export const createMcpServer = ({ client, token, apiUrl } = {}) => {
+  const resolvedClient = client || new NoeisClient({ token, apiUrl });
   const server = new McpServer(SERVER_INFO);
 
   for (const tool of toolDefinitions) {
@@ -52,7 +53,7 @@ export const createMcpServer = ({ client = new NoeisClient() } = {}) => {
       },
       async (args = {}) => {
         try {
-          const result = await tool.handler(client, args);
+          const result = await tool.handler(resolvedClient, args);
           return textContent(result);
         } catch (error) {
           return errorContent(error);
@@ -66,7 +67,7 @@ export const createMcpServer = ({ client = new NoeisClient() } = {}) => {
     {
       description: wikiSchemaPrompt.description
     },
-    async () => renderWikiSchemaPrompt(client)
+    async () => renderWikiSchemaPrompt(resolvedClient)
   );
 
   return server;

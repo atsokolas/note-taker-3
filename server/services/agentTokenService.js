@@ -70,7 +70,12 @@ const hasRequiredScope = (token = {}, scope = 'read') => {
   return scopes.includes('agent-write');
 };
 
-const buildAuthenticateAgentToken = ({ AgentToken, now = () => new Date() } = {}) => {
+const buildAuthenticateAgentToken = ({
+  AgentToken,
+  now = () => new Date(),
+  requiredScope: configuredScope,
+  consume = true
+} = {}) => {
   if (!AgentToken) {
     throw new Error('AgentToken model is required.');
   }
@@ -92,27 +97,29 @@ const buildAuthenticateAgentToken = ({ AgentToken, now = () => new Date() } = {}
         return res.status(401).json({ error: 'Agent token has expired.' });
       }
 
-      const requiredScope = requiredScopeForRequest(req);
+      const requiredScope = configuredScope || requiredScopeForRequest(req);
       if (!hasRequiredScope(token, requiredScope)) {
         return res.status(403).json({ error: `Agent token requires ${requiredScope} scope.` });
       }
 
-      const dayStart = getUtcDayStart(current);
-      const windowStart = token.quotaWindowStartedAt ? new Date(token.quotaWindowStartedAt) : null;
-      if (!windowStart || windowStart.getTime() < dayStart.getTime()) {
-        token.callsToday = 0;
-        token.quotaWindowStartedAt = dayStart;
-      }
+      if (consume) {
+        const dayStart = getUtcDayStart(current);
+        const windowStart = token.quotaWindowStartedAt ? new Date(token.quotaWindowStartedAt) : null;
+        if (!windowStart || windowStart.getTime() < dayStart.getTime()) {
+          token.callsToday = 0;
+          token.quotaWindowStartedAt = dayStart;
+        }
 
-      const quota = Number(token.dailyQuota || 0);
-      if (quota > 0 && Number(token.callsToday || 0) >= quota) {
-        res.set('Retry-After', String(getSecondsUntilNextUtcDay(current)));
-        return res.status(429).json({ error: 'Agent token daily quota exceeded.' });
-      }
+        const quota = Number(token.dailyQuota || 0);
+        if (quota > 0 && Number(token.callsToday || 0) >= quota) {
+          res.set('Retry-After', String(getSecondsUntilNextUtcDay(current)));
+          return res.status(429).json({ error: 'Agent token daily quota exceeded.' });
+        }
 
-      token.callsToday = Number(token.callsToday || 0) + 1;
-      token.lastUsedAt = current;
-      if (typeof token.save === 'function') await token.save();
+        token.callsToday = Number(token.callsToday || 0) + 1;
+        token.lastUsedAt = current;
+        if (typeof token.save === 'function') await token.save();
+      }
 
       req.user = { id: String(token.userId || '') };
       req.agentToken = sanitizeAgentToken(token);

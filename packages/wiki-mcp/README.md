@@ -95,6 +95,30 @@ Both `noeis mcp` and `noeis-wiki-mcp` read the token and API URL from `NOEIS_TOK
 
 The MCP surface includes wiki tools plus Library/Think tools for saved articles, highlights, concepts, and questions. Agents can search highlights, fetch articles, create article highlights, file articles into folders and keep them on the Shelf, create or update Think questions, update concepts, pin highlights to concepts, and create or edit wiki pages.
 
+## Hosted MCP
+
+Noeis also offers a hosted Streamable HTTP endpoint for clients that cannot
+launch a local stdio process:
+
+```text
+https://note-taker-3-unrg.onrender.com/mcp
+```
+
+Use a dedicated connected-agent token as a Bearer credential. Create it in
+Noeis under `Settings -> Connected agents`, begin with the `read` scope, and
+give it a short expiry and daily quota. A token with `agent-write` can perform
+only the write operations already permitted by the Noeis API; human-only
+actions remain unavailable. MCP connection checks do not consume quota, while
+each tool action is counted by the underlying API exactly once.
+
+The endpoint accepts standard JSON-RPC `POST` requests over Streamable HTTP.
+It has no cookie session and does not support OAuth yet. Check deployment
+readiness without a token at:
+
+```text
+https://note-taker-3-unrg.onrender.com/mcp/health
+```
+
 ## Need a normal CLI instead?
 
 For cron jobs, shell scripts, or custom runtimes that do not speak MCP, install the sibling CLI:
