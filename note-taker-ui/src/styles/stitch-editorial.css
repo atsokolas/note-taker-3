@@ -692,7 +692,7 @@ body.noeis-editorial .topbar__search-trigger {
 }
 
 body.noeis-editorial .topbar__search-trigger-label {
-  line-height: 1;
+  line-height: 1.25;
   color: var(--text-muted, var(--vellum-subtle));
   font-size: 0.86rem;
 }

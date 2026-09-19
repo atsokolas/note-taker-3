@@ -142,6 +142,13 @@ describe('stitch editorial CSS tokens', () => {
     expect(css).toContain('.topbar__menu-popover--portal');
   });
 
+  it('leaves room for descenders in the masthead search label', () => {
+    const css = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
+    const searchLabel = css.match(/body\.noeis-editorial \.topbar__search-trigger-label \{[\s\S]*?\n\}/)?.[0] || '';
+
+    expect(searchLabel).toContain('line-height: 1.25;');
+  });
+
   it('puts the active Think move before the corpus shelf on single-column layouts', () => {
     const css = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
 
