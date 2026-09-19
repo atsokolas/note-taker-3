@@ -9,7 +9,6 @@ import PlacementSwitch from './PlacementSwitch';
 import useTourSignal from '../tour/useTourSignal';
 import useTextSelection from './reader/useTextSelection';
 import SelectionMenu from './reader/SelectionMenu';
-import PassageThought from './reader/PassageThought';
 import ReadFresh, { useReadFresh } from './reader/ReadFresh';
 import useArticleReadingPlace from './reader/useArticleReadingPlace';
 import MagneticReadingRail from './reader/MagneticReadingRail';
@@ -26,7 +25,7 @@ import { PLACES } from '../motion/crossings';
 import { useFinePointer, usePrefersReducedMotion } from '../hooks/useMotionPreferences';
 import { knownHighlightColor } from '../constants/highlightColors';
 import { placementOf } from '../pages/placementModel';
-import { renderArticleContentWithHighlights } from '../utils/highlightMarkup';
+import { renderArticleContentWithHighlights, snapHighlightToWords } from '../utils/highlightMarkup';
 import {
   markExactArticlePassage,
   readArticlePassageFragment
@@ -99,9 +98,6 @@ const ArticleReader = ({
   const reducedMotion = usePrefersReducedMotion();
   const [saveError, setSaveError] = useState('');
   const [saving, setSaving] = useState(false);
-  const [thought, setThought] = useState(null);
-  const thoughtRequest = useRef('');
-  useEffect(() => { setThought(null); }, [article?._id]);
   const articleId = article?._id;
   const reading = useReadFresh(readerRootRef, articleId, '.article-reader-content p, .article-reader-content blockquote, .article-reader-content h2');
   const articlePlacement = article?.placement;
@@ -174,15 +170,6 @@ const ArticleReader = ({
   const focusedHighlight = useMemo(() => (
     highlights.find((item) => String(item?._id || item?.id || '') === String(focusedHighlightId)) || null
   ), [focusedHighlightId, highlights]);
-  useEffect(() => {
-    const requested = new URLSearchParams(location.search).get('thought') === '1';
-    const request = `${articleId}:${focusedHighlightId}:${location.key || location.search}`;
-    if (!requested) { thoughtRequest.current = ''; return; }
-    if (focusedHighlight && thoughtRequest.current !== request) {
-      thoughtRequest.current = request;
-      setThought(focusedHighlight);
-    }
-  }, [articleId, focusedHighlightId, focusedHighlight, location.key, location.search]);
   const focusedPassageIsInArticle = Boolean(focusedHighlightId)
     && html.includes(`data-highlight-id="highlight-${focusedHighlightId}"`);
   const isHighlightOnlyImport = Boolean(article)
@@ -301,8 +288,9 @@ const ArticleReader = ({
       setSaveError('That selection was lost before it could be saved. Select the sentence again.');
       return;
     }
-    const highlightText = selectionState.text;
-    const highlightAnchor = selectionState.anchor;
+    const snapped = snapHighlightToWords(contentRef.current, selectionState.text, selectionState.anchor);
+    const highlightText = snapped.text;
+    const highlightAnchor = snapped.anchor;
     const existingHighlight = findExistingHighlightForSelection({
       highlights,
       text: highlightText,
@@ -392,7 +380,6 @@ const ArticleReader = ({
             });
           }}
           onThought={() => persistHighlight(highlight => {
-            setThought(highlight);
             const params = new URLSearchParams(location.search);
             params.set('articleId', articleId);
             params.set('highlightId', highlight._id);
@@ -534,9 +521,6 @@ const ArticleReader = ({
           article opened onto a panel instead of onto its text. It is the same
           record; it is now at the end, where you read it after the piece
           rather than instead of starting it. */}
-      {thought ? <PassageThought key={thought._id} articleId={articleId} highlight={thought} contentRef={contentRef}
-        contentHtml={contentMarkup.__html} onSaved={onHighlightReplace} onClose={() => setThought(null)} /> : null}
-      {focusedHighlight?.note && !thought ? <button className="article-thought-reopen" onClick={() => setThought(focusedHighlight)}>Your thought: {focusedHighlight.note}</button> : null}
       {sourceTrace}
       <MagneticReadingRail rootRef={readerRootRef} contentRef={contentRef} />
       {saveError && <p className="status-message error-message">{saveError}</p>}
