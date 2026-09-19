@@ -76,6 +76,16 @@ If tools are missing after approval, preserve the existing grant and repair runt
 loading. Do not reconnect, mint another credential, or widen access merely to make a
 tool appear.
 
+## Meta Muse (HTTP OpenAPI)
+
+Muse is not MCP. Point it at the OpenAPI spec and a Connected-agents Bearer token. Do not start an OAuth browser flow.
+
+- Spec: `https://note-taker-3-unrg.onrender.com/api/v1/openapi.json`
+- Docs and paste prompt: `https://note-taker-3-unrg.onrender.com/api/v1/docs`
+- Token: Connections → Connected agents (`ntk_at_…`, shown once, stored hashed)
+
+Repository write-up: `docs/muse-connector.md`.
+
 ## Configuration and transport
 
 The implemented transport is local stdio:

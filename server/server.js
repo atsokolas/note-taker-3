@@ -679,6 +679,7 @@ const { buildLibraryRelevanceRouter } = require('./routes/libraryRelevanceRoutes
 const { buildReadingLoopRouter } = require('./routes/readingLoopRoutes');
 const { buildPersonalAgentRouter } = require('./routes/personalAgentRoutes');
 const { buildAgentTokenRouter } = require('./routes/agentTokenRoutes');
+const { buildMuseConnectorRouter } = require('./routes/museConnectorRoutes');
 const { buildEditionRouter } = require('./routes/editionRoutes');
 const { buildEditionThoughtRouter } = require('./routes/editionThoughtRoutes');
 
@@ -6884,6 +6885,18 @@ app.use(buildAgentTokenRouter({
   hashAgentTokenSecret,
   normalizeAgentTokenScopes,
   sanitizeAgentToken
+}));
+app.use(buildMuseConnectorRouter({
+  authenticateToken: authenticateUserOrAgentToken,
+  mongoose,
+  User,
+  NotebookEntry,
+  Article,
+  TagMeta,
+  WikiPage,
+  enqueueNotebookEmbedding,
+  trackEvent,
+  EVENT_NAMES
 }));
 
 app.use(buildAgentConnectRouter({
