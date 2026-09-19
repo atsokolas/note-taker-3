@@ -40,7 +40,7 @@ it('opens the newest issue while retaining only the remembered publication', asy
   render(<Editions />);
   await screen.findByText(item.finding);
   expect(api.getEdition).toHaveBeenCalledWith('current');
-  expect(screen.getByRole('combobox', { name: 'Dated issue' })).toHaveValue('current');
+  expect(screen.getByRole('link', { name: /Sep 13/i })).toHaveAttribute('aria-current', 'page');
 });
 
 it('powers through full arrivals without clearing untouched findings', async () => {
@@ -75,10 +75,9 @@ it('switches publications and dated issues through stable issue URLs', async () 
   const old = { ...edition, _id: 'old', number: 1, windowStart: '2026-08-01' };
   api.listEditions.mockResolvedValue([edition, old, { ...edition, _id: 'ai', profile: 'ai', profileLabel: 'This Week in AI' }]);
   render(<Editions />); await screen.findByText(item.finding);
-  fireEvent.change(screen.getByRole('combobox', { name: 'Publication' }), { target: { value: 'ai' } });
+  fireEvent.click(screen.getByRole('button', { name: 'This Week in AI' }));
   expect(mockNavigate).toHaveBeenLastCalledWith('/editions/ai');
-  fireEvent.change(screen.getByRole('combobox', { name: 'Dated issue' }), { target: { value: 'old' } });
-  expect(mockNavigate).toHaveBeenLastCalledWith('/editions/old');
+  expect(screen.getByRole('link', { name: /Aug 1/i })).toHaveAttribute('href', '/editions/old');
 });
 it('does not insert new filings until Show, even when Keep returns the newer issue', async () => {
   jest.useFakeTimers();

@@ -5,7 +5,8 @@ import EditionInbox from '../components/editions/EditionInbox';
 import EditionPowerThrough from '../components/editions/EditionPowerThrough';
 import EditionReading from '../components/editions/EditionReading';
 import EditionPanel from '../components/editions/EditionPanel';
-import { readEditionLocal } from '../components/editions/editionReadingState';
+import EditionShelfNav, { useNarrowShelf } from '../components/editions/EditionShelfNav';
+import { readEditionLocal, writeEditionLocal } from '../components/editions/editionReadingState';
 import { byPaper, datelineLine, issueLine } from './editionModel';
 import '../styles/edition-reading.css';
 
@@ -16,17 +17,23 @@ export default function Editions() {
   const [editions, setEditions] = useState(null);
   const [error, setError] = useState('');
   const [utility, setUtility] = useState(null);
+  const [browse, setBrowse] = useState(null);
   const [focus, setFocus] = useState(false);
   const [remembered] = useState(() => readEditionLocal('last', 'place'));
+  const narrow = useNarrowShelf();
   const requested = id || params.get('issue');
   const selectedId = requested || null;
   const power = params.get('power') === '1';
+
+  const readProfileIssue = useCallback((profile) => readEditionLocal(profile, 'issue'), []);
+
   useEffect(() => {
     let active = true;
     listEditions({ limit: 500 })
       .then(async (rows) => {
-        if (requested && !rows.some((row) => row._id === requested))
+        if (requested && !rows.some((row) => row._id === requested)) {
           rows = [...rows, await getEdition(requested)];
+        }
         if (active) setEditions(rows);
       })
       .catch(() => {
@@ -36,6 +43,7 @@ export default function Editions() {
       active = false;
     };
   }, [requested]);
+
   const papers = useMemo(() => byPaper(editions || []), [editions]);
   const paper =
     papers.find((p) => p.issues.some((issue) => issue._id === selectedId)) ||
@@ -43,11 +51,28 @@ export default function Editions() {
     papers.find((p) => p.profile === remembered?.profile) ||
     papers[0];
   const issue = paper?.issues.find((row) => row._id === selectedId) || paper?.issues[paper.current];
-  const choose = (issueId) => {
+
+  const rememberIssue = useCallback((issueId, profile) => {
+    if (profile) writeEditionLocal(profile, 'issue', { issueId });
+  }, []);
+
+  useEffect(() => {
+    if (issue?._id && paper?.profile) rememberIssue(issue._id, paper.profile);
+  }, [issue?._id, paper?.profile, rememberIssue]);
+
+  const choose = useCallback((issueId, profile) => {
     setUtility(null);
+    setBrowse(null);
+    if (profile) rememberIssue(issueId, profile);
     navigate(`/editions/${encodeURIComponent(issueId)}`);
+  }, [navigate, rememberIssue]);
+
+  const openUtility = (kind, event) => {
+    setBrowse(null);
+    setUtility({ kind, origin: event.currentTarget });
   };
-  const openUtility = (kind, event) => setUtility({ kind, origin: event.currentTarget });
+
+  const openBrowse = (event) => setBrowse({ origin: event.currentTarget });
   const closePower = useCallback(() => navigate('/editions'), [navigate]);
 
   useEffect(() => {
@@ -71,35 +96,18 @@ export default function Editions() {
     );
   }
 
+  const shelfProps = {
+    papers,
+    paper,
+    selectedIssueId: issue?._id || selectedId || '',
+    readProfileIssue,
+    onOpenArrivals: (event) => openUtility('arrivals', event),
+    onOpenArchive: (event) => openUtility('archive', event),
+    onNavigate: choose
+  };
+
   return (
     <div className={`edition-reading${focus ? ' is-focused' : ''}`} data-testid="editions-stand">
-      <div className="edition-utilities" aria-label="Editions utilities">
-        <label className="edition-publication">
-          {' '}
-          <span className="sr-only">Publication</span>
-          <select
-            aria-label="Publication"
-            value={paper?.profile || ''}
-            onChange={(event) => {
-              const next = papers.find((p) => p.profile === event.target.value);
-              if (next) choose(next.issues[next.current]._id);
-            }}
-          >
-            {!papers.length ? <option value="">Editions</option> : null}
-            {papers.map((p) => (
-              <option value={p.profile} key={p.profile}>
-                {p.title}
-              </option>
-            ))}
-          </select>
-        </label>
-        <nav aria-label="Editions utilities">
-          <button onClick={() => navigate('/editions?power=1')}>Power through</button>
-          <button onClick={(event) => openUtility('arrivals', event)}>New arrivals</button>
-          <Link to="/library?scope=later">Later</Link>
-          <button onClick={(event) => openUtility('archive', event)}>Archive</button>
-        </nav>
-      </div>
       {error ? <p role="alert">{error}</p> : null}
       {!editions && !error ? <p role="status">Opening your papers…</p> : null}
       {editions?.length === 0 ? (
@@ -110,38 +118,47 @@ export default function Editions() {
           </p>
         </section>
       ) : null}
-      {paper ? (
-        <>
-          <header className="edition-nameplate">
-            <h1>{paper.title}</h1>
-          </header>
-          <EditionReading
-            key={issue._id}
-            issue={issue}
-            issues={paper.issues}
-            onChoose={choose}
-            focusItem={params.get('item') || ''}
-            focus={focus}
-            onFocus={setFocus}
-            utilityOpen={Boolean(utility)}
-            onInspect={() => setUtility(null)}
-          />
-        </>
-      ) : null}
-      {/* A direct issue can be older than the bounded stand listing. */}
-      {editions && !paper && id ? (
-        <EditionReading
-          key={id}
-          issue={{ _id: id }}
-          issues={[]}
-          onChoose={choose}
-          focusItem={params.get('item') || ''}
-          focus={focus}
-          onFocus={setFocus}
-          utilityOpen={Boolean(utility)}
-          onInspect={() => setUtility(null)}
-        />
-      ) : null}
+      <div className="edition-layout">
+        <EditionShelfNav {...shelfProps} />
+        <div className="edition-paper">
+          {paper && issue ? (
+            <EditionReading
+              key={issue._id}
+              issue={issue}
+              paperTitle={paper.title}
+              issueLabel={paper.issueLabel}
+              onChoose={choose}
+              focusItem={params.get('item') || ''}
+              focus={focus}
+              onFocus={setFocus}
+              utilityOpen={Boolean(utility) || Boolean(browse)}
+              onInspect={() => {
+                setUtility(null);
+                setBrowse(null);
+              }}
+              showBrowse={narrow}
+              onBrowse={openBrowse}
+            />
+          ) : null}
+          {editions && !paper && id ? (
+            <EditionReading
+              key={id}
+              issue={{ _id: id }}
+              onChoose={choose}
+              focusItem={params.get('item') || ''}
+              focus={focus}
+              onFocus={setFocus}
+              utilityOpen={Boolean(utility) || Boolean(browse)}
+              onInspect={() => {
+                setUtility(null);
+                setBrowse(null);
+              }}
+              showBrowse={narrow}
+              onBrowse={openBrowse}
+            />
+          ) : null}
+        </div>
+      </div>
       {utility ? (
         <EditionPanel
           title={utility.kind === 'arrivals' ? 'New arrivals' : 'The archive'}
@@ -157,7 +174,7 @@ export default function Editions() {
                 <ul>
                   {[...p.issues].reverse().map((row) => (
                     <li key={row._id}>
-                      <button onClick={() => choose(row._id)}>
+                      <button type="button" onClick={() => choose(row._id, p.profile)}>
                         {[issueLine(row), datelineLine(row)].filter(Boolean).join(' · ') ||
                           row.title}
                       </button>
@@ -167,6 +184,15 @@ export default function Editions() {
               </section>
             ))
           )}
+        </EditionPanel>
+      ) : null}
+      {browse ? (
+        <EditionPanel
+          title="Editions"
+          origin={browse.origin}
+          onClose={() => setBrowse(null)}
+        >
+          <EditionShelfNav {...shelfProps} inSheet className="edition-shelf--sheet" />
         </EditionPanel>
       ) : null}
     </div>

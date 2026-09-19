@@ -335,3 +335,62 @@ export const sourceLinks = (edition = null) => {
   });
   return links;
 };
+
+/** How many dated issues the rail shows before All issues. */
+export const SHELF_ISSUE_LIMIT = 12;
+
+const yearFromWindow = (issue = {}) => {
+  const end = day(issue.windowEnd);
+  const start = day(issue.windowStart);
+  if (!end && !start) return '';
+  if (end && start && end.getUTCFullYear() !== start.getUTCFullYear()) {
+    return `${start.getUTCFullYear()}–${end.getUTCFullYear()}`;
+  }
+  return String((end || start).getUTCFullYear());
+};
+
+/** Section label for the issue list, including cross-year coverage. */
+export const issuesShelfLabel = (issues = [], selectedId = '') => {
+  const selected = (Array.isArray(issues) ? issues : []).find((row) => row._id === selectedId);
+  const year = yearFromWindow(selected) || yearFromWindow(issues[issues.length - 1]);
+  return year ? `Issues · ${year}` : 'Issues';
+};
+
+/**
+ * Newest issues for the rail, bounded, with the open issue kept visible even
+ * when it falls outside the recent window.
+ */
+export const shelfIssuesForPaper = (issues = [], selectedId = '', limit = SHELF_ISSUE_LIMIT) => {
+  const list = Array.isArray(issues) ? issues : [];
+  const newestFirst = list
+    .slice()
+    .sort((left, right) => Date.parse(right.windowStart) - Date.parse(left.windowStart));
+  const recent = newestFirst.slice(0, limit);
+  if (selectedId && !recent.some((row) => row._id === selectedId)) {
+    const selected = list.find((row) => row._id === selectedId);
+    if (selected) {
+      return [...recent, selected].sort(
+        (left, right) => Date.parse(right.windowStart) - Date.parse(left.windowStart)
+      );
+    }
+  }
+  return recent;
+};
+
+/** Secondary shelf label for an issue number. */
+export const issueShelfMeta = (issue = {}, issueLabel) => {
+  const line = issueLine({ ...issue, issueLabel });
+  if (!line) return '';
+  const numbered = line.match(/(\d+)\s*$/);
+  if (numbered) return `No. ${numbered[1]}`;
+  return line;
+};
+
+/** Last issue the reader opened on this paper, else the current one. */
+export const resolvePaperIssueId = (paper, readProfileIssue) => {
+  if (!paper?.issues?.length) return '';
+  const stored = readProfileIssue?.(paper.profile);
+  const remembered = stored?.issueId;
+  if (remembered && paper.issues.some((row) => row._id === remembered)) return remembered;
+  return paper.issues[paper.current]?._id || paper.issues[paper.issues.length - 1]._id;
+};

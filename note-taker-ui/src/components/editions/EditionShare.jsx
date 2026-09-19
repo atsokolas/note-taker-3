@@ -26,7 +26,7 @@ const actionErrorOf = (error, fallback) => (
   error?.response?.data?.error || error?.message || fallback
 );
 
-const EditionShare = ({ editionId, edition = null }) => {
+const EditionShare = ({ editionId, edition = null, triggerIcon = null }) => {
   const rootRef = useRef(null);
   const urlRef = useRef(null);
   const [status, setStatus] = useState('loading');
@@ -142,8 +142,11 @@ const EditionShare = ({ editionId, edition = null }) => {
   const preview = share?.preview || share?.snapshot || null;
 
   return (
-    <details ref={rootRef} className="edition-share">
-      <summary data-testid="edition-share-open">Share</summary>
+    <details ref={rootRef} className="edition-share edition-share--paper-tools">
+      <summary data-testid="edition-share-open">
+        {triggerIcon}
+        <span>Share</span>
+      </summary>
       <div className="edition-share__panel" role="group" aria-label="Share this edition">
         <p className="edition-share__kicker">{title}{when ? ` · ${when}` : ''}</p>
         <p className="edition-share__privacy">{PRIVACY}</p>
