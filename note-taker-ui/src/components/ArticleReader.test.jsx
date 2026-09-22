@@ -161,12 +161,13 @@ describe('ArticleReader', () => {
       </MemoryRouter>
     );
     fireEvent.click(screen.getByRole('button', { name: 'Leave a thought' }));
-    expect(await screen.findByRole('textbox', { name: 'Your thought' })).toBeVisible();
     await waitFor(() => expect(useNavigate()).toHaveBeenCalledWith({
       pathname: '/library',
       search: 'articleId=article-1&highlightId=highlight-thought&thought=1',
       hash: ''
     }));
+    expect(document.querySelector('.article-passage-thought')).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: 'Your thought' })).not.toBeInTheDocument();
     expect(createHighlight).toHaveBeenCalledWith(expect.objectContaining({
       articleId: 'article-1',
       text: selection.text,
@@ -174,7 +175,7 @@ describe('ArticleReader', () => {
     }));
   });
 
-  it('opens the thought editor when arriving to annotate a saved passage', async () => {
+  it('does not dump a thought editor at the bottom of the article when arriving to annotate', async () => {
     window.history.replaceState({}, '', '/library?articleId=article-1&highlightId=highlight-1&thought=1');
     jest.spyOn(Router, 'useLocation').mockImplementation(() => ({
       pathname: '/library',
@@ -191,7 +192,9 @@ describe('ArticleReader', () => {
         />
       </MemoryRouter>
     );
-    expect(await screen.findByRole('textbox', { name: 'Your thought' })).toBeVisible();
+    await waitFor(() => expect(screen.getByText('A source sentence.')).toBeVisible());
+    expect(document.querySelector('.article-passage-thought')).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: 'Your thought' })).not.toBeInTheDocument();
   });
 
   it('explains an oversized passage before creating a highlight', () => {

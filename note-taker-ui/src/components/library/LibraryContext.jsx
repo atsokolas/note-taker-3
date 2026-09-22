@@ -16,6 +16,49 @@ const readStoredExpanded = (key, fallback) => {
   return stored === 'true';
 };
 
+const HighlightThoughtField = ({ highlight, onSave }) => {
+  const [note, setNote] = useState(highlight.note || '');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    setNote(highlight.note || '');
+    setError('');
+  }, [highlight._id, highlight.note]);
+
+  const save = async (event) => {
+    event.preventDefault();
+    setSaving(true);
+    setError('');
+    try {
+      await onSave(highlight._id, { note });
+    } catch (_) {
+      setError('Your thought did not save. It is still here; please retry.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <form className="library-context-feed-item__thought-form" onSubmit={save}>
+      <label>
+        Your thought
+        <textarea
+          value={note}
+          onChange={(event) => setNote(event.target.value)}
+          placeholder="What does this passage leave you thinking?"
+          maxLength={10000}
+          rows={3}
+        />
+      </label>
+      <button type="submit" disabled={saving}>
+        {saving ? 'Saving…' : 'Keep thought'}
+      </button>
+      {error ? <p role="alert">{error}</p> : null}
+    </form>
+  );
+};
+
 const LibraryContext = ({
   selectedArticleId,
   articleHighlights = [],
@@ -31,7 +74,8 @@ const LibraryContext = ({
   onAddQuestion,
   onHoldClaim,
   onDeleteHighlight,
-  onDumpToWorkingMemory
+  onDumpToWorkingMemory,
+  onUpdateHighlight
 }) => {
   const [feedExpanded, setFeedExpanded] = useState(() => readStoredExpanded(FEED_EXPANDED_KEY, true));
   const [relatedExpanded, setRelatedExpanded] = useState(() => readStoredExpanded(RELATED_EXPANDED_KEY, false));
@@ -51,7 +95,7 @@ const LibraryContext = ({
       if (feedFilter === 'tagged' && tags.length === 0) return false;
       if (feedFilter === 'untagged' && tags.length > 0) return false;
       if (!normalizedQuery) return true;
-      const haystack = `${highlight.text || ''} ${tags.join(' ')}`.toLowerCase();
+      const haystack = `${highlight.text || ''} ${highlight.note || ''} ${tags.join(' ')}`.toLowerCase();
       return haystack.includes(normalizedQuery);
     });
   }, [articleHighlights, feedFilter, normalizedQuery]);
@@ -86,6 +130,10 @@ const LibraryContext = ({
     if (typeof window === 'undefined') return;
     window.localStorage.setItem(RELATED_EXPANDED_KEY, String(relatedExpanded));
   }, [relatedExpanded]);
+
+  useEffect(() => {
+    if (activeHighlightId) setFeedExpanded(true);
+  }, [activeHighlightId]);
 
   const toggleFeedExpanded = () => {
     setFeedExpanded(prev => !prev);
@@ -174,6 +222,15 @@ const LibraryContext = ({
                             {tagLabel ? ` • ${tagLabel}` : ''}
                           </span>
                         </button>
+                        {highlight.note && activeHighlightId !== highlight._id ? (
+                          <p className="library-context-feed-item__thought">{highlight.note}</p>
+                        ) : null}
+                        {activeHighlightId === highlight._id && onUpdateHighlight ? (
+                          <HighlightThoughtField
+                            highlight={highlight}
+                            onSave={onUpdateHighlight}
+                          />
+                        ) : null}
                         <PassageDoor
                           highlightId={highlight._id}
                           articleId={selectedArticleId || highlight.articleId}
