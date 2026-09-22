@@ -105,6 +105,18 @@ test('one Peek at a time, including keyboard search access', async () => {
   fireEvent.keyDown(window, { key: '/' });
   expect(screen.getByRole('searchbox')).toHaveFocus();
 });
+test('sort uses the same disclosure menu as the rest of Library tools', async () => {
+  const onSortChange = jest.fn();
+  renderCollection({ onSortChange });
+
+  await screen.findByText('A quiet reading');
+  const summary = document.querySelector('.library-sort summary');
+  fireEvent.click(summary);
+  fireEvent.click(screen.getByRole('button', { name: 'Oldest first' }));
+
+  expect(onSortChange).toHaveBeenCalledWith('oldest');
+  expect(summary.closest('details').open).toBe(false);
+});
 test('Keepers retains pages and beliefs alongside sources, including retired beliefs and undo', async () => {
   const undo = jest.fn(async () => {});
   renderCollection({

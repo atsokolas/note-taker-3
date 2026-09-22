@@ -406,6 +406,8 @@
 
 .app-shell-new__body--railed > .app-shell-new__column {
   min-width: 0;
+  container-name: noeis-column;
+  container-type: inline-size;
   /* One hairline, the full height of the page — the rail box is short, and a
      border on the rail itself would read as a floating segment. */
   border-right: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 62%, transparent);

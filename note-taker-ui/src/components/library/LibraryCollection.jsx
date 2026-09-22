@@ -12,6 +12,7 @@ import {
   getLibraryPeek
 } from '../../api/libraryCollection';
 import LibrarySourcePeek, { sourcePassage } from './LibrarySourcePeek';
+import { LibraryMenu } from './LibraryActions';
 import { sourceLabel } from './libraryColumnModel';
 import {
   buildEvergreenIndex,
@@ -40,6 +41,11 @@ const TRACE_LABELS = {
   continue: 'Continue',
   passage: 'Marked passage'
 };
+const SORT_OPTIONS = [
+  { value: 'recent', label: 'Recently saved' },
+  { value: 'oldest', label: 'Oldest first' },
+  { value: 'title', label: 'Title A–Z' }
+];
 const scrollerFor = (node) => {
   let parent = node?.parentElement;
   while (
@@ -287,18 +293,17 @@ export default function LibraryCollection({
       <header className="library-collection-head">
         <h1>{LABELS[scope] || folderName || 'Library'}</h1>
         <div>
-          <label className="library-sort">
-            <span className="sr-only">Sort sources</span>
-            <select
-              aria-label="Sort sources"
-              value={sort}
-              onChange={(event) => onSortChange(event.target.value)}
-            >
-              <option value="recent">Recently saved</option>
-              <option value="oldest">Oldest first</option>
-              <option value="title">Title A–Z</option>
-            </select>
-          </label>
+          <LibraryMenu
+            className="library-sort"
+            label={SORT_OPTIONS.find(option => option.value === sort)?.label || 'Sort sources'}
+            menuLabel="Sort sources"
+            actions={SORT_OPTIONS.map(option => ({
+              id: option.value,
+              label: option.label,
+              current: option.value === sort,
+              onSelect: () => onSortChange(option.value)
+            }))}
+          />
           {tools}
         </div>
       </header>

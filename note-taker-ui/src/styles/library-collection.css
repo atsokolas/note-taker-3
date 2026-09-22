@@ -46,13 +46,11 @@
   align-items: baseline;
   gap: 22px;
 }
-.library-sort select {
-  max-width: 155px;
-  border: 0;
-  background: transparent;
-  color: var(--text-secondary);
-  font: 12px/1.5 var(--noeis-ui-font, sans-serif);
-  cursor: pointer;
+.library-collection-head .library-sort[open] > div {
+  width: 172px;
+}
+.library-collection-head .library-sort button[aria-current='true'] {
+  color: var(--text-primary);
 }
 .library-collection-search {
   display: flex;

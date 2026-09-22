@@ -71,6 +71,16 @@ describe('Think writing focus mode', () => {
     expect(notes).not.toMatch(/@media \(max-width: 760px\)[\s\S]*\.think-notes \.think-notebook-utility \{[^}]*overflow-x:\s*auto;/);
   });
 
+  it('responds to the column when the persistent agent rail narrows Think', () => {
+    const agentRail = fs.readFileSync(path.join(__dirname, 'agent-rail.css'), 'utf8');
+    const notes = fs.readFileSync(path.join(__dirname, 'think-notes.css'), 'utf8');
+    expect(agentRail).toContain('container-name: noeis-column;');
+    expect(agentRail).toContain('container-type: inline-size;');
+    expect(notes).toContain('@container noeis-column (max-width: 1180px)');
+    expect(notes).toContain('@container noeis-column (max-width: 760px)');
+    expect(notes).toContain('@container noeis-column (max-width: 640px)');
+  });
+
   it('keeps notebook arrangement off the essay until a small right-rail mark is opened', () => {
     expect(css).toContain('.notebook-arrangement {');
     expect(css).toContain('right: 0;');

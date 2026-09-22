@@ -248,6 +248,87 @@
   }
 }
 
+/* The permanent agent rail changes the writing canvas without changing the
+   viewport. Let the note respond to the width it actually has, so the shelf
+   never gets squeezed between a full writing measure and an absent margin. */
+@container noeis-column (max-width: 1180px) {
+  .think-notes {
+    grid-template-columns: minmax(0, 190px) minmax(0, 1fr);
+    gap: 24px;
+  }
+
+  .think-notes__partner {
+    position: static;
+    grid-column: 2;
+    padding: 24px 0 0;
+    border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 52%, transparent);
+    border-left: 0;
+  }
+
+  .think-notes__partner:not([hidden]) {
+    position: fixed;
+    inset: 130px 0 0 auto;
+    z-index: 41;
+    display: block;
+    width: min(430px, 100vw);
+    max-height: calc(100dvh - 130px);
+    overflow: auto;
+    padding: 24px clamp(20px, 5vw, 36px) 48px;
+    border: 0;
+    border-left: 1px solid var(--vellum-line);
+    background: var(--vellum-paper, #fbf8f1);
+    box-shadow: -18px 0 50px rgba(43, 37, 28, 0.12);
+  }
+}
+
+@container noeis-column (max-width: 760px) {
+  .think-notes {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .think-notes__shelf {
+    position: static;
+    order: 2;
+    padding-top: 28px;
+    padding-right: 0;
+    border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 52%, transparent);
+    border-right: 0;
+  }
+
+  .think-notes__shelf ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 18px;
+  }
+
+  .think-notes__shelf .room-shelf__item { width: auto; }
+
+  .think-notes__partner {
+    grid-column: 1;
+    order: 3;
+  }
+
+  .think-notes__partner:not([hidden]) {
+    inset: 130px 0 0;
+    width: 100vw;
+    max-height: calc(100dvh - 130px);
+    padding-top: 20px;
+    border-left: 0;
+    box-shadow: none;
+  }
+
+  .think-notes__note { order: 1; }
+  .think-notes .ProseMirror { font-size: 1.12rem; }
+  .think-notes .think-notebook-utility { gap: 9px; }
+}
+
+@container noeis-column (max-width: 640px) {
+  .think-notes__partner:not([hidden]) {
+    inset: 112px 0 0;
+    max-height: calc(100dvh - 112px);
+  }
+}
+
 /* ---------------------------------------------------------------------------
    The editor, without its furniture.
 
