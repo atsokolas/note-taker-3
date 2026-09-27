@@ -1,6 +1,12 @@
 import React, { useEffect, useCallback, useRef, useState } from 'react';
 import { setEditionItemState } from '../../api/editions';
-import { datelineLine, issueLine, standLayout, stateOf } from '../../pages/editionModel';
+import {
+  datelineLine,
+  issueLine,
+  latestFilingLine,
+  standLayout,
+  stateOf
+} from '../../pages/editionModel';
 import EditionShare from './EditionShare';
 import { EditionSourcesJump, EditionSourcesList, useEditionSources } from './EditionSources';
 import EditionFinding from './EditionFinding';
@@ -150,6 +156,7 @@ export default function EditionReading({
     : status === 'filling'
       ? 'Still filling'
       : 'Collection window ahead';
+  const filingState = latestFilingLine(edition);
   const mastheadTitle = paperTitle || edition?.profileLabel || edition?.title || issue.title || '';
   const newCount =
     pending?.items?.filter((item) => !edition?.items?.some((held) => held.itemId === item.itemId))
@@ -196,7 +203,9 @@ export default function EditionReading({
           {issueLine({ ...row, issueLabel }) || issueLine(row)}
         </span>
         <span className="reading-dateline__when">{datelineLine(row)}</span>
-        <span className="reading-dateline__state">{collectionState}</span>
+        <span className="reading-dateline__state">
+          {[filingState, collectionState].filter(Boolean).join(' · ')}
+        </span>
       </div>
       <div className="reading-intro">
         {row.standfirst ? <p>{row.standfirst}</p> : null}

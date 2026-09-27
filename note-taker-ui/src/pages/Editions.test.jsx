@@ -43,6 +43,28 @@ it('opens the newest issue while retaining only the remembered publication', asy
   expect(screen.getByRole('link', { name: /Sep 13/i })).toHaveAttribute('aria-current', 'page');
 });
 
+it('offers a newly filed issue without pulling the reader out of the one open', async () => {
+  const open = { ...edition, windowStart: '2026-09-13', windowEnd: '2026-09-19' };
+  const fresh = {
+    ...open,
+    _id: 'fresh',
+    number: 4,
+    windowStart: '2026-09-20',
+    windowEnd: '2026-09-26',
+    updatedAt: '2026-09-27T10:02:38.987Z'
+  };
+  api.listEditions
+    .mockResolvedValueOnce([open])
+    .mockResolvedValueOnce([fresh, open]);
+  api.getEdition.mockImplementation(async issueId => issueId === 'fresh' ? fresh : open);
+  render(<Editions />);
+  await screen.findByText(item.finding);
+  fireEvent(document, new Event('visibilitychange'));
+  expect(await screen.findByText('Just filed · Weekend Readings')).toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: 'Open Edition 4 →' }));
+  expect(mockNavigate).toHaveBeenLastCalledWith('/editions/fresh');
+});
+
 it('powers through full arrivals without clearing untouched findings', async () => {
   mockSearch = 'power=1';
   api.getEditionInbox.mockResolvedValue({

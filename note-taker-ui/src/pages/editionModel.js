@@ -68,6 +68,43 @@ export const issueLine = ({ issueLabel = 'Edition', number } = {}) => (
   Number.isFinite(Number(number)) && Number(number) > 0 ? `${issueLabel} ${number}` : ''
 );
 
+const timestampOf = (value) => {
+  const time = Date.parse(value || '');
+  return Number.isFinite(time) ? time : 0;
+};
+
+const newestFilingAt = (edition = {}) => Math.max(
+  0,
+  ...(edition?.items || []).map(item => timestampOf(item?.filedAt))
+);
+
+const editionRecency = (edition = {}) => [
+  edition.updatedAt,
+  edition.createdAt,
+  edition.windowEnd,
+  edition.windowStart
+].map(timestampOf).find(Boolean) || 0;
+
+/* A filing has its own time, separate from the week the paper covers. That
+   distinction matters when an agent finishes a retrospective issue today. */
+export const latestFilingLine = (edition = {}, now = new Date()) => {
+  const filedAt = newestFilingAt(edition);
+  if (!filedAt) return '';
+  const filed = new Date(filedAt);
+  const today = now instanceof Date ? now : new Date(now);
+  if (Number.isNaN(today.getTime())) return '';
+  const sameDay = (left, right) => (
+    left.getFullYear() === right.getFullYear()
+    && left.getMonth() === right.getMonth()
+    && left.getDate() === right.getDate()
+  );
+  if (sameDay(filed, today)) return 'Filed today';
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+  if (sameDay(filed, yesterday)) return 'Filed yesterday';
+  return `Filed ${filed.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
+};
+
 /**
  * Which tense an issue is in.
  *
@@ -210,12 +247,14 @@ export const byPaper = (editions = []) => {
     const issues = paper.issues
       .slice()
       .sort((left, right) => Date.parse(left.windowStart) - Date.parse(right.windowStart));
-    return { ...paper, issues, current: issues.length - 1 };
-  /* The paper whose issue is freshest stands at the front of the stand. */
-  }).sort((left, right) => (
-    Date.parse(right.issues[right.issues.length - 1].windowStart)
-    - Date.parse(left.issues[left.issues.length - 1].windowStart)
-  ));
+    const current = issues.reduce((best, issue, index) => (
+      editionRecency(issue) > editionRecency(issues[best])
+        ? index
+        : best
+    ), 0);
+    return { ...paper, issues, current };
+  /* The paper with the most recent filing stands at the front of the stand. */
+  }).sort((left, right) => editionRecency(right.issues[right.current]) - editionRecency(left.issues[left.current]));
 };
 
 /**
