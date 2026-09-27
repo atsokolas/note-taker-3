@@ -154,6 +154,14 @@
 .reading-arrivals, .reading-focus-exit, .reading-selection { position: fixed; z-index: 32; background: var(--reading-paper) !important; border: 1px solid var(--reading-rule) !important; border-radius: 4px; padding: 10px 16px !important; font: 13px/1.6 var(--noeis-font-ui, system-ui) !important; }
 .reading-arrivals { bottom: 24px; right: 24px; }
 .reading-arrivals button { padding: 0; }
+.edition-new-issue {
+  position: fixed; z-index: 32; right: 24px; bottom: 24px;
+  display: flex; align-items: center; gap: 12px 20px; max-width: min(440px, calc(100vw - 48px));
+  padding: 10px 16px; border: 1px solid var(--reading-rule); border-left: 2px solid var(--noeis-pointer, #6f87ff);
+  border-radius: 4px; background: var(--reading-paper); box-shadow: 0 8px 24px #00000008;
+  font: 12px/1.5 var(--noeis-font-ui, system-ui); color: var(--reading-muted);
+}
+.edition-new-issue button { min-height: 32px; padding: 0; color: var(--reading-ink); text-decoration: underline; text-underline-offset: 4px; }
 .reading-focus-exit { right: 24px; top: 98px; }
 /* Visibility preserves every line break and vertical coordinate in Just read. */
 .edition-reading.is-focused :is(.edition-layout > .edition-shelf,.edition-paper-tools,.reading-dateline,.reading-margin,.reading-resume) { visibility: hidden; pointer-events: none; }
@@ -204,6 +212,7 @@
   .reading-prose { font-size: 18px; line-height: 1.7; }
   .reading-actions { gap: 8px 18px; }
   .edition-finding h2 { font-size: 30px; }
+  .edition-new-issue { right: 16px; bottom: 16px; align-items: start; flex-direction: column; gap: 4px; }
   .reading-focus-exit { top: 80px; right: 16px; }
 }
 @media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {

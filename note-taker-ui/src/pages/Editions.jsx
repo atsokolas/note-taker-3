@@ -19,21 +19,28 @@ export default function Editions() {
   const [utility, setUtility] = useState(null);
   const [browse, setBrowse] = useState(null);
   const [focus, setFocus] = useState(false);
+  const [rootIssueId, setRootIssueId] = useState('');
   const [remembered] = useState(() => readEditionLocal('last', 'place'));
   const narrow = useNarrowShelf();
   const requested = id || params.get('issue');
-  const selectedId = requested || null;
+  const selectedId = requested || rootIssueId || null;
   const power = params.get('power') === '1';
+  const standReady = editions !== null;
 
   const readProfileIssue = useCallback((profile) => readEditionLocal(profile, 'issue'), []);
 
+  const loadStand = useCallback(async () => {
+    let rows = await listEditions({ limit: 500 });
+    if (requested && !rows.some((row) => row._id === requested)) {
+      rows = [...rows, await getEdition(requested)];
+    }
+    return rows;
+  }, [requested]);
+
   useEffect(() => {
     let active = true;
-    listEditions({ limit: 500 })
-      .then(async (rows) => {
-        if (requested && !rows.some((row) => row._id === requested)) {
-          rows = [...rows, await getEdition(requested)];
-        }
+    loadStand()
+      .then((rows) => {
         if (active) setEditions(rows);
       })
       .catch(() => {
@@ -42,7 +49,29 @@ export default function Editions() {
     return () => {
       active = false;
     };
-  }, [requested]);
+  }, [loadStand]);
+
+  useEffect(() => {
+    if (!standReady) return undefined;
+    let active = true;
+    const refresh = async () => {
+      if (document.visibilityState !== 'visible') return;
+      try {
+        const rows = await loadStand();
+        if (active) setEditions(rows);
+      } catch (_error) {
+        /* The paper stays readable; the next visible minute tries again. */
+      }
+    };
+    const onVisible = refresh;
+    const interval = window.setInterval(refresh, 60000);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [standReady, loadStand]);
 
   const papers = useMemo(() => byPaper(editions || []), [editions]);
   const paper =
@@ -51,6 +80,15 @@ export default function Editions() {
     papers.find((p) => p.profile === remembered?.profile) ||
     papers[0];
   const issue = paper?.issues.find((row) => row._id === selectedId) || paper?.issues[paper.current];
+  const latestPaper = papers[0];
+  const latestIssue = latestPaper?.issues[latestPaper.current];
+  const latestArrival = !requested && latestIssue?._id && latestIssue._id !== issue?._id
+    ? { paper: latestPaper, issue: latestIssue }
+    : null;
+
+  useEffect(() => {
+    if (!requested && !rootIssueId && issue?._id) setRootIssueId(issue._id);
+  }, [requested, rootIssueId, issue?._id]);
 
   const rememberIssue = useCallback((issueId, profile) => {
     if (profile) writeEditionLocal(profile, 'issue', { issueId });
@@ -156,6 +194,17 @@ export default function Editions() {
               showBrowse={narrow}
               onBrowse={openBrowse}
             />
+          ) : null}
+          {latestArrival ? (
+            <aside className="edition-new-issue" role="status">
+              <span>Just filed · {latestArrival.paper.title}</span>
+              <button
+                type="button"
+                onClick={() => choose(latestArrival.issue._id, latestArrival.paper.profile)}
+              >
+                Open {issueLine({ ...latestArrival.issue, issueLabel: latestArrival.paper.issueLabel }) || 'the latest issue'} →
+              </button>
+            </aside>
           ) : null}
         </div>
       </div>

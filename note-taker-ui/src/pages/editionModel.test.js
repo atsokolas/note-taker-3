@@ -1,6 +1,6 @@
 import {
   byInboxEdition, byPaper, bylineFor, bySection, closesLine, datelineLine,
-  gapLine, inboxEditionLine, issueLine, issueShelfMeta, issuesShelfLabel,
+  gapLine, inboxEditionLine, issueLine, issueShelfMeta, issuesShelfLabel, latestFilingLine,
   publicSourceHref, resolvePaperIssueId, runLine, shelfIssuesForPaper,
   sourceLinks, standLayout, stateOf, takenLine, windowLine
 } from './editionModel';
@@ -31,6 +31,20 @@ describe('the issue line', () => {
     expect(issueLine({ number: null })).toBe('');
     expect(issueLine({ number: 0 })).toBe('');
     expect(issueLine()).toBe('');
+  });
+});
+
+describe('the filing line', () => {
+  it('separates when an agent filed from the issue window it covered', () => {
+    const now = new Date('2026-09-27T18:00:00Z');
+    expect(latestFilingLine({ items: [{ filedAt: '2026-09-27T10:02:38.987Z' }] }, now))
+      .toBe('Filed today');
+    expect(latestFilingLine({ items: [{ filedAt: '2026-09-26T10:02:38.987Z' }] }, now))
+      .toBe('Filed yesterday');
+  });
+
+  it('stays quiet when an edition has no filing time', () => {
+    expect(latestFilingLine({ items: [{}] }, new Date('2026-09-27T18:00:00Z'))).toBe('');
   });
 });
 
@@ -177,9 +191,23 @@ describe('the stand, arranged as papers', () => {
     const ai = papers.find(paper => paper.profile === 'ai');
     expect(ai.title).toBe('This Week in AI');
     expect(ai.issues.map(row => row.number)).toEqual([1, 2]);
-    /* The current issue is the last one, and the freshest paper stands first. */
+    /* Without a filing timestamp, the latest calendar window remains current. */
     expect(ai.current).toBe(1);
     expect(papers[0].profile).toBe('ai');
+  });
+
+  it('opens the edition most recently filed, even when its window is older', () => {
+    const past = {
+      ...issue('weekend', 3, 6),
+      updatedAt: '2026-09-27T10:02:38.987Z'
+    };
+    const future = {
+      ...issue('weekend', 4, 20),
+      updatedAt: '2026-09-20T10:03:47.010Z'
+    };
+    const [paper] = byPaper([future, past]);
+    expect(paper.current).toBe(0);
+    expect(paper.issues[paper.current]._id).toBe(past._id);
   });
 
   it('ignores a row with no paper to belong to', () => {
