@@ -151,11 +151,11 @@ const NotebookWorkbenchPanel = ({
         <QuietButton disabled={!jot.trim()} onClick={() => { onJot(jot); setJot(''); }}>{simpleScratchpad ? 'Keep thought' : 'Hold this thought'}</QuietButton>
         {workingState.looseThoughts.map(item => (
           <article className="notebook-workbench__row" key={item.id}>
-            <p>{item.text}</p>
+            <p>{simpleScratchpad ? <button type="button" className="notebook-scratchpad__thought" title="Back to passage" onClick={() => onGoToThought(item)}>{item.text}</button> : item.text}</p>
             <div className="notebook-workbench__row-actions">
               {simpleScratchpad ? <>
-                <QuietButton onClick={() => onInsertThought(item)}>Use in draft</QuietButton>
-                <details className="notebook-scratchpad__more"><summary aria-label="More thought actions">···</summary><QuietButton onClick={() => onGoToThought(item)}>Back to passage</QuietButton><QuietButton onClick={() => onDiscardThought(item.id)}>Discard</QuietButton></details>
+                <QuietButton aria-label="Insert thought into draft" title="Insert into draft" onClick={() => onInsertThought(item)}>+</QuietButton>
+                <QuietButton aria-label="Discard thought" title="Discard thought" onClick={() => onDiscardThought(item.id)}>×</QuietButton>
               </> : <>
                 <QuietButton onClick={() => onGoToThought(item)}>Back to my sentence</QuietButton>
                 <QuietButton onClick={() => onInsertThought(item)}>Put into the draft</QuietButton>

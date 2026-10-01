@@ -8,7 +8,7 @@ Word, sentence, and paragraph alternatives share the existing notebook workbench
 
 Opening the right drawer folds the alternatives strip away and returns the draft to its original wording. Desktop and tablet layouts reserve a grid column for the drawer so it cannot cover the editor. Reopening alternatives closes the drawer; saved alternatives remain available. On mobile the right drawer becomes a keyboard-contained dialog and alternatives become a scrollable bottom sheet, with room to bring the active passage above it. Notes collapse when opening secondary controls on narrower screens. Reduced-motion behavior and the existing arrangement shortcut remain intact.
 
-The simplified scratchpad opens with one jot field and **Keep thought**. Saved thoughts show **Use in draft**, with return/discard actions under a small disclosure. **Next time** is collapsed until requested; a saved line is indicated in its summary. Existing data and legacy editor capabilities are preserved.
+The simplified scratchpad opens with one jot field and **Keep thought**. Compact saved thoughts have **+** to insert and **×** to discard, with descriptive accessible labels and hover titles. Clicking the thought returns to its passage. **Next time** is collapsed until requested; a saved line is indicated in its summary. Existing data and legacy editor capabilities are preserved.
 
 The new alternatives component replaces the Think right-drawer trial form. The legacy editor keeps its existing form because other consumers still use it. Duplicate layout breakpoint blocks and the old text-overlay preview were removed. No Wiki behavior was changed.
 
