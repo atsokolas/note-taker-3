@@ -89,6 +89,7 @@ const ThinkNotes = () => {
   const activeContext = contextByNote[openId] || null;
   const openContext = useCallback((mode) => {
     if (!openId) return;
+    if (room.current?.getBoundingClientRect().width <= 1040) setNotesCollapsed(true);
     setContextByNote(current => ({ ...current, [openId]: mode }));
   }, [openId]);
   const closeContext = useCallback(() => {
@@ -102,7 +103,7 @@ const ThinkNotes = () => {
   useEffect(() => {
     const element = room.current;
     if (!element) return undefined;
-    const sync = () => setCompactContext(element.getBoundingClientRect().width <= 1260);
+    const sync = () => setCompactContext(element.getBoundingClientRect().width <= 760);
     sync();
     const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(sync) : null;
     observer?.observe(element);
@@ -110,9 +111,9 @@ const ThinkNotes = () => {
     return () => { observer?.disconnect(); window.removeEventListener('resize', sync); };
   }, []);
   const focusAlternatives = useCallback(() => {
-    if (compactContext) closeContext();
+    closeContext();
     if (room.current?.getBoundingClientRect().width <= 1040) setNotesCollapsed(true);
-  }, [closeContext, compactContext]);
+  }, [closeContext]);
   const contextTakesFocus = Boolean(activeContext && compactContext);
   useEffect(() => {
     if (!activeContext) return undefined;
@@ -432,7 +433,7 @@ const ThinkNotes = () => {
         </RoomShelf>
       </aside>
 
-      <aside className="think-notes__alternatives" hidden={!alternativesOpen} aria-label="Wording alternatives" inert={contextTakesFocus ? '' : undefined} aria-hidden={contextTakesFocus || undefined}>
+      <aside className="think-notes__alternatives" hidden={!alternativesOpen || Boolean(activeContext)} aria-label="Wording alternatives">
         <div ref={setAlternativesPortal} />
       </aside>
 

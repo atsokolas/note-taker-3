@@ -6,7 +6,9 @@ The notebook has four possible places: a collapsible notes shelf at the far left
 
 Word, sentence, and paragraph alternatives share the existing notebook workbench records. A preview changes the rendered passage without mutating the document. Keeping wording changes only the exact selected range and retains the previous wording as an alternative. Changed or missing passages require review; a stale range cannot replace another passage. Scope offsets persist through the workbench API and Mongoose schema. Alternatives can be reopened from Material's “Wording to revisit.”
 
-On compact screens the right drawer becomes a keyboard-contained dialog. On mobile the alternatives become a scrollable bottom sheet, with room to bring the active passage above it. Notes collapse when opening alternatives on narrower screens. Reduced-motion behavior and the existing arrangement shortcut remain intact.
+Opening the right drawer folds the alternatives strip away and returns the draft to its original wording. Desktop and tablet layouts reserve a grid column for the drawer so it cannot cover the editor. Reopening alternatives closes the drawer; saved alternatives remain available. On mobile the right drawer becomes a keyboard-contained dialog and alternatives become a scrollable bottom sheet, with room to bring the active passage above it. Notes collapse when opening secondary controls on narrower screens. Reduced-motion behavior and the existing arrangement shortcut remain intact.
+
+The simplified scratchpad opens with one jot field and **Keep thought**. Saved thoughts show **Use in draft**, with return/discard actions under a small disclosure. **Next time** is collapsed until requested; a saved line is indicated in its summary. Existing data and legacy editor capabilities are preserved.
 
 The new alternatives component replaces the Think right-drawer trial form. The legacy editor keeps its existing form because other consumers still use it. Duplicate layout breakpoint blocks and the old text-overlay preview were removed. No Wiki behavior was changed.
 
@@ -34,6 +36,8 @@ From this worktree, build the UI and run `node scripts/serve_think_room_qa.js`. 
 Local screenshots live in `output/think-alternatives/desktop.jpg` and `mobile.jpg` (not committed).
 
 ## Remaining
+
+Follow-up refinement verified locally: 94 focused editor/template/style tests and the CI production build pass. At the actual 1296px browser width and at 900px, measured editor and drawer bounds do not overlap and the page has no horizontal overflow. Opening Scratchpad hides alternatives; returning to Try wording closes the drawer and preserves saved wording. Mobile retains the full-width drawer with Escape returning focus. Evidence: `output/think-alternatives/scratchpad-refined.jpg`.
 
 - Authenticated acceptance against real MongoDB and the live Partner proposal flow. “ask” deliberately prepares a prompt in the existing Partner rather than silently sending it.
 - Native Safari and physical touch-device acceptance, including virtual-keyboard positioning.

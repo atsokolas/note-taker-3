@@ -1320,6 +1320,8 @@ const NotebookEditor = ({
   const activeTargetResolution = resolveEditorTarget(editor, heldTarget);
   const trialBlockId = activeTrial?.target.blockId;
 
+  useEffect(() => { if (activeContext) setTrialPreview('original'); }, [activeContext]);
+
   useEffect(() => {
     if (!alternativesPortal || workbenchView !== 'trial' || window.innerWidth > 760) return undefined;
     const frame = window.requestAnimationFrame(() => {

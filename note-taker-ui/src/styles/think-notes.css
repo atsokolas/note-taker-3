@@ -150,6 +150,7 @@
 .think-notes.notes-collapsed { --notes-width: 0px; }
 .think-notes.has-alternatives { --alternatives-width: 220px; }
 .think-notes.has-context { --drawer-width: 280px; }
+.think-notes.has-context.has-alternatives { --alternatives-width: 0px; }
 .think-notes > [hidden] { display: none !important; }
 .think-notes__shelf { grid-column: 1; grid-row: 1; padding-top: 32px; }
 .think-notes__note { grid-column: 3; grid-row: 1; width: 100%; max-width: 740px; padding-inline: clamp(24px, 3vw, 48px); justify-self: center; }
@@ -173,21 +174,20 @@
 .notebook-alternatives .notebook-alternatives__discard { color: var(--text-secondary); font-size: .65rem; }
 @container noeis-column (max-width: 1260px) {
   .think-notes { --notes-width: 145px; }
-  .think-notes.has-context { --drawer-width: 0px; }
-  .think-notes__partner:not([hidden]) { position: fixed; inset: 112px 0 0 auto; z-index: 41; width: min(360px, 100vw); padding: 20px 24px 48px; background: var(--vellum-paper, #fbf8f1); border-left: 1px solid var(--vellum-line); }
 }
 @container noeis-column (max-width: 1040px) {
   .think-notes__note { padding-inline: 20px; }
 }
 @container noeis-column (max-width: 760px) {
   .think-notes { --notes-width: 0px; }
+  .think-notes.has-context { --drawer-width: 0px; padding-bottom: 80px; }
   .think-notes.has-alternatives { --alternatives-width: 0px; padding-bottom: calc(58dvh + 120px); }
   .think-notes__note { padding-inline: 0; }
   .think-notes__shelf { grid-column: 3; grid-row: 2; position: static; padding-top: 28px; border-right: 0; }
   .think-notes__shelf-toggle { position: static; grid-column: 3; margin-bottom: 16px; justify-self: start; }
   .think-notes__alternatives { position: fixed; inset: 42dvh 0 0; z-index: 40; padding: 18px 24px; max-height: 58dvh; background: var(--vellum-paper, #fbf8f1); border-top: 1px solid var(--vellum-line); border-right: 0; }
   .think-notes__alternatives header { margin-bottom: 12px; }
-  .think-notes__partner:not([hidden]) { inset: 112px 0 0; width: 100vw; border-left: 0; }
+  .think-notes__partner:not([hidden]) { position: fixed; inset: 88px 0 0; z-index: 41; width: 100vw; padding: 20px 24px 48px; background: var(--vellum-paper, #fbf8f1); border-left: 0; }
   .think-notes .ProseMirror { font-size: 1.12rem; }
   .think-notes .ProseMirror > * { scroll-margin-top: 120px; }
 }
@@ -377,6 +377,13 @@ body.noeis-editorial .think-notes .think-notebook-editor-header {
 .notebook-workbench__row.is-used { opacity: 0.72; }
 .notebook-workbench__section { margin-top: 28px; }
 .notebook-workbench__section-title { justify-content: space-between; }
+.notebook-scratchpad > .notebook-workbench__section:first-child { margin-top: 0; }
+.notebook-scratchpad__more summary, .notebook-scratchpad > details > summary { cursor: pointer; color: var(--text-secondary); font-size: .78rem; }
+.notebook-scratchpad__more summary { list-style: none; padding: 8px; }
+.notebook-scratchpad__more[open] { flex-basis: 100%; }
+.notebook-scratchpad__more[open] button { margin-right: 12px; }
+.notebook-scratchpad > details { padding-top: 14px; border-top: 1px solid var(--vellum-line); }
+.notebook-scratchpad .notebook-workbench__row p { color: var(--text-primary); font: 400 1rem/1.6 var(--font-serif, Georgia, serif); }
 .notebook-workbench__field { display: grid; gap: 6px; margin: 10px 0; color: var(--text-muted); font-size: 0.7rem; }
 .notebook-workbench__field textarea {
   width: 100%;
