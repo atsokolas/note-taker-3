@@ -24,6 +24,7 @@ const SourceRow = ({ item, used, targets, onInsert, onRemove, onGoTo }) => (
 
 const NotebookWorkbenchPanel = ({
   mode = 'material',
+  splitDrawer = false,
   workingState,
   targetStatus,
   citationTargets,
@@ -32,6 +33,7 @@ const NotebookWorkbenchPanel = ({
   trialStatus = null,
   thoughtTarget = null,
   onChooseSource,
+  onOpenTrial,
   onInsertMaterial,
   onRemoveMaterial,
   onGoToMaterial,
@@ -90,7 +92,8 @@ const NotebookWorkbenchPanel = ({
   }
 
   return (
-    <section className="notebook-workbench" aria-label="Material beside this note">
+    <section className="notebook-workbench" aria-label={mode === 'scratchpad' ? 'Scratchpad' : 'Material beside this note'}>
+      {!splitDrawer || mode !== 'scratchpad' ? <>
       <header>
         <span className="notebook-workbench__eyebrow">MATERIAL</span>
         <h2>Beside this note</h2>
@@ -128,6 +131,12 @@ const NotebookWorkbenchPanel = ({
         </div>
       ) : <p className="notebook-workbench__empty">Nothing waiting beside this note.</p>}
 
+        {splitDrawer && workingState.trials.length ? <details className="notebook-workbench__section">
+          <summary>Wording to revisit · {workingState.trials.length}</summary>
+          {workingState.trials.map(trial => <div className="notebook-workbench__row" key={trial.id}><p>{trial.alternative || 'Unfinished alternative'}</p><QuietButton onClick={() => onOpenTrial?.(trial)}>Open alternative</QuietButton></div>)}
+        </details> : null}
+      </> : null}
+      {!splitDrawer || mode !== 'material' ? <>
       <div className="notebook-workbench__section">
         <div className="notebook-workbench__section-title">
           <h3>Loose thoughts</h3>
@@ -174,6 +183,7 @@ const NotebookWorkbenchPanel = ({
           {workingState.nextTimeLine?.text ? <QuietButton onClick={onClearNextLine}>Clear this line</QuietButton> : null}
         </div>
       </div>
+      </> : null}
     </section>
   );
 };

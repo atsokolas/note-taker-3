@@ -19,7 +19,10 @@ const date = (value, fallback = new Date()) => {
 const target = (value = {}) => ({
   blockId: string(value?.blockId, 160),
   offset: Math.max(0, Math.min(Number(value?.offset) || 0, LIMITS.baseText)),
-  baseText: string(value?.baseText, LIMITS.baseText)
+  baseText: String(value?.baseText || '').slice(0, LIMITS.baseText),
+  ...(['word', 'sentence'].includes(value?.scope) && Number.isInteger(value?.rangeStart) && Number.isInteger(value?.rangeEnd) && value.rangeStart >= 0 && value.rangeEnd > value.rangeStart && value.rangeEnd <= Math.min(String(value.baseText || '').length, LIMITS.baseText)
+    ? { scope: value.scope, rangeStart: value.rangeStart, rangeEnd: value.rangeEnd }
+    : {})
 });
 
 const materialKinds = new Set(['highlight', 'article', 'concept', 'question', 'wiki']);
@@ -41,13 +44,17 @@ const material = (value, index) => {
   };
 };
 
-const trial = (value, index) => ({
-  id: string(value?.id, 160) || `trial-${index}`,
-  target: target(value?.target),
-  alternative: string(value?.alternative, LIMITS.text),
-  origin: value?.origin === 'partner' ? 'partner' : 'human',
-  updatedAt: date(value?.updatedAt)
-});
+const trial = (value, index) => {
+  const savedTarget = target(value?.target);
+  if (value?.target?.scope && !savedTarget.scope) return null;
+  return {
+    id: string(value?.id, 160) || `trial-${index}`,
+    target: savedTarget,
+    alternative: String(value?.alternative || '').slice(0, LIMITS.text),
+    origin: value?.origin === 'partner' ? 'partner' : 'human',
+    updatedAt: date(value?.updatedAt)
+  };
+};
 
 const thought = (value, index) => {
   const text = string(value?.text, LIMITS.text);

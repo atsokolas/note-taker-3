@@ -5,8 +5,9 @@ describe('Think writing focus mode', () => {
   const css = fs.readFileSync(path.join(__dirname, 'think-writing.css'), 'utf8');
 
   it('retreats both rails into named handles while writing', () => {
-    expect(css).toContain('grid-template-columns: 184px minmax(0, 660px) minmax(245px, 1fr);');
-    expect(css).toContain('grid-template-columns: 30px minmax(420px, 1fr) 30px;');
+    const notes = fs.readFileSync(path.join(__dirname, 'think-notes.css'), 'utf8');
+    expect(notes).toContain('grid-template-columns: var(--notes-width) var(--alternatives-width) minmax(0, 1fr) var(--drawer-width)');
+    expect(notes).toContain('--notes-width: 30px; --drawer-width: 0px;');
     expect(css).toContain("content: attr(data-writing-rail-label);");
     expect(css).toContain("[data-writing-rail='left']:is(:hover, :focus-within)");
     expect(css).toContain("[data-writing-rail='right']:is(:hover, :focus-within)");
@@ -49,7 +50,7 @@ describe('Think writing focus mode', () => {
     expect(css).toContain('.think-notes__shelf [data-writing-rail]');
     expect(css).not.toMatch(/\.think-notes \[data-writing-rail\] \{\s*position:\s*relative;/);
     const notes = fs.readFileSync(path.join(__dirname, 'think-notes.css'), 'utf8');
-    expect(notes).toMatch(/@media \(max-width: 1180px\)[\s\S]*\.think-notes__partner \{[\s\S]*?position:\s*static;/);
+    expect(notes).toMatch(/@container noeis-column \(max-width: 1260px\)[\s\S]*?position:\s*fixed;/);
     expect(notes).toMatch(/\.think-notes__partner \{[\s\S]*?position:\s*sticky;/);
   });
 
@@ -76,9 +77,9 @@ describe('Think writing focus mode', () => {
     const notes = fs.readFileSync(path.join(__dirname, 'think-notes.css'), 'utf8');
     expect(agentRail).toContain('container-name: noeis-column;');
     expect(agentRail).toContain('container-type: inline-size;');
-    expect(notes).toContain('@container noeis-column (max-width: 1180px)');
+    expect(notes).toContain('@container noeis-column (max-width: 1260px)');
     expect(notes).toContain('@container noeis-column (max-width: 760px)');
-    expect(notes).toContain('@container noeis-column (max-width: 640px)');
+    expect(notes).toContain('@container noeis-column (max-width: 1040px)');
   });
 
   it('keeps notebook arrangement off the essay until a small right-rail mark is opened', () => {

@@ -16,11 +16,22 @@ const decorations = (doc, state = {}) => {
       }));
     }
     if (blockId === state.preview?.blockId && state.preview?.text) {
-      rows.push(Decoration.node(pos, pos + node.nodeSize, {
-        class: 'notebook-trial-preview',
-        'data-trial-preview': state.preview.text,
-        'aria-label': `Trial preview: ${state.preview.text}`
-      }));
+      rows.push(Decoration.node(pos, pos + node.nodeSize, { class: 'notebook-trial-original', 'aria-hidden': 'true' }));
+      rows.push(Decoration.widget(pos, () => {
+        const passage = document.createElement('div');
+        passage.className = 'notebook-trial-preview-prose';
+        if (Number.isInteger(state.preview.rangeStart) && Number.isInteger(state.preview.rangeEnd)) {
+          passage.append(document.createTextNode(state.preview.text.slice(0, state.preview.rangeStart)));
+          const wording = document.createElement('span');
+          wording.className = 'notebook-trial-preview-wording';
+          wording.textContent = state.preview.text.slice(state.preview.rangeStart, state.preview.rangeEnd);
+          passage.append(wording, document.createTextNode(state.preview.text.slice(state.preview.rangeEnd)));
+          passage.classList.add('is-scoped');
+        } else passage.textContent = state.preview.text;
+        passage.contentEditable = 'false';
+        passage.setAttribute('aria-label', `Trial preview: ${state.preview.text}`);
+        return passage;
+      }, { key: `trial-${blockId}-${state.preview.text}`, side: -1 }));
     }
   });
   return DecorationSet.create(doc, rows);
@@ -48,7 +59,9 @@ export const setNotebookWorkbenchDecorations = (editor, state = {}) => {
     targetBlockId: String(state.targetBlockId || ''),
     preview: state.preview?.blockId && state.preview?.text ? {
       blockId: String(state.preview.blockId),
-      text: String(state.preview.text)
+      text: String(state.preview.text),
+      rangeStart: state.preview.rangeStart,
+      rangeEnd: state.preview.rangeEnd
     } : null
   }));
   return true;

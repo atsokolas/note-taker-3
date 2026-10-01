@@ -3,7 +3,10 @@ import {
   normalizeNotebookWorkingState,
   replaceEditorTargetText,
   sourceNodeForMaterial,
-  targetFromEditor
+  targetFromEditor,
+  scopeNotebookTarget,
+  notebookTargetText,
+  notebookTrialText
 } from './notebookWorkbench';
 
 const editorFor = ({ blockId = 'p1', currentText = 'Current words' } = {}) => {
@@ -65,5 +68,31 @@ describe('notebook workbench model', () => {
       nextTimeLine: { text: '', target: { blockId: '', offset: 0, baseText: '' }, updatedAt: null },
       continuity: { target: { blockId: '', offset: 0, baseText: '' }, scrollY: 0, updatedAt: null }
     });
+  });
+});
+
+describe('wording scopes', () => {
+  it('replaces a word at its exact block offset and keeps surrounding words', () => {
+    const baseText = 'Expert guidance is available. Learning takes practice.';
+    const scoped = scopeNotebookTarget({ blockId: 'p1', offset: 8, baseText }, 'word');
+    expect(notebookTargetText(scoped)).toBe('guidance');
+    expect(notebookTrialText(scoped, 'help')).toBe('Expert help is available. Learning takes practice.');
+    const editor = editorFor({ currentText: baseText });
+    expect(replaceEditorTargetText(editor, scoped, 'help').applied).toBe(true);
+    expect(editor.state.tr.insertText).toHaveBeenCalledWith('help', 11, 19);
+  });
+  it('holds a sentence independently and refuses it after the block changes', () => {
+    const baseText = 'First thought. A second thought.';
+    const scoped = scopeNotebookTarget({ blockId: 'p1', offset: 19, baseText }, 'sentence');
+    expect(notebookTargetText(scoped)).toBe('A second thought.');
+    expect(notebookTrialText(scoped, 'Another possibility.')).toBe('First thought. Another possibility.');
+    const editor = editorFor({ currentText: 'First thought. A newer thought.' });
+    expect(replaceEditorTargetText(editor, scoped, 'Another possibility.').status).toBe('stale');
+    expect(editor.view.dispatch).not.toHaveBeenCalled();
+  });
+  it('never widens an invalid scoped range to a whole paragraph', () => {
+    const editor = editorFor();
+    expect(replaceEditorTargetText(editor, { blockId: 'p1', baseText: 'Current words', scope: 'word', rangeStart: 2, rangeEnd: 900 }, 'Changed').applied).not.toBe(true);
+    expect(editor.view.dispatch).not.toHaveBeenCalled();
   });
 });
