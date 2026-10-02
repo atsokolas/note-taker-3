@@ -446,6 +446,8 @@ const NotebookEditor = ({
   const [workbenchReceipt, setWorkbenchReceipt] = useState(null);
   const [nextLineDismissed, setNextLineDismissed] = useState(false);
   const workbench = useNotebookWorkbench(entry, { onEntryChange: onWorkingStateChange });
+  const workbenchLatestRef = useRef(workbench);
+  workbenchLatestRef.current = workbench;
   const updateWorkbench = workbench.update;
   const flushWorkbench = workbench.flush;
   const continuityRestoredRef = useRef('');
@@ -1376,17 +1378,18 @@ const NotebookEditor = ({
   useEffect(() => {
     if (!onRegisterPartnerTrial) return undefined;
     onRegisterPartnerTrial((alternative) => {
+      const workbenchState = workbenchLatestRef.current;
       const nextTarget = heldTarget?.blockId ? heldTarget : targetFromEditor(editor);
       const wording = String(alternative || '').trim();
-      if (!nextTarget?.blockId || !wording || workbench.state.trials.length >= 40) return false;
+      if (!nextTarget?.blockId || !wording || workbenchState.state.trials.length >= 40) return false;
 
-      const tighterOpen = workbenchView === 'trial' && (workbench.state.trials.find(item => item.id === activeTrialId)?.intent === 'tighter' || ephemeralTrial?.intent === 'tighter');
+      const tighterOpen = workbenchView === 'trial' && (workbenchState.state.trials.find(item => item.id === activeTrialId)?.intent === 'tighter' || ephemeralTrial?.intent === 'tighter');
       if (tighterOpen) {
-        const current = workbench.state.trials.find(item => item.id === activeTrialId) || ephemeralTrial;
+        const current = workbenchState.state.trials.find(item => item.id === activeTrialId) || ephemeralTrial;
         if (current?.intent === 'tighter') {
           const next = { ...current, alternative: wording, origin: 'partner', updatedAt: new Date().toISOString() };
           setEphemeralTrial(next);
-          workbench.update(state => ({
+          workbenchState.update(state => ({
             ...state,
             trials: [...state.trials.filter(item => item.id !== next.id), next]
           }));
@@ -1416,7 +1419,7 @@ const NotebookEditor = ({
       return true;
     });
     return () => onRegisterPartnerTrial(null);
-  }, [activeTrialId, alternativesPortal, editor, ephemeralTrial, heldTarget, onFocusAlternatives, onOpenContext, onRegisterPartnerTrial, updateWorkbench, workbench, workbench.state.trials.length, workbenchView]);
+  }, [activeTrialId, alternativesPortal, editor, ephemeralTrial, heldTarget, onFocusAlternatives, onOpenContext, onRegisterPartnerTrial, updateWorkbench, workbench.state.trials.length, workbenchView]);
 
   const holdThoughtFromPiece = (pieceIndex = currentPieceIndex) => {
     holdCurrentPlace(pieceIndex);
