@@ -356,6 +356,16 @@ html[data-noeis-theme][data-ui-theme] :is(
 html[data-ui-theme='tokyo-midnight'] body.noeis-editorial {
   --noeis-pointer: #50f4fa;
   --vellum-cyan: #50f4fa;
+  /* Editorial rooms that still name the light paper palette (--ink, --sagewash)
+     inherit the night surfaces here. Light and Dark leave these unset. */
+  --ink: var(--noeis-ink);
+  --ink-muted: var(--noeis-ink-subtle);
+  --ink-secondary: var(--noeis-ink-muted);
+  --paper: var(--noeis-paper);
+  --wash: var(--noeis-mix-lift);
+  --sagewash: var(--noeis-active);
+  --sage: var(--noeis-action);
+  --ochre: var(--noeis-thread);
   --wiki-graph-label-backdrop: rgba(9, 17, 30, 0.88);
   --wiki-graph-label-text: #f3e9ed;
   --wiki-graph-node-stroke: rgba(207, 211, 230, 0.36);
@@ -483,6 +493,46 @@ html[data-ui-theme='tokyo-midnight'] :is(pre, .external-bridge-pre) {
 
 html[data-ui-theme='tokyo-midnight'] .agent-thought-partner__plan-preview {
   background: var(--noeis-active, #1c293e);
+}
+
+html[data-ui-theme='tokyo-midnight'] .wiki-collection__nav-btn.is-active {
+  background: var(--noeis-active, #1c293e);
+  color: var(--noeis-ink, #f3e9ed);
+}
+
+html[data-ui-theme='tokyo-midnight'] .wiki-collection__nav-btn.is-active:before {
+  background: var(--noeis-action, #50f4fa);
+}
+
+html[data-ui-theme='tokyo-midnight'] .wiki-collection__dek {
+  color: var(--noeis-ink-muted, #cfd3e6);
+}
+
+html[data-ui-theme='tokyo-midnight'] .wiki-collection__hit {
+  border-left-color: var(--noeis-passage-rule, #f9776d);
+}
+
+html[data-ui-theme='tokyo-midnight'] .wiki-reader-context__quote,
+html[data-ui-theme='tokyo-midnight'] .wiki-reader-context__new {
+  border-left-color: var(--noeis-action, #50f4fa);
+  color: var(--noeis-ink, #f3e9ed);
+}
+
+html[data-ui-theme='tokyo-midnight'] .wiki-reader-context__old {
+  border-left-color: var(--noeis-rule-strong, #66758d);
+  color: var(--noeis-ink-subtle, #9dacca);
+}
+
+html[data-ui-theme='tokyo-midnight'] .wiki-reader-context__field {
+  background: var(--noeis-paper-sunken, #09111e);
+  border-color: var(--noeis-rule, #29374d);
+  color: var(--noeis-ink, #f3e9ed);
+}
+
+html[data-ui-theme='tokyo-midnight'] .wiki-reader-context__primary {
+  background: transparent !important;
+  color: var(--noeis-action, #50f4fa) !important;
+  border: 1px solid var(--noeis-action, #50f4fa);
 }
 
 @media (prefers-reduced-motion: reduce) {

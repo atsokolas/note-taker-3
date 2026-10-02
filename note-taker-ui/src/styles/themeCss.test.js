@@ -49,6 +49,13 @@ describe('app theme design-system tokens', () => {
     expect(tokyoBlock).toContain('color-scheme: dark');
     expect(darkBlock).toContain('--noeis-canvas: #16140f');
     expect(darkBlock).not.toContain('#0e1829');
+
+    const tokyoEditorial = css.match(/html\[data-ui-theme='tokyo-midnight'\] body\.noeis-editorial \{[\s\S]*?\n\}/)?.[0] || '';
+    expect(tokyoEditorial).toContain('--ink: var(--noeis-ink)');
+    expect(tokyoEditorial).toContain('--sagewash: var(--noeis-active)');
+    expect(tokyoEditorial).toContain('--paper: var(--noeis-paper)');
+    expect(css).toContain("html[data-ui-theme='tokyo-midnight'] .wiki-collection__nav-btn.is-active");
+    expect(darkBlock).not.toContain('--sagewash:');
   });
 
   it('removes superseded token and rebrand layers instead of retaining dead theme authorities', () => {
