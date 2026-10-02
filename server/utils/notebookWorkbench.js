@@ -52,6 +52,7 @@ const trial = (value, index) => {
     target: savedTarget,
     alternative: String(value?.alternative || '').slice(0, LIMITS.text),
     origin: value?.origin === 'partner' ? 'partner' : 'human',
+    ...(value?.intent === 'tighter' ? { intent: 'tighter' } : {}),
     updatedAt: date(value?.updatedAt)
   };
 };

@@ -35,3 +35,17 @@ test('a changed passage can be reviewed but cannot be adopted', () => {
   fireEvent.click(screen.getByRole('button', { name: 'Review current passage' }));
   expect(props.onReview).toHaveBeenCalledTimes(1);
 });
+
+test('read tighter shows rescuable cuts and never keeps on textarea Enter', () => {
+  const original = 'This is really quite a long sentence.';
+  const tighter = 'This is a long sentence.';
+  const trial = { id: 't', intent: 'tighter', target: { blockId: 'p1', baseText: original }, alternative: tighter, origin: 'human' };
+  const onRescue = jest.fn();
+  const onKeep = jest.fn();
+  render(<NotebookAlternativesRail trial={trial} trials={[trial]} preview="trial" status="ready" onChoose={jest.fn()} onChange={jest.fn()} onPreview={jest.fn()} onAdd={jest.fn()} onKeep={onKeep} onScope={jest.fn()} onClose={jest.fn()} onDiscard={jest.fn()} onReview={jest.fn()} onAsk={jest.fn()} onRescue={onRescue} />);
+  fireEvent.click(screen.getByRole('button', { name: /Rescue “really quite”/i }));
+  expect(onRescue).toHaveBeenCalledWith('really quite');
+  fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Enter' });
+  expect(onKeep).not.toHaveBeenCalled();
+  expect(screen.getByRole('button', { name: 'Keep tighter read' })).toBeEnabled();
+});

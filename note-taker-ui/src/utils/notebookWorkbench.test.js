@@ -6,7 +6,8 @@ import {
   targetFromEditor,
   scopeNotebookTarget,
   notebookTargetText,
-  notebookTrialText
+  notebookTrialText,
+  notebookTrialKey
 } from './notebookWorkbench';
 
 const editorFor = ({ blockId = 'p1', currentText = 'Current words' } = {}) => {
@@ -89,6 +90,10 @@ describe('wording scopes', () => {
     const editor = editorFor({ currentText: 'First thought. A newer thought.' });
     expect(replaceEditorTargetText(editor, scoped, 'Another possibility.').status).toBe('stale');
     expect(editor.view.dispatch).not.toHaveBeenCalled();
+  });
+  it('keeps read tighter trials distinct from wording on the same paragraph', () => {
+    const target = { blockId: 'p1', baseText: 'Same words' };
+    expect(notebookTrialKey({ target, intent: 'tighter' })).not.toBe(notebookTrialKey({ target }));
   });
   it('never widens an invalid scoped range to a whole paragraph', () => {
     const editor = editorFor();

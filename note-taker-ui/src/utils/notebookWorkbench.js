@@ -20,7 +20,11 @@ const target = (value = {}) => ({
 export const normalizeNotebookWorkingState = (value = {}) => ({
   revision: Math.max(0, Number(value.revision) || 0),
   materials: list(value.materials).filter(item => item?.id).map(item => ({ ...item, target: target(item.target) })),
-  trials: list(value.trials).filter(item => item?.id).map(item => ({ ...item, target: target(item.target) })),
+  trials: list(value.trials).filter(item => item?.id).map(item => ({
+    ...item,
+    target: target(item.target),
+    ...(item.intent === 'tighter' ? { intent: 'tighter' } : {})
+  })),
   looseThoughts: list(value.looseThoughts).filter(item => item?.id && text(item.text).trim()).map(item => ({ ...item, target: target(item.target) })),
   nextTimeLine: {
     text: text(value.nextTimeLine?.text),
@@ -71,7 +75,11 @@ export const notebookTrialText = (savedTarget, alternative) => savedTarget?.scop
   ? text(savedTarget.baseText).slice(0, savedTarget.rangeStart) + text(alternative) + text(savedTarget.baseText).slice(savedTarget.rangeEnd)
   : text(alternative);
 
-export const notebookTrialKey = (savedTarget) => `${savedTarget?.blockId}:${savedTarget?.scope || 'paragraph'}:${savedTarget?.rangeStart || 0}:${savedTarget?.rangeEnd || 0}:${savedTarget?.baseText}`;
+export const notebookTrialKey = (trial) => {
+  const savedTarget = trial?.target || trial;
+  const intent = trial?.intent === 'tighter' ? 'tighter' : 'wording';
+  return `${savedTarget?.blockId}:${savedTarget?.scope || 'paragraph'}:${savedTarget?.rangeStart || 0}:${savedTarget?.rangeEnd || 0}:${savedTarget?.baseText}:${intent}`;
+};
 
 export const resolveEditorTarget = (editor, savedTarget, { requireSameText = false } = {}) => {
   const blockId = text(savedTarget?.blockId);

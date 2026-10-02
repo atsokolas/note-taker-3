@@ -71,6 +71,7 @@ import {
   notebookTrialText,
   notebookTrialKey
 } from '../../../utils/notebookWorkbench';
+import { readTighterSupport, rescueReadTighterPhrase } from '../../../utils/notebookReadTighter';
 import '../../../styles/think-writing.css';
 
 const AUTOSAVE_DELAY_MS = 850;
@@ -1254,10 +1255,11 @@ const NotebookEditor = ({
     setWorkbenchReceipt(null);
   };
 
-  const startTrial = (pieceIndex = currentPieceIndex, scope = 'paragraph', base = null) => {
+  const startTrial = (pieceIndex = currentPieceIndex, scope = 'paragraph', base = null, intent = 'wording') => {
     const nextTarget = scopeNotebookTarget(base || targetForPiece(pieceIndex), scope);
     if (!nextTarget?.blockId) return;
-    const existing = workbench.state.trials.find(item => notebookTrialKey(item.target) === notebookTrialKey(nextTarget));
+    const trialShape = { target: nextTarget, intent };
+    const existing = workbench.state.trials.find(item => notebookTrialKey(item) === notebookTrialKey(trialShape));
     if (!existing && workbench.state.trials.length >= 40) {
       setWorkbenchReceipt({ type: 'error', text: 'This note holds 40 alternatives. Discard an unused one to make room.' });
       return;
@@ -1267,6 +1269,7 @@ const NotebookEditor = ({
       target: nextTarget,
       alternative: '',
       origin: 'human',
+      ...(intent === 'tighter' ? { intent: 'tighter' } : {}),
       updatedAt: new Date().toISOString()
     };
     setHeldTarget(nextTarget);
@@ -1278,12 +1281,46 @@ const NotebookEditor = ({
     if (!alternativesPortal) onOpenContext?.('material');
   };
 
+  const startReadTighter = (pieceIndex = currentPieceIndex) => {
+    const piece = arrangementPieces[pieceIndex];
+    const support = readTighterSupport(piece);
+    if (!support.supported) {
+      setWorkbenchReceipt({ type: 'error', text: `${support.reason} Try another wording instead.` });
+      return;
+    }
+    startTrial(pieceIndex, 'paragraph', null, 'tighter');
+  };
+
+  const rescueTighterPhrase = (phrase) => {
+    if (!activeTrial || activeTrial.intent !== 'tighter') return;
+    const original = notebookTargetText(activeTrial.target);
+    const next = rescueReadTighterPhrase(original, activeTrial.alternative, phrase);
+    changeTrial(next);
+    setTrialPreview('trial');
+  };
+
   useEffect(() => {
     if (!onRegisterPartnerTrial) return undefined;
     onRegisterPartnerTrial((alternative) => {
       const nextTarget = heldTarget?.blockId ? heldTarget : targetFromEditor(editor);
       const wording = String(alternative || '').trim();
       if (!nextTarget?.blockId || !wording || workbench.state.trials.length >= 40) return false;
+
+      const tighterOpen = workbenchView === 'trial' && (workbench.state.trials.find(item => item.id === activeTrialId)?.intent === 'tighter' || ephemeralTrial?.intent === 'tighter');
+      if (tighterOpen) {
+        const current = workbench.state.trials.find(item => item.id === activeTrialId) || ephemeralTrial;
+        if (current?.intent === 'tighter') {
+          const next = { ...current, alternative: wording, origin: 'partner', updatedAt: new Date().toISOString() };
+          setEphemeralTrial(next);
+          workbench.update(state => ({
+            ...state,
+            trials: [...state.trials.filter(item => item.id !== next.id), next]
+          }));
+          setTrialPreview('trial');
+          onFocusAlternatives?.();
+          return true;
+        }
+      }
 
       const trial = {
         id: createId(),
@@ -1305,7 +1342,7 @@ const NotebookEditor = ({
       return true;
     });
     return () => onRegisterPartnerTrial(null);
-  }, [alternativesPortal, editor, heldTarget, onFocusAlternatives, onOpenContext, onRegisterPartnerTrial, updateWorkbench, workbench.state.trials.length]);
+  }, [activeTrialId, alternativesPortal, editor, ephemeralTrial, heldTarget, onFocusAlternatives, onOpenContext, onRegisterPartnerTrial, updateWorkbench, workbench, workbench.state.trials.length, workbenchView]);
 
   const holdThoughtFromPiece = (pieceIndex = currentPieceIndex) => {
     holdCurrentPlace(pieceIndex);
@@ -1354,7 +1391,7 @@ const NotebookEditor = ({
     if (!result.applied) return;
     workbench.update(current => ({
       ...current,
-      trials: current.trials.map(item => notebookTrialKey(item.target) === notebookTrialKey(activeTrial.target)
+      trials: current.trials.map(item => notebookTrialKey(item) === notebookTrialKey(activeTrial)
         ? { ...item, target: { ...item.target, baseText: notebookTrialText(activeTrial.target, activeTrial.alternative), ...(item.target.scope ? { rangeEnd: item.target.rangeStart + activeTrial.alternative.length } : {}) }, alternative: item.id === activeTrial.id ? notebookTargetText(activeTrial.target) : item.alternative }
         : item)
     }));
@@ -1953,6 +1990,7 @@ const NotebookEditor = ({
         onUndo={handleArrangeUndo}
         onSetAside={handleSetAside}
         onTryWording={startTrial}
+        onReadTighter={startReadTighter}
         onHoldThought={holdThoughtFromPiece}
         onRestore={handleRestoreAside}
         onDeletePiece={handleDeletePiece}
@@ -1962,7 +2000,7 @@ const NotebookEditor = ({
       {alternativesPortal && alternativesVisible ? createPortal(
         <NotebookAlternativesRail
           trial={activeTrial}
-          trials={workbench.state.trials.filter(item => notebookTrialKey(item.target) === notebookTrialKey(activeTrial.target))}
+          trials={workbench.state.trials.filter(item => notebookTrialKey(item) === notebookTrialKey(activeTrial))}
           preview={trialPreview}
           status={activeTrialResolution.status}
           onChoose={chooseAlternative}
@@ -1974,9 +2012,20 @@ const NotebookEditor = ({
           onClose={closeAlternatives}
           onDiscard={discardTrial}
           onReview={reviewTrial}
+          onRescue={rescueTighterPhrase}
           onAsk={() => {
             const words = notebookTargetText(activeTrial.target);
-            onInvokeAgentSkill?.({ id: `notebook-wording-${entry._id}-${Date.now()}`, mode: 'draft', contextType: agentContextType, contextId: agentContextId || entry._id, contextTitle: agentContextTitle || titleDraft, prompt: `Help me try another way to say this, preserving my meaning and voice: ${words}` });
+            const tighter = activeTrial.intent === 'tighter';
+            onInvokeAgentSkill?.({
+              id: `notebook-${tighter ? 'tighter' : 'wording'}-${entry._id}-${Date.now()}`,
+              mode: 'draft',
+              contextType: agentContextType,
+              contextId: agentContextId || entry._id,
+              contextTitle: agentContextTitle || titleDraft,
+              prompt: tighter
+                ? `Propose one tighter read of this paragraph. Remove only phrasing I could cut without changing meaning. Return the full revised paragraph only — no commentary:\n\n${words}`
+                : `Help me try another way to say this, preserving my meaning and voice: ${words}`
+            });
             onOpenContext?.('partner');
           }}
         />, alternativesPortal

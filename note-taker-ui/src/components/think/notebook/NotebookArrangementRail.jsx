@@ -60,6 +60,7 @@ const NotebookArrangementRail = ({
   onUndo,
   onSetAside,
   onTryWording,
+  onReadTighter,
   onHoldThought,
   onRestore,
   onDeletePiece
@@ -264,6 +265,12 @@ const NotebookArrangementRail = ({
               onClick={() => leaveRail(() => onTryWording?.(trackedIndex))}
             >
               Try another wording
+            </QuietButton>
+            <QuietButton
+              disabled={!enabled || !tracked}
+              onClick={() => leaveRail(() => onReadTighter?.(trackedIndex))}
+            >
+              Read tighter
             </QuietButton>
             <QuietButton
               disabled={!enabled || !tracked}

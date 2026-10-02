@@ -518,6 +518,12 @@ body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.think-note
 .notebook-trial-preview-prose.is-scoped { text-decoration: none; }
 .notebook-trial-preview-prose.is-scoped::after { display: none; }
 .notebook-trial-preview-wording { text-decoration: underline; text-decoration-color: var(--noeis-pointer, #6f87ff); text-underline-offset: 5px; border-right: 1.5px solid var(--noeis-pointer, #6f87ff); padding-right: 4px; }
+.notebook-alternatives.is-tighter header > span { padding-bottom: 5px; border-bottom: 1px solid var(--noeis-pointer, #6f87ff); font-size: .68rem; }
+.notebook-alternatives__passage { display: inline; }
+.notebook-alternatives__cut-mark { color: var(--text-secondary); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--text-secondary) 55%, transparent); }
+.notebook-alternatives__rescues { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+.notebook-alternatives__rescue { font-size: .68rem; color: var(--text-secondary); }
+.notebook-alternatives__rescue:hover, .notebook-alternatives__rescue:focus-visible { color: var(--noeis-pointer, #6f87ff); }
 
 @media (min-width: 1181px) {
   body:is(.think-rails-away, .think-focus-held) .think-notes { --notes-width: 30px; --drawer-width: 0px; }
