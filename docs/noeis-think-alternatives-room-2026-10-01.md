@@ -39,9 +39,28 @@ Local screenshots live in `output/think-alternatives/desktop.jpg` and `mobile.jp
 
 Follow-up refinement verified locally: 94 focused editor/template/style tests and the CI production build pass. At the actual 1296px browser width and at 900px, measured editor and drawer bounds do not overlap and the page has no horizontal overflow. Opening Scratchpad hides alternatives; returning to Try wording closes the drawer and preserves saved wording. Mobile retains the full-width drawer with Escape returning focus. Evidence: `output/think-alternatives/scratchpad-refined.jpg`.
 
-- Authenticated acceptance against real MongoDB and the live Partner proposal flow. “ask” deliberately prepares a prompt in the existing Partner rather than silently sending it.
-- Native Safari and physical touch-device acceptance, including virtual-keyboard positioning.
+- Physical touch-device acceptance, including virtual-keyboard positioning.
 - Merge and deployment; this branch is not live.
 - Broader cross-room applications and a dedicated “read tighter” transformation are outside this approved layout slice.
 
 Branch: `codex/think-alternatives-room`, based on `origin/main` at `d55fe570`. Canonical checkout and its dirty files were preserved; implementation lives in the reused isolated worktree.
+
+## Release acceptance, October 1
+
+The full Express API ran against a separate Atlas MongoDB QA database, with scheduled workers disabled and an invented QA user/note. Browser acceptance verified sentence adoption and scratchpad reload. Direct Mongoose readback confirmed the exact scoped target, retained original, one scratchpad thought, and a partner-origin alternative at revision 3. An obsolete workbench revision returned HTTP 409 without replacing saved state.
+
+One bounded live Partner request returned “An effective response guides us in selecting our next step.” The UI prepared the prompt without sending it, then explicitly sent it when asked. “Try as alternate wording” opened the proposal with visible partner provenance; it did not adopt it. The proposal persisted in MongoDB. No production notebook was used for these checks.
+
+Native Safari loaded the Mongo-backed notebook and scratchpad correctly. Screenshot: `output/think-alternatives/safari-mongo.png`. Physical-device keyboard testing remains separate.
+
+This pass found that the save status ignored workbench's debounced dirty state. It now says “Saving…” until the write completes. A before-unload guard protects pending workbench changes and attempts a flush; hiding the tab also flushes. A regression test verifies that navigation remains guarded until a real write resolves. The hook is not a general offline editor; an unsaved-change warning still requires the person to stay until saved.
+
+Final local checks: eight UI suites / 136 tests, workbench route checks, production build, and diff whitespace checks pass.
+
+## Comparison with the original Fried-inspired brief
+
+Delivered: spare adjacent wording choices; manual word/sentence/paragraph alternatives; original and multiple editable possibilities; preview distinguished from acceptance; deliberate keep; stale-passage review; summonable Partner proposals with provenance; collapsible notes and right scratchpad; existing set-aside/restore and exact-place Next time capabilities retained. The later accepted layout refinement intentionally allows clean reflow and folds alternatives when the right drawer opens.
+
+Still planned: **Read tighter**, including rescuing individual cut phrases; a dedicated agent interaction that offers a few distinct wording choices and explains their differences; quiet stored-alternative marks visible while the alternatives strip is closed. The current Partner is general conversation, with an explicit action to bring its response into alternatives.
+
+Cross-room roadmap remains: Library passage comparison; evidence-backed Wiki claim alternatives; competing Judgment explanations; source-preserving Editions-to-Think responses. Optional sound and broader arrangement/opening/ending exploration were future craft directions, not requirements for this Think release.

@@ -1538,7 +1538,7 @@ const NotebookEditor = ({
           <div className="think-notebook-utility" aria-label="Note utilities">
             <span className="think-notebook-utility__kind">{entryType || 'note'}</span>
             <span className={`think-notebook-save-state is-${saveState}`} role="status" aria-live="polite">
-              {saving || saveState === 'saving' || workbench.saveState === 'saving'
+              {saving || saveState === 'saving' || saveState === 'dirty' || workbench.saveState === 'saving' || workbench.saveState === 'dirty'
                 ? 'Saving…'
                 : saveState === 'error' || workbench.saveState === 'error'
                 ? 'Not saved'
