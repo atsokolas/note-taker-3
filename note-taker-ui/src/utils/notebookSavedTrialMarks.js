@@ -23,7 +23,7 @@ export const resolveSavedMark = (doc, mark) => {
   return match && match.to > match.from ? match : null;
 };
 
-/** Saved alternatives that still anchor to the live passage (strip closed elsewhere). */
+/** Saved alternatives that still anchor to the live passage. */
 export const readySavedTrialMarks = (editor, trials = []) => {
   if (!editor || !Array.isArray(trials) || !trials.length) return [];
   const grouped = new Map();
@@ -56,4 +56,11 @@ export const readySavedTrialMarks = (editor, trials = []) => {
     marks.push({ ...identity, from: located.from, to: located.to });
   });
   return marks;
+};
+
+// An alternative preview covers that passage, so its own underline is the
+// preview. Choosing the original puts the saved wording's underline back.
+export const savedMarksBesidePreview = (marks = [], previewBlockId = '') => {
+  if (!previewBlockId) return marks;
+  return marks.filter((mark) => mark.blockId !== previewBlockId);
 };

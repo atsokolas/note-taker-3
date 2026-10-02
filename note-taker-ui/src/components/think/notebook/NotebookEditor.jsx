@@ -57,7 +57,7 @@ import {
   setNotebookWorkbenchDecorations,
   setSavedTrialMarkHandler
 } from './notebookWorkbenchDecorations';
-import { readySavedTrialMarks } from '../../../utils/notebookSavedTrialMarks';
+import { readySavedTrialMarks, savedMarksBesidePreview } from '../../../utils/notebookSavedTrialMarks';
 import {
   citationTargetsForMaterial,
   deleteEditorBlockById,
@@ -1591,14 +1591,15 @@ const NotebookEditor = ({
   };
 
   const alternativesVisible = Boolean(workbenchView === 'trial' && activeTrial);
-  // The right drawer folds the strip away. The word still carries its options.
-  const alternativesOnScreen = alternativesVisible && !activeContext;
+  const previewBlockId = workbenchView === 'trial' && trialPreview === 'trial' && activeTrialResolution.status === 'ready'
+    ? activeTrial?.target?.blockId || ''
+    : '';
   const savedTrialMarks = useMemo(() => {
-    if (!editor || alternativesOnScreen) return [];
-    return readySavedTrialMarks(editor, workbench.state.trials);
+    if (!editor) return [];
+    return savedMarksBesidePreview(readySavedTrialMarks(editor, workbench.state.trials), previewBlockId);
     // docTick is the editor transaction clock. The document itself is not React state.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [alternativesOnScreen, docTick, editor, workbench.state.trials]);
+  }, [docTick, editor, previewBlockId, workbench.state.trials]);
 
   const openSavedAlternatives = useCallback((trialId) => {
     const trial = workbench.state.trials.find((item) => item.id === trialId);

@@ -1,4 +1,4 @@
-import { readySavedTrialMarks } from './notebookSavedTrialMarks';
+import { readySavedTrialMarks, savedMarksBesidePreview } from './notebookSavedTrialMarks';
 
 const editorFor = ({ blockId = 'p1', currentText = 'Current words' } = {}) => {
   const node = { attrs: { blockId }, textContent: currentText, nodeSize: currentText.length + 2, content: { size: currentText.length }, isTextblock: true };
@@ -45,5 +45,14 @@ describe('readySavedTrialMarks', () => {
       alternative: 'help'
     }]);
     expect(marks[0].to - marks[0].from).toBe(8);
+  });
+
+  it('keeps a saved underline on the original while another block is previewed', () => {
+    const marks = [
+      { blockId: 'p1', trialId: 't1' },
+      { blockId: 'p2', trialId: 't2' }
+    ];
+    expect(savedMarksBesidePreview(marks, '')).toEqual(marks);
+    expect(savedMarksBesidePreview(marks, 'p1')).toEqual([{ blockId: 'p2', trialId: 't2' }]);
   });
 });
