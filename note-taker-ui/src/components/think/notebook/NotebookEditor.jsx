@@ -54,8 +54,10 @@ import NotebookAlternativesRail from './NotebookAlternativesRail';
 import useNotebookWorkbench from './useNotebookWorkbench';
 import {
   NotebookWorkbenchDecorations,
-  setNotebookWorkbenchDecorations
+  setNotebookWorkbenchDecorations,
+  setSavedTrialMarkHandler
 } from './notebookWorkbenchDecorations';
+import { readySavedTrialMarks } from '../../../utils/notebookSavedTrialMarks';
 import {
   citationTargetsForMaterial,
   deleteEditorBlockById,
@@ -1540,16 +1542,38 @@ const NotebookEditor = ({
     setWorkbenchReceipt({ type: 'next-line', text: 'Next-time line cleared.', previous });
   };
 
+  const alternativesVisible = Boolean(workbenchView === 'trial' && activeTrial);
+  const savedTrialMarks = useMemo(() => {
+    if (!editor || alternativesVisible) return [];
+    return readySavedTrialMarks(editor, workbench.state.trials);
+  }, [alternativesVisible, editor, workbench.state.trials]);
+
+  const openSavedAlternatives = useCallback((trialId) => {
+    const trial = workbench.state.trials.find((item) => item.id === trialId);
+    if (!trial) return;
+    if (resolveEditorTarget(editor, trial.target, { requireSameText: true }).status !== 'ready') return;
+    setHeldTarget(trial.target);
+    setActiveTrialId(trial.id);
+    setEphemeralTrial(null);
+    setTrialPreview('original');
+    setWorkbenchView('trial');
+    onFocusAlternatives?.();
+  }, [editor, onFocusAlternatives, workbench.state.trials]);
+
+  useEffect(() => {
+    setSavedTrialMarkHandler(openSavedAlternatives);
+    return () => setSavedTrialMarkHandler(null);
+  }, [openSavedAlternatives]);
+
   useEffect(() => {
     setNotebookWorkbenchDecorations(editor, {
       targetBlockId: workbenchView === 'trial' ? activeTrial?.target?.blockId : activeContext === 'material' ? heldTarget?.blockId : '',
       preview: workbenchView === 'trial' && trialPreview === 'trial' && activeTrialResolution.status === 'ready'
         ? { blockId: activeTrial?.target?.blockId, text: notebookTrialText(activeTrial?.target, activeTrial?.alternative), ...(activeTrial.target.scope ? { rangeStart: activeTrial.target.rangeStart, rangeEnd: activeTrial.target.rangeStart + activeTrial.alternative.length } : {}) }
-        : null
+        : null,
+      savedMarks: savedTrialMarks
     });
-  }, [activeContext, activeTrial, activeTrialResolution.status, editor, heldTarget?.blockId, trialPreview, workbenchView]);
-
-  const alternativesVisible = Boolean(workbenchView === 'trial' && activeTrial);
+  }, [activeContext, activeTrial, activeTrialResolution.status, editor, heldTarget?.blockId, savedTrialMarks, trialPreview, workbenchView]);
   useEffect(() => { onAlternativesOpenChange?.(alternativesVisible); }, [alternativesVisible, onAlternativesOpenChange]);
   useEffect(() => () => onAlternativesOpenChange?.(false), [onAlternativesOpenChange]);
   useEffect(() => () => partnerOptionsAbortRef.current?.abort?.(), []);

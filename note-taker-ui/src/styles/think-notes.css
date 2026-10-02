@@ -524,6 +524,34 @@ body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.think-note
 .notebook-alternatives__rescues { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
 .notebook-alternatives__rescue { font-size: .68rem; color: var(--text-secondary); }
 .notebook-alternatives__rescue:hover, .notebook-alternatives__rescue:focus-visible { color: var(--noeis-pointer, #6f87ff); }
+.ProseMirror .notebook-saved-alternatives__range {
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--noeis-pointer, #6f87ff) 38%, transparent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+  pointer-events: none;
+}
+.notebook-saved-alternatives__mark {
+  display: inline-block;
+  width: 10px;
+  min-width: 10px;
+  min-height: 28px;
+  margin: 0 0 0 2px;
+  padding: 0;
+  border: 0;
+  border-right: 1.5px solid var(--noeis-pointer, #6f87ff);
+  background: transparent;
+  vertical-align: text-top;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.notebook-saved-alternatives__mark:focus-visible {
+  outline: 2px solid var(--noeis-pointer, #6f87ff);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .notebook-saved-alternatives__mark { transition: none; }
+}
 
 @media (min-width: 1181px) {
   body:is(.think-rails-away, .think-focus-held) .think-notes { --notes-width: 30px; --drawer-width: 0px; }

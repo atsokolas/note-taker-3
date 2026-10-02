@@ -82,6 +82,14 @@ describe('Think writing focus mode', () => {
     expect(notes).toContain('@container noeis-column (max-width: 1040px)');
   });
 
+  it('styles quiet saved-alternative marks without spellcheck chrome', () => {
+    const notes = fs.readFileSync(path.join(__dirname, 'think-notes.css'), 'utf8');
+    expect(notes).toContain('.notebook-saved-alternatives__range');
+    expect(notes).toContain('pointer-events: none;');
+    expect(notes).toContain('.notebook-saved-alternatives__mark');
+    expect(notes).toContain('border-right: 1.5px solid var(--noeis-pointer');
+  });
+
   it('keeps notebook arrangement off the essay until a small right-rail mark is opened', () => {
     expect(css).toContain('.notebook-arrangement {');
     expect(css).toContain('right: 0;');

@@ -3,6 +3,21 @@ import { Plugin, PluginKey } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
 
 const key = new PluginKey('notebookWorkbenchDecorations');
+let activateSavedTrialMark = null;
+
+export const setSavedTrialMarkHandler = (handler) => {
+  activateSavedTrialMark = typeof handler === 'function' ? handler : null;
+};
+
+const activateFromEvent = (event) => {
+  const control = event?.target?.closest?.('[data-saved-trial-id]');
+  if (!control) return false;
+  const trialId = String(control.getAttribute('data-saved-trial-id') || '');
+  if (!trialId || !activateSavedTrialMark) return false;
+  event.preventDefault();
+  activateSavedTrialMark(trialId);
+  return true;
+};
 
 const decorations = (doc, state = {}) => {
   const rows = [];
@@ -34,6 +49,22 @@ const decorations = (doc, state = {}) => {
       }, { key: `trial-${blockId}-${state.preview.text}`, side: -1 }));
     }
   });
+  (state.savedMarks || []).forEach((mark) => {
+    if (!Number.isInteger(mark.from) || !Number.isInteger(mark.to) || mark.to <= mark.from) return;
+    rows.push(Decoration.inline(mark.from, mark.to, {
+      class: 'notebook-saved-alternatives__range',
+      'aria-hidden': 'true'
+    }));
+    rows.push(Decoration.widget(mark.to, () => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'notebook-saved-alternatives__mark';
+      button.dataset.savedTrialId = String(mark.trialId || '');
+      button.dataset.savedTrialKey = String(mark.trialKey || '');
+      button.setAttribute('aria-label', 'Saved wording options');
+      return button;
+    }, { key: `saved-mark-${mark.trialKey}`, side: 1 }));
+  });
   return DecorationSet.create(doc, rows);
 };
 
@@ -43,11 +74,17 @@ export const NotebookWorkbenchDecorations = Extension.create({
     return [new Plugin({
       key,
       state: {
-        init: () => ({ targetBlockId: '', preview: null }),
+        init: () => ({ targetBlockId: '', preview: null, savedMarks: [] }),
         apply: (tr, previous) => tr.getMeta(key) || previous
       },
       props: {
-        decorations: state => decorations(state.doc, key.getState(state))
+        decorations: (state) => decorations(state.doc, key.getState(state)),
+        handleClick: (view, _pos, event) => activateFromEvent(event),
+        handleKeyDown: (view, event) => {
+          if (event.key !== 'Enter' && event.key !== ' ') return false;
+          if (!event.target?.closest?.('[data-saved-trial-id]')) return false;
+          return activateFromEvent(event);
+        }
       }
     })];
   }
@@ -62,7 +99,16 @@ export const setNotebookWorkbenchDecorations = (editor, state = {}) => {
       text: String(state.preview.text),
       rangeStart: state.preview.rangeStart,
       rangeEnd: state.preview.rangeEnd
-    } : null
+    } : null,
+    savedMarks: Array.isArray(state.savedMarks)
+      ? state.savedMarks.map((mark) => ({
+        trialKey: String(mark.trialKey || ''),
+        trialId: String(mark.trialId || ''),
+        blockId: String(mark.blockId || ''),
+        from: mark.from,
+        to: mark.to
+      }))
+      : []
   }));
   return true;
 };
