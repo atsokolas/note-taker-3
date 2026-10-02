@@ -5,6 +5,7 @@ import {
   sourceNodeForMaterial,
   targetFromEditor,
   selectionNotebookTarget,
+  rememberNotebookHighlight,
   scopeNotebookTarget,
   notebookTargetText,
   notebookTrialText,
@@ -109,6 +110,18 @@ describe('wording scopes', () => {
     const emoji = select(17, 19);
     expect(notebookTargetText(emoji)).toBe('🌊');
     expect(select(0, baseText.length).scope).toBeUndefined();
+    const phrase = select(11, 16);
+    const editorFocused = {
+      isFocused: false,
+      state: { selection: { empty: false, $from: { parent, parentOffset: 11 }, $to: { parent, parentOffset: 16 } } }
+    };
+    const wider = { ...phrase, rangeStart: 11, rangeEnd: 18 };
+    expect(rememberNotebookHighlight(editorFocused, wider)).toEqual(wider);
+    editorFocused.isFocused = true;
+    expect(rememberNotebookHighlight(editorFocused, wider, { settled: false })).toEqual(wider);
+    expect(notebookTargetText(rememberNotebookHighlight(editorFocused, wider))).toBe('alpha');
+    editorFocused.state.selection.empty = true;
+    expect(rememberNotebookHighlight(editorFocused, wider)).toBeNull();
     const other = { attrs: { blockId: 'p2' }, textContent: 'Elsewhere', isTextblock: true };
     expect(selectionNotebookTarget({
       state: { selection: { empty: false, $from: { parent, parentOffset: 0 }, $to: { parent: other, parentOffset: 4 } } }

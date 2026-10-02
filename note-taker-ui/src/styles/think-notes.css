@@ -490,9 +490,17 @@ body.noeis-editorial .think-notes .think-notebook-editor-actions-right,
   justify-content: stretch;
   gap: 5px;
 }
-.think-notes__note-title {
+.think-notes__shelf .think-notes__note-link,
+.think-notes__shelf .think-notes__continuation {
   min-width: 0;
-  overflow-wrap: anywhere;
+  max-width: 100%;
+  overflow: hidden;
+}
+.think-notes__shelf .room-shelf__item > .think-notes__note-title {
+  width: 100%;
+  min-width: 0;
+  overflow-wrap: break-word;
+  word-break: normal;
   white-space: normal;
 }
 .think-notes__shelf .room-shelf__search input {

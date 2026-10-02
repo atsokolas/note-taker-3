@@ -68,6 +68,8 @@ import {
   resolveEditorTarget,
   sourceNodeForMaterial,
   targetFromEditor,
+  domNotebookTarget,
+  rememberNotebookHighlight,
   selectionNotebookTarget,
   scopeNotebookTarget,
   notebookTargetText,
@@ -573,6 +575,7 @@ const NotebookEditor = ({
   const partnerOptionsRequestRef = useRef(null);
   const [finishError, setFinishError] = useState('');
   const [docTick, setDocTick] = useState(0);
+  const highlightedRef = useRef(null);
 
   const editor = useEditor({
     editable: false,
@@ -942,12 +945,38 @@ const NotebookEditor = ({
 
   useEffect(() => {
     if (!editor) return undefined;
-    const bump = () => setDocTick((value) => value + 1);
+    let ticket = 0;
+    const remember = (settled) => {
+      highlightedRef.current = rememberNotebookHighlight(editor, highlightedRef.current, { settled });
+    };
+    const rememberLive = () => remember(false);
+    const bump = () => {
+      setDocTick((value) => value + 1);
+      const mine = ++ticket;
+      queueMicrotask(() => {
+        if (mine !== ticket || editor.isDestroyed) return;
+        remember(false);
+        const dom = editor.view?.dom;
+        const stillWriting = editor.isFocused || Boolean(dom && (document.activeElement === dom || dom.contains(document.activeElement)));
+        if (!stillWriting || domNotebookTarget(editor)) return;
+        window.requestAnimationFrame(() => {
+          if (mine !== ticket || editor.isDestroyed) return;
+          remember(true);
+        });
+      });
+    };
+    const dom = editor.view?.dom;
     editor.on('update', bump);
     editor.on('selectionUpdate', bump);
+    document.addEventListener('selectionchange', rememberLive);
+    // Tab moves focus before selectionchange. Snapshot the phrase on the way out.
+    dom?.addEventListener('keydown', rememberLive, true);
     return () => {
+      ticket += 1;
       editor.off('update', bump);
       editor.off('selectionUpdate', bump);
+      document.removeEventListener('selectionchange', rememberLive);
+      dom?.removeEventListener('keydown', rememberLive, true);
     };
   }, [editor]);
 
@@ -1293,7 +1322,11 @@ const NotebookEditor = ({
   };
 
   const startTrialFromSelection = () => {
-    const selected = selectionNotebookTarget(editor);
+    const live = selectionNotebookTarget(editor);
+    const remembered = highlightedRef.current;
+    const rememberedReady = remembered
+      && resolveEditorTarget(editor, remembered, { requireSameText: true }).status === 'ready';
+    const selected = (!editor.isFocused && rememberedReady ? remembered : null) || live;
     if (!selected) {
       setWorkbenchReceipt({ type: 'error', text: 'Highlight a word, phrase, or paragraph to try other wording.' });
       return;
@@ -1710,7 +1743,7 @@ const NotebookEditor = ({
             <QuietButton data-context-trigger="scratchpad" aria-pressed={activeContext === 'scratchpad'} onClick={() => { holdCurrentPlace(); onOpenContext?.('scratchpad'); }}>Scratchpad</QuietButton>
             <QuietButton
               onMouseDown={(event) => event.preventDefault()}
-              onClick={() => (selectionNotebookTarget(editor) ? startTrialFromSelection() : startTrial())}
+              onClick={() => (selectionNotebookTarget(editor) || (!editor?.isFocused && highlightedRef.current) ? startTrialFromSelection() : startTrial())}
             >Try wording</QuietButton>
             <QuietButton data-context-trigger="material" aria-pressed={activeContext === 'material'} onClick={() => openMaterial()}>Material</QuietButton>
             <QuietButton data-context-trigger="partner" aria-pressed={activeContext === 'partner'} onClick={() => onOpenContext?.('partner')}>Partner</QuietButton>
@@ -2075,8 +2108,13 @@ const NotebookEditor = ({
           reaches for. Reading it does nothing at all. */}
       <div
         className={`think-notebook-editor__body${editingBody ? ' is-editing' : ''}${agentThreadPulse ? ' is-connecting-agent' : ''}`}
+        tabIndex={editingBody ? -1 : 0}
+        aria-label={editingBody ? undefined : 'Writing'}
         onClick={startEditingBody}
-        onFocus={() => setBodyHasFocus(true)}
+        onFocus={(event) => {
+          setBodyHasFocus(true);
+          if (!editingBody && event.target === event.currentTarget) startEditingBody();
+        }}
         onBlur={(event) => {
           if (!event.currentTarget.contains(event.relatedTarget)) {
             setBodyHasFocus(false);

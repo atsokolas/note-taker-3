@@ -59,6 +59,48 @@ export const targetFromEditor = (editor) => {
 
 // A highlight is the exact offsets inside one text block. A whole paragraph
 // stays unscoped. A selection that crosses blocks is not a single passage.
+// The DOM selection can stay a phrase after ProseMirror has collapsed it to a
+// word. Read it while the editor is still focused.
+export const domNotebookTarget = (editor) => {
+  const view = editor?.view;
+  const selection = typeof window !== 'undefined' ? window.getSelection() : null;
+  if (!view?.posAtDOM || !view?.dom || !selection || selection.isCollapsed || selection.rangeCount !== 1) return null;
+  const range = selection.getRangeAt(0);
+  if (!view.dom.contains(range.commonAncestorContainer)) return null;
+  let from = null;
+  let to = null;
+  try {
+    from = view.posAtDOM(range.startContainer, range.startOffset);
+    to = view.posAtDOM(range.endContainer, range.endOffset);
+  } catch (_error) {
+    return null;
+  }
+  if (!Number.isInteger(from) || !Number.isInteger(to) || from === to) return null;
+  const start = Math.min(from, to);
+  const end = Math.max(from, to);
+  const $from = editor.state.doc.resolve(start);
+  const $to = editor.state.doc.resolve(end);
+  if (!$from.parent?.isTextblock || $from.parent !== $to.parent) return null;
+  const blockId = text($from.parent.attrs?.blockId);
+  if (!blockId) return null;
+  const baseText = text($from.parent.textContent);
+  const rangeStart = $from.parentOffset;
+  const rangeEnd = $to.parentOffset;
+  if (rangeEnd <= rangeStart || rangeEnd > baseText.length) return null;
+  if (rangeStart === 0 && rangeEnd === baseText.length) return { blockId, offset: rangeStart, baseText };
+  return { blockId, offset: rangeStart, baseText, scope: 'range', rangeStart, rangeEnd };
+};
+
+// Focus leaving the writing can shrink the live selection before Try wording
+// reads it. A DOM range is kept immediately. A caret replaces that memory
+// only after focus has settled inside the editor; a focus move does not.
+export const rememberNotebookHighlight = (editor, previous, { settled = true } = {}) => {
+  const fromDom = domNotebookTarget(editor);
+  if (fromDom) return fromDom;
+  if (!settled || !editor?.isFocused) return previous || null;
+  return selectionNotebookTarget(editor) || null;
+};
+
 export const selectionNotebookTarget = (editor) => {
   const selection = editor?.state?.selection;
   const from = selection?.$from;

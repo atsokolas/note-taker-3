@@ -152,4 +152,24 @@ describe('split paragraphs keep distinct block ids', () => {
     editor.destroy();
     element.remove();
   });
+
+  it('repairs duplicate ids already stored in the note', async () => {
+    let n = 0;
+    const { editor, element } = mount({
+      type: 'doc',
+      content: [paragraph('same', 'First copy'), paragraph('same', 'Second copy')]
+    }, [
+      StarterKit,
+      BlockId,
+      UniqueBlockIds.configure({ createId: () => `fresh-${n += 1}` })
+    ]);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const ids = [];
+    editor.state.doc.descendants((node) => {
+      if (node.attrs?.blockId) ids.push(node.attrs.blockId);
+    });
+    expect(ids).toEqual(['same', 'fresh-1']);
+    editor.destroy();
+    element.remove();
+  });
 });
