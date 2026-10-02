@@ -23,7 +23,8 @@ const EditorDraftShell = ({
   hideBlockControls = false,
   slashCommands = null,
   contextualToolbar = false,
-  onAskSelection = null
+  onAskSelection = null,
+  onTryWording = null
 }) => {
   const reducedMotion = usePrefersReducedMotion();
   const finePointer = useFinePointer();
@@ -108,6 +109,7 @@ const EditorDraftShell = ({
               editor={editor}
               variant="selection"
               className={toolbarClassName}
+              onTryWording={onTryWording}
               onAskSelection={onAskSelection ? () => onAskSelection(readSelection()) : null}
             />
           </div>
@@ -125,6 +127,7 @@ const EditorDraftShell = ({
             editor={editor}
             variant={toolbarVariant}
             className={toolbarClassName}
+            onTryWording={onTryWording}
             onAskSelection={onAskSelection ? () => onAskSelection(readSelection()) : null}
           />
         </div>

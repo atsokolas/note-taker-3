@@ -1,5 +1,6 @@
 const list = value => (Array.isArray(value) ? value : []);
 const text = value => String(value || '');
+const RANGE_SCOPES = new Set(['word', 'sentence', 'range']);
 
 export const emptyNotebookWorkingState = () => ({
   revision: 0,
@@ -10,12 +11,17 @@ export const emptyNotebookWorkingState = () => ({
   continuity: { target: { blockId: '', offset: 0, baseText: '' }, scrollY: 0, updatedAt: null }
 });
 
-const target = (value = {}) => ({
-  blockId: text(value.blockId),
-  offset: Math.max(0, Number(value.offset) || 0),
-  baseText: text(value.baseText),
-  ...(value.scope && value.scope !== 'paragraph' ? { scope: value.scope, rangeStart: Math.max(0, Number(value.rangeStart) || 0), rangeEnd: Math.max(0, Number(value.rangeEnd) || 0) } : {})
-});
+const target = (value = {}) => {
+  const base = {
+    blockId: text(value.blockId),
+    offset: Math.max(0, Number(value.offset) || 0),
+    baseText: text(value.baseText)
+  };
+  const rangeStart = Number(value.rangeStart);
+  const rangeEnd = Number(value.rangeEnd);
+  if (!RANGE_SCOPES.has(value.scope) || !Number.isInteger(rangeStart) || !Number.isInteger(rangeEnd) || rangeStart < 0 || rangeEnd <= rangeStart || rangeEnd > base.baseText.length) return base;
+  return { ...base, scope: value.scope, rangeStart, rangeEnd };
+};
 
 export const normalizeNotebookWorkingState = (value = {}) => ({
   revision: Math.max(0, Number(value.revision) || 0),
@@ -51,10 +57,41 @@ export const targetFromEditor = (editor) => {
   };
 };
 
+// A highlight is the exact offsets inside one text block. A whole paragraph
+// stays unscoped. A selection that crosses blocks is not a single passage.
+export const selectionNotebookTarget = (editor) => {
+  const selection = editor?.state?.selection;
+  const from = selection?.$from;
+  const to = selection?.$to;
+  const parent = from?.parent;
+  if (!selection || selection.empty || !parent?.isTextblock || parent !== to?.parent) return null;
+  const blockId = text(parent.attrs?.blockId);
+  if (!blockId) return null;
+  const baseText = text(parent.textContent);
+  const rangeStart = Math.max(0, Number(from.parentOffset) || 0);
+  const rangeEnd = Math.max(0, Number(to.parentOffset) || 0);
+  if (!Number.isInteger(rangeStart) || !Number.isInteger(rangeEnd) || rangeEnd <= rangeStart || rangeEnd > baseText.length) return null;
+  if (rangeStart === 0 && rangeEnd === baseText.length) return { blockId, offset: rangeStart, baseText };
+  return { blockId, offset: rangeStart, baseText, scope: 'range', rangeStart, rangeEnd };
+};
+
 // Offsets belong to a stable block and its exact base text. Any intervening
 // edit makes the trial stale; a substring is never searched into a new passage.
 export const scopeNotebookTarget = (savedTarget, scope = 'paragraph') => {
-  const { scope: previousScope, rangeStart, rangeEnd, ...base } = savedTarget || {};
+  const savedStart = savedTarget?.rangeStart;
+  const savedEnd = savedTarget?.rangeEnd;
+  const base = { ...(savedTarget || {}) };
+  delete base.scope;
+  delete base.rangeStart;
+  delete base.rangeEnd;
+  if (scope === 'range') {
+    const rangeStart = Number(savedStart);
+    const rangeEnd = Number(savedEnd);
+    if (Number.isInteger(rangeStart) && Number.isInteger(rangeEnd) && rangeStart >= 0 && rangeEnd > rangeStart && rangeEnd <= text(base.baseText).length) {
+      return { ...base, scope: 'range', rangeStart, rangeEnd };
+    }
+    return base;
+  }
   if (scope === 'paragraph') return base;
   const value = base.baseText || '';
   const offset = Math.min(Math.max(0, base.offset || 0), Math.max(0, value.length - 1));

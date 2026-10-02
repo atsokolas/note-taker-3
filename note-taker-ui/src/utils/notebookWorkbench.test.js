@@ -4,6 +4,7 @@ import {
   replaceEditorTargetText,
   sourceNodeForMaterial,
   targetFromEditor,
+  selectionNotebookTarget,
   scopeNotebookTarget,
   notebookTargetText,
   notebookTrialText,
@@ -94,6 +95,29 @@ describe('wording scopes', () => {
   it('keeps read tighter trials distinct from wording on the same paragraph', () => {
     const target = { blockId: 'p1', baseText: 'Same words' };
     expect(notebookTrialKey({ target, intent: 'tighter' })).not.toBe(notebookTrialKey({ target }));
+  });
+  it('keeps an exact highlighted range, including a repeated word and a unicode character', () => {
+    const baseText = 'alpha beta alpha 🌊 end';
+    const parent = { attrs: { blockId: 'p1' }, textContent: baseText, isTextblock: true };
+    const select = (start, end) => selectionNotebookTarget({
+      state: { selection: { empty: start === end, $from: { parent, parentOffset: start }, $to: { parent, parentOffset: end } } }
+    });
+    const second = select(11, 16);
+    expect(notebookTargetText(second)).toBe('alpha');
+    expect(second.scope).toBe('range');
+    expect(second.rangeStart).toBe(11);
+    const emoji = select(17, 19);
+    expect(notebookTargetText(emoji)).toBe('🌊');
+    expect(select(0, baseText.length).scope).toBeUndefined();
+    const other = { attrs: { blockId: 'p2' }, textContent: 'Elsewhere', isTextblock: true };
+    expect(selectionNotebookTarget({
+      state: { selection: { empty: false, $from: { parent, parentOffset: 0 }, $to: { parent: other, parentOffset: 4 } } }
+    })).toBeNull();
+    const editor = editorFor({ currentText: baseText });
+    expect(replaceEditorTargetText(editor, second, 'word').applied).toBe(true);
+    expect(editor.state.tr.insertText).toHaveBeenCalledWith('word', 15, 20);
+    expect(notebookTrialText(second, 'word')).toBe('alpha beta word 🌊 end');
+    expect(normalizeNotebookWorkingState({ trials: [{ id: 't', target: second, alternative: 'word' }] }).trials[0].target.scope).toBe('range');
   });
   it('never widens an invalid scoped range to a whole paragraph', () => {
     const editor = editorFor();

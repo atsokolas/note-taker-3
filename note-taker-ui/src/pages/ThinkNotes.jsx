@@ -375,8 +375,8 @@ const ThinkNotes = () => {
               <RoomShelfList>
                 {writingResults.map(item => (
                   <li key={`${item.kind}:${item.id}`}>
-                    <Link to={item.href} onClick={event => followWriting(event, item.href)} className={roomShelfItemClass({ nested: true, className: 'think-notes__continuation' })}>
-                      <span>{item.excerpt === item.title ? <WritingMatch item={item} /> : item.title}</span>
+                    <Link to={item.href} title={item.title} onClick={event => followWriting(event, item.href)} className={roomShelfItemClass({ nested: true, className: 'think-notes__continuation' })}>
+                      <span className="think-notes__note-title">{item.excerpt === item.title ? <WritingMatch item={item} /> : item.title}</span>
                       <span className="think-notes__writing-origin">{item.kind === 'notebook' ? 'Note' : `Private writing · ${item.label}`}{item.pageTitle ? ` · ${item.pageTitle}` : ''}{item.sourceUnavailable ? ' · Recorded context' : item.originMissing ? ' · Earlier passage' : ''}</span>
                       {item.excerpt !== item.title ? <span className="think-notes__match-excerpt"><WritingMatch item={item} /></span> : null}
                     </Link>
@@ -393,8 +393,8 @@ const ThinkNotes = () => {
               <RoomShelfList>
                 {authoredWork.map(item => (
                   <li key={item.id}>
-                    <Link to={item.href} onClick={event => followWriting(event, item.href)} className={roomShelfItemClass({ nested: true, className: 'think-notes__continuation' })}>
-                      <span>{item.title}</span>
+                    <Link to={item.href} title={item.title} onClick={event => followWriting(event, item.href)} className={roomShelfItemClass({ nested: true, className: 'think-notes__continuation' })}>
+                      <span className="think-notes__note-title">{item.title}</span>
                       {item.returnNote ? <span className="think-notes__return-note">{item.returnNote}</span> : null}
                       {item.pageTitle ? <span className="think-notes__writing-origin">From {item.pageTitle}{item.sourceUnavailable ? ' · Recorded context' : item.originMissing ? ' · Earlier passage' : ''}</span> : null}
                     </Link>
@@ -411,9 +411,10 @@ const ThinkNotes = () => {
                     active={item.isOpen}
                     nested
                     className="think-notes__note-link"
+                    title={item.title}
                     onClick={() => openNote(item.id)}
                   >
-                    <span>{item.title}</span>
+                    <span className="think-notes__note-title">{item.title}</span>
                     {item.nextTimeLine ? <span className="think-notes__return-note">{item.nextTimeLine}</span> : null}
                   </RoomShelfButton>
                 </li>

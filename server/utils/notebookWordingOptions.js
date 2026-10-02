@@ -10,7 +10,7 @@ const normalizeKey = (value) => text(value).replace(/\s+/g, ' ').toLowerCase();
 
 const passageFromTarget = (target = {}) => {
   const base = String(target.baseText || '');
-  if (['word', 'sentence'].includes(target.scope) && Number.isInteger(target.rangeStart) && Number.isInteger(target.rangeEnd)) {
+  if (Number.isInteger(target.rangeStart) && Number.isInteger(target.rangeEnd) && target.rangeEnd > target.rangeStart && target.rangeEnd <= base.length) {
     return base.slice(target.rangeStart, target.rangeEnd);
   }
   return base;
