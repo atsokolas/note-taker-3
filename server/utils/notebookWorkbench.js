@@ -20,7 +20,7 @@ const target = (value = {}) => ({
   blockId: string(value?.blockId, 160),
   offset: Math.max(0, Math.min(Number(value?.offset) || 0, LIMITS.baseText)),
   baseText: String(value?.baseText || '').slice(0, LIMITS.baseText),
-  ...(['word', 'sentence'].includes(value?.scope) && Number.isInteger(value?.rangeStart) && Number.isInteger(value?.rangeEnd) && value.rangeStart >= 0 && value.rangeEnd > value.rangeStart && value.rangeEnd <= Math.min(String(value.baseText || '').length, LIMITS.baseText)
+  ...(['word', 'sentence', 'range'].includes(value?.scope) && Number.isInteger(value?.rangeStart) && Number.isInteger(value?.rangeEnd) && value.rangeStart >= 0 && value.rangeEnd > value.rangeStart && value.rangeEnd <= Math.min(String(value.baseText || '').length, LIMITS.baseText)
     ? { scope: value.scope, rangeStart: value.rangeStart, rangeEnd: value.rangeEnd }
     : {})
 });

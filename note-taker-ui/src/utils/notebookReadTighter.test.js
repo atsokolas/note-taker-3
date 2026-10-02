@@ -45,4 +45,31 @@ describe('readTighterCuts and rescue', () => {
   it('returns no cuts when the proposal matches the original', () => {
     expect(readTighterCuts(original, original)).toEqual([]);
   });
+
+  it('puts a later cut back where the shared words say, not where the old word count landed', () => {
+    const source = 'A really B quite C D';
+    const proposal = 'A B C D';
+    expect(rescueReadTighterPhrase(source, proposal, 'quite')).toBe('A B quite C D');
+    expect(rescueReadTighterPhrase(source, proposal, 'really')).toBe('A really B C D');
+  });
+
+  it('rescues several cuts in either order, including repeated phrases and inserted words', () => {
+    const source = 'A really B quite C D';
+    const proposal = 'A B C D';
+    const quiteFirst = rescueReadTighterPhrase(source, rescueReadTighterPhrase(source, proposal, 'quite'), 'really');
+    const reallyFirst = rescueReadTighterPhrase(source, rescueReadTighterPhrase(source, proposal, 'really'), 'quite');
+    expect(quiteFirst).toBe('A really B quite C D');
+    expect(reallyFirst).toBe('A really B quite C D');
+
+    const repeated = 'see the light and see the light';
+    const trimmed = 'see light and see light';
+    const cuts = readTighterCuts(repeated, trimmed);
+    expect(cuts.map((cut) => cut.phrase)).toEqual(['the', 'the']);
+    expect(cuts[0].id).not.toBe(cuts[1].id);
+    expect(rescueReadTighterPhrase(repeated, trimmed, cuts[1])).toBe('see light and see the light');
+    expect(rescueReadTighterPhrase(repeated, rescueReadTighterPhrase(repeated, trimmed, cuts[0]), cuts[1])).toBe(repeated);
+
+    const inserted = rescueReadTighterPhrase('A really B C', 'A extra B C', 'really');
+    expect(inserted).toBe('A really extra B C');
+  });
 });

@@ -1,6 +1,27 @@
 import { notebookTrialKey, resolveEditorTarget } from './notebookWorkbench';
 
 const text = (value) => String(value || '').trim();
+const exact = (value) => String(value || '');
+
+/** Place a saved alternative on the live passage, or nowhere if that passage changed. */
+export const resolveSavedMark = (doc, mark) => {
+  const blockId = exact(mark?.blockId);
+  const baseText = exact(mark?.baseText);
+  if (!blockId || !baseText || typeof doc?.descendants !== 'function') return null;
+  const rangeStart = Number.isInteger(mark.rangeStart) ? mark.rangeStart : 0;
+  const rangeEnd = Number.isInteger(mark.rangeEnd) ? mark.rangeEnd : null;
+  if (rangeEnd == null || rangeEnd <= rangeStart || rangeStart < 0) return null;
+  let match = null;
+  doc.descendants((node, pos) => {
+    if (match) return false;
+    if (exact(node?.attrs?.blockId) !== blockId) return undefined;
+    const current = exact(node.textContent);
+    if (current !== baseText || rangeEnd > current.length) return undefined;
+    match = { from: pos + 1 + rangeStart, to: pos + 1 + rangeEnd };
+    return false;
+  });
+  return match && match.to > match.from ? match : null;
+};
 
 /** Saved alternatives that still anchor to the live passage (strip closed elsewhere). */
 export const readySavedTrialMarks = (editor, trials = []) => {
@@ -21,18 +42,18 @@ export const readySavedTrialMarks = (editor, trials = []) => {
     if (found.status !== 'ready') return;
     const scoped = Boolean(trial.target.scope);
     const rangeStart = scoped ? Number(trial.target.rangeStart) : 0;
-    const rangeEnd = scoped ? Number(trial.target.rangeEnd) : text(found.currentText).length;
-    if (scoped && (!Number.isInteger(rangeStart) || !Number.isInteger(rangeEnd) || rangeEnd <= rangeStart)) return;
-    const from = found.from + rangeStart;
-    const to = found.from + rangeEnd;
-    if (to <= from) return;
-    marks.push({
+    const rangeEnd = scoped ? Number(trial.target.rangeEnd) : exact(found.currentText).length;
+    const identity = {
       trialKey: key,
       trialId: trial.id,
-      blockId: trial.target.blockId,
-      from,
-      to
-    });
+      blockId: exact(trial.target.blockId),
+      baseText: exact(trial.target.baseText),
+      rangeStart,
+      rangeEnd
+    };
+    const located = resolveSavedMark(editor.state.doc, identity);
+    if (!located) return;
+    marks.push({ ...identity, from: located.from, to: located.to });
   });
   return marks;
 };

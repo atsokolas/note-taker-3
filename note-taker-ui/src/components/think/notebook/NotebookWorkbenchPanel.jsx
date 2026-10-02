@@ -104,7 +104,7 @@ const NotebookWorkbenchPanel = ({
 
       <div className={`notebook-workbench__target is-${targetStatus || 'missing'}`} role="status">
         {targetStatus === 'ready'
-          ? 'Passage will go here. Your place is held.'
+          ? 'Your place is held.'
           : 'Choose a passage in the draft before inserting material.'}
       </div>
 

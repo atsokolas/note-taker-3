@@ -44,10 +44,29 @@ test('read tighter shows rescuable cuts and never keeps on textarea Enter', () =
   const onKeep = jest.fn();
   render(<NotebookAlternativesRail trial={trial} trials={[trial]} preview="trial" status="ready" onChoose={jest.fn()} onChange={jest.fn()} onPreview={jest.fn()} onAdd={jest.fn()} onKeep={onKeep} onScope={jest.fn()} onClose={jest.fn()} onDiscard={jest.fn()} onReview={jest.fn()} onAsk={jest.fn()} onRescue={onRescue} />);
   fireEvent.click(screen.getByRole('button', { name: /Rescue “really quite”/i }));
-  expect(onRescue).toHaveBeenCalledWith('really quite');
+  expect(onRescue).toHaveBeenCalledWith(expect.objectContaining({ phrase: 'really quite' }));
   fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Enter' });
   expect(onKeep).not.toHaveBeenCalled();
   expect(screen.getByRole('button', { name: 'Keep tighter read' })).toBeEnabled();
+});
+
+test('the first wording previews in place and does not keep itself', () => {
+  const trial = { id: 'a', target: { blockId: 'p1', baseText: 'Original words' }, alternative: '', origin: 'human' };
+  const props = setup({ trial, trials: [trial], preview: 'original' });
+  fireEvent.change(screen.getByRole('textbox', { name: 'Add another wording' }), { target: { value: 'A quieter phrase' } });
+  fireEvent.keyDown(screen.getByRole('textbox', { name: 'Add another wording' }), { key: 'Enter' });
+  expect(props.onChange).toHaveBeenCalledWith('A quieter phrase');
+  expect(props.onPreview).toHaveBeenCalledWith('trial');
+  expect(props.onAdd).not.toHaveBeenCalled();
+  expect(props.onKeep).not.toHaveBeenCalled();
+});
+
+test('the add field creates another wording and does not keep it', () => {
+  const props = setup();
+  fireEvent.change(screen.getByRole('textbox', { name: 'Add another wording' }), { target: { value: 'A third way' } });
+  fireEvent.keyDown(screen.getByRole('textbox', { name: 'Add another wording' }), { key: 'Enter' });
+  expect(props.onAdd).toHaveBeenCalledWith('A third way');
+  expect(props.onKeep).not.toHaveBeenCalled();
 });
 
 test('partner options request stays explicit and shows explanations', () => {
@@ -60,6 +79,7 @@ test('partner options request stays explicit and shows explanations', () => {
   };
   const onRequest = jest.fn();
   render(<NotebookAlternativesRail trial={trial} trials={[trial]} preview="trial" status="ready" onChoose={jest.fn()} onChange={jest.fn()} onPreview={jest.fn()} onAdd={jest.fn()} onKeep={jest.fn()} onScope={jest.fn()} onClose={jest.fn()} onDiscard={jest.fn()} onReview={jest.fn()} onAsk={jest.fn()} onRequestPartnerOptions={onRequest} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Partner' }));
   fireEvent.click(screen.getByRole('button', { name: 'Partner options' }));
   expect(onRequest).toHaveBeenCalledTimes(1);
   expect(screen.getByText('States the point without padding.')).toBeInTheDocument();

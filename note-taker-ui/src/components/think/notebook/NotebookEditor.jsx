@@ -68,12 +68,16 @@ import {
   resolveEditorTarget,
   sourceNodeForMaterial,
   targetFromEditor,
+  domNotebookTarget,
+  rememberNotebookHighlight,
+  selectionNotebookTarget,
   scopeNotebookTarget,
   notebookTargetText,
   notebookTrialText,
   notebookTrialKey
 } from '../../../utils/notebookWorkbench';
 import { readTighterSupport, rescueReadTighterPhrase } from '../../../utils/notebookReadTighter';
+import { UniqueBlockIds } from './uniqueBlockIds';
 import '../../../styles/think-writing.css';
 
 const AUTOSAVE_DELAY_MS = 850;
@@ -570,7 +574,8 @@ const NotebookEditor = ({
   const partnerOptionsAbortRef = useRef(null);
   const partnerOptionsRequestRef = useRef(null);
   const [finishError, setFinishError] = useState('');
-  const [, setDocTick] = useState(0);
+  const [docTick, setDocTick] = useState(0);
+  const highlightedRef = useRef(null);
 
   const editor = useEditor({
     editable: false,
@@ -579,6 +584,7 @@ const NotebookEditor = ({
       Placeholder.configure({ placeholder: 'Write freely… Type / for commands.' }),
       ListIndentExtension,
       BlockIdExtension,
+      UniqueBlockIds,
       NotebookWorkbenchDecorations,
       highlightExtension,
       ArticleRefNode,
@@ -939,12 +945,38 @@ const NotebookEditor = ({
 
   useEffect(() => {
     if (!editor) return undefined;
-    const bump = () => setDocTick((value) => value + 1);
+    let ticket = 0;
+    const remember = (settled) => {
+      highlightedRef.current = rememberNotebookHighlight(editor, highlightedRef.current, { settled });
+    };
+    const rememberLive = () => remember(false);
+    const bump = () => {
+      setDocTick((value) => value + 1);
+      const mine = ++ticket;
+      queueMicrotask(() => {
+        if (mine !== ticket || editor.isDestroyed) return;
+        remember(false);
+        const dom = editor.view?.dom;
+        const stillWriting = editor.isFocused || Boolean(dom && (document.activeElement === dom || dom.contains(document.activeElement)));
+        if (!stillWriting || domNotebookTarget(editor)) return;
+        window.requestAnimationFrame(() => {
+          if (mine !== ticket || editor.isDestroyed) return;
+          remember(true);
+        });
+      });
+    };
+    const dom = editor.view?.dom;
     editor.on('update', bump);
     editor.on('selectionUpdate', bump);
+    document.addEventListener('selectionchange', rememberLive);
+    // Tab moves focus before selectionchange. Snapshot the phrase on the way out.
+    dom?.addEventListener('keydown', rememberLive, true);
     return () => {
+      ticket += 1;
       editor.off('update', bump);
       editor.off('selectionUpdate', bump);
+      document.removeEventListener('selectionchange', rememberLive);
+      dom?.removeEventListener('keydown', rememberLive, true);
     };
   }, [editor]);
 
@@ -1289,6 +1321,19 @@ const NotebookEditor = ({
     if (!alternativesPortal) onOpenContext?.('material');
   };
 
+  const startTrialFromSelection = () => {
+    const live = selectionNotebookTarget(editor);
+    const remembered = highlightedRef.current;
+    const rememberedReady = remembered
+      && resolveEditorTarget(editor, remembered, { requireSameText: true }).status === 'ready';
+    const selected = (!editor.isFocused && rememberedReady ? remembered : null) || live;
+    if (!selected) {
+      setWorkbenchReceipt({ type: 'error', text: 'Highlight a word, phrase, or paragraph to try other wording.' });
+      return;
+    }
+    startTrial(currentPieceIndex, selected.scope || 'paragraph', selected);
+  };
+
   const startReadTighter = (pieceIndex = currentPieceIndex) => {
     const piece = arrangementPieces[pieceIndex];
     const support = readTighterSupport(piece);
@@ -1549,7 +1594,9 @@ const NotebookEditor = ({
   const savedTrialMarks = useMemo(() => {
     if (!editor || alternativesVisible) return [];
     return readySavedTrialMarks(editor, workbench.state.trials);
-  }, [alternativesVisible, editor, workbench.state.trials]);
+    // docTick is the editor transaction clock. The document itself is not React state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [alternativesVisible, docTick, editor, workbench.state.trials]);
 
   const openSavedAlternatives = useCallback((trialId) => {
     const trial = workbench.state.trials.find((item) => item.id === trialId);
@@ -1569,14 +1616,17 @@ const NotebookEditor = ({
   }, [openSavedAlternatives]);
 
   useEffect(() => {
+    const showingPreview = workbenchView === 'trial' && trialPreview === 'trial' && activeTrialResolution.status === 'ready';
+    const bracketTarget = showingPreview ? null : workbenchView === 'trial' ? activeTrial?.target : activeContext === 'material' ? heldTarget : null;
     setNotebookWorkbenchDecorations(editor, {
-      targetBlockId: workbenchView === 'trial' ? activeTrial?.target?.blockId : activeContext === 'material' ? heldTarget?.blockId : '',
-      preview: workbenchView === 'trial' && trialPreview === 'trial' && activeTrialResolution.status === 'ready'
+      targetBlockId: bracketTarget?.blockId || '',
+      targetRange: bracketTarget?.scope ? { rangeStart: bracketTarget.rangeStart, rangeEnd: bracketTarget.rangeEnd } : null,
+      preview: showingPreview
         ? { blockId: activeTrial?.target?.blockId, text: notebookTrialText(activeTrial?.target, activeTrial?.alternative), ...(activeTrial.target.scope ? { rangeStart: activeTrial.target.rangeStart, rangeEnd: activeTrial.target.rangeStart + activeTrial.alternative.length } : {}) }
         : null,
       savedMarks: savedTrialMarks
     });
-  }, [activeContext, activeTrial, activeTrialResolution.status, editor, heldTarget?.blockId, savedTrialMarks, trialPreview, workbenchView]);
+  }, [activeContext, activeTrial, activeTrialResolution.status, editor, heldTarget, savedTrialMarks, trialPreview, workbenchView]);
   useEffect(() => { onAlternativesOpenChange?.(alternativesVisible); }, [alternativesVisible, onAlternativesOpenChange]);
   useEffect(() => () => onAlternativesOpenChange?.(false), [onAlternativesOpenChange]);
   useEffect(() => () => partnerOptionsAbortRef.current?.abort?.(), []);
@@ -1594,13 +1644,15 @@ const NotebookEditor = ({
     setEphemeralTrial(null);
     setTrialPreview('trial');
   };
-  const addAlternative = () => {
+  const addAlternative = (wording = '') => {
     if (workbench.state.trials.length >= 40) { setWorkbenchReceipt({ type: 'error', text: 'This note holds 40 alternatives. Discard an unused one to make room.' }); return; }
-    const trial = { id: createId(), target: activeTrial.target, alternative: '', origin: 'human', updatedAt: new Date().toISOString() };
+    const alternative = String(wording || '').trim();
+    if (!alternative) return;
+    const trial = { id: createId(), target: activeTrial.target, alternative, origin: 'human', updatedAt: new Date().toISOString() };
     workbench.update(current => ({ ...current, trials: [...current.trials, trial] }));
     setActiveTrialId(trial.id);
     setEphemeralTrial(null);
-    setTrialPreview('original');
+    setTrialPreview('trial');
   };
 
   const handleRecoveryExport = () => {
@@ -1689,7 +1741,10 @@ const NotebookEditor = ({
                 : 'Saved'}
             </span>
             <QuietButton data-context-trigger="scratchpad" aria-pressed={activeContext === 'scratchpad'} onClick={() => { holdCurrentPlace(); onOpenContext?.('scratchpad'); }}>Scratchpad</QuietButton>
-            <QuietButton onClick={() => startTrial()}>Try wording</QuietButton>
+            <QuietButton
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => (selectionNotebookTarget(editor) || (!editor?.isFocused && highlightedRef.current) ? startTrialFromSelection() : startTrial())}
+            >Try wording</QuietButton>
             <QuietButton data-context-trigger="material" aria-pressed={activeContext === 'material'} onClick={() => openMaterial()}>Material</QuietButton>
             <QuietButton data-context-trigger="partner" aria-pressed={activeContext === 'partner'} onClick={() => onOpenContext?.('partner')}>Partner</QuietButton>
             <details className="think-notebook-utility__more">
@@ -2053,8 +2108,13 @@ const NotebookEditor = ({
           reaches for. Reading it does nothing at all. */}
       <div
         className={`think-notebook-editor__body${editingBody ? ' is-editing' : ''}${agentThreadPulse ? ' is-connecting-agent' : ''}`}
+        tabIndex={editingBody ? -1 : 0}
+        aria-label={editingBody ? undefined : 'Writing'}
         onClick={startEditingBody}
-        onFocus={() => setBodyHasFocus(true)}
+        onFocus={(event) => {
+          setBodyHasFocus(true);
+          if (!editingBody && event.target === event.currentTarget) startEditingBody();
+        }}
         onBlur={(event) => {
           if (!event.currentTarget.contains(event.relatedTarget)) {
             setBodyHasFocus(false);
@@ -2082,6 +2142,7 @@ const NotebookEditor = ({
         hideBlockControls
         slashCommands={slashCommands}
         contextualToolbar
+        onTryWording={startTrialFromSelection}
         onAskSelection={onInvokeAgentSkill ? handleAskSelection : null}
       />
       <NotebookArrangementRail
@@ -2115,7 +2176,6 @@ const NotebookEditor = ({
           onPreview={setTrialPreview}
           onAdd={addAlternative}
           onKeep={useTrial}
-          onScope={(scope) => startTrial(currentPieceIndex, scope, activeTrial.target)}
           onClose={closeAlternatives}
           onDiscard={discardTrial}
           onReview={reviewTrial}

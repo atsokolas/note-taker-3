@@ -6,7 +6,8 @@ const RichTextToolbar = ({
   editor,
   variant = 'full',
   className = '',
-  onAskSelection = null
+  onAskSelection = null,
+  onTryWording = null
 }) => {
   if (!editor) return null;
 
@@ -26,6 +27,16 @@ const RichTextToolbar = ({
           {item.label}
         </QuietButton>
       ))}
+      {onTryWording ? (
+        <QuietButton
+          type="button"
+          aria-label="Try wording"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={onTryWording}
+        >
+          Try wording
+        </QuietButton>
+      ) : null}
       {onAskSelection ? (
         <QuietButton
           type="button"

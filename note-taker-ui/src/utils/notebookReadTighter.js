@@ -32,6 +32,8 @@ const wordSpans = (value) => {
   return spans;
 };
 
+// Earliest stable alignment. A later repeated word is not a match when an
+// earlier one already explains the same proposal word.
 const lcsPairs = (left, right) => {
   const rows = left.length;
   const cols = right.length;
@@ -47,7 +49,8 @@ const lcsPairs = (left, right) => {
   let i = rows;
   let j = cols;
   while (i > 0 && j > 0) {
-    if (left[i - 1] === right[j - 1]) {
+    const matched = left[i - 1] === right[j - 1] && table[i][j] === table[i - 1][j - 1] + 1;
+    if (matched && table[i - 1][j] !== table[i][j]) {
       pairs.unshift({ left: i - 1, right: j - 1 });
       i -= 1;
       j -= 1;
@@ -63,55 +66,66 @@ export const readTighterCuts = (original, alternative) => {
   const proposal = text(alternative);
   if (!proposal.trim() || source === proposal) return [];
   const left = wordSpans(source);
-  const rightWords = wordSpans(proposal).map((item) => item.word);
-  const pairs = lcsPairs(left.map((item) => item.word), rightWords);
-  const matchedLeft = new Set(pairs.map((item) => item.left));
+  const right = wordSpans(proposal);
+  const pairs = lcsPairs(left.map((item) => item.word), right.map((item) => item.word));
+  const rightOfLeft = new Map(pairs.map((pair) => [pair.left, pair.right]));
   const cuts = [];
   let run = null;
-  left.forEach((span, index) => {
-    if (matchedLeft.has(index)) {
-      if (run) {
-        cuts.push(run);
-        run = null;
-      }
+  const close = () => {
+    if (!run || !text(run.text).trim()) {
+      run = null;
       return;
     }
-    if (!run) run = { start: span.start, end: span.end, text: source.slice(span.start, span.end) };
-    else {
-      run.end = span.end;
-      run.text = source.slice(run.start, run.end);
+    let anchor = -1;
+    for (let index = run.wordStart - 1; index >= 0; index -= 1) {
+      if (rightOfLeft.has(index)) {
+        anchor = rightOfLeft.get(index);
+        break;
+      }
     }
+    cuts.push({
+      ...run,
+      id: `${run.start}:${run.end}`,
+      phrase: run.text.trim(),
+      insertAt: anchor < 0 ? 0 : right[anchor].end
+    });
+    run = null;
+  };
+  left.forEach((span, index) => {
+    if (rightOfLeft.has(index)) {
+      close();
+      return;
+    }
+    if (!run) {
+      run = { wordStart: index, start: span.start, end: span.end, text: source.slice(span.start, span.end) };
+      return;
+    }
+    run.end = span.end;
+    run.text = source.slice(run.start, run.end);
   });
-  if (run) cuts.push(run);
-  return cuts.filter((item) => text(item.text).trim());
+  close();
+  return cuts;
 };
 
-const charOffsetAfterWords = (value, wordCount) => {
-  if (wordCount <= 0) return 0;
-  let seen = 0;
-  const re = /\S+/g;
-  let match = re.exec(text(value));
-  while (match) {
-    seen += 1;
-    if (seen === wordCount) return match.index + match[0].length;
-    match = re.exec(text(value));
-  }
-  return text(value).length;
+const placeCut = (proposal, cut, source) => {
+  const insertAt = Math.max(0, Math.min(cut.insertAt, proposal.length));
+  const phrase = source.slice(cut.start, cut.end);
+  const gapBefore = insertAt > 0 && !/\s$/.test(proposal.slice(0, insertAt)) && !/^\s/.test(phrase) ? ' ' : '';
+  const gapAfter = insertAt < proposal.length && !/^\s/.test(proposal.slice(insertAt)) && !/\s$/.test(phrase) ? ' ' : '';
+  return `${proposal.slice(0, insertAt)}${gapBefore}${phrase}${gapAfter}${proposal.slice(insertAt)}`;
 };
 
 export const rescueReadTighterPhrase = (original, alternative, phrase) => {
   const source = text(original);
   const proposal = text(alternative);
-  const needle = text(phrase).trim();
-  if (!needle) return proposal;
+  const requested = phrase && typeof phrase === 'object' ? phrase : null;
+  const needle = text(requested ? requested.phrase || requested.text : phrase).trim();
   const cuts = readTighterCuts(source, proposal);
-  const cut = cuts.find((item) => item.text.includes(needle) || needle.includes(item.text.trim()));
+  const cut = (requested?.id && cuts.find((item) => item.id === requested.id))
+    || cuts.find((item) => item.phrase === needle)
+    || cuts.find((item) => item.text.includes(needle) || (needle && needle.includes(item.phrase)));
   if (!cut) return proposal;
-  const leftWords = wordSpans(source.slice(0, cut.start)).length;
-  const insertAt = charOffsetAfterWords(proposal, leftWords);
-  const gapBefore = insertAt > 0 && !/\s$/.test(proposal.slice(0, insertAt)) ? ' ' : '';
-  const gapAfter = insertAt < proposal.length && !/^\s/.test(proposal.slice(insertAt)) ? ' ' : '';
-  return `${proposal.slice(0, insertAt)}${gapBefore}${source.slice(cut.start, cut.end)}${gapAfter}${proposal.slice(insertAt)}`;
+  return placeCut(proposal, cut, source);
 };
 
 export const renderReadTighterOriginal = (original, alternative) => {
@@ -122,7 +136,7 @@ export const renderReadTighterOriginal = (original, alternative) => {
   let cursor = 0;
   cuts.forEach((cut) => {
     if (cut.start > cursor) parts.push({ kind: 'text', text: source.slice(cursor, cut.start) });
-    parts.push({ kind: 'cut', text: source.slice(cut.start, cut.end), phrase: source.slice(cut.start, cut.end).trim() });
+    parts.push({ kind: 'cut', id: cut.id, text: source.slice(cut.start, cut.end), phrase: cut.phrase });
     cursor = cut.end;
   });
   if (cursor < source.length) parts.push({ kind: 'text', text: source.slice(cursor) });

@@ -1,9 +1,8 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { notebookTargetText } from '../../../utils/notebookWorkbench';
 import { readTighterCuts, renderReadTighterOriginal } from '../../../utils/notebookReadTighter';
 
-// Replaces the trial form in the right workbench. The document owns the
-// alternatives; this strip only edits and previews those existing records.
+// The document owns the alternatives. This strip lists them and adds one more.
 const NotebookAlternativesRail = ({
   trial,
   trials,
@@ -14,7 +13,6 @@ const NotebookAlternativesRail = ({
   onPreview,
   onAdd,
   onKeep,
-  onScope,
   onClose,
   onDiscard,
   onReview,
@@ -27,30 +25,44 @@ const NotebookAlternativesRail = ({
 }) => {
   const root = useRef(null);
   const field = useRef(null);
+  const [draft, setDraft] = useState('');
+  const [partnerOpen, setPartnerOpen] = useState(false);
   const tighter = trial.intent === 'tighter';
   const originalText = notebookTargetText(trial.target);
   useEffect(() => { const frame = window.requestAnimationFrame(() => root.current?.focus({ preventScroll: true })); return () => window.cancelAnimationFrame(frame); }, []);
-  useEffect(() => { const frame = window.requestAnimationFrame(() => { if (!trial.alternative) field.current?.focus({ preventScroll: true }); }); return () => window.cancelAnimationFrame(frame); }, [trial.id]); // eslint-disable-line react-hooks/exhaustive-deps
-  const choices = trials.some(item => item.id === trial.id) ? trials : [...trials, trial];
-  const selected = preview === 'original' ? 0 : choices.findIndex(item => item.id === trial.id) + 1;
+  useEffect(() => {
+    setDraft('');
+    const frame = window.requestAnimationFrame(() => { if (!trial.alternative) field.current?.focus({ preventScroll: true }); });
+    return () => window.cancelAnimationFrame(frame);
+  }, [trial.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const choices = (trials.some(item => item.id === trial.id) ? trials : [...trials, trial])
+    .filter(item => String(item.alternative || '').trim());
+  const selected = preview === 'original' ? 0 : Math.max(0, choices.findIndex(item => item.id === trial.id) + 1);
   const choose = (index) => index === 0 ? onPreview('original') : onChoose(choices[index - 1]);
-  const ready = status === 'ready' && Boolean(trial.alternative.trim());
+  const ready = status === 'ready' && Boolean(String(trial.alternative || '').trim());
   const originalParts = tighter && trial.alternative.trim()
     ? renderReadTighterOriginal(originalText, trial.alternative)
     : null;
-  const cutPhrases = tighter && trial.alternative.trim()
-    ? readTighterCuts(originalText, trial.alternative).map((item) => item.text.trim()).filter(Boolean)
-    : [];
+  const cuts = tighter && trial.alternative.trim() ? readTighterCuts(originalText, trial.alternative) : [];
+  const commitDraft = () => {
+    const wording = draft.trim();
+    if (!wording) return;
+    if (!String(trial.alternative || '').trim()) {
+      onChange(wording);
+      onPreview('trial');
+    } else onAdd(wording);
+    setDraft('');
+  };
   const renderOriginalBody = () => {
     if (!originalParts) return <span>{originalText}</span>;
     return originalParts.map((part, index) => (
       part.kind === 'text'
         ? <span key={`t-${index}`}>{part.text}</span>
-        : <span key={`c-${index}`} className="notebook-alternatives__cut-mark">{part.text}</span>
+        : <span key={`c-${part.id || index}`} className="notebook-alternatives__cut-mark">{part.text}</span>
     ));
   };
   return (
-    <section ref={root} tabIndex={-1} className={`notebook-alternatives${tighter ? ' is-tighter' : ''}`} aria-label={tighter ? 'Read tighter' : 'Try another wording'} onKeyDown={event => {
+    <section ref={root} tabIndex={-1} className={`notebook-alternatives${tighter ? ' is-tighter' : ''}`} aria-label={tighter ? 'Read tighter' : 'Alternatives'} onKeyDown={event => {
       if (event.isComposing || event.defaultPrevented) return;
       if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); onClose(); return; }
       if (event.target.tagName === 'TEXTAREA') return;
@@ -60,44 +72,71 @@ const NotebookAlternativesRail = ({
       } else if (event.key === 'Enter' && (event.target === root.current || event.target.hasAttribute('data-compare')) && preview !== 'original' && ready) { event.preventDefault(); onKeep(); }
     }}>
       <header>
-        {tighter ? <span>Read tighter</span> : (
-          <div role="group" aria-label="Wording scope">{['word', 'sentence', 'paragraph'].map(scope => <button type="button" key={scope} aria-pressed={(trial.target.scope || 'paragraph') === scope} onClick={() => onScope(scope)}>{scope}</button>)}</div>
-        )}
+        <span>{tighter ? 'Read tighter' : 'Alternatives'}</span>
         <button type="button" onClick={onClose} aria-label="Close alternatives">×</button>
       </header>
       {unsupportedReason ? <p role="status" className="notebook-workbench__notice">{unsupportedReason}</p> : null}
       {partnerOptionsNotice ? <p role="status" className="notebook-workbench__notice">{partnerOptionsNotice}</p> : null}
       {status !== 'ready' ? <p role="status" className="notebook-workbench__notice">{status === 'stale' ? 'This passage changed. Your alternatives are still here.' : 'The original passage is gone. Your alternatives are still here.'}{status === 'stale' ? <button type="button" onClick={onReview}>Review current passage</button> : null}</p> : null}
       <div role="group" aria-label="Compare wording">
-        <button type="button" data-compare="" className="notebook-alternatives__choice" aria-pressed={preview === 'original'} onClick={() => onPreview('original')}><span className="notebook-alternatives__passage">{renderOriginalBody()}</span><small>original</small></button>
-        {choices.map(item => <button key={item.id} type="button" data-compare="" className="notebook-alternatives__choice" aria-pressed={preview === 'trial' && item.id === trial.id} onClick={() => onChoose(item)}><span>{item.alternative || (tighter ? 'Write a tighter read or ask Partner…' : 'Write another way…')}</span>{item.partnerExplanation ? <small>{item.partnerExplanation}</small> : null}{item.origin === 'partner' ? <small>partner proposal</small> : null}</button>)}
-      </div>
-      {cutPhrases.length ? (
-        <ul className="notebook-alternatives__rescues" aria-label="Proposed cuts">
-          {cutPhrases.map((phrase) => (
-            <li key={phrase}>
-              <button type="button" className="notebook-alternatives__rescue" onClick={() => onRescue?.(phrase)}>
-                Rescue “{phrase}”
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-      {tighter && trial.alternative.trim() ? <p className="notebook-alternatives__hint">Strikethrough marks proposed cuts · rescue brings a phrase back into the preview only</p> : null}
-      <label className="notebook-alternatives__edit"><span>{tighter ? 'Tighter read' : 'Edit this alternative'}</span><textarea ref={field} rows={4} maxLength={30000} value={trial.alternative} onChange={event => onChange(event.target.value)} /></label>
-      <div className="notebook-alternatives__actions">
-        {!tighter ? <button type="button" onClick={onAdd} disabled={choices.length >= 12}>+ another</button> : null}
-        {!tighter ? (
-          <button type="button" disabled={status !== 'ready' || partnerOptionsStatus === 'loading'} onClick={() => onRequestPartnerOptions?.()}>
-            {partnerOptionsStatus === 'loading' ? 'Partner options…' : 'Partner options'}
+        <button type="button" data-compare="" className="notebook-alternatives__choice" aria-pressed={preview === 'original'} onClick={() => onPreview('original')}>
+          <span className="notebook-alternatives__passage">{renderOriginalBody()}</span>
+          <small>original</small>
+        </button>
+        {cuts.map((cut) => (
+          <button type="button" key={cut.id} className="notebook-alternatives__rescue" onClick={() => onRescue?.(cut)}>
+            Rescue “{cut.phrase}”
           </button>
-        ) : null}
-        <button type="button" onClick={onAsk}>{tighter ? 'Ask Partner' : 'ask'}</button>
+        ))}
+        {choices.map(item => (
+          <div key={item.id} className="notebook-alternatives__row">
+            <button type="button" data-compare="" className="notebook-alternatives__choice" aria-pressed={preview === 'trial' && item.id === trial.id} onClick={() => onChoose(item)}>
+              <span>{item.alternative}</span>
+              {item.partnerExplanation ? <small>{item.partnerExplanation}</small> : null}
+              {item.origin === 'partner' && !item.partnerExplanation ? <small>partner proposal</small> : null}
+            </button>
+            {preview === 'trial' && item.id === trial.id ? (
+              <div className="notebook-alternatives__choice-actions">
+                <button type="button" disabled={!ready} onClick={onKeep}>{tighter ? 'Keep tighter read' : 'Keep wording'}</button>
+                <button type="button" onClick={onDiscard}>Discard</button>
+              </div>
+            ) : null}
+          </div>
+        ))}
       </div>
-      <div className="notebook-alternatives__actions"><button type="button" disabled={!ready} onClick={() => onPreview('trial')}>Read in place</button><button type="button" disabled={!ready || preview === 'original'} onClick={onKeep}>{tighter ? 'Keep tighter read' : 'Keep wording'}</button></div>
-      <button type="button" className="notebook-alternatives__discard" onClick={onDiscard}>Discard this alternative</button>
-      <p className="notebook-alternatives__hint" role="status">{preview === 'original' ? 'Reading original' : 'Preview · draft unchanged'}</p>
-      <p className="notebook-alternatives__hint">↑ ↓ compare · Enter keep · Esc close</p>
+      <label className="notebook-alternatives__edit">
+        <span className="sr-only">Add another wording</span>
+        <textarea
+          ref={field}
+          rows={3}
+          maxLength={30000}
+          value={draft}
+          placeholder={tighter ? 'A tighter read…' : 'Another way…'}
+          aria-label="Add another wording"
+          onChange={event => setDraft(event.target.value)}
+          onKeyDown={event => {
+            if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
+              event.preventDefault();
+              commitDraft();
+            }
+          }}
+        />
+      </label>
+      <p className="sr-only" role="status">{preview === 'original' ? 'Reading original' : 'Preview. The draft is unchanged.'}</p>
+      <div className="notebook-alternatives__more">
+        <button type="button" aria-expanded={partnerOpen} onClick={() => setPartnerOpen(open => !open)}>Partner</button>
+        {partnerOpen ? (
+          <div>
+            {!tighter ? (
+              <button type="button" disabled={status !== 'ready' || partnerOptionsStatus === 'loading'} onClick={() => onRequestPartnerOptions?.()}>
+                {partnerOptionsStatus === 'loading' ? 'Partner options…' : 'Partner options'}
+              </button>
+            ) : null}
+            <button type="button" onClick={onAsk}>{tighter ? 'Ask for a tighter read' : 'Ask Partner'}</button>
+            <p>Suggestions stay in this list until you keep one.</p>
+          </div>
+        ) : null}
+      </div>
     </section>
   );
 };

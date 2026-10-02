@@ -319,7 +319,7 @@ const notebookWorkbenchTargetSchema = new mongoose.Schema({
   blockId: { type: String, default: '', maxlength: 160 },
   offset: { type: Number, default: 0, min: 0 },
   baseText: { type: String, default: '', maxlength: 20000 },
-  scope: { type: String, enum: ['word', 'sentence'] },
+  scope: { type: String, enum: ['word', 'sentence', 'range'] },
   rangeStart: { type: Number, min: 0 },
   rangeEnd: { type: Number, min: 0 }
 }, { _id: false });
@@ -343,6 +343,9 @@ const notebookWorkbenchTrialSchema = new mongoose.Schema({
   target: { type: notebookWorkbenchTargetSchema, required: true },
   alternative: { type: String, default: '', maxlength: 30000 },
   origin: { type: String, enum: ['human', 'partner'], default: 'human' },
+  // Absent on ordinary wording. Present only for a Read tighter proposal.
+  intent: { type: String, enum: ['tighter'] },
+  partnerExplanation: { type: String, maxlength: 240 },
   updatedAt: { type: Date, default: Date.now }
 }, { _id: false });
 

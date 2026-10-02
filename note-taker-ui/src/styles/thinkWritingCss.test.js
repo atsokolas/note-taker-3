@@ -77,7 +77,7 @@ describe('Think writing focus mode', () => {
     const notes = fs.readFileSync(path.join(__dirname, 'think-notes.css'), 'utf8');
     expect(agentRail).toContain('container-name: noeis-column;');
     expect(agentRail).toContain('container-type: inline-size;');
-    expect(notes).toContain('@container noeis-column (max-width: 1260px)');
+    expect(notes).toContain('@container noeis-column (max-width: 1280px)');
     expect(notes).toContain('@container noeis-column (max-width: 760px)');
     expect(notes).toContain('@container noeis-column (max-width: 1040px)');
   });

@@ -1,4 +1,4 @@
-import { buildDocFromBlocks, isMongoObjectId, serializeBlocksFromDoc } from '../notebookBlocks';
+import { buildDocFromBlocks, ensureBlockIds, isMongoObjectId, serializeBlocksFromDoc } from '../notebookBlocks';
 
 describe('notebookBlocks', () => {
   it('serializes highlight blocks from a doc', () => {
@@ -176,6 +176,19 @@ describe('notebookBlocks', () => {
       type: 'horizontalRule',
       attrs: { blockId: 'hr-1' }
     });
+  });
+
+  it('gives a copied block id a new identity and keeps the first passage', () => {
+    let n = 0;
+    const { node, changed } = ensureBlockIds({
+      type: 'doc',
+      content: [
+        { type: 'paragraph', attrs: { blockId: 'same' }, content: [{ type: 'text', text: 'First' }] },
+        { type: 'paragraph', attrs: { blockId: 'same' }, content: [{ type: 'text', text: 'Second' }] }
+      ]
+    }, () => `fresh-${n += 1}`);
+    expect(changed).toBe(true);
+    expect(node.content.map((item) => item.attrs.blockId)).toEqual(['same', 'fresh-1']);
   });
 
   it('keeps a real Library ObjectId and drops a slug that would fail Mongo', () => {

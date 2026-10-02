@@ -7,21 +7,24 @@ export const isMongoObjectId = (value) => /^[a-fA-F0-9]{24}$/.test(String(value 
 
 const objectIdOrNull = (value) => (isMongoObjectId(value) ? String(value) : null);
 
-export const ensureBlockIds = (node, createId = defaultId) => {
+export const ensureBlockIds = (node, createId = defaultId, seen = null) => {
   if (!node) return { node, changed: false };
+  const ids = seen || new Set();
   let changed = false;
   const next = { ...node };
   const needsId = ['paragraph', 'heading', 'blockquote', 'listItem', 'highlightRef', 'articleRef', 'conceptRef', 'questionRef', 'wikiRef', 'codeBlock'].includes(node.type);
   if (needsId) {
     next.attrs = { ...(node.attrs || {}) };
-    if (!next.attrs.blockId) {
+    // Enter copies the previous block's id. A second copy is a different passage.
+    if (!next.attrs.blockId || ids.has(next.attrs.blockId)) {
       next.attrs.blockId = createId();
       changed = true;
     }
+    ids.add(next.attrs.blockId);
   }
   if (node.content) {
     next.content = node.content.map(child => {
-      const result = ensureBlockIds(child, createId);
+      const result = ensureBlockIds(child, createId, ids);
       if (result.changed) changed = true;
       return result.node;
     });
