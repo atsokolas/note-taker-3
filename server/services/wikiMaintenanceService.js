@@ -1624,7 +1624,7 @@ const sourceRefFromCandidate = (candidate, { investmentDossier = false } = {}) =
 
 const candidateFromSourceRef = (sourceRef = {}, index = 1) => ({
   type: sourceRef.type || 'external',
-  objectId: sourceRef.objectId || sourceRef._id || null,
+  objectId: sourceRef.objectId || null,
   parentObjectId: sourceRef.parentObjectId || null,
   title: truncate(sourceRef.title || sourceRef.sourceTitle || '', 240),
   url: truncateRaw(sourceRef.url || '', 1000),
