@@ -69,6 +69,16 @@ test('the add field creates another wording and does not keep it', () => {
   expect(props.onKeep).not.toHaveBeenCalled();
 });
 
+test('leaving keeps a typed wording instead of dropping it', () => {
+  const props = setup({ trial: { id: 'a', target: { blockId: 'p1', baseText: 'Original words' }, alternative: '', origin: 'human' }, trials: [], preview: 'original' });
+  fireEvent.change(screen.getByRole('textbox', { name: 'Add another wording' }), { target: { value: 'A quieter phrase' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Close alternatives' }));
+  expect(props.onChange).toHaveBeenCalledWith('A quieter phrase');
+  expect(props.onPreview).toHaveBeenCalledWith('trial');
+  expect(props.onClose).toHaveBeenCalledTimes(1);
+  expect(props.onKeep).not.toHaveBeenCalled();
+});
+
 test('partner options request stays explicit and shows explanations', () => {
   const trial = {
     id: 'p1',

@@ -53,6 +53,10 @@ const NotebookAlternativesRail = ({
     } else onAdd(wording);
     setDraft('');
   };
+  const leave = () => {
+    commitDraft();
+    onClose();
+  };
   const renderOriginalBody = () => {
     if (!originalParts) return <span>{originalText}</span>;
     return originalParts.map((part, index) => (
@@ -64,7 +68,7 @@ const NotebookAlternativesRail = ({
   return (
     <section ref={root} tabIndex={-1} className={`notebook-alternatives${tighter ? ' is-tighter' : ''}`} aria-label={tighter ? 'Read tighter' : 'Alternatives'} onKeyDown={event => {
       if (event.isComposing || event.defaultPrevented) return;
-      if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); onClose(); return; }
+      if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); leave(); return; }
       if (event.target.tagName === 'TEXTAREA') return;
       if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
         event.preventDefault();
@@ -73,7 +77,7 @@ const NotebookAlternativesRail = ({
     }}>
       <header>
         <span>{tighter ? 'Read tighter' : 'Alternatives'}</span>
-        <button type="button" onClick={onClose} aria-label="Close alternatives">×</button>
+        <button type="button" onClick={leave} aria-label="Close alternatives">×</button>
       </header>
       {unsupportedReason ? <p role="status" className="notebook-workbench__notice">{unsupportedReason}</p> : null}
       {partnerOptionsNotice ? <p role="status" className="notebook-workbench__notice">{partnerOptionsNotice}</p> : null}
