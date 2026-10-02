@@ -49,6 +49,15 @@ export const getNotebookEntry = async (id) => {
   return res.data;
 };
 
+export const requestNotebookWordingOptions = async (id, { target, requestId }, { signal } = {}) => {
+  const res = await api.post(
+    `/api/notebook/${encodeURIComponent(id)}/workbench/wording-options`,
+    { target, requestId },
+    { ...getAuthHeaders(), signal }
+  );
+  return res.data;
+};
+
 export const updateNotebookWorkbench = async (id, workingState, expectedRevision = 0) => {
   const res = await api.put(
     `/api/notebook/${encodeURIComponent(id)}/workbench`,

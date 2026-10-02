@@ -49,3 +49,18 @@ test('read tighter shows rescuable cuts and never keeps on textarea Enter', () =
   expect(onKeep).not.toHaveBeenCalled();
   expect(screen.getByRole('button', { name: 'Keep tighter read' })).toBeEnabled();
 });
+
+test('partner options request stays explicit and shows explanations', () => {
+  const trial = {
+    id: 'p1',
+    target: { blockId: 'p1', baseText: 'Original words' },
+    alternative: 'Direct words.',
+    origin: 'partner',
+    partnerExplanation: 'States the point without padding.'
+  };
+  const onRequest = jest.fn();
+  render(<NotebookAlternativesRail trial={trial} trials={[trial]} preview="trial" status="ready" onChoose={jest.fn()} onChange={jest.fn()} onPreview={jest.fn()} onAdd={jest.fn()} onKeep={jest.fn()} onScope={jest.fn()} onClose={jest.fn()} onDiscard={jest.fn()} onReview={jest.fn()} onAsk={jest.fn()} onRequestPartnerOptions={onRequest} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Partner options' }));
+  expect(onRequest).toHaveBeenCalledTimes(1);
+  expect(screen.getByText('States the point without padding.')).toBeInTheDocument();
+});

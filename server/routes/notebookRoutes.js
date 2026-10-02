@@ -1,5 +1,7 @@
 const { plainNotebookText } = require('../services/authoredWorkDiscovery');
-const { sanitizeNotebookWorkbench } = require('../utils/notebookWorkbench');
+const { sanitizeNotebookWorkbench, sanitizeNotebookTarget } = require('../utils/notebookWorkbench');
+const { passageFromTarget } = require('../utils/notebookWordingOptions');
+const { generateNotebookWordingOptions } = require('../services/notebookWordingOptionsService');
 const express = require('express');
 const mongoose = require('mongoose');
 const { createWikiSourceEvent } = require('../services/wikiSourceEventService');
@@ -618,6 +620,40 @@ const buildNotebookRouter = ({
   /* Private workbench state has its own revisioned write seam. A trial,
      staged source, or held thought must never overwrite a newer draft merely
      because a side panel saved later. */
+  router.post('/api/notebook/:id/workbench/wording-options', authenticateToken, humanOnly, async (req, res) => {
+    try {
+      const userId = req.user.id;
+      const entry = await NotebookEntry.findOne({ _id: req.params.id, userId });
+      if (!entry) return res.status(404).json({ error: 'Notebook entry not found.' });
+      const savedTarget = sanitizeNotebookTarget(req.body?.target);
+      const passage = passageFromTarget(savedTarget);
+      if (!savedTarget.blockId || !passage) {
+        return res.status(400).json({ error: 'A current passage is required for wording options.' });
+      }
+      const requestId = String(req.body?.requestId || '').trim().slice(0, 160);
+      const result = await generateNotebookWordingOptions({ passage });
+      noStore(res);
+      return res.status(200).json({
+        requestId,
+        target: savedTarget,
+        status: result.status,
+        options: result.options
+      });
+    } catch (error) {
+      if (error?.status === 499 || error?.name === 'AbortError') {
+        return res.status(499).json({ code: 'aborted', error: 'Wording options request cancelled.' });
+      }
+      if (error?.status === 503) {
+        return res.status(503).json({ code: 'unavailable', error: error.message || 'Wording options are unavailable right now.' });
+      }
+      console.error('❌ Error generating notebook wording options:', error);
+      return res.status(422).json({
+        code: 'wording_options_failed',
+        error: 'Partner could not suggest distinct options for this passage.'
+      });
+    }
+  });
+
   router.put('/api/notebook/:id/workbench', authenticateToken, humanOnly, async (req, res) => {
     try {
       const userId = req.user.id;

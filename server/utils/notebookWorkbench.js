@@ -53,6 +53,7 @@ const trial = (value, index) => {
     alternative: String(value?.alternative || '').slice(0, LIMITS.text),
     origin: value?.origin === 'partner' ? 'partner' : 'human',
     ...(value?.intent === 'tighter' ? { intent: 'tighter' } : {}),
+    ...(string(value?.partnerExplanation) ? { partnerExplanation: string(value?.partnerExplanation, 240) } : {}),
     updatedAt: date(value?.updatedAt)
   };
 };
@@ -93,4 +94,4 @@ const sanitizeNotebookWorkbench = (value = {}, { revision } = {}) => {
   };
 };
 
-module.exports = { LIMITS, sanitizeNotebookWorkbench };
+module.exports = { LIMITS, sanitizeNotebookWorkbench, sanitizeNotebookTarget: target };

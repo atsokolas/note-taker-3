@@ -20,7 +20,10 @@ const NotebookAlternativesRail = ({
   onReview,
   onAsk,
   onRescue,
-  unsupportedReason = ''
+  unsupportedReason = '',
+  partnerOptionsStatus = 'idle',
+  partnerOptionsNotice = '',
+  onRequestPartnerOptions = null
 }) => {
   const root = useRef(null);
   const field = useRef(null);
@@ -63,10 +66,11 @@ const NotebookAlternativesRail = ({
         <button type="button" onClick={onClose} aria-label="Close alternatives">×</button>
       </header>
       {unsupportedReason ? <p role="status" className="notebook-workbench__notice">{unsupportedReason}</p> : null}
+      {partnerOptionsNotice ? <p role="status" className="notebook-workbench__notice">{partnerOptionsNotice}</p> : null}
       {status !== 'ready' ? <p role="status" className="notebook-workbench__notice">{status === 'stale' ? 'This passage changed. Your alternatives are still here.' : 'The original passage is gone. Your alternatives are still here.'}{status === 'stale' ? <button type="button" onClick={onReview}>Review current passage</button> : null}</p> : null}
       <div role="group" aria-label="Compare wording">
         <button type="button" data-compare="" className="notebook-alternatives__choice" aria-pressed={preview === 'original'} onClick={() => onPreview('original')}><span className="notebook-alternatives__passage">{renderOriginalBody()}</span><small>original</small></button>
-        {choices.map(item => <button key={item.id} type="button" data-compare="" className="notebook-alternatives__choice" aria-pressed={preview === 'trial' && item.id === trial.id} onClick={() => onChoose(item)}><span>{item.alternative || (tighter ? 'Write a tighter read or ask Partner…' : 'Write another way…')}</span>{item.origin === 'partner' ? <small>partner proposal</small> : null}</button>)}
+        {choices.map(item => <button key={item.id} type="button" data-compare="" className="notebook-alternatives__choice" aria-pressed={preview === 'trial' && item.id === trial.id} onClick={() => onChoose(item)}><span>{item.alternative || (tighter ? 'Write a tighter read or ask Partner…' : 'Write another way…')}</span>{item.partnerExplanation ? <small>{item.partnerExplanation}</small> : null}{item.origin === 'partner' ? <small>partner proposal</small> : null}</button>)}
       </div>
       {cutPhrases.length ? (
         <ul className="notebook-alternatives__rescues" aria-label="Proposed cuts">
@@ -83,6 +87,11 @@ const NotebookAlternativesRail = ({
       <label className="notebook-alternatives__edit"><span>{tighter ? 'Tighter read' : 'Edit this alternative'}</span><textarea ref={field} rows={4} maxLength={30000} value={trial.alternative} onChange={event => onChange(event.target.value)} /></label>
       <div className="notebook-alternatives__actions">
         {!tighter ? <button type="button" onClick={onAdd} disabled={choices.length >= 12}>+ another</button> : null}
+        {!tighter ? (
+          <button type="button" disabled={status !== 'ready' || partnerOptionsStatus === 'loading'} onClick={() => onRequestPartnerOptions?.()}>
+            {partnerOptionsStatus === 'loading' ? 'Partner options…' : 'Partner options'}
+          </button>
+        ) : null}
         <button type="button" onClick={onAsk}>{tighter ? 'Ask Partner' : 'ask'}</button>
       </div>
       <div className="notebook-alternatives__actions"><button type="button" disabled={!ready} onClick={() => onPreview('trial')}>Read in place</button><button type="button" disabled={!ready || preview === 'original'} onClick={onKeep}>{tighter ? 'Keep tighter read' : 'Keep wording'}</button></div>

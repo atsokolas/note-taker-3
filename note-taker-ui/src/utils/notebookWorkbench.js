@@ -23,7 +23,8 @@ export const normalizeNotebookWorkingState = (value = {}) => ({
   trials: list(value.trials).filter(item => item?.id).map(item => ({
     ...item,
     target: target(item.target),
-    ...(item.intent === 'tighter' ? { intent: 'tighter' } : {})
+    ...(item.intent === 'tighter' ? { intent: 'tighter' } : {}),
+    ...(text(item.partnerExplanation) ? { partnerExplanation: text(item.partnerExplanation).slice(0, 240) } : {})
   })),
   looseThoughts: list(value.looseThoughts).filter(item => item?.id && text(item.text).trim()).map(item => ({ ...item, target: target(item.target) })),
   nextTimeLine: {

@@ -23,7 +23,7 @@ import SourceCorrectionReview from '../SourceCorrectionReview';
 import NotebookShare from './NotebookShare';
 import NotebookVolume from './NotebookVolume';
 import { editorNodesFromDistinctionUse, eligibleDistinctions } from '../../../utils/distinctionUse';
-import { exportNotebookMarkdown, getNotebookSummaries, disposeNotebookSourceCorrection } from '../../../api/notebook';
+import { exportNotebookMarkdown, getNotebookSummaries, disposeNotebookSourceCorrection, requestNotebookWordingOptions } from '../../../api/notebook';
 import useHighlights from '../../../hooks/useHighlights';
 import useArticles from '../../../hooks/useArticles';
 import useConcepts from '../../../hooks/useConcepts';
@@ -561,6 +561,10 @@ const NotebookEditor = ({
     setAsidePieces(resolved);
   };
   const [arrangementReceipt, setArrangementReceipt] = useState(null);
+  const [partnerOptionsStatus, setPartnerOptionsStatus] = useState('idle');
+  const [partnerOptionsNotice, setPartnerOptionsNotice] = useState('');
+  const partnerOptionsAbortRef = useRef(null);
+  const partnerOptionsRequestRef = useRef(null);
   const [finishError, setFinishError] = useState('');
   const [, setDocTick] = useState(0);
 
@@ -1291,6 +1295,74 @@ const NotebookEditor = ({
     startTrial(pieceIndex, 'paragraph', null, 'tighter');
   };
 
+  const requestPartnerOptions = async () => {
+    if (!entry?._id || !activeTrial || activeTrial.intent === 'tighter') return;
+    if (activeTrialResolution.status !== 'ready') return;
+    const target = { ...activeTrial.target };
+    const requestId = createId();
+    partnerOptionsRequestRef.current = { requestId, target };
+    setPartnerOptionsNotice('');
+    setPartnerOptionsStatus('loading');
+    partnerOptionsAbortRef.current?.abort?.();
+    const controller = new AbortController();
+    partnerOptionsAbortRef.current = controller;
+    try {
+      const data = await requestNotebookWordingOptions(entry._id, { target, requestId }, { signal: controller.signal });
+      if (partnerOptionsRequestRef.current?.requestId !== requestId) return;
+      const captured = partnerOptionsRequestRef.current?.target;
+      const stillCurrent = resolveEditorTarget(editor, captured, { requireSameText: true });
+      if (stillCurrent.status !== 'ready' || notebookTrialKey({ target: captured }) !== notebookTrialKey({ target })) {
+        setPartnerOptionsNotice('This passage changed before Partner answered. Your alternatives are still here.');
+        setPartnerOptionsStatus('idle');
+        return;
+      }
+      const options = Array.isArray(data?.options) ? data.options : [];
+      if (!options.length) {
+        setPartnerOptionsNotice('Partner had no distinct options for this passage.');
+        setPartnerOptionsStatus('idle');
+        return;
+      }
+      const normalize = (value) => String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
+      const originalKey = normalize(notebookTargetText(target));
+      const existing = new Set(
+        workbench.state.trials
+          .filter((item) => notebookTrialKey(item) === notebookTrialKey(activeTrial))
+          .map((item) => normalize(item.alternative))
+      );
+      const created = [];
+      options.forEach((option) => {
+        const wording = String(option?.wording || '').trim();
+        const explanation = String(option?.explanation || '').trim();
+        const key = normalize(wording);
+        if (!wording || !explanation || key === originalKey || existing.has(key)) return;
+        if (workbench.state.trials.length + created.length >= 40) return;
+        existing.add(key);
+        created.push({
+          id: createId(),
+          target,
+          alternative: wording,
+          origin: 'partner',
+          partnerExplanation: explanation,
+          updatedAt: new Date().toISOString()
+        });
+      });
+      if (!created.length) {
+        setPartnerOptionsNotice('Partner returned options that were already here or matched the original.');
+        setPartnerOptionsStatus('idle');
+        return;
+      }
+      workbench.update((current) => ({ ...current, trials: [...current.trials, ...created] }));
+      setActiveTrialId(created[0].id);
+      setEphemeralTrial(null);
+      setTrialPreview('trial');
+      setPartnerOptionsStatus('idle');
+    } catch (error) {
+      if (controller.signal.aborted) return;
+      setPartnerOptionsNotice(error?.response?.data?.error || 'Partner could not suggest options right now.');
+      setPartnerOptionsStatus('idle');
+    }
+  };
+
   const rescueTighterPhrase = (phrase) => {
     if (!activeTrial || activeTrial.intent !== 'tighter') return;
     const original = notebookTargetText(activeTrial.target);
@@ -1480,8 +1552,16 @@ const NotebookEditor = ({
   const alternativesVisible = Boolean(workbenchView === 'trial' && activeTrial);
   useEffect(() => { onAlternativesOpenChange?.(alternativesVisible); }, [alternativesVisible, onAlternativesOpenChange]);
   useEffect(() => () => onAlternativesOpenChange?.(false), [onAlternativesOpenChange]);
+  useEffect(() => () => partnerOptionsAbortRef.current?.abort?.(), []);
 
-  const closeAlternatives = () => { setTrialPreview('original'); setWorkbenchView('material'); focusEditorTarget(editor, activeTrial?.target); };
+  const closeAlternatives = () => {
+    partnerOptionsAbortRef.current?.abort?.();
+    setPartnerOptionsStatus('idle');
+    setPartnerOptionsNotice('');
+    setTrialPreview('original');
+    setWorkbenchView('material');
+    focusEditorTarget(editor, activeTrial?.target);
+  };
   const chooseAlternative = (trial) => {
     setActiveTrialId(trial.id);
     setEphemeralTrial(null);
@@ -2013,6 +2093,9 @@ const NotebookEditor = ({
           onDiscard={discardTrial}
           onReview={reviewTrial}
           onRescue={rescueTighterPhrase}
+          partnerOptionsStatus={partnerOptionsStatus}
+          partnerOptionsNotice={partnerOptionsNotice}
+          onRequestPartnerOptions={requestPartnerOptions}
           onAsk={() => {
             const words = notebookTargetText(activeTrial.target);
             const tighter = activeTrial.intent === 'tighter';

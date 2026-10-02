@@ -55,7 +55,7 @@ const run = async () => {
       expectedRevision: 0,
       workingState: {
         materials: [{ id: 'm1', kind: 'highlight', title: 'Source', text: 'Exact passage', sourceId: 'h1', target: { blockId: 'p1', baseText: 'Canonical words' } }],
-        trials: [{ id: 't1', target: { blockId: 'p1', baseText: 'Canonical words' }, alternative: 'Possible words' }, { id: 't2', target: { blockId: 'p1', baseText: 'Canonical words', scope: 'word', rangeStart: 10, rangeEnd: 15 }, alternative: 'language' }, { id: 't3', target: { blockId: 'p1', baseText: 'Canonical words' }, alternative: 'Tighter words', intent: 'tighter' }],
+        trials: [{ id: 't1', target: { blockId: 'p1', baseText: 'Canonical words' }, alternative: 'Possible words', origin: 'partner', partnerExplanation: 'More direct.' }, { id: 't2', target: { blockId: 'p1', baseText: 'Canonical words', scope: 'word', rangeStart: 10, rangeEnd: 15 }, alternative: 'language' }, { id: 't3', target: { blockId: 'p1', baseText: 'Canonical words' }, alternative: 'Tighter words', intent: 'tighter' }],
         looseThoughts: [{ id: 'l1', text: 'A private digression', target: { blockId: 'p1' } }],
         nextTimeLine: { text: 'Begin with the exception.', target: { blockId: 'p1', offset: 4 } }
       }
@@ -68,6 +68,7 @@ const run = async () => {
     assert.strictEqual(saved.workingState.trials[1].target.rangeStart, 10);
     assert.strictEqual(saved.workingState.trials[1].target.rangeEnd, 15);
     assert.strictEqual(saved.workingState.trials[2].intent, 'tighter');
+    assert.strictEqual(saved.workingState.trials[0].partnerExplanation, 'More direct.');
     assert.strictEqual(row.title, 'Canonical title');
     assert.strictEqual(row.blocks[0].text, 'Canonical words');
 
@@ -82,6 +83,13 @@ const run = async () => {
     assert.strictEqual(agent.status, 403);
     const other = await put({ expectedRevision: 1, workingState: {} }, { 'x-user': OTHER });
     assert.strictEqual(other.status, 404);
+
+    const optionsDenied = await fetch(`${url}/api/notebook/${NOTE}/workbench/wording-options`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-agent': '1' },
+      body: JSON.stringify({ requestId: 'req-1', target: { blockId: 'p1', baseText: 'Canonical words' } })
+    });
+    assert.strictEqual(optionsDenied.status, 403);
   } finally {
     server.close();
   }
