@@ -33,6 +33,22 @@ describe('app theme design-system tokens', () => {
     expect(darkBlock).not.toContain('#0b1220');
     expect(darkBlock).not.toContain('#111a2a');
     expect(darkBlock).not.toContain('#141a26');
+    expect(darkBlock).not.toContain('#0e1829');
+  });
+
+  it('scopes Tokyo Midnight to its own palette and leaves the dark palette warm', () => {
+    const css = fs.readFileSync(path.join(__dirname, 'semantic-theme.css'), 'utf8');
+    const tokyoBlock = css.match(/html\[data-noeis-theme='theme\.editorial\.tokyo-midnight'\] \{[\s\S]*?\n\}/)?.[0] || '';
+    const darkBlock = css.match(/html\[data-noeis-theme='theme\.editorial\.dark'\] \{[\s\S]*?\n\}/)?.[0] || '';
+
+    expect(tokyoBlock).toContain('--noeis-canvas: #0e1829');
+    expect(tokyoBlock).toContain('--noeis-chrome: #09111e');
+    expect(tokyoBlock).toContain('--noeis-ink: #f3e9ed');
+    expect(tokyoBlock).toContain('--noeis-passage-rule: #f9776d');
+    expect(tokyoBlock).toContain('--noeis-thread: #d9a46f');
+    expect(tokyoBlock).toContain('color-scheme: dark');
+    expect(darkBlock).toContain('--noeis-canvas: #16140f');
+    expect(darkBlock).not.toContain('#0e1829');
   });
 
   it('removes superseded token and rebrand layers instead of retaining dead theme authorities', () => {

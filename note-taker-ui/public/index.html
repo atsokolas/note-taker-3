@@ -51,18 +51,34 @@
           };
           var raw = window.localStorage && window.localStorage.getItem('ui-settings.v1');
           var saved = raw ? JSON.parse(raw) : {};
-          var themePref = ['auto', 'light', 'dark'].indexOf(saved.theme) >= 0 ? saved.theme : defaults.theme;
+          var themeIds = ['auto', 'light', 'dark', 'tokyo-midnight'];
+          var themeVariants = {
+            light: 'theme.editorial.light',
+            dark: 'theme.editorial.dark',
+            'tokyo-midnight': 'theme.editorial.tokyo-midnight'
+          };
+          var savedTheme = String(saved.theme || '').toLowerCase();
+          var themePref = themeIds.indexOf(savedTheme) >= 0 ? savedTheme : defaults.theme;
           var activeTheme = themePref;
           if (themePref === 'auto') {
             activeTheme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
           }
+          var scheme = activeTheme === 'light' ? 'light' : 'dark';
           var density = ['comfortable', 'compact'].indexOf(saved.density) >= 0 ? saved.density : defaults.density;
           var typography = ['small', 'default', 'large'].indexOf(saved.typographyScale) >= 0 ? saved.typographyScale : defaults.typographyScale;
           var accentKey = accents[saved.accent] ? saved.accent : defaults.accent;
           var accent = accents[accentKey];
           var root = document.documentElement;
           root.setAttribute('data-ui-theme', activeTheme);
+          root.setAttribute('data-ui-scheme', scheme);
           root.setAttribute('data-ui-theme-pref', themePref);
+          root.setAttribute('data-noeis-theme', themeVariants[activeTheme]);
+          root.setAttribute('data-noeis-theme-package', 'theme.editorial');
+          root.setAttribute('data-noeis-theme-schema', '1');
+          var themeColor = document.querySelector('meta[name="theme-color"]');
+          if (themeColor) {
+            themeColor.setAttribute('content', activeTheme === 'tokyo-midnight' ? '#09111E' : (activeTheme === 'dark' ? '#16140f' : '#fffcf7'));
+          }
           root.setAttribute('data-ui-density', density);
           root.setAttribute('data-ui-typography', typography);
           root.setAttribute('data-ui-brand-energy', saved.brandEnergy === false ? 'off' : 'on');

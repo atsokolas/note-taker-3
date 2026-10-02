@@ -340,53 +340,53 @@ describe('TopBar help menu', () => {
       </MemoryRouter>
     );
     const pill = screen.getByTestId('topbar-theme-toggle');
-    expect(pill.textContent).toBe('');
-    expect(pill.getAttribute('aria-label')).toMatch(/Theme: Auto/);
-    expect(pill).toHaveAttribute('title', expect.stringMatching(/Theme: Auto/));
+    expect(pill).toHaveTextContent('System');
+    expect(pill).toHaveAttribute('aria-label', 'Theme: System');
+    expect(pill).toHaveAttribute('title', 'Theme: System');
   });
 
-  it('cycles through auto → light → dark on click', () => {
-    const onThemeChange = jest.fn();
-    const { rerender } = render(
-      <MemoryRouter>
-        <TopBar theme="auto" onThemeChange={onThemeChange} />
-      </MemoryRouter>
-    );
-    fireEvent.click(screen.getByTestId('topbar-theme-toggle'));
-    expect(onThemeChange).toHaveBeenLastCalledWith('light');
-
-    rerender(
-      <MemoryRouter>
-        <TopBar theme="light" onThemeChange={onThemeChange} />
-      </MemoryRouter>
-    );
-    fireEvent.click(screen.getByTestId('topbar-theme-toggle'));
-    expect(onThemeChange).toHaveBeenLastCalledWith('dark');
-
-    rerender(
-      <MemoryRouter>
-        <TopBar theme="dark" onThemeChange={onThemeChange} />
-      </MemoryRouter>
-    );
-    fireEvent.click(screen.getByTestId('topbar-theme-toggle'));
-    expect(onThemeChange).toHaveBeenLastCalledWith('auto');
-  });
-
-  it('opens a popover with all three theme options on right-click', () => {
+  it('opens every theme option from the top control and selects Tokyo Midnight', () => {
     const onThemeChange = jest.fn();
     render(
       <MemoryRouter>
         <TopBar theme="light" onThemeChange={onThemeChange} />
       </MemoryRouter>
     );
-    fireEvent.contextMenu(screen.getByTestId('topbar-theme-toggle'));
-    expect(screen.getByTestId('topbar-theme-menu')).toBeInTheDocument();
-    expect(screen.getByRole('menuitemradio', { name: /Auto/ })).toBeInTheDocument();
-    expect(screen.getByRole('menuitemradio', { name: /Light/ })).toBeInTheDocument();
-    expect(screen.getByRole('menuitemradio', { name: /Dark/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('topbar-theme-toggle'));
+    const menu = screen.getByTestId('topbar-theme-menu');
+    expect(menu).toHaveAttribute('aria-label', 'Theme');
+    expect(screen.getByRole('menuitemradio', { name: 'System' })).toHaveAttribute('aria-checked', 'false');
+    expect(screen.getByRole('menuitemradio', { name: 'Light' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('menuitemradio', { name: 'Dark' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitemradio', { name: 'Tokyo Midnight' })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('menuitemradio', { name: /Dark/ }));
-    expect(onThemeChange).toHaveBeenCalledWith('dark');
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Tokyo Midnight' }));
+    expect(onThemeChange).toHaveBeenCalledWith('tokyo-midnight');
+    expect(screen.queryByTestId('topbar-theme-menu')).toBeNull();
+    expect(screen.getByTestId('topbar-theme-toggle')).toHaveFocus();
+  });
+
+  it('moves through the theme menu with the keyboard and restores focus on Escape', () => {
+    const onThemeChange = jest.fn();
+    render(
+      <MemoryRouter>
+        <TopBar theme="dark" onThemeChange={onThemeChange} />
+      </MemoryRouter>
+    );
+    const toggle = screen.getByTestId('topbar-theme-toggle');
+    fireEvent.keyDown(toggle, { key: 'ArrowDown' });
+    const menu = screen.getByTestId('topbar-theme-menu');
+    expect(screen.getByRole('menuitemradio', { name: 'Dark' })).toHaveFocus();
+
+    fireEvent.keyDown(menu, { key: 'ArrowDown' });
+    expect(screen.getByRole('menuitemradio', { name: 'Tokyo Midnight' })).toHaveFocus();
+    fireEvent.keyDown(menu, { key: 'ArrowUp' });
+    expect(screen.getByRole('menuitemradio', { name: 'Dark' })).toHaveFocus();
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.queryByTestId('topbar-theme-menu')).toBeNull();
+    expect(toggle).toHaveFocus();
+    expect(onThemeChange).not.toHaveBeenCalled();
   });
 
   it('renders the system status affordance when status props are provided', () => {

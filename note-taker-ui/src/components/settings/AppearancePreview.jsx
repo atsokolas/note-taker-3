@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { ACCENT_OPTIONS, resolveActiveTheme } from '../../settings/uiPreferences';
+import { colorSchemeForTheme } from '../../settings/semanticTheme';
+import { ACCENT_OPTIONS, resolveActiveTheme, THEME_OPTIONS } from '../../settings/uiPreferences';
 
 const READER_SIZES = { small: '17px', default: '19px', large: '22px' };
 const ROW_SPACES = { comfortable: '20px', compact: '10px' };
@@ -21,14 +22,17 @@ const AppearancePreview = ({
   onCompareToggle,
   canCompare = false
 }) => {
-  const dark = resolveActiveTheme(settings.theme) === 'dark';
+  const activeTheme = resolveActiveTheme(settings.theme);
+  const dark = colorSchemeForTheme(activeTheme) === 'dark';
+  const tokyo = activeTheme === 'tokyo-midnight';
+  const themeLine = settings.theme === 'auto'
+    ? `Following this device · ${dark ? 'Dark' : 'Light'}`
+    : (THEME_OPTIONS.find((option) => option.value === settings.theme)?.label || (dark ? 'Dark' : 'Light'));
   const style = useMemo(() => ({
     '--reader-size': READER_SIZES[settings.typographyScale] || READER_SIZES.default,
     '--row-space': ROW_SPACES[settings.density] || ROW_SPACES.comfortable,
     '--preview-accent': accentColor(settings.accent, dark)
   }), [settings, dark]);
-
-  const themeLine = `${settings.theme === 'auto' ? 'Following this device · ' : ''}${dark ? 'Dark' : 'Light'}`;
 
   return (
     <aside className="settings-redesign__preview-wrap" aria-label="Live appearance preview">
@@ -47,7 +51,7 @@ const AppearancePreview = ({
         </button>
       </div>
       <div
-        className={`settings-redesign__preview${dark ? ' is-dark' : ''}${settings.brandEnergy ? ' is-energy' : ''}`}
+        className={`settings-redesign__preview${dark ? ' is-dark' : ''}${tokyo ? ' is-tokyo-midnight' : ''}${settings.brandEnergy ? ' is-energy' : ''}`}
         style={{ ...style, '--preview-accent': accentColor(settings.accent, dark) }}
       >
         <div className="settings-redesign__preview-top">

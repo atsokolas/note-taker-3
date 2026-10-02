@@ -570,7 +570,7 @@ function App() {
   }, [uiSettings]);
 
   // Live-update on system theme change when user preference is 'auto'.
-  // No-op for explicit 'light' or 'dark'.
+  // Explicit Light, Dark, and Tokyo Midnight ignore OS changes.
   useEffect(() => {
     if (uiSettings?.theme !== 'auto') return undefined;
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return undefined;

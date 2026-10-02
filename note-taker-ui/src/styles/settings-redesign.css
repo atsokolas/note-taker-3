@@ -235,6 +235,14 @@ body.noeis-editorial .settings-redesign {
   --preview-accent: #8bdae8;
 }
 
+.settings-redesign__preview.is-tokyo-midnight {
+  --preview-paper: #0e1829;
+  --preview-ink: #f3e9ed;
+  --preview-muted: #9dacca;
+  --preview-rule: #29374d;
+  --preview-accent: #50f4fa;
+}
+
 .settings-redesign__preview.is-energy .settings-redesign__preview-top::after {
   content: '';
   position: absolute;

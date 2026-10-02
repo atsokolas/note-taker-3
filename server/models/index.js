@@ -2052,7 +2052,7 @@ const WorkingMemoryItem = mongoose.model('WorkingMemoryItem', workingMemoryItemS
 const uiSettingsSchema = new mongoose.Schema({
   typographyScale: { type: String, enum: ['small', 'default', 'large'], default: 'default' },
   density: { type: String, enum: ['comfortable', 'compact'], default: 'comfortable' },
-  theme: { type: String, enum: ['auto', 'light', 'dark'], default: 'auto' },
+  theme: { type: String, enum: ['auto', 'light', 'dark', 'tokyo-midnight'], default: 'auto' },
   accent: {
     type: String,
     enum: ['electric', 'violet', 'indigo', 'blue', 'emerald', 'amber', 'rose'],
