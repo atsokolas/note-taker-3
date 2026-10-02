@@ -84,6 +84,8 @@ describe('Think writing focus mode', () => {
 
   it('styles quiet saved-alternative marks without spellcheck chrome', () => {
     const notes = fs.readFileSync(path.join(__dirname, 'think-notes.css'), 'utf8');
+    expect(notes).toContain('height: 100dvh;');
+    expect(notes).toContain('.app-shell-new__body:has(.think-notes)');
     expect(notes).toContain('.notebook-saved-alternatives__range');
     expect(notes).toContain('pointer-events: none;');
     expect(notes).toContain('.notebook-saved-alternatives__mark');
