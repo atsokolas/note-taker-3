@@ -336,7 +336,9 @@ const MapView = () => {
               linkDirectionalParticles={0}
               nodeLabel={(node) => `${node.title || formatItemType(node.itemType)}\n${formatItemType(node.itemType)}`}
               nodeCanvasObject={(node, ctx, globalScale) => {
-                const isDark = document?.documentElement?.dataset?.uiTheme === 'dark';
+                const uiTheme = document?.documentElement?.dataset?.uiTheme;
+                const isTokyo = uiTheme === 'tokyo-midnight';
+                const isDark = isTokyo || document?.documentElement?.dataset?.uiScheme === 'dark' || uiTheme === 'dark';
                 const label = node.title || formatItemType(node.itemType);
                 const fontSize = 11 / globalScale;
                 ctx.font = `600 ${fontSize}px "SF Pro Text", "Segoe UI", system-ui, sans-serif`;
@@ -346,14 +348,14 @@ const MapView = () => {
                 ctx.beginPath();
                 ctx.arc(node.x, node.y, 4.5, 0, 2 * Math.PI, false);
                 ctx.fill();
-                ctx.fillStyle = isDark ? 'rgba(19, 29, 47, 0.92)' : 'rgba(255,255,255,0.92)';
+                ctx.fillStyle = isTokyo ? 'rgba(14, 24, 41, 0.94)' : (isDark ? 'rgba(19, 29, 47, 0.92)' : 'rgba(255,255,255,0.92)');
                 ctx.fillRect(
                   node.x + 6,
                   node.y - bckgDimensions[1] / 2,
                   bckgDimensions[0],
                   bckgDimensions[1]
                 );
-                ctx.strokeStyle = isDark ? 'rgba(52, 73, 102, 0.9)' : 'rgba(220, 226, 238, 0.95)';
+                ctx.strokeStyle = isTokyo ? 'rgba(80, 244, 250, 0.45)' : (isDark ? 'rgba(52, 73, 102, 0.9)' : 'rgba(220, 226, 238, 0.95)');
                 ctx.lineWidth = 1 / globalScale;
                 ctx.strokeRect(
                   node.x + 6,
@@ -361,7 +363,7 @@ const MapView = () => {
                   bckgDimensions[0],
                   bckgDimensions[1]
                 );
-                ctx.fillStyle = isDark ? '#e5ecf9' : '#0f172a';
+                ctx.fillStyle = isTokyo ? '#F3E9ED' : (isDark ? '#e5ecf9' : '#0f172a');
                 ctx.textAlign = 'left';
                 ctx.textBaseline = 'middle';
                 ctx.fillText(label, node.x + 10, node.y);

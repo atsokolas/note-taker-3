@@ -169,6 +169,41 @@ html[data-noeis-theme='theme.editorial.dark'] {
   --text-on-accent: #100f0c;
 }
 
+/* Tokyo Midnight is an explicit night theme. It inherits the editorial type,
+   space, and motion scale, and replaces only the shell palette. Light and
+   Dark keep the blocks above. */
+html[data-noeis-theme='theme.editorial.tokyo-midnight'] {
+  color-scheme: dark;
+  --noeis-canvas: #0e1829;
+  --noeis-chrome: #09111e;
+  --noeis-paper: #0e1829;
+  --noeis-paper-muted: #09111e;
+  --noeis-paper-sunken: #09111e;
+  --noeis-floating: rgba(17, 28, 46, 0.96);
+  --noeis-ink: #f3e9ed;
+  --noeis-ink-muted: #cfd3e6;
+  --noeis-ink-subtle: #9dacca;
+  --noeis-rule: #29374d;
+  --noeis-rule-strong: #66758d;
+  --noeis-thread: #d9a46f;
+  --noeis-thread-strong: #e0b07a;
+  --noeis-success: #8ccba7;
+  --noeis-warning: #e7b879;
+  --noeis-danger: #ff9b92;
+  --noeis-danger-soft: color-mix(in srgb, var(--noeis-danger) 16%, var(--noeis-paper));
+  --noeis-passage-rule: #f9776d;
+  --noeis-active: #1c293e;
+  --noeis-focus: #50f4fa;
+  --noeis-shadow-soft: 0 10px 26px rgba(0, 0, 0, 0.28);
+  --noeis-shadow-float: 0 18px 40px rgba(0, 0, 0, 0.4);
+  --noeis-mix-lift: #162238;
+  --text-on-accent: #09111e;
+  --text-link: var(--noeis-action);
+  --link: var(--noeis-action);
+  --selection-background: #25435a;
+  --selection-text: #f3e9ed;
+}
+
 html[data-ui-density='compact'] {
   --noeis-density-scale: 0.86;
   --ui-card-padding: 18px;
@@ -316,6 +351,250 @@ html[data-noeis-theme][data-ui-theme] :is(
   html[data-noeis-theme][data-ui-theme] :is(.topbar__button, .topbar__theme-pill, .ui-button, .ui-quiet-button):hover {
     transform: translateY(-1px);
   }
+}
+
+html[data-ui-theme='tokyo-midnight'] body.noeis-editorial {
+  --noeis-pointer: #50f4fa;
+  --vellum-cyan: #50f4fa;
+  /* Editorial rooms that still name the light paper palette (--ink, --sagewash)
+     inherit the night surfaces here. Light and Dark leave these unset. */
+  --ink: var(--noeis-ink);
+  --ink-muted: var(--noeis-ink-subtle);
+  --ink-secondary: var(--noeis-ink-muted);
+  --paper: var(--noeis-paper);
+  --wash: var(--noeis-mix-lift);
+  --sagewash: var(--noeis-active);
+  --sage: var(--noeis-action);
+  --ochre: var(--noeis-thread);
+  /* Floating controls fall back to cream when these are unset. */
+  --vellum-surface: var(--noeis-floating);
+  --vellum-paper: var(--noeis-paper);
+  --wiki-graph-label-backdrop: rgba(9, 17, 30, 0.88);
+  --wiki-graph-label-text: #f3e9ed;
+  --wiki-graph-node-stroke: rgba(207, 211, 230, 0.36);
+  --wiki-graph-node-concept: #d9a46f;
+  --wiki-graph-node-entity: #9dacca;
+  --wiki-graph-node-source: #50f4fa;
+  --wiki-graph-node-question: #cfd3e6;
+  --wiki-graph-node-comparison: #9dacca;
+  --wiki-graph-node-overview: #cfd3e6;
+  --wiki-graph-node-project: #d9a46f;
+  --wiki-graph-node-log: #8ccba7;
+  --wiki-graph-node-topic: #9dacca;
+  --wiki-graph-edge-wikiLink: #50f4fa;
+  --wiki-graph-edge-shared_source: #9dacca;
+  --wiki-graph-edge-related: #66758d;
+  --wiki-graph-edge-needs_review: #e7b879;
+  --wiki-graph-edge-supports: #8ccba7;
+  --wiki-graph-edge-contradicts: #ff9b92;
+  --wiki-graph-edge-extends: #d9a46f;
+  --workbench-border-strong: rgba(102, 117, 141, 0.55);
+  --workbench-border: rgba(80, 244, 250, 0.28);
+  --workbench-border-soft: rgba(41, 55, 77, 0.9);
+  --workbench-surface: rgba(14, 24, 41, 0.94);
+  --workbench-surface-soft: rgba(9, 17, 30, 0.72);
+  --workbench-surface-tinted: rgba(22, 34, 56, 0.88);
+  --workbench-surface-active: #1c293e;
+  --workbench-shadow-soft: 0 6px 14px rgba(0, 0, 0, 0.35);
+  --workbench-shadow-strong: 0 18px 36px rgba(0, 0, 0, 0.45);
+  --workbench-ink: #f3e9ed;
+  --workbench-tint: rgba(80, 244, 250, 0.35);
+  --workbench-tint-strong: rgba(80, 244, 250, 0.55);
+  --workbench-gradient-from: rgba(17, 28, 46, 0.96);
+  --workbench-gradient-to: rgba(9, 17, 30, 0.94);
+  --workbench-card-edge: rgba(207, 211, 230, 0.08);
+  --dropzone-border-idle: rgba(157, 172, 202, 0.28);
+  --dropzone-border-active: rgba(80, 244, 250, 0.55);
+  --dropzone-border-hover: rgba(80, 244, 250, 0.78);
+  --dropzone-surface-idle: rgba(9, 17, 30, 0.72);
+  --dropzone-surface-active: rgba(28, 41, 62, 0.92);
+  --dropzone-surface-hover: rgba(22, 34, 56, 0.94);
+  --dropzone-shadow-hover: 0 6px 18px rgba(0, 0, 0, 0.45);
+  --dropzone-inset-active: inset 0 0 0 1px rgba(80, 244, 250, 0.2);
+  --dropzone-inset-hover: inset 0 0 0 1px rgba(80, 244, 250, 0.32);
+  --dropzone-ink-idle: rgba(157, 172, 202, 0.78);
+  --dropzone-ink-hover: #f3e9ed;
+  --dropzone-text: #cfd3e6;
+  --dropzone-text-quiet: #9dacca;
+  background:
+    radial-gradient(90% 48% at 50% -12%, rgba(80, 244, 250, 0.045), transparent 46%),
+    var(--noeis-canvas) !important;
+  color: var(--noeis-ink);
+}
+
+html[data-ui-theme='tokyo-midnight'] ::selection {
+  background: var(--selection-background, #25435a);
+  color: var(--selection-text, #f3e9ed);
+}
+
+html[data-ui-theme='tokyo-midnight'] body.noeis-editorial .topbar__primary-link.is-active,
+html[data-ui-theme='tokyo-midnight'] .ui-segmented-nav.ui-segmented-nav--quiet .ui-segmented-nav__item.is-active {
+  border-bottom-color: var(--noeis-action, #50f4fa);
+}
+
+html[data-ui-theme='tokyo-midnight'] :is(
+  .left-nav__link.is-active,
+  .notebook-folder-tree__entry.is-active,
+  .list-button.is-active
+) {
+  background: var(--noeis-active, #1c293e);
+  box-shadow: inset 2px 0 0 var(--noeis-action, #50f4fa);
+}
+
+html[data-ui-theme='tokyo-midnight'] body.noeis-editorial .notebook-folder-tree__entry.is-active .notebook-folder-tree__entry-title {
+  color: var(--noeis-ink);
+}
+
+html[data-ui-theme='tokyo-midnight'] :is(
+  .ProseMirror .notebook-held-target,
+  .ProseMirror .notebook-held-range,
+  .ProseMirror-selectednode
+) {
+  background: var(--noeis-active, #1c293e);
+  box-shadow: inset 3px 0 0 var(--noeis-passage-rule, #f9776d);
+}
+
+html[data-ui-theme='tokyo-midnight'] .agent-rail__eyebrow,
+html[data-ui-theme='tokyo-midnight'] .agent-thought-partner__plan-preview-eyebrow {
+  color: var(--noeis-thread, #d9a46f);
+}
+
+html[data-ui-theme='tokyo-midnight'] body.noeis-editorial .ui-button-primary {
+  border: 1px solid var(--noeis-action, #50f4fa) !important;
+  border-radius: 8px !important;
+  background: transparent !important;
+  color: var(--noeis-action, #50f4fa) !important;
+}
+
+html[data-ui-theme='tokyo-midnight'] body.noeis-editorial .ui-button-primary:hover {
+  background: color-mix(in srgb, var(--noeis-action, #50f4fa) 14%, transparent) !important;
+  color: #91fbff !important;
+}
+
+html[data-ui-theme='tokyo-midnight'] body.noeis-editorial .ui-button-primary:active {
+  background: color-mix(in srgb, var(--noeis-action, #50f4fa) 22%, transparent) !important;
+  color: #39d7e0 !important;
+}
+
+html[data-ui-theme='tokyo-midnight'] body.noeis-editorial .ui-button-primary:disabled {
+  border-color: var(--noeis-rule-strong, #66758d) !important;
+  color: var(--noeis-ink-subtle, #9dacca) !important;
+  background: transparent !important;
+  opacity: 0.55;
+}
+
+html[data-ui-theme='tokyo-midnight'] body.noeis-editorial .ui-button-primary:focus-visible {
+  outline: 2px solid var(--noeis-focus, #50f4fa);
+  outline-offset: 3px;
+}
+
+html[data-ui-theme='tokyo-midnight'] :is(pre, .external-bridge-pre) {
+  background: var(--noeis-mix-lift, #162238);
+  color: var(--noeis-ink, #f3e9ed);
+  border-color: var(--noeis-rule, #29374d);
+}
+
+html[data-ui-theme='tokyo-midnight'] .agent-thought-partner__plan-preview {
+  background: var(--noeis-active, #1c293e);
+}
+
+html[data-ui-theme='tokyo-midnight'] .wiki-collection__nav-btn.is-active {
+  background: var(--noeis-active, #1c293e);
+  color: var(--noeis-ink, #f3e9ed);
+}
+
+html[data-ui-theme='tokyo-midnight'] .wiki-collection__nav-btn.is-active:before {
+  background: var(--noeis-action, #50f4fa);
+}
+
+html[data-ui-theme='tokyo-midnight'] .wiki-collection__dek {
+  color: var(--noeis-ink-muted, #cfd3e6);
+}
+
+html[data-ui-theme='tokyo-midnight'] .wiki-collection__hit {
+  border-left-color: var(--noeis-passage-rule, #f9776d);
+}
+
+html[data-ui-theme='tokyo-midnight'] .wiki-reader-context__quote,
+html[data-ui-theme='tokyo-midnight'] .wiki-reader-context__new {
+  border-left-color: var(--noeis-action, #50f4fa);
+  color: var(--noeis-ink, #f3e9ed);
+}
+
+html[data-ui-theme='tokyo-midnight'] .wiki-reader-context__old {
+  border-left-color: var(--noeis-rule-strong, #66758d);
+  color: var(--noeis-ink-subtle, #9dacca);
+}
+
+html[data-ui-theme='tokyo-midnight'] .wiki-reader-context__field {
+  background: var(--noeis-paper-sunken, #09111e);
+  border-color: var(--noeis-rule, #29374d);
+  color: var(--noeis-ink, #f3e9ed);
+}
+
+html[data-ui-theme='tokyo-midnight'] .wiki-reader-context__primary {
+  background: transparent !important;
+  color: var(--noeis-action, #50f4fa) !important;
+  border: 1px solid var(--noeis-action, #50f4fa);
+}
+
+/* Dark restyles these with an older cold-blue palette. Tokyo Midnight keeps
+   the same roles — articles, passages, reader chrome, and the ask affordance —
+   on its own ink and slate. */
+html[data-ui-theme='tokyo-midnight'] .article-reader-content,
+html[data-ui-theme='tokyo-midnight'] .article-reader-content :is(h1, h2, h3, h4, h5, h6, p, li, blockquote) {
+  color: var(--noeis-ink, #f3e9ed);
+}
+
+html[data-ui-theme='tokyo-midnight'] :is(
+  .ui-section-header__subtitle,
+  .library-highlight-group-header,
+  .library-reference-item .muted,
+  .library-related-item .muted,
+  .library-highlight-item .muted,
+  .semantic-related-item .muted,
+  .semantic-related-explain :is(p, div)
+) {
+  color: var(--noeis-ink-muted, #cfd3e6);
+}
+
+html[data-ui-theme='tokyo-midnight'] .library-section-head.is-articles,
+html[data-ui-theme='tokyo-midnight'] .library-article-list {
+  background: var(--noeis-mix-lift, #162238);
+  border-color: var(--noeis-rule, #29374d);
+}
+
+html[data-ui-theme='tokyo-midnight'] .library-section-head.is-articles {
+  box-shadow: inset 2px 0 0 var(--noeis-action, #50f4fa);
+}
+
+html[data-ui-theme='tokyo-midnight'] .library-section-head.is-highlights,
+html[data-ui-theme='tokyo-midnight'] .library-highlights-surface {
+  background: color-mix(in srgb, var(--noeis-thread, #d9a46f) 14%, var(--noeis-paper, #0e1829));
+  border-color: color-mix(in srgb, var(--noeis-thread, #d9a46f) 36%, var(--noeis-rule, #29374d));
+}
+
+html[data-ui-theme='tokyo-midnight'] .library-section-head.is-highlights {
+  box-shadow: inset 2px 0 0 var(--noeis-thread, #d9a46f);
+}
+
+html[data-ui-theme='tokyo-midnight'] :is(
+  .think-main-actions,
+  .think-question-list-pane,
+  .think-question-editor-pane,
+  .think-notebook-list,
+  .think-notebook-editor-pane,
+  .article-reader-header
+) {
+  border-color: var(--noeis-rule, #29374d);
+  background: var(--noeis-chrome, #09111e);
+}
+
+html[data-ui-theme='tokyo-midnight'] .app-shell-new--agent-on-demand .agent-rail-drawer__trigger {
+  background: color-mix(in srgb, var(--noeis-floating, #111c2e) 94%, transparent);
+  color: var(--noeis-ink, #f3e9ed);
+  border-color: var(--noeis-rule, #29374d);
+  box-shadow: var(--noeis-shadow-float);
 }
 
 @media (prefers-reduced-motion: reduce) {

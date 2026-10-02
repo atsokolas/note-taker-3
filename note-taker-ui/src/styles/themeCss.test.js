@@ -33,6 +33,34 @@ describe('app theme design-system tokens', () => {
     expect(darkBlock).not.toContain('#0b1220');
     expect(darkBlock).not.toContain('#111a2a');
     expect(darkBlock).not.toContain('#141a26');
+    expect(darkBlock).not.toContain('#0e1829');
+  });
+
+  it('scopes Tokyo Midnight to its own palette and leaves the dark palette warm', () => {
+    const css = fs.readFileSync(path.join(__dirname, 'semantic-theme.css'), 'utf8');
+    const tokyoBlock = css.match(/html\[data-noeis-theme='theme\.editorial\.tokyo-midnight'\] \{[\s\S]*?\n\}/)?.[0] || '';
+    const darkBlock = css.match(/html\[data-noeis-theme='theme\.editorial\.dark'\] \{[\s\S]*?\n\}/)?.[0] || '';
+
+    expect(tokyoBlock).toContain('--noeis-canvas: #0e1829');
+    expect(tokyoBlock).toContain('--noeis-chrome: #09111e');
+    expect(tokyoBlock).toContain('--noeis-ink: #f3e9ed');
+    expect(tokyoBlock).toContain('--noeis-passage-rule: #f9776d');
+    expect(tokyoBlock).toContain('--noeis-thread: #d9a46f');
+    expect(tokyoBlock).toContain('color-scheme: dark');
+    expect(darkBlock).toContain('--noeis-canvas: #16140f');
+    expect(darkBlock).not.toContain('#0e1829');
+
+    const tokyoEditorial = css.match(/html\[data-ui-theme='tokyo-midnight'\] body\.noeis-editorial \{[\s\S]*?\n\}/)?.[0] || '';
+    expect(tokyoEditorial).toContain('--ink: var(--noeis-ink)');
+    expect(tokyoEditorial).toContain('--sagewash: var(--noeis-active)');
+    expect(tokyoEditorial).toContain('--paper: var(--noeis-paper)');
+    expect(tokyoEditorial).toContain('--vellum-surface: var(--noeis-floating)');
+    expect(tokyoEditorial).toContain('--vellum-paper: var(--noeis-paper)');
+    expect(css).toContain("html[data-ui-theme='tokyo-midnight'] .wiki-collection__nav-btn.is-active");
+    expect(css).toContain("html[data-ui-theme='tokyo-midnight'] .library-highlights-surface");
+    expect(css).toContain("html[data-ui-theme='tokyo-midnight'] .app-shell-new--agent-on-demand .agent-rail-drawer__trigger");
+    expect(darkBlock).not.toContain('--sagewash:');
+    expect(darkBlock).not.toContain('--vellum-surface:');
   });
 
   it('removes superseded token and rebrand layers instead of retaining dead theme authorities', () => {

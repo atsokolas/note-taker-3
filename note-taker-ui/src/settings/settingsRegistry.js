@@ -26,8 +26,8 @@ export const SETTINGS_REGISTRY = Object.freeze([
     id: 'theme',
     section: 'appearance',
     title: 'Page appearance',
-    description: 'Follow your device, or choose Light or Dark.',
-    keywords: 'theme light dark night bright auto system',
+    description: 'Follow your device, or choose Light, Dark, or Tokyo Midnight.',
+    keywords: 'theme light dark night bright auto system tokyo midnight',
     focusId: 'theme'
   },
   {

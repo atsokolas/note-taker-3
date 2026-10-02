@@ -35,7 +35,26 @@ describe('semanticTheme', () => {
     expect(root.getAttribute('data-noeis-theme')).toBe('theme.editorial.dark');
     expect(root.getAttribute('data-noeis-theme-package')).toBe(NOEIS_THEME_PACKAGE_ID);
     expect(root.getAttribute('data-ui-theme')).toBe('dark');
+    expect(root.getAttribute('data-ui-scheme')).toBe('dark');
     expect(root.style.getPropertyValue('--ui-accent')).toBe('#36e4ff');
+  });
+
+  it('commits Tokyo Midnight as its own dark-scheme variant', () => {
+    const root = document.createElement('html');
+    const snapshot = buildSemanticThemeSnapshot({
+      ...validInput,
+      activeTheme: 'tokyo-midnight',
+      preferredTheme: 'tokyo-midnight'
+    });
+    expect(snapshot).toMatchObject({
+      variantId: 'theme.editorial.tokyo-midnight',
+      activeTheme: 'tokyo-midnight',
+      preferredTheme: 'tokyo-midnight'
+    });
+    expect(applySemanticThemeSnapshot(root, snapshot)).toBe(true);
+    expect(root.getAttribute('data-noeis-theme')).toBe('theme.editorial.tokyo-midnight');
+    expect(root.getAttribute('data-ui-theme')).toBe('tokyo-midnight');
+    expect(root.getAttribute('data-ui-scheme')).toBe('dark');
   });
 
   it('preserves the last known-good identity when a snapshot is invalid', () => {

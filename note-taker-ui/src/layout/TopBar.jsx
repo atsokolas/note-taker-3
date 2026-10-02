@@ -14,7 +14,10 @@ const TopBarMenuPopover = ({
   popoverRef,
   children,
   className = '',
-  testId
+  testId,
+  id,
+  ariaLabel,
+  onKeyDown
 }) => {
   const [style, setStyle] = useState({});
 
@@ -44,10 +47,13 @@ const TopBarMenuPopover = ({
 
   return createPortal(
     <div
+      id={id}
       ref={popoverRef}
       className={`topbar__menu-popover topbar__menu-popover--portal ${className}`.trim()}
       style={style}
       role="menu"
+      aria-label={ariaLabel}
+      onKeyDown={onKeyDown}
       data-testid={testId}
     >
       {children}
@@ -75,12 +81,12 @@ const TopBar = ({
 }) => {
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
   const themeMenuRef = useRef(null);
+  const themeButtonRef = useRef(null);
   const themePopoverRef = useRef(null);
-  const cycleTheme = () => {
-    if (!onThemeChange) return;
-    const idx = THEME_OPTIONS.findIndex((option) => option.value === theme);
-    const next = THEME_OPTIONS[(idx + 1) % THEME_OPTIONS.length] || THEME_OPTIONS[0];
-    onThemeChange(next.value);
+  const themeOptionRefs = useRef([]);
+  const closeThemeMenu = (restoreFocus) => {
+    setThemeMenuOpen(false);
+    if (restoreFocus) themeButtonRef.current?.focus();
   };
   const currentThemeOption = useMemo(
     () => THEME_OPTIONS.find((option) => option.value === theme) || THEME_OPTIONS[0],
@@ -118,6 +124,13 @@ const TopBar = ({
     navigate('/search');
   };
 
+  useLayoutEffect(() => {
+    if (!themeMenuOpen) return undefined;
+    const selectedIndex = Math.max(0, THEME_OPTIONS.findIndex((option) => option.value === theme));
+    themeOptionRefs.current[selectedIndex]?.focus();
+    return undefined;
+  }, [theme, themeMenuOpen]);
+
   useEffect(() => {
     if (!themeMenuOpen) return undefined;
     const onPointerDown = (event) => {
@@ -126,7 +139,10 @@ const TopBar = ({
       setThemeMenuOpen(false);
     };
     const onKeyDown = (event) => {
-      if (event.key === 'Escape') setThemeMenuOpen(false);
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeThemeMenu(true);
+      }
     };
     window.addEventListener('mousedown', onPointerDown);
     window.addEventListener('keydown', onKeyDown);
@@ -135,6 +151,26 @@ const TopBar = ({
       window.removeEventListener('keydown', onKeyDown);
     };
   }, [themeMenuOpen]);
+
+  const onThemeMenuKeyDown = (event) => {
+    const items = themeOptionRefs.current.filter(Boolean);
+    const current = items.indexOf(document.activeElement);
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      items[(current + 1) % items.length]?.focus();
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      items[(current - 1 + items.length) % items.length]?.focus();
+    } else if (event.key === 'Home') {
+      event.preventDefault();
+      items[0]?.focus();
+    } else if (event.key === 'End') {
+      event.preventDefault();
+      items[items.length - 1]?.focus();
+    } else if (event.key === 'Tab') {
+      setThemeMenuOpen(false);
+    }
+  };
 
   useEffect(() => {
     if (!moreOpen && !accountOpen) return undefined;
@@ -289,20 +325,29 @@ const TopBar = ({
           {onThemeChange ? (
             <div className="topbar__menu topbar__theme-menu" ref={themeMenuRef}>
               <button
+                ref={themeButtonRef}
                 type="button"
                 className={`topbar__theme-pill ${themeSaving ? 'is-busy' : ''}`}
                 aria-haspopup="menu"
                 aria-expanded={themeMenuOpen}
-                aria-label={`Theme: ${currentThemeOption.label}. Click to cycle, right-click for options.`}
-                title={`Theme: ${currentThemeOption.label} — click to cycle`}
+                aria-controls="topbar-theme-menu"
+                aria-label={`Theme: ${currentThemeOption.label}`}
+                title={`Theme: ${currentThemeOption.label}`}
                 data-testid="topbar-theme-toggle"
-                onClick={cycleTheme}
+                onClick={() => setThemeMenuOpen((prev) => !prev)}
+                onKeyDown={(event) => {
+                  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                    event.preventDefault();
+                    setThemeMenuOpen(true);
+                  }
+                }}
                 onContextMenu={(event) => {
                   event.preventDefault();
-                  setThemeMenuOpen((prev) => !prev);
+                  setThemeMenuOpen(true);
                 }}
               >
                 <span aria-hidden="true" className={`topbar__theme-icon topbar__theme-icon--${currentThemeOption.value}`} />
+                <span className="topbar__theme-label">{currentThemeOption.shortLabel || currentThemeOption.label}</span>
               </button>
               <TopBarMenuPopover
                 open={themeMenuOpen}
@@ -310,22 +355,30 @@ const TopBar = ({
                 popoverRef={themePopoverRef}
                 className="topbar__theme-popover"
                 testId="topbar-theme-menu"
+                id="topbar-theme-menu"
+                ariaLabel="Theme"
+                onKeyDown={onThemeMenuKeyDown}
               >
-                {THEME_OPTIONS.map((option) => (
+                {THEME_OPTIONS.map((option, index) => (
                   <button
                     key={option.value}
+                    ref={(node) => {
+                      themeOptionRefs.current[index] = node;
+                    }}
                     type="button"
                     role="menuitemradio"
+                    tabIndex={-1}
                     aria-checked={option.value === theme}
                     className={`topbar__menu-item ${option.value === theme ? 'is-active' : ''}`}
+                    data-testid={`topbar-theme-option-${option.value}`}
                     onClick={() => {
                       onThemeChange(option.value);
-                      setThemeMenuOpen(false);
+                      closeThemeMenu(true);
                     }}
                   >
                     <span aria-hidden="true" className={`topbar__theme-icon topbar__theme-icon--${option.value}`} />
                     {option.label}
-                    {option.value === 'auto' ? <span className="muted small" style={{ marginLeft: 'auto' }}>System</span> : null}
+                    <span className="topbar__theme-check" aria-hidden="true">{option.value === theme ? '✓' : ''}</span>
                   </button>
                 ))}
               </TopBarMenuPopover>

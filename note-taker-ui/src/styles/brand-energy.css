@@ -42,7 +42,8 @@
   animation: brand-energy-pulse 118s ease-in-out infinite;
 }
 
-html[data-ui-theme='dark'] .brand-gradient::before {
+html[data-ui-theme='dark'] .brand-gradient::before,
+html[data-ui-theme='tokyo-midnight'] .brand-gradient::before {
   background:
     radial-gradient(46% 42% at 10% 10%, var(--brand-energy-a-dark), transparent 72%),
     radial-gradient(42% 42% at 86% 18%, var(--brand-energy-b-dark), transparent 76%),
@@ -50,7 +51,8 @@ html[data-ui-theme='dark'] .brand-gradient::before {
   opacity: 0.18;
 }
 
-html[data-ui-theme='dark'] .brand-gradient::after {
+html[data-ui-theme='dark'] .brand-gradient::after,
+html[data-ui-theme='tokyo-midnight'] .brand-gradient::after {
   background:
     radial-gradient(56% 54% at 86% 80%, var(--brand-energy-a-dark), transparent 84%),
     radial-gradient(52% 46% at 14% 72%, var(--brand-energy-b-dark), transparent 80%);

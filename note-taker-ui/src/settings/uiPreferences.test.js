@@ -38,6 +38,7 @@ describe('uiPreferences', () => {
     applyUiSettingsToRoot(document.documentElement, restored);
 
     expect(document.documentElement.getAttribute('data-ui-theme')).toBe('dark');
+    expect(document.documentElement.getAttribute('data-ui-scheme')).toBe('dark');
     expect(document.documentElement.getAttribute('data-ui-density')).toBe('compact');
     expect(document.documentElement.getAttribute('data-ui-typography')).toBe('large');
     expect(document.documentElement.getAttribute('data-ui-brand-energy')).toBe('off');
@@ -49,12 +50,14 @@ describe('uiPreferences', () => {
 
   it('default theme is now "auto" (system-tracking)', () => {
     expect(DEFAULT_UI_SETTINGS.theme).toBe('auto');
-    expect(THEME_OPTIONS.map((option) => option.value)).toEqual(['auto', 'light', 'dark']);
+    expect(THEME_OPTIONS.map((option) => option.value)).toEqual(['auto', 'light', 'dark', 'tokyo-midnight']);
+    expect(THEME_OPTIONS.find((option) => option.value === 'tokyo-midnight').label).toBe('Tokyo Midnight');
   });
 
   it('resolveActiveTheme returns explicit values verbatim', () => {
     expect(resolveActiveTheme('light')).toBe('light');
     expect(resolveActiveTheme('dark')).toBe('dark');
+    expect(resolveActiveTheme('tokyo-midnight')).toBe('tokyo-midnight');
   });
 
   it('resolveActiveTheme honors a stub mediaQuery for auto', () => {
@@ -86,5 +89,42 @@ describe('uiPreferences', () => {
     });
     expect(document.documentElement.getAttribute('data-ui-theme')).toBe('light');
     expect(document.documentElement.getAttribute('data-ui-theme-pref')).toBe('light');
+    expect(document.documentElement.getAttribute('data-ui-scheme')).toBe('light');
+  });
+
+  it('persists Tokyo Midnight and keeps stored light and dark preferences', () => {
+    persistUiSettingsToStorage({ ...DEFAULT_UI_SETTINGS, theme: 'tokyo-midnight' });
+    expect(loadUiSettingsFromStorage().theme).toBe('tokyo-midnight');
+
+    persistUiSettingsToStorage({ ...DEFAULT_UI_SETTINGS, theme: 'dark' });
+    expect(loadUiSettingsFromStorage().theme).toBe('dark');
+
+    persistUiSettingsToStorage({ ...DEFAULT_UI_SETTINGS, theme: 'light' });
+    expect(loadUiSettingsFromStorage().theme).toBe('light');
+
+    persistUiSettingsToStorage({ ...DEFAULT_UI_SETTINGS, theme: 'not-a-theme' });
+    expect(loadUiSettingsFromStorage().theme).toBe('auto');
+  });
+
+  it('keeps Tokyo Midnight when the OS color scheme changes', () => {
+    expect(resolveActiveTheme('tokyo-midnight', { matches: true })).toBe('tokyo-midnight');
+    expect(resolveActiveTheme('tokyo-midnight', { matches: false })).toBe('tokyo-midnight');
+    expect(resolveActiveTheme('auto', { matches: true })).toBe('dark');
+    expect(resolveActiveTheme('auto', { matches: false })).toBe('light');
+  });
+
+  it('applies Tokyo Midnight without clearing an in-progress draft', () => {
+    window.matchMedia = jest.fn().mockReturnValue({ matches: false });
+    document.body.innerHTML = '<textarea id="draft">a sentence in progress</textarea>';
+    applyUiSettingsToRoot(document.documentElement, {
+      ...DEFAULT_UI_SETTINGS,
+      theme: 'tokyo-midnight'
+    });
+    expect(document.getElementById('draft').value).toBe('a sentence in progress');
+    expect(document.documentElement.getAttribute('data-ui-theme')).toBe('tokyo-midnight');
+    expect(document.documentElement.getAttribute('data-ui-theme-pref')).toBe('tokyo-midnight');
+    expect(document.documentElement.getAttribute('data-ui-scheme')).toBe('dark');
+    expect(document.documentElement.getAttribute('data-noeis-theme')).toBe('theme.editorial.tokyo-midnight');
+    document.body.innerHTML = '';
   });
 });

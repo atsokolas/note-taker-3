@@ -21,7 +21,7 @@ export const appearanceFieldLabel = {
 const valueLabels = {
   typographyScale: { small: 'Small', default: 'Standard', large: 'Large' },
   density: { comfortable: 'Comfortable', compact: 'Compact' },
-  theme: { auto: 'System', light: 'Light', dark: 'Dark' },
+  theme: { auto: 'System', light: 'Light', dark: 'Dark', 'tokyo-midnight': 'Tokyo Midnight' },
   accent: { electric: 'Cyan', violet: 'Violet', indigo: 'Indigo' },
   brandEnergy: { true: 'On', false: 'Off' },
   motion: { system: 'Follow device', reduced: 'Less motion' }

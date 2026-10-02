@@ -11,8 +11,17 @@ export const NOEIS_THEME_VARIANTS = Object.freeze({
     id: 'theme.editorial.dark',
     label: 'Dark editorial theme',
     colorScheme: 'dark'
+  }),
+  'tokyo-midnight': Object.freeze({
+    id: 'theme.editorial.tokyo-midnight',
+    label: 'Tokyo Midnight',
+    colorScheme: 'dark'
   })
 });
+
+export const colorSchemeForTheme = (activeTheme) => (
+  NOEIS_THEME_VARIANTS[activeTheme]?.colorScheme === 'dark' ? 'dark' : 'light'
+);
 
 const DENSITIES = new Set(['comfortable', 'compact']);
 const TYPOGRAPHY_SCALES = new Set(['small', 'default', 'large']);
@@ -55,6 +64,7 @@ export const applySemanticThemeSnapshot = (root, snapshot) => {
   }
 
   root.setAttribute('data-ui-theme', snapshot.activeTheme);
+  root.setAttribute('data-ui-scheme', NOEIS_THEME_VARIANTS[snapshot.activeTheme].colorScheme);
   root.setAttribute('data-ui-theme-pref', snapshot.preferredTheme);
   root.setAttribute('data-ui-density', snapshot.density);
   root.setAttribute('data-ui-typography', snapshot.typographyScale);

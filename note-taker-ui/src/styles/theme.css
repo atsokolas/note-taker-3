@@ -451,10 +451,10 @@ body.noeis-editorial .palette-list {
   cursor: not-allowed;
 }
 
-/* Theme toggle pill — single click cycles auto → light → dark, right-click
-   opens the popover with explicit options. The icon is a CSS-painted
-   sun / moon / circle so we don't pull in an icon font for one button. */
+/* Theme picker — click opens System, Light, Dark, and Tokyo Midnight.
+   The icon is painted in CSS so the control does not need an icon font. */
 .topbar__theme-pill {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -514,8 +514,41 @@ body.noeis-editorial .palette-list {
   background: currentColor;
 }
 
+/* Tokyo Midnight: a night ring with a small lamp. */
+.topbar__theme-icon--tokyo-midnight {
+  background:
+    radial-gradient(circle at 62% 38%, currentColor 0 1.5px, transparent 1.8px);
+  border: 1.5px solid currentColor;
+}
+
+.topbar__theme-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+}
+
+.topbar__theme-check {
+  width: 0.8rem;
+  margin-left: auto;
+  color: var(--accent, currentColor);
+  font-size: 0.75rem;
+}
+
+@media (max-width: 720px) {
+  .topbar__theme-label {
+    border: 0;
+    clip: rect(0 0 0 0);
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    padding: 0;
+    position: absolute;
+    width: 1px;
+  }
+}
+
 .topbar__theme-popover .topbar__menu-item {
-  display: inline-flex;
+  display: flex;
+  width: 100%;
   align-items: center;
   gap: 10px;
 }

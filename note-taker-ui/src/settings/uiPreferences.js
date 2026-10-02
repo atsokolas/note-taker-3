@@ -26,14 +26,15 @@ const TYPOGRAPHY_VALUES = new Set(['small', 'default', 'large']);
 const DENSITY_VALUES = new Set(['comfortable', 'compact']);
 const MOTION_VALUES = new Set(['system', 'reduced']);
 
-// Theme accepts three real values now. 'auto' tracks OS via prefers-color-
-// scheme so a user who never opens settings still gets the right look.
-// Persisted values from before this PR ('dark') still normalize cleanly.
-export const THEME_VALUES = new Set(['auto', 'light', 'dark']);
+// 'auto' tracks the OS. Light and Dark stay explicit. Tokyo Midnight is an
+// explicit night theme and does not follow prefers-color-scheme.
+// Unknown stored values fall back to auto; existing light/dark values stay.
+export const THEME_VALUES = new Set(['auto', 'light', 'dark', 'tokyo-midnight']);
 export const THEME_OPTIONS = [
   { value: 'auto', label: 'System', shortLabel: 'System' },
   { value: 'light', label: 'Light', shortLabel: 'Light' },
-  { value: 'dark', label: 'Dark', shortLabel: 'Dark' }
+  { value: 'dark', label: 'Dark', shortLabel: 'Dark' },
+  { value: 'tokyo-midnight', label: 'Tokyo Midnight', shortLabel: 'Midnight' }
 ];
 
 export const MOTION_OPTIONS = [
@@ -114,7 +115,7 @@ export const loadUiSettingsFromStorage = (storage = window.localStorage) => {
  */
 export const resolveActiveTheme = (preferredTheme, mediaQuery) => {
   const pref = THEME_VALUES.has(preferredTheme) ? preferredTheme : DEFAULT_UI_SETTINGS.theme;
-  if (pref === 'light' || pref === 'dark') return pref;
+  if (pref !== 'auto') return pref;
   // auto: defer to OS. Tests can pass a stub mediaQuery.
   if (mediaQuery && typeof mediaQuery.matches === 'boolean') {
     return mediaQuery.matches ? 'dark' : 'light';
