@@ -318,7 +318,10 @@ const notebookAsidePieceSchema = new mongoose.Schema({
 const notebookWorkbenchTargetSchema = new mongoose.Schema({
   blockId: { type: String, default: '', maxlength: 160 },
   offset: { type: Number, default: 0, min: 0 },
-  baseText: { type: String, default: '', maxlength: 20000 }
+  baseText: { type: String, default: '', maxlength: 20000 },
+  scope: { type: String, enum: ['word', 'sentence'] },
+  rangeStart: { type: Number, min: 0 },
+  rangeEnd: { type: Number, min: 0 }
 }, { _id: false });
 
 const notebookWorkbenchMaterialSchema = new mongoose.Schema({

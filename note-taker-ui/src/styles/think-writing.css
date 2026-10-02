@@ -140,32 +140,6 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
    Discrete properties stay put. Toggling page width, rail position,
    overflow-y, or ::after content with the body class made leave-focus snap
    the measure, then fade the rails — the sequential lump coming off typing. */
-@media (min-width: 1181px) {
-  .think-notes {
-    /* Match the writing composition at rest. Focus may compress the outer
-       tracks, while the note itself keeps its 660px reading measure. */
-    grid-template-columns: 184px minmax(0, 660px) minmax(245px, 1fr);
-  }
-
-  /* Whether the rails are there is not a motion question — only how they
-     leave is. Gating the outcome on the animation preference gave a reader
-     with reduced motion a focus mode that held its state, changed its label,
-     and did nothing: the class went on the body and no rule below matched it.
-     The transition below is the part that respects the preference. */
-  body:is(.think-rails-away, .think-focus-held) .think-notes {
-    grid-template-columns: 30px minmax(420px, 1fr) 30px;
-    gap: 18px;
-  }
-
-  body:is(.think-rails-away, .think-focus-held) .think-notes:has([data-writing-rail='left']:is(:hover, :focus-within)) {
-    grid-template-columns: 184px minmax(420px, 1fr) 30px;
-  }
-
-  body:is(.think-rails-away, .think-focus-held) .think-notes:has([data-writing-rail='right']:is(:hover, :focus-within)) {
-    grid-template-columns: 30px minmax(420px, 1fr) 245px;
-  }
-}
-
 @media (min-width: 1121px) {
   .think-notes,
   body.noeis-editorial .notebook-editorial-shell,

@@ -51,7 +51,9 @@ const ThinkNotes = () => {
   activeId.current = openId;
   const saveCurrent = useRef(null);
   const searchInput = useRef(null);
+  const room = useRef(null);
   const noteSurface = useRef(null);
+  const drawer = useRef(null);
   const creatingRef = useRef(false);
   const [creating, setCreating] = useState(false);
   const [creationError, setCreationError] = useState('');
@@ -75,6 +77,9 @@ const ThinkNotes = () => {
   const [queuedPrompt, setQueuedPrompt] = useState(null);
   const [contextByNote, setContextByNote] = useState({});
   const [contextPortal, setContextPortal] = useState(null);
+  const [alternativesPortal, setAlternativesPortal] = useState(null);
+  const [alternativesOpen, setAlternativesOpen] = useState(false);
+  const [notesCollapsed, setNotesCollapsed] = useState(false);
   const [partnerTrial, setPartnerTrial] = useState(null);
   const registerPartnerTrial = useCallback((handler) => setPartnerTrial(() => handler), []);
   const [compactContext, setCompactContext] = useState(false);
@@ -84,6 +89,7 @@ const ThinkNotes = () => {
   const activeContext = contextByNote[openId] || null;
   const openContext = useCallback((mode) => {
     if (!openId) return;
+    if (room.current?.getBoundingClientRect().width <= 1040) setNotesCollapsed(true);
     setContextByNote(current => ({ ...current, [openId]: mode }));
   }, [openId]);
   const closeContext = useCallback(() => {
@@ -95,17 +101,30 @@ const ThinkNotes = () => {
     setQueuedPrompt(prompt);
   }, [openContext]);
   useEffect(() => {
-    const media = window.matchMedia?.('(max-width: 1180px)');
-    if (!media) return undefined;
-    const sync = () => setCompactContext(media.matches);
+    const element = room.current;
+    if (!element) return undefined;
+    const sync = () => setCompactContext(element.getBoundingClientRect().width <= 760);
     sync();
-    media.addEventListener?.('change', sync);
-    return () => media.removeEventListener?.('change', sync);
+    const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(sync) : null;
+    observer?.observe(element);
+    window.addEventListener('resize', sync);
+    return () => { observer?.disconnect(); window.removeEventListener('resize', sync); };
   }, []);
+  const focusAlternatives = useCallback(() => {
+    closeContext();
+    if (room.current?.getBoundingClientRect().width <= 1040) setNotesCollapsed(true);
+  }, [closeContext]);
   const contextTakesFocus = Boolean(activeContext && compactContext);
   useEffect(() => {
     if (!activeContext) return undefined;
+    const frame = contextTakesFocus ? window.requestAnimationFrame(() => drawer.current?.querySelector('[aria-selected="true"]')?.focus()) : null;
     const onKeyDown = (event) => {
+      if (contextTakesFocus && event.key === 'Tab') {
+        const buttons = [...(drawer.current?.querySelectorAll('button, input, textarea, a[href], [tabindex="0"]') || [])].filter(item => !item.disabled && item.getClientRects().length);
+        const first = buttons[0], last = buttons[buttons.length - 1];
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+      }
       if (event.key !== 'Escape' || event.defaultPrevented || event.isComposing) return;
       event.preventDefault();
       const closedMode = activeContext;
@@ -113,8 +132,8 @@ const ThinkNotes = () => {
       window.requestAnimationFrame?.(() => noteSurface.current?.querySelector(`[data-context-trigger="${closedMode}"]`)?.focus?.());
     };
     document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
-  }, [activeContext, closeContext]);
+    return () => { document.removeEventListener('keydown', onKeyDown); if (frame != null) window.cancelAnimationFrame(frame); };
+  }, [activeContext, closeContext, contextTakesFocus]);
 
   useEffect(() => {
     let cancelled = false;
@@ -311,8 +330,9 @@ const ThinkNotes = () => {
   const step = (n) => (arriving ? `wfp-anim wfp-anim--${n}` : 'think-notes__return');
 
   return (
-    <div className={`think-notes${activeContext ? ' has-context' : ''}`}>
-      <aside className="think-notes__shelf" aria-label="Think navigation" inert={contextTakesFocus ? '' : undefined} aria-hidden={contextTakesFocus || undefined}>
+    <div ref={room} className={`think-notes${activeContext ? ' has-context' : ''}${alternativesOpen ? ' has-alternatives' : ''}${notesCollapsed ? ' notes-collapsed' : ''}`}>
+      <button type="button" className="think-notes__shelf-toggle" aria-expanded={!notesCollapsed} aria-controls="think-notes-shelf" onClick={() => setNotesCollapsed(value => !value)}>{notesCollapsed ? 'Show notes' : 'Hide notes'}</button>
+      <aside id="think-notes-shelf" hidden={notesCollapsed} className="think-notes__shelf" aria-label="Think navigation" inert={contextTakesFocus ? '' : undefined} aria-hidden={contextTakesFocus || undefined}>
         <FocusMode inRail />
         <RoomShelf
           as="div"
@@ -413,6 +433,10 @@ const ThinkNotes = () => {
         </RoomShelf>
       </aside>
 
+      <aside className="think-notes__alternatives" hidden={!alternativesOpen || Boolean(activeContext)} aria-label="Wording alternatives">
+        <div ref={setAlternativesPortal} />
+      </aside>
+
       <main
         ref={noteSurface}
         className={`think-notes__note${loadingEntry ? ' is-loading' : ''}`}
@@ -440,6 +464,9 @@ const ThinkNotes = () => {
               activeContext={activeContext}
               onOpenContext={openContext}
               contextPortal={contextPortal}
+              alternativesPortal={alternativesPortal}
+              onAlternativesOpenChange={setAlternativesOpen}
+              onFocusAlternatives={focusAlternatives}
               quietWorkspace
               onWorkingStateChange={(workingState) => {
                 setEntry(current => current ? { ...current, workingState } : current);
@@ -464,18 +491,22 @@ const ThinkNotes = () => {
       </main>
 
       <aside
+        ref={drawer}
+        role={contextTakesFocus ? 'dialog' : undefined}
+        aria-modal={contextTakesFocus || undefined}
         className="think-notes__partner"
         aria-label="Note context"
         hidden={!activeContext}
       >
         <div className="think-notes__context-head">
           <div role="tablist" aria-label="Note context">
+            <button type="button" role="tab" aria-selected={activeContext === 'scratchpad'} onClick={() => openContext('scratchpad')}>Scratchpad</button>
             <button type="button" role="tab" aria-selected={activeContext === 'material'} onClick={() => openContext('material')}>Material</button>
             <button type="button" role="tab" aria-selected={activeContext === 'partner'} onClick={() => openContext('partner')}>Partner</button>
           </div>
           <button type="button" className="think-notes__context-close" onClick={closeContext} aria-label="Close note context">Close</button>
         </div>
-        <div ref={setContextPortal} hidden={activeContext !== 'material'} />
+        <div ref={setContextPortal} hidden={!['material', 'scratchpad'].includes(activeContext)} />
         <div hidden={activeContext !== 'partner'}>
           <ThoughtPartnerPanel
             variant="stream"

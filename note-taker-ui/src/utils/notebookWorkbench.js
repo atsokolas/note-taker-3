@@ -13,7 +13,8 @@ export const emptyNotebookWorkingState = () => ({
 const target = (value = {}) => ({
   blockId: text(value.blockId),
   offset: Math.max(0, Number(value.offset) || 0),
-  baseText: text(value.baseText)
+  baseText: text(value.baseText),
+  ...(value.scope && value.scope !== 'paragraph' ? { scope: value.scope, rangeStart: Math.max(0, Number(value.rangeStart) || 0), rangeEnd: Math.max(0, Number(value.rangeEnd) || 0) } : {})
 });
 
 export const normalizeNotebookWorkingState = (value = {}) => ({
@@ -44,6 +45,33 @@ export const targetFromEditor = (editor) => {
     baseText: text(parent.textContent)
   };
 };
+
+// Offsets belong to a stable block and its exact base text. Any intervening
+// edit makes the trial stale; a substring is never searched into a new passage.
+export const scopeNotebookTarget = (savedTarget, scope = 'paragraph') => {
+  const { scope: previousScope, rangeStart, rangeEnd, ...base } = savedTarget || {};
+  if (scope === 'paragraph') return base;
+  const value = base.baseText || '';
+  const offset = Math.min(Math.max(0, base.offset || 0), Math.max(0, value.length - 1));
+  const segments = typeof Intl.Segmenter === 'function'
+    ? [...new Intl.Segmenter(undefined, { granularity: scope }).segment(value)].filter(item => scope !== 'word' || item.isWordLike)
+    : [...value.matchAll(scope === 'word' ? /[\p{L}\p{N}'’-]+/gu : /[^.!?]+[.!?]*(?:\s+|$)/gu)].map(item => ({ index: item.index, segment: item[0] }));
+  const found = segments.find(item => offset >= item.index && offset < item.index + item.segment.length) || segments.find(item => item.index >= offset) || segments[segments.length - 1];
+  if (!found) return base;
+  const start = found.index;
+  const end = start + found.segment.trimEnd().length;
+  return { ...base, scope, rangeStart: start, rangeEnd: end };
+};
+
+export const notebookTargetText = (savedTarget) => savedTarget?.scope
+  ? text(savedTarget.baseText).slice(savedTarget.rangeStart, savedTarget.rangeEnd)
+  : text(savedTarget?.baseText);
+
+export const notebookTrialText = (savedTarget, alternative) => savedTarget?.scope
+  ? text(savedTarget.baseText).slice(0, savedTarget.rangeStart) + text(alternative) + text(savedTarget.baseText).slice(savedTarget.rangeEnd)
+  : text(alternative);
+
+export const notebookTrialKey = (savedTarget) => `${savedTarget?.blockId}:${savedTarget?.scope || 'paragraph'}:${savedTarget?.rangeStart || 0}:${savedTarget?.rangeEnd || 0}:${savedTarget?.baseText}`;
 
 export const resolveEditorTarget = (editor, savedTarget, { requireSameText = false } = {}) => {
   const blockId = text(savedTarget?.blockId);
@@ -77,7 +105,10 @@ export const focusEditorTarget = (editor, savedTarget) => {
 export const replaceEditorTargetText = (editor, savedTarget, nextText) => {
   const found = resolveEditorTarget(editor, savedTarget, { requireSameText: true });
   if (found.status !== 'ready' || !found.node?.isTextblock || !editor?.state?.tr || !editor?.view?.dispatch) return found;
-  const tr = editor.state.tr.insertText(text(nextText), found.from, found.to);
+  const rangeStart = savedTarget?.scope ? Number(savedTarget.rangeStart) : 0;
+  const rangeEnd = savedTarget?.scope ? Number(savedTarget.rangeEnd) : found.currentText.length;
+  if (!Number.isInteger(rangeStart) || !Number.isInteger(rangeEnd) || rangeStart < 0 || (rangeEnd < rangeStart || (savedTarget?.scope && rangeEnd === rangeStart)) || rangeEnd > found.currentText.length) return { ...found, status: 'stale' };
+  const tr = editor.state.tr.insertText(text(nextText), found.from + rangeStart, found.from + rangeEnd);
   editor.view.dispatch(tr.scrollIntoView());
   return { ...found, applied: true };
 };

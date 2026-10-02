@@ -24,6 +24,7 @@ const SourceRow = ({ item, used, targets, onInsert, onRemove, onGoTo }) => (
 
 const NotebookWorkbenchPanel = ({
   mode = 'material',
+  splitDrawer = false,
   workingState,
   targetStatus,
   citationTargets,
@@ -32,6 +33,7 @@ const NotebookWorkbenchPanel = ({
   trialStatus = null,
   thoughtTarget = null,
   onChooseSource,
+  onOpenTrial,
   onInsertMaterial,
   onRemoveMaterial,
   onGoToMaterial,
@@ -53,6 +55,8 @@ const NotebookWorkbenchPanel = ({
   const [jot, setJot] = useState('');
   const [nextLine, setNextLine] = useState(workingState.nextTimeLine?.text || '');
   const jotRef = useRef(null);
+  const simpleScratchpad = splitDrawer && mode === 'scratchpad';
+  const NextTimeSection = simpleScratchpad ? 'details' : 'div';
 
   useEffect(() => {
     setNextLine(workingState.nextTimeLine?.text || '');
@@ -90,7 +94,8 @@ const NotebookWorkbenchPanel = ({
   }
 
   return (
-    <section className="notebook-workbench" aria-label="Material beside this note">
+    <section className={`notebook-workbench${simpleScratchpad ? ' notebook-scratchpad' : ''}`} aria-label={mode === 'scratchpad' ? 'Scratchpad' : 'Material beside this note'}>
+      {!splitDrawer || mode !== 'scratchpad' ? <>
       <header>
         <span className="notebook-workbench__eyebrow">MATERIAL</span>
         <h2>Beside this note</h2>
@@ -128,23 +133,34 @@ const NotebookWorkbenchPanel = ({
         </div>
       ) : <p className="notebook-workbench__empty">Nothing waiting beside this note.</p>}
 
+        {splitDrawer && workingState.trials.length ? <details className="notebook-workbench__section">
+          <summary>Wording to revisit · {workingState.trials.length}</summary>
+          {workingState.trials.map(trial => <div className="notebook-workbench__row" key={trial.id}><p>{trial.alternative || 'Unfinished alternative'}</p><QuietButton onClick={() => onOpenTrial?.(trial)}>Open alternative</QuietButton></div>)}
+        </details> : null}
+      </> : null}
+      {!splitDrawer || mode !== 'material' ? <>
       <div className="notebook-workbench__section">
-        <div className="notebook-workbench__section-title">
+        {!simpleScratchpad ? <div className="notebook-workbench__section-title">
           <h3>Loose thoughts</h3>
           <QuietButton onClick={() => jotRef.current?.focus()}>Jot something</QuietButton>
-        </div>
+        </div> : null}
         <label className="notebook-workbench__field">
           <span className="sr-only">Hold a thought</span>
-          <textarea ref={jotRef} value={jot} onChange={(event) => setJot(event.target.value)} placeholder={thoughtTarget ? 'Keep the digression here…' : 'Choose a passage, then hold a thought…'} rows={3} />
+          <textarea ref={jotRef} value={jot} onChange={(event) => setJot(event.target.value)} placeholder={simpleScratchpad ? 'A thought for later…' : thoughtTarget ? 'Keep the digression here…' : 'Choose a passage, then hold a thought…'} rows={3} />
         </label>
-        <QuietButton disabled={!jot.trim()} onClick={() => { onJot(jot); setJot(''); }}>Hold this thought</QuietButton>
+        <QuietButton disabled={!jot.trim()} onClick={() => { onJot(jot); setJot(''); }}>{simpleScratchpad ? 'Keep thought' : 'Hold this thought'}</QuietButton>
         {workingState.looseThoughts.map(item => (
           <article className="notebook-workbench__row" key={item.id}>
-            <p>{item.text}</p>
+            <p>{simpleScratchpad ? <button type="button" className="notebook-scratchpad__thought" title="Back to passage" onClick={() => onGoToThought(item)}>{item.text}</button> : item.text}</p>
             <div className="notebook-workbench__row-actions">
-              <QuietButton onClick={() => onGoToThought(item)}>Back to my sentence</QuietButton>
-              <QuietButton onClick={() => onInsertThought(item)}>Put into the draft</QuietButton>
-              <QuietButton onClick={() => onDiscardThought(item.id)}>Discard</QuietButton>
+              {simpleScratchpad ? <>
+                <QuietButton aria-label="Insert thought into draft" title="Insert into draft" onClick={() => onInsertThought(item)}>+</QuietButton>
+                <QuietButton aria-label="Discard thought" title="Discard thought" onClick={() => onDiscardThought(item.id)}>×</QuietButton>
+              </> : <>
+                <QuietButton onClick={() => onGoToThought(item)}>Back to my sentence</QuietButton>
+                <QuietButton onClick={() => onInsertThought(item)}>Put into the draft</QuietButton>
+                <QuietButton onClick={() => onDiscardThought(item.id)}>Discard</QuietButton>
+              </>}
             </div>
           </article>
         ))}
@@ -162,8 +178,8 @@ const NotebookWorkbenchPanel = ({
         </div>
       ) : null}
 
-      <div className="notebook-workbench__section">
-        <h3>Next time</h3>
+      <NextTimeSection className="notebook-workbench__section">
+        {simpleScratchpad ? <summary>Next time{workingState.nextTimeLine?.text ? ' · a line waiting' : ''}</summary> : <h3>Next time</h3>}
         <label className="notebook-workbench__field">
           <span>Leave myself a line</span>
           <textarea value={nextLine} onChange={(event) => setNextLine(event.target.value)} rows={2} />
@@ -173,7 +189,8 @@ const NotebookWorkbenchPanel = ({
           {workingState.nextTimeLine?.text ? <QuietButton onClick={onGoToNextLine}>Pick up here</QuietButton> : null}
           {workingState.nextTimeLine?.text ? <QuietButton onClick={onClearNextLine}>Clear this line</QuietButton> : null}
         </div>
-      </div>
+      </NextTimeSection>
+      </> : null}
     </section>
   );
 };

@@ -94,8 +94,21 @@ const useNotebookWorkbench = (entry, { onEntryChange } = {}) => {
     return next;
   }, []);
 
-  useEffect(() => () => {
-    if (timerRef.current) window.clearTimeout(timerRef.current);
+  useEffect(() => {
+    const guardUnsaved = (event) => {
+      if (savedVersionRef.current === dirtyVersionRef.current) return;
+      event.preventDefault();
+      event.returnValue = '';
+      flushRef.current?.();
+    };
+    const saveWhenHidden = () => { if (document.visibilityState === 'hidden') flushRef.current?.(); };
+    window.addEventListener('beforeunload', guardUnsaved);
+    document.addEventListener('visibilitychange', saveWhenHidden);
+    return () => {
+      window.removeEventListener('beforeunload', guardUnsaved);
+      document.removeEventListener('visibilitychange', saveWhenHidden);
+      if (timerRef.current) window.clearTimeout(timerRef.current);
+    };
   }, []);
 
   return { state, update, flush: commit, saveState, error };
