@@ -65,6 +65,14 @@ Optional NOEIS_MCP_JSON_RESPONSES=true is locally verified using the real SDK cl
 
 Read-only Safari inspection opened the signed-in ChatGPT plugins page and observed installed-plugin/profile controls. No developer-plus/client/callback form was observed and account entitlement could not be verified from those controls. Official documentation supports static OAuth credentials, but this account’s public-none client/callback UI remains unverified. No developer mode, setting, installation, tunnel or grant was changed.
 
+## Approved temporary HTTPS metadata inspection
+
+A separately reviewed default-deny gateway and fresh-credential disposable runner were added; the original known-password loopback runner was not exposed. Owner-approved accountless Cloudflare testing reused the installed official binary and made only the reviewed gateway reachable. Gateway/runner4tests, same-origin frontend build, public discovery/frontend/login, canonical MCP401 challenge and denied signup/mint/consent routes pass. No public authenticated MCP tool call or real grant is claimed.
+
+Actual signed-in Safari UI verified User-Defined OAuth Client with token auth none, optional secret, the exact callback https://chatgpt.com/connector_platform_oauth_redirect, and correct discovered endpoints/resource/scopes. The provider supplies predefined client ID noeis-chatgpt-review; the prepared matching config was not applied. No trust checkbox, plugin creation or consent was accepted. Both test accounts had zero issued/active tokens. All tunnel/gateway/API/browser/DB processes and private credential material were cleaned up at0cost.
+
+Next approval is for a temporary private ChatGPT connection plus personal synthetic-account consent. A new temporary origin and reviewed consent-enabled gateway configuration are needed before that grant test. Production/store publication and stable hosting remain separate.
+
 ## Deliverables and next decisions
 
 - Package source: `plugins/noeis/`; staging ZIP: `output/noeis-plugin/noeis-0.1.0-staging-unconfigured.zip`; configuration receipt beside it. The reserved .invalid endpoint cannot connect until an approved staging URL is supplied. `plugins/noeis/staging.env.example` is excluded from the ZIP.
