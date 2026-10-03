@@ -5391,7 +5391,7 @@ app.use(buildLibraryFilingRouter({
   })
 }));
 app.use(buildNotebookRouter({
-  authenticateToken,
+  authenticateToken: authenticateUserOrAgentToken,
   NotebookEntry,
   NotebookFolder,
   ReferenceEdge,

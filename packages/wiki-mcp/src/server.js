@@ -48,6 +48,25 @@ const chatgptDescriptions = {
   add_source: 'Attach an additional source to an owned Wiki page without replacing its accepted wording. Candidate preparation and human acceptance are separate steps.'
 };
 
+// These outcomes describe preparation, never adoption of accepted knowledge.
+// Return a copy: legacy callers may share the API result with this connection.
+const chatgptIngestResult = result => {
+  if (!result || typeof result !== 'object') return result;
+  let nextStep;
+  if (['pending', 'processing'].includes(result.status)) {
+    nextStep = `Research preparation is still processing. Check get_ingest_run slowly${result.runId ? ` with runId ${result.runId}` : ''}; no accepted change is confirmed.`;
+  } else if (result.status === 'failed') {
+    nextStep = 'Research preparation failed. Inspect the returned error before retrying; no accepted change is confirmed.';
+  } else if (result.suggestedCreatePage) {
+    nextStep = 'No existing page claimed this source. Ask the reader to create a page in NOEIS; this connection cannot create or accept a knowledge page.';
+  } else if (result.status === 'ignored') {
+    nextStep = 'No accepted change is confirmed. Read list_proposals to see whether this source produced a proposal; the reader reviews next steps in NOEIS.';
+  } else {
+    nextStep = 'Research preparation settled. Read the affected pages and get_research_candidate where available; proposed wording remains pending human review and acceptance in NOEIS.';
+  }
+  return { ...result, nextStep };
+};
+
 export const toolMetadata = (tool, accessProfile) => {
   const writes = writeNames.has(tool.name);
   const securitySchemes = [{ type: 'oauth2', scopes: [writes ? 'agent-write' : 'read'] }];
@@ -91,8 +110,8 @@ const errorContent = (error) => ({
   ]
 });
 
-export const createMcpServer = ({ client, token, apiUrl, grantedScopes, accessProfile, resourceMetadataUrl } = {}) => {
-  const resolvedClient = client || new NoeisClient({ token, apiUrl });
+export const createMcpServer = ({ client, token, apiUrl, appUrl, grantedScopes, accessProfile, resourceMetadataUrl } = {}) => {
+  const resolvedClient = client || new NoeisClient({ token, apiUrl, appUrl });
   const server = new McpServer(SERVER_INFO);
 
   const exposedTools = accessProfile === CHATGPT_ACCESS_PROFILE
@@ -113,10 +132,9 @@ export const createMcpServer = ({ client, token, apiUrl, grantedScopes, accessPr
           };
         }
         try {
-          const result = await tool.handler(resolvedClient, args);
-          if (accessProfile === CHATGPT_ACCESS_PROFILE && tool.name === 'ingest_source' && result?.suggestedCreatePage) {
-            result.nextStep = 'No existing page claimed this source. Ask the reader to create a page in NOEIS; this connection cannot create or accept a knowledge page.';
-          }
+          const rawResult = await tool.handler(resolvedClient, args);
+          const result = accessProfile === CHATGPT_ACCESS_PROFILE && ['ingest_source', 'get_ingest_run'].includes(tool.name)
+            ? chatgptIngestResult(rawResult) : rawResult;
           return { ...textContent(result), ...(tool.outputSchema ? { structuredContent: result } : {}) };
         } catch (error) {
           const result = errorContent(error);

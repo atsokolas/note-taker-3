@@ -235,11 +235,21 @@ export class NoeisApiError extends Error {
   }
 }
 
+export const normalizeAppUrl = (value = 'https://www.noeis.io') => {
+  const url = new URL(value);
+  if ((url.protocol !== 'https:' && !(url.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)))
+    || url.username || url.password || url.search || url.hash || url.pathname !== '/') {
+    throw new Error('NOEIS app URL must be an HTTPS origin or explicit loopback HTTP origin.');
+  }
+  return url.origin;
+};
+
 export class NoeisClient {
-  constructor({ token, apiUrl, fetchImpl = global.fetch, env = process.env } = {}) {
+  constructor({ token, apiUrl, appUrl, fetchImpl = global.fetch, env = process.env } = {}) {
     const auth = resolveAuth({ env });
     this.token = String(token || auth.token).trim();
     this.apiUrl = trimTrailingSlash(apiUrl || auth.apiUrl);
+    this.appUrl = normalizeAppUrl(appUrl || env.NOEIS_APP_URL || env.FRONTEND_URL || undefined);
     this.fetch = fetchImpl;
     if (typeof this.fetch !== 'function') {
       throw new Error('No fetch implementation is available. Use Node 18+.');
@@ -473,8 +483,8 @@ export class NoeisClient {
       passage: { highlightId: highlight.id, text: highlight.text, hash: createHash('sha256').update(highlight.text).digest('hex'), anchor: highlight.anchor || null },
       readerThought: { note: highlight.note, noteHash: createHash('sha256').update(highlight.note).digest('hex'), noteRevision: highlight.noteRevision || 0, notebookEntry: entry },
       links: {
-        article: `https://www.noeis.io/articles/${encodeURIComponent(highlight.articleId)}`,
-        passage: `https://www.noeis.io/library?articleId=${encodeURIComponent(highlight.articleId)}&highlightId=${encodeURIComponent(highlight.id)}`
+        article: `${this.appUrl}/articles/${encodeURIComponent(highlight.articleId)}`,
+        passage: `${this.appUrl}/library?articleId=${encodeURIComponent(highlight.articleId)}&highlightId=${encodeURIComponent(highlight.id)}`
       },
       authorship: { passage: 'source', note: 'reader_saved', notebookEntry: entry ? 'reader_saved' : null },
       nextStep: 'Compare the exact passage with the reader’s words, label your interpretation separately, and save only when the reader explicitly asks.'

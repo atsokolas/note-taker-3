@@ -31,6 +31,7 @@ const setMcpHeaders = (res) => {
 const buildHostedMcpRouter = ({
   authenticateAgentToken,
   resourceMetadataUrl = null,
+  appUrl = process.env.NOEIS_APP_URL || process.env.FRONTEND_URL || 'https://www.noeis.io',
   internalApiUrl = `http://127.0.0.1:${process.env.PORT || 3000}`,
   loadServer = loadMcpServer,
   Transport = StreamableHTTPServerTransport
@@ -60,7 +61,7 @@ const buildHostedMcpRouter = ({
     let server;
     try {
       const { createMcpServer } = await loadServer();
-      server = createMcpServer({ token, apiUrl: internalApiUrl, grantedScopes: req.agentToken?.scopes, accessProfile: req.agentToken?.accessProfile, resourceMetadataUrl });
+      server = createMcpServer({ token, apiUrl: internalApiUrl, appUrl, grantedScopes: req.agentToken?.scopes, accessProfile: req.agentToken?.accessProfile, resourceMetadataUrl });
       const transport = new Transport({ sessionIdGenerator: undefined });
       await server.connect(transport);
       await transport.handleRequest(req, res, req.body);

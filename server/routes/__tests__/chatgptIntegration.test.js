@@ -44,6 +44,11 @@ test('actual OAuth grants and content routes preserve two-account boundaries in 
     const human = users.map(id => jwt.sign({id:String(id)}, jwtSecret, {expiresIn:'1h'}));
     const agentAuth = buildAuthenticateAgentToken({AgentToken,OAuthGrant:Grant,oauthResource:config.resource,consume:false});
     const auth = (req,res,next) => (req.headers.authorization?.startsWith('Bearer ntk_at_') ? agentAuth : humanAuth)(req,res,next);
+    const mountStart = source.indexOf('app.use(buildNotebookRouter({');
+    const mountSource = source.slice(mountStart, source.indexOf('}));', mountStart) + 4);
+    const mountContext = { app: { use: noop }, buildNotebookRouter: options => { assert.equal(options.authenticateToken, auth, 'Actual Notebook mount must use account-or-agent authentication'); }, authenticateToken: humanAuth, authenticateUserOrAgentToken: auth };
+    for (const symbol of mountSource.match(/\b[A-Za-z_$][\w$]*\b/g)) if (!(symbol in mountContext)) mountContext[symbol] = noop;
+    vm.runInNewContext(mountSource, mountContext);
     const app = express(); app.use(require('../../services/chatgptOAuthIngress').buildChatgptOAuthIngress());
     app.use(buildChatgptOAuthRouter({config,authenticateToken:humanAuth,Request,Grant,AgentToken}));
     app.use(express.json());

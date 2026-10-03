@@ -4,12 +4,14 @@ const { once } = require('events');
 const { McpServer } = require('@modelcontextprotocol/sdk/server/mcp.js');
 const { buildHostedMcpRouter } = require('../hostedMcpRoutes');
 
-const startApp = async ({ useRealMcp = false } = {}) => {
+const startApp = async ({ useRealMcp = false, appUrl = 'http://127.0.0.1:3000' } = {}) => {
   let receivedToken = '';
   let receivedApiUrl = '';
+  let receivedAppUrl = '';
   const app = express();
   app.use(express.json());
   const options = {
+    ...(appUrl === null ? {} : { appUrl }),
     authenticateAgentToken: (req, res, next) => {
       if (req.headers.authorization !== 'Bearer ntk_at_test') {
         return res.status(401).json({ error: 'Agent token required.' });
@@ -19,9 +21,10 @@ const startApp = async ({ useRealMcp = false } = {}) => {
   };
   if (!useRealMcp) {
     options.loadServer = async () => ({
-      createMcpServer: ({ token, apiUrl }) => {
+      createMcpServer: ({ token, apiUrl, appUrl }) => {
         receivedToken = token;
         receivedApiUrl = apiUrl;
+        receivedAppUrl = appUrl;
         const server = new McpServer({ name: 'noeis-hosted-mcp-test', version: '1.0.0' });
         server.registerTool('connection_info', { description: 'Reports the test connection.' }, async () => ({
           content: [{ type: 'text', text: JSON.stringify({ connected: true }) }]
@@ -38,6 +41,7 @@ const startApp = async ({ useRealMcp = false } = {}) => {
     url: `http://127.0.0.1:${port}`,
     receivedToken: () => receivedToken,
     receivedApiUrl: () => receivedApiUrl,
+    receivedAppUrl: () => receivedAppUrl,
     close: () => new Promise(resolve => server.close(resolve))
   };
 };
@@ -84,9 +88,10 @@ const run = async () => {
         capabilities: {},
         clientInfo: { name: 'Noeis test', version: '1.0.0' }
       }
-    }, { Authorization: 'Bearer ntk_at_test' });
+    }, { Authorization: 'Bearer ntk_at_test', Host: 'attacker.example', 'X-Forwarded-Host': 'attacker.example' });
     assert.strictEqual(initialized.status, 200);
     assert.strictEqual(app.receivedToken(), 'ntk_at_test');
+    assert.strictEqual(app.receivedAppUrl(), 'http://127.0.0.1:3000');
     assert.strictEqual(app.receivedApiUrl(), `http://127.0.0.1:${process.env.PORT || 3000}`);
     assert.strictEqual(initialized.headers.get('access-control-expose-headers'), 'Mcp-Session-Id, WWW-Authenticate');
     const payload = await responsePayload(initialized);
@@ -103,6 +108,21 @@ const run = async () => {
     assert(tools.result.tools.some(tool => tool.name === 'connection_info'));
   } finally {
     await app.close();
+  }
+
+  const previousApp = process.env.NOEIS_APP_URL;
+  const previousFrontend = process.env.FRONTEND_URL;
+  delete process.env.NOEIS_APP_URL;
+  process.env.FRONTEND_URL = 'https://frontend-only.example';
+  let frontendOnly;
+  try {
+    frontendOnly = await startApp({ appUrl: null });
+    await request(frontendOnly.url, { jsonrpc: '2.0', id: 21, method: 'tools/list', params: {} }, { Authorization: 'Bearer ntk_at_test', Host: 'attacker.example' });
+    assert.strictEqual(frontendOnly.receivedAppUrl(), 'https://frontend-only.example');
+  } finally {
+    if (frontendOnly) await frontendOnly.close();
+    if (previousApp === undefined) delete process.env.NOEIS_APP_URL; else process.env.NOEIS_APP_URL = previousApp;
+    if (previousFrontend === undefined) delete process.env.FRONTEND_URL; else process.env.FRONTEND_URL = previousFrontend;
   }
 
   const realApp = await startApp({ useRealMcp: true });
