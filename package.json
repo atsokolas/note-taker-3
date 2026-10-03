@@ -49,7 +49,8 @@
     "test:server": "node scripts/run_server_jest.js",
     "test:import-helpers": "node scripts/test_import_helpers.js && node server/services/import/urlTextIngest.test.js",
     "test:import-session-routes": "node scripts/test_import_session_routes.js",
-    "seo:gsc": "node scripts/seo/search_console_opportunities.js"
+    "seo:gsc": "node scripts/seo/search_console_opportunities.js",
+    "chatgpt:test": "npm run mcp:test && node --test server/routes/__tests__/chatgptOAuthRoutes.test.js && node scripts/validate_noeis_plugin_schema.cjs && python3 scripts/package_noeis_plugin.py"
   },
   "repository": {
     "type": "git",

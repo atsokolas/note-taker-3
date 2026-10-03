@@ -680,6 +680,10 @@ const { buildReadingLoopRouter } = require('./routes/readingLoopRoutes');
 const { buildPersonalAgentRouter } = require('./routes/personalAgentRoutes');
 const { buildAgentTokenRouter } = require('./routes/agentTokenRoutes');
 const { buildHostedMcpRouter } = require('./routes/hostedMcpRoutes');
+const { buildChatgptOAuthRouter } = require('./routes/chatgptOAuthRoutes');
+const { readChatgptOAuthConfig } = require('./services/chatgptOAuthConfig');
+const { ChatgptOAuthRequest, ChatgptOAuthGrant } = require('./models/chatgptOAuthModels');
+const chatgptOAuthConfig = readChatgptOAuthConfig();
 const { buildEditionRouter } = require('./routes/editionRoutes');
 const { buildEditionThoughtRouter } = require('./routes/editionThoughtRoutes');
 
@@ -4918,11 +4922,17 @@ function optionalAuthenticateToken(req, res, next) {
   });
 }
 
-const authenticateAgentToken = buildAuthenticateAgentToken({ AgentToken });
+const oauthTokenOptions = {
+  OAuthGrant: ChatgptOAuthGrant,
+  oauthResource: chatgptOAuthConfig?.resource
+};
+const authenticateAgentToken = buildAuthenticateAgentToken({ AgentToken, ...oauthTokenOptions });
 const authenticateMcpToken = buildAuthenticateAgentToken({
   AgentToken,
   requiredScope: 'read',
-  consume: false
+  consume: false,
+  ...oauthTokenOptions,
+  resourceMetadataUrl: chatgptOAuthConfig ? `${chatgptOAuthConfig.issuer}/.well-known/oauth-protected-resource` : null
 });
 
 function authenticateUserOrAgentToken(req, res, next) {
@@ -6885,6 +6895,7 @@ app.use(buildAgentTokenRouter({
   authenticateToken,
   authenticateConnection: authenticateUserOrAgentToken,
   AgentToken,
+  OAuthGrant: ChatgptOAuthGrant,
   ConnectorActionLog,
   createAgentTokenSecret,
   hashAgentTokenSecret,
@@ -6892,7 +6903,15 @@ app.use(buildAgentTokenRouter({
   sanitizeAgentToken
 }));
 
-app.use(buildHostedMcpRouter({ authenticateAgentToken: authenticateMcpToken }));
+app.use(buildChatgptOAuthRouter({
+  config: chatgptOAuthConfig, authenticateToken,
+  Request: ChatgptOAuthRequest, Grant: ChatgptOAuthGrant, AgentToken
+}));
+app.use(buildHostedMcpRouter({
+  authenticateAgentToken: authenticateMcpToken,
+  internalApiUrl: chatgptOAuthConfig?.internalApiUrl || process.env.NOEIS_MCP_INTERNAL_API_URL || `http://127.0.0.1:${PORT}`,
+  resourceMetadataUrl: chatgptOAuthConfig ? `${chatgptOAuthConfig.issuer}/.well-known/oauth-protected-resource` : null
+}));
 
 app.use(buildAgentConnectRouter({
   authenticateToken,

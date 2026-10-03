@@ -6,6 +6,7 @@ const { buildHostedMcpRouter } = require('../hostedMcpRoutes');
 
 const startApp = async ({ useRealMcp = false } = {}) => {
   let receivedToken = '';
+  let receivedApiUrl = '';
   const app = express();
   app.use(express.json());
   const options = {
@@ -18,8 +19,9 @@ const startApp = async ({ useRealMcp = false } = {}) => {
   };
   if (!useRealMcp) {
     options.loadServer = async () => ({
-      createMcpServer: ({ token }) => {
+      createMcpServer: ({ token, apiUrl }) => {
         receivedToken = token;
+        receivedApiUrl = apiUrl;
         const server = new McpServer({ name: 'noeis-hosted-mcp-test', version: '1.0.0' });
         server.registerTool('connection_info', { description: 'Reports the test connection.' }, async () => ({
           content: [{ type: 'text', text: JSON.stringify({ connected: true }) }]
@@ -35,6 +37,7 @@ const startApp = async ({ useRealMcp = false } = {}) => {
   return {
     url: `http://127.0.0.1:${port}`,
     receivedToken: () => receivedToken,
+    receivedApiUrl: () => receivedApiUrl,
     close: () => new Promise(resolve => server.close(resolve))
   };
 };
@@ -84,7 +87,8 @@ const run = async () => {
     }, { Authorization: 'Bearer ntk_at_test' });
     assert.strictEqual(initialized.status, 200);
     assert.strictEqual(app.receivedToken(), 'ntk_at_test');
-    assert.strictEqual(initialized.headers.get('access-control-expose-headers'), 'Mcp-Session-Id');
+    assert.strictEqual(app.receivedApiUrl(), `http://127.0.0.1:${process.env.PORT || 3000}`);
+    assert.strictEqual(initialized.headers.get('access-control-expose-headers'), 'Mcp-Session-Id, WWW-Authenticate');
     const payload = await responsePayload(initialized);
     assert.strictEqual(payload.result.serverInfo.name, 'noeis-hosted-mcp-test');
 
@@ -122,6 +126,9 @@ const run = async () => {
     }, { Authorization: 'Bearer ntk_at_test' });
     const tools = await responsePayload(listed);
     assert(tools.result.tools.some(tool => tool.name === 'list_pages'));
+    const profile = tools.result.tools.find(tool => tool.name === 'get_profile');
+    assert.deepStrictEqual(profile.securitySchemes, [{ type: 'oauth2', scopes: ['read'] }]);
+    assert.deepStrictEqual(profile.securitySchemes, profile._meta.securitySchemes);
     ['list_judgment_pages', 'create_judgment_page', 'update_judgment_page'].forEach(name => {
       assert(tools.result.tools.some(tool => tool.name === name), `${name} must be available over hosted MCP`);
     });

@@ -1,0 +1,9 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+  "mcpServers": {
+    "noeis": {
+      "type": "streamable-http",
+      "url": "https://note-taker-3-unrg.onrender.com/mcp"
+    }
+  }
+}

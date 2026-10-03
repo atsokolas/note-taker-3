@@ -371,7 +371,7 @@ export const writeTools = [
   },
   {
     name: 'create_highlight',
-    description: 'Create a highlight on an existing Library article.',
+    description: 'Create a highlight on an existing Library article using an exact source passage, never a paraphrase or invented quotation. The note is the reader’s private thought, kept separate from source text. Save a thought only when the reader explicitly asks; preserve their words and label any assistant wording. Read the source first.',
     inputSchema: {
       articleId: z.string().describe('Library article id.'),
       text: z.string().min(3),
@@ -384,7 +384,7 @@ export const writeTools = [
   },
   {
     name: 'update_highlight',
-    description: 'Change what a highlight carries: its note, its tags, its colour, or what kind of thing it is. Only the fields you pass are touched. articleId is optional — every tool that returns a highlight names it, and it is resolved for you when omitted.',
+    description: 'Change what a highlight carries: its note, its tags, its colour, or what kind of thing it is. The note is source-bound private reader thinking. Save or replace it only when the reader explicitly asks; preserve the reader’s authorship and read the existing note first. Only the fields you pass are touched. articleId is optional — every tool that returns a highlight names it, and it is resolved for you when omitted.',
     inputSchema: {
       highlightId: z.string().describe('Highlight id.'),
       articleId: z.string().optional().describe('The article holding it. Resolved from the highlight when omitted.'),

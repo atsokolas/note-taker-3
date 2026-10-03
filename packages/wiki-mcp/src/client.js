@@ -13,7 +13,7 @@ const UNSETTLED_INGEST_STATUSES = new Set(['pending', 'processing']);
    one, not a failure — and the API already says which page would hold it. */
 const ingestNextStep = (run = {}) => {
   const affected = Array.isArray(run.affectedPageIds) ? run.affectedPageIds.length : 0;
-  if (affected) return `Folded into ${affected} existing page${affected === 1 ? '' : 's'}. Nothing further needed.`;
+  if (affected) return `Processed against ${affected} existing page${affected === 1 ? '' : 's'}. Read the pages and any research candidates to verify the result; proposed changes still require the existing human review policy.`;
   if (run.suggestedCreatePage) {
     return 'No page claimed this source. To keep it, call create_page with the suggestedCreatePage title and pass its source as initialSourceRef.';
   }
@@ -158,6 +158,7 @@ const normalizeNotebookSummary = (entry = {}) => ({
 });
 
 const normalizeNotebookEntry = (entry = {}) => ({
+  ...entry,
   id: pickId(entry),
   title: entry.title || 'Untitled',
   content: entry.content || '',
@@ -446,11 +447,41 @@ export class NoeisClient {
      reader owns and search the pile for one of them. */
   getHighlight({ highlightId }) {
     return this.request(`/api/highlights/${encodeURIComponent(highlightId)}`)
-      .then(normalizeHighlight)
+      .then(highlight => highlight ? normalizeHighlight(highlight) : null)
       .catch(error => {
         if (error?.status === 404) return null;
         throw error;
       });
+  }
+
+  // Keep the author's passage and the reader's words separate. Resolve each
+  // resource through existing scoped reads; never infer a link from a title.
+  async getSourceThoughtContext({ highlightId, entryId } = {}) {
+    const highlight = await this.getHighlight({ highlightId });
+    if (!highlight?.articleId) {
+      throw new NoeisApiError('Saved highlight not found.', { status: 404 });
+    }
+    const article = await this.getArticle({ articleId: highlight.articleId });
+    const entry = entryId ? await this.getNotebookEntry({ entryId }) : null;
+    if (entry && entry.linkedArticleId !== highlight.articleId
+      && !entry.linkedHighlightIds.includes(highlight.id)) {
+      throw new NoeisApiError('This Notebook entry is not linked to the selected source. Read the entry separately; do not claim a source relationship.', { status: 400 });
+    }
+    return {
+      source: { articleId: highlight.articleId, title: article.title, author: article.author || '', url: article.url || '' },
+      passage: { highlightId: highlight.id, text: highlight.text, anchor: highlight.anchor || null },
+      readerThought: { note: highlight.note, notebookEntry: entry },
+      links: {
+        article: `https://www.noeis.io/articles/${encodeURIComponent(highlight.articleId)}`,
+        passage: `https://www.noeis.io/library?articleId=${encodeURIComponent(highlight.articleId)}&highlightId=${encodeURIComponent(highlight.id)}`
+      },
+      authorship: { passage: 'source', note: 'reader_saved', notebookEntry: entry ? 'reader_saved' : null },
+      nextStep: 'Compare the exact passage with the reader’s words, label your interpretation separately, and save only when the reader explicitly asks.'
+    };
+  }
+
+  getResearchCandidate({ pageId } = {}) {
+    return this.request(`/api/wiki/pages/${encodeURIComponent(pageId)}/research-candidate`);
   }
 
   /* Echoing the whole body back is both wasteful and quiet about the one thing

@@ -17,7 +17,7 @@ const getBearerToken = (req = {}) => {
 
 const setMcpHeaders = (res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Expose-Headers', 'Mcp-Session-Id');
+  res.setHeader('Access-Control-Expose-Headers', 'Mcp-Session-Id, WWW-Authenticate');
   res.setHeader(
     'Access-Control-Allow-Headers',
     'Authorization, Content-Type, Mcp-Protocol-Version, Mcp-Session-Id, Last-Event-ID'
@@ -30,6 +30,8 @@ const setMcpHeaders = (res) => {
    memory; the tool call itself is still authenticated by the existing API. */
 const buildHostedMcpRouter = ({
   authenticateAgentToken,
+  resourceMetadataUrl = null,
+  internalApiUrl = `http://127.0.0.1:${process.env.PORT || 3000}`,
   loadServer = loadMcpServer,
   Transport = StreamableHTTPServerTransport
 } = {}) => {
@@ -55,15 +57,19 @@ const buildHostedMcpRouter = ({
 
   router.post('/mcp', authenticateAgentToken, async (req, res, next) => {
     const token = getBearerToken(req);
+    let server;
     try {
       const { createMcpServer } = await loadServer();
-      const server = createMcpServer({ token });
+      server = createMcpServer({ token, apiUrl: internalApiUrl, grantedScopes: req.agentToken?.scopes, resourceMetadataUrl });
       const transport = new Transport({ sessionIdGenerator: undefined });
       await server.connect(transport);
       await transport.handleRequest(req, res, req.body);
-      await server.close();
     } catch (error) {
       next(error);
+    } finally {
+      if (server) {
+        try { await server.close(); } catch (error) { if (!res.headersSent) next(error); }
+      }
     }
   });
 

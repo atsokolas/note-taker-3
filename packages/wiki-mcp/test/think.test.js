@@ -27,6 +27,46 @@ const FOLDERS = [
 ];
 
 const run = async () => {
+  // Exact passages retain whitespace and anchors; thoughts remain separate.
+  // Existing source identity is required rather than guessed from a title.
+  {
+    const quote = 'An exact  passage.\nSecond line.';
+    const { client, calls } = clientWith([
+      { _id: 'h1', articleId: 'a1', text: quote, note: 'My contrary thought', anchor: { start: 4 } },
+      { _id: 'a1', title: 'Source', author: 'Author', url: 'https://example.com/source' },
+      { _id: 'n1', linkedHighlightIds: ['h1'], content: 'My argument', importMeta: { provider: 'reader' } }
+    ]);
+    const result = await client.getSourceThoughtContext({ highlightId: 'h1', entryId: 'n1' });
+    assert.strictEqual(result.passage.text, quote);
+    assert.deepStrictEqual(result.passage.anchor, { start: 4 });
+    assert.strictEqual(result.readerThought.note, 'My contrary thought');
+    assert.strictEqual(result.links.article, 'https://www.noeis.io/articles/a1');
+    assert.strictEqual(result.links.passage, 'https://www.noeis.io/library?articleId=a1&highlightId=h1');
+    assert.strictEqual(result.readerThought.notebookEntry.importMeta.provider, 'reader');
+    assert.deepStrictEqual(result.authorship, { passage: 'source', note: 'reader_saved', notebookEntry: 'reader_saved' });
+    assert.ok(calls.every(call => call.method === 'GET'));
+  }
+  {
+    const { client } = clientWith([
+      { _id: 'h1', articleId: 'a1', text: 'Source text' },
+      { _id: 'a1', title: 'Same title' },
+      { _id: 'n1', title: 'Same title', linkedArticleId: 'a2' }
+    ]);
+    await assert.rejects(() => client.getSourceThoughtContext({ highlightId: 'h1', entryId: 'n1' }), /not linked/);
+  }
+  {
+    const { client, calls } = clientWith([null]);
+    await assert.rejects(() => client.getSourceThoughtContext({ highlightId: 'missing' }), /not found/);
+    assert.strictEqual(calls.length, 1);
+  }
+  {
+    const candidate = { revisionId: 'r1', status: 'awaiting_maintenance_acceptance', candidate: { body: 'Proposed only' } };
+    const { client, calls } = clientWith([candidate]);
+    assert.deepStrictEqual(await client.getResearchCandidate({ pageId: 'p1' }), candidate);
+    assert.match(calls[0].url, /pages\/p1\/research-candidate$/);
+    assert.strictEqual(calls[0].method, 'GET');
+  }
+
   // The full listing returns every entry's whole body. Ask for the projection
   // that answers "what is in my notebook" without reading the notebook aloud.
   {

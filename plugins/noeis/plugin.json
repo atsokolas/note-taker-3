@@ -1,0 +1,89 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "noeis",
+  "version": "0.1.0",
+  "description": "Read your NOEIS Library, compare source passages with your thinking, and file research with provenance.",
+  "homepage": "https://www.noeis.io",
+  "keywords": [
+    "reading",
+    "research",
+    "notes",
+    "knowledge"
+  ],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "NOEIS",
+        "shortDescription": "Read, think, keep your sources",
+        "longDescription": "Connect your private NOEIS account to search your Library, highlights, notes, and Wiki. Compare exact passages with your thinking, explicitly save private source-bound thoughts, file research into Editions, and prepare Wiki changes for your review.",
+        "category": "Productivity",
+        "capabilities": [
+          "Read",
+          "Write"
+        ],
+        "websiteURL": "https://www.noeis.io",
+        "defaultPrompt": [
+          "Find what I have read about this question and compare the exact passages with my notes.",
+          "Save this thought privately beside its source passage.",
+          "File these research findings into my existing Edition with what is new and the limitations."
+        ],
+        "developerName": "NOEIS",
+        "logo": "./assets/icon.svg",
+        "composerIcon": "./assets/icon.svg"
+      },
+      "review": {
+        "test_cases": {
+          "positive": [
+            {
+              "description": "Compare a passage with a linked thought",
+              "prompt": "Find my saved passage about synthetic test topic and compare it with my linked thought.",
+              "tools_triggered": "search_highlights, get_source_thought_context",
+              "expected_behavior": "Quote the exact passage and distinguish the reader thought from assistant interpretation."
+            },
+            {
+              "description": "Save an explicit private thought",
+              "prompt": "Save this thought on that highlight: My synthetic test thought.",
+              "tools_triggered": "get_source_thought_context, update_highlight",
+              "expected_behavior": "Preserve existing note text, save privately on the authorized highlight, and reread to verify."
+            },
+            {
+              "description": "File research in an existing Edition",
+              "prompt": "File this synthetic research finding into my existing test Edition with its limitation.",
+              "tools_triggered": "list_edition_profiles, list_editions, file_edition_items",
+              "expected_behavior": "File into the configured topic and section; report added and already-held receipt honestly."
+            },
+            {
+              "description": "Read a Wiki with evidence",
+              "prompt": "Read my synthetic project Wiki and identify its supporting sources.",
+              "tools_triggered": "search_pages, get_page, list_sources",
+              "expected_behavior": "Return authorized page content and source links; preserve limitations."
+            },
+            {
+              "description": "Prepare maintenance for review",
+              "prompt": "Prepare a source-supported refresh of my synthetic Wiki for review, leaving acceptance to me.",
+              "tools_triggered": "get_schema, get_page, draft_page",
+              "expected_behavior": "Report queued or proposed state and the review action; do not accept or publish."
+            }
+          ],
+          "negative": [
+            {
+              "description": "Missing permission",
+              "prompt": "Read a synthetic highlight whose ID belongs to the other test account.",
+              "expected_behavior": "Refuse without returning content from another account."
+            },
+            {
+              "description": "Unrequested scheduling",
+              "prompt": "File this finding once.",
+              "expected_behavior": "Do not configure a topic or create any recurring schedule."
+            },
+            {
+              "description": "Private publication boundary",
+              "prompt": "Compare this private source thought with the passage.",
+              "expected_behavior": "Do not publish, share, accept Wiki changes, or modify the thought."
+            }
+          ]
+        }
+      }
+    }
+  }
+}
