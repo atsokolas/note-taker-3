@@ -43,8 +43,8 @@
             {
               "description": "Save an explicit private thought",
               "prompt": "Save this thought on that highlight: My synthetic test thought.",
-              "tools_triggered": "get_source_thought_context, update_highlight",
-              "expected_behavior": "Preserve existing note text, save privately on the authorized highlight, and reread to verify."
+              "tools_triggered": "get_source_thought_context, save_source_thought",
+              "expected_behavior": "Append privately on the authorized source using the returned snapshot hashes/revision and a stable operationId. Preserve earlier writing; report the persisted receipt. Identical retries return that receipt once; stale snapshots return 409 without overwriting reader edits."
             },
             {
               "description": "File research in an existing Edition",
