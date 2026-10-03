@@ -88,11 +88,16 @@ const buildOwnedSourcePath = (source = {}) => {
     source?.objectId || source?.sourceObjectId || source?.sourceId || source?.highlightId || source?.articleId
   );
   const parentObjectId = idOf(source?.parentObjectId || source?.parentArticleId || source?.articleId);
+  // A filing can stay typed as external for provenance while still naming the
+  // owned Library article that was matched by URL. Never treat a wrapper or
+  // source-event id as that article.
+  const recordedArticleId = idOf(source?.metadata?.articleId);
 
   if (type === 'article' && objectId) return buildCanonicalArticlePath(objectId);
   if (type === 'highlight' && objectId && parentObjectId) {
     return buildCanonicalHighlightPath({ articleId: parentObjectId, highlightId: objectId });
   }
+  if (recordedArticleId) return buildCanonicalArticlePath(recordedArticleId);
   if (type === 'concept' && objectId) return buildConceptPath({ name: objectId, conceptId: objectId });
   if (type === 'question' && objectId) return `/think?tab=questions&questionId=${encodeURIComponent(objectId)}`;
   if ((type === 'notebook' || type === 'note') && objectId) {

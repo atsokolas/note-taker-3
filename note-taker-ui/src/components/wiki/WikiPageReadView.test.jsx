@@ -2619,6 +2619,57 @@ describe('WikiPageReadView', () => {
     );
   });
 
+  it('opens citation [1] in Library when a CoreWeave 10-Q was matched to an owned article', async () => {
+    getWikiPage.mockResolvedValueOnce({
+      ...page,
+      title: 'CoreWeave',
+      sourceRefs: [
+        {
+          _id: 'src-10q',
+          type: 'article',
+          objectId: 'library-10q',
+          title: 'CRWV 10-Q filed 2026-05-08',
+          url: 'https://www.sec.gov/Archives/edgar/data/1769628/000176962826000123/crwv-20250331.htm',
+          snippet: 'Revenue doubled, yet operating loss widened.',
+          metadata: { articleId: 'library-10q', source: 'sec-edgar', ticker: 'CRWV' }
+        }
+      ],
+      claims: [
+        {
+          claimId: 'claim-1',
+          text: 'Memory compounds with review.',
+          support: 'supported',
+          sourceRefIds: ['src-10q']
+        }
+      ]
+    });
+
+    render(
+      <MemoryRouter>
+        <WikiPageReadView pageId="wiki-1" onEdit={jest.fn()} />
+      </MemoryRouter>
+    );
+
+    const citation = await screen.findByRole('button', { name: 'Backlink to source 1' });
+    fireEvent.mouseOver(citation);
+
+    const dialog = await screen.findByRole('dialog', { name: 'Claim citations' });
+    expect(dialog).toHaveTextContent('Supported');
+    expect(dialog).toHaveTextContent('1 source');
+    expect(within(dialog).getByRole('link', { name: 'CRWV 10-Q filed 2026-05-08' })).toHaveAttribute(
+      'href',
+      '/library?articleId=library-10q'
+    );
+    expect(within(dialog).getByRole('link', { name: 'Open in Library →' })).toHaveAttribute(
+      'href',
+      '/library?articleId=library-10q'
+    );
+    expect(within(dialog).getByRole('link', { name: 'Open original ↗' })).toHaveAttribute(
+      'href',
+      'https://www.sec.gov/Archives/edgar/data/1769628/000176962826000123/crwv-20250331.htm'
+    );
+  });
+
   it('renders source references and round-trips between claim footnotes and the reference list', async () => {
     render(
       <MemoryRouter>
