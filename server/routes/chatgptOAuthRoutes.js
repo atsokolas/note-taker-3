@@ -14,7 +14,7 @@ const parseScopes = value => {
 };
 const scalar = (value, limit = 2048) => typeof value === 'string' && value.length <= limit ? value : '';
 
-const buildChatgptOAuthRouter = ({ config, authenticateToken, Request, Grant, AgentToken, Control = ChatgptOAuthControl, controls: suppliedControls, now = () => new Date() }) => {
+const buildChatgptOAuthRouter = ({ config, authenticateToken, Request, Grant, AgentToken, Control = ChatgptOAuthControl, controls: suppliedControls, isReady = () => true, now = () => new Date() }) => {
   const router = express.Router();
   if (!config) return router;
   const error = (res, name, status = 400) => res.status(status).json({ error: name });
@@ -31,6 +31,11 @@ const buildChatgptOAuthRouter = ({ config, authenticateToken, Request, Grant, Ag
     // A route-local parser cannot enforce a cap after the main import parser.
     // Require the early raw ingress middleware rather than silently bypassing it.
     if (isOAuthPath(req) && !req.chatgptOAuthBodyBounded) return error(res, 'invalid_parser_order', 400);
+    if (isOAuthPath(req) && !isReady()) {
+      res.set('Cache-Control', 'no-store');
+      res.set('Retry-After', '5');
+      return error(res, 'temporarily_unavailable', 503);
+    }
     next();
   });
   const callback = (row, params) => {

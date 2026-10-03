@@ -2,6 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const express = require('express');
+const { createChatgptOAuthReadiness } = require('../../services/chatgptOAuthReadiness');
 const { buildChatgptOAuthRouter } = require('../chatgptOAuthRoutes');
 const { readChatgptOAuthConfig } = require('../../services/chatgptOAuthConfig');
 const { buildAuthenticateAgentToken } = require('../../services/agentTokenService');
@@ -68,7 +69,7 @@ const fixture = async (models = {}) => {
     release: async () => {}
   };
   app.use(buildChatgptOAuthRouter({ config: models.config || config, authenticateToken: auth, Request, Grant, AgentToken,
-    Control: models.Control, controls: models.controls || (models.Control ? undefined : protocolControls), now: () => time }));
+    Control: models.Control, controls: models.controls || (models.Control ? undefined : protocolControls), isReady: models.isReady, now: () => time }));
   app.get('/api/agent-connection', buildAuthenticateAgentToken({ AgentToken, OAuthGrant: Grant, oauthResource: config.resource, consume: false, now: () => time }), (req, res) => res.json({ user: req.user.id }));
   app.use((err, req, res, next) => res.status(500).json({ error: err.message }));
   const server = await new Promise(resolve => { const listener = app.listen(0, '127.0.0.1', () => resolve(listener)); });
@@ -93,6 +94,45 @@ const fixture = async (models = {}) => {
   };
   return { base, Request, Grant, AgentToken, call, authorize, consent, exchange, connect, setTime: value => { time = value; }, close: () => new Promise(resolve => server.close(resolve)) };
 };
+
+test('OAuth issuance stays 503 during index startup and after failure; unrelated app/discovery remain available', async () => {
+  const logs = [];
+  let finish;
+  const pending = new Promise(resolve => { finish = resolve; });
+  const attempts = [];
+  const models = Object.fromEntries(['Request', 'Grant', 'Control'].map(name => [name, { createIndexes: async () => { attempts.push(name); await pending; } }]));
+  const readiness = createChatgptOAuthReadiness({ models, logger: { info: (...args) => logs.push(args), error: (...args) => logs.push(args) } });
+  const f = await fixture({ isReady: readiness.isReady });
+  try {
+    assert.equal((await f.authorize()).status, 503);
+    assert.equal((await f.exchange('not-issued')).status, 503);
+    assert.equal((await f.consent('not-issued')).status, 503);
+    assert.equal(f.Request.rows.length, 0);
+    assert.equal(f.Grant.rows.length, 0);
+    assert.equal(f.AgentToken.rows.length, 0);
+    assert.equal((await f.call('/.well-known/oauth-authorization-server')).status, 200);
+    assert.equal((await f.call('/api/agent-connection')).status, 401);
+    finish(); await readiness.settled;
+    assert.equal((await f.authorize()).status, 302);
+    assert.deepEqual(attempts.sort(), ['Control', 'Grant', 'Request']);
+    assert.equal(readiness.isReady(), true);
+  } finally { await f.close(); }
+  const failed = createChatgptOAuthReadiness({ models: {
+    Request: { createIndexes: async () => {} },
+    Grant: { createIndexes: async () => { throw new Error('mongodb://secret-password@private-host'); } },
+    Control: { createIndexes: async () => {} }
+  }, logger: { info: (...args) => logs.push(args), error: (...args) => logs.push(args) } });
+  await failed.settled;
+  const blocked = await fixture({ isReady: failed.isReady });
+  try {
+    assert.equal((await blocked.authorize()).status, 503);
+    assert.equal((await blocked.exchange('not-issued')).status, 503);
+    assert.equal(blocked.Request.rows.length, 0);
+    assert.equal(blocked.AgentToken.rows.length, 0);
+    assert.doesNotMatch(JSON.stringify(logs), /secret-password|private-host/);
+    assert.ok(logs.some(args => args[1] === 'Grant'));
+  } finally { await blocked.close(); }
+});
 
 test('predefined client config fails closed for insecure/unconfigured clients', () => {
   assert.equal(readChatgptOAuthConfig({}), null);
@@ -336,22 +376,42 @@ test('misordered body parsers and missing early middleware fail closed', async (
   } finally { await new Promise(resolve => missing.close(resolve)); }
 });
 
-const withControlMongo = async run => {
+const withControlMongo = async (run, { initializeIndexes = true } = {}) => {
   const mongoose = require('mongoose');
   const { MongoMemoryServer } = require('mongodb-memory-server');
   const path = require('node:path'), os = require('node:os'), fs = require('node:fs');
   const cached = path.join(os.homedir(), '.cache/mongodb-binaries/mongod-arm64-darwin-8.2.6');
   const mongo = await MongoMemoryServer.create({ binary: fs.existsSync(cached) ? { systemBinary: cached, version: '8.2.6' } : undefined });
   try {
-    await mongoose.connect(mongo.getUri());
+    await mongoose.connect(mongo.getUri(), { autoIndex: false });
     const { ChatgptOAuthRequest: Request, ChatgptOAuthGrant: Grant, ChatgptOAuthControl: Control } = require('../../models/chatgptOAuthModels');
     const { AgentToken } = require('../../models');
     // init() was cached by the previous disposable connection, so explicitly
     // create indexes on this database, including the real cleanup TTL index.
-    await Promise.all([Request.createIndexes(), Grant.createIndexes(), Control.createIndexes(), AgentToken.createIndexes()]);
+    if (initializeIndexes) await Promise.all([Request.createIndexes(), Grant.createIndexes(), Control.createIndexes(), AgentToken.createIndexes()]);
     await run({ Request, Grant, Control, AgentToken, mongoose, mongo });
   } finally { await mongoose.disconnect(); await mongo.stop(); }
 };
+
+test('real Mongo: explicit startup index creation verifies unique and TTL indexes with autoIndex disabled', async () => {
+  await withControlMongo(async ({ Request, Grant, Control }) => {
+    await Promise.all([Request.createCollection(), Grant.createCollection(), Control.createCollection()]);
+    for (const model of [Request, Grant, Control]) {
+      assert.equal((await model.collection.indexes()).length, 1, 'only Mongo _id index exists before readiness');
+    }
+    const readiness = createChatgptOAuthReadiness({ models: { ChatgptOAuthRequest: Request, ChatgptOAuthGrant: Grant, ChatgptOAuthControl: Control }, logger: { info: () => {}, error: () => {} } });
+    assert.equal(readiness.isReady(), false);
+    assert.equal(await readiness.settled, true);
+    const requestIndexes = await Request.collection.indexes();
+    assert.equal(requestIndexes.find(index => index.key.requestId)?.unique, true);
+    assert.equal(requestIndexes.find(index => index.key.expiresAt)?.expireAfterSeconds, 0);
+    const grantIndexes = await Grant.collection.indexes();
+    assert.equal(grantIndexes.find(index => index.key.familyId)?.unique, true);
+    assert.equal(grantIndexes.find(index => index.key.refreshHash)?.unique, true);
+    assert.equal(grantIndexes.find(index => index.key.expiresAt)?.expireAfterSeconds, 86400);
+    assert.equal((await Control.collection.indexes()).find(index => index.key.expiresAt)?.expireAfterSeconds, 0);
+  }, { initializeIndexes: false });
+});
 
 test('real Mongo: concurrent workers cannot exceed global/client allocation caps; expired leases reclaim without TTL lag', async () => {
   await withControlMongo(async models => {

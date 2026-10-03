@@ -684,8 +684,12 @@ const { buildAgentTokenRouter } = require('./routes/agentTokenRoutes');
 const { buildHostedMcpRouter } = require('./routes/hostedMcpRoutes');
 const { buildChatgptOAuthRouter } = require('./routes/chatgptOAuthRoutes');
 const { readChatgptOAuthConfig } = require('./services/chatgptOAuthConfig');
-const { ChatgptOAuthRequest, ChatgptOAuthGrant } = require('./models/chatgptOAuthModels');
+const { ChatgptOAuthRequest, ChatgptOAuthGrant, ChatgptOAuthControl } = require('./models/chatgptOAuthModels');
+const { createChatgptOAuthReadiness } = require('./services/chatgptOAuthReadiness');
 const chatgptOAuthConfig = readChatgptOAuthConfig();
+const chatgptOAuthReadiness = chatgptOAuthConfig ? createChatgptOAuthReadiness({
+  models: { ChatgptOAuthRequest, ChatgptOAuthGrant, ChatgptOAuthControl }
+}) : null;
 const { buildEditionRouter } = require('./routes/editionRoutes');
 const { buildEditionThoughtRouter } = require('./routes/editionThoughtRoutes');
 
@@ -6907,7 +6911,8 @@ app.use(buildAgentTokenRouter({
 
 app.use(buildChatgptOAuthRouter({
   config: chatgptOAuthConfig, authenticateToken,
-  Request: ChatgptOAuthRequest, Grant: ChatgptOAuthGrant, AgentToken
+  Request: ChatgptOAuthRequest, Grant: ChatgptOAuthGrant, AgentToken,
+  isReady: chatgptOAuthReadiness?.isReady
 }));
 app.use(buildHostedMcpRouter({
   authenticateAgentToken: authenticateMcpToken,
