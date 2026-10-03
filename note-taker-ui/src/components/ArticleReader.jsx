@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { QuietButton } from './ui';
@@ -47,6 +47,53 @@ const highlightIdsOf = (highlights = []) => (
     .map((item) => String(item?._id || item?.id || '').trim())
     .filter(Boolean)
 );
+
+const PASSAGE_SELECTOR = 'p, li, blockquote, h2, h3';
+
+const passageText = (node) => String(node?.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 180);
+
+const scrollParentOf = (node) => {
+  let scroller = node?.parentElement;
+  while (scroller) {
+    const style = window.getComputedStyle(scroller);
+    if (scroller.scrollHeight > scroller.clientHeight && /(auto|scroll)/.test(style.overflowY)) return scroller;
+    scroller = scroller.parentElement;
+  }
+  return window;
+};
+
+/* The passage on screen, before a highlight rewrites the article HTML.
+   Replacing the body drops the scroll anchor, and the window jumps to the top. */
+const holdReadingPlace = (root) => {
+  if (!root || typeof window === 'undefined') return null;
+  let held = null;
+  [...root.querySelectorAll(PASSAGE_SELECTOR)].some((candidate) => {
+    const rect = candidate.getBoundingClientRect();
+    if (rect.height <= 0 || rect.bottom <= 96 || rect.top >= window.innerHeight) return false;
+    held = { text: passageText(candidate), top: rect.top, scrollY: window.scrollY };
+    return true;
+  });
+  return held || { text: '', top: null, scrollY: window.scrollY };
+};
+
+const restoreReadingPlace = (root, held) => {
+  if (!held || typeof window === 'undefined') return;
+  const match = held.text
+    ? [...(root?.querySelectorAll(PASSAGE_SELECTOR) || [])].find((node) => passageText(node) === held.text)
+    : null;
+  if (match && held.top != null) {
+    const delta = match.getBoundingClientRect().top - held.top;
+    if (Math.abs(delta) < 1) return;
+    const scroller = scrollParentOf(match);
+    if (scroller === window) window.scrollBy({ top: delta, behavior: 'instant' });
+    else if (typeof scroller.scrollBy === 'function') scroller.scrollBy({ top: delta, behavior: 'instant' });
+    else scroller.scrollTop += delta;
+    return;
+  }
+  if (Number.isFinite(held.scrollY) && Math.abs(window.scrollY - held.scrollY) > 1) {
+    window.scrollTo({ top: held.scrollY, left: window.scrollX, behavior: 'instant' });
+  }
+};
 
 const ArticleFolioLine = ({ line, articleId }) => {
   const reduced = usePrefersReducedMotion();
@@ -283,6 +330,18 @@ const ArticleReader = ({
     explicitDestination: Boolean(focusedHighlightId || location.hash || new URLSearchParams(location.search).has('searchMissing') || location.state?.explicitPassage),
     enabled: Boolean(articleId && hasReadableContent(article?.content))
   });
+  const highlightSignature = highlightIdsOf(highlights).join('\n');
+  const seenHighlights = useRef(highlightSignature);
+  const readingAnchor = useRef(null);
+  if (seenHighlights.current !== highlightSignature) {
+    readingAnchor.current = holdReadingPlace(contentRef.current);
+    seenHighlights.current = highlightSignature;
+  }
+  useLayoutEffect(() => {
+    const held = readingAnchor.current;
+    readingAnchor.current = null;
+    if (held) restoreReadingPlace(contentRef.current, held);
+  }, [highlightSignature]);
 
   if (!article) {
     return (

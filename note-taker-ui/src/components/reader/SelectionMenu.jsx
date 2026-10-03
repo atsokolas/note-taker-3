@@ -8,6 +8,13 @@ import { HIGHLIGHT_COLOR_OPTIONS } from '../../constants/highlightColors';
    edge into the sentence you had selected; eighteen still landed it in the
    line above that one, which at this measure is about thirty pixels tall. */
 const SELECTION_GAP_PX = 30;
+
+/* A pointer press must not move focus onto the menu. The menu closes as soon
+   as the passage is kept, and removing a focused button scrolls the document
+   back to the top. */
+const keepReadingPlace = (event) => {
+  event.preventDefault();
+};
 const MAX_DRIFT_PX = 14;
 const POINTER_INFLUENCE_RADIUS_PX = 280;
 
@@ -111,14 +118,14 @@ const SelectionMenu = React.forwardRef(({
           they sit after Ask about this rather than in front of it, because
           choosing a colour is the rarer thing and the rarer thing goes last. */}
       <div className="selection-menu__actions">
-        <button type="button" className="selection-menu-button" onClick={() => onHighlight?.()} disabled={saving}>
+        <button type="button" className="selection-menu-button" onMouseDown={keepReadingPlace} onClick={() => onHighlight?.()} disabled={saving}>
           {saving ? 'Saving...' : 'Highlight'}
         </button>
-        {onThought ? <button type="button" className="selection-menu-button" onClick={onThought} disabled={saving}>Leave a thought</button> : null}
-        <button type="button" className="selection-menu-button is-muted" onClick={onAskLibrarian} disabled={saving}>
+        {onThought ? <button type="button" className="selection-menu-button" onMouseDown={keepReadingPlace} onClick={onThought} disabled={saving}>Leave a thought</button> : null}
+        <button type="button" className="selection-menu-button is-muted" onMouseDown={keepReadingPlace} onClick={onAskLibrarian} disabled={saving}>
           Ask about this
         </button>
-        {onWorkWithPassage ? <button type="button" className="selection-menu-button" onClick={onWorkWithPassage} disabled={saving}>
+        {onWorkWithPassage ? <button type="button" className="selection-menu-button" onMouseDown={keepReadingPlace} onClick={onWorkWithPassage} disabled={saving}>
           Work with this passage
         </button> : null}
         <span className="selection-menu__inks" role="group" aria-label="Highlight in a colour">
@@ -128,6 +135,7 @@ const SelectionMenu = React.forwardRef(({
               type="button"
               className="selection-menu__ink"
               style={{ '--ink': ink.value }}
+              onMouseDown={keepReadingPlace}
               onClick={() => onHighlight?.(ink.value)}
               disabled={saving}
               title={ink.label}
