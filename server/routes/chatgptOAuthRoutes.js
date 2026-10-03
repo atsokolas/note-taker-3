@@ -1,6 +1,9 @@
 const crypto = require('crypto');
 const express = require('express');
 const { createAgentTokenSecret, hashAgentTokenSecret } = require('../services/agentTokenService');
+const { ChatgptOAuthControl } = require('../models/chatgptOAuthModels');
+const { buildChatgptOAuthControls } = require('../services/chatgptOAuthControls');
+const { isOAuthPath } = require('../services/chatgptOAuthIngress');
 const opaque = () => crypto.randomBytes(32).toString('base64url');
 const hash = value => crypto.createHash('sha256').update(value).digest('hex');
 const SCOPE_SET = new Set(['read', 'agent-write']);
@@ -11,11 +14,25 @@ const parseScopes = value => {
 };
 const scalar = (value, limit = 2048) => typeof value === 'string' && value.length <= limit ? value : '';
 
-const buildChatgptOAuthRouter = ({ config, authenticateToken, Request, Grant, AgentToken, now = () => new Date() }) => {
+const buildChatgptOAuthRouter = ({ config, authenticateToken, Request, Grant, AgentToken, Control = ChatgptOAuthControl, controls: suppliedControls, now = () => new Date() }) => {
   const router = express.Router();
   if (!config) return router;
   const error = (res, name, status = 400) => res.status(status).json({ error: name });
   const current = () => now();
+  const controls = suppliedControls || buildChatgptOAuthControls({ Control, config, now });
+  const throttle = async (res, endpoint, clientId) => {
+    const result = await controls.rate(endpoint, clientId);
+    if (result.allowed) return true;
+    res.set('Retry-After', String(result.retryAfter));
+    error(res, 'temporarily_unavailable', 429);
+    return false;
+  };
+  router.use((req, res, next) => {
+    // A route-local parser cannot enforce a cap after the main import parser.
+    // Require the early raw ingress middleware rather than silently bypassing it.
+    if (isOAuthPath(req) && !req.chatgptOAuthBodyBounded) return error(res, 'invalid_parser_order', 400);
+    next();
+  });
   const callback = (row, params) => {
     const url = new URL(row.redirectUri);
     for (const [key, value] of Object.entries({ ...params, state: row.state, iss: config.issuer })) {
@@ -77,6 +94,7 @@ const buildChatgptOAuthRouter = ({ config, authenticateToken, Request, Grant, Ag
   }));
   router.get('/oauth/chatgpt/authorize', guard(async (req, res) => {
     const clientId = scalar(req.query.client_id, 500);
+    if (!await throttle(res, 'authorize', clientId)) return;
     const redirectUri = scalar(req.query.redirect_uri);
     const client = config.clients.get(clientId);
     // Never redirect to an untrusted URI, including on errors.
@@ -87,13 +105,29 @@ const buildChatgptOAuthRouter = ({ config, authenticateToken, Request, Grant, Ag
     if (req.query.response_type !== 'code' || req.query.code_challenge_method !== 'S256' || !/^[A-Za-z0-9_-]{43}$/.test(challenge) || row.resource !== config.resource || !scopes || (req.query.state !== undefined && !row.state)) {
       return res.redirect(callback(row, { error: scopes ? 'invalid_request' : 'invalid_scope' }));
     }
+    // Indexed cleanup before allocation also bounds request storage if Mongo's
+    // asynchronous TTL monitor is delayed. Expired codes are already unusable.
+    await Request.deleteMany({ expiresAt: { $lte: current() } });
+    const admission = await controls.admit(clientId);
+    if (!admission) { res.set('Retry-After', '60'); return error(res, 'temporarily_unavailable', 429); }
     const requestId = opaque();
-    await Request.create({ ...row, scopes, challenge, requestId, status: 'pending', expiresAt: new Date(current().getTime() + 10 * 60000) });
+    try {
+      await Request.create({ ...row, scopes, challenge, requestId, status: 'pending', expiresAt: admission.expiresAt });
+    } catch (err) {
+      // Unknown database/network failures may mean the insert committed but its
+      // acknowledgement was lost. Retain admission until expiry in that case.
+      // Only definitive pre-write validation/duplicate rejection frees capacity.
+      if (err.name === 'ValidationError' || err.code === 11000) await controls.release(admission);
+      throw err;
+    }
+    // Keep the lease until the original request expiry even after consent. This
+    // bounds rows in the live allocation window; crashing cannot free capacity early.
     const url = new URL('/settings/connected-agents/chatgpt', config.appUrl);
     url.searchParams.set('request', requestId);
     res.redirect(url.toString());
   }));
   router.get('/api/chatgpt/oauth/requests/:id', authenticateToken, guard(async (req, res) => {
+    if (!await throttle(res, 'consent')) return;
     const row = await Request.findOne({ requestId: req.params.id, status: 'pending', expiresAt: { $gt: current() } });
     if (!row) return error(res, 'invalid_request', 404);
     const client = config.clients.get(row.clientId);
@@ -103,6 +137,7 @@ const buildChatgptOAuthRouter = ({ config, authenticateToken, Request, Grant, Ag
   router.post('/api/chatgpt/oauth/requests/:id/consent', authenticateToken, guard(async (req, res) => {
     // Session cookie auth alone cannot approve grants: require the existing user's Bearer JWT.
     if (req.authInfo?.tokenSource !== 'header' || req.agentToken || !req.user?.id) return error(res, 'access_denied', 403);
+    if (!await throttle(res, 'consent')) return;
     if (typeof req.body?.approved !== 'boolean') return error(res, 'invalid_request');
     const code = opaque();
     const approved = req.body.approved;
@@ -116,6 +151,7 @@ const buildChatgptOAuthRouter = ({ config, authenticateToken, Request, Grant, Ag
   router.post('/oauth/chatgpt/token', express.urlencoded({ extended: false, limit: '8kb' }), guard(async (req, res) => {
     const body = req.body || {};
     const clientId = scalar(body.client_id, 500);
+    if (!await throttle(res, 'token', clientId)) return;
     if (!config.clients.has(clientId) || req.headers.authorization) return error(res, 'invalid_client', 401);
     if (body.resource !== config.resource) return error(res, 'invalid_target');
     if (body.grant_type === 'authorization_code') {
@@ -130,7 +166,7 @@ const buildChatgptOAuthRouter = ({ config, authenticateToken, Request, Grant, Ag
       if (!row) return error(res, 'invalid_grant');
       const refresh = opaque();
       const grant = await Grant.create({ familyId: opaque(), userId: row.userId, clientId,
-        resource: row.resource, scopes: row.scopes, refreshHash: hash(refresh), expiresAt: new Date(current().getTime() + config.refreshTtlSec * 1000) });
+        resource: row.resource, scopes: row.scopes, refreshHash: hash(refresh), refreshCount: 0, expiresAt: new Date(current().getTime() + config.refreshTtlSec * 1000) });
       const access = await mintAccess(grant);
       if (!access) return error(res, 'invalid_grant');
       return tokenResponse(res, grant, access, refresh);
@@ -146,13 +182,14 @@ const buildChatgptOAuthRouter = ({ config, authenticateToken, Request, Grant, Ag
         if (replay) await revokeFamily(replay.familyId);
         return error(res, 'invalid_grant');
       }
+      if (Number(old.refreshCount || 0) >= config.limits.refreshRotations) { await revokeFamily(old.familyId); return error(res, 'invalid_grant'); }
       if (body.scope !== undefined && (!requestedScopes || requestedScopes.some(scope => !old.scopes.includes(scope)))) return error(res, 'invalid_scope');
       // Respect revocation through the existing Connected Agents UI as well as OAuth revocation.
       const linkedToken = old.accessTokenId && await AgentToken.findOne({ _id: old.accessTokenId, userId: old.userId, status: 'active', revokedAt: null });
       if (!linkedToken) { await revokeFamily(old.familyId); return error(res, 'invalid_grant'); }
       const replacement = opaque();
-      const grant = await Grant.findOneAndUpdate({ familyId: old.familyId, refreshHash, revokedAt: null, expiresAt: { $gt: current() } }, {
-        $set: { refreshHash: hash(replacement), ...(requestedScopes ? { scopes: requestedScopes } : {}) }, $push: { usedRefreshHashes: refreshHash }
+      const grant = await Grant.findOneAndUpdate({ familyId: old.familyId, refreshHash, refreshCount: { $lt: config.limits.refreshRotations }, revokedAt: null, expiresAt: { $gt: current() } }, {
+        $set: { refreshHash: hash(replacement), ...(requestedScopes ? { scopes: requestedScopes } : {}) }, $push: { usedRefreshHashes: refreshHash }, $inc: { refreshCount: 1 }
       }, { new: true });
       if (!grant) { await revokeFamily(old.familyId); return error(res, 'invalid_grant'); }
       const access = await mintAccess(grant);
@@ -163,6 +200,7 @@ const buildChatgptOAuthRouter = ({ config, authenticateToken, Request, Grant, Ag
   }));
   router.post('/oauth/chatgpt/revoke', express.urlencoded({ extended: false, limit: '8kb' }), guard(async (req, res) => {
     const clientId = scalar(req.body?.client_id, 500), token = scalar(req.body?.token, 256);
+    if (!await throttle(res, 'revoke', clientId)) return;
     if (!config.clients.has(clientId) || req.headers.authorization) return error(res, 'invalid_client', 401);
     if (!token) return error(res, 'invalid_request');
     const digest = hash(token);

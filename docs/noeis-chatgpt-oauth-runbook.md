@@ -27,6 +27,27 @@ Before enabling production, the owner must approve the issuer/resource/frontend 
 
 OpenAI account connection, tunnel/staging deployment, production deployment, directory submission/publication, and persistent production grants remain separate owner approval gates. A developer test does not authorize them.
 
+## Staging package configuration
+
+The checked-in MCP configuration intentionally uses `https://noeis-chatgpt-staging.invalid/mcp`. This reserved placeholder cannot connect. The default local ZIP is an **unconfigured staging review artifact**, not a working production connection or a deployment. The production API hostname is excluded by the staging package builder.
+
+First obtain approval for an isolated HTTPS staging API, staging frontend, disposable/synthetic review accounts, and the exact public client/callback configuration. Configure the server environment from `plugins/noeis/staging.env.example` outside the ZIP; replace every `.invalid` value and the illustrative client ID with approved values. Do not source the example as production configuration. The server's issuer, MCP resource, and packaged endpoint must agree exactly. Setting configuration does not deploy a server or grant consent.
+
+Build the unconfigured review artifact:
+
+```sh
+node scripts/validate_noeis_plugin_schema.cjs
+python3 scripts/package_noeis_plugin.py --output output/noeis-plugin/noeis-0.1.0-staging-unconfigured.zip
+```
+
+After an actual staging endpoint is approved and deployed, build a distinctly named configured artifact without editing source configuration:
+
+```sh
+python3 scripts/package_noeis_plugin.py --staging-mcp-url https://YOUR-APPROVED-STAGING-HOST/mcp --output output/noeis-plugin/noeis-0.1.0-staging.zip
+```
+
+Replace the illustrative hostname; the builder requires HTTPS, no embedded credentials/query/fragment, and canonical `/mcp`. It changes only the ZIP's MCP URL and emits a neighboring `.config.json` receipt recording staging target, configuration state, and that deployment/account-connect were not performed. The six-file ZIP contains no environment template or credentials. Use the approved actual staging URL for developer-mode connection, then perform consent and account-link verification separately. Canonical schema checks establish package structure; they do not prove endpoint availability, OAuth correctness, publisher approval, or portal acceptance.
+
 ## Endpoints and consent
 
 - `GET /.well-known/oauth-protected-resource` (also the `/mcp` suffix form) advertises the canonical resource, issuer, and `read`/`agent-write` scopes.
@@ -37,7 +58,7 @@ OpenAI account connection, tunnel/staging deployment, production deployment, dir
 - `POST /oauth/chatgpt/token` accepts standard form encoding or JSON. Authorization-code exchange requires client ID, exact redirect, resource, and PKCE verifier. Refresh requires client ID, exact resource, and current refresh credential. Responses have `Cache-Control: no-store` and `Pragma: no-cache`.
 - `POST /oauth/chatgpt/revoke` accepts `{client_id, token}` (access or current/used refresh token). Unknown tokens receive the same 200 response to avoid disclosure. Revocation terminates the whole connection family.
 
-`read` permits private Library/highlight/note/Wiki retrieval. `agent-write` is the existing broad agent mutation scope: available tools include creating, changing, deleting, sharing Wiki content, and accepting supported proposals where existing endpoints permit those operations. Existing human-only endpoints remain human-only, but this OAuth scope does not provide a new per-action approval boundary. The plugin skill instructs agents to obtain explicit human intent and follow the existing proposal/review/acceptance policy; those instructions must not be described as stronger server authorization. Consent explains the broad grant and is explicit, never auto-accepted. Lost consent/code/token responses require starting a fresh connection when safe retry is impossible; no successful connection is claimed without delivered credentials.
+`read` permits private Library/highlight/note/Wiki retrieval. The existing scope name `agent-write` is reused, but OAuth grant-family provenance now applies a server-enforced restricted ChatGPT capability profile. Its writes are source-bound thought appends, additive Edition filing, and Wiki source/candidate preparation. Direct replacement, deletion, sharing, publication and acceptance are rejected in MCP and direct REST. Candidate preparation and deferred ingestion preserve accepted wording pending owner review in NOEIS. Legacy manually created broad agent tokens remain unchanged. Consent describes the supported capability and is explicit, never auto-accepted. Lost consent/code/token responses require a fresh connection when safe retry is impossible; no successful connection is claimed without delivered credentials.
 
 ## Persistence and security boundaries
 
@@ -56,3 +77,8 @@ TTL indexes clean expired requests and expired grant families. Application check
 `node server/routes/__tests__/hostedMcpRoutes.test.js` verifies the stateless transport, challenged CORS header exposure, real MCP tool listing, and explicit internal API origin. Existing scoped-token tests verify compatibility with manually created tokens.
 
 A real ChatGPT account-link flow is not yet run: it requires the approved staging HTTPS endpoint, actual portal predefined-client configuration, and a consenting review account. Production independent security review, Mongo index provisioning, deployment logs/secret-redaction verification, external account-link/refresh/revoke smoke, and OpenAI management/submission review remain launch gates. Enterprise verified-email workspace restrictions and prior ID-token hints are not implemented or advertised.
+
+
+## Public ingress and allocation gate (review F3)
+
+The server now establishes a fixed 8192-byte JSON/form body boundary before its larger import parsers and applies durable Mongo rate/admission controls across workers. Global and configured-client budgets account for shared ChatGPT egress without grouping readers by IP; unknown client/credential values cannot allocate new limiter keys. Live authorization admissions and refresh history have explicit bounds; ambiguous allocation acknowledgements retain capacity safely. See [OAuth ingress controls](noeis-chatgpt-oauth-ingress-controls.md) for defaults, configuration, executed local proof, and the remaining staging edge/index/clock/cleanup verification gate. Application limits are implemented; deployed edge protection is not claimed as configured or verified.

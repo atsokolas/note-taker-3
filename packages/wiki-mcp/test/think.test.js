@@ -2,6 +2,7 @@
 // file it under. Both were reachable from the product and not from an agent.
 
 import assert from 'assert';
+import { createHash } from 'node:crypto';
 
 import { NoeisClient } from '../src/client.js';
 
@@ -40,6 +41,9 @@ const run = async () => {
     assert.strictEqual(result.passage.text, quote);
     assert.deepStrictEqual(result.passage.anchor, { start: 4 });
     assert.strictEqual(result.readerThought.note, 'My contrary thought');
+    assert.strictEqual(result.readerThought.noteHash, createHash('sha256').update('My contrary thought').digest('hex'));
+    assert.strictEqual(result.readerThought.noteRevision, 0);
+    assert.strictEqual(result.passage.hash, createHash('sha256').update(quote).digest('hex'));
     assert.strictEqual(result.links.article, 'https://www.noeis.io/articles/a1');
     assert.strictEqual(result.links.passage, 'https://www.noeis.io/library?articleId=a1&highlightId=h1');
     assert.strictEqual(result.readerThought.notebookEntry.importMeta.provider, 'reader');
@@ -67,6 +71,17 @@ const run = async () => {
     assert.strictEqual(calls[0].method, 'GET');
   }
 
+  {
+    const receipt = { status: 'saved', operationId: 'durable-operation-123', noteRevision: 1 };
+    const { client, calls } = clientWith([receipt]);
+    const args = { articleId: 'a1', highlightId: 'h1', thought: 'New words', operationId: receipt.operationId,
+      expectedNoteHash: 'a'.repeat(64), expectedNoteRevision: 0, expectedPassageHash: 'b'.repeat(64), explicitlyRequested: true };
+    assert.deepStrictEqual(await client.saveSourceThought(args), receipt);
+    assert.match(calls[0].url, /articles\/a1\/highlights\/h1\/thoughts$/);
+    const { articleId, highlightId, ...body } = args;
+    assert.deepStrictEqual(calls[0].body, body);
+    assert.strictEqual(calls[0].method, 'POST');
+  }
   // The full listing returns every entry's whole body. Ask for the projection
   // that answers "what is in my notebook" without reading the notebook aloud.
   {

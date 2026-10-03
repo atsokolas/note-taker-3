@@ -13,7 +13,7 @@ FILES = [Path('plugin.json'), Path('mcp.json'), Path('assets/icon.svg')] + sorte
     path.relative_to(PLUGIN) for path in (PLUGIN / 'skills').glob('*/SKILL.md'))
 
 
-def validate():
+def validate(staging_mcp_url=None):
     manifest = json.loads((PLUGIN / 'plugin.json').read_text())
     assert manifest['$schema'] == 'https://agent-plugins.org/schemas/1.0.0/plugin.schema.json'
     assert re.fullmatch(r'[a-z][a-z0-9-]*', manifest['name'])
@@ -27,11 +27,15 @@ def validate():
     assert mcp['$schema'] == 'https://agent-plugins.org/schemas/1.0.0/mcp.schema.json'
     assert set(mcp['mcpServers']) == {'noeis'}
     server = mcp['mcpServers']['noeis']
+    if staging_mcp_url:
+        server['url'] = staging_mcp_url
     assert set(server) == {'type', 'url'}, 'No embedded headers or credentials allowed'
     assert server['type'] == 'streamable-http'
     url = urlsplit(server['url'])
     assert url.scheme == 'https' and url.hostname and not url.username and not url.password
     assert not url.query and not url.fragment
+    assert url.path == '/mcp', 'Use the staging server canonical /mcp resource'
+    assert url.hostname not in {'note-taker-3-unrg.onrender.com', 'www.noeis.io', 'noeis.io'}, 'This builder produces staging packages only; production requires separate review'
     assert len(FILES) == 6, 'Review the allowlist before changing package components'
     for relative in FILES:
         path = PLUGIN / relative
@@ -43,27 +47,38 @@ def validate():
             header = text.split('---', 2)[1]
             assert f'name: {path.parent.name}\n' in header
             assert re.search(r'^description: .+', header, re.M)
-    return manifest
+    return manifest, mcp
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--output', type=Path)
+    parser.add_argument('--staging-mcp-url', help='Approved staging HTTPS /mcp URL; default is explicitly unconfigured .invalid')
     args = parser.parse_args()
-    manifest = validate()
+    manifest, mcp = validate(args.staging_mcp_url)
+    endpoint = mcp['mcpServers']['noeis']['url']
+    configured = not urlsplit(endpoint).hostname.endswith('.invalid')
     if args.output:
         output = args.output.resolve()
         assert not output.is_relative_to(PLUGIN.resolve()), 'ZIP must stay outside package source'
         output.parent.mkdir(parents=True, exist_ok=True)
         with ZipFile(output, 'w', ZIP_DEFLATED) as archive:
             for relative in FILES:
-                archive.write(PLUGIN / relative, relative.as_posix())
+                if relative == Path('mcp.json'):
+                    archive.writestr('mcp.json', json.dumps(mcp, indent=2) + '\n')
+                else:
+                    archive.write(PLUGIN / relative, relative.as_posix())
         with ZipFile(output) as archive:
             assert set(archive.namelist()) == {p.as_posix() for p in FILES}
             assert archive.testzip() is None
-        print(f'Created {output} ({len(FILES)} reviewed files)')
+        config = {'target': 'staging', 'configured': configured, 'mcpResource': endpoint, 'deploymentPerformed': False, 'accountConnectTested': False}
+        output.with_suffix('.config.json').write_text(json.dumps(config, indent=2) + '\n')
+        print(f'Created {output} ({len(FILES)} reviewed files; staging target)')
     print(f"PASS local package checks: {manifest['name']} {manifest['version']}")
-    print('Not an OpenAI schema/portal validation or hosted OAuth approval.')
+    print(f'STAGING endpoint: {endpoint}')
+    if not configured:
+        print('UNCONFIGURED: .invalid placeholder cannot connect; supply an approved staging URL before installation.')
+    print('Not an OpenAI portal validation, hosted OAuth approval, or deployment.')
 
 
 if __name__ == '__main__':

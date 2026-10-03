@@ -1,5 +1,15 @@
 const express = require('express');
 const http = require('http');
+// Jest's VM omits Node's native fetch; keep this loopback fixture dependency-free.
+const fetch = (url, options) => new Promise((resolve, reject) => {
+  const request = http.request(url, { method: options.method, headers: options.headers }, response => {
+    const chunks = [];
+    response.on('data', chunk => chunks.push(chunk));
+    response.on('end', () => resolve({ status: response.statusCode, json: async () => JSON.parse(Buffer.concat(chunks).toString()) }));
+  });
+  request.on('error', reject);
+  request.end(options.body);
+});
 const { buildHighlightMutationRouter } = require('../highlightMutationRoutes');
 
 /* A highlight lives inside its article as a subdocument, so it has no articleId
@@ -81,7 +91,7 @@ describe('created highlight carries its article', () => {
     app.use(buildHighlightMutationRouter({
       mongoose: { Types: { ObjectId: String } },
       authenticateToken: (req, _res, next) => { req.user = { id: 'user-1' }; next(); },
-      Article: { findOne: async () => article },
+      Article: { findOne: async () => article, findOneAndUpdate: async () => article },
       normalizeTags: value => (Array.isArray(value) ? value : []),
       enqueueHighlightEmbedding: () => {},
       safeMapEmbedding: () => null,
@@ -167,7 +177,7 @@ describe('created highlight carries its article', () => {
     app.use(buildHighlightMutationRouter({
       mongoose: { Types: { ObjectId: String } },
       authenticateToken: (req, _res, next) => { req.user = { id: '64f200000000000000000001' }; next(); },
-      Article: { findOne: async () => article },
+      Article: { findOne: async () => article, findOneAndUpdate: async () => article },
       normalizeTags: (value) => (Array.isArray(value) ? value : []),
       enqueueHighlightEmbedding: () => {},
       safeMapEmbedding: () => null,

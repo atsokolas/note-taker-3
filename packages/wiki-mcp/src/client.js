@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { DEFAULT_API_URL, resolveAuth } from './config.js';
 
 export { DEFAULT_API_URL };
@@ -469,8 +470,8 @@ export class NoeisClient {
     }
     return {
       source: { articleId: highlight.articleId, title: article.title, author: article.author || '', url: article.url || '' },
-      passage: { highlightId: highlight.id, text: highlight.text, anchor: highlight.anchor || null },
-      readerThought: { note: highlight.note, notebookEntry: entry },
+      passage: { highlightId: highlight.id, text: highlight.text, hash: createHash('sha256').update(highlight.text).digest('hex'), anchor: highlight.anchor || null },
+      readerThought: { note: highlight.note, noteHash: createHash('sha256').update(highlight.note).digest('hex'), noteRevision: highlight.noteRevision || 0, notebookEntry: entry },
       links: {
         article: `https://www.noeis.io/articles/${encodeURIComponent(highlight.articleId)}`,
         passage: `https://www.noeis.io/library?articleId=${encodeURIComponent(highlight.articleId)}&highlightId=${encodeURIComponent(highlight.id)}`
@@ -478,6 +479,12 @@ export class NoeisClient {
       authorship: { passage: 'source', note: 'reader_saved', notebookEntry: entry ? 'reader_saved' : null },
       nextStep: 'Compare the exact passage with the reader’s words, label your interpretation separately, and save only when the reader explicitly asks.'
     };
+  }
+
+  saveSourceThought({ articleId, highlightId, thought, operationId, expectedNoteHash, expectedNoteRevision, expectedPassageHash, explicitlyRequested } = {}) {
+    return this.request(`/articles/${encodeURIComponent(articleId)}/highlights/${encodeURIComponent(highlightId)}/thoughts`, {
+      method: 'POST', body: { thought, operationId, expectedNoteHash, expectedNoteRevision, expectedPassageHash, explicitlyRequested }
+    });
   }
 
   getResearchCandidate({ pageId } = {}) {

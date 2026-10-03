@@ -1,6 +1,6 @@
 # NOEIS ChatGPT plugin review and submission gates
 
-Status: local review package, not submitted, deployed, approved, or published. Package source: `plugins/noeis/`; ZIP: `output/noeis-plugin/noeis-0.1.0.zip`. Rebuild with `python3 scripts/package_noeis_plugin.py --output output/noeis-plugin/noeis-0.1.0.zip`. This replaces no existing MCP infrastructure; the new files bundle its workflows for installation.
+Status: local review package, not submitted, deployed, approved, or published. Package source: `plugins/noeis/`; ZIP: `output/noeis-plugin/noeis-0.1.0-staging-unconfigured.zip`. Rebuild with `python3 scripts/package_noeis_plugin.py --output output/noeis-plugin/noeis-0.1.0-staging-unconfigured.zip`. This replaces no existing MCP infrastructure; the new files bundle its workflows for installation.
 
 ## Verified architecture
 
@@ -17,12 +17,13 @@ Authentication uses NOEIS account connection with a predefined public OAuth clie
 ## Release gates
 
 - [ ] Review implementation diff and actual test report, including failed and never-run gates.
-- [ ] Approve deployment of reviewed server/auth changes. Current ZIP points at the existing production hostname; it does not deploy code there.
+- [ ] Approve deployment of reviewed server/auth changes. Use the separately labeled staging package/configuration template. Its reserved .invalid hostname is deliberately unconfigured; substitute the approved staging endpoint and rebuild before installation. The package does not deploy code.
+- [ ] Verify deployed early 8 KiB OAuth parser, durable rate/admission/refresh bounds, Mongo indexes/expiry and staging reverse-proxy limits against `docs/noeis-chatgpt-oauth-ingress-controls.md`.
 - [ ] Choose canonical MCP resource/issuer and approve predefined public-client IDs and exact ChatGPT/Codex callback allowlist in deployment configuration. Configure deployment secrets outside artifacts.
 - [ ] Exercise account login, clear consent, read/write scope selection, cancellation, disconnect/revocation, expiry, PKCE/resource rejection, and two-user cross-account denial on a safe test environment.
 - [ ] In a fresh ChatGPT chat, test exact-passage comparison, missing content, explicit private thought save and reread, duplicate Edition filing receipt, queued/failed progress, and pending Wiki review. Verify optional cards/deep links open only the connected account's authorized content.
 - [ ] Supply publisher-approved public privacy policy, terms, support contact, verified developer identity, and final brand assets. A local square SVG icon and proposed NOEIS developer label are supplied; the label must match the selected verified publisher. The manifest deliberately omits unverified legal URLs and publisher claims; add them only after they exist and identify the same publisher.
-- [ ] Choose the owning OpenAI organization/project and complete developer verification and required submission permission.
+- [ ] Confirm staging acceptance and choose the owning OpenAI organization/project and complete developer verification and required submission permission.
 - [ ] Authorize upload/connect to the portal separately. Complete portal domain verification and OAuth connection; resolve metadata, skill, and discovered-tool findings. Include MCP in the initial upload.
 - [ ] Prepare reviewer instructions and a dedicated synthetic account through an approved channel. Never put reviewer passwords, access/refresh tokens, client secrets, private notes, or production data in the ZIP or repo.
 - [ ] Authorize review submission; wait for successful checks/review. Authorize public publication separately after approval.
@@ -31,7 +32,7 @@ The directory requires ZIP upload, MCP connection/domain verification and succes
 
 ## User decisions needed
 
-1. Approve the code and test evidence, then choose whether to deploy to a test environment first or the approved production endpoint.
+1. Approve the code and test evidence, then approve the configured staging environment and run account-link acceptance there before a separate production decision.
 2. Confirm publisher/organization identity, canonical domain, client/callback configuration, privacy/terms/support copy, and final branding.
 3. Approve a synthetic reviewer account and limited test grant; perform consent personally or through an explicitly authorized operator.
 4. Separately authorize portal upload/review submission and, after approval, public directory publication. No remote push, PR, merge, deployment, grant, or publication is implied by this package.

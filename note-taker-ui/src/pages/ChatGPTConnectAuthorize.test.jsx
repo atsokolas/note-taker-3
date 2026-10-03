@@ -30,8 +30,8 @@ it('loads exact permissions without granting access automatically', async () => 
   open();
   expect(await screen.findByText('ChatGPT requests access')).toBeInTheDocument();
   expect(getChatGPTConsentRequest).toHaveBeenCalledWith('opaque-id');
-  expect(screen.getByText(/Create, change, or delete Library items/)).toBeInTheDocument();
-  expect(screen.getByText(/Existing Wiki tools can accept proposals/)).toBeInTheDocument();
+  expect(screen.getByText(/Save private thoughts on source passages/)).toBeInTheDocument();
+  expect(screen.getByText(/Wiki candidates require your review and acceptance/)).toBeInTheDocument();
   expect(decideChatGPTConsent).not.toHaveBeenCalled();
 });
 it.each([[true, 'Allow connection'], [false, 'Deny connection']])('sends explicit decision %s before returning to the verified client', async (approved, label) => {

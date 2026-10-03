@@ -66,6 +66,20 @@ const judgmentFields = {
 
 export const writeTools = [
   {
+    name: 'save_source_thought',
+    description: 'Append an explicitly requested private thought to one saved source highlight, preserving existing reader wording. First read get_source_thought_context and pass its exact noteHash, noteRevision and passage hash. Keep the same operationId AND identical arguments on uncertain/lost-response retries; saved receipts survive later reader edits. A 409 stale snapshot means reread and reconcile with the reader; never overwrite. Separate reader words from assistant interpretation.',
+    inputSchema: {
+      articleId: z.string().min(1), highlightId: z.string().min(1),
+      thought: z.string().min(1).max(6000).describe('Only the new thought to append, not the existing note.'),
+      operationId: z.string().regex(/^[a-zA-Z0-9_-]{16,128}$/).describe('Fresh stable UUID for this logical save; retain for retries.'),
+      expectedNoteHash: z.string().regex(/^[a-f0-9]{64}$/),
+      expectedNoteRevision: z.number().int().min(0),
+      expectedPassageHash: z.string().regex(/^[a-f0-9]{64}$/),
+      explicitlyRequested: z.literal(true).describe('The reader explicitly asked to save this thought.')
+    },
+    handler: (client, args) => client.saveSourceThought(args)
+  },
+  {
     name: 'create_judgment_page',
     description: 'Create a private living Judgment case with a governing question and a provisional held sentence. Search/list judgment pages first to avoid a duplicate. This creates a revisioned, agent-attributed case; it never publishes, takes an external action, or resolves the judgment.',
     inputSchema: {

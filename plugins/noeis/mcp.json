@@ -3,7 +3,7 @@
   "mcpServers": {
     "noeis": {
       "type": "streamable-http",
-      "url": "https://note-taker-3-unrg.onrender.com/mcp"
+      "url": "https://noeis-chatgpt-staging.invalid/mcp"
     }
   }
 }

@@ -5,7 +5,7 @@ import { Card, Page } from '../components/ui';
 
 const SCOPE_LABELS = {
   read: 'Search and read your Library, exact source passages, highlights, notes, and Wikis.',
-  'agent-write': 'Create, change, or delete Library items, highlights, notes, and Wikis; share supported Wiki content, save private thoughts, file research to Editions, and manage configured topics. This is broad workspace write access.'
+  'agent-write': 'Save private thoughts on source passages, add research with receipts to Editions, and prepare Wiki sources and candidates for your review. Wiki publication, sharing, deletion, and accepted content changes remain in NOEIS.'
 };
 const redirect = (url) => window.location.assign(url);
 
@@ -79,7 +79,7 @@ export default function ChatGPTConnectAuthorize({ navigateToClient = redirect })
               <div className="agent-connect-authorize-card__scope-list">
                 {scopes.map((scope) => <div key={scope} className="agent-connect-authorize-card__scope"><strong>{scope === 'read' ? 'Read your sources' : scope === 'agent-write' ? 'Write to your workspace' : scope}</strong><p>{SCOPE_LABELS[scope] || 'This permission is not supported by this screen.'}</p></div>)}
               </div>
-              <p className="connections-approval-note">Connect only if you started this request in ChatGPT. Connection does not start research or a recurring task. ChatGPT must follow your instructions before saving or changing your work. Existing Wiki tools can accept proposals when you explicitly request it; research candidate proposals require your review in NOEIS. You can revoke access in Connections.</p>
+              <p className="connections-approval-note">Connect only if you started this request in ChatGPT. Connection does not start research or a recurring task. ChatGPT must follow your instructions before saving or changing your work. Wiki candidates require your review and acceptance in NOEIS. You can revoke access in Connections.</p>
               {expired ? <p role="alert">This request has expired. Start Connect NOEIS again in ChatGPT.</p> : null}
               {!supported ? <p role="alert">These permissions cannot be approved. Start a new connection request.</p> : null}
               <div className="settings-actions">

@@ -281,6 +281,7 @@ Write tools require a token with the `agent-write` scope. Read-only tokens recei
 - `set_folder_feed`
 - `create_highlight`
 - `update_highlight`
+- `save_source_thought`
 - `delete_highlight`
 - `write_concept_note`
 - `update_concept_note`

@@ -596,7 +596,8 @@ const runWikiSourceEvent = async ({
         preferredSourceObjectId: String(event._id || ''),
         wikiSchemaContent: effectiveWikiSchemaContent
       };
-      const enforcePublicationShield = isGitHubRepoPage({ page })
+      const ownerReviewRequired = event.metadata?.requireOwnerAcceptance === true;
+      const enforcePublicationShield = ownerReviewRequired || isGitHubRepoPage({ page })
         || protectedPublicPage
         || event.sourceType === 'external'
         || event.metadata?.enforcePublicationQuality === true;
@@ -625,9 +626,9 @@ const runWikiSourceEvent = async ({
             sourceEventId: event._id,
             maintenanceRunId: run?._id || null,
             rejectDestructiveClaimLoss: event.sourceType === 'external' || protectedPublicPage,
-            promoteEvidenceOnlyOnDestructiveLoss: event.sourceType === 'external' && !protectedPublicPage,
+            promoteEvidenceOnlyOnDestructiveLoss: !ownerReviewRequired && event.sourceType === 'external' && !protectedPublicPage,
             requireManualReview: protectedPublicPage,
-            requireOwnerAcceptance: Boolean(page.investmentDossier?.version),
+            requireOwnerAcceptance: ownerReviewRequired || Boolean(page.investmentDossier?.version),
             sourceVersion: event.metadata?.commitSha ? {
               provider: 'github',
               headSha: event.metadata.commitSha,

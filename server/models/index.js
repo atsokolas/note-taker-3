@@ -172,6 +172,15 @@ const articleSchema = new mongoose.Schema({
   highlights: [{
     text: String,
     note: String,
+    noteRevision: { type: Number, default: 0 },
+    thoughtOperations: [{
+      _id: false,
+      operationId: String,
+      requestHash: String,
+      noteHash: String,
+      noteRevision: Number,
+      savedAt: Date
+    }],
     tags: { type: [String], default: [] },
     color: { type: String, default: '#f6e27a' },
     type: { type: String, enum: ['claim', 'evidence', 'note'], default: 'note' },

@@ -28,6 +28,35 @@ const readChatgptOAuthConfig = (env = process.env) => {
     });
     clients.set(row.client_id, { clientId: row.client_id, name: String(row.client_name || 'ChatGPT').slice(0, 100), redirectUris });
   }
-  return { issuer, resource, appUrl, internalApiUrl, clients, accessTtlSec: 3600, refreshTtlSec: 30 * 86400 };
+  // Budgets are per deployment/client, not per IP: many readers share ChatGPT egress.
+  // Configuration may lower or reasonably raise budgets, but cannot disable bounds.
+  const integer = (name, fallback, max) => {
+    const value = env[name] === undefined ? fallback : Number(env[name]);
+    if (!Number.isSafeInteger(value) || value < 1 || value > max) throw new Error(`${name} must be an integer from 1 to ${max}.`);
+    return value;
+  };
+  const limits = {
+    authorize: {
+      global: integer('NOEIS_OAUTH_AUTHORIZE_GLOBAL_PER_MINUTE', 1200, 100000),
+      client: integer('NOEIS_OAUTH_AUTHORIZE_CLIENT_PER_MINUTE', 600, 100000)
+    },
+    token: {
+      global: integer('NOEIS_OAUTH_TOKEN_GLOBAL_PER_MINUTE', 12000, 100000),
+      client: integer('NOEIS_OAUTH_TOKEN_CLIENT_PER_MINUTE', 6000, 100000)
+    },
+    revoke: {
+      global: integer('NOEIS_OAUTH_REVOKE_GLOBAL_PER_MINUTE', 2400, 100000),
+      client: integer('NOEIS_OAUTH_REVOKE_CLIENT_PER_MINUTE', 1200, 100000)
+    },
+    consent: {
+      global: integer('NOEIS_OAUTH_CONSENT_GLOBAL_PER_MINUTE', 2400, 100000)
+    },
+    pending: {
+      global: integer('NOEIS_OAUTH_PENDING_GLOBAL', 2000, 10000),
+      client: integer('NOEIS_OAUTH_PENDING_CLIENT', 1000, 10000)
+    },
+    refreshRotations: integer('NOEIS_OAUTH_MAX_REFRESH_ROTATIONS', 2048, 4096)
+  };
+  return { issuer, resource, appUrl, internalApiUrl, clients, limits, accessTtlSec: 3600, refreshTtlSec: 30 * 86400 };
 };
 module.exports = { readChatgptOAuthConfig };

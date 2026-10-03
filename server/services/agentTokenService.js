@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const { CHATGPT_ACCESS_PROFILE, isChatgptRequestAllowed } = require('./chatgptAccessPolicy');
 
 const AGENT_TOKEN_PREFIX = 'ntk_at_';
 const AGENT_TOKEN_SCOPES = ['read', 'agent-write'];
@@ -29,6 +30,7 @@ const sanitizeAgentToken = (doc = {}) => {
     userId: object?.userId,
     label: object?.label || '',
     runtime: object?.runtime || '',
+    accessProfile: object?.oauthFamilyId ? CHATGPT_ACCESS_PROFILE : null,
     connectionSessionId: object?.connectionSessionId || '',
     scopes: normalizeAgentTokenScopes(object?.scopes || []),
     dailyQuota: object?.dailyQuota ?? null,
@@ -114,6 +116,10 @@ const buildAuthenticateAgentToken = ({
         if (!grant || !oauthResource || token.oauthResource !== oauthResource) {
           return res.status(401).json({ error: 'OAuth access token audience or grant is invalid.' });
         }
+      }
+
+      if (token.oauthFamilyId && !isChatgptRequestAllowed(req)) {
+        return res.status(403).json({ error: 'This ChatGPT connection cannot perform this action. Wiki changes require review; use NOEIS to accept or publish them.', code: 'CHATGPT_ACTION_NOT_ALLOWED' });
       }
 
       const requiredScope = configuredScope || requiredScopeForRequest(req);

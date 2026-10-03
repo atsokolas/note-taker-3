@@ -73,6 +73,8 @@ app.use((req, res, next) => {
 
 app.use(cors());
 
+const { buildChatgptOAuthIngress } = require('./services/chatgptOAuthIngress');
+app.use(buildChatgptOAuthIngress());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 

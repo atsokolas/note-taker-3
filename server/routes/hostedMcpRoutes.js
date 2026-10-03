@@ -60,7 +60,7 @@ const buildHostedMcpRouter = ({
     let server;
     try {
       const { createMcpServer } = await loadServer();
-      server = createMcpServer({ token, apiUrl: internalApiUrl, grantedScopes: req.agentToken?.scopes, resourceMetadataUrl });
+      server = createMcpServer({ token, apiUrl: internalApiUrl, grantedScopes: req.agentToken?.scopes, accessProfile: req.agentToken?.accessProfile, resourceMetadataUrl });
       const transport = new Transport({ sessionIdGenerator: undefined });
       await server.connect(transport);
       await transport.handleRequest(req, res, req.body);
