@@ -87,6 +87,30 @@ test('temporary gateway exact origin, allowlist, body bounds and consent block',
     assert.equal((await call('/.well-known/oauth-authorization-server')).status, 429);
     for (const response of heldResponses) response.end('{}');
     await Promise.all(pending);
+    // Enabling consent exposes one exact request only, never an arbitrary
+    // grant API. The upstream still validates the human JWT and single-use request.
+    assert.throws(() => createGateway({ publicOrigin: 'https://test.trycloudflare.com', buildDir: directory, allowConsent: true }), /exact approved request/);
+    const decisionGateway = await start(createGateway({ publicOrigin: 'https://test.trycloudflare.com', apiOrigin: `http://127.0.0.1:${upstream.address().port}`, buildDir: directory, allowConsent: true, approvedConsentRequestId: 'metadata_request_1234' }));
+    const decisionCall = (route, headers = {}, body = '{"approved":true}') => new Promise((resolve, reject) => {
+      const request = http.request(`http://127.0.0.1:${decisionGateway.address().port}${route}`, { method: 'POST', headers: { Host: 'test.trycloudflare.com', 'Content-Type': 'application/json', ...headers } }, response => {
+        response.resume(); response.on('end', () => resolve(response.statusCode));
+      });
+      request.on('error', reject); request.end(body);
+    });
+    try {
+      const route = context + '/consent';
+      const approvedHeaders = { Authorization: 'Bearer fixture', Origin: 'https://test.trycloudflare.com' };
+      assert.equal(await decisionCall(route, approvedHeaders), 200);
+      const beforeDenied = received.length;
+      assert.equal(await decisionCall(route, { Origin: 'https://test.trycloudflare.com' }), 401);
+      assert.equal(await decisionCall(route, { Authorization: 'Bearer fixture' }), 403);
+      assert.equal(await decisionCall(route, { ...approvedHeaders, Origin: 'https://attacker.example' }), 403);
+      assert.equal(await decisionCall('/api/chatgpt/oauth/requests/another_request_1234/consent', approvedHeaders), 403);
+      assert.equal(await decisionCall('/api/agent-tokens', approvedHeaders), 403);
+      assert.equal(await decisionCall('/api/auth/register', approvedHeaders), 403);
+      assert.equal(await decisionCall(route, approvedHeaders, '{"approved":true,"scopes":["agent-write"]}'), 400);
+      assert.equal(received.length, beforeDenied);
+    } finally { await stop(decisionGateway); }
     time = 30 * 60000 + 1;
     assert.equal((await call('/.well-known/oauth-authorization-server')).status, 410);
   } finally {
