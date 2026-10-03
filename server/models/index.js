@@ -172,6 +172,15 @@ const articleSchema = new mongoose.Schema({
   highlights: [{
     text: String,
     note: String,
+    noteRevision: { type: Number, default: 0 },
+    thoughtOperations: [{
+      _id: false,
+      operationId: String,
+      requestHash: String,
+      noteHash: String,
+      noteRevision: Number,
+      savedAt: Date
+    }],
     tags: { type: [String], default: [] },
     color: { type: String, default: '#f6e27a' },
     type: { type: String, enum: ['claim', 'evidence', 'note'], default: 'note' },
@@ -2283,6 +2292,9 @@ const agentTokenSchema = new mongoose.Schema({
   label: { type: String, required: true, trim: true },
   runtime: { type: String, default: '', trim: true },
   connectionSessionId: { type: String, default: '', trim: true },
+  oauthFamilyId: { type: String, default: '', index: true },
+  oauthClientId: { type: String, default: '' },
+  oauthResource: { type: String, default: '' },
   hashedSecret: { type: String, required: true, trim: true },
   secretPrefix: { type: String, default: '', trim: true },
   scopes: { type: [String], enum: ['read', 'agent-write'], default: ['read'] },

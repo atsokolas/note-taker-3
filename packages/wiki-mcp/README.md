@@ -211,6 +211,7 @@ Then an agent can list pages, choose one, read it, inspect references, and catch
 on recent activity with a read-scoped token:
 
 - `connection_info`
+- `get_profile`
 - `list_edition_profiles`
 - `list_editions`
 - `get_edition`
@@ -236,6 +237,8 @@ on recent activity with a read-scoped token:
 - `list_article_highlights`
 - `search_highlights`
 - `get_highlight`
+- `get_source_thought_context`
+- `get_research_candidate`
 - `list_questions`
 - `get_question`
 - `list_concepts`
@@ -278,6 +281,7 @@ Write tools require a token with the `agent-write` scope. Read-only tokens recei
 - `set_folder_feed`
 - `create_highlight`
 - `update_highlight`
+- `save_source_thought`
 - `delete_highlight`
 - `write_concept_note`
 - `update_concept_note`

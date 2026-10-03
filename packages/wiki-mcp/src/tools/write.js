@@ -66,6 +66,20 @@ const judgmentFields = {
 
 export const writeTools = [
   {
+    name: 'save_source_thought',
+    description: 'Append an explicitly requested private thought to one saved source highlight, preserving existing reader wording. First read get_source_thought_context and pass its exact noteHash, noteRevision and passage hash. Keep the same operationId AND identical arguments on uncertain/lost-response retries; saved receipts survive later reader edits. A 409 stale snapshot means reread and reconcile with the reader; never overwrite. Separate reader words from assistant interpretation.',
+    inputSchema: {
+      articleId: z.string().min(1), highlightId: z.string().min(1),
+      thought: z.string().min(1).max(6000).describe('Only the new thought to append, not the existing note.'),
+      operationId: z.string().regex(/^[a-zA-Z0-9_-]{16,128}$/).describe('Fresh stable UUID for this logical save; retain for retries.'),
+      expectedNoteHash: z.string().regex(/^[a-f0-9]{64}$/),
+      expectedNoteRevision: z.number().int().min(0),
+      expectedPassageHash: z.string().regex(/^[a-f0-9]{64}$/),
+      explicitlyRequested: z.literal(true).describe('The reader explicitly asked to save this thought.')
+    },
+    handler: (client, args) => client.saveSourceThought(args)
+  },
+  {
     name: 'create_judgment_page',
     description: 'Create a private living Judgment case with a governing question and a provisional held sentence. Search/list judgment pages first to avoid a duplicate. This creates a revisioned, agent-attributed case; it never publishes, takes an external action, or resolves the judgment.',
     inputSchema: {
@@ -371,7 +385,7 @@ export const writeTools = [
   },
   {
     name: 'create_highlight',
-    description: 'Create a highlight on an existing Library article.',
+    description: 'Create a highlight on an existing Library article using an exact source passage, never a paraphrase or invented quotation. The note is the reader’s private thought, kept separate from source text. Save a thought only when the reader explicitly asks; preserve their words and label any assistant wording. Read the source first.',
     inputSchema: {
       articleId: z.string().describe('Library article id.'),
       text: z.string().min(3),
@@ -384,7 +398,7 @@ export const writeTools = [
   },
   {
     name: 'update_highlight',
-    description: 'Change what a highlight carries: its note, its tags, its colour, or what kind of thing it is. Only the fields you pass are touched. articleId is optional — every tool that returns a highlight names it, and it is resolved for you when omitted.',
+    description: 'Change what a highlight carries: its note, its tags, its colour, or what kind of thing it is. The note is source-bound private reader thinking. Save or replace it only when the reader explicitly asks; preserve the reader’s authorship and read the existing note first. Only the fields you pass are touched. articleId is optional — every tool that returns a highlight names it, and it is resolved for you when omitted.',
     inputSchema: {
       highlightId: z.string().describe('Highlight id.'),
       articleId: z.string().optional().describe('The article holding it. Resolved from the highlight when omitted.'),

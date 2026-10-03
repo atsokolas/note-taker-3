@@ -1,4 +1,6 @@
 const express = require('express');
+const { createHash } = require('node:crypto');
+const thoughtHash = value => createHash('sha256').update(String(value || '')).digest('hex');
 const {
   DEFAULT_HIGHLIGHT_COLOR,
   buildHighlightDocument,
@@ -165,6 +167,70 @@ const buildHighlightMutationRouter = ({
     }
   });
 
+  // The receipt lives with the existing source-bound note. Conditional updates
+  // serialize reader edits and concurrent retries without a separate thought store.
+  router.post('/articles/:articleId/highlights/:highlightId/thoughts', authenticateToken, async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    const { articleId, highlightId } = req.params;
+    const { thought, operationId, expectedNoteHash, expectedNoteRevision, expectedPassageHash, explicitlyRequested } = req.body || {};
+    if (explicitlyRequested !== true || typeof thought !== 'string' || !thought.trim()
+      || thought.length > 6000 || typeof operationId !== 'string'
+      || !/^[a-zA-Z0-9_-]{16,128}$/.test(operationId)
+      || !/^[a-f0-9]{64}$/.test(expectedNoteHash || '')
+      || !/^[a-f0-9]{64}$/.test(expectedPassageHash || '')
+      || !Number.isSafeInteger(expectedNoteRevision) || expectedNoteRevision < 0) {
+      return res.status(400).json({ error: 'An explicitly requested thought needs its source snapshot and a stable operationId.' });
+    }
+    const requestHash = thoughtHash(JSON.stringify({ thought, expectedNoteHash, expectedNoteRevision, expectedPassageHash }));
+    const receiptFor = operation => ({
+      status: 'saved', articleId, highlightId, operationId,
+      noteHash: operation.noteHash, noteRevision: operation.noteRevision,
+      savedAt: operation.savedAt, nextStep: 'Thought saved privately on this source. Reread context for the current note.'
+    });
+    try {
+      const load = () => Article.findOne({ _id: articleId, userId: req.user.id });
+      const article = await load();
+      const highlight = article?.highlights?.id(highlightId);
+      if (!highlight) return res.status(404).json({ error: 'Source highlight not found.' });
+      const prior = highlight.thoughtOperations?.find(operation => operation.operationId === operationId);
+      if (prior) return prior.requestHash === requestHash
+        ? res.json(receiptFor(prior))
+        : res.status(409).json({ error: 'operationId was already used for a different thought.' });
+      if (thoughtHash(highlight.note) !== expectedNoteHash || (highlight.noteRevision || 0) !== expectedNoteRevision
+        || thoughtHash(highlight.text) !== expectedPassageHash) {
+        return res.status(409).json({ error: 'The reader note or source changed. Reread and reconcile before saving; keep your draft.' });
+      }
+      if ((highlight.thoughtOperations?.length || 0) >= 1000) return res.status(409).json({ error: 'This source has reached its thought receipt limit. Keep your draft.' });
+      const nextNote = highlight.note ? `${highlight.note}\n\n${thought}` : thought;
+      if (nextNote.length > 60000) return res.status(400).json({ error: 'This source note is too long to append. Keep your draft.' });
+      const operation = { operationId, requestHash, noteHash: thoughtHash(nextNote), noteRevision: expectedNoteRevision + 1, savedAt: new Date() };
+      const updated = await Article.findOneAndUpdate({
+        _id: articleId, userId: req.user.id,
+        highlights: { $elemMatch: {
+          _id: highlight._id, text: highlight.text,
+          note: highlight.note == null ? { $in: [null, ''] } : highlight.note,
+          noteRevision: expectedNoteRevision === 0 ? { $in: [null, 0] } : expectedNoteRevision,
+          'thoughtOperations.operationId': { $ne: operationId }
+        } }
+      }, {
+        $set: { 'highlights.$.note': nextNote, 'highlights.$.noteRevision': operation.noteRevision },
+        $push: { 'highlights.$.thoughtOperations': operation },
+        $inc: { __v: 1 }
+      }, { new: true, runValidators: true });
+      if (!updated) {
+        const current = (await load())?.highlights?.id(highlightId);
+        const won = current?.thoughtOperations?.find(row => row.operationId === operationId);
+        if (won?.requestHash === requestHash) return res.json(receiptFor(won));
+        return res.status(409).json({ error: 'The reader note or source changed. Reread and reconcile before saving; keep your draft.' });
+      }
+      const saved = updated.highlights.id(highlightId);
+      enqueueHighlightEmbedding({ highlight: saved, article: updated });
+      return res.json(receiptFor(operation));
+    } catch (error) {
+      return res.status(error.name === 'CastError' ? 400 : 500).json({ error: 'Thought save did not settle. Retry the same operationId and identical arguments.' });
+    }
+  });
+
   router.patch('/articles/:articleId/highlights/:highlightId', authenticateToken, async (req, res) => {
     try {
         const { articleId, highlightId } = req.params;
@@ -182,6 +248,8 @@ const buildHighlightMutationRouter = ({
         }
 
         const previousText = highlight.text;
+        const previousNote = highlight.note;
+        const previousRevision = highlight.noteRevision || 0;
         let textChanged = false;
         if (text !== undefined) {
           const nextText = typeof text === 'string' ? text.trim() : '';
@@ -230,7 +298,21 @@ const buildHighlightMutationRouter = ({
           highlight.claimId = null;
         }
 
-        await article.save();
+        // Set only the named highlight fields, never write a stale document's
+        // highlight array over an atomic thought append or its receipt ledger.
+        const changes = {};
+        for (const field of ['note', 'tags', 'color', 'type', 'claimId', 'text']) {
+          if (req.body[field] !== undefined || (field === 'claimId' && type !== undefined)) changes[`highlights.$.${field}`] = highlight[field];
+        }
+        if (note !== undefined) changes['highlights.$.noteRevision'] = previousRevision + 1;
+        const settled = await Article.findOneAndUpdate({
+          _id: articleId, userId,
+          highlights: { $elemMatch: { _id: highlight._id, text: previousText,
+            note: previousNote == null ? { $in: [null, ''] } : previousNote,
+            noteRevision: previousRevision === 0 ? { $in: [null, 0] } : previousRevision } }
+        }, { $set: changes, $inc: { __v: 1 } }, { new: true, runValidators: true });
+        if (!settled) return res.status(409).json({ error: 'This highlight changed elsewhere. Keep your draft and reload.' });
+        article.highlights = settled.highlights;
 
         /* The saved document already holds the change; re-reading it by id was a
            round trip to be told what we had just written. */
