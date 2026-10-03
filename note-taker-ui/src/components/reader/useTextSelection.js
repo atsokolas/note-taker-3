@@ -82,10 +82,19 @@ const useTextSelection = ({ containerRef, menuRef, minLength = 3 }) => {
   }));
 
   const clearSelection = useCallback(() => {
+    const menuHadFocus = Boolean(menuRef.current?.contains(document.activeElement));
+    const top = window.scrollY;
+    const left = window.scrollX;
     setSelectionState({ isOpen: false, text: '', rect: null, anchor: null });
     const selection = window.getSelection();
     if (selection) selection.removeAllRanges();
-  }, []);
+    if (!menuHadFocus) return;
+    window.requestAnimationFrame(() => {
+      if (Math.abs(window.scrollY - top) > 1 || Math.abs(window.scrollX - left) > 1) {
+        window.scrollTo({ top, left, behavior: 'instant' });
+      }
+    });
+  }, [menuRef]);
 
   /* Every one of these used to be a bare `return`, which left the previous
      selection standing: the menu kept its old position and its old text.

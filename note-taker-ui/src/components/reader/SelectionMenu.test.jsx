@@ -78,6 +78,12 @@ describe('SelectionMenu', () => {
 
   /* The inks are for a reader who keeps a taxonomy of their own. They come
      after the two actions, because choosing a colour is the rarer thing. */
+  it('does not focus the menu on a pointer press, so closing it cannot jump the page', () => {
+    render(<SelectionMenu {...baseProps} />);
+    expect(fireEvent.mouseDown(screen.getByRole('button', { name: 'Highlight' }))).toBe(false);
+    expect(fireEvent.mouseDown(screen.getByRole('button', { name: 'Highlight in yellow' }))).toBe(false);
+  });
+
   it('offers five inks, and keeps in the default when none is chosen', () => {
     const onHighlight = jest.fn();
     render(<SelectionMenu {...baseProps} onHighlight={onHighlight} />);
