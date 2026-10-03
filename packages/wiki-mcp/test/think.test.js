@@ -2,6 +2,7 @@
 // file it under. Both were reachable from the product and not from an agent.
 
 import assert from 'assert';
+import { createHash } from 'node:crypto';
 
 import { NoeisClient } from '../src/client.js';
 
@@ -27,6 +28,60 @@ const FOLDERS = [
 ];
 
 const run = async () => {
+  // Exact passages retain whitespace and anchors; thoughts remain separate.
+  // Existing source identity is required rather than guessed from a title.
+  {
+    const quote = 'An exact  passage.\nSecond line.';
+    const { client, calls } = clientWith([
+      { _id: 'h1', articleId: 'a1', text: quote, note: 'My contrary thought', anchor: { start: 4 } },
+      { _id: 'a1', title: 'Source', author: 'Author', url: 'https://example.com/source' },
+      { _id: 'n1', linkedHighlightIds: ['h1'], content: 'My argument', importMeta: { provider: 'reader' } }
+    ]);
+    const result = await client.getSourceThoughtContext({ highlightId: 'h1', entryId: 'n1' });
+    assert.strictEqual(result.passage.text, quote);
+    assert.deepStrictEqual(result.passage.anchor, { start: 4 });
+    assert.strictEqual(result.readerThought.note, 'My contrary thought');
+    assert.strictEqual(result.readerThought.noteHash, createHash('sha256').update('My contrary thought').digest('hex'));
+    assert.strictEqual(result.readerThought.noteRevision, 0);
+    assert.strictEqual(result.passage.hash, createHash('sha256').update(quote).digest('hex'));
+    assert.strictEqual(result.links.article, 'https://www.noeis.io/articles/a1');
+    assert.strictEqual(result.links.passage, 'https://www.noeis.io/library?articleId=a1&highlightId=h1');
+    assert.strictEqual(result.readerThought.notebookEntry.importMeta.provider, 'reader');
+    assert.deepStrictEqual(result.authorship, { passage: 'source', note: 'reader_saved', notebookEntry: 'reader_saved' });
+    assert.ok(calls.every(call => call.method === 'GET'));
+  }
+  {
+    const { client } = clientWith([
+      { _id: 'h1', articleId: 'a1', text: 'Source text' },
+      { _id: 'a1', title: 'Same title' },
+      { _id: 'n1', title: 'Same title', linkedArticleId: 'a2' }
+    ]);
+    await assert.rejects(() => client.getSourceThoughtContext({ highlightId: 'h1', entryId: 'n1' }), /not linked/);
+  }
+  {
+    const { client, calls } = clientWith([null]);
+    await assert.rejects(() => client.getSourceThoughtContext({ highlightId: 'missing' }), /not found/);
+    assert.strictEqual(calls.length, 1);
+  }
+  {
+    const candidate = { revisionId: 'r1', status: 'awaiting_maintenance_acceptance', candidate: { body: 'Proposed only' } };
+    const { client, calls } = clientWith([candidate]);
+    assert.deepStrictEqual(await client.getResearchCandidate({ pageId: 'p1' }), candidate);
+    assert.match(calls[0].url, /pages\/p1\/research-candidate$/);
+    assert.strictEqual(calls[0].method, 'GET');
+  }
+
+  {
+    const receipt = { status: 'saved', operationId: 'durable-operation-123', noteRevision: 1 };
+    const { client, calls } = clientWith([receipt]);
+    const args = { articleId: 'a1', highlightId: 'h1', thought: 'New words', operationId: receipt.operationId,
+      expectedNoteHash: 'a'.repeat(64), expectedNoteRevision: 0, expectedPassageHash: 'b'.repeat(64), explicitlyRequested: true };
+    assert.deepStrictEqual(await client.saveSourceThought(args), receipt);
+    assert.match(calls[0].url, /articles\/a1\/highlights\/h1\/thoughts$/);
+    const { articleId, highlightId, ...body } = args;
+    assert.deepStrictEqual(calls[0].body, body);
+    assert.strictEqual(calls[0].method, 'POST');
+  }
   // The full listing returns every entry's whole body. Ask for the projection
   // that answers "what is in my notebook" without reading the notebook aloud.
   {

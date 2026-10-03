@@ -700,7 +700,8 @@ const run = async () => {
           id: req.headers['x-agent-token-id'],
           _id: req.headers['x-agent-token-id'],
           label: req.headers['x-agent-token-label'] || 'Codex local',
-          scopes: ['read', 'agent-write']
+          scopes: ['read', 'agent-write'],
+          accessProfile: req.headers['x-test-access-profile'] || null
         };
       }
       next();
@@ -2231,6 +2232,55 @@ const run = async () => {
     assert.ok(Array.isArray(maintained.body.aiState.health.newItems));
     assert.ok(maintained.body.aiState.changeLog.length >= 1);
     assert.ok(maintained.body.aiState.suggestions.length >= 1);
+
+    // ChatGPT drafts ordinary private pages through the same candidate review
+    // machinery as dossiers, rather than changing their current accepted head.
+    const chatgptPage = new WikiPage({
+      userId: 'user-1', title: 'ChatGPT review boundary', slug: 'chatgpt-review-boundary',
+      pageType: 'topic', status: 'draft', visibility: 'private',
+      plainText: 'Trusted reader wording.',
+      body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Trusted reader wording.' }] }] },
+      claims: [{ claimId: 'trusted-reader-claim', text: 'Trusted reader wording.' }],
+      sourceRefs: [], aiState: { quality: { ok: true, status: 'pass' } }
+    });
+    await chatgptPage.save();
+    const trustedChatgptBody = JSON.stringify(chatgptPage.body);
+    const candidateResponse = await request(url, `/api/wiki/pages/${chatgptPage._id}/ai/draft`, {
+      method: 'POST', headers: { 'x-agent-token-id': 'oauth-token', 'x-test-access-profile': 'chatgpt' }
+    });
+    assert.strictEqual(candidateResponse.res.status, 202, candidateResponse.text);
+    assert.strictEqual(candidateResponse.body.plainText, 'Trusted reader wording.');
+    assert.strictEqual(JSON.stringify(candidateResponse.body.body), trustedChatgptBody);
+    assert.strictEqual(candidateResponse.body.firstHeadReview.status, 'awaiting_acceptance');
+    assert.strictEqual(candidateResponse.body.aiState.candidateStatus, 'awaiting_maintenance_acceptance');
+    assert.ok(candidateResponse.body.aiState.maintenanceCandidateRevisionId);
+
+    // Durable event provenance survives processing without an HTTP request.
+    const { processWikiSourceEvent } = require('../../services/wikiMaintenanceOrchestrator');
+    const oauthEvent = new WikiSourceEvent({ userId: 'user-1', sourceType: 'external',
+      title: 'ChatGPT candidate evidence', text: 'Fresh bounded evidence.', summary: 'New evidence.',
+      affectedPageIds: [chatgptPage._id], metadata: { requireOwnerAcceptance: true } });
+    await oauthEvent.save();
+    const processedCandidate = await processWikiSourceEvent({
+      sourceEventId: oauthEvent._id, userId: 'user-1',
+      models: { WikiPage, WikiRevision, WikiSourceEvent, WikiMaintenanceRun, WikiProposal, Connection, Article, Question },
+      maintainWikiPageFn: async ({ page }) => {
+        page.plainText = 'Generated candidate wording.';
+        page.body = { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: page.plainText }] }] };
+        page.claims = [{ claimId: 'candidate-claim', text: 'Generated candidate wording.' }];
+        page.aiState = { ...page.aiState, quality: { ok: true, status: 'pass' } };
+        return page;
+      }
+    });
+    const afterSourceCandidate = await WikiPage.findOne({ _id: chatgptPage._id });
+    assert.strictEqual(afterSourceCandidate.plainText, 'Trusted reader wording.');
+    assert.strictEqual(JSON.stringify(afterSourceCandidate.body), trustedChatgptBody);
+    assert.strictEqual(afterSourceCandidate.aiState.candidateStatus, 'awaiting_maintenance_acceptance');
+    assert.strictEqual(afterSourceCandidate.freshness.acceptedThrough?.sourceEventId, undefined);
+    const heldRevision = WikiRevision.records.find(row => String(row._id) === String(afterSourceCandidate.aiState.maintenanceCandidateRevisionId));
+    assert.strictEqual(heldRevision.promotionStatus, 'candidate');
+    assert.strictEqual(heldRevision.after.plainText, 'Generated candidate wording.');
+    assert.strictEqual(processedCandidate.event.metadata.requireOwnerAcceptance, true);
 
     // Detached build: onboarding cannot hold a new user on a spinner, so the build
     // must accept immediately and report progress on the page itself. Built on its

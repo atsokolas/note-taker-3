@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { DEFAULT_API_URL, resolveAuth } from './config.js';
 
 export { DEFAULT_API_URL };
@@ -13,7 +14,7 @@ const UNSETTLED_INGEST_STATUSES = new Set(['pending', 'processing']);
    one, not a failure — and the API already says which page would hold it. */
 const ingestNextStep = (run = {}) => {
   const affected = Array.isArray(run.affectedPageIds) ? run.affectedPageIds.length : 0;
-  if (affected) return `Folded into ${affected} existing page${affected === 1 ? '' : 's'}. Nothing further needed.`;
+  if (affected) return `Processed against ${affected} existing page${affected === 1 ? '' : 's'}. Read the pages and any research candidates to verify the result; proposed changes still require the existing human review policy.`;
   if (run.suggestedCreatePage) {
     return 'No page claimed this source. To keep it, call create_page with the suggestedCreatePage title and pass its source as initialSourceRef.';
   }
@@ -158,6 +159,7 @@ const normalizeNotebookSummary = (entry = {}) => ({
 });
 
 const normalizeNotebookEntry = (entry = {}) => ({
+  ...entry,
   id: pickId(entry),
   title: entry.title || 'Untitled',
   content: entry.content || '',
@@ -233,11 +235,21 @@ export class NoeisApiError extends Error {
   }
 }
 
+export const normalizeAppUrl = (value = 'https://www.noeis.io') => {
+  const url = new URL(value);
+  if ((url.protocol !== 'https:' && !(url.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)))
+    || url.username || url.password || url.search || url.hash || url.pathname !== '/') {
+    throw new Error('NOEIS app URL must be an HTTPS origin or explicit loopback HTTP origin.');
+  }
+  return url.origin;
+};
+
 export class NoeisClient {
-  constructor({ token, apiUrl, fetchImpl = global.fetch, env = process.env } = {}) {
+  constructor({ token, apiUrl, appUrl, fetchImpl = global.fetch, env = process.env } = {}) {
     const auth = resolveAuth({ env });
     this.token = String(token || auth.token).trim();
     this.apiUrl = trimTrailingSlash(apiUrl || auth.apiUrl);
+    this.appUrl = normalizeAppUrl(appUrl || env.NOEIS_APP_URL || env.FRONTEND_URL || undefined);
     this.fetch = fetchImpl;
     if (typeof this.fetch !== 'function') {
       throw new Error('No fetch implementation is available. Use Node 18+.');
@@ -446,11 +458,47 @@ export class NoeisClient {
      reader owns and search the pile for one of them. */
   getHighlight({ highlightId }) {
     return this.request(`/api/highlights/${encodeURIComponent(highlightId)}`)
-      .then(normalizeHighlight)
+      .then(highlight => highlight ? normalizeHighlight(highlight) : null)
       .catch(error => {
         if (error?.status === 404) return null;
         throw error;
       });
+  }
+
+  // Keep the author's passage and the reader's words separate. Resolve each
+  // resource through existing scoped reads; never infer a link from a title.
+  async getSourceThoughtContext({ highlightId, entryId } = {}) {
+    const highlight = await this.getHighlight({ highlightId });
+    if (!highlight?.articleId) {
+      throw new NoeisApiError('Saved highlight not found.', { status: 404 });
+    }
+    const article = await this.getArticle({ articleId: highlight.articleId });
+    const entry = entryId ? await this.getNotebookEntry({ entryId }) : null;
+    if (entry && entry.linkedArticleId !== highlight.articleId
+      && !entry.linkedHighlightIds.includes(highlight.id)) {
+      throw new NoeisApiError('This Notebook entry is not linked to the selected source. Read the entry separately; do not claim a source relationship.', { status: 400 });
+    }
+    return {
+      source: { articleId: highlight.articleId, title: article.title, author: article.author || '', url: article.url || '' },
+      passage: { highlightId: highlight.id, text: highlight.text, hash: createHash('sha256').update(highlight.text).digest('hex'), anchor: highlight.anchor || null },
+      readerThought: { note: highlight.note, noteHash: createHash('sha256').update(highlight.note).digest('hex'), noteRevision: highlight.noteRevision || 0, notebookEntry: entry },
+      links: {
+        article: `${this.appUrl}/articles/${encodeURIComponent(highlight.articleId)}`,
+        passage: `${this.appUrl}/library?articleId=${encodeURIComponent(highlight.articleId)}&highlightId=${encodeURIComponent(highlight.id)}`
+      },
+      authorship: { passage: 'source', note: 'reader_saved', notebookEntry: entry ? 'reader_saved' : null },
+      nextStep: 'Compare the exact passage with the reader’s words, label your interpretation separately, and save only when the reader explicitly asks.'
+    };
+  }
+
+  saveSourceThought({ articleId, highlightId, thought, operationId, expectedNoteHash, expectedNoteRevision, expectedPassageHash, explicitlyRequested } = {}) {
+    return this.request(`/articles/${encodeURIComponent(articleId)}/highlights/${encodeURIComponent(highlightId)}/thoughts`, {
+      method: 'POST', body: { thought, operationId, expectedNoteHash, expectedNoteRevision, expectedPassageHash, explicitlyRequested }
+    });
+  }
+
+  getResearchCandidate({ pageId } = {}) {
+    return this.request(`/api/wiki/pages/${encodeURIComponent(pageId)}/research-candidate`);
   }
 
   /* Echoing the whole body back is both wasteful and quiet about the one thing

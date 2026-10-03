@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const { CHATGPT_ACCESS_PROFILE, isChatgptRequestAllowed } = require('./chatgptAccessPolicy');
 
 const AGENT_TOKEN_PREFIX = 'ntk_at_';
 const AGENT_TOKEN_SCOPES = ['read', 'agent-write'];
@@ -29,6 +30,7 @@ const sanitizeAgentToken = (doc = {}) => {
     userId: object?.userId,
     label: object?.label || '',
     runtime: object?.runtime || '',
+    accessProfile: object?.oauthFamilyId ? CHATGPT_ACCESS_PROFILE : null,
     connectionSessionId: object?.connectionSessionId || '',
     scopes: normalizeAgentTokenScopes(object?.scopes || []),
     dailyQuota: object?.dailyQuota ?? null,
@@ -74,7 +76,10 @@ const buildAuthenticateAgentToken = ({
   AgentToken,
   now = () => new Date(),
   requiredScope: configuredScope,
-  consume = true
+  consume = true,
+  OAuthGrant = null,
+  oauthResource = null,
+  resourceMetadataUrl = null
 } = {}) => {
   if (!AgentToken) {
     throw new Error('AgentToken model is required.');
@@ -82,6 +87,9 @@ const buildAuthenticateAgentToken = ({
 
   return async function authenticateAgentToken(req, res, next) {
     try {
+      if (resourceMetadataUrl) {
+        res.set('WWW-Authenticate', `Bearer resource_metadata="${resourceMetadataUrl}", scope="${configuredScope || 'read'}"`);
+      }
       const rawSecret = getBearerToken(req);
       if (!rawSecret || !rawSecret.startsWith(AGENT_TOKEN_PREFIX)) {
         return res.status(401).json({ error: 'Agent token required.' });
@@ -97,8 +105,25 @@ const buildAuthenticateAgentToken = ({
         return res.status(401).json({ error: 'Agent token has expired.' });
       }
 
+      let oauthGrant = null;
+      if (token.oauthFamilyId) {
+        // OAuth access is also checked on inner REST calls: never treat it as a legacy token.
+        const grant = OAuthGrant && await OAuthGrant.findOne({
+          familyId: token.oauthFamilyId, userId: token.userId, clientId: token.oauthClientId,
+          resource: token.oauthResource, revokedAt: null, expiresAt: { $gt: current }
+        });
+        oauthGrant = grant;
+        if (!grant || !oauthResource || token.oauthResource !== oauthResource) {
+          return res.status(401).json({ error: 'OAuth access token audience or grant is invalid.' });
+        }
+      }
+
+      if (token.oauthFamilyId && !isChatgptRequestAllowed(req)) {
+        return res.status(403).json({ error: 'This ChatGPT connection cannot perform this action. Wiki changes require review; use NOEIS to accept or publish them.', code: 'CHATGPT_ACTION_NOT_ALLOWED' });
+      }
+
       const requiredScope = configuredScope || requiredScopeForRequest(req);
-      if (!hasRequiredScope(token, requiredScope)) {
+      if (!hasRequiredScope(token, requiredScope) || (oauthGrant && !hasRequiredScope(oauthGrant, requiredScope))) {
         return res.status(403).json({ error: `Agent token requires ${requiredScope} scope.` });
       }
 

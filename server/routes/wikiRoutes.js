@@ -1,3 +1,4 @@
+const { CHATGPT_ACCESS_PROFILE } = require('../services/chatgptAccessPolicy');
 const express = require('express');
 const { collectContradictions } = require('../services/wikiContradictionService');
 const PDFDocument = require('pdfkit');
@@ -5418,7 +5419,7 @@ const buildWikiRouter = ({
       const repoWatch = page.externalWatches?.githubRepo || {};
       const lastProbeAt = repoWatch.lastHeadProbeAt ? new Date(repoWatch.lastHeadProbeAt).getTime() : 0;
       const probeStale = Date.now() - lastProbeAt >= 15 * 60 * 1000;
-      if (repoWatch.status === 'active' && repoWatch.owner && repoWatch.repo && probeStale) {
+      if (req.agentToken?.accessProfile !== CHATGPT_ACCESS_PROFILE && repoWatch.status === 'active' && repoWatch.owner && repoWatch.repo && probeStale) {
         const pageId = page._id;
         const userId = page.userId;
         /* Opening a Wiki is a database read, never a GitHub request. A stale
@@ -7208,7 +7209,7 @@ const buildWikiRouter = ({
         WikiRevision,
         beforeSnapshot: before,
         requireFirstHeadAcceptance: /^company-dossier:/i.test(String(page?.createdFrom?.label || '')),
-        requireOwnerAcceptance: Boolean(page?.investmentDossier?.version),
+        requireOwnerAcceptance: req.agentToken?.accessProfile === CHATGPT_ACCESS_PROFILE || Boolean(page?.investmentDossier?.version),
         maintainWikiPageFn: maintainWikiPage,
         maintainArgs: {
           wikiSchemaContent: await loadWikiSchemaContent(req.user.id),
@@ -8645,6 +8646,8 @@ const buildWikiRouter = ({
         metadata: {
           ingest: true,
           ingestSourceType: source.rawType,
+          // Durable policy follows this event through deferred/retried workers.
+          ...(req.agentToken?.accessProfile === CHATGPT_ACCESS_PROFILE ? { requireOwnerAcceptance: true } : {}),
           ...(fetched ? { fetchedText: Boolean(fetched.ok && fetched.content), fetchError: fetched.ok ? '' : fetched.error } : {})
         }
       });

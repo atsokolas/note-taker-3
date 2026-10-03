@@ -218,6 +218,21 @@ export const readTools = [
     handler: (client, args) => client.getHighlight(args)
   },
   {
+    name: 'get_source_thought_context',
+    description: 'Read one exact saved source passage alongside the reader’s private highlight note and optionally an explicitly linked Notebook entry. Source wording and reader thinking are separate fields. Use for comparison, never present your inference as either author’s words. Returns noteHash, noteRevision and passage hash for a conditional save_source_thought append. This does not save anything.',
+    inputSchema: {
+      highlightId: z.string().min(1).describe('Saved highlight id, from search_highlights.'),
+      entryId: z.string().min(1).optional().describe('Optional Notebook entry already linked to this highlight or its article. Unlinked entries are refused.')
+    },
+    handler: (client, args) => client.getSourceThoughtContext(args)
+  },
+  {
+    name: 'get_research_candidate',
+    description: 'Read the proposed first trusted head or maintenance revision awaiting human review for a Wiki page. A candidate is not accepted knowledge. Return its review status and direct the reader to NOEIS for acceptance; agents cannot accept or reject it.',
+    inputSchema: pageIdShape,
+    handler: (client, args) => client.getResearchCandidate(args)
+  },
+  {
     name: 'list_questions',
     description: 'List Think questions, optionally scoped by status, concept, highlight, or notebook entry.',
     inputSchema: {

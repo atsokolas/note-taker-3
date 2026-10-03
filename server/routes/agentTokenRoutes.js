@@ -7,6 +7,7 @@ const buildAgentTokenRouter = ({
   authenticateToken,
   authenticateConnection = authenticateToken,
   AgentToken,
+  OAuthGrant = null,
   ConnectorActionLog = null,
   createAgentTokenSecret,
   hashAgentTokenSecret,
@@ -211,6 +212,10 @@ const buildAgentTokenRouter = ({
         { new: true }
       );
       if (!updated) return res.status(404).json({ error: 'Agent token not found.' });
+      if (updated.oauthFamilyId && OAuthGrant) {
+        await OAuthGrant.updateOne({ familyId: updated.oauthFamilyId, userId: req.user.id }, { $set: { revokedAt: new Date() } });
+        await AgentToken.updateMany({ oauthFamilyId: updated.oauthFamilyId, userId: req.user.id }, { $set: { status: 'revoked', revokedAt: new Date() } });
+      }
       res.status(200).json({ token: sanitizeAgentToken(updated) });
     } catch (error) {
       console.error('❌ Error revoking agent token:', error);
@@ -228,6 +233,10 @@ const buildAgentTokenRouter = ({
         { new: true }
       );
       if (!updated) return res.status(404).json({ error: 'Agent token not found.' });
+      if (updated.oauthFamilyId && OAuthGrant) {
+        await OAuthGrant.updateOne({ familyId: updated.oauthFamilyId, userId: req.user.id }, { $set: { revokedAt: new Date() } });
+        await AgentToken.updateMany({ oauthFamilyId: updated.oauthFamilyId, userId: req.user.id }, { $set: { status: 'revoked', revokedAt: new Date() } });
+      }
       res.status(200).json({ token: sanitizeAgentToken(updated) });
     } catch (error) {
       console.error('❌ Error deleting agent token:', error);

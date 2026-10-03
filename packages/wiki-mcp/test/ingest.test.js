@@ -40,7 +40,9 @@ const run = async () => {
   {
     const { client } = clientWith([{ runId: 'r2', status: 'processed', affectedPageIds: ['p1', 'p2'] }]);
     const result = await client.ingestSource({ source: { type: 'url', url: 'https://example.com' } });
-    assert.match(result.nextStep, /Folded into 2 existing pages/);
+    assert.match(result.nextStep, /Processed against 2 existing pages/);
+    assert.match(result.nextStep, /human review policy/);
+    assert.doesNotMatch(result.nextStep, /Nothing further needed/);
   }
 
   // Ignored with no suggestion is the proposal path, and says so.

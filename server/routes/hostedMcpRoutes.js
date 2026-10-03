@@ -17,7 +17,7 @@ const getBearerToken = (req = {}) => {
 
 const setMcpHeaders = (res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Expose-Headers', 'Mcp-Session-Id');
+  res.setHeader('Access-Control-Expose-Headers', 'Mcp-Session-Id, WWW-Authenticate');
   res.setHeader(
     'Access-Control-Allow-Headers',
     'Authorization, Content-Type, Mcp-Protocol-Version, Mcp-Session-Id, Last-Event-ID'
@@ -30,12 +30,18 @@ const setMcpHeaders = (res) => {
    memory; the tool call itself is still authenticated by the existing API. */
 const buildHostedMcpRouter = ({
   authenticateAgentToken,
+  resourceMetadataUrl = null,
+  appUrl = process.env.NOEIS_APP_URL || process.env.FRONTEND_URL || 'https://www.noeis.io',
+  enableJsonResponse = process.env.NOEIS_MCP_JSON_RESPONSES === 'true',
+  internalApiUrl = `http://127.0.0.1:${process.env.PORT || 3000}`,
   loadServer = loadMcpServer,
   Transport = StreamableHTTPServerTransport
 } = {}) => {
   if (typeof authenticateAgentToken !== 'function') {
     throw new Error('authenticateAgentToken is required.');
   }
+
+  if (typeof enableJsonResponse !== 'boolean') throw new Error('enableJsonResponse must be a boolean.');
 
   const router = express.Router();
   router.use((_req, res, next) => {
@@ -55,15 +61,19 @@ const buildHostedMcpRouter = ({
 
   router.post('/mcp', authenticateAgentToken, async (req, res, next) => {
     const token = getBearerToken(req);
+    let server;
     try {
       const { createMcpServer } = await loadServer();
-      const server = createMcpServer({ token });
-      const transport = new Transport({ sessionIdGenerator: undefined });
+      server = createMcpServer({ token, apiUrl: internalApiUrl, appUrl, grantedScopes: req.agentToken?.scopes, accessProfile: req.agentToken?.accessProfile, resourceMetadataUrl });
+      const transport = new Transport({ sessionIdGenerator: undefined, enableJsonResponse });
       await server.connect(transport);
       await transport.handleRequest(req, res, req.body);
-      await server.close();
     } catch (error) {
       next(error);
+    } finally {
+      if (server) {
+        try { await server.close(); } catch (error) { if (!res.headersSent) next(error); }
+      }
     }
   });
 

@@ -100,6 +100,7 @@ const WikiOnboarding = lazy(() => import('./pages/WikiOnboarding'));
 const HowToUse = lazy(() => import('./pages/HowToUse'));
 const Integrations = lazy(() => import('./pages/Integrations'));
 const AgentConnectAuthorize = lazy(() => import('./pages/AgentConnectAuthorize'));
+const ChatGPTConnectAuthorize = lazy(() => import('./pages/ChatGPTConnectAuthorize'));
 const AgentTaskRun = lazy(() => import('./pages/AgentTaskRun'));
 const AiSecondBrain = lazy(() => import('./pages/AiSecondBrain'));
 const GuidesHub = lazy(() => import('./pages/GuidesHub'));
@@ -313,6 +314,7 @@ const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess, uiSettings }) => {
           <Route path="/share/wiki/:idOrSlug/comparison" element={<PublicWikiComparison />} />
           <Route path="/share/wiki/:idOrSlug" element={<SharedWikiPage />} />
           <Route path="/settings/connected-agents/authorize" element={<AgentConnectAuthorize />} />
+          <Route path="/settings/connected-agents/chatgpt" element={<ChatGPTConnectAuthorize />} />
           <Route path="/a/run/:taskId" element={<AgentTaskRun />} />
           <Route
             path="/register"
@@ -824,6 +826,7 @@ function App() {
             <Route path="/connections" element={<Integrations />} />
             <Route path="/integrations" element={<Integrations />} />
             <Route path="/settings/connected-agents/authorize" element={<AgentConnectAuthorize />} />
+          <Route path="/settings/connected-agents/chatgpt" element={<ChatGPTConnectAuthorize />} />
             <Route path="/a/run/:taskId" element={<AgentTaskRun />} />
             <Route path="/data-integrations" element={<DataIntegrationsRedirect />} />
             <Route path="/marketing-analytics" element={<MarketingAnalytics />} />
