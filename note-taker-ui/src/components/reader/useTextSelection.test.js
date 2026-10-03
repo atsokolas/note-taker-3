@@ -67,6 +67,34 @@ describe('useTextSelection', () => {
     expect(result.current.selectionState.isOpen).toBe(false);
   });
 
+  it('returns the page when a focused menu closes and the window jumps', () => {
+    const menu = document.createElement('div');
+    const button = document.createElement('button');
+    button.textContent = 'Highlight';
+    menu.appendChild(button);
+    document.body.appendChild(menu);
+    button.focus();
+    const frames = [];
+    const originalFrame = window.requestAnimationFrame;
+    window.requestAnimationFrame = (callback) => {
+      frames.push(callback);
+      return frames.length;
+    };
+    window.scrollTo = jest.fn();
+    Object.defineProperty(window, 'scrollY', { configurable: true, writable: true, value: 840 });
+    Object.defineProperty(window, 'scrollX', { configurable: true, writable: true, value: 0 });
+    const { result } = renderHook(() => useTextSelection({
+      containerRef: { current: container },
+      menuRef: { current: menu }
+    }));
+    act(() => { result.current.clearSelection(); });
+    window.scrollY = 0;
+    act(() => { frames.forEach((callback) => callback()); });
+    expect(window.scrollTo).toHaveBeenCalledWith({ top: 840, left: 0, behavior: 'instant' });
+    window.requestAnimationFrame = originalFrame;
+    menu.remove();
+  });
+
   it('closes when the selection collapses to a click', () => {
     const { result } = setup();
     jest.spyOn(window, 'getSelection').mockReturnValue(selectionOver(container, 'worth selecting'));

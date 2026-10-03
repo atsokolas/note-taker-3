@@ -80,6 +80,43 @@ describe('ArticleReader', () => {
     });
   });
 
+  it('keeps the visible passage in place when a highlight rewrites the article', () => {
+    const sentence = 'The sentence you are reading stays put after the mark lands.';
+    const article = {
+      _id: 'article-1',
+      title: 'A real source',
+      content: `<p>${sentence}</p><p>A later paragraph.</p>`
+    };
+    const originalRect = HTMLElement.prototype.getBoundingClientRect;
+    const originalHeight = window.innerHeight;
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 900 });
+    HTMLElement.prototype.getBoundingClientRect = function measurePassage() {
+      if (this.tagName === 'P' && String(this.textContent).includes('stays put')) {
+        const top = this.querySelector('mark') ? 2480 : 480;
+        return { top, bottom: top + 40, height: 40, left: 0, right: 40, width: 40, x: 0, y: top, toJSON() { return {}; } };
+      }
+      return { top: 0, bottom: 0, height: 0, left: 0, right: 0, width: 0, x: 0, y: 0, toJSON() { return {}; } };
+    };
+    window.scrollBy = jest.fn();
+    try {
+      const view = render(
+        <MemoryRouter>
+          <ArticleReader article={article} highlights={[]} />
+        </MemoryRouter>
+      );
+      view.rerender(
+        <MemoryRouter>
+          <ArticleReader article={article} highlights={[{ _id: 'highlight-1', text: sentence }]} />
+        </MemoryRouter>
+      );
+      expect(document.querySelector('.article-reader-content mark')).toHaveTextContent(sentence);
+      expect(window.scrollBy).toHaveBeenCalledWith({ top: 2000, behavior: 'instant' });
+    } finally {
+      HTMLElement.prototype.getBoundingClientRect = originalRect;
+      Object.defineProperty(window, 'innerHeight', { configurable: true, value: originalHeight });
+    }
+  });
+
   it('stays readable while no article is selected', () => {
     render(<ArticleReader />);
     expect(screen.getByText('Select an article to start reading.')).toBeVisible();
