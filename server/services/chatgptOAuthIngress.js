@@ -1,7 +1,9 @@
 const express = require('express');
 
 const OAUTH_BODY_BYTES = 8 * 1024;
-const isOAuthPath = req => /^\/(?:oauth\/chatgpt|api\/chatgpt\/oauth)(?:\/|$)/.test(req.path);
+// Express routes are case-insensitive by default; ingress and its fail-closed
+// router guard must cover every casing those routes accept.
+const isOAuthPath = req => /^\/(?:oauth\/chatgpt|api\/chatgpt\/oauth)(?:\/|$)/i.test(req.path);
 
 // Mount BEFORE the application's large import parsers. A raw parse establishes the
 // byte bound once, including chunked bodies, rather than reparsing req.body later.

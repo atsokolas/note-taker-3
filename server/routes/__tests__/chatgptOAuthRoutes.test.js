@@ -271,7 +271,7 @@ test('early OAuth ingress enforces 8192 raw bytes before actual 50MB JSON/form p
     const source = require('node:fs').readFileSync(require('node:path').join(__dirname, '../../server.js'), 'utf8');
     assert.ok(source.indexOf('app.use(buildChatgptOAuthIngress())') < source.indexOf("app.use(express.json({ limit: '50mb' }))"));
     const post = async (path, body, type, headers = {}) => fetch(`${f.base}${path}`, { method: 'POST', headers: { 'Content-Type': type, ...headers }, body });
-    for (const path of ['/oauth/chatgpt/token', '/oauth/chatgpt/revoke', '/api/chatgpt/oauth/requests/not-real/consent']) {
+    for (const path of ['/oauth/chatgpt/token', '/OAUTH/CHATGPT/TOKEN', '/OaUtH/ChAtGpT/ToKeN', '/oauth/chatgpt/revoke', '/OAUTH/CHATGPT/REVOKE', '/api/chatgpt/oauth/requests/not-real/consent', '/API/CHATGPT/OAUTH/REQUESTS/not-real/CONSENT', '/aPi/ChAtGpT/oAuTh/ReQuEsTs/not-real/CoNsEnT']) {
       assert.equal((await post(path, JSON.stringify({ padding: 'a'.repeat(8200) }), 'application/json')).status, 413);
       assert.equal((await post(path, `padding=${'a'.repeat(8200)}`, 'application/x-www-form-urlencoded')).status, 413);
     }
@@ -279,22 +279,25 @@ test('early OAuth ingress enforces 8192 raw bytes before actual 50MB JSON/form p
     assert.equal(Buffer.byteLength(exact), 8192);
     assert.equal((await post('/oauth/chatgpt/token', exact, 'application/json')).status, 401, 'exactly 8192 bytes parse then fail unknown client');
     assert.equal((await post('/oauth/chatgpt/token', `${exact} `, 'application/json')).status, 413);
-    for (const type of ['text/plain', 'multipart/form-data', 'application/custom+json']) {
-      assert.equal((await post('/oauth/chatgpt/token', '{}', type)).status, 415);
+    for (const path of ['/oauth/chatgpt/token', '/OAUTH/CHATGPT/TOKEN', '/OaUtH/ChAtGpT/ToKeN', '/API/CHATGPT/OAUTH/REQUESTS/not-real/CONSENT', '/aPi/ChAtGpT/oAuTh/ReQuEsTs/not-real/CoNsEnT']) {
+      for (const type of ['text/plain', 'multipart/form-data', 'application/custom+json']) {
+        assert.equal((await post(path, '{}', type)).status, 415, path);
+      }
+      assert.equal((await post(path, '{}', 'application/json', { 'Content-Encoding': 'gzip' })).status, 415, path);
+      for (const type of ['application/json', 'application/x-www-form-urlencoded']) {
+        const chunkedStatus = await new Promise((resolve, reject) => {
+          const req = require('node:http').request(`${f.base}${path}`, { method: 'POST', headers: { 'Content-Type': type } }, res => { res.resume(); res.once('end', () => resolve(res.statusCode)); });
+          req.on('error', reject);
+          req.write('a'.repeat(4096)); req.write('a'.repeat(4096)); req.end('a');
+        });
+        assert.equal(chunkedStatus, 413, `${path}: chunked ${type} cannot bypass the byte limit`);
+      }
     }
-    assert.equal((await post('/oauth/chatgpt/token', '{}', 'application/json', { 'Content-Encoding': 'gzip' })).status, 415);
     assert.equal((await post('/oauth/chatgpt/token', '[]', 'application/json')).status, 400);
     assert.equal((await post('/oauth/chatgpt/token', '{bad', 'application/json')).status, 400);
     assert.equal((await post('/oauth/chatgpt/token', 'client_id=chatgpt-test&client_id=attacker', 'application/x-www-form-urlencoded')).status, 400);
     const validForm = await post('/oauth/chatgpt/token', new URLSearchParams({ client_id: 'chatgpt-test', resource: config.resource, grant_type: 'unknown' }).toString(), 'application/x-www-form-urlencoded');
     assert.equal((await validForm.json()).error, 'unsupported_grant_type');
-    const http = require('node:http');
-    const chunkedStatus = await new Promise((resolve, reject) => {
-      const req = http.request(`${f.base}/oauth/chatgpt/token`, { method: 'POST', headers: { 'Content-Type': 'application/json' } }, res => { res.resume(); res.once('end', () => resolve(res.statusCode)); });
-      req.on('error', reject);
-      req.write('a'.repeat(4096)); req.write('a'.repeat(4096)); req.end('a');
-    });
-    assert.equal(chunkedStatus, 413, 'chunked bodies cannot bypass the raw byte limit');
     assert.equal(f.Request.rows.length, 0);
     assert.equal(f.Grant.rows.length, 0);
   } finally { await f.close(); }
@@ -303,13 +306,18 @@ test('early OAuth ingress enforces 8192 raw bytes before actual 50MB JSON/form p
 test('misordered body parsers and missing early middleware fail closed', async () => {
   const app = express();
   app.use(express.json({ limit: '50mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '50mb' }));
   app.use(buildChatgptOAuthIngress());
   app.post('/oauth/chatgpt/token', (_req, res) => res.json({ shouldNotRun: true }));
   const server = await new Promise(resolve => { const s = app.listen(0, '127.0.0.1', () => resolve(s)); });
   try {
-    const response = await fetch(`http://127.0.0.1:${server.address().port}/oauth/chatgpt/token`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
-    assert.equal(response.status, 400);
-    assert.equal((await response.json()).error, 'invalid_parser_order');
+    for (const path of ['/oauth/chatgpt/token', '/OAUTH/CHATGPT/TOKEN', '/OaUtH/ChAtGpT/ToKeN', '/API/CHATGPT/OAUTH/REQUESTS/not-real/CONSENT', '/aPi/ChAtGpT/oAuTh/ReQuEsTs/not-real/CoNsEnT']) {
+      for (const type of ['application/json', 'application/x-www-form-urlencoded']) {
+        const response = await fetch(`http://127.0.0.1:${server.address().port}${path}`, { method: 'POST', headers: { 'Content-Type': type }, body: type === 'application/json' ? '{}' : 'a=b' });
+        assert.equal(response.status, 400, path);
+        assert.equal((await response.json()).error, 'invalid_parser_order', path);
+      }
+    }
   } finally { await new Promise(resolve => server.close(resolve)); }
   const unbounded = express();
   unbounded.use(express.json());
@@ -318,9 +326,13 @@ test('misordered body parsers and missing early middleware fail closed', async (
     controls: { rate: async () => ({ allowed: true }), admit: async () => null, release: async () => {} } }));
   const missing = await new Promise(resolve => { const s = unbounded.listen(0, '127.0.0.1', () => resolve(s)); });
   try {
-    const response = await fetch(`http://127.0.0.1:${missing.address().port}/oauth/chatgpt/token`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
-    assert.equal(response.status, 400);
-    assert.equal((await response.json()).error, 'invalid_parser_order');
+    for (const path of ['/oauth/chatgpt/token', '/OAUTH/CHATGPT/TOKEN', '/OaUtH/ChAtGpT/ToKeN', '/API/CHATGPT/OAUTH/REQUESTS/not-real/CONSENT', '/aPi/ChAtGpT/oAuTh/ReQuEsTs/not-real/CoNsEnT']) {
+      for (const type of ['application/json', 'application/x-www-form-urlencoded']) {
+        const response = await fetch(`http://127.0.0.1:${missing.address().port}${path}`, { method: 'POST', headers: { 'Content-Type': type }, body: type === 'application/json' ? '{}' : 'a=b' });
+        assert.equal(response.status, 400, path);
+        assert.equal((await response.json()).error, 'invalid_parser_order', path);
+      }
+    }
   } finally { await new Promise(resolve => missing.close(resolve)); }
 });
 
