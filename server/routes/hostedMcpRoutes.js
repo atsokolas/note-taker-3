@@ -32,6 +32,7 @@ const buildHostedMcpRouter = ({
   authenticateAgentToken,
   resourceMetadataUrl = null,
   appUrl = process.env.NOEIS_APP_URL || process.env.FRONTEND_URL || 'https://www.noeis.io',
+  enableJsonResponse = process.env.NOEIS_MCP_JSON_RESPONSES === 'true',
   internalApiUrl = `http://127.0.0.1:${process.env.PORT || 3000}`,
   loadServer = loadMcpServer,
   Transport = StreamableHTTPServerTransport
@@ -39,6 +40,8 @@ const buildHostedMcpRouter = ({
   if (typeof authenticateAgentToken !== 'function') {
     throw new Error('authenticateAgentToken is required.');
   }
+
+  if (typeof enableJsonResponse !== 'boolean') throw new Error('enableJsonResponse must be a boolean.');
 
   const router = express.Router();
   router.use((_req, res, next) => {
@@ -62,7 +65,7 @@ const buildHostedMcpRouter = ({
     try {
       const { createMcpServer } = await loadServer();
       server = createMcpServer({ token, apiUrl: internalApiUrl, appUrl, grantedScopes: req.agentToken?.scopes, accessProfile: req.agentToken?.accessProfile, resourceMetadataUrl });
-      const transport = new Transport({ sessionIdGenerator: undefined });
+      const transport = new Transport({ sessionIdGenerator: undefined, enableJsonResponse });
       await server.connect(transport);
       await transport.handleRequest(req, res, req.body);
     } catch (error) {

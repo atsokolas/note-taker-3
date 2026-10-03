@@ -1,10 +1,12 @@
 const assert = require('assert');
 const express = require('express');
 const { once } = require('events');
+const { Client } = require('@modelcontextprotocol/sdk/client/index.js');
+const { StreamableHTTPClientTransport } = require('@modelcontextprotocol/sdk/client/streamableHttp.js');
 const { McpServer } = require('@modelcontextprotocol/sdk/server/mcp.js');
 const { buildHostedMcpRouter } = require('../hostedMcpRoutes');
 
-const startApp = async ({ useRealMcp = false, appUrl = 'http://127.0.0.1:3000' } = {}) => {
+const startApp = async ({ useRealMcp = false, appUrl = 'http://127.0.0.1:3000', enableJsonResponse } = {}) => {
   let receivedToken = '';
   let receivedApiUrl = '';
   let receivedAppUrl = '';
@@ -12,6 +14,7 @@ const startApp = async ({ useRealMcp = false, appUrl = 'http://127.0.0.1:3000' }
   app.use(express.json());
   const options = {
     ...(appUrl === null ? {} : { appUrl }),
+    ...(enableJsonResponse === undefined ? {} : { enableJsonResponse }),
     authenticateAgentToken: (req, res, next) => {
       if (req.headers.authorization !== 'Bearer ntk_at_test') {
         return res.status(401).json({ error: 'Agent token required.' });
@@ -90,6 +93,7 @@ const run = async () => {
       }
     }, { Authorization: 'Bearer ntk_at_test', Host: 'attacker.example', 'X-Forwarded-Host': 'attacker.example' });
     assert.strictEqual(initialized.status, 200);
+    assert(initialized.headers.get('content-type').includes('text/event-stream'), 'default production response remains SSE');
     assert.strictEqual(app.receivedToken(), 'ntk_at_test');
     assert.strictEqual(app.receivedAppUrl(), 'http://127.0.0.1:3000');
     assert.strictEqual(app.receivedApiUrl(), `http://127.0.0.1:${process.env.PORT || 3000}`);
@@ -109,6 +113,33 @@ const run = async () => {
   } finally {
     await app.close();
   }
+
+  // Optional JSON mode works with the real SDK client over HTTP. It does not
+  // expose anything publicly and leaves the default SSE transport unchanged.
+  const previousJson = process.env.NOEIS_MCP_JSON_RESPONSES;
+  process.env.NOEIS_MCP_JSON_RESPONSES = 'true';
+  const jsonApp = await startApp();
+  const sdkClient = new Client({ name: 'json-hosted-test', version: '1' });
+  try {
+    const initialized = await request(jsonApp.url, {
+      jsonrpc: '2.0', id: 31, method: 'initialize', params: {
+        protocolVersion: '2025-11-25', capabilities: {}, clientInfo: { name: 'json-fixture', version: '1' }
+      }
+    }, { Authorization: 'Bearer ntk_at_test' });
+    assert.strictEqual(initialized.status, 200);
+    assert(initialized.headers.get('content-type').includes('application/json'));
+    await sdkClient.connect(new StreamableHTTPClientTransport(new URL(`${jsonApp.url}/mcp`), {
+      requestInit: { headers: { Authorization: 'Bearer ntk_at_test' } }
+    }));
+    assert((await sdkClient.listTools()).tools.some(tool => tool.name === 'connection_info'));
+    const called = await sdkClient.callTool({ name: 'connection_info', arguments: {} });
+    assert.strictEqual(called.isError, undefined);
+    assert.deepStrictEqual(JSON.parse(called.content[0].text), { connected: true });
+  } finally {
+    await sdkClient.close(); await jsonApp.close();
+    if (previousJson === undefined) delete process.env.NOEIS_MCP_JSON_RESPONSES; else process.env.NOEIS_MCP_JSON_RESPONSES = previousJson;
+  }
+  assert.throws(() => buildHostedMcpRouter({ authenticateAgentToken: () => {}, enableJsonResponse: 'true' }), /boolean/);
 
   const previousApp = process.env.NOEIS_APP_URL;
   const previousFrontend = process.env.FRONTEND_URL;

@@ -50,7 +50,7 @@
     "test:import-helpers": "node scripts/test_import_helpers.js && node server/services/import/urlTextIngest.test.js",
     "test:import-session-routes": "node scripts/test_import_session_routes.js",
     "seo:gsc": "node scripts/seo/search_console_opportunities.js",
-    "chatgpt:test": "npm run mcp:test && node --test server/services/__tests__/chatgptAccessPolicy.test.js server/routes/__tests__/chatgptOAuthRoutes.test.js server/routes/__tests__/highlightThoughtRoutes.test.js server/routes/__tests__/chatgptIntegration.test.js && node server/routes/__tests__/wikiRoutes.contract.test.js && node scripts/validate_noeis_plugin_schema.cjs && python3 scripts/package_noeis_plugin.py"
+    "chatgpt:test": "node --test scripts/__tests__/noeisHttpResponse.test.cjs && npm run mcp:test && node --test server/services/__tests__/chatgptAccessPolicy.test.js server/routes/__tests__/chatgptOAuthRoutes.test.js server/routes/__tests__/highlightThoughtRoutes.test.js server/routes/__tests__/chatgptIntegration.test.js && node server/routes/__tests__/chatgptWikiCandidate.realMaintainer.test.js && node server/routes/__tests__/wikiRoutes.contract.test.js && node scripts/validate_noeis_plugin_schema.cjs && python3 scripts/package_noeis_plugin.py"
   },
   "repository": {
     "type": "git",

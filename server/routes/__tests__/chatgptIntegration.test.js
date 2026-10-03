@@ -17,6 +17,7 @@ const { buildHighlightMutationRouter } = require('../highlightMutationRoutes');
 const { buildNotebookRouter } = require('../notebookRoutes');
 const { buildWikiRouter } = require('../wikiRoutes');
 const { buildEditionRouter } = require('../editionRoutes');
+const { readNoeisHttpResponse } = require('../../../scripts/lib/noeisHttpResponse.cjs');
 const hash = value => crypto.createHash('sha256').update(value).digest('hex');
 
 // Execute the actual, non-exported JWT middleware without starting server.js,
@@ -61,16 +62,17 @@ test('actual OAuth grants and content routes preserve two-account boundaries in 
     const base = `http://127.0.0.1:${server.address().port}`;
     const call = async (url,token,method='GET',body) => {
       const r=await fetch(base+url,{method,redirect:'manual',headers:{...(token?{Authorization:`Bearer ${token}`} : {}),...(body?{'Content-Type':'application/json'}:{})},...(body?{body:JSON.stringify(body)}:{})});
-      const text=await r.text();return {status:r.status,location:r.headers.get('location'),body:text.startsWith('{')||text.startsWith('[')?JSON.parse(text):text};
+      return { ...await readNoeisHttpResponse(r), location:r.headers.get('location') };
     };
     const connect = async user => {
       const start=await call('/oauth/chatgpt/authorize?'+new URLSearchParams({response_type:'code',client_id:'integration',redirect_uri:config.clients.get('integration').redirectUris[0],resource:config.resource,scope:'read agent-write',code_challenge:challenge,code_challenge_method:'S256'}));
       assert.equal(start.status,302,JSON.stringify(start.body));
       const id=new URL(start.location).searchParams.get('request');
       const approval=await call(`/api/chatgpt/oauth/requests/${id}/consent`,user,'POST',{approved:true});assert.equal(approval.status,200);
-      const exchanged=await call('/oauth/chatgpt/token',null,'POST',{grant_type:'authorization_code',client_id:'integration',redirect_uri:config.clients.get('integration').redirectUris[0],resource:config.resource,code:new URL(approval.body.redirectUrl).searchParams.get('code'),code_verifier:verifier});assert.equal(exchanged.status,200);return exchanged.body.access_token;
+      const exchanged=await call('/oauth/chatgpt/token',null,'POST',{grant_type:'authorization_code',client_id:'integration',redirect_uri:config.clients.get('integration').redirectUris[0],resource:config.resource,code:new URL(approval.body.redirectUrl).searchParams.get('code'),code_verifier:verifier});assert.equal(exchanged.status,200);return exchanged.body;
     };
-    const tokens = [await connect(human[0]), await connect(human[1])];
+    const connections = [await connect(human[0]), await connect(human[1])];
+    const tokens = connections.map(connection => connection.access_token);
     const fixtures = [];
     for (let i=0;i<2;i++) {
       const marker=`ACCOUNT_${i}_PRIVATE_SENTINEL`;
@@ -135,6 +137,18 @@ test('actual OAuth grants and content routes preserve two-account boundaries in 
       assert.equal((await Article.findById(article.id)).highlights[0].note,'Reader later rewrite');
       const other=fixtures[1].article;assert.equal((await call(`/articles/${other.id}/highlights/${other.highlights[0].id}/thoughts`,tokens[0],'POST',body)).status,404);
       assert.equal((await Article.findById(other.id)).highlights[0].note,fixtures[1].marker);
+    });
+    await t.test('actual OAuth refresh and plain-OK revocation invalidate the freshly rotated access and refresh credentials',async()=>{
+      const refreshBody={grant_type:'refresh_token',client_id:'integration',resource:config.resource,refresh_token:connections[1].refresh_token};
+      const rotated=await call('/oauth/chatgpt/token',null,'POST',refreshBody);assert.equal(rotated.status,200);
+      assert.equal((await call(`/articles/${fixtures[1].article.id}`,tokens[1])).status,401);
+      assert.equal((await call(`/articles/${fixtures[1].article.id}`,rotated.body.access_token)).status,200);
+      const revoked=await call('/oauth/chatgpt/revoke',null,'POST',{client_id:'integration',token:rotated.body.refresh_token});assert.equal(revoked.status,200);assert.equal(revoked.body,'OK');
+      assert.equal((await call(`/articles/${fixtures[1].article.id}`,rotated.body.access_token)).status,401,'Fresh rotated access must be denied after family revocation');
+      assert.equal((await call('/oauth/chatgpt/token',null,'POST',{...refreshBody,refresh_token:rotated.body.refresh_token})).status,400);
+      const stored=await AgentToken.findOne({userId:users[1]});assert.equal(stored.status,'revoked');assert.ok(stored.revokedAt);
+      const family=await Grant.findOne({userId:users[1]});assert.ok(family.revokedAt);
+      assert.equal(await AgentToken.countDocuments({userId:users[1],status:'active',revokedAt:null}),0);
     });
   } finally { if(server) await new Promise(resolve=>server.close(resolve));await mongoose.disconnect();await mongo.stop(); }
 });

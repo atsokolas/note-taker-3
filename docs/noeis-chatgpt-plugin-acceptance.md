@@ -53,6 +53,18 @@ All local services/browser/disposable Mongo were stopped after testing. No produ
 
 Reproduction: `node scripts/run_noeis_chatgpt_local_staging.js` starts the actual backend using a cached local Mongo binary; `--local-model` permits only the existing loopback Ollama endpoint. The runner creates synthetic fixtures and ephemeral session material. It does not establish OAuth consent. Build/serve the frontend with `REACT_APP_API_BASE_URL=http://127.0.0.1:5607` at loopback port 4307 before native testing. The local evidence folder records actual gates separately from fixture suites and real ChatGPT gates.
 
+## Recoverable verification gaps closed
+
+The plain-response parser is now a tracked helper with3 passing tests for JSON, plain OK, empty success and non-JSON errors. The affected disposable-Mongo integration suite passes9/9, including refresh rotation, fresh access200 before revocation, fresh access401 after revocation, rotated refresh rejection, persisted family/token revocation and zero active tokens. It uses existing synthetic test grants, not another real browser consent or persistent personal grant. The corrected complete browser/MCP harness was not rerun after the disposable session was stopped.
+
+A new deterministic model fixture exercises the real Wiki route, maintainWikiPage, citations/materialization, quality evaluator and candidate holding. Its681-word output with six topical source families and seven cited claims passes all quality checks and returns202 awaiting_maintenance_acceptance. Accepted body/text remain unchanged and agent adoption returns403. A paired237-word output returns422 after unchanged rebuild/quality checks. Storage/auth/model output are synthetic; no live LLM or Mongo candidate persistence is claimed. Both fixtures are included in chatgpt:test. This establishes the valid candidate path without weakening quality policy or making paid calls.
+
+Correction to earlier model wording: the earlier422 artifact contains exact fallbackMaintenance stock prose. It proves rejected fallback preservation, not successful Ollama-generated prose. Available evidence cannot distinguish upstream error, configuration state or unparsable response; a future live integrated run should retain redacted model_drafted/model_fallback progress evidence.
+
+Optional NOEIS_MCP_JSON_RESPONSES=true is locally verified using the real SDK client for initialization, tool discovery and a tool call; default SSE is also tested. It prepares transport compatibility for a possible accountless Quick Tunnel, not tunnel exposure. The existing loopback runner must never be publicly tunneled: its documented fixture password and fixed issuer/client/callback are intentionally local. A public test requires a separate reviewed disposable runner/gateway, fresh unpredictable login, narrow route allowlist and exact native OAuth configuration. See the tunnel assessment.
+
+Read-only Safari inspection opened the signed-in ChatGPT plugins page and observed installed-plugin/profile controls. No developer-plus/client/callback form was observed and account entitlement could not be verified from those controls. Official documentation supports static OAuth credentials, but this account’s public-none client/callback UI remains unverified. No developer mode, setting, installation, tunnel or grant was changed.
+
 ## Deliverables and next decisions
 
 - Package source: `plugins/noeis/`; staging ZIP: `output/noeis-plugin/noeis-0.1.0-staging-unconfigured.zip`; configuration receipt beside it. The reserved .invalid endpoint cannot connect until an approved staging URL is supplied. `plugins/noeis/staging.env.example` is excluded from the ZIP.
