@@ -9134,29 +9134,32 @@ html[data-ui-theme='dark'] body.noeis-editorial .concept-editorial-evidence__ite
 
 .concept-share-modal__url-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: stretch;
   gap: 8px;
 }
 
 .concept-share-modal__url {
-  flex: 1;
+  flex: 1 1 180px;
   min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
   padding: 8px 12px;
   border: 1px solid var(--border-subtle);
   border-radius: 8px;
   background: color-mix(in srgb, var(--surface) 92%, transparent);
-  color: var(--text);
+  color: var(--text-primary);
   font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
   font-size: 0.84rem;
 }
 
 .concept-share-modal__revoke {
-  color: #a54731 !important;
-  border-color: color-mix(in srgb, #a54731 32%, var(--border-subtle));
+  color: var(--noeis-danger) !important;
+  border-color: color-mix(in srgb, var(--noeis-danger) 32%, var(--border-subtle));
 }
 
 .concept-share-modal__revoke:hover:not(:disabled) {
-  background: color-mix(in srgb, #a54731 8%, transparent);
+  background: color-mix(in srgb, var(--noeis-danger) 8%, transparent);
 }
 
 /* ConceptShareModal — modern polish (preview card, bullets, refined CTA) -- */

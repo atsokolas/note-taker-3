@@ -1,4 +1,5 @@
 import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import ShareDestinations from '../sharing/ShareDestinations';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '../ui';
 import ReadFresh, { useReadFresh } from '../reader/ReadFresh';
@@ -3041,9 +3042,12 @@ const WikiPageReadView = ({
           </Link>
         ) : null}
         {publicShareReady && publicShareUrl ? (
-          <a className="wiki-read__share-open" href={publicShareUrl} target="_blank" rel="noopener noreferrer">
-            Open public page
-          </a>
+          <>
+            <ShareDestinations url={publicShareUrl} title="A Wiki page from Noeis" />
+            <a className="wiki-read__share-open" href={publicShareUrl} target="_blank" rel="noopener noreferrer">
+              Open public page
+            </a>
+          </>
         ) : null}
         {isSharedPublicly ? (
           <Button type="button" variant="secondary" onClick={handleStopSharing} disabled={shareBusy}>

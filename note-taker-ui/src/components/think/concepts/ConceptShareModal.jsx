@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import ShareDestinations from '../../sharing/ShareDestinations';
 import { Button, QuietButton } from '../../ui';
 import {
   getConceptShare,
@@ -204,6 +205,7 @@ const ConceptShareModal = ({ open, conceptName, onClose }) => {
                   />
                   <Button variant="secondary" onClick={handleCopy} disabled={busy}>Copy link</Button>
                 </div>
+                <div className="concept-share-modal__active-actions"><ShareDestinations url={url} title="A concept from Noeis" /></div>
                 <p className="muted small">{THINK_SHARE_REVOKE}</p>
                 <div className="concept-share-modal__active-actions">
                   <a

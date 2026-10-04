@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import ShareDestinations from '../../sharing/ShareDestinations';
 import {
   getNotebookShare,
   publishNotebookShare,
@@ -178,6 +179,7 @@ export function NotebookSharePanel({
             <button type="button" onClick={copyLink} data-testid="notebook-copy-link">
               {copied ? 'Link copied' : 'Copy link'}
             </button>
+            <ShareDestinations url={href} title={snapshot?.title || 'Shared note from Noeis'} />
             {selectHint ? (
               <button
                 type="button"

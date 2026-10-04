@@ -56,6 +56,22 @@ describe('sharing an edition', () => {
     expect(screen.getByTestId('edition-publish')).toHaveTextContent('Create share link');
   });
 
+  it('offers Email and X only for the published link, using its frozen title', async () => {
+    getEditionShare.mockResolvedValue({ shared: true, slug: 'abc123', preview, snapshot: { ...preview, title: 'Published issue' } });
+    open();
+    const email = await screen.findByRole('link', { name: 'Share via email' });
+    expect(email.getAttribute('href')).toContain('subject=Published%20issue');
+    const x = new URL(screen.getByRole('link', { name: 'Share on X' }).href);
+    expect(x.searchParams.get('url')).toBe('http://localhost/share/editions/abc123');
+  });
+
+  it('does not offer email or X for an unshared draft', async () => {
+    open();
+    await screen.findByTestId('edition-publish');
+    expect(screen.queryByRole('link', { name: 'Share via email' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Share on X' })).not.toBeInTheDocument();
+  });
+
   it('falls back to selecting the URL when the clipboard is refused', async () => {
     getEditionShare.mockResolvedValue({ shared: true, slug: 'abc123', stale: false, preview });
     Object.defineProperty(navigator, 'clipboard', {

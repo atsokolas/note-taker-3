@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import ShareDestinations from '../sharing/ShareDestinations';
 import {
   getEditionShare,
   revokeEditionShare,
@@ -70,9 +71,22 @@ const EditionShare = ({ editionId, edition = null, triggerIcon = null }) => {
     const onPointer = (event) => {
       if (!root.contains(event.target)) close();
     };
+    const fitPanel = () => {
+      if (!root.open) return;
+      const top = root.querySelector('.edition-share__panel')?.getBoundingClientRect().top;
+      if (!Number.isFinite(top)) return;
+      const available = Math.max(0, window.innerHeight - Math.max(16, top) - 16);
+      root.style.setProperty('--edition-share-available-height', `${available}px`);
+    };
+    root.addEventListener('toggle', fitPanel);
+    window.addEventListener('resize', fitPanel);
+    document.addEventListener('scroll', fitPanel, true);
     document.addEventListener('keydown', onKey);
     document.addEventListener('pointerdown', onPointer);
     return () => {
+      root.removeEventListener('toggle', fitPanel);
+      window.removeEventListener('resize', fitPanel);
+      document.removeEventListener('scroll', fitPanel, true);
       document.removeEventListener('keydown', onKey);
       document.removeEventListener('pointerdown', onPointer);
     };
@@ -192,6 +206,7 @@ const EditionShare = ({ editionId, edition = null, triggerIcon = null }) => {
               >
                 {copied ? 'Link copied' : 'Copy link'}
               </button>
+              <ShareDestinations url={href} title={share?.snapshot?.title || 'Shared edition from Noeis'} />
               {selectHint ? (
                 <button
                   type="button"

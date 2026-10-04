@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import ShareDestinations from '../../sharing/ShareDestinations';
 import { Button, QuietButton } from '../../ui';
 import {
   getQuestionShare,
@@ -826,6 +827,7 @@ const QuestionShareModal = ({ open, questionId, questionText, onClose }) => {
                     value={url}
                     onFocus={(event) => event.target.select()}
                   />
+                  <ShareDestinations url={url} title="A question from Noeis" />
                   <Button type="button" variant="secondary" onClick={handleCopy} disabled={busy}>
                     Copy link
                   </Button>
