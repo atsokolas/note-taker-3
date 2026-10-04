@@ -276,7 +276,7 @@ const AppearanceSection = ({
           <span>
             {receiptLines.join(' · ')}
             <br />
-            <span style={{ color: 'var(--settings-muted)' }}>Delivery, instructions, and content were not changed.</span>
+            <span style={{ color: 'var(--settings-muted)' }}>Delivery, instructions, and your saved work were not changed.</span>
           </span>
           <button type="button" className="settings-redesign__link" onClick={onUndo}>Back to before this change</button>
         </div>
@@ -291,7 +291,7 @@ const AppearanceSection = ({
           </strong>
           <p className="settings-redesign__help" style={{ margin: '0.2rem 0 0' }}>
             {changedKeys.length
-              ? 'Only appearance. No content, delivery, or access changes.'
+              ? 'Only appearance. Your saved work, delivery, and access stay as they were.'
               : 'You can try another combination without losing this one.'}
           </p>
         </div>

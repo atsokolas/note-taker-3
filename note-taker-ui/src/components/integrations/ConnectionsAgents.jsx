@@ -132,7 +132,7 @@ export default function ConnectionsAgents({ tokenModel, onOpenTaskLink = null })
                 />
                 <span>
                   <strong>Read NOEIS</strong>
-                  <small>Retrieve through read-scoped endpoints. No content writes.</small>
+                  <small>Search and read only. It never writes to NOEIS.</small>
                 </span>
               </label>
               <label>

@@ -83,6 +83,11 @@ describe('fetchNotionPagesForAgent', () => {
       savedEvents.push(event);
       return event;
     });
+    // The orchestrator claims a pending event with a conditional update before it runs.
+    deps.WikiSourceEvent.findOneAndUpdate = jest.fn().mockImplementation(async ({ _id }, { $set }) => {
+      const event = savedEvents.find((candidate) => candidate._id === _id);
+      return event ? Object.assign(event, $set) : null;
+    });
     deps.WikiPage = {
       findOne: jest.fn().mockReturnValue({
         then: (resolve) => resolve(null)
