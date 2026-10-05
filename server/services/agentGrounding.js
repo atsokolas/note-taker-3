@@ -24,6 +24,6 @@ const drawsOn = (reply, sourceText, n = PASSAGE_WORDS) => {
 
 // The items whose own words the reply carries, in the order they were given.
 const groundedIn = (reply = '', items = []) => (Array.isArray(items) ? items : [])
-  .filter((item) => item && drawsOn(reply, item.fullText || item.snippet || ''));
+  .filter((item) => item && drawsOn(reply, item.fullText || item.replySnippet || item.snippet || ''));
 
 module.exports = { PASSAGE_WORDS, words, drawsOn, groundedIn };

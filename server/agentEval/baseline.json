@@ -1,13 +1,13 @@
 {
-  "passed": 3,
+  "passed": 12,
   "total": 23,
-  "passRate": 0.13,
+  "passRate": 0.522,
   "checks": {
-    "found": 0.368,
-    "drawsOnPassages": 0.368,
-    "citesOnlyRelevant": 0,
+    "found": 0.895,
+    "drawsOnPassages": 0.895,
+    "citesOnlyRelevant": 0.526,
     "noInventedQuotes": 1,
-    "notTemplate": 0.652,
+    "notTemplate": 0.696,
     "declines": 0.75,
     "citesNothing": 1
   },
