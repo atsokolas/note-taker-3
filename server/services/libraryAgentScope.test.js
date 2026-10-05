@@ -23,7 +23,7 @@ test('shelf retrieval limits the database query and never searches notes or conc
     limit: jest.fn().mockReturnThis(),
     lean: jest.fn(async () => [])
   };
-  const Article = { find: jest.fn(() => query) },
+  const Article = { find: jest.fn(() => query), countDocuments: jest.fn(async () => 0) },
     NotebookEntry = { find: jest.fn() },
     TagMeta = { find: jest.fn() };
   await retrievePassages({

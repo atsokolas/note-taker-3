@@ -95,6 +95,29 @@ describe('retrievePassages', () => {
     expect(results.map(item => item.id)).toEqual(['sleep']);
   });
 
+  it('meets new reading with a view the reader holds', async () => {
+    const WikiPage = model([{
+      _id: 'view1',
+      title: 'Late decisions',
+      judgment: {
+        currentJudgment: 'I decide as well at midnight as in the morning.',
+        why: [{ text: 'My late calls have mostly held up.' }],
+        falsifiers: [{ text: 'Tired decisions I later reverse.', status: 'unobserved' }, { text: 'Retired worry.', status: 'retired' }]
+      }
+    }]);
+    const results = await retrievePassages({
+      userId: 'u1',
+      query: 'Connect this.',
+      about: 'Tired decisions at midnight',
+      models: { ...library(), WikiPage }
+    });
+    const view = results.find(item => item.id === 'view1');
+    expect(view.held).toBe('I decide as well at midnight as in the morning.');
+    expect(view.fullText).toMatch(/^You hold: .*\nWhy: My late calls.*\nWhat would change your mind: Tired decisions/s);
+    expect(view.fullText).not.toMatch(/Retired worry/);
+    expect(WikiPage.find).toHaveBeenCalledWith(expect.objectContaining({ userId: 'u1' }));
+  });
+
   it('strips import preambles so they are never quoted as the author', () => {
     expect(stripImportChrome('Name: Strategy Notes URL: https://example.com/strategy The useful passage explains it.'))
       .toBe('The useful passage explains it.');

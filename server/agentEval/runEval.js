@@ -34,7 +34,7 @@ const openDatabase = async () => {
 const runAgentEval = async ({ only = [], baseline = null, onCase = () => {} } = {}) => {
   const close = await openDatabase();
   try {
-    const { Article, NotebookEntry, TagMeta } = require('../models');
+    const { Article, NotebookEntry, TagMeta, WikiPage } = require('../models');
     // The partner resolves these lazily by name; loading the model index
     // registers them.
     const { generateCollaborativeReply } = require('../services/collaborativeAgentService');
@@ -42,7 +42,7 @@ const runAgentEval = async ({ only = [], baseline = null, onCase = () => {} } = 
     // builds them here before anything is asked.
     await Promise.all([Article.init(), NotebookEntry.init(), TagMeta.init()]);
     const userId = new mongoose.Types.ObjectId();
-    const ids = await seedLibrary({ userId, Article, NotebookEntry, TagMeta });
+    const ids = await seedLibrary({ userId, Article, NotebookEntry, TagMeta, WikiPage });
     const texts = libraryTexts();
     const cases = only.length ? CASES.filter(item => only.includes(item.id)) : CASES;
 

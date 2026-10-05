@@ -44,6 +44,15 @@ const run = async () => {
     relatedItems: [{ title: 'Why checklists beat expertise', snippet: 'The resistance to checklists is mostly about identity. Your note: Same with code review.' }]
   });
   assert.match(passageReply, /^This is the passage in your library that bears on it\./);
+  const viewReply = buildPassageReply({
+    query: 'Can I trust my roadmap estimates?',
+    relatedItems: [
+      { type: 'wiki_page', title: 'Roadmap forecasts', snippet: 'You hold: Our forecasts are accurate.', held: 'Our forecasts are accurate.' },
+      { title: 'Start with the base rate', snippet: 'The inside view is almost always too optimistic.' }
+    ]
+  });
+  assert.strictEqual(viewReply.split('\n\n')[0], 'This bears on a view you hold.');
+  assert.strictEqual(viewReply.split('\n\n')[1], 'You hold, in Roadmap forecasts: “Our forecasts are accurate.”', 'A held view is quoted first, as the reader wrote it.');
   assert.match(passageReply, /Why checklists beat expertise: “The resistance to checklists is mostly about identity\.” Your note: “Same with code review\.”/);
 
   const routedWikiPageId = '69fd2e7d212cd5a5f57db144';
