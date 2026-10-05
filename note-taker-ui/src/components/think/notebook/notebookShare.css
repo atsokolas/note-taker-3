@@ -342,7 +342,7 @@
 .shared-notebook-page {
   min-height: 100vh;
   padding: 2.5rem 1.25rem 4rem;
-  background: var(--vellum-bg, var(--bg-primary));
+  background: var(--surface);
 }
 
 .shared-notebook-page__inner {
@@ -393,7 +393,7 @@
 .notebook-share-preview {
   min-height: 100vh;
   padding: 1.25rem 1.25rem 3rem;
-  background: var(--vellum-bg, var(--bg-primary));
+  background: var(--surface);
 }
 
 .notebook-share-preview__stage {

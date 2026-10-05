@@ -13,7 +13,7 @@
 .shared-concept-page,
 .shared-question-page,
 .shared-notebook-page {
-  background: var(--vellum-bg, var(--bg-primary));
+  background: var(--surface);
 }
 
 /* think-home-polish.css is loaded deferred, so it lands after this sheet and

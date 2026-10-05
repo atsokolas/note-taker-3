@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import ShareDestinations from '../../sharing/ShareDestinations';
 import {
   getNotebookVolume,
   previewNotebookVolume,
@@ -216,6 +217,7 @@ export function NotebookVolumePanel({
             <button type="button" onClick={copyLink} data-testid="notebook-volume-copy-link">
               {copied ? 'Link copied' : 'Copy link'}
             </button>
+            <ShareDestinations url={href} title={snapshot?.title || 'Shared volume from Noeis'} />
             {selectHint ? (
               <button
                 type="button"

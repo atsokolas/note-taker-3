@@ -1,0 +1,17 @@
+.share-destination {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 4px 2px;
+  color: var(--text-primary);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  white-space: nowrap;
+}
+
+.share-destination:hover { text-decoration-thickness: 2px; }
+.share-destination:focus-visible {
+  outline: 2px solid var(--noeis-focus, var(--accent));
+  outline-offset: 3px;
+}

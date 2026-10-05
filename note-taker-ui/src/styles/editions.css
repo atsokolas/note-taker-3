@@ -182,12 +182,19 @@
 .edition-share > summary::-webkit-details-marker { display: none; }
 
 .edition-share__panel {
+  display: flex;
+  flex-direction: column;
   margin: 12px 0 0;
   padding: 16px 16px 18px;
   max-width: 68ch;
   border: 1px solid var(--noeis-rule, var(--border-subtle-2));
-  background: var(--bg-primary, #fff);
+  background: var(--surface-elevated);
+  color: var(--text-primary);
+  box-sizing: border-box;
+  overflow-wrap: anywhere;
 }
+
+.edition-share__panel > :not(.edition-share__preview) { flex-shrink: 0; }
 
 .edition-share__kicker {
   margin: 0 0 8px;
@@ -203,6 +210,8 @@
 }
 
 .edition-share__preview {
+  flex: 1 1 auto;
+  min-height: 0;
   margin: 0 0 16px;
   max-height: 42vh;
   overflow: auto;

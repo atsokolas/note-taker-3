@@ -79,7 +79,10 @@
   width: min(356px, calc(100vw - 32px));
   margin: 0;
   max-width: none;
-  box-shadow: 0 10px 35px rgba(38, 35, 28, .09);
+  max-height: min(680px, var(--edition-share-available-height, calc(100dvh - 140px)));
+  overflow: auto;
+  overscroll-behavior: contain;
+  box-shadow: var(--noeis-shadow-float);
 }
 .edition-reading button, .edition-reading select, .edition-reading textarea { font: inherit; color: inherit; }
 .edition-reading button { cursor: pointer; background: none; border: 0; }
