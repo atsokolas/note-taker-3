@@ -2,6 +2,8 @@ name: Agent Eval
 
 on:
   pull_request:
+    # `labeled` lets a pull request ask for the model path with the live-eval label.
+    types: [opened, synchronize, reopened, labeled]
     paths:
       - 'server/agentEval/**'
       - 'server/ai/**'
@@ -75,10 +77,11 @@ jobs:
   live:
     name: Agent eval (model path)
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'schedule' || inputs.include_live == 'true' }}
+    if: ${{ github.event_name == 'schedule' || inputs.include_live == 'true' || contains(github.event.pull_request.labels.*.name, 'live-eval') }}
     env:
       HF_TOKEN: ${{ secrets.HF_TOKEN }}
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+      OPENROUTER_TEXT_MODEL: ${{ vars.OPENROUTER_TEXT_MODEL }}
       HF_PROVIDER: ${{ vars.HF_PROVIDER || 'groq' }}
       HF_TEXT_MODEL: ${{ vars.HF_TEXT_MODEL || 'openai/gpt-oss-120b' }}
       HF_AGENT_MODEL_ROUTES_JSON: ${{ vars.HF_AGENT_MODEL_ROUTES_JSON }}
