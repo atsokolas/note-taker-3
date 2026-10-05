@@ -182,15 +182,18 @@ const buildPassageReply = ({ query = '', contextItem = null, relatedItems = [] }
   ].join('\n\n');
 };
 
-// Every source the turn saw, once each, with its passage text intact.
+// Every source the turn saw, once each, with the fullest text it was seen in:
+// a passage the model read in full outranks the snippet that led it there.
 const mergeSources = (...lists) => {
-  const seen = new Set();
-  return lists.flat().filter((item) => {
-    const key = item?.id ? `${item.type}:${item.id}` : '';
-    if (!key || seen.has(key)) return false;
-    seen.add(key);
-    return true;
+  const textOf = item => item.fullText || item.replySnippet || item.snippet || '';
+  const merged = new Map();
+  lists.flat().forEach((item) => {
+    if (!item?.id) return;
+    const key = `${item.type}:${item.id}`;
+    const known = merged.get(key);
+    if (!known || textOf(item).length > textOf(known).length) merged.set(key, item);
   });
+  return [...merged.values()];
 };
 
 const mergeRelatedItemLists = (...lists) => {
