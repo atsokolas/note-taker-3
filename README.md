@@ -114,28 +114,16 @@ Health check:
 
 - `GET /api/ai/health` → proxies to ai_service `/health`
 
-Agent workflow harness:
+Agent eval:
 
-- `npm run agent:harness` runs the deterministic synthetic harness for the ten canonical agent workflows.
-- `npm run agent:harness:realistic` runs the same contracts against anonymized realistic workspace fixtures with messy notes, folder drift, trust-boundary decisions, and memory updates.
-- `npm run agent:harness:live` runs the same workflow contracts against the configured Hugging Face model routes.
-- `npm run agent:harness:integrations` runs the Librarian and Memory steward workflows and adds dry-run service payloads for `AgentStructureProposal` and `WorkingMemoryItem`.
-- `npm run agent:harness:ci` runs the deterministic regression gate used by CI: synthetic mock, realistic mock, and realistic integration dry-run. It fails when pass rate drops below `AGENT_HARNESS_MIN_PASS_RATE` (default `1.0`) or any suite has unexpected failures.
-- `npm run agent:harness:ci:live` runs the same regression gate plus the live realistic Hugging Face suite. Use this for scheduled/manual checks when `HF_TOKEN` is configured.
-- `npm run agent:bakeoff -- --workflow=librarian --candidate=model:provider,other-model:provider` forces selected workflows through explicit candidate model/provider pairs and writes a route/model comparison report to `tmp/agent-model-bakeoff-runs`.
-- Add `-- --outcome-telemetry=path/to/metrics.json` or `-- --outcome-telemetry-url=https://your-api/api/agent/harness-metrics --outcome-telemetry-token=JWT` to a bakeoff run to compare candidate pass rates against production `outcomeTelemetry` acceptance buckets.
-- Bakeoff reports include promotion recommendations. Defaults require `passRate >= 1`, `avgLatencyMs <= 30000`, at least one case, and zero production-overprediction buckets; tune with `AGENT_BAKEOFF_PROMOTION_MIN_PASS_RATE`, `AGENT_BAKEOFF_PROMOTION_MAX_AVG_LATENCY_MS`, `AGENT_BAKEOFF_PROMOTION_MIN_CASES`, and `AGENT_BAKEOFF_PROMOTION_MAX_OVERPREDICTING`.
-- Set `AGENT_BAKEOFF_FAIL_ON_ALERT=true` only after scheduled bakeoff output is stable; otherwise the workflow records alerts in the GitHub step summary without blocking.
+- `npm run agent:eval` seeds a small reading library (`server/agentEval/library.js`), asks the thought partner the questions in `server/agentEval/cases.js` from the surfaces readers use, and scores each answer. It checks that the right sources were found, that the answer carries their actual words, that it cites only what it used, that it never invents a quotation or answers with a template, and that it says so when the library has nothing.
+- With `HF_TOKEN` or `OPENROUTER_API_KEY` in `.env` it measures the model path; without one it measures what readers get when the model is unavailable. `modelAnswered` in the summary says which.
+- `npm run agent:eval:check` exits non-zero when any rate falls below `server/agentEval/baseline.json`. Raise the baseline with `-- --update-baseline` after an improvement lands.
+- `-- --case=summary,hiring --verbose` runs selected cases and prints the replies. Reports are written to `tmp/agent-eval/`.
+- The eval starts its own in-memory MongoDB. Set `AGENT_EVAL_MONGODB_URI` to use a throwaway server instead; it never reads `MONGODB_URI`.
 - `npm run agent:approval-smoke -- --base-url=https://your-api --token=JWT --action=reject` creates a real pending `memory.commit` approval, verifies it is listable, rejects it with an audit note, and writes a JSON report to `tmp/agent-approval-smoke-runs`. Use `--action=approve` only when you intentionally want the smoke test to commit working-memory rows.
-- Add `-- --workflow=thought_partner,librarian` to limit a run to specific workflows.
-- Add `-- --fixture-set=realistic` to use the realistic fixture set with any harness mode, including live runs.
-- Controlled writes are opt-in only: add `-- --write-mode=stage --approve-writes --workflow=librarian` to create pending structure proposals without applying folder changes, `-- --write-mode=stage --approve-writes --workflow=memory_steward` to create pending `memory.commit` approvals, or `-- --write-mode=commit --approve-writes --workflow=memory_steward` to commit approved working-memory updates. `dry_run` remains the default.
-- CI/scheduled reports are written to `tmp/agent-harness-regression-runs`; individual harness artifacts continue to land in `tmp/agent-harness-runs`.
-- The harness metrics endpoint now exposes comparison matrices for route × model/provider, live route × model/provider, fixture set × model/provider, route × fixture set, and failure messages. The Thought Partner panel prefers live model-route rows and shows pass rate plus average latency.
 - `POST /api/agent/memory-approvals` stages working-memory updates as `memory.commit` protocol approvals. Approving the protocol approval executes the commit into `WorkingMemoryItem`; rejecting it stores the user decision note for audit review.
 - `GET /api/agent/write-boundary` summarizes the safety split between approved memory commits, pending memory approvals, and staged structure proposals. The Thought Partner panel renders this as a write-boundary card plus a separate Memory approvals review queue.
-- The harness metrics response also includes `outcomeTelemetry`, which compares real content-edit, structure-plan, artifact-draft, and agent-run outcomes against matching harness pass rates. The Thought Partner panel surfaces underperforming/aligned buckets as production feedback for the harness.
-- The scheduled GitHub live harness job also runs a non-blocking model bakeoff and uploads bakeoff artifacts. Manual workflow dispatch can run the deployed approval smoke when `AGENT_APPROVAL_SMOKE_BASE_URL` and `AGENT_APPROVAL_SMOKE_TOKEN` are configured.
 
 Common failure modes:
 

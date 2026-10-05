@@ -725,7 +725,6 @@ const { buildAgentHarnessMetricsRouter } = require('./routes/agentHarnessMetrics
 const { buildAgentWriteBoundaryRouter } = require('./routes/agentWriteBoundaryRoutes');
 const { buildAgentMemoryApprovalRouter } = require('./routes/agentMemoryApprovalRoutes');
 const { buildAgentUpkeepCycleRouter } = require('./routes/agentUpkeepCycleRoutes');
-const { getAgentOutcomeTelemetrySnapshot } = require('./services/agentOutcomeTelemetry');
 const {
   createMemoryCommitApproval,
   executeMemoryCommitApproval,
@@ -850,9 +849,6 @@ const {
 const {
   getAgentHarnessMetricsSnapshot
 } = require('./services/agentHarnessMetrics');
-const {
-  getAgentHarnessRunHistorySnapshot
-} = require('./services/agentHarnessRunArtifacts');
 const {
   buildMarketingFunnelSnapshot,
   buildMarketingFunnelSeries
@@ -7205,9 +7201,7 @@ app.use(buildAgentHarnessMetricsRouter({
   AgentStructureProposal,
   AgentArtifactDraft,
   AgentProtocolApproval,
-  getAgentHarnessMetricsSnapshot,
-  getAgentHarnessRunHistorySnapshot,
-  getAgentOutcomeTelemetrySnapshot
+  getAgentHarnessMetricsSnapshot
 }));
 
 app.use(buildAgentUpkeepCycleRouter({

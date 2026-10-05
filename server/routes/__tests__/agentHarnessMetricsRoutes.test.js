@@ -15,29 +15,6 @@ const run = async () => {
       threadId,
       rates: { runCompletionRate: 1 },
       funnel: {}
-    }),
-    getAgentHarnessRunHistorySnapshot: async ({ mode, limit }) => ({
-      mode,
-      limit: Number(limit),
-      latestRun: { mode: 'live', passRate: 1 },
-      aggregates: { workflows: {} },
-      runs: []
-    }),
-    getAgentOutcomeTelemetrySnapshot: async ({ userId, threadId, runHistory }) => ({
-      userId,
-      threadId,
-      sawRunHistory: Boolean(runHistory),
-      summary: { bucketCount: 1, aligned: 1 },
-      buckets: [
-        {
-          id: 'content_edits',
-          label: 'Content edits',
-          observed: { acceptanceRate: 1, resolved: 2 },
-          harness: { passRate: 1, source: 'live:realistic' },
-          delta: 0,
-          status: 'aligned'
-        }
-      ]
     })
   }));
 
@@ -54,14 +31,6 @@ const run = async () => {
     const payload = await response.json();
     assert.strictEqual(payload.metrics.userId, 'user-1');
     assert.strictEqual(payload.metrics.threadId, 'thread-1');
-    assert.strictEqual(payload.runHistory.mode, 'live');
-    assert.strictEqual(payload.runHistory.limit, 5);
-    assert.strictEqual(payload.runHistory.latestRun.passRate, 1);
-    assert.strictEqual(payload.metrics.runHistory.latestRun.passRate, 1);
-    assert.strictEqual(payload.outcomeTelemetry.userId, 'user-1');
-    assert.strictEqual(payload.outcomeTelemetry.threadId, 'thread-1');
-    assert.strictEqual(payload.outcomeTelemetry.sawRunHistory, true);
-    assert.strictEqual(payload.metrics.outcomeTelemetry.summary.aligned, 1);
   } finally {
     await new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
   }

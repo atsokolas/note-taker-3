@@ -1,0 +1,15 @@
+{
+  "passed": 3,
+  "total": 23,
+  "passRate": 0.13,
+  "checks": {
+    "found": 0.368,
+    "drawsOnPassages": 0.368,
+    "citesOnlyRelevant": 0,
+    "noInventedQuotes": 1,
+    "notTemplate": 0.652,
+    "declines": 0.75,
+    "citesNothing": 1
+  },
+  "modelAnswered": 0
+}
