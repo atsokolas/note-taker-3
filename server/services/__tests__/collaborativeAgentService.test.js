@@ -4,6 +4,7 @@ const { __testables } = require('../collaborativeAgentService');
 const {
   tokenize,
   buildReply,
+  buildPassageReply,
   buildOutputArtifactReply,
   inferReplyIntent,
   resolveAgentIntent,
@@ -12,7 +13,6 @@ const {
   loadGraphRelatedItems,
   buildPartnerChatMessages,
   groundOrdinalWorkspaceReferences,
-  ensureRetrievedItemNamed,
   leaksInternalReasoning,
   buildWikiClaimSourceReply,
   prepareRelatedItemsForReply,
@@ -37,6 +37,15 @@ const makeFindModel = (resolver) => ({
 });
 
 const run = async () => {
+  // Without a model, the partner quotes what bears on the question or says nothing does.
+  assert.strictEqual(buildPassageReply({ query: 'tides' }), 'Nothing in your library speaks to this yet.');
+  const passageReply = buildPassageReply({
+    query: 'Why do checklists meet resistance?',
+    relatedItems: [{ title: 'Why checklists beat expertise', snippet: 'The resistance to checklists is mostly about identity. Your note: Same with code review.' }]
+  });
+  assert.match(passageReply, /^This is the passage in your library that bears on it\./);
+  assert.match(passageReply, /Why checklists beat expertise: “The resistance to checklists is mostly about identity\.” Your note: “Same with code review\.”/);
+
   const routedWikiPageId = '69fd2e7d212cd5a5f57db144';
   const wikiFindOneQueries = [];
   const WikiPage = {
@@ -117,27 +126,6 @@ const run = async () => {
   assert.ok(!tokens.includes('the'), 'Stopwords should be removed.');
 
   assert.strictEqual(
-    ensureRetrievedItemNamed({
-      reply: 'A useful source is nearby.',
-      fallback: 'The Feynman Learning Technique is the strongest returned lead.',
-      relatedItems: [{ id: 'feynman', title: 'The Feynman Learning Technique' }],
-      intent: 'retrieve'
-    }),
-    'The Feynman Learning Technique is the strongest returned lead.',
-    'Retrieve replies must name a returned item rather than imply provenance.'
-  );
-  assert.strictEqual(
-    ensureRetrievedItemNamed({
-      reply: 'The Feynman Learning Technique is the strongest returned lead.',
-      fallback: 'fallback',
-      relatedItems: [{ id: 'feynman', title: 'The Feynman Learning Technique' }],
-      intent: 'retrieve'
-    }),
-    'The Feynman Learning Technique is the strongest returned lead.',
-    'A reply that already names its returned item should survive unchanged.'
-  );
-
-  assert.strictEqual(
     inferReplyIntent({ message: 'Clean up library structure and stage a reviewable organization plan.' }),
     'cleanup_structure',
     'Library cleanup requests should stage organization work instead of falling into copy-polish clarification.'
@@ -171,7 +159,7 @@ const run = async () => {
     'Return-loop prompts should be treated as workspace orientation rather than generic chat.'
   );
 
-  const wikiOrientationReply = buildReply({
+  const wikiOrientationReply = buildOrientationReply({
     message: 'What am I looking at?',
     context: {
       type: 'workspace',
@@ -195,7 +183,7 @@ const run = async () => {
   assert.ok(wikiOrientationReply.includes('Margin of safety highlight'), 'Orientation replies should mention visible nearby material.');
   assert.ok(!wikiOrientationReply.includes('69fd2e7d212cd5a5f57db144'), 'Orientation replies should never expose raw ObjectIds.');
 
-  const usageReply = buildReply({
+  const usageReply = buildOrientationReply({
     message: 'Where else is this used?',
     context: { type: 'concept', id: 'c1', title: 'Systems Thinking' },
     contextItem: {
@@ -384,114 +372,6 @@ const run = async () => {
   assert.strictEqual(pruned.length, 1, 'Context echo items should be removed from the reply payload when richer related items exist.');
   assert.strictEqual(pruned[0].title, 'Feedback loops', 'Expected the non-echo related item to remain.');
 
-  const reply = buildReply({
-    message: 'Summarize what matters most here',
-    context: {
-      type: 'concept',
-      id: 'c1',
-      title: 'Systems Thinking',
-      metadata: {
-        primaryText: 'Systems that look stable can still hide delayed feedback. Pressure accumulates before the system changes state. The risk is that surface calm hides real fragility.'
-      }
-    },
-    contextItem: { type: 'concept', title: 'Systems Thinking', snippet: 'A concept about loops and feedback.' },
-    relatedItems: [
-      { type: 'source', id: 'u1', title: 'example.com', snippet: 'https://example.com/world-models' },
-      { type: 'notebook', id: 'n1', title: 'Feedback loops', snippet: 'Pressure accumulates before the system changes state.' }
-    ]
-  });
-  assert.ok(reply.includes('Core claim:'), 'Reply should produce a structured summary.');
-  assert.ok(reply.includes('Best support in view:'), 'Reply should include a support line.');
-  assert.ok(reply.includes('Pressure to keep in view:'), 'Reply should include a pressure/tension line when one is available.');
-  assert.ok(!reply.includes('example.com'), 'Reply should not surface low-signal hostname labels.');
-  assert.ok(!reply.includes('...'), 'Reply prose should not surface clipped ellipsis fragments.');
-
-  const articleReply = buildReply({
-    message: 'Summarize what matters most in this article',
-    context: {
-      type: 'article',
-      id: 'a1',
-      title: 'World Models',
-      metadata: {
-        primaryText: 'World models compress experience into latent simulations. The promise is that agents can plan in imagination before acting. The risk is that abstraction can drift away from the ground truth it is supposed to explain.'
-      }
-    },
-    contextItem: { type: 'article', title: 'World Models', snippet: 'World models compress experience into latent simulations. The promise is that agents can plan in imagination before acting. The risk is that abstraction can drift away from the ground truth it is supposed to explain.' },
-    relatedItems: [
-      {
-        type: 'article',
-        id: 'a1',
-        title: 'World Models',
-        snippet: 'World models compress experience into latent simulations. The promise is that agents can plan in imagination before acting. The risk is that abstraction can drift away from the ground truth it is supposed to explain.'
-      }
-    ]
-  });
-  assert.ok(articleReply.includes('Core claim: World models compress experience into latent simulations.'), 'Article summaries should keep the first full claim sentence.');
-  assert.ok(articleReply.includes('Best support in view: The promise is that agents can plan in imagination before acting.'), 'Article summaries should surface a complete support sentence.');
-  assert.ok(!articleReply.includes('The risk is that...'), 'Article summaries should not leak truncated support fragments.');
-
-  const noRelatedArticleReply = buildReply({
-    message: 'Summarize what matters most in this article',
-    context: {
-      type: 'article',
-      id: 'a1',
-      title: 'World Models',
-      metadata: {
-        primaryText: 'World models compress experience into latent simulations. The promise is that agents can plan in imagination before acting. The risk is that abstraction can drift away from the ground truth it is supposed to explain.'
-      }
-    },
-    contextItem: { type: 'article', title: 'World Models', snippet: 'World models compress experience into latent simulations. The promise is that agents can plan in imagination before acting. The risk is that abstraction can drift away from the ground truth it is supposed to explain.' },
-    relatedItems: []
-  });
-  assert.ok(noRelatedArticleReply.startsWith('Core claim:'), 'Article summaries should still summarize the current article when no related items surface.');
-
-  const newsletterArticleReply = buildReply({
-    message: 'Summarize what matters most in this article',
-    context: {
-      type: 'article',
-      id: 'a2',
-      title: 'World Models: Computing the Uncomputable',
-      metadata: {
-        primaryText: 'Welcome to the 458 newly Not Boring people who have joined us since our last essay. Join 260,170 smart, curious folks by subscribing here: Hi friends. A few months ago, Pim De Witte and Kent Rollins invited me to their office right here in New York City. What they showed me that day was a class of models that learn to predict the near future from action-labeled video. World models matter because agents can plan in imagination before they act. The risk is that abstraction can drift away from the ground truth it is supposed to explain.'
-      }
-    },
-    contextItem: {
-      type: 'article',
-      title: 'World Models: Computing the Uncomputable',
-      snippet: 'Welcome to the 458 newly Not Boring people who have joined us since our last essay. Join 260,170 smart, curious folks by subscribing here: Hi friends. A few months ago, Pim De Witte and Kent Rollins invited me to their office right here in New York City. What they showed me that day was a class of models that learn to predict the near future from action-labeled video. World models matter because agents can plan in imagination before they act. The risk is that abstraction can drift away from the ground truth it is supposed to explain.'
-    },
-    relatedItems: []
-  });
-  assert.ok(newsletterArticleReply.startsWith('Core claim:'), 'Newsletter-style article summaries should still produce a structured synthesis.');
-  assert.ok(!newsletterArticleReply.includes('Hi friends'), 'Newsletter-style boilerplate should be filtered out of article summaries.');
-  assert.ok(!newsletterArticleReply.includes('Join 260,170'), 'Subscription boilerplate should be filtered out of article summaries.');
-  assert.ok(
-    newsletterArticleReply.includes('What they showed me that day was a class of models that learn to predict the near future from action-labeled video.')
-      || newsletterArticleReply.includes('World models matter because agents can plan in imagination before they act.'),
-    'Newsletter-style article summaries should keep substantive article claims.'
-  );
-
-  const ambientMetadataArticleReply = buildReply({
-    message: 'Summarize what matters most in this article',
-    context: {
-      type: 'article',
-      id: 'a3',
-      title: 'World Models: Computing the Uncomputable',
-      metadata: {
-        summary: 'Source host: example.com.',
-        primaryText: ''
-      }
-    },
-    contextItem: {
-      type: 'article',
-      title: 'World Models: Computing the Uncomputable',
-      snippet: 'World models matter because agents can plan in imagination before they act. The risk is that abstraction can drift away from the ground truth it is supposed to explain.'
-    },
-    relatedItems: []
-  });
-  assert.ok(ambientMetadataArticleReply.includes('World models matter because agents can plan in imagination before they act.'), 'Article summaries should prefer substantive article text over ambient host metadata.');
-  assert.ok(!ambientMetadataArticleReply.includes('example.com'), 'Article summaries should not surface source-host metadata as a claim.');
-
   const wikiMessages = buildPartnerChatMessages({
     message: 'What is strongest here?',
     context: { type: 'workspace', id: 'wiki', pageId: '69fd2e7d212cd5a5f57db144' },
@@ -534,164 +414,6 @@ const run = async () => {
   assert.ok(privatePrompt.includes('never evidence'), 'Hypotheticals must not be represented as source evidence.');
   assert.ok(privatePrompt.includes('does not save it or change the Wiki'), 'Suggested prose must preserve the explicit acceptance boundary.');
 
-  const wikiFallbackReply = buildReply({
-    message: 'What does this page say about margin of safety? Answer from the current page only.',
-    context: { type: 'workspace', id: 'wiki', pageId: '69fd2e7d212cd5a5f57db144' },
-    contextItem: {
-      type: 'wiki_page',
-      title: 'Margin of Safety',
-      snippet: 'Margin of safety is the gap between estimated intrinsic value and price paid.',
-      fullText: [
-        'Margin of safety is the gap between estimated intrinsic value and price paid.',
-        'The gap protects against valuation error and adverse surprises.',
-        'Investors demand a discount before buying.'
-      ].join(' '),
-      sourceText: '[1] Graham notes — Conservative appraisal matters.',
-      claimText: '- Claim 1: The discount protects against valuation error. (attached refs: [1])'
-    },
-    relatedItems: []
-  });
-  assert.match(wikiFallbackReply, /gap between estimated intrinsic value and price paid/i);
-  assert.ok(!/not enough attached material|Point me at/i.test(wikiFallbackReply), 'Wiki fallback should answer from the selected page body instead of asking for the already-loaded page.');
-
-  const pageScopedReply = buildReply({
-    message: 'What does the page say about the Mr. Market metaphor?',
-    context: { type: 'workspace', id: 'wiki', pageId: '69fd2e7d212cd5a5f57db144' },
-    contextItem: {
-      type: 'wiki_page',
-      title: 'Investing',
-      snippet: 'Mr. Market is a behavioral metaphor.',
-      fullText: 'The Mr. Market metaphor says prices swing between pessimism and optimism, creating opportunities for patient investors.',
-      sourceText: '[1] Berkshire letter — Mr. Market discussion.',
-      claimText: '- Claim 1: Mr. Market frames sentiment swings. (attached refs: [1])'
-    },
-    relatedItems: [
-      {
-        type: 'article',
-        id: 'a-cerebras',
-        title: 'Cerebras Wafer Scale Hardware',
-        snippet: 'Cerebras shipped unusually large AI chips.'
-      }
-    ]
-  });
-  assert.match(pageScopedReply, /prices swing between pessimism and optimism/i);
-  assert.ok(!/Cerebras|wafer/i.test(pageScopedReply), 'Page-scoped wiki answers should not bleed unrelated workspace retrieval into the response.');
-
-  const exactWikiSentenceReply = buildReply({
-    message: 'Quote the exact sentence about the Mr. Market metaphor.',
-    context: { type: 'workspace', id: 'wiki', pageId: '69fd2e7d212cd5a5f57db144' },
-    contextItem: {
-      type: 'wiki_page',
-      title: 'Investing',
-      snippet: 'Mr. Market is a behavioral metaphor.',
-      fullText: 'The Mr. Market metaphor says prices swing between pessimism and optimism, creating opportunities for patient investors.',
-      sourceText: '[1] Berkshire letter — Mr. Market discussion.',
-      claimText: '- Claim 1: Mr. Market frames sentiment swings. (attached refs: [1])'
-    },
-    relatedItems: []
-  });
-  assert.strictEqual(
-    exactWikiSentenceReply,
-    'Exact sentence: "The Mr. Market metaphor says prices swing between pessimism and optimism, creating opportunities for patient investors."',
-    'Exact wiki quote requests should preserve the selected page sentence instead of paraphrasing it.'
-  );
-
-  const exactWikiSentenceFromPageReply = buildReply({
-    message: 'Quote the exact sentence about Mr. Market from this page.',
-    context: { type: 'workspace', id: 'wiki', pageId: '69fd2e7d212cd5a5f57db144' },
-    contextItem: {
-      type: 'wiki_page',
-      title: 'Investing',
-      snippet: 'Mr. Market is a behavioral metaphor.',
-      fullText: [
-        'Investors should distinguish price from value.',
-        'The Mr. Market metaphor says prices swing between pessimism and optimism, creating opportunities for patient investors.',
-        'Mr. Market discipline matters when markets are loud.'
-      ].join(' '),
-      sourceText: '[1] Berkshire letter — Mr. Market discussion.',
-      claimText: '- Claim 1: Mr. Market frames sentiment swings. (attached refs: [1])'
-    },
-    relatedItems: []
-  });
-  assert.strictEqual(
-    exactWikiSentenceFromPageReply,
-    'Exact sentence: "The Mr. Market metaphor says prices swing between pessimism and optimism, creating opportunities for patient investors."',
-    'Exact wiki quote requests should return one best matching sentence, not every page sentence mentioning the term.'
-  );
-
-  const exactWikiSentenceWithHeadingsReply = buildReply({
-    message: 'Quote the exact sentence about Mr. Market from this page.',
-    context: { type: 'workspace', id: 'wiki', pageId: '69fd2e7d212cd5a5f57db144' },
-    contextItem: {
-      type: 'wiki_page',
-      title: 'Investing',
-      snippet: 'Mr. Market is a behavioral metaphor.',
-      fullText: [
-        'Overview',
-        'Investors should distinguish price from value.',
-        'Diverging Evidence',
-        'The Mr. Market metaphor says prices swing between pessimism and optimism, creating opportunities for patient investors.'
-      ].join(' '),
-      sourceText: '[1] Berkshire letter — Mr. Market discussion.',
-      claimText: '- Claim 1: Mr. Market frames sentiment swings. (attached refs: [1])'
-    },
-    relatedItems: []
-  });
-  assert.strictEqual(
-    exactWikiSentenceWithHeadingsReply,
-    'Exact sentence: "The Mr. Market metaphor says prices swing between pessimism and optimism, creating opportunities for patient investors."',
-    'Exact wiki quote requests should not stitch section headings into the quoted sentence.'
-  );
-
-  const exactWikiSentenceWithDuplicatePunctuationReply = buildReply({
-    message: 'Quote the exact sentence about Mr. Market from this page.',
-    context: { type: 'workspace', id: 'wiki', pageId: '69fd2e7d212cd5a5f57db144' },
-    contextItem: {
-      type: 'wiki_page',
-      title: 'Investing',
-      snippet: 'Mr. Market is a behavioral metaphor.',
-      fullText: 'The Mr. Market metaphor says prices swing between pessimism and optimism, creating opportunities for patient investors.”.',
-      sourceText: '[1] Berkshire letter — Mr. Market discussion.',
-      claimText: '- Claim 1: Mr. Market frames sentiment swings. (attached refs: [1])'
-    },
-    relatedItems: []
-  });
-  assert.strictEqual(
-    exactWikiSentenceWithDuplicatePunctuationReply,
-    'Exact sentence: "The Mr. Market metaphor says prices swing between pessimism and optimism, creating opportunities for patient investors."',
-    'Exact wiki quote requests should remove duplicated punctuation around closing quotes.'
-  );
-
-  const unrelatedWikiQuestionReply = buildReply({
-    message: 'What is the weather in Chicago?',
-    context: { type: 'workspace', id: 'wiki', pageId: '69fd2e7d212cd5a5f57db144' },
-    contextItem: {
-      type: 'wiki_page',
-      title: 'Investing',
-      snippet: 'Mr. Market is a behavioral metaphor.',
-      fullText: 'The Mr. Market metaphor says prices swing between pessimism and optimism, creating opportunities for patient investors.',
-      sourceText: '[1] Berkshire letter — Mr. Market discussion.',
-      claimText: '- Claim 1: Mr. Market frames sentiment swings. (attached refs: [1])'
-    },
-    relatedItems: []
-  });
-  assert.match(unrelatedWikiQuestionReply, /do not see that answered on this page/i);
-  assert.ok(!/Mr\. Market/i.test(unrelatedWikiQuestionReply), 'Unrelated page questions should not dump page prose as a fake answer.');
-
-  const wikiSignalHeadingReply = buildReply({
-    message: 'Summarize this page.',
-    context: { type: 'workspace', id: 'wiki', pageId: '69fd2e7d212cd5a5f57db144' },
-    contextItem: {
-      type: 'wiki_page',
-      title: 'Investing',
-      snippet: 'Diverging Evidence Some investors disagree that valuation models should ignore market sentiment.',
-      sources: [{ index: 1, title: 'Source memo' }]
-    },
-    relatedItems: []
-  });
-  assert.ok(!/Diverging Evidence/i.test(wikiSignalHeadingReply), 'Wiki chat should not stitch section headings into grounded replies.');
-  assert.match(wikiSignalHeadingReply, /Some investors disagree/i);
-
   const claimSourceReply = buildWikiClaimSourceReply({
     message: 'What source supports the claim that margin of safety protects against valuation error?',
     contextItem: {
@@ -727,34 +449,6 @@ const run = async () => {
   });
   assert.match(uncitedClaimReply, /no attached source/i);
 
-  const compoundCritiqueReply = buildReply({
-    message: 'Critique this page. Which claims are not supported by the cited sources, and what direct evidence is missing?',
-    context: { type: 'wiki', id: '69fd2e7d212cd5a5f57db144', title: 'Compound Interest' },
-    contextItem: {
-      type: 'wiki_page',
-      title: 'Compound Interest',
-      fullText: 'Increasing returns are mathematically identical to the compound-interest equation.',
-      sources: [{
-        index: 1,
-        title: 'All Revenue is Not Created Equal',
-        snippet: 'Investors compare marginal profitability and revenue quality.'
-      }],
-      claimSourceMap: [{
-        claim: 'Increasing returns are mathematically identical to the compound-interest equation.',
-        refs: [{
-          index: 1,
-          title: 'All Revenue is Not Created Equal',
-          snippet: 'Investors compare marginal profitability and revenue quality.'
-        }]
-      }]
-    },
-    relatedItems: []
-  });
-  assert.match(compoundCritiqueReply, /None of the attached source titles or snippets directly addresses.*Compound Interest/i);
-  assert.match(compoundCritiqueReply, /mapping alone does not establish the claim/i);
-  assert.match(compoundCritiqueReply, /formal-equivalence claim/i);
-  assert.ok(!/That claim is backed by/i.test(compoundCritiqueReply), 'Critique requests must not confuse an attached citation with substantive support.');
-
   assert.strictEqual(
     shouldSearchWorkspaceForWikiPage({ message: 'What does this page say about Mr. Market?' }),
     false,
@@ -764,36 +458,6 @@ const run = async () => {
     shouldSearchWorkspaceForWikiPage({ message: 'Find related sources across my library about Mr. Market.' }),
     true,
     'Explicit cross-workspace retrieval requests should still search the library.'
-  );
-
-  const genericQuestionReply = buildReply({
-    message: 'What is this question really asking?',
-    context: {
-      type: 'question',
-      id: 'q1',
-      title: 'New question',
-      metadata: {
-        primaryText: 'No supporting material is attached yet.'
-      }
-    },
-    contextItem: {
-      type: 'question',
-      title: 'New question',
-      snippet: 'No supporting material is attached yet.'
-    },
-    relatedItems: [
-      {
-        type: 'notebook',
-        id: 'n1',
-        title: 'QA Flow v1 notebook draft',
-        snippet: 'A notebook draft about the active concept workspace.'
-      }
-    ]
-  });
-  assert.strictEqual(
-    genericQuestionReply,
-    'This question is still too generic. Rewrite it so it names the uncertainty, decision, or contradiction you want resolved, then I can gather the right evidence.',
-    'Placeholder questions should return an honest rewrite prompt instead of stitched retrieval copy.'
   );
 
   const summaryBrief = buildOutputArtifactReply({
