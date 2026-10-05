@@ -515,6 +515,7 @@ const ThoughtPartnerPanel = ({
         threadTitle: clean(thread?.title) || contextTitle || title,
         persistThread: true,
         context,
+        approveBundleId: clean(options?.approveBundleId) || undefined,
         skillInvocation:
           (options?.skillInvocation && typeof options.skillInvocation === 'object'
             ? options.skillInvocation
@@ -609,6 +610,7 @@ const ThoughtPartnerPanel = ({
   const handleExecuteProposalBundle = useCallback((bundle = {}) => {
     const title = clean(bundle?.title);
     submitMessage(title ? `Execute ${title}` : 'Execute it', {
+      approveBundleId: bundle?.bundleId,
       allowPendingSkillInvocation: false
     });
   }, [submitMessage]);

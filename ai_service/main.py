@@ -1570,19 +1570,7 @@ def _truncate_items(items: List[SynthesizeItem]) -> Dict[str, Any]:
 def health():
     return {"status": "ok", "message": "Server is warm."}
 
-@app.get("/debug/headers")
-def debug_headers(request: Request):
-    return {key.lower(): value for key, value in request.headers.items()}
-
-
-@app.get("/debug/secret")
-def debug_secret():
-    return {
-        "expected_len": len(AI_SHARED_SECRET),
-        "expected_fp": _secret_fp(AI_SHARED_SECRET) or "EMPTY"
-    }
-
-@app.get("/debug/hf")
+@app.get("/debug/hf", dependencies=[Depends(require_shared_secret)])
 def debug_hf():
     config = get_hf_config()
     return {

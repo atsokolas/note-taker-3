@@ -378,6 +378,7 @@ describe('ThoughtPartnerPanel', () => {
     await waitFor(() => expect(chatWithAgent).toHaveBeenCalledTimes(1));
     expect(observedPayload).toMatchObject({
       message: 'Execute Clean up Library',
+      approveBundleId: 'bundle-cleanup',
       threadId: 'thread-1'
     });
     await screen.findByText('Resolved this to "Clean up Library" and executed it.');

@@ -201,7 +201,7 @@ describe('AgentRail', () => {
       .toHaveValue('unfinished cross-room thought');
   });
 
-  it('keeps the conversation but drops page-bound write actions when the column moves on', async () => {
+  it('gives each object its own conversation and restores it on return', async () => {
     streamChatWithAgent.mockResolvedValueOnce(sourceReply('A retrieved line.'));
     const { rail } = renderRail();
 
@@ -212,9 +212,34 @@ describe('AgentRail', () => {
     await within(rail()).findByText('A retrieved line.');
 
     fireEvent.click(screen.getByRole('button', { name: 'Navigate' }));
+    await within(rail()).findByText('The second claim.');
+    expect(within(rail()).queryByText('A retrieved line.')).not.toBeInTheDocument();
 
-    await waitFor(() => expect(within(rail()).getByText('A retrieved line.')).toBeInTheDocument());
+    fireEvent.change(within(rail()).getByPlaceholderText('Bring evidence or counterevidence'), {
+      target: { value: 'something else' }
+    });
+    fireEvent.click(within(rail()).getByRole('button', { name: 'Ask' }));
+    await within(rail()).findByText('Reply to something else');
+    expect(streamChatWithAgent.mock.calls[1][0].history).toEqual([]);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Navigate' }));
+    expect(await within(rail()).findByText('A retrieved line.')).toBeInTheDocument();
+    expect(within(rail()).queryByText('Reply to something else')).not.toBeInTheDocument();
+    // Page-bound write actions do not survive the trip.
     expect(within(rail()).queryByRole('button', { name: 'Accept' })).not.toBeInTheDocument();
+  });
+
+  it('reopens the saved conversation for an object after a reload', async () => {
+    window.localStorage.setItem('noeis.agent.surface_threads', JSON.stringify({
+      'agent-surface.judgment|claim|a': 'thread-a'
+    }));
+    getAgentThread.mockResolvedValueOnce({
+      thread: { threadId: 'thread-a', messages: [{ role: 'user', text: 'Earlier question' }, { role: 'assistant', text: 'Earlier answer' }] }
+    });
+    const { rail } = renderRail();
+
+    expect(await within(rail()).findByText('Earlier answer')).toBeInTheDocument();
+    expect(getAgentThread).toHaveBeenCalledWith('thread-a');
   });
 
   it('discards and aborts a late reply when the exact room object changes', async () => {
@@ -408,6 +433,43 @@ describe('AgentRail', () => {
       field: 'against',
       acceptedFrom: 'article:article-1'
     }]);
+  });
+
+  it('offers a reply for keeping only when it quotes a source, in its place in the conversation', async () => {
+    const LibrarySurface = () => {
+      useContextualAgentSurface('agent-surface.library', { objectType: 'article', objectId: 'article-1', subject: 'Grid queues' }, {
+        onAccept: () => {}
+      });
+      return null;
+    };
+    streamChatWithAgent
+      .mockResolvedValueOnce({ reply: 'An unquoted paraphrase.', groundedIn: [] })
+      .mockResolvedValueOnce({ reply: 'It says the queue is the bottleneck.', groundedIn: [{ type: 'article', id: 'article-1', title: 'Grid queues' }] });
+    render(
+      <AgentRailProvider>
+        <LibrarySurface />
+        <AgentRail />
+      </AgentRailProvider>
+    );
+    const rail = screen.getByRole('complementary');
+    const ask = (question) => {
+      fireEvent.change(within(rail).getByRole('textbox'), { target: { value: question } });
+      fireEvent.click(within(rail).getByRole('button', { name: 'Ask' }));
+    };
+
+    ask('First question');
+    await within(rail).findByText('An unquoted paraphrase.');
+    expect(within(rail).queryByRole('button', { name: 'Accept' })).not.toBeInTheDocument();
+
+    ask('Second question');
+    await within(rail).findByText('It says the queue is the bottleneck.');
+    expect(within(rail).getByRole('button', { name: 'Accept' })).toBeInTheDocument();
+    expect(within(rail).getByText('Quotes Grid queues')).toBeInTheDocument();
+    const order = within(rail).getAllByRole('listitem').map(item => item.textContent);
+    expect(order.findIndex(text => text.includes('Second question')))
+      .toBeLessThan(order.findIndex(text => text.includes('It says the queue is the bottleneck.')));
+    expect(order.findIndex(text => text.includes('An unquoted paraphrase.')))
+      .toBeLessThan(order.findIndex(text => text.includes('Second question')));
   });
 
   it('reports a failed retrieve instead of inventing a line', async () => {

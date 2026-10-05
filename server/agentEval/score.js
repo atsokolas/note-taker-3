@@ -3,7 +3,8 @@
 // what it used, never invent a quotation, and say so when the library is silent.
 // Every check is deterministic so the eval can run, and fail, without a model.
 
-const PASSAGE_WORDS = 6;
+const { words, drawsOn } = require('../services/agentGrounding');
+
 const QUOTE_MIN_WORDS = 5;
 
 // Replies the agent produces without reading anything. A real answer never
@@ -19,26 +20,6 @@ const TEMPLATE_PATTERNS = [
 ];
 
 const DECLINE_PATTERN = /\b(nothing|no (?:source|passage|note|highlight|mention)s?|(?:could ?n[o']t|can ?not|did ?n[o']t|do ?n[o']t) (?:find|see)|not (?:in|anywhere in) your|does ?n[o']t (?:say|mention|cover|discuss)|is ?n[o']t (?:in|covered))/i;
-
-const words = (text = '') => String(text || '')
-  .toLowerCase()
-  .replace(/[‘’]/g, "'")
-  .replace(/[^a-z0-9' ]+/g, ' ')
-  .split(/\s+/)
-  .filter(Boolean);
-
-const ngrams = (list, n) => {
-  const grams = new Set();
-  for (let i = 0; i + n <= list.length; i += 1) grams.add(list.slice(i, i + n).join(' '));
-  return grams;
-};
-
-// True when the reply carries a run of the source's own words, quoted or not.
-const drawsOn = (reply, sourceText, n = PASSAGE_WORDS) => {
-  const sourceGrams = ngrams(words(sourceText), n);
-  for (const gram of ngrams(words(reply), n)) if (sourceGrams.has(gram)) return true;
-  return false;
-};
 
 const quotations = (reply = '') => [...String(reply).matchAll(/[“"]([^”"]+)[”"]/g)]
   .map(match => match[1])

@@ -1,8 +1,7 @@
 const assert = require('assert');
 const {
   applyProposalBundleInvalidations,
-  resolveExecutableProposalBundle,
-  shouldResolveExecutionIntent
+  resolveRequestedProposalBundle
 } = require('../agentBundleResolution');
 
 const buildThread = () => ({
@@ -100,89 +99,28 @@ const buildThread = () => ({
 });
 
 const run = () => {
-  assert.strictEqual(shouldResolveExecutionIntent('do it'), true, 'Short execution confirmations should trigger bundle resolution.');
-  assert.strictEqual(shouldResolveExecutionIntent('rewrite it'), true, 'Verb-led execution approvals should trigger bundle resolution.');
-  assert.strictEqual(shouldResolveExecutionIntent('Ok execute it'), true, 'Explicit execute language should trigger bundle resolution.');
-  assert.strictEqual(shouldResolveExecutionIntent('Ok, please do that'), true, 'Polite do-that approvals should trigger bundle resolution.');
-  assert.strictEqual(shouldResolveExecutionIntent('Execute Clean up Library'), true, 'Execute buttons that include the bundle title should trigger bundle resolution.');
-  assert.strictEqual(shouldResolveExecutionIntent('run it'), true, 'Run language should trigger bundle resolution.');
-  assert.strictEqual(shouldResolveExecutionIntent('continue'), false, 'Bare continue should fall back to normal chat so thread follow-ups still work.');
-  assert.strictEqual(shouldResolveExecutionIntent('what do you think?'), false, 'Normal chat should not trigger execution resolution.');
+  const context = { type: 'concept', id: 'concept-1', title: 'World Models' };
+  const now = new Date('2026-04-18T16:00:00.000Z');
 
-  const thread = buildThread();
-  const olderRewrite = resolveExecutableProposalBundle({
-    thread,
-    message: 'rewrite it',
-    context: {
-      type: 'concept',
-      id: 'concept-1',
-      title: 'World Models'
-    },
-    now: new Date('2026-04-18T16:00:00.000Z')
-  });
-  assert.strictEqual(olderRewrite.status, 'matched', 'Explicit action references should resolve to the matching older bundle.');
-  assert.strictEqual(olderRewrite.bundle?.bundleId, 'bundle-older', 'The older rewrite bundle should be selected.');
-  assert.ok(
-    olderRewrite.invalidatedBundleIds.includes('bundle-stale'),
-    'Stale unresolved bundles should be marked invalid for future resolution.'
+  const older = resolveRequestedProposalBundle({ thread: buildThread(), bundleId: 'bundle-older', context, now });
+  assert.strictEqual(older.status, 'matched', 'An approval resolves exactly the bundle it names, even when a newer one is pending.');
+  assert.strictEqual(older.bundle?.bundleId, 'bundle-older');
+  assert.ok(older.invalidatedBundleIds.includes('bundle-stale'), 'Stale bundles are reported for invalidation.');
+
+  const stale = resolveRequestedProposalBundle({ thread: buildThread(), bundleId: 'bundle-stale', context, now });
+  assert.strictEqual(stale.status, 'none', 'A stale bundle never runs, even when named.');
+  assert.strictEqual(stale.bundle, null);
+
+  const missing = resolveRequestedProposalBundle({ thread: buildThread(), bundleId: 'not-a-bundle', context, now });
+  assert.strictEqual(missing.status, 'none', 'An unknown bundle id runs nothing.');
+
+  const finished = buildThread();
+  finished.proposalBundles[0].status = 'applied';
+  assert.strictEqual(
+    resolveRequestedProposalBundle({ thread: finished, bundleId: 'bundle-latest', context, now }).status,
+    'none',
+    'A bundle that already ran cannot be approved twice.'
   );
-
-  const latestGeneric = resolveExecutableProposalBundle({
-    thread,
-    message: 'do it',
-    context: {
-      type: 'concept',
-      id: 'concept-1',
-      title: 'World Models'
-    },
-    now: new Date('2026-04-18T16:00:00.000Z')
-  });
-  assert.strictEqual(latestGeneric.status, 'matched', 'Generic do-it approvals should resolve when the latest pending bundle is the conversational anchor.');
-  assert.strictEqual(latestGeneric.bundle?.bundleId, 'bundle-latest', 'The latest pending bundle should win for a plain do-it.');
-
-  const latestExecute = resolveExecutableProposalBundle({
-    thread,
-    message: 'Ok execute it',
-    context: {
-      type: 'concept',
-      id: 'concept-1',
-      title: 'World Models'
-    },
-    now: new Date('2026-04-18T16:00:00.000Z')
-  });
-  assert.strictEqual(latestExecute.status, 'matched', 'Execute-it approvals should resolve the latest conversational bundle.');
-  assert.strictEqual(latestExecute.bundle?.bundleId, 'bundle-latest', 'Execute-it should target the latest pending bundle.');
-
-  const latestPoliteApproval = resolveExecutableProposalBundle({
-    thread,
-    message: 'Ok, please do that',
-    context: {
-      type: 'concept',
-      id: 'concept-1',
-      title: 'World Models'
-    },
-    now: new Date('2026-04-18T16:00:00.000Z')
-  });
-  assert.strictEqual(latestPoliteApproval.status, 'matched', 'Polite do-that approvals should resolve the latest conversational bundle.');
-  assert.strictEqual(latestPoliteApproval.bundle?.bundleId, 'bundle-latest', 'Polite do-that approvals should target the latest pending bundle.');
-
-  const ambiguous = resolveExecutableProposalBundle({
-    thread: {
-      ...thread,
-      messages: [
-        { role: 'assistant', text: 'I can rewrite World Models.', proposalBundle: { bundleId: 'bundle-older', title: 'Rewrite World Models + 1 more' } },
-        { role: 'assistant', text: 'I can create a routed handoff.', proposalBundle: { bundleId: 'bundle-latest', title: 'Pull in 2 related items' } }
-      ]
-    },
-    message: 'apply that',
-    context: {
-      type: 'concept',
-      id: 'concept-1',
-      title: 'World Models'
-    },
-    now: new Date('2026-04-18T16:00:00.000Z')
-  });
-  assert.strictEqual(ambiguous.status, 'ambiguous', 'When multiple bundles are similarly plausible, the resolver should ask for disambiguation instead of guessing.');
 
   const invalidatedThread = applyProposalBundleInvalidations({
     thread: buildThread(),

@@ -58,8 +58,7 @@ const buildAgentChatRouter = ({
   buildDefaultHandoffCheckpoint,
   createThreadForHandoff,
   sanitizeAgentHandoffDoc,
-  shouldResolveExecutionIntent,
-  resolveExecutableProposalBundle,
+  resolveRequestedProposalBundle,
   applyProposalBundleInvalidations,
   sanitizeAgentArtifactDraftDoc,
   sanitizeAgentStructureProposalDoc,
@@ -82,13 +81,13 @@ const buildAgentChatRouter = ({
       return {
         thread: thread && isSharedQuestionContext(thread.scope) ? thread : null,
         chatContext: surface,
-        allowExecutionIntent: false
+        allowExecution: false
       };
     }
     return {
       thread,
       chatContext: surface || thread?.scope || null,
-      allowExecutionIntent: true
+      allowExecution: true
     };
   };
 
@@ -416,6 +415,7 @@ const buildAgentChatRouter = ({
       suggestedActions: Array.isArray(result?.suggestedActions) ? result.suggestedActions : [],
       proposalBundle: result?.proposalBundle || null,
       metadata: {
+        mode: String(result?.mode || '').trim() || undefined,
         premiumWebResearchAvailable: Boolean(result?.premiumWebResearchAvailable),
         planner: result?.planner ? normalizeThreadPlanner(result.planner) : undefined,
         intent: result?.intent && typeof result.intent === 'object' ? result.intent : undefined,
@@ -458,21 +458,10 @@ const buildAgentChatRouter = ({
     return `Resolved this to "${safeBundleTitle}" and started the run.`;
   };
 
-  const summarizeAmbiguousResolution = (candidates = []) => {
-    const labels = candidates
-      .map((candidate) => String(candidate?.bundle?.title || '').trim())
-      .filter(Boolean)
-      .slice(0, 3);
-    if (labels.length === 0) {
-      return 'I found more than one pending proposal here. Tell me which one to execute.';
-    }
-    return `I still have multiple pending bundles here: ${labels.map((label) => `"${label}"`).join(', ')}. Say which one to execute.`;
-  };
-
   const summarizeNoMatchResolution = ({ invalidatedBundleIds = [] } = {}) => (
     invalidatedBundleIds.length > 0
       ? 'I found older pending proposals here, but they are stale now, so I did not execute them. Tell me the next move explicitly and I will restage it.'
-      : 'I do not have a still-pending executable proposal in this thread.'
+      : 'That plan is no longer pending in this conversation, so nothing ran.'
   );
 
   const executeResolvedProposalBundle = async ({
@@ -590,23 +579,20 @@ const buildAgentChatRouter = ({
   router.post('/api/agent/chat', authenticateToken, async (req, res) => {
     try {
       const loadedThread = await loadThread(String(req.user.id), req.body?.threadId);
-      const { thread, chatContext, allowExecutionIntent } = bindChatTurn(loadedThread, req.body?.context);
+      const { thread, chatContext, allowExecution } = bindChatTurn(loadedThread, req.body?.context);
       const actor = { actorType: 'user', actorId: String(req.user.id) };
-      if (allowExecutionIntent && thread && shouldResolveExecutionIntent(req.body?.message)) {
-        const resolution = resolveExecutableProposalBundle({
+      const approvedBundleId = String(req.body?.approveBundleId || '').trim();
+      if (allowExecution && thread && approvedBundleId) {
+        const resolution = resolveRequestedProposalBundle({
           thread,
-          message: req.body?.message,
+          bundleId: approvedBundleId,
           context: chatContext
         });
 
-        if (Array.isArray(resolution?.invalidatedBundleIds) && resolution.invalidatedBundleIds.length > 0) {
-          applyProposalBundleInvalidations({
-            thread,
-            bundleIds: resolution.invalidatedBundleIds
-          });
-        }
+        applyProposalBundleInvalidations({ thread, bundleIds: resolution.invalidatedBundleIds });
 
-        if (resolution?.status === 'matched' && resolution?.bundle) {
+        let executionResult;
+        if (resolution.status === 'matched') {
           const run = await executeResolvedProposalBundle({
             userId: String(req.user.id),
             thread,
@@ -619,7 +605,7 @@ const buildAgentChatRouter = ({
             requestId: req.requestId,
             properties: {
               threadId: String(thread?._id || ''),
-              bundleId: String(resolution.bundle?.bundleId || ''),
+              bundleId: approvedBundleId,
               source: 'chat'
             }
           });
@@ -633,7 +619,7 @@ const buildAgentChatRouter = ({
             source: 'chat_execution_intent',
             includeStarted: true
           });
-          const executionResult = {
+          executionResult = {
             mode: 'execution_intent',
             reply: summarizeRunExecution({
               bundle: resolution.bundle,
@@ -641,92 +627,43 @@ const buildAgentChatRouter = ({
             }),
             proposalResolution: {
               status: 'matched',
-              bundleId: String(resolution.bundle?.bundleId || '').trim(),
+              bundleId: approvedBundleId,
               title: String(resolution.bundle?.title || '').trim()
             },
             run: sanitizeAgentRunDoc(run)
           };
-          const persistedThread = await persistChatTurn({
-            userId: String(req.user.id),
-            actor,
-            payload: req.body || {},
-            result: executionResult,
-            thread
-          });
-          return res.status(200).json({
-            ...executionResult,
-            thread: persistedThread ? sanitizeAgentThreadDoc(persistedThread) : undefined
-          });
-        }
-
-        if (resolution?.status === 'ambiguous') {
-          emitHarnessEvent({
-            event: EVENT_NAMES?.AGENT_EXECUTION_INTENT_AMBIGUOUS,
-            userId: String(req.user.id),
-            requestId: req.requestId,
-            properties: {
-              threadId: String(thread?._id || ''),
-              candidateCount: Array.isArray(resolution?.candidates) ? resolution.candidates.length : 0,
-              source: 'chat'
-            }
-          });
-          const ambiguousResult = {
-            mode: 'execution_intent',
-            reply: summarizeAmbiguousResolution(resolution.candidates || []),
-            proposalResolution: {
-              status: 'ambiguous',
-              candidates: (Array.isArray(resolution.candidates) ? resolution.candidates : []).map((candidate) => ({
-                bundleId: String(candidate?.bundle?.bundleId || '').trim(),
-                title: String(candidate?.bundle?.title || '').trim()
-              }))
-            }
-          };
-          const persistedThread = await persistChatTurn({
-            userId: String(req.user.id),
-            actor,
-            payload: req.body || {},
-            result: ambiguousResult,
-            thread
-          });
-          return res.status(200).json({
-            ...ambiguousResult,
-            thread: persistedThread ? sanitizeAgentThreadDoc(persistedThread) : undefined
-          });
-        }
-
-        if (resolution?.status === 'none') {
+        } else {
           emitHarnessEvent({
             event: EVENT_NAMES?.AGENT_EXECUTION_INTENT_NO_MATCH,
             userId: String(req.user.id),
             requestId: req.requestId,
             properties: {
               threadId: String(thread?._id || ''),
-              invalidatedBundleCount: Array.isArray(resolution?.invalidatedBundleIds) ? resolution.invalidatedBundleIds.length : 0,
+              invalidatedBundleCount: resolution.invalidatedBundleIds.length,
               source: 'chat'
             }
           });
-          const noMatchResult = {
+          executionResult = {
             mode: 'execution_intent',
-            reply: summarizeNoMatchResolution({
-              invalidatedBundleIds: resolution.invalidatedBundleIds || []
-            }),
+            reply: summarizeNoMatchResolution({ invalidatedBundleIds: resolution.invalidatedBundleIds }),
             proposalResolution: {
               status: 'none',
-              invalidatedBundleIds: resolution.invalidatedBundleIds || []
+              bundleId: approvedBundleId,
+              invalidatedBundleIds: resolution.invalidatedBundleIds
             }
           };
-          const persistedThread = await persistChatTurn({
-            userId: String(req.user.id),
-            actor,
-            payload: req.body || {},
-            result: noMatchResult,
-            thread
-          });
-          return res.status(200).json({
-            ...noMatchResult,
-            thread: persistedThread ? sanitizeAgentThreadDoc(persistedThread) : undefined
-          });
         }
+        const persistedThread = await persistChatTurn({
+          userId: String(req.user.id),
+          actor,
+          payload: req.body || {},
+          result: executionResult,
+          thread
+        });
+        return res.status(200).json({
+          ...executionResult,
+          thread: persistedThread ? sanitizeAgentThreadDoc(persistedThread) : undefined
+        });
       }
 
       const entitlements = await getUserAgentEntitlements(String(req.user.id));
