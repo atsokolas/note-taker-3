@@ -242,6 +242,22 @@ describe('AgentRail', () => {
     expect(getAgentThread).toHaveBeenCalledWith('thread-a');
   });
 
+  it('loads a saved conversation again when the reader left before it arrived', async () => {
+    window.localStorage.setItem('noeis.agent.surface_threads', JSON.stringify({
+      'agent-surface.judgment|claim|a': 'thread-a'
+    }));
+    const saved = { thread: { threadId: 'thread-a', messages: [{ role: 'user', text: 'Earlier question' }, { role: 'assistant', text: 'Earlier answer' }] } };
+    getAgentThread.mockImplementationOnce(() => new Promise(() => {})).mockResolvedValueOnce(saved);
+    const { rail } = renderRail();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Navigate' }));
+    await within(rail()).findByText('The second claim.');
+    fireEvent.click(screen.getByRole('button', { name: 'Navigate' }));
+
+    expect(await within(rail()).findByText('Earlier answer')).toBeInTheDocument();
+    expect(getAgentThread).toHaveBeenCalledTimes(2);
+  });
+
   it('discards and aborts a late reply when the exact room object changes', async () => {
     let release;
     streamChatWithAgent.mockImplementationOnce(() => new Promise(resolve => { release = resolve; }));
