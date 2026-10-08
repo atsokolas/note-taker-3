@@ -320,6 +320,8 @@ describe('ThoughtPartnerPanel', () => {
           messages: [
             { role: 'user', text: 'What does my library say?' },
             { role: 'assistant', text: 'Sleep debt and decisions: “Tired people make worse decisions because fatigue narrows attention.”' },
+            { role: 'user', text: 'And without the model?' },
+            { role: 'assistant', text: 'This is the passage in your library that bears on it. Sleep debt and decisions: “Fatigue narrows attention.”', metadata: { mode: 'internal_only' } },
             { role: 'user', text: 'Say it plainer.' },
             { role: 'assistant', text: 'Fatigue pulls you toward the default, so decide the hard things early.' }
           ]

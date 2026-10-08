@@ -248,13 +248,14 @@ const formatPercent = (value) => {
   return `${Math.round(numeric * 100)}%`;
 };
 
-// A reply that is mostly quotation is evidence from the library, not wording
-// to try in the draft.
+// Wording to try in the draft is something the partner wrote. A reply put
+// together from retrieved passages without the model, or one that is mostly
+// quotation, is evidence from the library instead.
 const QUOTATION_RE = /“[^”]*”|"[^"]*"/g;
-const isWording = (text = '') => {
-  const safe = clean(text);
-  const quoted = (safe.match(QUOTATION_RE) || []).join('').length;
-  return Boolean(safe) && quoted * 2 < safe.length;
+const isWording = (message = {}) => {
+  const text = clean(message.text);
+  const quoted = (text.match(QUOTATION_RE) || []).join('').length;
+  return Boolean(text) && message.mode !== 'internal_only' && quoted * 2 < text.length;
 };
 
 const ThoughtPartnerPanel = ({
@@ -1704,7 +1705,7 @@ const ThoughtPartnerPanel = ({
           >
             <p className="agent-thought-partner__message-role">{message.role === 'assistant' ? AGENT_DISPLAY_NAME : 'You'}</p>
             <p>{message.text}</p>
-            {message.role === 'assistant' && onTryWording && isWording(message.text) ? (
+            {message.role === 'assistant' && onTryWording && isWording(message) ? (
               <QuietButton type="button" onClick={() => onTryWording(message.text)}>
                 Try as alternate wording
               </QuietButton>
