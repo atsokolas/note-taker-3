@@ -90,7 +90,7 @@ test('regressions compare every rate the baseline knows', () => {
 
 test('every case names sources that exist and a surface the runner knows', () => {
   for (const evalCase of CASES) {
-    for (const key of [...(evalCase.sources || []), ...(evalCase.oneOf || [])]) assert.ok(texts[key], `${evalCase.id}: ${key}`);
+    for (const key of [...(evalCase.sources || []), ...(evalCase.oneOf || []), ...(evalCase.allowed || [])]) assert.ok(texts[key], `${evalCase.id}: ${key}`);
     assert.ok(evalCase.abstain || evalCase.sources?.length, evalCase.id);
     const context = contextFor(evalCase.surface, ids);
     assert.ok(context.id, evalCase.id);

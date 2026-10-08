@@ -3,8 +3,6 @@ const { __testables } = require('../collaborativeAgentService');
 
 const {
   tokenize,
-  buildTokenRegex,
-  matchedExcerpt,
   buildReply,
   buildOutputArtifactReply,
   inferReplyIntent,
@@ -118,27 +116,6 @@ const run = async () => {
   assert.ok(tokens.includes('evidence'), 'Expected evidence token.');
   assert.ok(!tokens.includes('the'), 'Stopwords should be removed.');
 
-  const regex = buildTokenRegex(['alpha', 'beta']);
-  assert.ok(regex instanceof RegExp, 'Expected regex instance.');
-  assert.ok(regex.test('hello beta world'), 'Regex should match token text.');
-  assert.strictEqual(buildTokenRegex([]), null, 'Empty token list should yield null regex.');
-  assert.match(
-    matchedExcerpt(
-      'An opening anecdote about an unrelated event. '.repeat(12)
-        + 'The operating strategy depends on choosing a distinct set of activities that competitors cannot copy.',
-      ['strategy', 'activities']
-    ),
-    /operating strategy depends/i,
-    'Retrieved snippets should show the matching passage rather than paragraph one.'
-  );
-  assert.doesNotMatch(
-    matchedExcerpt(
-      'Name: Strategy Notes URL: https://example.com/strategy The useful passage explains how strategic choices reinforce one another.',
-      ['strategy', 'choices']
-    ),
-    /^Name:/i,
-    'Imported Name and URL preambles should not become the evidence shown to a user.'
-  );
   assert.strictEqual(
     ensureRetrievedItemNamed({
       reply: 'A useful source is nearby.',

@@ -19,12 +19,14 @@ const {
 } = require('./agentIntentKernel');
 const { chatComplete, isTextGenerationConfigured } = require('../ai/hfTextClient');
 const { groundedIn } = require('./agentGrounding');
+const { retrievePassages } = require('./agentRetrieval');
+const { semanticSearch } = require('../ai/semanticSearch');
+const { isAiEnabled } = require('../config/aiClient');
 
 const MAX_LIMIT = 12;
 const DEFAULT_LIMIT = 6;
 const MAX_MESSAGE_LENGTH = 2000;
 const MAX_HISTORY_ITEMS = 16;
-const SEARCH_MODEL_LIMIT = 6;
 const MODEL_HISTORY_LIMIT = 6;
 const SEARCH_STOPWORDS = new Set([
   'the', 'and', 'for', 'with', 'from', 'that', 'this', 'these', 'those',
@@ -121,24 +123,6 @@ const normalizeAmbientContextMetadata = (input = {}) => {
   };
 };
 
-const buildAmbientContextHintText = (context = {}) => {
-  const safeContext = context && typeof context === 'object' ? context : {};
-  const metadata = normalizeAmbientContextMetadata(safeContext.metadata);
-  const relatedTitles = metadata.relatedItems
-    .map((item) => item.title)
-    .filter(Boolean)
-    .slice(0, 8)
-    .join(' ');
-  return [
-    toSafeString(safeContext.title),
-    metadata.summary,
-    metadata.primaryText,
-    metadata.openQuestions.join(' '),
-    metadata.nextActions.join(' '),
-    relatedTitles
-  ].filter(Boolean).join(' ');
-};
-
 const mergeAmbientRelatedItems = ({
   context = {},
   relatedItems = [],
@@ -219,54 +203,6 @@ const tokenize = (value = '') => {
     deduped.push(token);
   });
   return deduped.slice(0, 12);
-};
-
-const buildTokenRegex = (tokens = []) => {
-  if (!Array.isArray(tokens) || tokens.length === 0) return null;
-  const pattern = tokens.map(escapeRegExp).join('|');
-  if (!pattern) return null;
-  return new RegExp(pattern, 'i');
-};
-
-const matchedExcerpt = (value = '', tokens = [], limit = 260) => {
-  let text = stripHtml(value).replace(
-    /^Name:\s*.{0,500}?\bURL:\s*https?:\/\/\S+\s*/i,
-    ''
-  );
-  const hadReadingChrome = /\bReading Time:\s*\d+\s*minutes?\b/i.test(text.slice(0, 240));
-  text = text
-    .replace(/\(\s*attr\(href\)\s*\)/gi, '')
-    .replace(/^[^.!?]{0,180}\|?\s*Reading Time:\s*\d+\s*minutes?\s*/i, '');
-  if (hadReadingChrome) text = text.replace(/^[^.!?]{1,240}[?!]\s*/, '');
-  if (!text) return '';
-  const safeTokens = (Array.isArray(tokens) ? tokens : []).filter(Boolean);
-  if (!safeTokens.length) return truncate(text, limit);
-  const lower = text.toLowerCase();
-  const candidates = safeTokens
-    .map(token => lower.indexOf(String(token).toLowerCase()))
-    .filter(index => index >= 0);
-  if (!candidates.length) return truncate(text, limit);
-
-  const windowSize = Math.max(limit * 2, 420);
-  const best = candidates
-    .map(index => {
-      const start = Math.max(0, index - Math.floor(windowSize * 0.35));
-      const window = lower.slice(start, start + windowSize);
-      const score = safeTokens.reduce((sum, token) => sum + (window.includes(String(token).toLowerCase()) ? 1 : 0), 0);
-      return { start, score, matchIndex: index };
-    })
-    .sort((left, right) => right.score - left.score || left.start - right.start)[0];
-  let start = Math.max(0, best.matchIndex - Math.floor(limit * 0.32));
-  if (start > 0) {
-    const nextSpace = text.indexOf(' ', start);
-    if (nextSpace >= 0 && nextSpace - start < 40) start = nextSpace + 1;
-  }
-  let excerpt = text.slice(start, start + limit).trim();
-  const lastSpace = excerpt.lastIndexOf(' ');
-  if (start + limit < text.length && lastSpace > Math.floor(limit * 0.7)) {
-    excerpt = excerpt.slice(0, lastSpace).trim();
-  }
-  return `${start > 0 ? '…' : ''}${excerpt}${start + limit < text.length ? '…' : ''}`;
 };
 
 const normalizeHistory = (history = []) => {
@@ -955,7 +891,9 @@ const shouldSearchWorkspaceForContext = ({
       skillInvocation
     });
   }
-  return intentDecision.retrievalPolicy === 'workspace' || !contextItem;
+  // Everywhere else the library is always read: retrieval's own quality bar
+  // decides whether anything bears on the question.
+  return true;
 };
 
 const boundReadingLines = (readings) => readings.flatMap((row) => {
@@ -2267,125 +2205,14 @@ const resolveContextItem = async ({
 
 // Library names its retrieval boundary explicitly. A malformed narrow scope
 // stays empty rather than falling through to a workspace-wide search.
+// The Library rail reads sources only. On a shelf it reads that shelf; on one
+// source it reads the whole Library, because that source is already in hand
+// and the question is usually what else bears on it.
 const libraryRetrievalFilter = (context = {}) => {
   if (context.metadata?.room !== 'library') return null;
-  if (context.type === 'article') return { _id: mongoose.isValidObjectId(context.id) ? context.id : null };
+  if (context.type === 'article') return {};
   if (context.type === 'folder') return { folder: mongoose.isValidObjectId(context.id) ? context.id : null, ...(mongoose.isValidObjectId(context.id) ? {} : { _id: null }) };
   return context.type === 'workspace' && context.id === 'library' ? {} : { _id: null };
-};
-
-const searchInternalItems = async ({
-  userObjectId,
-  tokens = [],
-  limit = DEFAULT_LIMIT,
-  libraryFilter = null,
-  Article,
-  NotebookEntry,
-  TagMeta
-}) => {
-  if (!tokens.length) return [];
-  const regex = buildTokenRegex(tokens);
-  if (!regex) return [];
-
-  const [articles, notes, concepts] = await Promise.all([
-    Article.find({
-      userId: userObjectId,
-      ...(libraryFilter || {}),
-      $or: [
-        { title: regex },
-        { content: regex }
-      ]
-    })
-      .select('_id title content url updatedAt')
-      .sort({ updatedAt: -1 })
-      .limit(SEARCH_MODEL_LIMIT)
-      .lean(),
-    libraryFilter ? [] : NotebookEntry.find({
-      userId: userObjectId,
-      $or: [
-        { title: regex },
-        { content: regex },
-        { tags: regex }
-      ]
-    })
-      .select('_id title content blocks tags updatedAt')
-      .sort({ updatedAt: -1 })
-      .limit(SEARCH_MODEL_LIMIT)
-      .lean(),
-    libraryFilter ? [] : TagMeta.find({
-      userId: userObjectId,
-      $or: [
-        { name: regex },
-        { description: regex }
-      ]
-    })
-      .select('_id name description updatedAt')
-      .sort({ updatedAt: -1 })
-      .limit(SEARCH_MODEL_LIMIT)
-      .lean()
-  ]);
-
-  const scoreText = (text = '') => {
-    const lower = String(text || '').toLowerCase();
-    if (!lower) return 0;
-    return tokens.reduce((score, token) => (
-      lower.includes(token) ? score + 1 : score
-    ), 0);
-  };
-
-  const items = [];
-  articles.forEach((entry) => {
-    const combined = `${entry.title || ''} ${entry.content || ''}`;
-    items.push({
-      type: 'article',
-      id: String(entry._id),
-      title: toSafeString(entry.title) || 'Article',
-      snippet: matchedExcerpt(entry.content || entry.url || '', tokens),
-      updatedAt: entry.updatedAt,
-      score: scoreText(combined) + (scoreText(entry.title || '') * 2) + 0.3
-    });
-  });
-  notes.forEach((entry) => {
-    const blocks = Array.isArray(entry.blocks)
-      ? entry.blocks.map(block => toSafeString(block?.text)).filter(Boolean).join(' ')
-      : '';
-    const combined = `${entry.title || ''} ${entry.content || ''} ${blocks}`;
-    items.push({
-      type: 'notebook',
-      id: String(entry._id),
-      title: toSafeString(entry.title) || 'Notebook note',
-      snippet: matchedExcerpt(entry.content || blocks, tokens),
-      updatedAt: entry.updatedAt,
-      score: scoreText(combined) + (scoreText(entry.title || '') * 2) + 0.2
-    });
-  });
-  concepts.forEach((entry) => {
-    const combined = `${entry.name || ''} ${entry.description || ''}`;
-    items.push({
-      type: 'concept',
-      id: String(entry._id),
-      title: toSafeString(entry.name) || 'Concept',
-      snippet: matchedExcerpt(entry.description || '', tokens),
-      updatedAt: entry.updatedAt,
-      score: scoreText(combined) + (scoreText(entry.name || '') * 2)
-    });
-  });
-
-  const seen = new Set();
-  return items
-    .sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score;
-      const aTime = new Date(a.updatedAt || 0).getTime();
-      const bTime = new Date(b.updatedAt || 0).getTime();
-      return bTime - aTime;
-    })
-    .filter((item) => {
-      const key = `${item.type}:${item.id}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    })
-    .slice(0, Math.max(1, Math.min(MAX_LIMIT, Number(limit) || DEFAULT_LIMIT)));
 };
 
 const resolveGraphIdentity = ({ context = {}, contextItem = null } = {}) => {
@@ -2940,11 +2767,6 @@ const generateCollaborativeReply = async ({
   if (authoredExploration && ['clarify', 'strengthen', 'restructure'].includes(intentDecision.replyIntent)) {
     intentDecision = { ...intentDecision, interactionMode: 'answer', plannerPolicy: 'hidden', proposalPolicy: 'none' };
   }
-  const contextHintText = buildAmbientContextHintText(context);
-  const tokens = tokenize([
-    conversationState.retrievalMessage || resolvedMessage,
-    contextHintText
-  ].filter(Boolean).join(' '));
   const contextItem = await resolveContextItem({
     userObjectId,
     context,
@@ -3007,14 +2829,16 @@ const generateCollaborativeReply = async ({
     skillInvocation
   });
   const searchedItems = shouldSearchWorkspace
-    ? await searchInternalItems({
-      userObjectId,
-      tokens,
+    ? await retrievePassages({
+      userId: userObjectId,
+      query: conversationState.retrievalMessage || resolvedMessage,
+      about: [contextItem?.title, contextItem?.snippet].filter(Boolean).join(' '),
+      excludeId: contextItem?.id,
       limit: safeLimit,
-      libraryFilter,
-      Article,
-      NotebookEntry,
-      TagMeta
+      articleFilter: libraryFilter,
+      includeNotes: !libraryFilter,
+      models: { Article, NotebookEntry, TagMeta },
+      semanticSearch: isAiEnabled() ? semanticSearch : null
     })
     : [];
   const graphItems = sharedQuestionScoped || libraryFilter
@@ -3215,10 +3039,7 @@ module.exports = {
   generateCollaborativeReply,
   __testables: {
     libraryRetrievalFilter,
-    searchInternalItems,
     tokenize,
-    buildTokenRegex,
-    matchedExcerpt,
     buildReply,
     inferReplyIntent: inferAgentReplyIntent,
     resolveAgentIntent,

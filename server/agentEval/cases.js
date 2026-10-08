@@ -1,6 +1,7 @@
 // The questions a reader actually asks of their own library. `surface` is where
 // the question is asked from; `sources` must all be found and drawn on; `oneOf`
-// needs at least one of its members as well. `abstain` cases have no answer in
+// needs at least one of its members as well; `allowed` may be cited without
+// being required, because it answers the question too. `abstain` cases have no answer in
 // the library, and the only good reply says so without citing anything.
 
 const CASES = Object.freeze([
@@ -16,7 +17,7 @@ const CASES = Object.freeze([
   // Across the library: the old passage brought into the present question.
   { id: 'margin-and-checklists', surface: 'library', ask: 'How does margin of safety relate to the checklist piece I saved?', sources: ['marginOfSafety', 'checklists'] },
   { id: 'metrics-stop-working', surface: 'library', ask: 'What have I saved about why metrics stop working?', sources: ['goodhart'] },
-  { id: 'procedure-protects', surface: 'think', ask: 'Which of my sources argue that a small procedure can protect judgment?', sources: ['checklists', 'premortem'] },
+  { id: 'procedure-protects', surface: 'think', ask: 'Which of my sources argue that a small procedure can protect judgment?', sources: ['checklists', 'premortem'], allowed: ['decisionHygiene', 'reviewRituals'] },
   { id: 'hiring', surface: 'think', ask: 'What have I written about hiring, and what in my reading bears on it?', sources: ['hiring'], oneOf: ['baseRates'] },
   { id: 'tired-decisions', surface: 'library', ask: 'Find what I saved about tired people making worse decisions.', sources: ['sleep'] },
   { id: 'imagined-failure', surface: 'library', ask: 'Is there anything in my library about imagining a project has already failed?', sources: ['premortem'] },

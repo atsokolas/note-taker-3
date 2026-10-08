@@ -1,11 +1,13 @@
 const {
-  __testables: { libraryRetrievalFilter, searchInternalItems }
+  __testables: { libraryRetrievalFilter }
 } = require('./collaborativeAgentService');
+const { retrievePassages } = require('./agentRetrieval');
 const id = '6aa123456789012345678901';
-test('Library scope is explicit; malformed source/shelf scope fails closed', () => {
+test('Library scope is explicit; malformed shelf scope fails closed', () => {
   const inLibrary = (type, value) =>
     libraryRetrievalFilter({ type, id: value, metadata: { room: 'library' } });
-  expect(inLibrary('article', id)).toEqual({ _id: id });
+  // One open source reads the whole Library: the source itself is already in hand.
+  expect(inLibrary('article', id)).toEqual({});
   expect(inLibrary('folder', id)).toEqual({ folder: id });
   expect(inLibrary('workspace', 'library')).toEqual({});
   expect(inLibrary('folder', 'bad')).toMatchObject({ _id: null });
@@ -24,16 +26,16 @@ test('shelf retrieval limits the database query and never searches notes or conc
   const Article = { find: jest.fn(() => query) },
     NotebookEntry = { find: jest.fn() },
     TagMeta = { find: jest.fn() };
-  await searchInternalItems({
-    userObjectId: 'owner',
-    tokens: ['reading'],
-    libraryFilter: { folder: id },
-    Article,
-    NotebookEntry,
-    TagMeta
+  await retrievePassages({
+    userId: 'owner',
+    query: 'reading habits',
+    articleFilter: { folder: id },
+    includeNotes: false,
+    models: { Article, NotebookEntry, TagMeta }
   });
   expect(Article.find).toHaveBeenCalledWith(
-    expect.objectContaining({ userId: 'owner', folder: id })
+    expect.objectContaining({ userId: 'owner', folder: id }),
+    expect.anything()
   );
   expect(NotebookEntry.find).not.toHaveBeenCalled();
   expect(TagMeta.find).not.toHaveBeenCalled();

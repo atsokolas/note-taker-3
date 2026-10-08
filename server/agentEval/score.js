@@ -57,7 +57,7 @@ const scoreCase = ({ evalCase, result = {}, ids, texts }) => {
   } else {
     const required = evalCase.sources || [];
     const oneOf = evalCase.oneOf || [];
-    const relevant = new Set([...required, ...oneOf, bound].filter(Boolean));
+    const relevant = new Set([...required, ...oneOf, ...(evalCase.allowed || []), bound].filter(Boolean));
     const drawnOn = key => drawsOn(reply, texts[key]);
     checks = {
       found: required.every(key => found.has(key)) && (!oneOf.length || oneOf.some(key => found.has(key))),

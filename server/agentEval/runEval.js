@@ -38,6 +38,9 @@ const runAgentEval = async ({ only = [], baseline = null, onCase = () => {} } = 
     // The partner resolves these lazily by name; loading the model index
     // registers them.
     const { generateCollaborativeReply } = require('../services/collaborativeAgentService');
+    // Production has the text indexes retrieval reads; a fresh database
+    // builds them here before anything is asked.
+    await Promise.all([Article.init(), NotebookEntry.init(), TagMeta.init()]);
     const userId = new mongoose.Types.ObjectId();
     const ids = await seedLibrary({ userId, Article, NotebookEntry, TagMeta });
     const texts = libraryTexts();
