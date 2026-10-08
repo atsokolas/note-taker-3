@@ -19,7 +19,8 @@ const {
 } = require('./agentIntentKernel');
 const { chatComplete, isTextGenerationConfigured } = require('../ai/hfTextClient');
 const { groundedIn } = require('./agentGrounding');
-const { retrievePassages } = require('./agentRetrieval');
+const { retrievePassages, bestPassage, readSource } = require('./agentRetrieval');
+const { runAgentLoop } = require('./agentLoop');
 const { semanticSearch } = require('../ai/semanticSearch');
 const { isAiEnabled } = require('../config/aiClient');
 
@@ -151,6 +152,41 @@ const mergeAmbientRelatedItems = ({
   });
 
   return merged.slice(0, Math.max(1, Math.min(MAX_LIMIT, Number(limit) || DEFAULT_LIMIT)));
+};
+
+// Without a model the partner still answers honestly: it brings the passages
+// that bear on the question, word for word, or says that nothing does.
+const buildPassageReply = ({ query = '', contextItem = null, relatedItems = [] } = {}) => {
+  const bound = contextItem?.fullText
+    ? bestPassage({ title: contextItem.title, text: contextItem.fullText, query })
+    : null;
+  const passages = [
+    ...(bound ? [{ title: contextItem.title, text: bound }] : []),
+    ...relatedItems.slice(0, 3).map(item => ({ title: item.title, text: item.replySnippet || item.snippet }))
+  ].filter(passage => toSafeString(passage.text));
+  if (!passages.length) return 'Nothing in your library speaks to this yet.';
+  return [
+    passages.length === 1 ? 'This is the passage in your library that bears on it.' : 'These are the passages in your library that bear on it.',
+    // A highlight carries the reader's margin note; each is quoted as itself.
+    ...passages.map((passage) => {
+      const [said, note] = truncate(passage.text, 600).split(' Your note: ');
+      return `${passage.title}: “${said}”${note ? ` Your note: “${note}”` : ''}`;
+    })
+  ].join('\n\n');
+};
+
+// Every source the turn saw, once each, with the fullest text it was seen in:
+// a passage the model read in full outranks the snippet that led it there.
+const mergeSources = (...lists) => {
+  const textOf = item => item.fullText || item.replySnippet || item.snippet || '';
+  const merged = new Map();
+  lists.flat().forEach((item) => {
+    if (!item?.id) return;
+    const key = `${item.type}:${item.id}`;
+    const known = merged.get(key);
+    if (!known || textOf(item).length > textOf(known).length) merged.set(key, item);
+  });
+  return [...merged.values()];
 };
 
 const mergeRelatedItemLists = (...lists) => {
@@ -373,16 +409,6 @@ const buildReplyDetail = (item = {}) => {
   const safeTitle = toSafeString(item?.title);
   if (safeTitle && safeSnippet.toLowerCase() === safeTitle.toLowerCase()) return '';
   return ensureSentence(safeSnippet);
-};
-
-const isGenericQuestionLabel = (value = '') => {
-  const lower = toSafeString(value).toLowerCase();
-  if (!lower) return true;
-  return [
-    'new question',
-    'untitled question',
-    'question'
-  ].includes(lower);
 };
 
 const normalizeSentenceText = (value = '') => {
@@ -850,9 +876,6 @@ const PAGE_ANSWER_STOPWORDS = new Set([
 
 const WIKI_WORKSPACE_RETRIEVAL_RE = /\b(across|all|another|broader|compare|cross[-\s]?wiki|elsewhere|find|library|other|related|retrieve|search|sources?|workspace)\b/i;
 const WIKI_SOURCE_ATTRIBUTION_RE = /\b(back(?:s|ed)?|citation|cite|cited|evidence|source|support(?:s|ed|ing)?)\b/i;
-const WIKI_SOURCE_CRITIQUE_RE = /\b(critique|audit|unsupported|not supported|weak support|source quality|missing evidence|evidence (?:is )?missing)\b/i;
-const WIKI_EXACT_SENTENCE_RE = /\b(exact|verbatim|quote|sentence|wording|word-for-word)\b/i;
-const WIKI_SECTION_HEADING_RE = /\b(overview|core idea|how it works|evidence|converging evidence|diverging evidence|implications|tensions|open questions|references)\b/gi;
 const WIKI_SECTION_HEADING_START_RE = /^(overview|core idea|how it works|evidence|converging evidence|diverging evidence|implications|tensions|open questions|references)\s+/i;
 const QUESTION_DEPTH_RE = AGENT_INTENT_PATTERNS.questionDepth;
 const ORIENTATION_CONTEXT_RE = AGENT_INTENT_PATTERNS.orientationContext;
@@ -995,43 +1018,6 @@ const buildSharedQuestionContextItem = (page, slug) => {
   };
 };
 
-const pickWikiPageAnswerSentences = ({ message = '', contextItem = null, maxSentences = 3 } = {}) => {
-  if (contextItem?.type !== 'wiki_page') return [];
-  const fullText = toSafeString(contextItem?.fullText);
-  if (!fullText) return [];
-  const wantsExactSentence = WIKI_EXACT_SENTENCE_RE.test(message);
-  const queryTokens = tokenize(message)
-    .filter(token => token.length > 2 && !PAGE_ANSWER_STOPWORDS.has(token))
-    .slice(0, 10);
-  const cleanWikiSentence = sentence => ensureSentence(toSafeString(sentence)
-    .replace(/^(overview|core idea|how it works|evidence|converging evidence|diverging evidence|implications|tensions|open questions|references)\s+/i, '')
-    .replace(/\s*\[[0-9,\s]+\]\s*$/g, '')
-    .trim());
-  const sentenceSource = wantsExactSentence
-    ? fullText.replace(WIKI_SECTION_HEADING_RE, '. ')
-    : fullText;
-  const sentences = splitIntoSentences(sentenceSource)
-    .map(cleanWikiSentence)
-    .filter(sentence => sentence && !isBoilerplateSentence(sentence))
-    .filter(sentence => !wantsExactSentence || sentence.split(/\s+/).length <= 45);
-  if (!sentences.length) return [];
-  const scored = sentences.map((sentence, index) => {
-    const lower = sentence.toLowerCase();
-    const tokenScore = queryTokens.reduce((score, token) => score + (lower.includes(token) ? 2 : 0), 0);
-    const sectionScore = /\b(core|overview|how|evidence|tension|question)\b/i.test(sentence) ? 0.2 : 0;
-    return { sentence, index, score: tokenScore + sectionScore };
-  });
-  const threshold = queryTokens.length ? 1 : 0;
-  const selected = scored
-    .filter(item => item.score >= threshold)
-    .sort((left, right) => right.score - left.score || left.index - right.index)
-    .slice(0, maxSentences)
-    .sort((left, right) => left.index - right.index)
-    .map(item => item.sentence);
-  if (queryTokens.length && selected.length === 0) return [];
-  return selected.length > 0 ? selected : sentences.slice(0, maxSentences);
-};
-
 const cleanWikiSignalText = (value = '') => {
   let text = stripHtml(value)
     .replace(/\s*\[[0-9,\s]+\]\s*$/g, '')
@@ -1048,56 +1034,6 @@ const scoreClaimForMessage = ({ claimText = '', message = '' } = {}) => {
   const claim = toSafeString(claimText).toLowerCase();
   const queryTokens = tokenize(message).filter(token => !PAGE_ANSWER_STOPWORDS.has(token));
   return queryTokens.reduce((score, token) => score + (claim.includes(token) ? 1 : 0), 0);
-};
-
-const wikiSourceTopicCoverage = ({ source = {}, pageTitle = '' } = {}) => {
-  const titleTokens = tokenize(pageTitle).filter(token => !PAGE_ANSWER_STOPWORDS.has(token));
-  if (!titleTokens.length) return 0;
-  const sourceText = [source?.title, source?.snippet].map(toSafeString).join(' ').toLowerCase();
-  const matched = titleTokens.filter(token => sourceText.includes(token));
-  return matched.length / titleTokens.length;
-};
-
-const buildWikiSourceCritiqueReply = ({ message = '', contextItem = null } = {}) => {
-  if (contextItem?.type !== 'wiki_page' || !WIKI_SOURCE_CRITIQUE_RE.test(message)) return '';
-  const claimSourceMap = Array.isArray(contextItem.claimSourceMap) ? contextItem.claimSourceMap : [];
-  const sources = Array.isArray(contextItem.sources) ? contextItem.sources : [];
-  if (!claimSourceMap.length) {
-    return 'This page has no claim-source map, so its material claims cannot be audited safely yet.';
-  }
-  const topicalSources = sources.filter(source => wikiSourceTopicCoverage({
-    source,
-    pageTitle: contextItem.title
-  }) >= 0.8);
-  const uncited = claimSourceMap.find(entry => !(Array.isArray(entry?.refs) && entry.refs.length));
-  const offTopic = claimSourceMap.find(entry => (
-    Array.isArray(entry?.refs)
-      && entry.refs.length > 0
-      && !entry.refs.some(source => wikiSourceTopicCoverage({
-        source,
-        pageTitle: contextItem.title
-      }) >= 0.8)
-  ));
-  const formalEquivalence = claimSourceMap.find(entry => (
-    /\b(?:mathematically identical|formally identical|exactly equivalent|the same mechanism)\b/i.test(
-      toSafeString(entry?.claim)
-    )
-  ));
-  const observations = [];
-  if (!topicalSources.length) {
-    observations.push(`None of the attached source titles or snippets directly addresses “${toSafeString(contextItem.title)}”.`);
-  }
-  if (offTopic) {
-    const sourceTitle = toSafeString(offTopic.refs?.[0]?.title) || 'the attached source';
-    observations.push(`The claim “${truncate(offTopic.claim || '', 170)}” is mapped to “${truncate(sourceTitle, 100)}”, but that mapping alone does not establish the claim.`);
-  } else if (uncited) {
-    observations.push(`The claim “${truncate(uncited.claim || '', 170)}” has no attached source.`);
-  }
-  if (formalEquivalence) {
-    observations.push(`The formal-equivalence claim “${truncate(formalEquivalence.claim || '', 150)}” needs a source that explicitly proves the equivalence or it should be removed.`);
-  }
-  observations.push(`What is missing is direct evidence that explains ${toSafeString(contextItem.title)} and separately supports each material analogy or application.`);
-  return observations.slice(0, 4).join(' ');
 };
 
 const buildWikiClaimSourceReply = ({ message = '', contextItem = null } = {}) => {
@@ -1126,65 +1062,6 @@ const buildWikiClaimSourceReply = ({ message = '', contextItem = null } = {}) =>
     return index ? `[${index}] ${title}` : title;
   });
   return `That claim is backed by ${joinLabels(labels)}. Claim: ${truncate(best.entry?.claim || '', 220)}`;
-};
-
-const wikiCitationSuffix = (contextItem = null, limit = 2) => {
-  if (contextItem?.type !== 'wiki_page') return '';
-  const sources = Array.isArray(contextItem.sources) ? contextItem.sources : [];
-  const indexes = sources
-    .map(source => Number(source?.index))
-    .filter(index => Number.isInteger(index) && index > 0)
-    .slice(0, limit);
-  return indexes.length ? ` [${indexes.join(',')}]` : '';
-};
-
-const withWikiPageCitations = (reply = '', contextItem = null) => {
-  const safeReply = toSafeString(reply);
-  if (!safeReply || /\[(?:\d+\s*,\s*)*\d+\]/.test(safeReply)) return safeReply;
-  const suffix = wikiCitationSuffix(contextItem);
-  return suffix ? `${ensureSentence(safeReply)}${suffix}` : safeReply;
-};
-
-const buildWikiPageGroundedReply = ({ message = '', contextItem = null, contextSignals = {} } = {}) => {
-  const critiqueReply = buildWikiSourceCritiqueReply({ message, contextItem });
-  if (critiqueReply) return critiqueReply;
-  const sourceReply = buildWikiClaimSourceReply({ message, contextItem });
-  if (sourceReply) return sourceReply;
-  const wantsOneSentence = /\b(one|1)\s+sentence\b/i.test(message);
-  const wantsExactSentence = WIKI_EXACT_SENTENCE_RE.test(message);
-  const sentences = pickWikiPageAnswerSentences({
-    message,
-    contextItem,
-    maxSentences: wantsOneSentence || wantsExactSentence ? 1 : 3
-  });
-  if (sentences.length > 0) {
-    if (wantsExactSentence) {
-      if (sentences.length === 1) return withWikiPageCitations(`Exact sentence: "${sentences[0]}"`, contextItem);
-      return withWikiPageCitations(`Exact sentences: ${sentences.map(sentence => `"${sentence}"`).join(' ')}`, contextItem);
-    }
-    const lead = sentences.length === 1
-      ? `The page says ${lowercaseFirst(sentences[0])}`
-      : `The page says ${lowercaseFirst(sentences[0])} It also says ${sentences.slice(1).map(lowercaseFirst).join(' ')}`;
-    return withWikiPageCitations(lead, contextItem);
-  }
-  const queryTokens = tokenize(message).filter(token => !PAGE_ANSWER_STOPWORDS.has(token));
-  if (queryTokens.length && !/\b(summarize|summary|overview|main|core|thesis|claim)\b/i.test(message)) {
-    return 'I do not see that answered on this page. Ask me to search the wider library if you want me to look beyond this wiki page.';
-  }
-  const coreClaim = cleanWikiSignalText(contextSignals.coreClaim);
-  if (coreClaim) {
-    const supportPoint = cleanWikiSignalText(contextSignals.supportPoint);
-    const pressurePoint = cleanWikiSignalText(contextSignals.pressurePoint);
-    const lines = [`Core claim: ${coreClaim}`];
-    if (supportPoint && supportPoint !== coreClaim) {
-      lines.push(`Best support in view: ${supportPoint}`);
-    }
-    if (pressurePoint && pressurePoint !== coreClaim) {
-      lines.push(`Main tension: ${pressurePoint}`);
-    }
-    return withWikiPageCitations(lines.join(' '), contextItem);
-  }
-  return '';
 };
 
 const contextSurfaceLabel = (type = '') => {
@@ -1575,17 +1452,6 @@ const groundOrdinalWorkspaceReferences = (reply = '', metadataSource = {}, reque
 
   const lead = best.kind === 'question' ? 'Resume' : 'Start with';
   return `${lead} “${best.title}”. ${groundedReply}`;
-};
-
-const ensureRetrievedItemNamed = ({ reply = '', fallback = '', relatedItems = [], intent = '' } = {}) => {
-  const safeReply = toSafeString(reply);
-  if (intent !== 'retrieve' || !Array.isArray(relatedItems) || relatedItems.length === 0) return safeReply;
-  const lower = safeReply.toLowerCase();
-  const namesReturnedItem = relatedItems.some(item => {
-    const title = toSafeString(item?.title).toLowerCase();
-    return title && lower.includes(title);
-  });
-  return namesReturnedItem ? safeReply : toSafeString(fallback);
 };
 
 const leaksInternalReasoning = (value = '') => /\b(?:thinking process|analy[sz]e user input|identify constraints|response strategy|current reply mode)\b/i.test(toSafeString(value));
@@ -2481,32 +2347,6 @@ const buildReply = ({
   );
   const contextSignals = buildContextSummarySignals({ context, contextItem });
   const leadDetail = buildReplyDetail(preparedItems[0]);
-  const secondLabel = titles[1] || '';
-  const orientationReply = buildOrientationReply({
-    message: conversationState.resolvedMessage || message,
-    context,
-    contextItem,
-    relatedItems
-  });
-  if (orientationReply) return orientationReply;
-
-  if (decision.answerFocus === 'falsifier') {
-    const claim = contextSignals.coreClaim || contextSignals.supportPoint;
-    const pressure = contextSignals.pressurePoint || contextSignals.openQuestion;
-    if (claim && pressure && claim !== pressure) {
-      return `The recommendation should change if credible evidence overturns ${claim}—especially if it resolves this pressure point against it: ${pressure}`;
-    }
-    if (pressure) {
-      return `The recommendation should change if credible evidence resolves this pressure point against it: ${pressure}`;
-    }
-    if (claim) {
-      return `The recommendation should change if new evidence directly contradicts ${claim} or shows that the causal link behind it does not hold.`;
-    }
-    return contextLabel
-      ? `I cannot name a real falsifier yet because ${contextLabel} does not state the recommendation and its key assumption clearly enough. Name that assumption, and I will tell you what evidence would overturn it.`
-      : 'I cannot name a real falsifier yet because the recommendation and its key assumption are not in view. Name that assumption, and I will tell you what evidence would overturn it.';
-  }
-
   if (intent === 'plan') {
     if (isSharedQuestionContext(context, contextItem)) {
       if (!contextItem) return 'This question is not published.';
@@ -2524,15 +2364,6 @@ const buildReply = ({
     return 'Plan: 1. Define the exact outcome and success test. 2. Gather the smallest relevant set of owned material. 3. Produce one reviewable result. 4. Accept, revise, or reject it before anything becomes durable.';
   }
 
-  if (contextItem?.type === 'wiki_page' && intent !== 'retrieve') {
-    const wikiReply = buildWikiPageGroundedReply({
-      message: conversationState.resolvedMessage || message,
-      contextItem,
-      contextSignals
-    });
-    if (wikiReply) return wikiReply;
-  }
-
   if (preparedItems.length === 0) {
     if (isSharedQuestionContext(context, contextItem)) {
       if (!contextItem) return 'This question is not published.';
@@ -2541,26 +2372,6 @@ const buildReply = ({
           ? 'This conversation is bound to the successor record on this door. Nothing from a private Library is in scope.'
           : 'This conversation is bound to the published question. Nothing from a private Library is in scope.';
       }
-    }
-    if (contextItem?.type === 'wiki_page') {
-      const wikiReply = buildWikiPageGroundedReply({
-        message: conversationState.resolvedMessage || message,
-        contextItem,
-        contextSignals
-      });
-      if (wikiReply) return wikiReply;
-    }
-    if (intent === 'summarize' && contextSignals.coreClaim) {
-      const lines = [`Core claim: ${contextSignals.coreClaim}`];
-      if (contextSignals.supportPoint && contextSignals.supportPoint !== contextSignals.coreClaim) {
-        lines.push(`Best support in view: ${contextSignals.supportPoint}`);
-      }
-      if (contextSignals.pressurePoint && contextSignals.pressurePoint !== contextSignals.coreClaim) {
-        lines.push(`Pressure to keep in view: ${contextSignals.pressurePoint}`);
-      } else if (contextSignals.openQuestion && contextSignals.openQuestion !== contextSignals.coreClaim) {
-        lines.push(`Open question: ${contextSignals.openQuestion}`);
-      }
-      return lines.join(' ');
     }
     if (intent === 'retrieve') {
       const requestedKind = /\b(?:source|sources|article|articles)\b/i.test(message)
@@ -2602,53 +2413,6 @@ const buildReply = ({
     return contextLabel
       ? `Nothing strong lit up around ${contextLabel} yet. Give me a sharper phrase or point me at a source and I will dig again.`
       : 'Nothing strong lit up yet. Give me a sharper phrase or point me at a source and I will dig again.';
-  }
-
-  if (intent === 'summarize') {
-    if (contextType === 'question') {
-      if (isGenericQuestionLabel(contextLabel)) {
-        return 'This question is still too generic. Rewrite it so it names the uncertainty, decision, or contradiction you want resolved, then I can gather the right evidence.';
-      }
-      const lines = [`Core question: ${ensureSentence(contextLabel.endsWith('?') ? contextLabel : `${contextLabel}?`)}`];
-      if (contextSignals.supportPoint) {
-        lines.push(`Best evidence lead: ${contextSignals.supportPoint}`);
-      } else if (leadDetail) {
-        lines.push(`Best evidence lead: ${leadDetail}`);
-      }
-      if (contextSignals.openQuestion && contextSignals.openQuestion !== contextLabel) {
-        lines.push(`What still needs answering: ${contextSignals.openQuestion}`);
-      } else if (contextSignals.pressurePoint) {
-        lines.push(`Pressure to resolve: ${contextSignals.pressurePoint}`);
-      } else {
-        lines.push('Next move: name the evidence that would count as a real answer.');
-      }
-      return lines.join(' ');
-    }
-    if (contextSignals.coreClaim) {
-      const lines = [
-        `Core claim: ${contextSignals.coreClaim}`
-      ];
-      if (contextSignals.supportPoint && contextSignals.supportPoint !== contextSignals.coreClaim) {
-        lines.push(`Best support in view: ${contextSignals.supportPoint}`);
-      } else if (leadDetail) {
-        lines.push(`Best support in view: ${ensureSentence(leadDetail)}`);
-      }
-      if (contextSignals.pressurePoint && contextSignals.pressurePoint !== contextSignals.coreClaim) {
-        lines.push(`Pressure to keep in view: ${contextSignals.pressurePoint}`);
-      } else if (contextSignals.openQuestion && contextSignals.openQuestion !== contextSignals.coreClaim) {
-        lines.push(`Open question: ${contextSignals.openQuestion}`);
-      }
-      return lines.join(' ');
-    }
-    const leadSentence = leadDetail ? `Keep the draft anchored to ${leadDetail}.` : 'That is the clearest footing for the next draft pass.';
-    if (secondLabel) {
-      return contextLabel
-        ? `What matters most in ${contextLabel} right now is the cluster around ${titleLine}. ${leadSentence}`
-        : `What matters most right now is the cluster around ${titleLine}. ${leadSentence}`;
-    }
-    return contextLabel
-      ? `What matters most in ${contextLabel} right now is ${titleLine}. ${leadSentence}`
-      : `What matters most right now is ${titleLine}. ${leadSentence}`;
   }
 
   if (intent === 'restructure') {
@@ -2828,17 +2592,20 @@ const generateCollaborativeReply = async ({
     conversationState,
     skillInvocation
   });
+  const retrievalScope = {
+    userId: userObjectId,
+    articleFilter: libraryFilter,
+    includeNotes: !libraryFilter,
+    excludeId: contextItem?.id,
+    limit: safeLimit,
+    models: { Article, NotebookEntry, TagMeta },
+    semanticSearch: isAiEnabled() ? semanticSearch : null
+  };
   const searchedItems = shouldSearchWorkspace
     ? await retrievePassages({
-      userId: userObjectId,
+      ...retrievalScope,
       query: conversationState.retrievalMessage || resolvedMessage,
-      about: [contextItem?.title, contextItem?.snippet].filter(Boolean).join(' '),
-      excludeId: contextItem?.id,
-      limit: safeLimit,
-      articleFilter: libraryFilter,
-      includeNotes: !libraryFilter,
-      models: { Article, NotebookEntry, TagMeta },
-      semanticSearch: isAiEnabled() ? semanticSearch : null
+      about: [contextItem?.title, contextItem?.snippet].filter(Boolean).join(' ')
     })
     : [];
   const graphItems = sharedQuestionScoped || libraryFilter
@@ -2893,17 +2660,14 @@ const generateCollaborativeReply = async ({
     contextItem,
     relatedItems
   });
-  const fallbackReply = buildReply({
-    message: resolvedMessage,
-    conversationState,
-    contextItem,
-    context,
-    relatedItems,
-    intentDecision
-  });
+  // Templates answer only for work that will be staged for review; every
+  // other turn is the model's, or the passages themselves.
+  const fallbackReply = ['plan', 'act'].includes(intentDecision.interactionMode)
+    ? buildReply({ message: resolvedMessage, conversationState, contextItem, context, relatedItems, intentDecision })
+    : '';
   const reply = intentDecision.clarificationPrompt
     || (!authoredExploration && orientationReply)
-    || (['plan', 'act'].includes(intentDecision.interactionMode) ? fallbackReply : '')
+    || fallbackReply
     || (!authoredExploration && buildOutputArtifactReply({
       skillInvocation,
       context,
@@ -2926,9 +2690,10 @@ const generateCollaborativeReply = async ({
   // grounded in the selected page's contextItem + relatedItems. Model output is
   // validated before the route streams it so prompt or reasoning leakage cannot
   // reach the UI token-by-token. Citations are derived independently below.
+  let loopSources = [];
   if (!reply && isTextGenerationConfigured()) {
     try {
-      const completion = await chatComplete({
+      const turn = await runAgentLoop({
         route: modelRoute.profile,
         messages: buildPartnerChatMessages({
           message: resolvedMessage,
@@ -2938,34 +2703,37 @@ const generateCollaborativeReply = async ({
           relatedItems,
           intentDecision
         }),
+        sources: [contextItem, ...relatedItems].filter(Boolean),
+        ...(sharedQuestionScoped ? {} : {
+          search: query => retrievePassages({ ...retrievalScope, query }),
+          read: id => readSource({ userId: userObjectId, id, models: { Article, NotebookEntry } })
+        }),
+        chat: chatComplete,
         signal
       });
-      if (toSafeString(completion?.text) && !leaksInternalReasoning(completion.text)) {
-        finalReply = stripRawObjectIds(toSafeString(completion.text), contextItem?.title || 'this wiki page');
+      if (turn && !leaksInternalReasoning(turn.reply)) {
+        finalReply = stripRawObjectIds(turn.reply, contextItem?.title || 'this wiki page');
+        loopSources = turn.sources;
         mode = 'hf_chat';
-        model = toSafeString(completion?.model);
-        provider = toSafeString(completion?.provider);
+        model = toSafeString(turn.model);
+        provider = toSafeString(turn.provider);
       }
     } catch (error) {
-      console.warn('[agent-chat] HF chat fallback engaged', {
+      console.warn('[agent-chat] model turn failed; answering from passages', {
         status: error?.status,
         message: error?.message,
         detail: error?.payload?.detail || ''
       });
     }
   }
+  if (!reply && mode === 'internal_only' && !authoredExploration) {
+    finalReply = buildPassageReply({ query: resolvedMessage, contextItem, relatedItems });
+  }
   finalReply = groundOrdinalWorkspaceReferences(
     finalReply,
     context?.metadata,
     resolvedMessage
   );
-  const intent = intentDecision.replyIntent;
-  finalReply = ensureRetrievedItemNamed({
-    reply: finalReply,
-    fallback: fallbackReply,
-    relatedItems,
-    intent
-  });
   const { capability, planner, proposalBundle } = brokerAgentTurn({
     capability: capabilityDecision,
     intentDecision,
@@ -2975,7 +2743,11 @@ const generateCollaborativeReply = async ({
     relatedItems,
     skillInvocation
   });
-  const responseItems = intentDecision.interactionMode === 'clarify' ? [] : relatedItems;
+  const responseItems = intentDecision.interactionMode === 'clarify'
+    ? []
+    : mergeRelatedItemLists(relatedItems, loopSources.filter(item => item !== contextItem && item?.id !== contextItem?.id));
+  const grounded = groundedIn(finalReply, mergeSources(contextItem, relatedItems, loopSources))
+    .map((item) => ({ type: item.type, id: item.id, title: item.title }));
 
   return {
     mode,
@@ -3002,15 +2774,10 @@ const generateCollaborativeReply = async ({
       snippet: item.snippet,
       updatedAt: item.updatedAt ? new Date(item.updatedAt).toISOString() : null
     })),
-    citations: responseItems.map((item) => ({
-      type: item.type,
-      id: item.id,
-      title: item.title
-    })),
-    // The sources whose own words the reply carries. Only a grounded reply can
-    // be accepted into the reader's work.
-    groundedIn: groundedIn(finalReply, [contextItem, ...responseItems])
-      .map((item) => ({ type: item.type, id: item.id, title: item.title })),
+    // A citation is a source whose own words the reply carries, never just a
+    // source that was retrieved. Only a grounded reply can be accepted.
+    citations: grounded,
+    groundedIn: grounded,
     retrieval: {
       searchedWorkspace: Boolean(shouldSearchWorkspace),
       relatedCount: responseItems.length
@@ -3041,6 +2808,7 @@ module.exports = {
     libraryRetrievalFilter,
     tokenize,
     buildReply,
+    buildPassageReply,
     inferReplyIntent: inferAgentReplyIntent,
     resolveAgentIntent,
     buildOrientationReply,
@@ -3048,7 +2816,6 @@ module.exports = {
     loadGraphRelatedItems,
     buildPartnerChatMessages,
     groundOrdinalWorkspaceReferences,
-    ensureRetrievedItemNamed,
     leaksInternalReasoning,
     buildOutputArtifactReply,
     buildWikiClaimSourceReply,

@@ -3,9 +3,7 @@
 // what it used, never invent a quotation, and say so when the library is silent.
 // Every check is deterministic so the eval can run, and fail, without a model.
 
-const { words, drawsOn } = require('../services/agentGrounding');
-
-const QUOTE_MIN_WORDS = 5;
+const { words, drawsOn, inventedQuotes: quotesMissingFrom } = require('../services/agentGrounding');
 
 // Replies the agent produces without reading anything. A real answer never
 // needs these phrasings.
@@ -21,17 +19,7 @@ const TEMPLATE_PATTERNS = [
 
 const DECLINE_PATTERN = /\b(nothing|no (?:source|passage|note|highlight|mention)s?|(?:could ?n[o']t|can ?not|did ?n[o']t|do ?n[o']t) (?:find|see)|not (?:in|anywhere in) your|does ?n[o']t (?:say|mention|cover|discuss)|is ?n[o']t (?:in|covered))/i;
 
-const quotations = (reply = '') => [...String(reply).matchAll(/[“"]([^”"]+)[”"]/g)]
-  .map(match => match[1])
-  .filter(span => words(span).length >= QUOTE_MIN_WORDS);
-
-const inventedQuotes = (reply, texts) => {
-  const library = Object.values(texts).map(text => words(text).join(' '));
-  return quotations(reply).filter(span => {
-    const needle = words(span).join(' ');
-    return !library.some(text => text.includes(needle));
-  });
-};
+const inventedQuotes = (reply, texts) => quotesMissingFrom(reply, Object.values(texts));
 
 const keysFor = (items = [], keyById) => new Set(
   items.map(item => keyById.get(String(item?.id || ''))).filter(Boolean)

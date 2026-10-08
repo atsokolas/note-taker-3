@@ -2,6 +2,7 @@
 // words. Paraphrase does not count: it is the one thing a reader cannot check.
 
 const PASSAGE_WORDS = 6;
+const QUOTE_MIN_WORDS = 5;
 
 const words = (text = '') => String(text || '')
   .toLowerCase()
@@ -26,4 +27,19 @@ const drawsOn = (reply, sourceText, n = PASSAGE_WORDS) => {
 const groundedIn = (reply = '', items = []) => (Array.isArray(items) ? items : [])
   .filter((item) => item && drawsOn(reply, item.fullText || item.replySnippet || item.snippet || ''));
 
-module.exports = { PASSAGE_WORDS, words, drawsOn, groundedIn };
+const quotations = (reply = '') => [...String(reply).matchAll(/[“"]([^”"]+)[”"]/g)]
+  .map(match => match[1])
+  .filter(span => words(span).length >= QUOTE_MIN_WORDS);
+
+// Quotations of five words or more that appear in none of the given texts.
+// A short phrase in quotes is emphasis; a sentence in quotes is a claim
+// about what a source said.
+const inventedQuotes = (reply = '', texts = []) => {
+  const haystacks = (Array.isArray(texts) ? texts : []).map(text => words(text).join(' '));
+  return quotations(reply).filter((span) => {
+    const needle = words(span).join(' ');
+    return !haystacks.some(text => text.includes(needle));
+  });
+};
+
+module.exports = { PASSAGE_WORDS, words, drawsOn, groundedIn, inventedQuotes };

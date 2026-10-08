@@ -35,6 +35,7 @@ would yet you your yours
 saved save library source sources note notes noted article articles piece pieces reading read written write wrote
 find found show tell anything everything argue argues argument according connect connects connection relate
 relates related relation bear bears bearing author authors essay essays mention mentions summarize summary
+objection objections strongest weakest
 `.split(/\s+/).filter(Boolean));
 
 const words = (text = '') => String(text || '')
@@ -271,4 +272,43 @@ const retrievePassages = async ({
     }));
 };
 
-module.exports = { retrievePassages, __testables: { queryTerms, stem, scoreUnits, semanticKey, stripImportChrome, articleUnits, noteUnits, conceptUnits } };
+// The passage of one source that best answers the question, or null when the
+// question names something no passage mentions.
+const bestPassage = ({ title = '', text = '', query = '' } = {}) => {
+  const terms = queryTerms(query);
+  const passages = passagesOf(title, stripImportChrome(text));
+  // A question that names nothing ("connect this") is about the whole source;
+  // its opening passage is where the argument is stated.
+  if (!terms.length) return passages[0] || null;
+  const [best] = scoreUnits(
+    passages.map((passage, index) => ({ key: `p${index}`, text: passage, title: '' })),
+    terms
+  ).filter(unit => unit.matched > 0).sort((left, right) => right.score - left.score);
+  return best ? best.text : null;
+};
+
+// One source in full, as the reader saved it: an article with its highlights
+// and margin notes, or a notebook page. Only the reader's own.
+const readSource = async ({ userId, id, models: { Article, NotebookEntry } }) => {
+  if (!/^[a-f0-9]{24}$/i.test(String(id || ''))) return null;
+  const article = await Article.findOne({ _id: id, userId }).select('_id title content highlights updatedAt').lean();
+  if (article) {
+    return {
+      type: 'article',
+      id: String(article._id),
+      title: article.title || 'Article',
+      fullText: articleUnits(article).map(unit => unit.text).join('\n\n'),
+      updatedAt: article.updatedAt
+    };
+  }
+  const note = await NotebookEntry.findOne({ _id: id, userId }).select('_id title content blocks updatedAt').lean();
+  return note ? {
+    type: 'notebook',
+    id: String(note._id),
+    title: note.title || 'Note',
+    fullText: noteUnits(note).map(unit => unit.text).join('\n\n'),
+    updatedAt: note.updatedAt
+  } : null;
+};
+
+module.exports = { retrievePassages, bestPassage, readSource, __testables: { queryTerms, stem, scoreUnits, semanticKey, stripImportChrome, articleUnits, noteUnits, conceptUnits } };

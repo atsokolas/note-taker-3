@@ -1,14 +1,14 @@
 {
-  "passed": 12,
+  "passed": 18,
   "total": 23,
-  "passRate": 0.522,
+  "passRate": 0.783,
   "checks": {
     "found": 0.895,
     "drawsOnPassages": 0.895,
-    "citesOnlyRelevant": 0.526,
+    "citesOnlyRelevant": 0.789,
     "noInventedQuotes": 1,
-    "notTemplate": 0.696,
-    "declines": 0.75,
+    "notTemplate": 1,
+    "declines": 1,
     "citesNothing": 1
   },
   "modelAnswered": 0
