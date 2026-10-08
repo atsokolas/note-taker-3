@@ -3,14 +3,7 @@ const {
   trackHarnessEvent,
   trackRunLifecycleEvents
 } = require('../services/agentHarnessEvents');
-const {
-  askWikiPage: defaultAskWikiPage,
-  loadWikiAskCorpus: defaultLoadWikiAskCorpus
-} = require('../services/wikiAskService');
-const { findWikiBacklinks: defaultFindWikiBacklinks } = require('../services/wikiBacklinkService');
-const { getWikiSchemaPromptContent } = require('../services/wikiSchemaService');
-const { resolveAgentCapability, isSharedQuestionContext, sharedQuestionReadCapability } = require('../services/agentCapabilityBroker');
-const { resolveAgentModelRoute } = require('../services/agentModelRouter');
+const { isSharedQuestionContext, sharedQuestionReadCapability } = require('../services/agentCapabilityBroker');
 const {
   planLibraryStructureProposal: defaultPlanLibraryStructureProposal,
   persistLibraryStructureProposal: defaultPersistLibraryStructureProposal
@@ -34,12 +27,6 @@ const buildAgentChatRouter = ({
   NotebookFolder,
   TagMeta,
   NotebookEntry,
-  WikiPage,
-  WikiRevision,
-  WikiSchemaSettings,
-  askWikiPage = defaultAskWikiPage,
-  loadWikiAskCorpus = defaultLoadWikiAskCorpus,
-  findWikiBacklinks = defaultFindWikiBacklinks,
   AgentArtifactDraft,
   normalizeThreadScope,
   appendThreadMessage,
@@ -204,160 +191,6 @@ const buildAgentChatRouter = ({
       writeSse(res, 'agent-delta', { delta: chunk });
       await delay(10);
     }
-  };
-
-  const textFromRichDoc = (node) => {
-    if (!node) return '';
-    if (typeof node === 'string') return node;
-    if (Array.isArray(node)) return node.map(textFromRichDoc).filter(Boolean).join('\n\n');
-    if (typeof node !== 'object') return '';
-    const ownText = typeof node.text === 'string' ? node.text : '';
-    const childText = Array.isArray(node.content)
-      ? node.content.map(textFromRichDoc).filter(Boolean).join(node.type === 'doc' ? '\n\n' : '')
-      : '';
-    return [ownText, childText].filter(Boolean).join('').trim();
-  };
-
-  const loadSelectedWikiPage = async ({ userId, pageId } = {}) => {
-    const safePageId = String(pageId || '').trim();
-    if (!safePageId || !WikiPage?.findOne) return null;
-    if (mongoose?.Types?.ObjectId?.isValid && !mongoose.Types.ObjectId.isValid(safePageId)) return null;
-    const query = WikiPage.findOne({
-      _id: safePageId,
-      userId,
-      status: { $ne: 'archived' },
-      archived: { $ne: true }
-    });
-    const selected = query?.select
-      ? query.select('title slug pageType plainText body sourceRefs claims citations freshness aiState updatedAt status')
-      : query;
-    if (selected?.lean) return selected.lean();
-    return selected;
-  };
-
-  const buildWikiGraphChatReply = async ({ userId, message, context, signal = null } = {}) => {
-    // Private writing needs the collaborative path, which resolves its owned
-    // passages before generation. The graph answerer only knows the Wiki.
-    if (context?.metadata?.exploration || context?.exploration) return null;
-    const question = String(message || '').trim();
-    const pageId = String(context?.pageId || '').trim();
-    if (!question || !pageId || !askWikiPage || !loadWikiAskCorpus) return null;
-    const page = await loadSelectedWikiPage({ userId, pageId });
-    if (!page) return null;
-
-    const corpus = await loadWikiAskCorpus({
-      page,
-      question,
-      userId,
-      WikiPage,
-      WikiRevision,
-      TagMeta,
-      findWikiBacklinks
-    });
-    let wikiSchemaContent = '';
-    if (WikiSchemaSettings) {
-      try {
-        wikiSchemaContent = await getWikiSchemaPromptContent({ WikiSchemaSettings, userId });
-      } catch (_error) {
-        wikiSchemaContent = '';
-      }
-    }
-    const answerResult = await askWikiPage({
-      page,
-      question,
-      relatedPages: corpus?.relatedPages || [],
-      conceptRecords: corpus?.conceptRecords || [],
-      backlinkRows: corpus?.backlinkRows || [],
-      revisionRows: corpus?.revisionRows || [],
-      wikiSchemaContent,
-      signal
-    });
-    const reply = textFromRichDoc(answerResult?.answer)
-      || answerResult?.errorMessage
-      || 'I could not compose an answer from the wiki graph.';
-    const provenance = answerResult?.provenance || {};
-    const wikiPages = Array.isArray(provenance.wikiPages) ? provenance.wikiPages : [];
-    const relatedItems = wikiPages
-      .filter(item => item?.id || item?.title)
-      .map(item => ({
-        itemType: 'wiki_page',
-        itemId: String(item.id || ''),
-        title: String(item.title || 'Wiki page'),
-        relationType: item.role === 'selected' ? 'selected_context' : 'graph_context',
-        role: item.role || ''
-      }));
-    const graphExpanded = provenance.mode === 'graph_expanded' || wikiPages.some(item => item.role === 'related');
-    const selectedTitle = String(page?.title || 'this page').trim();
-    const relatedTitle = wikiPages.find(item => item.role === 'related' && item.title)?.title || '';
-    const suggestedActions = graphExpanded
-      ? [
-          {
-            id: 'save-answer-to-talk',
-            label: 'Save answer to Talk',
-            kind: 'draft_chat',
-            prompt: `Save this answer to the Talk notes for "${selectedTitle}" with the key claims and citations preserved.`
-          },
-          {
-            id: 'turn-answer-into-question',
-            label: 'Turn into open question',
-            kind: 'draft_chat',
-            prompt: `Turn this answer into one open question for "${selectedTitle}" and show me the exact question before saving.`
-          },
-          {
-            id: 'build-bridge-page',
-            label: 'Build bridge page',
-            kind: 'draft_command',
-            prompt: `/build ${relatedTitle ? `${selectedTitle} and ${relatedTitle}` : `${selectedTitle} bridge`}`
-          }
-        ]
-      : [
-          {
-            id: 'search-graph-context',
-            label: 'Search the graph too',
-            kind: 'draft_chat',
-            prompt: `Answer that again using related wiki pages and graph context around "${selectedTitle}".`
-          },
-          {
-            id: 'turn-answer-into-question',
-            label: 'Turn into open question',
-            kind: 'draft_chat',
-            prompt: `Turn this answer into one open question for "${selectedTitle}" and show me the exact question before saving.`
-          }
-        ];
-    const capability = resolveAgentCapability({
-      intentDecision: {
-        replyIntent: graphExpanded ? 'retrieve' : 'answer',
-        interactionMode: graphExpanded ? 'retrieve' : 'answer',
-        retrievalPolicy: graphExpanded ? 'workspace' : 'context'
-      },
-      relatedItems
-    });
-    return {
-      reply,
-      capability,
-      modelRoute: resolveAgentModelRoute({
-        capability,
-        intentDecision: { replyIntent: graphExpanded ? 'retrieve' : 'answer' },
-        skillInvocation: { outputType: 'summary_brief' }
-      }),
-      relatedItems,
-      citations: [],
-      suggestedActions,
-      retrieval: {
-        searchedWorkspace: graphExpanded,
-        source: 'wiki_graph',
-        mode: provenance.mode || 'page_first',
-        summary: provenance.summary || '',
-        searchedSummary: provenance.searchedSummary || '',
-        pageTitles: wikiPages.map(item => item.title).filter(Boolean)
-      },
-      wikiAsk: {
-        status: answerResult?.status || 'answered',
-        model: answerResult?.model || '',
-        provenance,
-        citationIndexesUsed: Array.isArray(answerResult?.citationIndexesUsed) ? answerResult.citationIndexesUsed : []
-      }
-    };
   };
 
   const buildActivityReceipt = ({ stage = 'activity', summary = '', elapsedMs = null } = {}) => ({
@@ -576,6 +409,90 @@ const buildAgentChatRouter = ({
     properties
   });
 
+  // One turn of the thought partner, however it is asked for: the answer, any
+  // structure plan it stages, the recorded thread, and any drafted artifact.
+  // The streaming route sends the reply before the turn is recorded.
+  const runChatTurn = async ({
+    userId,
+    actor,
+    body = {},
+    thread = null,
+    context,
+    entitlements,
+    source,
+    requestId,
+    signal,
+    proposalActor,
+    canPropose,
+    beforeRecord = async result => result
+  }) => {
+    const generated = await generateCollaborativeReply({
+      userId,
+      message: body.message,
+      history: thread ? threadMessagesToHistory(thread.messages) : body.history,
+      context,
+      limit: body.limit,
+      premiumWebResearchAvailable: entitlements.premiumWebResearchAvailable,
+      skillInvocation: body.skillInvocation || {},
+      signal
+    });
+    const prepared = await prepareLibraryStructurePlan({
+      result: generated,
+      userId,
+      message: body.message,
+      context,
+      proposalActor,
+      canPropose
+    });
+    const result = await beforeRecord(prepared.result);
+    const persistedThread = await persistChatTurn({
+      userId,
+      actor,
+      payload: prepared.draft ? { ...body, persistThread: true } : body,
+      result,
+      thread
+    });
+    const structureProposal = await persistPreparedStructurePlan({ prepared, thread: persistedThread });
+    const threadId = String(persistedThread?._id || thread?._id || '');
+    if (result?.proposalBundle) {
+      emitHarnessEvent({
+        event: EVENT_NAMES?.AGENT_PROPOSAL_BUNDLE_STAGED,
+        userId,
+        requestId,
+        properties: { threadId, bundleId: String(result.proposalBundle.bundleId || ''), source }
+      });
+    }
+    const draftArtifact = await createAgentArtifactDraftFromSkillReply({
+      AgentArtifactDraft,
+      userId,
+      actor,
+      reply: result?.reply,
+      thread: persistedThread,
+      context: body.context || thread?.scope || null,
+      skillInvocation: body.skillInvocation || {}
+    });
+    if (draftArtifact?._id) {
+      emitHarnessEvent({
+        event: EVENT_NAMES?.AGENT_ARTIFACT_DRAFT_STAGED,
+        userId,
+        requestId,
+        properties: {
+          threadId,
+          draftId: String(draftArtifact._id),
+          artifactType: String(draftArtifact.artifactType || ''),
+          source
+        }
+      });
+    }
+    return {
+      ...result,
+      entitlements,
+      thread: persistedThread ? sanitizeAgentThreadDoc(persistedThread) : undefined,
+      draftArtifact: draftArtifact ? sanitizeAgentArtifactDraftDoc(draftArtifact) : undefined,
+      structureProposal: structureProposal || undefined
+    };
+  };
+
   router.post('/api/agent/chat', authenticateToken, async (req, res) => {
     try {
       const loadedThread = await loadThread(String(req.user.id), req.body?.threadId);
@@ -667,76 +584,16 @@ const buildAgentChatRouter = ({
       }
 
       const entitlements = await getUserAgentEntitlements(String(req.user.id));
-      const generatedResult = await generateCollaborativeReply({
+      return res.status(200).json(await runChatTurn({
         userId: String(req.user.id),
-        message: req.body?.message,
-        history: thread ? threadMessagesToHistory(thread.messages) : req.body?.history,
+        actor,
+        body: req.body || {},
+        thread,
         context: chatContext,
-        limit: req.body?.limit,
-        premiumWebResearchAvailable: entitlements.premiumWebResearchAvailable,
-        skillInvocation: req.body?.skillInvocation || {}
-      });
-      const preparedStructurePlan = await prepareLibraryStructurePlan({
-        result: generatedResult,
-        userId: String(req.user.id),
-        message: req.body?.message,
-        context: chatContext
-      });
-      const result = preparedStructurePlan.result;
-      const persistedThread = await persistChatTurn({
-        userId: String(req.user.id),
-        actor,
-        payload: preparedStructurePlan.draft
-          ? { ...(req.body || {}), persistThread: true }
-          : (req.body || {}),
-        result,
-        thread
-      });
-      const structureProposal = await persistPreparedStructurePlan({
-        prepared: preparedStructurePlan,
-        thread: persistedThread
-      });
-      if (result?.proposalBundle) {
-        emitHarnessEvent({
-          event: EVENT_NAMES?.AGENT_PROPOSAL_BUNDLE_STAGED,
-          userId: String(req.user.id),
-          requestId: req.requestId,
-          properties: {
-            threadId: String(persistedThread?._id || thread?._id || ''),
-            bundleId: String(result?.proposalBundle?.bundleId || ''),
-            source: 'native_chat'
-          }
-        });
-      }
-      const draftArtifact = await createAgentArtifactDraftFromSkillReply({
-        AgentArtifactDraft,
-        userId: String(req.user.id),
-        actor,
-        reply: result?.reply,
-        thread: persistedThread,
-        context: req.body?.context || thread?.scope || null,
-        skillInvocation: req.body?.skillInvocation || {}
-      });
-      if (draftArtifact?._id) {
-        emitHarnessEvent({
-          event: EVENT_NAMES?.AGENT_ARTIFACT_DRAFT_STAGED,
-          userId: String(req.user.id),
-          requestId: req.requestId,
-          properties: {
-            threadId: String(persistedThread?._id || thread?._id || ''),
-            draftId: String(draftArtifact?._id || ''),
-            artifactType: String(draftArtifact?.artifactType || ''),
-            source: 'native_chat'
-          }
-        });
-      }
-      return res.status(200).json({
-        ...result,
         entitlements,
-        thread: persistedThread ? sanitizeAgentThreadDoc(persistedThread) : undefined,
-        draftArtifact: draftArtifact ? sanitizeAgentArtifactDraftDoc(draftArtifact) : undefined,
-        structureProposal: structureProposal || undefined
-      });
+        source: 'native_chat',
+        requestId: req.requestId
+      }));
     } catch (error) {
       if (Number(error?.status) >= 400 && Number(error?.status) < 500) {
         return res.status(Number(error.status)).json({ error: error.message || 'Invalid agent chat request.' });
@@ -755,7 +612,6 @@ const buildAgentChatRouter = ({
     const startedAt = Date.now();
     const activityReceipts = [];
     const streamController = new AbortController();
-    let streamedReply = '';
     req.on('close', () => {
       if (!res.writableEnded) streamController.abort();
     });
@@ -777,128 +633,38 @@ const buildAgentChatRouter = ({
         });
       }
       const entitlements = await getUserAgentEntitlements(String(req.user.id));
-      let result = await buildWikiGraphChatReply({
-        userId: String(req.user.id),
-        message: req.body?.message,
-        context,
-        signal: streamController.signal
-      });
-      if (result) {
-        await streamReplyText(res, result.reply);
-        streamedReply = result.reply;
-      } else {
-        result = await generateCollaborativeReply({
-          userId: String(req.user.id),
-          message: req.body?.message,
-          history: thread ? threadMessagesToHistory(thread.messages) : req.body?.history,
-          context,
-          limit: req.body?.limit,
-          premiumWebResearchAvailable: entitlements.premiumWebResearchAvailable,
-          skillInvocation: req.body?.skillInvocation || {},
-          signal: streamController.signal,
-          onDelta: (delta) => {
-            const text = String(delta || '');
-            if (!text || res.writableEnded || streamController.signal.aborted) return;
-            streamedReply += text;
-            writeSse(res, 'agent-delta', { delta: text });
-          }
-        });
-      }
-
-      const preparedStructurePlan = await prepareLibraryStructurePlan({
-        result,
-        userId: String(req.user.id),
-        message: req.body?.message,
-        context
-      });
-      result = preparedStructurePlan.result;
-
-      const relatedCount = Array.isArray(result?.relatedItems) ? result.relatedItems.length : 0;
-      if (result?.retrieval?.source === 'wiki_graph') {
-        const pageTitles = Array.isArray(result?.retrieval?.pageTitles)
-          ? result.retrieval.pageTitles.filter(Boolean).slice(0, 4)
-          : [];
-        emitActivity(res, activityReceipts, {
-          stage: 'search',
-          summary: result?.retrieval?.searchedSummary || 'Searched the wiki graph around the selected page.'
-        });
-        emitActivity(res, activityReceipts, {
-          stage: 'retrieve',
-          summary: pageTitles.length > 1
-            ? `Read ${pageTitles.join(' + ')}.`
-            : 'Answered from the selected wiki page.'
-        });
-      } else if (result?.retrieval?.searchedWorkspace) {
-        emitActivity(res, activityReceipts, {
-          stage: 'search',
-          summary: 'Searched the workspace context.'
-        });
-        emitActivity(res, activityReceipts, {
-          stage: 'retrieve',
-          summary: relatedCount
-            ? `Retrieved ${relatedCount} related workspace item${relatedCount === 1 ? '' : 's'}.`
-            : 'No additional related workspace items were needed.'
-        });
-      } else if (context?.pageId) {
-        emitActivity(res, activityReceipts, {
-          stage: 'retrieve',
-          summary: 'Answered from the selected wiki page.'
-        });
-      }
-      emitActivity(res, activityReceipts, {
-        stage: 'compose',
-        summary: `Composed reply in ${((Date.now() - startedAt) / 1000).toFixed(1)}s.`
-      });
-
-      const resultWithReceipts = {
-        ...result,
-        activityReceipts
-      };
-      if (!streamedReply) {
-        await streamReplyText(res, resultWithReceipts.reply);
-      }
-
-      const persistedThread = await persistChatTurn({
+      const turn = await runChatTurn({
         userId: String(req.user.id),
         actor,
-        payload: preparedStructurePlan.draft
-          ? { ...(req.body || {}), persistThread: true }
-          : (req.body || {}),
-        result: resultWithReceipts,
-        thread
-      });
-      const structureProposal = await persistPreparedStructurePlan({
-        prepared: preparedStructurePlan,
-        thread: persistedThread
-      });
-      if (result?.proposalBundle) {
-        emitHarnessEvent({
-          event: EVENT_NAMES?.AGENT_PROPOSAL_BUNDLE_STAGED,
-          userId: String(req.user.id),
-          requestId: req.requestId,
-          properties: {
-            threadId: String(persistedThread?._id || thread?._id || ''),
-            bundleId: String(result?.proposalBundle?.bundleId || ''),
-            source: 'native_chat_stream'
-          }
-        });
-      }
-      const draftArtifact = await createAgentArtifactDraftFromSkillReply({
-        AgentArtifactDraft,
-        userId: String(req.user.id),
-        actor,
-        reply: result?.reply,
-        thread: persistedThread,
+        body: req.body || {},
+        thread,
         context,
-        skillInvocation: req.body?.skillInvocation || {}
-      });
-      writeSse(res, 'agent-final', {
-        ...resultWithReceipts,
         entitlements,
-        thread: persistedThread ? sanitizeAgentThreadDoc(persistedThread) : undefined,
-        draftArtifact: draftArtifact ? sanitizeAgentArtifactDraftDoc(draftArtifact) : undefined,
-        structureProposal: structureProposal || undefined
+        source: 'native_chat_stream',
+        requestId: req.requestId,
+        signal: streamController.signal,
+        beforeRecord: async (result) => {
+          if (result?.retrieval?.searchedWorkspace) {
+            const relatedCount = Array.isArray(result?.relatedItems) ? result.relatedItems.length : 0;
+            emitActivity(res, activityReceipts, { stage: 'search', summary: 'Searched the workspace context.' });
+            emitActivity(res, activityReceipts, {
+              stage: 'retrieve',
+              summary: relatedCount
+                ? `Retrieved ${relatedCount} related workspace item${relatedCount === 1 ? '' : 's'}.`
+                : 'No additional related workspace items were needed.'
+            });
+          } else if (context?.pageId) {
+            emitActivity(res, activityReceipts, { stage: 'retrieve', summary: 'Answered from the selected wiki page.' });
+          }
+          emitActivity(res, activityReceipts, {
+            stage: 'compose',
+            summary: `Composed reply in ${((Date.now() - startedAt) / 1000).toFixed(1)}s.`
+          });
+          await streamReplyText(res, result?.reply);
+          return { ...result, activityReceipts };
+        }
       });
+      writeSse(res, 'agent-final', turn);
       return res.end();
     } catch (error) {
       console.error('❌ Error streaming collaborative agent reply:', error);
@@ -939,91 +705,22 @@ const buildAgentChatRouter = ({
       const entitlements = await getUserAgentEntitlements(String(req.personalAgent.userId));
       const loadedThread = await loadThread(String(req.personalAgent.userId), req.body?.threadId);
       const { thread, chatContext } = bindChatTurn(loadedThread, req.body?.context);
-
-      const generatedResult = await generateCollaborativeReply({
+      const actor = { actorType: 'byo_agent', actorId: String(req.personalAgent.id || '') };
+      const turn = await runChatTurn({
         userId: String(req.personalAgent.userId),
-        message: req.body?.message,
-        history: thread ? threadMessagesToHistory(thread.messages) : req.body?.history,
+        actor,
+        body: req.body || {},
+        thread,
         context: chatContext,
-        limit: req.body?.limit,
-        premiumWebResearchAvailable: entitlements.premiumWebResearchAvailable,
-        skillInvocation: req.body?.skillInvocation || {}
-      });
-      const actor = {
-        actorType: 'byo_agent',
-        actorId: String(req.personalAgent.id || '')
-      };
-      const preparedStructurePlan = await prepareLibraryStructurePlan({
-        result: generatedResult,
-        userId: String(req.personalAgent.userId),
-        message: req.body?.message,
-        context: chatContext,
+        entitlements,
+        source: 'byo_chat',
+        requestId: req.requestId,
         proposalActor: actor,
         canPropose: capabilities.proposeChanges
       });
-      const result = preparedStructurePlan.result;
-      const persistedThread = await persistChatTurn({
-        userId: String(req.personalAgent.userId),
-        actor,
-        payload: preparedStructurePlan.draft
-          ? { ...(req.body || {}), persistThread: true }
-          : (req.body || {}),
-        result,
-        thread
-      });
-      const structureProposal = await persistPreparedStructurePlan({
-        prepared: preparedStructurePlan,
-        thread: persistedThread
-      });
-      if (result?.proposalBundle) {
-        emitHarnessEvent({
-          event: EVENT_NAMES?.AGENT_PROPOSAL_BUNDLE_STAGED,
-          userId: String(req.personalAgent.userId),
-          requestId: req.requestId,
-          properties: {
-            threadId: String(persistedThread?._id || thread?._id || ''),
-            bundleId: String(result?.proposalBundle?.bundleId || ''),
-            source: 'byo_chat'
-          }
-        });
-      }
-      const draftArtifact = await createAgentArtifactDraftFromSkillReply({
-        AgentArtifactDraft,
-        userId: String(req.personalAgent.userId),
-        actor: {
-          actorType: 'byo_agent',
-          actorId: String(req.personalAgent.id || '')
-        },
-        reply: result?.reply,
-        thread: persistedThread,
-        context: req.body?.context || thread?.scope || null,
-        skillInvocation: req.body?.skillInvocation || {}
-      });
-      if (draftArtifact?._id) {
-        emitHarnessEvent({
-          event: EVENT_NAMES?.AGENT_ARTIFACT_DRAFT_STAGED,
-          userId: String(req.personalAgent.userId),
-          requestId: req.requestId,
-          properties: {
-            threadId: String(persistedThread?._id || thread?._id || ''),
-            draftId: String(draftArtifact?._id || ''),
-            artifactType: String(draftArtifact?.artifactType || ''),
-            source: 'byo_chat'
-          }
-        });
-      }
-
       return res.status(200).json({
-        ...result,
-        entitlements,
-        thread: persistedThread ? sanitizeAgentThreadDoc(persistedThread) : undefined,
-        draftArtifact: draftArtifact ? sanitizeAgentArtifactDraftDoc(draftArtifact) : undefined,
-        structureProposal: structureProposal || undefined,
-        actor: {
-          actorType: 'byo_agent',
-          actorId: String(req.personalAgent.id || ''),
-          actorName: String(req.personalAgent.name || '')
-        }
+        ...turn,
+        actor: { ...actor, actorName: String(req.personalAgent.name || '') }
       });
     } catch (error) {
       if (Number(error?.status) >= 400 && Number(error?.status) < 500) {

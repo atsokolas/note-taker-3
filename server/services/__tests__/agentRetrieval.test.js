@@ -1,4 +1,4 @@
-const { retrievePassages, __testables: { queryTerms, stripImportChrome } } = require('../agentRetrieval');
+const { retrievePassages, readSource, __testables: { queryTerms, stripImportChrome } } = require('../agentRetrieval');
 
 // A stand-in for a Mongoose model: every query resolves to the given rows,
 // and $text is supported so the lexical path is the one under test.
@@ -128,6 +128,22 @@ describe('retrievePassages', () => {
     });
     expect(results[0]).toMatchObject({ id: 'long' });
     expect(results[0].fullText).toMatch(/overwater seedlings/);
+  });
+
+  it('reads the page a held view lives on', async () => {
+    const one = row => ({ findOne: () => ({ select: () => ({ lean: async () => row }) }) });
+    const id = 'a'.repeat(24);
+    const source = await readSource({
+      userId: 'u1',
+      id,
+      models: {
+        Article: one(null),
+        NotebookEntry: one(null),
+        WikiPage: one({ _id: id, title: 'Late decisions', plainText: 'The page body.', judgment: { currentJudgment: 'I decide well at midnight.' } })
+      }
+    });
+    expect(source).toMatchObject({ type: 'wiki_page', id, title: 'Late decisions' });
+    expect(source.fullText).toBe('You hold: I decide well at midnight.\n\nThe page body.');
   });
 
   it('strips import preambles so they are never quoted as the author', () => {

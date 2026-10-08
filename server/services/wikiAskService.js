@@ -606,13 +606,8 @@ const firstChangedClaim = (beforeClaims = [], afterClaims = []) => {
   });
 };
 
-const collectTemporalChangeContexts = ({
-  page,
-  revisionRows = [],
-  question = '',
-  limit = MAX_TEMPORAL_CONTEXTS
-} = {}) => {
-  if (!isTemporalQuestion(question)) return [];
+// What each revision changed, newest first, in plain words.
+const describeRevisions = ({ page, revisionRows = [], limit = MAX_TEMPORAL_CONTEXTS } = {}) => {
   const selectedId = serializeObjectId(page);
   return (Array.isArray(revisionRows) ? revisionRows : [])
     .filter(Boolean)
@@ -658,6 +653,10 @@ const collectTemporalChangeContexts = ({
     ))
     .slice(0, Math.max(0, limit));
 };
+
+const collectTemporalChangeContexts = ({ question = '', ...rest } = {}) => (
+  isTemporalQuestion(question) ? describeRevisions(rest) : []
+);
 
 const buildGraphSearchSummary = ({
   page,
@@ -1901,6 +1900,8 @@ const askWikiPage = async ({
 module.exports = {
   askWikiPage,
   loadWikiAskCorpus,
+  describeRevisions,
+  MAX_TEMPORAL_REVISIONS,
   __testables: {
     buildSourceList,
     buildRelatedPageContexts,
