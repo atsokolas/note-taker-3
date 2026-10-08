@@ -248,6 +248,15 @@ const formatPercent = (value) => {
   return `${Math.round(numeric * 100)}%`;
 };
 
+// A reply that is mostly quotation is evidence from the library, not wording
+// to try in the draft.
+const QUOTATION_RE = /“[^”]*”|"[^"]*"/g;
+const isWording = (text = '') => {
+  const safe = clean(text);
+  const quoted = (safe.match(QUOTATION_RE) || []).join('').length;
+  return Boolean(safe) && quoted * 2 < safe.length;
+};
+
 const ThoughtPartnerPanel = ({
   contextType = '',
   contextId = '',
@@ -834,20 +843,17 @@ const ThoughtPartnerPanel = ({
   const lastAssistantMessage = useMemo(() => (
     [...messages].reverse().find(entry => entry.role === 'assistant') || null
   ), [messages]);
-  const visibleMessages = useMemo(() => (
-    isStreamVariant
-      ? messages
-          .map((message, index) => ({ message, index }))
-          .sort((left, right) => {
-            const leftTime = Date.parse(left.message.createdAt || '');
-            const rightTime = Date.parse(right.message.createdAt || '');
-            const safeLeft = Number.isFinite(leftTime) ? leftTime : left.index;
-            const safeRight = Number.isFinite(rightTime) ? rightTime : right.index;
-            return safeRight - safeLeft || right.index - left.index;
-          })
-          .map(({ message }) => message)
-      : messages
-  ), [isStreamVariant, messages]);
+  // The stream reads newest exchange first, beside the composer; within each
+  // exchange the question still sits above its answer.
+  const visibleMessages = useMemo(() => {
+    if (!isStreamVariant) return messages;
+    const exchanges = [];
+    messages.forEach((message) => {
+      if (message.role === 'user' || !exchanges.length) exchanges.push([message]);
+      else exchanges[exchanges.length - 1].push(message);
+    });
+    return exchanges.reverse().flat();
+  }, [isStreamVariant, messages]);
   const activePlanner = useMemo(() => (
     (lastAssistantMessage?.planner && typeof lastAssistantMessage.planner === 'object'
       ? lastAssistantMessage.planner
@@ -1698,7 +1704,7 @@ const ThoughtPartnerPanel = ({
           >
             <p className="agent-thought-partner__message-role">{message.role === 'assistant' ? AGENT_DISPLAY_NAME : 'You'}</p>
             <p>{message.text}</p>
-            {message.role === 'assistant' && onTryWording && clean(message.text) ? (
+            {message.role === 'assistant' && onTryWording && isWording(message.text) ? (
               <QuietButton type="button" onClick={() => onTryWording(message.text)}>
                 Try as alternate wording
               </QuietButton>

@@ -283,7 +283,7 @@ describe('ThoughtPartnerPanel', () => {
     expect(screen.getByText('Counter-evidence should test the concentration thesis.')).toBeInTheDocument();
   });
 
-  it('renders stream thread messages newest first', () => {
+  it('renders the newest exchange first, each question above its answer', () => {
     render(
       <ThoughtPartnerPanel
         contextType="library"
@@ -304,8 +304,32 @@ describe('ThoughtPartnerPanel', () => {
 
     const renderedMessages = screen.getAllByText(/Oldest request\.|Middle plan\.|Newest execute command\./)
       .map((node) => node.textContent);
-    expect(renderedMessages[0]).toContain('Newest execute command.');
-    expect(renderedMessages[2]).toContain('Oldest request.');
+    expect(renderedMessages).toEqual(['Newest execute command.', 'Oldest request.', 'Middle plan.']);
+  });
+
+  it('offers a reply as wording only when it is not a quotation', () => {
+    const onTryWording = jest.fn();
+    render(
+      <ThoughtPartnerPanel
+        contextType="notebook"
+        contextId="note-1"
+        contextTitle="Draft"
+        onTryWording={onTryWording}
+        thread={{
+          threadId: 'thread-1',
+          messages: [
+            { role: 'user', text: 'What does my library say?' },
+            { role: 'assistant', text: 'Sleep debt and decisions: “Tired people make worse decisions because fatigue narrows attention.”' },
+            { role: 'user', text: 'Say it plainer.' },
+            { role: 'assistant', text: 'Fatigue pulls you toward the default, so decide the hard things early.' }
+          ]
+        }}
+      />
+    );
+    const offers = screen.getAllByRole('button', { name: 'Try as alternate wording' });
+    expect(offers).toHaveLength(1);
+    fireEvent.click(offers[0]);
+    expect(onTryWording).toHaveBeenCalledWith('Fatigue pulls you toward the default, so decide the hard things early.');
   });
 
   it('submits an explicit execution command from a pending proposal bundle', async () => {
