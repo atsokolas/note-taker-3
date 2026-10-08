@@ -98,7 +98,7 @@ const buildArticlePassages = (article = {}, options = {}) => {
     Math.floor(length / 3),
     positiveInt(options.passageOverlap, DEFAULT_PASSAGE_OVERLAP)
   );
-  const maxPassages = Math.min(24, positiveInt(options.maxPassages, DEFAULT_MAX_PASSAGES));
+  const maxPassages = positiveInt(options.maxPassages, DEFAULT_MAX_PASSAGES);
   const title = articleTitle(article);
   const sourceContentHash = contentHashOf(body);
   const dates = articleDates(article);

@@ -61,4 +61,20 @@ describe('runAgentLoop', () => {
     const chat = scripted(invented, invented);
     expect(await runAgentLoop({ messages, sources: [sleep], search: jest.fn(), read: jest.fn(), chat })).toBeNull();
   });
+
+  it('offers no library tools when there is no library to search', async () => {
+    const chat = scripted({ text: 'It says "fatigue narrows attention to the default option".' });
+    const result = await runAgentLoop({ messages, sources: [sleep], chat });
+    expect(chat.mock.calls[0][0].tools).toBeUndefined();
+    expect(chat.mock.calls[0][0].messages[0].content).not.toMatch(/search the reader/);
+    expect(result.reply).toMatch(/default option/);
+  });
+
+  it('accepts a quotation from the sources printed beside a wiki page', async () => {
+    const page = { id: 'wiki:sleep', title: 'Sleep', fullText: 'Sleep shapes judgment.', sourceText: '[1] Walker — the brain clears waste during deep sleep' };
+    const chat = scripted({ text: 'Its first source says "the brain clears waste during deep sleep".' });
+    const result = await runAgentLoop({ messages, sources: [page], chat });
+    expect(chat).toHaveBeenCalledTimes(1);
+    expect(result.reply).toMatch(/deep sleep/);
+  });
 });

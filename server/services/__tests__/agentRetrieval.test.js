@@ -115,7 +115,19 @@ describe('retrievePassages', () => {
     expect(view.held).toBe('I decide as well at midnight as in the morning.');
     expect(view.fullText).toMatch(/^You hold: .*\nWhy: My late calls.*\nWhat would change your mind: Tired decisions/s);
     expect(view.fullText).not.toMatch(/Retired worry/);
-    expect(WikiPage.find).toHaveBeenCalledWith(expect.objectContaining({ userId: 'u1' }));
+    expect(WikiPage.find).toHaveBeenCalledWith(expect.objectContaining({ userId: 'u1', status: { $ne: 'archived' } }));
+  });
+
+  it('finds a passage near the end of a long source', async () => {
+    const filler = Array.from({ length: 60 }, (_, index) => `Paragraph ${index} discusses quarterly planning in general terms without any particular claim.`).join(' ');
+    const long = article('long', 'A long essay', `${filler.repeat(4)} The decisive finding is that gardeners overwater seedlings.`);
+    const results = await retrievePassages({
+      userId: 'u1',
+      query: 'overwater seedlings',
+      models: { Article: model([long]), NotebookEntry: model([]), TagMeta: model([]) }
+    });
+    expect(results[0]).toMatchObject({ id: 'long' });
+    expect(results[0].fullText).toMatch(/overwater seedlings/);
   });
 
   it('reads the page a held view lives on', async () => {
