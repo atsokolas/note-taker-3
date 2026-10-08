@@ -28,6 +28,10 @@ const CASES = Object.freeze([
   { id: 'meeting-cost', surface: 'library', ask: 'What is the hidden cost of a one-hour meeting with eight people?', sources: ['meetings'] },
   { id: 'expertise-tension', surface: 'think', ask: 'Where do my sources disagree about how far expertise can be trusted?', sources: ['checklists', 'deliberatePractice'] },
 
+  // Against what the reader already holds.
+  { id: 'reading-meets-view', surface: 'article:baseRates', ask: 'Does this challenge anything I believe?', sources: ['baseRates', 'forecasts'] },
+  { id: 'what-i-hold', surface: 'think', ask: 'What do I currently believe about roadmap forecasts?', sources: ['forecasts'] },
+
   // Not in the library. Silence is the right answer.
   { id: 'french-revolution', surface: 'library', ask: 'What did I save about the French Revolution?', abstain: true },
   { id: 'mrna', surface: 'think', ask: 'What does my library say about mRNA vaccines?', abstain: true },

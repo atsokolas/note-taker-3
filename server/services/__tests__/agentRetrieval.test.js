@@ -95,6 +95,29 @@ describe('retrievePassages', () => {
     expect(results.map(item => item.id)).toEqual(['sleep']);
   });
 
+  it('meets new reading with a view the reader holds', async () => {
+    const WikiPage = model([{
+      _id: 'view1',
+      title: 'Late decisions',
+      judgment: {
+        currentJudgment: 'I decide as well at midnight as in the morning.',
+        why: [{ text: 'My late calls have mostly held up.' }],
+        falsifiers: [{ text: 'Tired decisions I later reverse.', status: 'unobserved' }, { text: 'Retired worry.', status: 'retired' }]
+      }
+    }]);
+    const results = await retrievePassages({
+      userId: 'u1',
+      query: 'Connect this.',
+      about: 'Tired decisions at midnight',
+      models: { ...library(), WikiPage }
+    });
+    const view = results.find(item => item.id === 'view1');
+    expect(view.held).toBe('I decide as well at midnight as in the morning.');
+    expect(view.fullText).toMatch(/^You hold: .*\nWhy: My late calls.*\nWhat would change your mind: Tired decisions/s);
+    expect(view.fullText).not.toMatch(/Retired worry/);
+    expect(WikiPage.find).toHaveBeenCalledWith(expect.objectContaining({ userId: 'u1', status: { $ne: 'archived' } }));
+  });
+
   it('finds a passage near the end of a long source', async () => {
     const filler = Array.from({ length: 60 }, (_, index) => `Paragraph ${index} discusses quarterly planning in general terms without any particular claim.`).join(' ');
     const long = article('long', 'A long essay', `${filler.repeat(4)} The decisive finding is that gardeners overwater seedlings.`);

@@ -140,7 +140,8 @@
 .agent-rail__conversation {
   display: grid;
   gap: 14px;
-  max-height: min(34vh, 320px);
+  /* Room for a quoted passage to be read where it lands. */
+  max-height: min(52vh, 520px);
   margin: 0;
   padding: 0 6px 0 0;
   overflow-y: auto;
@@ -220,6 +221,7 @@
   font-size: 0.86rem;
   line-height: 1.6;
   text-wrap: pretty;
+  white-space: pre-line;
 }
 
 /* Where the sentence was found. It sits directly under the sentence, because
@@ -499,6 +501,8 @@
     padding: 18px 22px 28px;
     border-left: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 72%, transparent);
     background: var(--noeis-floating);
+    /* The sheet is read over the page; the page must not read through it. */
+    backdrop-filter: blur(14px);
     box-shadow: -18px 0 48px rgba(23, 27, 35, 0.12);
     transform: translateX(102%);
     transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1);

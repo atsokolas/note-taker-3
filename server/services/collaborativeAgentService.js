@@ -160,13 +160,20 @@ const buildPassageReply = ({ query = '', contextItem = null, relatedItems = [] }
   const bound = contextItem?.fullText
     ? bestPassage({ title: contextItem.title, text: contextItem.fullText, query })
     : null;
+  const shown = relatedItems.slice(0, 3);
+  const views = shown.filter(item => item.held);
   const passages = [
     ...(bound ? [{ title: contextItem.title, text: bound }] : []),
-    ...relatedItems.slice(0, 3).map(item => ({ title: item.title, text: item.replySnippet || item.snippet }))
+    ...shown.filter(item => !item.held).map(item => ({ title: item.title, text: item.replySnippet || item.snippet }))
   ].filter(passage => toSafeString(passage.text));
-  if (!passages.length) return 'Nothing in your library speaks to this yet.';
+  if (!passages.length && !views.length) return 'Nothing in your library speaks to this yet.';
+  const opening = views.length
+    ? `This bears on ${views.length === 1 ? 'a view' : 'views'} you hold.`
+    : passages.length === 1 ? 'This is the passage in your library that bears on it.' : 'These are the passages in your library that bear on it.';
   return [
-    passages.length === 1 ? 'This is the passage in your library that bears on it.' : 'These are the passages in your library that bear on it.',
+    opening,
+    // What the reader holds comes first: it is what the reading is weighed against.
+    ...views.map(view => `You hold, in ${view.title}: “${truncate(view.held, 400)}”`),
     // A highlight carries the reader's margin note; each is quoted as itself.
     ...passages.map((passage) => {
       const [said, note] = truncate(passage.text, 600).split(' Your note: ');
@@ -204,6 +211,7 @@ const mergeRelatedItemLists = (...lists) => {
       id,
       title,
       snippet: truncate(item?.snippet || ''),
+      ...(item?.held ? { held: item.held } : {}),
       updatedAt: item?.updatedAt || null,
       relationType: toSafeString(item?.relationType)
     });
@@ -368,6 +376,7 @@ const prepareRelatedItemsForReply = (items = [], limit = DEFAULT_LIMIT) => {
       title,
       snippet,
       replySnippet: stripHtml(item?.snippet || ''),
+      ...(item?.held ? { held: item.held } : {}),
       updatedAt: item?.updatedAt || null
     });
   });
@@ -2596,9 +2605,12 @@ const generateCollaborativeReply = async ({
     userId: userObjectId,
     articleFilter: libraryFilter,
     includeNotes: !libraryFilter,
+    // New reading is read against what the reader already holds, even on a
+    // shelf scoped to the Library.
+    includeViews: !libraryFilter || toSafeString(context?.type).toLowerCase() === 'article',
     excludeId: contextItem?.id,
     limit: safeLimit,
-    models: { Article, NotebookEntry, TagMeta },
+    models: { Article, NotebookEntry, TagMeta, WikiPage },
     semanticSearch: isAiEnabled() ? semanticSearch : null
   };
   const searchedItems = shouldSearchWorkspace

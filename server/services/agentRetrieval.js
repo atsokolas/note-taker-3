@@ -36,6 +36,7 @@ saved save library source sources note notes noted article articles piece pieces
 find found show tell anything everything argue argues argument according connect connects connection relate
 relates related relation bear bears bearing author authors essay essays mention mentions summarize summary
 objection objections strongest weakest
+believe believes belief beliefs currently challenge challenges
 `.split(/\s+/).filter(Boolean));
 
 const words = (text = '') => String(text || '')
@@ -107,6 +108,28 @@ const conceptUnits = concept => [{
   key: 'd', text: concept.description || concept.name, type: 'concept', id: String(concept._id), title: concept.name, updatedAt: concept.updatedAt
 }];
 
+// A view the reader holds, with the reasons they gave and what would change
+// their mind. It is searched like any passage so that new reading meets it.
+const VIEW_FIELDS = '_id title updatedAt judgment.currentJudgment judgment.status judgment.why judgment.against judgment.falsifiers';
+const viewUnits = (page) => {
+  const judgment = page.judgment || {};
+  const lines = (label, list = []) => list.map(item => item?.text).filter(Boolean).map(text => `${label}: ${text}`);
+  return [{
+    key: 'v',
+    held: judgment.currentJudgment,
+    text: [
+      `You hold: ${judgment.currentJudgment}`,
+      ...lines('Why', judgment.why),
+      ...lines('Against', judgment.against),
+      ...lines('What would change your mind', (judgment.falsifiers || []).filter(item => item.status !== 'retired'))
+    ].join('\n'),
+    type: 'wiki_page',
+    id: String(page._id),
+    title: page.title,
+    updatedAt: page.updatedAt
+  }];
+};
+
 // Okapi BM25 over the candidate passages. Titles count twice: a passage from
 // a source named for the question is more likely about it.
 const scoreUnits = (units, terms, corpusUnits = units.length) => {
@@ -173,7 +196,8 @@ const retrievePassages = async ({
   limit = 6,
   articleFilter = null,
   includeNotes = true,
-  models: { Article, NotebookEntry, TagMeta },
+  includeViews = includeNotes,
+  models: { Article, NotebookEntry, TagMeta, WikiPage = null },
   semanticSearch = null
 }) => {
   // A question that names nothing ("connect this to anything") is about the
@@ -188,10 +212,15 @@ const retrievePassages = async ({
   const articleScope = { userId, ...(articleFilter || {}) };
   const articleFields = '_id title content highlights updatedAt';
   const noteFields = '_id title content blocks updatedAt';
-  const [articles, notes, concepts, corpusSize] = await Promise.all([
+  const [articles, notes, concepts, views, corpusSize] = await Promise.all([
     findCandidates(Article, { userId, terms, filter: articleFilter || {}, fields: articleFields }),
     includeNotes ? findCandidates(NotebookEntry, { userId, terms, fields: noteFields }) : [],
     includeNotes ? findCandidates(TagMeta, { userId, terms, fields: '_id name description updatedAt' }) : [],
+    // A reader holds dozens of views, not thousands: every one is a candidate.
+    includeViews && WikiPage
+      ? WikiPage.find({ userId, 'judgment.currentJudgment': { $nin: ['', null] }, 'judgment.status': { $nin: ['closed', 'archived'] }, status: { $ne: 'archived' } })
+        .select(VIEW_FIELDS).limit(200).lean()
+      : [],
     Promise.all([
       Article.countDocuments(articleScope),
       includeNotes ? NotebookEntry.countDocuments({ userId }) : 0,
@@ -214,16 +243,17 @@ const retrievePassages = async ({
   ]);
 
   // The source in hand is already in the conversation; retrieval looks past it.
-  const pooled = [...articles, ...semanticArticles, ...notes, ...semanticNotes, ...concepts];
+  const pooled = [...articles, ...semanticArticles, ...notes, ...semanticNotes, ...concepts, ...views];
   const candidates = [
     ...[...articles, ...semanticArticles].flatMap(articleUnits),
     ...[...notes, ...semanticNotes].flatMap(noteUnits),
-    ...concepts.flatMap(conceptUnits)
+    ...concepts.flatMap(conceptUnits),
+    ...views.flatMap(viewUnits)
   ].filter(unit => unit.id !== String(excludeId || ''));
   // Sources outside the pool share no word with the question; they still
   // count toward how rare each word is.
   const unitsPerSource = candidates.length / (pooled.length || 1);
-  const units = scoreUnits(candidates, terms, candidates.length + Math.max(0, corpusSize - pooled.length) * unitsPerSource);
+  const units = scoreUnits(candidates, terms, candidates.length + Math.max(0, corpusSize + views.length - pooled.length) * unitsPerSource);
 
   // Reciprocal rank fusion: a passage ranked well by either signal rises.
   const semanticRank = new Map();
@@ -267,6 +297,7 @@ const retrievePassages = async ({
       title: unit.title,
       snippet: clip(unit.text),
       fullText: unit.text,
+      ...(unit.held ? { held: unit.held } : {}),
       updatedAt: unit.updatedAt,
       score: Number(unit.fused.toFixed(4))
     }));
@@ -311,4 +342,4 @@ const readSource = async ({ userId, id, models: { Article, NotebookEntry } }) =>
   } : null;
 };
 
-module.exports = { retrievePassages, bestPassage, readSource, __testables: { queryTerms, stem, scoreUnits, semanticKey, stripImportChrome, articleUnits, noteUnits, conceptUnits } };
+module.exports = { retrievePassages, bestPassage, readSource, __testables: { queryTerms, stem, scoreUnits, semanticKey, stripImportChrome, articleUnits, noteUnits, conceptUnits, viewUnits } };

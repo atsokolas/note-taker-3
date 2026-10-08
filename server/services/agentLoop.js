@@ -14,7 +14,7 @@ const TOOLS = Object.freeze([
     type: 'function',
     function: {
       name: 'search_library',
-      description: 'Search the reader\'s saved sources, highlights with their margin notes, notebook pages and concepts. Returns the passages that bear on the query, each with the id of its source. Returns nothing when nothing bears on it.',
+      description: 'Search the reader\'s saved sources, highlights with their margin notes, notebook pages, concepts and the views they hold. Returns the passages that bear on the query, each with the id of its source. Returns nothing when nothing bears on it.',
       parameters: {
         type: 'object',
         properties: { query: { type: 'string', description: 'What to look for, in plain words.' } },
@@ -40,6 +40,7 @@ const TOOLS = Object.freeze([
 const SEARCH_RULE = 'You can search the reader\'s library and read a source before answering. Search when the question reaches beyond the passages already in front of you.';
 const LOOP_RULES = [
   'When you rely on a source, quote its exact words in double quotes and name the source. Quote only words that appear in a passage you were shown or read.',
+  'A passage that begins "You hold:" is a view the reader holds, with their reasons and what would change their mind. When what you found supports it or cuts against it, say which, and quote the view.',
   'If nothing in the library bears on the question, say so plainly in one sentence. Do not answer from general knowledge as though the library said it.'
 ];
 

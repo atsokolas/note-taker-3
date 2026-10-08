@@ -7877,6 +7877,8 @@ a.notebook-ref-title:focus-visible {
 
 .agent-thought-partner__message p {
   margin: 0;
+  /* Quoted passages arrive as paragraphs; keep them apart. */
+  white-space: pre-line;
 }
 
 .agent-thought-partner__related-items {

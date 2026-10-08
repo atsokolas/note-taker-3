@@ -1,6 +1,7 @@
-// A small reading life, written for the eval: ten sources, two notebook pages
-// and one concept. Every question in cases.js is answerable from this text
-// alone — or, for the abstention cases, deliberately not.
+// A small reading life, written for the eval: ten sources, two notebook pages,
+// one concept and one view the reader holds. Every question in cases.js is
+// answerable from this text alone — or, for the abstention cases, deliberately
+// not.
 
 const SOURCES = Object.freeze({
   checklists: {
@@ -133,11 +134,21 @@ const CONCEPTS = Object.freeze({
   }
 });
 
+// A view the reader holds, as the Judgment page records it.
+const VIEWS = Object.freeze({
+  forecasts: {
+    title: 'Roadmap forecasts',
+    held: 'Our quarterly roadmap forecasts are accurate enough to promise dates to customers.',
+    why: ['The plan for each of the last two launches held to its forecast date.'],
+    falsifier: 'Most of a quarter\'s plan slips past its forecast date.'
+  }
+});
+
 const sourceText = (source) => source.paragraphs.join('\n\n');
 
 // Seeds the library for one user and returns a key → id map so cases can name
 // sources by key rather than by database id.
-const seedLibrary = async ({ userId, Article, NotebookEntry, TagMeta }) => {
+const seedLibrary = async ({ userId, Article, NotebookEntry, TagMeta, WikiPage }) => {
   const ids = {};
   for (const [key, source] of Object.entries(SOURCES)) {
     const article = await Article.create({
@@ -157,6 +168,20 @@ const seedLibrary = async ({ userId, Article, NotebookEntry, TagMeta }) => {
     const tag = await TagMeta.create({ userId, ...concept });
     ids[key] = String(tag._id);
   }
+  for (const [key, view] of Object.entries(VIEWS)) {
+    const page = await WikiPage.create({
+      userId,
+      title: view.title,
+      slug: key,
+      judgment: {
+        currentJudgment: view.held,
+        status: 'monitoring',
+        why: view.why.map((text, index) => ({ reasonId: `why-${index}`, text })),
+        falsifiers: [{ falsifierId: 'f-0', text: view.falsifier }]
+      }
+    });
+    ids[key] = String(page._id);
+  }
   return ids;
 };
 
@@ -167,7 +192,8 @@ const libraryTexts = () => ({
     [source.title, sourceText(source), ...source.highlights.map(h => h.note)].join('\n')
   ])),
   ...Object.fromEntries(Object.entries(NOTES).map(([key, note]) => [key, `${note.title}\n${note.content}`])),
-  ...Object.fromEntries(Object.entries(CONCEPTS).map(([key, concept]) => [key, `${concept.name}\n${concept.description}`]))
+  ...Object.fromEntries(Object.entries(CONCEPTS).map(([key, concept]) => [key, `${concept.name}\n${concept.description}`])),
+  ...Object.fromEntries(Object.entries(VIEWS).map(([key, view]) => [key, [view.title, view.held, ...view.why, view.falsifier].join('\n')]))
 });
 
-module.exports = { SOURCES, NOTES, CONCEPTS, seedLibrary, libraryTexts };
+module.exports = { SOURCES, NOTES, CONCEPTS, VIEWS, seedLibrary, libraryTexts };
