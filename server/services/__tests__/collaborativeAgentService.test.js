@@ -996,6 +996,27 @@ const run = async () => {
     openHanded.relatedItems.map((item) => item.type),
     ['succession']
   );
+
+  // The agent reads a wiki page's history as dated changes, newest first.
+  const revisionQuery = {
+    sort: () => revisionQuery,
+    limit: () => revisionQuery,
+    select: () => revisionQuery,
+    lean: async () => [{
+      _id: 'r1',
+      pageId: 'p1',
+      createdAt: new Date('2026-09-01'),
+      before: { claims: [{ text: 'Sleep shapes judgment.' }] },
+      after: { claims: [{ text: 'Sleep shapes judgment.' }, { text: 'Naps restore afternoon judgment.' }] }
+    }]
+  };
+  const pageHistory = await __testables.readPageHistory({
+    WikiRevision: { find: (filter) => { assert.deepStrictEqual(filter, { userId: 'u1', pageId: 'p1' }); return revisionQuery; } },
+    userId: 'u1',
+    page: { pageId: 'p1', title: 'Sleep' }
+  });
+  assert.strictEqual(pageHistory.title, 'Sleep history');
+  assert.match(pageHistory.fullText, /^2026-09-01: .*new claim: Naps restore afternoon judgment/);
 };
 
 if (require.main === module) {

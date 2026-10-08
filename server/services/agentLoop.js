@@ -36,6 +36,16 @@ const TOOLS = Object.freeze([
   }
 ]);
 
+// Offered when the open source is a wiki page with a history to read.
+const HISTORY_TOOL = Object.freeze({
+  type: 'function',
+  function: {
+    name: 'read_page_history',
+    description: 'Read the dated history of the open wiki page: what each revision changed, newest first. Use it when the question is about how the page or the reader\'s thinking changed over time.',
+    parameters: { type: 'object', properties: {} }
+  }
+});
+
 // Appended to the partner's system prompt for this loop.
 const SEARCH_RULE = 'You can search the reader\'s library and read a source before answering. Search when the question reaches beyond the passages already in front of you.';
 const LOOP_RULES = [
@@ -58,14 +68,17 @@ const runAgentLoop = async ({
   sources = [],
   search,
   read,
+  history,
   chat,
   route = 'partner_chat',
   signal
 }) => {
   // Without a library to search (a published question answers only from what
   // was published), the turn answers from the passages it was given.
-  const tools = search && read ? TOOLS : null;
-  const rules = [...(tools ? [SEARCH_RULE] : []), ...LOOP_RULES].join('\n');
+  const libraryTools = search && read ? TOOLS : [];
+  const offered = [...libraryTools, ...(history ? [HISTORY_TOOL] : [])];
+  const tools = offered.length ? offered : null;
+  const rules = [...(libraryTools.length ? [SEARCH_RULE] : []), ...LOOP_RULES].join('\n');
   // Everything the model has been shown, by id, so the answer can be checked
   // against exactly that.
   const seen = new Map(sources.filter(source => source?.id).map(source => [String(source.id), source]));
@@ -83,6 +96,12 @@ const runAgentLoop = async ({
       return found.length
         ? found.map(item => ({ id: item.id, title: item.title, passage: item.fullText || item.snippet }))
         : { result: 'Nothing in the library bears on this query.' };
+    }
+    if (name === 'read_page_history' && history) {
+      const record = await history();
+      if (!record?.fullText) return { result: 'This page has no recorded history.' };
+      show([record]);
+      return { history: record.fullText };
     }
     if (name === 'read_source') {
       const source = await read(String(args.id || ''));

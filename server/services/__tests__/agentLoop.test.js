@@ -77,4 +77,16 @@ describe('runAgentLoop', () => {
     expect(chat).toHaveBeenCalledTimes(1);
     expect(result.reply).toMatch(/deep sleep/);
   });
+
+  it('reads the open page\'s history when asked how thinking changed', async () => {
+    const history = jest.fn(async () => ({ id: 'history:p1', title: 'Sleep history', fullText: '2026-09-01: new claim: naps restore afternoon judgment' }));
+    const chat = scripted(
+      { toolCalls: [call('read_page_history', {})] },
+      { text: 'On 1 September you added "naps restore afternoon judgment".' }
+    );
+    const result = await runAgentLoop({ messages, sources: [sleep], history, chat });
+    expect(chat.mock.calls[0][0].tools.map(tool => tool.function.name)).toEqual(['read_page_history']);
+    expect(history).toHaveBeenCalled();
+    expect(result.reply).toMatch(/naps restore/);
+  });
 });

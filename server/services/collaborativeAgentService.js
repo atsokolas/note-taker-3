@@ -21,6 +21,7 @@ const { chatComplete, isTextGenerationConfigured } = require('../ai/hfTextClient
 const { groundedIn } = require('./agentGrounding');
 const { retrievePassages, bestPassage, readSource } = require('./agentRetrieval');
 const { runAgentLoop } = require('./agentLoop');
+const { describeRevisions, MAX_TEMPORAL_REVISIONS } = require('./wikiAskService');
 const { semanticSearch } = require('../ai/semanticSearch');
 const { isAiEnabled } = require('../config/aiClient');
 
@@ -1961,6 +1962,7 @@ const resolveContextItem = async ({
       return {
         type: 'wiki_page',
         id: `wiki:${page.slug || pageTitle}`,
+        pageId: String(page._id),
         title: pageTitle,
         snippet: truncate(bodyText, 420),
         fullText: bodyText,
@@ -2458,6 +2460,19 @@ const buildReply = ({
     : `A few usable threads lit up: ${titleLine}.${leadDetail ? ` ${leadDetail}.` : ''}`;
 };
 
+// The dated history of an open wiki page, as the agent reads it: what each
+// revision changed, newest first.
+const readPageHistory = async ({ WikiRevision, userId, page }) => {
+  const revisionRows = await WikiRevision.find({ userId, pageId: page.pageId })
+    .sort({ createdAt: -1 })
+    .limit(MAX_TEMPORAL_REVISIONS)
+    .select('pageId reason actorType before after summary createdAt updatedAt')
+    .lean();
+  const lines = describeRevisions({ page: { _id: page.pageId, title: page.title }, revisionRows })
+    .map(row => `${String(row.date || '').slice(0, 10) || 'Undated'}: ${row.summary}`);
+  return lines.length ? { type: 'wiki_page', id: `history:${page.pageId}`, title: `${page.title} history`, fullText: lines.join('\n') } : null;
+};
+
 const generateCollaborativeReply = async ({
   userId,
   message = '',
@@ -2494,6 +2509,12 @@ const generateCollaborativeReply = async ({
     WikiPage = mongoose.model('WikiPage');
   } catch (_error) {
     WikiPage = null;
+  }
+  let WikiRevision;
+  try {
+    WikiRevision = mongoose.model('WikiRevision');
+  } catch (_error) {
+    WikiRevision = null;
   }
   try {
     Connection = mongoose.model('Connection');
@@ -2720,6 +2741,9 @@ const generateCollaborativeReply = async ({
           search: query => retrievePassages({ ...retrievalScope, query }),
           read: id => readSource({ userId: userObjectId, id, models: { Article, NotebookEntry, WikiPage } })
         }),
+        ...(WikiRevision && contextItem?.pageId ? {
+          history: () => readPageHistory({ WikiRevision, userId: userObjectId, page: contextItem })
+        } : {}),
         chat: chatComplete,
         signal
       });
@@ -2817,6 +2841,7 @@ const generateCollaborativeReply = async ({
 module.exports = {
   generateCollaborativeReply,
   __testables: {
+    readPageHistory,
     libraryRetrievalFilter,
     tokenize,
     buildReply,
