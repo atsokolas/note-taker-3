@@ -77,9 +77,11 @@ const stripImportChrome = (content = '') => {
   return text;
 };
 
-// Every source becomes the passages a reader could quote from it.
+// Every source becomes the passages a reader could quote from it, to the end
+// of a long source (about 180,000 characters), not only its opening.
+const MAX_PASSAGES = 200;
 const passagesOf = (title, content) => {
-  const chunks = buildArticlePassages({ title, content }, { maxPassages: 24 }).map(passage => passage.excerpt);
+  const chunks = buildArticlePassages({ title, content }, { maxPassages: MAX_PASSAGES }).map(passage => passage.excerpt);
   const body = clip(content, Infinity);
   return chunks.length ? chunks : (body ? [body] : []);
 };
