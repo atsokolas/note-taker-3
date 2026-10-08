@@ -286,7 +286,28 @@ const run = async () => {
       }
     );
 
-    // 10. A valid buffered stream is released exactly once after validation.
+    // 10. A tool call and its result reach the upstream as a pair. The
+    //     assistant turn that called the tool has no text of its own.
+    await withStubbedFetch(
+      () => jsonResponse(200, completion('answered')),
+      async (calls) => {
+        const toolCall = { id: 'call-1', type: 'function', function: { name: 'search_library', arguments: '{"query":"sleep"}' } };
+        await chatComplete({
+          route: 'partner_chat',
+          messages: [
+            { role: 'user', content: 'Why do I decide badly at night?' },
+            { role: 'assistant', content: '', tool_calls: [toolCall] },
+            { role: 'tool', tool_call_id: 'call-1', content: '[{"id":"sleep"}]' }
+          ]
+        });
+        assert.deepEqual(calls[0].messages.slice(1), [
+          { role: 'assistant', content: '', tool_calls: [toolCall] },
+          { role: 'tool', tool_call_id: 'call-1', content: '[{"id":"sleep"}]' }
+        ]);
+      }
+    );
+
+    // 11. A valid buffered stream is released exactly once after validation.
     await withStubbedFetch(
       () => streamingResponse('A grounded answer.'),
       async () => {

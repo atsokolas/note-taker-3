@@ -78,9 +78,11 @@ const stripImportChrome = (content = '') => {
   return text;
 };
 
-// Every source becomes the passages a reader could quote from it.
+// Every source becomes the passages a reader could quote from it, to the end
+// of a long source (about 180,000 characters), not only its opening.
+const MAX_PASSAGES = 200;
 const passagesOf = (title, content) => {
-  const chunks = buildArticlePassages({ title, content }, { maxPassages: 24 }).map(passage => passage.excerpt);
+  const chunks = buildArticlePassages({ title, content }, { maxPassages: MAX_PASSAGES }).map(passage => passage.excerpt);
   const body = clip(content, Infinity);
   return chunks.length ? chunks : (body ? [body] : []);
 };
@@ -216,7 +218,7 @@ const retrievePassages = async ({
     includeNotes ? findCandidates(TagMeta, { userId, terms, fields: '_id name description updatedAt' }) : [],
     // A reader holds dozens of views, not thousands: every one is a candidate.
     includeViews && WikiPage
-      ? WikiPage.find({ userId, 'judgment.currentJudgment': { $nin: ['', null] }, 'judgment.status': { $nin: ['closed', 'archived'] } })
+      ? WikiPage.find({ userId, 'judgment.currentJudgment': { $nin: ['', null] }, 'judgment.status': { $nin: ['closed', 'archived'] }, status: { $ne: 'archived' } })
         .select(VIEW_FIELDS).limit(200).lean()
       : [],
     Promise.all([
@@ -342,7 +344,7 @@ const readSource = async ({ userId, id, models: { Article, NotebookEntry, WikiPa
   }
   // A view the reader holds is found by search; reading it opens the page it
   // lives on.
-  const page = WikiPage && await WikiPage.findOne({ _id: id, userId }).select(`${VIEW_FIELDS} plainText`).lean();
+  const page = WikiPage && await WikiPage.findOne({ _id: id, userId, status: { $ne: 'archived' } }).select(`${VIEW_FIELDS} plainText`).lean();
   return page ? {
     type: 'wiki_page',
     id: String(page._id),
