@@ -2704,8 +2704,10 @@ const generateCollaborativeReply = async ({
           intentDecision
         }),
         sources: [contextItem, ...relatedItems].filter(Boolean),
-        search: query => retrievePassages({ ...retrievalScope, query }),
-        read: id => readSource({ userId: userObjectId, id, models: { Article, NotebookEntry } }),
+        ...(sharedQuestionScoped ? {} : {
+          search: query => retrievePassages({ ...retrievalScope, query }),
+          read: id => readSource({ userId: userObjectId, id, models: { Article, NotebookEntry } })
+        }),
         chat: chatComplete,
         signal
       });

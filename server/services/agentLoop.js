@@ -37,11 +37,11 @@ const TOOLS = Object.freeze([
 ]);
 
 // Appended to the partner's system prompt for this loop.
+const SEARCH_RULE = 'You can search the reader\'s library and read a source before answering. Search when the question reaches beyond the passages already in front of you.';
 const LOOP_RULES = [
-  'You can search the reader\'s library and read a source before answering. Search when the question reaches beyond the passages already in front of you.',
   'When you rely on a source, quote its exact words in double quotes and name the source. Quote only words that appear in a passage you were shown or read.',
   'If nothing in the library bears on the question, say so plainly in one sentence. Do not answer from general knowledge as though the library said it.'
-].join('\n');
+];
 
 const parseArguments = (raw) => {
   if (raw && typeof raw === 'object') return raw;
@@ -61,12 +61,16 @@ const runAgentLoop = async ({
   route = 'partner_chat',
   signal
 }) => {
+  // Without a library to search (a published question answers only from what
+  // was published), the turn answers from the passages it was given.
+  const tools = search && read ? TOOLS : null;
+  const rules = [...(tools ? [SEARCH_RULE] : []), ...LOOP_RULES].join('\n');
   // Everything the model has been shown, by id, so the answer can be checked
   // against exactly that.
   const seen = new Map(sources.filter(source => source?.id).map(source => [String(source.id), source]));
   const show = (items = []) => items.forEach((item) => { if (item?.id) seen.set(String(item.id), item); });
   const conversation = messages.map((message, index) => (
-    index === 0 && message.role === 'system' ? { ...message, content: `${message.content}\n\n${LOOP_RULES}` } : message
+    index === 0 && message.role === 'system' ? { ...message, content: `${message.content}\n\n${rules}` } : message
   ));
 
   const runTool = async (call) => {
@@ -95,7 +99,7 @@ const runAgentLoop = async ({
     completion = await chat({
       route,
       messages: conversation,
-      ...(lastRound ? {} : { tools: TOOLS, toolChoice: 'auto' }),
+      ...(lastRound || !tools ? {} : { tools, toolChoice: 'auto' }),
       signal
     });
     const calls = Array.isArray(completion?.toolCalls) ? completion.toolCalls : [];
@@ -107,7 +111,9 @@ const runAgentLoop = async ({
     }
   }
 
-  const texts = () => [...seen.values()].map(item => item.fullText || item.replySnippet || item.snippet || '');
+  // Everything of a source the model was shown: its text, and for a wiki page
+  // the attached sources and claims printed beside it.
+  const texts = () => [...seen.values()].map(item => [item.fullText || item.replySnippet || item.snippet, item.sourceText, item.claimText].filter(Boolean).join('\n'));
   let reply = String(completion?.text || '').trim();
   let invented = inventedQuotes(reply, texts());
   if (reply && invented.length) {
