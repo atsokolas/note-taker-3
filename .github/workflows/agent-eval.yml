@@ -81,10 +81,14 @@ jobs:
     env:
       HF_TOKEN: ${{ secrets.HF_TOKEN }}
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-      OPENROUTER_TEXT_MODEL: ${{ vars.OPENROUTER_TEXT_MODEL }}
       HF_PROVIDER: ${{ vars.HF_PROVIDER || 'groq' }}
       HF_TEXT_MODEL: ${{ vars.HF_TEXT_MODEL || 'openai/gpt-oss-120b' }}
+      HF_TEXT_MODEL_FALLBACKS: ${{ vars.HF_TEXT_MODEL_FALLBACKS }}
       HF_AGENT_MODEL_ROUTES_JSON: ${{ vars.HF_AGENT_MODEL_ROUTES_JSON }}
+      # The production model and routes, so the run measures what readers get.
+      OPENROUTER_TEXT_MODEL: ${{ vars.OPENROUTER_TEXT_MODEL }}
+      OPENROUTER_TEXT_MODEL_FALLBACKS: ${{ vars.OPENROUTER_TEXT_MODEL_FALLBACKS }}
+      OPENROUTER_AGENT_MODEL_ROUTES_JSON: ${{ vars.OPENROUTER_AGENT_MODEL_ROUTES_JSON }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

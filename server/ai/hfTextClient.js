@@ -128,6 +128,20 @@ const getRouteContract = (route = '') => ({
   ...(DEFAULT_ROUTE_CONTRACTS[String(route || '').trim()] || {})
 });
 
+// Messages as the chat API takes them. A tool call and its result travel as a
+// pair: the assistant turn that made the call (often with no text) and the
+// tool turn that answers it by id. Dropping either orphans the other and the
+// upstream rejects the request.
+const toWireMessages = (messages = []) => (Array.isArray(messages) ? messages : [])
+  .map((entry) => {
+    const role = String(entry?.role || '').trim();
+    const content = String(entry?.content || '').trim();
+    const toolCalls = Array.isArray(entry?.tool_calls) && entry.tool_calls.length ? entry.tool_calls : null;
+    if (role === 'tool') return { role, tool_call_id: String(entry?.tool_call_id || ''), content };
+    return toolCalls ? { role, content, tool_calls: toolCalls } : { role, content };
+  })
+  .filter(entry => entry.role && (entry.content || entry.tool_calls));
+
 const resolveParserStrategy = ({ profile = {}, responseFormat, hasExplicitResponseFormat = false, tools = [] } = {}) => {
   if (responseFormat?.type && /json/i.test(responseFormat.type)) return 'json';
   if (Array.isArray(tools) && tools.length > 0 && profile.parserStrategy === 'tool_call') return 'tool_call';
@@ -883,14 +897,7 @@ const chatCompleteWithConfig = async ({
     });
   }
 
-  const safeMessages = Array.isArray(messages)
-    ? messages
-        .map((entry) => ({
-          role: String(entry?.role || '').trim(),
-          content: String(entry?.content || '').trim()
-        }))
-        .filter((entry) => entry.role && entry.content)
-    : [];
+  const safeMessages = toWireMessages(messages);
   if (safeMessages.length === 0) {
     throw buildError({
       status: 400,
@@ -1166,14 +1173,7 @@ const chatCompleteStream = async ({
     });
   }
 
-  const safeMessages = Array.isArray(messages)
-    ? messages
-        .map((entry) => ({
-          role: String(entry?.role || '').trim(),
-          content: String(entry?.content || '').trim()
-        }))
-        .filter((entry) => entry.role && entry.content)
-    : [];
+  const safeMessages = toWireMessages(messages);
   if (safeMessages.length === 0) {
     throw buildError({
       status: 400,

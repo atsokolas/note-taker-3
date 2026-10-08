@@ -175,7 +175,7 @@ const AgentRail = () => {
   // conversation keeps its order. Proposals that are not a reply (a retrieved
   // passage) wait below it.
   const proposalFor = message => (message.role === 'assistant'
-    ? proposals.find(proposal => proposal.sentence === message.text)
+    ? proposals.find(proposal => proposal.messageId === message.id)
     : null);
   const inlineProposalIds = new Set(visibleMessages.map(proposalFor).filter(Boolean).map(proposal => proposal.id));
   const trailingProposals = proposals.filter(proposal => !inlineProposalIds.has(proposal.id));
