@@ -64,8 +64,6 @@ const run = async () => {
     NotebookFolder: {},
     TagMeta: {},
     NotebookEntry: {},
-    WikiPage: {},
-    WikiRevision: {},
     AgentArtifactDraft: {},
     normalizeThreadScope: (scope) => scope || {},
     appendThreadMessage: (thread, message) => thread.messages.push(message),

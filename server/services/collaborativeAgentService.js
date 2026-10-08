@@ -2717,7 +2717,7 @@ const generateCollaborativeReply = async ({
         }),
         sources: [contextItem, ...relatedItems].filter(Boolean),
         search: query => retrievePassages({ ...retrievalScope, query }),
-        read: id => readSource({ userId: userObjectId, id, models: { Article, NotebookEntry } }),
+        read: id => readSource({ userId: userObjectId, id, models: { Article, NotebookEntry, WikiPage } }),
         chat: chatComplete,
         signal
       });

@@ -318,7 +318,7 @@ const bestPassage = ({ title = '', text = '', query = '' } = {}) => {
 
 // One source in full, as the reader saved it: an article with its highlights
 // and margin notes, or a notebook page. Only the reader's own.
-const readSource = async ({ userId, id, models: { Article, NotebookEntry } }) => {
+const readSource = async ({ userId, id, models: { Article, NotebookEntry, WikiPage = null } }) => {
   if (!/^[a-f0-9]{24}$/i.test(String(id || ''))) return null;
   const article = await Article.findOne({ _id: id, userId }).select('_id title content highlights updatedAt').lean();
   if (article) {
@@ -331,12 +331,24 @@ const readSource = async ({ userId, id, models: { Article, NotebookEntry } }) =>
     };
   }
   const note = await NotebookEntry.findOne({ _id: id, userId }).select('_id title content blocks updatedAt').lean();
-  return note ? {
-    type: 'notebook',
-    id: String(note._id),
-    title: note.title || 'Note',
-    fullText: noteUnits(note).map(unit => unit.text).join('\n\n'),
-    updatedAt: note.updatedAt
+  if (note) {
+    return {
+      type: 'notebook',
+      id: String(note._id),
+      title: note.title || 'Note',
+      fullText: noteUnits(note).map(unit => unit.text).join('\n\n'),
+      updatedAt: note.updatedAt
+    };
+  }
+  // A view the reader holds is found by search; reading it opens the page it
+  // lives on.
+  const page = WikiPage && await WikiPage.findOne({ _id: id, userId }).select(`${VIEW_FIELDS} plainText`).lean();
+  return page ? {
+    type: 'wiki_page',
+    id: String(page._id),
+    title: page.title || 'Wiki page',
+    fullText: [page.judgment?.currentJudgment && viewUnits(page)[0].text, page.plainText].filter(Boolean).join('\n\n'),
+    updatedAt: page.updatedAt
   } : null;
 };
 
