@@ -1,0 +1,130 @@
+// Scores one agent turn against what a good reader's assistant would do:
+// find the right sources, bring their actual words into the answer, cite only
+// what it used, never invent a quotation, and say so when the library is silent.
+// Every check is deterministic so the eval can run, and fail, without a model.
+
+const PASSAGE_WORDS = 6;
+const QUOTE_MIN_WORDS = 5;
+
+// Replies the agent produces without reading anything. A real answer never
+// needs these phrasings.
+const TEMPLATE_PATTERNS = [
+  /I can see the frame around/i,
+  /not enough attached material is indexed/i,
+  /\bCore claim:/,
+  /\bBest support in view:/,
+  /\bPressure to keep in view:/,
+  /I sorted the best leads/i,
+  /has not been named yet/i
+];
+
+const DECLINE_PATTERN = /\b(nothing|no (?:source|passage|note|highlight|mention)s?|(?:could ?n[o']t|can ?not|did ?n[o']t|do ?n[o']t) (?:find|see)|not (?:in|anywhere in) your|does ?n[o']t (?:say|mention|cover|discuss)|is ?n[o']t (?:in|covered))/i;
+
+const words = (text = '') => String(text || '')
+  .toLowerCase()
+  .replace(/[‘’]/g, "'")
+  .replace(/[^a-z0-9' ]+/g, ' ')
+  .split(/\s+/)
+  .filter(Boolean);
+
+const ngrams = (list, n) => {
+  const grams = new Set();
+  for (let i = 0; i + n <= list.length; i += 1) grams.add(list.slice(i, i + n).join(' '));
+  return grams;
+};
+
+// True when the reply carries a run of the source's own words, quoted or not.
+const drawsOn = (reply, sourceText, n = PASSAGE_WORDS) => {
+  const sourceGrams = ngrams(words(sourceText), n);
+  for (const gram of ngrams(words(reply), n)) if (sourceGrams.has(gram)) return true;
+  return false;
+};
+
+const quotations = (reply = '') => [...String(reply).matchAll(/[“"]([^”"]+)[”"]/g)]
+  .map(match => match[1])
+  .filter(span => words(span).length >= QUOTE_MIN_WORDS);
+
+const inventedQuotes = (reply, texts) => {
+  const library = Object.values(texts).map(text => words(text).join(' '));
+  return quotations(reply).filter(span => {
+    const needle = words(span).join(' ');
+    return !library.some(text => text.includes(needle));
+  });
+};
+
+const keysFor = (items = [], keyById) => new Set(
+  items.map(item => keyById.get(String(item?.id || ''))).filter(Boolean)
+);
+
+const scoreCase = ({ evalCase, result = {}, ids, texts }) => {
+  const keyById = new Map(Object.entries(ids).map(([key, id]) => [id, key]));
+  const reply = String(result.reply || '');
+  const found = keysFor([result.context, ...(result.relatedItems || []), ...(result.citations || [])], keyById);
+  const cited = keysFor(result.citations || [], keyById);
+  const bound = evalCase.surface.startsWith('article:') ? evalCase.surface.slice('article:'.length) : '';
+  const invented = inventedQuotes(reply, texts);
+  const templated = TEMPLATE_PATTERNS.some(pattern => pattern.test(reply));
+
+  let checks;
+  if (evalCase.abstain) {
+    checks = {
+      declines: DECLINE_PATTERN.test(reply),
+      citesNothing: cited.size === 0,
+      noInventedQuotes: invented.length === 0,
+      notTemplate: !templated
+    };
+  } else {
+    const required = evalCase.sources || [];
+    const oneOf = evalCase.oneOf || [];
+    const relevant = new Set([...required, ...oneOf, bound].filter(Boolean));
+    const drawnOn = key => drawsOn(reply, texts[key]);
+    checks = {
+      found: required.every(key => found.has(key)) && (!oneOf.length || oneOf.some(key => found.has(key))),
+      drawsOnPassages: required.every(drawnOn) && (!oneOf.length || oneOf.some(drawnOn)),
+      citesOnlyRelevant: cited.size > 0 && [...cited].every(key => relevant.has(key)),
+      noInventedQuotes: invented.length === 0,
+      notTemplate: !templated
+    };
+  }
+
+  return {
+    id: evalCase.id,
+    surface: evalCase.surface,
+    ask: evalCase.ask,
+    pass: Object.values(checks).every(Boolean),
+    checks,
+    found: [...found],
+    cited: [...cited],
+    invented,
+    mode: String(result.mode || ''),
+    model: String(result.model || ''),
+    reply
+  };
+};
+
+const summarize = (scored = []) => {
+  const rate = (list) => (list.length ? Number((list.filter(Boolean).length / list.length).toFixed(3)) : null);
+  const checkNames = [...new Set(scored.flatMap(item => Object.keys(item.checks)))];
+  return {
+    total: scored.length,
+    passed: scored.filter(item => item.pass).length,
+    passRate: rate(scored.map(item => item.pass)),
+    checks: Object.fromEntries(checkNames.map(name => [
+      name,
+      rate(scored.filter(item => name in item.checks).map(item => item.checks[name]))
+    ])),
+    modelAnswered: rate(scored.map(item => item.mode !== '' && item.mode !== 'internal_only'))
+  };
+};
+
+// A run regresses when any rate it shares with the baseline falls.
+const regressions = (summary, baseline) => {
+  if (!baseline) return [];
+  const pairs = [['passRate', summary.passRate, baseline.passRate],
+    ...Object.entries(baseline.checks || {}).map(([name, value]) => [name, summary.checks[name], value])];
+  return pairs
+    .filter(([, now, before]) => typeof before === 'number' && typeof now === 'number' && now < before)
+    .map(([name, now, before]) => ({ name, now, before }));
+};
+
+module.exports = { scoreCase, summarize, regressions, __testables: { drawsOn, inventedQuotes, words, TEMPLATE_PATTERNS, DECLINE_PATTERN } };

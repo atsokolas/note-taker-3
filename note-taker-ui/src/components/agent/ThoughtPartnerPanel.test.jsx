@@ -917,68 +917,6 @@ describe('ThoughtPartnerPanel', () => {
     ));
   });
 
-  it('renders harness model route comparison rows', async () => {
-    getAgentHarnessMetrics.mockResolvedValue({
-      metrics: {
-        proposedChangeStatuses: { pending: 0 },
-        structureProposalStatuses: { pending: 0 },
-        funnel: { draftFallbacks: 0, executionIntentMatched: 0 },
-        runStatuses: { completed: 1 },
-        rates: { bundleResolutionSuccessRate: 1, runCompletionRate: 1 },
-        runHistory: {
-          latestRun: {
-            mode: 'live',
-            fixtureSet: 'realistic',
-            passed: 10,
-            total: 10,
-            passRate: 1
-          },
-          aggregates: {
-            comparisons: {
-              byLiveRouteModelProvider: [
-                {
-                  key: 'critique | moonshotai/Kimi-K2 | together',
-                  total: 2,
-                  passed: 2,
-                  failed: 0,
-                  passRate: 1,
-                  avgLatencyMs: 610
-                }
-              ],
-              byRouteModelProvider: [
-                {
-                  key: 'structure_planner | openai/gpt-oss-120b | groq',
-                  total: 3,
-                  passed: 3,
-                  failed: 0,
-                  passRate: 1,
-                  avgLatencyMs: 420
-                }
-              ]
-            }
-          }
-        }
-      }
-    });
-
-    render(
-      <ThoughtPartnerPanel
-        contextType="library"
-        contextId="library-root"
-        contextTitle="Library"
-        thread={{
-          threadId: 'thread-1',
-          messages: []
-        }}
-      />
-    );
-
-    await screen.findByLabelText('Model route comparison');
-    expect(screen.getByText('critique · moonshotai/Kimi-K2:together')).toBeInTheDocument();
-    expect(screen.getByText('2/2 · 610ms avg')).toBeInTheDocument();
-    expect(screen.queryByText('structure_planner · openai/gpt-oss-120b:groq')).not.toBeInTheDocument();
-  });
-
   it('renders the write boundary between memory commits and structure review', async () => {
     getAgentWriteBoundary.mockResolvedValue({
       summary: {
@@ -1004,43 +942,6 @@ describe('ThoughtPartnerPanel', () => {
     expect(screen.getByText('3 approved working-memory writes')).toBeInTheDocument();
     expect(screen.getByText('Structure review')).toBeInTheDocument();
     expect(screen.getByText('2 pending · 1 applied')).toBeInTheDocument();
-  });
-
-  it('renders outcome telemetry comparing real outcomes to harness expectations', async () => {
-    getAgentHarnessMetrics.mockResolvedValue({
-      metrics: {
-        proposedChangeStatuses: { pending: 0 },
-        structureProposalStatuses: { pending: 0 },
-        funnel: { draftFallbacks: 0, executionIntentMatched: 0 },
-        runStatuses: { completed: 1 },
-        rates: { bundleResolutionSuccessRate: 1, runCompletionRate: 1 },
-        outcomeTelemetry: {
-          buckets: [
-            {
-              id: 'content_edits',
-              label: 'Content edits',
-              observed: { acceptanceRate: 0.25, resolved: 4 },
-              harness: { passRate: 1, source: 'live:realistic' },
-              status: 'real_world_underperforming'
-            }
-          ]
-        }
-      }
-    });
-
-    render(
-      <ThoughtPartnerPanel
-        contextType="workspace"
-        contextId="workspace-1"
-        contextTitle="Workspace"
-        thread={{ threadId: 'thread-1', messages: [] }}
-      />
-    );
-
-    await screen.findByLabelText('Agent outcome telemetry');
-    expect(screen.getByText('Content edits')).toBeInTheDocument();
-    expect(screen.getByText('Underperforming')).toBeInTheDocument();
-    expect(screen.getByText('real 4 resolved · harness 100%')).toBeInTheDocument();
   });
 
   it('prioritizes stream review state and submits continue prompts through the composer', async () => {

@@ -35,23 +35,6 @@ const isAbortError = error => error?.name === 'AbortError' || error?.code === 'E
 const friendlyContextLabel = (type = '') => clean(type).replace(/_/g, ' ') || 'current thought';
 const truncate = (value, limit = 320) => wordBoundaryTrim(value, { maxLength: limit });
 
-const formatComparisonKey = (key = '') => {
-  const parts = clean(key).split('|').map(clean).filter(Boolean);
-  if (parts.length >= 3) {
-    return `${parts[0]} · ${parts[1]}:${parts[2]}`;
-  }
-  if (parts.length === 2) return `${parts[0]} · ${parts[1]}`;
-  return clean(key) || 'unknown';
-};
-
-const formatTelemetryStatus = (status = '') => {
-  const safe = clean(status);
-  if (safe === 'real_world_underperforming') return 'Underperforming';
-  if (safe === 'real_world_outperforming') return 'Outperforming';
-  if (safe === 'insufficient_data') return 'Needs data';
-  return 'Aligned';
-};
-
 const normalizePostureOptions = (options = []) => (
   Array.isArray(options)
     ? options
@@ -916,31 +899,7 @@ const ThoughtPartnerPanel = ({
         detail: 'Replies that still staged drafts'
       }
     ];
-    const latestHarnessRun = harnessMetrics?.runHistory?.latestRun;
-    if (latestHarnessRun && typeof latestHarnessRun === 'object') {
-      const fixtureLabel = latestHarnessRun.fixtureSet ? ` ${latestHarnessRun.fixtureSet}` : '';
-      stats.push({
-        label: 'Harness live',
-        value: formatPercent(latestHarnessRun.passRate),
-        detail: `${Number(latestHarnessRun.passed || 0)}/${Number(latestHarnessRun.total || 0)} latest ${latestHarnessRun.mode || 'run'}${fixtureLabel}`
-      });
-    }
     return stats;
-  }, [harnessMetrics]);
-  const harnessModelComparisons = useMemo(() => {
-    const comparisons = harnessMetrics?.runHistory?.aggregates?.comparisons || {};
-    const liveRows = Array.isArray(comparisons.byLiveRouteModelProvider) ? comparisons.byLiveRouteModelProvider : [];
-    const rows = liveRows.length > 0 ? liveRows : comparisons.byRouteModelProvider;
-    if (!Array.isArray(rows)) return [];
-    return rows
-      .filter((row) => Number(row.total || 0) > 0)
-      .slice(0, 3)
-      .map((row) => ({
-        key: row.key,
-        label: formatComparisonKey(row.key),
-        passRate: formatPercent(row.passRate),
-        detail: `${Number(row.passed || 0)}/${Number(row.total || 0)} · ${Number(row.avgLatencyMs || 0)}ms avg`
-      }));
   }, [harnessMetrics]);
   const writeBoundaryCards = useMemo(() => {
     if (!writeBoundarySummary || typeof writeBoundarySummary !== 'object') return [];
@@ -967,28 +926,6 @@ const ThoughtPartnerPanel = ({
       }
     ];
   }, [memoryApprovalModel.protocolApprovals, writeBoundarySummary]);
-  const outcomeTelemetryRows = useMemo(() => {
-    const buckets = harnessMetrics?.outcomeTelemetry?.buckets;
-    if (!Array.isArray(buckets)) return [];
-    return [...buckets]
-      .sort((left, right) => {
-        const priority = {
-          real_world_underperforming: 0,
-          insufficient_data: 1,
-          aligned: 2,
-          real_world_outperforming: 3
-        };
-        return Number(priority[clean(left.status)] ?? 4) - Number(priority[clean(right.status)] ?? 4);
-      })
-      .slice(0, 2)
-      .map((bucket) => ({
-        id: bucket.id,
-        label: bucket.label || bucket.id,
-        status: formatTelemetryStatus(bucket.status),
-        value: formatPercent(bucket.observed?.acceptanceRate),
-        detail: `real ${Number(bucket.observed?.resolved || 0)} resolved · harness ${formatPercent(bucket.harness?.passRate)}`
-      }));
-  }, [harnessMetrics]);
   const partnerSubtitle = subtitle || (contextTitle ? `Context: ${contextTitle}` : 'Ask about your notes, concepts, and articles.');
   const tickerLines = useMemo(() => {
     const lines = [];
@@ -1200,19 +1137,6 @@ const ThoughtPartnerPanel = ({
     </div>
   ) : null;
 
-  const modelComparisonSection = !isThreadStreamVariant && harnessModelComparisons.length > 0 ? (
-    <div className="agent-thought-partner__scorecard agent-thought-partner__scorecard--models" aria-label="Model route comparison">
-      {harnessModelComparisons.map((row) => (
-        <article key={row.key} className="agent-thought-partner__scorecard-item">
-          <span className="agent-thought-partner__scorecard-label">Model route</span>
-          <strong>{row.passRate}</strong>
-          <p>{row.label}</p>
-          <p>{row.detail}</p>
-        </article>
-      ))}
-    </div>
-  ) : null;
-
   const writeBoundarySection = !isThreadStreamVariant && writeBoundaryCards.length > 0 ? (
     <section className="agent-thought-partner__write-boundary" aria-label="Agent write boundary">
       <div className="agent-thought-partner__drafts-head">
@@ -1225,25 +1149,6 @@ const ThoughtPartnerPanel = ({
             <span className="agent-thought-partner__scorecard-label">{card.label}</span>
             <strong>{card.value}</strong>
             <p>{card.detail}</p>
-          </article>
-        ))}
-      </div>
-    </section>
-  ) : null;
-
-  const outcomeTelemetrySection = !isThreadStreamVariant && outcomeTelemetryRows.length > 0 ? (
-    <section className="agent-thought-partner__write-boundary" aria-label="Agent outcome telemetry">
-      <div className="agent-thought-partner__drafts-head">
-        <h4>Outcome telemetry</h4>
-        <p>Real accept/reject behavior compared with the harness expectation.</p>
-      </div>
-      <div className="agent-thought-partner__scorecard">
-        {outcomeTelemetryRows.map((row) => (
-          <article key={row.id} className="agent-thought-partner__scorecard-item">
-            <span className="agent-thought-partner__scorecard-label">{row.label}</span>
-            <strong>{row.value}</strong>
-            <p>{row.status}</p>
-            <p>{row.detail}</p>
           </article>
         ))}
       </div>
@@ -1756,9 +1661,7 @@ const ThoughtPartnerPanel = ({
       {showQuickPrompts && !isThreadStreamVariant && !isPassiveNotebookPosture && quickPromptsSection}
       {plannerStripSection}
       {scorecardSection}
-      {modelComparisonSection}
       {writeBoundarySection}
-      {outcomeTelemetrySection}
       {streamPlanPreviewSection}
 
       <form className={`agent-thought-partner__composer ${isStreamVariant ? 'agent-thought-partner__composer--stream' : ''}`.trim()} onSubmit={handleComposerSubmit}>

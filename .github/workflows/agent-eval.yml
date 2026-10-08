@@ -1,36 +1,33 @@
-name: Agent Harness Regression
+name: Agent Eval
 
 on:
   pull_request:
     paths:
-      - 'server/agentHarness/**'
+      - 'server/agentEval/**'
       - 'server/ai/**'
-      - 'server/services/agentHarness**'
-      - 'server/routes/agentHarness**'
-      - 'scripts/run_agent_harness*.js'
-      - 'scripts/run_agent_model_bakeoff*.js'
+      - 'server/services/collaborativeAgent**'
+      - 'server/services/agent**'
+      - 'scripts/run_agent_eval.js'
       - 'scripts/run_agent_memory_approval_smoke*.js'
       - 'package*.json'
-      - '.github/workflows/agent-harness-regression.yml'
+      - '.github/workflows/agent-eval.yml'
   push:
     branches:
       - main
     paths:
-      - 'server/agentHarness/**'
+      - 'server/agentEval/**'
       - 'server/ai/**'
-      - 'server/services/agentHarness**'
-      - 'server/routes/agentHarness**'
-      - 'scripts/run_agent_harness*.js'
-      - 'scripts/run_agent_model_bakeoff*.js'
-      - 'scripts/run_agent_memory_approval_smoke*.js'
+      - 'server/services/collaborativeAgent**'
+      - 'server/services/agent**'
+      - 'scripts/run_agent_eval.js'
       - 'package*.json'
-      - '.github/workflows/agent-harness-regression.yml'
+      - '.github/workflows/agent-eval.yml'
   schedule:
     - cron: '0 11 * * *'
   workflow_dispatch:
     inputs:
       include_live:
-        description: 'Run live Hugging Face model regression suite'
+        description: 'Also score the configured model path'
         required: false
         default: 'false'
         type: choice
@@ -56,8 +53,8 @@ on:
           - 'approve'
 
 jobs:
-  deterministic:
-    name: Deterministic Harness Gate
+  eval:
+    name: Agent eval (no model)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -66,43 +63,30 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci
-      - run: npm run agent:harness:ci
+      - run: node --test server/agentEval/*.test.js
+      - run: npm run agent:eval:check
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: agent-harness-regression
-          path: |
-            tmp/agent-harness-runs/**
-            tmp/agent-harness-regression-runs/**
+          name: agent-eval
+          path: tmp/agent-eval/**
           if-no-files-found: ignore
 
   live:
-    name: Live Model Harness Gate
+    name: Agent eval (model path)
     runs-on: ubuntu-latest
     if: ${{ github.event_name == 'schedule' || inputs.include_live == 'true' }}
     env:
       HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
       HF_PROVIDER: ${{ vars.HF_PROVIDER || 'groq' }}
       HF_TEXT_MODEL: ${{ vars.HF_TEXT_MODEL || 'openai/gpt-oss-120b' }}
-      HF_AGENT_CHAT_ROUTES: ${{ vars.HF_AGENT_CHAT_ROUTES }}
-      HF_AGENT_TOOL_ROUTES: ${{ vars.HF_AGENT_TOOL_ROUTES }}
-      HF_AGENT_STRUCTURE_ROUTES: ${{ vars.HF_AGENT_STRUCTURE_ROUTES }}
-      HF_AGENT_ARTIFACT_ROUTES: ${{ vars.HF_AGENT_ARTIFACT_ROUTES }}
-      HF_AGENT_CRITIQUE_ROUTES: ${{ vars.HF_AGENT_CRITIQUE_ROUTES }}
-      HF_AGENT_HYGIENE_ROUTES: ${{ vars.HF_AGENT_HYGIENE_ROUTES }}
-      HF_AGENT_DEEP_AUDIT_ROUTES: ${{ vars.HF_AGENT_DEEP_AUDIT_ROUTES }}
+      HF_TEXT_MODEL_FALLBACKS: ${{ vars.HF_TEXT_MODEL_FALLBACKS }}
       HF_AGENT_MODEL_ROUTES_JSON: ${{ vars.HF_AGENT_MODEL_ROUTES_JSON }}
-      AGENT_BAKEOFF_FIXTURE_SET: ${{ vars.AGENT_BAKEOFF_FIXTURE_SET || 'realistic' }}
-      AGENT_BAKEOFF_WORKFLOWS: ${{ vars.AGENT_BAKEOFF_WORKFLOWS }}
-      AGENT_BAKEOFF_ROUTES: ${{ vars.AGENT_BAKEOFF_ROUTES }}
-      AGENT_BAKEOFF_CANDIDATES: ${{ vars.AGENT_BAKEOFF_CANDIDATES }}
-      AGENT_BAKEOFF_OUTCOME_TELEMETRY_URL: ${{ vars.AGENT_BAKEOFF_OUTCOME_TELEMETRY_URL }}
-      AGENT_BAKEOFF_OUTCOME_TELEMETRY_TOKEN: ${{ secrets.AGENT_BAKEOFF_OUTCOME_TELEMETRY_TOKEN }}
-      AGENT_BAKEOFF_PROMOTION_MIN_PASS_RATE: ${{ vars.AGENT_BAKEOFF_PROMOTION_MIN_PASS_RATE || '1' }}
-      AGENT_BAKEOFF_PROMOTION_MAX_AVG_LATENCY_MS: ${{ vars.AGENT_BAKEOFF_PROMOTION_MAX_AVG_LATENCY_MS || '30000' }}
-      AGENT_BAKEOFF_PROMOTION_MIN_CASES: ${{ vars.AGENT_BAKEOFF_PROMOTION_MIN_CASES || '1' }}
-      AGENT_BAKEOFF_PROMOTION_MAX_OVERPREDICTING: ${{ vars.AGENT_BAKEOFF_PROMOTION_MAX_OVERPREDICTING || '0' }}
-      AGENT_BAKEOFF_FAIL_ON_ALERT: ${{ vars.AGENT_BAKEOFF_FAIL_ON_ALERT || 'false' }}
+      # The production model and routes, so the run measures what readers get.
+      OPENROUTER_TEXT_MODEL: ${{ vars.OPENROUTER_TEXT_MODEL }}
+      OPENROUTER_TEXT_MODEL_FALLBACKS: ${{ vars.OPENROUTER_TEXT_MODEL_FALLBACKS }}
+      OPENROUTER_AGENT_MODEL_ROUTES_JSON: ${{ vars.OPENROUTER_AGENT_MODEL_ROUTES_JSON }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -110,23 +94,16 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci
-      - name: Skip live gate when HF_TOKEN is missing
-        if: ${{ env.HF_TOKEN == '' }}
-        run: echo "HF_TOKEN is not configured; skipping live model harness gate."
-      - run: npm run agent:harness:ci:live
-        if: ${{ env.HF_TOKEN != '' }}
-      - name: Scheduled model bakeoff
-        if: ${{ env.HF_TOKEN != '' }}
-        continue-on-error: true
-        run: npm run agent:bakeoff
+      - name: Skip when no model key is configured
+        if: ${{ env.HF_TOKEN == '' && env.OPENROUTER_API_KEY == '' }}
+        run: echo "No model key is configured; skipping the model-path eval."
+      - run: npm run agent:eval -- --verbose
+        if: ${{ env.HF_TOKEN != '' || env.OPENROUTER_API_KEY != '' }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: agent-harness-live-regression
-          path: |
-            tmp/agent-harness-runs/**
-            tmp/agent-harness-regression-runs/**
-            tmp/agent-model-bakeoff-runs/**
+          name: agent-eval-model
+          path: tmp/agent-eval/**
           if-no-files-found: ignore
 
   approval-smoke:
