@@ -165,4 +165,11 @@ describe('agent conversation model', () => {
     }));
     expect(sourceLabelForAgentMessage(messages[1])).toBe('From Primary source');
   });
+
+  it('says when a reply was assembled without the model', () => {
+    const offline = { role: 'assistant', mode: 'internal_only', relatedItems: [{ title: 'Primary source' }] };
+    expect(sourceLabelForAgentMessage(offline)).toBe('From Primary source · model unavailable');
+    expect(sourceLabelForAgentMessage({ ...offline, relatedItems: [] })).toBe('Model unavailable');
+    expect(sourceLabelForAgentMessage({ ...offline, mode: 'hf_chat' })).toBe('From Primary source');
+  });
 });

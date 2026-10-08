@@ -74,6 +74,7 @@ export const mapAgentThreadMessages = (thread = null) => (
         modelRoute: message?.metadata?.modelRoute && typeof message.metadata.modelRoute === 'object'
           ? message.metadata.modelRoute
           : null,
+        mode: clean(message?.metadata?.mode),
         premiumWebResearchAvailable: Boolean(message?.metadata?.premiumWebResearchAvailable)
       })).filter((message) => message.text)
     : []
@@ -92,7 +93,8 @@ export const buildAgentMessage = ({ role, text, result = null } = {}) => ({
   planner: result?.planner && typeof result.planner === 'object' ? result.planner : null,
   intent: result?.intent && typeof result.intent === 'object' ? result.intent : null,
   capability: result?.capability && typeof result.capability === 'object' ? result.capability : null,
-  modelRoute: result?.modelRoute && typeof result.modelRoute === 'object' ? result.modelRoute : null
+  modelRoute: result?.modelRoute && typeof result.modelRoute === 'object' ? result.modelRoute : null,
+  mode: clean(result?.mode)
 });
 
 /* A Judgment can converse about anything, but it may only file a passage the
@@ -151,10 +153,14 @@ export const mapAgentStructureProposal = (proposal = {}) => ({
     : []
 });
 
+/* A reply written without the model is assembled from retrieval alone. The
+   reader should know that before trusting its phrasing. */
 export const sourceLabelForAgentMessage = (message = {}) => {
   const titles = (Array.isArray(message.relatedItems) ? message.relatedItems : [])
     .map((item) => clean(item?.title))
     .filter(Boolean)
     .slice(0, 2);
-  return titles.length ? `From ${titles.join(' and ')}` : '';
+  const from = titles.length ? `From ${titles.join(' and ')}` : '';
+  if (message.role !== 'assistant' || message.mode !== 'internal_only') return from;
+  return from ? `${from} · model unavailable` : 'Model unavailable';
 };

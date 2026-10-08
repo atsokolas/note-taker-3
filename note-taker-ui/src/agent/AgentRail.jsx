@@ -170,10 +170,16 @@ const AgentRail = () => {
   };
 
   const lines = Array.isArray(surface.lines) ? surface.lines : [];
-  const visibleMessages = messages
-    .filter(message => !proposals.some(proposal => proposal.sentence === message.text))
-    .slice(-6);
-  const quiet = !visibleMessages.length && !proposals.length && !lines.length && !busy && !error;
+  const visibleMessages = messages.slice(-6);
+  // A reply that can be accepted is offered where it was said, so the
+  // conversation keeps its order. Proposals that are not a reply (a retrieved
+  // passage) wait below it.
+  const proposalFor = message => (message.role === 'assistant'
+    ? proposals.find(proposal => proposal.messageId === message.id)
+    : null);
+  const inlineProposalIds = new Set(visibleMessages.map(proposalFor).filter(Boolean).map(proposal => proposal.id));
+  const trailingProposals = proposals.filter(proposal => !inlineProposalIds.has(proposal.id));
+  const quiet = !visibleMessages.length && !trailingProposals.length && !lines.length && !busy && !error;
   // A surface that has not taught the rail how to retrieve says so, rather than
   // offering an input that would swallow the question.
   const quietLine = surface.empty
@@ -224,21 +230,28 @@ const AgentRail = () => {
 
       {visibleMessages.length ? (
         <ol className="agent-rail__conversation" aria-live="polite">
-          {visibleMessages.map(message => (
-            <li key={message.id} className={`agent-rail__message agent-rail__message--${message.role}`}>
-              <span>{message.role === 'user' ? 'You' : 'Noeis'}</span>
-              <p>{message.text}</p>
-              {sourceLabelForAgentMessage(message) ? (
-                <small>{sourceLabelForAgentMessage(message)}</small>
-              ) : null}
-            </li>
-          ))}
+          {visibleMessages.map((message) => {
+            const proposal = proposalFor(message);
+            return (
+              <li key={message.id} className={`agent-rail__message agent-rail__message--${message.role}`}>
+                <span>{message.role === 'user' ? 'You' : 'Noeis'}</span>
+                {proposal ? (
+                  <RailProposal proposal={proposal} busy={busy} onAccept={accept} onDismiss={dismissProposal} />
+                ) : (
+                  <p>{message.text}</p>
+                )}
+                {sourceLabelForAgentMessage(message) ? (
+                  <small>{sourceLabelForAgentMessage(message)}</small>
+                ) : null}
+              </li>
+            );
+          })}
         </ol>
       ) : null}
 
-      {proposals.length ? (
+      {trailingProposals.length ? (
         <div className="agent-rail__proposals" aria-live="polite">
-          {proposals.map(proposal => (
+          {trailingProposals.map(proposal => (
             <RailProposal
               key={proposal.id}
               proposal={proposal}
@@ -311,7 +324,7 @@ const AgentRail = () => {
         />
         <button type="submit" disabled={busy || !draft.trim()}>Ask</button>
       </form>
-      <p className="agent-rail__caption">{threadId ? 'One conversation, wherever you go.' : caption}</p>
+      <p className="agent-rail__caption">{threadId ? 'This page keeps its own conversation.' : caption}</p>
     </aside>
   );
 };

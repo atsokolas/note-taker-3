@@ -822,8 +822,7 @@ const {
   requestRunStepApproval
 } = require('./services/agentRunProtocolApprovals');
 const {
-  shouldResolveExecutionIntent,
-  resolveExecutableProposalBundle,
+  resolveRequestedProposalBundle,
   applyProposalBundleInvalidations
 } = require('./services/agentBundleResolution');
 const {
@@ -7159,8 +7158,7 @@ app.use(buildAgentChatRouter({
   buildDefaultHandoffCheckpoint,
   createThreadForHandoff,
   sanitizeAgentHandoffDoc,
-  shouldResolveExecutionIntent,
-  resolveExecutableProposalBundle,
+  resolveRequestedProposalBundle,
   applyProposalBundleInvalidations,
   sanitizeAgentArtifactDraftDoc,
   sanitizeAgentStructureProposalDoc,

@@ -15,12 +15,13 @@ import {
 
 // The agent rail's state lives above the router, because the rail does not
 // leave when the column changes. A page tells the rail what it is looking at;
-// the rail owns the durable conversation, proposals, and Accept/Dismiss. A
-// room supplies only its narrow accepted-write adapter. Nothing the agent
-// retrieves reaches the room until the human accepts it.
+// the rail owns that page's durable conversation, proposals, and
+// Accept/Dismiss. A room supplies only its narrow accepted-write adapter.
+// Nothing the agent retrieves reaches the room until the human accepts it.
 
 const AgentRailContext = createContext(null);
-const ACTIVE_THREAD_STORAGE_KEY = 'noeis.agent.active_thread';
+const SURFACE_THREADS_STORAGE_KEY = 'noeis.agent.surface_threads';
+const REMEMBERED_SURFACE_THREADS = 40;
 
 const EMPTY_SURFACE = Object.freeze({
   id: '',
@@ -38,6 +39,34 @@ const surfaceIdentity = (surface = {}) => [
   surface.objectId,
   surface.exploration ? JSON.stringify(surface.exploration) : ''
 ].map(value => String(value || '').trim()).join('|');
+
+// Each object gets its own conversation, so a question about one source never
+// carries the last source's answers along. A change of draft or selection
+// inside the same object is still the same conversation.
+const conversationKey = (surface = {}) => [surface.contractId, surface.objectType, surface.objectId]
+  .map(value => String(value || '').trim()).join('|');
+
+const readSurfaceThreads = () => {
+  try {
+    const parsed = JSON.parse(window.localStorage?.getItem(SURFACE_THREADS_STORAGE_KEY) || '{}');
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch (_error) {
+    return {};
+  }
+};
+
+const rememberSurfaceThread = (key, threadId) => {
+  try {
+    const entries = Object.entries(readSurfaceThreads()).filter(([entryKey]) => entryKey !== key);
+    if (threadId) entries.push([key, threadId]);
+    window.localStorage?.setItem(
+      SURFACE_THREADS_STORAGE_KEY,
+      JSON.stringify(Object.fromEntries(entries.slice(-REMEMBERED_SURFACE_THREADS)))
+    );
+  } catch (_error) {
+    // Private windows can refuse storage; the conversation still works for this visit.
+  }
+};
 
 const isAbortError = error => error?.name === 'AbortError' || error?.code === 'ERR_CANCELED';
 
@@ -59,7 +88,36 @@ export const AgentRailProvider = ({ children }) => {
   const surfaceOwner = useRef(null);
   const surfaceRevision = useRef(0);
   const pendingRequest = useRef(null);
-  const conversationStarted = useRef(false);
+  const activeConversation = useRef('');
+  // Conversations already open this visit, by surface, so returning to a page
+  // restores it without a round trip.
+  const conversations = useRef(new Map());
+  const conversationState = useRef({ threadId: '', messages: [] });
+  conversationState.current = { threadId, messages };
+
+  const openConversation = useCallback((key) => {
+    if (key === activeConversation.current) return;
+    // A saved conversation still loading is not kept: returning loads it again.
+    const leaving = conversationState.current;
+    if (activeConversation.current && (leaving.messages.length || !leaving.threadId)) {
+      conversations.current.set(activeConversation.current, leaving);
+    }
+    activeConversation.current = key;
+    const cached = conversations.current.get(key);
+    const savedThreadId = key ? readSurfaceThreads()[key] || '' : '';
+    setThreadId(cached?.threadId || savedThreadId);
+    setMessages(cached?.messages || []);
+    if (cached || !savedThreadId) return;
+    getAgentThread(savedThreadId)
+      .then((result) => {
+        if (activeConversation.current !== key || !result?.thread?.threadId) return;
+        setMessages(current => (current.length ? current : mapAgentThreadMessages(result.thread)));
+      })
+      .catch(() => {
+        if (activeConversation.current === key) setThreadId('');
+        rememberSurfaceThread(key, '');
+      });
+  }, []);
 
   const registerSurface = useCallback((next, owner) => {
     const normalized = { ...EMPTY_SURFACE, ...(next || {}) };
@@ -77,17 +135,21 @@ export const AgentRailProvider = ({ children }) => {
       pending?.controller?.abort();
       pendingRequest.current = null;
       if (pending) {
-        setMessages(current => current.filter(message => (
-          message.id !== pending.userMessageId && message.id !== pending.assistantMessageId
-        )));
+        conversationState.current = {
+          ...conversationState.current,
+          messages: conversationState.current.messages.filter(message => (
+            message.id !== pending.userMessageId && message.id !== pending.assistantMessageId
+          ))
+        };
+        setMessages(conversationState.current.messages);
       }
-      // Conversation history can travel. Page-bound work cannot.
+      openConversation(conversationKey(normalized));
       setProposals([]);
       setBusy(false);
       setActivity('');
       setError('');
     }
-  }, []);
+  }, [openConversation]);
 
   const unregisterSurface = useCallback((owner) => {
     if (surfaceOwner.current !== owner) return;
@@ -116,22 +178,6 @@ export const AgentRailProvider = ({ children }) => {
     handlers.current = next || {};
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-    const savedThreadId = window.localStorage?.getItem(ACTIVE_THREAD_STORAGE_KEY) || '';
-    if (!savedThreadId) return () => { cancelled = true; };
-    getAgentThread(savedThreadId)
-      .then((result) => {
-        if (cancelled || conversationStarted.current || !result?.thread?.threadId) return;
-        setThreadId(String(result.thread.threadId));
-        setMessages(mapAgentThreadMessages(result.thread));
-      })
-      .catch(() => {
-        if (!cancelled) window.localStorage?.removeItem(ACTIVE_THREAD_STORAGE_KEY);
-      });
-    return () => { cancelled = true; };
-  }, []);
-
   const capabilityChecks = (surface.capabilities || []).map(capabilityModel.resolveCapability);
   const blockedCapability = capabilityChecks.find(item => !['available', 'active'].includes(item.status));
   const agentAvailable = !blockedCapability;
@@ -148,20 +194,19 @@ export const AgentRailProvider = ({ children }) => {
   const adoptThread = useCallback((thread) => {
     const nextThreadId = String(thread?.threadId || '').trim();
     if (!nextThreadId) return;
-    conversationStarted.current = true;
     setThreadId(nextThreadId);
     setMessages(mapAgentThreadMessages(thread));
-    window.localStorage?.setItem(ACTIVE_THREAD_STORAGE_KEY, nextThreadId);
+    rememberSurfaceThread(activeConversation.current, nextThreadId);
   }, []);
 
   const resetConversation = useCallback(() => {
     pendingRequest.current?.controller?.abort();
     pendingRequest.current = null;
-    conversationStarted.current = false;
+    conversations.current.delete(activeConversation.current);
     setThreadId('');
     setMessages([]);
     setProposals([]);
-    window.localStorage?.removeItem(ACTIVE_THREAD_STORAGE_KEY);
+    rememberSurfaceThread(activeConversation.current, '');
   }, []);
 
   const dismissProposal = useCallback((proposalId, revision = surfaceRevision.current) => {
@@ -183,7 +228,6 @@ export const AgentRailProvider = ({ children }) => {
       return;
     }
     const controller = new AbortController();
-    conversationStarted.current = true;
     setBusy(true);
     setError('');
     setActivity('Reading the current context…');
@@ -225,11 +269,13 @@ export const AgentRailProvider = ({ children }) => {
       });
       if (!isCurrentRequest()) return;
       const hydrated = result?.thread?.threadId ? mapAgentThreadMessages(result.thread) : [];
+      const reply = hydrated.length
+        ? [...hydrated].reverse().find(message => message.role === 'assistant')
+        : buildAgentMessage({ role: 'assistant', text: result?.reply || 'No reply generated.', result });
       if (hydrated.length) setMessages(hydrated);
       else {
-        const assistant = buildAgentMessage({ role: 'assistant', text: result?.reply || 'No reply generated.', result });
         setMessages(current => current.map(message => (
-          message.id === pendingAssistant.id ? assistant : message
+          message.id === pendingAssistant.id ? reply : message
         )));
       }
       if (result?.thread?.threadId) {
@@ -244,19 +290,28 @@ export const AgentRailProvider = ({ children }) => {
         const evidence = buildAgentEvidenceCandidates(result?.relatedItems);
         const judgmentEvidence = surface.contractId === 'agent-surface.judgment';
         const primaryEvidence = evidence[0] || null;
+        // A reply can be written down only when it carries a source's own
+        // words. Anything else stays conversation.
+        const quoted = (Array.isArray(result?.groundedIn) ? result.groundedIn : [])
+          .map(item => String(item?.title || '').trim())
+          .filter(Boolean);
         const sentence = judgmentEvidence
           ? String(primaryEvidence?.sentence || '').trim()
-          : String(result?.reply || '').trim();
+          : quoted.length ? String(result?.reply || '').trim() : '';
         const allowedFields = (surface.supportedActions || [])
           .filter(action => action.startsWith('accept.'))
           .map(action => action.slice('accept.'.length));
         if (sentence && allowedFields.length) {
           addProposal({
             id: `agent-reply:${Date.now()}`,
+            // Offered under the reply that said it, not under another that
+            // happens to say the same.
+            messageId: reply && sentence === reply.text ? reply.id : '',
             sentence,
             body: sentence,
-            source: primaryEvidence?.source
-              || (result?.relatedItems || []).map(item => item?.title).filter(Boolean).slice(0, 2).join(' and '),
+            source: judgmentEvidence
+              ? primaryEvidence?.source
+              : `Quotes ${quoted.slice(0, 2).join(' and ')}`,
             sourceLabel: primaryEvidence?.sourceLabel || '',
             acceptedFrom: primaryEvidence?.acceptedFrom || '',
             ...(judgmentEvidence && evidence.length > 1 ? { alternatives: evidence.slice(1) } : {}),

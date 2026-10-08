@@ -197,12 +197,12 @@ const run = async () => {
     buildDefaultHandoffCheckpoint: () => ({}),
     createThreadForHandoff: async () => ({}),
     sanitizeAgentHandoffDoc: (doc = {}) => doc,
-    shouldResolveExecutionIntent: () => true,
-    resolveExecutableProposalBundle: () => {
+    resolveRequestedProposalBundle: ({ bundleId }) => {
       resolveCount += 1;
       return {
         status: 'matched',
-        bundle: thread.proposalBundles[0]
+        bundle: thread.proposalBundles.find((bundle) => bundle.bundleId === bundleId),
+        invalidatedBundleIds: []
       };
     },
     applyProposalBundleInvalidations: () => thread,
@@ -228,7 +228,8 @@ const run = async () => {
       },
       body: JSON.stringify({
         threadId: 'thread-1',
-        message: 'do it',
+        message: 'Execute Clean up Library',
+        approveBundleId: 'bundle-1',
         persistThread: true
       })
     });
@@ -247,6 +248,17 @@ const run = async () => {
       'Execution-intent route coverage should emit resolution and run lifecycle analytics.'
     );
 
+    const typedResponse = await fetch(`${url}/api/agent/chat`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ threadId: 'thread-1', message: 'do it', persistThread: true })
+    });
+    const typedPayload = await typedResponse.json();
+    assert.strictEqual(typedResponse.status, 200);
+    assert.notStrictEqual(typedPayload.mode, 'execution_intent', 'Typed text never approves a plan; only a named bundle does.');
+    assert.strictEqual(resolveCount, 1);
+    assert.strictEqual(generatedCalls.length, 1, 'A typed "do it" is answered as conversation.');
+
     const sharedResponse = await fetch(`${url}/api/agent/chat`, {
       method: 'POST',
       headers: {
@@ -255,6 +267,7 @@ const run = async () => {
       body: JSON.stringify({
         threadId: 'thread-1',
         message: 'do it',
+        approveBundleId: 'bundle-1',
         persistThread: true,
         context: { type: 'shared_question', id: 'qslug', title: 'What survives compounding?' }
       })
@@ -265,10 +278,10 @@ const run = async () => {
     assert.strictEqual(sharedPayload.proposalResolution, undefined);
     assert.strictEqual(sharedPayload.run, undefined);
     assert.strictEqual(resolveCount, 1, 'A published question must not resolve a pending Library bundle.');
-    assert.strictEqual(generatedCalls.length, 1, 'A published question should fall through to bound-page conversation.');
-    assert.strictEqual(generatedCalls[0].history, undefined);
+    assert.strictEqual(generatedCalls.length, 2, 'A published question should fall through to bound-page conversation.');
+    assert.strictEqual(generatedCalls[1].history, undefined);
     assert.deepStrictEqual(
-      generatedCalls[0].context,
+      generatedCalls[1].context,
       { type: 'shared_question', id: 'qslug', title: 'What survives compounding?' }
     );
     assert.match(sharedPayload.reply, /published question/i);

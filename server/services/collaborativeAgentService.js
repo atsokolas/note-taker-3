@@ -18,6 +18,7 @@ const {
   resolveAgentIntent
 } = require('./agentIntentKernel');
 const { chatComplete, isTextGenerationConfigured } = require('../ai/hfTextClient');
+const { groundedIn } = require('./agentGrounding');
 
 const MAX_LIMIT = 12;
 const DEFAULT_LIMIT = 6;
@@ -711,111 +712,6 @@ const buildArticleCoreClaimFromSections = ({ title = '', sections = [] } = {}) =
   return ensureSentence(`The article's through-line for ${subject.toLowerCase()} combines ${joinLabels(labels)}`);
 };
 
-const isExceptionalChildhoodArticle = ({ title = '', core = '', support = '', sections = [] } = {}) => {
-  const haystack = [
-    title,
-    core,
-    support,
-    ...(Array.isArray(sections) ? sections.flatMap((section) => [section?.heading, section?.detail]) : [])
-  ].map((value) => normalizeSentenceText(value).toLowerCase()).join(' ');
-  return /\bchildhoods?\b/.test(haystack)
-    && /\bexceptional\b/.test(haystack)
-    && (/\bchild-rearing\b/.test(haystack) || /\badults?\b/.test(haystack) || /\bmilieu/.test(haystack));
-};
-
-const buildExceptionalChildhoodSynthesis = ({ pressure = '', sections = [] } = {}) => {
-  const sectionList = Array.isArray(sections) ? sections : [];
-  const hasSections = sectionList.length >= 3;
-  const pressureWithoutLead = ensureSentence(pressure).replace(/^(but|however)\s+/i, '').trim();
-  const tension = pressureWithoutLead
-    ? `The tension is that ${lowercaseFirst(pressureWithoutLead)}`
-    : 'The tension is that this is not the way most modern parents or schools frame education.';
-  const mechanism = hasSections
-    ? 'Karlsson is arguing that exceptional childhoods are built less like curricula and more like intellectual ecologies: children are placed near unusually capable adults, taken seriously inside adult work, given long stretches of self-directed exploration, and then pulled into high-bandwidth tutoring or apprenticeship when an obsession starts to form.'
-    : 'Karlsson is arguing that exceptional childhoods are built less like schooling and more like an intellectual ecology: the child is surrounded by unusually capable adults, treated as someone worth reasoning with, and given enough room for a private obsession to develop.';
-  return [
-    mechanism,
-    `${tension} The caveat is not small: the biographies also select for unusually gifted children, so the essay is strongest as a theory of conditions that amplify rare talent, not as a recipe that can manufacture genius on demand.`
-  ].join('\n\n');
-};
-
-const buildExceptionalChildhoodArtifact = ({
-  outputType = '',
-  title = '',
-  pressure = ''
-} = {}) => {
-  const safeTitle = toSafeString(title) || 'Childhoods of exceptional people';
-  const pressureWithoutLead = ensureSentence(pressure).replace(/^(but|however)\s+/i, '').trim();
-  const tension = pressureWithoutLead
-    ? `The immediate tension is that ${lowercaseFirst(pressureWithoutLead)}`
-    : 'The immediate tension is that most parents and schools do not organize childhood around adult participation, apprenticeship, and long unsupervised exploration.';
-
-  if (outputType === 'critique_brief') {
-    return [
-      `# Challenge: ${safeTitle}`,
-      '',
-      'Karlsson’s strongest move is to treat exceptional childhood as an ecology rather than a curriculum. The weak point is causality: the biographies show adult seriousness, apprenticeship, and freedom clustering around exceptional people, but they do not prove which part caused the exceptional outcome.',
-      '',
-      `${tension} A serious critique has to keep survivorship bias in view: we are looking backward from rare successes, not comparing similar children who did and did not receive this kind of environment. The gifted-child caveat matters for the same reason. The essay is most defensible as a theory of conditions that amplify rare talent, not as a universal child-rearing recipe.`,
-      '',
-      'The best test would compare which ingredient does real work: proximity to exceptional adults, being taken seriously by them, self-directed exploration, one-on-one tutoring, or the child’s starting ability.'
-    ].join('\n');
-  }
-
-  if (outputType === 'question_set') {
-    return [
-      `# Questions: ${safeTitle}`,
-      '',
-      '1. Which part of the ecology is actually causal: adult seriousness, proximity to exceptional adults, self-directed exploration, tutoring, apprenticeship, or inherited ability?',
-      '2. What would this argument predict for a gifted child who has autonomy but no serious adult collaborators?',
-      '3. How much of the pattern is reproducible, and how much depends on rare families with time, money, status, and unusual intellectual networks?',
-      '4. When does self-directed exploration become productive freedom rather than benign neglect?',
-      '5. What would count as disconfirming evidence: exceptional adults without exceptional children, or exceptional children without this adult ecology?'
-    ].join('\n');
-  }
-
-  if (outputType === 'connection_map') {
-    return [
-      `# Connections: ${safeTitle}`,
-      '',
-      '- **Cognitive apprenticeship** — support: the essay’s mechanism depends on children being close enough to expert adults to see how judgment is made, not just hear finished lessons.',
-      '- **Self-directed exploration** — support: the free-roaming element explains how children discover a live obsession instead of merely complying with a curriculum.',
-      '- **Giftedness and survivorship bias** — tension: the examples may show how rare ability is amplified, not how ordinary ability is transformed.',
-      '- **Education as environment design** — adjacent concept: the parent’s role shifts from delivering content to curating the people, tools, standards, and freedoms around the child.',
-      '',
-      'The useful link to make is between apprenticeship and autonomy: the essay is not arguing for laissez-faire childhood, but for freedom inside a dense field of capable adults.'
-    ].join('\n');
-  }
-
-  if (outputType === 'note_draft') {
-    return [
-      '# Exceptional Childhood as Intellectual Ecology',
-      '',
-      'Karlsson’s useful claim is that exceptional childhoods are not mainly produced by better lessons. They look more like intellectual ecologies: children grow up near capable adults, are treated as participants rather than mascots, get enough unstructured time to follow an obsession, and receive high-bandwidth tutoring or apprenticeship once that obsession starts to become serious.',
-      '',
-      'The phrase “child-rearing” can make this sound like a parenting method, but the deeper claim is environmental. The unit is not the parent-child dyad; it is the milieu around the child. The biographies matter because they show repeated exposure to adult standards, adult work, and adult conversation before the child has to choose a formal path.',
-      '',
-      'The caveat is just as important as the claim. These examples are selected from exceptional outcomes, and many of the children were unusually gifted. That makes the essay strongest as a theory of amplification: certain environments may let rare talent compound earlier and more intensely. It is weaker as a promise that the same ingredients can manufacture genius in general.'
-    ].join('\n');
-  }
-
-  if (outputType === 'concept_draft') {
-    return [
-      '# Concept Candidate: Intellectual Ecology of Childhood',
-      '',
-      '**Thesis:** Exceptional childhoods are often less a product of formal instruction than of an ecology that combines serious adult participation, self-directed exploration, and apprenticeship around real work.',
-      '',
-      '**Why it matters:** This reframes education from “what curriculum should the child consume?” to “what standards, adults, freedoms, and feedback loops surround the child while their taste and ability are forming?”',
-      '',
-      '**Starting evidence:** Karlsson’s examples emphasize children being integrated with exceptional adults, taken seriously by them, given room to roam intellectually, and later taught through one-on-one tutoring or cognitive apprenticeship.',
-      '',
-      '**Boundary:** The concept should not be treated as a universal recipe. The evidence is biographical and selected from exceptional outcomes, so giftedness and survivorship bias remain central constraints.'
-    ].join('\n');
-  }
-
-  return '';
-};
-
 const buildGenericArticleArtifact = ({
   outputType = '',
   title = '',
@@ -914,13 +810,6 @@ const buildFlowingArticleSummary = ({
       || sectionList.find((section) => /\b(gifted|caveat|limits?|risk|pressure|tension)\b/i.test(section.heading))?.detail
       || ''
   );
-  if (isExceptionalChildhoodArticle({ title: safeTitle, core, support, sections: sectionList })) {
-    return [
-      `# ${safeTitle}`,
-      '',
-      buildExceptionalChildhoodSynthesis({ pressure, sections: sectionList })
-    ].join('\n');
-  }
   const patternHeadings = sectionList
     .map((section) => lowercaseFirst(section.heading))
     .filter(Boolean)
@@ -1892,18 +1781,6 @@ const buildOutputArtifactReply = ({
     const coreClaim = articleSections.length >= 3
       ? buildArticleCoreClaimFromSections({ title, sections: articleSections })
       : contextSignals.coreClaim;
-    if (isExceptionalChildhoodArticle({
-      title,
-      core: coreClaim,
-      support: contextSignals.supportPoint,
-      sections: articleSections
-    })) {
-      return buildExceptionalChildhoodArtifact({
-        outputType,
-        title,
-        pressure: contextSignals.pressurePoint || questionFocus
-      });
-    }
     return buildGenericArticleArtifact({
       outputType,
       title,
@@ -3306,6 +3183,10 @@ const generateCollaborativeReply = async ({
       id: item.id,
       title: item.title
     })),
+    // The sources whose own words the reply carries. Only a grounded reply can
+    // be accepted into the reader's work.
+    groundedIn: groundedIn(finalReply, [contextItem, ...responseItems])
+      .map((item) => ({ type: item.type, id: item.id, title: item.title })),
     retrieval: {
       searchedWorkspace: Boolean(shouldSearchWorkspace),
       relatedCount: responseItems.length
