@@ -97,7 +97,11 @@ export const AgentRailProvider = ({ children }) => {
 
   const openConversation = useCallback((key) => {
     if (key === activeConversation.current) return;
-    if (activeConversation.current) conversations.current.set(activeConversation.current, conversationState.current);
+    // A saved conversation still loading is not kept: returning loads it again.
+    const leaving = conversationState.current;
+    if (activeConversation.current && (leaving.messages.length || !leaving.threadId)) {
+      conversations.current.set(activeConversation.current, leaving);
+    }
     activeConversation.current = key;
     const cached = conversations.current.get(key);
     const savedThreadId = key ? readSurfaceThreads()[key] || '' : '';
@@ -265,11 +269,13 @@ export const AgentRailProvider = ({ children }) => {
       });
       if (!isCurrentRequest()) return;
       const hydrated = result?.thread?.threadId ? mapAgentThreadMessages(result.thread) : [];
+      const reply = hydrated.length
+        ? [...hydrated].reverse().find(message => message.role === 'assistant')
+        : buildAgentMessage({ role: 'assistant', text: result?.reply || 'No reply generated.', result });
       if (hydrated.length) setMessages(hydrated);
       else {
-        const assistant = buildAgentMessage({ role: 'assistant', text: result?.reply || 'No reply generated.', result });
         setMessages(current => current.map(message => (
-          message.id === pendingAssistant.id ? assistant : message
+          message.id === pendingAssistant.id ? reply : message
         )));
       }
       if (result?.thread?.threadId) {
@@ -298,6 +304,9 @@ export const AgentRailProvider = ({ children }) => {
         if (sentence && allowedFields.length) {
           addProposal({
             id: `agent-reply:${Date.now()}`,
+            // Offered under the reply that said it, not under another that
+            // happens to say the same.
+            messageId: reply && sentence === reply.text ? reply.id : '',
             sentence,
             body: sentence,
             source: judgmentEvidence
