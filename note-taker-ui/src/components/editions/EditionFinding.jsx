@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { publicSourceHref } from '../../pages/editionModel';
 import { findingAnchor } from './editionReadingState';
+import AgentMark from './AgentMark';
 
 export const EditionBoundary = ({ children }) => (
   <aside className="reading-boundary">
@@ -79,7 +80,11 @@ export default function EditionFinding({ item, lead, busy, receipt, onAct, onPee
           What made it worth keeping?
         </button>
       ) : null}
-      {item.filedBy ? <p className="reading-provenance">Filed by {item.filedBy}</p> : null}
+      {item.filedBy ? (
+        <p className="reading-provenance">
+          Filed by <AgentMark runtime={item.filedByRuntime} label={item.filedBy} />
+        </p>
+      ) : null}
     </article>
   );
 }

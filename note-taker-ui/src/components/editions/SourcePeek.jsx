@@ -4,6 +4,7 @@ import api from '../../api';
 import { getAuthHeaders } from '../../hooks/useAuthHeaders';
 import { publicSourceHref } from '../../pages/editionModel';
 import EditionPanel from './EditionPanel';
+import AgentMark from './AgentMark';
 import { EditionBoundary } from './EditionFinding';
 import ThoughtComposer from './ThoughtComposer';
 
@@ -79,7 +80,7 @@ export default function SourcePeek({ item, view, origin, quote, onClose, thought
           <>
             <p className="reading-prose">{item.finding}</p>
             <EditionBoundary>{item.boundary}</EditionBoundary>
-            {item.filedBy ? <p>Filed by {item.filedBy}</p> : null}
+            {item.filedBy ? <p>Filed by <AgentMark runtime={item.filedByRuntime} label={item.filedBy} /></p> : null}
           </>
         ) : null}
         {tab === 'source' ? (

@@ -1,5 +1,5 @@
 import {
-  byInboxEdition, byPaper, bylineFor, bySection, closesLine, datelineLine,
+  byInboxEdition, byPaper, bySection, closesLine, datelineLine,
   gapLine, inboxEditionLine, issueLine, issueShelfMeta, issuesShelfLabel, latestFilingLine,
   publicSourceHref, resolvePaperIssueId, runLine, shelfIssuesForPaper,
   sourceLinks, standLayout, stateOf, takenLine, windowLine
@@ -304,26 +304,6 @@ describe('the dateline a paper prints', () => {
 
   it('says nothing without a window', () => {
     expect(datelineLine()).toBe('');
-  });
-});
-
-describe('who filed a column', () => {
-  const by = (label) => ({ filedBy: label });
-
-  /* The masthead names whoever wrote last, which stops being the whole truth
-     the moment two agents keep the same paper. */
-  it('signs one agent, and names them all when several filed', () => {
-    expect(bylineFor([by('Jarvis'), by('Jarvis')])).toBe('Filed by Jarvis');
-    expect(bylineFor([by('Jarvis'), by('Hermes')])).toBe('Filed by Jarvis and Hermes');
-    expect(bylineFor([by('Jarvis'), by('Hermes'), by('Codex')]))
-      .toBe('Filed by Jarvis, Hermes and Codex');
-  });
-
-  /* Silence rather than a guess at the reader's own agent. */
-  it('says nothing about an unsigned column', () => {
-    expect(bylineFor([by(''), {}])).toBe('');
-    expect(bylineFor([])).toBe('');
-    expect(bylineFor()).toBe('');
   });
 });
 

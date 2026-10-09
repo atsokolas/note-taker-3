@@ -205,22 +205,6 @@ export const standLayout = (edition = null) => {
 };
 
 /**
- * Who filed a column.
- *
- * A section byline, and it exists because the masthead stopped being the whole
- * truth: two agents can keep the same paper, and the masthead names whichever
- * of them wrote last. Silent when nothing is signed rather than guessing at
- * the reader's own agent.
- */
-export const bylineFor = (items = []) => {
-  const names = [...new Set((items || []).map(item => item.filedBy).filter(Boolean))];
-  if (!names.length) return '';
-  if (names.length === 1) return `Filed by ${names[0]}`;
-  const last = names[names.length - 1];
-  return `Filed by ${names.slice(0, -1).join(', ')} and ${last}`;
-};
-
-/**
  * The stand, arranged as papers rather than as a pile.
  *
  * Editions arrive newest-first across every profile, so two papers interleave

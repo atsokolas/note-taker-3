@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { issueLine, publicSourceHref } from '../../pages/editionModel';
+import AgentMark from './AgentMark';
 import { EditionBoundary } from './EditionFinding';
 import useEditionArrivals, { rowKey } from './useEditionArrivals';
 
@@ -30,7 +31,11 @@ function PowerItem({ row, active, busy, onActive, onDecision, register }) {
         <p className="power-item__finding">{row.finding}</p>
         <EditionBoundary>{row.boundary}</EditionBoundary>
         {row.note ? <p className="power-item__note">{row.note}</p> : null}
-        {row.filedBy ? <p className="power-item__filed">Filed by {row.filedBy}</p> : null}
+        {row.filedBy ? (
+          <p className="power-item__filed">
+            Filed by <AgentMark runtime={row.filedByRuntime} label={row.filedBy} />
+          </p>
+        ) : null}
       </div>
       <nav className="power-item__actions" aria-label={`Decide: ${row.title}`}>
         <button disabled={Boolean(busy)} onClick={() => onDecision(row, 'keep')}>

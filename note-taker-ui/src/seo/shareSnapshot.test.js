@@ -87,6 +87,15 @@ describe('public share snapshots', () => {
     expect(snapshot.html).toContain('Filed by Claude');
   });
 
+  /* The page prints the agent's name, never the label typed for its token. */
+  it('names the agent by its runtime, not its token label', () => {
+    const named = renderEditionSnapshot({ title: 'This Week in AI', writtenBy: 'My laptop', writtenByRuntime: 'codex', items: [] }, '/share/editions/x');
+    expect(named.html).toContain('Filed by Codex');
+    expect(named.html).not.toContain('My laptop');
+    const legacy = renderEditionSnapshot({ title: 'This Week in AI', writtenBy: 'Codex Wiki account grounding audit', items: [] }, '/share/editions/x');
+    expect(legacy.html).toContain('Filed by Codex<');
+  });
+
   it('routes each public address to its API', () => {
     const match = (pathname) => {
       const route = SHARE_ROUTES.find((entry) => entry.pattern.test(pathname));

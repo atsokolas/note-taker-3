@@ -320,6 +320,10 @@ const projectPublicEdition = (edition = {}, ownerDisplayName = '', { profiles = 
   const writtenBy = typeof edition.writtenBy === 'string'
     ? publicText(edition.writtenBy, 200)
     : publicText(edition.writtenBy?.label, 200);
+  /* The runtime names the agent on a public page; the label someone typed for
+     their token is not a stranger's business. Absent when unknown, so a share
+     published before runtimes were recorded keeps its hash. */
+  const writtenByRuntime = publicText(edition.writtenBy?.runtime, 40);
 
   return {
     title: publicText(edition.title, 300) || publicText(profile?.titleLabel, 300),
@@ -336,6 +340,7 @@ const projectPublicEdition = (edition = {}, ownerDisplayName = '', { profiles = 
       .filter(Boolean)
       .slice(0, 12),
     writtenBy,
+    ...(writtenByRuntime ? { writtenByRuntime } : {}),
     ownerDisplayName: publicText(ownerDisplayName, 200),
     sections,
     items: (edition.items || []).map(projectPublicItem)
@@ -428,6 +433,7 @@ const collectInbox = (
           boundary: item.boundary,
           note: item.note || '',
           filedBy: item.filedBy?.label || '',
+          filedByRuntime: item.filedBy?.runtime || '',
           savedArticleId: item.savedArticleId ? String(item.savedArticleId) : null
         } : {}),
         sortAt
