@@ -2,8 +2,7 @@ name: Agent Eval
 
 on:
   pull_request:
-    # `labeled` lets a pull request ask for the model path with the live-eval label.
-    types: [opened, synchronize, reopened, labeled]
+    types: [opened, synchronize, reopened]
     paths:
       - 'server/agentEval/**'
       - 'server/ai/**'
@@ -24,18 +23,8 @@ on:
       - 'scripts/run_agent_eval.js'
       - 'package*.json'
       - '.github/workflows/agent-eval.yml'
-  schedule:
-    - cron: '0 11 * * *'
   workflow_dispatch:
     inputs:
-      include_live:
-        description: 'Also score the configured model path'
-        required: false
-        default: 'false'
-        type: choice
-        options:
-          - 'false'
-          - 'true'
       run_approval_smoke:
         description: 'Run live memory approval smoke test against deployed API'
         required: false
@@ -71,40 +60,6 @@ jobs:
         if: always()
         with:
           name: agent-eval
-          path: tmp/agent-eval/**
-          if-no-files-found: ignore
-
-  live:
-    name: Agent eval (model path)
-    runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'schedule' || inputs.include_live == 'true' || contains(github.event.pull_request.labels.*.name, 'live-eval') }}
-    env:
-      HF_TOKEN: ${{ secrets.HF_TOKEN }}
-      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-      HF_PROVIDER: ${{ vars.HF_PROVIDER || 'groq' }}
-      HF_TEXT_MODEL: ${{ vars.HF_TEXT_MODEL || 'openai/gpt-oss-120b' }}
-      HF_TEXT_MODEL_FALLBACKS: ${{ vars.HF_TEXT_MODEL_FALLBACKS }}
-      HF_AGENT_MODEL_ROUTES_JSON: ${{ vars.HF_AGENT_MODEL_ROUTES_JSON }}
-      # The production model and routes, so the run measures what readers get.
-      OPENROUTER_TEXT_MODEL: ${{ vars.OPENROUTER_TEXT_MODEL }}
-      OPENROUTER_TEXT_MODEL_FALLBACKS: ${{ vars.OPENROUTER_TEXT_MODEL_FALLBACKS }}
-      OPENROUTER_AGENT_MODEL_ROUTES_JSON: ${{ vars.OPENROUTER_AGENT_MODEL_ROUTES_JSON }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: npm
-      - run: npm ci
-      - name: Skip when no model key is configured
-        if: ${{ env.HF_TOKEN == '' && env.OPENROUTER_API_KEY == '' }}
-        run: echo "No model key is configured; skipping the model-path eval."
-      - run: npm run agent:eval -- --verbose
-        if: ${{ env.HF_TOKEN != '' || env.OPENROUTER_API_KEY != '' }}
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: agent-eval-model
           path: tmp/agent-eval/**
           if-no-files-found: ignore
 
