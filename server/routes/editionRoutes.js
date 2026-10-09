@@ -538,14 +538,14 @@ const buildEditionRouter = ({
       const hasSectionsField = Array.isArray(req.body?.sections);
       const existing = await EditionProfile.findOne({ userId: req.user.id, key });
       const standing = (existing?.sections || []).map(sectionOf);
-      /* A section that does not mention its keeper keeps the one it had;
-         `keeper: null` lets it go. */
+      /* A section that does not name a keeper keeps the one it had (an empty
+         `keeper: {}` names no one); only `keeper: null` lets it go. */
       const sections = (hasSectionsField ? req.body.sections : [])
         .map((section) => {
           const sectionKey = String(section?.key || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
-          const keeper = section && 'keeper' in section
-            ? keeperOf(section.keeper)
-            : standing.find(held => held.key === sectionKey)?.keeper || null;
+          const keeper = section?.keeper === null
+            ? null
+            : keeperOf(section?.keeper) || standing.find(held => held.key === sectionKey)?.keeper || null;
           return {
             key: sectionKey,
             label: String(section?.label || '').trim().slice(0, 120),
