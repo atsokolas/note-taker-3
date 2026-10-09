@@ -1,73 +1,86 @@
 const assert = require('node:assert');
-const Module = require('module');
 
-/* A rate limit is not a cold start.
+/* Embeddings come from OpenRouter. These pin the request the provider sees,
+   that an answer is returned in input order, and that "not now" (a rate limit
+   or an empty balance) is refused at once and cooled down rather than waited
+   out on every search. */
 
-   Treating 429 as a wake-up meant a rate-limited embed slept 4s, 12s and 20s
-   and tried a dozen times before giving up, per job, against a service that
-   was never going to say yes. That is what turned a rate limit into a stall
-   and the stall into an out-of-memory crash. */
-
-const load = (embedImpl) => {
-  const originalLoad = Module._load;
-  Module._load = function patched(request, parent, isMain) {
-    if (request === '../config/aiClient') return { embedTexts: embedImpl };
-    return originalLoad.apply(this, arguments);
-  };
+const load = (fetchImpl, env = { OPENROUTER_API_KEY: 'test-key' }) => {
+  global.fetch = fetchImpl;
+  delete process.env.OPENROUTER_API_KEY;
+  delete process.env.OPENROUTER_EMBEDDING_MODEL;
+  Object.assign(process.env, env);
   delete require.cache[require.resolve('./embed')];
-  const mod = require('./embed');
-  Module._load = originalLoad;
-  return mod;
+  return require('./embed');
 };
 
-const fail = (status) => {
-  const error = new Error(`AI service error ${status}`);
-  error.status = status;
-  return error;
-};
+const reply = (status, body) => ({ ok: status >= 200 && status < 300, status, statusText: 'x', json: async () => body });
 
 (async () => {
-  // 429: given up on immediately, so the queue runner can back off.
-  {
-    let calls = 0;
-    const { embedText } = load(async () => { calls += 1; throw fail(429); });
-    const started = Date.now();
-    let thrown = null;
-    try { await embedText('some text'); } catch (error) { thrown = error; }
-    const elapsed = Date.now() - started;
-    assert.ok(thrown, 'the rate limit is reported');
-    assert.strictEqual(thrown.status, 429, 'and it keeps its status so the runner recognises it');
-    assert.strictEqual(calls, 1, 'exactly one attempt: no waiting out a rate limit');
-    assert.ok(elapsed < 1000, `returned promptly, took ${elapsed}ms`);
-    await assert.rejects(
-      () => embedText('another text'),
-      error => error.status === 429 && Number(error?.payload?.retryAfterMs) > 0
-    );
-    assert.strictEqual(calls, 1, 'the cooldown fails closed without touching the upstream again');
-  }
+  const originalFetch = global.fetch;
+  try {
+    // The stored vectors' model, asked for by name, with results in input order.
+    {
+      let request = null;
+      const { embedTexts, embedText } = load(async (url, init) => {
+        request = { url, init, body: JSON.parse(init.body) };
+        return reply(200, { data: [{ index: 1, embedding: [0.3, 0.4] }, { index: 0, embedding: [0.1, 0.2] }] });
+      });
+      const vectors = await embedTexts(['first', 'second']);
+      assert.deepStrictEqual(vectors, [[0.1, 0.2], [0.3, 0.4]], 'rows are returned in input order');
+      assert.strictEqual(request.url, 'https://openrouter.ai/api/v1/embeddings');
+      assert.strictEqual(request.init.headers.Authorization, 'Bearer test-key');
+      assert.deepStrictEqual(request.body, { model: 'sentence-transformers/all-minilm-l6-v2', input: ['first', 'second'] });
+      global.fetch = async () => reply(200, { data: [{ index: 0, embedding: [0.5] }] });
+      assert.deepStrictEqual(await embedText('one'), [0.5]);
+    }
 
-  // 503: still waited out, because that is a service actually waking up.
-  {
-    let calls = 0;
-    const { embedText } = load(async () => {
-      calls += 1;
-      if (calls < 3) throw fail(503);
-      return { vectors: [[0.1, 0.2]] };
-    });
-    const vector = await embedText('some text', { retryDelaysMs: [1, 1, 1] });
-    assert.deepStrictEqual(vector, [0.1, 0.2], 'a waking service is waited out and answers');
-    assert.strictEqual(calls, 3);
-  }
+    // No key: refused plainly, nothing sent.
+    {
+      let calls = 0;
+      const { embedText } = load(async () => { calls += 1; return reply(200, {}); }, {});
+      await assert.rejects(() => embedText('some text'), error => error.status === 503);
+      assert.strictEqual(calls, 0);
+    }
 
-  // 400: never retried, because it will answer identically forever.
-  {
-    let calls = 0;
-    const { embedText } = load(async () => { calls += 1; throw fail(400); });
-    let thrown = null;
-    try { await embedText('some text', { retryDelaysMs: [1, 1] }); } catch (error) { thrown = error; }
-    assert.ok(thrown);
-    assert.strictEqual(calls, 1, 'a bad request is not retried');
-  }
+    // 429, 529 (overloaded) and 402 (empty balance): one attempt, then a cooldown that skips the provider.
+    for (const status of [429, 529, 402]) {
+      let calls = 0;
+      const { embedText } = load(async () => { calls += 1; return reply(status, { error: { message: 'not now' } }); });
+      const started = Date.now();
+      await assert.rejects(() => embedText('some text'), error => error.status === 429);
+      assert.ok(Date.now() - started < 1000, 'refused promptly');
+      await assert.rejects(
+        () => embedText('another text'),
+        error => error.status === 429 && Number(error?.payload?.retryAfterMs) > 0
+      );
+      assert.strictEqual(calls, 1, `a ${status} is asked once, then cooled down`);
+    }
 
-  console.log('embed backoff tests passed');
-})();
+    // A bad request keeps its status and is not retried.
+    {
+      let calls = 0;
+      const { embedText } = load(async () => { calls += 1; return reply(400, { error: { message: 'bad' } }); });
+      await assert.rejects(
+        () => embedText('some text'),
+        error => error.status === 400 && /bad/.test(error.payload.error)
+      );
+      assert.strictEqual(calls, 1);
+    }
+
+    // Empty text never reaches the provider.
+    {
+      let calls = 0;
+      const { embedText } = load(async () => { calls += 1; return reply(200, {}); });
+      await assert.rejects(() => embedText('   '), error => error.status === 400);
+      assert.strictEqual(calls, 0);
+    }
+
+    console.log('embed tests passed');
+  } finally {
+    global.fetch = originalFetch;
+  }
+})().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});

@@ -1,4 +1,5 @@
 const express = require('express');
+const { embedTexts } = require('../ai/embed');
 
 const buildAiInsightsRouter = ({
   mongoose,
@@ -24,7 +25,6 @@ const buildAiInsightsRouter = ({
   parseAiServiceUrl,
   joinUrl,
   toPositiveInt,
-  aiEmbedTexts,
   sentimentScore,
   extractQuestions,
   ensureBestEffortSynthesis,
@@ -519,12 +519,9 @@ const buildAiInsightsRouter = ({
           }))
           .filter(item => item.text);
         if (embedInputs.length) {
-          let embedResponse;
+          let embedVectors = [];
           try {
-            embedResponse = await aiEmbedTexts(
-              embedInputs.map(item => item.text),
-              { requestId: req.requestId }
-            );
+            embedVectors = await embedTexts(embedInputs.map(item => item.text));
           } catch (error) {
             synthesisWarnings.push('embed_unavailable');
             console.warn('[AI-SYNTH] embed unavailable; continuing with text-only synthesis', {
@@ -532,9 +529,6 @@ const buildAiInsightsRouter = ({
               status: Number(error?.status) || 0
             });
           }
-          const embedVectors = Array.isArray(embedResponse?.vectors)
-            ? embedResponse.vectors
-            : [];
           embedVectors.forEach((vector, idx) => {
             if (!Array.isArray(vector)) return;
             vectors.push(vector);

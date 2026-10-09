@@ -1,6 +1,15 @@
-const { embedTexts: embedViaAiService } = require('../config/aiClient');
-
+/* Embeddings come from OpenRouter, the same account that runs the chat model.
+   The default is the model the AI service used to run through Hugging Face,
+   so the 384-dimension vectors already stored in Atlas, and every similarity
+   threshold tuned against them, stay valid. That route went dark when the
+   Hugging Face balance ran out, and a sleeping Render service in front of it
+   added a forty-second wake-up to the first search after any quiet period. */
+const DEFAULT_EMBEDDING_MODEL = 'sentence-transformers/all-minilm-l6-v2';
+const DEFAULT_BASE_URL = 'https://openrouter.ai/api/v1';
+const DEFAULT_TIMEOUT_MS = 30000;
+const DEFAULT_RATE_LIMIT_COOLDOWN_MS = 60 * 1000;
 const MAX_EMBED_TEXT_CHARS = 4000;
+
 const truncateText = (text, maxChars = MAX_EMBED_TEXT_CHARS) => {
   const value = String(text || '');
   return value.length > maxChars ? value.slice(0, maxChars) : value;
@@ -14,82 +23,92 @@ class EmbeddingError extends Error {
   }
 }
 
-// The embedding service sleeps when idle and answers 502 or 504 for the
-// forty-odd seconds it takes to wake. That is a hosting property, not a
-// failure: every semantic feature went dark on the first request after any
-// quiet period, and the caller could not tell an asleep service from an empty
-// library. Wait the wake-up out instead of reporting nothing.
-/* 429 is not a cold start. A waking service answers 502/503/504 while it
-   boots; 429 is a service that is awake and telling you to stop. Treating it
-   as a wake-up meant every rate-limited embed slept 4s, then 12s, then 20s,
-   and tried twelve times through the inner client's own retries before giving
-   up — thirty-six seconds of a worker holding its text and its errors, per
-   job, against a service that was never going to say yes.
+const getConfig = () => ({
+  token: String(process.env.OPENROUTER_API_KEY || '').trim(),
+  model: String(process.env.OPENROUTER_EMBEDDING_MODEL || DEFAULT_EMBEDDING_MODEL).trim(),
+  baseUrl: String(process.env.OPENROUTER_BASE_URL || DEFAULT_BASE_URL).replace(/\/+$/, ''),
+  timeoutMs: Number(process.env.OPENROUTER_EMBEDDING_TIMEOUT_MS || DEFAULT_TIMEOUT_MS)
+});
 
-   The job runner already knows what to do with a rate limit: release the job
-   and stop after three of them. It just never got to see one in time. */
-const COLD_START_STATUSES = new Set([502, 503, 504]);
-const DEFAULT_EMBED_RETRY_DELAYS_MS = [4000, 12000, 20000];
-const DEFAULT_RATE_LIMIT_COOLDOWN_MS = 60 * 1000;
+const isEmbeddingConfigured = () => Boolean(getConfig().token);
+
+/* A rate limit (429), an overloaded provider (529) and an empty balance (402)
+   all mean "not now": refuse
+   at once and stop asking for a while. The job runner sees a 429 and holds
+   its jobs instead of abandoning them, so they embed once the provider says
+   yes again. */
 let rateLimitedUntil = 0;
 
-const isColdStart = (error) => (
-  COLD_START_STATUSES.has(Number(error?.status)) || Number(error?.status) === 0 || !error?.status
-);
+const NOT_NOW = new Set([402, 429, 529]);
 
-const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
-
-const embedText = async (text, {
-  retryDelaysMs = DEFAULT_EMBED_RETRY_DELAYS_MS,
-  rateLimitCooldownMs = DEFAULT_RATE_LIMIT_COOLDOWN_MS
-} = {}) => {
-  const trimmed = truncateText(String(text || '').trim());
-  if (!trimmed) {
+const embedTexts = async (texts = [], { rateLimitCooldownMs = DEFAULT_RATE_LIMIT_COOLDOWN_MS } = {}) => {
+  const inputs = (Array.isArray(texts) ? texts : []).map(text => truncateText(String(text || '').trim()));
+  if (!inputs.length || inputs.some(text => !text)) {
     throw new EmbeddingError('Embedding requires non-empty text.', 400);
   }
+  const { token, model, baseUrl, timeoutMs } = getConfig();
+  if (!token) throw new EmbeddingError('No embedding provider is configured.', 503);
   const now = Date.now();
   if (now < rateLimitedUntil) {
+    const message = 'Embedding provider is cooling down after a rate limit.';
+    throw new EmbeddingError(message, 429, { error: message, retryAfterMs: rateLimitedUntil - now });
+  }
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  let response;
+  let body = null;
+  try {
+    response = await fetch(`${baseUrl}/embeddings`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model, input: inputs }),
+      signal: controller.signal
+    });
+    body = await response.json().catch(() => null);
+  } catch (error) {
     throw new EmbeddingError(
-      'Embedding service is cooling down after a rate limit.',
-      429,
-      { retryAfterMs: rateLimitedUntil - now }
+      error?.name === 'AbortError'
+        ? `Embedding request timed out after ${timeoutMs}ms.`
+        : `Embedding request failed: ${error?.message || error}`,
+      503
     );
+  } finally {
+    clearTimeout(timer);
   }
-  const delays = Array.isArray(retryDelaysMs) ? retryDelaysMs : [];
-  let lastError = null;
-  for (let attempt = 0; attempt <= delays.length; attempt += 1) {
-    try {
-      const response = await embedViaAiService([trimmed], { requestId: 'server-embed-text' });
-      const vectors = Array.isArray(response?.vectors) ? response.vectors : [];
-      const [embedding] = vectors;
-      if (!Array.isArray(embedding)) {
-        throw new EmbeddingError('Embedding response missing vector.');
-      }
-      if (attempt > 0) {
-        console.log('[EMBED] recovered after cold start', JSON.stringify({ attempt: attempt + 1 }));
-      }
-      return embedding;
-    } catch (error) {
-      lastError = error;
-      if (Number(error?.status) === 429) {
-        rateLimitedUntil = Math.max(
-          rateLimitedUntil,
-          Date.now() + Math.max(1000, Number(rateLimitCooldownMs) || DEFAULT_RATE_LIMIT_COOLDOWN_MS)
-        );
-      }
-      // A malformed request or a missing route will answer identically forever;
-      // only wait out the statuses a waking service actually returns.
-      if (!isColdStart(error) || attempt === delays.length) break;
-      await sleep(delays[attempt]);
+
+  if (!response.ok) {
+    const notNow = NOT_NOW.has(response.status);
+    if (notNow) {
+      rateLimitedUntil = Math.max(rateLimitedUntil, Date.now() + Math.max(1000, Number(rateLimitCooldownMs) || 0));
     }
+    const message = `Embedding provider error ${response.status}: ${body?.error?.message || response.statusText}`;
+    throw new EmbeddingError(message, notNow ? 429 : response.status, {
+      error: message,
+      upstream: 'openrouter',
+      ...(response.status === 402 ? { reason: 'out_of_credit' } : {})
+    });
   }
-  const status = lastError?.status || 503;
-  throw new EmbeddingError(lastError?.message || 'Embedding service unavailable.', status, lastError?.payload || null);
+
+  const rows = Array.isArray(body?.data) ? [...body.data] : [];
+  rows.sort((a, b) => Number(a?.index || 0) - Number(b?.index || 0));
+  const vectors = rows.map(row => row?.embedding);
+  if (vectors.length !== inputs.length || !vectors.every(Array.isArray)) {
+    throw new EmbeddingError('Embedding response missing vectors.', 502);
+  }
+  return vectors;
+};
+
+const embedText = async (text, options = {}) => {
+  const [vector] = await embedTexts([text], options);
+  return vector;
 };
 
 module.exports = {
   embedText,
+  embedTexts,
+  isEmbeddingConfigured,
   EmbeddingError,
-  DEFAULT_EMBED_RETRY_DELAYS_MS,
+  DEFAULT_EMBEDDING_MODEL,
   DEFAULT_RATE_LIMIT_COOLDOWN_MS
 };
