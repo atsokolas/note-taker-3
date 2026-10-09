@@ -32,11 +32,14 @@ const getConfig = () => ({
 
 const isEmbeddingConfigured = () => Boolean(getConfig().token);
 
-/* A rate limit (429) and an empty balance (402) both mean "not now": refuse
+/* A rate limit (429), an overloaded provider (529) and an empty balance (402)
+   all mean "not now": refuse
    at once and stop asking for a while. The job runner sees a 429 and holds
    its jobs instead of abandoning them, so they embed once the provider says
    yes again. */
 let rateLimitedUntil = 0;
+
+const NOT_NOW = new Set([402, 429, 529]);
 
 const embedTexts = async (texts = [], { rateLimitCooldownMs = DEFAULT_RATE_LIMIT_COOLDOWN_MS } = {}) => {
   const inputs = (Array.isArray(texts) ? texts : []).map(text => truncateText(String(text || '').trim()));
@@ -47,11 +50,8 @@ const embedTexts = async (texts = [], { rateLimitCooldownMs = DEFAULT_RATE_LIMIT
   if (!token) throw new EmbeddingError('No embedding provider is configured.', 503);
   const now = Date.now();
   if (now < rateLimitedUntil) {
-    throw new EmbeddingError(
-      'Embedding provider is cooling down after a rate limit.',
-      429,
-      { retryAfterMs: rateLimitedUntil - now }
-    );
+    const message = 'Embedding provider is cooling down after a rate limit.';
+    throw new EmbeddingError(message, 429, { error: message, retryAfterMs: rateLimitedUntil - now });
   }
 
   const controller = new AbortController();
@@ -78,14 +78,15 @@ const embedTexts = async (texts = [], { rateLimitCooldownMs = DEFAULT_RATE_LIMIT
   }
 
   if (!response.ok) {
-    const status = response.status === 402 ? 429 : response.status;
-    if (status === 429) {
+    const notNow = NOT_NOW.has(response.status);
+    if (notNow) {
       rateLimitedUntil = Math.max(rateLimitedUntil, Date.now() + Math.max(1000, Number(rateLimitCooldownMs) || 0));
     }
-    const detail = body?.error?.message || response.statusText;
-    throw new EmbeddingError(`Embedding provider error ${response.status}: ${detail}`, status, {
-      ...(response.status === 402 ? { reason: 'out_of_credit' } : {}),
-      upstream: 'openrouter'
+    const message = `Embedding provider error ${response.status}: ${body?.error?.message || response.statusText}`;
+    throw new EmbeddingError(message, notNow ? 429 : response.status, {
+      error: message,
+      upstream: 'openrouter',
+      ...(response.status === 402 ? { reason: 'out_of_credit' } : {})
     });
   }
 

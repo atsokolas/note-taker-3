@@ -43,8 +43,8 @@ const reply = (status, body) => ({ ok: status >= 200 && status < 300, status, st
       assert.strictEqual(calls, 0);
     }
 
-    // 429 and 402 (empty balance): one attempt, then a cooldown that skips the provider.
-    for (const status of [429, 402]) {
+    // 429, 529 (overloaded) and 402 (empty balance): one attempt, then a cooldown that skips the provider.
+    for (const status of [429, 529, 402]) {
       let calls = 0;
       const { embedText } = load(async () => { calls += 1; return reply(status, { error: { message: 'not now' } }); });
       const started = Date.now();
@@ -61,7 +61,10 @@ const reply = (status, body) => ({ ok: status >= 200 && status < 300, status, st
     {
       let calls = 0;
       const { embedText } = load(async () => { calls += 1; return reply(400, { error: { message: 'bad' } }); });
-      await assert.rejects(() => embedText('some text'), error => error.status === 400);
+      await assert.rejects(
+        () => embedText('some text'),
+        error => error.status === 400 && /bad/.test(error.payload.error)
+      );
       assert.strictEqual(calls, 1);
     }
 
