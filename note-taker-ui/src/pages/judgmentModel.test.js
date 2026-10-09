@@ -217,6 +217,30 @@ describe('judgmentModel', () => {
     }));
   });
 
+  it('opens a Why chip in Library when a filing was matched to an owned article', () => {
+    const filed = {
+      _id: 'p',
+      sourceRefs: [{
+        _id: 'src-10q',
+        type: 'external',
+        citationLabel: '[1]',
+        title: 'CRWV 10-Q filed 2026-05-08',
+        url: 'https://www.sec.gov/Archives/edgar/data/1769628/000176962826000123/crwv-20250331.htm',
+        objectId: 'wiki-source-event-id',
+        metadata: { articleId: 'library-10q' }
+      }],
+      judgment: {
+        currentJudgment: 'A claim.',
+        why: [{ reasonId: 'w1', text: 'Q1 shows the loop scaling.', sourceRefIds: ['src-10q'] }]
+      }
+    };
+    expect(projectJudgment(filed).why[0].sources[0]).toEqual(expect.objectContaining({
+      n: 1,
+      label: '[1]',
+      href: '/library?articleId=library-10q'
+    }));
+  });
+
   it('opens a library highlight at the passage, not the publisher’s site', () => {
     const filed = {
       _id: 'p',

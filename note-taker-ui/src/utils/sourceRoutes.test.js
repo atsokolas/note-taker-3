@@ -78,6 +78,36 @@ describe('sourceRoutes', () => {
     });
   });
 
+  it('opens a filing in Library when the owned article identity was recorded beside the SEC URL', () => {
+    expect(resolveSourceDoors({
+      type: 'external',
+      title: 'CRWV 10-Q filed 2026-05-08',
+      url: 'https://www.sec.gov/Archives/edgar/data/1769628/000176962826000123/crwv-20250331.htm',
+      objectId: 'wiki-source-event-id',
+      metadata: { articleId: 'library-10q', source: 'sec-edgar', ticker: 'CRWV' }
+    })).toEqual({
+      ownedHref: '/library?articleId=library-10q',
+      originalHref: 'https://www.sec.gov/Archives/edgar/data/1769628/000176962826000123/crwv-20250331.htm',
+      openHref: '/library?articleId=library-10q',
+      isLibrary: true,
+      isExternalOnly: false
+    });
+  });
+
+  it('does not treat an external wrapper id as a Library article', () => {
+    expect(resolveSourceDoors({
+      type: 'external',
+      objectId: 'wiki-source-event-id',
+      url: 'https://www.sec.gov/Archives/edgar/data/1769628/q.htm'
+    })).toEqual({
+      ownedHref: '',
+      originalHref: 'https://www.sec.gov/Archives/edgar/data/1769628/q.htm',
+      openHref: 'https://www.sec.gov/Archives/edgar/data/1769628/q.htm',
+      isLibrary: false,
+      isExternalOnly: true
+    });
+  });
+
   it('keeps real external sources external and rejects unsafe fallbacks', () => {
     expect(buildSourceOpenPath({ type: 'external', url: 'https://example.com/source' }))
       .toBe('https://example.com/source');

@@ -682,7 +682,48 @@ const WIKI_SOURCE_SINGLE_OVERLAP_AMBIGUOUS = new Set([
   'busines', 'business', 'market', 'people', 'proces', 'process', 'signal', 'time', 'work'
 ]);
 
-const sourceLooksOffTopicForPage = ({ pageTokens = new Set(), source = {} } = {}) => {
+const watchedFilerIdentity = (page = {}) => {
+  const watch = page?.externalWatches?.edgar || {};
+  const ticker = String(watch.ticker || '').trim().toLowerCase();
+  const companyName = String(watch.companyName || '').trim();
+  const cik = String(watch.cik || '').replace(/\D/g, '');
+  return { ticker, companyName, cik, watch };
+};
+
+const addPageIdentityTokens = (pageTokens, page = {}) => {
+  const { ticker, companyName } = watchedFilerIdentity(page);
+  if (ticker.length >= 2) pageTokens.add(ticker);
+  tokenizeForSourceRelevance([
+    page.title,
+    companyName,
+    page.activeCompanyDossierKey,
+    page.investmentDossier?.identity?.name,
+    page.investmentDossier?.companyName
+  ].filter(Boolean).join(' ')).forEach(token => pageTokens.add(token));
+  return pageTokens;
+};
+
+const sourceBelongsToWatchedFiler = ({ page = {}, source = {} } = {}) => {
+  const { ticker, cik } = watchedFilerIdentity(page);
+  if (!ticker && !cik) return false;
+  const provider = String(source?.provider || source?.metadata?.source || source?.metadata?.provider || '')
+    .trim()
+    .toLowerCase();
+  if (provider === 'sec-edgar' || provider.includes('edgar')) return true;
+  const haystack = [
+    source.title,
+    source.url,
+    source.snippet,
+    source.metadata?.ticker,
+    source.metadata?.companyName,
+    source.metadata?.cik
+  ].filter(Boolean).join(' ').toLowerCase();
+  if (ticker && haystack.includes(ticker)) return true;
+  return Boolean(cik && haystack.includes(cik));
+};
+
+const sourceLooksOffTopicForPage = ({ pageTokens = new Set(), source = {}, page = {} } = {}) => {
+  if (sourceBelongsToWatchedFiler({ page, source })) return false;
   if (!pageTokens.size || pageTokens.size < 2) return false;
   const titleTokens = tokenizeForSourceRelevance(source.title || '');
   const titleOverlap = titleTokens.filter(token => pageTokens.has(token));
@@ -691,7 +732,9 @@ const sourceLooksOffTopicForPage = ({ pageTokens = new Set(), source = {} } = {}
     source.title,
     source.snippet,
     source.url,
-    source.citationLabel
+    source.citationLabel,
+    source.metadata?.ticker,
+    source.metadata?.companyName
   ].filter(Boolean).join(' ');
   const sourceTokens = tokenizeForSourceRelevance(sourceText);
   if (!sourceTokens.length) return false;
@@ -770,6 +813,16 @@ const remapClaimSourceReferences = ({ claims = [], citationIndexMap = new Map(),
     : []
 );
 
+const filterJudgmentSourceRefIds = (items, keptSourceIds) => (
+  Array.isArray(items)
+    ? items.map((item) => (
+      Array.isArray(item?.sourceRefIds)
+        ? { ...item, sourceRefIds: item.sourceRefIds.filter(id => keptSourceIds.has(String(id))) }
+        : item
+    ))
+    : items
+);
+
 const sanitizeSourceLedgerForRead = (raw = {}) => {
   const sourceRefs = Array.isArray(raw.sourceRefs) ? raw.sourceRefs : [];
   if (sourceRefs.length < 4) return raw;
@@ -782,8 +835,8 @@ const sanitizeSourceLedgerForRead = (raw = {}) => {
     stripSourceTitlePhrases(raw.plainText, sourceRefs),
     extractRelevanceTextFromDoc(raw.body).join(' ')
   ].filter(Boolean).join(' ').toLowerCase();
-  const pageTokens = new Set(tokenizeForSourceRelevance(pageText));
-  const keepFlags = sourceRefs.map(source => !sourceLooksOffTopicForPage({ pageTokens, source }));
+  const pageTokens = addPageIdentityTokens(new Set(tokenizeForSourceRelevance(pageText)), raw);
+  const keepFlags = sourceRefs.map(source => !sourceLooksOffTopicForPage({ pageTokens, source, page: raw }));
   const removedCount = keepFlags.filter(keep => !keep).length;
   if (!removedCount || sourceRefs.length - removedCount < 3) {
     return raw;
@@ -806,6 +859,16 @@ const sanitizeSourceLedgerForRead = (raw = {}) => {
     return keepFlags[index] || (sourceId && keptSourceIds.has(sourceId));
   });
   const keptCitationIds = new Set(keptCitations.map(citation => String(citation._id || citation.id || '')).filter(Boolean));
+  const judgment = raw.judgment && typeof raw.judgment === 'object'
+    ? {
+      ...raw.judgment,
+      why: filterJudgmentSourceRefIds(raw.judgment.why, keptSourceIds),
+      against: filterJudgmentSourceRefIds(raw.judgment.against, keptSourceIds),
+      assumptions: filterJudgmentSourceRefIds(raw.judgment.assumptions, keptSourceIds),
+      decisions: filterJudgmentSourceRefIds(raw.judgment.decisions, keptSourceIds),
+      verdicts: filterJudgmentSourceRefIds(raw.judgment.verdicts, keptSourceIds)
+    }
+    : raw.judgment;
   return {
     ...raw,
     body: remapCitationIndexesInDoc(
@@ -820,6 +883,7 @@ const sanitizeSourceLedgerForRead = (raw = {}) => {
       keptSourceIds,
       keptCitationIds
     }),
+    judgment,
     aiState: {
       ...(raw.aiState || {}),
       sourceRefIdsAtDraft: Array.isArray(raw.aiState?.sourceRefIdsAtDraft)
@@ -827,6 +891,82 @@ const sanitizeSourceLedgerForRead = (raw = {}) => {
         : []
     }
   };
+};
+
+const sourceHasOwnedLibraryIdentity = (source = {}) => {
+  const type = String(source?.type || source?.sourceType || '').trim().toLowerCase();
+  const objectId = source?.objectId || source?.sourceObjectId || source?.sourceId;
+  const articleId = source?.metadata?.articleId || source?.articleId;
+  if (type === 'highlight') {
+    return Boolean(objectId && (source.parentObjectId || source.parentArticleId || source.articleId));
+  }
+  if (type === 'article') return Boolean(objectId || articleId);
+  return Boolean(articleId);
+};
+
+const canonicalHttpUrl = (value = '') => {
+  const url = String(value || '').trim();
+  if (!/^https?:\/\//i.test(url)) return '';
+  try {
+    const parsed = new URL(url);
+    parsed.hash = '';
+    parsed.pathname = parsed.pathname.replace(/\/+$/, '') || '/';
+    return parsed.toString();
+  } catch (_error) {
+    return url.replace(/\/+$/, '');
+  }
+};
+
+const hydrateOwnedSourceRefs = async ({ page, Article, userId } = {}) => {
+  if (!page || !Article || !userId) return page;
+  const sourceRefs = Array.isArray(page.sourceRefs) ? page.sourceRefs : [];
+  const rawUrls = [...new Set(sourceRefs
+    .filter(source => !sourceHasOwnedLibraryIdentity(source) && canonicalHttpUrl(source?.url))
+    .flatMap((source) => {
+      const url = String(source.url).trim();
+      const canonical = canonicalHttpUrl(url);
+      return canonical && canonical !== url ? [url, canonical] : [url];
+    }))];
+  if (!rawUrls.length) return page;
+  let articles = [];
+  try {
+    const query = Article.find({ userId, url: { $in: rawUrls } });
+    if (query && typeof query.select === 'function') query.select('_id url');
+    articles = query && typeof query.lean === 'function' ? await query.lean() : await query;
+  } catch (_error) {
+    return page;
+  }
+  const byUrl = new Map();
+  (Array.isArray(articles) ? articles : []).forEach((article) => {
+    const url = String(article?.url || '').trim();
+    const id = String(article?._id || article?.id || '');
+    if (!url || !id) return;
+    byUrl.set(url, id);
+    const canonical = canonicalHttpUrl(url);
+    if (canonical) byUrl.set(canonical, id);
+  });
+  if (!byUrl.size) return page;
+  page.sourceRefs = sourceRefs.map((source) => {
+    if (sourceHasOwnedLibraryIdentity(source)) return source;
+    const rawUrl = String(source?.url || '').trim();
+    const articleId = byUrl.get(rawUrl) || byUrl.get(canonicalHttpUrl(rawUrl));
+    if (!articleId) return source;
+    const type = String(source?.type || '').trim().toLowerCase();
+    if (type === 'highlight') {
+      return {
+        ...source,
+        parentObjectId: source.parentObjectId || articleId,
+        metadata: { ...(source.metadata || {}), articleId }
+      };
+    }
+    return {
+      ...source,
+      type: 'article',
+      objectId: articleId,
+      metadata: { ...(source.metadata || {}), articleId }
+    };
+  });
+  return page;
 };
 
 const cloneSourceRefForPromotion = (source) => {
@@ -1406,7 +1546,7 @@ const sourceRefFromWikiSourceEvent = (event = {}) => {
   const snippetLimit = isGitHubConfig ? 4000 : 1000;
   return {
     type: sourceType,
-    objectId: raw.sourceObjectId || raw._id || null,
+      objectId: raw.sourceObjectId || null,
     parentObjectId: null,
     title: String(raw.title || raw.url || 'Repository source').trim().slice(0, 240),
     snippet: cleanWikiSummary(raw.text || raw.summary || '', snippetLimit),
@@ -5416,6 +5556,7 @@ const buildWikiRouter = ({
       }
       const page = await pageQuery.lean();
       if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
+      await hydrateOwnedSourceRefs({ page, Article, userId: req.user.id });
       const repoWatch = page.externalWatches?.githubRepo || {};
       const lastProbeAt = repoWatch.lastHeadProbeAt ? new Date(repoWatch.lastHeadProbeAt).getTime() : 0;
       const probeStale = Date.now() - lastProbeAt >= 15 * 60 * 1000;
@@ -9286,6 +9427,7 @@ module.exports = {
   serializePublicCasebook,
   serializePublicWikiPage,
   serializeWikiPage,
+  hydrateOwnedSourceRefs,
   slugify,
   wikiCollectionSearchClause,
   WIKI_COLLECTION_SEARCH_FIELDS,
