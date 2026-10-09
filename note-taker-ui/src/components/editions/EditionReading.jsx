@@ -4,14 +4,17 @@ import {
   datelineLine,
   issueLine,
   latestFilingLine,
+  sectionTones,
   standLayout,
   stateOf
 } from '../../pages/editionModel';
 import EditionShare from './EditionShare';
 import { EditionSourcesJump, EditionSourcesList, useEditionSources } from './EditionSources';
 import AgentMark from './AgentMark';
-import { handsOf } from './editionAgent';
+import { agentOf, handOf, handsOf } from './editionAgent';
+import EditionDesk from './EditionDesk';
 import EditionFinding from './EditionFinding';
+import { KeeperMark } from './EditionShelfUnit';
 import SectionSilence from './SectionSilence';
 import SourcePeek from './SourcePeek';
 import ThoughtComposer, { useEditionThoughts } from './ThoughtComposer';
@@ -33,8 +36,11 @@ export default function EditionReading({
   issue,
   paperTitle = '',
   issueLabel,
+  keepers = {},
+  desk = [],
   onChoose,
   focusItem,
+  focusSection = '',
   focus,
   onFocus,
   utilityOpen,
@@ -82,6 +88,16 @@ export default function EditionReading({
     return () => cancelAnimationFrame(frame);
     // An explicit incoming finding link wins over a remembered place.
   }, [loaded, focusItem, issue._id, jump]);
+  useEffect(() => {
+    if (!loaded || !focusSection || focusItem) return undefined;
+    const frame = requestAnimationFrame(() => {
+      const element = document.getElementById(`edition-section-${focusSection}`);
+      element?.scrollIntoView({ block: 'start', behavior: 'auto' });
+      element?.focus({ preventScroll: true });
+      setResume(null);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [loaded, focusSection, focusItem]);
   useEffect(() => {
     if (!loaded) return;
     let frame;
@@ -165,6 +181,10 @@ export default function EditionReading({
     pending?.items?.filter((item) => !edition?.items?.some((held) => held.itemId === item.itemId))
       .length || 0;
   const currentPeek = peek && edition?.items.find((item) => item.itemId === peek.itemId);
+  const tones = sectionTones(sections);
+  /* The editor's mark only matters once more than one hand is on the paper. */
+  const writer = agentOf({ label: row.writtenBy, runtime: row.writtenByRuntime });
+  const editor = desk.length > 1 && writer ? handOf(writer) : null;
   return (
     <div ref={root} data-testid="edition-read">
       <div className="edition-paper-tools">
@@ -210,8 +230,10 @@ export default function EditionReading({
           {[filingState, collectionState].filter(Boolean).join(' · ')}
         </span>
       </div>
+      <EditionDesk hands={desk} />
       <div className="reading-intro">
         {row.standfirst ? <p>{row.standfirst}</p> : null}
+        {row.standfirst && editor ? <p className="reading-editor"><AgentMark {...editor} glyph /> Standfirst by the editor</p> : null}
       </div>
       {focus ? (
         <button className="reading-focus-exit" onClick={() => onFocus(false)}>
@@ -242,17 +264,28 @@ export default function EditionReading({
               {sections.map((section) => (
                 <section
                   key={section.key}
-                  className="reading-section"
+                  id={section.key ? `edition-section-${section.key}` : undefined}
+                  tabIndex={section.key ? -1 : undefined}
+                  className={`reading-section${section.label ? ` reading-section--block edition-tone--${tones[section.key] || 'ink'}` : ''}`}
                   aria-label={section.label || 'Readings'}
                 >
                   {section.label ? (
                     <h2 className="reading-section-label">
-                      {section.label}
-                      {handsOf(section.items).map((hand) => (
-                        <AgentMark key={`${hand.runtime}:${hand.label}`} runtime={hand.runtime} label={hand.label} glyph />
-                      ))}
+                      <span className="reading-section-label__name">{section.label}</span>
+                      <span className="reading-section-label__count" aria-label={`${section.items.length} filed`}>
+                        {section.items.length || '—'}
+                      </span>
+                      <span className="reading-section-label__marks">
+                        <KeeperMark keeper={keepers[section.key]} />
+                        {handsOf(section.items)
+                          .filter(hand => agentOf(hand)?.key !== keepers[section.key]?.agent?.key)
+                          .map((hand) => (
+                            <AgentMark key={`${hand.runtime}:${hand.label}`} runtime={hand.runtime} label={hand.label} glyph />
+                          ))}
+                      </span>
                     </h2>
                   ) : null}
+                  <div className="reading-section__body">
                   {section.items.length ? (
                     section.items.map((item) => (
                       <EditionFinding
@@ -267,19 +300,22 @@ export default function EditionReading({
                       />
                     ))
                   ) : (
-                    <SectionSilence
-                      className="reading-empty"
-                      silence={edition.silences?.find((silence) => silence.key === section.key)}
-                      fallback={section.label
-                        ? `Nothing filed under ${section.label} in this issue.`
-                        : 'No findings filed in this issue yet.'}
-                    />
+                    <div className={`reading-bay reading-bay--${edition.silences?.find((silence) => silence.key === section.key)?.state || 'unknown'}`}>
+                      <SectionSilence
+                        className="reading-empty"
+                        silence={edition.silences?.find((silence) => silence.key === section.key)}
+                        fallback={section.label
+                          ? `Nothing filed under ${section.label} in this issue.`
+                          : 'No findings filed in this issue yet.'}
+                      />
+                    </div>
                   )}
+                  </div>
                 </section>
               ))}
               {edition.throughLine ? (
                 <section className="reading-afterword">
-                  <h2>Across the week</h2>
+                  <h2>{editor ? <AgentMark {...editor} caption="Written by" glyph /> : null}Across the week</h2>
                   <p>{edition.throughLine}</p>
                 </section>
               ) : null}

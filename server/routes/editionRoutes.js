@@ -161,7 +161,17 @@ const serializeEdition = (edition = {}, { withItems = true, profiles = null, rec
     savedCount: items.filter(item => item.savedArticleId).length,
     createdAt: edition.createdAt,
     updatedAt: edition.updatedAt,
-    ...(withItems ? { items } : {})
+    /* The stand draws every issue of a run as a row on the shelf, so a list
+       row carries who filed into which column, and nothing of what they said. */
+    ...(withItems ? { items } : {
+      filings: items.map(item => ({
+        section: item.section,
+        filedBy: item.filedBy,
+        filedByRuntime: item.filedByRuntime,
+        filedAt: item.filedAt,
+        saved: Boolean(item.savedArticleId)
+      }))
+    })
   };
 };
 

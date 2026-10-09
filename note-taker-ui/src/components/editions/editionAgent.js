@@ -64,3 +64,6 @@ export const handsOf = (items = []) => {
   });
   return [...seen.values()];
 };
+
+/* Back from a recognised agent to the props AgentMark takes. */
+export const handOf = (agent) => ({ runtime: AGENTS[agent.key] ? agent.key : '', label: agent.label });

@@ -1,8 +1,8 @@
 import {
   byInboxEdition, byPaper, bySection, closesLine, datelineLine,
-  foreignFilers, gapLine, inboxEditionLine, issueLine, issueShelfMeta, issuesShelfLabel, keepersFor, latestFilingLine,
+  deskFor, foreignFilers, inboxEditionLine, issueLine, keepersFor, latestFilingLine,
   publicSourceHref, resolvePaperIssueId, runLine, shelfIssuesForPaper,
-  sourceLinks, standLayout, stateOf, takenLine, windowLine
+  sectionTones, shelfGrid, sourceLinks, standLayout, stateOf, windowLine
 } from './editionModel';
 
 describe('the window a paper covers', () => {
@@ -45,60 +45,6 @@ describe('the filing line', () => {
 
   it('stays quiet when an edition has no filing time', () => {
     expect(latestFilingLine({ items: [{}] }, new Date('2026-09-27T18:00:00Z'))).toBe('');
-  });
-});
-
-describe('what the paper admits about itself', () => {
-  /* An AI weekly with nothing under counterevidence is telling you something
-     real, and it has to say which section went missing, not how many did. */
-  it('names the section the week never filled', () => {
-    expect(gapLine({ unfilled: ['Evaluation & counterevidence'] }))
-      .toBe('Nothing this week under Evaluation & counterevidence.');
-  });
-
-  it('names all of them, and joins the last with "or"', () => {
-    expect(gapLine({ unfilled: ['Infrastructure & systems', 'Evaluation & counterevidence'] }))
-      .toBe('Nothing this week under Infrastructure & systems or Evaluation & counterevidence.');
-    expect(gapLine({ unfilled: ['A', 'B', 'C'] })).toBe('Nothing this week under A, B or C.');
-  });
-
-  /* Looked-and-found-nothing and nobody-said are different admissions, and an
-     issue from before receipts keeps the sentence it always had. */
-  it('says which silence each empty section is', () => {
-    expect(gapLine({
-      unfilled: ['Models & methods', 'Infrastructure & systems', 'Evaluation & counterevidence'],
-      silences: [
-        { key: 'models_methods', label: 'Models & methods', state: 'checked', by: [{ label: 'Jarvis', runtime: 'openclaw' }] },
-        { key: 'infrastructure_systems', label: 'Infrastructure & systems', state: 'unreported', by: [] },
-        { key: 'evaluation_counterevidence', label: 'Evaluation & counterevidence', state: 'unknown', by: [] }
-      ]
-    })).toBe('Nothing met the bar under Models & methods. Not reported under Infrastructure & systems. Nothing this week under Evaluation & counterevidence.');
-  });
-
-  /* A week that covered its own shape has nothing to confess, and "0 sections
-     empty" is filler. */
-  it('stays quiet when the week filled every section', () => {
-    expect(gapLine({ unfilled: [] })).toBe('');
-    expect(gapLine()).toBe('');
-  });
-});
-
-describe('what you took from it', () => {
-  /* An unread edition is not a failed one, so before you take anything the
-     paper says how much there is — never that you have taken none. */
-  it('offers the sources before it counts them', () => {
-    expect(takenLine({ itemCount: 4, savedCount: 0 })).toBe('4 sources.');
-    expect(takenLine({ itemCount: 1, savedCount: 0 })).toBe('1 source.');
-  });
-
-  it('counts what crossed over', () => {
-    expect(takenLine({ itemCount: 4, savedCount: 2 })).toBe('2 of 4 in your library.');
-    expect(takenLine({ itemCount: 4, savedCount: 4 })).toBe('All 4 in your library.');
-  });
-
-  it('says nothing about an edition with nothing in it', () => {
-    expect(takenLine({ itemCount: 0, savedCount: 0 })).toBe('');
-    expect(takenLine()).toBe('');
   });
 });
 
@@ -371,10 +317,6 @@ describe('the editions shelf', () => {
     { _id: 'i0', windowStart: '2026-08-30', windowEnd: '2026-09-05', number: 1 }
   ];
 
-  it('labels the issue section from the open issue year', () => {
-    expect(issuesShelfLabel(issues, 'i2')).toBe('Issues · 2026');
-  });
-
   it('keeps a historical selection visible outside the recent window', () => {
     const many = Array.from({ length: 14 }, (_, index) => ({
       _id: `e${index}`,
@@ -390,10 +332,6 @@ describe('the editions shelf', () => {
     const paper = { profile: 'weekend', issues, current: 1 };
     expect(resolvePaperIssueId(paper, () => ({ issueId: 'i0' }))).toBe('i0');
     expect(resolvePaperIssueId(paper, () => ({ issueId: 'missing' }))).toBe('i2');
-  });
-
-  it('formats issue numbers for the shelf meta column', () => {
-    expect(issueShelfMeta({ number: 3 }, 'Edition')).toBe('No. 3');
   });
 });
 
@@ -423,5 +361,76 @@ describe('who keeps each column', () => {
       counter: [expect.objectContaining({ key: 'codex' })]
     });
     expect(foreignFilers(issues[0], keepers).infra).toBeUndefined();
+  });
+});
+
+describe('the run as a storage unit', () => {
+  const sections = [
+    { key: 'models', label: 'Models & methods' },
+    { key: 'infra', label: 'Infrastructure & systems' },
+    { key: 'evaluation_counterevidence', label: 'Evaluation & counterevidence' }
+  ];
+  const codex = (section, extra = {}) => ({ section, filedBy: 'Codex job', filedByRuntime: 'codex', ...extra });
+  const issue = (number, filings, silences = []) => ({
+    _id: `issue-${number}`,
+    number,
+    windowStart: `2026-09-${String(number * 7).padStart(2, '0')}`,
+    windowEnd: `2026-09-${String(number * 7 + 6).padStart(2, '0')}`,
+    sections,
+    filings,
+    silences
+  });
+  const paper = {
+    current: 2,
+    issues: [
+      issue(1, [codex('models'), codex('infra'), codex('evaluation_counterevidence'), codex('evaluation_counterevidence')]),
+      issue(2, [codex('models')], [{ key: 'infra', state: 'unreported', by: [] }]),
+      issue(3, [codex('models'), { section: 'evaluation_counterevidence', filedBy: 'Claude', filedByRuntime: 'claude-code' }],
+        [{ key: 'infra', state: 'checked', by: [{ label: 'Codex job', runtime: 'codex' }] }])
+    ]
+  };
+
+  it('draws a row per issue, oldest first, and a bay in each of the four states', () => {
+    const grid = shelfGrid(paper, 'issue-3');
+    expect(grid.rows.map(row => row.label)).toEqual(['1 · Sep 7', '2 · Sep 14', '3 · Sep 21']);
+    expect(grid.rows[2].current).toBe(true);
+    expect(grid.rows[1].cells.map(cell => cell.state)).toEqual(['filled', 'unreported', 'unknown']);
+    expect(grid.rows[2].cells[1]).toEqual(expect.objectContaining({ state: 'checked', count: 0 }));
+    expect(grid.rows[0].cells[2]).toEqual(expect.objectContaining({ state: 'filled', count: 2 }));
+  });
+
+  it('marks a hand that filed outside the column it keeps', () => {
+    const grid = shelfGrid(paper, 'issue-3');
+    expect(grid.sections[2].keeper).toEqual({ agent: expect.objectContaining({ key: 'codex' }), derived: true });
+    expect(grid.rows[2].cells[2].foreign).toEqual([expect.objectContaining({ key: 'claude-code' })]);
+    expect(grid.rows[0].cells[2].foreign).toEqual([]);
+  });
+
+  it('holds at most the rail’s twelve issues, the open one kept', () => {
+    const long = { current: 19, issues: Array.from({ length: 20 }, (_, index) => issue(index + 1, [])) };
+    long.issues.forEach((row, index) => { row.windowStart = new Date(Date.UTC(2026, 0, 1 + index * 7)).toISOString(); });
+    const grid = shelfGrid(long, 'issue-2');
+    expect(grid.rows).toHaveLength(13);
+    expect(grid.rows[0].issueId).toBe('issue-2');
+  });
+
+  it('colours counter-evidence red and the rest in profile order', () => {
+    expect(sectionTones(sections)).toEqual({ models: 'blue', infra: 'ochre', evaluation_counterevidence: 'red' });
+  });
+
+  it('shows no desk for a paper one agent keeps', () => {
+    const single = { ...paper, issues: paper.issues.slice(0, 2) };
+    expect(deskFor(single, single.issues[1])).toEqual([]);
+  });
+
+  it('says what each hand did this issue and how much of its filing the reader kept', () => {
+    const now = Date.parse('2026-10-09');
+    const withSaved = { ...paper, issues: [{ ...paper.issues[0], filings: [codex('models', { saved: true }), codex('infra'), codex('evaluation_counterevidence'), codex('evaluation_counterevidence')] }, ...paper.issues.slice(1)] };
+    const desk = deskFor(withSaved, { ...withSaved.issues[2], filings: [codex('models', { filedAt: '2026-10-06T09:00:00Z' })] }, now);
+    expect(desk.map(hand => [hand.agent.name, hand.thisIssue, hand.kept])).toEqual([
+      ['Codex', 'Filed Oct 6', 'Kept by you: 1 of 6'],
+      ['Claude', 'Not reported', 'Kept by you: 0 of 1']
+    ]);
+    expect(desk[0].usually).toEqual(['every column']);
   });
 });

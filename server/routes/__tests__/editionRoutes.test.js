@@ -293,6 +293,18 @@ describe('the newsstand', () => {
     expect(res.body.unfilled).toEqual(['Infrastructure & systems', 'Evaluation & counterevidence']);
   });
 
+  it('lists who filed into which column, and none of what they said', async () => {
+    asAgent = true;
+    await send('/api/editions', 'POST', week());
+    const [row] = (await send('/api/editions')).body.editions;
+    expect(row.items).toBeUndefined();
+    expect(row.filings.length).toBeGreaterThan(0);
+    row.filings.forEach((filing) => {
+      expect(Object.keys(filing).sort()).toEqual(['filedAt', 'filedBy', 'filedByRuntime', 'saved', 'section']);
+      expect(filing.saved).toBe(false);
+    });
+  });
+
   describe('the save door', () => {
     it('takes a source across into the library and remembers that it did', async () => {
       asAgent = true;
