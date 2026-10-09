@@ -97,7 +97,7 @@ test('every case names sources that exist and a surface the runner knows', () =>
   }
 });
 
-test('a plain "contains no material" counts as declining, without catching "contains notes"', () => {
+test('"contains no material" counts as declining; "contains no caveats" does not', () => {
   assert.ok(DECLINE_PATTERN.test('Your library contains no material on mRNA vaccines.'));
-  assert.ok(!DECLINE_PATTERN.test('The checklist essay contains notes on surgical teams.'));
+  assert.ok(!DECLINE_PATTERN.test('The answer contains no caveats: mRNA vaccines train the immune system.'));
 });
