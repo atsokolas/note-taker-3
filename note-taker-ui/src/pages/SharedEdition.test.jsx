@@ -54,6 +54,21 @@ describe('a paper someone published', () => {
 
   /* The same rule the owner's copy follows: a week with nothing under
      counterevidence is saying something. */
+  it('says which silence an empty section is, without the token label', async () => {
+    getPublicEdition.mockResolvedValue(paper({
+      sections: [...paper().sections, { key: 'infrastructure_systems', label: 'Infrastructure & systems' }],
+      silences: [
+        { key: 'evaluation_counterevidence', label: 'Evaluation & counterevidence', state: 'checked', by: [{ label: 'OpenClaw · Jarvis', runtime: 'openclaw' }] },
+        { key: 'infrastructure_systems', label: 'Infrastructure & systems', state: 'unreported', by: [] }
+      ]
+    }));
+    render(<SharedEdition />);
+    const looked = await screen.findByText(/looked; nothing met the bar\./);
+    expect(looked.querySelector('[title]')).toBeNull();
+    expect(screen.getByText('Not reported this issue.')).toBeInTheDocument();
+    expect(screen.queryByText('Nothing this week.')).toBeNull();
+  });
+
   it('prints a section nobody filled', async () => {
     getPublicEdition.mockResolvedValue(paper());
     render(<SharedEdition />);

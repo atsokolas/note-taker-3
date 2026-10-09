@@ -614,7 +614,9 @@ const buildEditionRouter = ({
           const put = await putIssue({
             existing: held,
             userId,
-            doc: { ...built, items, checks: mergeChecks(held?.checks, checks), writtenBy }
+            /* Receipts are never part of the replacement: a rewrite that read
+               the issue before another agent's receipt landed would drop it. */
+            doc: { ...built, items, writtenBy, ...(held ? {} : { checks }) }
           });
           saved = put.saved;
           created = put.created;
@@ -630,6 +632,8 @@ const buildEditionRouter = ({
           if (!held) throw error;
         }
       }
+
+      if (!created && checks.length) saved = (await appendChecks({ existing: saved, userId, checks })).saved;
 
       return res.status(created ? 201 : 200).json(await present(saved, req.user.id, profiles));
     } catch (error) {

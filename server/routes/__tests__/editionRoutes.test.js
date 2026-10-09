@@ -1163,6 +1163,32 @@ describe('an empty section says which silence it is', () => {
     ]);
     expect(stateOf(rewritten, 'evaluation_counterevidence')).toBe('checked');
   });
+
+  /* A rewrite reads the issue, then writes it. A receipt another agent files
+     in between must survive: receipts are pushed, never replaced. */
+  it('keeps a receipt that lands while a rewrite is in flight', async () => {
+    await file({ items: [finding()] });
+    const write = Edition.findOneAndUpdate;
+    Edition.findOneAndUpdate = async (query, patch, options) => {
+      if (!patch.$push && !patch.$set) {
+        Edition.rows[0].checks = [{ section: 'infrastructure_systems', by: { label: 'Hermes', agentTokenId: 'token-9' } }];
+      }
+      return write(query, patch, options);
+    };
+    const response = await fetch(`${url}/api/editions`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        profile: 'this_week_in_ai',
+        windowStart: Edition.rows[0].windowStart,
+        windowEnd: Edition.rows[0].windowEnd,
+        items: [finding(), finding({ url: 'https://example.com/two' })],
+        checked: ['evaluation_counterevidence']
+      })
+    });
+    expect(response.status).toBe(200);
+    expect(Edition.rows[0].checks.map(check => check.by.label)).toEqual(['Hermes', 'Jarvis']);
+  });
 });
 
 describe('the edition document', () => {
