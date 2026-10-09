@@ -20,7 +20,7 @@ const CASES = Object.freeze([
   { id: 'procedure-protects', surface: 'think', ask: 'Which of my sources argue that a small procedure can protect judgment?', sources: ['checklists', 'premortem'], allowed: ['decisionHygiene', 'reviewRituals'] },
   { id: 'hiring', surface: 'think', ask: 'What have I written about hiring, and what in my reading bears on it?', sources: ['hiring'], oneOf: ['baseRates'] },
   { id: 'tired-decisions', surface: 'library', ask: 'Find what I saved about tired people making worse decisions.', sources: ['sleep'] },
-  { id: 'imagined-failure', surface: 'library', ask: 'Is there anything in my library about imagining a project has already failed?', sources: ['premortem'] },
+  { id: 'imagined-failure', surface: 'library', ask: 'Is there anything in my library about imagining a project has already failed?', sources: ['premortem'], allowed: ['baseRates'] },
   { id: 'code-review-margin', surface: 'think', ask: 'What did I note in the margin about code review?', sources: ['checklists'] },
   { id: 'practice-and-writing', surface: 'think', ask: 'Connect deliberate practice to writing as a way of thinking.', sources: ['deliberatePractice', 'writing'] },
   { id: 'base-rate-skeptic', surface: 'library', ask: 'What would a skeptic of base rates say, and how do my sources answer it?', sources: ['baseRates'] },

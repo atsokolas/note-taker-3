@@ -33,13 +33,16 @@ const quotations = (reply = '') => [...String(reply).matchAll(/[“"]([^”"]+)[
 
 // Quotations of five words or more that appear in none of the given texts.
 // A short phrase in quotes is emphasis; a sentence in quotes is a claim
-// about what a source said.
+// about what a source said. An ellipsis marks words left out, so each piece
+// between ellipses must appear on its own, however short.
 const inventedQuotes = (reply = '', texts = []) => {
-  const haystacks = (Array.isArray(texts) ? texts : []).map(text => words(text).join(' '));
-  return quotations(reply).filter((span) => {
-    const needle = words(span).join(' ');
-    return !haystacks.some(text => text.includes(needle));
-  });
+  const haystacks = (Array.isArray(texts) ? texts : []).map(text => ` ${words(text).join(' ')} `);
+  const found = piece => haystacks.some(text => text.includes(` ${piece} `));
+  return quotations(reply).filter(span => span
+    .split(/…|\.{3}/)
+    .map(piece => words(piece).join(' '))
+    .filter(Boolean)
+    .some(piece => !found(piece)));
 };
 
 module.exports = { PASSAGE_WORDS, words, drawsOn, groundedIn, inventedQuotes };

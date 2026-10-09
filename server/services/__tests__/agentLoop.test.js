@@ -37,11 +37,12 @@ describe('runAgentLoop', () => {
     expect(result.reply).toMatch(/default option/);
   });
 
-  it('stops offering tools after the last round', async () => {
-    const chat = jest.fn(async ({ tools }) => (tools ? { toolCalls: [call('search_library', { query: 'x' })] } : { text: 'Nothing in your library covers this.' }));
+  it('stops allowing tools after the last round, but still lists them', async () => {
+    const chat = jest.fn(async ({ toolChoice }) => (toolChoice === 'auto' ? { toolCalls: [call('search_library', { query: 'x' })] } : { text: 'Nothing in your library covers this.' }));
     const result = await runAgentLoop({ messages, search: async () => [], read: jest.fn(), chat });
     expect(chat).toHaveBeenCalledTimes(4);
-    expect(chat.mock.calls[3][0].tools).toBeUndefined();
+    expect(chat.mock.calls[3][0].toolChoice).toBe('none');
+    expect(chat.mock.calls[3][0].tools.map(tool => tool.function.name)).toContain('search_library');
     expect(result.reply).toBe('Nothing in your library covers this.');
   });
 
@@ -54,6 +55,27 @@ describe('runAgentLoop', () => {
     expect(chat).toHaveBeenCalledTimes(2);
     expect(chat.mock.calls[1][0].messages.at(-1).content).toMatch(/not in any source you were shown/);
     expect(result.reply).toMatch(/default option/);
+  });
+
+  it('checks each side of an ellipsis in a quotation on its own', async () => {
+    const chat = scripted({ text: 'It says "Tired people make worse decisions … fatigue narrows attention to the default option".' });
+    const result = await runAgentLoop({ messages, sources: [sleep], chat });
+    expect(chat).toHaveBeenCalledTimes(1);
+    expect(result.reply).toMatch(/default option/);
+  });
+
+  it('still catches invented words beside an ellipsis', async () => {
+    const forged = { text: 'It says "Sleep is always necessary … fatigue narrows attention to the default option".' };
+    const chat = scripted(forged, forged);
+    expect(await runAgentLoop({ messages, sources: [sleep], chat })).toBeNull();
+  });
+
+  it('takes a source\'s title in quotes as its name, not an invented quotation', async () => {
+    const checklists = { id: 'checklists', title: 'Why checklists beat expertise in complex work', fullText: 'Your note: Same thing happens with code review checklists on my team.' };
+    const chat = scripted({ text: 'In "Why checklists beat expertise in complex work" you noted "Same thing happens with code review checklists on my team".' });
+    const result = await runAgentLoop({ messages, sources: [checklists], chat });
+    expect(chat).toHaveBeenCalledTimes(1);
+    expect(result.reply).toMatch(/code review/);
   });
 
   it('returns nothing when the quotation is still invented after repair', async () => {

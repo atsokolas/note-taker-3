@@ -75,7 +75,8 @@ const SEARCH_RULE = 'You can search the reader\'s library and read a source befo
 const LOOP_RULES = [
   'When you rely on a source, quote its exact words in double quotes and name the source. Quote only words that appear in a passage you were shown or read.',
   'A passage that begins "You hold:" is a view the reader holds, with their reasons and what would change their mind. When what you found supports it or cuts against it, say which, and quote the view.',
-  'If nothing in the library bears on the question, say so plainly in one sentence. Do not answer from general knowledge as though the library said it.'
+  'If nothing in the library bears on the question, say so plainly in one sentence. Do not answer from general knowledge as though the library said it.',
+  'Name only the sources that answer the question. Do not add related reading the reader did not ask for, and do not name a source only to say it does not apply.'
 ];
 const PROPOSE_RULE = 'When you stage a change, say in one sentence what it would do and that it waits for the reader. Never say a change has been made.';
 
@@ -149,6 +150,10 @@ const runAgentLoop = async ({
     return { result: `Unknown tool ${name}.` };
   };
 
+  // Rounds that must answer still list the tools, with none allowed: a
+  // conversation holding tool calls is refused by some providers (Anthropic)
+  // when it arrives without tool definitions.
+  const answerOnly = tools ? { tools, toolChoice: 'none' } : {};
   let completion = null;
   const toolCalls = [];
   for (let round = 0; round <= MAX_TOOL_ROUNDS; round += 1) {
@@ -156,7 +161,7 @@ const runAgentLoop = async ({
     completion = await chat({
       route,
       messages: conversation,
-      ...(lastRound || !tools ? {} : { tools, toolChoice: 'auto' }),
+      ...(lastRound ? answerOnly : tools ? { tools, toolChoice: 'auto' } : {}),
       signal
     });
     const calls = Array.isArray(completion?.toolCalls) ? completion.toolCalls : [];
@@ -168,9 +173,10 @@ const runAgentLoop = async ({
     }
   }
 
-  // Everything of a source the model was shown: its text, and for a wiki page
-  // the attached sources and claims printed beside it.
-  const texts = () => [...seen.values()].map(item => [item.fullText || item.replySnippet || item.snippet, item.sourceText, item.claimText].filter(Boolean).join('\n'));
+  // Everything of a source the model was shown: its title, its text, and for a
+  // wiki page the attached sources and claims printed beside it. A title in
+  // quotes is the source's name, not an invented quotation.
+  const texts = () => [...seen.values()].map(item => [item.title, item.fullText || item.replySnippet || item.snippet, item.sourceText, item.claimText].filter(Boolean).join('\n'));
   let reply = String(completion?.text || '').trim();
   let invented = inventedQuotes(reply, texts());
   if (reply && invented.length) {
@@ -179,7 +185,7 @@ const runAgentLoop = async ({
       role: 'user',
       content: `These quotations are not in any source you were shown: ${invented.map(quote => `"${quote}"`).join('; ')}. Rewrite the answer quoting only exact words from the passages, or say the library does not cover it.`
     });
-    completion = await chat({ route, messages: conversation, signal });
+    completion = await chat({ route, messages: conversation, ...answerOnly, signal });
     reply = String(completion?.text || '').trim();
     invented = inventedQuotes(reply, texts());
   }

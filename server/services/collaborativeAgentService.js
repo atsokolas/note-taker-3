@@ -1098,7 +1098,9 @@ const formatPartnerMaterialLines = (items = []) => {
   if (safeItems.length === 0) return ['- none'];
   return safeItems.slice(0, 4).map((item) => {
     const title = toSafeString(item?.title) || toSafeString(item?.type) || 'Untitled item';
-    const snippet = truncate(item?.snippet || '', 120);
+    // The whole passage, not its first line: the partner can only quote what it
+    // was shown, and a margin note cut at "on my..." is not quotable.
+    const snippet = truncate(item?.fullText || item?.snippet || '', 600);
     return `- [${toSafeString(item?.type).toLowerCase() || 'item'}] ${title}${snippet ? ` — ${snippet}` : ''}`;
   });
 };
@@ -2386,7 +2388,7 @@ const generateCollaborativeReply = async ({
         }),
         sources: [contextItem, ...relatedItems].filter(Boolean),
         ...(sharedQuestionScoped ? {} : {
-          search: query => retrievePassages({ ...retrievalScope, query }),
+          search: query => retrievePassages({ ...retrievalScope, query, forModel: true }),
           read: id => readSource({ userId: userObjectId, id, models: { Article, NotebookEntry, WikiPage } })
         }),
         ...(WikiRevision && contextItem?.pageId ? {

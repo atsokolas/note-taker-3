@@ -197,6 +197,9 @@ const retrievePassages = async ({
   articleFilter = null,
   includeNotes = true,
   includeViews = includeNotes,
+  // The model's own searches are short and it judges what comes back, so
+  // half the words of a query are enough to bring a passage back to it.
+  forModel = false,
   models: { Article, NotebookEntry, TagMeta, WikiPage = null },
   semanticSearch = null
 }) => {
@@ -265,7 +268,7 @@ const retrievePassages = async ({
   // a long list of its words needs a stricter floor to stay on topic.
   const byAbout = asked === about;
   const required = byAbout ? Math.min(2, terms.length)
-    : terms.length <= 2 ? terms.length : Math.ceil(terms.length / 2);
+    : terms.length <= 2 && !forModel ? terms.length : Math.ceil(terms.length / 2);
   const floor = byAbout ? ABOUT_FLOOR : RELATIVE_FLOOR;
   const best = Math.max(0, ...units.map(unit => unit.score));
   const ranked = units
