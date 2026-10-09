@@ -1,18 +1,11 @@
 const crypto = require('crypto');
 const express = require('express');
+const { normalizeRuntime, runtimeLabel } = require('../services/agentRuntime');
 
 const CONNECT_SESSION_TTL_MS = 15 * 60 * 1000;
 const CONNECT_SECRET_DELIVERY_MS = 5 * 60 * 1000;
 const CONNECT_POLL_INTERVAL_SEC = 2;
 const SUPPORTED_SCOPES = new Set(['read', 'agent-write']);
-const SUPPORTED_RUNTIMES = new Set([
-  'agent',
-  'claude-code',
-  'codex',
-  'hermes',
-  'openclaw',
-  'opencode'
-]);
 
 const hashPollSecret = (value) => (
   crypto.createHash('sha256').update(String(value || '')).digest('hex')
@@ -26,23 +19,6 @@ const createDeviceCode = () => {
   const raw = crypto.randomBytes(5).toString('base64url').replace(/[^A-Z0-9]/gi, '').toUpperCase();
   const padded = `${raw}ABCDEFGH`.slice(0, 8);
   return `${padded.slice(0, 4)}-${padded.slice(4)}`;
-};
-
-const normalizeRuntime = (value = '') => {
-  const runtime = String(value || '').trim().toLowerCase();
-  return SUPPORTED_RUNTIMES.has(runtime) ? runtime : 'agent';
-};
-
-const runtimeLabel = (runtime = 'agent') => {
-  const labels = {
-    agent: 'Noeis agent',
-    'claude-code': 'Claude Code',
-    codex: 'Codex',
-    hermes: 'Hermes',
-    openclaw: 'OpenClaw',
-    opencode: 'OpenCode'
-  };
-  return labels[runtime] || labels.agent;
 };
 
 const sanitizeSession = (row = {}) => {
@@ -279,7 +255,5 @@ const buildAgentConnectRouter = ({
 
 module.exports = {
   buildAgentConnectRouter,
-  hashPollSecret,
-  normalizeRuntime,
-  runtimeLabel
+  hashPollSecret
 };

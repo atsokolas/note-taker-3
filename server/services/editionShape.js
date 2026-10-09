@@ -428,6 +428,7 @@ const collectInbox = (
           boundary: item.boundary,
           note: item.note || '',
           filedBy: item.filedBy?.label || '',
+          filedByRuntime: item.filedBy?.runtime || '',
           savedArticleId: item.savedArticleId ? String(item.savedArticleId) : null
         } : {}),
         sortAt

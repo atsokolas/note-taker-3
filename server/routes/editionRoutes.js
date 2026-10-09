@@ -15,6 +15,7 @@ const {
   retainHeldItems,
   windowFor
 } = require('../services/editionShape');
+const { normalizeRuntime } = require('../services/agentRuntime');
 
 /**
  * The newsstand.
@@ -29,11 +30,17 @@ const {
  * nothing here is public.
  */
 
+/* Which runtime a token connected from. Tokens made by hand in Connections
+   carry none, and a person writing carries no token: both stay empty so the
+   paper can fall back to the label rather than call them "agent". */
+const tokenRuntime = (req = {}) => (req.agentToken?.runtime ? normalizeRuntime(req.agentToken.runtime) : '');
+
 /* Who is writing. The token's label is evidence; `name` was never set, so the
    masthead used to go blank and a non-ObjectId token id used to 500 the save. */
 const scribe = (req = {}) => ({
   label: String(req.agentToken?.label || req.agentToken?.name || req.body?.writtenBy || '').trim().slice(0, 200),
-  agentTokenId: String(req.agentToken?.id || req.agentToken?._id || '').trim()
+  agentTokenId: String(req.agentToken?.id || req.agentToken?._id || '').trim(),
+  runtime: tokenRuntime(req)
 });
 
 /* Normalized against the same standard as a whole edition — a boundary is
@@ -69,6 +76,7 @@ const serializeItem = (item) => {
     boundary: row.boundary,
     note: row.note || '',
     filedBy: row.filedBy?.label || '',
+    filedByRuntime: row.filedBy?.runtime || '',
     filedAt: row.filedAt || null,
     savedArticleId: row.savedArticleId ? String(row.savedArticleId) : null,
     readerStatus: row.readerState?.status || 'new'
@@ -92,6 +100,7 @@ const serializeEdition = (edition = {}, { withItems = true, profiles = null } = 
     throughLine: edition.throughLine || '',
     watchNext: edition.watchNext || [],
     writtenBy: edition.writtenBy?.label || '',
+    writtenByRuntime: edition.writtenBy?.runtime || '',
     /* Said on every edition, on the stand and on the page: the sections this
        week never filled, and how many of its sources the reader has taken. */
     unfilled: emptySections({ profile: edition.profile, items, profiles }).map(section => section.label),
@@ -154,7 +163,8 @@ const serializeProfile = (profile = {}) => ({
     .map(section => ({ key: section.key, label: section.label })),
   minItems: profile.minItems ?? 1,
   maxItems: profile.maxItems ?? 15,
-  configuredBy: profile.configuredBy?.label || ''
+  configuredBy: profile.configuredBy?.label || '',
+  configuredByRuntime: profile.configuredBy?.runtime || ''
 });
 
 const buildEditionRouter = ({
@@ -375,7 +385,8 @@ const buildEditionRouter = ({
       const minItems = Math.min(Math.max(Number(req.body?.minItems) || 1, 1), maxItems);
       const configuredBy = {
         label: String(req.body?.configuredBy || req.agentToken?.label || req.agentToken?.name || '').trim().slice(0, 200),
-        agentTokenId: String(req.agentToken?.id || req.agentToken?._id || '').trim()
+        agentTokenId: String(req.agentToken?.id || req.agentToken?._id || '').trim(),
+        runtime: tokenRuntime(req)
       };
       const doc = { key, title, issueLabel: String(req.body?.issueLabel || 'Issue').trim().slice(0, 60) || 'Issue', cadence, sections: nextSections, minItems, maxItems, configuredBy };
       const saved = existing

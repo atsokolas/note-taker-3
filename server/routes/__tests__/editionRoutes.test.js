@@ -910,6 +910,7 @@ describe('a section keeps its own byline', () => {
   let Edition;
   let EditionProfile;
   let agent;
+  let runtime;
 
   const listen3 = (app) => new Promise((resolve) => {
     const s = app.listen(0, '127.0.0.1', () => resolve(s));
@@ -919,12 +920,13 @@ describe('a section keeps its own byline', () => {
     Edition = makeStore();
     EditionProfile = makeStore();
     agent = 'Jarvis';
+    runtime = undefined;
     const app = express();
     app.use(express.json());
     app.use(buildEditionRouter({
       auth: (req, _res, next) => {
         req.user = { id: 'user-1' };
-        req.agentToken = { id: 'token-1', label: agent };
+        req.agentToken = { id: 'token-1', label: agent, runtime };
         next();
       },
       Edition,
@@ -985,6 +987,32 @@ describe('a section keeps its own byline', () => {
       items: [finding(), finding({ url: 'https://example.com/three' })]
     });
     expect(rewritten.body.items.map(item => item.filedBy)).toEqual(['Jarvis', 'Hermes']);
+  });
+
+  /* The label is evidence; the runtime is what the paper names the agent by. */
+  it('records the runtime the filing token connected from', async () => {
+    agent = 'Codex Wiki account grounding audit';
+    runtime = 'codex';
+    const filed = await send('/api/editions/file', 'POST', { profile: 'this_week_in_ai', items: [finding()] });
+    expect(Edition.rows[0].items[0].filedBy.runtime).toBe('codex');
+    expect(filed.body.items[0]).toMatchObject({ filedBy: 'Codex Wiki account grounding audit', filedByRuntime: 'codex' });
+    expect(filed.body.writtenByRuntime).toBe('codex');
+  });
+
+  /* A token made by hand in Connections has no runtime. Calling it "agent"
+     would hide the name its label already gives. */
+  it('leaves the runtime empty when the token has none', async () => {
+    const filed = await send('/api/editions/file', 'POST', { profile: 'this_week_in_ai', items: [finding()] });
+    expect(filed.body.items[0].filedByRuntime).toBe('');
+    expect(filed.body.writtenByRuntime).toBe('');
+  });
+
+  it('signs a configured topic with the runtime too', async () => {
+    runtime = 'Claude';
+    const configured = await send('/api/edition-profiles', 'POST', {
+      key: 'reading_desk', title: 'Reading Desk', sections: [{ key: 'ideas', label: 'Ideas' }]
+    });
+    expect(configured.body).toMatchObject({ configuredBy: 'Jarvis', configuredByRuntime: 'claude-code' });
   });
 });
 

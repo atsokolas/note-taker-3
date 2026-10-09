@@ -552,3 +552,40 @@
 @media (max-width: 640px) {
   .edition-inbox__items { padding-left: 10px; }
 }
+
+/* An agent's mark: shape and initials, never colour (colour means section).
+   Drawn in currentColor so it follows whatever text it signs, in any theme. */
+.agent-mark { display: inline-flex; align-items: baseline; gap: 0.45em; }
+.agent-mark__glyph {
+  --agent-mark-size: 1.75em;
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: var(--agent-mark-size);
+  height: var(--agent-mark-size);
+  border: 1px solid currentColor;
+  border-radius: 2px;
+  font: 600 0.62em/1 var(--noeis-font-ui, system-ui);
+  letter-spacing: 0.02em;
+}
+.agent-mark__glyph > span { position: relative; }
+.agent-mark__glyph--circle { border-radius: 50%; }
+.agent-mark__glyph--pill { width: calc(var(--agent-mark-size) * 1.45); border-radius: 999px; }
+.agent-mark__glyph--dashed { border-style: dashed; }
+.agent-mark__glyph--diamond { transform: rotate(45deg) scale(0.86); }
+.agent-mark__glyph--diamond > span { transform: rotate(-45deg); }
+.agent-mark__glyph--hexagon {
+  --agent-mark-hex: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%);
+  width: calc(var(--agent-mark-size) * 1.15);
+  border: 0;
+  background: currentColor;
+  clip-path: var(--agent-mark-hex);
+}
+.agent-mark__glyph--hexagon::before {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  background: var(--surface, Canvas);
+  clip-path: var(--agent-mark-hex);
+}

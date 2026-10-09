@@ -1822,6 +1822,14 @@ const MorningPaperRecord = mongoose.model('MorningPaperRecord', morningPaperReco
    `savedArticleId` is the door back: it is null until the reader saves the
    source, and then it points at their own library row. That is the arrow
    this object reverses — every other surface here reads library to wiki. */
+/* Who signed something on a paper: the token's label as evidence, and the
+   runtime it connected from (empty when unknown or written by a person). */
+const editionSigner = () => ({
+  label: { type: String, default: '', trim: true },
+  agentTokenId: { type: String, default: '', trim: true },
+  runtime: { type: String, default: '', trim: true }
+});
+
 const editionItemSchema = new mongoose.Schema({
   itemId: { type: String, required: true, trim: true },
   title: { type: String, required: true, trim: true },
@@ -1839,10 +1847,7 @@ const editionItemSchema = new mongoose.Schema({
      same paper — a section is entitled to its own byline. Stored as a string
      because we print the label, we never join on the token — ObjectId here
      turned a malformed token id into a 500 on the paper. */
-  filedBy: {
-    label: { type: String, default: '', trim: true },
-    agentTokenId: { type: String, default: '', trim: true }
-  },
+  filedBy: editionSigner(),
   filedAt: { type: Date, default: null },
   savedArticleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Article', default: null },
   /* What the reader did with this arrival. Missing means new. An agent rewrite
@@ -1866,10 +1871,7 @@ const editionSchema = new mongoose.Schema({
   items: { type: [editionItemSchema], default: [] },
   /* Who wrote it. A paper written by an agent says so on its masthead — the
      reader is entitled to know which of their agents to argue with. */
-  writtenBy: {
-    label: { type: String, default: '', trim: true },
-    agentTokenId: { type: String, default: '', trim: true }
-  }
+  writtenBy: editionSigner()
 }, { timestamps: true });
 
 /* The newsstand reads newest first, per reader. */
@@ -1909,10 +1911,7 @@ const editionProfileSchema = new mongoose.Schema({
   minItems: { type: Number, default: 1 },
   maxItems: { type: Number, default: 15 },
   /* Who asked for it. A topic configured by an agent says which one. */
-  configuredBy: {
-    label: { type: String, default: '', trim: true },
-    agentTokenId: { type: String, default: '', trim: true }
-  }
+  configuredBy: editionSigner()
 }, { timestamps: true });
 
 /* One topic per key per reader: telling an agent twice to keep a biotech

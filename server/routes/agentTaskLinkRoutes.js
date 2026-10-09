@@ -1,26 +1,11 @@
 const crypto = require('crypto');
 const express = require('express');
+const { normalizeRuntime, runtimeLabel } = require('../services/agentRuntime');
 
 const TASK_LINK_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-const SUPPORTED_RUNTIMES = new Set(['agent', 'claude-code', 'codex', 'hermes', 'openclaw', 'opencode']);
 const PERMISSION_SET = new Set(['read', 'retrieve', 'search', 'draft_write', 'wiki_write', 'project_write']);
 
 const createTaskId = () => `at_${crypto.randomBytes(12).toString('base64url')}`;
-
-const normalizeRuntime = (value = '') => {
-  const runtime = String(value || '').trim().toLowerCase();
-  if (runtime === 'claude') return 'claude-code';
-  return SUPPORTED_RUNTIMES.has(runtime) ? runtime : 'agent';
-};
-
-const runtimeLabel = (runtime = 'agent') => ({
-  agent: 'Noeis agent',
-  'claude-code': 'Claude Code',
-  codex: 'Codex',
-  hermes: 'Hermes',
-  openclaw: 'OpenClaw',
-  opencode: 'OpenCode'
-}[runtime] || 'Noeis agent');
 
 const normalizePermissions = (input = []) => {
   const raw = Array.isArray(input) ? input : [input];
@@ -284,7 +269,5 @@ const buildAgentTaskLinkRouter = ({
 
 module.exports = {
   buildAgentTaskLinkRouter,
-  normalizeRuntime,
-  runtimeLabel,
   sanitizeTaskLink
 };

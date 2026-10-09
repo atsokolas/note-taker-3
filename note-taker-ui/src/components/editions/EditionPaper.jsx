@@ -1,5 +1,6 @@
 import React from 'react';
 import { issueLine, publicSourceHref, standLayout, windowLine } from '../../pages/editionModel';
+import AgentMark from './AgentMark';
 
 /**
  * The paper a stranger reads, and the preview an owner approves.
@@ -44,7 +45,11 @@ const EditionPaper = ({ edition, compact = false }) => {
         {edition.ownerDisplayName ? (
           <p className="edition__byline">Kept by {edition.ownerDisplayName}</p>
         ) : null}
-        {edition.writtenBy ? <p className="edition__byline">Written by {edition.writtenBy}</p> : null}
+        {edition.writtenBy ? (
+          <p className="edition__byline">
+            Written by <AgentMark runtime={edition.writtenByRuntime} label={edition.writtenBy} plain />
+          </p>
+        ) : null}
       </header>
 
       {edition.standfirst ? <p className="edition__standfirst">{edition.standfirst}</p> : null}
