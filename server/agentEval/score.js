@@ -17,7 +17,7 @@ const TEMPLATE_PATTERNS = [
   /has not been named yet/i
 ];
 
-const DECLINE_PATTERN = /\b(nothing|no (?:source|passage|note|highlight|mention)s?|(?:could ?n[o']t|can ?not|did ?n[o']t|do ?n[o']t) (?:find|see)|not (?:in|anywhere in) your|does ?n[o']t (?:say|mention|cover|discuss)|is ?n[o']t (?:in|covered))/i;
+const DECLINE_PATTERN = /\b(nothing|no (?:source|passage|note|highlight|mention|material)s?|contains? no\b|(?:could ?n[o']t|can ?not|did ?n[o']t|do ?n[o']t) (?:find|see)|not (?:in|anywhere in) your|does ?n[o']t (?:say|mention|cover|discuss)|is ?n[o']t (?:in|covered))/i;
 
 const inventedQuotes = (reply, texts) => quotesMissingFrom(reply, Object.values(texts));
 
