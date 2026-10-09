@@ -19,10 +19,10 @@ Connection setup does not dispatch the user's separate task or create a schedule
 3. Read the installed `noeis connect --help`. Do not invent commands or flags.
 4. Show the human a minimal redacted plan before installation or configuration changes.
 
-The source implementation supporting scoped setup is CLI 0.1.11 or later. MCP
-`connection_info` is in wiki-mcp 0.4.3 or later. Package publication is a separate
-release step, so verify the installed help before proceeding. If scoped connect is
-not present, stop and explain the version gap; do not accept broader access.
+Scoped setup needs `@noeis/noeis-cli` 0.1.11 or later, and MCP `connection_info`
+needs `@noeis/wiki-mcp` 0.4.3 or later; both are on npm. Verify the installed help
+before proceeding. If scoped connect is not present, stop and explain the version
+gap; do not accept broader access.
 
 ## Request the narrow grant
 

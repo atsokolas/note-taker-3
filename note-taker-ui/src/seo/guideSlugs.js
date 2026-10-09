@@ -1,6 +1,9 @@
 /* Every long-form guide, by address. publishingRenderers.test.js keeps this
    in step with publishingContent.json, which the app does not load up front. */
 export const GUIDE_SLUGS = [
+  'build-a-wiki-from-your-reading',
+  'connect-ai-agent-to-your-reading-mcp',
+  'ai-answers-quoted-from-your-sources',
   'ai-second-brain',
   'second-brain-app',
   'ai-note-taking-workflow',
@@ -13,8 +16,5 @@ export const GUIDE_SLUGS = [
   'best-second-brain-app-for-researchers',
   'source-backed-synthesis-workflow',
   'import-reading-archive-into-noeis',
-  'from-saved-article-to-draft-in-noeis',
-  'build-a-wiki-from-your-reading',
-  'connect-ai-agent-to-your-reading-mcp',
-  'ai-answers-quoted-from-your-sources'
+  'from-saved-article-to-draft-in-noeis'
 ];

@@ -15,6 +15,8 @@ const { GUIDE_SLUGS } = require('./guideSlugs');
 
 const content = { ...publishingContent, home: homeCopy };
 
+const FALLBACK = '/:path((?!\\.well-known/)(?!.*\\.(?:json|txt|md|xml|yaml|yml)$).*)';
+
 describe('publishing renderers', () => {
   it('routes every guide the generator prerenders', () => {
     expect(GUIDE_SLUGS).toEqual(publishingContent.guides.map((guide) => guide.slug));
@@ -125,10 +127,20 @@ describe('publishing renderers', () => {
         expect.objectContaining({ source: '/examples', destination: '/examples/index.html' }),
         expect.objectContaining({ source: '/best-second-brain-app-for-founders', destination: '/best-second-brain-app-for-founders/index.html' }),
         expect.objectContaining({ source: '/from-saved-article-to-draft-in-noeis', destination: '/from-saved-article-to-draft-in-noeis/index.html' }),
-        expect.objectContaining({ source: '/(.*)', destination: '/' })
       ])
     );
-    expect(vercel.rewrites[vercel.rewrites.length - 1]).toEqual({ source: '/(.*)', destination: '/' });
+    expect(vercel.rewrites[vercel.rewrites.length - 1]).toEqual({ source: FALLBACK, destination: '/' });
+  });
+
+  it('sends every app address to the app, and lets a missing machine file 404', () => {
+    const { source } = JSON.parse(renderVercelConfig(publishingContent)).rewrites.slice(-1)[0];
+    const pattern = new RegExp(`^${source.replace('/:path(', '/(')}$`);
+    ['/', '/library', '/think', '/share/wiki/collection/mental-models', '/articles/abc123'].forEach((path) => {
+      expect(pattern.test(path)).toBe(true);
+    });
+    ['/.well-known/mcp.json', '/.well-known/oauth-authorization-server', '/openapi.json', '/llms-full.txt', '/agents.md', '/feed.xml'].forEach((path) => {
+      expect(pattern.test(path)).toBe(false);
+    });
   });
 
   it('renders a Bing verification XML payload from a token', () => {
