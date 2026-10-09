@@ -42,7 +42,7 @@ describe('publishing renderers', () => {
     expect(text.startsWith('# Noeis\n\n> ')).toBe(true);
     expect(text).toContain(content.home.description);
     expect(text).toContain('(https://www.noeis.io/skill.md)');
-    expect(text).toContain('(https://www.noeis.io/share/wiki/collection/mental-models)');
+    expect(text).not.toContain('/share/');
     expect(text).toContain('(https://www.noeis.io/ai-second-brain)');
   });
 

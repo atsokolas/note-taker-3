@@ -513,6 +513,8 @@ const renderVercelConfig = (content) => JSON.stringify({
   ]
 }, null, 2);
 
+// Public wikis join this map once /share pages serve their own HTML; today a
+// plain fetch of one returns the homepage.
 const renderLlmsTxt = (content) => {
   const link = (href, label, note) => `- [${label}](${buildUrl(content.site.host, href)})${note ? `: ${note}` : ''}`;
   return `# ${content.site.name}
@@ -525,10 +527,6 @@ ${content.home.statements.map((statement) => `- **${statement.title}** ${stateme
 
 ${link('/skill.md', 'Connect an agent', 'install the Noeis CLI and MCP server, and request read-only access that a person approves')}
 ${link('/.well-known/noeis-agent.json', 'Agent discovery manifest', 'transports, scopes and verification')}
-
-## Example wikis
-
-${(content.examples || []).map((pack) => link(pack.href, pack.title, pack.description)).join('\n')}
 
 ## Guides
 

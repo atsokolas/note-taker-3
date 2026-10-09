@@ -12,13 +12,6 @@
 - [Connect an agent](https://www.noeis.io/skill.md): install the Noeis CLI and MCP server, and request read-only access that a person approves
 - [Agent discovery manifest](https://www.noeis.io/.well-known/noeis-agent.json): transports, scopes and verification
 
-## Example wikis
-
-- [Mental Models](https://www.noeis.io/share/wiki/collection/mental-models): A shareable mini-wiki for first principles, opportunity cost, inversion, and related judgment tools.
-- [Behavioral Economics](https://www.noeis.io/share/wiki/collection/behavioral-economics): A starter graph for loss aversion, anchoring, base rates, and decision-making under bias.
-- [How to Think About AI](https://www.noeis.io/share/wiki/collection/how-to-think-about-ai): A starter graph for agents, evals, context windows, scaling laws, and capability tradeoffs.
-- [Value Investing](https://www.noeis.io/share/wiki/collection/value-investing): A starter graph for intrinsic value, moats, owner earnings, capital allocation, and margin of safety.
-
 ## Guides
 
 - [AI Second Brain](https://www.noeis.io/ai-second-brain): What the term should mean in practice, what to evaluate, and where Noeis fits.
