@@ -42,6 +42,24 @@ const renderGuideLinks = (links = []) => links.map((link) => (
   `<a href="${escapeHtml(link.href)}">${escapeHtml(link.label)}</a>`
 )).join('');
 
+const renderHomeSchema = (content) => ({
+  '@context': 'https://schema.org',
+  '@graph': [
+    { '@type': 'Organization', name: content.site.name, url: content.site.host, logo: buildUrl(content.site.host, '/logo512.png') },
+    { '@type': 'WebSite', name: content.site.name, url: content.site.host },
+    {
+      '@type': 'SoftwareApplication',
+      name: content.site.name,
+      applicationCategory: 'ProductivityApplication',
+      operatingSystem: 'Web',
+      url: content.site.host,
+      image: buildUrl(content.site.host, '/og-image.png'),
+      description: content.home.description,
+      featureList: content.home.statements.map((statement) => `${statement.title} ${statement.copy}`)
+    }
+  ]
+});
+
 const patchHomeHead = (html, content) => {
   const title = escapeHtml(content.home.title || '');
   const description = escapeHtml(content.home.description || content.home.lede || '');
@@ -52,7 +70,7 @@ const patchHomeHead = (html, content) => {
     [/(<meta\s+property="og:description"\s+content=")[^"]*(")/, `$1${description}$2`],
     [/(<meta\s+name="twitter:title"\s+content=")[^"]*(")/, `$1${title}$2`],
     [/(<meta\s+name="twitter:description"\s+content=")[^"]*(")/, `$1${description}$2`],
-    [/("applicationCategory": "ProductivityApplication",\s*"operatingSystem": "Web",\s*"url": "https:\/\/www\.noeis\.io",\s*"description": ")[^"]*(")/, `$1${description}$2`]
+    [/<script type="application\/ld\+json">[\s\S]*?<\/script>/, `<script type="application/ld+json">${JSON.stringify(renderHomeSchema(content))}</script>`]
   ].reduce((next, [pattern, value]) => next.replace(pattern, value), html);
 };
 
@@ -271,7 +289,9 @@ const renderGuideHubPage = (content) => {
       content="Opinionated guides on source-grounded research workflows, reliable recall, reading-to-draft systems, and evidence-backed synthesis."
     />
     <meta property="og:url" content="${canonical}" />
-    <meta name="twitter:card" content="summary" />
+    <meta property="og:image" content="${buildUrl(content.site.host, '/og-image.png')}" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="${buildUrl(content.site.host, '/og-image.png')}" />
     <link rel="stylesheet" href="/guides/styles.css" />
   </head>
   <body>
@@ -315,7 +335,9 @@ const renderExamplesPage = (content) => {
       content="Curated source-grounded Noeis wiki examples for serious readers evaluating evidence-backed research workflows."
     />
     <meta property="og:url" content="${canonical}" />
-    <meta name="twitter:card" content="summary" />
+    <meta property="og:image" content="${buildUrl(content.site.host, '/og-image.png')}" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="${buildUrl(content.site.host, '/og-image.png')}" />
     <link rel="stylesheet" href="/guides/styles.css" />
     <script type="application/ld+json">${JSON.stringify({
       '@context': 'https://schema.org',
@@ -418,7 +440,9 @@ ${guide.directAnswer.points.map((point) => `  <li>${escapeHtml(point)}</li>`).jo
       content="${escapeHtml(guide.heroDescription)}"
     />
     <meta property="og:url" content="${canonical}" />
-    <meta name="twitter:card" content="summary" />
+    <meta property="og:image" content="${buildUrl(content.site.host, '/og-image.png')}" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="${buildUrl(content.site.host, '/og-image.png')}" />
     <meta name="twitter:title" content="${escapeHtml(guide.pageTitle)}" />
     <meta
       name="twitter:description"
@@ -461,7 +485,8 @@ const renderSitemap = (content) => {
     '/',
     '/guides',
     '/examples',
-    ...content.guides.map((guide) => `/${guide.slug}`)
+    ...content.guides.map((guide) => `/${guide.slug}`),
+    ...(content.examples || []).map((pack) => pack.href)
   ];
 
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -513,8 +538,6 @@ const renderVercelConfig = (content) => JSON.stringify({
   ]
 }, null, 2);
 
-// Public wikis join this map once /share pages serve their own HTML; today a
-// plain fetch of one returns the homepage.
 const renderLlmsTxt = (content) => {
   const link = (href, label, note) => `- [${label}](${buildUrl(content.site.host, href)})${note ? `: ${note}` : ''}`;
   return `# ${content.site.name}
@@ -527,6 +550,10 @@ ${content.home.statements.map((statement) => `- **${statement.title}** ${stateme
 
 ${link('/skill.md', 'Connect an agent', 'install the Noeis CLI and MCP server, and request read-only access that a person approves')}
 ${link('/.well-known/noeis-agent.json', 'Agent discovery manifest', 'transports, scopes and verification')}
+
+## Example wikis
+
+${(content.examples || []).map((pack) => link(pack.href, pack.title, pack.description)).join('\n')}
 
 ## Guides
 

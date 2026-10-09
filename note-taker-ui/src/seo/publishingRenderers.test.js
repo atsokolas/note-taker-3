@@ -42,17 +42,18 @@ describe('publishing renderers', () => {
     expect(text.startsWith('# Noeis\n\n> ')).toBe(true);
     expect(text).toContain(content.home.description);
     expect(text).toContain('(https://www.noeis.io/skill.md)');
-    expect(text).not.toContain('/share/');
+    expect(text).toContain('(https://www.noeis.io/share/wiki/collection/mental-models)');
     expect(text).toContain('(https://www.noeis.io/ai-second-brain)');
   });
 
   it('patches the homepage document title and descriptions from the same copy', () => {
     const html = patchHomeHead(
-      '<title>old</title><meta name="description" content="old" /><meta property="og:title" content="old" /><meta property="og:description" content="old" /><meta name="twitter:title" content="old" /><meta name="twitter:description" content="old" />',
+      '<title>old</title><meta name="description" content="old" /><meta property="og:title" content="old" /><meta property="og:description" content="old" /><meta name="twitter:title" content="old" /><meta name="twitter:description" content="old" /><script type="application/ld+json">{}</script>',
       content
     );
     expect(html).toContain('<title>Noeis — Grow a knowledge base from what you read</title>');
     expect(html).toContain(`content="${homeCopy.description}"`);
+    expect(html).toContain('"featureList":["Save what you read.');
   });
 
   it('renders a curated examples page for source-grounded public wikis', () => {

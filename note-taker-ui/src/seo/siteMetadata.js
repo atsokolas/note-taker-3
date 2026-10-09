@@ -2,7 +2,8 @@ export const SITE_NAME = 'Noeis';
 export const PRODUCT_NAME = 'Noeis';
 export const CANONICAL_HOST = 'https://www.noeis.io';
 export const DEFAULT_AUTHOR_NAME = 'Athan Tsokolas';
-export const DEFAULT_SOCIAL_IMAGE_PATH = '/logo512.png';
+export const LOGO_PATH = '/logo512.png';
+export const DEFAULT_SOCIAL_IMAGE_PATH = '/og-image.png';
 export const DEFAULT_LAST_UPDATED = '2026-04-19';
 export const DEFAULT_LAST_UPDATED_LABEL = 'April 19, 2026';
 export const DEFAULT_DESCRIPTION = 'Noeis grows a knowledge base from what you read: a wiki that cites every source, answers quoted from your own reading, and read-only access for your AI agents.';
@@ -21,7 +22,7 @@ const buildPublisher = () => ({
   url: CANONICAL_HOST,
   logo: {
     '@type': 'ImageObject',
-    url: buildCanonicalUrl(DEFAULT_SOCIAL_IMAGE_PATH)
+    url: buildCanonicalUrl(LOGO_PATH)
   }
 });
 
@@ -30,7 +31,7 @@ export const buildOrganizationSchema = () => ({
   '@type': 'Organization',
   name: SITE_NAME,
   url: CANONICAL_HOST,
-  logo: buildCanonicalUrl(DEFAULT_SOCIAL_IMAGE_PATH)
+  logo: buildCanonicalUrl(LOGO_PATH)
 });
 
 export const buildWebsiteSchema = () => ({
