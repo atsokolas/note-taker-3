@@ -27,8 +27,10 @@ const drawsOn = (reply, sourceText, n = PASSAGE_WORDS) => {
 const groundedIn = (reply = '', items = []) => (Array.isArray(items) ? items : [])
   .filter((item) => item && drawsOn(reply, item.fullText || item.replySnippet || item.snippet || ''));
 
+// An ellipsis inside a quotation marks words left out, so each side of it is
+// checked on its own.
 const quotations = (reply = '') => [...String(reply).matchAll(/[“"]([^”"]+)[”"]/g)]
-  .map(match => match[1])
+  .flatMap(match => match[1].split(/\s*(?:…|\.{3}|\[…\]|\[\.{3}\])\s*/))
   .filter(span => words(span).length >= QUOTE_MIN_WORDS);
 
 // Quotations of five words or more that appear in none of the given texts.

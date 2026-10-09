@@ -149,6 +149,10 @@ const runAgentLoop = async ({
     return { result: `Unknown tool ${name}.` };
   };
 
+  // Rounds that must answer still list the tools, with none allowed: a
+  // conversation holding tool calls is refused by some providers (Anthropic)
+  // when it arrives without tool definitions.
+  const answerOnly = tools ? { tools, toolChoice: 'none' } : {};
   let completion = null;
   const toolCalls = [];
   for (let round = 0; round <= MAX_TOOL_ROUNDS; round += 1) {
@@ -156,7 +160,7 @@ const runAgentLoop = async ({
     completion = await chat({
       route,
       messages: conversation,
-      ...(lastRound || !tools ? {} : { tools, toolChoice: 'auto' }),
+      ...(lastRound ? answerOnly : tools ? { tools, toolChoice: 'auto' } : {}),
       signal
     });
     const calls = Array.isArray(completion?.toolCalls) ? completion.toolCalls : [];
@@ -179,7 +183,7 @@ const runAgentLoop = async ({
       role: 'user',
       content: `These quotations are not in any source you were shown: ${invented.map(quote => `"${quote}"`).join('; ')}. Rewrite the answer quoting only exact words from the passages, or say the library does not cover it.`
     });
-    completion = await chat({ route, messages: conversation, signal });
+    completion = await chat({ route, messages: conversation, ...answerOnly, signal });
     reply = String(completion?.text || '').trim();
     invented = inventedQuotes(reply, texts());
   }
