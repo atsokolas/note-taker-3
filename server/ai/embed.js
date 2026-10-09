@@ -33,6 +33,14 @@ const DEFAULT_EMBED_RETRY_DELAYS_MS = [4000, 12000, 20000];
 const DEFAULT_RATE_LIMIT_COOLDOWN_MS = 60 * 1000;
 let rateLimitedUntil = 0;
 
+/* An empty provider balance arrives as a 502, the same status a waking
+   service sends, so every search waited out a wake-up that was never coming
+   before falling back to keywords. It is a rate limit that lasts until someone
+   pays: refuse fast, and let the job runner hold its jobs rather than abandon
+   them. */
+const OUT_OF_CREDIT = /no remaining credits|exceeded your monthly included credits|payment required/i;
+const isOutOfCredit = error => Number(error?.status) === 402 || OUT_OF_CREDIT.test(String(error?.message || ''));
+
 const isColdStart = (error) => (
   COLD_START_STATUSES.has(Number(error?.status)) || Number(error?.status) === 0 || !error?.status
 );
@@ -70,8 +78,10 @@ const embedText = async (text, {
       }
       return embedding;
     } catch (error) {
-      lastError = error;
-      if (Number(error?.status) === 429) {
+      lastError = isOutOfCredit(error)
+        ? new EmbeddingError(error.message, 429, { ...error.payload, reason: 'out_of_credit' })
+        : error;
+      if (Number(lastError.status) === 429) {
         rateLimitedUntil = Math.max(
           rateLimitedUntil,
           Date.now() + Math.max(1000, Number(rateLimitCooldownMs) || DEFAULT_RATE_LIMIT_COOLDOWN_MS)
@@ -79,7 +89,7 @@ const embedText = async (text, {
       }
       // A malformed request or a missing route will answer identically forever;
       // only wait out the statuses a waking service actually returns.
-      if (!isColdStart(error) || attempt === delays.length) break;
+      if (!isColdStart(lastError) || attempt === delays.length) break;
       await sleep(delays[attempt]);
     }
   }

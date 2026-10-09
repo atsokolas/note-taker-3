@@ -20,8 +20,8 @@ const load = (embedImpl) => {
   return mod;
 };
 
-const fail = (status) => {
-  const error = new Error(`AI service error ${status}`);
+const fail = (status, message = `AI service error ${status}`) => {
+  const error = new Error(message);
   error.status = status;
   return error;
 };
@@ -44,6 +44,23 @@ const fail = (status) => {
       error => error.status === 429 && Number(error?.payload?.retryAfterMs) > 0
     );
     assert.strictEqual(calls, 1, 'the cooldown fails closed without touching the upstream again');
+  }
+
+  // An empty provider balance comes back as a 502 but is not a wake-up: it is
+  // refused at once and cools down like a rate limit.
+  {
+    let calls = 0;
+    const { embedText } = load(async () => {
+      calls += 1;
+      throw fail(502, 'AI service error 502: HF embeddings failed: You have no remaining credits');
+    });
+    let thrown = null;
+    try { await embedText('some text', { retryDelaysMs: [1000, 1000] }); } catch (error) { thrown = error; }
+    assert.ok(thrown);
+    assert.strictEqual(thrown.status, 429, 'reported as a rate limit so queued jobs are held, not abandoned');
+    assert.strictEqual(calls, 1, 'no wake-up wait');
+    await assert.rejects(() => embedText('another text'), error => error.status === 429);
+    assert.strictEqual(calls, 1, 'later searches skip the upstream during the cooldown');
   }
 
   // 503: still waited out, because that is a service actually waking up.
