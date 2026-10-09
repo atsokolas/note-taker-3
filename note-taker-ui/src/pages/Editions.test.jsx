@@ -152,7 +152,10 @@ it('reads Issue 5 of This Week in AI off the shelf, and seats a second hand at t
     writtenBy: five.writtenBy,
     throughLine: five.throughLine,
     silences,
-    items: five.items.map((row, index) => ({ ...row, itemId: `i${index}`, section: keyOf(row.section), url: `https://arxiv.org/abs/${index}` }))
+    items: [
+      ...five.items.map((row, index) => ({ ...row, itemId: `i${index}`, section: keyOf(row.section), url: `https://arxiv.org/abs/${index}` })),
+      { ...five.items[1], itemId: 'claude', title: 'A second source on recovery', url: 'https://arxiv.org/abs/9', section: keyOf('Evaluation & counterevidence'), filedBy: 'Claude', filedByRuntime: 'claude-code', filedAt: '2026-10-06T12:00:00Z', savedArticleId: 'kept' }
+    ]
   };
   mockId = 'twia-5';
   api.listEditions.mockResolvedValue(run);
@@ -167,6 +170,21 @@ it('reads Issue 5 of This Week in AI off the shelf, and seats a second hand at t
   expect(within(desk).getByText('Usually files every column')).toBeVisible();
   expect(within(desk).getByText('Filed Oct 6 · Kept by you: 1 of 1')).toBeVisible();
   expect(screen.getByText('Standfirst by the editor')).toBeVisible();
+});
+it('marks a column only for the hands that filed into it, and counts a Keep on the desk at once', async () => {
+  const read = { ...item, filedByRuntime: 'openclaw', readings: [{ filedBy: 'Claude', filedByRuntime: 'claude-code', finding: 'A second view.', boundary: 'Its limit.' }] };
+  const other = { ...item, itemId: 'two', section: 'limits', finding: 'A finding Codex filed.', filedBy: 'Codex', filedByRuntime: 'codex' };
+  const opened = { ...edition, items: [read, other] };
+  api.listEditions.mockResolvedValue([{ ...edition, items: undefined, filings: [read, other].map(({ section, filedBy, filedByRuntime }) => ({ section, filedBy, filedByRuntime, saved: false })) }]);
+  api.getEdition.mockResolvedValue(opened);
+  render(<Editions />); await screen.findByText(item.finding);
+  const ideas = document.getElementById('edition-section-ideas');
+  expect(ideas.querySelectorAll('.reading-section-label__marks [role="img"]')).toHaveLength(1);
+  const desk = screen.getByRole('list', { name: 'The desk' });
+  expect(within(desk).getAllByText(/Kept by you: 0 of 1/)).toHaveLength(2);
+  api.saveEditionItem.mockResolvedValue({ edition: { ...opened, items: [{ ...read, savedArticleId: 'article' }, other] }, readable: true });
+  fireEvent.click(within(document.getElementById('edition-item-one')).getByRole('button', { name: 'Keep in Library' }));
+  await waitFor(() => expect(within(screen.getByRole('list', { name: 'The desk' })).getAllByText(/Kept by you: 1 of 1/)).toHaveLength(1));
 });
 it('prints no desk for a paper one agent keeps', async () => {
   render(<Editions />); await screen.findByText(item.finding);

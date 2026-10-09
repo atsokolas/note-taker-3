@@ -2,6 +2,7 @@ import React, { useEffect, useCallback, useRef, useState } from 'react';
 import { setEditionItemState } from '../../api/editions';
 import {
   datelineLine,
+  foreignFilers,
   issueLine,
   latestFilingLine,
   sectionTones,
@@ -11,7 +12,7 @@ import {
 import EditionShare from './EditionShare';
 import { EditionSourcesJump, EditionSourcesList, useEditionSources } from './EditionSources';
 import AgentMark from './AgentMark';
-import { agentOf, handOf, handsOf } from './editionAgent';
+import { agentOf, handOf } from './editionAgent';
 import EditionDesk from './EditionDesk';
 import EditionFinding from './EditionFinding';
 import { KeeperMark } from './EditionShelfUnit';
@@ -37,7 +38,7 @@ export default function EditionReading({
   paperTitle = '',
   issueLabel,
   keepers = {},
-  desk = [],
+  deskOf = () => [],
   onChoose,
   focusItem,
   focusSection = '',
@@ -184,6 +185,9 @@ export default function EditionReading({
   const tones = sectionTones(sections);
   /* The editor's mark only matters once more than one hand is on the paper. */
   const writer = agentOf({ label: row.writtenBy, runtime: row.writtenByRuntime });
+  /* Read off the opened issue, so a Keep shows in "Kept by you" at once. */
+  const desk = deskOf(edition);
+  const foreign = foreignFilers(edition || {}, keepers);
   const editor = desk.length > 1 && writer ? handOf(writer) : null;
   return (
     <div ref={root} data-testid="edition-read">
@@ -277,11 +281,9 @@ export default function EditionReading({
                       </span>
                       <span className="reading-section-label__marks">
                         <KeeperMark keeper={keepers[section.key]} />
-                        {handsOf(section.items)
-                          .filter(hand => agentOf(hand)?.key !== keepers[section.key]?.agent?.key)
-                          .map((hand) => (
-                            <AgentMark key={`${hand.runtime}:${hand.label}`} runtime={hand.runtime} label={hand.label} glyph />
-                          ))}
+                        {(foreign[section.key] || []).map(agent => (
+                          <AgentMark key={agent.key} {...handOf(agent)} glyph />
+                        ))}
                       </span>
                     </h2>
                   ) : null}

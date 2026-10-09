@@ -182,7 +182,10 @@ export default function Editions() {
               paperTitle={paper.title}
               issueLabel={paper.issueLabel}
               keepers={keepers}
-              desk={deskFor(paper, issue)}
+              deskOf={(opened) => deskFor(
+                { ...paper, issues: paper.issues.map(row => (row._id === opened?._id ? opened : row)) },
+                opened || issue
+              )}
               onChoose={choose}
               focusItem={params.get('item') || ''}
               focusSection={params.get('section') || ''}

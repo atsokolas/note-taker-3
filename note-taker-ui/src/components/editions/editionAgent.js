@@ -49,21 +49,5 @@ export const agentOf = ({ runtime = '', label = '' } = {}) => {
   };
 };
 
-/* Every distinct hand that filed into a run of items, first readings and
-   second ones alike, in the order they appear. */
-export const handsOf = (items = []) => {
-  const seen = new Map();
-  items.forEach((item) => {
-    [
-      { label: item.filedBy, runtime: item.filedByRuntime },
-      ...(item.readings || []).map((reading) => ({ label: reading.filedBy, runtime: reading.filedByRuntime }))
-    ].forEach((hand) => {
-      const agent = agentOf(hand);
-      if (agent && !seen.has(agent.key)) seen.set(agent.key, hand);
-    });
-  });
-  return [...seen.values()];
-};
-
 /* Back from a recognised agent to the props AgentMark takes. */
 export const handOf = (agent) => ({ runtime: AGENTS[agent.key] ? agent.key : '', label: agent.label });

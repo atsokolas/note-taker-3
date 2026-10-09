@@ -444,6 +444,7 @@ html[data-noeis-theme='theme.editorial.dark'] .edition-reading {
 .reading-section-label__name { grid-column: 1 / -1; font: 500 11px/1.4 var(--noeis-font-ui, system-ui); letter-spacing: .1em; }
 .reading-section-label__count { align-self: end; font: 400 36px/1 var(--noeis-font-editorial, Georgia, serif); letter-spacing: 0; }
 .reading-section-label__marks { align-self: end; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; font-size: 12px; }
+.reading-section { scroll-margin-top: 110px; }
 .reading-section:focus { outline: none; }
 .reading-section__body { min-width: 0; }
 .reading-bay { display: flex; align-items: center; justify-content: center; min-height: 104px; padding: 12px; box-sizing: border-box; }
