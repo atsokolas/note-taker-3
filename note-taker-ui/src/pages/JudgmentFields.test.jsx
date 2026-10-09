@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { MemoryRouter } from 'react-router-dom';
 import * as router from 'react-router-dom';
 import Judgment from './Judgment';
-import { getCompanyDossierJudgmentReview, getJudgmentLibraryEvidence, getWikiPage, listWikiSourceEvents, updateWikiPage } from '../api/wiki';
+import { getCompanyDossierJudgmentReview, getJudgmentChangeProposal, getJudgmentLibraryEvidence, getWikiPage, listCompanyDossierJudgmentReviews, listWikiSourceEvents, updateWikiPage } from '../api/wiki';
 import { recordClaimFalsifiability } from '../api/dailyLoop';
 
 jest.mock('../api/articles', () => ({ getArticles: jest.fn(() => Promise.resolve([])) }));
@@ -16,6 +16,7 @@ jest.mock('../api/wiki', () => ({
   askWikiPage: jest.fn(),
   createWikiPage: jest.fn(),
   getCompanyDossierJudgmentReview: jest.fn(() => Promise.resolve(null)),
+  getJudgmentChangeProposal: jest.fn(() => Promise.resolve(null)),
   getJudgmentLibraryEvidence: jest.fn(() => Promise.resolve({ claim: '', terms: [], candidates: [] })),
   getWikiPage: jest.fn(),
   listCompanyDossierJudgmentReviews: jest.fn(() => Promise.resolve([])),
@@ -58,6 +59,8 @@ describe('updates on an opened judgment', () => {
     getWikiPage.mockResolvedValue(page());
     listWikiSourceEvents.mockResolvedValue([]);
     getCompanyDossierJudgmentReview.mockResolvedValue(null);
+    listCompanyDossierJudgmentReviews.mockResolvedValue([]);
+    getJudgmentChangeProposal.mockResolvedValue(null);
     getJudgmentLibraryEvidence.mockResolvedValue({ claim: '', terms: [], candidates: [] });
   });
 
@@ -165,6 +168,8 @@ describe('a line that does not land', () => {
     getWikiPage.mockResolvedValue(page());
     listWikiSourceEvents.mockResolvedValue([]);
     getCompanyDossierJudgmentReview.mockResolvedValue(null);
+    listCompanyDossierJudgmentReviews.mockResolvedValue([]);
+    getJudgmentChangeProposal.mockResolvedValue(null);
     getJudgmentLibraryEvidence.mockResolvedValue({ claim: '', terms: [], candidates: [] });
   });
 
@@ -203,6 +208,8 @@ describe('a saved line is never held hostage', () => {
     getWikiPage.mockResolvedValue(page());
     listWikiSourceEvents.mockResolvedValue([]);
     getCompanyDossierJudgmentReview.mockResolvedValue(null);
+    listCompanyDossierJudgmentReviews.mockResolvedValue([]);
+    getJudgmentChangeProposal.mockResolvedValue(null);
     getJudgmentLibraryEvidence.mockResolvedValue({ claim: '', terms: [], candidates: [] });
   });
 
@@ -233,6 +240,8 @@ describe('the shape of a block', () => {
     getWikiPage.mockResolvedValue(page());
     listWikiSourceEvents.mockResolvedValue([]);
     getCompanyDossierJudgmentReview.mockResolvedValue(null);
+    listCompanyDossierJudgmentReviews.mockResolvedValue([]);
+    getJudgmentChangeProposal.mockResolvedValue(null);
     getJudgmentLibraryEvidence.mockResolvedValue({ claim: '', terms: [], candidates: [] });
   });
 
@@ -311,6 +320,8 @@ describe('the standing line', () => {
     jest.spyOn(router, 'useParams').mockReturnValue({ pageId: 'p1' });
     listWikiSourceEvents.mockResolvedValue([]);
     getCompanyDossierJudgmentReview.mockResolvedValue(null);
+    listCompanyDossierJudgmentReviews.mockResolvedValue([]);
+    getJudgmentChangeProposal.mockResolvedValue(null);
     getJudgmentLibraryEvidence.mockResolvedValue({ claim: '', terms: [], candidates: [] });
   });
 
@@ -352,6 +363,8 @@ describe('a test nothing is watching', () => {
     jest.spyOn(router, 'useParams').mockReturnValue({ pageId: 'p1' });
     listWikiSourceEvents.mockResolvedValue([]);
     getCompanyDossierJudgmentReview.mockResolvedValue(null);
+    listCompanyDossierJudgmentReviews.mockResolvedValue([]);
+    getJudgmentChangeProposal.mockResolvedValue(null);
     getJudgmentLibraryEvidence.mockResolvedValue({ claim: '', terms: [], candidates: [] });
   });
 

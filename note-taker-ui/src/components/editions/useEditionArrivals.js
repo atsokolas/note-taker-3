@@ -38,7 +38,7 @@ export default function useEditionArrivals({ limit, view = '' } = {}) {
     try {
       absorb(await getEditionInbox({ cursor, limit, view }), { replace });
     } catch (loadError) {
-      setError(loadError?.response?.data?.error || 'New items did not load.');
+      setError(loadError?.response?.data?.error || 'New arrivals did not load.');
       if (!cursor) setItems((current) => current || []);
     }
   }, [absorb, limit, view]);
@@ -118,7 +118,7 @@ export default function useEditionArrivals({ limit, view = '' } = {}) {
       setUndo(null);
       return true;
     } catch (actionError) {
-      setError(actionError?.response?.data?.error || 'Could not restore that item.');
+      setError(actionError?.response?.data?.error || 'That did not save.');
       return false;
     } finally {
       setBusy('');
