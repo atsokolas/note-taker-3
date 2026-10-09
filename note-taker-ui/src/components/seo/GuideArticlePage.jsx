@@ -2,8 +2,6 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import useSeoMetadata from '../../hooks/useSeoMetadata';
 import {
-  DEFAULT_LAST_UPDATED,
-  DEFAULT_LAST_UPDATED_LABEL,
   buildArticleSchema,
   buildSoftwareApplicationSchema
 } from '../../seo/siteMetadata';
@@ -207,7 +205,9 @@ const GuideArticlePage = ({ slug }) => {
     buildArticleSchema({
       headline: guide.heroTitle,
       description: guide.heroDescription,
-      path: `/${guide.slug}`
+      path: `/${guide.slug}`,
+      datePublished: guide.updated,
+      dateModified: guide.updated
     }),
     buildSoftwareApplicationSchema()
   ];
@@ -229,8 +229,7 @@ const GuideArticlePage = ({ slug }) => {
           <p className="seo-eyebrow">{guide.eyebrow || 'Guide'}</p>
           <div className="seo-meta">
             <span>By {publishingContent.site.authorName}</span>
-            <span>Updated {DEFAULT_LAST_UPDATED_LABEL}</span>
-            <span>Publishing system {DEFAULT_LAST_UPDATED}</span>
+            <span>Updated {guide.updated}</span>
           </div>
           <h1>{guide.heroTitle}</h1>
           {guide.heroIntro.map((paragraph) => (

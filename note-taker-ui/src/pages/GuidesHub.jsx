@@ -1,6 +1,6 @@
 import React from 'react';
 import useSeoMetadata from '../hooks/useSeoMetadata';
-import { CANONICAL_HOST, DEFAULT_AUTHOR_NAME, DEFAULT_LAST_UPDATED, DEFAULT_LAST_UPDATED_LABEL } from '../seo/siteMetadata';
+import { CANONICAL_HOST, DEFAULT_AUTHOR_NAME } from '../seo/siteMetadata';
 import publishingContent from '../seo/publishingContent.json';
 import { trackGuideCta } from '../utils/marketingAnalytics';
 import '../styles/seo-article.css';
@@ -29,8 +29,7 @@ const GuidesHub = () => {
           <p className="seo-eyebrow">Guides</p>
           <div className="seo-meta">
             <span>By {DEFAULT_AUTHOR_NAME}</span>
-            <span>Updated {DEFAULT_LAST_UPDATED_LABEL}</span>
-            <span>Publishing system refreshed {DEFAULT_LAST_UPDATED}</span>
+            <span>Updated {publishingContent.site.lastUpdated}</span>
           </div>
           <h1>Practical Guides for Thinking, Writing, and Knowledge Work</h1>
           <p className="seo-lede">
