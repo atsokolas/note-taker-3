@@ -17,7 +17,13 @@ const TEMPLATE_PATTERNS = [
   /has not been named yet/i
 ];
 
-const DECLINE_PATTERN = /\b(nothing|no (?:source|passage|note|highlight|mention|material)s?|(?:could ?n[o']t|can ?not|did ?n[o']t|do ?n[o']t) (?:find|see)|not (?:in|anywhere in) your|does ?n[o']t (?:say|mention|cover|discuss)|is ?n[o']t (?:in|covered))/i;
+const DECLINE_PATTERN = /\b(nothing|no (?:source|passage|note|highlight|mention|material)s?|(?:could ?n[o']t|can ?not|did ?n[o']t|do ?n[o']t) (?:find|see|have anything)|not (?:in|anywhere in) your|does ?n[o']t (?:say|mention|cover|discuss)|is ?n[o']t (?:in|covered))/i;
+
+// "Nothing in your library on X, but X works like this" is answering from
+// general knowledge, not declining. A contrast that only offers next steps
+// ("but if you save something on it...") still counts as a refusal.
+const ANSWERS_ANYWAY = /\b(?:but|however|that said)\b,?\s+(?!(?:if|once|when|you|i can|i could|i'd|let me)\b)/i;
+const declines = reply => DECLINE_PATTERN.test(reply) && !ANSWERS_ANYWAY.test(reply);
 
 const inventedQuotes = (reply, texts) => quotesMissingFrom(reply, Object.values(texts));
 
@@ -37,7 +43,7 @@ const scoreCase = ({ evalCase, result = {}, ids, texts }) => {
   let checks;
   if (evalCase.abstain) {
     checks = {
-      declines: DECLINE_PATTERN.test(reply),
+      declines: declines(reply),
       citesNothing: cited.size === 0,
       noInventedQuotes: invented.length === 0,
       notTemplate: !templated
@@ -96,4 +102,4 @@ const regressions = (summary, baseline) => {
     .map(([name, now, before]) => ({ name, now, before }));
 };
 
-module.exports = { scoreCase, summarize, regressions, __testables: { drawsOn, inventedQuotes, words, TEMPLATE_PATTERNS, DECLINE_PATTERN } };
+module.exports = { scoreCase, summarize, regressions, __testables: { drawsOn, inventedQuotes, words, TEMPLATE_PATTERNS, DECLINE_PATTERN, declines } };

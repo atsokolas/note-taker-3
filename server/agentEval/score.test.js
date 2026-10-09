@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { scoreCase, summarize, regressions, __testables: { drawsOn, inventedQuotes, DECLINE_PATTERN } } = require('./score');
+const { scoreCase, summarize, regressions, __testables: { drawsOn, inventedQuotes, DECLINE_PATTERN, declines } } = require('./score');
 const { libraryTexts } = require('./library');
 const { CASES } = require('./cases');
 const { __testables: { contextFor } } = require('./runEval');
@@ -97,7 +97,14 @@ test('every case names sources that exist and a surface the runner knows', () =>
   }
 });
 
-test('"contains no material" counts as declining; "contains no caveats" does not', () => {
+test('plain refusals count as declining; "contains no caveats" does not', () => {
   assert.ok(DECLINE_PATTERN.test('Your library contains no material on mRNA vaccines.'));
   assert.ok(!DECLINE_PATTERN.test('The answer contains no caveats: mRNA vaccines train the immune system.'));
+  assert.ok(DECLINE_PATTERN.test("I don't have anything in your library on Kubernetes autoscaling."));
+});
+
+test('a refusal that goes on to answer anyway is not a decline', () => {
+  assert.ok(!declines("I don't have anything specifically in your library on Kubernetes autoscaling, but Kubernetes can autoscale workloads with the Horizontal Pod Autoscaler."));
+  assert.ok(declines("Nothing in your library covers Kubernetes autoscaling, but if you save a piece on it I can pull it in."));
+  assert.ok(declines("I don't have anything in your library on Kubernetes autoscaling."));
 });
