@@ -112,6 +112,36 @@ const run = async () => {
     assert.strictEqual(filed.added, 0);
     assert.strictEqual(filed.alreadyHeld, 1);
   }
+
+  /* "Nothing met the bar" is a filing too: checked alone is enough, and it
+     reaches the API as sent. Saying nothing at all is refused before the call. */
+  {
+    const schema = z.object(writeTools.find(tool => tool.name === 'file_edition_items').inputSchema);
+    assert.strictEqual(schema.safeParse({ profile: 'this_week_in_ai', checked: ['models_methods'] }).success, true);
+    assert.strictEqual(schema.safeParse({ profile: 'this_week_in_ai', checked: [{ section: 'models_methods', note: 'Two vendor evals only.' }] }).success, true);
+    assert.strictEqual(schema.safeParse({ profile: 'this_week_in_ai', checked: [{ note: 'no section' }] }).success, false);
+    const create = z.object(writeTools.find(tool => tool.name === 'create_edition').inputSchema);
+    assert.strictEqual(create.shape.checked.isOptional(), true);
+    assert.match(writeTools.find(tool => tool.name === 'file_edition_items').description, /reads to the reader as 'not reported'/);
+
+    const bodies = [];
+    const client = new NoeisClient({
+      token: 't',
+      env: {},
+      fetchImpl: async (_url, init) => {
+        bodies.push(JSON.parse(init.body));
+        return jsonOk({ _id: 'edition-1', added: 0, alreadyHeld: 0, checksAdded: 1 });
+      }
+    });
+    const filed = await client.fileEditionItems({ profile: 'this_week_in_ai', checked: ['models_methods'] });
+    assert.strictEqual(filed.checksAdded, 1);
+    assert.deepStrictEqual(bodies[0].checked, ['models_methods']);
+
+    const refused = await client.fileEditionItems({ profile: 'this_week_in_ai', items: [], checked: [] }).then(() => null, e => e);
+    assert.ok(refused instanceof NoeisApiError);
+    assert.strictEqual(refused.status, 400);
+    assert.strictEqual(bodies.length, 1);
+  }
 };
 
 run().catch((error) => { console.error(error); process.exit(1); });

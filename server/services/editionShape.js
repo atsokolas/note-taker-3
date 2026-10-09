@@ -264,6 +264,83 @@ const emptySections = ({ profile, items = [], profiles = null } = {}) => {
   return resolved.sections.filter(section => !filled.has(section.key));
 };
 
+/**
+ * "I looked here and nothing met my bar."
+ *
+ * The receipt that makes an empty section mean something once more than one
+ * agent keeps a paper: without it, silence cannot tell a quiet week from an
+ * agent that never ran. A check names a section of the paper, like an item
+ * does, and is refused the same way when it names one that is not there.
+ */
+const CHECK_NOTE_LIMIT = 280;
+
+const normalizeChecks = (raw, profile) => {
+  const entries = Array.isArray(raw) ? raw : [];
+  const seen = new Set();
+  return entries.reduce((checks, entry, index) => {
+    const given = typeof entry === 'string' ? entry : entry?.section;
+    const section = clean(given, 120).toLowerCase().replace(/-/g, '_');
+    if (!profile.sections.some(known => known.key === section)) {
+      throw new EditionShapeError(
+        `Check ${index + 1} names "${given || ''}", which is not a section of ${profile.titleLabel}.${profile.sections.length ? ` Use one of: ${profile.sections.map(known => known.key).join(', ')}.` : ' It has no sections to check.'}`,
+        { field: 'checked' }
+      );
+    }
+    if (seen.has(section)) return checks;
+    seen.add(section);
+    checks.push({ section, note: typeof entry === 'string' ? '' : clean(entry?.note, CHECK_NOTE_LIMIT) });
+    return checks;
+  }, []);
+};
+
+/* A filer may say a section came up empty once per issue; saying it again
+   changes nothing. Keyed on the token, so two agents each leave their own. */
+const checkKey = (check = {}) => `${check.section}\u0000${check.by?.agentTokenId || ''}`;
+
+const mergeChecks = (held = [], incoming = []) => {
+  const kept = (held || []).map(check => (check?.toObject ? check.toObject() : check));
+  const keys = new Set(kept.map(checkKey));
+  return [...kept, ...(incoming || []).filter(check => !keys.has(checkKey(check)))];
+};
+
+/* A paper still taking filings, or only just closed, has not missed anything
+   yet: the Codex job files about two days after its window ends. */
+const REPORT_GRACE_DAYS = 3;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const reportsAreDue = (windowEnd, now = new Date()) => {
+  const end = new Date(windowEnd).getTime();
+  if (!Number.isFinite(end)) return false;
+  /* The window includes its last day, so it closes when that day does. */
+  return new Date(now).getTime() > end + DAY_MS + REPORT_GRACE_DAYS * DAY_MS;
+};
+
+/**
+ * Which silence an empty section is.
+ *
+ * `checked`: an agent looked and nothing met its bar. `unreported`: nobody
+ * said anything, on a paper that was already taking receipts when the issue
+ * opened, and the issue is past its grace. `unknown`: anything else, which
+ * prints today's sentence — an issue from before receipts is not accused of
+ * anything it was never asked to say.
+ */
+const sectionSilences = ({
+  profile, items = [], checks = [], receiptsSince = null, windowStart, windowEnd, now = new Date(), profiles = null
+} = {}) => {
+  const since = receiptsSince ? new Date(receiptsSince).getTime() : NaN;
+  const takingReceipts = Number.isFinite(since) && new Date(windowStart).getTime() >= since;
+  const due = takingReceipts && reportsAreDue(windowEnd, now);
+  return emptySections({ profile, items, profiles }).map((section) => {
+    const filers = new Map();
+    (checks || []).filter(check => check.section === section.key).forEach((check) => {
+      const key = check.by?.agentTokenId || check.by?.label || '';
+      if (!filers.has(key)) filers.set(key, { label: check.by?.label || '', runtime: check.by?.runtime || '' });
+    });
+    const state = filers.size ? 'checked' : (due ? 'unreported' : 'unknown');
+    return { key: section.key, label: section.label, state, by: [...filers.values()] };
+  });
+};
+
 const dayIso = (value) => {
   if (!value) return '';
   const date = value instanceof Date ? value : new Date(value);
@@ -311,7 +388,11 @@ const projectPublicItem = (item = {}) => ({
  * the rest of the private house stay out even if they were sitting on the
  * document that was projected.
  */
-const projectPublicEdition = (edition = {}, ownerDisplayName = '', { profiles = null } = {}) => {
+const projectPublicEdition = (
+  edition = {},
+  ownerDisplayName = '',
+  { profiles = null, receiptsSince = null, now = new Date() } = {}
+) => {
   const profile = resolveEditionProfile(edition.profile, { profiles });
   const sections = (profile?.sections || edition.sections || []).map(section => ({
     key: publicText(section.key, 120),
@@ -324,6 +405,25 @@ const projectPublicEdition = (edition = {}, ownerDisplayName = '', { profiles = 
      their token is not a stranger's business. Absent when unknown, so a share
      published before runtimes were recorded keeps its hash. */
   const writtenByRuntime = publicText(edition.writtenBy?.runtime, 40);
+  /* An unknown silence prints what the paper always printed, so it is left
+     out: a share published before receipts keeps its hash. */
+  const silences = sectionSilences({
+    profile: edition.profile,
+    items: edition.items,
+    checks: edition.checks,
+    receiptsSince,
+    windowStart: edition.windowStart,
+    windowEnd: edition.windowEnd,
+    now,
+    profiles
+  })
+    .filter(silence => silence.state !== 'unknown')
+    .map(silence => ({
+      key: publicText(silence.key, 120),
+      label: publicText(silence.label, 200),
+      state: silence.state,
+      by: silence.by.map(by => ({ label: publicText(by.label, 200), runtime: publicText(by.runtime, 40) }))
+    }));
 
   return {
     title: publicText(edition.title, 300) || publicText(profile?.titleLabel, 300),
@@ -343,7 +443,8 @@ const projectPublicEdition = (edition = {}, ownerDisplayName = '', { profiles = 
     ...(writtenByRuntime ? { writtenByRuntime } : {}),
     ownerDisplayName: publicText(ownerDisplayName, 200),
     sections,
-    items: (edition.items || []).map(projectPublicItem)
+    items: (edition.items || []).map(projectPublicItem),
+    ...(silences.length ? { silences } : {})
   };
 };
 
@@ -470,6 +571,10 @@ module.exports = {
   windowFor,
   EditionShapeError,
   emptySections,
+  mergeChecks,
+  normalizeChecks,
+  REPORT_GRACE_DAYS,
+  sectionSilences,
   collectInbox,
   hashPublicEdition,
   itemIsNew,

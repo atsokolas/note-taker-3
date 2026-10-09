@@ -93,6 +93,24 @@ it('opens the finding and its boundary, preserves empty sections, and keeps glob
   expect(panel.closest('[data-testid="edition-read"]')).toBeNull();
   expect(await within(panel).findByText('No new items')).toBeVisible();
 });
+it('says which silence an empty section is', async () => {
+  const sections = [...edition.sections, { key: 'context', label: 'Context' }];
+  api.getEdition.mockResolvedValue({
+    ...edition,
+    sections,
+    silences: [
+      { key: 'limits', label: 'Counterevidence', state: 'checked', by: [{ label: 'OpenClaw · Jarvis', runtime: 'openclaw' }, { label: 'My laptop', runtime: 'codex' }] },
+      { key: 'context', label: 'Context', state: 'unreported', by: [] }
+    ]
+  });
+  render(<Editions />);
+  await screen.findByText(item.finding);
+  const looked = screen.getByText(/looked; nothing met the bar\./);
+  /* The marks' initials are aria-hidden; the names read as a sentence. */
+  expect(looked).toHaveTextContent(/OpenClaw and Cx ?Codex looked; nothing met the bar\./);
+  expect(screen.getByText('Not reported this issue.')).toBeVisible();
+  expect(screen.queryByText(/Nothing filed under/)).toBeNull();
+});
 it('switches publications and dated issues through stable issue URLs', async () => {
   const old = { ...edition, _id: 'old', number: 1, windowStart: '2026-08-01' };
   api.listEditions.mockResolvedValue([edition, old, { ...edition, _id: 'ai', profile: 'ai', profileLabel: 'This Week in AI' }]);

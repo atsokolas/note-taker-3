@@ -43,8 +43,16 @@ const makeStore = () => {
     if (!Array.isArray(addends) || addends.length !== 2) return false;
     return (row.items || []).length + Number(addends[1]) <= Number(max);
   };
+  /* Just enough of $elemMatch for "no receipt from this token for these sections". */
+  const elementMatches = (element, query) => Object.entries(query).every(([key, value]) => {
+    const held = key.split('.').reduce((at, part) => at?.[part], element);
+    if (value && Array.isArray(value.$in)) return value.$in.some(candidate => String(candidate) === String(held));
+    return String(held) === String(value);
+  });
   const matches = (row, query) => Object.entries(query).every(([key, value]) => {
     if (key === '$expr') return matchExpr(row, value);
+    if (key === 'checks.0') return Boolean((row.checks || []).length) === Boolean(value.$exists);
+    if (value?.$not?.$elemMatch) return !(row[key] || []).some(element => elementMatches(element, value.$not.$elemMatch));
     if (value instanceof Date) return new Date(row[key]).getTime() === value.getTime();
     if (value && typeof value === 'object' && Array.isArray(value.$nin)) {
       const held = fieldOf(row, key);
@@ -99,6 +107,8 @@ const makeStore = () => {
         if (patch.$set) Object.assign(row, patch.$set);
         const each = patch.$push?.items?.$each;
         if (Array.isArray(each)) row.items = [...(row.items || []), ...each];
+        const checks = patch.$push?.checks?.$each;
+        if (Array.isArray(checks)) row.checks = [...(row.checks || []), ...checks];
         return attach(row);
       }
       Object.assign(row, patch);
@@ -1013,6 +1023,145 @@ describe('a section keeps its own byline', () => {
       key: 'reading_desk', title: 'Reading Desk', sections: [{ key: 'ideas', label: 'Ideas' }]
     });
     expect(configured.body).toMatchObject({ configuredBy: 'Jarvis', configuredByRuntime: 'claude-code' });
+  });
+});
+
+/* An empty section is one of two silences: an agent looked and nothing met
+   its bar, or nobody said. A paper from before receipts is accused of neither. */
+describe('an empty section says which silence it is', () => {
+  let server;
+  let url;
+  let Edition;
+  let token;
+
+  beforeEach(async () => {
+    Edition = makeStore();
+    token = { id: 'token-1', label: 'Jarvis', runtime: 'openclaw' };
+    const app = express();
+    app.use(express.json());
+    app.use(buildEditionRouter({
+      auth: (req, _res, next) => {
+        req.user = { id: 'user-1' };
+        if (token) req.agentToken = token;
+        next();
+      },
+      Edition,
+      EditionProfile: makeStore(),
+      Article: { findOneAndUpdate: async () => ({ _id: 'a1' }) }
+    }));
+    server = await listen(app);
+    url = `http://127.0.0.1:${server.address().port}`;
+  });
+
+  afterEach(() => server?.close());
+
+  const file = async (body) => {
+    const response = await fetch(`${url}/api/editions/file`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ profile: 'this_week_in_ai', ...body })
+    });
+    return { status: response.status, body: await response.json() };
+  };
+
+  const finding = (over = {}) => item({ url: 'https://example.com/one', ...over });
+  const stateOf = (edition, key) => edition.silences.find(silence => silence.key === key)?.state;
+
+  it('files a check without an item, and signs it', async () => {
+    const filed = await file({ checked: ['infrastructure_systems', { section: 'evaluation-counterevidence', note: 'Two evals, both vendor-run.' }] });
+    expect(filed.status).toBe(201);
+    expect(filed.body).toMatchObject({ added: 0, checksAdded: 2, items: [] });
+    expect(Edition.rows[0].checks[1]).toMatchObject({
+      section: 'evaluation_counterevidence',
+      note: 'Two evals, both vendor-run.',
+      by: { label: 'Jarvis', agentTokenId: 'token-1', runtime: 'openclaw' }
+    });
+    expect(stateOf(filed.body, 'infrastructure_systems')).toBe('checked');
+    expect(filed.body.silences.find(silence => silence.key === 'infrastructure_systems').by)
+      .toEqual([{ label: 'Jarvis', runtime: 'openclaw' }]);
+    /* Unfilled stays what it always said: the sections without an item. */
+    expect(filed.body.unfilled).toEqual(['Models & methods', 'Infrastructure & systems', 'Evaluation & counterevidence']);
+  });
+
+  it('still refuses a filing that says nothing', async () => {
+    const filed = await file({ items: [], checked: [] });
+    expect(filed.status).toBe(400);
+    expect(filed.body.error).toMatch(/items .* or checked/);
+  });
+
+  it('refuses a section the paper does not have, and names the ones it does', async () => {
+    const filed = await file({ checked: ['robotics'] });
+    expect(filed.status).toBe(400);
+    expect(filed.body.error).toMatch(/"robotics".*models_methods, infrastructure_systems, evaluation_counterevidence/);
+    expect(Edition.rows).toHaveLength(0);
+  });
+
+  it('takes a check only from an agent', async () => {
+    token = null;
+    const filed = await file({ items: [finding()], checked: ['infrastructure_systems'] });
+    expect(filed.status).toBe(400);
+    expect(filed.body.error).toMatch(/agent token/);
+  });
+
+  it('ignores a check the same agent already left, and keeps another agent’s', async () => {
+    await file({ checked: ['infrastructure_systems'] });
+    const again = await file({ checked: ['infrastructure_systems'] });
+    expect(again.body.checksAdded).toBe(0);
+    token = { id: 'token-2', label: 'Codex', runtime: 'codex' };
+    const other = await file({ checked: ['infrastructure_systems'] });
+    expect(other.body.checksAdded).toBe(1);
+    expect(Edition.rows[0].checks).toHaveLength(2);
+    expect(other.body.silences.find(silence => silence.key === 'infrastructure_systems').by.map(by => by.label))
+      .toEqual(['Jarvis', 'Codex']);
+  });
+
+  it('lets an item supersede a check, and keeps the check', async () => {
+    await file({ checked: ['models_methods'] });
+    const filled = await file({ items: [finding()] });
+    expect(filled.body.silences.map(silence => silence.key)).not.toContain('models_methods');
+    expect(Edition.rows[0].checks).toHaveLength(1);
+  });
+
+  it('calls a silence unreported only on issues opened after receipts began, and past their grace', async () => {
+    await file({ now: '2025-02-26', items: [finding()] });
+    await file({ now: '2025-03-05', checked: ['infrastructure_systems'], items: [finding()] });
+    const after = await file({ now: '2025-03-12', items: [finding()] });
+    const before = await (await fetch(`${url}/api/editions/${Edition.rows[0]._id}`)).json();
+    const opened = await (await fetch(`${url}/api/editions/${Edition.rows[1]._id}`)).json();
+
+    expect(stateOf(before, 'infrastructure_systems')).toBe('unknown');
+    expect(stateOf(opened, 'infrastructure_systems')).toBe('checked');
+    expect(stateOf(opened, 'evaluation_counterevidence')).toBe('unreported');
+    expect(stateOf(after.body, 'infrastructure_systems')).toBe('unreported');
+  });
+
+  it('does not call this week unreported while agents can still file', async () => {
+    await file({ now: '2025-03-05', checked: ['infrastructure_systems'], items: [finding()] });
+    const running = await file({ items: [finding()] });
+    expect(stateOf(running.body, 'evaluation_counterevidence')).toBe('unknown');
+  });
+
+  it('keeps every receipt through a whole-issue rewrite, and adds the new one', async () => {
+    await file({ checked: ['infrastructure_systems'], items: [finding()] });
+    token = { id: 'token-2', label: 'Codex', runtime: 'codex' };
+    const response = await fetch(`${url}/api/editions`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        profile: 'this_week_in_ai',
+        windowStart: Edition.rows[0].windowStart,
+        windowEnd: Edition.rows[0].windowEnd,
+        items: [finding(), finding({ url: 'https://example.com/two' })],
+        checked: ['infrastructure_systems', 'evaluation_counterevidence']
+      })
+    });
+    const rewritten = await response.json();
+    expect(Edition.rows[0].checks.map(check => `${check.section}:${check.by.label}`)).toEqual([
+      'infrastructure_systems:Jarvis',
+      'infrastructure_systems:Codex',
+      'evaluation_counterevidence:Codex'
+    ]);
+    expect(stateOf(rewritten, 'evaluation_counterevidence')).toBe('checked');
   });
 });
 

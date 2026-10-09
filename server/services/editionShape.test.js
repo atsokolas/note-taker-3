@@ -264,6 +264,77 @@ describe('the public paper', () => {
     expect(hashPublicEdition(projectPublicEdition({ ...edition, writtenBy: { label: 'My laptop', runtime: '' } }, 'Athan')))
       .toBe(hashPublicEdition(legacy));
   });
+
+  /* Which silence an empty section is belongs to the paper, so it travels;
+     a share from before receipts projects, and hashes, as it did. */
+  it('carries the silences a stranger can read, and none it cannot tell', () => {
+    const edition = {
+      profile: 'this_week_in_ai', title: 'This Week in AI', windowStart: '2026-09-07', windowEnd: '2026-09-13', items: [],
+      checks: [{ section: 'models_methods', note: 'Private reasoning.', by: { label: 'Jarvis', agentTokenId: 't1', runtime: 'openclaw' } }]
+    };
+    const now = new Date('2026-10-09');
+    const seen = projectPublicEdition(edition, 'Athan', { receiptsSince: '2026-09-07', now });
+    expect(seen.silences).toEqual([
+      { key: 'models_methods', label: 'Models & methods', state: 'checked', by: [{ label: 'Jarvis', runtime: 'openclaw' }] },
+      { key: 'infrastructure_systems', label: 'Infrastructure & systems', state: 'unreported', by: [] },
+      { key: 'evaluation_counterevidence', label: 'Evaluation & counterevidence', state: 'unreported', by: [] }
+    ]);
+    expect(JSON.stringify(seen)).not.toMatch(/Private reasoning|t1/);
+
+    const legacy = { ...edition, checks: [] };
+    expect(projectPublicEdition(legacy, 'Athan', { now })).not.toHaveProperty('silences');
+    expect(hashPublicEdition(projectPublicEdition(legacy, 'Athan', { now })))
+      .toBe(hashPublicEdition(projectPublicEdition({ ...legacy, checks: undefined }, 'Athan')));
+  });
+});
+
+describe('the two silences', () => {
+  const { normalizeChecks, sectionSilences } = require('./editionShape');
+  const profile = resolveEditionProfile('this_week_in_ai');
+  const week = {
+    profile: 'this_week_in_ai', windowStart: '2026-09-07', windowEnd: '2026-09-13', now: new Date('2026-10-09')
+  };
+  const stateOf = (silences, key) => silences.find(silence => silence.key === key)?.state;
+
+  it('refuses a check on a section the paper does not have, naming the ones it has', () => {
+    expect(() => normalizeChecks(['models_methods', { section: 'robotics' }], profile))
+      .toThrow(/Check 2 names "robotics".*models_methods, infrastructure_systems, evaluation_counterevidence/);
+  });
+
+  it('takes a key or a key with a note, once per section', () => {
+    expect(normalizeChecks(['models-methods', { section: 'models_methods', note: 'again' }, { section: 'infrastructure_systems', note: ' Quiet. ' }], profile))
+      .toEqual([{ section: 'models_methods', note: '' }, { section: 'infrastructure_systems', note: 'Quiet.' }]);
+  });
+
+  it('accuses no issue opened before the paper took receipts', () => {
+    const before = sectionSilences({ ...week, receiptsSince: '2026-09-14' });
+    expect(before.map(silence => silence.state)).toEqual(['unknown', 'unknown', 'unknown']);
+    const from = sectionSilences({ ...week, receiptsSince: '2026-09-07' });
+    expect(from.map(silence => silence.state)).toEqual(['unreported', 'unreported', 'unreported']);
+    expect(sectionSilences({ ...week, receiptsSince: null }).map(silence => silence.state)).toEqual(['unknown', 'unknown', 'unknown']);
+  });
+
+  it('waits out the grace before calling a section unreported', () => {
+    const at = now => stateOf(sectionSilences({ ...week, receiptsSince: '2026-09-01', now: new Date(now) }), 'models_methods');
+    expect(at('2026-09-16T23:00:00Z')).toBe('unknown');
+    expect(at('2026-09-17T01:00:00Z')).toBe('unreported');
+  });
+
+  it('names every agent that looked, and lets an item supersede them', () => {
+    const checks = [
+      { section: 'models_methods', by: { label: 'Jarvis', agentTokenId: 't1', runtime: 'openclaw' } },
+      { section: 'models_methods', by: { label: 'Codex', agentTokenId: 't2', runtime: 'codex' } }
+    ];
+    const silences = sectionSilences({ ...week, checks, receiptsSince: '2026-09-07' });
+    expect(silences[0]).toEqual({
+      key: 'models_methods',
+      label: 'Models & methods',
+      state: 'checked',
+      by: [{ label: 'Jarvis', runtime: 'openclaw' }, { label: 'Codex', runtime: 'codex' }]
+    });
+    const filled = sectionSilences({ ...week, checks, items: [{ section: 'models_methods' }], receiptsSince: '2026-09-07' });
+    expect(filled.map(silence => silence.key)).not.toContain('models_methods');
+  });
 });
 
 describe('keeping a reader’s place in a rewritten week', () => {

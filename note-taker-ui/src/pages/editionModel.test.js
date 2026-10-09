@@ -62,6 +62,19 @@ describe('what the paper admits about itself', () => {
     expect(gapLine({ unfilled: ['A', 'B', 'C'] })).toBe('Nothing this week under A, B or C.');
   });
 
+  /* Looked-and-found-nothing and nobody-said are different admissions, and an
+     issue from before receipts keeps the sentence it always had. */
+  it('says which silence each empty section is', () => {
+    expect(gapLine({
+      unfilled: ['Models & methods', 'Infrastructure & systems', 'Evaluation & counterevidence'],
+      silences: [
+        { key: 'models_methods', label: 'Models & methods', state: 'checked', by: [{ label: 'Jarvis', runtime: 'openclaw' }] },
+        { key: 'infrastructure_systems', label: 'Infrastructure & systems', state: 'unreported', by: [] },
+        { key: 'evaluation_counterevidence', label: 'Evaluation & counterevidence', state: 'unknown', by: [] }
+      ]
+    })).toBe('Nothing met the bar under Models & methods. Not reported under Infrastructure & systems. Nothing this week under Evaluation & counterevidence.');
+  });
+
   /* A week that covered its own shape has nothing to confess, and "0 sections
      empty" is filler. */
   it('stays quiet when the week filled every section', () => {

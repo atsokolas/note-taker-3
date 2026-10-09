@@ -949,11 +949,16 @@ export class NoeisClient {
 
   /* Add to the issue this moment belongs to, without resending the ones
      already filed. The window comes from the topic's cadence. The body is
-     what the API actually settled — added/alreadyHeld — not a second story. */
-  fileEditionItems({ profile, items, title, standfirst, now } = {}) {
+     what the API actually settled — added/alreadyHeld/checksAdded — not a
+     second story. A filing must say something: what was found, or where
+     nothing met the bar. */
+  fileEditionItems({ profile, items, checked, title, standfirst, now } = {}) {
+    if (!items?.length && !checked?.length) {
+      return Promise.reject(new NoeisApiError('Send items, checked, or both: what you found, or the sections where nothing met your bar.', { status: 400 }));
+    }
     return this.request('/api/editions/file', {
       method: 'POST',
-      body: { profile, items, title, standfirst, now }
+      body: { profile, items, checked, title, standfirst, now }
     });
   }
 

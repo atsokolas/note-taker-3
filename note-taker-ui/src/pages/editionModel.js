@@ -143,12 +143,30 @@ export const closesLine = (edition = {}, now = Date.now()) => {
  * would be filler. Never a count where a name will do: the reader needs to
  * know which named column went missing, not that one thing did.
  */
-export const gapLine = ({ unfilled = [] } = {}) => {
-  const names = (unfilled || []).filter(Boolean);
-  if (!names.length) return '';
-  if (names.length === 1) return `Nothing this week under ${names[0]}.`;
-  const last = names[names.length - 1];
-  return `Nothing this week under ${names.slice(0, -1).join(', ')} or ${last}.`;
+const orList = (names) => (names.length === 1
+  ? names[0]
+  : `${names.slice(0, -1).join(', ')} or ${names[names.length - 1]}`);
+
+/* Each silence keeps its own sentence: a section an agent looked at and one
+   nobody reported on are different admissions. Issues from before receipts
+   carry only `unfilled`, and read as they always did. */
+const GAP_SENTENCES = [
+  ['checked', (names) => `Nothing met the bar under ${orList(names)}.`],
+  ['unreported', (names) => `Not reported under ${orList(names)}.`],
+  ['unknown', (names) => `Nothing this week under ${orList(names)}.`]
+];
+
+export const gapLine = ({ unfilled = [], silences } = {}) => {
+  const said = Array.isArray(silences)
+    ? silences
+    : (unfilled || []).map((label) => ({ label, state: 'unknown' }));
+  return GAP_SENTENCES
+    .map(([state, sentence]) => {
+      const names = said.filter((silence) => silence.state === state && silence.label).map((silence) => silence.label);
+      return names.length ? sentence(names) : '';
+    })
+    .filter(Boolean)
+    .join(' ');
 };
 
 /**

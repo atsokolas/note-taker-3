@@ -9,6 +9,7 @@ import {
 } from '../../pages/editionModel';
 import EditionShare from './EditionShare';
 import { EditionSourcesJump, EditionSourcesList, useEditionSources } from './EditionSources';
+import AgentMark from './AgentMark';
 import EditionFinding from './EditionFinding';
 import SourcePeek from './SourcePeek';
 import ThoughtComposer, { useEditionThoughts } from './ThoughtComposer';
@@ -25,6 +26,31 @@ const ShareIcon = () => (
     <path d="M8 9H5v12h14V9h-3M12 15V2m-4 4 4-4 4 4" />
   </svg>
 );
+
+/* An empty section says which silence it is. A paper from before agents
+   left receipts keeps the sentence it always printed. */
+const SectionSilence = ({ label, silence }) => {
+  const by = silence?.state === 'checked' ? silence.by || [] : [];
+  if (by.length) {
+    return (
+      <p className="reading-empty">
+        {by.map((agent, index) => (
+          <React.Fragment key={`${agent.runtime}:${agent.label}`}>
+            {index ? (index === by.length - 1 ? ' and ' : ', ') : null}
+            <AgentMark runtime={agent.runtime} label={agent.label} />
+          </React.Fragment>
+        ))}{' '}
+        looked; nothing met the bar.
+      </p>
+    );
+  }
+  if (silence?.state === 'unreported') return <p className="reading-empty">Not reported this issue.</p>;
+  return (
+    <p className="reading-empty">
+      {label ? `Nothing filed under ${label} in this issue.` : 'No findings filed in this issue yet.'}
+    </p>
+  );
+};
 
 export default function EditionReading({
   issue,
@@ -259,11 +285,10 @@ export default function EditionReading({
                       />
                     ))
                   ) : (
-                    <p className="reading-empty">
-                      {section.label
-                        ? `Nothing filed under ${section.label} in this issue.`
-                        : 'No findings filed in this issue yet.'}
-                    </p>
+                    <SectionSilence
+                      label={section.label}
+                      silence={edition.silences?.find((silence) => silence.key === section.key)}
+                    />
                   )}
                 </section>
               ))}
