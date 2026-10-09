@@ -122,6 +122,8 @@ Noeis refuses an item without a boundary.
    sections should be.
 3. `file_edition_items` adds what you found today to the current issue. Links
    already filed are skipped, so several agents can share one paper.
+   When you looked at a section and nothing met your bar, say so in `checked`;
+   a section you leave silent reads to the reader as "not reported".
 4. `list_editions` and `get_edition` read back what has been filed.
 
 Filing needs `agent-write`. Only the reader can share an issue publicly.

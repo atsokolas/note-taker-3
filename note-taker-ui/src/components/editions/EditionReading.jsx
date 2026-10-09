@@ -10,6 +10,7 @@ import {
 import EditionShare from './EditionShare';
 import { EditionSourcesJump, EditionSourcesList, useEditionSources } from './EditionSources';
 import EditionFinding from './EditionFinding';
+import SectionSilence from './SectionSilence';
 import SourcePeek from './SourcePeek';
 import ThoughtComposer, { useEditionThoughts } from './ThoughtComposer';
 import useEditionIssue from './useEditionIssue';
@@ -259,11 +260,13 @@ export default function EditionReading({
                       />
                     ))
                   ) : (
-                    <p className="reading-empty">
-                      {section.label
+                    <SectionSilence
+                      className="reading-empty"
+                      silence={edition.silences?.find((silence) => silence.key === section.key)}
+                      fallback={section.label
                         ? `Nothing filed under ${section.label} in this issue.`
                         : 'No findings filed in this issue yet.'}
-                    </p>
+                    />
                   )}
                 </section>
               ))}

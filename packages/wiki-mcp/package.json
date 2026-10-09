@@ -1,6 +1,6 @@
 {
   "name": "@noeis/wiki-mcp",
-  "version": "0.4.4",
+  "version": "0.4.5",
   "mcpName": "io.github.atsokolas/noeis",
   "description": "MCP server for driving a Noeis wiki from external agents.",
   "repository": {

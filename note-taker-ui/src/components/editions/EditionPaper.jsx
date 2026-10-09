@@ -1,6 +1,7 @@
 import React from 'react';
 import { issueLine, publicSourceHref, standLayout, windowLine } from '../../pages/editionModel';
 import AgentMark from './AgentMark';
+import SectionSilence from './SectionSilence';
 
 /**
  * The paper a stranger reads, and the preview an owner approves.
@@ -60,7 +61,12 @@ const EditionPaper = ({ edition, compact = false }) => {
           {section.items.length ? (
             section.items.map(item => <EditionItemView key={item.itemId || item.title} item={item} />)
           ) : (
-            <p className="edition__section-empty">Nothing this week.</p>
+            <SectionSilence
+              className="edition__section-empty"
+              silence={edition.silences?.find(silence => silence.key === section.key)}
+              fallback="Nothing this week."
+              plain
+            />
           )}
         </section>
       )) : looseItems.length ? (

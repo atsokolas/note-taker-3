@@ -1869,6 +1869,17 @@ const editionSchema = new mongoose.Schema({
   throughLine: { type: String, default: '', trim: true },
   watchNext: { type: [String], default: [] },
   items: { type: [editionItemSchema], default: [] },
+  /* "Looked here; nothing met the bar." One per section per filer, so an empty
+     section can say which silence it is. Never an item, a count or an arrival. */
+  checks: {
+    type: [new mongoose.Schema({
+      section: { type: String, required: true, trim: true },
+      note: { type: String, default: '', trim: true, maxlength: 280 },
+      by: editionSigner(),
+      at: { type: Date, default: null }
+    }, { _id: false })],
+    default: []
+  },
   /* Who wrote it. A paper written by an agent says so on its masthead — the
      reader is entitled to know which of their agents to argue with. */
   writtenBy: editionSigner()

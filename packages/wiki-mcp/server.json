@@ -9,12 +9,12 @@
     "source": "github",
     "subfolder": "packages/wiki-mcp"
   },
-  "version": "0.4.4",
+  "version": "0.4.5",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@noeis/wiki-mcp",
-      "version": "0.4.4",
+      "version": "0.4.5",
       "transport": {
         "type": "stdio"
       },

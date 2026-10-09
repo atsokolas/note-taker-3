@@ -4,8 +4,9 @@ const { fetchReadableArticle, paragraphsToHtml } = require('../services/readable
 const {
   EditionShapeError,
   collectInbox,
-  emptySections,
   hashPublicEdition,
+  mergeChecks,
+  normalizeChecks,
   normalizeEdition,
   normalizeItem,
   profileKeysFor,
@@ -13,6 +14,7 @@ const {
   READER_STATUSES,
   resolveEditionProfile,
   retainHeldItems,
+  sectionSilences,
   windowFor
 } = require('../services/editionShape');
 const { normalizeRuntime } = require('../services/agentRuntime');
@@ -42,6 +44,16 @@ const scribe = (req = {}) => ({
   agentTokenId: String(req.agentToken?.id || req.agentToken?._id || '').trim(),
   runtime: tokenRuntime(req)
 });
+
+/* "Looked; nothing met the bar", signed by whoever looked. Only an agent's
+   token can sign one: a receipt from nobody in particular says nothing. */
+const checksFrom = (req, profile, by, at) => {
+  const checks = normalizeChecks(req.body?.checked, profile);
+  if (checks.length && !by.agentTokenId) {
+    throw new EditionShapeError('checked is an agent\'s receipt and needs an agent token. Leave it out when writing by hand.', { field: 'checked' });
+  }
+  return checks.map(check => ({ ...check, by, at }));
+};
 
 /* Normalized against the same standard as a whole edition — a boundary is
    required here too, or the daily door becomes the way around it. */
@@ -83,9 +95,19 @@ const serializeItem = (item) => {
   };
 };
 
-const serializeEdition = (edition = {}, { withItems = true, profiles = null } = {}) => {
+const serializeEdition = (edition = {}, { withItems = true, profiles = null, receiptsSince = null, now = new Date() } = {}) => {
   const profile = resolveEditionProfile(edition.profile, { profiles });
   const items = (Array.isArray(edition.items) ? edition.items : []).map(serializeItem);
+  const silences = sectionSilences({
+    profile: edition.profile,
+    items,
+    checks: edition.checks,
+    receiptsSince,
+    windowStart: edition.windowStart,
+    windowEnd: edition.windowEnd,
+    now,
+    profiles
+  });
   return {
     _id: String(edition._id),
     profile: edition.profile,
@@ -103,7 +125,10 @@ const serializeEdition = (edition = {}, { withItems = true, profiles = null } = 
     writtenByRuntime: edition.writtenBy?.runtime || '',
     /* Said on every edition, on the stand and on the page: the sections this
        week never filled, and how many of its sources the reader has taken. */
-    unfilled: emptySections({ profile: edition.profile, items, profiles }).map(section => section.label),
+    unfilled: silences.map(section => section.label),
+    /* Which silence each empty section is: looked and found nothing, never
+       reported, or an issue from before anyone was asked. */
+    silences,
     itemCount: items.length,
     savedCount: items.filter(item => item.savedArticleId).length,
     createdAt: edition.createdAt,
@@ -202,6 +227,22 @@ const buildEditionRouter = ({
     }]));
   };
 
+  /* When this reader's paper started taking "nothing met the bar" receipts:
+     the window of its oldest issue holding one. An empty section in an issue
+     from before then is never called unreported. */
+  const receiptsSinceFor = async (userId, profileKey) => {
+    const [first] = await Edition.find({ userId, profile: profileKey, 'checks.0': { $exists: true } })
+      .sort({ windowStart: 1 })
+      .limit(1)
+      .lean();
+    return first?.windowStart || null;
+  };
+
+  const present = async (edition, userId, profiles) => serializeEdition(edition, {
+    profiles,
+    receiptsSince: await receiptsSinceFor(userId, edition.profile)
+  });
+
   const ownerNameOf = async (userId) => {
     if (!User) return '';
     const owner = await User.findById(userId).select('name displayName').lean().catch(() => null);
@@ -211,7 +252,10 @@ const buildEditionRouter = ({
   const livePreviewOf = async (edition, userId) => {
     const profiles = await loadProfiles(userId);
     const ownerDisplayName = await ownerNameOf(userId);
-    const preview = projectPublicEdition(edition, ownerDisplayName, { profiles });
+    const preview = projectPublicEdition(edition, ownerDisplayName, {
+      profiles,
+      receiptsSince: await receiptsSinceFor(userId, edition.profile)
+    });
     return { preview, currentHash: hashPublicEdition(preview), ownerDisplayName };
   };
 
@@ -343,6 +387,37 @@ const buildEditionRouter = ({
     throw new Error('Could not file into this edition.');
   };
 
+  /* The same discipline for receipts: one per section per token, pushed only
+     while none is held, so two retries cannot leave two. */
+  const appendChecks = async ({ existing, userId, checks }) => {
+    let held = existing;
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      const heldCount = (held.checks || []).length;
+      const remaining = mergeChecks(held.checks, checks).slice(heldCount);
+      if (!remaining.length) return { saved: held, added: [] };
+      const saved = await Edition.findOneAndUpdate(
+        {
+          _id: held._id,
+          userId,
+          checks: {
+            $not: {
+              $elemMatch: {
+                'by.agentTokenId': remaining[0].by.agentTokenId,
+                section: { $in: remaining.map(check => check.section) }
+              }
+            }
+          }
+        },
+        { $push: { checks: { $each: remaining } }, $set: { updatedAt: new Date() } },
+        { new: true }
+      );
+      if (saved) return { saved, added: remaining };
+      held = await Edition.findOne({ _id: held._id, userId });
+      if (!held) throw new Error('No such edition.');
+    }
+    throw new Error('Could not file into this edition.');
+  };
+
   /**
    * An agent hands over a week.
    *
@@ -437,12 +512,17 @@ const buildEditionRouter = ({
           error: `Unknown edition topic "${req.body?.profile || ''}". Known topics: ${profileKeysFor(profiles).join(', ')}. Configure a new one before filing into it.`
         });
       }
-      const incoming = Array.isArray(req.body?.items) ? req.body.items : [];
-      if (!incoming.length) return res.status(400).json({ error: 'items is required: what you found, with a boundary on each.' });
-
-      const { windowStart, windowEnd } = windowFor(profile.cadence || 'weekly', req.body?.now ? new Date(req.body.now) : new Date());
       const filedBy = scribe(req);
       const filedAt = new Date();
+      const incoming = Array.isArray(req.body?.items) ? req.body.items : [];
+      const checks = checksFrom(req, profile, filedBy, filedAt);
+      if (!incoming.length && !checks.length) {
+        return res.status(400).json({
+          error: 'Send items (what you found, with a boundary on each) or checked (the sections you looked at where nothing met your bar).'
+        });
+      }
+
+      const { windowStart, windowEnd } = windowFor(profile.cadence || 'weekly', req.body?.now ? new Date(req.body.now) : new Date());
       const title = String(req.body?.title || '').trim().slice(0, 300) || profile.titleLabel;
       const standfirst = String(req.body?.standfirst || '').trim().slice(0, 2400);
 
@@ -450,6 +530,7 @@ const buildEditionRouter = ({
       let saved;
       let created = false;
       let added = [];
+      let checksAdded = [];
       if (!existing) {
         const prepared = addToHeld([], incoming, profile, filedBy, filedAt);
         if (prepared.items.length > profile.maxItems) {
@@ -466,10 +547,12 @@ const buildEditionRouter = ({
             windowEnd,
             standfirst,
             items: prepared.items,
+            checks,
             writtenBy: filedBy
           });
           created = true;
           added = prepared.added;
+          checksAdded = checks;
         } catch (error) {
           if (!isDuplicateKey(error)) throw error;
           existing = await Edition.findOne({ userId, profile: profile.key, windowStart, windowEnd });
@@ -487,14 +570,17 @@ const buildEditionRouter = ({
           filedAt,
           writtenBy
         });
-        saved = appended.saved;
+        const checked = await appendChecks({ existing: appended.saved, userId, checks });
+        saved = checked.saved;
         added = appended.added;
+        checksAdded = checked.added;
       }
 
       return res.status(created ? 201 : 200).json({
-        ...serializeEdition(saved, { profiles }),
+        ...await present(saved, req.user.id, profiles),
         added: added.length,
-        alreadyHeld: incoming.length - added.length
+        alreadyHeld: incoming.length - added.length,
+        checksAdded: checksAdded.length
       });
     } catch (error) {
       return refuse(res, error, 'Failed to file into that edition.');
@@ -518,6 +604,7 @@ const buildEditionRouter = ({
          Identity follows the source URL, so a reorder does not mint a new item. */
       const writtenBy = scribe(req);
       const now = new Date();
+      const checks = checksFrom(req, resolveEditionProfile(built.profile, { profiles }), writtenBy, now);
       let held = existing;
       let saved;
       let created = false;
@@ -527,7 +614,9 @@ const buildEditionRouter = ({
           const put = await putIssue({
             existing: held,
             userId,
-            doc: { ...built, items, writtenBy }
+            /* Receipts are never part of the replacement: a rewrite that read
+               the issue before another agent's receipt landed would drop it. */
+            doc: { ...built, items, writtenBy, ...(held ? {} : { checks }) }
           });
           saved = put.saved;
           created = put.created;
@@ -544,7 +633,9 @@ const buildEditionRouter = ({
         }
       }
 
-      return res.status(created ? 201 : 200).json(serializeEdition(saved, { profiles }));
+      if (!created && checks.length) saved = (await appendChecks({ existing: saved, userId, checks })).saved;
+
+      return res.status(created ? 201 : 200).json(await present(saved, req.user.id, profiles));
     } catch (error) {
       return refuse(res, error, 'Failed to file the edition.');
     }
@@ -563,8 +654,16 @@ const buildEditionRouter = ({
         /* Inbox already loads 200. The stand can be asked for 500, never more. */
         .limit(Math.min(Number(req.query?.limit) || 40, 500))
         .lean();
+      const receipts = new Map(await Promise.all(
+        [...new Set(editions.map(edition => edition.profile))]
+          .map(async key => [key, await receiptsSinceFor(req.user.id, key)])
+      ));
       return res.status(200).json({
-        editions: editions.map(edition => serializeEdition(edition, { withItems: false, profiles }))
+        editions: editions.map(edition => serializeEdition(edition, {
+          withItems: false,
+          profiles,
+          receiptsSince: receipts.get(edition.profile)
+        }))
       });
     } catch (error) {
       return refuse(res, error, 'Failed to open the newsstand.');
@@ -597,7 +696,7 @@ const buildEditionRouter = ({
       const edition = await Edition.findOne({ _id: req.params.id, userId: req.user.id }).lean();
       if (!edition) return res.status(404).json({ error: 'No such edition.' });
       const profiles = await loadProfiles(req.user.id);
-      return res.status(200).json(serializeEdition(edition, { profiles }));
+      return res.status(200).json(await present(edition, req.user.id, profiles));
     } catch (error) {
       return refuse(res, error, 'Failed to open the edition.');
     }
@@ -632,7 +731,7 @@ const buildEditionRouter = ({
         articleId: String(taken.article._id),
         readable: taken.readable,
         readError: taken.readError,
-        edition: serializeEdition(edition, { profiles })
+        edition: await present(edition, req.user.id, profiles)
       });
     } catch (error) {
       return refuse(res, error, 'Failed to save that source.');
@@ -670,7 +769,7 @@ const buildEditionRouter = ({
         readError: taken.readError,
         placed,
         fromSetAside: previous === 'setAside',
-        edition: serializeEdition(edition, { profiles }),
+        edition: await present(edition, req.user.id, profiles),
         error: placed ? '' : 'Saved to Library; could not move to Later — Retry'
       });
     } catch (error) {
@@ -696,7 +795,7 @@ const buildEditionRouter = ({
       return res.status(200).json({
         itemId: item.itemId,
         readerStatus: item.readerState?.status || 'new',
-        edition: serializeEdition(edition, { profiles })
+        edition: await present(edition, req.user.id, profiles)
       });
     } catch (error) {
       return refuse(res, error, 'Failed to remember that choice.');
