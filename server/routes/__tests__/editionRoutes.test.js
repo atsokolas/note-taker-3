@@ -788,6 +788,8 @@ describe('topics the reader configures, and filing into them', () => {
     expect(omitted.body.sections[0].keeper).toEqual({ runtime: 'codex', label: '' });
     const renamed = await configure({ sections: [{ key: 'clinical_evidence', label: 'Trials' }] });
     expect(renamed.body.sections[0]).toEqual({ key: 'clinical_evidence', label: 'Trials', keeper: { runtime: 'codex', label: '' } });
+    const empty = await configure({ sections: [{ key: 'clinical_evidence', label: 'Trials', keeper: {} }] });
+    expect(empty.body.sections[0].keeper).toEqual({ runtime: 'codex', label: '' });
     const released = await configure({ sections: [{ key: 'clinical_evidence', label: 'Trials', keeper: null }] });
     expect(released.body.sections[0]).toEqual({ key: 'clinical_evidence', label: 'Trials' });
   });
