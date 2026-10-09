@@ -34,3 +34,6 @@
 - [Source-Backed Synthesis Workflow](https://www.noeis.io/source-backed-synthesis-workflow): A practical workflow for turning saved reading, highlights, and notes into synthesis that stays traceable to source material.
 - [Import Reading Archive into Noeis](https://www.noeis.io/import-reading-archive-into-noeis): A practical guide to moving a reading archive into Noeis as a proof layer for source-grounded synthesis and Readwise-adjacent workflows.
 - [From Saved Article to Draft in Noeis](https://www.noeis.io/from-saved-article-to-draft-in-noeis): A practical source-grounded workflow for turning a saved article into an evidence-backed draft in Noeis.
+- [Build a Wiki From Your Reading](https://www.noeis.io/build-a-wiki-from-your-reading): How to turn saved articles and highlights into wiki pages where every claim points back to the passage that supports it.
+- [Connect an AI Agent to Your Reading via MCP](https://www.noeis.io/connect-ai-agent-to-your-reading-mcp): How to connect Claude Code, Codex, or another MCP client to your saved reading and notes in Noeis, read-only by default and approved by you.
+- [AI Answers Quoted From Your Own Sources](https://www.noeis.io/ai-answers-quoted-from-your-sources): How Noeis answers questions from your saved reading with exact quotes, checks those quotes, and says so when your library has nothing on the question.

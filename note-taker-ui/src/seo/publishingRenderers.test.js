@@ -11,10 +11,16 @@ const {
 } = require('../../scripts/seo/renderers');
 const publishingContent = require('./publishingContent.json');
 const homeCopy = require('./homeCopy.json');
+const { GUIDE_SLUGS } = require('./guideSlugs');
 
 const content = { ...publishingContent, home: homeCopy };
 
 describe('publishing renderers', () => {
+  it('routes every guide the generator prerenders', () => {
+    expect(GUIDE_SLUGS).toEqual(publishingContent.guides.map((guide) => guide.slug));
+  });
+
+
   it('says what Noeis does, for people and for agents', () => {
     const html = renderHomeFallback(content);
 

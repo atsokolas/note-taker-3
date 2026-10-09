@@ -74,6 +74,18 @@
       "destination": "/from-saved-article-to-draft-in-noeis/index.html"
     },
     {
+      "source": "/build-a-wiki-from-your-reading",
+      "destination": "/build-a-wiki-from-your-reading/index.html"
+    },
+    {
+      "source": "/connect-ai-agent-to-your-reading-mcp",
+      "destination": "/connect-ai-agent-to-your-reading-mcp/index.html"
+    },
+    {
+      "source": "/ai-answers-quoted-from-your-sources",
+      "destination": "/ai-answers-quoted-from-your-sources/index.html"
+    },
+    {
       "source": "/(.*)",
       "destination": "/"
     }

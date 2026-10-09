@@ -2870,6 +2870,914 @@
           ]
         }
       ]
+    },
+    {
+      "slug": "build-a-wiki-from-your-reading",
+      "title": "Build a Wiki From Your Reading",
+      "pageTitle": "How to Build a Wiki From Your Reading That Cites Its Sources | Noeis",
+      "description": "How to turn saved articles and highlights into wiki pages where every claim points back to the passage that supports it.",
+      "heroTitle": "How to Build a Wiki From Your Reading That Cites Its Sources",
+      "heroDescription": "A practical guide to building wiki pages from your saved articles, highlights, and notes, with each claim linked to the passage behind it.",
+      "eyebrow": "Guide",
+      "heroIntro": [
+        "To build a wiki from your reading that cites its sources, start from material you have actually saved, write each page from those sources, and attach every claim to the passage that supports it. In Noeis, you ask for a page on a topic, the Thought partner drafts it from your Library, and each claim carries numbered citations you can open to see the source title, the supporting passage, and a link back to where it came from.",
+        "The point is not a prettier archive. A wiki built this way lets you reread a claim months later and check it in one click, instead of trusting a summary you can no longer trace."
+      ],
+      "methodology": [
+        "This guide describes how wiki pages are built and cited in Noeis today: the build request, the citation popover, the evidence check that runs on each build, and the controls for adding sources by hand.",
+        "Where Noeis declines to do something, such as drafting a page with no direct source in your Library, the guide says so."
+      ],
+      "directAnswer": {
+        "label": "Direct answer",
+        "title": "A reading wiki is useful when every claim can be traced to a passage you saved.",
+        "text": "Build pages from your own saved articles and highlights, keep the citation on each claim, and let the page say plainly when a claim has no source or when a source disagrees.",
+        "points": [
+          "Start from sources already in your Library.",
+          "Open any cited claim to see the passage and return to the source.",
+          "Treat unsupported or conflicted claims as open work, not finished pages."
+        ]
+      },
+      "ctas": [
+        {
+          "label": "Start free",
+          "href": "/register",
+          "variant": "primary",
+          "track": "hero"
+        },
+        {
+          "label": "Browse guides",
+          "href": "/guides",
+          "variant": "secondary",
+          "track": "hero"
+        }
+      ],
+      "toc": [
+        {
+          "id": "why",
+          "label": "Why a reading wiki needs citations"
+        },
+        {
+          "id": "start",
+          "label": "Start from what you saved"
+        },
+        {
+          "id": "citations",
+          "label": "How each claim points to a passage"
+        },
+        {
+          "id": "evidence-check",
+          "label": "When a draft overreaches"
+        },
+        {
+          "id": "maintain",
+          "label": "Keep the page honest over time"
+        },
+        {
+          "id": "faq",
+          "label": "FAQ"
+        }
+      ],
+      "faq": [
+        {
+          "question": "How do I build a wiki from my reading?",
+          "answer": "Save the articles and highlights you want to build from, then ask for a wiki page on a topic. In Noeis, the Thought partner drafts the page from your Library and attaches numbered citations to each claim so you can check the passage behind it."
+        },
+        {
+          "question": "Can Noeis build a wiki page about a topic I have not read about?",
+          "answer": "No. If no source in your Library directly explains the topic, Noeis declines to draft the page, tells you so, and may point to the closest material you have. Add or import a direct source first."
+        },
+        {
+          "question": "What does a citation on a wiki claim show?",
+          "answer": "Opening a cited claim shows a support label, each cited source with its title and passage, and links to open the source in your Library or the original page. Sources that contradict the claim are listed separately."
+        },
+        {
+          "question": "What happens if the AI writes a claim my sources do not support?",
+          "answer": "Each build runs an evidence check that flags sentences with no anchor in the sources they cite. A page that falls short is marked as needing stronger evidence instead of being presented as finished, and a claim with no attached source is labeled No source."
+        },
+        {
+          "question": "Can I add sources to a wiki page myself?",
+          "answer": "Yes. You can attach an article, highlight, notebook page, concept, or question to a page. Each change is recorded in the page's revision history."
+        }
+      ],
+      "sections": [
+        {
+          "id": "why",
+          "title": "Why a reading wiki needs citations",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "Most personal wikis start strong and decay. A page gets written from memory, the memory drifts, and a year later the page states things with confidence that no source you saved ever said. The page still looks authoritative, which makes the drift harder to notice."
+            },
+            {
+              "type": "claimEvidence",
+              "claim": "A wiki page you cannot check against its sources slowly turns into a record of what you thought you read.",
+              "evidence": [
+                "Summaries lose the qualifications that made the original argument careful.",
+                "Without a link to the passage, you cannot tell a faithful compression from an invention.",
+                "Disagreement between sources disappears when a page states one view as settled."
+              ],
+              "whyItMatters": "Citations keep the page reviewable. You can reopen the passage, see whether it still supports the claim, and revise the page when it does not."
+            }
+          ]
+        },
+        {
+          "id": "start",
+          "title": "Start from what you have actually saved",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "A cited wiki can only be as good as the reading underneath it. Before building a page, save the articles you want it to draw on and highlight the passages that carry the argument. Highlights matter because they mark the exact sentences you found worth keeping, and a highlight's margin note records why."
+            },
+            {
+              "type": "orderedList",
+              "items": [
+                "Save the articles on the topic to your Library, or import an existing reading archive.",
+                "Highlight the passages that define, argue, or give evidence.",
+                "Open the wiki and ask for a page on the topic, for example \"Build a page on base rates in forecasting.\"",
+                "Let the Thought partner draft the page from your Library, then read it with the citations open."
+              ]
+            },
+            {
+              "type": "paragraph",
+              "text": "Noeis checks for evidence before it drafts. If nothing in your Library directly explains the topic, the build stops with a message that no direct Library source explains it, and it may name the closest material you do have. That refusal is deliberate: a page built from nothing would have nothing to cite."
+            },
+            {
+              "type": "paragraph",
+              "text": "If you want a page that tracks an open question instead of summarizing settled material, choose Living thesis instead of Page. You give it a governing question, and no conclusion or claims are drafted for you."
+            }
+          ]
+        },
+        {
+          "id": "citations",
+          "title": "How each claim points back to a passage",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "Each claim on a built page carries numbered citations that refer to the sources attached to that page. Hover over or focus a cited claim and a small popover opens, in the style of a Wikipedia footnote."
+            },
+            {
+              "type": "subsections",
+              "items": [
+                {
+                  "title": "What the popover shows",
+                  "paragraphs": [
+                    "Each cited source appears with its number, its title, and the passage that supports the claim. For sources from your Library, an Open in Library link takes you to the saved article. Where the source has an original web address, an Open original link opens it in a new tab."
+                  ]
+                },
+                {
+                  "title": "How support is labeled",
+                  "paragraphs": [
+                    "Every claim carries one of a few plain labels: Supported when it is grounded in your Library, Partial support when only one source partly backs it, No source when it was written without an attached source, and Conflicted when a source in your Library disagrees. Sources that contradict a claim are listed under their own heading rather than mixed in with the support."
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "style": "callout",
+          "title": "A claim labeled No source is not a failure of the page. It is the page telling you the truth.",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "Unsupported and conflicted claims show you exactly where to read next. Find a source that settles the point, attach it, and the page gets stronger where it was weakest."
+            },
+            {
+              "type": "ctas",
+              "items": [
+                {
+                  "label": "Build your first page",
+                  "href": "/register",
+                  "variant": "secondary",
+                  "track": "mid"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "evidence-check",
+          "title": "What happens when a draft overreaches",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "AI drafting has a known failure: when the sources run thin, the model fills the gap with plausible sentences. Noeis runs an evidence check on each build to catch that. Sentences that have no anchor in the evidence their section cites are flagged, along with generic filler headings and sentences repeated across sections."
+            },
+            {
+              "type": "paragraph",
+              "text": "The evidence step reports its result. A page that clears it is reported as having reached the evidence bar. A page that does not is reported as needing stronger evidence before it can be trusted, rather than quietly presented as finished, and a failing draft may be rebuilt with stricter source and quality checks."
+            },
+            {
+              "type": "cards",
+              "variant": "compare",
+              "items": [
+                {
+                  "title": "Uncited AI summary",
+                  "paragraphs": [
+                    "Reads smoothly, cannot be checked, and gives no sign of which sentences came from a source and which were filled in."
+                  ]
+                },
+                {
+                  "title": "Cited Noeis wiki page",
+                  "paragraphs": [
+                    "Each claim names its sources, shows its support level, and links to the passage, so weak claims are visible instead of hidden."
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "maintain",
+          "title": "Keep the page honest as your reading grows",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "A reading wiki is never finished. New reading confirms some claims, complicates others, and occasionally overturns one. The page should change with it."
+            },
+            {
+              "type": "unorderedList",
+              "items": [
+                "Attach sources by hand: an article, a highlight, a notebook page, a concept, or a question.",
+                "Every attached or removed source is recorded in the page's revision history, so you can see how the page changed.",
+                "Ask a question about the page and read the answer against its attached sources.",
+                "Download any page as Markdown when you want a copy outside Noeis."
+              ]
+            }
+          ]
+        },
+        {
+          "id": "faq",
+          "title": "FAQ",
+          "blocks": [
+            {
+              "type": "faqCards",
+              "items": [
+                {
+                  "title": "How do I build a wiki from my reading?",
+                  "paragraphs": [
+                    "Save the articles and highlights you want to build from, then ask for a wiki page on a topic. In Noeis, the Thought partner drafts the page from your Library and attaches numbered citations to each claim so you can check the passage behind it."
+                  ]
+                },
+                {
+                  "title": "Can Noeis build a wiki page about a topic I have not read about?",
+                  "paragraphs": [
+                    "No. If no source in your Library directly explains the topic, Noeis declines to draft the page, tells you so, and may point to the closest material you have. Add or import a direct source first."
+                  ]
+                },
+                {
+                  "title": "What does a citation on a wiki claim show?",
+                  "paragraphs": [
+                    "Opening a cited claim shows a support label, each cited source with its title and passage, and links to open the source in your Library or the original page. Sources that contradict the claim are listed separately."
+                  ]
+                },
+                {
+                  "title": "What happens if the AI writes a claim my sources do not support?",
+                  "paragraphs": [
+                    "Each build runs an evidence check that flags sentences with no anchor in the sources they cite. A page that falls short is marked as needing stronger evidence instead of being presented as finished, and a claim with no attached source is labeled No source."
+                  ]
+                },
+                {
+                  "title": "Can I add sources to a wiki page myself?",
+                  "paragraphs": [
+                    "Yes. You can attach an article, highlight, notebook page, concept, or question to a page. Each change is recorded in the page's revision history."
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "style": "footer",
+          "title": "Build one page from reading you trust, then check every claim.",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "Pick a topic you have read about this month, save the three strongest sources, and ask for a page. Open each citation and see whether the passage holds up."
+            },
+            {
+              "type": "relatedGuides",
+              "items": [
+                "source-backed-synthesis-workflow",
+                "highlights-into-concepts",
+                "import-reading-archive-into-noeis"
+              ]
+            },
+            {
+              "type": "ctas",
+              "items": [
+                {
+                  "label": "Start free",
+                  "href": "/register",
+                  "variant": "primary",
+                  "track": "footer"
+                },
+                {
+                  "label": "Browse guides",
+                  "href": "/guides",
+                  "variant": "secondary",
+                  "track": "footer"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "connect-ai-agent-to-your-reading-mcp",
+      "title": "Connect an AI Agent to Your Reading via MCP",
+      "pageTitle": "How to Give an AI Agent Access to Your Reading and Notes via MCP | Noeis",
+      "description": "How to connect Claude Code, Codex, or another MCP client to your saved reading and notes in Noeis, read-only by default and approved by you.",
+      "heroTitle": "How to Give an AI Agent Access to Your Reading and Notes via MCP",
+      "heroDescription": "A setup guide for connecting Claude Code, Codex, OpenCode, and other MCP clients to your Noeis Library, highlights, and notes with a read-only grant you approve.",
+      "eyebrow": "Guide",
+      "heroIntro": [
+        "To give an AI agent access to your reading and notes, install the Noeis CLI, run noeis connect with the name of your agent and the read scope, approve the request in your browser, then reload the agent and confirm it can call the connection_info tool. The agent then reaches your saved articles, highlights, concepts, questions, notebook, and wiki pages through a local MCP server, with read-only access unless you explicitly choose more.",
+        "The setup is designed so that the agent never approves itself. You see the requested permission on an approval page in Noeis, and only you can accept it. The full public setup guide for agents lives at noeis.io/skill.md."
+      ],
+      "methodology": [
+        "This guide follows the public agent setup guide at /skill.md and the README files for the @noeis/noeis-cli and @noeis/wiki-mcp packages. Commands and tool names are taken from those sources.",
+        "Tool lists change between releases, so the guide recommends discovering the live tool list through MCP rather than relying on a copied one."
+      ],
+      "directAnswer": {
+        "label": "Direct answer",
+        "title": "Connect with one command, approve it yourself, and verify it from inside the agent.",
+        "text": "Run noeis connect with your runtime and --scope read, compare the approval page against what you asked for, then reload the agent and call connection_info there before you consider the setup done.",
+        "points": [
+          "Read-only is the default scope.",
+          "Only a human can approve the connection.",
+          "A written config file does not prove the agent loaded its tools."
+        ]
+      },
+      "ctas": [
+        {
+          "label": "Start free",
+          "href": "/register",
+          "variant": "primary",
+          "track": "hero"
+        },
+        {
+          "label": "Browse guides",
+          "href": "/guides",
+          "variant": "secondary",
+          "track": "hero"
+        }
+      ],
+      "toc": [
+        {
+          "id": "what",
+          "label": "What the agent can reach"
+        },
+        {
+          "id": "setup",
+          "label": "Set up the connection"
+        },
+        {
+          "id": "approval",
+          "label": "Human approval and scope"
+        },
+        {
+          "id": "verify",
+          "label": "Verify the agent loaded its tools"
+        },
+        {
+          "id": "other-clients",
+          "label": "Other clients and hosted MCP"
+        },
+        {
+          "id": "faq",
+          "label": "FAQ"
+        }
+      ],
+      "faq": [
+        {
+          "question": "How do I connect Claude Code to my Noeis library?",
+          "answer": "Install the CLI with npm install -g @noeis/noeis-cli, run noeis connect claude-code --scope read, and approve the request in the browser. Then restart Claude Code, check /mcp, and call the connection_info tool to confirm the connection."
+        },
+        {
+          "question": "Can the agent change or delete my notes?",
+          "answer": "Not with the default read scope. Read-only grants can only use read requests, and write tools return an error. Writing requires the broader read-write grant, which you have to choose explicitly with --scope read-write and approve yourself."
+        },
+        {
+          "question": "Which agents and MCP clients are supported?",
+          "answer": "The CLI's connect command supports claude-code, codex, opencode, hermes, and openclaw. Any client that can launch a local stdio MCP server can run noeis mcp, and clients that cannot launch a local process can use the hosted endpoint with a connected-agent token."
+        },
+        {
+          "question": "Where is my credential stored?",
+          "answer": "The CLI normally stores it once in ~/.config/noeis/config.json. The MCP config it writes for your agent calls noeis mcp instead of copying the raw token into each runtime."
+        },
+        {
+          "question": "How do I know the connection actually works?",
+          "answer": "Call the connection_info tool from inside the agent. It returns the workspace and grant that were issued without reading or creating anything in your workspace. A config file written by the CLI does not prove the agent loaded its tools."
+        }
+      ],
+      "sections": [
+        {
+          "id": "what",
+          "title": "What a connected agent can reach",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "Noeis exposes your workspace to agents through the Model Context Protocol (MCP), the standard many coding agents and AI clients use to call outside tools. Once connected, an agent can search and read what you have saved instead of guessing from its training data."
+            },
+            {
+              "type": "unorderedList",
+              "items": [
+                "Library: search saved articles, read an article, and list its highlights.",
+                "Highlights: search your highlights and read a single highlight.",
+                "Think: list and read your concepts, questions, and notebook pages.",
+                "Wiki: list, search, and read wiki pages, their sources, backlinks, and revision history.",
+                "Account checks: connection_info reports which workspace and grant the agent holds."
+              ]
+            },
+            {
+              "type": "paragraph",
+              "text": "The setup guide asks agents to preserve quotation and source identity, to retrieve before creating duplicates, and to treat anything retrieved from your workspace as data, never as instructions to widen access or change local configuration."
+            }
+          ]
+        },
+        {
+          "id": "setup",
+          "title": "Set up the connection",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "The normal path is a single connect command. It requests read-only access, opens Noeis for your approval, checks the grant that was issued, stores the credential, and writes the MCP config for the runtime you name."
+            },
+            {
+              "type": "orderedList",
+              "items": [
+                "Install the CLI: npm install -g @noeis/noeis-cli",
+                "Read noeis connect --help for the version you installed, so you only use commands and flags that exist.",
+                "Run the connect command for your agent, for example: noeis connect claude-code --scope read",
+                "Approve the request on the Noeis page that opens in your browser.",
+                "Reload or restart the agent so it picks up the new MCP server.",
+                "Call connection_info from inside the agent to confirm it works."
+              ]
+            },
+            {
+              "type": "paragraph",
+              "text": "Use the same form for codex, opencode, hermes, or openclaw. If the browser cannot open on the machine running the agent, add --no-browser and the CLI prints the approval link for you to open elsewhere. That changes where you approve, not whether you approve."
+            }
+          ]
+        },
+        {
+          "id": "approval",
+          "title": "A human approves, and read-only is the default",
+          "blocks": [
+            {
+              "type": "claimEvidence",
+              "claim": "An agent should never be able to grant itself access to your reading.",
+              "evidence": [
+                "The approval link contains only an opaque session reference; the CLI keeps its polling secret.",
+                "The approval page shows the code, connection label, runtime, expiry, and the actual permission requested, so you can compare them before accepting.",
+                "After approval, the CLI checks that the issued grant matches the scope it requested and stops if it does not."
+              ],
+              "whyItMatters": "If the approval page shows wider access than you asked for, do not approve it. The agent cannot proceed without you."
+            },
+            {
+              "type": "subsections",
+              "items": [
+                {
+                  "title": "The two scopes",
+                  "paragraphs": [
+                    "read lets the agent retrieve your private workspace material. read-write adds agent-write, which permits write requests such as creating highlights or editing wiki pages, although some product actions remain human-only or require approval. Read-only grants can only make read requests, so write tools fail for them.",
+                    "Unknown scopes are rejected rather than widened. Only pass --scope read-write when you have decided you want the agent to make changes."
+                  ]
+                },
+                {
+                  "title": "Runtime names are labels, not proof",
+                  "paragraphs": [
+                    "The runtime name shown on the approval page is reported by the CLI. It is not device attestation, so judge the request by whether you just started it."
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "style": "callout",
+          "title": "Never paste a password or token into an agent chat to make setup work.",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "The connect flow is built so you never need to. If a tool seems missing after approval, repair the agent's configuration instead of reconnecting or asking for broader access."
+            },
+            {
+              "type": "externalLinks",
+              "items": [
+                {
+                  "label": "Read the full agent setup guide (skill.md)",
+                  "href": "https://www.noeis.io/skill.md"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "verify",
+          "title": "Verify the agent really loaded its tools",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "A connection has three separate pieces of evidence, and each proves something different. Check all three before you call setup done."
+            },
+            {
+              "type": "orderedList",
+              "items": [
+                "Approval recorded: Noeis issued the grant you reviewed.",
+                "Tools loaded: the agent itself reports the Noeis MCP tools. In Claude Code, check /mcp.",
+                "Authenticated read verified: calling connection_info from that agent returns your workspace and grant without reading or creating anything."
+              ]
+            },
+            {
+              "type": "paragraph",
+              "text": "If tools are missing after approval, keep the existing grant and fix how the agent loads its config. Do not reconnect, mint another credential, or widen access just to make a tool appear."
+            }
+          ]
+        },
+        {
+          "id": "other-clients",
+          "title": "Other clients and the hosted endpoint",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "The implemented local transport is stdio. Any MCP client that can launch a local process can use the same server definition the CLI writes: the command noeis with the argument mcp. The package README includes config snippets for Claude Code, Codex, OpenCode, and Hermes."
+            },
+            {
+              "type": "paragraph",
+              "text": "For clients that cannot launch a local process, Noeis also offers a hosted Streamable HTTP endpoint. It takes a connected-agent token as a Bearer credential, created in Noeis under Settings, Connected agents. Start with the read scope, a short expiry, and a daily quota. The hosted endpoint has no cookie session and does not support OAuth yet."
+            },
+            {
+              "type": "paragraph",
+              "text": "For scripts and cron jobs that do not speak MCP, the same CLI offers plain commands such as noeis pages list, using the same token and API."
+            }
+          ]
+        },
+        {
+          "id": "faq",
+          "title": "FAQ",
+          "blocks": [
+            {
+              "type": "faqCards",
+              "items": [
+                {
+                  "title": "How do I connect Claude Code to my Noeis library?",
+                  "paragraphs": [
+                    "Install the CLI with npm install -g @noeis/noeis-cli, run noeis connect claude-code --scope read, and approve the request in the browser. Then restart Claude Code, check /mcp, and call the connection_info tool to confirm the connection."
+                  ]
+                },
+                {
+                  "title": "Can the agent change or delete my notes?",
+                  "paragraphs": [
+                    "Not with the default read scope. Read-only grants can only use read requests, and write tools return an error. Writing requires the broader read-write grant, which you have to choose explicitly with --scope read-write and approve yourself."
+                  ]
+                },
+                {
+                  "title": "Which agents and MCP clients are supported?",
+                  "paragraphs": [
+                    "The CLI's connect command supports claude-code, codex, opencode, hermes, and openclaw. Any client that can launch a local stdio MCP server can run noeis mcp, and clients that cannot launch a local process can use the hosted endpoint with a connected-agent token."
+                  ]
+                },
+                {
+                  "title": "Where is my credential stored?",
+                  "paragraphs": [
+                    "The CLI normally stores it once in ~/.config/noeis/config.json. The MCP config it writes for your agent calls noeis mcp instead of copying the raw token into each runtime."
+                  ]
+                },
+                {
+                  "title": "How do I know the connection actually works?",
+                  "paragraphs": [
+                    "Call the connection_info tool from inside the agent. It returns the workspace and grant that were issued without reading or creating anything in your workspace. A config file written by the CLI does not prove the agent loaded its tools."
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "style": "footer",
+          "title": "Give your agent your reading, not your keys.",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "Start with a read-only connection, ask your agent one question your Library can answer, and check that it quotes the source you expect."
+            },
+            {
+              "type": "relatedGuides",
+              "items": [
+                "ai-answers-quoted-from-your-sources",
+                "build-a-wiki-from-your-reading",
+                "ai-reading-without-losing-judgment"
+              ]
+            },
+            {
+              "type": "ctas",
+              "items": [
+                {
+                  "label": "Start free",
+                  "href": "/register",
+                  "variant": "primary",
+                  "track": "footer"
+                },
+                {
+                  "label": "Browse guides",
+                  "href": "/guides",
+                  "variant": "secondary",
+                  "track": "footer"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "ai-answers-quoted-from-your-sources",
+      "title": "AI Answers Quoted From Your Own Sources",
+      "pageTitle": "How to Get AI Answers Quoted From Your Own Sources | Noeis",
+      "description": "How Noeis answers questions from your saved reading with exact quotes, checks those quotes, and says so when your library has nothing on the question.",
+      "heroTitle": "How to Get AI Answers Quoted From Your Own Sources Instead of Made-Up Ones",
+      "heroDescription": "Why AI answers about your reading drift, and how Noeis searches your library, quotes it word for word, checks each quotation, and declines when nothing you saved bears on the question.",
+      "eyebrow": "Guide",
+      "heroIntro": [
+        "To get AI answers quoted from your own sources, the assistant has to search and read your saved material before it answers, quote the exact words it relied on, have those quotations checked against what it actually read, and say plainly when nothing you saved bears on the question. That is how the Thought partner in Noeis is built: it searches your library, reads sources in full when it needs to, and any quotation it cannot find in a source it was shown is sent back for repair or replaced with your own passages.",
+        "The result is less fluent than a general chatbot and much easier to trust. When it says a source said something, you can check the words."
+      ],
+      "methodology": [
+        "This guide describes how the Noeis Thought partner answers questions today: the tools it uses to search and read, the rules it is given, the quotation check that runs before you see an answer, and what it does when your library is silent.",
+        "It does not claim the check catches every error. It checks quotations and citations, which are the parts of an answer you can verify."
+      ],
+      "directAnswer": {
+        "label": "Direct answer",
+        "title": "Trustworthy answers about your reading come from searching first, quoting exactly, and admitting silence.",
+        "text": "The Thought partner searches your library before it answers, quotes the words it relied on, has every long quotation checked against the sources it read, and tells you in one sentence when your library does not cover the question.",
+        "points": [
+          "Quotations of five or more words must appear in a source the agent was shown.",
+          "A cited source is one whose own words appear in the answer.",
+          "No match in your library means the answer says so instead of guessing."
+        ]
+      },
+      "ctas": [
+        {
+          "label": "Start free",
+          "href": "/register",
+          "variant": "primary",
+          "track": "hero"
+        },
+        {
+          "label": "Browse guides",
+          "href": "/guides",
+          "variant": "secondary",
+          "track": "hero"
+        }
+      ],
+      "toc": [
+        {
+          "id": "why",
+          "label": "Why AI answers about your reading drift"
+        },
+        {
+          "id": "read-first",
+          "label": "Search and read before answering"
+        },
+        {
+          "id": "quote-check",
+          "label": "Every quotation is checked"
+        },
+        {
+          "id": "silence",
+          "label": "When your library has nothing"
+        },
+        {
+          "id": "ask-well",
+          "label": "How to ask for useful answers"
+        },
+        {
+          "id": "faq",
+          "label": "FAQ"
+        }
+      ],
+      "faq": [
+        {
+          "question": "How do I get AI answers that quote my own sources?",
+          "answer": "Use an assistant that searches your saved reading before answering and checks its quotations against what it read. In Noeis, the Thought partner searches your library, quotes the exact words it relied on with the source named, and any quotation it cannot find in a source it was shown is sent back for repair."
+        },
+        {
+          "question": "What does Noeis do when my library has nothing on the question?",
+          "answer": "It says so plainly in one sentence instead of answering from general knowledge as though your library said it. When it falls back to showing passages directly and none bear on the question, it replies that nothing in your library speaks to this yet."
+        },
+        {
+          "question": "How does Noeis check that a quote is real?",
+          "answer": "Any quotation of five or more words in the answer must appear in a source the agent was shown or read during that turn. If one does not, the answer is sent back once with the missing quotations named. If it still fails, the answer is discarded and Noeis shows the matching passages from your library instead."
+        },
+        {
+          "question": "Which sources count as citations?",
+          "answer": "Only sources whose own words appear in the answer. A source that was retrieved but not drawn on is listed as related reading, not as a citation."
+        },
+        {
+          "question": "Does this mean the AI can never be wrong?",
+          "answer": "No. The check verifies quotations and citations, not every interpretation the answer makes. It means you can check what a source said in one step, which is where judgment should start."
+        }
+      ],
+      "sections": [
+        {
+          "id": "why",
+          "title": "Why AI answers about your reading drift",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "Ask a general chatbot what an article said and it will often give you a confident answer built from its training data, an earlier summary, or a plausible guess. It may even put that guess in quotation marks. The answer reads well, and you have no fast way to tell which parts came from the source."
+            },
+            {
+              "type": "claimEvidence",
+              "claim": "An answer about your reading is only useful if you can check it against the reading.",
+              "evidence": [
+                "Paraphrase cannot be verified without rereading the whole source.",
+                "Invented quotations look exactly like real ones.",
+                "A model that always answers will answer even when you never saved anything on the question."
+              ],
+              "whyItMatters": "Once one fabricated quote slips into a memo or a draft, every other answer from the same tool becomes suspect."
+            }
+          ]
+        },
+        {
+          "id": "read-first",
+          "title": "The Thought partner searches and reads before it answers",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "When a model is available, the Thought partner answers with two tools. One searches your library: saved sources, highlights with their margin notes, notebook pages, concepts, and the views you hold. The other reads one source in full by the id a search returned. It can search and read over a few rounds before it writes the answer."
+            },
+            {
+              "type": "paragraph",
+              "text": "Its instructions are short and specific. When it relies on a source, it quotes the exact words in double quotes and names the source, and it may quote only words from a passage it was shown or read. When something you found supports or cuts against a view you hold, it says which and quotes the view."
+            },
+            {
+              "type": "cards",
+              "variant": "example",
+              "items": [
+                {
+                  "title": "Example: connecting two saved pieces",
+                  "paragraphs": [
+                    "Say you ask how margin of safety relates to a piece on checklists you saved. If both are in your library, the partner can search for them, read the relevant passages, and answer with words from each, quoted and attributed, so you can see the link it is drawing and judge it yourself."
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "quote-check",
+          "title": "Every quotation is checked before you see it",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "Before an answer reaches you, Noeis compares each quotation in it against the text of every source the agent was shown or read during that turn. A short phrase in quotes is treated as emphasis. A quotation of five words or more is treated as a claim about what a source said, and it has to be there."
+            },
+            {
+              "type": "orderedList",
+              "items": [
+                "The agent writes its answer.",
+                "Noeis finds any quotation of five or more words that appears in none of the sources the agent saw.",
+                "If there is one, the answer goes back to the agent once, naming the missing quotations and asking it to quote only exact words or say the library does not cover it.",
+                "If the rewritten answer still carries an unfound quotation, it is discarded, and Noeis shows you the passages from your library that bear on the question, word for word."
+              ]
+            },
+            {
+              "type": "paragraph",
+              "text": "Citations follow the same rule. A source is cited only when the answer carries a run of its own words. A source that was retrieved but not used appears as related reading, not as a citation, so the citation list tells you what the answer actually drew on."
+            }
+          ]
+        },
+        {
+          "style": "callout",
+          "title": "Silence is a correct answer.",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "An assistant that always has something to say about your library is an assistant that sometimes makes it up. The useful one tells you when you have not read about something yet."
+            },
+            {
+              "type": "ctas",
+              "items": [
+                {
+                  "label": "Ask your own library",
+                  "href": "/register",
+                  "variant": "secondary",
+                  "track": "mid"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "silence",
+          "title": "When your library has nothing, it says so",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "The Thought partner is told that if nothing in your library bears on the question, it should say so plainly in one sentence and not answer from general knowledge as though your library said it. Its search tool reports the same thing when a query finds nothing, so the agent does not receive filler to work from."
+            },
+            {
+              "type": "paragraph",
+              "text": "When Noeis falls back to showing passages directly and none bear on the question, the reply is a single line: nothing in your library speaks to this yet. Noeis also keeps a set of test questions that a sample library cannot answer, and a good reply to each must decline without citing anything."
+            }
+          ]
+        },
+        {
+          "id": "ask-well",
+          "title": "How to ask so the answers stay useful",
+          "blocks": [
+            {
+              "type": "unorderedList",
+              "items": [
+                "Ask about your reading, not the world: \"What have I saved about why metrics stop working?\" gets a sourced answer; \"Why do metrics stop working?\" invites general knowledge.",
+                "Ask for the exact words when wording matters, then open the source to read the passage in context.",
+                "Treat a decline as information. It tells you where your reading has a gap worth filling.",
+                "Highlight and annotate the passages you care about. Highlights and their margin notes are part of what the partner searches."
+              ]
+            }
+          ]
+        },
+        {
+          "id": "faq",
+          "title": "FAQ",
+          "blocks": [
+            {
+              "type": "faqCards",
+              "items": [
+                {
+                  "title": "How do I get AI answers that quote my own sources?",
+                  "paragraphs": [
+                    "Use an assistant that searches your saved reading before answering and checks its quotations against what it read. In Noeis, the Thought partner searches your library, quotes the exact words it relied on with the source named, and any quotation it cannot find in a source it was shown is sent back for repair."
+                  ]
+                },
+                {
+                  "title": "What does Noeis do when my library has nothing on the question?",
+                  "paragraphs": [
+                    "It says so plainly in one sentence instead of answering from general knowledge as though your library said it. When it falls back to showing passages directly and none bear on the question, it replies that nothing in your library speaks to this yet."
+                  ]
+                },
+                {
+                  "title": "How does Noeis check that a quote is real?",
+                  "paragraphs": [
+                    "Any quotation of five or more words in the answer must appear in a source the agent was shown or read during that turn. If one does not, the answer is sent back once with the missing quotations named. If it still fails, the answer is discarded and Noeis shows the matching passages from your library instead."
+                  ]
+                },
+                {
+                  "title": "Which sources count as citations?",
+                  "paragraphs": [
+                    "Only sources whose own words appear in the answer. A source that was retrieved but not drawn on is listed as related reading, not as a citation."
+                  ]
+                },
+                {
+                  "title": "Does this mean the AI can never be wrong?",
+                  "paragraphs": [
+                    "No. The check verifies quotations and citations, not every interpretation the answer makes. It means you can check what a source said in one step, which is where judgment should start."
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "style": "footer",
+          "title": "Ask your library a question you think it can answer, and one you think it cannot.",
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "The first shows you the quotes. The second shows you whether the assistant will admit the gap."
+            },
+            {
+              "type": "relatedGuides",
+              "items": [
+                "ai-reading-without-losing-judgment",
+                "build-a-wiki-from-your-reading",
+                "connect-ai-agent-to-your-reading-mcp"
+              ]
+            },
+            {
+              "type": "ctas",
+              "items": [
+                {
+                  "label": "Start free",
+                  "href": "/register",
+                  "variant": "primary",
+                  "track": "footer"
+                },
+                {
+                  "label": "Browse guides",
+                  "href": "/guides",
+                  "variant": "secondary",
+                  "track": "footer"
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }

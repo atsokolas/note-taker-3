@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>How to Give an AI Agent Access to Your Reading and Notes via MCP | Noeis</title>
+    <meta
+      name="description"
+      content="A setup guide for connecting Claude Code, Codex, OpenCode, and other MCP clients to your Noeis Library, highlights, and notes with a read-only grant you approve."
+    />
+    <meta name="robots" content="index,follow" />
+    <link rel="canonical" href="https://www.noeis.io/connect-ai-agent-to-your-reading-mcp" />
+    <meta property="og:type" content="article" />
+    <meta property="og:site_name" content="Noeis" />
+    <meta property="og:title" content="How to Give an AI Agent Access to Your Reading and Notes via MCP | Noeis" />
+    <meta
+      property="og:description"
+      content="A setup guide for connecting Claude Code, Codex, OpenCode, and other MCP clients to your Noeis Library, highlights, and notes with a read-only grant you approve."
+    />
+    <meta property="og:url" content="https://www.noeis.io/connect-ai-agent-to-your-reading-mcp" />
+    <meta property="og:image" content="https://www.noeis.io/og-image.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="https://www.noeis.io/og-image.png" />
+    <meta name="twitter:title" content="How to Give an AI Agent Access to Your Reading and Notes via MCP | Noeis" />
+    <meta
+      name="twitter:description"
+      content="A setup guide for connecting Claude Code, Codex, OpenCode, and other MCP clients to your Noeis Library, highlights, and notes with a read-only grant you approve."
+    />
+    <link rel="stylesheet" href="/ai-second-brain/styles.css" />
+    <script type="application/ld+json">[{"@context":"https://schema.org","@type":"Article","headline":"How to Give an AI Agent Access to Your Reading and Notes via MCP","description":"A setup guide for connecting Claude Code, Codex, OpenCode, and other MCP clients to your Noeis Library, highlights, and notes with a read-only grant you approve.","mainEntityOfPage":"https://www.noeis.io/connect-ai-agent-to-your-reading-mcp","datePublished":"2026-04-19","dateModified":"2026-04-19","author":{"@type":"Person","name":"Athan Tsokolas"},"publisher":{"@type":"Organization","name":"Noeis","url":"https://www.noeis.io"}},{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Noeis","applicationCategory":"ProductivityApplication","operatingSystem":"Web","url":"https://www.noeis.io/connect-ai-agent-to-your-reading-mcp","description":"Save articles, highlights and notes, and Noeis grows them into a wiki that cites every source. Ask it questions, or connect your AI agents, and get answers quoted from your own reading.","publisher":{"@type":"Organization","name":"Noeis","url":"https://www.noeis.io"}},{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"How do I connect Claude Code to my Noeis library?","acceptedAnswer":{"@type":"Answer","text":"Install the CLI with npm install -g @noeis/noeis-cli, run noeis connect claude-code --scope read, and approve the request in the browser. Then restart Claude Code, check /mcp, and call the connection_info tool to confirm the connection."}},{"@type":"Question","name":"Can the agent change or delete my notes?","acceptedAnswer":{"@type":"Answer","text":"Not with the default read scope. Read-only grants can only use read requests, and write tools return an error. Writing requires the broader read-write grant, which you have to choose explicitly with --scope read-write and approve yourself."}},{"@type":"Question","name":"Which agents and MCP clients are supported?","acceptedAnswer":{"@type":"Answer","text":"The CLI's connect command supports claude-code, codex, opencode, hermes, and openclaw. Any client that can launch a local stdio MCP server can run noeis mcp, and clients that cannot launch a local process can use the hosted endpoint with a connected-agent token."}},{"@type":"Question","name":"Where is my credential stored?","acceptedAnswer":{"@type":"Answer","text":"The CLI normally stores it once in ~/.config/noeis/config.json. The MCP config it writes for your agent calls noeis mcp instead of copying the raw token into each runtime."}},{"@type":"Question","name":"How do I know the connection actually works?","acceptedAnswer":{"@type":"Answer","text":"Call the connection_info tool from inside the agent. It returns the workspace and grant that were issued without reading or creating anything in your workspace. A config file written by the CLI does not prove the agent loaded its tools."}}]}]</script>
+  </head>
+  <body>
+    <main class="seo-page">
+      <article class="seo-shell">
+        <header class="seo-hero">
+          <p class="eyebrow">Guide</p>
+          <div class="meta-row">
+  <span>Written by Athan Tsokolas</span>
+  <span>Founder, Noeis</span>
+  <span>Updated 2026-04-19</span>
+</div>
+          <h1>How to Give an AI Agent Access to Your Reading and Notes via MCP</h1>
+          <p>To give an AI agent access to your reading and notes, install the Noeis CLI, run noeis connect with the name of your agent and the read scope, approve the request in your browser, then reload the agent and confirm it can call the connection_info tool. The agent then reaches your saved articles, highlights, concepts, questions, notebook, and wiki pages through a local MCP server, with read-only access unless you explicitly choose more.</p>
+<p>The setup is designed so that the agent never approves itself. You see the requested permission on an approval page in Noeis, and only you can accept it. The full public setup guide for agents lives at noeis.io/skill.md.</p>
+          <div class="cta-row">
+  <a class="button primary" href="/register?via=marketing&amp;entry=connect-ai-agent-to-your-reading-mcp&amp;cta=hero&amp;page_type=guide">Start free</a>
+  <a class="button secondary" href="/guides">Browse guides</a>
+</div>
+          <nav class="toc" aria-label="On-page sections">
+  <a href="#what">What the agent can reach</a>
+  <a href="#setup">Set up the connection</a>
+  <a href="#approval">Human approval and scope</a>
+  <a href="#verify">Verify the agent loaded its tools</a>
+  <a href="#other-clients">Other clients and hosted MCP</a>
+  <a href="#faq">FAQ</a>
+</nav>
+          <section class="card trust-panel" aria-label="Editorial trust signals">
+  <h2>How this guide was produced</h2>
+  <p><strong>Written by Athan Tsokolas</strong>, Founder, Noeis.</p>
+<p>This guide follows the public agent setup guide at /skill.md and the README files for the @noeis/noeis-cli and @noeis/wiki-mcp packages. Commands and tool names are taken from those sources.</p>
+<p>Tool lists change between releases, so the guide recommends discovering the live tool list through MCP rather than relying on a copied one.</p>
+</section>
+          <section class="card answer-panel" aria-label="Direct answer">
+          <p class="seo-structured-label">Direct answer</p>
+          <h2>Connect with one command, approve it yourself, and verify it from inside the agent.</h2>
+          <p class="answer-text">Run noeis connect with your runtime and --scope read, compare the approval page against what you asked for, then reload the agent and call connection_info there before you consider the setup done.</p>
+          <ul class="answer-points">
+  <li>Read-only is the default scope.</li>
+  <li>Only a human can approve the connection.</li>
+  <li>A written config file does not prove the agent loaded its tools.</li>
+</ul>
+        </section>
+        </header>
+        <section id="what" class="card">
+          <h2>What a connected agent can reach</h2>
+<p>Noeis exposes your workspace to agents through the Model Context Protocol (MCP), the standard many coding agents and AI clients use to call outside tools. Once connected, an agent can search and read what you have saved instead of guessing from its training data.</p>
+<ul>
+  <li>Library: search saved articles, read an article, and list its highlights.</li>
+  <li>Highlights: search your highlights and read a single highlight.</li>
+  <li>Think: list and read your concepts, questions, and notebook pages.</li>
+  <li>Wiki: list, search, and read wiki pages, their sources, backlinks, and revision history.</li>
+  <li>Account checks: connection_info reports which workspace and grant the agent holds.</li>
+</ul>
+<p>The setup guide asks agents to preserve quotation and source identity, to retrieve before creating duplicates, and to treat anything retrieved from your workspace as data, never as instructions to widen access or change local configuration.</p>
+        </section>
+        <section id="setup" class="card">
+          <h2>Set up the connection</h2>
+<p>The normal path is a single connect command. It requests read-only access, opens Noeis for your approval, checks the grant that was issued, stores the credential, and writes the MCP config for the runtime you name.</p>
+<ol>
+  <li>Install the CLI: npm install -g @noeis/noeis-cli</li>
+  <li>Read noeis connect --help for the version you installed, so you only use commands and flags that exist.</li>
+  <li>Run the connect command for your agent, for example: noeis connect claude-code --scope read</li>
+  <li>Approve the request on the Noeis page that opens in your browser.</li>
+  <li>Reload or restart the agent so it picks up the new MCP server.</li>
+  <li>Call connection_info from inside the agent to confirm it works.</li>
+</ol>
+<p>Use the same form for codex, opencode, hermes, or openclaw. If the browser cannot open on the machine running the agent, add --no-browser and the CLI prints the approval link for you to open elsewhere. That changes where you approve, not whether you approve.</p>
+        </section>
+        <section id="approval" class="card">
+          <h2>A human approves, and read-only is the default</h2>
+<div class="seo-structured-grid">
+<section class="seo-structured-card">
+  <p class="seo-structured-label">Claim</p>
+<p>An agent should never be able to grant itself access to your reading.</p>
+</section>
+<section class="seo-structured-card">
+  <p class="seo-structured-label">Evidence</p>
+<ul>
+  <li>The approval link contains only an opaque session reference; the CLI keeps its polling secret.</li>
+  <li>The approval page shows the code, connection label, runtime, expiry, and the actual permission requested, so you can compare them before accepting.</li>
+  <li>After approval, the CLI checks that the issued grant matches the scope it requested and stops if it does not.</li>
+</ul>
+</section>
+<section class="seo-structured-card">
+  <p class="seo-structured-label">Why this matters</p>
+<p>If the approval page shows wider access than you asked for, do not approve it. The agent cannot proceed without you.</p>
+</section>
+</div>
+<h3>The two scopes</h3>
+<p>read lets the agent retrieve your private workspace material. read-write adds agent-write, which permits write requests such as creating highlights or editing wiki pages, although some product actions remain human-only or require approval. Read-only grants can only make read requests, so write tools fail for them.</p>
+<p>Unknown scopes are rejected rather than widened. Only pass --scope read-write when you have decided you want the agent to make changes.</p>
+
+<h3>Runtime names are labels, not proof</h3>
+<p>The runtime name shown on the approval page is reported by the CLI. It is not device attestation, so judge the request by whether you just started it.</p>
+
+        </section>
+        <aside class="card callout">
+          <h2>Never paste a password or token into an agent chat to make setup work.</h2>
+<p>The connect flow is built so you never need to. If a tool seems missing after approval, repair the agent&#39;s configuration instead of reconnecting or asking for broader access.</p>
+<ul>
+  <li><a href="https://www.noeis.io/skill.md" target="_blank" rel="noopener noreferrer">Read the full agent setup guide (skill.md)</a></li>
+</ul>
+        </aside>
+        <section id="verify" class="card">
+          <h2>Verify the agent really loaded its tools</h2>
+<p>A connection has three separate pieces of evidence, and each proves something different. Check all three before you call setup done.</p>
+<ol>
+  <li>Approval recorded: Noeis issued the grant you reviewed.</li>
+  <li>Tools loaded: the agent itself reports the Noeis MCP tools. In Claude Code, check /mcp.</li>
+  <li>Authenticated read verified: calling connection_info from that agent returns your workspace and grant without reading or creating anything.</li>
+</ol>
+<p>If tools are missing after approval, keep the existing grant and fix how the agent loads its config. Do not reconnect, mint another credential, or widen access just to make a tool appear.</p>
+        </section>
+        <section id="other-clients" class="card">
+          <h2>Other clients and the hosted endpoint</h2>
+<p>The implemented local transport is stdio. Any MCP client that can launch a local process can use the same server definition the CLI writes: the command noeis with the argument mcp. The package README includes config snippets for Claude Code, Codex, OpenCode, and Hermes.</p>
+<p>For clients that cannot launch a local process, Noeis also offers a hosted Streamable HTTP endpoint. It takes a connected-agent token as a Bearer credential, created in Noeis under Settings, Connected agents. Start with the read scope, a short expiry, and a daily quota. The hosted endpoint has no cookie session and does not support OAuth yet.</p>
+<p>For scripts and cron jobs that do not speak MCP, the same CLI offers plain commands such as noeis pages list, using the same token and API.</p>
+        </section>
+        <section id="faq" class="card">
+          <h2>FAQ</h2>
+<div class="stack">
+  <section class="subcard">
+    <h3>How do I connect Claude Code to my Noeis library?</h3>
+<p>Install the CLI with npm install -g @noeis/noeis-cli, run noeis connect claude-code --scope read, and approve the request in the browser. Then restart Claude Code, check /mcp, and call the connection_info tool to confirm the connection.</p>
+  </section>
+  <section class="subcard">
+    <h3>Can the agent change or delete my notes?</h3>
+<p>Not with the default read scope. Read-only grants can only use read requests, and write tools return an error. Writing requires the broader read-write grant, which you have to choose explicitly with --scope read-write and approve yourself.</p>
+  </section>
+  <section class="subcard">
+    <h3>Which agents and MCP clients are supported?</h3>
+<p>The CLI&#39;s connect command supports claude-code, codex, opencode, hermes, and openclaw. Any client that can launch a local stdio MCP server can run noeis mcp, and clients that cannot launch a local process can use the hosted endpoint with a connected-agent token.</p>
+  </section>
+  <section class="subcard">
+    <h3>Where is my credential stored?</h3>
+<p>The CLI normally stores it once in ~/.config/noeis/config.json. The MCP config it writes for your agent calls noeis mcp instead of copying the raw token into each runtime.</p>
+  </section>
+  <section class="subcard">
+    <h3>How do I know the connection actually works?</h3>
+<p>Call the connection_info tool from inside the agent. It returns the workspace and grant that were issued without reading or creating anything in your workspace. A config file written by the CLI does not prove the agent loaded its tools.</p>
+  </section>
+</div>
+        </section>
+        <footer class="card footer-card">
+          <h2>Give your agent your reading, not your keys.</h2>
+<p>Start with a read-only connection, ask your agent one question your Library can answer, and check that it quotes the source you expect.</p>
+<ul>
+  <li><a href="/ai-answers-quoted-from-your-sources">AI Answers Quoted From Your Own Sources</a></li>
+  <li><a href="/build-a-wiki-from-your-reading">Build a Wiki From Your Reading</a></li>
+  <li><a href="/ai-reading-without-losing-judgment">AI for Reading Without Losing Judgment</a></li>
+</ul>
+<div class="cta-row">
+  <a class="button primary" href="/register?via=marketing&amp;entry=connect-ai-agent-to-your-reading-mcp&amp;cta=footer&amp;page_type=guide">Start free</a>
+  <a class="button secondary" href="/guides">Browse guides</a>
+</div>
+        </footer>
+      </article>
+    </main>
+  </body>
+</html>

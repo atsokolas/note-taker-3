@@ -63,6 +63,18 @@
     {
       "route": "/from-saved-article-to-draft-in-noeis",
       "file": "/from-saved-article-to-draft-in-noeis/index.html"
+    },
+    {
+      "route": "/build-a-wiki-from-your-reading",
+      "file": "/build-a-wiki-from-your-reading/index.html"
+    },
+    {
+      "route": "/connect-ai-agent-to-your-reading-mcp",
+      "file": "/connect-ai-agent-to-your-reading-mcp/index.html"
+    },
+    {
+      "route": "/ai-answers-quoted-from-your-sources",
+      "file": "/ai-answers-quoted-from-your-sources/index.html"
     }
   ],
   "spaFallback": "/index.html"
