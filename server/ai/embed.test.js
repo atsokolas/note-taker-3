@@ -46,13 +46,13 @@ const fail = (status, message = `AI service error ${status}`) => {
     assert.strictEqual(calls, 1, 'the cooldown fails closed without touching the upstream again');
   }
 
-  // An empty provider balance comes back as a 502 but is not a wake-up: it is
-  // refused at once and cools down like a rate limit.
+  // An empty provider balance is not a wake-up: it is refused at once and
+  // cools down like a rate limit.
   {
     let calls = 0;
     const { embedText } = load(async () => {
       calls += 1;
-      throw fail(502, 'AI service error 502: HF embeddings failed: You have no remaining credits');
+      throw fail(402);
     });
     let thrown = null;
     try { await embedText('some text', { retryDelaysMs: [1000, 1000] }); } catch (error) { thrown = error; }

@@ -40,6 +40,8 @@ const buildError = ({ status, message, hint }) => {
   return error;
 };
 
+const OUT_OF_CREDIT = /no remaining credits|exceeded your monthly included credits|payment required/i;
+
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 const stripHtml = (value = '') => String(value || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 const isLikelyHtml = (value = '') => /<html|<!doctype html|<\/html>/i.test(String(value || ''));
@@ -166,9 +168,12 @@ const request = async ({
               ? parsed.detail
               : (typeof parsed?.message === 'string' ? parsed.message : '');
             const message = `AI service error ${res.status}: ${detail || snippet || res.statusText}`;
+            // An empty provider balance arrives as a 502 and will answer the
+            // same until someone pays, so it is a 402, never a retry.
+            const status = OUT_OF_CREDIT.test(message) ? 402 : res.status;
             console.error('[AI-UPSTREAM] response error', {
               requestId: traceId,
-              status: res.status,
+              status,
               path: safePath,
               url,
               message,
@@ -178,11 +183,11 @@ const request = async ({
             // backoff. Retrying a 429 here only amplifies load before that queue
             // can release the job. Other routes retain their short retry because
             // they do not have a durable scheduler behind them.
-            const retryableRateLimit = res.status === 429 && safePath !== '/embed';
-            if ((retryableRateLimit || res.status >= 500) && attempt < retries) {
+            const retryableRateLimit = status === 429 && safePath !== '/embed';
+            if ((retryableRateLimit || status >= 500) && attempt < retries) {
               logAgentMetric('ai_upstream.retry', {
                 path: safePath,
-                status: String(res.status)
+                status: String(status)
               });
               const delayMs = computeBackoffMs({
                 attempt,
@@ -195,10 +200,10 @@ const request = async ({
             if (parsed && typeof parsed === 'object') {
               logAgentMetric('ai_upstream.error', {
                 path: safePath,
-                status: String(res.status)
+                status: String(status)
               });
               const error = new Error(message);
-              error.status = res.status;
+              error.status = status;
               error.payload = {
                 upstream: 'ai_service',
                 ...parsed
@@ -206,7 +211,7 @@ const request = async ({
               throw error;
             }
             throw buildError({
-              status: res.status || 502,
+              status: status || 502,
               message,
               hint: 'Check AI_SERVICE_URL, cold start, or Render service status.'
             });

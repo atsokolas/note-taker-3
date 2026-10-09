@@ -63,6 +63,17 @@ const run = async () => {
       'Embedding 429s must reach the durable queue without an inner retry storm.'
     );
 
+    let creditCalls = 0;
+    global.fetch = async () => {
+      creditCalls += 1;
+      return jsonResponse(502, { detail: 'HF embeddings failed: You have no remaining credits' });
+    };
+    await assert.rejects(
+      () => client1.request({ path: '/embed', body: { texts: ['margin of safety'] } }),
+      error => error.status === 402
+    );
+    assert.strictEqual(creditCalls, 1, 'An empty provider balance is reported as 402 without retrying.');
+
     process.env.AI_SERVICE_RETRIES = '0';
     process.env.AI_SERVICE_MAX_CONCURRENT = '1';
 
