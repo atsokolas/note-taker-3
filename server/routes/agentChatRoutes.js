@@ -251,17 +251,12 @@ const buildAgentChatRouter = ({
         mode: String(result?.mode || '').trim() || undefined,
         premiumWebResearchAvailable: Boolean(result?.premiumWebResearchAvailable),
         planner: result?.planner ? normalizeThreadPlanner(result.planner) : undefined,
-        intent: result?.intent && typeof result.intent === 'object' ? result.intent : undefined,
         capability: result?.capability && typeof result.capability === 'object' ? result.capability : undefined,
         modelRoute: result?.modelRoute && typeof result.modelRoute === 'object' ? result.modelRoute : undefined,
         activityReceipts: Array.isArray(result?.activityReceipts) ? result.activityReceipts : []
       }
     });
-    if (result?.planner) {
-      targetThread.planner = normalizeThreadPlanner(result.planner);
-    } else if (result?.intent?.plannerPolicy === 'hidden') {
-      targetThread.planner = null;
-    }
+    targetThread.planner = result?.planner ? normalizeThreadPlanner(result.planner) : null;
     compactThreadState(targetThread, {
       actor: { actorType: 'native_agent', actorId: '' }
     });

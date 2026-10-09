@@ -12,11 +12,6 @@ const {
 const { buildLivingThesisCriticMandate } = require('./agentWorkerRoles');
 const { brokerAgentTurn, resolveAgentCapability, isSharedQuestionContext, sharedQuestionReadCapability } = require('./agentCapabilityBroker');
 const { resolveAgentModelRoute } = require('./agentModelRouter');
-const {
-  PATTERNS: AGENT_INTENT_PATTERNS,
-  inferAgentReplyIntent,
-  resolveAgentIntent
-} = require('./agentIntentKernel');
 const { chatComplete, isTextGenerationConfigured } = require('../ai/hfTextClient');
 const { groundedIn } = require('./agentGrounding');
 const { retrievePassages, bestPassage, readSource } = require('./agentRetrieval');
@@ -385,17 +380,6 @@ const prepareRelatedItemsForReply = (items = [], limit = DEFAULT_LIMIT) => {
   return prepared.slice(0, Math.max(1, Math.min(MAX_LIMIT, Number(limit) || DEFAULT_LIMIT)));
 };
 
-const buildReplyLabel = (item = {}) => {
-  const safeTitle = toSafeString(item?.title);
-  if (safeTitle && !isLowSignalRelatedItem(item)) return truncate(safeTitle, 56);
-
-  const safeSnippet = truncate(item?.snippet || '', 56);
-  if (safeSnippet && !looksLikeUrl(safeSnippet) && !looksLikeHostname(safeSnippet)) return safeSnippet;
-
-  if (safeTitle) return truncate(safeTitle, 56);
-  return truncate(item?.id || item?.type || 'related item', 56);
-};
-
 const isEllipsisTerminated = (value = '') => /(?:\.\.\.|…)\s*$/u.test(normalizeSentenceText(value));
 
 const pickReplySentence = (value = '', { exclude = [] } = {}) => {
@@ -411,14 +395,6 @@ const pickReplySentence = (value = '', { exclude = [] } = {}) => {
     if (blocked.has(safeSentence.toLowerCase())) return false;
     return safeSentence.split(/\s+/).length >= 6;
   }) || '';
-};
-
-const buildReplyDetail = (item = {}) => {
-  const safeSnippet = pickReplySentence(item?.replySnippet || item?.snippet || '');
-  if (!safeSnippet || looksLikeUrl(safeSnippet) || looksLikeHostname(safeSnippet)) return '';
-  const safeTitle = toSafeString(item?.title);
-  if (safeTitle && safeSnippet.toLowerCase() === safeTitle.toLowerCase()) return '';
-  return ensureSentence(safeSnippet);
 };
 
 const normalizeSentenceText = (value = '') => {
@@ -886,12 +862,6 @@ const PAGE_ANSWER_STOPWORDS = new Set([
 
 const WIKI_WORKSPACE_RETRIEVAL_RE = /\b(across|all|another|broader|compare|cross[-\s]?wiki|elsewhere|find|library|other|related|retrieve|search|sources?|workspace)\b/i;
 const WIKI_SOURCE_ATTRIBUTION_RE = /\b(back(?:s|ed)?|citation|cite|cited|evidence|source|support(?:s|ed|ing)?)\b/i;
-const WIKI_SECTION_HEADING_START_RE = /^(overview|core idea|how it works|evidence|converging evidence|diverging evidence|implications|tensions|open questions|references)\s+/i;
-const QUESTION_DEPTH_RE = AGENT_INTENT_PATTERNS.questionDepth;
-const ORIENTATION_CONTEXT_RE = AGENT_INTENT_PATTERNS.orientationContext;
-const ORIENTATION_USAGE_RE = AGENT_INTENT_PATTERNS.orientationUsage;
-const ORIENTATION_RETURN_LOOP_RE = AGENT_INTENT_PATTERNS.orientationReturn;
-
 const shouldSearchWorkspaceForWikiPage = ({ message = '', conversationState = {}, skillInvocation = {} } = {}) => {
   const outputType = toSafeString(skillInvocation?.outputType).toLowerCase();
   if (outputType && !['chat', 'answer', 'summary'].includes(outputType)) return true;
@@ -903,22 +873,19 @@ const shouldSearchWorkspaceForWikiPage = ({ message = '', conversationState = {}
   ) {
     return false;
   }
-  const intent = inferAgentReplyIntent({ message: safeMessage, conversationState });
-  if (['retrieve', 'restructure', 'strengthen'].includes(intent)) return true;
   return WIKI_WORKSPACE_RETRIEVAL_RE.test(safeMessage);
 };
 
 const shouldSearchWorkspaceForContext = ({
   context = {},
   contextItem = null,
-  intentDecision = {},
   message = '',
   conversationState = {},
   skillInvocation = {}
 } = {}) => {
   if (isSharedQuestionContext(context, contextItem)) return false;
   if (contextItem?.type === 'wiki_page') {
-    return intentDecision.retrievalPolicy === 'workspace' && shouldSearchWorkspaceForWikiPage({
+    return shouldSearchWorkspaceForWikiPage({
       message,
       conversationState,
       skillInvocation
@@ -1028,18 +995,6 @@ const buildSharedQuestionContextItem = (page, slug) => {
   };
 };
 
-const cleanWikiSignalText = (value = '') => {
-  let text = stripHtml(value)
-    .replace(/\s*\[[0-9,\s]+\]\s*$/g, '')
-    .trim();
-  for (let index = 0; index < 3; index += 1) {
-    const next = text.replace(WIKI_SECTION_HEADING_START_RE, '').trim();
-    if (next === text) break;
-    text = next;
-  }
-  return ensureSentence(text);
-};
-
 const scoreClaimForMessage = ({ claimText = '', message = '' } = {}) => {
   const claim = toSafeString(claimText).toLowerCase();
   const queryTokens = tokenize(message).filter(token => !PAGE_ANSWER_STOPWORDS.has(token));
@@ -1074,114 +1029,6 @@ const buildWikiClaimSourceReply = ({ message = '', contextItem = null } = {}) =>
   return `That claim is backed by ${joinLabels(labels)}. Claim: ${truncate(best.entry?.claim || '', 220)}`;
 };
 
-const contextSurfaceLabel = (type = '') => {
-  const safeType = toSafeString(type).toLowerCase();
-  if (safeType === 'wiki_page' || safeType === 'wiki') return 'Wiki page';
-  if (safeType === 'article' || safeType === 'source') return 'Library source';
-  if (safeType === 'highlight') return 'Library highlight';
-  if (safeType === 'notebook' || safeType === 'note') return 'Think note';
-  if (safeType === 'question') return 'Think question';
-  if (safeType === 'concept' || safeType === 'tag') return 'Think concept';
-  if (safeType === 'think') return 'Think workspace';
-  if (safeType === 'home' || safeType === 'global') return 'Home workspace';
-  if (safeType === 'workspace' || safeType === 'selection') return 'Workspace';
-  return safeType ? `${safeType.replace(/[_-]+/g, ' ')} surface` : 'Workspace';
-};
-
-const formatVisibleConnectionLine = (item = {}) => {
-  const type = toSafeString(item?.type).toLowerCase() || 'item';
-  const label = buildReplyLabel(item);
-  const detail = buildReplyDetail(item);
-  return detail
-    ? `[${type}] ${label} - ${detail}`
-    : `[${type}] ${label}`;
-};
-
-const formatReturnLoopRecommendation = ({ contextLabel = '', items = [] } = {}) => {
-  const lead = items[0];
-  if (!lead) return '';
-  const label = buildReplyLabel(lead);
-  const detail = buildReplyDetail(lead);
-  const supportItems = items.slice(1, 3)
-    .map((item) => buildReplyLabel(item))
-    .filter(Boolean);
-  const typeLabel = toSafeString(lead?.type).replace(/[_-]+/g, ' ') || 'item';
-  const scope = contextLabel ? ` in ${contextLabel}` : '';
-  const reason = detail
-    ? ` It has the clearest live signal: ${detail}`
-    : ' It is the strongest visible thread in the current workspace context.';
-  const nearbyLine = supportItems.length
-    ? ` After that, compare it with ${joinLabels(supportItems)}.`
-    : '';
-
-  return `Reopen ${label} next${scope}. It is a ${typeLabel} with enough attached context to move now.${reason}${nearbyLine}`;
-};
-
-const buildOrientationReply = ({
-  message = '',
-  context = {},
-  contextItem = null,
-  relatedItems = []
-} = {}) => {
-  const safeMessage = toSafeString(message);
-  if (QUESTION_DEPTH_RE.test(safeMessage)) return '';
-  const wantsContext = ORIENTATION_CONTEXT_RE.test(safeMessage);
-  const wantsUsage = ORIENTATION_USAGE_RE.test(safeMessage);
-  const wantsReturnLoop = ORIENTATION_RETURN_LOOP_RE.test(safeMessage);
-  if (!wantsContext && !wantsUsage && !wantsReturnLoop) return '';
-
-  const metadata = normalizeAmbientContextMetadata(context?.metadata);
-  const activeType = toSafeString(contextItem?.type || context?.type).toLowerCase();
-  const surfaceLabel = contextSurfaceLabel(activeType);
-  const title = toSafeString(contextItem?.title)
-    || toSafeString(context?.title)
-    || 'the current workspace';
-  const preparedItems = prepareRelatedItemsForReply(relatedItems);
-
-  if (wantsReturnLoop) {
-    if (preparedItems.length === 0) {
-      return stripRawObjectIds(
-        `${surfaceLabel} "${title}" does not have a strong reopen candidate attached yet. Add one source, highlight, or question and I can choose the next concrete return point.`,
-        title
-      );
-    }
-    return stripRawObjectIds(
-      formatReturnLoopRecommendation({
-        contextLabel: title === 'the current workspace' ? '' : title,
-        items: preparedItems
-      }),
-      title
-    );
-  }
-
-  if (wantsUsage) {
-    if (preparedItems.length === 0) {
-      return stripRawObjectIds(
-        `${surfaceLabel} "${title}" has no visible backlinks or cross-surface uses in the current context yet. Ask me to search the wider workspace if you want a broader pass.`,
-        title
-      );
-    }
-    const lines = preparedItems.slice(0, 5).map(formatVisibleConnectionLine);
-    return stripRawObjectIds([
-      `${surfaceLabel} "${title}" is connected to ${preparedItems.length} visible item${preparedItems.length === 1 ? '' : 's'} in the current context:`,
-      ...lines.map(line => `- ${line}`)
-    ].join('\n'), title);
-  }
-
-  const contextSignals = buildContextSummarySignals({ context, contextItem });
-  const summary = cleanWikiSignalText(contextSignals.coreClaim)
-    || truncate(contextItem?.snippet || metadata.summary || metadata.primaryText || '', 220);
-  const nearbyLabels = preparedItems
-    .map((item) => buildReplyLabel(item))
-    .filter(Boolean)
-    .slice(0, 3);
-  const nearbyLine = nearbyLabels.length
-    ? ` Visible nearby material: ${joinLabels(nearbyLabels)}.`
-    : '';
-  const reply = `${surfaceLabel}: "${title}".${summary ? ` ${summary}` : ''}${nearbyLine}`;
-  return stripRawObjectIds(reply, title);
-};
-
 const isContextEchoItem = ({ item = {}, context = {}, contextItem = null } = {}) => {
   const itemType = toSafeString(item?.type).toLowerCase();
   const itemId = toSafeString(item?.id);
@@ -1209,21 +1056,6 @@ const pruneRelatedItemsForContext = ({
     contextItem
   }));
   return filtered.slice(0, Math.max(1, Math.min(MAX_LIMIT, Number(limit) || DEFAULT_LIMIT)));
-};
-
-const filterRetrievedItemsForRequest = (items = [], message = '') => {
-  const safeItems = Array.isArray(items) ? items : [];
-  const request = toSafeString(message).toLowerCase();
-  if (/\b(?:source|sources|article|articles)\b/.test(request)) {
-    return safeItems.filter((item) => toSafeString(item?.type).toLowerCase() === 'article');
-  }
-  if (/\b(?:note|notes)\b/.test(request)) {
-    return safeItems.filter((item) => toSafeString(item?.type).toLowerCase() === 'notebook');
-  }
-  if (/\b(?:highlight|highlights)\b/.test(request)) {
-    return safeItems.filter((item) => toSafeString(item?.type).toLowerCase() === 'highlight');
-  }
-  return safeItems;
 };
 
 const lowercaseFirst = (value = '') => {
@@ -1271,20 +1103,8 @@ const formatPartnerMaterialLines = (items = []) => {
   });
 };
 
-const buildPartnerSystemPrompt = ({ intent = '', intentDecision = null, contextItem = null } = {}) => {
-  const decision = intentDecision && typeof intentDecision === 'object'
-    ? intentDecision
-    : { replyIntent: intent, interactionMode: 'answer' };
+const buildPartnerSystemPrompt = ({ contextItem = null } = {}) => {
   const contextLabel = toSafeString(contextItem?.title) || 'the active workspace';
-  const replyIntent = toSafeString(decision.replyIntent || intent);
-  const intentHint = replyIntent ? `Current reply mode: ${replyIntent}.` : '';
-  const interactionHint = {
-    answer: 'Answer the user’s exact question first. Do not replace the answer with a list of nearby material or an unsolicited plan.',
-    retrieve: 'Return the strongest matching owned material and explain briefly why each result is relevant.',
-    clarify: 'Ask exactly one short clarifying question. Do not retrieve, plan, or propose work yet.',
-    plan: 'Give a concise, bounded plan. Do not imply that any step has already run.',
-    act: 'Explain the reviewable action being staged. Never claim it has been accepted or applied.'
-  }[decision.interactionMode] || '';
   const wikiHint = contextItem?.type === 'wiki_page'
     ? [
         'The selected wiki page body and attached source list are already included below.',
@@ -1314,8 +1134,8 @@ const buildPartnerSystemPrompt = ({ intent = '', intentDecision = null, contextI
         'If a reading or lesson is not in the bound writing, say it is not on this door rather than fetching a private Library.'
       ].filter(Boolean).join(' ')
     : '';
-  const livingThesisCriticHint = replyIntent === 'challenge' && contextItem?.judgmentKind === 'thesis'
-    ? buildLivingThesisCriticMandate()
+  const livingThesisCriticHint = contextItem?.judgmentKind === 'thesis'
+    ? `When asked to challenge it: ${buildLivingThesisCriticMandate()}`
     : '';
   return [
     contextItem?.type === 'shared_question'
@@ -1338,9 +1158,8 @@ const buildPartnerSystemPrompt = ({ intent = '', intentDecision = null, contextI
     contextItem?.authoredExploration
       ? 'Work with the private exploration below. Its writing is the user’s authorship, not an accepted Wiki claim. A hypothetical premise is a supposition to explore, never evidence. Compare, reason, challenge, develop an essay, or offer revised wording when asked. Keep the user’s phrasing intact unless they ask to change it. Offering text does not save it or change the Wiki. Do not imply an edit has been accepted.'
       : '',
-    livingThesisCriticHint,
-    interactionHint,
-    intentHint
+    'Answer the reader’s exact question first. If the request is too vague to act on, ask one short question instead.',
+    livingThesisCriticHint
   ].filter(Boolean).join(' ');
 };
 
@@ -1471,15 +1290,12 @@ const buildPartnerChatMessages = ({
   conversationState = {},
   context = {},
   contextItem = null,
-  relatedItems = [],
-  intentDecision: suppliedIntentDecision = null
+  relatedItems = []
 } = {}) => {
-  const intentDecision = suppliedIntentDecision || resolveAgentIntent({ message, conversationState, context });
-  const intent = intentDecision.replyIntent;
   const messages = [
     {
       role: 'system',
-      content: buildPartnerSystemPrompt({ intent, intentDecision, contextItem })
+      content: buildPartnerSystemPrompt({ contextItem })
     },
     {
       role: 'user',
@@ -2333,133 +2149,6 @@ const loadGraphRelatedItems = async ({
   });
 };
 
-const buildReply = ({
-  message,
-  conversationState = {},
-  contextItem,
-  context = {},
-  relatedItems = [],
-  intentDecision = null
-}) => {
-  const decision = intentDecision || resolveAgentIntent({ message, conversationState, context });
-  const intent = decision.replyIntent;
-  const preparedItems = prepareRelatedItemsForReply(relatedItems);
-  const titles = preparedItems
-    .map((item) => buildReplyLabel(item))
-    .filter(Boolean)
-    .slice(0, 3);
-  const titleLine = titles.length > 0 ? joinLabels(titles) : '';
-  const contextLabel = toSafeString(contextItem?.title) || toSafeString(contextItem?.type);
-  const contextType = toSafeString(context?.type || contextItem?.type).toLowerCase();
-  const contextMetadata = normalizeAmbientContextMetadata(context?.metadata);
-  const contextSnippet = truncate(
-    contextItem?.snippet || contextMetadata.summary || contextMetadata.primaryText || '',
-    180
-  );
-  const contextSignals = buildContextSummarySignals({ context, contextItem });
-  const leadDetail = buildReplyDetail(preparedItems[0]);
-  if (intent === 'plan') {
-    if (isSharedQuestionContext(context, contextItem)) {
-      if (!contextItem) return 'This question is not published.';
-      return sharedQuestionHasSuccessor(contextItem)
-        ? 'Plan: 1. Stay with the successor record and the writing already on this door. 2. Name the recorded alternatives, evidence then, and later outcome if one exists. 3. Do not invent an unchosen future or a private Library. No workspace change will happen until you approve one.'
-        : 'Plan: 1. Stay with the published question and the writing already on this door. 2. Name where the readings differ. 3. Leave private Libraries out of the reply. No workspace change will happen until you approve one.';
-    }
-    const claim = contextSignals.coreClaim || contextSignals.supportPoint;
-    if (/\b(?:test|claim|evidence|falsif)\b/i.test(message)) {
-      const firstStep = claim
-        ? `1. Freeze the claim exactly as written: ${claim}`
-        : '1. Write the exact claim in one falsifiable sentence.';
-      return `Plan: ${firstStep} 2. Name the strongest current support and the evidence that would overturn it. 3. Search your workspace for the best confirming and disconfirming material. 4. Record whether the claim survived, weakened, or needs revision. No workspace change will happen until you approve one.`;
-    }
-    return 'Plan: 1. Define the exact outcome and success test. 2. Gather the smallest relevant set of owned material. 3. Produce one reviewable result. 4. Accept, revise, or reject it before anything becomes durable.';
-  }
-
-  if (preparedItems.length === 0) {
-    if (isSharedQuestionContext(context, contextItem)) {
-      if (!contextItem) return 'This question is not published.';
-      if (intent === 'retrieve') {
-        return sharedQuestionHasSuccessor(contextItem)
-          ? 'This conversation is bound to the successor record on this door. Nothing from a private Library is in scope.'
-          : 'This conversation is bound to the published question. Nothing from a private Library is in scope.';
-      }
-    }
-    if (intent === 'retrieve') {
-      const requestedKind = /\b(?:source|sources|article|articles)\b/i.test(message)
-        ? 'sources'
-        : /\b(?:note|notes)\b/i.test(message)
-          ? 'notes'
-          : /\b(?:highlight|highlights)\b/i.test(message)
-            ? 'highlights'
-            : 'material';
-      return decision.interactionMode === 'act'
-        ? `I could not find any matching ${requestedKind} in your workspace, so I did not stage a change. Try a narrower term or name a source you expect to be present.`
-        : `I could not find any matching ${requestedKind} in your workspace. Try a narrower term or name a source you expect to be present.`;
-    }
-    if (intent === 'challenge' && contextSignals.pressurePoint) {
-      return `Here is the pressure point I would keep in view: ${contextSignals.pressurePoint} That is the material most likely to force the draft to get sharper.`;
-    }
-    if (intent === 'strengthen' && (contextSignals.supportPoint || contextSignals.coreClaim)) {
-      return `The strongest footing right now comes from ${contextSignals.supportPoint || contextSignals.coreClaim} I would anchor the next revision there rather than widening the claim.`;
-    }
-    if (intent === 'clarify' && (contextSignals.supportPoint || contextSignals.coreClaim)) {
-      return `There is cleaner language already in the source material: ${contextSignals.supportPoint || contextSignals.coreClaim} Pull that line forward and the draft should read with less fog.`;
-    }
-    if (contextType === 'concept') {
-      return contextLabel
-        ? `I do not have enough anchored material attached to ${contextLabel} yet. Pin one highlight, note, or article and I can turn it into support, tension, or an open question.`
-        : 'I do not have enough anchored material attached to this concept yet. Pin one highlight, note, or article and I can turn it into support, tension, or an open question.';
-    }
-    if (intent === 'restructure') {
-      return 'I can do that, but the stream is still too thin. Give me one sharper clue and I will sort the next pass into support, tension, and open questions.';
-    }
-    if (conversationState?.continuation) {
-      return 'I stayed with the thread, but this pass did not surface anything strong enough to move. Give me a sharper keyword, source name, or phrase and I will keep digging.';
-    }
-    if (contextSnippet) {
-      return contextLabel
-        ? `I can see the frame around ${contextLabel}, but not enough attached material is indexed yet to move the draft. Point me at one phrase, highlight, or source and I will make the next pass concrete.`
-        : 'I can see the current frame, but not enough attached material is indexed yet to move the draft. Point me at one phrase, highlight, or source and I will make the next pass concrete.';
-    }
-    return contextLabel
-      ? `Nothing strong lit up around ${contextLabel} yet. Give me a sharper phrase or point me at a source and I will dig again.`
-      : 'Nothing strong lit up yet. Give me a sharper phrase or point me at a source and I will dig again.';
-  }
-
-  if (intent === 'restructure') {
-    if (titles.length >= 3) {
-      return `I sorted the best leads: ${titles[0]} belongs in support, ${titles[1]} adds pressure, and ${titles[2]} stays open as the next thread to test.`;
-    }
-    return `I sorted the best lead${preparedItems.length === 1 ? '' : 's'} into a cleaner working set. Start with ${titleLine} and I can tighten the grouping on the next pass.`;
-  }
-
-  if (intent === 'retrieve') {
-    return preparedItems.length === 1
-      ? `One good lead popped out: ${titleLine}.${leadDetail ? ` ${leadDetail}.` : ''} I can sort it into support, tension, or an open question next.`
-      : `A few usable leads lit up around ${contextLabel || 'this thread'}: ${titleLine}.${leadDetail ? ` ${leadDetail}.` : ''} I can sort them into support, tension, and open questions next.`;
-  }
-
-  if (intent === 'challenge') {
-    return `Here is the pressure point I would keep in view: ${titles[0] || titleLine}.${leadDetail ? ` ${leadDetail}.` : ''} That is the material most likely to force the draft to get sharper.`;
-  }
-
-  if (intent === 'clarify') {
-    return `There is cleaner language to borrow in ${titles[0] || titleLine}.${leadDetail ? ` ${leadDetail}.` : ''} Pull one of those lines into the draft and the idea should read with less fog.`;
-  }
-
-  if (intent === 'strengthen') {
-    return `The strongest footing right now comes from ${titles[0] || titleLine}.${leadDetail ? ` ${leadDetail}.` : ''} I would anchor the next revision there rather than widening the claim.`;
-  }
-
-  if (conversationState?.continuation) {
-    return `Kept going from the last move. The best next material is ${titleLine}.${leadDetail ? ` ${leadDetail}.` : ''}`;
-  }
-
-  return contextLabel
-    ? `A few usable threads lit up around ${contextLabel}: ${titleLine}.${leadDetail ? ` ${leadDetail}.` : ''}`
-    : `A few usable threads lit up: ${titleLine}.${leadDetail ? ` ${leadDetail}.` : ''}`;
-};
-
 // The dated history of an open wiki page, as the agent reads it: what each
 // revision changed, newest first.
 const readPageHistory = async ({ WikiRevision, userId, page }) => {
@@ -2553,14 +2242,6 @@ const generateCollaborativeReply = async ({
     history
   });
   const resolvedMessage = conversationState.resolvedMessage || safeMessage;
-  let intentDecision = resolveAgentIntent({
-    message: resolvedMessage,
-    conversationState,
-    context
-  });
-  if (authoredExploration && ['clarify', 'strengthen', 'restructure'].includes(intentDecision.replyIntent)) {
-    intentDecision = { ...intentDecision, interactionMode: 'answer', plannerPolicy: 'hidden', proposalPolicy: 'none' };
-  }
   const contextItem = await resolveContextItem({
     userObjectId,
     context,
@@ -2574,13 +2255,6 @@ const generateCollaborativeReply = async ({
   if (authoredExploration && contextItem) contextItem.authoredExploration = authoredExploration;
   sharedQuestionScoped = isSharedQuestionContext(context, contextItem);
   if (sharedQuestionScoped) {
-    intentDecision = {
-      ...intentDecision,
-      interactionMode: 'answer',
-      plannerPolicy: 'hidden',
-      proposalPolicy: 'none',
-      retrievalPolicy: 'context'
-    };
     const claim = await claimShareAgentAsk(SharedQuestion, {
       slug: toSafeString(context?.id || contextItem?.id)
     });
@@ -2590,13 +2264,8 @@ const generateCollaborativeReply = async ({
         mode: 'internal_only',
         premiumWebResearchAvailable: Boolean(premiumWebResearchAvailable),
         reply: claim.reason,
-        intent: intentDecision,
         capability,
-        modelRoute: resolveAgentModelRoute({
-          capability,
-          intentDecision,
-          skillInvocation: {}
-        }),
+        modelRoute: resolveAgentModelRoute({ capability }),
         planner: null,
         proposalBundle: null,
         context: contextItem ? {
@@ -2608,8 +2277,7 @@ const generateCollaborativeReply = async ({
         } : null,
         relatedItems: [],
         citations: [],
-        retrieval: { searchedWorkspace: false, relatedCount: 0 },
-        suggestedActions: []
+        retrieval: { searchedWorkspace: false, relatedCount: 0 }
       };
     }
   }
@@ -2617,7 +2285,6 @@ const generateCollaborativeReply = async ({
   const shouldSearchWorkspace = shouldSearchWorkspaceForContext({
     context,
     contextItem,
-    intentDecision,
     message: resolvedMessage,
     conversationState,
     skillInvocation
@@ -2657,73 +2324,51 @@ const generateCollaborativeReply = async ({
     });
   const workspaceRetrievalItems = libraryFilter ? searchedItems : sharedQuestionScoped
     ? (Array.isArray(contextItem?.relatedItems) ? contextItem.relatedItems : [])
-    : intentDecision.replyIntent === 'retrieve'
-      && intentDecision.retrievalPolicy === 'workspace'
-      ? filterRetrievedItemsForRequest(searchedItems, resolvedMessage)
-      : mergeRelatedItemLists(
-        mergeAmbientRelatedItems({
-          context,
-          relatedItems: graphItems,
-          limit: safeLimit
-        }),
-        searchedItems
-      );
+    : mergeRelatedItemLists(
+      mergeAmbientRelatedItems({
+        context,
+        relatedItems: graphItems,
+        limit: safeLimit
+      }),
+      searchedItems
+    );
   const relatedItems = pruneRelatedItemsForContext({
     context,
     contextItem,
     relatedItems: workspaceRetrievalItems,
     limit: safeLimit
   });
-  const capabilityDecision = resolveAgentCapability({
-    intentDecision,
-    skillInvocation: sharedQuestionScoped ? {} : skillInvocation,
-    relatedItems,
-    context,
-    contextItem
-  });
   const modelRoute = resolveAgentModelRoute({
-    capability: capabilityDecision,
-    intentDecision,
+    capability: resolveAgentCapability({ skillInvocation, context, contextItem }),
     skillInvocation
   });
+  // What the reader could accept here. A rewrite needs a page whose text an
+  // accepted change can replace; a published question and a private
+  // exploration stage nothing.
+  const changes = sharedQuestionScoped || authoredExploration ? [] : [
+    ...(['concept', 'notebook'].includes(contextItem?.type) ? ['rewrite'] : []),
+    'organize'
+  ];
 
-  const orientationReply = buildOrientationReply({
-    message: resolvedMessage,
+  // An explicitly invoked skill drafts its artifact; every other turn is the
+  // model's, or the passages themselves.
+  const reply = authoredExploration ? '' : buildOutputArtifactReply({
+    skillInvocation,
     context,
     contextItem,
-    relatedItems
+    relatedItems,
+    conversationState,
+    message: resolvedMessage
   });
-  // Templates answer only for work that will be staged for review; every
-  // other turn is the model's, or the passages themselves.
-  const fallbackReply = ['plan', 'act'].includes(intentDecision.interactionMode)
-    ? buildReply({ message: resolvedMessage, conversationState, contextItem, context, relatedItems, intentDecision })
-    : '';
-  const reply = intentDecision.clarificationPrompt
-    || (!authoredExploration && orientationReply)
-    || fallbackReply
-    || (!authoredExploration && buildOutputArtifactReply({
-      skillInvocation,
-      context,
-      contextItem,
-      relatedItems,
-      conversationState,
-      message: resolvedMessage
-    }));
-  let finalReply = stripRawObjectIds(reply || fallbackReply, contextItem?.title || 'this wiki page');
-  if (authoredExploration && !reply) {
+  let finalReply = stripRawObjectIds(reply, contextItem?.title || 'this wiki page');
+  if (authoredExploration) {
     finalReply = 'I could not complete a response to this exploration. Your writing and passages are still here; you can try again.';
   }
   let mode = 'internal_only';
   let model = '';
   let provider = '';
-  // AT-287: previously gated out LLM synthesis when asking about the current wiki
-  // page (wikiPageScoped && !shouldSearchWorkspace), so page-scoped Q&A returned the
-  // deterministic nearest-claim pick from buildReply in ~0.3s instead of a grounded
-  // answer. Now any plain Q&A (no build/draft artifact) synthesizes via the LLM,
-  // grounded in the selected page's contextItem + relatedItems. Model output is
-  // validated before the route streams it so prompt or reasoning leakage cannot
-  // reach the UI token-by-token. Citations are derived independently below.
   let loopSources = [];
+  let proposals = [];
   if (!reply && isTextGenerationConfigured()) {
     try {
       const turn = await runAgentLoop({
@@ -2733,8 +2378,7 @@ const generateCollaborativeReply = async ({
           conversationState,
           context,
           contextItem,
-          relatedItems,
-          intentDecision
+          relatedItems
         }),
         sources: [contextItem, ...relatedItems].filter(Boolean),
         ...(sharedQuestionScoped ? {} : {
@@ -2744,12 +2388,14 @@ const generateCollaborativeReply = async ({
         ...(WikiRevision && contextItem?.pageId ? {
           history: () => readPageHistory({ WikiRevision, userId: userObjectId, page: contextItem })
         } : {}),
+        changes,
         chat: chatComplete,
         signal
       });
       if (turn && !leaksInternalReasoning(turn.reply)) {
         finalReply = stripRawObjectIds(turn.reply, contextItem?.title || 'this wiki page');
         loopSources = turn.sources;
+        proposals = turn.proposals;
         mode = 'hf_chat';
         model = toSafeString(turn.model);
         provider = toSafeString(turn.provider);
@@ -2771,17 +2417,13 @@ const generateCollaborativeReply = async ({
     resolvedMessage
   );
   const { capability, planner, proposalBundle } = brokerAgentTurn({
-    capability: capabilityDecision,
-    intentDecision,
+    proposals,
     message: resolvedMessage,
     context,
     contextItem,
-    relatedItems,
     skillInvocation
   });
-  const responseItems = intentDecision.interactionMode === 'clarify'
-    ? []
-    : mergeRelatedItemLists(relatedItems, loopSources.filter(item => item !== contextItem && item?.id !== contextItem?.id));
+  const responseItems = mergeRelatedItemLists(relatedItems, loopSources.filter(item => item !== contextItem && item?.id !== contextItem?.id));
   const grounded = groundedIn(finalReply, mergeSources(contextItem, relatedItems, loopSources))
     .map((item) => ({ type: item.type, id: item.id, title: item.title }));
 
@@ -2791,7 +2433,6 @@ const generateCollaborativeReply = async ({
     provider: provider || undefined,
     premiumWebResearchAvailable: Boolean(premiumWebResearchAvailable),
     reply: finalReply,
-    intent: intentDecision,
     capability,
     modelRoute,
     planner,
@@ -2817,24 +2458,7 @@ const generateCollaborativeReply = async ({
     retrieval: {
       searchedWorkspace: Boolean(shouldSearchWorkspace),
       relatedCount: responseItems.length
-    },
-    suggestedActions: proposalBundle && responseItems.length > 0
-      ? [
-        {
-          type: 'restructure_candidates',
-          label: 'Restructure Related Items',
-          itemCount: responseItems.length
-        },
-        {
-          type: 'activate_worker_role',
-          label: `Continue with ${planner.activeWorkerLabel}`,
-          workerRole: planner.activeWorkerRole
-        }
-      ]
-      : proposalBundle ? [{
-        type: 'broaden_search',
-        label: 'Broaden Internal Search'
-      }] : []
+    }
   };
 };
 
@@ -2844,11 +2468,7 @@ module.exports = {
     readPageHistory,
     libraryRetrievalFilter,
     tokenize,
-    buildReply,
     buildPassageReply,
-    inferReplyIntent: inferAgentReplyIntent,
-    resolveAgentIntent,
-    buildOrientationReply,
     resolveContextItem,
     loadGraphRelatedItems,
     buildPartnerChatMessages,
@@ -2858,7 +2478,6 @@ module.exports = {
     buildWikiClaimSourceReply,
     prepareRelatedItemsForReply,
     pruneRelatedItemsForContext,
-    filterRetrievedItemsForRequest,
     shouldSearchWorkspaceForWikiPage,
     shouldSearchWorkspaceForContext,
     isSharedQuestionContext,

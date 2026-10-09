@@ -34,11 +34,9 @@ const routeDecision = (profile, reason) => ({
 
 const resolveAgentModelRoute = ({
   capability = {},
-  intentDecision = {},
   skillInvocation = {}
 } = {}) => {
   const capabilityId = clean(capability?.id);
-  const intent = clean(intentDecision?.replyIntent);
   const skillId = clean(skillInvocation?.skillId);
   const outputType = clean(skillInvocation?.outputType);
 
@@ -54,7 +52,7 @@ const resolveAgentModelRoute = ({
   if (HYGIENE_OUTPUT_TYPES.has(outputType)) {
     return routeDecision(MODEL_PROFILES.hygiene, 'Workspace maintenance uses the hygiene report contract.');
   }
-  if (intent === 'challenge' || outputType === 'critique_brief') {
+  if (outputType === 'critique_brief') {
     return routeDecision(MODEL_PROFILES.critique, 'Pressure testing uses the critique profile.');
   }
   if (capabilityId === 'capability.artifact.draft' || artifactTypeFromOutputType(outputType)) {

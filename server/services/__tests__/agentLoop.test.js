@@ -89,4 +89,29 @@ describe('runAgentLoop', () => {
     expect(history).toHaveBeenCalled();
     expect(result.reply).toMatch(/naps restore/);
   });
+  it('stages a change the reader can accept, and only the changes this context allows', async () => {
+    const chat = scripted(
+      { toolCalls: [
+        call('propose_change', { change: 'rewrite', summary: 'Tighten the opening.', text: 'Fatigue narrows attention.' }, 'p1'),
+        call('propose_change', { change: 'organize', summary: 'Sort folders.' }, 'p2'),
+        call('propose_change', { change: 'rewrite', summary: 'Shorter still.' }, 'p3')
+      ] },
+      { text: 'I staged a tighter opening; it waits for you to accept it.' }
+    );
+    const result = await runAgentLoop({ messages, sources: [sleep], chat, changes: ['rewrite'] });
+    const tools = chat.mock.calls[0][0].tools;
+    expect(tools.find(tool => tool.function.name === 'propose_change').function.parameters.properties.change.enum).toEqual(['rewrite']);
+    expect(chat.mock.calls[0][0].messages[0].content).toMatch(/Never say a change has been made/);
+    const replies = chat.mock.calls[1][0].messages.filter(message => message.role === 'tool').map(message => message.content);
+    expect(replies[1]).toMatch(/not a change you can stage/);
+    expect(replies[2]).toMatch(/complete new text/);
+    expect(result.proposals).toEqual([{ change: 'rewrite', summary: 'Tighten the opening.', text: 'Fatigue narrows attention.' }]);
+  });
+
+  it('offers no way to stage changes unless the context allows one', async () => {
+    const chat = scripted({ text: 'Fatigue narrows attention.' });
+    const result = await runAgentLoop({ messages, sources: [sleep], chat });
+    expect(chat.mock.calls[0][0].tools).toBeUndefined();
+    expect(result.proposals).toEqual([]);
+  });
 });

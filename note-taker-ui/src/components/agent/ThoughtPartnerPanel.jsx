@@ -570,7 +570,6 @@ const ThoughtPartnerPanel = ({
                 metadata: {
                   premiumWebResearchAvailable: entry.premiumWebResearchAvailable,
                   planner: entry.planner && typeof entry.planner === 'object' ? entry.planner : undefined,
-                  intent: entry.intent && typeof entry.intent === 'object' ? entry.intent : undefined,
                   capability: entry.capability && typeof entry.capability === 'object' ? entry.capability : undefined,
                   modelRoute: entry.modelRoute && typeof entry.modelRoute === 'object' ? entry.modelRoute : undefined
                 },

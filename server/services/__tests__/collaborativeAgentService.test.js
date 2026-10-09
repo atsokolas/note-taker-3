@@ -3,12 +3,8 @@ const { __testables } = require('../collaborativeAgentService');
 
 const {
   tokenize,
-  buildReply,
   buildPassageReply,
   buildOutputArtifactReply,
-  inferReplyIntent,
-  resolveAgentIntent,
-  buildOrientationReply,
   resolveContextItem,
   loadGraphRelatedItems,
   buildPartnerChatMessages,
@@ -16,7 +12,6 @@ const {
   leaksInternalReasoning,
   buildWikiClaimSourceReply,
   prepareRelatedItemsForReply,
-  filterRetrievedItemsForRequest,
   pruneRelatedItemsForContext,
   shouldSearchWorkspaceForWikiPage,
   shouldSearchWorkspaceForContext,
@@ -104,146 +99,11 @@ const run = async () => {
     true,
     'Prompt or chain-of-thought leakage must be rejected before it reaches the UI.'
   );
-  const emptySourceActionReply = buildReply({
-    message: 'Pull the strongest sources into this note.',
-    context: { type: 'notebook', id: 'n1', title: 'Working note' },
-    contextItem: { type: 'notebook', id: 'n1', title: 'Working note' },
-    relatedItems: [],
-    intentDecision: {
-      replyIntent: 'retrieve',
-      interactionMode: 'act'
-    }
-  });
-  assert.match(emptySourceActionReply, /did not stage a change/i, 'Empty retrieval actions must fail closed.');
-  const claimTestPlan = buildReply({
-    message: 'Give me a plan for testing this claim.',
-    context: { type: 'notebook', id: 'n1', title: 'Working note' },
-    contextItem: { type: 'notebook', id: 'n1', title: 'Working note' },
-    relatedItems: [],
-    intentDecision: {
-      replyIntent: 'plan',
-      interactionMode: 'plan'
-    }
-  });
-  assert.match(claimTestPlan, /falsifiable sentence/i, 'Planning should return concrete steps instead of nearby material.');
-  assert.match(claimTestPlan, /until you approve/i, 'Planning must preserve the human-acceptance boundary.');
-
   const tokens = tokenize('Find the note about systems thinking and evidence loops in my notebook');
   assert.ok(tokens.includes('systems'), 'Expected systems token.');
   assert.ok(tokens.includes('thinking'), 'Expected thinking token.');
   assert.ok(tokens.includes('evidence'), 'Expected evidence token.');
   assert.ok(!tokens.includes('the'), 'Stopwords should be removed.');
-
-  assert.strictEqual(
-    inferReplyIntent({ message: 'Clean up library structure and stage a reviewable organization plan.' }),
-    'cleanup_structure',
-    'Library cleanup requests should stage organization work instead of falling into copy-polish clarification.'
-  );
-  assert.strictEqual(
-    inferReplyIntent({
-      message: 'Ok do that',
-      conversationState: {
-        continuation: true,
-        previousAssistantMessage: {
-          text: 'I can clean up the library and stage an organization plan.'
-        }
-      }
-    }),
-    'cleanup_structure',
-    'Continuation approvals after an organization plan should keep the cleanup execution intent.'
-  );
-  assert.strictEqual(
-    inferReplyIntent({ message: 'What am I looking at?' }),
-    'orient_context',
-    'Agent orientation questions should be recognized as current-surface orientation, not generic chat.'
-  );
-  assert.strictEqual(
-    inferReplyIntent({ message: 'Where else is this used?' }),
-    'show_usage',
-    'Backlink and usage questions should be recognized as visible-usage requests.'
-  );
-  assert.strictEqual(
-    inferReplyIntent({ message: 'What should I reopen next in this workspace, and why?' }),
-    'orient_context',
-    'Return-loop prompts should be treated as workspace orientation rather than generic chat.'
-  );
-
-  const wikiOrientationReply = buildOrientationReply({
-    message: 'What am I looking at?',
-    context: {
-      type: 'workspace',
-      id: 'wiki',
-      pageId: '69fd2e7d212cd5a5f57db144'
-    },
-    contextItem: {
-      type: 'wiki_page',
-      id: 'wiki:investing',
-      title: 'Investing',
-      snippet: 'Investing is disciplined capital allocation.',
-      fullText: 'Investing is disciplined capital allocation with a margin of safety. It connects valuation, behavior, and concentration risk.'
-    },
-    relatedItems: [
-      { type: 'highlight', id: 'h1', title: 'Margin of safety highlight', snippet: 'A margin of safety protects against valuation error.' },
-      { type: 'question', id: 'q1', title: 'How much concentration is too much?', snippet: 'The open question is how concentration risk should be bounded.' }
-    ]
-  });
-  assert.ok(wikiOrientationReply.includes('Wiki page: "Investing".'), 'Orientation replies should name the active wiki page.');
-  assert.ok(/disciplined capital allocation/i.test(wikiOrientationReply), 'Orientation replies should summarize the current surface.');
-  assert.ok(wikiOrientationReply.includes('Margin of safety highlight'), 'Orientation replies should mention visible nearby material.');
-  assert.ok(!wikiOrientationReply.includes('69fd2e7d212cd5a5f57db144'), 'Orientation replies should never expose raw ObjectIds.');
-
-  const usageReply = buildOrientationReply({
-    message: 'Where else is this used?',
-    context: { type: 'concept', id: 'c1', title: 'Systems Thinking' },
-    contextItem: {
-      type: 'concept',
-      id: 'c1',
-      title: 'Systems Thinking',
-      snippet: 'A concept about feedback loops.'
-    },
-    relatedItems: [
-      { type: 'notebook', id: 'n1', title: 'Feedback loops', snippet: 'Pressure accumulates before a system changes state.' },
-      { type: 'wiki_page', id: 'w1', title: 'Decision Quality', snippet: 'Feedback loops shape decision quality.' }
-    ]
-  });
-  assert.ok(usageReply.includes('Think concept "Systems Thinking"'), 'Usage replies should name the active concept surface.');
-  assert.ok(usageReply.includes('2 visible items'), 'Usage replies should count visible connected items.');
-  assert.ok(usageReply.includes('[notebook] Feedback loops'), 'Usage replies should classify notebook connections.');
-  assert.ok(usageReply.includes('[wiki_page] Decision Quality'), 'Usage replies should classify wiki page connections.');
-
-  const returnLoopReply = buildOrientationReply({
-    message: 'From a user perspective, what should I reopen next in this workspace, and why?',
-    context: {
-      type: 'think',
-      title: 'Think home'
-    },
-    relatedItems: [
-      {
-        type: 'article',
-        id: 'a1',
-        title: 'Principles of Political Economy and Taxation',
-        snippet: 'There are 79 saved highlights ready to reconnect with active thinking.'
-      },
-      {
-        type: 'concept',
-        id: 'c1',
-        title: 'Opportunity Cost',
-        snippet: 'A live concept with evidence attached.'
-      }
-    ]
-  });
-  assert.ok(
-    returnLoopReply.startsWith('Reopen Principles of Political Economy and Taxation next'),
-    'Return-loop replies should name a concrete workspace item first.'
-  );
-  assert.ok(
-    returnLoopReply.includes('79 saved highlights'),
-    'Return-loop replies should explain why the item is worth reopening using attached metadata.'
-  );
-  assert.ok(
-    returnLoopReply.includes('Opportunity Cost'),
-    'Return-loop replies should point to the next comparison when another related item is available.'
-  );
 
   const activeConceptId = 'aaaaaaaaaaaaaaaaaaaaaaaa';
   const articleId = 'bbbbbbbbbbbbbbbbbbbbbbbb';
@@ -330,27 +190,11 @@ const run = async () => {
     }]),
     Question: makeFindModel(() => [])
   });
-  const claimGraphReply = buildOrientationReply({
-    message: 'What should I work on next?',
-    context: { type: 'think', title: 'Think home' },
-    relatedItems: claimGraphItems
-  });
-  assert.ok(claimGraphReply.includes('Decision Quality'), 'Claim connections should resolve to the named Wiki page.');
-  assert.ok(!claimGraphReply.includes('claim-'), 'Composite claim identities must never reach user-facing copy.');
-  assert.ok(!claimGraphReply.includes('wiki claim'), 'The agent should describe the named page, not its storage primitive.');
-
-  const emptyUsageReply = buildOrientationReply({
-    message: 'What references this?',
-    context: { type: 'article', id: 'a1', title: 'World Models' },
-    contextItem: {
-      type: 'article',
-      id: 'a1',
-      title: 'World Models',
-      snippet: 'World models compress experience into latent simulations.'
-    },
-    relatedItems: []
-  });
-  assert.ok(/no visible backlinks/i.test(emptyUsageReply), 'Usage replies should be honest when no visible backlinks are attached.');
+  assert.deepStrictEqual(
+    [...new Set(claimGraphItems.map((item) => item.title))],
+    ['Decision Quality'],
+    'Claim connections should resolve to the named Wiki page, never a composite claim identity.'
+  );
 
   const prepared = prepareRelatedItemsForReply([
     { type: 'source', id: 'u1', title: 'example.com', snippet: 'https://example.com/world-models' },
@@ -358,17 +202,6 @@ const run = async () => {
   ]);
   assert.strictEqual(prepared.length, 1, 'Low-signal hostname-only source items should be filtered when richer material exists.');
   assert.strictEqual(prepared[0].title, 'Feedback loops', 'Expected richer notebook item to survive filtering.');
-
-  const sourceOnlyRetrieval = filterRetrievedItemsForRequest([
-    { type: 'article', id: 'a1', title: 'Market structure primer' },
-    { type: 'concept', id: 'c1', title: 'Market structure' },
-    { type: 'notebook', id: 'n1', title: 'Market notes' }
-  ], 'Pull the strongest sources into this note.');
-  assert.deepStrictEqual(
-    sourceOnlyRetrieval.map((item) => item.id),
-    ['a1'],
-    'A source request must not stage concepts or notes as if they were source documents.'
-  );
 
   const pruned = pruneRelatedItemsForContext({
     context: { type: 'article', id: 'a1', title: 'World Models' },
@@ -805,7 +638,6 @@ const run = async () => {
     shouldSearchWorkspaceForContext({
       context: { type: 'shared_question', id: 'qslug' },
       contextItem: sharedContext,
-      intentDecision: { retrievalPolicy: 'workspace' }
     }),
     false,
     'Shared-question companion must not search a private Library.'
@@ -814,27 +646,15 @@ const run = async () => {
     shouldSearchWorkspaceForContext({
       context: { type: 'shared_question', id: 'missing' },
       contextItem: null,
-      intentDecision: { retrievalPolicy: 'workspace' }
     }),
     false,
     'An unpublished shared question must not fall through to workspace search.'
   );
   assert.strictEqual(isSharedQuestionContext({ type: 'shared_question' }), true);
-  const sharedOrganizeIntent = resolveAgentIntent({
-    message: 'Organize my workspace',
-    context: { type: 'shared_question', id: 'qslug' }
-  });
-  assert.strictEqual(
-    sharedOrganizeIntent.replyIntent,
-    'cleanup_structure',
-    'Organize my workspace is still classified as cleanup_structure; the companion must refuse it after that, not by hiding the label.'
-  );
-  assert.strictEqual(sharedOrganizeIntent.proposalPolicy, 'stage');
   assert.strictEqual(
     shouldSearchWorkspaceForContext({
       context: { type: 'shared_question', id: 'qslug' },
       contextItem: sharedContext,
-      intentDecision: sharedOrganizeIntent,
       message: 'Organize my workspace'
     }),
     false,
@@ -846,23 +666,6 @@ const run = async () => {
     ...makeShareModels()
   });
   assert.strictEqual(unpublishedContext, null);
-  const retrieveShared = buildReply({
-    message: 'Find related notes in my library.',
-    context: { type: 'shared_question', id: 'qslug' },
-    contextItem: sharedContext,
-    relatedItems: [],
-    intentDecision: { replyIntent: 'retrieve', interactionMode: 'answer' }
-  });
-  assert.match(retrieveShared, /published question/i);
-  assert.ok(!/workspace/i.test(retrieveShared), 'Shared retrieve silence must not mention a private workspace.');
-  const unpublishedReply = buildReply({
-    message: 'Find related notes in my library.',
-    context: { type: 'shared_question', id: 'gone' },
-    contextItem: null,
-    relatedItems: [],
-    intentDecision: { replyIntent: 'retrieve', interactionMode: 'answer' }
-  });
-  assert.strictEqual(unpublishedReply, 'This question is not published.');
   const sharedMessages = buildPartnerChatMessages({
     message: 'What is actually on this page?',
     context: { type: 'shared_question', id: 'qslug' },
@@ -941,29 +744,10 @@ const run = async () => {
     shouldSearchWorkspaceForContext({
       context: { type: 'shared_question', id: 'qslug' },
       contextItem: successorContext,
-      intentDecision: { retrievalPolicy: 'workspace' }
     }),
     false,
     'Successor companion must not search a private Library.'
   );
-  const successorRetrieve = buildReply({
-    message: 'Find related notes in my library.',
-    context: { type: 'shared_question', id: 'qslug' },
-    contextItem: successorContext,
-    relatedItems: [],
-    intentDecision: { replyIntent: 'retrieve', interactionMode: 'answer' }
-  });
-  assert.match(successorRetrieve, /successor record/i);
-  assert.ok(!/workspace/i.test(successorRetrieve), 'Successor retrieve silence must not mention a private workspace.');
-  const successorPlan = buildReply({
-    message: 'Make a plan',
-    context: { type: 'shared_question', id: 'qslug' },
-    contextItem: successorContext,
-    relatedItems: successorContext.relatedItems,
-    intentDecision: { replyIntent: 'plan', interactionMode: 'plan' }
-  });
-  assert.match(successorPlan, /successor record/i);
-  assert.match(successorPlan, /unchosen future/i);
   const successorMessages = buildPartnerChatMessages({
     message: 'What did we nearly do?',
     context: { type: 'shared_question', id: 'qslug' },

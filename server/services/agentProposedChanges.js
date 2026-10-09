@@ -165,10 +165,6 @@ const createProposedChangesForRun = async ({
   if (!AgentProposedChange) return [];
   const safeRun = run && typeof run === 'object' ? run : {};
   const created = [];
-  const proposedText = buildAssistantProposalText({
-    thread,
-    bundleId: safeRun.sourceBundleId
-  });
 
   const steps = Array.isArray(safeRun.steps) ? safeRun.steps : [];
   for (const step of steps) {
@@ -186,6 +182,10 @@ const createProposedChangesForRun = async ({
       target: step.target
     });
     if (!targetDoc) continue;
+    // The model's own new text, staged with propose_change. Bundles from
+    // before it carried none and fell back to the whole chat reply.
+    const proposedText = clean(step?.metadata?.proposedText)
+      || buildAssistantProposalText({ thread, bundleId: safeRun.sourceBundleId });
 
     const snapshots = targetType === 'concept'
       ? buildConceptSnapshots({ concept: targetDoc, proposedText })

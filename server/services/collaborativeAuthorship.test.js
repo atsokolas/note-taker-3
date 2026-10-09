@@ -50,7 +50,6 @@ const run = async () => {
   } } };
   const reply = await generateCollaborativeReply({ userId: owner, message: 'Rewrite my paragraph in my voice.', context });
   assert.equal(reply.reply, 'Here is a possible revision in your voice.');
-  assert.equal(reply.intent.interactionMode, 'answer');
   assert.equal(reply.proposalBundle, null, 'A requested prose suggestion is not an accepted edit.');
   assert.equal(captured.length, 1);
   const prompt = captured[0].messages.map(item => item.content).join('\n');
