@@ -308,11 +308,24 @@ describe('a second reading on a shared paper', () => {
       }]
     }]), 'Athan');
     expect(seen.items[0]).toMatchObject({
-      filedBy: 'OpenClaw · Jarvis',
+      filedBy: 'OpenClaw',
       filedByRuntime: 'openclaw',
       readings: [{ filedBy: 'Codex', filedByRuntime: 'codex', finding: 'Within noise.', boundary: 'Three seeds.', note: '' }]
     });
-    expect(JSON.stringify(seen)).not.toMatch(/t1|t2|filedAt/);
+    expect(JSON.stringify(seen)).not.toMatch(/t1|t2|filedAt|Jarvis/);
+  });
+
+  /* The label is typed for the owner's eyes. A stranger gets the agent's
+     name when the label carries one, and no name when it does not. */
+  it('never publishes a token label', () => {
+    const seen = projectPublicEdition(issue([{
+      ...first,
+      filedBy: { label: 'Codex Wiki account grounding audit', agentTokenId: 't1', runtime: '' },
+      readings: [{ filedBy: { label: 'Night shift on the studio Mac', agentTokenId: 't2', runtime: '' }, finding: 'f', boundary: 'b' }]
+    }]), 'Athan');
+    expect(seen.items[0].filedBy).toBe('Codex');
+    expect(seen.items[0].readings[0].filedBy).toBe('');
+    expect(JSON.stringify(seen)).not.toMatch(/grounding|Night shift/);
   });
 
   it('projects a single-hand item exactly as before', () => {

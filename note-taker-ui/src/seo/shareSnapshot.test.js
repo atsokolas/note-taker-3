@@ -102,9 +102,11 @@ describe('public share snapshots', () => {
       title: 'This Week in AI',
       items: [{
         title: 'A paper', url: 'https://example.com/p', finding: 'Costs fell.', boundary: 'One benchmark.',
+        filedBy: 'OpenClaw', filedByRuntime: 'openclaw',
         readings: [{ filedBy: 'My laptop', filedByRuntime: 'codex', finding: 'Within noise.', boundary: 'Three seeds.' }]
       }]
     }, '/share/editions/x');
+    expect(page.html).toContain('OpenClaw’s reading');
     expect(page.html).toContain('Codex’s reading');
     expect(page.html).toContain('Within noise.');
     expect(page.html).toContain('Three seeds.');

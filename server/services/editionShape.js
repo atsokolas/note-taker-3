@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const { publicAgentName } = require('./agentRuntime');
 
 /**
  * What an edition has to contain.
@@ -378,14 +379,14 @@ const projectPublicItem = (item = {}) => ({
   finding: publicText(item.finding, 2000),
   boundary: publicText(item.boundary, 2000),
   note: publicText(item.note, 4000),
-  /* A second agent's reading is editorial, like the first, and both are named
-     the way the masthead is. Absent when there is none, so an older share
-     keeps its hash. */
+  /* A second agent's reading is editorial, like the first, and both hands are
+     named by what the agent is, never by the label typed for its token.
+     Absent when there is none, so an older share keeps its hash. */
   ...(item.readings?.length ? {
-    filedBy: publicText(item.filedBy?.label, 200),
+    filedBy: publicAgentName(item.filedBy),
     filedByRuntime: publicText(item.filedBy?.runtime, 40),
     readings: item.readings.map(reading => ({
-      filedBy: publicText(reading.filedBy?.label, 200),
+      filedBy: publicAgentName(reading.filedBy),
       filedByRuntime: publicText(reading.filedBy?.runtime, 40),
       finding: publicText(reading.finding, 2000),
       boundary: publicText(reading.boundary, 2000),

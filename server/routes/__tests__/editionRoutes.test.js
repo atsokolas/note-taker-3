@@ -1312,6 +1312,21 @@ describe('a second reading of a held source', () => {
     expect(Edition.rows[0].items[0].readings).toHaveLength(1);
   });
 
+  it('answers with the reading a racing filing landed', async () => {
+    await file({ items: [source()] });
+    as('token-2', 'Codex', 'codex');
+    const write = Edition.findOneAndUpdate;
+    Edition.findOneAndUpdate = async (query, patch, options) => {
+      if (!patch.$push?.['items.$.readings']) return write(query, patch, options);
+      /* The other request's push wins first; this one then misses. */
+      Edition.rows[0].items[0].readings = [{ ...patch.$push['items.$.readings'].$each[0] }];
+      return null;
+    };
+    const lost = await file({ items: [source()] });
+    expect(lost.body).toMatchObject({ readingsAdded: 0, alreadyHeld: 1 });
+    expect(lost.body.items[0].readings.map(reading => reading.filedBy)).toEqual(['Codex']);
+  });
+
   it('keeps readings through a whole-issue rewrite', async () => {
     await file({ items: [source()] });
     as('token-2', 'Codex', 'codex');

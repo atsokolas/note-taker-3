@@ -421,6 +421,7 @@ const buildEditionRouter = ({
   const appendReadings = async ({ existing, userId, readings }) => {
     let saved = existing;
     let added = 0;
+    let missed = false;
     for (const { url, reading } of readings) {
       const id = reading.filedBy.agentTokenId;
       const next = await Edition.findOneAndUpdate(
@@ -445,8 +446,13 @@ const buildEditionRouter = ({
       if (next) {
         saved = next;
         added += 1;
+      } else {
+        missed = true;
       }
     }
+    /* A reading that lost its race may have landed from the winner: answer
+       with the issue as it now stands, not as this request first read it. */
+    if (missed) saved = (await Edition.findOne({ _id: saved._id, userId })) || saved;
     return { saved, added };
   };
 
