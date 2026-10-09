@@ -1812,6 +1812,14 @@ morningPaperRecordSchema.index({ userId: 1, day: 1 }, { unique: true });
 
 const MorningPaperRecord = mongoose.model('MorningPaperRecord', morningPaperRecordSchema);
 
+/* Who signed something on a paper: the token's label as evidence, and the
+   runtime it connected from (empty when unknown or written by a person). */
+const editionSigner = () => ({
+  label: { type: String, default: '', trim: true },
+  agentTokenId: { type: String, default: '', trim: true },
+  runtime: { type: String, default: '', trim: true }
+});
+
 /* An edition of a paper an agent maintains for its reader.
 
    Its own object, not a wiki page. A wiki page is timeless and is built out
@@ -1822,14 +1830,6 @@ const MorningPaperRecord = mongoose.model('MorningPaperRecord', morningPaperReco
    `savedArticleId` is the door back: it is null until the reader saves the
    source, and then it points at their own library row. That is the arrow
    this object reverses — every other surface here reads library to wiki. */
-/* Who signed something on a paper: the token's label as evidence, and the
-   runtime it connected from (empty when unknown or written by a person). */
-const editionSigner = () => ({
-  label: { type: String, default: '', trim: true },
-  agentTokenId: { type: String, default: '', trim: true },
-  runtime: { type: String, default: '', trim: true }
-});
-
 const editionItemSchema = new mongoose.Schema({
   itemId: { type: String, required: true, trim: true },
   title: { type: String, required: true, trim: true },
