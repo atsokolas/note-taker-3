@@ -66,7 +66,9 @@ const DEFAULT_ROUTE_PROFILES = Object.freeze({
 const DEFAULT_ROUTE_CONTRACTS = Object.freeze({
   partner_chat: Object.freeze({
     temperature: 0.25,
-    maxTokens: 360,
+    // Room for a quoted answer, or a rewrite's full text, after any
+    // reasoning; at 360 a Sonnet answer stopped mid-word.
+    maxTokens: 1200,
     reasoningEffort: 'low',
     parserStrategy: 'plain_text',
     responseFormat: null

@@ -157,8 +157,6 @@ const runAgentLoop = async ({
       route,
       messages: conversation,
       ...(lastRound || !tools ? {} : { tools, toolChoice: 'auto' }),
-      // A staged rewrite carries the whole new text in its arguments.
-      ...(changes.includes('rewrite') && !lastRound ? { maxTokens: 1400 } : {}),
       signal
     });
     const calls = Array.isArray(completion?.toolCalls) ? completion.toolCalls : [];
@@ -185,7 +183,9 @@ const runAgentLoop = async ({
     reply = String(completion?.text || '').trim();
     invented = inventedQuotes(reply, texts());
   }
-  if (!reply || invented.length) return null;
+  // An answer cut off at the token limit is not an answer.
+  const cutOff = completion?.raw?.choices?.[0]?.finish_reason === 'length';
+  if (!reply || invented.length || cutOff) return null;
 
   return {
     reply,

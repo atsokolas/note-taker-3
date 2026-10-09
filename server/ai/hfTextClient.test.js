@@ -86,7 +86,7 @@ const run = () => {
       getRouteContract('partner_chat'),
       {
         temperature: 0.25,
-        maxTokens: 360,
+        maxTokens: 1200,
         reasoningEffort: 'low',
         parserStrategy: 'plain_text',
         responseFormat: null

@@ -114,4 +114,8 @@ describe('runAgentLoop', () => {
     expect(chat.mock.calls[0][0].tools).toBeUndefined();
     expect(result.proposals).toEqual([]);
   });
+  it('returns nothing rather than an answer cut off at the token limit', async () => {
+    const chat = scripted({ text: 'The strongest obj', raw: { choices: [{ finish_reason: 'length' }] } });
+    expect(await runAgentLoop({ messages, sources: [sleep], chat })).toBeNull();
+  });
 });

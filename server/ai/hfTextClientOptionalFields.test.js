@@ -196,7 +196,7 @@ const run = async () => {
         assert.equal(result.route, 'partner_chat');
         assert.equal(result.outputContract, 'plain_text');
         assert.equal(calls[0].temperature, 0.25);
-        assert.equal(calls[0].max_tokens, 360);
+        assert.equal(calls[0].max_tokens, 1200);
         assert.equal(calls[0].reasoning_effort, 'low');
       }
     );
