@@ -10,7 +10,6 @@ const PROPOSAL_STATUS_VALUES = new Set(['pending', 'partially_applied', 'applied
 const PROPOSAL_OP_STATUS_VALUES = new Set(['pending', 'blocked', 'applied', 'dismissed', 'invalidated']);
 const EXECUTION_MODE_VALUES = new Set(['direct', 'proposed_change']);
 const RISK_LEVEL_VALUES = new Set(['low', 'medium', 'high']);
-const ORGANIZATION_INTENTS = new Set(['organize', 'cleanup_structure', 'organize_import']);
 
 const normalizeTarget = (input = {}) => {
   const source = input && typeof input === 'object' ? input : {};
@@ -62,43 +61,31 @@ const normalizeProposalBundle = (input = {}) => {
 
 const buildBundleId = () => `bundle-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-const supportsProposedChangeLayer = (target = {}) => (
-  ['concept', 'notebook', 'note', 'question', 'article', 'selection'].includes(clean(target.type).toLowerCase())
-);
-
-const buildOrganizationOperation = ({ safeIntent = '', target = {}, context = {}, contextItem = null } = {}) => {
-  const targetType = clean(target.type).toLowerCase();
-  const isImportScope = safeIntent === 'organize_import' || targetType === 'import_session';
-  const scopeType = clean(context?.type || contextItem?.type || target.type || 'workspace').toLowerCase() || 'workspace';
-  const scopeId = clean(context?.id || contextItem?.id || target.id);
-  const targetLabel = target.title || target.type || 'workspace';
-
+const buildOrganizationOperation = ({ summary = '', target = {}, context = {}, contextItem = null } = {}) => {
+  const isImportScope = target.type === 'import_session';
   return {
     opId: 'organize-workspace',
     type: 'organize_workspace',
-    title: isImportScope ? 'Organize this import' : `Clean up ${targetLabel}`,
-    summary: isImportScope
-      ? 'Analyze this imported structure and stage folder moves, merges, and cleanup steps for approval before anything changes.'
-      : 'Analyze folder structure, then stage moves, merges, and cleanup steps for approval before anything changes.',
+    title: isImportScope ? 'Organize this import' : `Clean up ${target.title || target.type || 'workspace'}`,
+    summary: summary || 'Analyze folder structure, then stage moves, merges, and cleanup steps for approval before anything changes.',
     executionMode: 'direct',
     riskLevel: 'medium',
     requiresApproval: true,
     target,
     metadata: {
-      intent: safeIntent,
-      scopeType,
-      scopeId,
+      scopeType: clean(context?.type || contextItem?.type || target.type || 'workspace').toLowerCase() || 'workspace',
+      scopeId: clean(context?.id || contextItem?.id || target.id),
       isImportScope
     }
   };
 };
 
+// The changes the model staged this turn (see propose_change in agentLoop).
+// Nothing here writes: each operation waits for the reader to accept it.
 const buildProposalBundle = ({
-  intent = '',
+  proposals = [],
   context = {},
   contextItem = null,
-  relatedItems = [],
-  skillInvocation = {},
   planner = null
 } = {}) => {
   const target = normalizeTarget({
@@ -106,80 +93,22 @@ const buildProposalBundle = ({
     id: context?.id || contextItem?.id || '',
     title: context?.title || contextItem?.title || ''
   });
-  const safeIntent = clean(intent).toLowerCase();
-  const operations = [];
-  const relatedCount = Array.isArray(relatedItems) ? relatedItems.length : 0;
-  const outputType = clean(skillInvocation?.outputType).toLowerCase();
   const targetLabel = target.title || target.type || 'workspace';
-
-  if (ORGANIZATION_INTENTS.has(safeIntent)) {
-    operations.push(buildOrganizationOperation({
-      safeIntent,
-      target,
-      context,
-      contextItem
-    }));
-  }
-
-  if (supportsProposedChangeLayer(target) && ['clarify', 'strengthen', 'summarize', 'restructure'].includes(safeIntent)) {
-    const actionByIntent = {
-      clarify: {
+  const operations = (Array.isArray(proposals) ? proposals : []).map((proposal) => (
+    proposal?.change === 'organize'
+      ? buildOrganizationOperation({ summary: proposal.summary, target, context, contextItem })
+      : {
+        opId: 'content-change',
+        type: 'propose_content_change',
         title: `Rewrite ${targetLabel}`,
-        summary: `Prepare an agent-authored rewrite for ${targetLabel} so the user can review it before it lands.`
-      },
-      strengthen: {
-        title: `Strengthen ${targetLabel}`,
-        summary: `Prepare a stronger supported pass on ${targetLabel} as an agent-proposed change.`
-      },
-      summarize: {
-        title: `Summarize into ${targetLabel}`,
-        summary: `Draft a concise synthesis for ${targetLabel} as a reviewable agent-authored change.`
-      },
-      restructure: {
-        title: `Restructure ${targetLabel}`,
-        summary: `Reorganize ${targetLabel} into a cleaner structure as a reviewable proposed change.`
+        summary: proposal?.summary,
+        executionMode: 'proposed_change',
+        riskLevel: 'low',
+        requiresApproval: false,
+        target,
+        metadata: { proposedText: clean(proposal?.text) }
       }
-    };
-    const config = actionByIntent[safeIntent];
-    operations.push({
-      opId: 'content-change',
-      type: 'propose_content_change',
-      title: config.title,
-      summary: config.summary,
-      executionMode: 'proposed_change',
-      riskLevel: 'low',
-      requiresApproval: false,
-      target
-    });
-  }
-
-  if (relatedCount > 0 && ['retrieve', 'strengthen', 'continue', 'chat', 'clarify', 'summarize', 'restructure'].includes(safeIntent)) {
-    operations.push({
-      opId: 'attach-material',
-      type: 'attach_related_material',
-      title: `Pull in ${relatedCount} related ${relatedCount === 1 ? 'item' : 'items'}`,
-      summary: `Collect the strongest nearby material for ${targetLabel} and stage it for the next pass.`,
-      executionMode: 'direct',
-      riskLevel: 'low',
-      requiresApproval: false,
-      target,
-      metadata: { itemCount: relatedCount }
-    });
-  }
-
-  if (outputType === 'handoff_draft') {
-    operations.push({
-      opId: 'create-handoff',
-      type: 'create_handoff',
-      title: 'Create a routed handoff',
-      summary: 'Turn this proposal into a handoff that can be delegated to the right worker.',
-      executionMode: 'direct',
-      riskLevel: 'medium',
-      requiresApproval: false,
-      target
-    });
-  }
-
+  ));
   if (operations.length === 0) return null;
 
   const bundleTitle = operations.length === 1

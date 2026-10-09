@@ -22,8 +22,8 @@ const run = () => {
   );
   assert.strictEqual(
     resolveAgentModelRoute({
-      capability: { id: 'capability.content.revise' },
-      intentDecision: { replyIntent: 'challenge' }
+      capability: { id: 'capability.context.answer' },
+      skillInvocation: { outputType: 'critique_brief' }
     }).profile,
     'critique'
   );

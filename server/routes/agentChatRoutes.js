@@ -4,6 +4,7 @@ const {
   trackRunLifecycleEvents
 } = require('../services/agentHarnessEvents');
 const { isSharedQuestionContext, sharedQuestionReadCapability } = require('../services/agentCapabilityBroker');
+const { normalizeProposalBundle } = require('../services/agentProposalBundles');
 const {
   planLibraryStructureProposal: defaultPlanLibraryStructureProposal,
   persistLibraryStructureProposal: defaultPersistLibraryStructureProposal
@@ -99,12 +100,19 @@ const buildAgentChatRouter = ({
       };
     }
     if (!isLibraryOrganizationTurn(result)) return { result, draft: null };
+    // The folder plan replaces the organize step; anything else staged in the
+    // same turn, such as a rewrite, still waits under the reply.
+    const proposalBundle = normalizeProposalBundle({
+      ...result.proposalBundle,
+      operations: (result.proposalBundle?.operations || []).filter(operation => operation.type !== 'organize_workspace')
+    });
+    const alsoStaged = proposalBundle ? ' The rewrite you asked for is staged below.' : '';
     if (!canPropose) {
       return {
         result: {
           ...result,
-          proposalBundle: null,
-          reply: 'This agent can inspect your Library, but it is not allowed to stage structural changes. Nothing changed.',
+          proposalBundle,
+          reply: `This agent can inspect your Library, but it is not allowed to stage structural changes. Nothing changed.${alsoStaged}`,
           structurePlanning: { status: 'blocked', reason: 'propose_changes_disabled' }
         },
         draft: null
@@ -124,8 +132,8 @@ const buildAgentChatRouter = ({
       return {
         result: {
           ...result,
-          proposalBundle: null,
-          reply: `I staged “${planned.draft.title}” with ${operationCount} reviewable ${operationCount === 1 ? 'change' : 'changes'}. Inspect each move before applying it; nothing in your Library has changed yet.`,
+          proposalBundle,
+          reply: `I staged “${planned.draft.title}” with ${operationCount} reviewable ${operationCount === 1 ? 'change' : 'changes'}. Inspect each move before applying it; nothing in your Library has changed yet.${alsoStaged}`,
           structurePlanning: {
             status: 'ready',
             inventory: planned.inventory,
@@ -149,8 +157,8 @@ const buildAgentChatRouter = ({
       return {
         result: {
           ...result,
-          proposalBundle: null,
-          reply: `I could not produce a safe Library structure plan from the current inventory, so I did not stage or apply anything. ${userFacingReason}`.trim(),
+          proposalBundle,
+          reply: `I could not produce a safe Library structure plan from the current inventory, so I did not stage or apply anything. ${userFacingReason}`.trim() + alsoStaged,
           structurePlanning: {
             status: 'failed',
             reason: userFacingReason
@@ -251,17 +259,12 @@ const buildAgentChatRouter = ({
         mode: String(result?.mode || '').trim() || undefined,
         premiumWebResearchAvailable: Boolean(result?.premiumWebResearchAvailable),
         planner: result?.planner ? normalizeThreadPlanner(result.planner) : undefined,
-        intent: result?.intent && typeof result.intent === 'object' ? result.intent : undefined,
         capability: result?.capability && typeof result.capability === 'object' ? result.capability : undefined,
         modelRoute: result?.modelRoute && typeof result.modelRoute === 'object' ? result.modelRoute : undefined,
         activityReceipts: Array.isArray(result?.activityReceipts) ? result.activityReceipts : []
       }
     });
-    if (result?.planner) {
-      targetThread.planner = normalizeThreadPlanner(result.planner);
-    } else if (result?.intent?.plannerPolicy === 'hidden') {
-      targetThread.planner = null;
-    }
+    targetThread.planner = result?.planner ? normalizeThreadPlanner(result.planner) : null;
     compactThreadState(targetThread, {
       actor: { actorType: 'native_agent', actorId: '' }
     });

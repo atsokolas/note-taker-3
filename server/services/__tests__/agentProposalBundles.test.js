@@ -5,55 +5,44 @@ const {
 } = require('../agentProposalBundles');
 
 const run = () => {
+  assert.strictEqual(
+    buildProposalBundle({ context: { type: 'concept', id: 'concept-1', title: 'World Models' } }),
+    null,
+    'No staged change, no bundle.'
+  );
+
   const rewriteBundle = buildProposalBundle({
-    intent: 'clarify',
-    context: {
-      type: 'concept',
-      id: 'concept-1',
-      title: 'World Models'
-    },
-    relatedItems: [
-      { type: 'article', id: 'a1', title: 'Ground truth checks' },
-      { type: 'notebook', id: 'n1', title: 'Model drift notes' }
-    ],
-    planner: {
-      activeWorkerLabel: 'Editor'
-    }
+    proposals: [{ change: 'rewrite', summary: 'Lead with the claim.', text: 'A world model predicts what happens next.' }],
+    context: { type: 'concept', id: 'concept-1', title: 'World Models' },
+    planner: { activeWorkerLabel: 'Editor' }
   });
-
-  assert.ok(rewriteBundle, 'Expected a proposal bundle for a clarify pass.');
   assert.strictEqual(rewriteBundle.status, 'pending', 'New bundles should start pending.');
-  assert.strictEqual(rewriteBundle.operations.length, 2, 'Clarify bundles with related items should preserve both content and material operations.');
-  assert.strictEqual(
-    rewriteBundle.operations[0].executionMode,
-    'proposed_change',
-    'Content rewrites should be marked as proposed changes.'
-  );
-  assert.strictEqual(
-    rewriteBundle.operations[1].type,
-    'attach_related_material',
-    'Related material collection should remain a direct operation in the same bundle.'
-  );
+  assert.strictEqual(rewriteBundle.operations.length, 1);
+  assert.strictEqual(rewriteBundle.operations[0].type, 'propose_content_change');
+  assert.strictEqual(rewriteBundle.operations[0].executionMode, 'proposed_change');
+  assert.strictEqual(rewriteBundle.operations[0].summary, 'Lead with the claim.', 'The button says what the model said the change does.');
+  assert.strictEqual(rewriteBundle.operations[0].metadata.proposedText, 'A world model predicts what happens next.');
 
-  const handoffBundle = buildProposalBundle({
-    intent: 'chat',
-    context: {
-      type: 'workspace',
-      id: 'think',
-      title: 'Think'
-    },
-    skillInvocation: {
-      outputType: 'handoff_draft'
-    },
-    planner: {
-      activeWorkerLabel: 'Planner'
-    }
+  const organizeBundle = buildProposalBundle({
+    proposals: [{ change: 'organize', summary: 'Group the loose notes.' }],
+    context: { type: 'notebook', id: 'entry-1', title: 'Notebook' }
   });
-  assert.ok(handoffBundle, 'Handoff draft output should produce a proposal bundle.');
-  assert.ok(
-    handoffBundle.operations.some((operation) => operation.type === 'create_handoff'),
-    'Handoff bundles should include a create_handoff operation.'
-  );
+  const organize = organizeBundle.operations[0];
+  assert.strictEqual(organize.type, 'organize_workspace');
+  assert.strictEqual(organize.executionMode, 'direct');
+  assert.strictEqual(organize.riskLevel, 'medium');
+  assert.strictEqual(organize.requiresApproval, true);
+  assert.strictEqual(organize.title, 'Clean up Notebook');
+  assert.strictEqual(organize.metadata.scopeType, 'notebook');
+  assert.strictEqual(organize.metadata.scopeId, 'entry-1');
+
+  const importBundle = buildProposalBundle({
+    proposals: [{ change: 'organize', summary: 'File this import.' }],
+    context: { type: 'import_session', id: 'session-1', title: 'Notion import' }
+  });
+  assert.strictEqual(importBundle.operations[0].title, 'Organize this import');
+  assert.strictEqual(importBundle.operations[0].metadata.scopeType, 'import_session');
+  assert.strictEqual(importBundle.operations[0].metadata.isImportScope, true);
 
   const normalized = normalizeProposalBundle({
     bundleId: 'bundle-fixed',

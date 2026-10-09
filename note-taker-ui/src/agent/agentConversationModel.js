@@ -65,9 +65,6 @@ export const mapAgentThreadMessages = (thread = null) => (
         planner: message?.metadata?.planner && typeof message.metadata.planner === 'object'
           ? message.metadata.planner
           : null,
-        intent: message?.metadata?.intent && typeof message.metadata.intent === 'object'
-          ? message.metadata.intent
-          : null,
         capability: message?.metadata?.capability && typeof message.metadata.capability === 'object'
           ? message.metadata.capability
           : null,
@@ -91,7 +88,6 @@ export const buildAgentMessage = ({ role, text, result = null } = {}) => ({
     ? result.proposalBundle
     : null,
   planner: result?.planner && typeof result.planner === 'object' ? result.planner : null,
-  intent: result?.intent && typeof result.intent === 'object' ? result.intent : null,
   capability: result?.capability && typeof result.capability === 'object' ? result.capability : null,
   modelRoute: result?.modelRoute && typeof result.modelRoute === 'object' ? result.modelRoute : null,
   mode: clean(result?.mode)

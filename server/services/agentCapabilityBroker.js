@@ -11,24 +11,6 @@ const CAPABILITIES = Object.freeze({
     effect: 'read',
     boundary: 'automatic'
   }),
-  retrieve: Object.freeze({
-    id: 'capability.workspace.retrieve',
-    label: 'Search workspace',
-    effect: 'read',
-    boundary: 'automatic'
-  }),
-  plan: Object.freeze({
-    id: 'capability.plan.compose',
-    label: 'Compose a plan',
-    effect: 'reason',
-    boundary: 'automatic'
-  }),
-  attach: Object.freeze({
-    id: 'capability.material.attach',
-    label: 'Attach related material',
-    effect: 'write',
-    boundary: 'review_required'
-  }),
   revise: Object.freeze({
     id: 'capability.content.revise',
     label: 'Revise content',
@@ -52,12 +34,6 @@ const CAPABILITIES = Object.freeze({
     label: 'Import external material',
     effect: 'write',
     boundary: 'review_required'
-  }),
-  clarify: Object.freeze({
-    id: 'capability.request.clarify',
-    label: 'Clarify the request',
-    effect: 'none',
-    boundary: 'not_applicable'
   })
 });
 
@@ -79,10 +55,11 @@ const sharedQuestionReadCapability = () => capabilityDecision(CAPABILITIES.answe
   reason: 'This conversation is bound to the published question. Workspace writes stay out of scope.'
 });
 
+// What this turn may do, decided from what the reader invoked and what the
+// model staged, never from the wording of the message.
 const resolveAgentCapability = ({
-  intentDecision = {},
+  proposals = [],
   skillInvocation = {},
-  relatedItems = [],
   context = {},
   contextItem = null
 } = {}) => {
@@ -90,10 +67,7 @@ const resolveAgentCapability = ({
     return sharedQuestionReadCapability();
   }
   const outputType = clean(skillInvocation?.outputType).toLowerCase();
-  const artifactType = artifactTypeFromOutputType(outputType);
-  const intent = clean(intentDecision?.replyIntent).toLowerCase();
-  const interactionMode = clean(intentDecision?.interactionMode).toLowerCase();
-  const relatedCount = Array.isArray(relatedItems) ? relatedItems.length : 0;
+  const staged = new Set((Array.isArray(proposals) ? proposals : []).map(proposal => proposal?.change));
 
   if (outputType === 'integration_fetch') {
     return capabilityDecision(CAPABILITIES.integration, {
@@ -101,77 +75,26 @@ const resolveAgentCapability = ({
       reason: 'Imports need a dedicated reviewable import flow before they can run from chat.'
     });
   }
-
-  if (artifactType) {
-    return capabilityDecision(CAPABILITIES.artifact, {
-      plannerPolicy: intentDecision?.plannerPolicy === 'show' ? 'show' : 'hidden',
-      artifactPolicy: 'stage'
-    });
+  if (artifactTypeFromOutputType(outputType)) {
+    return capabilityDecision(CAPABILITIES.artifact, { artifactPolicy: 'stage' });
   }
-
-  if (interactionMode === 'clarify' || intent === 'clarify_request') {
-    return capabilityDecision(CAPABILITIES.clarify);
+  if (staged.has('organize')) {
+    return capabilityDecision(CAPABILITIES.organize, { plannerPolicy: 'show', proposalPolicy: 'stage' });
   }
-
-  if (intent === 'cleanup_structure') {
-    return capabilityDecision(CAPABILITIES.organize, {
-      plannerPolicy: 'show',
-      proposalPolicy: 'stage'
-    });
+  if (staged.has('rewrite')) {
+    return capabilityDecision(CAPABILITIES.revise, { plannerPolicy: 'show', proposalPolicy: 'stage' });
   }
-
-  if (['clarify', 'strengthen', 'restructure'].includes(intent) && interactionMode === 'act') {
-    return capabilityDecision(CAPABILITIES.revise, {
-      plannerPolicy: 'show',
-      proposalPolicy: 'stage'
-    });
-  }
-
-  if (intent === 'retrieve' && interactionMode === 'act') {
-    if (relatedCount === 0) {
-      return capabilityDecision(CAPABILITIES.attach, {
-        availability: 'blocked',
-        reason: 'No matching workspace material was found to stage.'
-      });
-    }
-    return capabilityDecision(CAPABILITIES.attach, {
-      plannerPolicy: 'show',
-      proposalPolicy: 'stage'
-    });
-  }
-
-  if (interactionMode === 'plan' || intent === 'plan') {
-    return capabilityDecision(CAPABILITIES.plan, { plannerPolicy: 'show' });
-  }
-
-  if (intent === 'retrieve' || intentDecision?.retrievalPolicy === 'workspace') {
-    return capabilityDecision(CAPABILITIES.retrieve);
-  }
-
   return capabilityDecision(CAPABILITIES.answer);
 };
 
 const brokerAgentTurn = ({
-  capability: resolvedCapability = null,
-  intentDecision = {},
+  proposals = [],
   message = '',
   context = {},
   contextItem = null,
-  relatedItems = [],
   skillInvocation = {}
 } = {}) => {
-  let capability = isSharedQuestionContext(context, contextItem)
-    ? sharedQuestionReadCapability()
-    : resolvedCapability && typeof resolvedCapability === 'object'
-      ? { ...resolvedCapability }
-      : resolveAgentCapability({
-        intentDecision,
-        skillInvocation,
-        relatedItems,
-        context,
-        contextItem
-      });
-
+  const capability = resolveAgentCapability({ proposals, skillInvocation, context, contextItem });
   if (capability.availability === 'blocked') {
     return { capability, planner: null, proposalBundle: null };
   }
@@ -184,24 +107,8 @@ const brokerAgentTurn = ({
       })
     : null;
   const proposalBundle = capability.proposalPolicy === 'stage'
-    ? buildProposalBundle({
-        intent: intentDecision?.replyIntent,
-        context,
-        contextItem,
-        relatedItems,
-        skillInvocation,
-        planner
-      })
+    ? buildProposalBundle({ proposals, context, contextItem, planner })
     : null;
-
-  if (capability.proposalPolicy === 'stage' && !proposalBundle) {
-    capability = {
-      ...capability,
-      availability: 'blocked',
-      reason: 'No valid reviewable operation could be built for this context.'
-    };
-    return { capability, planner: null, proposalBundle: null };
-  }
 
   return { capability, planner, proposalBundle };
 };

@@ -46,6 +46,30 @@ const HISTORY_TOOL = Object.freeze({
   }
 });
 
+// Offered when the reader could accept a change here. The model only stages
+// it; the reader's click is what changes anything.
+const proposeTool = (changes) => Object.freeze({
+  type: 'function',
+  function: {
+    name: 'propose_change',
+    description: [
+      'Stage a change for the reader to accept or dismiss. Nothing changes until they accept it.',
+      'Use it only when the reader asks you to change, rewrite or organize something, never on your own initiative.',
+      changes.includes('rewrite') ? '"rewrite": replace the text of the open page with `text`, the complete new version.' : '',
+      changes.includes('organize') ? '"organize": stage a cleanup of the reader\'s folders, which they review move by move.' : ''
+    ].filter(Boolean).join(' '),
+    parameters: {
+      type: 'object',
+      properties: {
+        change: { type: 'string', enum: changes },
+        summary: { type: 'string', description: 'One sentence the reader sees on the button: what the change does.' },
+        text: { type: 'string', description: 'For a rewrite, the complete new text.' }
+      },
+      required: ['change', 'summary']
+    }
+  }
+});
+
 // Appended to the partner's system prompt for this loop.
 const SEARCH_RULE = 'You can search the reader\'s library and read a source before answering. Search when the question reaches beyond the passages already in front of you.';
 const LOOP_RULES = [
@@ -53,6 +77,7 @@ const LOOP_RULES = [
   'A passage that begins "You hold:" is a view the reader holds, with their reasons and what would change their mind. When what you found supports it or cuts against it, say which, and quote the view.',
   'If nothing in the library bears on the question, say so plainly in one sentence. Do not answer from general knowledge as though the library said it.'
 ];
+const PROPOSE_RULE = 'When you stage a change, say in one sentence what it would do and that it waits for the reader. Never say a change has been made.';
 
 const parseArguments = (raw) => {
   if (raw && typeof raw === 'object') return raw;
@@ -69,6 +94,7 @@ const runAgentLoop = async ({
   search,
   read,
   history,
+  changes = [],
   chat,
   route = 'partner_chat',
   signal
@@ -76,9 +102,10 @@ const runAgentLoop = async ({
   // Without a library to search (a published question answers only from what
   // was published), the turn answers from the passages it was given.
   const libraryTools = search && read ? TOOLS : [];
-  const offered = [...libraryTools, ...(history ? [HISTORY_TOOL] : [])];
+  const offered = [...libraryTools, ...(history ? [HISTORY_TOOL] : []), ...(changes.length ? [proposeTool(changes)] : [])];
   const tools = offered.length ? offered : null;
-  const rules = [...(libraryTools.length ? [SEARCH_RULE] : []), ...LOOP_RULES].join('\n');
+  const rules = [...(libraryTools.length ? [SEARCH_RULE] : []), ...LOOP_RULES, ...(changes.length ? [PROPOSE_RULE] : [])].join('\n');
+  const proposals = [];
   // Everything the model has been shown, by id, so the answer can be checked
   // against exactly that.
   const seen = new Map(sources.filter(source => source?.id).map(source => [String(source.id), source]));
@@ -102,6 +129,16 @@ const runAgentLoop = async ({
       if (!record?.fullText) return { result: 'This page has no recorded history.' };
       show([record]);
       return { history: record.fullText };
+    }
+    if (name === 'propose_change') {
+      if (!changes.includes(args.change)) return { result: `"${args.change}" is not a change you can stage here.` };
+      const summary = String(args.summary || '').trim();
+      const text = String(args.text || '').trim();
+      if (!summary || (args.change === 'rewrite' && !text)) return { result: 'A change needs a summary, and a rewrite needs the complete new text.' };
+      // One proposal of each kind per turn: a second call replaces the first.
+      const index = proposals.findIndex(item => item.change === args.change);
+      proposals.splice(index < 0 ? proposals.length : index, 1, { change: args.change, summary, ...(text ? { text } : {}) });
+      return { result: 'Staged. The reader sees it with a button to accept it; nothing has changed yet.' };
     }
     if (name === 'read_source') {
       const source = await read(String(args.id || ''));
@@ -146,13 +183,16 @@ const runAgentLoop = async ({
     reply = String(completion?.text || '').trim();
     invented = inventedQuotes(reply, texts());
   }
-  if (!reply || invented.length) return null;
+  // An answer cut off at the token limit is not an answer.
+  const cutOff = completion?.raw?.choices?.[0]?.finish_reason === 'length';
+  if (!reply || invented.length || cutOff) return null;
 
   return {
     reply,
     model: completion?.model || '',
     provider: completion?.provider || '',
     sources: [...seen.values()],
+    proposals,
     toolCalls
   };
 };
