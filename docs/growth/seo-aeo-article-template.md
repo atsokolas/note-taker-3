@@ -16,7 +16,7 @@ Use this for any public essay or guide intended to rank in search and earn citat
 - One sentence on why Noeis has a point of view here
 
 ## Trust signals
-- Byline: Anthony Tsokolas
+- Byline: Athan Tsokolas
 - Updated date:
 - How this piece was created:
 - Screenshots or workflow proof included:

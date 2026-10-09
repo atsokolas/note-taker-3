@@ -1,7 +1,7 @@
 export const SITE_NAME = 'Noeis';
 export const PRODUCT_NAME = 'Noeis';
 export const CANONICAL_HOST = 'https://www.noeis.io';
-export const DEFAULT_AUTHOR_NAME = 'Anthony Tsokolas';
+export const DEFAULT_AUTHOR_NAME = 'Athan Tsokolas';
 export const DEFAULT_SOCIAL_IMAGE_PATH = '/logo512.png';
 export const DEFAULT_LAST_UPDATED = '2026-04-19';
 export const DEFAULT_LAST_UPDATED_LABEL = 'April 19, 2026';

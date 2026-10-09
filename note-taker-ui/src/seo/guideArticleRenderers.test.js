@@ -7,7 +7,7 @@ describe('guide article rendering', () => {
 
     expect(html).toContain('Best Second Brain App Criteria for Serious Readers | Noeis');
     expect(html).toContain('How to Choose a Second Brain App');
-    expect(html).toContain('Written by Anthony Tsokolas');
+    expect(html).toContain('Written by Athan Tsokolas');
     expect(html).toContain('How this guide was produced');
     expect(html).toContain('Traditional notes apps');
     expect(html).toContain('href="/ai-second-brain"');
