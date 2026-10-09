@@ -589,3 +589,16 @@
   background: var(--surface, Canvas);
   clip-path: var(--agent-mark-hex);
 }
+
+/* Two hands on one source: side by side, never reconciled. */
+.edition-readings__hands { font: 12px/1.6 var(--noeis-font-ui, system-ui); opacity: 0.72; margin: 0 0 12px; }
+.edition-readings__columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+  gap: 20px 32px;
+}
+.edition-readings__column { border-top: 1px solid color-mix(in srgb, currentColor 18%, transparent); padding-top: 12px; min-width: 0; }
+.edition-readings__by { font: 13px/1.6 var(--noeis-font-ui, system-ui); margin: 0 0 8px; }
+
+/* The limit's label sits above it, not run into its first word. */
+.edition-item__label { display: block; font: 500 10px/1.5 var(--noeis-font-ui, system-ui); letter-spacing: .1em; text-transform: uppercase; opacity: 0.72; margin-bottom: 4px; }

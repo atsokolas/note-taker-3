@@ -123,6 +123,9 @@ const run = async () => {
     const create = z.object(writeTools.find(tool => tool.name === 'create_edition').inputSchema);
     assert.strictEqual(create.shape.checked.isOptional(), true);
     assert.match(writeTools.find(tool => tool.name === 'file_edition_items').description, /reads to the reader as 'not reported'/);
+    /* A second agent on a held link is a reading, not a skip; agents are told to
+       write their own rather than echo the first. */
+    assert.match(writeTools.find(tool => tool.name === 'file_edition_items').description, /second reading beside theirs .* do not paraphrase theirs/);
 
     const bodies = [];
     const client = new NoeisClient({

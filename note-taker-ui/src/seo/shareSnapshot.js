@@ -201,7 +201,10 @@ export const renderEditionSnapshot = (edition = {}, path = '') => {
           ${item.section ? `<p class="eyebrow">${escapeHtml(item.section)}</p>` : ''}
           <h2>${item.url ? `<a href="${escapeHtml(item.url)}" rel="nofollow noopener">${escapeHtml(item.title || item.url)}</a>` : escapeHtml(item.title)}</h2>
           <p>${escapeHtml(item.finding)}</p>
-          ${item.boundary ? `<p><strong>What limits it:</strong> ${escapeHtml(item.boundary)}</p>` : ''}
+          ${item.boundary ? `<p><strong>What limits it:</strong> ${escapeHtml(item.boundary)}</p>` : ''}${(item.readings || []).map((reading) => `
+          <h3>${escapeHtml(agentOf({ runtime: reading.filedByRuntime, label: reading.filedBy })?.name || 'Another')}’s reading</h3>
+          <p>${escapeHtml(reading.finding)}</p>
+          <p><strong>What limits it:</strong> ${escapeHtml(reading.boundary)}</p>`).join('')}
         </section>`).join('')}${edition.throughLine ? `
         <section class="card"><h2>Through line</h2><p>${escapeHtml(edition.throughLine)}</p></section>` : ''}${(edition.watchNext || []).length ? `
         <section class="card"><h2>Watch next</h2><ul>${edition.watchNext.map((line) => `<li>${escapeHtml(line)}</li>`).join('')}</ul></section>` : ''}

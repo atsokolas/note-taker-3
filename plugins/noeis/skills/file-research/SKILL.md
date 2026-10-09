@@ -11,6 +11,6 @@ Use file_edition_items for additive filing into the existing issue. It is the ex
 
 Edition filing receipts establish research-item persistence only. Do not claim that unrelated browser drafts or human Edition thoughts are preserved; their conflict recovery is a separate flow.
 
-Report the actual filing receipt: added, already-held/skipped, rejected, and any failed items, with the resulting Edition link where returned. A duplicate skip is an honest successful no-op, not a newly saved source. If the result is uncertain, reconcile the Edition before retrying. Reuse an idempotency key when the tool supports it and preserve the same source identities.
+Report the actual filing receipt: added, kept as a second reading (readingsAdded), already-held/skipped, rejected, and any failed items, with the resulting Edition link where returned. A duplicate skip is an honest successful no-op, not a newly saved source. If the result is uncertain, reconcile the Edition before retrying. Reuse an idempotency key when the tool supports it and preserve the same source identities.
 
 The plugin executes when invoked. It does not run continuously. Only if the user expressly requests future work, use the host's supported scheduling capability after a successful read of this exact NOEIS grant. Preserve the requested topic, cadence, scope, and delivery policy, and report schedule creation separately from completed research. No unspecified recurring topics or searches.

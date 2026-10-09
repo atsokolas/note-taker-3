@@ -1,6 +1,7 @@
 import React from 'react';
 import { issueLine, publicSourceHref, standLayout, windowLine } from '../../pages/editionModel';
 import AgentMark from './AgentMark';
+import EditionReadings from './EditionReadings';
 import SectionSilence from './SectionSilence';
 
 /**
@@ -10,6 +11,15 @@ import SectionSilence from './SectionSilence';
  * editorial object: title, date, the name it was kept under, and every item
  * with the finding and the thing that would limit it.
  */
+const paperFinding = text => <p className="edition-item__finding">{text}</p>;
+
+const PaperBoundary = ({ children }) => (
+  <p className="edition-item__boundary">
+    <span className="edition-item__label">What would limit it</span>
+    {children}
+  </p>
+);
+
 const EditionItemView = ({ item }) => {
   const href = publicSourceHref(item.url);
   return (
@@ -22,12 +32,15 @@ const EditionItemView = ({ item }) => {
       {item.sourceLabel || item.sourceDate ? (
         <p className="edition-item__source">{[item.sourceLabel, item.sourceDate].filter(Boolean).join(' · ')}</p>
       ) : null}
-      <p className="edition-item__finding">{item.finding}</p>
-      <p className="edition-item__boundary">
-        <span className="edition-item__label">What would limit it</span>
-        {item.boundary}
-      </p>
-      {item.note ? <p className="edition-item__note">{item.note}</p> : null}
+      {item.readings?.length ? (
+        <EditionReadings item={item} finding={paperFinding} Boundary={PaperBoundary} plain />
+      ) : (
+        <>
+          {paperFinding(item.finding)}
+          <PaperBoundary>{item.boundary}</PaperBoundary>
+          {item.note ? <p className="edition-item__note">{item.note}</p> : null}
+        </>
+      )}
     </article>
   );
 };

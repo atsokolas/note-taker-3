@@ -56,23 +56,43 @@ const checksFrom = (req, profile, by, at) => {
 };
 
 /* Normalized against the same standard as a whole edition — a boundary is
-   required here too, or the daily door becomes the way around it. */
+   required here too, or the daily door becomes the way around it.
+
+   A link already held is a second reading when a different agent filed it,
+   and a repeat when the same one did. Only two known tokens make two hands:
+   a filing without one cannot be told apart from the first. */
+const MAX_READINGS = 3;
+
 const addToHeld = (held, incoming, profile, filedBy, filedAt) => {
   const kept = (held || []).map(item => (item.toObject ? item.toObject() : item));
-  const keptUrls = new Set(kept.map(item => item.url));
+  const keptByUrl = new Map(kept.map(item => [item.url, item]));
   const usedIds = new Set(kept.map(item => item.itemId));
   const added = [];
+  const readings = [];
   incoming.forEach((raw, index) => {
     const item = normalizeItem(raw, kept.length + index, profile);
-    if (keptUrls.has(item.url)) return;
+    const first = keptByUrl.get(item.url);
+    if (first) {
+      const hands = [first.filedBy, ...(first.readings || []).map(reading => reading.filedBy)]
+        .map(signer => signer?.agentTokenId || '');
+      const fresh = filedBy.agentTokenId && hands[0] && !hands.includes(filedBy.agentTokenId)
+        && hands.length <= MAX_READINGS && !readings.some(reading => reading.url === item.url);
+      if (fresh) {
+        readings.push({
+          url: item.url,
+          reading: { filedBy, filedAt, finding: item.finding, boundary: item.boundary, note: item.note }
+        });
+      }
+      return;
+    }
+    if (added.some(entry => entry.url === item.url)) return;
     if (usedIds.has(item.itemId)) {
       throw new EditionShapeError(`Two items share the id "${item.itemId}".`, { field: 'itemId' });
     }
-    keptUrls.add(item.url);
     usedIds.add(item.itemId);
     added.push({ ...item, filedBy, filedAt });
   });
-  return { added, items: [...kept, ...added] };
+  return { added, readings, items: [...kept, ...added] };
 };
 
 const serializeItem = (item) => {
@@ -90,6 +110,14 @@ const serializeItem = (item) => {
     filedBy: row.filedBy?.label || '',
     filedByRuntime: row.filedBy?.runtime || '',
     filedAt: row.filedAt || null,
+    readings: (row.readings || []).map(reading => ({
+      filedBy: reading.filedBy?.label || '',
+      filedByRuntime: reading.filedBy?.runtime || '',
+      filedAt: reading.filedAt || null,
+      finding: reading.finding,
+      boundary: reading.boundary,
+      note: reading.note || ''
+    })),
     savedArticleId: row.savedArticleId ? String(row.savedArticleId) : null,
     readerStatus: row.readerState?.status || 'new'
   };
@@ -357,7 +385,7 @@ const buildEditionRouter = ({
         );
       }
       const remaining = merged.added;
-      if (!remaining.length) return { saved: held, added: [] };
+      if (!remaining.length) return { saved: held, added: [], readings: merged.readings };
 
       const saved = await Edition.findOneAndUpdate(
         {
@@ -378,13 +406,48 @@ const buildEditionRouter = ({
         },
         { new: true }
       );
-      if (saved) return { saved, added: remaining };
+      if (saved) return { saved, added: remaining, readings: merged.readings };
 
       held = await Edition.findOne({ _id: held._id, userId });
       if (!held) throw new Error('No such edition.');
       merged = addToHeld(held.items, incoming, profile, filedBy, filedAt);
     }
     throw new Error('Could not file into this edition.');
+  };
+
+  /* Each reading lands only while its item still has room and no reading from
+     this token: two simultaneous filings from one agent cannot leave two.
+     Readings never count toward the paper's item limit. */
+  const appendReadings = async ({ existing, userId, readings }) => {
+    let saved = existing;
+    let added = 0;
+    for (const { url, reading } of readings) {
+      const id = reading.filedBy.agentTokenId;
+      const next = await Edition.findOneAndUpdate(
+        {
+          _id: saved._id,
+          userId,
+          items: {
+            $elemMatch: {
+              url,
+              'filedBy.agentTokenId': { $ne: id },
+              'readings.filedBy.agentTokenId': { $ne: id },
+              [`readings.${MAX_READINGS - 1}`]: { $exists: false }
+            }
+          }
+        },
+        {
+          $push: { 'items.$.readings': { $each: [reading], $slice: MAX_READINGS } },
+          $set: { updatedAt: new Date() }
+        },
+        { new: true }
+      );
+      if (next) {
+        saved = next;
+        added += 1;
+      }
+    }
+    return { saved, added };
   };
 
   /* The same discipline for receipts: one per section per token, pushed only
@@ -530,6 +593,7 @@ const buildEditionRouter = ({
       let saved;
       let created = false;
       let added = [];
+      let readingsAdded = 0;
       let checksAdded = [];
       if (!existing) {
         const prepared = addToHeld([], incoming, profile, filedBy, filedAt);
@@ -570,16 +634,19 @@ const buildEditionRouter = ({
           filedAt,
           writtenBy
         });
-        const checked = await appendChecks({ existing: appended.saved, userId, checks });
+        const read = await appendReadings({ existing: appended.saved, userId, readings: appended.readings });
+        const checked = await appendChecks({ existing: read.saved, userId, checks });
         saved = checked.saved;
         added = appended.added;
+        readingsAdded = read.added;
         checksAdded = checked.added;
       }
 
       return res.status(created ? 201 : 200).json({
         ...await present(saved, req.user.id, profiles),
         added: added.length,
-        alreadyHeld: incoming.length - added.length,
+        readingsAdded,
+        alreadyHeld: incoming.length - added.length - readingsAdded,
         checksAdded: checksAdded.length
       });
     } catch (error) {

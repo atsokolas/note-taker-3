@@ -185,7 +185,7 @@ export const writeTools = [
   },
   {
     name: 'file_edition_items',
-    description: 'Add what you found today to the issue this moment belongs to, WITHOUT resending what is already there. This is how a paper is maintained: file each morning and the issue fills up over its window. Noeis picks the issue from the topic\'s cadence, so two agents filing the same day file into the same one, and an item whose link is already held is skipped rather than duplicated. Every item still needs its boundary. If you looked at a section and nothing met your bar, say so in `checked`. A section you leave silent reads to the reader as \'not reported\'. Send items, checked, or both. Requires an agent-write token.',
+    description: 'Add what you found today to the issue this moment belongs to, WITHOUT resending what is already there. This is how a paper is maintained: file each morning and the issue fills up over its window. Noeis picks the issue from the topic\'s cadence, so two agents filing the same day file into the same one, and if another agent already filed the same link, your item is kept as a second reading beside theirs (your own repeats are skipped). Write your own finding and boundary; do not paraphrase theirs. Every item still needs its boundary. If you looked at a section and nothing met your bar, say so in `checked`. A section you leave silent reads to the reader as \'not reported\'. Send items, checked, or both. Requires an agent-write token.',
     inputSchema: {
       profile: z.string().min(1).describe('Topic key, from list_edition_profiles.'),
       items: z.array(editionItemShape).optional().describe('Only the new findings. What is already filed stays. May be left out when you send checked.'),

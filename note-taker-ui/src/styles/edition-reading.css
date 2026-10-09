@@ -114,6 +114,7 @@
 .reading-layout { display: grid; grid-template-columns: minmax(0,720px) minmax(0,1fr); column-gap: 64px; align-items: start; }
 .reading-sequence { min-width: 0; }
 .reading-section-label { font: 500 11px/1.5 var(--noeis-font-ui, system-ui); letter-spacing: .12em; text-transform: uppercase; margin: 0 0 14px; color: var(--reading-muted); }
+.reading-section-label .agent-mark__glyph { margin-left: 10px; vertical-align: middle; letter-spacing: 0; }
 .reading-section + .reading-section { margin-top: 44px; padding-top: 24px; border-top: 1px solid var(--reading-rule); }
 .edition-finding { scroll-margin-top: 110px; }
 .edition-finding + .edition-finding { margin-top: 40px; padding-top: 24px; border-top: 1px solid var(--reading-rule); }

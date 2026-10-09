@@ -96,6 +96,21 @@ describe('public share snapshots', () => {
     expect(legacy.html).toContain('Filed by Codex<');
   });
 
+  /* A crawler reads the second hand too, named the same way. */
+  it('prints a second reading under its agent’s name', () => {
+    const page = renderEditionSnapshot({
+      title: 'This Week in AI',
+      items: [{
+        title: 'A paper', url: 'https://example.com/p', finding: 'Costs fell.', boundary: 'One benchmark.',
+        readings: [{ filedBy: 'My laptop', filedByRuntime: 'codex', finding: 'Within noise.', boundary: 'Three seeds.' }]
+      }]
+    }, '/share/editions/x');
+    expect(page.html).toContain('Codex’s reading');
+    expect(page.html).toContain('Within noise.');
+    expect(page.html).toContain('Three seeds.');
+    expect(page.html).not.toContain('My laptop');
+  });
+
   it('routes each public address to its API', () => {
     const match = (pathname) => {
       const route = SHARE_ROUTES.find((entry) => entry.pattern.test(pathname));

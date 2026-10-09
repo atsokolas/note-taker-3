@@ -9,6 +9,8 @@ import {
 } from '../../pages/editionModel';
 import EditionShare from './EditionShare';
 import { EditionSourcesJump, EditionSourcesList, useEditionSources } from './EditionSources';
+import AgentMark from './AgentMark';
+import { handsOf } from './editionAgent';
 import EditionFinding from './EditionFinding';
 import SectionSilence from './SectionSilence';
 import SourcePeek from './SourcePeek';
@@ -244,7 +246,12 @@ export default function EditionReading({
                   aria-label={section.label || 'Readings'}
                 >
                   {section.label ? (
-                    <h2 className="reading-section-label">{section.label}</h2>
+                    <h2 className="reading-section-label">
+                      {section.label}
+                      {handsOf(section.items).map((hand) => (
+                        <AgentMark key={`${hand.runtime}:${hand.label}`} runtime={hand.runtime} label={hand.label} glyph />
+                      ))}
+                    </h2>
                   ) : null}
                   {section.items.length ? (
                     section.items.map((item) => (

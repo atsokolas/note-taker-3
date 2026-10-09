@@ -377,7 +377,21 @@ const projectPublicItem = (item = {}) => ({
   section: publicText(item.section, 120),
   finding: publicText(item.finding, 2000),
   boundary: publicText(item.boundary, 2000),
-  note: publicText(item.note, 4000)
+  note: publicText(item.note, 4000),
+  /* A second agent's reading is editorial, like the first, and both are named
+     the way the masthead is. Absent when there is none, so an older share
+     keeps its hash. */
+  ...(item.readings?.length ? {
+    filedBy: publicText(item.filedBy?.label, 200),
+    filedByRuntime: publicText(item.filedBy?.runtime, 40),
+    readings: item.readings.map(reading => ({
+      filedBy: publicText(reading.filedBy?.label, 200),
+      filedByRuntime: publicText(reading.filedBy?.runtime, 40),
+      finding: publicText(reading.finding, 2000),
+      boundary: publicText(reading.boundary, 2000),
+      note: publicText(reading.note, 4000)
+    }))
+  } : {})
 });
 
 /**
@@ -486,6 +500,7 @@ const retainHeldItems = (incoming = [], existingItems = [], writtenBy = {}, now 
       itemId: before?.itemId || item.itemId,
       filedBy: before?.filedBy?.label ? before.filedBy : writtenBy,
       filedAt: before?.filedAt || now,
+      ...(before?.readings?.length ? { readings: before.readings } : {}),
       savedArticleId: before?.savedArticleId || null,
       readerState: readerStateOf(before)
     };
