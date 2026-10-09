@@ -250,6 +250,20 @@ describe('the public paper', () => {
     expect(seen.issueLabel).toBe('Month');
     expect(seen.sections).toEqual([{ key: 'trials', label: 'Trials' }]);
   });
+
+  /* A stranger is told which agent wrote it, by runtime, and a paper filed
+     before runtimes were recorded projects exactly as it did. */
+  it('carries the writer’s runtime only when there is one', () => {
+    const edition = {
+      profile: 'this_week_in_ai', title: 'This Week in AI', windowStart: '2026-09-28', windowEnd: '2026-10-04', items: []
+    };
+    const named = projectPublicEdition({ ...edition, writtenBy: { label: 'My laptop', agentTokenId: 't1', runtime: 'codex' } }, 'Athan');
+    expect(named.writtenByRuntime).toBe('codex');
+    const legacy = projectPublicEdition({ ...edition, writtenBy: { label: 'My laptop', agentTokenId: 't1' } }, 'Athan');
+    expect(legacy).not.toHaveProperty('writtenByRuntime');
+    expect(hashPublicEdition(projectPublicEdition({ ...edition, writtenBy: { label: 'My laptop', runtime: '' } }, 'Athan')))
+      .toBe(hashPublicEdition(legacy));
+  });
 });
 
 describe('keeping a reader’s place in a rewritten week', () => {

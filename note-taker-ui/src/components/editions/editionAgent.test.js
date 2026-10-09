@@ -1,4 +1,4 @@
-import { agentOf } from './agentMark';
+import { agentOf } from './editionAgent';
 
 describe('which agent filed it', () => {
   it('names every runtime by its short name, initials and shape', () => {

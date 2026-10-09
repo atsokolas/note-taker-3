@@ -6,6 +6,8 @@
    the title, the text with its citation marks, and the sources under it. The
    app still mounts over it as before. */
 
+import { agentOf } from '../components/editions/editionAgent';
+
 const HOST = 'https://www.noeis.io';
 
 const escapeHtml = (value = '') => String(value)
@@ -193,7 +195,7 @@ export const renderEditionSnapshot = (edition = {}, path = '') => {
           <p class="eyebrow">Shared Noeis edition${edition.windowStart && edition.windowEnd ? `, ${escapeHtml(edition.windowStart)} to ${escapeHtml(edition.windowEnd)}` : ''}</p>
           <h1>${escapeHtml(heading)}</h1>
           ${edition.standfirst ? `<p class="lede">${escapeHtml(edition.standfirst)}</p>` : ''}
-          ${edition.writtenBy ? `<p>Filed by ${escapeHtml(edition.writtenBy)}</p>` : ''}
+          ${edition.writtenBy ? `<p>Filed by ${escapeHtml(agentOf({ runtime: edition.writtenByRuntime, label: edition.writtenBy }).name)}</p>` : ''}
         </header>${items.map((item) => `
         <section class="card">
           ${item.section ? `<p class="eyebrow">${escapeHtml(item.section)}</p>` : ''}

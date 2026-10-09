@@ -33,4 +33,12 @@ describe('the byline on a paper', () => {
     expect(container).not.toHaveTextContent('grounding audit');
     expect(container.querySelector('[title]')).toBeNull();
   });
+
+  it('names a shared paper by runtime when its label says nothing', () => {
+    const { container } = render(
+      <EditionPaper edition={{ title: 'This Week in AI', writtenBy: 'My laptop', writtenByRuntime: 'codex', sections: [], items: [] }} />
+    );
+    expect(screen.getByText(/Written by/)).toHaveTextContent('Written by CxCodex');
+    expect(container).not.toHaveTextContent('My laptop');
+  });
 });

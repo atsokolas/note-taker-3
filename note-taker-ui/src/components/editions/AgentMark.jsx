@@ -1,5 +1,5 @@
 import React from 'react';
-import { agentOf } from './agentMark';
+import { agentOf } from './editionAgent';
 
 /* An agent's mark and short name. `plain` drops the tooltip for public pages,
    where the token label someone typed is not the reader's business. */
