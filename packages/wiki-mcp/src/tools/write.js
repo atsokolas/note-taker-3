@@ -168,14 +168,18 @@ export const writeTools = [
   },
   {
     name: 'configure_edition',
-    description: 'Set up or change one of the reader\'s edition topics — a subject they want a paper on, its columns, and how often it comes out. Configuring the same key twice edits that topic rather than making a second one. Ask the reader what the columns should be: they are the argument the paper makes about its subject. Passing an empty list prints silence rather than inventing evidence / counter-evidence columns. Omit the field when editing so the standing columns stay.',
+    description: 'Set up or change one of the reader\'s edition topics — a subject they want a paper on, its columns, and how often it comes out. Configuring the same key twice edits that topic rather than making a second one. Ask the reader what the columns should be: they are the argument the paper makes about its subject. Passing an empty list prints silence rather than inventing evidence / counter-evidence columns. Omit the field when editing so the standing columns stay. Name which agent keeps each section if more than one agent files into this paper.',
     inputSchema: {
       key: z.string().min(1).describe('Short slug for the topic, e.g. "biotech". Reused to file into it.'),
       title: z.string().min(1).describe('What the paper is called on its masthead, e.g. "This Month in Biotech".'),
       cadence: z.enum(['daily', 'weekly', 'monthly']).optional().describe('How often an issue runs. Defaults to weekly. Noeis works out which issue a given day belongs to from this.'),
       sections: z.array(z.object({
         key: z.string().min(1).describe('Slug, e.g. "clinical_evidence".'),
-        label: z.string().min(1).describe('What the reader sees, e.g. "Clinical evidence".')
+        label: z.string().min(1).describe('What the reader sees, e.g. "Clinical evidence".'),
+        keeper: z.object({
+          runtime: z.string().optional().describe('The agent runtime that keeps this column: claude-code, codex, openclaw, hermes or opencode.'),
+          label: z.string().max(60).optional().describe('A short name for that agent, shown on hover.')
+        }).nullable().optional().describe('Which agent keeps this column. Omit to keep the standing keeper; null to clear it.')
       })).max(8).optional().describe('The columns this paper sets. Omit to keep the standing ones when editing. Pass [] for a paper with no columns — silence, not a default evidence layout. At most eight.'),
       issueLabel: z.string().optional().describe('What one issue is called: "Issue", "Edition", "Dispatch". Defaults to Issue.'),
       minItems: z.number().int().optional().describe('Fewest items an issue may carry.'),

@@ -14,6 +14,7 @@
  * date, which reads as a pile; grouping them back into the papers they belong
  * to is what makes a run of issues legible as one thing that keeps turning up.
  */
+import { agentOf } from '../components/editions/editionAgent';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'];
@@ -434,4 +435,56 @@ export const resolvePaperIssueId = (paper, readProfileIssue) => {
   const remembered = stored?.issueId;
   if (remembered && paper.issues.some((row) => row._id === remembered)) return remembered;
   return paper.issues[paper.current]?._id || paper.issues[paper.issues.length - 1]._id;
+};
+
+/* The first hand on an item is the one that filed it; readings are second
+   opinions on a source already in the paper, not filings into the column. */
+const filerOf = item => agentOf({ label: item?.filedBy, runtime: item?.filedByRuntime });
+
+/**
+ * Who keeps each column across a run.
+ *
+ * A keeper the reader configured wins. Otherwise the agent that filed most of
+ * the column's items is offered, marked `derived` so the paper says "usually
+ * filed by", never "keeps". A tie names no one: the paper does not guess.
+ */
+export const keepersFor = (issues = [], sections = []) => {
+  const keepers = {};
+  (sections || []).forEach((section) => {
+    if (!section?.key) return;
+    const configured = section.keeper && agentOf(section.keeper);
+    if (configured) {
+      keepers[section.key] = { agent: configured, derived: false };
+      return;
+    }
+    const tally = new Map();
+    (issues || []).forEach(issue => (issue?.items || []).forEach((item) => {
+      if (item.section !== section.key) return;
+      const agent = filerOf(item);
+      if (!agent) return;
+      const held = tally.get(agent.key) || { agent, count: 0 };
+      tally.set(agent.key, { ...held, count: held.count + 1 });
+    }));
+    const [first, second] = [...tally.values()].sort((left, right) => right.count - left.count);
+    keepers[section.key] = first && (!second || first.count > second.count)
+      ? { agent: first.agent, derived: true }
+      : null;
+  });
+  return keepers;
+};
+
+/**
+ * Per column of one issue, the hands that filed into it other than its
+ * keeper: the small second marks on the shelf. A column with no keeper lists
+ * every hand that filed there.
+ */
+export const foreignFilers = (issue = {}, keepers = {}) => {
+  const foreign = {};
+  (issue?.items || []).forEach((item) => {
+    const agent = filerOf(item);
+    if (!agent || agent.key === keepers[item.section]?.agent?.key) return;
+    const held = foreign[item.section] || [];
+    if (!held.some(hand => hand.key === agent.key)) foreign[item.section] = [...held, agent];
+  });
+  return foreign;
 };

@@ -206,6 +206,20 @@ const shareState = (share, { preview = null, currentHash = '' } = {}) => {
   };
 };
 
+/* A column's keeper as it is stored and shown: a runtime the paper can mark,
+   a label for the tooltip. Neither means nobody keeps it. */
+const keeperOf = (raw) => {
+  const runtime = raw?.runtime ? normalizeRuntime(raw.runtime) : '';
+  const label = String(raw?.label || '').trim().slice(0, 60);
+  return runtime || label ? { runtime, label } : null;
+};
+
+const sectionOf = section => ({
+  key: section.key,
+  label: section.label,
+  ...(keeperOf(section.keeper) ? { keeper: keeperOf(section.keeper) } : {})
+});
+
 const serializeProfile = (profile = {}) => ({
   key: profile.key,
   title: profile.title,
@@ -213,7 +227,7 @@ const serializeProfile = (profile = {}) => ({
   cadence: profile.cadence || 'weekly',
   sections: (profile.sections || [])
     .filter(section => section && section.key && section.label)
-    .map(section => ({ key: section.key, label: section.label })),
+    .map(sectionOf),
   minItems: profile.minItems ?? 1,
   maxItems: profile.maxItems ?? 15,
   configuredBy: profile.configuredBy?.label || '',
@@ -249,7 +263,7 @@ const buildEditionRouter = ({
       cadence: row.cadence || 'weekly',
       sections: (row.sections || [])
         .filter(section => section && section.key && section.label)
-        .map(section => ({ key: section.key, label: section.label })),
+        .map(sectionOf),
       minItems: Number.isFinite(row.minItems) ? row.minItems : 1,
       maxItems: Number.isFinite(row.maxItems) ? row.maxItems : 15
     }]));
@@ -512,19 +526,28 @@ const buildEditionRouter = ({
         ? String(req.body.cadence).trim()
         : 'weekly';
       const hasSectionsField = Array.isArray(req.body?.sections);
+      const existing = await EditionProfile.findOne({ userId: req.user.id, key });
+      const standing = (existing?.sections || []).map(sectionOf);
+      /* A section that does not mention its keeper keeps the one it had;
+         `keeper: null` lets it go. */
       const sections = (hasSectionsField ? req.body.sections : [])
-        .map(section => ({
-          key: String(section?.key || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, ''),
-          label: String(section?.label || '').trim().slice(0, 120)
-        }))
+        .map((section) => {
+          const sectionKey = String(section?.key || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+          const keeper = section && 'keeper' in section
+            ? keeperOf(section.keeper)
+            : standing.find(held => held.key === sectionKey)?.keeper || null;
+          return {
+            key: sectionKey,
+            label: String(section?.label || '').trim().slice(0, 120),
+            ...(keeper ? { keeper } : {})
+          };
+        })
         .filter(section => section.key && section.label)
         .slice(0, 8);
-      const existing = await EditionProfile.findOne({ userId: req.user.id, key });
-      /* Omitted sections keep the standing shape. An explicit empty list is
-         silence — not an invented evidence / counter-evidence layout. */
-      const nextSections = hasSectionsField
-        ? sections
-        : (existing?.sections || []).map(section => ({ key: section.key, label: section.label }));
+      /* Omitted sections keep the standing shape, keepers included. An
+         explicit empty list is silence — not an invented evidence /
+         counter-evidence layout. */
+      const nextSections = hasSectionsField ? sections : standing;
       const maxItems = Math.min(Math.max(Number(req.body?.maxItems) || 15, 1), 40);
       const minItems = Math.min(Math.max(Number(req.body?.minItems) || 1, 1), maxItems);
       const configuredBy = {

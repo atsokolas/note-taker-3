@@ -1,6 +1,6 @@
 import {
   byInboxEdition, byPaper, bySection, closesLine, datelineLine,
-  gapLine, inboxEditionLine, issueLine, issueShelfMeta, issuesShelfLabel, latestFilingLine,
+  foreignFilers, gapLine, inboxEditionLine, issueLine, issueShelfMeta, issuesShelfLabel, keepersFor, latestFilingLine,
   publicSourceHref, resolvePaperIssueId, runLine, shelfIssuesForPaper,
   sourceLinks, standLayout, stateOf, takenLine, windowLine
 } from './editionModel';
@@ -394,5 +394,34 @@ describe('the editions shelf', () => {
 
   it('formats issue numbers for the shelf meta column', () => {
     expect(issueShelfMeta({ number: 3 }, 'Edition')).toBe('No. 3');
+  });
+});
+
+describe('who keeps each column', () => {
+  const sections = [{ key: 'infra', label: 'Infrastructure' }, { key: 'counter', label: 'Counter-evidence' }];
+  const by = (section, filedBy, filedByRuntime = '') => ({ section, filedBy, filedByRuntime });
+  const issues = [
+    { items: [by('infra', 'Codex job', 'codex'), by('infra', 'Codex job', 'codex'), by('counter', 'Claude', 'claude-code')] },
+    { items: [by('infra', 'Claude', 'claude-code'), by('counter', 'Codex job', 'codex')] }
+  ];
+
+  it('names the keeper the reader configured', () => {
+    const keepers = keepersFor(issues, [{ ...sections[0], keeper: { runtime: 'claude-code', label: 'Claude' } }]);
+    expect(keepers.infra).toEqual({ agent: expect.objectContaining({ key: 'claude-code' }), derived: false });
+  });
+
+  it('offers the most frequent filer as derived, and names no one on a tie', () => {
+    const keepers = keepersFor(issues, sections);
+    expect(keepers.infra).toEqual({ agent: expect.objectContaining({ key: 'codex' }), derived: true });
+    expect(keepers.counter).toBeNull();
+  });
+
+  it('marks the hands that filed into a column other than its keeper', () => {
+    const keepers = keepersFor(issues, sections);
+    expect(foreignFilers(issues[1], keepers)).toEqual({
+      infra: [expect.objectContaining({ key: 'claude-code' })],
+      counter: [expect.objectContaining({ key: 'codex' })]
+    });
+    expect(foreignFilers(issues[0], keepers).infra).toBeUndefined();
   });
 });

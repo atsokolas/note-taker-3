@@ -766,6 +766,32 @@ describe('topics the reader configures, and filing into them', () => {
     expect(edited.body.sections).toEqual([{ key: 'clinical_evidence', label: 'Clinical evidence' }]);
   });
 
+  /* Who keeps a column is the reader's standing instruction, like the column. */
+  it('names who keeps each column, and carries it onto the edition', async () => {
+    const created = await configure({
+      sections: [
+        { key: 'clinical_evidence', label: 'Clinical evidence', keeper: { runtime: 'Claude', label: 'Claude · trials desk' } },
+        { key: 'policy', label: 'Policy' }
+      ]
+    });
+    expect(created.body.sections).toEqual([
+      { key: 'clinical_evidence', label: 'Clinical evidence', keeper: { runtime: 'claude-code', label: 'Claude · trials desk' } },
+      { key: 'policy', label: 'Policy' }
+    ]);
+    const filed = await send('/api/editions/file', 'POST', { profile: 'biotech', items: [finding()] });
+    expect(filed.body.sections[0].keeper).toEqual({ runtime: 'claude-code', label: 'Claude · trials desk' });
+  });
+
+  it('keeps a column’s keeper through an edit that does not mention it, and lets it go when asked', async () => {
+    await configure({ sections: [{ key: 'clinical_evidence', label: 'Clinical evidence', keeper: { runtime: 'codex' } }] });
+    const omitted = await send('/api/edition-profiles', 'POST', { key: 'biotech', title: 'This Month in Biotech' });
+    expect(omitted.body.sections[0].keeper).toEqual({ runtime: 'codex', label: '' });
+    const renamed = await configure({ sections: [{ key: 'clinical_evidence', label: 'Trials' }] });
+    expect(renamed.body.sections[0]).toEqual({ key: 'clinical_evidence', label: 'Trials', keeper: { runtime: 'codex', label: '' } });
+    const released = await configure({ sections: [{ key: 'clinical_evidence', label: 'Trials', keeper: null }] });
+    expect(released.body.sections[0]).toEqual({ key: 'clinical_evidence', label: 'Trials' });
+  });
+
   it('puts those columns on the edition an agent files', async () => {
     await configure({
       sections: [
