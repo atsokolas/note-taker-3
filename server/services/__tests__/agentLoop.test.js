@@ -64,6 +64,12 @@ describe('runAgentLoop', () => {
     expect(result.reply).toMatch(/default option/);
   });
 
+  it('still catches invented words beside an ellipsis', async () => {
+    const forged = { text: 'It says "Sleep is always necessary … fatigue narrows attention to the default option".' };
+    const chat = scripted(forged, forged);
+    expect(await runAgentLoop({ messages, sources: [sleep], chat })).toBeNull();
+  });
+
   it('returns nothing when the quotation is still invented after repair', async () => {
     const invented = { text: 'The source says "sleep is the single best predictor of judgment".' };
     const chat = scripted(invented, invented);
