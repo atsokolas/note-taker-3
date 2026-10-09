@@ -74,7 +74,16 @@ function renderBlocks(nodes = []) {
   return (Array.isArray(nodes) ? nodes : []).map(renderNode).join('');
 }
 
-const renderSources = (sources = []) => (sources.length ? `
+/* Starter pages open with their own title as a heading; the card already shows it. */
+const renderPageBody = (page = {}) => {
+  const blocks = Array.isArray(page.body?.content) ? page.body.content : [];
+  const [first, ...rest] = blocks;
+  const leadText = first?.type === 'heading' ? (first.content || []).map((node) => node.text || '').join('').trim() : '';
+  return renderBlocks(leadText && leadText === String(page.title || '').trim() ? rest : blocks)
+    || `<p>${escapeHtml(page.plainText || '')}</p>`;
+};
+
+const renderSources =(sources = []) => (sources.length ? `
       <section class="card" id="sources">
         <h2>Sources</h2>
         <ol>${sources.map((source, index) => `
@@ -85,7 +94,7 @@ const renderSources = (sources = []) => (sources.length ? `
       </section>` : '');
 
 export const renderWikiPageSnapshot = (page = {}, path = '') => {
-  const body = renderBlocks(page.body?.content) || `<p>${escapeHtml(page.plainText || '')}</p>`;
+  const body = renderPageBody(page);
   const sources = Array.isArray(page.sourceRefs) ? page.sourceRefs : [];
   const description = summaryOf(page.plainText) || `A Noeis wiki page with ${sources.length} cited sources.`;
   return {
@@ -146,7 +155,7 @@ export const renderWikiCollectionSnapshot = (collection = {}, path = '') => {
         </header>${pages.map((page) => `
         <section class="card">
           <h2>${escapeHtml(page.title)}</h2>
-          ${renderBlocks(page.body?.content) || `<p>${escapeHtml(page.plainText || '')}</p>`}
+          ${renderPageBody(page)}
         </section>`).join('')}
       </article>
     </main>`

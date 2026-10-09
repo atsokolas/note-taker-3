@@ -60,12 +60,12 @@ describe('public share snapshots', () => {
 
   it('renders a collection with every page', () => {
     const snapshot = renderWikiCollectionSnapshot(
-      { name: 'Value Investing', description: 'Moats and margins.', pages: [page] },
+      { name: 'Value Investing', description: 'Moats and margins.', pages: [{ ...page, body: { type: 'doc', content: [{ type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Margin of safety' }] }, ...page.body.content] } }] },
       '/share/wiki/collection/value-investing'
     );
 
     expect(snapshot.html).toContain('<h1>Value Investing</h1>');
-    expect(snapshot.html).toContain('<h2>Margin of safety</h2>');
+    expect(snapshot.html.match(/<h2>Margin of safety<\/h2>/g)).toHaveLength(1);
     expect(snapshot.schema['@type']).toBe('CollectionPage');
   });
 
