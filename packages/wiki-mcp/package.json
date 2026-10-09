@@ -1,7 +1,14 @@
 {
   "name": "@noeis/wiki-mcp",
-  "version": "0.4.3",
+  "version": "0.4.4",
+  "mcpName": "io.github.atsokolas/noeis",
   "description": "MCP server for driving a Noeis wiki from external agents.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/atsokolas/note-taker-3.git",
+    "directory": "packages/wiki-mcp"
+  },
+  "homepage": "https://www.noeis.io/skill.md",
   "type": "module",
   "exports": {
     ".": "./src/server.js"
@@ -12,7 +19,8 @@
   "files": [
     "bin",
     "src",
-    "README.md"
+    "README.md",
+    "server.json"
   ],
   "scripts": {
     "test": "node test/server.test.js && node test/config.test.js && node test/ingest.test.js && node test/library.test.js && node test/think.test.js && node test/editions.test.js && node test/chatgpt.test.js && node test/chatgpt-access.test.js",

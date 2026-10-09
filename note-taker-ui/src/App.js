@@ -6,6 +6,7 @@ import JudgmentMirror from './pages/JudgmentMirror';
 import NotFound from './pages/NotFound';
 import { forgetReturnPath, isAppRoute, readReturnPath, rememberReturnPath } from './navigation/appRoutes';
 import { Analytics } from '@vercel/analytics/react';
+import { GUIDE_SLUGS } from './seo/guideSlugs';
 import Register from './components/Register';
 import Login from './components/Login';
 import Landing from './pages/Landing';
@@ -102,22 +103,10 @@ const Integrations = lazy(() => import('./pages/Integrations'));
 const AgentConnectAuthorize = lazy(() => import('./pages/AgentConnectAuthorize'));
 const ChatGPTConnectAuthorize = lazy(() => import('./pages/ChatGPTConnectAuthorize'));
 const AgentTaskRun = lazy(() => import('./pages/AgentTaskRun'));
-const AiSecondBrain = lazy(() => import('./pages/AiSecondBrain'));
+const GuideArticlePage = lazy(() => import('./components/seo/GuideArticlePage'));
 const GuidesHub = lazy(() => import('./pages/GuidesHub'));
 const Examples = lazy(() => import('./pages/Examples'));
 const PublicProofGallery = lazy(() => import('./pages/PublicProofGallery'));
-const SecondBrainApp = lazy(() => import('./pages/SecondBrainApp'));
-const AiNoteTakingWorkflow = lazy(() => import('./pages/AiNoteTakingWorkflow'));
-const PersonalKnowledgeManagementAi = lazy(() => import('./pages/PersonalKnowledgeManagementAi'));
-const MostNoteAppsSolveCaptureNotRecall = lazy(() => import('./pages/MostNoteAppsSolveCaptureNotRecall'));
-const ReadwiseIsNotASecondBrain = lazy(() => import('./pages/ReadwiseIsNotASecondBrain'));
-const HighlightsIntoConcepts = lazy(() => import('./pages/HighlightsIntoConcepts'));
-const AiReadingWithoutLosingJudgment = lazy(() => import('./pages/AiReadingWithoutLosingJudgment'));
-const BestSecondBrainAppForFounders = lazy(() => import('./pages/BestSecondBrainAppForFounders'));
-const BestSecondBrainAppForResearchers = lazy(() => import('./pages/BestSecondBrainAppForResearchers'));
-const ImportReadingArchiveIntoNoeis = lazy(() => import('./pages/ImportReadingArchiveIntoNoeis'));
-const SourceBackedSynthesisWorkflow = lazy(() => import('./pages/SourceBackedSynthesisWorkflow'));
-const FromSavedArticleToDraftInNoeis = lazy(() => import('./pages/FromSavedArticleToDraftInNoeis'));
 const MarketingAnalytics = lazy(() => import('./pages/MarketingAnalytics'));
 const SearchConsoleOpportunities = lazy(() => import('./pages/SearchConsoleOpportunities'));
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
@@ -245,22 +234,10 @@ const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess, uiSettings }) => {
   const location = useLocation();
   const isShareRoute = isPublicSharePath(location.pathname);
   const isLongformRoute = (
-    location.pathname === '/ai-second-brain'
-    || location.pathname === '/second-brain-app'
-    || location.pathname === '/ai-note-taking-workflow'
+    GUIDE_SLUGS.includes(location.pathname.slice(1))
     || location.pathname === '/guides'
     || location.pathname === '/examples'
     || location.pathname === '/proof'
-    || location.pathname === '/personal-knowledge-management-ai'
-    || location.pathname === '/most-note-apps-solve-capture-not-recall'
-    || location.pathname === '/readwise-is-not-a-second-brain'
-    || location.pathname === '/highlights-into-concepts'
-    || location.pathname === '/ai-reading-without-losing-judgment'
-    || location.pathname === '/best-second-brain-app-for-founders'
-    || location.pathname === '/best-second-brain-app-for-researchers'
-    || location.pathname === '/import-reading-archive-into-noeis'
-    || location.pathname === '/source-backed-synthesis-workflow'
-    || location.pathname === '/from-saved-article-to-draft-in-noeis'
     || isDesignPreviewPath(location.pathname)
   );
   const isEditorialPublicRoute = (
@@ -284,19 +261,9 @@ const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess, uiSettings }) => {
           <Route path="/guides" element={<GuidesHub />} />
           <Route path="/examples" element={<Examples />} />
           <Route path="/proof" element={<PublicProofGallery />} />
-          <Route path="/ai-second-brain" element={<AiSecondBrain />} />
-          <Route path="/second-brain-app" element={<SecondBrainApp />} />
-          <Route path="/ai-note-taking-workflow" element={<AiNoteTakingWorkflow />} />
-          <Route path="/personal-knowledge-management-ai" element={<PersonalKnowledgeManagementAi />} />
-          <Route path="/most-note-apps-solve-capture-not-recall" element={<MostNoteAppsSolveCaptureNotRecall />} />
-          <Route path="/readwise-is-not-a-second-brain" element={<ReadwiseIsNotASecondBrain />} />
-          <Route path="/highlights-into-concepts" element={<HighlightsIntoConcepts />} />
-          <Route path="/ai-reading-without-losing-judgment" element={<AiReadingWithoutLosingJudgment />} />
-          <Route path="/best-second-brain-app-for-founders" element={<BestSecondBrainAppForFounders />} />
-          <Route path="/best-second-brain-app-for-researchers" element={<BestSecondBrainAppForResearchers />} />
-          <Route path="/import-reading-archive-into-noeis" element={<ImportReadingArchiveIntoNoeis />} />
-          <Route path="/source-backed-synthesis-workflow" element={<SourceBackedSynthesisWorkflow />} />
-          <Route path="/from-saved-article-to-draft-in-noeis" element={<FromSavedArticleToDraftInNoeis />} />
+          {GUIDE_SLUGS.map((slug) => (
+            <Route key={slug} path={`/${slug}`} element={<GuideArticlePage slug={slug} />} />
+          ))}
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/terms" element={<TermsOfUse />} />
           <Route path="/design-preview/open-sentence" element={<OpenSentenceStoryboard />} />
@@ -834,19 +801,9 @@ function App() {
             <Route path="/guides" element={<GuidesHub />} />
             <Route path="/examples" element={<Examples />} />
             <Route path="/proof" element={<PublicProofGallery />} />
-            <Route path="/ai-second-brain" element={<AiSecondBrain />} />
-            <Route path="/second-brain-app" element={<SecondBrainApp />} />
-            <Route path="/ai-note-taking-workflow" element={<AiNoteTakingWorkflow />} />
-            <Route path="/personal-knowledge-management-ai" element={<PersonalKnowledgeManagementAi />} />
-            <Route path="/most-note-apps-solve-capture-not-recall" element={<MostNoteAppsSolveCaptureNotRecall />} />
-            <Route path="/readwise-is-not-a-second-brain" element={<ReadwiseIsNotASecondBrain />} />
-            <Route path="/highlights-into-concepts" element={<HighlightsIntoConcepts />} />
-            <Route path="/ai-reading-without-losing-judgment" element={<AiReadingWithoutLosingJudgment />} />
-            <Route path="/best-second-brain-app-for-founders" element={<BestSecondBrainAppForFounders />} />
-            <Route path="/best-second-brain-app-for-researchers" element={<BestSecondBrainAppForResearchers />} />
-            <Route path="/import-reading-archive-into-noeis" element={<ImportReadingArchiveIntoNoeis />} />
-            <Route path="/source-backed-synthesis-workflow" element={<SourceBackedSynthesisWorkflow />} />
-            <Route path="/from-saved-article-to-draft-in-noeis" element={<FromSavedArticleToDraftInNoeis />} />
+            {GUIDE_SLUGS.map((slug) => (
+              <Route key={slug} path={`/${slug}`} element={<GuideArticlePage slug={slug} />} />
+            ))}
             <Route path="/privacy" element={<PrivacyPolicy />} />
             <Route path="/terms" element={<TermsOfUse />} />
             <Route path="/design-preview/open-sentence" element={<OpenSentenceStoryboard />} />

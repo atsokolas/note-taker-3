@@ -1,0 +1,32 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.atsokolas/noeis",
+  "title": "Noeis",
+  "description": "Your reading, cited wiki and agent-kept editions in Noeis. Read-only unless you grant more.",
+  "websiteUrl": "https://www.noeis.io",
+  "repository": {
+    "url": "https://github.com/atsokolas/note-taker-3",
+    "source": "github",
+    "subfolder": "packages/wiki-mcp"
+  },
+  "version": "0.4.4",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@noeis/wiki-mcp",
+      "version": "0.4.4",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "NOEIS_TOKEN",
+          "description": "Noeis agent token. Optional when `noeis connect` has stored one.",
+          "isRequired": false,
+          "isSecret": true,
+          "format": "string"
+        }
+      ]
+    }
+  ]
+}

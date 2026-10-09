@@ -56,9 +56,11 @@ describe('Landing', () => {
     open();
     expect(screen.getByRole('heading', { name: HOME.headline })).toBeInTheDocument();
     expect(screen.getByText(HOME.lede)).toBeInTheDocument();
-    expect(screen.getByText('Keep the source.')).toBeInTheDocument();
-    expect(screen.getByText('Work with the idea.')).toBeInTheDocument();
-    expect(screen.getByText('Pick it up again.')).toBeInTheDocument();
+    HOME.statements.forEach(({ title, copy }) => {
+      expect(screen.getByText(title)).toBeInTheDocument();
+      expect(screen.getByText(copy)).toBeInTheDocument();
+    });
+    expect(screen.getByText('Let your agents learn from it.')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'How it works' })).toHaveAttribute('href', '#how-it-works');
     expect(screen.getByRole('link', { name: 'Log in' })).toHaveAttribute('href', '/login');
     expect(screen.queryByText(/Nothing is written until you accept it/)).not.toBeInTheDocument();

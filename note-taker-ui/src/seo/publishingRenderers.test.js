@@ -6,47 +6,60 @@ const {
   renderPrerenderManifest,
   renderStaticRedirects,
   renderVercelConfig,
+  renderLlmsTxt,
   renderBingSiteAuthXml
 } = require('../../scripts/seo/renderers');
 const publishingContent = require('./publishingContent.json');
 const homeCopy = require('./homeCopy.json');
+const { GUIDE_SLUGS } = require('./guideSlugs');
+
+const content = { ...publishingContent, home: homeCopy };
 
 describe('publishing renderers', () => {
-  it('keeps the signed-out homepage copy in one place', () => {
-    expect(publishingContent.home.headline).toBe(homeCopy.headline);
-    expect(publishingContent.home.lede).toBe(homeCopy.lede);
-    expect(publishingContent.home.statements).toEqual(homeCopy.statements);
-    expect(publishingContent.home.title).toBe('Noeis — Make something of what you read');
+  it('routes every guide the generator prerenders', () => {
+    expect(GUIDE_SLUGS).toEqual(publishingContent.guides.map((guide) => guide.slug));
   });
 
-  it('renders a server-visible homepage fallback from the publishing registry', () => {
-    const html = renderHomeFallback(publishingContent);
 
-    expect(html).toContain('A personal research workspace');
-    expect(html).toContain('Make something of what you read.');
-    expect(html).toContain('Keep the source.');
-    expect(html).toContain('Work with the idea.');
-    expect(html).toContain('Pick it up again.');
+  it('says what Noeis does, for people and for agents', () => {
+    const html = renderHomeFallback(content);
+
+    expect(html).toContain('Grow a knowledge base from what you read.');
+    expect(html).toContain('Save what you read.');
+    expect(html).toContain('Grow a wiki that cites itself.');
+    expect(html).toContain('Ask, and get the passage back.');
+    expect(html).toContain('Let your agents learn from it.');
     expect(html).toContain('href="#how-it-works"');
     expect(html).toContain('href="/guides"');
     expect(html).toContain('href="/examples"');
+    expect(html).toContain('href="/skill.md"');
     expect(html).toContain('href="/ai-second-brain"');
-    expect(html).toContain('Shared wiki adoption');
     expect(html).toContain('<strong>Make this mine</strong>');
     expect(html).toContain('href="/share/wiki/collection/mental-models"');
     expect(html).toContain('href="/share/wiki/collection/value-investing"');
-    expect(html).toContain('Private backlinks, highlights, source notes, and agent work stay with the original owner.');
+    expect(html).not.toContain('The live app will show');
     expect(html).not.toContain('Nothing is written until you accept it');
     expect(html).not.toContain('An agent brings evidence overnight');
   });
 
+  it('gives answer engines a plain-text map of the site', () => {
+    const text = renderLlmsTxt(content);
+
+    expect(text.startsWith('# Noeis\n\n> ')).toBe(true);
+    expect(text).toContain(content.home.description);
+    expect(text).toContain('(https://www.noeis.io/skill.md)');
+    expect(text).toContain('(https://www.noeis.io/share/wiki/collection/mental-models)');
+    expect(text).toContain('(https://www.noeis.io/ai-second-brain)');
+  });
+
   it('patches the homepage document title and descriptions from the same copy', () => {
     const html = patchHomeHead(
-      '<title>old</title><meta name="description" content="old" /><meta property="og:title" content="old" /><meta property="og:description" content="old" /><meta name="twitter:title" content="old" /><meta name="twitter:description" content="old" />',
-      publishingContent
+      '<title>old</title><meta name="description" content="old" /><meta property="og:title" content="old" /><meta property="og:description" content="old" /><meta name="twitter:title" content="old" /><meta name="twitter:description" content="old" /><script type="application/ld+json">{}</script>',
+      content
     );
-    expect(html).toContain('<title>Noeis — Make something of what you read</title>');
-    expect(html).toContain(`content="${publishingContent.home.description}"`);
+    expect(html).toContain('<title>Noeis — Grow a knowledge base from what you read</title>');
+    expect(html).toContain(`content="${homeCopy.description}"`);
+    expect(html).toContain('"featureList":["Save what you read.');
   });
 
   it('renders a curated examples page for source-grounded public wikis', () => {

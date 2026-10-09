@@ -104,7 +104,7 @@ const useSeoMetadata = ({
     ogUrlMeta.node.setAttribute('content', canonicalUrl);
     ogSiteNameMeta.node.setAttribute('content', SITE_NAME);
     ogImageMeta.node.setAttribute('content', socialImageUrl);
-    twitterCardMeta.node.setAttribute('content', 'summary');
+    twitterCardMeta.node.setAttribute('content', 'summary_large_image');
     twitterTitleMeta.node.setAttribute('content', title);
     twitterDescriptionMeta.node.setAttribute('content', description);
     twitterImageMeta.node.setAttribute('content', socialImageUrl);

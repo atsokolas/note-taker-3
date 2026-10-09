@@ -32,6 +32,21 @@
     },
     "unknownScopeBehavior": "reject"
   },
+  "capabilities": {
+    "editions": {
+      "summary": "An agent keeps a dated paper of findings for its reader. Every item needs a finding and a boundary; items without a boundary are refused.",
+      "tools": [
+        "list_edition_profiles",
+        "configure_edition",
+        "file_edition_items",
+        "create_edition",
+        "list_editions",
+        "get_edition"
+      ],
+      "writeScope": "agent-write",
+      "sharing": "Only the human owner can share an issue publicly, at /share/editions/{slug}."
+    }
+  },
   "verification": {
     "tool": "connection_info",
     "apiPath": "/api/agent-connection",

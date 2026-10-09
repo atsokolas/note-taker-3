@@ -1,0 +1,40 @@
+# Noeis
+
+> Save articles, highlights and notes, and Noeis grows them into a wiki that cites every source. Ask it questions, or connect your AI agents, and get answers quoted from your own reading.
+
+- **Save what you read.** Clip articles with the browser extension, paste text, or bring in your Readwise library and Notion pages. Highlights and notes stay with the passage they came from.
+- **Grow a wiki that cites itself.** Noeis turns your sources into pages on the subjects you follow. Pages cite the passages they are built from, so you can always check the source.
+- **Ask, and get the passage back.** Questions are answered from your library with the exact quote. When your reading has nothing on it, Noeis says so instead of guessing.
+- **Let your agents learn from it.** Connect Claude Code, Codex and other agents to your knowledge base. You approve every connection, and access is read-only unless you grant more.
+
+## For agents
+
+- [Connect an agent](https://www.noeis.io/skill.md): install the Noeis CLI and MCP server, and request read-only access that a person approves
+- [Agent discovery manifest](https://www.noeis.io/.well-known/noeis-agent.json): transports, scopes, verification and capabilities
+- [Keep a paper for your reader](https://www.noeis.io/skill.md#keep-a-paper-for-your-reader): file dated findings into an edition; every item states its source and what limits it
+
+## Example wikis
+
+- [Mental Models](https://www.noeis.io/share/wiki/collection/mental-models): A shareable mini-wiki for first principles, opportunity cost, inversion, and related judgment tools.
+- [Behavioral Economics](https://www.noeis.io/share/wiki/collection/behavioral-economics): A starter graph for loss aversion, anchoring, base rates, and decision-making under bias.
+- [How to Think About AI](https://www.noeis.io/share/wiki/collection/how-to-think-about-ai): A starter graph for agents, evals, context windows, scaling laws, and capability tradeoffs.
+- [Value Investing](https://www.noeis.io/share/wiki/collection/value-investing): A starter graph for intrinsic value, moats, owner earnings, capital allocation, and margin of safety.
+
+## Guides
+
+- [AI Second Brain](https://www.noeis.io/ai-second-brain): What the term should mean in practice, what to evaluate, and where Noeis fits.
+- [Second Brain App](https://www.noeis.io/second-brain-app): How to compare categories of tools when you need retrieval, connected notes, and synthesis.
+- [AI Note-Taking Workflow](https://www.noeis.io/ai-note-taking-workflow): How to move from saved source material to writing, planning, and reusable insight.
+- [Personal Knowledge Management AI](https://www.noeis.io/personal-knowledge-management-ai): How to use AI in a PKM system without creating more clutter than clarity.
+- [Most Note Apps Solve Capture, Not Recall](https://www.noeis.io/most-note-apps-solve-capture-not-recall): Why note-taking software feels productive at capture time but still fails when you need retrieval, synthesis, and recall.
+- [Readwise Is Not a Second Brain](https://www.noeis.io/readwise-is-not-a-second-brain): Why Readwise is useful for resurfacing highlights but still does not solve the full problem of recall, concept formation, and synthesis.
+- [How Serious Readers Turn Highlights Into Concepts](https://www.noeis.io/highlights-into-concepts): A practical workflow for moving from saved passages to clearer concepts, reusable notes, and stronger drafts.
+- [AI for Reading Without Losing Judgment](https://www.noeis.io/ai-reading-without-losing-judgment): How to use AI while reading and synthesizing without outsourcing the actual judgment that makes the work valuable.
+- [Best Second Brain App for Founders](https://www.noeis.io/best-second-brain-app-for-founders): What founders should actually optimize for when choosing a second brain app, and why most tools over-index on capture instead of recall and synthesis.
+- [Best Second Brain App for Researchers](https://www.noeis.io/best-second-brain-app-for-researchers): A practical guide to choosing a second brain app for research-heavy workflows where source traceability, comparison, and synthesis matter more than capture volume.
+- [Source-Backed Synthesis Workflow](https://www.noeis.io/source-backed-synthesis-workflow): A practical workflow for turning saved reading, highlights, and notes into synthesis that stays traceable to source material.
+- [Import Reading Archive into Noeis](https://www.noeis.io/import-reading-archive-into-noeis): A practical guide to moving a reading archive into Noeis as a proof layer for source-grounded synthesis and Readwise-adjacent workflows.
+- [From Saved Article to Draft in Noeis](https://www.noeis.io/from-saved-article-to-draft-in-noeis): A practical source-grounded workflow for turning a saved article into an evidence-backed draft in Noeis.
+- [Build a Wiki From Your Reading](https://www.noeis.io/build-a-wiki-from-your-reading): How to turn saved articles and highlights into wiki pages where every claim points back to the passage that supports it.
+- [Connect an AI Agent to Your Reading via MCP](https://www.noeis.io/connect-ai-agent-to-your-reading-mcp): How to connect Claude Code, Codex, or another MCP client to your saved reading and notes in Noeis, read-only by default and approved by you.
+- [AI Answers Quoted From Your Own Sources](https://www.noeis.io/ai-answers-quoted-from-your-sources): How Noeis answers questions from your saved reading with exact quotes, checks those quotes, and says so when your library has nothing on the question.

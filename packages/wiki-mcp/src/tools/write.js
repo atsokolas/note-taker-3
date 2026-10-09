@@ -8,11 +8,6 @@ const optionalEnum = (values) => z.enum(values).optional();
 const pageIdShape = {
   pageId: z.string().describe('Noeis wiki page id.')
 };
-/* The papers Noeis knows how to hold. Sections are per-profile because the
-   shape of a week is not generic: AI reads in three layers, a reading week in
-   four, and neutral sections would throw away the only opinion worth having. */
-const editionProfiles = ['this_week_in_ai', 'weekend_readings'];
-
 const editionItemShape = z.object({
   title: z.string().min(1).describe('What the source is called.'),
   url: z.string().url().describe('Link the reader can open, and save from.'),
@@ -146,7 +141,7 @@ export const writeTools = [
       'Requires an agent-write token.'
     ].join(' '),
     inputSchema: {
-      profile: z.enum(editionProfiles).describe('Which paper this is an edition of.'),
+      profile: z.string().min(1).describe('Topic key from list_edition_profiles: a built-in paper (this_week_in_ai, weekend_readings) or one the reader configured.'),
       windowStart: z.string().describe('First day the edition covers, ISO date.'),
       windowEnd: z.string().describe('Last day the edition covers, ISO date.'),
       items: z.array(editionItemShape).min(1).describe('The week, 2-5 items for This Week in AI.'),

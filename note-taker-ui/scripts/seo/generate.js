@@ -10,16 +10,19 @@ const {
   renderPrerenderManifest,
   renderStaticRedirects,
   renderVercelConfig,
+  renderLlmsTxt,
   renderBingSiteAuthXml
 } = require('./renderers');
 
 const rootDir = path.resolve(__dirname, '..', '..');
 const publicDir = path.join(rootDir, 'public');
 const contentPath = path.join(rootDir, 'src', 'seo', 'publishingContent.json');
+const homeCopyPath = path.join(rootDir, 'src', 'seo', 'homeCopy.json');
 const indexHtmlPath = path.join(publicDir, 'index.html');
 const guideHubPath = path.join(publicDir, 'guides', 'index.html');
 const examplesPath = path.join(publicDir, 'examples', 'index.html');
 const sitemapPath = path.join(publicDir, 'sitemap.xml');
+const llmsPath = path.join(publicDir, 'llms.txt');
 const redirectsPath = path.join(publicDir, '_redirects');
 const prerenderManifestPath = path.join(publicDir, 'prerender-manifest.json');
 const vercelConfigPath = path.join(rootDir, 'vercel.json');
@@ -31,7 +34,10 @@ const bingSiteAuthToken = String(process.env.BING_SITE_AUTH_TOKEN || '').trim();
 const START_MARKER = '<!-- SEO_HOME_FALLBACK_START -->';
 const END_MARKER = '<!-- SEO_HOME_FALLBACK_END -->';
 
-const content = JSON.parse(fs.readFileSync(contentPath, 'utf8'));
+const content = {
+  ...JSON.parse(fs.readFileSync(contentPath, 'utf8')),
+  home: JSON.parse(fs.readFileSync(homeCopyPath, 'utf8'))
+};
 
 const indexHtml = fs.readFileSync(indexHtmlPath, 'utf8');
 const homeFallback = renderHomeFallback(content);
@@ -53,6 +59,7 @@ fs.writeFileSync(guideHubPath, renderGuideHubPage(content));
 fs.mkdirSync(path.dirname(examplesPath), { recursive: true });
 fs.writeFileSync(examplesPath, renderExamplesPage(content));
 fs.writeFileSync(sitemapPath, renderSitemap(content));
+fs.writeFileSync(llmsPath, renderLlmsTxt(content));
 fs.writeFileSync(redirectsPath, renderStaticRedirects(content));
 fs.writeFileSync(prerenderManifestPath, renderPrerenderManifest(content));
 fs.writeFileSync(vercelConfigPath, `${renderVercelConfig(content)}\n`);
