@@ -22,6 +22,7 @@ describe('public NOEIS agent discovery', () => {
     expect(contract.verification.tool).toBe('connection_info');
     expect(contract.verification.contentRead).toBe(false);
     expect(contract.verification.contentWritten).toBe(false);
+    expect(contract.capabilities.editions.tools).toContain('file_edition_items');
   });
 
   it('documents human approval, exact scope, and the runtime verification boundary', () => {
@@ -32,6 +33,8 @@ describe('public NOEIS agent discovery', () => {
     expect(guide).toMatch(/connection_info/);
     expect(guide).toMatch(/does not prove.*runtime.*loaded/i);
     expect(guide).not.toMatch(/open.*approval.*on behalf/i);
+    expect(guide).toMatch(/configure_edition[\s\S]*file_edition_items/);
+    expect(guide).toMatch(/refuses an item without a boundary/);
   });
 
   it('links the agent setup guide from the public guides index', () => {

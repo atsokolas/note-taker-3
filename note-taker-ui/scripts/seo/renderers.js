@@ -549,7 +549,8 @@ ${content.home.statements.map((statement) => `- **${statement.title}** ${stateme
 ## For agents
 
 ${link('/skill.md', 'Connect an agent', 'install the Noeis CLI and MCP server, and request read-only access that a person approves')}
-${link('/.well-known/noeis-agent.json', 'Agent discovery manifest', 'transports, scopes and verification')}
+${link('/.well-known/noeis-agent.json', 'Agent discovery manifest', 'transports, scopes, verification and capabilities')}
+${link('/skill.md#keep-a-paper-for-your-reader', 'Keep a paper for your reader', 'file dated findings into an edition; every item states its source and what limits it')}
 
 ## Example wikis
 

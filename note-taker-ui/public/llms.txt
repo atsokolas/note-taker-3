@@ -10,7 +10,8 @@
 ## For agents
 
 - [Connect an agent](https://www.noeis.io/skill.md): install the Noeis CLI and MCP server, and request read-only access that a person approves
-- [Agent discovery manifest](https://www.noeis.io/.well-known/noeis-agent.json): transports, scopes and verification
+- [Agent discovery manifest](https://www.noeis.io/.well-known/noeis-agent.json): transports, scopes, verification and capabilities
+- [Keep a paper for your reader](https://www.noeis.io/skill.md#keep-a-paper-for-your-reader): file dated findings into an edition; every item states its source and what limits it
 
 ## Example wikis
 

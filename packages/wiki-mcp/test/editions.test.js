@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { NoeisApiError, NoeisClient } from '../src/client.js';
 import { readTools } from '../src/tools/read.js';
+import { writeTools } from '../src/tools/write.js';
 
 const jsonOk = (payload) => ({
   ok: true,
@@ -37,6 +38,15 @@ const run = async () => {
     const schema = z.object(readTools.find(tool => tool.name === 'list_editions').inputSchema);
     assert.strictEqual(schema.safeParse({ limit: 500 }).success, true);
     assert.strictEqual(schema.safeParse({ limit: 501 }).success, false);
+  }
+
+  /* A topic set up with configure_edition can be filed as a whole edition too,
+     not only the two built-in papers. */
+  {
+    const schema = z.object(writeTools.find(tool => tool.name === 'create_edition').inputSchema);
+    const item = { title: 'Trial readout', url: 'https://example.com/t', section: 'clinical', finding: 'Met endpoint.', boundary: 'Single site.' };
+    assert.strictEqual(schema.safeParse({ profile: 'biotech', windowStart: '2026-10-01', windowEnd: '2026-10-31', items: [item] }).success, true);
+    assert.strictEqual(schema.safeParse({ profile: '', windowStart: '2026-10-01', windowEnd: '2026-10-31', items: [item] }).success, false);
   }
 
   {
