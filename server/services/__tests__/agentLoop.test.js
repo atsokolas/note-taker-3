@@ -70,6 +70,14 @@ describe('runAgentLoop', () => {
     expect(await runAgentLoop({ messages, sources: [sleep], chat })).toBeNull();
   });
 
+  it('takes a source\'s title in quotes as its name, not an invented quotation', async () => {
+    const checklists = { id: 'checklists', title: 'Why checklists beat expertise in complex work', fullText: 'Your note: Same thing happens with code review checklists on my team.' };
+    const chat = scripted({ text: 'In "Why checklists beat expertise in complex work" you noted "Same thing happens with code review checklists on my team".' });
+    const result = await runAgentLoop({ messages, sources: [checklists], chat });
+    expect(chat).toHaveBeenCalledTimes(1);
+    expect(result.reply).toMatch(/code review/);
+  });
+
   it('returns nothing when the quotation is still invented after repair', async () => {
     const invented = { text: 'The source says "sleep is the single best predictor of judgment".' };
     const chat = scripted(invented, invented);
