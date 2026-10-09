@@ -229,26 +229,18 @@ const renderHomeFallback = (content) => `
         </div>
       </section>
       <section class="card">
-        <p class="eyebrow">Start with the guide that matches your intent</p>
-        <div class="grid">
-          ${renderGuideCards(content)}
-        </div>
-      </section>
-      <section class="card">
-        <p class="eyebrow">Shared wiki adoption</p>
-        <h2>Opening a shared Noeis wiki?</h2>
-        <p>The live app will show a <strong>Make this mine</strong> action that copies the safe public pages into your workspace. Private backlinks, highlights, source notes, and agent work stay with the original owner.</p>
-        <div class="cta-row">
-          <a class="button primary" href="/share/wiki/collection/mental-models">Try the Mental Models wiki</a>
-          <a class="button secondary" href="/onboarding/wiki">Build your wiki</a>
-        </div>
+        <p class="eyebrow">Start from a shared wiki</p>
+        <h2>Read a public wiki, then make it yours.</h2>
+        <p>Each of these wikis is open to read. <strong>Make this mine</strong> copies its pages into your own knowledge base, where your reading keeps growing it. The owner's private highlights, notes and sources stay with them.</p>
         <div class="grid">
           ${renderStarterPackCards(content)}
         </div>
       </section>
       <section class="card">
-        <p class="eyebrow">Research guides</p>
-        <p>Noeis publishes opinionated guides on reliable recall, concept formation, and human-centered AI for serious readers.</p>
+        <p class="eyebrow">Guides</p>
+        <div class="grid">
+          ${renderGuideCards(content)}
+        </div>
         <div class="cta-row">
           ${renderGuideLinks(content.home.guideLinks)}
         </div>
@@ -521,6 +513,29 @@ const renderVercelConfig = (content) => JSON.stringify({
   ]
 }, null, 2);
 
+const renderLlmsTxt = (content) => {
+  const link = (href, label, note) => `- [${label}](${buildUrl(content.site.host, href)})${note ? `: ${note}` : ''}`;
+  return `# ${content.site.name}
+
+> ${content.home.description}
+
+${content.home.statements.map((statement) => `- **${statement.title}** ${statement.copy}`).join('\n')}
+
+## For agents
+
+${link('/skill.md', 'Connect an agent', 'install the Noeis CLI and MCP server, and request read-only access that a person approves')}
+${link('/.well-known/noeis-agent.json', 'Agent discovery manifest', 'transports, scopes and verification')}
+
+## Example wikis
+
+${(content.examples || []).map((pack) => link(pack.href, pack.title, pack.description)).join('\n')}
+
+## Guides
+
+${content.guides.map((guide) => link(`/${guide.slug}`, guide.title, guide.description)).join('\n')}
+`;
+};
+
 const renderBingSiteAuthXml = (token = '') => `<?xml version="1.0"?>\n<users>\n  <user>${escapeHtml(token)}</user>\n</users>\n`;
 
 module.exports = {
@@ -533,5 +548,6 @@ module.exports = {
   renderPrerenderManifest,
   renderStaticRedirects,
   renderVercelConfig,
+  renderLlmsTxt,
   renderBingSiteAuthXml
 };

@@ -1,9 +1,9 @@
 {
-  "title": "Noeis — Make something of what you read",
-  "description": "Keep articles, highlights and notes together. Build a source-backed understanding of a subject, develop your own ideas, and return to the work that matters.",
-  "eyebrow": "A personal research workspace",
-  "headline": "Make something of what you read.",
-  "lede": "Keep articles, highlights and notes together. Build a source-backed understanding of a subject, develop your own ideas, and return to the work that matters.",
+  "title": "Noeis — Grow a knowledge base from what you read",
+  "description": "Save articles, highlights and notes, and Noeis grows them into a wiki that cites every source. Ask it questions, or connect your AI agents, and get answers quoted from your own reading.",
+  "eyebrow": "A knowledge base for you and your AI agents",
+  "headline": "Grow a knowledge base from what you read.",
+  "lede": "Noeis keeps every article, highlight and note you save, grows them into a wiki that cites its sources, and lets you and your AI agents learn from it. Answers come from your own reading, with the passage quoted.",
   "primaryCta": {
     "label": "Get started",
     "href": "/register"
@@ -14,16 +14,34 @@
   },
   "statements": [
     {
-      "title": "Keep the source.",
-      "copy": "Save the passage with the article it came from."
+      "title": "Save what you read.",
+      "copy": "Clip articles with the browser extension, paste text, or bring in your Readwise library and Notion pages. Highlights and notes stay with the passage they came from."
     },
     {
-      "title": "Work with the idea.",
-      "copy": "Develop a page, note or question from your reading."
+      "title": "Grow a wiki that cites itself.",
+      "copy": "Noeis turns your sources into pages on the subjects you follow. Pages cite the passages they are built from, so you can always check the source."
     },
     {
-      "title": "Pick it up again.",
-      "copy": "Return to your saved material and continue thinking."
+      "title": "Ask, and get the passage back.",
+      "copy": "Questions are answered from your library with the exact quote. When your reading has nothing on it, Noeis says so instead of guessing."
+    },
+    {
+      "title": "Let your agents learn from it.",
+      "copy": "Connect Claude Code, Codex and other agents to your knowledge base. You approve every connection, and access is read-only unless you grant more."
+    }
+  ],
+  "guideLinks": [
+    {
+      "label": "Browse guides",
+      "href": "/guides"
+    },
+    {
+      "label": "Examples",
+      "href": "/examples"
+    },
+    {
+      "label": "Connect an agent",
+      "href": "/skill.md"
     }
   ]
 }

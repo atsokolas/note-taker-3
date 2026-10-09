@@ -109,7 +109,7 @@ const Landing = () => {
           <Link to="/guides">Guides</Link>
           <Link to="/examples">Examples</Link>
           <Link to="/ai-second-brain">AI second brain</Link>
-          <Link to="/second-brain-app">Second brain app</Link>
+          <a href="/skill.md">Connect an agent</a>
           <Link to="/privacy">Privacy</Link>
           <Link to="/terms">Terms</Link>
           <button

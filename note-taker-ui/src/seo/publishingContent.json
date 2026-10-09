@@ -9,54 +9,7 @@
       "This guide is based on direct testing of Noeis workflows, review of current note-taking and second-brain patterns, and practical evaluation of what helps serious readers retrieve and reuse their own material.",
       "The goal is not to produce generic listicle SEO copy. It is to make the decision criteria explicit enough that a reader can judge whether the workflow will actually improve recall, synthesis, and output."
     ],
-    "description": "Keep articles, highlights and notes together. Build a source-backed understanding of a subject, develop your own ideas, and return to the work that matters."
-  },
-  "home": {
-    "title": "Noeis — Make something of what you read",
-    "description": "Keep articles, highlights and notes together. Build a source-backed understanding of a subject, develop your own ideas, and return to the work that matters.",
-    "eyebrow": "A personal research workspace",
-    "headline": "Make something of what you read.",
-    "lede": "Keep articles, highlights and notes together. Build a source-backed understanding of a subject, develop your own ideas, and return to the work that matters.",
-    "primaryCta": {
-      "label": "Get started",
-      "href": "/register"
-    },
-    "secondaryCta": {
-      "label": "See how it works",
-      "href": "#how-it-works"
-    },
-    "statements": [
-      {
-        "title": "Keep the source.",
-        "copy": "Save the passage with the article it came from."
-      },
-      {
-        "title": "Work with the idea.",
-        "copy": "Develop a page, note or question from your reading."
-      },
-      {
-        "title": "Pick it up again.",
-        "copy": "Return to your saved material and continue thinking."
-      }
-    ],
-    "guideLinks": [
-      {
-        "label": "Browse guides",
-        "href": "/guides"
-      },
-      {
-        "label": "Examples",
-        "href": "/examples"
-      },
-      {
-        "label": "AI second brain",
-        "href": "/ai-second-brain"
-      },
-      {
-        "label": "Second brain app",
-        "href": "/second-brain-app"
-      }
-    ]
+    "description": "Save articles, highlights and notes, and Noeis grows them into a wiki that cites every source. Ask it questions, or connect your AI agents, and get answers quoted from your own reading."
   },
   "examples": [
     {
