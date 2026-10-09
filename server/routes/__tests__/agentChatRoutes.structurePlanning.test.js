@@ -38,7 +38,13 @@ const run = async () => {
     },
     authenticatePersonalAgentKey: (_req, _res, next) => next(),
     getUserAgentEntitlements: async () => ({ premiumWebResearchAvailable: false }),
-    generateCollaborativeReply: async () => organizationResult(),
+    generateCollaborativeReply: async ({ message }) => {
+      const result = organizationResult();
+      if (/rewrite/i.test(message)) {
+        result.proposalBundle.operations.push({ type: 'propose_content_change', title: 'Rewrite Pricing', executionMode: 'proposed_change', metadata: { proposedText: 'New text.' } });
+      }
+      return result;
+    },
     normalizePersonalAgentCapabilities: (value) => value || {},
     mongoose: { Types: { ObjectId: { isValid: () => false } } },
     AgentThread: {
@@ -159,6 +165,21 @@ const run = async () => {
     assert.strictEqual(createdProposals.length, 1, 'A rejected plan must create no review object.');
     assert.strictEqual(plannedCalls.length, 2);
 
+    const mixedResponse = await fetch(`${url}/api/agent/chat`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ message: 'Rewrite this and organize my library.', context: { type: 'workspace', id: 'library' } })
+    });
+    const mixedPayload = await mixedResponse.json();
+    assert.deepStrictEqual(
+      mixedPayload.proposalBundle?.operations.map(operation => operation.type),
+      ['propose_content_change'],
+      'A rewrite staged beside an organize request must survive the folder plan.'
+    );
+    assert.strictEqual(mixedPayload.proposalBundle.operations[0].metadata.proposedText, 'New text.');
+    assert.match(mixedPayload.reply, /rewrite you asked for is staged below/);
+    assert.strictEqual(plannedCalls.length, 3);
+
     const sharedResponse = await fetch(`${url}/api/agent/chat`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -174,8 +195,8 @@ const run = async () => {
     assert.strictEqual(sharedPayload.proposalBundle, null);
     assert.strictEqual(sharedPayload.structureProposal, undefined);
     assert.strictEqual(sharedPayload.structurePlanning, undefined);
-    assert.strictEqual(plannedCalls.length, 2, 'A published question must not inspect private folders or articles.');
-    assert.strictEqual(createdProposals.length, 1, 'A published question must not stage a Library structure plan.');
+    assert.strictEqual(plannedCalls.length, 3, 'A published question must not inspect private folders or articles.');
+    assert.strictEqual(createdProposals.length, 2, 'A published question must not stage a Library structure plan.');
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }

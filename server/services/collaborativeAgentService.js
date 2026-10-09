@@ -2162,6 +2162,15 @@ const readPageHistory = async ({ WikiRevision, userId, page }) => {
   return lines.length ? { type: 'wiki_page', id: `history:${page.pageId}`, title: `${page.title} history`, fullText: lines.join('\n') } : null;
 };
 
+// What the reader could accept here. A rewrite needs a page whose text an
+// accepted change can replace, shown where a rewrite can be accepted: the
+// thought-partner panel can, the contextual rail (which sends a surface
+// contract) cannot yet.
+const stageableChanges = ({ context = {}, contextItem = null } = {}) => [
+  ...(['concept', 'notebook'].includes(contextItem?.type) && !context?.metadata?.contractId ? ['rewrite'] : []),
+  'organize'
+];
+
 const generateCollaborativeReply = async ({
   userId,
   message = '',
@@ -2342,13 +2351,8 @@ const generateCollaborativeReply = async ({
     capability: resolveAgentCapability({ skillInvocation, context, contextItem }),
     skillInvocation
   });
-  // What the reader could accept here. A rewrite needs a page whose text an
-  // accepted change can replace; a published question and a private
-  // exploration stage nothing.
-  const changes = sharedQuestionScoped || authoredExploration ? [] : [
-    ...(['concept', 'notebook'].includes(contextItem?.type) ? ['rewrite'] : []),
-    'organize'
-  ];
+  // A published question and a private exploration stage nothing.
+  const changes = sharedQuestionScoped || authoredExploration ? [] : stageableChanges({ context, contextItem });
 
   // An explicitly invoked skill drafts its artifact; every other turn is the
   // model's, or the passages themselves.
@@ -2465,6 +2469,7 @@ const generateCollaborativeReply = async ({
 module.exports = {
   generateCollaborativeReply,
   __testables: {
+    stageableChanges,
     readPageHistory,
     libraryRetrievalFilter,
     tokenize,

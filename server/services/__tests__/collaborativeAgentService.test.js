@@ -16,7 +16,8 @@ const {
   shouldSearchWorkspaceForWikiPage,
   shouldSearchWorkspaceForContext,
   isSharedQuestionContext,
-  buildSharedQuestionContextItem
+  buildSharedQuestionContextItem,
+  stageableChanges
 } = __testables;
 
 const makeFindModel = (resolver) => ({
@@ -99,6 +100,14 @@ const run = async () => {
     true,
     'Prompt or chain-of-thought leakage must be rejected before it reaches the UI.'
   );
+  assert.deepStrictEqual(stageableChanges({ context: { type: 'concept' }, contextItem: { type: 'concept' } }), ['rewrite', 'organize']);
+  assert.deepStrictEqual(
+    stageableChanges({ context: { type: 'concept', metadata: { contractId: 'agent-surface.concept' } }, contextItem: { type: 'concept' } }),
+    ['organize'],
+    'The contextual rail has no way to accept a rewrite, so it must not be offered one.'
+  );
+  assert.deepStrictEqual(stageableChanges({ context: { type: 'article' }, contextItem: { type: 'article' } }), ['organize']);
+
   const tokens = tokenize('Find the note about systems thinking and evidence loops in my notebook');
   assert.ok(tokens.includes('systems'), 'Expected systems token.');
   assert.ok(tokens.includes('thinking'), 'Expected thinking token.');
