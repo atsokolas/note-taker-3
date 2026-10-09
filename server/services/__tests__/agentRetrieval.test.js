@@ -59,6 +59,12 @@ describe('retrievePassages', () => {
       .toEqual([]);
   });
 
+  it('needs both words of a short question, unless the model is searching and will judge what comes back', async () => {
+    const ask = forModel => retrievePassages({ userId: 'u', query: 'limits of expertise', forModel, models: library() });
+    expect(await ask(false)).toEqual([]);
+    expect((await ask(true)).map(hit => hit.id)).toEqual(['checklists']);
+  });
+
   it('searches by the source in hand when the question names nothing, and looks past that source', async () => {
     const results = await retrievePassages({
       userId: 'u1',

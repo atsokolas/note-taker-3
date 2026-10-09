@@ -2388,7 +2388,7 @@ const generateCollaborativeReply = async ({
         }),
         sources: [contextItem, ...relatedItems].filter(Boolean),
         ...(sharedQuestionScoped ? {} : {
-          search: query => retrievePassages({ ...retrievalScope, query }),
+          search: query => retrievePassages({ ...retrievalScope, query, forModel: true }),
           read: id => readSource({ userId: userObjectId, id, models: { Article, NotebookEntry, WikiPage } })
         }),
         ...(WikiRevision && contextItem?.pageId ? {
