@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { scoreCase, summarize, regressions, __testables: { drawsOn, inventedQuotes } } = require('./score');
+const { scoreCase, summarize, regressions, __testables: { drawsOn, inventedQuotes, DECLINE_PATTERN } } = require('./score');
 const { libraryTexts } = require('./library');
 const { CASES } = require('./cases');
 const { __testables: { contextFor } } = require('./runEval');
@@ -95,4 +95,9 @@ test('every case names sources that exist and a surface the runner knows', () =>
     const context = contextFor(evalCase.surface, ids);
     assert.ok(context.id, evalCase.id);
   }
+});
+
+test('"contains no material" counts as declining; "contains no caveats" does not', () => {
+  assert.ok(DECLINE_PATTERN.test('Your library contains no material on mRNA vaccines.'));
+  assert.ok(!DECLINE_PATTERN.test('The answer contains no caveats: mRNA vaccines train the immune system.'));
 });
