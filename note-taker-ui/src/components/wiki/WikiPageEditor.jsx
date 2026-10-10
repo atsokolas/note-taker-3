@@ -165,8 +165,11 @@ const WikiPageEditor = ({ pageId, onDoneEditing, workspaceMode = false }) => {
   const handleClaimHover = useCallback((event) => {
     const target = event.target.closest?.('.wiki-claim-citation');
     if (!target) return;
-    if (event.type === 'focus' && returningCitationFocus.current === target) {
-      returningCitationFocus.current = null;
+    if (['focus', 'focusin'].includes(event.type) && returningCitationFocus.current === target) {
+      // TipTap and React observe the same focus transfer. Suppress both paths.
+      Promise.resolve().then(() => {
+        if (returningCitationFocus.current === target) returningCitationFocus.current = null;
+      });
       return;
     }
     const claimId = target.getAttribute('data-claim-id') || '';

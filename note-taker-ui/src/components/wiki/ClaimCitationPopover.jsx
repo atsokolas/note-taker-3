@@ -39,6 +39,7 @@ const SUPPORT_BLURB = {
   conflicted: 'A source in your library conflicts with this claim.'
 };
 
+const EMPTY_SOURCES = [];
 const POPOVER_WIDTH = 360;
 const POPOVER_GAP = 10;
 
@@ -122,7 +123,7 @@ const EvidenceList = ({ title, sources, role }) => {
   );
 };
 
-const ClaimCitationPopover = ({ anchorRect, anchorElement, support, sources = [], claim, onClose, onCarry, carrying, carryError }) => {
+const ClaimCitationPopover = ({ anchorRect, anchorElement, support, sources = EMPTY_SOURCES, claim, onClose, onCarry, carrying, carryError }) => {
   const popoverRef = useRef(null);
   const [position, setPosition] = useState(null);
   const [viewport, setViewport] = useState(() => ({ width: window.innerWidth, height: window.innerHeight }));

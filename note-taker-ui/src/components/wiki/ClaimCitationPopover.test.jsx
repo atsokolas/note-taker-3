@@ -48,3 +48,9 @@ it('scroll inside the evidence leaves it open, while outside scroll closes it', 
   fireEvent.scroll(screen.getByRole('dialog')); expect(onClose).not.toHaveBeenCalled();
   fireEvent.scroll(window); expect(onClose).toHaveBeenCalledTimes(1);
 });
+
+it('renders an empty evidence list when sources are omitted without a render loop', () => {
+  render(<MemoryRouter><ClaimCitationPopover anchorRect={rect} /></MemoryRouter>);
+  expect(screen.getByText('0 sources')).toBeInTheDocument();
+  expect(screen.getByText('Unknown support')).toBeInTheDocument();
+});
