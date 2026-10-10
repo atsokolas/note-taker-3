@@ -534,12 +534,8 @@ const projectPublicEdition = (
     key: publicText(section.key, 120),
     label: publicText(section.label, 200)
   }));
-  const writtenBy = typeof edition.writtenBy === 'string'
-    ? publicText(edition.writtenBy, 200)
-    : publicText(edition.writtenBy?.label, 200);
-  /* The runtime names the agent on a public page; the label someone typed for
-     their token is not a stranger's business. Absent when unknown, so a share
-     published before runtimes were recorded keeps its hash. */
+  /* Absent when unknown, so a share published before runtimes were recorded
+     keeps its hash. */
   const writtenByRuntime = publicText(edition.writtenBy?.runtime, 40);
   /* An unknown silence prints what the paper always printed, so it is left
      out: a share published before receipts keeps its hash. */
@@ -558,10 +554,10 @@ const projectPublicEdition = (
       key: publicText(silence.key, 120),
       label: publicText(silence.label, 200),
       state: silence.state,
-      by: silence.by.map(by => ({ label: publicText(by.label, 200), runtime: publicText(by.runtime, 40) }))
+      by: silence.by.map(by => ({ label: by.label, runtime: publicText(by.runtime, 40) }))
     }));
 
-  return {
+  return publicHands({
     title: publicText(edition.title, 300) || publicText(profile?.titleLabel, 300),
     issueLabel: publicText(profile?.issueLabel || edition.issueLabel, 80) || 'Issue',
     number: Number.isFinite(Number(edition.number)) && Number(edition.number) > 0
@@ -583,14 +579,28 @@ const projectPublicEdition = (
       .map(line => publicText(line, 400))
       .filter(Boolean)
       .slice(0, 12),
-    writtenBy,
+    writtenBy: typeof edition.writtenBy === 'string' ? edition.writtenBy : edition.writtenBy?.label,
     ...(writtenByRuntime ? { writtenByRuntime } : {}),
     ownerDisplayName: publicText(ownerDisplayName, 200),
     sections,
     items: (edition.items || []).map(projectPublicItem),
     ...(silences.length ? { silences } : {})
-  };
+  });
 };
+
+/* A public page names each hand by what the agent is; the label someone typed
+   for their token is not a stranger's business. Shares published before this
+   rule still hold those labels, so every public read passes through here too. */
+const publicHands = (snapshot) => snapshot && ({
+  ...snapshot,
+  writtenBy: publicAgentName({ label: snapshot.writtenBy, runtime: snapshot.writtenByRuntime }),
+  ...(snapshot.silences ? {
+    silences: snapshot.silences.map(silence => ({
+      ...silence,
+      by: silence.by.map(by => ({ ...by, label: publicAgentName(by) })).filter(by => by.label)
+    }))
+  } : {})
+});
 
 const hashPublicEdition = (snapshot) => crypto
   .createHash('sha256')
@@ -767,6 +777,7 @@ module.exports = {
   normalizeFollowUps,
   normalizeItem,
   projectPublicEdition,
+  publicHands,
   publicHttpUrl,
   READER_STATUSES,
   readerLayerOf,

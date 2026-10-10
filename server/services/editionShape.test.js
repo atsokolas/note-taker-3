@@ -200,7 +200,7 @@ describe('the public paper', () => {
       standfirst: 'A quiet week.',
       throughLine: 'Inference cost.',
       watchNext: ['The replication'],
-      writtenBy: 'Jarvis',
+      writtenBy: '',
       ownerDisplayName: 'Athan',
       sections: [
         { key: 'models_methods', label: 'Models & methods' },
@@ -265,6 +265,24 @@ describe('the public paper', () => {
       .toBe(hashPublicEdition(legacy));
   });
 
+  /* A share published before hands were named by what they are still holds
+     the label typed for a token; a public read never lets it out. */
+  it('names every public hand by the agent, even on a share published earlier', () => {
+    const { publicHands } = require('./editionShape');
+    const old = {
+      title: 'This Week in AI',
+      writtenBy: 'Codex Wiki account grounding audit',
+      silences: [{ key: 'm', label: 'Models', state: 'checked', by: [{ label: 'Jarvis', runtime: '' }, { label: 'My OpenClaw box', runtime: '' }] }]
+    };
+    expect(publicHands(old)).toEqual({
+      title: 'This Week in AI',
+      writtenBy: 'Codex',
+      silences: [{ key: 'm', label: 'Models', state: 'checked', by: [{ label: 'OpenClaw', runtime: '' }] }]
+    });
+    expect(publicHands({ writtenBy: 'Jarvis' }).writtenBy).toBe('');
+    expect(publicHands(publicHands(old))).toEqual(publicHands(old));
+  });
+
   /* Which silence an empty section is belongs to the paper, so it travels;
      a share from before receipts projects, and hashes, as it did. */
   it('carries the silences a stranger can read, and none it cannot tell', () => {
@@ -275,11 +293,11 @@ describe('the public paper', () => {
     const now = new Date('2026-10-09');
     const seen = projectPublicEdition(edition, 'Athan', { receiptsSince: '2026-09-07', now });
     expect(seen.silences).toEqual([
-      { key: 'models_methods', label: 'Models & methods', state: 'checked', by: [{ label: 'Jarvis', runtime: 'openclaw' }] },
+      { key: 'models_methods', label: 'Models & methods', state: 'checked', by: [{ label: 'OpenClaw', runtime: 'openclaw' }] },
       { key: 'infrastructure_systems', label: 'Infrastructure & systems', state: 'unreported', by: [] },
       { key: 'evaluation_counterevidence', label: 'Evaluation & counterevidence', state: 'unreported', by: [] }
     ]);
-    expect(JSON.stringify(seen)).not.toMatch(/Private reasoning|t1/);
+    expect(JSON.stringify(seen)).not.toMatch(/Private reasoning|t1|Jarvis/);
 
     const legacy = { ...edition, checks: [] };
     expect(projectPublicEdition(legacy, 'Athan', { now })).not.toHaveProperty('silences');
