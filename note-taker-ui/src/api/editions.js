@@ -68,6 +68,15 @@ export const saveEditionItemLater = async (editionId, itemId) => {
   return res.data || {};
 };
 
+/** The one highlight of yours a finding touches, when one clears the bar. */
+export const getEditionHeld = async (editionId, itemId) => {
+  const res = await api.get(
+    `/api/editions/${encodeURIComponent(editionId)}/items/${encodeURIComponent(itemId)}/held`,
+    getAuthHeaders()
+  );
+  return res.data || { held: null };
+};
+
 /** A paper someone published, read by a stranger. No auth: that is the point. */
 export const getPublicEdition = async (slug) => {
   const res = await api.get(`/api/public/editions/${encodeURIComponent(slug)}`);

@@ -28,6 +28,7 @@ beforeEach(() => {
   api.getEditionThoughts.mockResolvedValue([]); api.getEditionShare.mockResolvedValue({ shared: false });
   api.getEditionInbox.mockResolvedValue({ items: [], remaining: 0 });
   api.setEditionItemState.mockResolvedValue({});
+  api.getEditionHeld.mockResolvedValue({ held: null });
 });
 it('powers through what is new one finding at a time, narrowed to a paper', async () => {
   mockId = undefined;
@@ -250,3 +251,49 @@ it('does not let a poll started before Keep restore an older Library state', asy
   expect(screen.getByRole('link', { name: '✓ In your Library' })).toBeVisible();
   jest.useRealTimers();
 });
+it('prints the reader’s layer: the plain line, the figures, a checked passage, and an honest note for one that is not', async () => {
+  const layered = {
+    ...item,
+    plain: 'Debate gets better when each agent picks how closely to look.',
+    sourceKind: 'preprint',
+    confidence: 'moderate',
+    figures: [{ label: 'accuracy gain', value: '1.5–3.2%' }],
+    passage: 'improved accuracy by 1.5–3.2%',
+    passageCheck: 'found'
+  };
+  const missing = { ...item, itemId: 'two', section: 'limits', title: 'A misquote', passage: 'words the source never said', passageCheck: 'missing', filedBy: 'Codex job', filedByRuntime: 'codex' };
+  api.getEdition.mockResolvedValue({ ...edition, headline: 'Debate gains; recovery lags.', items: [layered, missing] });
+  render(<Editions />);
+  expect(await screen.findByText('Debate gets better when each agent picks how closely to look.')).toBeVisible();
+  expect(screen.getByRole('heading', { name: 'Debate gains; recovery lags.' })).toBeVisible();
+  expect(screen.getByText('Research · preprint · moderate confidence')).toBeVisible();
+  expect(screen.getByText('1.5–3.2%')).toBeVisible();
+  expect(screen.getByText('accuracy gain')).toBeVisible();
+  expect(screen.getByText('improved accuracy by 1.5–3.2%').tagName).toBe('BLOCKQUOTE');
+  expect(screen.getByText(/quoted a passage the source does not contain/)).toBeVisible();
+  expect(screen.queryByText('words the source never said')).toBeNull();
+});
+it('names the one highlight you already hold, but only for the finding in focus', async () => {
+  mockSearch = 'item=one';
+  api.getEditionHeld.mockResolvedValue({ held: { highlightId: 'h1', text: 'Using information is a skill.', articleId: 'a1', articleTitle: 'On practice' } });
+  render(<Editions />);
+  expect(await screen.findByRole('link', { name: '“Using information is a skill.”' })).toHaveAttribute('href', '/articles/a1');
+  expect(api.getEditionHeld).toHaveBeenCalledTimes(1);
+  expect(api.getEditionHeld).toHaveBeenCalledWith('e1', 'one');
+});
+it('says what became of the last watch list, and keeps the paper’s threads at the run', async () => {
+  const before = { ...edition, _id: 'before', number: 1, windowStart: '2026-08-25', windowEnd: '2026-08-31', watchNext: ['A replication', 'A price cut'] };
+  const after = { ...edition, number: 2, watchNext: ['A second lab'], followUps: [{ watch: 'A replication', status: 'happened', note: 'Two labs, same result.' }] };
+  api.getEdition.mockResolvedValue(after);
+  api.listEditions.mockResolvedValue([after, before]);
+  const { unmount } = render(<Editions />);
+  expect(await screen.findByRole('heading', { name: 'What became of last issue’s watch list' })).toBeVisible();
+  expect(screen.getByText('Two labs, same result.')).toBeVisible();
+  unmount();
+  mockId = undefined; mockSearch = 'paper=weekend';
+  render(<Editions />);
+  const watching = await screen.findByRole('region', { name: 'What this paper is watching' });
+  expect(within(watching).getAllByRole('link').map(link => link.textContent)).toEqual(['A second lab', 'A price cut', 'A replication']);
+  expect(within(watching).getByText('Settled')).toBeVisible();
+});
+

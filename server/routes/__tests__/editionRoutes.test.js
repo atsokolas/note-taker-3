@@ -163,6 +163,7 @@ describe('the newsstand', () => {
   let saved;
   let shares;
   let readArticle;
+  let related;
   let skipShareLookups;
 
   beforeEach(async () => {
@@ -239,6 +240,7 @@ describe('the newsstand', () => {
       EditionProfile,
       Article,
       readArticle: (...args) => readArticle(...args),
+      relatedHighlights: (...args) => related(...args),
       SharedEdition,
       User: { findById: () => ({ select: () => ({ lean: async () => ({ displayName: 'Athan' }) }) }) },
       onArticleSaved: article => saved.push(article)
@@ -257,6 +259,29 @@ describe('the newsstand', () => {
     });
     return { status: res.status, body: await res.json() };
   };
+
+  /* "You already hold" is a claim about the reader's own library, so it is
+     held to a floor, never offers the source the finding itself saved, and
+     says unknown rather than nothing when the search could not run. */
+  it('offers the one highlight a finding touches, and nothing below the bar', async () => {
+    asAgent = true;
+    const made = await send('/api/editions', 'POST', week());
+    asAgent = false;
+    const path = `/api/editions/${made.body._id}/items/item-1/held`;
+    related = async () => [
+      { objectId: 'weak', title: 'Barely related.', articleId: 'a0', score: 0.8 },
+      { objectId: 'h1', title: 'Idempotency keys stop a retry doing it twice.', articleId: 'a1', articleTitle: 'Designing robust APIs', score: 0.9 }
+    ];
+    expect((await send(path)).body.held).toEqual({
+      highlightId: 'h1', text: 'Idempotency keys stop a retry doing it twice.', articleId: 'a1', articleTitle: 'Designing robust APIs'
+    });
+    related = async () => [{ objectId: 'weak', title: 'Barely related.', articleId: 'a0', score: 0.8 }];
+    expect((await send(path)).body).toEqual({ held: null });
+    related = async () => { throw new Error('embedding service down'); };
+    expect((await send(path)).body).toEqual({ held: null, unknown: true });
+    asAgent = true;
+    expect((await send(path)).status).toBe(403);
+  });
 
   it('takes a week from an agent and signs it', async () => {
     asAgent = true;

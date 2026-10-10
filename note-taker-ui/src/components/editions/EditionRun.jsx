@@ -1,6 +1,8 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { datelineLine, deskFor, issueLine, newCountOf, runGrid, sectionTones, stateOf, windowLine } from '../../pages/editionModel';
+import {
+  datelineLine, deskFor, issueLine, newCountOf, runGrid, sectionTones, stateOf, WATCH_STATUS, watchThreads, windowLine
+} from '../../pages/editionModel';
 import EditionDesk from './EditionDesk';
 
 const SAID = {
@@ -74,7 +76,9 @@ export default function EditionRun({ paper }) {
                 <span className="edition-run__when">
                   {[datelineLine(issue), stateOf(issue) === 'filling' ? 'still filling' : ''].filter(Boolean).join(' · ')}
                 </span>
-                {issue.standfirst ? <span className="edition-run__standfirst">{issue.standfirst}</span> : null}
+                {issue.headline || issue.standfirst
+                  ? <span className="edition-run__standfirst">{issue.headline || issue.standfirst}</span>
+                  : null}
               </span>
               <RunMark cells={cells} tones={tones} />
               <span className={`edition-run__yours${issue.newCount ? ' is-new' : ''}`}>{yoursLine(issue)}</span>
@@ -82,6 +86,38 @@ export default function EditionRun({ paper }) {
           </li>
         ))}
       </ol>
+      <Watching paper={paper} />
+    </section>
+  );
+}
+
+/**
+ * The threads a paper keeps pulling: every line it said to watch, and the
+ * newest word on what became of it. Open lines first; nothing is printed for
+ * a paper that never kept a watch list.
+ */
+function Watching({ paper }) {
+  const { open, settled } = watchThreads(paper.issues);
+  if (!open.length && !settled.length) return null;
+  const list = (threads, heading) => (threads.length ? (
+    <div>
+      <h3>{heading}</h3>
+      <ul>
+        {threads.map(({ watch, since, status, note }) => (
+          <li key={watch}>
+            <span className={`reading-status reading-status--${status}`}>{WATCH_STATUS[status]}</span>
+            <Link to={`/editions/${encodeURIComponent(since._id)}`}>{watch}</Link>
+            <small>{[issueLine({ ...since, issueLabel: paper.issueLabel }) || windowLine(since), note].filter(Boolean).join(' · ')}</small>
+          </li>
+        ))}
+      </ul>
+    </div>
+  ) : null);
+  return (
+    <section className="edition-run__watching" aria-labelledby="edition-run-watching">
+      <h2 id="edition-run-watching">What this paper is watching</h2>
+      {list(open, 'Still open')}
+      {list(settled, 'Settled')}
     </section>
   );
 }
