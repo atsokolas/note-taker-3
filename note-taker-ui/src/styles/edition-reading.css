@@ -1,9 +1,10 @@
 /* The private paper. All selectors stay inside the Editions experience. */
 .edition-reading {
-  --reading-ink: var(--text-primary, #302d28);
-  --reading-muted: var(--text-secondary, #625f57);
-  --reading-rule: var(--noeis-rule, #d9d5ca);
-  --reading-paper: var(--surface, #f7f5ee);
+  --reading-ink: var(--noeis-ink, #332f29);
+  --reading-muted: var(--noeis-ink-muted, #5f625f);
+  --reading-rule: var(--noeis-rule, rgba(91, 80, 63, 0.16));
+  --reading-paper: var(--noeis-paper, #fffdf8);
+  --reading-thread: var(--noeis-thread-strong, #8b5f1d);
   max-width: 1320px; margin: 0 auto; padding: 0 24px 64px;
   color: var(--reading-ink);
 }
@@ -208,7 +209,7 @@
 .edition-reading :is(.power-through__scope, .reading-hands) button[aria-pressed=true] { border-color: var(--reading-ink); background: var(--reading-ink); color: var(--reading-paper); }
 .reading-hands__count { font-variant-numeric: tabular-nums; opacity: .7; }
 .power-through__progress { height: 3px; margin: 14px 0 6px; background: var(--reading-rule); }
-.power-through__progress > span { display: block; height: 100%; width: calc(var(--done) * 100%); background: var(--reading-ink); }
+.power-through__progress > span { display: block; height: 100%; width: calc(var(--done) * 100%); background: var(--noeis-thread, #b1862e); }
 .power-through__error,
 .power-through__receipt { margin: 14px 0 0; font: 13px/1.6 var(--noeis-font-ui, system-ui); }
 .power-through__error button,
@@ -265,7 +266,7 @@
 .edition-zoom__dial { display: flex; align-items: center; gap: 4px; }
 .edition-zoom__dial button { width: 36px; height: 36px; border: 1px solid var(--reading-rule) !important; border-radius: 50%; font-size: 17px; line-height: 1; }
 .edition-zoom__power-of { min-width: 44px; text-align: center; font: 500 17px/1 var(--noeis-font-editorial, Georgia, serif); }
-.edition-zoom__power-of sup { font-size: .62em; }
+.edition-zoom__power-of sup { font-size: .62em; color: var(--reading-thread); }
 
 /* 10⁴ and 10³: a paper, or an issue, to a line. */
 .edition-stand__head, .edition-run__head { padding: 26px 0 22px; }
@@ -288,7 +289,7 @@
 .edition-stand__paper .run-mark { grid-area: mark; }
 .edition-stand__new { grid-area: new; text-align: right; }
 .edition-stand__new, .edition-run__yours { font: 13px/1.4 var(--noeis-font-ui, system-ui); color: var(--reading-muted); font-variant-numeric: tabular-nums; }
-:is(.edition-stand__new, .edition-run__yours).is-new { color: var(--reading-ink); font-weight: 600; }
+:is(.edition-stand__new, .edition-run__yours).is-new { color: var(--reading-thread); font-weight: 600; }
 .edition-run__issue { grid-template-columns: 96px minmax(0, 1fr) auto 140px; }
 .edition-run__number { font: 400 21px/1.2 var(--noeis-font-editorial, Georgia, serif); }
 .edition-run__body { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
@@ -323,9 +324,10 @@
 }
 
 /* Section colours are the house's own: thread, living, slate, ink, and
-   danger for the column that argues back, read from the theme, so Light, Dark and Midnight each carry theirs
-   without a palette of their own. A column is a tint of paper with a rule of
-   its colour, never a slab: the paper stays the loudest thing on the page. */
+   danger for the column that argues back, read from the theme so Light, Dark
+   and Tokyo Midnight each carry theirs without a palette of their own. A
+   column is a tint of paper under a rule of its colour, never a slab: the
+   paper stays the loudest thing on the page. */
 .edition-reading {
   --shelf-frame: var(--noeis-ink-subtle, var(--reading-muted));
   --shelf-bay: var(--reading-paper);
