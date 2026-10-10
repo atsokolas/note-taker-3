@@ -120,7 +120,6 @@
   order: 2;
 }
 
-.edition-sources-jump,
 .edition-share > summary {
   display: inline-flex;
   align-items: baseline;
@@ -135,7 +134,6 @@
   list-style: none;
 }
 
-.edition-sources-jump:hover,
 .edition-share > summary:hover {
   border-color: color-mix(in srgb, var(--noeis-pointer, var(--text-muted)) 55%, transparent);
 }
@@ -220,61 +218,6 @@
   height: 2px;
   margin: 8px 0 0;
   background: color-mix(in srgb, var(--text-primary) 58%, transparent);
-}
-
-/* The sources, folded at the foot. Expand to see every followable link. */
-.edition-sources {
-  margin: 36px 0 0;
-  padding: 16px 0 0;
-  border-top: 1px solid var(--noeis-rule, var(--border-subtle-2));
-}
-
-.edition-sources__summary {
-  cursor: pointer;
-  font-family: "Newsreader", Georgia, serif;
-  font-size: 0.92rem;
-  font-style: italic;
-  color: var(--text-primary);
-  list-style: none;
-}
-
-.edition-sources__summary::-webkit-details-marker { display: none; }
-
-.edition-sources__summary::before {
-  content: "";
-  display: inline-block;
-  width: 0.42em;
-  height: 0.42em;
-  margin: 0 0.55em 0.08em 0;
-  border-right: 1px solid currentColor;
-  border-bottom: 1px solid currentColor;
-  transform: rotate(-45deg);
-  vertical-align: middle;
-}
-
-.edition-sources[open] .edition-sources__summary::before {
-  transform: rotate(45deg);
-}
-
-.edition-sources__list {
-  margin: 12px 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.edition-sources__list li + li { margin-top: 8px; }
-
-.edition-sources__list a {
-  font-size: 0.94rem;
-  line-height: 1.45;
-}
-
-.edition-sources__date {
-  display: block;
-  margin-top: 2px;
-  color: var(--text-muted);
-  font-size: 0.78rem;
-  line-height: 1.4;
 }
 
 .edition-share__url-label {

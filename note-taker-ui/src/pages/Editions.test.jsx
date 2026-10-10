@@ -29,6 +29,7 @@ beforeEach(() => {
   api.getEditionInbox.mockResolvedValue({ items: [], remaining: 0 });
   api.setEditionItemState.mockResolvedValue({});
   api.getEditionHeld.mockResolvedValue({ held: null });
+  window.scrollTo = jest.fn();
 });
 it('powers through what is new one finding at a time, narrowed to a paper', async () => {
   mockId = undefined;
@@ -132,7 +133,7 @@ const issueFive = () => {
   api.getEdition.mockResolvedValue(opened);
   return { five, run };
 };
-it('reads This Week in AI as a run, newest first, with what each issue held and the desk', async () => {
+it('reads This Week in AI as a run, newest first, with what each issue held', async () => {
   mockId = undefined; mockSearch = 'paper=this_week_in_ai';
   issueFive();
   render(<Editions />);
@@ -141,19 +142,28 @@ it('reads This Week in AI as a run, newest first, with what each issue held and 
   expect(issues[0]).toHaveAttribute('href', '/editions/twia-5');
   expect(screen.getByRole('img', { name: 'Models & methods: 1 filed; Infrastructure & systems: looked, nothing met the bar; Evaluation & counterevidence: 2 filed' })).toBeVisible();
   expect(screen.getByRole('img', { name: 'Models & methods: 3 filed; Infrastructure & systems: 1 filed; Evaluation & counterevidence: 1 filed' })).toBeVisible();
-  const desk = screen.getByRole('list', { name: 'The desk' });
-  expect(within(desk).getByText('Usually files every column')).toBeVisible();
-  expect(within(desk).getByText('Filed Oct 6 · Kept by you: 1 of 1')).toBeVisible();
-  expect(screen.getByText('10').closest('[aria-label]')).toHaveAttribute('aria-label', 'Zoom: A paper');
+  const scale = screen.getByRole('navigation', { name: 'Where you are in Editions' });
+  expect(within(scale).getByText('This Week in AI')).toHaveAttribute('aria-current', 'location');
+  /* One paper is the whole stand, so there is no wider view to step out to. */
+  expect(within(scale).queryByRole('link', { name: 'Your papers' })).toBeNull();
+  expect(screen.queryByText(/Sunday 28/)).toBeNull();
 });
-it('opens Issue 5 with the editor named, and narrows it to one hand', async () => {
+it('opens Issue 5 headline first, in short, and narrows it to one hand from a quiet menu', async () => {
   mockId = 'twia-5';
   const { five } = issueFive();
   render(<Editions />);
   expect(await screen.findByText(five.items[0].finding)).toBeVisible();
-  expect(screen.getByText('Standfirst by the editor')).toBeVisible();
-  const filter = screen.getByRole('group', { name: 'Filed by' });
-  fireEvent.click(within(filter).getByRole('button', { name: /Claude/ }));
+  expect(screen.getByRole('heading', { level: 1, name: 'This Week in AI' })).toBeVisible();
+  expect(screen.getByText(five.standfirst)).toBeVisible();
+  expect(screen.getByText('Issue 5 · covers Sep 28 – Oct 4')).toBeVisible();
+  expect(screen.getByText(/^3 findings · about (a minute|\d minutes)$/)).toBeVisible();
+  const short = screen.getByRole('region', { name: 'In short' });
+  expect(within(short).getAllByRole('link').map(link => link.textContent)).toEqual([
+    `01${five.items[0].title}`, `02${five.items[1].title}`, '03A second source on recovery'
+  ]);
+  expect(within(short).getByText('Infrastructure & systems')).toBeVisible();
+  expect(within(short).getByText(/looked; nothing met the bar\./)).toHaveTextContent(/OpenClaw looked; nothing met the bar\./);
+  fireEvent.change(screen.getByRole('combobox', { name: /Filed by/ }), { target: { value: 'claude-code' } });
   expect(mockNavigate).toHaveBeenLastCalledWith('/editions/twia-5?by=claude-code', { replace: true });
 });
 it('shows only one hand’s filings and says what it hid', async () => {
@@ -162,7 +172,9 @@ it('shows only one hand’s filings and says what it hid', async () => {
   render(<Editions />);
   expect(await screen.findByRole('heading', { name: 'A second source on recovery' })).toBeVisible();
   expect(screen.queryByText(five.items[0].finding)).toBeNull();
-  expect(screen.getByText(/2 findings by other hands and 1 empty column hidden while you read Claude’s filings\./)).toBeVisible();
+  expect(screen.getByText(/2 findings by other hands hidden while you read Claude’s\./)).toBeVisible();
+  /* The closing receipt still counts the whole issue. */
+  expect(screen.getByText(/^You kept 1 of 3\./)).toBeVisible();
   fireEvent.click(screen.getByRole('button', { name: 'Show everyone' }));
   expect(mockNavigate).toHaveBeenLastCalledWith('/editions/twia-5', { replace: true });
 });
@@ -230,34 +242,39 @@ it('does not turn a Later finding back into read', async () => {
   expect(api.setEditionItemState).not.toHaveBeenCalled();
   jest.useRealTimers();
 });
-it('lets Esc leave "Just read" without leaving the issue', async () => {
+it('gives a finding the page to itself, the issue a step back and the next a step on', async () => {
+  mockSearch = 'item=one';
+  const two = { ...item, itemId: 'two', plain: 'A second plain line.', finding: 'A second finding.', title: 'Second' };
+  api.getEdition.mockResolvedValue({ ...edition, items: [item, two] });
   render(<Editions />);
   await screen.findByText(item.finding);
-  fireEvent.click(screen.getByRole('button', { name: 'Just read' }));
-  mockNavigate.mockClear();
-  fireEvent.keyDown(document, { key: 'Escape' });
-  expect(screen.getByRole('button', { name: 'Just read' })).toHaveAttribute('aria-pressed', 'false');
-  expect(mockNavigate).not.toHaveBeenCalled();
+  expect(screen.getByText('Finding 1 of 2')).toBeVisible();
+  expect(screen.queryByText(two.finding)).toBeNull();
+  expect(screen.getByRole('link', { name: 'Edition 2 · Weekend Readings' })).toHaveAttribute('href', '/editions/e1');
+  fireEvent.click(screen.getByRole('button', { name: 'Next: A second plain line. →' }));
+  expect(mockNavigate).toHaveBeenLastCalledWith('/editions/e1?item=two', { replace: true });
 });
-it('marks a column only for the hands that filed into it, and counts a Keep on the desk at once', async () => {
-  const read = { ...item, filedByRuntime: 'openclaw', readings: [{ filedBy: 'Claude', filedByRuntime: 'claude-code', finding: 'A second view.', boundary: 'Its limit.' }] };
-  const other = { ...item, itemId: 'two', section: 'limits', finding: 'A finding Codex filed.', filedBy: 'Codex', filedByRuntime: 'codex' };
-  const opened = { ...edition, items: [read, other] };
-  api.listEditions.mockResolvedValue([{ ...edition, items: undefined, filings: [read, other].map(({ section, filedBy, filedByRuntime }) => ({ section, filedBy, filedByRuntime, saved: false })) }]);
-  api.getEdition.mockResolvedValue(opened);
-  render(<Editions />); await screen.findByText(item.finding);
-  const ideas = document.getElementById('edition-section-ideas');
-  expect(ideas.querySelectorAll('.reading-section-label__marks [role="img"]')).toHaveLength(1);
-  const desk = screen.getByRole('list', { name: 'The desk' });
-  expect(within(desk).getAllByText(/Kept by you: 0 of 1/)).toHaveLength(2);
-  api.saveEditionItem.mockResolvedValue({ edition: { ...opened, items: [{ ...read, savedArticleId: 'article' }, other] }, readable: true });
-  fireEvent.click(within(document.getElementById('edition-item-one')).getByRole('button', { name: 'Keep in Library' }));
-  await waitFor(() => expect(within(screen.getByRole('list', { name: 'The desk' })).getAllByText(/Kept by you: 1 of 1/)).toHaveLength(1));
+it('sets a finding aside with Not for me, and Undo brings it back', async () => {
+  api.setEditionItemState.mockImplementation(async (_id, itemId, status) => ({ itemId, readerStatus: status, edition: { ...edition, items: [{ ...item, readerStatus: status }] } }));
+  render(<Editions />);
+  await screen.findByText(item.finding);
+  fireEvent.click(screen.getByRole('button', { name: 'Not for me' }));
+  expect(await screen.findByText(`Set aside: ${item.title}`, { exact: false })).toBeVisible();
+  expect(screen.queryByText(item.finding)).toBeNull();
+  expect(api.setEditionItemState).toHaveBeenCalledWith('e1', 'one', 'dismissed');
+  fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
+  expect(await screen.findByText(item.finding)).toBeVisible();
+  expect(api.setEditionItemState).toHaveBeenLastCalledWith('e1', 'one', 'new');
 });
-it('prints no desk for a paper one agent keeps', async () => {
+it('ends with what you kept and what comes next', async () => {
+  const closed = { ...edition, windowStart: '2026-09-01', windowEnd: '2026-09-07', items: [item, { ...item, itemId: 'two', title: 'Second', finding: 'Another finding.' }] };
+  api.getEdition.mockResolvedValue(closed); api.listEditions.mockResolvedValue([closed]);
   render(<Editions />); await screen.findByText(item.finding);
-  expect(screen.queryByRole('list', { name: 'The desk' })).toBeNull();
-  expect(screen.queryByText('Standfirst by the editor')).toBeNull();
+  expect(screen.getByText('That’s the whole issue.')).toBeVisible();
+  expect(screen.getByText('Edition 3 covers Sep 8 – 14')).toBeVisible();
+  api.saveEditionItem.mockResolvedValue({ edition: { ...closed, items: [{ ...item, savedArticleId: 'article' }, closed.items[1]] }, readable: true });
+  fireEvent.click(within(document.getElementById('edition-item-one')).getByRole('button', { name: 'Keep' }));
+  expect(await screen.findByText('You kept 1 of 2. That’s the whole issue.')).toBeVisible();
 });
 it('does not insert new filings until Show, even when Keep returns the newer issue', async () => {
   jest.useFakeTimers();
@@ -267,8 +284,8 @@ it('does not insert new filings until Show, even when Keep returns the newer iss
   await act(async () => { jest.advanceTimersByTime(60000); });
   expect(screen.queryByRole('heading', { name: 'An arrival' })).toBeNull();
   api.saveEditionItem.mockResolvedValue({ edition: { ...newer, items: newer.items.map(i => i.itemId === 'one' ? { ...i, savedArticleId: 'article' } : i) }, readable: false });
-  fireEvent.click(screen.getByRole('button', { name: 'Keep in Library' })); await act(async () => {});
-  expect(screen.getByRole('link', { name: '✓ In your Library' })).toHaveAttribute('href', '/articles/article');
+  fireEvent.click(screen.getByRole('button', { name: 'Keep' })); await act(async () => {});
+  expect(screen.getByRole('link', { name: '✓ Kept in your Library' })).toHaveAttribute('href', '/articles/article');
   expect(screen.getByText(/Saved the link/)).toBeVisible();
   expect(screen.queryByRole('heading', { name: 'An arrival' })).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: '1 finding added · Show' }));
@@ -277,7 +294,7 @@ it('does not insert new filings until Show, even when Keep returns the newer iss
 });
 it('Source opens as its own power, with a URL', async () => {
   render(<Editions />); await screen.findByText(item.finding);
-  fireEvent.click(screen.getByRole('button', { name: 'Source', exact: true }));
+  fireEvent.click(screen.getByRole('button', { name: 'Read the source' }));
   expect(mockNavigate).toHaveBeenLastCalledWith('/editions/e1?item=one&source=1', undefined);
 });
 it('opens the source beside a finding when the URL says so', async () => {
@@ -307,10 +324,10 @@ it('does not let a poll started before Keep restore an older Library state', asy
   api.getEdition.mockReturnValue(new Promise(resolve => { finishPoll = resolve; }));
   await act(async () => { jest.advanceTimersByTime(60000); });
   api.saveEditionItem.mockResolvedValue({ edition: { ...edition, items: [{ ...item, savedArticleId: 'article' }] }, readable: true });
-  fireEvent.click(screen.getByRole('button', { name: 'Keep in Library' })); await act(async () => {});
+  fireEvent.click(screen.getByRole('button', { name: 'Keep' })); await act(async () => {});
   await act(async () => finishPoll({ ...edition, throughLine: 'A new editorial line.' }));
   fireEvent.click(screen.getByRole('button', { name: 'This issue has an update · Show' }));
-  expect(screen.getByRole('link', { name: '✓ In your Library' })).toBeVisible();
+  expect(screen.getByRole('link', { name: '✓ Kept in your Library' })).toBeVisible();
   jest.useRealTimers();
 });
 it('prints the reader’s layer: the plain line, the figures, a checked passage, and an honest note for one that is not', async () => {
@@ -326,9 +343,12 @@ it('prints the reader’s layer: the plain line, the figures, a checked passage,
   const missing = { ...item, itemId: 'two', section: 'limits', title: 'A misquote', passage: 'words the source never said', passageCheck: 'missing', filedBy: 'Codex job', filedByRuntime: 'codex' };
   api.getEdition.mockResolvedValue({ ...edition, headline: 'Debate gains; recovery lags.', items: [layered, missing] });
   render(<Editions />);
-  expect(await screen.findByText('Debate gets better when each agent picks how closely to look.')).toBeVisible();
-  expect(screen.getByRole('heading', { name: 'Debate gains; recovery lags.' })).toBeVisible();
-  expect(screen.getByText('Research · preprint · moderate confidence')).toBeVisible();
+  expect(await screen.findByRole('heading', { level: 2, name: 'Debate gets better when each agent picks how closely to look.' })).toBeVisible();
+  expect(screen.getByRole('heading', { level: 1, name: 'Debate gains; recovery lags.' })).toBeVisible();
+  const margin = within(document.getElementById('edition-item-one')).getByRole('complementary', { name: 'About this finding' });
+  expect(within(margin).getByText(item.title)).toBeVisible();
+  expect(within(margin).getByText('Research preprint. Not yet peer reviewed.')).toBeVisible();
+  expect(within(margin).getByText('A real signal, not a settled fact.')).toBeVisible();
   expect(screen.getByText('1.5–3.2%')).toBeVisible();
   expect(screen.getByText('accuracy gain')).toBeVisible();
   expect(screen.getByText('improved accuracy by 1.5–3.2%').tagName).toBe('BLOCKQUOTE');
@@ -349,7 +369,7 @@ it('says what became of the last watch list, and keeps the paper’s threads at 
   api.getEdition.mockResolvedValue(after);
   api.listEditions.mockResolvedValue([after, before]);
   const { unmount } = render(<Editions />);
-  expect(await screen.findByRole('heading', { name: 'What became of last issue’s watch list' })).toBeVisible();
+  expect(await screen.findByRole('heading', { name: 'Since Edition 1' })).toBeVisible();
   expect(screen.getByText('Two labs, same result.')).toBeVisible();
   unmount();
   mockId = undefined; mockSearch = 'paper=weekend';

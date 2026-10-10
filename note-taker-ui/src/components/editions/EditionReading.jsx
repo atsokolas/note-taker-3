@@ -1,34 +1,25 @@
 import React, { useEffect, useCallback, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { setEditionItemState } from '../../api/editions';
 import {
+  aheadLine,
   byHand,
-  datelineLine,
-  foreignFilers,
+  costLine,
   handsOf,
   issueLine,
   passageHref,
   WATCH_STATUS,
-  latestFilingLine,
-  sectionTones,
   standLayout,
-  stateOf
+  stateOf,
+  windowLine
 } from '../../pages/editionModel';
 import EditionShare from './EditionShare';
-import { EditionSourcesJump, EditionSourcesList, useEditionSources } from './EditionSources';
-import AgentMark, { KeeperMark } from './AgentMark';
-import { agentOf, handOf } from './editionAgent';
-import EditionDesk from './EditionDesk';
 import EditionFinding from './EditionFinding';
 import SectionSilence from './SectionSilence';
 import SourcePeek from './SourcePeek';
 import ThoughtComposer, { useEditionThoughts } from './ThoughtComposer';
 import useEditionIssue from './useEditionIssue';
-import {
-  findingAnchor,
-  readEditionLocal,
-  readingPosition,
-  writeEditionLocal
-} from './editionReadingState';
+import { findingAnchor, readingPosition, writeEditionLocal } from './editionReadingState';
 
 const READ_AFTER_MS = 4000;
 
@@ -38,29 +29,31 @@ const ShareIcon = () => (
   </svg>
 );
 
+const issuePath = issue => `/editions/${encodeURIComponent(issue._id)}`;
+
+/**
+ * An issue, read the way the mocks drew it: the headline first and what it
+ * costs to read, the findings in short, then each finding led by what it
+ * means, and a closing line that says what you took and what comes next.
+ *
+ * With a finding in focus the issue steps back to a line of context and the
+ * finding has the page to itself, with the ones either side a step away.
+ */
 export default function EditionReading({
   issue,
-  paperTitle = '',
-  issueLabel,
-  keepers = {},
-  deskOf = () => [],
+  paper = null,
   focusItem = '',
   focusSection = '',
   source = false,
   by = '',
-  focus,
-  onFocus,
   onItem,
   onBy
 }) {
   const { edition, pending, error, busy, receipts, act, showPending } = useEditionIssue(issue._id);
   const root = useRef(null);
-  const focusButton = useRef(null);
   const [peek, setPeek] = useState(null);
   const [selection, setSelection] = useState(null);
-  const [resume, setResume] = useState(() => readEditionLocal(issue._id, 'place'));
   const thoughts = useEditionThoughts(issue._id);
-  const sources = useEditionSources(edition);
   useEffect(() => {
     const clear = () => setSelection(null);
     const check = () => {
@@ -78,26 +71,25 @@ export default function EditionReading({
   /* A filter only means something when more than one hand is on the issue. */
   const hand = hands.length > 1 ? hands.find(row => row.agent.key === by) : null;
   const shaped = columns.length ? columns : [{ key: '', label: '', items: looseItems }];
-  const sections = hand
-    ? shaped
-      .map(section => ({ ...section, items: section.items.filter(item => byHand(item, hand.agent.key)) }))
-      .filter(section => section.items.length)
-    : shaped;
-  const items = sections.flatMap((section) => section.items);
-  const hidden = hand ? shaped.flatMap(section => section.items).length - items.length : 0;
-  const quietHidden = hand ? shaped.filter(section => !section.items.length).length : 0;
-  const jump = useCallback((id, dismiss = true) => {
+  const all = shaped.flatMap(section => section.items.map(item => ({ item, section: section.label })));
+  const shown = hand ? all.filter(({ item }) => byHand(item, hand.agent.key)) : all;
+  const items = shown.map(({ item }) => item);
+  const quiet = hand ? [] : shaped.filter(section => section.label && !section.items.length);
+  const jump = useCallback((id) => {
     const element = document.getElementById(findingAnchor(id));
     element?.scrollIntoView({ block: 'start', behavior: 'auto' });
     element?.focus({ preventScroll: true });
-    if (dismiss) setResume(null);
   }, []);
   const loaded = Boolean(edition);
   const latest = useRef(edition);
   latest.current = edition;
   useEffect(() => {
     if (!loaded || !focusItem) return;
-    const frame = requestAnimationFrame(() => jump(focusItem));
+    /* A finding on its own opens at the top, under its line of context. */
+    const frame = requestAnimationFrame(() => {
+      window.scrollTo?.(0, 0);
+      document.getElementById(findingAnchor(focusItem))?.focus({ preventScroll: true });
+    });
     /* Stepping past a finding is not reading it: it counts as read once the
        reader has had it on screen a moment, so new counts hold while J skims
        or the tab sits in the background. Only a new finding becomes read; a
@@ -118,18 +110,14 @@ export default function EditionReading({
       clearTimeout(read);
       document.removeEventListener('visibilitychange', dwell);
     };
-    // An explicit incoming finding link wins over a remembered place.
-  }, [loaded, focusItem, issue._id, jump]);
+  }, [loaded, focusItem, issue._id]);
+  /* A link to a column opens at its first finding. */
   useEffect(() => {
-    if (!loaded || !focusSection || focusItem) return undefined;
-    const frame = requestAnimationFrame(() => {
-      const element = document.getElementById(`edition-section-${focusSection}`);
-      element?.scrollIntoView({ block: 'start', behavior: 'auto' });
-      element?.focus({ preventScroll: true });
-      setResume(null);
-    });
+    const first = !focusItem && focusSection && latest.current?.items.find(row => row.section === focusSection);
+    if (!loaded || !first) return undefined;
+    const frame = requestAnimationFrame(() => jump(first.itemId));
     return () => cancelAnimationFrame(frame);
-  }, [loaded, focusSection, focusItem]);
+  }, [loaded, focusSection, focusItem, jump]);
   useEffect(() => {
     if (!loaded) return;
     let frame;
@@ -139,14 +127,12 @@ export default function EditionReading({
         if (peek) return;
         const el = readingPosition(root.current);
         if (el) {
-          const place = {
+          writeEditionLocal('last', 'place', {
             profile: edition.profile,
             issueId: issue._id,
             itemId: el.dataset.readingItem,
             title: el.querySelector('h2')?.textContent
-          };
-          writeEditionLocal(issue._id, 'place', place);
-          writeEditionLocal('last', 'place', place);
+          });
         }
       });
     };
@@ -158,24 +144,20 @@ export default function EditionReading({
   }, [loaded, edition?.profile, issue._id, peek]);
   useEffect(() => {
     const escape = (event) => {
-      if (event.key !== 'Escape' || event.defaultPrevented || peek) return;
-      if (selection) setSelection(null);
-      else if (focus) {
-        onFocus(false);
-        focusButton.current?.focus({ preventScroll: true });
-      } else return;
+      if (event.key !== 'Escape' || event.defaultPrevented || peek || !selection) return;
+      setSelection(null);
       event.preventDefault();
     };
     document.addEventListener('keydown', escape);
     return () => document.removeEventListener('keydown', escape);
-  }, [focus, peek, selection, onFocus]);
+  }, [peek, selection]);
   /* The finding the reader is on: the one in focus, else the one in view. */
   const current = useCallback(
     () => items.find(item => item.itemId === focusItem)
       || items.find(item => item.itemId === readingPosition(root.current)?.dataset.readingItem),
     [items, focusItem]
   );
-  /* J and K step through findings at any power; O opens the source here, and
+  /* J and K step through findings at any scale; O opens the source here, and
      with Shift the original in a new tab. */
   useEffect(() => {
     const step = (event) => {
@@ -199,7 +181,7 @@ export default function EditionReading({
     document.addEventListener('keydown', step);
     return () => document.removeEventListener('keydown', step);
   }, [current, focusItem, items, onItem, peek]);
-  /* The source is a power of its own, so it has a URL; a thought is a note in
+  /* The source is a scale of its own, so it has a URL; a thought is a note in
      the margin, so it does not. */
   const openPeek = (item, view, origin, quote = '') => {
     setSelection(null);
@@ -233,207 +215,95 @@ export default function EditionReading({
       if (Number.isFinite(before) && Number.isFinite(after)) window.scrollBy(0, after - before);
     });
   };
+
   const row = edition || issue;
-  const status = stateOf(row);
-  const collectionState = status === 'closed'
-    ? 'Collection ended'
-    : status === 'filling'
-      ? 'Still filling'
-      : 'Collection window ahead';
-  const filingState = latestFilingLine(edition);
-  const mastheadTitle = paperTitle || edition?.profileLabel || edition?.title || issue.title || '';
-  const newCount =
-    pending?.items?.filter((item) => !edition?.items?.some((held) => held.itemId === item.itemId))
-      .length || 0;
-  const sourceDoor = id => document.getElementById(findingAnchor(id))?.querySelector('.reading-actions button');
-  const shown = peek || (source && focusItem ? { itemId: focusItem, view: 'source', origin: sourceDoor(focusItem) } : null);
-  const currentPeek = shown && edition?.items.find((item) => item.itemId === shown.itemId);
-  const tones = sectionTones(sections);
-  /* The editor's mark only matters once more than one hand is on the paper. */
-  const writer = agentOf({ label: row.writtenBy, runtime: row.writtenByRuntime });
-  /* Read off the opened issue, so a Keep shows in "Kept by you" at once. */
-  const desk = deskOf(edition);
-  const foreign = foreignFilers(edition || {}, keepers);
-  const editor = desk.length > 1 && writer ? handOf(writer) : null;
+  const issueLabel = paper?.issueLabel;
+  const name = issueLine({ ...row, issueLabel }) || 'This issue';
+  const paperTitle = paper?.title || row.profileLabel || row.title || '';
+  const run = paper?.issues || [];
+  const place = run.findIndex(other => other._id === issue._id);
+  const before = place > 0 ? run[place - 1] : null;
+  const after = place >= 0 ? run[place + 1] : null;
+  const closed = stateOf(row) === 'closed';
+  /* The receipt speaks for the whole issue, whoever's hand you are reading. */
+  const kept = all.filter(({ item }) => item.savedArticleId).length;
+  const newCount = pending?.items?.filter(item => !edition?.items?.some(held => held.itemId === item.itemId)).length || 0;
+  const sourceDoor = id => document.getElementById(findingAnchor(id))?.querySelector('.reading-open');
+  const side = peek || (source && focusItem ? { itemId: focusItem, view: 'source', origin: sourceDoor(focusItem) } : null);
+  const sideItem = side && edition?.items.find(item => item.itemId === side.itemId);
+  const focused = focusItem ? shown.findIndex(({ item }) => item.itemId === focusItem) : -1;
+
+  const finding = ({ item, section }, index) => (
+    <EditionFinding
+      key={item.itemId}
+      item={item}
+      number={index + 1}
+      section={section}
+      zoomed={item.itemId === focusItem}
+      editionId={issue._id}
+      busy={busy}
+      receipt={receipts[item.itemId]}
+      onAct={act}
+      onPeek={openPeek}
+      onSelection={captureSelection}
+    />
+  );
+
   return (
-    <div ref={root} data-testid="edition-read">
-      <div className="edition-paper-tools">
-        <button
-          ref={focusButton}
-          type="button"
-          className="edition-paper-tools__just-read"
-          onClick={() => onFocus(!focus)}
-          aria-pressed={focus}
-        >
-          Just read
-        </button>
-        <div className="edition-paper-tools__share">
-          <EditionShare editionId={issue._id} edition={edition} triggerIcon={<ShareIcon />} />
-        </div>
-      </div>
-      {mastheadTitle ? (
-        <header className="edition-nameplate">
-          <h1>{mastheadTitle}</h1>
-        </header>
+    <div ref={root} data-testid="edition-read" className="edition-issue">
+      {error ? <p role="alert" className="reading-error">{error}</p> : null}
+      {!edition ? <p role="status">Opening this issue…</p> : null}
+      {edition && focused >= 0 ? (
+        <section className="edition-focus" aria-label="One finding">
+          <Link className="edition-focus__context" to={issuePath(issue)}>
+            {[name, row.headline || paperTitle].filter(Boolean).join(' · ')}
+          </Link>
+          <p className="edition-focus__count">Finding {focused + 1} of {shown.length}</p>
+          {finding(shown[focused], focused)}
+          <nav className="edition-focus__steps" aria-label="Other findings">
+            {focused > 0 ? (
+              <button type="button" onClick={() => onItem(items[focused - 1].itemId, {}, { replace: true })}>← Previous</button>
+            ) : (
+              <Link to={issuePath(issue)}>← Back to {name.toLowerCase().startsWith('this') ? 'the issue' : name}</Link>
+            )}
+            {items[focused + 1] ? (
+              <button type="button" onClick={() => onItem(items[focused + 1].itemId, {}, { replace: true })}>
+                Next: {items[focused + 1].plain || items[focused + 1].title} →
+              </button>
+            ) : null}
+          </nav>
+        </section>
       ) : null}
-      <div className="reading-dateline" aria-label="Issue dateline">
-        <span className="reading-dateline__number">
-          {issueLine({ ...row, issueLabel }) || issueLine(row)}
-        </span>
-        <span className="reading-dateline__when">{datelineLine(row)}</span>
-        <span className="reading-dateline__state">
-          {[filingState, collectionState].filter(Boolean).join(' · ')}
-        </span>
-      </div>
-      <EditionDesk hands={desk} />
-      {hands.length > 1 ? (
-        <div className="reading-hands" role="group" aria-label="Filed by">
-          <span>Filed by</span>
-          <button type="button" aria-pressed={!hand} onClick={() => onBy('')}>Everyone</button>
-          {hands.map(row => (
-            <button key={row.agent.key} type="button" aria-pressed={hand?.agent.key === row.agent.key} onClick={() => onBy(row.agent.key)}>
-              <AgentMark {...handOf(row.agent)} /> <span className="reading-hands__count">{row.count}</span>
-            </button>
-          ))}
-        </div>
-      ) : null}
-      <div className="reading-intro">
-        {row.headline ? <h2 className="reading-headline">{row.headline}</h2> : null}
-        {row.standfirst ? <p>{row.standfirst}</p> : null}
-        {row.standfirst && editor ? <p className="reading-editor"><AgentMark {...editor} glyph /> Standfirst by the editor</p> : null}
-      </div>
-      {focus ? (
-        <button className="reading-focus-exit" onClick={() => onFocus(false)}>
-          Return to paper · Esc
-        </button>
-      ) : null}
-      {error ? (
-        <p role="alert" className="reading-error">
-          {error}
-        </p>
-      ) : null}
-      {!edition ? (
-        <p role="status">Opening this issue…</p>
-      ) : (
+      {edition && focused < 0 ? (
         <>
-          {resume && !focusItem && items.some((item) => item.itemId === resume.itemId) ? (
-            <div className="reading-resume">
-              <button onClick={() => jump(resume.itemId)}>
-                Back to where you stopped <i>{resume.title}</i>
-              </button>
-              <button aria-label="Dismiss resume" onClick={() => setResume(null)}>
-                ×
-              </button>
-            </div>
-          ) : null}
-          {hand && (hidden || quietHidden) ? (
-            <p className="reading-hidden" role="status">
-              {[
-                hidden ? `${hidden} finding${hidden === 1 ? '' : 's'} by other hands` : '',
-                quietHidden ? `${quietHidden} empty column${quietHidden === 1 ? '' : 's'}` : ''
-              ].filter(Boolean).join(' and ')} hidden while you read {hand.agent.name}’s filings.{' '}
-              <button type="button" onClick={() => onBy('')}>Show everyone</button>
+          <header className="edition-issue__head">
+            <p className="edition-issue__dateline">
+              {[issueLine({ ...row, issueLabel }), windowLine(row) ? `covers ${windowLine(row)}` : ''].filter(Boolean).join(' · ')}
             </p>
-          ) : null}
-          <div className="reading-layout">
-            <div className={`reading-sequence${focusItem ? ' is-zoomed' : ''}`}>
-              {sections.map((section) => (
-                <section
-                  key={section.key}
-                  id={section.key ? `edition-section-${section.key}` : undefined}
-                  tabIndex={section.key ? -1 : undefined}
-                  className={`reading-section${section.label ? ` reading-section--block edition-tone--${tones[section.key] || 'ink'}` : ''}`}
-                  aria-label={section.label || 'Readings'}
-                >
-                  {section.label ? (
-                    <h2 className="reading-section-label">
-                      <span className="reading-section-label__name">{section.label}</span>
-                      <span className="reading-section-label__count" aria-label={`${section.items.length} filed`}>
-                        {section.items.length || '—'}
-                      </span>
-                      <span className="reading-section-label__marks">
-                        <KeeperMark keeper={keepers[section.key]} />
-                        {(foreign[section.key] || []).map(agent => (
-                          <AgentMark key={agent.key} {...handOf(agent)} glyph />
-                        ))}
-                      </span>
-                    </h2>
-                  ) : null}
-                  <div className="reading-section__body">
-                  {section.items.length ? (
-                    section.items.map((item) => (
-                      <EditionFinding
-                        key={item.itemId}
-                        item={item}
-                        lead={item === items[0]}
-                        zoomed={item.itemId === focusItem}
-                        editionId={issue._id}
-                        busy={busy}
-                        receipt={receipts[item.itemId]}
-                        onAct={act}
-                        onPeek={openPeek}
-                        onSelection={captureSelection}
-                      />
-                    ))
-                  ) : (
-                    <div className={`reading-bay reading-bay--${edition.silences?.find((silence) => silence.key === section.key)?.state || 'unknown'}`}>
-                      <SectionSilence
-                        className="reading-empty"
-                        silence={edition.silences?.find((silence) => silence.key === section.key)}
-                        fallback={section.label
-                          ? `Nothing filed under ${section.label} in this issue.`
-                          : 'No findings filed in this issue yet.'}
-                      />
-                    </div>
-                  )}
-                  </div>
-                </section>
-              ))}
-              {edition.throughLine ? (
-                <section className="reading-afterword">
-                  <h2>{editor ? <AgentMark {...editor} caption="Written by" glyph /> : null}Across the week</h2>
-                  <p>{edition.throughLine}</p>
-                </section>
+            <h1>{row.headline || paperTitle || name}</h1>
+            {row.standfirst ? <p className="edition-issue__deck">{row.standfirst}</p> : null}
+            <div className="edition-issue__meta">
+              <p>{costLine(items)}</p>
+              {hands.length > 1 ? (
+                <label className="reading-by">
+                  Filed by{' '}
+                  <select value={hand ? hand.agent.key : ''} onChange={event => onBy(event.target.value)}>
+                    <option value="">Everyone</option>
+                    {hands.map(row => <option key={row.agent.key} value={row.agent.key}>{row.agent.name}</option>)}
+                  </select>
+                </label>
               ) : null}
-              {edition.followUps?.length ? (
-                <section className="reading-afterword">
-                  <h2>What became of last issue’s watch list</h2>
-                  <ul className="reading-follow-ups">
-                    {edition.followUps.map(({ watch, status, note }) => (
-                      <li key={watch}>
-                        <span className={`reading-status reading-status--${status}`}>{WATCH_STATUS[status]}</span>
-                        {watch}
-                        {note ? <small>{note}</small> : null}
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              ) : null}
-              {edition.watchNext?.length ? (
-                <section className="reading-afterword">
-                  <h2>What to watch next</h2>
-                  <ul>
-                    {edition.watchNext.map((line) => (
-                      <li key={line}>{line}</li>
-                    ))}
-                  </ul>
-                </section>
-              ) : null}
-              {sources.sources.length ? (
-                <EditionSourcesList {...sources} listRef={sources.listRef} />
-              ) : null}
-              <footer className="reading-ending">
-                <p>
-                  {status === 'closed' ? 'That’s this issue’s paper.' : 'That’s the paper for now.'}
-                </p>
-                <ThoughtComposer {...thoughts} itemId="" label="What stayed with you?" />
-              </footer>
+              <div className="edition-issue__share">
+                <EditionShare editionId={issue._id} edition={edition} triggerIcon={<ShareIcon />} />
+              </div>
             </div>
-            <aside className="reading-margin">
-              <nav aria-label="In this issue">
-                <h2>In this issue</h2>
+          </header>
+          {items.length || quiet.length || edition.followUps?.length ? (
+            <section className="edition-short" aria-label="In short">
+              <div>
+                <h2>In short</h2>
                 <ol>
-                  {items.map((item) => (
+                  {shown.map(({ item }, index) => (
                     <li key={item.itemId}>
                       <a
                         href={`#${findingAnchor(item.itemId)}`}
@@ -442,27 +312,88 @@ export default function EditionReading({
                           jump(item.itemId);
                         }}
                       >
-                        {item.title}
+                        <span className="edition-short__number">{String(index + 1).padStart(2, '0')}</span>
+                        {item.plain || item.title}
                       </a>
-                      {item.sourceLabel ? <small>{item.sourceLabel}</small> : null}
                     </li>
                   ))}
+                  {quiet.map(section => (
+                    <li key={section.key} className="edition-short__quiet">
+                      <span className="edition-short__number" aria-hidden="true">—</span>
+                      <span>
+                        <span className="edition-short__label">{section.label}</span>
+                        <SectionSilence
+                          silence={edition.silences?.find(silence => silence.key === section.key)}
+                          fallback={`Nothing filed under ${section.label} in this issue.`}
+                        />
+                      </span>
+                    </li>
+                  ))}
+                  {!items.length && !quiet.length ? <li className="edition-short__quiet">No findings filed in this issue yet.</li> : null}
                 </ol>
-              </nav>
-              {sources.sources.length ? (
-                <EditionSourcesJump listId={sources.listId} onJump={sources.jump} />
+              </div>
+              {edition.followUps?.length ? (
+                <aside className="edition-since" aria-labelledby="edition-since-title">
+                  <h2 id="edition-since-title">
+                    Since {issueLine({ issueLabel, number: Number(row.number) - 1 }) || 'last issue'}
+                  </h2>
+                  <ul>
+                    {edition.followUps.map(({ watch, status, note }) => (
+                      <li key={watch}>
+                        <span className={`reading-status reading-status--${status}`}>{WATCH_STATUS[status]}</span>
+                        {watch}
+                        {note ? <small>{note}</small> : null}
+                      </li>
+                    ))}
+                  </ul>
+                </aside>
               ) : null}
-            </aside>
-          </div>
+            </section>
+          ) : null}
+          {hand && all.length > items.length ? (
+            <p className="reading-hidden" role="status">
+              {all.length - items.length} finding{all.length - items.length === 1 ? '' : 's'} by other hands hidden while you read {hand.agent.name}’s.{' '}
+              <button type="button" onClick={() => onBy('')}>Show everyone</button>
+            </p>
+          ) : null}
+          {shown.map(finding)}
+          {edition.throughLine || edition.watchNext?.length ? (
+            <section className="edition-take" aria-label="The take">
+              {edition.throughLine ? (
+                <div>
+                  <h2>What it adds up to</h2>
+                  <p className="edition-take__line">{edition.throughLine}</p>
+                </div>
+              ) : null}
+              {edition.watchNext?.length ? (
+                <div>
+                  <h2>Watching for next time</h2>
+                  <ul>
+                    {edition.watchNext.map(line => <li key={line}>{line}</li>)}
+                  </ul>
+                </div>
+              ) : null}
+            </section>
+          ) : null}
+          <footer className="edition-receipt">
+            <p className="edition-receipt__line">
+              {kept ? `You kept ${kept} of ${all.length}. ` : ''}
+              {closed ? 'That’s the whole issue.' : 'That’s the issue so far.'}
+            </p>
+            <nav className="edition-receipt__run" aria-label="Other issues">
+              {before ? <Link to={issuePath(before)}>← {issueLine({ ...before, issueLabel }) || windowLine(before)}</Link> : <span />}
+              {after
+                ? <Link to={issuePath(after)}>{issueLine({ ...after, issueLabel }) || windowLine(after)} →</Link>
+                : <span className="edition-receipt__ahead">{aheadLine(row, issueLabel)}</span>}
+            </nav>
+            <ThoughtComposer {...thoughts} itemId="" label="What stayed with you?" />
+          </footer>
         </>
-      )}
+      ) : null}
       {pending ? (
         <div className="reading-arrivals" role="status">
           <button onClick={absorb}>
-            {newCount
-              ? `${newCount} finding${newCount === 1 ? '' : 's'} added`
-              : 'This issue has an update'}{' '}
-            · Show
+            {newCount ? `${newCount} finding${newCount === 1 ? '' : 's'} added` : 'This issue has an update'} · Show
           </button>
         </div>
       ) : null}
@@ -472,10 +403,8 @@ export default function EditionReading({
           style={{ top: selection.top, left: selection.left }}
           onMouseDown={(event) => event.preventDefault()}
           onClick={() => {
-            const item = items.find((item) => item.itemId === selection.itemId);
-            const origin = document
-              .getElementById(findingAnchor(item.itemId))
-              ?.querySelector('.reading-actions button:last-child');
+            const item = items.find((row) => row.itemId === selection.itemId);
+            const origin = document.getElementById(findingAnchor(item.itemId))?.querySelector('.reading-actions button:last-child');
             openPeek(item, 'thought', origin, selection.quote);
             window.getSelection()?.removeAllRanges();
           }}
@@ -483,11 +412,11 @@ export default function EditionReading({
           Leave a thought
         </button>
       ) : null}
-      {currentPeek ? (
+      {sideItem ? (
         <SourcePeek
-          key={`${currentPeek.itemId}:${shown.view}`}
-          item={currentPeek}
-          {...shown}
+          key={`${sideItem.itemId}:${side.view}`}
+          item={sideItem}
+          {...side}
           onClose={() => (peek ? setPeek(null) : onItem(focusItem))}
           thoughtProps={thoughts}
         />

@@ -1,9 +1,6 @@
 import React, { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
-/* The five powers, named for the thing you are looking at. */
-const NAMES = ['The source', 'A finding', 'An issue', 'A paper', 'Your papers'];
-
 const isTyping = target => target?.matches?.('input, textarea, select, [contenteditable="true"]');
 
 /* A target is a path, or a function when only the page knows where "closer"
@@ -11,15 +8,16 @@ const isTyping = target => target?.matches?.('input, textarea, select, [contente
 const go = (navigate, target) => (typeof target === 'function' ? target() : navigate(target));
 
 /**
- * One continuous zoom, from every paper you keep down to the sentence a
- * finding rests on. Each step is a URL, so any level can be sent, bookmarked
- * or reopened where you left it.
+ * The scale you are reading at, in words: every paper you keep at the top,
+ * the passage a finding rests on at the bottom, and where you are marked
+ * between them. The rungs above are a tap away; the ones below are named so
+ * you know what closer means. Each rung is a URL, so any of them can be sent,
+ * bookmarked or reopened.
  *
- * The trail says where you are, the counter says how close, and the same keys
- * work at every power: [ and ] (or − and +) step, Esc steps out, P powers
- * through what is new.
+ * The same keys work at every scale: Esc (or [ and −) steps out, ] (or +)
+ * steps in, P powers through what is new.
  */
-export default function EditionZoom({ level, trail = [], out = null, into = null, power = '' }) {
+export default function EditionZoom({ rungs = [], at = 0, out = null, into = null, power = '' }) {
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -40,26 +38,22 @@ export default function EditionZoom({ level, trail = [], out = null, into = null
   }, [navigate, out, into, power]);
 
   return (
-    <nav className="edition-zoom" aria-label="Where you are in Editions">
-      <ol className="edition-zoom__trail">
-        {trail.map(({ label, to }, index) => (
-          <li key={`${index}:${label}`}>
-            {to ? <Link to={to}>{label}</Link> : <span aria-current="page">{label}</span>}
+    <nav className="edition-scale" aria-label="Where you are in Editions">
+      <ol>
+        {rungs.map(({ label, to }, index) => (
+          <li key={index}>
+            {index === at ? <span aria-current="location">{label}</span>
+              : index > at ? <span className="edition-scale__ahead">{label}</span>
+                : to ? <Link to={to}>{label}</Link> : <span>{label}</span>}
           </li>
         ))}
       </ol>
       {power ? (
-        <Link className="edition-zoom__power" to={power}>
+        <Link className="edition-scale__power" to={power}>
           Power through <kbd>P</kbd>
         </Link>
       ) : null}
-      <div className="edition-zoom__dial">
-        <button type="button" aria-label="Step out" disabled={!out} onClick={() => go(navigate, out)}>−</button>
-        <span className="edition-zoom__power-of" title={NAMES[level]} aria-label={`Zoom: ${NAMES[level]}`}>
-          10<sup>{level}</sup>
-        </span>
-        <button type="button" aria-label="Step in" disabled={!into} onClick={() => go(navigate, into)}>+</button>
-      </div>
+      <p className="edition-scale__keys">Esc steps out<br />J and K step through</p>
     </nav>
   );
 }
