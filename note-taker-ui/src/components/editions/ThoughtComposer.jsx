@@ -64,11 +64,14 @@ function ScopedThoughtComposer({ editionId, itemId, quote = '', label, thoughts,
   const [receipt, setReceipt] = useState('');
   const [conflict, setConflict] = useState(false);
   const [incoming, setIncoming] = useState(null);
+  const [adoptedQuote, setAdoptedQuote] = useState(null);
   const live = useRef(true);
   useEffect(() => { live.current = true; return () => { live.current = false; }; }, []);
   const isCurrent = () => live.current && currentAccountId() === accountId;
   const text = draft?.content ?? saved?.content ?? '';
-  const selected = quote || draft?.quote || saved?.quote || '';
+  const selected = adoptedQuote?.selection === quote ? adoptedQuote.value : quote || draft?.quote || saved?.quote || '';
+  const latestText = useRef(text);
+  latestText.current = text;
   const storeDraft = next => {
     setDraft(next);
     setReceipt(writeEditionLocal(editionId, draftKey, next)
@@ -80,10 +83,12 @@ function ScopedThoughtComposer({ editionId, itemId, quote = '', label, thoughts,
   };
   const save = async () => {
     if (!isCurrent()) return;
+    const attempt = { content: text, quote: selected, revision: draft?.revision ?? saved?.revision ?? 0 };
+    storeDraft(attempt);
     setBusy(true);
     setError('');
     try {
-      const row = await saveEditionThought(editionId, { itemId, content: text, quote: selected, revision: draft?.revision ?? saved?.revision ?? 0 });
+      const row = await saveEditionThought(editionId, { itemId, ...attempt });
       if (!isCurrent()) return;
       onSaved(row);
       setDraft(null);
@@ -103,6 +108,8 @@ function ScopedThoughtComposer({ editionId, itemId, quote = '', label, thoughts,
     }
   };
   const reviewSaved = async () => {
+    if (!isCurrent()) return;
+    setIncoming(null);
     setBusy(true);
     try {
       const rows = await reload();
@@ -119,14 +126,17 @@ function ScopedThoughtComposer({ editionId, itemId, quote = '', label, thoughts,
     }
   };
   const copyDraft = async () => {
+    if (!isCurrent()) return;
+    const copiedText = text;
     try {
-      await navigator.clipboard.writeText(text);
-      if (isCurrent()) setReceipt('Draft copied');
+      await navigator.clipboard.writeText(copiedText);
+      if (isCurrent() && latestText.current === copiedText) setReceipt('Draft copied');
     } catch (_) {
-      if (isCurrent()) setError('Copy did not succeed. Select your words to copy them, or download the draft.');
+      if (isCurrent() && latestText.current === copiedText) setError('Copy did not succeed. Select your words to copy them, or download the draft.');
     }
   };
   const downloadDraft = () => {
+    if (!isCurrent()) return;
     const url = URL.createObjectURL(new Blob([text], { type: 'text/plain;charset=utf-8' }));
     const link = document.createElement('a');
     link.href = url;
@@ -166,6 +176,7 @@ function ScopedThoughtComposer({ editionId, itemId, quote = '', label, thoughts,
         <button disabled={busy} onClick={() => {
           if (!isCurrent()) return;
           onSaved(incoming);
+          setAdoptedQuote({ selection: quote, value: incoming.quote || '' });
           setDraft(null);
           const cleared = writeEditionLocal(editionId, draftKey, null);
           setIncoming(null); setConflict(false); setError('');

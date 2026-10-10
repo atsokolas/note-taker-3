@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import ThoughtComposer, { useEditionThoughts } from './ThoughtComposer';
 import { getEditionThoughts, saveEditionThought } from '../../api/editions';
 import { readEditionLocal, writeEditionLocal } from './editionReadingState';
@@ -39,9 +39,9 @@ it('renders source text safely, excluding executable or hidden payloads', () => 
 });
 
 const deferred = () => { let resolve; let reject; const promise = new Promise((a, b) => { resolve = a; reject = b; }); return { promise, resolve, reject }; };
-function Harness({ editionId = 'e', itemId = 'i' }) {
+function Harness({ editionId = 'e', itemId = 'i', quote = '' }) {
   const state = useEditionThoughts(editionId);
-  return <ThoughtComposer {...state} itemId={itemId} label="Your thought" />;
+  return <ThoughtComposer {...state} itemId={itemId} quote={quote} label="Your thought" />;
 }
 it('tells the truth when storage fails, and does not discard words on failed conflict reload', async () => {
   const storage = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('denied'); });
@@ -184,4 +184,82 @@ it('a failed clipboard copy leaves the draft and download option available', asy
   expect(screen.getByRole('textbox')).toHaveValue('Copy these exact words.');
   expect(screen.getByRole('button', { name: 'Download draft' })).toBeEnabled();
   delete navigator.clipboard;
+});
+
+it('freezes an unchanged save attempt before a conflict review updates the saved rows', async () => {
+  getEditionThoughts.mockResolvedValueOnce([{ itemId: 'i', content: 'Original saved words', revision: 1 }])
+    .mockResolvedValueOnce([{ itemId: 'i', content: 'Other session words', revision: 2 }]);
+  saveEditionThought.mockRejectedValue({ response: { status: 409 } });
+  render(<Harness />);
+  await waitFor(() => expect(screen.getByRole('textbox')).toHaveValue('Original saved words'));
+  fireEvent.click(screen.getByRole('button', { name: 'Save thought' }));
+  await screen.findByRole('alert');
+  fireEvent.click(screen.getByRole('button', { name: 'Review saved version' }));
+  await screen.findByRole('region', { name: 'Choose a thought version' });
+  expect(screen.getByRole('textbox')).toHaveValue('Original saved words');
+  expect(screen.getByText('Original saved words', { selector: 'p' })).toBeInTheDocument();
+  expect(screen.getByText('Other session words')).toBeInTheDocument();
+  expect(readEditionLocal('e', 'draft:i').content).toBe('Original saved words');
+});
+it.each(['offline', 'missing'])('invalidates a previous incoming choice when a second review is %s', async reason => {
+  const reload = jest.fn().mockResolvedValueOnce([{ itemId: 'i', content: 'Incoming words', revision: 2 }]);
+  if (reason === 'offline') reload.mockRejectedValueOnce(new Error('offline'));
+  else reload.mockResolvedValueOnce([]);
+  saveEditionThought.mockRejectedValue({ response: { status: 409 } });
+  render(<ThoughtComposer editionId="e" itemId="i" label="Your thought" thoughts={[]} reload={reload} />);
+  fireEvent.change(screen.getByRole('textbox'), { target: { value: 'My draft' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save thought' })); await screen.findByRole('alert');
+  fireEvent.click(screen.getByRole('button', { name: 'Review saved version' }));
+  await screen.findByRole('region', { name: 'Choose a thought version' });
+  fireEvent.click(screen.getByRole('button', { name: 'Review saved version' }));
+  await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('could not load'));
+  expect(screen.queryByRole('button', { name: 'Use saved version instead' })).toBeNull();
+  expect(screen.getByRole('textbox')).toHaveValue('My draft');
+});
+it('does not label newer memory-only words copied when an older clipboard request completes', async () => {
+  const pending = deferred();
+  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: jest.fn(() => pending.promise) } });
+  const storage = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('denied'); });
+  render(<ThoughtComposer editionId="e" itemId="i" label="Your thought" thoughts={[]} />);
+  fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Old copy' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Copy draft' }));
+  fireEvent.change(screen.getByRole('textbox'), { target: { value: 'New memory-only words' } });
+  await act(async () => pending.resolve());
+  expect(navigator.clipboard.writeText).toHaveBeenCalledWith('Old copy');
+  expect(screen.getByRole('status')).toHaveTextContent('Draft not stored');
+  storage.mockRestore(); delete navigator.clipboard;
+});
+it('does not begin recovery actions after an account switch before rerender', async () => {
+  const reload = jest.fn();
+  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: jest.fn() } });
+  const create = jest.fn(); URL.createObjectURL = create;
+  saveEditionThought.mockRejectedValue({ response: { status: 409 } });
+  render(<ThoughtComposer editionId="e" itemId="i" label="Your thought" thoughts={[]} reload={reload} />);
+  fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Owner words' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save thought' })); await screen.findByRole('alert');
+  localStorage.setItem('token', tokenFor('other'));
+  fireEvent.click(screen.getByRole('button', { name: 'Copy draft' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Download draft' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Review saved version' }));
+  expect(navigator.clipboard.writeText).not.toHaveBeenCalled(); expect(create).not.toHaveBeenCalled();
+  expect(reload).not.toHaveBeenCalled(); delete navigator.clipboard; delete URL.createObjectURL;
+});
+
+it.each(['Incoming saved quote', ''])('adopts the whole saved version, including quote %j, until another passage is explicitly selected', async incomingQuote => {
+  getEditionThoughts.mockResolvedValue([{ itemId: 'i', content: 'Saved words', quote: incomingQuote, revision: 2 }]);
+  saveEditionThought.mockRejectedValueOnce({ response: { status: 409 } })
+    .mockResolvedValue({ itemId: 'i', content: 'Saved words', quote: incomingQuote, revision: 3 });
+  const view = render(<Harness quote="Different selected passage" />);
+  await waitFor(() => expect(screen.getByRole('textbox')).toHaveValue('Saved words'));
+  fireEvent.change(screen.getByRole('textbox'), { target: { value: 'My draft' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save thought' })); await screen.findByRole('alert');
+  fireEvent.click(screen.getByRole('button', { name: 'Review saved version' }));
+  await screen.findByRole('region', { name: 'Choose a thought version' });
+  fireEvent.click(screen.getByRole('button', { name: 'Use saved version instead' }));
+  expect(screen.queryByText('Different selected passage')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Save thought' }));
+  await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Saved privately'));
+  expect(saveEditionThought).toHaveBeenLastCalledWith('e', { itemId: 'i', content: 'Saved words', quote: incomingQuote, revision: 2 });
+  view.rerender(<Harness quote="New explicit selection" />);
+  expect(screen.getByText('New explicit selection')).toBeInTheDocument();
 });
