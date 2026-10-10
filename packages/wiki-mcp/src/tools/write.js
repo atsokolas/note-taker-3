@@ -17,11 +17,27 @@ const editionItemShape = z.object({
   sourceLabel: z.string().optional().describe('Publication or author.'),
   sourceDate: z.string().optional().describe('When it was published.'),
   note: z.string().optional().describe('Anything else worth saying: how it works, how strong the evidence is.'),
+  plain: z.string().max(280).optional().describe('The finding in one plain sentence for someone outside the field: what it means, not what it measured.'),
+  passage: z.string().max(1200).optional().describe('The source\'s own words the finding rests on, copied exactly; mark a cut with "…". Checked word for word when the reader saves the source, and never shown as a quotation unless it is there.'),
+  sourceKind: z.enum(['preprint', 'peer_reviewed', 'company', 'news', 'other']).optional().describe('What kind of source this is: an unreviewed preprint, peer-reviewed work, a company\'s own post, news reporting, or other.'),
+  confidence: z.enum(['high', 'moderate', 'low']).optional().describe('How sure the reader should be of the finding, given the source and its boundary.'),
+  figures: z.array(z.object({
+    label: z.string().min(1).max(60).describe('What the number is, in a few words, e.g. "Recovered after a failure".'),
+    value: z.string().min(1).max(24).describe('The number as the source gives it, e.g. "46.72%".')
+  })).max(3).optional().describe('Up to three numbers the finding turns on. Each must appear in the finding, passage or note, or the item is refused.'),
   itemId: z.string().optional().describe('Stable id, so a rewrite keeps the reader\'s saves.')
 });
 
 /* "I looked here and nothing met my bar": a section key, or a key with a
    line on why. Never an item, and never a count. */
+/* "You said watch X; here is what became of it." */
+const editionFollowUpsShape = z.array(z.object({
+  watch: z.string().min(1).describe('A line from the last issue\'s watch list, as it printed it.'),
+  status: z.enum(['happened', 'not_yet', 'dropped']).describe('It happened, it has not yet, or it is no longer worth watching.'),
+  note: z.string().max(280).optional().describe('One line on what happened, or why it was dropped.')
+})).describe('What became of the last issue\'s watch list. Each names a line it printed; one it never printed is refused.');
+const editionHeadlineShape = z.string().max(200).describe('What the week comes to, in one plain sentence a reader would say: the takeaway, not a topic.');
+
 const editionChecksShape = z.array(z.union([
   z.string().min(1),
   z.object({
@@ -159,9 +175,11 @@ export const writeTools = [
       checked: editionChecksShape.optional(),
       title: z.string().optional().describe('Overrides the paper name for this edition only.'),
       number: z.number().int().positive().optional().describe('Issue number.'),
+      headline: editionHeadlineShape.optional(),
       standfirst: z.string().optional().describe('In brief: what the week amounts to, in a few sentences.'),
       throughLine: z.string().optional().describe('What connects the items to each other.'),
-      watchNext: z.array(z.string()).optional().describe('What to watch next week.'),
+      watchNext: z.array(z.string()).optional().describe('What to watch next week. The next issue says what became of each line.'),
+      followUps: editionFollowUpsShape.optional(),
       writtenBy: z.string().optional().describe('How to sign the masthead. Defaults to the connected agent name.')
     },
     handler: (client, args) => client.createEdition(args)
@@ -189,11 +207,13 @@ export const writeTools = [
   },
   {
     name: 'file_edition_items',
-    description: 'Add what you found today to the issue this moment belongs to, WITHOUT resending what is already there. This is how a paper is maintained: file each morning and the issue fills up over its window. Noeis picks the issue from the topic\'s cadence, so two agents filing the same day file into the same one, and if another agent already filed the same link, your item is kept as a second reading beside theirs (your own repeats are skipped). Write your own finding and boundary; do not paraphrase theirs. Every item still needs its boundary. If you looked at a section and nothing met your bar, say so in `checked`. A section you leave silent reads to the reader as \'not reported\'. Send items, checked, or both. Requires an agent-write token.',
+    description: 'Add what you found today to the issue this moment belongs to, WITHOUT resending what is already there. This is how a paper is maintained: file each morning and the issue fills up over its window. Noeis picks the issue from the topic\'s cadence, so two agents filing the same day file into the same one, and if another agent already filed the same link, your item is kept as a second reading beside theirs (your own repeats are skipped). Write your own finding and boundary; do not paraphrase theirs. Every item still needs its boundary. If you looked at a section and nothing met your bar, say so in `checked`. A section you leave silent reads to the reader as \'not reported\'. Answer the last issue\'s watch list in `followUps`, and set the issue\'s `headline` once you have seen enough of the week (the newest one stands). Send any of these. Requires an agent-write token.',
     inputSchema: {
       profile: z.string().min(1).describe('Topic key, from list_edition_profiles.'),
       items: z.array(editionItemShape).optional().describe('Only the new findings. What is already filed stays. May be left out when you send checked.'),
       checked: editionChecksShape.optional(),
+      followUps: editionFollowUpsShape.optional(),
+      headline: editionHeadlineShape.optional(),
       title: z.string().optional().describe('Title, used only when this opens a new issue.'),
       standfirst: z.string().optional().describe('Standfirst, used only when this opens a new issue.')
     },

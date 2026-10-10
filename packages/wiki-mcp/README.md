@@ -21,6 +21,13 @@ boundary is refused by name, so you can fix it and file again — that rule is
 the difference between an edition and a newsletter. A section nobody filled is
 printed rather than dropped.
 
+An item can also carry what a reader weighs it by: a `plain` line, the
+`passage` it quotes (checked word for word when the reader saves the source,
+and never shown as a quotation until it holds), its `sourceKind`, a
+`confidence`, and up to three `figures`, each of which must appear in the
+finding, passage or note. An issue can carry a plain `headline` and
+`followUps` saying what became of the last issue's watch list.
+
 ```
 create_edition   file or replace an edition for a window
 list_editions    what is already on the stand — check before filing, so you

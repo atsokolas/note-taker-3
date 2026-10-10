@@ -1842,6 +1842,23 @@ const editionItemSchema = new mongoose.Schema({
      by mongoose, so the refusal can name the item instead of the path. */
   boundary: { type: String, required: true, trim: true },
   note: { type: String, default: '', trim: true },
+  /* The reader's layer, written by the agent: the finding in one plain
+     sentence, the source's own words it rests on, what kind of source it is,
+     how sure to be, and the numbers it turns on. All optional. */
+  plain: { type: String, default: '', trim: true },
+  passage: { type: String, default: '', trim: true },
+  /* Set by the server when the reader saves the source: whether the passage
+     is there, word for word. Empty until then. */
+  passageCheck: { type: String, enum: ['', 'found', 'missing'], default: '' },
+  sourceKind: { type: String, default: '', trim: true },
+  confidence: { type: String, default: '', trim: true },
+  figures: {
+    type: [new mongoose.Schema({
+      label: { type: String, required: true, trim: true },
+      value: { type: String, required: true, trim: true }
+    }, { _id: false })],
+    default: undefined
+  },
   /* Which agent filed this one. The masthead names whoever wrote the issue
      last, which stops being the whole truth the moment two agents keep the
      same paper — a section is entitled to its own byline. Stored as a string
@@ -1878,9 +1895,19 @@ const editionSchema = new mongoose.Schema({
   number: { type: Number, default: null },
   windowStart: { type: Date, required: true },
   windowEnd: { type: Date, required: true },
+  headline: { type: String, default: '', trim: true },
   standfirst: { type: String, default: '', trim: true },
   throughLine: { type: String, default: '', trim: true },
   watchNext: { type: [String], default: [] },
+  /* What became of the last issue's watch list, line by line. */
+  followUps: {
+    type: [new mongoose.Schema({
+      watch: { type: String, required: true, trim: true },
+      status: { type: String, enum: ['happened', 'not_yet', 'dropped'], required: true },
+      note: { type: String, default: '', trim: true }
+    }, { _id: false })],
+    default: undefined
+  },
   items: { type: [editionItemSchema], default: [] },
   /* "Looked here; nothing met the bar." One per section per filer, so an empty
      section can say which silence it is. Never an item, a count or an arrival. */

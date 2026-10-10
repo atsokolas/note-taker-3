@@ -66,6 +66,7 @@ const makeStore = () => {
     if (value?.$not?.$elemMatch) return !(row[key] || []).some(element => elementMatches(element, value.$not.$elemMatch));
     if (value?.$elemMatch) return (row[key] || []).some(element => elementMatches(element, value.$elemMatch));
     if (value instanceof Date) return new Date(row[key]).getTime() === value.getTime();
+    if (value?.$lt) return new Date(row[key]).getTime() < new Date(value.$lt).getTime();
     if (value && typeof value === 'object' && Array.isArray(value.$nin)) {
       const held = fieldOf(row, key);
       const haystack = Array.isArray(held) ? held : [held];
@@ -88,11 +89,25 @@ const makeStore = () => {
         const rejected = Promise.reject(error);
         return { then: (resolve, reject) => rejected.then(resolve, reject), lean: () => rejected };
       }
-      const row = () => rows.find(entry => matches(entry, query)) || null;
-      return {
-        then: (resolve, reject) => Promise.resolve(row() && attach(row())).then(resolve, reject),
-        lean: async () => (row() ? clone(row()) : null)
+      let order = null;
+      const row = () => {
+        const found = rows.filter(entry => matches(entry, query));
+        if (order) {
+          const [[key, direction]] = Object.entries(order);
+          found.sort((left, right) => direction * (new Date(left[key]) - new Date(right[key])));
+        }
+        return found[0] || null;
       };
+      const chain = {
+        then: (resolve, reject) => Promise.resolve(row() && attach(row())).then(resolve, reject),
+        lean: async () => (row() ? clone(row()) : null),
+        sort: (spec) => {
+          order = spec;
+          return chain;
+        },
+        select: () => chain
+      };
+      return chain;
     },
     find: (query) => {
       const found = rows.filter(row => matches(row, query));
@@ -305,6 +320,44 @@ describe('the newsstand', () => {
     });
   });
 
+  /* "Watch for X" is a promise the next issue keeps: it says what became of
+     each line, and only of lines the last issue printed. */
+  describe('what became of last week’s watch list', () => {
+    const lastWeek = () => week({ watchNext: ['Whether UndoBench replicates', 'The next open-weight release'] });
+
+    it('answers the last issue’s lines, and refuses one it never printed', async () => {
+      asAgent = true;
+      await send('/api/editions', 'POST', lastWeek());
+      const next = { windowStart: '2026-09-08', windowEnd: '2026-09-14', headline: 'Recovery is the benchmark nobody runs.' };
+      const refused = await send('/api/editions', 'POST', week({ ...next, followUps: [{ watch: 'Something else', status: 'happened' }] }));
+      expect(refused.status).toBe(400);
+      expect(refused.body.error).toMatch(/It printed: Whether UndoBench replicates/);
+      const res = await send('/api/editions', 'POST', week({ ...next, followUps: [{ watch: 'whether undobench replicates', status: 'not_yet' }] }));
+      expect(res.status).toBe(201);
+      expect(res.body.headline).toBe('Recovery is the benchmark nobody runs.');
+      expect(res.body.followUps).toEqual([{ watch: 'Whether UndoBench replicates', status: 'not_yet', note: '' }]);
+    });
+
+    /* Filed over the week: the newest answer to a line wins, and so does the
+       newest headline, which has seen the most. */
+    it('takes follow-ups and a headline from filings, newest winning', async () => {
+      asAgent = true;
+      await send('/api/editions', 'POST', lastWeek());
+      const file = body => send('/api/editions/file', 'POST', { profile: 'this_week_in_ai', now: '2026-09-16', ...body });
+      const opened = await file({ followUps: [{ watch: 'Whether UndoBench replicates', status: 'not_yet' }], headline: 'First guess.' });
+      expect(opened.status).toBe(201);
+      const later = await file({
+        items: [item({ url: 'https://example.com/three' })],
+        followUps: [{ watch: 'Whether UndoBench replicates', status: 'happened', note: 'A second lab got 45%.' }],
+        headline: 'Recovery is the benchmark nobody runs.'
+      });
+      expect(later.status).toBe(200);
+      expect(later.body.headline).toBe('Recovery is the benchmark nobody runs.');
+      expect(later.body.followUps).toEqual([{ watch: 'Whether UndoBench replicates', status: 'happened', note: 'A second lab got 45%.' }]);
+      expect((await file({ followUps: [{ watch: 'Nope', status: 'dropped' }] })).status).toBe(400);
+    });
+  });
+
   describe('the save door', () => {
     it('takes a source across into the library and remembers that it did', async () => {
       asAgent = true;
@@ -367,6 +420,34 @@ describe('the newsstand', () => {
       const res = await send(`/api/editions/${made.body._id}/items/item-1/save`, 'POST');
       expect(res.status).toBe(403);
       expect(articles).toHaveLength(0);
+    });
+
+    /* Saving is when the server first reads the source, so it is when the
+       agent's passage is held to it, word for word. */
+    it('checks the passage against the source it saves', async () => {
+      readArticle = async () => ({ ok: true, url: '', title: 'UndoBench', content: 'Results.\n\nAgents reached a task competence of 83.54% across workflows.', error: '' });
+      asAgent = true;
+      const made = await send('/api/editions', 'POST', week({
+        items: [
+          item({ passage: 'a task competence of 83.54%' }),
+          item({ title: 'A second', url: 'https://example.com/two', passage: 'recovery doubled after retries' })
+        ]
+      }));
+      expect(made.body.items.map(entry => entry.passageCheck)).toEqual(['unchecked', 'unchecked']);
+      asAgent = false;
+      await send(`/api/editions/${made.body._id}/items/item-1/save`, 'POST');
+      const res = await send(`/api/editions/${made.body._id}/items/item-2/save`, 'POST');
+      expect(res.body.edition.items.map(entry => entry.passageCheck)).toEqual(['found', 'missing']);
+    });
+
+    it('leaves a passage unchecked when the source could not be read', async () => {
+      readArticle = async () => ({ ok: false, url: '', title: '', content: '', error: 'That source request failed with HTTP 403.' });
+      asAgent = true;
+      const made = await send('/api/editions', 'POST', week({ items: [item({ passage: 'a task competence of 83.54%' }), item({ title: 'A second', url: 'https://example.com/two' })] }));
+      asAgent = false;
+      const res = await send(`/api/editions/${made.body._id}/items/item-1/save`, 'POST');
+      expect(res.body.edition.items[0].passageCheck).toBe('unchecked');
+      expect(res.body.edition.items[1].passageCheck).toBe('');
     });
 
     it('says so when the item is not in the paper', async () => {
@@ -1143,7 +1224,7 @@ describe('an empty section says which silence it is', () => {
   it('still refuses a filing that says nothing', async () => {
     const filed = await file({ items: [], checked: [] });
     expect(filed.status).toBe(400);
-    expect(filed.body.error).toMatch(/items .* or checked/);
+    expect(filed.body.error).toMatch(/items .*checked .*followUps .*or a headline/);
   });
 
   it('refuses a section the paper does not have, and names the ones it does', async () => {

@@ -952,13 +952,10 @@ export class NoeisClient {
      what the API actually settled — added/alreadyHeld/checksAdded — not a
      second story. A filing must say something: what was found, or where
      nothing met the bar. */
-  fileEditionItems({ profile, items, checked, title, standfirst, now } = {}) {
-    if (!items?.length && !checked?.length) {
-      return Promise.reject(new NoeisApiError('Send items, checked, or both: what you found, or the sections where nothing met your bar.', { status: 400 }));
-    }
+  fileEditionItems({ profile, items, checked, followUps, headline, title, standfirst, now } = {}) {
     return this.request('/api/editions/file', {
       method: 'POST',
-      body: { profile, items, checked, title, standfirst, now }
+      body: { profile, items, checked, followUps, headline, title, standfirst, now }
     });
   }
 

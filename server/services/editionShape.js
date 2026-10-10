@@ -144,6 +144,49 @@ const canonicalUrl = (value, field) => {
 
 const itemId = (value, index) => clean(value, 120) || `item-${index + 1}`;
 
+/* A word from a short list, or nothing. A word the reader would have to learn
+   is refused by name, with the list, so the agent can pick again. */
+const oneOf = (value, allowed, what, field) => {
+  const word = clean(value, 40).toLowerCase().replace(/[\s-]+/g, '_');
+  if (word && !allowed.includes(word)) {
+    throw new EditionShapeError(`${what} is "${value}". Use one of: ${allowed.join(', ')}.`, { field });
+  }
+  return word;
+};
+
+/* What kind of thing the source is, and how sure the agent is: the two facts
+   a reader weighs a finding by before reading a word of it. */
+const SOURCE_KINDS = Object.freeze(['preprint', 'peer_reviewed', 'company', 'news', 'other']);
+const CONFIDENCES = Object.freeze(['high', 'moderate', 'low']);
+const MAX_FIGURES = 3;
+
+const numberIn = text => String(text || '').replace(/(\d),(?=\d{3})/g, '$1');
+
+/* The numbers a finding turns on. Each has to be one the agent wrote down in
+   the finding, the passage or the note: a key figure is a quotation, and a
+   number nobody quoted is how a paper starts making things up. */
+const normalizeFigures = (raw, said, where) => {
+  const figures = Array.isArray(raw) ? raw : [];
+  if (figures.length > MAX_FIGURES) {
+    throw new EditionShapeError(`${where} has ${figures.length} key figures; keep the ${MAX_FIGURES} it turns on.`, { field: 'figures' });
+  }
+  return figures.map((figure, index) => {
+    const label = clean(figure?.label, 60);
+    const value = clean(figure?.value, 24);
+    if (!label || !value) {
+      throw new EditionShapeError(`${where} key figure ${index + 1} needs a label and a value.`, { field: 'figures' });
+    }
+    const number = numberIn(value).match(/\d+(?:\.\d+)?/)?.[0];
+    if (number && !numberIn(said).includes(number)) {
+      throw new EditionShapeError(
+        `${where} key figure "${label}" (${value}) is not in its finding, passage or note. Write the number where you quote it.`,
+        { field: 'figures' }
+      );
+    }
+    return { label, value };
+  });
+};
+
 /**
  * One item, held to the standard.
  *
@@ -177,6 +220,9 @@ const normalizeItem = (raw = {}, index = 0, profile) => {
     );
   }
 
+  const note = clean(raw.note, 4000);
+  const passage = clean(raw.passage, 1200);
+
   return {
     itemId: itemId(raw.itemId || raw.id, index),
     title,
@@ -188,8 +234,59 @@ const normalizeItem = (raw = {}, index = 0, profile) => {
     boundary,
     /* Everything else the agent wanted to say, kept as written. The standard
        is a floor, not a form. */
-    note: clean(raw.note, 4000)
+    note,
+    /* The finding for someone outside the field, in one sentence. */
+    plain: clean(raw.plain, 280),
+    /* The source's own words the finding rests on. Checked against the source
+       when the reader saves it, and never shown as a quotation until it holds. */
+    passage,
+    sourceKind: oneOf(raw.sourceKind, SOURCE_KINDS, `${where} ("${title}") source kind`, 'sourceKind'),
+    confidence: oneOf(raw.confidence, CONFIDENCES, `${where} ("${title}") confidence`, 'confidence'),
+    figures: normalizeFigures(raw.figures, [finding, passage, note].join(' '), `${where} ("${title}")`)
   };
+};
+
+/**
+ * What became of last issue's watch list.
+ *
+ * A paper that says "watch for X" and never mentions X again has made a
+ * promise it can forget. A follow-up names the line it answers and says
+ * whether it happened, has not yet, or is no longer worth watching.
+ */
+const FOLLOW_UP_STATUSES = Object.freeze(['happened', 'not_yet', 'dropped']);
+
+const normalizeFollowUps = (raw) => (Array.isArray(raw) ? raw : []).map((entry, index) => {
+  const watch = clean(entry?.watch, 400);
+  const where = `Follow-up ${index + 1}`;
+  if (!watch) {
+    throw new EditionShapeError(`${where} needs the watch line it answers, as the last issue printed it.`, { field: 'followUps' });
+  }
+  const status = oneOf(entry?.status, FOLLOW_UP_STATUSES, `${where} ("${watch}") status`, 'followUps');
+  if (!status) {
+    throw new EditionShapeError(`${where} ("${watch}") needs a status: ${FOLLOW_UP_STATUSES.join(', ')}.`, { field: 'followUps' });
+  }
+  return { watch, status, note: clean(entry?.note, 280) };
+});
+
+/* A follow-up answers a line the last issue actually printed, so the reader
+   sees the promise and what became of it side by side. Matched without regard
+   to case, and stored as printed. A newer answer to the same line wins. */
+const answerWatchList = (followUps = [], watchNext = [], held = []) => {
+  const printed = new Map((watchNext || []).map(line => [clean(line, 400).toLowerCase(), clean(line, 400)]));
+  const answered = new Map((held || []).map(entry => [entry.watch, entry.toObject ? entry.toObject() : entry]));
+  followUps.forEach((entry) => {
+    const watch = printed.get(entry.watch.toLowerCase());
+    if (!watch) {
+      throw new EditionShapeError(
+        printed.size
+          ? `"${entry.watch}" was not on the last issue's watch list. It printed: ${[...printed.values()].join(' / ')}.`
+          : `"${entry.watch}" answers nothing: the last issue printed no watch list.`,
+        { field: 'followUps' }
+      );
+    }
+    answered.set(watch, { ...entry, watch });
+  });
+  return [...answered.values()];
 };
 
 /**
@@ -244,9 +341,12 @@ const normalizeEdition = (raw = {}, { profiles = null } = {}) => {
     number: Number.isFinite(Number(raw.number)) && Number(raw.number) > 0 ? Math.floor(Number(raw.number)) : null,
     windowStart,
     windowEnd,
+    /* What the week comes to, in words the reader would use. */
+    headline: clean(raw.headline, 200),
     standfirst: clean(raw.standfirst, 2400),
     throughLine: clean(raw.throughLine, 2400),
     watchNext: cleanList(raw.watchNext),
+    followUps: normalizeFollowUps(raw.followUps),
     items
   };
 };
@@ -369,6 +469,23 @@ const publicText = (value = '', limit = 2000) => String(value == null ? '' : val
   .trim()
   .slice(0, limit);
 
+/* The reader's layer of a finding, each part present only when an agent
+   wrote it, so a share published before it existed keeps its hash. A passage
+   goes out only once it was found in the source. */
+const plainLayerOf = (item = {}) => {
+  const figures = (item.figures || []).map(figure => ({
+    label: publicText(figure.label, 60),
+    value: publicText(figure.value, 24)
+  }));
+  return Object.fromEntries(Object.entries({
+    plain: publicText(item.plain, 280),
+    passage: item.passageCheck === 'found' ? publicText(item.passage, 1200) : '',
+    sourceKind: publicText(item.sourceKind, 40),
+    confidence: publicText(item.confidence, 40),
+    figures: figures.length ? figures : ''
+  }).filter(([, value]) => value));
+};
+
 const projectPublicItem = (item = {}) => ({
   itemId: publicText(item.itemId, 120),
   title: publicText(item.title, 400),
@@ -379,6 +496,7 @@ const projectPublicItem = (item = {}) => ({
   finding: publicText(item.finding, 2000),
   boundary: publicText(item.boundary, 2000),
   note: publicText(item.note, 4000),
+  ...plainLayerOf(item),
   /* A second agent's reading is editorial, like the first, and both hands are
      named by what the agent is, never by the label typed for its token.
      Absent when there is none, so an older share keeps its hash. */
@@ -448,8 +566,16 @@ const projectPublicEdition = (
       : null,
     windowStart: dayIso(edition.windowStart),
     windowEnd: dayIso(edition.windowEnd),
+    ...(publicText(edition.headline, 200) ? { headline: publicText(edition.headline, 200) } : {}),
     standfirst: publicText(edition.standfirst, 2400),
     throughLine: publicText(edition.throughLine, 2400),
+    ...(edition.followUps?.length ? {
+      followUps: edition.followUps.map(entry => ({
+        watch: publicText(entry.watch, 400),
+        status: publicText(entry.status, 20),
+        note: publicText(entry.note, 280)
+      }))
+    } : {}),
     watchNext: (Array.isArray(edition.watchNext) ? edition.watchNext : [])
       .map(line => publicText(line, 400))
       .filter(Boolean)
@@ -503,6 +629,8 @@ const retainHeldItems = (incoming = [], existingItems = [], writtenBy = {}, now 
       filedAt: before?.filedAt || now,
       ...(before?.readings?.length ? { readings: before.readings } : {}),
       savedArticleId: before?.savedArticleId || null,
+      /* A check holds for the words it checked, not for whatever replaces them. */
+      passageCheck: before?.passage === item.passage ? before?.passageCheck || '' : '',
       readerState: readerStateOf(before)
     };
     if (used.has(next.itemId)) {
@@ -512,6 +640,19 @@ const retainHeldItems = (incoming = [], existingItems = [], writtenBy = {}, now 
     return next;
   });
 };
+
+/* What the owner's own pages print of the reader's layer. A passage nobody
+   has checked yet is still sent, with the check, so the page can say so. */
+const PASSAGE_CHECKS = Object.freeze(['found', 'missing']);
+
+const readerLayerOf = (item = {}) => ({
+  plain: item.plain || '',
+  passage: item.passage || '',
+  passageCheck: PASSAGE_CHECKS.includes(item.passageCheck) ? item.passageCheck : (item.passage ? 'unchecked' : ''),
+  sourceKind: item.sourceKind || '',
+  confidence: item.confidence || '',
+  figures: (item.figures || []).map(({ label, value }) => ({ label, value }))
+});
 
 const inboxSortAt = (item = {}, edition = {}) => {
   const filed = Date.parse(item.filedAt || 0);
@@ -559,6 +700,7 @@ const collectInbox = (
           finding: item.finding,
           boundary: item.boundary,
           note: item.note || '',
+          ...readerLayerOf(item),
           filedBy: item.filedBy?.label || '',
           filedByRuntime: item.filedBy?.runtime || '',
           savedArticleId: item.savedArticleId ? String(item.savedArticleId) : null
@@ -591,6 +733,7 @@ const collectInbox = (
 };
 
 module.exports = {
+  answerWatchList,
   EDITION_PROFILES,
   EDITION_PROFILE_KEYS,
   profileKeysFor,
@@ -607,10 +750,12 @@ module.exports = {
   itemIsNew,
   itemIsReady,
   normalizeEdition,
+  normalizeFollowUps,
   normalizeItem,
   projectPublicEdition,
   publicHttpUrl,
   READER_STATUSES,
+  readerLayerOf,
   resolveEditionProfile,
   retainHeldItems,
   sectionLabel
