@@ -14,8 +14,10 @@ const readChatgptOAuthConfig = (env = process.env) => {
   const resource = secureUrl(env.NOEIS_CHATGPT_MCP_RESOURCE || `${issuer}/mcp`);
   const appUrl = secureUrl(env.NOEIS_APP_URL || env.FRONTEND_URL || 'https://www.noeis.io', { origin: true });
   const internalApiUrl = secureUrl(env.NOEIS_MCP_INTERNAL_API_URL || `http://127.0.0.1:${env.PORT || 3000}`, { origin: true });
+  // Open clients: any MCP app may register itself (RFC 7591); a person still approves every connection.
+  const openClients = env.NOEIS_OAUTH_OPEN_CLIENTS === 'true';
   const rows = JSON.parse(env.NOEIS_CHATGPT_OAUTH_CLIENTS || '[]');
-  if (!Array.isArray(rows) || !rows.length) throw new Error('Configure at least one predefined ChatGPT OAuth client.');
+  if (!Array.isArray(rows) || (!rows.length && !openClients)) throw new Error('Configure at least one predefined OAuth client or open registration.');
   const clients = new Map();
   for (const row of rows) {
     if (typeof row.client_id !== 'string' || !row.client_id || row.client_id.length > 500 || clients.has(row.client_id)) {
@@ -51,12 +53,16 @@ const readChatgptOAuthConfig = (env = process.env) => {
     consent: {
       global: integer('NOEIS_OAUTH_CONSENT_GLOBAL_PER_MINUTE', 2400, 100000)
     },
+    register: {
+      global: integer('NOEIS_OAUTH_REGISTER_GLOBAL_PER_MINUTE', 60, 10000)
+    },
+    registeredClients: integer('NOEIS_OAUTH_REGISTERED_CLIENTS_MAX', 10000, 100000),
     pending: {
       global: integer('NOEIS_OAUTH_PENDING_GLOBAL', 2000, 10000),
       client: integer('NOEIS_OAUTH_PENDING_CLIENT', 1000, 10000)
     },
     refreshRotations: integer('NOEIS_OAUTH_MAX_REFRESH_ROTATIONS', 2048, 4096)
   };
-  return { issuer, resource, appUrl, internalApiUrl, clients, limits, accessTtlSec: 3600, refreshTtlSec: 30 * 86400 };
+  return { issuer, resource, appUrl, internalApiUrl, clients, openClients, limits, accessTtlSec: 3600, refreshTtlSec: 30 * 86400 };
 };
 module.exports = { readChatgptOAuthConfig };
