@@ -204,6 +204,32 @@ it('counts a finding read only once the reader stays on it', async () => {
   expect(api.setEditionItemState).toHaveBeenCalledWith('e1', 'one', 'opened');
   jest.useRealTimers();
 });
+it('counts no time while the tab is hidden', async () => {
+  mockSearch = 'item=one';
+  Element.prototype.scrollIntoView = jest.fn();
+  jest.useFakeTimers();
+  const hidden = jest.spyOn(document, 'hidden', 'get').mockReturnValue(true);
+  render(<Editions />);
+  await screen.findByText(item.finding);
+  act(() => { jest.advanceTimersByTime(10000); });
+  expect(api.setEditionItemState).not.toHaveBeenCalled();
+  hidden.mockReturnValue(false);
+  act(() => { document.dispatchEvent(new Event('visibilitychange')); jest.advanceTimersByTime(4000); });
+  expect(api.setEditionItemState).toHaveBeenCalledWith('e1', 'one', 'opened');
+  hidden.mockRestore();
+  jest.useRealTimers();
+});
+it('does not turn a Later finding back into read', async () => {
+  mockSearch = 'item=one';
+  Element.prototype.scrollIntoView = jest.fn();
+  api.getEdition.mockResolvedValue({ ...edition, items: [{ ...item, readerStatus: 'later' }] });
+  jest.useFakeTimers();
+  render(<Editions />);
+  await screen.findByText(item.finding);
+  act(() => { jest.advanceTimersByTime(5000); });
+  expect(api.setEditionItemState).not.toHaveBeenCalled();
+  jest.useRealTimers();
+});
 it('lets Esc leave "Just read" without leaving the issue', async () => {
   render(<Editions />);
   await screen.findByText(item.finding);

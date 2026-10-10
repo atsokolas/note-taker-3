@@ -93,17 +93,30 @@ export default function EditionReading({
     if (dismiss) setResume(null);
   }, []);
   const loaded = Boolean(edition);
+  const latest = useRef(edition);
+  latest.current = edition;
   useEffect(() => {
     if (!loaded || !focusItem) return;
     const frame = requestAnimationFrame(() => jump(focusItem));
     /* Stepping past a finding is not reading it: it counts as read once the
-       reader has stayed on it a moment, so new counts hold while J skims. */
-    const read = setTimeout(() => {
-      Promise.resolve(setEditionItemState(issue._id, focusItem, 'opened')).catch(() => {});
-    }, READ_AFTER_MS);
+       reader has had it on screen a moment, so new counts hold while J skims
+       or the tab sits in the background. Only a new finding becomes read; a
+       Later or a Keep made meanwhile stands. */
+    let read;
+    const markRead = () => {
+      const status = latest.current?.items.find(row => row.itemId === focusItem)?.readerStatus || 'new';
+      if (status === 'new') Promise.resolve(setEditionItemState(issue._id, focusItem, 'opened')).catch(() => {});
+    };
+    const dwell = () => {
+      clearTimeout(read);
+      if (!document.hidden) read = setTimeout(markRead, READ_AFTER_MS);
+    };
+    dwell();
+    document.addEventListener('visibilitychange', dwell);
     return () => {
       cancelAnimationFrame(frame);
       clearTimeout(read);
+      document.removeEventListener('visibilitychange', dwell);
     };
     // An explicit incoming finding link wins over a remembered place.
   }, [loaded, focusItem, issue._id, jump]);

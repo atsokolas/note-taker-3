@@ -210,6 +210,12 @@ export const publicSourceHref = (value) => {
   }
 };
 
+/* A passage runs word for word only between its elisions ("…"), so it is
+   found, linked and marked by its first unbroken stretch. */
+export const passageOpening = (passage = '') => (
+  String(passage).split(/…|\.{3}/).map(piece => piece.replace(/\s+/g, ' ').trim()).find(Boolean) || ''
+);
+
 /**
  * The original, opened at the passage a finding rests on: a text fragment of
  * its opening words, which the browser scrolls to and marks. Only a passage
@@ -217,9 +223,9 @@ export const publicSourceHref = (value) => {
  */
 export const passageHref = (item = {}) => {
   const href = publicSourceHref(item.url);
-  if (!href || item.passageCheck !== 'found' || !item.passage) return href;
+  if (!href || item.passageCheck !== 'found' || !passageOpening(item.passage)) return href;
   /* Up to the first elision, so the fragment is words the source really runs together. */
-  const opening = String(item.passage).split(/…|\.{3}/)[0].trim().split(/\s+/).slice(0, 8).join(' ');
+  const opening = passageOpening(item.passage).split(' ').slice(0, 8).join(' ');
   return `${href.split('#')[0]}#:~:text=${encodeURIComponent(opening).replace(/-/g, '%2D')}`;
 };
 

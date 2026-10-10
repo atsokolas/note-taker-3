@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../api';
 import { getAuthHeaders } from '../../hooks/useAuthHeaders';
-import { passageHref, sourceLine } from '../../pages/editionModel';
+import { passageHref, passageOpening, sourceLine } from '../../pages/editionModel';
 import EditionPanel from './EditionPanel';
 import AgentMark from './AgentMark';
 import { EditionBoundary } from './EditionFinding';
@@ -45,11 +45,11 @@ export default function SourcePeek({ item, view, origin, quote, onClose, thought
     };
   }, [item.savedArticleId]);
   const href = passageHref(item);
-  const atPassage = item.passageCheck === 'found' && Boolean(item.passage);
+  const opening = item.passageCheck === 'found' ? passageOpening(item.passage).toLowerCase().slice(0, 80) : '';
+  const atPassage = Boolean(opening);
   /* The paragraph the checked passage sits in is marked, and opened to. */
   const held = useRef(null);
-  const squash = text => String(text || '').replace(/\s+/g, ' ').trim().toLowerCase();
-  const rests = paragraph => atPassage && squash(paragraph).includes(squash(item.passage.split(/…|\.{3}/)[0]).slice(0, 80));
+  const rests = paragraph => atPassage && paragraph.replace(/\s+/g, ' ').toLowerCase().includes(opening);
   useEffect(() => {
     held.current?.scrollIntoView?.({ block: 'center' });
   }, [source.paragraphs, tab]);

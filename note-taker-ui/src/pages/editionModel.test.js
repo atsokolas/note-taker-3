@@ -351,6 +351,8 @@ describe('the reader’s layer', () => {
     expect(passageHref({ ...item, passageCheck: 'missing' })).toBe('https://example.com/paper#s3');
     expect(passageHref({ url: 'javascript:alert(1)' })).toBe('');
     expect(passageHref({ ...item, passage: 'A well-known effect … far later' })).toBe('https://example.com/paper#:~:text=A%20well%2Dknown%20effect');
+    expect(passageHref({ ...item, passage: '… naive retry caused it' })).toBe('https://example.com/paper#:~:text=naive%20retry%20caused%20it');
+    expect(passageHref({ ...item, passage: '…' })).toBe('https://example.com/paper#s3');
   });
 
   it('says the source, its kind and how sure in one line, and nothing it was not told', () => {
