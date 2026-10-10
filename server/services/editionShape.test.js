@@ -517,6 +517,11 @@ describe('the reader’s layer of a finding', () => {
   it('refuses a key figure that its finding, passage and note never say', () => {
     expect(() => normalizeEdition(edition({ items: two(layered({ figures: [{ label: 'Recovered', value: '47%' }] })) })))
       .toThrow(/key figure "Recovered" \(47%\) is not in its finding/);
+    /* "147" does not say 47. */
+    expect(() => normalizeEdition(edition({ items: two(layered({ note: 'Across 147 participants.', figures: [{ label: 'Share', value: '47' }] })) })))
+      .toThrow(/key figure "Share" \(47\) is not in its finding/);
+    expect(() => normalizeEdition(edition({ items: two(layered({ figures: [{ label: 'Mood', value: 'high' }] })) })))
+      .toThrow(/has no number in it/);
     expect(() => normalizeEdition(edition({ items: two(layered({ figures: Array(4).fill({ label: 'Recovered', value: '46.72%' }) })) })))
       .toThrow(/keep the 3/);
   });
@@ -562,7 +567,7 @@ describe('the reader’s layer of a finding', () => {
     const { followUps } = normalizeEdition(edition({ followUps: [{ watch: 'whether undobench replicates', status: 'Not yet' }] }));
     const printed = ['Whether UndoBench replicates', 'The next open-weight release'];
     expect(answerWatchList(followUps, printed)).toEqual([{ watch: 'Whether UndoBench replicates', status: 'not_yet', note: '' }]);
-    expect(answerWatchList([{ watch: 'Whether UndoBench replicates', status: 'happened', note: 'It did.' }], printed, answerWatchList(followUps, printed)))
+    expect(answerWatchList([...followUps, { watch: 'Whether UndoBench replicates', status: 'happened', note: 'It did.' }], printed))
       .toEqual([{ watch: 'Whether UndoBench replicates', status: 'happened', note: 'It did.' }]);
     expect(() => answerWatchList([{ watch: 'Something else', status: 'happened' }], printed)).toThrow(/It printed: Whether UndoBench/);
     expect(() => answerWatchList([{ watch: 'Something else', status: 'happened' }], [])).toThrow(/printed no watch list/);

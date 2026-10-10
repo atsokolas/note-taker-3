@@ -176,6 +176,15 @@ it('zooms from an issue to a finding and its source, and steps back out', async 
   fireEvent.keyDown(document, { key: 'Escape' });
   expect(mockNavigate).toHaveBeenLastCalledWith('/editions?paper=weekend');
 });
+it('lets Esc leave "Just read" without leaving the issue', async () => {
+  render(<Editions />);
+  await screen.findByText(item.finding);
+  fireEvent.click(screen.getByRole('button', { name: 'Just read' }));
+  mockNavigate.mockClear();
+  fireEvent.keyDown(document, { key: 'Escape' });
+  expect(screen.getByRole('button', { name: 'Just read' })).toHaveAttribute('aria-pressed', 'false');
+  expect(mockNavigate).not.toHaveBeenCalled();
+});
 it('marks a column only for the hands that filed into it, and counts a Keep on the desk at once', async () => {
   const read = { ...item, filedByRuntime: 'openclaw', readings: [{ filedBy: 'Claude', filedByRuntime: 'claude-code', finding: 'A second view.', boundary: 'Its limit.' }] };
   const other = { ...item, itemId: 'two', section: 'limits', finding: 'A finding Codex filed.', filedBy: 'Codex', filedByRuntime: 'codex' };

@@ -160,7 +160,8 @@ const SOURCE_KINDS = Object.freeze(['preprint', 'peer_reviewed', 'company', 'new
 const CONFIDENCES = Object.freeze(['high', 'moderate', 'low']);
 const MAX_FIGURES = 3;
 
-const numberIn = text => String(text || '').replace(/(\d),(?=\d{3})/g, '$1');
+/* The numbers a text says, whole: "147" does not say 47, and "2,880" says 2880. */
+const numbersIn = text => String(text || '').replace(/(\d),(?=\d{3})/g, '$1').match(/\d+(?:\.\d+)?/g) || [];
 
 /* The numbers a finding turns on. Each has to be one the agent wrote down in
    the finding, the passage or the note: a key figure is a quotation, and a
@@ -176,10 +177,12 @@ const normalizeFigures = (raw, said, where) => {
     if (!label || !value) {
       throw new EditionShapeError(`${where} key figure ${index + 1} needs a label and a value.`, { field: 'figures' });
     }
-    const number = numberIn(value).match(/\d+(?:\.\d+)?/)?.[0];
-    if (number && !numberIn(said).includes(number)) {
+    const [number] = numbersIn(value);
+    if (!number || !numbersIn(said).includes(number)) {
       throw new EditionShapeError(
-        `${where} key figure "${label}" (${value}) is not in its finding, passage or note. Write the number where you quote it.`,
+        number
+          ? `${where} key figure "${label}" (${value}) is not in its finding, passage or note. Write the number where you quote it.`
+          : `${where} key figure "${label}" (${value}) has no number in it.`,
         { field: 'figures' }
       );
     }
@@ -270,10 +273,10 @@ const normalizeFollowUps = (raw) => (Array.isArray(raw) ? raw : []).map((entry, 
 
 /* A follow-up answers a line the last issue actually printed, so the reader
    sees the promise and what became of it side by side. Matched without regard
-   to case, and stored as printed. A newer answer to the same line wins. */
-const answerWatchList = (followUps = [], watchNext = [], held = []) => {
+   to case, and stored as printed. A later answer to the same line wins. */
+const answerWatchList = (followUps = [], watchNext = []) => {
   const printed = new Map((watchNext || []).map(line => [clean(line, 400).toLowerCase(), clean(line, 400)]));
-  const answered = new Map((held || []).map(entry => [entry.watch, entry.toObject ? entry.toObject() : entry]));
+  const answered = new Map();
   followUps.forEach((entry) => {
     const watch = printed.get(entry.watch.toLowerCase());
     if (!watch) {

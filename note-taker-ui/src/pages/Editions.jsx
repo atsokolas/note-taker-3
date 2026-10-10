@@ -134,7 +134,8 @@ export default function Editions() {
 
   return (
     <div className={`edition-reading${focus ? ' is-focused' : ''}`} data-testid="editions-stand">
-      <EditionZoom level={level} trail={trail} power={powerPath} {...zoom} />
+      {/* While "Just read" holds the page, Esc leaves it rather than the issue. */}
+      <EditionZoom level={level} trail={trail} power={powerPath} {...zoom} out={focus ? null : zoom.out} />
       {error ? <p role="alert">{error}</p> : null}
       {!editions && !error ? <p role="status">Opening your papers…</p> : null}
       {level === 4 && editions?.length === 0 ? (

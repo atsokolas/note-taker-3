@@ -62,6 +62,7 @@ const makeStore = () => {
   });
   const matches = (row, query) => Object.entries(query).every(([key, value]) => {
     if (key === '$expr') return matchExpr(row, value);
+    if (key.startsWith('followUps.')) return elementMatches(row, { [key]: value });
     if (key === 'checks.0') return Boolean((row.checks || []).length) === Boolean(value.$exists);
     if (value?.$not?.$elemMatch) return !(row[key] || []).some(element => elementMatches(element, value.$not.$elemMatch));
     if (value?.$elemMatch) return (row[key] || []).some(element => elementMatches(element, value.$elemMatch));
@@ -130,6 +131,15 @@ const makeStore = () => {
     findOneAndUpdate: async (query, patch) => {
       const row = rows.find(entry => matches(entry, query));
       if (!row) return null;
+      if (patch?.$set?.['followUps.$']) {
+        const index = row.followUps.findIndex(entry => entry.watch === query['followUps.watch']);
+        row.followUps[index] = patch.$set['followUps.$'];
+        return attach(row);
+      }
+      if (patch?.$push?.followUps) {
+        row.followUps = [...(row.followUps || []), patch.$push.followUps];
+        return attach(row);
+      }
       if (patch && (patch.$set || patch.$push)) {
         if (patch.$set) Object.assign(row, patch.$set);
         const each = patch.$push?.items?.$each;
@@ -355,6 +365,20 @@ describe('the newsstand', () => {
       expect(later.body.headline).toBe('Recovery is the benchmark nobody runs.');
       expect(later.body.followUps).toEqual([{ watch: 'Whether UndoBench replicates', status: 'happened', note: 'A second lab got 45%.' }]);
       expect((await file({ followUps: [{ watch: 'Nope', status: 'dropped' }] })).status).toBe(400);
+    });
+
+    /* Two agents answering different lines at once each keep their answer. */
+    it('keeps both answers when two filings land together', async () => {
+      asAgent = true;
+      await send('/api/editions', 'POST', lastWeek());
+      const file = body => send('/api/editions/file', 'POST', { profile: 'this_week_in_ai', now: '2026-09-16', ...body });
+      await file({ headline: 'Opened.' });
+      await Promise.all([
+        file({ followUps: [{ watch: 'Whether UndoBench replicates', status: 'not_yet' }] }),
+        file({ followUps: [{ watch: 'The next open-weight release', status: 'happened' }] })
+      ]);
+      const issue = (await send('/api/editions')).body.editions.find(row => String(row.windowStart).startsWith('2026-09-13'));
+      expect(issue.followUps.map(entry => entry.watch).sort()).toEqual(['The next open-weight release', 'Whether UndoBench replicates']);
     });
   });
 
@@ -1389,6 +1413,9 @@ describe('a second reading of a held source', () => {
     }]);
     /* A reading is not an arrival and not an item. */
     expect(second.body.itemCount).toBe(1);
+    /* The stand's row names the second hand too, so a filter can offer it. */
+    const listed = await fetch(`${url}/api/editions`).then(response => response.json());
+    expect(listed.editions[0].filings[0].readings).toEqual([{ filedBy: 'Codex', filedByRuntime: 'codex' }]);
   });
 
   it('drops the same agent filing the same link again', async () => {
