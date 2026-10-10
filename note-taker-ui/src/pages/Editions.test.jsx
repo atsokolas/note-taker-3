@@ -53,6 +53,21 @@ it('powers through what is new one finding at a time, narrowed to a paper', asyn
   fireEvent.keyDown(document, { key: 'e' });
   expect(await screen.findByRole('heading', { name: 'All caught up.' })).toBeVisible();
 });
+it('powers through a source two agents read, showing each reading', async () => {
+  mockId = undefined;
+  mockSearch = 'power=1';
+  api.getEditionInbox.mockResolvedValue({
+    items: [{
+      ...item, editionId: 'e1', profileLabel: 'Weekend Readings', filedByRuntime: 'openclaw',
+      readings: [{ filedBy: 'Codex', filedByRuntime: 'codex', finding: 'A second view.', boundary: 'Its own limit.', note: '' }]
+    }],
+    remaining: 0
+  });
+  render(<Editions />);
+  expect(await screen.findByText('A second view.')).toBeVisible();
+  expect(screen.getByText(item.finding)).toBeVisible();
+  expect(screen.getByText('Filed independently by two hands.')).toBeVisible();
+});
 it('opens the finding and its boundary, and preserves empty sections', async () => {
   render(<Editions />);
   expect(await screen.findByText(item.finding)).toBeVisible();
@@ -176,6 +191,15 @@ it('zooms from an issue to a finding and its source, and steps back out', async 
   expect(mockNavigate).toHaveBeenLastCalledWith('/editions/e1?item=one', { replace: false });
   fireEvent.keyDown(document, { key: 'Escape' });
   expect(mockNavigate).toHaveBeenLastCalledWith('/editions?paper=weekend');
+});
+it('lets Esc leave "Just read" without leaving the issue', async () => {
+  render(<Editions />);
+  await screen.findByText(item.finding);
+  fireEvent.click(screen.getByRole('button', { name: 'Just read' }));
+  mockNavigate.mockClear();
+  fireEvent.keyDown(document, { key: 'Escape' });
+  expect(screen.getByRole('button', { name: 'Just read' })).toHaveAttribute('aria-pressed', 'false');
+  expect(mockNavigate).not.toHaveBeenCalled();
 });
 it('marks a column only for the hands that filed into it, and counts a Keep on the desk at once', async () => {
   const read = { ...item, filedByRuntime: 'openclaw', readings: [{ filedBy: 'Claude', filedByRuntime: 'claude-code', finding: 'A second view.', boundary: 'Its limit.' }] };

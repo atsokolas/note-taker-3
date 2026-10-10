@@ -160,7 +160,8 @@ const SOURCE_KINDS = Object.freeze(['preprint', 'peer_reviewed', 'company', 'new
 const CONFIDENCES = Object.freeze(['high', 'moderate', 'low']);
 const MAX_FIGURES = 3;
 
-const numberIn = text => String(text || '').replace(/(\d),(?=\d{3})/g, '$1');
+/* The numbers a text says, whole: "147" does not say 47, and "2,880" says 2880. */
+const numbersIn = text => String(text || '').replace(/(\d),(?=\d{3})/g, '$1').match(/\d+(?:\.\d+)?/g) || [];
 
 /* The numbers a finding turns on. Each has to be one the agent wrote down in
    the finding, the passage or the note: a key figure is a quotation, and a
@@ -176,10 +177,12 @@ const normalizeFigures = (raw, said, where) => {
     if (!label || !value) {
       throw new EditionShapeError(`${where} key figure ${index + 1} needs a label and a value.`, { field: 'figures' });
     }
-    const number = numberIn(value).match(/\d+(?:\.\d+)?/)?.[0];
-    if (number && !numberIn(said).includes(number)) {
+    const [number] = numbersIn(value);
+    if (!number || !numbersIn(said).includes(number)) {
       throw new EditionShapeError(
-        `${where} key figure "${label}" (${value}) is not in its finding, passage or note. Write the number where you quote it.`,
+        number
+          ? `${where} key figure "${label}" (${value}) is not in its finding, passage or note. Write the number where you quote it.`
+          : `${where} key figure "${label}" (${value}) has no number in it.`,
         { field: 'figures' }
       );
     }
@@ -270,10 +273,10 @@ const normalizeFollowUps = (raw) => (Array.isArray(raw) ? raw : []).map((entry, 
 
 /* A follow-up answers a line the last issue actually printed, so the reader
    sees the promise and what became of it side by side. Matched without regard
-   to case, and stored as printed. A newer answer to the same line wins. */
-const answerWatchList = (followUps = [], watchNext = [], held = []) => {
+   to case, and stored as printed. A later answer to the same line wins. */
+const answerWatchList = (followUps = [], watchNext = []) => {
   const printed = new Map((watchNext || []).map(line => [clean(line, 400).toLowerCase(), clean(line, 400)]));
-  const answered = new Map((held || []).map(entry => [entry.watch, entry.toObject ? entry.toObject() : entry]));
+  const answered = new Map();
   followUps.forEach((entry) => {
     const watch = printed.get(entry.watch.toLowerCase());
     if (!watch) {
@@ -531,12 +534,8 @@ const projectPublicEdition = (
     key: publicText(section.key, 120),
     label: publicText(section.label, 200)
   }));
-  const writtenBy = typeof edition.writtenBy === 'string'
-    ? publicText(edition.writtenBy, 200)
-    : publicText(edition.writtenBy?.label, 200);
-  /* The runtime names the agent on a public page; the label someone typed for
-     their token is not a stranger's business. Absent when unknown, so a share
-     published before runtimes were recorded keeps its hash. */
+  /* Absent when unknown, so a share published before runtimes were recorded
+     keeps its hash. */
   const writtenByRuntime = publicText(edition.writtenBy?.runtime, 40);
   /* An unknown silence prints what the paper always printed, so it is left
      out: a share published before receipts keeps its hash. */
@@ -555,10 +554,10 @@ const projectPublicEdition = (
       key: publicText(silence.key, 120),
       label: publicText(silence.label, 200),
       state: silence.state,
-      by: silence.by.map(by => ({ label: publicText(by.label, 200), runtime: publicText(by.runtime, 40) }))
+      by: silence.by.map(by => ({ label: by.label, runtime: publicText(by.runtime, 40) }))
     }));
 
-  return {
+  return publicHands({
     title: publicText(edition.title, 300) || publicText(profile?.titleLabel, 300),
     issueLabel: publicText(profile?.issueLabel || edition.issueLabel, 80) || 'Issue',
     number: Number.isFinite(Number(edition.number)) && Number(edition.number) > 0
@@ -580,14 +579,28 @@ const projectPublicEdition = (
       .map(line => publicText(line, 400))
       .filter(Boolean)
       .slice(0, 12),
-    writtenBy,
+    writtenBy: typeof edition.writtenBy === 'string' ? edition.writtenBy : edition.writtenBy?.label,
     ...(writtenByRuntime ? { writtenByRuntime } : {}),
     ownerDisplayName: publicText(ownerDisplayName, 200),
     sections,
     items: (edition.items || []).map(projectPublicItem),
     ...(silences.length ? { silences } : {})
-  };
+  });
 };
+
+/* A public page names each hand by what the agent is; the label someone typed
+   for their token is not a stranger's business. Shares published before this
+   rule still hold those labels, so every public read passes through here too. */
+const publicHands = (snapshot) => snapshot && ({
+  ...snapshot,
+  writtenBy: publicAgentName({ label: snapshot.writtenBy, runtime: snapshot.writtenByRuntime }),
+  ...(snapshot.silences ? {
+    silences: snapshot.silences.map(silence => ({
+      ...silence,
+      by: silence.by.map(by => ({ ...by, label: publicAgentName(by) })).filter(by => by.label)
+    }))
+  } : {})
+});
 
 const hashPublicEdition = (snapshot) => crypto
   .createHash('sha256')
@@ -669,6 +682,16 @@ const isArrival = item => itemIsNew(item) && itemIsReady(item);
 
 /* Whether a hand is on this item: the agent that filed it, or one that read
    the same source on its own. */
+/* A second agent's reading of the same source, as the reader sees it. */
+const readingsOf = (item = {}) => (item.readings || []).map(reading => ({
+  filedBy: reading.filedBy?.label || '',
+  filedByRuntime: reading.filedBy?.runtime || '',
+  filedAt: reading.filedAt || null,
+  finding: reading.finding,
+  boundary: reading.boundary,
+  note: reading.note || ''
+}));
+
 const handOn = (item = {}, by = '') => [item.filedBy, ...(item.readings || []).map(reading => reading.filedBy)]
   .some(hand => agentKeyOf(hand || {}) === by);
 
@@ -703,6 +726,7 @@ const collectInbox = (
           ...readerLayerOf(item),
           filedBy: item.filedBy?.label || '',
           filedByRuntime: item.filedBy?.runtime || '',
+          readings: readingsOf(item),
           savedArticleId: item.savedArticleId ? String(item.savedArticleId) : null
         } : {}),
         sortAt
@@ -753,9 +777,11 @@ module.exports = {
   normalizeFollowUps,
   normalizeItem,
   projectPublicEdition,
+  publicHands,
   publicHttpUrl,
   READER_STATUSES,
   readerLayerOf,
+  readingsOf,
   resolveEditionProfile,
   retainHeldItems,
   sectionLabel

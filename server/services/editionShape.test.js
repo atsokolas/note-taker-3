@@ -200,7 +200,7 @@ describe('the public paper', () => {
       standfirst: 'A quiet week.',
       throughLine: 'Inference cost.',
       watchNext: ['The replication'],
-      writtenBy: 'Jarvis',
+      writtenBy: '',
       ownerDisplayName: 'Athan',
       sections: [
         { key: 'models_methods', label: 'Models & methods' },
@@ -265,6 +265,24 @@ describe('the public paper', () => {
       .toBe(hashPublicEdition(legacy));
   });
 
+  /* A share published before hands were named by what they are still holds
+     the label typed for a token; a public read never lets it out. */
+  it('names every public hand by the agent, even on a share published earlier', () => {
+    const { publicHands } = require('./editionShape');
+    const old = {
+      title: 'This Week in AI',
+      writtenBy: 'Codex Wiki account grounding audit',
+      silences: [{ key: 'm', label: 'Models', state: 'checked', by: [{ label: 'Jarvis', runtime: '' }, { label: 'My OpenClaw box', runtime: '' }] }]
+    };
+    expect(publicHands(old)).toEqual({
+      title: 'This Week in AI',
+      writtenBy: 'Codex',
+      silences: [{ key: 'm', label: 'Models', state: 'checked', by: [{ label: 'OpenClaw', runtime: '' }] }]
+    });
+    expect(publicHands({ writtenBy: 'Jarvis' }).writtenBy).toBe('');
+    expect(publicHands(publicHands(old))).toEqual(publicHands(old));
+  });
+
   /* Which silence an empty section is belongs to the paper, so it travels;
      a share from before receipts projects, and hashes, as it did. */
   it('carries the silences a stranger can read, and none it cannot tell', () => {
@@ -275,11 +293,11 @@ describe('the public paper', () => {
     const now = new Date('2026-10-09');
     const seen = projectPublicEdition(edition, 'Athan', { receiptsSince: '2026-09-07', now });
     expect(seen.silences).toEqual([
-      { key: 'models_methods', label: 'Models & methods', state: 'checked', by: [{ label: 'Jarvis', runtime: 'openclaw' }] },
+      { key: 'models_methods', label: 'Models & methods', state: 'checked', by: [{ label: 'OpenClaw', runtime: 'openclaw' }] },
       { key: 'infrastructure_systems', label: 'Infrastructure & systems', state: 'unreported', by: [] },
       { key: 'evaluation_counterevidence', label: 'Evaluation & counterevidence', state: 'unreported', by: [] }
     ]);
-    expect(JSON.stringify(seen)).not.toMatch(/Private reasoning|t1/);
+    expect(JSON.stringify(seen)).not.toMatch(/Private reasoning|t1|Jarvis/);
 
     const legacy = { ...edition, checks: [] };
     expect(projectPublicEdition(legacy, 'Athan', { now })).not.toHaveProperty('silences');
@@ -445,7 +463,8 @@ describe('keeping a reader’s place in a rewritten week', () => {
           {
             itemId: 'fresh', title: 'Fresh', url: 'https://example.com/b',
             finding: 'A useful finding.', boundary: 'One lab only.', note: 'Read beside Tuesday.',
-            filedBy: { label: 'Jarvis' }, savedArticleId: 'article-1', filedAt: '2026-09-09'
+            filedBy: { label: 'Jarvis' }, savedArticleId: 'article-1', filedAt: '2026-09-09',
+            readings: [{ filedBy: { label: 'Codex', runtime: 'codex' }, finding: 'A second view.', boundary: 'Its own limit.' }]
           }
         ]
       }
@@ -455,7 +474,8 @@ describe('keeping a reader’s place in a rewritten week', () => {
       boundary: 'One lab only.',
       note: 'Read beside Tuesday.',
       filedBy: 'Jarvis',
-      savedArticleId: 'article-1'
+      savedArticleId: 'article-1',
+      readings: [{ filedBy: 'Codex', filedByRuntime: 'codex', finding: 'A second view.', boundary: 'Its own limit.', note: '' }]
     });
   });
 
@@ -517,6 +537,11 @@ describe('the reader’s layer of a finding', () => {
   it('refuses a key figure that its finding, passage and note never say', () => {
     expect(() => normalizeEdition(edition({ items: two(layered({ figures: [{ label: 'Recovered', value: '47%' }] })) })))
       .toThrow(/key figure "Recovered" \(47%\) is not in its finding/);
+    /* "147" does not say 47. */
+    expect(() => normalizeEdition(edition({ items: two(layered({ note: 'Across 147 participants.', figures: [{ label: 'Share', value: '47' }] })) })))
+      .toThrow(/key figure "Share" \(47\) is not in its finding/);
+    expect(() => normalizeEdition(edition({ items: two(layered({ figures: [{ label: 'Mood', value: 'high' }] })) })))
+      .toThrow(/has no number in it/);
     expect(() => normalizeEdition(edition({ items: two(layered({ figures: Array(4).fill({ label: 'Recovered', value: '46.72%' }) })) })))
       .toThrow(/keep the 3/);
   });
@@ -562,7 +587,7 @@ describe('the reader’s layer of a finding', () => {
     const { followUps } = normalizeEdition(edition({ followUps: [{ watch: 'whether undobench replicates', status: 'Not yet' }] }));
     const printed = ['Whether UndoBench replicates', 'The next open-weight release'];
     expect(answerWatchList(followUps, printed)).toEqual([{ watch: 'Whether UndoBench replicates', status: 'not_yet', note: '' }]);
-    expect(answerWatchList([{ watch: 'Whether UndoBench replicates', status: 'happened', note: 'It did.' }], printed, answerWatchList(followUps, printed)))
+    expect(answerWatchList([...followUps, { watch: 'Whether UndoBench replicates', status: 'happened', note: 'It did.' }], printed))
       .toEqual([{ watch: 'Whether UndoBench replicates', status: 'happened', note: 'It did.' }]);
     expect(() => answerWatchList([{ watch: 'Something else', status: 'happened' }], printed)).toThrow(/It printed: Whether UndoBench/);
     expect(() => answerWatchList([{ watch: 'Something else', status: 'happened' }], [])).toThrow(/printed no watch list/);

@@ -19,6 +19,7 @@ export default function SectionSilence({ silence, fallback, className, plain = f
       </p>
     );
   }
+  if (silence?.state === 'checked') return <p className={className}>An agent looked; nothing met the bar.</p>;
   if (silence?.state === 'unreported') return <p className={className}>Not reported this issue.</p>;
   return <p className={className}>{fallback}</p>;
 }
