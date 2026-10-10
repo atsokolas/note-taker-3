@@ -239,39 +239,75 @@ export const sourceLine = (item = {}) => [
   item.confidence ? `${item.confidence} confidence` : ''
 ].filter(Boolean).join(' · ');
 
-const hostOf = (href) => {
-  try {
-    return new URL(href).hostname.replace(/^www\./, '');
-  } catch (_error) {
-    return '';
-  }
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+const shortDay = (date) => `${MONTHS[date.getUTCMonth()].slice(0, 3)} ${date.getUTCDate()}`;
+const READING_WPM = 230;
+const KIND_NOUN = { preprint: 'preprint', peer_reviewed: 'peer-reviewed paper', company: 'company source', news: 'news report' };
+
+/**
+ * What an issue costs to read, before you start: how many findings, about
+ * how long, and what kind of evidence when they all share one. A mixed issue
+ * says nothing about kind rather than averaging it.
+ */
+export const costLine = (items = []) => {
+  if (!items.length) return '';
+  const words = items.flatMap(item => [item.plain, item.finding, item.boundary, ...(item.readings || []).flatMap(reading => [reading.finding, reading.boundary])])
+    .join(' ').split(/\s+/).filter(Boolean).length;
+  const minutes = Math.max(1, Math.round(words / READING_WPM));
+  const kinds = new Set(items.map(item => item.sourceKind));
+  const noun = kinds.size === 1 ? KIND_NOUN[items[0].sourceKind] : '';
+  const kind = !noun ? '' : items.length === 1 ? `a ${noun}` : `${items.length === 2 ? 'both' : 'all'} ${noun}s`;
+  return [plural(items.length, 'finding'), minutes === 1 ? 'about a minute' : `about ${minutes} minutes`, kind]
+    .filter(Boolean).join(' · ');
+};
+
+/* Where a finding comes from, as a reader would say it: "arXiv preprint,
+   Oct 4. Not yet peer reviewed." */
+export const sourceNote = (item = {}) => {
+  const date = day(item.sourceDate);
+  const where = [item.sourceLabel, KINDS[item.sourceKind]].filter(Boolean).join(' ');
+  const line = [where, date ? shortDay(date) : ''].filter(Boolean).join(', ');
+  return `${line ? `${line}.` : ''}${item.sourceKind === 'preprint' ? ' Not yet peer reviewed.' : ''}`.trim();
+};
+
+const SURE = {
+  high: 'Well supported. Rely on it within the limit it states.',
+  moderate: 'A real signal, not a settled fact.',
+  low: 'Early and thin. Worth knowing, not worth acting on yet.'
+};
+
+/** How sure to be, in a sentence rather than a grade. Unsaid stays unsaid. */
+export const sureLine = (item = {}) => SURE[item.confidence] || '';
+
+const PERCENT = /^\s*(\d+(?:\.\d+)?)\s*%\s*$/;
+
+/**
+ * Figures that measure the same kind of thing are drawn against each other:
+ * two or more plain percentages become bars on one scale. Anything else (a
+ * range, a count, a mix) stays as numbers, because a bar would invent a
+ * comparison the finding did not make.
+ */
+export const barsOf = (figures = []) => {
+  const shares = figures.map(figure => Number(PERCENT.exec(String(figure.value))?.[1]));
+  return figures.length > 1 && shares.every(share => Number.isFinite(share) && share <= 100)
+    ? figures.map((figure, index) => ({ ...figure, share: shares[index] }))
+    : null;
 };
 
 /**
- * The sources an issue actually cites.
- *
- * Eligibility: a filed item with a followable URL. Quality: http(s) only, one
- * entry per href, labelled from what the item already carried. Silence: nothing
- * qualifies — no invented links, no placeholder row.
+ * What comes after this issue. A later issue already out is a link, made by
+ * the caller; otherwise an issue still filling says until when, and a closed
+ * one says which week the next will cover.
  */
-export const sourceLinks = (edition = null) => {
-  const items = Array.isArray(edition?.items) ? edition.items : [];
-  const seen = new Set();
-  const links = [];
-  items.forEach((item) => {
-    const href = publicSourceHref(item?.url);
-    if (!href || seen.has(href)) return;
-    seen.add(href);
-    const label = [item.sourceLabel, item.title].filter(Boolean).join(' · ')
-      || hostOf(href)
-      || href;
-    links.push({
-      href,
-      label,
-      sourceDate: String(item.sourceDate || '').trim()
-    });
-  });
-  return links;
+export const aheadLine = (issue = {}, issueLabel = 'Edition', now = Date.now()) => {
+  const start = day(issue.windowStart);
+  const end = day(issue.windowEnd);
+  if (!start || !end) return '';
+  if (stateOf(issue, now) !== 'closed') return `Still filling, through ${DAYS[end.getUTCDay()].slice(0, 3)}, ${shortDay(end)}`;
+  const span = end.getTime() - start.getTime();
+  const next = { windowStart: new Date(end.getTime() + DAY_MS), windowEnd: new Date(end.getTime() + DAY_MS + span) };
+  const name = (Number(issue.number) > 0 && issueLine({ issueLabel, number: Number(issue.number) + 1 })) || 'The next one';
+  return `${name} covers ${windowLine(next)}`;
 };
 
 /* The first hand on an item is the one that filed it; readings are second
@@ -281,54 +317,6 @@ const filerOf = item => agentOf({ label: item?.filedBy, runtime: item?.filedByRu
 /* An opened issue carries its items; a row on the stand carries only who
    filed into which column. */
 const filingsOf = issue => issue?.items || issue?.filings || [];
-
-/**
- * Who keeps each column across a run.
- *
- * A keeper the reader configured wins. Otherwise the agent that filed most of
- * the column's items is offered, marked `derived` so the paper says "usually
- * filed by", never "keeps". A tie names no one: the paper does not guess.
- */
-export const keepersFor = (issues = [], sections = []) => {
-  const keepers = {};
-  (sections || []).forEach((section) => {
-    if (!section?.key) return;
-    const configured = section.keeper && agentOf(section.keeper);
-    if (configured) {
-      keepers[section.key] = { agent: configured, derived: false };
-      return;
-    }
-    const tally = new Map();
-    (issues || []).forEach(issue => filingsOf(issue).forEach((item) => {
-      if (item.section !== section.key) return;
-      const agent = filerOf(item);
-      if (!agent) return;
-      const held = tally.get(agent.key) || { agent, count: 0 };
-      tally.set(agent.key, { ...held, count: held.count + 1 });
-    }));
-    const [first, second] = [...tally.values()].sort((left, right) => right.count - left.count);
-    keepers[section.key] = first && (!second || first.count > second.count)
-      ? { agent: first.agent, derived: true }
-      : null;
-  });
-  return keepers;
-};
-
-/**
- * Per column of one issue, the hands that filed into it other than its
- * keeper: the small second marks on the shelf. A column with no keeper lists
- * every hand that filed there.
- */
-export const foreignFilers = (issue = {}, keepers = {}) => {
-  const foreign = {};
-  filingsOf(issue).forEach((item) => {
-    const agent = filerOf(item);
-    if (!agent || agent.key === keepers[item.section]?.agent?.key) return;
-    const held = foreign[item.section] || [];
-    if (!held.some(hand => hand.key === agent.key)) foreign[item.section] = [...held, agent];
-  });
-  return foreign;
-};
 
 /* Section colour: a counter-evidence column always takes the danger tone,
    and the rest take the house colours in profile order. Tones are names of
@@ -348,11 +336,6 @@ export const sectionTones = (sections = []) => {
     next += 1;
   });
   return tones;
-};
-
-const monthDay = (value) => {
-  const date = day(value);
-  return date ? `${MONTHS[date.getUTCMonth()].slice(0, 3)} ${date.getUTCDate()}` : '';
 };
 
 /**
@@ -414,52 +397,6 @@ export const handsOf = (edition = null) => {
 
 /** Whether an item carries this hand, as its filer or as a second reading. */
 export const byHand = (item, key) => !key || handsOnItem(item).some(agent => agent.key === key);
-
-/** Days after an issue closes before a missing report reads as "Not reported"; the server's grace. */
-export const REPORT_GRACE_DAYS = 3;
-
-/**
- * The desk: who works on this paper, shown only when more than one agent
- * does. Each hand says which columns it keeps, what it did this issue, and how
- * much of what it filed across the run the reader kept. No on-time score.
- */
-export const deskFor = (paper = null, issue = null, now = Date.now()) => {
-  const issues = paper?.issues || [];
-  const hands = new Map();
-  issues.forEach(row => filingsOf(row).forEach((item) => {
-    const agent = filerOf(item);
-    if (!agent) return;
-    const held = hands.get(agent.key) || { agent, filed: 0, saved: 0 };
-    hands.set(agent.key, { ...held, filed: held.filed + 1, saved: held.saved + (item.saved || item.savedArticleId ? 1 : 0) });
-  }));
-  if (hands.size < 2) return [];
-  const sections = (issues[issues.length - 1]?.sections || []).filter(section => section?.key);
-  const keepers = keepersFor(issues, sections);
-  const end = day(issue?.windowEnd);
-  /* A hand on every column of a paper with several says so in two words. */
-  const every = held => (sections.length > 1 && held.length === sections.length
-    ? ['every column']
-    : held.map(section => section.label));
-  const overdue = Boolean(end) && now > end.getTime() + DAY_MS * (1 + REPORT_GRACE_DAYS);
-  return [...hands.values()].map(({ agent, filed, saved }) => {
-    const kept = sections.filter(section => keepers[section.key]?.agent?.key === agent.key);
-    const mine = filingsOf(issue).filter(item => filerOf(item)?.key === agent.key);
-    const last = Math.max(0, ...mine.map(item => timestampOf(item.filedAt)));
-    const looked = (issue?.silences || []).some(silence => (
-      silence.state === 'checked' && (silence.by || []).some(by => agentOf(by)?.key === agent.key)
-    ));
-    const thisIssue = mine.length
-      ? (last ? `Filed ${monthDay(last)}` : 'Filed')
-      : looked ? 'Looked, filed nothing' : overdue ? 'Not reported' : 'Not filed yet';
-    return {
-      agent,
-      keeps: every(kept.filter(section => !keepers[section.key].derived)),
-      usually: every(kept.filter(section => keepers[section.key].derived)),
-      thisIssue,
-      kept: `Kept by you: ${saved} of ${filed}`
-    };
-  });
-};
 
 /** What became of a watched line, in a word. */
 export const WATCH_STATUS = { open: 'Open', not_yet: 'Not yet', happened: 'Happened', dropped: 'Dropped' };

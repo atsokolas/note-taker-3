@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getEditionHeld } from '../../api/editions';
+import { barsOf } from '../../pages/editionModel';
 import AgentMark from './AgentMark';
 
 /**
@@ -9,9 +10,26 @@ import AgentMark from './AgentMark';
  * optional, and a finding without them reads exactly as it always did.
  */
 
-/* Up to three numbers, set large, each with what it counts. */
+/* Up to three numbers. Shares of the same kind are drawn against each other
+   on one scale; anything else is set large, each with what it counts. */
 export function Figures({ figures = [] }) {
   if (!figures.length) return null;
+  const bars = barsOf(figures);
+  if (bars) {
+    return (
+      <dl className="reading-bars">
+        {bars.map(({ label, value, share }) => (
+          <div key={`${label}:${value}`}>
+            <dt>{label}</dt>
+            <dd>
+              <span className="reading-bars__track" aria-hidden="true"><span style={{ width: `${share}%` }} /></span>
+              {value}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    );
+  }
   return (
     <dl className="reading-figures">
       {figures.map(({ label, value }) => (
@@ -66,10 +84,10 @@ export function Held({ editionId, itemId }) {
   }, [editionId, itemId]);
   if (!held) return null;
   return (
-    <p className="reading-held">
-      <span>You already hold</span>
+    <div className="reading-held">
+      <h3>Already in your library</h3>
       <Link to={`/articles/${encodeURIComponent(held.articleId)}`}>“{held.text}”</Link>
       {held.articleTitle ? <small>{held.articleTitle}</small> : null}
-    </p>
+    </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { getEdition, saveEditionItem, saveEditionItemLater } from '../../api/editions';
+import { getEdition, saveEditionItem, saveEditionItemLater, setEditionItemState } from '../../api/editions';
 import api from '../../api';
 import { getAuthHeaders } from '../../hooks/useAuthHeaders';
 import { stateOf } from '../../pages/editionModel';
@@ -81,7 +81,10 @@ export default function useEditionIssue(id) {
       setBusy(`${itemId}:${kind}`);
       setError('');
       try {
-        const result = await (kind === 'keep' ? saveEditionItem : saveEditionItemLater)(id, itemId);
+        /* Keep and Later carry the source into the Library; any other choice
+           (Not for me, or undoing it) is only the reader's mark on the finding. */
+        const door = { keep: saveEditionItem, later: saveEditionItemLater }[kind];
+        const result = await (door ? door(id, itemId) : setEditionItemState(id, itemId, kind));
         if (!active.current) return false;
         // A save response can include new agent filings. Only absorb the reader's
         // action; the full refreshed paper still waits for an explicit Show.

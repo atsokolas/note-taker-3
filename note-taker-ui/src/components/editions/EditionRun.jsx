@@ -1,9 +1,8 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import {
-  datelineLine, deskFor, issueLine, newCountOf, runGrid, sectionTones, stateOf, WATCH_STATUS, watchThreads, windowLine
+  issueLine, newCountOf, runGrid, sectionTones, stateOf, WATCH_STATUS, watchThreads, windowLine
 } from '../../pages/editionModel';
-import EditionDesk from './EditionDesk';
 
 const SAID = {
   filled: cell => `${cell.count} filed`,
@@ -51,7 +50,6 @@ const yoursLine = (issue) => [
 export default function EditionRun({ paper }) {
   const grid = runGrid(paper);
   const tones = sectionTones(grid.sections);
-  const latest = paper.issues[paper.current];
   const news = newCountOf(paper.issues);
   return (
     <section className="edition-run" aria-labelledby="edition-run-title">
@@ -64,7 +62,6 @@ export default function EditionRun({ paper }) {
           ].filter(Boolean).join(' · ')}
         </p>
       </header>
-      <EditionDesk hands={deskFor(paper, latest)} />
       <ol className="edition-run__issues">
         {grid.rows.map(({ issue, cells }) => (
           <li key={issue._id}>
@@ -74,7 +71,7 @@ export default function EditionRun({ paper }) {
               </span>
               <span className="edition-run__body">
                 <span className="edition-run__when">
-                  {[datelineLine(issue), stateOf(issue) === 'filling' ? 'still filling' : ''].filter(Boolean).join(' · ')}
+                  {[issueLine(issue) ? windowLine(issue) : '', stateOf(issue) === 'filling' ? 'still filling' : ''].filter(Boolean).join(' · ')}
                 </span>
                 {issue.headline || issue.standfirst
                   ? <span className="edition-run__standfirst">{issue.headline || issue.standfirst}</span>

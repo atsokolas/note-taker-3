@@ -17,8 +17,8 @@ describe('the byline on a paper', () => {
         />
       </MemoryRouter>
     );
-    const byline = screen.getByText(/Filed by/);
-    expect(byline).toHaveTextContent('Filed by CxCodex');
+    const byline = screen.getByText(/Picked by/);
+    expect(byline).toHaveTextContent('Picked by CxCodex');
     expect(byline).not.toHaveTextContent('grounding audit');
     expect(byline.querySelector('[title]')).toHaveAttribute('title', LABEL);
   });
@@ -67,7 +67,7 @@ describe('two hands on one source', () => {
     expect(columns[1]).toHaveTextContent('Three seeds.');
     /* The first reading keeps the passage the reader can select from. */
     expect(columns[0].querySelector('[data-finding-text="one"]')).not.toBeNull();
-    expect(screen.queryByText(/Filed by/)).toBeNull();
+    expect(screen.queryByText(/Picked by/)).toBeNull();
     expect(container).not.toHaveTextContent(/agree|differ/i);
   });
 
@@ -91,6 +91,6 @@ describe('two hands on one source', () => {
       </MemoryRouter>
     );
     expect(container.querySelector('.edition-readings')).toBeNull();
-    expect(screen.getByText(/Filed by/)).toBeInTheDocument();
+    expect(screen.getByText(/Picked by/)).toBeInTheDocument();
   });
 });

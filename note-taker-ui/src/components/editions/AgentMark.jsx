@@ -1,5 +1,5 @@
 import React from 'react';
-import { agentOf, handOf } from './editionAgent';
+import { agentOf } from './editionAgent';
 
 /* An agent's mark and short name. `plain` drops the tooltip for public pages,
    where the token label someone typed is not the reader's business. `glyph`
@@ -29,9 +29,3 @@ export default function AgentMark({ runtime, label, plain = false, glyph = false
     </span>
   );
 }
-
-/* Who keeps a column: "Kept by" when the reader said so, "Usually filed by"
-   when the paper only inferred it. */
-export const KeeperMark = ({ keeper }) => (keeper ? (
-  <AgentMark {...handOf(keeper.agent)} caption={keeper.derived ? 'Usually filed by' : 'Kept by'} glyph />
-) : null);

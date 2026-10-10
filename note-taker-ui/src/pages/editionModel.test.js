@@ -1,7 +1,7 @@
 import {
-  byHand, byPaper, bySection, datelineLine, deskFor, foreignFilers, handsOf,
-  issueLine, keepersFor, latestFilingLine, newCountOf, passageHref, publicSourceHref, sourceLine, watchThreads,
-  runGrid, sectionTones, sourceLinks, standLayout, stateOf, windowLine
+  aheadLine, barsOf, byHand, byPaper, bySection, costLine, datelineLine, handsOf,
+  issueLine, latestFilingLine, newCountOf, passageHref, publicSourceHref, sourceLine, sourceNote, sureLine, watchThreads,
+  runGrid, sectionTones, standLayout, stateOf, windowLine
 } from './editionModel';
 
 describe('the window a paper covers', () => {
@@ -196,71 +196,6 @@ describe('a source a stranger may follow', () => {
   });
 });
 
-describe('the sources an issue cites', () => {
-  it('lists followable items once, labelled from what they already carried', () => {
-    expect(sourceLinks({
-      items: [
-        { title: 'A paper', url: 'https://example.com/a', sourceLabel: 'arXiv' },
-        { title: 'Same url again', url: 'https://example.com/a', sourceLabel: 'arXiv' },
-        { title: 'Another', url: 'https://example.com/b' }
-      ]
-    })).toEqual([
-      { href: 'https://example.com/a', label: 'arXiv · A paper', sourceDate: '' },
-      { href: 'https://example.com/b', label: 'Another', sourceDate: '' }
-    ]);
-  });
-
-  it('drops javascript and empty urls rather than inventing a link', () => {
-    expect(sourceLinks({
-      items: [
-        { title: 'Unsafe', url: 'javascript:alert(1)' },
-        { title: 'No url' },
-        { title: 'Blank', url: '   ' }
-      ]
-    })).toEqual([]);
-  });
-
-  it('stays silent when there is nothing to cite', () => {
-    expect(sourceLinks({ items: [] })).toEqual([]);
-    expect(sourceLinks()).toEqual([]);
-  });
-
-  it('falls back to the host rather than a placeholder name', () => {
-    expect(sourceLinks({ items: [{ url: 'https://www.example.com/p' }] })).toEqual([
-      { href: 'https://www.example.com/p', label: 'example.com', sourceDate: '' }
-    ]);
-  });
-});
-
-describe('who keeps each column', () => {
-  const sections = [{ key: 'infra', label: 'Infrastructure' }, { key: 'counter', label: 'Counter-evidence' }];
-  const by = (section, filedBy, filedByRuntime = '') => ({ section, filedBy, filedByRuntime });
-  const issues = [
-    { items: [by('infra', 'Codex job', 'codex'), by('infra', 'Codex job', 'codex'), by('counter', 'Claude', 'claude-code')] },
-    { items: [by('infra', 'Claude', 'claude-code'), by('counter', 'Codex job', 'codex')] }
-  ];
-
-  it('names the keeper the reader configured', () => {
-    const keepers = keepersFor(issues, [{ ...sections[0], keeper: { runtime: 'claude-code', label: 'Claude' } }]);
-    expect(keepers.infra).toEqual({ agent: expect.objectContaining({ key: 'claude-code' }), derived: false });
-  });
-
-  it('offers the most frequent filer as derived, and names no one on a tie', () => {
-    const keepers = keepersFor(issues, sections);
-    expect(keepers.infra).toEqual({ agent: expect.objectContaining({ key: 'codex' }), derived: true });
-    expect(keepers.counter).toBeNull();
-  });
-
-  it('marks the hands that filed into a column other than its keeper', () => {
-    const keepers = keepersFor(issues, sections);
-    expect(foreignFilers(issues[1], keepers)).toEqual({
-      infra: [expect.objectContaining({ key: 'claude-code' })],
-      counter: [expect.objectContaining({ key: 'codex' })]
-    });
-    expect(foreignFilers(issues[0], keepers).infra).toBeUndefined();
-  });
-});
-
 describe('one paper’s run', () => {
   const sections = [
     { key: 'models', label: 'Models & methods' },
@@ -304,22 +239,6 @@ describe('one paper’s run', () => {
 
   it('colours counter-evidence red and the rest in profile order', () => {
     expect(sectionTones(sections)).toEqual({ models: 'thread', infra: 'living', evaluation_counterevidence: 'danger' });
-  });
-
-  it('shows no desk for a paper one agent keeps', () => {
-    const single = { ...paper, issues: paper.issues.slice(0, 2) };
-    expect(deskFor(single, single.issues[1])).toEqual([]);
-  });
-
-  it('says what each hand did this issue and how much of its filing the reader kept', () => {
-    const now = Date.parse('2026-10-09');
-    const withSaved = { ...paper, issues: [{ ...paper.issues[0], filings: [codex('models', { saved: true }), codex('infra'), codex('evaluation_counterevidence'), codex('evaluation_counterevidence')] }, ...paper.issues.slice(1)] };
-    const desk = deskFor(withSaved, { ...withSaved.issues[2], filings: [codex('models', { filedAt: '2026-10-06T09:00:00Z' })] }, now);
-    expect(desk.map(hand => [hand.agent.name, hand.thisIssue, hand.kept])).toEqual([
-      ['Codex', 'Filed Oct 6', 'Kept by you: 1 of 6'],
-      ['Claude', 'Not reported', 'Kept by you: 0 of 1']
-    ]);
-    expect(desk[0].usually).toEqual(['every column']);
   });
 });
 
@@ -373,3 +292,31 @@ describe('the reader’s layer', () => {
   });
 });
 
+describe('reading an issue before you start', () => {
+  const finding = { plain: 'Agents finish most tasks.', finding: 'word '.repeat(400), boundary: 'One study.', sourceKind: 'preprint' };
+  it('says how many findings, about how long, and the kind they share', () => {
+    expect(costLine([finding, { ...finding, finding: 'short' }])).toBe('2 findings · about 2 minutes · both preprints');
+    expect(costLine([{ ...finding, finding: 'short' }])).toBe('1 finding · about a minute · a preprint');
+  });
+  it('says nothing about kind when the findings differ, and nothing at all for an empty issue', () => {
+    expect(costLine([finding, { ...finding, finding: 'short', sourceKind: 'news' }])).toBe('2 findings · about 2 minutes');
+    expect(costLine([])).toBe('');
+  });
+  it('says where a finding comes from and how sure to be, in sentences', () => {
+    expect(sourceNote({ sourceLabel: 'arXiv', sourceKind: 'preprint', sourceDate: '2026-10-04' })).toBe('arXiv preprint, Oct 4. Not yet peer reviewed.');
+    expect(sourceNote({ sourceLabel: 'Reuters', sourceKind: 'news' })).toBe('Reuters news.');
+    expect(sourceNote({})).toBe('');
+    expect(sureLine({ confidence: 'moderate' })).toBe('A real signal, not a settled fact.');
+    expect(sureLine({})).toBe('');
+  });
+  it('draws only shares of the same kind as bars', () => {
+    expect(barsOf([{ label: 'Completed', value: '83.5%' }, { label: 'Recovered', value: '46.7%' }]).map(bar => bar.share)).toEqual([83.5, 46.7]);
+    expect(barsOf([{ label: 'Gain', value: '1.5–3.2%' }, { label: 'Datasets', value: '6' }])).toBeNull();
+    expect(barsOf([{ label: 'Alone', value: '40%' }])).toBeNull();
+  });
+  it('says what comes after an issue: until when it fills, or the week the next one covers', () => {
+    const issue = { number: 5, windowStart: '2026-09-28', windowEnd: '2026-10-04' };
+    expect(aheadLine(issue, 'Issue', Date.parse('2026-10-10'))).toBe('Issue 6 covers Oct 5 – 11');
+    expect(aheadLine(issue, 'Issue', Date.parse('2026-10-02'))).toBe('Still filling, through Sun, Oct 4');
+  });
+});
