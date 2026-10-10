@@ -458,4 +458,27 @@ describe('keeping a reader’s place in a rewritten week', () => {
       savedArticleId: 'article-1'
     });
   });
+
+  it('narrows arrivals to one paper, and to the hand that filed or read them', () => {
+    const item = (itemId, filedBy, readings = []) => ({
+      itemId, title: itemId, url: `https://example.com/${itemId}`, finding: 'A', boundary: 'B', filedAt: '2026-09-09', filedBy, readings
+    });
+    const editions = [
+      {
+        _id: 'ai',
+        profile: 'this_week_in_ai',
+        items: [
+          item('codex', { label: 'Codex Wiki account grounding audit' }),
+          item('claw', { label: 'Second reader', runtime: 'openclaw' }),
+          item('both', { label: 'Desk', runtime: 'codex' }, [{ filedBy: { label: 'Jarvis', runtime: 'openclaw' } }])
+        ]
+      },
+      { _id: 'wr', profile: 'weekend_readings', items: [item('weekend', { runtime: 'codex' })] }
+    ];
+    const ids = options => collectInbox(editions, options).items.map(row => row.itemId).sort();
+    expect(ids({ profile: 'weekend_readings' })).toEqual(['weekend']);
+    expect(ids({ by: 'openclaw' })).toEqual(['both', 'claw']);
+    expect(ids({ by: 'codex', profile: 'this_week_in_ai' })).toEqual(['both', 'codex']);
+    expect(ids({ by: 'agent:nobody' })).toEqual([]);
+  });
 });
