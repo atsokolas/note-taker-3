@@ -1849,6 +1849,19 @@ const editionItemSchema = new mongoose.Schema({
      turned a malformed token id into a 500 on the paper. */
   filedBy: editionSigner(),
   filedAt: { type: Date, default: null },
+  /* Another agent's reading of the same source, filed on its own. Kept beside
+     the first rather than dropped: two hands on one source is the most
+     editorial thing a paper can show. At most three. */
+  readings: {
+    type: [new mongoose.Schema({
+      filedBy: editionSigner(),
+      filedAt: { type: Date, default: null },
+      finding: { type: String, required: true, trim: true },
+      boundary: { type: String, required: true, trim: true },
+      note: { type: String, default: '', trim: true }
+    }, { _id: false })],
+    default: undefined
+  },
   savedArticleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Article', default: null },
   /* What the reader did with this arrival. Missing means new. An agent rewrite
      keeps this by URL; the agent cannot set it. */
@@ -1915,7 +1928,17 @@ const editionProfileSchema = new mongoose.Schema({
   sections: {
     type: [new mongoose.Schema({
       key: { type: String, required: true, trim: true },
-      label: { type: String, required: true, trim: true }
+      label: { type: String, required: true, trim: true },
+      /* Which agent keeps this column, when more than one files into the
+         paper. Absent means nobody was named; the paper may still say who
+         usually files here, and says it as that. */
+      keeper: {
+        type: new mongoose.Schema({
+          runtime: { type: String, default: '', trim: true },
+          label: { type: String, default: '', trim: true, maxlength: 60 }
+        }, { _id: false }),
+        default: undefined
+      }
     }, { _id: false })],
     default: []
   },

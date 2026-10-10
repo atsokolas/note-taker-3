@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { publicSourceHref } from '../../pages/editionModel';
 import { findingAnchor } from './editionReadingState';
 import AgentMark from './AgentMark';
+import EditionReadings from './EditionReadings';
 
 export const EditionBoundary = ({ children }) => (
   <aside className="reading-boundary">
@@ -12,6 +13,16 @@ export const EditionBoundary = ({ children }) => (
 );
 export default function EditionFinding({ item, lead, busy, receipt, onAct, onPeek, onSelection }) {
   const href = publicSourceHref(item.url);
+  /* The first reading is the passage a thought can quote from. */
+  const prose = (text, first = true) => (
+    <div
+      className="reading-prose"
+      {...(first ? { 'data-finding-text': item.itemId, onMouseUp: onSelection, onKeyUp: onSelection } : {})}
+    >
+      <p>{text}</p>
+    </div>
+  );
+  const readings = Boolean(item.readings?.length);
   return (
     <article
       className={`edition-finding${lead ? ' is-lead' : ''}`}
@@ -23,16 +34,15 @@ export default function EditionFinding({ item, lead, busy, receipt, onAct, onPee
       <p className="reading-source">
         {[item.sourceLabel, item.sourceDate].filter(Boolean).join(' · ')}
       </p>
-      <div
-        className="reading-prose"
-        data-finding-text={item.itemId}
-        onMouseUp={onSelection}
-        onKeyUp={onSelection}
-      >
-        <p>{item.finding}</p>
-      </div>
-      <EditionBoundary>{item.boundary}</EditionBoundary>
-      {item.note ? <p className="reading-editorial-note">{item.note}</p> : null}
+      {readings ? (
+        <EditionReadings item={item} finding={prose} Boundary={EditionBoundary} />
+      ) : (
+        <>
+          {prose(item.finding)}
+          <EditionBoundary>{item.boundary}</EditionBoundary>
+          {item.note ? <p className="reading-editorial-note">{item.note}</p> : null}
+        </>
+      )}
       <div className="reading-actions">
         <button onClick={(event) => onPeek(item, 'source', event.currentTarget)}>Source</button>
         {item.savedArticleId ? (
@@ -80,7 +90,7 @@ export default function EditionFinding({ item, lead, busy, receipt, onAct, onPee
           What made it worth keeping?
         </button>
       ) : null}
-      {item.filedBy ? (
+      {item.filedBy && !readings ? (
         <p className="reading-provenance">
           Filed by <AgentMark runtime={item.filedByRuntime} label={item.filedBy} />
         </p>

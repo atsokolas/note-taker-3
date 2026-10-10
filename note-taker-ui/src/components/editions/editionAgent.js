@@ -48,3 +48,6 @@ export const agentOf = ({ runtime = '', label = '' } = {}) => {
     label: text
   };
 };
+
+/* Back from a recognised agent to the props AgentMark takes. */
+export const handOf = (agent) => ({ runtime: AGENTS[agent.key] ? agent.key : '', label: agent.label });

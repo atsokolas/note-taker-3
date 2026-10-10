@@ -23,45 +23,6 @@
 .editions__empty p { margin: 0 0 8px; line-height: 1.55; }
 .editions__aside { color: color-mix(in srgb, var(--text-muted) 86%, transparent); }
 
-/* The door on the morning paper. */
-.paper-editions {
-  margin: 40px 0 0;
-}
-
-.paper-editions__title {
-  margin: 0 0 8px;
-  font-size: 0.94rem;
-}
-
-.paper-editions__list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.paper-editions__list li {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 12px;
-  padding: 8px 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--border-subtle-2)) 45%, transparent);
-}
-
-.paper-editions__list a {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 10px;
-  text-decoration: none;
-}
-
-.paper-editions__window,
-.paper-editions__gap {
-  font-size: 0.84rem;
-  color: color-mix(in srgb, var(--text-muted) 86%, transparent);
-}
-
 /* The line on the Connected agents card that says what a connected agent can
    make. Set as prose, not as a settings label — it is the only sentence on
    that screen that describes a thing to read rather than a thing to configure. */
@@ -589,3 +550,16 @@
   background: var(--surface, Canvas);
   clip-path: var(--agent-mark-hex);
 }
+
+/* Two hands on one source: side by side, never reconciled. */
+.edition-readings__hands { font: 12px/1.6 var(--noeis-font-ui, system-ui); opacity: 0.72; margin: 0 0 12px; }
+.edition-readings__columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+  gap: 20px 32px;
+}
+.edition-readings__column { border-top: 1px solid color-mix(in srgb, currentColor 18%, transparent); padding-top: 12px; min-width: 0; }
+.edition-readings__by { font: 13px/1.6 var(--noeis-font-ui, system-ui); margin: 0 0 8px; }
+
+/* The limit's label sits above it, not run into its first word. */
+.edition-item__label { display: block; font: 500 10px/1.5 var(--noeis-font-ui, system-ui); letter-spacing: .1em; text-transform: uppercase; opacity: 0.72; margin-bottom: 4px; }

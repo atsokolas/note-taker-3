@@ -288,6 +288,54 @@ describe('the public paper', () => {
   });
 });
 
+describe('a second reading on a shared paper', () => {
+  const { hashPublicEdition, projectPublicEdition } = require('./editionShape');
+  const issue = (items) => ({
+    profile: 'this_week_in_ai', title: 'This Week in AI', windowStart: '2026-09-28', windowEnd: '2026-10-04', items
+  });
+  const first = {
+    itemId: 'i1', title: 'A paper', url: 'https://example.com/a', section: 'models_methods',
+    finding: 'Twelve points better.', boundary: 'One lab.',
+    filedBy: { label: 'OpenClaw · Jarvis', agentTokenId: 't1', runtime: 'openclaw' }
+  };
+
+  it('publishes both hands and nothing private about either', () => {
+    const seen = projectPublicEdition(issue([{
+      ...first,
+      readings: [{
+        filedBy: { label: 'Codex', agentTokenId: 't2', runtime: 'codex' },
+        filedAt: '2026-10-01', finding: 'Within noise.', boundary: 'Three seeds.', note: ''
+      }]
+    }]), 'Athan');
+    expect(seen.items[0]).toMatchObject({
+      filedBy: 'OpenClaw',
+      filedByRuntime: 'openclaw',
+      readings: [{ filedBy: 'Codex', filedByRuntime: 'codex', finding: 'Within noise.', boundary: 'Three seeds.', note: '' }]
+    });
+    expect(JSON.stringify(seen)).not.toMatch(/t1|t2|filedAt|Jarvis/);
+  });
+
+  /* The label is typed for the owner's eyes. A stranger gets the agent's
+     name when the label carries one, and no name when it does not. */
+  it('never publishes a token label', () => {
+    const seen = projectPublicEdition(issue([{
+      ...first,
+      filedBy: { label: 'Codex Wiki account grounding audit', agentTokenId: 't1', runtime: '' },
+      readings: [{ filedBy: { label: 'Night shift on the studio Mac', agentTokenId: 't2', runtime: '' }, finding: 'f', boundary: 'b' }]
+    }]), 'Athan');
+    expect(seen.items[0].filedBy).toBe('Codex');
+    expect(seen.items[0].readings[0].filedBy).toBe('');
+    expect(JSON.stringify(seen)).not.toMatch(/grounding|Night shift/);
+  });
+
+  it('projects a single-hand item exactly as before', () => {
+    const seen = projectPublicEdition(issue([first]), 'Athan');
+    expect(seen.items[0]).not.toHaveProperty('readings');
+    expect(seen.items[0]).not.toHaveProperty('filedBy');
+    expect(hashPublicEdition(seen)).toBe(hashPublicEdition(projectPublicEdition(issue([{ ...first, readings: [] }]), 'Athan')));
+  });
+});
+
 describe('the two silences', () => {
   const { normalizeChecks, sectionSilences } = require('./editionShape');
   const profile = resolveEditionProfile('this_week_in_ai');

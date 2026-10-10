@@ -43,16 +43,28 @@ const makeStore = () => {
     if (!Array.isArray(addends) || addends.length !== 2) return false;
     return (row.items || []).length + Number(addends[1]) <= Number(max);
   };
-  /* Just enough of $elemMatch for "no receipt from this token for these sections". */
+  /* Just enough of $elemMatch for receipts and readings: a dotted path walks
+     into arrays the way Mongo's does, and a numeric step is an index. */
+  const valuesAt = (value, parts) => {
+    if (!parts.length) return value === undefined ? [] : [value];
+    const [part, ...rest] = parts;
+    if (Array.isArray(value) && !/^\d+$/.test(part)) return value.flatMap(entry => valuesAt(entry, parts));
+    if (value == null) return [];
+    return valuesAt(value[part], rest);
+  };
   const elementMatches = (element, query) => Object.entries(query).every(([key, value]) => {
-    const held = key.split('.').reduce((at, part) => at?.[part], element);
-    if (value && Array.isArray(value.$in)) return value.$in.some(candidate => String(candidate) === String(held));
-    return String(held) === String(value);
+    const held = valuesAt(element, key.split('.'));
+    if (!value || typeof value !== 'object') return held.some(entry => String(entry) === String(value));
+    if (Array.isArray(value.$in)) return held.some(entry => value.$in.some(candidate => String(candidate) === String(entry)));
+    if ('$ne' in value) return !held.some(entry => String(entry) === String(value.$ne));
+    if ('$exists' in value) return Boolean(held.length) === Boolean(value.$exists);
+    return held.some(entry => String(entry) === String(value));
   });
   const matches = (row, query) => Object.entries(query).every(([key, value]) => {
     if (key === '$expr') return matchExpr(row, value);
     if (key === 'checks.0') return Boolean((row.checks || []).length) === Boolean(value.$exists);
     if (value?.$not?.$elemMatch) return !(row[key] || []).some(element => elementMatches(element, value.$not.$elemMatch));
+    if (value?.$elemMatch) return (row[key] || []).some(element => elementMatches(element, value.$elemMatch));
     if (value instanceof Date) return new Date(row[key]).getTime() === value.getTime();
     if (value && typeof value === 'object' && Array.isArray(value.$nin)) {
       const held = fieldOf(row, key);
@@ -109,6 +121,11 @@ const makeStore = () => {
         if (Array.isArray(each)) row.items = [...(row.items || []), ...each];
         const checks = patch.$push?.checks?.$each;
         if (Array.isArray(checks)) row.checks = [...(row.checks || []), ...checks];
+        const readings = patch.$push?.['items.$.readings'];
+        if (readings) {
+          const item = row.items.find(entry => elementMatches(entry, query.items.$elemMatch));
+          item.readings = [...(item.readings || []), ...readings.$each].slice(0, readings.$slice);
+        }
         return attach(row);
       }
       Object.assign(row, patch);
@@ -274,6 +291,18 @@ describe('the newsstand', () => {
     asAgent = true;
     const res = await send('/api/editions', 'POST', week());
     expect(res.body.unfilled).toEqual(['Infrastructure & systems', 'Evaluation & counterevidence']);
+  });
+
+  it('lists who filed into which column, and none of what they said', async () => {
+    asAgent = true;
+    await send('/api/editions', 'POST', week());
+    const [row] = (await send('/api/editions')).body.editions;
+    expect(row.items).toBeUndefined();
+    expect(row.filings.length).toBeGreaterThan(0);
+    row.filings.forEach((filing) => {
+      expect(Object.keys(filing).sort()).toEqual(['filedAt', 'filedBy', 'filedByRuntime', 'saved', 'section']);
+      expect(filing.saved).toBe(false);
+    });
   });
 
   describe('the save door', () => {
@@ -749,6 +778,34 @@ describe('topics the reader configures, and filing into them', () => {
     expect(edited.body.sections).toEqual([{ key: 'clinical_evidence', label: 'Clinical evidence' }]);
   });
 
+  /* Who keeps a column is the reader's standing instruction, like the column. */
+  it('names who keeps each column, and carries it onto the edition', async () => {
+    const created = await configure({
+      sections: [
+        { key: 'clinical_evidence', label: 'Clinical evidence', keeper: { runtime: 'Claude', label: 'Claude · trials desk' } },
+        { key: 'policy', label: 'Policy' }
+      ]
+    });
+    expect(created.body.sections).toEqual([
+      { key: 'clinical_evidence', label: 'Clinical evidence', keeper: { runtime: 'claude-code', label: 'Claude · trials desk' } },
+      { key: 'policy', label: 'Policy' }
+    ]);
+    const filed = await send('/api/editions/file', 'POST', { profile: 'biotech', items: [finding()] });
+    expect(filed.body.sections[0].keeper).toEqual({ runtime: 'claude-code', label: 'Claude · trials desk' });
+  });
+
+  it('keeps a column’s keeper through an edit that does not mention it, and lets it go when asked', async () => {
+    await configure({ sections: [{ key: 'clinical_evidence', label: 'Clinical evidence', keeper: { runtime: 'codex' } }] });
+    const omitted = await send('/api/edition-profiles', 'POST', { key: 'biotech', title: 'This Month in Biotech' });
+    expect(omitted.body.sections[0].keeper).toEqual({ runtime: 'codex', label: '' });
+    const renamed = await configure({ sections: [{ key: 'clinical_evidence', label: 'Trials' }] });
+    expect(renamed.body.sections[0]).toEqual({ key: 'clinical_evidence', label: 'Trials', keeper: { runtime: 'codex', label: '' } });
+    const empty = await configure({ sections: [{ key: 'clinical_evidence', label: 'Trials', keeper: {} }] });
+    expect(empty.body.sections[0].keeper).toEqual({ runtime: 'codex', label: '' });
+    const released = await configure({ sections: [{ key: 'clinical_evidence', label: 'Trials', keeper: null }] });
+    expect(released.body.sections[0]).toEqual({ key: 'clinical_evidence', label: 'Trials' });
+  });
+
   it('puts those columns on the edition an agent files', async () => {
     await configure({
       sections: [
@@ -1188,6 +1245,140 @@ describe('an empty section says which silence it is', () => {
     });
     expect(response.status).toBe(200);
     expect(Edition.rows[0].checks.map(check => check.by.label)).toEqual(['Hermes', 'Jarvis']);
+  });
+});
+
+/* Two agents on one source is the paper's most editorial moment: the second
+   reading sits beside the first instead of being dropped as a duplicate. */
+describe('a second reading of a held source', () => {
+  let server;
+  let url;
+  let Edition;
+  let token;
+
+  beforeEach(async () => {
+    Edition = makeStore();
+    token = { id: 'token-1', label: 'Jarvis', runtime: 'openclaw' };
+    const app = express();
+    app.use(express.json());
+    app.use(buildEditionRouter({
+      auth: (req, _res, next) => {
+        req.user = { id: 'user-1' };
+        if (token) req.agentToken = token;
+        next();
+      },
+      Edition,
+      EditionProfile: makeStore(),
+      Article: { findOneAndUpdate: async () => ({ _id: 'a1' }) }
+    }));
+    server = await listen(app);
+    url = `http://127.0.0.1:${server.address().port}`;
+  });
+
+  afterEach(() => server?.close());
+
+  const post = async (path, body) => {
+    const response = await fetch(`${url}${path}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ profile: 'this_week_in_ai', ...body })
+    });
+    return { status: response.status, body: await response.json() };
+  };
+  const file = body => post('/api/editions/file', body);
+  const as = (id, label, runtime) => { token = { id, label, runtime }; };
+  const source = (over = {}) => item({ url: 'https://example.com/paper#methods', ...over });
+
+  it('keeps a second agent’s reading beside the first', async () => {
+    await file({ items: [source()] });
+    as('token-2', 'Codex', 'codex');
+    const second = await file({
+      items: [source({ finding: 'The gain is within run-to-run noise.', boundary: 'Three seeds only.' })]
+    });
+    expect(second.body).toMatchObject({ added: 0, readingsAdded: 1, alreadyHeld: 0 });
+    expect(second.body.items).toHaveLength(1);
+    expect(second.body.items[0].filedBy).toBe('Jarvis');
+    expect(second.body.items[0].readings).toEqual([{
+      filedBy: 'Codex',
+      filedByRuntime: 'codex',
+      filedAt: expect.any(String),
+      finding: 'The gain is within run-to-run noise.',
+      boundary: 'Three seeds only.',
+      note: ''
+    }]);
+    /* A reading is not an arrival and not an item. */
+    expect(second.body.itemCount).toBe(1);
+  });
+
+  it('drops the same agent filing the same link again', async () => {
+    await file({ items: [source()] });
+    const again = await file({ items: [source({ finding: 'Said differently.' })] });
+    expect(again.body).toMatchObject({ added: 0, readingsAdded: 0, alreadyHeld: 1 });
+    expect(Edition.rows[0].items[0].readings).toBeUndefined();
+  });
+
+  it('drops a filing it cannot tell apart from the first', async () => {
+    as('', 'Hand-made', '');
+    await file({ items: [source()] });
+    as('token-2', 'Codex', 'codex');
+    expect((await file({ items: [source()] })).body.readingsAdded).toBe(0);
+  });
+
+  it('still demands a boundary of a reading', async () => {
+    await file({ items: [source()] });
+    as('token-2', 'Codex', 'codex');
+    const refused = await file({ items: [source({ boundary: '' })] });
+    expect(refused.status).toBe(400);
+    expect(Edition.rows[0].items[0].readings).toBeUndefined();
+  });
+
+  it('keeps at most three readings, one per agent', async () => {
+    await file({ items: [source()] });
+    for (const id of ['token-2', 'token-3', 'token-4', 'token-5']) {
+      as(id, id, 'agent');
+      await file({ items: [source()] });
+    }
+    as('token-3', 'token-3', 'agent');
+    await file({ items: [source()] });
+    expect(Edition.rows[0].items[0].readings.map(reading => reading.filedBy.agentTokenId))
+      .toEqual(['token-2', 'token-3', 'token-4']);
+  });
+
+  it('pushes one reading when the same agent files twice at once', async () => {
+    await file({ items: [source()] });
+    as('token-2', 'Codex', 'codex');
+    const both = await Promise.all([file({ items: [source()] }), file({ items: [source()] })]);
+    expect(both.map(result => result.body.readingsAdded).sort()).toEqual([0, 1]);
+    expect(Edition.rows[0].items[0].readings).toHaveLength(1);
+  });
+
+  it('answers with the reading a racing filing landed', async () => {
+    await file({ items: [source()] });
+    as('token-2', 'Codex', 'codex');
+    const write = Edition.findOneAndUpdate;
+    Edition.findOneAndUpdate = async (query, patch, options) => {
+      if (!patch.$push?.['items.$.readings']) return write(query, patch, options);
+      /* The other request's push wins first; this one then misses. */
+      Edition.rows[0].items[0].readings = [{ ...patch.$push['items.$.readings'].$each[0] }];
+      return null;
+    };
+    const lost = await file({ items: [source()] });
+    expect(lost.body).toMatchObject({ readingsAdded: 0, alreadyHeld: 1 });
+    expect(lost.body.items[0].readings.map(reading => reading.filedBy)).toEqual(['Codex']);
+  });
+
+  it('keeps readings through a whole-issue rewrite', async () => {
+    await file({ items: [source()] });
+    as('token-2', 'Codex', 'codex');
+    await file({ items: [source()] });
+    const rewritten = await post('/api/editions', {
+      windowStart: Edition.rows[0].windowStart,
+      windowEnd: Edition.rows[0].windowEnd,
+      items: [source(), source({ url: 'https://example.com/two' })]
+    });
+    expect(rewritten.status).toBe(200);
+    expect(rewritten.body.items[0].readings.map(reading => reading.filedBy)).toEqual(['Codex']);
+    expect(rewritten.body.items[1].readings).toEqual([]);
   });
 });
 

@@ -120,8 +120,9 @@ Noeis refuses an item without a boundary.
 2. `configure_edition` sets up a new subject, for example `{ key: "biotech",
    title: "This Month in Biotech", cadence: "monthly" }`. Ask the reader what its
    sections should be.
-3. `file_edition_items` adds what you found today to the current issue. Links
-   already filed are skipped, so several agents can share one paper.
+3. `file_edition_items` adds what you found today to the current issue. Your
+   own repeats are skipped; a link another agent already filed is kept as your
+   reading beside theirs, so several agents can share one paper.
    When you looked at a section and nothing met your bar, say so in `checked`;
    a section you leave silent reads to the reader as "not reported".
 4. `list_editions` and `get_edition` read back what has been filed.

@@ -4,17 +4,10 @@ import {
   RoomShelf,
   RoomShelfButton,
   RoomShelfList,
-  RoomShelfMeta,
   RoomShelfSection,
   roomShelfItemClass
 } from '../collection/RoomShelf';
-import {
-  issueShelfMeta,
-  issuesShelfLabel,
-  resolvePaperIssueId,
-  shelfIssuesForPaper,
-  windowLine
-} from '../../pages/editionModel';
+import { resolvePaperIssueId } from '../../pages/editionModel';
 
 const NARROW_SHELF = '(max-width: 700px)';
 
@@ -41,19 +34,14 @@ const useNarrowShelf = () => {
 const EditionShelfNav = ({
   papers = [],
   paper,
-  selectedIssueId = '',
   readProfileIssue,
   onOpenArrivals,
-  onOpenArchive,
   onNavigate,
   className = '',
   inSheet = false
 }) => {
   const narrow = useNarrowShelf();
   const hiddenOnPhone = narrow && !inSheet;
-  const issues = paper?.issues || [];
-  const shelfIssues = shelfIssuesForPaper(issues, selectedIssueId);
-  const issuesLabel = issuesShelfLabel(issues, selectedIssueId);
 
   const choosePaper = (nextPaper) => {
     const issueId = resolvePaperIssueId(nextPaper, readProfileIssue);
@@ -111,35 +99,6 @@ const EditionShelfNav = ({
               </li>
             ))}
           </RoomShelfList>
-        </RoomShelfSection>
-      ) : null}
-
-      {paper ? (
-        <RoomShelfSection label={issuesLabel}>
-          <RoomShelfList>
-            {shelfIssues.map((issue) => {
-              const active = issue._id === selectedIssueId;
-              const range = windowLine(issue);
-              const meta = issueShelfMeta(issue, paper.issueLabel);
-              const label = [paper.title, meta, range].filter(Boolean).join(', ');
-              return (
-                <li key={issue._id}>
-                  <Link
-                    className={roomShelfItemClass({ active })}
-                    aria-current={active ? 'page' : undefined}
-                    to={`/editions/${encodeURIComponent(issue._id)}`}
-                    aria-label={label || 'This issue'}
-                  >
-                    <span>{range || 'This issue'}</span>
-                    {meta ? <RoomShelfMeta>{meta}</RoomShelfMeta> : null}
-                  </Link>
-                </li>
-              );
-            })}
-          </RoomShelfList>
-          <button type="button" className="edition-shelf__archive" onClick={onOpenArchive}>
-            All issues →
-          </button>
         </RoomShelfSection>
       ) : null}
     </RoomShelf>

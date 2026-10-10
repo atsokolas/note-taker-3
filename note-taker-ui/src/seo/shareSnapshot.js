@@ -8,6 +8,12 @@
 
 import { agentOf } from '../components/editions/editionAgent';
 
+/* "Codex’s reading", or a plain one when the paper does not name its agent. */
+const readingBy = ({ filedBy, filedByRuntime }, unnamed) => {
+  const agent = agentOf({ runtime: filedByRuntime, label: filedBy });
+  return agent ? `${agent.name}’s reading` : unnamed;
+};
+
 const HOST = 'https://www.noeis.io';
 
 const escapeHtml = (value = '') => String(value)
@@ -200,8 +206,12 @@ export const renderEditionSnapshot = (edition = {}, path = '') => {
         <section class="card">
           ${item.section ? `<p class="eyebrow">${escapeHtml(item.section)}</p>` : ''}
           <h2>${item.url ? `<a href="${escapeHtml(item.url)}" rel="nofollow noopener">${escapeHtml(item.title || item.url)}</a>` : escapeHtml(item.title)}</h2>
+          ${item.readings?.length ? `<h3>${escapeHtml(readingBy(item, 'A reading'))}</h3>` : ''}
           <p>${escapeHtml(item.finding)}</p>
-          ${item.boundary ? `<p><strong>What limits it:</strong> ${escapeHtml(item.boundary)}</p>` : ''}
+          ${item.boundary ? `<p><strong>What limits it:</strong> ${escapeHtml(item.boundary)}</p>` : ''}${(item.readings || []).map((reading) => `
+          <h3>${escapeHtml(readingBy(reading, 'Another reading'))}</h3>
+          <p>${escapeHtml(reading.finding)}</p>
+          <p><strong>What limits it:</strong> ${escapeHtml(reading.boundary)}</p>`).join('')}
         </section>`).join('')}${edition.throughLine ? `
         <section class="card"><h2>Through line</h2><p>${escapeHtml(edition.throughLine)}</p></section>` : ''}${(edition.watchNext || []).length ? `
         <section class="card"><h2>Watch next</h2><ul>${edition.watchNext.map((line) => `<li>${escapeHtml(line)}</li>`).join('')}</ul></section>` : ''}

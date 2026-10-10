@@ -42,3 +42,55 @@ describe('the byline on a paper', () => {
     expect(container).not.toHaveTextContent('My laptop');
   });
 });
+
+describe('two hands on one source', () => {
+  const item = {
+    itemId: 'one', title: 'A paper', url: 'https://example.com',
+    finding: 'Twelve points better.', boundary: 'One lab.', filedBy: 'OpenClaw · Jarvis', filedByRuntime: 'openclaw',
+    readings: [{ filedBy: LABEL, filedByRuntime: '', finding: 'Within run-to-run noise.', boundary: 'Three seeds.', note: '' }]
+  };
+
+  it('sets each reading in its own column, named, with its own limit, and judges neither', () => {
+    const { container } = render(
+      <MemoryRouter>
+        <EditionFinding item={item} onAct={() => {}} onPeek={() => {}} />
+      </MemoryRouter>
+    );
+    expect(screen.getByText('Filed independently by two hands.')).toBeInTheDocument();
+    const columns = container.querySelectorAll('.edition-readings__column');
+    expect(columns).toHaveLength(2);
+    expect(columns[0]).toHaveTextContent('OpenClaw’s reading');
+    expect(columns[0]).toHaveTextContent('Twelve points better.');
+    expect(columns[0]).toHaveTextContent('One lab.');
+    expect(columns[1]).toHaveTextContent('Codex’s reading');
+    expect(columns[1]).toHaveTextContent('Within run-to-run noise.');
+    expect(columns[1]).toHaveTextContent('Three seeds.');
+    /* The first reading keeps the passage the reader can select from. */
+    expect(columns[0].querySelector('[data-finding-text="one"]')).not.toBeNull();
+    expect(screen.queryByText(/Filed by/)).toBeNull();
+    expect(container).not.toHaveTextContent(/agree|differ/i);
+  });
+
+  it('prints both readings on a shared paper, without the token labels', () => {
+    const { container } = render(
+      <EditionPaper edition={{
+        title: 'This Week in AI',
+        sections: [],
+        items: [{ ...item, filedBy: 'OpenClaw · Jarvis' }]
+      }} />
+    );
+    expect(container.querySelectorAll('.edition-readings__column')).toHaveLength(2);
+    expect(screen.getByText('Three seeds.')).toBeInTheDocument();
+    expect(container.querySelector('[title]')).toBeNull();
+  });
+
+  it('reads exactly as before when only one hand filed', () => {
+    const { container } = render(
+      <MemoryRouter>
+        <EditionFinding item={{ ...item, readings: [] }} onAct={() => {}} onPeek={() => {}} />
+      </MemoryRouter>
+    );
+    expect(container.querySelector('.edition-readings')).toBeNull();
+    expect(screen.getByText(/Filed by/)).toBeInTheDocument();
+  });
+});

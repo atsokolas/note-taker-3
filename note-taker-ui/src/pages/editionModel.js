@@ -14,6 +14,7 @@
  * date, which reads as a pile; grouping them back into the papers they belong
  * to is what makes a run of issues legible as one thing that keeps turning up.
  */
+import { agentOf } from '../components/editions/editionAgent';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'];
@@ -134,54 +135,6 @@ export const closesLine = (edition = {}, now = Date.now()) => {
   if (days <= 1) return 'Closes today';
   if (days <= 7) return `Closes ${DAYS[end.getUTCDay()]}`;
   return `Closes ${MONTHS[end.getUTCMonth()]} ${end.getUTCDate()}`;
-};
-
-/**
- * What the paper admits about itself.
- *
- * Silence when the week covered its own shape — printing "0 sections empty"
- * would be filler. Never a count where a name will do: the reader needs to
- * know which named column went missing, not that one thing did.
- */
-const orList = (names) => (names.length === 1
-  ? names[0]
-  : `${names.slice(0, -1).join(', ')} or ${names[names.length - 1]}`);
-
-/* Each silence keeps its own sentence: a section an agent looked at and one
-   nobody reported on are different admissions. Issues from before receipts
-   carry only `unfilled`, and read as they always did. */
-const GAP_SENTENCES = [
-  ['checked', (names) => `Nothing met the bar under ${orList(names)}.`],
-  ['unreported', (names) => `Not reported under ${orList(names)}.`],
-  ['unknown', (names) => `Nothing this week under ${orList(names)}.`]
-];
-
-export const gapLine = ({ unfilled = [], silences } = {}) => {
-  const said = Array.isArray(silences)
-    ? silences
-    : (unfilled || []).map((label) => ({ label, state: 'unknown' }));
-  return GAP_SENTENCES
-    .map(([state, sentence]) => {
-      const names = said.filter((silence) => silence.state === state && silence.label).map((silence) => silence.label);
-      return names.length ? sentence(names) : '';
-    })
-    .filter(Boolean)
-    .join(' ');
-};
-
-/**
- * What you took.
- *
- * Before you have taken anything the paper says how much there is to take,
- * not that you have taken none — an unread edition is not a failed one.
- */
-export const takenLine = ({ itemCount = 0, savedCount = 0 } = {}) => {
-  const total = Number(itemCount) || 0;
-  const taken = Number(savedCount) || 0;
-  if (!total) return '';
-  if (!taken) return `${total} source${total === 1 ? '' : 's'}.`;
-  if (taken === total) return `All ${total} in your library.`;
-  return `${taken} of ${total} in your library.`;
 };
 
 /**
@@ -380,23 +333,6 @@ export const sourceLinks = (edition = null) => {
 /** How many dated issues the rail shows before All issues. */
 export const SHELF_ISSUE_LIMIT = 12;
 
-const yearFromWindow = (issue = {}) => {
-  const end = day(issue.windowEnd);
-  const start = day(issue.windowStart);
-  if (!end && !start) return '';
-  if (end && start && end.getUTCFullYear() !== start.getUTCFullYear()) {
-    return `${start.getUTCFullYear()}–${end.getUTCFullYear()}`;
-  }
-  return String((end || start).getUTCFullYear());
-};
-
-/** Section label for the issue list, including cross-year coverage. */
-export const issuesShelfLabel = (issues = [], selectedId = '') => {
-  const selected = (Array.isArray(issues) ? issues : []).find((row) => row._id === selectedId);
-  const year = yearFromWindow(selected) || yearFromWindow(issues[issues.length - 1]);
-  return year ? `Issues · ${year}` : 'Issues';
-};
-
 /**
  * Newest issues for the rail, bounded, with the open issue kept visible even
  * when it falls outside the recent window.
@@ -418,15 +354,6 @@ export const shelfIssuesForPaper = (issues = [], selectedId = '', limit = SHELF_
   return recent;
 };
 
-/** Secondary shelf label for an issue number. */
-export const issueShelfMeta = (issue = {}, issueLabel) => {
-  const line = issueLine({ ...issue, issueLabel });
-  if (!line) return '';
-  const numbered = line.match(/(\d+)\s*$/);
-  if (numbered) return `No. ${numbered[1]}`;
-  return line;
-};
-
 /** Last issue the reader opened on this paper, else the current one. */
 export const resolvePaperIssueId = (paper, readProfileIssue) => {
   if (!paper?.issues?.length) return '';
@@ -434,4 +361,171 @@ export const resolvePaperIssueId = (paper, readProfileIssue) => {
   const remembered = stored?.issueId;
   if (remembered && paper.issues.some((row) => row._id === remembered)) return remembered;
   return paper.issues[paper.current]?._id || paper.issues[paper.issues.length - 1]._id;
+};
+
+/* The first hand on an item is the one that filed it; readings are second
+   opinions on a source already in the paper, not filings into the column. */
+const filerOf = item => agentOf({ label: item?.filedBy, runtime: item?.filedByRuntime });
+
+/* An opened issue carries its items; a row on the stand carries only who
+   filed into which column. */
+const filingsOf = issue => issue?.items || issue?.filings || [];
+
+/**
+ * Who keeps each column across a run.
+ *
+ * A keeper the reader configured wins. Otherwise the agent that filed most of
+ * the column's items is offered, marked `derived` so the paper says "usually
+ * filed by", never "keeps". A tie names no one: the paper does not guess.
+ */
+export const keepersFor = (issues = [], sections = []) => {
+  const keepers = {};
+  (sections || []).forEach((section) => {
+    if (!section?.key) return;
+    const configured = section.keeper && agentOf(section.keeper);
+    if (configured) {
+      keepers[section.key] = { agent: configured, derived: false };
+      return;
+    }
+    const tally = new Map();
+    (issues || []).forEach(issue => filingsOf(issue).forEach((item) => {
+      if (item.section !== section.key) return;
+      const agent = filerOf(item);
+      if (!agent) return;
+      const held = tally.get(agent.key) || { agent, count: 0 };
+      tally.set(agent.key, { ...held, count: held.count + 1 });
+    }));
+    const [first, second] = [...tally.values()].sort((left, right) => right.count - left.count);
+    keepers[section.key] = first && (!second || first.count > second.count)
+      ? { agent: first.agent, derived: true }
+      : null;
+  });
+  return keepers;
+};
+
+/**
+ * Per column of one issue, the hands that filed into it other than its
+ * keeper: the small second marks on the shelf. A column with no keeper lists
+ * every hand that filed there.
+ */
+export const foreignFilers = (issue = {}, keepers = {}) => {
+  const foreign = {};
+  filingsOf(issue).forEach((item) => {
+    const agent = filerOf(item);
+    if (!agent || agent.key === keepers[item.section]?.agent?.key) return;
+    const held = foreign[item.section] || [];
+    if (!held.some(hand => hand.key === agent.key)) foreign[item.section] = [...held, agent];
+  });
+  return foreign;
+};
+
+/* Section colour: a counter-evidence column is always red, and the rest
+   take the palette in profile order. Tones are names; the colours are theme
+   tokens, so Midnight carries its own. */
+const TONES = ['blue', 'ochre', 'birch', 'sage', 'slate', 'plum', 'ink', 'red'];
+
+export const sectionTones = (sections = []) => {
+  const tones = {};
+  let next = 0;
+  (sections || []).forEach((section) => {
+    if (!section?.key) return;
+    if (/counter/i.test(section.key)) {
+      tones[section.key] = 'red';
+      return;
+    }
+    tones[section.key] = TONES[next % TONES.length];
+    next += 1;
+  });
+  return tones;
+};
+
+const monthDay = (value) => {
+  const date = day(value);
+  return date ? `${MONTHS[date.getUTCMonth()].slice(0, 3)} ${date.getUTCDate()}` : '';
+};
+
+/**
+ * One paper's run as a storage unit: a row per issue, a bay per column.
+ *
+ * A bay is filled when something was filed there, braced when an agent
+ * looked and nothing met the bar, open when nobody reported, and plain when
+ * the issue predates receipts. Nothing is inferred beyond the keeper the
+ * paper already labels "usually filed by".
+ */
+export const shelfGrid = (paper = null, selectedId = '') => {
+  const issues = paper?.issues || [];
+  if (!issues.length) return { sections: [], rows: [] };
+  const named = (issues[issues.length - 1].sections || []).filter(section => section?.key);
+  const keepers = keepersFor(issues, named);
+  const current = selectedId || issues[paper.current ?? issues.length - 1]?._id;
+  const rows = shelfIssuesForPaper(issues, current).slice().reverse().map((issue) => {
+    const foreign = foreignFilers(issue, keepers);
+    const counts = filingsOf(issue).reduce((tally, item) => (
+      { ...tally, [item.section]: (tally[item.section] || 0) + 1 }
+    ), {});
+    return {
+      issueId: issue._id,
+      number: issue.number ?? null,
+      label: [issue.number, monthDay(issue.windowStart)].filter(Boolean).join(' · ') || windowLine(issue),
+      current: issue._id === current,
+      cells: named.map((section) => {
+        const count = counts[section.key] || 0;
+        const silence = (issue.silences || []).find(entry => entry.key === section.key);
+        const state = count
+          ? 'filled'
+          : (silence?.state === 'checked' || silence?.state === 'unreported' ? silence.state : 'unknown');
+        return { section: section.key, count, state, foreign: foreign[section.key] || [], by: silence?.by || [] };
+      })
+    };
+  });
+  return {
+    sections: named.map(section => ({ key: section.key, label: section.label, keeper: keepers[section.key] })),
+    rows
+  };
+};
+
+/** Days after an issue closes before a missing report reads as "Not reported"; the server's grace. */
+export const REPORT_GRACE_DAYS = 3;
+
+/**
+ * The desk: who works on this paper, shown only when more than one agent
+ * does. Each hand says which columns it keeps, what it did this issue, and how
+ * much of what it filed across the run the reader kept. No on-time score.
+ */
+export const deskFor = (paper = null, issue = null, now = Date.now()) => {
+  const issues = paper?.issues || [];
+  const hands = new Map();
+  issues.forEach(row => filingsOf(row).forEach((item) => {
+    const agent = filerOf(item);
+    if (!agent) return;
+    const held = hands.get(agent.key) || { agent, filed: 0, saved: 0 };
+    hands.set(agent.key, { ...held, filed: held.filed + 1, saved: held.saved + (item.saved || item.savedArticleId ? 1 : 0) });
+  }));
+  if (hands.size < 2) return [];
+  const sections = (issues[issues.length - 1]?.sections || []).filter(section => section?.key);
+  const keepers = keepersFor(issues, sections);
+  const end = day(issue?.windowEnd);
+  /* A hand on every column of a paper with several says so in two words. */
+  const every = held => (sections.length > 1 && held.length === sections.length
+    ? ['every column']
+    : held.map(section => section.label));
+  const overdue = Boolean(end) && now > end.getTime() + DAY_MS * (1 + REPORT_GRACE_DAYS);
+  return [...hands.values()].map(({ agent, filed, saved }) => {
+    const kept = sections.filter(section => keepers[section.key]?.agent?.key === agent.key);
+    const mine = filingsOf(issue).filter(item => filerOf(item)?.key === agent.key);
+    const last = Math.max(0, ...mine.map(item => timestampOf(item.filedAt)));
+    const looked = (issue?.silences || []).some(silence => (
+      silence.state === 'checked' && (silence.by || []).some(by => agentOf(by)?.key === agent.key)
+    ));
+    const thisIssue = mine.length
+      ? (last ? `Filed ${monthDay(last)}` : 'Filed')
+      : looked ? 'Looked, filed nothing' : overdue ? 'Not reported' : 'Not filed yet';
+    return {
+      agent,
+      keeps: every(kept.filter(section => !keepers[section.key].derived)),
+      usually: every(kept.filter(section => keepers[section.key].derived)),
+      thisIssue,
+      kept: `Kept by you: ${saved} of ${filed}`
+    };
+  });
 };

@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const { publicAgentName } = require('./agentRuntime');
 
 /**
  * What an edition has to contain.
@@ -377,7 +378,21 @@ const projectPublicItem = (item = {}) => ({
   section: publicText(item.section, 120),
   finding: publicText(item.finding, 2000),
   boundary: publicText(item.boundary, 2000),
-  note: publicText(item.note, 4000)
+  note: publicText(item.note, 4000),
+  /* A second agent's reading is editorial, like the first, and both hands are
+     named by what the agent is, never by the label typed for its token.
+     Absent when there is none, so an older share keeps its hash. */
+  ...(item.readings?.length ? {
+    filedBy: publicAgentName(item.filedBy),
+    filedByRuntime: publicText(item.filedBy?.runtime, 40),
+    readings: item.readings.map(reading => ({
+      filedBy: publicAgentName(reading.filedBy),
+      filedByRuntime: publicText(reading.filedBy?.runtime, 40),
+      finding: publicText(reading.finding, 2000),
+      boundary: publicText(reading.boundary, 2000),
+      note: publicText(reading.note, 4000)
+    }))
+  } : {})
 });
 
 /**
@@ -486,6 +501,7 @@ const retainHeldItems = (incoming = [], existingItems = [], writtenBy = {}, now 
       itemId: before?.itemId || item.itemId,
       filedBy: before?.filedBy?.label ? before.filedBy : writtenBy,
       filedAt: before?.filedAt || now,
+      ...(before?.readings?.length ? { readings: before.readings } : {}),
       savedArticleId: before?.savedArticleId || null,
       readerState: readerStateOf(before)
     };

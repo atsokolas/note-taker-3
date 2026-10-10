@@ -113,6 +113,16 @@ const run = async () => {
     assert.strictEqual(filed.alreadyHeld, 1);
   }
 
+  /* A column can name its keeper, or let one go. */
+  {
+    const schema = z.object(writeTools.find(tool => tool.name === 'configure_edition').inputSchema);
+    const base = { key: 'biotech', title: 'This Month in Biotech' };
+    assert.strictEqual(schema.safeParse({ ...base, sections: [{ key: 'trials', label: 'Trials', keeper: { runtime: 'codex' } }] }).success, true);
+    assert.strictEqual(schema.safeParse({ ...base, sections: [{ key: 'trials', label: 'Trials', keeper: null }] }).success, true);
+    assert.strictEqual(schema.safeParse({ ...base, sections: [{ key: 'trials', label: 'Trials', keeper: { label: 'x'.repeat(61) } }] }).success, false);
+    assert.match(writeTools.find(tool => tool.name === 'configure_edition').description, /which agent keeps each section/);
+  }
+
   /* "Nothing met the bar" is a filing too: checked alone is enough, and it
      reaches the API as sent. Saying nothing at all is refused before the call. */
   {
@@ -123,6 +133,9 @@ const run = async () => {
     const create = z.object(writeTools.find(tool => tool.name === 'create_edition').inputSchema);
     assert.strictEqual(create.shape.checked.isOptional(), true);
     assert.match(writeTools.find(tool => tool.name === 'file_edition_items').description, /reads to the reader as 'not reported'/);
+    /* A second agent on a held link is a reading, not a skip; agents are told to
+       write their own rather than echo the first. */
+    assert.match(writeTools.find(tool => tool.name === 'file_edition_items').description, /second reading beside theirs .* do not paraphrase theirs/);
 
     const bodies = [];
     const client = new NoeisClient({
