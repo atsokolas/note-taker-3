@@ -4,6 +4,7 @@ import { handsOf, issueLine, publicSourceHref } from '../../pages/editionModel';
 import AgentMark from './AgentMark';
 import { handOf } from './editionAgent';
 import { EditionBoundary } from './EditionFinding';
+import EditionReadings from './EditionReadings';
 import SourcePeek from './SourcePeek';
 import { useEditionThoughts } from './ThoughtComposer';
 import useEditionArrivals from './useEditionArrivals';
@@ -13,6 +14,8 @@ const metaLine = (row) => [
   row.sourceLabel,
   row.sourceDate
 ].filter(Boolean).join(' · ');
+
+const finding = text => <p className="power-item__finding">{text}</p>;
 
 const isTyping = (target) => target?.matches?.('input, textarea, select, [contenteditable="true"]');
 
@@ -143,14 +146,20 @@ export default function EditionPowerThrough({ papers = [], paper = '', by = '', 
         <article className="power-item" key={`${row.editionId}:${row.itemId}`}>
           <p className="power-item__meta">{metaLine(row)}</p>
           <h2>{row.title}</h2>
-          <p className="power-item__finding">{row.finding}</p>
-          <EditionBoundary>{row.boundary}</EditionBoundary>
-          {row.note ? <p className="power-item__note">{row.note}</p> : null}
-          {row.filedBy ? (
-            <p className="power-item__filed">
-              Filed by <AgentMark runtime={row.filedByRuntime} label={row.filedBy} />
-            </p>
-          ) : null}
+          {row.readings?.length ? (
+            <EditionReadings item={row} finding={finding} Boundary={EditionBoundary} />
+          ) : (
+            <>
+              {finding(row.finding)}
+              <EditionBoundary>{row.boundary}</EditionBoundary>
+              {row.note ? <p className="power-item__note">{row.note}</p> : null}
+              {row.filedBy ? (
+                <p className="power-item__filed">
+                  Filed by <AgentMark runtime={row.filedByRuntime} label={row.filedBy} />
+                </p>
+              ) : null}
+            </>
+          )}
           <nav className="power-item__source" aria-label="Open the source">
             <button type="button" onClick={() => setReading(true)}>Read it here <kbd>O</kbd></button>
             {href ? <a href={href} target="_blank" rel="noopener noreferrer">The original ↗ <kbd>⇧O</kbd></a> : null}

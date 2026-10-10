@@ -52,6 +52,21 @@ it('powers through what is new one finding at a time, narrowed to a paper', asyn
   fireEvent.keyDown(document, { key: 'e' });
   expect(await screen.findByRole('heading', { name: 'All caught up.' })).toBeVisible();
 });
+it('powers through a source two agents read, showing each reading', async () => {
+  mockId = undefined;
+  mockSearch = 'power=1';
+  api.getEditionInbox.mockResolvedValue({
+    items: [{
+      ...item, editionId: 'e1', profileLabel: 'Weekend Readings', filedByRuntime: 'openclaw',
+      readings: [{ filedBy: 'Codex', filedByRuntime: 'codex', finding: 'A second view.', boundary: 'Its own limit.', note: '' }]
+    }],
+    remaining: 0
+  });
+  render(<Editions />);
+  expect(await screen.findByText('A second view.')).toBeVisible();
+  expect(screen.getByText(item.finding)).toBeVisible();
+  expect(screen.getByText('Filed independently by two hands.')).toBeVisible();
+});
 it('opens the finding and its boundary, and preserves empty sections', async () => {
   render(<Editions />);
   expect(await screen.findByText(item.finding)).toBeVisible();

@@ -445,7 +445,8 @@ describe('keeping a reader’s place in a rewritten week', () => {
           {
             itemId: 'fresh', title: 'Fresh', url: 'https://example.com/b',
             finding: 'A useful finding.', boundary: 'One lab only.', note: 'Read beside Tuesday.',
-            filedBy: { label: 'Jarvis' }, savedArticleId: 'article-1', filedAt: '2026-09-09'
+            filedBy: { label: 'Jarvis' }, savedArticleId: 'article-1', filedAt: '2026-09-09',
+            readings: [{ filedBy: { label: 'Codex', runtime: 'codex' }, finding: 'A second view.', boundary: 'Its own limit.' }]
           }
         ]
       }
@@ -455,7 +456,8 @@ describe('keeping a reader’s place in a rewritten week', () => {
       boundary: 'One lab only.',
       note: 'Read beside Tuesday.',
       filedBy: 'Jarvis',
-      savedArticleId: 'article-1'
+      savedArticleId: 'article-1',
+      readings: [{ filedBy: 'Codex', filedByRuntime: 'codex', finding: 'A second view.', boundary: 'Its own limit.', note: '' }]
     });
   });
 

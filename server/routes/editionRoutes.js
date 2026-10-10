@@ -16,6 +16,7 @@ const {
   projectPublicEdition,
   READER_STATUSES,
   readerLayerOf,
+  readingsOf,
   resolveEditionProfile,
   retainHeldItems,
   sectionSilences,
@@ -116,14 +117,7 @@ const serializeItem = (item) => {
     filedBy: row.filedBy?.label || '',
     filedByRuntime: row.filedBy?.runtime || '',
     filedAt: row.filedAt || null,
-    readings: (row.readings || []).map(reading => ({
-      filedBy: reading.filedBy?.label || '',
-      filedByRuntime: reading.filedBy?.runtime || '',
-      filedAt: reading.filedAt || null,
-      finding: reading.finding,
-      boundary: reading.boundary,
-      note: reading.note || ''
-    })),
+    readings: readingsOf(row),
     savedArticleId: row.savedArticleId ? String(row.savedArticleId) : null,
     readerStatus: row.readerState?.status || 'new'
   };

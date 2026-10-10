@@ -672,6 +672,16 @@ const isArrival = item => itemIsNew(item) && itemIsReady(item);
 
 /* Whether a hand is on this item: the agent that filed it, or one that read
    the same source on its own. */
+/* A second agent's reading of the same source, as the reader sees it. */
+const readingsOf = (item = {}) => (item.readings || []).map(reading => ({
+  filedBy: reading.filedBy?.label || '',
+  filedByRuntime: reading.filedBy?.runtime || '',
+  filedAt: reading.filedAt || null,
+  finding: reading.finding,
+  boundary: reading.boundary,
+  note: reading.note || ''
+}));
+
 const handOn = (item = {}, by = '') => [item.filedBy, ...(item.readings || []).map(reading => reading.filedBy)]
   .some(hand => agentKeyOf(hand || {}) === by);
 
@@ -706,6 +716,7 @@ const collectInbox = (
           ...readerLayerOf(item),
           filedBy: item.filedBy?.label || '',
           filedByRuntime: item.filedBy?.runtime || '',
+          readings: readingsOf(item),
           savedArticleId: item.savedArticleId ? String(item.savedArticleId) : null
         } : {}),
         sortAt
@@ -759,6 +770,7 @@ module.exports = {
   publicHttpUrl,
   READER_STATUSES,
   readerLayerOf,
+  readingsOf,
   resolveEditionProfile,
   retainHeldItems,
   sectionLabel
