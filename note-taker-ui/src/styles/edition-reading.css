@@ -1,9 +1,10 @@
 /* The private paper. All selectors stay inside the Editions experience. */
 .edition-reading {
-  --reading-ink: var(--text-primary, #302d28);
-  --reading-muted: var(--text-secondary, #625f57);
-  --reading-rule: var(--noeis-rule, #d9d5ca);
-  --reading-paper: var(--surface, #f7f5ee);
+  --reading-ink: var(--noeis-ink, #332f29);
+  --reading-muted: var(--noeis-ink-muted, #5f625f);
+  --reading-rule: var(--noeis-rule, rgba(91, 80, 63, 0.16));
+  --reading-paper: var(--noeis-paper, #fffdf8);
+  --reading-thread: var(--noeis-thread-strong, #8b5f1d);
   max-width: 1320px; margin: 0 auto; padding: 0 24px 64px;
   color: var(--reading-ink);
 }
@@ -208,7 +209,7 @@
 .edition-reading :is(.power-through__scope, .reading-hands) button[aria-pressed=true] { border-color: var(--reading-ink); background: var(--reading-ink); color: var(--reading-paper); }
 .reading-hands__count { font-variant-numeric: tabular-nums; opacity: .7; }
 .power-through__progress { height: 3px; margin: 14px 0 6px; background: var(--reading-rule); }
-.power-through__progress > span { display: block; height: 100%; width: calc(var(--done) * 100%); background: var(--reading-ink); }
+.power-through__progress > span { display: block; height: 100%; width: calc(var(--done) * 100%); background: var(--noeis-thread, #b1862e); }
 .power-through__error,
 .power-through__receipt { margin: 14px 0 0; font: 13px/1.6 var(--noeis-font-ui, system-ui); }
 .power-through__error button,
@@ -265,7 +266,7 @@
 .edition-zoom__dial { display: flex; align-items: center; gap: 4px; }
 .edition-zoom__dial button { width: 36px; height: 36px; border: 1px solid var(--reading-rule) !important; border-radius: 50%; font-size: 17px; line-height: 1; }
 .edition-zoom__power-of { min-width: 44px; text-align: center; font: 500 17px/1 var(--noeis-font-editorial, Georgia, serif); }
-.edition-zoom__power-of sup { font-size: .62em; }
+.edition-zoom__power-of sup { font-size: .62em; color: var(--reading-thread); }
 
 /* 10⁴ and 10³: a paper, or an issue, to a line. */
 .edition-stand__head, .edition-run__head { padding: 26px 0 22px; }
@@ -288,7 +289,7 @@
 .edition-stand__paper .run-mark { grid-area: mark; }
 .edition-stand__new { grid-area: new; text-align: right; }
 .edition-stand__new, .edition-run__yours { font: 13px/1.4 var(--noeis-font-ui, system-ui); color: var(--reading-muted); font-variant-numeric: tabular-nums; }
-:is(.edition-stand__new, .edition-run__yours).is-new { color: var(--reading-ink); font-weight: 600; }
+:is(.edition-stand__new, .edition-run__yours).is-new { color: var(--reading-thread); font-weight: 600; }
 .edition-run__issue { grid-template-columns: 96px minmax(0, 1fr) auto 140px; }
 .edition-run__number { font: 400 21px/1.2 var(--noeis-font-editorial, Georgia, serif); }
 .edition-run__body { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
@@ -322,33 +323,42 @@
   .edition-run__yours { grid-column: 1 / -1; text-align: left; }
 }
 
-/* Section colours are tokens so every theme carries its own; text on a
-   panel holds 4.5:1. */
+/* Section colours, drawn from the Noeis palette rather than beside it: the
+   mark's navy, the bronze thread, olive sap, terracotta for counter-evidence.
+   Warm paper in Light and Dark; Tokyo Midnight trades them for its own cool
+   night inks. Text on a panel holds 4.5:1 in every theme. */
 .edition-reading {
-  --shelf-frame: var(--reading-ink);
+  --shelf-frame: var(--noeis-rule-strong, rgba(91, 80, 63, 0.28));
   --shelf-bay: var(--reading-paper);
-  --shelf-current: var(--shelf-frame);
-  --tone-blue: #2c5a8a; --tone-blue-ink: #fbf8f2;
-  --tone-ochre: #d6a238; --tone-ochre-ink: #1c1a17;
-  --tone-red: #b4412c; --tone-red-ink: #fbf8f2;
-  --tone-birch: #e2cfa8; --tone-birch-ink: #1c1a17;
-  --tone-sage: #566f52; --tone-sage-ink: #fbf8f2;
-  --tone-slate: #4a5866; --tone-slate-ink: #fbf8f2;
-  --tone-plum: #6e3f62; --tone-plum-ink: #fbf8f2;
-  --tone-ink: #3a3631; --tone-ink-ink: #fbf8f2;
-}
-html[data-noeis-theme='theme.editorial.tokyo-midnight'] .edition-reading,
-html[data-noeis-theme='theme.editorial.dark'] .edition-reading {
-  --shelf-frame: var(--noeis-rule-strong, #66758d);
   --shelf-current: var(--reading-ink);
-  --tone-blue: #7aa7d6; --tone-blue-ink: #09111e;
-  --tone-ochre: #e2b85c; --tone-ochre-ink: #09111e;
-  --tone-red: #f08a72; --tone-red-ink: #09111e;
-  --tone-birch: #d9c7a3; --tone-birch-ink: #09111e;
-  --tone-sage: #9cc39a; --tone-sage-ink: #09111e;
-  --tone-slate: #a8b6c8; --tone-slate-ink: #09111e;
-  --tone-plum: #cf9fc2; --tone-plum-ink: #09111e;
-  --tone-ink: #cfd3e6; --tone-ink-ink: #09111e;
+  --tone-blue: #273d6e; --tone-blue-ink: #fffdf8;
+  --tone-ochre: #b1862e; --tone-ochre-ink: #16140f;
+  --tone-red: #9b5a46; --tone-red-ink: #fffdf8;
+  --tone-birch: #e6d6b4; --tone-birch-ink: #332f29;
+  --tone-sage: #6f7340; --tone-sage-ink: #fffdf8;
+  --tone-slate: #5f625f; --tone-slate-ink: #fffdf8;
+  --tone-plum: #74505f; --tone-plum-ink: #fffdf8;
+  --tone-ink: #332f29; --tone-ink-ink: #fffdf8;
+}
+html[data-noeis-theme='theme.editorial.dark'] .edition-reading {
+  --tone-blue: #93a8d4; --tone-blue-ink: #16140f;
+  --tone-ochre: #d6ad63; --tone-ochre-ink: #16140f;
+  --tone-red: #c78978; --tone-red-ink: #16140f;
+  --tone-birch: #e3d2ad; --tone-birch-ink: #16140f;
+  --tone-sage: #a9ae78; --tone-sage-ink: #16140f;
+  --tone-slate: #b7b1a3; --tone-slate-ink: #16140f;
+  --tone-plum: #c9a2b3; --tone-plum-ink: #16140f;
+  --tone-ink: #f1eadc; --tone-ink-ink: #16140f;
+}
+html[data-noeis-theme='theme.editorial.tokyo-midnight'] .edition-reading {
+  --tone-blue: #8fb0f2; --tone-blue-ink: #09111e;
+  --tone-ochre: #d9a46f; --tone-ochre-ink: #09111e;
+  --tone-red: #ff9b92; --tone-red-ink: #09111e;
+  --tone-birch: #e7b879; --tone-birch-ink: #09111e;
+  --tone-sage: #8ccba7; --tone-sage-ink: #09111e;
+  --tone-slate: #9dacca; --tone-slate-ink: #09111e;
+  --tone-plum: #c7a6ef; --tone-plum-ink: #09111e;
+  --tone-ink: #f3e9ed; --tone-ink-ink: #09111e;
 }
 .edition-tone--blue { --tone: var(--tone-blue); --tone-on: var(--tone-blue-ink); }
 .edition-tone--ochre { --tone: var(--tone-ochre); --tone-on: var(--tone-ochre-ink); }
