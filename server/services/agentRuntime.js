@@ -38,14 +38,23 @@ const NAMED_IN_LABEL = [
   [/hermes/i, 'hermes']
 ];
 
-const publicAgentName = ({ label = '', runtime = '' } = {}) => {
-  const known = PUBLIC_NAMES[String(runtime || '').trim().toLowerCase()];
-  if (known) return known;
-  const named = NAMED_IN_LABEL.find(([pattern]) => pattern.test(String(label || '')));
-  return named ? PUBLIC_NAMES[named[1]] : '';
+/* Which agent a hand is, as a stable key: the runtime when it is one we know,
+   else the agent its label plainly names, else the label itself. The same key
+   agentOf gives the reader, so a filter chosen on the page means the same
+   agent here. */
+const agentKeyOf = ({ label = '', runtime = '' } = {}) => {
+  const known = normalizeRuntime(runtime);
+  if (PUBLIC_NAMES[known]) return known;
+  const text = String(label || '').trim();
+  const named = NAMED_IN_LABEL.find(([pattern]) => pattern.test(text));
+  if (named) return named[1];
+  return text ? `agent:${text.toLowerCase()}` : '';
 };
 
+const publicAgentName = hand => PUBLIC_NAMES[agentKeyOf(hand)] || '';
+
 module.exports = {
+  agentKeyOf,
   normalizeRuntime,
   publicAgentName,
   runtimeLabel

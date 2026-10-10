@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const { publicAgentName } = require('./agentRuntime');
+const { agentKeyOf, publicAgentName } = require('./agentRuntime');
 
 /**
  * What an edition has to contain.
@@ -663,15 +663,25 @@ const inboxSortAt = (item = {}, edition = {}) => {
 
 const inboxCursorOf = (row) => `${row.sortAt}:${row.editionId}:${row.itemId}`;
 
+/* What the inbox and the stand both call an arrival: unread, and complete
+   enough to read. */
+const isArrival = item => itemIsNew(item) && itemIsReady(item);
+
+/* Whether a hand is on this item: the agent that filed it, or one that read
+   the same source on its own. */
+const handOn = (item = {}, by = '') => [item.filedBy, ...(item.readings || []).map(reading => reading.filedBy)]
+  .some(hand => agentKeyOf(hand || {}) === by);
+
 const collectInbox = (
   editions = [],
-  { cursor = '', limit = 20, profiles = null, withContent = false } = {}
+  { cursor = '', limit = 20, profiles = null, withContent = false, profile = '', by = '' } = {}
 ) => {
   const rows = [];
   (editions || []).forEach((edition) => {
-    const profile = resolveEditionProfile(edition.profile, { profiles });
+    if (profile && edition.profile !== profile) return;
+    const paper = resolveEditionProfile(edition.profile, { profiles });
     (edition.items || []).forEach((item) => {
-      if (!itemIsNew(item) || !itemIsReady(item)) return;
+      if (!isArrival(item) || (by && !handOn(item, by))) return;
       const sortAt = inboxSortAt(item, edition);
       rows.push({
         editionId: String(edition._id),
@@ -681,9 +691,9 @@ const collectInbox = (
         sourceLabel: item.sourceLabel || '',
         sourceDate: item.sourceDate || '',
         profile: edition.profile,
-        profileLabel: profile?.titleLabel || edition.profile,
+        profileLabel: paper?.titleLabel || edition.profile,
         issueTitle: edition.title,
-        issueLabel: profile?.issueLabel || edition.issueLabel || 'Issue',
+        issueLabel: paper?.issueLabel || edition.issueLabel || 'Issue',
         number: edition.number ?? null,
         filedAt: item.filedAt || null,
         ...(withContent ? {
@@ -736,6 +746,7 @@ module.exports = {
   sectionSilences,
   collectInbox,
   hashPublicEdition,
+  isArrival,
   itemIsNew,
   itemIsReady,
   normalizeEdition,

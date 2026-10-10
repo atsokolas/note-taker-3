@@ -18,7 +18,9 @@ export default function useEditionIssue(id) {
     active.current = true;
     let fetching = false;
     const refresh = async () => {
-      if (fetching || document.visibilityState === 'hidden') return;
+      /* A first load never waits on visibility: a tab opened in the background
+         should be ready when you turn to it. Only refreshes rest. */
+      if (fetching || (held.current && document.visibilityState === 'hidden')) return;
       fetching = true;
       try {
         const response = await getEdition(id);
