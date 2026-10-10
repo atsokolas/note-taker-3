@@ -161,18 +161,24 @@ const WikiPageEditor = ({ pageId, onDoneEditing, workspaceMode = false }) => {
     mode: 'edit'
   }));
 
+  const returningCitationFocus = useRef(null);
   const handleClaimHover = useCallback((event) => {
     const target = event.target.closest?.('.wiki-claim-citation');
     if (!target) return;
+    if (event.type === 'focus' && returningCitationFocus.current === target) {
+      returningCitationFocus.current = null;
+      return;
+    }
     const claimId = target.getAttribute('data-claim-id') || '';
-    const support = target.getAttribute('data-support') || 'supported';
+    const support = target.getAttribute('data-support') || 'unknown';
     const indexes = parseIndexAttribute(target.getAttribute('data-citation-indexes'));
     const contradictionIndexes = parseIndexAttribute(target.getAttribute('data-contradiction-indexes'));
     setActiveClaim({
       claimId,
-      support: SUPPORT_STATES.has(support) ? support : 'supported',
+      support: SUPPORT_STATES.has(support) ? support : 'unknown',
       citationIndexes: indexes,
       contradictionIndexes,
+      anchorElement: target,
       anchorRect: target.getBoundingClientRect()
     });
   }, []);
@@ -672,10 +678,15 @@ const WikiPageEditor = ({ pageId, onDoneEditing, workspaceMode = false }) => {
           {activeClaim ? (
             <ClaimCitationPopover
               anchorRect={activeClaim.anchorRect}
+          anchorElement={activeClaim.anchorElement}
               support={activeLedgerClaim?.support || activeClaim.support}
               claim={activeLedgerClaim}
               sources={resolvedActiveSources}
-              onClose={() => setActiveClaim(null)}
+              onClose={({ restoreFocus = false } = {}) => {
+            returningCitationFocus.current = restoreFocus && document.activeElement !== activeClaim.anchorElement
+              ? activeClaim.anchorElement : null;
+            setActiveClaim(null);
+          }}
             />
           ) : null}
         </section>

@@ -2585,6 +2585,20 @@ describe('WikiPageReadView', () => {
     expect(within(dialog).getByText('Source snippet')).toBeInTheDocument();
   });
 
+  it('returns to the exact marker on Escape without reopening, even when focus left the evidence', async () => {
+    render(<MemoryRouter><WikiPageReadView pageId="wiki-1" onEdit={jest.fn()} /></MemoryRouter>);
+    const citation = await screen.findByRole('button', { name: 'Backlink to source 1' });
+    fireEvent.mouseOver(citation);
+    await screen.findByRole('dialog', { name: 'Claim citations' });
+    act(() => citation.focus());
+    expect(screen.getByRole('dialog', { name: 'Claim citations' })).toHaveFocus();
+    const outside = document.createElement('button'); document.body.appendChild(outside);
+    act(() => outside.focus());
+    fireEvent.keyDown(outside, { key: 'Escape' });
+    expect(screen.queryByRole('dialog', { name: 'Claim citations' })).toBeNull();
+    expect(citation).toHaveFocus(); outside.remove();
+  });
+
   it('opens the cited passage in Library from the claim popover', async () => {
     getWikiPage.mockResolvedValueOnce({
       ...page,

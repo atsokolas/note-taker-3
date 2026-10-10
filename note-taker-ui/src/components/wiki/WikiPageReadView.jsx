@@ -1954,16 +1954,22 @@ const WikiPageReadView = ({
     }
   };
 
+  const returningCitationFocus = useRef(null);
   const handleClaimHover = useCallback((event) => {
     const target = event.target.closest?.('.wiki-claim-citation');
     if (!target) return;
+    if (event.type === 'focus' && returningCitationFocus.current === target) {
+      returningCitationFocus.current = null;
+      return;
+    }
     const claimId = target.getAttribute('data-claim-id') || '';
-    const support = target.getAttribute('data-support') || 'supported';
+    const support = target.getAttribute('data-support') || 'unknown';
     setActiveClaim({
       claimId,
-      support: SUPPORT_STATES.has(support) ? support : 'supported',
+      support: SUPPORT_STATES.has(support) ? support : 'unknown',
       citationIndexes: parseIndexAttribute(target.getAttribute('data-citation-indexes')),
       contradictionIndexes: parseIndexAttribute(target.getAttribute('data-contradiction-indexes')),
+      anchorElement: target,
       anchorRect: target.getBoundingClientRect()
     });
     setKinRef(target.getAttribute('data-footnote-target') || '');
@@ -4096,10 +4102,15 @@ const WikiPageReadView = ({
       {activeClaim ? (
         <ClaimCitationPopover
           anchorRect={activeClaim.anchorRect}
+          anchorElement={activeClaim.anchorElement}
           support={activeLedgerClaim?.support || activeClaim.support}
           claim={activeLedgerClaim}
           sources={resolvedActiveSources}
-          onClose={() => setActiveClaim(null)}
+          onClose={({ restoreFocus = false } = {}) => {
+            returningCitationFocus.current = restoreFocus && document.activeElement !== activeClaim.anchorElement
+              ? activeClaim.anchorElement : null;
+            setActiveClaim(null);
+          }}
           onCarry={isTension(resolvedActiveSources) ? carryActiveTension : null}
           carrying={carryingTension}
           carryError={carryTensionError}
