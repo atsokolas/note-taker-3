@@ -40,11 +40,11 @@ export default function EditionFinding({ editionId, item, lead, zoomed, busy, re
       ) : (
         <>
           {prose(item.finding)}
-          <Passage item={item} />
           <EditionBoundary>{item.boundary}</EditionBoundary>
           {item.note ? <p className="reading-editorial-note">{item.note}</p> : null}
         </>
       )}
+      <Passage item={item} />
       {zoomed ? <Held editionId={editionId} itemId={item.itemId} /> : null}
       <div className="reading-actions">
         <button onClick={(event) => onPeek(item, 'source', event.currentTarget)}>Source</button>

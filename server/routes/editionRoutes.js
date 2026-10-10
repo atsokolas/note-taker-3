@@ -66,6 +66,7 @@ const checksFrom = (req, profile, by, at) => {
 /* A raw cosine of 0.72, in Atlas's 0–1 score: the floor Judgment holds its
    evidence to, so "you already hold this" means the same thing in both rooms. */
 const HELD_FLOOR = rawCosineToAtlasScore(0.72);
+const HELD_CANDIDATES = 12;
 
 /* Normalized against the same standard as a whole edition — a boundary is
    required here too, or the daily door becomes the way around it.
@@ -885,7 +886,9 @@ const buildEditionRouter = ({
       const { item } = found;
       let rows;
       try {
-        rows = await relatedHighlights({ text: [item.title, item.finding].join('. '), limit: 3, userId: String(req.user.id) });
+        /* Wide enough that highlights from the finding's own source, which never
+           count, cannot crowd out the best one that does. */
+        rows = await relatedHighlights({ text: [item.title, item.finding].join('. '), limit: HELD_CANDIDATES, userId: String(req.user.id) });
       } catch (_error) {
         return res.status(200).json({ held: null, unknown: true });
       }

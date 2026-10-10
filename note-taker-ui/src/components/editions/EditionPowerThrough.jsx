@@ -153,7 +153,6 @@ export default function EditionPowerThrough({ papers = [], paper = '', by = '', 
           ) : (
             <>
               {finding(row.finding)}
-              <Passage item={row} />
               <EditionBoundary>{row.boundary}</EditionBoundary>
               {row.note ? <p className="power-item__note">{row.note}</p> : null}
               {row.filedBy ? (
@@ -163,6 +162,7 @@ export default function EditionPowerThrough({ papers = [], paper = '', by = '', 
               ) : null}
             </>
           )}
+          <Passage item={row} />
           <nav className="power-item__source" aria-label="Open the source">
             <button type="button" onClick={() => setReading(true)}>Read it here <kbd>O</kbd></button>
             {href ? (
