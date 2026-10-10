@@ -94,6 +94,8 @@
 .reading-section-label .agent-mark__glyph { letter-spacing: 0; }
 .reading-section + .reading-section { margin-top: 44px; padding-top: 24px; border-top: 1px solid var(--reading-rule); }
 .edition-finding { scroll-margin-top: 110px; }
+/* Zoom already says which finding you are on; a focus box around it says it twice. */
+.edition-finding:focus { outline: none; }
 .edition-finding + .edition-finding { margin-top: 40px; padding-top: 24px; border-top: 1px solid var(--reading-rule); }
 .edition-finding h2 { font: 400 32px/1.18 var(--noeis-font-editorial, Georgia, serif); letter-spacing: -.025em; margin: 0 0 14px; text-wrap: balance; }
 .edition-finding.is-lead h2 { font-size: clamp(32px,3.1vw,44px); }

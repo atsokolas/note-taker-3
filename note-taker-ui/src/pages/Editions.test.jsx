@@ -192,6 +192,18 @@ it('zooms from an issue to a finding and its source, and steps back out', async 
   fireEvent.keyDown(document, { key: 'Escape' });
   expect(mockNavigate).toHaveBeenLastCalledWith('/editions?paper=weekend');
 });
+it('counts a finding read only once the reader stays on it', async () => {
+  mockSearch = 'item=one';
+  Element.prototype.scrollIntoView = jest.fn();
+  jest.useFakeTimers();
+  render(<Editions />);
+  await screen.findByText(item.finding);
+  act(() => { jest.advanceTimersByTime(1000); });
+  expect(api.setEditionItemState).not.toHaveBeenCalled();
+  act(() => { jest.advanceTimersByTime(3000); });
+  expect(api.setEditionItemState).toHaveBeenCalledWith('e1', 'one', 'opened');
+  jest.useRealTimers();
+});
 it('lets Esc leave "Just read" without leaving the issue', async () => {
   render(<Editions />);
   await screen.findByText(item.finding);

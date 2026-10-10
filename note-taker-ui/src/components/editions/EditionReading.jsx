@@ -30,6 +30,8 @@ import {
   writeEditionLocal
 } from './editionReadingState';
 
+const READ_AFTER_MS = 4000;
+
 const ShareIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     <path d="M8 9H5v12h14V9h-3M12 15V2m-4 4 4-4 4 4" />
@@ -94,8 +96,15 @@ export default function EditionReading({
   useEffect(() => {
     if (!loaded || !focusItem) return;
     const frame = requestAnimationFrame(() => jump(focusItem));
-    Promise.resolve(setEditionItemState(issue._id, focusItem, 'opened')).catch(() => {});
-    return () => cancelAnimationFrame(frame);
+    /* Stepping past a finding is not reading it: it counts as read once the
+       reader has stayed on it a moment, so new counts hold while J skims. */
+    const read = setTimeout(() => {
+      Promise.resolve(setEditionItemState(issue._id, focusItem, 'opened')).catch(() => {});
+    }, READ_AFTER_MS);
+    return () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(read);
+    };
     // An explicit incoming finding link wins over a remembered place.
   }, [loaded, focusItem, issue._id, jump]);
   useEffect(() => {
