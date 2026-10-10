@@ -653,11 +653,11 @@ const { buildAgentTokenRouter } = require('./routes/agentTokenRoutes');
 const { buildHostedMcpRouter } = require('./routes/hostedMcpRoutes');
 const { buildChatgptOAuthRouter } = require('./routes/chatgptOAuthRoutes');
 const { readChatgptOAuthConfig } = require('./services/chatgptOAuthConfig');
-const { ChatgptOAuthRequest, ChatgptOAuthGrant, ChatgptOAuthControl } = require('./models/chatgptOAuthModels');
+const { ChatgptOAuthRequest, ChatgptOAuthGrant, ChatgptOAuthControl, ChatgptOAuthClient } = require('./models/chatgptOAuthModels');
 const { createChatgptOAuthReadiness } = require('./services/chatgptOAuthReadiness');
 const chatgptOAuthConfig = readChatgptOAuthConfig();
 const chatgptOAuthReadiness = chatgptOAuthConfig ? createChatgptOAuthReadiness({
-  models: { ChatgptOAuthRequest, ChatgptOAuthGrant, ChatgptOAuthControl }
+  models: { ChatgptOAuthRequest, ChatgptOAuthGrant, ChatgptOAuthControl, ChatgptOAuthClient }
 }) : null;
 const { buildEditionRouter } = require('./routes/editionRoutes');
 const { buildEditionThoughtRouter } = require('./routes/editionThoughtRoutes');

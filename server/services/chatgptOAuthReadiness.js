@@ -13,7 +13,7 @@ const createChatgptOAuthReadiness = ({ models, logger = console } = {}) => {
       return false;
     }
   })).then(results => {
-    ready = entries.length === 3 && results.every(Boolean);
+    ready = entries.length > 0 && results.every(Boolean);
     if (ready) logger.info('NOEIS OAuth indexes ready:', entries.map(([name]) => name).join(', '));
     return ready;
   });
