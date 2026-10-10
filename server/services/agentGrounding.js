@@ -36,11 +36,11 @@ const quotations = (reply = '') => [...String(reply).matchAll(/[“"]([^”"]+)[
 // on its own, however short.
 const quotedIn = (span = '', texts = []) => {
   const haystacks = (Array.isArray(texts) ? texts : []).map(text => ` ${words(text).join(' ')} `);
-  return String(span)
+  const pieces = String(span)
     .split(/…|\.{3}/)
     .map(piece => words(piece).join(' '))
-    .filter(Boolean)
-    .every(piece => haystacks.some(text => text.includes(` ${piece} `)));
+    .filter(Boolean);
+  return pieces.length > 0 && pieces.every(piece => haystacks.some(text => text.includes(` ${piece} `)));
 };
 
 // Quotations of five words or more that appear in none of the given texts.

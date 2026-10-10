@@ -18,3 +18,19 @@ describe('groundedIn', () => {
       .toEqual([note]);
   });
 });
+
+describe('quotedIn', () => {
+  const { quotedIn } = require('../agentGrounding');
+  const source = 'Agents reached a task competence of 83.54% across workflows.';
+
+  it('finds a passage word for word, ellipses marking what was left out', () => {
+    expect(quotedIn('a task competence … across workflows', [source])).toBe(true);
+    expect(quotedIn('a task competence of 90%', [source])).toBe(false);
+  });
+
+  /* A passage of nothing quotes nothing, so it is never found. */
+  it('never finds a passage with no words in it', () => {
+    expect(quotedIn('…', [source])).toBe(false);
+    expect(quotedIn('', [source])).toBe(false);
+  });
+});

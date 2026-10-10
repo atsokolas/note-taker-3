@@ -16,6 +16,7 @@ const {
   projectPublicEdition,
   READER_STATUSES,
   readerLayerOf,
+  readingsOf,
   resolveEditionProfile,
   retainHeldItems,
   sectionSilences,
@@ -116,14 +117,7 @@ const serializeItem = (item) => {
     filedBy: row.filedBy?.label || '',
     filedByRuntime: row.filedBy?.runtime || '',
     filedAt: row.filedAt || null,
-    readings: (row.readings || []).map(reading => ({
-      filedBy: reading.filedBy?.label || '',
-      filedByRuntime: reading.filedBy?.runtime || '',
-      filedAt: reading.filedAt || null,
-      finding: reading.finding,
-      boundary: reading.boundary,
-      note: reading.note || ''
-    })),
+    readings: readingsOf(row),
     savedArticleId: row.savedArticleId ? String(row.savedArticleId) : null,
     readerStatus: row.readerState?.status || 'new'
   };
@@ -170,15 +164,18 @@ const serializeEdition = (edition = {}, { withItems = true, profiles = null, rec
     savedCount: items.filter(item => item.savedArticleId).length,
     createdAt: edition.createdAt,
     updatedAt: edition.updatedAt,
-    /* The stand draws every issue of a run as a row on the shelf, so a list
-       row carries who filed into which column, and nothing of what they said. */
+    /* A list row carries who filed into which column, and who read the same
+       source after them, and nothing of what any of them said. */
     ...(withItems ? { items } : {
       filings: items.map(item => ({
         section: item.section,
         filedBy: item.filedBy,
         filedByRuntime: item.filedByRuntime,
         filedAt: item.filedAt,
-        saved: Boolean(item.savedArticleId)
+        saved: Boolean(item.savedArticleId),
+        ...(item.readings.length ? {
+          readings: item.readings.map(({ filedBy, filedByRuntime }) => ({ filedBy, filedByRuntime }))
+        } : {})
       }))
     })
   };
@@ -503,6 +500,25 @@ const buildEditionRouter = ({
     return { saved, added };
   };
 
+  /* One line at a time, so two agents answering different lines of the same
+     watch list cannot erase each other: a line is pushed only while it is
+     absent, and a held one is replaced where it stands. */
+  const answerFollowUps = async ({ existing, userId, followUps }) => {
+    let saved = existing;
+    for (const entry of followUps) {
+      saved = await Edition.findOneAndUpdate(
+        { _id: existing._id, userId, 'followUps.watch': { $ne: entry.watch } },
+        { $push: { followUps: entry } },
+        { new: true }
+      ) || await Edition.findOneAndUpdate(
+        { _id: existing._id, userId, 'followUps.watch': entry.watch },
+        { $set: { 'followUps.$': entry } },
+        { new: true }
+      ) || saved;
+    }
+    return saved;
+  };
+
   /* The same discipline for receipts: one per section per token, pushed only
      while none is held, so two retries cannot leave two. */
   const appendChecks = async ({ existing, userId, checks }) => {
@@ -706,14 +722,8 @@ const buildEditionRouter = ({
         const checked = await appendChecks({ existing: read.saved, userId, checks });
         saved = checked.saved;
         /* The newest headline is the one that has seen the most of the week. */
-        if (headline || answered.length) {
-          saved = await Edition.findOneAndUpdate({ _id: saved._id, userId }, {
-            $set: {
-              ...(headline ? { headline } : {}),
-              ...(answered.length ? { followUps: answerWatchList(followUps, watchList, saved.followUps) } : {})
-            }
-          }, { new: true });
-        }
+        if (headline) saved = await Edition.findOneAndUpdate({ _id: saved._id, userId }, { $set: { headline } }, { new: true });
+        if (answered.length) saved = await answerFollowUps({ existing: saved, userId, followUps: answered });
         added = appended.added;
         readingsAdded = read.added;
         checksAdded = checked.added;

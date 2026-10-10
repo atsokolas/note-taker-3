@@ -445,7 +445,8 @@ describe('keeping a reader’s place in a rewritten week', () => {
           {
             itemId: 'fresh', title: 'Fresh', url: 'https://example.com/b',
             finding: 'A useful finding.', boundary: 'One lab only.', note: 'Read beside Tuesday.',
-            filedBy: { label: 'Jarvis' }, savedArticleId: 'article-1', filedAt: '2026-09-09'
+            filedBy: { label: 'Jarvis' }, savedArticleId: 'article-1', filedAt: '2026-09-09',
+            readings: [{ filedBy: { label: 'Codex', runtime: 'codex' }, finding: 'A second view.', boundary: 'Its own limit.' }]
           }
         ]
       }
@@ -455,7 +456,8 @@ describe('keeping a reader’s place in a rewritten week', () => {
       boundary: 'One lab only.',
       note: 'Read beside Tuesday.',
       filedBy: 'Jarvis',
-      savedArticleId: 'article-1'
+      savedArticleId: 'article-1',
+      readings: [{ filedBy: 'Codex', filedByRuntime: 'codex', finding: 'A second view.', boundary: 'Its own limit.', note: '' }]
     });
   });
 
@@ -517,6 +519,11 @@ describe('the reader’s layer of a finding', () => {
   it('refuses a key figure that its finding, passage and note never say', () => {
     expect(() => normalizeEdition(edition({ items: two(layered({ figures: [{ label: 'Recovered', value: '47%' }] })) })))
       .toThrow(/key figure "Recovered" \(47%\) is not in its finding/);
+    /* "147" does not say 47. */
+    expect(() => normalizeEdition(edition({ items: two(layered({ note: 'Across 147 participants.', figures: [{ label: 'Share', value: '47' }] })) })))
+      .toThrow(/key figure "Share" \(47\) is not in its finding/);
+    expect(() => normalizeEdition(edition({ items: two(layered({ figures: [{ label: 'Mood', value: 'high' }] })) })))
+      .toThrow(/has no number in it/);
     expect(() => normalizeEdition(edition({ items: two(layered({ figures: Array(4).fill({ label: 'Recovered', value: '46.72%' }) })) })))
       .toThrow(/keep the 3/);
   });
@@ -562,7 +569,7 @@ describe('the reader’s layer of a finding', () => {
     const { followUps } = normalizeEdition(edition({ followUps: [{ watch: 'whether undobench replicates', status: 'Not yet' }] }));
     const printed = ['Whether UndoBench replicates', 'The next open-weight release'];
     expect(answerWatchList(followUps, printed)).toEqual([{ watch: 'Whether UndoBench replicates', status: 'not_yet', note: '' }]);
-    expect(answerWatchList([{ watch: 'Whether UndoBench replicates', status: 'happened', note: 'It did.' }], printed, answerWatchList(followUps, printed)))
+    expect(answerWatchList([...followUps, { watch: 'Whether UndoBench replicates', status: 'happened', note: 'It did.' }], printed))
       .toEqual([{ watch: 'Whether UndoBench replicates', status: 'happened', note: 'It did.' }]);
     expect(() => answerWatchList([{ watch: 'Something else', status: 'happened' }], printed)).toThrow(/It printed: Whether UndoBench/);
     expect(() => answerWatchList([{ watch: 'Something else', status: 'happened' }], [])).toThrow(/printed no watch list/);
