@@ -378,3 +378,9 @@
   .reading-section-label__count { font: 600 12px/1 var(--noeis-font-ui, system-ui); }
   .reading-bay { min-height: 88px; }
 }
+
+.reading-thought > div { flex-wrap: wrap; }
+.reading-thought__versions { margin-top: 16px; border-top: 1px solid var(--reading-rule); }
+.reading-thought__versions h3 { font: 14px/1.6 var(--noeis-font-ui, system-ui); }
+.reading-thought__versions p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.reading-thought__versions button { margin-right: 18px; }
