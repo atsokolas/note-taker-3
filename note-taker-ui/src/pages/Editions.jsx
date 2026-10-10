@@ -6,8 +6,9 @@ import EditionPowerThrough from '../components/editions/EditionPowerThrough';
 import EditionReading from '../components/editions/EditionReading';
 import EditionPanel from '../components/editions/EditionPanel';
 import EditionShelfNav, { useNarrowShelf } from '../components/editions/EditionShelfNav';
+import EditionShelfUnit, { EditionShelfStrip } from '../components/editions/EditionShelfUnit';
 import { readEditionLocal, writeEditionLocal } from '../components/editions/editionReadingState';
-import { byPaper, datelineLine, issueLine } from './editionModel';
+import { byPaper, datelineLine, deskFor, issueLine, keepersFor, resolvePaperIssueId } from './editionModel';
 import '../styles/edition-reading.css';
 
 export default function Editions() {
@@ -98,12 +99,16 @@ export default function Editions() {
     if (issue?._id && paper?.profile) rememberIssue(issue._id, paper.profile);
   }, [issue?._id, paper?.profile, rememberIssue]);
 
-  const choose = useCallback((issueId, profile) => {
+  const choose = useCallback((issueId, profile, section = '') => {
     setUtility(null);
     setBrowse(null);
     if (profile) rememberIssue(issueId, profile);
-    navigate(`/editions/${encodeURIComponent(issueId)}`);
+    navigate(`/editions/${encodeURIComponent(issueId)}${section ? `?section=${encodeURIComponent(section)}` : ''}`);
   }, [navigate, rememberIssue]);
+  const keepers = useMemo(
+    () => (paper ? keepersFor(paper.issues, paper.issues[paper.issues.length - 1].sections) : {}),
+    [paper]
+  );
 
   const openUtility = (kind, event) => {
     setBrowse(null);
@@ -137,11 +142,21 @@ export default function Editions() {
   const shelfProps = {
     papers,
     paper,
-    selectedIssueId: issue?._id || selectedId || '',
     readProfileIssue,
     onOpenArrivals: (event) => openUtility('arrivals', event),
-    onOpenArchive: (event) => openUtility('archive', event),
     onNavigate: choose
+  };
+  const unit = paper ? (
+    <EditionShelfUnit
+      paper={paper}
+      selectedIssueId={issue?._id || ''}
+      onOpen={(issueId, section) => choose(issueId, paper.profile, section)}
+      onArchive={(event) => openUtility('archive', event)}
+    />
+  ) : null;
+  const choosePaper = (row) => {
+    const issueId = resolvePaperIssueId(row, readProfileIssue);
+    if (issueId) choose(issueId, row.profile);
   };
 
   return (
@@ -159,14 +174,21 @@ export default function Editions() {
       <div className="edition-layout">
         <EditionShelfNav {...shelfProps} />
         <div className="edition-paper">
+          {narrow ? <EditionShelfStrip papers={papers} paper={paper} onChoose={choosePaper} /> : unit}
           {paper && issue ? (
             <EditionReading
               key={issue._id}
               issue={issue}
               paperTitle={paper.title}
               issueLabel={paper.issueLabel}
+              keepers={keepers}
+              deskOf={(opened) => deskFor(
+                { ...paper, issues: paper.issues.map(row => (row._id === opened?._id ? opened : row)) },
+                opened || issue
+              )}
               onChoose={choose}
               focusItem={params.get('item') || ''}
+              focusSection={params.get('section') || ''}
               focus={focus}
               onFocus={setFocus}
               utilityOpen={Boolean(utility) || Boolean(browse)}
@@ -242,6 +264,7 @@ export default function Editions() {
           onClose={() => setBrowse(null)}
         >
           <EditionShelfNav {...shelfProps} inSheet className="edition-shelf--sheet" />
+          {unit}
         </EditionPanel>
       ) : null}
     </div>

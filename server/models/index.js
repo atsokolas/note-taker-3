@@ -1928,7 +1928,17 @@ const editionProfileSchema = new mongoose.Schema({
   sections: {
     type: [new mongoose.Schema({
       key: { type: String, required: true, trim: true },
-      label: { type: String, required: true, trim: true }
+      label: { type: String, required: true, trim: true },
+      /* Which agent keeps this column, when more than one files into the
+         paper. Absent means nobody was named; the paper may still say who
+         usually files here, and says it as that. */
+      keeper: {
+        type: new mongoose.Schema({
+          runtime: { type: String, default: '', trim: true },
+          label: { type: String, default: '', trim: true, maxlength: 60 }
+        }, { _id: false }),
+        default: undefined
+      }
     }, { _id: false })],
     default: []
   },

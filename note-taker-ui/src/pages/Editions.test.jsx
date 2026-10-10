@@ -40,7 +40,7 @@ it('opens the newest issue while retaining only the remembered publication', asy
   render(<Editions />);
   await screen.findByText(item.finding);
   expect(api.getEdition).toHaveBeenCalledWith('current');
-  expect(screen.getByRole('link', { name: /Sep 13/i })).toHaveAttribute('aria-current', 'page');
+  expect(screen.getByRole('button', { name: 'Edition 3' })).toHaveAttribute('aria-current', 'page');
 });
 
 it('offers a newly filed issue without pulling the reader out of the one open', async () => {
@@ -117,7 +117,79 @@ it('switches publications and dated issues through stable issue URLs', async () 
   render(<Editions />); await screen.findByText(item.finding);
   fireEvent.click(screen.getByRole('button', { name: 'This Week in AI' }));
   expect(mockNavigate).toHaveBeenLastCalledWith('/editions/ai');
-  expect(screen.getByRole('link', { name: /Aug 1/i })).toHaveAttribute('href', '/editions/old');
+  fireEvent.click(screen.getByRole('button', { name: 'Edition 1' }));
+  expect(mockNavigate).toHaveBeenLastCalledWith('/editions/old');
+  fireEvent.click(screen.getByRole('button', { name: 'Edition 2, Counterevidence: nothing filed' }));
+  expect(mockNavigate).toHaveBeenLastCalledWith('/editions/e1?section=limits');
+});
+it('reads Issue 5 of This Week in AI off the shelf, and seats a second hand at the desk', async () => {
+  const fixture = require('../../../design-mockups/editions-many-hands/this-week-in-ai.json');
+  const keyOf = label => fixture.paper.sections.find(section => section.label === label).key;
+  const sections = fixture.paper.sections;
+  const runIssue = row => ({
+    _id: `twia-${row.issue}`,
+    profile: 'this_week_in_ai',
+    profileLabel: fixture.paper.title,
+    issueLabel: 'Issue',
+    number: row.issue,
+    windowStart: row.window.split('/')[0],
+    windowEnd: row.window.split('/')[1],
+    sections,
+    filings: Object.entries(row.counts).flatMap(([label, count]) => Array.from({ length: count }, () => (
+      { section: keyOf(label), filedBy: 'Codex Wiki account grounding audit', filedByRuntime: '', saved: false }
+    ))),
+    silences: []
+  });
+  const run = fixture.run.map(runIssue);
+  const five = fixture.issue5;
+  const silences = [{ key: keyOf('Infrastructure & systems'), label: 'Infrastructure & systems', state: 'checked', by: [{ label: 'OpenClaw', runtime: 'openclaw' }] }];
+  run[4].silences = silences;
+  run[4].filings.push({ section: keyOf('Evaluation & counterevidence'), filedBy: 'Claude', filedByRuntime: 'claude-code', filedAt: '2026-10-06T12:00:00Z', saved: true });
+  const opened = {
+    ...run[4],
+    _id: 'twia-5',
+    standfirst: five.standfirst,
+    writtenBy: five.writtenBy,
+    throughLine: five.throughLine,
+    silences,
+    items: [
+      ...five.items.map((row, index) => ({ ...row, itemId: `i${index}`, section: keyOf(row.section), url: `https://arxiv.org/abs/${index}` })),
+      { ...five.items[1], itemId: 'claude', title: 'A second source on recovery', url: 'https://arxiv.org/abs/9', section: keyOf('Evaluation & counterevidence'), filedBy: 'Claude', filedByRuntime: 'claude-code', filedAt: '2026-10-06T12:00:00Z', savedArticleId: 'kept' }
+    ]
+  };
+  mockId = 'twia-5';
+  api.listEditions.mockResolvedValue(run);
+  api.getEdition.mockResolvedValue(opened);
+  render(<Editions />);
+  expect(await screen.findByText(five.items[0].finding)).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Issue 5' })).toHaveAttribute('aria-current', 'page');
+  expect(screen.getByRole('button', { name: 'Issue 5, Infrastructure & systems: looked, nothing met the bar' })).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Issue 5, Evaluation & counterevidence: 2 filed, also filed by Claude' })).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Issue 1, Models & methods: 3 filed' })).toBeVisible();
+  const desk = screen.getByRole('list', { name: 'The desk' });
+  expect(within(desk).getByText('Usually files every column')).toBeVisible();
+  expect(within(desk).getByText('Filed Oct 6 · Kept by you: 1 of 1')).toBeVisible();
+  expect(screen.getByText('Standfirst by the editor')).toBeVisible();
+});
+it('marks a column only for the hands that filed into it, and counts a Keep on the desk at once', async () => {
+  const read = { ...item, filedByRuntime: 'openclaw', readings: [{ filedBy: 'Claude', filedByRuntime: 'claude-code', finding: 'A second view.', boundary: 'Its limit.' }] };
+  const other = { ...item, itemId: 'two', section: 'limits', finding: 'A finding Codex filed.', filedBy: 'Codex', filedByRuntime: 'codex' };
+  const opened = { ...edition, items: [read, other] };
+  api.listEditions.mockResolvedValue([{ ...edition, items: undefined, filings: [read, other].map(({ section, filedBy, filedByRuntime }) => ({ section, filedBy, filedByRuntime, saved: false })) }]);
+  api.getEdition.mockResolvedValue(opened);
+  render(<Editions />); await screen.findByText(item.finding);
+  const ideas = document.getElementById('edition-section-ideas');
+  expect(ideas.querySelectorAll('.reading-section-label__marks [role="img"]')).toHaveLength(1);
+  const desk = screen.getByRole('list', { name: 'The desk' });
+  expect(within(desk).getAllByText(/Kept by you: 0 of 1/)).toHaveLength(2);
+  api.saveEditionItem.mockResolvedValue({ edition: { ...opened, items: [{ ...read, savedArticleId: 'article' }, other] }, readable: true });
+  fireEvent.click(within(document.getElementById('edition-item-one')).getByRole('button', { name: 'Keep in Library' }));
+  await waitFor(() => expect(within(screen.getByRole('list', { name: 'The desk' })).getAllByText(/Kept by you: 1 of 1/)).toHaveLength(1));
+});
+it('prints no desk for a paper one agent keeps', async () => {
+  render(<Editions />); await screen.findByText(item.finding);
+  expect(screen.queryByRole('list', { name: 'The desk' })).toBeNull();
+  expect(screen.queryByText('Standfirst by the editor')).toBeNull();
 });
 it('does not insert new filings until Show, even when Keep returns the newer issue', async () => {
   jest.useFakeTimers();

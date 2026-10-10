@@ -113,6 +113,16 @@ const run = async () => {
     assert.strictEqual(filed.alreadyHeld, 1);
   }
 
+  /* A column can name its keeper, or let one go. */
+  {
+    const schema = z.object(writeTools.find(tool => tool.name === 'configure_edition').inputSchema);
+    const base = { key: 'biotech', title: 'This Month in Biotech' };
+    assert.strictEqual(schema.safeParse({ ...base, sections: [{ key: 'trials', label: 'Trials', keeper: { runtime: 'codex' } }] }).success, true);
+    assert.strictEqual(schema.safeParse({ ...base, sections: [{ key: 'trials', label: 'Trials', keeper: null }] }).success, true);
+    assert.strictEqual(schema.safeParse({ ...base, sections: [{ key: 'trials', label: 'Trials', keeper: { label: 'x'.repeat(61) } }] }).success, false);
+    assert.match(writeTools.find(tool => tool.name === 'configure_edition').description, /which agent keeps each section/);
+  }
+
   /* "Nothing met the bar" is a filing too: checked alone is enough, and it
      reaches the API as sent. Saying nothing at all is refused before the call. */
   {

@@ -1,4 +1,4 @@
-import { agentOf, handsOf } from './editionAgent';
+import { agentOf } from './editionAgent';
 
 describe('which agent filed it', () => {
   it('names every runtime by its short name, initials and shape', () => {
@@ -38,15 +38,3 @@ describe('which agent filed it', () => {
     expect(agentOf()).toBeNull();
   });
 });
-
-describe('the hands on a section', () => {
-  it('names every agent that filed or read, once, in order', () => {
-    const hands = handsOf([
-      { filedBy: 'OpenClaw · Jarvis', filedByRuntime: 'openclaw', readings: [{ filedBy: 'Codex', filedByRuntime: 'codex' }] },
-      { filedBy: 'Codex Wiki account grounding audit', filedByRuntime: '' },
-      { filedBy: '', filedByRuntime: '' }
-    ]);
-    expect(hands.map(hand => agentOf(hand).name)).toEqual(['OpenClaw', 'Codex']);
-  });
-});
-
