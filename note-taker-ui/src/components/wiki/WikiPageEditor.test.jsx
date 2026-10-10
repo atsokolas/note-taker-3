@@ -768,4 +768,14 @@ describe('WikiPageEditor', () => {
       title: 'Memory compounds with review.'
     }), { timeout: 2000 });
   });
+
+  it('keeps current words visible when saved claim identities need review', async () => {
+    updateWikiPage.mockRejectedValue({ response: { status: 409, data: { code: 'claim_identity_conflict' } } });
+    render(<MemoryRouter><WikiPageEditor pageId="wiki-1" /></MemoryRouter>);
+    const titleField = await screen.findByLabelText('Wiki page title');
+    fireEvent.change(titleField, { target: { value: 'My current words remain' } });
+    await screen.findByText('That did not save. The saved claims have conflicting identities and need review. Your current words remain here.', {}, { timeout: 2000 });
+    expect(titleField).toHaveValue('My current words remain');
+    expect(screen.queryByText('Saved')).not.toBeInTheDocument();
+  });
 });

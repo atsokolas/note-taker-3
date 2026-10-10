@@ -492,9 +492,10 @@ const claimHealthCounts = (claims = []) => (
     if (support === 'supported') counts.supported += 1;
     else if (support === 'partial') counts.partial += 1;
     else if (support === 'conflicted' || support === 'contradicted') counts.conflicted += 1;
+    else if (support === 'unknown') counts.unknown += 1;
     else counts.unsupported += 1;
     return counts;
-  }, { supported: 0, partial: 0, unsupported: 0, conflicted: 0 })
+  }, { supported: 0, partial: 0, unsupported: 0, conflicted: 0, unknown: 0 })
 );
 
 const keyClaimText = (claims = []) => (
@@ -2823,7 +2824,7 @@ const WikiPageReadView = ({
     [nonCriticalReady, page?.body]
   );
   const healthCounts = useMemo(
-    () => (nonCriticalReady ? claimHealthCounts(page?.claims) : { supported: 0, partial: 0, unsupported: 0, conflicted: 0 }),
+    () => (nonCriticalReady ? claimHealthCounts(page?.claims) : { supported: 0, partial: 0, unsupported: 0, conflicted: 0, unknown: 0 }),
     [nonCriticalReady, page?.claims]
   );
   const infoboxRows = visibleInfoboxRows(buildInfoboxRows({
@@ -4027,6 +4028,7 @@ const WikiPageReadView = ({
                         <li>{healthCounts.supported} supported</li>
                         <li>{healthCounts.partial} partial</li>
                         <li>{healthCounts.unsupported} unsupported</li>
+                        {healthCounts.unknown > 0 ? <li>{healthCounts.unknown} unassessed</li> : null}
                         <li>{healthCounts.conflicted} conflicted</li>
                       </ul>
                     </section> : null}

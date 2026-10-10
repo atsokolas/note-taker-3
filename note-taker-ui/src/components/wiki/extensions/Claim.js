@@ -1,6 +1,8 @@
 import { Mark, mergeAttributes } from '@tiptap/core';
 import { Plugin } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
+import { normalizeClaimSupport as sanitizeSupport } from '../claimSupport';
+export { SUPPORT_STATES } from '../claimSupport';
 
 /**
  * Claim — a TipTap mark that wraps a span of prose representing one
@@ -16,15 +18,13 @@ import { Decoration, DecorationSet } from '@tiptap/pm/view';
  * Attributes:
  *  - claimId   stable id so re-renders / diffs / popovers can address the
  *              same claim across edits.
- *  - support   one of: 'supported' | 'partial' | 'unsupported' | 'conflicted'
+ *  - support   one of: 'unknown' | 'supported' | 'partial' | 'unsupported' | 'conflicted'
  *              renders as a colored underline.
  *  - citationIndexes  array of 1-based indexes into page.sourceRefs
  *              the popover resolves these against the current page.
  *  - contradictionIndexes  optional array of 1-based indexes into page.sourceRefs
  *              that challenge the claim. Preserved for backend ledger refresh.
  */
-
-export const SUPPORT_STATES = new Set(['supported', 'partial', 'unsupported', 'conflicted']);
 
 const sanitizeIndexes = (value) => {
   if (!Array.isArray(value)) return [];
@@ -34,11 +34,6 @@ const sanitizeIndexes = (value) => {
     if (Number.isFinite(num) && num >= 1 && num <= 200) out.push(num);
   }
   return out.slice(0, 8);
-};
-
-const sanitizeSupport = (value) => {
-  if (value === 'contradicted') return 'conflicted';
-  return SUPPORT_STATES.has(value) ? value : 'supported';
 };
 
 const citationLabel = (indexes = []) => `[${indexes.join(',')}]`;
@@ -82,7 +77,7 @@ const Claim = Mark.create({
       renderHTML: (attrs) => ({ 'data-claim-id': attrs.claimId || generateClaimId() })
     },
     support: {
-      default: 'supported',
+      default: 'unknown',
       parseHTML: (element) => sanitizeSupport(element.getAttribute('data-support')),
       renderHTML: (attrs) => ({ 'data-support': sanitizeSupport(attrs.support) })
     },

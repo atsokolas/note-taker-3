@@ -131,8 +131,10 @@ const WikiPageEditor = ({ pageId, onDoneEditing, workspaceMode = false }) => {
       latestPageRef.current = saved;
       setPage(saved);
       setSaveStatus('saved');
-    } catch (_error) {
-      setError('That did not save.');
+    } catch (error) {
+      setError(error?.response?.data?.code === 'claim_identity_conflict'
+        ? 'That did not save. The saved claims have conflicting identities and need review. Your current words remain here.'
+        : 'That did not save.');
       setSaveStatus('failed');
     } finally {
     }

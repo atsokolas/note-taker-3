@@ -1,3 +1,4 @@
+const { normalizeClaimSupport } = require('./wikiClaimSupport');
 const {
   chatComplete,
   chatCompleteStream,
@@ -453,7 +454,7 @@ const findOrdinaryGroundingGaps = ({ claims = [], sourceRefs = [] } = {}) => {
   const claimList = Array.isArray(claims) ? claims : [];
   const bySection = sectionEvidenceIndexes(claimList);
   return claimList.flatMap((claim) => {
-    if (normalizeClaimSupport(claim?.support) === 'unsupported') return [];
+    if (['unknown', 'unsupported'].includes(normalizeClaimSupport(claim?.support))) return [];
     // A sentence still has to cite something of its own to be judged at all.
     if (!claimCitationIndexes(claim).length) return [];
     // The lead paragraph sits before any heading and its job is to summarise
@@ -2048,6 +2049,9 @@ const mergeAdjacentClaimFragments = (claims = []) => (
       merged.push(claim);
       return merged;
     }
+    // Mixed fragments cannot silently inherit the first fragment's grade.
+    previous.supportUnrecorded = previous.supportUnrecorded && claim.supportUnrecorded;
+    if (previous.support !== claim.support) previous.support = 'unknown';
     previous.text = `${previous.text || ''} ${claim.text || ''}`
       .replace(/\s+([,.;:!?])/g, '$1')
       .replace(/\s+/g, ' ')
@@ -2084,10 +2088,8 @@ const collectClaimsFromDocRaw = (node, section = '') => {
     claimId: claimMark.attrs?.claimId || `claim-${Date.now()}-${Math.random().toString(16).slice(2)}`,
     text: ownText,
     section,
-    support: claimMark.attrs?.support || inferClaimSupport(
-      claimMark.attrs?.citationIndexes || [],
-      claimMark.attrs?.contradictionIndexes || []
-    ),
+    support: normalizeClaimSupport(claimMark.attrs?.support),
+    supportUnrecorded: !['unknown', 'supported', 'partial', 'unsupported', 'conflicted', 'contradicted'].includes(claimMark.attrs?.support),
     citationIndexes: normalizeCitationIndexes(claimMark.attrs?.citationIndexes || []),
     contradictionIndexes: normalizeCitationIndexes(claimMark.attrs?.contradictionIndexes || []),
     citationIds: [],
@@ -2107,13 +2109,6 @@ const collectClaimsFromDoc = (node, section = '') => (
 const normalizeMaybeObjectId = (value) => {
   const text = asString(value);
   return text || null;
-};
-
-const normalizeClaimSupport = (support = '') => {
-  if (support === 'contradicted') return 'conflicted';
-  return ['supported', 'partial', 'unsupported', 'conflicted'].includes(support)
-    ? support
-    : 'unsupported';
 };
 
 const normalizeClaimIdentity = (value = '') => normalizeComparableText(value);
@@ -2174,6 +2169,7 @@ const resolveClaimSourceRefIds = ({ citationIndexes = [], citations = [], source
 };
 
 const claimConfidence = ({ support, citationIds = [], sourceRefIds = [] } = {}) => {
+  if (normalizeClaimSupport(support) === 'unknown') return 0;
   const citationCount = Math.max(citationIds.length, sourceRefIds.length);
   const base = {
     supported: 0.72,
@@ -2190,6 +2186,7 @@ const normalizeClaimHistory = (history = []) => (
     ? history
         .filter(Boolean)
         .map(entry => ({
+          ...(typeof entry.toObject === 'function' ? entry.toObject() : entry),
           at: entry.at || new Date(),
           event: truncateRaw(entry.event || 'reviewed', 80),
           support: normalizeClaimSupport(entry.support),
@@ -2199,7 +2196,7 @@ const normalizeClaimHistory = (history = []) => (
           sourceRefIds: Array.isArray(entry.sourceRefIds) ? entry.sourceRefIds.filter(Boolean).slice(0, 12) : [],
           contradictedByCitationIds: Array.isArray(entry.contradictedByCitationIds) ? entry.contradictedByCitationIds.filter(Boolean).slice(0, 12) : [],
           summary: truncate(entry.summary || '', 300),
-          action: ['reaffirmed', 'revised', 'retired', 'restored'].includes(asString(entry.action))
+          action: ['reaffirmed', 'revised', 'retired', 'restored', 'held_up', 'broke', 'partly', 'unresolvable', 'right_for_wrong_reasons'].includes(asString(entry.action))
             ? asString(entry.action)
             : '',
           note: truncate(entry.note || '', 500),
@@ -2266,19 +2263,118 @@ const claimHistoryEntry = ({ claim, event, now, summary }) => ({
   summary: truncate(summary || '', 300)
 });
 
-const buildClaimLedger = ({ claims = [], previousClaims = [], now = new Date() } = {}) => {
+// A legacy mark can borrow only its own unchanged recorded assessment.
+// Text similarity or the presence/count of attachments never assesses a claim.
+const resolveRecordedClaimSupport = (claim, previous) => {
+  const sameIds = (left, right) => {
+    const ids = value => (Array.isArray(value) ? value : []).map(String).sort();
+    return JSON.stringify(ids(left)) === JSON.stringify(ids(right));
+  };
+  if (claim.supportUnrecorded && previous
+    && String(claim.claimId || '') === String(previous.claimId || '')
+    && asString(claim.text) === asString(previous.text)
+    && sameIds(claim.citationIds, previous.citationIds)
+    && sameIds(claim.sourceRefIds, previous.sourceRefIds)
+    && (sameIds(claim.contradictedByCitationIds, previous.contradictedByCitationIds)
+      || (previous.support === 'conflicted' && !claim.contradictedByCitationIds.length
+        && sameIds(claim.citationIds, previous.contradictedByCitationIds)))) {
+    return normalizeClaimSupport(previous.support);
+  }
+  return normalizeClaimSupport(claim.support);
+};
+
+// Duplicate retained identities are not an authority for a new assessment.
+// Exclude them from both identity and text lookup, regardless of array order.
+const indexRecordedClaims = previousClaims => {
   const byId = new Map();
-  const byText = new Map();
-  (Array.isArray(previousClaims) ? previousClaims : []).forEach((claim) => {
-    if (!claim) return;
-    const plain = claim.toObject ? claim.toObject() : claim;
-    if (plain.claimId) byId.set(String(plain.claimId), plain);
-    const identity = normalizeClaimIdentity(plain.text);
-    if (identity && !byText.has(identity)) byText.set(identity, plain);
+  const ambiguousIds = new Set();
+  const retained = (Array.isArray(previousClaims) ? previousClaims : []).filter(Boolean)
+    .map(claim => claim.toObject ? claim.toObject() : claim);
+  retained.forEach(claim => {
+    const id = String(claim.claimId || '');
+    if (!id) return;
+    if (byId.has(id)) ambiguousIds.add(id);
+    else byId.set(id, claim);
   });
+  ambiguousIds.forEach(id => byId.delete(id));
+  const byText = new Map();
+  retained.forEach(claim => {
+    if (ambiguousIds.has(String(claim.claimId || ''))) return;
+    const identity = normalizeClaimIdentity(claim.text);
+    if (identity && !byText.has(identity)) byText.set(identity, claim);
+  });
+  return { byId, byText, ambiguousIds };
+};
+
+const assertRecordedClaimIdentity = previousClaims => {
+  if (!indexRecordedClaims(previousClaims).ambiguousIds.size) return;
+  const error = new Error('This page has conflicting claim identities. Review them before saving; your saved writing has not changed.');
+  error.code = 'claim_identity_conflict';
+  error.statusCode = 409;
+  throw error;
+};
+
+const assertClaimBodyIdentity = body => {
+  const units = [];
+  let precedingId = '';
+  const visit = node => {
+    (Array.isArray(node?.content) ? node.content : []).forEach(child => {
+      // Enter and Shift-Enter retain one claim across consecutive fragments.
+      // Only intervening words or another claim break that logical run.
+      if (child?.type === 'hardBreak') return;
+      if (child?.type === 'text') {
+        const id = String(child.marks?.find(mark => mark?.type === 'claim')?.attrs?.claimId || '');
+        if (id && id !== precedingId) units.push({ claimId: id });
+        precedingId = id;
+      }
+      visit(child);
+    });
+  };
+  visit(body);
+  assertRecordedClaimIdentity(units);
+};
+
+const projectRecordedClaimSupport = previousClaims => {
+  const { ambiguousIds } = indexRecordedClaims(previousClaims);
+  return (Array.isArray(previousClaims) ? previousClaims : []).filter(Boolean).map(claim => {
+    const plain = claim.toObject ? claim.toObject() : claim;
+    const support = ambiguousIds.has(String(plain.claimId || '')) ? 'unknown' : normalizeClaimSupport(plain.support);
+    return { ...plain, support, ...(support === 'unknown' ? { confidence: 0, lastVerifiedAt: null } : {}) };
+  });
+};
+
+// Hydrate only the read projection, so opening an older document does not
+// manufacture a grade or migrate the retained body/history.
+const withRecordedClaimSupport = ({ body, previousClaims = [], citations = [], sourceRefs = [] } = {}) => {
+  const { byId: previousById, ambiguousIds } = indexRecordedClaims(previousClaims);
+  const grades = new Map();
+  attachClaimCitationIds({ claims: collectClaimsFromDoc(body), citations, sourceRefs }).forEach(claim => {
+    const id = String(claim.claimId);
+    grades.set(id, grades.has(id) ? 'unknown' : resolveRecordedClaimSupport(claim, previousById.get(id)));
+  });
+  const visit = node => {
+    if (Array.isArray(node)) return node.map(visit);
+    if (!node || typeof node !== 'object') return node;
+    return { ...node,
+      ...(Array.isArray(node.marks) ? { marks: node.marks.map(mark => mark?.type !== 'claim' ? mark : {
+        ...mark, attrs: { ...mark.attrs, support: ambiguousIds.has(String(mark.attrs?.claimId || '')) ? 'unknown' : ['unknown', 'supported', 'partial', 'unsupported', 'conflicted', 'contradicted'].includes(mark.attrs?.support)
+          ? normalizeClaimSupport(mark.attrs.support)
+          : grades.get(String(mark.attrs?.claimId || '')) || 'unknown' }
+      }) } : {}),
+      ...(Array.isArray(node.content) ? { content: visit(node.content) } : {})
+    };
+  };
+  return visit(body);
+};
+
+const buildClaimLedger = ({ claims = [], previousClaims = [], now = new Date() } = {}) => {
+  assertRecordedClaimIdentity(previousClaims);
+  const distinctClaims = coalesceEquivalentClaims(claims);
+  assertRecordedClaimIdentity(distinctClaims);
+  const { byId, byText } = indexRecordedClaims(previousClaims);
 
   const matchedPreviousIds = new Set();
-  const nextClaims = coalesceEquivalentClaims(claims).map((claim) => {
+  const nextClaims = distinctClaims.map((claim) => {
     const previousById = claim.claimId ? byId.get(String(claim.claimId)) : null;
     const previousByText = byText.get(normalizeClaimIdentity(claim.text));
     const previous = previousById || previousByText || null;
@@ -2293,7 +2389,7 @@ const buildClaimLedger = ({ claims = [], previousClaims = [], now = new Date() }
       retired.bornAt = resolveClaimBornAt(retired, { now });
       return retired;
     }
-    const support = normalizeClaimSupport(claim.support);
+    const support = resolveRecordedClaimSupport(claim, previous);
     const citationIds = Array.isArray(claim.citationIds) ? claim.citationIds.filter(Boolean).slice(0, 12) : [];
     const sourceRefIds = Array.isArray(claim.sourceRefIds) ? claim.sourceRefIds.filter(Boolean).slice(0, 12) : [];
     const explicitContradictions = Array.isArray(claim.contradictedByCitationIds)
@@ -2319,7 +2415,7 @@ const buildClaimLedger = ({ claims = [], previousClaims = [], now = new Date() }
         ? (previous?.falsifierIds || claim.falsifierIds).map(String).filter(Boolean).slice(0, 100)
         : [],
       lastReviewedAt: now,
-      lastVerifiedAt: citationIds.length || sourceRefIds.length
+      lastVerifiedAt: support === 'unknown' ? null : citationIds.length || sourceRefIds.length
         ? now
         : previous?.lastVerifiedAt || null,
       checkInStatus: previous?.checkInStatus || 'unreviewed',
@@ -2386,15 +2482,18 @@ const deriveClaimsFromDoc = ({
   previousClaims = [],
   limit = 80,
   now = new Date()
-} = {}) => buildClaimLedger({
-  claims: attachClaimCitationIds({
-    claims: collectClaimsFromDoc(body, title).slice(0, limit),
-    citations,
-    sourceRefs
-  }),
-  previousClaims,
-  now
-});
+} = {}) => {
+  assertClaimBodyIdentity(body);
+  return buildClaimLedger({
+    claims: attachClaimCitationIds({
+      claims: collectClaimsFromDoc(body, title).slice(0, limit),
+      citations,
+      sourceRefs
+    }),
+    previousClaims,
+    now
+  });
+};
 
 const buildSectionMaintenancePlan = ({ claims = [], health = {}, changeLog = [], now = new Date() } = {}) => {
   const sections = new Map();
@@ -3805,7 +3904,7 @@ const evaluateWikiArticleQuality = ({
     : sourceCount;
   const claimList = Array.isArray(claims) ? claims : [];
   const supportedLike = claimList.filter(claim => ['supported', 'partial', 'conflicted'].includes(normalizeClaimSupport(claim.support))).length;
-  const unsupported = claimList.filter(claim => normalizeClaimSupport(claim.support) === 'unsupported').length;
+  const unsupported = claimList.filter(claim => ['unknown', 'unsupported'].includes(normalizeClaimSupport(claim.support))).length;
   const partial = claimList.filter(claim => normalizeClaimSupport(claim.support) === 'partial').length;
   const cited = claimList.filter(claim => (
     (claim.citationIds || []).length ||
@@ -4264,6 +4363,7 @@ const maintainWikiPage = async ({
   streamDraft = false,
   onProgress = null
 }) => {
+  assertRecordedClaimIdentity(page.claims?.toObject ? page.claims.toObject() : page.claims);
   const normalizedProfile = normalizeMaintenanceProfile(maintenanceProfile);
   const fastProfile = normalizedProfile === 'fast';
   const effectiveSourceLimit = Number.isFinite(Number(sourceLimit)) && Number(sourceLimit) > 0
@@ -4960,6 +5060,10 @@ module.exports = {
   evaluateWikiArticleQuality,
   isGitHubRepoPage,
   deriveClaimsFromDoc,
+  assertRecordedClaimIdentity,
+  projectRecordedClaimSupport,
+  withRecordedClaimSupport,
+  normalizeClaimSupport,
   buildSectionMaintenancePlan,
   collectLibrarySources,
   selectCandidateSources,

@@ -139,4 +139,11 @@ assert.match(failing.failures.join(' '), /research modules remain incomplete/i);
 assert.match(failing.failures.join(' '), /evidence archetypes/i);
 assert.match(failing.failures.join(' '), /unsupported decision claims/i);
 
+const unassessed = evaluateInvestmentDossierQuality({
+  page: { investmentDossier: thinProfile }, body, sourceRefs, words: 2400,
+  claims: claims.map((claim, index) => ({ ...claim, support: index === 0 ? 'unknown' : claim.support }))
+});
+assert.strictEqual(unassessed.ok, false);
+assert.match(unassessed.failures.join(' '), /unsupported decision claims/i, 'unknown cannot bypass the existing decision-evidence gate');
+
 console.log('investmentDossierQualityService tests passed');

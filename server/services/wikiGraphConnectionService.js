@@ -1,3 +1,4 @@
+const { normalizeClaimSupport } = require('./wikiClaimSupport');
 const WIKI_PAGE_ITEM_TYPE = 'wiki_page';
 const WIKI_CLAIM_ITEM_TYPE = 'wiki_claim';
 const SOURCE_CONNECTION_TYPES = new Set(['article', 'highlight', 'notebook', 'concept', 'question', 'external']);
@@ -236,7 +237,7 @@ const buildWikiPageGraphRows = ({ page, userId }) => {
       relationType: 'contains'
     }));
 
-    const support = normalizeId(claim?.support);
+    const support = normalizeClaimSupport(claim?.support);
     const contradictedIds = Array.isArray(claim?.contradictedByCitationIds)
       ? claim.contradictedByCitationIds.map(normalizeId).filter(Boolean)
       : [];
@@ -265,12 +266,12 @@ const buildWikiPageGraphRows = ({ page, userId }) => {
 
     addClaimEvidenceRows({
       claimGraphId,
-      evidenceIds: support === 'conflicted' && !contradictedIds.length ? [] : supportingCitationIds,
+      evidenceIds: support === 'unknown' || (support === 'conflicted' && !contradictedIds.length) ? [] : supportingCitationIds,
       relationType: 'supports'
     });
     addClaimEvidenceRows({
       claimGraphId,
-      evidenceIds: support === 'conflicted' && !contradictedIds.length ? [] : supportingSourceRefIds,
+      evidenceIds: support === 'unknown' || (support === 'conflicted' && !contradictedIds.length) ? [] : supportingSourceRefIds,
       relationType: 'supports'
     });
     addClaimEvidenceRows({
@@ -279,7 +280,7 @@ const buildWikiPageGraphRows = ({ page, userId }) => {
       relationType: 'contradicts'
     });
 
-    if (support === 'unsupported' || support === 'partial' || support === 'conflicted') {
+    if (support === 'unknown' || support === 'unsupported' || support === 'partial' || support === 'conflicted') {
       addRow(normalizeConnectionRow({
         userId,
         fromType: WIKI_CLAIM_ITEM_TYPE,
