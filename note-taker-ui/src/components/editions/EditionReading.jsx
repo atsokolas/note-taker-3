@@ -6,7 +6,8 @@ import {
   foreignFilers,
   handsOf,
   issueLine,
-  publicSourceHref,
+  passageHref,
+  WATCH_STATUS,
   latestFilingLine,
   sectionTones,
   standLayout,
@@ -28,6 +29,8 @@ import {
   readingPosition,
   writeEditionLocal
 } from './editionReadingState';
+
+const READ_AFTER_MS = 4000;
 
 const ShareIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -90,11 +93,31 @@ export default function EditionReading({
     if (dismiss) setResume(null);
   }, []);
   const loaded = Boolean(edition);
+  const latest = useRef(edition);
+  latest.current = edition;
   useEffect(() => {
     if (!loaded || !focusItem) return;
     const frame = requestAnimationFrame(() => jump(focusItem));
-    Promise.resolve(setEditionItemState(issue._id, focusItem, 'opened')).catch(() => {});
-    return () => cancelAnimationFrame(frame);
+    /* Stepping past a finding is not reading it: it counts as read once the
+       reader has had it on screen a moment, so new counts hold while J skims
+       or the tab sits in the background. Only a new finding becomes read; a
+       Later or a Keep made meanwhile stands. */
+    let read;
+    const markRead = () => {
+      const status = latest.current?.items.find(row => row.itemId === focusItem)?.readerStatus || 'new';
+      if (status === 'new') Promise.resolve(setEditionItemState(issue._id, focusItem, 'opened')).catch(() => {});
+    };
+    const dwell = () => {
+      clearTimeout(read);
+      if (!document.hidden) read = setTimeout(markRead, READ_AFTER_MS);
+    };
+    dwell();
+    document.addEventListener('visibilitychange', dwell);
+    return () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(read);
+      document.removeEventListener('visibilitychange', dwell);
+    };
     // An explicit incoming finding link wins over a remembered place.
   }, [loaded, focusItem, issue._id, jump]);
   useEffect(() => {
@@ -163,7 +186,7 @@ export default function EditionReading({
       if (!here || !['j', 'k', 'o'].includes(key)) return;
       event.preventDefault();
       if (key === 'o') {
-        const href = publicSourceHref(here.url);
+        const href = passageHref(here);
         if (event.shiftKey) {
           if (href) window.open(href, '_blank', 'noopener,noreferrer');
         } else onItem(here.itemId, { source: '1' });
@@ -275,6 +298,7 @@ export default function EditionReading({
         </div>
       ) : null}
       <div className="reading-intro">
+        {row.headline ? <h2 className="reading-headline">{row.headline}</h2> : null}
         {row.standfirst ? <p>{row.standfirst}</p> : null}
         {row.standfirst && editor ? <p className="reading-editor"><AgentMark {...editor} glyph /> Standfirst by the editor</p> : null}
       </div>
@@ -343,6 +367,7 @@ export default function EditionReading({
                         item={item}
                         lead={item === items[0]}
                         zoomed={item.itemId === focusItem}
+                        editionId={issue._id}
                         busy={busy}
                         receipt={receipts[item.itemId]}
                         onAct={act}
@@ -368,6 +393,20 @@ export default function EditionReading({
                 <section className="reading-afterword">
                   <h2>{editor ? <AgentMark {...editor} caption="Written by" glyph /> : null}Across the week</h2>
                   <p>{edition.throughLine}</p>
+                </section>
+              ) : null}
+              {edition.followUps?.length ? (
+                <section className="reading-afterword">
+                  <h2>What became of last issue’s watch list</h2>
+                  <ul className="reading-follow-ups">
+                    {edition.followUps.map(({ watch, status, note }) => (
+                      <li key={watch}>
+                        <span className={`reading-status reading-status--${status}`}>{WATCH_STATUS[status]}</span>
+                        {watch}
+                        {note ? <small>{note}</small> : null}
+                      </li>
+                    ))}
+                  </ul>
                 </section>
               ) : null}
               {edition.watchNext?.length ? (

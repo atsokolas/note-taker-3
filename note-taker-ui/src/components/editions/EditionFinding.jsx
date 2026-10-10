@@ -1,9 +1,10 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { publicSourceHref } from '../../pages/editionModel';
+import { publicSourceHref, sourceLine } from '../../pages/editionModel';
 import { findingAnchor } from './editionReadingState';
 import AgentMark from './AgentMark';
 import EditionReadings from './EditionReadings';
+import { Figures, Held, Passage } from './EditionLayer';
 
 export const EditionBoundary = ({ children }) => (
   <aside className="reading-boundary">
@@ -11,7 +12,7 @@ export const EditionBoundary = ({ children }) => (
     <p>{children}</p>
   </aside>
 );
-export default function EditionFinding({ item, lead, zoomed, busy, receipt, onAct, onPeek, onSelection }) {
+export default function EditionFinding({ editionId, item, lead, zoomed, busy, receipt, onAct, onPeek, onSelection }) {
   const href = publicSourceHref(item.url);
   /* The first reading is the passage a thought can quote from. */
   const prose = (text, first = true) => (
@@ -31,9 +32,9 @@ export default function EditionFinding({ item, lead, zoomed, busy, receipt, onAc
       tabIndex={-1}
     >
       <h2>{item.title}</h2>
-      <p className="reading-source">
-        {[item.sourceLabel, item.sourceDate].filter(Boolean).join(' · ')}
-      </p>
+      <p className="reading-source">{sourceLine(item)}</p>
+      {item.plain ? <p className="reading-plain">{item.plain}</p> : null}
+      <Figures figures={item.figures} />
       {readings ? (
         <EditionReadings item={item} finding={prose} Boundary={EditionBoundary} />
       ) : (
@@ -43,6 +44,8 @@ export default function EditionFinding({ item, lead, zoomed, busy, receipt, onAc
           {item.note ? <p className="reading-editorial-note">{item.note}</p> : null}
         </>
       )}
+      <Passage item={item} />
+      {zoomed ? <Held editionId={editionId} itemId={item.itemId} /> : null}
       <div className="reading-actions">
         <button onClick={(event) => onPeek(item, 'source', event.currentTarget)}>Source</button>
         {item.savedArticleId ? (

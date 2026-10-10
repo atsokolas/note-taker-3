@@ -1,6 +1,6 @@
 import {
   byHand, byPaper, bySection, datelineLine, deskFor, foreignFilers, handsOf,
-  issueLine, keepersFor, latestFilingLine, newCountOf, publicSourceHref,
+  issueLine, keepersFor, latestFilingLine, newCountOf, passageHref, publicSourceHref, sourceLine, watchThreads,
   runGrid, sectionTones, sourceLinks, standLayout, stateOf, windowLine
 } from './editionModel';
 
@@ -343,3 +343,33 @@ describe('who filed what', () => {
     expect(edition.items.filter(item => byHand(item, '')).length).toBe(4);
   });
 });
+
+describe('the reader’s layer', () => {
+  it('opens the original at a passage only once the passage was found in it', () => {
+    const item = { url: 'https://example.com/paper#s3', passage: 'naive retry caused duplicate external effects in 53.33% of trials', passageCheck: 'found' };
+    expect(passageHref(item)).toBe('https://example.com/paper#:~:text=naive%20retry%20caused%20duplicate%20external%20effects%20in%2053.33%25');
+    expect(passageHref({ ...item, passageCheck: 'missing' })).toBe('https://example.com/paper#s3');
+    expect(passageHref({ url: 'javascript:alert(1)' })).toBe('');
+    expect(passageHref({ ...item, passage: 'A well-known effect … far later' })).toBe('https://example.com/paper#:~:text=A%20well%2Dknown%20effect');
+    expect(passageHref({ ...item, passage: '… naive retry caused it' })).toBe('https://example.com/paper#:~:text=naive%20retry%20caused%20it');
+    expect(passageHref({ ...item, passage: '…' })).toBe('https://example.com/paper#s3');
+  });
+
+  it('says the source, its kind and how sure in one line, and nothing it was not told', () => {
+    expect(sourceLine({ sourceLabel: 'arXiv', sourceDate: '2026-10-04', sourceKind: 'peer_reviewed', confidence: 'high' }))
+      .toBe('arXiv · 2026-10-04 · peer-reviewed · high confidence');
+    expect(sourceLine({ sourceLabel: 'arXiv', sourceKind: 'other' })).toBe('arXiv');
+  });
+
+  it('threads a watch list through the issue that answered it, open lines first', () => {
+    const issues = [
+      { _id: 'b', windowStart: '2026-09-08', watchNext: ['Second lab'], followUps: [{ watch: 'a replication', status: 'dropped', note: 'No one tried.' }] },
+      { _id: 'a', windowStart: '2026-09-01', watchNext: ['A replication', 'A price cut'] }
+    ];
+    const { open, settled } = watchThreads(issues);
+    expect(open.map(thread => [thread.watch, thread.status, thread.since._id])).toEqual([['Second lab', 'open', 'b'], ['A price cut', 'open', 'a']]);
+    expect(settled).toEqual([expect.objectContaining({ watch: 'A replication', status: 'dropped', note: 'No one tried.' })]);
+    expect(watchThreads([])).toEqual({ open: [], settled: [] });
+  });
+});
+

@@ -1,11 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../api';
 import { getAuthHeaders } from '../../hooks/useAuthHeaders';
-import { publicSourceHref } from '../../pages/editionModel';
+import { passageHref, passageOpening, sourceLine } from '../../pages/editionModel';
 import EditionPanel from './EditionPanel';
 import AgentMark from './AgentMark';
 import { EditionBoundary } from './EditionFinding';
+import { Passage } from './EditionLayer';
 import ThoughtComposer from './ThoughtComposer';
 
 // React renders text, never untrusted article markup. Preserve paragraph breaks.
@@ -43,7 +44,15 @@ export default function SourcePeek({ item, view, origin, quote, onClose, thought
       active = false;
     };
   }, [item.savedArticleId]);
-  const href = publicSourceHref(item.url);
+  const href = passageHref(item);
+  const opening = item.passageCheck === 'found' ? passageOpening(item.passage).toLowerCase().slice(0, 80) : '';
+  const atPassage = Boolean(opening);
+  /* The paragraph the checked passage sits in is marked, and opened to. */
+  const held = useRef(null);
+  const rests = paragraph => atPassage && paragraph.replace(/\s+/g, ' ').toLowerCase().includes(opening);
+  useEffect(() => {
+    held.current?.scrollIntoView?.({ block: 'center' });
+  }, [source.paragraphs, tab]);
   const tabs = ['finding', 'source', 'thought'];
   return (
     <EditionPanel title="Beside this reading" origin={origin} onClose={onClose}>
@@ -85,15 +94,14 @@ export default function SourcePeek({ item, view, origin, quote, onClose, thought
         ) : null}
         {tab === 'source' ? (
           <>
-            <p className="reading-source">
-              {[item.sourceLabel, item.sourceDate].filter(Boolean).join(' · ')}
-            </p>
+            <p className="reading-source">{sourceLine(item)}</p>
+            <Passage item={item} />
             {source.loading ? (
               <p role="status">Opening your saved source…</p>
             ) : source.paragraphs.length ? (
               <div className="reading-source-text">
                 {source.paragraphs.map((p, i) => (
-                  <p key={i}>{p}</p>
+                  rests(p) ? <p key={i} ref={held} className="is-passage"><mark>{p}</mark></p> : <p key={i}>{p}</p>
                 ))}
               </div>
             ) : (
@@ -107,7 +115,7 @@ export default function SourcePeek({ item, view, origin, quote, onClose, thought
             {href ? (
               <p>
                 <a href={href} target="_blank" rel="noopener noreferrer">
-                  Open original ↗
+                  {atPassage ? 'At the passage ↗' : 'Open original ↗'}
                 </a>
                 <small className="reading-url">{href}</small>
               </p>

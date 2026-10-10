@@ -25,6 +25,7 @@ const {
 } = require('../services/editionShape');
 const { normalizeRuntime } = require('../services/agentRuntime');
 const { quotedIn } = require('../services/agentGrounding');
+const { rawCosineToAtlasScore } = require('../ai/vectorStore');
 
 /**
  * The newsstand.
@@ -61,6 +62,11 @@ const checksFrom = (req, profile, by, at) => {
   }
   return checks.map(check => ({ ...check, by, at }));
 };
+
+/* A raw cosine of 0.72, in Atlas's 0–1 score: the floor Judgment holds its
+   evidence to, so "you already hold this" means the same thing in both rooms. */
+const HELD_FLOOR = rawCosineToAtlasScore(0.72);
+const HELD_CANDIDATES = 12;
 
 /* Normalized against the same standard as a whole edition — a boundary is
    required here too, or the daily door becomes the way around it.
@@ -262,6 +268,8 @@ const buildEditionRouter = ({
   User = null,
   /* Injected so the save door can be tested without reaching the network. */
   readArticle = fetchReadableArticle,
+  /* Injected for the same reason: the reader's library is searched by meaning. */
+  relatedHighlights = (...args) => require('../ai/semanticSearch').relatedHighlights(...args),
   onArticleSaved = () => {}
 } = {}) => {
   const router = express.Router();
@@ -859,6 +867,41 @@ const buildEditionRouter = ({
       return res.status(200).json(await present(edition, req.user.id, profiles));
     } catch (error) {
       return refuse(res, error, 'Failed to open the edition.');
+    }
+  });
+
+  /**
+   * What the reader already holds that a finding touches.
+   *
+   * Eligibility: the reader's own highlights, never the source this finding
+   * saved. Quality: a strong match by meaning, the same floor Judgment uses
+   * for evidence, and only the best one. Silence: nothing qualifies, and the
+   * page says nothing. A search that could not run says so as `unknown`, so
+   * an empty answer is never mistaken for a library with nothing in it.
+   */
+  router.get('/api/editions/:id/items/:itemId/held', auth, humanOnly, async (req, res) => {
+    try {
+      const found = await ownedItem(req, res);
+      if (!found) return undefined;
+      const { item } = found;
+      let rows;
+      try {
+        /* Wide enough that highlights from the finding's own source, which never
+           count, cannot crowd out the best one that does. */
+        rows = await relatedHighlights({ text: [item.title, item.finding].join('. '), limit: HELD_CANDIDATES, userId: String(req.user.id) });
+      } catch (_error) {
+        return res.status(200).json({ held: null, unknown: true });
+      }
+      const best = (rows || []).find(row => (
+        Number(row.score) >= HELD_FLOOR && String(row.articleId || '') !== String(item.savedArticleId || '')
+      ));
+      return res.status(200).json({
+        held: best
+          ? { highlightId: String(best.objectId), text: best.title, articleId: String(best.articleId || ''), articleTitle: best.articleTitle || '' }
+          : null
+      });
+    } catch (error) {
+      return refuse(res, error, 'Failed to look through your library.');
     }
   });
 

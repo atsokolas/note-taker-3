@@ -210,6 +210,35 @@ export const publicSourceHref = (value) => {
   }
 };
 
+/* A passage runs word for word only between its elisions ("…"), so it is
+   found, linked and marked by its first unbroken stretch. */
+export const passageOpening = (passage = '') => (
+  String(passage).split(/…|\.{3}/).map(piece => piece.replace(/\s+/g, ' ').trim()).find(Boolean) || ''
+);
+
+/**
+ * The original, opened at the passage a finding rests on: a text fragment of
+ * its opening words, which the browser scrolls to and marks. Only a passage
+ * checked against the source earns it; anything else opens at the top.
+ */
+export const passageHref = (item = {}) => {
+  const href = publicSourceHref(item.url);
+  if (!href || item.passageCheck !== 'found' || !passageOpening(item.passage)) return href;
+  /* Up to the first elision, so the fragment is words the source really runs together. */
+  const opening = passageOpening(item.passage).split(' ').slice(0, 8).join(' ');
+  return `${href.split('#')[0]}#:~:text=${encodeURIComponent(opening).replace(/-/g, '%2D')}`;
+};
+
+const KINDS = { preprint: 'preprint', peer_reviewed: 'peer-reviewed', company: 'company source', news: 'news', other: '' };
+
+/** Where a finding comes from and how sure its agent is, in one line. */
+export const sourceLine = (item = {}) => [
+  item.sourceLabel,
+  item.sourceDate,
+  KINDS[item.sourceKind],
+  item.confidence ? `${item.confidence} confidence` : ''
+].filter(Boolean).join(' · ');
+
 const hostOf = (href) => {
   try {
     return new URL(href).hostname.replace(/^www\./, '');
@@ -430,4 +459,32 @@ export const deskFor = (paper = null, issue = null, now = Date.now()) => {
       kept: `Kept by you: ${saved} of ${filed}`
     };
   });
+};
+
+/** What became of a watched line, in a word. */
+export const WATCH_STATUS = { open: 'Open', not_yet: 'Not yet', happened: 'Happened', dropped: 'Dropped' };
+
+const settled = status => status === 'happened' || status === 'dropped';
+
+/**
+ * What a paper has been watching, across its run.
+ *
+ * An issue's watch list is answered by the next issue's follow-ups, so a line
+ * is a thread that runs from one issue into the next. The newest word on each
+ * line wins. A line nobody answered yet is open, never guessed at.
+ */
+export const watchThreads = (issues = []) => {
+  const run = (issues || []).slice().sort((left, right) => Date.parse(left.windowStart) - Date.parse(right.windowStart));
+  const threads = new Map();
+  run.forEach((issue, index) => (issue.watchNext || []).forEach((line) => {
+    const answer = (run[index + 1]?.followUps || []).find(entry => entry.watch.toLowerCase() === line.toLowerCase());
+    threads.set(line.toLowerCase(), {
+      watch: line,
+      since: issue,
+      status: answer?.status || 'open',
+      note: answer?.note || ''
+    });
+  }));
+  const all = [...threads.values()].reverse();
+  return { open: all.filter(thread => !settled(thread.status)), settled: all.filter(thread => settled(thread.status)) };
 };

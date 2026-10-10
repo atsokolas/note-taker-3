@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { handsOf, issueLine, publicSourceHref } from '../../pages/editionModel';
+import { handsOf, issueLine, passageHref, sourceLine } from '../../pages/editionModel';
 import AgentMark from './AgentMark';
 import { handOf } from './editionAgent';
 import { EditionBoundary } from './EditionFinding';
+import { Figures, Passage } from './EditionLayer';
 import EditionReadings from './EditionReadings';
 import SourcePeek from './SourcePeek';
 import { useEditionThoughts } from './ThoughtComposer';
@@ -11,8 +12,7 @@ import useEditionArrivals from './useEditionArrivals';
 
 const metaLine = (row) => [
   [row.profileLabel, issueLine(row)].filter(Boolean).join(' · '),
-  row.sourceLabel,
-  row.sourceDate
+  sourceLine(row)
 ].filter(Boolean).join(' · ');
 
 const finding = text => <p className="power-item__finding">{text}</p>;
@@ -71,7 +71,7 @@ export default function EditionPowerThrough({ papers = [], paper = '', by = '', 
         j: () => setIndex(value => Math.min(value + 1, (items?.length || 1) - 1)),
         k: () => setIndex(value => Math.max(value - 1, 0)),
         o: () => {
-          const href = publicSourceHref(row?.url);
+          const href = passageHref(row || {});
           if (!event.shiftKey) setReading(true);
           else if (href) window.open(href, '_blank', 'noopener,noreferrer');
         }
@@ -90,7 +90,7 @@ export default function EditionPowerThrough({ papers = [], paper = '', by = '', 
   const undoSeen = async () => {
     if (await undoChoice()) setDecided(value => Math.max(0, value - 1));
   };
-  const href = publicSourceHref(row?.url);
+  const href = passageHref(row || {});
 
   return (
     <section className="power-through" aria-labelledby="power-through-title">
@@ -146,6 +146,8 @@ export default function EditionPowerThrough({ papers = [], paper = '', by = '', 
         <article className="power-item" key={`${row.editionId}:${row.itemId}`}>
           <p className="power-item__meta">{metaLine(row)}</p>
           <h2>{row.title}</h2>
+          {row.plain ? <p className="reading-plain">{row.plain}</p> : null}
+          <Figures figures={row.figures} />
           {row.readings?.length ? (
             <EditionReadings item={row} finding={finding} Boundary={EditionBoundary} />
           ) : (
@@ -160,9 +162,14 @@ export default function EditionPowerThrough({ papers = [], paper = '', by = '', 
               ) : null}
             </>
           )}
+          <Passage item={row} />
           <nav className="power-item__source" aria-label="Open the source">
             <button type="button" onClick={() => setReading(true)}>Read it here <kbd>O</kbd></button>
-            {href ? <a href={href} target="_blank" rel="noopener noreferrer">The original ↗ <kbd>⇧O</kbd></a> : null}
+            {href ? (
+              <a href={href} target="_blank" rel="noopener noreferrer">
+                {row.passageCheck === 'found' ? 'At the passage ↗' : 'The original ↗'} <kbd>⇧O</kbd>
+              </a>
+            ) : null}
           </nav>
           <nav className="power-item__actions" aria-label={`Decide: ${row.title}`}>
             <button disabled={Boolean(busy)} onClick={() => choose(keep)}>
