@@ -31,18 +31,21 @@ const quotations = (reply = '') => [...String(reply).matchAll(/[“"]([^”"]+)[
   .map(match => match[1])
   .filter(span => words(span).length >= QUOTE_MIN_WORDS);
 
-// Quotations of five words or more that appear in none of the given texts.
-// A short phrase in quotes is emphasis; a sentence in quotes is a claim
-// about what a source said. An ellipsis marks words left out, so each piece
-// between ellipses must appear on its own, however short.
-const inventedQuotes = (reply = '', texts = []) => {
+// Whether a quoted span appears in any of the texts, word for word. An
+// ellipsis marks words left out, so each piece between ellipses must appear
+// on its own, however short.
+const quotedIn = (span = '', texts = []) => {
   const haystacks = (Array.isArray(texts) ? texts : []).map(text => ` ${words(text).join(' ')} `);
-  const found = piece => haystacks.some(text => text.includes(` ${piece} `));
-  return quotations(reply).filter(span => span
+  return String(span)
     .split(/…|\.{3}/)
     .map(piece => words(piece).join(' '))
     .filter(Boolean)
-    .some(piece => !found(piece)));
+    .every(piece => haystacks.some(text => text.includes(` ${piece} `)));
 };
 
-module.exports = { PASSAGE_WORDS, words, drawsOn, groundedIn, inventedQuotes };
+// Quotations of five words or more that appear in none of the given texts.
+// A short phrase in quotes is emphasis; a sentence in quotes is a claim
+// about what a source said.
+const inventedQuotes = (reply = '', texts = []) => quotations(reply).filter(span => !quotedIn(span, texts));
+
+module.exports = { PASSAGE_WORDS, words, drawsOn, groundedIn, inventedQuotes, quotedIn };

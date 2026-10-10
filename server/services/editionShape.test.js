@@ -459,3 +459,90 @@ describe('keeping a reader’s place in a rewritten week', () => {
     });
   });
 });
+
+describe('the reader’s layer of a finding', () => {
+  const { answerWatchList, projectPublicEdition, hashPublicEdition, readerLayerOf } = require('./editionShape');
+  const layered = over => item({
+    finding: 'Agents completed 83.54% of tasks but recovered from 46.72% of failures.',
+    plain: 'Finishing a job and cleaning up after a mistake are different skills.',
+    passage: 'task competence of 83.54% … conditional recovery of 46.72%',
+    sourceKind: 'Peer-reviewed',
+    confidence: 'Moderate',
+    figures: [{ label: 'Recovered', value: '46.72%' }, { label: 'Trials', value: '2,880' }],
+    note: 'Across 2880 paired trials.',
+    ...over
+  });
+  const two = first => [first, item({ title: 'A second', url: 'https://example.com/two' })];
+
+  it('takes a plain line, a passage, a source kind, how sure, and the numbers it turns on', () => {
+    const [built] = normalizeEdition(edition({ items: two(layered()) })).items;
+    expect(built).toMatchObject({
+      plain: 'Finishing a job and cleaning up after a mistake are different skills.',
+      sourceKind: 'peer_reviewed',
+      confidence: 'moderate',
+      figures: [{ label: 'Recovered', value: '46.72%' }, { label: 'Trials', value: '2,880' }]
+    });
+  });
+
+  it('asks nothing of an item that carries none of it', () => {
+    const [built] = normalizeEdition(edition()).items;
+    expect(built).toMatchObject({ plain: '', passage: '', sourceKind: '', confidence: '', figures: [] });
+  });
+
+  /* A key figure is a quotation: a number the agent never wrote down beside
+     the finding is how a paper starts making things up. */
+  it('refuses a key figure that its finding, passage and note never say', () => {
+    expect(() => normalizeEdition(edition({ items: two(layered({ figures: [{ label: 'Recovered', value: '47%' }] })) })))
+      .toThrow(/key figure "Recovered" \(47%\) is not in its finding/);
+    expect(() => normalizeEdition(edition({ items: two(layered({ figures: Array(4).fill({ label: 'Recovered', value: '46.72%' }) })) })))
+      .toThrow(/keep the 3/);
+  });
+
+  it('names the words it knows when a source kind or confidence is not one of them', () => {
+    expect(() => normalizeEdition(edition({ items: two(layered({ sourceKind: 'blog' })) })))
+      .toThrow(/preprint, peer_reviewed, company, news, other/);
+    expect(() => normalizeEdition(edition({ items: two(layered({ confidence: 'certain' })) })))
+      .toThrow(/high, moderate, low/);
+  });
+
+  it('says whether a passage has been held to its source yet', () => {
+    expect(readerLayerOf({ passage: 'words' }).passageCheck).toBe('unchecked');
+    expect(readerLayerOf({ passage: 'words', passageCheck: 'missing' }).passageCheck).toBe('missing');
+    expect(readerLayerOf({}).passageCheck).toBe('');
+  });
+
+  /* A check holds for the words it checked. */
+  it('keeps a passage check across a rewrite only while the passage is unchanged', () => {
+    const held = [{ ...layered(), itemId: 'item-1', passageCheck: 'found' }];
+    const [same] = retainHeldItems([layered()], held, { label: 'x' });
+    const [changed] = retainHeldItems([layered({ passage: 'other words entirely' })], held, { label: 'x' });
+    expect(same.passageCheck).toBe('found');
+    expect(changed.passageCheck).toBe('');
+  });
+
+  /* A stranger sees a passage only once it was found in the source, and a
+     share published before any of this keeps its hash. */
+  it('publishes a passage only once it was found, and leaves old shares alone', () => {
+    const issue = items => ({ profile: 'this_week_in_ai', title: 'This Week in AI', windowStart: '2026-09-01', windowEnd: '2026-09-07', items });
+    const plain = normalizeEdition(edition()).items[0];
+    const [rich] = normalizeEdition(edition({ items: two(layered()) })).items;
+    expect(projectPublicEdition(issue([rich]), 'Athan').items[0]).not.toHaveProperty('passage');
+    expect(projectPublicEdition(issue([{ ...rich, passageCheck: 'found' }]), 'Athan').items[0].passage).toMatch(/83.54%/);
+    expect(projectPublicEdition(issue([rich]), 'Athan').items[0]).toMatchObject({ plain: rich.plain, sourceKind: 'peer_reviewed' });
+    const { plain: _p, passage: _q, sourceKind: _s, confidence: _c, figures: _f, ...before } = plain;
+    expect(hashPublicEdition(projectPublicEdition(issue([plain]), 'Athan')))
+      .toBe(hashPublicEdition(projectPublicEdition(issue([before]), 'Athan')));
+  });
+
+  /* "Watch for X" is a promise; the next issue says what became of it. */
+  it('answers only lines the last issue printed, as it printed them, newest answer winning', () => {
+    const { followUps } = normalizeEdition(edition({ followUps: [{ watch: 'whether undobench replicates', status: 'Not yet' }] }));
+    const printed = ['Whether UndoBench replicates', 'The next open-weight release'];
+    expect(answerWatchList(followUps, printed)).toEqual([{ watch: 'Whether UndoBench replicates', status: 'not_yet', note: '' }]);
+    expect(answerWatchList([{ watch: 'Whether UndoBench replicates', status: 'happened', note: 'It did.' }], printed, answerWatchList(followUps, printed)))
+      .toEqual([{ watch: 'Whether UndoBench replicates', status: 'happened', note: 'It did.' }]);
+    expect(() => answerWatchList([{ watch: 'Something else', status: 'happened' }], printed)).toThrow(/It printed: Whether UndoBench/);
+    expect(() => answerWatchList([{ watch: 'Something else', status: 'happened' }], [])).toThrow(/printed no watch list/);
+    expect(() => normalizeEdition(edition({ followUps: [{ watch: 'x' }] }))).toThrow(/needs a status/);
+  });
+});

@@ -3,21 +3,25 @@ const crypto = require('crypto');
 const { fetchReadableArticle, paragraphsToHtml } = require('../services/readableArticle');
 const {
   EditionShapeError,
+  answerWatchList,
   collectInbox,
   hashPublicEdition,
   mergeChecks,
   normalizeChecks,
   normalizeEdition,
+  normalizeFollowUps,
   normalizeItem,
   profileKeysFor,
   projectPublicEdition,
   READER_STATUSES,
+  readerLayerOf,
   resolveEditionProfile,
   retainHeldItems,
   sectionSilences,
   windowFor
 } = require('../services/editionShape');
 const { normalizeRuntime } = require('../services/agentRuntime');
+const { quotedIn } = require('../services/agentGrounding');
 
 /**
  * The newsstand.
@@ -107,6 +111,7 @@ const serializeItem = (item) => {
     finding: row.finding,
     boundary: row.boundary,
     note: row.note || '',
+    ...readerLayerOf(row),
     filedBy: row.filedBy?.label || '',
     filedByRuntime: row.filedBy?.runtime || '',
     filedAt: row.filedAt || null,
@@ -146,9 +151,11 @@ const serializeEdition = (edition = {}, { withItems = true, profiles = null, rec
     number: edition.number ?? null,
     windowStart: edition.windowStart,
     windowEnd: edition.windowEnd,
+    headline: edition.headline || '',
     standfirst: edition.standfirst || '',
     throughLine: edition.throughLine || '',
     watchNext: edition.watchNext || [],
+    followUps: (edition.followUps || []).map(({ watch, status, note }) => ({ watch, status, note: note || '' })),
     writtenBy: edition.writtenBy?.label || '',
     writtenByRuntime: edition.writtenBy?.runtime || '',
     /* Said on every edition, on the stand and on the page: the sections this
@@ -311,6 +318,18 @@ const buildEditionRouter = ({
     return { preview, currentHash: hashPublicEdition(preview), ownerDisplayName };
   };
 
+  /* The issue before this window, whose watch list a follow-up answers. */
+  const watchListBefore = async (userId, profileKey, windowStart) => {
+    const previous = await Edition.findOne({ userId, profile: profileKey, windowEnd: { $lt: windowStart } })
+      .sort({ windowEnd: -1 })
+      .select('watchNext')
+      .lean();
+    return previous?.watchNext || [];
+  };
+
+  /* Saving is the moment the server first reads the source, so it is the
+     moment the agent's passage is held to it: there word for word, or not.
+     A source that could not be read leaves the passage unchecked. */
   const takeSource = async (item, userId) => {
     const readable = await readArticle({ url: item.url });
     const article = await Article.findOneAndUpdate(
@@ -328,6 +347,8 @@ const buildEditionRouter = ({
       },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
+    const sourceText = [readable.content, String(article.content || '').replace(/<[^>]+>/g, ' ')].filter(Boolean);
+    if (item.passage && sourceText.length) item.passageCheck = quotedIn(item.passage, sourceText) ? 'found' : 'missing';
     return {
       article,
       readable: Boolean(readable.ok && readable.content),
@@ -618,15 +639,19 @@ const buildEditionRouter = ({
       const filedAt = new Date();
       const incoming = Array.isArray(req.body?.items) ? req.body.items : [];
       const checks = checksFrom(req, profile, filedBy, filedAt);
-      if (!incoming.length && !checks.length) {
+      const followUps = normalizeFollowUps(req.body?.followUps);
+      const headline = String(req.body?.headline || '').trim().slice(0, 200);
+      if (!incoming.length && !checks.length && !followUps.length && !headline) {
         return res.status(400).json({
-          error: 'Send items (what you found, with a boundary on each) or checked (the sections you looked at where nothing met your bar).'
+          error: 'Send items (what you found, with a boundary on each), checked (the sections you looked at where nothing met your bar), followUps (what became of the last issue\'s watch list), or a headline.'
         });
       }
 
       const { windowStart, windowEnd } = windowFor(profile.cadence || 'weekly', req.body?.now ? new Date(req.body.now) : new Date());
       const title = String(req.body?.title || '').trim().slice(0, 300) || profile.titleLabel;
       const standfirst = String(req.body?.standfirst || '').trim().slice(0, 2400);
+      const watchList = followUps.length ? await watchListBefore(userId, profile.key, windowStart) : [];
+      const answered = answerWatchList(followUps, watchList);
 
       let existing = await Edition.findOne({ userId, profile: profile.key, windowStart, windowEnd });
       let saved;
@@ -648,7 +673,9 @@ const buildEditionRouter = ({
             title,
             windowStart,
             windowEnd,
+            headline,
             standfirst,
+            ...(answered.length ? { followUps: answered } : {}),
             items: prepared.items,
             checks,
             writtenBy: filedBy
@@ -676,6 +703,15 @@ const buildEditionRouter = ({
         const read = await appendReadings({ existing: appended.saved, userId, readings: appended.readings });
         const checked = await appendChecks({ existing: read.saved, userId, checks });
         saved = checked.saved;
+        /* The newest headline is the one that has seen the most of the week. */
+        if (headline || answered.length) {
+          saved = await Edition.findOneAndUpdate({ _id: saved._id, userId }, {
+            $set: {
+              ...(headline ? { headline } : {}),
+              ...(answered.length ? { followUps: answerWatchList(followUps, watchList, saved.followUps) } : {})
+            }
+          }, { new: true });
+        }
         added = appended.added;
         readingsAdded = read.added;
         checksAdded = checked.added;
@@ -698,6 +734,9 @@ const buildEditionRouter = ({
       const userId = req.user.id;
       const profiles = await loadProfiles(userId);
       const built = normalizeEdition(req.body, { profiles });
+      if (built.followUps.length) {
+        built.followUps = answerWatchList(built.followUps, await watchListBefore(userId, built.profile, built.windowStart));
+      }
       const existing = await Edition.findOne({
         userId,
         profile: built.profile,

@@ -124,7 +124,7 @@ const run = async () => {
   }
 
   /* "Nothing met the bar" is a filing too: checked alone is enough, and it
-     reaches the API as sent. Saying nothing at all is refused before the call. */
+     reaches the API as sent. */
   {
     const schema = z.object(writeTools.find(tool => tool.name === 'file_edition_items').inputSchema);
     assert.strictEqual(schema.safeParse({ profile: 'this_week_in_ai', checked: ['models_methods'] }).success, true);
@@ -150,10 +150,33 @@ const run = async () => {
     assert.strictEqual(filed.checksAdded, 1);
     assert.deepStrictEqual(bodies[0].checked, ['models_methods']);
 
-    const refused = await client.fileEditionItems({ profile: 'this_week_in_ai', items: [], checked: [] }).then(() => null, e => e);
-    assert.ok(refused instanceof NoeisApiError);
-    assert.strictEqual(refused.status, 400);
-    assert.strictEqual(bodies.length, 1);
+    /* What became of last week's watch list, and the week's headline, travel
+       as sent; the server is the one that refuses a filing that says nothing. */
+    await client.fileEditionItems({
+      profile: 'this_week_in_ai',
+      followUps: [{ watch: 'Whether UndoBench replicates', status: 'not_yet' }],
+      headline: 'Agents finish jobs they cannot clean up after.'
+    });
+    assert.deepStrictEqual(bodies[1].followUps, [{ watch: 'Whether UndoBench replicates', status: 'not_yet' }]);
+    assert.strictEqual(bodies[1].headline, 'Agents finish jobs they cannot clean up after.');
+    assert.strictEqual(schema.safeParse({ profile: 'this_week_in_ai', followUps: [{ watch: 'x', status: 'maybe' }] }).success, false);
+  }
+
+  /* The reader's layer of an item: a plain line, the passage, what kind of
+     source, how sure, and at most three key figures. */
+  {
+    const items = z.object(writeTools.find(tool => tool.name === 'create_edition').inputSchema).shape.items;
+    const item = {
+      title: 'UndoBench', url: 'https://arxiv.org/abs/1', section: 'evaluation_counterevidence', finding: 'f', boundary: 'b',
+      plain: 'Finishing a job and cleaning up after a mistake are different skills.',
+      passage: 'conditional recovery of 46.72%',
+      sourceKind: 'preprint',
+      confidence: 'moderate',
+      figures: [{ label: 'Recovered', value: '46.72%' }]
+    };
+    assert.strictEqual(items.safeParse([item]).success, true);
+    assert.strictEqual(items.safeParse([{ ...item, sourceKind: 'blog' }]).success, false);
+    assert.strictEqual(items.safeParse([{ ...item, figures: Array(4).fill(item.figures[0]) }]).success, false);
   }
 };
 
