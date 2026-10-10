@@ -5,6 +5,7 @@ const {
   EditionShapeError,
   collectInbox,
   hashPublicEdition,
+  isArrival,
   mergeChecks,
   normalizeChecks,
   normalizeEdition,
@@ -158,6 +159,7 @@ const serializeEdition = (edition = {}, { withItems = true, profiles = null, rec
        reported, or an issue from before anyone was asked. */
     silences,
     itemCount: items.length,
+    newCount: (edition.items || []).filter(isArrival).length,
     savedCount: items.filter(item => item.savedArticleId).length,
     createdAt: edition.createdAt,
     updatedAt: edition.updatedAt,
@@ -790,7 +792,9 @@ const buildEditionRouter = ({
         cursor: String(req.query?.cursor || ''),
         limit: Number(req.query?.limit) || 20,
         profiles,
-        withContent: req.query?.view === 'power'
+        withContent: req.query?.view === 'power',
+        profile: String(req.query?.profile || ''),
+        by: String(req.query?.by || '')
       }));
     } catch (error) {
       return refuse(res, error, 'Failed to open new items.');

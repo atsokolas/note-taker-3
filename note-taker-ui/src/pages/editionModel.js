@@ -76,7 +76,7 @@ const timestampOf = (value) => {
 
 const newestFilingAt = (edition = {}) => Math.max(
   0,
-  ...(edition?.items || []).map(item => timestampOf(item?.filedAt))
+  ...(edition?.items || edition?.filings || []).map(item => timestampOf(item?.filedAt))
 );
 
 const editionRecency = (edition = {}) => [
@@ -120,21 +120,6 @@ export const stateOf = ({ windowStart, windowEnd } = {}, now = Date.now()) => {
   /* The window is inclusive of its last day, so it closes when that day does. */
   if (now > end.getTime() + DAY_MS) return 'closed';
   return now < start.getTime() ? 'open' : 'filling';
-};
-
-/**
- * When the open issue closes, said the way a person would.
- *
- * Not a countdown. A paper tells you which day it goes to press.
- */
-export const closesLine = (edition = {}, now = Date.now()) => {
-  const end = day(edition.windowEnd);
-  if (!end) return '';
-  if (stateOf(edition, now) === 'closed') return 'Closed';
-  const days = Math.round((end.getTime() + DAY_MS - now) / DAY_MS);
-  if (days <= 1) return 'Closes today';
-  if (days <= 7) return `Closes ${DAYS[end.getUTCDay()]}`;
-  return `Closes ${MONTHS[end.getUTCMonth()]} ${end.getUTCDate()}`;
 };
 
 /**
@@ -212,76 +197,6 @@ export const byPaper = (editions = []) => {
   }).sort((left, right) => editionRecency(right.issues[right.current]) - editionRecency(left.issues[left.current]));
 };
 
-/**
- * New arrivals, nested back under the issue that filed them.
- *
- * The inbox arrives as a date-ordered pile, so two papers — and two issues of
- * the same paper — sit as adjacent rows. Grouping by edition makes each issue
- * a thing you can fold, rather than a label repeated on every finding.
- */
-export const byInboxEdition = (items = []) => {
-  const groups = new Map();
-  (Array.isArray(items) ? items : []).forEach((item) => {
-    if (!item) return;
-    const editionId = item.editionId || '';
-    if (!groups.has(editionId)) {
-      groups.set(editionId, {
-        editionId,
-        title: item.profileLabel || item.issueTitle || 'Edition',
-        issue: issueLine(item),
-        items: []
-      });
-    }
-    groups.get(editionId).items.push(item);
-  });
-  return [...groups.values()];
-};
-
-/** The issue name on an inbox group: the paper, then which number. */
-export const inboxEditionLine = ({ title, issue } = {}) => (
-  [title, issue].filter(Boolean).join(' · ')
-);
-
-/**
- * Whether an agent has kept its promise, for one paper.
- *
- * A periodical is judged on whether it turned up. Consecutive by window rather
- * than by count — three issues filed in one afternoon are not a three-week run
- * — and measured against each paper's own rhythm, so a monthly is not accused
- * of missing fifty weeks. Below the floor it says nothing: two in a row is not
- * yet a habit.
- */
-export const RUN_FLOOR = 2;
-
-export const runLine = (issues = []) => {
-  const starts = (Array.isArray(issues) ? issues : [])
-    .map(issue => Date.parse(issue?.windowStart))
-    .filter(Number.isFinite)
-    .sort((left, right) => right - left);
-  if (starts.length < RUN_FLOOR) return '';
-
-  /* The paper's own cadence, taken from the gap it actually keeps. */
-  const stride = starts[0] - starts[1];
-  if (!(stride > 0)) return '';
-
-  let run = 1;
-  for (let i = 1; i < starts.length; i += 1) {
-    const gap = starts[i - 1] - starts[i];
-    if (gap > stride * 1.5 || gap < stride * 0.5) break;
-    run += 1;
-  }
-  if (run < RUN_FLOOR) return '';
-  const unit = stride > 20 * DAY_MS ? 'months' : (stride > 3 * DAY_MS ? 'weeks' : 'days');
-  return `${run} ${unit} running, not one missed`;
-};
-
-/** The folio: a paper knows what day it is. */
-export const folioLine = (now = new Date()) => {
-  const date = now instanceof Date ? now : new Date(now);
-  const name = DAYS[date.getDay()];
-  return `The ${name} ${date.getDay() === 0 || date.getDay() === 6 ? 'papers' : 'paper'}`;
-};
-
 /** An outbound source a stranger may follow. javascript: never becomes an href. */
 export const publicSourceHref = (value) => {
   const raw = String(value || '').trim();
@@ -328,39 +243,6 @@ export const sourceLinks = (edition = null) => {
     });
   });
   return links;
-};
-
-/** How many dated issues the rail shows before All issues. */
-export const SHELF_ISSUE_LIMIT = 12;
-
-/**
- * Newest issues for the rail, bounded, with the open issue kept visible even
- * when it falls outside the recent window.
- */
-export const shelfIssuesForPaper = (issues = [], selectedId = '', limit = SHELF_ISSUE_LIMIT) => {
-  const list = Array.isArray(issues) ? issues : [];
-  const newestFirst = list
-    .slice()
-    .sort((left, right) => Date.parse(right.windowStart) - Date.parse(left.windowStart));
-  const recent = newestFirst.slice(0, limit);
-  if (selectedId && !recent.some((row) => row._id === selectedId)) {
-    const selected = list.find((row) => row._id === selectedId);
-    if (selected) {
-      return [...recent, selected].sort(
-        (left, right) => Date.parse(right.windowStart) - Date.parse(left.windowStart)
-      );
-    }
-  }
-  return recent;
-};
-
-/** Last issue the reader opened on this paper, else the current one. */
-export const resolvePaperIssueId = (paper, readProfileIssue) => {
-  if (!paper?.issues?.length) return '';
-  const stored = readProfileIssue?.(paper.profile);
-  const remembered = stored?.issueId;
-  if (remembered && paper.issues.some((row) => row._id === remembered)) return remembered;
-  return paper.issues[paper.current]?._id || paper.issues[paper.issues.length - 1]._id;
 };
 
 /* The first hand on an item is the one that filed it; readings are second
@@ -445,44 +327,64 @@ const monthDay = (value) => {
 };
 
 /**
- * One paper's run as a storage unit: a row per issue, a bay per column.
+ * One paper's run, newest issue first, with what each column holds.
  *
- * A bay is filled when something was filed there, braced when an agent
- * looked and nothing met the bar, open when nobody reported, and plain when
- * the issue predates receipts. Nothing is inferred beyond the keeper the
- * paper already labels "usually filed by".
+ * A column is filled when something was filed there, checked when an agent
+ * looked and nothing met the bar, unreported when nobody did, and unknown
+ * when the issue predates receipts. The run says no more than that.
  */
-export const shelfGrid = (paper = null, selectedId = '') => {
+export const runGrid = (paper = null) => {
   const issues = paper?.issues || [];
   if (!issues.length) return { sections: [], rows: [] };
-  const named = (issues[issues.length - 1].sections || []).filter(section => section?.key);
-  const keepers = keepersFor(issues, named);
-  const current = selectedId || issues[paper.current ?? issues.length - 1]?._id;
-  const rows = shelfIssuesForPaper(issues, current).slice().reverse().map((issue) => {
-    const foreign = foreignFilers(issue, keepers);
+  const sections = (issues[issues.length - 1].sections || []).filter(section => section?.key);
+  const rows = issues.slice().reverse().map((issue) => {
     const counts = filingsOf(issue).reduce((tally, item) => (
       { ...tally, [item.section]: (tally[item.section] || 0) + 1 }
     ), {});
     return {
-      issueId: issue._id,
-      number: issue.number ?? null,
-      label: [issue.number, monthDay(issue.windowStart)].filter(Boolean).join(' · ') || windowLine(issue),
-      current: issue._id === current,
-      cells: named.map((section) => {
+      issue,
+      cells: sections.map((section) => {
         const count = counts[section.key] || 0;
-        const silence = (issue.silences || []).find(entry => entry.key === section.key);
-        const state = count
-          ? 'filled'
-          : (silence?.state === 'checked' || silence?.state === 'unreported' ? silence.state : 'unknown');
-        return { section: section.key, count, state, foreign: foreign[section.key] || [], by: silence?.by || [] };
+        const silence = (issue.silences || []).find(entry => entry.key === section.key)?.state;
+        const state = count ? 'filled' : (silence === 'checked' || silence === 'unreported' ? silence : 'unknown');
+        return { section: section.key, label: section.label, count, state };
       })
     };
   });
-  return {
-    sections: named.map(section => ({ key: section.key, label: section.label, keeper: keepers[section.key] })),
-    rows
-  };
+  return { sections, rows };
 };
+
+/**
+ * What is new on a run, or null when no issue said. Unknown is not zero: a
+ * paper whose counts never arrived prints nothing rather than "0 new".
+ */
+export const newCountOf = (issues = []) => {
+  const counted = (issues || []).map(issue => issue?.newCount).filter(Number.isFinite);
+  return counted.length ? counted.reduce((sum, n) => sum + n, 0) : null;
+};
+
+/* Every hand on an item: the agent that filed it, then any that read the same
+   source on their own. */
+const handsOnItem = item => [
+  filerOf(item),
+  ...(item?.readings || []).map(reading => agentOf({ label: reading.filedBy, runtime: reading.filedByRuntime }))
+].filter(Boolean);
+
+/**
+ * The hands on one issue, most filings first: the choices the "Filed by"
+ * filter offers. One hand is no choice, and the filter does not print.
+ */
+export const handsOf = (edition = null) => {
+  const hands = new Map();
+  (edition?.items || []).forEach(item => handsOnItem(item).forEach((agent) => {
+    const held = hands.get(agent.key) || { agent, count: 0 };
+    hands.set(agent.key, { ...held, count: held.count + 1 });
+  }));
+  return [...hands.values()].sort((left, right) => right.count - left.count);
+};
+
+/** Whether an item carries this hand, as its filer or as a second reading. */
+export const byHand = (item, key) => !key || handsOnItem(item).some(agent => agent.key === key);
 
 /** Days after an issue closes before a missing report reads as "Not reported"; the server's grace. */
 export const REPORT_GRACE_DAYS = 3;

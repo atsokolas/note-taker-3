@@ -11,7 +11,7 @@ export const EditionBoundary = ({ children }) => (
     <p>{children}</p>
   </aside>
 );
-export default function EditionFinding({ item, lead, busy, receipt, onAct, onPeek, onSelection }) {
+export default function EditionFinding({ item, lead, zoomed, busy, receipt, onAct, onPeek, onSelection }) {
   const href = publicSourceHref(item.url);
   /* The first reading is the passage a thought can quote from. */
   const prose = (text, first = true) => (
@@ -25,7 +25,7 @@ export default function EditionFinding({ item, lead, busy, receipt, onAct, onPee
   const readings = Boolean(item.readings?.length);
   return (
     <article
-      className={`edition-finding${lead ? ' is-lead' : ''}`}
+      className={`edition-finding${lead ? ' is-lead' : ''}${zoomed ? ' is-zoomed' : ''}`}
       id={findingAnchor(item.itemId)}
       data-reading-item={item.itemId}
       tabIndex={-1}

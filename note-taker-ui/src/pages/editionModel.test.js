@@ -1,8 +1,7 @@
 import {
-  byInboxEdition, byPaper, bySection, closesLine, datelineLine,
-  deskFor, foreignFilers, inboxEditionLine, issueLine, keepersFor, latestFilingLine,
-  publicSourceHref, resolvePaperIssueId, runLine, shelfIssuesForPaper,
-  sectionTones, shelfGrid, sourceLinks, standLayout, stateOf, windowLine
+  byHand, byPaper, bySection, datelineLine, deskFor, foreignFilers, handsOf,
+  issueLine, keepersFor, latestFilingLine, newCountOf, publicSourceHref,
+  runGrid, sectionTones, sourceLinks, standLayout, stateOf, windowLine
 } from './editionModel';
 
 describe('the window a paper covers', () => {
@@ -96,42 +95,6 @@ describe('reading it in sections', () => {
 
 });
 
-describe('whether an agent kept its promise', () => {
-  const week = (n) => ({ windowStart: new Date(Date.UTC(2026, 8, 6 - n * 7)).toISOString() });
-  const month = (n) => ({ windowStart: new Date(Date.UTC(2026, 8 - n, 1)).toISOString() });
-
-  it('counts a run of consecutive windows', () => {
-    expect(runLine([week(0), week(1), week(2), week(3)])).toBe('4 weeks running, not one missed');
-  });
-
-  /* Measured against the paper's own rhythm: a monthly is not accused of
-     missing fifty weeks. */
-  it('reads a monthly in months', () => {
-    expect(runLine([month(0), month(1), month(2)])).toBe('3 months running, not one missed');
-  });
-
-  /* One issue is not yet a periodical. */
-  it('says nothing below a run', () => {
-    expect(runLine([week(0)])).toBe('');
-    expect(runLine([])).toBe('');
-    expect(runLine()).toBe('');
-  });
-
-  /* Three editions filed in one afternoon are not a three-week run. */
-  it('counts windows, not filings', () => {
-    expect(runLine([week(0), week(0), week(0)])).toBe('');
-  });
-
-  it('stops at the first window missed', () => {
-    expect(runLine([week(0), week(1), week(2), week(6), week(7)]))
-      .toBe('3 weeks running, not one missed');
-  });
-
-  it('survives an edition with no window', () => {
-    expect(() => runLine([{ windowStart: 'nonsense' }, week(0), week(1), week(2)])).not.toThrow();
-  });
-});
-
 describe('the stand, arranged as papers', () => {
   const issue = (profile, number, startDay) => ({
     _id: `${profile}-${number}`,
@@ -175,40 +138,6 @@ describe('the stand, arranged as papers', () => {
   });
 });
 
-describe('new arrivals nested under their edition', () => {
-  const arrival = (over = {}) => ({
-    editionId: 'e2',
-    itemId: 'i1',
-    title: 'Fresh',
-    profileLabel: 'This Week in AI',
-    issueLabel: 'Issue',
-    number: 2,
-    ...over
-  });
-
-  it('gathers a pile back under the issues that filed them', () => {
-    const groups = byInboxEdition([
-      arrival(),
-      arrival({ editionId: 'w1', itemId: 'i2', title: 'Weekend', profileLabel: 'Weekend Readings', number: 1 }),
-      arrival({ itemId: 'i3', title: 'Also fresh' })
-    ]);
-    expect(groups.map(group => group.editionId)).toEqual(['e2', 'w1']);
-    expect(groups[0].items.map(item => item.itemId)).toEqual(['i1', 'i3']);
-    expect(groups[0].title).toBe('This Week in AI');
-    expect(groups[0].issue).toBe('Issue 2');
-    expect(inboxEditionLine(groups[0])).toBe('This Week in AI · Issue 2');
-  });
-
-  it('keeps an unnumbered issue as the paper’s name', () => {
-    expect(inboxEditionLine({ title: 'Weekend Readings', issue: '' })).toBe('Weekend Readings');
-  });
-
-  it('says nothing about an empty pile', () => {
-    expect(byInboxEdition([])).toEqual([]);
-    expect(byInboxEdition()).toEqual([]);
-  });
-});
-
 describe('the tense of an issue', () => {
   const at = (day) => Date.UTC(2026, 8, day);
   const window = { windowStart: '2026-09-06', windowEnd: '2026-09-12' };
@@ -230,13 +159,6 @@ describe('the tense of an issue', () => {
     expect(stateOf(window, at(1))).toBe('open');
   });
 
-  /* Not a countdown. A paper says which day it goes to press. */
-  it('names the day it closes', () => {
-    expect(closesLine(window, at(9))).toBe('Closes Saturday');
-    expect(closesLine(window, at(12) + 60 * 60 * 1000)).toBe('Closes today');
-    expect(closesLine(window, at(20))).toBe('Closed');
-    expect(closesLine({ windowStart: '2026-09-01', windowEnd: '2026-09-30' }, at(2))).toBe('Closes September 30');
-  });
 });
 
 describe('the dateline a paper prints', () => {
@@ -310,31 +232,6 @@ describe('the sources an issue cites', () => {
   });
 });
 
-describe('the editions shelf', () => {
-  const issues = [
-    { _id: 'i1', windowStart: '2026-09-06', windowEnd: '2026-09-12', number: 2 },
-    { _id: 'i2', windowStart: '2026-09-13', windowEnd: '2026-09-19', number: 3 },
-    { _id: 'i0', windowStart: '2026-08-30', windowEnd: '2026-09-05', number: 1 }
-  ];
-
-  it('keeps a historical selection visible outside the recent window', () => {
-    const many = Array.from({ length: 14 }, (_, index) => ({
-      _id: `e${index}`,
-      windowStart: `2026-01-${String(index + 1).padStart(2, '0')}`,
-      windowEnd: `2026-01-${String(index + 1).padStart(2, '0')}`
-    }));
-    const rows = shelfIssuesForPaper(many, 'e0', 12);
-    expect(rows.some((row) => row._id === 'e0')).toBe(true);
-    expect(rows.length).toBe(13);
-  });
-
-  it('returns the remembered issue for a paper when it still exists', () => {
-    const paper = { profile: 'weekend', issues, current: 1 };
-    expect(resolvePaperIssueId(paper, () => ({ issueId: 'i0' }))).toBe('i0');
-    expect(resolvePaperIssueId(paper, () => ({ issueId: 'missing' }))).toBe('i2');
-  });
-});
-
 describe('who keeps each column', () => {
   const sections = [{ key: 'infra', label: 'Infrastructure' }, { key: 'counter', label: 'Counter-evidence' }];
   const by = (section, filedBy, filedByRuntime = '') => ({ section, filedBy, filedByRuntime });
@@ -364,7 +261,7 @@ describe('who keeps each column', () => {
   });
 });
 
-describe('the run as a storage unit', () => {
+describe('one paper’s run', () => {
   const sections = [
     { key: 'models', label: 'Models & methods' },
     { key: 'infra', label: 'Infrastructure & systems' },
@@ -390,28 +287,19 @@ describe('the run as a storage unit', () => {
     ]
   };
 
-  it('draws a row per issue, oldest first, and a bay in each of the four states', () => {
-    const grid = shelfGrid(paper, 'issue-3');
-    expect(grid.rows.map(row => row.label)).toEqual(['1 · Sep 7', '2 · Sep 14', '3 · Sep 21']);
-    expect(grid.rows[2].current).toBe(true);
+  it('reads newest first, with a column in each of the four states', () => {
+    const grid = runGrid(paper);
+    expect(grid.rows.map(row => row.issue.number)).toEqual([3, 2, 1]);
     expect(grid.rows[1].cells.map(cell => cell.state)).toEqual(['filled', 'unreported', 'unknown']);
-    expect(grid.rows[2].cells[1]).toEqual(expect.objectContaining({ state: 'checked', count: 0 }));
-    expect(grid.rows[0].cells[2]).toEqual(expect.objectContaining({ state: 'filled', count: 2 }));
+    expect(grid.rows[0].cells[1]).toEqual(expect.objectContaining({ state: 'checked', count: 0, label: 'Infrastructure & systems' }));
+    expect(grid.rows[2].cells[2]).toEqual(expect.objectContaining({ state: 'filled', count: 2 }));
+    expect(runGrid(null)).toEqual({ sections: [], rows: [] });
   });
 
-  it('marks a hand that filed outside the column it keeps', () => {
-    const grid = shelfGrid(paper, 'issue-3');
-    expect(grid.sections[2].keeper).toEqual({ agent: expect.objectContaining({ key: 'codex' }), derived: true });
-    expect(grid.rows[2].cells[2].foreign).toEqual([expect.objectContaining({ key: 'claude-code' })]);
-    expect(grid.rows[0].cells[2].foreign).toEqual([]);
-  });
-
-  it('holds at most the rail’s twelve issues, the open one kept', () => {
-    const long = { current: 19, issues: Array.from({ length: 20 }, (_, index) => issue(index + 1, [])) };
-    long.issues.forEach((row, index) => { row.windowStart = new Date(Date.UTC(2026, 0, 1 + index * 7)).toISOString(); });
-    const grid = shelfGrid(long, 'issue-2');
-    expect(grid.rows).toHaveLength(13);
-    expect(grid.rows[0].issueId).toBe('issue-2');
+  it('adds up what is new, and says nothing when no issue counted', () => {
+    expect(newCountOf([{ newCount: 2 }, { newCount: 0 }, {}])).toBe(2);
+    expect(newCountOf([{ newCount: 0 }])).toBe(0);
+    expect(newCountOf([{}, {}])).toBeNull();
   });
 
   it('colours counter-evidence red and the rest in profile order', () => {
@@ -432,5 +320,26 @@ describe('the run as a storage unit', () => {
       ['Claude', 'Not reported', 'Kept by you: 0 of 1']
     ]);
     expect(desk[0].usually).toEqual(['every column']);
+  });
+});
+
+describe('who filed what', () => {
+  const edition = {
+    items: [
+      { itemId: 'a', filedBy: 'Codex Wiki account grounding audit' },
+      { itemId: 'b', filedBy: 'Desk', filedByRuntime: 'codex', readings: [{ filedBy: 'Jarvis', filedByRuntime: 'openclaw' }] },
+      { itemId: 'c', filedBy: 'Second reader', filedByRuntime: 'openclaw' },
+      { itemId: 'd', filedBy: 'Desk', filedByRuntime: 'codex' }
+    ]
+  };
+
+  it('offers each hand once, most filings first, counting second readings', () => {
+    expect(handsOf(edition).map(hand => [hand.agent.name, hand.count])).toEqual([['Codex', 3], ['OpenClaw', 2]]);
+    expect(handsOf(null)).toEqual([]);
+  });
+
+  it('keeps the items a hand filed or read, and everything when no hand is chosen', () => {
+    expect(edition.items.filter(item => byHand(item, 'openclaw')).map(item => item.itemId)).toEqual(['b', 'c']);
+    expect(edition.items.filter(item => byHand(item, '')).length).toBe(4);
   });
 });

@@ -8,65 +8,45 @@ import {
 
 const rowKey = (row) => `${row.editionId}:${row.itemId}`;
 
-/** One durable queue, shared by the compact inbox and Power through. */
-export default function useEditionArrivals({ limit, view = '' } = {}) {
+/**
+ * What is new, across every paper or narrowed to one paper and one hand.
+ * Every choice is durable on the server, so a finding decided here is decided
+ * everywhere, and Seen can be undone.
+ */
+export default function useEditionArrivals({ limit = 40, paper = '', by = '' } = {}) {
   const [items, setItems] = useState(null);
   const [error, setError] = useState('');
-  const [pending, setPending] = useState(0);
   const [busy, setBusy] = useState('');
   const [receipt, setReceipt] = useState(null);
   const [undo, setUndo] = useState(null);
   const [more, setMore] = useState(0);
-  const held = useRef(new Set());
   const nextCursor = useRef('');
-
-  const absorb = useCallback((page, { replace = false } = {}) => {
-    const incoming = page.items || [];
-    nextCursor.current = page.nextCursor || '';
-    setMore(page.remaining || 0);
-    setItems((current) => {
-      const base = replace || !current ? [] : current;
-      const seen = new Set(base.map(rowKey));
-      const added = incoming.filter(row => !seen.has(rowKey(row)));
-      added.forEach(row => held.current.add(rowKey(row)));
-      return replace ? incoming : [...base, ...added];
-    });
-  }, []);
 
   const load = useCallback(async ({ cursor = '', replace = false } = {}) => {
     setError('');
     try {
-      absorb(await getEditionInbox({ cursor, limit, view }), { replace });
+      const page = await getEditionInbox({ cursor, limit, view: 'power', paper, by });
+      nextCursor.current = page.nextCursor || '';
+      setMore(page.remaining || 0);
+      setItems((current) => {
+        const base = replace || !current ? [] : current;
+        const held = new Set(base.map(rowKey));
+        return [...base, ...(page.items || []).filter(row => !held.has(rowKey(row)))];
+      });
     } catch (loadError) {
-      setError(loadError?.response?.data?.error || 'New items did not load.');
+      setError(loadError?.response?.data?.error || 'New findings did not load.');
       if (!cursor) setItems((current) => current || []);
     }
-  }, [absorb, limit, view]);
+  }, [limit, paper, by]);
 
   useEffect(() => { load({ replace: true }); }, [load]);
 
-  useEffect(() => {
-    const onVisible = () => {
-      if (document.visibilityState !== 'visible') return;
-      getEditionInbox({ limit, view })
-        .then((page) => {
-          const unseen = (page.items || []).filter(row => !held.current.has(rowKey(row)));
-          if (unseen.length) setPending(unseen.length);
-        })
-        .catch(() => {});
-    };
-    document.addEventListener('visibilitychange', onVisible);
-    return () => document.removeEventListener('visibilitychange', onVisible);
-  }, [limit, view]);
-
   const act = async (row, label, work) => {
-    const key = `${rowKey(row)}:${label}`;
     if (busy) return false;
-    setBusy(key);
+    setBusy(`${rowKey(row)}:${label}`);
     setError('');
     try {
       await work();
-      held.current.delete(rowKey(row));
       setItems(current => (current || []).filter(entry => rowKey(entry) !== rowKey(row)));
       return true;
     } catch (actionError) {
@@ -77,14 +57,11 @@ export default function useEditionArrivals({ limit, view = '' } = {}) {
     }
   };
 
-  const mark = (row, status, label) => act(row, label, async () => {
-    await setEditionItemState(row.editionId, row.itemId, status);
-    setUndo({ row, label });
+  const seen = row => act(row, 'seen', async () => {
+    await setEditionItemState(row.editionId, row.itemId, 'opened');
+    setUndo({ row });
     setReceipt(null);
   });
-
-  const dismiss = row => mark(row, 'dismissed', 'dismiss');
-  const seen = row => mark(row, 'opened', 'seen');
 
   const later = row => act(row, 'later', async () => {
     const result = await saveEditionItemLater(row.editionId, row.itemId);
@@ -92,7 +69,7 @@ export default function useEditionArrivals({ limit, view = '' } = {}) {
       throw new Error(result.error || 'Saved to Library; could not move to Later — Retry');
     }
     setUndo(null);
-    setReceipt({ action: 'later', fromSetAside: Boolean(result?.fromSetAside) });
+    setReceipt({ action: 'later', row, fromSetAside: Boolean(result?.fromSetAside) });
   });
 
   const keep = row => act(row, 'keep', async () => {
@@ -103,7 +80,7 @@ export default function useEditionArrivals({ limit, view = '' } = {}) {
       throw new Error('Saved to Library, but New could not clear. Choose Seen to finish.');
     }
     setUndo(null);
-    setReceipt({ action: 'kept' });
+    setReceipt({ action: 'kept', row });
   });
 
   const undoChoice = async () => {
@@ -113,12 +90,11 @@ export default function useEditionArrivals({ limit, view = '' } = {}) {
     setError('');
     try {
       await setEditionItemState(row.editionId, row.itemId, 'new');
-      held.current.add(rowKey(row));
       setItems(current => [row, ...(current || [])]);
       setUndo(null);
       return true;
     } catch (actionError) {
-      setError(actionError?.response?.data?.error || 'Could not restore that item.');
+      setError(actionError?.response?.data?.error || 'That did not save.');
       return false;
     } finally {
       setBusy('');
@@ -128,15 +104,12 @@ export default function useEditionArrivals({ limit, view = '' } = {}) {
   return {
     items,
     error,
-    pending,
     busy,
     receipt,
     undo,
     more,
     load,
     loadMore: () => load({ cursor: nextCursor.current }),
-    showPending: () => { setPending(0); load({ replace: true }); },
-    dismiss,
     seen,
     later,
     keep,

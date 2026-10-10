@@ -21,7 +21,7 @@ const readingState = require('../components/editions/editionReadingState');
 const item = { itemId: 'one', title: 'A useful distinction', finding: 'Being informed is different from being able to use information.', boundary: 'One study cannot establish a universal rule.', sourceLabel: 'Research', url: 'https://example.com/source', section: 'ideas', filedBy: 'Jarvis' };
 const edition = { _id: 'e1', profile: 'weekend', profileLabel: 'Weekend Readings', title: 'Weekend Readings', number: 2, windowStart: '2026-09-01', windowEnd: '2099-09-07', sections: [{ key: 'ideas', label: 'Ideas' }, { key: 'limits', label: 'Counterevidence' }], items: [item] };
 beforeEach(() => {
-  jest.clearAllMocks(); mockId = undefined; mockSearch = '';
+  jest.clearAllMocks(); mockId = 'e1'; mockSearch = '';
   readingState.readEditionLocal.mockReturnValue(null);
   backendApi.get.mockResolvedValue({ data: { content: '<p>Saved source.</p>' } });
   api.listEditions.mockResolvedValue([edition]); api.getEdition.mockResolvedValue(edition);
@@ -29,69 +29,35 @@ beforeEach(() => {
   api.getEditionInbox.mockResolvedValue({ items: [], remaining: 0 });
   api.setEditionItemState.mockResolvedValue({});
 });
-it('opens the newest issue while retaining only the remembered publication', async () => {
-  const old = { ...edition, _id: 'old', number: 1, windowStart: '2026-08-01', windowEnd: '2026-08-07' };
-  const current = { ...edition, _id: 'current', number: 3, windowStart: '2026-09-13', windowEnd: '2099-09-19' };
-  readingState.readEditionLocal.mockImplementation((issueId) => issueId === 'last'
-    ? { issueId: 'old', profile: edition.profile, itemId: 'one' }
-    : null);
-  api.listEditions.mockResolvedValue([current, old]);
-  api.getEdition.mockImplementation(async issueId => issueId === 'current' ? current : old);
-  render(<Editions />);
-  await screen.findByText(item.finding);
-  expect(api.getEdition).toHaveBeenCalledWith('current');
-  expect(screen.getByRole('button', { name: 'Edition 3' })).toHaveAttribute('aria-current', 'page');
-});
-
-it('offers a newly filed issue without pulling the reader out of the one open', async () => {
-  const open = { ...edition, windowStart: '2026-09-13', windowEnd: '2026-09-19' };
-  const fresh = {
-    ...open,
-    _id: 'fresh',
-    number: 4,
-    windowStart: '2026-09-20',
-    windowEnd: '2026-09-26',
-    updatedAt: '2026-09-27T10:02:38.987Z'
-  };
-  api.listEditions
-    .mockResolvedValueOnce([open])
-    .mockResolvedValueOnce([fresh, open]);
-  api.getEdition.mockImplementation(async issueId => issueId === 'fresh' ? fresh : open);
-  render(<Editions />);
-  await screen.findByText(item.finding);
-  fireEvent(document, new Event('visibilitychange'));
-  expect(await screen.findByText('Just filed · Weekend Readings')).toBeVisible();
-  fireEvent.click(screen.getByRole('button', { name: 'Open Edition 4 →' }));
-  expect(mockNavigate).toHaveBeenLastCalledWith('/editions/fresh');
-});
-
-it('powers through full arrivals without clearing untouched findings', async () => {
-  mockSearch = 'power=1';
+it('powers through what is new one finding at a time, narrowed to a paper', async () => {
+  mockId = undefined;
+  mockSearch = 'power=1&paper=weekend';
   api.getEditionInbox.mockResolvedValue({
-    items: [{
-      ...item, editionId: 'e1', profileLabel: 'Weekend Readings', issueLabel: 'Edition', number: 3
-    }],
+    items: [
+      { ...item, editionId: 'e1', profileLabel: 'Weekend Readings', issueLabel: 'Edition', number: 3 },
+      { ...item, itemId: 'two', title: 'A second arrival', editionId: 'e1', profileLabel: 'Weekend Readings', issueLabel: 'Edition', number: 3 }
+    ],
     remaining: 0
   });
   render(<Editions />);
   expect(await screen.findByRole('heading', { name: item.title })).toBeVisible();
   expect(screen.getByText(item.boundary)).toBeVisible();
-  expect(api.getEditionInbox).toHaveBeenCalledWith({ cursor: '', limit: 40, view: 'power' });
-  await waitFor(() => expect(document.querySelector('.power-item')).toHaveClass('is-active'));
+  expect(screen.getByText('1 of 2')).toBeVisible();
+  expect(api.getEditionInbox).toHaveBeenCalledWith({ cursor: '', limit: 40, view: 'power', paper: 'weekend', by: '' });
+  expect(screen.getByRole('link', { name: /The original/ })).toHaveAttribute('href', item.url);
   fireEvent.keyDown(document, { key: 'e' });
   await waitFor(() => expect(api.setEditionItemState).toHaveBeenCalledWith('e1', 'one', 'opened'));
+  expect(await screen.findByRole('heading', { name: 'A second arrival' })).toBeVisible();
+  expect(screen.getByText('2 of 2')).toBeVisible();
+  fireEvent.keyDown(document, { key: 'e' });
   expect(await screen.findByRole('heading', { name: 'All caught up.' })).toBeVisible();
 });
-it('opens the finding and its boundary, preserves empty sections, and keeps global arrivals outside the paper', async () => {
+it('opens the finding and its boundary, and preserves empty sections', async () => {
   render(<Editions />);
   expect(await screen.findByText(item.finding)).toBeVisible();
   expect(screen.getByText(item.boundary)).toBeVisible();
   expect(screen.getByText('Nothing filed under Counterevidence in this issue.')).toBeVisible();
   expect(api.getEditionInbox).not.toHaveBeenCalled();
-  fireEvent.click(screen.getByRole('button', { name: 'New arrivals' }));
-  const panel = screen.getByRole('dialog', { name: 'New arrivals' });
-  expect(panel.closest('[data-testid="edition-read"]')).toBeNull();
-  expect(await within(panel).findByText('No new items')).toBeVisible();
 });
 it('says which silence an empty section is', async () => {
   const sections = [...edition.sections, { key: 'context', label: 'Context' }];
@@ -111,18 +77,7 @@ it('says which silence an empty section is', async () => {
   expect(screen.getByText('Not reported this issue.')).toBeVisible();
   expect(screen.queryByText(/Nothing filed under/)).toBeNull();
 });
-it('switches publications and dated issues through stable issue URLs', async () => {
-  const old = { ...edition, _id: 'old', number: 1, windowStart: '2026-08-01' };
-  api.listEditions.mockResolvedValue([edition, old, { ...edition, _id: 'ai', profile: 'ai', profileLabel: 'This Week in AI' }]);
-  render(<Editions />); await screen.findByText(item.finding);
-  fireEvent.click(screen.getByRole('button', { name: 'This Week in AI' }));
-  expect(mockNavigate).toHaveBeenLastCalledWith('/editions/ai');
-  fireEvent.click(screen.getByRole('button', { name: 'Edition 1' }));
-  expect(mockNavigate).toHaveBeenLastCalledWith('/editions/old');
-  fireEvent.click(screen.getByRole('button', { name: 'Edition 2, Counterevidence: nothing filed' }));
-  expect(mockNavigate).toHaveBeenLastCalledWith('/editions/e1?section=limits');
-});
-it('reads Issue 5 of This Week in AI off the shelf, and seats a second hand at the desk', async () => {
+const issueFive = () => {
   const fixture = require('../../../design-mockups/editions-many-hands/this-week-in-ai.json');
   const keyOf = label => fixture.paper.sections.find(section => section.label === label).key;
   const sections = fixture.paper.sections;
@@ -157,19 +112,69 @@ it('reads Issue 5 of This Week in AI off the shelf, and seats a second hand at t
       { ...five.items[1], itemId: 'claude', title: 'A second source on recovery', url: 'https://arxiv.org/abs/9', section: keyOf('Evaluation & counterevidence'), filedBy: 'Claude', filedByRuntime: 'claude-code', filedAt: '2026-10-06T12:00:00Z', savedArticleId: 'kept' }
     ]
   };
-  mockId = 'twia-5';
   api.listEditions.mockResolvedValue(run);
   api.getEdition.mockResolvedValue(opened);
+  return { five, run };
+};
+it('reads This Week in AI as a run, newest first, with what each issue held and the desk', async () => {
+  mockId = undefined; mockSearch = 'paper=this_week_in_ai';
+  issueFive();
   render(<Editions />);
-  expect(await screen.findByText(five.items[0].finding)).toBeVisible();
-  expect(screen.getByRole('button', { name: 'Issue 5' })).toHaveAttribute('aria-current', 'page');
-  expect(screen.getByRole('button', { name: 'Issue 5, Infrastructure & systems: looked, nothing met the bar' })).toBeVisible();
-  expect(screen.getByRole('button', { name: 'Issue 5, Evaluation & counterevidence: 2 filed, also filed by Claude' })).toBeVisible();
-  expect(screen.getByRole('button', { name: 'Issue 1, Models & methods: 3 filed' })).toBeVisible();
+  expect(await screen.findByRole('heading', { name: 'This Week in AI', level: 1 })).toBeVisible();
+  const issues = screen.getAllByRole('link', { name: /^Issue \d/ });
+  expect(issues[0]).toHaveAttribute('href', '/editions/twia-5');
+  expect(screen.getByRole('img', { name: 'Models & methods: 1 filed; Infrastructure & systems: looked, nothing met the bar; Evaluation & counterevidence: 2 filed' })).toBeVisible();
+  expect(screen.getByRole('img', { name: 'Models & methods: 3 filed; Infrastructure & systems: 1 filed; Evaluation & counterevidence: 1 filed' })).toBeVisible();
   const desk = screen.getByRole('list', { name: 'The desk' });
   expect(within(desk).getByText('Usually files every column')).toBeVisible();
   expect(within(desk).getByText('Filed Oct 6 · Kept by you: 1 of 1')).toBeVisible();
+  expect(screen.getByText('10').closest('[aria-label]')).toHaveAttribute('aria-label', 'Zoom: A paper');
+});
+it('opens Issue 5 with the editor named, and narrows it to one hand', async () => {
+  mockId = 'twia-5';
+  const { five } = issueFive();
+  render(<Editions />);
+  expect(await screen.findByText(five.items[0].finding)).toBeVisible();
   expect(screen.getByText('Standfirst by the editor')).toBeVisible();
+  const filter = screen.getByRole('group', { name: 'Filed by' });
+  fireEvent.click(within(filter).getByRole('button', { name: /Claude/ }));
+  expect(mockNavigate).toHaveBeenLastCalledWith('/editions/twia-5?by=claude-code', { replace: true });
+});
+it('shows only one hand’s filings and says what it hid', async () => {
+  mockId = 'twia-5'; mockSearch = 'by=claude-code';
+  const { five } = issueFive();
+  render(<Editions />);
+  expect(await screen.findByRole('heading', { name: 'A second source on recovery' })).toBeVisible();
+  expect(screen.queryByText(five.items[0].finding)).toBeNull();
+  expect(screen.getByText(/2 findings by other hands and 1 empty column hidden while you read Claude’s filings\./)).toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: 'Show everyone' }));
+  expect(mockNavigate).toHaveBeenLastCalledWith('/editions/twia-5', { replace: true });
+});
+it('stands every paper on one line, with what is new and the way back in', async () => {
+  mockId = undefined;
+  issueFive();
+  api.listEditions.mockResolvedValue([
+    { ...edition, items: undefined, newCount: 2, standfirst: 'A weekend of reading.' },
+    { ...edition, _id: 'ai', profile: 'ai', profileLabel: 'This Week in AI', items: undefined, newCount: 0 }
+  ]);
+  readingState.readEditionLocal.mockImplementation((issueId) => (issueId === 'last' ? { issueId: 'e1', itemId: 'one', title: 'A useful distinction' } : null));
+  render(<Editions />);
+  expect(await screen.findByRole('heading', { name: 'Your papers' })).toBeVisible();
+  expect(screen.getByText('2 new findings across 1 paper.')).toBeVisible();
+  expect(screen.getByRole('link', { name: /Weekend Readings/ })).toHaveAttribute('href', '/editions?paper=weekend');
+  expect(screen.getByText('2 new')).toBeVisible();
+  expect(screen.getByRole('link', { name: /Back to where you stopped/ })).toHaveAttribute('href', '/editions/e1?item=one');
+  expect(screen.getByRole('link', { name: /Power through/ })).toHaveAttribute('href', '/editions?power=1');
+  fireEvent.keyDown(document, { key: ']' });
+  expect(mockNavigate).toHaveBeenLastCalledWith('/editions?paper=weekend');
+});
+it('zooms from an issue to a finding and its source, and steps back out', async () => {
+  render(<Editions />);
+  await screen.findByText(item.finding);
+  fireEvent.keyDown(document, { key: 'j' });
+  expect(mockNavigate).toHaveBeenLastCalledWith('/editions/e1?item=one', { replace: false });
+  fireEvent.keyDown(document, { key: 'Escape' });
+  expect(mockNavigate).toHaveBeenLastCalledWith('/editions?paper=weekend');
 });
 it('marks a column only for the hands that filed into it, and counts a Keep on the desk at once', async () => {
   const read = { ...item, filedByRuntime: 'openclaw', readings: [{ filedBy: 'Claude', filedByRuntime: 'claude-code', finding: 'A second view.', boundary: 'Its limit.' }] };
@@ -207,14 +212,18 @@ it('does not insert new filings until Show, even when Keep returns the newer iss
   expect(screen.getByRole('heading', { name: 'An arrival' })).toBeVisible();
   jest.useRealTimers();
 });
-it('Source uses an honest fallback and Escape returns focus to its control', async () => {
+it('Source opens as its own power, with a URL', async () => {
   render(<Editions />); await screen.findByText(item.finding);
-  const source = screen.getByRole('button', { name: 'Source', exact: true });
-  fireEvent.click(source);
-  expect(screen.getByText(/Readable article text is not available/)).toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: 'Source', exact: true }));
+  expect(mockNavigate).toHaveBeenLastCalledWith('/editions/e1?item=one&source=1', undefined);
+});
+it('opens the source beside a finding when the URL says so', async () => {
+  mockSearch = 'item=one&source=1';
+  render(<Editions />); await screen.findByText(item.finding);
+  expect(await screen.findByText(/Readable article text is not available/)).toBeVisible();
   expect(screen.getByRole('link', { name: 'Open original ↗' })).toHaveAttribute('href', item.url);
   fireEvent.keyDown(screen.getByRole('button', { name: 'Close side view' }), { key: 'Escape' });
-  expect(screen.queryByRole('dialog')).toBeNull(); expect(source).toHaveFocus();
+  expect(mockNavigate).toHaveBeenLastCalledWith('/editions/e1?item=one', undefined);
 });
 it('Later calls the real API and a partial failure remains actionable', async () => {
   api.saveEditionItemLater.mockResolvedValue({ placed: false, edition: { ...edition, items: [{ ...item, savedArticleId: 'article' }] } });

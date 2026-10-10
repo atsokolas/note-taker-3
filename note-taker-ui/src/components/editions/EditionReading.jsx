@@ -1,9 +1,12 @@
 import React, { useEffect, useCallback, useRef, useState } from 'react';
 import { setEditionItemState } from '../../api/editions';
 import {
+  byHand,
   datelineLine,
   foreignFilers,
+  handsOf,
   issueLine,
+  publicSourceHref,
   latestFilingLine,
   sectionTones,
   standLayout,
@@ -11,11 +14,10 @@ import {
 } from '../../pages/editionModel';
 import EditionShare from './EditionShare';
 import { EditionSourcesJump, EditionSourcesList, useEditionSources } from './EditionSources';
-import AgentMark from './AgentMark';
+import AgentMark, { KeeperMark } from './AgentMark';
 import { agentOf, handOf } from './editionAgent';
 import EditionDesk from './EditionDesk';
 import EditionFinding from './EditionFinding';
-import { KeeperMark } from './EditionShelfUnit';
 import SectionSilence from './SectionSilence';
 import SourcePeek from './SourcePeek';
 import ThoughtComposer, { useEditionThoughts } from './ThoughtComposer';
@@ -39,15 +41,14 @@ export default function EditionReading({
   issueLabel,
   keepers = {},
   deskOf = () => [],
-  onChoose,
-  focusItem,
+  focusItem = '',
   focusSection = '',
+  source = false,
+  by = '',
   focus,
   onFocus,
-  utilityOpen,
-  onInspect,
-  showBrowse = false,
-  onBrowse
+  onItem,
+  onBy
 }) {
   const { edition, pending, error, busy, receipts, act, showPending } = useEditionIssue(issue._id);
   const root = useRef(null);
@@ -57,9 +58,6 @@ export default function EditionReading({
   const [resume, setResume] = useState(() => readEditionLocal(issue._id, 'place'));
   const thoughts = useEditionThoughts(issue._id);
   const sources = useEditionSources(edition);
-  useEffect(() => {
-    if (utilityOpen) setPeek(null);
-  }, [utilityOpen]);
   useEffect(() => {
     const clear = () => setSelection(null);
     const check = () => {
@@ -73,8 +71,18 @@ export default function EditionReading({
     };
   }, []);
   const { columns, looseItems } = standLayout(edition);
-  const sections = columns.length ? columns : [{ key: '', label: '', items: looseItems }];
+  const hands = handsOf(edition);
+  /* A filter only means something when more than one hand is on the issue. */
+  const hand = hands.length > 1 ? hands.find(row => row.agent.key === by) : null;
+  const shaped = columns.length ? columns : [{ key: '', label: '', items: looseItems }];
+  const sections = hand
+    ? shaped
+      .map(section => ({ ...section, items: section.items.filter(item => byHand(item, hand.agent.key)) }))
+      .filter(section => section.items.length)
+    : shaped;
   const items = sections.flatMap((section) => section.items);
+  const hidden = hand ? shaped.flatMap(section => section.items).length - items.length : 0;
+  const quietHidden = hand ? shaped.filter(section => !section.items.length).length : 0;
   const jump = useCallback((id, dismiss = true) => {
     const element = document.getElementById(findingAnchor(id));
     element?.scrollIntoView({ block: 'start', behavior: 'auto' });
@@ -132,15 +140,48 @@ export default function EditionReading({
       else if (focus) {
         onFocus(false);
         focusButton.current?.focus({ preventScroll: true });
-      }
+      } else return;
+      event.preventDefault();
     };
     document.addEventListener('keydown', escape);
     return () => document.removeEventListener('keydown', escape);
   }, [focus, peek, selection, onFocus]);
+  /* The finding the reader is on: the one in focus, else the one in view. */
+  const current = useCallback(
+    () => items.find(item => item.itemId === focusItem)
+      || items.find(item => item.itemId === readingPosition(root.current)?.dataset.readingItem),
+    [items, focusItem]
+  );
+  /* J and K step through findings at any power; O opens the source here, and
+     with Shift the original in a new tab. */
+  useEffect(() => {
+    const step = (event) => {
+      if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey || peek) return;
+      if (event.target?.matches?.('input, textarea, select, [contenteditable="true"]')) return;
+      const key = event.key.toLowerCase();
+      const here = current();
+      if (!here || !['j', 'k', 'o'].includes(key)) return;
+      event.preventDefault();
+      if (key === 'o') {
+        const href = publicSourceHref(here.url);
+        if (event.shiftKey) {
+          if (href) window.open(href, '_blank', 'noopener,noreferrer');
+        } else onItem(here.itemId, { source: '1' });
+        return;
+      }
+      const index = items.indexOf(here);
+      const next = !focusItem && key === 'j' ? here : items[index + (key === 'j' ? 1 : -1)];
+      if (next) onItem(next.itemId, {}, { replace: Boolean(focusItem) });
+    };
+    document.addEventListener('keydown', step);
+    return () => document.removeEventListener('keydown', step);
+  }, [current, focusItem, items, onItem, peek]);
+  /* The source is a power of its own, so it has a URL; a thought is a note in
+     the margin, so it does not. */
   const openPeek = (item, view, origin, quote = '') => {
-    onInspect?.();
     setSelection(null);
-    setPeek({ itemId: item.itemId, view, origin, quote });
+    if (view === 'source') onItem(item.itemId, { source: '1' });
+    else setPeek({ itemId: item.itemId, view, origin, quote });
   };
   const captureSelection = (event) => {
     const value = window.getSelection();
@@ -181,7 +222,9 @@ export default function EditionReading({
   const newCount =
     pending?.items?.filter((item) => !edition?.items?.some((held) => held.itemId === item.itemId))
       .length || 0;
-  const currentPeek = peek && edition?.items.find((item) => item.itemId === peek.itemId);
+  const sourceDoor = id => document.getElementById(findingAnchor(id))?.querySelector('.reading-actions button');
+  const shown = peek || (source && focusItem ? { itemId: focusItem, view: 'source', origin: sourceDoor(focusItem) } : null);
+  const currentPeek = shown && edition?.items.find((item) => item.itemId === shown.itemId);
   const tones = sectionTones(sections);
   /* The editor's mark only matters once more than one hand is on the paper. */
   const writer = agentOf({ label: row.writtenBy, runtime: row.writtenByRuntime });
@@ -192,21 +235,6 @@ export default function EditionReading({
   return (
     <div ref={root} data-testid="edition-read">
       <div className="edition-paper-tools">
-        {showBrowse ? (
-          <button
-            type="button"
-            className="edition-paper-tools__browse"
-            aria-haspopup="dialog"
-            aria-label="Browse publications and issues"
-            onClick={onBrowse}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
-              <rect x="3" y="4" width="18" height="16" rx="1" />
-              <path d="M9 4v16" />
-            </svg>
-            Editions
-          </button>
-        ) : null}
         <button
           ref={focusButton}
           type="button"
@@ -235,6 +263,17 @@ export default function EditionReading({
         </span>
       </div>
       <EditionDesk hands={desk} />
+      {hands.length > 1 ? (
+        <div className="reading-hands" role="group" aria-label="Filed by">
+          <span>Filed by</span>
+          <button type="button" aria-pressed={!hand} onClick={() => onBy('')}>Everyone</button>
+          {hands.map(row => (
+            <button key={row.agent.key} type="button" aria-pressed={hand?.agent.key === row.agent.key} onClick={() => onBy(row.agent.key)}>
+              <AgentMark {...handOf(row.agent)} /> <span className="reading-hands__count">{row.count}</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
       <div className="reading-intro">
         {row.standfirst ? <p>{row.standfirst}</p> : null}
         {row.standfirst && editor ? <p className="reading-editor"><AgentMark {...editor} glyph /> Standfirst by the editor</p> : null}
@@ -263,8 +302,17 @@ export default function EditionReading({
               </button>
             </div>
           ) : null}
+          {hand && (hidden || quietHidden) ? (
+            <p className="reading-hidden" role="status">
+              {[
+                hidden ? `${hidden} finding${hidden === 1 ? '' : 's'} by other hands` : '',
+                quietHidden ? `${quietHidden} empty column${quietHidden === 1 ? '' : 's'}` : ''
+              ].filter(Boolean).join(' and ')} hidden while you read {hand.agent.name}’s filings.{' '}
+              <button type="button" onClick={() => onBy('')}>Show everyone</button>
+            </p>
+          ) : null}
           <div className="reading-layout">
-            <div className="reading-sequence">
+            <div className={`reading-sequence${focusItem ? ' is-zoomed' : ''}`}>
               {sections.map((section) => (
                 <section
                   key={section.key}
@@ -294,6 +342,7 @@ export default function EditionReading({
                         key={item.itemId}
                         item={item}
                         lead={item === items[0]}
+                        zoomed={item.itemId === focusItem}
                         busy={busy}
                         receipt={receipts[item.itemId]}
                         onAct={act}
@@ -397,10 +446,10 @@ export default function EditionReading({
       ) : null}
       {currentPeek ? (
         <SourcePeek
-          key={`${currentPeek.itemId}:${peek.view}`}
+          key={`${currentPeek.itemId}:${shown.view}`}
           item={currentPeek}
-          {...peek}
-          onClose={() => setPeek(null)}
+          {...shown}
+          onClose={() => (peek ? setPeek(null) : onItem(focusItem))}
           thoughtProps={thoughts}
         />
       ) : null}
