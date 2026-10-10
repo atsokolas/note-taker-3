@@ -14,6 +14,7 @@ const {
   normalizeItem,
   profileKeysFor,
   projectPublicEdition,
+  publicHands,
   READER_STATUSES,
   readerLayerOf,
   readingsOf,
@@ -218,7 +219,7 @@ const shareState = (share, { preview = null, currentHash = '' } = {}) => {
     currentHash,
     stale: Boolean(share.contentHash && currentHash && share.contentHash !== currentHash),
     preview,
-    snapshot: share.snapshot || null
+    snapshot: publicHands(share.snapshot) || null
   };
 };
 
@@ -1084,7 +1085,7 @@ const buildEditionRouter = ({
     try {
       const share = await SharedEdition.findOne({ slug: String(req.params.slug || '').trim() }).lean();
       if (!share?.snapshot) return res.status(404).json({ error: 'No such edition.' });
-      return res.status(200).json(share.snapshot);
+      return res.status(200).json(publicHands(share.snapshot));
     } catch (error) {
       return refuse(res, error, 'Failed to open that edition.');
     }

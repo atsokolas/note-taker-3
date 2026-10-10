@@ -551,6 +551,9 @@ describe('the newsstand', () => {
       expect(seen.body.items.every(item => item.savedArticleId === undefined)).toBe(true);
       /* The standard still travels: every item carries its boundary. */
       expect(seen.body.items.every(item => item.boundary)).toBe(true);
+      /* The agent is named by what it is, not by the label typed for its token. */
+      expect(seen.body.writtenBy).toBe('OpenClaw');
+      expect(JSON.stringify(seen.body)).not.toMatch(/Jarvis/);
     });
 
     it('says nothing about a slug that was never minted', async () => {
