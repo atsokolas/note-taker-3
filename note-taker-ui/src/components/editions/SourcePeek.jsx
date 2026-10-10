@@ -49,7 +49,7 @@ export default function SourcePeek({ item, view, origin, quote, onClose, thought
   /* The paragraph the checked passage sits in is marked, and opened to. */
   const held = useRef(null);
   const squash = text => String(text || '').replace(/\s+/g, ' ').trim().toLowerCase();
-  const rests = paragraph => atPassage && squash(paragraph).includes(squash(item.passage).slice(0, 80));
+  const rests = paragraph => atPassage && squash(paragraph).includes(squash(item.passage.split(/…|\.{3}/)[0]).slice(0, 80));
   useEffect(() => {
     held.current?.scrollIntoView?.({ block: 'center' });
   }, [source.paragraphs, tab]);

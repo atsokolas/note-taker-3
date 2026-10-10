@@ -63,16 +63,16 @@ const checksFrom = (req, profile, by, at) => {
   return checks.map(check => ({ ...check, by, at }));
 };
 
+/* A raw cosine of 0.72, in Atlas's 0–1 score: the floor Judgment holds its
+   evidence to, so "you already hold this" means the same thing in both rooms. */
+const HELD_FLOOR = rawCosineToAtlasScore(0.72);
+
 /* Normalized against the same standard as a whole edition — a boundary is
    required here too, or the daily door becomes the way around it.
 
    A link already held is a second reading when a different agent filed it,
    and a repeat when the same one did. Only two known tokens make two hands:
    a filing without one cannot be told apart from the first. */
-/* A raw cosine of 0.72, in Atlas's 0–1 score: the floor Judgment holds its
-   evidence to, so "you already hold this" means the same thing in both rooms. */
-const HELD_FLOOR = rawCosineToAtlasScore(0.72);
-
 const MAX_READINGS = 3;
 
 const addToHeld = (held, incoming, profile, filedBy, filedAt) => {
@@ -870,18 +870,6 @@ const buildEditionRouter = ({
   });
 
   /**
-   * The save door.
-   *
-   * Every other surface in this product reads library to wiki: a page cites
-   * what you already own. An edition runs the other way — it cites what an
-   * agent found and you have not taken. This is the one crossing, and it is
-   * what makes the paper an intake surface rather than something you read and
-   * close.
-   *
-   * The row it makes is the same row the extension makes, keyed on the URL,
-   * so saving a source you already own adopts your copy instead of forking it.
-   */
-  /**
    * What the reader already holds that a finding touches.
    *
    * Eligibility: the reader's own highlights, never the source this finding
@@ -914,6 +902,18 @@ const buildEditionRouter = ({
     }
   });
 
+  /**
+   * The save door.
+   *
+   * Every other surface in this product reads library to wiki: a page cites
+   * what you already own. An edition runs the other way — it cites what an
+   * agent found and you have not taken. This is the one crossing, and it is
+   * what makes the paper an intake surface rather than something you read and
+   * close.
+   *
+   * The row it makes is the same row the extension makes, keyed on the URL,
+   * so saving a source you already own adopts your copy instead of forking it.
+   */
   router.post('/api/editions/:id/items/:itemId/save', auth, humanOnly, async (req, res) => {
     try {
       const found = await ownedItem(req, res);

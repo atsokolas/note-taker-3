@@ -350,6 +350,7 @@ describe('the reader’s layer', () => {
     expect(passageHref(item)).toBe('https://example.com/paper#:~:text=naive%20retry%20caused%20duplicate%20external%20effects%20in%2053.33%25');
     expect(passageHref({ ...item, passageCheck: 'missing' })).toBe('https://example.com/paper#s3');
     expect(passageHref({ url: 'javascript:alert(1)' })).toBe('');
+    expect(passageHref({ ...item, passage: 'A well-known effect … far later' })).toBe('https://example.com/paper#:~:text=A%20well%2Dknown%20effect');
   });
 
   it('says the source, its kind and how sure in one line, and nothing it was not told', () => {

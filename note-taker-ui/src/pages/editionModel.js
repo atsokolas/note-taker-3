@@ -218,8 +218,9 @@ export const publicSourceHref = (value) => {
 export const passageHref = (item = {}) => {
   const href = publicSourceHref(item.url);
   if (!href || item.passageCheck !== 'found' || !item.passage) return href;
-  const opening = String(item.passage).trim().split(/\s+/).slice(0, 8).join(' ');
-  return `${href.split('#')[0]}#:~:text=${encodeURIComponent(opening)}`;
+  /* Up to the first elision, so the fragment is words the source really runs together. */
+  const opening = String(item.passage).split(/…|\.{3}/)[0].trim().split(/\s+/).slice(0, 8).join(' ');
+  return `${href.split('#')[0]}#:~:text=${encodeURIComponent(opening).replace(/-/g, '%2D')}`;
 };
 
 const KINDS = { preprint: 'preprint', peer_reviewed: 'peer-reviewed', company: 'company source', news: 'news', other: '' };
