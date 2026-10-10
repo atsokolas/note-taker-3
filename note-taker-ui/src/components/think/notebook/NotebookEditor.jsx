@@ -1651,7 +1651,7 @@ const NotebookEditor = ({
     if (workbench.state.trials.length >= 40) { setWorkbenchReceipt({ type: 'error', text: 'This note holds 40 alternatives. Discard an unused one to make room.' }); return; }
     const alternative = String(wording || '').trim();
     if (!alternative) return;
-    const trial = { id: createId(), target: activeTrial.target, alternative, origin: 'human', updatedAt: new Date().toISOString() };
+    const trial = { id: createId(), target: activeTrial.target, alternative, ...(activeTrial.intent === 'tighter' ? { intent: 'tighter' } : {}), origin: 'human', updatedAt: new Date().toISOString() };
     workbench.update(current => ({ ...current, trials: [...current.trials, trial] }));
     setActiveTrialId(trial.id);
     setEphemeralTrial(null);

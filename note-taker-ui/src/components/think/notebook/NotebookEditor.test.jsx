@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import NotebookEditor from './NotebookEditor';
 import { listWikiPages } from '../../../api/wiki';
 import { getArticleEvergreen } from '../../../api/articles';
-import { disposeNotebookSourceCorrection, exportNotebookMarkdown, getNotebookShare, getNotebookSummaries, getNotebookVolume, previewNotebookVolume } from '../../../api/notebook';
+import { disposeNotebookSourceCorrection, exportNotebookMarkdown, getNotebookShare, getNotebookSummaries, getNotebookVolume, previewNotebookVolume, updateNotebookWorkbench } from '../../../api/notebook';
 import { THINK_WRITING_IDLE_MS } from '../editor/useThinkWritingActivity';
 import useConcepts from '../../../hooks/useConcepts';
 
@@ -83,6 +83,7 @@ jest.mock('../../../api/organize', () => ({
 
 jest.mock('../../../api/notebook', () => ({
   getNotebookSummaries: jest.fn(async () => []),
+  updateNotebookWorkbench: jest.fn(async (_id, state) => state),
   getNotebookEntry: jest.fn(),
   createNotebookEntry: jest.fn(),
   updateNotebookEntry: jest.fn(),
@@ -1509,4 +1510,30 @@ describe('NotebookEditor', () => {
       action: 'no_change'
     });
   });
+
+  it('keeps another tighter read in the tighter list with Rescue, including Escape retention', async () => {
+  const original = 'We really should carefully test this small change.';
+  const doc = { type: 'doc', content: [{ type: 'paragraph', attrs: { blockId: 'p' }, content: [{ type: 'text', text: original }] }] };
+  mockEditor.getJSON.mockReturnValue(doc);
+  const portal = document.createElement('div'); document.body.appendChild(portal);
+  const view = render(<NotebookEditor entry={{ _id: 'tighter-note', title: 'Test', content: '', blocks: [], type: 'note' }}
+    saving={false} error="" onSave={jest.fn()} onDelete={jest.fn()} showInlineAgentDock={false} alternativesPortal={portal} />);
+  openArrangement(`Arrange this passage: ${original}`);
+  fireEvent.click(screen.getByRole('button', { name: 'Read tighter' }));
+  let field = screen.getByRole('textbox', { name: 'Add another wording' });
+  fireEvent.change(field, { target: { value: 'We should test this change.' } });
+  fireEvent.keyDown(field, { key: 'Enter' });
+  field = screen.getByRole('textbox', { name: 'Add another wording' });
+  fireEvent.change(field, { target: { value: 'We should carefully test this change.' } });
+  fireEvent.keyDown(field, { key: 'Enter' });
+  expect(screen.getByRole('region', { name: 'Read tighter' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Rescue “really”' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Keep tighter read' })).toBeInTheDocument();
+  fireEvent.change(screen.getByRole('textbox', { name: 'Add another wording' }), { target: { value: 'We should test this small change.' } });
+  fireEvent.keyDown(screen.getByRole('textbox', { name: 'Add another wording' }), { key: 'Escape' });
+  expect(mockEditor.commands.setContent).not.toHaveBeenCalledWith(expect.objectContaining({ content: expect.any(Array) }), true);
+  await waitFor(() => expect(updateNotebookWorkbench).toHaveBeenCalledWith('tighter-note', expect.objectContaining({ trials: expect.arrayContaining([expect.objectContaining({ alternative: 'We should test this small change.', intent: 'tighter' })]) }), expect.any(Number)));
+  view.unmount(); portal.remove();
+});
+
 });
