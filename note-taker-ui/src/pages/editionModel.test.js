@@ -303,7 +303,7 @@ describe('one paper’s run', () => {
   });
 
   it('colours counter-evidence red and the rest in profile order', () => {
-    expect(sectionTones(sections)).toEqual({ models: 'blue', infra: 'ochre', evaluation_counterevidence: 'red' });
+    expect(sectionTones(sections)).toEqual({ models: 'thread', infra: 'living', evaluation_counterevidence: 'danger' });
   });
 
   it('shows no desk for a paper one agent keeps', () => {

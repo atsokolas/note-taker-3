@@ -322,42 +322,20 @@
   .edition-run__yours { grid-column: 1 / -1; text-align: left; }
 }
 
-/* Section colours are tokens so every theme carries its own; text on a
-   panel holds 4.5:1. */
+/* Section colours are the house's own: thread, living, slate, ink, and
+   danger for the column that argues back, read from the theme, so Light, Dark and Midnight each carry theirs
+   without a palette of their own. A column is a tint of paper with a rule of
+   its colour, never a slab: the paper stays the loudest thing on the page. */
 .edition-reading {
-  --shelf-frame: var(--reading-ink);
+  --shelf-frame: var(--noeis-ink-subtle, var(--reading-muted));
   --shelf-bay: var(--reading-paper);
-  --shelf-current: var(--shelf-frame);
-  --tone-blue: #2c5a8a; --tone-blue-ink: #fbf8f2;
-  --tone-ochre: #d6a238; --tone-ochre-ink: #1c1a17;
-  --tone-red: #b4412c; --tone-red-ink: #fbf8f2;
-  --tone-birch: #e2cfa8; --tone-birch-ink: #1c1a17;
-  --tone-sage: #566f52; --tone-sage-ink: #fbf8f2;
-  --tone-slate: #4a5866; --tone-slate-ink: #fbf8f2;
-  --tone-plum: #6e3f62; --tone-plum-ink: #fbf8f2;
-  --tone-ink: #3a3631; --tone-ink-ink: #fbf8f2;
-}
-html[data-noeis-theme='theme.editorial.tokyo-midnight'] .edition-reading,
-html[data-noeis-theme='theme.editorial.dark'] .edition-reading {
-  --shelf-frame: var(--noeis-rule-strong, #66758d);
   --shelf-current: var(--reading-ink);
-  --tone-blue: #7aa7d6; --tone-blue-ink: #09111e;
-  --tone-ochre: #e2b85c; --tone-ochre-ink: #09111e;
-  --tone-red: #f08a72; --tone-red-ink: #09111e;
-  --tone-birch: #d9c7a3; --tone-birch-ink: #09111e;
-  --tone-sage: #9cc39a; --tone-sage-ink: #09111e;
-  --tone-slate: #a8b6c8; --tone-slate-ink: #09111e;
-  --tone-plum: #cf9fc2; --tone-plum-ink: #09111e;
-  --tone-ink: #cfd3e6; --tone-ink-ink: #09111e;
 }
-.edition-tone--blue { --tone: var(--tone-blue); --tone-on: var(--tone-blue-ink); }
-.edition-tone--ochre { --tone: var(--tone-ochre); --tone-on: var(--tone-ochre-ink); }
-.edition-tone--red { --tone: var(--tone-red); --tone-on: var(--tone-red-ink); }
-.edition-tone--birch { --tone: var(--tone-birch); --tone-on: var(--tone-birch-ink); }
-.edition-tone--sage { --tone: var(--tone-sage); --tone-on: var(--tone-sage-ink); }
-.edition-tone--slate { --tone: var(--tone-slate); --tone-on: var(--tone-slate-ink); }
-.edition-tone--plum { --tone: var(--tone-plum); --tone-on: var(--tone-plum-ink); }
-.edition-tone--ink { --tone: var(--tone-ink); --tone-on: var(--tone-ink-ink); }
+.edition-tone--thread { --tone: var(--noeis-thread, #b1862e); }
+.edition-tone--living { --tone: var(--noeis-living, #6f7340); }
+.edition-tone--slate { --tone: var(--noeis-ink-subtle, #7a756c); }
+.edition-tone--danger { --tone: var(--noeis-danger, #9b5a46); }
+.edition-tone--ink { --tone: var(--reading-ink); }
 
 .edition-desk { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); border-bottom: 1px solid var(--reading-rule); }
 .edition-desk > li { display: flex; flex-direction: column; gap: 3px; padding: 14px 16px 14px 0; }
@@ -372,10 +350,11 @@ html[data-noeis-theme='theme.editorial.dark'] .edition-reading {
 .reading-section--block > .reading-section-label {
   display: grid; grid-template-columns: 1fr auto; grid-template-rows: 1fr auto; gap: 14px 8px;
   min-height: 104px; margin: 0; padding: 14px; box-sizing: border-box;
-  background: var(--tone); color: var(--tone-on);
+  border-top: 3px solid var(--tone);
+  background: color-mix(in srgb, var(--tone) 12%, var(--reading-paper)); color: var(--reading-ink);
 }
 .reading-section-label__name { grid-column: 1 / -1; font: 500 11px/1.4 var(--noeis-font-ui, system-ui); letter-spacing: .1em; }
-.reading-section-label__count { align-self: end; font: 400 36px/1 var(--noeis-font-editorial, Georgia, serif); letter-spacing: 0; }
+.reading-section-label__count { align-self: end; font: 400 36px/1 var(--noeis-font-editorial, Georgia, serif); letter-spacing: 0; color: color-mix(in srgb, var(--tone) 70%, var(--reading-ink)); }
 .reading-section-label__marks { align-self: end; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; font-size: 12px; }
 .reading-section { scroll-margin-top: 110px; }
 .reading-section:focus { outline: none; }

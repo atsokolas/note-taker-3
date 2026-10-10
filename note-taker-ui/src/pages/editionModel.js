@@ -301,10 +301,10 @@ export const foreignFilers = (issue = {}, keepers = {}) => {
   return foreign;
 };
 
-/* Section colour: a counter-evidence column is always red, and the rest
-   take the palette in profile order. Tones are names; the colours are theme
-   tokens, so Midnight carries its own. */
-const TONES = ['blue', 'ochre', 'birch', 'sage', 'slate', 'plum', 'ink', 'red'];
+/* Section colour: a counter-evidence column always takes the danger tone,
+   and the rest take the house colours in profile order. Tones are names of
+   theme tokens, so every theme carries its own. */
+const TONES = ['thread', 'living', 'slate', 'ink'];
 
 export const sectionTones = (sections = []) => {
   const tones = {};
@@ -312,7 +312,7 @@ export const sectionTones = (sections = []) => {
   (sections || []).forEach((section) => {
     if (!section?.key) return;
     if (/counter/i.test(section.key)) {
-      tones[section.key] = 'red';
+      tones[section.key] = 'danger';
       return;
     }
     tones[section.key] = TONES[next % TONES.length];
