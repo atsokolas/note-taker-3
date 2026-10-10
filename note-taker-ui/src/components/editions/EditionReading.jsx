@@ -225,7 +225,8 @@ export default function EditionReading({
   const before = place > 0 ? run[place - 1] : null;
   const after = place >= 0 ? run[place + 1] : null;
   const closed = stateOf(row) === 'closed';
-  const kept = items.filter(item => item.savedArticleId).length;
+  /* The receipt speaks for the whole issue, whoever's hand you are reading. */
+  const kept = all.filter(({ item }) => item.savedArticleId).length;
   const newCount = pending?.items?.filter(item => !edition?.items?.some(held => held.itemId === item.itemId)).length || 0;
   const sourceDoor = id => document.getElementById(findingAnchor(id))?.querySelector('.reading-open');
   const side = peek || (source && focusItem ? { itemId: focusItem, view: 'source', origin: sourceDoor(focusItem) } : null);
@@ -376,7 +377,7 @@ export default function EditionReading({
           ) : null}
           <footer className="edition-receipt">
             <p className="edition-receipt__line">
-              {kept ? `You kept ${kept} of ${items.length}. ` : ''}
+              {kept ? `You kept ${kept} of ${all.length}. ` : ''}
               {closed ? 'That’s the whole issue.' : 'That’s the issue so far.'}
             </p>
             <nav className="edition-receipt__run" aria-label="Other issues">

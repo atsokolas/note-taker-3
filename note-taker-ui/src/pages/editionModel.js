@@ -296,14 +296,17 @@ export const barsOf = (figures = []) => {
 
 /**
  * What comes after this issue. A later issue already out is a link, made by
- * the caller; otherwise an issue still filling says until when, and a closed
- * one says which week the next will cover.
+ * the caller; otherwise an issue not yet open says when it opens, one still
+ * filling says until when, and a closed one says which week the next will cover.
  */
 export const aheadLine = (issue = {}, issueLabel = 'Edition', now = Date.now()) => {
   const start = day(issue.windowStart);
   const end = day(issue.windowEnd);
   if (!start || !end) return '';
-  if (stateOf(issue, now) !== 'closed') return `Still filling, through ${DAYS[end.getUTCDay()].slice(0, 3)}, ${shortDay(end)}`;
+  const state = stateOf(issue, now);
+  const on = date => `${DAYS[date.getUTCDay()].slice(0, 3)}, ${shortDay(date)}`;
+  if (state === 'open') return `Opens ${on(start)}`;
+  if (state === 'filling') return `Still filling, through ${on(end)}`;
   const span = end.getTime() - start.getTime();
   const next = { windowStart: new Date(end.getTime() + DAY_MS), windowEnd: new Date(end.getTime() + DAY_MS + span) };
   const name = (Number(issue.number) > 0 && issueLine({ issueLabel, number: Number(issue.number) + 1 })) || 'The next one';

@@ -173,6 +173,8 @@ it('shows only one hand’s filings and says what it hid', async () => {
   expect(await screen.findByRole('heading', { name: 'A second source on recovery' })).toBeVisible();
   expect(screen.queryByText(five.items[0].finding)).toBeNull();
   expect(screen.getByText(/2 findings by other hands hidden while you read Claude’s\./)).toBeVisible();
+  /* The closing receipt still counts the whole issue. */
+  expect(screen.getByText(/^You kept 1 of 3\./)).toBeVisible();
   fireEvent.click(screen.getByRole('button', { name: 'Show everyone' }));
   expect(mockNavigate).toHaveBeenLastCalledWith('/editions/twia-5', { replace: true });
 });

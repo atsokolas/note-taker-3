@@ -318,5 +318,6 @@ describe('reading an issue before you start', () => {
     const issue = { number: 5, windowStart: '2026-09-28', windowEnd: '2026-10-04' };
     expect(aheadLine(issue, 'Issue', Date.parse('2026-10-10'))).toBe('Issue 6 covers Oct 5 – 11');
     expect(aheadLine(issue, 'Issue', Date.parse('2026-10-02'))).toBe('Still filling, through Sun, Oct 4');
+    expect(aheadLine(issue, 'Issue', Date.parse('2026-09-20'))).toBe('Opens Mon, Sep 28');
   });
 });
