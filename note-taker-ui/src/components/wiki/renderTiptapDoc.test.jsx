@@ -11,6 +11,14 @@ describe('renderTiptapDoc', () => {
     window.localStorage.clear();
   });
 
+  it.each([undefined, 'invalid', 'unknown'])('renders support %j truthfully on the claim and citation marker', support => {
+    render(<div>{renderTiptapDoc({ type: 'doc', content: [{ type: 'paragraph', content: [{
+      type: 'text', text: 'Unassessed claim.', marks: [{ type: 'claim', attrs: { claimId: 'unassessed', support, citationIndexes: [1] } }]
+    }] }] })}</div>);
+    expect(screen.getByText('Unassessed claim.')).toHaveAttribute('data-support', 'unknown');
+    expect(screen.getByRole('button', { name: 'Backlink to source 1' })).toHaveAttribute('data-support', 'unknown');
+  });
+
   it('renders contradiction indexes on claim spans and citation buttons', () => {
     render(
       <div>

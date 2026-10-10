@@ -131,8 +131,10 @@ const WikiPageEditor = ({ pageId, onDoneEditing, workspaceMode = false }) => {
       latestPageRef.current = saved;
       setPage(saved);
       setSaveStatus('saved');
-    } catch (_error) {
-      setError('That did not save.');
+    } catch (error) {
+      setError(error?.response?.data?.code === 'claim_identity_conflict'
+        ? 'That did not save. The saved claims have conflicting identities and need review. Your current words remain here.'
+        : 'That did not save.');
       setSaveStatus('failed');
     } finally {
     }
@@ -161,18 +163,27 @@ const WikiPageEditor = ({ pageId, onDoneEditing, workspaceMode = false }) => {
     mode: 'edit'
   }));
 
+  const returningCitationFocus = useRef(null);
   const handleClaimHover = useCallback((event) => {
     const target = event.target.closest?.('.wiki-claim-citation');
     if (!target) return;
+    if (['focus', 'focusin'].includes(event.type) && returningCitationFocus.current === target) {
+      // TipTap and React observe the same focus transfer. Suppress both paths.
+      Promise.resolve().then(() => {
+        if (returningCitationFocus.current === target) returningCitationFocus.current = null;
+      });
+      return;
+    }
     const claimId = target.getAttribute('data-claim-id') || '';
-    const support = target.getAttribute('data-support') || 'supported';
+    const support = target.getAttribute('data-support') || 'unknown';
     const indexes = parseIndexAttribute(target.getAttribute('data-citation-indexes'));
     const contradictionIndexes = parseIndexAttribute(target.getAttribute('data-contradiction-indexes'));
     setActiveClaim({
       claimId,
-      support: SUPPORT_STATES.has(support) ? support : 'supported',
+      support: SUPPORT_STATES.has(support) ? support : 'unknown',
       citationIndexes: indexes,
       contradictionIndexes,
+      anchorElement: target,
       anchorRect: target.getBoundingClientRect()
     });
   }, []);
@@ -672,10 +683,15 @@ const WikiPageEditor = ({ pageId, onDoneEditing, workspaceMode = false }) => {
           {activeClaim ? (
             <ClaimCitationPopover
               anchorRect={activeClaim.anchorRect}
+          anchorElement={activeClaim.anchorElement}
               support={activeLedgerClaim?.support || activeClaim.support}
               claim={activeLedgerClaim}
               sources={resolvedActiveSources}
-              onClose={() => setActiveClaim(null)}
+              onClose={({ restoreFocus = false } = {}) => {
+            returningCitationFocus.current = restoreFocus && document.activeElement !== activeClaim.anchorElement
+              ? activeClaim.anchorElement : null;
+            setActiveClaim(null);
+          }}
             />
           ) : null}
         </section>

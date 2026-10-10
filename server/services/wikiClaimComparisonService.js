@@ -183,7 +183,7 @@ const compareClaimLedgers = ({ beforeClaims = [], afterClaims = [], outcome = 'a
       previousRow.support !== 'conflicted'
       || nextRow.contradictionIds.length > previousRow.contradictionIds.length
     );
-    const gainedSupport = nextRow.support !== 'conflicted' && (
+    const gainedSupport = nextRow.support !== 'conflicted' && nextRow.support !== 'unknown' && (
       supportRank(nextRow.support) > supportRank(previousRow.support)
       || nextRow.evidenceIds.length > previousRow.evidenceIds.length
     );

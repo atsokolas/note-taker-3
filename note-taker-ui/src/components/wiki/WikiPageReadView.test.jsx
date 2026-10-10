@@ -2585,6 +2585,20 @@ describe('WikiPageReadView', () => {
     expect(within(dialog).getByText('Source snippet')).toBeInTheDocument();
   });
 
+  it('returns to the exact marker on Escape without reopening, even when focus left the evidence', async () => {
+    render(<MemoryRouter><WikiPageReadView pageId="wiki-1" onEdit={jest.fn()} /></MemoryRouter>);
+    const citation = await screen.findByRole('button', { name: 'Backlink to source 1' });
+    fireEvent.mouseOver(citation);
+    await screen.findByRole('dialog', { name: 'Claim citations' });
+    act(() => citation.focus());
+    expect(screen.getByRole('dialog', { name: 'Claim citations' })).toHaveFocus();
+    const outside = document.createElement('button'); document.body.appendChild(outside);
+    act(() => outside.focus());
+    fireEvent.keyDown(outside, { key: 'Escape' });
+    expect(screen.queryByRole('dialog', { name: 'Claim citations' })).toBeNull();
+    expect(citation).toHaveFocus(); outside.remove();
+  });
+
   it('opens the cited passage in Library from the claim popover', async () => {
     getWikiPage.mockResolvedValueOnce({
       ...page,
@@ -3315,4 +3329,23 @@ describe('WikiPageReadView', () => {
     }));
     expect(navigate).toHaveBeenCalledWith('/think?tab=concepts&conceptId=64f000000000000000000099');
   });
+  it('opens an unassessed saved citation without claiming confidence or verification', async () => {
+    const unassessed = JSON.parse(JSON.stringify(page));
+    const setUnknown = node => {
+      node.marks?.filter(mark => mark.type === 'claim' && mark.attrs?.claimId === 'claim-1').forEach(mark => { mark.attrs.support = 'unknown'; });
+      node.content?.forEach(setUnknown);
+    };
+    setUnknown(unassessed.body);
+    unassessed.claims[0] = { ...unassessed.claims[0], support: 'unknown', confidence: 0, lastVerifiedAt: null };
+    getWikiPage.mockResolvedValue(unassessed);
+    renderReadView();
+    await flushDeferredWikiReadWork();
+    fireEvent.mouseOver(await screen.findByRole('button', { name: 'Backlink to source 1' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Claim citations' });
+    expect(within(dialog).getByText('Unknown support')).toBeInTheDocument();
+    expect(within(dialog).getByRole('heading', { name: 'Attached sources' })).toBeInTheDocument();
+    expect(within(dialog).queryByText('Verified')).toBeNull();
+    expect(within(dialog).queryByText(/% confidence/)).toBeNull();
+  });
+
 });

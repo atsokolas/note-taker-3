@@ -153,6 +153,28 @@ describe('WikiPageEditor', () => {
     });
   });
 
+  it('returns focus without reopening through both native TipTap focusin and React focus', async () => {
+    mockEditor.renderTestContent = <button className="wiki-claim-citation" data-citation-indexes="1" data-testid="focus-marker">[1]</button>;
+    const onDoneEditing = jest.fn();
+    render(<MemoryRouter><WikiPageEditor pageId="wiki-1" onDoneEditing={onDoneEditing} /></MemoryRouter>);
+    await screen.findByDisplayValue('Enterprise AI Memory');
+    const content = screen.getByTestId('wiki-editor-content');
+    const nativeFocus = event => mockUseEditor.mock.calls.at(-1)[0].editorProps.handleDOMEvents.focusin(null, event);
+    content.addEventListener('focusin', nativeFocus);
+    const marker = screen.getByTestId('focus-marker');
+    act(() => marker.focus());
+    expect(await screen.findByRole('dialog', { name: 'Claim citations' })).toHaveFocus();
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).toBeNull(); expect(marker).toHaveFocus();
+    expect(onDoneEditing).not.toHaveBeenCalled();
+    await act(async () => {});
+    fireEvent.mouseOver(marker);
+    expect(await screen.findByRole('dialog', { name: 'Claim citations' })).toHaveFocus();
+    fireEvent.click(screen.getByRole('button', { name: 'Close claim citations' }));
+    expect(screen.queryByRole('dialog')).toBeNull(); expect(marker).toHaveFocus();
+    content.removeEventListener('focusin', nativeFocus);
+  });
+
   it('shows wiki autolink opportunities in the activity rail', async () => {
     listWikiAutolinks.mockResolvedValueOnce({
       scanned: 4,
@@ -745,5 +767,15 @@ describe('WikiPageEditor', () => {
       body: nextBody,
       title: 'Memory compounds with review.'
     }), { timeout: 2000 });
+  });
+
+  it('keeps current words visible when saved claim identities need review', async () => {
+    updateWikiPage.mockRejectedValue({ response: { status: 409, data: { code: 'claim_identity_conflict' } } });
+    render(<MemoryRouter><WikiPageEditor pageId="wiki-1" /></MemoryRouter>);
+    const titleField = await screen.findByLabelText('Wiki page title');
+    fireEvent.change(titleField, { target: { value: 'My current words remain' } });
+    await screen.findByText('That did not save. The saved claims have conflicting identities and need review. Your current words remain here.', {}, { timeout: 2000 });
+    expect(titleField).toHaveValue('My current words remain');
+    expect(screen.queryByText('Saved')).not.toBeInTheDocument();
   });
 });

@@ -22,6 +22,12 @@ const goodPage = (overrides = {}) => ({
 });
 
 describe('wikiQuality', () => {
+  it('keeps unassessed claims in Needs review even when citations are attached', () => {
+    const page = goodPage({ claims: [{ claimId: 'unassessed', support: 'unknown', citationIds: ['source-1'] }] });
+    expect(buildQualityState({ page })).toMatchObject({ title: 'Needs review', weakClaimCount: 1 });
+    expect(buildQualityState({ page, counts: { unknown: 1, supported: 0 } })).toMatchObject({ title: 'Needs review', weakClaimCount: 1 });
+  });
+
   it('classifies explicit structural failures as Needs rebuild', () => {
     const state = buildQualityState({
       page: goodPage({

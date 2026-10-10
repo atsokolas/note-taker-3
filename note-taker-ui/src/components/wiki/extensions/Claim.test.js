@@ -6,7 +6,8 @@ describe('Claim mark extension', () => {
     expect(SUPPORT_STATES.has('partial')).toBe(true);
     expect(SUPPORT_STATES.has('unsupported')).toBe(true);
     expect(SUPPORT_STATES.has('conflicted')).toBe(true);
-    expect(SUPPORT_STATES.size).toBe(4);
+    expect(SUPPORT_STATES.has('unknown')).toBe(true);
+    expect(SUPPORT_STATES.size).toBe(5);
   });
 
   it('registers as a TipTap mark named "claim"', () => {
@@ -29,12 +30,15 @@ describe('Claim mark extension', () => {
     expect(config.citationIndexes.parseHTML(fakeElement)).toEqual([1, 3, 5]);
   });
 
-  it('coerces unknown support values to "supported" on parse', () => {
+  it('keeps missing and invalid support unknown on parse, default and render', () => {
     const config = Claim.config.addAttributes();
     const fakeElement = {
       getAttribute: (name) => (name === 'data-support' ? 'invalid' : null)
     };
-    expect(config.support.parseHTML(fakeElement)).toBe('supported');
+    expect(config.support.parseHTML(fakeElement)).toBe('unknown');
+    expect(config.support.parseHTML({ getAttribute: () => null })).toBe('unknown');
+    expect(config.support.default).toBe('unknown');
+    expect(config.support.renderHTML({})).toEqual({ 'data-support': 'unknown' });
   });
 
   it('normalizes legacy contradicted support to conflicted', () => {

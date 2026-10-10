@@ -51,9 +51,10 @@ const claimHealthCounts = (claims = []) => claims.reduce((counts, claim) => {
   if (support === 'supported') counts.supported += 1;
   else if (support === 'partial' || support === 'partially_supported') counts.partial += 1;
   else if (support === 'conflicted' || support === 'contradicted') counts.conflicted += 1;
+  else if (support === 'unknown') counts.unknown += 1;
   else if (support === 'unsupported') counts.unsupported += 1;
   return counts;
-}, { supported: 0, partial: 0, unsupported: 0, conflicted: 0 });
+}, { supported: 0, partial: 0, unsupported: 0, conflicted: 0, unknown: 0 });
 
 export const buildQualityState = ({ page = {}, counts = {} }) => {
   const claims = Array.isArray(page?.claims) ? page.claims : [];
@@ -62,10 +63,10 @@ export const buildQualityState = ({ page = {}, counts = {} }) => {
   const qualityStatus = String(page?.aiState?.quality?.status || page?.quality?.status || '').toLowerCase();
   const explicitNeedsRebuild = ['needs_rebuild', 'fail', 'failed'].includes(qualityStatus);
   const explicitNeedsReview = ['needs_review', 'review', 'warning'].includes(qualityStatus);
-  const weakClaimCount = (resolvedCounts.partial || 0) + (resolvedCounts.unsupported || 0) + (resolvedCounts.conflicted || 0);
+  const weakClaimCount = (resolvedCounts.unknown || 0) + (resolvedCounts.partial || 0) + (resolvedCounts.unsupported || 0) + (resolvedCounts.conflicted || 0);
   const weakClaimRatio = claims.length ? weakClaimCount / claims.length : 0;
   const missingSourceEvidence = claims.length > 0 && !(page?.sourceRefs || []).length;
-  const weakClaimHealth = weakClaimCount > 0 && (weakClaimRatio >= 0.34 || (resolvedCounts.unsupported || 0) + (resolvedCounts.conflicted || 0) > 0);
+  const weakClaimHealth = weakClaimCount > 0 && (weakClaimRatio >= 0.34 || (resolvedCounts.unknown || 0) + (resolvedCounts.unsupported || 0) + (resolvedCounts.conflicted || 0) > 0);
   const severeIssue = explicitNeedsRebuild
     || missingSourceEvidence
     || issues.some(issue => /scaffold|placeholder|too thin|source dump|missing source/i.test(issue.text || issue.label || ''));

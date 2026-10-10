@@ -206,7 +206,7 @@ const lintWiki = async ({
       }));
     }
 
-    const unsupportedClaims = claims.filter(claim => claim.support === 'unsupported' || !(claim.citationIds || []).length);
+    const unsupportedClaims = claims.filter(claim => ['unknown', 'unsupported'].includes(claim.support) || !(claim.citationIds || []).length);
     if (unsupportedClaims.length || sourceRefs.length < 2 || clean(page.plainText).length < 500) {
       gaps.push(issue({
         type: 'gap',

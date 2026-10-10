@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const { normalizeClaimSupport } = require('./wikiClaimSupport');
 
 const clone = value => JSON.parse(JSON.stringify(value ?? null));
 const digest = value => crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
@@ -104,7 +105,7 @@ const rangeAttrs = (range, claimId) => {
     throw new WikiClaimBodyPatchError('Every target fragment must retain its exact claim mark.', 'claim_body_invalid');
   }
   const signatures = unique(marks.map(mark => JSON.stringify({
-    support: mark?.attrs?.support || 'unsupported',
+    support: normalizeClaimSupport(mark?.attrs?.support),
     citationIndexes: normalizedIndexes(mark?.attrs?.citationIndexes),
     contradictionIndexes: normalizedIndexes(mark?.attrs?.contradictionIndexes)
   })));
@@ -135,7 +136,7 @@ const sameSet = (left, right) => {
 };
 
 const validateMarkEvidence = ({ attrs, proposedClaim, sourceRefs, citations }) => {
-  const support = proposedClaim?.support === 'contradicted' ? 'conflicted' : (proposedClaim?.support || 'unsupported');
+  const support = normalizeClaimSupport(proposedClaim?.support);
   if (attrs.support !== support) {
     throw new WikiClaimBodyPatchError('Claim mark support disagrees with the proposed claim.', 'claim_body_mismatch');
   }

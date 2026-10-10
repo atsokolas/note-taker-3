@@ -14,7 +14,11 @@ const {
 const { prepareOrdinaryWikiBuild: defaultPrepareOrdinaryWikiBuild } = require('../services/wikiBuildPreflightService');
 const {
   buildSectionMaintenancePlan,
-  deriveClaimsFromDoc
+  deriveClaimsFromDoc,
+  assertRecordedClaimIdentity,
+  projectRecordedClaimSupport,
+  withRecordedClaimSupport,
+  normalizeClaimSupport
 } = require('../services/wikiMaintenanceService');
 const { askWikiPage: defaultAskWikiPage, loadWikiAskCorpus: defaultLoadWikiAskCorpus } = require('../services/wikiAskService');
 const {
@@ -877,7 +881,7 @@ const serializeWikiPage = (page) => {
     : { ...page };
   const raw = sanitizeSourceLedgerForRead(rawPage);
   const sourceRefs = Array.isArray(raw.sourceRefs) ? raw.sourceRefs : [];
-  const claims = Array.isArray(raw.claims) ? raw.claims : [];
+  const claims = projectRecordedClaimSupport(raw.claims);
   const citations = Array.isArray(raw.citations) ? raw.citations : [];
   const sourceIds = new Set();
   sourceRefs.forEach((source, index) => {
@@ -896,7 +900,7 @@ const serializeWikiPage = (page) => {
     if (id) claimIds.add(String(id));
   });
   const plainText = raw.plainText || extractPlainText(raw.body || emptyDoc());
-  const qualityReview = classifyWikiPageQuality({ ...raw, plainText });
+  const qualityReview = classifyWikiPageQuality({ ...raw, claims, plainText });
   const presentationTitle = canonicalWikiTitle(raw);
   return {
     ...raw,
@@ -905,7 +909,7 @@ const serializeWikiPage = (page) => {
     wikiKind: serializeWikiKind(raw),
     title: presentationTitle,
     pageType: normalizePageType(raw.pageType || 'topic'),
-    body: raw.body || emptyDoc(),
+    body: withRecordedClaimSupport({ body: raw.body || emptyDoc(), previousClaims: claims, citations, sourceRefs }),
     createdFrom: raw.createdFrom || { type: 'wiki_index', objectIds: [], text: '', label: '' },
     plainText,
     sourceRefs,
@@ -984,7 +988,7 @@ const sanitizePublicWikiBody = (node, citationIndexMap = null) => {
         return {
           type: 'claim',
           attrs: {
-            support: String(attrs.support || 'supported'),
+            support: normalizeClaimSupport(attrs.support),
             citationIndexes: remapIndexes(attrs.citationIndexes),
             contradictionIndexes: remapIndexes(attrs.contradictionIndexes)
           }
@@ -2786,10 +2790,10 @@ const buildWikiRouter = ({
     onPageChanged: onOwnedPageChanged
   }));
 
-  const refreshPageClaims = (page) => {
+  const refreshPageClaims = (page, derivedClaims = null) => {
     const previousClaims = page.claims?.toObject ? page.claims.toObject() : page.claims || [];
     const now = new Date();
-    page.claims = deriveClaimsFromDoc({
+    page.claims = derivedClaims || deriveClaimsFromDoc({
       body: page.body || emptyDoc(),
       citations: page.citations || [],
       sourceRefs: page.sourceRefs || [],
@@ -6638,6 +6642,16 @@ const buildWikiRouter = ({
       const page = await findOwnedPage(req);
       if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
       const weekendReadingsPage = isResearchEditionPage(page);
+      let nextBody;
+      let nextClaims;
+      if (req.body?.body !== undefined) {
+        assertRecordedClaimIdentity(page.claims);
+        nextBody = normalizeBodyDoc(req.body.body);
+        if (!nextBody) return res.status(400).json({ error: 'body must be a TipTap JSON object or a non-empty string.' });
+        // Validate before changing any page field; a pasted duplicate must not
+        // install an identity conflict that blocks its next correction.
+        nextClaims = deriveClaimsFromDoc({ body: nextBody, citations: page.citations || [], sourceRefs: page.sourceRefs || [], previousClaims: page.claims || [] });
+      }
       const researchLedgerPage = isResearchOperatingLedgerPage(page);
       if (weekendReadingsPage && enumChecks[2]?.value === 'shared') {
         return res.status(409).json({
@@ -6683,14 +6697,10 @@ const buildWikiRouter = ({
         page.evergreenAt = req.body.evergreen ? (page.evergreenAt || new Date()) : null;
       }
       if (req.body?.body !== undefined) {
-        const nextBody = normalizeBodyDoc(req.body.body);
-        if (!nextBody) {
-          return res.status(400).json({ error: 'body must be a TipTap JSON object or a non-empty string.' });
-        }
         page.body = nextBody;
         page.plainText = extractPlainText(nextBody);
       }
-      if (req.body?.body !== undefined) refreshPageClaims(page);
+      if (req.body?.body !== undefined) refreshPageClaims(page, nextClaims);
       if (normalizedJudgment) {
         page.judgment = normalizedJudgment;
         if (typeof page.markModified === 'function') page.markModified('judgment');
@@ -6857,6 +6867,7 @@ const buildWikiRouter = ({
       res.status(200).json(serializeWikiPage(page));
     } catch (error) {
       if (error instanceof JudgmentValidationError) return res.status(error.statusCode).json({ error: error.message });
+      if (error.code === 'claim_identity_conflict') return res.status(409).json({ error: error.message, code: error.code });
       console.error('Error updating wiki page:', error);
       res.status(500).json({ error: 'Failed to update wiki page.' });
     }

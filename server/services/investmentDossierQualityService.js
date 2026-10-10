@@ -1,3 +1,4 @@
+const { normalizeClaimSupport } = require('./wikiClaimSupport');
 const {
   CORE_ANALYSIS_MODULES,
   CORE_EVIDENCE_ARCHETYPES,
@@ -84,7 +85,7 @@ const evaluateInvestmentDossierQuality = ({
   const businessModel = profile?.businessModel?.primary || 'unknown';
   const claimList = Array.isArray(claims) ? claims : [];
   const sourceList = Array.isArray(sourceRefs) ? sourceRefs : [];
-  const unsupportedClaims = claimList.filter(claim => clean(claim?.support).toLowerCase() === 'unsupported');
+  const unsupportedClaims = claimList.filter(claim => ['unknown', 'unsupported'].includes(normalizeClaimSupport(claim?.support)));
   const exploratoryUnsupportedClaims = unsupportedClaims.filter(claim => (
     /thesis-changing questions|what would change the thesis/i.test(clean(claim?.section))
   ));

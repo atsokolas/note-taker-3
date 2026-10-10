@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { wikiReadPath } from '../../utils/wikiFeatureFlags';
 import { normalizeSpaces } from '../../utils/editorialText';
+import { normalizeClaimSupport } from './claimSupport';
 
 /**
  * renderTiptapDoc — minimal read-only renderer that walks a TipTap JSON
@@ -27,7 +28,7 @@ const claimAttrs = (mark) => {
     : [];
   return {
     'data-claim-id': attrs.claimId || '',
-    'data-support': attrs.support || 'supported',
+    'data-support': normalizeClaimSupport(attrs.support),
     'data-citation-indexes': indexes.join(','),
     'data-contradiction-indexes': contradictionIndexes.join(',')
   };

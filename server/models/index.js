@@ -839,7 +839,7 @@ const wikiClaimSchema = new mongoose.Schema({
   claimId: { type: String, required: true, trim: true },
   text: { type: String, required: true, trim: true },
   section: { type: String, default: '', trim: true },
-  support: { type: String, enum: ['supported', 'partial', 'unsupported', 'conflicted'], default: 'unsupported' },
+  support: { type: String, enum: ['unknown', 'supported', 'partial', 'unsupported', 'conflicted'], default: 'unsupported' },
   citationIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
   sourceRefIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
   contradictedByCitationIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
@@ -885,7 +885,7 @@ const wikiClaimSchema = new mongoose.Schema({
     type: [{
       at: { type: Date, default: Date.now },
       event: { type: String, default: 'reviewed', trim: true },
-      support: { type: String, enum: ['supported', 'partial', 'unsupported', 'conflicted'], default: 'unsupported' },
+      support: { type: String, enum: ['unknown', 'supported', 'partial', 'unsupported', 'conflicted'], default: 'unsupported' },
       text: { type: String, default: '', trim: true },
       section: { type: String, default: '', trim: true },
       citationIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },

@@ -26,6 +26,9 @@ const matches = (record, query = {}) => Object.entries(query).every(([key, value
   if (value && typeof value === 'object' && Array.isArray(value.$in)) {
     return value.$in.map(String).includes(String(recordValue || ''));
   }
+  if (value && typeof value === 'object' && value.$regex !== undefined) {
+    return new RegExp(value.$regex).test(String(recordValue || ''));
+  }
   if (value && typeof value === 'object' && value.$lt !== undefined) {
     return String(recordValue || '') < String(value.$lt || '');
   }
@@ -249,18 +252,8 @@ const createFakeLibraryModel = (records = []) => ({
 
 const createFakeConnectionModel = () => {
   const records = [];
-  const matchesDeleteCondition = (record, condition = {}) => {
-    if (condition.fromType?.$in && !condition.fromType.$in.includes(record.fromType)) return false;
-    else if (condition.fromType && String(record.fromType || '') !== String(condition.fromType)) return false;
-    if (condition.fromId?.$regex && !(new RegExp(condition.fromId.$regex).test(String(record.fromId || '')))) return false;
-    else if (condition.fromId && String(record.fromId || '') !== String(condition.fromId)) return false;
-    if (condition.toType && String(record.toType || '') !== String(condition.toType)) return false;
-    if (condition.toId?.$regex && !(new RegExp(condition.toId.$regex).test(String(record.toId || '')))) return false;
-    else if (condition.toId && String(record.toId || '') !== String(condition.toId)) return false;
-    if (condition.relationType?.$in && !condition.relationType.$in.includes(record.relationType)) return false;
-    else if (condition.relationType && String(record.relationType || '') !== String(condition.relationType)) return false;
-    return true;
-  };
+  const matchesDeleteCondition = (record, condition = {}) => matches(record, condition);
+
   return {
     records,
     deleteMany: async (query = {}) => {
@@ -2571,6 +2564,57 @@ const run = async () => {
       && record.toId === `${created.body._id}:claim-route-1`
       && record.relationType === 'supports'
     )));
+
+    const unknownBody = clone(pageWithClaim);
+    unknownBody.content[0].content[0].marks[0].attrs.support = 'unknown';
+    const unassessed = await request(url, `/api/wiki/pages/${created.body._id}`, {
+      method: 'PATCH', body: JSON.stringify({ body: unknownBody })
+    });
+    assert.strictEqual(unassessed.res.status, 200, unassessed.text);
+    assert.strictEqual(unassessed.body.claims[0].support, 'unknown');
+    assert.strictEqual(unassessed.body.claims[0].confidence, 0);
+    assert.strictEqual(unassessed.body.claims[0].lastVerifiedAt, null);
+    const reloadedUnknown = await request(url, `/api/wiki/pages/${created.body._id}`);
+    assert.strictEqual(reloadedUnknown.body.claims[0].support, 'unknown');
+    assert.strictEqual(reloadedUnknown.body.body.content[0].content[0].marks[0].attrs.support, 'unknown');
+    assert.ok(!Connection.records.some(record => (
+      record.toType === 'wiki_claim' && record.toId === `${created.body._id}:claim-route-1`
+      && record.relationType === 'supports'
+    )), 'unknown assessment must remove prior supporting edges');
+    const restoredAssessment = await request(url, `/api/wiki/pages/${created.body._id}`, {
+      method: 'PATCH', body: JSON.stringify({ body: pageWithClaim })
+    });
+    assert.strictEqual(restoredAssessment.res.status, 200, restoredAssessment.text);
+
+    const retainedRecord = WikiPage.records.find(record => String(record._id) === String(created.body._id));
+    const retainedClaims = clone(retainedRecord.claims);
+    retainedRecord.claims = [
+      { ...clone(retainedClaims[0]), implication: 'Owner implication A', resolutionCriteria: 'Owner criterion', falsifierIds: ['owner-falsifier'], verdicts: [{ note: 'Owner verdict' }] },
+      { ...clone(retainedClaims[0]), support: 'unknown', implication: 'Owner implication B' }
+    ];
+    const retainedBeforeConflict = clone(retainedRecord);
+    const revisionCountBeforeConflict = WikiRevision.records.length;
+    const identityConflict = await request(url, `/api/wiki/pages/${created.body._id}`, {
+      method: 'PATCH', body: JSON.stringify({ title: 'Must not replace saved title', body: unknownBody })
+    });
+    assert.strictEqual(identityConflict.res.status, 409, identityConflict.text);
+    assert.strictEqual(identityConflict.body.code, 'claim_identity_conflict');
+    assert.deepStrictEqual(retainedRecord, retainedBeforeConflict, 'ambiguous save must preserve all saved words and owner metadata');
+    assert.strictEqual(WikiRevision.records.length, revisionCountBeforeConflict);
+    retainedRecord.claims = retainedClaims;
+    const incomingDuplicateBody = clone(pageWithClaim);
+    incomingDuplicateBody.content.push({ type: 'paragraph', content: [{ type: 'text', text: 'An ordinary separating paragraph.' }] }, clone(pageWithClaim.content[0]));
+    const savedBeforePaste = clone(retainedRecord);
+    const pastedConflict = await request(url, `/api/wiki/pages/${created.body._id}`, {
+      method: 'PATCH', body: JSON.stringify({ title: 'Must not save pasted duplicate', body: incomingDuplicateBody })
+    });
+    assert.strictEqual(pastedConflict.res.status, 409, pastedConflict.text);
+    assert.deepStrictEqual(retainedRecord, savedBeforePaste);
+    assert.strictEqual(WikiRevision.records.length, revisionCountBeforeConflict);
+    const correctedPaste = await request(url, `/api/wiki/pages/${created.body._id}`, {
+      method: 'PATCH', body: JSON.stringify({ body: pageWithClaim })
+    });
+    assert.strictEqual(correctedPaste.res.status, 200, correctedPaste.text);
 
     const ingest = await request(url, '/api/wiki/ingest', {
       method: 'POST',

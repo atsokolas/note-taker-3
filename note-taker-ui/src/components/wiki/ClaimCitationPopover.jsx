@@ -22,6 +22,7 @@ import { formatClaimBornAt } from '../../utils/claimBornAt';
  */
 
 const SUPPORT_LABEL = {
+  unknown: 'Unknown support',
   supported: 'Supported',
   partial: 'Partial support',
   unsupported: 'No source',
@@ -30,13 +31,15 @@ const SUPPORT_LABEL = {
 };
 
 const SUPPORT_BLURB = {
+  unknown: 'The support for this claim has not been recorded.',
   supported: 'This claim is grounded in your library.',
-  partial: 'Only one source partially supports this claim.',
+  partial: 'The recorded evidence supports only part of this claim.',
   unsupported: 'The agent wrote this without an attached source.',
   contradicted: 'A source in your library contradicts this claim.',
   conflicted: 'A source in your library conflicts with this claim.'
 };
 
+const EMPTY_SOURCES = [];
 const POPOVER_WIDTH = 360;
 const POPOVER_GAP = 10;
 
@@ -120,9 +123,25 @@ const EvidenceList = ({ title, sources, role }) => {
   );
 };
 
-const ClaimCitationPopover = ({ anchorRect, support, sources, claim, onClose, onCarry, carrying, carryError }) => {
+const ClaimCitationPopover = ({ anchorRect, anchorElement, support, sources = EMPTY_SOURCES, claim, onClose, onCarry, carrying, carryError }) => {
   const popoverRef = useRef(null);
   const [position, setPosition] = useState(null);
+  const [viewport, setViewport] = useState(() => ({ width: window.innerWidth, height: window.innerHeight }));
+  const width = Math.min(POPOVER_WIDTH, Math.max(0, viewport.width - 24));
+  const maxHeight = Math.max(0, viewport.height - 24);
+  const close = (restoreFocus = false) => {
+    onClose?.({ restoreFocus });
+    if (restoreFocus && anchorElement?.isConnected) anchorElement.focus({ preventScroll: true });
+  };
+  useEffect(() => {
+    const resize = () => setViewport({ width: window.innerWidth, height: window.innerHeight });
+    window.addEventListener('resize', resize);
+    return () => window.removeEventListener('resize', resize);
+  }, []);
+  useEffect(() => {
+    // Keyboard activation enters the evidence; pointer hover keeps reading still.
+    if (anchorElement && document.activeElement === anchorElement) popoverRef.current?.focus({ preventScroll: true });
+  }, [anchorElement, anchorRect]);
   const confidence = formatConfidence(claim?.confidence);
   const verified = formatDate(claim?.lastVerifiedAt);
   const born = formatClaimBornAt(claim);
@@ -134,42 +153,46 @@ const ClaimCitationPopover = ({ anchorRect, support, sources, claim, onClose, on
     if (!anchorRect) return;
     const node = popoverRef.current;
     const popoverHeight = node ? node.offsetHeight : 160;
-    const viewportH = window.innerHeight;
-    const viewportW = window.innerWidth;
-    const wantsAbove = anchorRect.top - popoverHeight - POPOVER_GAP > 12;
-    const top = wantsAbove
-      ? Math.max(12, anchorRect.top - popoverHeight - POPOVER_GAP)
-      : Math.min(viewportH - popoverHeight - 12, anchorRect.bottom + POPOVER_GAP);
-    const idealLeft = anchorRect.left + anchorRect.width / 2 - POPOVER_WIDTH / 2;
-    const left = Math.min(viewportW - POPOVER_WIDTH - 12, Math.max(12, idealLeft));
+    const rect = anchorElement?.isConnected ? anchorElement.getBoundingClientRect() : anchorRect;
+    const height = Math.min(popoverHeight, maxHeight);
+    const wantsAbove = rect.top - height - POPOVER_GAP > 12;
+    const desiredTop = wantsAbove ? rect.top - height - POPOVER_GAP : rect.bottom + POPOVER_GAP;
+    const top = Math.max(12, Math.min(viewport.height - height - 12, desiredTop));
+    const idealLeft = rect.left + rect.width / 2 - width / 2;
+    const left = Math.max(12, Math.min(viewport.width - width - 12, idealLeft));
     setPosition({ top, left, side: wantsAbove ? 'above' : 'below' });
-  }, [anchorRect]);
+  }, [anchorRect, anchorElement, width, maxHeight, viewport, sources, claim]);
 
   useEffect(() => {
     if (!onClose) return undefined;
     const handlePointer = (event) => {
-      if (popoverRef.current?.contains(event.target)) return;
+      if (event.target instanceof Node && popoverRef.current?.contains(event.target)) return;
       onClose();
     };
     const handleKey = (event) => {
-      if (event.key === 'Escape') onClose();
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        onClose({ restoreFocus: true });
+        if (anchorElement?.isConnected) anchorElement.focus({ preventScroll: true });
+      }
     };
     const handleScroll = (event) => {
       // Don't dismiss when the scroll originates inside the popover (e.g.
       // the user is scrolling its citation list). Only outside-page scrolls
       // should close.
-      if (popoverRef.current?.contains(event.target)) return;
+      if (event.target instanceof Node && popoverRef.current?.contains(event.target)) return;
       onClose();
     };
     window.addEventListener('mousedown', handlePointer);
-    window.addEventListener('keydown', handleKey);
+    window.addEventListener('keydown', handleKey, true);
     window.addEventListener('scroll', handleScroll, true);
     return () => {
       window.removeEventListener('mousedown', handlePointer);
-      window.removeEventListener('keydown', handleKey);
+      window.removeEventListener('keydown', handleKey, true);
       window.removeEventListener('scroll', handleScroll, true);
     };
-  }, [onClose]);
+  }, [onClose, anchorElement]);
 
   if (!anchorRect) return null;
 
@@ -177,25 +200,31 @@ const ClaimCitationPopover = ({ anchorRect, support, sources, claim, onClose, on
     <div
       ref={popoverRef}
       className={`wiki-claim-popover wiki-claim-popover--${position?.side || 'above'} wiki-claim-popover--${support}`}
+      tabIndex={-1}
       role="dialog"
       aria-label="Claim citations"
       style={{
         position: 'fixed',
         top: position ? `${position.top}px` : '-9999px',
         left: position ? `${position.left}px` : '-9999px',
-        width: `${POPOVER_WIDTH}px`,
+        width: `${width}px`,
+        maxHeight: `${maxHeight}px`,
+        boxSizing: 'border-box',
+        overflowY: 'auto',
+        overflowWrap: 'anywhere',
         zIndex: 60
       }}
     >
+      <button type="button" className="wiki-claim-popover__close" onClick={() => close(true)} aria-label="Close claim citations">Close</button>
       <div className="wiki-claim-popover__head">
         <span className={`wiki-claim-popover__pill wiki-claim-popover__pill--${support}`}>
-          {SUPPORT_LABEL[support] || SUPPORT_LABEL.supported}
+          {SUPPORT_LABEL[support] || SUPPORT_LABEL.unknown}
         </span>
         <span className="wiki-claim-popover__count">
           {sources.length} source{sources.length === 1 ? '' : 's'}
         </span>
       </div>
-      <p className="wiki-claim-popover__blurb">{SUPPORT_BLURB[support] || SUPPORT_BLURB.supported}</p>
+      <p className="wiki-claim-popover__blurb">{SUPPORT_BLURB[support] || SUPPORT_BLURB.unknown}</p>
       {claim ? (
         <dl className="wiki-claim-popover__ledger" aria-label="Claim ledger">
           {born ? (
@@ -247,7 +276,7 @@ const ClaimCitationPopover = ({ anchorRect, support, sources, claim, onClose, on
       ) : null}
       {sources.length > 0 ? (
         <div className="wiki-claim-popover__evidence-groups">
-          <EvidenceList title="Supporting sources" sources={supportingSources} role="supports" />
+          <EvidenceList title={SUPPORT_LABEL[support] && support !== 'unknown' ? 'Supporting sources' : 'Attached sources'} sources={supportingSources} role="supports" />
           <EvidenceList title="Contradicting sources" sources={contradictingSources} role="contradicts" />
         </div>
       ) : (
