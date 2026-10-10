@@ -155,7 +155,8 @@ describe('WikiPageEditor', () => {
 
   it('returns focus without reopening through both native TipTap focusin and React focus', async () => {
     mockEditor.renderTestContent = <button className="wiki-claim-citation" data-citation-indexes="1" data-testid="focus-marker">[1]</button>;
-    render(<MemoryRouter><WikiPageEditor pageId="wiki-1" /></MemoryRouter>);
+    const onDoneEditing = jest.fn();
+    render(<MemoryRouter><WikiPageEditor pageId="wiki-1" onDoneEditing={onDoneEditing} /></MemoryRouter>);
     await screen.findByDisplayValue('Enterprise AI Memory');
     const content = screen.getByTestId('wiki-editor-content');
     const nativeFocus = event => mockUseEditor.mock.calls.at(-1)[0].editorProps.handleDOMEvents.focusin(null, event);
@@ -165,6 +166,7 @@ describe('WikiPageEditor', () => {
     expect(await screen.findByRole('dialog', { name: 'Claim citations' })).toHaveFocus();
     fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
     expect(screen.queryByRole('dialog')).toBeNull(); expect(marker).toHaveFocus();
+    expect(onDoneEditing).not.toHaveBeenCalled();
     await act(async () => {});
     fireEvent.mouseOver(marker);
     expect(await screen.findByRole('dialog', { name: 'Claim citations' })).toHaveFocus();

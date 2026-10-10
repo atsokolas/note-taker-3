@@ -185,11 +185,11 @@ const ClaimCitationPopover = ({ anchorRect, anchorElement, support, sources = EM
       onClose();
     };
     window.addEventListener('mousedown', handlePointer);
-    window.addEventListener('keydown', handleKey);
+    window.addEventListener('keydown', handleKey, true);
     window.addEventListener('scroll', handleScroll, true);
     return () => {
       window.removeEventListener('mousedown', handlePointer);
-      window.removeEventListener('keydown', handleKey);
+      window.removeEventListener('keydown', handleKey, true);
       window.removeEventListener('scroll', handleScroll, true);
     };
   }, [onClose, anchorElement]);
