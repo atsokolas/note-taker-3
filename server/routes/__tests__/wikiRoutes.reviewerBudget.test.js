@@ -13,7 +13,8 @@ const ordinary = '555555555555555555555555'; const ordinaryPageId = '66666666666
 const originalPolicy = { ...policy }; let mongo; let providerCalls = 0;
 test.before(async () => {
   Object.assign(policy, target); mongo = await MongoMemoryServer.create(); await mongoose.connect(mongo.getUri());
-  await Article.collection.insertMany(target.sourceIds.map(id => ({ _id: new mongoose.Types.ObjectId(id), userId: new mongoose.Types.ObjectId(target.userId), title: 'Fictional source', content: 'Fictional evidence.' })));
+  await Article.init();
+  await Article.collection.insertMany(target.sourceIds.map((id, index) => ({ _id: new mongoose.Types.ObjectId(id), userId: new mongoose.Types.ObjectId(target.userId), url: `https://example.com/noeis-openai-review/source-${index + 1}`, title: 'Fictional source', content: 'Fictional evidence.' })));
 });
 test.after(async () => { Object.assign(policy, originalPolicy); await mongoose.disconnect(); if (mongo) await mongo.stop(); });
 const res = () => ({ statusCode: 200, status(value) { this.statusCode = value; return this; }, json(value) { this.body = value; return this; } });
