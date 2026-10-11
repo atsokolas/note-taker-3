@@ -1,4 +1,5 @@
 const { CHATGPT_ACCESS_PROFILE } = require('../services/chatgptAccessPolicy');
+const { reviewerMaintenanceArgs: defaultReviewerMaintenanceArgs, isReviewer, readReviewerBudgetStatus } = require('../services/reviewerRehearsalBudget');
 const express = require('express');
 const { collectContradictions, contradictionsTouching } = require('../services/wikiContradictionService');
 const { describeHistory, describeSince, isPromoted } = require('../services/wikiChangeStory');
@@ -1847,6 +1848,7 @@ const buildWikiRouter = ({
   updateNotionPageTitle = null,
   decryptSecret = null,
   maintainWikiPage = defaultMaintainWikiPage,
+  reviewerMaintenanceArgs = defaultReviewerMaintenanceArgs,
   asyncBuildTimeoutMs = DEFAULT_ASYNC_BUILD_TIMEOUT_MS,
   evaluateWikiArticleQuality = defaultEvaluateWikiArticleQuality,
   prepareOrdinaryWikiBuild = defaultPrepareOrdinaryWikiBuild,
@@ -5452,7 +5454,9 @@ const buildWikiRouter = ({
           }
         });
       }
-      res.status(200).json(serializeWikiPage(page));
+      const reviewerBudget = page.visibility === 'private'
+        ? await readReviewerBudgetStatus({ userId: req.user.id, pageId: page._id }) : null;
+      res.status(200).json({ ...serializeWikiPage(page), ...(reviewerBudget ? { reviewerBudget } : {}) });
     } catch (_error) {
       res.status(400).json({ error: 'Invalid wiki page id.' });
     }
@@ -7244,6 +7248,13 @@ const buildWikiRouter = ({
       if (buildLease?.page) page = buildLease.page;
       repoHeadSha = buildLease?.headSha || '';
       const before = snapshotPage(page);
+      const boundedMaintenanceArgs = reviewerMaintenanceArgs({ userId: req.user.id, page });
+      if (isReviewer(req.user.id) && await Article.countDocuments({
+        userId: req.user.id,
+        _id: { $in: page.sourceRefs.map(ref => ref.objectId) }
+      }) !== 2) {
+        return res.status(422).json({ code: 'REVIEWER_SOURCE_OWNERSHIP_MISMATCH', error: 'Reviewer fixture sources must belong to the verified reviewer.' });
+      }
 
       page.aiState = {
         ...(page.aiState?.toObject ? page.aiState.toObject() : page.aiState || {}),
@@ -7260,9 +7271,10 @@ const buildWikiRouter = ({
         WikiRevision,
         beforeSnapshot: before,
         requireFirstHeadAcceptance: /^company-dossier:/i.test(String(page?.createdFrom?.label || '')),
-        requireOwnerAcceptance: req.agentToken?.accessProfile === CHATGPT_ACCESS_PROFILE || Boolean(page?.investmentDossier?.version),
+        requireOwnerAcceptance: req.agentToken?.accessProfile === CHATGPT_ACCESS_PROFILE || Boolean(page?.investmentDossier?.version) || isReviewer(req.user.id),
         maintainWikiPageFn: maintainWikiPage,
         maintainArgs: {
+          ...boundedMaintenanceArgs,
           wikiSchemaContent: await loadWikiSchemaContent(req.user.id),
           models: {
             Article,
@@ -7360,6 +7372,9 @@ const buildWikiRouter = ({
       }
     } catch (error) {
       console.error('Error maintaining wiki page:', error);
+      if ((typeof error.code === 'string' && error.code.startsWith('REVIEWER_'))) {
+        return res.status(error.status || 409).json({ code: error.code, error: error.message });
+      }
       if (buildLease?.acquired && page) {
         await releaseRepoBuildLease({
           WikiPage,

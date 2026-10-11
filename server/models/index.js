@@ -1470,7 +1470,7 @@ const wikiSourceEventSchema = new mongoose.Schema({
   text: { type: String, default: '', trim: true },
   url: { type: String, default: '', trim: true },
   sourceUpdatedAt: { type: Date, default: null },
-  status: { type: String, enum: ['pending', 'processing', 'processed', 'failed', 'ignored'], default: 'pending', index: true },
+  status: { type: String, enum: ['pending', 'processing', 'processed', 'failed', 'ignored', 'held'], default: 'pending', index: true },
   affectedPageIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
   attemptCount: { type: Number, default: 0 },
   lockedAt: { type: Date, default: null },
@@ -3164,7 +3164,7 @@ const embeddingJobSchema = new mongoose.Schema({
   payload: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
   status: {
     type: String,
-    enum: ['queued', 'running', 'completed', 'failed', 'abandoned'],
+    enum: ['queued', 'running', 'completed', 'failed', 'abandoned', 'held'],
     default: 'queued',
     index: true
   },

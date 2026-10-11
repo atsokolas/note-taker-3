@@ -1,4 +1,5 @@
 const { processWikiSourceEvent } = require('./wikiMaintenanceOrchestrator');
+const { policy, isReviewer } = require('./reviewerRehearsalBudget');
 const {
   claimUpdate,
   claimableEventQuery,
@@ -10,9 +11,11 @@ const claimPendingWikiSourceEvents = async ({
   WikiSourceEvent,
   userId,
   limit = 5,
-  at = now()
+  at = now(),
+  reviewerPolicy = policy
 } = {}) => {
   if (!WikiSourceEvent || !userId) return [];
+  if (isReviewer(userId, reviewerPolicy)) return [];
   const claimed = [];
   const max = Math.max(1, Math.min(Number(limit) || 5, 25));
   const baseQuery = {
@@ -66,7 +69,8 @@ const processPendingWikiSourceEvents = async ({
   return results;
 };
 
-const dueSourceEventQuery = (at = now()) => claimableEventQuery(at);
+const dueSourceEventQuery = (at = now(), target = policy) => ({ ...claimableEventQuery(at),
+  ...(isReviewer(target.userId, target) ? { userId: { $ne: target.userId } } : {}) });
 
 const orderUserIdsForDrain = async ({ WikiSourceEvent, at = now() } = {}) => {
   const dueQuery = dueSourceEventQuery(at);

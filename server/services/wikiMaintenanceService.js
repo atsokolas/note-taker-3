@@ -4262,6 +4262,7 @@ const maintainWikiPage = async ({
   recoveryDraftQuality = null,
   skipQualityRebuild = false,
   streamDraft = false,
+  failClosedChat = false,
   onProgress = null
 }) => {
   const normalizedProfile = normalizeMaintenanceProfile(maintenanceProfile);
@@ -4528,6 +4529,7 @@ const maintainWikiPage = async ({
         provider: modelInfo.provider
       });
     } catch (error) {
+      if (failClosedChat && (typeof error.code === 'string' && error.code.startsWith('REVIEWER_'))) throw error;
       modelInfo = { model: 'local-maintainer', provider: '' };
       result = null;
       await emitProgress({
@@ -4721,6 +4723,7 @@ const maintainWikiPage = async ({
         }
       }
       } catch (_error) {
+        if (failClosedChat && typeof _error.code === 'string' && _error.code.startsWith('REVIEWER_')) throw _error;
         materialized.quality = {
           ...materialized.quality,
           rebuildAttempted: true,
