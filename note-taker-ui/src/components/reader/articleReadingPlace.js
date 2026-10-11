@@ -95,3 +95,18 @@ export const previewPassage = (
   const node = readingCandidates(root)[0];
   return node ? anchorForReadingNode(root, node, snapshot) : null;
 };
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const dayStart = (date) => new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+
+/* "You stopped here on Tuesday." The day in the words you would use for it. */
+export const stoppedHereLine = (visitedAt, { exact = true, now = new Date() } = {}) => {
+  const here = exact ? 'You stopped here' : 'You stopped near here';
+  const at = new Date(visitedAt || '');
+  if (Number.isNaN(at.getTime())) return `${here}.`;
+  const days = Math.round((dayStart(now) - dayStart(at)) / DAY_MS);
+  if (days <= 0) return `${here} earlier today.`;
+  if (days === 1) return `${here} yesterday.`;
+  if (days < 7) return `${here} on ${at.toLocaleDateString('en-US', { weekday: 'long' })}.`;
+  return `${here} on ${at.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}.`;
+};

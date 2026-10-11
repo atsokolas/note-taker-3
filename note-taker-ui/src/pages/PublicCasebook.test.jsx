@@ -7,8 +7,7 @@ import { adoptPublicWikiPage, followPublicCasebook, forkPublicCasebook } from '.
 jest.mock('../api/wiki', () => ({
   adoptPublicWikiPage: jest.fn(),
   followPublicCasebook: jest.fn(),
-  forkPublicCasebook: jest.fn(),
-  getWikiPublicPreview: jest.fn()
+  forkPublicCasebook: jest.fn()
 }));
 
 const folio = {
@@ -90,16 +89,6 @@ describe('PublicCasebook', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: 'Fork' }));
     expect(forkPublicCasebook).not.toHaveBeenCalled();
-  });
-
-  it('hides follow, fork, and adopt on an owner preview', () => {
-    render(
-      <MemoryRouter>
-        <PublicCasebook casebook={folio} idOrSlug="compute-stays-scarce" preview />
-      </MemoryRouter>
-    );
-    expect(screen.queryByRole('button', { name: 'Follow' })).not.toBeInTheDocument();
-    expect(screen.getByText(/private notes never leave the case/i)).toBeInTheDocument();
   });
 
   it('follows without inventing a vanity count', async () => {

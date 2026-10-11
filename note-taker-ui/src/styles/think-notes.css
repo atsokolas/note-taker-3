@@ -111,31 +111,6 @@
   box-shadow: none;
 }
 
-.think-notes__edited {
-  margin: 0 0 4px;
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.84rem;
-}
-
-.think-notes__door {
-  display: block;
-  margin-top: 28px;
-  padding: 0;
-  border: 0;
-  border-bottom: 1px solid currentColor;
-  background: transparent;
-  color: var(--text-primary, var(--vellum-ink));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.9rem;
-  cursor: pointer;
-}
-
-.think-notes__door:hover,
-.think-notes__door:focus-visible {
-  color: var(--wiki-warm-accent, var(--vellum-warm));
-}
-
 .think-notes__quiet {
   margin: 0;
   max-width: 48ch;
@@ -243,28 +218,13 @@ body.noeis-editorial .think-notes .think-draft-block-tray,
 }
 
 /* Insertion controls stay in the existing slash menu. */
-body.noeis-editorial .think-notes .think-notebook-editor-actions-left,
-.think-notes .think-notebook-editor-actions-left {
-  display: none;
-}
 
 /* Keep the autosave receipt; hide the workbench controls. */
-body.noeis-editorial .think-notes .think-notebook-editor-actions-right > .ui-quiet-button,
-body.noeis-editorial .think-notes .think-notebook-editor-actions-overflow,
-.think-notes .think-notebook-editor-actions-right > .ui-quiet-button,
-.think-notes .think-notebook-editor-actions-overflow {
-  display: none;
-}
 
 /* Arrangement is a small tracking mark in the right gutter, not a bar on the essay. */
 body.noeis-editorial .think-notes .notebook-arrangement,
 .think-notes .notebook-arrangement {
   display: flex;
-}
-
-body.noeis-editorial .think-notes .think-notebook-editor-actions-right > .ui-quiet-button[data-notebook-finish],
-.think-notes .think-notebook-editor-actions-right > .ui-quiet-button[data-notebook-finish] {
-  display: inline-flex;
 }
 
 /* The title is the note's headline, not a form field. The body scope is
@@ -454,16 +414,6 @@ body.noeis-editorial .notebook-scratchpad .notebook-workbench__row-actions .ui-q
 }
 
 /* The save receipt belongs with the writing at the start of the column. */
-body.noeis-editorial .think-notes .think-notebook-editor-actions,
-.think-notes .think-notebook-editor-actions {
-  justify-content: flex-start;
-  margin-top: 0;
-}
-
-body.noeis-editorial .think-notes .think-notebook-editor-actions-right,
-.think-notes .think-notebook-editor-actions-right {
-  justify-content: flex-start;
-}
 
 /* ---- From the lock -------------------------------------------------------
  *
@@ -480,8 +430,7 @@ body.noeis-editorial .think-notes .think-notebook-editor-actions-right,
 
 /* The shelf is separated from the reading by a rule, so the column has an edge
    rather than floating in the margin. */
-.think-notes .think-notes__shelf,
-.think-notes .think-shelf {
+.think-notes .think-notes__shelf {
   border-right: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 52%, transparent);
   padding-right: clamp(18px, 2vw, 32px);
 }
@@ -606,3 +555,46 @@ body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.think-note
   body.think-focus-held .think-notes__alternatives, body.think-focus-held .think-notes__partner { display: none; }
   body.think-focus-held .think-notes__shelf .think-focus-mode__label { display: none; }
 }
+
+/* ---- One list ---------------------------------------------------------- */
+.think-notes__kinds { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 14px 0 6px; }
+.think-notes__kinds button {
+  padding: 3px 0;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  font: 0.76rem var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  cursor: pointer;
+}
+.think-notes__kinds button[aria-pressed='true'] { border-bottom-color: currentColor; color: var(--text-primary); }
+.think-notes__new-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 12px; }
+.think-notes__new-row { margin: 12px 0 6px; }
+.think-notes__new-row .think-notes__new { width: auto; margin: 0; text-align: left; white-space: nowrap; }
+.think-notes__new-row .think-notes__new + .think-notes__new { color: var(--text-muted); }
+.think-notes__new-row .think-notes__new + .think-notes__new::before { content: '+ '; }
+.think-notes__naming input {
+  width: 100%;
+  margin: 10px 0 6px;
+  padding: 6px 0;
+  border: 0;
+  border-bottom: 1px solid var(--vellum-line);
+  background: transparent;
+  color: var(--text-primary);
+  font: 0.86rem var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+}
+.think-notes__kind {
+  justify-self: start;
+  color: var(--text-muted);
+  font: 0.62rem var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* Handoffs and learning paths: a list and its page. */
+.think-ledger { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 24px; padding: 32px 0 80px; }
+.think-ledger--single { grid-template-columns: minmax(0, 1fr); }
+@media (max-width: 760px) { .think-ledger { grid-template-columns: minmax(0, 1fr); } }
+
+/* Partner speaks when asked: an idle trace line ("anchored to …") is noise here. */
+.think-notes__partner .agent-ticker[data-state='idle'] { display: none; }

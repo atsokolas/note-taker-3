@@ -14,9 +14,6 @@ jest.mock('../../utils/wikiFeatureFlags', () => ({
 jest.mock('./WikiBuildPageComposer', () => () => null);
 jest.mock('./WikiRepoCreateComposer', () => () => null);
 jest.mock('./WikiCompanyDossierComposer', () => () => null);
-jest.mock('./WikiFrontPageGraphMotif', () => () => null);
-jest.mock('./decisions/DecisionsIndex', () => () => null);
-jest.mock('../agent/AgentContextShell', () => ({ children }) => <>{children}</>);
 jest.mock('../agent/ThoughtPartnerPanel', () => () => null);
 jest.mock('../../layout/RightDrawer', () => ({ children }) => <>{children}</>);
 

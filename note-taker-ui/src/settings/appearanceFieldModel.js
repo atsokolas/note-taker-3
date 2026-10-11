@@ -4,8 +4,6 @@ export const APPEARANCE_FIELD_KEYS = Object.freeze([
   'typographyScale',
   'density',
   'theme',
-  'accent',
-  'brandEnergy',
   'motion'
 ]);
 
@@ -13,8 +11,6 @@ export const appearanceFieldLabel = {
   typographyScale: 'Reading size',
   density: 'List spacing',
   theme: 'Appearance',
-  accent: 'Accent',
-  brandEnergy: 'Decorative color',
   motion: 'Motion'
 };
 
@@ -22,13 +18,10 @@ const valueLabels = {
   typographyScale: { small: 'Small', default: 'Standard', large: 'Large' },
   density: { comfortable: 'Comfortable', compact: 'Compact' },
   theme: { auto: 'System', light: 'Light', dark: 'Dark', 'tokyo-midnight': 'Tokyo Midnight' },
-  accent: { electric: 'Cyan', violet: 'Violet', indigo: 'Indigo' },
-  brandEnergy: { true: 'On', false: 'Off' },
   motion: { system: 'Follow device', reduced: 'Less motion' }
 };
 
 export const formatAppearanceValue = (key, value) => {
-  if (key === 'brandEnergy') return valueLabels.brandEnergy[String(Boolean(value))];
   return valueLabels[key]?.[value] ?? String(value ?? '');
 };
 

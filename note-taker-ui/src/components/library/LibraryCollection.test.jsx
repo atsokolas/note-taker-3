@@ -105,6 +105,15 @@ test('one Peek at a time, including keyboard search access', async () => {
   fireEvent.keyDown(window, { key: '/' });
   expect(screen.getByRole('searchbox')).toHaveFocus();
 });
+test('a row opens its peek when tapped, without a label to aim at', async () => {
+  renderCollection({});
+  await screen.findByText('A quiet reading');
+  expect(screen.queryByText(/Peek \+/)).not.toBeInTheDocument();
+  fireEvent.click(document.querySelector('.library-source-meta'));
+  expect(document.getElementById('peek-a')).toBeInTheDocument();
+  fireEvent.click(document.querySelector('.library-source-meta'));
+  expect(document.getElementById('peek-a')).not.toBeInTheDocument();
+});
 test('sort uses the same disclosure menu as the rest of Library tools', async () => {
   const onSortChange = jest.fn();
   renderCollection({ onSortChange });

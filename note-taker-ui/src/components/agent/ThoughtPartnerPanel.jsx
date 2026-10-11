@@ -607,7 +607,7 @@ const ThoughtPartnerPanel = ({
     } catch (chatError) {
       if (!isCurrentRequest() || isAbortError(chatError)) return;
       setInput(message);
-      setError(chatError.response?.data?.error || 'Failed to ask thought partner.');
+      setError(chatError.response?.data?.error || 'Partner couldn’t answer. Try again.');
     } finally {
       if (pendingRequestRef.current === request) {
         pendingRequestRef.current = null;
@@ -1659,7 +1659,7 @@ const ThoughtPartnerPanel = ({
         lines={tickerLines}
         state={tickerState}
         sharedMemory
-        surface={contextTitle || contextType || 'Thought partner'}
+        surface={contextTitle || contextType || 'Partner'}
       />
       {isPassiveNotebookPosture ? (
         <p className="agent-thought-partner__passive-status" data-testid="thought-partner-passive-status">
