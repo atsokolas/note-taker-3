@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { createWikiPage, getWikiIngestRun, undoWikiIngestRun } from '../api/wiki';
 import { wikiPagePath } from '../utils/wikiFeatureFlags';
 import { humanizeLabel } from '../utils/humanizeLabel';
+import { Button } from '../components/ui';
 
 const labelFor = (value = '') => humanizeLabel(value);
 
@@ -107,9 +108,9 @@ const WikiIngestRun = () => {
             <h2>{run.suggestedCreatePage.title}</h2>
             <p>Create a source page from this ingest so later reading has a page to land on.</p>
           </div>
-          <button type="button" onClick={handleCreatePage} disabled={acting}>
+          <Button variant="primary" onClick={handleCreatePage} disabled={acting}>
             Create wiki page
-          </button>
+          </Button>
         </section>
       ) : null}
       {!loading && !error && run?.affectedPageIds?.length > 0 && !run?.undoneAt ? (
@@ -119,9 +120,9 @@ const WikiIngestRun = () => {
             <h2>Undo this ingest</h2>
             <p>Restore affected pages to their snapshots from before this source was applied.</p>
           </div>
-          <button type="button" onClick={handleUndo} disabled={acting}>
+          <Button onClick={handleUndo} disabled={acting}>
             Undo ingest
-          </button>
+          </Button>
         </section>
       ) : null}
       {!loading && !error ? (

@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&display=swap');
+
 /* Shell palette, type, space, controls, and motion now live in
    semantic-theme.css. This file contains component and room presentation. */
 
@@ -2241,46 +2243,13 @@ button.connections-row {
   gap: 10px;
 }
 
-.concept-path-hero {
-  border: 1px solid var(--border-subtle);
-  border-radius: 14px;
-  padding: 16px;
-  background: linear-gradient(180deg, var(--surface), color-mix(in srgb, var(--accent-soft) 38%, var(--surface)));
-  display: grid;
-  gap: 14px;
-}
-
-.concept-path-hero__copy {
-  display: grid;
-  gap: 8px;
-}
-
-.concept-path-hero__copy h2 {
-  margin: 0;
-  font-size: 1.4rem;
-  line-height: 1.15;
-  color: var(--text);
-}
-
-.concept-path-hero__copy p {
-  margin: 0;
-  color: var(--text-secondary);
-}
-
-.concept-path-hero__eyebrow {
-  font-size: 0.72rem;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
-.concept-path-hero__stats {
+.concept-path-stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
 }
 
-.concept-path-hero__stats div {
+.concept-path-stats div {
   border: 1px solid var(--border-subtle);
   border-radius: 12px;
   padding: 10px 12px;
@@ -2289,12 +2258,12 @@ button.connections-row {
   gap: 4px;
 }
 
-.concept-path-hero__stats strong {
+.concept-path-stats strong {
   font-size: 1.2rem;
   color: var(--text);
 }
 
-.concept-path-hero__stats span {
+.concept-path-stats span {
   font-size: 0.78rem;
   color: var(--muted);
 }
@@ -2474,7 +2443,7 @@ button.connections-row {
 }
 
 @media (max-width: 720px) {
-  .concept-path-hero__stats {
+  .concept-path-stats {
     grid-template-columns: 1fr;
   }
 }
@@ -5568,13 +5537,6 @@ html[data-ui-theme='dark'] .external-bridge-pre {
   }
 }
 
-/* Editorial workbench borders read a half-step too soft on the Noeis
-   rebrand’s near-black panels. Nudge the single token without rewriting the
-   editorial palette. */
-html[data-ui-theme='dark'] body.noeis-editorial {
-  --vellum-line: rgba(210, 220, 255, 0.22);
-}
-
 /* Shared EmptyState + ErrorState ------------------------------------------ */
 
 .empty-state {
@@ -5596,7 +5558,6 @@ html[data-ui-theme='dark'] body.noeis-editorial {
 }
 
 .concept-share-modal__pitch {
-  margin: 0;
   font-size: 0.95rem;
   line-height: 1.55;
   color: var(--text);
@@ -6631,7 +6592,6 @@ textarea.think-share-view__offer-field {
   }
 }
 
-
 /* Onboarding — the extension ask.
    Reads as the agent asking for something, not as a settings row. */
 .extension-capture-card {
@@ -6708,7 +6668,6 @@ textarea.think-share-view__offer-field {
     gap: 12px;
   }
 }
-
 
 /* Public wikis you can fork. Editorial, matching the proof gallery around it. */
 .forkable-wikis {
@@ -6939,4 +6898,891 @@ textarea.noeis-form-control {
   .selection-menu__ink:focus-visible {
     transform: none;
   }
+}
+
+/* The editorial house layer: room tokens, base type, fields and shared controls. */
+
+body.noeis-editorial {
+  --noeis-ui-font: var(--noeis-font-ui);
+  /* The bar is fixed, so the page underneath has to reserve room for it. That
+     reservation was 84px against a bar that renders at 87, so every page in
+     the product began three pixels beneath the bar — invisible until the
+     Library's first line became large serif and the bar started shaving the
+     tops off its ascenders.
+
+     The bar sizes itself from its contents, so nothing can derive this
+     number; it is a reservation, and it is deliberately larger than the bar
+     has ever been. The air below it is why a pixel of drift stops mattering:
+     a first line that clears the bar by a hair is still crowded by it. */
+  /* Where the pointer is. The one cool value in a warm palette, so it can
+     never be read as ink or as thread. */
+  --noeis-pointer: #6f87ff;
+  --noeis-topbar-height: 88px;
+  --noeis-topbar-air: 20px;
+  --vellum-bg: var(--noeis-canvas);
+  --vellum-panel: var(--noeis-paper);
+  --vellum-panel-strong: var(--noeis-paper-muted);
+  --vellum-panel-stronger: var(--noeis-paper-sunken);
+  --vellum-ink: var(--text-primary);
+  /* Human writes in full ink. The agent is a half-step warmer — you always
+     know who spoke, without a badge. */
+  --ink-human: var(--vellum-ink);
+  --ink-agent: color-mix(in srgb, var(--vellum-warm, #b1862e) 26%, var(--vellum-ink));
+  --vellum-muted: var(--text-secondary);
+  --vellum-subtle: var(--text-muted);
+  --vellum-line: var(--surface-border);
+  --vellum-line-strong: var(--noeis-rule-strong);
+  --vellum-accent: var(--noeis-ink-muted);
+  --vellum-warm: var(--noeis-thread-strong);
+  --vellum-gold: var(--noeis-thread-strong);
+  --vellum-cyan: #1d8fa2;
+  --vellum-error: var(--noeis-danger);
+  --wiki-graph-node-concept: var(--wiki-warm-accent, #b1862e);
+  --wiki-graph-node-entity: #6f6a61;
+  --wiki-graph-node-source: var(--wiki-warm-accent, #b1862e);
+  --wiki-graph-node-question: #74706a;
+  --wiki-graph-node-comparison: #8b8176;
+  --wiki-graph-node-overview: #625d55;
+  --wiki-graph-node-project: #7a6040;
+  --wiki-graph-node-log: #62707a;
+  --wiki-graph-node-topic: #5f6468;
+  --wiki-graph-edge-wikiLink: var(--wiki-warm-accent, #b1862e);
+  --wiki-graph-edge-shared_source: #8f8373;
+  --wiki-graph-edge-related: #7a8088;
+  --wiki-graph-edge-needs_review: var(--wiki-warm-accent, #b1862e);
+  --wiki-graph-edge-supports: #7a756d;
+  --wiki-graph-edge-contradicts: #9b5a46;
+  --wiki-graph-edge-extends: #8b7652;
+  --wiki-graph-label-backdrop: rgba(255, 252, 247, 0.82);
+  --wiki-graph-label-text: #1f2933;
+  --wiki-graph-node-stroke: rgba(255, 255, 255, 0.62);
+  --vellum-shadow: var(--noeis-shadow-float);
+  /* Quiet gray ink for dates and meta lines. */
+  --dropzone-border-active: rgba(56, 56, 49, 0.38);
+  --dropzone-text-quiet: rgba(56, 56, 49, 0.5);
+  /* Room aliases are deliberately derived from the semantic shell package. */
+  --surface-muted: var(--vellum-panel-strong);
+  --surface-elevated: var(--vellum-panel);
+  --surface-card: var(--vellum-bg);
+  --surface-panel: var(--vellum-panel);
+  --surface: var(--vellum-bg);
+  color-scheme: inherit;
+  font-family: var(--font-serif);
+}
+
+body.noeis-editorial,
+body.noeis-editorial .topbar,
+body.noeis-editorial .ui-card,
+body.noeis-editorial .wiki-read,
+body.noeis-editorial .wiki-workspace,
+body.noeis-editorial .agent-ticker {
+  transition:
+    background-color var(--noeis-motion-base) var(--noeis-ease-standard),
+    border-color var(--noeis-motion-base) var(--noeis-ease-standard),
+    color var(--noeis-motion-base) var(--noeis-ease-standard),
+    box-shadow var(--noeis-motion-base) var(--noeis-ease-standard);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.noeis-editorial,
+  body.noeis-editorial .topbar,
+  body.noeis-editorial .ui-card,
+  body.noeis-editorial .wiki-read,
+  body.noeis-editorial .wiki-workspace,
+  body.noeis-editorial .agent-ticker {
+    transition: none;
+  }
+}
+
+/* Dark room-only roles. Shell palette, typography, and motion still come from
+   the active semantic theme package. */
+
+html[data-ui-theme='dark'] body.noeis-editorial {
+  --vellum-bg: var(--noeis-canvas);
+  --vellum-panel: var(--noeis-paper);
+  --vellum-panel-strong: var(--noeis-paper-muted);
+  --vellum-panel-stronger: var(--noeis-paper-sunken);
+  --vellum-ink: var(--text-primary);
+  --ink-human: var(--vellum-ink);
+  --ink-agent: color-mix(in srgb, var(--vellum-warm, #b1862e) 26%, var(--vellum-ink));
+  --vellum-muted: var(--text-secondary);
+  --vellum-subtle: var(--text-muted);
+  --vellum-line: var(--surface-border);
+  --vellum-line-strong: var(--noeis-rule-strong);
+  --vellum-accent: var(--noeis-ink-muted);
+  --vellum-warm: var(--noeis-thread-strong);
+  --vellum-cyan: #5ac7d6;
+  --vellum-error: var(--noeis-danger);
+  --wiki-graph-node-concept: #c79a43;
+  --wiki-graph-node-entity: #9d9487;
+  --wiki-graph-node-source: #d2a34a;
+  --wiki-graph-node-question: #a69a87;
+  --wiki-graph-node-comparison: #b09a78;
+  --wiki-graph-node-overview: #b8ad9c;
+  --wiki-graph-node-project: #c09663;
+  --wiki-graph-node-log: #8fa4ad;
+  --wiki-graph-node-topic: #9aa0a1;
+  --wiki-graph-edge-wikiLink: #d0a34a;
+  --wiki-graph-edge-shared_source: #b6a28a;
+  --wiki-graph-edge-related: #9aa0a8;
+  --wiki-graph-edge-needs_review: #d8ac55;
+  --wiki-graph-edge-supports: #b5aa96;
+  --wiki-graph-edge-contradicts: #d47d63;
+  --wiki-graph-edge-extends: #c2a06a;
+  --wiki-graph-label-backdrop: rgba(20, 17, 13, 0.76);
+  --wiki-graph-label-text: #efe6d4;
+  --wiki-graph-node-stroke: rgba(239, 230, 212, 0.36);
+  --vellum-shadow: var(--noeis-shadow-float);
+  color-scheme: inherit;
+
+  /* The same quiet ink, lifted for a dark page. */
+  --dropzone-border-active: rgba(210, 210, 198, 0.55);
+  --dropzone-text-quiet: rgba(190, 190, 178, 0.5);
+  background: var(--vellum-bg) !important;
+  color: var(--vellum-ink);
+}
+
+body.noeis-editorial::before,
+body.noeis-editorial::after,
+body.noeis-editorial .app-shell-new::before,
+body.noeis-editorial .app-shell-new::after {
+  display: none !important;
+  content: none !important;
+}
+
+body.noeis-editorial,
+body.noeis-editorial #root,
+body.noeis-editorial .ui-page,
+body.noeis-editorial .page-area,
+body.noeis-editorial .app-shell-new,
+body.noeis-editorial .app-shell-new__main,
+body.noeis-editorial .app-shell-new__body {
+  background: var(--vellum-bg) !important;
+  color: var(--vellum-ink);
+}
+
+body.noeis-editorial * {
+  box-sizing: border-box;
+}
+
+body.noeis-editorial h1,
+body.noeis-editorial h2,
+body.noeis-editorial h3,
+body.noeis-editorial h4,
+body.noeis-editorial h5,
+body.noeis-editorial h6,
+body.noeis-editorial .ui-section-header__title,
+body.noeis-editorial .article-reader-title,
+body.noeis-editorial .library-article-row-title,
+body.noeis-editorial .notebook-ref-title {
+  font-family: var(--font-serif);
+  font-weight: 350;
+  letter-spacing: -0.04em;
+  color: var(--text-primary);
+}
+
+body.noeis-editorial p,
+body.noeis-editorial .muted,
+body.noeis-editorial .small,
+body.noeis-editorial .ui-section-header__subtitle,
+body.noeis-editorial .library-article-row-excerpt,
+body.noeis-editorial .article-reader-meta,
+body.noeis-editorial .article-reader-content {
+  color: var(--vellum-muted) !important;
+}
+
+body.noeis-editorial input,
+body.noeis-editorial textarea,
+body.noeis-editorial select,
+body.noeis-editorial button {
+  font-family: var(--font-sans);
+}
+
+body.noeis-editorial .topbar__button,
+body.noeis-editorial .topbar__menu-item,
+body.noeis-editorial .ui-button,
+body.noeis-editorial .ui-quiet-button,
+body.noeis-editorial .ui-tag-chip,
+body.noeis-editorial .notebook-tag-chip {
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: var(--vellum-accent) !important;
+  box-shadow: none !important;
+  text-decoration: none;
+}
+
+body.noeis-editorial .topbar__button,
+body.noeis-editorial .topbar__menu-item,
+body.noeis-editorial .ui-button,
+body.noeis-editorial .ui-quiet-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 10px 11px;
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+body.noeis-editorial .topbar__button:hover,
+body.noeis-editorial .topbar__menu-item:hover,
+body.noeis-editorial .ui-button:hover,
+body.noeis-editorial .ui-quiet-button:hover {
+  background: var(--vellum-panel-strong) !important;
+  color: var(--vellum-ink) !important;
+  text-decoration: none;
+  transform: none;
+}
+
+body.noeis-editorial .topbar__button.is-active,
+body.noeis-editorial .ui-button-primary,
+body.noeis-editorial .ui-segmented-nav__item.is-active {
+  background: var(--vellum-panel-stronger) !important;
+  color: var(--vellum-ink) !important;
+}
+
+/* Panels embedded in the page have no chrome — the page is the surface, and a
+   card drawn around something already sitting on paper is a box around a box.
+
+   This does not extend to anything that floats. A command palette and a modal
+   are ui-cards too, and flattened they showed the page straight through their
+   own contents: the palette's rows were unreadable over the article title
+   behind them, and the Insert Article dialog put its dark ink on the dark
+   scrim, which is why its own title could not be read. Both of them already
+   declare a paper background; they were being overruled by a rule about
+   something else. A surface that floats keeps its surface. */
+
+body.noeis-editorial .ui-card:not(.palette-card),
+body.noeis-editorial .ui-surface-card,
+body.noeis-editorial .article-reader,
+body.noeis-editorial .think-notebook-editor,
+body.noeis-editorial .library-article-list,
+body.noeis-editorial .library-highlights-surface {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+body.noeis-editorial .ui-section-header__subtitle,
+body.noeis-editorial .muted-label,
+body.noeis-editorial .notebook-organize-label,
+body.noeis-editorial .library-article-row-source {
+  font-family: var(--font-sans) !important;
+  font-size: 0.68rem !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.18em !important;
+  text-transform: uppercase !important;
+  color: var(--vellum-subtle) !important;
+}
+
+body.noeis-editorial .ui-section-header {
+  align-items: baseline;
+  gap: 16px;
+  margin: 0 0 16px;
+}
+
+body.noeis-editorial .ui-section-header__title {
+  font-size: 1.55rem;
+  line-height: 1.05;
+}
+
+body.noeis-editorial .ui-segmented-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+body.noeis-editorial .ui-segmented-nav__item {
+  min-height: 44px;
+  padding: 8px 12px;
+}
+
+/* A field is a ruled line you write on.
+
+   This used to paint every input in the product as a filled panel with no
+   edge — a block dropped onto the page rather than something the page was
+   ruled for. Fifteen surfaces then wrote the same four declarations by hand
+   to escape it, each with a comment apologising for this rule, and each an
+   exact copy of the others. The product knew what a field was; it lost it
+   here, at the tag selector, and paid for it fifteen times.
+
+   So the line is the default, and the fifteen copies are gone. A field in
+   running prose now threads into the measure instead of interrupting it,
+   which is the whole reason the reading column is set the way it is.
+
+   Wrapped in :where() so the exclusions cost no specificity — a bare chain
+   of :not() outranks the named chrome rule below it and quietly wins.
+
+   The controls that are not writing surfaces — a checkbox, a radio, the
+   ledger's time cursor — keep their own shapes. A tick box ruled like a
+   sentence is not a tick box. */
+
+body.noeis-editorial textarea,
+body.noeis-editorial select,
+body.noeis-editorial input:where(:not([type='checkbox'], [type='radio'], [type='range'], [type='color'], [type='file'])) {
+  border: 0 !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 78%, transparent) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  color: var(--vellum-ink) !important;
+}
+
+/* The line inks while you are writing on it. */
+
+body.noeis-editorial textarea:focus,
+body.noeis-editorial select:focus,
+body.noeis-editorial input:where(:not([type='checkbox'], [type='radio'], [type='range'], [type='color'], [type='file'])):focus {
+  outline: none;
+  border-bottom-color: var(--vellum-ink) !important;
+}
+
+/* A field standing in chrome is a box, because chrome is where controls live
+   and a lone rule in a rail has nothing to thread into. These are the
+   surfaces that asked for it. */
+
+body.noeis-editorial .feedback-field input,
+body.noeis-editorial .think-notebook-title-input,
+body.noeis-editorial .notebook-organize-panel input,
+body.noeis-editorial .notebook-organize-panel select,
+body.noeis-editorial .room-shelf__search input {
+  border: 1px solid transparent !important;
+  border-radius: 2px !important;
+  background: var(--vellum-panel-strong) !important;
+}
+
+body.noeis-editorial .feedback-field input:focus,
+body.noeis-editorial .think-notebook-title-input:focus,
+body.noeis-editorial .notebook-organize-panel input:focus,
+body.noeis-editorial .notebook-organize-panel select:focus,
+body.noeis-editorial .room-shelf__search input:focus {
+  border-color: var(--wiki-warm-accent, var(--vellum-warm)) !important;
+}
+
+body.noeis-editorial .reference-pull-in {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
+  position: relative;
+}
+
+body.noeis-editorial .reference-pull-in__target {
+  margin: 0;
+}
+
+body.noeis-editorial .reference-pull-in__target strong {
+  font-weight: 650;
+  color: var(--vellum-ink);
+}
+
+body.noeis-editorial .reference-pull-in__relations {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+body.noeis-editorial .reference-pull-in__relations button {
+  min-height: 30px;
+  padding: 4px 9px;
+  border: 1px solid var(--vellum-line);
+  border-radius: 999px;
+  background: transparent;
+  color: color-mix(in srgb, var(--vellum-ink) 64%, transparent);
+  font-family: var(--font-sans);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+body.noeis-editorial .reference-pull-in__relations button[aria-pressed="true"] {
+  border-color: color-mix(in srgb, var(--noeis-accent, #11c5d9) 45%, var(--vellum-line));
+  color: var(--vellum-ink);
+  background: color-mix(in srgb, var(--noeis-accent, #11c5d9) 8%, transparent);
+}
+
+body.noeis-editorial .reference-pull-in__search {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  align-items: stretch;
+  min-width: 0;
+  max-width: 100%;
+}
+
+body.noeis-editorial .reference-pull-in__search input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--vellum-line);
+  border-radius: 0;
+  background: color-mix(in srgb, var(--vellum-page) 78%, transparent);
+  color: var(--vellum-ink);
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  line-height: 1.3;
+  padding: 10px 11px;
+}
+
+body.noeis-editorial .reference-pull-in__search input:focus {
+  outline: 1px solid var(--vellum-cyan);
+  outline-offset: 1px;
+}
+
+body.noeis-editorial .reference-pull-in__results,
+body.noeis-editorial .reference-pull-in__strip {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+body.noeis-editorial .reference-pull-in__receipt {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid color-mix(in srgb, var(--vellum-cyan) 36%, var(--vellum-line));
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--vellum-cyan) 10%, transparent),
+      color-mix(in srgb, var(--vellum-page) 88%, transparent)
+    );
+  color: var(--vellum-ink);
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  line-height: 1.35;
+  animation: referenceReceiptLand 360ms ease-out both;
+}
+
+body.noeis-editorial .reference-pull-in__receipt.is-existing {
+  border-color: color-mix(in srgb, var(--vellum-warm) 42%, var(--vellum-line));
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--vellum-warm) 12%, transparent),
+      color-mix(in srgb, var(--vellum-page) 88%, transparent)
+    );
+}
+
+body.noeis-editorial .reference-pull-in__receipt-dot {
+  width: 8px;
+  height: 8px;
+  margin-top: 4px;
+  border-radius: 999px;
+  background: var(--vellum-cyan);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--vellum-cyan) 14%, transparent);
+}
+
+body.noeis-editorial .reference-pull-in__receipt.is-existing .reference-pull-in__receipt-dot {
+  background: var(--vellum-warm);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--vellum-warm) 16%, transparent);
+}
+
+body.noeis-editorial .reference-pull-in__receipt strong,
+body.noeis-editorial .reference-pull-in__receipt em {
+  display: block;
+  min-width: 0;
+}
+
+body.noeis-editorial .reference-pull-in__receipt strong {
+  font-weight: 700;
+}
+
+body.noeis-editorial .reference-pull-in__receipt em {
+  overflow: hidden;
+  color: var(--vellum-muted);
+  font-style: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.noeis-editorial .reference-pull-in__trace {
+  display: grid;
+  gap: 5px;
+  margin: -2px 0 0;
+  padding: 7px 10px 7px 26px;
+  border-left: 1px solid color-mix(in srgb, var(--vellum-cyan) 44%, var(--vellum-line));
+  background: color-mix(in srgb, var(--vellum-page) 74%, transparent);
+  color: var(--vellum-muted);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  line-height: 1.35;
+}
+
+body.noeis-editorial .reference-pull-in__trace li::marker {
+  color: var(--vellum-cyan);
+  font-variant-numeric: tabular-nums;
+}
+
+body.noeis-editorial .reference-pull-in__arc {
+  position: relative;
+  display: block;
+  width: min(72px, 42%);
+  height: 18px;
+  margin: -3px 0 -4px 11px;
+  pointer-events: none;
+}
+
+body.noeis-editorial .reference-pull-in__arc::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-top: 1px solid color-mix(in srgb, var(--vellum-cyan) 62%, transparent);
+  border-left: 1px solid color-mix(in srgb, var(--vellum-cyan) 34%, transparent);
+  border-top-left-radius: 72px 18px;
+  opacity: 0;
+  transform: scaleX(0.12);
+  transform-origin: left center;
+  animation: referenceHairlineArc 380ms cubic-bezier(0.18, 0.88, 0.28, 1) both;
+}
+
+body.noeis-editorial .reference-pull-in__constellation {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--vellum-cyan) 22%, var(--vellum-line));
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--vellum-cyan) 7%, transparent), transparent 56%),
+    color-mix(in srgb, var(--vellum-panel) 78%, transparent);
+}
+
+body.noeis-editorial .reference-pull-in__constellation-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  color: var(--vellum-muted);
+  font-family: var(--font-sans);
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+body.noeis-editorial .reference-pull-in__constellation-head strong {
+  flex: 0 0 auto;
+  color: color-mix(in srgb, var(--vellum-ink) 76%, transparent);
+  font-size: 0.58rem;
+  font-variant-numeric: tabular-nums;
+}
+
+body.noeis-editorial .reference-pull-in__constellation-types {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+body.noeis-editorial .reference-pull-in__constellation-types span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 2px 7px;
+  border: 1px solid color-mix(in srgb, var(--vellum-line) 80%, transparent);
+  border-radius: 999px;
+  color: color-mix(in srgb, var(--vellum-ink) 72%, transparent);
+  font-family: var(--font-sans);
+  font-size: 0.64rem;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+body.noeis-editorial .reference-pull-in__constellation-edges {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+body.noeis-editorial .reference-pull-in__constellation-edge {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 7px;
+  align-items: baseline;
+  min-width: 0;
+  color: var(--vellum-ink);
+  font-family: var(--font-sans);
+  font-size: 0.7rem;
+  text-decoration: none;
+}
+
+body.noeis-editorial .reference-pull-in__constellation-edge span,
+body.noeis-editorial .reference-pull-in__constellation-edge em {
+  overflow: hidden;
+  color: var(--vellum-muted);
+  font-size: 0.56rem;
+  font-style: normal;
+  letter-spacing: 0.08em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+body.noeis-editorial .reference-pull-in__constellation-edge strong {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.noeis-editorial .reference-pull-in__backlinks {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding-top: 10px;
+  border-top: 1px solid color-mix(in srgb, var(--vellum-line) 76%, transparent);
+}
+
+body.noeis-editorial .reference-pull-in__backlinks-head,
+body.noeis-editorial .reference-pull-in__backlink-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: baseline;
+  min-width: 0;
+}
+
+body.noeis-editorial .reference-pull-in__backlinks-head {
+  color: var(--vellum-muted);
+  font-family: var(--font-sans);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+body.noeis-editorial .reference-pull-in__backlink-list {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+body.noeis-editorial .reference-pull-in__backlink-row {
+  color: color-mix(in srgb, var(--vellum-ink) 82%, transparent);
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  line-height: 1.4;
+  text-decoration: none;
+}
+
+body.noeis-editorial .reference-pull-in__constellation-edge[href]:hover,
+body.noeis-editorial .reference-pull-in__constellation-edge[href]:focus-visible,
+body.noeis-editorial .reference-pull-in__backlink-row[href]:hover,
+body.noeis-editorial .reference-pull-in__backlink-row[href]:focus-visible {
+  color: var(--vellum-cyan);
+}
+
+body.noeis-editorial .reference-pull-in__backlink-row span,
+body.noeis-editorial .reference-pull-in__backlink-row em {
+  overflow: hidden;
+  color: var(--vellum-muted);
+  font-size: 0.62rem;
+  font-style: normal;
+  letter-spacing: 0.08em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+body.noeis-editorial .reference-pull-in__backlink-row strong {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.noeis-editorial .reference-pull-in__result {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  padding: 10px 11px;
+  border: 1px solid color-mix(in srgb, var(--vellum-line) 88%, transparent);
+  background: color-mix(in srgb, var(--vellum-page) 82%, transparent);
+  color: inherit;
+  text-align: left;
+}
+
+body.noeis-editorial .reference-pull-in__result:hover,
+body.noeis-editorial .reference-pull-in__result:focus-within {
+  border-color: color-mix(in srgb, var(--vellum-cyan) 55%, var(--vellum-line));
+  background: color-mix(in srgb, var(--vellum-cyan) 8%, var(--vellum-page));
+  outline: none;
+}
+
+body.noeis-editorial .reference-pull-in__result-main {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+body.noeis-editorial .reference-pull-in__result-main:focus-visible {
+  outline: 1px solid color-mix(in srgb, var(--vellum-cyan) 60%, transparent);
+  outline-offset: 3px;
+}
+
+body.noeis-editorial .reference-pull-in__result-open {
+  display: inline-flex;
+  justify-self: start;
+  min-height: 32px;
+  min-width: 0;
+  max-width: 100%;
+  align-items: center;
+  overflow: hidden;
+  color: var(--text-link);
+  font-family: var(--font-sans);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+body.noeis-editorial .reference-pull-in__result-open:hover,
+body.noeis-editorial .reference-pull-in__result-open:focus-visible {
+  color: var(--vellum-cyan);
+  text-decoration: underline;
+}
+
+body.noeis-editorial .reference-pull-in__result-title {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--vellum-ink);
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.noeis-editorial .reference-pull-in__result-meta {
+  display: -webkit-box;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--vellum-muted);
+  font-size: 0.76rem;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+body.noeis-editorial .reference-pull-in__chip {
+  justify-content: flex-start;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.noeis-editorial .reference-pull-in__chip.is-linked {
+  border-color: color-mix(in srgb, var(--vellum-cyan) 44%, var(--vellum-line));
+  animation: referenceChipSnap 280ms ease-out both;
+}
+
+@keyframes referenceReceiptLand {
+  from {
+  opacity: 0;
+  transform: translateY(-4px);
+  }
+
+  to {
+  opacity: 1;
+  transform: translateY(0);
+  }
+}
+
+@keyframes referenceChipSnap {
+  0% {
+  transform: translateX(-3px);
+  }
+
+  100% {
+  transform: translateX(0);
+  }
+}
+
+@keyframes referenceHairlineArc {
+  0% {
+  opacity: 0;
+  transform: scaleX(0.12);
+  }
+
+  28% {
+  opacity: 1;
+  }
+
+  72% {
+  opacity: 1;
+  transform: scaleX(1);
+  }
+
+  100% {
+  opacity: 0;
+  transform: scaleX(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.noeis-editorial .reference-pull-in__receipt,
+  body.noeis-editorial .reference-pull-in__chip.is-linked,
+  body.noeis-editorial .reference-pull-in__arc::before {
+    animation: none;
+  }
+}
+
+body.noeis-editorial a {
+  color: var(--vellum-accent);
+}
+
+body.noeis-editorial a:hover {
+  color: var(--vellum-ink);
+}
+
+/* House surface cards. */
+
+:root {
+  --think-space-2: var(--space-2);
+  --think-space-3: var(--space-3);
+  --think-space-5: var(--space-5);
+  --think-space-6: var(--space-6);
+  --think-card-radius: 12px;
+  --think-card-border: color-mix(in srgb, var(--noeis-rule) 80%, transparent);
+  --think-card-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+  --think-card-shadow-hover: 0 10px 24px rgba(15, 23, 42, 0.09);
+}
+
+html[data-ui-theme='dark'] {
+  --think-card-border: color-mix(in srgb, var(--noeis-rule) 62%, transparent);
+  --think-card-shadow: 0 8px 22px rgba(0, 0, 0, 0.22);
+  --think-card-shadow-hover: 0 12px 28px rgba(0, 0, 0, 0.28);
 }

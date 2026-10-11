@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import useSeoMetadata from '../../hooks/useSeoMetadata';
+import { buttonClass } from '../ui';
 import {
   DEFAULT_LAST_UPDATED,
   DEFAULT_LAST_UPDATED_LABEL,
@@ -166,7 +167,7 @@ const SectionBlocks = ({ blocks, slug }) => blocks.map((block, index) => {
                   pageType: 'guide'
                 })
               : cta.href}
-            className={`ui-button ui-button-${cta.variant || 'secondary'}`}
+            className={buttonClass(cta.variant)}
             onClick={() => trackGuideCta({ page: slug, cta: cta.track || 'body', target: cta.href })}
           >
             {cta.label}
@@ -247,7 +248,7 @@ const GuideArticlePage = ({ slug }) => {
                       pageType: 'guide'
                     })
                   : cta.href}
-                className={`ui-button ui-button-${cta.variant || 'secondary'}`}
+                className={buttonClass(cta.variant)}
                 onClick={() => trackGuideCta({ page: guide.slug, cta: cta.track || 'hero', target: cta.href })}
               >
                 {cta.label}

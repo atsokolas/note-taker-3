@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../api';
+import { Button } from '../ui';
 
 const buildManifestFromPayload = (payload) => {
   const articles = Array.isArray(payload?.articles) ? payload.articles : [];
@@ -125,9 +126,9 @@ const DataSection = () => {
             <li className="settings-redesign__fact"><span>Collections</span><span>{manifest.collections}</span></li>
             <li className="settings-redesign__fact"><span>Not included</span><span>{manifest.omissions.join(', ')}</span></li>
           </ul>
-          <button type="button" className="settings-redesign__btn is-primary" style={{ marginTop: '1rem' }} onClick={downloadJson} disabled={loading}>
+          <Button variant="primary" style={{ marginTop: '1rem' }} onClick={downloadJson} disabled={loading}>
             Download structured JSON
-          </button>
+          </Button>
         </div>
       ) : null}
       {manifestError ? <p className="settings-redesign__help" role="alert">{manifestError}</p> : null}

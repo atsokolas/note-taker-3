@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { approveAgentConnectSession, getAgentConnectApprovalSession } from '../api/agent';
-import { Card, Page, PageHeader } from '../components/ui';
+import { Button, Card, Page, PageHeader, buttonClass } from '../components/ui';
 
 const SCOPE_LABELS = {
   read: 'Read, search, and retrieve your Noeis workspace',
@@ -87,7 +87,7 @@ const AgentConnectAuthorize = ({ searchOverride = '' }) => {
           <>
             <h2>Connection unavailable</h2>
             <p className="muted">{error}</p>
-            <Link to="/connections#agents" className="ui-button">Open Connections</Link>
+            <Link to="/connections#agents" className={buttonClass()}>Open Connections</Link>
           </>
         ) : (
           <>
@@ -150,15 +150,14 @@ const AgentConnectAuthorize = ({ searchOverride = '' }) => {
               <>
                 {error ? <p className="form-error">{error}</p> : null}
                 <div className="settings-actions">
-                  <button
-                    type="button"
-                    className="ui-button ui-button-primary"
+                  <Button
+                    variant="primary"
                     onClick={handleApprove}
                     disabled={!canApprove || approving}
                   >
                     {approving ? 'Approving...' : `Approve ${readOnly ? 'read access' : 'read and write access'}`}
-                  </button>
-                  <Link to="/connections#agents" className="ui-button">Decline for now</Link>
+                  </Button>
+                  <Link to="/connections#agents" className={buttonClass()}>Decline for now</Link>
                 </div>
               </>
             )}

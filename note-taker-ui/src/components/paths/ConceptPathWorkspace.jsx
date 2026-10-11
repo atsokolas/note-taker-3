@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Button, SectionHeader } from '../ui';
+import { Button, PageHeader, SectionHeader } from '../ui';
 import {
   addConceptPathItem,
   createConceptPath,
@@ -366,28 +366,24 @@ const ConceptPathWorkspace = ({ selectedPathId = '', onSelectPath }) => {
 
   return (
     <div className="section-stack">
-      <div className="concept-path-hero">
-        <div className="concept-path-hero__copy">
-          <span className="concept-path-hero__eyebrow">Concept paths</span>
-          <h2>{activePath?.title || 'Curated sequences through connected ideas.'}</h2>
-          <p>
-            {activePath?.description
-              || 'Build a deliberate route through notes, concepts, questions, and evidence so the next move is always obvious.'}
-          </p>
+      <PageHeader
+        eyebrow="Concept paths"
+        title={activePath?.title || 'Curated sequences through connected ideas.'}
+        lede={activePath?.description
+          || 'Build a deliberate route through notes, concepts, questions, and evidence so the next move is always obvious.'}
+      />
+      <div className="concept-path-stats">
+        <div>
+          <strong>{stepCount || paths.length || 0}</strong>
+          <span>{activePath ? 'Steps in path' : 'Paths in workspace'}</span>
         </div>
-        <div className="concept-path-hero__stats">
-          <div>
-            <strong>{stepCount || paths.length || 0}</strong>
-            <span>{activePath ? 'Steps in path' : 'Paths in workspace'}</span>
-          </div>
-          <div>
-            <strong>{understoodCount}</strong>
-            <span>Marked understood</span>
-          </div>
-          <div>
-            <strong>{remainingCount}</strong>
-            <span>Still to work through</span>
-          </div>
+        <div>
+          <strong>{understoodCount}</strong>
+          <span>Marked understood</span>
+        </div>
+        <div>
+          <strong>{remainingCount}</strong>
+          <span>Still to work through</span>
         </div>
       </div>
 

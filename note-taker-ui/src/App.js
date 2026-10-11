@@ -55,7 +55,6 @@ import './App.css';
 import './styles/reading-layout.css';
 import './styles/dashboard-refresh.css';
 import './styles/editions.css';
-import './styles/stitch-editorial.css';
 import './styles/think-notes.css';
 import './surface/surface-frame.css';
 import './styles/semantic-theme.css';
@@ -507,7 +506,7 @@ function App() {
 
   useEffect(() => (
     scheduleDeferredStyleLoad(() => {
-      import('./styles/think-home-polish.css');
+      import('./styles/wiki.css');
     })
   ), []);
 
@@ -538,7 +537,7 @@ function App() {
 
   useEffect(() => {
     // Add the editorial body class. Don't pin color-scheme inline — that
-    // overrides the dark/light selectors in theme.css and stitch-editorial.css
+    // overrides the dark/light selectors in theme.css
     // and was part of why the dark mode toggle appeared to do nothing.
     // color-scheme is now set inside the theme CSS itself, gated on
     // data-ui-theme, so flipping the theme attribute carries it along.

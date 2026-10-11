@@ -31,7 +31,6 @@ body {
 }
 
 .app-shell-new__nav {
-  position: sticky;
   top: 0;
   height: 100vh;
   padding: var(--space-16) var(--space-12);
@@ -56,7 +55,6 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-  position: sticky;
   top: 0;
   z-index: 40;
   padding: 12px 24px;
@@ -129,13 +127,6 @@ body {
   min-height: calc(100vh - 66px);
 }
 
-.ui-surface-card {
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--noeis-rule);
-  background: color-mix(in srgb, var(--noeis-paper) 90%, var(--noeis-paper-muted));
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
-}
-
 .ui-button,
 .ui-quiet-button,
 .ui-tag-chip,
@@ -147,25 +138,12 @@ select {
 }
 
 .ui-button {
-  min-height: 34px;
-  border-radius: var(--radius-pill);
   border-color: var(--noeis-rule);
-  font-size: var(--type-small);
-  letter-spacing: 0.01em;
-}
-
-.ui-button-primary {
-  background: #1f2f4f;
 }
 
 .ui-chip,
 .ui-tag-chip {
-  border-radius: var(--radius-pill);
   border-color: var(--noeis-rule);
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: var(--noeis-ink-muted);
-  background: color-mix(in srgb, var(--noeis-paper-muted) 88%, var(--noeis-paper));
 }
 
 .ui-chip.is-clickable {
@@ -173,23 +151,12 @@ select {
 }
 
 .ui-section-header__title {
-  font-size: var(--type-h2);
-  font-weight: 760;
   letter-spacing: -0.015em;
 }
 
-.ui-section-header__subtitle {
-  font-size: 0.8rem;
-  color: var(--noeis-ink-subtle);
-}
-
 .think-home__column-title {
-  color: var(--noeis-ink-subtle);
-  font-size: 0.68rem;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
   font-weight: 700;
-  margin: 0 0 4px;
 }
 
 .think-home__row-title {
@@ -197,7 +164,6 @@ select {
   color: var(--noeis-ink);
   font-size: 0.85rem;
   line-height: 1.35;
-  font-weight: 620;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -281,27 +247,15 @@ select {
   font-weight: 700;
 }
 
-@media (max-width: 1240px) {
-  .app-shell-new {
-    grid-template-columns: 90px minmax(0, 1fr);
-  }
-}
-
 @media (max-width: 1024px) {
   .app-shell-new {
     grid-template-columns: 1fr;
   }
 
   .app-shell-new__nav {
-    position: static;
     height: auto;
-    padding: 8px 14px;
     border-right: none;
     border-bottom: 1px solid var(--noeis-rule);
-  }
-
-  .app-shell-new__body {
-    padding: 14px;
   }
 }
 
@@ -414,20 +368,6 @@ select {
 .ui-section-header__title {
   font-size: 1.02rem;
   line-height: 1.14;
-  font-weight: 740;
-}
-
-.ui-section-header__subtitle {
-  font-size: 0.78rem;
-  color: var(--text-muted);
-  line-height: 1.35;
-}
-
-.ui-surface-card {
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-16);
-  background: var(--surface-card);
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
 }
 
 .think-home__row-title {
@@ -460,10 +400,6 @@ select {
     padding: 8px 12px;
   }
 
-  .topbar {
-    padding: 10px 14px;
-  }
-
   .app-shell-new__body {
     padding: 14px;
   }
@@ -494,4 +430,679 @@ select {
   justify-content: space-between;
   gap: var(--space-3);
   width: 100%;
+}
+
+/* The editorial shell and the top bar. */
+
+body.noeis-editorial .ui-page,
+body.noeis-editorial .page-area {
+  height: 100%;
+  min-height: 0;
+}
+
+body.noeis-editorial .settings-page,
+body.noeis-editorial .page-area:has(.settings-page),
+body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.settings-page),
+body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.integrations-page),
+body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.data-integrations-page),
+body.noeis-editorial.noeis-public-share .app-shell-new--stitch .app-shell-new__body:has(.shared-wiki-page) {
+  height: auto;
+  min-height: 100vh;
+  overflow-x: hidden;
+  overflow-y: visible;
+}
+
+body.noeis-editorial.noeis-public-share .page-area:has(.shared-wiki-page),
+body.noeis-editorial.noeis-public-share .ui-page:has(.shared-wiki-page) {
+  height: auto;
+  min-height: 100vh;
+  overflow: visible;
+}
+
+body.noeis-editorial .page-area:has(.wiki-page) {
+  min-height: 100%;
+}
+
+body.noeis-editorial .app-shell-new--stitch.app-shell-new--navless {
+  display: block;
+  min-height: 100vh;
+}
+
+body.noeis-editorial .app-shell-new--stitch .app-shell-new__nav {
+  display: none !important;
+}
+
+body.noeis-editorial .app-shell-new--stitch .app-shell-new__main {
+  display: block;
+  min-height: 100vh;
+}
+
+/* The shell scrolls. It used to clamp to 100vh with overflow hidden and hand
+   scrolling back to individual pages through a :has() allowlist, which meant
+   any surface not named in that list lost everything below the fold with no way
+   to reach it — Think and Library both did, silently, for as long as they have
+   existed in this shell.
+
+   Inverted: scrolling is the default and a surface opts out of it. Only the
+   wiki workspace does, because its panes scroll independently and a second
+   scrollbar on the shell would fight them. */
+
+body.noeis-editorial .app-shell-new--stitch .app-shell-new__body {
+  min-height: 100vh;
+  max-width: 1500px;
+  margin: 0 auto;
+  /* The bar's own height, and then air. A first line that clears the bar by a
+     hair is still a first line crowded by it. */
+  padding: calc(var(--noeis-topbar-height) + var(--noeis-topbar-air)) 40px 40px;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.wiki-workspace) {
+  height: 100vh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+body.noeis-editorial.noeis-public-share .app-shell-new--stitch,
+body.noeis-editorial.noeis-public-share .app-shell-new--stitch .app-shell-new__main,
+body.noeis-editorial.noeis-public-share .app-shell-new--stitch .app-shell-new__body {
+  height: auto !important;
+  min-height: 100vh;
+  overflow: visible !important;
+}
+
+body.noeis-editorial.noeis-public-share .app-shell-new--stitch .app-shell-new__body {
+  max-width: none;
+}
+
+body.noeis-editorial .topbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 40;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--vellum-line);
+  border-radius: 0;
+  box-shadow: none;
+  background: color-mix(in srgb, var(--vellum-bg) 94%, transparent) !important;
+  backdrop-filter: blur(14px);
+  overflow: visible;
+}
+
+body.noeis-editorial .topbar__content {
+  display: grid;
+  grid-template-columns: max-content minmax(220px, 360px) max-content;
+  align-items: center;
+  gap: 18px;
+  width: min(1500px, calc(100vw - 64px));
+  margin: 0 auto;
+  padding: 14px 0 12px;
+  overflow: visible;
+}
+
+body.noeis-editorial .topbar__left {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+body.noeis-editorial .topbar__brand-nav {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  min-width: 0;
+}
+
+body.noeis-editorial .topbar__brand {
+  color: var(--vellum-ink);
+  font-family: var(--font-serif);
+  font-size: 1.82rem;
+  font-style: italic;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+body.noeis-editorial .topbar__brand:hover {
+  text-decoration: none;
+}
+
+body.noeis-editorial .topbar__primary-nav {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+body.noeis-editorial .topbar__search-slot {
+  min-width: 0;
+  width: 100%;
+}
+
+body.noeis-editorial .topbar__primary-link {
+  color: color-mix(in srgb, var(--vellum-ink) 72%, transparent);
+  font-family: var(--font-serif);
+  font-size: 1.04rem;
+  line-height: 1;
+  padding: 4px 0 7px;
+  border-bottom: 1px solid transparent;
+  text-decoration: none;
+  transition: color 160ms ease, border-color 160ms ease;
+}
+
+body.noeis-editorial .topbar__primary-link:hover,
+body.noeis-editorial .topbar__primary-link.is-active {
+  color: var(--vellum-ink);
+  border-bottom-color: var(--vellum-accent);
+  text-decoration: none;
+}
+
+/* Search is a word in the masthead, not a widget parked in it.
+
+   Everything else along this bar is set in type — a serif wordmark, the room
+   names, the small caps at the right. Search was the one filled, bordered,
+   rounded box in the row, three hundred and sixty pixels of a different
+   design language sitting in the middle of a masthead. Reading it as furniture
+   was correct; it was furniture.
+
+   So it loses the fill and the frame and keeps only what it needs to be
+   findable: the glass, the word, and the shortcut. The rule under it appears
+   on approach, the way every other door in this product does. */
+
+body.noeis-editorial .topbar__search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  background: none !important;
+  border: 0 !important;
+  border-bottom: 1px solid transparent !important;
+  border-radius: 0 !important;
+}
+
+body.noeis-editorial .topbar__search-wrap:hover,
+body.noeis-editorial .topbar__search-wrap:focus-visible,
+body.noeis-editorial .topbar__search-wrap:focus-within {
+  outline: none;
+  border-bottom-color: color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 88%, transparent) !important;
+}
+
+body.noeis-editorial .topbar__search-trigger {
+  min-height: 34px;
+  padding: 0 2px 0 24px;
+  gap: 8px;
+}
+
+body.noeis-editorial .topbar__search-trigger-label {
+  line-height: 1.25;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-size: 0.86rem;
+}
+
+body.noeis-editorial .topbar__search-wrap:hover .topbar__search-trigger-label,
+body.noeis-editorial .topbar__search-wrap:focus-within .topbar__search-trigger-label {
+  color: var(--text-primary, var(--vellum-ink));
+}
+
+/* The shortcut is a note to yourself, not a key cap. */
+
+body.noeis-editorial .topbar__search-kbd {
+  border: 0 !important;
+  background: none !important;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+}
+
+body.noeis-editorial .topbar__search-icon {
+  position: absolute;
+  top: 50%;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  transform: translateY(-50%);
+  color: color-mix(in srgb, var(--vellum-ink) 55%, transparent);
+}
+
+body.noeis-editorial .topbar__search-icon::before,
+body.noeis-editorial .topbar__search-icon::after {
+  content: "";
+  position: absolute;
+  box-sizing: border-box;
+}
+
+body.noeis-editorial .topbar__search-icon::before {
+  inset: 0 3px 3px 0;
+  border: 1.4px solid color-mix(in srgb, var(--vellum-ink) 72%, transparent);
+  border-radius: 999px;
+}
+
+body.noeis-editorial .topbar__search-icon::after {
+  right: 0;
+  bottom: 0;
+  width: 6px;
+  height: 1.4px;
+  background: color-mix(in srgb, var(--vellum-ink) 72%, transparent);
+  transform: rotate(45deg);
+  transform-origin: right center;
+}
+
+body.noeis-editorial .topbar__right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-wrap: nowrap;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+body.noeis-editorial .topbar__icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: color-mix(in srgb, var(--vellum-ink) 72%, transparent);
+}
+
+body.noeis-editorial .topbar__icon-button:hover,
+body.noeis-editorial .topbar__icon-button.is-active {
+  background: var(--vellum-panel-strong);
+  color: var(--vellum-ink);
+}
+
+body.noeis-editorial .topbar__avatar-glyph {
+  width: 15px;
+  height: 15px;
+  border: 1.2px solid currentColor;
+  border-radius: 999px;
+  display: inline-block;
+  position: relative;
+}
+
+body.noeis-editorial .topbar__avatar-glyph::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 52%;
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: currentColor;
+  transform: translate(-50%, -50%);
+}
+
+body.noeis-editorial .topbar__menu {
+  position: relative;
+}
+
+body.noeis-editorial .topbar__menu-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 80;
+  min-width: 220px;
+  padding: 8px;
+  border: 0;
+  border-radius: 0;
+  background: color-mix(in srgb, var(--vellum-bg) 98%, transparent);
+  box-shadow: var(--vellum-shadow);
+  display: grid;
+  gap: 6px;
+}
+
+body.noeis-editorial .topbar__menu-popover--portal {
+  position: fixed;
+  z-index: 220;
+}
+
+body.noeis-editorial .topbar__menu-popover .topbar__menu-item {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-start;
+  width: 100%;
+}
+
+@media (max-width: 1480px) {
+  body.noeis-editorial .topbar__content {
+    grid-template-columns: max-content minmax(180px, 1fr) max-content;
+    gap: 14px;
+    width: min(1500px, calc(100vw - 40px));
+  }
+
+  body.noeis-editorial .topbar__brand-nav {
+    gap: 18px;
+  }
+
+  body.noeis-editorial .topbar__primary-nav {
+    gap: 14px;
+  }
+
+  body.noeis-editorial .topbar__primary-link {
+    font-size: 0.98rem;
+  }
+
+  body.noeis-editorial .topbar__right {
+    gap: 4px;
+  }
+
+  body.noeis-editorial .topbar__button {
+    padding-inline: 7px;
+    letter-spacing: 0.1em;
+  }
+}
+
+@media (max-width: 1320px) and (min-width: 1241px) {
+  body.noeis-editorial .topbar__content {
+    grid-template-columns: max-content max-content;
+    justify-content: space-between;
+  }
+
+  body.noeis-editorial .topbar__search-slot {
+    display: none;
+  }
+}
+
+/* The scrim behind a dialog is ink on paper, not stage black — and so is the
+   shadow it casts. */
+
+body.noeis-editorial .modal-overlay {
+  background-color: color-mix(in srgb, var(--vellum-ink, #1c1a17) 22%, transparent);
+  backdrop-filter: blur(2px);
+}
+
+body.noeis-editorial .modal-content {
+  box-shadow: 0 18px 48px color-mix(in srgb, var(--vellum-ink, #1c1a17) 12%, transparent);
+}
+
+body.noeis-editorial .section-stack {
+  display: grid;
+  gap: 28px;
+}
+
+body.noeis-editorial .status-message.error-message {
+  color: var(--vellum-error) !important;
+}
+
+body.noeis-editorial .status-message.success-message {
+  color: var(--vellum-accent) !important;
+}
+
+@media (max-width: 1240px) {
+
+  body.noeis-editorial .topbar__left,
+  body.noeis-editorial .topbar__right {
+    justify-content: space-between;
+  }
+
+  body.noeis-editorial .app-shell-new--stitch .app-shell-new__body {
+    padding: 130px 24px 40px;
+  }
+}
+
+@media (max-width: 760px) {
+  body.noeis-editorial .topbar__search-slot,
+  body.noeis-editorial .topbar__utility-button:not(.topbar__utility-button--essential) {
+    display: none !important;
+  }
+
+  body.noeis-editorial .topbar__primary-link {
+    font-size: 0.92rem;
+    padding-bottom: 5px;
+  }
+
+  body.noeis-editorial .topbar__right {
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+    gap: 2px;
+  }
+
+  body.noeis-editorial .topbar__brand {
+    font-size: 1.58rem;
+  }
+
+  body.noeis-editorial .topbar__button,
+  body.noeis-editorial .topbar__icon-button {
+    min-height: 34px;
+    height: 34px;
+    padding: 6px 8px;
+  }
+}
+
+@media (max-width: 640px) {
+  body.noeis-editorial .topbar__content {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+    padding: 8px 0;
+  }
+
+  body.noeis-editorial .topbar__left,
+  body.noeis-editorial .topbar__right {
+    width: 100%;
+  }
+
+  body.noeis-editorial .topbar__right {
+    justify-content: space-between;
+  }
+
+  body.noeis-editorial .app-shell-new--stitch .app-shell-new__body {
+    padding-top: 112px;
+  }
+}
+
+/* ---- The top bar, at widths narrower than a desktop ----------------------
+   *
+   * Measured on main before this: at 1024px the bar stood 191px tall in three
+   * rows — wordmark and nav, then search, then the controls — while the shell
+   * reserved 130px for it, so the page ran up behind the controls. At 390px the
+   * nav (74–358) and the controls (12–378) printed on top of each other.
+   *
+   * Connections and Settings are the widest things in the bar and were flagged
+   * essential, so every narrowing rule spared them. From 1240px down they fold
+   * into the More menu instead, which renders a second copy of them for exactly
+   * this case. CSS chooses which copy shows, so there is no viewport state to
+   * keep in sync. */
+
+body.noeis-editorial .topbar__menu-item--narrow-only,
+body.noeis-editorial .topbar__menu-item--mobile-room {
+  display: none;
+}
+
+@media (max-width: 1240px) {
+  /* Two rows: wordmark and nav beside the controls, search underneath.
+     Explicit placement, because auto-flow pushes the controls onto a third row
+     the moment the search field claims the full width. */
+
+  body.noeis-editorial .topbar__content {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px 16px;
+    width: min(1680px, calc(100vw - 32px));
+    padding: 18px 0 14px;
+  }
+
+  body.noeis-editorial .topbar__left {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  body.noeis-editorial .topbar__right {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  body.noeis-editorial .topbar__search-slot {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  body.noeis-editorial .topbar__utility-button {
+    display: none !important;
+  }
+
+  body.noeis-editorial .topbar__menu-item--narrow-only {
+    display: flex;
+  }
+
+  body.noeis-editorial .app-shell-new--stitch .app-shell-new__body {
+    padding-top: 130px;
+  }
+}
+
+@media (max-width: 760px) {
+  body.noeis-editorial .topbar__content {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    width: calc(100vw - 24px);
+    padding: 10px 0 8px;
+  }
+
+  /* On a phone the search field goes too: there is no keyboard for ⌘K, and the
+     palette is still reachable from the icon. */
+
+  body.noeis-editorial .topbar__search-slot {
+    display: none !important;
+  }
+
+  body.noeis-editorial .topbar__brand-nav {
+    flex-wrap: nowrap;
+    gap: 10px;
+  }
+
+  body.noeis-editorial .topbar__primary-nav {
+    flex-wrap: nowrap;
+    gap: 10px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  body.noeis-editorial .topbar__primary-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  body.noeis-editorial .app-shell-new--stitch .app-shell-new__body {
+    padding-top: 92px;
+  }
+}
+
+@media (max-width: 560px) {
+  body.noeis-editorial .topbar__brand-nav {
+    min-width: 0;
+  }
+
+  body.noeis-editorial .topbar__primary-nav {
+    gap: 16px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
+    /* The row can reach the edge; the type inside it may not be cut. */
+    mask-image: linear-gradient(to right, transparent 0, #000 6px, #000 calc(100% - 14px), transparent 100%);
+  }
+
+  body.noeis-editorial .topbar__primary-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  body.noeis-editorial .topbar__primary-link {
+    flex: 0 0 auto;
+    overflow: visible;
+    text-overflow: clip;
+    scroll-snap-align: start;
+  }
+
+  /* Whichever surface you are on is the one that must be legible without
+     scrolling, so it goes first. */
+
+  body.noeis-editorial .topbar__primary-link.is-active {
+    order: -1;
+  }
+}
+
+@media (max-width: 480px) {
+  body.noeis-editorial .topbar__primary-link:not(.is-active) {
+    display: none;
+  }
+
+  body.noeis-editorial .topbar__primary-nav {
+    overflow: visible;
+    mask-image: none;
+  }
+
+  body.noeis-editorial .topbar__menu-item--mobile-room {
+    display: flex;
+  }
+}
+
+@media (max-width: 1024px) {
+  .topbar {
+    padding: 8px 14px;
+  }
+}
+
+.ui-surface-card {
+  border: 1px solid var(--think-card-border);
+  border-radius: var(--think-card-radius);
+  box-shadow: var(--think-card-shadow);
+  background: var(--noeis-paper);
+}
+
+.ui-surface-card:hover {
+  box-shadow: var(--think-card-shadow-hover);
+}
+
+.ui-section-header__subtitle {
+  font-size: 0.8rem;
+  line-height: 1.45;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.ui-section-header__title {
+  font-weight: 600;
+}
+
+.ui-segmented-nav.ui-segmented-nav--quiet {
+  border: 0;
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
+  box-shadow: none;
+}
+
+.ui-segmented-nav.ui-segmented-nav--quiet .ui-segmented-nav__item {
+  min-height: 30px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  padding: 0 var(--think-space-3);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.ui-segmented-nav.ui-segmented-nav--quiet .ui-segmented-nav__item:hover {
+  background: transparent;
+  color: var(--text-primary);
+  box-shadow: none;
+  transform: none;
+}
+
+.ui-segmented-nav.ui-segmented-nav--quiet .ui-segmented-nav__item.is-active {
+  color: var(--text-primary);
+  border-bottom-color: color-mix(in srgb, var(--accent) 62%, transparent);
+  box-shadow: none;
 }

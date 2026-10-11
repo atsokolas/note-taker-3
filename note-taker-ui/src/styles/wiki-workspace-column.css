@@ -1,11 +1,12 @@
 /* The wiki workspace, in the reading language.
  *
  * The workspace is the operational room: the map, the page list, the page
- * editor, sources, activity and schema. Asking about any of it is the
- * Partner's, which opens with ⌘J like everywhere else.
+ * editor, sources, activity, schema, and a command console that wears a chat
+ * costume. Its function is right; only its clothes were still from before.
  *
- * Written as an override on top of think-home-polish.css and wiki-critical.css
- * rather than as a rewrite. Every selector
+ * Written as an override on top of wiki.css and wiki-critical.css
+ * rather than as a rewrite. The workspace is 3,500 lines with 83 tests against
+ * its behaviour, and none of that behaviour is what was wrong. Every selector
  * here is scoped one level deeper than the rule it answers, so it wins on
  * specificity whichever sheet lands last.
  *
@@ -14,6 +15,15 @@
  * labels are a quiet sans in sentence case, not uppercase mono; inputs are a
  * ruled line, not a filled box.
  */
+
+/* ---- The door back to the console -------------------------------------- */
+
+/* The chat pane folds to this. It used to be a floating pill with a chevron in
+   a coin; it is now the same kind of word as every other action. */
+
+/* ---- The narrow screen --------------------------------------------------- */
+
+/* Two tabs and a quick line to the agent. Same language, less of it. */
 
 /* ---- Every remaining boxed action in this room --------------------------- */
 
@@ -495,7 +505,7 @@ body.noeis-editorial .wiki-index .wiki-index__quality-badge,
 .wiki-index .library-article-row-date,
 .wiki-index .library-article-row-receipt,
 .wiki-index .wiki-index__quality-badge {
-  /* stitch-editorial sets the page-type label in spaced uppercase caps with
+  /* The house layer sets the page-type label in spaced uppercase caps with
      !important, so the answer has to be in kind. */
   color: var(--text-muted, var(--vellum-subtle)) !important;
   font-family: var(--font-sans) !important;
@@ -533,7 +543,7 @@ body.noeis-editorial .wiki-index .library-article-row-title,
 /* The workspace has one margin, not two competing sidebars. Contents and
    page context share that margin while the article owns the reading canvas.
    This is the authoritative workspace composition; standalone and public
-   readers keep the general reader grid from think-home-polish.css. */
+   readers keep the general reader grid from wiki.css. */
 @container wikiread (max-width: 1280px) {
   body.noeis-editorial .wiki-workspace .wiki-read .wiki-read__layout,
   body.noeis-editorial .wiki-workspace .wiki-read .wiki-read__layout--rail-collapsed {
@@ -864,3 +874,25 @@ body.noeis-editorial .wiki-index .library-article-row-title,
   letter-spacing: 0;
   text-transform: none;
 }
+
+/* ---- The console ---------------------------------------------------------
+ *
+ * The chat pane is where the wiki's verbs live — draft, build, ingest, lint —
+ * so it stays. It is folded shut until you ask for it, and when it opens it
+ * speaks the same language as the room it opens into.
+ */
+
+/* Building a page is a word. So is sending. */
+
+/* Cancelling a running answer is the one thing here that should read as a
+   stop, so it keeps its colour — as ink, not as a filled box. */
+
+/* You type on a line. The agent's state is that line's colour, not a glowing
+   border that moves — which also means there is nothing to disable for people
+   who asked for less motion. */
+
+/* The agent's status line is a sentence, not a card with a light on it. */
+
+/* Answers are prose. */
+
+/* The command and reference palettes are lists of names. */
