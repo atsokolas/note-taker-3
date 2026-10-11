@@ -2,16 +2,10 @@ import { AGENT_DISPLAY_NAME } from '../constants/agentIdentity';
 
 export const CONTEXTUAL_AGENT_CONTRACT_VERSION = 1;
 
-export const CONTEXTUAL_AGENT_PRESENTATIONS = Object.freeze({
-  panel: 'panel',
-  embedded: 'embedded'
-});
-
 const contract = ({
   id,
   room,
   agentId = 'agent.context-partner',
-  presentation = CONTEXTUAL_AGENT_PRESENTATIONS.panel,
   capabilities = ['capability.library.retrieve'],
   actions = ['retrieve'],
   match = () => false
@@ -20,7 +14,6 @@ const contract = ({
   id,
   room,
   agentId,
-  presentation,
   capabilities: Object.freeze([...capabilities]),
   actions: Object.freeze([...actions]),
   proposalPolicy: 'human_acceptance',
@@ -33,19 +26,8 @@ const under = prefix => ({ pathname }) => String(pathname || '').startsWith(pref
  * One Partner, five rooms. Each contract names what the Partner may do in a
  * room; the panel owns the conversation and the room supplies only its exact,
  * accepted write. Nothing it retrieves is written down without a click.
- *
- * The Wiki workspace keeps its embedded build composer, so the panel does not
- * mount beside it.
  */
 export const CONTEXTUAL_AGENT_CONTRACTS = Object.freeze([
-  contract({
-    id: 'agent-surface.wiki-workspace',
-    room: 'wiki',
-    presentation: CONTEXTUAL_AGENT_PRESENTATIONS.embedded,
-    capabilities: ['capability.library.retrieve', 'capability.wiki.build', 'capability.wiki.maintain'],
-    actions: ['retrieve', 'reference', 'build', 'ingest', 'lint', 'maintain'],
-    match: under('/wiki/workspace')
-  }),
   contract({
     id: 'agent-surface.library',
     room: 'library',
@@ -68,9 +50,7 @@ export const CONTEXTUAL_AGENT_CONTRACTS = Object.freeze([
     actions: ['retrieve', 'accept.edit'],
     match: ({ pathname }) => {
       const path = String(pathname || '');
-      return (path === '/wiki' || path.startsWith('/wiki/'))
-        && !path.startsWith('/wiki/activity')
-        && !path.startsWith('/wiki/workspace');
+      return (path === '/wiki' || path.startsWith('/wiki/')) && !path.startsWith('/wiki/activity');
     }
   }),
   contract({
@@ -100,9 +80,7 @@ export const resolveContextualAgentContract = ({ pathname = '' } = {}) => (
   CONTEXTUAL_AGENT_CONTRACTS.find(item => item.match({ pathname })) || null
 );
 
-export const hasPartnerPanel = (pathname = '') => (
-  resolveContextualAgentContract({ pathname })?.presentation === CONTEXTUAL_AGENT_PRESENTATIONS.panel
-);
+export const hasPartnerPanel = (pathname = '') => Boolean(resolveContextualAgentContract({ pathname }));
 
 /* What the Partner is looking at, said the way a reader would. */
 const SCOPE_BY_OBJECT_TYPE = Object.freeze({
@@ -128,7 +106,7 @@ const normalizeLines = (lines) => (Array.isArray(lines) ? lines.filter(Boolean) 
 
 export const buildContextualAgentSurface = (contractId, context = {}) => {
   const resolved = getContextualAgentContract(contractId);
-  if (!resolved || resolved.presentation !== CONTEXTUAL_AGENT_PRESENTATIONS.panel) return null;
+  if (!resolved) return null;
 
   const objectType = String(context.objectType || resolved.room || '').trim();
   const objectId = String(context.objectId || resolved.room || '').trim();
@@ -162,7 +140,7 @@ export const buildContextualAgentSurface = (contractId, context = {}) => {
 
 export const filterContextualAgentHandlers = (contractId, handlers = {}) => {
   const resolved = getContextualAgentContract(contractId);
-  if (!resolved || resolved.presentation !== CONTEXTUAL_AGENT_PRESENTATIONS.panel) return {};
+  if (!resolved) return {};
   const allows = action => resolved.actions.some(item => item === action || item.startsWith(`${action}.`));
   return Object.fromEntries([
     ['onAccept', 'accept'],

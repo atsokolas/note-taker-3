@@ -147,7 +147,6 @@ const {
   AgentRun,
   AgentProposedChange,
   AgentStructureProposal,
-  AgentUpkeepCycle,
   ReferenceEdge,
   SavedView,
   Collection,
@@ -671,7 +670,6 @@ const { buildAgentStructureProposalRouter } = require('./routes/agentStructurePr
 const { buildArticleReadingStateRouter } = require('./routes/articleReadingStateRoutes');
 const { buildLibraryCollectionRouter } = require('./routes/libraryCollectionRoutes');
 const { buildAgentChatRouter } = require('./routes/agentChatRoutes');
-const { buildAgentArtifactDraftRouter } = require('./routes/agentArtifactDraftRoutes');
 const {
   createAgentTokenSecret,
   hashAgentTokenSecret,
@@ -680,10 +678,8 @@ const {
   buildAuthenticateAgentToken,
   AGENT_TOKEN_PREFIX
 } = require('./services/agentTokenService');
-const { buildAgentHarnessMetricsRouter } = require('./routes/agentHarnessMetricsRoutes');
 const { buildAgentWriteBoundaryRouter } = require('./routes/agentWriteBoundaryRoutes');
 const { buildAgentMemoryApprovalRouter } = require('./routes/agentMemoryApprovalRoutes');
-const { buildAgentUpkeepCycleRouter } = require('./routes/agentUpkeepCycleRoutes');
 const {
   createMemoryCommitApproval,
   executeMemoryCommitApproval,
@@ -792,9 +788,6 @@ const {
   planLibraryStructureProposal,
   persistLibraryStructureProposal
 } = require('./services/agentStructurePlanningService');
-const {
-  getAgentHarnessMetricsSnapshot
-} = require('./services/agentHarnessMetrics');
 const {
   buildMarketingFunnelSnapshot,
   buildMarketingFunnelSeries
@@ -2921,30 +2914,6 @@ const listProtocolApprovals = async ({
   const safeLimit = safeAgentHandoffLimit(limit, 30);
   const rows = await AgentProtocolApproval.find(query).sort({ createdAt: -1 }).limit(safeLimit);
   return rows.map(sanitizeProtocolApprovalDoc);
-};
-
-const listProtocolHookRuns = async ({
-  userId,
-  phase = '',
-  op = '',
-  threadId = '',
-  handoffId = '',
-  limit = 30
-}) => {
-  const userObjectId = mongoose.Types.ObjectId.isValid(userId) ? new mongoose.Types.ObjectId(String(userId)) : null;
-  if (!userObjectId) throw Object.assign(new Error('userId must be a valid ObjectId.'), { status: 400 });
-  const query = { userId: userObjectId };
-  const safePhase = String(phase || '').trim().toLowerCase();
-  const safeOp = String(op || '').trim().toLowerCase();
-  const safeThreadId = String(threadId || '').trim();
-  const safeHandoffId = String(handoffId || '').trim();
-  if (safePhase) query.phase = safePhase;
-  if (safeOp) query.op = safeOp;
-  if (safeThreadId) query.threadId = safeThreadId;
-  if (safeHandoffId) query.handoffId = safeHandoffId;
-  const safeLimit = safeAgentHandoffLimit(limit, 30);
-  const rows = await AgentProtocolHookRun.find(query).sort({ createdAt: -1 }).limit(safeLimit);
-  return rows.map(sanitizeProtocolHookRunDoc);
 };
 
 const approveProtocolApproval = async ({
@@ -6435,7 +6404,6 @@ app.use(buildAgentBridgeRouter({
   listAgentSkills,
   listWorkerRoles,
   listProtocolApprovals,
-  listProtocolHookRuns,
   approveProtocolApproval,
   rejectProtocolApproval
 }));
@@ -6615,56 +6583,6 @@ app.use(buildAgentChatRouter({
   truncate: truncateThreadText,
   trackEvent,
   EVENT_NAMES
-}));
-
-app.use(buildAgentArtifactDraftRouter({
-  authenticateToken,
-  AgentArtifactDraft,
-  NotebookEntry,
-  Question,
-  updateConceptMeta,
-  syncNotebookReferences,
-  enqueueNotebookEmbedding,
-  enqueueQuestionEmbedding,
-  createBlockId,
-  AgentHandoff,
-  buildDefaultHandoffPlan,
-  buildDefaultHandoffCheckpoint,
-  createThreadForHandoff,
-  sanitizeAgentHandoffDoc,
-  sanitizeAgentArtifactDraftDoc,
-  promoteAgentArtifactDraftRecord,
-  trackEvent,
-  EVENT_NAMES
-}));
-
-app.use(buildAgentHarnessMetricsRouter({
-  authenticateToken,
-  AgentThread,
-  AgentRun,
-  AgentProposedChange,
-  AgentStructureProposal,
-  AgentArtifactDraft,
-  AgentProtocolApproval,
-  getAgentHarnessMetricsSnapshot
-}));
-
-app.use(buildAgentUpkeepCycleRouter({
-  mongoose,
-  authenticateToken,
-  AgentUpkeepCycle,
-  AgentHandoff,
-  sanitizeAgentHandoffDoc,
-  sanitizeAgentThreadDoc,
-  resolveAutoHandoffRequestedActor,
-  getUserAgentProtocolPolicy,
-  buildAgentPlanner,
-  buildDefaultHandoffPlan,
-  buildDefaultHandoffCheckpoint,
-  createThreadForHandoff,
-  normalizeAgentHandoffTaskType,
-  normalizeAgentHandoffPriority,
-  parseOptionalDate
 }));
 
 app.use(buildConceptAgentRouter({

@@ -125,11 +125,8 @@ const AgentTaskRun = ({ taskIdOverride = '' }) => {
               <div className="agent-task-run-card__success" role="status">
                 <strong>Task dispatched.</strong>
                 <p className="muted small">The handoff is now in the Noeis queue.</p>
-                <Link
-                  to={handoff?.handoffId ? `/think?tab=handoffs&handoff=${encodeURIComponent(handoff.handoffId)}` : '/think?tab=handoffs'}
-                  className="ui-button ui-button-primary"
-                >
-                  Open handoff
+                <Link to="/connections#agents" className="ui-button ui-button-primary">
+                  Open the queue
                 </Link>
               </div>
             ) : (

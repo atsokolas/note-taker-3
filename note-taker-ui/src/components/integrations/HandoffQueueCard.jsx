@@ -54,7 +54,6 @@ const HandoffQueueCard = ({
       <h2>Agent handoff queue</h2>
       <p className="muted">Create, triage, and close handoffs shared between you, Partner, and specialist agents.</p>
       <HandoffCreateForm
-        mode="integrations"
         sortedAgents={sortedAgents}
         setupAgentsHref="#personal-agents"
         title={newHandoffTitle}
@@ -80,7 +79,6 @@ const HandoffQueueCard = ({
       />
 
       <HandoffQueueControls
-        mode="integrations"
         statusFilter={handoffStatusFilter}
         onStatusFilterChange={setHandoffStatusFilter}
         loading={handoffsLoading}
@@ -113,7 +111,6 @@ const HandoffQueueCard = ({
                   onComplete={() => handleCompleteHandoff(handoffId)}
                   onReject={() => handleRejectHandoff(handoffId)}
                   onCancel={() => handleCancelHandoff(handoffId)}
-                  variant="integrations"
                   actionClassName="settings-import-row"
                   actionStyle={{ marginTop: 8 }}
                 />

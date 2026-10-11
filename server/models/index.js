@@ -2869,54 +2869,6 @@ agentStructureProposalSchema.index({ userId: 1, scope: 1, scopeRef: 1, updatedAt
 
 const AgentStructureProposal = mongoose.model('AgentStructureProposal', agentStructureProposalSchema);
 
-const agentUpkeepCycleRunSchema = new mongoose.Schema({
-  handoffId: { type: mongoose.Schema.Types.ObjectId, ref: 'AgentHandoff', default: null },
-  threadId: { type: mongoose.Schema.Types.ObjectId, ref: 'AgentThread', default: null },
-  scheduledFor: { type: Date, default: null },
-  startedAt: { type: Date, default: Date.now },
-  status: {
-    type: String,
-    enum: ['scheduled', 'in_progress', 'completed', 'cancelled'],
-    default: 'scheduled'
-  }
-}, { _id: false });
-
-const agentUpkeepCycleSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  title: { type: String, required: true, trim: true },
-  summary: { type: String, default: '', trim: true },
-  status: {
-    type: String,
-    enum: ['active', 'paused', 'completed'],
-    default: 'active'
-  },
-  cadence: { type: String, default: 'recurring', trim: true },
-  taskType: {
-    type: String,
-    enum: ['research', 'synthesis', 'restructure', 'qa', 'custom'],
-    default: 'custom'
-  },
-  workerRole: {
-    type: String,
-    enum: ['planner', 'researcher', 'synthesizer', 'critic', 'editor', 'organizer', ''],
-    default: ''
-  },
-  nextDueAt: { type: Date, default: null },
-  lastRunAt: { type: Date, default: null },
-  lastHandoffId: { type: mongoose.Schema.Types.ObjectId, ref: 'AgentHandoff', default: null },
-  lastThreadId: { type: mongoose.Schema.Types.ObjectId, ref: 'AgentThread', default: null },
-  sourceDraftId: { type: mongoose.Schema.Types.ObjectId, ref: 'AgentArtifactDraft', default: null },
-  sourceContext: { type: mongoose.Schema.Types.Mixed, default: {} },
-  workflow: { type: mongoose.Schema.Types.Mixed, default: {} },
-  seed: { type: mongoose.Schema.Types.Mixed, default: {} },
-  lastOutcome: { type: mongoose.Schema.Types.Mixed, default: {} },
-  runs: { type: [agentUpkeepCycleRunSchema], default: [] }
-}, { timestamps: true });
-
-agentUpkeepCycleSchema.index({ userId: 1, status: 1, nextDueAt: 1, updatedAt: -1 });
-agentUpkeepCycleSchema.index({ userId: 1, sourceDraftId: 1, updatedAt: -1 });
-
-const AgentUpkeepCycle = mongoose.model('AgentUpkeepCycle', agentUpkeepCycleSchema);
 
 // Reference edges (block-level backlinks)
 const referenceEdgeSchema = new mongoose.Schema({
@@ -3582,7 +3534,6 @@ module.exports = {
   AgentRun,
   AgentProposedChange,
   AgentStructureProposal,
-  AgentUpkeepCycle,
   ReferenceEdge,
   SavedView,
   Collection,

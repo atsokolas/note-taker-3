@@ -1,12 +1,8 @@
 import { useCallback, useMemo, useState } from 'react';
 import {
-  acceptAgentProposedChange,
   applyAgentStructureProposal,
-  listAgentProposedChanges,
   listAgentStructureProposals,
-  rejectAgentProposedChange,
   rejectAgentStructureProposal,
-  rollbackAgentProposedChange,
   rollbackAgentStructureProposal,
   updateAgentStructureProposal
 } from '../../api/agent';
@@ -33,17 +29,13 @@ const partitionPendingEntries = (entries = []) => {
   };
 };
 
+/* The Partner's structure plans for one thread: load them, change an
+   operation's status, apply, reject, or roll back. */
 const useAgentReviewState = ({
-  activeThreadId = '',
-  mapProposedChange,
   mapStructureProposal,
-  loadRuns,
-  loadHarnessMetrics,
   setError
 } = {}) => {
-  const [proposedChanges, setProposedChanges] = useState([]);
   const [structureProposals, setStructureProposals] = useState([]);
-  const [proposedChangeLoadingId, setProposedChangeLoadingId] = useState('');
   const [structureProposalLoadingId, setStructureProposalLoadingId] = useState('');
   const [structureProposalOperationLoadingId, setStructureProposalOperationLoadingId] = useState('');
 
@@ -51,47 +43,10 @@ const useAgentReviewState = ({
     if (typeof setError === 'function') setError(message);
   }, [setError]);
 
-  const refreshThreadReviewState = useCallback(async () => {
-    if (!clean(activeThreadId)) return;
-    await loadRuns(activeThreadId);
-    await loadHarnessMetrics(activeThreadId);
-  }, [activeThreadId, loadHarnessMetrics, loadRuns]);
-
-  const replaceProposedChange = useCallback((nextChange) => {
-    const mapped = typeof mapProposedChange === 'function' ? mapProposedChange(nextChange) : nextChange;
-    setProposedChanges((prev) => replaceEntryByKey(prev, mapped, 'proposedChangeId'));
-  }, [mapProposedChange]);
-
   const replaceStructureProposal = useCallback((nextProposal) => {
     const mapped = typeof mapStructureProposal === 'function' ? mapStructureProposal(nextProposal) : nextProposal;
     setStructureProposals((prev) => replaceEntryByKey(prev, mapped, 'structureProposalId'));
   }, [mapStructureProposal]);
-
-  const clearReviewState = useCallback(() => {
-    setProposedChanges([]);
-    setStructureProposals([]);
-    setProposedChangeLoadingId('');
-    setStructureProposalLoadingId('');
-    setStructureProposalOperationLoadingId('');
-  }, []);
-
-  const loadProposedChanges = useCallback(async (threadId) => {
-    const safeThreadId = clean(threadId);
-    if (!safeThreadId) {
-      setProposedChanges([]);
-      return;
-    }
-    try {
-      const result = await listAgentProposedChanges({ threadId: safeThreadId, status: 'all' });
-      setProposedChanges(
-        Array.isArray(result?.proposedChanges)
-          ? result.proposedChanges.map((entry) => mapProposedChange(entry))
-          : []
-      );
-    } catch (_error) {
-      // Keep the panel usable even if proposed change hydration fails.
-    }
-  }, [mapProposedChange]);
 
   const loadStructureProposals = useCallback(async (threadId) => {
     const safeThreadId = clean(threadId);
@@ -112,57 +67,6 @@ const useAgentReviewState = ({
     }
   }, [mapStructureProposal]);
 
-  const handleAcceptProposedChange = useCallback(async (proposedChangeId) => {
-    const safeId = clean(proposedChangeId);
-    if (!safeId) return;
-    setProposedChangeLoadingId(safeId);
-    try {
-      const result = await acceptAgentProposedChange(safeId);
-      if (result?.proposedChange) {
-        replaceProposedChange(result.proposedChange);
-        await refreshThreadReviewState();
-      }
-    } catch (error) {
-      reportError(error.response?.data?.error || 'Failed to accept proposed change.');
-    } finally {
-      setProposedChangeLoadingId('');
-    }
-  }, [refreshThreadReviewState, replaceProposedChange, reportError]);
-
-  const handleRejectProposedChange = useCallback(async (proposedChangeId) => {
-    const safeId = clean(proposedChangeId);
-    if (!safeId) return;
-    setProposedChangeLoadingId(safeId);
-    try {
-      const result = await rejectAgentProposedChange(safeId);
-      if (result?.proposedChange) {
-        replaceProposedChange(result.proposedChange);
-        await refreshThreadReviewState();
-      }
-    } catch (error) {
-      reportError(error.response?.data?.error || 'Failed to reject proposed change.');
-    } finally {
-      setProposedChangeLoadingId('');
-    }
-  }, [refreshThreadReviewState, replaceProposedChange, reportError]);
-
-  const handleRollbackProposedChange = useCallback(async (proposedChangeId) => {
-    const safeId = clean(proposedChangeId);
-    if (!safeId) return;
-    setProposedChangeLoadingId(safeId);
-    try {
-      const result = await rollbackAgentProposedChange(safeId);
-      if (result?.proposedChange) {
-        replaceProposedChange(result.proposedChange);
-        await refreshThreadReviewState();
-      }
-    } catch (error) {
-      reportError(error.response?.data?.error || 'Failed to roll back proposed change.');
-    } finally {
-      setProposedChangeLoadingId('');
-    }
-  }, [refreshThreadReviewState, replaceProposedChange, reportError]);
-
   const handleUpdateStructureProposalOperationStatus = useCallback(async (proposal, operation, nextStatus) => {
     const safeProposalId = clean(proposal?.structureProposalId);
     const safeOpId = clean(operation?.opId);
@@ -178,16 +82,13 @@ const useAgentReviewState = ({
         ))
       });
       const nextProposal = result?.proposal || result?.structureProposal;
-      if (nextProposal) {
-        replaceStructureProposal(nextProposal);
-        if (clean(activeThreadId)) await loadHarnessMetrics(activeThreadId);
-      }
+      if (nextProposal) replaceStructureProposal(nextProposal);
     } catch (error) {
       reportError(error.response?.data?.error || 'Failed to update structure plan.');
     } finally {
       setStructureProposalOperationLoadingId('');
     }
-  }, [activeThreadId, loadHarnessMetrics, replaceStructureProposal, reportError]);
+  }, [replaceStructureProposal, reportError]);
 
   const handleBulkUpdateStructureProposalOperationStatus = useCallback(async (proposal, operationIds = [], nextStatus = '') => {
     const safeProposalId = clean(proposal?.structureProposalId);
@@ -208,16 +109,13 @@ const useAgentReviewState = ({
         })
       });
       const nextProposal = result?.proposal || result?.structureProposal;
-      if (nextProposal) {
-        replaceStructureProposal(nextProposal);
-        if (clean(activeThreadId)) await loadHarnessMetrics(activeThreadId);
-      }
+      if (nextProposal) replaceStructureProposal(nextProposal);
     } catch (error) {
       reportError(error.response?.data?.error || 'Failed to update structure plan.');
     } finally {
       setStructureProposalOperationLoadingId('');
     }
-  }, [activeThreadId, loadHarnessMetrics, replaceStructureProposal, reportError]);
+  }, [replaceStructureProposal, reportError]);
 
   const handleApplyStructureProposal = useCallback(async (proposal) => {
     const safeProposalId = clean(proposal?.structureProposalId);
@@ -226,16 +124,13 @@ const useAgentReviewState = ({
     try {
       const result = await applyAgentStructureProposal(safeProposalId);
       const nextProposal = result?.proposal || result?.structureProposal;
-      if (nextProposal) {
-        replaceStructureProposal(nextProposal);
-        await refreshThreadReviewState();
-      }
+      if (nextProposal) replaceStructureProposal(nextProposal);
     } catch (error) {
       reportError(error.response?.data?.error || 'Failed to apply structure plan.');
     } finally {
       setStructureProposalLoadingId('');
     }
-  }, [refreshThreadReviewState, replaceStructureProposal, reportError]);
+  }, [replaceStructureProposal, reportError]);
 
   const handleRejectStructureProposal = useCallback(async (proposal) => {
     const safeProposalId = clean(proposal?.structureProposalId);
@@ -244,16 +139,13 @@ const useAgentReviewState = ({
     try {
       const result = await rejectAgentStructureProposal(safeProposalId);
       const nextProposal = result?.proposal || result?.structureProposal;
-      if (nextProposal) {
-        replaceStructureProposal(nextProposal);
-        await refreshThreadReviewState();
-      }
+      if (nextProposal) replaceStructureProposal(nextProposal);
     } catch (error) {
       reportError(error.response?.data?.error || 'Failed to reject structure plan.');
     } finally {
       setStructureProposalLoadingId('');
     }
-  }, [refreshThreadReviewState, replaceStructureProposal, reportError]);
+  }, [replaceStructureProposal, reportError]);
 
   const handleRollbackStructureProposal = useCallback(async (proposal) => {
     const safeProposalId = clean(proposal?.structureProposalId);
@@ -262,45 +154,25 @@ const useAgentReviewState = ({
     try {
       const result = await rollbackAgentStructureProposal(safeProposalId);
       const nextProposal = result?.proposal || result?.structureProposal;
-      if (nextProposal) {
-        replaceStructureProposal(nextProposal);
-        await refreshThreadReviewState();
-      }
+      if (nextProposal) replaceStructureProposal(nextProposal);
     } catch (error) {
       reportError(error.response?.data?.error || 'Failed to roll back structure plan.');
     } finally {
       setStructureProposalLoadingId('');
     }
-  }, [refreshThreadReviewState, replaceStructureProposal, reportError]);
+  }, [replaceStructureProposal, reportError]);
 
-  const proposedChangeBuckets = useMemo(
-    () => partitionPendingEntries(proposedChanges),
-    [proposedChanges]
-  );
   const structureProposalBuckets = useMemo(
     () => partitionPendingEntries(structureProposals),
     [structureProposals]
   );
 
   return {
-    proposedChanges,
-    structureProposals,
-    proposedChangeLoadingId,
     structureProposalLoadingId,
     structureProposalOperationLoadingId,
-    setProposedChangeLoadingId,
-    pendingProposedChanges: proposedChangeBuckets.pending,
-    resolvedProposedChanges: proposedChangeBuckets.resolved,
     pendingStructureProposals: structureProposalBuckets.pending,
     resolvedStructureProposals: structureProposalBuckets.resolved,
-    clearReviewState,
-    replaceProposedChange,
-    replaceStructureProposal,
-    loadProposedChanges,
     loadStructureProposals,
-    handleAcceptProposedChange,
-    handleRejectProposedChange,
-    handleRollbackProposedChange,
     handleUpdateStructureProposalOperationStatus,
     handleBulkUpdateStructureProposalOperationStatus,
     handleApplyStructureProposal,

@@ -8,7 +8,6 @@ describe('HandoffCreateForm', () => {
     render(
       <MemoryRouter>
         <HandoffCreateForm
-          mode="integrations"
           sortedAgents={[]}
           title="Queue cleanup"
           onTitleChange={() => {}}

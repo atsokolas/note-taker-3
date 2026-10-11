@@ -430,27 +430,6 @@ select {
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
 }
 
-.think-layout__left-panel {
-  gap: var(--space-24);
-}
-
-.think-layout__left-panel > .ui-section-header {
-  margin-bottom: 0;
-}
-
-.think-layout__left-panel .feedback-field > span {
-  font-size: 0.74rem;
-  color: var(--text-muted);
-}
-
-.think-layout__left-panel .feedback-field input {
-  min-height: 34px;
-}
-
-.think-layout__left-panel .think-notebook-item-title {
-  font-size: 0.84rem;
-}
-
 .think-home__row-title {
   font-weight: 640;
   letter-spacing: -0.01em;

@@ -180,15 +180,5 @@ test.describe.serial('import organization browser flow', () => {
       createdFolderExists: false,
       sourceFolderName: fixture.sourceFolderName
     });
-
-    const metricsResponse = await request.get(
-      apiUrl(`/api/agent/harness-metrics?threadId=${encodeURIComponent(fixture.threadId)}`),
-      { headers: authHeaders(token) }
-    );
-    expect(metricsResponse.ok()).toBeTruthy();
-    const metricsPayload = await metricsResponse.json();
-    expect(metricsPayload.metrics?.structureProposalStatuses?.rolled_back).toBe(1);
-    expect(metricsPayload.metrics?.undoSignals?.structureProposalRolledBack).toBe(1);
-
   });
 });

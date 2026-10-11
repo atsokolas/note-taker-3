@@ -1,11 +1,12 @@
 import { buildReferenceHandoffPath } from './referenceHandoff';
 
 describe('buildReferenceHandoffPath', () => {
-  it('routes Wiki into the chat pull-in pane while preserving workspace state', () => {
+  it('routes a Wiki page into its own reference pull-in while preserving workspace state', () => {
     expect(buildReferenceHandoffPath({
       pathname: '/wiki/workspace',
       search: '?page=wiki-1&view=graph'
-    })).toBe('/wiki/workspace?page=wiki-1&view=graph&pane=chat&pull=1');
+    })).toBe('/wiki/workspace?page=wiki-1&view=graph&pull=1');
+    expect(buildReferenceHandoffPath({ pathname: '/wiki/workspace', search: '?view=graph' })).toBe('/think?tab=home&pull=1');
   });
 
   it('routes Think into the current posture while preserving selected object state', () => {

@@ -618,9 +618,7 @@ body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.think-note
 }
 
 /* Handoffs and learning paths: a list and its page. */
-.think-ledger { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 24px; padding: 32px 0 80px; }
-.think-ledger--single { grid-template-columns: minmax(0, 1fr); }
-@media (max-width: 760px) { .think-ledger { grid-template-columns: minmax(0, 1fr); } }
+.think-ledger { display: grid; gap: 24px; padding: 32px 0 80px; }
 
 /* Partner speaks when asked: an idle trace line ("anchored to …") is noise here. */
 .think-notes__partner .agent-ticker[data-state='idle'] { display: none; }

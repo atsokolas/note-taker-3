@@ -148,8 +148,7 @@ describe('namesAThinkObject', () => {
       expect(namesAThinkObject(search)).toBe(false);
     });
   });
-  it('leaves handoffs and learning paths to their own page', () => {
-    expect(namesAThinkObject('?tab=handoffs&handoffId=h1')).toBe(true);
+  it('leaves learning paths to their own page', () => {
     expect(namesAThinkObject('?tab=paths&pathId=p1')).toBe(true);
   });
 });

@@ -4,10 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import * as router from 'react-router-dom';
 import WikiWorkspace from './WikiWorkspace';
 import { SystemStatusProvider } from '../../system/SystemStatusContext';
-import { streamChatWithAgent } from '../../api/agent';
 import { getArticles } from '../../api/articles';
-import { createConnection, getConnectionsForItem, searchConnectableItems } from '../../api/connections';
-import { getAllHighlights } from '../../api/highlights';
 import {
   acceptWikiLintFinding,
   createLibrarySourceProvenanceFixture,
@@ -28,22 +25,8 @@ import {
   streamMaintainWikiPage
 } from '../../api/wiki';
 
-jest.mock('../../api/agent', () => ({
-  streamChatWithAgent: jest.fn()
-}));
-
 jest.mock('../../api/articles', () => ({
   getArticles: jest.fn()
-}));
-
-jest.mock('../../api/connections', () => ({
-  createConnection: jest.fn(),
-  getConnectionsForItem: jest.fn(),
-  searchConnectableItems: jest.fn()
-}));
-
-jest.mock('../../api/highlights', () => ({
-  getAllHighlights: jest.fn()
 }));
 
 jest.mock('../../api/wiki', () => ({
@@ -66,10 +49,12 @@ jest.mock('../../api/wiki', () => ({
   streamMaintainWikiPage: jest.fn()
 }));
 
-jest.mock('./WikiIndex', () => ({ onOpenPage }) => (
+jest.mock('./WikiIndex', () => ({ onOpenPage, onBuildPage, onOpenSources }) => (
   <div data-testid="wiki-index">
     Graph view
     <button type="button" onClick={() => onOpenPage?.('wiki-1')}>Open Investing</button>
+    <button type="button" onClick={onBuildPage}>Index build page</button>
+    <button type="button" onClick={onOpenSources}>Index add source</button>
   </div>
 ));
 jest.mock('./WikiList', () => ({ compact }) => <div data-testid="wiki-list">List view {compact ? 'compact' : ''}</div>);
@@ -152,12 +137,6 @@ describe('WikiWorkspace', () => {
     mockNavigate.mockClear();
     window.localStorage.clear();
     window.sessionStorage.clear();
-    streamChatWithAgent.mockImplementation(async (_payload, handlers = {}) => {
-      handlers.onDelta?.('Agent reply.');
-      const result = { reply: 'Agent reply.', thread: { threadId: 'thread-1' } };
-      handlers.onFinal?.(result);
-      return result;
-    });
     createWikiPage.mockResolvedValue({ _id: 'wiki-new', title: 'Portfolio Concentration' });
     getArticles.mockResolvedValue([{
       _id: 'article-1',
@@ -165,15 +144,6 @@ describe('WikiWorkspace', () => {
       url: 'https://example.com',
       summary: 'Library source summary.'
     }]);
-    getAllHighlights.mockResolvedValue([{
-      _id: 'highlight-1',
-      text: 'Margin of safety is the central risk-control idea.',
-      note: 'Useful for wiki grounding.',
-      articleId: 'article-1',
-      articleTitle: 'Source memo',
-      tags: ['investing', 'risk']
-    }]);
-    createConnection.mockResolvedValue({ _id: 'connection-1' });
     createLibrarySourceProvenanceFixture.mockResolvedValue({
       fixture: {
         articleTitle: 'Debug Fixture - Library Source Provenance',
@@ -183,8 +153,6 @@ describe('WikiWorkspace', () => {
         questionPath: '/think?tab=questions&questionId=question-fixture'
       }
     });
-    getConnectionsForItem.mockResolvedValue({ outgoing: [], incoming: [] });
-    searchConnectableItems.mockResolvedValue([]);
     getWikiPage.mockImplementation(async (pageId = 'wiki-1') => ({
       _id: pageId,
       title: 'Wiki page',
@@ -309,31 +277,202 @@ describe('WikiWorkspace', () => {
     });
   });
 
-  it('renders the compact wiki list inside the workspace list shell', async () => {
+  it('renders the compact wiki list as the whole canvas', async () => {
     renderWorkspace('/wiki/workspace?view=list');
     await settleWorkspaceEffects();
 
-    expect(document.querySelector('.wiki-workspace')).toHaveClass('wiki-workspace--list-view');
     expect(await screen.findByTestId('wiki-list')).toHaveTextContent('List view compact');
-    expect(screen.getByLabelText('Partner chat')).toBeInTheDocument();
     expect(screen.queryByTestId('wiki-read-view')).not.toBeInTheDocument();
   });
 
-  it('renders the graph beside persistent chat by default', async () => {
+  it('has no chat of its own: asking is the Partner, the canvas keeps the build', async () => {
     renderWorkspace();
     await settleWorkspaceEffects();
 
-    const embeddedAgent = screen.getByLabelText('Partner chat');
-    expect(embeddedAgent).toBeInTheDocument();
-    expect(embeddedAgent).toHaveAttribute('data-agent-contract', 'agent-surface.wiki-workspace');
-    expect(embeddedAgent).toHaveAttribute('data-agent-presentation', 'embedded');
-    expect(embeddedAgent.getAttribute('data-agent-actions')).toContain('maintain');
-    expect(embeddedAgent).toHaveAttribute('data-agent-proposal-policy', 'human_acceptance');
-    await waitFor(() => expect(screen.getByLabelText('Partner status')).toHaveTextContent('Partner is here.'));
-    expect(screen.queryByLabelText('Partner trace')).not.toBeInTheDocument();
     expect(screen.getByTestId('wiki-index')).toBeInTheDocument();
-    expect(document.querySelector('.wiki-workspace')).toHaveStyle('--wiki-workspace-chat-width: 260px');
-    expect(document.querySelector('.wiki-workspace__right-pane')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Partner chat')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Wiki workspace message')).not.toBeInTheDocument();
+    expect(screen.getByRole('form', { name: 'Ask Partner to build a page' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Index build page' }));
+    expect(screen.getByLabelText('Wiki page to build')).toHaveFocus();
+  });
+
+  it('gives the Partner the view off a page and the page on one', async () => {
+    const { AgentRailProvider } = require('../../agent/AgentRailContext');
+    const PartnerPanel = require('../../agent/PartnerPanel').default;
+    const MockReadView = require('./WikiPageReadView');
+    const { useNoeisAgentSurface } = require('../../agent/AgentRailContext');
+    MockReadView.mockImplementation(({ pageId }) => {
+      useNoeisAgentSurface('agent-surface.wiki', { room: 'wiki', objectType: 'wiki_page', objectId: pageId, title: 'Investing' });
+      return <div data-testid="wiki-read-view">Page {pageId}</div>;
+    });
+    const parsed = new URL('/wiki/workspace?page=wiki-1', 'http://localhost');
+    jest.spyOn(router, 'useLocation').mockReturnValue({ pathname: parsed.pathname, search: parsed.search, hash: '', state: null, key: 'test' });
+    jest.spyOn(router, 'useNavigate').mockReturnValue(mockNavigate);
+    render(
+      <MemoryRouter initialEntries={['/wiki/workspace?page=wiki-1']}>
+        <SystemStatusProvider value={buildSystemStatusControls()}>
+          <AgentRailProvider>
+            <WikiWorkspace />
+            <PartnerPanel />
+          </AgentRailProvider>
+        </SystemStatusProvider>
+      </MemoryRouter>
+    );
+    await settleWorkspaceEffects();
+
+    const partner = screen.getByRole('complementary', { name: 'Partner' });
+    expect(partner).toHaveAttribute('data-agent-contract', 'agent-surface.wiki');
+    expect(within(partner).getByText('this page')).toBeInTheDocument();
+    expect(within(partner).getByText('Investing')).toBeInTheDocument();
+  });
+
+  it('AT-248 — the first-visit build CTA hands focus to the build composer', async () => {
+    listWikiPages.mockResolvedValueOnce([]);
+    renderWorkspace('/wiki/workspace?view=graph');
+    await screen.findByRole('heading', { name: /start the wiki with one page or one source/i });
+
+    fireEvent.click(within(screen.getByRole('region', { name: /start the wiki/i })).getByRole('button', { name: 'Build page' }));
+
+    expect(window.localStorage.getItem('noeis.wiki.first_visit_seen')).toBe('true');
+    expect(screen.getByLabelText('Wiki page to build')).toHaveFocus();
+  });
+
+  it('AT-248 — the first-visit source CTA opens Library sources', async () => {
+    listWikiPages.mockResolvedValueOnce([]);
+    renderWorkspace('/wiki/workspace?view=graph');
+    await screen.findByRole('heading', { name: /start the wiki with one page or one source/i });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Feed a source' }));
+
+    expect(window.localStorage.getItem('noeis.wiki.first_visit_seen')).toBe('true');
+    expect(mockNavigate).toHaveBeenLastCalledWith('/wiki/workspace?view=sources');
+  });
+
+  it('builds a page from a no-match source through the streaming build', async () => {
+    ingestWikiSource.mockResolvedValueOnce({
+      runId: '507f1f77bcf86cd799439011',
+      status: 'ignored',
+      summary: 'No existing page matched strongly enough; create a page for the source.',
+      affectedPageIds: [],
+      suggestedCreatePage: true,
+      suggestedTitle: 'Market Sentiment Timing',
+      sourceRef: {
+        type: 'external',
+        title: 'Sentiment memo',
+        url: 'https://example.com/sentiment',
+        summary: 'Market sentiment creates timing signals.'
+      }
+    });
+    createWikiPage.mockResolvedValueOnce({ _id: 'wiki-new', title: 'Market Sentiment Timing' });
+    renderWorkspace('/wiki/workspace?view=sources');
+    await settleWorkspaceEffects();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Feed to wiki' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Build page from source' }));
+
+    await waitFor(() => expect(createWikiPage).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Market Sentiment Timing',
+      pageType: 'overview',
+      sourceScope: 'selected_sources',
+      initialSourceRef: expect.objectContaining({
+        type: 'external',
+        title: 'Sentiment memo',
+        citationLabel: 'ingest:507f1f77bcf86cd799439011',
+        addedBy: 'ai'
+      })
+    })));
+    expect(mockNavigate).toHaveBeenLastCalledWith('/wiki/workspace?page=wiki-new&build=1');
+  });
+
+  it('persists a review decision for an ingest update plan', async () => {
+    renderWorkspace('/wiki/workspace?view=sources');
+    await settleWorkspaceEffects();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Feed to wiki' }));
+
+    expect(await screen.findByLabelText('Review ingest plan')).toHaveTextContent('Plan status: pending review');
+    fireEvent.click(screen.getByLabelText('Select update for What should update?'));
+    fireEvent.click(screen.getByRole('button', { name: 'Accept' }));
+
+    await waitFor(() => expect(reviewWikiIngestRun).toHaveBeenCalledWith('ingest-1', 'accept', {
+      candidateIds: ['candidate-wiki-1']
+    }));
+    expect(await screen.findByLabelText('Review ingest plan')).toHaveTextContent('Plan status: partially accepted');
+    expect(screen.getByText('Linked Candidate source ↔ wiki page')).toBeInTheDocument();
+  });
+
+  it('checks the wiki from the activity pane and acts on findings', async () => {
+    renderWorkspace('/wiki/workspace?view=activity');
+    await settleWorkspaceEffects();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Check the wiki' }));
+    await waitFor(() => expect(streamLintWiki).toHaveBeenCalledWith({ pageId: '' }, expect.any(Object)));
+    expect(await screen.findByText('Possible wiki link missing')).toBeInTheDocument();
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Ignore' })[0]);
+    await waitFor(() => expect(ignoreWikiLintFinding).toHaveBeenCalledWith('lint-1', 'missing-link-1'));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Check the wiki' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Fix' }));
+    await waitFor(() => expect(fixWikiLintFinding).toHaveBeenCalledWith('lint-1', 'missing-link-1'));
+    expect(await screen.findByTestId('wiki-read-view')).toHaveTextContent('Page wiki-1 workspace');
+  });
+
+  it('never records a terminal quality rejection as a built page', async () => {
+    const systemStatusControls = buildSystemStatusControls();
+    streamMaintainWikiPage.mockImplementationOnce(async () => {
+      const error = new Error('This dossier did not reach the evidence bar — No cited source directly addresses Investing.');
+      error.code = 'WIKI_CANDIDATE_REJECTED';
+      error.retryable = false;
+      throw error;
+    });
+
+    renderWorkspace('/wiki/workspace?page=wiki-new&build=1', { systemStatusControls });
+    await settleWorkspaceEffects();
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/did not reach the evidence bar/i);
+    expect(systemStatusControls.setLatestReceipt).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Wiki build needs better evidence',
+      status: 'needs_review'
+    }));
+    expect(systemStatusControls.setRecoverableFailure).not.toHaveBeenCalled();
+  });
+
+  it('fails closed when the build persists no article or evidence, and retries through the same build', async () => {
+    const systemStatusControls = buildSystemStatusControls();
+    getWikiPage.mockResolvedValueOnce({ _id: 'wiki-new', title: 'Investing', summary: 'A summary only.', sourceRefs: [{ _id: 'source-1' }] });
+
+    renderWorkspace('/wiki/workspace?page=wiki-new&build=1', { systemStatusControls });
+    await settleWorkspaceEffects();
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/without a persisted article and evidence \(0 words, 1 source/i);
+    expect(systemStatusControls.setLatestReceipt).not.toHaveBeenCalledWith(expect.objectContaining({ title: 'Wiki page built' }));
+    const failure = systemStatusControls.setRecoverableFailure.mock.calls.at(-1)[0];
+    expect(failure).toEqual(expect.objectContaining({ stage: 'Wiki build', retryable: true }));
+    act(() => failure.retry());
+    expect(mockNavigate).toHaveBeenLastCalledWith('/wiki/workspace?page=wiki-new&build=1');
+  });
+
+  it('does not report a previously rejected candidate as a successful build', async () => {
+    const systemStatusControls = buildSystemStatusControls();
+    getWikiPage.mockResolvedValueOnce({
+      _id: 'wiki-new',
+      title: 'Investing',
+      plainText: 'The previously trusted article remains readable.',
+      sourceRefs: [{ _id: 'source-1' }],
+      aiState: {
+        candidateStatus: 'maintenance_rejected',
+        lastCandidateSummary: 'The replacement candidate was rejected.'
+      }
+    });
+
+    renderWorkspace('/wiki/workspace?page=wiki-new&build=1', { systemStatusControls });
+    await settleWorkspaceEffects();
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/replacement candidate was rejected/i);
+    expect(systemStatusControls.setRecoverableFailure).not.toHaveBeenCalled();
   });
 
   it('exposes a QA-only source provenance fixture seeder and routes to the seeded wiki page', async () => {
@@ -367,24 +506,6 @@ describe('WikiWorkspace', () => {
     expect(screen.queryByRole('heading', { name: /start the wiki with one page or one source/i })).not.toBeInTheDocument();
   });
 
-  it('AT-248 — does not show onboarding for returning wiki workspace users', async () => {
-    window.localStorage.setItem('noeis.wiki.first_visit_seen', 'true');
-
-    renderWorkspace('/wiki/workspace?view=graph');
-    await settleWorkspaceEffects();
-
-    expect(screen.queryByRole('heading', { name: /start the wiki with one page or one source/i })).not.toBeInTheDocument();
-    expect(screen.getByLabelText('Partner chat')).toBeInTheDocument();
-  });
-
-  it('AT-250 — does not show first-visit onboarding when the workspace already has pages', async () => {
-    renderWorkspace('/wiki/workspace?view=graph');
-    await waitFor(() => expect(listWikiPages).toHaveBeenCalledWith({ limit: 1, summary: 1 }));
-
-    expect(screen.queryByRole('heading', { name: /start the wiki with one page or one source/i })).not.toBeInTheDocument();
-    expect(screen.getByLabelText('Partner chat')).toBeInTheDocument();
-  });
-
   it('AT-250 — does not show first-visit onboarding on direct wiki page links', async () => {
     listWikiPages.mockClear();
 
@@ -394,105 +515,6 @@ describe('WikiWorkspace', () => {
     expect(listWikiPages).not.toHaveBeenCalledWith({ limit: 1, summary: 1 });
     expect(screen.queryByRole('heading', { name: /start the wiki with one page or one source/i })).not.toBeInTheDocument();
     expect(screen.getByTestId('wiki-read-view')).toHaveTextContent('Page wiki-1');
-  });
-
-  it('opens selected wiki pages in a content-first collapsed-agent layout', async () => {
-    renderWorkspace('/wiki/workspace?page=wiki-1');
-    await settleWorkspaceEffects();
-
-    const workspace = document.querySelector('.wiki-workspace');
-    expect(workspace).toHaveClass('wiki-workspace--agent-collapsed');
-    expect(workspace).not.toHaveClass('is-mobile-wiki');
-    expect(screen.getByRole('button', { name: 'Open Partner' })).toHaveTextContent('Partner');
-    expect(await screen.findByTestId('wiki-read-view')).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Open Partner' }));
-
-    expect(document.querySelector('.wiki-workspace')).not.toHaveClass('wiki-workspace--agent-collapsed');
-    expect(document.querySelector('.wiki-workspace')).not.toHaveClass('is-mobile-chat');
-    expect(screen.getByLabelText('Wiki workspace message')).toBeInTheDocument();
-    expect(await screen.findByTestId('wiki-read-view')).toBeInTheDocument();
-    expect(mockNavigate).toHaveBeenLastCalledWith('/wiki/workspace?page=wiki-1&pane=chat', { replace: true });
-  });
-
-  it('keeps explicit selected-page chat links expanded', async () => {
-    renderWorkspace('/wiki/workspace?page=wiki-1&pane=chat');
-    await settleWorkspaceEffects();
-
-    expect(document.querySelector('.wiki-workspace')).not.toHaveClass('wiki-workspace--agent-collapsed');
-    expect(document.querySelector('.wiki-workspace')).not.toHaveClass('is-mobile-chat');
-    expect(screen.queryByRole('button', { name: 'Open Partner' })).not.toBeInTheDocument();
-    expect(screen.getByLabelText('Wiki workspace message')).toBeInTheDocument();
-    expect(await screen.findByTestId('wiki-read-view')).toBeInTheDocument();
-  });
-
-  it('keeps desktop read view visible without mobile pane classes', async () => {
-    mockViewportWidth(1568);
-    renderWorkspace('/wiki/workspace?page=wiki-1');
-    await settleWorkspaceEffects();
-
-    const workspace = document.querySelector('.wiki-workspace');
-    expect(workspace).toHaveClass('wiki-workspace--agent-collapsed');
-    expect(workspace).not.toHaveClass('is-mobile-wiki');
-    expect(workspace).not.toHaveClass('is-mobile-chat');
-    expect(document.querySelector('.wiki-workspace__right-pane')).not.toHaveClass('wiki-workspace__pane--inactive');
-    expect(await screen.findByTestId('wiki-read-view')).toHaveTextContent('Page wiki-1');
-  });
-
-  it('keeps the mobile read view visible without the legacy pane switcher', async () => {
-    mockViewportWidth(390);
-    renderWorkspace('/wiki/workspace?page=wiki-1&pane=wiki');
-    await settleWorkspaceEffects();
-
-    const workspace = document.querySelector('.wiki-workspace');
-    expect(workspace).toHaveClass('is-mobile-wiki');
-    expect(screen.queryByRole('tab', { name: 'Wiki' })).not.toBeInTheDocument();
-    expect(document.querySelector('.wiki-workspace__right-pane')).not.toHaveClass('wiki-workspace__pane--inactive');
-    expect(await screen.findByTestId('wiki-read-view')).toHaveTextContent('Page wiki-1');
-  });
-
-  it('survives desktop to mobile to desktop resize without hiding read content', async () => {
-    mockViewportWidth(1440);
-    renderWorkspace('/wiki/workspace?page=wiki-1');
-    await settleWorkspaceEffects();
-
-    expect(await screen.findByTestId('wiki-read-view')).toHaveTextContent('Page wiki-1');
-    expect(document.querySelector('.wiki-workspace')).not.toHaveClass('is-mobile-wiki');
-
-    mockViewportWidth(390);
-    await settleWorkspaceEffects();
-
-    expect(document.querySelector('.wiki-workspace')).toHaveClass('is-mobile-wiki');
-    expect(await screen.findByTestId('wiki-read-view')).toHaveTextContent('Page wiki-1');
-
-    mockViewportWidth(1440);
-    await settleWorkspaceEffects();
-
-    expect(document.querySelector('.wiki-workspace')).not.toHaveClass('is-mobile-wiki');
-    expect(await screen.findByTestId('wiki-read-view')).toHaveTextContent('Page wiki-1');
-  });
-
-  it('AT-248 — marks onboarding seen when a first-visit CTA is used', async () => {
-    listWikiPages.mockResolvedValueOnce([]);
-    renderWorkspace('/wiki/workspace?view=graph');
-    await screen.findByRole('heading', { name: /start the wiki with one page or one source/i });
-
-    fireEvent.click(screen.getAllByRole('button', { name: /build page/i }).at(-1));
-
-    expect(window.localStorage.getItem('noeis.wiki.first_visit_seen')).toBe('true');
-    await waitFor(() => expect(screen.getByLabelText('Wiki workspace message')).toHaveValue('/build '));
-  });
-
-  it('AT-248 — drop source CTA opens the source workflow and stores the seen flag', async () => {
-    listWikiPages.mockResolvedValueOnce([]);
-    renderWorkspace('/wiki/workspace?view=graph');
-    await screen.findByRole('heading', { name: /start the wiki with one page or one source/i });
-
-    fireEvent.click(screen.getByRole('button', { name: /drop source/i }));
-
-    expect(window.localStorage.getItem('noeis.wiki.first_visit_seen')).toBe('true');
-    expect(mockNavigate).toHaveBeenLastCalledWith('/wiki/workspace?view=sources&pane=chat', { replace: true });
-    await waitFor(() => expect(screen.getByLabelText('Wiki workspace message')).toHaveValue('/ingest https://'));
   });
 
   it('opens the general wiki workspace instead of resuming the last page when no page is requested', async () => {
@@ -536,35 +558,6 @@ describe('WikiWorkspace', () => {
     }
   });
 
-  it('keeps the read view mounted across page-to-page navigation', async () => {
-    let mountCount = 0;
-    const MockReadView = require('./WikiPageReadView');
-    MockReadView.mockImplementation(({ pageId, workspaceMode, onEdit }) => {
-      React.useEffect(() => {
-        mountCount += 1;
-      }, []);
-      return (
-        <div data-testid="wiki-read-view">
-          Page {pageId} {workspaceMode ? 'workspace' : ''}
-          <button type="button" onClick={onEdit}>Edit page</button>
-        </div>
-      );
-    });
-
-    renderWorkspace('/wiki/workspace?page=wiki-1');
-    await settleWorkspaceEffects();
-    expect(await screen.findByTestId('wiki-read-view')).toHaveTextContent('Page wiki-1 workspace');
-    expect(mountCount).toBe(1);
-
-    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
-      target: { value: '/page @wiki:wiki-2' }
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-
-    expect(await screen.findByTestId('wiki-read-view')).toHaveTextContent('Page wiki-2 workspace');
-    expect(mountCount).toBe(1);
-  });
-
   it('keeps page editing inside the canonical workspace URL state', async () => {
     renderWorkspace('/wiki/workspace?page=wiki-1');
     await settleWorkspaceEffects();
@@ -587,649 +580,6 @@ describe('WikiWorkspace', () => {
 
     expect(await screen.findByTestId('wiki-page-editor')).toHaveTextContent('Editing wiki-1');
     expect(screen.queryByTestId('wiki-read-view')).not.toBeInTheDocument();
-  });
-
-  it('defers wiki page reference loading until the chat asks for it', async () => {
-    renderWorkspace('/wiki/workspace');
-    await settleWorkspaceEffects();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Open Investing' }));
-    expect(await screen.findByTestId('wiki-read-view')).toHaveTextContent('Page wiki-1 workspace');
-    expect(listWikiPages).not.toHaveBeenCalledWith({ limit: 30, summary: 1 });
-
-    fireEvent.focus(screen.getByLabelText('Wiki workspace message'));
-    await waitFor(() => expect(listWikiPages).toHaveBeenCalledWith({ limit: 30, summary: 1 }));
-  });
-
-  it('keeps the chat composer visible above the message history', async () => {
-    renderWorkspace();
-    await settleWorkspaceEffects();
-
-    const composer = document.querySelector('.wiki-workspace-chat__composer');
-    const messages = document.querySelector('.wiki-workspace-chat__messages');
-    expect(composer).toBeInTheDocument();
-    expect(messages).toBeInTheDocument();
-    expect(Boolean(composer.compareDocumentPosition(messages) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
-  });
-
-  it('keeps a selected mobile article in the reading pane and removes the legacy agent duplicate', async () => {
-    mockViewportWidth(390);
-    renderWorkspace('/wiki/workspace?page=wiki-1&pane=chat');
-    await settleWorkspaceEffects();
-
-    expect(document.querySelector('.wiki-workspace')).toHaveClass('is-mobile-wiki');
-    expect(document.querySelector('.wiki-workspace__chat-pane')).toHaveClass('wiki-workspace__pane--inactive');
-    expect(document.querySelector('.wiki-workspace__right-pane')).not.toHaveClass('wiki-workspace__pane--inactive');
-    expect(screen.queryByRole('tab', { name: 'Chat' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('form', { name: 'Partner quick prompt' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Open Partner' })).not.toBeInTheDocument();
-    expect(await screen.findByTestId('wiki-read-view')).toHaveTextContent('Page wiki-1');
-  });
-
-  it('keeps a compact agent prompt available while the mobile wiki pane is active', async () => {
-    mockViewportWidth(390);
-    renderWorkspace('/wiki/workspace?view=graph&pane=wiki');
-    await settleWorkspaceEffects();
-
-    expect(document.querySelector('.wiki-workspace')).toHaveClass('is-mobile-wiki');
-    expect(document.querySelector('.wiki-workspace__chat-pane')).toHaveClass('wiki-workspace__pane--inactive');
-    const quickPrompt = screen.getByRole('form', { name: 'Partner quick prompt' });
-    expect(within(quickPrompt).getByText('Partner')).toBeInTheDocument();
-    expect(within(quickPrompt).getByText('Ready')).toBeInTheDocument();
-
-    fireEvent.change(screen.getByLabelText('Partner quick message'), {
-      target: { value: '/build Research maps' }
-    });
-    fireEvent.submit(screen.getByRole('form', { name: 'Partner quick prompt' }));
-
-    expect(document.querySelector('.wiki-workspace')).toHaveClass('is-mobile-chat');
-    await waitFor(() => expect(screen.getByLabelText('Wiki workspace message')).toHaveValue('/build Research maps'));
-    expect(mockNavigate).toHaveBeenLastCalledWith('/wiki/workspace?view=graph&pane=chat', { replace: true });
-  });
-
-  it('opens the reference picker from the transient workspace pull URL', async () => {
-    renderWorkspace('/wiki/workspace?view=graph&pull=1');
-    await settleWorkspaceEffects();
-
-    expect(document.querySelector('.wiki-workspace')).not.toHaveClass('is-mobile-chat');
-    expect(await screen.findByRole('dialog', { name: 'Reference Library or Wiki material' })).toBeInTheDocument();
-    expect(screen.getByLabelText('Search references')).toBeInTheDocument();
-    expect(mockNavigate).toHaveBeenLastCalledWith('/wiki/workspace?view=graph&pane=chat', { replace: true });
-  });
-
-  it('opens selected-page reference pull-in from the transient workspace pull URL', async () => {
-    renderWorkspace('/wiki/workspace?page=wiki-1&pull=1');
-    await settleWorkspaceEffects();
-
-    expect(document.querySelector('.wiki-workspace')).not.toHaveClass('is-mobile-chat');
-    expect(await screen.findByLabelText('Search references to pull in')).toBeInTheDocument();
-    await waitFor(() => expect(listWikiPages).toHaveBeenCalledWith({ limit: 30, summary: 1 }));
-    expect(getArticles).toHaveBeenCalledWith({ limit: 30, sort: 'recent' });
-    expect(getAllHighlights).toHaveBeenCalled();
-    expect(mockNavigate).toHaveBeenLastCalledWith('/wiki/workspace?page=wiki-1&pane=chat', { replace: true });
-  });
-
-  it('offers a build-page agent action on every workspace surface', async () => {
-    renderWorkspace('/wiki/workspace?page=wiki-1');
-    await settleWorkspaceEffects();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Build page' }));
-
-    expect(document.querySelector('.wiki-workspace')).not.toHaveClass('is-mobile-chat');
-    await waitFor(() => expect(screen.getByLabelText('Wiki workspace message')).toHaveValue('/build '));
-    expect(mockNavigate).toHaveBeenLastCalledWith('/wiki/workspace?page=wiki-1&pane=chat', { replace: true });
-  });
-
-  it('AT-19 — defers the ambient agent presence until after the workspace first paint', async () => {
-    jest.useFakeTimers();
-    try {
-      renderWorkspace('/wiki/workspace?page=wiki-1');
-      await settleWorkspaceEffects();
-
-      expect(screen.getByTestId('wiki-read-view')).toHaveTextContent('Page wiki-1 workspace');
-      expect(screen.queryByRole('status', { name: 'Partner status' })).not.toBeInTheDocument();
-
-      await act(async () => {
-        jest.advanceTimersByTime(300);
-      });
-      await settleWorkspaceEffects();
-
-      expect(screen.getByRole('status', { name: 'Partner status' })).toHaveTextContent(/is here/i);
-    } finally {
-      jest.useRealTimers();
-    }
-  });
-
-  it('uses the chat composer as the agent status surface for the selected page', async () => {
-    getWikiPage.mockResolvedValueOnce({
-      _id: 'wiki-1',
-      title: 'Investing',
-      aiState: {
-        draftStatus: 'ready',
-        health: {
-          newItems: [{ text: 'New source' }],
-          unsupportedClaims: [],
-          missingCitations: [],
-          staleSections: [],
-          contradictions: []
-        }
-      }
-    });
-
-    renderWorkspace('/wiki/workspace?page=wiki-1');
-    await settleWorkspaceEffects();
-
-    const status = await screen.findByRole('status', { name: 'Partner status' });
-    expect(status).toHaveTextContent('1 proposed change for Investing.');
-    expect(status).toHaveAttribute('data-status', 'ready');
-  });
-
-  it('opens a page from the /page chat command', async () => {
-    renderWorkspace();
-    await settleWorkspaceEffects();
-
-    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
-      target: { value: '/page @wiki:wiki-1' }
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-
-    expect(await screen.findByTestId('wiki-read-view')).toHaveTextContent('Page wiki-1 workspace');
-  });
-
-  it('runs maintenance only through the chat command', async () => {
-    renderWorkspace('/wiki/workspace?page=wiki-1');
-    await settleWorkspaceEffects();
-
-    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
-      target: { value: '/draft @wiki:wiki-1' }
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-
-    await waitFor(() => expect(streamMaintainWikiPage).toHaveBeenCalledWith('wiki-1', {}, expect.any(Object)));
-    expect(await screen.findByText('Finished drafting @wiki:wiki-1.')).toBeInTheDocument();
-  });
-
-  it('shows active agent work in the chat composer while drafting', async () => {
-    let resolveDraft;
-    streamMaintainWikiPage.mockImplementationOnce(() => new Promise(resolve => {
-      resolveDraft = () => resolve({ _id: 'wiki-1', title: 'Updated page' });
-    }));
-    renderWorkspace('/wiki/workspace?page=wiki-1');
-    await settleWorkspaceEffects();
-
-    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
-      target: { value: '/draft @wiki:wiki-1' }
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-
-    const status = await screen.findByRole('status', { name: 'Partner status' });
-    expect(status).toHaveTextContent('Partner is updating Wiki page…');
-    expect(status).toHaveAttribute('data-status', 'working');
-
-    await act(async () => { resolveDraft(); });
-    expect(await screen.findByText('Finished drafting @wiki:wiki-1.')).toBeInTheDocument();
-  });
-
-  it('ingests a pasted URL directly through chat', async () => {
-    renderWorkspace('/wiki/workspace?page=wiki-1');
-    await settleWorkspaceEffects();
-
-    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
-      target: { value: 'https://example.com/source' }
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-
-    await waitFor(() => expect(ingestWikiSource).toHaveBeenCalledWith({ type: 'url', url: 'https://example.com/source' }));
-    expect(await screen.findByLabelText('Source ripple result')).toBeInTheDocument();
-    expect(screen.getByLabelText('Latest source ripple')).toBeInTheDocument();
-    expect(screen.getByLabelText('Candidate update plan')).toHaveTextContent('provenance: Candidate source');
-    expect(screen.getByText('Done — Example source landed in Wiki Activity. Review 2 proposed destinations: Investing, What should update?.')).toBeInTheDocument();
-    expect(screen.getAllByText('The agent found 1 wiki page that this source may update.').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByRole('link', { name: 'Inspect activity' })[0]).toHaveAttribute('href', '/wiki/activity/ingest-1');
-    expect(screen.getByText('Saved Example source to Wiki activity.')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Open' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Open in Think' })).toHaveAttribute('href', '/think?tab=questions&questionId=question-1');
-    expect(screen.getByLabelText('Review ingest plan')).toHaveTextContent('Plan status: pending review');
-  });
-
-  it('publishes a system receipt when source ingest completes', async () => {
-    const systemStatusControls = buildSystemStatusControls();
-    renderWorkspace('/wiki/workspace?page=wiki-1', { systemStatusControls });
-    await settleWorkspaceEffects();
-
-    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
-      target: { value: 'https://example.com/source' }
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-
-    await waitFor(() => expect(ingestWikiSource).toHaveBeenCalled());
-    await waitFor(() => expect(systemStatusControls.setLatestReceipt).toHaveBeenCalledWith(expect.objectContaining({
-      title: expect.stringContaining('Source ingest'),
-      status: 'needs_review',
-      href: '/wiki/activity/ingest-1'
-    })));
-    expect(systemStatusControls.setBackgroundWork).toHaveBeenCalledWith({
-      label: 'Ingesting source',
-      stage: 'Metabolizing source'
-    });
-    expect(systemStatusControls.setBackgroundWork).toHaveBeenLastCalledWith(null);
-  });
-
-  it('keeps a visible metabolize receipt while source ingest is running', async () => {
-    let resolveIngest;
-    ingestWikiSource.mockImplementationOnce(() => new Promise(resolve => {
-      resolveIngest = resolve;
-    }));
-
-    renderWorkspace('/wiki/workspace?page=wiki-1');
-    await settleWorkspaceEffects();
-
-    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
-      target: { value: '/ingest https://example.com/source' }
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-
-    expect(await screen.findByText('Metabolizing https://example.com/source...')).toBeInTheDocument();
-    expect(screen.getByText('Source landed in Wiki: https://example.com/source.')).toBeInTheDocument();
-    expect(screen.getByText('Scanning Library, Think, and Wiki for pages or threads this can update.')).toBeInTheDocument();
-    expect(screen.getByText('Preparing the source ripple and candidate update plan.')).toBeInTheDocument();
-
-    await act(async () => {
-      resolveIngest({
-        runId: 'ingest-1',
-        status: 'processed',
-        summary: 'The agent found 1 wiki page that this source may update.',
-        affectedPageIds: ['wiki-1'],
-        reviewStatus: 'pending_review',
-        sourceRef: { title: 'Example source', url: 'https://example.com/source' },
-        candidateUpdates: [{
-          id: 'candidate-wiki-1',
-          targetType: 'wiki_page',
-          pageId: 'wiki-1',
-          title: 'Investing',
-          reason: 'Source overlaps this wiki page.',
-          confidence: 'medium'
-        }]
-      });
-    });
-
-    expect(await screen.findByLabelText('Source ripple result')).toBeInTheDocument();
-    expect(screen.getByText('Done — Example source landed in Wiki Activity. Review 1 proposed destination: Investing.')).toBeInTheDocument();
-    expect(screen.queryByText('Metabolizing https://example.com/source...')).not.toBeInTheDocument();
-  });
-
-  it('persists a review decision for an ingest update plan', async () => {
-    renderWorkspace('/wiki/workspace?page=wiki-1');
-    await settleWorkspaceEffects();
-
-    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
-      target: { value: 'https://example.com/source' }
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-
-    expect(await screen.findByLabelText('Review ingest plan')).toHaveTextContent('Plan status: pending review');
-    fireEvent.click(screen.getByLabelText('Select update for What should update?'));
-    fireEvent.click(screen.getByRole('button', { name: 'Accept' }));
-
-    await waitFor(() => expect(reviewWikiIngestRun).toHaveBeenCalledWith('ingest-1', 'accept', {
-      candidateIds: ['candidate-wiki-1']
-    }));
-    expect(await screen.findByLabelText('Review ingest plan')).toHaveTextContent('Plan status: partially accepted');
-    expect(screen.getAllByText('Linked Candidate source ↔ wiki page')).toHaveLength(2);
-  });
-
-  it('builds a new wiki page from a no-match source while preserving source provenance', async () => {
-    ingestWikiSource.mockResolvedValueOnce({
-      runId: '507f1f77bcf86cd799439011',
-      status: 'ignored',
-      summary: 'No existing page matched strongly enough; create a page for the source.',
-      affectedPageIds: [],
-      reviewStatus: 'pending_review',
-      suggestedCreatePage: true,
-      suggestedTitle: 'Market Sentiment Timing',
-      sourceRef: {
-        type: 'external',
-        title: 'Sentiment memo',
-        url: 'https://example.com/sentiment',
-        summary: 'Market sentiment creates timing signals.'
-      }
-    });
-    createWikiPage.mockResolvedValueOnce({ _id: 'wiki-new', title: 'Market Sentiment Timing' });
-
-    renderWorkspace('/wiki/workspace?page=wiki-1');
-    await settleWorkspaceEffects();
-
-    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
-      target: { value: 'https://example.com/sentiment' }
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-
-    expect(await screen.findByRole('button', { name: 'Build page from source' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Build page from source' }));
-
-    await waitFor(() => expect(createWikiPage).toHaveBeenCalledWith(expect.objectContaining({
-      title: 'Market Sentiment Timing',
-      pageType: 'overview',
-      sourceScope: 'selected_sources',
-      initialSourceRef: expect.objectContaining({
-        type: 'external',
-        title: 'Sentiment memo',
-        snippet: 'Market sentiment creates timing signals.',
-        url: 'https://example.com/sentiment',
-        citationLabel: 'ingest:507f1f77bcf86cd799439011',
-        addedBy: 'ai'
-      })
-    })));
-    await waitFor(() => expect(streamMaintainWikiPage).toHaveBeenCalledWith('wiki-new', {}, expect.any(Object)));
-    expect(mockNavigate).toHaveBeenCalledWith('/wiki/workspace?page=wiki-new');
-    expect(await screen.findByText(/Created @wiki:wiki-new from Sentiment memo/)).toBeInTheDocument();
-    expect(await screen.findByText(/Built @wiki:wiki-new from Sentiment memo/)).toBeInTheDocument();
-  });
-
-  it('ingests a Library source object through chat', async () => {
-    renderWorkspace('/wiki/workspace?page=wiki-1');
-    await settleWorkspaceEffects();
-
-    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
-      target: { value: '/ingest @article:article-1' }
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-
-    await waitFor(() => expect(ingestWikiSource).toHaveBeenCalledWith(expect.objectContaining({
-      type: 'article',
-      objectId: 'article-1'
-    })));
-    expect(await screen.findByLabelText('Source ripple result')).toBeInTheDocument();
-  });
-
-  it('ingests a Library highlight object through chat', async () => {
-    renderWorkspace('/wiki/workspace?page=wiki-1');
-    await settleWorkspaceEffects();
-
-    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
-      target: { value: '/ingest @highlight:highlight-1' }
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-
-    await waitFor(() => expect(ingestWikiSource).toHaveBeenCalledWith(expect.objectContaining({
-      type: 'highlight',
-      objectId: 'highlight-1'
-    })));
-    expect(await screen.findByLabelText('Source ripple result')).toBeInTheDocument();
-  });
-
-  it('pulls wiki and Library references into context through the reference picker', async () => {
-    searchConnectableItems.mockResolvedValueOnce([{
-      itemType: 'highlight',
-      itemId: 'highlight-1',
-      articleId: 'article-1',
-      title: 'Source memo',
-      snippet: 'Margin of safety quote.'
-    }]);
-    renderWorkspace('/wiki/workspace?page=wiki-1');
-    await settleWorkspaceEffects();
-
-    fireEvent.change(screen.getByLabelText('Search references to pull in'), {
-      target: { value: 'source' }
-    });
-
-    expect(await screen.findByRole('button', { name: /Source memo/ })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /Source memo/ }));
-
-    expect(await screen.findByLabelText('In context')).toHaveTextContent('@highlight:Source memo');
-    await waitFor(() => expect(createConnection).toHaveBeenCalledWith({
-      fromType: 'highlight',
-      fromId: 'highlight-1',
-      toType: 'wiki_page',
-      toId: 'wiki-1',
-      relationType: 'supports'
-    }));
-    expect(screen.getAllByText('Saved a bidirectional graph trace for this pull-in.').length).toBeGreaterThan(0);
-    expect(screen.getByRole('link', { name: 'View trace' })).toHaveAttribute(
-      'href',
-      '/wiki/workspace?page=wiki-1&pane=wiki&trace=1'
-    );
-
-    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
-      target: { value: 'Use this pulled source.' }
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-
-    await waitFor(() => expect(streamChatWithAgent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        context: expect.objectContaining({
-          references: [expect.objectContaining({
-            type: 'highlight',
-            id: 'highlight-1',
-            articleId: 'article-1'
-          })]
-        })
-      }),
-      expect.any(Object)
-    ));
-  });
-
-  it('persists wiki pull-ins as related wiki graph traces', async () => {
-    searchConnectableItems.mockResolvedValueOnce([{
-      itemType: 'wiki_page',
-      itemId: 'wiki-2',
-      title: 'Systems Thinking',
-      snippet: 'A wiki page'
-    }]);
-    renderWorkspace('/wiki/workspace?page=wiki-1');
-    await settleWorkspaceEffects();
-
-    fireEvent.change(screen.getByLabelText('Search references to pull in'), {
-      target: { value: 'systems' }
-    });
-    expect(await screen.findByRole('button', { name: /Systems Thinking/ })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /Systems Thinking/ }));
-
-    await waitFor(() => expect(createConnection).toHaveBeenCalledWith({
-      fromType: 'wiki_page',
-      fromId: 'wiki-1',
-      toType: 'wiki_page',
-      toId: 'wiki-2',
-      relationType: 'related'
-    }));
-    expect(await screen.findByLabelText('In context')).toHaveTextContent('@wiki:Systems Thinking');
-  });
-
-  it('builds a new overview wiki page from the chat command', async () => {
-    renderWorkspace();
-    await settleWorkspaceEffects();
-
-    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
-      target: { value: '/build Portfolio Concentration' }
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-
-    await waitFor(() => expect(createWikiPage).toHaveBeenCalledWith(expect.objectContaining({
-      title: 'Portfolio Concentration',
-      pageType: 'overview',
-      sourceScope: 'entire_library',
-      evidencePreflight: true,
-      createdFrom: expect.objectContaining({
-        type: 'idea',
-        text: 'Portfolio Concentration'
-      })
-    })));
-    await waitFor(() => expect(streamMaintainWikiPage).toHaveBeenCalledWith('wiki-new', {}, expect.any(Object)));
-    expect(await screen.findByText('Built @wiki:wiki-new for "Portfolio Concentration".')).toBeInTheDocument();
-  });
-
-  it('opens an exact existing Wiki instead of creating or maintaining a duplicate', async () => {
-    const systemStatusControls = buildSystemStatusControls();
-    createWikiPage.mockResolvedValueOnce({
-      _id: 'wiki-existing',
-      title: 'Parenting',
-      reusedExisting: true
-    });
-    renderWorkspace(undefined, { systemStatusControls });
-    await settleWorkspaceEffects();
-
-    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
-      target: { value: '/build Parenting' }
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-
-    expect(await screen.findByText(/Opened the existing @wiki:wiki-existing/)).toBeInTheDocument();
-    expect(streamMaintainWikiPage).not.toHaveBeenCalled();
-    expect(mockNavigate).toHaveBeenCalledWith(expect.stringContaining('page=wiki-existing'));
-    expect(systemStatusControls.setLatestReceipt).toHaveBeenCalledWith(expect.objectContaining({
-      title: 'Existing Wiki opened',
-      status: 'settled'
-    }));
-  });
-
-  it('never converts a terminal quality rejection with an empty streamed page into build success', async () => {
-    const systemStatusControls = buildSystemStatusControls();
-    streamMaintainWikiPage.mockImplementationOnce(async (_pageId, _options, handlers = {}) => {
-      handlers.onPage?.({
-        _id: 'wiki-new',
-        title: 'Investing',
-        wordCount: 0,
-        sourceRefs: [],
-        aiState: {
-          candidateStatus: 'rejected',
-          errorCode: 'WIKI_CANDIDATE_REJECTED',
-          lastCandidateSummary: 'No cited source directly addresses Investing.'
-        }
-      }, { stage: 'quality_rejected' });
-      const error = new Error('This dossier did not reach the evidence bar — No cited source directly addresses Investing.');
-      error.code = 'WIKI_CANDIDATE_REJECTED';
-      error.retryable = false;
-      throw error;
-    });
-
-    renderWorkspace(undefined, { systemStatusControls });
-    await settleWorkspaceEffects();
-    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
-      target: { value: '/build Investing' }
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-
-    expect(await screen.findByText(/did not reach the evidence bar/i)).toBeInTheDocument();
-    expect(screen.queryByText('Built @wiki:wiki-new for "Investing".')).not.toBeInTheDocument();
-    expect(systemStatusControls.setLatestReceipt).toHaveBeenCalledWith(expect.objectContaining({
-      title: 'Wiki build needs better evidence',
-      status: 'needs_review'
-    }));
-    expect(systemStatusControls.setRecoverableFailure).not.toHaveBeenCalled();
-  });
-
-  it('fails closed when the stream completes but the persisted page has no article or evidence', async () => {
-    const systemStatusControls = buildSystemStatusControls();
-    getWikiPage.mockResolvedValueOnce({ _id: 'wiki-new', title: 'Investing', wordCount: 0, sourceRefs: [] });
-
-    renderWorkspace(undefined, { systemStatusControls });
-    await settleWorkspaceEffects();
-    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
-      target: { value: '/build Investing' }
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-
-    expect(await screen.findByText(/without a persisted article and evidence \(0 words, 0 sources\)/i)).toBeInTheDocument();
-    expect(screen.queryByText('Built @wiki:wiki-new for "Investing".')).not.toBeInTheDocument();
-    expect(systemStatusControls.setRecoverableFailure).toHaveBeenCalledWith(expect.objectContaining({
-      stage: 'Wiki build',
-      retryable: true,
-      retry: expect.any(Function)
-    }));
-    expect(systemStatusControls.setLatestReceipt).not.toHaveBeenCalledWith(expect.objectContaining({
-      title: expect.stringMatching(/built/i)
-    }));
-  });
-
-  it('reframes build failure chat lines after a quality-gate rebuild succeeds', async () => {
-    createWikiPage.mockResolvedValueOnce({ _id: 'wiki-new', title: 'Economic Moats' });
-    streamMaintainWikiPage.mockImplementationOnce(async (_pageId, _options, handlers = {}) => {
-      handlers.onEvent?.('wiki-draft', { stage: 'quality_rebuild' });
-      handlers.onPage?.({ _id: 'wiki-new', title: 'Economic Moats' }, { stage: 'complete' });
-      return { _id: 'wiki-new', title: 'Economic Moats' };
-    });
-    renderWorkspace();
-    await settleWorkspaceEffects();
-
-    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
-      target: { value: '/build Economic Moats' }
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-
-    const recovery = await screen.findByText('First pass needed another try');
-    expect(screen.getByText('Rebuilding with stricter source and quality checks.')).toBeInTheDocument();
-    const built = await screen.findByText('Built @wiki:wiki-new for "Economic Moats".');
-    expect(recovery.compareDocumentPosition(built) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(screen.queryByText(/Failed to build a wiki page for/i)).not.toBeInTheDocument();
-  });
-
-  it('does not convert an interrupted stream tail into success without a completion receipt', async () => {
-    const systemStatusControls = buildSystemStatusControls();
-    createWikiPage.mockResolvedValueOnce({ _id: 'wiki-new', title: 'Economic Moats' });
-    streamMaintainWikiPage.mockImplementationOnce(async (_pageId, _options, handlers = {}) => {
-      handlers.onEvent?.('wiki-draft', { stage: 'quality_rebuild' });
-      handlers.onPage?.({ _id: 'wiki-new', title: 'Economic Moats' }, { stage: 'complete' });
-      throw new Error('stream tail error');
-    });
-    renderWorkspace(undefined, { systemStatusControls });
-    await settleWorkspaceEffects();
-
-    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
-      target: { value: '/build Economic Moats' }
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-
-    expect(await screen.findByText('stream tail error')).toBeInTheDocument();
-    expect(screen.queryByText('Built @wiki:wiki-new for "Economic Moats".')).not.toBeInTheDocument();
-    expect(systemStatusControls.setRecoverableFailure).toHaveBeenCalledWith(expect.objectContaining({
-      stage: 'Wiki build',
-      retryable: true
-    }));
-  });
-
-  it('does not count a sourced summary as a persisted Wiki article', async () => {
-    const systemStatusControls = buildSystemStatusControls();
-    getWikiPage.mockResolvedValueOnce({
-      _id: 'wiki-new',
-      title: 'Investing',
-      summary: 'A summary exists, but the article body was never persisted.',
-      sourceRefs: [{ _id: 'source-1' }]
-    });
-
-    renderWorkspace(undefined, { systemStatusControls });
-    await settleWorkspaceEffects();
-    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
-      target: { value: '/build Investing' }
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-
-    expect(await screen.findByText(/without a persisted article and evidence \(0 words, 1 source/i)).toBeInTheDocument();
-    expect(screen.queryByText('Built @wiki:wiki-new for "Investing".')).not.toBeInTheDocument();
-  });
-
-  it('does not report a previously rejected candidate as a successful build', async () => {
-    const systemStatusControls = buildSystemStatusControls();
-    getWikiPage.mockResolvedValueOnce({
-      _id: 'wiki-new',
-      title: 'Investing',
-      plainText: 'The previously trusted article remains readable.',
-      sourceRefs: [{ _id: 'source-1' }],
-      aiState: {
-        candidateStatus: 'maintenance_rejected',
-        lastCandidateSummary: 'The replacement candidate was rejected.'
-      }
-    });
-
-    renderWorkspace(undefined, { systemStatusControls });
-    await settleWorkspaceEffects();
-    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
-      target: { value: '/build Investing' }
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-
-    expect(await screen.findByText(/replacement candidate was rejected/i)).toBeInTheDocument();
-    expect(screen.queryByText('Built @wiki:wiki-new for "Investing".')).not.toBeInTheDocument();
-    expect(systemStatusControls.setRecoverableFailure).not.toHaveBeenCalled();
   });
 
   it('auto-drafts pages opened from the home build composer and refreshes the reader', async () => {
@@ -1288,616 +638,6 @@ describe('WikiWorkspace', () => {
     await act(async () => { resolveDraft(); });
   });
 
-  it('streams a built wiki page into the mounted reader without waiting for reload', async () => {
-    createWikiPage.mockResolvedValueOnce({ _id: 'wiki-built', title: 'Portfolio Concentration' });
-    streamMaintainWikiPage.mockImplementationOnce(async (_pageId, _options, handlers = {}) => {
-      handlers.onPage?.({ _id: 'wiki-built', title: 'Portfolio Concentration Draft' }, { stage: 'drafting' });
-      handlers.onPage?.({ _id: 'wiki-built', title: 'Portfolio Concentration Final' }, { stage: 'complete' });
-      return { _id: 'wiki-built', title: 'Portfolio Concentration Final' };
-    });
-    renderWorkspace();
-    await settleWorkspaceEffects();
-
-    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
-      target: { value: '/build Portfolio Concentration' }
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-
-    await waitFor(() => expect(streamMaintainWikiPage).toHaveBeenCalledWith('wiki-built', {}, expect.objectContaining({
-      onPage: expect.any(Function)
-    })));
-    expect(await screen.findByTestId('wiki-read-view')).toHaveTextContent('Page wiki-built workspace');
-    expect(await screen.findByTestId('wiki-streamed-page-title')).toHaveTextContent('Portfolio Concentration Final');
-  });
-
-  it('recovers when an auto-build maintenance stream never completes', async () => {
-    window.__NOEIS_WIKI_MAINTENANCE_TIMEOUT_MS__ = 0;
-    streamMaintainWikiPage.mockImplementationOnce(() => new Promise(() => {}));
-    const systemStatusControls = buildSystemStatusControls();
-
-    renderWorkspace('/wiki/workspace?page=wiki-new&build=1', { systemStatusControls });
-    await settleWorkspaceEffects();
-
-    expect(await screen.findByRole('alert')).toHaveTextContent('Rereading wiki-new took too long. Try again.');
-    expect(await screen.findByRole('status', { name: 'Partner status' })).not.toHaveAttribute('data-status', 'working');
-    expect(systemStatusControls.setRecoverableFailure).toHaveBeenCalledWith(expect.objectContaining({
-      stage: 'Wiki build',
-      message: 'Rereading wiki-new took too long. Try again.',
-      retryable: true,
-      retry: expect.any(Function)
-    }));
-    expect(systemStatusControls.setBackgroundWork).toHaveBeenLastCalledWith(null);
-
-    delete window.__NOEIS_WIKI_MAINTENANCE_TIMEOUT_MS__;
-  });
-
-  it('streams wiki lint into an actionable chat card without leaving the workspace', async () => {
-    renderWorkspace('/wiki/workspace?view=graph');
-    await settleWorkspaceEffects();
-
-    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
-      target: { value: '/lint @wiki:wiki-1' }
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-
-    await waitFor(() => expect(streamLintWiki).toHaveBeenCalledWith({ pageId: 'wiki-1' }, expect.any(Object)));
-    expect(await screen.findByText('Wiki lint')).toBeInTheDocument();
-    expect(screen.getByText('Possible wiki link missing')).toBeInTheDocument();
-    expect(screen.getByTestId('wiki-index')).toBeInTheDocument();
-  });
-
-  it('can fix and ignore lint findings from the chat card', async () => {
-    renderWorkspace('/wiki/workspace?view=graph');
-    await settleWorkspaceEffects();
-
-    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
-      target: { value: '/lint' }
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-
-    const fixButton = await screen.findByRole('button', { name: 'Fix' });
-    fireEvent.click(fixButton);
-    await waitFor(() => expect(fixWikiLintFinding).toHaveBeenCalledWith('lint-1', 'missing-link-1'));
-    expect(await screen.findByTestId('wiki-read-view')).toHaveTextContent('Page wiki-1 workspace');
-
-    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
-      target: { value: '/lint' }
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-    const ignoreButtons = await screen.findAllByRole('button', { name: 'Ignore' });
-    fireEvent.click(ignoreButtons[0]);
-    await waitFor(() => expect(ignoreWikiLintFinding).toHaveBeenCalledWith('lint-1', 'missing-link-1'));
-  });
-
-  it('uses broader agent chat infra for ordinary messages', async () => {
-    renderWorkspace();
-    await settleWorkspaceEffects();
-
-    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
-      target: { value: '/page @wiki:wiki-1' }
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-    await screen.findByTestId('wiki-read-view');
-
-    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
-      target: { value: 'What changed here?' }
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-
-    await waitFor(() => expect(streamChatWithAgent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        message: 'What changed here?',
-        persistThread: true,
-        context: expect.objectContaining({
-          type: 'workspace',
-          id: 'wiki',
-          pageId: 'wiki-1',
-          metadata: expect.objectContaining({ surface: 'wiki_workspace' })
-        })
-      }),
-      expect.any(Object)
-    ));
-    expect(await screen.findByText('Agent reply.')).toBeInTheDocument();
-  });
-
-  it('streams agent deltas and inline activity receipts into the pending reply', async () => {
-    streamChatWithAgent.mockImplementationOnce(async (_payload, handlers = {}) => {
-      handlers.onActivity?.({
-        key: 'read-page',
-        stage: 'read_page',
-        summary: 'Read the selected wiki page.'
-      });
-      handlers.onActivity?.({
-        key: 'read-page',
-        stage: 'read_page',
-        summary: 'Read the selected wiki page.'
-      });
-      handlers.onDelta?.('First ');
-      handlers.onDelta?.('chunk.');
-      const result = {
-        reply: 'First chunk.',
-        activityReceipts: [{
-          key: 'read-page',
-          stage: 'read_page',
-          summary: 'Read the selected wiki page.'
-        }],
-        thread: { threadId: 'thread-1' }
-      };
-      handlers.onFinal?.(result);
-      return result;
-    });
-    renderWorkspace('/wiki/workspace?page=wiki-1');
-    await settleWorkspaceEffects();
-
-    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
-      target: { value: 'Stream this response' }
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-
-    expect(await screen.findByText('First chunk.')).toBeInTheDocument();
-    const receipts = await screen.findByLabelText('What happened');
-    expect(receipts).toHaveTextContent('Read the selected wiki page.');
-    expect(receipts.querySelectorAll('li')).toHaveLength(1);
-    expect(receipts.querySelector('.wiki-workspace-chat__receipt-icon')).toBeInTheDocument();
-    expect(await screen.findByText('Thread · Wiki workspace')).toBeInTheDocument();
-  });
-
-  it('renders visible citation chips from streamed agent replies', async () => {
-    streamChatWithAgent.mockImplementationOnce(async (_payload, handlers = {}) => {
-      handlers.onDelta?.('The thesis is disciplined capital allocation [1,2].');
-      const result = {
-        reply: 'The thesis is disciplined capital allocation [1,2].',
-        activityReceipts: [{ key: 'read-page', stage: 'read_page', summary: 'Read the selected wiki page.' }],
-        thread: { threadId: 'thread-1' }
-      };
-      handlers.onFinal?.(result);
-      return result;
-    });
-    renderWorkspace('/wiki/workspace?page=wiki-1');
-    await settleWorkspaceEffects();
-
-    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
-      target: { value: 'Summarize thesis' }
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-
-    expect(await screen.findByText(/The thesis is disciplined capital allocation/)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Citation 1' })).toHaveAttribute('href', '#wiki-ref-1');
-    expect(screen.getByRole('link', { name: 'Citation 2' })).toHaveAttribute('href', '#wiki-ref-2');
-  });
-
-  it('renders graph-answer follow-up actions and prepares the selected next step', async () => {
-    const systemStatusControls = buildSystemStatusControls();
-    streamChatWithAgent.mockImplementationOnce(async (_payload, handlers = {}) => {
-      const result = {
-        reply: 'Loss aversion and opportunity cost diverge around felt loss versus unseen alternatives.',
-        activityReceipts: [
-          { key: 'search', stage: 'search', summary: 'Searched the wiki graph around the selected page.' },
-          { key: 'retrieve', stage: 'retrieve', summary: 'Read Loss Aversion + Opportunity Cost.' }
-        ],
-        suggestedActions: [
-          {
-            id: 'save-answer-to-talk',
-            label: 'Save answer to Talk',
-            prompt: 'Save this answer to the Talk notes.'
-          },
-          {
-            id: 'build-bridge-page',
-            label: 'Build bridge page',
-            prompt: '/build Loss Aversion and Opportunity Cost'
-          }
-        ],
-        thread: { threadId: 'thread-1' }
-      };
-      handlers.onFinal?.(result);
-      return result;
-    });
-    renderWorkspace('/wiki/workspace?page=wiki-1', { systemStatusControls });
-    await settleWorkspaceEffects();
-
-    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
-      target: { value: 'How does this connect to Opportunity Cost?' }
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-
-    expect(await screen.findByText(/Loss aversion and opportunity cost/)).toBeInTheDocument();
-    expect(screen.getByLabelText('Answer follow-up actions')).toHaveTextContent('Save answer to Talk');
-    fireEvent.click(screen.getByRole('button', { name: 'Build bridge page' }));
-
-    expect(screen.getByLabelText('Wiki workspace message')).toHaveValue('/build Loss Aversion and Opportunity Cost');
-    expect(systemStatusControls.setLatestReceipt).toHaveBeenCalledWith(expect.objectContaining({
-      title: 'Follow-up prepared',
-      summary: expect.stringContaining('Build bridge page')
-    }));
-  });
-
-  it('forwards paragraph edit stream events to the active wiki read view', async () => {
-    streamChatWithAgent.mockImplementationOnce(async (_payload, handlers = {}) => {
-      handlers.onActivity?.({ type: 'paragraph_edited', pageId: 'wiki-1', anchorId: 'wiki-block-1', summary: 'Edited Core idea.' });
-      const result = { reply: 'Updated paragraph.', thread: { threadId: 'thread-1' } };
-      handlers.onFinal?.(result);
-      return result;
-    });
-    renderWorkspace('/wiki/workspace?page=wiki-1');
-    await settleWorkspaceEffects();
-
-    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
-      target: { value: 'Update this page' }
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-
-    expect(await screen.findByTestId('wiki-live-update')).toHaveTextContent('wiki-block-1');
-  });
-
-  it('renders the living-agent pending state without a literal Thinking placeholder', async () => {
-    let resolveStream;
-    streamChatWithAgent.mockImplementationOnce(async (_payload, handlers = {}) => {
-      const result = await new Promise(resolve => {
-        resolveStream = () => resolve({ reply: 'Resolved reply.', thread: { threadId: 'thread-1' } });
-      });
-      handlers.onFinal?.(result);
-      return result;
-    });
-    renderWorkspace('/wiki/workspace?page=wiki-1');
-    await settleWorkspaceEffects();
-
-    const sendButton = screen.getByRole('button', { name: 'Send' });
-    expect(sendButton).toHaveClass('wiki-workspace-chat__send', 'is-empty');
-    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
-      target: { value: 'Hold the stream open' }
-    });
-    expect(screen.getByRole('button', { name: 'Send' })).toHaveClass('wiki-workspace-chat__send', 'is-ready');
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-
-    expect(await screen.findByRole('button', { name: 'Cancel' })).toHaveClass('wiki-workspace-chat__send', 'is-cancel');
-    expect(document.querySelector('.wiki-workspace-chat__composer')).toHaveAttribute('data-streaming', 'true');
-    expect(screen.queryByText('Thinking...')).not.toBeInTheDocument();
-    expect(document.querySelector('.wiki-workspace-chat__message.is-assistant .wiki-workspace-chat__caret')).toBeInTheDocument();
-
-    await act(async () => {
-      resolveStream();
-    });
-    expect(await screen.findByText('Resolved reply.')).toBeInTheDocument();
-    await waitFor(() => expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument());
-    expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
-    expect(document.querySelector('.wiki-workspace-chat__composer')).toHaveAttribute('data-streaming', 'false');
-  });
-
-  it('aborts an active streamed agent reply from the cancel affordance', async () => {
-    let streamSignal;
-    streamChatWithAgent.mockImplementationOnce(async (_payload, handlers = {}) => {
-      streamSignal = handlers.signal;
-      handlers.onDelta?.('Partial reply');
-      return new Promise((_resolve, reject) => {
-        streamSignal.addEventListener('abort', () => {
-          reject(Object.assign(new Error('Aborted'), { name: 'AbortError' }));
-        });
-      });
-    });
-    renderWorkspace('/wiki/workspace?page=wiki-1');
-    await settleWorkspaceEffects();
-
-    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
-      target: { value: 'Cancel this response' }
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-
-    await waitFor(() => expect(streamSignal).toBeTruthy());
-    expect(await screen.findByText('Partial reply')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-
-    await waitFor(() => expect(streamSignal.aborted).toBe(true));
-    await waitFor(() => expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument());
-    expect(screen.getByText('Stopped before finishing.')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
-  });
-
-  it('restores composer state and keeps the draft when a streamed reply errors', async () => {
-    streamChatWithAgent.mockImplementationOnce(async (_payload, handlers = {}) => {
-      handlers.onDelta?.('Half answer that should not render');
-      throw new Error('network dropped');
-    });
-    renderWorkspace('/wiki/workspace?page=wiki-1');
-    await settleWorkspaceEffects();
-
-    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
-      target: { value: 'Fail this response' }
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-
-    expect(await screen.findByText('Partner could not answer. Your message is still in the box; send it again when ready.')).toBeInTheDocument();
-    expect(screen.queryByText('Half answer that should not render')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument();
-    expect(screen.getByLabelText('Wiki workspace message')).toHaveValue('Fail this response');
-    expect(screen.getByRole('button', { name: 'Send' })).not.toBeDisabled();
-  });
-
-  it('keeps referenced wiki pages in context for later agent turns until removed', async () => {
-    renderWorkspace();
-    await settleWorkspaceEffects();
-
-    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
-      target: { value: '/page @wiki:wiki-1' }
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-    await screen.findByTestId('wiki-read-view');
-
-    expect(screen.getByLabelText('In context')).toHaveTextContent('@wiki:wiki-1');
-
-    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
-      target: { value: 'What should I read next?' }
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-
-    await waitFor(() => expect(streamChatWithAgent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        message: 'What should I read next?',
-        context: expect.objectContaining({
-          references: [expect.objectContaining({ type: 'wiki', id: 'wiki-1' })],
-          metadata: expect.objectContaining({
-            contextReferences: [expect.objectContaining({ type: 'wiki', id: 'wiki-1' })]
-          })
-        })
-      }),
-      expect.any(Object)
-    ));
-
-    fireEvent.click(screen.getByRole('button', { name: /Remove @wiki:/ }));
-    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
-      target: { value: 'Continue without that page.' }
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-
-    await waitFor(() => expect(streamChatWithAgent).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        message: 'Continue without that page.',
-        context: expect.objectContaining({
-          references: [],
-          metadata: expect.objectContaining({ contextReferences: [] })
-        })
-      }),
-      expect.any(Object)
-    ));
-  });
-
-  it('suggests article references and stores them as context chips', async () => {
-    renderWorkspace();
-    await settleWorkspaceEffects();
-
-    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
-      target: { value: 'Use @article:source' }
-    });
-
-    expect(await screen.findByLabelText('Article references')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /Source memo/ }));
-    expect(screen.getByLabelText('Wiki workspace message')).toHaveValue('Use @article:article-1');
-
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-    expect(await screen.findByLabelText('In context')).toHaveTextContent('@article:Source memo');
-  });
-
-  it('suggests Library highlights and sends them as agent context', async () => {
-    renderWorkspace();
-    await settleWorkspaceEffects();
-
-    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
-      target: { value: 'Ground this with @highlight:margin' }
-    });
-
-    expect(await screen.findByLabelText('Highlight references')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /Source memo/ }));
-    expect(screen.getByLabelText('Wiki workspace message')).toHaveValue('Ground this with @highlight:highlight-1');
-
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-    expect(await screen.findByLabelText('In context')).toHaveTextContent('@highlight:Source memo');
-
-    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
-      target: { value: 'What does this highlight change?' }
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-
-    await waitFor(() => expect(streamChatWithAgent).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        message: 'What does this highlight change?',
-        context: expect.objectContaining({
-          references: [expect.objectContaining({
-            type: 'highlight',
-            id: 'highlight-1',
-            articleId: 'article-1',
-            title: 'Source memo'
-          })],
-          metadata: expect.objectContaining({
-            contextReferences: [expect.objectContaining({ type: 'highlight', id: 'highlight-1' })]
-          })
-        })
-      }),
-      expect.any(Object)
-    ));
-  });
-
-  it('shows and dismisses the composer discoverability hint', async () => {
-    renderWorkspace();
-    await settleWorkspaceEffects();
-
-    expect(screen.getByText(/Type \/ for commands, @ to reference your library/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Dismiss composer hint' }));
-    expect(screen.queryByText(/Type \/ for commands, @ to reference your library/)).not.toBeInTheDocument();
-  });
-
-  it('normalizes home build intent into a wiki build command', async () => {
-    renderWorkspace('/wiki/workspace?pane=chat&homeCommand=build%20a%20page%20about%20research%20maps');
-    await settleWorkspaceEffects();
-
-    expect(screen.getByLabelText('Wiki workspace message')).toHaveValue('/build research maps');
-    expect(mockNavigate).toHaveBeenCalledWith('/wiki/workspace?pane=chat', { replace: true });
-  });
-
-  it('hydrates Home command references into Wiki chat context', async () => {
-    window.sessionStorage.setItem('noeis.homeCommand.pendingReferences', JSON.stringify([{
-      itemType: 'article',
-      itemId: 'article-1',
-      title: 'Source memo',
-      url: 'https://example.com'
-    }]));
-
-    renderWorkspace('/wiki/workspace?pane=chat&homeCommand=build%20a%20page%20about%20research%20maps');
-    await settleWorkspaceEffects();
-
-    expect(await screen.findByLabelText('In context')).toHaveTextContent('@article:Source memo');
-    expect(window.sessionStorage.getItem('noeis.homeCommand.pendingReferences')).toBeNull();
-
-    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
-      target: { value: 'What does this source change?' }
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-
-    await waitFor(() => expect(streamChatWithAgent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        message: 'What does this source change?',
-        context: expect.objectContaining({
-          references: [expect.objectContaining({
-            type: 'article',
-            id: 'article-1',
-            title: 'Source memo',
-            url: 'https://example.com'
-          })],
-          metadata: expect.objectContaining({
-            contextReferences: [expect.objectContaining({ type: 'article', id: 'article-1' })]
-          })
-        })
-      }),
-      expect.any(Object)
-    ));
-  });
-
-  it('auto-runs home source ingest handoffs so the source ripple is visible', async () => {
-    renderWorkspace('/wiki/workspace?pane=chat&homeCommand=%2Fingest%20https%3A%2F%2Fexample.com%2Fsource');
-    await settleWorkspaceEffects();
-
-    await waitFor(() => expect(ingestWikiSource).toHaveBeenCalledWith({
-      type: 'url',
-      url: 'https://example.com/source'
-    }));
-    expect(await screen.findByLabelText('Source ripple result')).toBeInTheDocument();
-    expect(screen.getByLabelText('Latest source ripple')).toHaveTextContent('Investing');
-    expect(screen.getByLabelText('Review ingest plan')).toHaveTextContent('Plan status: pending review');
-  });
-
-  it('auto-hides the discoverability hint after slash and at-reference use', async () => {
-    renderWorkspace();
-    await settleWorkspaceEffects();
-
-    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
-      target: { value: '/page @wiki:wiki-1' }
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-
-    await screen.findByTestId('wiki-read-view');
-    expect(screen.queryByText(/Type \/ for commands, @ to reference your library/)).not.toBeInTheDocument();
-  });
-
-  it('surfaces the saved broader thread and continues it on later messages', async () => {
-    renderWorkspace();
-    await settleWorkspaceEffects();
-
-    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
-      target: { value: 'Start a workspace thread' }
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-
-    expect(await screen.findByText('Thread · Wiki workspace')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Thread/ })).toHaveAttribute('href', '/think?tab=threads&threadId=thread-1');
-
-    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
-      target: { value: 'Continue it' }
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-
-    await waitFor(() => expect(streamChatWithAgent).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        message: 'Continue it',
-        threadId: 'thread-1'
-      }),
-      expect.any(Object)
-    ));
-  });
-
-  it('shows slash command discovery and fills a selected command', async () => {
-    renderWorkspace();
-    await settleWorkspaceEffects();
-
-    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
-      target: { value: '/' }
-    });
-
-    expect(screen.getByLabelText('Wiki commands')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /\/build/ })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /\/draft/ }));
-    expect(screen.getByLabelText('Wiki workspace message')).toHaveValue('/draft @wiki:');
-  });
-
-  it('filters slash commands by the active command token', async () => {
-    renderWorkspace();
-    await settleWorkspaceEffects();
-
-    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
-      target: { value: '/pa' }
-    });
-
-    const commands = screen.getByLabelText('Wiki commands');
-    expect(commands).toHaveTextContent('/page');
-    expect(commands).not.toHaveTextContent('/draft');
-    expect(commands).not.toHaveTextContent('/lint');
-  });
-
-  it('keeps the slash command palette canonical and discoverable', async () => {
-    renderWorkspace();
-    await settleWorkspaceEffects();
-
-    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
-      target: { value: '/' }
-    });
-
-    const commands = screen.getByLabelText('Wiki commands');
-    ['/new', '/create', '/promote', '/diff', '/ask'].forEach(command => (
-      expect(commands).not.toHaveTextContent(command)
-    ));
-
-    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
-      target: { value: '/he' }
-    });
-
-    expect(screen.getByLabelText('Wiki commands')).toHaveTextContent('/help');
-  });
-
-  it('suggests wiki page references for @wiki input', async () => {
-    renderWorkspace();
-    await settleWorkspaceEffects();
-
-    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
-      target: { value: '/page @wiki:sys' }
-    });
-
-    expect(await screen.findByLabelText('Wiki page references')).toBeInTheDocument();
-    expect(screen.queryByLabelText('Wiki commands')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /Systems Thinking/ }));
-    expect(screen.getByLabelText('Wiki workspace message')).toHaveValue('/page @wiki:wiki-2');
-    expect(screen.queryByLabelText('Wiki page references')).not.toBeInTheDocument();
-  });
-
-  it('opens Library sources as the right pane', async () => {
-    renderWorkspace();
-    await settleWorkspaceEffects();
-
-    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
-      target: { value: '/sources' }
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-
-    expect(await screen.findByLabelText('Library sources')).toBeInTheDocument();
-    expect(await screen.findByText('Source memo')).toBeInTheDocument();
-  });
-
   it('renders ingest detail links and touched-page counts in the activity pane', async () => {
     listWikiActivity.mockResolvedValueOnce([{
       id: 'event-ingest',
@@ -1932,30 +672,7 @@ describe('WikiWorkspace', () => {
     expect(await screen.findByDisplayValue('# Reverted')).toBeInTheDocument();
   });
 
-  it('can send a Library source back into the chat composer', async () => {
-    renderWorkspace();
-    await settleWorkspaceEffects();
-
-    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
-      target: { value: '/page @wiki:wiki-1' }
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-    await screen.findByTestId('wiki-read-view');
-
-    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
-      target: { value: '/sources' }
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-
-    expect(await screen.findByText('Source memo')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Use in chat' }));
-
-    expect(screen.getByLabelText('Wiki workspace message')).toHaveValue(
-      'Use "Source memo" (https://example.com) @article:article-1 for @wiki:wiki-1 and tell me what wiki update it supports.'
-    );
-  });
-
-  it('can feed a Library source into the wiki ingest command from the source pane', async () => {
+  it('feeds a Library source to the wiki from the source pane', async () => {
     renderWorkspace('/wiki/workspace?view=sources');
     await settleWorkspaceEffects();
 
@@ -1967,17 +684,5 @@ describe('WikiWorkspace', () => {
       objectId: 'article-1'
     })));
     expect(await screen.findByLabelText('Source ripple result')).toBeInTheDocument();
-  });
-
-  it('switches panes with a horizontal swipe on mobile', async () => {
-    mockViewportWidth(390);
-    renderWorkspace();
-    await settleWorkspaceEffects();
-    const workspace = screen.getByRole('region', { name: 'Wiki workspace' });
-
-    expect(workspace).toHaveClass('is-mobile-wiki');
-    fireEvent.touchStart(workspace, { touches: [{ clientX: 120, clientY: 20 }] });
-    fireEvent.touchEnd(workspace, { changedTouches: [{ clientX: 300, clientY: 28 }] });
-    expect(workspace).toHaveClass('is-mobile-chat');
   });
 });

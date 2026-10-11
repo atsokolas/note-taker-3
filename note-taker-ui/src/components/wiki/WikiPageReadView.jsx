@@ -911,8 +911,8 @@ const WikiConnectionTraces = ({ pageId }) => {
   );
 };
 
-const WikiReferenceComposer = ({ pageId, pageTitle }) => {
-  const [open, setOpen] = useState(false);
+const WikiReferenceComposer = ({ pageId, pageTitle, defaultOpen = false }) => {
+  const [open, setOpen] = useState(defaultOpen);
   return (
     <details
       className="wiki-read__rail-details wiki-read__rail-details--references"
@@ -1172,6 +1172,11 @@ const WikiPageReadView = ({
     () => new URLSearchParams(traceSearch || '').get('trace') === '1',
     [traceSearch]
   );
+  // A reference handed over from the palette opens the pull-in on arrival.
+  const shouldOpenPull = useMemo(
+    () => new URLSearchParams(traceSearch || '').get('pull') === '1',
+    [traceSearch]
+  );
   const focusedDecisionId = useMemo(
     () => String(new URLSearchParams(traceSearch || '').get('decisionId') || '').trim(),
     [traceSearch]
@@ -1270,7 +1275,7 @@ const WikiPageReadView = ({
   // or proposal can temporarily open the rail without rewriting that choice
   // until the reader hides it again.
   const [railCollapsed, setRailCollapsed] = useState(() => {
-    if (shouldOpenTrace) return false;
+    if (shouldOpenTrace || shouldOpenPull) return false;
     try {
       const raw = window.localStorage?.getItem('noeis.wiki.read.rail_collapsed');
       if (raw === '0' || raw === 'false') return false;
@@ -2875,6 +2880,7 @@ const WikiPageReadView = ({
             <WikiReferenceComposer
               pageId={pageId}
               pageTitle={displayWikiPageTitle(page, 'Wiki page')}
+              defaultOpen={shouldOpenPull}
             />
           ) : null}
         </aside> : null}
@@ -3094,6 +3100,7 @@ const WikiPageReadView = ({
             <WikiReferenceComposer
               pageId={pageId}
               pageTitle={displayWikiPageTitle(page, 'Wiki page')}
+              defaultOpen={shouldOpenPull}
             />
           ) : null}
           <section id="wiki-read-panel-article">

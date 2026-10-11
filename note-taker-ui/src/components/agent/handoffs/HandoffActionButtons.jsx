@@ -7,17 +7,10 @@ const HandoffActionButtons = ({
   onComplete = null,
   onReject = null,
   onCancel = null,
-  onContinueThread = null,
-  continueThreadLabel = 'Continue in thread',
   className = '',
   style = undefined
 }) => (
   <div className={className} style={style}>
-    {typeof onContinueThread === 'function' && (
-      <Button disabled={busy} onClick={onContinueThread}>
-        {busy ? 'Working…' : continueThreadLabel}
-      </Button>
-    )}
     {typeof onClaim === 'function' && (
       <Button disabled={busy} onClick={onClaim}>
         {busy ? 'Working…' : 'Claim'}

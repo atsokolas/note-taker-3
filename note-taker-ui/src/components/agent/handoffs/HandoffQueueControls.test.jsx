@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import HandoffQueueControls from './HandoffQueueControls';
 
 describe('HandoffQueueControls', () => {
-  it('handles think-mode status/actor changes and refresh', () => {
+  it('handles status/actor changes and refresh', () => {
     const onStatusFilterChange = jest.fn();
     const onQueueActorTypeChange = jest.fn();
     const onQueueActorIdChange = jest.fn();
@@ -13,7 +13,6 @@ describe('HandoffQueueControls', () => {
     const view = render(
       <MemoryRouter>
         <HandoffQueueControls
-          mode="think"
           statusFilter="all"
           onStatusFilterChange={onStatusFilterChange}
           loading={false}
@@ -36,7 +35,6 @@ describe('HandoffQueueControls', () => {
     view.rerender(
       <MemoryRouter>
         <HandoffQueueControls
-          mode="think"
           statusFilter="all"
           onStatusFilterChange={onStatusFilterChange}
           loading={false}
@@ -57,11 +55,10 @@ describe('HandoffQueueControls', () => {
     expect(onRefresh).toHaveBeenCalledTimes(1);
   });
 
-  it('renders integrations mode refresh as disabled while loading', () => {
+  it('renders refresh as disabled while loading', () => {
     render(
       <MemoryRouter>
         <HandoffQueueControls
-          mode="integrations"
           statusFilter="all"
           onStatusFilterChange={() => {}}
           loading

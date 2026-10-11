@@ -17,7 +17,7 @@ import ClaimCitationPopover from './ClaimCitationPopover';
 import Claim, { SUPPORT_STATES } from './extensions/Claim';
 import Pullquote from './extensions/Pullquote';
 import WikiLink from './extensions/WikiLink';
-import { useNoeisSurface } from '../../surface/NoeisSurfaceContext';
+import { useNoeisAgentSurface } from '../../agent/AgentRailContext';
 import { buildWikiSurfaceDescriptor } from './wikiSurfaceModel';
 import { displayWikiPageTitle, unnamedTitlePreview } from './wikiRepoDossierModel';
 import { canMakeThisTheTitle } from './open-sentence/openSentenceModel';
@@ -107,7 +107,7 @@ const WikiPageEditor = ({ pageId, onDoneEditing }) => {
   // Hovered/focused claim → drives the citation popover. Stored as the claim
   // attributes plus the anchor rect so the popover can position against it.
   const [activeClaim, setActiveClaim] = useState(null);
-  useNoeisSurface(buildWikiSurfaceDescriptor({
+  useNoeisAgentSurface('agent-surface.wiki', buildWikiSurfaceDescriptor({
     page,
     pageId,
     claimId: activeClaim?.claimId || searchParams.get('claimId') || '',

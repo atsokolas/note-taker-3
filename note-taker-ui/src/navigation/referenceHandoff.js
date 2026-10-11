@@ -12,9 +12,10 @@ export const buildReferenceHandoffPath = ({ pathname = '', search = '' } = {}) =
 
   if (safePathname.startsWith('/wiki')) {
     const params = new URLSearchParams(safeSearch);
-    params.set('pane', 'chat');
-    params.set('pull', '1');
-    return `/wiki/workspace?${params.toString()}`;
+    if (params.get('page')) {
+      params.set('pull', '1');
+      return `/wiki/workspace?${params.toString()}`;
+    }
   }
 
   if (safePathname.startsWith('/think')) {

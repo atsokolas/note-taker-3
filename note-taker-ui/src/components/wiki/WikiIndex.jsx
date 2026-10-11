@@ -670,7 +670,7 @@ const WikiIndex = ({ onOpenPage, onOpenList, onBuildPage, onOpenSources }) => {
   }, [navigate, onOpenPage]);
 
   const handleOpenWorkspace = useCallback(() => {
-    navigate('/wiki/workspace?pane=chat&view=graph');
+    navigate('/wiki/workspace?view=graph');
   }, [navigate]);
 
   const handleBuildPage = useCallback(() => {
@@ -686,7 +686,7 @@ const WikiIndex = ({ onOpenPage, onOpenList, onBuildPage, onOpenSources }) => {
       onOpenSources();
       return;
     }
-    navigate('/wiki/workspace?pane=chat&view=sources');
+    navigate('/wiki/workspace?view=sources');
   }, [navigate, onOpenSources]);
 
   const handleReviewPages = useCallback(() => {

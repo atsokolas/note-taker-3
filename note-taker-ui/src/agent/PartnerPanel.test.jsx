@@ -512,12 +512,11 @@ describe('hasPartnerPanel', () => {
     });
   });
 
-  it('steps back on the wiki workspace, which has a richer agent of its own', () => {
-    // The workspace chat drafts, builds, ingests and lints. None of that is
-    // the rail's, and two agents on one screen is the thing the rail exists to
-    // stop — so on this one surface the rail is the one that gives way.
-    expect(hasPartnerPanel('/wiki/workspace')).toBe(false);
-    expect(hasPartnerPanel('/wiki/workspace?view=list')).toBe(false);
+  it('is the wiki workspace\'s one agent too', () => {
+    // The workspace had a chat of its own. Asking is the Partner's job here
+    // as everywhere; the workspace keeps only the actions that write.
+    expect(hasPartnerPanel('/wiki/workspace')).toBe(true);
+    expect(hasPartnerPanel('/wiki/workspace?view=list')).toBe(true);
     expect(hasPartnerPanel('/wiki')).toBe(true);
   });
 
@@ -573,5 +572,20 @@ describe('PartnerPanel in Think', () => {
     fireEvent.click(within(rail).getByRole('button', { name: 'Ask' }));
     await within(rail).findByText('Compounding rewards the patient, not the early.');
     expect(within(rail).queryByRole('button', { name: 'Try wording' })).toBeNull();
+  });
+});
+
+const WikiPageSurface = () => {
+  useContextualAgentSurface('agent-surface.wiki', { objectType: 'wiki_page', objectId: 'page-1', subject: 'Grid queues' });
+  return <PartnerPanel />;
+};
+
+describe('PartnerPanel in the Wiki workspace', () => {
+  it('opens scoped to this page', () => {
+    render(<AgentRailProvider><WikiPageSurface /></AgentRailProvider>);
+    const rail = screen.getByRole('complementary', { name: 'Partner' });
+    expect(rail).toHaveAttribute('data-agent-contract', 'agent-surface.wiki');
+    expect(within(rail).getByText('this page')).toBeInTheDocument();
+    expect(within(rail).getByText('Ask about this page.')).toBeInTheDocument();
   });
 });

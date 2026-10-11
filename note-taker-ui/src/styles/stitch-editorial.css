@@ -300,8 +300,7 @@ body.noeis-editorial h6,
 body.noeis-editorial .ui-section-header__title,
 body.noeis-editorial .article-reader-title,
 body.noeis-editorial .library-article-row-title,
-body.noeis-editorial .notebook-ref-title,
-body.noeis-editorial .think-index__row-title {
+body.noeis-editorial .notebook-ref-title {
   font-family: var(--font-serif);
   font-weight: 350;
   letter-spacing: -0.04em;
@@ -314,8 +313,7 @@ body.noeis-editorial .small,
 body.noeis-editorial .ui-section-header__subtitle,
 body.noeis-editorial .library-article-row-excerpt,
 body.noeis-editorial .article-reader-meta,
-body.noeis-editorial .article-reader-content,
-body.noeis-editorial .think-index__row-meta {
+body.noeis-editorial .article-reader-content {
   color: var(--vellum-muted) !important;
 }
 
@@ -757,7 +755,6 @@ body.noeis-editorial .modal-content {
 
 body.noeis-editorial .ui-section-header__subtitle,
 body.noeis-editorial .muted-label,
-body.noeis-editorial .think-index__label,
 body.noeis-editorial .notebook-insert-label,
 body.noeis-editorial .notebook-organize-label,
 body.noeis-editorial .library-article-row-source,
@@ -799,8 +796,6 @@ body.noeis-editorial .ui-segmented-nav__item {
   padding: 8px 12px;
 }
 
-body.noeis-editorial .think-index__controls,
-body.noeis-editorial .think-index__group,
 body.noeis-editorial .notebook-organize-panel,
 body.noeis-editorial .search-section,
 body.noeis-editorial .first-insight-card,
@@ -813,10 +808,6 @@ body.noeis-editorial .first-insight-card,
 body.noeis-editorial .notebook-organize-panel,
 body.noeis-editorial .library-context-section__body {
   padding: 20px;
-}
-
-body.noeis-editorial .think-index__group {
-  padding: 18px;
 }
 
 /* A field is a ruled line you write on.
@@ -861,7 +852,6 @@ body.noeis-editorial input:where(:not([type='checkbox'], [type='radio'], [type='
    and a lone rule in a rail has nothing to thread into. These are the
    surfaces that asked for it. */
 body.noeis-editorial .feedback-field input,
-body.noeis-editorial .think-index__filter select,
 body.noeis-editorial .think-notebook-title-input,
 body.noeis-editorial .notebook-organize-panel input,
 body.noeis-editorial .notebook-organize-panel select,
@@ -872,7 +862,6 @@ body.noeis-editorial .room-shelf__search input {
 }
 
 body.noeis-editorial .feedback-field input:focus,
-body.noeis-editorial .think-index__filter select:focus,
 body.noeis-editorial .think-notebook-title-input:focus,
 body.noeis-editorial .notebook-organize-panel input:focus,
 body.noeis-editorial .notebook-organize-panel select:focus,
@@ -1182,7 +1171,6 @@ body.noeis-editorial .highlight-ref-node {
   background: none;
 }
 
-body.noeis-editorial .think-index__row,
 body.noeis-editorial .notebook-list-item {
   border: 0 !important;
   border-bottom: 1px solid var(--vellum-line) !important;
@@ -1190,7 +1178,6 @@ body.noeis-editorial .notebook-list-item {
   background: transparent !important;
 }
 
-body.noeis-editorial .think-index__row-title,
 body.noeis-editorial .today-item-title,
 body.noeis-editorial .review-resurface-title,
 body.noeis-editorial .reflection-row-title,
@@ -1293,43 +1280,6 @@ body.noeis-editorial .agent-ticker__cursor {
 
 body.noeis-editorial .agent-ticker--working .agent-ticker__history {
   opacity: 1;
-}
-
-body.noeis-editorial .wiki-workspace-chat__ticker.agent-ticker {
-  gap: 0;
-  max-width: none;
-  min-height: 34px;
-  padding: 8px 10px;
-  border-color: color-mix(in srgb, var(--vellum-line) 72%, transparent);
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--vellum-panel) 72%, var(--vellum-bg) 28%);
-  overflow: visible;
-}
-
-body.noeis-editorial .wiki-workspace-chat__ticker .agent-ticker__history {
-  display: none;
-}
-
-body.noeis-editorial .wiki-workspace-chat__ticker .agent-ticker__lines {
-  font-family: var(--font-sans);
-  font-size: 0.72rem;
-  line-height: 1.35;
-  color: color-mix(in srgb, var(--vellum-ink) 74%, transparent);
-}
-
-body.noeis-editorial .wiki-workspace-chat__ticker .agent-ticker__line {
-  display: block;
-  opacity: 1;
-}
-
-body.noeis-editorial .wiki-workspace-chat__ticker .agent-ticker__prompt {
-  display: none;
-}
-
-body.noeis-editorial .wiki-workspace-chat__ticker .agent-ticker__line span:not(.agent-ticker__prompt):not(.agent-ticker__cursor) {
-  display: block;
-  min-width: 0;
-  overflow-wrap: anywhere;
 }
 
 @keyframes noeisTickerCursor {
@@ -3670,75 +3620,6 @@ body.noeis-editorial .agent-thought-partner__draft-actions .ui-quiet-button {
   min-height: 0;
   padding-top: 0;
   padding-bottom: 0;
-}
-
-body.noeis-editorial .think-threads-card {
-  border: 1px solid rgba(120, 110, 98, 0.12) !important;
-  background: color-mix(in srgb, var(--vellum-bg) 88%, transparent) !important;
-  box-shadow: none !important;
-}
-
-body.noeis-editorial .protocol-activity-log {
-  gap: 10px;
-}
-
-body.noeis-editorial .protocol-activity-log::before {
-  left: 9px;
-  background: linear-gradient(180deg, rgba(196, 169, 126, 0.35), rgba(196, 188, 176, 0.32));
-}
-
-body.noeis-editorial .protocol-activity-log__item {
-  grid-template-columns: 18px minmax(0, 1fr);
-  gap: 12px;
-}
-
-body.noeis-editorial .protocol-activity-log__body {
-  gap: 7px;
-  padding: 0 0 14px;
-  border: 0 !important;
-  border-bottom: 1px solid var(--vellum-line) !important;
-  border-radius: 0;
-  background: transparent !important;
-  box-shadow: none !important;
-  transition: none;
-}
-
-body.noeis-editorial .protocol-activity-log__item:hover .protocol-activity-log__body {
-  transform: none;
-  border-color: var(--vellum-line) !important;
-  background: transparent !important;
-}
-
-body.noeis-editorial .protocol-activity-log__eyebrow {
-  font-family: var(--font-sans);
-  font-size: 0.58rem;
-  letter-spacing: 0.18em;
-  color: color-mix(in srgb, var(--vellum-ink) 54%, transparent);
-}
-
-body.noeis-editorial .protocol-activity-log__body h4 {
-  font-family: var(--font-serif);
-  font-size: 1.04rem;
-  line-height: 1.08;
-  color: var(--vellum-ink);
-}
-
-body.noeis-editorial .protocol-activity-log__body p {
-  font-family: var(--font-sans);
-  font-size: 0.8rem;
-  line-height: 1.62;
-  color: rgba(79, 74, 70, 0.74);
-}
-
-body.noeis-editorial .protocol-activity-log__meta span {
-  min-height: 24px;
-  padding: 0.05rem 0.5rem;
-  border: 1px solid rgba(120, 110, 98, 0.12) !important;
-  background: rgba(255, 251, 246, 0.84) !important;
-  font-family: var(--font-sans);
-  font-size: 0.63rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 body.noeis-editorial .article-reader-agent-band__partner.agent-thought-partner {
