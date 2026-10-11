@@ -72,6 +72,9 @@ app.use((req, res, next) => {
 
 app.use(cors());
 
+const { buildOpenaiAppsChallengeRouter } = require('./routes/openaiAppsChallengeRoutes');
+app.use(buildOpenaiAppsChallengeRouter());
+
 const { buildChatgptOAuthIngress } = require('./services/chatgptOAuthIngress');
 app.use(buildChatgptOAuthIngress());
 app.use(express.json({ limit: '50mb' }));
