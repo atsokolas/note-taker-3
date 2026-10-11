@@ -1,8 +1,6 @@
-import {
-  WIKI_ONBOARDING_COMPLETE_KEY,
-  isWikiOnboardingComplete,
-  markWikiOnboardingComplete
-} from './onboardingState';
+import { isOnboardingComplete, markOnboardingComplete } from './onboardingState';
+
+const BARE_KEY = 'noeis.wikiOnboardingComplete';
 
 jest.mock('../api/onboarding', () => ({
   markOnboardingCompleteOnServer: jest.fn().mockResolvedValue({})
@@ -21,31 +19,31 @@ describe('onboardingState completion flag', () => {
 
   it('does not let one account answer for another on the same browser', () => {
     localStorage.setItem('token', tokenFor('account-a'));
-    markWikiOnboardingComplete();
-    expect(isWikiOnboardingComplete()).toBe(true);
+    markOnboardingComplete();
+    expect(isOnboardingComplete()).toBe(true);
 
     // A different person signs in on the same machine. They have onboarded nothing.
     localStorage.setItem('token', tokenFor('account-b'));
-    expect(isWikiOnboardingComplete()).toBe(false);
+    expect(isOnboardingComplete()).toBe(false);
 
     // And the first account is unaffected by the second's state.
     localStorage.setItem('token', tokenFor('account-a'));
-    expect(isWikiOnboardingComplete()).toBe(true);
+    expect(isOnboardingComplete()).toBe(true);
   });
 
   it('ignores and removes a pre-scoping flag left by an earlier build', () => {
     localStorage.setItem('token', tokenFor('account-new'));
-    localStorage.setItem(WIKI_ONBOARDING_COMPLETE_KEY, 'true');
+    localStorage.setItem(BARE_KEY, 'true');
 
     // The bare key was written before completion was per-account. Honouring it would
     // skip first-run for someone who has never seen it.
-    expect(isWikiOnboardingComplete()).toBe(false);
-    expect(localStorage.getItem(WIKI_ONBOARDING_COMPLETE_KEY)).toBeNull();
+    expect(isOnboardingComplete()).toBe(false);
+    expect(localStorage.getItem(BARE_KEY)).toBeNull();
   });
 
   it('still works signed out rather than throwing', () => {
-    expect(isWikiOnboardingComplete()).toBe(false);
-    markWikiOnboardingComplete();
-    expect(isWikiOnboardingComplete()).toBe(true);
+    expect(isOnboardingComplete()).toBe(false);
+    markOnboardingComplete();
+    expect(isOnboardingComplete()).toBe(true);
   });
 });
