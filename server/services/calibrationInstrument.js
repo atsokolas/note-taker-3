@@ -157,28 +157,12 @@ const buildCalibration = (pages = [], { userId, now = new Date() } = {}) => {
   };
 };
 
-const publicProjection = () => ({
-  private: true,
-  visible: false,
-  reason: 'Calibration stays on the owner page. It is not a public score.'
-});
-
-const assertPrivate = (instrument, viewerId) => {
-  if (!instrument?.private) return instrument;
-  if (idOf(instrument.ownerId) && idOf(viewerId) !== idOf(instrument.ownerId)) {
-    return publicProjection();
-  }
-  return instrument;
-};
-
 module.exports = {
   BANDS,
   SELECTION,
   SUFFICIENT,
   VERDICTS,
-  assertPrivate,
   buildCalibration,
-  publicProjection,
   qualitative,
   summarize
 };

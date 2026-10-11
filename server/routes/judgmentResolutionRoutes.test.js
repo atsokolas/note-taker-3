@@ -26,17 +26,6 @@ app.use(buildJudgmentResolutionRouter({
     return { page: { _id: PAGE_ID, judgment: { against: [{ acceptedFrom: input.highlightId }] } }, artifact: {}, receipt: {}, idempotent: false };
   },
   buildJudgmentMirror: async input => { calls.push(['mirror', input]); return { metrics: { claimsHeld: 1 } }; },
-  buildJudgmentAudit: async input => { calls.push(['audit', input]); return { summary: { status: 'quiet' }, events: [] }; },
-  readLedger: async input => { calls.push(['ledger', input]); return { clocks: [], replay: { frames: [] } }; },
-  recordClock: async input => { calls.push(['clock', input]); return { page: { _id: PAGE_ID, judgment: {} }, artifact: {}, receipt: {}, idempotent: false }; },
-  recordOutcome: async input => { calls.push(['outcome', input]); return { page: { _id: PAGE_ID, judgment: {} }, artifact: {}, receipt: {}, idempotent: false }; },
-  resolveLesson: async input => { calls.push(['lesson', input]); return { page: { _id: PAGE_ID, judgment: {} }, artifact: {}, receipt: {}, idempotent: false }; },
-  readTeam: async input => { calls.push(['team', input]); return { visible: true, members: [], positions: [], brief: { silent: true, sentences: [] } }; },
-  grantSeat: async input => { calls.push(['grant', input]); return { team: { visible: true }, receipt: {}, seat: { roles: input.roles } }; },
-  revokeSeat: async input => { calls.push(['revoke', input]); return { team: { visible: true }, receipt: {} }; },
-  setMandate: async input => { calls.push(['mandate', input]); return { team: { mandate: { purpose: input.purpose } }, receipt: {} }; },
-  approveVersion: async input => { calls.push(['approve', input]); return { team: { visible: true }, approval: { receiptId: 'a1' }, receipt: {} }; },
-  handOffCase: async input => { calls.push(['handoff', input]); return { team: { visible: true }, walk: { fromAuthorshipIntact: true }, receipt: {} }; },
   trackEvent: event => events.push(event)
 }));
 
@@ -64,29 +53,12 @@ const server = app.listen(0, '127.0.0.1', async () => {
     const mirror = await request('/api/judgment/mirror');
     assert.strictEqual(mirror.response.status, 200);
     assert.strictEqual(mirror.body.mirror.metrics.claimsHeld, 1);
-    const audit = await request('/api/judgment/audit');
-    assert.strictEqual(audit.response.status, 200);
-    assert.strictEqual(audit.body.audit.summary.status, 'quiet');
-    assert.strictEqual((await request(`/api/judgment/pages/${PAGE_ID}/ledger`)).response.status, 200);
-    assert.strictEqual((await request(`/api/judgment/pages/${PAGE_ID}/clocks`, { method: 'POST', body: { clock: 'evidence' } })).response.status, 201);
-    assert.strictEqual((await request(`/api/judgment/pages/${PAGE_ID}/outcomes`, { method: 'POST', body: { silence: true } })).response.status, 201);
-    assert.strictEqual((await request(`/api/judgment/pages/${PAGE_ID}/lessons`, { method: 'POST', body: { status: 'accepted' } })).response.status, 201);
-    assert.strictEqual((await request(`/api/judgment/pages/${PAGE_ID}/clocks`, { method: 'POST', body: {}, token: 'agent' })).response.status, 403);
-    const team = await request(`/api/judgment/pages/${PAGE_ID}/team`);
-    assert.strictEqual(team.response.status, 200);
-    assert.strictEqual(team.body.team.visible, true);
-    assert.strictEqual((await request(`/api/judgment/pages/${PAGE_ID}/team/members`, { method: 'POST', body: { userId: 'user-2', roles: ['observe'] } })).response.status, 201);
-    assert.strictEqual((await request(`/api/judgment/pages/${PAGE_ID}/team/members/user-2/revoke`, { method: 'POST', body: {} })).response.status, 200);
-    assert.strictEqual((await request(`/api/judgment/pages/${PAGE_ID}/team/mandate`, { method: 'POST', body: { purpose: 'Hold until prices speak.' } })).response.status, 200);
-    assert.strictEqual((await request(`/api/judgment/pages/${PAGE_ID}/team/approve`, { method: 'POST', body: { conditions: 'If conversion holds.' } })).response.status, 201);
-    assert.strictEqual((await request(`/api/judgment/pages/${PAGE_ID}/team/handoff`, { method: 'POST', body: { toUserId: 'user-2' } })).response.status, 201);
-    assert.strictEqual((await request(`/api/judgment/pages/${PAGE_ID}/team/approve`, { method: 'POST', body: {}, token: 'agent' })).response.status, 403);
     // Settling a view and filing a passage are measured by ids and kinds, never by their words.
     assert.deepStrictEqual(events.map(({ event, userId, properties }) => ({ event, userId, properties })), [
       { event: 'view_resolved', userId: 'user-1', properties: { pageId: PAGE_ID, result: 'held_up' } },
       { event: 'evidence_filed', userId: 'user-1', properties: { pageId: PAGE_ID, field: 'against' } }
     ]);
-    assert.deepStrictEqual(calls.map(call => call[0]), ['criteria', 'verdict', 'evidence', 'mirror', 'audit', 'ledger', 'clock', 'outcome', 'lesson', 'team', 'grant', 'revoke', 'mandate', 'approve', 'handoff']);
+    assert.deepStrictEqual(calls.map(call => call[0]), ['criteria', 'verdict', 'evidence', 'mirror']);
     console.log('judgmentResolutionRoutes tests passed');
   } catch (error) {
     console.error(error);
