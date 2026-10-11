@@ -91,6 +91,11 @@ const testsOf = page => [...new Set([
     .map(falsifier => clean(falsifier?.observableSignal || falsifier?.text, 600))
 ].filter(Boolean))];
 
+/* A passage read against a view still stands while the view holds the same
+   sentence, and, for a met test, while that test is still open. */
+const readingStands = (page, reading) => sentenceOf(page) === clean(reading?.provenance?.before)
+  && (!reading?.provenance?.falsifier || testsOf(page).includes(reading.provenance.falsifier));
+
 /* The asks a view puts to a source: its sentence, and each open test. */
 const asksOf = page => [page, ...testsOf(page).map(condition => ({ ...page, condition }))];
 const askedText = ask => ask.condition || sentenceOf(ask);
@@ -245,13 +250,20 @@ const proposeFromReading = async ({
   const sourceText = article.content;
   const passages = sourcePassages(article.title, sourceText);
   const proposed = [];
-  const candidates = await candidateViews({ views: views.flatMap(asksOf), passages, embed, textOf: askedText });
+  const asks = views.flatMap(asksOf);
+  const candidates = await candidateViews({ views: asks, passages, embed, textOf: askedText, limit: asks.length });
   // A met test says more than a challenge to the sentence: it is asked first.
   candidates.sort((left, right) => Boolean(right.page.condition) - Boolean(left.page.condition));
+  // The budget is readings made, not asks ranked, and a view puts at most its
+  // best test and its sentence: one view's many tests do not crowd out the next.
+  const asked = new Set();
   for (const { page, passages: read } of candidates) {
-    if (await proposedToday() >= PER_DAY) break;
+    if (asked.size >= VIEWS_PER_SOURCE || await proposedToday() >= PER_DAY) break;
+    const ask = `${page._id}:${page.condition ? 'test' : 'sentence'}`;
+    if (asked.has(ask)) continue;
     const receiptId = readingReceiptId({ pageId: String(page._id), articleId: String(article._id) });
     if (await NoeisReceipt.findOne({ userId: owner, receiptId })) continue;
+    asked.add(ask);
     const verdict = await readOne({ sentence: sentenceOf(page), condition: page.condition, passages: read, sourceText, complete })
       .catch(() => null);
     if (!verdict) continue;
@@ -280,7 +292,7 @@ const pushesAgainst = async ({ userId, articleId, models: { WikiPage, NoeisRecei
   const views = await heldViews({ WikiPage, userId });
   for (const receipt of pending) {
     const page = views.find(view => String(view._id) === String(receipt.provenance?.pageId));
-    if (page && sentenceOf(page) === clean(receipt.provenance?.before)) {
+    if (page && readingStands(page, receipt)) {
       return { proposal: serializeStoredReceipt(receipt), pageId: String(page._id), view: sentenceOf(page) };
     }
   }
@@ -491,5 +503,6 @@ module.exports = {
   proposeFromReading,
   pushesAgainst,
   setOppositeAside,
+  readingStands,
   __testables: { asksOf, parseVerdict, promptFor, readOne, readSentence, askedText }
 };

@@ -1,4 +1,4 @@
-const { fileReadingProposal, opposeFromNote, proposeFromReading, pushesAgainst, PER_DAY } = require('./readingTalksBack');
+const { fileReadingProposal, opposeFromNote, proposeFromReading, pushesAgainst, readingStands, PER_DAY } = require('./readingTalksBack');
 const { buildReadingProposal, planJudgmentChangeDisposition } = require('./judgmentChangeProposalService');
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -329,6 +329,27 @@ describe('what would change your mind', () => {
     // A "meets" answer to the sentence question is not a verdict either.
     expect(await read(world(), answer({ stance: 'meets', quote: 'In 2009 traffic held while discretionary retailers saw double-digit declines.' }))).toEqual([]);
     expect(models.NoeisReceipt.rows).toHaveLength(0);
+  });
+
+  it('asks one test per view, so many tests on one view do not crowd out another', async () => {
+    const models = withTest();
+    models.WikiPage.rows[0].judgment.falsifiers = ['Renewal rates fall.', 'Renewal rates fall two quarters.', 'Renewal rates fall again.']
+      .map((text, index) => ({ falsifierId: `f${index}`, text, status: 'unobserved' }));
+    const nothing = answer({ stance: 'nothing', quote: '' });
+    await read(models, nothing);
+    const tests = nothing.mock.calls.filter(([{ messages }]) => messages[1].content.includes('change their mind if'));
+    expect(tests).toHaveLength(1);
+  });
+
+  it('goes quiet once the test it met is retired or reworded', async () => {
+    const models = withTest();
+    const [proposal] = await read(models, reader);
+    const page = models.WikiPage.rows[0];
+    expect(readingStands(page, proposal)).toBe(true);
+    page.judgment.falsifiers[0].status = 'retired';
+    expect(readingStands(page, proposal)).toBe(false);
+    page.judgment.falsifiers[0] = { falsifierId: 'f1', text: 'Renewals fall below eighty percent.', status: 'unobserved' };
+    expect(readingStands(page, proposal)).toBe(false);
   });
 
   it('never asks a retired or triggered falsifier, and asks nothing without a model', async () => {
