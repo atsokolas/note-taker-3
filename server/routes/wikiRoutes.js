@@ -8676,7 +8676,8 @@ const buildWikiRouter = ({
           sourceType: 'article',
           objectId: saved._id,
           title: saved.title || source.title || '',
-          text: cleanWikiSummary(saved.content, INGEST_TEXT_LIMIT) || source.text
+          text: cleanWikiSummary(saved.content, INGEST_TEXT_LIMIT) || source.text,
+          summary: saved.content ? '' : source.summary
         });
       }
       /* A URL used to arrive as a bare link. The run stored a title and an
