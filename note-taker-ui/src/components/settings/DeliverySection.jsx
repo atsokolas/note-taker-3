@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { getMorningPaperSettings, updateMorningPaperSettings } from '../../api/dailyLoop';
 import { formatDeliveryHour, nextEligibleDeliveryMoments } from '../../settings/morningPaperSchedule';
+import { Button } from '../ui';
 
 const emailValid = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
 
@@ -162,14 +163,13 @@ const DeliverySection = () => {
                 </select>
               </div>
               <div style={{ marginTop: '1.25rem', display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                <button
-                  type="button"
-                  className="settings-redesign__btn is-primary"
+                <Button
+                  variant="primary"
                   onClick={reviewDelivery}
                   disabled={!emailValid(draft.email) || saving}
                 >
                   Review delivery details
-                </button>
+                </Button>
                 <span className="settings-redesign__help" style={{ margin: 0 }}>{dirty ? 'Unsaved changes' : 'Current details'}</span>
               </div>
               {!settings?.emailConfirmed ? (
@@ -218,14 +218,13 @@ const DeliverySection = () => {
             </label>
           ) : null}
           <div style={{ marginTop: '1.25rem', display: 'flex', gap: '0.75rem' }}>
-            <button
-              type="button"
-              className="settings-redesign__btn is-primary"
+            <Button
+              variant="primary"
               onClick={commitDeliveryDetails}
               disabled={draft.email !== (settings?.email || '') && !confirmAddress}
             >
               Use these delivery details
-            </button>
+            </Button>
             <button type="button" className="settings-redesign__link" onClick={() => setReviewOpen(false)}>Keep editing</button>
           </div>
         </dialog>

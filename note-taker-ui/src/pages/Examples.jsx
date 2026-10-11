@@ -1,5 +1,6 @@
 import React from 'react';
 import useSeoMetadata from '../hooks/useSeoMetadata';
+import { buttonClass } from '../components/ui';
 import { CANONICAL_HOST } from '../seo/siteMetadata';
 import publishingContent from '../seo/publishingContent.json';
 import { trackMarketingCta } from '../utils/marketingAnalytics';
@@ -68,7 +69,7 @@ const Examples = () => {
           <div className="seo-cta-row">
             <a
               href="/register?via=marketing&entry=examples&cta=examples&page_type=examples"
-              className="ui-button ui-button-primary"
+              className={buttonClass('primary')}
               onClick={() => trackMarketingCta({
                 page: 'examples',
                 cta: 'examples',
@@ -78,7 +79,7 @@ const Examples = () => {
             >
               Build your own research wiki
             </a>
-            <a href="/from-saved-article-to-draft-in-noeis" className="ui-button">
+            <a href="/from-saved-article-to-draft-in-noeis" className={buttonClass()}>
               See the draft workflow
             </a>
           </div>

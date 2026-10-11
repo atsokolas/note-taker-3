@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { createAgentTaskLink } from '../../api/agent';
-import { Card } from '../ui';
+import { Button, Card, buttonClass } from '../ui';
 
 const RUNTIMES = [
   { value: 'openclaw', label: 'OpenClaw' },
@@ -105,16 +105,16 @@ const AgentLaunchLinkCard = ({ compact = false }) => {
 
       {error ? <p className="form-error">{error}</p> : null}
       <div className="settings-actions">
-        <button type="button" className="ui-button ui-button-primary" onClick={handleCreate} disabled={creating || !title.trim()}>
+        <Button variant="primary" onClick={handleCreate} disabled={creating || !title.trim()}>
           {creating ? 'Creating...' : 'Create launch link'}
-        </button>
+        </Button>
       </div>
 
       {created?.runUrl ? (
         <div className="agent-launch-link-card__result" role="status">
           <strong>Launch link ready</strong>
           <pre className="external-bridge-pre">{created.runUrl}</pre>
-          <a className="ui-button" href={created.runUrl}>Open link</a>
+          <a className={buttonClass()} href={created.runUrl}>Open link</a>
         </div>
       ) : null}
     </Container>

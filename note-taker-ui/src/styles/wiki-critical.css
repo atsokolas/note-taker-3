@@ -1,4 +1,3 @@
-
 .wiki-page {
   display: grid;
   gap: 18px;
@@ -555,9 +554,6 @@
 .wiki-read__retired-claims button:disabled {
   cursor: wait;
   opacity: 0.55;
-}
-.wiki-numeric-value {
-  font-variant-numeric: tabular-nums;
 }
 .wiki-read__connections {
   display: grid;
@@ -1184,5 +1180,434 @@
 @media (prefers-reduced-motion: reduce) {
   .wiki-read__infobox-row.is-updated {
     animation: none !important;
+  }
+}
+
+/* The standard reference reader: layout, rails and article tools. */
+
+body.noeis-editorial .wiki-workspace-chat__ticker.agent-ticker {
+  gap: 0;
+  max-width: none;
+  min-height: 34px;
+  padding: 8px 10px;
+  border-color: color-mix(in srgb, var(--vellum-line) 72%, transparent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--vellum-panel) 72%, var(--vellum-bg) 28%);
+  overflow: visible;
+}
+
+body.noeis-editorial .wiki-workspace-chat__ticker .agent-ticker__history {
+  display: none;
+}
+
+body.noeis-editorial .wiki-workspace-chat__ticker .agent-ticker__lines {
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: color-mix(in srgb, var(--vellum-ink) 74%, transparent);
+}
+
+body.noeis-editorial .wiki-workspace-chat__ticker .agent-ticker__line {
+  display: block;
+  opacity: 1;
+}
+
+body.noeis-editorial .wiki-workspace-chat__ticker .agent-ticker__prompt {
+  display: none;
+}
+
+body.noeis-editorial .wiki-workspace-chat__ticker .agent-ticker__line span:not(.agent-ticker__prompt):not(.agent-ticker__cursor) {
+  display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+body.noeis-editorial .wiki-index__list.library-article-list {
+  border: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+body.noeis-editorial .wiki-index__list .library-article-row {
+  border-top: 0;
+  border-left: 0;
+  border-right: 0;
+}
+
+body.noeis-editorial .wiki-index__list .library-article-row:last-child {
+  border-bottom: 0;
+}
+
+body.noeis-editorial .wiki-index--faceted .wiki-index__faceted-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 260px) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+body.noeis-editorial .wiki-index--faceted .wiki-index__faceted-main {
+  min-width: 0;
+}
+
+@media (max-width: 960px) {
+  body.noeis-editorial .wiki-index--faceted .wiki-index__faceted-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  body.noeis-editorial .wiki-index--faceted .wiki-index__faceted-main {
+    order: 2;
+  }
+}
+
+body.noeis-editorial .wiki-read__dossier-review {
+  margin: 26px 0;
+}
+
+body.noeis-editorial .wiki-read__dossier-judgment-link {
+  margin: 0;
+  padding: 18px 0 0;
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 58%, transparent);
+  color: var(--vellum-subtle);
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+}
+
+body.noeis-editorial .wiki-read__dossier-judgment-link a {
+  color: var(--vellum-ink);
+}
+
+body.noeis-editorial .wiki-read--standard .wiki-read__header {
+  gap: 10px;
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+/* Ordinary Wiki pages are reference articles, not dossiers or magazine
+   features. Keep the durable Wikipedia / Tolkien Gateway reading shape:
+   navigable contents, restrained title, stable reading measure, and factual
+   context before agent tools. Specialized readers retain their own grammar. */
+
+body.noeis-editorial .wiki-read--standard {
+  width: min(calc(100% - 40px), 1380px);
+  padding-top: 22px;
+}
+
+body.noeis-editorial .wiki-read--standard .wiki-read__layout {
+  grid-template-columns: minmax(150px, 190px) minmax(0, 760px) minmax(220px, 260px);
+  gap: clamp(24px, 2.4vw, 40px);
+  justify-content: center;
+}
+
+body.noeis-editorial .wiki-read--standard .wiki-read__layout--rail-collapsed {
+  grid-template-columns: minmax(150px, 190px) minmax(0, 820px) 48px;
+}
+
+body.noeis-editorial .wiki-read--standard .wiki-read__progress {
+  margin-bottom: 28px;
+}
+
+body.noeis-editorial .wiki-read--standard .wiki-read__header h1 {
+  max-width: 18ch;
+  margin: 0;
+  font-size: clamp(2.45rem, 4vw, 3.55rem);
+  font-style: normal;
+  font-weight: 480;
+  letter-spacing: -0.035em;
+  line-height: 1.02;
+}
+
+body.noeis-editorial .wiki-read--standard .wiki-read__body {
+  max-width: 72ch;
+  padding-top: 34px;
+  font-size: 1.075rem;
+  line-height: 1.72;
+}
+
+body.noeis-editorial .wiki-read--standard .wiki-read__body > p:first-of-type {
+  margin-bottom: 1.65em;
+  color: var(--vellum-ink);
+  font-size: 1.13em;
+  line-height: 1.68;
+}
+
+body.noeis-editorial .wiki-read--standard .wiki-read__body > p:first-of-type::first-letter {
+  float: none;
+  margin: 0;
+  color: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+body.noeis-editorial .wiki-read--standard .wiki-read__body h2 {
+  margin: 2.25em 0 0.7em;
+  padding: 0 0 0.42em;
+  border-top: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule) 68%, transparent);
+  font-size: 1.48rem;
+  font-weight: 520;
+  letter-spacing: -0.018em;
+}
+
+body.noeis-editorial .wiki-read--standard .wiki-read__body h3 {
+  margin-top: 1.7em;
+  font-size: 1.18rem;
+  font-weight: 620;
+}
+
+body.noeis-editorial .wiki-read--standard .wiki-read__toc nav {
+  padding: 6px 0 0 14px;
+  border-left: 1px solid color-mix(in srgb, var(--noeis-rule) 70%, transparent);
+}
+
+body.noeis-editorial .wiki-read--standard .wiki-read__toc h2,
+body.noeis-editorial .wiki-read--standard .wiki-read__infobox--primary h2 {
+  color: var(--vellum-ink);
+  font-family: var(--font-sans);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+body.noeis-editorial .wiki-read--standard .wiki-read__toc a {
+  color: var(--vellum-subtle);
+  font-family: var(--font-sans);
+  font-size: 0.76rem;
+  line-height: 1.4;
+}
+
+body.noeis-editorial .wiki-read--standard .wiki-read__toc a.is-active {
+  color: var(--vellum-ink);
+  font-weight: 700;
+}
+
+body.noeis-editorial .wiki-read--standard .wiki-read__infobox--primary {
+  padding: 4px 0 16px;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule) 68%, transparent);
+  background: transparent;
+}
+
+body.noeis-editorial .wiki-read--standard .wiki-read__infobox--primary dl {
+  gap: 8px;
+}
+
+body.noeis-editorial .wiki-read--standard .wiki-read__infobox-type {
+  margin: -2px 0 12px;
+  color: var(--vellum-subtle);
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+}
+
+body.noeis-editorial .wiki-read--standard .wiki-read__infobox--primary dl > div {
+  grid-template-columns: minmax(72px, 0.72fr) minmax(0, 1fr);
+  gap: 10px;
+}
+
+body.noeis-editorial .wiki-read__article-tools {
+  margin: 38px 0 18px;
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 72%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule) 60%, transparent);
+  font-family: var(--font-sans);
+}
+
+body.noeis-editorial .wiki-read__article-tools > summary {
+  padding: 14px 0;
+  color: var(--vellum-ink-soft);
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+body.noeis-editorial .wiki-read__article-tools-panel {
+  display: grid;
+  gap: 18px;
+  padding: 0 0 22px;
+}
+
+body.noeis-editorial .wiki-read__article-tool {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+body.noeis-editorial .wiki-read__article-tool p {
+  margin: 0;
+}
+
+body.noeis-editorial .wiki-read__article-tool-label {
+  color: var(--vellum-ink);
+  font-weight: 700;
+}
+
+body.noeis-editorial .wiki-read__dossier-review-panel,
+body.noeis-editorial .wiki-read__rail-details-panel {
+  display: grid;
+  gap: 18px;
+  padding-top: 18px;
+}
+
+body.noeis-editorial .wiki-read__rail-details {
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 72%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule) 60%, transparent);
+}
+
+body.noeis-editorial .wiki-read__rail-details > summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  list-style: none;
+  color: var(--vellum-subtle);
+  font-family: var(--font-sans);
+  font-size: 0.7rem;
+  font-weight: 650;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+body.noeis-editorial .wiki-read__rail-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+body.noeis-editorial .wiki-read__rail-details > summary::after {
+  content: 'Open';
+  font-size: 0.64rem;
+}
+
+body.noeis-editorial .wiki-read__rail-details[open] > summary::after {
+  content: 'Close';
+}
+
+@container wikiread (max-width: 980px) {
+  /* The shared companion already occupies a rail. Reflow this reader using
+     its available width, keeping the article out of an implicit third column. */
+
+  body.noeis-editorial .wiki-read--standard .wiki-read__layout,
+  body.noeis-editorial .wiki-read--standard .wiki-read__layout--rail-collapsed {
+    grid-template-columns: minmax(150px, 180px) minmax(0, 1fr);
+  }
+
+  body.noeis-editorial .wiki-read--standard .wiki-read__toc {
+    grid-column: 1;
+    grid-row: 1;
+    display: grid;
+    order: 0;
+    position: static;
+    margin: 0 0 8px;
+    border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 68%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule) 68%, transparent);
+    font-family: var(--font-sans);
+  }
+
+  body.noeis-editorial .wiki-read--standard .wiki-read__toc nav {
+    padding: 14px 0;
+    border-left: 0;
+  }
+
+  body.noeis-editorial .wiki-read--standard .wiki-read__toc ol {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px 18px;
+  }
+
+  body.noeis-editorial .wiki-read--standard .wiki-read__article {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    order: 1;
+  }
+
+  body.noeis-editorial .wiki-read--standard .wiki-read__rail {
+    grid-column: 1;
+    grid-row: 2;
+    position: static;
+  }
+}
+
+@container wikiread (max-width: 680px) {
+  body.noeis-editorial .wiki-read--standard .wiki-read__layout,
+  body.noeis-editorial .wiki-read--standard .wiki-read__layout--rail-collapsed {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  body.noeis-editorial .wiki-read--standard .wiki-read__article {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  body.noeis-editorial .wiki-read--standard .wiki-read__toc {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  body.noeis-editorial .wiki-read--standard .wiki-read__rail {
+    grid-column: 1;
+    grid-row: 3;
+  }
+}
+
+body.noeis-editorial .wiki-read--standard .wiki-read__toc--mobile {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  body.noeis-editorial .wiki-read--standard {
+    width: min(calc(100% - 28px), 680px);
+    padding-top: 14px;
+  }
+
+  body.noeis-editorial .wiki-read--standard .wiki-read__layout,
+  body.noeis-editorial .wiki-read--standard .wiki-read__layout--rail-collapsed {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 18px;
+  }
+
+  body.noeis-editorial .wiki-read--standard .wiki-read__toc {
+    width: 100%;
+    min-width: 0;
+  }
+
+  body.noeis-editorial .wiki-read--standard .wiki-read__toc--desktop.wiki-read__left-rail {
+    display: grid;
+    order: 2;
+  }
+
+  body.noeis-editorial .wiki-read--standard .wiki-read__left-rail > nav {
+    display: none;
+  }
+
+  body.noeis-editorial .wiki-read--standard .wiki-read__toc--mobile {
+    display: grid;
+    margin: 18px 0 0;
+  }
+
+  body.noeis-editorial .wiki-read--standard .wiki-read__article {
+    order: 1;
+  }
+
+  body.noeis-editorial .wiki-read--standard .wiki-read__rail {
+    order: 3;
+    width: 100%;
+    min-width: 0;
+  }
+
+  body.noeis-editorial .wiki-read--standard .wiki-read__header h1 {
+    font-size: clamp(2.15rem, 11vw, 3rem);
+  }
+
+  body.noeis-editorial .wiki-read--standard .wiki-read__body {
+    padding-top: 26px;
+    font-size: 1.02rem;
+    line-height: 1.68;
+  }
+
+  body.noeis-editorial .wiki-read--standard .wiki-read__toc ol {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

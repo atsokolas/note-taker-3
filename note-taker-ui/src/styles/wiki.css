@@ -1,1706 +1,5 @@
-/* Think room styles consume the shared semantic shell package. */
-
-.think-layout__left-panel {
-  gap: 26px;
-}
-
-.think-layout__left-panel .ui-section-header__title {
-  font-size: 0.98rem;
-}
-
-.think-layout__left-panel .ui-section-header__subtitle {
-  font-size: 0.76rem;
-}
-
-.think-layout__left-panel.think-index {
-  gap: 30px;
-  min-width: 0;
-}
-
-.think-index__controls {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule) 70%, transparent);
-}
-
-.think-layout__left-panel .feedback-field > span,
-.think-index__filter > span,
-.think-index__label {
-  font-size: 0.7rem;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-  font-weight: 700;
-  color: color-mix(in srgb, var(--text-muted) 92%, transparent);
-}
-
-.think-layout__left-panel .feedback-field input,
-.think-index__filter select {
-  min-height: 36px;
-  padding: 0 11px;
-  border: 1px solid color-mix(in srgb, var(--noeis-rule) 68%, transparent);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--noeis-paper-muted) 52%, transparent);
-  color: var(--text-secondary);
-  box-shadow: none;
-}
-
-.think-layout__left-panel .feedback-field input:focus,
-.think-index__filter select:focus {
-  border-color: color-mix(in srgb, var(--accent) 25%, transparent);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-soft) 16%, transparent);
-}
-
-.article-reader-agent-band__partner.agent-thought-partner {
-  border-radius: 18px;
-}
-
-.agent-thought-partner__drafts {
-  display: grid;
-  gap: 10px;
-  margin-top: 14px;
-  padding-top: 14px;
-  border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 74%, transparent);
-}
-
-.agent-thought-partner__scorecard {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.agent-thought-partner__scorecard-item {
-  display: grid;
-  gap: 4px;
-  padding: 12px 14px;
-  border-radius: 18px;
-  border: 1px solid color-mix(in srgb, var(--noeis-rule) 76%, transparent);
-  background:
-    linear-gradient(180deg, color-mix(in srgb, #f7f2e8 92%, var(--noeis-paper)), color-mix(in srgb, var(--noeis-paper) 96%, transparent)),
-    radial-gradient(120% 140% at 100% 0%, color-mix(in srgb, #b7791f 9%, transparent), transparent 56%);
-}
-
-.agent-thought-partner__scorecard-label {
-  font-size: 0.68rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-.agent-thought-partner__scorecard-item strong {
-  font-size: 1.2rem;
-  letter-spacing: -0.04em;
-}
-
-.agent-thought-partner__scorecard-item p {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: 0.8rem;
-}
-
-.agent-thought-partner__plan-preview {
-  position: relative;
-  overflow: hidden;
-  display: grid;
-  gap: 14px;
-  padding: 18px 20px 20px;
-  border-radius: 24px;
-  border: 1px solid color-mix(in srgb, #2f5f6b 18%, var(--noeis-rule));
-  background:
-    radial-gradient(circle at 12% 0%, color-mix(in srgb, #d7eee9 56%, transparent) 0, transparent 34%),
-    linear-gradient(135deg, color-mix(in srgb, #eef7f4 92%, var(--noeis-paper)) 0%, color-mix(in srgb, #fbf5eb 86%, var(--noeis-paper)) 100%);
-}
-
-.agent-thought-partner__plan-preview::before {
-  content: "";
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 4px;
-  background: linear-gradient(180deg, #2f5f6b, #c79555);
-}
-
-.agent-thought-partner__plan-preview-head {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  flex-wrap: wrap;
-  align-items: center;
-}
-
-.agent-thought-partner__plan-preview-eyebrow {
-  display: block;
-  font-size: 0.7rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  font-weight: 700;
-  color: color-mix(in srgb, #355964 72%, var(--text-secondary));
-}
-
-.agent-thought-partner__plan-preview-status {
-  display: block;
-  margin-top: 4px;
-  font-size: 0.8rem;
-  color: var(--text-primary);
-}
-
-.agent-thought-partner__plan-preview-meta {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.agent-thought-partner__plan-preview-meta span {
-  display: inline-flex;
-  align-items: center;
-  min-height: 24px;
-  padding: 0.1rem 0.55rem;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--noeis-paper) 92%, transparent);
-  border: 1px solid color-mix(in srgb, var(--noeis-rule) 70%, transparent);
-  color: var(--text-muted);
-  font-size: 0.72rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.agent-thought-partner__plan-preview h4 {
-  margin: 0;
-  font-size: clamp(1.18rem, 2vw, 1.7rem);
-  letter-spacing: -0.03em;
-}
-
-.agent-thought-partner__plan-preview p {
-  margin: 0;
-  color: var(--text-secondary);
-  line-height: 1.58;
-}
-
-.agent-thought-partner__plan-preview-list {
-  counter-reset: plan-step;
-  display: grid;
-  gap: 10px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  color: var(--text-primary);
-}
-
-.agent-thought-partner__plan-preview-list li {
-  position: relative;
-  display: grid;
-  grid-template-columns: 28px minmax(0, 1fr);
-  gap: 10px;
-  align-items: start;
-  line-height: 1.5;
-}
-
-.agent-thought-partner__plan-preview-list li::before {
-  counter-increment: plan-step;
-  content: counter(plan-step, decimal-leading-zero);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 999px;
-  background: color-mix(in srgb, #2f5f6b 12%, var(--noeis-paper));
-  color: color-mix(in srgb, #2f5f6b 82%, var(--text-primary));
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-}
-
-.agent-thought-partner__plan-preview-actions {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  align-items: center;
-  padding-top: 2px;
-}
-
-.agent-thought-partner__drafts-head h4 {
-  margin: 0;
-  font-size: 0.92rem;
-}
-
-.agent-thought-partner__drafts-head p {
-  margin: 4px 0 0;
-  color: var(--text-muted);
-  font-size: 0.84rem;
-}
-
-.agent-thought-partner__draft-card {
-  display: grid;
-  gap: 8px;
-  padding: 14px;
-  border-radius: 16px;
-  border: 1px solid color-mix(in srgb, var(--noeis-rule) 78%, transparent);
-  background: color-mix(in srgb, var(--noeis-paper-muted) 64%, transparent);
-}
-
-.agent-thought-partner__review-card {
-  display: grid;
-  gap: 10px;
-  padding: 16px;
-  border-radius: 20px;
-  border: 1px solid color-mix(in srgb, var(--noeis-rule) 80%, transparent);
-  background: color-mix(in srgb, var(--noeis-paper) 96%, transparent);
-}
-
-.agent-thought-partner__review-card.is-history {
-  background: color-mix(in srgb, var(--noeis-paper) 92%, transparent);
-}
-
-.agent-thought-partner__review-card.is-rolled_back {
-  background: color-mix(in srgb, #eef4ff 88%, var(--noeis-paper));
-}
-
-.agent-thought-partner__review-card.is-rejected {
-  background: color-mix(in srgb, #f7f1ef 92%, var(--noeis-paper));
-}
-
-.agent-thought-partner__review-card--structure {
-  background: color-mix(in srgb, #eef7f6 88%, var(--noeis-paper));
-  border-color: color-mix(in srgb, #0f766e 16%, var(--noeis-rule));
-}
-
-.agent-thought-partner__review-card--structure.is-history {
-  background: color-mix(in srgb, #f3f8ff 92%, var(--noeis-paper));
-}
-
-.agent-thought-partner__review-card--structure.is-rolled_back {
-  background: color-mix(in srgb, #eef8ff 90%, var(--noeis-paper));
-}
-
-.agent-thought-partner__review-head {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: flex-start;
-}
-
-.agent-thought-partner__review-head h4 {
-  margin: 4px 0 0;
-  font-size: 1rem;
-  letter-spacing: -0.03em;
-}
-
-.agent-thought-partner__history-timestamp {
-  margin: 0;
-  font-size: 0.77rem;
-  color: var(--text-muted);
-  text-align: right;
-}
-
-.agent-thought-partner__draft-card.is-promoted {
-  background: color-mix(in srgb, var(--accent-soft) 10%, var(--noeis-paper-muted));
-  border-color: color-mix(in srgb, var(--accent) 24%, var(--noeis-rule));
-}
-
-.agent-thought-partner__draft-meta {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  font-size: 0.72rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-.agent-thought-partner__draft-card h4 {
-  margin: 0;
-  font-size: 0.98rem;
-  letter-spacing: -0.02em;
-}
-
-.agent-thought-partner__draft-card p {
-  margin: 0;
-  color: var(--text-muted);
-}
-
-.agent-thought-partner__draft-summary {
-  font-size: 0.9rem;
-  line-height: 1.55;
-}
-
-.agent-thought-partner__snapshot-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.agent-thought-partner__snapshot-card {
-  display: grid;
-  gap: 8px;
-  min-height: 112px;
-  padding: 12px;
-  border-radius: 16px;
-  background: color-mix(in srgb, var(--noeis-paper) 92%, transparent);
-  border: 1px solid color-mix(in srgb, var(--noeis-rule) 72%, transparent);
-}
-
-.agent-thought-partner__snapshot-card.is-proposed {
-  background: color-mix(in srgb, #fbf7ee 92%, var(--noeis-paper));
-}
-
-.agent-thought-partner__snapshot-label {
-  font-size: 0.68rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-.agent-thought-partner__snapshot-card p {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: 0.87rem;
-  line-height: 1.55;
-}
-
-.agent-thought-partner__structure-note {
-  margin: -2px 0 0;
-  color: color-mix(in srgb, var(--text-secondary) 92%, transparent);
-  font-size: 0.84rem;
-  line-height: 1.5;
-}
-
-.agent-thought-partner__structure-summary {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.agent-thought-partner__structure-summary-chip {
-  display: grid;
-  gap: 2px;
-  min-width: 112px;
-  padding: 10px 12px;
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--noeis-paper) 92%, transparent);
-  border: 1px solid color-mix(in srgb, #0f766e 14%, var(--noeis-rule));
-}
-
-.agent-thought-partner__structure-summary-chip strong {
-  font-size: 1.02rem;
-  letter-spacing: -0.03em;
-}
-
-.agent-thought-partner__structure-summary-chip span {
-  color: var(--text-muted);
-  font-size: 0.72rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.agent-thought-partner__structure-operations {
-  display: grid;
-  gap: 10px;
-}
-
-.agent-thought-partner__structure-step {
-  display: grid;
-  gap: 8px;
-  padding: 12px;
-  border-radius: 16px;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--noeis-paper) 94%, transparent), color-mix(in srgb, var(--noeis-paper-muted) 96%, transparent));
-  border: 1px solid color-mix(in srgb, var(--noeis-rule) 74%, transparent);
-}
-
-.agent-thought-partner__structure-step.is-rejected {
-  opacity: 0.84;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, #f9f4ef 92%, var(--noeis-paper)), color-mix(in srgb, var(--noeis-paper-muted) 96%, transparent));
-}
-
-.agent-thought-partner__structure-step.is-invalid {
-  border-color: color-mix(in srgb, #b45309 24%, var(--noeis-rule));
-}
-
-.agent-thought-partner__structure-step-head {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  align-items: flex-start;
-}
-
-.agent-thought-partner__structure-step-title {
-  margin: 4px 0 0;
-  font-size: 0.93rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: var(--text-primary);
-}
-
-.agent-thought-partner__structure-step-copy,
-.agent-thought-partner__structure-warning {
-  margin: 0;
-  font-size: 0.84rem;
-  line-height: 1.52;
-  color: var(--text-muted);
-}
-
-.agent-thought-partner__structure-bulk-bar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px 14px;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 12px;
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--noeis-paper) 88%, transparent);
-  border: 1px solid color-mix(in srgb, var(--noeis-rule) 74%, transparent);
-}
-
-.agent-thought-partner__structure-bulk-count {
-  display: inline-flex;
-  gap: 6px;
-  align-items: baseline;
-  font-size: 0.84rem;
-  color: var(--text-secondary);
-}
-
-.agent-thought-partner__structure-bulk-count strong {
-  font-size: 0.98rem;
-  color: var(--text-primary);
-}
-
-.agent-thought-partner__structure-bulk-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.agent-thought-partner__structure-step-title-row {
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-}
-
-.agent-thought-partner__structure-step-check input {
-  margin-top: 4px;
-  accent-color: var(--noeis-action, #6b7280);
-}
-
-.agent-thought-partner__structure-step.is-bulk-selected {
-  border-color: color-mix(in srgb, var(--noeis-action, #6b7280) 28%, var(--noeis-rule));
-}
-
-.agent-thought-partner__structure-quality {
-  font-size: 0.68rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  padding: 2px 7px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--noeis-paper-muted) 88%, transparent);
-  color: var(--text-muted);
-}
-
-.agent-thought-partner__structure-quality--strong {
-  color: color-mix(in srgb, #166534 78%, var(--text-muted));
-  background: color-mix(in srgb, #dcfce7 72%, var(--noeis-paper-muted));
-}
-
-.agent-thought-partner__structure-quality--thin {
-  color: color-mix(in srgb, #92400e 78%, var(--text-muted));
-  background: color-mix(in srgb, #fef3c7 72%, var(--noeis-paper-muted));
-}
-
-.agent-thought-partner__structure-quality--needs_review {
-  color: color-mix(in srgb, #9a3412 78%, var(--text-muted));
-  background: color-mix(in srgb, #ffedd5 72%, var(--noeis-paper-muted));
-}
-
-.agent-thought-partner__structure-rationale {
-  margin: 0;
-  font-size: 0.84rem;
-  line-height: 1.52;
-  color: var(--text-secondary);
-}
-
-.agent-thought-partner__structure-rationale span {
-  display: block;
-  margin-bottom: 2px;
-  font-size: 0.68rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-.agent-thought-partner__structure-evidence {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  align-items: center;
-}
-
-.agent-thought-partner__structure-evidence span {
-  padding: 3px 8px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--noeis-paper-muted) 78%, transparent);
-  border: 1px solid color-mix(in srgb, var(--noeis-rule) 58%, transparent);
-  color: var(--text-muted);
-  font-size: 0.7rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.agent-thought-partner__structure-warning {
-  color: color-mix(in srgb, #b45309 74%, var(--text-muted));
-}
-
-.agent-thought-partner__draft-workflow,
-.think-artifact-draft__workflow {
-  display: grid;
-  gap: 8px;
-  padding: 10px 12px;
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--noeis-paper) 86%, transparent);
-  border: 1px solid color-mix(in srgb, var(--noeis-rule) 74%, transparent);
-}
-
-.agent-thought-partner__draft-workflow-head,
-.think-artifact-draft__workflow-head {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  align-items: center;
-  font-size: 0.72rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-.agent-thought-partner__draft-workflow-steps,
-.think-artifact-draft__workflow-steps {
-  margin: 0;
-  padding-left: 1.05rem;
-  display: grid;
-  gap: 6px;
-  color: var(--text-secondary);
-  font-size: 0.85rem;
-  line-height: 1.45;
-}
-
-.agent-thought-partner__draft-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  align-items: center;
-}
-
-.agent-thought-partner__draft-continuations,
-.think-artifact-draft__continuations {
-  display: grid;
-  gap: 8px;
-}
-
-.agent-thought-partner__draft-continuations-label,
-.think-artifact-draft__continuations-label {
-  font-size: 0.72rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-.think-artifact-draft__continuations-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  align-items: center;
-}
-
-.agent-thought-partner__draft-editor,
-.think-artifact-draft__editor {
-  display: grid;
-  gap: 10px;
-  padding: 12px 0 2px;
-  border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 74%, transparent);
-}
-
-.agent-thought-partner__draft-field,
-.think-artifact-draft__field {
-  display: grid;
-  gap: 6px;
-}
-
-.agent-thought-partner__draft-field span,
-.think-artifact-draft__field span {
-  font-size: 0.72rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-.agent-thought-partner__draft-field input,
-.agent-thought-partner__draft-field textarea,
-.think-artifact-draft__field input,
-.think-artifact-draft__field textarea {
-  width: 100%;
-  padding: 10px 12px;
-  border-radius: 14px;
-  border: 1px solid color-mix(in srgb, var(--noeis-rule) 76%, transparent);
-  background: color-mix(in srgb, var(--noeis-paper) 94%, transparent);
-  color: var(--text-primary);
-  font: inherit;
-  resize: vertical;
-}
-
-.agent-thought-partner__draft-field input:focus,
-.agent-thought-partner__draft-field textarea:focus,
-.think-artifact-draft__field input:focus,
-.think-artifact-draft__field textarea:focus {
-  outline: none;
-  border-color: color-mix(in srgb, var(--accent) 30%, var(--noeis-rule));
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-soft) 18%, transparent);
-}
-
-.think-artifact-draft__editor-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-@media (max-width: 720px) {
-  .agent-thought-partner__scorecard,
-  .agent-thought-partner__snapshot-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .agent-thought-partner__review-head {
-    display: grid;
-  }
-
-  .agent-thought-partner__structure-step-head {
-    display: grid;
-  }
-
-  .agent-thought-partner__history-timestamp {
-    text-align: left;
-  }
-}
-
-.think-draft-staging-panel {
-  position: relative;
-  overflow: hidden;
-}
-
-.think-draft-staging-panel::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(120% 140% at 100% 0%, color-mix(in srgb, var(--accent-soft) 12%, transparent), transparent 56%);
-  pointer-events: none;
-}
-
-.think-artifact-drafts-panel__count {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 2.2rem;
-  padding: 0.22rem 0.55rem;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--accent-soft) 18%, transparent);
-  color: var(--text-primary);
-  font-size: 0.74rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-}
-
-.think-artifact-drafts-panel--output {
-  background:
-    linear-gradient(180deg, color-mix(in srgb, #eef4ff 84%, var(--noeis-paper-muted)), color-mix(in srgb, var(--noeis-paper) 96%, transparent)),
-    radial-gradient(120% 140% at 100% 0%, color-mix(in srgb, #2563eb 10%, transparent), transparent 56%);
-}
-
-.think-artifact-drafts-panel__stack {
-  display: grid;
-  gap: 16px;
-}
-
-.think-artifact-drafts-panel__group {
-  display: grid;
-  gap: 10px;
-}
-
-.think-artifact-drafts-panel__group-head {
-  display: grid;
-  gap: 3px;
-}
-
-.think-artifact-drafts-panel__group-head h4 {
-  margin: 0;
-  font-size: 0.9rem;
-  letter-spacing: -0.02em;
-}
-
-.think-artifact-drafts-panel__group-head p {
-  margin: 0;
-  font-size: 0.82rem;
-  color: var(--text-muted);
-}
-
-.think-artifact-drafts-panel__rows {
-  display: grid;
-  gap: 10px;
-}
-
-.think-artifact-draft {
-  display: grid;
-  gap: 8px;
-  padding: 14px;
-  border-radius: 16px;
-  border: 1px solid color-mix(in srgb, var(--noeis-rule) 76%, transparent);
-  background: color-mix(in srgb, var(--noeis-paper-muted) 78%, transparent);
-  transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
-}
-
-.think-artifact-draft:hover {
-  transform: translateY(-1px);
-  border-color: color-mix(in srgb, var(--accent) 26%, var(--noeis-rule));
-  background: color-mix(in srgb, var(--noeis-paper) 88%, transparent);
-}
-
-.think-artifact-draft--promoted {
-  background: color-mix(in srgb, var(--accent-soft) 8%, var(--noeis-paper-muted));
-}
-
-.think-artifact-draft--research-brief,
-.think-artifact-draft--synthesis-doc,
-.think-artifact-draft--slide-outline {
-  border-color: color-mix(in srgb, #2563eb 14%, var(--noeis-rule));
-  background:
-    linear-gradient(180deg, color-mix(in srgb, #f7faff 88%, var(--noeis-paper-muted)), color-mix(in srgb, var(--noeis-paper) 92%, transparent));
-}
-
-.think-artifact-draft--research-brief:hover,
-.think-artifact-draft--synthesis-doc:hover,
-.think-artifact-draft--slide-outline:hover {
-  border-color: color-mix(in srgb, #2563eb 30%, var(--noeis-rule));
-}
-
-.think-artifact-draft__head {
-  display: grid;
-  gap: 4px;
-}
-
-.think-artifact-draft__eyebrow,
-.think-artifact-draft__meta {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  align-items: center;
-}
-
-.think-artifact-draft__eyebrow {
-  font-size: 0.7rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-.think-artifact-draft__head h4 {
-  margin: 0;
-  font-size: 0.98rem;
-  letter-spacing: -0.02em;
-}
-
-.think-artifact-draft__summary {
-  margin: 0;
-  color: var(--text-secondary);
-  line-height: 1.48;
-}
-
-.think-artifact-draft__meta {
-  font-size: 0.78rem;
-  color: var(--text-muted);
-}
-
-.think-artifact-draft__actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  align-items: center;
-}
-
-.think-artifact-draft__protocol-actions {
-  display: grid;
-  gap: 10px;
-  padding-top: 12px;
-  border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 62%, transparent);
-}
-
-.think-artifact-draft__link {
-  color: var(--text-primary);
-  text-decoration: none;
-  font-weight: 600;
-}
-
-.think-artifact-draft__link:hover {
-  text-decoration: underline;
-}
-
-.protocol-activity-log {
-  position: relative;
-  display: grid;
-  gap: 12px;
-}
-
-.protocol-activity-log::before {
-  content: '';
-  position: absolute;
-  left: 12px;
-  top: 4px;
-  bottom: 4px;
-  width: 1px;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 22%, transparent), color-mix(in srgb, var(--noeis-rule) 86%, transparent));
-}
-
-.protocol-activity-log__item {
-  position: relative;
-  display: grid;
-  grid-template-columns: 20px minmax(0, 1fr);
-  gap: 12px;
-  align-items: start;
-}
-
-.protocol-activity-log__rail {
-  position: relative;
-  display: flex;
-  justify-content: center;
-  padding-top: 4px;
-}
-
-.protocol-activity-log__dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--accent) 42%, var(--noeis-paper));
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent-soft) 16%, transparent);
-}
-
-.protocol-activity-log__item.is-approval .protocol-activity-log__dot {
-  background: color-mix(in srgb, #c084fc 58%, var(--noeis-paper));
-  box-shadow: 0 0 0 4px color-mix(in srgb, #c084fc 14%, transparent);
-}
-
-.protocol-activity-log__item.is-hook .protocol-activity-log__dot {
-  background: color-mix(in srgb, #22c55e 54%, var(--noeis-paper));
-  box-shadow: 0 0 0 4px color-mix(in srgb, #22c55e 14%, transparent);
-}
-
-.protocol-activity-log__item.is-draft .protocol-activity-log__dot {
-  background: color-mix(in srgb, #2563eb 58%, var(--noeis-paper));
-  box-shadow: 0 0 0 4px color-mix(in srgb, #2563eb 12%, transparent);
-}
-
-.protocol-activity-log__item.is-planner .protocol-activity-log__dot {
-  background: color-mix(in srgb, #f59e0b 62%, var(--noeis-paper));
-  box-shadow: 0 0 0 4px color-mix(in srgb, #f59e0b 14%, transparent);
-}
-
-.protocol-activity-log__item.is-assistant .protocol-activity-log__dot {
-  background: color-mix(in srgb, #0ea5e9 58%, var(--noeis-paper));
-  box-shadow: 0 0 0 4px color-mix(in srgb, #0ea5e9 12%, transparent);
-}
-
-.protocol-activity-log__item.is-user .protocol-activity-log__dot {
-  background: color-mix(in srgb, #f97316 56%, var(--noeis-paper));
-  box-shadow: 0 0 0 4px color-mix(in srgb, #f97316 12%, transparent);
-}
-
-.protocol-activity-log__item.is-handoff .protocol-activity-log__dot,
-.protocol-activity-log__item.is-checkpoint .protocol-activity-log__dot {
-  background: color-mix(in srgb, var(--text-primary) 42%, var(--noeis-paper));
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--noeis-rule) 18%, transparent);
-}
-
-.protocol-activity-log__item.is-upkeep .protocol-activity-log__dot {
-  background: color-mix(in srgb, #14b8a6 58%, var(--noeis-paper));
-  box-shadow: 0 0 0 4px color-mix(in srgb, #14b8a6 14%, transparent);
-}
-
-.protocol-activity-log__body {
-  display: grid;
-  gap: 7px;
-  padding: 12px 14px;
-  border-radius: 16px;
-  background: color-mix(in srgb, var(--noeis-paper) 92%, transparent);
-  border: 1px solid color-mix(in srgb, var(--noeis-rule) 74%, transparent);
-  transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
-}
-
-.protocol-activity-log__item:hover .protocol-activity-log__body {
-  transform: translateY(-1px);
-  border-color: color-mix(in srgb, var(--accent) 18%, var(--noeis-rule));
-  background: color-mix(in srgb, var(--noeis-paper) 100%, transparent);
-}
-
-.protocol-activity-log__eyebrow {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-  font-size: 0.7rem;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-.protocol-activity-log__body h4 {
-  margin: 0;
-  font-size: 0.96rem;
-  letter-spacing: -0.02em;
-}
-
-.protocol-activity-log__body p {
-  margin: 0;
-  color: var(--text-secondary);
-  line-height: 1.56;
-}
-
-.protocol-activity-log__meta {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.protocol-activity-log__meta span {
-  display: inline-flex;
-  align-items: center;
-  min-height: 26px;
-  padding: 0.15rem 0.62rem;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--noeis-paper-muted) 84%, transparent);
-  color: var(--text-muted);
-  font-size: 0.74rem;
-}
-
-.protocol-activity-log__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 2px;
-}
-
-.think-index__filter {
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-}
-
-.think-layout__left-panel .ui-button.think-index__new-question {
-  min-height: 36px;
-  border: 1px solid color-mix(in srgb, var(--noeis-rule) 72%, transparent);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--noeis-paper) 40%, transparent);
-  box-shadow: none;
-  color: var(--text-secondary);
-  font-weight: 560;
-  width: 100%;
-  justify-content: center;
-}
-
-.think-layout__left-panel .ui-button.think-index__new-question:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--noeis-paper) 56%, transparent);
-}
-
-.think-index__group {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.think-index__label {
-  line-height: 1;
-}
-
-.think-index__list {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  min-height: 10px;
-}
-
-.think-index__row {
-  position: relative;
-  appearance: none;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  width: 100%;
-  min-width: 0;
-  max-width: 100%;
-  margin: 0;
-  padding: 8px 10px 8px 14px;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  box-shadow: none;
-  overflow: visible;
-  align-items: flex-start;
-  gap: 8px;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-  text-align: left;
-}
-
-.think-index__row::before {
-  content: '';
-  position: absolute;
-  left: 3px;
-  top: 6px;
-  bottom: 6px;
-  width: 2px;
-  border-radius: 999px;
-  background: transparent;
-}
-
-.think-index__row:hover {
-  background: color-mix(in srgb, var(--noeis-paper) 20%, transparent);
-}
-
-.think-index__row.is-active {
-  border: 0;
-  box-shadow: none;
-  background: color-mix(in srgb, var(--accent-soft) 7%, var(--noeis-paper));
-}
-
-.think-index__row.is-active::before {
-  background: color-mix(in srgb, var(--accent) 55%, transparent);
-}
-
-.think-index__row-title {
-  flex: 1 1 auto;
-  min-width: 0;
-  font-size: 0.84rem;
-  font-weight: 620;
-  line-height: 1.3;
-  color: var(--text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  text-align: left;
-}
-
-.think-index__row-meta {
-  margin-left: 0;
-  flex: none;
-  max-width: none;
-  font-size: 0.71rem;
-  line-height: 1.25;
-  color: color-mix(in srgb, var(--text-muted) 86%, transparent);
-  white-space: nowrap;
-  overflow: visible;
-  text-overflow: clip;
-}
-
-.think-calm-empty-line {
-  margin: 4px 2px 0;
-  font-size: 0.78rem;
-  line-height: 1.45;
-  color: color-mix(in srgb, var(--text-muted) 90%, transparent);
-}
-
-/* First-run variant — when the user has zero concepts globally.
-   Matches the Library first-run shell from PR #7 so the growth
-   onboarding surfaces share one visual vocabulary. */
-
-.think-concept-loading {
-  border: 0;
-  background: var(--noeis-paper);
-  box-shadow:
-    0 14px 28px rgba(0, 0, 0, 0.16),
-    inset 0 1px 0 rgba(255,255,255,0.02);
-}
-
-@media (max-width: 1024px) {
-  .topbar {
-    padding: 8px 14px;
-  }
-
-}
-
-/* Production polish system */
-:root {
-  --think-space-1: var(--space-1);
-  --think-space-2: var(--space-2);
-  --think-space-3: var(--space-3);
-  --think-space-4: var(--space-4);
-  --think-space-5: var(--space-5);
-  --think-space-6: var(--space-6);
-  --think-space-7: var(--space-7);
-  --think-card-radius: 12px;
-  --think-card-border: color-mix(in srgb, var(--noeis-rule) 80%, transparent);
-  --think-card-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
-  --think-card-shadow-hover: 0 10px 24px rgba(15, 23, 42, 0.09);
-}
-
-html[data-ui-theme='dark'] {
-  --think-card-border: color-mix(in srgb, var(--noeis-rule) 62%, transparent);
-  --think-card-shadow: 0 8px 22px rgba(0, 0, 0, 0.22);
-  --think-card-shadow-hover: 0 12px 28px rgba(0, 0, 0, 0.28);
-}
-
-.ui-surface-card,
-.think-concept-loading {
-  border: 1px solid var(--think-card-border);
-  border-radius: var(--think-card-radius);
-  box-shadow: var(--think-card-shadow);
-  background: var(--noeis-paper);
-}
-
-.ui-surface-card:hover {
-  box-shadow: var(--think-card-shadow-hover);
-}
-
-.ui-section-header__subtitle,
-.think-index__row-meta,
-.think-calm-empty-line {
-  font-size: 0.8rem;
-  line-height: 1.45;
-  font-weight: 400;
-  color: var(--text-muted);
-}
-
-.ui-section-header__title,
-.think-index__row-title {
-  font-weight: 600;
-}
-
-.think-layout__left-panel .feedback-field > span,
-.think-index__filter > span,
-.think-index__label {
-  font-weight: 400;
-}
-
-.ui-segmented-nav.ui-segmented-nav--quiet {
-  border: 0;
-  background: transparent;
-  border-radius: 0;
-  padding: 0;
-  box-shadow: none;
-}
-
-.ui-segmented-nav.ui-segmented-nav--quiet .ui-segmented-nav__item {
-  min-height: 30px;
-  border: 0;
-  border-bottom: 2px solid transparent;
-  border-radius: 0;
-  background: transparent;
-  padding: 0 var(--think-space-3);
-  font-size: 0.82rem;
-  font-weight: 600;
-  color: var(--text-muted);
-}
-
-.ui-segmented-nav.ui-segmented-nav--quiet .ui-segmented-nav__item:hover {
-  background: transparent;
-  color: var(--text-primary);
-  box-shadow: none;
-  transform: none;
-}
-
-.ui-segmented-nav.ui-segmented-nav--quiet .ui-segmented-nav__item.is-active {
-  color: var(--text-primary);
-  border-bottom-color: color-mix(in srgb, var(--accent) 62%, transparent);
-  box-shadow: none;
-}
-
-.think-layout__left-panel {
-  gap: var(--think-space-5);
-}
-
-.think-layout__left-panel.think-index {
-  gap: var(--think-space-6);
-}
-
-.think-index__controls {
-  gap: var(--think-space-3);
-  padding-bottom: var(--think-space-3);
-}
-
-.think-index__group {
-  gap: var(--think-space-2);
-}
-
-.think-index__row {
-  padding: var(--think-space-2) var(--think-space-2) var(--think-space-2) var(--think-space-3);
-}
-
-.think-protocol-canvas {
-  gap: var(--think-space-3);
-}
-
-.think-protocol-canvas__body {
-  display: grid;
-  grid-template-columns: minmax(0, 1.36fr) minmax(280px, 0.72fr);
-  gap: var(--think-space-3);
-  align-items: start;
-}
-
-.think-protocol-canvas.has-no-aside .think-protocol-canvas__body {
-  grid-template-columns: minmax(0, 1fr);
-}
-
-.think-protocol-canvas__main,
-.think-protocol-canvas__aside {
-  display: grid;
-  gap: var(--think-space-3);
-}
-
-.think-threads-card {
-  gap: var(--think-space-3);
-}
-
-.think-threads-card--hero {
-  overflow: hidden;
-}
-
-.think-threads-hero {
-  display: grid;
-  gap: var(--think-space-3);
-}
-
-.think-threads-hero__copy {
-  display: grid;
-  gap: 10px;
-}
-
-.think-threads-hero__eyebrow {
-  font-size: 0.72rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  font-weight: 700;
-  color: color-mix(in srgb, var(--text-muted) 88%, transparent);
-}
-
-.think-threads-hero__title {
-  margin: 0;
-  font-size: clamp(1.8rem, 2vw, 2.6rem);
-  line-height: 0.98;
-  letter-spacing: -0.04em;
-}
-
-.think-threads-hero__subtitle {
-  margin: 0;
-  max-width: 58ch;
-  color: color-mix(in srgb, var(--text-secondary) 90%, transparent);
-  line-height: 1.6;
-}
-
-.think-threads-meta {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-  padding-top: var(--think-space-3);
-  border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 68%, transparent);
-}
-
-.think-threads-meta__item {
-  display: grid;
-  gap: 4px;
-}
-
-.think-threads-meta__label,
-.think-threads-plan__label {
-  font-size: 0.7rem;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-  font-weight: 700;
-  color: color-mix(in srgb, var(--text-muted) 92%, transparent);
-}
-
-.think-threads-status-pill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 28px;
-  width: fit-content;
-  padding: 0 10px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--noeis-paper-muted) 78%, transparent);
-  border: 1px solid color-mix(in srgb, var(--noeis-rule) 68%, transparent);
-  font-size: 0.76rem;
-  font-weight: 650;
-  text-transform: capitalize;
-}
-
-.think-threads-status-pill.is-active {
-  background: color-mix(in srgb, var(--accent-soft) 18%, var(--noeis-paper-muted));
-  border-color: color-mix(in srgb, var(--accent) 24%, transparent);
-}
-
-.think-threads-status-pill.is-archived {
-  color: color-mix(in srgb, var(--text-muted) 90%, transparent);
-}
-
-.think-threads-dual {
-  display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.9fr);
-  gap: var(--think-space-3);
-}
-
-.think-threads-plan {
-  display: grid;
-  gap: var(--think-space-3);
-}
-
-.think-threads-plan__objective,
-.think-threads-plan__criteria,
-.think-threads-plan__steps {
-  display: grid;
-  gap: 8px;
-}
-
-.think-threads-plan__objective p,
-.think-threads-plan__criteria p {
-  margin: 0;
-  line-height: 1.6;
-}
-
-.think-threads-plan__list {
-  display: grid;
-  gap: 6px;
-  margin: 0;
-  padding-left: 18px;
-}
-
-.think-threads-steps {
-  display: grid;
-  gap: 10px;
-}
-
-.think-threads-step {
-  display: grid;
-  gap: 6px;
-  padding: 12px 14px;
-  border-radius: 14px;
-  border: 1px solid color-mix(in srgb, var(--noeis-rule) 70%, transparent);
-  background: color-mix(in srgb, var(--noeis-paper-muted) 40%, transparent);
-}
-
-.think-threads-step.is-in_progress {
-  border-color: color-mix(in srgb, var(--accent) 22%, transparent);
-  background: color-mix(in srgb, var(--accent-soft) 10%, var(--noeis-paper-muted));
-}
-
-.think-threads-step__row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.think-threads-step__title {
-  font-weight: 650;
-}
-
-.think-threads-step__status,
-.think-threads-step__meta {
-  font-size: 0.78rem;
-  color: color-mix(in srgb, var(--text-secondary) 88%, transparent);
-}
-
-.think-threads-step__status {
-  text-transform: capitalize;
-}
-
-.think-protocol-approval {
-  display: grid;
-  gap: 8px;
-  padding-top: 12px;
-  border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 62%, transparent);
-}
-
-.think-protocol-approval:first-child {
-  padding-top: 0;
-  border-top: 0;
-}
-
-.think-protocol-approval__header,
-.think-protocol-approval__actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.think-protocol-approval__op {
-  font-weight: 650;
-}
-
-.think-protocol-approval__actor {
-  font-size: 0.76rem;
-  text-transform: capitalize;
-  color: color-mix(in srgb, var(--text-secondary) 88%, transparent);
-}
-
-.think-protocol-approval__meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 12px;
-  font-size: 0.78rem;
-  color: color-mix(in srgb, var(--text-secondary) 88%, transparent);
-}
-
-.think-protocol-approval__status {
-  display: inline-flex;
-  align-items: center;
-  min-height: 24px;
-  padding: 0 8px;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--noeis-rule) 68%, transparent);
-  background: color-mix(in srgb, var(--noeis-paper-muted) 56%, transparent);
-  font-size: 0.72rem;
-  font-weight: 700;
-  text-transform: capitalize;
-}
-
-.think-protocol-approval__status.is-executed {
-  border-color: color-mix(in srgb, var(--accent) 22%, transparent);
-  background: color-mix(in srgb, var(--accent-soft) 12%, var(--noeis-paper-muted));
-}
-
-.think-protocol-approval__status.is-rejected {
-  border-color: color-mix(in srgb, #cb4b4b 28%, transparent);
-  background: color-mix(in srgb, #cb4b4b 10%, var(--noeis-paper-muted));
-}
-
-.think-protocol-approval__status.is-approved {
-  border-color: color-mix(in srgb, #c4a24d 28%, transparent);
-  background: color-mix(in srgb, #c4a24d 10%, var(--noeis-paper-muted));
-}
-
-.think-protocol-approval__preview {
-  display: grid;
-  gap: 6px;
-  margin: 0;
-  padding: 8px 10px 8px 24px;
-  border: 1px solid color-mix(in srgb, var(--noeis-rule) 58%, transparent);
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--noeis-paper-muted) 54%, transparent);
-  color: color-mix(in srgb, var(--text-primary) 86%, transparent);
-  font-size: 0.82rem;
-}
-
-.think-protocol-approval__reject-note {
-  display: grid;
-  gap: 6px;
-  color: color-mix(in srgb, var(--text-secondary) 90%, transparent);
-  font-size: 0.78rem;
-  font-weight: 650;
-}
-
-.think-protocol-approval__reject-note textarea {
-  width: 100%;
-  resize: vertical;
-  min-height: 76px;
-  border: 1px solid color-mix(in srgb, var(--noeis-rule) 72%, transparent);
-  border-radius: 12px;
-  padding: 10px 12px;
-  background: var(--noeis-paper);
-  color: var(--text-primary);
-  font: inherit;
-  font-weight: 400;
-}
-
-.think-handoffs-sidebar__actor {
-  display: grid;
-  gap: var(--think-space-2);
-}
-
-.think-handoffs-main {
-  gap: var(--think-space-3);
-}
-
-.think-handoffs-card {
-  gap: var(--think-space-3);
-}
-
-.think-handoffs-form-grid {
-  display: grid;
-  gap: var(--think-space-2);
-}
-
-.think-handoffs-form-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--think-space-2);
-}
-
-.think-handoffs-form-inline {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--think-space-2);
-}
-
-.think-handoffs-detail {
-  gap: var(--think-space-2);
-}
-
-.think-handoffs-state-grid {
-  display: grid;
-  gap: 12px;
-}
-
-.think-handoffs-state-item {
-  display: grid;
-  gap: 6px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule) 62%, transparent);
-}
-
-.think-handoffs-state-item:last-child {
-  padding-bottom: 0;
-  border-bottom: 0;
-}
-
-.think-handoffs-state-item p {
-  margin: 0;
-  line-height: 1.6;
-}
-
-.think-handoffs-detail-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--think-space-2);
-}
-
-.think-handoffs-events {
-  display: grid;
-  gap: var(--think-space-2);
-}
-
-.think-handoffs-events-block {
-  display: grid;
-  gap: 10px;
-}
-
-.think-handoffs-events__row {
-  display: grid;
-  gap: 4px;
-  padding: var(--think-space-2);
-  border: 1px solid color-mix(in srgb, var(--think-card-border) 84%, transparent);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--noeis-paper-muted) 46%, transparent);
-}
-
-.think-planner-callout {
-  display: grid;
-  gap: 6px;
-  padding: 14px 16px;
-  border: 1px solid color-mix(in srgb, #2f5f6b 18%, transparent);
-  border-radius: 12px;
-  background:
-    linear-gradient(135deg, color-mix(in srgb, #dbeff1 84%, var(--noeis-paper)) 0%, color-mix(in srgb, #f4ece1 70%, var(--noeis-paper)) 100%);
-}
-
-.think-planner-callout__eyebrow {
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: color-mix(in srgb, #24464f 72%, var(--text-secondary));
-}
-
-.think-planner-callout p {
-  margin: 0;
-  color: color-mix(in srgb, var(--text-primary) 90%, transparent);
-}
-
-.agent-thought-partner__planner-strip {
-  display: grid;
-  gap: 8px;
-  margin-bottom: var(--think-space-2);
-  padding: 12px 14px;
-  border: 1px solid color-mix(in srgb, #2f5f6b 14%, transparent);
-  border-radius: 12px;
-  background:
-    linear-gradient(135deg, color-mix(in srgb, #edf7f5 88%, var(--noeis-paper)) 0%, color-mix(in srgb, #f3ece5 68%, var(--noeis-paper)) 100%);
-}
-
-.agent-thought-partner__planner-pill {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 10px;
-}
-
-.agent-thought-partner__planner-label {
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: color-mix(in srgb, #355964 72%, var(--text-secondary));
-}
-
-.agent-thought-partner__planner-copy {
-  margin: 0;
-  font-size: 0.9rem;
-  color: color-mix(in srgb, var(--text-primary) 84%, transparent);
-}
-
-.think-upkeep-cycles {
-  display: grid;
-  gap: 12px;
-}
-
-.think-upkeep-cycle {
-  display: grid;
-  gap: 12px;
-  padding: 14px 0 0;
-  border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 62%, transparent);
-}
-
-.think-upkeep-cycle:first-child {
-  padding-top: 0;
-  border-top: 0;
-}
-
-.think-upkeep-cycle__head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.think-upkeep-cycle__eyebrow,
-.think-upkeep-cycle__meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 10px;
-  font-size: 0.76rem;
-  color: color-mix(in srgb, var(--text-muted) 92%, transparent);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.think-upkeep-cycle__head h4 {
-  margin: 4px 0 0;
-  font-size: 1rem;
-  letter-spacing: -0.02em;
-}
-
-.think-upkeep-cycle__due,
-.think-upkeep-cycle__summary {
-  color: var(--text-secondary);
-  line-height: 1.5;
-}
-
-.think-upkeep-cycle__summary {
-  margin: 0;
-}
-
-.think-upkeep-cycle__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-}
+/* The wiki beyond first paint: reader, workspace, chat, graph and public pages.
+   Loaded after first paint; wiki-critical.css carries what the first frame needs. */
 
 .wiki-page {
   display: grid;
@@ -1799,46 +98,55 @@ html[data-ui-theme='dark'] {
   cursor: pointer;
   transition: border-color 160ms ease, color 160ms ease, background 160ms ease;
 }
+
 .wiki-index__quality-filter:hover,
 .wiki-index__quality-filter.is-active {
   border-color: color-mix(in srgb, var(--accent-primary, #b1862e) 42%, var(--noeis-rule));
   color: var(--text-primary);
   background: color-mix(in srgb, var(--accent-primary, #b1862e) 8%, transparent);
 }
+
 .wiki-index__quality-filter-note {
   margin: -4px 0 0;
   color: var(--text-secondary);
   font-size: 0.84rem;
   line-height: 1.45;
 }
+
 .wiki-index__review-reason {
   margin: 4px 0 0;
   color: var(--text-muted, var(--vellum-subtle));
   font-size: 0.8rem;
   line-height: 1.4;
 }
+
 .wiki-index__review-drawer {
   margin: 10px 0 0;
   color: var(--text-muted, var(--vellum-subtle));
 }
+
 .wiki-index__review-drawer > summary {
   cursor: pointer;
   font-size: 0.84rem;
   line-height: 1.45;
   list-style: none;
 }
+
 .wiki-index__review-drawer > summary::-webkit-details-marker {
   display: none;
 }
+
 .wiki-index__review-drawer[open] > summary {
   margin-bottom: 8px;
 }
+
 @media (prefers-reduced-motion: reduce) {
   .wiki-index__quality-filter,
   .wiki-index__review-drawer > summary {
     transition: none;
   }
 }
+
 .wiki-index__quality-badge {
   padding: 2px 8px;
   border-radius: 999px;
@@ -1846,20 +154,24 @@ html[data-ui-theme='dark'] {
   font-weight: 650;
   letter-spacing: 0.02em;
 }
+
 .wiki-index__quality-badge--review {
   color: color-mix(in srgb, var(--accent-primary, #b1862e) 88%, #000);
   background: color-mix(in srgb, var(--accent-primary, #b1862e) 12%, transparent);
 }
+
 .wiki-index__quality-badge--blocked {
   color: color-mix(in srgb, #9a4a2d 88%, var(--text-primary));
   background: color-mix(in srgb, #c96a3a 14%, transparent);
 }
+
 .wiki-index__quality-blocked-note {
   margin: 0;
   color: var(--text-secondary);
   font-size: 0.82rem;
   line-height: 1.45;
 }
+
 .wiki-index__quality-reasons {
   margin: 0;
   padding-left: 1.1rem;
@@ -1867,6 +179,7 @@ html[data-ui-theme='dark'] {
   font-size: 0.82rem;
   line-height: 1.45;
 }
+
 .wiki-index__page-actions--quality-review {
   gap: 8px;
   justify-content: flex-start;
@@ -2282,7 +595,6 @@ html[data-ui-theme='dark'] {
 .wiki-build-page__row,
 .wiki-repo-create__row {
   display: grid;
-  grid-template-columns: 120px minmax(0, 1fr) auto;
   gap: 10px;
   align-items: center;
 }
@@ -3249,23 +1561,22 @@ html[data-ui-theme='dark'] {
 /* AT-22 (Bucket 2): when the rail is collapsed by default, give the body
    the canvas — Wikipedia / Tolkien Gateway reading shape. The rail column
    shrinks to a thin gutter and the article fills 800-880px. */
+
 .wiki-read__layout--rail-collapsed {
   grid-template-columns: minmax(160px, 220px) minmax(0, 860px) 48px;
   gap: 24px;
 }
 
-/* AT-292: inside the two-pane workspace the read container is ~1020px, not the
-   ~1380px of a standalone page. At that width the fixed left+right rails crush
-   the body to ~464px ("Notion, not Wikipedia"). When the container is narrow,
-   uncap the body to fill the row and slim the rails so the article owns the
-   canvas. Standalone pages stay >1200px and keep the generous 860px column. */
 @container wikiread (max-width: 1200px) {
   /* Default (collapsed) state: both side rails become slim gutters, body 1fr. */
+
   .wiki-read__layout--rail-collapsed {
     grid-template-columns: minmax(120px, 160px) minmax(0, 1fr) 48px;
     gap: 20px;
   }
+
   /* Expanded state: uncap the body and trim the rails so it stops crushing. */
+
   .wiki-read__layout {
     grid-template-columns: minmax(120px, 150px) minmax(0, 1fr) minmax(200px, 240px);
     gap: 20px;
@@ -3277,11 +1588,10 @@ html[data-ui-theme='dark'] {
    without !important. Inline prose links — citations, reference backlinks, TOC
    entries — are intentionally EXEMPT: they sit inside sentences and the WCAG
    target-size criterion exempts inline links. Sizing them would break reading. */
+
 .wiki-read__rail-toggle {
   min-height: 44px;
   min-width: 44px;
-  display: inline-flex;
-  align-items: center;
   justify-content: center;
 }
 
@@ -3797,9 +2107,7 @@ html[data-ui-theme='dark'] .wiki-read__edgar-watch-receipt {
 }
 
 .wiki-read__repo-watches {
-  display: flex;
   flex-direction: column;
-  gap: 8px;
   margin: 0 0 12px;
 }
 
@@ -4405,16 +2713,16 @@ html[data-ui-theme='dark'] .wiki-read__repo-dossier-section {
 
 @keyframes wikiParagraphRecentHalo {
   0% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent-primary, var(--noeis-action)) 42%, transparent);
-    background: color-mix(in srgb, var(--accent-primary, var(--noeis-action)) 10%, transparent);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent-primary, var(--noeis-action)) 42%, transparent);
+  background: color-mix(in srgb, var(--accent-primary, var(--noeis-action)) 10%, transparent);
   }
   70% {
-    box-shadow: 0 0 0 10px transparent;
-    background: color-mix(in srgb, var(--accent-primary, var(--noeis-action)) 5%, transparent);
+  box-shadow: 0 0 0 10px transparent;
+  background: color-mix(in srgb, var(--accent-primary, var(--noeis-action)) 5%, transparent);
   }
   100% {
-    box-shadow: none;
-    background: transparent;
+  box-shadow: none;
+  background: transparent;
   }
 }
 
@@ -4506,10 +2814,6 @@ html[data-ui-theme='dark'] .wiki-read__repo-dossier-section {
   color: var(--text-primary);
   font-size: 0.86rem;
   overflow-wrap: anywhere;
-}
-
-.wiki-numeric-value {
-  font-variant-numeric: tabular-nums;
 }
 
 .wiki-numeric-value.is-counting {
@@ -4614,23 +2918,23 @@ html[data-ui-theme='dark'] .wiki-read__repo-dossier-section {
 
 @keyframes wikiInfoboxRowFlash {
   0% {
-    background: color-mix(in srgb, var(--accent-primary, var(--noeis-action)) 14%, transparent);
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent-primary, var(--noeis-action)) 28%, transparent);
+  background: color-mix(in srgb, var(--accent-primary, var(--noeis-action)) 14%, transparent);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent-primary, var(--noeis-action)) 28%, transparent);
   }
 
   100% {
-    background: transparent;
-    box-shadow: 0 0 0 8px transparent;
+  background: transparent;
+  box-shadow: 0 0 0 8px transparent;
   }
 }
 
 @keyframes wikiMetricCountPulse {
   0% {
-    opacity: 0.72;
+  opacity: 0.72;
   }
 
   100% {
-    opacity: 1;
+  opacity: 1;
   }
 }
 
@@ -4676,8 +2980,6 @@ html[data-ui-theme='dark'] .wiki-read__repo-dossier-section {
   width: min(320px, calc(100vw - 32px));
   padding: 14px;
   box-shadow: 0 18px 44px color-mix(in srgb, #000 18%, transparent);
-  transform-origin: top left;
-  animation: wikiLinkPreviewBloom 180ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .wiki-read-link-preview h3,
@@ -4695,17 +2997,6 @@ html[data-ui-theme='dark'] .wiki-read__repo-dossier-section {
   color: var(--text-secondary);
   font-size: 0.88rem;
   line-height: 1.45;
-}
-
-@keyframes wikiLinkPreviewBloom {
-  from {
-    opacity: 0;
-    transform: translateY(6px) scale(0.97);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
 }
 
 .wiki-editor__error {
@@ -4847,14 +3138,6 @@ html[data-ui-theme='dark'] .wiki-read__repo-dossier-section {
   outline: none;
 }
 
-@media (max-width: 1024px) {
-  .think-threads-meta,
-  .think-threads-dual,
-  .think-protocol-canvas__body {
-    grid-template-columns: 1fr;
-  }
-}
-
 @media (max-width: 860px) {
   .wiki-page {
     padding: 18px;
@@ -4943,200 +3226,6 @@ html[data-ui-theme='dark'] .wiki-read__repo-dossier-section {
   .wiki-meta-bar__save-state {
     width: 100%;
     margin-left: 0;
-  }
-}
-
-/* Wiki ambient agent presence ---------------------------------------------
-   Persistent row at the top of the editor showing what the agent is doing
-   right now. Replaces the detached "Maintain page" button so the agent
-   feels present instead of summoned. */
-
-.wiki-agent-presence {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 10px 14px 10px 12px;
-  margin-bottom: 18px;
-  border: 1px solid var(--vellum-line);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--vellum-panel) 70%, transparent);
-  font-family: var(--font-sans);
-  transition: background-color 200ms ease-out, border-color 200ms ease-out;
-}
-
-.wiki-agent-presence[data-status='maintaining'] {
-  background: color-mix(in srgb, var(--vellum-warm) 6%, var(--vellum-panel));
-  border-color: color-mix(in srgb, var(--vellum-warm) 30%, var(--vellum-line));
-}
-
-.wiki-agent-presence[data-status='ready'] {
-  border-color: color-mix(in srgb, var(--wiki-warm-accent, #b1862e) 35%, var(--vellum-line));
-}
-
-.wiki-agent-presence[data-status='error'] {
-  background: color-mix(in srgb, var(--wiki-quiet-danger, #9b5a46) 7%, var(--vellum-panel));
-  border-color: color-mix(in srgb, var(--wiki-quiet-danger, #9b5a46) 30%, var(--vellum-line));
-}
-
-/* Breathing dot — the always-on signal the agent is around. Idle pulses
-   gently; maintaining pulses faster. */
-.wiki-agent-presence__dot {
-  position: relative;
-  width: 12px;
-  height: 12px;
-  flex-shrink: 0;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--vellum-subtle) 70%, transparent);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.wiki-agent-presence__dot-inner {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background: inherit;
-  animation: wikiAgentDotIdle 4s ease-in-out infinite;
-}
-
-.wiki-agent-presence[data-status='maintaining'] .wiki-agent-presence__dot {
-  background: color-mix(in srgb, var(--vellum-warm) 80%, var(--vellum-accent));
-}
-
-.wiki-agent-presence[data-status='maintaining'] .wiki-agent-presence__dot-inner {
-  animation: wikiAgentDotActive 1s ease-in-out infinite;
-}
-
-.wiki-agent-presence[data-status='ready'] .wiki-agent-presence__dot {
-  background: var(--wiki-warm-accent, #b1862e);
-}
-
-.wiki-agent-presence[data-status='idle'] .wiki-agent-presence__dot {
-  background: var(--wiki-neutral-accent, #6f6a61);
-}
-
-.wiki-agent-presence[data-status='error'] .wiki-agent-presence__dot {
-  background: var(--wiki-quiet-danger, #9b5a46);
-}
-
-html[data-ui-theme='dark'] .wiki-agent-presence[data-status='ready'] .wiki-agent-presence__dot {
-  background: var(--wiki-warm-accent, #d2a45f);
-}
-html[data-ui-theme='dark'] .wiki-agent-presence[data-status='idle'] .wiki-agent-presence__dot {
-  background: var(--wiki-neutral-accent, #a8a198);
-}
-html[data-ui-theme='dark'] .wiki-agent-presence[data-status='error'] .wiki-agent-presence__dot {
-  background: var(--wiki-quiet-danger, #c78978);
-}
-
-@keyframes wikiAgentDotIdle {
-  0%, 100% { opacity: 0.55; transform: scale(1); }
-  50%      { opacity: 1;    transform: scale(1.1); }
-}
-
-@keyframes wikiAgentDotActive {
-  0%, 100% { opacity: 0.4; transform: scale(0.9); box-shadow: 0 0 0 0 currentColor; }
-  50%      { opacity: 1;   transform: scale(1.2); box-shadow: 0 0 0 6px color-mix(in srgb, currentColor 0%, transparent); }
-}
-
-.wiki-agent-presence__copy {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  flex: 1;
-  min-width: 0;
-}
-
-.wiki-agent-presence__text {
-  font-size: 0.88rem;
-  font-weight: 600;
-  color: var(--vellum-ink);
-  line-height: 1.3;
-}
-
-.wiki-agent-presence__sub {
-  font-size: 0.78rem;
-  color: var(--vellum-muted);
-  line-height: 1.4;
-  overflow-wrap: anywhere;
-  white-space: normal;
-}
-
-.wiki-agent-presence__action {
-  flex-shrink: 0;
-  background: transparent;
-  border: 1px solid var(--vellum-line-strong);
-  border-radius: 999px;
-  padding: 6px 14px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--vellum-ink);
-  cursor: pointer;
-  font-family: inherit;
-  transition: background-color 140ms ease-out, border-color 140ms ease-out;
-}
-
-.wiki-agent-presence__action:hover:not(:disabled),
-.wiki-agent-presence__action:focus-visible:not(:disabled) {
-  background: color-mix(in srgb, var(--vellum-accent) 14%, transparent);
-  border-color: color-mix(in srgb, var(--vellum-accent) 50%, var(--vellum-line-strong));
-  outline: none;
-}
-
-.wiki-agent-presence__action:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.agent-thought-partner__presence.wiki-agent-presence {
-  display: grid;
-  grid-template-columns: 12px minmax(0, 1fr);
-  align-items: start;
-  gap: 10px;
-}
-
-.agent-thought-partner__presence.wiki-agent-presence .wiki-agent-presence__copy {
-  min-width: 0;
-}
-
-.agent-thought-partner__presence.wiki-agent-presence .wiki-agent-presence__sub {
-  white-space: normal;
-  overflow: visible;
-  text-overflow: clip;
-}
-
-.agent-thought-partner__presence.wiki-agent-presence .wiki-agent-presence__action {
-  grid-column: 2;
-  justify-self: start;
-  max-width: 100%;
-  margin-top: 6px;
-}
-
-@media (max-width: 640px) {
-  .wiki-agent-presence {
-    flex-wrap: wrap;
-    gap: 10px;
-  }
-  .wiki-agent-presence__copy {
-    order: 1;
-    flex-basis: calc(100% - 26px);
-  }
-  .wiki-agent-presence__action {
-    order: 2;
-    margin-left: auto;
-  }
-  .wiki-agent-presence__sub {
-    white-space: normal;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .wiki-agent-presence__dot-inner {
-    animation: none;
-  }
-  .wiki-agent-presence {
-    transition: none;
   }
 }
 
@@ -5239,8 +3328,12 @@ html[data-ui-theme='dark'] .wiki-claim-popover {
 }
 
 @keyframes wikiClaimPopIn {
-  from { opacity: 0; transform: translateY(4px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+  opacity: 0;
+  transform: translateY(4px); }
+  to   {
+  opacity: 1;
+  transform: translateY(0); }
 }
 
 .wiki-claim-popover__head {
@@ -5265,16 +3358,35 @@ html[data-ui-theme='dark'] .wiki-claim-popover {
   color: var(--vellum-subtle);
 }
 
-.wiki-claim-popover__pill--supported    { color: var(--wiki-warm-accent, #b1862e); }
-.wiki-claim-popover__pill--partial      { color: color-mix(in srgb, var(--wiki-warm-accent, #b1862e) 78%, var(--vellum-subtle)); }
-.wiki-claim-popover__pill--unsupported  { color: var(--vellum-subtle); }
-.wiki-claim-popover__pill--contradicted,
-.wiki-claim-popover__pill--conflicted { color: var(--wiki-quiet-danger, #9b5a46); }
+.wiki-claim-popover__pill--supported {
+  color: var(--wiki-warm-accent, #b1862e);
+}
 
-html[data-ui-theme='dark'] .wiki-claim-popover__pill--supported    { color: var(--wiki-warm-accent, #d2a45f); }
-html[data-ui-theme='dark'] .wiki-claim-popover__pill--partial      { color: color-mix(in srgb, var(--wiki-warm-accent, #d2a45f) 78%, var(--vellum-subtle)); }
+.wiki-claim-popover__pill--partial {
+  color: color-mix(in srgb, var(--wiki-warm-accent, #b1862e) 78%, var(--vellum-subtle));
+}
+
+.wiki-claim-popover__pill--unsupported {
+  color: var(--vellum-subtle);
+}
+
+.wiki-claim-popover__pill--contradicted,
+.wiki-claim-popover__pill--conflicted {
+  color: var(--wiki-quiet-danger, #9b5a46);
+}
+
+html[data-ui-theme='dark'] .wiki-claim-popover__pill--supported {
+  color: var(--wiki-warm-accent, #d2a45f);
+}
+
+html[data-ui-theme='dark'] .wiki-claim-popover__pill--partial {
+  color: color-mix(in srgb, var(--wiki-warm-accent, #d2a45f) 78%, var(--vellum-subtle));
+}
+
 html[data-ui-theme='dark'] .wiki-claim-popover__pill--contradicted,
-html[data-ui-theme='dark'] .wiki-claim-popover__pill--conflicted { color: var(--wiki-quiet-danger, #c78978); }
+html[data-ui-theme='dark'] .wiki-claim-popover__pill--conflicted {
+  color: var(--wiki-quiet-danger, #c78978);
+}
 
 .wiki-claim-popover__count {
   font-size: 0.74rem;
@@ -6191,6 +4303,7 @@ a.wiki-read__reference-title:focus-visible {
   .wiki-claim-popover {
     animation: none;
   }
+
   .wiki-claim {
     transition: none;
   }
@@ -6411,28 +4524,17 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
     flex-direction: column;
     align-items: stretch;
   }
+
   .wiki-changes-banner__actions {
     flex-direction: row;
     justify-content: stretch;
   }
+
   .wiki-changes-banner__toggle,
   .wiki-changes-banner__primary {
     flex: 1;
   }
 }
-/* Wiki ask + discussions --------------------------------------------------
-   Composer at the bottom of the editor lets the reader ask the agent a
-   question; answers land into the discussions log directly above. The
-   answer body re-uses .wiki-claim markup so the same hover popover
-   already mounted on the editor lights up on hover. */
-
-/* Composer ---------------------------------------------------------------- */
-
-/* Wiki morning paper ------------------------------------------------------
-   Top-of-index editorial briefing with a masthead, signal line, and
-   optional review / recently-updated rails. */
-
-/* Wiki editor rail + backlink panel ------------------------------------- */
 
 /* Living wiki inbox + activity ------------------------------------------ */
 
@@ -6535,8 +4637,6 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
   color: var(--accent-primary, var(--noeis-action));
   border-bottom-color: currentColor;
 }
-
-/* Wiki autolink suggestions rail panel ----------------------------------- */
 
 /* Wiki workspace --------------------------------------------------------- */
 
@@ -6787,7 +4887,6 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
 }
 
 .wiki-workspace-chat__build-button {
-  min-height: 30px;
   padding: 0 10px;
   border: 1px solid color-mix(in srgb, var(--accent-primary, var(--noeis-action)) 34%, var(--noeis-rule));
   border-radius: 999px;
@@ -6922,11 +5021,11 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
 @keyframes wiki-chat-caret {
   0%,
   45% {
-    opacity: 1;
+  opacity: 1;
   }
   46%,
   100% {
-    opacity: 0;
+  opacity: 0;
   }
 }
 
@@ -7521,6 +5620,7 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
    it because <textarea> is a replaced element and won't paint ::before.
    Idle = slow, faint breath; focus = brighter; streaming = fast, full intensity
    ("the agent is alive" once AT-287 makes it actually think). */
+
 @property --composer-angle {
   syntax: '<angle>';
   inherits: false;
@@ -7572,7 +5672,8 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
 }
 
 @keyframes composer-breathe {
-  to { --composer-angle: 360deg; }
+  to {
+  --composer-angle: 360deg; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -7825,13 +5926,13 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
 
 @keyframes wiki-reference-land {
   0% {
-    transform: translateY(-8px) scale(0.96);
+  transform: translateY(-8px) scale(0.96);
   }
   62% {
-    transform: translateY(1px) scale(1.03);
+  transform: translateY(1px) scale(1.03);
   }
   100% {
-    transform: translateY(0) scale(1);
+  transform: translateY(0) scale(1);
   }
 }
 
@@ -7845,8 +5946,6 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
 .wiki-workspace-chat__composer-footer .ui-button,
 .wiki-workspace-chat__composer-footer button[type='submit'] {
   justify-self: end;
-  min-width: 76px;
-  min-height: 44px;
   border-color: color-mix(in srgb, var(--noeis-rule) 76%, transparent);
   background: color-mix(in srgb, var(--surface) 92%, transparent);
   color: var(--text-muted);
@@ -7904,6 +6003,7 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
 }
 
 /* AT-291: final tap-target floor after all narrow chat and reader overrides. */
+
 .wiki-index__page-more,
 .wiki-index__page-delete,
 .wiki-workspace-chat__build-button,
@@ -8053,48 +6153,48 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
 
 @keyframes wikiWorkspacePresencePulse {
   0% {
-    opacity: 0.45;
-    transform: scale(0.72);
+  opacity: 0.45;
+  transform: scale(0.72);
   }
 
   75%,
   100% {
-    opacity: 0;
-    transform: scale(1.45);
+  opacity: 0;
+  transform: scale(1.45);
   }
 }
 
 @keyframes wikiWorkspacePresenceBreathe {
   0%,
   100% {
-    transform: scale(0.94);
+  transform: scale(0.94);
   }
 
   50% {
-    transform: scale(1.06);
+  transform: scale(1.06);
   }
 }
 
 @keyframes wikiWorkspaceComposerHairline {
   0% {
-    background-position: 0% 50%;
+  background-position: 0% 50%;
   }
 
   100% {
-    background-position: 240% 50%;
+  background-position: 240% 50%;
   }
 }
 
 @keyframes wikiWorkspaceComposerBreath {
   0%,
   100% {
-    border-color: color-mix(in srgb, var(--noeis-rule) 70%, transparent);
-    box-shadow: 0 0 0 0 transparent;
+  border-color: color-mix(in srgb, var(--noeis-rule) 70%, transparent);
+  box-shadow: 0 0 0 0 transparent;
   }
 
   50% {
-    border-color: color-mix(in srgb, var(--accent-primary, var(--noeis-action)) 34%, var(--noeis-rule));
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-primary, var(--noeis-action)) 8%, transparent);
+  border-color: color-mix(in srgb, var(--accent-primary, var(--noeis-action)) 34%, var(--noeis-rule));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-primary, var(--noeis-action)) 8%, transparent);
   }
 }
 
@@ -8314,23 +6414,23 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
 
 @keyframes wikiPromotionWitness {
   0% {
-    opacity: 0;
-    transform: translateY(8px) scale(0.985);
+  opacity: 0;
+  transform: translateY(8px) scale(0.985);
   }
   100% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
+  opacity: 1;
+  transform: translateY(0) scale(1);
   }
 }
 
 @keyframes wikiLinkPreviewBloom {
   from {
-    opacity: 0;
-    transform: translateY(6px) scale(0.97);
+  opacity: 0;
+  transform: translateY(6px) scale(0.97);
   }
   to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
+  opacity: 1;
+  transform: translateY(0) scale(1);
   }
 }
 
@@ -8351,8 +6451,10 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
     animation: none;
   }
 }
+
 /* Non-production fixture controls are useful for browser QA, but they are not
-   part of the wiki first-paint reading budget. Keep them in deferred polish. */
+   part of the wiki first-paint reading budget. Keep them in this deferred sheet. */
+
 .wiki-workspace__qa-fixture {
   position: sticky;
   top: 0;
@@ -8369,9 +6471,11 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
   background: color-mix(in srgb, var(--surface) 94%, #fff);
   box-shadow: 0 8px 20px color-mix(in srgb, #000 8%, transparent);
 }
+
 .wiki-workspace__qa-fixture p {
   margin: 0;
 }
+
 .wiki-workspace__qa-fixture-kicker {
   color: var(--text-secondary);
   font-size: 0.68rem;
@@ -8379,17 +6483,20 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
+
 .wiki-workspace__qa-fixture-title {
   color: var(--text-primary);
   font-size: 0.88rem;
   font-weight: 750;
 }
+
 .wiki-workspace__qa-fixture-message {
   margin-top: 2px !important;
   color: var(--text-secondary);
   font-size: 0.78rem;
   line-height: 1.35;
 }
+
 .wiki-workspace__qa-fixture-message.is-error {
   color: color-mix(in srgb, #9b2f2f 80%, var(--text-primary));
 }
@@ -8402,6 +6509,7 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
   border: 1px solid var(--noeis-rule);
   border-radius: 999px;
 }
+
 .wiki-build-page__mode button {
   min-height: 34px;
   padding: 6px 12px;
@@ -8410,15 +6518,18 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
   background: transparent;
   color: var(--text-secondary);
 }
+
 .wiki-build-page__mode button.is-active {
   background: var(--text-primary);
   color: var(--surface);
 }
+
 .wiki-build-page__thesis-question {
   display: grid;
   gap: 6px;
   margin-top: 10px;
 }
+
 .wiki-build-page__thesis-question label,
 .wiki-thesis__field > span {
   color: var(--text-secondary);
@@ -8427,11 +6538,17 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
+
 .wiki-build-page__thesis-question textarea {
   min-height: 78px;
   resize: vertical;
 }
-.wiki-build-page__thesis-question p { margin: 0; color: var(--text-secondary); font-size: 0.78rem; }
+
+.wiki-build-page__thesis-question p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+}
 
 .wiki-read__object-label {
   margin: 0 0 10px;
@@ -8482,7 +6599,11 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
   gap: 20px;
 }
 
-.wiki-thesis__question { flex: 1 1 auto; min-width: 0; }
+.wiki-thesis__question {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .wiki-thesis__question p,
 .wiki-thesis__judgment > span,
 .wiki-thesis__facts dt,
@@ -8521,8 +6642,15 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
   transform: scale(0.98);
   transition-duration: 140ms, 140ms;
 }
-.wiki-thesis button:disabled { cursor: not-allowed; opacity: 0.45; }
-.wiki-thesis__edit-trigger { flex: 0 0 auto; }
+
+.wiki-thesis button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.wiki-thesis__edit-trigger {
+  flex: 0 0 auto;
+}
 
 .wiki-thesis__judgment {
   grid-area: judgment;
@@ -8554,7 +6682,10 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
   gap: 18px;
 }
 
-.wiki-thesis__decision-focus-heading > div { min-width: 0; }
+.wiki-thesis__decision-focus-heading > div {
+  min-width: 0;
+}
+
 .wiki-thesis__decision-focus-heading span,
 .wiki-thesis__decision-test > span {
   display: block;
@@ -8588,7 +6719,11 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
   margin: 0;
 }
 
-.wiki-thesis__decision-context div { display: grid; gap: 3px; }
+.wiki-thesis__decision-context div {
+  display: grid;
+  gap: 3px;
+}
+
 .wiki-thesis__decision-context dt {
   color: var(--text-secondary);
   font-size: 0.68rem;
@@ -8596,6 +6731,7 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
+
 .wiki-thesis__decision-context dd {
   margin: 0;
   font-size: 0.91rem;
@@ -8630,7 +6766,10 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
   border-bottom: 1px solid var(--noeis-rule);
 }
 
-.wiki-thesis__facts dt { margin-bottom: 4px; }
+.wiki-thesis__facts dt {
+  margin-bottom: 4px;
+}
+
 .wiki-thesis__facts dd {
   display: grid;
   gap: 7px;
@@ -8639,7 +6778,9 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
   line-height: 1.35;
 }
 
-.wiki-thesis__primary > .wiki-thesis__inline-actions { grid-area: actions; }
+.wiki-thesis__primary > .wiki-thesis__inline-actions {
+  grid-area: actions;
+}
 
 .wiki-thesis__narrative {
   display: grid;
@@ -8680,11 +6821,20 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
   border-top: 1px solid var(--noeis-rule);
   color: var(--text-secondary);
 }
-.wiki-thesis__narrative > .wiki-thesis__field,
-.wiki-thesis__narrative > .wiki-thesis__inline-actions { grid-column: 2; }
 
-.wiki-thesis__ledger { border-bottom: 1px solid var(--noeis-rule); }
-.wiki-thesis__ledger-section { border-top: 1px solid var(--noeis-rule); }
+.wiki-thesis__narrative > .wiki-thesis__field,
+.wiki-thesis__narrative > .wiki-thesis__inline-actions {
+  grid-column: 2;
+}
+
+.wiki-thesis__ledger {
+  border-bottom: 1px solid var(--noeis-rule);
+}
+
+.wiki-thesis__ledger-section {
+  border-top: 1px solid var(--noeis-rule);
+}
+
 .wiki-thesis__ledger-section summary {
   display: flex;
   justify-content: space-between;
@@ -8705,17 +6855,57 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
   letter-spacing: 0;
 }
 
-.wiki-thesis__ledger-content { padding: 0 0 20px; }
-.wiki-thesis__section-tools { display: flex; justify-content: flex-end; margin: -5px 0 8px; }
-.wiki-thesis__ledger-section ul { display: grid; gap: 13px; margin: 0; padding: 0; list-style: none; }
-.wiki-thesis__ledger-section li { display: grid; gap: 4px; max-width: 72ch; }
-.wiki-thesis__ledger-section small,
-.wiki-thesis__ledger-section em { color: var(--text-secondary); font-size: 0.78rem; line-height: 1.45; }
-.wiki-thesis__ledger-section em { color: #9b4c2d; }
-.wiki-thesis__empty { margin: 0; color: var(--text-secondary); font-size: 0.88rem; }
+.wiki-thesis__ledger-content {
+  padding: 0 0 20px;
+}
 
-.wiki-thesis__field { display: grid; min-width: 0; gap: 6px; }
-.wiki-thesis__field > span { margin: 0; }
+.wiki-thesis__section-tools {
+  display: flex;
+  justify-content: flex-end;
+  margin: -5px 0 8px;
+}
+
+.wiki-thesis__ledger-section ul {
+  display: grid;
+  gap: 13px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wiki-thesis__ledger-section li {
+  display: grid;
+  gap: 4px;
+  max-width: 72ch;
+}
+
+.wiki-thesis__ledger-section small,
+.wiki-thesis__ledger-section em {
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.wiki-thesis__ledger-section em {
+  color: #9b4c2d;
+}
+
+.wiki-thesis__empty {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+}
+
+.wiki-thesis__field {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+}
+
+.wiki-thesis__field > span {
+  margin: 0;
+}
+
 .wiki-thesis input,
 .wiki-thesis select,
 .wiki-thesis textarea {
@@ -8731,12 +6921,17 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
   font: inherit;
 }
 
-.wiki-thesis textarea { min-height: 96px; resize: vertical; }
+.wiki-thesis textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+
 .wiki-thesis__question textarea {
   min-height: 112px;
   font: 500 clamp(1.35rem, 2.2vw, 1.85rem)/1.2 var(--font-serif);
   letter-spacing: -0.02em;
 }
+
 .wiki-thesis__judgment textarea {
   min-height: 104px;
   padding-left: 0;
@@ -8745,13 +6940,23 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
   background: transparent;
   font: 1.08rem/1.55 var(--font-serif);
 }
+
 .wiki-thesis__narrative > textarea {
   min-height: 132px;
   font: 1.04rem/1.62 var(--font-serif);
 }
+
 .wiki-thesis__field small,
-.wiki-thesis__edit-row small { color: var(--text-secondary); font-size: 0.76rem; }
-.wiki-thesis__edit-surface { display: grid; gap: 14px; }
+.wiki-thesis__edit-row small {
+  color: var(--text-secondary);
+  font-size: 0.76rem;
+}
+
+.wiki-thesis__edit-surface {
+  display: grid;
+  gap: 14px;
+}
+
 .wiki-thesis__edit-row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -8759,11 +6964,27 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
   padding: 16px 0;
   border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 72%, transparent);
 }
-.wiki-thesis__edit-row:first-child { border-top: 0; padding-top: 0; }
-.wiki-thesis__edit-row p { display: grid; gap: 4px; margin: 0; }
-.wiki-thesis__remove { justify-self: start; color: #9b4c2d !important; }
+
+.wiki-thesis__edit-row:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.wiki-thesis__edit-row p {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+}
+
+.wiki-thesis__remove {
+  justify-self: start;
+  color: #9b4c2d !important;
+}
+
 .wiki-thesis__warning,
-.wiki-thesis__error { color: #9b4c2d; }
+.wiki-thesis__error {
+  color: #9b4c2d;
+}
 
 .wiki-thesis__inline-actions,
 .wiki-thesis__edit-footer,
@@ -8774,29 +6995,56 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
   flex-wrap: wrap;
   gap: 12px;
 }
-.wiki-thesis__inline-actions { justify-content: flex-start; }
+
+.wiki-thesis__inline-actions {
+  justify-content: flex-start;
+}
+
 .wiki-thesis__primary-action,
 .wiki-thesis__snapshot-action {
   border-color: color-mix(in srgb, var(--wiki-warm-accent, #a47f32) 76%, var(--noeis-rule)) !important;
   background: color-mix(in srgb, var(--wiki-warm-accent, #a47f32) 82%, var(--surface)) !important;
   color: #17130b !important;
 }
-.wiki-thesis__text-action { min-height: 34px !important; padding: 5px 8px !important; border-color: transparent !important; background: transparent !important; color: var(--text-secondary) !important; }
+
+.wiki-thesis__text-action {
+  min-height: 34px !important;
+  padding: 5px 8px !important;
+  border-color: transparent !important;
+  background: transparent !important;
+  color: var(--text-secondary) !important;
+}
 
 .wiki-thesis__snapshot {
   padding: 22px 0;
   border-bottom: 1px solid var(--noeis-rule);
 }
-.wiki-thesis__snapshot p { display: grid; gap: 2px; max-width: 58ch; margin: 0; font-size: 0.84rem; line-height: 1.5; }
-.wiki-thesis__snapshot p > span { margin-bottom: 2px; }
+
+.wiki-thesis__snapshot p {
+  display: grid;
+  gap: 2px;
+  max-width: 58ch;
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
+.wiki-thesis__snapshot p > span {
+  margin-bottom: 2px;
+}
+
 .wiki-thesis__status,
-.wiki-thesis__error { margin: 12px 0 0; font-size: 0.84rem; }
+.wiki-thesis__error {
+  margin: 12px 0 0;
+  font-size: 0.84rem;
+}
 
 .wiki-thesis [data-editor-section] {
   opacity: 1;
   transform: translateY(0);
   transition: opacity 180ms var(--wiki-thesis-ease-out), transform 180ms var(--wiki-thesis-ease-out);
 }
+
 .wiki-thesis [data-editor-section][data-motion-state="opening"],
 .wiki-thesis [data-editor-section][data-motion-state="closing"] {
   opacity: 0;
@@ -8805,7 +7053,9 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
 
 @media (hover: hover) and (pointer: fine) {
   .wiki-thesis__text-action:hover,
-  .wiki-thesis__edit-trigger:hover { transform: translateY(-1px); }
+  .wiki-thesis__edit-trigger:hover {
+    transform: translateY(-1px);
+  }
 }
 
 @media (max-width: 820px) {
@@ -8813,13 +7063,30 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas: "question" "judgment" "decision" "register" "actions";
   }
-  .wiki-thesis__facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .wiki-thesis__facts div { padding-right: 14px; }
-  .wiki-thesis__narrative { grid-template-columns: minmax(0, 1fr); }
+
+  .wiki-thesis__facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .wiki-thesis__facts div {
+    padding-right: 14px;
+  }
+
+  .wiki-thesis__narrative {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .wiki-thesis__counterargument,
   .wiki-thesis__narrative > .wiki-thesis__field,
-  .wiki-thesis__narrative > .wiki-thesis__inline-actions { grid-column: 1; }
-  .wiki-thesis__section-heading { display: flex; align-items: center; justify-content: space-between; }
+  .wiki-thesis__narrative > .wiki-thesis__inline-actions {
+    grid-column: 1;
+  }
+
+  .wiki-thesis__section-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
 }
 
 @media (max-width: 620px) {
@@ -8829,18 +7096,56 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
     font-size: clamp(1.45rem, 6vw, 1.82rem) !important;
     line-height: 1.06;
   }
-  .wiki-thesis { margin-top: 22px; }
-  .wiki-thesis__primary { row-gap: 18px; padding-top: 20px; }
-  .wiki-thesis__heading { display: grid; }
-  .wiki-thesis__heading button { justify-self: start; }
-  .wiki-thesis__decision-focus-heading { display: grid; }
-  .wiki-thesis__decision-focus-heading button { justify-self: start; }
-  .wiki-thesis__question h2 { font-size: clamp(1.4rem, 6.6vw, 1.78rem); }
-  .wiki-thesis__facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .wiki-thesis__facts div:last-child { grid-column: 1 / -1; }
-  .wiki-thesis__edit-row { grid-template-columns: minmax(0, 1fr); }
-  .wiki-thesis__snapshot { align-items: stretch; flex-direction: column; }
-  .wiki-thesis__snapshot button { width: 100%; }
+
+  .wiki-thesis {
+    margin-top: 22px;
+  }
+
+  .wiki-thesis__primary {
+    row-gap: 18px;
+    padding-top: 20px;
+  }
+
+  .wiki-thesis__heading {
+    display: grid;
+  }
+
+  .wiki-thesis__heading button {
+    justify-self: start;
+  }
+
+  .wiki-thesis__decision-focus-heading {
+    display: grid;
+  }
+
+  .wiki-thesis__decision-focus-heading button {
+    justify-self: start;
+  }
+
+  .wiki-thesis__question h2 {
+    font-size: clamp(1.4rem, 6.6vw, 1.78rem);
+  }
+
+  .wiki-thesis__facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .wiki-thesis__facts div:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .wiki-thesis__edit-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .wiki-thesis__snapshot {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .wiki-thesis__snapshot button {
+    width: 100%;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -8855,27 +7160,23 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
   .wiki-thesis button,
   .wiki-thesis input,
   .wiki-thesis select,
-  .wiki-thesis textarea { background: var(--surface); }
+  .wiki-thesis textarea {
+    background: var(--surface);
+  }
 }
 
 @media (prefers-contrast: more) {
   .wiki-thesis__primary,
   .wiki-thesis__narrative,
   .wiki-thesis__ledger-section,
-  .wiki-thesis__snapshot { border-color: currentColor; }
+  .wiki-thesis__snapshot {
+    border-color: currentColor;
+  }
+
   .wiki-thesis button,
   .wiki-thesis input,
   .wiki-thesis select,
-  .wiki-thesis textarea { border-color: currentColor; }
+  .wiki-thesis textarea {
+    border-color: currentColor;
+  }
 }
-
-/* What would settle a question, said on the question.
-
-   The label operates and the value reads, so the label is mono and the value
-   is not. An unnamed one is dimmed and italic rather than hidden: a blank
-   line here would read as "nothing to add" when what it means is that nobody
-   has said yet what would close the loop. */
-
-/* A requested Library look on the question. Same room as Find, not a
-   second research platform: ordinary language, explicit Library scope,
-   and a run that stays bound to the wording that was asked. */

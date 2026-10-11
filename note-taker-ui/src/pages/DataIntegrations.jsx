@@ -3332,14 +3332,13 @@ const DataIntegrations = () => {
           <p>Future imports using this credential will stop. Already imported sources, highlights, and notes stay in NOEIS.</p>
           <p>This removes the local credential. It does not revoke access at {getProviderLabel(disconnectCandidate.provider)}, cancel in-flight work, recall retrieved data, or undo completed work.</p>
           <div className="connections-actions">
-            <button
-              type="button"
-              className="ui-button ui-button-primary"
+            <Button
+              variant="primary"
               disabled={Boolean(disconnectingId)}
               onClick={handleDisconnectConnection}
             >
               {disconnectingId ? 'Disconnecting…' : 'Confirm disconnect'}
-            </button>
+            </Button>
             <button
               type="button"
               className="connections-text-button"

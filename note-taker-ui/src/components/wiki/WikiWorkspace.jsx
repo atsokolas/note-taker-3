@@ -2804,7 +2804,7 @@ const WikiWorkspaceChat = ({
         {/* AT-289: the textarea is a replaced element and can't host the
             breathing conic-gradient border directly, so the field wrapper
             carries the animated border (see .wiki-workspace-chat__composer-field
-            in think-home-polish.css). data-streaming bubbles from the form. */}
+            in wiki.css). data-streaming bubbles from the form. */}
         <div className="wiki-workspace-chat__composer-field">
         <textarea
           ref={composerRef}

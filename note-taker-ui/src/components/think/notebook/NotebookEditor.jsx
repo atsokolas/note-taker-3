@@ -5,7 +5,7 @@ import { NodeViewWrapper, ReactNodeViewRenderer, useEditor } from '@tiptap/react
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import { Extension, Node, mergeAttributes } from '@tiptap/core';
-import { Button } from '../../ui';
+import { Button, buttonClass } from '../../ui';
 import InsertHighlightModal from './InsertHighlightModal';
 import InsertReferenceModal from './InsertReferenceModal';
 import { BlockIdExtension, EntryBar, HighlightRefNode, passageContent } from '../editor/writingParts';
@@ -1705,7 +1705,7 @@ const NotebookEditor = ({
                 </p>
               </div>
               {notebookSourceMeta.kind === 'concept' ? (
-                <a className="ui-quiet-button think-notebook-editor-provenance__link" href={notebookSourceMeta.href}>
+                <a className={buttonClass('quiet', 'think-notebook-editor-provenance__link')} href={notebookSourceMeta.href}>
                   {notebookSourceMeta.action}
                 </a>
               ) : resolvedSourceEvergreen?.status === 'ready' ? (

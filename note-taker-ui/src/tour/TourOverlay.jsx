@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Button } from '../components/ui';
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
@@ -206,38 +207,34 @@ const TourOverlay = ({
         </div>
 
         {step.cta && (
-          <button
-            type="button"
-            className="ui-button tour-cta"
+          <Button
+            className="tour-cta"
             onClick={() => onAction(step.cta)}
           >
             {step.cta.label}
-          </button>
+          </Button>
         )}
 
         <div className="tour-actions">
-          <button
-            type="button"
-            className="ui-quiet-button"
+          <Button
+            variant="quiet"
             onClick={onBack}
             disabled={stepIndex <= 0}
           >
             Back
-          </button>
-          <button
-            type="button"
-            className="ui-quiet-button"
+          </Button>
+          <Button
+            variant="quiet"
             onClick={onSkip}
           >
             Skip
-          </button>
-          <button
-            type="button"
-            className="ui-button ui-button-primary"
+          </Button>
+          <Button
+            variant="primary"
             onClick={onNext}
           >
             {stepIndex >= totalSteps - 1 ? 'Finish' : 'Next'}
-          </button>
+          </Button>
         </div>
       </section>
     </div>

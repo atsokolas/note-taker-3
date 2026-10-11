@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { createConnectionHandoff, projectAgentGrant } from './connectionsModel';
+import { Button } from '../ui';
 
 const RUNTIMES = [
   ['openclaw', 'OpenClaw'],
@@ -169,13 +170,12 @@ export default function ConnectionsAgents({ tokenModel, onOpenTaskLink = null })
             ) : null}
 
             <div className="connections-actions">
-              <button
-                type="button"
-                className="ui-button ui-button-primary"
+              <Button
+                variant="primary"
                 onClick={() => copy(handoff.markdown, 'Instructions copied. Nothing was authorized.')}
               >
                 Copy instructions
-              </button>
+              </Button>
               <button
                 type="button"
                 className="connections-text-button"
@@ -229,13 +229,12 @@ export default function ConnectionsAgents({ tokenModel, onOpenTaskLink = null })
           <h2>Agents you have authorized</h2>
           <p>Access is not the same as being online.</p>
         </div>
-        <button
-          type="button"
-          className="ui-button ui-button-primary"
+        <Button
+          variant="primary"
           onClick={() => setShowHandoff(true)}
         >
           Give instructions
-        </button>
+        </Button>
       </div>
 
       {tokenModel.tokensLoading ? <p className="connections-empty">Loading grants…</p> : null}
@@ -313,16 +312,15 @@ export default function ConnectionsAgents({ tokenModel, onOpenTaskLink = null })
                       <strong>Revoke only this grant?</strong>
                       <p>Future requests using this credential will stop. Already imported material and completed work stay. Data already retrieved cannot be recalled.</p>
                       <div className="connections-actions">
-                        <button
-                          type="button"
-                          className="ui-button ui-button-primary"
+                        <Button
+                          variant="primary"
                           onClick={() => {
                             tokenModel.handleRevokeToken(view.id);
                             setRevokeGrantId('');
                           }}
                         >
                           Confirm revoke
-                        </button>
+                        </Button>
                         <button
                           type="button"
                           className="connections-text-button"
@@ -383,14 +381,12 @@ export default function ConnectionsAgents({ tokenModel, onOpenTaskLink = null })
             Agent write
           </label>
         </div>
-        <button
-          type="button"
-          className="ui-button"
+        <Button
           disabled={tokenModel.creatingToken}
           onClick={tokenModel.handleCreateToken}
         >
           {tokenModel.creatingToken ? 'Issuing…' : 'Issue manual token'}
-        </button>
+        </Button>
         {tokenModel.issuedSecret ? (
           <div className="connections-secret">
             <strong>New secret — shown once</strong>

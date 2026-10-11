@@ -140,7 +140,6 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
    the measure, then fade the rails — the sequential lump coming off typing. */
 @media (min-width: 1121px) {
   .think-notes,
-  body.noeis-editorial .notebook-editorial-shell,
   [data-writing-rail] {
     --think-rail-push: var(--noeis-motion-deliberate, 320ms) var(--noeis-ease-standard, cubic-bezier(0.2, 0.8, 0.2, 1));
   }
@@ -151,22 +150,6 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
 
   .think-notes [data-writing-rail='right'] {
     --think-rail-rest: 245px;
-  }
-
-  /* Outrank stitch-editorial's resting 250/300 (and 260/320 under 1360px).
-     FocusMode imports this file before App imports stitch-editorial, so equal
-     specificity would leave two full-width empty columns while the words fade. */
-  body.noeis-editorial:is(.think-rails-away, .think-focus-held) .notebook-editorial-shell {
-    grid-template-columns: 30px minmax(0, 1fr) 30px;
-    gap: 18px;
-  }
-
-  body.noeis-editorial:is(.think-rails-away, .think-focus-held) .notebook-editorial-shell:has([data-writing-rail='left']:is(:hover, :focus-within)) {
-    grid-template-columns: 250px minmax(0, 1fr) 30px;
-  }
-
-  body.noeis-editorial:is(.think-rails-away, .think-focus-held) .notebook-editorial-shell:has([data-writing-rail='right']:is(:hover, :focus-within)) {
-    grid-template-columns: 30px minmax(0, 1fr) 300px;
   }
 
   /* Lock the words at the rail's resting width so a closing column clips
@@ -267,8 +250,7 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
   }
 
   @media (hover: hover) and (pointer: fine) {
-    .think-notes,
-    body.noeis-editorial .notebook-editorial-shell {
+    .think-notes {
       transition:
         grid-template-columns var(--think-rail-push),
         gap var(--think-rail-push);
@@ -289,8 +271,7 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .think-notes,
-  body.noeis-editorial .notebook-editorial-shell {
+  .think-notes {
     transition: none;
   }
 
