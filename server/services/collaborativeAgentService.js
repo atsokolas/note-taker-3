@@ -14,7 +14,7 @@ const { brokerAgentTurn, resolveAgentCapability, isSharedQuestionContext, shared
 const { resolveAgentModelRoute } = require('./agentModelRouter');
 const { chatComplete, isTextGenerationConfigured } = require('../ai/hfTextClient');
 const { groundedIn, NOTE_LABEL } = require('./agentGrounding');
-const { retrievePassages, bestPassage, readSource, readStandingContext } = require('./agentRetrieval');
+const { retrievePassages, touches, bestPassage, readSource, readStandingContext } = require('./agentRetrieval');
 const { runAgentLoop } = require('./agentLoop');
 const { describeRevisions, MAX_TEMPORAL_REVISIONS } = require('./wikiAskService');
 const { semanticSearch } = require('../ai/semanticSearch');
@@ -2440,8 +2440,9 @@ const generateCollaborativeReply = async ({
   }
   if (!reply && mode === 'internal_only' && !authoredExploration) {
     // The question's own passages first; without any, what the model's
-    // searches found that clears the ordinary bar, said to be just that.
-    if (!relatedItems.length) loopSources = mergeSources(searched.filter(item => item.servable));
+    // searches found that clears the ordinary bar and still speaks to the
+    // question, said to be just that.
+    if (!relatedItems.length) loopSources = mergeSources(searched.filter(item => item.servable && touches(resolvedMessage, item)));
     finalReply = buildPassageReply({
       query: resolvedMessage,
       contextItem,

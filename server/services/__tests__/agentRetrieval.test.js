@@ -1,4 +1,4 @@
-const { retrievePassages, readSource, readStandingContext, __testables: { queryTerms, stem, stripImportChrome } } = require('../agentRetrieval');
+const { retrievePassages, touches, readSource, readStandingContext, __testables: { queryTerms, stem, stripImportChrome } } = require('../agentRetrieval');
 
 // A stand-in for a Mongoose model: every query resolves to the given rows,
 // and $text is supported so the lexical path is the one under test.
@@ -44,10 +44,12 @@ describe('retrievePassages', () => {
     expect(stem('imagining')).toBe(stem('imagine'));
     expect(stem('rates')).toBe(stem('rate'));
     expect(stem('created')).toBe(stem('create'));
-    expect(stem('shared')).toBe(stem('share'));
+    expect(stem('sharing')).toBe(stem('shared'));
     // A short word keeps its e: rate is not rat, note is not not.
     expect(stem('rate')).not.toBe(stem('rat'));
     expect(stem('note')).not.toBe(stem('not'));
+    expect(stem('plane')).not.toBe(stem('plan'));
+    expect(stem('hope')).not.toBe(stem('hop'));
     // Short words keep their endings: "red" and "thing" are words, not inflections.
     expect(stem('thing')).toBe('thing');
     expect(stem('need')).toBe('need');
@@ -80,6 +82,12 @@ describe('retrievePassages', () => {
     expect((await ask(true)).map(hit => hit.id)).toEqual(['checklists']);
     // ...and a reader is never served it without the model's judgment.
     expect((await ask(true))[0].servable).toBe(false);
+  });
+
+  it('knows when a passage the model found has wandered off the question', async () => {
+    const [found] = await retrievePassages({ userId: 'u', query: 'checklists', forModel: true, models: library() });
+    expect(touches('How far can expertise be trusted?', found)).toBe(true);
+    expect(touches('What did I save about the French Revolution?', found)).toBe(false);
   });
 
   it('searches by the source in hand when the question names nothing, and looks past that source', async () => {

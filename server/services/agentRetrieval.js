@@ -48,12 +48,12 @@ const words = (text = '') => String(text || '')
   .map(word => word.replace(/^'+|'+$/g, '').replace(/'s$/, ''))
   .filter(Boolean);
 
-// Truncation stemming: a word loses a plural s, an -ed or -ing ending and a
-// silent e, then compares on its first six letters. Crude, but "decisions" finds
-// "decision", "imagining" finds "imagine" and "trusted" finds "trust"
-// without a dependency.
+// Truncation stemming: a word loses a plural s, an -ed or -ing ending and the
+// silent e of a long root, then compares on its first six letters. Crude, but
+// "decisions" finds "decision", "imagining" finds "imagine" and "trusted" finds
+// "trust" without a dependency, while "plane" never becomes "plan".
 const stem = (word) => {
-  const root = word.replace(/(?<=\w{3})s$/, '').replace(/(?<=\w{4})(?:ed|ing)$/, '').replace(/(?<=\w{4})e$/, '');
+  const root = word.replace(/(?<=\w{3})s$/, '').replace(/(?<=\w{4})(?:ed|ing)$/, '').replace(/(?<=\w{5})e$/, '');
   return root.length > 6 ? root.slice(0, 6) : root;
 };
 
@@ -161,6 +161,13 @@ const scoreUnits = (units, terms, corpusUnits = units.length) => {
     });
     return { ...unit, score, matched };
   });
+};
+
+// Whether a passage shares a word with the reader's own question: what the
+// model searched for may have wandered off it.
+const touches = (query, { title = '', fullText = '', snippet = '' } = {}) => {
+  const terms = queryTerms(query);
+  return terms.length > 0 && scoreUnits([{ title, text: fullText || snippet }], terms)[0].matched > 0;
 };
 
 // Mongo's text index finds every source that shares a word with the question,
@@ -395,4 +402,4 @@ const readStandingContext = async ({ userId, models: { Article, WikiPage = null 
   };
 };
 
-module.exports = { retrievePassages, bestPassage, topPassages, sourcePassages, readSource, readStandingContext, __testables: { queryTerms, stem, scoreUnits, semanticKey, stripImportChrome, articleUnits, noteUnits, conceptUnits, viewUnits } };
+module.exports = { retrievePassages, touches, bestPassage, topPassages, sourcePassages, readSource, readStandingContext, __testables: { queryTerms, stem, scoreUnits, semanticKey, stripImportChrome, articleUnits, noteUnits, conceptUnits, viewUnits } };

@@ -31,6 +31,13 @@ describe('agent eval when the model fails mid-turn', () => {
     expect(item.cited.sort()).toEqual(['checklists', 'deliberatePractice']);
   });
 
+  it('stays quiet when its search wandered off the question', async () => {
+    chatComplete.mockImplementation(searchThenTimeOut('checklists'));
+    const { cases: [item] } = await runAgentEval({ only: ['french-revolution'] });
+    expect(item.pass).toBe(true);
+    expect(item.cited).toEqual([]);
+  });
+
   it('still says the library is quiet when nothing was found', async () => {
     chatComplete.mockImplementation(searchThenTimeOut('French Revolution'));
     const { cases: [item] } = await runAgentEval({ only: ['french-revolution'] });
