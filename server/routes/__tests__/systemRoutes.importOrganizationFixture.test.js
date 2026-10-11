@@ -73,8 +73,6 @@ const run = async () => {
       req.user = { id: '507f1f77bcf86cd799439011' };
       next();
     },
-    parseAiServiceUrl: () => ({ origin: '', hasPath: false }),
-    joinUrl: () => '',
     allowDebugFixtures: true,
     IntegrationConnection,
     ImportSession,
@@ -188,8 +186,6 @@ const run = async () => {
       req.user = { id: '507f1f77bcf86cd799439011' };
       next();
     },
-    parseAiServiceUrl: () => ({ origin: '', hasPath: false }),
-    joinUrl: () => '',
     allowDebugFixtures: false,
     IntegrationConnection: createModel(),
     ImportSession: createModel(),

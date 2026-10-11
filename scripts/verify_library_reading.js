@@ -185,9 +185,6 @@ const humanOnly = (req, res, next) =>
       normalizePdfs: (x) => x || [],
       enqueueArticleEmbedding: () => {},
       deleteArticleEmbeddingState: async () => {},
-      buildEmbeddingId: (...parts) => parts.join(':'),
-      queueEmbeddingDelete: () => {},
-      safeMapEmbedding: () => null,
       normalizeItemType: (x) => x
     })
   );
@@ -198,10 +195,8 @@ const humanOnly = (req, res, next) =>
       Article,
       normalizeTags: (x) => x || [],
       enqueueHighlightEmbedding: () => {},
-      safeMapEmbedding: () => null,
       markTourSignal: async () => {},
-      normalizeItemType: (x) => x,
-      queueEmbeddingDelete: () => {}
+      normalizeItemType: (x) => x
     })
   );
   app.get('/api/wiki/pages', auth, async (req, res) =>

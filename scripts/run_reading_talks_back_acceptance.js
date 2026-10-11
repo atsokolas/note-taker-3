@@ -127,13 +127,8 @@ const buildApp = ({ ownerId, foreignId }) => {
     Article,
     enqueueArticleEmbedding: () => {},
     deleteArticleEmbeddingState: async () => {},
-    safeMapEmbedding: () => {},
-    articleToEmbeddingItems: () => [],
-    queueEmbeddingUpsert: () => {},
     getFoldersWithCounts: async () => [],
-    normalizeItemType: (value, fallback = 'note') => clean(value || fallback),
-    buildEmbeddingId: () => '',
-    queueEmbeddingDelete: () => {}
+    normalizeItemType: (value, fallback = 'note') => clean(value || fallback)
   }));
   app.use(buildNotebookRouter({
     authenticateToken,

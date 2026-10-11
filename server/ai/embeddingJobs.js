@@ -5,6 +5,7 @@ const {
   upsertVectorItem,
   isVectorItemCurrent,
   deleteArticleVectorItems,
+  deleteVectorItemsFor,
   deleteVectorItemIfContentHash,
   reconcileVectorSubIds
 } = require('./vectorStore');
@@ -609,6 +610,32 @@ const deleteArticleEmbeddingState = async ({
   };
 };
 
+/* Deleting one highlight is the same tombstone, narrowed to it: its queued
+   job first, then its Atlas row. */
+const deleteHighlightEmbeddingState = async ({
+  model = EmbeddingJob,
+  vectorItemModel = VectorItem,
+  userId,
+  highlightId
+} = {}) => {
+  const owner = String(userId || '');
+  const id = String(highlightId || '');
+  if (!owner || !id) return { deletedJobs: 0, deletedVectors: 0 };
+  const jobResult = await model.deleteMany({
+    'payload.userId': owner,
+    collection: COLLECTIONS.highlights,
+    'payload.type': 'highlight',
+    'payload.objectId': id
+  });
+  const vectorResult = await deleteVectorItemsFor({
+    VectorItem: vectorItemModel, userId: owner, objectType: 'highlight', objectId: id
+  });
+  return {
+    deletedJobs: Number(jobResult?.deletedCount || 0),
+    deletedVectors: Number(vectorResult?.deletedCount || 0)
+  };
+};
+
 const enqueueArticleEmbedding = async (article, options = {}) => {
   const jobs = buildArticleEmbeddingJobs(article, options);
   if (!jobs.length) return null;
@@ -747,6 +774,7 @@ module.exports = {
   buildNotebookEmbeddingJob,
   buildQuestionEmbeddingJob,
   deleteArticleEmbeddingState,
+  deleteHighlightEmbeddingState,
   reconcileArticleEmbeddingJobs,
   buildJudgmentEmbeddingJob,
   enqueueJudgmentEmbedding,

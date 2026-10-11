@@ -18,7 +18,6 @@ const { retrievePassages, touches, bestPassage, readSource, readStandingContext 
 const { runAgentLoop } = require('./agentLoop');
 const { describeRevisions, MAX_TEMPORAL_REVISIONS } = require('./wikiAskService');
 const { semanticSearch } = require('../ai/semanticSearch');
-const { isAiEnabled } = require('../config/aiClient');
 
 const MAX_LIMIT = 12;
 const DEFAULT_LIMIT = 6;
@@ -2321,7 +2320,7 @@ const generateCollaborativeReply = async ({
     excludeId: contextItem?.id,
     limit: safeLimit,
     models: { Article, NotebookEntry, TagMeta, WikiPage },
-    semanticSearch: isAiEnabled() ? semanticSearch : null
+    semanticSearch
   };
   const searchedItems = shouldSearchWorkspace
     ? await retrievePassages({

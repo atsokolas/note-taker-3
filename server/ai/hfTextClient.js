@@ -1298,6 +1298,7 @@ module.exports = {
   chatCompleteStream,
   getConfig,
   isTextGenerationConfigured,
+  parseStructuredText,
   __testables: {
     getRouteContract,
     resolveParserStrategy,

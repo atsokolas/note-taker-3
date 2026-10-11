@@ -37,13 +37,8 @@ const buildLegacyContentRouter = ({
   ArticleReadingState = null,
   enqueueArticleEmbedding,
   deleteArticleEmbeddingState,
-  safeMapEmbedding,
-  articleToEmbeddingItems,
-  queueEmbeddingUpsert,
   getFoldersWithCounts,
   normalizeItemType,
-  buildEmbeddingId,
-  queueEmbeddingDelete,
   fetchReadableArticle = defaultFetchReadableArticle,
   WikiPage = null,
   WikiRevision = null,
@@ -274,16 +269,6 @@ const buildLegacyContentRouter = ({
         queuedArticleEmbedding.catch(error => {
           console.error('Failed queueing article embedding:', error);
         });
-      }
-      // Keep one summary in the legacy service until Concept Agent's remaining
-      // semantic-search consumer moves to Atlas. Passage rows are Atlas-only;
-      // mirroring them here would duplicate both storage and embedding spend.
-      const articleItems = safeMapEmbedding(
-        () => articleToEmbeddingItems(updatedArticle, String(userId)),
-        'article'
-      );
-      if (Array.isArray(articleItems)) {
-        queueEmbeddingUpsert(articleItems);
       }
       await emitWikiSourceEvent({
         userId,
@@ -726,19 +711,6 @@ const buildLegacyContentRouter = ({
       // Retryable even after the source is gone. A concurrent reading write
       // rechecks ownership after saving and removes its own orphan as well.
       if (ArticleReadingState) await ArticleReadingState.deleteMany({ userId, articleId: id });
-      if (result) {
-        const ids = [
-          buildEmbeddingId({ userId: String(userId), objectType: 'article', objectId: String(result._id) }),
-          ...(result.highlights || []).map(h => buildEmbeddingId({
-            userId: String(userId),
-            objectType: 'highlight',
-            objectId: String(h._id)
-          }))
-        ];
-        // Invalidate the temporary legacy mirror while the deleted document
-        // still supplies its highlight ids. Atlas cleanup is awaited below.
-        queueEmbeddingDelete(ids);
-      }
       if (typeof deleteArticleEmbeddingState !== 'function') {
         throw new Error('Article embedding cleanup is not configured.');
       }
