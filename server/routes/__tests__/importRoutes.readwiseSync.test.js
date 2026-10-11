@@ -187,9 +187,16 @@ const run = async () => {
   const structureProposals = [];
 
   const exportAuthHeaders = [];
+  const exportParams = [];
+  const savedReceipts = [];
+  const highlights = [
+    { id: 'highlight-empty', text: '' },
+    { id: 'highlight-1', text: 'Attention is a choice.' }
+  ];
   axios.get = async (url, config = {}) => {
     if (String(url) === 'https://readwise.io/api/v2/export/') {
       exportAuthHeaders.push(String(config?.headers?.Authorization || ''));
+      exportParams.push(config?.params || {});
       return {
         data: {
           results: [{
@@ -197,10 +204,7 @@ const run = async () => {
             user_book_id: 'book-1',
             title: 'Deep Work',
             author: 'Cal Newport',
-            highlights: [
-              { id: 'highlight-empty', text: '' },
-              { id: 'highlight-1', text: 'Attention is a choice.' }
-            ]
+            highlights
           }],
           nextPageCursor: ''
         }
@@ -235,7 +239,7 @@ const run = async () => {
     req.requestId = 'req-1';
     next();
   });
-  app.use(buildImportRouter({
+  const importRouter = buildImportRouter({
     authenticateToken: (req, _res, next) => {
       req.user = { id: 'user-1' };
       next();
@@ -269,11 +273,18 @@ const run = async () => {
     },
     ImportSession: importSessions,
     IntegrationConnection: connections,
+    NoeisReceipt: {
+      async findOneAndUpdate(_query, update) {
+        savedReceipts.push(update.$set);
+        return update.$set;
+      }
+    },
     syncNotebookReferences: async () => {},
     enqueueArticleEmbedding: () => {},
     enqueueHighlightEmbedding: () => {},
     enqueueNotebookEmbedding: () => {}
-  }));
+  });
+  app.use(importRouter);
 
   const { server, url } = await listen(app);
   try {
@@ -422,6 +433,34 @@ const run = async () => {
       exportAuthHeaders.some((header) => header.startsWith('Bearer ')),
       `The OAuth credential must be sent as a bearer. saw=${JSON.stringify(exportAuthHeaders)}`
     );
+
+    // The timer runs the same import the button does. Asked again with nothing
+    // new, it reads only what changed, adds nothing twice, and says nothing.
+    const connection = connections.connection;
+    const receiptBeforeQuietCheck = connection.lastReceipt;
+    const receiptsBeforeQuietCheck = savedReceipts.length;
+    const previousCheck = connection.lastSyncAt;
+    exportParams.length = 0;
+    const quiet = await importRouter.syncReadwiseConnection({ connection, recordEmpty: false });
+    assert.strictEqual(
+      exportParams[0].updatedAfter,
+      new Date(previousCheck).toISOString(),
+      'A repeat check asks Readwise only for what changed since the last one.'
+    );
+    assert.strictEqual(quiet.result.importedHighlights, 0, 'A highlight already in the library is never added twice.');
+    assert.strictEqual(quiet.result.duplicateSkips, 1);
+    assert.strictEqual(connection.lastReceipt, receiptBeforeQuietCheck, 'A check that found nothing keeps the last real result.');
+    assert.strictEqual(savedReceipts.length, receiptsBeforeQuietCheck, 'A check that found nothing records nothing.');
+    assert.ok(connection.lastSyncAt >= previousCheck, 'The check itself is still remembered.');
+
+    // Something new arrives: it lands once, and the reader can see that it did.
+    highlights.push({ id: 'highlight-2', text: 'Depth is a habit, not a mood.' });
+    const fresh = await importRouter.syncReadwiseConnection({ connection, recordEmpty: false });
+    assert.strictEqual(fresh.result.importedHighlights, 1);
+    assert.strictEqual(fresh.result.importedArticles, 0, 'The new passage joins its existing source.');
+    assert.strictEqual(connection.lastReceipt.metrics.importedHighlights, 1);
+    assert.strictEqual(connection.lastReceipt.nextAction, null, 'No import session, so no filing offer to follow.');
+    assert.strictEqual(savedReceipts.length, receiptsBeforeQuietCheck + 1, 'New passages are recorded where background results live.');
   } finally {
     axios.get = originalAxiosGet;
     global.fetch = originalFetch;

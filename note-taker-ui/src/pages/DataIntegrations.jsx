@@ -10,7 +10,8 @@ import ConnectionReceiptCard from '../components/integrations/ConnectionReceiptC
 import {
   buildEvernoteConnectionReceipt,
   buildNotionConnectionReceipt,
-  buildReadwiseConnectionReceipt
+  buildReadwiseConnectionReceipt,
+  describeReadwiseCadence
 } from '../components/integrations/connectionReceiptModel';
 import { projectSourceConnection } from '../components/integrations/connectionsModel';
 import SurfaceNotice from '../components/feedback/SurfaceNotice';
@@ -2443,7 +2444,7 @@ const DataIntegrations = () => {
       : 'Not connected';
   const readwiseFeedDetail = directReadwiseReady
     ? (readwiseSyncConnection.lastSyncAt
-      ? `Last Readwise sync: ${formatLoopDate(readwiseSyncConnection.lastSyncAt)}.`
+      ? describeReadwiseCadence(readwiseSyncConnection)
       : 'Connected. Your archive is on its way into the Library.')
     : readwiseAgentConnection?.id
       ? 'Browser approval is ready, but this connection cannot refresh the Library on its own. Add an API token, or upload a CSV.'
