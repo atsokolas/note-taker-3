@@ -386,7 +386,6 @@ export const buildReadwiseConnectionReceipt = ({
       tone: completedWithWarnings || withWarnings(result) ? 'warning' : 'success',
       headline: describeReadwiseCadence(syncConnection),
       summary,
-      detail: 'New highlights come across every few hours, without pressing anything.',
       nextAction: { label: 'Sync again' },
       isLive: false
     };
