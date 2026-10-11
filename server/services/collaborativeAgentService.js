@@ -14,7 +14,7 @@ const { brokerAgentTurn, resolveAgentCapability, isSharedQuestionContext, shared
 const { resolveAgentModelRoute } = require('./agentModelRouter');
 const { chatComplete, isTextGenerationConfigured } = require('../ai/hfTextClient');
 const { groundedIn } = require('./agentGrounding');
-const { retrievePassages, bestPassage, readSource } = require('./agentRetrieval');
+const { retrievePassages, bestPassage, readSource, readStandingContext } = require('./agentRetrieval');
 const { runAgentLoop } = require('./agentLoop');
 const { describeRevisions, MAX_TEMPORAL_REVISIONS } = require('./wikiAskService');
 const { semanticSearch } = require('../ai/semanticSearch');
@@ -1105,7 +1105,16 @@ const formatPartnerMaterialLines = (items = []) => {
   });
 };
 
-const buildPartnerSystemPrompt = ({ contextItem = null } = {}) => {
+/* The same Partner in every room knows what the reader holds. It may name a
+   held view the material bears on; it never invents one. */
+const standingContextLines = (standing = null) => [
+  standing?.views?.length
+    ? `The reader holds these views: ${standing.views.map(view => `“${view}”`).join('; ')}. When the material bears on one of them, name it and say whether it supports or pushes against it. Never attribute a view to the reader that is not in this list.`
+    : '',
+  standing?.sources?.length ? `Most recently the reader saved: ${standing.sources.join('; ')}.` : ''
+];
+
+const buildPartnerSystemPrompt = ({ contextItem = null, standing = null } = {}) => {
   const contextLabel = toSafeString(contextItem?.title) || 'the active workspace';
   const wikiHint = contextItem?.type === 'wiki_page'
     ? [
@@ -1161,7 +1170,8 @@ const buildPartnerSystemPrompt = ({ contextItem = null } = {}) => {
       ? 'Work with the private exploration below. Its writing is the user’s authorship, not an accepted Wiki claim. A hypothetical premise is a supposition to explore, never evidence. Compare, reason, challenge, develop an essay, or offer revised wording when asked. Keep the user’s phrasing intact unless they ask to change it. Offering text does not save it or change the Wiki. Do not imply an edit has been accepted.'
       : '',
     'Answer the reader’s exact question first. If the request is too vague to act on, ask one short question instead.',
-    livingThesisCriticHint
+    livingThesisCriticHint,
+    ...(contextItem?.type === 'shared_question' ? [] : standingContextLines(standing))
   ].filter(Boolean).join(' ');
 };
 
@@ -1292,12 +1302,13 @@ const buildPartnerChatMessages = ({
   conversationState = {},
   context = {},
   contextItem = null,
-  relatedItems = []
+  relatedItems = [],
+  standing = null
 } = {}) => {
   const messages = [
     {
       role: 'system',
-      content: buildPartnerSystemPrompt({ contextItem })
+      content: buildPartnerSystemPrompt({ contextItem, standing })
     },
     {
       role: 'user',
@@ -2377,6 +2388,9 @@ const generateCollaborativeReply = async ({
   let proposals = [];
   if (!reply && isTextGenerationConfigured()) {
     try {
+      const standing = sharedQuestionScoped
+        ? null
+        : await readStandingContext({ userId: userObjectId, models: { Article, WikiPage } }).catch(() => null);
       const turn = await runAgentLoop({
         route: modelRoute.profile,
         messages: buildPartnerChatMessages({
@@ -2384,7 +2398,8 @@ const generateCollaborativeReply = async ({
           conversationState,
           context,
           contextItem,
-          relatedItems
+          relatedItems,
+          standing
         }),
         sources: [contextItem, ...relatedItems].filter(Boolean),
         ...(sharedQuestionScoped ? {} : {

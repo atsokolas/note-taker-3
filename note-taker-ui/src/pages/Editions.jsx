@@ -7,6 +7,7 @@ import EditionRun from '../components/editions/EditionRun';
 import EditionStand from '../components/editions/EditionStand';
 import EditionZoom from '../components/editions/EditionZoom';
 import { readEditionLocal, readingPosition } from '../components/editions/editionReadingState';
+import { useNoeisAgentSurface } from '../agent/AgentRailContext';
 import { byPaper, issueLine, newCountOf } from './editionModel';
 import '../styles/edition-reading.css';
 
@@ -95,6 +96,16 @@ export default function Editions() {
     { label: 'A finding', to: item ? at(issuePath, { item, by }) : null },
     { label: 'The source', to: null }
   ];
+
+  /* The Partner reads the issue on the page: its name, and what it found. */
+  useNoeisAgentSurface('agent-surface.editions', {
+    room: 'editions',
+    objectType: id ? 'edition' : 'editions',
+    objectId: id || 'editions',
+    title: id ? [paper?.title, rungs[2].label].filter(Boolean).join(' · ') : 'Your papers'
+  }, {
+    summary: (issue?.items || []).slice(0, 4).map(row => row.plain || row.finding || row.title).filter(Boolean).join(' ')
+  });
 
   /* Closer, from an issue, is the finding you are reading. */
   const intoReading = () => {

@@ -332,13 +332,10 @@ const JudgmentView = ({ pageId, initialPage = null }) => {
     });
   };
 
-  const boundSources = view
-    ? [...view.forPassages, ...view.againstPassages].filter(passage => passage.source).length
-    : 0;
   useNoeisAgentSurface(
     'agent-surface.judgment',
     buildJudgmentSurfaceDescriptor({ page, pageId }),
-    { subject: view?.claim || '', boundSources, empty: 'Nothing to retrieve until you ask.' },
+    { subject: view?.claim || '' },
     { onAccept: (proposal, field) => commit(acceptProposalIntoJudgment(pageRef.current, proposal, field)) }
   );
 

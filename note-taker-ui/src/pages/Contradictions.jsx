@@ -119,8 +119,7 @@ const Contradictions = () => {
   useContextualAgentSurface('agent-surface.wiki', {
     objectType: 'contradiction_index',
     objectId: 'contradictions',
-    subject: 'Where your library disagrees with itself.',
-    empty: 'Nothing to retrieve until you ask.'
+    subject: 'Where your library disagrees with itself.'
   }, {});
 
   /* Both sides are already written; the judgment starts with them in it. */

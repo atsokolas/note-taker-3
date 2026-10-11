@@ -13,11 +13,11 @@ import {
   mapAgentThreadMessages
 } from './agentConversationModel';
 
-// The agent rail's state lives above the router, because the rail does not
-// leave when the column changes. A page tells the rail what it is looking at;
-// the rail owns that page's durable conversation, proposals, and
-// Accept/Dismiss. A room supplies only its narrow accepted-write adapter.
-// Nothing the agent retrieves reaches the room until the human accepts it.
+// The Partner's state lives above the router, because the panel does not
+// leave when the column changes. A page tells the Partner what it is looking
+// at; the panel owns that page's durable conversation, proposals, and
+// Accept / Not now. A room supplies only its narrow accepted-write adapter.
+// Nothing the Partner retrieves reaches the room until the reader accepts it.
 
 const AgentRailContext = createContext(null);
 const SURFACE_THREADS_STORAGE_KEY = 'noeis.agent.surface_threads';
@@ -26,10 +26,10 @@ const REMEMBERED_SURFACE_THREADS = 40;
 const EMPTY_SURFACE = Object.freeze({
   id: '',
   roleLabel: 'Partner',
-  roleDescription: '',
+  scope: 'everything',
   subject: '',
   lines: [],
-  empty: ''
+  caption: ''
 });
 
 const surfaceIdentity = (surface = {}) => [
@@ -333,6 +333,10 @@ export const AgentRailProvider = ({ children }) => {
     }
   }, [addProposal, adoptThread, agentAvailable, availabilityReason, messages, surface, threadId]);
 
+  /* Wording is tried in the room's draft, beside the original. Nothing is
+     written until the reader keeps it there. */
+  const tryWording = useCallback(text => handlers.current.onTryWording?.(text), []);
+
   const accept = useCallback(async (proposal, field) => {
     const revision = surfaceRevision.current;
     if (proposal?._surfaceRevision !== revision) return;
@@ -373,8 +377,9 @@ export const AgentRailProvider = ({ children }) => {
     addProposal,
     dismissProposal,
     ask,
-    accept
-  }), [accept, activity, addProposal, adoptThread, agentAvailable, ask, availabilityReason, busy, dismissProposal, draft, error, messages, proposals, registerSurface, resetConversation, setHandlers, surface, threadId, unregisterSurface]);
+    accept,
+    tryWording
+  }), [accept, activity, addProposal, adoptThread, agentAvailable, ask, availabilityReason, busy, dismissProposal, draft, error, messages, proposals, registerSurface, resetConversation, setHandlers, surface, threadId, tryWording, unregisterSurface]);
 
   return <AgentRailContext.Provider value={value}>{children}</AgentRailContext.Provider>;
 };
@@ -399,13 +404,14 @@ const EMPTY_AGENT_RAIL = Object.freeze({
   addProposal: () => {},
   dismissProposal: () => {},
   ask: async () => {},
-  accept: async () => {}
+  accept: async () => {},
+  tryWording: () => {}
 });
 
 export const useAgentRail = () => useContext(AgentRailContext) || EMPTY_AGENT_RAIL;
 
 /**
- * Called by a page to say what the rail is looking at and how to act for it.
+ * Called by a page to say what the Partner is looking at and how to act for it.
  *
  * `descriptor` is plain data and is compared by value, so a page can rebuild it
  * every render. `handlers` is stored in a ref and may change freely.
@@ -431,7 +437,7 @@ const useResolvedAgentSurface = (descriptor, handlers) => {
 
 /* The room names a contract and supplies exact runtime data. Capability and
    approval policy stay in the registry instead of being re-inferred inside
-   the rail or copied into each page. */
+   the panel or copied into each page. */
 export const useContextualAgentSurface = (contractId, context, handlers) => {
   const descriptor = buildContextualAgentSurface(contractId, context);
   const filteredHandlers = filterContextualAgentHandlers(contractId, handlers);

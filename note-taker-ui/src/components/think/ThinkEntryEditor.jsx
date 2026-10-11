@@ -101,8 +101,6 @@ const QuestionFacts = ({ entry, onSettle }) => {
 const ThinkEntryEditor = ({
   target,
   startPull = false,
-  partnerOpen = false,
-  onPartner,
   onAsk,
   onLoaded,
   onSaved,
@@ -324,8 +322,6 @@ const ThinkEntryEditor = ({
           saveState={saveState}
           savedAt={savedAt}
           onRetry={save}
-          partnerOpen={partnerOpen}
-          onPartner={onPartner}
         >
           <QuietButton onClick={() => setPicking(true)}>Pull a passage in</QuietButton>
           <QuietButton onClick={() => setSharing(true)}>Share</QuietButton>

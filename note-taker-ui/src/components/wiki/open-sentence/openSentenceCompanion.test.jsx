@@ -1,10 +1,14 @@
 import React from 'react';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import { fireEvent, render as renderWithoutRouter, screen, within } from '@testing-library/react';
 import { companionForOpenedClaim } from './openSentenceCompanion';
 import { buildAgentContext } from '../../../agent/agentConversationModel';
-import AgentRail from '../../../agent/AgentRail';
+import PartnerPanel from '../../../agent/PartnerPanel';
 import { AgentRailProvider, useContextualAgentSurface } from '../../../agent/AgentRailContext';
 import { getAgentThread, streamChatWithAgent } from '../../../api/agent';
+
+// The panel links what it read back to its source.
+const render = ui => renderWithoutRouter(ui, { wrapper: MemoryRouter });
 
 jest.mock('../../../api/agent', () => ({
   getAgentThread: jest.fn(),
@@ -45,10 +49,9 @@ const WikiAsk = ({ onAccept } = {}) => {
     pageId: 'page-1',
     claimId: 'claim-1',
     subject: 'Children need room to make mistakes.',
-    empty: 'Nothing to retrieve until you ask against this sentence.',
     askPlaceholder: 'Ask about this sentence'
   }, onAccept ? { onAccept } : {});
-  return <AgentRail />;
+  return <PartnerPanel />;
 };
 
 describe('open sentence companion', () => {
@@ -62,7 +65,6 @@ describe('open sentence companion', () => {
   it('rebinds to the opened line and names the attached source, or stays silent', () => {
     expect(companionForOpenedClaim(page, { claimId: 'claim-1' })).toEqual(expect.objectContaining({
       subject: 'Children need room to make mistakes.',
-      boundSources: 1,
       askPlaceholder: 'Ask about this sentence',
       lines: [{ id: 'source', text: 'Nomad' }]
     }));
@@ -81,8 +83,6 @@ describe('open sentence companion', () => {
         }]
       }
     }, { claimId: 'claim-silent' })).toEqual(expect.objectContaining({
-      boundSources: 0,
-      empty: 'Nothing beside this sentence yet.',
       lines: []
     }));
 
@@ -116,7 +116,6 @@ describe('open sentence companion', () => {
     });
 
     expect(companion).toEqual(expect.objectContaining({
-      boundSources: 1,
       askPlaceholder: 'Think with me about this'
     }));
     expect(companion.lines.filter((line) => line.id.startsWith('source'))).toHaveLength(2);

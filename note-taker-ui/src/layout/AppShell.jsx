@@ -1,46 +1,68 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 
-// The rail is rendered here, beside the routed column, so that changing routes
-// changes the column and nothing else. Mounting it inside a page would make it
-// arrive and leave with that page, which is precisely what it must not do.
+const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/* ⌘J (Ctrl+J elsewhere) asks, as ⌘K finds. */
+export const isPartnerShortcut = event => (
+  (event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey && String(event.key).toLowerCase() === 'j'
+);
+
+// The Partner is rendered here, beside the routed column, so that changing
+// routes changes the column and nothing else: its conversation stays. It is a
+// sheet you open, with its button or ⌘J, in every room.
 const AppShell = ({
   leftNav,
   topBar,
   children,
-  rightRail = null,
-  surface = null,
-  agentOnDemand = false
+  partner = null,
+  surface = null
 }) => {
-  const [agentOpen, setAgentOpen] = useState(false);
-  const [compact, setCompact] = useState(() => window.matchMedia?.('(max-width: 1080px)').matches);
-  const onDemand = Boolean(agentOnDemand) || surface?.room === 'library' || compact;
-  const showAgentTrigger = onDemand && !agentOnDemand;
-  useEffect(() => {
-    const media = window.matchMedia?.('(max-width: 1080px)');
-    const change = () => setCompact(Boolean(media?.matches));
-    const open = () => setAgentOpen(true);
-    media?.addEventListener('change', change);
-    window.addEventListener('noeis:open-agent', open);
-    return () => { media?.removeEventListener('change', change); window.removeEventListener('noeis:open-agent', open); };
-  }, []);
+  const [partnerOpen, setPartnerOpen] = useState(false);
+  const isOpen = useRef(false);
+  isOpen.current = partnerOpen;
   const triggerRef = useRef(null);
-  const drawerRef = useRef(null);
+  const sheetRef = useRef(null);
+  const returnFocus = useRef(null);
+
+  const openPartner = useCallback(() => {
+    if (isOpen.current) return;
+    returnFocus.current = document.activeElement;
+    setPartnerOpen(true);
+  }, []);
+
+  const closePartner = useCallback(() => {
+    setPartnerOpen(false);
+    const target = returnFocus.current?.isConnected ? returnFocus.current : triggerRef.current;
+    window.requestAnimationFrame(() => target?.focus?.());
+  }, []);
 
   useEffect(() => {
-    if (!agentOpen || !onDemand) return undefined;
-    const focusTarget = drawerRef.current?.querySelector('input, button, a, [tabindex="0"]');
-    focusTarget?.focus();
-    const containDrawerFocus = (event) => {
+    if (!partner) return undefined;
+    const onKeyDown = (event) => {
+      if (!isPartnerShortcut(event)) return;
+      event.preventDefault();
+      if (isOpen.current) closePartner();
+      else openPartner();
+    };
+    window.addEventListener('noeis:open-agent', openPartner);
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => {
+      window.removeEventListener('noeis:open-agent', openPartner);
+      window.removeEventListener('keydown', onKeyDown, true);
+    };
+  }, [closePartner, openPartner, partner]);
+
+  useEffect(() => {
+    if (!partnerOpen) return undefined;
+    sheetRef.current?.querySelector('input')?.focus();
+    const containFocus = (event) => {
       if (event.defaultPrevented) return;
       if (event.key === 'Escape') {
-        setAgentOpen(false);
-        window.requestAnimationFrame(() => triggerRef.current?.focus());
+        closePartner();
         return;
       }
       if (event.key !== 'Tab') return;
-      const focusable = [...(drawerRef.current?.querySelectorAll(
-        'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
-      ) || [])];
+      const focusable = [...(sheetRef.current?.querySelectorAll(FOCUSABLE) || [])];
       if (!focusable.length) return;
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
@@ -52,18 +74,13 @@ const AppShell = ({
         first.focus();
       }
     };
-    window.addEventListener('keydown', containDrawerFocus);
-    return () => window.removeEventListener('keydown', containDrawerFocus);
-  }, [agentOpen, onDemand]);
-
-  const closeAgent = () => {
-    setAgentOpen(false);
-    window.requestAnimationFrame(() => triggerRef.current?.focus());
-  };
+    window.addEventListener('keydown', containFocus);
+    return () => window.removeEventListener('keydown', containFocus);
+  }, [closePartner, partnerOpen]);
 
   return (
     <div
-      className={`app-shell-new app-shell-new--stitch ${onDemand ? 'app-shell-new--agent-on-demand' : ''} ${leftNav ? 'app-shell-new--with-nav' : 'app-shell-new--navless'}`}
+      className={`app-shell-new app-shell-new--stitch ${leftNav ? 'app-shell-new--with-nav' : 'app-shell-new--navless'}`}
       data-noeis-surface={surface?.room || undefined}
       data-noeis-object-type={surface?.objectType || undefined}
       data-noeis-object-id={surface?.objectId || undefined}
@@ -78,53 +95,40 @@ const AppShell = ({
       )}
       <div className="app-shell-new__main">
         {topBar}
-        <div
-          id="main-content"
-          className={`app-shell-new__body${rightRail ? ' app-shell-new__body--railed' : ''}`}
-          tabIndex="-1"
-        >
+        <div id="main-content" className="app-shell-new__body" tabIndex="-1">
           <div className="app-shell-new__column">{children}</div>
-          {rightRail ? (
+          {partner ? (
             <>
-              {showAgentTrigger ? (
-                <button
-                  ref={triggerRef}
-                  type="button"
-                  className="agent-rail-drawer__trigger"
-                  aria-expanded={agentOpen}
-                  aria-controls="noeis-agent-drawer"
-                  onClick={() => setAgentOpen(true)}
-                >
-                  {surface?.room === 'library' ? 'Ask about this' : 'Partner'}
-                </button>
-              ) : null}
-              <div
-                id="noeis-agent-drawer"
-                className="agent-rail-drawer"
-                data-open={agentOpen ? 'true' : 'false'}
+              <button
+                ref={triggerRef}
+                type="button"
+                className="agent-rail-drawer__trigger"
+                aria-expanded={partnerOpen}
+                aria-controls="noeis-partner"
+                aria-keyshortcuts="Meta+J Control+J"
+                title="Partner · ⌘J"
+                onClick={openPartner}
               >
+                Partner
+              </button>
+              <div id="noeis-partner" className="agent-rail-drawer" data-open={partnerOpen ? 'true' : 'false'}>
                 <button
                   type="button"
                   className="agent-rail-drawer__backdrop"
-                  aria-label="Close partner"
-                  onClick={closeAgent}
+                  aria-label="Close Partner"
+                  tabIndex={-1}
+                  onClick={closePartner}
                 />
                 <div
-                  ref={drawerRef}
+                  ref={sheetRef}
                   className="agent-rail-drawer__sheet"
-                  role={agentOpen ? 'dialog' : undefined}
-                  aria-modal={agentOpen || undefined}
-                  aria-label={agentOpen ? 'Partner' : undefined}
-                  inert={onDemand && !agentOpen ? true : undefined}
+                  role={partnerOpen ? 'dialog' : undefined}
+                  aria-modal={partnerOpen || undefined}
+                  aria-label={partnerOpen ? 'Partner' : undefined}
+                  inert={partnerOpen ? undefined : true}
                 >
-                  <button
-                    type="button"
-                    className="agent-rail-drawer__close"
-                    onClick={closeAgent}
-                  >
-                    Close
-                  </button>
-                  {rightRail}
+                  <button type="button" className="agent-rail-drawer__close" onClick={closePartner}>Close</button>
+                  {partner}
                 </div>
               </div>
             </>

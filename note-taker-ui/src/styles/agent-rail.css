@@ -1,18 +1,13 @@
-/* The agent rail.
-   Cream like the column, separated by one hairline. Not a card, not a panel,
-   not a chat app — the margin of the page, where the agent works. It never
-   animates on navigation, because it never arrives: it was already there. */
+/* The Partner.
+   One panel in every room, opened with ⌘J or its button. Paper inside, glass
+   only on the floating sheet and its trigger. Not a chat app: the conversation,
+   what is waiting for you, and what it read. */
 
 .agent-rail {
-  position: sticky;
-  top: 88px;
-  align-self: start;
   display: grid;
   gap: 14px;
   align-content: start;
   width: 100%;
-  max-width: 280px;
-  padding: clamp(48px, 9vh, 104px) 0 40px 26px;
   background: transparent;
   color: var(--text-primary, var(--vellum-ink));
   font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
@@ -20,10 +15,10 @@
 
 /* A single living thread ties the agent to the object in the column. It is a
    bit of delight with a job: the knot wakes when context changes and travels
-   while retrieval is running. The rail remains paper, never a floating card. */
+   while retrieval is running. */
 .agent-rail__identity {
   display: grid;
-  grid-template-columns: 16px minmax(0, 1fr);
+  grid-template-columns: 16px auto minmax(0, 1fr);
   gap: 10px;
   align-items: center;
 }
@@ -93,35 +88,33 @@
   animation: agent-subject-arrive 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-.agent-rail__envelope {
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--mono, ui-monospace, "SF Mono", Menlo, monospace);
-  font-size: 0.64rem;
-  letter-spacing: 0.06em;
-  font-variant-numeric: tabular-nums;
-}
-
-.agent-rail__subject span {
-  color: var(--text-muted, var(--vellum-subtle));
-  font-size: 0.66rem;
-  font-weight: 600;
-  letter-spacing: 0.13em;
-  text-transform: uppercase;
-}
-
 @keyframes agent-subject-arrive {
   from { opacity: 0; transform: translateY(3px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
-.agent-rail__role-description {
-  margin: -5px 0 2px 26px;
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-reading-font, ui-serif, Georgia, serif);
-  font-size: 0.82rem;
-  font-style: italic;
+/* Where the Partner is looking, in the reader's words. The one thing that
+   changes from room to room. */
+.agent-rail__scope {
+  justify-self: start;
+  padding: 2px 9px;
+  border: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 80%, transparent);
+  border-radius: 999px;
+  color: var(--text-secondary, var(--vellum-muted));
+  font-size: 0.72rem;
   line-height: 1.5;
-  text-wrap: pretty;
+  animation: agent-subject-arrive 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.agent-rail__lines a {
+  color: inherit;
+  text-decoration-color: color-mix(in srgb, currentColor 35%, transparent);
+  text-underline-offset: 3px;
+}
+
+.agent-rail__lines a:hover,
+.agent-rail__lines a:focus-visible {
+  color: var(--wiki-warm-accent, var(--vellum-warm));
 }
 
 .agent-rail__lines {
@@ -353,14 +346,14 @@
   line-height: 1.5;
 }
 
-.agent-rail__review-stage {
+.agent-rail__section {
   display: grid;
   gap: 12px;
   padding-top: 14px;
   border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 72%, transparent);
 }
 
-.agent-rail__review-label {
+.agent-rail__label {
   margin: 0;
   color: var(--text-muted, var(--vellum-subtle));
   font: 600 0.66rem/1.35 var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
@@ -368,173 +361,130 @@
   text-transform: uppercase;
 }
 
-/* The shared review contract belongs in every agent surface. In the narrow
-   resident rail it becomes a calm vertical checklist rather than the wider
-   Think workbench card. */
-.agent-rail__review-stage .agent-thought-partner__review-card {
+/* A staged plan reads as a calm vertical checklist in the narrow panel. */
+.agent-rail .agent-thought-partner__review-card {
   padding: 0;
   border: 0;
   background: transparent;
   box-shadow: none;
 }
 
-.agent-rail__review-stage .agent-thought-partner__review-head,
-.agent-rail__review-stage .agent-thought-partner__structure-step-head {
+.agent-rail .agent-thought-partner__review-head,
+.agent-rail .agent-thought-partner__structure-step-head {
   align-items: flex-start;
   flex-direction: column;
   gap: 5px;
 }
 
-.agent-rail__review-stage .agent-thought-partner__structure-summary,
-.agent-rail__review-stage .agent-thought-partner__structure-bulk-actions,
-.agent-rail__review-stage .agent-thought-partner__draft-actions {
+.agent-rail .agent-thought-partner__structure-summary,
+.agent-rail .agent-thought-partner__structure-bulk-actions,
+.agent-rail .agent-thought-partner__draft-actions {
   flex-wrap: wrap;
 }
 
-.agent-rail__review-stage .agent-thought-partner__structure-step {
+.agent-rail .agent-thought-partner__structure-step {
   padding-inline: 0;
 }
 
-/* ---------- the shell slot ---------- */
+/* ---------- the sheet ---------- */
 
-.app-shell-new__body--railed {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 280px);
-  gap: 0;
-  /* The column stretches so its hairline runs the height of the page. The rail
-     pins itself to the top with align-self, not by shrinking the row. */
-  align-items: stretch;
+.agent-rail-drawer__trigger {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 72;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 62px;
+  min-height: 40px;
+  padding: 8px 14px;
+  border: 1px solid var(--noeis-rule);
+  border-radius: 999px;
+  background: var(--noeis-floating);
+  box-shadow: var(--noeis-shadow-float, 0 12px 32px rgba(23, 27, 35, 0.12));
+  color: var(--noeis-ink);
+  font: 600 0.7rem/1 var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  backdrop-filter: blur(14px);
+  cursor: pointer;
 }
 
-.app-shell-new__body--railed > .app-shell-new__column {
-  min-width: 0;
-  container-name: noeis-column;
-  container-type: inline-size;
-  /* One hairline, the full height of the page — the rail box is short, and a
-     border on the rail itself would read as a floating segment. */
-  border-right: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 62%, transparent);
+.agent-rail-drawer {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  visibility: hidden;
+  pointer-events: none;
 }
 
-/* The wrapper disappears from desktop layout, leaving the rail itself as the
-   second grid item. On compact screens the same DOM instance becomes a sheet;
-   route changes therefore keep agent state instead of remounting a mobile copy. */
-.agent-rail-drawer,
+.agent-rail-drawer[data-open='true'] {
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.agent-rail-drawer__backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(24, 26, 30, 0.2);
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+
+.agent-rail-drawer[data-open='true'] .agent-rail-drawer__backdrop {
+  opacity: 1;
+}
+
 .agent-rail-drawer__sheet {
-  display: contents;
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(400px, calc(100vw - 28px));
+  overflow-y: auto;
+  padding: 18px 24px 28px;
+  border-left: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 72%, transparent);
+  background: var(--noeis-floating);
+  /* The sheet is read over the page; the page must not read through it. */
+  backdrop-filter: blur(14px);
+  box-shadow: -18px 0 48px rgba(23, 27, 35, 0.12);
+  transform: translateX(102%);
+  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.agent-rail-drawer__trigger,
-.agent-rail-drawer__backdrop,
+.agent-rail-drawer[data-open='true'] .agent-rail-drawer__sheet {
+  transform: translateX(0);
+}
+
 .agent-rail-drawer__close {
-  display: none;
+  display: block;
+  margin: 0 0 6px auto;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  background: transparent;
+  color: var(--text-muted, var(--vellum-subtle));
+  font: 500 0.72rem/1.4 var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  cursor: pointer;
 }
 
-/* Narrow viewports protect the reading/writing plane. Context is deliberate. */
+.agent-rail-drawer__sheet .agent-rail {
+  padding: 18px 0 40px;
+}
 
-  .app-shell-new--agent-on-demand .app-shell-new__body--railed {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .app-shell-new--agent-on-demand .app-shell-new__body--railed > .app-shell-new__column {
-    border-right: 0;
-  }
-
-  .app-shell-new--agent-on-demand .agent-rail-drawer__trigger {
-    position: fixed;
-    right: 18px;
-    bottom: 18px;
-    z-index: 72;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 62px;
-    min-height: 40px;
-    padding: 8px 14px;
-    border: 1px solid var(--noeis-rule);
-    border-radius: 999px;
-    background: var(--noeis-floating);
-    box-shadow: var(--noeis-shadow-float, 0 12px 32px rgba(23, 27, 35, 0.12));
-    color: var(--noeis-ink);
-    font: 600 0.7rem/1 var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    backdrop-filter: blur(14px);
-    cursor: pointer;
-  }
-
-  .app-shell-new--agent-on-demand .agent-rail-drawer {
-    position: fixed;
-    inset: 0;
-    z-index: 80;
-    display: block;
-    visibility: hidden;
-    pointer-events: none;
-  }
-
-  .app-shell-new--agent-on-demand .agent-rail-drawer[data-open='true'] {
-    visibility: visible;
-    pointer-events: auto;
-  }
-
-  .app-shell-new--agent-on-demand .agent-rail-drawer__backdrop {
-    position: absolute;
-    inset: 0;
-    display: block;
-    border: 0;
-    background: rgba(24, 26, 30, 0.2);
-    opacity: 0;
-    transition: opacity 180ms ease;
-  }
-
-  .app-shell-new--agent-on-demand .agent-rail-drawer[data-open='true'] .agent-rail-drawer__backdrop {
-    opacity: 1;
-  }
-
-  .app-shell-new--agent-on-demand .agent-rail-drawer__sheet {
-    position: absolute;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    display: block;
-    width: min(380px, calc(100vw - 28px));
-    overflow-y: auto;
-    padding: 18px 22px 28px;
-    border-left: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 72%, transparent);
-    background: var(--noeis-floating);
-    /* The sheet is read over the page; the page must not read through it. */
-    backdrop-filter: blur(14px);
-    box-shadow: -18px 0 48px rgba(23, 27, 35, 0.12);
-    transform: translateX(102%);
-    transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  .app-shell-new--agent-on-demand .agent-rail-drawer[data-open='true'] .agent-rail-drawer__sheet {
-    transform: translateX(0);
-  }
-
-  .app-shell-new--agent-on-demand .agent-rail-drawer__close {
-    display: block;
-    margin: 0 0 6px auto;
-    padding: 0;
-    border: 0;
-    border-bottom: 1px solid currentColor;
-    background: transparent;
-    color: var(--text-muted, var(--vellum-subtle));
-    font: 500 0.72rem/1.4 var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-    cursor: pointer;
-  }
-
-  .app-shell-new--agent-on-demand .agent-rail-drawer__sheet .agent-rail {
-    position: static;
-    max-width: none;
-    padding: 18px 0 40px;
-    border-top: 0;
-  }
+/* The conversation in the sheet has the sheet's height to scroll in. */
+.agent-rail-drawer__sheet .agent-rail__conversation {
+  max-height: none;
+  overflow: visible;
+}
 
 @media (prefers-reduced-motion: reduce) {
   .agent-rail__thread-knot,
   .agent-rail__thread.is-working .agent-rail__thread-knot,
-  .agent-rail__subject {
+  .agent-rail__subject,
+  .agent-rail__scope {
     animation: none;
   }
 

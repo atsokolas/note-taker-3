@@ -1574,8 +1574,6 @@ const NotebookEditor = ({
             : saveState === 'error' || workbench.saveState === 'error' ? 'error' : 'saved'}
           savedAt={savedAt || entry.updatedAt}
           onRetry={commitDraft}
-          partnerOpen={['partner', 'scratchpad', 'material'].includes(activeContext)}
-          onPartner={() => onOpenContext?.('partner')}
         >
           <QuietButton
             onMouseDown={(event) => event.preventDefault()}

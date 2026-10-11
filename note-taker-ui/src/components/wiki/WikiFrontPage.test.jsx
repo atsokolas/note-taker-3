@@ -20,10 +20,6 @@ jest.mock('./WikiCreationComposer', () => () => (
   </section>
 ));
 
-jest.mock('../agent/ThoughtPartnerPanel', () => ({ title = 'Partner' }) => (
-  <section aria-label={`${title} panel`}>Partner</section>
-));
-
 jest.mock('../../utils/wikiFeatureFlags', () => ({
   wikiPagePath: (pageId) => `/wiki/workspace?page=${pageId}`,
   wikiReadPath: (pageId, suffix = '') => `/wiki/read/${pageId}${suffix ? `?${String(suffix).replace(/^[?&]/, '')}` : ''}`
