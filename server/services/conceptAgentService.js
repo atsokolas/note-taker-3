@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const mongoose = require('mongoose');
 const { ensureWorkspace, applyPatchOp } = require('../utils/workspaceUtils');
 const { semanticSearch } = require('../ai/semanticSearch');
+const { buildArticlePassages } = require('../ai/articlePassages');
 const { chatComplete, isTextGenerationConfigured } = require('../ai/hfTextClient');
 const { logAgentMetric } = require('../utils/agentMetrics');
 
@@ -442,7 +443,11 @@ const buildCandidateItems = async ({ queryResults, userId, conceptTitle, concept
 
     if (entry.objectType === 'article') {
       title = linkedArticle?.title || toSafeString(entry.metadata?.title) || null;
-      text = buildSnippet(entry.document || linkedArticle?.content || '', 420);
+      // A passage hit reads as that passage, not the article's opening.
+      const passage = entry.metadata?.subId && linkedArticle
+        ? buildArticlePassages(linkedArticle).find(candidate => candidate.subId === entry.metadata.subId)
+        : null;
+      text = buildSnippet(entry.document || passage?.excerpt || linkedArticle?.content || '', 420);
       source = linkedArticle?.url || null;
     } else if (entry.objectType === 'highlight') {
       const highlight = highlightMap.get(id);
@@ -1062,8 +1067,8 @@ const normalizePlan = (plan) => {
 };
 
 /* The model only sorts what the reader already holds into groups; a ref to
-   anything outside the candidates is dropped when the plan is attached. With no
-   text model, or no candidates, the local plan answers instead. */
+   anything outside the candidates is dropped, and so is a group left empty.
+   With no text model, no candidates or no usable group, the local plan answers. */
 const planConcept = async ({ conceptTitle, conceptDescription, candidateItems }) => {
   if (!candidateItems.length || !isTextGenerationConfigured()) return null;
   const completion = await chatComplete({
@@ -1089,7 +1094,11 @@ const planConcept = async ({ conceptTitle, conceptDescription, candidateItems })
     ]
   });
   const plan = JSON.parse(completion.text);
-  return Array.isArray(plan?.groups) && plan.groups.length ? plan : null;
+  const known = new Set(candidateItems.map(({ type, id }) => `${type}:${id}`));
+  const groups = (Array.isArray(plan?.groups) ? plan.groups : [])
+    .map(group => ({ ...group, item_refs: (Array.isArray(group?.item_refs) ? group.item_refs : []).filter(ref => known.has(`${normalizeRefType(ref?.type)}:${toSafeString(ref?.id)}`)) }))
+    .filter(group => group.item_refs.length);
+  return groups.length ? { ...plan, groups } : null;
 };
 
 const buildLocalFallbackPlan = ({ conceptTitle, conceptDescription, initialQueries, candidateItems }) => {
@@ -1993,6 +2002,7 @@ module.exports = {
   getConceptSuggestionDrafts,
   mutateConceptSuggestionDraft,
   __testables: {
+    planConcept,
     buildLocalFallbackPlan,
     isTransientSemanticUpstreamError,
     scoreTextAgainstKeywords,
