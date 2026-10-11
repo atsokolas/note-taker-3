@@ -19,7 +19,7 @@ const LIBRARY_REF_TYPES = new Set(['article', 'highlight']);
 
 const idOf = (value) => String(value?._id || value || '').trim();
 
-/** The address a source is known by: no scheme, www, fragment, tracking or trailing slash. */
+/** The address a source is known by: no scheme, www, fragment, tracking or trailing slash; path and query keep their case. */
 const canonicalSourceUrl = (value = '') => {
   const raw = String(value || '').trim();
   if (!raw) return '';
@@ -31,7 +31,7 @@ const canonicalSourceUrl = (value = '') => {
       .sort()
       .join('&');
     const path = url.pathname.replace(/\/+$/, '');
-    return `${url.hostname.replace(/^www\./, '')}${path}${query ? `?${query}` : ''}`.toLowerCase();
+    return `${url.hostname.replace(/^www\./, '')}${path}${query ? `?${query}` : ''}`;
   } catch (_error) {
     return raw.toLowerCase().replace(/^[a-z][a-z0-9+.-]*:\/\//, '').replace(/^www\./, '').replace(/[#?].*$/, '').replace(/\/+$/, '');
   }
