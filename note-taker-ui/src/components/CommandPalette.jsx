@@ -22,6 +22,7 @@ import {
 } from '../utils/highlightToThinkingModel';
 import { useNoeisCapabilities } from '../system/noeisCapabilityContext';
 import { displayWikiPageTitle } from './wiki/wikiRepoDossierModel';
+import { withoutHeldViews } from './wiki/wikiFacetModel';
 import { normalizeSpaces } from '../utils/editorialText';
 import { buildPaletteDestinations } from '../system/paletteDestinations';
 import { buildSettingsPaletteRows } from '../settings/settingsRegistry';
@@ -301,7 +302,7 @@ const CommandPalette = ({ open, onClose }) => {
         setNotebook(notebookRows.status === 'fulfilled' ? notebookRows.value || [] : []);
         setCollections(colRes.status === 'fulfilled' ? colRes.value?.data || [] : []);
         setConcepts(tagRes.status === 'fulfilled' ? tagRes.value?.data || [] : []);
-        setWikiPages(wikiRows.status === 'fulfilled' && Array.isArray(wikiRows.value) ? wikiRows.value : []);
+        setWikiPages(wikiRows.status === 'fulfilled' ? withoutHeldViews(wikiRows.value) : []);
         setFolders(folderRows.status === 'fulfilled' && Array.isArray(folderRows.value) ? folderRows.value : []);
         setShelfArticles(shelfRes.status === 'fulfilled' && Array.isArray(shelfRes.value?.data) ? shelfRes.value.data : []);
       } catch (err) {
@@ -334,7 +335,7 @@ const CommandPalette = ({ open, onClose }) => {
           claims: Array.isArray(data?.groups?.claims) ? data.groups.claims : [],
           evidence: Array.isArray(data?.groups?.evidence) ? data.groups.evidence : []
         });
-        setWikiPages(wikiResult.status === 'fulfilled' && Array.isArray(wikiResult.value) ? wikiResult.value : []);
+        setWikiPages(wikiResult.status === 'fulfilled' ? withoutHeldViews(wikiResult.value) : []);
       } catch (err) {
         console.error('Palette search failed', err);
       } finally {
