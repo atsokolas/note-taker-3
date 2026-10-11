@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Page } from '../components/ui';
+import { Page, PageHeader } from '../components/ui';
 import { getMorningPaperSettings } from '../api/dailyLoop';
 import AgentLaunchLinkCard from '../components/integrations/AgentLaunchLinkCard';
 import ConnectionsActivity from '../components/integrations/ConnectionsActivity';
@@ -18,6 +18,7 @@ import useAgentTokens from '../hooks/integrations/useAgentTokens';
 import usePersonalAgents from '../hooks/integrations/usePersonalAgents';
 import DataIntegrations from './DataIntegrations';
 import ExtensionCaptureCard from '../onboarding/ExtensionCaptureCard';
+import useDocumentTitle from '../hooks/useDocumentTitle';
 
 /* Email-in, said once and quietly: where to forward, and from which address.
    Absent until the inbound address is configured. */
@@ -40,6 +41,7 @@ const ForwardingLine = () => {
 };
 
 const Integrations = () => {
+  useDocumentTitle('Connections');
   const [showTaskLinkBuilder, setShowTaskLinkBuilder] = useState(false);
   const [showConnectionDetails, setShowConnectionDetails] = useState(false);
   const [activeTab, setActiveTab] = useState(() => {
@@ -88,10 +90,7 @@ const Integrations = () => {
 
   return (
     <Page className="settings-page integrations-page connections-hub">
-      <header className="connections-hub__header">
-        <h1>Connections</h1>
-        <p>Bring your reading in. Choose who can work with it.</p>
-      </header>
+      <PageHeader title="Connections" lede="Bring your reading in. Choose who can work with it." />
 
       <div className="connections-tabs" role="tablist" aria-label="Connections views">
         {[

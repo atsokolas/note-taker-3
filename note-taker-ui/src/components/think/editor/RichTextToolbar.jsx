@@ -1,5 +1,5 @@
 import React from 'react';
-import { QuietButton } from '../../ui';
+import { Button } from '../../ui';
 import { getSlashCommandItems } from './slashCommands';
 
 const RichTextToolbar = ({
@@ -16,7 +16,7 @@ const RichTextToolbar = ({
   return (
     <div className={`think-rich-text-toolbar think-rich-text-toolbar--${variant} ${className}`.trim()}>
       {items.map((item) => (
-        <QuietButton
+        <Button variant="quiet"
           key={item.label}
           type="button"
           aria-label={item.label}
@@ -25,20 +25,20 @@ const RichTextToolbar = ({
           onClick={() => item.apply(editor.chain().focus()).run()}
         >
           {item.label}
-        </QuietButton>
+        </Button>
       ))}
       {onTryWording ? (
-        <QuietButton
+        <Button variant="quiet"
           type="button"
           aria-label="Try wording"
           onMouseDown={(event) => event.preventDefault()}
           onClick={onTryWording}
         >
           Try wording
-        </QuietButton>
+        </Button>
       ) : null}
       {onAskSelection ? (
-        <QuietButton
+        <Button variant="quiet"
           type="button"
           aria-label="Ask Partner about selection"
           className="think-rich-text-toolbar__partner"
@@ -46,7 +46,7 @@ const RichTextToolbar = ({
           onClick={onAskSelection}
         >
           Ask partner
-        </QuietButton>
+        </Button>
       ) : null}
     </div>
   );

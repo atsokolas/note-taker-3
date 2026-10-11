@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { getPublicConcept } from '../api/concepts';
 import ConceptShareView from '../components/think/ConceptShareView';
 import { CONCEPT_NOT_PUBLISHED } from '../components/think/thinkShareFixture';
+import useDocumentTitle from '../hooks/useDocumentTitle';
 import '../styles/shared-page-column.css';
 
 const STICKY_REVEAL_PX = 240;
@@ -35,17 +36,6 @@ const useDocumentMeta = (name, content, attr = 'name') => {
       }
     };
   }, [name, content, attr]);
-};
-
-const useDocumentTitle = (title) => {
-  useEffect(() => {
-    if (!title) return undefined;
-    const previous = document.title;
-    document.title = title;
-    return () => {
-      document.title = previous;
-    };
-  }, [title]);
 };
 
 const SharedConceptTopBar = ({ minimal = false, onCopy, copyState, pageUrl }) => (
@@ -130,7 +120,7 @@ const SharedConcept = () => {
     || 'A concept shared from Noeis — a thinking workspace for serious readers.'
   ).slice(0, 220);
 
-  useDocumentTitle(data ? `${conceptName} · Noeis` : 'Shared concept · Noeis');
+  useDocumentTitle(data ? conceptName : 'Shared concept');
   useDocumentMeta('description', ogDescription);
   useDocumentMeta('og:title', conceptName, 'property');
   useDocumentMeta('og:description', ogDescription, 'property');

@@ -45,7 +45,7 @@ const HandoffCreateForm = ({
               disabled={creating}
             />
           </div>
-          <Button variant="secondary" disabled={creating || !String(title || '').trim()} onClick={onCreate}>
+          <Button disabled={creating || !String(title || '').trim()} onClick={onCreate}>
             {creating ? 'Creating…' : (autoRoute ? 'Auto plan + create' : 'Create handoff')}
           </Button>
         </div>
@@ -238,7 +238,7 @@ const HandoffCreateForm = ({
             )}
           </div>
         )}
-        <Button variant="secondary" disabled={creating || !String(title || '').trim()} onClick={onCreate}>
+        <Button disabled={creating || !String(title || '').trim()} onClick={onCreate}>
           {creating ? 'Creating…' : (autoRoute ? 'Auto plan + create' : 'Create handoff')}
         </Button>
       </div>

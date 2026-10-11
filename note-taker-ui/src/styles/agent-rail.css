@@ -10,7 +10,7 @@
   width: 100%;
   background: transparent;
   color: var(--text-primary, var(--vellum-ink));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
 }
 
 /* A single living thread ties the agent to the object in the column. It is a
@@ -88,6 +88,14 @@
   animation: agent-subject-arrive 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+.agent-rail__subject span {
+  color: var(--text-muted, var(--vellum-subtle));
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
 @keyframes agent-subject-arrive {
   from { opacity: 0; transform: translateY(3px); }
   to { opacity: 1; transform: translateY(0); }
@@ -159,7 +167,7 @@
 .agent-rail__message > p {
   margin: 0;
   color: var(--text-primary, var(--vellum-ink));
-  font-family: var(--noeis-reading-font, ui-serif, Georgia, serif);
+  font-family: var(--font-serif);
   font-size: 0.84rem;
   line-height: 1.55;
   text-wrap: pretty;
@@ -168,7 +176,7 @@
 
 .agent-rail__message--user > p {
   color: var(--text-secondary, var(--vellum-muted));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.79rem;
 }
 
@@ -499,4 +507,14 @@
   .agent-rail-drawer__sheet {
     transition: none;
   }
+}
+
+.agent-rail__role-description {
+  margin: -5px 0 2px 26px;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--font-serif);
+  font-size: 0.82rem;
+  font-style: italic;
+  line-height: 1.5;
+  text-wrap: pretty;
 }

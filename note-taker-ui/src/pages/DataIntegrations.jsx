@@ -2824,7 +2824,6 @@ const DataIntegrations = () => {
               ) : null}
               {importStats.entryId ? (
                 <Button
-                  variant="secondary"
                   type="button"
                   onClick={() => navigate(`/think?tab=notebook&entryId=${encodeURIComponent(importStats.entryId)}`)}
                 >
@@ -2840,14 +2839,12 @@ const DataIntegrations = () => {
               <div className="capture-actions">
                 <Button
                   type="button"
-                  variant="secondary"
                   onClick={() => navigate(importReceipt.primaryPath)}
                 >
                   {importReceipt.primaryLabel}
                 </Button>
                 <Button
                   type="button"
-                  variant="secondary"
                   onClick={() => navigate(importReceipt.secondaryPath)}
                 >
                   {importReceipt.secondaryLabel}
@@ -2863,7 +2860,6 @@ const DataIntegrations = () => {
               </p>
               <Button
                 type="button"
-                variant="secondary"
                 onClick={handleOrganizeImport}
                 disabled={organizeLaunching}
               >
@@ -2942,7 +2938,6 @@ const DataIntegrations = () => {
                 </Button>
                 <Button
                   type="button"
-                  variant="secondary"
                   onClick={handleReadwiseCheck}
                   disabled={busy || readwiseConnecting || readwiseChecking || readwiseSyncing || !readwiseConnection?.id}
                 >
@@ -2950,7 +2945,6 @@ const DataIntegrations = () => {
                 </Button>
                 <Button
                   type="button"
-                  variant="secondary"
                   onClick={handleReadwiseSync}
                   disabled={busy || readwiseConnecting || readwiseChecking || readwiseSyncing || !readwiseSyncConnection?.id}
                 >
@@ -2958,7 +2952,6 @@ const DataIntegrations = () => {
                 </Button>
                 <Button
                   type="button"
-                  variant="secondary"
                   onClick={handleReadwisePreview}
                   disabled={busy || readwiseConnecting || readwiseChecking || readwiseSyncing || !readwiseSyncConnection?.id}
                 >
@@ -2975,7 +2968,6 @@ const DataIntegrations = () => {
               {readwiseAgentConnection?.id && !readwiseDirectConnection?.id ? (
                 <div className="capture-actions">
                   <Button
-                    variant="secondary"
                     type="button"
                     onClick={() => csvInputRef.current?.click()}
                     disabled={busy}
@@ -3012,7 +3004,6 @@ const DataIntegrations = () => {
               />
             </div>
             <Button
-              variant="secondary"
               type="button"
               onClick={() => csvInputRef.current?.click()}
               disabled={busy}
@@ -3060,7 +3051,6 @@ const DataIntegrations = () => {
             </Button>
             <Button
               type="button"
-              variant="secondary"
               onClick={handleNotionCheck}
               disabled={busy || notionConnecting || notionChecking || notionSyncing || !notionConnection?.id}
             >
@@ -3068,7 +3058,6 @@ const DataIntegrations = () => {
             </Button>
             <Button
               type="button"
-              variant="secondary"
               onClick={handleNotionSync}
               disabled={busy || notionConnecting || notionChecking || notionSyncing || !notionConnection?.id}
             >
@@ -3076,7 +3065,6 @@ const DataIntegrations = () => {
             </Button>
             <Button
               type="button"
-              variant="secondary"
               onClick={handleNotionPreview}
               disabled={busy || notionConnecting || notionChecking || notionSyncing || !notionConnection?.id}
             >
@@ -3109,7 +3097,6 @@ const DataIntegrations = () => {
                 <div className="capture-actions" style={{ marginTop: 12 }}>
                   <Button
                     type="button"
-                    variant="secondary"
                     onClick={handleExportCurrentToNotion}
                     disabled={busy}
                   >
@@ -3183,7 +3170,6 @@ const DataIntegrations = () => {
               />
             </div>
             <Button
-              variant="secondary"
               type="button"
               onClick={() => enexInputRef.current?.click()}
               disabled={busy}
@@ -3201,7 +3187,6 @@ const DataIntegrations = () => {
           <div className="capture-actions">
             <Button
               type="button"
-              variant="secondary"
               onClick={handleEvernotePreview}
               disabled={busy || !evernoteFile}
             >
@@ -3301,7 +3286,6 @@ const DataIntegrations = () => {
               />
               <div className="capture-actions">
                 <Button
-                  variant="secondary"
                   type="button"
                   onClick={handlePasteFromClipboard}
                   disabled={busy}
@@ -3331,7 +3315,6 @@ const DataIntegrations = () => {
                 />
               </div>
               <Button
-                variant="secondary"
                 type="button"
                 onClick={() => mdInputRef.current?.click()}
                 disabled={busy}
@@ -3379,7 +3362,6 @@ const DataIntegrations = () => {
           <div className="capture-actions first-insight-actions">
             <Button
               type="button"
-              variant="secondary"
               onClick={() => navigate(getFirstInsightOpenPath(derivedActivationState))}
             >
               {derivedActivationState?.conceptName ? 'Open concept in Think' : derivedActivationState?.notebookEntryId ? 'Open note in Think' : 'Open current item'}
@@ -3387,7 +3369,6 @@ const DataIntegrations = () => {
             {canExportCurrentToNotion && (
               <Button
                 type="button"
-                variant="secondary"
                 onClick={handleExportCurrentToNotion}
                 disabled={busy}
               >
@@ -3400,7 +3381,6 @@ const DataIntegrations = () => {
             )}
             <Button
               type="button"
-              variant="secondary"
               onClick={() => {
                 clearFirstInsightState();
                 setActivationState(null);
@@ -3450,7 +3430,6 @@ const DataIntegrations = () => {
                 {derivedActivationState?.conceptName && (
                   <Button
                     type="button"
-                    variant="secondary"
                     onClick={() => navigate(`/think?tab=concepts&concept=${encodeURIComponent(derivedActivationState.conceptName)}`)}
                   >
                     Open concept
@@ -3466,7 +3445,6 @@ const DataIntegrations = () => {
               <div className="capture-actions">
                 <Button
                   type="button"
-                  variant="secondary"
                   data-testid="first-insight-schedule-1d"
                   onClick={() => handleScheduleRevisit(1)}
                   disabled={scheduleBusy || !scheduleTarget}
@@ -3475,7 +3453,6 @@ const DataIntegrations = () => {
                 </Button>
                 <Button
                   type="button"
-                  variant="secondary"
                   data-testid="first-insight-schedule-3d"
                   onClick={() => handleScheduleRevisit(3)}
                   disabled={scheduleBusy || !scheduleTarget}
@@ -3484,7 +3461,6 @@ const DataIntegrations = () => {
                 </Button>
                 <Button
                   type="button"
-                  variant="secondary"
                   data-testid="first-insight-schedule-7d"
                   onClick={() => handleScheduleRevisit(7)}
                   disabled={scheduleBusy || !scheduleTarget}

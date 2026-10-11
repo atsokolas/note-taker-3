@@ -2,7 +2,7 @@ import React from 'react';
 import { NodeViewWrapper, ReactNodeViewRenderer } from '@tiptap/react';
 import { Extension, Node, mergeAttributes } from '@tiptap/core';
 import HighlightBlock from '../../blocks/HighlightBlock';
-import { QuietButton } from '../../ui';
+import { Button } from '../../ui';
 import { buildCanonicalHighlightPath } from '../../../utils/sourceRoutes';
 
 // The pieces every Think entry is written with — a note, a concept, a
@@ -183,7 +183,7 @@ export const EntryBar = ({ kind = 'note', saveState = 'idle', savedAt = null, on
     <span className="think-notebook-utility__kind">{kind}</span>
     <span className={`think-notebook-save-state is-${saveState}`} role="status" aria-live="polite">
       {saveState === 'saving' ? 'Saving…'
-        : saveState === 'error' ? <>Not saved {onRetry ? <QuietButton onClick={onRetry}>Retry</QuietButton> : null}</>
+        : saveState === 'error' ? <>Not saved {onRetry ? <Button variant="quiet" onClick={onRetry}>Retry</Button> : null}</>
           : savedAt ? <span key={String(savedAt)} className="think-notebook-save-state__time">Saved {timeOf(savedAt)}</span> : null}
     </span>
     {children ? (

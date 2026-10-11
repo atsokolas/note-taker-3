@@ -49,7 +49,7 @@ const AppearancePreview = ({
         style={style}
       >
         <div className="settings-redesign__preview-top">
-          <span style={{ fontFamily: 'var(--noeis-serif, Georgia, serif)', fontStyle: 'italic' }}>Noeis</span>
+          <span style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic' }}>Noeis</span>
           <div role="group" aria-label="Preview example" style={{ display: 'flex', gap: '0.85rem', fontSize: '0.6875rem' }}>
             <button
               type="button"
@@ -88,15 +88,15 @@ const AppearancePreview = ({
             <>
               <span className="settings-redesign__eyebrow">Three sources in a collection</span>
               <div className="settings-redesign__minirow">
-                <h4 style={{ margin: 0, fontFamily: 'var(--noeis-serif, Georgia, serif)' }}>The pleasure of returning</h4>
+                <h4 style={{ margin: 0, fontFamily: 'var(--font-serif)' }}>The pleasure of returning</h4>
                 <p style={{ fontSize: '0.6875rem', color: 'var(--preview-muted, #6c7166)', margin: '0.35rem 0 0' }}>Essay · Design</p>
               </div>
               <div className="settings-redesign__minirow">
-                <h4 style={{ margin: 0, fontFamily: 'var(--noeis-serif, Georgia, serif)' }}>A question worth keeping</h4>
+                <h4 style={{ margin: 0, fontFamily: 'var(--font-serif)' }}>A question worth keeping</h4>
                 <p style={{ fontSize: '0.6875rem', color: 'var(--preview-muted, #6c7166)', margin: '0.35rem 0 0' }}>Your thought · “Keep the point of return.”</p>
               </div>
               <div className="settings-redesign__minirow">
-                <h4 style={{ margin: 0, fontFamily: 'var(--noeis-serif, Georgia, serif)' }}>What belongs beside a draft?</h4>
+                <h4 style={{ margin: 0, fontFamily: 'var(--font-serif)' }}>What belongs beside a draft?</h4>
                 <p style={{ fontSize: '0.6875rem', color: 'var(--preview-muted, #6c7166)', margin: '0.35rem 0 0' }}>Notebook · Working notes</p>
               </div>
             </>

@@ -121,7 +121,7 @@ const DeliverySection = () => {
       </div>
       <div className="settings-redesign__panel-columns">
         <div>
-          <h3 style={{ fontFamily: 'var(--noeis-serif, Georgia, serif)', fontWeight: 400, margin: '0 0 0.5rem' }}>Morning paper by email</h3>
+          <h3 style={{ margin: '0 0 0.5rem' }}>Morning paper by email</h3>
           <p className="settings-redesign__help">Keep the schedule simple. Quiet days send nothing.</p>
           {loading ? <p className="settings-redesign__help">Loading delivery settings…</p> : (
             <>
@@ -182,7 +182,7 @@ const DeliverySection = () => {
         </div>
         <aside className="settings-redesign__quiet">
           <span className="settings-redesign__eyebrow">What this means</span>
-          <div style={{ fontFamily: 'var(--noeis-serif, Georgia, serif)', fontSize: '1.9rem', margin: '0.5rem 0' }}>
+          <div style={{ fontFamily: 'var(--font-serif)', fontSize: '1.9rem', margin: '0.5rem 0' }}>
             {formatDeliveryHour(draft.sendHourLocal)}
           </div>
           <p className="settings-redesign__help">{draft.timezone}</p>
@@ -206,7 +206,7 @@ const DeliverySection = () => {
 
       {reviewOpen ? (
         <dialog className="settings-redesign__dialog" open>
-          <h2 style={{ fontFamily: 'var(--noeis-serif, Georgia, serif)', fontWeight: 400 }}>Use these delivery details?</h2>
+          <h2>Use these delivery details?</h2>
           <p className="settings-redesign__help">Check the address and time together.</p>
           <div className="settings-redesign__fact"><span>To</span><strong>{draft.email}</strong></div>
           <div className="settings-redesign__fact"><span>At</span><strong>{formatDeliveryHour(draft.sendHourLocal)}</strong></div>

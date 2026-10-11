@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Card, Page, PageTitle, SectionHeader, SegmentedNav } from '../components/ui';
+import { Card, Page, PageHeader, SectionHeader, SegmentedNav } from '../components/ui';
 import {
   MARKETING_FUNNEL_WINDOW_OPTIONS,
   buildMarketingFunnelViewModel,
@@ -277,10 +277,10 @@ const MarketingAnalytics = () => {
 
   return (
     <Page>
-      <PageTitle
+      <PageHeader
         eyebrow="Growth"
         title="Marketing analytics"
-        subtitle="Authenticated reporting for the SEO/AEO funnel from signup view through activation."
+        lede="Authenticated reporting for the SEO/AEO funnel from signup view through activation."
       />
 
       <Card className="search-section">

@@ -133,7 +133,7 @@ const WikiEdgarWatchControl = ({ pageId, page, onPageUpdate }) => {
             onChange={(event) => setIdentifier(event.target.value)}
             disabled={busy}
           />
-          <Button type="submit" variant="secondary" disabled={busy}>
+          <Button type="submit" disabled={busy}>
             {busy ? 'Arming...' : armed ? 'Update watch' : 'Track SEC filings'}
           </Button>
         </div>

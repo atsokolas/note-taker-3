@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Button, QuietButton } from '../ui';
+import { Button } from '../ui';
 import { createReturnQueueEntry } from '../../api/returnQueue';
 
 const toIsoInDays = (days) => {
@@ -64,9 +64,9 @@ const ReturnLaterControl = ({
 
   return (
     <div className="return-later-control">
-      <QuietButton onClick={() => setOpen(prev => !prev)}>
+      <Button variant="quiet" onClick={() => setOpen(prev => !prev)}>
         {statusMessage || buttonLabel}
-      </QuietButton>
+      </Button>
       {open && (
         <div className="return-later-popover">
           <div className="return-later-title">Return later</div>
@@ -120,7 +120,7 @@ const ReturnLaterControl = ({
           />
           {error && <p className="status-message error-message">{error}</p>}
           <div className="return-later-actions">
-            <Button variant="secondary" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button onClick={() => setOpen(false)}>Cancel</Button>
             <Button onClick={handleSubmit} disabled={disabled}>
               {saving ? 'Saving...' : 'Add'}
             </Button>

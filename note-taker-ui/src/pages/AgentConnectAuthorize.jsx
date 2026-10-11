@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { approveAgentConnectSession, getAgentConnectApprovalSession } from '../api/agent';
-import { Card, Page } from '../components/ui';
+import { Card, Page, PageHeader } from '../components/ui';
 
 const SCOPE_LABELS = {
   read: 'Read, search, and retrieve your Noeis workspace',
@@ -74,11 +74,11 @@ const AgentConnectAuthorize = ({ searchOverride = '' }) => {
 
   return (
     <Page className="settings-page agent-connect-authorize-page connections-approval-page">
-      <header className="connections-hub__header">
-        <p className="muted-label">Human approval</p>
-        <h1>Is this the request you started?</h1>
-        <p>Check the runtime, account destination, comparison code, and actual permission before approving.</p>
-      </header>
+      <PageHeader
+        eyebrow="Human approval"
+        title="Is this the request you started?"
+        lede="Check the runtime, account destination, comparison code, and actual permission before approving."
+      />
 
       <Card className="settings-card agent-connect-authorize-card connections-approval-card">
         {loading ? (
@@ -87,7 +87,7 @@ const AgentConnectAuthorize = ({ searchOverride = '' }) => {
           <>
             <h2>Connection unavailable</h2>
             <p className="muted">{error}</p>
-            <Link to="/connections#agents" className="ui-button ui-button-secondary">Open Connections</Link>
+            <Link to="/connections#agents" className="ui-button">Open Connections</Link>
           </>
         ) : (
           <>
@@ -158,7 +158,7 @@ const AgentConnectAuthorize = ({ searchOverride = '' }) => {
                   >
                     {approving ? 'Approving...' : `Approve ${readOnly ? 'read access' : 'read and write access'}`}
                   </button>
-                  <Link to="/connections#agents" className="ui-button ui-button-secondary">Decline for now</Link>
+                  <Link to="/connections#agents" className="ui-button">Decline for now</Link>
                 </div>
               </>
             )}

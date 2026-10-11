@@ -22,8 +22,8 @@ body.noeis-editorial .settings-redesign {
 }
 
 .settings-redesign__title {
-  font-family: var(--noeis-serif, Georgia, serif);
-  font-size: 1.875rem;
+  font-family: var(--font-serif);
+  font-size: var(--noeis-type-title);
   font-weight: 400;
   margin: 0 0 1.5rem;
   letter-spacing: -0.02em;
@@ -99,7 +99,7 @@ body.noeis-editorial .settings-redesign {
 }
 
 .settings-redesign__pagehead h2 {
-  font-family: var(--noeis-serif, Georgia, serif);
+  font-family: var(--font-serif);
   font-size: 2.125rem;
   font-weight: 400;
   margin: 0;
@@ -179,40 +179,6 @@ body.noeis-editorial .settings-redesign {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
 }
 
-.settings-redesign__colors {
-  display: flex;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-}
-
-.settings-redesign__color input {
-  position: absolute;
-  opacity: 0;
-  inset: 0;
-}
-
-.settings-redesign__color span {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.35rem 0.5rem;
-  min-height: 2.5rem;
-  border-bottom: 1px solid transparent;
-  font-size: 0.75rem;
-  cursor: pointer;
-}
-
-.settings-redesign__color input:checked + span {
-  border-bottom: 2px solid var(--settings-green);
-}
-
-.settings-redesign__swatch {
-  width: 1.05rem;
-  height: 1.05rem;
-  border-radius: 50%;
-  border: 1px solid rgba(0, 0, 0, 0.12);
-}
-
 .settings-redesign__preview-wrap {
   position: sticky;
   top: 1.5rem;
@@ -243,7 +209,6 @@ body.noeis-editorial .settings-redesign {
   --preview-accent: #e0b07a;
 }
 
-
 .settings-redesign__preview-top {
   height: 2.75rem;
   padding: 0 1.35rem;
@@ -260,7 +225,7 @@ body.noeis-editorial .settings-redesign {
 }
 
 .settings-redesign__preview-body h3 {
-  font-family: var(--noeis-serif, Georgia, serif);
+  font-family: var(--font-serif);
   font-size: calc(var(--reader-size, 19px) + 10px);
   font-weight: 400;
   line-height: 1.17;
@@ -268,7 +233,7 @@ body.noeis-editorial .settings-redesign {
 }
 
 .settings-redesign__prose {
-  font-family: var(--noeis-serif, Georgia, serif);
+  font-family: var(--font-serif);
   font-size: var(--reader-size, 19px);
   line-height: 1.65;
   margin: 0 0 1rem;
@@ -530,4 +495,9 @@ body.noeis-editorial .settings-redesign {
 
 body.noeis-reduced-motion .settings-redesign__motion-card.is-animated {
   animation: none;
+}
+
+.settings-redesign__main :is(h2, h3) {
+  font-family: var(--font-serif);
+  font-weight: 400;
 }

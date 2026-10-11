@@ -2,7 +2,7 @@
    After: highlights mount on a distinct surface shell so section identity is clearer without layout changes. */
 import React, { Profiler, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { QuietButton, SectionHeader } from '../ui';
+import { Button, SectionHeader } from '../ui';
 import HighlightCard from '../blocks/HighlightCard';
 import useHighlightsQuery from '../../hooks/useHighlightsQuery';
 import useTags from '../../hooks/useTags';
@@ -427,9 +427,9 @@ const LibraryHighlights = ({
         subtitle="Thumb through and send them forward."
         className="library-section-head is-highlights"
         action={(
-          <QuietButton onClick={handleToggleExpandAll}>
+          <Button variant="quiet" onClick={handleToggleExpandAll}>
             {cardsExpanded ? 'Collapse all' : 'Expand all'}
-          </QuietButton>
+          </Button>
         )}
       />
       <div className="library-highlight-filters">
@@ -525,9 +525,9 @@ const LibraryHighlights = ({
                       onHoldClaim={(h) => setClaimModal({ open: true, highlight: h })}
                     />
                     <div className="library-highlight-row-actions">
-                      <QuietButton onClick={() => handleOpenSource(highlight)}>
+                      <Button variant="quiet" onClick={() => handleOpenSource(highlight)}>
                         Open Source
-                      </QuietButton>
+                      </Button>
                     </div>
                   </div>
                 );
@@ -551,31 +551,31 @@ const LibraryHighlights = ({
             <strong>{bulkSelected.size}</strong> selected
           </div>
           <div className="library-highlights-bulk-bar__actions">
-            <QuietButton
+            <Button variant="quiet"
               onClick={handleSelectAllInView}
               disabled={bulkBusy || displayRows.length === 0 || bulkSelected.size === displayRows.length}
             >
               Select all in view
-            </QuietButton>
-            <QuietButton onClick={handleOpenBulkConceptModal} disabled={bulkBusy}>
+            </Button>
+            <Button variant="quiet" onClick={handleOpenBulkConceptModal} disabled={bulkBusy}>
               Add to concept…
-            </QuietButton>
-            <QuietButton onClick={handleBulkTurnIntoQuestion} disabled={bulkBusy}>
+            </Button>
+            <Button variant="quiet" onClick={handleBulkTurnIntoQuestion} disabled={bulkBusy}>
               Question draft
-            </QuietButton>
-            <QuietButton onClick={handleBulkTurnIntoWikiSection} disabled={bulkBusy}>
+            </Button>
+            <Button variant="quiet" onClick={handleBulkTurnIntoWikiSection} disabled={bulkBusy}>
               Wiki section draft
-            </QuietButton>
-            <QuietButton
+            </Button>
+            <Button variant="quiet"
               className="library-highlights-bulk-bar__danger"
               onClick={handleBulkDelete}
               disabled={bulkBusy}
             >
               {bulkBusy ? 'Working…' : 'Delete'}
-            </QuietButton>
-            <QuietButton onClick={handleClearBulkSelection} disabled={bulkBusy}>
+            </Button>
+            <Button variant="quiet" onClick={handleClearBulkSelection} disabled={bulkBusy}>
               Clear
-            </QuietButton>
+            </Button>
           </div>
           {bulkError && (
             <p className="status-message error-message library-highlights-bulk-bar__error">

@@ -15,14 +15,19 @@ export const SurfaceCard = ({ children, className, ...rest }) => (
   <section className={cx('ui-surface-card', className)} {...rest}>{children}</section>
 );
 
-export const Button = ({ children, variant = 'primary', className, ...rest }) => (
-  <button className={cx('ui-button', `ui-button-${variant}`, className)} {...rest}>
-    {children}
-  </button>
-);
+/* One button. Plain is the house control, quiet sits inside lists and
+   toolbars, primary is the one thing the page wants next. */
+const BUTTON_CLASSES = {
+  plain: 'ui-button',
+  quiet: 'ui-quiet-button',
+  primary: 'ui-button ui-button-primary'
+};
 
-export const PillButton = ({ children, variant = 'secondary', className, ...rest }) => (
-  <button className={cx('ui-button', `ui-button-${variant}`, 'ui-pill-button', className)} {...rest}>
+/* For a Link or anchor that should read as a button. */
+export const buttonClass = (variant = 'plain', className) => cx(BUTTON_CLASSES[variant] || BUTTON_CLASSES.plain, className);
+
+export const Button = ({ children, variant = 'plain', className, type = 'button', ...rest }) => (
+  <button type={type} className={buttonClass(variant, className)} {...rest}>
     {children}
   </button>
 );
@@ -42,11 +47,26 @@ export const TagChip = ({ children, className, onClick, to }) => {
   );
 };
 
-export const PageTitle = ({ eyebrow, title, subtitle, className }) => (
-  <div className={cx('ui-page-title', className)}>
-    {eyebrow && <div className="ui-page-title__eyebrow">{eyebrow}</div>}
-    {title && <h1 className="ui-page-title__title">{title}</h1>}
-    {subtitle && <p className="ui-page-title__subtitle">{subtitle}</p>}
+/* Eyebrow, title, one-line lede; actions sit to the right. */
+export const PageHeader = ({ eyebrow, title, lede, actions, titleId, className, children }) => (
+  <header className={cx('ui-page-header', className)}>
+    <div className="ui-page-header__copy">
+      {eyebrow ? <div className="ui-page-header__eyebrow">{eyebrow}</div> : null}
+      <h1 className="ui-page-header__title" id={titleId}>{title}</h1>
+      {lede ? <p className="ui-page-header__lede">{lede}</p> : null}
+      {children}
+    </div>
+    {actions ? <div className="ui-page-header__actions">{actions}</div> : null}
+  </header>
+);
+
+/* Silence is a state: say what is empty, and at most one way forward. */
+export const EmptyState = ({ eyebrow, title, children, actions, className, ...rest }) => (
+  <div className={cx('ui-empty-state', className)} {...rest}>
+    {eyebrow ? <span className="ui-empty-state__eyebrow">{eyebrow}</span> : null}
+    {title ? <h2 className="ui-empty-state__title">{title}</h2> : null}
+    {children ? <div className="ui-empty-state__body">{children}</div> : null}
+    {actions ? <div className="ui-empty-state__actions">{actions}</div> : null}
   </div>
 );
 
@@ -69,37 +89,6 @@ export const Chip = ({ children, className, onClick }) => (
     {children}
   </span>
 );
-
-export const QuietButton = ({ children, className, variant, onPointerMove, onPointerLeave, ...rest }) => {
-  const isPrimary = variant === 'primary';
-  const handlePointerMove = isPrimary
-    ? (event) => {
-        const target = event.currentTarget;
-        const rect = target.getBoundingClientRect();
-        target.style.setProperty('--bloom-x', `${event.clientX - rect.left}px`);
-        target.style.setProperty('--bloom-y', `${event.clientY - rect.top}px`);
-        if (onPointerMove) onPointerMove(event);
-      }
-    : onPointerMove;
-  const handlePointerLeave = isPrimary
-    ? (event) => {
-        const target = event.currentTarget;
-        target.style.removeProperty('--bloom-x');
-        target.style.removeProperty('--bloom-y');
-        if (onPointerLeave) onPointerLeave(event);
-      }
-    : onPointerLeave;
-  return (
-    <button
-      className={cx('ui-quiet-button', isPrimary && 'ui-quiet-button--primary', className)}
-      onPointerMove={handlePointerMove}
-      onPointerLeave={handlePointerLeave}
-      {...rest}
-    >
-      {children}
-    </button>
-  );
-};
 
 export const PanelHeader = ({ title, action, className }) => (
   <div className={cx('ui-panel-header', className)}>
@@ -136,13 +125,12 @@ const ui = {
   Card,
   SurfaceCard,
   Button,
-  PillButton,
   TagChip,
-  PageTitle,
+  PageHeader,
+  EmptyState,
   SectionHeader,
   SubtleDivider,
   Chip,
-  QuietButton,
   PanelHeader,
   SegmentedNav
 };

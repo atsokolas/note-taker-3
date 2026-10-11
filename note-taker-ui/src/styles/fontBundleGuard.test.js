@@ -51,4 +51,16 @@ describe('font bundle guard', () => {
 
     expect(matches).toEqual([]);
   });
+
+  /* One serif, one sans, one mono — each named once in semantic-theme.css.
+     Editions keeps its own paper until that room is rebuilt. */
+  it('names font families only through the three house tokens', () => {
+    const stray = walk(path.join(repoRoot, 'src'))
+      .filter(filePath => filePath.endsWith('.css') && !/edition/.test(path.basename(filePath)))
+      .flatMap(filePath => (fs.readFileSync(filePath, 'utf8').match(/font-family:[^;]+;/g) || [])
+        .filter(rule => !/font-family:\s*(var\(--font-(serif|sans|mono)\)|inherit)(\s*!important)?;/.test(rule))
+        .map(rule => `${path.basename(filePath)}: ${rule}`));
+
+    expect(stray).toEqual([]);
+  });
 });

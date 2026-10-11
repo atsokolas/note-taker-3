@@ -19,6 +19,8 @@ import {
   filterCollectionPages,
   pendingWikiProposal
 } from './wikiCollectionModel';
+import useDocumentTitle from '../../hooks/useDocumentTitle';
+import { Button, EmptyState, PageHeader } from '../ui';
 import '../../styles/wiki-critical.css';
 import '../../styles/wiki-collection.css';
 
@@ -187,6 +189,7 @@ const SinceYouLooked = ({ since, changes, pageCount, proposedCount }) => {
 };
 
 const WikiFrontPage = ({ initialKind = '' }) => {
+  useDocumentTitle('Wiki');
   const location = useLocation();
   const navigate = useNavigate();
   useNoeisAgentSurface('agent-surface.wiki', buildWikiFrontSurfaceDescriptor(), {
@@ -369,37 +372,30 @@ const WikiFrontPage = ({ initialKind = '' }) => {
       </nav>
 
       <section className="wiki-collection__stage" aria-labelledby="wiki-collection-title">
-        <header className="wiki-collection__head">
-          <div className="wiki-collection__title-row">
-            <button
-              type="button"
-              className="wiki-collection__nav-toggle"
-              aria-label="Wiki navigation"
-              aria-expanded={mobileNavOpen}
-              onClick={() => setMobileNavOpen(value => !value)}
-            >
-              ☰
-            </button>
-            <h1 id="wiki-collection-title">Wiki</h1>
-          </div>
-          <div className="wiki-collection__actions">
-            {proposedCount ? (
+        <PageHeader
+          titleId="wiki-collection-title"
+          title="Wiki"
+          actions={(
+            <>
+              {proposedCount ? (
+                <Button className="wiki-collection__pending" onClick={() => selectWikiFilter('proposed')}>
+                  {proposedCount} proposed change{proposedCount === 1 ? '' : 's'}
+                </Button>
+              ) : null}
+              <Button className="wiki-collection__newpage" onClick={() => setComposerOpen(true)}>+ New page</Button>
+              <Button onClick={openExistingAgent}>Ask</Button>
               <button
                 type="button"
-                className="wiki-collection__text wiki-collection__pending"
-                onClick={() => selectWikiFilter('proposed')}
+                className="wiki-collection__nav-toggle"
+                aria-label="Wiki navigation"
+                aria-expanded={mobileNavOpen}
+                onClick={() => setMobileNavOpen(value => !value)}
               >
-                {proposedCount} proposed change{proposedCount === 1 ? '' : 's'}
+                ☰
               </button>
-            ) : null}
-            <button type="button" className="wiki-collection__text wiki-collection__newpage" onClick={() => setComposerOpen(true)}>
-              + New page
-            </button>
-            <button type="button" className="wiki-collection__text" onClick={openExistingAgent}>
-              Ask
-            </button>
-          </div>
-        </header>
+            </>
+          )}
+        />
 
         <div className="wiki-collection__search">
           <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -485,17 +481,12 @@ const WikiFrontPage = ({ initialKind = '' }) => {
             })}
           </ul>
         ) : (
-          <div className="wiki-collection__empty">
-            <h2>{wikiSearch.trim() ? 'No pages match.' : 'No pages in this view.'}</h2>
-            <p className="quiet">
-              Search looks through the current text of pages in this view. Private thoughts and unaccepted proposals are separate.
-            </p>
-            {wikiSearch.trim() ? (
-              <button type="button" className="wiki-collection__text" onClick={() => setWikiSearch('')}>
-                Clear the search
-              </button>
-            ) : null}
-          </div>
+          <EmptyState
+            title={wikiSearch.trim() ? 'No pages match.' : 'No pages in this view.'}
+            actions={wikiSearch.trim() ? <Button onClick={() => setWikiSearch('')}>Clear the search</Button> : null}
+          >
+            Search looks through the current text of pages in this view. Private thoughts and unaccepted proposals are separate.
+          </EmptyState>
         )}
 
         {pages.length >= INDEX_PAGE_LIMIT ? (

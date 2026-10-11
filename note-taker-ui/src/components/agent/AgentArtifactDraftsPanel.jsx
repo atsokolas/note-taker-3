@@ -80,7 +80,6 @@ const ArtifactDraftEditor = ({
       <div className="think-artifact-draft__editor-actions">
         <Button
           type="button"
-          variant="secondary"
           disabled={busy || !clean(title) || !clean(body)}
           onClick={() => onSave?.({
             title,
@@ -92,7 +91,6 @@ const ArtifactDraftEditor = ({
         </Button>
         <Button
           type="button"
-          variant="secondary"
           disabled={busy}
           onClick={onCancel}
         >
@@ -191,7 +189,6 @@ const ArtifactDraftRow = ({
         <div className="think-artifact-draft__actions">
           <Button
             type="button"
-            variant="secondary"
             disabled={busy}
             onClick={() => onEdit?.(draft?.draftId)}
           >
@@ -199,7 +196,6 @@ const ArtifactDraftRow = ({
           </Button>
           <Button
             type="button"
-            variant="secondary"
             disabled={busy}
             onClick={() => onPromote?.(draft?.draftId)}
           >
@@ -207,7 +203,6 @@ const ArtifactDraftRow = ({
           </Button>
           <Button
             type="button"
-            variant="secondary"
             disabled={busy}
             onClick={() => onDismiss?.(draft?.draftId)}
           >
@@ -222,7 +217,6 @@ const ArtifactDraftRow = ({
             {typeof onOpenThreadFromDraft === 'function' && (
               <Button
                 type="button"
-                variant="secondary"
                 disabled={busy}
                 onClick={() => onOpenThreadFromDraft?.(draft)}
               >
@@ -232,7 +226,6 @@ const ArtifactDraftRow = ({
             {typeof onCreateHandoffFromDraft === 'function' && (
               <Button
                 type="button"
-                variant="secondary"
                 disabled={busy}
                 onClick={() => onCreateHandoffFromDraft?.(draft)}
               >
@@ -242,7 +235,6 @@ const ArtifactDraftRow = ({
             {isMaintenanceFlow && typeof onQueueFollowUpLoop === 'function' && (
               <Button
                 type="button"
-                variant="secondary"
                 disabled={busy}
                 onClick={() => onQueueFollowUpLoop?.(draft)}
               >
@@ -260,7 +252,6 @@ const ArtifactDraftRow = ({
               <Button
                 key={`${draft?.draftId || safeTitle}-${skill.id}`}
                 type="button"
-                variant="secondary"
                 disabled={busy || !nextContextType || !nextContextId}
                 onClick={() => onInvokeWorkflowSkill?.(buildQueuedAgentSkillPrompt(skill, {
                   contextType: nextContextType,

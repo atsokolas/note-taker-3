@@ -6,6 +6,7 @@ import useProtocolHookRuns from '../hooks/useProtocolHookRuns';
 import HandoffsSidebar from '../components/think/handoffs/HandoffsSidebar';
 import HandoffsMainPanel from '../components/think/handoffs/HandoffsMainPanel';
 import ConceptPathWorkspace from '../components/paths/ConceptPathWorkspace';
+import useDocumentTitle from '../hooks/useDocumentTitle';
 
 // Think's two remaining ledgers: work handed to an agent, and learning paths.
 // Neither is writing, so neither lives in the editor; a thread opened from
@@ -59,6 +60,7 @@ const Paths = () => {
 
 const ThinkMode = () => {
   const [searchParams] = useSearchParams();
+  useDocumentTitle(searchParams.get('tab') === 'paths' ? 'Paths' : 'Handoffs', 'Think');
   return searchParams.get('tab') === 'paths' ? <Paths /> : <Handoffs />;
 };
 

@@ -30,6 +30,7 @@ import {
   resolveOpenNoteId,
   targetParams
 } from './thinkNotesModel';
+import useDocumentTitle from '../hooks/useDocumentTitle';
 
 // Think.
 //
@@ -431,6 +432,8 @@ const ThinkNotes = () => {
       contextId: openRecord?.key === openKey && openRecord.record?._id ? String(openRecord.record._id) : '',
       contextTitle: (openRecord?.key === openKey && openRecord.title) || 'Think'
     };
+
+  useDocumentTitle(partner.contextTitle === 'Think' ? '' : partner.contextTitle, 'Think');
 
   const askPartner = useCallback((selectedText) => {
     const passage = String(selectedText || '').trim();

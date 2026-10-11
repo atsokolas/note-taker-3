@@ -1,5 +1,5 @@
 import React, { Profiler, useEffect, useMemo, useState } from 'react';
-import { QuietButton } from '../ui';
+import { Button } from '../ui';
 import PassageDoor from '../reader/PassageDoorView';
 import SemanticRelatedPanel from '../retrieval/SemanticRelatedPanel';
 import ReferencePullIn from '../references/ReferencePullIn';
@@ -180,19 +180,19 @@ const LibraryContext = ({
                           text={highlight.text}
                         />
                         <div className="library-context-feed-item__actions">
-                          <QuietButton onClick={() => onSelectHighlight(highlight._id)}>Focus</QuietButton>
-                          <QuietButton onClick={() => handleReferenceHighlight(highlight)}>Reference</QuietButton>
-                          <QuietButton onClick={() => onAddNotebook(highlight)}>Notebook</QuietButton>
-                          <QuietButton onClick={() => onAddConcept(highlight)}>Concept</QuietButton>
-                          <QuietButton onClick={() => onAddQuestion(highlight)}>Question</QuietButton>
+                          <Button variant="quiet" onClick={() => onSelectHighlight(highlight._id)}>Focus</Button>
+                          <Button variant="quiet" onClick={() => handleReferenceHighlight(highlight)}>Reference</Button>
+                          <Button variant="quiet" onClick={() => onAddNotebook(highlight)}>Notebook</Button>
+                          <Button variant="quiet" onClick={() => onAddConcept(highlight)}>Concept</Button>
+                          <Button variant="quiet" onClick={() => onAddQuestion(highlight)}>Question</Button>
                           {/* The door into the ledger. Everything the morning
                               paper reads is claims, and nothing in the reading
                               room could make one. */}
                           {onHoldClaim ? (
-                            <QuietButton onClick={() => onHoldClaim(highlight)}>Believe</QuietButton>
+                            <Button variant="quiet" onClick={() => onHoldClaim(highlight)}>Believe</Button>
                           ) : null}
-                          <QuietButton onClick={() => onDumpToWorkingMemory(highlight)}>Dump</QuietButton>
-                          <QuietButton onClick={() => onDeleteHighlight?.(highlight)}>Delete</QuietButton>
+                          <Button variant="quiet" onClick={() => onDumpToWorkingMemory(highlight)}>Dump</Button>
+                          <Button variant="quiet" onClick={() => onDeleteHighlight?.(highlight)}>Delete</Button>
                         </div>
                         {activeHighlightId === highlight._id && (
                           <ReferencePullIn

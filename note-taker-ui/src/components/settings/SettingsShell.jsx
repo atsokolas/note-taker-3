@@ -47,7 +47,7 @@ const SettingsShell = ({
       <main className="settings-redesign__main">
         {searchQuery ? (
           <section>
-            <h2 style={{ fontFamily: 'var(--noeis-serif, Georgia, serif)', fontWeight: 400 }}>Find a setting</h2>
+            <h2>Find a setting</h2>
             <p className="settings-redesign__help">{results.length} {results.length === 1 ? 'match' : 'matches'} for “{searchQuery}”</p>
             {results.length === 0 ? (
               <p className="settings-redesign__help">Try “text”, “email”, “export”, or “agent”.</p>
@@ -61,7 +61,7 @@ const SettingsShell = ({
               >
                 <span>
                   <span className="settings-redesign__eyebrow">{entry.section === 'connections' ? 'Connections' : SETTINGS_SECTIONS[entry.section]?.label}</span>
-                  <strong style={{ display: 'block', fontFamily: 'var(--noeis-serif, Georgia, serif)', fontSize: '1.25rem', fontWeight: 400 }}>{entry.title}</strong>
+                  <strong style={{ display: 'block', fontFamily: 'var(--font-serif)', fontSize: '1.25rem', fontWeight: 400 }}>{entry.title}</strong>
                   <span className="settings-redesign__help">{entry.description}</span>
                 </span>
               </button>

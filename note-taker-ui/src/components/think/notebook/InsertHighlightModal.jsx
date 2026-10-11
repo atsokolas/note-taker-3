@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Button, TagChip, QuietButton } from '../../ui';
+import { Button, TagChip } from '../../ui';
 
 const InsertHighlightModal = ({ open, highlights, loading, error, onClose, onSelect }) => {
   const [query, setQuery] = useState('');
@@ -65,7 +65,7 @@ const InsertHighlightModal = ({ open, highlights, loading, error, onClose, onSel
                   )}
                 </div>
                 <div className="modal-highlight-actions">
-                  <Button variant="secondary" onClick={(event) => { event.stopPropagation(); onSelect(h); }}>Insert</Button>
+                  <Button onClick={(event) => { event.stopPropagation(); onSelect(h); }}>Insert</Button>
                 </div>
               </div>
             ))}
@@ -76,7 +76,7 @@ const InsertHighlightModal = ({ open, highlights, loading, error, onClose, onSel
           <span className="insert-modal__footer-hint">
             <kbd>esc</kbd> to close
           </span>
-          <QuietButton onClick={onClose}>Close</QuietButton>
+          <Button variant="quiet" onClick={onClose}>Close</Button>
         </div>
       </div>
     </div>
