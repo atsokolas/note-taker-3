@@ -254,6 +254,10 @@ describe('you hold the opposite', () => {
     expect(kept.every(reading => reading.pageId === 'v1')).toBe(true);
     // An overlapping save that read these sentences first wins; nothing is kept twice.
     expect(filter['viewReadings.sentence'].$nin).toEqual(kept.map(reading => reading.sentence));
+
+    // And when it did, this save shows nothing it did not keep.
+    models.NotebookEntry.updateOne.mockResolvedValueOnce({ matchedCount: 0 });
+    expect(await check(models, note({ blocks: [{ id: 'b1', text: `${first} ${OPPOSITE}` }] }), complete)).toBeNull();
   });
 
   it('never repeats a line set aside, and never asks that pair again', async () => {

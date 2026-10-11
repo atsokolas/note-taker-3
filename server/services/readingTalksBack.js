@@ -339,10 +339,12 @@ const opposeFromNote = async ({
   const read = new Set(readings.map(reading => reading.sentence));
   const unread = [...new Set(sentences.map(item => item.sentence))].filter(sentence => !read.has(sentence));
   if (!unread.length) return null;
-  // Each sentence a view answers meets the best such view; the views come
-  // best first. Sentences past this save's asks wait, unread, for the next.
+  // Each sentence a view answers meets the view it ranks highest for: a
+  // view's top passage before anyone's second, best views first within a rank.
+  // Sentences past this save's asks wait, unread, for the next.
   const matched = (await candidateViews({ views, passages: unread, embed, limit: views.length }))
-    .flatMap(({ page, passages }) => passages.map(passage => ({ page, sentence: passage.text })))
+    .flatMap(({ page, passages }) => passages.map((passage, rank) => ({ page, sentence: passage.text, rank })))
+    .sort((left, right) => left.rank - right.rank)
     .filter((pair, index, all) => all.findIndex(other => other.sentence === pair.sentence) === index);
   const pairs = matched.slice(0, NOTE_ASKS).map(pair => ({ ...pair, key: pairKey(pair) }));
   // A sentence no view answers is read too, so it is not looked at again.
@@ -358,12 +360,13 @@ const opposeFromNote = async ({
   if (!fresh.length) return null;
   // A save that overlapped this one may have read the same sentences first;
   // then its readings stand and these are dropped, so none is kept twice.
-  await NotebookEntry.updateOne(
+  const kept = await NotebookEntry.updateOne(
     { _id: entry._id, userId, 'viewReadings.sentence': { $nin: fresh.map(reading => reading.sentence) } },
     { $push: { viewReadings: { $each: fresh, $slice: -KEPT_READINGS } } },
     { timestamps: false }
   );
-  const shown = fresh.find(reading => reading.verdict === 'contradicts');
+  // Only a line that was kept is shown; the overlapping save's line stands instead.
+  const shown = kept?.matchedCount !== 0 && fresh.find(reading => reading.verdict === 'contradicts');
   return shown ? lineFor({ reading: shown, page: views.find(view => String(view._id) === shown.pageId), sentences }) : null;
 };
 
