@@ -41,14 +41,9 @@ describe('created highlight carries its article', () => {
       },
       normalizeTags: value => (Array.isArray(value) ? value : []),
       enqueueHighlightEmbedding: () => {},
-      safeMapEmbedding: () => null,
-      highlightToEmbeddingItem: () => null,
-      queueEmbeddingUpsert: () => {},
       markTourSignal: async () => {},
       normalizeItemType: (value, fallback) => value || fallback,
-      parseClaimId: value => value || null,
-      buildEmbeddingId: () => '',
-      queueEmbeddingDelete: () => {}
+      parseClaimId: value => value || null
     }));
     const server = http.createServer(app);
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -94,14 +89,9 @@ describe('created highlight carries its article', () => {
       Article: { findOne: async () => article, findOneAndUpdate: async () => article },
       normalizeTags: value => (Array.isArray(value) ? value : []),
       enqueueHighlightEmbedding: () => {},
-      safeMapEmbedding: () => null,
-      highlightToEmbeddingItem: () => null,
-      queueEmbeddingUpsert: () => {},
       markTourSignal: async () => {},
       normalizeItemType: (value, fallback) => value || fallback,
-      parseClaimId: value => value || null,
-      buildEmbeddingId: () => '',
-      queueEmbeddingDelete: () => {}
+      parseClaimId: value => value || null
     }));
     const server = http.createServer(app);
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -180,14 +170,9 @@ describe('created highlight carries its article', () => {
       Article: { findOne: async () => article, findOneAndUpdate: async () => article },
       normalizeTags: (value) => (Array.isArray(value) ? value : []),
       enqueueHighlightEmbedding: () => {},
-      safeMapEmbedding: () => null,
-      highlightToEmbeddingItem: () => null,
-      queueEmbeddingUpsert: () => {},
       markTourSignal: async () => {},
       normalizeItemType: (value, fallback) => value || fallback,
       parseClaimId: (value) => value || null,
-      buildEmbeddingId: () => '',
-      queueEmbeddingDelete: () => {},
       WikiSourceEvent
     }));
     const server = http.createServer(app);

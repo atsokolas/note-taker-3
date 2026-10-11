@@ -13,19 +13,6 @@ const buildConceptAgentRouter = ({
 }) => {
   const router = express.Router();
 
-  const isAgentAiUnavailableError = (error) => {
-    const upstream = String(error?.payload?.upstream || '').toLowerCase();
-    if (upstream !== 'ai_service') return false;
-    const status = Number(error?.status || 0);
-    if ([429, 502, 503, 504].includes(status)) return true;
-    const message = String(error?.message || '').toLowerCase();
-    return (
-      message.includes('timed out')
-      || message.includes('fetch failed')
-      || message.includes('request failed')
-    );
-  };
-
   router.post('/api/concepts/:conceptId/agent/build', authenticateToken, async (req, res) => {
     const conceptId = String(req.params.conceptId || '').trim();
     try {
@@ -88,16 +75,6 @@ const buildConceptAgentRouter = ({
       if (Number(error?.status) === 401 || Number(error?.status) === 403) {
         return res.status(Number(error.status)).json({ error: error?.message || 'Unauthorized.' });
       }
-      if (isAgentAiUnavailableError(error)) {
-        console.warn('[AGENT-BUILD] ai_service unavailable', {
-          requestId: req.requestId,
-          conceptId,
-          userId: String(req.user?.id || ''),
-          status: Number(error?.status) || 0
-        });
-        return res.status(500).json({ error: 'Agent build is temporarily unavailable. Please try again shortly.' });
-      }
-
       console.error('❌ Error building concept workspace with agent:', error);
       return res.status(500).json({ error: 'Failed to build concept workspace.' });
     }
@@ -149,16 +126,6 @@ const buildConceptAgentRouter = ({
       if (Number(error?.status) === 401 || Number(error?.status) === 403) {
         return res.status(Number(error.status)).json({ error: error?.message || 'Unauthorized.' });
       }
-      if (isAgentAiUnavailableError(error)) {
-        console.warn('[AGENT-SUGGEST] ai_service unavailable', {
-          requestId: req.requestId,
-          conceptId,
-          userId: String(req.user?.id || ''),
-          status: Number(error?.status) || 0
-        });
-        return res.status(500).json({ error: 'Agent suggestions are temporarily unavailable. Please try again shortly.' });
-      }
-
       console.error('❌ Error creating concept suggestion draft:', error);
       return res.status(500).json({ error: 'Failed to generate concept suggestions.' });
     }

@@ -17,14 +17,9 @@ const buildHighlightMutationRouter = ({
   Article,
   normalizeTags,
   enqueueHighlightEmbedding,
-  safeMapEmbedding,
-  highlightToEmbeddingItem,
-  queueEmbeddingUpsert,
   markTourSignal,
   normalizeItemType,
   parseClaimId,
-  buildEmbeddingId,
-  queueEmbeddingDelete,
   WikiPage = null,
   WikiRevision = null,
   WikiSourceEvent = null,
@@ -121,14 +116,6 @@ const buildHighlightMutationRouter = ({
       const createdHighlight = updatedArticle.highlights?.[updatedArticle.highlights.length - 1];
       if (createdHighlight) {
         enqueueHighlightEmbedding({ highlight: createdHighlight, article: updatedArticle });
-        const highlightItem = safeMapEmbedding(
-          () => highlightToEmbeddingItem(
-            { ...createdHighlight, articleId: updatedArticle._id, articleTitle: updatedArticle.title },
-            String(userId)
-          ),
-          'highlight'
-        );
-        if (highlightItem) queueEmbeddingUpsert([highlightItem]);
         await markTourSignal(req.user.id, 'firstHighlightCaptured', 'highlight_captured');
         await emitWikiSourceEvent({
           userId,
@@ -318,14 +305,6 @@ const buildHighlightMutationRouter = ({
            round trip to be told what we had just written. */
         const updatedHighlight = article.highlights.id(highlightId);
         enqueueHighlightEmbedding({ highlight: updatedHighlight, article: article });
-        const highlightItem = safeMapEmbedding(
-          () => highlightToEmbeddingItem(
-            { ...updatedHighlight, articleId: article._id, articleTitle: article.title },
-            String(userId)
-          ),
-          'highlight'
-        );
-        if (highlightItem) queueEmbeddingUpsert([highlightItem]);
         if (textChanged) {
           await recordSourceCorrection({
             WikiSourceEvent,
@@ -387,12 +366,6 @@ const buildHighlightMutationRouter = ({
         /* Re-read only for the populated folder the response carries, and named
            by owner like every other query here. */
         const updatedArticle = await Article.findOne({ _id: articleId, userId }).populate('folder');
-        const deleteId = buildEmbeddingId({
-          userId: String(userId),
-          objectType: 'highlight',
-          objectId: String(highlightId)
-        });
-        queueEmbeddingDelete([deleteId]);
         res.status(200).json(updatedArticle);
     } catch (error) {
         console.error("❌ Error deleting highlight:", error);

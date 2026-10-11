@@ -33,9 +33,7 @@ test('real Mongo: conditional thoughts preserve reader edits, concurrent retry a
     app.use(buildHighlightMutationRouter({ mongoose, Article: routeArticle,
       authenticateToken: (req, res, next) => { req.user = { id: req.headers['x-user'] || String(userId) }; next(); },
       normalizeTags: value => value || [], normalizeItemType: (value, fallback) => value || fallback,
-      parseClaimId: value => value, enqueueHighlightEmbedding: () => {}, safeMapEmbedding: () => null,
-      highlightToEmbeddingItem: () => null, queueEmbeddingUpsert: () => {}, markTourSignal: async () => {},
-      buildEmbeddingId: () => '', queueEmbeddingDelete: () => {}
+      parseClaimId: value => value, enqueueHighlightEmbedding: () => {}, markTourSignal: async () => {}
     }));
     server = await new Promise(resolve => { const listener = app.listen(0, '127.0.0.1', () => resolve(listener)); });
     const endpoint = `http://127.0.0.1:${server.address().port}/articles/${article._id}/highlights/${highlightId}`;

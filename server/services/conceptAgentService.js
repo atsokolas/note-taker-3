@@ -1,7 +1,8 @@
 const crypto = require('crypto');
 const mongoose = require('mongoose');
 const { ensureWorkspace, applyPatchOp } = require('../utils/workspaceUtils');
-const { semanticSearch, planConcept } = require('../config/aiClient');
+const { semanticSearch } = require('../ai/semanticSearch');
+const { chatComplete, isTextGenerationConfigured } = require('../ai/hfTextClient');
 const { logAgentMetric } = require('../utils/agentMetrics');
 
 const SUPPORTED_MODE = 'library_only';
@@ -1060,6 +1061,37 @@ const normalizePlan = (plan) => {
   };
 };
 
+/* The model only sorts what the reader already holds into groups; a ref to
+   anything outside the candidates is dropped when the plan is attached. With no
+   text model, or no candidates, the local plan answers instead. */
+const planConcept = async ({ conceptTitle, conceptDescription, candidateItems }) => {
+  if (!candidateItems.length || !isTextGenerationConfigured()) return null;
+  const completion = await chatComplete({
+    route: 'structure_planner',
+    temperature: 0,
+    maxTokens: 1200,
+    responseFormat: { type: 'json_object' },
+    messages: [
+      {
+        role: 'system',
+        content: 'Group a reader\'s own sources for a concept. Return only JSON: '
+          + '{"groups":[{"title":"","description":"","item_refs":[{"type":"","id":"","why":""}]}]}. '
+          + 'Three to six groups. Use only the given type and id pairs.'
+      },
+      {
+        role: 'user',
+        content: JSON.stringify({
+          concept: conceptTitle,
+          description: conceptDescription || '',
+          candidates: candidateItems.map(({ type, id, title, text }) => ({ type, id, title, text: buildSnippet(text, 500) }))
+        })
+      }
+    ]
+  });
+  const plan = JSON.parse(completion.text);
+  return Array.isArray(plan?.groups) && plan.groups.length ? plan : null;
+};
+
 const buildLocalFallbackPlan = ({ conceptTitle, conceptDescription, initialQueries, candidateItems }) => {
   const title = toSafeString(conceptTitle) || 'Concept';
   const description = toSafeString(conceptDescription);
@@ -1408,14 +1440,10 @@ const buildSemanticResultSet = async ({ userId, queries, types }) => {
   const semanticResults = [];
   for (const query of queries) {
     try {
-      const response = await semanticSearch({
-        userId,
-        query,
-        types,
-        limit: SEARCH_LIMIT_PER_QUERY
-      });
-      const matches = Array.isArray(response?.results) ? response.results : [];
-      semanticResults.push(...matches);
+      const rows = await semanticSearch({ userId, query, types, limit: SEARCH_LIMIT_PER_QUERY });
+      semanticResults.push(...rows.map(({ type, objectId, subId, title, articleId, score }) => ({
+        objectType: type, objectId, score, metadata: { subId, title, articleId }
+      })));
     } catch (error) {
       const transientUpstreamError = isTransientSemanticUpstreamError(error);
       console.warn('[CONCEPT-AGENT] semantic search query failed, continuing with fallback', {
@@ -1486,7 +1514,7 @@ async function createConceptSuggestionDraft({ conceptId, userId, mode = SUPPORTE
     const semanticResults = await buildSemanticResultSet({
       userId: safeUserId,
       queries: initialQueries,
-      types: ['article', 'highlight', 'notebook_block', 'question', 'concept']
+      types: ['article', 'highlight', 'notebook_entry', 'question']
     });
 
     const built = await buildSuggestionItems({
@@ -1849,23 +1877,19 @@ async function buildConceptWorkspace({
       });
     }
 
-    let planResponse;
+    let planResponse = null;
     try {
-      planResponse = await planConcept({
-        concept_title: conceptTitle,
-        concept_description: conceptDescription || null,
-        candidate_items: candidateItems
-      });
+      planResponse = await planConcept({ conceptTitle, conceptDescription, candidateItems });
     } catch (error) {
-      if (!isTransientSemanticUpstreamError(error)) throw error;
-      usedFallbackPlan = true;
-      logAgentMetric('build.fallback_plan', { mode: safeMode });
-      console.warn('[AGENT-BUILD] planConcept unavailable, using local fallback plan', {
+      console.warn('[AGENT-BUILD] plan unavailable, using local fallback plan', {
         conceptId: safeConceptId,
-        userId: safeUserId,
-        status: error?.status || error?.response?.status || null,
+        status: error?.status || null,
         message: error?.message || ''
       });
+    }
+    if (!planResponse) {
+      usedFallbackPlan = true;
+      logAgentMetric('build.fallback_plan', { mode: safeMode });
       planResponse = buildLocalFallbackPlan({
         conceptTitle,
         conceptDescription,
