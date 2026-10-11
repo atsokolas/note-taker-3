@@ -35,7 +35,7 @@ import {
   getLastVisitState,
   recordVisit
 } from './wikiVisitTracker';
-import { wikiPagePath } from '../../utils/wikiPaths';
+import { wikiPagePath } from '../../utils/wikiFeatureFlags';
 import { trackWikiQaPromoted } from '../../utils/wikiAnalytics';
 import { useNoeisSurface } from '../../surface/NoeisSurfaceContext';
 import { buildWikiSurfaceDescriptor } from './wikiSurfaceModel';
@@ -104,7 +104,6 @@ const WikiPageEditor = ({ pageId, onDoneEditing, workspaceMode = false }) => {
   const [page, setPage] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState('idle');
-  const [maintaining, setMaintaining] = useState(false);
   const [linkifying, setLinkifying] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [sourcePanelOpen, setSourcePanelOpen] = useState(true);
@@ -337,7 +336,6 @@ const WikiPageEditor = ({ pageId, onDoneEditing, workspaceMode = false }) => {
   };
 
   const handleMaintain = async () => {
-      setMaintaining(true);
       setError('');
       setPage(current => current ? ({
         ...current,
@@ -353,9 +351,7 @@ const WikiPageEditor = ({ pageId, onDoneEditing, workspaceMode = false }) => {
         setPage(maintained);
         editor?.commands?.setContent(maintained.body || emptyDoc, false);
     } catch (_error) {
-      setError('Failed to maintain Wiki page.');
-    } finally {
-      setMaintaining(false);
+      setError('The sources could not be reread. Try again.');
     }
   };
 
@@ -695,8 +691,6 @@ const WikiPageEditor = ({ pageId, onDoneEditing, workspaceMode = false }) => {
             <WikiAiSourcePanel
               id="wiki-source-panel"
               page={page}
-              maintaining={maintaining}
-              onMaintain={handleMaintain}
               onAddSource={handleAddSource}
               onRemoveSource={handleRemoveSource}
               activeSourceIndex={activeSourceIndex}

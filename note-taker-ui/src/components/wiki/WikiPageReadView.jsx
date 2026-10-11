@@ -2,24 +2,20 @@ import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useStat
 import ShareDestinations from '../sharing/ShareDestinations';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '../ui';
-import ReadFresh, { useReadFresh } from '../reader/ReadFresh';
 import {
   approveWeekendReadingsRevision,
   archiveWikiPage,
-  askWikiPage,
   createWikiPage,
   getWeekendReadingsStatus,
   getWikiBacklinks,
   getWikiPage,
-  getWikiPageMarkdown,
   getWikiRepoComparison,
+  listWikiContradictions,
   listWikiRevisions,
   listWikiPages,
   maintainWikiPage,
-  promoteWikiDiscussion,
   publishWeekendReadingsRevision,
   requestWeekendReadingsReview,
-  streamAskWikiPage,
   streamMaintainWikiPage,
   trackCompanyDossierInJudgment,
   updateWikiPage,
@@ -29,17 +25,15 @@ import {
 } from '../../api/wiki';
 import api from '../../api';
 import { getAuthHeaders } from '../../hooks/useAuthHeaders';
-import { startKnowledgeMovementInvestigation } from '../../api/knowledgeMovements';
 import { getConnectionsForItem } from '../../api/connections';
 import { recordClaimCheckIn, recordWikiPageVisit } from '../../api/dailyLoop';
-import { trackWikiQaPromoted, trackWikiReadModePageView } from '../../utils/wikiAnalytics';
-import { wikiPagePath, wikiReadPath } from '../../utils/wikiPaths';
+import { trackWikiReadModePageView } from '../../utils/wikiAnalytics';
+import { wikiPagePath, wikiReadPath } from '../../utils/wikiFeatureFlags';
 import { resolveSourceDoors } from '../../utils/sourceRoutes';
 import { cleanSourceTextForDisplay } from '../../utils/sourceDisplayText';
 import ClaimCitationPopover from './ClaimCitationPopover';
 import renderTiptapDoc, { citationAnchorId, extractTocItems, firstParagraphText } from './renderTiptapDoc';
 import { cleanWikiLinkSnippetText } from './wikiLinkText';
-import AgentTicker from '../agent/AgentTicker';
 import ReferencePullIn from '../references/ReferencePullIn';
 import {
   countWikiClaims,
@@ -63,6 +57,7 @@ import {
 } from './wikiVisitTracker';
 import WikiReaderContext from './WikiReaderContext';
 import {
+  candidateFootprint,
   changedClaimIdsFromPages,
   changedClaimIdsFromVisit,
   citedSourceOccurrence,
@@ -123,10 +118,7 @@ import { carryTensionToJudgment, isTension, tensionSeed } from './carryTension';
 import { wordBoundaryTrim } from '../../utils/editorialText';
 import { humanizeLabel } from '../../utils/humanizeLabel';
 
-const WikiAskComposer = lazy(() => import('./WikiAskComposer'));
-const WikiAutolinkSuggestions = lazy(() => import('./WikiAutolinkSuggestions'));
 const WikiChangesSinceLastVisit = lazy(() => import('./WikiChangesSinceLastVisit'));
-const WikiDiscussions = lazy(() => import('./WikiDiscussions'));
 
 const emptyDoc = { type: 'doc', content: [{ type: 'paragraph' }] };
 
@@ -142,9 +134,6 @@ const sameIdentitySet = (left = [], right = []) => {
   const b = normalizeSet(right);
   return a.length > 0 && a.length === b.length && a.every((value, index) => value === b[index]);
 };
-const safeInternalHref = value => (
-  typeof value === 'string' && value.startsWith('/') && !value.startsWith('//')
-);
 const researchEditionLabel = page => String(page?.createdFrom?.label || '').startsWith('this-week-in-ai:')
   ? 'This Week in AI'
   : 'Weekend Readings';
@@ -154,18 +143,6 @@ const isGeneratedCompanyDossierPage = (page = {}) => (
   || Boolean(page?.investmentDossier?.version && page?.investmentDossier?.company?.ticker)
   || Boolean(page?.externalWatches?.edgar?.ticker && page?.externalWatches?.edgar?.status === 'active')
 );
-
-const wikiMaintenanceSystemReceipt = (pageId, { issueCount = 0, pageTitle = '' } = {}) => {
-  const target = pageTitle || `@wiki:${pageId}`;
-  return {
-    title: 'Wiki maintenance',
-    summary: issueCount
-      ? `${issueCount} issue${issueCount === 1 ? '' : 's'} surfaced on ${target}.`
-      : `Maintenance settled for ${target}.`,
-    status: issueCount ? 'needs_review' : 'completed',
-    href: `/wiki/workspace?page=${encodeURIComponent(pageId)}`
-  };
-};
 
 const promotionPosturePath = (type = '', sourceId = '') => {
   const safeType = normalizeId(type).toLowerCase();
@@ -192,8 +169,6 @@ const promotionWitnessFromSearch = (search = '') => {
   const from = normalizeId(params.get('from')).toLowerCase();
   const sourceId = normalizeId(params.get('sourceId'));
   const sourceTitle = normalizeId(params.get('sourceTitle'));
-  const receipt = normalizeId(params.get('receipt')).toLowerCase();
-  const transition = normalizeId(params.get('transition')).toLowerCase();
   const readableType = promotedType === 'question' ? 'Question' : promotedType === 'notebook' || promotedType === 'note' ? 'Notebook page' : 'Concept';
   return {
     type: readableType,
@@ -201,8 +176,6 @@ const promotionWitnessFromSearch = (search = '') => {
     from: from === 'think' ? 'Think' : labelFor(from || 'workspace'),
     sourceId,
     sourceTitle,
-    receipt: receipt || 'settled',
-    transition: transition || 'register',
     sourcePath: promotionPosturePath(
       promotedType,
       promotedType === 'concept' ? sourceTitle || sourceId : sourceId
@@ -485,18 +458,6 @@ const adoptedAttributionLine = (adoptedFrom = {}) => {
     : 'Adapted from a shared Noeis wiki';
 };
 
-const claimHealthCounts = (claims = []) => (
-  (Array.isArray(claims) ? claims : []).reduce((counts, claim) => {
-    if (claim?.checkInStatus === 'retired' || claim?.retiredAt) return counts;
-    const support = String(claim?.support || 'unsupported').trim() || 'unsupported';
-    if (support === 'supported') counts.supported += 1;
-    else if (support === 'partial') counts.partial += 1;
-    else if (support === 'conflicted' || support === 'contradicted') counts.conflicted += 1;
-    else counts.unsupported += 1;
-    return counts;
-  }, { supported: 0, partial: 0, unsupported: 0, conflicted: 0 })
-);
-
 const keyClaimText = (claims = []) => (
   (Array.isArray(claims) ? claims : [])
     .map(claim => claim?.text || claim?.claim || '')
@@ -534,57 +495,10 @@ const sourceExcerpt = (source = {}) => (
   cleanSourceText(source.excerpt || source.snippet || source.summary || source.description || source.text || '')
 );
 
-const citationMatchesSource = (citation = {}, source = {}) => {
-  const sourceId = source?._id || source?.id;
-  return [
-    citation.sourceRefId,
-    citation.sourceId,
-    citation.sourceRef?._id,
-    citation.sourceRef?.id
-  ].some(id => idsMatch(id, sourceId));
-};
-
-const sourceEvidenceCounts = ({ source = {}, claims = [], citations = [] }) => {
-  const explicitCitationCount = Number(source.citationCount ?? source.citationsCount);
-  const explicitClaimCount = Number(source.claimCount ?? source.claimsCount);
-  const citationCount = (Array.isArray(citations) ? citations : [])
-    .filter(citation => citationMatchesSource(citation, source))
-    .length;
-  const claimCount = (Array.isArray(claims) ? claims : [])
-    .filter(claim => claimMatchesSource({ claim, source, citations }))
-    .length;
-  return {
-    citationCount: Number.isFinite(explicitCitationCount) ? Math.max(citationCount, explicitCitationCount) : citationCount,
-    claimCount: Number.isFinite(explicitClaimCount) ? Math.max(claimCount, explicitClaimCount) : claimCount
-  };
-};
-
-const formatSourceCounts = ({ citationCount = 0, claimCount = 0 }) => {
-  const parts = [];
-  if (citationCount > 0) parts.push(`${citationCount} citation${citationCount === 1 ? '' : 's'}`);
-  if (claimCount > 0) parts.push(`${claimCount} claim${claimCount === 1 ? '' : 's'}`);
-  return parts.join(' / ');
-};
-
 const buildPublicWikiShareUrl = (page = {}) => {
   const pageId = normalizeId(page?._id || page?.id);
   if (!pageId || typeof window === 'undefined') return '';
   return `${window.location.origin}/share/wiki/${encodeURIComponent(pageId)}`;
-};
-
-const formatShareReceipt = ({ page = {}, blocked = false } = {}) => {
-  const wordCount = countWikiPageWords(page);
-  const sourceCount = countWikiSources(page);
-  const claimCount = countWikiClaims(page);
-  if (blocked) {
-    return 'Public copy locked until review clears · private graph sealed';
-  }
-  return [
-    wordCount ? `${wordCount} word${wordCount === 1 ? '' : 's'}` : '',
-    sourceCount ? `${sourceCount} reference${sourceCount === 1 ? '' : 's'}` : '',
-    claimCount ? `${claimCount} claim${claimCount === 1 ? '' : 's'}` : '',
-    'private graph sealed'
-  ].filter(Boolean).join(' · ');
 };
 
 const formatShareReviewSummary = (page = {}) => {
@@ -1118,6 +1032,70 @@ const WikiReadReferences = ({ sources = [], citations = [], highlightedRef, onJu
   );
 };
 
+/* Under the title: what the page is grown from, and the reading that last
+   changed it. A part that is not known is left out, not guessed. */
+const grownFrom = ({ words = 0, sources = 0, latest = null } = {}) => {
+  const parts = [`${words.toLocaleString()} word${words === 1 ? '' : 's'}${sources ? `, grown from ${sources} source${sources === 1 ? '' : 's'}` : ''}`];
+  const saved = latest?.changeSource?.title;
+  if (saved) {
+    const when = latest.changeSource.at || latest.createdAt;
+    parts.push(`last changed when you saved ${saved}${when ? `, ${new Date(when).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}` : ''}`);
+  }
+  return `${parts.join(' · ')}.`;
+};
+
+const proposalSentence = ({ page, candidate }) => {
+  if (!candidate) return `${AGENT_DISPLAY_NAME} proposes a change to this page.`;
+  const { changedCount, addedSourceCount } = candidateFootprint({ current: page, candidate });
+  const passages = changedCount ? `changing ${changedCount} passage${changedCount === 1 ? '' : 's'}` : 'a change';
+  const sources = addedSourceCount ? `, adding ${addedSourceCount} source${addedSourceCount === 1 ? '' : 's'}` : '';
+  return `${AGENT_DISPLAY_NAME} proposes ${passages}${sources}.`;
+};
+
+/* One line where your reading argues with this page: another of your pages
+   when one leans on the arguing source, otherwise the source itself. */
+const PageDisagreement = ({ item, pageId }) => {
+  const here = idsMatch(item.pageId, pageId);
+  const elsewhere = Array.isArray(item.elsewhere) ? item.elsewhere : [];
+  const says = here ? item.claimText : elsewhere.find(other => idsMatch(other.pageId, pageId))?.claimText;
+  const other = here ? elsewhere[0] : { pageTitle: item.pageTitle, claimText: item.claimText };
+  if (!says) return null;
+  const quote = text => `“${wordBoundaryTrim(text, { maxLength: 140 })}”`;
+  return (
+    <p className="wiki-read__disagrees">
+      This page says {quote(says)}.{' '}
+      {other
+        ? <>Your page on {other.pageTitle} says {quote(other.claimText)}.</>
+        : <>{item.contradicting?.[0]?.title || 'Another source'} argues otherwise.</>}
+      {' '}
+      <Link to={`/wiki/contradictions?claim=${encodeURIComponent(`${item.pageId}:${item.claimId}`)}`}>Open both</Link>
+    </p>
+  );
+};
+
+/* Partner rereads the sources on request. The answer is one sentence. */
+const RereadSources = ({ state = 'idle', summary = '', trustedArticle = true, sourcesUnchanged = false, onReread, children }) => {
+  const line = {
+    working: 'Rereading the sources…',
+    review: `${AGENT_DISPLAY_NAME} proposes a change. It waits at the top of the page.`,
+    settled: `${AGENT_DISPLAY_NAME} reread the sources. The page still holds.`,
+    research: `${trustedArticle ? 'The last proposed change was not applied' : 'There is no article yet'}${summary ? `: ${summary}` : '.'}`,
+    failed: 'The last reread stopped partway.'
+  }[state] || `${AGENT_DISPLAY_NAME} can reread this page’s sources and propose changes.`;
+  return (
+    <section className="wiki-read__reread" aria-label="Reread the sources" data-state={state}>
+      <p>{line}</p>
+      <div className="wiki-read__reread-actions">
+        <Button type="button" variant="secondary" onClick={onReread} disabled={state === 'working' || sourcesUnchanged}>
+          {state === 'working' ? 'Rereading…' : sourcesUnchanged ? 'Sources unchanged' : state === 'failed' ? 'Try again' : 'Reread the sources'}
+        </Button>
+        {children}
+      </div>
+      {sourcesUnchanged ? <p className="wiki-read__article-tool-note">Add or replace a source before trying again.</p> : null}
+    </section>
+  );
+};
+
 const WikiReadTitle = ({ title = '', plain = false, named = true }) => {
   const heading = String(title || '').trim() || 'Untitled wiki page';
   const className = named ? 'wiki-read__title' : 'wiki-read__title is-unnamed';
@@ -1209,10 +1187,6 @@ const WikiPageReadView = ({
     () => new URLSearchParams(traceSearch || '').get('trace') === '1',
     [traceSearch]
   );
-  const requestedReadTab = useMemo(() => {
-    const value = new URLSearchParams(traceSearch || '').get('tab');
-    return value === 'talk' ? 'talk' : 'article';
-  }, [traceSearch]);
   const focusedDecisionId = useMemo(
     () => String(new URLSearchParams(traceSearch || '').get('decisionId') || '').trim(),
     [traceSearch]
@@ -1231,11 +1205,7 @@ const WikiPageReadView = ({
   const [archiveConfirming, setArchiveConfirming] = useState(false);
   const [archiving, setArchiving] = useState(false);
   const maintenanceActive = maintaining || streamBusy;
-  const [maintenanceTraceLines, setMaintenanceTraceLines] = useState([]);
-  const [maintenanceReceipt, setMaintenanceReceipt] = useState(null);
-  const [asking, setAsking] = useState(false);
-  const [streamingAskText, setStreamingAskText] = useState('');
-  const [promotingDiscussionId, setPromotingDiscussionId] = useState('');
+  const [rereadResult, setRereadResult] = useState(null);
   const [error, setError] = useState('');
   const [shareBusy, setShareBusy] = useState(false);
   const [shareStatus, setShareStatus] = useState('');
@@ -1250,8 +1220,9 @@ const WikiPageReadView = ({
   const [carryTensionError, setCarryTensionError] = useState('');
   const [preview, setPreview] = useState(null);
   const [lastVisit, setLastVisit] = useState(null);
-  const [activeTab, setActiveTab] = useState(requestedReadTab);
-  const [markdownStatus, setMarkdownStatus] = useState('');
+  const [shareOpen, setShareOpen] = useState(false);
+  const [proposalDeferred, setProposalDeferred] = useState(false);
+  const [disagreements, setDisagreements] = useState([]);
   const [highlightedRef, setHighlightedRef] = useState('');
   const [kinRef, setKinRef] = useState('');
   const [recentParagraphAnchors, setRecentParagraphAnchors] = useState(() => new Set());
@@ -1264,7 +1235,6 @@ const WikiPageReadView = ({
   const [repoComparison, setRepoComparison] = useState(null);
   const [repoComparisonAvailable, setRepoComparisonAvailable] = useState(false);
   const [continuationBasis, setContinuationBasis] = useState(null);
-  const [continuationState, setContinuationState] = useState({ busy: false, error: '' });
   const [revisions, setRevisions] = useState([]);
   const [openedClaimId, setOpenedClaimId] = useState('');
   const [openedExploration, setOpenedExploration] = useState(null);
@@ -1277,7 +1247,6 @@ const WikiPageReadView = ({
   const [acceptError, setAcceptError] = useState('');
   const [staleCandidate, setStaleCandidate] = useState(false);
   const [privateReason, setPrivateReason] = useState('');
-  const [privateThought, setPrivateThought] = useState('');
   const [showChangedOnly, setShowChangedOnly] = useState(false);
   const [diffClaimIds, setDiffClaimIds] = useState([]);
   const [copyStatus, setCopyStatus] = useState('');
@@ -1316,9 +1285,6 @@ const WikiPageReadView = ({
     && window.matchMedia('(max-width: 720px)').matches
   ));
 
-  useEffect(() => {
-    setActiveTab(requestedReadTab);
-  }, [requestedReadTab]);
   // Wikipedia / Tolkien Gateway reading shape — body owns the canvas.
   // Context is optional. A previous explicit open is respected; a citation
   // or proposal can temporarily open the rail without rewriting that choice
@@ -1346,7 +1312,6 @@ const WikiPageReadView = ({
   const latestPageRef = useRef(null);
   const lastRefreshNonceRef = useRef(0);
   const articleRef = useRef(null);
-  const reading = useReadFresh(articleRef, pageId, '.wiki-read__body [data-wiki-block-anchor]');
   const focusedClaimNodeRef = useRef(null);
   const recentParagraphTimersRef = useRef(new Map());
   const pageTransitionTimerRef = useRef(null);
@@ -1376,11 +1341,11 @@ const WikiPageReadView = ({
     const recentParagraphTimers = recentParagraphTimersRef.current;
     const hasMountedPage = Boolean(latestPageRef.current);
     const prefersReducedMotion = reducedMotionRef.current;
-    setActiveTab(requestedReadTab);
     setNonCriticalReady(false);
-    setMaintenanceTraceLines([]);
-    setMaintenanceReceipt(null);
+    setRereadResult(null);
     setShareStatus('');
+    setShareOpen(false);
+    setProposalDeferred(false);
     if (pageTransitionTimerRef.current) {
       clearTimeout(pageTransitionTimerRef.current);
       pageTransitionTimerRef.current = null;
@@ -1431,7 +1396,7 @@ const WikiPageReadView = ({
         pageTransitionTimerRef.current = null;
       }
     };
-  }, [pageId, requestedReadTab]);
+  }, [pageId]);
 
   useEffect(() => {
     if (!streamedPage) return undefined;
@@ -1513,7 +1478,7 @@ const WikiPageReadView = ({
         if (!cancelled) setError('Failed to refresh Wiki page.');
       });
     return () => { cancelled = true; };
-  }, [pageId, refreshNonce, requestedReadTab, streamBusy]);
+  }, [pageId, refreshNonce, streamBusy]);
 
   useEffect(() => {
     if (!page || !isRepoDossierPage(page)) {
@@ -1539,7 +1504,6 @@ const WikiPageReadView = ({
   useEffect(() => {
     let cancelled = false;
     setContinuationBasis(null);
-    setContinuationState({ busy: false, error: '' });
     setRevisions([]);
     if (!page) return undefined;
     listWikiRevisions(pageId)
@@ -1558,26 +1522,6 @@ const WikiPageReadView = ({
       });
     return () => { cancelled = true; };
   }, [page, pageId]);
-
-  const handleContinueInThink = useCallback(async () => {
-    if (!continuationBasis || continuationState.busy) return;
-    setContinuationState({ busy: true, error: '' });
-    try {
-      const result = await startKnowledgeMovementInvestigation({
-        wikiPageId: pageId,
-        revisionId: continuationBasis.revisionId,
-        claimId: continuationBasis.claimId || ''
-      });
-      const href = result?.concept?.href;
-      if (!safeInternalHref(href)) throw new Error('Unsafe Think continuation route.');
-      navigate(href);
-    } catch (_error) {
-      setContinuationState({
-        busy: false,
-        error: 'Could not open the exact Think context. This page was not changed.'
-      });
-    }
-  }, [continuationBasis, continuationState.busy, navigate, pageId]);
 
   useEffect(() => {
     if (!page) {
@@ -1635,75 +1579,54 @@ const WikiPageReadView = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onEdit, panelTrail, previewMode, railCollapsed, surroundingOpen, workspaceMode]);
 
+  /* Where another reading, or another of your pages, argues with this one. */
+  useEffect(() => {
+    if (!nonCriticalReady || !pageId) return undefined;
+    let cancelled = false;
+    listWikiContradictions({ pageId, limit: 3 })
+      .then((items) => { if (!cancelled) setDisagreements(Array.isArray(items) ? items : []); })
+      .catch(() => { if (!cancelled) setDisagreements([]); });
+    return () => { cancelled = true; };
+  }, [nonCriticalReady, pageId]);
+
+  /* Partner rereads the page's sources. What comes back is either the page as
+     it was, or a proposed change the reader accepts or sets aside. */
   const handleMaintain = useCallback(async () => {
     systemStatus.clearRecoverableFailure();
-    systemStatus.setBackgroundWork({ label: 'Wiki maintenance', stage: `Checking @wiki:${pageId}` });
+    systemStatus.setBackgroundWork({ label: `Rereading the sources for ${page?.title || 'this page'}` });
     setMaintaining(true);
     setError('');
-    setMaintenanceReceipt(null);
-    setMaintenanceTraceLines([
-      `checking @wiki:${pageId}`,
-      'reading sources and claims'
-    ]);
+    setRereadResult(null);
     try {
       const maintained = isGeneratedCompanyDossierPage(page)
         ? await streamMaintainWikiPage(pageId)
         : await maintainWikiPage(pageId);
       latestPageRef.current = maintained;
       setPage(maintained);
-      const nextSourceCount = countPageSources(maintained);
-      const nextClaimCount = countPageClaims(maintained);
-      const awaitingOwnerAcceptance = [
+      const proposed = [
         'awaiting_first_head_acceptance',
         'awaiting_maintenance_acceptance'
       ].includes(maintained?.aiState?.candidateStatus);
-      const issueCount = Array.isArray(maintained?.aiState?.maintenanceQualityIssues)
-        ? maintained.aiState.maintenanceQualityIssues.length
-        : Array.isArray(maintained?.aiState?.quality?.failures)
-          ? maintained.aiState.quality.failures.length
-          : 0;
-      setMaintenanceTraceLines([
-        `checked ${nextSourceCount} source${nextSourceCount === 1 ? '' : 's'}`,
-        `reviewed ${nextClaimCount} claim${nextClaimCount === 1 ? '' : 's'}`,
-        awaitingOwnerAcceptance
-          ? 'candidate held for owner acceptance'
-          : issueCount ? `${issueCount} issue${issueCount === 1 ? '' : 's'} surfaced` : 'page settled'
-      ]);
-      const ownedSourceUtilization = maintained?.aiState?.quality?.metrics?.ownedSourceUtilization;
-      setMaintenanceReceipt({
-        status: issueCount || awaitingOwnerAcceptance ? 'review' : 'settled',
-        issueCount,
-        sourceCount: nextSourceCount,
-        claimCount: nextClaimCount,
-        ownedSourceSummary: ownedSourceUtilization?.receiptSummary || '',
-        excludedOwnedSources: Array.isArray(ownedSourceUtilization?.excludedOwnedFamilies)
-          ? ownedSourceUtilization.excludedOwnedFamilies.filter(source => source?.title && source?.reason)
-          : []
+      setRereadResult({ status: proposed ? 'review' : 'settled' });
+      systemStatus.setLatestReceipt({
+        title: proposed ? `${AGENT_DISPLAY_NAME} proposes a change.` : 'The page still holds.',
+        summary: proposed
+          ? `“${maintained?.title || 'This page'}” stays as it is until you accept the change.`
+          : `${AGENT_DISPLAY_NAME} reread the sources for “${maintained?.title || 'this page'}”.`,
+        status: proposed ? 'needs_review' : 'completed',
+        href: wikiReadPath(pageId)
       });
-      systemStatus.setLatestReceipt(awaitingOwnerAcceptance ? {
-        title: 'Research candidate needs review.',
-        summary: 'The trusted page is unchanged until you explicitly accept the candidate.',
-        status: 'needs_review',
-        href: `/wiki/workspace?page=${encodeURIComponent(pageId)}`
-      } : wikiMaintenanceSystemReceipt(pageId, {
-        issueCount,
-        pageTitle: maintained?.title
-      }));
     } catch (maintainError) {
-      const qualityRejected = maintainError?.code === 'WIKI_CANDIDATE_REJECTED';
-      const qualityFailures = Array.isArray(maintainError?.qualityFailures)
-        ? maintainError.qualityFailures.filter(Boolean)
-        : [];
-      const message = qualityRejected
-        ? `The existing article is unchanged. ${qualityFailures[0] || 'The candidate did not meet the reference-page quality standard.'}`
-        : maintainError?.message || 'The build was interrupted partway. Resume it from saved evidence.';
+      const rejected = maintainError?.code === 'WIKI_CANDIDATE_REJECTED';
       const evidenceIncomplete = maintainError?.code === 'WIKI_DOSSIER_EVIDENCE_INCOMPLETE';
-      const freshestPage = maintainError?.page || latestPageRef.current || page;
-      // Keep the rendered trusted article stable while adopting only the
-      // rejection metadata needed to explain and safely gate another attempt.
+      const firstFailure = (Array.isArray(maintainError?.qualityFailures) ? maintainError.qualityFailures : []).find(Boolean);
+      const message = rejected
+        ? `The page is unchanged. ${firstFailure || 'The proposed change did not hold up against the sources.'}`
+        : maintainError?.message || 'The reread stopped partway. Try again.';
+      // Keep the article stable while adopting only what explains the refusal.
       if (maintainError?.page) {
         latestPageRef.current = maintainError.page;
-        setPage(current => qualityRejected
+        setPage(current => rejected
           ? {
               ...current,
               aiState: maintainError.page.aiState || current?.aiState,
@@ -1712,53 +1635,17 @@ const WikiPageReadView = ({
           : maintainError.page);
       }
       setError(message);
-      setMaintenanceTraceLines(qualityRejected
-        ? [
-          `checked ${countPageSources(freshestPage)} source${countPageSources(freshestPage) === 1 ? '' : 's'}`,
-          'candidate stopped before replacing the trusted article',
-          ...qualityFailures.slice(0, 2)
-        ]
-        : evidenceIncomplete
-        ? [
-          `checked ${countPageSources(freshestPage)} source${countPageSources(freshestPage) === 1 ? '' : 's'}`,
-          'research stopped before drafting',
-          'waiting for missing evidence classes'
-        ]
-        : [
-          `maintenance failed · @wiki:${pageId}`,
-          'waiting for retry'
-        ]);
-      const rejectedUtilization = maintainError?.page?.aiState?.quality?.metrics?.ownedSourceUtilization;
-      setMaintenanceReceipt({
-        status: qualityRejected || evidenceIncomplete ? 'research' : 'failed',
-        issueCount: qualityFailures.length,
-        sourceCount: countPageSources(freshestPage),
-        claimCount: countPageClaims(freshestPage),
-        summary: message,
-        // A rejected candidate is exactly when the owner most needs to see
-        // which of their own sources the draft failed to use.
-        ownedSourceSummary: rejectedUtilization?.receiptSummary || '',
-        excludedOwnedSources: Array.isArray(rejectedUtilization?.excludedOwnedFamilies)
-          ? rejectedUtilization.excludedOwnedFamilies.filter(source => source?.title && source?.reason)
-          : []
-      });
-      if (qualityRejected) {
+      setRereadResult({ status: rejected || evidenceIncomplete ? 'research' : 'failed', summary: message });
+      if (rejected || evidenceIncomplete) {
         systemStatus.setLatestReceipt({
-          title: 'Wiki update was not applied',
+          title: rejected ? 'The page was not changed.' : 'More reading is needed.',
           summary: message,
           status: 'needs_review',
-          href: `/wiki/workspace?page=${encodeURIComponent(pageId)}#wiki-read-references-title`
-        });
-      } else if (evidenceIncomplete) {
-        systemStatus.setLatestReceipt({
-          title: 'Dossier research is incomplete',
-          summary: message,
-          status: 'needs_review',
-          href: `/wiki/workspace?page=${encodeURIComponent(pageId)}`
+          href: wikiReadPath(pageId)
         });
       } else {
         systemStatus.setRecoverableFailure({
-          stage: 'Wiki maintenance',
+          stage: 'Rereading the sources',
           message,
           retryable: true,
           retry: () => { handleMaintain(); }
@@ -1832,9 +1719,9 @@ const WikiPageReadView = ({
       const nextUrl = buildPublicWikiShareUrl(sharedPage) || publicUrl;
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(nextUrl);
-        setShareStatus('Copied safe public link.');
+        setShareStatus('Link copied.');
       } else {
-        setShareStatus('Safe public link ready.');
+        setShareStatus('The link is ready.');
       }
     } catch (_error) {
       setShareStatus('Could not create the public link.');
@@ -1905,55 +1792,6 @@ const WikiPageReadView = ({
     setPage(saved);
   }, [page?.title, pageId]);
 
-  const handleAsk = async (question) => {
-    setAsking(true);
-    setError('');
-    setStreamingAskText('');
-    try {
-      const updated = await streamAskWikiPage(pageId, question, {
-        onDelta: (delta) => setStreamingAskText(current => `${current}${delta}`),
-        onPage: (nextPage) => {
-          latestPageRef.current = nextPage;
-          setPage(nextPage);
-        }
-      });
-      latestPageRef.current = updated;
-      if (updated) setPage(updated);
-    } catch (_error) {
-      try {
-        const updated = await askWikiPage(pageId, question);
-        latestPageRef.current = updated;
-        setPage(updated);
-      } catch (_fallbackError) {
-        setError('Failed to ask this Wiki page.');
-      }
-    } finally {
-      setStreamingAskText('');
-      setAsking(false);
-    }
-  };
-
-  const handlePromoteDiscussion = async (discussion, title) => {
-    const discussionId = discussion?._id || '';
-    if (!discussionId) return;
-    setPromotingDiscussionId(discussionId);
-    setError('');
-    try {
-      const result = await promoteWikiDiscussion(pageId, discussionId, { title });
-      const createdPage = result?.page || result;
-      trackWikiQaPromoted({
-        sourcePageId: pageId,
-        promotedPageId: createdPage?._id || '',
-        discussionId
-      });
-      if (createdPage?._id) navigate(wikiPagePath(createdPage._id));
-    } catch (_error) {
-      setError('That did not save.');
-    } finally {
-      setPromotingDiscussionId('');
-    }
-  };
-
   const handleClaimHover = useCallback((event) => {
     const target = event.target.closest?.('.wiki-claim-citation');
     if (!target) return;
@@ -1983,7 +1821,7 @@ const WikiPageReadView = ({
     checking = '',
     claimId = '',
     citationIndex = 0,
-    returnTo = 'sources'
+    returnTo = ''
   } = {}) => {
     const reading = previewPage || page;
     const occurrence = citedSourceOccurrence({
@@ -2047,8 +1885,7 @@ const WikiPageReadView = ({
       source,
       checking,
       claimId,
-      citationIndex,
-      returnTo: 'sources'
+      citationIndex
     });
     const refId = target.getAttribute('data-footnote-target') || '';
     if (refId && scrollToElementId(refId)) highlightReference(refId);
@@ -2288,9 +2125,7 @@ const WikiPageReadView = ({
 
   useEffect(() => {
     if (!pageId) return undefined;
-    const notes = getPrivateWikiNotes(pageId);
-    setPrivateReason(notes.reason);
-    setPrivateThought(notes.thought);
+    setPrivateReason(getPrivateWikiNotes(pageId).reason);
     return undefined;
   }, [pageId]);
 
@@ -2458,45 +2293,15 @@ const WikiPageReadView = ({
     savePrivateWikiNotes(pageId, { reason: value });
   }, [pageId]);
 
-  const handleThoughtChange = useCallback((value) => {
-    setPrivateThought(value);
-    savePrivateWikiNotes(pageId, { thought: value });
-  }, [pageId]);
-
   const handleFollowLinkedPage = useCallback((relatedId) => {
     navigate(wikiReadPath(relatedId), {
       state: { fromWikiPageId: pageId, fromWikiTitle: page?.title || '' }
     });
   }, [navigate, page?.title, pageId]);
 
-  const handleOpenSourcesPanel = useCallback(() => {
-    openContextPanel({
-      type: 'sources',
-      revisionId: (previewPage || page)?.rev || '',
-      historical: previewMode === 'history'
-    });
-  }, [openContextPanel, page, previewMode, previewPage]);
-
   const handleOpenHistoryPanel = useCallback(() => {
     openContextPanel({ type: 'history' });
   }, [openContextPanel]);
-
-  const handleOpenThoughtPanel = useCallback(() => {
-    openContextPanel({
-      type: 'thought',
-      text: firstParagraphText((previewPage || page)?.body) || '',
-      revisionId: (previewPage || page)?.rev || '',
-      historical: previewMode === 'history'
-    });
-  }, [openContextPanel, page, previewMode, previewPage]);
-
-  const handleOpenSourceFromList = useCallback((source, citationIndex) => {
-    openCitedSource({
-      source,
-      citationIndex,
-      returnTo: 'sources'
-    });
-  }, [openCitedSource]);
 
   const handleShowChangedInPage = useCallback(() => {
     const ids = changedClaimIdsFromVisit({
@@ -2541,47 +2346,6 @@ const WikiPageReadView = ({
       handleOpenHistoryRevision(match);
     }
   }, [candidatePayload, handleOpenHistoryRevision, page?.body, page?.plainText, revisions, traceSearch]);
-
-  const loadMarkdown = useCallback(async () => {
-    setMarkdownStatus('');
-    try {
-      return await getWikiPageMarkdown(pageId);
-    } catch (_error) {
-      setMarkdownStatus('Markdown export failed.');
-      return '';
-    }
-  }, [pageId]);
-
-  const handleCopyMarkdown = useCallback(async () => {
-    const markdown = await loadMarkdown();
-    if (!markdown) return;
-    try {
-      await navigator.clipboard.writeText(markdown);
-      setMarkdownStatus('Markdown copied.');
-    } catch (_error) {
-      setMarkdownStatus('Clipboard permission blocked copy.');
-    }
-  }, [loadMarkdown]);
-
-  const handleDownloadMarkdown = useCallback(async () => {
-    const markdown = await loadMarkdown();
-    if (!markdown) return;
-    const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    const slug = String(page?.slug || page?.title || 'wiki-page')
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .slice(0, 90) || 'wiki-page';
-    anchor.href = url;
-    anchor.download = `${slug}.md`;
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    URL.revokeObjectURL(url);
-    setMarkdownStatus('Markdown downloaded.');
-  }, [loadMarkdown, page?.slug, page?.title]);
 
   const readingPage = previewPage || page;
   const strippedBody = useMemo(
@@ -2812,14 +2576,6 @@ const WikiPageReadView = ({
   }, [displayBody, pageId]);
 
   const wordCount = countPageWords(page, displayBody);
-  const bodyHasWikiLinks = useMemo(
-    () => (nonCriticalReady ? hasInlineWikiLinks(page?.body) : true),
-    [nonCriticalReady, page?.body]
-  );
-  const healthCounts = useMemo(
-    () => (nonCriticalReady ? claimHealthCounts(page?.claims) : { supported: 0, partial: 0, unsupported: 0, conflicted: 0 }),
-    [nonCriticalReady, page?.claims]
-  );
   const infoboxRows = visibleInfoboxRows(buildInfoboxRows({
     page,
     sourceCount: countPageSources(page),
@@ -2834,10 +2590,6 @@ const WikiPageReadView = ({
   }));
   const activeLedgerClaim = activeClaim ? claimLedgerById.get(activeClaim.claimId) : null;
   const displayedActiveTocId = activeTocId || tocItems[0]?.id || '';
-  const discussionCount = (page?.discussions || []).length;
-  const showPageTalk = true;
-  const showMentionedInFooter = true;
-  const showUtilityRail = false;
 
   const clearRecentTocId = useCallback((tocId = '') => {
     if (!tocId) return;
@@ -2944,7 +2696,6 @@ const WikiPageReadView = ({
   const isSharedPublicly = String(page.visibility || 'private') === 'shared';
   const shareBlocked = isPageQualityBlocked(page);
   const publicShareReady = isSharedPublicly && !shareBlocked;
-  const shareReceipt = formatShareReceipt({ page, blocked: shareBlocked });
   const shareReviewSummary = shareBlocked ? formatShareReviewSummary(page) : '';
   const companyDossier = isGeneratedCompanyDossierPage(page);
   const standardWikiPage = !weekendReadingsPage
@@ -2954,11 +2705,6 @@ const WikiPageReadView = ({
     && !companyDossier;
   const openSentenceEnabled = wikiAllowsOpenSentence(page, { workspaceMode });
   const specializedWorkflowPage = !standardWikiPage && !weekendReadingsPage;
-  const standardPageFacts = standardWikiPage ? [
-    labelFor(page.pageType || 'topic'),
-    `${countWikiPageWords(page).toLocaleString()} words`,
-    `${countPageSources(page).toLocaleString()} source${countPageSources(page) === 1 ? '' : 's'}`
-  ] : [];
   const edgarWatch = page?.externalWatches?.edgar || {};
   const edgarWatchStatus = String(edgarWatch.status || '').toLowerCase();
   const edgarWatchConfigured = Boolean(normalizeId(edgarWatch.ticker || edgarWatch.cik));
@@ -2972,9 +2718,10 @@ const WikiPageReadView = ({
     page?.aiState?.draftStatus === 'error'
     || page?.aiState?.errorCode === 'WIKI_CANDIDATE_REJECTED'
   );
-  const persistedCandidateRejection = !evidenceIncomplete
-    && page?.aiState?.candidateStatus === 'rejected'
-    && Boolean(page?.aiState?.lastCandidateSummary);
+  const persistedCandidateRejection = !evidenceIncomplete && (
+    page?.aiState?.candidateStatus === 'rejected'
+    || page?.aiState?.errorCode === 'WIKI_CANDIDATE_REJECTED'
+  );
   const trustedArticleAvailable = countWikiPageWords(page) > 0;
   const currentMaintenanceSourceRefIds = (Array.isArray(page?.sourceRefs) ? page.sourceRefs : [])
     .map(source => source?.objectId || source?._id || source?.id)
@@ -2985,28 +2732,27 @@ const WikiPageReadView = ({
       currentMaintenanceSourceRefIds,
       page?.aiState?.lastCandidateSourceRefIds
     );
-  const maintenanceDisplayState = maintenanceReceipt?.status
-    || (maintenanceActive
-      ? 'working'
-      : evidenceIncomplete
-        ? 'research'
-        : persistedCandidateRejection
-          ? 'research'
-        : persistedMaintenanceFailure
-          ? 'failed'
-          : 'idle');
-  const compactMaintenanceReceipt = !maintenanceActive && !maintenanceReceipt && !evidenceIncomplete;
-  const maintenanceDisclosureLabel = maintenanceActive
-    ? 'Checking sources and claims'
-    : maintenanceDisplayState === 'research'
-      ? persistedCandidateRejection ? 'Update not applied' : 'More evidence needed'
-      : maintenanceDisplayState === 'failed'
-        ? 'Retry available'
-        : maintenanceReceipt?.status === 'review'
-          ? 'Review available'
-          : maintenanceReceipt?.status === 'settled'
-            ? 'Last check settled'
-            : 'Available on request';
+  const rereadState = maintenanceActive
+    ? 'working'
+    : rereadResult?.status
+      || (evidenceIncomplete || persistedCandidateRejection ? 'research' : persistedMaintenanceFailure ? 'failed' : 'idle');
+  const rereadSummary = rereadResult?.summary
+    || (rereadState === 'research' ? (page?.aiState?.lastCandidateSummary || page?.aiState?.lastError || '') : '');
+  const rereadSources = (
+    <RereadSources
+      state={rereadState}
+      summary={rereadSummary}
+      trustedArticle={trustedArticleAvailable}
+      sourcesUnchanged={rejectedSourcesUnchanged}
+      onReread={handleMaintain}
+    >
+      {persistedMaintenanceFailure && companyDossier && !page?.aiState?.lastDraftedAt ? (
+        <Button type="button" variant="ghost" onClick={handleDiscardFailedDossier} disabled={maintenanceActive}>
+          Discard draft
+        </Button>
+      ) : null}
+    </RereadSources>
+  );
   const shareCard = weekendReadingsPage ? null : (
     <section
       className={`wiki-read__share-card ${publicShareReady ? 'is-shared' : 'is-private'}${shareBlocked ? ' is-blocked' : ''}`}
@@ -3020,11 +2766,8 @@ const WikiPageReadView = ({
           {shareBlocked
             ? 'This page is hidden from public sharing until the open reviews are fixed or archived. Your private workspace copy is unchanged.'
             : publicShareReady
-              ? 'Shared readers see this article and references only. Backlinks, highlights, source notes, and agent work stay private.'
-              : 'Create a safe public page with the article and references only. Your backlinks, highlights, source notes, and agent work stay private.'}
-        </p>
-        <p className="wiki-read__share-receipt" aria-label="Public sharing receipt">
-          {shareReceipt}
+              ? 'Readers of the link see this article and its references. Your highlights, notes, and links stay private.'
+              : 'Share this article and its references by link. Your highlights, notes, and links stay private.'}
         </p>
         {shareBlocked ? (
           <p className="wiki-read__share-review-note">
@@ -3071,15 +2814,9 @@ const WikiPageReadView = ({
       data-state={pageTransitionState}
       data-page-transition-state={pageTransitionState}
     >
-      {(!workspaceMode || error) ? (
+      {error ? (
         <div className="wiki-read__topline">
-          {!workspaceMode ? (
-            <>
-              <Button type="button" variant="secondary" onClick={() => navigate('/wiki')}>Back to Wiki</Button>
-              <Button type="button" variant="secondary" onClick={onEdit}>Edit</Button>
-            </>
-          ) : null}
-          {error ? <span className="wiki-editor__error" role="alert">{error}</span> : null}
+          <span className="wiki-editor__error" role="alert">{error}</span>
         </div>
       ) : null}
       {nonCriticalReady ? (
@@ -3099,133 +2836,16 @@ const WikiPageReadView = ({
         </Suspense>
       ) : null}
       {promotionWitness ? (
-        <section
-          className="wiki-read__promotion-witness"
-          aria-label="Thought promoted to Wiki"
-          data-register-transition={promotionWitness.transition}
-          data-promotion-receipt={promotionWitness.receipt}
-          data-promoted-type={promotionWitness.promotedType}
-        >
+        <section className="wiki-read__promotion-witness" aria-label="Thought promoted to Wiki" data-promoted-type={promotionWitness.promotedType}>
           <span className="wiki-read__promotion-mark" aria-hidden="true" />
-          <div>
-            <p className="wiki-read__promotion-kicker">{promotionWitness.from} -> Wiki</p>
-            <p>
-              {promotionWitness.type} registered as a sourced wiki page
-              {promotionWitness.sourceTitle ? <> from <strong>{promotionWitness.sourceTitle}</strong></> : null}
-              .
-            </p>
-            <ol className="wiki-read__promotion-steps" aria-label="Promotion receipt">
-              <li>Draft captured</li>
-              <li>Graph edge written</li>
-              <li>Wiki register settled</li>
-            </ol>
-          </div>
-          {promotionWitness.sourcePath ? (
-            <Link to={promotionWitness.sourcePath}>Return to source</Link>
-          ) : null}
+          <p>
+            Your {promotionWitness.type.toLowerCase()} is a wiki page now
+            {promotionWitness.sourceTitle ? <>, grown from <strong>{promotionWitness.sourceTitle}</strong></> : null}.
+          </p>
+          {promotionWitness.sourcePath ? <Link to={promotionWitness.sourcePath}>Back to where it began</Link> : null}
         </section>
       ) : null}
-      {(!loading && page && specializedWorkflowPage && !investmentDossierPage) ? (
-        <details
-          className="wiki-read__maintenance-disclosure wiki-read__page-status"
-          open={maintenanceActive || evidenceIncomplete || persistedMaintenanceFailure}
-        >
-          <summary className="wiki-read__page-status-summary">
-            <span className="wiki-read__page-status-label">Page maintenance</span>
-            <span className="wiki-read__page-status-facts"><span>{maintenanceDisclosureLabel}</span></span>
-            <span className="wiki-read__page-status-action" aria-hidden="true">Open</span>
-          </summary>
-          <section
-            className={`wiki-read__maintenance-receipt is-${maintenanceDisplayState}${compactMaintenanceReceipt ? ' is-compact' : ''}`}
-            aria-label="Wiki maintenance receipt"
-            data-maintenance-state={maintenanceDisplayState}
-          >
-            <div className="wiki-read__maintenance-copy">
-            <p className="wiki-read__promotion-kicker">Agent-owned page</p>
-            <h2>
-              {maintenanceActive
-                ? 'Checking this page against your corpus'
-                : maintenanceDisplayState === 'research'
-                  ? 'This dossier needs more evidence'
-                : maintenanceDisplayState === 'failed'
-                  ? (page?.aiState?.errorCode === 'WIKI_CANDIDATE_REJECTED'
-                    ? 'This dossier did not reach the evidence bar'
-                    : page?.aiState?.errorCode === 'WIKI_BUILD_INTERRUPTED'
-                      ? 'The build was interrupted partway'
-                      : 'Maintenance needs a retry')
-                  : maintenanceReceipt?.status === 'review'
-                    ? 'Maintenance surfaced review work'
-                    : maintenanceReceipt?.status === 'settled'
-                      ? 'Page maintenance settled'
-                      : 'Ready for maintenance'}
-            </h2>
-            {maintenanceReceipt ? (
-              <>
-                <p>
-                  {maintenanceReceipt.status === 'research'
-                    ? maintenanceReceipt.summary
-                    : <>
-                      {maintenanceReceipt.sourceCount} source{maintenanceReceipt.sourceCount === 1 ? '' : 's'} ·{' '}
-                      {maintenanceReceipt.claimCount} claim{maintenanceReceipt.claimCount === 1 ? '' : 's'} ·{' '}
-                      {maintenanceReceipt.issueCount} issue{maintenanceReceipt.issueCount === 1 ? '' : 's'}
-                    </>}
-                </p>
-                {/* Source-utilization diagnostics belong to the build receipt,
-                    never to the article's reading plane. */}
-                {maintenanceReceipt.ownedSourceSummary ? (
-                  <p className="wiki-read-maintenance-utilization">
-                    {maintenanceReceipt.ownedSourceSummary}
-                    {maintenanceReceipt.excludedOwnedSources?.length ? (
-                      <>
-                        {' '}Set aside: {maintenanceReceipt.excludedOwnedSources
-                          .map(source => `${source.title} — ${source.reason}`)
-                          .join('; ')}
-                      </>
-                    ) : null}
-                  </p>
-                ) : null}
-              </>
-            ) : (
-              <p>
-                {maintenanceDisplayState === 'research'
-                  ? (page?.aiState?.lastError || 'The saved evidence pack is incomplete. Continue research when more sources are available.')
-                  : maintenanceDisplayState === 'failed'
-                  ? (page?.aiState?.lastCandidateSummary || page?.aiState?.lastError || 'Resume from saved evidence, or discard this failed draft.')
-                  : `Ask ${AGENT_DISPLAY_NAME.toLowerCase()} to check sources, claims, and weak signals without leaving the reading surface.`}
-              </p>
-            )}
-          </div>
-          <AgentTicker
-            label="Wiki maintenance trace"
-            className="wiki-read__maintenance-ticker"
-            state={maintenanceActive ? 'working' : 'idle'}
-            lines={maintenanceTraceLines.length
-              ? maintenanceTraceLines
-              : maintenanceActive
-                ? ['drafting page body', 'updating infobox and claims']
-                : ['maintenance idle', 'ready to review sources']}
-            sharedMemory
-            surface={page?.title || 'Wiki page'}
-          />
-          <div className="wiki-read__maintenance-actions">
-            <Button type="button" variant="secondary" onClick={handleMaintain} disabled={maintenanceActive}>
-              {maintenanceActive
-                ? 'Running...'
-                : evidenceIncomplete
-                  ? 'Continue research'
-                  : persistedMaintenanceFailure && companyDossier
-                    ? 'Resume build'
-                    : 'Run again'}
-            </Button>
-            {persistedMaintenanceFailure && companyDossier && !page?.aiState?.lastDraftedAt ? (
-              <Button type="button" variant="ghost" onClick={handleDiscardFailedDossier} disabled={maintenanceActive}>
-                Discard draft
-              </Button>
-            ) : null}
-            </div>
-          </section>
-        </details>
-      ) : null}
+      {(!loading && page && specializedWorkflowPage && !investmentDossierPage) ? rereadSources : null}
       <div className={`wiki-read__layout${railHidden ? ' wiki-read__layout--rail-collapsed' : ''}${contextPanel ? ' wiki-read__layout--panel-open' : ''}`}>
         {!standardWikiPage || !mobileStandardReader ? <aside className={`wiki-read__toc wiki-read__left-rail${standardWikiPage ? ' wiki-read__toc--desktop' : ''}`} aria-label="Wiki navigation">
           {repoDossierMode && repoSectionNav.length ? (
@@ -3280,7 +2900,6 @@ const WikiPageReadView = ({
         </aside> : null}
         <article
           ref={articleRef}
-          data-read-fresh={reading.readFresh || undefined}
           className={`wiki-read__article${listeningRef ? ' is-listening' : ''}`}
           onMouseOver={(event) => {
             handleClaimHover(event);
@@ -3300,16 +2919,8 @@ const WikiPageReadView = ({
             <span />
           </div>
           <header className={`wiki-read__header${livingThesisPage ? ' wiki-read__header--living-thesis' : ''}`}>
-            {/* AT-21 (Bucket 2 UI rework): the page header used to render an
-                uppercase eyebrow, a 4-chip facts row, and a quality state
-                card stacked above the title. All three duplicated what the
-                right-rail infobox already surfaces, and together they were
-                the loudest part of the page. The reader's eye should land
-                on the title and run straight into the body — Wikipedia /
-                Tolkien Gateway shape. Quality issues, page type, source
-                count, and "last reviewed" all live in the rail infobox now.
-                In workspace mode the agent will surface quality problems
-                via chat notification (AT-26). */}
+            {/* Title, then straight into the body: what the page is grown from
+                lives in one line, and type, health and review live in the rail. */}
             {livingThesisPage ? <p className="wiki-read__object-label">Living thesis</p> : null}
             <WikiReadTitle
               title={displayWikiPageTitle(page)}
@@ -3317,8 +2928,8 @@ const WikiPageReadView = ({
               named={Boolean(String(page?.title || '').trim())}
             />
             {standardWikiPage ? (
-              <p className="wiki-read__standard-facts" aria-label="Page facts">
-                {standardPageFacts.map(fact => <span key={fact}>{fact}</span>)}
+              <p className="wiki-read__grown" aria-label="Where this page came from">
+                {grownFrom({ words: countWikiPageWords(page), sources: countPageSources(page), latest: revisions[0] })}
               </p>
             ) : null}
             {weekendReadingsPage ? (
@@ -3358,22 +2969,6 @@ const WikiPageReadView = ({
                 onMaintain={handleMaintain}
                 onTrackInJudgment={handleTrackInJudgment}
               />
-            ) : null}
-            {!standardWikiPage ? <nav className="wiki-read__continuation-actions" aria-label="Continue this page">
-              {(page.sourceRefs || []).length ? <a href="#wiki-read-references-title">Inspect sources</a> : null}
-              {continuationBasis ? (
-                <button
-                  type="button"
-                  disabled={continuationState.busy}
-                  onClick={handleContinueInThink}
-                >
-                  {continuationState.busy ? 'Opening Think…' : 'Continue in Think'}
-                </button>
-              ) : null}
-              {typeof onEdit === 'function' ? <button type="button" onClick={onEdit}>Update page</button> : null}
-            </nav> : null}
-            {continuationState.error ? (
-              <p className="wiki-read__continuation-error" role="status">{continuationState.error}</p>
             ) : null}
             {specializedWorkflowPage && !investmentDossierPage ? <details
               className="wiki-read__page-status wiki-read__stage5-decisions"
@@ -3426,25 +3021,19 @@ const WikiPageReadView = ({
                 {starterPackAttributionLine(page.adoptedFrom)}
               </p>
             ) : null}
-            {weekendReadingsPage || standardWikiPage ? null : companyDossier ? (
+            {companyDossier ? (
               <details className="wiki-read__page-status">
                 <summary className="wiki-read__page-status-summary">
-                  <span className="wiki-read__page-status-label">Page status</span>
+                  <span className="wiki-read__page-status-label">Filings</span>
                   <span className="wiki-read__page-status-facts">
-                    <span>{shareBlocked ? 'Sharing blocked' : publicShareReady ? 'Public' : 'Private'}</span>
-                    {companyDossier ? (
-                      <>
-                        <span className={edgarWatchStatus === 'error' ? 'is-error' : ''}>
-                          {edgarWatchStatus === 'error' ? 'SEC watch issue' : edgarWatchConfigured ? 'SEC watch on' : 'SEC watch off'}
-                        </span>
-                      </>
-                    ) : null}
+                    <span className={edgarWatchStatus === 'error' ? 'is-error' : ''}>
+                      {edgarWatchStatus === 'error' ? 'Not reaching the SEC' : edgarWatchConfigured ? 'Watching SEC filings' : 'Not watching SEC filings'}
+                    </span>
                   </span>
-                  <span className="wiki-read__page-status-action" aria-hidden="true">{companyDossier ? 'Manage' : 'Share'}</span>
+                  <span className="wiki-read__page-status-action" aria-hidden="true">Manage</span>
                 </summary>
                 <div className="wiki-read__page-status-panel">
-                  {shareCard}
-                  {companyDossier ? <div className="wiki-read__entity-watches">
+                  <div className="wiki-read__entity-watches">
                     <WikiEdgarWatchControl
                       pageId={pageId}
                       page={page}
@@ -3453,21 +3042,10 @@ const WikiPageReadView = ({
                         setPage(nextPage);
                       }}
                     />
-                  </div> : null}
+                  </div>
                 </div>
               </details>
-            ) : (
-              <details className="wiki-read__page-status">
-                <summary className="wiki-read__page-status-summary">
-                  <span className="wiki-read__page-status-label">Page status</span>
-                  <span className="wiki-read__page-status-facts">
-                    <span>{shareBlocked ? 'Sharing blocked' : publicShareReady ? 'Public' : 'Private'}</span>
-                  </span>
-                  <span className="wiki-read__page-status-action" aria-hidden="true">Share</span>
-                </summary>
-                <div className="wiki-read__page-status-panel">{shareCard}</div>
-              </details>
-            )}
+            ) : null}
             {isRepoDossierPage(page) ? (
               <div className="wiki-read__repo-watches">
                 <WikiRepoDossierOverview
@@ -3498,60 +3076,17 @@ const WikiPageReadView = ({
                 <WikiRepoDeveloperQuickstart page={page} />
               </div>
             ) : null}
-            {!workspaceMode ? (
-              <div className="wiki-read__exports" aria-label="Markdown export">
-                <button type="button" onClick={handleCopyMarkdown}>Copy markdown</button>
-                <button type="button" onClick={handleDownloadMarkdown}>Download .md</button>
-                {markdownStatus ? <span role="status">{markdownStatus}</span> : null}
-              </div>
-            ) : null}
-            <div className="wiki-read__viewbar">
-              {showPageTalk ? <div className="wiki-read__tabs" role="tablist" aria-label="Wiki page views">
-                <button
-                  type="button"
-                  role="tab"
-                  id="wiki-read-tab-article"
-                  aria-selected={activeTab === 'article'}
-                  aria-controls="wiki-read-panel-article"
-                  className={activeTab === 'article' ? 'is-active' : ''}
-                  onClick={() => setActiveTab('article')}
-                >
-                  Article
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  id="wiki-read-tab-talk"
-                  aria-selected={activeTab === 'talk'}
-                  aria-controls="wiki-read-panel-talk"
-                  className={activeTab === 'talk' ? 'is-active' : ''}
-                  onClick={() => setActiveTab('talk')}
-                >
-                  Talk
-                  {discussionCount ? <span>{discussionCount}</span> : null}
-                </button>
-              </div> : null}
-              {standardWikiPage ? <nav className="wiki-read__continuation-actions wiki-read__continuation-actions--standard" aria-label="Continue this page">
-                {openSentenceEnabled && !previewMode ? <ReadFresh {...reading} /> : null}
-                {(readingPage?.sourceRefs || page.sourceRefs || []).length ? (
-                  <button type="button" onClick={handleOpenSourcesPanel}>Sources</button>
-                ) : null}
+            {weekendReadingsPage ? null : (
+              <nav className="wiki-read__actions" aria-label="Page actions">
+                {typeof onEdit === 'function' ? <button type="button" onClick={onEdit}>Edit</button> : null}
                 <button type="button" onClick={handleOpenHistoryPanel}>History</button>
-                <button type="button" onClick={handleOpenThoughtPanel}>Take this further</button>
-                {continuationBasis ? (
-                  <button
-                    type="button"
-                    disabled={continuationState.busy}
-                    onClick={handleContinueInThink}
-                  >
-                    {continuationState.busy ? 'Opening Think…' : 'Continue in Think'}
-                  </button>
-                ) : (
-                  <Link to="/think?tab=home">Open Think</Link>
-                )}
-                {typeof onEdit === 'function' ? <button type="button" onClick={onEdit}>Edit article</button> : null}
-              </nav> : null}
-            </div>
+                <button type="button" aria-expanded={shareOpen} onClick={() => setShareOpen(open => !open)}>Share</button>
+              </nav>
+            )}
+            {shareOpen ? shareCard : null}
+            {disagreements.map(item => (
+              <PageDisagreement key={`${item.pageId}:${item.claimId}`} item={item} pageId={pageId} />
+            ))}
           </header>
           {standardWikiPage && mobileStandardReader && tocItems.length ? (
             <aside className="wiki-read__toc wiki-read__toc--mobile">
@@ -3581,12 +3116,7 @@ const WikiPageReadView = ({
               pageTitle={displayWikiPageTitle(page, 'Wiki page')}
             />
           ) : null}
-          {!showPageTalk || activeTab === 'article' ? (
-            <section
-              id="wiki-read-panel-article"
-              role="tabpanel"
-              aria-labelledby="wiki-read-tab-article"
-            >
+          <section id="wiki-read-panel-article">
               <section className="wiki-read__article-panel">
               {fromWikiPageId ? (
                 <div className="wiki-read__return-thread">
@@ -3594,15 +3124,22 @@ const WikiPageReadView = ({
                   <Link to={wikiReadPath(fromWikiPageId)}>Return to {location.state?.fromWikiTitle || 'the previous page'}</Link>
                 </div>
               ) : null}
-              {awaitingCandidate && previewMode !== 'candidate' ? (
-                <div className="wiki-read__acceptance-receipt">
-                  <span>A proposed revision is waiting. It is not the current page.</span>
-                  <button type="button" onClick={() => openCandidatePreview()}>Read the proposal</button>
+              {awaitingCandidate && !proposalDeferred && !investmentDossierPage && !staleCandidate ? (
+                <div className="wiki-read__proposal" role="status">
+                  <button type="button" className="wiki-read__proposal-sentence" onClick={() => openCandidatePreview()} disabled={!candidatePayload?.candidate}>
+                    {proposalSentence({ page, candidate: candidatePayload?.candidate })}
+                  </button>
+                  <span className="wiki-read__proposal-actions">
+                    <button type="button" onClick={handleAcceptCandidate} disabled={Boolean(acceptBusy) || !candidatePayload}>
+                      {acceptBusy === 'accept' ? 'Accepting…' : 'Accept'}
+                    </button>
+                    <button type="button" onClick={() => { handleNotNow(); setProposalDeferred(true); }}>Not now</button>
+                  </span>
                 </div>
               ) : null}
               {previewMode === 'candidate' ? (
                 <div className="wiki-read__preview-strip">
-                  <span>Proposed wording · not accepted. This is not the current page.</span>
+                  <span>You are reading the proposed change. The page itself is unchanged.</span>
                   <button type="button" onClick={exitIsolatedPreview}>Return to the current page</button>
                 </div>
               ) : null}
@@ -3630,7 +3167,6 @@ const WikiPageReadView = ({
                 ) : (
                   <WikiOpenSentenceProvider
                     enabled={openSentenceEnabled && !previewMode}
-                    readFresh={reading.readFresh}
                     page={page}
                     pageId={pageId}
                     revisions={revisions}
@@ -3728,85 +3264,7 @@ const WikiPageReadView = ({
                 <details className="wiki-read__article-tools" open={persistedCandidateRejection || undefined}>
                   <summary>Page tools</summary>
                   <div className="wiki-read__article-tools-panel">
-                    <section
-                      className={`wiki-read__article-tool wiki-read__maintenance-receipt is-${maintenanceDisplayState}`}
-                      aria-label="Wiki maintenance receipt"
-                      data-maintenance-state={maintenanceDisplayState}
-                    >
-                      <div>
-                        <p className="wiki-read__article-tool-label">Page maintenance</p>
-                        <h2>
-                          {maintenanceActive
-                            ? 'Checking this page against your corpus'
-                            : maintenanceReceipt?.status === 'settled'
-                              ? 'Page maintenance settled'
-                              : maintenanceReceipt?.status === 'research' || persistedCandidateRejection
-                                ? trustedArticleAvailable
-                                  ? 'Latest proposed update was not applied'
-                                  : 'No article was published'
-                              : maintenanceDisplayState === 'failed'
-                                ? 'Maintenance needs a retry'
-                                : 'Available when you want it'}
-                        </h2>
-                        <p>
-                          {maintenanceReceipt?.status === 'research'
-                            ? maintenanceReceipt.summary
-                            : persistedCandidateRejection
-                              ? trustedArticleAvailable
-                                ? `You are reading the last trusted article. A newer proposed update was not applied because ${page.aiState.lastCandidateSummary}`
-                                : `The proposed draft was rejected before it could become a trusted article because ${page.aiState.lastCandidateSummary}`
-                            : maintenanceReceipt
-                            ? `${maintenanceReceipt.sourceCount} sources · ${maintenanceReceipt.claimCount} claims · ${maintenanceReceipt.issueCount} issues`
-                            : 'Check sources and claims without interrupting the article.'}
-                        </p>
-                        {/* Owned-source utilization is build diagnostics. It
-                            belongs in Page tools, never in the article. */}
-                        {maintenanceReceipt?.ownedSourceSummary ? (
-                          <p className="wiki-read__maintenance-utilization">
-                            {maintenanceReceipt.ownedSourceSummary}
-                            {maintenanceReceipt.excludedOwnedSources?.length ? (
-                              <>
-                                {' '}Set aside: {maintenanceReceipt.excludedOwnedSources
-                                  .map(source => `${source.title} — ${source.reason}`)
-                                  .join('; ')}
-                              </>
-                            ) : null}
-                          </p>
-                        ) : null}
-                      </div>
-                      <AgentTicker
-                        label="Wiki maintenance trace"
-                        className="wiki-read__maintenance-ticker"
-                        state={maintenanceActive ? 'working' : 'idle'}
-                        lines={maintenanceTraceLines.length
-                          ? maintenanceTraceLines
-                          : maintenanceActive
-                            ? ['drafting page body', 'updating infobox and claims']
-                            : ['maintenance idle', 'ready to review sources']}
-                        sharedMemory
-                        surface={page?.title || 'Wiki page'}
-                      />
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        onClick={handleMaintain}
-                        disabled={maintenanceActive || rejectedSourcesUnchanged}
-                      >
-                        {maintenanceActive
-                          ? 'Running...'
-                          : rejectedSourcesUnchanged
-                            ? 'Sources unchanged'
-                          : maintenanceReceipt?.status === 'research' || persistedCandidateRejection
-                            ? 'Try a new update'
-                            : 'Run again'}
-                      </Button>
-                      {rejectedSourcesUnchanged ? (
-                        <p className="wiki-read__article-tool-note">
-                          Attach or replace a source before trying another update.
-                        </p>
-                      ) : null}
-                    </section>
-                    {shareCard}
+                    {rereadSources}
                     <details
                       className="wiki-read__page-status wiki-read__stage5-decisions"
                       open={Boolean(focusedDecisionId)}
@@ -3891,30 +3349,8 @@ const WikiPageReadView = ({
                   </div>
                 </details>
               ) : null}
-              {showMentionedInFooter ? <WikiMentionedInFooter pageId={pageId} pageTitle={page.title} /> : null}
+              <WikiMentionedInFooter pageId={pageId} pageTitle={page.title} />
             </section>
-          ) : (
-            <section
-              id="wiki-read-panel-talk"
-              role="tabpanel"
-              aria-labelledby="wiki-read-tab-talk"
-              className="wiki-read__talk"
-            >
-              <Suspense fallback={null}>
-                <WikiDiscussions
-                  discussions={page.discussions || []}
-                  onPromote={handlePromoteDiscussion}
-                  promotingId={promotingDiscussionId}
-                />
-                {asking && streamingAskText ? (
-                  <aside className="wiki-read__streaming-answer" aria-live="polite" aria-label="Streaming answer">
-                    <span>{streamingAskText}</span>
-                  </aside>
-                ) : null}
-                <WikiAskComposer onAsk={handleAsk} busy={asking} />
-              </Suspense>
-            </section>
-          )}
         </article>
         <aside
           className={`wiki-read__rail${railHidden ? ' wiki-read__rail--collapsed' : ''}`}
@@ -3967,20 +3403,15 @@ const WikiPageReadView = ({
                     preview={previewMode === 'candidate'}
                     surroundingOpen={surroundingOpen}
                     privateReason={privateReason}
-                    thought={privateThought}
                     onClose={closeContextPanels}
                     onBack={handleContextBack}
-                    onOpenSource={handleOpenSourceFromList}
                     onToggleSurround={() => setSurroundingOpen(open => !open)}
-                    onPreview={() => openCandidatePreview()}
                     onAccept={handleAcceptCandidate}
                     onKeepCurrent={handleKeepCurrent}
                     onNotNow={handleNotNow}
                     onOpenHistoryRevision={handleOpenHistoryRevision}
                     onSeenChanges={handleMarkReviewed}
                     onPrivateReasonChange={handlePrivateReasonChange}
-                    onThoughtChange={handleThoughtChange}
-                    onContinueInThink={continuationBasis ? handleContinueInThink : () => navigate('/think?tab=home')}
                     onFollowPage={handleFollowLinkedPage}
                     onCopyReference={handleCopyReference}
                     onShowInPage={handleShowChangedInPage}
@@ -4011,19 +3442,7 @@ const WikiPageReadView = ({
                 <details className="wiki-read__rail-details">
                   <summary>Page details</summary>
                   <div className="wiki-read__rail-details-panel">
-                    {showUtilityRail && !bodyHasWikiLinks ? (
-                      <WikiAutolinkSuggestions pageId={pageId} pageTitle={page.title} />
-                    ) : null}
                     <WikiConnectionTraces pageId={pageId} />
-                    {showUtilityRail ? <section className="wiki-read__infobox wiki-read__claim-health">
-                      <h2>Claim health</h2>
-                      <ul>
-                        <li>{healthCounts.supported} supported</li>
-                        <li>{healthCounts.partial} partial</li>
-                        <li>{healthCounts.unsupported} unsupported</li>
-                        <li>{healthCounts.conflicted} conflicted</li>
-                      </ul>
-                    </section> : null}
                     {retiredClaims.length || restoreClaimStatus ? (
                       <section className="wiki-read__infobox wiki-read__retired-claims">
                         <h2>Retired claims</h2>
@@ -4049,36 +3468,6 @@ const WikiPageReadView = ({
                     ) : null}
                   </div>
                 </details>
-                {showUtilityRail && (page.sourceRefs || []).length ? (
-                  <section className="wiki-read__infobox wiki-read__source-list">
-                    <h2>Sources</h2>
-                    <ol>
-                      {(page.sourceRefs || []).slice(0, 8).map((source, index) => {
-                        const excerpt = sourceExcerpt(source);
-                        const counts = sourceEvidenceCounts({
-                          source,
-                          claims: page.claims || [],
-                          citations: page.citations || []
-                        });
-                        const countLabel = formatSourceCounts(counts);
-                        const isLong = excerpt.length > 180;
-                        return (
-                          <li key={source._id || source.id || `${source.title}-${index}`}>
-                            <span>{source.title || 'Untitled source'}</span>
-                            {excerpt ? <p>{conciseText(excerpt)}</p> : null}
-                            {countLabel ? <small>{countLabel}</small> : null}
-                            {isLong ? (
-                              <details>
-                                <summary>More</summary>
-                                <p>{excerpt}</p>
-                              </details>
-                            ) : null}
-                          </li>
-                        );
-                      })}
-                    </ol>
-                  </section>
-                ) : null}
                 </>
                 ) : null}
               </Suspense>

@@ -9563,44 +9563,6 @@ body.noeis-editorial .wiki-read__left-rail > .right-drawer > .right-drawer__pane
   background: transparent !important;
 }
 
-body.noeis-editorial .wiki-read__maintenance-disclosure {
-  width: min(100%, 1180px);
-  margin: 0 auto 24px;
-}
-
-body.noeis-editorial .wiki-read__maintenance-disclosure > .wiki-read__maintenance-receipt {
-  margin: 0;
-  border-top: 0;
-}
-
-body.noeis-editorial .wiki-read__continuation-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 18px;
-  margin: 18px 0 4px;
-  font-family: var(--noeis-ui-font);
-  font-size: 0.75rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-body.noeis-editorial .wiki-read__continuation-actions a,
-body.noeis-editorial .wiki-read__continuation-actions button {
-  min-height: 44px;
-  display: inline-flex;
-  align-items: center;
-  padding: 0;
-  border: 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--vellum-accent) 42%, transparent);
-  background: transparent;
-  color: var(--vellum-ink);
-  font: inherit;
-  letter-spacing: inherit;
-  text-decoration: none;
-  text-transform: inherit;
-  cursor: pointer;
-}
-
 body.noeis-editorial .wiki-read__dossier-review {
   margin: 26px 0;
 }
@@ -9622,10 +9584,6 @@ body.noeis-editorial .wiki-read--standard .wiki-read__header {
   gap: 10px;
   padding-bottom: 0;
   border-bottom: 0;
-}
-
-body.noeis-editorial .wiki-read--standard .wiki-read__continuation-actions {
-  margin-top: 8px;
 }
 
 /* Ordinary Wiki pages are reference articles, not dossiers or magazine
@@ -9659,68 +9617,6 @@ body.noeis-editorial .wiki-read--standard .wiki-read__header h1 {
   font-weight: 480;
   letter-spacing: -0.035em;
   line-height: 1.02;
-}
-
-body.noeis-editorial .wiki-read--standard .wiki-read__standard-facts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 18px;
-  margin: 2px 0 4px;
-  color: var(--vellum-subtle);
-  font-family: var(--noeis-ui-font);
-  font-size: 0.69rem;
-  font-weight: 650;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
-}
-
-body.noeis-editorial .wiki-read--standard .wiki-read__standard-facts span + span {
-  position: relative;
-}
-
-body.noeis-editorial .wiki-read--standard .wiki-read__standard-facts span + span::before {
-  content: '·';
-  position: absolute;
-  left: -11px;
-  color: color-mix(in srgb, var(--vellum-subtle) 72%, transparent);
-}
-
-body.noeis-editorial .wiki-read--standard .wiki-read__viewbar {
-  min-height: 46px;
-  align-items: center;
-  margin-top: 8px;
-  border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 52%, transparent);
-  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule) 76%, transparent);
-}
-
-body.noeis-editorial .wiki-read--standard .wiki-read__tabs button {
-  min-height: 45px;
-  padding: 8px 12px;
-  border: 0;
-  border-bottom: 2px solid transparent;
-  border-radius: 0;
-  background: transparent;
-  font-size: 0.78rem;
-  font-weight: 650;
-}
-
-body.noeis-editorial .wiki-read--standard .wiki-read__tabs button.is-active {
-  border-bottom-color: var(--vellum-accent);
-  background: transparent;
-}
-
-body.noeis-editorial .wiki-read--standard .wiki-read__continuation-actions--standard {
-  margin: 0;
-  gap: 18px;
-  padding-right: 2px;
-  font-size: 0.68rem;
-}
-
-body.noeis-editorial .wiki-read--standard .wiki-read__continuation-actions--standard a,
-body.noeis-editorial .wiki-read--standard .wiki-read__continuation-actions--standard button {
-  min-height: 42px;
-  border-bottom: 0;
-  color: var(--vellum-subtle);
 }
 
 body.noeis-editorial .wiki-read--standard .wiki-read__body {
@@ -9994,17 +9890,6 @@ body.noeis-editorial .wiki-read--standard .wiki-read__toc--mobile {
 
   body.noeis-editorial .wiki-read--standard .wiki-read__header h1 {
     font-size: clamp(2.15rem, 11vw, 3rem);
-  }
-
-  body.noeis-editorial .wiki-read--standard .wiki-read__viewbar {
-    align-items: stretch;
-  }
-
-  body.noeis-editorial .wiki-read--standard .wiki-read__continuation-actions--standard {
-    width: 100%;
-    justify-content: flex-start;
-    gap: 16px;
-    padding: 0 0 4px;
   }
 
   body.noeis-editorial .wiki-read--standard .wiki-read__body {

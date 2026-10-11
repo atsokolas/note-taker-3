@@ -329,7 +329,7 @@ describe('WikiWorkspace', () => {
     expect(embeddedAgent).toHaveAttribute('data-agent-presentation', 'embedded');
     expect(embeddedAgent.getAttribute('data-agent-actions')).toContain('maintain');
     expect(embeddedAgent).toHaveAttribute('data-agent-proposal-policy', 'human_acceptance');
-    await waitFor(() => expect(screen.getByLabelText('Thought partner status')).toHaveTextContent('Agent ready.'));
+    await waitFor(() => expect(screen.getByLabelText('Thought partner status')).toHaveTextContent('Thought partner is here.'));
     expect(screen.queryByLabelText('Thought partner trace')).not.toBeInTheDocument();
     expect(screen.getByTestId('wiki-index')).toBeInTheDocument();
     expect(document.querySelector('.wiki-workspace')).toHaveStyle('--wiki-workspace-chat-width: 260px');
@@ -694,7 +694,7 @@ describe('WikiWorkspace', () => {
       });
       await settleWorkspaceEffects();
 
-      expect(screen.getByRole('status', { name: 'Thought partner status' })).toHaveTextContent(/ready/i);
+      expect(screen.getByRole('status', { name: 'Thought partner status' })).toHaveTextContent(/is here/i);
     } finally {
       jest.useRealTimers();
     }
@@ -720,7 +720,7 @@ describe('WikiWorkspace', () => {
     await settleWorkspaceEffects();
 
     const status = await screen.findByRole('status', { name: 'Thought partner status' });
-    expect(status).toHaveTextContent('1 review item for Investing.');
+    expect(status).toHaveTextContent('1 proposed change for Investing.');
     expect(status).toHaveAttribute('data-status', 'ready');
   });
 
@@ -1318,11 +1318,11 @@ describe('WikiWorkspace', () => {
     renderWorkspace('/wiki/workspace?page=wiki-new&build=1', { systemStatusControls });
     await settleWorkspaceEffects();
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('The maintenance stream for wiki-new timed out.');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Rereading wiki-new took too long. Try again.');
     expect(await screen.findByRole('status', { name: 'Thought partner status' })).not.toHaveAttribute('data-status', 'working');
     expect(systemStatusControls.setRecoverableFailure).toHaveBeenCalledWith(expect.objectContaining({
       stage: 'Wiki build',
-      message: 'The maintenance stream for wiki-new timed out.',
+      message: 'Rereading wiki-new took too long. Try again.',
       retryable: true,
       retry: expect.any(Function)
     }));
@@ -1435,7 +1435,7 @@ describe('WikiWorkspace', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
 
     expect(await screen.findByText('First chunk.')).toBeInTheDocument();
-    const receipts = await screen.findByLabelText('Agent activity');
+    const receipts = await screen.findByLabelText('What happened');
     expect(receipts).toHaveTextContent('Read the selected wiki page.');
     expect(receipts.querySelectorAll('li')).toHaveLength(1);
     expect(receipts.querySelector('.wiki-workspace-chat__receipt-icon')).toBeInTheDocument();

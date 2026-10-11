@@ -1,6 +1,8 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { wikiReadPath } from '../../utils/wikiPaths';
+import { wikiReadPath } from '../../utils/wikiFeatureFlags';
+import { resolveSourceDoors } from '../../utils/sourceRoutes';
+import { AGENT_DISPLAY_NAME } from '../../constants/agentIdentity';
 import { displayWikiPageTitle } from './wikiRepoDossierModel';
 import { candidateFootprint, historicalRevisionSnapshot } from './wikiReaderContextModel';
 import { wikiRevisionLabel } from './wikiCopyReference';
@@ -35,20 +37,15 @@ const WikiReaderContext = ({
   preview = false,
   surroundingOpen = false,
   privateReason = '',
-  thought = '',
   onClose,
   onBack,
-  onOpenSource,
   onToggleSurround,
-  onPreview,
   onAccept,
   onKeepCurrent,
   onNotNow,
   onOpenHistoryRevision,
   onSeenChanges,
   onPrivateReasonChange,
-  onThoughtChange,
-  onContinueInThink,
   onFollowPage,
   onCopyReference,
   onShowInPage,
@@ -60,7 +57,6 @@ const WikiReaderContext = ({
   const backLabel = {
     review: 'the proposed revision',
     evidence: 'this sentence',
-    sources: 'the source list',
     history: 'page history',
     related: 'the connected idea',
     since: 'the change'
@@ -69,9 +65,11 @@ const WikiReaderContext = ({
   if (panel.type === 'source') {
     const source = panel.source || {};
     const surround = panel.surround || {};
+    const { openHref, isLibrary } = resolveSourceDoors(source);
+    const passage = surround.excerpt ? <Quote>{surround.excerpt}</Quote> : null;
     return (
       <div className="wiki-reader-context">
-        <PanelHeader label="The source, in context" onClose={onClose} onBack={onBack} backLabel={backLabel} />
+        <PanelHeader label="The source, in context" onClose={onClose} onBack={panel.returnTo ? onBack : undefined} backLabel={backLabel} />
         <p className="wiki-reader-context__meta">
           {clean(source.kind || source.type || 'Source')}
           {source.date || source.createdAt ? ` · ${new Date(source.date || source.createdAt).toLocaleDateString()}` : ''}
@@ -91,7 +89,16 @@ const WikiReaderContext = ({
             {surround.aroundBefore}
           </p>
         ) : null}
-        {surround.excerpt ? <Quote>{surround.excerpt}</Quote> : <p>Source text unavailable. No replacement excerpt has been invented.</p>}
+        {passage && openHref ? (
+          isLibrary
+            ? <Link className="wiki-reader-context__passage" to={openHref} title="Open where these words came from">{passage}</Link>
+            : <a className="wiki-reader-context__passage" href={openHref} target="_blank" rel="noopener noreferrer" title="Open where these words came from">{passage}</a>
+        ) : passage || <p>The passage was not kept. Nothing has been put in its place.</p>}
+        {openHref ? (
+          isLibrary
+            ? <Link className="wiki-reader-context__text" to={openHref}>Open it where you read it →</Link>
+            : <a className="wiki-reader-context__text" href={openHref} target="_blank" rel="noopener noreferrer">Open the original →</a>
+        ) : null}
         {surroundingOpen && surround.aroundAfter ? (
           <p className="wiki-reader-context__neighbor">
             <span className="wiki-reader-context__kicker">After this passage</span>
@@ -124,38 +131,14 @@ const WikiReaderContext = ({
     );
   }
 
-  if (panel.type === 'sources') {
-    const sources = Array.isArray(page?.sourceRefs) ? page.sourceRefs : [];
-    return (
-      <div className="wiki-reader-context">
-        <PanelHeader label="Sources" onClose={onClose} onBack={onBack} backLabel={backLabel} />
-        <h2>Behind this page</h2>
-        <p className="wiki-reader-context__quiet">
-          References in {wikiRevisionLabel({ page, revisionId: panel.revisionId, historical: panel.historical })}.
-          {preview ? ' Proposed sources are not silently added here.' : ''}
-        </p>
-        {sources.length ? sources.map((source, index) => (
-          <button
-            key={source._id || source.id || `${source.title}-${index}`}
-            type="button"
-            className="wiki-reader-context__link"
-            onClick={() => onOpenSource?.(source, index + 1)}
-          >
-            {source.title || 'Untitled source'}
-          </button>
-        )) : <p>No sources are attached to this page. That is not a claim that the page is verified.</p>}
-      </div>
-    );
-  }
-
   if (panel.type === 'review') {
     const currentText = clean(panel.currentText);
     const proposedText = clean(panel.proposedText);
     const footprint = candidateFootprint({ current: page, candidate });
     return (
       <div className="wiki-reader-context">
-        <PanelHeader label="Proposed revision" onClose={onClose} />
-        <h2>{clean(panel.title) || 'A proposed revision, not yet the page.'}</h2>
+        <PanelHeader label="Proposed change" onClose={onClose} />
+        <h2>{clean(panel.title) || `${AGENT_DISPLAY_NAME} proposes a change.`}</h2>
         {clean(panel.reason) ? <p>{panel.reason}</p> : null}
         <div className="wiki-reader-context__footprint">
           <span className="wiki-reader-context__kicker">The whole change</span>
@@ -183,16 +166,13 @@ const WikiReaderContext = ({
           </p>
         ) : (
           <div className="wiki-reader-context__actions">
-            <button type="button" onClick={onPreview}>
-              {preview ? 'Back to current version' : 'Read it in the page'}
-            </button>
             <button type="button" className="wiki-reader-context__primary" onClick={onAccept} disabled={Boolean(acceptBusy)}>
-              {acceptBusy === 'accept' ? 'Accepting…' : 'Accept revision'}
-            </button>
-            <button type="button" onClick={onKeepCurrent} disabled={Boolean(acceptBusy)}>
-              Keep current version
+              {acceptBusy === 'accept' ? 'Accepting…' : 'Accept'}
             </button>
             <button type="button" onClick={onNotNow}>Not now</button>
+            <button type="button" className="wiki-reader-context__text" onClick={onKeepCurrent} disabled={Boolean(acceptBusy)}>
+              Keep the page as it is
+            </button>
           </div>
         )}
         {acceptError ? <p className="wiki-reader-context__error" role="alert">{acceptError}</p> : null}
@@ -206,7 +186,6 @@ const WikiReaderContext = ({
       <div className="wiki-reader-context">
         <PanelHeader label="Page history" onClose={onClose} />
         <h2>How the page changed</h2>
-        <p className="wiki-reader-context__quiet">Recorded versions and reasons — not a claim about what you privately believed.</p>
         {events.length ? events.map((revision) => {
           const snapshot = historicalRevisionSnapshot(revision);
           const available = Boolean(snapshot);
@@ -219,13 +198,16 @@ const WikiReaderContext = ({
                   historical: true
                 })}
               </span>
-              <p>{clean(revision.reason || revision.summary?.reason || revision.summary) || 'No reason recorded.'}</p>
+              <p>{clean(revision.sentence) || 'The page changed.'}</p>
+              {revision.changeSource?.title ? (
+                <p className="wiki-reader-context__quiet">When you saved {revision.changeSource.title}.</p>
+              ) : null}
               {available ? (
                 <button type="button" className="wiki-reader-context__text" onClick={() => onOpenHistoryRevision?.(revision)}>
                   Read this version
                 </button>
               ) : (
-                <p className="wiki-reader-context__quiet">No retained snapshot. Earlier words have not been reconstructed.</p>
+                <p className="wiki-reader-context__quiet">The words of this version were not kept.</p>
               )}
             </div>
           );
@@ -253,31 +235,6 @@ const WikiReaderContext = ({
           ) : null}
           <button type="button" onClick={onClose}>Stay here</button>
         </div>
-      </div>
-    );
-  }
-
-  if (panel.type === 'thought') {
-    return (
-      <div className="wiki-reader-context">
-        <PanelHeader label="Take it further" onClose={onClose} />
-        <h2>Keep the question open.</h2>
-        <p className="wiki-reader-context__meta">
-          From {displayWikiPageTitle(page, 'this page')} · {wikiRevisionLabel({ page, revisionId: panel.revisionId, historical: panel.historical })}
-        </p>
-        {panel.text ? <Quote>{panel.text}</Quote> : null}
-        <label className="wiki-reader-context__kicker" htmlFor="wiki-private-thought">Your thought · private</label>
-        <textarea
-          id="wiki-private-thought"
-          className="wiki-reader-context__field"
-          value={thought}
-          onChange={(event) => onThoughtChange?.(event.target.value)}
-          placeholder="What does this make you question?"
-        />
-        <p className="wiki-reader-context__quiet">Saved privately on this device. Not part of the Wiki page.</p>
-        <button type="button" className="wiki-reader-context__primary" onClick={onContinueInThink}>
-          Take this into Think
-        </button>
       </div>
     );
   }

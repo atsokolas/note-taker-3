@@ -351,88 +351,95 @@
   font-style: italic;
   font-weight: inherit;
 }
+/* Under the title: grown from, then the three page actions. */
+.wiki-read__grown {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+}
+.wiki-read__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+}
+.wiki-read__actions button {
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.wiki-read__actions button:hover,
+.wiki-read__actions button[aria-expanded='true'] {
+  color: var(--text-primary);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.wiki-read__disagrees,
+.wiki-read__reread p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.55;
+}
+.wiki-read__disagrees a {
+  color: inherit;
+  text-underline-offset: 3px;
+}
+.wiki-read__proposal {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  align-items: baseline;
+  padding: 12px 0;
+  border-top: 1px solid var(--noeis-rule, #dcded3);
+  border-bottom: 1px solid var(--noeis-rule, #dcded3);
+}
+.wiki-read__proposal button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-secondary);
+  font: inherit;
+  cursor: pointer;
+}
+.wiki-read__proposal .wiki-read__proposal-sentence {
+  color: var(--text-primary);
+  text-align: left;
+}
+.wiki-read__proposal-actions {
+  display: inline-flex;
+  gap: 14px;
+}
+.wiki-read__proposal-actions button:first-child {
+  color: var(--accent-primary, #b1862e);
+}
+.wiki-read__reread {
+  display: grid;
+  gap: 10px;
+  padding: 14px 0;
+}
+.wiki-read__reread-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.open-sentence__held.is-clickable {
+  cursor: pointer;
+}
 .wiki-read__facts {
   display: flex;
   flex-wrap: wrap;
   gap: 8px 14px;
   font-size: 0.9rem;
 }
-.wiki-read__viewbar {
-  display: flex;
-  gap: 12px;
-  align-items: end;
-  justify-content: space-between;
-  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule) 76%, transparent);
-}
-.wiki-read__tabs {
-  display: flex;
-  align-items: flex-end;
-  border-bottom: 0;
-}
-.wiki-read__tabs button {
-  min-height: 44px;
-  min-width: 44px;
-  margin: 0 0 -1px;
-  padding: 8px 14px;
-  border: 1px solid transparent;
-  border-bottom-color: color-mix(in srgb, var(--noeis-rule) 76%, transparent);
-  border-radius: 6px 6px 0 0;
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: pointer;
-  font: inherit;
-  font-size: 0.9rem;
-  font-weight: 700;
-}
-.wiki-read__tabs button.is-active {
-  border-color: color-mix(in srgb, var(--noeis-rule) 76%, transparent);
-  border-bottom-color: var(--surface);
-  background: var(--surface);
-  color: var(--text-primary);
-}
-.wiki-read__share-compact {
-  display: flex;
-  min-width: 0;
-  max-width: min(100%, 540px);
-  gap: 8px;
-  align-items: center;
-  justify-content: flex-end;
-  padding-bottom: 8px;
-  font-size: 0.78rem;
-}
-.wiki-read__share-compact-copy {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.wiki-read__share-compact--maintenance {
-  max-width: none;
-  justify-content: flex-end;
-  padding-bottom: 0;
-}
+
 .wiki-read__body,
 .wiki-read__references {
   font-family: Georgia, "Times New Roman", serif;
-}
-
-@media (max-width: 860px) {
-  .wiki-read__viewbar,
-  .wiki-read__share-compact {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-  .wiki-read__share-compact {
-    max-width: 100%;
-    padding-bottom: 12px;
-  }
-  .wiki-read__share-compact--maintenance {
-    justify-content: flex-start;
-    padding-bottom: 0;
-  }
-  .wiki-read__share-compact-copy {
-    white-space: normal;
-  }
 }
 .wiki-read__body {
   max-width: 68ch;
@@ -662,7 +669,6 @@
 .wiki-numeric-value,
 .wiki-read__infobox dd,
 .wiki-read__facts,
-.wiki-read__exports span,
 .wiki-read__reference-index,
 .wiki-read__reference-backlink,
 .wiki-claim-citation,

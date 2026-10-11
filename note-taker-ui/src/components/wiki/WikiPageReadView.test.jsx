@@ -7,21 +7,18 @@ import { SystemStatusProvider } from '../../system/SystemStatusContext';
 import {
   approveWeekendReadingsRevision,
   archiveWikiPage,
-  askWikiPage,
   createWikiPage,
   getWikiAutolinkSuggestions,
   getWikiBacklinks,
   getWikiPage,
-  getWikiPageMarkdown,
   getWikiRepoComparison,
   getWeekendReadingsStatus,
+  listWikiContradictions,
   listWikiRevisions,
   listWikiPages,
   maintainWikiPage,
-  promoteWikiDiscussion,
   publishWeekendReadingsRevision,
   requestWeekendReadingsReview,
-  streamAskWikiPage,
   streamMaintainWikiPage,
   trackCompanyDossierInJudgment,
   updateWikiPage,
@@ -29,7 +26,6 @@ import {
   getWikiFirstHeadCandidate,
   reviewWikiFirstHeadCandidate
 } from '../../api/wiki';
-import { startKnowledgeMovementInvestigation } from '../../api/knowledgeMovements';
 import { getConnectionsForItem } from '../../api/connections';
 import { recordClaimCheckIn, recordWikiPageVisit } from '../../api/dailyLoop';
 import authoredExplorations from '../../api/authoredExplorations';
@@ -37,25 +33,29 @@ import api from '../../api';
 
 const mockUseNoeisSurface = jest.fn();
 
+/* Share sits behind the page's three actions: Edit · History · Share. */
+const openShare = () => {
+  const actions = screen.getByRole('navigation', { name: 'Page actions' });
+  fireEvent.click(within(actions).getByRole('button', { name: 'Share' }));
+  return screen.getByRole('region', { name: 'Share this wiki page' });
+};
+
 jest.mock('../../api/wiki', () => ({
   approveWeekendReadingsRevision: jest.fn(),
   archiveWikiPage: jest.fn(),
-  askWikiPage: jest.fn(),
   armGitHubRepoWatch: jest.fn(),
   createWikiPage: jest.fn(),
   getWikiAutolinkSuggestions: jest.fn(),
   getWikiBacklinks: jest.fn(),
   getWikiPage: jest.fn(),
-  getWikiPageMarkdown: jest.fn(),
   getWikiRepoComparison: jest.fn(),
   getWeekendReadingsStatus: jest.fn(),
+  listWikiContradictions: jest.fn(),
   listWikiRevisions: jest.fn(),
   listWikiPages: jest.fn(),
   maintainWikiPage: jest.fn(),
-  promoteWikiDiscussion: jest.fn(),
   publishWeekendReadingsRevision: jest.fn(),
   requestWeekendReadingsReview: jest.fn(),
-  streamAskWikiPage: jest.fn(),
   streamMaintainWikiPage: jest.fn(),
   trackCompanyDossierInJudgment: jest.fn(),
   updateWikiPage: jest.fn(),
@@ -69,10 +69,6 @@ jest.mock('../../api', () => ({
   default: {
     get: jest.fn()
   }
-}));
-
-jest.mock('../../api/knowledgeMovements', () => ({
-  startKnowledgeMovementInvestigation: jest.fn()
 }));
 
 jest.mock('../../api/connections', () => ({
@@ -222,6 +218,7 @@ describe('WikiPageReadView', () => {
     getWikiPage.mockResolvedValue(page);
     getWikiRepoComparison.mockRejectedValue(new Error('not configured'));
     listWikiRevisions.mockResolvedValue([]);
+    listWikiContradictions.mockResolvedValue([]);
     getWeekendReadingsStatus.mockResolvedValue({ approvalState: { code: 'private_draft', label: 'Private draft — not public' } });
     requestWeekendReadingsReview.mockResolvedValue({ approvalState: { code: 'review_requested', label: 'Review requested — still private' } });
     approveWeekendReadingsRevision.mockResolvedValue({ approvalState: { code: 'approved', label: 'Approved revision — not published' } });
@@ -256,11 +253,8 @@ describe('WikiPageReadView', () => {
     authoredExplorations.keep.mockResolvedValue({ exploration: null, artifact: null });
     authoredExplorations.discard.mockResolvedValue(undefined);
     maintainWikiPage.mockResolvedValue(page);
-    getWikiPageMarkdown.mockResolvedValue('---\ntitle: "Enterprise AI Memory"\n---\n\n## Core idea\n');
     getWikiFirstHeadCandidate.mockRejectedValue({ response: { status: 404 } });
     reviewWikiFirstHeadCandidate.mockResolvedValue({});
-    askWikiPage.mockResolvedValue(page);
-    streamAskWikiPage.mockResolvedValue(page);
     createWikiPage.mockResolvedValue({ _id: 'wiki-new', title: 'Portfolio Concentration' });
     streamMaintainWikiPage.mockResolvedValue({ _id: 'wiki-new', title: 'Portfolio Concentration' });
     trackCompanyDossierInJudgment.mockResolvedValue({
@@ -273,12 +267,6 @@ describe('WikiPageReadView', () => {
       receipt: { title: 'Tracking COST in Judgment.', summary: 'The company case is ready.' }
     });
     updateWikiPage.mockResolvedValue({ ...page, visibility: 'shared' });
-    startKnowledgeMovementInvestigation.mockResolvedValue({
-      concept: {
-        id: '64f000000000000000000099',
-        href: '/think?tab=concepts&conceptId=64f000000000000000000099'
-      }
-    });
     window.HTMLElement.prototype.scrollIntoView = jest.fn();
     window.matchMedia = jest.fn().mockReturnValue({ matches: false });
     window.localStorage.clear();
@@ -313,48 +301,6 @@ describe('WikiPageReadView', () => {
       projection: 'ordinary',
       mode: 'read'
     })));
-  });
-
-  it('offers exact Think continuation only from a structurally accepted revision', async () => {
-    const wikiPageId = '64f000000000000000000030';
-    const revisionId = '64f000000000000000000050';
-    listWikiRevisions.mockResolvedValueOnce([{
-      _id: revisionId,
-      promotionStatus: 'promoted',
-      after: { claims: [{ claimId: 'claim-1', text: 'Memory compounds with review.' }] },
-      claimReview: {
-        state: 'accepted',
-        targetClaimId: 'claim-1',
-        events: [{ action: 'accept', receiptId: 'receipt-1' }]
-      }
-    }]);
-
-    renderReadView({ pageId: wikiPageId });
-
-    const continueButton = await screen.findByRole('button', { name: 'Continue in Think' });
-    fireEvent.click(continueButton);
-
-    await waitFor(() => expect(startKnowledgeMovementInvestigation).toHaveBeenCalledWith({
-      wikiPageId,
-      revisionId,
-      claimId: 'claim-1'
-    }));
-  });
-
-  it('does not invent a Think continuation when no revision has explicit acceptance', async () => {
-    listWikiRevisions.mockResolvedValueOnce([{
-      _id: '64f000000000000000000051',
-      promotionStatus: 'promoted',
-      after: { claims: [{ claimId: 'claim-1', text: 'Unreviewed claim.' }] },
-      claimReview: { state: 'pending', events: [] }
-    }]);
-
-    renderReadView({ pageId: '64f000000000000000000031' });
-    await screen.findByRole('heading', { name: 'Enterprise AI Memory' });
-    await act(async () => {});
-
-    expect(screen.queryByRole('button', { name: 'Continue in Think' })).not.toBeInTheDocument();
-    expect(startKnowledgeMovementInvestigation).not.toHaveBeenCalled();
   });
 
   it('focuses the exact opaque claim requested by the workspace URL', async () => {
@@ -610,8 +556,6 @@ describe('WikiPageReadView', () => {
     expect(screen.getByRole('navigation', { name: 'Page sections' })).toHaveTextContent('Open questions');
     expect(screen.getByRole('link', { name: 'Core idea' })).toHaveClass('is-active');
     expect(screen.getByRole('link', { name: 'Compounding interest' })).toHaveAttribute('href', '/wiki/read/wiki-related');
-    expect(screen.getByRole('tab', { name: 'Article' })).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByRole('tab', { name: 'Talk' })).toBeInTheDocument();
     expect(screen.queryByText('Claim health')).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'References' })).toBeInTheDocument();
     expect(screen.getByText('Memory article')).toBeInTheDocument();
@@ -636,11 +580,10 @@ describe('WikiPageReadView', () => {
     );
 
     expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
-    const shareRegion = screen.getByRole('region', { name: 'Share this wiki page' });
+    const shareRegion = openShare();
     expect(shareRegion).toHaveTextContent('Private page');
-    expect(shareRegion).toHaveTextContent('Create a safe public page with the article and references only.');
-    expect(shareRegion).toHaveTextContent('backlinks, highlights, source notes, and agent work stay private');
-    expect(shareRegion).toHaveTextContent('private graph sealed');
+    expect(shareRegion).toHaveTextContent('Share this article and its references by link.');
+    expect(shareRegion).toHaveTextContent('highlights, notes, and links stay private');
 
     await act(async () => {
       fireEvent.click(within(shareRegion).getByRole('button', { name: 'Share' }));
@@ -648,7 +591,7 @@ describe('WikiPageReadView', () => {
 
     expect(updateWikiPage).toHaveBeenCalledWith('wiki-1', { visibility: 'shared' });
     expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/share/wiki/wiki-1`);
-    expect(await within(shareRegion).findByRole('status')).toHaveTextContent('Copied safe public link.');
+    expect(await within(shareRegion).findByRole('status')).toHaveTextContent('Link copied.');
     expect(within(shareRegion).getByRole('link', { name: 'Open public page' })).toHaveAttribute('href', `${window.location.origin}/share/wiki/wiki-1`);
   });
 
@@ -668,19 +611,17 @@ describe('WikiPageReadView', () => {
     );
 
     expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
-    const summaryLabel = screen.getByText('Page status');
+    const summaryLabel = screen.getByText('Filings');
     const summary = summaryLabel.closest('summary');
     const details = summary.closest('details');
 
-    expect(summary).toHaveTextContent('Private');
-    expect(summary).toHaveTextContent('SEC watch on');
+    expect(summary).toHaveTextContent('Watching SEC filings');
     expect(summary).not.toHaveTextContent('Transcript');
     expect(details).not.toHaveAttribute('open');
 
     fireEvent.click(summary);
 
     expect(details).toHaveAttribute('open');
-    expect(screen.getByRole('region', { name: 'Share this wiki page' })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'SEC EDGAR filing watch' })).toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'Earnings transcript watch' })).not.toBeInTheDocument();
   });
@@ -704,10 +645,9 @@ describe('WikiPageReadView', () => {
     );
 
     expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
-    const receipt = screen.getByRole('region', { name: 'Wiki maintenance receipt' });
-    expect(receipt).toHaveAttribute('data-maintenance-state', 'failed');
-    expect(within(receipt).getByRole('heading', { name: 'This dossier did not reach the evidence bar' })).toBeInTheDocument();
-    expect(receipt).not.toHaveTextContent('Ready for maintenance');
+    const reread = screen.getByRole('region', { name: 'Reread the sources' });
+    expect(reread).toHaveAttribute('data-state', 'research');
+    expect(reread).toHaveTextContent('The last proposed change was not applied');
   });
 
   it('shows incomplete dossier research as a truthful non-crash state', async () => {
@@ -760,10 +700,10 @@ describe('WikiPageReadView', () => {
     fireEvent.click(within(cover).getByRole('button', { name: 'Check for research updates' }));
 
     await waitFor(() => expect(systemStatusControls.setLatestReceipt).toHaveBeenCalledWith({
-      title: 'Dossier research is incomplete',
+      title: 'More reading is needed.',
       summary: `This dossier needs more evidence — ${liveMessage}`,
       status: 'needs_review',
-      href: '/wiki/workspace?page=wiki-1'
+      href: '/wiki/read/wiki-1'
     }));
     expect(systemStatusControls.setRecoverableFailure).not.toHaveBeenCalled();
     expect(await screen.findByRole('alert')).toHaveTextContent(liveMessage);
@@ -781,7 +721,7 @@ describe('WikiPageReadView', () => {
     );
 
     expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
-    const shareRegion = screen.getByRole('region', { name: 'Share this wiki page' });
+    const shareRegion = openShare();
     expect(shareRegion).toHaveTextContent('Public link ready');
     expect(within(shareRegion).getByRole('link', { name: 'Open public page' })).toHaveAttribute('href', `${window.location.origin}/share/wiki/wiki-1`);
 
@@ -813,11 +753,10 @@ describe('WikiPageReadView', () => {
     );
 
     expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
-    const shareRegion = screen.getByRole('region', { name: 'Share this wiki page' });
+    const shareRegion = openShare();
     expect(shareRegion).toHaveTextContent('Needs review before sharing');
     expect(shareRegion).toHaveTextContent('hidden from public sharing until the open reviews are fixed or archived');
     expect(shareRegion).toHaveTextContent('Page title matches a known malformed QA fixture.');
-    expect(shareRegion).toHaveTextContent('Public copy locked until review clears');
     expect(within(shareRegion).queryByRole('link', { name: 'Open public page' })).not.toBeInTheDocument();
     expect(within(shareRegion).getByRole('button', { name: 'Review first' })).toBeDisabled();
     expect(within(shareRegion).getByRole('link', { name: 'Open review queue' })).toHaveAttribute('href', '/wiki/workspace?view=list&quality=needs_review');
@@ -952,8 +891,7 @@ describe('WikiPageReadView', () => {
     expect(container.querySelector('.wiki-read__object-label')).not.toBeInTheDocument();
     expect(header.firstElementChild).toBe(title);
     expect(title.querySelector('em')).not.toBeInTheDocument();
-    expect(container.querySelector('.wiki-read__standard-facts')).toHaveTextContent('Overview');
-    expect(container.querySelector('.wiki-read__standard-facts')).toHaveTextContent('source');
+    expect(container.querySelector('.wiki-read__grown')).toHaveTextContent(/grown from \d+ sources?/);
     expect(container.querySelector('.wiki-read__toc')).toHaveTextContent('Contents');
 
     await flushDeferredWikiReadWork();
@@ -1056,15 +994,9 @@ describe('WikiPageReadView', () => {
     expect(title).toHaveClass('wiki-read__title');
     expect(title).toHaveAttribute('data-view-transition-name', 'wiki-read-title');
     const witness = screen.getByLabelText('Thought promoted to Wiki');
-    expect(witness).toHaveAttribute('data-register-transition', 'register');
-    expect(witness).toHaveAttribute('data-promotion-receipt', 'settled');
     expect(witness).toHaveAttribute('data-promoted-type', 'concept');
-    expect(witness).toHaveTextContent('Think -> Wiki');
-    expect(witness).toHaveTextContent('Concept registered as a sourced wiki page from Enterprise AI.');
-    expect(within(witness).getByLabelText('Promotion receipt')).toHaveTextContent('Draft captured');
-    expect(within(witness).getByLabelText('Promotion receipt')).toHaveTextContent('Graph edge written');
-    expect(within(witness).getByLabelText('Promotion receipt')).toHaveTextContent('Wiki register settled');
-    expect(within(witness).getByRole('link', { name: 'Return to source' })).toHaveAttribute('href', '/think?tab=concepts&concept=Enterprise+AI');
+    expect(witness).toHaveTextContent('Your concept is a wiki page now, grown from Enterprise AI.');
+    expect(within(witness).getByRole('link', { name: 'Back to where it began' })).toHaveAttribute('href', '/think?tab=concepts&concept=Enterprise+AI');
   });
 
   it('surfaces persisted graph traces in the page context rail', async () => {
@@ -1122,9 +1054,9 @@ describe('WikiPageReadView', () => {
 
     const traces = await screen.findByLabelText('Graph traces');
     expect(within(traces).getByRole('heading', { name: 'Related to' })).toBeInTheDocument();
-    expect(within(traces).getByRole('link', { name: /Compounding Interest/ })).toHaveAttribute('href', '/wiki/wiki-related');
+    expect(within(traces).getByRole('link', { name: /Compounding Interest/ })).toHaveAttribute('href', '/wiki/workspace?page=wiki-related');
     expect(within(traces).getByRole('heading', { name: 'Mentioned by' })).toBeInTheDocument();
-    expect(within(traces).getByRole('link', { name: /Research Taste/ })).toHaveAttribute('href', '/wiki/wiki-source-page');
+    expect(within(traces).getByRole('link', { name: /Research Taste/ })).toHaveAttribute('href', '/wiki/workspace?page=wiki-source-page');
     expect(within(traces).getByRole('heading', { name: 'Supported by' })).toBeInTheDocument();
     expect(within(traces).getByRole('link', { name: /Memory Systems Memo/ })).toHaveAttribute('href', '/library?articleId=article-1');
   });
@@ -1346,56 +1278,6 @@ describe('WikiPageReadView', () => {
     expect(screen.getByRole('link', { name: 'Build a page' })).toHaveAttribute('href', '/wiki');
   });
 
-  it('AT-46 — exposes copy and download markdown actions for a standalone page', async () => {
-    const writeText = jest.fn().mockResolvedValue(undefined);
-    Object.assign(navigator, { clipboard: { writeText } });
-    const originalCreateObjectURL = URL.createObjectURL;
-    const originalRevokeObjectURL = URL.revokeObjectURL;
-    URL.createObjectURL = jest.fn().mockReturnValue('blob:wiki-markdown');
-    URL.revokeObjectURL = jest.fn();
-    const click = jest.fn();
-    const appendChild = jest.spyOn(document.body, 'appendChild');
-    const createElement = jest.spyOn(document, 'createElement').mockImplementation((tagName) => {
-      const element = document.createElementNS('http://www.w3.org/1999/xhtml', tagName);
-      if (tagName === 'a') {
-        element.click = click;
-        element.remove = jest.fn();
-      }
-      return element;
-    });
-
-    try {
-      render(
-        <MemoryRouter>
-          <WikiPageReadView pageId="wiki-1" onEdit={jest.fn()} />
-        </MemoryRouter>
-      );
-
-      await screen.findByRole('heading', { name: 'Enterprise AI Memory' });
-      fireEvent.click(screen.getByRole('button', { name: 'Copy markdown' }));
-      await waitFor(() => expect(getWikiPageMarkdown).toHaveBeenCalledWith('wiki-1'));
-      await waitFor(() => expect(writeText).toHaveBeenCalledWith(expect.stringContaining('## Core idea')));
-      expect(screen.getByRole('status')).toHaveTextContent('Markdown copied.');
-
-      fireEvent.click(screen.getByRole('button', { name: 'Download .md' }));
-      await waitFor(() => expect(getWikiPageMarkdown).toHaveBeenCalledTimes(2));
-      await waitFor(() => expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:wiki-markdown'));
-      expect(appendChild).toHaveBeenLastCalledWith(expect.objectContaining({
-        download: 'enterprise-ai-memory.md',
-        href: 'blob:wiki-markdown'
-      }));
-      expect(click).toHaveBeenCalledTimes(1);
-      expect(screen.getByRole('status')).toHaveTextContent('Markdown downloaded.');
-    } finally {
-      if (originalCreateObjectURL) URL.createObjectURL = originalCreateObjectURL;
-      else delete URL.createObjectURL;
-      if (originalRevokeObjectURL) URL.revokeObjectURL = originalRevokeObjectURL;
-      else delete URL.revokeObjectURL;
-      appendChild.mockRestore();
-      createElement.mockRestore();
-    }
-  });
-
   it('updates the left contents rail as the reader scrolls through sections', async () => {
     getWikiPage.mockResolvedValueOnce({
       ...page,
@@ -1458,119 +1340,6 @@ describe('WikiPageReadView', () => {
       rectSpy.mockRestore();
       Object.defineProperty(window, 'innerHeight', { configurable: true, value: originalInnerHeight });
     }
-  });
-
-  it('shows discussions and ask composer chrome in workspace read mode', async () => {
-    getWikiPage.mockResolvedValueOnce({
-      ...page,
-      discussions: [{
-        _id: 'discussion-1',
-        question: 'What changed after review?',
-        answer: {
-          type: 'doc',
-          content: [{ type: 'paragraph', content: [{ type: 'text', text: 'The source mix changed.' }] }]
-        },
-        status: 'answered',
-        askedAt: new Date().toISOString()
-      }]
-    });
-
-    render(
-      <MemoryRouter>
-        <WikiPageReadView pageId="wiki-1" onEdit={jest.fn()} workspaceMode />
-      </MemoryRouter>
-    );
-
-    expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Article' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('tab', { name: /Talk/ }));
-    expect(await screen.findByText('What changed after review?')).toBeInTheDocument();
-    expect(await screen.findByLabelText('Ask this page')).toBeInTheDocument();
-    expect(screen.queryByLabelText('Ask thought partner to build a page')).not.toBeInTheDocument();
-    await flushDeferredWikiReadWork();
-    expect(screen.queryByLabelText('Ask thought partner to build a page')).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('Markdown export')).not.toBeInTheDocument();
-  });
-
-  it('opens the Talk panel from the tab query parameter', async () => {
-    jest.spyOn(router, 'useLocation').mockReturnValue({
-      pathname: '/wiki/workspace',
-      search: '?page=wiki-1&tab=talk',
-      hash: '',
-      state: null,
-      key: 'talk-route-test'
-    });
-    getWikiPage.mockResolvedValueOnce({
-      ...page,
-      discussions: [{
-        _id: 'discussion-from-route',
-        question: 'Can this answer become a page?',
-        answer: {
-          type: 'doc',
-          content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Yes, it can be promoted.' }] }]
-        },
-        status: 'answered',
-        askedAt: new Date().toISOString()
-      }]
-    });
-
-    render(
-      <MemoryRouter>
-        <WikiPageReadView pageId="wiki-1" onEdit={jest.fn()} workspaceMode />
-      </MemoryRouter>
-    );
-
-    expect(await screen.findByRole('tab', { name: /Talk/ })).toHaveAttribute('aria-selected', 'true');
-    expect(await screen.findByText('Can this answer become a page?')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Save as wiki page' })).toBeInTheDocument();
-  });
-
-  it('streams ask-this-page answers in the Talk panel before final discussion hydration', async () => {
-    const updatedPage = {
-      ...page,
-      discussions: [{
-        _id: 'discussion-streamed',
-        question: 'What matters?',
-        answer: {
-          type: 'doc',
-          content: [{ type: 'paragraph', content: [{ type: 'text', text: 'The streamed answer matters.' }] }]
-        },
-        status: 'answered',
-        askedAt: new Date().toISOString()
-      }]
-    };
-    let finishStream;
-    streamAskWikiPage.mockImplementationOnce((_pageId, _question, handlers = {}) => new Promise((resolve) => {
-      handlers.onDelta?.('The streamed ');
-      handlers.onDelta?.('answer');
-      finishStream = () => {
-        handlers.onPage?.(updatedPage);
-        resolve(updatedPage);
-      };
-    }));
-
-    render(
-      <MemoryRouter>
-        <WikiPageReadView pageId="wiki-1" onEdit={jest.fn()} workspaceMode />
-      </MemoryRouter>
-    );
-
-    expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('tab', { name: /Talk/ }));
-    fireEvent.change(screen.getByTestId('wiki-ask-composer-input'), { target: { value: 'What matters?' } });
-    fireEvent.click(screen.getByTestId('wiki-ask-composer-submit'));
-
-    expect(await screen.findByLabelText('Streaming answer')).toHaveTextContent('The streamed answer');
-    expect(streamAskWikiPage).toHaveBeenCalledWith('wiki-1', 'What matters?', expect.objectContaining({
-      onDelta: expect.any(Function),
-      onPage: expect.any(Function)
-    }));
-
-    await act(async () => {
-      finishStream();
-    });
-    expect(await screen.findByText('The streamed answer matters.')).toBeInTheDocument();
-    expect(screen.queryByLabelText('Streaming answer')).not.toBeInTheDocument();
   });
 
   it('does not show legacy linkable page fallback in read mode when prose has no inline wiki links', async () => {
@@ -1704,7 +1473,7 @@ describe('WikiPageReadView', () => {
     expect(mentionedRegion.textContent).not.toContain(']]');
   });
 
-  it('keeps Talk controls and mentioned-in backlinks available when workspace v1 is active', async () => {
+  it('keeps three page actions and mentioned-in backlinks in the workspace reader', async () => {
 
     render(
       <MemoryRouter>
@@ -1713,8 +1482,9 @@ describe('WikiPageReadView', () => {
     );
 
     expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Article' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Talk' })).toBeInTheDocument();
+    const actions = screen.getByRole('navigation', { name: 'Page actions' });
+    expect(within(actions).getAllByRole('button').map(button => button.textContent)).toEqual(['Edit', 'History', 'Share']);
+    expect(screen.queryByRole('tab', { name: 'Talk' })).not.toBeInTheDocument();
     expect(screen.queryByText('Claim health')).not.toBeInTheDocument();
     expect(await screen.findByText('Mentioned in')).toBeInTheDocument();
     expect(screen.getByText('Adjacent Memory')).toBeInTheDocument();
@@ -2024,7 +1794,7 @@ describe('WikiPageReadView', () => {
     if (presenceToggle) await act(async () => { fireEvent.click(presenceToggle); });
     expect(screen.queryByRole('status', { name: 'Thought partner status' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Maintain page' })).not.toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Article' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('navigation', { name: 'Page actions' })).toBeInTheDocument();
     expect(screen.getAllByText(/Enterprise AI Memory depends on/).length).toBeGreaterThan(0);
   });
 
@@ -2130,67 +1900,16 @@ describe('WikiPageReadView', () => {
     expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
     await flushDeferredWikiReadWork();
     expect(maintainWikiPage).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByText('Page maintenance'));
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Run again' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Reread the sources' }));
     });
     await waitFor(() => {
       expect(maintainWikiPage).toHaveBeenCalledTimes(1);
       expect(maintainWikiPage).toHaveBeenCalledWith('wiki-1');
     });
-    const receipt = await screen.findByLabelText('Wiki maintenance receipt');
-    await waitFor(() => expect(receipt).toHaveAttribute('data-maintenance-state', 'settled'));
-    await waitFor(() => {
-      expect(within(receipt).getByLabelText('Wiki maintenance trace')).toHaveTextContent('page settled');
-    });
-    expect(receipt).toHaveTextContent('2 sources');
-    expect(receipt).toHaveTextContent('3 claims');
-    expect(within(receipt).getByRole('button', { name: 'Run again' })).toBeInTheDocument();
-  });
-
-  it('reports owned Library source utilization in the maintenance receipt, not the article', async () => {
-    const maintainedPage = {
-      ...page,
-      aiState: {
-        ...page.aiState,
-        quality: {
-          ok: true,
-          status: 'pass',
-          failures: [],
-          metrics: {
-            ownedSourceUtilization: {
-              ownedFamilyCount: 4,
-              utilizedOwnedFamilyCount: 3,
-              receiptSummary: 'Used 3 of 4 selected Library source families.',
-              excludedOwnedFamilies: [
-                { title: 'Parenting aside', reason: 'One sentence with no mechanism to carry a claim.' }
-              ]
-            }
-          }
-        }
-      }
-    };
-    maintainWikiPage.mockResolvedValueOnce(maintainedPage);
-
-    render(
-      <MemoryRouter>
-        <WikiPageReadView pageId="wiki-1" onEdit={jest.fn()} />
-      </MemoryRouter>
-    );
-
-    expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
-    await flushDeferredWikiReadWork();
-    fireEvent.click(screen.getByText('Page maintenance'));
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Run again' }));
-    });
-    await waitFor(() => expect(maintainWikiPage).toHaveBeenCalledTimes(1));
-
-    const receipt = await screen.findByLabelText('Wiki maintenance receipt');
-    await waitFor(() => {
-      expect(receipt).toHaveTextContent('Used 3 of 4 selected Library source families.');
-    });
-    expect(receipt).toHaveTextContent('Parenting aside — One sentence with no mechanism to carry a claim.');
+    const reread = screen.getByRole('region', { name: 'Reread the sources' });
+    await waitFor(() => expect(reread).toHaveAttribute('data-state', 'settled'));
+    expect(within(reread).getByRole('button', { name: 'Reread the sources' })).toBeInTheDocument();
   });
 
   it('archives a page only after an explicit confirmation naming it', async () => {
@@ -2222,7 +1941,7 @@ describe('WikiPageReadView', () => {
     await waitFor(() => expect(archiveWikiPage).toHaveBeenCalledWith('wiki-1'));
   });
 
-  it('publishes a system receipt when page maintenance completes', async () => {
+  it('says the page still holds when a reread changes nothing', async () => {
     const systemStatusControls = buildSystemStatusControls();
     const rebuiltPage = {
       ...page,
@@ -2249,21 +1968,19 @@ describe('WikiPageReadView', () => {
     expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
     await flushDeferredWikiReadWork();
     expect(maintainWikiPage).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByText('Page maintenance'));
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Run again' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Reread the sources' }));
     });
     await waitFor(() => expect(maintainWikiPage).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(systemStatusControls.setLatestReceipt).toHaveBeenCalledWith(expect.objectContaining({
-      title: 'Wiki maintenance',
-      summary: expect.stringContaining('Maintenance settled'),
+      title: 'The page still holds.',
       status: 'completed',
-      href: '/wiki/workspace?page=wiki-1'
+      href: '/wiki/read/wiki-1'
     })));
     expect(systemStatusControls.setBackgroundWork).toHaveBeenLastCalledWith(null);
   });
 
-  it('surfaces recoverable maintenance failure in system status', async () => {
+  it('surfaces a failed reread in system status', async () => {
     const systemStatusControls = buildSystemStatusControls();
     maintainWikiPage.mockRejectedValueOnce(new Error('maintenance failed'));
 
@@ -2271,11 +1988,11 @@ describe('WikiPageReadView', () => {
 
     expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Run again' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Reread the sources' }));
     });
 
     await waitFor(() => expect(systemStatusControls.setRecoverableFailure).toHaveBeenCalledWith(expect.objectContaining({
-      stage: 'Wiki maintenance',
+      stage: 'Rereading the sources',
       message: 'maintenance failed',
       retryable: true,
       retry: expect.any(Function)
@@ -2301,20 +2018,20 @@ describe('WikiPageReadView', () => {
 
     expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Run again' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Reread the sources' }));
     });
 
-    const receipt = await screen.findByLabelText('Wiki maintenance receipt');
-    await waitFor(() => expect(receipt).toHaveAttribute('data-maintenance-state', 'research'));
-    expect(receipt).toHaveTextContent('The existing article is unchanged');
-    expect(receipt).toHaveTextContent(/directly addresses.*Compound Interest/i);
+    const reread = screen.getByRole('region', { name: 'Reread the sources' });
+    await waitFor(() => expect(reread).toHaveAttribute('data-state', 'research'));
+    expect(reread).toHaveTextContent('The page is unchanged');
+    expect(reread).toHaveTextContent(/directly addresses.*Compound Interest/i);
     expect(screen.queryByRole('heading', { name: 'Returned trusted payload should not remount the reader' }))
       .not.toBeInTheDocument();
     expect(systemStatusControls.setRecoverableFailure).not.toHaveBeenCalled();
     expect(systemStatusControls.setLatestReceipt).toHaveBeenCalledWith(expect.objectContaining({
-      title: 'Wiki update was not applied',
+      title: 'The page was not changed.',
       status: 'needs_review',
-      href: '/wiki/workspace?page=wiki-1#wiki-read-references-title'
+      href: '/wiki/read/wiki-1'
     }));
   });
 
@@ -2341,14 +2058,12 @@ describe('WikiPageReadView', () => {
     renderReadView();
 
     expect(await screen.findByRole('heading', { name: 'Compound Interest' })).toBeInTheDocument();
-    const receipt = screen.getByRole('region', { name: 'Wiki maintenance receipt' });
-    expect(receipt).toHaveAttribute('data-maintenance-state', 'research');
-    expect(within(receipt).getByRole('heading', { name: 'Latest proposed update was not applied' })).toBeInTheDocument();
-    expect(receipt).toHaveTextContent('You are reading the last trusted article');
-    expect(receipt).toHaveTextContent('No cited source directly addresses compound interest');
-    expect(within(receipt).getByRole('button', { name: 'Sources unchanged' })).toBeDisabled();
-    expect(receipt).toHaveTextContent('Attach or replace a source before trying another update');
-    expect(within(receipt).queryByRole('button', { name: 'Run again' })).not.toBeInTheDocument();
+    const reread = screen.getByRole('region', { name: 'Reread the sources' });
+    expect(reread).toHaveAttribute('data-state', 'research');
+    expect(reread).toHaveTextContent('The last proposed change was not applied');
+    expect(reread).toHaveTextContent('No cited source directly addresses compound interest');
+    expect(within(reread).getByRole('button', { name: 'Sources unchanged' })).toBeDisabled();
+    expect(reread).toHaveTextContent('Add or replace a source before trying again');
   });
 
   it('allows a new ordinary Wiki update after the attached source identities change', async () => {
@@ -2367,9 +2082,9 @@ describe('WikiPageReadView', () => {
 
     renderReadView();
 
-    const receipt = await screen.findByRole('region', { name: 'Wiki maintenance receipt' });
-    expect(within(receipt).getByRole('button', { name: 'Try a new update' })).toBeEnabled();
-    expect(receipt).not.toHaveTextContent('Attach or replace a source before trying another update');
+    const reread = await screen.findByRole('region', { name: 'Reread the sources' });
+    expect(within(reread).getByRole('button', { name: 'Reread the sources' })).toBeEnabled();
+    expect(reread).not.toHaveTextContent('Add or replace a source before trying again');
   });
 
   it('does not claim an empty rejected scaffold is a trusted article', async () => {
@@ -2389,10 +2104,9 @@ describe('WikiPageReadView', () => {
 
     renderReadView();
 
-    const receipt = await screen.findByRole('region', { name: 'Wiki maintenance receipt' });
-    expect(within(receipt).getByRole('heading', { name: 'No article was published' })).toBeInTheDocument();
-    expect(receipt).toHaveTextContent('rejected before it could become a trusted article');
-    expect(receipt).not.toHaveTextContent('You are reading the last trusted article');
+    const reread = await screen.findByRole('region', { name: 'Reread the sources' });
+    expect(reread).toHaveTextContent('There is no article yet: The candidate was not grounded tightly enough.');
+    expect(reread).not.toHaveTextContent('was not applied');
   });
 
   it('does not expose dossier resume or discard actions on a generic entity page', async () => {
@@ -2412,21 +2126,17 @@ describe('WikiPageReadView', () => {
 
     expect(await screen.findByRole('heading', { name: 'Generic company note' })).toBeInTheDocument();
     expect(document.querySelector('.wiki-read--standard')).toBeInTheDocument();
-    expect(document.querySelector('.wiki-read__standard-facts')).toHaveTextContent('Entity');
     expect(screen.queryByRole('button', { name: 'Resume build' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Discard draft' })).not.toBeInTheDocument();
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Run again' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
     });
     await waitFor(() => expect(maintainWikiPage).toHaveBeenCalledWith('wiki-1'));
-    await waitFor(() => expect(screen.getByLabelText('Wiki maintenance receipt')).toHaveAttribute(
-      'data-maintenance-state',
-      'settled'
-    ));
+    await waitFor(() => expect(screen.getByRole('region', { name: 'Reread the sources' })).toHaveAttribute('data-state', 'settled'));
     expect(streamMaintainWikiPage).not.toHaveBeenCalled();
   });
 
-  it('lets the reader run page maintenance and keeps the agent trace visible', async () => {
+  it('lets the reader ask Partner to reread the sources', async () => {
     const reviewedPage = {
       ...page,
       aiState: {
@@ -2450,28 +2160,17 @@ describe('WikiPageReadView', () => {
 
     expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Run again' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Reread the sources' }));
     });
 
-    const receipt = await screen.findByLabelText('Wiki maintenance receipt');
-    expect(receipt).toHaveTextContent('Checking this page against your corpus');
-    const trace = within(receipt).getByLabelText('Wiki maintenance trace');
-    await waitFor(() => {
-      expect(trace).toHaveTextContent('reading sources and claims');
-    });
-    fireEvent.click(within(trace).getByRole('button', { name: /Expand 2 trace history lines/ }));
-    expect(within(trace).getByRole('list', { name: 'Trace history' })).toHaveTextContent('checking @wiki:wiki-1');
+    const reread = screen.getByRole('region', { name: 'Reread the sources' });
+    expect(reread).toHaveAttribute('data-state', 'working');
+    expect(reread).toHaveTextContent('Rereading the sources…');
     await act(async () => {
       resolveMaintenance(reviewedPage);
     });
-    await waitFor(() => {
-      expect(receipt).toHaveAttribute('data-maintenance-state', 'review');
-    });
-    await waitFor(() => {
-      expect(within(receipt).getByLabelText('Wiki maintenance trace')).toHaveTextContent('1 issue surfaced');
-    });
-    expect(receipt).toHaveTextContent('2 sources');
-    expect(receipt).toHaveTextContent('2 claims');
+    await waitFor(() => expect(reread).toHaveAttribute('data-state', 'settled'));
+    expect(reread).toHaveTextContent('The page still holds.');
   });
 
   it('shows a hover preview after the PRD 250ms delay for an internal wiki link', async () => {
@@ -2825,8 +2524,8 @@ describe('WikiPageReadView', () => {
     await flushDeferredWikiReadWork();
 
     expect(screen.getByRole('heading', { level: 1, name: 'A saved technical paper' })).toBeInTheDocument();
-    expect(screen.getByRole('region', { name: 'Share this wiki page' })).toBeInTheDocument();
-    expect(screen.getByRole('region', { name: 'Wiki maintenance receipt' })).toBeInTheDocument();
+    expect(openShare()).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Reread the sources' })).toBeInTheDocument();
     expect(screen.getByText('A saved technical paper', { selector: '.wiki-read__reference-title' })).toBeInTheDocument();
     expect(screen.queryByText('This Week in AI publication')).not.toBeInTheDocument();
     expect(screen.queryByText('Decision record')).not.toBeInTheDocument();
@@ -3039,10 +2738,12 @@ describe('WikiPageReadView', () => {
 
     renderReadView();
     await flushDeferredWikiReadWork();
-    expect(await screen.findByText('A proposed revision is waiting. It is not the current page.')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Read the proposal' }));
+    const proposal = await screen.findByRole('button', { name: /proposes .*adding 1 source\./ });
+    expect(screen.getByRole('button', { name: 'Accept' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Not now' })).toBeInTheDocument();
+    fireEvent.click(proposal);
 
-    expect(await screen.findByText(/Proposed wording · not accepted/)).toBeInTheDocument();
+    expect(await screen.findByText('You are reading the proposed change. The page itself is unchanged.')).toBeInTheDocument();
     expect(document.querySelector('.wiki-read__body'))
       .toHaveTextContent('UNIQUE_CANDIDATE_SENTENCE about an experiment.');
     expect(screen.getByRole('heading', { level: 1, name: 'Enterprise AI Memory' })).toBeInTheDocument();
@@ -3070,8 +2771,8 @@ describe('WikiPageReadView', () => {
 
     renderReadView();
     await flushDeferredWikiReadWork();
-    fireEvent.click(await screen.findByRole('button', { name: 'Read the proposal' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Accept revision' }));
+    fireEvent.click(await screen.findByRole('button', { name: /proposes/ }));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Accept' })[0]);
 
     expect(await screen.findByText(/The current page changed after this proposal was prepared/)).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
@@ -3267,8 +2968,7 @@ describe('WikiPageReadView', () => {
 
     renderReadView();
     await flushDeferredWikiReadWork();
-    fireEvent.click(await screen.findByRole('button', { name: 'Read the proposal' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Accept revision' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Accept' }));
 
     const reason = await screen.findByLabelText('Your reason · private');
     fireEvent.change(reason, { target: { value: 'UNIQUE_PRIVATE_REASON' } });
@@ -3281,32 +2981,4 @@ describe('WikiPageReadView', () => {
     }));
   });
 
-  it('takes the open thought into Think from an accepted revision', async () => {
-    const wikiPageId = '64f000000000000000000030';
-    const revisionId = '64f000000000000000000050';
-    listWikiRevisions.mockResolvedValueOnce([{
-      _id: revisionId,
-      promotionStatus: 'promoted',
-      after: { claims: [{ claimId: 'claim-1', text: 'Memory compounds with review.' }] },
-      claimReview: {
-        state: 'accepted',
-        targetClaimId: 'claim-1',
-        events: [{ action: 'accept', receiptId: 'receipt-1' }]
-      }
-    }]);
-    const navigate = jest.fn();
-    jest.spyOn(router, 'useNavigate').mockReturnValue(navigate);
-
-    renderReadView({ pageId: wikiPageId });
-    await flushDeferredWikiReadWork();
-    fireEvent.click(await screen.findByRole('button', { name: 'Take this further' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Take this into Think' }));
-
-    await waitFor(() => expect(startKnowledgeMovementInvestigation).toHaveBeenCalledWith({
-      wikiPageId,
-      revisionId,
-      claimId: 'claim-1'
-    }));
-    expect(navigate).toHaveBeenCalledWith('/think?tab=concepts&conceptId=64f000000000000000000099');
-  });
 });

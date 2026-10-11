@@ -2,36 +2,6 @@ import React, { useState } from 'react';
 import { Button, SurfaceCard } from '../ui';
 import { buildSourceOpenPath } from '../../utils/sourceRoutes';
 
-const sourceScopeCopy = {
-  entire_library: 'Maintenance uses your entire library.',
-  current_item: 'Maintenance will expand beyond the seed item when relevant.',
-  selected_sources: 'Maintenance uses attached sources and relevant sources from Library.'
-};
-
-const statusCopy = {
-  idle: 'Not maintained',
-  drafting: 'Maintaining now',
-  maintaining: 'Maintaining now',
-  ready: 'Page maintained',
-  error: 'Maintenance failed'
-};
-
-const suggestionCopy = {
-  outline: 'Structure update',
-  claim: 'Claim update',
-  gap: 'Health flag',
-  edit: 'Applied edit'
-};
-
-const healthCopy = {
-  newItems: 'New sources affecting this page',
-  unsupportedClaims: 'Unsupported claims',
-  missingCitations: 'Missing citations',
-  staleSections: 'Stale sections',
-  contradictions: 'Contradictions',
-  relatedPages: 'Related pages'
-};
-
 const emptySourceForm = {
   type: 'external',
   title: '',
@@ -53,29 +23,15 @@ const cleanPanelText = (value = '') => String(value || '')
   .replace(/\s+/g, ' ')
   .trim();
 
+/* The sources behind the page being edited: open one, remove one, attach one. */
 const WikiAiSourcePanel = ({
   id,
   page,
-  maintaining,
-  onMaintain,
   onAddSource,
   onRemoveSource,
   activeSourceIndex = null
 }) => {
   const sources = Array.isArray(page?.sourceRefs) ? page.sourceRefs : [];
-  const aiState = page?.aiState || {};
-  const changeLog = Array.isArray(aiState.changeLog) && aiState.changeLog.length > 0
-    ? aiState.changeLog
-    : Array.isArray(aiState.suggestions)
-      ? aiState.suggestions
-      : [];
-  const health = aiState.health || {};
-  const healthEntries = Object.entries(healthCopy).map(([key, label]) => ({
-    key,
-    label,
-    items: Array.isArray(health[key]) ? health[key] : []
-  }));
-  const issueCount = healthEntries.reduce((count, entry) => count + entry.items.length, 0);
   const [sourceForm, setSourceForm] = useState(emptySourceForm);
   const [adding, setAdding] = useState(false);
 
@@ -100,87 +56,7 @@ const WikiAiSourcePanel = ({
   };
 
   return (
-    <aside id={id} className="wiki-source-panel" aria-label="Wiki partner and sources">
-      <SurfaceCard className="wiki-source-panel__section">
-        <div className="wiki-source-panel__header">
-          <div>
-            <h2>Maintenance</h2>
-            <p>{maintaining ? statusCopy.maintaining : (statusCopy[aiState.draftStatus] || statusCopy.idle)}</p>
-          </div>
-        </div>
-        {aiState.lastError ? <p className="wiki-source-panel__error">{aiState.lastError}</p> : null}
-        {aiState.maintenanceSummary ? (
-          <p className="wiki-source-panel__note">{cleanPanelText(aiState.maintenanceSummary)}</p>
-        ) : null}
-        {changeLog.length > 0 ? (
-          <div className="wiki-source-panel__list">
-            <article className="wiki-source-panel__source">
-              <div className="wiki-source-panel__source-type">What changed this run</div>
-              {changeLog.slice(0, 3).map((item, index) => (
-                <p key={`change-summary-${item.id || index}`}>{cleanPanelText(item.text || item.title)}</p>
-              ))}
-            </article>
-          </div>
-        ) : null}
-        <p className="wiki-source-panel__note">
-          {sourceScopeCopy[page?.sourceScope] || 'Maintenance uses relevant library material.'}
-        </p>
-        {aiState.lastDraftedAt ? (
-          <p className="wiki-source-panel__note">Last maintained {new Date(aiState.lastDraftedAt).toLocaleString()}</p>
-        ) : null}
-        {aiState.model ? (
-          <p className="wiki-source-panel__note">Model {aiState.model}</p>
-        ) : null}
-      </SurfaceCard>
-
-      <SurfaceCard className="wiki-source-panel__section">
-        <div className="wiki-source-panel__header">
-          <div>
-            <h2>Page health</h2>
-            <p>{issueCount} signal{issueCount === 1 ? '' : 's'}</p>
-          </div>
-        </div>
-        {issueCount === 0 ? (
-          <p className="wiki-source-panel__note">Run maintenance to check new material, support, citations, staleness, contradictions, and related pages.</p>
-        ) : null}
-        <div className="wiki-source-panel__list">
-          {healthEntries.map(entry => entry.items.length > 0 ? (
-            <article key={entry.key} className="wiki-source-panel__source">
-              <div className="wiki-source-panel__source-type">{entry.label}</div>
-              {entry.items.slice(0, 5).map((item, index) => (
-                <p key={`${entry.key}-${index}`}>
-                  {cleanPanelText(item.text || item.title || item.summary)}
-                  {item.sourceTitle ? ` - ${cleanPanelText(item.sourceTitle)}` : ''}
-                </p>
-              ))}
-            </article>
-          ) : null)}
-        </div>
-      </SurfaceCard>
-
-      <SurfaceCard className="wiki-source-panel__section">
-        <div className="wiki-source-panel__header">
-          <div>
-            <h2>Changelog</h2>
-            <p>{changeLog.length} recorded</p>
-          </div>
-        </div>
-        {changeLog.length === 0 ? (
-          <p className="wiki-source-panel__note">Maintenance updates will appear here after the page is rebuilt.</p>
-        ) : null}
-        <div className="wiki-source-panel__list">
-          {changeLog.map(suggestion => (
-            <article key={suggestion.id || `${suggestion.type}-${suggestion.title}`} className="wiki-source-panel__source">
-              <div className="wiki-source-panel__source-type">
-                {suggestionCopy[suggestion.type] || 'Applied update'}
-              </div>
-              <h3>{cleanPanelText(suggestion.title || suggestionCopy[suggestion.type] || 'Applied update')}</h3>
-              {suggestion.text ? <p>{cleanPanelText(suggestion.text)}</p> : null}
-            </article>
-          ))}
-        </div>
-      </SurfaceCard>
-
+    <aside id={id} className="wiki-source-panel" aria-label="Sources">
       <SurfaceCard className="wiki-source-panel__section">
         <div className="wiki-source-panel__header">
           <div>

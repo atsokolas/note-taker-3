@@ -233,7 +233,7 @@ const COMMANDS = [
     verb: 'draft',
     template: '/draft @wiki:',
     label: 'Draft page',
-    hint: 'Run wiki maintenance for a page in the right pane.'
+    hint: `Ask ${AGENT_DISPLAY_NAME} to reread a page's sources.`
   },
   {
     verb: 'build',
@@ -802,24 +802,24 @@ const workspaceAgentStatus = ({ busy = false, reading = false, pageId = '', page
   if (reading && pageId) {
     return {
       status: 'reading',
-      text: `Agent is reading ${pageLabel}...`
+      text: `${AGENT_DISPLAY_NAME} is reading ${pageLabel}…`
     };
   }
   const aiState = page?.aiState || {};
   if (aiState.lastError) {
-    return { status: 'error', text: 'Last agent run failed.' };
+    return { status: 'error', text: `${AGENT_DISPLAY_NAME} could not finish. Try again.` };
   }
   const signalCount = countPendingSignals(aiState);
   if (signalCount > 0) {
     return {
       status: 'ready',
-      text: `${signalCount} review item${signalCount === 1 ? '' : 's'} for ${pageLabel}.`
+      text: `${signalCount} proposed change${signalCount === 1 ? '' : 's'} for ${pageLabel}.`
     };
   }
   if (pageId) {
-    return { status: 'idle', text: `Agent ready for ${pageLabel}.` };
+    return { status: 'idle', text: `${AGENT_DISPLAY_NAME} is here for ${pageLabel}.` };
   }
-  return { status: 'idle', text: 'Agent ready.' };
+  return { status: 'idle', text: `${AGENT_DISPLAY_NAME} is here.` };
 };
 
 const formatWorkspaceVisitDiff = ({ page = {}, lastVisit = null, diff = {} } = {}) => {
@@ -886,11 +886,11 @@ const withMaintenanceTimeout = async (promise, pageLabel = 'wiki page') => {
   const overrideMs = Number(window.__NOEIS_WIKI_MAINTENANCE_TIMEOUT_MS__);
   const timeoutMs = Number.isFinite(overrideMs) ? overrideMs : MAINTENANCE_STREAM_TIMEOUT_MS;
   if (timeoutMs <= 0) {
-    throw new Error(`The maintenance stream for ${pageLabel} timed out.`);
+    throw new Error(`Rereading ${pageLabel} took too long. Try again.`);
   }
   const timeout = new Promise((_, reject) => {
     timeoutId = window.setTimeout(() => {
-      reject(new Error(`The maintenance stream for ${pageLabel} timed out.`));
+      reject(new Error(`Rereading ${pageLabel} took too long. Try again.`));
     }, timeoutMs);
   });
   try {
@@ -2460,7 +2460,7 @@ const WikiWorkspaceChat = ({
       systemStatus.clearRecoverableFailure();
       systemStatus.setBackgroundWork({ label: 'Drafting wiki page', stage: `@wiki:${pageRef}` });
       setBusy(true);
-      append({ role: 'assistant', text: `Drafting @wiki:${pageRef}. The right pane will update from the maintenance stream.` });
+      append({ role: 'assistant', text: `Drafting @wiki:${pageRef}. The page will update on the right as it changes.` });
       try {
         const { handlers } = createMaintenanceStreamHandlers(pageRef, {
           onPage: (streamPage) => {
@@ -2839,7 +2839,7 @@ const WikiWorkspaceChat = ({
             }
             if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') submit(event);
           }}
-          placeholder="Ask, paste a source, or type / for wiki commands"
+          placeholder="Ask, paste a source, or type / for commands"
           aria-label="Wiki workspace message"
           rows={4}
           disabled={busy}
@@ -2929,7 +2929,7 @@ const WikiWorkspaceChat = ({
             ) : null}
             {message.pending ? <span className="wiki-workspace-chat__caret" aria-hidden="true" /> : null}
             {message.activityReceipts?.length ? (
-              <ol className="wiki-workspace-chat__receipts" aria-label="Agent activity">
+              <ol className="wiki-workspace-chat__receipts" aria-label="What happened">
                 {message.activityReceipts.map(receipt => (
                   <li key={receipt.key || `${receipt.stage}:${receipt.summary}`}>
                     <span className="wiki-workspace-chat__receipt-icon" aria-hidden="true" />

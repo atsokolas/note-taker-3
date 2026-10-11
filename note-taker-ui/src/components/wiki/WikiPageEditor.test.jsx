@@ -373,7 +373,7 @@ describe('WikiPageEditor', () => {
     expect(screen.queryByTestId('wiki-autolinks')).not.toBeInTheDocument();
   });
 
-  it('adds and removes sources while showing applied updates', async () => {
+  it('adds and removes sources', async () => {
     render(
       <MemoryRouter>
         <WikiPageEditor pageId="wiki-1" />
@@ -381,7 +381,6 @@ describe('WikiPageEditor', () => {
     );
 
     await screen.findByDisplayValue('Enterprise AI Memory');
-    expect(screen.getAllByText('Rewrote the evidence section.').length).toBeGreaterThan(0);
 
     fireEvent.change(screen.getByLabelText('Source title'), { target: { value: 'New source' } });
     fireEvent.click(screen.getByRole('button', { name: 'Attach source' }));
