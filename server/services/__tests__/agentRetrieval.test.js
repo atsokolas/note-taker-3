@@ -45,6 +45,9 @@ describe('retrievePassages', () => {
     expect(stem('rates')).toBe(stem('rate'));
     expect(stem('created')).toBe(stem('create'));
     expect(stem('shared')).toBe(stem('share'));
+    // A short word keeps its e: rate is not rat, note is not not.
+    expect(stem('rate')).not.toBe(stem('rat'));
+    expect(stem('note')).not.toBe(stem('not'));
     // Short words keep their endings: "red" and "thing" are words, not inflections.
     expect(stem('thing')).toBe('thing');
     expect(stem('need')).toBe('need');
@@ -75,6 +78,8 @@ describe('retrievePassages', () => {
     const ask = forModel => retrievePassages({ userId: 'u', query: 'limits of expertise', forModel, models: library() });
     expect(await ask(false)).toEqual([]);
     expect((await ask(true)).map(hit => hit.id)).toEqual(['checklists']);
+    // ...and a reader is never served it without the model's judgment.
+    expect((await ask(true))[0].servable).toBe(false);
   });
 
   it('searches by the source in hand when the question names nothing, and looks past that source', async () => {

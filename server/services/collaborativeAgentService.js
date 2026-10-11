@@ -2440,8 +2440,8 @@ const generateCollaborativeReply = async ({
   }
   if (!reply && mode === 'internal_only' && !authoredExploration) {
     // The question's own passages first; without any, what the model's
-    // searches found, said to be just that.
-    if (!relatedItems.length) loopSources = mergeSources(searched);
+    // searches found that clears the ordinary bar, said to be just that.
+    if (!relatedItems.length) loopSources = mergeSources(searched.filter(item => item.servable));
     finalReply = buildPassageReply({
       query: resolvedMessage,
       contextItem,

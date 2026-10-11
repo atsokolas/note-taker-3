@@ -53,7 +53,7 @@ const words = (text = '') => String(text || '')
 // "decision", "imagining" finds "imagine" and "trusted" finds "trust"
 // without a dependency.
 const stem = (word) => {
-  const root = word.replace(/(?<=\w{3})s$/, '').replace(/(?<=\w{4})(?:ed|ing)$/, '').replace(/(?<=\w{2})e$/, '');
+  const root = word.replace(/(?<=\w{3})s$/, '').replace(/(?<=\w{4})(?:ed|ing)$/, '').replace(/(?<=\w{4})e$/, '');
   return root.length > 6 ? root.slice(0, 6) : root;
 };
 
@@ -272,8 +272,9 @@ const retrievePassages = async ({
   // Searching by the source in hand, two shared terms make a connection, but
   // a long list of its words needs a stricter floor to stay on topic.
   const byAbout = asked === about;
-  const required = byAbout ? Math.min(2, terms.length)
-    : terms.length <= 2 && !forModel ? terms.length : Math.ceil(terms.length / 2);
+  const strictly = byAbout ? Math.min(2, terms.length)
+    : terms.length <= 2 ? terms.length : Math.ceil(terms.length / 2);
+  const required = forModel && !byAbout ? Math.ceil(terms.length / 2) : strictly;
   const floor = byAbout ? ABOUT_FLOOR : RELATIVE_FLOOR;
   const best = Math.max(0, ...units.map(unit => unit.score));
   const ranked = units
@@ -306,6 +307,8 @@ const retrievePassages = async ({
       snippet: clip(unit.text),
       fullText: unit.text,
       ...(unit.held ? { held: unit.held } : {}),
+      // Whether it clears the bar a reader is served by without the model.
+      ...(forModel ? { servable: unit.matched >= strictly || unit.semantic !== undefined } : {}),
       updatedAt: unit.updatedAt,
       score: Number(unit.fused.toFixed(4))
     }));
