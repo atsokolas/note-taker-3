@@ -370,7 +370,9 @@ describe('WikiWorkspace', () => {
     await settleWorkspaceEffects();
 
     fireEvent.click(await screen.findByRole('button', { name: 'Feed to wiki' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Build page from source' }));
+    const build = await screen.findByRole('button', { name: 'Build page from source' });
+    fireEvent.click(build);
+    fireEvent.click(build);
 
     await waitFor(() => expect(createWikiPage).toHaveBeenCalledWith(expect.objectContaining({
       title: 'Market Sentiment Timing',
@@ -383,7 +385,24 @@ describe('WikiWorkspace', () => {
         addedBy: 'ai'
       })
     })));
+    expect(createWikiPage).toHaveBeenCalledTimes(1);
     expect(mockNavigate).toHaveBeenLastCalledWith('/wiki/workspace?page=wiki-new&build=1');
+  });
+
+  it('says a source still being read is still being read, not done', async () => {
+    ingestWikiSource.mockResolvedValueOnce({
+      status: 'pending',
+      summary: 'No existing page matched strongly enough.',
+      suggestedCreatePage: true,
+      sourceRef: { type: 'external', title: 'Sentiment memo', url: 'https://example.com/sentiment' }
+    });
+    renderWorkspace('/wiki/workspace?view=sources');
+    await settleWorkspaceEffects();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Feed to wiki' }));
+
+    expect(await screen.findByLabelText('Source ripple result')).toHaveTextContent('Still reading this source.');
+    expect(screen.queryByText(/No existing page matched/)).not.toBeInTheDocument();
   });
 
   it('persists a review decision for an ingest update plan', async () => {

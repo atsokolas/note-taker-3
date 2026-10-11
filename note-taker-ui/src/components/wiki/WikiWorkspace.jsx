@@ -163,6 +163,7 @@ const pageTitleForId = (pageId = '') => (clean(pageId) ? `Wiki page ${clean(page
 
 const summarizeIngestRun = (run = {}) => {
   const affectedCount = Array.isArray(run.affectedPageIds) ? run.affectedPageIds.length : 0;
+  if (!isTerminalIngestStatus(run)) return 'Still reading this source. Its plan will show in Wiki Activity.';
   if (run.summary) return run.summary;
   if (affectedCount) {
     return `${AGENT_DISPLAY_NAME} found ${affectedCount} wiki page${affectedCount === 1 ? '' : 's'} that this source may update.`;
@@ -289,15 +290,15 @@ const wikiWorkspacePageHref = (pageId) => (
 );
 
 const wikiIngestSystemReceipt = (run) => {
-  const summary = formatIngestCompletion(run);
+  const reading = !isTerminalIngestStatus(run);
   const runStatus = clean(run.status).toLowerCase();
   const reviewStatus = clean(run.reviewStatus || run.metadata?.ingestReviewStatus).toLowerCase();
   return {
     title: `Source ingest · ${sourceTitle(run.sourceRef)}`,
-    summary,
-    status: runStatus === 'failed'
-      ? 'failed'
-      : reviewStatus === 'pending_review' ? 'needs_review' : 'completed',
+    summary: reading ? `Still reading ${sourceTitle(run.sourceRef)}. It will land in Wiki Activity.` : formatIngestCompletion(run),
+    status: reading ? 'running'
+      : runStatus === 'failed' ? 'failed'
+        : reviewStatus === 'pending_review' ? 'needs_review' : 'completed',
     href: ingestRunActivityPath(run) || '/wiki/workspace?view=activity'
   };
 };
@@ -765,6 +766,7 @@ const WikiIngestResultCard = ({ run = {}, onNavigate, onBuildFromSource, onRevie
   const [currentRun, setCurrentRun] = useState(run);
   const [reviewBusy, setReviewBusy] = useState('');
   const [reviewError, setReviewError] = useState('');
+  const [building, setBuilding] = useState(false);
   const [selectedCandidateIds, setSelectedCandidateIds] = useState([]);
   useEffect(() => {
     setCurrentRun(run);
@@ -867,8 +869,15 @@ const WikiIngestResultCard = ({ run = {}, onNavigate, onBuildFromSource, onRevie
       <div className="wiki-workspace-ingest-card__actions">
         {runId ? <Link to={ingestRunActivityPath(currentRun)}>Inspect activity</Link> : null}
         {suggestedCreatePage ? (
-          <button type="button" onClick={() => onBuildFromSource?.(run)}>
-            Build page from source
+          <button
+            type="button"
+            disabled={building}
+            onClick={async () => {
+              setBuilding(true);
+              if (!await onBuildFromSource?.(run)) setBuilding(false);
+            }}
+          >
+            {building ? 'Building page…' : 'Build page from source'}
           </button>
         ) : null}
       </div>
@@ -1118,8 +1127,10 @@ const WikiWorkspace = () => {
       const pageId = clean(page?._id || page?.id);
       if (!pageId) throw new Error('Created page did not include an id.');
       buildPage(pageId);
+      return pageId;
     } catch (_error) {
       systemStatus.setRecoverableFailure({ stage: 'Wiki build', message: 'The page could not be created from this source.', retryable: false });
+      return '';
     }
   }, [buildPage, systemStatus]);
 
