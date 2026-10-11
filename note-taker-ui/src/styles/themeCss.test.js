@@ -20,6 +20,8 @@ describe('app theme design-system tokens', () => {
     });
     expect(css).toContain("html[data-ui-theme='dark']");
     expect(css).toContain('@media (prefers-reduced-motion: reduce)');
+    const stillBlock = css.slice(css.indexOf('@media (prefers-reduced-motion: reduce)'));
+    expect(stillBlock).toMatch(/\.topbar \*,[\s\S]*?\.agent-rail,[\s\S]*?transition-duration: 1ms !important/);
   });
 
   it('uses a warm near-black dark palette instead of the old cold blue shell', () => {
