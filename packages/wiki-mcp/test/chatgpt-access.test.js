@@ -34,6 +34,14 @@ try {
   // Schema errors must not reach the fake API; use the real schema's accepted fields.
   const fileTool = list.tools.find(tool => tool.name === 'file_edition_items');
   assert.deepEqual(fileTool._meta.securitySchemes, [{ type: 'oauth2', scopes: ['agent-write'] }]);
+  assert.equal(fileTool.annotations.readOnlyHint, false);
+  assert.equal(fileTool.annotations.destructiveHint, true, 'filing can overwrite issue metadata without revision history');
+  assert.match(fileTool.description, /headline.*replaces.*current headline/);
+  assert.match(fileTool.description, /followUps.*replaces its status and note/);
+  assert.match(fileTool.description, /keep no history.*no undo/);
+  assert.match(fileTool.inputSchema.properties.items.items.properties.itemId.description, /existing id is rejected/);
+  const legacyFileTool = (await legacy.client.listTools()).tools.find(tool => tool.name === 'file_edition_items');
+  assert.equal(legacyFileTool.annotations.destructiveHint, true, 'the same overwrite behavior exists outside restricted OAuth');
   const denied = await readOnly.client.callTool({ name: 'file_edition_items', arguments: args });
   assert.equal(denied.isError, true); assert.equal(readOnly.writes(), 0);
   assert.equal(restricted.writes(), 0, 'denied arbitrary tools must never invoke client');

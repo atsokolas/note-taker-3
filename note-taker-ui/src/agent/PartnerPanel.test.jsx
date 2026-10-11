@@ -522,7 +522,7 @@ describe('hasPartnerPanel', () => {
   });
 
   it('is absent where the agent does not work', () => {
-    ['/settings', '/connections', '/paper', '/onboarding/wiki', '/wiki/activity/run-1', '/'].forEach((path) => {
+    ['/settings', '/connections', '/paper', '/welcome', '/wiki/activity/run-1', '/'].forEach((path) => {
       expect(hasPartnerPanel(path)).toBe(false);
     });
   });

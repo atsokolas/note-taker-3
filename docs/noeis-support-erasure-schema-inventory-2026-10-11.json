@@ -1,0 +1,566 @@
+{
+  "kind": "schema-only inventory; no database connection or production counts",
+  "baseCommit": "45994aa77d3204024143536a8131124da793447d",
+  "models": [
+    {
+      "model": "User",
+      "collection": "users",
+      "ownership": "_id",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "Feedback",
+      "collection": "feedbacks",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "Recommendation",
+      "collection": "recommendations",
+      "ownership": "recommendingUserId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "Folder",
+      "collection": "folders",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "Article",
+      "collection": "articles",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "ArticleReadingState",
+      "collection": "articlereadingstates",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "Note",
+      "collection": "notes",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "NotebookEntry",
+      "collection": "notebookentries",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "NotebookFolder",
+      "collection": "notebookfolders",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "EntryRevision",
+      "collection": "entryrevisions",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "WikiPage",
+      "collection": "wikipages",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "WikiProposal",
+      "collection": "wikiproposals",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "WikiRevision",
+      "collection": "wikirevisions",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "WikiLintRun",
+      "collection": "wikilintruns",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "WikiSourceEvent",
+      "collection": "wikisourceevents",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "WikiMaintenanceRun",
+      "collection": "wikimaintenanceruns",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "WikiRepoBaseline",
+      "collection": "wikirepobaselines",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "WikiBriefingCache",
+      "collection": "wikibriefingcaches",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "WikiSharedCollection",
+      "collection": "wikisharedcollections",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "ConnectorActionLog",
+      "collection": "connectoractionlogs",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "TagMeta",
+      "collection": "tagmetas",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "ConceptDecisionLessonEvidence",
+      "collection": "conceptdecisionlessonevidences",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "ConceptNote",
+      "collection": "conceptnotes",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "Edition",
+      "collection": "editions",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "EditionProfile",
+      "collection": "editionprofiles",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "MorningPaperRecord",
+      "collection": "morningpaperrecords",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "SharedEdition",
+      "collection": "sharededitions",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "SharedNotebook",
+      "collection": "sharednotebooks",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "SharedNotebookVolume",
+      "collection": "sharednotebookvolumes",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "NotebookCorrespondence",
+      "collection": "notebookcorrespondences",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "Question",
+      "collection": "questions",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "Board",
+      "collection": "boards",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "BoardItem",
+      "collection": "boarditems",
+      "ownership": null,
+      "parentScope": "Board.userId -> Board._id -> boardId",
+      "manualReviewRequired": true
+    },
+    {
+      "model": "BoardEdge",
+      "collection": "boardedges",
+      "ownership": null,
+      "parentScope": "Board.userId -> Board._id -> boardId",
+      "manualReviewRequired": true
+    },
+    {
+      "model": "WorkingMemoryItem",
+      "collection": "workingmemoryitems",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "UiSettings",
+      "collection": "uisettings",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "WikiSchemaSettings",
+      "collection": "wikischemasettings",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "TourState",
+      "collection": "tourstates",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "ReturnQueueEntry",
+      "collection": "returnqueueentries",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "Connection",
+      "collection": "connections",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "ItemViewEvent",
+      "collection": "itemviewevents",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "ConceptPath",
+      "collection": "conceptpaths",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "ConceptPathProgress",
+      "collection": "conceptpathprogresses",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "PersonalAgent",
+      "collection": "personalagents",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "AgentToken",
+      "collection": "agenttokens",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "AgentConnectSession",
+      "collection": "agentconnectsessions",
+      "ownership": "approvedUserId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "AgentTaskLink",
+      "collection": "agenttasklinks",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "AgentThread",
+      "collection": "agentthreads",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "AgentActionApproval",
+      "collection": "agentactionapprovals",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "AgentProtocolApproval",
+      "collection": "agentprotocolapprovals",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "AgentProtocolHookRun",
+      "collection": "agentprotocolhookruns",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "AgentActionAudit",
+      "collection": "agentactionaudits",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "AgentSoftDeleteRecord",
+      "collection": "agentsoftdeleterecords",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "AgentHandoff",
+      "collection": "agenthandoffs",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "AgentArtifactDraft",
+      "collection": "agentartifactdrafts",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "AgentRun",
+      "collection": "agentruns",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "AgentProposedChange",
+      "collection": "agentproposedchanges",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "AgentStructureProposal",
+      "collection": "agentstructureproposals",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "AgentUpkeepCycle",
+      "collection": "agentupkeepcycles",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "ReferenceEdge",
+      "collection": "referenceedges",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "SavedView",
+      "collection": "savedviews",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "Collection",
+      "collection": "collections",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "IntegrationConnection",
+      "collection": "integrationconnections",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "ImportSession",
+      "collection": "importsessions",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "NoeisReceipt",
+      "collection": "noeisreceipts",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "MorningPaperDelivery",
+      "collection": "morningpaperdeliveries",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "WikiPageVisit",
+      "collection": "wikipagevisits",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "EmbeddingJob",
+      "collection": "embeddingjobs",
+      "ownership": "payload.userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "VectorItem",
+      "collection": "vectoritems",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "ReadingLoopEdition",
+      "collection": "readingloopeditions",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "SharedConcept",
+      "collection": "sharedconcepts",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "SharedQuestion",
+      "collection": "sharedquestions",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "QuestionContribution",
+      "collection": "questioncontributions",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "QuestionPresence",
+      "collection": "questionpresences",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "CasebookLineage",
+      "collection": "casebooklineages",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "JudgmentResponseDraft",
+      "collection": "judgmentresponsedrafts",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "AuthoredExploration",
+      "collection": "authoredexplorations",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "ChatgptOAuthControl",
+      "collection": "chatgptoauthcontrols",
+      "ownership": null,
+      "parentScope": null,
+      "manualReviewRequired": true
+    },
+    {
+      "model": "ChatgptOAuthRequest",
+      "collection": "chatgptoauthrequests",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    },
+    {
+      "model": "ChatgptOAuthGrant",
+      "collection": "chatgptoauthgrants",
+      "ownership": "userId",
+      "parentScope": null,
+      "manualReviewRequired": false
+    }
+  ]
+}

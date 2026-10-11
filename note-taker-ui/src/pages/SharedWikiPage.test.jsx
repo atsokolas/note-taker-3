@@ -476,7 +476,7 @@ describe('SharedWikiPage', () => {
     render(<SharedWikiPage />);
 
     await waitFor(() => expect(adoptPublicWikiPage).toHaveBeenCalledWith('opportunity-cost'));
-    expect(navigate).toHaveBeenCalledWith('/onboarding/wiki?adoptedPage=adopted-2&source=shared', { replace: true });
+    expect(navigate).toHaveBeenCalledWith('/welcome?took=adopted-2', { replace: true });
   });
 
   it('omits misleading maintenance copy when optional proof fields are absent', async () => {

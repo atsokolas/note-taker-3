@@ -74,6 +74,7 @@ const hasRequiredScope = (token = {}, scope = 'read') => {
 
 const buildAuthenticateAgentToken = ({
   AgentToken,
+  isAccountActive,
   now = () => new Date(),
   requiredScope: configuredScope,
   consume = true,
@@ -84,6 +85,7 @@ const buildAuthenticateAgentToken = ({
   if (!AgentToken) {
     throw new Error('AgentToken model is required.');
   }
+  if (typeof isAccountActive !== 'function') throw new Error('Account access check is required.');
 
   return async function authenticateAgentToken(req, res, next) {
     try {
@@ -103,6 +105,12 @@ const buildAuthenticateAgentToken = ({
       }
       if (token.expiresAt && new Date(token.expiresAt).getTime() <= current.getTime()) {
         return res.status(401).json({ error: 'Agent token has expired.' });
+      }
+      let accountActive;
+      try { accountActive = await isAccountActive(String(token.userId || '')); }
+      catch (_error) { return res.status(503).json({ error: 'AUTH_UNAVAILABLE' }); }
+      if (!accountActive) {
+        return res.status(401).json({ error: 'Agent token is invalid or revoked.' });
       }
 
       let oauthGrant = null;
