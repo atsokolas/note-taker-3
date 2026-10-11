@@ -10,6 +10,7 @@ const {
 } = require('./vectorStore');
 const { buildArticleVectorUnits } = require('./articlePassages');
 const { EmbeddingJob, VectorItem } = require('../models');
+const { isReviewer, HOLD_REASON } = require('../services/reviewerRehearsalBudget');
 
 /**
  * Write one job's payload into the Atlas vector index. The job payload already
@@ -148,7 +149,8 @@ const validDate = (value) => {
 const isDuplicateKeyError = (error) => Number(error?.code || 0) === 11000;
 
 const persistEmbeddingJob = async ({ collection, id, text, payload, model = EmbeddingJob }) => {
-  if (!collection || !id || !canPersistEmbeddingJobs(model)) return null;
+  const held = isReviewer(payload?.userId);
+  if (!collection || !id || (held ? typeof model?.findOneAndUpdate !== 'function' : !canPersistEmbeddingJobs(model))) return null;
   const runAt = now();
   const jobText = trimText(text, 8000);
   const contentHash = contentHashOf(jobText);
@@ -160,12 +162,12 @@ const persistEmbeddingJob = async ({ collection, id, text, payload, model = Embe
     text: jobText,
     contentHash,
     payload: payload || {},
-    status: 'queued',
+    status: held ? 'held' : 'queued',
     replayRequired: false,
-    nextRunAt: runAt,
+    nextRunAt: held ? null : runAt,
     lockedAt: null,
     completedAt: null,
-    lastError: '',
+    lastError: held ? HOLD_REASON : '',
     ...(sourceUpdatedAt ? { sourceUpdatedAt } : {})
   };
 
@@ -209,6 +211,15 @@ const enqueueEmbedding = ({ collection, id, text, payload }, {
   model = EmbeddingJob,
   enqueueTransient = enqueue
 } = {}) => {
+  if (isReviewer(payload?.userId)) {
+    // A persistence failure must never escape into the transient paid queue.
+    const held = persistEmbeddingJob({ collection, id, text, payload, model });
+    if (requireDurable) return held;
+    return held.catch(error => {
+      console.error('Reviewer embedding hold could not be persisted:', error.message);
+      return null;
+    });
+  }
   if (requireDurable) {
     if (!canPersistEmbeddingJobs(model)) {
       return Promise.reject(new Error('Durable embedding queue persistence is unavailable.'));
@@ -226,10 +237,16 @@ const enqueueEmbedding = ({ collection, id, text, payload }, {
   return null;
 };
 
-registerHandler('embedding', async ({ text, payload }) => {
-  const vector = await embedText(text);
-  await writeVectorItem({ text, payload, vector });
-});
+const processTransientEmbedding = async ({ collection, id, text, payload }, { model = EmbeddingJob, embedTextFn = embedText, writeVectorFn = writeVectorItem } = {}) => {
+  if (isReviewer(payload?.userId)) {
+    const held = await persistEmbeddingJob({ collection, id, text, payload, model });
+    if (!held) throw new Error('Reviewer embedding hold could not be persisted.');
+    return { status: 'held' };
+  }
+  const vector = await embedTextFn(text);
+  await writeVectorFn({ text, payload, vector });
+};
+registerHandler('embedding', processTransientEmbedding);
 
 const claimDueEmbeddingJob = async ({
   model = EmbeddingJob,
@@ -426,6 +443,13 @@ const drainEmbeddingJobQueue = async ({
     const job = await ensureEmbeddingJobContentHash({ model, job: claimedJob });
     if (!job) break;
     try {
+      if (isReviewer(job.payload?.userId)) {
+        await model.updateOne({ _id: job._id }, { $set: {
+          status: 'held', nextRunAt: null, lockedAt: null, lastError: HOLD_REASON
+        } });
+        results.push({ jobId: String(job._id), status: 'held' });
+        continue;
+      }
       // Unchanged content needs no embedding call — this is what makes a
       // re-run of the backfill cheap rather than a full re-spend.
       const current = await isCurrentFn({
@@ -738,6 +762,8 @@ const enqueueJudgmentEmbedding = (page) => {
 };
 
 module.exports = {
+  enqueueEmbedding,
+  processTransientEmbedding,
   COLLECTIONS,
   drainEmbeddingJobQueue,
   writeVectorItem,

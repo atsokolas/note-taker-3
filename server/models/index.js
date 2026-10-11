@@ -3164,7 +3164,7 @@ const embeddingJobSchema = new mongoose.Schema({
   payload: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
   status: {
     type: String,
-    enum: ['queued', 'running', 'completed', 'failed', 'abandoned'],
+    enum: ['queued', 'running', 'completed', 'failed', 'abandoned', 'held'],
     default: 'queued',
     index: true
   },
