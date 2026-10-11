@@ -229,6 +229,13 @@ export const isDesignPreviewPath = (pathname = '') => (
   pathname === '/design-preview' || pathname.startsWith('/design-preview/')
 );
 
+/* Pages that read the same signed in or out. They are drawn by the public
+   tree either way, so they are declared once. */
+const PUBLIC_PAGES = new Set(['/guides', '/examples', '/proof', '/privacy', '/terms', ...GUIDE_SLUGS.map((slug) => `/${slug}`)]);
+export const isPublicPage = (pathname = '') => (
+  isPublicSharePath(pathname) || isDesignPreviewPath(pathname) || PUBLIC_PAGES.has(pathname)
+);
+
 const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess }) => {
   const location = useLocation();
   const isShareRoute = isPublicSharePath(location.pathname);
@@ -420,7 +427,7 @@ const AppRouterContent = ({
   setShortcutOverlayOpen
 }) => {
   const location = useLocation();
-  const shouldUsePublicRoutes = !isAuthenticated || isPublicSharePath(location.pathname);
+  const shouldUsePublicRoutes = !isAuthenticated || isPublicPage(location.pathname);
 
   if (shouldUsePublicRoutes) return <PublicRoutes {...publicRouteProps} />;
   return (
@@ -767,33 +774,11 @@ function App() {
             <Route path="/connections" element={<Integrations />} />
             <Route path="/integrations" element={<Integrations />} />
             <Route path="/settings/connected-agents/authorize" element={<AgentConnectAuthorize />} />
-          <Route path="/settings/connected-agents/chatgpt" element={<ChatGPTConnectAuthorize />} />
+            <Route path="/settings/connected-agents/chatgpt" element={<ChatGPTConnectAuthorize />} />
             <Route path="/a/run/:taskId" element={<AgentTaskRun />} />
             <Route path="/data-integrations" element={<DataIntegrationsRedirect />} />
             <Route path="/marketing-analytics" element={<MarketingAnalytics />} />
             <Route path="/search-console-opportunities" element={<SearchConsoleOpportunities />} />
-            <Route path="/guides" element={<GuidesHub />} />
-            <Route path="/examples" element={<Examples />} />
-            <Route path="/proof" element={<PublicProofGallery />} />
-            {GUIDE_SLUGS.map((slug) => (
-              <Route key={slug} path={`/${slug}`} element={<GuideArticlePage slug={slug} />} />
-            ))}
-            <Route path="/privacy" element={<PrivacyPolicy />} />
-            <Route path="/terms" element={<TermsOfUse />} />
-            <Route path="/design-preview/open-sentence" element={<OpenSentenceStoryboard />} />
-            <Route path="/design-preview/notebook-share" element={<NotebookSharePreview />} />
-            <Route path="/design-preview/notebook-volume" element={<NotebookVolumePreview />} />
-            <Route path="/design-preview/question-share" element={<QuestionSharePreview />} />
-            <Route path="/design-preview/concept-share" element={<ConceptSharePreview />} />
-            <Route path="/design-preview" element={<DesignPreview />} />
-            <Route path="/share/notebooks/:slug" element={<SharedNotebook />} />
-            <Route path="/share/volumes/:slug" element={<SharedNotebookVolume />} />
-            <Route path="/share/concepts/:slug" element={<SharedConcept />} />
-            <Route path="/share/wiki/collection/:idOrSlug" element={<SharedWikiCollectionPage />} />
-            <Route path="/share/wiki/:idOrSlug/comparison" element={<PublicWikiComparison />} />
-            <Route path="/share/wiki/:idOrSlug" element={<SharedWikiPage />} />
-            <Route path="/share/questions/:slug" element={<SharedQuestion />} />
-            <Route path="/share/editions/:slug" element={<SharedEdition />} />
 
             {/* Legacy/feature routes kept for compatibility */}
             <Route path="/brain" element={<Navigate to="/review?tab=patterns" replace />} />
