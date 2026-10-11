@@ -1,0 +1,844 @@
+[
+  {
+    "id": "mental-models",
+    "name": "Mental Models",
+    "tagline": "Seven durable ideas for thinking clearly about decisions",
+    "description": "A starter wiki on seven mental models, from first principles to inversion, each traced to Aristotle, Bastiat, Buffett, Munger and other primary sources.",
+    "hero": true,
+    "pages": [
+      {
+        "title": "First Principles Thinking",
+        "links": [
+          "Opportunity Cost",
+          "Inversion"
+        ],
+        "paragraphs": [
+          "First principles thinking means understanding a subject by tracing it back to its most basic conditions and elements.{1} Aristotle opens his Physics by saying we know a thing only once we have \"carried our analysis as far as its simplest elements.\"{1}",
+          "In his logic, Aristotle held that scientific knowledge is demonstrated from premises, which raises the question of where the chain of premises ends.{2} Either the chain runs on forever, or it stops at starting points that are not themselves demonstrated.{2} Aristotle's answer was that first principles are known in another way, through induction and understanding, and they supply the starting points for proof.{2}",
+          "Applied to everyday problems, the habit is to separate what is truly foundational in an argument from what has simply been inherited. Analysis is complete, on Aristotle's standard, only when it reaches elements that cannot be broken down further.{1}"
+        ],
+        "sources": [
+          {
+            "title": "Physics, Book I (trans. R. P. Hardie and R. K. Gaye)",
+            "url": "https://classics.mit.edu/Aristotle/physics.1.i.html",
+            "publisher": "The Internet Classics Archive (MIT)",
+            "year": 1930,
+            "evidence": "For we do not think that we know a thing until we are acquainted with its primary conditions or first principles"
+          },
+          {
+            "title": "Aristotle's Logic",
+            "url": "https://plato.stanford.edu/entries/aristotle-logic/",
+            "publisher": "Stanford Encyclopedia of Philosophy",
+            "year": 2000,
+            "evidence": "Either this process continues forever, creating an infinite regress of premises, or it comes to a stop at some point."
+          }
+        ]
+      },
+      {
+        "title": "Opportunity Cost",
+        "links": [
+          "Margin of Safety",
+          "Circle of Competence"
+        ],
+        "paragraphs": [
+          "The opportunity cost of using a resource is the value of the best alternative use you give up.{1} Every choice therefore carries a cost, because putting a resource to one use means forgoing its next-best use.{1}",
+          "Frédéric Bastiat argued in 1848 that an act, a habit or a law produces a series of effects, and only the first of them is seen.{2} In his broken-window example, the six francs paid to repair the glass are visible, while the shoes or book the owner would otherwise have bought are not.{2} The hidden cost is that the owner \"will not be able to spend them for another.\"{2}",
+          "Because the forgone alternative never shows up on a receipt, the discipline lies in naming it before deciding."
+        ],
+        "sources": [
+          {
+            "title": "Opportunity Cost",
+            "url": "https://www.econlib.org/library/Enc/OpportunityCost.html",
+            "publisher": "Econlib, The Concise Encyclopedia of Economics (David R. Henderson)",
+            "year": 2018,
+            "evidence": "the value of the next-highest-valued alternative use of that resource."
+          },
+          {
+            "title": "What Is Seen and What Is Not Seen",
+            "url": "https://www.econlib.org/library/Bastiat/basEss1.html",
+            "publisher": "Econlib (Bastiat, Selected Essays on Political Economy, trans. Seymour Cain)",
+            "year": 1848,
+            "evidence": "It is not seen that, since our citizen has spent six francs for one thing, he will not be able to spend them for another."
+          }
+        ]
+      },
+      {
+        "title": "Margin of Safety",
+        "links": [
+          "Circle of Competence",
+          "Inversion"
+        ],
+        "paragraphs": [
+          "A margin of safety is a gap between what you estimate something is worth and what you pay for it, so that an error in the estimate does not sink the decision.{1} Warren Buffett wrote that if Berkshire calculates a stock's value as only slightly higher than its price, it is not interested in buying.{1}",
+          "Buffett credited the principle to Benjamin Graham and called it \"the cornerstone of investment success.\"{1} Charlie Munger described Graham's approach as buying shares whose real value per share exceeded the price by a wide amount, leaving a large excess of value working for the buyer.{2}",
+          "The buffer exists because estimates can be wrong, which makes it a natural companion to knowing where your own understanding runs out."
+        ],
+        "sources": [
+          {
+            "title": "Berkshire Hathaway Shareholder Letter, 1992",
+            "url": "https://berkshirehathaway.com/letters/1992.html",
+            "publisher": "Berkshire Hathaway Inc.",
+            "year": 1992,
+            "evidence": "Second, and equally important, we insist on a margin of safety in our purchase price."
+          },
+          {
+            "title": "A Lesson on Elementary Worldly Wisdom",
+            "url": "https://fs.blog/great-talks/a-lesson-on-worldly-wisdom/",
+            "publisher": "Farnam Street (Charlie Munger, USC Business School talk)",
+            "year": 1994,
+            "evidence": "You had a huge margin of safety—as he put it—by having this big excess value going for you."
+          }
+        ]
+      },
+      {
+        "title": "Circle of Competence",
+        "links": [
+          "Incentives",
+          "Margin of Safety"
+        ],
+        "paragraphs": [
+          "Charlie Munger told USC business students in 1994 that every person has a circle of competence, and that it is very hard to enlarge.{1} His advice was to work out where you have an edge and \"play within your own circle of competence.\"{1}",
+          "Buffett made a related point in his 1992 letter: what counts most in investing is not how much you know but how realistically you define what you don't know.{2} He added that an investor needs to do very few things right as long as big mistakes are avoided.{2}",
+          "The model is less about the size of what you know than about being honest regarding its edges.{1,2}"
+        ],
+        "sources": [
+          {
+            "title": "A Lesson on Elementary Worldly Wisdom",
+            "url": "https://fs.blog/great-talks/a-lesson-on-worldly-wisdom/",
+            "publisher": "Farnam Street (Charlie Munger, USC Business School talk)",
+            "year": 1994,
+            "evidence": "And you've got to play within your own circle of competence."
+          },
+          {
+            "title": "Berkshire Hathaway Shareholder Letter, 1992",
+            "url": "https://berkshirehathaway.com/letters/1992.html",
+            "publisher": "Berkshire Hathaway Inc.",
+            "year": 1992,
+            "evidence": "What counts for most people in investing is not how much they know, but rather how realistically they define what they don't know."
+          }
+        ]
+      },
+      {
+        "title": "Incentives",
+        "links": [
+          "Opportunity Cost",
+          "Inversion"
+        ],
+        "paragraphs": [
+          "Charlie Munger opened his catalogue of misjudgment tendencies with incentives, noting that almost everyone thinks they already understand how important rewards and punishments are.{1} His summary was blunt: \"Incentives are superpowers.\"{1} In his USC talk he put it more generally, saying behavior is determined by the incentives of the decision-maker.{3}",
+          "His favorite business case was Federal Express, which struggled to get its night shift to move packages quickly between planes.{1,3} The fix was to stop paying by the hour, pay per shift, and let workers go home once all the planes were loaded, and it worked.{1}",
+          "Steven Kerr argued in 1975 that many reward systems pay off for exactly the behavior the rewarder is trying to discourage.{2} One of his examples is a society that hopes teachers will not neglect teaching but rewards them almost entirely for research and publications.{2}"
+        ],
+        "sources": [
+          {
+            "title": "The Psychology of Human Misjudgment",
+            "url": "https://fs.blog/great-talks/psychology-human-misjudgment/",
+            "publisher": "Farnam Street (Charlie Munger, revised text)",
+            "year": 2005,
+            "evidence": "Never, ever, think about something else when you should be thinking about the power of incentives."
+          },
+          {
+            "title": "On the Folly of Rewarding A, While Hoping for B",
+            "url": "https://web.mit.edu/curhan/www/docs/Articles/15341_Readings/Motivation/Kerr_Folly_of_rewarding_A_while_hoping_for_B.pdf",
+            "publisher": "Academy of Management Journal (Steven Kerr)",
+            "year": 1975,
+            "evidence": "reward systems that are fouled up in that behaviors which are rewarded are those which the rewarder is trying to discourage"
+          },
+          {
+            "title": "A Lesson on Elementary Worldly Wisdom",
+            "url": "https://fs.blog/great-talks/a-lesson-on-worldly-wisdom/",
+            "publisher": "Farnam Street (Charlie Munger, USC Business School talk)",
+            "year": 1994,
+            "evidence": "And, as usual in human affairs, what determines the behavior are incentives for the decision-maker."
+          }
+        ]
+      },
+      {
+        "title": "Compound Interest",
+        "links": [
+          "Margin of Safety",
+          "Incentives"
+        ],
+        "paragraphs": [
+          "Compound interest means earning interest both on the money you saved and on the interest already earned.{1} In the CFPB's example, $1,000 at 5% a year grows to $1,050 after one year and $1,102.50 after two, because the second year's interest is figured on the larger balance.{1}",
+          "Over long spans, modest rates produce startling totals, and startling totals can hide modest rates.{2} Buffett noted that the Dow rose from 66 to 11,497 during the twentieth century, a gain that \"shrinks to 5.3% when compounded annually.\"{2} Matching that rate in the twenty-first century would require the Dow to close at about 2,000,000 at the end of 2099.{2}",
+          "Munger ranked compound interest among the most useful models in his 1994 talk, placing the elementary math of permutations and combinations just after it.{3}"
+        ],
+        "sources": [
+          {
+            "title": "What is compound interest?",
+            "url": "https://www.consumerfinance.gov/ask-cfpb/what-is-compound-interest-en-1683/",
+            "publisher": "Consumer Financial Protection Bureau",
+            "year": 2023,
+            "evidence": "Compound interest is when you earn interest on the money you’ve saved and on the interest you earn along the way."
+          },
+          {
+            "title": "Berkshire Hathaway Shareholder Letter, 2007",
+            "url": "https://www.berkshirehathaway.com/letters/2007ltr.pdf",
+            "publisher": "Berkshire Hathaway Inc.",
+            "year": 2007,
+            "evidence": "This gain, though it appears huge, shrinks to 5.3% when compounded annually."
+          },
+          {
+            "title": "A Lesson on Elementary Worldly Wisdom",
+            "url": "https://fs.blog/great-talks/a-lesson-on-worldly-wisdom/",
+            "publisher": "Farnam Street (Charlie Munger, USC Business School talk)",
+            "year": 1994,
+            "evidence": "And the great useful model, after compound interest, is the elementary math of permutations and combinations."
+          }
+        ]
+      },
+      {
+        "title": "Inversion",
+        "links": [
+          "First Principles Thinking",
+          "Margin of Safety"
+        ],
+        "paragraphs": [
+          "Inversion means approaching a problem backwards: instead of asking how to succeed, ask what would guarantee failure, then avoid it.{1} Munger credited the habit to the algebraist Jacobi, whose advice he repeated as \"Invert, always invert.\"{1,2}",
+          "In a 1986 commencement speech at the Harvard School, Munger followed Johnny Carson, who had told a graduating class how to guarantee misery rather than how to be happy.{1} Carson's prescriptions included mood-altering chemicals, envy and resentment.{1} Munger summed up the attitude with a joke about wishing he knew where he would die so that he could never go there.{1}",
+          "Later he described his own method in the same spirit, saying he sought good judgment mostly by collecting instances of bad judgment and working out how to avoid them.{2}"
+        ],
+        "sources": [
+          {
+            "title": "How to Guarantee a Life of Misery (Harvard School commencement speech)",
+            "url": "https://fs.blog/great-talks/guarantee-life-misery-charlie-munger/",
+            "publisher": "Farnam Street (Charlie Munger)",
+            "year": 1986,
+            "evidence": "I wish I knew where I was going to die, and then I'd never go there."
+          },
+          {
+            "title": "The Psychology of Human Misjudgment",
+            "url": "https://fs.blog/great-talks/psychology-human-misjudgment/",
+            "publisher": "Farnam Street (Charlie Munger, revised text)",
+            "year": 2005,
+            "evidence": "I sought good judgment mostly by collecting instances of bad judgment, then pondering ways to avoid such outcomes."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "behavioral-economics",
+    "name": "Behavioral Economics & Decision-Making",
+    "tagline": "How people actually judge risk, numbers, odds and time",
+    "description": "Six linked ideas from the psychology of judgment and choice, each with the original studies and the replications that test them.",
+    "pages": [
+      {
+        "title": "Loss Aversion",
+        "links": [
+          "Prospect Theory"
+        ],
+        "paragraphs": [
+          "Loss aversion is the tendency to dislike a loss more than you like a gain of the same size.{1} Kahneman and Tversky measured gains and losses against a reference level, which is often simply the status quo, rather than against total wealth.{1}",
+          "Richard Thaler used loss aversion to explain the endowment effect, in which people value the same item more highly once they own it.{2} A 2024 meta-analysis pooling hundreds of published estimates put the average loss aversion coefficient at 1.955, which would mean a loss counts roughly twice as much as an equal gain.{3}",
+          "The idea is less settled than its fame suggests. Reviewing the evidence, Gal and Rucker concluded that losses do not, on balance, tend to be any more impactful than gains.{4} They argue for a more contextual view of when losses outweigh gains, rather than treating loss aversion as a general law.{4}"
+        ],
+        "sources": [
+          {
+            "title": "The Prize in Economic Sciences 2002: Popular information",
+            "url": "https://www.nobelprize.org/prizes/economic-sciences/2002/popular-information/",
+            "publisher": "NobelPrize.org",
+            "year": 2002,
+            "evidence": "most individuals seem to be more averse to losses, relative to a reference level, than partial to gains of the same size"
+          },
+          {
+            "title": "The Prize in Economic Sciences 2017: Press release",
+            "url": "https://www.nobelprize.org/prizes/economic-sciences/2017/press-release/",
+            "publisher": "NobelPrize.org",
+            "year": 2017,
+            "evidence": "value the same item more highly when they own it"
+          },
+          {
+            "title": "Meta-analysis of Empirical Estimates of Loss Aversion",
+            "url": "https://www.aeaweb.org/articles?id=10.1257/jel.20221698",
+            "publisher": "Journal of Economic Literature (American Economic Association)",
+            "year": 2024,
+            "evidence": "Our analysis indicates that the mean loss aversion coefficient is 1.955"
+          },
+          {
+            "title": "The Loss of Loss Aversion: Will It Loom Larger Than Its Gain?",
+            "url": "https://papers.ssrn.com/abstract=3049660",
+            "publisher": "Journal of Consumer Psychology (via SSRN)",
+            "year": 2018,
+            "evidence": "The upshot of this review is that current evidence does not support that losses, on balance, tend to be any more impactful than gains."
+          }
+        ]
+      },
+      {
+        "title": "Prospect Theory",
+        "links": [
+          "Loss Aversion",
+          "Anchoring"
+        ],
+        "paragraphs": [
+          "Prospect theory is a model of how people actually choose between risky options, published by Daniel Kahneman and Amos Tversky in Econometrica in 1979.{1} The Nobel committee that honored Kahneman in 2002 described it as an alternative to standard theory that better accounts for observed behavior.{2}",
+          "Its central move is to assign value to gains and losses rather than to final levels of wealth.{1} People are more sensitive to how an outcome deviates from a reference level than to the outcome itself, so where that reference point sits shapes the choice.{3} The same sensitivity to starting points runs through Anchoring.",
+          "The value function is \"generally steeper for losses than for gains,\" which is the formal root of loss aversion.{1} It is usually concave for gains and convex for losses, and people underweight outcomes that are merely probable compared with outcomes that are certain.{1}"
+        ],
+        "sources": [
+          {
+            "title": "Prospect Theory: An Analysis of Decision under Risk",
+            "url": "https://www.econometricsociety.org/publications/econometrica/1979/03/01/prospect-theory-analysis-decision-under-risk",
+            "publisher": "Econometrica (The Econometric Society)",
+            "year": 1979,
+            "evidence": "The value function is normally concave for gains, commonly convex for losses, and is generally steeper for losses than for gains."
+          },
+          {
+            "title": "The Prize in Economic Sciences 2002: Press release",
+            "url": "https://www.nobelprize.org/prizes/economic-sciences/2002/press-release/",
+            "publisher": "NobelPrize.org",
+            "year": 2002,
+            "evidence": "he has formulated prospect theory as an alternative, that better accounts for observed behavior"
+          },
+          {
+            "title": "The Prize in Economic Sciences 2002: Popular information",
+            "url": "https://www.nobelprize.org/prizes/economic-sciences/2002/popular-information/",
+            "publisher": "NobelPrize.org",
+            "year": 2002,
+            "evidence": "individuals are much more sensitive to the way an outcome deviates from a reference level"
+          }
+        ]
+      },
+      {
+        "title": "Anchoring",
+        "links": [
+          "Base Rates",
+          "Availability Heuristic"
+        ],
+        "paragraphs": [
+          "Anchoring is the pull an initial number exerts on a later estimate: people start from a value and adjust it to reach an answer, and different starting points yield different answers.{1} In Tversky and Kahneman's 1974 study, groups given the arbitrary starting numbers 10 and 65 gave median estimates of 25 and 45 percent for the share of African countries in the United Nations.{1}",
+          "The classic effect holds up well. The 2014 Many Labs project, which reran 13 effects across 36 samples, found anchoring robust and concluded that the original studies had underestimated its size.{2}",
+          "Some offshoots have not held up. A 2020 replication found no significant evidence that numbers merely present in the environment bias price estimates, while standard anchoring was robust in the same study.{3} Why anchoring works is also unsettled: a key test of the selective accessibility account failed to replicate across several experiments.{4}"
+        ],
+        "sources": [
+          {
+            "title": "Judgment under Uncertainty: Heuristics and Biases",
+            "url": "https://sites.stat.washington.edu/peter/498.Sp16/Tversky.pdf",
+            "publisher": "Science (copy hosted by University of Washington Statistics)",
+            "year": 1974,
+            "evidence": "people make estimates by starting from an initial value that is adjusted to yield the final answer."
+          },
+          {
+            "title": "Investigating Variation in Replicability: A \"Many Labs\" Replication Project",
+            "url": "https://research.unipd.it/bitstream/11577/2688304/1/ManyLabs.2014.SP.fulltext.pdf",
+            "publisher": "Social Psychology (Hogrefe), repository copy at University of Padua",
+            "year": 2014,
+            "evidence": "the original studies produced underestimates of some effects (e.g., anchoring-and-adjustment"
+          },
+          {
+            "title": "Do Incidental Environmental Anchors Bias Consumers' Price Estimations?",
+            "url": "https://discovery.ucl.ac.uk/id/eprint/10112740/",
+            "publisher": "Collabra: Psychology (UCL Discovery)",
+            "year": 2020,
+            "evidence": "No statistically significant evidence of incidental anchoring was obtained. In contrast, robust standard anchoring effects were found."
+          },
+          {
+            "title": "Failures to replicate a key result of the selective accessibility theory of anchoring",
+            "url": "https://discovery.ucl.ac.uk/id/eprint/10074759/",
+            "publisher": "Journal of Experimental Psychology: General (UCL Discovery)",
+            "year": 2019,
+            "evidence": "the theoretical basis for some previous tests of the selective accessibility account of anchoring is shaky"
+          }
+        ]
+      },
+      {
+        "title": "Availability Heuristic",
+        "links": [
+          "Base Rates",
+          "Loss Aversion"
+        ],
+        "paragraphs": [
+          "The availability heuristic is judging how frequent or likely something is by the ease with which examples come to mind.{1} Tversky and Kahneman argued that people judge frequency and probability using a limited number of heuristics, and set out availability at length in a chapter on exactly that question.{2}",
+          "Like the other heuristics, it is economical and usually effective, but it leads to systematic and predictable errors.{1} The Nobel committee summarized this line of work as showing that human judgment may take shortcuts that depart from basic principles of probability.{4}",
+          "A 1978 study of how people judge the frequency of causes of death found a tendency to overestimate small frequencies and underestimate larger ones.{3} The authors traced these biases partly to disproportionate exposure, memorability and imaginability, and participants could not correct for them even when told to.{3}"
+        ],
+        "sources": [
+          {
+            "title": "Judgment under Uncertainty: Heuristics and Biases",
+            "url": "https://sites.stat.washington.edu/peter/498.Sp16/Tversky.pdf",
+            "publisher": "Science (copy hosted by University of Washington Statistics)",
+            "year": 1974,
+            "evidence": "by the ease with which instances or occurrences can be brought to mind. This judgmental heuristic is called availability."
+          },
+          {
+            "title": "Availability: A heuristic for judging frequency and probability",
+            "url": "https://cambridge.org/core/books/judgment-under-uncertainty/availability-a-heuristic-for-judging-frequency-and-probability/91C188C49E8AF2DCFD730F8047117671",
+            "publisher": "Cambridge University Press (Judgment under Uncertainty: Heuristics and Biases)",
+            "year": 1982,
+            "evidence": "employ a limited number of heuristics"
+          },
+          {
+            "title": "Judged frequency of lethal events",
+            "url": "https://scholarsbank.uoregon.edu/xmlui/handle/1794/22549",
+            "publisher": "University of Oregon Scholars' Bank",
+            "year": 1978,
+            "evidence": "These biases were traced to a number of possible sources, including disproportionate exposure"
+          },
+          {
+            "title": "The Prize in Economic Sciences 2002: Press release",
+            "url": "https://www.nobelprize.org/prizes/economic-sciences/2002/press-release/",
+            "publisher": "NobelPrize.org",
+            "year": 2002,
+            "evidence": "human judgment may take heuristic shortcuts that systematically depart from basic principles of probability"
+          }
+        ]
+      },
+      {
+        "title": "Base Rates",
+        "links": [
+          "Availability Heuristic",
+          "Anchoring"
+        ],
+        "paragraphs": [
+          "A base rate is how common something is in the relevant population before you learn anything about the particular case. The base-rate fallacy is the tendency to ignore base rates in favor of case-specific information.{1}",
+          "In Tversky and Kahneman's engineer-and-lawyer study, people were told the proportions of each profession in a group, yet those proportions were effectively ignored once a personality description was added.{2} In a similar task, most subjects judged a person interested in politics to be a member of parliament, even though salespeople made up a much larger share of the population.{3}",
+          "In Maya Bar-Hillel's version, a problem about a cab and a witness, only about 10 percent of respondents came close to the correct Bayesian answer of 41 percent.{4} She argued that people weigh information by its perceived relevance, and that information feels more relevant the more specifically it relates to the case being judged.{1}"
+        ],
+        "sources": [
+          {
+            "title": "The base-rate fallacy in probability judgments",
+            "url": "https://cris.huji.ac.il/en/publications/the-base-rate-fallacy-in-probability-judgments/",
+            "publisher": "Acta Psychologica (Hebrew University of Jerusalem research portal)",
+            "year": 1980,
+            "evidence": "The base-rate fallacy is people's tendency to ignore base rates in favor of, e.g., individuating information"
+          },
+          {
+            "title": "Judgment under Uncertainty: Heuristics and Biases",
+            "url": "https://sites.stat.washington.edu/peter/498.Sp16/Tversky.pdf",
+            "publisher": "Science (copy hosted by University of Washington Statistics)",
+            "year": 1974,
+            "evidence": "However, prior probabilities were effectively ignored when a description was introduced"
+          },
+          {
+            "title": "The Prize in Economic Sciences 2002: Popular information",
+            "url": "https://www.nobelprize.org/prizes/economic-sciences/2002/popular-information/",
+            "publisher": "NobelPrize.org",
+            "year": 2002,
+            "evidence": "regardless of the fact that the relatively higher share of salespersons in the population"
+          },
+          {
+            "title": "The Base-Rate Fallacy in Probability Judgments (Technical Report)",
+            "url": "https://apps.dtic.mil/sti/pdfs/ADA045772.pdf",
+            "publisher": "Decision Research / Defense Technical Information Center",
+            "year": 1977,
+            "evidence": "Only about 10% of the subjects gave estimates that even roughly approximated the normative Bayesian estimate of 41%."
+          }
+        ]
+      },
+      {
+        "title": "Hyperbolic Discounting",
+        "links": [
+          "Loss Aversion",
+          "Base Rates"
+        ],
+        "paragraphs": [
+          "People value rewards less the later they arrive: a thousand kronor next year is perceived as worth less than a thousand kronor today.{2} Hyperbolic discounting is a way of modeling this that makes preferences dynamically inconsistent, so the choice that looks best in advance can stop looking best when the moment comes.{1}",
+          "David Laibson showed that such preferences give people a motive to constrain their own future choices.{1} Richard Thaler described the same tension as one between a long-term planning self and a short-term, pleasure-focused self, noting that it is often easier to promise to save more in the future.{2} His Save More Tomorrow program with Shlomo Benartzi built on that, and average saving rates among participants rose from 3.5 to 13.6 percent.{3}",
+          "A major review of three decades of research on choices over time catalogued the empirical regularities that conflict with the standard discounted utility model, along with the alternative models proposed to address them.{4} Its authors stress separating pure time preference from the many other considerations that shape such choices.{4}"
+        ],
+        "sources": [
+          {
+            "title": "Golden Eggs and Hyperbolic Discounting",
+            "url": "https://academic.oup.com/qje/article-abstract/112/2/443/1870910",
+            "publisher": "The Quarterly Journal of Economics (Oxford University Press)",
+            "year": 1997,
+            "evidence": "Hyperbolic discount functions induce dynamically inconsistent preferences, implying a motive for consumers to constrain their own future choices."
+          },
+          {
+            "title": "The Prize in Economic Sciences 2017: Popular information",
+            "url": "https://www.nobelprize.org/prizes/economic-sciences/2017/popular-information/",
+            "publisher": "NobelPrize.org",
+            "year": 2017,
+            "evidence": "a thousand krona next year is perceived as worth less than a thousand krona today"
+          },
+          {
+            "title": "Save More Tomorrow: Using Behavioral Economics to Increase Employee Saving",
+            "url": "https://www.journals.uchicago.edu/doi/10.1086/380085",
+            "publisher": "Journal of Political Economy (University of Chicago Press)",
+            "year": 2004,
+            "evidence": "the average saving rates for SMarT program participants increased from 3.5 percent to 13.6 percent"
+          },
+          {
+            "title": "Time Discounting and Time Preference: A Critical Review",
+            "url": "https://www.aeaweb.org/articles?id=10.1257/002205102320161311",
+            "publisher": "Journal of Economic Literature (American Economic Association)",
+            "year": 2002,
+            "evidence": "We then summarize the alternate theoretical formulations that have been advanced to address these anomalies."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "how-to-think-about-ai",
+    "name": "How to Think About AI",
+    "tagline": "What scale, agents, context and evals do and don't tell you",
+    "description": "A sourced primer on the few ideas that make modern AI systems legible: how they scale, how they act, what they can see, how they are measured, and whether they do what we meant.",
+    "pages": [
+      {
+        "title": "Scaling Laws",
+        "links": [
+          "Evals",
+          "Capability vs Alignment"
+        ],
+        "paragraphs": [
+          "A scaling law is an empirical regularity: as a language model gets more parameters, more training data, or more training compute, its prediction error falls along a smooth and predictable curve.{1} Kaplan and colleagues found that this loss follows a power law in each of those three quantities, while architectural details such as width and depth matter far less within a wide range.{1} The same equations let researchers decide how to divide a fixed compute budget before a large training run begins.{1}",
+          "How to divide that budget has itself been revised. Kaplan et al. favored very large models trained on a relatively modest amount of data.{1} Hoffmann et al. concluded instead that model size and training tokens should grow in equal proportion, and that many large models of the time were \"significantly undertrained.\"{2} Their 70 billion parameter Chinchilla, trained on more data with the same compute as the 280 billion parameter Gopher, outperformed it.{2}",
+          "Smooth gains in loss do not settle how specific abilities improve. Wei et al. described emergent abilities that are absent in smaller models and present in larger ones, arguing they cannot be predicted by extrapolating from small models.{3} Schaeffer et al. countered that many of these jumps are produced by the choice of evaluation metric, and that continuous metrics often show steady improvement instead.{4} The disagreement is a reminder that what scaling appears to deliver depends on how it is measured."
+        ],
+        "sources": [
+          {
+            "title": "Scaling Laws for Neural Language Models",
+            "url": "https://arxiv.org/abs/2001.08361",
+            "publisher": "arXiv (OpenAI)",
+            "year": 2020,
+            "evidence": "The loss scales as a power-law with model size, dataset size, and the amount of compute used for training"
+          },
+          {
+            "title": "Training Compute-Optimal Large Language Models",
+            "url": "https://arxiv.org/abs/2203.15556",
+            "publisher": "arXiv (DeepMind)",
+            "year": 2022,
+            "evidence": "We find that current large language models are significantly undertrained"
+          },
+          {
+            "title": "Emergent Abilities of Large Language Models",
+            "url": "https://arxiv.org/abs/2206.07682",
+            "publisher": "arXiv",
+            "year": 2022,
+            "evidence": "We consider an ability to be emergent if it is not present in smaller models but is present in larger models."
+          },
+          {
+            "title": "Are Emergent Abilities of Large Language Models a Mirage?",
+            "url": "https://arxiv.org/abs/2304.15004",
+            "publisher": "arXiv",
+            "year": 2023,
+            "evidence": "emergent abilities appear due to the researcher's choice of metric"
+          }
+        ]
+      },
+      {
+        "title": "Agents",
+        "links": [
+          "Context Windows",
+          "Evals"
+        ],
+        "paragraphs": [
+          "Anthropic distinguishes workflows, in which language models and tools are orchestrated through predefined code paths, from agents, in which the model directs its own process and tool use.{1} The useful question is who decides the next step: the programmer or the model.{1}",
+          "Research on agents showed the value of letting a model alternate between thinking and doing. ReAct has a model produce reasoning traces and task actions in an interleaved way, so its plans can be updated with what its actions return from the outside world.{2}",
+          "Autonomy has a price. Because an agent chooses its own path, it tends to cost more and its mistakes can compound over a long run, so Anthropic advises \"finding the simplest solution possible, and only increasing complexity when needed.\"{1} One way to gauge what agents can handle is METR's time horizon: the length of task, measured by how long it takes humans, that a model completes with 50% success.{3}"
+        ],
+        "sources": [
+          {
+            "title": "Building effective agents",
+            "url": "https://www.anthropic.com/engineering/building-effective-agents",
+            "publisher": "Anthropic",
+            "year": 2024,
+            "evidence": "Agents, on the other hand, are systems where LLMs dynamically direct their own processes and tool usage"
+          },
+          {
+            "title": "ReAct: Synergizing Reasoning and Acting in Language Models",
+            "url": "https://arxiv.org/abs/2210.03629",
+            "publisher": "arXiv",
+            "year": 2022,
+            "evidence": "generate both reasoning traces and task-specific actions in an interleaved manner"
+          },
+          {
+            "title": "Measuring AI Ability to Complete Long Software Tasks",
+            "url": "https://arxiv.org/abs/2503.14499",
+            "publisher": "arXiv (METR)",
+            "year": 2025,
+            "evidence": "This is the time humans typically take to complete tasks that AI models can complete with 50% success rate."
+          }
+        ]
+      },
+      {
+        "title": "Context Windows",
+        "links": [
+          "Agents",
+          "Evals"
+        ],
+        "paragraphs": [
+          "A model's context is the set of tokens it sees when producing a response: the instructions, documents, tool results and conversation for the task at hand.{1} It is a working set for one task, not durable memory, so anything an agent needs later has to be written somewhere outside the window and brought back in.{1}",
+          "A bigger window is not the same as better use of it. Liu et al. found that performance is often highest when relevant information sits at the beginning or end of the input, and degrades when the model must find it in the middle of a long context.{2} Anthropic describes context as \"a finite resource with diminishing marginal returns.\"{1}",
+          "This moves the craft from writing a single prompt to curating what enters the window at each step, which Anthropic calls context engineering.{1} For long tasks, one technique is structured note-taking, in which an agent regularly writes notes that persist outside the context window and retrieves them when relevant.{1}"
+        ],
+        "sources": [
+          {
+            "title": "Effective context engineering for AI agents",
+            "url": "https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents",
+            "publisher": "Anthropic",
+            "year": 2025,
+            "evidence": "Context, therefore, must be treated as a finite resource with diminishing marginal returns."
+          },
+          {
+            "title": "Lost in the Middle: How Language Models Use Long Contexts",
+            "url": "https://arxiv.org/abs/2307.03172",
+            "publisher": "arXiv",
+            "year": 2023,
+            "evidence": "performance is often highest when relevant information occurs at the beginning or end of the input context"
+          }
+        ]
+      },
+      {
+        "title": "Evals",
+        "links": [
+          "Capability vs Alignment",
+          "Scaling Laws"
+        ],
+        "paragraphs": [
+          "An eval is a structured test of what a model does, and comparisons are only as good as the tests behind them. The HELM project found that models had been evaluated so inconsistently that some prominent ones did not share a single scenario in common.{1} Its response was to test many scenarios on several axes at once: accuracy, calibration, robustness, fairness, bias, toxicity and efficiency.{1}",
+          "The scoring rule shapes the conclusion. Schaeffer et al. showed that abilities which seem to appear suddenly can look gradual under a continuous metric, arguing that such abilities \"appear due to the researcher's choice of metric.\"{2} Reading any eval result therefore means asking what was scored, and how.",
+          "Some evals try to report capability in units that stay meaningful as models change. METR measures the length of tasks, timed by how long they take humans, that a model can complete with 50% success.{3} A score framed this way answers a practical question about how much work a system can be trusted to finish."
+        ],
+        "sources": [
+          {
+            "title": "Holistic Evaluation of Language Models",
+            "url": "https://arxiv.org/abs/2211.09110",
+            "publisher": "arXiv (Stanford CRFM)",
+            "year": 2022,
+            "evidence": "We measure 7 metrics (accuracy, calibration, robustness, fairness, bias, toxicity, and efficiency)"
+          },
+          {
+            "title": "Are Emergent Abilities of Large Language Models a Mirage?",
+            "url": "https://arxiv.org/abs/2304.15004",
+            "publisher": "arXiv",
+            "year": 2023,
+            "evidence": "emergent abilities appear due to the researcher's choice of metric"
+          },
+          {
+            "title": "Measuring AI Ability to Complete Long Software Tasks",
+            "url": "https://arxiv.org/abs/2503.14499",
+            "publisher": "arXiv (METR)",
+            "year": 2025,
+            "evidence": "This is the time humans typically take to complete tasks that AI models can complete with 50% success rate."
+          }
+        ]
+      },
+      {
+        "title": "Capability vs Alignment",
+        "links": [
+          "Agents",
+          "Evals"
+        ],
+        "paragraphs": [
+          "Capability is what a system can do; alignment is whether it does what its designers and users actually intend. The two do not rise together automatically: Ouyang et al. found that making language models bigger does not by itself make them better at following a user's intent.{1} In their study, people preferred outputs from a 1.3 billion parameter model fine-tuned with human feedback over those of the 175 billion parameter GPT-3.{1}",
+          "Misalignment often begins with the objective. DeepMind defines specification gaming as \"behaviour that satisfies the literal specification of an objective without achieving the intended outcome.\"{3} In its examples, the fault lies in a misspecified task rather than in any flaw of the learning algorithm.{3}",
+          "Amodei et al. framed such failures as accidents: unintended and harmful behavior that can emerge from poor design of real-world AI systems.{2} They grouped the open problems as avoiding side effects, avoiding reward hacking, scalable supervision, safe exploration, and robustness to distributional shift.{2} Because these problems are separate from raw capability, alignment needs its own measurement rather than being inferred from how capable a system is."
+        ],
+        "sources": [
+          {
+            "title": "Training language models to follow instructions with human feedback",
+            "url": "https://arxiv.org/abs/2203.02155",
+            "publisher": "arXiv (OpenAI)",
+            "year": 2022,
+            "evidence": "Making language models bigger does not inherently make them better at following a user's intent"
+          },
+          {
+            "title": "Concrete Problems in AI Safety",
+            "url": "https://arxiv.org/abs/1606.06565",
+            "publisher": "arXiv",
+            "year": 2016,
+            "evidence": "defined as unintended and harmful behavior that may emerge from poor design of real-world AI systems"
+          },
+          {
+            "title": "Specification gaming: the flip side of AI ingenuity",
+            "url": "https://deepmind.google/discover/blog/specification-gaming-the-flip-side-of-ai-ingenuity/",
+            "publisher": "Google DeepMind",
+            "year": 2020,
+            "evidence": "a behaviour that satisfies the literal specification of an objective without achieving the intended outcome"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "value-investing",
+    "name": "Value Investing",
+    "tagline": "What a business is worth, and how to think about its price",
+    "description": "Five core ideas of value investing, drawn from Warren Buffett's letters to Berkshire Hathaway shareholders and Michael Mauboussin's work on competitive advantage.",
+    "pages": [
+      {
+        "title": "Intrinsic Value",
+        "links": [
+          "Owner Earnings"
+        ],
+        "paragraphs": [
+          "Intrinsic value is what a business is actually worth, as distinct from the price the market happens to quote for it. Buffett defines it as \"the discounted value of the cash that can be taken out of a business\" over its remaining life.{1} The same logic, which Buffett credits to John Burr Williams, applies to stocks, bonds and whole businesses alike.{2}",
+          "Because it rests on forecasts of future cash and on interest rates, intrinsic value is an estimate rather than a precise number, and it must be revised when either changes.{1} Two careful people looking at the same facts will almost always arrive at somewhat different figures.{1} Book value, the accounting record of what has been put into a business, says little about what it is worth.{1}",
+          "Buffett argues that growth is not a separate investing style from value but one input into calculating it.{2} The cash that matters is owner earnings rather than reported accounting profit, which he treats as the relevant figure for valuation.{3} Since any estimate can be wrong, he insists on buying well below it, the idea known as margin of safety.{2}"
+        ],
+        "sources": [
+          {
+            "title": "An Owner's Manual",
+            "url": "https://www.berkshirehathaway.com/ownman.pdf",
+            "publisher": "Berkshire Hathaway",
+            "year": 1996,
+            "evidence": "It is the discounted value of the cash that can be taken out of a business during its remaining life."
+          },
+          {
+            "title": "Chairman's Letter, 1992",
+            "url": "https://berkshirehathaway.com/letters/1992.html",
+            "publisher": "Berkshire Hathaway",
+            "year": 1992,
+            "evidence": "The value of any stock, bond or business today is determined by the cash inflows and outflows"
+          },
+          {
+            "title": "Chairman's Letter, 1986",
+            "url": "https://berkshirehathaway.com/letters/1986.html",
+            "publisher": "Berkshire Hathaway",
+            "year": 1986,
+            "evidence": "we consider the owner earnings figure, not the GAAP figure, to be the relevant item for valuation purposes"
+          }
+        ]
+      },
+      {
+        "title": "Moats",
+        "links": [
+          "Capital Allocation",
+          "Intrinsic Value"
+        ],
+        "paragraphs": [
+          "In investing, a moat is a durable competitive advantage that lets a business keep earning high returns on the capital it employs.{1} Buffett writes that a great business needs \"an enduring 'moat' that protects excellent returns on invested capital.\"{1} Mauboussin and Callahan describe sustainable competitive advantage as a company earning a return on invested capital above its cost of capital.{3}",
+          "High returns attract rivals, and competition tends to pull returns back toward the cost of capital.{3} Common sources of advantage include cost advantages from scale, network effects, customer switching costs, and government licenses or patents.{3} Buffett adds that an advantage which must be continually rebuilt will eventually stop being an advantage at all.{1}",
+          "Buffett also observes that exceptional returns rarely survive severe change, so durable franchises tend to belong to companies doing much the same thing they did years before.{2} A moat raises intrinsic value only if the cash it protects is put to good use, which makes capital allocation its natural companion question."
+        ],
+        "sources": [
+          {
+            "title": "2007 Letter to Shareholders",
+            "url": "https://www.berkshirehathaway.com/letters/2007ltr.pdf",
+            "publisher": "Berkshire Hathaway",
+            "year": 2007,
+            "evidence": "A truly great business must have an enduring 'moat' that protects excellent returns on invested capital."
+          },
+          {
+            "title": "Chairman's Letter, 1987",
+            "url": "https://berkshirehathaway.com/letters/1987.html",
+            "publisher": "Berkshire Hathaway",
+            "year": 1987,
+            "evidence": "Severe change and exceptional returns usually don't mix."
+          },
+          {
+            "title": "Measuring the Moat: Assessing the Magnitude and Sustainability of Value Creation",
+            "url": "https://www.morganstanley.com/im/publication/insights/articles/article_measuringthemoat.pdf",
+            "publisher": "Morgan Stanley Investment Management, Counterpoint Global",
+            "year": 2024,
+            "evidence": "sustainable competitive advantage, which describes a case when a company generates an ROIC above WACC"
+          }
+        ]
+      },
+      {
+        "title": "Mr. Market",
+        "links": [
+          "Intrinsic Value"
+        ],
+        "paragraphs": [
+          "Mr. Market is Benjamin Graham's allegory for the stock market, retold by Buffett in his 1987 letter.{1} Imagine a business partner who appears every day and names a price at which he will buy your share or sell you his.{1} His prices swing with his mood, euphoric at some times and depressed at others.{1}",
+          "You are never obliged to trade with him, since he does not mind being ignored, and his foolish prices are opportunities rather than instructions.{1} As Buffett puts it, \"Mr. Market is there to serve you, not to guide you.\"{1} The real danger is falling under his influence.{1}",
+          "Buffett later made the same point with a farm and a New York property he owns, which never receive price quotes and are judged by what they produce.{2} Stock owners, he wrote, too often let the irrational behavior of other owners make them behave irrationally too.{2} The discipline Mr. Market calls for is to compare his price with intrinsic value and to buy only with a margin of safety.{3}"
+        ],
+        "sources": [
+          {
+            "title": "Chairman's Letter, 1987",
+            "url": "https://berkshirehathaway.com/letters/1987.html",
+            "publisher": "Berkshire Hathaway",
+            "year": 1987,
+            "evidence": "Without fail, Mr. Market appears daily and names a price at which he will either buy your interest or sell you his."
+          },
+          {
+            "title": "2013 Letter to Shareholders",
+            "url": "https://www.berkshirehathaway.com/letters/2013ltr.pdf",
+            "publisher": "Berkshire Hathaway",
+            "year": 2013,
+            "evidence": "Owners of stocks, however, too often let the capricious and often irrational behavior of their fellow owners cause them to behave irrationally as well."
+          },
+          {
+            "title": "Chairman's Letter, 1992",
+            "url": "https://berkshirehathaway.com/letters/1992.html",
+            "publisher": "Berkshire Hathaway",
+            "year": 1992,
+            "evidence": "Second, and equally important, we insist on a margin of safety in our purchase price."
+          }
+        ]
+      },
+      {
+        "title": "Capital Allocation",
+        "links": [
+          "Owner Earnings",
+          "Moats"
+        ],
+        "paragraphs": [
+          "Capital allocation is the set of decisions about where a company's cash goes: back into the business, into other businesses, or back to its owners. Buffett argued that many chief executives are not skilled at it, because most reached the top by excelling at something else, such as marketing, production or engineering.{1} The stakes are large: a CEO whose company retains earnings equal to 10% of net worth each year will, after ten years, have deployed more than 60% of all the capital in the business.{1}",
+          "Berkshire judges its own retained earnings by asking whether, over time, each dollar kept has produced at least a dollar of market value.{2} In Buffett's view the best business can reinvest large amounts of capital at very high returns, while the worst keeps absorbing more capital at very low returns.{4} Growth helps investors only when the incremental returns are attractive.{4}",
+          "See's Candies shows another path: Berkshire bought it for $25 million when it needed about $8 million of capital, and it has sent almost all of its later earnings to Berkshire.{3} After taxes, that cash was used to buy other attractive businesses.{3} A business with a strong moat but few places to reinvest can still compound its owner's wealth when someone redeploys the cash well."
+        ],
+        "sources": [
+          {
+            "title": "Chairman's Letter, 1987",
+            "url": "https://berkshirehathaway.com/letters/1987.html",
+            "publisher": "Berkshire Hathaway",
+            "year": 1987,
+            "evidence": "the heads of many companies are not skilled in capital allocation"
+          },
+          {
+            "title": "An Owner's Manual",
+            "url": "https://www.berkshirehathaway.com/ownman.pdf",
+            "publisher": "Berkshire Hathaway",
+            "year": 1996,
+            "evidence": "We test the wisdom of retaining earnings by assessing whether retention, over time, delivers shareholders at least $1 of market value for each $1 retained."
+          },
+          {
+            "title": "2007 Letter to Shareholders",
+            "url": "https://www.berkshirehathaway.com/letters/2007ltr.pdf",
+            "publisher": "Berkshire Hathaway",
+            "year": 2007,
+            "evidence": "After paying corporate taxes on the profits, we have used the rest to buy other attractive businesses."
+          },
+          {
+            "title": "Chairman's Letter, 1992",
+            "url": "https://berkshirehathaway.com/letters/1992.html",
+            "publisher": "Berkshire Hathaway",
+            "year": 1992,
+            "evidence": "the best business to own is one that over an extended period can employ large amounts of incremental capital at very high rates of return."
+          }
+        ]
+      },
+      {
+        "title": "Owner Earnings",
+        "links": [
+          "Intrinsic Value",
+          "Capital Allocation"
+        ],
+        "paragraphs": [
+          "Owner earnings is the measure Buffett set out in his 1986 letter for the cash a business actually produces for its owners.{1} It equals reported earnings plus depreciation, amortization and similar non-cash charges, minus the average annual capital spending the business needs to fully maintain its long-term competitive position and unit volume.{1} Any extra working capital needed for the same purpose is also deducted.{1}",
+          "Buffett treated owner earnings, not GAAP earnings, as the relevant figure for valuation, both for buying stocks and for buying whole businesses.{1} When the required maintenance spending exceeds those non-cash charges, reported earnings overstate what owners really earn.{1} This is the cash that intrinsic value discounts, since Berkshire defines value as the cash that can be taken out of a business over its life.{2}",
+          "The weak point is the maintenance spending figure, which has to be guessed and is sometimes very hard to estimate.{1} Buffett accepted that imprecision, quoting Keynes: \"I would rather be vaguely right than precisely wrong.\"{1} See's Candies, which needed only $8 million of capital when Berkshire bought it, shows how a business with modest capital needs leaves more of its profit for its owner.{3}"
+        ],
+        "sources": [
+          {
+            "title": "Chairman's Letter, 1986",
+            "url": "https://berkshirehathaway.com/letters/1986.html",
+            "publisher": "Berkshire Hathaway",
+            "year": 1986,
+            "evidence": "These represent (a) reported earnings plus (b) depreciation, depletion, amortization, and certain other non-cash charges"
+          },
+          {
+            "title": "An Owner's Manual",
+            "url": "https://www.berkshirehathaway.com/ownman.pdf",
+            "publisher": "Berkshire Hathaway",
+            "year": 1996,
+            "evidence": "It is the discounted value of the cash that can be taken out of a business during its remaining life."
+          },
+          {
+            "title": "2007 Letter to Shareholders",
+            "url": "https://www.berkshirehathaway.com/letters/2007ltr.pdf",
+            "publisher": "Berkshire Hathaway",
+            "year": 2007,
+            "evidence": "The capital then required to conduct the business was $8 million."
+          }
+        ]
+      }
+    ]
+  }
+]

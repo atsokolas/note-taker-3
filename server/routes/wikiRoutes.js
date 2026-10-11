@@ -383,9 +383,38 @@ const buildUniqueWikiSlugBuilder = ({ WikiPage } = {}) => async (
 };
 
 const starterOriginId = (packId, title) => `starter:${packId}:${slugify(title)}`;
-const STARTER_PACK_REVIEWED_AT = '2026-07-04T00:00:00.000Z';
+const STARTER_PACK_REVIEWED_AT = '2026-10-11T00:00:00.000Z';
 
-const buildStarterPage = ({ packId, title, pageType = 'overview', summary, links = [] }) => {
+/* A claim is the text before a {n} marker; n is a 1-based index into the
+   page's sources, as the reader's footnotes count them. */
+const citedParagraph = (text = '') => {
+  const parts = String(text).split(/\{([\d,\s]+)\}/);
+  const content = [];
+  for (let index = 0; index < parts.length; index += 2) {
+    const [, lead, claim] = parts[index].match(/^(\s*)([\s\S]*)$/);
+    if (lead) content.push(lead);
+    if (!claim) continue;
+    if (index + 1 >= parts.length) {
+      content.push(claim);
+      continue;
+    }
+    content.push({
+      type: 'text',
+      text: claim,
+      marks: [{
+        type: 'claim',
+        attrs: {
+          support: 'supported',
+          citationIndexes: parts[index + 1].split(',').map(Number),
+          contradictionIndexes: []
+        }
+      }]
+    });
+  }
+  return paragraphNode(content);
+};
+
+const buildStarterPage = ({ packId, title, pageType = 'overview', paragraphs = [], sources = [], links = [] }) => {
   const pageId = starterOriginId(packId, title);
   const linkedContent = [];
   links.forEach((link, index) => {
@@ -400,13 +429,8 @@ const buildStarterPage = ({ packId, title, pageType = 'overview', summary, links
     type: 'doc',
     content: [
       { type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: title }] },
-      paragraphNode([summary]),
-      ...(links.length ? [
-        { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Connections' }] },
-        paragraphNode(['This starter page connects to ', ...linkedContent, '.'])
-      ] : []),
-      { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Make it yours' }] },
-      paragraphNode(['Sample — feed me your reading to make these pages yours.'])
+      ...paragraphs.map(citedParagraph),
+      ...(links.length ? [paragraphNode(['Read next: ', ...linkedContent, '.'])] : [])
     ]
   };
   return {
@@ -419,79 +443,22 @@ const buildStarterPage = ({ packId, title, pageType = 'overview', summary, links
     createdAt: STARTER_PACK_REVIEWED_AT,
     updatedAt: STARTER_PACK_REVIEWED_AT,
     lastReviewedAt: STARTER_PACK_REVIEWED_AT,
-    plainText: [title, summary, ...links, 'Sample — feed me your reading to make these pages yours.'].filter(Boolean).join('\n'),
+    plainText: [title, ...paragraphs.map(text => text.replace(/\{[\d,\s]+\}/g, ''))].join('\n'),
     body,
-    sourceRefs: [{
+    sourceRefs: sources.map((source, index) => ({
       type: 'external',
-      title: 'Noeis starter pack',
-      snippet: `Starter scaffold for ${title}.`,
-      citationLabel: '[1]'
-    }]
+      title: source.title,
+      url: source.url,
+      citationLabel: `[${index + 1}]`
+    }))
   };
 };
 
-const STARTER_PACK_CONFIG = [
-  {
-    id: 'mental-models',
-    name: 'Mental Models',
-    tagline: 'The Munger latticework for better judgment.',
-    description: 'Core models for tradeoffs, safety, incentives, and compounding.',
-    hero: true,
-    pages: [
-      ['First Principles Thinking', 'Reason from constraints and irreducible facts before reaching for analogy.', ['Opportunity Cost', 'Inversion']],
-      ['Opportunity Cost', 'Every choice spends the best alternative you did not take.', ['Margin of Safety', 'Circle of Competence']],
-      ['Margin of Safety', 'Leave room for error when the world is uncertain and your model is incomplete.', ['Circle of Competence', 'Inversion']],
-      ['Circle of Competence', 'Knowing the boundary of what you understand is itself an advantage.', ['Incentives', 'Margin of Safety']],
-      ['Incentives', 'Behavior follows rewards, penalties, status, and friction more often than stated intent.', ['Opportunity Cost', 'Inversion']],
-      ['Compound Interest', 'Small gains, repeated and protected from interruption, become nonlinear.', ['Margin of Safety', 'Incentives']],
-      ['Inversion', 'Solve hard problems by asking what would guarantee failure and avoiding it.', ['First Principles Thinking', 'Margin of Safety']]
-    ]
-  },
-  {
-    id: 'behavioral-economics',
-    name: 'Behavioral Economics & Decision-Making',
-    tagline: 'Biases, base rates, and the psychology of judgment.',
-    description: 'A tight decision-making cluster that shows claims, examples, and counterweights.',
-    pages: [
-      ['Loss Aversion', 'People often feel losses more sharply than equivalent gains.', ['Prospect Theory', 'Opportunity Cost']],
-      ['Prospect Theory', 'Choices shift when outcomes are framed as gains or losses from a reference point.', ['Loss Aversion', 'Anchoring']],
-      ['Anchoring', 'Initial numbers and frames pull later judgments toward themselves.', ['Base Rates', 'Availability Heuristic']],
-      ['Availability Heuristic', 'Memorable examples can crowd out representative evidence.', ['Base Rates', 'Loss Aversion']],
-      ['Base Rates', 'Prior probabilities protect decisions from vivid but unrepresentative stories.', ['Availability Heuristic', 'Anchoring']],
-      ['Hyperbolic Discounting', 'Near-term rewards can dominate larger long-term payoffs.', ['Loss Aversion', 'Base Rates']]
-    ]
-  },
-  {
-    id: 'how-to-think-about-ai',
-    name: 'How to Think About AI',
-    tagline: 'A practical map for agents, evals, context, and capability.',
-    description: 'A tech-curious starter graph for reasoning about modern AI systems.',
-    pages: [
-      ['Scaling Laws', 'Model capability often improves predictably with compute, data, and parameters.', ['Evals', 'Capability vs Alignment']],
-      ['Agents', 'Agentic systems combine model reasoning with tools, memory, and delegated action.', ['Context Windows', 'Evals']],
-      ['Context Windows', 'Context is the working set a model can use during one task, not durable memory.', ['Agents', 'Evals']],
-      ['Evals', 'Evaluation turns vague capability claims into observable behavior under test.', ['Capability vs Alignment', 'Scaling Laws']],
-      ['Capability vs Alignment', 'A system can become more capable without becoming more reliably directed at the desired goal.', ['Agents', 'Evals']]
-    ]
-  },
-  {
-    id: 'value-investing',
-    name: 'Value Investing',
-    tagline: 'Durable investing concepts for business-quality thinking.',
-    description: 'Intrinsic value, moats, capital allocation, and owner-oriented judgment.',
-    pages: [
-      ['Intrinsic Value', 'Intrinsic value estimates the cash a business can produce for owners over time.', ['Owner Earnings', 'Margin of Safety']],
-      ['Moats', 'A moat protects returns from competition, substitution, and time.', ['Capital Allocation', 'Intrinsic Value']],
-      ['Mr. Market', 'Market prices can be useful servants and poor masters.', ['Margin of Safety', 'Intrinsic Value']],
-      ['Capital Allocation', 'Managers create or destroy value by deciding where each dollar goes next.', ['Owner Earnings', 'Moats']],
-      ['Owner Earnings', 'Owner earnings focus attention on cash that can truly accrue to owners.', ['Intrinsic Value', 'Capital Allocation']]
-    ]
-  }
-];
-
-const STARTER_PACKS = STARTER_PACK_CONFIG.map(pack => ({
+/* Ready-made wikis: every line cites a public source a newcomer can open,
+   and taking one brings those sources into their Library. */
+const STARTER_PACKS = require('../data/starterPacks.json').map(pack => ({
   ...pack,
-  pages: pack.pages.map(([title, summary, links]) => buildStarterPage({ packId: pack.id, title, summary, links }))
+  pages: pack.pages.map(page => buildStarterPage({ packId: pack.id, ...page }))
 }));
 
 const starterPackSummary = (pack) => ({
@@ -2167,8 +2134,7 @@ const buildWikiRouter = ({
     originType = 'page',
     originCollectionId = '',
     originCollectionTitle = '',
-    packId = '',
-    sample = false
+    packId = ''
   } = {}) => {
     const validSnapshots = snapshots.filter(snapshot => snapshot?.page);
     const library = await takeSourcesIntoLibrary({
@@ -2211,7 +2177,6 @@ const buildWikiRouter = ({
           originTitle: snapshot.origin.originTitle || snapshot.page.title,
           originHash: snapshot.origin.originHash || '',
           packId,
-          sample,
           adoptedAt: new Date()
         },
         body: clonePlain(snapshot.page.body || emptyDoc()),
@@ -2256,8 +2221,7 @@ const buildWikiRouter = ({
       originType: 'starter_pack',
       originCollectionId: pack.id,
       originCollectionTitle: pack.name,
-      packId: pack.id,
-      sample: true
+      packId: pack.id
     });
   };
 

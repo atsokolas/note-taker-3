@@ -81,7 +81,7 @@ describe('SharedWikiCollectionPage', () => {
     expect(document.body).toHaveClass('noeis-public-share');
     expect(await screen.findByRole('heading', { name: 'Thinking Foundations' })).toBeInTheDocument();
     expect(screen.getByText('A safe public starting point.')).toBeInTheDocument();
-    expect(screen.getByLabelText('Adopt shared wiki')).toHaveTextContent(/background maintenance loop/i);
+    expect(screen.getByLabelText('Adopt shared wiki')).toHaveTextContent(/every public source they cite comes into your Library/i);
     expect(screen.getByText(/Backlinks, highlights, source notes, and agent work stay private/i)).toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent('Public page ready: citations included, private source notes withheld.');
     expect(screen.getByText('Maintained by the owner\'s agent · last reviewed Jul 4, 2026')).toBeInTheDocument();
@@ -114,7 +114,7 @@ describe('SharedWikiCollectionPage', () => {
   it('sends logged-out readers through auth with a collection adoption return URL', async () => {
     render(<SharedWikiCollectionPage />);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Make this mine' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Add to my library' }));
 
     expect(adoptPublicWikiCollection).not.toHaveBeenCalled();
     expect(sessionStorage.getItem('auth_return_to')).toBe('/share/wiki/collection/thinking-foundations?adopt=1');
@@ -129,7 +129,7 @@ describe('SharedWikiCollectionPage', () => {
 
     render(<SharedWikiCollectionPage />);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Make this mine' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Add to my library' }));
 
     await waitFor(() => expect(adoptPublicWikiCollection).toHaveBeenCalledWith('thinking-foundations'));
     expect(navigate).toHaveBeenCalledWith('/wiki/workspace?page=adopted-1', { replace: true });

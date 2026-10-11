@@ -2045,6 +2045,10 @@ const run = async () => {
     assert.strictEqual(starterPackCollection.body.collection.pages[0].userId, undefined);
     assert.strictEqual(starterPackCollection.body.collection.pages[0].aiState, undefined);
     assert.ok(starterPackCollection.body.collection.pages[0].lastReviewedAt, 'Starter pack public pages should expose a safe reviewed timestamp.');
+    const starterPublicPage = starterPackCollection.body.collection.pages[0];
+    assert.ok(starterPublicPage.sourceRefs.length >= 2 && starterPublicPage.sourceRefs.every(source => /^https:\/\//.test(source.url)), 'Ready-made pages cite public sources.');
+    assert.ok(JSON.stringify(starterPublicPage.body).includes('"citationIndexes"'), 'Ready-made pages carry their citations in the body.');
+    assert.ok(!JSON.stringify(starterPublicPage.body).includes('feed me your reading'));
 
     const adoptedStarterPackCollection = await request(url, '/api/public/wiki/collections/mental-models/adopt', {
       method: 'POST',
@@ -2059,7 +2063,7 @@ const run = async () => {
     assert.ok(adoptedStarterPackCollection.body.pages.length >= 6);
     assert.ok(adoptedStarterPackCollection.body.pages.every(page => page.userId === 'user-4'));
     assert.ok(adoptedStarterPackCollection.body.pages.every(page => page.adoptedFrom.originType === 'starter_pack'));
-    assert.ok(adoptedStarterPackCollection.body.pages.every(page => page.adoptedFrom.sample === true));
+    assert.ok(adoptedStarterPackCollection.body.pages.every(page => !page.adoptedFrom.sample));
     assert.ok(adoptedStarterPackCollection.body.pages.every(page => page.adoptedFrom.packId === 'mental-models'));
     const collectionFirstPrinciples = adoptedStarterPackCollection.body.pages.find(page => page.title === 'First Principles Thinking');
     const collectionOpportunityCost = adoptedStarterPackCollection.body.pages.find(page => page.title === 'Opportunity Cost');
@@ -2079,10 +2083,11 @@ const run = async () => {
     });
     assert.strictEqual(adoptedStarterPack.res.status, 201, adoptedStarterPack.text);
     assert.strictEqual(adoptedStarterPack.body.pack.id, 'mental-models');
+    assert.ok(adoptedStarterPack.body.library.sources >= 10, 'Taking a ready-made wiki brings its sources into the Library.');
     assert.ok(adoptedStarterPack.body.pages.length >= 6);
     assert.ok(adoptedStarterPack.body.pages.every(page => page.userId === 'user-3'));
     assert.ok(adoptedStarterPack.body.pages.every(page => page.adoptedFrom.originType === 'starter_pack'));
-    assert.ok(adoptedStarterPack.body.pages.every(page => page.adoptedFrom.sample === true));
+    assert.ok(adoptedStarterPack.body.pages.every(page => !page.adoptedFrom.sample));
     assert.ok(adoptedStarterPack.body.pages.every(page => page.adoptedFrom.packId === 'mental-models'));
     const firstPrinciples = adoptedStarterPack.body.pages.find(page => page.title === 'First Principles Thinking');
     const opportunityCost = adoptedStarterPack.body.pages.find(page => page.title === 'Opportunity Cost');

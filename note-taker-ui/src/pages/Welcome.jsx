@@ -43,6 +43,8 @@ import {
   readPastedReading,
   readwiseReceipt,
   savedOn,
+  tookPath,
+  tookReceipt,
   topicProblem,
   viewProblem,
   writtenFrom
@@ -156,7 +158,7 @@ const Welcome = () => {
         {ready && step === 'start' ? (
           <StartStep
             onReading={() => go('reading', { id: '' })}
-            onPack={firstPage => finish(firstPage ? wikiReadPath(firstPage) : '/wiki')}
+            onPack={(firstPage, library) => (firstPage ? navigate(tookPath(firstPage, library)) : finish('/wiki'))}
           />
         ) : null}
 
@@ -173,7 +175,7 @@ const Welcome = () => {
 
         {ready && step === 'page' ? (
           <PageStep
-            took={took}
+            tookLine={took && tookReceipt({ sources: Number(params.get('sources')) || 0, had: Number(params.get('had')) || 0 })}
             page={page}
             setPage={setPage}
             onStarted={id => go('page', { id })}
@@ -373,8 +375,8 @@ const ReadingStep = ({ arrivals, setArrivals, readwise, setReadwise, onNext, onL
   );
 };
 
-/* Ready-made wikis to take. They are sample pages with no sources behind
-   them yet, and this says so rather than dressing them up. */
+/* Ready-made wikis to take. Every line cites a public source, and taking one
+   brings those sources into the reader's Library. */
 const StarterWikis = ({ onTaken }) => {
   const [packs, setPacks] = useState([]);
   const [busyId, setBusyId] = useState('');
@@ -396,7 +398,7 @@ const StarterWikis = ({ onTaken }) => {
     setError('');
     try {
       const result = await adoptWikiStarterPack(pack.id);
-      onTaken(result?.pages?.[0]?._id || '');
+      onTaken(result?.pages?.[0]?._id || '', result?.library);
     } catch (_error) {
       setError('That wiki did not copy. Try again.');
       setBusyId('');
@@ -406,7 +408,7 @@ const StarterWikis = ({ onTaken }) => {
   return (
     <div className="welcome__packs">
       <h2>Or start from a ready-made wiki</h2>
-      <p>Sample pages to explore now. They fill in from your own reading as it arrives.</p>
+      <p>Every line cites its source, and the sources come into your Library with it.</p>
       <ul>
         {packs.map(pack => (
           <li key={pack.id}>
@@ -425,7 +427,7 @@ const StarterWikis = ({ onTaken }) => {
 
 /* ------------------------------------------------------------------ 2 */
 
-const PageStep = ({ took, page, setPage, onStarted, onAnother, onReading, onHeld, onOpen }) => {
+const PageStep = ({ tookLine, page, setPage, onStarted, onAnother, onReading, onHeld, onOpen }) => {
   const state = pageState(page);
 
   /* A build runs on the server. Read the page back until it lands. */
@@ -454,7 +456,7 @@ const PageStep = ({ took, page, setPage, onStarted, onAnother, onReading, onHeld
 
   if (state === 'failed') return <BuildFailed page={page} setPage={setPage} onAnother={onAnother} onReading={onReading} />;
 
-  return <WrittenPage took={took} page={page} setPage={setPage} onHeld={onHeld} onOpen={onOpen} />;
+  return <WrittenPage tookLine={tookLine} page={page} setPage={setPage} onHeld={onHeld} onOpen={onOpen} />;
 };
 
 /* What the reading keeps coming back to, offered as titles. When nothing
@@ -574,7 +576,7 @@ const BuildFailed = ({ page, setPage, onAnother, onReading }) => {
 };
 
 /* The page, then the one question that turns it into a view. */
-const WrittenPage = ({ took, page, setPage, onHeld, onOpen }) => {
+const WrittenPage = ({ tookLine, page, setPage, onHeld, onOpen }) => {
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -615,7 +617,7 @@ const WrittenPage = ({ took, page, setPage, onHeld, onOpen }) => {
   return (
     <section className="welcome__step">
       <p className="welcome__receipt" role="status">
-        {took ? 'The wiki you took is in your Wiki now.' : writtenFrom(page.sourceRefs?.length || 0)}
+        {tookLine || writtenFrom(page.sourceRefs?.length || 0)}
       </p>
       <PageHeader titleId="welcome-title" title={page.title} />
       {lede ? <p className="welcome__page-lede">{lede}</p> : null}

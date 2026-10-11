@@ -31,6 +31,7 @@ import PublicCasebook from './PublicCasebook';
 import '../styles/maintenance-proof-stamp.css';
 import '../styles/shared-page-column.css';
 import { normalizeSpaces } from '../utils/editorialText';
+import { tookPath } from './welcomeModel';
 
 const reviewedDateFor = (page = {}) => reviewedDateForPublicPage(page);
 
@@ -430,7 +431,7 @@ const SharedWikiPage = () => {
       const adoptedId = adoptedPage._id || adoptedPage.id;
       if (adoptedId) {
         if (shouldAutoAdopt) {
-          navigate(`/welcome?took=${encodeURIComponent(adoptedId)}`, { replace: true });
+          navigate(tookPath(adoptedId, result.library), { replace: true });
           return;
         }
         navigate(wikiPagePath(adoptedId), { replace: true });
@@ -516,8 +517,8 @@ const SharedWikiPage = () => {
                 <h2>{repoDossierMode || companyDossierMode ? 'Make this dossier yours.' : 'This is a shared wiki.'}</h2>
                 <p>
                   {repoDossierMode || companyDossierMode
-                    ? 'Copy it into your workspace to edit, extend, and maintain against your own sources.'
-                    : 'Make it yours to edit, expand, and connect to your own thinking. Your copy joins your own background maintenance loop; the original owner keeps their version.'}
+                    ? 'Add it to edit, extend, and keep against your own reading. The public sources it cites come into your Library with it.'
+                    : 'The pages come into your Wiki and every public source they cite comes into your Library, ready to read. The original stays as it is.'}
                 </p>
               </div>
               <button
@@ -526,7 +527,7 @@ const SharedWikiPage = () => {
                 onClick={handleAdopt}
                 disabled={adopting}
               >
-                {adopting ? 'Making a copy...' : 'Make this mine'}
+                {adopting ? 'Adding…' : 'Add to my library'}
               </button>
               {adoptionError ? <p className="shared-wiki-page__adopt-error" role="alert">{adoptionError}</p> : null}
             </section>

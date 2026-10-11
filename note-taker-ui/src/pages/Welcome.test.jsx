@@ -156,14 +156,13 @@ describe('Welcome', () => {
       tagline: 'The Munger latticework for better judgment.',
       pages: ['First Principles', 'Opportunity Cost', 'Margin of Safety', 'Incentives', 'Inversion'].map(title => ({ title }))
     }]);
-    adoptWikiStarterPack.mockResolvedValue({ pages: [{ _id: 'starter-1' }] });
+    adoptWikiStarterPack.mockResolvedValue({ pages: [{ _id: 'starter-1' }], library: { sources: 12, alreadyHad: 0 } });
 
     renderAt('');
     expect(await screen.findByText('First Principles · Opportunity Cost · Margin of Safety · Incentives · 1 more')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Mental Models' }));
 
-    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/wiki/read/starter-1', { replace: true }));
-    expect(markOnboardingCompleteOnServer).toHaveBeenCalled();
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/welcome?took=starter-1&sources=12&had=0'));
   });
 
   it('offers what your reading keeps coming back to, and writes the page you pick', async () => {
@@ -294,6 +293,14 @@ describe('Welcome', () => {
 
     expect(await screen.findByText('The wiki you took is in your Wiki now.')).toBeInTheDocument();
     expect(screen.getByLabelText('Your view')).toBeInTheDocument();
+  });
+
+  it('says what came into the Library with a wiki that was taken', async () => {
+    getWikiPage.mockResolvedValue(writtenPage({ _id: 'page-9' }));
+
+    renderAt('took=page-9&sources=14&had=3');
+
+    expect(await screen.findByText('The wiki you took is in your Wiki, and its 14 sources are in your Library. Three of them you had already saved.')).toBeInTheDocument();
   });
 
   it('lets you leave at any step, and does not ask again', async () => {

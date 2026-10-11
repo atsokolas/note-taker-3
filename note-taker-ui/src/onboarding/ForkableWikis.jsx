@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { adoptWikiStarterPack, listWikiStarterPacks } from '../api/wiki';
+import { tookPath } from '../pages/welcomeModel';
 
 /**
  * ForkableWikis — public wikis you can copy into your own workspace.
@@ -8,10 +9,9 @@ import { adoptWikiStarterPack, listWikiStarterPacks } from '../api/wiki';
  * These have had an API since before this work and no face anywhere in the product,
  * so forking one was only possible from a share link somebody handed you.
  *
- * Note the layer boundary, which the copy has to be honest about: you fork the
- * *wiki* — pages, claims, internal links. You never inherit anyone's library. The
- * sources underneath stay yours to build, which is exactly why the copy is inert
- * until you feed it.
+ * What travels: the pages, their claims and internal links, and every public
+ * source they cite, saved into your Library. Nobody's private highlights or
+ * notes come with them.
  */
 
 const hasAuthToken = () => {
@@ -55,7 +55,7 @@ const ForkableWikis = () => {
       const result = await adoptWikiStarterPack(pack.id);
       const first = (Array.isArray(result?.pages) ? result.pages : [])[0] || {};
       const pageId = first._id || first.id || '';
-      navigate(pageId ? `/welcome?took=${encodeURIComponent(pageId)}` : '/wiki', { replace: true });
+      navigate(pageId ? tookPath(pageId, result.library) : '/wiki', { replace: true });
     } catch (err) {
       setError(err?.response?.data?.error || err?.message || 'Could not copy that wiki. Try again.');
     } finally {
@@ -96,7 +96,7 @@ const ForkableWikis = () => {
               onClick={() => fork(pack)}
               disabled={busyId === pack.id}
             >
-              {busyId === pack.id ? 'Making a copy…' : 'Make this mine'}
+              {busyId === pack.id ? 'Adding…' : 'Add to my library'}
             </button>
           </article>
         ))}
