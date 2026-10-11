@@ -270,6 +270,18 @@ describe('the view', () => {
       }
     });
 
+    it('puts a passage that meets a falsifier under what would change your mind, in your words', async () => {
+      const met = { ...proposal, provenance: { ...proposal.provenance, falsifier: 'Two quarters of falling renewals.' } };
+      listReadingProposals.mockResolvedValue([met]);
+      openView();
+      const region = await screen.findByRole('region', { name: 'A source meets it' });
+      expect(region.closest('.judgment-test')).not.toBeNull();
+      expect(region).toHaveTextContent('You said you’d change your mind if “Two quarters of falling renewals.”');
+      expect(region).toHaveTextContent('Ben Carlson, Oct 1, meets it:');
+      expect(within(region).getByText(QUOTE)).toBeInTheDocument();
+      expect(screen.queryByRole('region', { name: 'From your reading' })).not.toBeInTheDocument();
+    });
+
     it('says nothing when no passage is waiting', async () => {
       openView();
       await screen.findByRole('heading', { level: 1, name: CLAIM });

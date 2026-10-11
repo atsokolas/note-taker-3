@@ -108,4 +108,31 @@ const OPPOSITE_CASES = Object.freeze([
   }
 ]);
 
-module.exports = { CASES, OPPOSITE_CASES };
+// What would change your mind: an open falsifier of a held view, and a new
+// source. Only a passage that reports the condition met is `meets`; one that
+// shares its words but only forecasts or denies it is `silent`.
+const FALSIFIER_CASES = Object.freeze([
+  {
+    id: 'costco-renewals-met',
+    view: 'Costco’s membership model makes it recession-resistant.',
+    falsifier: 'Renewal rates fall for two straight quarters.',
+    source: 'Costco reported its second consecutive quarterly decline in membership renewal rates, the first such run since it began disclosing the figure.',
+    expect: 'meets'
+  },
+  {
+    id: 'costco-forecast-silent',
+    view: 'Costco’s membership model makes it recession-resistant.',
+    falsifier: 'Renewal rates fall for two straight quarters.',
+    source: 'Some analysts ask whether renewal rates could fall for two straight quarters if a recession arrives; so far renewal rates have held steady at ninety percent.',
+    expect: 'silent'
+  },
+  {
+    id: 'rates-cut-met',
+    view: 'Rates stay higher for longer than the market prices.',
+    falsifier: 'The central bank cuts rates twice before summer.',
+    source: 'With its decision in May, the central bank has now cut rates at two consecutive meetings this spring, taking the policy rate half a point lower.',
+    expect: 'meets'
+  }
+]);
+
+module.exports = { CASES, FALSIFIER_CASES, OPPOSITE_CASES };

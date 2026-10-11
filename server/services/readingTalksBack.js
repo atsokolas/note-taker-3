@@ -19,6 +19,9 @@ const { persistNoeisReceipt, serializeStoredReceipt } = require('./noeisReceiptS
    New words meet the views you hold. When a source arrives, the views it
    might bear on are read against it, one narrow question each: does this
    passage set support, challenge, or say nothing about this exact sentence?
+   What you said would change your mind is asked too, as its own candidate:
+   does this passage set report that the condition has been met? A met
+   condition is a challenge, marked with the words you wrote.
    A verdict becomes a pending passage on the view only when the model quotes
    the source verbatim. When you write in Think, the sentences of the note
    are read the same way, and the one that contradicts a view you hold is
@@ -29,10 +32,12 @@ const { persistNoeisReceipt, serializeStoredReceipt } = require('./noeisReceiptS
    no embeddings the word ranking alone is the candidate list.
 
    Source arrival. Eligibility: held, unresolved views (not set aside, no
-   verdict), held before the source was saved; passages from that one source
-   only. Quality bar: a support or challenge verdict whose quote is found word
-   for word in the stored text; at most five views read per source, one
-   proposal per view per source, three per reader per day.
+   verdict), held before the source was saved, and each one's open tests
+   (the resolution criteria and falsifiers not retired or triggered); passages
+   from that one source only. Quality bar: a support, challenge, or "meets"
+   verdict whose quote is found word for word in the stored text; at most five
+   readings per source, a met test asked before a sentence, one proposal per
+   view per source, three per reader per day.
    Silence: nothing appears on the view.
 
    A note. Eligibility: the same held, unresolved views; sentences of six
@@ -68,7 +73,7 @@ const heldSince = page => time(page?.judgment?.startedAt) ?? time(page?.judgment
 const alreadyFiled = (page, articleId) => [...list(page?.judgment?.why), ...list(page?.judgment?.against)]
   .some(reason => String(reason?.acceptedFrom || '').startsWith(`highlight:${articleId}:`));
 
-const VIEW_FIELDS = '_id title createdAt judgment.currentJudgment judgment.status judgment.startedAt judgment.bornAt judgment.verdicts judgment.why judgment.against';
+const VIEW_FIELDS = '_id title createdAt judgment.currentJudgment judgment.status judgment.startedAt judgment.bornAt judgment.verdicts judgment.why judgment.against judgment.resolutionCriteria judgment.falsifiers';
 const heldViews = async ({ WikiPage, userId }) => (await WikiPage.find({
   userId,
   status: { $ne: 'archived' },
@@ -76,6 +81,19 @@ const heldViews = async ({ WikiPage, userId }) => (await WikiPage.find({
 }).select(VIEW_FIELDS).lean()).filter(isOpenView);
 
 const sentenceOf = page => clean(page?.judgment?.currentJudgment);
+
+/* What would change your mind, still open: the criteria line and each
+   falsifier not yet retired or triggered, in the words that name the signal. */
+const testsOf = page => [...new Set([
+  clean(page?.judgment?.resolutionCriteria, 600),
+  ...list(page?.judgment?.falsifiers)
+    .filter(falsifier => !['retired', 'triggered'].includes(falsifier?.status))
+    .map(falsifier => clean(falsifier?.observableSignal || falsifier?.text, 600))
+].filter(Boolean))];
+
+/* The asks a view puts to a source: its sentence, and each open test. */
+const asksOf = page => [page, ...testsOf(page).map(condition => ({ ...page, condition }))];
+const askedText = ask => ask.condition || sentenceOf(ask);
 
 /* Meaning: each view's sentence beside the text's passages, one embedding
    call. Below the floor a passage is only near the view in topic. */
@@ -89,10 +107,10 @@ const cosine = (left = [], right = []) => {
   return a && b ? dot / Math.sqrt(a * b) : 0;
 };
 
-const nearest = async ({ views, passages, embed }) => {
+const nearest = async ({ views, passages, embed, textOf }) => {
   const texts = passages.slice(0, EMBEDDED_PASSAGES);
   if (!embed || !views.length || !texts.length) return new Map();
-  const vectors = await embed([...views.map(sentenceOf), ...texts]).catch(() => null);
+  const vectors = await embed([...views.map(textOf), ...texts]).catch(() => null);
   if (!Array.isArray(vectors) || vectors.length !== views.length + texts.length) return new Map();
   const passageVectors = vectors.slice(views.length);
   return new Map(views.map((page, index) => [page, texts
@@ -112,9 +130,9 @@ const defaultEmbed = () => (isEmbeddingConfigured() ? embedTexts : null);
 /* The text is the query's corpus turned around: each view asks the text
    which of its passages answer it, and the views answered best, by either
    signal, are the ones worth a reading. */
-const candidateViews = async ({ views, passages, embed = null, limit = VIEWS_PER_SOURCE }) => {
-  const byWords = new Map(views.map(page => [page, topPassages({ passages, query: sentenceOf(page), limit: 3 })]));
-  const byMeaning = await nearest({ views, passages, embed });
+const candidateViews = async ({ views, passages, embed = null, limit = VIEWS_PER_SOURCE, textOf = sentenceOf }) => {
+  const byWords = new Map(views.map(page => [page, topPassages({ passages, query: textOf(page), limit: 3 })]));
+  const byMeaning = await nearest({ views, passages, embed, textOf });
   const rankBy = (found) => new Map(views
     .filter(page => found.get(page)?.length)
     .sort((left, right) => found.get(right)[0].score - found.get(left)[0].score)
@@ -148,6 +166,18 @@ const promptFor = ({ sentence, passages }) => [
   'Answer with JSON only: {"stance": "support" | "challenge" | "nothing", "quote": "the exact words from one passage"}'
 ].join('\n');
 
+const testPromptFor = ({ sentence, condition, passages }) => [
+  `They hold: "${sentence}"`,
+  `They said they would change their mind if: "${condition}"`,
+  '',
+  'Read this passage set. Does it report that this condition has been met? Quote the passage verbatim.',
+  'Sharing words with the condition is not meeting it; a passage that only discusses, predicts, or denies it meets nothing.',
+  '',
+  ...passages.map((passage, index) => `[${index + 1}] ${passage.text}`),
+  '',
+  'Answer with JSON only: {"stance": "meets" | "nothing", "quote": "the exact words from one passage"}'
+].join('\n');
+
 const parseJson = (raw = '') => {
   const match = String(raw?.text ?? raw ?? '').match(/\{[\s\S]*\}/);
   if (!match) return null;
@@ -160,21 +190,24 @@ const parseVerdict = (raw = '') => {
   return { stance: clean(parsed.stance, 20).toLowerCase(), quote: clean(parsed.quote, 1200).replace(/^["“]|["”]$/g, '') };
 };
 
-const readOne = async ({ sentence, passages, sourceText, complete }) => {
+/* A met test is a challenge to the view, carrying the condition it met. */
+const STANCES = { meets: 'challenge', support: 'support', challenge: 'challenge' };
+
+const readOne = async ({ sentence, condition = '', passages, sourceText, complete }) => {
   const completion = await complete({
     route: 'structure_planner',
     maxTokens: 400,
     temperature: 0,
     messages: [
       { role: 'system', content: 'You read passages for someone who holds a view. You answer only in JSON and quote only words that are on the page.' },
-      { role: 'user', content: promptFor({ sentence, passages }) }
+      { role: 'user', content: (condition ? testPromptFor : promptFor)({ sentence, condition, passages }) }
     ]
   });
   const verdict = parseVerdict(completion);
-  if (!verdict || !['support', 'challenge'].includes(verdict.stance)) return null;
+  if (!verdict || (verdict.stance === 'meets') !== Boolean(condition) || !STANCES[verdict.stance]) return null;
   if (words(verdict.quote).length < MIN_QUOTE_WORDS) return null;
   if (!quotedIn(verdict.quote, [sourceText])) return null;
-  return verdict;
+  return { ...verdict, stance: STANCES[verdict.stance], falsifier: condition };
 };
 
 const proposeFromReading = async ({
@@ -212,15 +245,18 @@ const proposeFromReading = async ({
   const sourceText = article.content;
   const passages = sourcePassages(article.title, sourceText);
   const proposed = [];
-  for (const { page, passages: read } of await candidateViews({ views, passages, embed })) {
+  const candidates = await candidateViews({ views: views.flatMap(asksOf), passages, embed, textOf: askedText });
+  // A met test says more than a challenge to the sentence: it is asked first.
+  candidates.sort((left, right) => Boolean(right.page.condition) - Boolean(left.page.condition));
+  for (const { page, passages: read } of candidates) {
     if (await proposedToday() >= PER_DAY) break;
     const receiptId = readingReceiptId({ pageId: String(page._id), articleId: String(article._id) });
     if (await NoeisReceipt.findOne({ userId: owner, receiptId })) continue;
-    const verdict = await readOne({ sentence: sentenceOf(page), passages: read, sourceText, complete })
+    const verdict = await readOne({ sentence: sentenceOf(page), condition: page.condition, passages: read, sourceText, complete })
       .catch(() => null);
     if (!verdict) continue;
     const receipt = buildReadingProposal({
-      page, article, stance: verdict.stance, quote: verdict.quote, eventId: String(event._id || ''), now
+      page, article, ...verdict, eventId: String(event._id || ''), now
     });
     proposed.push(await persistNoeisReceipt({ NoeisReceipt, userId: owner, receipt }) || receipt);
   }
@@ -455,5 +491,5 @@ module.exports = {
   proposeFromReading,
   pushesAgainst,
   setOppositeAside,
-  __testables: { parseVerdict, promptFor, readOne, readSentence }
+  __testables: { asksOf, parseVerdict, promptFor, readOne, readSentence, askedText }
 };
