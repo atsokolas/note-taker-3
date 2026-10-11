@@ -57,7 +57,7 @@ describe('ThinkHome', () => {
   });
 
   it('routes the universal command through the home command handler', async () => {
-    const onUniversalCommand = jest.fn().mockResolvedValue('Thought partner opened this as a question.');
+    const onUniversalCommand = jest.fn().mockResolvedValue('Partner opened this as a question.');
     render(<ThinkHome {...baseProps} onUniversalCommand={onUniversalCommand} />);
 
     const input = screen.getByPlaceholderText('Create a note, question, concept, or Wiki...');
@@ -68,7 +68,7 @@ describe('ThinkHome', () => {
     expect(start).toBeEnabled();
     fireEvent.click(start);
 
-    expect(await screen.findByText('Thought partner opened this as a question.')).toBeInTheDocument();
+    expect(await screen.findByText('Partner opened this as a question.')).toBeInTheDocument();
     expect(onUniversalCommand).toHaveBeenCalledWith('What should I read next?', {
       references: [],
       sourceContext: '',
@@ -176,9 +176,9 @@ describe('ThinkHome', () => {
     expect(screen.getByLabelText('Corpus telemetry')).toHaveTextContent('0 sources');
     expect(screen.getByLabelText('Corpus telemetry')).toHaveTextContent('0 wiki pages');
     expect(screen.getByLabelText('Corpus telemetry')).toHaveTextContent('0 agent moves');
-    expect(screen.getByLabelText('Thought partner home trace')).toHaveTextContent('waiting for first source or thought');
-    expect(screen.getByLabelText('Agent orientation')).toHaveTextContent('Thought partner is ready to seed the space.');
-    expect(screen.getByRole('status', { name: 'Thought partner status' })).toHaveTextContent('Thought partner is ready to seed the space.');
+    expect(screen.getByLabelText('Partner home trace')).toHaveTextContent('waiting for first source or thought');
+    expect(screen.getByLabelText('Agent orientation')).toHaveTextContent('Partner is ready to seed the space.');
+    expect(screen.getByRole('status', { name: 'Partner status' })).toHaveTextContent('Partner is ready to seed the space.');
     expect(screen.getByTestId('think-home-first-run')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Drop a source' }));
@@ -241,7 +241,7 @@ describe('ThinkHome', () => {
     expect(screen.getByLabelText('Corpus telemetry')).toHaveTextContent('2 sources');
     expect(screen.getByLabelText('Corpus telemetry')).toHaveTextContent('1 wiki page');
     expect(screen.getByLabelText('Corpus telemetry')).toHaveTextContent('1 agent move');
-    expect(screen.getByLabelText('Thought partner home trace')).toHaveTextContent('found 5 live threads');
+    expect(screen.getByLabelText('Partner home trace')).toHaveTextContent('found 5 live threads');
     expect(screen.getAllByText('Circle of competence').length).toBeGreaterThan(0);
     expect(screen.getByText('Maintained investing pages')).toBeInTheDocument();
     expect(screen.getAllByText('Munger interview').length).toBeGreaterThan(0);
@@ -250,7 +250,7 @@ describe('ThinkHome', () => {
 
   it('makes living pulse rows actionable for resume and metabolize moves', async () => {
     const onOpenConcept = jest.fn();
-    const onUniversalCommand = jest.fn().mockResolvedValue('Thought partner is feeding this source to Wiki.');
+    const onUniversalCommand = jest.fn().mockResolvedValue('Partner is feeding this source to Wiki.');
     render(
       <ThinkHome
         {...baseProps}
@@ -297,7 +297,7 @@ describe('ThinkHome', () => {
         provenancePending: true
       }
     ));
-    expect(await screen.findByText('Thought partner is feeding this source to Wiki.')).toBeInTheDocument();
+    expect(await screen.findByText('Partner is feeding this source to Wiki.')).toBeInTheDocument();
   });
 
   it('uses the home greeting as a specific resume or metabolize entrypoint', () => {
@@ -348,13 +348,13 @@ describe('ThinkHome', () => {
     );
 
     const nextOrientation = screen.getByLabelText('Agent orientation');
-    expect(nextOrientation).toHaveTextContent('Thought partner sees');
+    expect(nextOrientation).toHaveTextContent('Partner sees');
     fireEvent.click(within(nextOrientation).getByRole('button', { name: 'Metabolize latest source' }));
     expect(onOpenArticle).toHaveBeenCalledWith({ _id: 'a1', title: 'Interface research' });
   });
 
   it('feeds the latest source into the universal ingest bridge when available', async () => {
-    const onUniversalCommand = jest.fn().mockResolvedValue('Thought partner is feeding this source to Wiki.');
+    const onUniversalCommand = jest.fn().mockResolvedValue('Partner is feeding this source to Wiki.');
     const onOpenArticle = jest.fn();
     render(
       <ThinkHome
@@ -381,7 +381,7 @@ describe('ThinkHome', () => {
 
     fireEvent.click(within(screen.getByLabelText('Agent orientation')).getByRole('button', { name: 'Metabolize latest source' }));
 
-    expect(screen.getByLabelText('Thought partner home trace')).toHaveTextContent('scanning corpus');
+    expect(screen.getByLabelText('Partner home trace')).toHaveTextContent('scanning corpus');
     await waitFor(() => expect(onUniversalCommand).toHaveBeenCalledWith(
       '/ingest @article:article-1',
       {
@@ -394,7 +394,7 @@ describe('ThinkHome', () => {
         provenancePending: true
       }
     ));
-    expect(await screen.findByText('Thought partner is feeding this source to Wiki.')).toBeInTheDocument();
+    expect(await screen.findByText('Partner is feeding this source to Wiki.')).toBeInTheDocument();
     expect(onOpenArticle).not.toHaveBeenCalled();
   });
 

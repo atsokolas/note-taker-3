@@ -28,7 +28,7 @@ const AgentQuickStartCard = ({
     <Card className="settings-card">
       <h2 id="personal-agents">Set up a specialist agent</h2>
       <p className="muted">
-        Give a specialist worker a name and let {SPECIALIST_AGENT_LABEL.toLowerCase()}s handle routed Think handoffs under the same thought partner workflow. You can configure advanced BYO bridge options after setup.
+        Give a specialist worker a name and let {SPECIALIST_AGENT_LABEL.toLowerCase()}s handle routed Think handoffs under the same Partner workflow. You can configure advanced BYO bridge options after setup.
       </p>
 
       <div className="settings-import-row">

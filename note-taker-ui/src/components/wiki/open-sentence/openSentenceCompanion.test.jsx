@@ -156,7 +156,7 @@ describe('open sentence companion', () => {
         <WikiAsk onAccept={(proposal) => accepted.push(proposal.body)} />
       </AgentRailProvider>
     );
-    const rail = screen.getByRole('complementary', { name: 'Wiki steward' });
+    const rail = screen.getByRole('complementary', { name: 'Partner' });
 
     fireEvent.change(within(rail).getByPlaceholderText('Ask about this sentence'), {
       target: { value: 'Is recoverable mistakes warranted?' }
@@ -183,7 +183,7 @@ describe('open sentence companion', () => {
         <WikiAsk />
       </AgentRailProvider>
     );
-    const rail = screen.getByRole('complementary', { name: 'Wiki steward' });
+    const rail = screen.getByRole('complementary', { name: 'Partner' });
 
     fireEvent.change(within(rail).getByPlaceholderText('Ask about this sentence'), {
       target: { value: 'What sits beside this?' }

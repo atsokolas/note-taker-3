@@ -57,7 +57,6 @@ import './App.css';
 import './styles/reading-layout.css';
 import './styles/dashboard-refresh.css';
 import './styles/idea-workbench.css';
-import './styles/brand-energy.css';
 import './styles/editions.css';
 import './styles/design-preview.css';
 import './styles/stitch-editorial.css';
@@ -230,7 +229,7 @@ export const isDesignPreviewPath = (pathname = '') => (
   pathname === '/design-preview' || pathname.startsWith('/design-preview/')
 );
 
-const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess, uiSettings }) => {
+const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess }) => {
   const location = useLocation();
   const isShareRoute = isPublicSharePath(location.pathname);
   const isLongformRoute = (
@@ -298,7 +297,6 @@ const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess, uiSettings }) => {
               <Login
                 onLoginSuccess={handleLoginSuccess}
                 chromeStoreLink={chromeStoreLink}
-                brandEnergy={uiSettings.brandEnergy}
               />
             )}
           />
@@ -444,7 +442,6 @@ function App() {
   const [shortcutOverlayOpen, setShortcutOverlayOpen] = useState(false);
   const [productFeedbackOpen, setProductFeedbackOpen] = useState(false);
   const [uiSettings, setUiSettings] = useState(() => loadUiSettingsFromStorage());
-  const [uiSettingsSaving, setUiSettingsSaving] = useState(false);
   const systemStatus = useSystemStatus();
   const storageFailure = useStorageStatus(isAuthenticated);
   const recoverableFailure = systemStatus.recoverableFailure || storageFailure;
@@ -587,29 +584,8 @@ function App() {
     setIsAuthenticated(true);
   };
 
-  const handleUiSettingsChange = async (updates) => {
-    const previous = uiSettings;
-    const optimistic = normalizeUiSettings({ ...uiSettings, ...updates });
-    setUiSettings(optimistic);
-    if (!isAuthenticated) return;
-    setUiSettingsSaving(true);
-    try {
-      const saved = await saveUiSettings(optimistic);
-      const normalized = normalizeUiSettings(saved);
-      setUiSettings(normalized);
-      persistUiSettingsToStorage(normalized);
-    } catch (error) {
-      console.error('Failed to save UI settings:', error);
-      setUiSettings(previous);
-      applyUiSettingsToRoot(document.documentElement, previous);
-    } finally {
-      setUiSettingsSaving(false);
-    }
-  };
-
   const handleAppearanceCommit = async (patch, nextDraft) => {
     const optimistic = normalizeUiSettings({ ...uiSettings, ...patch });
-    setUiSettingsSaving(true);
     try {
       const saved = await saveUiSettings(optimistic);
       const normalized = normalizeUiSettings(saved);
@@ -620,8 +596,6 @@ function App() {
       console.error('Failed to save appearance settings:', error);
       applyUiSettingsToRoot(document.documentElement, uiSettings);
       return { ok: false };
-    } finally {
-      setUiSettingsSaving(false);
     }
   };
 
@@ -869,9 +843,8 @@ function App() {
         )}
       >
       <AppShell
-        brandEnergy={uiSettings.brandEnergy}
         surface={surface}
-        /* Think owns its thought partner inside the writing surface. The shell
+        /* Think owns its Partner inside the writing surface. The shell
            must never mount a second, generic agent beside it. The Wiki
            collection keeps the steward reachable from Ask, not as a resting
            column beside the list. */
@@ -883,15 +856,11 @@ function App() {
         topBar={(
           <TopBar
             routeLocation={shellLocation}
-            brandEnergy={uiSettings.brandEnergy}
             primaryNav={primaryNavItems}
             utilityNav={utilityNavItems}
             secondaryNav={moreNavItems}
             searchMode="field"
             onSearchOpen={openPalette}
-            theme={uiSettings.theme}
-            onThemeChange={(nextTheme) => handleUiSettingsChange({ theme: nextTheme })}
-            themeSaving={uiSettingsSaving}
             accountMenuItems={topBarAccountMenuItems}
             systemStatus={{
               backgroundWork: systemStatus.backgroundWork,
@@ -924,7 +893,7 @@ function App() {
         <Analytics />
         <AppRouterContent
           isAuthenticated={isAuthenticated}
-          publicRouteProps={{ chromeStoreLink, handleLoginSuccess, uiSettings }}
+          publicRouteProps={{ chromeStoreLink, handleLoginSuccess }}
           renderLayout={renderAppLayout}
           openPalette={openPalette}
           setShortcutOverlayOpen={setShortcutOverlayOpen}

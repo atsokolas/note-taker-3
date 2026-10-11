@@ -192,8 +192,7 @@ body {
   justify-content: flex-end;
 }
 
-.topbar__button,
-.topbar__theme-pill {
+.topbar__button {
   border-radius: var(--radius-pill);
   min-height: 34px;
   padding: 6px 13px;
@@ -208,17 +207,13 @@ body {
   transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
 }
 
-.topbar__button:hover,
-.topbar__theme-pill:hover {
+.topbar__button:hover {
   color: var(--noeis-ink);
   border-color: var(--noeis-rule-strong);
   background: color-mix(in srgb, var(--noeis-paper-sunken) 70%, var(--noeis-paper));
   text-decoration: none;
 }
 
-.topbar__theme-pill {
-  min-width: 68px;
-}
 
 .ui-page {
   max-width: none;
@@ -1474,7 +1469,6 @@ select {
 .ui-quiet-button:focus-visible,
 .ui-tag-chip:focus-visible,
 .topbar__button:focus-visible,
-.topbar__theme-pill:focus-visible,
 .left-nav__link:focus-visible,
 input:focus-visible,
 textarea:focus-visible,
