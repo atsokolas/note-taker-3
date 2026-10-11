@@ -8,6 +8,7 @@ import { getConcepts, updateConcept } from '../api/concepts';
 import { createQuestion, getQuestions } from '../api/questions';
 import { getAgentThread } from '../api/agent';
 import NotebookEditor from '../components/think/notebook/NotebookEditor';
+import NotebookBoard from '../components/think/notebook/NotebookBoard';
 import ThinkEntryEditor from '../components/think/ThinkEntryEditor';
 import FocusMode from '../components/think/FocusMode';
 import ThoughtPartnerPanel from '../components/agent/ThoughtPartnerPanel';
@@ -65,6 +66,7 @@ const ThinkNotes = () => {
   const [thread, setThread] = useState(null);
   const threadId = searchParams.get('threadId') || '';
   const pulling = searchParams.get('pull') === '1';
+  const boardView = ['board', 'archive'].includes(searchParams.get('view')) ? searchParams.get('view') : '';
   const entries = useMemo(
     () => buildThinkEntries({ notes, concepts, questions, filter }),
     [notes, concepts, questions, filter]
@@ -334,6 +336,14 @@ const ThinkNotes = () => {
     setSearchParams(targetParams(item));
   };
 
+  /* The board sits over the page; the note stays mounted beneath it. */
+  const showBoard = async (view) => {
+    if (view && await saveCurrent.current?.() === false) return;
+    const params = new URLSearchParams(searchParams);
+    if (view) params.set('view', view); else params.delete('view');
+    setSearchParams(params);
+  };
+
   const nameEntry = async (event) => {
     event.preventDefault();
     const words = nameDraft.trim();
@@ -469,8 +479,11 @@ const ThinkNotes = () => {
   const step = (n) => (arriving ? `wfp-anim wfp-anim--${n}` : 'think-notes__return');
 
   return (
-    <div ref={room} className={`think-notes${activeContext ? ' has-context' : ''}${alternativesOpen ? ' has-alternatives' : ''}${notesCollapsed ? ' notes-collapsed' : ''}`}>
-      <button type="button" className="think-notes__shelf-toggle" aria-expanded={!notesCollapsed} aria-controls="think-notes-shelf" onClick={() => setNotesCollapsed(value => !value)}>{notesCollapsed ? 'Show list' : 'Hide list'}</button>
+    <div ref={room} className={`think-notes${boardView ? ' has-board' : ''}${activeContext ? ' has-context' : ''}${alternativesOpen ? ' has-alternatives' : ''}${notesCollapsed ? ' notes-collapsed' : ''}`}>
+      <div className="think-notes__toggles">
+        <button type="button" className="think-notes__shelf-toggle" aria-expanded={!notesCollapsed} aria-controls="think-notes-shelf" onClick={() => setNotesCollapsed(value => !value)}>{notesCollapsed ? 'Show list' : 'Hide list'}</button>
+        <button type="button" className="think-notes__shelf-toggle" aria-pressed={Boolean(boardView)} onClick={() => showBoard(boardView ? '' : 'board')}>Board</button>
+      </div>
       <aside id="think-notes-shelf" hidden={notesCollapsed} className="think-notes__shelf" aria-label="Think navigation" inert={contextTakesFocus ? '' : undefined} aria-hidden={contextTakesFocus || undefined}>
         <FocusMode inRail />
         <RoomShelf
@@ -586,6 +599,17 @@ const ThinkNotes = () => {
           </>}
         </RoomShelf>
       </aside>
+
+      {boardView ? (
+        <main className="think-notes__board">
+          <NotebookBoard
+            view={boardView}
+            onView={showBoard}
+            onOpen={card => openEntry({ kind: 'note', id: card.id })}
+            onClose={() => showBoard('')}
+          />
+        </main>
+      ) : null}
 
       <aside className="think-notes__alternatives" hidden={!alternativesOpen || Boolean(activeContext)} aria-label="Wording alternatives">
         <div ref={setAlternativesPortal} />

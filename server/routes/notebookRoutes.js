@@ -178,6 +178,7 @@ const buildNotebookRouter = ({
               title: 1,
               folder: 1,
               type: 1,
+              board: 1,
               'workingState.nextTimeLine.text': 1,
               ...(compact ? {} : {
                 claimId: 1, tags: 1, linkedArticleId: 1, linkedHighlightIds: 1, importMeta: 1,
@@ -477,6 +478,40 @@ const buildNotebookRouter = ({
     } catch (error) {
       console.error("❌ Error organizing notebook entry:", error);
       res.status(500).json({ error: 'Failed to organize notebook entry.' });
+    }
+  });
+
+  /* Moving a note on the board is filing, not writing: it records when it
+     moved and leaves updatedAt, revisions and the wiki alone. */
+  router.patch('/api/notebook/:id/board', authenticateToken, async (req, res) => {
+    try {
+      const { stage, archived } = req.body || {};
+      if (stage !== undefined && !['idea', 'in_progress', 'done'].includes(stage)) {
+        return res.status(400).json({ error: 'stage must be one of idea, in_progress, done.' });
+      }
+      if (archived !== undefined && typeof archived !== 'boolean') {
+        return res.status(400).json({ error: 'archived must be true or false.' });
+      }
+      if (stage === undefined && archived === undefined) {
+        return res.status(400).json({ error: 'Send a stage or archived.' });
+      }
+      if (!mongoose.isValidObjectId(req.params.id)) {
+        return res.status(404).json({ error: 'Notebook entry not found.' });
+      }
+      const now = new Date();
+      const $set = {};
+      if (stage !== undefined) Object.assign($set, { 'board.stage': stage, 'board.movedAt': now });
+      if (archived !== undefined) $set['board.archivedAt'] = archived ? now : null;
+      const entry = await NotebookEntry.findOneAndUpdate(
+        { _id: req.params.id, userId: req.user.id },
+        { $set },
+        { new: true, timestamps: false, projection: { board: 1 } }
+      );
+      if (!entry) return res.status(404).json({ error: 'Notebook entry not found.' });
+      return res.status(200).json({ _id: entry._id, board: entry.board });
+    } catch (error) {
+      console.error('❌ Error moving notebook entry on the board:', error);
+      return res.status(500).json({ error: 'Failed to move that note.' });
     }
   });
 
