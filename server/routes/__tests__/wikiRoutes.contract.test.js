@@ -670,6 +670,13 @@ const run = async () => {
     {
       _id: new mongoose.Types.ObjectId().toString(),
       userId: 'user-1',
+      title: 'Saved with nothing to read',
+      url: 'https://example.com/empty-save',
+      content: ''
+    },
+    {
+      _id: new mongoose.Types.ObjectId().toString(),
+      userId: 'user-1',
       title: 'Enterprise AI memory article',
       url: 'https://example.com/memory',
       content: '<p>Name: Enterprise AI memory article</p><p>URL: https://example.com/memory</p><p>Enterprise AI memory needs maintained claims, source-backed sections, and fresh evidence review.</p>',
@@ -2587,6 +2594,28 @@ const run = async () => {
     assert.strictEqual(ingest.body.sourceRef.type, 'external');
     assert.strictEqual(ingest.body.status, 'pending');
     assert.deepStrictEqual(ingest.body.affectedPageIds, []);
+
+    // An address already saved in the Library is ingested as that article, not fetched again.
+    const savedIngest = await request(url, '/api/wiki/ingest', {
+      method: 'POST',
+      body: JSON.stringify({ source: { type: 'url', url: 'http://www.example.com/memory/?utm_source=mail', title: 'Stale tab title', text: 'Whatever the page said once.', summary: 'A stale summary.' } })
+    });
+    assert.strictEqual(savedIngest.res.status, 202, savedIngest.text);
+    assert.strictEqual(savedIngest.body.sourceRef.type, 'article');
+    assert.strictEqual(savedIngest.body.sourceRef.objectId, Article.find({ title: 'Enterprise AI memory article' }).value[0]._id);
+    assert.strictEqual(savedIngest.body.sourceRef.title, 'Enterprise AI memory article');
+    assert.match(savedIngest.body.sourceRef.text, /maintained claims, source-backed sections/);
+    assert.doesNotMatch(JSON.stringify(savedIngest.body), /stale summary/i);
+    await waitForIngestRun(url, savedIngest.body.runId, body => body.status !== 'pending' && body.status !== 'processing');
+
+    // A saved article with nothing to read is not cited for what was read elsewhere.
+    const emptyIngest = await request(url, '/api/wiki/ingest', {
+      method: 'POST',
+      body: JSON.stringify({ source: { type: 'url', url: 'https://example.com/empty-save', text: 'What the page says now.' } })
+    });
+    assert.strictEqual(emptyIngest.res.status, 202, emptyIngest.text);
+    assert.strictEqual(emptyIngest.body.sourceRef.type, 'external');
+    await waitForIngestRun(url, emptyIngest.body.runId, body => body.status !== 'pending' && body.status !== 'processing');
 
     const ingestDetails = await waitForIngestRun(url, ingest.body.runId, body => body.status === 'processed');
     assert.strictEqual(ingestDetails.res.status, 200, ingestDetails.text);

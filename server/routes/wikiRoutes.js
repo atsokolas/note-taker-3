@@ -25,7 +25,7 @@ const {
 const { openTargets, paperColumns } = require('../services/paperColumns');
 const { buildClaimPage } = require('../services/claimFromHighlight');
 const { fetchReadableArticle } = require('../services/readableArticle');
-const { linkPageSources } = require('../services/librarySource');
+const { findLibraryArticle, linkPageSources } = require('../services/librarySource');
 const { assertionsFrom, askedBefore, closings, dayOf, quietStreak } = require('../services/paperLedger');
 const { findWikiBacklinks: defaultFindWikiBacklinks } = require('../services/wikiBacklinkService');
 const {
@@ -8666,6 +8666,22 @@ const buildWikiRouter = ({
       const normalized = normalizeIngestSource(req.body?.source);
       if (normalized.error) return res.status(400).json({ error: normalized.error });
       const source = normalized.value;
+      /* An address the reader already saved is their Library article, cited as
+         itself rather than as a second copy of the web page. A saved article
+         with nothing to read stays the web page, so the run cites what it read. */
+      const saved = source.rawType === 'url'
+        ? await findLibraryArticle({ Article, userId: req.user.id, url: source.url })
+        : null;
+      const savedText = cleanWikiSummary(saved?.content, INGEST_TEXT_LIMIT);
+      if (savedText) {
+        Object.assign(source, {
+          sourceType: 'article',
+          objectId: saved._id,
+          title: saved.title || source.title || '',
+          text: savedText,
+          summary: ''
+        });
+      }
       /* A URL used to arrive as a bare link. The run stored a title and an
          address and nothing to read, so the wiki either drafted from an empty
          source or drafted nothing at all. The reader's extension has always

@@ -5,42 +5,48 @@
    otherwise) and a highlight ref names the highlight and the article it sits
    in, so every citation opens the reader rather than a copy.
 
+   A web address ingested into the wiki that is already in the Library is
+   ingested as that article, so its ref is direct from the start.
+
    Older refs were written another way: with the wiki source event's id in
    `objectId`, or as an external link to a page saved to the Library before or
    since. They are resolved when read and the link is written back, so the
    next read is direct. Nothing is deleted or copied; a ref that resolves to
    nothing is left exactly as it was. */
 
-const TRACKING_PARAM = /^(?:utm_.*|fbclid|gclid|ref|ref_src|source)$/i;
+// Only keys that never choose what a page says: `ref` and `source` can.
+const TRACKING_PARAM = /^(?:utm_.*|fbclid|gclid|ref_src)$/i;
 const LIBRARY_REF_TYPES = new Set(['article', 'highlight']);
 
 const idOf = (value) => String(value?._id || value || '').trim();
 
-/** The address a source is known by: no scheme, www, fragment, tracking or trailing slash. */
+/** The address a source is known by: no scheme, www, fragment, tracking or trailing slash; path and query keep their case. */
 const canonicalSourceUrl = (value = '') => {
   const raw = String(value || '').trim();
   if (!raw) return '';
   try {
     const url = new URL(raw);
+    // Keys sort; a repeated key keeps its values in the order given.
     const query = [...url.searchParams]
       .filter(([key]) => !TRACKING_PARAM.test(key))
-      .map(([key, part]) => `${key}=${part}`)
-      .sort()
+      .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
+      .map(pair => pair.map(encodeURIComponent).join('='))
       .join('&');
     const path = url.pathname.replace(/\/+$/, '');
-    return `${url.hostname.replace(/^www\./, '')}${path}${query ? `?${query}` : ''}`.toLowerCase();
+    return `${url.host.replace(/^www\./, '')}${path}${query ? `?${query}` : ''}`;
   } catch (_error) {
     return raw.toLowerCase().replace(/^[a-z][a-z0-9+.-]*:\/\//, '').replace(/^www\./, '').replace(/[#?].*$/, '').replace(/\/+$/, '');
   }
 };
 
 /* Article urls are stored as they were saved, so the lookup asks the index
-   for every spelling of the same place and keeps only the true matches. */
+   for every spelling of the same place and keeps only the true matches. An
+   address carrying a user name or password matches nothing. */
 const urlPattern = (value = '') => {
   try {
     const url = new URL(String(value || '').trim());
-    if (!/^https?:$/.test(url.protocol)) return null;
-    const place = `${url.hostname.replace(/^www\./, '')}${url.pathname.replace(/\/+$/, '')}`
+    if (!/^https?:$/.test(url.protocol) || url.username || url.password) return null;
+    const place = `${url.host.replace(/^www\./, '')}${url.pathname.replace(/\/+$/, '')}`
       .replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     return new RegExp(`^https?://(www\\.)?${place}/*([?#]|$)`, 'i');
   } catch (_error) {
@@ -85,8 +91,8 @@ const resolveSourceRefs = async ({ Article, WikiSourceEvent, userId, refs = [] }
   }
 
   const orphans = refs.filter(ref => ref.type === 'highlight' && ref.objectId && !ref.parentObjectId);
-  const addressed = refs.filter(ref => ref.url && !libraryArticleIdOf(ref) && ref.type !== 'highlight');
-  const patterns = addressed.map(ref => urlPattern(ref.url)).filter(Boolean);
+  const addressed = refs.filter(ref => ref.url && !libraryArticleIdOf(ref) && ref.type !== 'highlight' && urlPattern(ref.url));
+  const patterns = addressed.map(ref => urlPattern(ref.url));
   if (Article && (orphans.length || patterns.length)) {
     const articles = await Article.find({
       userId,
@@ -108,6 +114,19 @@ const resolveSourceRefs = async ({ Article, WikiSourceEvent, userId, refs = [] }
   return changes;
 };
 
+/** The reader's Library article saved at this address, or null: the one saved
+    at exactly this address first, else the first saved at another spelling of
+    it. Archived, hidden and debug pieces are not in the Library to reuse. */
+const findLibraryArticle = async ({ Article, userId, url }) => {
+  const pattern = urlPattern(url);
+  if (!Article || !pattern) return null;
+  const canonical = canonicalSourceUrl(url);
+  const articles = await Article.find({ userId, url: pattern, archived: { $ne: true }, hiddenFromHome: { $ne: true }, debugOnly: { $ne: true } }).sort({ _id: 1 }).select('_id url title content').lean();
+  return articles.find(article => article.url === String(url).trim())
+    || articles.find(article => canonicalSourceUrl(article.url) === canonical)
+    || null;
+};
+
 /** Resolve a page's sources and remember what was found, without touching updatedAt. */
 const linkPageSources = async ({ Article, WikiSourceEvent, WikiPage, page }) => {
   const refs = Array.isArray(page?.sourceRefs) ? page.sourceRefs : [];
@@ -127,5 +146,6 @@ const linkPageSources = async ({ Article, WikiSourceEvent, WikiPage, page }) => 
 
 module.exports = {
   canonicalSourceUrl,
+  findLibraryArticle,
   linkPageSources
 };

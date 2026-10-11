@@ -100,7 +100,7 @@ describe('ThinkEntryEditor', () => {
   it('renames a concept in place: Enter renames it everywhere, Esc keeps the old name', async () => {
     getConcept.mockResolvedValue({ _id: 'c1', name: 'Moats' });
     getConceptIdeaWorkbench.mockResolvedValue({ revision: 2, ideaWorkbench: { hypothesis: { html: '<p>x</p>' } } });
-    renameConcept.mockResolvedValue({ name: 'Durable advantage', previousName: 'Moats', conceptId: 'c1' });
+    renameConcept.mockResolvedValue({ name: 'Durable advantage', previousName: 'Moats', conceptId: 'c1', notes: 2 });
     const onRenamed = jest.fn();
     render(<ThinkEntryEditor target={{ kind: 'concept', id: 'Moats' }} onRenamed={onRenamed} />);
     const name = await screen.findByRole('textbox', { name: 'Concept name' });
@@ -112,7 +112,8 @@ describe('ThinkEntryEditor', () => {
 
     fireEvent.change(name, { target: { value: '  Durable  advantage ' } });
     fireEvent.keyDown(name, { key: 'Enter' });
-    await waitFor(() => expect(onRenamed).toHaveBeenCalledWith({ name: 'Durable advantage', previousName: 'Moats', conceptId: 'c1' }));
+    await waitFor(() => expect(onRenamed).toHaveBeenCalledWith({ name: 'Durable advantage', previousName: 'Moats', conceptId: 'c1', notes: 2 }));
+    expect(screen.getByText('Renamed where you mentioned it, in 2 notes.')).toBeInTheDocument();
     expect(renameConcept).toHaveBeenCalledWith('c1', 'Durable advantage');
     expect(name).toHaveValue('Durable advantage');
   });
