@@ -7,12 +7,16 @@
    So the sources come too. Each public link is saved into the taker's Library
    as an article, the page's footnotes point at that article instead of at a
    bare URL, and anything the taker already saved is used as it stands and
-   counted, never overwritten.
+   counted, never overwritten. "Already saved" means the same place by the
+   Library's own reckoning (canonicalSourceUrl), so a piece saved with www. or
+   a trailing slash is the one the footnote opens.
 
    Passages do not travel. A public page carries no snippets (see
    publicSourceSnippet in wikiRoutes), so what arrives is the article, read by
    the taker's own account, for the taker to mark up. Bodies are fetched after
    the response, a few at a time, through the public-URL guard. */
+
+const { canonicalSourceUrl, urlPattern } = require('./librarySource');
 
 const FETCH_CONCURRENCY = 3;
 
@@ -48,47 +52,55 @@ const fillBodies = async ({ Article, userId, urls, fetchBody }) => {
  */
 const takeSourcesIntoLibrary = async ({ Article, userId, pages = [], label = '', fetchBody = null } = {}) => {
   if (!Article?.findOneAndUpdate) return null;
-  const titles = new Map();
+  const sources = new Map();
   pages.forEach(page => (page.sourceRefs || []).forEach((source) => {
     const url = publicLink(source?.url);
-    if (url && !titles.has(url)) titles.set(url, String(source.title || '').trim() || url);
+    const place = url && canonicalSourceUrl(url);
+    if (place && !sources.has(place)) sources.set(place, { url, title: String(source.title || '').trim() || url });
   }));
-  if (!titles.size) return { sources: 0, alreadyHad: 0 };
+  if (!sources.size) return { sources: 0, alreadyHad: 0 };
 
-  const urls = [...titles.keys()];
-  const held = await Article.find({ userId, url: { $in: urls } }).select('_id url').lean();
-  const articleIds = new Map(held.map(article => [article.url, article._id]));
+  const held = await Article.find({
+    userId,
+    url: { $in: [...sources.values()].map(source => urlPattern(source.url)).filter(Boolean) }
+  }).select('_id url').lean();
+  const articleIds = new Map();
+  held.forEach((article) => {
+    const place = canonicalSourceUrl(article.url);
+    if (sources.has(place) && !articleIds.has(place)) articleIds.set(place, article._id);
+  });
   const alreadyHad = articleIds.size;
-  const arrived = urls.filter(url => !articleIds.has(url));
+  const arrived = [...sources.keys()].filter(place => !articleIds.has(place)).map(place => sources.get(place));
 
-  for (const url of arrived) {
+  for (const { url, title } of arrived) {
     const article = await Article.findOneAndUpdate(
       { userId, url },
       {
         $setOnInsert: {
           userId,
           url,
-          title: titles.get(url),
+          title,
           importMeta: { provider: 'noeis', sourceType: 'shared_wiki', sourceLabel: label, sourceUrl: url, importedAt: new Date() }
         }
       },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
-    articleIds.set(url, article._id);
+    articleIds.set(canonicalSourceUrl(url), article._id);
   }
 
   pages.forEach((page) => {
     page.sourceRefs = (page.sourceRefs || []).map((source) => {
-      const objectId = articleIds.get(publicLink(source?.url));
+      const url = publicLink(source?.url);
+      const objectId = url && articleIds.get(canonicalSourceUrl(url));
       return objectId ? { ...source, type: 'article', objectId } : source;
     });
   });
 
   if (fetchBody && arrived.length) {
-    fillBodies({ Article, userId, urls: arrived, fetchBody })
+    fillBodies({ Article, userId, urls: arrived.map(source => source.url), fetchBody })
       .catch(error => console.error('Failed fetching taken sources:', error));
   }
-  return { sources: urls.length, alreadyHad };
+  return { sources: sources.size, alreadyHad };
 };
 
 module.exports = { takeSourcesIntoLibrary };

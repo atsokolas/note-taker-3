@@ -24,7 +24,9 @@ const matches = (record, query = {}) => Object.entries(query).every(([key, value
     return String(recordValue) !== String(value.$ne);
   }
   if (value && typeof value === 'object' && Array.isArray(value.$in)) {
-    return value.$in.map(String).includes(String(recordValue || ''));
+    return value.$in.some(option => (option instanceof RegExp
+      ? option.test(String(recordValue || ''))
+      : String(option) === String(recordValue || '')));
   }
   if (value && typeof value === 'object' && value.$lt !== undefined) {
     return String(recordValue || '') < String(value.$lt || '');

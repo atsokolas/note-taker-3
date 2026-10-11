@@ -3,7 +3,7 @@ const assert = require('assert');
 const { takeSourcesIntoLibrary } = require('./takeSourcesIntoLibrary');
 
 const fakeArticles = (records = []) => {
-  const find = ({ userId, url }) => records.filter(record => record.userId === userId && url.$in.includes(record.url));
+  const find = ({ userId, url }) => records.filter(record => record.userId === userId && url.$in.some(pattern => pattern.test(record.url)));
   return {
     records,
     find: query => ({ select: () => ({ lean: async () => find(query) }) }),
@@ -24,7 +24,8 @@ const fakeArticles = (records = []) => {
 
 test('sources a reader already holds are used as they stand and counted', async () => {
   const Article = fakeArticles([
-    { _id: 'mine', userId: 'u1', url: 'https://example.com/moats', title: 'My own title', content: '<p>Mine.</p>' }
+    /* Saved with www. and a trailing slash: the same place by the Library's reckoning. */
+    { _id: 'mine', userId: 'u1', url: 'https://www.example.com/moats/', title: 'My own title', content: '<p>Mine.</p>' }
   ]);
   const pages = [
     { sourceRefs: [

@@ -127,5 +127,6 @@ const linkPageSources = async ({ Article, WikiSourceEvent, WikiPage, page }) => 
 
 module.exports = {
   canonicalSourceUrl,
-  linkPageSources
+  linkPageSources,
+  urlPattern
 };
