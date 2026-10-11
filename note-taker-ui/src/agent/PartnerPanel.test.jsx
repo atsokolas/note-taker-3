@@ -1,9 +1,13 @@
 import React, { useState } from 'react';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import AgentRail from './AgentRail';
+import { MemoryRouter } from 'react-router-dom';
+import { fireEvent, render as renderWithoutRouter, screen, waitFor, within } from '@testing-library/react';
+import PartnerPanel from './PartnerPanel';
 import { AgentRailProvider, useContextualAgentSurface } from './AgentRailContext';
-import { hasContextualAgentRail } from './contextualAgentContracts';
+import { hasPartnerPanel } from './contextualAgentContracts';
 import { getAgentThread, streamChatWithAgent } from '../api/agent';
+
+// The panel links what it read back to its source.
+const render = ui => renderWithoutRouter(ui, { wrapper: MemoryRouter });
 
 jest.mock('../api/agent', () => ({
   getAgentThread: jest.fn(),
@@ -15,7 +19,7 @@ jest.mock('../api/agent', () => ({
 const Surface = ({ id, subject, empty, accepted }) => {
   useContextualAgentSurface(
     'agent-surface.judgment',
-    { objectType: 'claim', objectId: id, subject, empty },
+    { objectType: 'judgment_claim', objectId: id, subject },
     {
       onAccept: (proposal, field) => accepted.push({
         text: proposal.body,
@@ -101,7 +105,7 @@ const renderRail = ({ accepted = [] } = {}) => {
   const utils = render(
     <AgentRailProvider>
       <Column accepted={accepted} />
-      <AgentRail />
+      <PartnerPanel />
     </AgentRailProvider>
   );
   return { ...utils, accepted, rail: () => screen.getByRole('complementary', { name: 'Partner' }) };
@@ -117,12 +121,12 @@ const ProjectionToggle = () => {
   return (
     <>
       <button type="button" onClick={() => setEmbedded(current => !current)}>Swap projection</button>
-      {embedded ? <div data-testid="embedded-agent">Embedded Wiki agent</div> : <AgentRail />}
+      {embedded ? <div data-testid="embedded-agent">Embedded Wiki agent</div> : <PartnerPanel />}
     </>
   );
 };
 
-describe('AgentRail', () => {
+describe('PartnerPanel', () => {
   beforeEach(() => {
     window.localStorage.clear();
     getAgentThread.mockReset();
@@ -134,7 +138,6 @@ describe('AgentRail', () => {
     const { rail } = renderRail();
 
     expect(rail()).toHaveAttribute('data-agent-contract', 'agent-surface.judgment');
-    expect(rail()).toHaveAttribute('data-agent-presentation', 'rail');
     expect(rail()).toHaveAttribute('data-agent-actions', expect.stringContaining('accept.against'));
     expect(rail()).toHaveAttribute('data-agent-proposal-policy', 'human_acceptance');
     expect(within(rail()).getByText('Partner')).toBeInTheDocument();
@@ -144,10 +147,11 @@ describe('AgentRail', () => {
     expect(within(rail()).queryByText(/thought partner/i)).not.toBeInTheDocument();
   });
 
-  it('says nothing is there in a sentence rather than an empty box', () => {
+  it('names where it is looking in the reader\'s words', () => {
     const { rail } = renderRail();
 
-    expect(within(rail()).getByText('Nothing to retrieve until you ask.')).toBeInTheDocument();
+    expect(within(rail()).getByText('this view')).toBeInTheDocument();
+    expect(within(rail()).queryByText(/bound source|anchored to/i)).not.toBeInTheDocument();
   });
 
   it('uses the durable conversation even when a page has no write adapter', async () => {
@@ -231,7 +235,7 @@ describe('AgentRail', () => {
 
   it('reopens the saved conversation for an object after a reload', async () => {
     window.localStorage.setItem('noeis.agent.surface_threads', JSON.stringify({
-      'agent-surface.judgment|claim|a': 'thread-a'
+      'agent-surface.judgment|judgment_claim|a': 'thread-a'
     }));
     getAgentThread.mockResolvedValueOnce({
       thread: { threadId: 'thread-a', messages: [{ role: 'user', text: 'Earlier question' }, { role: 'assistant', text: 'Earlier answer' }] }
@@ -244,7 +248,7 @@ describe('AgentRail', () => {
 
   it('loads a saved conversation again when the reader left before it arrived', async () => {
     window.localStorage.setItem('noeis.agent.surface_threads', JSON.stringify({
-      'agent-surface.judgment|claim|a': 'thread-a'
+      'agent-surface.judgment|judgment_claim|a': 'thread-a'
     }));
     const saved = { thread: { threadId: 'thread-a', messages: [{ role: 'user', text: 'Earlier question' }, { role: 'assistant', text: 'Earlier answer' }] } };
     getAgentThread.mockImplementationOnce(() => new Promise(() => {})).mockResolvedValueOnce(saved);
@@ -286,7 +290,7 @@ describe('AgentRail', () => {
     render(
       <AgentRailProvider>
         <AuthoredWikiSurface />
-        <AgentRail />
+        <PartnerPanel />
       </AgentRailProvider>
     );
     const rail = screen.getByRole('complementary', { name: 'Partner' });
@@ -328,7 +332,7 @@ describe('AgentRail', () => {
     render(
       <AgentRailProvider>
         <PresentationColumn />
-        <AgentRail />
+        <PartnerPanel />
       </AgentRailProvider>
     );
     const rail = screen.getByRole('complementary', { name: 'Partner' });
@@ -464,7 +468,7 @@ describe('AgentRail', () => {
     render(
       <AgentRailProvider>
         <LibrarySurface />
-        <AgentRail />
+        <PartnerPanel />
       </AgentRailProvider>
     );
     const rail = screen.getByRole('complementary');
@@ -501,10 +505,10 @@ describe('AgentRail', () => {
   });
 });
 
-describe('hasContextualAgentRail', () => {
+describe('hasPartnerPanel', () => {
   it('is present in the rooms and the surfaces inside them', () => {
     ['/library', '/think', '/wiki', '/judgment', '/judgment/abc'].forEach((path) => {
-      expect(hasContextualAgentRail(path)).toBe(true);
+      expect(hasPartnerPanel(path)).toBe(true);
     });
   });
 
@@ -512,51 +516,62 @@ describe('hasContextualAgentRail', () => {
     // The workspace chat drafts, builds, ingests and lints. None of that is
     // the rail's, and two agents on one screen is the thing the rail exists to
     // stop — so on this one surface the rail is the one that gives way.
-    expect(hasContextualAgentRail('/wiki/workspace')).toBe(false);
-    expect(hasContextualAgentRail('/wiki/workspace?view=list')).toBe(false);
-    expect(hasContextualAgentRail('/wiki')).toBe(true);
+    expect(hasPartnerPanel('/wiki/workspace')).toBe(false);
+    expect(hasPartnerPanel('/wiki/workspace?view=list')).toBe(false);
+    expect(hasPartnerPanel('/wiki')).toBe(true);
   });
 
   it('is absent where the agent does not work', () => {
     ['/settings', '/connections', '/paper', '/welcome', '/wiki/activity/run-1', '/'].forEach((path) => {
-      expect(hasContextualAgentRail(path)).toBe(false);
+      expect(hasPartnerPanel(path)).toBe(false);
     });
   });
 
 });
 
-const BoundCorpus = ({ boundSources }) => {
-  useContextualAgentSurface('agent-surface.wiki', {
-    objectType: 'wiki_page',
-    objectId: 'wiki-bound',
-    subject: 'Margin of Safety',
-    ...(boundSources === undefined ? {} : { boundSources })
-  }, {});
-  return <AgentRail />;
+const ThinkSurface = ({ onTryWording }) => {
+  useContextualAgentSurface('agent-surface.think', { objectType: 'notebook', objectId: 'note-1', subject: 'A note' }, { onTryWording });
+  return <PartnerPanel />;
 };
 
-const renderBound = boundSources => render(
-  <AgentRailProvider><BoundCorpus boundSources={boundSources} /></AgentRailProvider>
-);
-
-describe('AgentRail context envelope', () => {
-  it('says what the agent is bound to', () => {
-    renderBound(17);
-    expect(screen.getByText('17 bound sources')).toBeInTheDocument();
+describe('PartnerPanel in Think', () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    streamChatWithAgent.mockReset();
   });
 
-  it('says the uncomfortable zero rather than hiding it', () => {
-    renderBound(0);
-    expect(screen.getByText('no bound sources')).toBeInTheDocument();
+  it('offers wording to try in the draft, and only wording', async () => {
+    const tried = [];
+    streamChatWithAgent
+      .mockResolvedValueOnce({ reply: 'Compounding rewards the patient, not the early.', mode: 'hf_chat' })
+      .mockResolvedValueOnce({ reply: 'From your passages.', mode: 'internal_only', relatedItems: [{ type: 'article', id: 'a1', title: 'Grid queues' }] });
+    render(<AgentRailProvider><ThinkSurface onTryWording={text => tried.push(text)} /></AgentRailProvider>);
+    const rail = screen.getByRole('complementary', { name: 'Partner' });
+    expect(within(rail).getByText('this note')).toBeInTheDocument();
+    expect(within(rail).getByText('Ask about this note.')).toBeInTheDocument();
+
+    fireEvent.change(within(rail).getByRole('textbox'), { target: { value: 'Say it another way' } });
+    fireEvent.click(within(rail).getByRole('button', { name: 'Ask' }));
+    await within(rail).findByText('Compounding rewards the patient, not the early.');
+    fireEvent.click(within(rail).getByRole('button', { name: 'Try wording' }));
+    expect(tried).toEqual(['Compounding rewards the patient, not the early.']);
+
+    fireEvent.change(within(rail).getByRole('textbox'), { target: { value: 'What did I read?' } });
+    fireEvent.click(within(rail).getByRole('button', { name: 'Ask' }));
+    await within(rail).findByText('From your passages.');
+    expect(within(rail).getAllByRole('button', { name: 'Try wording' })).toHaveLength(1);
+    expect(within(rail).getByText('From your passages while the Partner rests.')).toBeInTheDocument();
+    expect(within(rail).getByRole('region', { name: 'What it read' })).toHaveTextContent('Grid queues');
+    expect(within(rail).getByRole('link', { name: 'Grid queues' })).toHaveAttribute('href', '/library?articleId=a1');
   });
 
-  it('counts one source without pluralising it', () => {
-    renderBound(1);
-    expect(screen.getByText('1 bound source')).toBeInTheDocument();
-  });
-
-  it('stays quiet when a surface has not declared a corpus', () => {
-    renderBound(undefined);
-    expect(screen.queryByText(/bound source/)).not.toBeInTheDocument();
+  it('offers no wording where there is no draft to try it in', async () => {
+    streamChatWithAgent.mockResolvedValueOnce({ reply: 'Compounding rewards the patient, not the early.', mode: 'hf_chat' });
+    render(<AgentRailProvider><ThinkSurface /></AgentRailProvider>);
+    const rail = screen.getByRole('complementary', { name: 'Partner' });
+    fireEvent.change(within(rail).getByRole('textbox'), { target: { value: 'Say it another way' } });
+    fireEvent.click(within(rail).getByRole('button', { name: 'Ask' }));
+    await within(rail).findByText('Compounding rewards the patient, not the early.');
+    expect(within(rail).queryByRole('button', { name: 'Try wording' })).toBeNull();
   });
 });

@@ -44,8 +44,8 @@ import { useSystemStatus } from './system/useSystemStatus';
 import { useStorageStatus } from './system/useStorageStatus';
 import { SystemStatusProvider } from './system/SystemStatusContext';
 import { AgentRailProvider } from './agent/AgentRailContext';
-import AgentRail from './agent/AgentRail';
-import { hasContextualAgentRail } from './agent/contextualAgentContracts';
+import PartnerPanel from './agent/PartnerPanel';
+import { hasPartnerPanel } from './agent/contextualAgentContracts';
 import { NoeisSurfaceProvider, useNoeisSurfaceState } from './surface/NoeisSurfaceContext';
 import { NoeisCapabilityProvider } from './system/NoeisCapabilityProvider';
 import { NoeisLoopProvider } from './system/NoeisLoopProvider';
@@ -818,15 +818,8 @@ function App() {
       >
       <AppShell
         surface={surface}
-        /* Think owns its Partner inside the writing surface. The shell
-           must never mount a second, generic agent beside it. The Wiki
-           collection keeps the steward reachable from Ask, not as a resting
-           column beside the list. */
-        agentOnDemand={shellLocation.pathname === '/wiki' || shellLocation.pathname === '/wiki/dossiers'}
-        rightRail={hasContextualAgentRail(shellLocation.pathname)
-          && !(shellLocation.pathname === '/think' || shellLocation.pathname.startsWith('/think/'))
-          ? <AgentRail />
-          : null}
+        /* One Partner, the same in every room: ⌘J or its button opens it. */
+        partner={hasPartnerPanel(shellLocation.pathname) ? <PartnerPanel /> : null}
         /* First run is one column and a way out; the rooms come after. */
         topBar={shellLocation.pathname === '/welcome' ? null : (
           <TopBar

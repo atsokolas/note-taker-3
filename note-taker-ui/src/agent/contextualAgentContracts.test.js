@@ -3,7 +3,7 @@ import {
   buildContextualAgentSurface,
   filterContextualAgentHandlers,
   getContextualAgentContract,
-  hasContextualAgentRail,
+  hasPartnerPanel,
   resolveContextualAgentContract
 } from './contextualAgentContracts';
 
@@ -27,8 +27,8 @@ describe('contextual agent contracts', () => {
       presentation: 'embedded'
     }));
     expect(workspace.actions).toEqual(expect.arrayContaining(['build', 'ingest', 'lint', 'maintain']));
-    expect(hasContextualAgentRail('/wiki/workspace')).toBe(false);
-    expect(hasContextualAgentRail('/wiki/read/page-1')).toBe(true);
+    expect(hasPartnerPanel('/wiki/workspace')).toBe(false);
+    expect(hasPartnerPanel('/wiki/read/page-1')).toBe(true);
   });
 
   it('resolves every primary room without treating operational routes as agent surfaces', () => {
@@ -36,6 +36,7 @@ describe('contextual agent contracts', () => {
     expect(resolveContextualAgentContract({ pathname: '/think' })?.id).toBe('agent-surface.think');
     expect(resolveContextualAgentContract({ pathname: '/wiki' })?.id).toBe('agent-surface.wiki');
     expect(resolveContextualAgentContract({ pathname: '/judgment/abc' })?.id).toBe('agent-surface.judgment');
+    expect(resolveContextualAgentContract({ pathname: '/editions/issue-1' })?.id).toBe('agent-surface.editions');
     expect(resolveContextualAgentContract({ pathname: '/wiki/activity/run-1' })).toBeNull();
     expect(resolveContextualAgentContract({ pathname: '/settings' })).toBeNull();
   });
@@ -53,11 +54,27 @@ describe('contextual agent contracts', () => {
       objectId: 'article-1',
       subject: 'A source',
       lines: [{ id: 'h', text: '2 highlights.' }],
+      scope: 'this source',
+      caption: 'Ask about this source.',
       supportedActions: ['retrieve', 'accept.keep'],
       proposalPolicy: 'human_acceptance'
     }));
     expect(buildContextualAgentSurface('agent-surface.wiki-workspace', {})).toBeNull();
     expect(buildContextualAgentSurface('agent-surface.missing', {})).toBeNull();
+  });
+
+  it('changes only the scope from room to room', () => {
+    const scopes = [
+      ['agent-surface.library', 'article', 'this source'],
+      ['agent-surface.think', 'notebook', 'this note'],
+      ['agent-surface.wiki', 'wiki_page', 'this page'],
+      ['agent-surface.judgment', 'judgment_claim', 'this view'],
+      ['agent-surface.editions', 'edition', 'this issue'],
+      ['agent-surface.editions', 'editions', 'everything']
+    ].map(([contractId, objectType]) => buildContextualAgentSurface(contractId, { objectType, objectId: 'x' }));
+    expect(scopes.map(surface => surface.scope)).toEqual(['this source', 'this note', 'this page', 'this view', 'this issue', 'everything']);
+    expect(new Set(scopes.map(surface => surface.roleLabel))).toEqual(new Set(['Partner']));
+    expect(scopes[5].caption).toBe('Ask about anything you have read.');
   });
 
   it('fails closed when handlers exceed the registered action vocabulary', () => {
@@ -66,6 +83,8 @@ describe('contextual agent contracts', () => {
     expect(filterContextualAgentHandlers('agent-surface.library', { onAsk, onAccept, onPublish: jest.fn() }))
       .toEqual({ onAccept });
     expect(filterContextualAgentHandlers('agent-surface.wiki-workspace', { onAsk, onAccept })).toEqual({});
+    const onTryWording = jest.fn();
+    expect(filterContextualAgentHandlers('agent-surface.think', { onAccept, onTryWording })).toEqual({ onTryWording });
     expect(filterContextualAgentHandlers('agent-surface.missing', { onAsk, onAccept })).toEqual({});
     expect(getContextualAgentContract('agent-surface.library')?.room).toBe('library');
   });

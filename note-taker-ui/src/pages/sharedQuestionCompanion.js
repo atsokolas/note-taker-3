@@ -60,48 +60,17 @@ export const boundCompanionLine = (page) => {
   return 'Bound to this published question and the shared brief.';
 };
 
-const successorPrompts = (succession) => {
-  if (questionShareArchiveOf(succession)) {
-    return [
-      'What did we nearly do?',
-      'What happened later?',
-      'What evidence was available then?'
-    ];
-  }
-  return [
-    'What alternatives were recorded then?',
-    'What evidence was available then?',
-    succession.review ? 'When should this be looked at again?' : 'Who handed this on?'
-  ];
-};
-
 export const buildSharedQuestionCompanion = ({ slug, page } = {}) => {
   const contextId = asLine(slug);
   const succession = questionShareSuccessionOf(page);
-  const archive = succession ? questionShareArchiveOf(succession) : null;
   const title = asLine(succession?.unresolved) || asLine(page?.question?.text);
   if (!contextId || !title) return null;
-  const readings = publicCompanionLaterReadings(page);
-  const brief = publicCompanionBrief(page);
   return {
     contextType: SHARED_QUESTION_CONTEXT_TYPE,
     contextId,
     contextTitle: title,
     subtitle: boundCompanionLine(page),
     placeholder: succession ? 'Ask about this handoff.' : 'Ask about this published question.',
-    emptyStateText: succession
-      ? (archive
-        ? 'Ask about the recorded handoff. The other future is not in this record.'
-        : 'Ask about the recorded handoff and the writing already on this door.')
-      : 'Ask about the published question and the writing already on this door.',
-    promptTemplates: succession
-      ? successorPrompts(succession)
-      : [
-        'What is actually on this page?',
-        'Where do the readings differ?',
-        brief ? 'What does the brief still leave open?' : 'What still sits unanswered?'
-      ],
-    askLabel: succession ? 'Ask about this handoff' : 'Ask about this reading',
-    boundSources: 1 + readings.length + (brief ? 1 : 0)
+    askLabel: succession ? 'Ask about this handoff' : 'Ask about this reading'
   };
 };

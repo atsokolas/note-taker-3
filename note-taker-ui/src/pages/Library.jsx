@@ -1049,9 +1049,6 @@ const Library = () => {
         article: exactSourceId !== 'library' ? { title: exactSourceTitle || selectedFolderName } : null,
         count: 0
       }),
-      // Unknown stays unknown: corpusTotal is undefined until the shelf is read,
-      // and the rail says nothing rather than claiming a corpus of zero.
-      boundSources: selectedArticleId && selectedArticle ? 1 : null,
       lines: exactSourceId === 'library'
         ? []
         : [
@@ -1061,8 +1058,7 @@ const Library = () => {
           articleReferenceCount
             ? { id: 'references', text: `Used in ${articleReferenceCount} note${articleReferenceCount === 1 ? '' : 's'} or collection${articleReferenceCount === 1 ? '' : 's'}.` }
             : null
-        ].filter(Boolean),
-      empty: 'Nothing to retrieve until you ask.'
+        ].filter(Boolean)
     },
     {
       // Accepting keeps the line where the human's loose material already goes.

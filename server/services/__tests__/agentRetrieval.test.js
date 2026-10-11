@@ -1,4 +1,4 @@
-const { retrievePassages, readSource, __testables: { queryTerms, stripImportChrome } } = require('../agentRetrieval');
+const { retrievePassages, readSource, readStandingContext, __testables: { queryTerms, stripImportChrome } } = require('../agentRetrieval');
 
 // A stand-in for a Mongoose model: every query resolves to the given rows,
 // and $text is supported so the lexical path is the one under test.
@@ -155,5 +155,35 @@ describe('retrievePassages', () => {
   it('strips import preambles so they are never quoted as the author', () => {
     expect(stripImportChrome('Name: Strategy Notes URL: https://example.com/strategy The useful passage explains it.'))
       .toBe('The useful passage explains it.');
+  });
+
+  it('carries a few held views and the last sources saved, with no suppressed source', async () => {
+    const filters = {};
+    const capture = (name, rows) => ({
+      find: (filter) => {
+        filters[name] = filter;
+        const query = { sort: () => query, limit: () => query, select: () => query, lean: async () => rows };
+        return query;
+      }
+    });
+    const standing = await readStandingContext({
+      userId: 'u1',
+      models: {
+        WikiPage: capture('views', [
+          { judgment: { currentJudgment: '  Compute   stays scarce through 2027. ' } },
+          { judgment: { currentJudgment: '' } }
+        ]),
+        Article: capture('sources', [
+          { title: 'Costco and the membership model', author: 'Ben Carlson' },
+          { title: 'Untitled clip', siteName: '' }
+        ])
+      }
+    });
+    expect(standing).toEqual({
+      views: ['Compute stays scarce through 2027.'],
+      sources: ['Costco and the membership model, Ben Carlson', 'Untitled clip']
+    });
+    expect(filters.views['judgment.status'].$nin).toEqual(expect.arrayContaining(['parked', 'closed', 'archived']));
+    expect(filters.sources).toMatchObject({ hiddenFromHome: { $ne: true }, debugOnly: { $ne: true }, archived: { $ne: true } });
   });
 });

@@ -78,10 +78,6 @@ jest.mock('../components/references/ReferencePullIn', () => ({
   __esModule: true,
   default: ({ targetId }) => <div>Pull references for {targetId}</div>
 }));
-jest.mock('../components/agent/ThoughtPartnerPanel', () => ({
-  __esModule: true,
-  default: () => <div data-testid="thought-partner-panel">Library thought partner</div>
-}));
 jest.mock('../surface/NoeisSurfaceContext', () => ({
   useNoeisSurface: (descriptor) => mockDeclareSurface(descriptor)
 }));

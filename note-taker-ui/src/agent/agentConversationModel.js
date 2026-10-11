@@ -1,3 +1,5 @@
+import { buildCanonicalArticlePath } from '../utils/sourceRoutes';
+
 const clean = (value) => String(value || '').trim();
 
 const CONTEXT_TYPE_ALIASES = Object.freeze({
@@ -44,6 +46,7 @@ export const buildAgentContext = (surface = {}) => {
       contractId: clean(surface.contractId),
       objectType: rawType,
       ...(claimId ? { claimId } : {}),
+      ...(clean(surface.summary) ? { summary: clean(surface.summary) } : {}),
       ...(openedClaim && title ? { primaryText: title } : {}),
       ...(openedClaim && surface.exploration ? { exploration: surface.exploration } : {})
     }
@@ -149,14 +152,27 @@ export const mapAgentStructureProposal = (proposal = {}) => ({
     : []
 });
 
-/* A reply written without the model is assembled from retrieval alone. The
-   reader should know that before trusting its phrasing. */
-export const sourceLabelForAgentMessage = (message = {}) => {
-  const titles = (Array.isArray(message.relatedItems) ? message.relatedItems : [])
-    .map((item) => clean(item?.title))
+const SOURCE_HREF = Object.freeze({
+  article: id => buildCanonicalArticlePath(id),
+  wiki_page: id => `/wiki/read/${encodeURIComponent(id)}`,
+  notebook: id => `/think?tab=notebook&entryId=${encodeURIComponent(id)}`
+});
+
+/* What the Partner read to answer, each one a way back to its source. */
+export const sourcesReadFor = (message = {}) => (
+  (Array.isArray(message.relatedItems) ? message.relatedItems : [])
+    .map((item = {}) => {
+      const title = clean(item.title);
+      const id = clean(item.id);
+      const type = clean(item.type).toLowerCase();
+      return title ? { key: `${type}:${id || title}`, title, href: id && SOURCE_HREF[type] ? SOURCE_HREF[type](id) : '' } : null;
+    })
     .filter(Boolean)
-    .slice(0, 2);
-  const from = titles.length ? `From ${titles.join(' and ')}` : '';
-  if (message.role !== 'assistant' || message.mode !== 'internal_only') return from;
-  return from ? `${from} · model unavailable` : 'Model unavailable';
-};
+    .slice(0, 4)
+);
+
+/* A reply put together from passages alone says so, so its phrasing is not
+   mistaken for the Partner's. */
+export const answeredWithoutModel = (message = {}) => (
+  message.role === 'assistant' && message.mode === 'internal_only'
+);

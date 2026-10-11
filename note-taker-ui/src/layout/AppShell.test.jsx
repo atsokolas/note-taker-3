@@ -1,10 +1,7 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import AppShell from './AppShell';
 
 describe('AppShell landmarks', () => {
-  const media = window.matchMedia;
-  beforeEach(() => { window.matchMedia = () => ({ matches: true, addEventListener() {}, removeEventListener() {} }); });
-  afterEach(() => { window.matchMedia = media; });
   it('provides a stable skip target without adding a duplicate main landmark', () => {
     render(
       <AppShell topBar={<header>Top bar</header>}>
@@ -34,9 +31,9 @@ describe('AppShell landmarks', () => {
     expect(screen.getAllByRole('main')).toHaveLength(1);
   });
 
-  it('uses the same agent rail as an accessible compact-screen drawer', () => {
+  it('opens the one Partner as an accessible sheet, by button or ⌘J', () => {
     render(
-      <AppShell topBar={<header>Top bar</header>} rightRail={<aside aria-label="Partner">Partner work</aside>}>
+      <AppShell topBar={<header>Top bar</header>} partner={<aside aria-label="Partner">Partner work</aside>}>
         <main>Library</main>
       </AppShell>
     );
@@ -52,13 +49,21 @@ describe('AppShell landmarks', () => {
 
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(trigger).toHaveAttribute('aria-expanded', 'false');
+
+    fireEvent.keyDown(window, { key: 'j', metaKey: true });
+    expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    fireEvent.keyDown(window, { key: 'j', ctrlKey: true });
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+
+    act(() => { window.dispatchEvent(new Event('noeis:open-agent')); });
+    expect(screen.getByRole('dialog', { name: 'Partner' })).toBeInTheDocument();
   });
 
   it('keeps keyboard focus inside the open agent drawer', () => {
     render(
       <AppShell
         topBar={<header><button type="button">Outside</button></header>}
-        rightRail={<aside aria-label="Agent"><input aria-label="Agent question" /></aside>}
+        partner={<aside aria-label="Agent"><input aria-label="Agent question" /></aside>}
       >
         <main>Library</main>
       </AppShell>
@@ -77,32 +82,10 @@ describe('AppShell landmarks', () => {
     expect(close).toHaveFocus();
   });
 
-  it('keeps the Wiki collection steward off the resting rail', () => {
-    window.matchMedia = () => ({ matches: false, addEventListener() {}, removeEventListener() {} });
-    const { container, rerender } = render(
-      <AppShell
-        topBar={<header>Top bar</header>}
-        surface={{ room: 'wiki', objectType: 'wiki_front', objectId: 'collection' }}
-        agentOnDemand
-        rightRail={<aside aria-label="Wiki Steward">Steward</aside>}
-      >
-        <main>Wiki collection</main>
-      </AppShell>
-    );
-
-    expect(container.firstChild).toHaveClass('app-shell-new--agent-on-demand');
+  it('leaves the page alone where no room has a Partner', () => {
+    render(<AppShell topBar={<header>Top bar</header>}><main>Settings</main></AppShell>);
     expect(screen.queryByRole('button', { name: 'Partner' })).not.toBeInTheDocument();
-
-    rerender(
-      <AppShell
-        topBar={<header>Top bar</header>}
-        surface={{ room: 'wiki', objectType: 'wiki_page', objectId: 'page-1' }}
-        rightRail={<aside aria-label="Wiki Steward">Steward</aside>}
-      >
-        <main>Wiki article</main>
-      </AppShell>
-    );
-
-    expect(container.firstChild).not.toHaveClass('app-shell-new--agent-on-demand');
+    fireEvent.keyDown(window, { key: 'j', metaKey: true });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 });

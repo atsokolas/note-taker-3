@@ -2,7 +2,8 @@ import {
   buildAgentEvidenceCandidates,
   buildAgentContext,
   mapAgentThreadMessages,
-  sourceLabelForAgentMessage
+  answeredWithoutModel,
+  sourcesReadFor
 } from './agentConversationModel';
 
 describe('agent conversation model', () => {
@@ -163,13 +164,26 @@ describe('agent conversation model', () => {
         profile: 'partner_chat'
       })
     }));
-    expect(sourceLabelForAgentMessage(messages[1])).toBe('From Primary source');
+    expect(sourcesReadFor(messages[1]).map(source => source.title)).toEqual(['Primary source']);
   });
 
-  it('says when a reply was assembled without the model', () => {
-    const offline = { role: 'assistant', mode: 'internal_only', relatedItems: [{ title: 'Primary source' }] };
-    expect(sourceLabelForAgentMessage(offline)).toBe('From Primary source · model unavailable');
-    expect(sourceLabelForAgentMessage({ ...offline, relatedItems: [] })).toBe('Model unavailable');
-    expect(sourceLabelForAgentMessage({ ...offline, mode: 'hf_chat' })).toBe('From Primary source');
+  it('names what the Partner read, each a way back to its source', () => {
+    const reply = {
+      role: 'assistant',
+      mode: 'internal_only',
+      relatedItems: [
+        { type: 'article', id: 'a1', title: 'Primary source' },
+        { type: 'wiki_page', id: 'p1', title: 'Membership models' },
+        { type: 'concept', id: 'c1', title: 'Moats' },
+        { type: 'article', id: 'a2', title: '' }
+      ]
+    };
+    expect(sourcesReadFor(reply)).toEqual([
+      { key: 'article:a1', title: 'Primary source', href: '/library?articleId=a1' },
+      { key: 'wiki_page:p1', title: 'Membership models', href: '/wiki/read/p1' },
+      { key: 'concept:c1', title: 'Moats', href: '' }
+    ]);
+    expect(answeredWithoutModel(reply)).toBe(true);
+    expect(answeredWithoutModel({ ...reply, mode: 'hf_chat' })).toBe(false);
   });
 });

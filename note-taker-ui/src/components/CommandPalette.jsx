@@ -1070,6 +1070,7 @@ const CommandPalette = ({ open, onClose }) => {
         </div>
         <div className="palette-shortcuts">
           <span className="muted small">Cmd/Ctrl+K: Open</span>
+          <span className="muted small">Cmd/Ctrl+J: Ask the Partner</span>
           <span className="muted small">Arrows + Enter: Navigate</span>
           {/* The one place the rooms' chord can be found by someone who does
               not already know it exists. The palette is where this product

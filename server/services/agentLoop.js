@@ -96,6 +96,7 @@ const runAgentLoop = async ({
   read,
   history,
   changes = [],
+  quotable = [],
   chat,
   route = 'partner_chat',
   signal
@@ -176,7 +177,13 @@ const runAgentLoop = async ({
   // Everything of a source the model was shown: its title, its text, and for a
   // wiki page the attached sources and claims printed beside it. A title in
   // quotes is the source's name, not an invented quotation.
-  const texts = () => [...seen.values()].map(item => [item.title, item.fullText || item.replySnippet || item.snippet, item.sourceText, item.claimText].filter(Boolean).join('\n'));
+  // The reader's own words and the views they hold are theirs, not invented,
+  // when quoted back. The Partner's own earlier replies are not evidence.
+  const texts = () => [
+    ...messages.filter(message => message.role === 'user').map(message => String(message.content || '')),
+    ...quotable,
+    ...[...seen.values()].map(item => [item.title, item.fullText || item.replySnippet || item.snippet, item.sourceText, item.claimText].filter(Boolean).join('\n'))
+  ];
   let reply = String(completion?.text || '').trim();
   let invented = inventedQuotes(reply, texts());
   if (reply && invented.length) {

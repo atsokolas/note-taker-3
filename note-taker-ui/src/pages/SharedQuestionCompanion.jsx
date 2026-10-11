@@ -1,8 +1,21 @@
 import React, { useState } from 'react';
-import ThoughtPartnerPanel from '../components/agent/ThoughtPartnerPanel';
+import PartnerPanel from '../agent/PartnerPanel';
+import { AgentRailProvider, useContextualAgentSurface } from '../agent/AgentRailContext';
 import { buildSharedQuestionCompanion } from './sharedQuestionCompanion';
 
 const asLine = (value) => String(value || '').trim();
+
+/* The same Partner as inside Noeis, bound to this door and nothing else. */
+const DoorPartner = ({ partner }) => {
+  useContextualAgentSurface('agent-surface.shared-question', {
+    objectType: partner.contextType,
+    objectId: partner.contextId,
+    subject: partner.contextTitle,
+    caption: partner.subtitle,
+    askPlaceholder: partner.placeholder
+  });
+  return <PartnerPanel />;
+};
 
 const SharedQuestionCompanion = ({
   slug,
@@ -29,17 +42,9 @@ const SharedQuestionCompanion = ({
     <aside className="shared-question-companion" data-testid="shared-question-companion">
       {open ? (
         <>
-          <ThoughtPartnerPanel
-            contextType={partner.contextType}
-            contextId={partner.contextId}
-            contextTitle={partner.contextTitle}
-            subtitle={partner.subtitle}
-            placeholder={partner.placeholder}
-            emptyStateText={partner.emptyStateText}
-            promptTemplates={partner.promptTemplates}
-            title={partner.askLabel}
-            submitLabel="Ask"
-          />
+          <AgentRailProvider>
+            <DoorPartner partner={partner} />
+          </AgentRailProvider>
           <button
             type="button"
             className="shared-question-companion__away"

@@ -361,4 +361,30 @@ const readSource = async ({ userId, id, models: { Article, NotebookEntry, WikiPa
   } : null;
 };
 
-module.exports = { retrievePassages, bestPassage, topPassages, sourcePassages, readSource, __testables: { queryTerms, stem, scoreUnits, semanticKey, stripImportChrome, articleUnits, noteUnits, conceptUnits, viewUnits } };
+/* What the reader holds and has just saved, carried into the Partner in every
+   room. Two small indexed reads and no model call: a handful of held view
+   sentences, most recently touched first, and the last few sources saved. */
+const STANDING_VIEWS = 5;
+const STANDING_SOURCES = 3;
+const readStandingContext = async ({ userId, models: { Article, WikiPage = null } }) => {
+  const [views, sources] = await Promise.all([
+    WikiPage
+      ? WikiPage.find({
+        userId,
+        'judgment.currentJudgment': { $nin: ['', null] },
+        'judgment.status': { $nin: ['parked', 'closed', 'archived'] },
+        status: { $ne: 'archived' }
+      }).sort({ updatedAt: -1 }).limit(STANDING_VIEWS).select('judgment.currentJudgment updatedAt').lean()
+      : [],
+    Article.find({ userId, hiddenFromHome: { $ne: true }, debugOnly: { $ne: true }, archived: { $ne: true } })
+      .sort({ createdAt: -1 }).limit(STANDING_SOURCES).select('title author siteName createdAt').lean()
+  ]);
+  return {
+    views: views.map(page => clip(page.judgment?.currentJudgment, 220)).filter(Boolean),
+    sources: sources
+      .map(article => [clip(article.title, 140), clip(article.author || article.siteName, 60)].filter(Boolean).join(', '))
+      .filter(Boolean)
+  };
+};
+
+module.exports = { retrievePassages, bestPassage, topPassages, sourcePassages, readSource, readStandingContext, __testables: { queryTerms, stem, scoreUnits, semanticKey, stripImportChrome, articleUnits, noteUnits, conceptUnits, viewUnits } };

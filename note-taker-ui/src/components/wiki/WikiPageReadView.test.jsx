@@ -94,10 +94,6 @@ jest.mock('../../api/authoredExplorations', () => ({
 
 jest.mock('./decisions/DecisionCreateForm', () => () => null);
 jest.mock('./decisions/DecisionReviewPanel', () => () => null);
-jest.mock('../agent/ThoughtPartnerPanel', () => ({ title = 'Partner' }) => (
-  <section aria-label={`${title} panel`}>Partner</section>
-));
-
 jest.mock('../../utils/wikiAnalytics', () => ({
   trackWikiQaPromoted: jest.fn(),
   trackWikiReadModePageView: jest.fn()

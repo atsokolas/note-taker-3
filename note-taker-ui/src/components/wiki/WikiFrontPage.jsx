@@ -192,8 +192,7 @@ const WikiFrontPage = ({ initialKind = '' }) => {
   const location = useLocation();
   const navigate = useNavigate();
   useNoeisAgentSurface('agent-surface.wiki', buildWikiFrontSurfaceDescriptor(), {
-    subject: 'Your Wiki.',
-    empty: 'Open a page before asking against exact accepted knowledge.'
+    subject: 'Your Wiki.'
   }, {});
   const pageIndexRequestRef = useRef(null);
   const searchTimerRef = useRef(null);
