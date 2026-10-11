@@ -42,23 +42,11 @@
           var defaults = {
             theme: 'auto',
             density: 'comfortable',
-            typographyScale: 'default',
-            accent: 'electric',
-            brandEnergy: true
-          };
-          var accents = {
-            electric: { color: '#36e4ff', soft: 'rgba(54, 228, 255, 0.22)' },
-            violet: { color: '#9d84ff', soft: 'rgba(157, 132, 255, 0.22)' },
-            indigo: { color: '#6f87ff', soft: 'rgba(111, 135, 255, 0.2)' }
+            typographyScale: 'default'
           };
           var raw = window.localStorage && window.localStorage.getItem('ui-settings.v1');
           var saved = raw ? JSON.parse(raw) : {};
           var themeIds = ['auto', 'light', 'dark', 'tokyo-midnight'];
-          var themeVariants = {
-            light: 'theme.editorial.light',
-            dark: 'theme.editorial.dark',
-            'tokyo-midnight': 'theme.editorial.tokyo-midnight'
-          };
           var savedTheme = String(saved.theme || '').toLowerCase();
           var themePref = themeIds.indexOf(savedTheme) >= 0 ? savedTheme : defaults.theme;
           var activeTheme = themePref;
@@ -68,24 +56,16 @@
           var scheme = activeTheme === 'light' ? 'light' : 'dark';
           var density = ['comfortable', 'compact'].indexOf(saved.density) >= 0 ? saved.density : defaults.density;
           var typography = ['small', 'default', 'large'].indexOf(saved.typographyScale) >= 0 ? saved.typographyScale : defaults.typographyScale;
-          var accentKey = accents[saved.accent] ? saved.accent : defaults.accent;
-          var accent = accents[accentKey];
           var root = document.documentElement;
           root.setAttribute('data-ui-theme', activeTheme);
           root.setAttribute('data-ui-scheme', scheme);
           root.setAttribute('data-ui-theme-pref', themePref);
-          root.setAttribute('data-noeis-theme', themeVariants[activeTheme]);
-          root.setAttribute('data-noeis-theme-package', 'theme.editorial');
-          root.setAttribute('data-noeis-theme-schema', '1');
           var themeColor = document.querySelector('meta[name="theme-color"]');
           if (themeColor) {
             themeColor.setAttribute('content', activeTheme === 'tokyo-midnight' ? '#09111E' : (activeTheme === 'dark' ? '#16140f' : '#fffcf7'));
           }
           root.setAttribute('data-ui-density', density);
           root.setAttribute('data-ui-typography', typography);
-          root.setAttribute('data-ui-brand-energy', saved.brandEnergy === false ? 'off' : 'on');
-          root.style.setProperty('--ui-accent', accent.color);
-          root.style.setProperty('--ui-accent-soft', accent.soft);
         } catch (error) {
           document.documentElement.setAttribute('data-ui-theme', 'light');
           document.documentElement.setAttribute('data-ui-theme-pref', 'auto');

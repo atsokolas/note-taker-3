@@ -5,7 +5,8 @@ import WikiFrontPage from './WikiFrontPage';
 import { listWikiPages } from '../../api/wiki';
 
 jest.mock('../../api/wiki', () => ({
-  listWikiPages: jest.fn()
+  listWikiPages: jest.fn(),
+  listWikiChanges: async () => ({ pageCount: 0, changes: [] })
 }));
 jest.mock('../../utils/wikiFeatureFlags', () => ({
   wikiPagePath: pageId => `/wiki/workspace?page=${pageId}`,
@@ -14,11 +15,7 @@ jest.mock('../../utils/wikiFeatureFlags', () => ({
 jest.mock('./WikiBuildPageComposer', () => () => null);
 jest.mock('./WikiRepoCreateComposer', () => () => null);
 jest.mock('./WikiCompanyDossierComposer', () => () => null);
-jest.mock('./WikiFrontPageGraphMotif', () => () => null);
-jest.mock('./decisions/DecisionsIndex', () => () => null);
-jest.mock('../agent/AgentContextShell', () => ({ children }) => <>{children}</>);
 jest.mock('../agent/ThoughtPartnerPanel', () => () => null);
-jest.mock('../../layout/RightDrawer', () => ({ children }) => <>{children}</>);
 
 const page = {
   _id: '64f100000000000000000001',
@@ -45,7 +42,7 @@ describe('WikiFrontPage movement return surface', () => {
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Wiki' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Inference economics' })).toHaveAttribute('href', '/wiki/read/64f100000000000000000001');
-    expect(screen.getByRole('link', { name: 'Map & disagreements' }))
+    expect(screen.getByRole('link', { name: 'Map' }))
       .toHaveAttribute('href', '/wiki/workspace?view=graph');
     expect(screen.getByRole('link', { name: 'Full workspace' }))
       .toHaveAttribute('href', '/wiki/workspace?view=list');

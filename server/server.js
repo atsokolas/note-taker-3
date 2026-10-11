@@ -26,7 +26,7 @@ const {
   enqueueQuestionEmbedding,
   drainEmbeddingJobQueue
 } = require('./ai/embeddingJobs');
-const { EVENT_NAMES, trackEvent } = require('./utils/analytics');
+const { EVENT_NAMES, trackEvent, trackReturnVisit } = require('./utils/analytics');
 const { EmbeddingError } = require('./ai/embed');
 const { enqueueBrainSummary, registerBrainSummaryHandler } = require('./ai/brainSummaryJobs');
 const { semanticSearch: atlasSemanticSearch } = require('./ai/semanticSearch');
@@ -202,6 +202,7 @@ const { drainDueTranscriptWatches } = require('./services/earningsTranscriptWatc
 const { drainDueGitHubRepoWatches } = require('./services/githubRepoWatcherService');
 const { drainDueReadingWatches } = require('./services/readingWatcherService');
 const { drainDueMorningPaperEmails } = require('./services/morningPaperEmailService');
+const { drainDueReadwiseSyncs } = require('./services/readwiseSyncWorker');
 const { runDailyWikiRetention, readWikiStorageStatus } = require('./services/wikiAutomaticRetentionService');
 const { recoverInterruptedDossierBuilds } = require('./services/wikiDossierBuildReliabilityService');
 const { buildAuthoredKeepEffects } = require('./services/authoredKeepEffects');
@@ -5489,7 +5490,8 @@ app.use(buildJudgmentResolutionRouter({
   WorldModelScenario,
   ResearchMandate,
   InstitutionalHold,
-  DecisionMemoryEvent
+  DecisionMemoryEvent,
+  trackEvent
 }));
 
 app.use(buildJudgmentThreadRouter({
@@ -5619,7 +5621,8 @@ app.use(buildUiTourRouter({
   TOUR_SIGNAL_DEFAULTS,
   TOUR_EVENT_TIMESTAMP_DEFAULTS,
   TOUR_EVENT_TO_SIGNAL,
-  markTourSignal
+  markTourSignal,
+  trackReturnVisit
 }));
 
 app.use(buildReturnQueueRouter({
@@ -7361,7 +7364,7 @@ app.use(buildImportSessionRouter({
   ImportSession
 }));
 
-app.use(buildImportRouter({
+const importRouter = buildImportRouter({
   authenticateToken,
   upload,
   Papa,
@@ -7390,7 +7393,36 @@ app.use(buildImportRouter({
   enqueueArticleEmbedding,
   enqueueHighlightEmbedding,
   enqueueNotebookEmbedding
-}));
+});
+app.use(importRouter);
+
+// Readwise on a timer: whoever connected keeps getting new highlights without
+// pressing anything. Same import as the Sync button; off with
+// READWISE_SYNC_WORKER_DISABLED=true.
+let readwiseSyncWorkerRunning = false;
+const runReadwiseSyncWorker = async () => {
+  if (readwiseSyncWorkerRunning || mongoose.connection.readyState !== 1) return;
+  readwiseSyncWorkerRunning = true;
+  try {
+    const result = await drainDueReadwiseSyncs({
+      IntegrationConnection,
+      syncConnection: importRouter.syncReadwiseConnection,
+      maxAgeMs: Number(process.env.READWISE_SYNC_MAX_AGE_MS || 4 * 60 * 60 * 1000)
+    });
+    if (result.processed || result.failed) {
+      console.log(`[readwise-sync-worker] processed=${result.processed} failed=${result.failed} highlights=${result.importedHighlights}`);
+    }
+  } catch (error) {
+    console.error('[readwise-sync-worker] failed:', error);
+  } finally {
+    readwiseSyncWorkerRunning = false;
+  }
+};
+
+if (process.env.READWISE_SYNC_WORKER_DISABLED !== 'true') {
+  const intervalMs = Math.max(5 * 60 * 1000, Number(process.env.READWISE_SYNC_WORKER_INTERVAL_MS || 30 * 60 * 1000));
+  setInterval(runReadwiseSyncWorker, intervalMs).unref?.();
+}
 
 app.use(buildExportPublicRouter({
   mongoose,

@@ -233,13 +233,13 @@ const COMMANDS = [
     verb: 'draft',
     template: '/draft @wiki:',
     label: 'Draft page',
-    hint: 'Run wiki maintenance for a page in the right pane.'
+    hint: `Ask ${AGENT_DISPLAY_NAME} to reread a page's sources.`
   },
   {
     verb: 'build',
     template: '/build ',
     label: 'Build new page',
-    hint: `Create a new overview page and draft it with ${AGENT_DISPLAY_NAME.toLowerCase()}.`
+    hint: `Create a new overview page and draft it with ${AGENT_DISPLAY_NAME}.`
   },
   {
     verb: 'page',
@@ -588,7 +588,7 @@ const summarizeIngestRun = (run = {}) => {
   const affectedCount = Array.isArray(run.affectedPageIds) ? run.affectedPageIds.length : 0;
   if (run.summary) return run.summary;
   if (affectedCount) {
-    return `The agent found ${affectedCount} wiki page${affectedCount === 1 ? '' : 's'} that this source may update.`;
+    return `${AGENT_DISPLAY_NAME} found ${affectedCount} wiki page${affectedCount === 1 ? '' : 's'} that this source may update.`;
   }
   if (run.suggestedCreatePage) {
     return 'No existing page matched strongly enough; the agent suggests creating a new page from this source.';
@@ -796,30 +796,30 @@ const workspaceAgentStatus = ({ busy = false, reading = false, pageId = '', page
   if (busy) {
     return {
       status: 'working',
-      text: pageId ? `Agent updating ${pageLabel}...` : 'Agent is working...'
+      text: pageId ? `${AGENT_DISPLAY_NAME} is updating ${pageLabel}…` : `${AGENT_DISPLAY_NAME} is working…`
     };
   }
   if (reading && pageId) {
     return {
       status: 'reading',
-      text: `Agent is reading ${pageLabel}...`
+      text: `${AGENT_DISPLAY_NAME} is reading ${pageLabel}…`
     };
   }
   const aiState = page?.aiState || {};
   if (aiState.lastError) {
-    return { status: 'error', text: 'Last agent run failed.' };
+    return { status: 'error', text: `${AGENT_DISPLAY_NAME} could not finish. Try again.` };
   }
   const signalCount = countPendingSignals(aiState);
   if (signalCount > 0) {
     return {
       status: 'ready',
-      text: `${signalCount} review item${signalCount === 1 ? '' : 's'} for ${pageLabel}.`
+      text: `${signalCount} proposed change${signalCount === 1 ? '' : 's'} for ${pageLabel}.`
     };
   }
   if (pageId) {
-    return { status: 'idle', text: `Agent ready for ${pageLabel}.` };
+    return { status: 'idle', text: `${AGENT_DISPLAY_NAME} is here for ${pageLabel}.` };
   }
-  return { status: 'idle', text: 'Agent ready.' };
+  return { status: 'idle', text: `${AGENT_DISPLAY_NAME} is here.` };
 };
 
 const formatWorkspaceVisitDiff = ({ page = {}, lastVisit = null, diff = {} } = {}) => {
@@ -886,11 +886,11 @@ const withMaintenanceTimeout = async (promise, pageLabel = 'wiki page') => {
   const overrideMs = Number(window.__NOEIS_WIKI_MAINTENANCE_TIMEOUT_MS__);
   const timeoutMs = Number.isFinite(overrideMs) ? overrideMs : MAINTENANCE_STREAM_TIMEOUT_MS;
   if (timeoutMs <= 0) {
-    throw new Error(`The maintenance stream for ${pageLabel} timed out.`);
+    throw new Error(`Rereading ${pageLabel} took too long. Try again.`);
   }
   const timeout = new Promise((_, reject) => {
     timeoutId = window.setTimeout(() => {
-      reject(new Error(`The maintenance stream for ${pageLabel} timed out.`));
+      reject(new Error(`Rereading ${pageLabel} took too long. Try again.`));
     }, timeoutMs);
   });
   try {
@@ -1188,7 +1188,7 @@ const WorkspaceSchema = () => {
               rows={8}
             />
           ) : (
-            <p>Ask {AGENT_DISPLAY_NAME.toLowerCase()} to suggest schema updates from the current conventions.</p>
+            <p>Ask {AGENT_DISPLAY_NAME} to suggest schema updates from the current conventions.</p>
           )}
         </div>
       </section>
@@ -2460,7 +2460,7 @@ const WikiWorkspaceChat = ({
       systemStatus.clearRecoverableFailure();
       systemStatus.setBackgroundWork({ label: 'Drafting wiki page', stage: `@wiki:${pageRef}` });
       setBusy(true);
-      append({ role: 'assistant', text: `Drafting @wiki:${pageRef}. The right pane will update from the maintenance stream.` });
+      append({ role: 'assistant', text: `Drafting @wiki:${pageRef}. The page will update on the right as it changes.` });
       try {
         const { handlers } = createMaintenanceStreamHandlers(pageRef, {
           onPage: (streamPage) => {
@@ -2659,7 +2659,7 @@ const WikiWorkspaceChat = ({
         setInput(text);
       }
       replaceMessage(pendingId, {
-        text: finalReply || 'Agent chat ended without a complete reply. Your draft is still in the composer; retry when ready.',
+        text: finalReply || `${AGENT_DISPLAY_NAME} stopped before finishing. Your message is still in the box; send it again when ready.`,
         ...(Array.isArray(result?.activityReceipts) ? { activityReceipts: result.activityReceipts } : {}),
         ...(Array.isArray(result?.suggestedActions) ? { suggestedActions: result.suggestedActions } : {}),
         pending: false,
@@ -2668,13 +2668,13 @@ const WikiWorkspaceChat = ({
     } catch (error) {
       if (error?.name === 'AbortError' || streamController.signal.aborted) {
         replaceMessage(pendingId, {
-          text: 'Agent reply cancelled before completion.',
+          text: 'Stopped before finishing.',
           pending: false,
           cancelled: true
         });
       } else {
         setInput(text);
-        replaceMessage(pendingId, { text: 'Agent chat failed. Your draft is still in the composer; retry when ready.', pending: false, error: true });
+        replaceMessage(pendingId, { text: `${AGENT_DISPLAY_NAME} could not answer. Your message is still in the box; send it again when ready.`, pending: false, error: true });
       }
     } finally {
       if (streamAbortRef.current === streamController) {
@@ -2839,7 +2839,7 @@ const WikiWorkspaceChat = ({
             }
             if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') submit(event);
           }}
-          placeholder="Ask, paste a source, or type / for wiki commands"
+          placeholder="Ask, paste a source, or type / for commands"
           aria-label="Wiki workspace message"
           rows={4}
           disabled={busy}
@@ -2915,7 +2915,7 @@ const WikiWorkspaceChat = ({
       <div ref={scrollRef} className="wiki-workspace-chat__messages">
         {messages.map(message => (
           <article key={message.id} className={`wiki-workspace-chat__message is-${message.role}`}>
-            <span>{message.role === 'user' ? 'You' : 'Agent'}</span>
+            <span>{message.role === 'user' ? 'You' : AGENT_DISPLAY_NAME}</span>
             {message.buildRecovery ? (
               <SurfaceNotice
                 className="wiki-workspace-chat__surface-notice"
@@ -2929,7 +2929,7 @@ const WikiWorkspaceChat = ({
             ) : null}
             {message.pending ? <span className="wiki-workspace-chat__caret" aria-hidden="true" /> : null}
             {message.activityReceipts?.length ? (
-              <ol className="wiki-workspace-chat__receipts" aria-label="Agent activity">
+              <ol className="wiki-workspace-chat__receipts" aria-label="What happened">
                 {message.activityReceipts.map(receipt => (
                   <li key={receipt.key || `${receipt.stage}:${receipt.summary}`}>
                     <span className="wiki-workspace-chat__receipt-icon" aria-hidden="true" />
@@ -3630,7 +3630,7 @@ const WikiWorkspace = () => {
               <p className="wiki-index__eyebrow">First visit</p>
               <h1 id="wiki-workspace-onboarding-title">Start the wiki with one page or one source.</h1>
               <p>
-                The workspace is split between {AGENT_DISPLAY_NAME.toLowerCase()} and the page canvas. Build a page from a topic,
+                The workspace is split between {AGENT_DISPLAY_NAME} and the page canvas. Build a page from a topic,
                 or drop source material and let the wiki decide what should change.
               </p>
             </div>

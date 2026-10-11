@@ -58,6 +58,7 @@ const buildConceptService = ({ Article, TagMeta, NotebookEntry, ReferenceEdge, m
         hiddenFromHome: Boolean(found?.hiddenFromHome),
         debugOnly: Boolean(found?.debugOnly),
         archived: Boolean(found?.archived),
+        updatedAt: found?.updatedAt || null,
         freshness: resolveConceptFreshness(found)
       });
     });
@@ -79,6 +80,7 @@ const buildConceptService = ({ Article, TagMeta, NotebookEntry, ReferenceEdge, m
         hiddenFromHome: Boolean(found?.hiddenFromHome),
         debugOnly: Boolean(found?.debugOnly),
         archived: Boolean(found?.archived),
+        updatedAt: found?.updatedAt || null,
         freshness: resolveConceptFreshness(found)
       });
     });
@@ -168,7 +170,9 @@ const buildConceptService = ({ Article, TagMeta, NotebookEntry, ReferenceEdge, m
       pinnedArticles,
       pinnedNotes,
       relatedTags,
-      allHighlightCount
+      allHighlightCount,
+      createdAt: meta?.createdAt || null,
+      updatedAt: meta?.updatedAt || null
     };
   };
 

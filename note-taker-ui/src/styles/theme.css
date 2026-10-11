@@ -453,201 +453,19 @@ body.noeis-editorial .palette-list {
 
 /* Theme picker — click opens System, Light, Dark, and Tokyo Midnight.
    The icon is painted in CSS so the control does not need an icon font. */
-.topbar__theme-pill {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 44px;
-  padding: 0 12px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 999px;
-  background: var(--surface);
-  color: var(--text-secondary);
-  font-family: inherit;
-  font-size: 0.78rem;
-  font-weight: 600;
-  cursor: pointer;
-  line-height: 1;
-  transition: color 160ms ease-out, border-color 160ms ease-out, background-color 160ms ease-out;
-}
 
-.topbar__theme-pill:hover,
-.topbar__theme-pill:focus-visible {
-  color: var(--text);
-  border-color: color-mix(in srgb, var(--accent) 50%, var(--border-subtle));
-  background: color-mix(in srgb, var(--accent-soft) 14%, var(--surface));
-  outline: none;
-}
-
-.topbar__theme-pill.is-busy {
-  opacity: 0.7;
-  cursor: progress;
-}
-
-.topbar__theme-icon {
-  width: 14px;
-  height: 14px;
-  display: inline-block;
-  border-radius: 50%;
-  position: relative;
-  background: currentColor;
-  flex-shrink: 0;
-}
 
 /* Auto: half-filled disc — visually communicates "depends on context". */
-.topbar__theme-icon--auto {
-  background: linear-gradient(90deg, currentColor 50%, transparent 50%);
-  border: 1.5px solid currentColor;
-  background-clip: padding-box;
-}
+
 
 /* Light: open ring (sun-like). */
-.topbar__theme-icon--light {
-  background: transparent;
-  border: 1.5px solid currentColor;
-  box-shadow: 0 0 0 1px transparent;
-}
+
 
 /* Dark: filled disc (moon). */
-.topbar__theme-icon--dark {
-  background: currentColor;
-}
+
 
 /* Tokyo Midnight: a night ring with a small lamp. */
-.topbar__theme-icon--tokyo-midnight {
-  background:
-    radial-gradient(circle at 62% 38%, currentColor 0 1.5px, transparent 1.8px);
-  border: 1.5px solid currentColor;
-}
 
-.topbar__theme-label {
-  font-size: 0.72rem;
-  letter-spacing: 0.02em;
-}
-
-.topbar__theme-check {
-  width: 0.8rem;
-  margin-left: auto;
-  color: var(--accent, currentColor);
-  font-size: 0.75rem;
-}
-
-@media (max-width: 720px) {
-  .topbar__theme-label {
-    border: 0;
-    clip: rect(0 0 0 0);
-    height: 1px;
-    margin: -1px;
-    overflow: hidden;
-    padding: 0;
-    position: absolute;
-    width: 1px;
-  }
-}
-
-.topbar__theme-popover .topbar__menu-item {
-  display: flex;
-  width: 100%;
-  align-items: center;
-  gap: 10px;
-}
-
-.topbar__theme-popover .topbar__menu-item.is-active {
-  background: color-mix(in srgb, var(--accent-soft) 32%, var(--surface));
-  color: var(--text);
-}
-
-@media (max-width: 640px) {
-}
-
-.three-pane {
-  display: grid;
-  grid-template-columns: 240px minmax(0, 1fr) 320px;
-  gap: var(--space-4);
-  align-items: start;
-  min-height: 0;
-}
-
-.three-pane--left-collapsed {
-  grid-template-columns: 0px minmax(0, 1fr) 320px;
-}
-
-.three-pane--right-collapsed {
-  grid-template-columns: 240px minmax(0, 1fr) 0px;
-}
-
-.three-pane--left-collapsed.three-pane--right-collapsed {
-  grid-template-columns: 0px minmax(0, 1fr) 0px;
-}
-
-.three-pane__left,
-.three-pane__main,
-.three-pane__right {
-  min-width: 0;
-  min-height: 0;
-}
-
-.three-pane__left,
-.three-pane__right {
-  background: var(--surface-panel);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--noeis-radius-control);
-  padding: var(--space-4);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-
-.three-pane__left.is-collapsed,
-.three-pane__right.is-collapsed {
-  border: none;
-  padding: 0;
-  width: 0;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.three-pane__main {
-  background: var(--surface-panel);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--noeis-radius-control);
-  padding: var(--space-4);
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-
-.three-pane__main-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: var(--space-4);
-  padding-bottom: var(--space-3);
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.three-pane__main-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-}
-
-.three-pane__right-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-weight: 600;
-  margin-bottom: var(--space-3);
-}
-
-.three-pane__right-body {
-  display: grid;
-  gap: var(--space-3);
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
 .ui-page {
   width: 100%;
   max-width: 1600px;
@@ -6238,37 +6056,6 @@ html[data-ui-theme='dark'] .article-reader-header {
   color: var(--text);
 }
 
-@media (max-width: 1100px) {
-  .three-pane,
-  .three-pane--left-collapsed,
-  .three-pane--right-collapsed,
-  .three-pane--left-collapsed.three-pane--right-collapsed {
-    grid-template-columns: 1fr;
-  }
-
-  .three-pane__left.is-collapsed,
-  .three-pane__right.is-collapsed {
-    display: none;
-  }
-}
-
-.three-pane__main .search-section,
-.three-pane__right .search-section,
-.three-pane__left .search-section {
-  border: none;
-  box-shadow: none;
-  padding: 0;
-  background: transparent;
-}
-
-.three-pane__main .ui-card.search-section,
-.three-pane__right .ui-card.search-section,
-.three-pane__left .ui-card.search-section {
-  border: none;
-  box-shadow: none;
-  padding: 0;
-  background: transparent;
-}
 
 .highlights-by-tag-header {
   display: flex;

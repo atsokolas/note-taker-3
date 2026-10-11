@@ -14,6 +14,45 @@ export const formatLoopDate = (value) => {
   });
 };
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+const startOfDay = (date) => new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+
+const onDay = (date, now) => {
+  const days = Math.round((startOfDay(now) - startOfDay(date)) / DAY_MS);
+  if (days <= 0) return 'today';
+  if (days === 1) return 'yesterday';
+  if (days < 7) return `on ${date.toLocaleDateString(undefined, { weekday: 'long' })}`;
+  return `on ${date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
+};
+
+const sinceWhen = (date, now) => {
+  const minutes = Math.floor((now.getTime() - date.getTime()) / 60000);
+  if (minutes < 2) return 'just now';
+  if (minutes < 60) return `${minutes} minutes ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return hours === 1 ? 'an hour ago' : `${hours} hours ago`;
+  return onDay(date, now);
+};
+
+/**
+ * Readwise is checked on a timer now, so the card says when it last looked and
+ * when anything last came in: "Checked 2 hours ago. 14 new passages came in on
+ * Tuesday." A check that brought nothing says only the first half.
+ */
+export const describeReadwiseCadence = (connection = null, now = new Date()) => {
+  const checkedAt = toValidDate(connection?.lastSyncAt);
+  if (!checkedAt) return '';
+  const lines = [`Checked ${sinceWhen(checkedAt, now)}.`];
+  const receipt = connection.lastReceipt;
+  const arrived = Number(receipt?.metrics?.importedHighlights) || 0;
+  const arrivedAt = toValidDate(receipt?.completedAt);
+  if (arrived > 0 && arrivedAt && receipt.status !== 'failed') {
+    const passages = arrived === 1 ? 'new passage' : 'new passages';
+    lines.push(`${arrived.toLocaleString()} ${passages} came in ${onDay(arrivedAt, now)}.`);
+  }
+  return lines.join(' ');
+};
+
 const pickResult = ({ durable, stats, session, provider }) => {
   if (durable && typeof durable === 'object') return durable;
   if (stats && typeof stats === 'object') return stats;
@@ -334,16 +373,20 @@ export const buildReadwiseConnectionReceipt = ({
   const completedWithWarnings = sessionActive && session?.status === 'completed_with_warnings';
 
   if (syncConnection?.lastReceipt && syncConnection?.lastSyncAt) {
-    return buildDurableReceiptCard(syncConnection.lastReceipt, accountLabel);
+    return {
+      ...buildDurableReceiptCard(syncConnection.lastReceipt, accountLabel),
+      headline: describeReadwiseCadence(syncConnection),
+      summary: ''
+    };
   }
 
   if (syncConnection?.lastSyncAt) {
     return {
       statusLabel: completedWithWarnings || withWarnings(result) ? 'Synced with warnings' : 'Synced into Noeis',
       tone: completedWithWarnings || withWarnings(result) ? 'warning' : 'success',
-      headline: `Last synced ${formatLoopDate(syncConnection.lastSyncAt)}.`,
+      headline: describeReadwiseCadence(syncConnection),
       summary,
-      detail: 'Imported highlights feed Library search, Think retrieval, and Morning Paper source maintenance.',
+      detail: 'New highlights come across every few hours, without pressing anything.',
       nextAction: { label: 'Sync again' },
       isLive: false
     };

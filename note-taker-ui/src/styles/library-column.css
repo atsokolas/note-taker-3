@@ -45,12 +45,6 @@
   border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 62%, transparent);
 }
 
-@media (max-width: 1240px) {
-  .library-page-shell.is-reading .magnetic-reading-rail {
-    bottom: 78px;
-  }
-}
-
 .library-shelf {
   position: sticky;
   top: 88px;
@@ -997,8 +991,7 @@ body.noeis-editorial .library-page-shell .library-cabinet-count,
 
 /* Folder names were centred small-caps. They are names in a list. */
 body.noeis-editorial .library-page-shell .library-cabinet-nested .library-cabinet-item,
-.library-page-shell .library-cabinet-nested .library-cabinet-item,
-.library-page-shell .folder-row {
+.library-page-shell .library-cabinet-nested .library-cabinet-item {
   justify-content: flex-start;
   text-align: left;
   font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);

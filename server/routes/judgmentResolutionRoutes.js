@@ -6,6 +6,8 @@ const {
   setResolutionCriteria: persistCriteria
 } = require('../services/judgmentResolutionService');
 const { buildJudgmentMirror: readMirror } = require('../services/judgmentMirrorService');
+const { JudgmentChangeProposalError } = require('../services/judgmentChangeProposalService');
+const { fileReadingProposal: persistReading } = require('../services/readingTalksBack');
 const { buildJudgmentMirror: buildClaimMirror, STATS } = require('../services/judgmentMirror');
 const { buildJudgmentAudit: readAudit } = require('../services/judgmentAuditService');
 const {
@@ -46,6 +48,7 @@ const {
   correctInstitutionCase: persistCorrect
 } = require('../services/institutionService');
 const { requireAuthenticatedUser } = require('./conceptRouteGuards');
+const { EVENT_NAMES } = require('../utils/analytics');
 
 const isObjectId = value => /^[a-f\d]{24}$/i.test(String(value || '').trim());
 const requireHumanOwner = (req, res, next) => {
@@ -63,6 +66,9 @@ const sendError = (res, error) => {
   ) {
     return res.status(error.status).json({ error: error.message, code: error.code });
   }
+  if (error instanceof JudgmentChangeProposalError) {
+    return res.status(error.statusCode).json({ error: error.message, code: error.code });
+  }
   console.error('Error resolving Judgment:', error);
   return res.status(500).json({ error: 'Failed to resolve Judgment.' });
 };
@@ -78,6 +84,7 @@ const buildJudgmentResolutionRouter = ({
   authenticateToken,
   setResolutionCriteria = persistCriteria,
   fileJudgmentEvidence = persistEvidence,
+  fileReadingProposal = persistReading,
   recordVerdict = persistVerdict,
   buildJudgmentMirror = readMirror,
   buildJudgmentAudit = readAudit,
@@ -109,17 +116,28 @@ const buildJudgmentResolutionRouter = ({
   transferCase = persistTransfer,
   forgetCase = persistForget,
   correctCase = persistCorrect,
+  trackEvent = () => {},
   ...models
 } = {}) => {
   const router = express.Router();
+  // Ids and kinds only: never the sentence, the passage, or the note.
+  const track = (req, event, properties = {}) => trackEvent({
+    event,
+    userId: req.user.id,
+    requestId: req.requestId,
+    properties: { pageId: req.params.pageId, ...properties }
+  });
 
   router.get('/api/judgment/mirror', authenticateToken, requireAuthenticatedUser, async (req, res) => {
     try {
       const stat = STATS.includes(String(req.query?.stat || '')) ? String(req.query.stat) : '';
       const pageMirror = await buildJudgmentMirror({ ...models, userId: req.user.id });
       const pagesQuery = models.WikiPage?.find
-        ? models.WikiPage.find({ userId: req.user.id, status: { $ne: 'archived' } })
-          .select('_id title pageType claims judgment createdAt')
+        ? models.WikiPage.find({
+          userId: req.user.id,
+          status: { $ne: 'archived' },
+          'judgment.currentJudgment': { $type: 'string', $ne: '' }
+        }).select('_id title createdAt judgment.currentJudgment judgment.status judgment.startedAt judgment.bornAt judgment.heldHistory judgment.verdicts')
         : null;
       const pages = pagesQuery
         ? await (pagesQuery.lean ? pagesQuery.lean() : pagesQuery)
@@ -192,6 +210,7 @@ const buildJudgmentResolutionRouter = ({
         note: req.body?.note,
         evidenceSourceRefIds: req.body?.evidenceSourceRefIds
       });
+      if (!result.idempotent) track(req, EVENT_NAMES.VIEW_RESOLVED, { result: String(req.body?.result || '') });
       return res.status(result.idempotent ? 200 : 201).json(serialize(result));
     } catch (error) {
       return sendError(res, error);
@@ -201,6 +220,22 @@ const buildJudgmentResolutionRouter = ({
   router.post('/api/judgment/pages/:pageId/evidence', authenticateToken, requireAuthenticatedUser, requireHumanOwner, async (req, res) => {
     if (!isObjectId(req.params.pageId)) return res.status(400).json({ error: 'pageId must be a valid object id.' });
     try {
+      /* A passage read back from a new source is filed by its proposal: the
+         quote becomes a highlight, then follows the same evidence path. */
+      if (req.body?.proposalId) {
+        if (!['why', 'against'].includes(req.body?.field)) {
+          return res.status(400).json({ error: 'Choose for or against for this passage.' });
+        }
+        const filed = await fileReadingProposal({
+          userId: req.user.id,
+          pageId: req.params.pageId,
+          receiptId: req.body.proposalId,
+          field: req.body.field,
+          fileJudgmentEvidence,
+          models
+        });
+        return res.status(filed.replay ? 200 : 201).json({ proposal: filed.proposal, ...(filed.filed ? serialize(filed.filed) : {}) });
+      }
       const result = await fileJudgmentEvidence({
         ...models,
         userId: req.user.id,
@@ -211,6 +246,7 @@ const buildJudgmentResolutionRouter = ({
         articleId: req.body?.articleId,
         highlightId: req.body?.highlightId
       });
+      if (!result.idempotent) track(req, EVENT_NAMES.EVIDENCE_FILED, { field: String(req.body?.field || '') });
       return res.status(result.idempotent ? 200 : 201).json(serialize(result));
     } catch (error) {
       return sendError(res, error);
@@ -557,6 +593,7 @@ const buildJudgmentResolutionRouter = ({
         source: req.body?.source,
         claimText: req.body?.claimText
       });
+      if (result?.proposal) track(req, EVENT_NAMES.EVIDENCE_PROPOSED, { proposalId: String(result.proposal.id || ''), from: 'watch' });
       return res.status(200).json(result);
     } catch (error) {
       return sendError(res, error);
@@ -572,6 +609,7 @@ const buildJudgmentResolutionRouter = ({
         pageId: req.params.pageId,
         proposalId: req.params.proposalId
       });
+      track(req, EVENT_NAMES.EVIDENCE_FILED, { proposalId: req.params.proposalId, from: 'watch' });
       return res.status(200).json(result);
     } catch (error) {
       return sendError(res, error);
@@ -587,6 +625,7 @@ const buildJudgmentResolutionRouter = ({
         pageId: req.params.pageId,
         proposalId: req.params.proposalId
       });
+      track(req, EVENT_NAMES.EVIDENCE_DISMISSED, { proposalId: req.params.proposalId, from: 'watch' });
       return res.status(200).json(result);
     } catch (error) {
       return sendError(res, error);

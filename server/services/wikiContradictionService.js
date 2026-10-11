@@ -18,6 +18,10 @@ const idOf = (value) => clean(value?._id || value?.id || value);
 
 const CONFLICTED = 'conflicted';
 
+/* A source is the same reading on two pages when it is the same saved object,
+   or failing that the same address, or failing that the same title. */
+const sourceKey = (ref) => clean(ref?.objectId || ref?.url || ref?.title).toLowerCase();
+
 /** One side of a disagreement: who said it, what they said, where to read it. */
 const sideFrom = ({ citation, sourceRef }) => {
   const title = clean(citation?.sourceTitle) || clean(sourceRef?.title);
@@ -26,6 +30,7 @@ const sideFrom = ({ citation, sourceRef }) => {
   if (!title && !quote) return null;
   return {
     sourceId: idOf(sourceRef) || idOf(citation?.sourceRefId),
+    sourceKey: sourceKey(sourceRef) || clean(url || title).toLowerCase(),
     title: title || 'Untitled source',
     quote,
     url
@@ -97,9 +102,32 @@ const contradictionsOnPage = (page) => {
     .filter(item => item.claimText);
 };
 
+/* Your other pages that lean on a source this claim is argued with by: the
+   disagreement is then between two of your pages, not only two readings. */
+const elsewhereFor = (item, pages) => {
+  const keys = new Set(item.contradicting.map(side => side.sourceKey).filter(Boolean));
+  if (!keys.size) return [];
+  return list(pages)
+    .filter(page => idOf(page) !== item.pageId)
+    .flatMap((page) => {
+      const leaning = new Set(list(page?.sourceRefs).filter(ref => keys.has(sourceKey(ref))).map(idOf));
+      if (!leaning.size) return [];
+      const claim = list(page?.claims).find(entry => clean(entry?.text)
+        && list(entry?.sourceRefIds).map(idOf).some(id => leaning.has(id)));
+      return claim ? [{ pageId: idOf(page), pageTitle: clean(page?.title), claimId: clean(claim.claimId), claimText: clean(claim.text) }] : [];
+    })
+    .slice(0, 3);
+};
+
 /** Every disagreement in the wiki, newest page first. */
 const collectContradictions = (pages = []) => list(pages)
   .flatMap(contradictionsOnPage)
+  .map(item => ({ ...item, elsewhere: elsewhereFor(item, pages) }))
   .sort((left, right) => (new Date(right.updatedAt || 0).getTime() || 0) - (new Date(left.updatedAt || 0).getTime() || 0));
 
-module.exports = { collectContradictions, contradictionsOnPage };
+/** The disagreements one page takes part in, from either side. */
+const contradictionsTouching = (items = [], pageId = '') => list(items).filter(item => (
+  item.pageId === pageId || list(item.elsewhere).some(other => other.pageId === pageId)
+));
+
+module.exports = { collectContradictions, contradictionsOnPage, contradictionsTouching };

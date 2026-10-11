@@ -6,7 +6,7 @@
  * they must not redefine the shell package.
  */
 :root,
-html[data-noeis-theme='theme.editorial.light'] {
+html[data-ui-theme='light'] {
   color-scheme: light;
 
   --noeis-canvas: #f7f4ed;
@@ -29,9 +29,9 @@ html[data-noeis-theme='theme.editorial.light'] {
   --noeis-warning: #9a6a2d;
   --noeis-danger: #9b5a46;
   --noeis-danger-soft: color-mix(in srgb, var(--noeis-danger) 12%, var(--noeis-paper));
-  --noeis-action: var(--ui-accent, #6f87ff);
+  --noeis-action: var(--noeis-thread-strong);
   --noeis-action-strong: color-mix(in srgb, var(--noeis-action) 78%, black);
-  --noeis-action-soft: var(--ui-accent-soft, rgba(111, 135, 255, 0.18));
+  --noeis-action-soft: color-mix(in srgb, var(--noeis-thread) 18%, transparent);
   --noeis-active: color-mix(in srgb, var(--noeis-ink) 5%, var(--noeis-paper));
   --noeis-focus: color-mix(in srgb, var(--noeis-action) 38%, transparent);
   --noeis-shadow-soft: 0 10px 26px rgba(55, 43, 26, 0.08);
@@ -146,7 +146,7 @@ html[data-noeis-theme='theme.editorial.light'] {
   --wiki-quiet-danger: var(--noeis-danger);
 }
 
-html[data-noeis-theme='theme.editorial.dark'] {
+html[data-ui-theme='dark'] {
   color-scheme: dark;
   --noeis-canvas: #16140f;
   --noeis-chrome: #1a1712;
@@ -172,7 +172,7 @@ html[data-noeis-theme='theme.editorial.dark'] {
 /* Tokyo Midnight is an explicit night theme. It inherits the editorial type,
    space, and motion scale, and replaces only the shell palette. Light and
    Dark keep the blocks above. */
-html[data-noeis-theme='theme.editorial.tokyo-midnight'] {
+html[data-ui-theme='tokyo-midnight'] {
   color-scheme: dark;
   --noeis-canvas: #0e1829;
   --noeis-chrome: #09111e;
@@ -219,102 +219,31 @@ html[data-ui-typography='large'] {
   --ui-line-height-base: 1.72;
 }
 
-html[data-noeis-theme][data-ui-theme] body.noeis-editorial {
+html[data-ui-theme][data-ui-scheme] body.noeis-editorial {
   background: var(--noeis-canvas) !important;
   color: var(--noeis-ink);
   font-family: var(--noeis-font-ui);
 }
 
-html[data-noeis-theme][data-ui-theme] .app-shell-new {
+html[data-ui-theme][data-ui-scheme] .app-shell-new {
   background: var(--noeis-canvas);
 }
 
-html[data-noeis-theme][data-ui-theme] .app-shell-new__nav,
-html[data-noeis-theme][data-ui-theme] .topbar {
+html[data-ui-theme][data-ui-scheme] .app-shell-new__nav,
+html[data-ui-theme][data-ui-scheme] .topbar {
   background: color-mix(in srgb, var(--noeis-chrome) 94%, transparent);
   border-color: var(--noeis-rule);
 }
 
-html[data-noeis-theme][data-ui-theme] .topbar {
+html[data-ui-theme][data-ui-scheme] .topbar {
   min-height: 62px;
   padding-block: var(--noeis-space-2);
 }
 
-html[data-noeis-theme][data-ui-theme] .topbar__brand {
+html[data-ui-theme][data-ui-scheme] .topbar__brand {
   font-family: var(--noeis-font-reading);
 }
 
-html[data-noeis-theme][data-ui-theme] :is(
-  .topbar__brand,
-  .topbar__primary-link,
-  .topbar__icon-button,
-  .topbar__theme-pill,
-  .topbar__button,
-  .topbar__search-trigger,
-  .topbar__search-wrap
-) {
-  min-height: var(--noeis-control-height);
-}
-
-html[data-noeis-theme][data-ui-theme] :is(
-  .topbar__primary-link,
-  .topbar__icon-button,
-  .topbar__theme-pill,
-  .topbar__button,
-  .topbar__search-trigger
-) {
-  min-width: var(--noeis-control-height);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-html[data-noeis-theme][data-ui-theme] :is(
-  .topbar__button,
-  .topbar__theme-pill,
-  .topbar__search-trigger,
-  .topbar__search-wrap,
-  .ui-button,
-  .ui-quiet-button
-) {
-  border-color: var(--noeis-rule);
-  border-radius: var(--noeis-radius-control);
-  transition: border-color var(--noeis-motion-fast) var(--noeis-ease-standard), background-color var(--noeis-motion-fast) var(--noeis-ease-standard), color var(--noeis-motion-fast) var(--noeis-ease-standard), transform var(--noeis-motion-fast) var(--noeis-ease-standard), box-shadow var(--noeis-motion-fast) var(--noeis-ease-standard);
-}
-
-html[data-noeis-theme][data-ui-theme] :is(.topbar__button, .topbar__theme-pill) {
-  font-weight: 600;
-}
-
-html[data-noeis-theme][data-ui-theme] :is(
-  .topbar__button,
-  .topbar__theme-pill,
-  .topbar__search-trigger,
-  .topbar__search-wrap
-) {
-  background: color-mix(in srgb, var(--noeis-paper-muted) 82%, transparent);
-}
-
-html[data-noeis-theme][data-ui-theme] :is(
-  .topbar__button,
-  .topbar__theme-pill,
-  .topbar__search-trigger,
-  .ui-button,
-  .ui-quiet-button
-):focus-visible {
-  outline: 2px solid var(--noeis-focus);
-  outline-offset: 2px;
-}
-
-html[data-noeis-theme][data-ui-theme] :is(
-  .topbar__menu-popover,
-  .system-status__drawer,
-  .right-drawer__panel
-) {
-  background: var(--noeis-floating);
-  border-color: var(--noeis-rule);
-  box-shadow: var(--noeis-shadow-float);
-}
 
 /* Living ink as a margin, not an edge: a 1px Greek key, sap on paper. */
 .noeis-meander {
@@ -342,14 +271,8 @@ html[data-noeis-theme][data-ui-theme] :is(
    owns the final mobile visibility rule. Show the current room in the header;
    TopBar renders the complete four-room switcher inside More. */
 @media (max-width: 480px) {
-  html[data-noeis-theme][data-ui-theme] .topbar__primary-link:not(.is-active) {
+  html[data-ui-theme][data-ui-scheme] .topbar__primary-link:not(.is-active) {
     display: none;
-  }
-}
-
-@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
-  html[data-noeis-theme][data-ui-theme] :is(.topbar__button, .topbar__theme-pill, .ui-button, .ui-quiet-button):hover {
-    transform: translateY(-1px);
   }
 }
 
@@ -609,18 +532,4 @@ html[data-ui-theme='tokyo-midnight'] .app-shell-new--agent-on-demand .agent-rail
     scroll-behavior: auto;
   }
 
-  html[data-noeis-theme][data-ui-theme] :is(
-    .app-shell-new,
-    .topbar,
-    .topbar *,
-    .palette-card,
-    .system-status__drawer,
-    .agent-rail,
-    .right-drawer__panel
-  ) {
-    animation: none !important;
-    scroll-behavior: auto !important;
-    transition-duration: 1ms !important;
-    transform: none !important;
-  }
 }

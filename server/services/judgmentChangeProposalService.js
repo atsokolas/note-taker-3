@@ -35,6 +35,52 @@ const proposalKey = ({ pageId, before, after }) => crypto
   .digest('hex')
   .slice(0, 24);
 
+/* A passage that may bear on a held sentence rides the same proposal: the
+   sentence is `before`, the verbatim passage is `after`, and `change:
+   'evidence'` says the reader is asked to file it, not to adopt it. One per
+   view per source, so its identity is the page and the article. */
+const readingKey = ({ pageId, articleId }) => proposalKey({ pageId, before: 'evidence', after: clean(articleId, 100) });
+const readingReceiptId = ({ pageId, articleId }) => `judgment-change-proposal:${clean(pageId, 100)}:${readingKey({ pageId, articleId })}`;
+
+const buildReadingProposal = ({ page, article, stance, quote, eventId = '', now = new Date() } = {}) => {
+  const pageId = id(page);
+  const before = clean(page?.judgment?.currentJudgment);
+  const after = clean(quote, 1200);
+  const articleId = id(article);
+  if (!pageId || !before || !after || !articleId || !['support', 'challenge'].includes(stance)) {
+    throw new JudgmentChangeProposalError('A reading proposal needs a held sentence, a source, and a verdict.', 400);
+  }
+  const proposalId = readingKey({ pageId, articleId });
+  const sourceLabel = clean(article?.title, 500) || 'A source you saved';
+  return {
+    id: readingReceiptId({ pageId, articleId }),
+    kind: 'judgment_change_proposal',
+    source: 'judgment',
+    sourceLabel,
+    status: 'pending',
+    title: stance === 'support' ? 'A passage that argues for what you hold' : 'A passage that argues against what you hold',
+    summary: after,
+    provenance: {
+      pageId,
+      proposalId,
+      before,
+      after,
+      change: 'evidence',
+      stance,
+      articleId,
+      author: clean(article?.author, 200),
+      publishedAt: article?.publicationDate || article?.createdAt || null,
+      eventId: clean(eventId, 100),
+      proposedAt: now
+    },
+    touched: [{ type: 'wiki_page', id: pageId, title: clean(page?.title, 240) }],
+    nextAction: { type: 'open_judgment', id: pageId, title: 'File the passage or set it aside' },
+    createdAt: now
+  };
+};
+
+const isReading = proposal => clean(proposal?.provenance?.change, 24) === 'evidence';
+
 const buildJudgmentChangeProposal = ({ page, proposedJudgment, now = new Date() } = {}) => {
   const pageId = id(page);
   const before = clean(page?.judgment?.currentJudgment);
@@ -81,7 +127,9 @@ const assertBinding = ({ receipt, page }) => {
   }
   const before = clean(stored.provenance?.before);
   const after = clean(stored.provenance?.after);
-  const expectedId = proposalKey({ pageId, before, after });
+  const expectedId = isReading(stored)
+    ? readingKey({ pageId, articleId: stored.provenance?.articleId })
+    : proposalKey({ pageId, before, after });
   if (!before || !after || clean(stored.provenance?.proposalId, 100) !== expectedId) {
     throw new JudgmentChangeProposalError('The proposal identity is incomplete or corrupt.', 409);
   }
@@ -104,12 +152,18 @@ const planJudgmentChangeDisposition = ({ receipt, page, action, now = new Date()
   }
   const current = clean(page?.judgment?.currentJudgment);
   const before = clean(stored.provenance.before);
-  if (current !== before) {
+  if (current !== before && !isReading(stored)) {
     throw new JudgmentChangeProposalError(
       'What you hold has changed since this proposal was made. Review the newer sentence instead.',
       409,
       'JUDGMENT_CHANGE_PROPOSAL_STALE'
     );
+  }
+
+  /* A passage is filed through the evidence route; here it can only be
+     dismissed, and the dismissal is a line in the record. */
+  if (isReading(stored) && selected !== 'reject') {
+    throw new JudgmentChangeProposalError('File this passage for or against, or mark it not relevant.', 400);
   }
 
   const status = {
@@ -146,7 +200,21 @@ const planJudgmentChangeDisposition = ({ receipt, page, action, now = new Date()
   };
 
   const writes = selected === 'accept' || selected === 'narrow';
-  const judgment = writes
+  const judgment = isReading(stored)
+    ? {
+      ...plain(page.judgment),
+      decisions: [
+        ...(Array.isArray(page?.judgment?.decisions) ? page.judgment.decisions.map(plain) : []),
+        {
+          decisionId: `reading-${clean(stored.provenance.proposalId, 100)}`,
+          summary: `Not relevant: a passage from ${clean(stored.sourceLabel, 500) || 'a source you saved'}.`,
+          decidedAt: now,
+          status: 'taken',
+          createdBy: 'user'
+        }
+      ]
+    }
+    : writes
     ? {
       ...plain(page.judgment),
       currentJudgment: after,
@@ -176,6 +244,9 @@ module.exports = {
   JudgmentChangeProposalError,
   assertBinding,
   buildJudgmentChangeProposal,
+  buildReadingProposal,
+  isReading,
+  readingReceiptId,
   planJudgmentChangeDisposition,
   proposalKey
 };
