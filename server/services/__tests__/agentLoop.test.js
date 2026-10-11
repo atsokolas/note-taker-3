@@ -78,6 +78,18 @@ describe('runAgentLoop', () => {
     expect(result.reply).toMatch(/code review/);
   });
 
+  it('sends back a quotation that runs a highlight into the reader\'s margin note', async () => {
+    const checklists = { id: 'checklists', title: 'Checklists', fullText: 'The resistance to checklists is mostly about identity. Your note: Same thing happens with code review checklists on my team.' };
+    const chat = scripted(
+      { text: 'It says "the resistance to checklists is mostly about identity. Your note: Same thing happens with code review checklists".' },
+      { text: 'It says "the resistance to checklists is mostly about identity", and you noted "Same thing happens with code review checklists".' }
+    );
+    const result = await runAgentLoop({ messages, sources: [checklists], chat });
+    expect(chat.mock.calls[0][0].messages[0].content).toMatch(/Quote the passage and the note separately/);
+    expect(chat).toHaveBeenCalledTimes(2);
+    expect(result.reply).toMatch(/you noted/);
+  });
+
   it('takes a held view or the reader\'s own words in quotes as theirs, not an invented quotation', async () => {
     const asked = [...messages, { role: 'user', content: 'Is it true that I decide worse after midnight?' }];
     const chat = scripted({ text: 'You hold that "Rest beats willpower for late decisions", and you asked whether "I decide worse after midnight".' });
