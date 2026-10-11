@@ -1,42 +1,22 @@
-import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '../ui';
 import {
-  addWikiSource,
   applyWikiAutolink,
-  askWikiPage,
   deleteWikiPage,
   getWikiPage,
   listWikiAutolinks,
   maintainWikiPage,
-  promoteWikiDiscussion,
-  removeWikiDiscussion,
-  removeWikiSource,
   updateWikiPage
 } from '../../api/wiki';
-import WikiAiSourcePanel from './WikiAiSourcePanel';
-import WikiAskComposer from './WikiAskComposer';
-import WikiBacklinkPanel from './WikiBacklinkPanel';
-import WikiAutolinkSuggestions from './WikiAutolinkSuggestions';
-import WikiChangesSinceLastVisit from './WikiChangesSinceLastVisit';
-import WikiDiscussions from './WikiDiscussions';
 import WikiPageMetaBar from './WikiPageMetaBar';
 import ClaimCitationPopover from './ClaimCitationPopover';
 import Claim, { SUPPORT_STATES } from './extensions/Claim';
 import Pullquote from './extensions/Pullquote';
 import WikiLink from './extensions/WikiLink';
-import {
-  diffClaimLedgerSnapshots,
-  diffClaimSnapshots,
-  extractClaimTexts,
-  getLastVisitState,
-  recordVisit
-} from './wikiVisitTracker';
-import { wikiPagePath } from '../../utils/wikiFeatureFlags';
-import { trackWikiQaPromoted } from '../../utils/wikiAnalytics';
 import { useNoeisSurface } from '../../surface/NoeisSurfaceContext';
 import { buildWikiSurfaceDescriptor } from './wikiSurfaceModel';
 import { displayWikiPageTitle, unnamedTitlePreview } from './wikiRepoDossierModel';
@@ -44,23 +24,7 @@ import { canMakeThisTheTitle } from './open-sentence/openSentenceModel';
 
 const emptyDoc = { type: 'doc', content: [{ type: 'paragraph' }] };
 
-const WikiPageActivityRail = lazy(() => import('./WikiPageActivityRail'));
-
-const WikiEditorRailFallback = () => (
-  <p className="wiki-index__status">Loading page pulse...</p>
-);
-
 const normalizeId = (value) => String(value || '').trim();
-
-const docHasWikiLinks = (node) => {
-  if (!node) return false;
-  if (Array.isArray(node)) return node.some(docHasWikiLinks);
-  if (typeof node !== 'object') return false;
-  if (Array.isArray(node.marks) && node.marks.some(mark => mark?.type === 'wikiLink' && mark?.attrs?.pageId)) {
-    return true;
-  }
-  return Array.isArray(node.content) && node.content.some(docHasWikiLinks);
-};
 
 const idsMatch = (a, b) => normalizeId(a) && normalizeId(a) === normalizeId(b);
 
@@ -98,7 +62,7 @@ const claimMatchesSource = ({ claim, source, citations = [] }) => {
   return claimContradictsSource({ claim, source, citations });
 };
 
-const WikiPageEditor = ({ pageId, onDoneEditing, workspaceMode = false }) => {
+const WikiPageEditor = ({ pageId, onDoneEditing }) => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [page, setPage] = useState(null);
@@ -106,17 +70,8 @@ const WikiPageEditor = ({ pageId, onDoneEditing, workspaceMode = false }) => {
   const [saveStatus, setSaveStatus] = useState('idle');
   const [linkifying, setLinkifying] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [sourcePanelOpen, setSourcePanelOpen] = useState(true);
-  const [activeSourceIndex, setActiveSourceIndex] = useState(null);
-  const [asking, setAsking] = useState(false);
-  const [promotingDiscussionId, setPromotingDiscussionId] = useState('');
   const [error, setError] = useState('');
   const [selectionTick, setSelectionTick] = useState(0);
-  // Snapshot from the previous visit, captured on first page load. We hold
-  // this in a ref + state so subsequent edits within the visit don't clear
-  // the banner — only "Mark reviewed" or a fresh page load should.
-  const [lastVisit, setLastVisit] = useState(null);
-  const lastVisitCapturedRef = useRef(false);
   const saveTimer = useRef(null);
   const pendingSaveRef = useRef({});
   const latestPageRef = useRef(null);
@@ -187,46 +142,10 @@ const WikiPageEditor = ({ pageId, onDoneEditing, workspaceMode = false }) => {
     setActiveClaim(null);
   }, []);
 
-  const focusSourceByIndex = useCallback((citationIndex) => {
-    if (!Number.isFinite(citationIndex) || citationIndex < 1) return;
-    setActiveSourceIndex(citationIndex);
-    setSourcePanelOpen(true);
-    window.setTimeout(() => {
-      const sourceNode = document.getElementById(`wiki-source-ref-${citationIndex}`);
-      if (!sourceNode) return;
-      sourceNode.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
-      sourceNode.focus?.({ preventScroll: true });
-    }, 0);
-  }, []);
-
-  const handleClaimClick = useCallback((event) => {
-    const target = event.target.closest?.('.wiki-claim-citation');
-    if (!target) return false;
-    const [firstIndex] = (target.getAttribute('data-citation-indexes') || '')
-      .split(',')
-      .map(token => Number(token.trim()))
-      .filter(Number.isFinite);
-    const claimId = target.getAttribute('data-claim-id') || '';
-    const ledgerClaim = (latestPageRef.current?.claims || []).find(claim => claim.claimId === claimId);
-    const firstLedgerIndex = ledgerClaim && latestPageRef.current?.sourceRefs?.length
-      ? latestPageRef.current.sourceRefs.findIndex(source => (
-          claimMatchesSource({
-            claim: ledgerClaim,
-            source,
-            citations: latestPageRef.current?.citations || []
-          })
-        )) + 1
-      : 0;
-    const targetIndex = firstLedgerIndex || firstIndex;
-    if (!targetIndex) return false;
-    focusSourceByIndex(targetIndex);
-    return true;
-  }, [focusSourceByIndex]);
-
   const editor = useEditor({
     extensions: [
       StarterKit,
-      Placeholder.configure({ placeholder: 'Write the page. Use the partner/source panel for support.' }),
+      Placeholder.configure({ placeholder: 'Write the page.' }),
       Pullquote,
       WikiLink,
       Claim
@@ -248,10 +167,6 @@ const WikiPageEditor = ({ pageId, onDoneEditing, workspaceMode = false }) => {
         focusin: (_view, event) => {
           handleClaimHover(event);
           return false;
-        },
-        click: (_view, event) => {
-          handleClaimClick(event);
-          return false;
         }
       }
     },
@@ -271,13 +186,6 @@ const WikiPageEditor = ({ pageId, onDoneEditing, workspaceMode = false }) => {
         latestPageRef.current = loaded;
         setPage(loaded);
         editor?.commands?.setContent(loaded.body || emptyDoc, false);
-        // Capture the previous-visit snapshot ONCE per page load. Subsequent
-        // page state updates (e.g. live saves) must not move the comparison
-        // baseline — that would dismiss the banner mid-visit.
-        if (!lastVisitCapturedRef.current) {
-          lastVisitCapturedRef.current = true;
-          setLastVisit(getLastVisitState(pageId));
-        }
       } catch (_error) {
         if (!cancelled) setError('Failed to load Wiki page.');
       } finally {
@@ -407,72 +315,6 @@ const WikiPageEditor = ({ pageId, onDoneEditing, workspaceMode = false }) => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onDoneEditing]);
 
-  const handleAddSource = async (source) => {
-    setError('');
-    try {
-      const updated = await addWikiSource(pageId, source);
-      latestPageRef.current = updated;
-      setPage(updated);
-    } catch (_error) {
-      setError('That did not save.');
-    }
-  };
-
-  const handleRemoveSource = async (sourceRefId) => {
-    setError('');
-    try {
-      const updated = await removeWikiSource(pageId, sourceRefId);
-      latestPageRef.current = updated;
-      setPage(updated);
-    } catch (_error) {
-      setError('That did not save.');
-    }
-  };
-
-  const handleAsk = async (question) => {
-    setAsking(true);
-    setError('');
-    try {
-      const updated = await askWikiPage(pageId, question);
-      latestPageRef.current = updated;
-      setPage(updated);
-    } finally {
-      setAsking(false);
-    }
-  };
-
-  const handleRemoveDiscussion = async (discussionId) => {
-    setError('');
-    try {
-      const updated = await removeWikiDiscussion(pageId, discussionId);
-      latestPageRef.current = updated;
-      setPage(updated);
-    } catch (_error) {
-      setError('That did not save.');
-    }
-  };
-
-  const handlePromoteDiscussion = async (discussion, title) => {
-    const discussionId = discussion?._id || '';
-    if (!discussionId) return;
-    setPromotingDiscussionId(discussionId);
-    setError('');
-    try {
-      const result = await promoteWikiDiscussion(pageId, discussionId, { title });
-      const createdPage = result?.page || result;
-      trackWikiQaPromoted({
-        sourcePageId: pageId,
-        promotedPageId: createdPage?._id || '',
-        discussionId
-      });
-      if (createdPage?._id) navigate(wikiPagePath(createdPage._id));
-    } catch (_error) {
-      setError('That did not save.');
-    } finally {
-      setPromotingDiscussionId('');
-    }
-  };
-
   const handleDeletePage = async () => {
     const title = displayWikiPageTitle(page);
     if (!window.confirm(`Delete "${title}"?`)) return;
@@ -487,38 +329,6 @@ const WikiPageEditor = ({ pageId, onDoneEditing, workspaceMode = false }) => {
       setDeleting(false);
     }
   };
-
-  // Reset the visit-snapshot capture flag when the user navigates to a
-  // different page, so the banner re-evaluates against that page's history.
-  useEffect(() => {
-    lastVisitCapturedRef.current = false;
-    setLastVisit(null);
-  }, [pageId]);
-
-  // Diff the previous visit's snapshot against the page's current claim
-  // texts. We diff once per page state change so the banner stays accurate
-  // as the live page updates (e.g., right after a maintenance run).
-  const currentClaimTexts = useMemo(() => (
-    lastVisit?.lastViewedAt ? extractClaimTexts(page?.body) : []
-  ), [lastVisit?.lastViewedAt, page?.body]);
-  const claimLedgerDiff = useMemo(() => (
-    lastVisit?.lastViewedAt
-      ? diffClaimLedgerSnapshots(lastVisit.ledgerSnapshot, page?.claims || [])
-      : []
-  ), [lastVisit?.lastViewedAt, lastVisit?.ledgerSnapshot, page?.claims]);
-  const visitDiff = useMemo(() => {
-    if (!lastVisit?.lastViewedAt) return { added: [], removed: [] };
-    return {
-      ...diffClaimSnapshots(lastVisit.claimSnapshot, currentClaimTexts),
-      changed: claimLedgerDiff
-    };
-  }, [claimLedgerDiff, currentClaimTexts, lastVisit?.claimSnapshot, lastVisit?.lastViewedAt]);
-
-  const handleMarkReviewed = useCallback(() => {
-    if (!page) return;
-    const next = recordVisit(pageId, page.body, page.claims || []);
-    setLastVisit(next);
-  }, [page, pageId]);
 
   const claimLedgerById = useMemo(() => {
     const map = new Map();
@@ -581,32 +391,12 @@ const WikiPageEditor = ({ pageId, onDoneEditing, workspaceMode = false }) => {
   }
 
   return (
-    <main className={`wiki-page wiki-editor${workspaceMode ? ' wiki-editor--workspace' : ''}`}>
+    <main className="wiki-page wiki-editor wiki-editor--workspace">
       <div className="wiki-editor__topline">
-        {workspaceMode ? (
-          <span className="wiki-editor__mode-label">Editing page</span>
-        ) : (
-          <Button type="button" variant="secondary" onClick={() => navigate('/wiki')}>Back to Wiki</Button>
-        )}
+        <span className="wiki-editor__mode-label">Editing page</span>
         {onDoneEditing ? (
-          <Button
-            type="button"
-            variant={workspaceMode ? 'primary' : 'secondary'}
-            className="wiki-editor__done"
-            onClick={onDoneEditing}
-          >
+          <Button type="button" variant="primary" className="wiki-editor__done" onClick={onDoneEditing}>
             Done editing
-          </Button>
-        ) : null}
-        {!workspaceMode ? (
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => setSourcePanelOpen(open => !open)}
-            aria-expanded={sourcePanelOpen}
-            aria-controls="wiki-source-panel"
-          >
-            {sourcePanelOpen ? 'Hide partner/sources' : 'Show partner/sources'}
           </Button>
         ) : null}
         <Button type="button" variant="secondary" onClick={handleLinkify} disabled={linkifying}>
@@ -617,24 +407,14 @@ const WikiPageEditor = ({ pageId, onDoneEditing, workspaceMode = false }) => {
         </Button>
         {error ? <span className="wiki-editor__error" role="alert">{error}</span> : null}
       </div>
-      <div className={`wiki-editor__layout ${sourcePanelOpen ? '' : 'wiki-editor__layout--panel-collapsed'}`}>
+      <div className="wiki-editor__layout">
         <section
           className="wiki-editor__main"
           aria-label="Wiki page editor"
           onMouseOver={handleClaimHover}
           onMouseOut={handleClaimLeave}
           onFocus={handleClaimHover}
-          onClick={handleClaimClick}
         >
-          {!workspaceMode ? (
-            <WikiChangesSinceLastVisit
-              lastViewedAt={lastVisit?.lastViewedAt}
-              added={visitDiff.added}
-              removed={visitDiff.removed}
-              changed={visitDiff.changed}
-              onMarkReviewed={handleMarkReviewed}
-            />
-          ) : null}
           <input
             className="wiki-editor__title"
             value={page.title || ''}
@@ -654,17 +434,6 @@ const WikiPageEditor = ({ pageId, onDoneEditing, workspaceMode = false }) => {
             ) : null}
           </div>
           <EditorContent editor={editor} />
-          {!workspaceMode ? (
-            <>
-              <WikiDiscussions
-                discussions={page.discussions || []}
-                onRemove={handleRemoveDiscussion}
-                onPromote={handlePromoteDiscussion}
-                promotingId={promotingDiscussionId}
-              />
-              <WikiAskComposer onAsk={handleAsk} busy={asking} />
-            </>
-          ) : null}
           {activeClaim ? (
             <ClaimCitationPopover
               anchorRect={activeClaim.anchorRect}
@@ -675,32 +444,6 @@ const WikiPageEditor = ({ pageId, onDoneEditing, workspaceMode = false }) => {
             />
           ) : null}
         </section>
-        {sourcePanelOpen && !workspaceMode ? (
-          <aside className="wiki-editor__rail" aria-label="Partner, sources, and backlinks">
-            <Suspense fallback={<WikiEditorRailFallback />}>
-              <WikiPageActivityRail
-                pageId={pageId}
-                page={page}
-                onPageUpdate={(updated) => {
-                  latestPageRef.current = updated;
-                  setPage(updated);
-                  if (updated?.body) editor?.commands?.setContent(updated.body, false);
-                }}
-              />
-            </Suspense>
-            <WikiAiSourcePanel
-              id="wiki-source-panel"
-              page={page}
-              onAddSource={handleAddSource}
-              onRemoveSource={handleRemoveSource}
-              activeSourceIndex={activeSourceIndex}
-            />
-            <WikiBacklinkPanel pageId={pageId} pageTitle={page.title} />
-            {!docHasWikiLinks(page.body) ? (
-              <WikiAutolinkSuggestions pageId={pageId} pageTitle={page.title} />
-            ) : null}
-          </aside>
-        ) : null}
       </div>
     </main>
   );

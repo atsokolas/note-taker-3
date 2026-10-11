@@ -8,7 +8,6 @@ import {
   approveWeekendReadingsRevision,
   archiveWikiPage,
   createWikiPage,
-  getWikiAutolinkSuggestions,
   getWikiBacklinks,
   getWikiPage,
   getWikiRepoComparison,
@@ -45,7 +44,6 @@ jest.mock('../../api/wiki', () => ({
   archiveWikiPage: jest.fn(),
   armGitHubRepoWatch: jest.fn(),
   createWikiPage: jest.fn(),
-  getWikiAutolinkSuggestions: jest.fn(),
   getWikiBacklinks: jest.fn(),
   getWikiPage: jest.fn(),
   getWikiRepoComparison: jest.fn(),
@@ -235,7 +233,6 @@ describe('WikiPageReadView', () => {
       }],
       scanned: 3
     });
-    getWikiAutolinkSuggestions.mockResolvedValue({ suggestions: [], scanned: 0 });
     listWikiPages.mockResolvedValue([{ _id: 'wiki-related', title: 'Compounding interest' }]);
     getConnectionsForItem.mockResolvedValue({ outgoing: [], incoming: [] });
     recordWikiPageVisit.mockResolvedValue({ lastVisitedAt: '2026-07-19T12:00:00.000Z', visitCount: 1 });
@@ -1340,41 +1337,6 @@ describe('WikiPageReadView', () => {
       rectSpy.mockRestore();
       Object.defineProperty(window, 'innerHeight', { configurable: true, value: originalInnerHeight });
     }
-  });
-
-  it('does not show legacy linkable page fallback in read mode when prose has no inline wiki links', async () => {
-    getWikiPage.mockResolvedValueOnce({
-      ...page,
-      body: {
-        type: 'doc',
-        content: [
-          { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Core idea' }] },
-          { type: 'paragraph', content: [{ type: 'text', text: 'Enterprise memory mentions Compounding interest without a mark.' }] }
-        ]
-      }
-    });
-    getWikiAutolinkSuggestions.mockResolvedValueOnce({
-      scanned: 3,
-      suggestions: [{
-        pageId: 'wiki-related',
-        title: 'Compounding interest',
-        mentionCount: 1,
-        snippet: 'Enterprise memory mentions Compounding interest.'
-      }]
-    });
-
-    render(
-      <MemoryRouter>
-        <WikiPageReadView pageId="wiki-1" onEdit={jest.fn()} />
-      </MemoryRouter>
-    );
-
-    expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
-    await act(async () => {
-      jest.advanceTimersByTime(400);
-    });
-
-    expect(screen.queryByTestId('wiki-autolinks')).not.toBeInTheDocument();
   });
 
   it('cleans raw bracket wikilinks in article prose and resolves them through the page catalog', async () => {

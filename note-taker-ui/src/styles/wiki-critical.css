@@ -363,7 +363,8 @@
   gap: 4px 18px;
 }
 .wiki-read__actions button {
-  min-height: 32px;
+  min-height: 44px;
+  min-width: 44px;
   padding: 0;
   border: 0;
   background: none;
