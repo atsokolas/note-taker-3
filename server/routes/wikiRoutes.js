@@ -1,7 +1,7 @@
 const { CHATGPT_ACCESS_PROFILE } = require('../services/chatgptAccessPolicy');
 const express = require('express');
 const { collectContradictions, contradictionsTouching } = require('../services/wikiContradictionService');
-const { describeHistory, describeSnapshots, isPromoted } = require('../services/wikiChangeStory');
+const { describeHistory, describeSince, isPromoted } = require('../services/wikiChangeStory');
 const PDFDocument = require('pdfkit');
 const { buildPamphletPdf } = require('../services/judgmentPamphlet');
 const { inkWikiPageReview } = require('../services/wikiReviewClock');
@@ -6562,8 +6562,7 @@ const buildWikiRouter = ({
           .lean()).filter(revision => isPromoted(revision) && !revision.snapshotUnchanged);
         if (!revisions.length) return null;
         const oldest = revisions[revisions.length - 1];
-        const sentence = describeSnapshots(oldest.reason === 'created' ? null : oldest.before, page)
-          || describeHistory([revisions[0]], page)[0];
+        const sentence = describeSince(oldest, page) || describeHistory([revisions[0]], page)[0];
         const sources = await changeSourcesFor(req.user.id, [revisions[0]]);
         return {
           pageId: String(page._id),

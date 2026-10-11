@@ -29,6 +29,11 @@ assert.strictEqual(
 );
 
 // Without snapshots: what the revision records, in plain words.
+assert.strictEqual(describeRevision({ reason: 'user_edit', before: null }, after), 'You edited the page.', 'a pruned snapshot is not a new page');
+assert.strictEqual(
+  describeSnapshots({ body: doc(para('x')) }, { body: doc(heading('A'), heading('B'), heading('C'), heading('D')) }),
+  'Added sections on A, B and 2 more.'
+);
 assert.strictEqual(describeRevision({ reason: 'agent_maintenance', snapshotUnchanged: true }), 'Checked against its sources. Nothing changed.');
 assert.strictEqual(describeRevision({ reason: 'user_edit', summary: 'Updated "Costco".' }), 'You edited the page.', 'bookkeeping summaries say nothing');
 assert.strictEqual(describeRevision({ reason: 'source_event', summary: 'Linked "Membership" from "Costco".' }), 'Linked "Membership" from "Costco".');

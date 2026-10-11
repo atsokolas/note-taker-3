@@ -39,9 +39,9 @@ const sectionsOf = (body) => {
 const sourceKey = (ref = {}) => clean(ref.objectId || ref.url || ref.title).toLowerCase();
 
 const joinNames = (names) => {
-  const quoted = names.map((name) => name || 'the opening');
-  if (quoted.length <= 1) return quoted.join('');
-  return `${quoted.slice(0, -1).join(', ')} and ${quoted[quoted.length - 1]}`;
+  if (names.length > 3) return `${names.slice(0, 2).join(', ')} and ${names.length - 2} more`;
+  if (names.length <= 1) return names.join('');
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
 };
 
 const sectionName = (title) => (title === OPENING ? 'the opening' : title);
@@ -96,16 +96,22 @@ const describeSnapshots = (before, after) => {
   if (rewritten.length) clauses.push(`rewrote ${joinNames(rewritten.map(sectionName))}`);
   if (removed.length) clauses.push(`removed ${joinNames(removed)}`);
   if (cited.length) {
-    const citing = `citing ${joinNames(cited.slice(0, 2))}${cited.length > 2 ? ` and ${cited.length - 2} more` : ''}`;
+    const citing = `citing ${joinNames(cited)}`;
     if (clauses.length) clauses[0] = `${clauses[0]}, ${citing}`;
     else clauses.push(`added ${cited.length === 1 ? 'a source' : 'sources'}, ${citing}`);
   }
   return clauses.map((clause) => `${sentenceCase(clause)}.`).join(' ');
 };
 
+/* A missing `before` means the page began here only for a creation; otherwise
+   the earlier snapshot was pruned or never kept, and nothing is inferred. */
+const describeSince = (revision = {}, after = null) => (
+  revision.before?.body || revision.reason === 'created' ? describeSnapshots(revision.before, after) : ''
+);
+
 /** The sentence for one revision row, given the page state that followed it. */
 const describeRevision = (revision = {}, after = null) => (
-  describeSnapshots(revision.before, after)
+  describeSince(revision, after)
   || (revision.snapshotUnchanged ? 'Checked against its sources. Nothing changed.' : '')
   || informativeSummary(revision.summary)
   || REASON_SENTENCES[revision.reason]
@@ -133,6 +139,7 @@ const describeHistory = (revisions = [], currentPage = null) => {
 module.exports = {
   describeHistory,
   describeRevision,
+  describeSince,
   describeSnapshots,
   isPromoted,
   sectionsOf
