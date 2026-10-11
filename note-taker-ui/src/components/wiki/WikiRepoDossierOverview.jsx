@@ -16,7 +16,7 @@ const SectionNavLink = ({ item, badgeCount = 0, onNavigate }) => {
       <a href={`#${item.anchorId}`} onClick={onNavigate}>
         {item.label}
         {badgeCount > 0 ? (
-          <span className="wiki-read__repo-dossier-nav-badge" aria-label={`${badgeCount} changes`}>
+          <span className="wiki-read__repo-dossier-nav-badge" aria-label={`${badgeCount} maintenance changes`}>
             {badgeCount}
           </span>
         ) : null}
@@ -97,11 +97,11 @@ const WikiRepoDossierOverview = ({
 
       {comparisonHref ? (
         <p className="wiki-read__repo-dossier-comparison">
-          <Link to={comparisonHref}>Compare with the repository</Link>
+          <Link to={comparisonHref}>View repository maintenance comparison</Link>
         </p>
       ) : comparisonPendingShare ? (
         <p className="wiki-read__repo-dossier-comparison wiki-read__repo-dossier-comparison--pending">
-          The comparison is ready. Share this page to give it a public link.
+          Maintenance comparison is ready. Share this page to expose the public comparison link.
         </p>
       ) : null}
 
