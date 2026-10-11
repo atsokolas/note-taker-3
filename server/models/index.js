@@ -2173,11 +2173,13 @@ const tourEventTimestampsSchema = new mongoose.Schema({
 // per-user first-run document, uniquely indexed by userId — a second model would
 // mean a second write and a second thing to keep in step. Onboarding completion
 // used to live only in localStorage, so it re-triggered on a new browser and could
-// not be measured server-side.
+// not be measured server-side. A new account starts 'pending', which is the only
+// state the first-run gate acts on; accounts that predate the flow stay
+// 'not_started' and are never walked through it.
 const onboardingStateSchema = new mongoose.Schema({
   status: {
     type: String,
-    enum: ['not_started', 'complete'],
+    enum: ['not_started', 'pending', 'complete'],
     default: 'not_started'
   },
   completedAt: { type: Date, default: null }

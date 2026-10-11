@@ -610,7 +610,8 @@ describe('Judgment claim', () => {
   });
 
   it('admits it searched and found nothing, rather than vanishing', async () => {
-    getWikiPage.mockResolvedValue(judgmentPage());
+    const base = judgmentPage();
+    getWikiPage.mockResolvedValue({ ...base, judgment: { ...base.judgment, why: [], against: [] } });
     getJudgmentLibraryEvidence.mockResolvedValue({ claim: 'c', terms: [], candidates: [] });
 
     renderDetail();
@@ -618,6 +619,17 @@ describe('Judgment claim', () => {
     expect(await screen.findByText('Nothing in your library speaks to this yet.'))
       .toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'On this sentence' })).not.toBeInTheDocument();
+  });
+
+  it('does not say nothing speaks to a case with passages already filed', async () => {
+    getWikiPage.mockResolvedValue(judgmentPage());
+    getJudgmentLibraryEvidence.mockResolvedValue({ claim: 'c', terms: [], candidates: [] });
+
+    renderDetail();
+
+    await screen.findByLabelText('What you hold');
+    await waitFor(() => expect(getJudgmentLibraryEvidence).toHaveBeenCalled());
+    expect(screen.queryByText('Nothing in your library speaks to this yet.')).not.toBeInTheDocument();
   });
 
   it('says nothing at all when the library could not be read', async () => {

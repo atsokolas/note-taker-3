@@ -36,6 +36,7 @@ const buildAuthDiscoveryRouter = ({
   authenticateToken,
   Recommendation,
   Article,
+  TourState = null,
   trackEvent = () => {},
   EVENT_NAMES = {}
 }) => {
@@ -57,6 +58,13 @@ const buildAuthDiscoveryRouter = ({
       const hashedPassword = await bcrypt.hash(password, 10);
       const newUser = new User({ username: cleanUsername, password: hashedPassword });
       await newUser.save();
+      // Only accounts made from here on meet first run. Best effort: a missed
+      // write costs the walkthrough, never the account.
+      await TourState?.updateOne(
+        { userId: newUser._id },
+        { $set: { 'onboarding.status': 'pending' } },
+        { upsert: true }
+      ).catch(() => {});
       const marketingAttribution = sanitizeAttribution(req.body?.marketingAttribution);
       trackEvent({
         event: EVENT_NAMES.USER_SIGNUP,

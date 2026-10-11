@@ -430,7 +430,7 @@ const SharedWikiPage = () => {
       const adoptedId = adoptedPage._id || adoptedPage.id;
       if (adoptedId) {
         if (shouldAutoAdopt) {
-          navigate(`/onboarding/wiki?adoptedPage=${encodeURIComponent(adoptedId)}&source=shared`, { replace: true });
+          navigate(`/welcome?took=${encodeURIComponent(adoptedId)}`, { replace: true });
           return;
         }
         navigate(wikiPagePath(adoptedId), { replace: true });

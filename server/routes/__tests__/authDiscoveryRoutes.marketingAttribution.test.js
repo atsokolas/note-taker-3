@@ -35,6 +35,7 @@ const buildUserModel = () => {
 
 const run = async () => {
   const trackCalls = [];
+  const tourWrites = [];
   const User = buildUserModel();
   const app = express();
   app.use(express.json());
@@ -51,6 +52,9 @@ const run = async () => {
     authenticateToken: (_req, _res, next) => next(),
     Recommendation: {},
     Article: {},
+    TourState: {
+      updateOne: async (...args) => { tourWrites.push(args); }
+    },
     trackEvent: (payload) => {
       trackCalls.push(payload);
     },
@@ -92,6 +96,10 @@ const run = async () => {
     assert.strictEqual(trackCalls[0].properties.utmSource, 'google');
     assert.strictEqual(trackCalls[0].properties.utmMedium, 'organic');
     assert.strictEqual(trackCalls[0].properties.visitorId, 'visitor-1');
+    assert.deepStrictEqual(tourWrites[0].slice(0, 2), [
+      { userId: 'user-1' },
+      { $set: { 'onboarding.status': 'pending' } }
+    ], 'A new account should start first run pending.');
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }

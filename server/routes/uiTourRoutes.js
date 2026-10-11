@@ -86,9 +86,10 @@ const buildUiTourRouter = ({
       const userObjectId = new mongoose.Types.ObjectId(req.user.id);
       const state = await TourState.findOne({ userId: userObjectId }).lean();
       const onboarding = state?.onboarding || {};
+      const status = ['pending', 'complete'].includes(onboarding.status) ? onboarding.status : 'not_started';
       res.status(200).json({
-        status: onboarding.status === 'complete' ? 'complete' : 'not_started',
-        complete: onboarding.status === 'complete',
+        status,
+        complete: status === 'complete',
         completedAt: onboarding.completedAt || null
       });
     } catch (error) {

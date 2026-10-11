@@ -70,7 +70,7 @@ describe('TourManager', () => {
     const navigate = jest.fn();
     jest.spyOn(router, 'useNavigate').mockReturnValue(navigate);
     jest.spyOn(router, 'useLocation').mockReturnValue({
-      pathname: '/onboarding/wiki',
+      pathname: '/welcome',
       search: '',
       hash: '',
       state: null,
