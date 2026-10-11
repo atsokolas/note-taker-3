@@ -67,7 +67,7 @@ export const CONTEXTUAL_AGENT_CONTRACTS = Object.freeze([
   contract({
     id: 'agent-surface.wiki',
     room: 'wiki',
-    roleDescription: 'Checks the accepted page against its sources and maintenance history.',
+    roleDescription: 'Ask about this page.',
     capabilities: ['capability.library.retrieve', 'capability.wiki.maintain'],
     actions: ['retrieve', 'accept.edit'],
     match: ({ pathname }) => {
