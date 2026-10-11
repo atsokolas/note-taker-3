@@ -68,6 +68,9 @@ app.use((req, res, next) => {
 
 app.use(cors());
 
+const { buildOpenaiAppsChallengeRouter } = require('./routes/openaiAppsChallengeRoutes');
+app.use(buildOpenaiAppsChallengeRouter());
+
 const { buildChatgptOAuthIngress } = require('./services/chatgptOAuthIngress');
 app.use(buildChatgptOAuthIngress());
 // The raw bytes stay on the request for webhooks that sign them (email-in).
