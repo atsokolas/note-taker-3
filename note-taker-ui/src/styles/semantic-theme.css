@@ -41,6 +41,8 @@ html[data-ui-theme='light'] {
   --noeis-font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   --noeis-font-reading: "Newsreader", "Iowan Old Style", Georgia, serif;
   --noeis-font-mono: "SFMono-Regular", Menlo, Consolas, monospace;
+  /* One display face (the reader's serif) at three title sizes: a room, an
+     object, a section. Nothing else declares a serif family. */
   --noeis-type-display: clamp(1.85rem, 1.35rem + 1.45vw, 2.7rem);
   --noeis-type-title: clamp(1.42rem, 1.16rem + 0.75vw, 2rem);
   --noeis-type-heading: clamp(1.03rem, 0.96rem + 0.32vw, 1.24rem);
