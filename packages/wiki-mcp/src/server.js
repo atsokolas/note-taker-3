@@ -34,8 +34,10 @@ const profileTool = {
 export const toolDefinitions = [profileTool, ...readTools, ...writeTools];
 
 const writeNames = new Set(writeTools.map(tool => tool.name));
+// Edition filing preserves items, but can overwrite a headline or follow-up
+// answer without keeping its previous wording.
 const nonDestructiveWrites = new Set([
-  'file_edition_items', 'save_source_thought',
+  'save_source_thought',
   'create_folder', 'create_highlight', 'write_concept_note', 'create_notebook_entry',
   'add_highlight_to_notebook_entry', 'create_notebook_folder', 'create_question',
   'pin_highlight_to_concept', 'create_page', 'create_judgment_page'

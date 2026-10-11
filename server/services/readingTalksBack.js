@@ -362,6 +362,25 @@ const setOppositeAside = ({ entryId, userId, key, models: { NotebookEntry }, now
   { timestamps: false }
 );
 
+/* A quote from a saved source, as a highlight on it: the one already there
+   with the same words, or a new one. Filing goes through highlights, so a
+   passage read out of a source has to become one first. */
+const highlightForQuote = async ({ Article, userId, articleId, quote }) => {
+  const text = clean(quote, 1200);
+  let article = await Article.findOne({ _id: articleId, userId }).select('_id highlights');
+  if (!article || !text) return {};
+  let highlight = list(article.highlights).find(item => clean(item?.text, 1200) === text);
+  if (!highlight) {
+    article = await Article.findOneAndUpdate(
+      { _id: articleId, userId },
+      { $push: { highlights: buildHighlightDocument({ text, normalizeTags: () => [] }) } },
+      { new: true }
+    ).select('_id highlights');
+    highlight = list(article?.highlights).find(item => clean(item?.text, 1200) === text);
+  }
+  return { article, highlight };
+};
+
 /* Filing a pending passage: the quote becomes a highlight on the source it
    came from, the highlight is filed through the ordinary evidence path, and
    the proposal is closed. Every step is idempotent, so a retry lands once. */
@@ -379,19 +398,10 @@ const fileReadingProposal = async ({
     throw new JudgmentChangeProposalError('This passage was already settled.', 409);
   }
 
-  const articleId = stored.provenance.articleId;
-  const quote = clean(stored.provenance.after, 1200);
-  let article = await Article.findOne({ _id: articleId, userId }).select('_id highlights');
-  if (!article) throw new JudgmentChangeProposalError('That source is no longer in your Library.', 409);
-  let highlight = list(article.highlights).find(item => clean(item?.text, 1200) === quote);
-  if (!highlight) {
-    article = await Article.findOneAndUpdate(
-      { _id: articleId, userId },
-      { $push: { highlights: buildHighlightDocument({ text: quote, normalizeTags: () => [] }) } },
-      { new: true }
-    ).select('_id highlights');
-    highlight = list(article?.highlights).find(item => clean(item?.text, 1200) === quote);
-  }
+  const { article, highlight } = await highlightForQuote({
+    Article, userId, articleId: stored.provenance.articleId, quote: stored.provenance.after
+  });
+  if (!article || !highlight) throw new JudgmentChangeProposalError('That source is no longer in your Library.', 409);
 
   const filed = await fileJudgmentEvidence({
     ...rest, Article, WikiPage, NoeisReceipt,
@@ -413,7 +423,7 @@ const fileReadingProposal = async ({
     receipt: {
       ...stored,
       status: 'accepted',
-      summary: `Filed ${field === 'why' ? 'for' : 'against'}: ${quote}`,
+      summary: `Filed ${field === 'why' ? 'for' : 'against'}: ${highlight.text}`,
       provenance: { ...stored.provenance, disposition, resolvedAt: now },
       completedAt: now
     }
@@ -427,6 +437,7 @@ module.exports = {
   candidateViews,
   fileReadingProposal,
   opposeFromNote,
+  highlightForQuote,
   proposeFromReading,
   pushesAgainst,
   setOppositeAside,

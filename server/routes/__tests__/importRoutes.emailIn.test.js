@@ -125,6 +125,10 @@ const run = async () => {
 
     // Other webhook events are acknowledged and ignored.
     assert.equal((await signedPost(`${url}/on`, { type: 'email.sent', data: {} })).body.status, 'ignored');
+    await User.updateOne({ _id: reader._id }, { $set: { accountDisabledAt: new Date() } });
+    const blocked = await signedPost(`${url}/on`, forward({ message_id: '<after-closure@mail.example>' }));
+    assert.deepEqual([blocked.status, blocked.body.status], [200, 'dropped']);
+    assert.equal(await Article.countDocuments({}), 2, 'mail cannot recreate content for a disabled account');
   } finally {
     server.close();
     await mongoose.disconnect();

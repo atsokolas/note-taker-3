@@ -1,34 +1,31 @@
 import { useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { listWikiPages } from '../api/wiki';
-import { isWikiOnboardingComplete, markWikiOnboardingComplete } from './onboardingState';
-import { readConnectAttempt } from './connectAttempt';
-import syncWikiOnboardingState from './onboardingSync';
+import { fetchOnboardingState } from '../api/onboarding';
+import { isOnboardingComplete, rememberOnboardingComplete } from './onboardingState';
 
 /**
- * useFirstRunGate — a new user starts where the flow starts.
+ * useFirstRunGate — a new account starts at the beginning, wherever it lands.
  *
- * This lives at the authenticated shell rather than on any one page, because the
- * landing route is not the flow. Home is the Paper; onboarding is what happens
- * before you have a home worth opening. Gating inside a single page meant a new
- * user who landed anywhere else simply never met onboarding.
+ * It lives at the authenticated shell because a new reader can arrive anywhere: a
+ * remembered link, a shared page, the wordmark. The server decides who is new: an
+ * account starts 'pending' at sign-up and stops being pending when first run ends
+ * or is skipped. Accounts that predate first run are never 'pending', so nobody with
+ * a library is ever walked back through it.
  *
- * Cost control: the localStorage flag is checked first and short-circuits, so an
- * established user pays nothing. The API call happens at most once per session,
- * only for users who have not finished onboarding.
+ * Cost: the local flag short-circuits for everyone past first run, so the request
+ * happens at most once per session, and only until the server has said "not new".
  */
 
-const ONBOARDING_PATH = '/onboarding/wiki';
+const WELCOME_PATH = '/welcome';
 
-// Routes that must not be interrupted. Adoption flows hand off to onboarding on
-// their own terms and carry state in the query string.
+// Routes that must not be interrupted: first run itself, signing in, the public
+// pages, and the agent-approval screens an external app opened on purpose.
 const EXEMPT_PREFIXES = [
-  '/onboarding',
+  WELCOME_PATH,
   '/share/',
   '/register',
   '/login',
   '/a/run/',
-  '/settings',
   '/settings/connected-agents'
 ];
 
@@ -40,62 +37,35 @@ const useFirstRunGate = ({ enabled = true } = {}) => {
   const checkedRef = useRef(false);
   const mountedRef = useRef(true);
 
-  // Unmount is the only thing that should abandon the decision. Sign-in bounces
-  // the user through several routes in quick succession, and this effect re-runs
-  // on each one; if the effect's own cleanup cancelled the in-flight check, the
-  // answer would be thrown away and checkedRef would block the retry — a new user
-  // would silently never reach onboarding.
+  // Unmount is the only thing that abandons the decision. Sign-in bounces through
+  // several routes in quick succession and this effect re-runs on each; if its own
+  // cleanup cancelled the request, checkedRef would block the retry and a new
+  // reader would silently never meet first run.
   useEffect(() => {
     mountedRef.current = true;
     return () => { mountedRef.current = false; };
   }, []);
 
   useEffect(() => {
-    if (!enabled) return;
-    if (checkedRef.current) return;
-    if (isWikiOnboardingComplete()) return;
-    if (isExempt(location.pathname)) return;
-    // They left onboarding deliberately, to connect an archive. Sending them back
-    // now is not rescuing a lost new user, it is undoing the step they just took —
-    // which is exactly what happened: the provider links appeared to do nothing
-    // because this gate returned them to /onboarding/wiki before Connections
-    // finished mounting.
-    if (readConnectAttempt()) return;
-
+    if (!enabled || checkedRef.current) return;
+    if (isOnboardingComplete() || isExempt(location.pathname)) return;
     checkedRef.current = true;
 
-    // Ask the server whether this account has already onboarded before deciding
-    // anything: the local flag is per-browser, and a second device would otherwise
-    // walk a returning user through first-run again.
-    syncWikiOnboardingState()
-      .then((complete) => {
-        if (!mountedRef.current || complete) return null;
-        // "Do you have a workspace" is a different question from "do you have a
-        // page good enough to feature". The default list hides pages failing the
-        // surface-quality filter, so an established account whose few most
-        // recently updated pages happen to be drafts or thin scaffolds answered
-        // "no" and was walked back through first-run onboarding — which offers
-        // no way out except seeding starter packs. Ask whether anything exists.
-        return listWikiPages({ limit: 1, includeLowQuality: 1, summary: 1 });
-      })
-      .then((pages) => {
-        if (!mountedRef.current || pages === null) return;
-        const hasContent = Array.isArray(pages) && pages.length > 0;
-        if (hasContent) {
-          // Already has a workspace: past onboarding by definition. Record it so
-          // this never costs them a request again.
-          markWikiOnboardingComplete();
+    fetchOnboardingState()
+      .then((state) => {
+        if (!mountedRef.current) return;
+        if (state?.status === 'pending') {
+          navigate(WELCOME_PATH, { replace: true });
           return;
         }
-        navigate(ONBOARDING_PATH, { replace: true });
+        rememberOnboardingComplete();
       })
       .catch(() => {
-        // If we cannot tell, do not hijack the user. Onboarding stays reachable
-        // from the wiki, and a failed probe should never strand someone mid-session.
+        // Cannot tell: never hijack. The next route change asks again.
         if (mountedRef.current) checkedRef.current = false;
       });
   }, [enabled, location.pathname, navigate]);
 };
 
 export default useFirstRunGate;
-export { ONBOARDING_PATH, EXEMPT_PREFIXES };
+export { WELCOME_PATH, EXEMPT_PREFIXES };

@@ -7,7 +7,7 @@ const {
 } = require('../services/judgmentResolutionService');
 const { buildJudgmentMirror: readMirror } = require('../services/judgmentMirrorService');
 const { JudgmentChangeProposalError } = require('../services/judgmentChangeProposalService');
-const { fileReadingProposal: persistReading } = require('../services/readingTalksBack');
+const { fileReadingProposal: persistReading, highlightForQuote: persistQuote } = require('../services/readingTalksBack');
 const { buildJudgmentMirror: buildClaimMirror, STATS } = require('../services/judgmentMirror');
 const { buildCalibration } = require('../services/calibrationInstrument');
 const { requireAuthenticatedUser } = require('./conceptRouteGuards');
@@ -43,6 +43,7 @@ const buildJudgmentResolutionRouter = ({
   setResolutionCriteria = persistCriteria,
   fileJudgmentEvidence = persistEvidence,
   fileReadingProposal = persistReading,
+  highlightForQuote = persistQuote,
   recordVerdict = persistVerdict,
   buildJudgmentMirror = readMirror,
   trackEvent = () => {},
@@ -151,6 +152,15 @@ const buildJudgmentResolutionRouter = ({
         });
         return res.status(filed.replay ? 200 : 201).json({ proposal: filed.proposal, ...(filed.filed ? serialize(filed.filed) : {}) });
       }
+      /* A passage out of a saved source that nobody highlighted is filed by
+         its words: it becomes a highlight first, as a read-back passage does. */
+      let highlightId = req.body?.highlightId;
+      if (!highlightId && req.body?.quote && isObjectId(req.body?.articleId)) {
+        const { highlight } = await highlightForQuote({
+          Article: models.Article, userId: req.user.id, articleId: req.body.articleId, quote: req.body.quote
+        });
+        highlightId = highlight?._id ? String(highlight._id) : '';
+      }
       const result = await fileJudgmentEvidence({
         ...models,
         userId: req.user.id,
@@ -159,7 +169,7 @@ const buildJudgmentResolutionRouter = ({
         expectedClaim: req.body?.expectedClaim,
         field: req.body?.field,
         articleId: req.body?.articleId,
-        highlightId: req.body?.highlightId
+        highlightId
       });
       if (!result.idempotent) track(req, EVENT_NAMES.EVIDENCE_FILED, { field: String(req.body?.field || '') });
       return res.status(result.idempotent ? 200 : 201).json(serialize(result));

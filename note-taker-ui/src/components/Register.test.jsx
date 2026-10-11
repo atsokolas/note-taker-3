@@ -1,6 +1,6 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useNavigate } from 'react-router-dom';
 import Register from './Register';
 import api, { clearStoredTokens } from '../api';
 import {
@@ -49,8 +49,7 @@ describe('Register', () => {
 
     fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'alice' } });
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'secret12' } });
-    fireEvent.change(screen.getByLabelText('Confirm password'), { target: { value: 'secret12' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Register' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Create account' }));
 
     await waitFor(() => expect(api.post).toHaveBeenCalledWith(
       '/api/auth/register',
@@ -89,8 +88,7 @@ describe('Register', () => {
 
     fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'alice' } });
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'secret12' } });
-    fireEvent.change(screen.getByLabelText('Confirm password'), { target: { value: 'secret12' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Register' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Create account' }));
 
     await waitFor(() => expect(api.post).toHaveBeenCalledWith(
       '/api/auth/login',
@@ -101,6 +99,39 @@ describe('Register', () => {
     expect(onLoginSuccess).toHaveBeenCalledTimes(1);
     // The old flow parked a notice for the login screen. There is no login screen now.
     expect(sessionStorage.getItem('registration_notice')).toBeNull();
+  });
+
+  it('lands a new account on first run, not the home page', async () => {
+    api.post.mockImplementation((path) => (
+      path === '/api/auth/register'
+        ? Promise.resolve({ data: { message: 'ok' } })
+        : Promise.resolve({ data: { token: 'fresh-token' } })
+    ));
+
+    render(
+      <MemoryRouter>
+        <Register chromeStoreLink="https://example.com" onLoginSuccess={jest.fn()} />
+      </MemoryRouter>
+    );
+
+    fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'alice' } });
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'secret12' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create account' }));
+
+    await waitFor(() => expect(useNavigate()).toHaveBeenCalledWith('/welcome', { replace: true }));
+  });
+
+  it('lets you read the password you typed', () => {
+    render(
+      <MemoryRouter>
+        <Register chromeStoreLink="https://example.com" />
+      </MemoryRouter>
+    );
+
+    const field = screen.getByLabelText('Password');
+    expect(field).toHaveAttribute('type', 'password');
+    fireEvent.click(screen.getByRole('button', { name: 'Show' }));
+    expect(field).toHaveAttribute('type', 'text');
   });
 
   it('falls back to the login form when auto sign-in fails', async () => {
@@ -119,8 +150,7 @@ describe('Register', () => {
 
     fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'alice' } });
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'secret12' } });
-    fireEvent.change(screen.getByLabelText('Confirm password'), { target: { value: 'secret12' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Register' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Create account' }));
 
     // The account exists; the user must still be able to get in.
     await waitFor(() => expect(sessionStorage.getItem('registration_notice')).toBe('Account created.'));
@@ -136,8 +166,7 @@ describe('Register', () => {
 
     fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'alice' } });
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'alice' } });
-    fireEvent.change(screen.getByLabelText('Confirm password'), { target: { value: 'alice' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Register' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Create account' }));
 
     expect(await screen.findByText('Password must be at least 8 characters.')).toBeInTheDocument();
     expect(trackSignupViewed).toHaveBeenCalledTimes(1);
