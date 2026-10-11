@@ -2410,6 +2410,7 @@ const generateCollaborativeReply = async ({
           history: () => readPageHistory({ WikiRevision, userId: userObjectId, page: contextItem })
         } : {}),
         changes,
+        quotable: standing?.views || [],
         chat: chatComplete,
         signal
       });

@@ -439,8 +439,12 @@ const useResolvedAgentSurface = (descriptor, handlers) => {
    approval policy stay in the registry instead of being re-inferred inside
    the panel or copied into each page. */
 export const useContextualAgentSurface = (contractId, context, handlers) => {
-  const descriptor = buildContextualAgentSurface(contractId, context);
   const filteredHandlers = filterContextualAgentHandlers(contractId, handlers);
+  const built = buildContextualAgentSurface(contractId, context);
+  // Wording is offered only where a draft can take it.
+  const descriptor = built && !filteredHandlers.onTryWording
+    ? { ...built, supportedActions: built.supportedActions.filter(action => action !== 'try-wording') }
+    : built;
   useResolvedAgentSurface(descriptor, filteredHandlers);
 };
 

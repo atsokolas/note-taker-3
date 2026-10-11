@@ -564,4 +564,14 @@ describe('PartnerPanel in Think', () => {
     expect(within(rail).getByRole('region', { name: 'What it read' })).toHaveTextContent('Grid queues');
     expect(within(rail).getByRole('link', { name: 'Grid queues' })).toHaveAttribute('href', '/library?articleId=a1');
   });
+
+  it('offers no wording where there is no draft to try it in', async () => {
+    streamChatWithAgent.mockResolvedValueOnce({ reply: 'Compounding rewards the patient, not the early.', mode: 'hf_chat' });
+    render(<AgentRailProvider><ThinkSurface /></AgentRailProvider>);
+    const rail = screen.getByRole('complementary', { name: 'Partner' });
+    fireEvent.change(within(rail).getByRole('textbox'), { target: { value: 'Say it another way' } });
+    fireEvent.click(within(rail).getByRole('button', { name: 'Ask' }));
+    await within(rail).findByText('Compounding rewards the patient, not the early.');
+    expect(within(rail).queryByRole('button', { name: 'Try wording' })).toBeNull();
+  });
 });

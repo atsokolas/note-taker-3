@@ -79,14 +79,17 @@ describe('runAgentLoop', () => {
   });
 
   it('takes a held view or the reader\'s own words in quotes as theirs, not an invented quotation', async () => {
-    const held = [
-      { role: 'system', content: 'The reader holds these views: “Rest beats willpower for late decisions”.' },
-      { role: 'user', content: 'Is it true that I decide worse after midnight?' }
-    ];
+    const asked = [...messages, { role: 'user', content: 'Is it true that I decide worse after midnight?' }];
     const chat = scripted({ text: 'You hold that "Rest beats willpower for late decisions", and you asked whether "I decide worse after midnight".' });
-    const result = await runAgentLoop({ messages: held, sources: [sleep], chat });
+    const result = await runAgentLoop({ messages: asked, sources: [sleep], quotable: ['Rest beats willpower for late decisions'], chat });
     expect(chat).toHaveBeenCalledTimes(1);
     expect(result.reply).toMatch(/Rest beats willpower/);
+  });
+
+  it('does not take its own earlier reply as a source', async () => {
+    const said = [...messages, { role: 'assistant', content: 'Sleep is the single best predictor of judgment.' }, { role: 'user', content: 'Quote that.' }];
+    const invented = { text: 'The source says "sleep is the single best predictor of judgment".' };
+    expect(await runAgentLoop({ messages: said, sources: [sleep], chat: scripted(invented, invented) })).toBeNull();
   });
 
   it('returns nothing when the quotation is still invented after repair', async () => {
