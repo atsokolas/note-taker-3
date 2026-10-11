@@ -5,6 +5,9 @@
    otherwise) and a highlight ref names the highlight and the article it sits
    in, so every citation opens the reader rather than a copy.
 
+   A web address ingested into the wiki that is already in the Library is
+   ingested as that article, so its ref is direct from the start.
+
    Older refs were written another way: with the wiki source event's id in
    `objectId`, or as an external link to a page saved to the Library before or
    since. They are resolved when read and the link is written back, so the
@@ -108,6 +111,15 @@ const resolveSourceRefs = async ({ Article, WikiSourceEvent, userId, refs = [] }
   return changes;
 };
 
+/** The reader's Library article saved at this address, or null. */
+const findLibraryArticle = async ({ Article, userId, url }) => {
+  const pattern = urlPattern(url);
+  if (!Article || !pattern) return null;
+  const canonical = canonicalSourceUrl(url);
+  const articles = await Article.find({ userId, url: pattern }).select('_id url title content').lean();
+  return articles.find(article => canonicalSourceUrl(article.url) === canonical) || null;
+};
+
 /** Resolve a page's sources and remember what was found, without touching updatedAt. */
 const linkPageSources = async ({ Article, WikiSourceEvent, WikiPage, page }) => {
   const refs = Array.isArray(page?.sourceRefs) ? page.sourceRefs : [];
@@ -127,5 +139,6 @@ const linkPageSources = async ({ Article, WikiSourceEvent, WikiPage, page }) => 
 
 module.exports = {
   canonicalSourceUrl,
+  findLibraryArticle,
   linkPageSources
 };

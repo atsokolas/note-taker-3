@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
-const { canonicalSourceUrl, linkPageSources } = require('./librarySource');
+const { canonicalSourceUrl, findLibraryArticle, linkPageSources } = require('./librarySource');
 const { attachSourceEventEvidence } = require('./wikiMaintenanceOrchestrator');
 const backfill = require('../../scripts/link_wiki_sources_to_library');
 
@@ -83,6 +83,13 @@ async function run() {
     ] };
     assert.equal(await linkPageSources({ Article, WikiSourceEvent, page: journals }), 1);
     assert.equal(String(journals.sourceRefs[0].parentObjectId), String(journal._id));
+
+    // Ingest asks the same question of one address: is this already yours?
+    assert.equal(String((await findLibraryArticle({ Article, userId, url: 'http://example.com/buffett-intrinsic-value?fbclid=1' }))._id), String(article._id));
+    assert.equal(String((await findLibraryArticle({ Article, userId, url: 'https://example.com/journals' }))._id), String(journal._id));
+    assert.equal(await findLibraryArticle({ Article, userId, url: 'https://example.com/journals?page=2' }), null);
+    assert.equal(await findLibraryArticle({ Article, userId, url: 'https://example.com/elsewhere' }), null, 'only your own Library');
+    assert.equal(await findLibraryArticle({ Article, userId, url: 'not a url' }), null);
 
     // The backfill says what it would do, and does it only when asked.
     const unread = await WikiPage.collection.insertOne({

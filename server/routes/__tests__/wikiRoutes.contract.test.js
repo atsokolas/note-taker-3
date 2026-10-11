@@ -2588,6 +2588,18 @@ const run = async () => {
     assert.strictEqual(ingest.body.status, 'pending');
     assert.deepStrictEqual(ingest.body.affectedPageIds, []);
 
+    // An address already saved in the Library is ingested as that article, not fetched again.
+    const savedIngest = await request(url, '/api/wiki/ingest', {
+      method: 'POST',
+      body: JSON.stringify({ source: { type: 'url', url: 'http://www.example.com/memory/?utm_source=mail' } })
+    });
+    assert.strictEqual(savedIngest.res.status, 202, savedIngest.text);
+    assert.strictEqual(savedIngest.body.sourceRef.type, 'article');
+    assert.strictEqual(savedIngest.body.sourceRef.objectId, Article.find({ title: 'Enterprise AI memory article' }).value[0]._id);
+    assert.strictEqual(savedIngest.body.sourceRef.title, 'Enterprise AI memory article');
+    assert.match(savedIngest.body.sourceRef.text, /maintained claims, source-backed sections/);
+    await waitForIngestRun(url, savedIngest.body.runId, body => body.status !== 'pending' && body.status !== 'processing');
+
     const ingestDetails = await waitForIngestRun(url, ingest.body.runId, body => body.status === 'processed');
     assert.strictEqual(ingestDetails.res.status, 200, ingestDetails.text);
     assert.strictEqual(ingestDetails.body.runId, ingest.body.runId);

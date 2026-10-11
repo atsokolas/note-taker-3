@@ -115,7 +115,7 @@ const ThinkEntryEditor = ({
   const [picking, setPicking] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [renameError, setRenameError] = useState('');
+  const [renameNote, setRenameNote] = useState(null);
   const restoredFromRef = useRef('');
   const renamingRef = useRef(false);
   const [tick, setTick] = useState(0);
@@ -152,7 +152,7 @@ const ThinkEntryEditor = ({
     setEntry(null);
     setError('');
     setHistoryOpen(false);
-    setRenameError('');
+    setRenameNote(null);
     (target.kind === 'concept' ? loadConcept(target.id) : loadQuestion(target.id)).then(loaded => {
       if (cancelled) return;
       setEntry(loaded);
@@ -279,7 +279,7 @@ const ThinkEntryEditor = ({
      leaving the field, keeps the name it had. */
   const keepName = () => {
     setTitle(entry.title);
-    setRenameError('');
+    setRenameNote(null);
   };
   const rename = async () => {
     const name = title.replace(/\s+/g, ' ').trim();
@@ -293,11 +293,11 @@ const ThinkEntryEditor = ({
       const result = await renameConcept(entry.record?._id || entry.title, name);
       setEntry(previous => ({ ...previous, title: result.name, record: { ...previous.record, name: result.name } }));
       setTitle(result.name);
-      setRenameError('');
+      setRenameNote(result.notes ? { text: `Renamed where you mentioned it, in ${result.notes} ${result.notes === 1 ? 'note' : 'notes'}.` } : null);
       onRenamed?.({ ...result, conceptId: result.conceptId || String(entry.record?._id || '') });
       editor?.commands.focus('start');
     } catch (renameFailure) {
-      setRenameError(renameFailure?.response?.data?.error || 'The concept kept its old name. Try again in a moment.');
+      setRenameNote({ failed: true, text: renameFailure?.response?.data?.error || 'The concept kept its old name. Try again in a moment.' });
     } finally {
       renamingRef.current = false;
     }
@@ -334,7 +334,7 @@ const ThinkEntryEditor = ({
             className="think-notebook-title-input"
             value={title}
             aria-label={isQuestion ? 'Question' : 'Concept name'}
-            aria-describedby={renameError ? 'think-entry-rename-error' : undefined}
+            aria-describedby={renameNote?.failed ? 'think-entry-rename-error' : undefined}
             onChange={(event) => {
               setTitle(event.target.value);
               if (isQuestion) schedule();
@@ -359,7 +359,9 @@ const ThinkEntryEditor = ({
             }}
             placeholder="Title"
           />
-          {renameError ? <p className="think-entry-rename-note" id="think-entry-rename-error" role="alert">{renameError}</p> : null}
+          {renameNote ? (
+            <p className={`think-entry-rename-note${renameNote.failed ? ' is-refused' : ''}`} id={renameNote.failed ? 'think-entry-rename-error' : undefined} role={renameNote.failed ? 'alert' : 'status'}>{renameNote.text}</p>
+          ) : null}
           <p className="think-notebook-title-meta" id="think-note-title">{begunLine(entry.record?.createdAt, words)}</p>
         </div>
         {historyOpen ? (

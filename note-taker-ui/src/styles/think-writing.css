@@ -713,13 +713,14 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
   .think-entry-history ol { grid-template-columns: 1fr auto; }
   .think-entry-history li > span { grid-column: 1 / -1; grid-row: 2; }
 }
-/* A refused rename is one quiet sentence under the name, not an alarm. */
+/* What a rename moved, or why it was refused: one quiet sentence under the name, not an alarm. */
 .think-entry-rename-note {
   margin: 4px 0 0;
-  color: var(--noeis-danger, var(--danger));
+  color: var(--text-muted, var(--vellum-subtle));
   font-family: var(--font-sans);
   font-size: 0.82rem;
 }
+.think-entry-rename-note.is-refused { color: var(--noeis-danger, var(--danger)); }
 @keyframes think-history-in { from { opacity: 0; transform: translateY(-3px); } }
 
 @media (prefers-reduced-motion: reduce) {

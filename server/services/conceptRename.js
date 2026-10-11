@@ -6,7 +6,13 @@
    would orphan every one of those, so the record and its references move
    together in one transaction or not at all. A rename onto a name that is
    already a concept is refused: that would be a merge, and a merge deserves
-   to be asked for by name. Changing only the case of the name is a rename. */
+   to be asked for by name. Changing only the case of the name is a rename.
+
+   Where the reader mentioned the concept in a note (an @-mention), the name
+   is written into the note too: in its text, its blocks and the pieces set
+   aside. Those mentions move with it. The words around them are the
+   reader's, and are never rewritten. A wiki page names other pages, never a
+   concept, so no page changes. */
 
 class ConceptRenameError extends Error {
   constructor(message, status = 400) {
@@ -22,7 +28,6 @@ const exactly = (name) => new RegExp(`^${escape(name)}$`, 'i');
 const references = (models, was, name) => [
   [models.Article, { 'highlights.tags': was }, { 'highlights.$[].tags.$[tag]': name }, [{ tag: was }]],
   [models.NotebookEntry, { tags: was }, { 'tags.$[tag]': name }, [{ tag: was }]],
-  [models.NotebookEntry, { 'blocks.conceptName': was }, { 'blocks.$[block].conceptName': name }, [{ 'block.conceptName': was }]],
   [models.Question, { linkedTagName: was }, { linkedTagName: name }],
   [models.Question, { conceptName: was }, { conceptName: name }],
   [models.ConceptNote, { tagName: was }, { tagName: name }],
@@ -35,6 +40,40 @@ const references = (models, was, name) => [
   [models.ReturnQueueEntry, { itemType: 'concept', itemId: was }, { itemId: name }]
 ].filter(([Model]) => Model?.updateMany);
 
+const attribute = (value) => String(value).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+const plain = (value) => Array.isArray(value) || Object.getPrototypeOf(value || 0) === Object.prototype;
+
+/* Rename every `conceptName` under value, in place. */
+const renameNamed = (value, was, name) => {
+  if (typeof value.conceptName === 'string' && was.test(value.conceptName)) value.conceptName = name;
+  Object.values(value).filter(plain).forEach(child => renameNamed(child, was, name));
+};
+
+/* Move the reader's mentions of the concept in their notes; the count of notes changed. */
+const renameMentions = async ({ NotebookEntry, userId, was, previous, name, session }) => {
+  if (!NotebookEntry?.find) return 0;
+  const typed = new RegExp(`(data-conceptname=")${escape(attribute(previous))}"`, 'gi');
+  const notes = await NotebookEntry.find({
+    userId,
+    $or: [
+      { content: new RegExp(typed.source, 'i') },
+      { 'blocks.conceptName': was },
+      { 'asidePieces.blocks.conceptName': was },
+      { 'asidePieces.nodes.attrs.conceptName': was }
+    ]
+  }).select('content blocks asidePieces').session(session).lean();
+  for (const note of notes) {
+    const content = String(note.content || '').replace(typed, (_, start) => `${start}${attribute(name)}"`);
+    renameNamed({ blocks: note.blocks, asidePieces: note.asidePieces }, was, name);
+    await NotebookEntry.updateOne(
+      { _id: note._id, userId },
+      { $set: { content, blocks: note.blocks, asidePieces: note.asidePieces } },
+      { session }
+    );
+  }
+  return notes.length;
+};
+
 const renameConcept = async ({ TagMeta, models = {}, userId, from, to }) => {
   const previous = String(from || '').trim();
   const name = String(to || '').replace(/\s+/g, ' ').trim();
@@ -44,6 +83,7 @@ const renameConcept = async ({ TagMeta, models = {}, userId, from, to }) => {
   const was = exactly(previous);
   const session = await TagMeta.db.startSession();
   let concept = null;
+  let notes = 0;
   try {
     await session.withTransaction(async () => {
       concept = await TagMeta.findOne({ userId, name: was }).session(session);
@@ -64,11 +104,12 @@ const renameConcept = async ({ TagMeta, models = {}, userId, from, to }) => {
       for (const [Model, where, set, arrayFilters] of references(models, was, name)) {
         await Model.updateMany({ userId, ...where }, { $set: set }, { session, ...(arrayFilters ? { arrayFilters } : {}) });
       }
+      notes = await renameMentions({ NotebookEntry: models.NotebookEntry, userId, was, previous, name, session });
     });
   } finally {
     await session.endSession();
   }
-  return { name, previousName: previous, conceptId: concept ? String(concept._id) : '' };
+  return { name, previousName: previous, conceptId: concept ? String(concept._id) : '', notes };
 };
 
 module.exports = { ConceptRenameError, renameConcept };
