@@ -242,7 +242,7 @@ const ThinkGroundedObjects = ({ conceptId = '', candidates = [], onInsert, varia
       {loading && objects.length === 0 ? (
         <p className="think-grounded-objects__empty">Gathering attached source memory…</p>
       ) : objects.length === 0 ? (
-        <p className="think-grounded-objects__empty">Ask the thought partner to retrieve something. It will land here with its path home.</p>
+        <p className="think-grounded-objects__empty">Ask Partner to retrieve something. It will land here with its path home.</p>
       ) : (
         <ol className="think-grounded-objects__list" aria-label="Grounded object order">
           {objects.map((entry, index) => {

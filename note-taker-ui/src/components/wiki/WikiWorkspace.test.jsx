@@ -315,7 +315,7 @@ describe('WikiWorkspace', () => {
 
     expect(document.querySelector('.wiki-workspace')).toHaveClass('wiki-workspace--list-view');
     expect(await screen.findByTestId('wiki-list')).toHaveTextContent('List view compact');
-    expect(screen.getByLabelText('Thought partner chat')).toBeInTheDocument();
+    expect(screen.getByLabelText('Partner chat')).toBeInTheDocument();
     expect(screen.queryByTestId('wiki-read-view')).not.toBeInTheDocument();
   });
 
@@ -323,14 +323,14 @@ describe('WikiWorkspace', () => {
     renderWorkspace();
     await settleWorkspaceEffects();
 
-    const embeddedAgent = screen.getByLabelText('Thought partner chat');
+    const embeddedAgent = screen.getByLabelText('Partner chat');
     expect(embeddedAgent).toBeInTheDocument();
     expect(embeddedAgent).toHaveAttribute('data-agent-contract', 'agent-surface.wiki-workspace');
     expect(embeddedAgent).toHaveAttribute('data-agent-presentation', 'embedded');
     expect(embeddedAgent.getAttribute('data-agent-actions')).toContain('maintain');
     expect(embeddedAgent).toHaveAttribute('data-agent-proposal-policy', 'human_acceptance');
-    await waitFor(() => expect(screen.getByLabelText('Thought partner status')).toHaveTextContent('Agent ready.'));
-    expect(screen.queryByLabelText('Thought partner trace')).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByLabelText('Partner status')).toHaveTextContent('Agent ready.'));
+    expect(screen.queryByLabelText('Partner trace')).not.toBeInTheDocument();
     expect(screen.getByTestId('wiki-index')).toBeInTheDocument();
     expect(document.querySelector('.wiki-workspace')).toHaveStyle('--wiki-workspace-chat-width: 260px');
     expect(document.querySelector('.wiki-workspace__right-pane')).toBeInTheDocument();
@@ -374,7 +374,7 @@ describe('WikiWorkspace', () => {
     await settleWorkspaceEffects();
 
     expect(screen.queryByRole('heading', { name: /start the wiki with one page or one source/i })).not.toBeInTheDocument();
-    expect(screen.getByLabelText('Thought partner chat')).toBeInTheDocument();
+    expect(screen.getByLabelText('Partner chat')).toBeInTheDocument();
   });
 
   it('AT-250 — does not show first-visit onboarding when the workspace already has pages', async () => {
@@ -382,7 +382,7 @@ describe('WikiWorkspace', () => {
     await waitFor(() => expect(listWikiPages).toHaveBeenCalledWith({ limit: 1, summary: 1 }));
 
     expect(screen.queryByRole('heading', { name: /start the wiki with one page or one source/i })).not.toBeInTheDocument();
-    expect(screen.getByLabelText('Thought partner chat')).toBeInTheDocument();
+    expect(screen.getByLabelText('Partner chat')).toBeInTheDocument();
   });
 
   it('AT-250 — does not show first-visit onboarding on direct wiki page links', async () => {
@@ -403,10 +403,10 @@ describe('WikiWorkspace', () => {
     const workspace = document.querySelector('.wiki-workspace');
     expect(workspace).toHaveClass('wiki-workspace--agent-collapsed');
     expect(workspace).not.toHaveClass('is-mobile-wiki');
-    expect(screen.getByRole('button', { name: 'Open Thought partner' })).toHaveTextContent('Thought partner');
+    expect(screen.getByRole('button', { name: 'Open Partner' })).toHaveTextContent('Partner');
     expect(await screen.findByTestId('wiki-read-view')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Open Thought partner' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open Partner' }));
 
     expect(document.querySelector('.wiki-workspace')).not.toHaveClass('wiki-workspace--agent-collapsed');
     expect(document.querySelector('.wiki-workspace')).not.toHaveClass('is-mobile-chat');
@@ -421,7 +421,7 @@ describe('WikiWorkspace', () => {
 
     expect(document.querySelector('.wiki-workspace')).not.toHaveClass('wiki-workspace--agent-collapsed');
     expect(document.querySelector('.wiki-workspace')).not.toHaveClass('is-mobile-chat');
-    expect(screen.queryByRole('button', { name: 'Open Thought partner' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Open Partner' })).not.toBeInTheDocument();
     expect(screen.getByLabelText('Wiki workspace message')).toBeInTheDocument();
     expect(await screen.findByTestId('wiki-read-view')).toBeInTheDocument();
   });
@@ -621,8 +621,8 @@ describe('WikiWorkspace', () => {
     expect(document.querySelector('.wiki-workspace__chat-pane')).toHaveClass('wiki-workspace__pane--inactive');
     expect(document.querySelector('.wiki-workspace__right-pane')).not.toHaveClass('wiki-workspace__pane--inactive');
     expect(screen.queryByRole('tab', { name: 'Chat' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('form', { name: 'Thought partner quick prompt' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Open Thought partner' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('form', { name: 'Partner quick prompt' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Open Partner' })).not.toBeInTheDocument();
     expect(await screen.findByTestId('wiki-read-view')).toHaveTextContent('Page wiki-1');
   });
 
@@ -633,14 +633,14 @@ describe('WikiWorkspace', () => {
 
     expect(document.querySelector('.wiki-workspace')).toHaveClass('is-mobile-wiki');
     expect(document.querySelector('.wiki-workspace__chat-pane')).toHaveClass('wiki-workspace__pane--inactive');
-    const quickPrompt = screen.getByRole('form', { name: 'Thought partner quick prompt' });
-    expect(within(quickPrompt).getByText('Thought partner')).toBeInTheDocument();
+    const quickPrompt = screen.getByRole('form', { name: 'Partner quick prompt' });
+    expect(within(quickPrompt).getByText('Partner')).toBeInTheDocument();
     expect(within(quickPrompt).getByText('Ready')).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText('Thought partner quick message'), {
+    fireEvent.change(screen.getByLabelText('Partner quick message'), {
       target: { value: '/build Research maps' }
     });
-    fireEvent.submit(screen.getByRole('form', { name: 'Thought partner quick prompt' }));
+    fireEvent.submit(screen.getByRole('form', { name: 'Partner quick prompt' }));
 
     expect(document.querySelector('.wiki-workspace')).toHaveClass('is-mobile-chat');
     await waitFor(() => expect(screen.getByLabelText('Wiki workspace message')).toHaveValue('/build Research maps'));
@@ -687,14 +687,14 @@ describe('WikiWorkspace', () => {
       await settleWorkspaceEffects();
 
       expect(screen.getByTestId('wiki-read-view')).toHaveTextContent('Page wiki-1 workspace');
-      expect(screen.queryByRole('status', { name: 'Thought partner status' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('status', { name: 'Partner status' })).not.toBeInTheDocument();
 
       await act(async () => {
         jest.advanceTimersByTime(300);
       });
       await settleWorkspaceEffects();
 
-      expect(screen.getByRole('status', { name: 'Thought partner status' })).toHaveTextContent(/ready/i);
+      expect(screen.getByRole('status', { name: 'Partner status' })).toHaveTextContent(/ready/i);
     } finally {
       jest.useRealTimers();
     }
@@ -719,7 +719,7 @@ describe('WikiWorkspace', () => {
     renderWorkspace('/wiki/workspace?page=wiki-1');
     await settleWorkspaceEffects();
 
-    const status = await screen.findByRole('status', { name: 'Thought partner status' });
+    const status = await screen.findByRole('status', { name: 'Partner status' });
     expect(status).toHaveTextContent('1 review item for Investing.');
     expect(status).toHaveAttribute('data-status', 'ready');
   });
@@ -762,7 +762,7 @@ describe('WikiWorkspace', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
 
-    const status = await screen.findByRole('status', { name: 'Thought partner status' });
+    const status = await screen.findByRole('status', { name: 'Partner status' });
     expect(status).toHaveTextContent('Agent updating Wiki page...');
     expect(status).toHaveAttribute('data-status', 'working');
 
@@ -1319,7 +1319,7 @@ describe('WikiWorkspace', () => {
     await settleWorkspaceEffects();
 
     expect(await screen.findByRole('alert')).toHaveTextContent('The maintenance stream for wiki-new timed out.');
-    expect(await screen.findByRole('status', { name: 'Thought partner status' })).not.toHaveAttribute('data-status', 'working');
+    expect(await screen.findByRole('status', { name: 'Partner status' })).not.toHaveAttribute('data-status', 'working');
     expect(systemStatusControls.setRecoverableFailure).toHaveBeenCalledWith(expect.objectContaining({
       stage: 'Wiki build',
       message: 'The maintenance stream for wiki-new timed out.',

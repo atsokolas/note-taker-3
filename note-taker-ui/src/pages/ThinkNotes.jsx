@@ -516,7 +516,7 @@ const ThinkNotes = () => {
             contextTitle={entryMatchesRoute ? entry?.title || 'Note' : 'Think'}
             contextMetadata={entryMatchesRoute ? { primaryText: noteContextText } : null}
             queuedPrompt={queuedPrompt}
-            title="Thought partner"
+            title="Partner"
             subtitle="This note, when you ask"
             placeholder="Ask about this note or selected words…"
             promptTemplates={[]}
