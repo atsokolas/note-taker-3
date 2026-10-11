@@ -350,6 +350,13 @@ describe('what would change your mind', () => {
     expect(readingStands(page, proposal)).toBe(false);
     page.judgment.falsifiers[0] = { falsifierId: 'f1', text: 'Renewals fall below eighty percent.', status: 'unobserved' };
     expect(readingStands(page, proposal)).toBe(false);
+    // A proposal still on screen cannot be filed against the test it no longer meets.
+    const fileJudgmentEvidence = jest.fn();
+    await expect(fileReadingProposal({
+      userId: 'u1', pageId: 'v1', receiptId: proposal.id, field: 'against', fileJudgmentEvidence, models, now
+    })).rejects.toMatchObject({ statusCode: 409 });
+    expect(fileJudgmentEvidence).not.toHaveBeenCalled();
+    expect(models.Article.rows[0].highlights || []).toEqual([]);
   });
 
   it('never asks a retired or triggered falsifier, and asks nothing without a model', async () => {

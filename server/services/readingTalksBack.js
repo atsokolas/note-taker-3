@@ -459,6 +459,9 @@ const fileReadingProposal = async ({
     if (stored.provenance?.disposition === disposition) return { proposal: stored, replay: true };
     throw new JudgmentChangeProposalError('This passage was already settled.', 409);
   }
+  if (!readingStands(page, stored)) {
+    throw new JudgmentChangeProposalError('Your view has changed since this passage was read against it.', 409);
+  }
 
   const { article, highlight } = await highlightForQuote({
     Article, userId, articleId: stored.provenance.articleId, quote: stored.provenance.after
