@@ -57,7 +57,6 @@ import './App.css';
 import './styles/reading-layout.css';
 import './styles/dashboard-refresh.css';
 import './styles/idea-workbench.css';
-import './styles/brand-energy.css';
 import './styles/editions.css';
 import './styles/design-preview.css';
 import './styles/stitch-editorial.css';
@@ -230,7 +229,14 @@ export const isDesignPreviewPath = (pathname = '') => (
   pathname === '/design-preview' || pathname.startsWith('/design-preview/')
 );
 
-const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess, uiSettings }) => {
+/* Pages that read the same signed in or out. They are drawn by the public
+   tree either way, so they are declared once. */
+const PUBLIC_PAGES = new Set(['/guides', '/examples', '/proof', '/privacy', '/terms', ...GUIDE_SLUGS.map((slug) => `/${slug}`)]);
+export const isPublicPage = (pathname = '') => (
+  isPublicSharePath(pathname) || isDesignPreviewPath(pathname) || PUBLIC_PAGES.has(pathname)
+);
+
+const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess }) => {
   const location = useLocation();
   const isShareRoute = isPublicSharePath(location.pathname);
   const isLongformRoute = (
@@ -298,7 +304,6 @@ const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess, uiSettings }) => {
               <Login
                 onLoginSuccess={handleLoginSuccess}
                 chromeStoreLink={chromeStoreLink}
-                brandEnergy={uiSettings.brandEnergy}
               />
             )}
           />
@@ -422,7 +427,7 @@ const AppRouterContent = ({
   setShortcutOverlayOpen
 }) => {
   const location = useLocation();
-  const shouldUsePublicRoutes = !isAuthenticated || isPublicSharePath(location.pathname);
+  const shouldUsePublicRoutes = !isAuthenticated || isPublicPage(location.pathname);
 
   if (shouldUsePublicRoutes) return <PublicRoutes {...publicRouteProps} />;
   return (
@@ -444,7 +449,6 @@ function App() {
   const [shortcutOverlayOpen, setShortcutOverlayOpen] = useState(false);
   const [productFeedbackOpen, setProductFeedbackOpen] = useState(false);
   const [uiSettings, setUiSettings] = useState(() => loadUiSettingsFromStorage());
-  const [uiSettingsSaving, setUiSettingsSaving] = useState(false);
   const systemStatus = useSystemStatus();
   const storageFailure = useStorageStatus(isAuthenticated);
   const recoverableFailure = systemStatus.recoverableFailure || storageFailure;
@@ -587,29 +591,8 @@ function App() {
     setIsAuthenticated(true);
   };
 
-  const handleUiSettingsChange = async (updates) => {
-    const previous = uiSettings;
-    const optimistic = normalizeUiSettings({ ...uiSettings, ...updates });
-    setUiSettings(optimistic);
-    if (!isAuthenticated) return;
-    setUiSettingsSaving(true);
-    try {
-      const saved = await saveUiSettings(optimistic);
-      const normalized = normalizeUiSettings(saved);
-      setUiSettings(normalized);
-      persistUiSettingsToStorage(normalized);
-    } catch (error) {
-      console.error('Failed to save UI settings:', error);
-      setUiSettings(previous);
-      applyUiSettingsToRoot(document.documentElement, previous);
-    } finally {
-      setUiSettingsSaving(false);
-    }
-  };
-
   const handleAppearanceCommit = async (patch, nextDraft) => {
     const optimistic = normalizeUiSettings({ ...uiSettings, ...patch });
-    setUiSettingsSaving(true);
     try {
       const saved = await saveUiSettings(optimistic);
       const normalized = normalizeUiSettings(saved);
@@ -620,8 +603,6 @@ function App() {
       console.error('Failed to save appearance settings:', error);
       applyUiSettingsToRoot(document.documentElement, uiSettings);
       return { ok: false };
-    } finally {
-      setUiSettingsSaving(false);
     }
   };
 
@@ -793,33 +774,11 @@ function App() {
             <Route path="/connections" element={<Integrations />} />
             <Route path="/integrations" element={<Integrations />} />
             <Route path="/settings/connected-agents/authorize" element={<AgentConnectAuthorize />} />
-          <Route path="/settings/connected-agents/chatgpt" element={<ChatGPTConnectAuthorize />} />
+            <Route path="/settings/connected-agents/chatgpt" element={<ChatGPTConnectAuthorize />} />
             <Route path="/a/run/:taskId" element={<AgentTaskRun />} />
             <Route path="/data-integrations" element={<DataIntegrationsRedirect />} />
             <Route path="/marketing-analytics" element={<MarketingAnalytics />} />
             <Route path="/search-console-opportunities" element={<SearchConsoleOpportunities />} />
-            <Route path="/guides" element={<GuidesHub />} />
-            <Route path="/examples" element={<Examples />} />
-            <Route path="/proof" element={<PublicProofGallery />} />
-            {GUIDE_SLUGS.map((slug) => (
-              <Route key={slug} path={`/${slug}`} element={<GuideArticlePage slug={slug} />} />
-            ))}
-            <Route path="/privacy" element={<PrivacyPolicy />} />
-            <Route path="/terms" element={<TermsOfUse />} />
-            <Route path="/design-preview/open-sentence" element={<OpenSentenceStoryboard />} />
-            <Route path="/design-preview/notebook-share" element={<NotebookSharePreview />} />
-            <Route path="/design-preview/notebook-volume" element={<NotebookVolumePreview />} />
-            <Route path="/design-preview/question-share" element={<QuestionSharePreview />} />
-            <Route path="/design-preview/concept-share" element={<ConceptSharePreview />} />
-            <Route path="/design-preview" element={<DesignPreview />} />
-            <Route path="/share/notebooks/:slug" element={<SharedNotebook />} />
-            <Route path="/share/volumes/:slug" element={<SharedNotebookVolume />} />
-            <Route path="/share/concepts/:slug" element={<SharedConcept />} />
-            <Route path="/share/wiki/collection/:idOrSlug" element={<SharedWikiCollectionPage />} />
-            <Route path="/share/wiki/:idOrSlug/comparison" element={<PublicWikiComparison />} />
-            <Route path="/share/wiki/:idOrSlug" element={<SharedWikiPage />} />
-            <Route path="/share/questions/:slug" element={<SharedQuestion />} />
-            <Route path="/share/editions/:slug" element={<SharedEdition />} />
 
             {/* Legacy/feature routes kept for compatibility */}
             <Route path="/brain" element={<Navigate to="/review?tab=patterns" replace />} />
@@ -869,9 +828,8 @@ function App() {
         )}
       >
       <AppShell
-        brandEnergy={uiSettings.brandEnergy}
         surface={surface}
-        /* Think owns its thought partner inside the writing surface. The shell
+        /* Think owns its Partner inside the writing surface. The shell
            must never mount a second, generic agent beside it. The Wiki
            collection keeps the steward reachable from Ask, not as a resting
            column beside the list. */
@@ -883,15 +841,11 @@ function App() {
         topBar={(
           <TopBar
             routeLocation={shellLocation}
-            brandEnergy={uiSettings.brandEnergy}
             primaryNav={primaryNavItems}
             utilityNav={utilityNavItems}
             secondaryNav={moreNavItems}
             searchMode="field"
             onSearchOpen={openPalette}
-            theme={uiSettings.theme}
-            onThemeChange={(nextTheme) => handleUiSettingsChange({ theme: nextTheme })}
-            themeSaving={uiSettingsSaving}
             accountMenuItems={topBarAccountMenuItems}
             systemStatus={{
               backgroundWork: systemStatus.backgroundWork,
@@ -924,7 +878,7 @@ function App() {
         <Analytics />
         <AppRouterContent
           isAuthenticated={isAuthenticated}
-          publicRouteProps={{ chromeStoreLink, handleLoginSuccess, uiSettings }}
+          publicRouteProps={{ chromeStoreLink, handleLoginSuccess }}
           renderLayout={renderAppLayout}
           openPalette={openPalette}
           setShortcutOverlayOpen={setShortcutOverlayOpen}

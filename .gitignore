@@ -32,3 +32,9 @@ ios/**/*.xcworkspace/
 *\ [0-9].json
 *\ [0-9].log
 *\ [0-9].html
+
+# Script output, Python caches, Finder metadata
+output/
+__pycache__/
+*.pyc
+.DS_Store
