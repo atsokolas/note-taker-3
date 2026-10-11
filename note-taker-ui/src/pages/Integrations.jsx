@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Page, PageHeader } from '../components/ui';
 import { getMorningPaperSettings } from '../api/dailyLoop';
 import AgentLaunchLinkCard from '../components/integrations/AgentLaunchLinkCard';
@@ -64,8 +64,11 @@ const Integrations = () => {
     return parsed.toLocaleString();
   };
 
+  // A handoff's working thread opens in the Partner, where the agent writes.
+  const navigate = useNavigate();
   const handoffsModel = useHandoffs({
     enabled: true,
+    onOpenThread: threadId => navigate(`/think?threadId=${encodeURIComponent(threadId)}`),
     personalAgentsOverride: personalAgentsModel.sortedAgents,
     initialStatusFilter: 'all'
   });

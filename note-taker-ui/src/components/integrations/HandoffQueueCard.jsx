@@ -46,7 +46,8 @@ const HandoffQueueCard = ({
     handleClaimHandoff,
     handleCompleteHandoff,
     handleRejectHandoff,
-    handleCancelHandoff
+    handleCancelHandoff,
+    handleContinueInThread
   } = handoffsModel;
 
   return (
@@ -111,6 +112,7 @@ const HandoffQueueCard = ({
                   onComplete={() => handleCompleteHandoff(handoffId)}
                   onReject={() => handleRejectHandoff(handoffId)}
                   onCancel={() => handleCancelHandoff(handoffId)}
+                  onOpenThread={() => handleContinueInThread(handoffId)}
                   actionClassName="settings-import-row"
                   actionStyle={{ marginTop: 8 }}
                 />

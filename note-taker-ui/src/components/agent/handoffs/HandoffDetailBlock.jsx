@@ -20,6 +20,7 @@ const HandoffDetailBlock = ({
   onComplete = null,
   onReject = null,
   onCancel = null,
+  onOpenThread = null,
   actionClassName = 'settings-import-row',
   actionStyle = undefined,
   className = ''
@@ -57,6 +58,7 @@ const HandoffDetailBlock = ({
         onComplete={onComplete}
         onReject={onReject}
         onCancel={onCancel}
+        onOpenThread={onOpenThread}
       />
 
       {events.length > 0 && (
