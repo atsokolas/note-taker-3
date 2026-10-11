@@ -13,7 +13,7 @@ const listen = (app) => new Promise((resolve) => {
 });
 
 const key = crypto.randomBytes(24);
-const env = { INBOUND_EMAIL_ADDRESS: 'read@noeis.io', INBOUND_EMAIL_WEBHOOK_SECRET: `whsec_${key.toString('base64')}` };
+const env = { INBOUND_EMAIL_ADDRESS: 'read@noeis.io', INBOUND_EMAIL_WEBHOOK_SECRET: `whsec_${key.toString('base64')}`, RESEND_API_KEY: 're_test' };
 
 const signedPost = (url, payload, { secret = key } = {}) => {
   const body = JSON.stringify(payload);

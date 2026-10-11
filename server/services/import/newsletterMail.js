@@ -14,7 +14,9 @@ const { bodyFrom, paragraphsToHtml, stripTags } = require('../readableArticle');
 const inboundMailConfig = (env = process.env) => {
   const address = String(env.INBOUND_EMAIL_ADDRESS || '').trim().toLowerCase();
   const secret = String(env.INBOUND_EMAIL_WEBHOOK_SECRET || '').trim();
-  return { enabled: Boolean(address && secret), address, secret, apiKey: String(env.RESEND_API_KEY || '').trim() };
+  // The webhook carries only the envelope; the body is fetched with the key.
+  const apiKey = String(env.RESEND_API_KEY || '').trim();
+  return { enabled: Boolean(address && secret && apiKey), address, secret, apiKey };
 };
 
 /* Svix's scheme, which Resend signs with: HMAC-SHA256 over

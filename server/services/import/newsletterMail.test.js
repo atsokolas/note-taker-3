@@ -2,6 +2,7 @@ const assert = require('assert');
 const crypto = require('crypto');
 const {
   dayOf,
+  inboundMailConfig,
   newsletterFromMail,
   parseAddress,
   receivedMail,
@@ -114,9 +115,15 @@ const run = async () => {
   assert.deepStrictEqual(fetched, [['https://api.resend.com/emails/receiving/e1', 'Bearer re_test']]);
   assert.strictEqual(mail.html, '<p>Body</p>');
   assert.strictEqual(mail.messageId, 'abc@mail');
+
+  // Without the key that fetches the body, email-in stays off.
+  const env = { INBOUND_EMAIL_ADDRESS: 'read@noeis.io', INBOUND_EMAIL_WEBHOOK_SECRET: 'whsec_x' };
+  assert.strictEqual(inboundMailConfig(env).enabled, false);
+  assert.strictEqual(inboundMailConfig({ ...env, RESEND_API_KEY: 're_x' }).enabled, true);
 };
 
 run().then(() => console.log('newsletterMail tests passed')).catch((error) => {
   console.error(error);
   process.exit(1);
 });
+
