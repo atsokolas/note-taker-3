@@ -1723,7 +1723,8 @@ const WIKI_JUDGMENT_FIELDS = Object.freeze([
   'judgment.dependsOn.note', 'judgment.dependsOn.proposedBy',
   'judgment.bornAt', 'judgment.resolutionCriteria',
   'judgment.resolutionHorizonAt', 'judgment.resolutionSetAt',
-  'judgment.resolutionHistory', 'judgment.verdicts'
+  'judgment.resolutionHistory', 'judgment.verdicts',
+  'judgment.heldHistory', 'judgment.confidence', 'judgment.parkedAt'
 ]);
 
 const WIKI_JUDGMENT_INDEX_FIELDS = Object.freeze([

@@ -142,40 +142,6 @@ export const trackCompanyDossierInJudgment = async (pageId) => {
   return res.data || {};
 };
 
-export const getCompanyDossierJudgmentReview = async (pageId) => {
-  const res = await api.get(
-    `${WIKI_PAGES_PATH}/${safeId(pageId)}/judgment-research-review`,
-    getAuthHeaders()
-  );
-  return res.data?.review || null;
-};
-
-export const listCompanyDossierJudgmentReviews = async ({ limit = 200 } = {}) => {
-  const res = await api.get(
-    '/api/wiki/judgment-research-reviews',
-    { ...getAuthHeaders(), params: { limit } }
-  );
-  return Array.isArray(res.data?.reviews) ? res.data.reviews : [];
-};
-
-export const resolveCompanyDossierJudgmentReview = async (pageId, receiptId, resolution) => {
-  const action = resolution === 'revised' ? 'revised' : 'kept';
-  const res = await api.post(
-    `${WIKI_PAGES_PATH}/${safeId(pageId)}/judgment-research-review/${action}`,
-    { receiptId },
-    getAuthHeaders()
-  );
-  return res.data?.receipt || null;
-};
-
-export const getJudgmentChangeProposal = async (pageId) => {
-  const res = await api.get(
-    `${WIKI_PAGES_PATH}/${safeId(pageId)}/judgment-change-proposal`,
-    getAuthHeaders()
-  );
-  return res.data?.proposal || null;
-};
-
 export const proposeJudgmentChange = async (pageId, proposedJudgment) => {
   const res = await api.post(
     `${WIKI_PAGES_PATH}/${safeId(pageId)}/judgment-change-proposals`,
@@ -283,11 +249,6 @@ export const exportPublicCasebook = async (idOrSlug) => {
 
 export const verifyPublicCasebook = async (casebook) => {
   const res = await api.post('/api/public/casebook/verify', { casebook });
-  return res.data || {};
-};
-
-export const getWikiPublicPreview = async (id) => {
-  const res = await api.get(`${WIKI_PAGES_PATH}/${safeId(id)}/public-preview`, getAuthHeaders());
   return res.data || {};
 };
 
@@ -901,17 +862,6 @@ export const setWikiPageEvergreen = async (pageId, evergreen) => {
 /* What the library already holds about the claim on a judgment page. The
    answer is candidates, not lines: nothing is written until the reader files
    one under Why or Against. */
-export const getJudgmentLibraryEvidence = async (pageId, params = {}) => {
-  const res = await api.get(
-    `${WIKI_PAGES_PATH}/${pageId}/library-evidence${buildQueryString(params)}`,
-    getAuthHeaders()
-  );
-  return {
-    claim: String(res.data?.claim || ''),
-    terms: Array.isArray(res.data?.terms) ? res.data.terms : [],
-    candidates: Array.isArray(res.data?.candidates) ? res.data.candidates : []
-  };
-};
 
 export const listWikiSourceEvents = async (params = {}) => {
   const res = await api.get(`/api/wiki/source-events${buildQueryString(params)}`, getAuthHeaders());
@@ -1129,7 +1079,6 @@ const wikiApi = {
   reviewWikiFirstHeadCandidate,
   getWikiPage,
   getPublicWikiPage,
-  getWikiPublicPreview,
   followPublicCasebook,
   unfollowPublicCasebook,
   forkPublicCasebook,
@@ -1188,7 +1137,6 @@ const wikiApi = {
   listWikiActivity,
   suggestWikiSchemaUpdates,
   listWikiSourceEvents,
-  getJudgmentLibraryEvidence,
   setWikiPageEvergreen,
   processWikiSourceEvent,
   processPendingWikiSourceEvents,
@@ -1213,13 +1161,6 @@ export default wikiApi;
 /* One claim on one page, as a file. The endpoint is behind the sign-in, so
    this is a request carrying the token rather than a link the browser follows
    on its own — a bare href would come back as the login page saved as a PDF. */
-export const downloadJudgmentPamphlet = async (id) => {
-  const res = await api.get(`${WIKI_PAGES_PATH}/${safeId(id)}/pamphlet.pdf`, {
-    ...getAuthHeaders(),
-    responseType: 'blob'
-  });
-  return res.data;
-};
 
 /* Every claim in the wiki that something in the library argues with. */
 export const listWikiContradictions = async ({ limit = 50 } = {}) => {
