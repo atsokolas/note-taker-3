@@ -351,6 +351,16 @@ describe('what would change your mind', () => {
     expect(sentences.length).toBeGreaterThan(0);
   });
 
+  it('notices a reworded test however long it is', async () => {
+    const long = `${TEST} ${'Measured by cohort. '.repeat(40)}`;
+    const models = withTest({ text: long });
+    const [proposal] = await read(models, reader);
+    const page = models.WikiPage.rows[0];
+    expect(readingStands(page, proposal)).toBe(true);
+    page.judgment.falsifiers[0].text = `${long} Except in Japan.`;
+    expect(readingStands(page, proposal)).toBe(false);
+  });
+
   it('goes quiet once the test it met is retired or reworded', async () => {
     const models = withTest();
     const [proposal] = await read(models, reader);

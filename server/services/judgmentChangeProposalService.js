@@ -68,7 +68,7 @@ const buildReadingProposal = ({ page, article, stance, quote, falsifier = '', ev
       after,
       change: 'evidence',
       stance,
-      ...(clean(falsifier) ? { falsifier: clean(falsifier, 600) } : {}),
+      ...(clean(falsifier) ? { falsifier: clean(falsifier, 2000) } : {}),
       articleId,
       author: clean(article?.author, 200),
       publishedAt: article?.publicationDate || article?.createdAt || null,

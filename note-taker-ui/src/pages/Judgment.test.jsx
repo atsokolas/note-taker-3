@@ -296,6 +296,22 @@ describe('the view', () => {
       await waitFor(() => expect(screen.queryByText(QUOTE)).not.toBeInTheDocument());
     });
 
+    it('never lets the first list bring back a passage after the test has changed', async () => {
+      const met = { ...proposal, provenance: { ...proposal.provenance, falsifier: 'Two quarters of falling renewals.' } };
+      let firstList;
+      listReadingProposals
+        .mockReturnValueOnce(new Promise((resolve) => { firstList = resolve; }))
+        .mockResolvedValueOnce([]);
+      setJudgmentResolution.mockResolvedValue({ judgment: viewPage({ resolutionCriteria: 'Churn above ten percent.' }).judgment });
+      openView();
+      fireEvent.click(await screen.findByRole('button', { name: /what would change your mind|Edit/i }));
+      fireEvent.change(screen.getByLabelText('In one line'), { target: { value: 'Churn above ten percent.' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+      await waitFor(() => expect(listReadingProposals).toHaveBeenCalledTimes(2));
+      await act(async () => { firstList([met]); });
+      expect(screen.queryByText(QUOTE)).not.toBeInTheDocument();
+    });
+
     it('says nothing when no passage is waiting', async () => {
       openView();
       await screen.findByRole('heading', { level: 1, name: CLAIM });

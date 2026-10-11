@@ -85,10 +85,10 @@ const sentenceOf = page => clean(page?.judgment?.currentJudgment);
 /* What would change your mind, still open: the criteria line and each
    falsifier not yet retired or triggered, in the words that name the signal. */
 const testsOf = page => [...new Set([
-  clean(page?.judgment?.resolutionCriteria, 600),
+  clean(page?.judgment?.resolutionCriteria, 2000),
   ...list(page?.judgment?.falsifiers)
     .filter(falsifier => !['retired', 'triggered'].includes(falsifier?.status))
-    .map(falsifier => clean(falsifier?.observableSignal || falsifier?.text, 600))
+    .map(falsifier => clean(falsifier?.observableSignal || falsifier?.text, 2000))
 ].filter(Boolean))];
 
 /* A passage read against a view still stands while the view holds the same

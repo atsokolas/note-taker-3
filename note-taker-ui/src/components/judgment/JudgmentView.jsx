@@ -231,23 +231,26 @@ const JudgmentView = ({ pageId, initialPage = null }) => {
 
   useEffect(() => { rememberOpenedJudgment(pageId); }, [pageId]);
 
+  // Passages are read against the sentence and its test; when either changes,
+  // the old readings go at once and only the latest list may bring any back.
+  const readingAsk = useRef(0);
+  const rereadPassages = useCallback(() => {
+    const ask = ++readingAsk.current;
+    setReading([]);
+    return listReadingProposals(pageId)
+      .then(rows => { if (ask === readingAsk.current) setReading(rows); })
+      .catch(() => {});
+  }, [pageId]);
+
   useEffect(() => {
     let cancelled = false;
     getWikiPage(pageId, { reader: 1 })
       .then(loaded => { if (!cancelled) setPage(loaded); })
       .catch(failure => { if (!cancelled) setError(messageOf(failure, 'Could not open this view.')); })
       .finally(() => { if (!cancelled) setLoading(false); });
-    listReadingProposals(pageId)
-      .then(rows => { if (!cancelled) setReading(rows); })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, [pageId]);
-
-  // Passages are read against the sentence and its test; when either changes, the old readings go and are asked for again.
-  const rereadPassages = useCallback(() => {
-    setReading([]);
-    return listReadingProposals(pageId).then(setReading).catch(() => {});
-  }, [pageId]);
+    rereadPassages();
+    return () => { cancelled = true; readingAsk.current += 1; };
+  }, [pageId, rereadPassages]);
 
   const view = useMemo(() => (page ? projectView(page) : null), [page]);
   const mergeJudgment = useCallback((judgment) => {
