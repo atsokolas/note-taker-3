@@ -1644,7 +1644,7 @@ body.noeis-editorial .auth-editorial__reveal {
   border: 0;
   background: transparent;
   color: var(--vellum-subtle);
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.78rem;
   transform: translateY(-50%);
   cursor: pointer;

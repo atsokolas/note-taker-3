@@ -47,6 +47,7 @@ import {
   viewProblem,
   writtenFrom
 } from './welcomeModel';
+import { Button, EmptyState, PageHeader } from '../components/ui';
 import '../styles/welcome.css';
 
 /**
@@ -119,7 +120,7 @@ const Welcome = () => {
   const held = page?.judgment?.currentJudgment || '';
 
   return (
-    <main className="welcome" aria-labelledby="welcome-title">
+    <main className="welcome" aria-label="First run">
       <header className="welcome__bar">
         <span className="welcome__brand">Noeis</span>
         <ol className="welcome__steps" aria-label="First run">
@@ -200,10 +201,7 @@ const Welcome = () => {
 
 const StartStep = ({ onReading, onPack }) => (
   <section className="welcome__step">
-    <h1 id="welcome-title">This is what Noeis builds from your reading.</h1>
-    <p className="welcome__lede">
-      A wiki that grows from what you save, written up into pages that cite where each line came from.
-    </p>
+    <PageHeader titleId="welcome-title" title="This is what Noeis builds from your reading." lede="A wiki that grows from what you save, written up into pages that cite where each line came from." />
     <article className="welcome__example" aria-label="An example page">
       <span className="welcome__example-label">An example page</span>
       <h2>{EXAMPLE_PAGE.title}</h2>
@@ -217,7 +215,7 @@ const StartStep = ({ onReading, onPack }) => (
       <small>{EXAMPLE_PAGE.sources}</small>
     </article>
     <div className="welcome__actions">
-      <button type="button" className="welcome__primary" onClick={onReading}>Grow one from my reading</button>
+      <Button variant="primary" onClick={onReading}>Grow one from my reading</Button>
     </div>
     <StarterWikis onTaken={onPack} />
   </section>
@@ -304,11 +302,7 @@ const ReadingStep = ({ arrivals, setArrivals, readwise, setReadwise, onNext, onL
 
   return (
     <section className="welcome__step">
-      <h1 id="welcome-title">Bring what you have read.</h1>
-      <p className="welcome__lede">
-        Noeis grows your wiki from it: pages written from your own sources, each one citing where
-        it came from. Your library is yours alone.
-      </p>
+      <PageHeader titleId="welcome-title" title="Bring what you have read." lede="Noeis grows your wiki from it: pages written from your own sources, each one citing where it came from. Your library is yours alone." />
 
       <form className="welcome__source" onSubmit={bringReadwise}>
         <h2>From Readwise</h2>
@@ -327,9 +321,9 @@ const ReadingStep = ({ arrivals, setArrivals, readwise, setReadwise, onNext, onL
             placeholder="Readwise access token"
             onChange={(event) => { setToken(event.target.value); setReadwiseError(''); }}
           />
-          <button type="submit" disabled={readwiseBusy || !token.trim()}>
+          <Button type="submit" disabled={readwiseBusy || !token.trim()}>
             {readwiseBusy ? 'Bringing them in…' : 'Bring them in'}
-          </button>
+          </Button>
         </div>
         {readwiseBusy ? <p className="welcome__hint" role="status">A large library takes a minute.</p> : null}
         {readwise ? <p className="welcome__receipt" role="status">{readwiseReceipt(readwise)}</p> : null}
@@ -347,7 +341,7 @@ const ReadingStep = ({ arrivals, setArrivals, readwise, setReadwise, onNext, onL
           onChange={(event) => { setPasted(event.target.value); setPasteProblem(''); }}
         />
         <div className="welcome__actions">
-          <button type="submit" disabled={!pasted.trim()}>Add them</button>
+          <Button type="submit" disabled={!pasted.trim()}>Add them</Button>
         </div>
         {pasteProblem ? <p className="welcome__hint" role="alert">{pasteProblem}</p> : null}
         {arrivals.length ? (
@@ -367,12 +361,12 @@ const ReadingStep = ({ arrivals, setArrivals, readwise, setReadwise, onNext, onL
       </form>
 
       <div className="welcome__actions welcome__actions--end">
-        <button type="button" className="welcome__primary" disabled={!hasReading || reading} onClick={onNext}>
+        <Button variant="primary" disabled={!hasReading || reading} onClick={onNext}>
           Write my first page
-        </button>
-        <button type="button" className="welcome__quiet-action" onClick={onLater}>
+        </Button>
+        <Button variant="quiet" onClick={onLater}>
           I will bring reading later
-        </button>
+        </Button>
       </div>
       {!hasReading && !reading ? <p className="welcome__hint">Bring at least one source first.</p> : null}
     </section>
@@ -448,15 +442,11 @@ const PageStep = ({ took, page, setPage, onStarted, onAnother, onReading, onHeld
   if (state === 'writing') {
     return (
       <section className="welcome__step" aria-busy="true">
-        <h1 id="welcome-title" className="welcome__reading">Writing {page.title}…</h1>
-        <p className="welcome__lede">
-          Noeis is reading your library for it and writing the page, citing each source as it goes.
-          A first page takes a minute or two.
-        </p>
+        <PageHeader titleId="welcome-title" className="welcome__reading" title={<>Writing {page.title}…</>} lede="Noeis is reading your library for it and writing the page, citing each source as it goes. A first page takes a minute or two." />
         <div className="welcome__actions">
-          <button type="button" className="welcome__quiet-action" onClick={onOpen}>
+          <Button variant="quiet" onClick={onOpen}>
             Leave it to finish
-          </button>
+          </Button>
         </div>
       </section>
     );
@@ -504,8 +494,7 @@ const TopicChooser = ({ onStarted }) => {
 
   return (
     <section className="welcome__step">
-      <h1 id="welcome-title">What should your first page be about?</h1>
-      <p className="welcome__lede">Noeis writes it from what you brought, and cites each source.</p>
+      <PageHeader titleId="welcome-title" title="What should your first page be about?" lede="Noeis writes it from what you brought, and cites each source." />
 
       {proposals === null ? (
         <p className="welcome__quiet welcome__reading" role="status">Looking at what your reading keeps coming back to…</p>
@@ -537,9 +526,9 @@ const TopicChooser = ({ onStarted }) => {
             placeholder="Something your sources share, in a few words"
             onChange={(event) => { setTopic(event.target.value); setError(''); }}
           />
-          <button type="submit" className="welcome__primary" disabled={Boolean(busy) || !topic.trim()}>
+          <Button type="submit" variant="primary" disabled={Boolean(busy) || !topic.trim()}>
             {busy && busy === topic.trim() ? 'Starting…' : 'Write it'}
-          </button>
+          </Button>
         </div>
       </form>
       {error ? <p className="welcome__error" role="alert">{error}</p> : null}
@@ -570,16 +559,15 @@ const BuildFailed = ({ page, setPage, onAnother, onReading }) => {
 
   return (
     <section className="welcome__step">
-      <h1 id="welcome-title">{failure.headline}</h1>
-      <p className="welcome__lede">{failure.lede}</p>
+      <PageHeader titleId="welcome-title" title={failure.headline} lede={failure.lede} />
       <div className="welcome__actions">
         {failure.retry ? (
-          <button type="button" className="welcome__primary" disabled={busy} onClick={retry}>Try again</button>
+          <Button variant="primary" disabled={busy} onClick={retry}>Try again</Button>
         ) : null}
-        <button type="button" className={failure.retry ? '' : 'welcome__primary'} disabled={busy} onClick={() => discardThen(onAnother)}>
+        <Button variant={failure.retry ? 'plain' : 'primary'} disabled={busy} onClick={() => discardThen(onAnother)}>
           Pick another topic
-        </button>
-        <button type="button" disabled={busy} onClick={() => discardThen(onReading)}>Bring more reading</button>
+        </Button>
+        <Button disabled={busy} onClick={() => discardThen(onReading)}>Bring more reading</Button>
       </div>
     </section>
   );
@@ -629,10 +617,10 @@ const WrittenPage = ({ took, page, setPage, onHeld, onOpen }) => {
       <p className="welcome__receipt" role="status">
         {took ? 'The wiki you took is in your Wiki now.' : writtenFrom(page.sourceRefs?.length || 0)}
       </p>
-      <h1 id="welcome-title">{page.title}</h1>
+      <PageHeader titleId="welcome-title" title={page.title} />
       {lede ? <p className="welcome__page-lede">{lede}</p> : null}
       <div className="welcome__actions">
-        <button type="button" onClick={onOpen}>Read the whole page</button>
+        <Button onClick={onOpen}>Read the whole page</Button>
       </div>
 
       <form className="welcome__source" onSubmit={hold}>
@@ -655,10 +643,10 @@ const WrittenPage = ({ took, page, setPage, onHeld, onOpen }) => {
         {notice ? <p className="welcome__hint">{notice}</p> : null}
         {error ? <p className="welcome__error" role="alert">{error}</p> : null}
         <div className="welcome__actions">
-          <button type="submit" className="welcome__primary" disabled={busy || !oneSentence(draft)}>
+          <Button type="submit" variant="primary" disabled={busy || !oneSentence(draft)}>
             {busy ? 'Holding it…' : 'Hold it'}
-          </button>
-          <button type="button" className="welcome__quiet-action" onClick={onOpen}>Not yet</button>
+          </Button>
+          <Button variant="quiet" onClick={onOpen}>Not yet</Button>
         </div>
       </form>
     </section>
@@ -716,10 +704,10 @@ const MomentStep = ({ page, setPage, onReading, onFinish }) => {
   if (failed) {
     return (
       <section className="welcome__step">
-        <h1 id="welcome-title">Your library could not be read just now.</h1>
-        <div className="welcome__actions">
-          <button type="button" className="welcome__primary" onClick={() => setAttempt(n => n + 1)}>Try again</button>
-        </div>
+        <EmptyState
+          title="Your library could not be read just now."
+          actions={<Button variant="primary" onClick={() => setAttempt(n => n + 1)}>Try again</Button>}
+        />
       </section>
     );
   }
@@ -727,7 +715,7 @@ const MomentStep = ({ page, setPage, onReading, onFinish }) => {
   if (!candidates) {
     return (
       <section className="welcome__step" aria-busy="true">
-        <h1 id="welcome-title" className="welcome__reading">Reading your library against it…</h1>
+        <PageHeader titleId="welcome-title" className="welcome__reading" title="Reading your library against it…" />
       </section>
     );
   }
@@ -735,15 +723,20 @@ const MomentStep = ({ page, setPage, onReading, onFinish }) => {
   if (!candidates.length) {
     return (
       <section className="welcome__step">
-        <h1 id="welcome-title">Nothing you brought speaks to this yet.</h1>
-        <p className="welcome__lede">
-          That is an answer too: your reading and this view have not met. Bring one more source
-          that argues about it, and Noeis looks again each time you open your view.
-        </p>
-        <div className="welcome__actions">
-          <button type="button" className="welcome__primary" onClick={onReading}>Bring one more source</button>
-          <button type="button" className="welcome__quiet-action" onClick={onFinish}>Open your view</button>
-        </div>
+        <EmptyState
+          title="Nothing you brought speaks to this yet."
+          actions={(
+            <>
+              <Button variant="primary" onClick={onReading}>Bring one more source</Button>
+              <Button variant="quiet" onClick={onFinish}>Open your view</Button>
+            </>
+          )}
+        >
+          <p>
+            That is an answer too: your reading and this view have not met. Bring one more source
+            that argues about it, and Noeis looks again each time you open your view.
+          </p>
+        </EmptyState>
       </section>
     );
   }
@@ -752,8 +745,7 @@ const MomentStep = ({ page, setPage, onReading, onFinish }) => {
 
   return (
     <section className="welcome__step">
-      <h1 id="welcome-title">{passagesHeadline(candidates.length)}</h1>
-      <p className="welcome__lede">Decide what each one does to your view. Noeis finds; you judge.</p>
+      <PageHeader titleId="welcome-title" title={passagesHeadline(candidates.length)} lede="Decide what each one does to your view. Noeis finds; you judge." />
       <ol className="welcome__passages">
         {candidates.map((candidate) => {
           const verdict = filed[candidate.id];
@@ -781,11 +773,11 @@ const MomentStep = ({ page, setPage, onReading, onFinish }) => {
                 <p className="welcome__verdict" role="status">{FILED_LINE[verdict]}</p>
               ) : (
                 <div className="welcome__file">
-                  <button type="button" disabled={Boolean(busyId)} onClick={() => file(candidate, 'why')}>Supports it</button>
-                  <button type="button" disabled={Boolean(busyId)} onClick={() => file(candidate, 'against')}>Cuts against it</button>
-                  <button type="button" disabled={Boolean(busyId)} className="welcome__quiet-action" onClick={() => file(candidate, 'skip')}>
+                  <Button disabled={Boolean(busyId)} onClick={() => file(candidate, 'why')}>Supports it</Button>
+                  <Button disabled={Boolean(busyId)} onClick={() => file(candidate, 'against')}>Cuts against it</Button>
+                  <Button disabled={Boolean(busyId)} variant="quiet" onClick={() => file(candidate, 'skip')}>
                     Not about this
-                  </button>
+                  </Button>
                 </div>
               )}
             </li>
@@ -794,7 +786,7 @@ const MomentStep = ({ page, setPage, onReading, onFinish }) => {
       </ol>
       {fileError ? <p className="welcome__error" role="alert">{fileError}</p> : null}
       <div className="welcome__actions welcome__actions--end">
-        <button type="button" className="welcome__primary" onClick={onFinish}>Open your view</button>
+        <Button variant="primary" onClick={onFinish}>Open your view</Button>
       </div>
       <p className="welcome__hint">
         {filedCount

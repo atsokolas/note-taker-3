@@ -7,12 +7,10 @@
   --welcome-subtle: var(--noeis-ink-subtle, var(--text-muted));
   --welcome-rule: var(--noeis-rule, var(--vellum-line));
   --welcome-thread: var(--noeis-thread, var(--wiki-warm-accent));
-  --welcome-ui: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  --welcome-serif: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
   min-height: 100vh;
   padding: 0 24px 120px;
   color: var(--welcome-ink);
-  font-family: var(--welcome-ui);
+  font-family: var(--font-sans);
 }
 
 /* ---------- the bar ---------- */
@@ -28,7 +26,7 @@
 }
 
 .welcome__brand {
-  font-family: var(--welcome-serif);
+  font-family: var(--font-serif);
   font-size: 1.45rem;
   font-style: italic;
   letter-spacing: -0.01em;
@@ -89,36 +87,23 @@
   gap: 22px;
 }
 
-.welcome h1 {
-  margin: 0;
-  font-family: var(--welcome-serif);
-  font-size: clamp(2rem, 3.6vw, 2.75rem);
-  font-weight: 400;
-  line-height: 1.1;
-  letter-spacing: -0.015em;
-}
+.welcome .ui-page-header { margin: 0; }
 
 .welcome h2 {
   margin: 0;
-  font-family: var(--welcome-ui);
+  font-family: var(--font-sans);
   font-size: 0.9rem;
   font-weight: 500;
 }
 
 .welcome p { margin: 0; }
 
-.welcome__lede {
-  color: var(--welcome-muted);
-  font-size: 1.02rem;
-  line-height: 1.6;
-}
-
 .welcome__held {
   display: grid;
   gap: 4px;
   padding-bottom: 22px;
   border-bottom: 1px solid var(--welcome-rule);
-  font-family: var(--welcome-serif);
+  font-family: var(--font-serif);
   font-size: 1.2rem;
   font-style: italic;
   line-height: 1.4;
@@ -126,7 +111,7 @@
 
 .welcome__held span {
   color: var(--welcome-subtle);
-  font-family: var(--welcome-ui);
+  font-family: var(--font-sans);
   font-size: 0.8rem;
   font-style: normal;
 }
@@ -182,7 +167,7 @@ body.noeis-editorial .welcome input,
   background: transparent !important;
   box-shadow: none !important;
   color: var(--welcome-ink) !important;
-  font-family: var(--welcome-ui) !important;
+  font-family: var(--font-sans) !important;
   font-size: 0.98rem;
   line-height: 1.5;
   resize: none;
@@ -199,7 +184,7 @@ body.noeis-editorial .welcome input:focus,
 body.noeis-editorial .welcome .welcome__view-field,
 .welcome .welcome__view-field {
   overflow: hidden;
-  font-family: var(--welcome-serif) !important;
+  font-family: var(--font-serif) !important;
   font-size: clamp(1.35rem, 2.4vw, 1.6rem);
   line-height: 1.35;
 }
@@ -211,38 +196,6 @@ body.noeis-editorial .welcome .welcome__view-field,
 }
 
 /* ---------- actions ---------- */
-
-.welcome button:not(.welcome__skip) {
-  min-height: 0;
-  padding: 0 0 1px;
-  border: 0;
-  border-bottom: 1px solid currentColor;
-  border-radius: 0;
-  background: transparent;
-  color: var(--welcome-ink);
-  font-family: var(--welcome-ui);
-  font-size: 0.92rem;
-  font-weight: 400;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.welcome button:disabled {
-  border-bottom-color: transparent;
-  color: var(--welcome-subtle);
-  cursor: default;
-}
-
-.welcome .welcome__primary {
-  font-weight: 500;
-}
-
-.welcome .welcome__quiet-action {
-  border-bottom-color: transparent;
-  color: var(--welcome-subtle);
-}
-
-.welcome .welcome__quiet-action:hover { color: var(--welcome-ink); }
 
 .welcome__actions {
   display: flex;
@@ -263,18 +216,18 @@ body.noeis-editorial .welcome .welcome__view-field,
   padding: 26px 28px 22px;
   border: 1px solid var(--welcome-rule);
   border-radius: 6px;
-  font-family: var(--welcome-serif);
+  font-family: var(--font-serif);
 }
 
 .welcome__example-label,
 .welcome__example small {
   color: var(--welcome-subtle);
-  font-family: var(--welcome-ui);
+  font-family: var(--font-sans);
   font-size: 0.78rem;
 }
 
 .welcome .welcome__example h2 {
-  font-family: var(--welcome-serif);
+  font-family: var(--font-serif);
   font-size: 1.6rem;
   font-weight: 400;
   letter-spacing: -0.01em;
@@ -283,7 +236,7 @@ body.noeis-editorial .welcome .welcome__view-field,
 .welcome__example h3 {
   margin: 6px 0 2px;
   color: var(--welcome-muted);
-  font-family: var(--welcome-ui);
+  font-family: var(--font-sans);
   font-size: 0.8rem;
   font-weight: 500;
 }
@@ -326,9 +279,8 @@ body.noeis-editorial .welcome .welcome__view-field,
 
 .welcome .welcome__packs button {
   justify-self: start;
-  padding: 0;
-  border: 0;
-  font-family: var(--welcome-serif);
+  color: var(--welcome-ink);
+  font-family: var(--font-serif);
   font-size: 1.2rem;
   white-space: normal;
   text-align: left;
@@ -376,13 +328,13 @@ body.noeis-editorial .welcome .welcome__view-field,
   flex-wrap: wrap;
   justify-content: space-between;
   gap: 2px 16px;
-  font-family: var(--welcome-serif);
+  font-family: var(--font-serif);
   font-size: 1.02rem;
 }
 
 .welcome__arrivals small {
   color: var(--welcome-subtle);
-  font-family: var(--welcome-ui);
+  font-family: var(--font-sans);
   font-size: 0.8rem;
 }
 
@@ -408,11 +360,14 @@ body.noeis-editorial .welcome .welcome__view-field,
   gap: 2px 16px;
 }
 
-.welcome .welcome__topics button {
+.welcome .welcome__topics button,
+.welcome .welcome__packs button {
   padding: 0;
   border: 0;
+  background: none;
+  cursor: pointer;
   color: var(--welcome-ink);
-  font-family: var(--welcome-serif);
+  font-family: var(--font-serif);
   font-size: 1.2rem;
   white-space: normal;
   text-align: left;
@@ -428,7 +383,7 @@ body.noeis-editorial .welcome .welcome__view-field,
 }
 
 .welcome__page-lede {
-  font-family: var(--welcome-serif);
+  font-family: var(--font-serif);
   font-size: 1.12rem;
   line-height: 1.6;
 }
@@ -466,7 +421,7 @@ body.noeis-editorial .welcome .welcome__view-field,
   margin: 0;
   padding-left: 18px;
   border-left: 1px solid var(--welcome-rule);
-  font-family: var(--welcome-serif);
+  font-family: var(--font-serif);
   font-size: 1.12rem;
   line-height: 1.55;
   transition: color 180ms ease, border-color 180ms ease;
@@ -522,7 +477,7 @@ body.noeis-editorial .welcome .welcome__view-field,
   .welcome__steps li:not([aria-current='step']) { display: none; }
   .welcome__column { gap: 24px; padding-top: 28px; }
   .welcome__inline { flex-direction: column; align-items: stretch; gap: 12px; }
-  .welcome__inline button { align-self: flex-start; }
+  .welcome__inline .ui-button { align-self: flex-start; }
 }
 
 /* The shell reserves room for a top bar first run does not show. */
