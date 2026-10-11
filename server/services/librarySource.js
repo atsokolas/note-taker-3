@@ -27,7 +27,7 @@ const canonicalSourceUrl = (value = '') => {
     const url = new URL(raw);
     const query = [...url.searchParams]
       .filter(([key]) => !TRACKING_PARAM.test(key))
-      .map(([key, part]) => `${key}=${part}`)
+      .map(pair => pair.map(encodeURIComponent).join('='))
       .sort()
       .join('&');
     const path = url.pathname.replace(/\/+$/, '');
