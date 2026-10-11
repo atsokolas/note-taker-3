@@ -8900,6 +8900,49 @@ body.noeis-editorial .library-context-feed-item__text {
   color: var(--vellum-ink);
 }
 
+body.noeis-editorial .library-context-feed-item__thought {
+  margin: 8px 0 0;
+  color: var(--ink-agent, var(--vellum-ink));
+  font: italic 0.92rem/1.5 "Newsreader", Georgia, serif;
+}
+
+body.noeis-editorial .library-context-feed-item__thought-form {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+body.noeis-editorial .library-context-feed-item__thought-form label {
+  display: grid;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+body.noeis-editorial .library-context-feed-item__thought-form textarea {
+  width: 100%;
+  min-height: 4.5rem;
+  padding: 8px 0;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 70%, transparent);
+  background: transparent;
+  color: var(--vellum-ink);
+  font: italic 0.95rem/1.5 "Newsreader", Georgia, serif;
+  resize: vertical;
+}
+
+body.noeis-editorial .library-context-feed-item__thought-form button {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--library-accent, #526947);
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
 body.noeis-editorial .library-context-feed-item .passage-door {
   margin-top: 6px;
 }

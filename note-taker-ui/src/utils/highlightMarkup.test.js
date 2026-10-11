@@ -45,6 +45,24 @@ describe('renderArticleContentWithHighlights', () => {
     expect(doc.querySelector('h2')?.textContent).toBe('Original title');
   });
 
+  it('does not wrap a highlight through the middle of a word', () => {
+    const html = renderArticleContentWithHighlights(
+      {
+        content: '<p>but for whatever reason this wasn\'t it.</p>',
+        url: 'https://example.com/article'
+      },
+      [{
+        _id: 'h-mid',
+        text: 'but for whateve'
+      }]
+    );
+
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const mark = doc.querySelector('mark[data-highlight-id="highlight-h-mid"]');
+    expect(mark.textContent).toBe('but for whatever');
+    expect(doc.body.textContent).toBe("but for whatever reason this wasn't it.");
+  });
+
   it('falls back to article text matching when no anchor exists', () => {
     const html = renderArticleContentWithHighlights(
       {
