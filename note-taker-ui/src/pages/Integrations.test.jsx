@@ -4,6 +4,12 @@ import { MemoryRouter } from 'react-router-dom';
 import Integrations from './Integrations';
 import { getMorningPaperSettings } from '../api/dailyLoop';
 
+// The Advanced cards have their own tests; here they only need to be there.
+jest.mock('../components/integrations/ExternalBridgeCard', () => function MockExternalBridgeCard() { return <div data-testid="ExternalBridgeCard" />; });
+jest.mock('../components/integrations/HandoffQueueCard', () => function MockHandoffQueueCard() { return <div data-testid="HandoffQueueCard" />; });
+jest.mock('../components/integrations/OrchestrationPolicyCard', () => function MockOrchestrationPolicyCard() { return <div data-testid="OrchestrationPolicyCard" />; });
+jest.mock('../components/integrations/PersonalAgentsCard', () => function MockPersonalAgentsCard() { return <div data-testid="PersonalAgentsCard" />; });
+jest.mock('../components/integrations/WikiMcpConnectCard', () => function MockWikiMcpConnectCard() { return <div data-testid="WikiMcpConnectCard" />; });
 jest.mock('./DataIntegrations', () => function MockDataIntegrations() {
   return <div data-testid="connections-sources">Sources panel</div>;
 });
@@ -153,5 +159,16 @@ describe('Connections center', () => {
 
     fireEvent.click(screen.getByRole('tab', { name: /Activity/ }));
     expect(screen.getByTestId('connections-activity')).toBeInTheDocument();
+  });
+  it('opens the handoff queue under Advanced when linked to #queue', () => {
+    window.history.replaceState({}, '', '/connections#queue');
+    try {
+      render(<MemoryRouter><Integrations /></MemoryRouter>);
+      expect(screen.getByRole('tab', { name: /Agents/ })).toHaveAttribute('aria-selected', 'true');
+      expect(screen.getByText('Advanced').closest('details')).toHaveAttribute('open');
+      expect(screen.getByTestId('HandoffQueueCard')).toBeInTheDocument();
+    } finally {
+      window.history.replaceState({}, '', '/');
+    }
   });
 });

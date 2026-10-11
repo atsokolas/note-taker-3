@@ -167,7 +167,7 @@ const ThinkSurface = () => {
   const workId = params.get('explorationId');
   if (workId) return <AuthoredRecovery key={workId} workId={workId} />;
   // The handoff queue moved to Connections; old links follow it there.
-  if (params.get('tab') === 'handoffs') return <Navigate to="/connections#agents" replace />;
+  if (params.get('tab') === 'handoffs') return <Navigate to="/connections#queue" replace />;
   return namesAThinkObject(location.search) ? <ThinkMode /> : <ThinkNotes />;
 };
 

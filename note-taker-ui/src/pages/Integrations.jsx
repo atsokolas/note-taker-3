@@ -43,9 +43,11 @@ const ForwardingLine = () => {
 const Integrations = () => {
   useDocumentTitle('Connections');
   const [showTaskLinkBuilder, setShowTaskLinkBuilder] = useState(false);
-  const [showConnectionDetails, setShowConnectionDetails] = useState(false);
+  // #queue is the agents tab with the handoff queue open under Advanced.
+  const [showConnectionDetails, setShowConnectionDetails] = useState(() => window.location.hash === '#queue');
   const [activeTab, setActiveTab] = useState(() => {
     const hash = String(window.location.hash || '').replace(/^#/, '');
+    if (hash === 'queue') return 'agents';
     return ['agents', 'activity'].includes(hash) ? hash : 'sources';
   });
 
@@ -71,7 +73,10 @@ const Integrations = () => {
   useEffect(() => {
     const syncTabFromHash = () => {
       const hash = String(window.location.hash || '').replace(/^#/, '');
-      if (['sources', 'agents', 'activity'].includes(hash)) setActiveTab(hash);
+      if (hash === 'queue') {
+        setActiveTab('agents');
+        setShowConnectionDetails(true);
+      } else if (['sources', 'agents', 'activity'].includes(hash)) setActiveTab(hash);
       else if (['readwise', 'notion', 'evernote', 'files', 'capture'].includes(hash)) setActiveTab('sources');
     };
     window.addEventListener('hashchange', syncTabFromHash);
