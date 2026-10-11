@@ -136,4 +136,10 @@ test('existing private Wiki read exposes only owned budget counters/usage; cache
   await ledger.updateOne({ _id: policy.ledgerId }, { $set: { userId: ordinary } });
   const mismatch = await readReviewerBudgetStatus({ userId: reviewer, pageId: policy.pageId });
   assert.equal(mismatch.status, 'unavailable'); assert.equal(mismatch.receipts, undefined);
+  await ledger.updateOne({ _id: policy.ledgerId }, { $set: { userId: reviewer, failureCode: { secret: 'SECRET_NESTED_FIELD' } } });
+  const corrupt = await readReviewerBudgetStatus({ userId: reviewer, pageId: policy.pageId });
+  assert.equal(corrupt.status, 'unavailable'); assert.equal(JSON.stringify(corrupt).includes('SECRET_NESTED_FIELD'), false);
+  await ledger.updateOne({ _id: policy.ledgerId }, { $unset: { failureCode: '' }, $set: { 'receipts.0.generationId': { secret: 'SECRET_GENERATION_FIELD' } } });
+  const badGeneration = await readReviewerBudgetStatus({ userId: reviewer, pageId: policy.pageId });
+  assert.equal(badGeneration.status, 'unavailable'); assert.equal(JSON.stringify(badGeneration).includes('SECRET_GENERATION_FIELD'), false);
 });

@@ -12,6 +12,8 @@ const MAX_MESSAGE_BYTES = 65536;
 const MAX_TOKEN_COST = 0.0298;
 const HOLD_REASON = 'Reviewer rehearsal: semantic indexing held; no inference attempted by this hold.';
 const validId = value => typeof value === 'string' && /^[a-f0-9]{24}$/.test(value);
+const validGenerationId = value => typeof value === 'string' && /^[A-Za-z0-9_.:-]{1,256}$/.test(value);
+const failureCodes = new Set(['REVIEWER_PROVIDER_REJECTED', 'REVIEWER_PROVIDER_RECEIPT_INVALID', 'REVIEWER_LEDGER_SETTLEMENT_FAILED', 'REVIEWER_PROVIDER_UNCERTAIN']);
 const isReviewer = (userId, target = policy) => validId(target.userId) && String(userId || '') === target.userId;
 const gateError = (code, message, status = 409) => Object.assign(new Error(message), { code, status });
 
@@ -69,8 +71,9 @@ const readReviewerBudgetStatus = async ({ userId, pageId, target = policy, getLe
       || !Number.isInteger(row.reservedMicroUsd) || row.reservedMicroUsd < 0 || row.reservedMicroUsd > MAX_RESERVED_MICRO_USD
       || row.reservedMicroUsd !== row.requests * RESERVATION_MICRO_USD
       || typeof row.inFlight !== 'boolean' || typeof row.frozen !== 'boolean'
+      || (row.failureCode !== undefined && row.failureCode !== '' && !failureCodes.has(row.failureCode))
       || !Array.isArray(row.receipts) || row.receipts.length > row.requests
-      || row.receipts.some(receipt => !Number.isInteger(receipt.usage?.promptTokens) || receipt.usage.promptTokens < 0
+      || row.receipts.some(receipt => !validGenerationId(receipt.generationId) || !Number.isInteger(receipt.usage?.promptTokens) || receipt.usage.promptTokens < 0
         || receipt.usage.promptTokens > 128000 || !Number.isInteger(receipt.usage?.completionTokens)
         || receipt.usage.completionTokens < 0 || receipt.usage.completionTokens > MAX_OUTPUT_TOKENS
         || !Number.isFinite(receipt.usage?.cost) || receipt.usage.cost < 0 || receipt.usage.cost > MAX_TOKEN_COST)) {
@@ -194,7 +197,7 @@ const createBoundedReviewerChat = ({
     const data = await response.json();
     const text = data?.choices?.[0]?.message?.content;
     const usage = data?.usage || {};
-    if (typeof text !== 'string' || !text.trim() || data.model !== MODEL
+    if (typeof text !== 'string' || !text.trim() || data.model !== MODEL || !validGenerationId(data.id)
       || !Number.isInteger(usage.prompt_tokens) || usage.prompt_tokens < 0 || usage.prompt_tokens > 128000
       || !Number.isInteger(usage.completion_tokens) || usage.completion_tokens < 0 || usage.completion_tokens > MAX_OUTPUT_TOKENS
       || !Number.isFinite(usage.cost) || usage.cost < 0 || usage.cost > MAX_TOKEN_COST) {
