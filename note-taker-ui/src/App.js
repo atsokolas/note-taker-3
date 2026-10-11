@@ -30,7 +30,7 @@ import TourManager from './tour/TourManager';
 import OnboardingBuildBanner from './onboarding/OnboardingBuildBanner';
 import FirstRunGate from './onboarding/FirstRunGate';
 import OnboardingWalkthrough from './onboarding/OnboardingWalkthrough';
-import { buildCanonicalArticlePath } from './utils/sourceRoutes';
+import { buildCanonicalHighlightPath } from './utils/sourceRoutes';
 import {
   buildThinkPosturePath,
   consumeGoToChord,
@@ -209,9 +209,11 @@ const LegacyQuestionRedirect = () => {
   return <Navigate to={buildThinkPosturePath('questions', questionId)} replace />;
 };
 
+/* An old article link that named a passage still opens at the passage. */
 const LegacyArticleRedirect = () => {
   const { id } = useParams();
-  return <Navigate to={buildCanonicalArticlePath(id)} replace />;
+  const highlightId = new URLSearchParams(useLocation().search).get('highlightId') || '';
+  return <Navigate to={buildCanonicalHighlightPath({ articleId: id, highlightId })} replace />;
 };
 
 const LegacyWikiPageRedirect = () => {
