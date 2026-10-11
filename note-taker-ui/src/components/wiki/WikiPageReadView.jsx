@@ -913,6 +913,9 @@ const WikiConnectionTraces = ({ pageId }) => {
 
 const WikiReferenceComposer = ({ pageId, pageTitle, defaultOpen = false }) => {
   const [open, setOpen] = useState(defaultOpen);
+  useEffect(() => {
+    if (defaultOpen) setOpen(true);
+  }, [defaultOpen]);
   return (
     <details
       className="wiki-read__rail-details wiki-read__rail-details--references"
@@ -1290,8 +1293,8 @@ const WikiPageReadView = ({
     } catch (_e) { /* ignore quota / private mode */ }
   }, [railCollapsed]);
   useEffect(() => {
-    if (shouldOpenTrace) setRailCollapsed(false);
-  }, [shouldOpenTrace]);
+    if (shouldOpenTrace || shouldOpenPull) setRailCollapsed(false);
+  }, [shouldOpenTrace, shouldOpenPull]);
   const previewTimerRef = useRef(null);
   const previewDismissTimerRef = useRef(null);
   const latestPageRef = useRef(null);

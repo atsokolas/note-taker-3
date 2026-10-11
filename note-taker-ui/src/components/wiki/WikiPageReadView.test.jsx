@@ -324,6 +324,26 @@ describe('WikiPageReadView', () => {
     });
   });
 
+  it('opens the pull-in when the palette hands a reference to the page already open', async () => {
+    const at = search => ({ pathname: '/wiki/workspace', search, hash: '', state: null, key: search || 'start' });
+    const location = jest.spyOn(router, 'useLocation').mockReturnValue(at('?page=wiki-1'));
+    const view = () => (
+      <MemoryRouter>
+        <SystemStatusProvider value={buildSystemStatusControls()}>
+          <WikiPageReadView pageId="wiki-1" onEdit={jest.fn()} workspaceMode />
+        </SystemStatusProvider>
+      </MemoryRouter>
+    );
+    const { rerender } = render(view());
+    await screen.findByText('Memory compounds with review.');
+    const openReference = () => screen.queryAllByText('Reference…').some(summary => summary.closest('details').open);
+    await screen.findAllByText('Reference…');
+    expect(openReference()).toBe(false);
+    location.mockReturnValue(at('?page=wiki-1&pull=1'));
+    rerender(view());
+    await waitFor(() => expect(openReference()).toBe(true));
+  });
+
   it('does not normalize a malformed claim identity into an existing claim', async () => {
     const scrollIntoView = jest.fn();
     window.HTMLElement.prototype.scrollIntoView = scrollIntoView;

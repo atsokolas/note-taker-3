@@ -7,6 +7,8 @@ describe('buildReferenceHandoffPath', () => {
       search: '?page=wiki-1&view=graph'
     })).toBe('/wiki/workspace?page=wiki-1&view=graph&pull=1');
     expect(buildReferenceHandoffPath({ pathname: '/wiki/workspace', search: '?view=graph' })).toBe('/think?tab=home&pull=1');
+    expect(buildReferenceHandoffPath({ pathname: '/wiki/workspace', search: '?page=wiki-1&mode=edit' })).toBe('/wiki/workspace?page=wiki-1&pull=1');
+    expect(buildReferenceHandoffPath({ pathname: '/wiki/read/wiki-1', search: '?claimId=c1' })).toBe('/wiki/read/wiki-1?claimId=c1&pull=1');
   });
 
   it('routes Think into the current posture while preserving selected object state', () => {

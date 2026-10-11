@@ -10,9 +10,14 @@ export const buildReferenceHandoffPath = ({ pathname = '', search = '' } = {}) =
   const safePathname = pathname || '';
   const safeSearch = search || '';
 
+  // A Wiki page takes the pull-in in its reader, never its editor.
+  if (safePathname.startsWith('/wiki/read/')) {
+    return appendQueryParam(`${safePathname}${safeSearch}`, 'pull', '1');
+  }
   if (safePathname.startsWith('/wiki')) {
     const params = new URLSearchParams(safeSearch);
     if (params.get('page')) {
+      params.delete('mode');
       params.set('pull', '1');
       return `/wiki/workspace?${params.toString()}`;
     }
