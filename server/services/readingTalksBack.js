@@ -102,6 +102,11 @@ const nearest = async ({ views, passages, embed }) => {
     .slice(0, 3)]));
 };
 
+const interleave = (left = [], right = []) => Array.from(
+  { length: Math.max(left.length, right.length) },
+  (_, index) => [left[index], right[index]]
+).flat().filter(Boolean);
+
 const defaultEmbed = () => (isEmbeddingConfigured() ? embedTexts : null);
 
 /* The text is the query's corpus turned around: each view asks the text
@@ -124,7 +129,9 @@ const candidateViews = async ({ views, passages, embed = null, limit = VIEWS_PER
     .slice(0, limit)
     .map(page => ({
       page,
-      passages: [...new Set([...(byWords.get(page) || []), ...(byMeaning.get(page) || [])].map(passage => passage.text))]
+      // Taken in turn from each ranking, so the passage that chose the view by
+      // meaning is read even when the words ranking found three of its own.
+      passages: [...new Set(interleave(byWords.get(page), byMeaning.get(page)).map(passage => passage.text))]
         .slice(0, 3)
         .map(text => ({ text }))
     }));
@@ -332,8 +339,12 @@ const opposeFromNote = async ({
   const read = new Set(readings.map(reading => reading.sentence));
   const unread = [...new Set(sentences.map(item => item.sentence))].filter(sentence => !read.has(sentence));
   if (!unread.length) return null;
+  // Each sentence a view answers meets the view it ranks highest for: a
+  // view's top passage before anyone's second, best views first within a rank.
+  // Sentences past this save's asks wait, unread, for the next.
   const matched = (await candidateViews({ views, passages: unread, embed, limit: views.length }))
-    .map(({ page, passages }) => ({ page, sentence: passages[0].text }))
+    .flatMap(({ page, passages }) => passages.map((passage, rank) => ({ page, sentence: passage.text, rank })))
+    .sort((left, right) => left.rank - right.rank)
     .filter((pair, index, all) => all.findIndex(other => other.sentence === pair.sentence) === index);
   const pairs = matched.slice(0, NOTE_ASKS).map(pair => ({ ...pair, key: pairKey(pair) }));
   // A sentence no view answers is read too, so it is not looked at again.
@@ -347,19 +358,22 @@ const opposeFromNote = async ({
     if (verdict === 'contradicts') break;
   }
   if (!fresh.length) return null;
-  await NotebookEntry.updateOne(
-    { _id: entry._id, userId },
+  // A save that overlapped this one may have read the same sentences first;
+  // then its readings stand and these are dropped, so none is kept twice.
+  const kept = await NotebookEntry.updateOne(
+    { _id: entry._id, userId, 'viewReadings.sentence': { $nin: fresh.map(reading => reading.sentence) } },
     { $push: { viewReadings: { $each: fresh, $slice: -KEPT_READINGS } } },
     { timestamps: false }
   );
-  const shown = fresh.find(reading => reading.verdict === 'contradicts');
+  // Only a line that was kept is shown; the overlapping save's line stands instead.
+  const shown = kept?.matchedCount !== 0 && fresh.find(reading => reading.verdict === 'contradicts');
   return shown ? lineFor({ reading: shown, page: views.find(view => String(view._id) === shown.pageId), sentences }) : null;
 };
 
 const setOppositeAside = ({ entryId, userId, key, models: { NotebookEntry }, now = new Date() }) => NotebookEntry.updateOne(
   { _id: entryId, userId, 'viewReadings.key': clean(key, 40) },
-  { $set: { 'viewReadings.$.dismissedAt': now } },
-  { timestamps: false }
+  { $set: { 'viewReadings.$[reading].dismissedAt': now } },
+  { arrayFilters: [{ 'reading.key': clean(key, 40) }], timestamps: false }
 );
 
 /* A quote from a saved source, as a highlight on it: the one already there

@@ -237,6 +237,29 @@ describe('you hold the opposite', () => {
     expect(kept).toMatchObject({ sentence: plain, verdict: 'unrelated', pageId: '' });
   });
 
+  it('asks every sentence a view answers, not only the best match, and keeps none twice', async () => {
+    const models = setup();
+    const first = 'Costco membership renewals rose again this quarter across every region.';
+    const complete = jest.fn(async ({ messages }) => ({
+      text: JSON.stringify(messages[1].content.includes(OPPOSITE)
+        ? { verdict: 'contradicts', confidence: 'high' }
+        : { verdict: 'unrelated', confidence: 'high' })
+    }));
+    const line = await check(models, note({ blocks: [{ id: 'b1', text: `${first} ${OPPOSITE}` }] }), complete);
+    expect(line).toMatchObject({ sentence: OPPOSITE });
+    // Both sentences meet the view; neither is filed as read without being asked.
+    const [filter, update] = models.NotebookEntry.updateOne.mock.calls[0];
+    const kept = update.$push.viewReadings.$each;
+    expect(kept).toHaveLength(complete.mock.calls.length);
+    expect(kept.every(reading => reading.pageId === 'v1')).toBe(true);
+    // An overlapping save that read these sentences first wins; nothing is kept twice.
+    expect(filter['viewReadings.sentence'].$nin).toEqual(kept.map(reading => reading.sentence));
+
+    // And when it did, this save shows nothing it did not keep.
+    models.NotebookEntry.updateOne.mockResolvedValueOnce({ matchedCount: 0 });
+    expect(await check(models, note({ blocks: [{ id: 'b1', text: `${first} ${OPPOSITE}` }] }), complete)).toBeNull();
+  });
+
   it('never repeats a line set aside, and never asks that pair again', async () => {
     const models = setup();
     const line = await check(models, note(), verdict({ verdict: 'contradicts', confidence: 'high' }));
