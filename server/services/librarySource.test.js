@@ -12,6 +12,8 @@ async function run() {
   assert.equal(canonicalSourceUrl('http://example.com/piece'), canonicalSourceUrl('https://www.example.com/piece/'));
   assert.notEqual(canonicalSourceUrl('https://example.com/piece?id=1'), canonicalSourceUrl('https://example.com/piece?id=2'));
   assert.notEqual(canonicalSourceUrl('https://example.com/Report'), canonicalSourceUrl('https://example.com/report'));
+  assert.notEqual(canonicalSourceUrl('https://example.com:8443/foo'), canonicalSourceUrl('https://example.com/foo'));
+  assert.equal(canonicalSourceUrl('https://example.com:443/foo'), canonicalSourceUrl('https://example.com/foo'));
   assert.equal(canonicalSourceUrl(''), '');
 
   // An in-memory server: never the application's URI.

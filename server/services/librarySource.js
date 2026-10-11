@@ -31,7 +31,7 @@ const canonicalSourceUrl = (value = '') => {
       .sort()
       .join('&');
     const path = url.pathname.replace(/\/+$/, '');
-    return `${url.hostname.replace(/^www\./, '')}${path}${query ? `?${query}` : ''}`;
+    return `${url.host.replace(/^www\./, '')}${path}${query ? `?${query}` : ''}`;
   } catch (_error) {
     return raw.toLowerCase().replace(/^[a-z][a-z0-9+.-]*:\/\//, '').replace(/^www\./, '').replace(/[#?].*$/, '').replace(/\/+$/, '');
   }
@@ -43,7 +43,7 @@ const urlPattern = (value = '') => {
   try {
     const url = new URL(String(value || '').trim());
     if (!/^https?:$/.test(url.protocol)) return null;
-    const place = `${url.hostname.replace(/^www\./, '')}${url.pathname.replace(/\/+$/, '')}`
+    const place = `${url.host.replace(/^www\./, '')}${url.pathname.replace(/\/+$/, '')}`
       .replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     return new RegExp(`^https?://(www\\.)?${place}/*([?#]|$)`, 'i');
   } catch (_error) {
