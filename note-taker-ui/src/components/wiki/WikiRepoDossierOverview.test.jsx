@@ -38,7 +38,7 @@ describe('WikiRepoDossierOverview', () => {
     expect(screen.getByText(/Noeis connects Library, Think, and Wiki/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'atsokolas/note-taker-3' })).toHaveAttribute('href', 'https://github.com/atsokolas/note-taker-3');
     expect(screen.getByRole('navigation', { name: 'Repository dossier quick links' })).toHaveTextContent('Architecture');
-    expect(screen.getByRole('link', { name: /View repository maintenance comparison/i })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /Compare with the repository/i })).toHaveAttribute(
       'href',
       '/share/wiki/wiki-repo-1/comparison'
     );

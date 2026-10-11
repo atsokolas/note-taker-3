@@ -2444,7 +2444,7 @@ describe('WikiPageReadView', () => {
     expect(screen.queryByRole('button', { name: 'Open', exact: true })).not.toBeInTheDocument();
     expect(screen.getByRole('navigation', { name: 'Repository dossier quick links' })).toHaveTextContent('Architecture');
     expect(screen.getByRole('navigation', { name: 'Repository dossier quick links' })).toHaveTextContent('Open questions');
-    expect(screen.getByRole('link', { name: /View repository maintenance comparison/i })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /Compare with the repository/i })).toHaveAttribute(
       'href',
       '/share/wiki/wiki-repo-2/comparison'
     );

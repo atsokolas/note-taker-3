@@ -1267,7 +1267,7 @@ const WikiPageReadView = ({
       : (page ? countWikiSources(page) : null),
     empty: openedCompanion?.empty || (page
       ? 'Nothing to retrieve until you ask against this accepted page.'
-      : 'Loading the page before the steward checks it.'),
+      : 'Loading the page.'),
     ...(openedCompanion ? {
       askPlaceholder: openedCompanion.askPlaceholder,
       roleDescription: openedCompanion.roleDescription,

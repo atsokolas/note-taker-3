@@ -763,7 +763,7 @@ describe('WikiWorkspace', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
 
     const status = await screen.findByRole('status', { name: 'Thought partner status' });
-    expect(status).toHaveTextContent('Agent updating Wiki page...');
+    expect(status).toHaveTextContent('Thought partner is updating Wiki page…');
     expect(status).toHaveAttribute('data-status', 'working');
 
     await act(async () => { resolveDraft(); });
@@ -1588,7 +1588,7 @@ describe('WikiWorkspace', () => {
 
     await waitFor(() => expect(streamSignal.aborted).toBe(true));
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument());
-    expect(screen.getByText('Agent reply cancelled before completion.')).toBeInTheDocument();
+    expect(screen.getByText('Stopped before finishing.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
   });
 
@@ -1605,7 +1605,7 @@ describe('WikiWorkspace', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
 
-    expect(await screen.findByText('Agent chat failed. Your draft is still in the composer; retry when ready.')).toBeInTheDocument();
+    expect(await screen.findByText('Thought partner could not answer. Your message is still in the box; send it again when ready.')).toBeInTheDocument();
     expect(screen.queryByText('Half answer that should not render')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument();
     expect(screen.getByLabelText('Wiki workspace message')).toHaveValue('Fail this response');

@@ -211,7 +211,7 @@ const WikiLivingThesis = ({ page, pageId, onPageUpdate, onCanonicalPage }) => {
       onPageUpdate?.(updated);
       setStatus('Living thesis saved.');
       closeEditor();
-      systemStatus.setLatestReceipt({ title: 'Living thesis saved', summary: 'Judgment and ledger metadata were preserved.', status: 'completed', href: `/wiki/workspace?page=${encodeURIComponent(pageId)}` });
+      systemStatus.setLatestReceipt({ title: 'Living thesis saved', summary: 'Your judgment and its history were kept.', status: 'completed', href: `/wiki/workspace?page=${encodeURIComponent(pageId)}` });
     } catch (saveError) {
       const message = saveError?.response?.data?.error || 'Could not save the living thesis.';
       setError(message);
@@ -359,7 +359,7 @@ const WikiLivingThesis = ({ page, pageId, onPageUpdate, onCanonicalPage }) => {
         </>}
       </section>
 
-      <div className="wiki-thesis__ledger" aria-label="Thesis ledger">
+      <div className="wiki-thesis__ledger" aria-label="Thesis history">
         {['assumptions', 'unknowns', 'falsifiers', 'decisions'].map(kind => {
           const sourceItems = judgment[kind] || [];
           const emptyCopy = {

@@ -178,7 +178,7 @@ export const parseWikiTemporalCommand = (value = '') => {
       return {
         topic,
         period,
-        label: `Draft change ledger for "${topic.slice(0, 48)}"`,
+        label: `Write how "${topic.slice(0, 48)}" changed`,
         sourceText: text
       };
     }
@@ -566,11 +566,11 @@ const CommandPalette = ({ open, onClose }) => {
     const period = String(options.period || '').trim();
     const sourceText = String(options.sourceText || '').trim();
     if (!topic) return;
-    const title = `${topic} change ledger`;
+    const title = `How ${topic} changed`;
     const timeWindow = period || 'recent work';
     systemStatus.clearRecoverableFailure();
     systemStatus.setBackgroundWork({
-      label: 'Creating change ledger',
+      label: 'Starting the page',
       stage: `Reading history for ${topic.slice(0, 48)}`
     });
     try {
@@ -579,7 +579,7 @@ const CommandPalette = ({ open, onClose }) => {
         pageType: 'temporal_review',
         title,
         text: sourceText || `What changed in my thinking about ${topic} over ${timeWindow}?`,
-        label: sourceText || `${topic} change ledger`,
+        label: sourceText || title,
         createdFrom: {
           type: 'temporal_query',
           topic,
@@ -589,7 +589,7 @@ const CommandPalette = ({ open, onClose }) => {
       const href = page._id ? `/wiki/workspace?page=${page._id}` : '/wiki';
       systemStatus.setLatestReceipt({
         id: `command-temporal-${page._id || Date.now()}`,
-        title: 'Change ledger started',
+        title: `Started “${title}”`,
         summary: `Started a wiki draft to inspect what changed about "${topic}" across ${timeWindow}.`,
         status: 'needs_review',
         href
@@ -597,10 +597,10 @@ const CommandPalette = ({ open, onClose }) => {
       onClose?.();
       openWikiDraft({ navigate, pageId: page._id });
     } catch (err) {
-      console.error('Palette change ledger failed', err);
+      console.error('Palette temporal review failed', err);
       systemStatus.setRecoverableFailure({
         stage: 'Command palette',
-        message: 'Could not create the change ledger.',
+        message: 'Could not start that page.',
         retryable: true,
         retry: () => { createTemporalReview({ topic, period, sourceText }); }
       });

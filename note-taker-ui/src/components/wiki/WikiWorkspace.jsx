@@ -588,7 +588,7 @@ const summarizeIngestRun = (run = {}) => {
   const affectedCount = Array.isArray(run.affectedPageIds) ? run.affectedPageIds.length : 0;
   if (run.summary) return run.summary;
   if (affectedCount) {
-    return `The agent found ${affectedCount} wiki page${affectedCount === 1 ? '' : 's'} that this source may update.`;
+    return `${AGENT_DISPLAY_NAME} found ${affectedCount} wiki page${affectedCount === 1 ? '' : 's'} that this source may update.`;
   }
   if (run.suggestedCreatePage) {
     return 'No existing page matched strongly enough; the agent suggests creating a new page from this source.';
@@ -796,7 +796,7 @@ const workspaceAgentStatus = ({ busy = false, reading = false, pageId = '', page
   if (busy) {
     return {
       status: 'working',
-      text: pageId ? `Agent updating ${pageLabel}...` : 'Agent is working...'
+      text: pageId ? `${AGENT_DISPLAY_NAME} is updating ${pageLabel}…` : `${AGENT_DISPLAY_NAME} is working…`
     };
   }
   if (reading && pageId) {
@@ -2659,7 +2659,7 @@ const WikiWorkspaceChat = ({
         setInput(text);
       }
       replaceMessage(pendingId, {
-        text: finalReply || 'Agent chat ended without a complete reply. Your draft is still in the composer; retry when ready.',
+        text: finalReply || `${AGENT_DISPLAY_NAME} stopped before finishing. Your message is still in the box; send it again when ready.`,
         ...(Array.isArray(result?.activityReceipts) ? { activityReceipts: result.activityReceipts } : {}),
         ...(Array.isArray(result?.suggestedActions) ? { suggestedActions: result.suggestedActions } : {}),
         pending: false,
@@ -2668,13 +2668,13 @@ const WikiWorkspaceChat = ({
     } catch (error) {
       if (error?.name === 'AbortError' || streamController.signal.aborted) {
         replaceMessage(pendingId, {
-          text: 'Agent reply cancelled before completion.',
+          text: 'Stopped before finishing.',
           pending: false,
           cancelled: true
         });
       } else {
         setInput(text);
-        replaceMessage(pendingId, { text: 'Agent chat failed. Your draft is still in the composer; retry when ready.', pending: false, error: true });
+        replaceMessage(pendingId, { text: `${AGENT_DISPLAY_NAME} could not answer. Your message is still in the box; send it again when ready.`, pending: false, error: true });
       }
     } finally {
       if (streamAbortRef.current === streamController) {
@@ -2915,7 +2915,7 @@ const WikiWorkspaceChat = ({
       <div ref={scrollRef} className="wiki-workspace-chat__messages">
         {messages.map(message => (
           <article key={message.id} className={`wiki-workspace-chat__message is-${message.role}`}>
-            <span>{message.role === 'user' ? 'You' : 'Agent'}</span>
+            <span>{message.role === 'user' ? 'You' : AGENT_DISPLAY_NAME}</span>
             {message.buildRecovery ? (
               <SurfaceNotice
                 className="wiki-workspace-chat__surface-notice"
