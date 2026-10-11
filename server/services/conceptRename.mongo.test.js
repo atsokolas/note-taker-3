@@ -36,6 +36,7 @@ test('real Mongo: renaming a concept moves every reference to its name, and refu
       content: '<p>Only words about moats here.</p>',
       asidePieces: [{ id: 'a2', nodes: [{ type: 'conceptRef', attrs: { conceptName: 'MOATS' } }], blocks: [{ id: 'b2', type: 'concept_ref', conceptName: 'Moats' }, { id: 'w2', type: 'wiki_ref', text: 'Moats page', conceptName: 'Moats' }] }]
     });
+    const card = await NotebookEntry.create({ userId, title: 'Card', blocks: [{ id: 'w3', type: 'wiki_ref', text: 'Moats page', conceptName: 'Moats' }] });
     const prose = await NotebookEntry.create({ userId, title: 'Prose', content: '<p>Moats, moats, moats.</p>', blocks: [{ id: 'p2', text: 'Moats.' }] });
     const theirs = await NotebookEntry.create({ userId: stranger, title: 'Theirs', content: '<div data-conceptname="Moats"></div>' });
     const question = await Question.create({ userId, text: 'Does the moat widen?', linkedTagName: 'Moats', conceptName: 'moats' });
@@ -64,6 +65,9 @@ test('real Mongo: renaming a concept moves every reference to its name, and refu
     assert.equal(setAside.asidePieces[0].nodes[0].attrs.conceptName, 'Durable advantage');
     assert.equal(setAside.asidePieces[0].blocks[0].conceptName, 'Durable advantage');
     assert.equal(setAside.asidePieces[0].blocks[1].conceptName, 'Moats', 'a wiki card that borrows the field is not a mention');
+    const carded = await NotebookEntry.findById(card._id);
+    assert.equal(carded.blocks[0].conceptName, 'Moats');
+    assert.equal(carded.updatedAt.getTime(), card.updatedAt.getTime(), 'a note with only a borrowed field is not touched or counted');
     const untouched = await NotebookEntry.findById(prose._id);
     assert.equal(untouched.content, '<p>Moats, moats, moats.</p>', 'prose is not a mention');
     assert.equal(untouched.updatedAt.getTime(), prose.updatedAt.getTime());

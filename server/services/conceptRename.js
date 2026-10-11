@@ -45,12 +45,14 @@ const plain = (value) => Array.isArray(value) || Object.getPrototypeOf(value || 
 
 /* Rename every concept reference under value, in place: a `concept_ref` block
    or a `conceptRef` node. Other blocks borrow `conceptName` (a wiki card keeps
-   its kind there) and are left alone. */
+   its kind there) and are left alone. Returns how many were renamed. */
 const CONCEPT_REFS = new Set(['concept_ref', 'concept-ref', 'conceptRef']);
 const renameNamed = (value, was, name) => {
   const ref = CONCEPT_REFS.has(value.type) && (value.type === 'conceptRef' ? value.attrs : value);
-  if (ref && typeof ref.conceptName === 'string' && was.test(ref.conceptName)) ref.conceptName = name;
-  Object.values(value).filter(plain).forEach(child => renameNamed(child, was, name));
+  const renamed = Boolean(ref && typeof ref.conceptName === 'string' && was.test(ref.conceptName));
+  if (renamed) ref.conceptName = name;
+  return Object.values(value).filter(plain)
+    .reduce((count, child) => count + renameNamed(child, was, name), Number(renamed));
 };
 
 /* Move the reader's mentions of the concept in their notes; the count of notes changed. */
@@ -66,16 +68,19 @@ const renameMentions = async ({ NotebookEntry, userId, was, previous, name, sess
       { 'asidePieces.nodes.attrs.conceptName': was }
     ]
   }).select('content blocks asidePieces').session(session).lean();
+  let changed = 0;
   for (const note of notes) {
     const content = String(note.content || '').replace(typed, (_, start) => `${start}${attribute(name)}"`);
-    renameNamed({ blocks: note.blocks, asidePieces: note.asidePieces }, was, name);
+    const refs = renameNamed({ blocks: note.blocks, asidePieces: note.asidePieces }, was, name);
+    if (!refs && content === String(note.content || '')) continue;
+    changed += 1;
     await NotebookEntry.updateOne(
       { _id: note._id, userId },
       { $set: { content, blocks: note.blocks, asidePieces: note.asidePieces } },
       { session }
     );
   }
-  return notes.length;
+  return changed;
 };
 
 const renameConcept = async ({ TagMeta, models = {}, userId, from, to }) => {
