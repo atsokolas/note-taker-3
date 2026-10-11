@@ -119,28 +119,6 @@ button.primary-button,
     color: white;
 }
 
-.cta-panel {
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: 14px;
-    background: linear-gradient(160deg, rgba(0,122,255,0.18) 0%, rgba(0,122,255,0.05) 45%, rgba(0,0,0,0.1) 100%);
-    margin-bottom: 14px;
-    color: var(--primary-text-color);
-    text-align: left;
-    box-shadow: 0 8px 18px rgba(0,0,0,0.25);
-}
-
-.cta-title {
-    margin: 0;
-    font-weight: 700;
-    font-size: 1em;
-}
-
-.cta-text {
-    margin: 8px 0 12px;
-    color: var(--secondary-text-color);
-    font-size: 0.9em;
-}
 
 .cta-link {
     display: inline-block;

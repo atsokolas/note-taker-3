@@ -1,10 +1,10 @@
 {
   "extension_name": {
-    "message": "Note Taker",
+    "message": "Noeis",
     "description": "The name of the extension."
   },
   "extension_description": {
-    "message": "Capture and save notes from articles seamlessly.",
+    "message": "Save what you read to Noeis, with the passages you mark.",
     "description": "A short description of the extension."
   }
 }
