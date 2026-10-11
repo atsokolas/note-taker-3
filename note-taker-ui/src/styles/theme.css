@@ -466,93 +466,6 @@ body.noeis-editorial .palette-list {
 
 /* Tokyo Midnight: a night ring with a small lamp. */
 
-.three-pane {
-  display: grid;
-  grid-template-columns: 240px minmax(0, 1fr) 320px;
-  gap: var(--space-4);
-  align-items: start;
-  min-height: 0;
-}
-
-.three-pane--left-collapsed {
-  grid-template-columns: 0px minmax(0, 1fr) 320px;
-}
-
-.three-pane--right-collapsed {
-  grid-template-columns: 240px minmax(0, 1fr) 0px;
-}
-
-.three-pane--left-collapsed.three-pane--right-collapsed {
-  grid-template-columns: 0px minmax(0, 1fr) 0px;
-}
-
-.three-pane__left,
-.three-pane__main,
-.three-pane__right {
-  min-width: 0;
-  min-height: 0;
-}
-
-.three-pane__left,
-.three-pane__right {
-  background: var(--surface-panel);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--noeis-radius-control);
-  padding: var(--space-4);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-
-.three-pane__left.is-collapsed,
-.three-pane__right.is-collapsed {
-  border: none;
-  padding: 0;
-  width: 0;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.three-pane__main {
-  background: var(--surface-panel);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--noeis-radius-control);
-  padding: var(--space-4);
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-
-.three-pane__main-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: var(--space-4);
-  padding-bottom: var(--space-3);
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.three-pane__main-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-}
-
-.three-pane__right-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-weight: 600;
-  margin-bottom: var(--space-3);
-}
-
-.three-pane__right-body {
-  display: grid;
-  gap: var(--space-3);
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
 .ui-page {
   width: 100%;
   max-width: 1600px;
@@ -6143,37 +6056,6 @@ html[data-ui-theme='dark'] .article-reader-header {
   color: var(--text);
 }
 
-@media (max-width: 1100px) {
-  .three-pane,
-  .three-pane--left-collapsed,
-  .three-pane--right-collapsed,
-  .three-pane--left-collapsed.three-pane--right-collapsed {
-    grid-template-columns: 1fr;
-  }
-
-  .three-pane__left.is-collapsed,
-  .three-pane__right.is-collapsed {
-    display: none;
-  }
-}
-
-.three-pane__main .search-section,
-.three-pane__right .search-section,
-.three-pane__left .search-section {
-  border: none;
-  box-shadow: none;
-  padding: 0;
-  background: transparent;
-}
-
-.three-pane__main .ui-card.search-section,
-.three-pane__right .ui-card.search-section,
-.three-pane__left .ui-card.search-section {
-  border: none;
-  box-shadow: none;
-  padding: 0;
-  background: transparent;
-}
 
 .highlights-by-tag-header {
   display: flex;

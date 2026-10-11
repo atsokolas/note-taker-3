@@ -194,7 +194,7 @@ describe('AgentRail', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Swap projection' }));
     expect(screen.getByTestId('embedded-agent')).toBeInTheDocument();
-    expect(screen.queryByRole('complementary', { name: 'Agent' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('complementary', { name: 'Partner' })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Swap projection' }));
     expect(screen.getByPlaceholderText('Ask about this'))

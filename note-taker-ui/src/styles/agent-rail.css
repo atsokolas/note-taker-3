@@ -450,11 +450,11 @@
     min-width: 62px;
     min-height: 40px;
     padding: 8px 14px;
-    border: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 78%, transparent);
+    border: 1px solid var(--noeis-rule);
     border-radius: 999px;
-    background: color-mix(in srgb, var(--vellum-surface, #fbf8f2) 92%, transparent);
-    box-shadow: 0 12px 32px rgba(23, 27, 35, 0.12);
-    color: var(--text-primary, var(--vellum-ink));
+    background: var(--noeis-floating);
+    box-shadow: var(--noeis-shadow-float, 0 12px 32px rgba(23, 27, 35, 0.12));
+    color: var(--noeis-ink);
     font: 600 0.7rem/1 var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
     letter-spacing: 0.12em;
     text-transform: uppercase;

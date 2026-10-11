@@ -75,8 +75,6 @@ body.noeis-editorial {
 body.noeis-editorial,
 body.noeis-editorial .topbar,
 body.noeis-editorial .ui-card,
-body.noeis-editorial .three-pane__main,
-body.noeis-editorial .right-drawer__panel,
 body.noeis-editorial .wiki-read,
 body.noeis-editorial .wiki-workspace,
 body.noeis-editorial .agent-ticker {
@@ -91,8 +89,6 @@ body.noeis-editorial .agent-ticker {
   body.noeis-editorial,
   body.noeis-editorial .topbar,
   body.noeis-editorial .ui-card,
-  body.noeis-editorial .three-pane__main,
-  body.noeis-editorial .right-drawer__panel,
   body.noeis-editorial .wiki-read,
   body.noeis-editorial .wiki-workspace,
   body.noeis-editorial .agent-ticker {
@@ -231,9 +227,7 @@ body.noeis-editorial::before,
 body.noeis-editorial::after,
 body.noeis-editorial .brand-gradient,
 body.noeis-editorial .app-shell-new::before,
-body.noeis-editorial .app-shell-new::after,
-body.noeis-editorial .three-pane__main::before,
-body.noeis-editorial .right-drawer__panel::before {
+body.noeis-editorial .app-shell-new::after {
   display: none !important;
   content: none !important;
 }
@@ -808,26 +802,6 @@ body.noeis-editorial .topbar--manuscript .topbar__right {
   }
 }
 
-body.noeis-editorial .three-pane {
-  display: grid;
-  grid-template-columns: minmax(220px, 252px) minmax(0, 1fr) minmax(252px, 292px);
-  gap: 0;
-  height: 100%;
-  min-height: 0;
-  align-items: stretch;
-}
-
-body.noeis-editorial .three-pane--left-collapsed {
-  grid-template-columns: minmax(0, 1fr) minmax(252px, 292px);
-}
-
-body.noeis-editorial .three-pane--right-collapsed {
-  grid-template-columns: minmax(220px, 252px) minmax(0, 1fr);
-}
-
-body.noeis-editorial .three-pane--left-collapsed.three-pane--right-collapsed {
-  grid-template-columns: minmax(0, 1fr);
-}
 
 /* Panels embedded in the page have no chrome — the page is the surface, and a
    card drawn around something already sitting on paper is a box around a box.
@@ -839,9 +813,7 @@ body.noeis-editorial .three-pane--left-collapsed.three-pane--right-collapsed {
    scrim, which is why its own title could not be read. Both of them already
    declare a paper background; they were being overruled by a rule about
    something else. A surface that floats keeps its surface. */
-body.noeis-editorial .three-pane__left,
-body.noeis-editorial .three-pane__main,
-body.noeis-editorial .right-drawer__panel,
+
 body.noeis-editorial .ui-card:not(.palette-card),
 body.noeis-editorial .ui-surface-card,
 body.noeis-editorial .article-reader,
@@ -866,108 +838,8 @@ body.noeis-editorial .modal-content {
   box-shadow: 0 18px 48px color-mix(in srgb, var(--vellum-ink, #1c1a17) 12%, transparent);
 }
 
-body.noeis-editorial .three-pane__left {
-  grid-column: 1;
-}
 
-body.noeis-editorial .three-pane__main {
-  grid-column: 2;
-}
 
-body.noeis-editorial .right-drawer {
-  grid-column: 3;
-}
-
-body.noeis-editorial .three-pane--left-collapsed .three-pane__main {
-  grid-column: 1;
-}
-
-body.noeis-editorial .three-pane--left-collapsed .right-drawer {
-  grid-column: 2;
-}
-
-body.noeis-editorial .three-pane--right-collapsed .three-pane__main {
-  grid-column: 2;
-}
-
-body.noeis-editorial .three-pane--left-collapsed.three-pane--right-collapsed .three-pane__main {
-  grid-column: 1;
-}
-
-body.noeis-editorial .three-pane__left {
-  padding-right: 28px;
-  border-right: 1px solid var(--vellum-line);
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-
-body.noeis-editorial .three-pane__left.is-collapsed {
-  display: none;
-  width: 0;
-  min-width: 0;
-  padding: 0 !important;
-  border: 0 !important;
-  overflow: hidden !important;
-  pointer-events: none;
-}
-
-body.noeis-editorial .three-pane__main {
-  min-width: 0;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: 0 36px;
-}
-
-body.noeis-editorial .three-pane__main-header {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 24px;
-  margin: 0 0 44px;
-  padding: 0;
-  border: 0;
-}
-
-body.noeis-editorial .three-pane__main-actions {
-  flex: 0 0 auto;
-}
-
-body.noeis-editorial .right-drawer {
-  position: relative;
-  min-width: 26px;
-  min-height: 0;
-}
-
-body.noeis-editorial .right-drawer__panel {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  height: 100%;
-  padding-left: 28px;
-  border-left: 1px solid var(--vellum-line);
-  background: var(--vellum-panel) !important;
-}
-
-body.noeis-editorial .three-pane__right-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 0 20px;
-  margin-bottom: 20px;
-  border-bottom: 1px solid var(--vellum-line);
-}
-
-body.noeis-editorial .three-pane__right-body {
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-
-body.noeis-editorial .right-drawer__title,
 body.noeis-editorial .ui-page-title__eyebrow,
 body.noeis-editorial .ui-section-header__subtitle,
 body.noeis-editorial .muted-label,
@@ -2045,9 +1917,7 @@ body.noeis-editorial .notebook-editorial-shell__main {
   scrollbar-gutter: stable;
 }
 
-body.noeis-editorial .three-pane__left,
-body.noeis-editorial .three-pane__main,
-body.noeis-editorial .three-pane__right-body,
+
 body.noeis-editorial .notebook-editorial-shell__left,
 body.noeis-editorial .notebook-editorial-shell__main,
 body.noeis-editorial .notebook-editorial-shell__right {
@@ -2055,9 +1925,7 @@ body.noeis-editorial .notebook-editorial-shell__right {
   scrollbar-color: var(--vellum-scrollbar-thumb) transparent;
 }
 
-body.noeis-editorial .three-pane__left::-webkit-scrollbar,
-body.noeis-editorial .three-pane__main::-webkit-scrollbar,
-body.noeis-editorial .three-pane__right-body::-webkit-scrollbar,
+
 body.noeis-editorial .notebook-editorial-shell__left::-webkit-scrollbar,
 body.noeis-editorial .notebook-editorial-shell__main::-webkit-scrollbar,
 body.noeis-editorial .notebook-editorial-shell__right::-webkit-scrollbar {
@@ -2065,18 +1933,14 @@ body.noeis-editorial .notebook-editorial-shell__right::-webkit-scrollbar {
   height: 11px;
 }
 
-body.noeis-editorial .three-pane__left::-webkit-scrollbar-track,
-body.noeis-editorial .three-pane__main::-webkit-scrollbar-track,
-body.noeis-editorial .three-pane__right-body::-webkit-scrollbar-track,
+
 body.noeis-editorial .notebook-editorial-shell__left::-webkit-scrollbar-track,
 body.noeis-editorial .notebook-editorial-shell__main::-webkit-scrollbar-track,
 body.noeis-editorial .notebook-editorial-shell__right::-webkit-scrollbar-track {
   background: linear-gradient(180deg, transparent, var(--vellum-scrollbar-track), transparent);
 }
 
-body.noeis-editorial .three-pane__left::-webkit-scrollbar-thumb,
-body.noeis-editorial .three-pane__main::-webkit-scrollbar-thumb,
-body.noeis-editorial .three-pane__right-body::-webkit-scrollbar-thumb,
+
 body.noeis-editorial .notebook-editorial-shell__left::-webkit-scrollbar-thumb,
 body.noeis-editorial .notebook-editorial-shell__main::-webkit-scrollbar-thumb,
 body.noeis-editorial .notebook-editorial-shell__right::-webkit-scrollbar-thumb {
@@ -2087,12 +1951,7 @@ body.noeis-editorial .notebook-editorial-shell__right::-webkit-scrollbar-thumb {
   min-height: 44px;
 }
 
-body.noeis-editorial .three-pane__left:hover,
-body.noeis-editorial .three-pane__left:focus-within,
-body.noeis-editorial .three-pane__main:hover,
-body.noeis-editorial .three-pane__main:focus-within,
-body.noeis-editorial .three-pane__right-body:hover,
-body.noeis-editorial .three-pane__right-body:focus-within,
+
 body.noeis-editorial .notebook-editorial-shell__left:hover,
 body.noeis-editorial .notebook-editorial-shell__left:focus-within,
 body.noeis-editorial .notebook-editorial-shell__main:hover,
@@ -2102,12 +1961,7 @@ body.noeis-editorial .notebook-editorial-shell__right:focus-within {
   scrollbar-color: var(--vellum-scrollbar-thumb-hover) transparent;
 }
 
-body.noeis-editorial .three-pane__left:hover::-webkit-scrollbar-thumb,
-body.noeis-editorial .three-pane__left:focus-within::-webkit-scrollbar-thumb,
-body.noeis-editorial .three-pane__main:hover::-webkit-scrollbar-thumb,
-body.noeis-editorial .three-pane__main:focus-within::-webkit-scrollbar-thumb,
-body.noeis-editorial .three-pane__right-body:hover::-webkit-scrollbar-thumb,
-body.noeis-editorial .three-pane__right-body:focus-within::-webkit-scrollbar-thumb,
+
 body.noeis-editorial .notebook-editorial-shell__left:hover::-webkit-scrollbar-thumb,
 body.noeis-editorial .notebook-editorial-shell__left:focus-within::-webkit-scrollbar-thumb,
 body.noeis-editorial .notebook-editorial-shell__main:hover::-webkit-scrollbar-thumb,
@@ -2117,9 +1971,7 @@ body.noeis-editorial .notebook-editorial-shell__right:focus-within::-webkit-scro
   background-color: var(--vellum-scrollbar-thumb-hover);
 }
 
-body.noeis-editorial .three-pane__left::-webkit-scrollbar-thumb:active,
-body.noeis-editorial .three-pane__main::-webkit-scrollbar-thumb:active,
-body.noeis-editorial .three-pane__right-body::-webkit-scrollbar-thumb:active,
+
 body.noeis-editorial .notebook-editorial-shell__left::-webkit-scrollbar-thumb:active,
 body.noeis-editorial .notebook-editorial-shell__main::-webkit-scrollbar-thumb:active,
 body.noeis-editorial .notebook-editorial-shell__right::-webkit-scrollbar-thumb:active {
@@ -4236,11 +4088,8 @@ body.noeis-editorial .review-mode__right-panel {
   gap: 20px;
 }
 
-body.noeis-editorial .right-drawer__panel {
-  background: transparent;
-}
 
-body.noeis-editorial .right-drawer__title,
+
 body.noeis-editorial .working-memory-eyebrow,
 body.noeis-editorial .notebook-context__eyebrow,
 body.noeis-editorial .library-context-section__title,
@@ -4252,11 +4101,6 @@ body.noeis-editorial .library-context-related__title {
   color: color-mix(in srgb, var(--vellum-ink) 72%, transparent);
 }
 
-body.noeis-editorial .three-pane__right-header {
-  align-items: baseline;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--vellum-line);
-}
 
 body.noeis-editorial .library-context-feed-panel,
 body.noeis-editorial .notebook-context {
@@ -4361,9 +4205,7 @@ body.noeis-editorial .library-context-feed-item__reference-pull-in .section-head
   margin-bottom: 8px;
 }
 
-body.noeis-editorial .library-context-related,
-body.noeis-editorial .references-panel,
-body.noeis-editorial .references-panel__body {
+body.noeis-editorial .library-context-related {
   display: grid;
   gap: 14px;
 }
@@ -4436,8 +4278,7 @@ body.noeis-editorial .working-memory-toggle {
   white-space: nowrap;
 }
 
-body.noeis-editorial .working-memory-toggle-icon,
-body.noeis-editorial .right-drawer__edge-toggle-label {
+body.noeis-editorial .working-memory-toggle-icon {
   display: none;
 }
 
@@ -4814,30 +4655,6 @@ body.noeis-editorial .think-notebook-editor-provenance__keep {
   white-space: nowrap;
 }
 
-body.noeis-editorial .references-panel__group {
-  display: grid;
-  gap: 8px;
-  margin-top: 8px;
-}
-
-body.noeis-editorial .references-panel .search-card {
-  padding: 0 0 16px;
-  border: 0;
-  border-bottom: 1px solid var(--vellum-line);
-  border-radius: 0;
-  background: transparent;
-}
-
-body.noeis-editorial .references-panel .search-card-top {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  align-items: baseline;
-}
-
-body.noeis-editorial .references-panel .ui-button {
-  margin-top: 10px;
-}
 
 body.noeis-editorial .working-memory-panel textarea {
   min-height: 140px;
@@ -4894,28 +4711,6 @@ body.noeis-editorial .agent-context-shell__orientation {
   letter-spacing: 0.04em;
 }
 
-body.noeis-editorial .wiki-read__left-rail > .right-drawer {
-  display: block;
-  grid-column: auto;
-  width: 100%;
-  min-width: 0;
-  height: auto;
-  margin-bottom: 18px;
-  padding-bottom: 18px;
-  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule) 72%, transparent);
-}
-
-body.noeis-editorial .wiki-read__left-rail > .right-drawer > .right-drawer__edge-toggle,
-body.noeis-editorial .wiki-read__left-rail > .right-drawer > .right-drawer__panel > .three-pane__right-header {
-  display: none;
-}
-
-body.noeis-editorial .wiki-read__left-rail > .right-drawer > .right-drawer__panel {
-  width: 100%;
-  padding-left: 0;
-  border-left: 0;
-  background: transparent !important;
-}
 
 body.noeis-editorial .wiki-read__dossier-review {
   margin: 26px 0;
@@ -5061,9 +4856,6 @@ body.noeis-editorial .wiki-read--standard .wiki-read__infobox--primary dl > div 
   gap: 10px;
 }
 
-body.noeis-editorial .wiki-read--standard .wiki-read__left-rail > .right-drawer {
-  order: -1;
-}
 
 body.noeis-editorial .wiki-read__article-tools {
   margin: 38px 0 18px;
@@ -5257,48 +5049,6 @@ body.noeis-editorial .wiki-read--standard .wiki-read__toc--mobile {
   }
 }
 
-body.noeis-editorial .right-drawer__mobile-trigger {
-  min-height: 46px;
-  padding: 10px 16px;
-  border: 1px solid color-mix(in srgb, var(--vellum-accent) 42%, var(--vellum-line));
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--vellum-panel) 90%, transparent);
-  color: var(--vellum-ink);
-  box-shadow: 0 14px 34px color-mix(in srgb, var(--vellum-ink) 16%, transparent);
-  -webkit-backdrop-filter: blur(16px) saturate(112%);
-  backdrop-filter: blur(16px) saturate(112%);
-  font-family: var(--noeis-ui-font);
-  font-size: 0.72rem;
-  font-weight: 650;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-body.noeis-editorial .right-drawer__mobile-sheet {
-  border-top: 1px solid var(--vellum-line);
-  border-radius: 22px 22px 0 0;
-  color: var(--vellum-ink);
-  box-shadow: 0 -20px 60px color-mix(in srgb, var(--vellum-ink) 22%, transparent);
-}
-
-body.noeis-editorial .right-drawer__mobile-sheet .three-pane__right-body {
-  overflow: visible;
-}
-
-body.noeis-editorial .right-drawer__mobile-sheet .right-drawer__header-icon {
-  min-width: 44px;
-  min-height: 44px;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  body.noeis-editorial .right-drawer__mobile-trigger,
-  body.noeis-editorial .right-drawer__mobile-sheet,
-  body.noeis-editorial .right-drawer__mobile-backdrop {
-    animation: none !important;
-    transition: none !important;
-  }
-}
-
 @media (max-width: 1240px) {
   body.noeis-editorial .topbar__content {
     grid-template-columns: minmax(0, 1fr);
@@ -5316,32 +5066,6 @@ body.noeis-editorial .right-drawer__mobile-sheet .right-drawer__header-icon {
     padding: 130px 24px 40px;
   }
 
-  body.noeis-editorial .three-pane,
-  body.noeis-editorial .three-pane--left-collapsed,
-  body.noeis-editorial .three-pane--right-collapsed,
-  body.noeis-editorial .three-pane--left-collapsed.three-pane--right-collapsed {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  body.noeis-editorial .three-pane__left,
-  body.noeis-editorial .right-drawer {
-    display: none;
-  }
-
-  body.noeis-editorial .right-drawer--mobile {
-    display: block;
-    width: max-content;
-    min-width: 0;
-  }
-
-  body.noeis-editorial .right-drawer--mobile.is-open {
-    width: 0;
-  }
-
-  body.noeis-editorial .three-pane__main {
-    grid-column: 1;
-    padding: 0;
-  }
 
   body.noeis-editorial .landing-public {
     width: min(100vw - 32px, 100%);

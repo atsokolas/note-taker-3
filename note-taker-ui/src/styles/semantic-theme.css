@@ -245,16 +245,6 @@ html[data-ui-theme][data-ui-scheme] .topbar__brand {
 }
 
 
-html[data-ui-theme][data-ui-scheme] :is(
-  .topbar__menu-popover,
-  .system-status__drawer,
-  .right-drawer__panel
-) {
-  background: var(--noeis-floating);
-  border-color: var(--noeis-rule);
-  box-shadow: var(--noeis-shadow-float);
-}
-
 /* Living ink as a margin, not an edge: a 1px Greek key, sap on paper. */
 .noeis-meander {
   position: relative;
@@ -431,15 +421,6 @@ html[data-ui-theme='tokyo-midnight'] .agent-thought-partner__plan-preview {
   background: var(--noeis-active, #1c293e);
 }
 
-html[data-ui-theme='tokyo-midnight'] .wiki-collection__nav-btn.is-active {
-  background: var(--noeis-active, #1c293e);
-  color: var(--noeis-ink, #f3e9ed);
-}
-
-html[data-ui-theme='tokyo-midnight'] .wiki-collection__nav-btn.is-active:before {
-  background: var(--noeis-action, #50f4fa);
-}
-
 html[data-ui-theme='tokyo-midnight'] .wiki-collection__dek {
   color: var(--noeis-ink-muted, #cfd3e6);
 }
@@ -523,12 +504,6 @@ html[data-ui-theme='tokyo-midnight'] :is(
   background: var(--noeis-chrome, #09111e);
 }
 
-html[data-ui-theme='tokyo-midnight'] .app-shell-new--agent-on-demand .agent-rail-drawer__trigger {
-  background: color-mix(in srgb, var(--noeis-floating, #111c2e) 94%, transparent);
-  color: var(--noeis-ink, #f3e9ed);
-  border-color: var(--noeis-rule, #29374d);
-  box-shadow: var(--noeis-shadow-float);
-}
 
 @media (prefers-reduced-motion: reduce) {
   :root {
@@ -542,18 +517,4 @@ html[data-ui-theme='tokyo-midnight'] .app-shell-new--agent-on-demand .agent-rail
     scroll-behavior: auto;
   }
 
-  html[data-ui-theme][data-ui-scheme] :is(
-    .app-shell-new,
-    .topbar,
-    .topbar *,
-    .palette-card,
-    .system-status__drawer,
-    .agent-rail,
-    .right-drawer__panel
-  ) {
-    animation: none !important;
-    scroll-behavior: auto !important;
-    transition-duration: 1ms !important;
-    transform: none !important;
-  }
 }
