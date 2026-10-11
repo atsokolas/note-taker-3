@@ -124,8 +124,8 @@ export const isTarget = (item, target) => Boolean(item && target && item.kind ==
 const suppressed = (row) => Boolean(row?.archived || row?.hiddenFromHome || row?.debugOnly);
 
 /**
- * Every entry the list can hold. Eligibility: notes always; questions unless
- * archived or hidden; concepts only once they are concepts (a record exists)
+ * Every entry the list can hold. Eligibility: notes always; questions you
+ * wrote unless archived or hidden (a wiki page's open questions stay on it); concepts only once they are concepts (a record exists)
  * when the list is mixed, every unhidden tag when the reader asks for concepts.
  * Nothing qualifies → the list is empty and says so; nothing is invented.
  */
@@ -147,7 +147,7 @@ export const buildThinkEntries = ({ notes = [], concepts = [], questions = [], f
       updatedAt: concept.updatedAt || null
     })) : []),
   ...(filter === 'all' || filter === 'question' ? list(questions)
-    .filter(question => !suppressed(question) && idOf(question))
+    .filter(question => !suppressed(question) && idOf(question) && question.sourceType !== 'wiki_open_question')
     .map(question => ({
       kind: 'question',
       id: idOf(question),

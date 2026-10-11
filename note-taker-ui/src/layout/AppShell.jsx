@@ -95,7 +95,7 @@ const AppShell = ({
                   aria-controls="noeis-agent-drawer"
                   onClick={() => setAgentOpen(true)}
                 >
-                  {surface?.room === 'library' ? 'Ask about this' : 'Agent'}
+                  {surface?.room === 'library' ? 'Ask about this' : 'Partner'}
                 </button>
               ) : null}
               <div
@@ -106,7 +106,7 @@ const AppShell = ({
                 <button
                   type="button"
                   className="agent-rail-drawer__backdrop"
-                  aria-label="Close agent"
+                  aria-label="Close partner"
                   onClick={closeAgent}
                 />
                 <div
@@ -114,7 +114,7 @@ const AppShell = ({
                   className="agent-rail-drawer__sheet"
                   role={agentOpen ? 'dialog' : undefined}
                   aria-modal={agentOpen || undefined}
-                  aria-label={agentOpen ? 'Agent context' : undefined}
+                  aria-label={agentOpen ? 'Partner' : undefined}
                   inert={onDemand && !agentOpen ? true : undefined}
                 >
                   <button

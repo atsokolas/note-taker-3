@@ -79,8 +79,8 @@ body.noeis-editorial.wiki-front-page-route .topbar .brand-gradient {
 }
 
 .wiki-collection__nav-btn.is-active {
-  background: var(--sagewash, #e7eddf);
-  color: var(--ink, #30362e);
+  background: var(--noeis-active);
+  color: var(--noeis-ink);
 }
 
 .wiki-collection__nav-btn.is-active:before {
@@ -90,7 +90,7 @@ body.noeis-editorial.wiki-front-page-route .topbar .brand-gradient {
   top: 10px;
   bottom: 10px;
   width: 2px;
-  background: var(--sage, #506346);
+  background: var(--noeis-action);
 }
 
 .wiki-collection__nav-count {
@@ -539,7 +539,9 @@ body.noeis-editorial.wiki-front-page-route .topbar .brand-gradient {
   }
 
   .wiki-collection__meta {
-    display: block;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 4px 13px;
   }
 
   .wiki-collection__pending {

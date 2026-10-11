@@ -71,7 +71,8 @@ describe('one list', () => {
   ];
   const questions = [
     { _id: 'q1', text: 'What would change my mind?', status: 'answered', updatedAt: '2026-08-14T09:00:00.000Z' },
-    { _id: 'q2', text: 'Archived', archived: true }
+    { _id: 'q2', text: 'Archived', archived: true },
+    { _id: 'wiki-open-question:p1:0', text: 'Asked on a wiki page', sourceType: 'wiki_open_question', updatedAt: '2026-09-01T00:00:00.000Z' }
   ];
 
   it('holds notes, concepts and questions newest first, with the kind on each', () => {

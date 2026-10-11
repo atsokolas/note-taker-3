@@ -36,18 +36,18 @@ describe('AppShell landmarks', () => {
 
   it('uses the same agent rail as an accessible compact-screen drawer', () => {
     render(
-      <AppShell topBar={<header>Top bar</header>} rightRail={<aside aria-label="Agent">Agent work</aside>}>
+      <AppShell topBar={<header>Top bar</header>} rightRail={<aside aria-label="Partner">Partner work</aside>}>
         <main>Library</main>
       </AppShell>
     );
 
-    const trigger = screen.getByRole('button', { name: 'Agent' });
+    const trigger = screen.getByRole('button', { name: 'Partner' });
     expect(trigger).toHaveAttribute('aria-expanded', 'false');
 
     fireEvent.click(trigger);
     expect(trigger).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByRole('dialog', { name: 'Agent context' })).toContainElement(
-      screen.getByRole('complementary', { name: 'Agent' })
+    expect(screen.getByRole('dialog', { name: 'Partner' })).toContainElement(
+      screen.getByRole('complementary', { name: 'Partner' })
     );
 
     fireEvent.keyDown(window, { key: 'Escape' });
@@ -64,7 +64,7 @@ describe('AppShell landmarks', () => {
       </AppShell>
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Agent' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Partner' }));
     const close = screen.getByRole('button', { name: 'Close' });
     const question = screen.getByRole('textbox', { name: 'Agent question' });
 
@@ -91,7 +91,7 @@ describe('AppShell landmarks', () => {
     );
 
     expect(container.firstChild).toHaveClass('app-shell-new--agent-on-demand');
-    expect(screen.queryByRole('button', { name: 'Agent' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Partner' })).not.toBeInTheDocument();
 
     rerender(
       <AppShell
