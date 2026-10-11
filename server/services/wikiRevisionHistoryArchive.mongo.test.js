@@ -1,5 +1,6 @@
 const assert = require('node:assert/strict');
 const mongoose = require('mongoose');
+const { MongoMemoryServer } = require('mongodb-memory-server');
 const {
   FIELD,
   archiveUpdate,
@@ -8,8 +9,9 @@ const {
 } = require('./wikiRevisionHistoryArchive');
 
 async function run() {
-  // Deliberately local-only. Never use the application's production URI.
-  await mongoose.connect('mongodb://127.0.0.1:27146/noeis_archive_acceptance');
+  // An in-memory server: never the application's URI.
+  const memory = await MongoMemoryServer.create();
+  await mongoose.connect(memory.getUri());
   const schema = new mongoose.Schema({ before: Object, after: Object, summary: String });
   schema.plugin(revisionHistoryArchivePlugin);
   const Model = mongoose.model('ArchiveAcceptance', schema);
@@ -62,8 +64,8 @@ async function run() {
     assert.equal((await Model.collection.findOne({ _id: original._id }))[FIELD], undefined);
     console.log('archive Mongo acceptance passed: full/lean/projections/privacy/save/query/prune');
   } finally {
-    await mongoose.connection.dropDatabase();
     await mongoose.disconnect();
+    await memory.stop();
   }
 }
 run().catch(error => { console.error(error); process.exitCode = 1; mongoose.disconnect(); });
