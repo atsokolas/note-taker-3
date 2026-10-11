@@ -106,11 +106,13 @@ const WikiPageEditor = ({ pageId, onDoneEditing }) => {
 
   // Hovered/focused claim → drives the citation popover. Stored as the claim
   // attributes plus the anchor rect so the popover can position against it.
+  // The Partner follows only a claim named in the address: a hover is not a
+  // new conversation, and passing over a citation must not cut a reply off.
   const [activeClaim, setActiveClaim] = useState(null);
   useNoeisAgentSurface('agent-surface.wiki', buildWikiSurfaceDescriptor({
     page,
     pageId,
-    claimId: activeClaim?.claimId || searchParams.get('claimId') || '',
+    claimId: searchParams.get('claimId') || '',
     revisionId: searchParams.get('revisionId') || '',
     mode: 'edit'
   }));
