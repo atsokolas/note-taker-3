@@ -78,6 +78,17 @@ describe('runAgentLoop', () => {
     expect(result.reply).toMatch(/code review/);
   });
 
+  it('takes a held view or the reader\'s own words in quotes as theirs, not an invented quotation', async () => {
+    const held = [
+      { role: 'system', content: 'The reader holds these views: “Rest beats willpower for late decisions”.' },
+      { role: 'user', content: 'Is it true that I decide worse after midnight?' }
+    ];
+    const chat = scripted({ text: 'You hold that "Rest beats willpower for late decisions", and you asked whether "I decide worse after midnight".' });
+    const result = await runAgentLoop({ messages: held, sources: [sleep], chat });
+    expect(chat).toHaveBeenCalledTimes(1);
+    expect(result.reply).toMatch(/Rest beats willpower/);
+  });
+
   it('returns nothing when the quotation is still invented after repair', async () => {
     const invented = { text: 'The source says "sleep is the single best predictor of judgment".' };
     const chat = scripted(invented, invented);

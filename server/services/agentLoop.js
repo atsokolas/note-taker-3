@@ -176,7 +176,12 @@ const runAgentLoop = async ({
   // Everything of a source the model was shown: its title, its text, and for a
   // wiki page the attached sources and claims printed beside it. A title in
   // quotes is the source's name, not an invented quotation.
-  const texts = () => [...seen.values()].map(item => [item.title, item.fullText || item.replySnippet || item.snippet, item.sourceText, item.claimText].filter(Boolean).join('\n'));
+  // The conversation counts too: the reader's own words and the views they
+  // hold are not invented when quoted back.
+  const texts = () => [
+    ...messages.map(message => String(message.content || '')),
+    ...[...seen.values()].map(item => [item.title, item.fullText || item.replySnippet || item.snippet, item.sourceText, item.claimText].filter(Boolean).join('\n'))
+  ];
   let reply = String(completion?.text || '').trim();
   let invented = inventedQuotes(reply, texts());
   if (reply && invented.length) {

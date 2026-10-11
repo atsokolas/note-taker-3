@@ -1109,7 +1109,7 @@ const formatPartnerMaterialLines = (items = []) => {
    held view the material bears on; it never invents one. */
 const standingContextLines = (standing = null) => [
   standing?.views?.length
-    ? `The reader holds these views: ${standing.views.map(view => `“${view}”`).join('; ')}. When the material bears on one of them, name it and say whether it supports or pushes against it. Never attribute a view to the reader that is not in this list.`
+    ? `The reader holds these views: ${standing.views.map(view => `“${view}”`).join('; ')}. Name one only when the question or the passages are plainly about it, and then say whether it is supported or pushed against; otherwise leave them unmentioned. Never attribute a view to the reader that is not in this list.`
     : '',
   standing?.sources?.length ? `Most recently the reader saved: ${standing.sources.join('; ')}.` : ''
 ];
