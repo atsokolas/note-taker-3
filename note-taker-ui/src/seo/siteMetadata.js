@@ -4,8 +4,6 @@ export const CANONICAL_HOST = 'https://www.noeis.io';
 export const DEFAULT_AUTHOR_NAME = 'Athan Tsokolas';
 export const LOGO_PATH = '/logo512.png';
 export const DEFAULT_SOCIAL_IMAGE_PATH = '/og-image.png';
-export const DEFAULT_LAST_UPDATED = '2026-04-19';
-export const DEFAULT_LAST_UPDATED_LABEL = 'April 19, 2026';
 export const DEFAULT_DESCRIPTION = 'Noeis grows a knowledge base from what you read: a wiki that cites every source, answers quoted from your own reading, and read-only access for your AI agents.';
 
 export const buildCanonicalUrl = (path = '/') => {
@@ -59,8 +57,8 @@ export const buildArticleSchema = ({
   headline,
   description,
   path,
-  dateModified = DEFAULT_LAST_UPDATED,
-  datePublished = DEFAULT_LAST_UPDATED,
+  dateModified,
+  datePublished,
   authorName = DEFAULT_AUTHOR_NAME
 }) => ({
   '@context': 'https://schema.org',

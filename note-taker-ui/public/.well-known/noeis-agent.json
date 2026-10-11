@@ -69,9 +69,10 @@
     "opencode"
   ],
   "packageCompatibility": {
+    "cli": "@noeis/noeis-cli",
+    "mcp": "@noeis/wiki-mcp",
     "scopedConnectCli": "0.1.11",
-    "connectionInfoMcp": "0.4.3",
-    "publication": "Package publication is a separate release step; inspect installed help before using scoped setup."
+    "connectionInfoMcp": "0.4.3"
   },
   "taskBoundary": {
     "setupStartsTask": false,

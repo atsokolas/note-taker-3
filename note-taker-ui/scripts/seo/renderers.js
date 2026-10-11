@@ -75,10 +75,10 @@ const patchHomeHead = (html, content) => {
 };
 
 const renderParagraphs = (paragraphs = []) => paragraphs.map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join('\n');
-const renderMetaPills = (content) => `<div class="meta-row">
+const renderMetaPills = (content, guide) => `<div class="meta-row">
   <span>Written by ${escapeHtml(content.site.authorName)}</span>
   ${content.site.authorTitle ? `<span>${escapeHtml(content.site.authorTitle)}</span>` : ''}
-  <span>Updated ${escapeHtml(content.site.lastUpdated)}</span>
+  <span>Updated ${escapeHtml(guide.updated)}</span>
 </div>`;
 const renderMethodology = (content, guide) => {
   const methodology = Array.isArray(guide.methodology) && guide.methodology.length > 0
@@ -99,8 +99,8 @@ const buildArticleSchema = (content, guide, canonical) => ({
   headline: guide.heroTitle,
   description: guide.heroDescription,
   mainEntityOfPage: canonical,
-  datePublished: content.site.lastUpdated,
-  dateModified: content.site.lastUpdated,
+  datePublished: guide.updated,
+  dateModified: guide.updated,
   author: {
     '@type': 'Person',
     name: content.site.authorName
@@ -456,7 +456,7 @@ ${guide.directAnswer.points.map((point) => `  <li>${escapeHtml(point)}</li>`).jo
       <article class="seo-shell">
         <header class="seo-hero">
           <p class="eyebrow">${escapeHtml(guide.eyebrow || 'Guide')}</p>
-          ${renderMetaPills(content)}
+          ${renderMetaPills(content, guide)}
           <h1>${escapeHtml(guide.heroTitle)}</h1>
           ${renderParagraphs(guide.heroIntro)}
           ${renderCtas(guide.ctas, { entry: guide.slug, pageType: 'guide' })}
@@ -482,18 +482,16 @@ ${renderBlocks(content, section.blocks, { entry: guide.slug, pageType: 'guide' }
 
 const renderSitemap = (content) => {
   const urls = [
-    '/',
-    '/guides',
-    '/examples',
-    ...content.guides.map((guide) => `/${guide.slug}`),
-    ...(content.examples || []).map((pack) => pack.href)
+    ...['/', '/guides', '/examples'].map((path) => [path, content.site.lastUpdated]),
+    ...content.guides.map((guide) => [`/${guide.slug}`, guide.updated]),
+    ...(content.examples || []).map((pack) => [pack.href, content.site.lastUpdated])
   ];
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${urls.map((path) => `  <url>
+${urls.map(([path, lastmod]) => `  <url>
     <loc>${buildUrl(content.site.host, path)}</loc>
-    <lastmod>${escapeHtml(content.site.lastUpdated)}</lastmod>
+    <lastmod>${escapeHtml(lastmod)}</lastmod>
   </url>`).join('\n')}
 </urlset>`;
 };
@@ -531,8 +529,10 @@ const renderVercelConfig = (content) => JSON.stringify({
         source: entry.route,
         destination: entry.file
       })),
+    /* The app answers every other address, except ones only a machine asks for:
+       a missing /.well-known file or data file gets a real 404, not the homepage. */
     {
-      source: '/(.*)',
+      source: '/:path((?!\\.well-known/)(?!.*\\.(?:json|txt|md|xml|yaml|yml)$).*)',
       destination: '/'
     }
   ]
