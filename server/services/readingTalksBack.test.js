@@ -227,6 +227,16 @@ describe('you hold the opposite', () => {
     expect(await check(models, note({ viewReadings: [kept], blocks: [{ id: 'b1', text: 'Notes from the call.' }] }), complete)).toBeNull();
   });
 
+  it('keeps a sentence no view answers as read, without asking', async () => {
+    const models = setup();
+    const complete = verdict({ verdict: 'contradicts', confidence: 'high' });
+    const plain = 'The garden needs watering before the long weekend arrives.';
+    expect(await check(models, note({ blocks: [{ id: 'b1', text: plain }] }), complete)).toBeNull();
+    expect(complete).not.toHaveBeenCalled();
+    const [kept] = models.NotebookEntry.updateOne.mock.calls[0][1].$push.viewReadings.$each;
+    expect(kept).toMatchObject({ sentence: plain, verdict: 'unrelated', pageId: '' });
+  });
+
   it('never repeats a line set aside, and never asks that pair again', async () => {
     const models = setup();
     const line = await check(models, note(), verdict({ verdict: 'contradicts', confidence: 'high' }));
@@ -248,6 +258,8 @@ describe('you hold the opposite', () => {
     const complete = verdict({ verdict: 'contradicts', confidence: 'high' });
     expect(await check(setup(), note(), complete, { configured: () => false })).toBeNull();
     expect(await check(setup(), note({ blocks: [{ id: 'b1', text: 'Too short to read.' }] }), complete)).toBeNull();
+    // A sentence still being typed is not asked yet.
+    expect(await check(setup(), note({ blocks: [{ id: 'b1', text: OPPOSITE.slice(0, -1) }] }), complete)).toBeNull();
     expect(complete).not.toHaveBeenCalled();
   });
 });

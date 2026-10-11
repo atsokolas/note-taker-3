@@ -256,7 +256,8 @@ const KEPT_READINGS = 200;
 const noteSentences = entry => list(entry?.blocks).flatMap(block => clean(block?.text, 8000)
   .split(/(?<=[.!?])\s+/)
   .map(sentence => clean(sentence, 600))
-  .filter(sentence => words(sentence).length >= MIN_SENTENCE_WORDS)
+  // Only a finished sentence: the one still being typed is not asked yet.
+  .filter(sentence => /[.!?]["”’)]*$/.test(sentence) && words(sentence).length >= MIN_SENTENCE_WORDS)
   .map(sentence => ({ sentence, blockId: clean(block?.id, 120) })));
 
 const pairKey = ({ sentence, page }) => crypto.createHash('sha1')
@@ -331,14 +332,14 @@ const opposeFromNote = async ({
   const read = new Set(readings.map(reading => reading.sentence));
   const unread = [...new Set(sentences.map(item => item.sentence))].filter(sentence => !read.has(sentence));
   if (!unread.length) return null;
-  const pairs = (await candidateViews({ views, passages: unread, embed }))
+  const matched = (await candidateViews({ views, passages: unread, embed, limit: views.length }))
     .map(({ page, passages }) => ({ page, sentence: passages[0].text }))
-    .filter((pair, index, all) => all.findIndex(other => other.sentence === pair.sentence) === index)
-    .map(pair => ({ ...pair, key: pairKey(pair) }))
-    .slice(0, NOTE_ASKS);
-  if (!pairs.length) return null;
-
-  const fresh = [];
+    .filter((pair, index, all) => all.findIndex(other => other.sentence === pair.sentence) === index);
+  const pairs = matched.slice(0, NOTE_ASKS).map(pair => ({ ...pair, key: pairKey(pair) }));
+  // A sentence no view answers is read too, so it is not looked at again.
+  const answered = new Set(matched.map(pair => pair.sentence));
+  const fresh = unread.filter(sentence => !answered.has(sentence))
+    .map(sentence => ({ key: pairKey({ sentence, page: { _id: '' } }), pageId: '', sentence, verdict: 'unrelated', at: now }));
   for (const { page, sentence, key } of pairs) {
     const verdict = await readSentence({ view: sentenceOf(page), sentence, complete }).catch(() => null);
     if (!verdict) continue;

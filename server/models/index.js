@@ -397,7 +397,7 @@ const notebookEntrySchema = new mongoose.Schema({
   viewReadings: {
     type: [new mongoose.Schema({
       key: { type: String, required: true },
-      pageId: { type: String, required: true },
+      pageId: { type: String, default: '' },
       sentence: { type: String, default: '' },
       verdict: { type: String, enum: ['contradicts', 'supports', 'unrelated', 'unsure'], required: true },
       at: { type: Date, default: Date.now },
