@@ -6,17 +6,12 @@ const { processWikiSourceEvent } = require('../services/wikiMaintenanceOrchestra
 const { isProceduralShelf } = require('../lib/proceduralShelf');
 const { firstGraphOf } = require('../lib/feedHome');
 const {
-  fetchReadableArticle: defaultFetchReadableArticle,
-  paragraphsToHtml
+  fetchArticleBody: readArticleBody,
+  fetchReadableArticle: defaultFetchReadableArticle
 } = require('../services/readableArticle');
 const { applyDefaultArticleVisibility } = require('../utils/articleVisibility');
 
 const ARTICLE_PLACEMENTS = new Set(['stream', 'later', 'setAside']);
-
-/* A body shorter than this is a cookie wall, a paywall stub or a JavaScript
-   shell — not the piece. Saving it would be worse than saving nothing, because
-   the reader would stop offering the highlight edition and show the stub instead. */
-const MIN_FETCHED_BODY_LENGTH = 400;
 
 const hasText = (value) => String(value || '').replace(/<[^>]*>/g, '').trim().length > 0;
 
@@ -66,15 +61,7 @@ const buildLegacyContentRouter = ({
      private address, every redirect re-checked. A plainer fetcher here would
      have let a caller point the server at its own metadata service and read the
      answer back out of their Library. */
-  const fetchArticleBody = async (url) => {
-    const readable = await fetchReadableArticle({ url });
-    if (!readable.ok) {
-      console.warn(`Could not fetch a body for ${url}:`, readable.error);
-      return '';
-    }
-    const html = paragraphsToHtml(readable.content);
-    return html.replace(/<[^>]*>/g, '').trim().length >= MIN_FETCHED_BODY_LENGTH ? html : '';
-  };
+  const fetchArticleBody = (url) => readArticleBody({ url, fetchReadable: fetchReadableArticle });
 
   const emitWikiSourceEvent = async (payload = {}) => {
     try {

@@ -136,10 +136,30 @@ const fetchReadableArticle = async ({ url, fetchImpl, lookup } = {}) => {
   }
 };
 
+/* A body shorter than this is a cookie wall, a paywall stub or a JavaScript
+   shell — not the piece. Saving it would be worse than saving nothing, because
+   the reader would stop offering the highlight edition and show the stub instead. */
+const MIN_FETCHED_BODY_LENGTH = 400;
+
+/**
+ * The body to store for a link saved without one: reader-ready HTML, or ''
+ * when the page could not be read or read as a stub.
+ */
+const fetchArticleBody = async ({ url, fetchReadable = fetchReadableArticle } = {}) => {
+  const readable = await fetchReadable({ url });
+  if (!readable.ok) {
+    console.warn(`Could not fetch a body for ${url}:`, readable.error);
+    return '';
+  }
+  const html = paragraphsToHtml(readable.content);
+  return html.replace(/<[^>]*>/g, '').trim().length >= MIN_FETCHED_BODY_LENGTH ? html : '';
+};
+
 module.exports = {
   MAX_ARTICLE_BYTES,
   MAX_CONTENT_LENGTH,
   bodyFrom,
+  fetchArticleBody,
   fetchReadableArticle,
   paragraphsToHtml,
   stripTags,

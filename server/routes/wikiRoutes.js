@@ -24,8 +24,9 @@ const {
 } = require('../services/wikiBriefingService');
 const { openTargets, paperColumns } = require('../services/paperColumns');
 const { buildClaimPage } = require('../services/claimFromHighlight');
-const { fetchReadableArticle } = require('../services/readableArticle');
+const { fetchArticleBody, fetchReadableArticle } = require('../services/readableArticle');
 const { linkPageSources } = require('../services/librarySource');
+const { takeSourcesIntoLibrary } = require('../services/takeSourcesIntoLibrary');
 const { assertionsFrom, askedBefore, closings, dayOf, quietStreak } = require('../services/paperLedger');
 const { findWikiBacklinks: defaultFindWikiBacklinks } = require('../services/wikiBacklinkService');
 const {
@@ -1838,6 +1839,8 @@ const buildWikiRouter = ({
   NoeisReceipt = null,
   JudgmentResponseDraft = null,
   Article = null,
+  /* Fills in the body of a source a shared wiki brought into the Library. */
+  fetchSourceBody = url => fetchArticleBody({ url }),
   VectorItem = null,
   NotebookEntry = null,
   TagMeta = null,
@@ -2168,6 +2171,13 @@ const buildWikiRouter = ({
     sample = false
   } = {}) => {
     const validSnapshots = snapshots.filter(snapshot => snapshot?.page);
+    const library = await takeSourcesIntoLibrary({
+      Article,
+      userId,
+      pages: validSnapshots.map(snapshot => snapshot.page),
+      label: originCollectionTitle || validSnapshots[0]?.origin?.originTitle || '',
+      fetchBody: fetchSourceBody
+    });
     const pageIdMap = new Map();
     const pageEntries = [];
     for (const snapshot of validSnapshots) {
@@ -2233,7 +2243,8 @@ const buildWikiRouter = ({
     }
     return {
       pages,
-      pageIdMap
+      pageIdMap,
+      library
     };
   };
 
@@ -5999,7 +6010,8 @@ const buildWikiRouter = ({
       res.status(201).json({
         page: serializeWikiPage(page),
         adoptedFrom: page.adoptedFrom || {},
-        mergeAvailable: Boolean(adopted.mergeAvailable)
+        mergeAvailable: Boolean(adopted.mergeAvailable),
+        library: result.library || null
       });
     } catch (error) {
       console.error('Error adopting shared wiki page:', error);
@@ -6210,7 +6222,8 @@ const buildWikiRouter = ({
       res.status(201).json({
         pack: starterPackSummary(pack),
         pages: result.pages.map(entry => serializeWikiPage(entry.page)),
-        mergeAvailable: result.pages.some(entry => entry.mergeAvailable)
+        mergeAvailable: result.pages.some(entry => entry.mergeAvailable),
+        library: result.library || null
       });
     } catch (error) {
       console.error('Error adopting starter pack:', error);
@@ -6310,7 +6323,8 @@ const buildWikiRouter = ({
             pageCount: result.pages.length
           },
           pages: result.pages.map(entry => serializeWikiPage(entry.page)),
-          mergeAvailable: result.pages.some(entry => entry.mergeAvailable)
+          mergeAvailable: result.pages.some(entry => entry.mergeAvailable),
+          library: result.library || null
         });
       }
       if (!WikiSharedCollection) return res.status(404).json({ error: 'Shared wiki collection not found.' });
@@ -6353,7 +6367,8 @@ const buildWikiRouter = ({
           pageCount: result.pages.length
         },
         pages: result.pages.map(entry => serializeWikiPage(entry.page)),
-        mergeAvailable: result.pages.some(entry => entry.mergeAvailable)
+        mergeAvailable: result.pages.some(entry => entry.mergeAvailable),
+        library: result.library || null
       });
     } catch (error) {
       console.error('Error adopting shared wiki collection:', error);
