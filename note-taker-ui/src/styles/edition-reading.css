@@ -400,9 +400,11 @@
 .stand__cover {
   --cover: var(--reading-ink);
   position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 6px; aspect-ratio: 3 / 4; box-sizing: border-box; padding: 16px;
+  container-type: inline-size;
   background: color-mix(in srgb, var(--cover) 28%, var(--reading-paper)); border-top: 6px solid var(--cover); color: var(--reading-ink); text-decoration: none;
   box-shadow: 0 16px 28px rgba(0, 0, 0, .28);
 }
+.stand__cover--ink { --cover: var(--reading-ink); }
 .stand__cover--thread { --cover: var(--noeis-thread, #b1862e); }
 .stand__cover--living { --cover: var(--noeis-living, #6f7340); }
 .stand__cover--slate { --cover: var(--noeis-ink-subtle, #7a756c); }
@@ -410,7 +412,7 @@
 .stand__issue { font: 700 10px/1.3 var(--noeis-font-ui, system-ui); letter-spacing: .16em; text-transform: uppercase; color: var(--reading-muted); }
 .stand__title { font: 800 27px/.98 var(--noeis-font-editorial, Georgia, serif); letter-spacing: -.02em; }
 .stand__cover:nth-child(even) .stand__title { font-style: italic; font-weight: 400; }
-.stand__figure { margin-top: auto; overflow-wrap: anywhere; font: 800 clamp(34px, 3vw, 50px)/.9 var(--noeis-font-editorial, Georgia, serif); letter-spacing: -.04em; color: color-mix(in srgb, var(--cover) 70%, var(--reading-ink)); }
+.stand__figure { margin-top: auto; white-space: nowrap; font: 800 clamp(28px, 22cqi, 150px)/.9 var(--noeis-font-editorial, Georgia, serif); letter-spacing: -.04em; color: color-mix(in srgb, var(--cover) 70%, var(--reading-ink)); }
 .stand__figure small { display: block; margin-top: 4px; font: 12px/1.3 var(--noeis-font-ui, system-ui); letter-spacing: 0; color: var(--reading-muted); }
 .stand__line { font: italic 16px/1.3 var(--noeis-font-editorial, Georgia, serif); display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
 .stand__figure + .stand__line { margin-top: 4px; }
@@ -422,6 +424,31 @@
 .stand__spines { display: flex; align-items: flex-end; gap: 4px; padding: 0 10px; overflow-x: auto; }
 .stand__spine { flex: 0 0 38px; height: 170px; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 10px; box-sizing: border-box; background: color-mix(in srgb, var(--cover) 40%, var(--reading-paper)); border-top: 4px solid var(--cover); color: var(--reading-ink); text-decoration: none; }
 .stand__spine span { writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap; font: 700 11px/1 var(--noeis-font-ui, system-ui); letter-spacing: .06em; }
+/* A magazine, opened: the cover as the left page, contents and feature on the right. */
+.stand__spread-nav { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 18px; font: 14px/1.5 var(--noeis-font-ui, system-ui); }
+.stand__spread-nav a { color: var(--reading-muted); text-decoration: none; }
+.stand__spread-nav a:hover { color: var(--reading-ink); text-decoration: underline; text-underline-offset: 3px; }
+.stand__pages { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); box-shadow: 0 24px 48px rgba(0, 0, 0, .3); }
+.stand__cover.is-open { aspect-ratio: auto; min-height: 640px; padding: 30px; box-shadow: none; }
+.stand__cover.is-open .stand__title { font-size: clamp(40px, 4vw, 64px); }
+.stand__cover.is-open .stand__line { font-size: clamp(22px, 2vw, 30px); -webkit-line-clamp: 5; }
+.stand__page { padding: 30px 36px; background: var(--reading-paper); border-left: 1px solid var(--reading-rule); display: flex; flex-direction: column; gap: 18px; }
+.stand__page a { color: inherit; }
+.edition-reading .stand__contents-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin: 0; padding-bottom: 8px; border-bottom: 2px solid var(--reading-ink); font: 700 12px/1.4 var(--noeis-font-ui, system-ui); letter-spacing: .16em; text-transform: uppercase; }
+.stand__contents-head span { font: italic 15px/1.4 var(--noeis-font-editorial, Georgia, serif); letter-spacing: 0; text-transform: none; color: var(--reading-muted); }
+.stand__contents { list-style: none; margin: 0; padding: 0; }
+.stand__contents li { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 2px 12px; padding: 10px 0; border-bottom: 1px solid var(--reading-rule); }
+.stand__number { grid-row: span 2; font: 800 24px/1.1 var(--noeis-font-editorial, Georgia, serif); color: var(--noeis-danger, #9b5a46); }
+.stand__contents a { font: 700 19px/1.25 var(--noeis-font-editorial, Georgia, serif); text-decoration: none; }
+.stand__contents a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.stand__contents small { font: 13px/1.45 var(--noeis-font-ui, system-ui); color: var(--reading-muted); }
+.edition-reading .stand__feature h3 { margin: 6px 0 10px; font: 700 clamp(28px, 2.6vw, 40px)/1.05 var(--noeis-font-editorial, Georgia, serif); letter-spacing: -.02em; }
+.stand__feature h3 a { text-decoration: none; }
+@media (max-width: 900px) {
+  .stand__pages { grid-template-columns: minmax(0, 1fr); }
+  .stand__cover.is-open { min-height: 420px; }
+  .stand__page { border-left: 0; padding: 22px 18px; }
+}
 @media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
   .stand__cover, .stand__spine { transition: transform 220ms cubic-bezier(.2,.8,.2,1); }
   .stand__cover:hover { transform: translateY(-6px) rotate(-.6deg); }
@@ -439,5 +466,6 @@
   .stand__rack { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; padding: 0; }
   .stand__cover { padding: 12px; }
   .stand__title { font-size: 20px; }
+  .stand__line { font-size: 14px; -webkit-line-clamp: 3; }
 }
 

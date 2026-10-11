@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { getEdition } from '../../api/editions';
 import { latestOf, newCountOf, plural } from '../../pages/editionModel';
 import EditionFrontPage from './EditionFrontPage';
@@ -35,11 +35,16 @@ const useNewest = (papers) => {
  * is remembered on this device.
  */
 export default function EditionStand({ papers, resume = null }) {
-  const [view, setView] = useState(() => readEditionLocal('stand', 'view') || 'front');
+  const [chosen, setView] = useState(() => readEditionLocal('stand', 'view') || 'front');
+  const [params] = useSearchParams();
+  const navigate = useNavigate();
+  /* A magazine opened by link opens on the newsstand, whichever view is set. */
+  const view = params.get('open') ? 'stand' : chosen;
   const opened = useNewest(papers);
   const choose = (next) => {
     setView(next);
     writeEditionLocal('stand', 'view', next);
+    if (params.get('open')) navigate('/editions');
   };
   const place = resume?.issueId && papers.some(paper => paper.issues.some(issue => issue._id === resume.issueId))
     ? `/editions/${encodeURIComponent(resume.issueId)}${resume.itemId ? `?item=${encodeURIComponent(resume.itemId)}` : ''}`

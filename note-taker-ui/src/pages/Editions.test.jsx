@@ -213,12 +213,24 @@ it('turns the stand into a newsstand of covers, and back', async () => {
   await screen.findByRole('heading', { name: 'The Noeis Edition' });
   fireEvent.click(screen.getByRole('button', { name: 'Newsstand' }));
   const cover = await screen.findByRole('link', { name: /This Week in AI.*46\.7%/ });
-  expect(cover).toHaveAttribute('href', '/editions?paper=ai');
+  expect(cover).toHaveAttribute('href', '/editions?open=ai');
   expect(within(cover).getByText('Competence is not recovery')).toBeVisible();
   expect(within(screen.getByRole('link', { name: /Weekend Readings/ })).getByText('2 new')).toBeVisible();
   expect(screen.getByRole('button', { name: 'Newsstand' })).toHaveAttribute('aria-pressed', 'true');
   fireEvent.click(screen.getByRole('button', { name: 'Front page' }));
   expect(screen.getByRole('heading', { name: 'The Noeis Edition' })).toBeVisible();
+});
+it('opens a magazine: the cover on the left, what is in it and its feature on the right', async () => {
+  twoPapers();
+  mockSearch = 'open=ai';
+  render(<Editions />);
+  const spread = await screen.findByRole('region', { name: 'This Week in AI, opened' });
+  expect(await within(spread).findByRole('heading', { name: /In this issue/ })).toBeVisible();
+  expect(await within(spread).findByRole('heading', { name: 'Agents finish the task' })).toBeVisible();
+  expect(within(spread).getByRole('link', { name: 'Read the whole issue →' })).toHaveAttribute('href', '/editions/ai');
+  expect(within(spread).getByRole('link', { name: 'Every issue of This Week in AI →' })).toHaveAttribute('href', '/editions?paper=ai');
+  fireEvent.keyDown(document, { key: 'Escape' });
+  expect(mockNavigate).toHaveBeenLastCalledWith('/editions');
 });
 it('zooms from an issue to a finding and its source, and steps back out', async () => {
   render(<Editions />);
