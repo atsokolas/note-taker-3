@@ -11,6 +11,7 @@
     "weekend-readings:intake": "node scripts/preview_weekend_readings_intake.js",
     "agent:eval": "node scripts/run_agent_eval.js",
     "agent:eval:check": "node scripts/run_agent_eval.js --check",
+    "agent:eval:reading": "node scripts/run_reading_eval.js",
     "judgment:evidence-harness": "node scripts/run_judgment_evidence_quality_harness.js",
     "judgment:semantic-evidence-harness": "node scripts/run_judgment_semantic_evidence_harness.js",
     "judgment:ledger-acceptance": "node scripts/run_judgment_ledger_acceptance_harness.js",
