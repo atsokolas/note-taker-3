@@ -517,4 +517,19 @@ html[data-ui-theme='tokyo-midnight'] :is(
     scroll-behavior: auto;
   }
 
+  :is(
+    .app-shell-new,
+    .topbar,
+    .topbar *,
+    .palette-card,
+    .system-status__drawer,
+    .agent-rail,
+    .agent-rail-drawer__sheet,
+    .agent-rail-drawer__trigger
+  ) {
+    animation: none !important;
+    scroll-behavior: auto !important;
+    transition-duration: 1ms !important;
+    transform: none !important;
+  }
 }

@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Page, PageHeader } from '../components/ui';
+import { getMorningPaperSettings } from '../api/dailyLoop';
 import AgentLaunchLinkCard from '../components/integrations/AgentLaunchLinkCard';
 import ConnectionsActivity from '../components/integrations/ConnectionsActivity';
 import ConnectionsAgents from '../components/integrations/ConnectionsAgents';
@@ -17,6 +19,26 @@ import usePersonalAgents from '../hooks/integrations/usePersonalAgents';
 import DataIntegrations from './DataIntegrations';
 import ExtensionCaptureCard from '../onboarding/ExtensionCaptureCard';
 import useDocumentTitle from '../hooks/useDocumentTitle';
+
+/* Email-in, said once and quietly: where to forward, and from which address.
+   Absent until the inbound address is configured. */
+const ForwardingLine = () => {
+  const [settings, setSettings] = useState(null);
+  useEffect(() => {
+    let live = true;
+    getMorningPaperSettings().then(value => { if (live) setSettings(value); }).catch(() => {});
+    return () => { live = false; };
+  }, []);
+  if (!settings?.inboundAddress) return null;
+  return (
+    <p className="connections-forwarding">
+      Forward newsletters to <strong>{settings.inboundAddress}</strong> from{' '}
+      {settings.emailConfirmed
+        ? <strong>{settings.email}</strong>
+        : <Link to="/settings?section=delivery">the address you confirm in Settings</Link>}.
+    </p>
+  );
+};
 
 const Integrations = () => {
   useDocumentTitle('Connections');
@@ -101,6 +123,7 @@ const Integrations = () => {
         {activeTab === 'sources' ? (
           <section id="sources" aria-label="Sources">
             <DataIntegrations />
+            <ForwardingLine />
             <details id="capture" className="connections-fold connections-capture">
               <summary>
                 <span>
