@@ -1,36 +1,18 @@
 import { buildTextSnapshot } from './highlightMarkup';
-import { buildCanonicalArticlePath } from './sourceRoutes';
 
 export const ARTICLE_PASSAGE_TEXT_LIMIT = 6000;
 export const ARTICLE_PASSAGE_CONTEXT_LIMIT = 240;
-const FRAGMENT_PREFIX = '#passage=';
+export const FRAGMENT_PREFIX = '#passage=';
 export const ARTICLE_PASSAGE_FRAGMENT_LIMIT = 80000;
 
 const cleanId = (value) => String(value?._id || value?.id || value || '').trim();
 
-const validAnchor = (anchor) => {
+export const validAnchor = (anchor) => {
   if (!anchor || typeof anchor !== 'object' || Array.isArray(anchor)) return false;
   if (typeof anchor.text !== 'string' || !anchor.text || anchor.text.length > ARTICLE_PASSAGE_TEXT_LIMIT) return false;
   if (typeof anchor.prefix !== 'string' || anchor.prefix.length > ARTICLE_PASSAGE_CONTEXT_LIMIT) return false;
   if (typeof anchor.suffix !== 'string' || anchor.suffix.length > ARTICLE_PASSAGE_CONTEXT_LIMIT) return false;
   return Number.isInteger(anchor.startOffsetApprox) && anchor.startOffsetApprox >= 0;
-};
-
-const payloadForHref = ({ articleId, anchor } = {}) => ({
-  v: 1,
-  articleId: cleanId(articleId),
-  text: String(anchor?.text || ''),
-  prefix: String(anchor?.prefix || '').slice(-ARTICLE_PASSAGE_CONTEXT_LIMIT),
-  suffix: String(anchor?.suffix || '').slice(0, ARTICLE_PASSAGE_CONTEXT_LIMIT),
-  startOffsetApprox: Number(anchor?.startOffsetApprox)
-});
-
-export const buildArticlePassageHref = ({ articleId, anchor } = {}) => {
-  const payload = payloadForHref({ articleId, anchor });
-  if (!payload.articleId || !validAnchor(payload)) return '';
-  const hash = `${FRAGMENT_PREFIX}${encodeURIComponent(JSON.stringify(payload))}`;
-  if (hash.length > ARTICLE_PASSAGE_FRAGMENT_LIMIT) return '';
-  return `${buildCanonicalArticlePath(payload.articleId)}${hash}`;
 };
 
 export const readArticlePassageFragment = (hash = '', articleId = '') => {

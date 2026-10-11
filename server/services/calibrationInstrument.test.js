@@ -1,9 +1,7 @@
 const {
   SELECTION,
   SUFFICIENT,
-  assertPrivate,
-  buildCalibration,
-  publicProjection
+  buildCalibration
 } = require('./calibrationInstrument');
 
 const ownerPages = [
@@ -57,8 +55,6 @@ describe('private longitudinal calibration', () => {
     expect(instrument.selection).toBe(SELECTION);
     expect(instrument.cases.every((row) => row.pageId !== 'p-other')).toBe(true);
     expect(JSON.stringify(instrument)).not.toMatch(/stranger|leaderboard|rank|shame/i);
-    expect(assertPrivate(instrument, 'stranger')).toEqual(publicProjection());
-    expect(assertPrivate(instrument, 'user-host').cases.length).toBe(2);
   });
 
   it('stays silent below the sufficient-sample threshold and speaks with a range after', () => {

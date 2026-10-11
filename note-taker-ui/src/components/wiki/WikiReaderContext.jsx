@@ -65,7 +65,7 @@ const WikiReaderContext = ({
   if (panel.type === 'source') {
     const source = panel.source || {};
     const surround = panel.surround || {};
-    const { openHref, isLibrary } = resolveSourceDoors(source);
+    const { openHref, isLibrary } = resolveSourceDoors(source, { passage: surround.excerpt });
     const passage = surround.excerpt ? <Quote>{surround.excerpt}</Quote> : null;
     return (
       <div className="wiki-reader-context">

@@ -1,3 +1,10 @@
+import {
+  ARTICLE_PASSAGE_CONTEXT_LIMIT,
+  ARTICLE_PASSAGE_FRAGMENT_LIMIT,
+  FRAGMENT_PREFIX,
+  validAnchor
+} from './articlePassageAnchor';
+
 const clean = (value) => String(value || '').trim();
 
 const idOf = (value) => clean(value?._id || value?.id || value);
@@ -34,6 +41,21 @@ export const parseSourceOrigin = (origin = '') => {
 export const buildCanonicalArticlePath = (articleId = '') => {
   const id = idOf(articleId);
   return id ? `/library?articleId=${encodeURIComponent(id)}` : '/library';
+};
+
+/** The reader at the exact words: the fragment carries the anchor it looks for. */
+export const buildArticlePassageHref = ({ articleId, anchor } = {}) => {
+  const payload = {
+    v: 1,
+    articleId: idOf(articleId),
+    text: String(anchor?.text || ''),
+    prefix: String(anchor?.prefix || '').slice(-ARTICLE_PASSAGE_CONTEXT_LIMIT),
+    suffix: String(anchor?.suffix || '').slice(0, ARTICLE_PASSAGE_CONTEXT_LIMIT),
+    startOffsetApprox: Number(anchor?.startOffsetApprox)
+  };
+  if (!payload.articleId || !validAnchor(payload)) return '';
+  const hash = `${FRAGMENT_PREFIX}${encodeURIComponent(JSON.stringify(payload))}`;
+  return hash.length > ARTICLE_PASSAGE_FRAGMENT_LIMIT ? '' : `${buildCanonicalArticlePath(payload.articleId)}${hash}`;
 };
 
 export const safeInternalPath = (value, prefix) => {
@@ -80,7 +102,14 @@ export const buildAuthoredContinuationPath = (row = {}) => {
   return '';
 };
 
-const buildOwnedSourcePath = (source = {}) => {
+// A passage is a few sentences. A longer excerpt is the document itself, and
+// the door to a document opens at its top.
+const PASSAGE_LIMIT = 600;
+
+/* The Library identity of a source. A highlight is its own passage; any other
+   source that sits in the Library (the article itself, or a web source the
+   server matched to a saved piece) names the article. */
+export const libraryIdentity = (source = {}) => {
   const type = clean(source?.type || source?.sourceType).toLowerCase();
   // `_id` identifies the source-ref wrapper, not the saved Library object.
   // Opening it would create a plausible-looking but broken reader URL.
@@ -88,17 +117,23 @@ const buildOwnedSourcePath = (source = {}) => {
     source?.objectId || source?.sourceObjectId || source?.sourceId || source?.highlightId || source?.articleId
   );
   const parentObjectId = idOf(source?.parentObjectId || source?.parentArticleId || source?.articleId);
+  if (type === 'highlight') return { type, objectId, articleId: parentObjectId, highlightId: parentObjectId ? objectId : '' };
+  return { type, objectId, articleId: type === 'article' ? parentObjectId || objectId : parentObjectId, highlightId: '' };
+};
 
-  if (type === 'article' && objectId) return buildCanonicalArticlePath(objectId);
-  if (type === 'highlight' && objectId && parentObjectId) {
-    return buildCanonicalHighlightPath({ articleId: parentObjectId, highlightId: objectId });
-  }
+const buildOwnedSourcePath = (source = {}, passage = '') => {
+  const { type, objectId, articleId, highlightId } = libraryIdentity(source);
+  if (highlightId) return buildCanonicalHighlightPath({ articleId, highlightId });
   if (type === 'concept' && objectId) return buildConceptPath({ name: objectId, conceptId: objectId });
   if (type === 'question' && objectId) return `/think?tab=questions&questionId=${encodeURIComponent(objectId)}`;
   if ((type === 'notebook' || type === 'note') && objectId) {
     return `/think?tab=notebook&entryId=${encodeURIComponent(objectId)}`;
   }
-  return '';
+  if (!articleId) return '';
+  const words = clean(passage);
+  const exact = words.length <= PASSAGE_LIMIT
+    && buildArticlePassageHref({ articleId, anchor: { text: words, prefix: '', suffix: '', startOffsetApprox: 0 } });
+  return exact || buildCanonicalArticlePath(articleId);
 };
 
 const buildOriginalSourceHref = (source = {}) => {
@@ -109,17 +144,23 @@ const buildOriginalSourceHref = (source = {}) => {
 /**
  * Owned evidence and the public original are separate doors. A citation can
  * keep its filing URL for provenance while the Library path opens the exact
- * saved passage. Never invent a Library door from a public URL alone.
+ * saved passage. Never invent a Library door from a public URL alone: the
+ * server says when a web source is a piece you saved. Given the cited words,
+ * the Library door opens the reader at them.
  */
-export const resolveSourceDoors = (source = {}) => {
-  const ownedHref = buildOwnedSourcePath(source);
+export const resolveSourceDoors = (source = {}, { passage = '' } = {}) => {
+  const ownedHref = buildOwnedSourcePath(source, passage);
   const originalHref = buildOriginalSourceHref(source);
+  const isLibrary = isLibraryHref(ownedHref);
+  const { articleId, highlightId } = isLibrary ? libraryIdentity(source) : {};
   return {
     ownedHref,
     originalHref,
     openHref: ownedHref || originalHref,
-    isLibrary: isLibraryHref(ownedHref),
-    isExternalOnly: !ownedHref && Boolean(originalHref)
+    isLibrary,
+    isExternalOnly: !ownedHref && Boolean(originalHref),
+    articleId: articleId || '',
+    highlightId: highlightId || ''
   };
 };
 
@@ -128,7 +169,7 @@ export const resolveSourceDoors = (source = {}) => {
  * retain its original URL for provenance while its object identity keeps the
  * user inside the exact Library reading context.
  */
-export const buildSourceOpenPath = (source = {}) => resolveSourceDoors(source).openHref;
+export const buildSourceOpenPath = (source = {}, options) => resolveSourceDoors(source, options).openHref;
 
 export const buildSourceOriginPath = (origin = '', fallbackUrl = '') => {
   const parsed = parseSourceOrigin(origin);

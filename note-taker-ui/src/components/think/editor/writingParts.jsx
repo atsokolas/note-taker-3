@@ -3,6 +3,7 @@ import { NodeViewWrapper, ReactNodeViewRenderer } from '@tiptap/react';
 import { Extension, Node, mergeAttributes } from '@tiptap/core';
 import HighlightBlock from '../../blocks/HighlightBlock';
 import { QuietButton } from '../../ui';
+import { buildCanonicalHighlightPath } from '../../../utils/sourceRoutes';
 
 // The pieces every Think entry is written with — a note, a concept, a
 // question. One editor shell; these are its shared parts.
@@ -156,9 +157,7 @@ const passageNode = (highlight = {}) => ({
     highlightText: highlight.text || '',
     articleTitle: highlight.articleTitle || '',
     articleId: highlight.articleId || '',
-    sourcePath: highlight.articleId
-      ? `/library?articleId=${encodeURIComponent(highlight.articleId)}${highlight._id ? `&highlightId=${encodeURIComponent(highlight._id)}` : ''}`
-      : '',
+    sourcePath: highlight.articleId ? buildCanonicalHighlightPath({ articleId: highlight.articleId, highlightId: highlight._id }) : '',
     tags: (highlight.tags || []).join(',')
   }
 });

@@ -29,9 +29,7 @@ const buildAiInsightsRouter = ({
   extractQuestions,
   ensureBestEffortSynthesis,
   aiSemanticSearch,
-  hydrateSemanticResults,
-  isGenerationEnabled,
-  generateDraftInsights
+  hydrateSemanticResults
 }) => {
   const router = express.Router();
 
@@ -755,26 +753,11 @@ const buildAiInsightsRouter = ({
           }));
       }
 
-      let draftInsights = null;
-      if (isGenerationEnabled()) {
-        try {
-          draftInsights = await generateDraftInsights({
-            highlights: highlightRecords,
-            themes,
-            connections,
-            questions
-          });
-        } catch (err) {
-          console.error('Draft insights failed:', err);
-        }
-      }
-
       res.status(200).json({
         themes,
         connections,
         questions,
         suggestedLinks,
-        draftInsights,
         meta: {
           degraded: synthesisWarnings.length > 0,
           warnings: synthesisWarnings,

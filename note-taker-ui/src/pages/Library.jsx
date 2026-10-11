@@ -38,7 +38,7 @@ import { isProceduralShelf } from './readingDriftModel';
 import { useAgentRail, useNoeisAgentSurface } from '../agent/AgentRailContext';
 import { takeFirstPaint } from '../motion/columnMotion';
 import LibraryCollection from '../components/library/LibraryCollection';
-import { buildArticlePassageHref } from '../utils/articlePassageAnchor';
+import { buildArticlePassageHref } from '../utils/sourceRoutes';
 import LibraryShelfNav from '../components/library/LibraryShelfNav';
 import LibraryActions from '../components/library/LibraryActions';
 import ScreenWord from '../components/library/ScreenWord';
