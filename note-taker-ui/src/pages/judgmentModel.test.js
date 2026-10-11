@@ -2,595 +2,183 @@ import {
   acceptProposalIntoJudgment,
   buildJudgmentIndex,
   claimSentence,
+  confidenceWord,
   createJudgment,
-  formatHoldAge,
-  heldDaysBetween,
-  judgmentIdOf,
-  dismissOvernightLine,
-  docText,
   foldJudgmentPages,
+  heldDaysBetween,
+  indexCardLine,
+  isJudgmentPage,
   judgmentHeadline,
+  judgmentIdOf,
   namedTitle,
-  lastLookedLine,
   oneSentence,
-  projectJudgment,
-  provenanceLine,
-  reviseCurrentJudgment,
-  selectOvernightLine,
-  sourceHrefFromOrigin,
-  verdictEvidenceOptions,
-  writeLineIntoJudgment
+  projectView,
+  viewRecord
 } from './judgmentModel';
 
-const NOW = new Date('2026-08-14T09:30:00.000Z').getTime();
+const NOW = new Date('2026-10-11T09:30:00.000Z').getTime();
 
 const page = () => ({
-  _id: 'wiki-nvidia',
-  title: 'NVIDIA',
+  _id: 'view-costco',
+  title: 'Costco’s membership model makes it recession-resistant.',
   sourceRefs: [
-    { _id: 'src-1', type: 'external', citationLabel: 'SemiAnalysis', url: 'https://semianalysis.com/capacity' },
-    { _id: 'src-2', type: 'external', citationLabel: 'TrendForce', url: 'https://trendforce.com/supply' },
-    { _id: 'src-3', type: 'article', title: 'Unused source', objectId: 'article-9' }
+    { _id: 'src-1', type: 'external', citationLabel: 'SemiAnalysis', url: 'https://example.com/a' }
   ],
   judgment: {
-    kind: 'thesis',
-    governingQuestion: 'Does demand outrun capacity?',
-    currentJudgment: 'NVIDIA demand still outruns deliverable capacity.',
-    startedAt: '2025-11-14T12:00:00.000Z',
-    lastReviewedAt: '2026-08-14T08:05:00.000Z',
+    currentJudgment: 'Costco’s membership model makes it recession-resistant.',
+    startedAt: '2026-07-19T12:00:00.000Z',
+    confidence: 0.75,
     why: [
-      { reasonId: 'why-1', text: 'AI demand keeps compounding faster than new supply.', sourceRefIds: ['src-1'] },
-      { reasonId: 'why-2', text: 'Lead times and power constrain what can be delivered.', sourceRefIds: ['src-2'] }
+      {
+        reasonId: 'why-1',
+        text: 'Renewals held above ninety percent through 2009.',
+        sourceLabel: 'Costco FY09 10-K',
+        acceptedFrom: 'highlight:article-1:highlight-1',
+        createdAt: '2026-08-02T12:00:00.000Z'
+      },
+      { reasonId: 'why-2', text: 'Fees are most of operating income.', sourceRefIds: ['src-1'] }
     ],
     against: [
-      { reasonId: 'against-1', text: 'Hyperscalers are designing more in-house silicon.' }
-    ],
-    falsifiers: [
-      { falsifierId: 'f-1', text: 'Confirmed signed capacity converts within 90 days.', status: 'unobserved' },
-      { falsifierId: 'f-2', text: 'A retired condition.', status: 'retired' }
-    ],
-    decisions: [
       {
-        decisionId: 'd-1',
-        summary: 'Started 1.5%. Won’t add until signed capacity converts.',
-        decidedAt: '2025-11-14T12:00:00.000Z',
-        status: 'taken',
-        reviewAt: '2026-12-01T12:00:00.000Z',
-        outcome: {}
+        reasonId: 'against-1',
+        text: 'Discretionary categories fall hard in a downturn.',
+        sourceLabel: 'Ben Carlson',
+        acceptedFrom: 'article:article-2',
+        createdAt: '2026-10-01T12:00:00.000Z'
       }
+    ],
+    heldHistory: [{ text: 'Costco cannot lose members.', until: '2026-07-19T12:00:00.000Z' }],
+    resolutionCriteria: 'Two quarters of falling renewals.',
+    resolutionHorizonAt: '2027-06-30T12:00:00.000Z',
+    resolutionHistory: [{ criteria: 'Two quarters of falling renewals.', horizonAt: '2027-06-30T12:00:00.000Z', setAt: '2026-08-10T12:00:00.000Z' }],
+    decisions: [
+      { decisionId: 'judgment-change-abc', summary: 'Changed what I hold: x', decidedAt: '2026-07-19T12:00:00.000Z' }
     ]
   }
 });
 
-describe('judgmentModel', () => {
-  it('reads the claim as one sentence and keeps it the same sentence everywhere', () => {
-    const projected = projectJudgment(page(), NOW);
-
-    expect(claimSentence(page())).toBe('NVIDIA demand still outruns deliverable capacity.');
-    expect(projected.claim).toBe('NVIDIA demand still outruns deliverable capacity.');
-    expect(projected.title).toBe('NVIDIA');
-    expect(projected.headline).toBe('NVIDIA');
-    expect(namedTitle(page())).toBe('NVIDIA');
-    expect(judgmentHeadline(page())).toBe('NVIDIA');
-    expect(buildJudgmentIndex([page()], NOW)[0]).toMatchObject({
-      title: 'NVIDIA',
-      headline: 'NVIDIA',
-      sentence: projected.claim
-    });
+describe('the view', () => {
+  it('reads the claim as one sentence, the same everywhere', () => {
+    expect(oneSentence('First sentence. Second one.')).toBe('First sentence.');
+    expect(claimSentence(page())).toBe('Costco’s membership model makes it recession-resistant.');
+    expect(namedTitle(page())).toBe('');
+    expect(judgmentHeadline({ ...page(), title: 'Costco' })).toBe('Costco');
   });
 
-  it('does not invent a name when the wiki title is still the claim', () => {
-    const unnamed = { _id: 'p', title: 'A claim.', judgment: { currentJudgment: 'A claim.' } };
-    expect(namedTitle(unnamed)).toBe('');
-    expect(judgmentHeadline(unnamed)).toBe('A claim.');
-    expect(projectJudgment(unnamed).title).toBe('');
-    expect(projectJudgment(unnamed).headline).toBe('A claim.');
+  it('is a view only when it holds a sentence', () => {
+    expect(isJudgmentPage(page())).toBe(true);
+    expect(isJudgmentPage({ judgment: { kind: 'thesis', governingQuestion: 'Q?' } })).toBe(false);
+    expect(isJudgmentPage({ title: 'A plain wiki page' })).toBe(false);
   });
 
-  it('projects the four human fields and drops retired conditions', () => {
-    const projected = projectJudgment(page(), NOW);
+  it('names the confidence you chose in your words', () => {
+    expect(confidenceWord(0.75)).toBe('Fairly sure');
+    expect(confidenceWord(0.95)).toBe('Sure');
+    expect(confidenceWord(0.5)).toBe('I think so');
+    expect(confidenceWord(null)).toBe('');
+  });
 
-    expect(projected.why.map(line => line.text)).toEqual([
-      'AI demand keeps compounding faster than new supply.',
-      'Lead times and power constrain what can be delivered.'
+  it('lays passages in two columns that open the source at the passage', () => {
+    const view = projectView(page());
+    expect(view.confidence).toBe('Fairly sure');
+    expect(view.forPassages.map(p => p.text)).toEqual([
+      'Renewals held above ninety percent through 2009.',
+      'Fees are most of operating income.'
     ]);
-    expect(projected.against.map(line => line.text)).toEqual(['Hyperscalers are designing more in-house silicon.']);
-    expect(projected.changeMindIf.map(line => line.text)).toEqual(['Confirmed signed capacity converts within 90 days.']);
-    expect(projected.whatIDid.map(line => line.text)).toEqual(['Started 1.5%. Won’t add until signed capacity converts.']);
-  });
-
-  it('names only the sources the Why lines actually cite', () => {
-    const projected = projectJudgment(page(), NOW);
-
-    expect(projected.whySources.map(source => source.label)).toEqual(['SemiAnalysis', 'TrendForce']);
-    expect(projected.againstSources).toEqual([]);
-    expect(projected.why[0].sources).toEqual([
-      expect.objectContaining({ n: 1, label: 'SemiAnalysis', href: 'https://semianalysis.com/capacity' })
-    ]);
-    expect(projected.why[1].sources).toEqual([
-      expect.objectContaining({ n: 2, label: 'TrendForce', href: 'https://trendforce.com/supply' })
-    ]);
-  });
-
-  it('opens a library-filed line at the passage, not by reprinting the title', () => {
-    const filed = {
-      _id: 'p',
-      title: 'Compute',
-      judgment: {
-        currentJudgment: 'Compute is scarce.',
-        why: [{
-          reasonId: 'r1',
-          text: 'Deliverable capacity lags demand by two years.',
-          sourceLabel: 'On compute · FT',
-          acceptedFrom: 'highlight:a1:h1'
-        }]
-      }
-    };
-    const projected = projectJudgment(filed, NOW);
-    expect(projected.why[0].sources).toEqual([
-      expect.objectContaining({
-        n: 1,
-        label: 'On compute · FT',
-        href: '/library?articleId=a1&highlightId=h1'
-      })
-    ]);
-  });
-
-  it('gives the same source the same number on Why and Against', () => {
-    const shared = {
-      _id: 'p',
-      sourceRefs: [{
-        _id: 'src-1',
-        type: 'external',
-        citationLabel: 'SemiAnalysis',
-        url: 'https://semianalysis.com/capacity'
-      }],
-      judgment: {
-        currentJudgment: 'A claim.',
-        why: [{ reasonId: 'w1', text: 'One reason.', sourceRefIds: ['src-1'] }],
-        against: [{ reasonId: 'a1', text: 'One objection.', sourceRefIds: ['src-1'] }]
-      }
-    };
-    const projected = projectJudgment(shared, NOW);
-    expect(projected.why[0].sources[0].n).toBe(1);
-    expect(projected.against[0].sources[0].n).toBe(1);
-  });
-
-  it('rebuilds a library href from the passage the line was accepted from', () => {
-    expect(sourceHrefFromOrigin('highlight:a1:h1')).toBe('/library?articleId=a1&highlightId=h1');
-    expect(sourceHrefFromOrigin('article:a1')).toBe('/library?articleId=a1');
-    expect(sourceHrefFromOrigin('', 'https://ft.com/compute')).toBe('https://ft.com/compute');
-    expect(sourceHrefFromOrigin('overnight-event')).toBe('');
-  });
-
-  it('offers each persisted source identity once when recording a verdict', () => {
-    const options = verdictEvidenceOptions({
-      sourceRefs: [
-        { _id: 'src-1', type: 'external', title: 'Alphabet annual report', citationLabel: '[1]', url: 'https://example.com/10-k' },
-        { _id: 'src-1', type: 'external', citationLabel: 'Duplicate', url: 'https://example.com/duplicate' },
-        { _id: 'src-2', type: 'article', title: 'Saved note', objectId: 'article-2' },
-        { _id: 'src-3' }
-      ]
-    });
-
-    expect(options).toEqual([
-      { id: 'src-1', label: 'Alphabet annual report', href: 'https://example.com/10-k' },
-      { id: 'src-2', label: 'Saved note', href: '/library?articleId=article-2' }
-    ]);
-  });
-
-  it('does not invent a library door when the passage origin was not persisted', () => {
-    const filed = {
-      _id: 'p',
-      title: 'Hire Maya as the first engineer.',
-      judgment: {
-        currentJudgment: 'Hire Maya as the first engineer.',
-        why: [{
-          reasonId: 'r1',
-          text: 'Maya is the engineer I would hire first.',
-          sourceLabel: 'Hiring notes'
-        }]
-      }
-    };
-    expect(projectJudgment(filed).why[0].sources[0].href).toBe('');
-  });
-
-  it('opens a library article in the library even when the source also has a web url', () => {
-    const filed = {
-      _id: 'p',
-      sourceRefs: [{
-        _id: 'src-a',
-        type: 'article',
-        citationLabel: '10-K',
-        objectId: 'a1',
-        url: 'https://www.sec.gov/Archives/edgar/data/1045810/000104581025000106/nvda-20250126.htm'
-      }],
-      judgment: {
-        currentJudgment: 'A claim.',
-        why: [{ reasonId: 'w1', text: 'A passage from the filing.', sourceRefIds: ['src-a'] }]
-      }
-    };
-    expect(projectJudgment(filed).why[0].sources[0]).toEqual(expect.objectContaining({
-      n: 1,
-      label: '10-K',
-      href: '/library?articleId=a1'
+    expect(view.forPassages[0]).toEqual(expect.objectContaining({
+      source: 'Costco FY09 10-K',
+      href: expect.stringContaining('highlight-1')
     }));
+    expect(view.forPassages[1].source).toBe('SemiAnalysis');
+    expect(view.againstPassages[0].href).toContain('article-2');
+    expect(view.test).toEqual({ text: 'Two quarters of falling renewals.', by: '2027-06-30T12:00:00.000Z' });
   });
 
-  it('opens a library highlight at the passage, not the publisher’s site', () => {
-    const filed = {
-      _id: 'p',
-      sourceRefs: [{
-        _id: 'src-h',
-        type: 'highlight',
-        citationLabel: 'Shareholder letter',
-        objectId: 'h1',
-        parentObjectId: 'a1',
-        url: 'https://www.berkshirehathaway.com/letters/2024ltr.pdf'
-      }],
+  it('reads older dossier pages through the same two columns', () => {
+    const view = projectView({
+      _id: 'old',
       judgment: {
-        currentJudgment: 'A claim.',
-        why: [{ reasonId: 'w1', text: 'The passage itself.', sourceRefIds: ['src-h'] }]
+        currentJudgment: 'Old shape.',
+        assumptions: [{ assumptionId: 'a1', text: 'An assumption.' }, { text: 'Failed.', status: 'failed' }],
+        strongestCounterargument: 'The best objection.'
       }
-    };
-    expect(projectJudgment(filed).why[0].sources[0].href)
-      .toBe('/library?articleId=a1&highlightId=h1');
-  });
-
-  it('leaves empty fields empty rather than inventing lines', () => {
-    const bare = { _id: 'bare', title: 'Bare', judgment: { currentJudgment: 'A claim with nothing behind it yet.' } };
-    const projected = projectJudgment(bare, NOW);
-
-    expect(projected.why).toEqual([]);
-    expect(projected.against).toEqual([]);
-    expect(projected.changeMindIf).toEqual([]);
-    expect(projected.whatIDid).toEqual([]);
-    expect(projected.review).toBeNull();
-  });
-
-  it('reads older dossier pages through the same two fields', () => {
-    const legacy = {
-      _id: 'legacy',
-      title: 'Legacy dossier',
-      sourceRefs: [],
-      judgment: {
-        currentJudgment: 'The old contract still holds.',
-        assumptions: [
-          { assumptionId: 'a-1', text: 'The moat is durable.', status: 'holds' },
-          { assumptionId: 'a-2', text: 'A broken assumption.', status: 'failed' }
-        ],
-        strongestCounterargument: 'Pricing power may not survive the next supply cycle.'
-      }
-    };
-    const projected = projectJudgment(legacy, NOW);
-
-    expect(projected.why.map(line => line.text)).toEqual(['The moat is durable.']);
-    expect(projected.against.map(line => line.text)).toEqual(['Pricing power may not survive the next supply cycle.']);
-  });
-
-  it('keeps the review off the page until the review date, then asks one question', () => {
-    const before = projectJudgment(page(), NOW);
-    expect(before.review).toBeNull();
-
-    const due = projectJudgment(page(), new Date('2026-12-02T12:00:00.000Z').getTime());
-    expect(due.review).toEqual(expect.objectContaining({ state: 'due', decisionId: 'd-1' }));
-  });
-
-  it('reports an observed outcome without inferring one', () => {
-    const observed = page();
-    observed.judgment.decisions[0].outcome = {
-      observedAt: '2026-12-05T12:00:00.000Z',
-      summary: 'Capacity converted late.',
-      lesson: 'Size to verified conversion.'
-    };
-
-    const projected = projectJudgment(observed, new Date('2026-12-06T12:00:00.000Z').getTime());
-    expect(projected.review).toEqual(expect.objectContaining({
-      state: 'observed',
-      summary: 'Capacity converted late.',
-      lesson: 'Size to verified conversion.'
-    }));
-  });
-
-  it('writes the provenance line only from timestamps it actually has', () => {
-    expect(provenanceLine(page(), NOW)).toContain('Since November.');
-    expect(provenanceLine({ judgment: {} }, NOW)).toBe('');
-  });
-
-  it('keeps the case standing line from repeating the index since-clause', () => {
-    const projected = projectJudgment(page(), NOW);
-    expect(projected.standing.since).toMatch(/^Held since November/);
-    expect(projected.looked).toBe('You looked this morning.');
-    expect(projected.standing.made).toBeUndefined();
-    expect(projected.standing.unwatched).toBe('The test has no signal yet.');
-    expect(lastLookedLine({}, NOW)).toBe('');
-  });
-
-  it('selects one overnight line that answers this sentence, not a tagged leftover', () => {
-    const events = [
-      {
-        _id: 'event-1',
-        affectedPageIds: ['wiki-nvidia'],
-        title: 'Deliverable capacity still lags demand',
-        summary: 'The filing restates the same gap.',
-        createdAt: '2026-08-14T04:00:00.000Z'
-      },
-      {
-        _id: 'event-leftover',
-        affectedPageIds: ['wiki-nvidia'],
-        title: 'A 13F filing was posted',
-        summary: 'It does not touch the capacity gap.',
-        createdAt: '2026-08-14T05:00:00.000Z'
-      },
-      {
-        _id: 'event-2',
-        affectedPageIds: ['some-other-page'],
-        title: 'Unrelated event',
-        createdAt: '2026-08-14T05:00:00.000Z'
-      }
-    ];
-
-    const line = selectOvernightLine(page(), events);
-    expect(line.id).toBe('event-1');
-    expect(line.sentence).toBe('Overnight: Deliverable capacity still lags demand. The filing restates the same gap.');
-    expect(line.body).toBe('Deliverable capacity still lags demand. The filing restates the same gap.');
-    expect(selectOvernightLine(page(), [events[1]])).toBeNull();
-
-    const lowercase = selectOvernightLine(page(), [{
-      ...events[0],
-      title: 'deliverable capacity still lags demand',
-      summary: 'The filing restates the same gap.'
-    }]);
-    // The line above the claim continues "Overnight:"; the line written down
-    // has to start a sentence of its own.
-    expect(lowercase.sentence).toBe('Overnight: deliverable capacity still lags demand. The filing restates the same gap.');
-    expect(lowercase.body).toBe('Deliverable capacity still lags demand. The filing restates the same gap.');
-    expect(selectOvernightLine(page(), [events[2]])).toBeNull();
-  });
-
-  it('does not resurrect a dismissed overnight line, and still files', () => {
-    const events = [{
-      _id: 'event-1',
-      affectedPageIds: ['wiki-nvidia'],
-      title: 'A 13F filing was posted',
-      createdAt: '2026-08-14T04:00:00.000Z'
-    }];
-    const dismissed = dismissOvernightLine(page(), 'event-1');
-    expect(dismissed.dismissedOvernightEventIds).toEqual(['event-1']);
-    expect(dismissOvernightLine({ judgment: dismissed }, 'event-1').dismissedOvernightEventIds).toEqual(['event-1']);
-    expect(selectOvernightLine({ ...page(), judgment: dismissed }, events)).toBeNull();
-    expect(dismissed.why.map(line => line.text)).toEqual(page().judgment.why.map(line => line.text));
-
-    const filed = writeLineIntoJudgment({ ...page(), judgment: dismissed }, 'A later reason.', 'why');
-    expect(filed.dismissedOvernightEventIds).toEqual(['event-1']);
-    expect(filed.why.at(-1).text).toBe('A later reason.');
-  });
-
-  it('files a partner criteria suggestion as change-my-mind, not as a silent write', () => {
-    const filed = acceptProposalIntoJudgment(
-      page(),
-      { id: 'suggest-1', body: 'Signed capacity slips two quarters.' },
-      'criteria'
-    );
-    expect(filed.falsifiers.map((row) => row.text)).toEqual([
-      'Confirmed signed capacity converts within 90 days.',
-      'A retired condition.',
-      'Signed capacity slips two quarters.'
-    ]);
-    expect(filed.why).toEqual(page().judgment.why);
-  });
-
-  it('skips an overnight line already filed under Why or Against', () => {
-    const events = [{
-      _id: 'event-1',
-      affectedPageIds: ['wiki-nvidia'],
-      title: 'A 13F filing was posted',
-      createdAt: '2026-08-14T04:00:00.000Z'
-    }];
-    const filed = acceptProposalIntoJudgment(page(), { id: 'event-1', body: 'A 13F filing was posted.' }, 'against');
-    expect(selectOvernightLine({ ...page(), judgment: filed }, events)).toBeNull();
-  });
-
-  it('picks the next overnight line after the latest is dismissed', () => {
-    const events = [
-      {
-        _id: 'event-new',
-        affectedPageIds: ['wiki-nvidia'],
-        title: 'Demand still outruns deliverable capacity this morning',
-        createdAt: '2026-08-15T04:00:00.000Z'
-      },
-      {
-        _id: 'event-old',
-        affectedPageIds: ['wiki-nvidia'],
-        title: 'Deliverable capacity still lags signed demand',
-        createdAt: '2026-08-14T04:00:00.000Z'
-      }
-    ];
-    const dismissed = dismissOvernightLine(page(), 'event-new');
-    expect(selectOvernightLine({ ...page(), judgment: dismissed }, events).id).toBe('event-old');
-  });
-
-  it('dates a change of opinion as a ledger line and leaves the reasons alone', () => {
-    const dated = {
-      ...page(),
-      judgment: {
-        ...page().judgment,
-        why: page().judgment.why.map((line, index) => (
-          index === 0 ? { ...line, createdAt: '2026-02-14T12:00:00.000Z' } : line
-        ))
-      }
-    };
-    const next = reviseCurrentJudgment(dated, 'I am bullish NVIDIA compute.');
-    expect(next.currentJudgment).toBe('I am bullish NVIDIA compute.');
-    expect(next.why[0].createdAt).toBe('2026-02-14T12:00:00.000Z');
-    expect(next.why.map(line => line.text)).toEqual(dated.judgment.why.map(line => line.text));
-    expect(next.decisions.at(-1)).toMatchObject({
-      summary: 'Changed what I hold: I am bullish NVIDIA compute.',
-      status: 'taken'
     });
-    expect(next.decisions.at(-1).decidedAt).toEqual(expect.any(String));
-    expect(reviseCurrentJudgment(dated, '   ')).toBe(dated.judgment);
-    expect(reviseCurrentJudgment(dated, dated.judgment.currentJudgment).decisions)
-      .toEqual(dated.judgment.decisions);
-
-    const first = reviseCurrentJudgment(dated, 'I am bullish.', 'whatIDid_rev');
-    const second = reviseCurrentJudgment({ judgment: first }, 'I am bullish NVIDIA compute.', 'whatIDid_rev');
-    expect(second.decisions.filter(line => line.decisionId === 'whatIDid_rev')).toHaveLength(1);
-    expect(second.decisions.at(-1).summary).toBe('Changed what I hold: I am bullish NVIDIA compute.');
-    expect(second.decisions.at(-1).decidedAt).toBe(first.decisions.at(-1).decidedAt);
-    expect(second.why[0].createdAt).toBe('2026-02-14T12:00:00.000Z');
+    expect(view.forPassages.map(p => p.text)).toEqual(['An assumption.']);
+    expect(view.againstPassages.map(p => p.text)).toEqual(['The best objection.']);
   });
 
-  it('appends an accepted line without touching the lines already there', () => {
-    const proposal = { id: 'event-1', body: 'A 13F filing was posted.' };
-    const judgment = acceptProposalIntoJudgment(page(), proposal, 'against');
-
-    expect(judgment.against.map(line => line.text)).toEqual([
-      'Hyperscalers are designing more in-house silicon.',
-      'A 13F filing was posted.'
+  it('keeps a record in dated plain sentences, with the old wording struck', () => {
+    const record = viewRecord(page());
+    expect(record.map(line => line.text)).toEqual([
+      'Held.',
+      'Revised. Was:',
+      'Filed a passage for, from Costco FY09 10-K.',
+      'Said what would change my mind, by Jun 30.',
+      'Filed a passage against, from Ben Carlson.'
     ]);
-    expect(judgment.against[1].acceptedFrom).toBe('event-1');
-    expect(judgment.why.map(line => line.text)).toEqual([
-      'AI demand keeps compounding faster than new supply.',
-      'Lead times and power constrain what can be delivered.'
-    ]);
+    expect(record[1].was).toBe('Costco cannot lose members.');
   });
 
-  it('keeps a saved passage bound to its exact Library article', () => {
-    const judgment = acceptProposalIntoJudgment(page(), {
-      id: 'agent-reply:temporary',
-      body: 'Signed capacity grew faster than expected.',
-      sourceLabel: 'Capacity disclosures',
-      acceptedFrom: 'article:article-9'
-    }, 'against');
-
-    expect(judgment.against.at(-1)).toEqual(expect.objectContaining({
-      text: 'Signed capacity grew faster than expected.',
-      sourceLabel: 'Capacity disclosures',
-      acceptedFrom: 'article:article-9'
-    }));
+  it('says on the index card only what is true', () => {
+    expect(indexCardLine(page(), NOW)).toBe('Held 83 days · 2 for · 1 against · moved Oct 1');
+    expect(indexCardLine({ judgment: { currentJudgment: 'New.', startedAt: new Date(NOW).toISOString() } }, NOW)).toBe('Held today');
   });
+});
 
-  it('carries legacy lines forward when the first accept lands on a dossier page', () => {
-    const legacy = {
-      _id: 'legacy',
-      judgment: {
-        currentJudgment: 'A claim.',
-        assumptions: [{ assumptionId: 'a-1', text: 'An existing reason.', status: 'holds' }]
-      }
-    };
-
-    const judgment = acceptProposalIntoJudgment(legacy, { id: 'e-1', body: 'A new reason.' }, 'why');
-    expect(judgment.why.map(line => line.text)).toEqual(['An existing reason.', 'A new reason.']);
-  });
-
-  it('reduces an agent answer to one sentence', () => {
-    const doc = { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Supply is catching up. A second point follows.' }] }] };
-
-    expect(docText(doc)).toBe('Supply is catching up. A second point follows.');
-    expect(oneSentence(docText(doc))).toBe('Supply is catching up.');
-    expect(oneSentence('This single unfinished thought keeps running beyond the card budget without giving the renderer a safe sentence boundary to use', 60)).toBe('');
-  });
-
-  it('lists only pages that carry a judgment', () => {
-    const index = buildJudgmentIndex([page(), { _id: 'plain', title: 'A plain wiki page' }], NOW);
-
-    expect(index.map(item => item.id)).toEqual(['wiki-nvidia']);
+describe('the index', () => {
+  it('lists only pages that hold a sentence, set-aside views apart', () => {
+    const parked = { _id: 'parked', judgment: { currentJudgment: 'Parked view.', status: 'parked' } };
+    const index = buildJudgmentIndex([page(), parked, { _id: 'plain', title: 'A plain wiki page' }], [], NOW);
+    expect(index.map(item => [item.id, item.state])).toEqual([['view-costco', 'open'], ['parked', 'parked']]);
   });
 
   it('folds duplicate holds into the copy that has actually been argued', () => {
-    const thin = {
-      _id: 'thin',
-      title: 'A thin copy',
-      judgment: { currentJudgment: 'AI compute is going through orders of magnitude changes.' }
-    };
+    const thin = { _id: 'thin', judgment: { currentJudgment: 'Compute keeps compounding.' } };
     const rich = {
       _id: 'rich',
-      title: 'The argued copy',
       judgment: {
-        currentJudgment: 'AI COMPUTE is going through orders of magnitude changes!',
+        currentJudgment: 'COMPUTE keeps compounding!',
         why: [{ reasonId: 'why-1', text: 'The scaling curve remains intact.' }]
       }
     };
     expect(foldJudgmentPages([thin, rich]).map(row => row.page._id)).toEqual(['rich']);
-    expect(buildJudgmentIndex([thin, rich], NOW).map(item => item.id)).toEqual(['rich']);
-  });
-
-  it('merges a duplicate write into the existing hold without a second copy', async () => {
-    const createPage = jest.fn(async () => ({
-      _id: 'existing',
-      title: 'Named compute case',
-      reusedExisting: true,
-      judgment: {
-        currentJudgment: 'Compute keeps compounding.',
-        startedAt: '2026-08-09T12:00:00.000Z'
-      }
-    }));
-    const updatePage = jest.fn();
-    const held = await createJudgment('COMPUTE keeps compounding!', {
-      createPage,
-      updatePage,
-      now: Date.parse('2026-08-30T12:00:00.000Z')
-    });
-    expect(held).toEqual({
-      id: 'existing',
-      reused: true,
-      heldDays: 21,
-      sentence: 'COMPUTE keeps compounding!'
-    });
-    expect(updatePage).not.toHaveBeenCalled();
-  });
-
-  it('still writes the claim when the page is new', async () => {
-    const createPage = jest.fn(async () => ({ _id: 'wiki-new', title: 'A new hold.' }));
-    const updatePage = jest.fn(async () => ({}));
-    const now = new Date('2026-08-30T12:00:00.000Z').getTime();
-    const held = await createJudgment('A new hold.', { createPage, updatePage, now });
-    expect(held).toEqual({
-      id: 'wiki-new',
-      reused: false,
-      heldDays: 0,
-      sentence: 'A new hold.'
-    });
-    expect(updatePage).toHaveBeenCalledWith('wiki-new', {
-      judgment: { currentJudgment: 'A new hold.', startedAt: '2026-08-30T12:00:00.000Z' }
-    });
-  });
-
-  it('names a real hold age and reads either a string id or a held object', () => {
-    expect(formatHoldAge(0)).toBe('today');
-    expect(formatHoldAge(1)).toBe('1 day');
-    expect(formatHoldAge(21)).toBe('21 days');
-    expect(heldDaysBetween('2026-08-09T12:00:00.000Z', Date.parse('2026-08-30T12:00:00.000Z'))).toBe(21);
-    expect(judgmentIdOf('wiki-new')).toBe('wiki-new');
-    expect(judgmentIdOf({ id: 'wiki-new' })).toBe('wiki-new');
   });
 });
 
-describe('what the agent can see on a case', () => {
-  // Sources are counted only once they resolve to something openable, so the
-  // fixture carries the refs the reasons point at.
-  const withReasons = (why = [], against = []) => ({
-    _id: 'p1',
-    title: 'A held claim.',
-    sourceRefs: [
-      { _id: 's1', title: 'First source', type: 'article', objectId: 'a1' },
-      { _id: 's2', title: 'Second source', type: 'article', objectId: 'a2' },
-      { _id: 's3', title: 'Third source', type: 'article', objectId: 'a3' }
-    ],
-    judgment: { currentJudgment: 'A held claim.', why, against, falsifiers: [], decisions: [] }
+describe('writes', () => {
+  it('appends an accepted line without touching the lines already there', () => {
+    const next = acceptProposalIntoJudgment(page(), { body: 'A new passage.', acceptedFrom: 'article:a9', sourceLabel: 'FT' }, 'against');
+    expect(next.against.map(line => line.text)).toEqual([
+      'Discretionary categories fall hard in a downturn.',
+      'A new passage.'
+    ]);
+    expect(next.against[1]).toEqual(expect.objectContaining({ acceptedFrom: 'article:a9', sourceLabel: 'FT' }));
+    expect(next.why).toHaveLength(2);
   });
 
-  it('counts every cited source once, across both sides', () => {
-    const view = projectJudgment(withReasons(
-      [{ reasonId: 'r1', text: 'Because.', sourceRefIds: ['s1', 's2'] }],
-      [{ reasonId: 'r2', text: 'But.', sourceRefIds: ['s2', 's3'] }]
-    ));
-    expect(view.boundSourceCount).toBe(3);
+  it('merges a duplicate hold into the existing one without a second copy', async () => {
+    const createPage = jest.fn(async () => ({
+      _id: 'existing',
+      reusedExisting: true,
+      judgment: { currentJudgment: 'Compute keeps compounding.', startedAt: '2026-08-09T12:00:00.000Z' }
+    }));
+    const updatePage = jest.fn();
+    const held = await createJudgment('COMPUTE keeps compounding!', {
+      createPage, updatePage, now: Date.parse('2026-08-30T12:00:00.000Z')
+    });
+    expect(held).toEqual({ id: 'existing', reused: true, heldDays: 21, sentence: 'COMPUTE keeps compounding!' });
+    expect(updatePage).not.toHaveBeenCalled();
   });
 
-  it('is zero when the case cites nothing, and says so rather than guessing', () => {
-    const view = projectJudgment(withReasons([{ reasonId: 'r1', text: 'A hunch.', sourceRefIds: [] }]));
-    expect(view.boundSourceCount).toBe(0);
+  it('writes the claim when the page is new', async () => {
+    const createPage = jest.fn(async () => ({ _id: 'wiki-new' }));
+    const updatePage = jest.fn(async () => ({}));
+    const held = await createJudgment('A new hold.', { createPage, updatePage, now: Date.parse('2026-08-30T12:00:00.000Z') });
+    expect(held.reused).toBe(false);
+    expect(updatePage).toHaveBeenCalledWith('wiki-new', {
+      judgment: { currentJudgment: 'A new hold.', startedAt: '2026-08-30T12:00:00.000Z' }
+    });
+    expect(heldDaysBetween('2026-08-09T12:00:00.000Z', Date.parse('2026-08-30T12:00:00.000Z'))).toBe(21);
+    expect(judgmentIdOf({ id: 'wiki-new' })).toBe('wiki-new');
   });
 });

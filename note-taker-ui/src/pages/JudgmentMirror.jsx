@@ -3,7 +3,6 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { getJudgmentMirror } from '../api/dailyLoop';
 import { getDecisions } from '../api/decisions';
 import { takeFirstPaint } from '../motion/columnMotion';
-import { bandLine } from './institutionModel';
 import '../styles/judgment.css';
 
 const STAT_ORDER = ['held', 'holdTime', 'revisions', 'verdicts', 'counterEvidence'];
@@ -15,15 +14,28 @@ const VERDICT_LABEL = {
   right_for_wrong_reasons: 'right for the wrong reasons'
 };
 
-const percent = (value) => (Number.isFinite(Number(value)) ? `${Math.round(Number(value) * 100)}%` : '—');
-const number = (value) => (Number.isFinite(Number(value)) ? String(value) : '—');
 const date = (value) => (
   value
     ? new Date(value).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
     : ''
 );
 
-const openStats = (stats = {}) => STAT_ORDER.map((key) => stats[key]).filter(Boolean);
+/* A row with nothing behind it is not shown. A dash is the software talking
+   about itself. */
+const hasData = (row) => {
+  if (!row) return false;
+  if (row.value && typeof row.value === 'object') return Object.values(row.value).some(count => Number(count) > 0);
+  return row.value !== null && row.value !== undefined && Number(row.value) !== 0 && row.display !== '—';
+};
+const openStats = (stats = {}) => STAT_ORDER.map((key) => stats[key]).filter(hasData);
+
+const bandLine = (band = {}) => {
+  if (!band.sufficient) return band.silence || '';
+  const low = band.range?.low == null ? '' : Math.round(band.range.low * 100);
+  const high = band.range?.high == null ? '' : Math.round(band.range.high * 100);
+  if (low === '' || high === '') return '';
+  return `When you were ${band.confidence || 'this sure'}, later outcomes sat between ${low} and ${high} in a hundred.`;
+};
 const list = value => Array.isArray(value) ? value : [];
 const safeHref = value => {
   const href = String(value || '').trim();
@@ -145,34 +157,27 @@ const JudgmentMirror = () => {
   const open = openStats(stats);
   const claims = Array.isArray(ledger.claims) ? ledger.claims : (Array.isArray(mirror?.claims) ? mirror.claims : []);
   const active = open.find((row) => row.id === stat) || null;
-  const metrics = ledger.metrics || {};
-  const coverage = ledger.coverage || {};
   const due = Array.isArray(ledger.due) ? ledger.due : [];
   const recorded = Array.isArray(ledger.verdicts) && !ledger.verdicts[0]?.href
     ? ledger.verdicts
     : [];
   const calibration = ledger.calibration || mirror?.calibration || null;
-  const hasDoors = open.length > 0;
-  const verdictCount = Object.values(metrics.verdictRecord || {}).reduce(
-    (sum, value) => sum + Number(value || 0),
-    0
-  );
 
   return (
     <main className="judgment-mirror" aria-labelledby="judgment-mirror-title">
-      <Link className={`judgment__back ${step(1)}`} to="/judgment">← Judgment</Link>
+      <Link className={`judgment-back ${step(1)}`} to="/judgment">← Views</Link>
       <header className={step(1)}>
         <p>The casebook looking back</p>
         <h1 id="judgment-mirror-title">The Mirror</h1>
         <p>No score. Just the shape of how you change your mind. Every number is a door.</p>
       </header>
 
-      {loading ? <p className="judgment__quiet" role="status">Letting the ink settle…</p> : null}
-      {error ? <p className="judgment__error" role="alert">{error}</p> : null}
+      {loading ? <p className="judgment-quiet" role="status">Letting the ink settle…</p> : null}
+      {error ? <p className="judgment-error" role="alert">{error}</p> : null}
 
       {mirror ? (
         <div className={step(2)}>
-          {hasDoors ? (
+          {open.length ? (
             <ul className="mirror__stats">
               {open.map((row) => (
                 <li key={row.id} className={row.id === stat ? 'is-open' : ''}>
@@ -183,14 +188,7 @@ const JudgmentMirror = () => {
                 </li>
               ))}
             </ul>
-          ) : (
-            <dl className="judgment-mirror__measure">
-              <div><dt>Claims held</dt><dd>{number(metrics.claimsHeld)}</dd></div>
-              <div><dt>Average hold</dt><dd>{metrics.averageHoldDays == null ? '—' : `${metrics.averageHoldDays} days`}</dd></div>
-              <div><dt>Revised</dt><dd>{percent(metrics.revisionRate)}</dd></div>
-              <div><dt>Verdicts</dt><dd>{verdictCount}</dd></div>
-            </dl>
-          )}
+          ) : null}
 
           {active ? (
             <section className="judgment-mirror__record" aria-labelledby="mirror-claims-title">
@@ -201,10 +199,10 @@ const JudgmentMirror = () => {
                     <li key={`${claim.pageId}:${claim.claimId || claim.verdictId || claim.href}`}>
                       <Link to={claim.href}>{claim.text}</Link>
                       {claim.verdict ? (
-                        <span className="brief__row-note">{String(claim.verdict).replace('_', ' ')}</span>
+                        <span className="mirror__note">{String(claim.verdict).replace('_', ' ')}</span>
                       ) : null}
                       {claim.days != null ? (
-                        <span className="brief__row-note">{claim.days} days</span>
+                        <span className="mirror__note">{claim.days} days</span>
                       ) : null}
                     </li>
                   ))}
@@ -227,59 +225,40 @@ const JudgmentMirror = () => {
             </section>
           ) : null}
 
-          <section id="decisions" className="judgment-mirror__decisions" aria-labelledby="judgment-mirror-decisions-title">
-            <h2 id="judgment-mirror-decisions-title">Decisions</h2>
-            {decisionError ? <p className="judgment__error" role="alert">{decisionError}</p> : null}
-            {!decisionError && decisions && !list(decisions.items).length ? (
-              <p className="judgment-mirror__silence">No retained decisions yet.</p>
-            ) : null}
-            {list(decisions?.items).length ? (
-              <div className="judgment-mirror__decision-list">
-                {decisions.items.map(item => <DecisionReplay key={item.id} item={item} />)}
-              </div>
-            ) : null}
-            {decisions?.nextCursor ? (
-              <p className="judgment-mirror__silence">Showing the first 50 decisions. Open a case for the complete record.</p>
-            ) : null}
-            {decisions?.coverage?.truncated ? (
-              <p className="judgment-mirror__silence">Decision coverage is limited to {decisions.coverage.pageLimit} scanned cases.</p>
-            ) : null}
-          </section>
-
-          {!hasDoors || recorded.length || coverage.totalClaims != null ? (
-            <section className="judgment-mirror__record">
-              <h2>Verdict record</h2>
-              {recorded.length ? recorded.map((verdict) => (
-                <article key={verdict.verdictId || `${verdict.pageId}:${verdict.recordedAt}`}>
-                  <Link to={`/judgment/${verdict.pageId}`}>{verdict.claim}</Link>
-                  <p>{VERDICT_LABEL[verdict.result] || verdict.result}{verdict.note ? ` — ${verdict.note}` : ''}</p>
-                  <time>{date(verdict.recordedAt)}</time>
-                </article>
-              )) : (
-                <p className="judgment-mirror__silence">No verdicts yet. The Mirror is allowed to be empty.</p>
-              )}
+          {decisionError || list(decisions?.items).length ? (
+            <section id="decisions" className="judgment-mirror__decisions" aria-labelledby="judgment-mirror-decisions-title">
+              <h2 id="judgment-mirror-decisions-title">Decisions</h2>
+              {decisionError ? <p className="judgment-error" role="alert">{decisionError}</p> : null}
+              {list(decisions?.items).length ? (
+                <div className="judgment-mirror__decision-list">
+                  {decisions.items.map(item => <DecisionReplay key={item.id} item={item} />)}
+                </div>
+              ) : null}
+              {decisions?.nextCursor ? (
+                <p className="judgment-mirror__silence">Showing the first 50 decisions. Open a case for the complete record.</p>
+              ) : null}
             </section>
           ) : null}
 
-          {calibration?.private ? (
+          <section id="record" className="judgment-mirror__record">
+            <h2>How views turned out</h2>
+            {recorded.length ? recorded.map((verdict) => (
+              <article key={verdict.verdictId || `${verdict.pageId}:${verdict.recordedAt}`}>
+                <Link to={`/judgment/${verdict.pageId}`}>{verdict.claim}</Link>
+                <p>{VERDICT_LABEL[verdict.result] || verdict.result}{verdict.note ? ` — ${verdict.note}` : ''}</p>
+                <time>{date(verdict.recordedAt)}</time>
+              </article>
+            )) : (
+              <p className="judgment-mirror__silence">No verdicts yet. The Mirror is allowed to be empty.</p>
+            )}
+          </section>
+
+          {calibration?.private && calibration.overall?.sufficient && Array.isArray(calibration.byConfidence) ? (
             <section className="judgment-mirror__calibration" aria-labelledby="mirror-calibration-title">
               <h2 id="mirror-calibration-title">How certainty met the later world</h2>
               <p className="judgment-mirror__selection">{calibration.selection}</p>
-              {calibration.overall?.sufficient
-                ? (Array.isArray(calibration.byConfidence) ? calibration.byConfidence.map((band) => (
-                  <p key={band.confidence || 'band'}>{bandLine(band)}</p>
-                )) : null)
-                : (
-                  <p className="judgment-mirror__silence">{calibration.overall?.silence}</p>
-                )}
+              {calibration.byConfidence.map(band => <p key={band.confidence || 'band'}>{bandLine(band)}</p>)}
             </section>
-          ) : null}
-
-          {coverage.totalClaims != null ? (
-            <footer>
-              Birth dates stored for {coverage.storedBirthDates || 0} of {coverage.totalClaims || 0} claims.
-              {coverage.responseTimeClaims ? '' : ' Counterevidence response time stays blank until the evidence clock is exact.'}
-            </footer>
           ) : null}
         </div>
       ) : null}

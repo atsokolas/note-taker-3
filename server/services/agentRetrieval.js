@@ -306,20 +306,23 @@ const retrievePassages = async ({
     }));
 };
 
-// The passage of one source that best answers the question, or null when the
-// question names something no passage mentions.
-const bestPassage = ({ title = '', text = '', query = '' } = {}) => {
+// The passages of one source that best answer a query, strongest first, each
+// with its score. A query that names nothing ("connect this") is about the
+// whole source; its opening passage is where the argument is stated.
+const topPassages = ({ title = '', text = '', query = '', limit = 3 } = {}) => {
   const terms = queryTerms(query);
   const passages = passagesOf(title, stripImportChrome(text));
-  // A question that names nothing ("connect this") is about the whole source;
-  // its opening passage is where the argument is stated.
-  if (!terms.length) return passages[0] || null;
-  const [best] = scoreUnits(
+  if (!terms.length) return passages.slice(0, 1).map(passage => ({ text: passage, score: 0 }));
+  return scoreUnits(
     passages.map((passage, index) => ({ key: `p${index}`, text: passage, title: '' })),
     terms
-  ).filter(unit => unit.matched > 0).sort((left, right) => right.score - left.score);
-  return best ? best.text : null;
+  ).filter(unit => unit.matched > 0)
+    .sort((left, right) => right.score - left.score)
+    .slice(0, limit)
+    .map(unit => ({ text: unit.text, score: unit.score }));
 };
+
+const bestPassage = (input = {}) => topPassages({ ...input, limit: 1 })[0]?.text || null;
 
 // One source in full, as the reader saved it: an article with its highlights
 // and margin notes, or a notebook page. Only the reader's own.
@@ -357,4 +360,4 @@ const readSource = async ({ userId, id, models: { Article, NotebookEntry, WikiPa
   } : null;
 };
 
-module.exports = { retrievePassages, bestPassage, readSource, __testables: { queryTerms, stem, scoreUnits, semanticKey, stripImportChrome, articleUnits, noteUnits, conceptUnits, viewUnits } };
+module.exports = { retrievePassages, bestPassage, topPassages, readSource, __testables: { queryTerms, stem, scoreUnits, semanticKey, stripImportChrome, articleUnits, noteUnits, conceptUnits, viewUnits } };

@@ -6,6 +6,8 @@ const {
   setResolutionCriteria: persistCriteria
 } = require('../services/judgmentResolutionService');
 const { buildJudgmentMirror: readMirror } = require('../services/judgmentMirrorService');
+const { JudgmentChangeProposalError } = require('../services/judgmentChangeProposalService');
+const { fileReadingProposal: persistReading } = require('../services/readingTalksBack');
 const { buildJudgmentMirror: buildClaimMirror, STATS } = require('../services/judgmentMirror');
 const { buildJudgmentAudit: readAudit } = require('../services/judgmentAuditService');
 const {
@@ -64,6 +66,9 @@ const sendError = (res, error) => {
   ) {
     return res.status(error.status).json({ error: error.message, code: error.code });
   }
+  if (error instanceof JudgmentChangeProposalError) {
+    return res.status(error.statusCode).json({ error: error.message, code: error.code });
+  }
   console.error('Error resolving Judgment:', error);
   return res.status(500).json({ error: 'Failed to resolve Judgment.' });
 };
@@ -79,6 +84,7 @@ const buildJudgmentResolutionRouter = ({
   authenticateToken,
   setResolutionCriteria = persistCriteria,
   fileJudgmentEvidence = persistEvidence,
+  fileReadingProposal = persistReading,
   recordVerdict = persistVerdict,
   buildJudgmentMirror = readMirror,
   buildJudgmentAudit = readAudit,
@@ -127,8 +133,11 @@ const buildJudgmentResolutionRouter = ({
       const stat = STATS.includes(String(req.query?.stat || '')) ? String(req.query.stat) : '';
       const pageMirror = await buildJudgmentMirror({ ...models, userId: req.user.id });
       const pagesQuery = models.WikiPage?.find
-        ? models.WikiPage.find({ userId: req.user.id, status: { $ne: 'archived' } })
-          .select('_id title pageType claims judgment createdAt')
+        ? models.WikiPage.find({
+          userId: req.user.id,
+          status: { $ne: 'archived' },
+          'judgment.currentJudgment': { $type: 'string', $ne: '' }
+        }).select('_id title createdAt judgment.currentJudgment judgment.status judgment.startedAt judgment.bornAt judgment.heldHistory judgment.verdicts')
         : null;
       const pages = pagesQuery
         ? await (pagesQuery.lean ? pagesQuery.lean() : pagesQuery)
@@ -211,6 +220,22 @@ const buildJudgmentResolutionRouter = ({
   router.post('/api/judgment/pages/:pageId/evidence', authenticateToken, requireAuthenticatedUser, requireHumanOwner, async (req, res) => {
     if (!isObjectId(req.params.pageId)) return res.status(400).json({ error: 'pageId must be a valid object id.' });
     try {
+      /* A passage read back from a new source is filed by its proposal: the
+         quote becomes a highlight, then follows the same evidence path. */
+      if (req.body?.proposalId) {
+        if (!['why', 'against'].includes(req.body?.field)) {
+          return res.status(400).json({ error: 'Choose for or against for this passage.' });
+        }
+        const filed = await fileReadingProposal({
+          userId: req.user.id,
+          pageId: req.params.pageId,
+          receiptId: req.body.proposalId,
+          field: req.body.field,
+          fileJudgmentEvidence,
+          models
+        });
+        return res.status(filed.replay ? 200 : 201).json({ proposal: filed.proposal, ...(filed.filed ? serialize(filed.filed) : {}) });
+      }
       const result = await fileJudgmentEvidence({
         ...models,
         userId: req.user.id,

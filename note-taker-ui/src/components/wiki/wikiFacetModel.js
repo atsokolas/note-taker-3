@@ -1,5 +1,6 @@
 import { PAGE_TYPES } from './wikiGraph';
 import { pageNeedsQualityReview } from './wikiPageQualityReview';
+import { isJudgmentPage } from '../../pages/judgmentModel';
 
 export const WIKI_FACET_TYPES = PAGE_TYPES.filter((type) => type !== 'all');
 export const WIKI_FACET_STATUSES = ['draft', 'published'];
@@ -32,6 +33,17 @@ export const wikiKindForPage = (page = {}) => {
   if (Boolean(page?.investmentDossier?.version)) return 'investment';
   return 'general';
 };
+
+/* A view held from Judgment lives there. It is stored as a wiki page, but not
+   an ordinary one, so the Wiki's lists and the palette leave it out. Pages the
+   Wiki made with a judgment contract of their own — a living thesis, a
+   dossier, a repository wiki — carry a kind, and stay where they are. */
+const isHeldView = (page = {}) => (
+  isJudgmentPage(page) && !page?.judgment?.kind && wikiKindForPage(page) === 'general'
+);
+
+export const withoutHeldViews = (pages = []) => (Array.isArray(pages) ? pages : [])
+  .filter(page => !isHeldView(page));
 
 export const computeWikiFacetCounts = (pages = []) => {
   const counts = {

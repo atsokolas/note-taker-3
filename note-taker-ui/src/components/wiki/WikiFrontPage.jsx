@@ -8,7 +8,7 @@ import { filterReturnViewItems } from '../../utils/cruftSuppression';
 import { formatSurfaceDate } from '../../utils/dateDisplay';
 import { useNoeisAgentSurface } from '../../agent/AgentRailContext';
 import WikiCreationComposer from './WikiCreationComposer';
-import { WIKI_KINDS, WIKI_KIND_LABELS } from './wikiFacetModel';
+import { WIKI_KINDS, WIKI_KIND_LABELS, withoutHeldViews } from './wikiFacetModel';
 import { buildWikiFrontSurfaceDescriptor } from './wikiSurfaceModel';
 import { dedupePagesByRepoKey } from './wikiRepoDedupeModel';
 import { canonicalWikiPages } from './wikiTitleGroupModel';
@@ -217,7 +217,7 @@ const WikiFrontPage = ({ initialKind = '' }) => {
     pageIndexRequest
       .then((nextPages) => {
         if (cancelled) return;
-        snapshot.pages = Array.isArray(nextPages) ? nextPages : [];
+        snapshot.pages = withoutHeldViews(nextPages);
         snapshot.hasAnyWikiContent = snapshot.pages.length > 0;
         setPages(snapshot.pages);
         setHasAnyWikiContent(snapshot.hasAnyWikiContent);
@@ -249,7 +249,7 @@ const WikiFrontPage = ({ initialKind = '' }) => {
     }
     searchTimerRef.current = window.setTimeout(() => {
       listWikiPages({ limit: INDEX_PAGE_LIMIT, summary: 1, q: query })
-        .then((rows) => setSearchPages(Array.isArray(rows) ? rows : []))
+        .then((rows) => setSearchPages(withoutHeldViews(rows)))
         .catch(() => setSearchPages(null));
     }, 180);
     return () => window.clearTimeout(searchTimerRef.current);

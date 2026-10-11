@@ -1,7 +1,8 @@
 import {
   computeWikiFacetCounts,
   isWikiAllPagesActive,
-  wikiKindForPage
+  wikiKindForPage,
+  withoutHeldViews
 } from './wikiFacetModel';
 
 describe('wikiFacetModel', () => {
@@ -58,5 +59,17 @@ describe('wikiFacetModel', () => {
     expect(isWikiAllPagesActive({ kind: 'investment' })).toBe(false);
     expect(isWikiAllPagesActive({ pageType: 'concept' })).toBe(false);
     expect(isWikiAllPagesActive({ needsReviewFilter: true })).toBe(false);
+  });
+});
+
+describe('withoutHeldViews', () => {
+  it('leaves a view held from Judgment out of the Wiki, and keeps wiki-made judgments', () => {
+    const pages = [
+      { _id: 'view', title: 'Rates stay high.', judgment: { currentJudgment: 'Rates stay high.' } },
+      { _id: 'thesis', title: 'Living thesis', judgment: { kind: 'thesis', currentJudgment: 'A belief.' } },
+      { _id: 'dossier', title: 'Costco', investmentDossier: { version: 1 }, judgment: { currentJudgment: 'Buy.' } },
+      { _id: 'page', title: 'An ordinary page' }
+    ];
+    expect(withoutHeldViews(pages).map(page => page._id)).toEqual(['thesis', 'dossier', 'page']);
   });
 });
