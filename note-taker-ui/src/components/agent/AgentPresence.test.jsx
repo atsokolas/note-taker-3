@@ -6,22 +6,22 @@ describe('AgentPresence', () => {
   it('defaults to the shared agent identity when a surface omits title copy', () => {
     render(<AgentPresence />);
 
-    const status = screen.getByRole('status', { name: 'Thought partner status' });
-    expect(status).toHaveTextContent('Thought partner');
+    const status = screen.getByRole('status', { name: 'Partner status' });
+    expect(status).toHaveTextContent('Partner');
   });
 
   it('keeps title and subtitle as separate lines of copy', () => {
     render(
       <AgentPresence
-        title="Thought partner"
+        title="Partner"
         subtitle="Library context visible"
       />
     );
 
-    const status = screen.getByRole('status', { name: 'Thought partner status' });
-    expect(status).toHaveTextContent('Thought partner');
+    const status = screen.getByRole('status', { name: 'Partner status' });
+    expect(status).toHaveTextContent('Partner');
     expect(status).toHaveTextContent('Library context visible');
-    expect(screen.getByText('Thought partner')).toHaveClass('agent-presence__text');
+    expect(screen.getByText('Partner')).toHaveClass('agent-presence__text');
     expect(screen.getByText('Library context visible')).toHaveClass('agent-presence__sub');
   });
 
@@ -30,16 +30,16 @@ describe('AgentPresence', () => {
     render(
       <AgentPresence
         status="working"
-        title="Thought partner is linking sources."
+        title="Partner is linking sources."
         subtitle="reading 3 sources"
         actionLabel="Inspect"
         onAction={onAction}
       />
     );
 
-    const status = screen.getByRole('status', { name: 'Thought partner status' });
+    const status = screen.getByRole('status', { name: 'Partner status' });
     expect(status).toHaveAttribute('data-status', 'working');
-    expect(status).toHaveTextContent('Thought partner is linking sources.');
+    expect(status).toHaveTextContent('Partner is linking sources.');
     expect(status).toHaveTextContent('reading 3 sources');
 
     fireEvent.click(screen.getByRole('button', { name: 'Inspect' }));

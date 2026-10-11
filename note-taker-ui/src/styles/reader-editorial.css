@@ -47,8 +47,26 @@ body.noeis-editorial .passage-door {
 }
 
 /* The reading progress is a hairline that fills, not a glass pill on a
-   gradient. It reports where you are; it does not announce itself. */
+   gradient. It reports where you are; it does not announce itself. It waits
+   until a fifth of the piece is read, then sits on the bottom edge on its own
+   paper, so it never lies over a line of text. */
+body.noeis-editorial .magnetic-reading-rail {
+  bottom: 0;
+  flex-direction: column-reverse;
+  gap: 0;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 200ms ease, visibility 0s linear 200ms;
+}
+
+body.noeis-editorial .magnetic-reading-rail.is-shown {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 200ms ease;
+}
+
 body.noeis-editorial .magnetic-reading-rail__track {
+  width: min(240px, 100%);
   height: 1px;
   border-radius: 0;
   opacity: 1;
@@ -60,14 +78,25 @@ body.noeis-editorial .magnetic-reading-rail__fill {
   background: var(--wiki-warm-accent, var(--vellum-warm));
 }
 
+body.noeis-editorial .magnetic-reading-rail__pill-outer {
+  width: auto;
+}
+
 body.noeis-editorial .magnetic-reading-rail__pill {
-  padding: 8px 0;
+  padding: 6px 16px 8px;
   border: 0;
   border-radius: 0;
-  background: transparent;
+  background: var(--noeis-canvas, var(--surface-card));
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   box-shadow: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.noeis-editorial .magnetic-reading-rail,
+  body.noeis-editorial .magnetic-reading-rail.is-shown {
+    transition: none;
+  }
 }
 
 body.noeis-editorial .magnetic-reading-rail__btn {
@@ -110,4 +139,53 @@ body.noeis-editorial .article-highlight-edition__note {
 
 html[data-ui-theme='dark'] body.noeis-editorial .article-reader-content mark.highlight {
   background: color-mix(in srgb, var(--highlight-color, #f6e27a) 46%, transparent) !important;
+}
+
+/* A selection in the reader is the house bronze, lightly: the browser's blue
+   read as somebody else's mark on the page. */
+body.noeis-editorial .article-reader ::selection {
+  background: color-mix(in srgb, var(--noeis-thread, #b1862e) 25%, transparent);
+  color: inherit;
+}
+
+/* For, Against, Keep: the named inks carry their word on their colour. The
+   inks are pale in every theme, so their word is always dark. */
+body.noeis-editorial .selection-menu__ink:has(> span) {
+  width: auto;
+  height: auto;
+  padding: 1px 8px;
+  border-radius: 999px;
+  color: #2b2722;
+  font: 500 11px/1.5 var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+}
+
+body.noeis-editorial .selection-menu__ink:has(> span):is(:hover, :focus-visible) {
+  transform: none;
+}
+
+body.noeis-editorial .selection-menu__more {
+  padding: 0 2px;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted, var(--vellum-subtle));
+  font: 11px/1.5 var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+body.noeis-editorial .selection-menu__key {
+  margin-left: 6px;
+  padding: 0 4px;
+  border: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 80%, transparent);
+  border-radius: 3px;
+  color: var(--text-muted, var(--vellum-subtle));
+  font: 10px/1.4 var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+}
+
+/* No keyboard to remember on a touch screen. */
+@media (pointer: coarse) {
+  body.noeis-editorial .selection-menu__key {
+    display: none;
+  }
 }

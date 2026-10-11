@@ -295,7 +295,7 @@ describe('WikiPageEditor', () => {
     );
 
     await screen.findByDisplayValue('Enterprise AI Memory');
-    expect(screen.queryByRole('status', { name: 'Thought partner status' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('status', { name: 'Partner status' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Maintain page' })).not.toBeInTheDocument();
   });
 
@@ -404,7 +404,7 @@ describe('WikiPageEditor', () => {
     );
 
     await screen.findByDisplayValue('Enterprise AI Memory');
-    expect(screen.queryByRole('status', { name: 'Thought partner status' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('status', { name: 'Partner status' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Maintain page' })).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Ask this page')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Wiki partner and sources')).not.toBeInTheDocument();

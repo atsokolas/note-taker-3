@@ -15,6 +15,9 @@ const listen = (app) => new Promise((resolve) => {
   });
 });
 
+// Folder ids are ObjectIds; the route drops anything else.
+const USER_FOLDER = '65f0c0ffee00000000000001';
+
 const clone = (value) => JSON.parse(JSON.stringify(value));
 
 const matchesQuery = (doc, query = {}) => Object.entries(query || {}).every(([key, expected]) => {
@@ -286,13 +289,13 @@ const run = async () => {
         Authorization: 'Bearer test-token'
       },
       body: JSON.stringify({
-        folder: 'user-folder'
+        folder: USER_FOLDER
       })
     });
     const movePayload = await moveResponse.json();
 
     assert.strictEqual(moveResponse.status, 200, `Moving imported note failed: ${JSON.stringify(movePayload)}`);
-    assert.strictEqual(movePayload.folder, 'user-folder');
+    assert.strictEqual(movePayload.folder, USER_FOLDER);
     assert.strictEqual(movePayload.importMeta.folderOwnership, 'user_owned', 'Moving an imported note should mark folder placement as user-owned.');
 
     const syncResponse = await fetch(`${url}/api/import/evernote-enex`, {
@@ -323,7 +326,7 @@ const run = async () => {
 
     const storedEntry = await NotebookEntry.findById('entry-1');
     assert(storedEntry, 'The imported notebook entry should still exist after resync.');
-    assert.strictEqual(storedEntry.folder, 'user-folder', 'Resync should preserve the user-selected folder.');
+    assert.strictEqual(storedEntry.folder, USER_FOLDER, 'Resync should preserve the user-selected folder.');
     assert.strictEqual(storedEntry.importMeta.folderOwnership, 'user_owned', 'Resync should preserve the user-owned placement marker.');
     assert.strictEqual(storedEntry.content.includes('Fresh content'), true, 'Resync should refresh notebook content in place.');
     assert.strictEqual(storedEntry.blocks.some(block => block.text === 'Fresh content'), true, 'Resync should refresh notebook blocks in place.');

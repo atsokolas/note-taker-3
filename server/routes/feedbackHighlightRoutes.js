@@ -3,6 +3,7 @@ const {
   HIGHLIGHT_AGGREGATE_PROJECTION,
   normalizeHighlightColor
 } = require('../utils/highlightUtils');
+const { requireAdmin } = require('../utils/requireAdmin');
 
 const buildFeedbackHighlightRouter = ({
   mongoose,
@@ -50,16 +51,8 @@ const buildFeedbackHighlightRouter = ({
     }
   });
 
-  router.get('/api/feedback', authenticateToken, async (req, res) => {
+  router.get('/api/feedback', authenticateToken, requireAdmin, async (req, res) => {
     try {
-      const adminList = (process.env.FEEDBACK_ADMIN_USERNAMES || '')
-        .split(',')
-        .map(x => x.trim())
-        .filter(Boolean);
-      if (adminList.length > 0 && !adminList.includes(req.user?.username)) {
-        return res.status(403).json({ error: "Not authorized to view feedback." });
-      }
-
       const query = {};
       const kind = normalizeFeedbackKind(req.query.kind);
       if (req.query.kind) query.kind = kind;
@@ -76,16 +69,8 @@ const buildFeedbackHighlightRouter = ({
     }
   });
 
-  router.get('/api/feedback/weekly-review', authenticateToken, async (req, res) => {
+  router.get('/api/feedback/weekly-review', authenticateToken, requireAdmin, async (req, res) => {
     try {
-      const adminList = (process.env.FEEDBACK_ADMIN_USERNAMES || '')
-        .split(',')
-        .map(x => x.trim())
-        .filter(Boolean);
-      if (adminList.length > 0 && !adminList.includes(req.user?.username)) {
-        return res.status(403).json({ error: "Not authorized to view feedback." });
-      }
-
       const days = Math.min(Math.max(Number(req.query.days) || 7, 1), 90);
       const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
       const items = await Feedback.find({ createdAt: { $gte: since } }).sort({ createdAt: -1 }).limit(500);
