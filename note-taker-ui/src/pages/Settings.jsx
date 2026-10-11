@@ -20,6 +20,7 @@ import {
   readSettingsReturnPath,
   returnLinkLabel
 } from '../settings/settingsReturnPath';
+import { Button } from '../components/ui';
 
 const Settings = ({
   uiSettings = normalizeUiSettings(),
@@ -224,7 +225,7 @@ const Settings = ({
           <p className="settings-redesign__help">Use the search field to find a setting. Escape closes dialogs without discarding drafts.</p>
           <Link to="/how-to-use" className="settings-redesign__link" onClick={() => setHelpOpen(false)}>Open full help</Link>
           <div style={{ marginTop: '1rem' }}>
-            <button type="button" className="settings-redesign__btn" onClick={() => setHelpOpen(false)}>Back to settings</button>
+            <Button onClick={() => setHelpOpen(false)}>Back to settings</Button>
           </div>
         </dialog>
       ) : null}

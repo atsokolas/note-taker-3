@@ -26,19 +26,6 @@ const verifyReviewerConceptOwner = async ({ concept, userId, User, target = poli
   return { userId: String(owner._id), username: owner.username, conceptId: target.identityConceptId, ownershipVerified: true };
 };
 
-const createReviewerSafeLegacyEmbeddingQueue = ({
-  isAiEnabled, upsertEmbeddings, schedule = setImmediate, onError = () => {}, target = policy
-} = {}) => items => {
-  if (!isAiEnabled()) return;
-  const allowed = (Array.isArray(items) ? items : []).filter(item => item && !isReviewer(item.userId, target));
-  if (!allowed.length) return;
-  schedule(() => {
-    // Defend an already scheduled batch if the verified policy changes before execution.
-    const current = allowed.filter(item => !isReviewer(item.userId, target));
-    if (current.length) Promise.resolve().then(() => upsertEmbeddings(current, { requestId: 'embedding-upsert' })).catch(onError);
-  });
-};
-
 const holdReviewerSourceEvent = async ({ event, userId, WikiSourceEvent, target = policy } = {}) => {
   const ownerId = String(event?.userId || userId || '');
   const alreadyHeld = event?.status === 'held' && event?.metadata?.reviewerRehearsalHold;
@@ -257,7 +244,7 @@ const reviewerMaintenanceArgs = ({ userId, page, target = policy, chat = createB
 
 module.exports = {
   readReviewerBudgetStatus,
-  verifyReviewerConceptOwner, createReviewerSafeLegacyEmbeddingQueue, holdReviewerSourceEvent,
+  verifyReviewerConceptOwner, holdReviewerSourceEvent,
   policy, isReviewer, reviewerMaintenanceArgs, createBoundedReviewerChat,
   buildPayload, HOLD_REASON,
   bounds: { MODEL, ENDPOINT, MAX_REQUESTS, MAX_RESERVED_MICRO_USD, MAX_OUTPUT_TOKENS, MAX_MESSAGE_BYTES, MAX_TOKEN_COST }

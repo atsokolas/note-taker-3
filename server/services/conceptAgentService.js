@@ -1,7 +1,9 @@
 const crypto = require('crypto');
 const mongoose = require('mongoose');
 const { ensureWorkspace, applyPatchOp } = require('../utils/workspaceUtils');
-const { semanticSearch, planConcept } = require('../config/aiClient');
+const { semanticSearch } = require('../ai/semanticSearch');
+const { buildArticlePassages } = require('../ai/articlePassages');
+const { chatComplete, isTextGenerationConfigured, parseStructuredText } = require('../ai/hfTextClient');
 const { logAgentMetric } = require('../utils/agentMetrics');
 
 const SUPPORTED_MODE = 'library_only';
@@ -441,7 +443,7 @@ const buildCandidateItems = async ({ queryResults, userId, conceptTitle, concept
 
     if (entry.objectType === 'article') {
       title = linkedArticle?.title || toSafeString(entry.metadata?.title) || null;
-      text = buildSnippet(entry.document || linkedArticle?.content || '', 420);
+      text = buildSnippet(hitText(entry, linkedArticle), 420);
       source = linkedArticle?.url || null;
     } else if (entry.objectType === 'highlight') {
       const highlight = highlightMap.get(id);
@@ -494,6 +496,13 @@ const buildCandidateItems = async ({ queryResults, userId, conceptTitle, concept
 
   return diversifyCandidateItems(ranked, { maxTotal: MAX_CANDIDATE_ITEMS })
     .map(({ _semanticScore, _keywordScore, _articleId, ...rest }) => rest);
+};
+
+// What an article hit says: the matched passage, not the article's opening.
+const hitText = (entry, article) => {
+  const subId = entry.subId || entry.metadata?.subId;
+  const passage = subId && article ? buildArticlePassages(article).find(candidate => candidate.subId === subId) : null;
+  return entry.document || passage?.excerpt || article?.content || '';
 };
 
 const buildSuggestionItems = async ({ queryResults, userId, concept }) => {
@@ -553,7 +562,7 @@ const buildSuggestionItems = async ({ queryResults, userId, concept }) => {
         type: 'article',
         refId: article.id,
         title: article.title || 'Article',
-        text: buildSnippet(entry.document || article.content, 360),
+        text: buildSnippet(hitText(entry, article), 360),
         source: article.url || extractHost(article.url) || null,
         _articleId: article.id,
         score,
@@ -1060,6 +1069,41 @@ const normalizePlan = (plan) => {
   };
 };
 
+/* The model only sorts what the reader already holds into groups; a ref to
+   anything outside the candidates is dropped, and so is a group left empty.
+   With no text model, no candidates or no usable group, the local plan answers. */
+const planConcept = async ({ conceptTitle, conceptDescription, candidateItems }) => {
+  if (!candidateItems.length || !isTextGenerationConfigured()) return null;
+  const completion = await chatComplete({
+    route: 'structure_planner',
+    temperature: 0,
+    maxTokens: 1200,
+    responseFormat: { type: 'json_object' },
+    messages: [
+      {
+        role: 'system',
+        content: 'Group a reader\'s own sources for a concept. Return only JSON: '
+          + '{"groups":[{"title":"","description":"","item_refs":[{"type":"","id":"","why":""}]}]}. '
+          + 'Three to six groups. Use only the given type and id pairs.'
+      },
+      {
+        role: 'user',
+        content: JSON.stringify({
+          concept: conceptTitle,
+          description: conceptDescription || '',
+          candidates: candidateItems.map(({ type, id, title, text }) => ({ type, id, title, text: buildSnippet(text, 500) }))
+        })
+      }
+    ]
+  });
+  const plan = parseStructuredText(completion.text);
+  const known = new Set(candidateItems.map(({ type, id }) => `${type}:${id}`));
+  const groups = (Array.isArray(plan?.groups) ? plan.groups : [])
+    .map(group => ({ ...group, item_refs: (Array.isArray(group?.item_refs) ? group.item_refs : []).filter(ref => known.has(`${normalizeRefType(ref?.type)}:${toSafeString(ref?.id)}`)) }))
+    .filter(group => group.item_refs.length);
+  return groups.length ? { ...plan, groups } : null;
+};
+
 const buildLocalFallbackPlan = ({ conceptTitle, conceptDescription, initialQueries, candidateItems }) => {
   const title = toSafeString(conceptTitle) || 'Concept';
   const description = toSafeString(conceptDescription);
@@ -1408,14 +1452,10 @@ const buildSemanticResultSet = async ({ userId, queries, types }) => {
   const semanticResults = [];
   for (const query of queries) {
     try {
-      const response = await semanticSearch({
-        userId,
-        query,
-        types,
-        limit: SEARCH_LIMIT_PER_QUERY
-      });
-      const matches = Array.isArray(response?.results) ? response.results : [];
-      semanticResults.push(...matches);
+      const rows = await semanticSearch({ userId, query, types, limit: SEARCH_LIMIT_PER_QUERY });
+      semanticResults.push(...rows.map(({ type, objectId, subId, title, articleId, score }) => ({
+        objectType: type, objectId, score, metadata: { subId, title, articleId }
+      })));
     } catch (error) {
       const transientUpstreamError = isTransientSemanticUpstreamError(error);
       console.warn('[CONCEPT-AGENT] semantic search query failed, continuing with fallback', {
@@ -1486,7 +1526,7 @@ async function createConceptSuggestionDraft({ conceptId, userId, mode = SUPPORTE
     const semanticResults = await buildSemanticResultSet({
       userId: safeUserId,
       queries: initialQueries,
-      types: ['article', 'highlight', 'notebook_block', 'question', 'concept']
+      types: ['article', 'highlight', 'notebook_entry', 'question']
     });
 
     const built = await buildSuggestionItems({
@@ -1497,17 +1537,21 @@ async function createConceptSuggestionDraft({ conceptId, userId, mode = SUPPORTE
     itemSuggestions = built.itemSuggestions;
     conceptSuggestions = built.conceptSuggestions;
 
-    if (itemSuggestions.length === 0 && conceptSuggestions.length === 0) {
+    // Concepts are not in the vector index, so related concepts always come
+    // from the library; items do too when the index finds nothing.
+    if (itemSuggestions.length === 0 || conceptSuggestions.length === 0) {
       const fallback = await buildFallbackSuggestionsFromLibrary({
         userId: safeUserId,
         conceptTitle,
         conceptDescription,
         concept
       });
-      itemSuggestions = fallback.itemSuggestions;
-      conceptSuggestions = fallback.conceptSuggestions;
-      usedFallbackSuggestions = true;
-      logAgentMetric('scout.fallback_suggestions', { mode: safeMode });
+      if (itemSuggestions.length === 0) {
+        itemSuggestions = fallback.itemSuggestions;
+        usedFallbackSuggestions = true;
+        logAgentMetric('scout.fallback_suggestions', { mode: safeMode });
+      }
+      if (conceptSuggestions.length === 0) conceptSuggestions = fallback.conceptSuggestions;
     }
   }
 
@@ -1849,31 +1893,22 @@ async function buildConceptWorkspace({
       });
     }
 
-    let planResponse;
-    try {
-      planResponse = await planConcept({
-        concept_title: conceptTitle,
-        concept_description: conceptDescription || null,
-        candidate_items: candidateItems
-      });
-    } catch (error) {
-      if (!isTransientSemanticUpstreamError(error)) throw error;
-      usedFallbackPlan = true;
-      logAgentMetric('build.fallback_plan', { mode: safeMode });
-      console.warn('[AGENT-BUILD] planConcept unavailable, using local fallback plan', {
+    // The model only groups; queries, outline, claims and questions come from
+    // the local plan, which also answers whole when the model cannot.
+    const localPlan = buildLocalFallbackPlan({ conceptTitle, conceptDescription, initialQueries, candidateItems });
+    const groupedPlan = await planConcept({ conceptTitle, conceptDescription, candidateItems }).catch((error) => {
+      console.warn('[AGENT-BUILD] plan unavailable, using local fallback plan', {
         conceptId: safeConceptId,
-        userId: safeUserId,
-        status: error?.status || error?.response?.status || null,
+        status: error?.status || null,
         message: error?.message || ''
       });
-      planResponse = buildLocalFallbackPlan({
-        conceptTitle,
-        conceptDescription,
-        initialQueries,
-        candidateItems
-      });
+      return null;
+    });
+    if (!groupedPlan) {
+      usedFallbackPlan = true;
+      logAgentMetric('build.fallback_plan', { mode: safeMode });
     }
-    plan = normalizePlan(planResponse);
+    plan = normalizePlan({ ...localPlan, groups: groupedPlan?.groups || localPlan.groups });
   }
 
   if (previewOnly) {
@@ -1969,6 +2004,8 @@ module.exports = {
   getConceptSuggestionDrafts,
   mutateConceptSuggestionDraft,
   __testables: {
+    planConcept,
+    hitText,
     buildLocalFallbackPlan,
     isTransientSemanticUpstreamError,
     scoreTextAgainstKeywords,

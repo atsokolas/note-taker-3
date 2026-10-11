@@ -191,6 +191,8 @@ describe('the view', () => {
       horizonAt: expect.stringMatching(/^2027-06-30/)
     })));
     expect(await screen.findByText(/By Jun 30\./)).toBeInTheDocument();
+    // Passages read against the old test are asked for again.
+    expect(listReadingProposals).toHaveBeenCalledTimes(2);
   });
 
   it('sets a view aside at once, and offers it back for six seconds', async () => {
@@ -259,7 +261,7 @@ describe('the view', () => {
         fireEvent.click(await screen.findByRole('button', { name: 'Not relevant' }));
         expect(screen.queryByText(QUOTE)).not.toBeInTheDocument();
         fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
-        expect(screen.getByText(QUOTE)).toBeInTheDocument();
+        expect(await screen.findByText(QUOTE)).toBeInTheDocument();
         expect(resolveJudgmentChange).not.toHaveBeenCalled();
 
         fireEvent.click(screen.getByRole('button', { name: 'Not relevant' }));
@@ -268,6 +270,75 @@ describe('the view', () => {
       } finally {
         jest.useRealTimers();
       }
+    });
+
+    it('puts a passage that meets a falsifier under what would change your mind, in your words', async () => {
+      const met = { ...proposal, provenance: { ...proposal.provenance, falsifier: 'Two quarters of falling renewals.' } };
+      listReadingProposals.mockResolvedValue([met]);
+      openView();
+      const region = await screen.findByRole('region', { name: 'A source meets it' });
+      expect(region.closest('.judgment-test')).not.toBeNull();
+      expect(region).toHaveTextContent('You said you’d change your mind if “Two quarters of falling renewals.”');
+      expect(region).toHaveTextContent('Ben Carlson, Oct 1, meets it:');
+      expect(within(region).getByText(QUOTE)).toBeInTheDocument();
+      expect(screen.queryByRole('region', { name: 'From your reading' })).not.toBeInTheDocument();
+    });
+
+    it('takes passages read against the old test away at once when the test changes', async () => {
+      const met = { ...proposal, provenance: { ...proposal.provenance, falsifier: 'Two quarters of falling renewals.' } };
+      listReadingProposals.mockResolvedValueOnce([met]).mockReturnValueOnce(new Promise(() => {}));
+      setJudgmentResolution.mockResolvedValue({ judgment: viewPage({ resolutionCriteria: 'Churn above ten percent.' }).judgment });
+      openView();
+      expect(await screen.findByText(QUOTE)).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: /what would change your mind|Edit/i }));
+      fireEvent.change(screen.getByLabelText('In one line'), { target: { value: 'Churn above ten percent.' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+      await waitFor(() => expect(screen.queryByText(QUOTE)).not.toBeInTheDocument());
+    });
+
+    it('never lets the first list bring back a passage after the test has changed', async () => {
+      const met = { ...proposal, provenance: { ...proposal.provenance, falsifier: 'Two quarters of falling renewals.' } };
+      let firstList;
+      listReadingProposals
+        .mockReturnValueOnce(new Promise((resolve) => { firstList = resolve; }))
+        .mockResolvedValueOnce([]);
+      setJudgmentResolution.mockResolvedValue({ judgment: viewPage({ resolutionCriteria: 'Churn above ten percent.' }).judgment });
+      openView();
+      fireEvent.click(await screen.findByRole('button', { name: /what would change your mind|Edit/i }));
+      fireEvent.change(screen.getByLabelText('In one line'), { target: { value: 'Churn above ten percent.' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+      await waitFor(() => expect(listReadingProposals).toHaveBeenCalledTimes(2));
+      await act(async () => { firstList([met]); });
+      expect(screen.queryByText(QUOTE)).not.toBeInTheDocument();
+    });
+
+    it('keeps a passage set aside out of the list read again while its undo is on offer', async () => {
+      listReadingProposals.mockResolvedValue([proposal]);
+      resolveJudgmentChange.mockResolvedValue({ page: viewPage() });
+      setJudgmentResolution.mockResolvedValue({ judgment: viewPage({ resolutionCriteria: 'Churn above ten percent.' }).judgment });
+      openView();
+      fireEvent.click(await screen.findByRole('button', { name: 'Not relevant' }));
+      fireEvent.click(screen.getByRole('button', { name: /what would change your mind|Edit/i }));
+      fireEvent.change(screen.getByLabelText('In one line'), { target: { value: 'Churn above ten percent.' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+      await waitFor(() => expect(listReadingProposals).toHaveBeenCalledTimes(2));
+      await act(async () => {});
+      expect(screen.queryByText(QUOTE)).not.toBeInTheDocument();
+    });
+
+    it('takes back a passage set aside only if it still reads against the view', async () => {
+      listReadingProposals.mockResolvedValueOnce([proposal]).mockResolvedValue([]);
+      setJudgmentResolution.mockResolvedValue({ judgment: viewPage({ resolutionCriteria: 'Churn above ten percent.' }).judgment });
+      openView();
+      fireEvent.click(await screen.findByRole('button', { name: 'Not relevant' }));
+      fireEvent.click(screen.getByRole('button', { name: /what would change your mind|Edit/i }));
+      fireEvent.change(screen.getByLabelText('In one line'), { target: { value: 'Churn above ten percent.' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+      await waitFor(() => expect(listReadingProposals).toHaveBeenCalledTimes(2));
+      fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
+      await waitFor(() => expect(listReadingProposals).toHaveBeenCalledTimes(3));
+      await act(async () => {});
+      expect(screen.queryByText(QUOTE)).not.toBeInTheDocument();
     });
 
     it('says nothing when no passage is waiting', async () => {

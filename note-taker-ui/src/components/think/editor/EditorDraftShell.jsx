@@ -6,6 +6,7 @@ import DraftBlockTray from './DraftBlockTray';
 import { moveCurrentBlock } from './blockMovement';
 import useCssMagneticLerp from '../../../hooks/useCssMagneticLerp';
 import { useFinePointer, usePrefersReducedMotion } from '../../../hooks/useMotionPreferences';
+import { Button } from '../../ui';
 
 const EditorDraftShell = ({
   editor,
@@ -137,8 +138,8 @@ const EditorDraftShell = ({
         <span>{helperCopy}</span>
         {hideBlockControls ? null : (
           <div className={['think-editor-block-controls', blockControlsClassName].filter(Boolean).join(' ')}>
-            <button type="button" className="ui-quiet-button" onClick={() => moveCurrentBlock(editor, 'up')}>Move up</button>
-            <button type="button" className="ui-quiet-button" onClick={() => moveCurrentBlock(editor, 'down')}>Move down</button>
+            <Button variant="quiet" onClick={() => moveCurrentBlock(editor, 'up')}>Move up</Button>
+            <Button variant="quiet" onClick={() => moveCurrentBlock(editor, 'down')}>Move down</Button>
           </div>
         )}
       </div>

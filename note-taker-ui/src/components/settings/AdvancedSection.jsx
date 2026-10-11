@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { resetTourState } from '../../api/tourApi';
 import { TOUR_CACHE_KEY } from '../../tour/tourConfig';
 import SystemInventoryCard from './SystemInventoryCard';
-import { Card } from '../ui';
+import { Button, Card } from '../ui';
 import { buildSettingsDiagnosticReport } from '../../settings/settingsDiagnostics';
 
 const AdvancedSection = ({ uiSettings = {}, section = 'advanced' }) => {
@@ -39,16 +39,14 @@ const AdvancedSection = ({ uiSettings = {}, section = 'advanced' }) => {
       <div id="settings-diagnostics" style={{ marginTop: '1.5rem' }}>
         <h3>Diagnostics</h3>
         <p className="settings-redesign__help">A small redacted report for support. No reading text or credentials.</p>
-        <button type="button" className="settings-redesign__btn" onClick={() => setDiagnosticOpen(true)}>Review diagnostic report</button>
+        <Button onClick={() => setDiagnosticOpen(true)}>Review diagnostic report</Button>
       </div>
 
       <div style={{ marginTop: '1.5rem', borderTop: '1px solid var(--settings-rule)', paddingTop: '1.5rem' }}>
         <h3>Help & onboarding</h3>
         <p className="settings-redesign__help">Open keyboard help from the top bar. A refresher does not erase drafts or imports.</p>
         <Link to="/how-to-use" className="settings-redesign__link">Help & shortcuts</Link>
-        <button
-          type="button"
-          className="settings-redesign__btn"
+        <Button
           style={{ marginLeft: '1rem' }}
           onClick={async () => {
             try {
@@ -61,7 +59,7 @@ const AdvancedSection = ({ uiSettings = {}, section = 'advanced' }) => {
           }}
         >
           Show the guide again
-        </button>
+        </Button>
       </div>
 
       <div style={{ marginTop: '1.5rem' }}>
@@ -83,7 +81,7 @@ const AdvancedSection = ({ uiSettings = {}, section = 'advanced' }) => {
           <h2>Diagnostic report</h2>
           <pre style={{ whiteSpace: 'pre-wrap', fontSize: '0.6875rem' }}>{JSON.stringify(diagnosticReport, null, 2)}</pre>
           <div style={{ marginTop: '1rem', display: 'flex', gap: '0.75rem' }}>
-            <button type="button" className="settings-redesign__btn is-primary" onClick={copyDiagnostic}>Copy report</button>
+            <Button variant="primary" onClick={copyDiagnostic}>Copy report</Button>
             <button type="button" className="settings-redesign__link" onClick={() => setDiagnosticOpen(false)}>Close</button>
           </div>
           {copyStatus ? <p className="settings-redesign__help" role="status">{copyStatus}</p> : null}

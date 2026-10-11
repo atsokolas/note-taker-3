@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
-const { canonicalSourceUrl, linkPageSources } = require('./librarySource');
+const { canonicalSourceUrl, findLibraryArticle, linkPageSources } = require('./librarySource');
 const { attachSourceEventEvidence } = require('./wikiMaintenanceOrchestrator');
 const backfill = require('../../scripts/link_wiki_sources_to_library');
 
@@ -11,6 +11,12 @@ async function run() {
   assert.equal(canonicalSourceUrl('https://www.Example.com/piece/?utm_source=x&b=2&a=1#top'), 'example.com/piece?a=1&b=2');
   assert.equal(canonicalSourceUrl('http://example.com/piece'), canonicalSourceUrl('https://www.example.com/piece/'));
   assert.notEqual(canonicalSourceUrl('https://example.com/piece?id=1'), canonicalSourceUrl('https://example.com/piece?id=2'));
+  assert.notEqual(canonicalSourceUrl('https://example.com/Report'), canonicalSourceUrl('https://example.com/report'));
+  assert.notEqual(canonicalSourceUrl('https://example.com:8443/foo'), canonicalSourceUrl('https://example.com/foo'));
+  assert.notEqual(canonicalSourceUrl('https://example.com/run?step=first&step=second'), canonicalSourceUrl('https://example.com/run?step=second&step=first'));
+  assert.equal(canonicalSourceUrl('https://example.com/run?z=1&step=a&step=b'), 'example.com/run?step=a&step=b&z=1');
+  assert.equal(canonicalSourceUrl('https://example.com:443/foo'), canonicalSourceUrl('https://example.com/foo'));
+  assert.notEqual(canonicalSourceUrl('https://example.com/p?filter=a%26role%3Dadmin'), canonicalSourceUrl('https://example.com/p?filter=a&role=admin'));
   assert.equal(canonicalSourceUrl(''), '');
 
   // An in-memory server: never the application's URI.
@@ -83,6 +89,25 @@ async function run() {
     ] };
     assert.equal(await linkPageSources({ Article, WikiSourceEvent, page: journals }), 1);
     assert.equal(String(journals.sourceRefs[0].parentObjectId), String(journal._id));
+
+    // Ingest asks the same question of one address: is this already yours?
+    assert.equal(String((await findLibraryArticle({ Article, userId, url: 'http://example.com/buffett-intrinsic-value?fbclid=1' }))._id), String(article._id));
+    assert.equal(String((await findLibraryArticle({ Article, userId, url: 'https://example.com/journals' }))._id), String(journal._id));
+    assert.equal(await findLibraryArticle({ Article, userId, url: 'https://example.com/journals?page=2' }), null);
+    assert.equal(await findLibraryArticle({ Article, userId, url: 'https://example.com/elsewhere' }), null, 'only your own Library');
+    assert.equal(await findLibraryArticle({ Article, userId, url: 'not a url' }), null);
+    assert.equal(await findLibraryArticle({ Article, userId, url: 'https://someone:secret@example.com/journals' }), null, 'an address with a password is not your article');
+    const tracked = await Article.create({ userId, url: 'https://example.com/twins?utm_source=mail', title: 'Saved from the newsletter' });
+    const plain = await Article.create({ userId, url: 'https://example.com/twins', title: 'Saved from the site' });
+    assert.equal(String((await findLibraryArticle({ Article, userId, url: 'https://example.com/twins' }))._id), String(plain._id), 'the exact address first');
+    assert.equal(String((await findLibraryArticle({ Article, userId, url: 'https://example.com/twins?utm_source=mail' }))._id), String(tracked._id));
+    assert.equal(String((await findLibraryArticle({ Article, userId, url: 'https://www.example.com/twins/' }))._id), String(tracked._id), 'else the first saved');
+    await Article.create({ userId, url: 'https://example.com/report?source=annual', title: 'Annual' });
+    assert.equal(await findLibraryArticle({ Article, userId, url: 'https://example.com/report?source=quarterly' }), null, 'a key that picks the page is part of the address');
+    await Article.create({ userId, url: 'https://example.com/put-away', title: 'Archived', archived: true });
+    await Article.create({ userId, url: 'https://example.com/fixture', title: 'Debug', debugOnly: true });
+    assert.equal(await findLibraryArticle({ Article, userId, url: 'https://example.com/put-away' }), null, 'an archived piece is not reused');
+    assert.equal(await findLibraryArticle({ Article, userId, url: 'https://example.com/fixture' }), null, 'a debug piece is not reused');
 
     // The backfill says what it would do, and does it only when asked.
     const unread = await WikiPage.collection.insertOne({

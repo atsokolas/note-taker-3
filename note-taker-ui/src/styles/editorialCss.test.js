@@ -1,7 +1,12 @@
 import fs from 'fs';
 import path from 'path';
 
-describe('stitch editorial CSS tokens', () => {
+const read = (file) => fs.readFileSync(path.join(__dirname, file), 'utf8');
+const theme = () => read('theme.css');
+const shell = () => read('dashboard-refresh.css');
+const reading = () => read('reading-layout.css');
+
+describe('editorial house CSS', () => {
   // The shell is `height: 100vh; overflow-y: hidden` by default and grants
   // scrolling per page through a `:has()` allowlist. A page missing from that
   // list loses everything below the fold with no way to reach it — verified in
@@ -9,7 +14,7 @@ describe('stitch editorial CSS tokens', () => {
   // full-height surface has to be listed, so assert the list rather than trust
   // the next person to remember.
   it('scrolls the shell by default, so a new surface cannot lose its lower half', () => {
-    const css = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
+    const css = shell();
 
     // This used to be an allowlist: the shell clamped to 100vh with overflow
     // hidden and handed scrolling back page by page, so any surface nobody
@@ -24,7 +29,7 @@ describe('stitch editorial CSS tokens', () => {
   });
 
   it('lets only the wiki workspace opt out, because its panes scroll themselves', () => {
-    const css = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
+    const css = shell();
 
     const optOut = css.match(/\.app-shell-new__body:has\(\.wiki-workspace\) \{[\s\S]*?\n\}/)?.[0] || '';
     expect(optOut).toContain('height: 100vh');
@@ -38,7 +43,7 @@ describe('stitch editorial CSS tokens', () => {
   });
 
   it('defines the accent tokens used by interactive trace states in light and dark palettes', () => {
-    const css = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
+    const css = theme();
     const lightPalette = css.match(/body\.noeis-editorial \{[\s\S]*?\n\}/)?.[0] || '';
     const darkPalette = css.match(/html\[data-ui-theme='dark'\] body\.noeis-editorial \{[\s\S]*?\n\}/)?.[0] || '';
 
@@ -48,7 +53,7 @@ describe('stitch editorial CSS tokens', () => {
   });
 
   it('defines wiki graph semantic tokens in light and dark palettes', () => {
-    const css = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
+    const css = theme();
     const lightPalette = css.match(/body\.noeis-editorial \{[\s\S]*?\n\}/)?.[0] || '';
     const darkPalette = css.match(/html\[data-ui-theme='dark'\] body\.noeis-editorial \{[\s\S]*?\n\}/)?.[0] || '';
 
@@ -67,7 +72,7 @@ describe('stitch editorial CSS tokens', () => {
   });
 
   it('defines an editorial theme-flip transition with a reduced-motion escape hatch', () => {
-    const css = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
+    const css = theme();
 
     expect(css).toContain('body.noeis-editorial .agent-ticker');
     expect(css).toContain('background-color var(--noeis-motion-base) var(--noeis-ease-standard)');
@@ -75,34 +80,8 @@ describe('stitch editorial CSS tokens', () => {
     expect(css).toContain('transition: none;');
   });
 
-  it('defines concrete magnetic dropzone tokens in light and dark palettes', () => {
-    const css = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
-    const darkPalette = css.match(/html\[data-ui-theme='dark'\] body\.noeis-editorial \{[\s\S]*?\n\}/)?.[0] || '';
-
-    [
-      '--dropzone-border-idle:',
-      '--dropzone-border-active:',
-      '--dropzone-border-hover:',
-      '--dropzone-surface-idle:',
-      '--dropzone-surface-active:',
-      '--dropzone-surface-hover:',
-      '--dropzone-shadow-hover:',
-      '--dropzone-inset-active:',
-      '--dropzone-inset-hover:',
-      '--dropzone-ink-idle:',
-      '--dropzone-ink-hover:',
-      '--dropzone-text:',
-      '--dropzone-text-quiet:'
-    ].forEach(token => {
-      expect(css).toContain(token);
-      expect(darkPalette).toContain(token);
-    });
-
-    expect(css).not.toMatch(/^\s*--dropzone-[^:]+:\s*var\(--dropzone-/m);
-  });
-
   it('keeps settings and connections scrolling on their own document height', () => {
-    const css = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
+    const css = shell();
     const documentScrollBlock = css.match(/body\.noeis-editorial \.settings-page,[\s\S]*?overflow-y: auto;\n\}/)?.[0] || '';
 
     expect(documentScrollBlock).toContain('.app-shell-new__body:has(.settings-page)');
@@ -113,7 +92,7 @@ describe('stitch editorial CSS tokens', () => {
   });
 
   it('rings the row under the pointer rather than washing it', () => {
-    const css = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
+    const css = reading() + theme();
 
     expect(css).toContain('box-shadow: 0 0 0 2px var(--noeis-pointer) !important;');
     expect(css).toContain('--noeis-pointer: #6f87ff;');
@@ -129,11 +108,11 @@ describe('stitch editorial CSS tokens', () => {
   });
 
   it('keeps mobile editorial chrome compact while preserving essential utility links', () => {
-    const css = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
+    const css = shell();
 
     expect(css).toMatch(/@media \(max-width: 760px\)[\s\S]*?body\.noeis-editorial \.topbar__content[\s\S]*?grid-template-columns: minmax\(0, 1fr\) auto;/);
     expect(css).toMatch(/@media \(max-width: 760px\)[\s\S]*?body\.noeis-editorial \.topbar__utility-button:not\(\.topbar__utility-button--essential\)[\s\S]*?display: none !important;/);
-    expect(css).toMatch(/@media \(max-width: 760px\)[\s\S]*?body\.noeis-editorial \.app-shell-new--stitch \.app-shell-new__body[\s\S]*?padding-top: 76px;/);
+    expect(css).toMatch(/@media \(max-width: 760px\)[\s\S]*?body\.noeis-editorial \.app-shell-new--stitch \.app-shell-new__body[\s\S]*?padding-top: 92px;/);
     expect(css).toMatch(/@media \(max-width: 640px\)[\s\S]*?body\.noeis-editorial \.topbar__content[\s\S]*?grid-template-columns: minmax\(0, 1fr\);/);
     expect(css).toMatch(/@media \(max-width: 640px\)[\s\S]*?body\.noeis-editorial \.topbar__right[\s\S]*?justify-content: space-between;/);
     expect(css).toMatch(/@media \(max-width: 640px\)[\s\S]*?body\.noeis-editorial \.app-shell-new--stitch \.app-shell-new__body[\s\S]*?padding-top: 112px;/);
@@ -143,14 +122,14 @@ describe('stitch editorial CSS tokens', () => {
   });
 
   it('leaves room for descenders in the masthead search label', () => {
-    const css = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
+    const css = shell();
     const searchLabel = css.match(/body\.noeis-editorial \.topbar__search-trigger-label \{[\s\S]*?\n\}/)?.[0] || '';
 
     expect(searchLabel).toContain('line-height: 1.25;');
   });
 
   it('maps vellum aliases to canonical text role tokens', () => {
-    const css = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
+    const css = theme();
     const lightPalette = css.match(/body\.noeis-editorial \{[\s\S]*?\n\}/)?.[0] || '';
     const darkPalette = css.match(/html\[data-ui-theme='dark'\] body\.noeis-editorial \{[\s\S]*?\n\}/)?.[0] || '';
 
@@ -164,7 +143,7 @@ describe('stitch editorial CSS tokens', () => {
   });
 
   it('aligns wiki list rows with library row grammar and leaves the facet rail on RoomShelf', () => {
-    const css = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
+    const css = read('wiki-critical.css');
 
     expect(css).toContain('body.noeis-editorial .wiki-index__list.library-article-list');
     expect(css).toContain('body.noeis-editorial .wiki-index__list .library-article-row:last-child');
@@ -174,7 +153,7 @@ describe('stitch editorial CSS tokens', () => {
   });
 
   it('keeps library and wiki index rows out of the legacy card cascade', () => {
-    const css = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
+    const css = reading() + read('wiki-critical.css');
 
     expect(css).toContain('body.noeis-editorial .library-page-shell .library-article-row,');
     expect(css).toContain('body.noeis-editorial .wiki-index__list .library-article-row {');
@@ -185,7 +164,7 @@ describe('stitch editorial CSS tokens', () => {
   });
 
   it('styles connection cards with grayscale-safe state hierarchy', () => {
-    const css = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
+    const css = read('../App.css');
 
     expect(css).toContain('connections-return-loop__feed--connected');
     expect(css).toContain('connections-return-loop__feed--warning');
@@ -194,7 +173,7 @@ describe('stitch editorial CSS tokens', () => {
   });
 
   it('keeps connection statuses from breaking mid-word on narrow cards', () => {
-    const css = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
+    const css = read('../App.css');
 
     expect(css).toContain('body.noeis-editorial .connections-return-loop__feed strong');
     expect(css).toMatch(/connections-return-loop__feed strong,[\s\S]*?overflow-wrap: normal;/);
@@ -202,11 +181,12 @@ describe('stitch editorial CSS tokens', () => {
   });
 
   it('keeps two inks so agent and human writing can be told apart', () => {
-    const css = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
+    const css = theme();
+    const reader = read('reader-editorial.css');
     expect(css).toContain('--ink-human:');
     expect(css).toContain('--ink-agent:');
-    expect(css).toContain('color: var(--ink-agent, var(--vellum-ink))');
-    expect(css).toContain('color: var(--ink-human, var(--vellum-ink))');
+    expect(reader).toContain('color: var(--ink-agent, var(--vellum-ink))');
+    expect(reader).toContain('color: var(--ink-human, var(--vellum-ink))');
   });
 
   it('inks the reader highlight warm, and keeps the note in agent ink', () => {

@@ -21,14 +21,6 @@ body.noeis-editorial .settings-redesign {
   top: 1.5rem;
 }
 
-.settings-redesign__title {
-  font-family: var(--font-serif);
-  font-size: var(--noeis-type-title);
-  font-weight: 400;
-  margin: 0 0 1.5rem;
-  letter-spacing: -0.02em;
-}
-
 .settings-redesign__search {
   position: relative;
 }
@@ -282,25 +274,6 @@ body.noeis-editorial .settings-redesign {
   border: 0;
   cursor: pointer;
   padding: 0.35rem 0;
-}
-
-.settings-redesign__btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.55rem 0.95rem;
-  min-height: 2.5rem;
-  border: 1px solid var(--settings-rule);
-  border-radius: 4px;
-  background: transparent;
-  font-size: 0.75rem;
-  cursor: pointer;
-}
-
-.settings-redesign__btn.is-primary {
-  background: var(--settings-green);
-  color: var(--noeis-paper, #f7f5ef);
-  border-color: var(--settings-green);
 }
 
 .settings-redesign__panel-columns {

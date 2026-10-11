@@ -13,7 +13,6 @@ const createHarness = ({ failFirstCleanup = false } = {}) => {
   };
   let cleanupAttempts = 0;
   const cleanupCalls = [];
-  const legacyDeleteCalls = [];
   const app = express();
   app.use(buildLegacyContentRouter({
     authenticateToken: (req, _res, next) => {
@@ -39,15 +38,10 @@ const createHarness = ({ failFirstCleanup = false } = {}) => {
       cleanupAttempts += 1;
       if (failFirstCleanup && cleanupAttempts === 1) throw new Error('temporary Atlas cleanup failure');
     },
-    safeMapEmbedding: () => [],
-    articleToEmbeddingItems: () => [],
-    queueEmbeddingUpsert: () => {},
     getFoldersWithCounts: async () => [],
-    normalizeItemType: value => value,
-    buildEmbeddingId: ({ objectType, objectId }) => `${objectType}:${objectId}`,
-    queueEmbeddingDelete: ids => { legacyDeleteCalls.push(ids); }
+    normalizeItemType: value => value
   }));
-  return { app, cleanupCalls, legacyDeleteCalls };
+  return { app, cleanupCalls };
 };
 
 const withHarness = async (options, verify) => {
@@ -64,18 +58,11 @@ const withHarness = async (options, verify) => {
   }
 };
 
-const expectedLegacyIds = [
-  `article:${ARTICLE_ID}`,
-  'highlight:highlight-1',
-  'highlight:highlight-2'
-];
-
 const run = async () => {
-  await withHarness({}, async ({ cleanupCalls, legacyDeleteCalls, remove }) => {
+  await withHarness({}, async ({ cleanupCalls, remove }) => {
     const deleted = await remove();
     assert.strictEqual(deleted.status, 200);
     assert.deepStrictEqual(cleanupCalls[0], { userId: USER_ID, articleId: ARTICLE_ID });
-    assert.deepStrictEqual(legacyDeleteCalls[0], expectedLegacyIds);
 
     const retry = await remove();
     assert.strictEqual(retry.status, 404);
@@ -84,22 +71,15 @@ const run = async () => {
       { userId: USER_ID, articleId: ARTICLE_ID },
       'a retry finishes exact owner-scoped cleanup even after the source row is gone'
     );
-    assert.strictEqual(legacyDeleteCalls.length, 1, 'a missing source queues no duplicate legacy deletion');
   });
 
-  await withHarness({ failFirstCleanup: true }, async ({ cleanupCalls, legacyDeleteCalls, remove }) => {
+  await withHarness({ failFirstCleanup: true }, async ({ cleanupCalls, remove }) => {
     const failed = await remove();
     assert.strictEqual(failed.status, 500, 'cleanup failure stays visible');
-    assert.deepStrictEqual(
-      legacyDeleteCalls[0],
-      expectedLegacyIds,
-      'legacy ids are invalidated before an awaited Atlas cleanup can fail'
-    );
 
     const retry = await remove();
     assert.strictEqual(retry.status, 404);
     assert.strictEqual(cleanupCalls.length, 2, 'retry completes idempotent Atlas cleanup');
-    assert.strictEqual(legacyDeleteCalls.length, 1, 'retry does not duplicate the legacy deletion');
   });
 
   console.log('legacyContentRoutes article delete tests passed');

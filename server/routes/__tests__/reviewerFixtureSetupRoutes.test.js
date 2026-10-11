@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
 const models = require('../../models');
-const { policy, createReviewerSafeLegacyEmbeddingQueue, holdReviewerSourceEvent, readReviewerBudgetStatus } = require('../../services/reviewerRehearsalBudget');
+const { policy, holdReviewerSourceEvent, readReviewerBudgetStatus } = require('../../services/reviewerRehearsalBudget');
 const reading = require('../../services/readingTalksBack');
 let readBackCalls = 0;
 reading.proposeFromReading = async () => { readBackCalls++; throw new Error('reviewer read-back must be held'); };
@@ -15,7 +15,6 @@ const { buildHighlightMutationRouter } = require('../highlightMutationRoutes');
 const { buildWikiRouter } = require('../wikiRoutes');
 const { buildConceptMetaRouter } = require('../conceptMetaRoutes');
 const jobs = require('../../ai/embeddingJobs');
-const highlightToEmbeddingItem = require('../../ai/mappers/highlightToEmbeddingItem');
 const reviewer = '111111111111111111111111';
 const ordinary = '555555555555555555555555';
 const originalPolicy = { ...policy };
@@ -31,9 +30,6 @@ const response = () => ({ statusCode: 200, status(code) { this.statusCode = code
 const handle = (router, path, method) => router.stack.find(layer => layer.route?.path === path && layer.route.methods[method]).route.stack.at(-1).handle;
 const authenticateToken = (_req, _res, next) => next();
 const track = promise => { pending.push(promise); return promise; };
-const legacy = createReviewerSafeLegacyEmbeddingQueue({ isAiEnabled: () => true,
-  upsertEmbeddings: async () => { providerCalls++; }, schedule: callback => callback() });
-
 test('existing owned concept read verifies only the exact enabled reviewer, without credentials or new access', async () => {
   const router = buildConceptMetaRouter({ authenticateToken, TagMeta: models.TagMeta, User: models.User, escapeRegExp: value => value });
   const route = handle(router, '/api/concepts/:name/idea-workbench', 'get');
@@ -71,9 +67,9 @@ test('real human text import, highlight and private Wiki creation persist setup 
     assert.equal(event.status, 'held'); assert.equal(event.attemptCount, 0);
   }
   const highlights = buildHighlightMutationRouter({ ...models, mongoose, authenticateToken,
-    normalizeTags: tags => tags || [], safeMapEmbedding: callback => { try { return callback(); } catch (_error) { return null; } }, highlightToEmbeddingItem,
+    normalizeTags: tags => tags || [],
     normalizeItemType: value => value || 'note',
-    enqueueHighlightEmbedding: args => track(jobs.enqueueHighlightEmbedding(args)), queueEmbeddingUpsert: legacy,
+    enqueueHighlightEmbedding: args => track(jobs.enqueueHighlightEmbedding(args)),
     markTourSignal: async () => {} });
   const res = response();
   await handle(highlights, '/articles/:id/highlights', 'post')({ user: { id: reviewer }, params: { id: String(articles[0]._id) },
@@ -113,23 +109,7 @@ test('direct event processing, ID invocation and worker claiming fail closed bef
   assert.equal(readBackCalls, 0);
 });
 
-test('legacy mixed batches retain ordinary items and recheck ownership before upstream; ordinary events remain pending', async () => {
-  const received = []; let callback;
-  const items = [reviewer, ordinary].map(userId => highlightToEmbeddingItem({
-    _id: new mongoose.Types.ObjectId(), text: 'Offline fictional legacy passage.'
-  }, userId));
-  const queue = createReviewerSafeLegacyEmbeddingQueue({ target: policy, isAiEnabled: () => true,
-    schedule: cb => { callback = cb; }, upsertEmbeddings: async rows => { received.push(...rows); } });
-  queue(items);
-  callback(); await new Promise(resolve => setImmediate(resolve));
-  assert.deepEqual(received.map(row => row.userId), [ordinary]);
-  received.length = 0;
-  const changingPolicy = { userId: '' };
-  const transition = createReviewerSafeLegacyEmbeddingQueue({ target: changingPolicy, isAiEnabled: () => true,
-    schedule: cb => { callback = cb; }, upsertEmbeddings: async rows => { received.push(...rows); } });
-  transition(items); changingPolicy.userId = reviewer;
-  callback(); await new Promise(resolve => setImmediate(resolve));
-  assert.deepEqual(received.map(row => row.userId), [ordinary], 'execution recheck holds newly configured reviewer');
+test('ordinary source events preserve pending status under a configured reviewer policy', async () => {
   const event = await createWikiSourceEvent({ WikiSourceEvent: models.WikiSourceEvent, userId: ordinary, sourceType: 'article', text: 'Offline ordinary arrival.' });
   assert.equal(event.status, 'pending'); assert.equal(event.metadata.reviewerRehearsalHold, undefined);
 });

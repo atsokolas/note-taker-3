@@ -7,8 +7,6 @@ const run = async () => {
   const app = express();
   app.use(buildSystemRouter({
     authenticateToken: (_req, _res, next) => next(),
-    parseAiServiceUrl: () => ({ origin: '', hasPath: false }),
-    joinUrl: () => '',
     isDatabaseReady: () => databaseReady,
     getVectorIndexHealth: async () => ({ status: 'ready', itemCount: 0 })
   }));

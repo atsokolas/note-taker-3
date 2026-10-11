@@ -48,7 +48,6 @@ const run = async () => {
   const queryRef = {};
   const router = buildAiMaintenanceRouter({
     authenticateToken: (_req, _res, next) => next(),
-    isAiEnabled: () => true,
     EmbeddingJob: createEmbeddingJobModel([
       {
         _id: 'job-1',

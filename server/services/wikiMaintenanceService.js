@@ -2672,7 +2672,7 @@ const REPO_FALLBACK_PRIORITY_PATHS = [
   /^note-taker-ui\/src\/pages\/DataIntegrations\.[jt]sx?$/i,
   /^note-taker-ui\/src\/pages\/SharedWikiPage\.[jt]sx?$/i,
   /^server\/services\/wikiScheduledMaintenanceWorker\.[jt]s$/i,
-  /^server\/(?:config\/aiClient|ai\/hfTextClient)\.[jt]s$/i,
+  /^server\/ai\/hfTextClient\.[jt]s$/i,
   /^packages\/wiki-mcp\/(?:README[^/]*|package\.json)$/i
 ];
 
@@ -2850,7 +2850,7 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
   const envVariableNames = envExamplePath ? prioritizedEnvVariableNames(envExamplePath) : [];
   const uiAppPath = repoSourceForPath(repoSources, /^note-taker-ui\/src\/App\.[jt]sx?$/i);
   const mcpPackagePath = repoSourceForPath(repoSources, /^packages\/wiki-mcp\/(?:README[^/]*|package\.json)$/i);
-  const aiClientPath = repoSourceForPath(repoSources, /^server\/(?:config\/aiClient|ai\/hfTextClient)\.[jt]s$/i);
+  const aiClientPath = repoSourceForPath(repoSources, /^server\/ai\/hfTextClient\.[jt]s$/i);
   const scheduledWorkerPath = repoSourceForPath(repoSources, /^server\/services\/wikiScheduledMaintenanceWorker\.[jt]s$/i);
   const publicationPath = repoSourceForPath(repoSources, /^server\/services\/wikiMaintenancePublicationService\.[jt]s$/i);
   const authRoutesPath = repoSourceForPath(repoSources, /^server\/routes\/authDiscoveryRoutes\.[jt]s$/i);

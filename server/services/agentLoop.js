@@ -71,10 +71,11 @@ const proposeTool = (changes) => Object.freeze({
 });
 
 // Appended to the partner's system prompt for this loop.
-const SEARCH_RULE = 'You can search the reader\'s library and read a source before answering. Search when the question reaches beyond the passages already in front of you.';
+const SEARCH_RULE = 'You can search the reader\'s library and read a source before answering. Search when the question reaches beyond the passages already in front of you. To find reading that bears on the reader\'s own note, search for the idea the note holds in other words, not for the question\'s words.';
 const LOOP_RULES = [
   'When you rely on a source, quote its exact words in double quotes and name the source. Quote only words that appear in a passage you were shown or read.',
-  'A passage that begins "You hold:" is a view the reader holds, with their reasons and what would change their mind. When what you found supports it or cuts against it, say which, and quote the view.',
+  'In a highlight, the words after "Your note:" are the reader\'s margin note, not the author\'s. Quote the passage and the note separately, never as one quotation.',
+  'A passage that begins "You hold:" is a view the reader holds, with their reasons and what would change their mind. Bring it in only when the question is about it or asks what the reading challenges or supports; then say which, and quote the view.',
   'If nothing in the library bears on the question, say so plainly in one sentence. Do not answer from general knowledge as though the library said it.',
   'Name only the sources that answer the question. Do not add related reading the reader did not ask for, and do not name a source only to say it does not apply.'
 ];

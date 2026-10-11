@@ -11,6 +11,7 @@
 // Silence fallback: nothing qualifies, nothing is returned. The caller says
 // the library is quiet; it does not pad the answer with the newest saves.
 const { buildArticlePassages } = require('../ai/articlePassages');
+const { NOTE_LABEL } = require('./agentGrounding');
 
 const CANDIDATES_PER_MODEL = 40;
 const SNIPPET_LENGTH = 700;
@@ -47,10 +48,14 @@ const words = (text = '') => String(text || '')
   .map(word => word.replace(/^'+|'+$/g, '').replace(/'s$/, ''))
   .filter(Boolean);
 
-// Truncation stemming: long words compare on their first six letters, short
-// ones lose a plural s. Crude, but "decisions" finds "decision" and
-// "imagining" finds "imagine" without a dependency.
-const stem = word => (word.length > 6 ? word.slice(0, 6) : word.replace(/(?<=\w{3})s$/, ''));
+// Truncation stemming: a word loses a plural s, an -ed or -ing ending and the
+// silent e of a long root, then compares on its first six letters. Crude, but
+// "decisions" finds "decision", "imagining" finds "imagine" and "trusted" finds
+// "trust" without a dependency, while "plane" never becomes "plan".
+const stem = (word) => {
+  const root = word.replace(/(?<=\w{3})s$/, '').replace(/(?<=\w{4})(?:ed|ing)$/, '').replace(/(?<=\w{5})e$/, '');
+  return root.length > 6 ? root.slice(0, 6) : root;
+};
 
 const queryTerms = (query = '') => [...new Set(
   words(query).filter(word => word.length >= 3 && !STOPWORDS.has(word))
@@ -93,7 +98,8 @@ const articleUnits = article => [
     .filter(highlight => highlight?.text || highlight?.note)
     .map(highlight => ({
       key: `h${highlight._id}`,
-      text: [highlight.text, highlight.note ? `Your note: ${highlight.note}` : ''].filter(Boolean).join(' ')
+      // A note keeps its line breaks but no blank line: a blank line ends the passage.
+      text: [highlight.text, highlight.note ? `${NOTE_LABEL} ${String(highlight.note).replace(/\s*\n\s*\n\s*/g, '\n')}` : ''].filter(Boolean).join(' ')
     }))
 ].map(unit => ({ ...unit, type: 'article', id: String(article._id), title: article.title || 'Article', updatedAt: article.updatedAt }));
 
@@ -156,6 +162,13 @@ const scoreUnits = (units, terms, corpusUnits = units.length) => {
     });
     return { ...unit, score, matched };
   });
+};
+
+// Whether a passage shares a word with the reader's own question: what the
+// model searched for may have wandered off it.
+const touches = (query, { title = '', fullText = '', snippet = '' } = {}) => {
+  const terms = queryTerms(query);
+  return terms.length > 0 && scoreUnits([{ title, text: fullText || snippet }], terms)[0].matched > 0;
 };
 
 // Mongo's text index finds every source that shares a word with the question,
@@ -267,8 +280,9 @@ const retrievePassages = async ({
   // Searching by the source in hand, two shared terms make a connection, but
   // a long list of its words needs a stricter floor to stay on topic.
   const byAbout = asked === about;
-  const required = byAbout ? Math.min(2, terms.length)
-    : terms.length <= 2 && !forModel ? terms.length : Math.ceil(terms.length / 2);
+  const strictly = byAbout ? Math.min(2, terms.length)
+    : terms.length <= 2 ? terms.length : Math.ceil(terms.length / 2);
+  const required = forModel && !byAbout ? Math.ceil(terms.length / 2) : strictly;
   const floor = byAbout ? ABOUT_FLOOR : RELATIVE_FLOOR;
   const best = Math.max(0, ...units.map(unit => unit.score));
   const ranked = units
@@ -301,6 +315,8 @@ const retrievePassages = async ({
       snippet: clip(unit.text),
       fullText: unit.text,
       ...(unit.held ? { held: unit.held } : {}),
+      // Whether it clears the bar a reader is served by without the model.
+      ...(forModel ? { servable: unit.matched >= strictly || unit.semantic !== undefined } : {}),
       updatedAt: unit.updatedAt,
       score: Number(unit.fused.toFixed(4))
     }));
@@ -387,4 +403,4 @@ const readStandingContext = async ({ userId, models: { Article, WikiPage = null 
   };
 };
 
-module.exports = { retrievePassages, bestPassage, topPassages, sourcePassages, readSource, readStandingContext, __testables: { queryTerms, stem, scoreUnits, semanticKey, stripImportChrome, articleUnits, noteUnits, conceptUnits, viewUnits } };
+module.exports = { retrievePassages, touches, bestPassage, topPassages, sourcePassages, readSource, readStandingContext, __testables: { queryTerms, stem, scoreUnits, semanticKey, stripImportChrome, articleUnits, noteUnits, conceptUnits, viewUnits } };

@@ -3,6 +3,9 @@
 
 const PASSAGE_WORDS = 6;
 const QUOTE_MIN_WORDS = 5;
+// A highlight is shown with the reader's margin note after this label. The
+// author's words and the reader's are two statements, never one quotation.
+const NOTE_LABEL = 'Your note:';
 
 const words = (text = '') => String(text || '')
   .toLowerCase()
@@ -31,16 +34,28 @@ const quotations = (reply = '') => [...String(reply).matchAll(/[“"]([^”"]+)[
   .map(match => match[1])
   .filter(span => words(span).length >= QUOTE_MIN_WORDS);
 
-// Whether a quoted span appears in any of the texts, word for word. An
+// A text's separate statements: the author's words, and each margin note, which
+// runs from its label to the end of its paragraph.
+const statements = (text = '') => {
+  const [first, ...noted] = String(text || '').split(NOTE_LABEL);
+  return [first, ...noted.flatMap((part) => {
+    const [note, ...rest] = part.split(/\n\s*\n/);
+    return [note, rest.join('\n\n')];
+  })];
+};
+
+// Whether a quoted span appears in one of the texts, word for word. An
 // ellipsis marks words left out, so each piece between ellipses must appear
-// on its own, however short.
+// on its own, however short, but all of them in the same statement.
 const quotedIn = (span = '', texts = []) => {
-  const haystacks = (Array.isArray(texts) ? texts : []).map(text => ` ${words(text).join(' ')} `);
+  const haystacks = (Array.isArray(texts) ? texts : [])
+    .flatMap(statements)
+    .map(text => ` ${words(text).join(' ')} `);
   const pieces = String(span)
     .split(/…|\.{3}/)
     .map(piece => words(piece).join(' '))
     .filter(Boolean);
-  return pieces.length > 0 && pieces.every(piece => haystacks.some(text => text.includes(` ${piece} `)));
+  return pieces.length > 0 && haystacks.some(text => pieces.every(piece => text.includes(` ${piece} `)));
 };
 
 // Quotations of five words or more that appear in none of the given texts.
@@ -48,4 +63,4 @@ const quotedIn = (span = '', texts = []) => {
 // about what a source said.
 const inventedQuotes = (reply = '', texts = []) => quotations(reply).filter(span => !quotedIn(span, texts));
 
-module.exports = { PASSAGE_WORDS, words, drawsOn, groundedIn, inventedQuotes, quotedIn };
+module.exports = { PASSAGE_WORDS, NOTE_LABEL, words, drawsOn, groundedIn, inventedQuotes, quotedIn };

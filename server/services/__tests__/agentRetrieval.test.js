@@ -1,4 +1,4 @@
-const { retrievePassages, readSource, readStandingContext, __testables: { queryTerms, stripImportChrome } } = require('../agentRetrieval');
+const { retrievePassages, touches, readSource, readStandingContext, __testables: { queryTerms, stem, stripImportChrome } } = require('../agentRetrieval');
 
 // A stand-in for a Mongoose model: every query resolves to the given rows,
 // and $text is supported so the lexical path is the one under test.
@@ -38,6 +38,23 @@ describe('retrievePassages', () => {
     expect(queryTerms('Connect this to anything else I have saved.')).toEqual([]);
   });
 
+  it('compares a word with its inflections: a search for "trusting" finds "trust"', () => {
+    expect(new Set(['trust', 'trusted', 'trusting', 'trusts'].map(stem)).size).toBe(1);
+    expect(stem('decisions')).toBe(stem('decision'));
+    expect(stem('imagining')).toBe(stem('imagine'));
+    expect(stem('rates')).toBe(stem('rate'));
+    expect(stem('created')).toBe(stem('create'));
+    expect(stem('sharing')).toBe(stem('shared'));
+    // A short word keeps its e: rate is not rat, note is not not.
+    expect(stem('rate')).not.toBe(stem('rat'));
+    expect(stem('note')).not.toBe(stem('not'));
+    expect(stem('plane')).not.toBe(stem('plan'));
+    expect(stem('hope')).not.toBe(stem('hop'));
+    // Short words keep their endings: "red" and "thing" are words, not inflections.
+    expect(stem('thing')).toBe('thing');
+    expect(stem('need')).toBe('need');
+  });
+
   it('returns the passage that answers, not every source that shares a word', async () => {
     const results = await retrievePassages({
       userId: 'u1',
@@ -63,6 +80,14 @@ describe('retrievePassages', () => {
     const ask = forModel => retrievePassages({ userId: 'u', query: 'limits of expertise', forModel, models: library() });
     expect(await ask(false)).toEqual([]);
     expect((await ask(true)).map(hit => hit.id)).toEqual(['checklists']);
+    // ...and a reader is never served it without the model's judgment.
+    expect((await ask(true))[0].servable).toBe(false);
+  });
+
+  it('knows when a passage the model found has wandered off the question', async () => {
+    const [found] = await retrievePassages({ userId: 'u', query: 'checklists', forModel: true, models: library() });
+    expect(touches('How far can expertise be trusted?', found)).toBe(true);
+    expect(touches('What did I save about the French Revolution?', found)).toBe(false);
   });
 
   it('searches by the source in hand when the question names nothing, and looks past that source', async () => {
@@ -150,6 +175,26 @@ describe('retrievePassages', () => {
     });
     expect(source).toMatchObject({ type: 'wiki_page', id, title: 'Late decisions' });
     expect(source.fullText).toBe('You hold: I decide well at midnight.\n\nThe page body.');
+  });
+
+  it('keeps a note of several paragraphs apart from the next highlight', async () => {
+    const { quotedIn } = require('../agentGrounding');
+    const one = row => ({ findOne: () => ({ select: () => ({ lean: async () => row }) }) });
+    const id = 'b'.repeat(24);
+    const source = await readSource({
+      userId: 'u1',
+      id,
+      models: {
+        Article: one({ _id: id, title: 'Checklists', content: '', highlights: [
+          { _id: 'h1', text: 'Checklists free judgment.', note: 'First thought.\n\nA second thought on teams.' },
+          { _id: 'h2', text: 'Pilots resisted them for years.' }
+        ] }),
+        NotebookEntry: one(null),
+        WikiPage: one(null)
+      }
+    });
+    expect(quotedIn('A second thought on teams', [source.fullText])).toBe(true);
+    expect(quotedIn('A second thought on teams. Pilots resisted them', [source.fullText])).toBe(false);
   });
 
   it('strips import preambles so they are never quoted as the author', () => {

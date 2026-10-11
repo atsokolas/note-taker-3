@@ -1,4 +1,4 @@
-const { fileReadingProposal, opposeFromNote, proposeFromReading, pushesAgainst, PER_DAY } = require('./readingTalksBack');
+const { fileReadingProposal, opposeFromNote, proposeFromReading, pushesAgainst, readingStands, PER_DAY } = require('./readingTalksBack');
 const { buildReadingProposal, planJudgmentChangeDisposition } = require('./judgmentChangeProposalService');
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -284,5 +284,132 @@ describe('you hold the opposite', () => {
     // A sentence still being typed is not asked yet.
     expect(await check(setup(), note({ blocks: [{ id: 'b1', text: OPPOSITE.slice(0, -1) }] }), complete)).toBeNull();
     expect(complete).not.toHaveBeenCalled();
+  });
+});
+
+describe('what would change your mind', () => {
+  const TEST = 'Renewal rates fall for two straight quarters.';
+  const MET = 'Renewal rates fell for two straight quarters, the first decline since the company began reporting them.';
+  const withTest = (falsifier = {}, content = MET) => {
+    const models = world();
+    models.Article.rows[0].content = content;
+    models.WikiPage.rows[0].judgment.falsifiers = [{ falsifierId: 'f1', text: TEST, status: 'unobserved', ...falsifier }];
+    return models;
+  };
+  // The model answers each question for what it is: a test met, a sentence challenged.
+  const reader = jest.fn(async ({ messages }) => ({
+    text: JSON.stringify(messages[1].content.includes('change their mind if')
+      ? { stance: 'meets', quote: MET }
+      : { stance: 'challenge', quote: 'Costco renews nearly ninety percent of its members every year, even when wallets tighten.' })
+  }));
+  beforeEach(() => reader.mockClear());
+
+  it('surfaces a passage that meets an open falsifier as a challenge that names it', async () => {
+    const models = withTest();
+    const [proposal] = await read(models, reader);
+    expect(reader).toHaveBeenCalledTimes(1);
+    expect(reader.mock.calls[0][0].messages[1].content).toContain(`They said they would change their mind if: "${TEST}"`);
+    expect(proposal.title).toBe('A passage that meets what would change your mind');
+    expect(proposal.provenance).toMatchObject({ change: 'evidence', stance: 'challenge', falsifier: TEST, after: MET, articleId: 'a1' });
+    expect(await read(models, reader)).toEqual([]);
+    expect(reader).toHaveBeenCalledTimes(1);
+  });
+
+  it('asks a met test before the sentence, and files one proposal per view per source', async () => {
+    const models = withTest({}, `${SOURCE} ${MET}`);
+    const proposals = await read(models, reader);
+    expect(proposals).toHaveLength(1);
+    expect(proposals[0].provenance.falsifier).toBe(TEST);
+    expect(reader).toHaveBeenCalledTimes(1);
+  });
+
+  it('stays silent when the passage shares words but the model says it does not meet the test', async () => {
+    const models = withTest();
+    expect(await read(models, answer({ stance: 'nothing', quote: '' }))).toEqual([]);
+    // A "meets" answer to the sentence question is not a verdict either.
+    expect(await read(world(), answer({ stance: 'meets', quote: 'In 2009 traffic held while discretionary retailers saw double-digit declines.' }))).toEqual([]);
+    expect(models.NoeisReceipt.rows).toHaveLength(0);
+  });
+
+  it('asks one test per view, so many tests on one view do not crowd out another', async () => {
+    const models = withTest();
+    models.WikiPage.rows[0].judgment.falsifiers = ['Renewal rates fall.', 'Renewal rates fall two quarters.', 'Renewal rates fall again.']
+      .map((text, index) => ({ falsifierId: `f${index}`, text, status: 'unobserved' }));
+    const nothing = answer({ stance: 'nothing', quote: '' });
+    await read(models, nothing);
+    const tests = nothing.mock.calls.filter(([{ messages }]) => messages[1].content.includes('change their mind if'));
+    expect(tests).toHaveLength(1);
+  });
+
+  it('asks each view its sentence too, so views with tests cannot spend the budget on tests alone', async () => {
+    const models = withTest({}, `${SOURCE} ${MET}`);
+    const [first] = models.WikiPage.rows;
+    models.WikiPage.rows.push(...[2, 3, 4, 5].map(n => ({ ...first, _id: `v${n}` })));
+    const nothing = answer({ stance: 'nothing', quote: '' });
+    await read(models, nothing);
+    const sentences = nothing.mock.calls.filter(([{ messages }]) => !messages[1].content.includes('change their mind if'));
+    expect(sentences.length).toBeGreaterThan(0);
+  });
+
+  it('notices a revised sentence however long it is', async () => {
+    const models = withTest();
+    const page = models.WikiPage.rows[0];
+    page.judgment.currentJudgment = `${page.judgment.currentJudgment} ${'Because members renew. '.repeat(200)}`;
+    const [proposal] = await read(models, reader);
+    expect(readingStands(page, proposal)).toBe(true);
+    page.judgment.currentJudgment = `${page.judgment.currentJudgment} Except in Japan.`;
+    expect(readingStands(page, proposal)).toBe(false);
+  });
+
+  it('notices a reworded test however long it is', async () => {
+    const long = `${TEST} ${'Measured by cohort. '.repeat(40)}`;
+    const models = withTest({ text: long });
+    const [proposal] = await read(models, reader);
+    const page = models.WikiPage.rows[0];
+    expect(readingStands(page, proposal)).toBe(true);
+    page.judgment.falsifiers[0].text = `${long} Except in Japan.`;
+    expect(readingStands(page, proposal)).toBe(false);
+  });
+
+  it('goes quiet once the test it met is retired or reworded', async () => {
+    const models = withTest();
+    const [proposal] = await read(models, reader);
+    const page = models.WikiPage.rows[0];
+    expect(readingStands(page, proposal)).toBe(true);
+    page.judgment.falsifiers[0].status = 'retired';
+    expect(readingStands(page, proposal)).toBe(false);
+    page.judgment.falsifiers[0] = { falsifierId: 'f1', text: 'Renewals fall below eighty percent.', status: 'unobserved' };
+    expect(readingStands(page, proposal)).toBe(false);
+    // A proposal still on screen cannot be filed against the test it no longer meets.
+    const fileJudgmentEvidence = jest.fn();
+    await expect(fileReadingProposal({
+      userId: 'u1', pageId: 'v1', receiptId: proposal.id, field: 'against', fileJudgmentEvidence, models, now
+    })).rejects.toMatchObject({ statusCode: 409 });
+    expect(fileJudgmentEvidence).not.toHaveBeenCalled();
+    expect(models.Article.rows[0].highlights || []).toEqual([]);
+  });
+
+  it('never asks a retired or triggered falsifier, and asks nothing without a model', async () => {
+    expect(await read(withTest({ status: 'retired' }), reader)).toEqual([]);
+    expect(await read(withTest({ status: 'triggered' }), reader)).toEqual([]);
+    expect(await read(withTest(), reader, { configured: () => false })).toEqual([]);
+    expect(reader).not.toHaveBeenCalled();
+  });
+
+  it('reads the criteria line as a test, in the signal’s words', () => {
+    const { __testables: { asksOf, askedText } } = require('./readingTalksBack');
+    const page = { _id: 'v1', judgment: {
+      currentJudgment: 'Costco holds up.',
+      resolutionCriteria: 'Renewals under eighty percent.',
+      falsifiers: [{ text: 'Costco holds up.', observableSignal: 'Renewals under eighty percent.' }, { text: 'Fees cut.', status: 'warning' }]
+    } };
+    expect(asksOf(page).map(askedText)).toEqual(['Costco holds up.', 'Renewals under eighty percent.', 'Fees cut.']);
+  });
+
+  it('asks with a view\'s first three tests however many it lists', () => {
+    const { __testables: { asksOf, askedText } } = require('./readingTalksBack');
+    const falsifiers = Array.from({ length: 40 }, (_, index) => ({ text: `Signal ${index}.` }));
+    const page = { _id: 'v1', judgment: { currentJudgment: 'Costco holds up.', falsifiers } };
+    expect(asksOf(page).map(askedText)).toEqual(['Costco holds up.', 'Signal 0.', 'Signal 1.', 'Signal 2.']);
   });
 });
