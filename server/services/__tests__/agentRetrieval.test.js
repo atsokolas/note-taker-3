@@ -177,6 +177,26 @@ describe('retrievePassages', () => {
     expect(source.fullText).toBe('You hold: I decide well at midnight.\n\nThe page body.');
   });
 
+  it('keeps a note of several paragraphs apart from the next highlight', async () => {
+    const { quotedIn } = require('../agentGrounding');
+    const one = row => ({ findOne: () => ({ select: () => ({ lean: async () => row }) }) });
+    const id = 'b'.repeat(24);
+    const source = await readSource({
+      userId: 'u1',
+      id,
+      models: {
+        Article: one({ _id: id, title: 'Checklists', content: '', highlights: [
+          { _id: 'h1', text: 'Checklists free judgment.', note: 'First thought.\n\nA second thought on teams.' },
+          { _id: 'h2', text: 'Pilots resisted them for years.' }
+        ] }),
+        NotebookEntry: one(null),
+        WikiPage: one(null)
+      }
+    });
+    expect(quotedIn('A second thought on teams', [source.fullText])).toBe(true);
+    expect(quotedIn('A second thought on teams. Pilots resisted them', [source.fullText])).toBe(false);
+  });
+
   it('strips import preambles so they are never quoted as the author', () => {
     expect(stripImportChrome('Name: Strategy Notes URL: https://example.com/strategy The useful passage explains it.'))
       .toBe('The useful passage explains it.');

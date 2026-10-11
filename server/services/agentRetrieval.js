@@ -98,7 +98,8 @@ const articleUnits = article => [
     .filter(highlight => highlight?.text || highlight?.note)
     .map(highlight => ({
       key: `h${highlight._id}`,
-      text: [highlight.text, highlight.note ? `${NOTE_LABEL} ${highlight.note}` : ''].filter(Boolean).join(' ')
+      // A note keeps its line breaks but no blank line: a blank line ends the passage.
+      text: [highlight.text, highlight.note ? `${NOTE_LABEL} ${String(highlight.note).replace(/\s*\n\s*\n\s*/g, '\n')}` : ''].filter(Boolean).join(' ')
     }))
 ].map(unit => ({ ...unit, type: 'article', id: String(article._id), title: article.title || 'Article', updatedAt: article.updatedAt }));
 
