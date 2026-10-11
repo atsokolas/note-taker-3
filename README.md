@@ -1,4 +1,4 @@
-# Note Taker
+# Noeis
 
 ## Product overview (marketing + docs)
 
@@ -201,11 +201,9 @@ The UI shell now uses a shared token-driven layer across the four primary rooms:
 - `Wiki` is the post-login return route (`/wiki`); Library, Think, Wiki, and Judgment remain persistent primary navigation.
 - Global chrome is composed from reusable primitives:
   - `AppShell` (`note-taker-ui/src/layout/AppShell.jsx`)
-  - `LeftNav` (`note-taker-ui/src/layout/LeftNav.jsx`)
   - `TopBar` (`note-taker-ui/src/layout/TopBar.jsx`)
   - `RightDrawer` (`note-taker-ui/src/layout/RightDrawer.jsx`)
   - `SurfaceCard`, `PillButton`, `Chip` (`note-taker-ui/src/components/ui.js`)
-  - `SkeletonBlock` (`note-taker-ui/src/components/SkeletonBlock.jsx`)
 - Think remains a native document-first notebook. Judgment alone offers a board posture for moving through one case without turning the product into a generic dashboard.
 - Right column context/working-memory is user-collapsible and persists per route via localStorage keys.
 
