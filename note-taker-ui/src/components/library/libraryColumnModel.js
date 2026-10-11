@@ -18,6 +18,12 @@ export const sourceLabel = (article) => {
   }
 };
 
+/** Where the piece lives on the web, if anywhere. A pasted or emailed piece
+    is filed under its own scheme, which no browser can open. */
+export const originalUrl = (article) => [article?.url, article?.importMeta?.sourceUrl]
+  .map(normalizeSpaces)
+  .find(url => /^https?:\/\//i.test(url)) || '';
+
 /** What the agent rail is looking at while the human is in the Library. */
 export const librarySubject = ({ article = null, count = 0 } = {}) => {
   const title = normalizeSpaces(article?.title);

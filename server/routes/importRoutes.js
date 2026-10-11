@@ -51,6 +51,13 @@ const { recordSourceCorrection } = require('../services/authoredSourceCorrection
 const { processWikiSourceEvent: defaultProcessWikiSourceEvent } = require('../services/wikiMaintenanceOrchestrator');
 const { persistNoeisReceipt } = require('../services/noeisReceiptService');
 const { wordBoundaryTrim } = require('../lib/editorialText');
+const {
+  inboundMailConfig,
+  newsletterFromMail,
+  readerForMail,
+  receivedMail,
+  verifyWebhookSignature
+} = require('../services/import/newsletterMail');
 
 const toTrimmedString = (value = '') => String(value || '').trim();
 const normalizeSourcePath = (value = '') => {
@@ -100,7 +107,10 @@ const buildImportRouter = ({
   syncNotebookReferences,
   enqueueArticleEmbedding,
   enqueueHighlightEmbedding,
-  enqueueNotebookEmbedding
+  enqueueNotebookEmbedding,
+  User = null,
+  env = process.env,
+  fetchImpl = global.fetch
 }) => {
   const router = express.Router();
 
@@ -156,6 +166,9 @@ const buildImportRouter = ({
     content,
     url,
     author = '',
+    siteName = '',
+    publicationDate = '',
+    sourceUrl = '',
     provider = 'manual',
     sourceType = 'text',
     sourceLabel = 'Pasted source',
@@ -176,6 +189,12 @@ const buildImportRouter = ({
       sourceType,
       url: safeUrl
     });
+    const byline = {
+      ...(author ? { author } : {}),
+      ...(siteName ? { siteName } : {}),
+      ...(publicationDate ? { publicationDate } : {})
+    };
+    const httpUrl = sourceUrl || (/^https?:\/\//i.test(safeUrl) ? safeUrl : '');
     let article = await Article.findOne({ userId, url: safeUrl });
     const isNew = !article;
     if (!article) {
@@ -184,11 +203,12 @@ const buildImportRouter = ({
         title: safeTitle,
         content: safeContent,
         userId,
+        ...byline,
         importMeta: {
           provider,
           sourceType,
           sourceLabel,
-          sourceUrl: /^https?:\/\//i.test(safeUrl) ? safeUrl : '',
+          sourceUrl: httpUrl,
           externalId,
           importedAt: new Date()
         }
@@ -196,12 +216,13 @@ const buildImportRouter = ({
     } else {
       article.title = safeTitle || article.title;
       article.content = safeContent || article.content;
+      Object.assign(article, byline);
       article.importMeta = {
         ...(article.importMeta || {}),
         provider,
         sourceType,
         sourceLabel,
-        sourceUrl: /^https?:\/\//i.test(safeUrl) ? safeUrl : article.importMeta?.sourceUrl || '',
+        sourceUrl: httpUrl || article.importMeta?.sourceUrl || '',
         externalId: externalId || article.importMeta?.externalId || '',
         importedAt: article.importMeta?.importedAt || new Date(),
         lastSyncedAt: new Date()
@@ -298,6 +319,50 @@ const buildImportRouter = ({
     } catch (error) {
       console.error('Error importing URL:', error);
       res.status(error.statusCode || 500).json({ error: error.message || 'Failed to import URL.' });
+    }
+  });
+
+  /* Email-in. Every outcome but a forged signature answers 200, so the
+     provider stops retrying mail that was never going to land. */
+  router.post('/api/import/email', async (req, res) => {
+    const config = inboundMailConfig(env);
+    if (!config.enabled) return res.status(404).json({ error: 'Email-in is not configured.' });
+    if (!verifyWebhookSignature({ secret: config.secret, headers: req.headers, rawBody: req.rawBody })) {
+      return res.status(401).json({ error: 'Signature did not verify.' });
+    }
+    if (req.body?.type && req.body.type !== 'email.received') return res.status(200).json({ status: 'ignored' });
+    try {
+      const mail = await receivedMail(req.body, { apiKey: config.apiKey, fetchImpl });
+      const reader = await readerForMail({ User, mail, inboundAddress: config.address });
+      if (!reader) {
+        console.log('[email-in] dropped: no account confirmed that address');
+        return res.status(200).json({ status: 'dropped' });
+      }
+      const url = `email://${mail.messageId}`;
+      if (await Article.exists({ userId: reader._id, url })) return res.status(200).json({ status: 'duplicate' });
+      const piece = newsletterFromMail({ ...mail, readerEmail: reader.morningPaper.email });
+      if (!piece.content) {
+        console.log('[email-in] dropped: nothing readable');
+        return res.status(200).json({ status: 'dropped' });
+      }
+      const { article } = await ingestArticleSource({
+        userId: reader._id,
+        title: piece.title,
+        content: piece.content,
+        url,
+        author: piece.author,
+        siteName: piece.siteName,
+        publicationDate: piece.publicationDate,
+        sourceUrl: piece.sourceUrl,
+        provider: 'email',
+        sourceType: 'article',
+        sourceLabel: piece.siteName,
+        externalId: mail.messageId
+      });
+      return res.status(200).json({ status: 'saved', articleId: article._id });
+    } catch (error) {
+      console.error('[email-in] failed:', error);
+      return res.status(500).json({ error: 'Failed to save that mail.' });
     }
   });
 

@@ -74,7 +74,8 @@ app.use(cors());
 
 const { buildChatgptOAuthIngress } = require('./services/chatgptOAuthIngress');
 app.use(buildChatgptOAuthIngress());
-app.use(express.json({ limit: '50mb' }));
+// The raw bytes stay on the request for webhooks that sign them (email-in).
+app.use(express.json({ limit: '50mb', verify: (req, _res, buf) => { req.rawBody = buf; } }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Which build is actually serving traffic?
@@ -7392,7 +7393,8 @@ const importRouter = buildImportRouter({
   syncNotebookReferences,
   enqueueArticleEmbedding,
   enqueueHighlightEmbedding,
-  enqueueNotebookEmbedding
+  enqueueNotebookEmbedding,
+  User
 });
 app.use(importRouter);
 
