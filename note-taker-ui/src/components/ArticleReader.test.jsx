@@ -15,10 +15,8 @@ import { fileReadingProposal, getPushesAgainst } from '../api/judgmentResolution
 import useTextSelection from './reader/useTextSelection';
 import { handOffSentence, resetFirstPaint } from '../motion/columnMotion';
 import { useFinePointer, usePrefersReducedMotion } from '../hooks/useMotionPreferences';
-import {
-  ARTICLE_PASSAGE_FRAGMENT_LIMIT,
-  buildArticlePassageHref
-} from '../utils/articlePassageAnchor';
+import { ARTICLE_PASSAGE_FRAGMENT_LIMIT } from '../utils/articlePassageAnchor';
+import { buildArticlePassageHref } from '../utils/sourceRoutes';
 import { cleanSourceTextForDisplay } from '../utils/sourceDisplayText';
 import { passageFromSelection } from './wiki/open-sentence/LibraryPassagePicker';
 

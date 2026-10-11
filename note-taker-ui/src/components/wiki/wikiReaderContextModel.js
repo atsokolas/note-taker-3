@@ -41,30 +41,6 @@ export const surroundingFromSource = (source = {}) => sourceSurrounding({
   aroundAfter: source?.aroundAfter || source?.after || source?.contextAfter || ''
 });
 
-export const sourceArticleId = (source = {}) => {
-  const type = clean(source?.type || source?.sourceType).toLowerCase();
-  const objectId = clean(source?.objectId || source?.sourceObjectId || source?.sourceId || source?.articleId);
-  const parentId = clean(source?.parentObjectId || source?.parentArticleId || source?.articleId || source?.metadata?.articleId);
-  if (type === 'article' && objectId) return objectId;
-  if (type === 'highlight') return parentId;
-  return parentId || (type !== 'highlight' ? objectId : '');
-};
-
-export const sourceHighlightId = (source = {}) => {
-  const type = clean(source?.type || source?.sourceType).toLowerCase();
-  const highlightId = clean(source?.highlightId || source?.objectId || source?.sourceObjectId);
-  if (type === 'highlight') return highlightId;
-  return clean(source?.highlightId);
-};
-
-export const resolveLibraryHighlight = ({ source = {}, highlights = [] } = {}) => {
-  const highlightId = sourceHighlightId(source);
-  if (!highlightId) return null;
-  return (Array.isArray(highlights) ? highlights : []).find((entry) => (
-    clean(entry?._id || entry?.id) === highlightId
-  )) || null;
-};
-
 export const surroundingFromLibrarySource = ({
   source = {},
   article = null,

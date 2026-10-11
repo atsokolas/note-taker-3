@@ -102,7 +102,7 @@ const EvidenceList = ({ title, sources, role }) => {
       <h3 className="wiki-claim-popover__evidence-title">{title}</h3>
       <ol className="wiki-claim-popover__list">
         {sources.map((source, index) => {
-          const doors = resolveSourceDoors(source);
+          const doors = resolveSourceDoors(source, { passage: source.snippet });
           return (
             <li key={source._id || `${source.type}-${index}`} className="wiki-claim-popover__item">
               <div className="wiki-claim-popover__item-head">

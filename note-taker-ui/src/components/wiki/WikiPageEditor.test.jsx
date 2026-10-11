@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { MemoryRouter } from 'react-router-dom';
 import WikiPageEditor from './WikiPageEditor';
 import { applyWikiAutolink, deleteWikiPage, getWikiPage, listWikiAutolinks, maintainWikiPage, updateWikiPage } from '../../api/wiki';
+import { buildArticlePassageHref } from '../../utils/sourceRoutes';
 
 const mockUseEditor = jest.fn();
 const mockEditor = {
@@ -349,7 +350,10 @@ describe('WikiPageEditor', () => {
       '/library?articleId=article-ledger&highlightId=highlight-ledger'
     );
     expect(within(contradictionGroup).getByRole('link', { name: 'Open in Library →' }))
-      .toHaveAttribute('href', '/library?articleId=article-conflict');
+      .toHaveAttribute('href', buildArticlePassageHref({
+        articleId: 'article-conflict',
+        anchor: { text: 'Contradicting ledger source', prefix: '', suffix: '', startOffsetApprox: 0 }
+      }));
   });
 
   it('uses inline contradiction indexes as the fallback when no claim ledger exists', async () => {

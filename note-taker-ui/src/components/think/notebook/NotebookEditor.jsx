@@ -78,6 +78,7 @@ import {
 } from '../../../utils/notebookWorkbench';
 import { readTighterSupport, rescueReadTighterPhrase } from '../../../utils/notebookReadTighter';
 import { UniqueBlockIds } from './uniqueBlockIds';
+import { buildCanonicalArticlePath, buildCanonicalHighlightPath } from '../../../utils/sourceRoutes';
 import '../../../styles/think-writing.css';
 
 const AUTOSAVE_DELAY_MS = 850;
@@ -2011,7 +2012,7 @@ const NotebookEditor = ({
               highlightId: String(highlight._id || ''),
               articleId: String(highlight.articleId || ''),
               sourcePath: highlight.articleId
-                ? `/library?articleId=${encodeURIComponent(highlight.articleId)}${highlight._id ? `&highlightId=${encodeURIComponent(highlight._id)}` : ''}`
+                ? buildCanonicalHighlightPath({ articleId: highlight.articleId, highlightId: highlight._id })
                 : ''
             });
           } else handleInsertHighlight(highlight);
@@ -2040,7 +2041,7 @@ const NotebookEditor = ({
               text: '',
               sourceId: String(item._id || ''),
               articleId: String(item._id || ''),
-              sourcePath: item._id ? `/library?articleId=${encodeURIComponent(item._id)}` : ''
+              sourcePath: item._id ? buildCanonicalArticlePath(item._id) : ''
             });
           } else handleInsertArticle(item);
           setStageSelection(false);

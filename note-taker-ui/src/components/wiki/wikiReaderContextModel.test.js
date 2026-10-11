@@ -6,7 +6,6 @@ import {
   historicalRevisionSnapshot,
   popReaderPanel,
   pushReaderPanel,
-  sourceArticleId,
   sourceSurrounding,
   surroundingFromLibrarySource,
   surroundingFromSource
@@ -61,7 +60,6 @@ describe('wikiReaderContextModel', () => {
     expect(around.canExpand).toBe(true);
     expect(around.aroundBefore).toContain('Getting lost');
     expect(around.aroundAfter).toContain('different kind of care');
-    expect(sourceArticleId(source)).toBe('article-1');
     expect(surroundingFromLibrarySource({
       source: { snippet: 'A similar-sounding neighbor was not attached.' },
       article,

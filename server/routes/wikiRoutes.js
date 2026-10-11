@@ -25,6 +25,7 @@ const {
 const { openTargets, paperColumns } = require('../services/paperColumns');
 const { buildClaimPage } = require('../services/claimFromHighlight');
 const { fetchReadableArticle } = require('../services/readableArticle');
+const { linkPageSources } = require('../services/librarySource');
 const { assertionsFrom, askedBefore, closings, dayOf, quietStreak } = require('../services/paperLedger');
 const { findWikiBacklinks: defaultFindWikiBacklinks } = require('../services/wikiBacklinkService');
 const {
@@ -1779,7 +1780,7 @@ const WIKI_PAGE_SUMMARY_FIELDS = Object.freeze([
   ...WIKI_JUDGMENT_FIELDS,
   'externalWatches.githubRepo', 'externalWatches.edgar', 'externalWatches.transcripts',
   'sourceRefs._id', 'sourceRefs.title', 'sourceRefs.url',
-  'sourceRefs.type', 'sourceRefs.objectId',
+  'sourceRefs.type', 'sourceRefs.objectId', 'sourceRefs.parentObjectId',
   'claims.claimId', 'citations.sourceRefId', 'citations.claimId',
   'aiState.draftStatus', 'aiState.candidateStatus', 'aiState.lastError', 'aiState.errorCode',
   'aiState.quality.ok', 'aiState.quality.status', 'aiState.quality.checkedAt',
@@ -5417,6 +5418,8 @@ const buildWikiRouter = ({
       }
       const page = await pageQuery.lean();
       if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
+      await linkPageSources({ Article, WikiSourceEvent, WikiPage, page })
+        .catch(error => console.error('Could not link wiki sources to the Library:', error));
       const repoWatch = page.externalWatches?.githubRepo || {};
       const lastProbeAt = repoWatch.lastHeadProbeAt ? new Date(repoWatch.lastHeadProbeAt).getTime() : 0;
       const probeStale = Date.now() - lastProbeAt >= 15 * 60 * 1000;
