@@ -2,7 +2,7 @@ const crypto = require('crypto');
 const mongoose = require('mongoose');
 const { CASES } = require('./cases');
 const { SOURCES, seedLibrary, libraryTexts } = require('./library');
-const { scoreCase, summarize, regressions } = require('./score');
+const { scoreCase, summarize } = require('./score');
 
 // Questions are asked from the same surfaces the rail describes in the app.
 const contextFor = (surface, ids) => {
@@ -31,7 +31,7 @@ const openDatabase = async () => {
   return async () => { await mongoose.disconnect(); await server.stop(); };
 };
 
-const runAgentEval = async ({ only = [], baseline = null, onCase = () => {} } = {}) => {
+const runAgentEval = async ({ only = [], onCase = () => {} } = {}) => {
   const close = await openDatabase();
   try {
     const { Article, NotebookEntry, TagMeta, WikiPage } = require('../models');
@@ -64,7 +64,7 @@ const runAgentEval = async ({ only = [], baseline = null, onCase = () => {} } = 
       onCase(item);
     }
     const summary = summarize(scored);
-    return { summary, regressions: regressions(summary, baseline), cases: scored };
+    return { summary, cases: scored };
   } finally {
     await close();
   }

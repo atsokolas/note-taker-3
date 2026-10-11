@@ -2,11 +2,13 @@ const express = require('express');
 const {
   JudgmentChangeProposalError,
   buildJudgmentChangeProposal,
+  isReading,
   planJudgmentChangeDisposition
 } = require('../services/judgmentChangeProposalService');
 const { normalizeJudgment } = require('../services/wikiJudgmentService');
 const { createWikiRevision, snapshotPage } = require('../services/wikiRevisionService');
 const { persistNoeisReceipt, serializeStoredReceipt } = require('../services/noeisReceiptService');
+const { EVENT_NAMES } = require('../utils/analytics');
 
 const serializeId = value => String(value?._id || value?.id || value || '');
 
@@ -22,7 +24,8 @@ const buildJudgmentChangeProposalRouter = ({
   NoeisReceipt,
   findOwnedPage,
   serializePage,
-  onPageChanged = async () => {}
+  onPageChanged = async () => {},
+  trackWikiEvent = () => {}
 }) => {
   const router = express.Router();
 
@@ -30,14 +33,19 @@ const buildJudgmentChangeProposalRouter = ({
     try {
       const page = await findOwnedPage(req).select('_id judgment.currentJudgment').lean();
       if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
-      if (!NoeisReceipt?.findOne) return res.status(200).json({ proposal: null });
-      let query = NoeisReceipt.findOne({
-        userId: req.user.id,
-        kind: 'judgment_change_proposal',
-        'provenance.pageId': serializeId(page._id)
-      });
-      query = query.sort?.({ createdAt: -1 }) || query;
-      return res.status(200).json({ proposal: serializeStoredReceipt(await query) });
+      if (!NoeisReceipt?.find) return res.status(200).json({ proposal: null, reading: [] });
+      const mine = { userId: req.user.id, kind: 'judgment_change_proposal', 'provenance.pageId': serializeId(page._id) };
+      let latest = NoeisReceipt.findOne({ ...mine, 'provenance.change': { $ne: 'evidence' } });
+      latest = latest.sort?.({ createdAt: -1 }) || latest;
+      /* Passages waiting on this view: only those read against the sentence
+         held now. A revision makes an older reading moot, so it goes quiet. */
+      let pending = NoeisReceipt.find({ ...mine, 'provenance.change': 'evidence', status: 'pending' });
+      pending = pending.sort?.({ createdAt: -1 }) || pending;
+      const held = String(page.judgment?.currentJudgment || '').trim();
+      const reading = (await pending.lean?.() || await pending)
+        .map(serializeStoredReceipt)
+        .filter(item => isReading(item) && String(item.provenance?.before || '').trim() === held);
+      return res.status(200).json({ proposal: serializeStoredReceipt(await latest), reading });
     } catch (error) {
       console.error('Error loading judgment change proposal:', error);
       return res.status(500).json({ error: 'Failed to load the judgment change proposal.' });
@@ -115,7 +123,9 @@ const buildJudgmentChangeProposalRouter = ({
             before,
             reason: 'user_edit',
             actorType: 'user',
-            summary: 'Accepted a reviewed change to the held judgment.',
+            summary: isReading(planned.receipt)
+              ? 'Marked a passage not relevant to the held judgment.'
+              : 'Accepted a reviewed change to the held judgment.',
             session: activeSession
           });
         }
@@ -140,7 +150,10 @@ const buildJudgmentChangeProposalRouter = ({
       } else {
         result = await resolve();
       }
-      if (result.changed) await onPageChanged(result.page, req.user.id);
+      if (result.changed) {
+        await onPageChanged(result.page, req.user.id);
+        trackWikiEvent(req, EVENT_NAMES.VIEW_REVISED, { pageId: serializeId(result.page), how: req.params.action });
+      }
       return res.status(200).json({
         page: serializePage(result.page),
         proposal: result.receipt,

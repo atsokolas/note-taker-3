@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { AGENT_DISPLAY_NAME } from '../constants/agentIdentity';
 import { useAgentRail } from './AgentRailContext';
 import { mapAgentStructureProposal, sourceLabelForAgentMessage } from './agentConversationModel';
 import StructureProposalReview from '../components/agent/StructureProposalReview';
@@ -10,7 +11,7 @@ import '../styles/agent-rail.css';
 // it is where the agent lives. It retrieves; the human accepts. Nothing it
 // finds is written down until someone says so.
 
-const ASK_PLACEHOLDER = 'Bring evidence or counterevidence';
+const ASK_PLACEHOLDER = 'Ask about this';
 
 /**
  * Certainty about where the agent is looking. Zero is not an empty state to
@@ -185,12 +186,12 @@ const AgentRail = () => {
   const quietLine = surface.empty
     || (canAsk ? 'Nothing to retrieve until you ask.' : availabilityReason || 'Nothing to retrieve here yet.');
   const askPlaceholder = surface.askPlaceholder || ASK_PLACEHOLDER;
-  const caption = surface.caption || 'Retrieves. You accept.';
+  const caption = threadId ? 'This page keeps its own conversation.' : surface.caption;
 
   return (
     <aside
       className="agent-rail"
-      aria-label={surface.roleLabel || 'Agent'}
+      aria-label={surface.roleLabel || AGENT_DISPLAY_NAME}
       data-agent-contract={surface.contractId || undefined}
       data-agent-presentation="rail"
       data-agent-actions={Array.isArray(surface.supportedActions) ? surface.supportedActions.join(' ') : undefined}
@@ -204,7 +205,7 @@ const AgentRail = () => {
         >
           <span className="agent-rail__thread-knot" />
         </span>
-        <p className="agent-rail__eyebrow">{surface.roleLabel || 'Agent'}</p>
+        <p className="agent-rail__eyebrow">{surface.roleLabel || AGENT_DISPLAY_NAME}</p>
       </div>
 
       {surface.roleDescription ? (
@@ -324,7 +325,7 @@ const AgentRail = () => {
         />
         <button type="submit" disabled={busy || !draft.trim()}>Ask</button>
       </form>
-      <p className="agent-rail__caption">{threadId ? 'This page keeps its own conversation.' : caption}</p>
+      {caption ? <p className="agent-rail__caption">{caption}</p> : null}
     </aside>
   );
 };

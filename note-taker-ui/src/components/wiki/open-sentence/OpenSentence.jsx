@@ -1270,6 +1270,7 @@ const OpenSentence = ({
   onChange = () => {},
   mocked = false,
   heldInteractive = true,
+  openOnClick = false,
   hideHeld = false,
   hosts = null,
   lineProps = {},
@@ -1492,6 +1493,14 @@ const OpenSentence = ({
     return () => window.removeEventListener('pointermove', onMove);
   }, [chipMagnet, followChip, hosts, lineRef]);
 
+  /* The words themselves open the sentence — unless the reader is selecting
+     them, or clicked a link or a citation inside them. */
+  const onHeldClick = (event) => {
+    if (open || selectionInside(heldRef.current)) return;
+    if (event.target.closest?.('a, button, .wiki-claim-citation')) return;
+    openPocket();
+  };
+
   const onHeldKey = (event) => {
     if (event.key !== 'Enter' && event.key !== ' ') return;
     event.preventDefault();
@@ -1555,12 +1564,13 @@ const OpenSentence = ({
     >
       <span
         ref={heldRef}
-        className={`open-sentence__held${open ? ' is-open' : ''}`}
+        className={`open-sentence__held${open ? ' is-open' : ''}${openOnClick ? ' is-clickable' : ''}`}
         tabIndex={heldInteractive ? 0 : undefined}
         role={heldInteractive ? 'button' : undefined}
         aria-expanded={heldInteractive ? open : undefined}
         aria-controls={heldInteractive ? pocketId : undefined}
         onKeyDown={heldInteractive ? onHeldKey : undefined}
+        onClick={openOnClick || heldInteractive ? onHeldClick : undefined}
       >
         {children ?? accepted}
       </span>

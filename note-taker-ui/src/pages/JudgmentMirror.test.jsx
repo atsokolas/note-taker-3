@@ -18,7 +18,7 @@ const doors = {
   stats: {
     held: {
       id: 'held',
-      label: 'Claims held',
+      label: 'Views held',
       value: 2,
       display: '2',
       href: '/judgment/mirror?stat=held'
@@ -83,12 +83,12 @@ describe('JudgmentMirror', () => {
         <JudgmentMirror />
       </router.MemoryRouter>
     );
-    expect(await screen.findByRole('link', { name: /Claims held/ })).toHaveAttribute(
+    expect(await screen.findByRole('link', { name: /Views held/ })).toHaveAttribute(
       'href',
       '/judgment/mirror?stat=held'
     );
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'Claims held' })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Views held' })).toBeInTheDocument();
     });
     expect(screen.getByRole('link', { name: 'Compute is scarce.' })).toHaveAttribute(
       'href',
@@ -96,16 +96,14 @@ describe('JudgmentMirror', () => {
     );
   });
 
-  it('renders a calm, honest mirror without gamification or invented response time', async () => {
+  it('hides a row with nothing behind it', async () => {
     getJudgmentMirror.mockResolvedValue({
-      metrics: {
-        claimsHeld: 3,
-        averageHoldDays: 42,
-        revisionRate: 0.33,
-        verdictRecord: { held_up: 1, broke: 0, partly: 0, unresolvable: 0 },
-        counterevidenceResponseDays: null
+      stats: {
+        ...doors.stats,
+        revisions: { ...doors.stats.revisions, value: null, display: '—' },
+        verdicts: { ...doors.stats.verdicts, value: { held_up: 0, broke: 0 }, display: '' },
+        counterEvidence: { ...doors.stats.counterEvidence, value: null, display: '—' }
       },
-      coverage: { storedBirthDates: 2, totalClaims: 3, responseTimeClaims: 0 },
       due: [],
       verdicts: []
     });
@@ -114,13 +112,16 @@ describe('JudgmentMirror', () => {
         <JudgmentMirror />
       </router.MemoryRouter>
     );
-    expect(await screen.findByRole('heading', { name: 'The Mirror' })).toBeInTheDocument();
-    expect(await screen.findByText('42 days')).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: /Views held/ })).toBeInTheDocument();
+    expect(screen.getByText('12 days')).toBeInTheDocument();
+    expect(screen.queryByText(/Revision rate/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Verdict record/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/counter-evidence/)).not.toBeInTheDocument();
+    expect(screen.queryByText('—')).not.toBeInTheDocument();
     expect(screen.getByText('No verdicts yet. The Mirror is allowed to be empty.')).toBeInTheDocument();
-    expect(screen.getByText(/counterevidence response time stays blank/i)).toBeInTheDocument();
   });
 
-  it('shows private calibration copy without a leaderboard', async () => {
+  it('keeps calibration silent until there are enough outcomes, and never ranks', async () => {
     getJudgmentMirror.mockResolvedValue({
       metrics: { claimsHeld: 1, verdictRecord: {} },
       coverage: { storedBirthDates: 1, totalClaims: 1, responseTimeClaims: 0 },
@@ -142,8 +143,10 @@ describe('JudgmentMirror', () => {
         <JudgmentMirror />
       </router.MemoryRouter>
     );
-    expect(await screen.findByText(/not a sample of everything you thought/)).toBeInTheDocument();
-    expect(screen.getByText(/Too few named outcomes/)).toBeInTheDocument();
+    expect(await screen.findByText('How views turned out')).toBeInTheDocument();
+    /* Too few outcomes to speak: the section stays silent rather than explaining itself. */
+    expect(screen.queryByText(/not a sample of everything you thought/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Too few named outcomes/)).not.toBeInTheDocument();
     expect(document.body.textContent).not.toMatch(/leaderboard|rank|shame/i);
   });
 

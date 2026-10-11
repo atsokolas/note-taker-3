@@ -1,12 +1,10 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import BrandGradient from '../components/BrandGradient';
+import { NavLink, useLocation } from 'react-router-dom';
 import FocusMode from '../components/think/FocusMode';
 import { namesAThinkObject } from '../pages/thinkNotesModel';
 import SystemStatus from './SystemStatus';
 import { goToKeyFor } from '../navigation/appNavigation';
-import { THEME_OPTIONS } from '../settings/uiPreferences';
 
 const TopBarMenuPopover = ({
   open,
@@ -64,7 +62,6 @@ const TopBarMenuPopover = ({
 
 const TopBar = ({
   rightSlot,
-  brandEnergy = true,
   primaryNav = [],
   utilityNav = [],
   secondaryNav = [],
@@ -72,27 +69,10 @@ const TopBar = ({
   onSearchOpen = null,
   accountMenuItems = [],
   className = '',
-  theme = 'auto',
-  onThemeChange = null,
-  themeSaving = false,
   systemStatus = null,
   onSystemStatusRetry = null,
   routeLocation = null
 }) => {
-  const [themeMenuOpen, setThemeMenuOpen] = useState(false);
-  const themeMenuRef = useRef(null);
-  const themeButtonRef = useRef(null);
-  const themePopoverRef = useRef(null);
-  const themeOptionRefs = useRef([]);
-  const closeThemeMenu = (restoreFocus) => {
-    setThemeMenuOpen(false);
-    if (restoreFocus) themeButtonRef.current?.focus();
-  };
-  const currentThemeOption = useMemo(
-    () => THEME_OPTIONS.find((option) => option.value === theme) || THEME_OPTIONS[0],
-    [theme]
-  );
-  const navigate = useNavigate();
   const routerLocation = useLocation();
   const location = routeLocation || routerLocation;
   const [moreOpen, setMoreOpen] = useState(false);
@@ -116,61 +96,7 @@ const TopBar = ({
     return location.pathname === item.to;
   }, [location]);
 
-  const openSearch = () => {
-    if (onSearchOpen) {
-      onSearchOpen();
-      return;
-    }
-    navigate('/search');
-  };
-
-  useLayoutEffect(() => {
-    if (!themeMenuOpen) return undefined;
-    const selectedIndex = Math.max(0, THEME_OPTIONS.findIndex((option) => option.value === theme));
-    themeOptionRefs.current[selectedIndex]?.focus();
-    return undefined;
-  }, [theme, themeMenuOpen]);
-
-  useEffect(() => {
-    if (!themeMenuOpen) return undefined;
-    const onPointerDown = (event) => {
-      if (themeMenuRef.current?.contains(event.target)) return;
-      if (themePopoverRef.current?.contains(event.target)) return;
-      setThemeMenuOpen(false);
-    };
-    const onKeyDown = (event) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        closeThemeMenu(true);
-      }
-    };
-    window.addEventListener('mousedown', onPointerDown);
-    window.addEventListener('keydown', onKeyDown);
-    return () => {
-      window.removeEventListener('mousedown', onPointerDown);
-      window.removeEventListener('keydown', onKeyDown);
-    };
-  }, [themeMenuOpen]);
-
-  const onThemeMenuKeyDown = (event) => {
-    const items = themeOptionRefs.current.filter(Boolean);
-    const current = items.indexOf(document.activeElement);
-    if (event.key === 'ArrowDown') {
-      event.preventDefault();
-      items[(current + 1) % items.length]?.focus();
-    } else if (event.key === 'ArrowUp') {
-      event.preventDefault();
-      items[(current - 1 + items.length) % items.length]?.focus();
-    } else if (event.key === 'Home') {
-      event.preventDefault();
-      items[0]?.focus();
-    } else if (event.key === 'End') {
-      event.preventDefault();
-      items[items.length - 1]?.focus();
-    } else if (event.key === 'Tab') {
-      setThemeMenuOpen(false);
-    }
-  };
+  const openSearch = () => onSearchOpen?.();
 
   useEffect(() => {
     if (!moreOpen && !accountOpen) return undefined;
@@ -245,7 +171,6 @@ const TopBar = ({
 
   return (
     <header className={`topbar topbar--noeis ${className}`.trim()}>
-      <BrandGradient variant="header" enabled={brandEnergy} />
       <div className="topbar__content">
         <div className="topbar__left">
           <div className="topbar__brand-nav">
@@ -289,7 +214,7 @@ const TopBar = ({
               onClick={openSearch}
             >
               <span className="topbar__search-icon" aria-hidden="true" />
-              <span className="topbar__search-trigger-label">Search fragments</span>
+              <span className="topbar__search-trigger-label">Search</span>
               <kbd
                 className="topbar__search-kbd"
                 aria-hidden="true"
@@ -321,68 +246,6 @@ const TopBar = ({
               recoverableFailure={systemStatus.recoverableFailure}
               onRetryFailure={onSystemStatusRetry}
             />
-          ) : null}
-          {onThemeChange ? (
-            <div className="topbar__menu topbar__theme-menu" ref={themeMenuRef}>
-              <button
-                ref={themeButtonRef}
-                type="button"
-                className={`topbar__theme-pill ${themeSaving ? 'is-busy' : ''}`}
-                aria-haspopup="menu"
-                aria-expanded={themeMenuOpen}
-                aria-controls="topbar-theme-menu"
-                aria-label={`Theme: ${currentThemeOption.label}`}
-                title={`Theme: ${currentThemeOption.label}`}
-                data-testid="topbar-theme-toggle"
-                onClick={() => setThemeMenuOpen((prev) => !prev)}
-                onKeyDown={(event) => {
-                  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-                    event.preventDefault();
-                    setThemeMenuOpen(true);
-                  }
-                }}
-                onContextMenu={(event) => {
-                  event.preventDefault();
-                  setThemeMenuOpen(true);
-                }}
-              >
-                <span aria-hidden="true" className={`topbar__theme-icon topbar__theme-icon--${currentThemeOption.value}`} />
-                <span className="topbar__theme-label">{currentThemeOption.shortLabel || currentThemeOption.label}</span>
-              </button>
-              <TopBarMenuPopover
-                open={themeMenuOpen}
-                anchorRef={themeMenuRef}
-                popoverRef={themePopoverRef}
-                className="topbar__theme-popover"
-                testId="topbar-theme-menu"
-                id="topbar-theme-menu"
-                ariaLabel="Theme"
-                onKeyDown={onThemeMenuKeyDown}
-              >
-                {THEME_OPTIONS.map((option, index) => (
-                  <button
-                    key={option.value}
-                    ref={(node) => {
-                      themeOptionRefs.current[index] = node;
-                    }}
-                    type="button"
-                    role="menuitemradio"
-                    tabIndex={-1}
-                    aria-checked={option.value === theme}
-                    className={`topbar__menu-item ${option.value === theme ? 'is-active' : ''}`}
-                    data-testid={`topbar-theme-option-${option.value}`}
-                    onClick={() => {
-                      onThemeChange(option.value);
-                      closeThemeMenu(true);
-                    }}
-                  >
-                    <span aria-hidden="true" className={`topbar__theme-icon topbar__theme-icon--${option.value}`} />
-                    {option.label}
-                    <span className="topbar__theme-check" aria-hidden="true">{option.value === theme ? '✓' : ''}</span>
-                  </button>
-                ))}
-              </TopBarMenuPopover>
-            </div>
           ) : null}
           {utilityNav.map((item) => (
             item.href ? (

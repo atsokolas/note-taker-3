@@ -2,9 +2,8 @@
  * The inks you can mark a sentence in.
  *
  * Five, because a reader who has to choose between nine has stopped reading.
- * Yellow first and yellow by default: pressing Highlight without a thought
- * still does the thing a highlighter does, and the colours are there for
- * anyone who wants a taxonomy of their own rather than a decoration.
+ * Yellow by default: pressing Highlight without a thought still does the
+ * thing a highlighter does.
  *
  * Mixed for cream, not for white. These were pastels chosen against a white
  * page, where a mint at full chroma reads as a soft green; over #f7f4ed the
@@ -17,13 +16,20 @@
  */
 export const DEFAULT_HIGHLIGHT_COLOR = '#f6e27a';
 
+/* Three of the inks mean something in the loop's own words — a passage for
+   a view, against it, or simply kept — and they come first. The stored
+   values are the same five they always were; only the names changed, so
+   every passage marked before still reads in its colour. The last two stay,
+   quietly, for the reader who keeps a taxonomy of their own. */
 export const HIGHLIGHT_COLOR_OPTIONS = [
-  { value: '#f6e27a', label: 'Yellow' },
-  { value: '#f7c9a3', label: 'Peach' },
-  { value: '#cfe3b4', label: 'Sage' },
+  { value: '#cfe3b4', label: 'For' },
+  { value: '#f7c9a3', label: 'Against' },
+  { value: '#f6e27a', label: 'Keep' },
   { value: '#bcd4ea', label: 'Sky' },
   { value: '#d8cbe8', label: 'Lilac' }
 ];
+export const NAMED_HIGHLIGHT_COLORS = HIGHLIGHT_COLOR_OPTIONS.slice(0, 3);
+export const MORE_HIGHLIGHT_COLORS = HIGHLIGHT_COLOR_OPTIONS.slice(3);
 
 /** A colour we actually offer, or the default. Never a colour from nowhere. */
 export const knownHighlightColor = (value) => {
