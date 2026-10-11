@@ -21,6 +21,7 @@ import {
 } from '../../pages/evergreenModel';
 import { scopedKey, currentAccountId } from '../../utils/browserScope';
 import { beginArticleDrag } from '../../pages/dragGrammar';
+import { useFinePointer } from '../../hooks/useMotionPreferences';
 
 const LABELS = {
   all: 'Library',
@@ -109,6 +110,20 @@ export default function LibraryCollection({
   const [peekId, setPeekId] = useState(() => getSaved(storageKey).peekId || '');
   const [returned, setReturned] = useState('');
   const [opening, setOpening] = useState('');
+  /* A row opens its peek when the pointer rests on it, or when it is tapped.
+     Resting means a beat, so sweeping down the list does not unfold it. */
+  const finePointer = useFinePointer();
+  const hoverIntent = useRef(0);
+  useEffect(() => () => clearTimeout(hoverIntent.current), []);
+  const restOn = (id) => {
+    clearTimeout(hoverIntent.current);
+    if (finePointer) hoverIntent.current = setTimeout(() => setPeekId(id), 420);
+  };
+  const tapRow = (event, id) => {
+    if (event.target.closest('button, a, input')) return;
+    clearTimeout(hoverIntent.current);
+    setPeekId((current) => (current === id ? '' : id));
+  };
   const placeRef = useRef(getSaved(storageKey));
   const loaded = useRef(40);
   const restore = useRef(false);
@@ -367,8 +382,10 @@ export default function LibraryCollection({
               className={`library-collection-row${returned === row._id ? ' is-returned' : ''}`}
               draggable
               onDragStart={(event) => beginArticleDrag(event, row._id)}
+              onMouseEnter={() => restOn(row._id)}
+              onMouseLeave={() => clearTimeout(hoverIntent.current)}
             >
-              <div className="library-source-face">
+              <div className="library-source-face" onClick={(event) => tapRow(event, row._id)}>
                 <div>
                   <button
                     className="library-source-title"
@@ -418,7 +435,7 @@ export default function LibraryCollection({
                     peekId === row._id ? closePeek() : setPeekId(row._id)
                   }
                 >
-                  Peek {peekId === row._id ? '−' : '+'}
+                  {peekId === row._id ? 'Close' : 'Peek'}
                 </button>
               </div>
               {peekId === row._id ? (

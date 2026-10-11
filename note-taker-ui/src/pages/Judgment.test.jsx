@@ -1141,8 +1141,8 @@ describe('the overnight line', () => {
 
 describe('the agent rail', () => {
   const askInRail = async (question) => {
-    const rail = await screen.findByRole('complementary', { name: 'Skeptical partner' });
-    fireEvent.change(within(rail).getByPlaceholderText('Bring evidence or counterevidence'), {
+    const rail = await screen.findByRole('complementary', { name: 'Partner' });
+    fireEvent.change(within(rail).getByPlaceholderText('Ask about this'), {
       target: { value: question }
     });
     fireEvent.click(within(rail).getByRole('button', { name: 'Ask' }));
@@ -1199,12 +1199,12 @@ describe('the agent rail', () => {
 
     renderDetail();
 
-    const rail = await screen.findByRole('complementary', { name: 'Skeptical partner' });
-    expect(within(rail).getByText('Skeptical partner')).toBeInTheDocument();
+    const rail = await screen.findByRole('complementary', { name: 'Partner' });
+    expect(within(rail).getByText('Partner')).toBeInTheDocument();
     expect(await within(rail).findByText('NVIDIA demand still outruns deliverable capacity.')).toBeInTheDocument();
     expect(within(rail).getByText('Nothing to retrieve until you ask.')).toBeInTheDocument();
-    expect(within(rail).getByPlaceholderText('Bring evidence or counterevidence')).toBeInTheDocument();
-    expect(within(rail).getByText('Retrieves. You accept.')).toBeInTheDocument();
+    expect(within(rail).getByPlaceholderText('Ask about this')).toBeInTheDocument();
+    expect(within(rail).queryByText('Retrieves. You accept.')).not.toBeInTheDocument();
   });
 
   it('writes a rail answer only when the human accepts it', async () => {
@@ -1235,8 +1235,8 @@ describe('the agent rail', () => {
 
     renderDetail();
 
-    const rail = await screen.findByRole('complementary', { name: 'Skeptical partner' });
-    fireEvent.change(within(rail).getByPlaceholderText('Bring evidence or counterevidence'), {
+    const rail = await screen.findByRole('complementary', { name: 'Partner' });
+    fireEvent.change(within(rail).getByPlaceholderText('Ask about this'), {
       target: { value: 'what did packaging do' }
     });
     fireEvent.click(within(rail).getByRole('button', { name: 'Ask' }));

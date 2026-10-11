@@ -4,7 +4,7 @@ import useSemanticRelated from '../../hooks/useSemanticRelated';
 import { buildCanonicalArticlePath } from '../../utils/sourceRoutes';
 
 const buildOpenPath = (item) => {
-  if (!item) return '/search';
+  if (!item) return '/library';
   if (item.objectType === 'highlight') {
     const articleId = item.metadata?.articleId;
     if (articleId) return buildCanonicalArticlePath(articleId);
@@ -15,7 +15,7 @@ const buildOpenPath = (item) => {
     if (name) return `/think?tab=concepts&concept=${encodeURIComponent(name)}`;
     return '/think?tab=concepts';
   }
-  return '/search';
+  return '/library';
 };
 
 const formatBandLabel = (value) => {

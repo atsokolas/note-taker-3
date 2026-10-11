@@ -1,5 +1,5 @@
 import { render } from '@testing-library/react';
-import App, { isPublicSharePath } from './App';
+import App, { isPublicPage, isPublicSharePath } from './App';
 import { hasUsableStoredToken } from './api';
 
 jest.mock('axios', () => ({
@@ -54,4 +54,12 @@ test('treats shared routes as public even when auth is available', () => {
   expect(isPublicSharePath('/share/notebooks/essay-slug')).toBe(true);
   expect(isPublicSharePath('/share/volumes/volume-slug')).toBe(true);
   expect(isPublicSharePath('/wiki/workspace')).toBe(false);
+});
+
+test('draws pages that read the same signed in or out from one tree', () => {
+  expect(isPublicPage('/privacy')).toBe(true);
+  expect(isPublicPage('/guides')).toBe(true);
+  expect(isPublicPage('/design-preview/open-sentence')).toBe(true);
+  expect(isPublicPage('/share/concepts/opportunity-cost')).toBe(true);
+  expect(isPublicPage('/library')).toBe(false);
 });

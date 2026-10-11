@@ -1193,7 +1193,7 @@ describe('NotebookEditor', () => {
     expect(await screen.findByText('Link Concept or Wiki')).toBeInTheDocument();
   });
 
-  it('stages an exact selected passage in the thought partner without auto-submitting it', () => {
+  it('stages an exact selected passage with Partner without auto-submitting it', () => {
     const onInvokeAgentSkill = jest.fn();
     mockEditor.state.selection.from = 2;
     mockEditor.state.selection.to = 18;
@@ -1207,7 +1207,7 @@ describe('NotebookEditor', () => {
         onInvokeAgentSkill={onInvokeAgentSkill}
       />
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Ask thought partner about selection' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Ask Partner about selection' }));
     expect(onInvokeAgentSkill).toHaveBeenCalledWith(expect.objectContaining({
       mode: 'draft',
       contextType: 'notebook',

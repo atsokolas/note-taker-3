@@ -1,5 +1,5 @@
 body.noeis-editorial .settings-redesign {
-  --settings-green: var(--ui-accent, #46634a);
+  --settings-green: #46634a;
   --settings-muted: var(--noeis-muted, #656b62);
   --settings-rule: var(--noeis-rule, #dcded3);
   --settings-soft: color-mix(in srgb, var(--noeis-ink, #30352f) 6%, transparent);
@@ -232,7 +232,7 @@ body.noeis-editorial .settings-redesign {
   --preview-ink: #edf0e6;
   --preview-muted: #bdc4b7;
   --preview-rule: #485341;
-  --preview-accent: #8bdae8;
+  --preview-accent: #e0b971;
 }
 
 .settings-redesign__preview.is-tokyo-midnight {
@@ -240,19 +240,9 @@ body.noeis-editorial .settings-redesign {
   --preview-ink: #f3e9ed;
   --preview-muted: #9dacca;
   --preview-rule: #29374d;
-  --preview-accent: #50f4fa;
+  --preview-accent: #e0b07a;
 }
 
-.settings-redesign__preview.is-energy .settings-redesign__preview-top::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 3px;
-  background: linear-gradient(90deg, var(--preview-accent, #227082), transparent 75%);
-  opacity: 0.4;
-}
 
 .settings-redesign__preview-top {
   height: 2.75rem;
