@@ -88,10 +88,6 @@ jest.mock('../components/library/LibraryContext', () => ({
   __esModule: true,
   default: () => <div>Library context details</div>
 }));
-jest.mock('../components/library/FolderTree', () => ({
-  __esModule: true,
-  default: () => <div>Folder tree</div>
-}));
 jest.mock('../components/library/MoveToFolderModal', () => () => null);
 jest.mock('../components/library/LibraryConceptModal', () => () => null);
 jest.mock('../components/library/LibraryNotebookModal', () => () => null);

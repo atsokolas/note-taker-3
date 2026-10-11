@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import {
   getArticleReadingState,
   saveArticleReadingState
@@ -7,7 +7,8 @@ import { canonicalArticleSnapshot } from '../../utils/articlePassageAnchor';
 import {
   anchorForReadingNode,
   readingCandidates,
-  resolveReadingPlace
+  resolveReadingPlace,
+  stoppedHereLine
 } from './articleReadingPlace';
 
 const keyOf = (place) => (place ? JSON.stringify(place.anchor) : '');
@@ -19,11 +20,9 @@ export default function useArticleReadingPlace({
   explicitDestination,
   enabled
 }) {
-  const [arrival, setArrival] = useState('');
   const explicit = useRef(explicitDestination);
   explicit.current = explicitDestination;
   useEffect(() => {
-    setArrival('');
     if (!enabled || !articleId || !contentRef.current) return undefined;
     const root = contentRef.current;
 
@@ -31,8 +30,8 @@ export default function useArticleReadingPlace({
       armed = false,
       moved = false,
       timer,
-      markerTimer,
       frame,
+      marked = [],
       lastKey = '',
       pending = null,
       inFlight = false;
@@ -82,24 +81,30 @@ export default function useArticleReadingPlace({
         if (pending && keyOf(pending) !== keyOf(place)) persist(!active);
       }
     };
+    /* The marks say where you were until you start reading again. */
+    const unmark = () => {
+      marked.forEach((node) => {
+        node.classList.remove('is-reading-place', 'is-reading-before');
+        delete node.dataset.stopped;
+      });
+      marked = [];
+    };
     getArticleReadingState(articleId)
       .then((place) => {
         if (!active || !place || moved || explicit.current) return;
         const found = resolveReadingPlace(root, place);
         if (!found) return;
         lastKey = keyOf(place);
+        /* A place on the first screen is already where the page opens. */
+        if (found.node.getBoundingClientRect().top + window.scrollY < window.innerHeight) return;
+        const candidates = readingCandidates(root);
+        const before = candidates[candidates.indexOf(found.node) - 1];
         found.node.classList.add('is-reading-place');
+        found.node.dataset.stopped = stoppedHereLine(place.visitedAt, { exact: found.exact });
+        before?.classList.add('is-reading-before');
+        marked = [found.node, before].filter(Boolean);
         found.node.scrollIntoView?.({ block: 'start', behavior: 'instant' });
         baselineKey = keyOf({ anchor: anchorForReadingNode(root, found.node) });
-        setArrival(
-          found.exact
-            ? 'Back where you left off'
-            : 'Near your previous place — the passage changed'
-        );
-        markerTimer = window.setTimeout(() => {
-          found.node.classList.remove('is-reading-place');
-          setArrival('');
-        }, 5000);
       })
       .catch(() => {});
     const arm = (event) => {
@@ -132,6 +137,7 @@ export default function useArticleReadingPlace({
     const scroll = () => {
       if (!armed) return;
       moved = true;
+      unmark();
       window.cancelAnimationFrame(frame);
       frame = window.requestAnimationFrame(() => {
         pending = position() || pending;
@@ -158,11 +164,8 @@ export default function useArticleReadingPlace({
       persist(true);
       active = false;
       window.clearTimeout(timer);
-      window.clearTimeout(markerTimer);
       window.cancelAnimationFrame(frame);
-      readingCandidates(root).forEach((node) =>
-        node.classList.remove('is-reading-place')
-      );
+      unmark();
       window.removeEventListener('pointerdown', arm);
       window.removeEventListener('wheel', arm);
       window.removeEventListener('touchmove', arm);
@@ -173,14 +176,4 @@ export default function useArticleReadingPlace({
       document.removeEventListener('visibilitychange', resume);
     };
   }, [articleId, contentKey, contentRef, enabled]);
-  return {
-    arrival,
-    startAtTop: () => {
-      contentRef.current?.scrollIntoView?.({
-        block: 'start',
-        behavior: 'instant'
-      });
-      setArrival('');
-    }
-  };
 }

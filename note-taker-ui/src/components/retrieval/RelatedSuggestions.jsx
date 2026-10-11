@@ -36,7 +36,7 @@ const buildFallbackPath = (itemType, itemId) => {
   if (itemType === 'article') return `/articles/${encodeURIComponent(itemId)}`;
   if (itemType === 'concept') return `/think?tab=concepts&conceptId=${encodeURIComponent(itemId)}`;
   if (itemType === 'question') return `/think?tab=questions&questionId=${encodeURIComponent(itemId)}`;
-  return '/search';
+  return '/library';
 };
 
 const RelatedSuggestions = ({

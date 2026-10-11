@@ -72,7 +72,6 @@ const LibraryShelfNav = ({
   foldersLoading = false,
   foldersError = '',
   scope = 'all',
-  reading = false,
   folderId = '',
   sourceView = 'recent',
   unfiledCount,
@@ -259,6 +258,19 @@ const LibraryShelfNav = ({
   const articleDropIntent = dropTargetId && !draggedId
     ? dropIntent({ kind: DROP_KINDS.FOLDER, targetId: dropTargetId })
     : '';
+  /* The cabinet and its filing speak only when they hold something: no
+     "No shelves yet", no filing to review when nothing is unfiled. */
+  const hasShelves = Boolean(foldersLoading || foldersError || cabinet.length || procedural.length);
+  const filing = onReviewFiling && unfiledCount > 0 ? (
+    <button
+      type="button"
+      className="library-shelf__filing"
+      onClick={onReviewFiling}
+      disabled={filingLaunching}
+    >
+      {filingLaunching ? 'Starting…' : 'Review filing'}
+    </button>
+  ) : null;
 
   return (
     <RoomShelf
@@ -324,7 +336,8 @@ const LibraryShelfNav = ({
         </button>
       ) : null}
 
-      {showCabinet ? (
+      {showCabinet && !hasShelves ? filing : null}
+      {showCabinet && hasShelves ? (
         <RoomShelfSection
           className={`library-shelf__cabinet${dropTargetId === 'root' ? ' is-drop-target' : ''}`}
           label="Shelves"
@@ -407,10 +420,6 @@ const LibraryShelfNav = ({
               })}
             </RoomShelfList>
           ) : null}
-          {!foldersLoading && !foldersError && !cabinet.length && !procedural.length ? (
-            <p className="library-shelf__status">No shelves yet.</p>
-          ) : null}
-
           {procedural.length ? (
             <p className="library-shelf__procedural">
               {procedural.map(folder => (
@@ -427,16 +436,7 @@ const LibraryShelfNav = ({
           ) : null}
 
           {/* Filing is the cabinet's own work, so it lives with the cabinet. */}
-          {onReviewFiling ? (
-            <button
-              type="button"
-              className="library-shelf__filing"
-              onClick={onReviewFiling}
-              disabled={filingLaunching}
-            >
-              {filingLaunching ? 'Starting…' : 'Review filing'}
-            </button>
-          ) : null}
+          {filing}
 
           {narrow && cabinetOpen ? (
             <button
@@ -450,7 +450,6 @@ const LibraryShelfNav = ({
           ) : null}
         </RoomShelfSection>
       ) : null}
-      <button type="button" className="library-shelf-ask" onClick={() => window.dispatchEvent(new Event('noeis:open-agent'))}>Ask about {reading ? 'this source' : folderId ? 'this shelf' : 'Library'}</button>
     </RoomShelf>
   );
 };

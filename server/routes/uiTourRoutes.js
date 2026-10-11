@@ -21,7 +21,8 @@ const buildUiTourRouter = ({
   TOUR_SIGNAL_DEFAULTS,
   TOUR_EVENT_TIMESTAMP_DEFAULTS,
   TOUR_EVENT_TO_SIGNAL,
-  markTourSignal
+  markTourSignal,
+  trackReturnVisit = () => {}
 }) => {
   const router = express.Router();
 
@@ -34,6 +35,8 @@ const buildUiTourRouter = ({
         workspaceType: scope.workspaceType,
         workspaceId: scope.workspaceId
       }).lean();
+      // The app asks for its settings once when it opens: that is a visit.
+      trackReturnVisit(userId);
       res.status(200).json(buildUiSettingsResponse(settings, scope));
     } catch (error) {
       console.error('❌ Error fetching UI settings:', error);

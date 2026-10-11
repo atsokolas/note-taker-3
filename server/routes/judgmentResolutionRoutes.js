@@ -48,6 +48,7 @@ const {
   correctInstitutionCase: persistCorrect
 } = require('../services/institutionService');
 const { requireAuthenticatedUser } = require('./conceptRouteGuards');
+const { EVENT_NAMES } = require('../utils/analytics');
 
 const isObjectId = value => /^[a-f\d]{24}$/i.test(String(value || '').trim());
 const requireHumanOwner = (req, res, next) => {
@@ -115,9 +116,17 @@ const buildJudgmentResolutionRouter = ({
   transferCase = persistTransfer,
   forgetCase = persistForget,
   correctCase = persistCorrect,
+  trackEvent = () => {},
   ...models
 } = {}) => {
   const router = express.Router();
+  // Ids and kinds only: never the sentence, the passage, or the note.
+  const track = (req, event, properties = {}) => trackEvent({
+    event,
+    userId: req.user.id,
+    requestId: req.requestId,
+    properties: { pageId: req.params.pageId, ...properties }
+  });
 
   router.get('/api/judgment/mirror', authenticateToken, requireAuthenticatedUser, async (req, res) => {
     try {
@@ -201,6 +210,7 @@ const buildJudgmentResolutionRouter = ({
         note: req.body?.note,
         evidenceSourceRefIds: req.body?.evidenceSourceRefIds
       });
+      if (!result.idempotent) track(req, EVENT_NAMES.VIEW_RESOLVED, { result: String(req.body?.result || '') });
       return res.status(result.idempotent ? 200 : 201).json(serialize(result));
     } catch (error) {
       return sendError(res, error);
@@ -236,6 +246,7 @@ const buildJudgmentResolutionRouter = ({
         articleId: req.body?.articleId,
         highlightId: req.body?.highlightId
       });
+      if (!result.idempotent) track(req, EVENT_NAMES.EVIDENCE_FILED, { field: String(req.body?.field || '') });
       return res.status(result.idempotent ? 200 : 201).json(serialize(result));
     } catch (error) {
       return sendError(res, error);
@@ -582,6 +593,7 @@ const buildJudgmentResolutionRouter = ({
         source: req.body?.source,
         claimText: req.body?.claimText
       });
+      if (result?.proposal) track(req, EVENT_NAMES.EVIDENCE_PROPOSED, { proposalId: String(result.proposal.id || ''), from: 'watch' });
       return res.status(200).json(result);
     } catch (error) {
       return sendError(res, error);
@@ -597,6 +609,7 @@ const buildJudgmentResolutionRouter = ({
         pageId: req.params.pageId,
         proposalId: req.params.proposalId
       });
+      track(req, EVENT_NAMES.EVIDENCE_FILED, { proposalId: req.params.proposalId, from: 'watch' });
       return res.status(200).json(result);
     } catch (error) {
       return sendError(res, error);
@@ -612,6 +625,7 @@ const buildJudgmentResolutionRouter = ({
         pageId: req.params.pageId,
         proposalId: req.params.proposalId
       });
+      track(req, EVENT_NAMES.EVIDENCE_DISMISSED, { proposalId: req.params.proposalId, from: 'watch' });
       return res.status(200).json(result);
     } catch (error) {
       return sendError(res, error);

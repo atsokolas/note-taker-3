@@ -40,7 +40,7 @@ const HighlightBlock = ({ highlight, onOpenArticle, onRemove, removeLabel = 'Rem
           {highlight.articleId ? (
             <Link
               className="highlight-block-title"
-              to={buildCanonicalArticlePath(highlight.articleId)}
+              to={`${buildCanonicalArticlePath(highlight.articleId)}${highlightId ? `&highlightId=${encodeURIComponent(highlightId)}` : ''}`}
               onClick={handleOpenArticle}
             >
               {highlight.articleTitle || 'Open article'}
