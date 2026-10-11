@@ -25,10 +25,11 @@ const canonicalSourceUrl = (value = '') => {
   if (!raw) return '';
   try {
     const url = new URL(raw);
+    // Keys sort; a repeated key keeps its values in the order given.
     const query = [...url.searchParams]
       .filter(([key]) => !TRACKING_PARAM.test(key))
+      .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
       .map(pair => pair.map(encodeURIComponent).join('='))
-      .sort()
       .join('&');
     const path = url.pathname.replace(/\/+$/, '');
     return `${url.host.replace(/^www\./, '')}${path}${query ? `?${query}` : ''}`;

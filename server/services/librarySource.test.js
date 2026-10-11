@@ -13,6 +13,8 @@ async function run() {
   assert.notEqual(canonicalSourceUrl('https://example.com/piece?id=1'), canonicalSourceUrl('https://example.com/piece?id=2'));
   assert.notEqual(canonicalSourceUrl('https://example.com/Report'), canonicalSourceUrl('https://example.com/report'));
   assert.notEqual(canonicalSourceUrl('https://example.com:8443/foo'), canonicalSourceUrl('https://example.com/foo'));
+  assert.notEqual(canonicalSourceUrl('https://example.com/run?step=first&step=second'), canonicalSourceUrl('https://example.com/run?step=second&step=first'));
+  assert.equal(canonicalSourceUrl('https://example.com/run?z=1&step=a&step=b'), 'example.com/run?step=a&step=b&z=1');
   assert.equal(canonicalSourceUrl('https://example.com:443/foo'), canonicalSourceUrl('https://example.com/foo'));
   assert.notEqual(canonicalSourceUrl('https://example.com/p?filter=a%26role%3Dadmin'), canonicalSourceUrl('https://example.com/p?filter=a&role=admin'));
   assert.equal(canonicalSourceUrl(''), '');

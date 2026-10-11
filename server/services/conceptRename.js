@@ -43,9 +43,13 @@ const references = (models, was, name) => [
 const attribute = (value) => String(value).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
 const plain = (value) => Array.isArray(value) || Object.getPrototypeOf(value || 0) === Object.prototype;
 
-/* Rename every `conceptName` under value, in place. */
+/* Rename every concept reference under value, in place: a `concept_ref` block
+   or a `conceptRef` node. Other blocks borrow `conceptName` (a wiki card keeps
+   its kind there) and are left alone. */
+const CONCEPT_REFS = new Set(['concept_ref', 'concept-ref', 'conceptRef']);
 const renameNamed = (value, was, name) => {
-  if (typeof value.conceptName === 'string' && was.test(value.conceptName)) value.conceptName = name;
+  const ref = CONCEPT_REFS.has(value.type) && (value.type === 'conceptRef' ? value.attrs : value);
+  if (ref && typeof ref.conceptName === 'string' && was.test(ref.conceptName)) ref.conceptName = name;
   Object.values(value).filter(plain).forEach(child => renameNamed(child, was, name));
 };
 
