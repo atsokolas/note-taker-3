@@ -27,15 +27,23 @@ export const recordJudgmentVerdict = async ({
   return response.data || {};
 };
 
+/* A passage nobody highlighted goes by its words (quote) instead of a
+   highlightId, and becomes a highlight on the way in. */
 export const fileJudgmentEvidence = async ({
-  pageId, expectedClaim, field, articleId, highlightId
+  pageId, expectedClaim, field, articleId, highlightId, quote
 }) => {
   const response = await api.post(
     `/api/judgment/pages/${safe(pageId)}/evidence`,
-    { requestId: requestId(), expectedClaim, field, articleId, highlightId },
+    { requestId: requestId(), expectedClaim, field, articleId, highlightId, ...(highlightId ? {} : { quote }) },
     getAuthHeaders()
   );
   return response.data || {};
+};
+
+// The passage this source already proposed against a view you hold, if any.
+export const getPushesAgainst = async (articleId) => {
+  const response = await api.get(`/api/judgment/pushes-against?articleId=${safe(articleId)}`, getAuthHeaders());
+  return response.data?.reading || null;
 };
 
 export const fileReadingProposal = async ({ pageId, proposalId, field }) => {

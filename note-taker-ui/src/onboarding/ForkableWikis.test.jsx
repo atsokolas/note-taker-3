@@ -68,7 +68,7 @@ describe('ForkableWikis', () => {
     expect(navigate).toHaveBeenCalledWith('/register');
   });
 
-  it('forks for a signed-in reader and hands off to onboarding', async () => {
+  it('forks for a signed-in reader and hands off to first run', async () => {
     localStorage.setItem('token', 'a-token');
     adoptWikiStarterPack.mockResolvedValue({ pages: [{ _id: 'new-page-1', title: 'Loss Aversion' }] });
 
@@ -77,7 +77,7 @@ describe('ForkableWikis', () => {
 
     await waitFor(() => expect(adoptWikiStarterPack).toHaveBeenCalledWith('mental-models'));
     await waitFor(() => expect(navigate).toHaveBeenCalledWith(
-      '/onboarding/wiki?adoptedPage=new-page-1&source=shared',
+      '/welcome?took=new-page-1',
       { replace: true }
     ));
   });

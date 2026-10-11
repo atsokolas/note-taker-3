@@ -50,7 +50,7 @@
   border: 0;
   background: transparent;
   color: var(--text-secondary, var(--vellum-muted));
-  font: 0.78rem var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font: 0.78rem var(--font-sans);
   cursor: pointer;
 }
 .think-notes__new:hover,
@@ -86,7 +86,7 @@
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 22px;
-  font: 0.72rem var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font: 0.72rem var(--font-sans);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -325,6 +325,29 @@ body.noeis-editorial .think-notes .think-notebook-editor-header {
 .think-next-line > span { color: var(--noeis-pointer, #6f87ff); font-size: 0.68rem; letter-spacing: 0.1em; text-transform: uppercase; }
 .think-next-line p { margin: 5px 0 8px; font: italic 0.95rem/1.5 var(--font-serif); }
 .think-next-line > div { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* You hold the opposite: one line beside the note, a faint rule under the
+   sentence. In the margin where there is one; above the draft where not. */
+.think-opposite { margin: 0 0 14px; font-family: var(--font-sans); font-size: 0.84rem; line-height: 1.5; color: var(--text-secondary); }
+.think-opposite > div { padding-left: 12px; border-left: 1px solid color-mix(in srgb, var(--noeis-thread, #b1862e) 55%, transparent); }
+.think-opposite p { margin: 0 0 2px; }
+body .think-opposite .ui-quiet-button { padding-inline: 0; margin-inline: 0; }
+.think-opposite a { color: var(--text-primary); font: italic 0.95rem/1.45 var(--font-serif); text-decoration: none; }
+.think-opposite a:is(:hover, :focus-visible) { text-decoration: underline; text-decoration-color: var(--noeis-thread, #b1862e); text-underline-offset: 3px; }
+.ProseMirror .notebook-opposite-sentence {
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--noeis-thread, #b1862e) 50%, transparent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.3em;
+}
+@media (min-width: 1400px) {
+  .think-opposite { position: relative; height: 0; margin-bottom: -24px; }
+  .think-opposite > div { position: absolute; top: 0; left: calc(100% + 48px); width: 210px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .think-opposite > div { animation: think-opposite-in 0.24s ease-out; }
+}
+@keyframes think-opposite-in { from { opacity: 0; } }
 
 .notebook-workbench { font-family: var(--font-sans); }
 .notebook-workbench header { margin-bottom: 22px; }
@@ -567,7 +590,7 @@ body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.think-note
   border-bottom: 1px solid transparent;
   background: transparent;
   color: var(--text-muted);
-  font: 0.76rem var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font: 0.76rem var(--font-sans);
   cursor: pointer;
 }
 .think-notes__kinds button[aria-pressed='true'] { border-bottom-color: currentColor; color: var(--text-primary); }
@@ -584,12 +607,12 @@ body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.think-note
   border-bottom: 1px solid var(--vellum-line);
   background: transparent;
   color: var(--text-primary);
-  font: 0.86rem var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font: 0.86rem var(--font-sans);
 }
 .think-notes__kind {
   justify-self: start;
   color: var(--text-muted);
-  font: 0.62rem var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font: 0.62rem var(--font-sans);
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }

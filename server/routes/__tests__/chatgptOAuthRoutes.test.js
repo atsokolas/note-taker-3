@@ -68,9 +68,9 @@ const fixture = async (models = {}) => {
     admit: async clientId => ({ id: crypto.randomUUID(), clientId, expiresAt: new Date(time.getTime() + 600000) }),
     release: async () => {}
   };
-  app.use(buildChatgptOAuthRouter({ config: models.config || config, authenticateToken: auth, Request, Grant, AgentToken,
+  app.use(buildChatgptOAuthRouter({ isAccountActive: models.isAccountActive || (async () => true), config: models.config || config, authenticateToken: auth, Request, Grant, AgentToken,
     Control: models.Control, controls: models.controls || (models.Control ? undefined : protocolControls), isReady: models.isReady, now: () => time }));
-  app.get('/api/agent-connection', buildAuthenticateAgentToken({ AgentToken, OAuthGrant: Grant, oauthResource: config.resource, consume: false, now: () => time }), (req, res) => res.json({ user: req.user.id }));
+  app.get('/api/agent-connection', buildAuthenticateAgentToken({ isAccountActive: models.isAccountActive || (async () => true), AgentToken, OAuthGrant: Grant, oauthResource: config.resource, consume: false, now: () => time }), (req, res) => res.json({ user: req.user.id }));
   app.use((err, req, res, next) => res.status(500).json({ error: err.message }));
   const server = await new Promise(resolve => { const listener = app.listen(0, '127.0.0.1', () => resolve(listener)); });
   const base = `http://127.0.0.1:${server.address().port}`;
@@ -94,6 +94,57 @@ const fixture = async (models = {}) => {
   };
   return { base, Request, Grant, AgentToken, call, authorize, consent, exchange, connect, setTime: value => { time = value; }, close: () => new Promise(resolve => server.close(resolve)) };
 };
+
+test('account availability failure returns private no-store OAuth 503 before grant issuance or refresh rotation', async () => {
+  for (const operation of ['code', 'refresh', 'mint']) {
+    let available = true; let calls = 0;
+    const f = await fixture({ isAccountActive: async () => { calls++; if (!available || (operation === 'mint' && calls === 2)) throw new Error('PRIVATE synthetic database diagnostic'); return true; } });
+    try {
+      let result;
+      if (operation === 'refresh') {
+        const linked = await f.connect(); assert.equal(linked.status, 200);
+        const before = JSON.stringify(f.Grant.rows); available = false;
+        result = await f.call('/oauth/chatgpt/token', { grant_type: 'refresh_token', client_id: 'chatgpt-test', resource: config.resource, refresh_token: linked.body.refresh_token });
+        assert.equal(JSON.stringify(f.Grant.rows), before); assert.equal(f.AgentToken.rows.length, 1);
+      } else {
+        const start = await f.authorize(); const approved = await f.consent(start.requestId);
+        if (operation === 'code') available = false;
+        result = await f.exchange(new URL(approved.body.redirectUrl).searchParams.get('code'));
+        assert.equal(f.AgentToken.rows.length, 0);
+        assert.equal(f.Grant.rows.length, operation === 'code' ? 0 : 1);
+      }
+      assert.equal(result.status, 503); assert.deepEqual(result.body, { error: 'temporarily_unavailable' });
+      assert.equal(result.headers.get('cache-control'), 'no-store'); assert.equal(result.headers.get('pragma'), 'no-cache');
+    } finally { await f.close(); }
+  }
+});
+
+test('account closure after consent rejects the code before creating a grant', async () => {
+  let active = true;
+  const f = await fixture({ isAccountActive: async () => active });
+  try {
+    const start = await f.authorize();
+    const approved = await f.consent(start.requestId);
+    active = false;
+    const result = await f.exchange(new URL(approved.body.redirectUrl).searchParams.get('code'));
+    assert.equal(result.status, 400); assert.equal(result.body.error, 'invalid_grant');
+    assert.equal(f.Grant.rows.length, 0); assert.equal(f.AgentToken.rows.length, 0);
+  } finally { await f.close(); }
+});
+
+test('account closure rejects refresh and revokes an existing grant family', async () => {
+  let active = true;
+  const f = await fixture({ isAccountActive: async () => active });
+  try {
+    const linked = await f.connect();
+    assert.equal(linked.status, 200);
+    active = false;
+    const result = await f.call('/oauth/chatgpt/token', { grant_type: 'refresh_token', client_id: 'chatgpt-test', resource: config.resource, refresh_token: linked.body.refresh_token });
+    assert.equal(result.status, 400); assert.equal(result.body.error, 'invalid_grant');
+    assert.ok(f.Grant.rows[0].revokedAt); assert.equal(f.AgentToken.rows[0].status, 'revoked');
+    assert.equal(f.AgentToken.rows.length, 1);
+  } finally { await f.close(); }
+});
 
 test('OAuth issuance stays 503 during index startup and after failure; unrelated app/discovery remain available', async () => {
   const logs = [];
@@ -361,7 +412,7 @@ test('misordered body parsers and missing early middleware fail closed', async (
   } finally { await new Promise(resolve => server.close(resolve)); }
   const unbounded = express();
   unbounded.use(express.json());
-  unbounded.use(buildChatgptOAuthRouter({ config, authenticateToken: (_req, _res, next) => next(),
+  unbounded.use(buildChatgptOAuthRouter({ isAccountActive: async () => true, config, authenticateToken: (_req, _res, next) => next(),
     Request: memoryModel(), Grant: memoryModel(), AgentToken: memoryModel(),
     controls: { rate: async () => ({ allowed: true }), admit: async () => null, release: async () => {} } }));
   const missing = await new Promise(resolve => { const s = unbounded.listen(0, '127.0.0.1', () => resolve(s)); });

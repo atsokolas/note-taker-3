@@ -27,9 +27,7 @@ import AppShell from './layout/AppShell';
 import TopBar from './layout/TopBar';
 import TourProvider from './tour/TourProvider';
 import TourManager from './tour/TourManager';
-import OnboardingBuildBanner from './onboarding/OnboardingBuildBanner';
 import FirstRunGate from './onboarding/FirstRunGate';
-import OnboardingWalkthrough from './onboarding/OnboardingWalkthrough';
 import { buildCanonicalHighlightPath } from './utils/sourceRoutes';
 import {
   buildThinkPosturePath,
@@ -83,7 +81,7 @@ const Contradictions = lazy(() => import('./pages/Contradictions'));
    means the browser only requests it after main.js has downloaded and parsed,
    a second round trip in series before any of the claim can be drawn. */
 const WikiIngestRun = lazy(() => import('./pages/WikiIngestRun'));
-const WikiOnboarding = lazy(() => import('./pages/WikiOnboarding'));
+const Welcome = lazy(() => import('./pages/Welcome'));
 const HowToUse = lazy(() => import('./pages/HowToUse'));
 const Integrations = lazy(() => import('./pages/Integrations'));
 const AgentConnectAuthorize = lazy(() => import('./pages/AgentConnectAuthorize'));
@@ -97,6 +95,7 @@ const MarketingAnalytics = lazy(() => import('./pages/MarketingAnalytics'));
 const SearchConsoleOpportunities = lazy(() => import('./pages/SearchConsoleOpportunities'));
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
 const TermsOfUse = lazy(() => import('./pages/TermsOfUse'));
+const Support = lazy(() => import('./pages/Support'));
 const OpenSentenceStoryboard = lazy(() => import('./pages/OpenSentenceStoryboard'));
 const SharedConcept = lazy(() => import('./pages/SharedConcept'));
 const SharedQuestion = lazy(() => import('./pages/SharedQuestion'));
@@ -239,7 +238,7 @@ export const isDesignPreviewPath = (pathname = '') => (
 
 /* Pages that read the same signed in or out. They are drawn by the public
    tree either way, so they are declared once. */
-const PUBLIC_PAGES = new Set(['/guides', '/examples', '/proof', '/privacy', '/terms', ...GUIDE_SLUGS.map((slug) => `/${slug}`)]);
+const PUBLIC_PAGES = new Set(['/guides', '/examples', '/proof', '/privacy', '/terms', '/support', ...GUIDE_SLUGS.map((slug) => `/${slug}`)]);
 export const isPublicPage = (pathname = '') => (
   isPublicSharePath(pathname) || isDesignPreviewPath(pathname) || PUBLIC_PAGES.has(pathname)
 );
@@ -258,6 +257,7 @@ const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess }) => {
     location.pathname === '/'
     || location.pathname === '/privacy'
     || location.pathname === '/terms'
+    || location.pathname === '/support'
     || isShareRoute
     || isLongformRoute
   );
@@ -280,6 +280,7 @@ const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess }) => {
           ))}
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/terms" element={<TermsOfUse />} />
+          <Route path="/support" element={<Support />} />
           <Route path="/design-preview/open-sentence" element={<OpenSentenceStoryboard />} />
           <Route path="/design-preview/notebook-share" element={<NotebookSharePreview />} />
           <Route path="/design-preview/notebook-volume" element={<NotebookVolumePreview />} />
@@ -711,16 +712,8 @@ function App() {
         <KeyboardShortcutOverlay open={shortcutOverlayOpen} onClose={() => setShortcutOverlayOpen(false)} />
         <ProductFeedbackModal open={productFeedbackOpen} onClose={() => setProductFeedbackOpen(false)} />
         <TourManager />
-        {/* A new user starts where the flow starts. Home is the Paper, but you do
-            not land on home before you have one — this gate runs wherever they
-            enter, not just on the wiki. */}
+        {/* A new account starts at the beginning, wherever it enters. */}
         <FirstRunGate />
-        {/* Ambient progress for a build the user walked away from. Mounted at the
-            shell so it follows them wherever onboarding sends them next. */}
-        <OnboardingBuildBanner />
-        {/* Four short stops over the user's own product, running while their first
-            page builds. Ends on the Paper — home. */}
-        <OnboardingWalkthrough />
         <Suspense fallback={<RouteLoadingFallback />}>
           <Routes>
             {/* One front page. The Paper is the top of the wiki now, so every
@@ -762,7 +755,7 @@ function App() {
             <Route path="/wiki/read/:id" element={<WikiArticle />} />
             <Route path="/wiki/workspace" element={<Wiki />} />
             <Route path="/wiki/activity/:runId" element={<WikiIngestRun />} />
-            <Route path="/onboarding/wiki" element={<WikiOnboarding />} />
+            <Route path="/welcome" element={<Welcome />} />
             <Route path="/wiki/:id" element={<LegacyWikiPageRedirect />} />
             <Route
               path="/settings"
@@ -834,7 +827,8 @@ function App() {
           && !(shellLocation.pathname === '/think' || shellLocation.pathname.startsWith('/think/'))
           ? <AgentRail />
           : null}
-        topBar={(
+        /* First run is one column and a way out; the rooms come after. */
+        topBar={shellLocation.pathname === '/welcome' ? null : (
           <TopBar
             routeLocation={shellLocation}
             primaryNav={primaryNavItems}

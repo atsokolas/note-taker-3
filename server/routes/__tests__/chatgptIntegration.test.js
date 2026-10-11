@@ -23,9 +23,10 @@ const hash = value => crypto.createHash('sha256').update(value).digest('hex');
 // Execute the actual, non-exported JWT middleware without starting server.js,
 // its production integrations, or background workers. Secret is disposable.
 const source = fs.readFileSync(path.resolve(__dirname, '../../server.js'), 'utf8');
-const authSource = source.slice(source.indexOf('const getCookieValue ='), source.indexOf('function optionalAuthenticateToken'));
+const authSource = source.slice(source.indexOf('const getCookieValue ='), source.indexOf('const oauthTokenOptions ='));
 const jwtSecret = crypto.randomBytes(32).toString('hex');
-const humanAuth = vm.runInNewContext(`${authSource}\nauthenticateToken`, { jwt, process: { env: { JWT_SECRET: jwtSecret } }, console });
+const humanAuth = vm.runInNewContext(`${authSource}\nauthenticateToken`, { jwt, process: { env: { JWT_SECRET: jwtSecret } }, console, User: require('../../models').User,
+  require: name => { assert.equal(name, './services/accountAccessService'); return require('../../services/accountAccessService'); } });
 const config = readChatgptOAuthConfig({ NOEIS_CHATGPT_OAUTH_ISSUER: 'https://api.integration.example', NOEIS_APP_URL: 'https://integration.example', NOEIS_CHATGPT_OAUTH_CLIENTS: JSON.stringify([{client_id:'integration',client_name:'ChatGPT integration',redirect_uris:['https://chatgpt.com/connector_platform_oauth_redirect']}]) });
 const verifier = 'integration-pkce-verifier-'.repeat(3);
 const challenge = crypto.createHash('sha256').update(verifier).digest('base64url');
@@ -42,8 +43,10 @@ test('actual OAuth grants and content routes preserve two-account boundaries in 
     const { ChatgptOAuthRequest: Request, ChatgptOAuthGrant: Grant } = require('../../models/chatgptOAuthModels');
     await Promise.all([Request.init(), Grant.init(), AgentToken.init(), Article.init(), Edition.init()]);
     const users = [new mongoose.Types.ObjectId(), new mongoose.Types.ObjectId()];
+    await models.User.create(users.map((id, index) => ({ _id: id, username: `synthetic-integration-${index}`, password: 'synthetic-unusable-value' })));
+    const isAccountActive = require('../../services/accountAccessService').buildAccountAccessCheck({ User: models.User });
     const human = users.map(id => jwt.sign({id:String(id)}, jwtSecret, {expiresIn:'1h'}));
-    const agentAuth = buildAuthenticateAgentToken({AgentToken,OAuthGrant:Grant,oauthResource:config.resource,consume:false});
+    const agentAuth = buildAuthenticateAgentToken({ isAccountActive,AgentToken,OAuthGrant:Grant,oauthResource:config.resource,consume:false});
     const auth = (req,res,next) => (req.headers.authorization?.startsWith('Bearer ntk_at_') ? agentAuth : humanAuth)(req,res,next);
     const mountStart = source.indexOf('app.use(buildNotebookRouter({');
     const mountSource = source.slice(mountStart, source.indexOf('}));', mountStart) + 4);
@@ -51,7 +54,7 @@ test('actual OAuth grants and content routes preserve two-account boundaries in 
     for (const symbol of mountSource.match(/\b[A-Za-z_$][\w$]*\b/g)) if (!(symbol in mountContext)) mountContext[symbol] = noop;
     vm.runInNewContext(mountSource, mountContext);
     const app = express(); app.use(require('../../services/chatgptOAuthIngress').buildChatgptOAuthIngress());
-    app.use(buildChatgptOAuthRouter({config,authenticateToken:humanAuth,Request,Grant,AgentToken}));
+    app.use(buildChatgptOAuthRouter({ isAccountActive,config,authenticateToken:humanAuth,Request,Grant,AgentToken}));
     app.use(express.json());
     app.use(buildLegacyContentRouter({authenticateToken:auth,mongoose,...models,normalizeChecklist:x=>x,normalizePdfs:x=>x,enqueueArticleEmbedding:noop,deleteArticleEmbeddingState:noop,safeMapEmbedding:noop,queueEmbeddingUpsert:noop,normalizeItemType:x=>x,queueEmbeddingDelete:noop}));
     app.use(buildHighlightMutationRouter({authenticateToken:auth,mongoose,Article,normalizeTags:x=>x,enqueueHighlightEmbedding:noop,safeMapEmbedding:noop,highlightToEmbeddingItem:noop,queueEmbeddingUpsert:noop,markTourSignal:noop,normalizeItemType:x=>x,parseClaimId:x=>x,queueEmbeddingDelete:noop}));
@@ -149,6 +152,15 @@ test('actual OAuth grants and content routes preserve two-account boundaries in 
       const stored=await AgentToken.findOne({userId:users[1]});assert.equal(stored.status,'revoked');assert.ok(stored.revokedAt);
       const family=await Grant.findOne({userId:users[1]});assert.ok(family.revokedAt);
       assert.equal(await AgentToken.countDocuments({userId:users[1],status:'active',revokedAt:null}),0);
+    });
+    await t.test('disabled owner loses browser and connector access while the other account remains active', async () => {
+      await models.User.updateOne({ _id: users[0] }, { $set: { accountDisabledAt: new Date() } });
+      const owned = `/articles/${fixtures[0].article.id}`;
+      assert.equal((await call(owned, human[0])).status, 401);
+      assert.equal((await call(owned, tokens[0])).status, 401);
+      assert.equal((await call(`/articles/${fixtures[1].article.id}`, human[1])).status, 200);
+      await models.User.deleteOne({ _id: users[0] }); // Synthetic disposable database only.
+      assert.equal((await call(owned, human[0])).status, 401);
     });
   } finally { if(server) await new Promise(resolve=>server.close(resolve));await mongoose.disconnect();await mongo.stop(); }
 });

@@ -1,0 +1,154 @@
+{
+  "privacy": {
+    "title": "NOEIS Privacy Policy",
+    "updated": "Last updated October 11, 2026.",
+    "sections": [
+      {
+        "heading": "Who runs NOEIS",
+        "paragraphs": [
+          "NOEIS is developed independently by Athan Tsokolas. For privacy questions, export requests or deletion requests, contact [atsokolas@gmail.com](mailto:atsokolas@gmail.com)."
+        ]
+      },
+      {
+        "heading": "Information NOEIS handles",
+        "paragraphs": [
+          "An account includes a username, password authentication data and connection grants. Passwords are stored as hashes. The website stores a sign-in token in your browser.",
+          "Your workspace can contain saved articles and URLs, highlights, private thoughts, notebook entries, concepts, questions, Wiki pages, sources, revisions, Edition items and reader saves. Connected imports use the connection credentials and metadata needed to retrieve the material you authorize.",
+          "Technical records can include request URLs, page visits, feature events, timestamps, request identifiers and pseudonymous account identifiers. Support correspondence includes the information you choose to send. Do not put passwords, payment-card details, government identifiers or other authentication secrets in saved content, tool requests or support messages."
+        ]
+      },
+      {
+        "heading": "Why NOEIS uses this information",
+        "paragraphs": [
+          "NOEIS uses account and workspace information to sign you in, keep and retrieve your reading, connect sources with your thinking, provide exports, and run the features you request. Technical logs and analytics help understand use and investigate failures.",
+          "AI processing can use saved text to create embeddings for retrieval and to prepare summaries, answers or Wiki candidates. Saving or importing content can queue this work in the background. Processing can occur even when you are not sending a message in ChatGPT."
+        ]
+      },
+      {
+        "heading": "Service providers and connected tools",
+        "paragraphs": [
+          "NOEIS uses Vercel to host its website, Render to run its API, and MongoDB to store workspace records and support semantic retrieval. AI features send relevant text through OpenRouter to model providers. The serving model and provider can vary, including when a fallback is used. Retention and model-training practices depend on the serving endpoint and applicable account controls. NOEIS does not promise that every AI endpoint has zero data retention or that every provider excludes inputs from training.",
+          "These services process information needed to operate their parts of NOEIS. Their notices provide additional information: [Vercel](https://vercel.com/legal/privacy-notice), [Render](https://render.com/privacy), [MongoDB](https://www.mongodb.com/legal/privacy/privacy-policy) and [OpenRouter](https://openrouter.ai/privacy).",
+          "When you connect NOEIS to ChatGPT, the read scope lets ChatGPT retrieve supported content from your account. The agent-write scope allows private thought appends, Edition filing and Wiki source or candidate preparation. Available actions depend on the connection grant. ChatGPT receives content returned by those tools and handles it under [OpenAI's privacy policy](https://openai.com/policies/privacy-policy/) and applicable terms.",
+          "The ChatGPT connection cannot delete, share or publish content, or accept Wiki changes. Edition filing can replace an existing headline or answered follow-up and can update masthead attribution. Those metadata replacements have no history or undo through the connection. Read the current issue and confirm an intended replacement first.",
+          "If you use another connected import service, that service's own terms and privacy policy also apply."
+        ]
+      },
+      {
+        "heading": "Retention",
+        "paragraphs": [
+          "Saved workspace content has no general automatic expiry. Supported deletion controls remove selected content from the active workspace. Removing an item does not necessarily erase every related revision, technical log or backup. Some older automatically generated Wiki snapshot bodies are eligible for pruning; revision records, human edits and protected evidence can remain.",
+          "ChatGPT access tokens expire after one hour. Refresh grants expire 30 days after issue. Grant records become eligible for automatic cleanup one day after that expiry; cleanup runs asynchronously. Revoking a connection disables further use of its grant but does not delete saved content. Expired and revoked access-token records currently have no automatic deletion schedule.",
+          "NOEIS has no automatic expiry routine for its local product-event files or successful manually created backup archives. Modified files on its current Render service are lost when the service restarts, redeploys or spins down. That does not delete the database or Render's separately retained log stream. Render log retention depends on the workspace plan. Other providers may retain request records, analytics or backups according to their policies and the applicable configuration. Deleting an item in NOEIS does not promise immediate deletion of those provider records."
+        ]
+      },
+      {
+        "heading": "Your controls and requests",
+        "paragraphs": [
+          "You can choose what to save, use supported content-deletion controls, disconnect a connected service and revoke its access. Disconnecting a service does not itself delete saved content.",
+          "The authenticated JSON export includes articles, highlights, notebook entries, collections, concept metadata and saved views. Wiki has a separate export. These exports do not cover every type of account record.",
+          "For an account-level export or deletion request, email [atsokolas@gmail.com](mailto:atsokolas@gmail.com) with your NOEIS username and the scope of your request. Do not send a password, API key or sign-in token.",
+          "Athan handles these requests through support. He will verify that you control the account without requesting account secrets, inventory the affected records, and explain the proposed scope, any retention exceptions and an estimated completion time. For deletion work, he will coordinate account-scoped maintenance, address active sessions, connection grants and background work, and verify the cleanup result before reporting what was removed and what remains.",
+          "NOEIS does not provide a self-service whole-account erasure feature. The technical end-to-end account-erasure procedure is still being validated. The available scope will be confirmed for your request; if some work cannot yet be completed safely, Athan will explain the limitation and next steps. This process does not promise immediate removal of every revision, log or backup.",
+          "Nothing in this notice limits rights you have under applicable law."
+        ]
+      },
+      {
+        "heading": "Changes and contact",
+        "paragraphs": [
+          "Updates to this notice will be posted on this page. Questions can be sent to [atsokolas@gmail.com](mailto:atsokolas@gmail.com). Related pages: [Support](/support) and [Terms of Use](/terms)."
+        ]
+      }
+    ]
+  },
+  "support": {
+    "title": "NOEIS Support",
+    "updated": "Last updated October 11, 2026.",
+    "sections": [
+      {
+        "heading": "Contact Athan",
+        "paragraphs": [
+          "NOEIS is developed independently by Athan Tsokolas. Email [atsokolas@gmail.com](mailto:atsokolas@gmail.com) for help with your account, imports, saved content or the ChatGPT connection.",
+          "Include your NOEIS username, what you tried, the approximate time and the exact error or receipt status. For a content issue, include the NOEIS page or item identifier when possible. Use fictional or redacted examples. Do not send passwords, API keys, sign-in tokens, payment details or sensitive personal material."
+        ]
+      },
+      {
+        "heading": "Connect ChatGPT",
+        "paragraphs": [
+          "Sign in to your existing NOEIS account through the plugin's OAuth flow. Review the requested read and agent-write permissions before authorizing access.",
+          "The connection can read supported content, append a private thought when you ask, file Edition research and prepare Wiki work. Wiki acceptance remains in NOEIS. The connection cannot delete, share or publish your content.",
+          "Edition filing can replace headlines or answered follow-ups and update masthead attribution. Read the current issue and confirm an intended replacement first. Replaced metadata has no history or undo through this connection."
+        ]
+      },
+      {
+        "heading": "Check the result before retrying",
+        "paragraphs": [
+          "A queued, held or failed status does not establish a completed result. Check the receipt and the saved item in NOEIS before retrying.",
+          "For a thought-save retry, keep the same operation identifier and original snapshot. Refresh a stale snapshot instead of using it to overwrite newer writing. For Edition filing, an already-held item is a no-op rather than a newly added source.",
+          "A storage warning can pause automatic Wiki work. It does not prove that a manual save succeeded or that all AI processing is paused. Keep a copy of unsaved text and contact support with the visible status."
+        ]
+      },
+      {
+        "heading": "Exports and deletion requests",
+        "paragraphs": [
+          "Use the supported export and content-deletion controls. For an account-level request, email [atsokolas@gmail.com](mailto:atsokolas@gmail.com) with your username and what you want exported or removed. Never include account secrets.",
+          "Athan will verify account control without requesting account secrets, inventory the affected records, and explain the scope, any retention exceptions and an estimated completion time. He will coordinate safe account-scoped maintenance and cleanup, then report the verified result and remaining limits.",
+          "There is no self-service whole-account erasure feature, and the technical end-to-end procedure is still being validated. If part of a request cannot yet be completed safely, Athan will explain the limitation and next steps. The [Privacy Policy](/privacy) describes the current controls and retention limits. See the [Terms of Use](/terms) for service conditions."
+        ]
+      }
+    ]
+  },
+  "terms": {
+    "title": "NOEIS Terms of Use",
+    "updated": "Last updated October 11, 2026.",
+    "sections": [
+      {
+        "heading": "The service",
+        "paragraphs": [
+          "NOEIS is developed independently by Athan Tsokolas. It helps you keep reading, connect sources with your own thinking, and prepare private Wiki and Edition work. Questions about these terms can be sent to [atsokolas@gmail.com](mailto:atsokolas@gmail.com)."
+        ]
+      },
+      {
+        "heading": "Your account and material",
+        "paragraphs": [
+          "Keep your account credentials private. Use NOEIS only with content and connected accounts you are entitled to use. Do not use it to violate another person's rights or applicable law. Do not put payment-card details, government identifiers, passwords, API keys or other authentication secrets in saved content or tool requests. Enter login information only in the relevant sign-in flow.",
+          "You keep your rights in material you add. You permit NOEIS and its service providers to store, retrieve and process that material as needed to provide the features you use. The [Privacy Policy](/privacy) describes that processing, including background AI work and retention."
+        ]
+      },
+      {
+        "heading": "Connected tools",
+        "paragraphs": [
+          "You decide whether to connect another tool and authorize its permissions. That tool's own terms and policies also apply.",
+          "The ChatGPT connection supports account-scoped reading, explicitly requested private thought appends, Edition filing and Wiki preparation. It does not provide deletion, sharing, publication or Wiki acceptance.",
+          "Edition filing preserves existing research items and reader saves. Supplied headlines and answered follow-ups can replace current metadata, and adding items can update masthead attribution. These metadata replacements have no history or undo through the connection. Read the current issue and confirm an intended replacement first."
+        ]
+      },
+      {
+        "heading": "AI assistance and review",
+        "paragraphs": [
+          "AI output can be incomplete or wrong. Check source passages, attribution and limitations before relying on a result. A prepared Wiki candidate has not been accepted; review and acceptance happen in NOEIS.",
+          "A queued, held or failed status does not establish a completed result. Check the receipt and the saved item before retrying. A receipt establishes only the operation it reports. Keep an export of material you need to preserve."
+        ]
+      },
+      {
+        "heading": "Availability",
+        "paragraphs": [
+          "NOEIS and its providers may experience interruptions, limits or changes. Features and availability may change. NOEIS makes no uptime, recovery or completeness guarantee.",
+          "To the extent permitted by applicable law, NOEIS is provided as available. Nothing in these terms removes rights that applicable law does not allow to be excluded."
+        ]
+      },
+      {
+        "heading": "Ending use and requesting help",
+        "paragraphs": [
+          "You can stop using NOEIS and disconnect connected tools. Disconnecting a tool does not itself delete saved content. For support or an account-level deletion request, contact [atsokolas@gmail.com](mailto:atsokolas@gmail.com). The [Privacy Policy](/privacy) explains the current controls, the support-led request process and its current technical and retention limits."
+        ]
+      },
+      {
+        "heading": "Changes",
+        "paragraphs": [
+          "Updated terms will be posted on this page. For help, see [Support](/support)."
+        ]
+      }
+    ]
+  }
+}

@@ -67,6 +67,7 @@ const morningPaperSettingsSchema = new mongoose.Schema({
 const userSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true, trim: true },
   password: { type: String, required: true },
+  accountDisabledAt: { type: Date, default: null },
   agentProfile: { type: userAgentProfileSchema, default: () => ({}) },
   agentProtocolPolicy: { type: userAgentProtocolPolicySchema, default: () => ({}) },
   morningPaper: { type: morningPaperSettingsSchema, default: () => ({}) }
@@ -402,6 +403,20 @@ const notebookEntrySchema = new mongoose.Schema({
   blocks: { type: [notebookBlockSchema], default: [] },
   asidePieces: { type: [notebookAsidePieceSchema], default: [] },
   workingState: { type: notebookWorkbenchSchema, default: () => ({}) },
+  /* Each sentence of this note read once against a view the reader holds:
+     the verdict, and whether the reader set the line aside. */
+  viewReadings: {
+    type: [new mongoose.Schema({
+      key: { type: String, required: true },
+      pageId: { type: String, default: '' },
+      sentence: { type: String, default: '' },
+      verdict: { type: String, enum: ['contradicts', 'supports', 'unrelated', 'unsure'], required: true },
+      at: { type: Date, default: Date.now },
+      dismissedAt: { type: Date, default: null }
+    }, { _id: false })],
+    default: [],
+    select: false
+  },
   folder: { type: mongoose.Schema.Types.ObjectId, ref: 'NotebookFolder', default: null },
   type: { type: String, enum: ['claim', 'evidence', 'note'], default: 'note' },
   claimId: { type: mongoose.Schema.Types.ObjectId, default: null },
@@ -2200,11 +2215,13 @@ const tourEventTimestampsSchema = new mongoose.Schema({
 // per-user first-run document, uniquely indexed by userId — a second model would
 // mean a second write and a second thing to keep in step. Onboarding completion
 // used to live only in localStorage, so it re-triggered on a new browser and could
-// not be measured server-side.
+// not be measured server-side. A new account starts 'pending', which is the only
+// state the first-run gate acts on; accounts that predate the flow stay
+// 'not_started' and are never walked through it.
 const onboardingStateSchema = new mongoose.Schema({
   status: {
     type: String,
-    enum: ['not_started', 'complete'],
+    enum: ['not_started', 'pending', 'complete'],
     default: 'not_started'
   },
   completedAt: { type: Date, default: null }

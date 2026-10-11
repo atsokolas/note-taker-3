@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { adoptWikiStarterPack, listWikiStarterPacks } from '../api/wiki';
-import { markWikiOnboardingComplete } from './onboardingState';
 
 /**
  * ForkableWikis — public wikis you can copy into your own workspace.
@@ -56,13 +55,7 @@ const ForkableWikis = () => {
       const result = await adoptWikiStarterPack(pack.id);
       const first = (Array.isArray(result?.pages) ? result.pages : [])[0] || {};
       const pageId = first._id || first.id || '';
-      markWikiOnboardingComplete();
-      navigate(
-        pageId
-          ? `/onboarding/wiki?adoptedPage=${encodeURIComponent(pageId)}&source=shared`
-          : '/wiki',
-        { replace: true }
-      );
+      navigate(pageId ? `/welcome?took=${encodeURIComponent(pageId)}` : '/wiki', { replace: true });
     } catch (err) {
       setError(err?.response?.data?.error || err?.message || 'Could not copy that wiki. Try again.');
     } finally {

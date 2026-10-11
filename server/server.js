@@ -4791,6 +4791,7 @@ const readRequestToken = (req) => {
   const headerToken = authHeader.startsWith('Bearer ')
     ? authHeader.slice(7).trim()
     : '';
+  if (headerToken) return { token: headerToken, tokenSource: 'header' };
   const cookieHeader = req.headers.cookie || '';
   const cookieToken =
     getCookieValue(cookieHeader, 'token') ||
@@ -4802,67 +4803,18 @@ const readRequestToken = (req) => {
   };
 };
 
-function authenticateToken(req, res, next) {
-  const { token, tokenSource } = readRequestToken(req);
-
-  if (!token) {
-    if (process.env.DEBUG_AUTH === 'true') {
-      console.log('[AUTH] missing token', {
-        tokenSource,
-        serverNowSec: Math.floor(Date.now() / 1000)
-      });
-    }
-    return res.status(401).json({ error: "AUTH_REQUIRED" });
-  }
-
-  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-    const serverNowSec = Math.floor(Date.now() / 1000);
-    const decoded = jwt.decode(token) || {};
-    if (process.env.DEBUG_AUTH === 'true') {
-      const diffSec = decoded.exp ? serverNowSec - decoded.exp : null;
-      console.log('[AUTH] verify', {
-        tokenSource,
-        serverNowSec,
-        iat: decoded.iat,
-        exp: decoded.exp,
-        diffSec
-      });
-    }
-
-    if (err) {
-      if (err.name === 'TokenExpiredError') {
-        console.warn("JWT Verification Error: token expired");
-        return res.status(401).json({ error: "AUTH_EXPIRED" });
-      }
-      console.warn("JWT Verification Error:", err.message);
-      return res.status(401).json({ error: "AUTH_INVALID" });
-    }
-    req.user = user;
-    req.authInfo = {
-      tokenSource,
-      iat: user.iat,
-      exp: user.exp
-    };
-    next();
-  });
-}
-
-function optionalAuthenticateToken(req, res, next) {
-  const { token, tokenSource } = readRequestToken(req);
-  if (!token) return next();
-  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-    if (err || !user) return next();
-    req.user = user;
-    req.authInfo = {
-      tokenSource,
-      iat: user.iat,
-      exp: user.exp
-    };
-    return next();
-  });
-}
+const { buildAccountAccessCheck, buildBrowserAuthentication } = require('./services/accountAccessService');
+const isAccountActive = buildAccountAccessCheck({ User });
+const browserAuthenticationOptions = {
+  readRequestToken,
+  verifyToken: token => jwt.verify(token, process.env.JWT_SECRET),
+  isAccountActive
+};
+const authenticateToken = buildBrowserAuthentication(browserAuthenticationOptions);
+const optionalAuthenticateToken = buildBrowserAuthentication({ ...browserAuthenticationOptions, optional: true });
 
 const oauthTokenOptions = {
+  isAccountActive,
   OAuthGrant: ChatgptOAuthGrant,
   oauthResource: chatgptOAuthConfig?.resource
 };
@@ -4907,6 +4859,10 @@ async function authenticatePersonalAgentKey(req, res, next) {
     if (!personalAgent) {
       return res.status(401).json({ error: 'AGENT_AUTH_INVALID' });
     }
+    let accountActive;
+    try { accountActive = await isAccountActive(String(personalAgent.userId || '')); }
+    catch (_error) { return res.status(503).json({ error: 'AUTH_UNAVAILABLE' }); }
+    if (!accountActive) return res.status(401).json({ error: 'AGENT_AUTH_INVALID' });
 
     personalAgent.lastUsedAt = new Date();
     await personalAgent.save();
@@ -4947,6 +4903,11 @@ async function authenticateAgentBridgeToken(req, res, next) {
     if (!mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(401).json({ error: 'BRIDGE_AUTH_INVALID' });
     }
+
+    let accountActive;
+    try { accountActive = await isAccountActive(userId); }
+    catch (_error) { return res.status(503).json({ error: 'AUTH_UNAVAILABLE' }); }
+    if (!accountActive) return res.status(401).json({ error: 'BRIDGE_AUTH_INVALID' });
 
     const actorType = normalizeAgentActorType(decoded?.actorType, '');
     if (!actorType) return res.status(401).json({ error: 'BRIDGE_AUTH_INVALID' });
@@ -5224,6 +5185,7 @@ app.use(buildAuthDiscoveryRouter({
   authenticateToken,
   Recommendation,
   Article,
+  TourState,
   trackEvent,
   EVENT_NAMES
 }));
@@ -6393,7 +6355,7 @@ app.use(buildAgentTokenRouter({
 }));
 
 app.use(buildChatgptOAuthRouter({
-  config: chatgptOAuthConfig, authenticateToken,
+  config: chatgptOAuthConfig, authenticateToken, isAccountActive,
   Request: ChatgptOAuthRequest, Grant: ChatgptOAuthGrant, AgentToken,
   isReady: chatgptOAuthReadiness?.isReady
 }));
@@ -6866,6 +6828,7 @@ app.use(buildImportSessionRouter({
 
 const importRouter = buildImportRouter({
   authenticateToken,
+  isAccountActive,
   upload,
   Papa,
   findRowValue,

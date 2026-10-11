@@ -14,9 +14,18 @@ const parseScopes = value => {
 };
 const scalar = (value, limit = 2048) => typeof value === 'string' && value.length <= limit ? value : '';
 
-const buildChatgptOAuthRouter = ({ config, authenticateToken, Request, Grant, AgentToken, Control = ChatgptOAuthControl, controls: suppliedControls, isReady = () => true, now = () => new Date() }) => {
+const buildChatgptOAuthRouter = ({ config, authenticateToken, isAccountActive, Request, Grant, AgentToken, Control = ChatgptOAuthControl, controls: suppliedControls, isReady = () => true, now = () => new Date() }) => {
   const router = express.Router();
   if (!config) return router;
+  if (typeof isAccountActive !== 'function') throw new Error('Account access check is required.');
+  const accountIsActive = async userId => {
+    try { return await isAccountActive(userId); }
+    catch (_error) {
+      const unavailable = new Error('Account availability could not be verified.');
+      unavailable.code = 'AUTH_UNAVAILABLE';
+      throw unavailable;
+    }
+  };
   const error = (res, name, status = 400) => res.status(status).json({ error: name });
   const current = () => now();
   const controls = suppliedControls || buildChatgptOAuthControls({ Control, config, now });
@@ -48,13 +57,20 @@ const buildChatgptOAuthRouter = ({ config, authenticateToken, Request, Grant, Ag
   const guard = handler => async (req, res, next) => {
     res.set('Cache-Control', 'no-store');
     res.set('Pragma', 'no-cache');
-    try { await handler(req, res); } catch (err) { next(err); }
+    try { await handler(req, res); } catch (err) {
+      if (err.code === 'AUTH_UNAVAILABLE') return error(res, 'temporarily_unavailable', 503);
+      next(err);
+    }
   };
   const revokeFamily = async familyId => {
     await Grant.updateOne({ familyId }, { $set: { revokedAt: current() } });
     await AgentToken.updateMany({ oauthFamilyId: familyId }, { $set: { revokedAt: current(), status: 'revoked' } });
   };
   const mintAccess = async grant => {
+    if (!await accountIsActive(String(grant.userId || ''))) {
+      await revokeFamily(grant.familyId);
+      return null;
+    }
     const secret = createAgentTokenSecret();
     const fields = {
       userId: grant.userId, label: 'ChatGPT · NOEIS', runtime: 'chatgpt',
@@ -168,7 +184,7 @@ const buildChatgptOAuthRouter = ({ config, authenticateToken, Request, Grant, Ag
       // Matching + consume is a single database operation: concurrent exchanges cannot mint twice.
       const row = await Request.findOneAndUpdate({ codeHash: hash(code), clientId, redirectUri,
         resource: body.resource, challenge, status: 'approved', expiresAt: { $gt: current() } }, { $set: { status: 'consumed' } }, { new: true });
-      if (!row) return error(res, 'invalid_grant');
+      if (!row || !await accountIsActive(String(row.userId || ''))) return error(res, 'invalid_grant');
       const refresh = opaque();
       const grant = await Grant.create({ familyId: opaque(), userId: row.userId, clientId,
         resource: row.resource, scopes: row.scopes, refreshHash: hash(refresh), refreshCount: 0, expiresAt: new Date(current().getTime() + config.refreshTtlSec * 1000) });
@@ -188,6 +204,7 @@ const buildChatgptOAuthRouter = ({ config, authenticateToken, Request, Grant, Ag
         return error(res, 'invalid_grant');
       }
       if (Number(old.refreshCount || 0) >= config.limits.refreshRotations) { await revokeFamily(old.familyId); return error(res, 'invalid_grant'); }
+      if (!await accountIsActive(String(old.userId || ''))) { await revokeFamily(old.familyId); return error(res, 'invalid_grant'); }
       if (body.scope !== undefined && (!requestedScopes || requestedScopes.some(scope => !old.scopes.includes(scope)))) return error(res, 'invalid_scope');
       // Respect revocation through the existing Connected Agents UI as well as OAuth revocation.
       const linkedToken = old.accessTokenId && await AgentToken.findOne({ _id: old.accessTokenId, userId: old.userId, status: 'active', revokedAt: null });

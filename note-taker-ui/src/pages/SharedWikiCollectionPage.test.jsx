@@ -151,7 +151,7 @@ describe('SharedWikiCollectionPage', () => {
     render(<SharedWikiCollectionPage />);
 
     await waitFor(() => expect(adoptPublicWikiCollection).toHaveBeenCalledWith('thinking-foundations'));
-    expect(navigate).toHaveBeenCalledWith('/onboarding/wiki?adoptedPage=adopted-2&source=shared', { replace: true });
+    expect(navigate).toHaveBeenCalledWith('/welcome?took=adopted-2', { replace: true });
   });
 
   it('marks unavailable collections noindex', async () => {

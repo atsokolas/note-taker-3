@@ -8,6 +8,7 @@ const {
 const { normalizeJudgment } = require('../services/wikiJudgmentService');
 const { createWikiRevision, snapshotPage } = require('../services/wikiRevisionService');
 const { persistNoeisReceipt, serializeStoredReceipt } = require('../services/noeisReceiptService');
+const { pushesAgainst } = require('../services/readingTalksBack');
 const { EVENT_NAMES } = require('../utils/analytics');
 
 const serializeId = value => String(value?._id || value?.id || value || '');
@@ -49,6 +50,22 @@ const buildJudgmentChangeProposalRouter = ({
     } catch (error) {
       console.error('Error loading judgment change proposal:', error);
       return res.status(500).json({ error: 'Failed to load the judgment change proposal.' });
+    }
+  });
+
+  /* In the reader: the passage this source already proposed against a view
+     you hold, if one is waiting. */
+  router.get('/api/judgment/pushes-against', authenticateToken, async (req, res) => {
+    try {
+      const reading = await pushesAgainst({
+        userId: req.user.id,
+        articleId: String(req.query?.articleId || '').trim(),
+        models: { WikiPage, NoeisReceipt }
+      });
+      return res.status(200).json({ reading });
+    } catch (error) {
+      console.error('Error loading a passage against a held view:', error);
+      return res.status(500).json({ error: 'Failed to load the passage.' });
     }
   });
 
