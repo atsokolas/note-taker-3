@@ -8667,17 +8667,19 @@ const buildWikiRouter = ({
       if (normalized.error) return res.status(400).json({ error: normalized.error });
       const source = normalized.value;
       /* An address the reader already saved is their Library article, cited as
-         itself rather than as a second copy of the web page. */
+         itself rather than as a second copy of the web page. A saved article
+         with nothing to read stays the web page, so the run cites what it read. */
       const saved = source.rawType === 'url'
         ? await findLibraryArticle({ Article, userId: req.user.id, url: source.url })
         : null;
-      if (saved) {
+      const savedText = cleanWikiSummary(saved?.content, INGEST_TEXT_LIMIT);
+      if (savedText) {
         Object.assign(source, {
           sourceType: 'article',
           objectId: saved._id,
           title: saved.title || source.title || '',
-          text: cleanWikiSummary(saved.content, INGEST_TEXT_LIMIT) || source.text,
-          summary: saved.content ? '' : source.summary
+          text: savedText,
+          summary: ''
         });
       }
       /* A URL used to arrive as a bare link. The run stored a title and an

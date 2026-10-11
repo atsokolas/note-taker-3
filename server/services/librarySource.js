@@ -113,13 +113,16 @@ const resolveSourceRefs = async ({ Article, WikiSourceEvent, userId, refs = [] }
   return changes;
 };
 
-/** The reader's Library article saved at this address, or null. */
+/** The reader's Library article saved at this address, or null: the one saved
+    at exactly this address first, else the first saved at another spelling of it. */
 const findLibraryArticle = async ({ Article, userId, url }) => {
   const pattern = urlPattern(url);
   if (!Article || !pattern) return null;
   const canonical = canonicalSourceUrl(url);
-  const articles = await Article.find({ userId, url: pattern }).select('_id url title content').lean();
-  return articles.find(article => canonicalSourceUrl(article.url) === canonical) || null;
+  const articles = await Article.find({ userId, url: pattern }).sort({ _id: 1 }).select('_id url title content').lean();
+  return articles.find(article => article.url === String(url).trim())
+    || articles.find(article => canonicalSourceUrl(article.url) === canonical)
+    || null;
 };
 
 /** Resolve a page's sources and remember what was found, without touching updatedAt. */

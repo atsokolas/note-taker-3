@@ -97,6 +97,11 @@ async function run() {
     assert.equal(await findLibraryArticle({ Article, userId, url: 'https://example.com/elsewhere' }), null, 'only your own Library');
     assert.equal(await findLibraryArticle({ Article, userId, url: 'not a url' }), null);
     assert.equal(await findLibraryArticle({ Article, userId, url: 'https://someone:secret@example.com/journals' }), null, 'an address with a password is not your article');
+    const tracked = await Article.create({ userId, url: 'https://example.com/twins?utm_source=mail', title: 'Saved from the newsletter' });
+    const plain = await Article.create({ userId, url: 'https://example.com/twins', title: 'Saved from the site' });
+    assert.equal(String((await findLibraryArticle({ Article, userId, url: 'https://example.com/twins' }))._id), String(plain._id), 'the exact address first');
+    assert.equal(String((await findLibraryArticle({ Article, userId, url: 'https://example.com/twins?utm_source=mail' }))._id), String(tracked._id));
+    assert.equal(String((await findLibraryArticle({ Article, userId, url: 'https://www.example.com/twins/' }))._id), String(tracked._id), 'else the first saved');
 
     // The backfill says what it would do, and does it only when asked.
     const unread = await WikiPage.collection.insertOne({
