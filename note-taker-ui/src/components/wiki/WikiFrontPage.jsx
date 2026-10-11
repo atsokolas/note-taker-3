@@ -60,14 +60,23 @@ const writeFrontPageCache = ({ pages, hasAnyWikiContent }) => {
 const LAST_LOOKED_KEY = 'noeis.wiki.lastLooked.v1';
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
-const takeLastLooked = () => {
+/* When the reader last opened the Wiki home. Read once on mount (pure, so a
+   double render cannot move it), written after the page has shown it. */
+const readLastLooked = () => {
   const firstLook = { at: new Date(Date.now() - WEEK_MS).toISOString(), first: true };
   try {
     const stored = window.localStorage?.getItem(scopedKey(LAST_LOOKED_KEY));
-    window.localStorage?.setItem(scopedKey(LAST_LOOKED_KEY), new Date().toISOString());
     return stored && Number.isFinite(new Date(stored).getTime()) ? { at: stored, first: false } : firstLook;
   } catch (_error) {
     return firstLook;
+  }
+};
+
+const markLooked = () => {
+  try {
+    window.localStorage?.setItem(scopedKey(LAST_LOOKED_KEY), new Date().toISOString());
+  } catch (_error) {
+    // A private window keeps no memory; the home then reads as a first look.
   }
 };
 
@@ -201,7 +210,8 @@ const WikiFrontPage = ({ initialKind = '' }) => {
   const requestedView = searchParams.get('view');
   const kind = WIKI_KINDS.includes(requestedKind) ? requestedKind : '';
   const wikiFilter = ['proposed', 'review'].includes(requestedView) ? 'proposed' : 'all';
-  const [since] = useState(takeLastLooked);
+  const [since] = useState(readLastLooked);
+  useEffect(markLooked, []);
   const [changes, setChanges] = useState(null);
 
   const setQuery = (key, value) => {
