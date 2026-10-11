@@ -17,6 +17,13 @@ const {
   verifyUnsubscribeToken
 } = require('../services/morningPaperEmailService');
 const { isHumanOnlyWikiArtifact } = require('../services/wikiProtectedArtifactService');
+const { inboundMailConfig } = require('../services/import/newsletterMail');
+
+/* Where newsletters are forwarded, or '' while email-in is not configured. */
+const inboundAddress = (env) => {
+  const inbound = inboundMailConfig(env);
+  return inbound.enabled ? inbound.address : '';
+};
 
 const clean = (value = '', limit = 500) => {
   const text = String(value || '').replace(/\s+/g, ' ').trim();
@@ -68,7 +75,8 @@ const serializeSettings = (user, env = process.env) => {
     lastAttemptedAt: settings.lastAttemptedAt || null,
     lastSkippedAt: settings.lastSkippedAt || null,
     lastSkipReason: settings.lastSkipReason || '',
-    configuration: emailConfigurationStatus(env)
+    configuration: emailConfigurationStatus(env),
+    inboundAddress: inboundAddress(env)
   };
 };
 

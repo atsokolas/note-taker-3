@@ -34,6 +34,11 @@ describe('LibrarySourceTrace', () => {
     expect(screen.queryByText('Said by the reader instead')).not.toBeInTheDocument();
   });
 
+  it('says when a piece came in by email instead of being saved', () => {
+    renderTrace({ source: { ...source, provenance: { ...source.provenance, provider: 'email', sourceLabel: 'Money Stuff' } } });
+    expect(screen.getByText('Ada Example · Published Jul 20, 2026 · Came in by email Jul 27, 2026 · Money Stuff')).toBeInTheDocument();
+  });
+
   it('recognises an author you keep returning to, from the third piece on', () => {
     renderTrace({ source });
     expect(screen.getByRole('link', { name: 'Your fourth piece by Ada Example.' }))

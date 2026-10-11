@@ -43,7 +43,7 @@ const LibrarySourceTrace = ({ source, loading = false, error = '' }) => {
   const facts = [
     provenance.author,
     published ? `Published ${published}` : '',
-    saved ? `Saved ${saved}` : '',
+    saved ? `${provenance.provider === 'email' ? 'Came in by email' : 'Saved'} ${saved}` : '',
     provenance.sourceLabel || provenance.siteName
   ].filter(Boolean).join(' · ');
   const returning = authorLine(provenance.author, source.authorPieces);
