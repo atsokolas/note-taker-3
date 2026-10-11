@@ -12,14 +12,11 @@ import { readMarketingAttribution } from '../utils/marketingAttribution';
 
 const PASSWORD_MIN_LENGTH = 8;
 
-const validateRegistration = ({ username, password, confirmPassword }) => {
+const validateRegistration = ({ username, password }) => {
   const cleanUsername = username.trim();
 
   if (!cleanUsername || !password) {
     return 'Username and password are required.';
-  }
-  if (password !== confirmPassword) {
-    return 'Passwords do not match.';
   }
   if (password.length < PASSWORD_MIN_LENGTH) {
     return `Password must be at least ${PASSWORD_MIN_LENGTH} characters.`;
@@ -60,7 +57,9 @@ const autoLogin = async ({ username, password }) => {
 const Register = ({ chromeStoreLink, onLoginSuccess }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  // One password field you can read, instead of two you cannot. A typo you can
+  // see is a typo you fix before it becomes an account you cannot open.
+  const [showPassword, setShowPassword] = useState(false);
   const [message, setMessage] = useState('');
   const [isError, setIsError] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -75,7 +74,7 @@ const Register = ({ chromeStoreLink, onLoginSuccess }) => {
     setMessage('');
     setIsError(false);
     setSubmitting(true);
-    const validationMessage = validateRegistration({ username, password, confirmPassword });
+    const validationMessage = validateRegistration({ username, password });
     if (validationMessage) {
       setMessage(validationMessage);
       setIsError(true);
@@ -97,8 +96,7 @@ const Register = ({ chromeStoreLink, onLoginSuccess }) => {
       }, { skipAuthHandling: true });
       trackSignupSucceeded({ username: cleanUsername });
 
-      // Straight into the product. Onboarding starts work immediately after signup,
-      // so a second manual sign-in here is pure friction.
+      // Straight into first run. A second sign-in here is pure friction.
       let signedIn = false;
       try {
         signedIn = await autoLogin({ username: cleanUsername, password });
@@ -115,7 +113,9 @@ const Register = ({ chromeStoreLink, onLoginSuccess }) => {
         } catch (_error) {
           // ignore storage failures
         }
-        const safeReturnTo = returnTo.startsWith('/') && !returnTo.startsWith('//') ? returnTo : '/';
+        // Without somewhere to return to, go straight to first run rather than
+        // through the home page, which would paint for a moment and then leave.
+        const safeReturnTo = returnTo.startsWith('/') && !returnTo.startsWith('//') ? returnTo : '/welcome';
         navigate(safeReturnTo, { replace: true });
         return;
       }
@@ -146,33 +146,33 @@ const Register = ({ chromeStoreLink, onLoginSuccess }) => {
       <div className="auth-editorial auth-editorial--register">
         <section className="auth-editorial__lead">
           <Link to="/" className="auth-editorial__brand">Noeis</Link>
-          <div className="auth-editorial__eyebrow">Create your reading room</div>
-          <h1>Set up the notebook once, then let it compound.</h1>
+          <div className="auth-editorial__eyebrow">Your first five minutes</div>
+          <h1>Write what you think. See what your reading says about it.</h1>
           <p className="auth-editorial__lede">
-            Create an account to keep your saved reading, concepts, and open questions inside one
-            editorial workspace.
+            Hold one view, bring what you have read, and Noeis shows you the passages you saved that
+            bear on it. You decide what each one does.
           </p>
           <div className="auth-editorial__notes">
             <div className="auth-editorial__note">
-              <span>For heavy readers</span>
-              <p>Keep highlights attached to source, build notes in context, and deepen concepts over time.</p>
+              <span>Bring it in one step</span>
+              <p>
+                Years of Readwise highlights, or links to a few things you read this week. Later, save
+                from any page with the
+                <a href={chromeStoreLink} target="_blank" rel="noopener noreferrer"> browser extension</a>.
+              </p>
             </div>
             <div className="auth-editorial__note">
-              <span>Capture options</span>
-              <p>
-                Use manual paste and imports in the app, or install the free
-                <a href={chromeStoreLink} target="_blank" rel="noopener noreferrer"> Chrome Extension</a>
-                {' '}for one-click clipping.
-              </p>
+              <span>Yours alone</span>
+              <p>Your library is private. Nothing leaves it unless you publish it.</p>
             </div>
           </div>
         </section>
 
         <section className="auth-editorial__panel">
           <div className="auth-editorial__panel-head">
-            <div className="auth-editorial__eyebrow">Register</div>
+            <div className="auth-editorial__eyebrow">Start</div>
             <h2>Create your account</h2>
-            <p>Use a password with at least eight characters, including one letter and one number.</p>
+            <p>A password of eight or more characters, with a letter and a number.</p>
           </div>
 
           <form onSubmit={handleRegister} className="auth-editorial__form">
@@ -188,32 +188,30 @@ const Register = ({ chromeStoreLink, onLoginSuccess }) => {
               />
             </label>
 
-            <label className="auth-editorial__field" htmlFor="register-password">
-              <span>Password</span>
-              <input
-                type="password"
-                id="register-password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                autoComplete="new-password"
-                required
-              />
-            </label>
-
-            <label className="auth-editorial__field" htmlFor="register-confirm-password">
-              <span>Confirm password</span>
-              <input
-                type="password"
-                id="register-confirm-password"
-                value={confirmPassword}
-                onChange={(event) => setConfirmPassword(event.target.value)}
-                autoComplete="new-password"
-                required
-              />
-            </label>
+            <div className="auth-editorial__field">
+              <label htmlFor="register-password"><span>Password</span></label>
+              <div className="auth-editorial__password">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  id="register-password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  autoComplete="new-password"
+                  required
+                />
+                <button
+                  type="button"
+                  className="auth-editorial__reveal"
+                  aria-pressed={showPassword}
+                  onClick={() => setShowPassword(shown => !shown)}
+                >
+                  {showPassword ? 'Hide' : 'Show'}
+                </button>
+              </div>
+            </div>
 
             <Button type="submit" className="auth-editorial__submit" disabled={submitting}>
-              {submitting ? 'Registering…' : 'Register'}
+              {submitting ? 'Creating your account…' : 'Create account'}
             </Button>
           </form>
 
@@ -224,7 +222,7 @@ const Register = ({ chromeStoreLink, onLoginSuccess }) => {
           <div className="auth-editorial__switch">
             <span>Already have an account?</span>
             <button type="button" className="auth-editorial__switch-button" onClick={() => navigate('/login')}>
-              Login here
+              Sign in
             </button>
           </div>
         </section>

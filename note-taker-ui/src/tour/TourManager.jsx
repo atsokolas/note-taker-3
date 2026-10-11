@@ -7,7 +7,6 @@ import {
   TOUR_STATUS
 } from './tourConfig';
 import { useTour } from './TourProvider';
-import { isWikiOnboardingPending } from '../onboarding/onboardingState';
 
 const parseRoute = (route) => {
   if (!route) return null;
@@ -37,9 +36,9 @@ const TOUR_AUTONAV_BLOCKED_PREFIXES = [
   '/connections',
   '/integrations',
   '/share/',
-  // First-run onboarding drives its own navigation. Without this the tour yanks a
-  // brand-new user off /onboarding/wiki to its own first step mid-build.
-  '/onboarding'
+  // First run drives its own steps. Without this the tour yanks a brand-new
+  // reader off /welcome to its own first step.
+  '/welcome'
 ];
 
 const shouldAutoNavigateForTour = ({ location, currentStep, explicitResume = false } = {}) => {
@@ -76,15 +75,7 @@ const TourManager = () => {
   // they had just chosen to open. Deferring it (rather than deleting it) only moved
   // the collision later in the sequence.
   //
-  // The tour stays fully reachable on demand: ?tour=resume, and any explicit entry
-  // point. It is scheduled to be replaced by the onboarding walkthrough, which runs
-  // over the user's own material while their first build is still going.
-  useEffect(() => {
-    if (state.loading) return;
-    if (!isWikiOnboardingPending()) return;
-    // Nothing to do. Retained as an explicit statement that first-run belongs to
-    // onboarding, so a future change does not quietly restore a second driver.
-  }, [state.loading]);
+  // The tour stays reachable on demand: ?tour=resume, and any explicit entry point.
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
