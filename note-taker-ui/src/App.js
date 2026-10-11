@@ -30,7 +30,7 @@ import TourManager from './tour/TourManager';
 import OnboardingBuildBanner from './onboarding/OnboardingBuildBanner';
 import FirstRunGate from './onboarding/FirstRunGate';
 import OnboardingWalkthrough from './onboarding/OnboardingWalkthrough';
-import { buildCanonicalArticlePath } from './utils/sourceRoutes';
+import { buildCanonicalHighlightPath } from './utils/sourceRoutes';
 import {
   buildThinkPosturePath,
   consumeGoToChord,
@@ -64,23 +64,12 @@ import './styles/think-notes.css';
 import './surface/surface-frame.css';
 import './styles/semantic-theme.css';
 
-const AllHighlights = lazy(() => import('./pages/AllHighlights'));
-const Search = lazy(() => import('./pages/Search'));
-const TagBrowser = lazy(() => import('./pages/TagBrowser'));
-const Collections = lazy(() => import('./pages/Collections'));
-const CollectionDetail = lazy(() => import('./pages/CollectionDetail'));
-const Views = lazy(() => import('./pages/Views'));
-const ViewDetail = lazy(() => import('./pages/ViewDetail'));
-const Export = lazy(() => import('./pages/Export'));
 const Library = lazy(() => import('./pages/Library'));
 const Editions = lazy(() => import('./pages/Editions'));
 const EditionRead = lazy(() => import('./pages/EditionRead'));
 const ThinkMode = lazy(() => import('./pages/ThinkMode'));
 const ThinkNotes = lazy(() => import('./pages/ThinkNotes'));
 const AuthoredRecovery = lazy(() => import('./components/think/AuthoredRecovery'));
-const MapView = lazy(() => import('./pages/MapView'));
-const ReviewMode = lazy(() => import('./pages/ReviewMode'));
-const ReturnQueue = lazy(() => import('./pages/ReturnQueue'));
 const Settings = lazy(() => import('./pages/Settings'));
 const Wiki = lazy(() => import('./pages/Wiki'));
 /* Home is not code-split.
@@ -183,6 +172,26 @@ const ThinkSurface = () => {
   return namesAThinkObject(location.search) ? <ThinkMode /> : <ThinkNotes />;
 };
 
+/* Rooms that were retired. Their addresses still resolve, to the place that
+   now does the job: highlights and saved searches live in Library, export in
+   Settings, and the review and map postures in Think. */
+const RETIRED_ROOMS = [
+  ['/all-highlights', '/library?scope=highlights'],
+  ['/search', '/library'],
+  ['/views/*', '/library'],
+  ['/views', '/library'],
+  ['/collections/*', '/library'],
+  ['/collections', '/library'],
+  ['/tags', '/think?tab=concepts'],
+  ['/export', '/settings?section=data'],
+  ['/map', '/think'],
+  ['/review', '/think'],
+  ['/return-queue', '/think'],
+  ['/brain', '/think'],
+  ['/resurface', '/think'],
+  ['/journey', '/think']
+];
+
 const LegacyConceptRedirect = () => {
   const { tagName, tag } = useParams();
   const conceptName = String(tagName || tag || '').trim();
@@ -199,9 +208,11 @@ const LegacyQuestionRedirect = () => {
   return <Navigate to={buildThinkPosturePath('questions', questionId)} replace />;
 };
 
+/* An old article link that named a passage still opens at the passage. */
 const LegacyArticleRedirect = () => {
   const { id } = useParams();
-  return <Navigate to={buildCanonicalArticlePath(id)} replace />;
+  const highlightId = new URLSearchParams(useLocation().search).get('highlightId') || '';
+  return <Navigate to={buildCanonicalHighlightPath({ articleId: id, highlightId })} replace />;
 };
 
 const LegacyWikiPageRedirect = () => {
@@ -735,9 +746,6 @@ function App() {
                 addressable: a URL that names a concept, question, thread or
                 entry still opens that object in the older workspace. */}
             <Route path="/think" element={<ThinkSurface />} />
-            <Route path="/map" element={<MapView />} />
-            <Route path="/return-queue" element={<ReturnQueue />} />
-            <Route path="/review" element={<ReviewMode />} />
             {/* /wiki is the quiet collection; the maintenance workspace stays
                 one hairline away at /wiki/workspace. */}
             {/* Judgment: the index is a list of claim sentences; opening one
@@ -781,13 +789,10 @@ function App() {
             <Route path="/search-console-opportunities" element={<SearchConsoleOpportunities />} />
 
             {/* Legacy/feature routes kept for compatibility */}
-            <Route path="/brain" element={<Navigate to="/review?tab=patterns" replace />} />
-            <Route path="/resurface" element={<Navigate to="/review?tab=resurface" replace />} />
-            <Route path="/all-highlights" element={<AllHighlights />} />
-            <Route path="/tags" element={<TagBrowser />} />
+            {RETIRED_ROOMS.map(([path, to]) => (
+              <Route key={path} path={path} element={<Navigate to={to} replace />} />
+            ))}
             <Route path="/tags/:tagName" element={<LegacyConceptRedirect />} />
-            <Route path="/collections" element={<Collections />} />
-            <Route path="/collections/:slug" element={<CollectionDetail />} />
             <Route path="/concepts" element={<LegacyConceptRedirect />} />
             <Route path="/concepts/:tag" element={<LegacyConceptRedirect />} />
             <Route path="/notebook" element={<LegacyNotebookRedirect />} />
@@ -795,17 +800,12 @@ function App() {
             <Route path="/questions" element={<LegacyQuestionRedirect />} />
             <Route path="/questions/:questionId" element={<LegacyQuestionRedirect />} />
             <Route path="/question/:questionId" element={<LegacyQuestionRedirect />} />
-            <Route path="/views" element={<Views />} />
-            <Route path="/views/:id" element={<ViewDetail />} />
-            <Route path="/search" element={<Search />} />
-            <Route path="/journey" element={<Navigate to="/review?tab=journey" replace />} />
             <Route path="/concept/:tag" element={<LegacyConceptRedirect />} />
             <Route path="/board" element={<Navigate to="/think?tab=concepts" replace />} />
             <Route path="/studio-board" element={<Navigate to="/think?tab=concepts" replace />} />
             <Route path="/boards" element={<Navigate to="/think?tab=concepts" replace />} />
             <Route path="/boards/*" element={<Navigate to="/think?tab=concepts" replace />} />
             <Route path="/articles/:id" element={<LegacyArticleRedirect />} />
-            <Route path="/export" element={<Export />} />
             {/* Redirect authenticated users away from auth pages */}
             <Route path="/login" element={<AuthenticatedLoginRedirect />} />
             <Route path="/register" element={<Navigate to="/" replace />} />

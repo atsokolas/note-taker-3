@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import { Button } from './ui';
 import { getConnectionsForItem } from '../api/connections';
@@ -295,16 +295,6 @@ const ReferencesPanel = ({
                       </button>
                     ))}
                   </div>
-                </div>
-              )}
-              {data?.collections && data.collections.length > 0 && (
-                <div className="references-panel__group">
-                  <p className="muted-label">Collections</p>
-                  {data.collections.map((c) => (
-                    <Link key={c._id} to={`/collections/${c.slug}`} className="article-title-link">
-                      {c.name}
-                    </Link>
-                  ))}
                 </div>
               )}
             </>

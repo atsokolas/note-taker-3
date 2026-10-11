@@ -577,31 +577,6 @@ describe('CommandPalette', () => {
     expect(openWikiDraft).toHaveBeenCalledWith({ navigate: mockNavigate, pageId: 'wiki-new' });
   });
 
-  it('creates a collection directly from a typed query', async () => {
-    api.post.mockResolvedValueOnce({
-      data: { _id: 'collection-1', slug: 'compounding-test-page', name: 'compounding test page' }
-    });
-    const { systemStatusControls } = await renderPalette();
-
-    fireEvent.change(screen.getByPlaceholderText('Quick open notes, highlights, claims, evidence...'), {
-      target: { value: 'compounding test page' }
-    });
-    await flushSearch();
-
-    fireEvent.click(await screen.findByText('New collection from "compounding test page"'));
-
-    await waitFor(() => expect(api.post).toHaveBeenCalledWith(
-      '/api/collections',
-      { name: 'compounding test page', description: '' },
-      expect.objectContaining({ headers: expect.any(Object) })
-    ));
-    expect(systemStatusControls.setLatestReceipt).toHaveBeenCalledWith(expect.objectContaining({
-      title: 'Collection created',
-      href: '/collections/compounding-test-page'
-    }));
-    expect(mockNavigate).toHaveBeenCalledWith('/collections/compounding-test-page');
-  });
-
   it('turns a plain-English highlights command into a durable wiki page and receipt', async () => {
     const { systemStatusControls } = await renderPalette();
 
