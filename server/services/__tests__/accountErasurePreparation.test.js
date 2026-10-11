@@ -1,9 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const mongoose = require('mongoose');
-const fs = require('node:fs');
-const path = require('node:path');
-const os = require('node:os');
 const { MongoMemoryServer } = require('mongodb-memory-server');
 const models = { ...require('../../models'), ...require('../../models/chatgptOAuthModels') };
 const { buildAccountAccessCheck } = require('../accountAccessService');
@@ -25,11 +22,9 @@ test('preparation and restart gate refuse an unquiesced or unresolved operation'
 });
 
 test('real local Mongo: disable/revoke is scoped and retryable; counts include mixed-ID queues', async () => {
-  // No application URI, environment file or external service is used. A cached
-  // mongod runs with a new disposable database under the OS temp directory.
-  const cached = path.join(os.homedir(), '.cache/mongodb-binaries/mongod-arm64-darwin-8.2.6');
-  assert.ok(fs.existsSync(cached), 'Cached test mongod is required; do not download or use a real database.');
-  const mongo = await MongoMemoryServer.create({ binary: { systemBinary: cached, version: '8.2.6' } });
+  // No application URI or environment file is used. The standard test runner
+  // controls binary/cache selection; the database is always new and disposable.
+  const mongo = await MongoMemoryServer.create();
   try {
     await mongoose.connect(mongo.getUri());
     for (const [id, username] of [[a, 'synthetic-a'], [b, 'synthetic-b']]) {
