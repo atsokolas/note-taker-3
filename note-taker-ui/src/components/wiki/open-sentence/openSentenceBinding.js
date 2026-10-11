@@ -53,15 +53,6 @@ const qualifyBoundSource = (source, passage, doors) => {
   return String(source.citationLabel || '').trim();
 };
 
-const libraryIdsFromHref = (href = '') => {
-  const query = String(href || '').split('?')[1] || '';
-  const params = new URLSearchParams(query);
-  return {
-    articleId: String(params.get('articleId') || '').trim(),
-    highlightId: String(params.get('highlightId') || '').trim()
-  };
-};
-
 const unavailableSource = (title = 'This source') => ({
   title: title || 'This source',
   passage: '',
@@ -122,9 +113,8 @@ const bindPassage = (source, notes = []) => {
   const citedPassage = cleanSourceTextForDisplay(citation?.quote || '');
   const currentPassage = cleanSourceTextForDisplay(source.snippet || source.excerpt || '');
   const passage = citedPassage || currentPassage;
-  const doors = resolveSourceDoors(source);
+  const doors = resolveSourceDoors(source, { passage });
   const around = surrounding(source);
-  const libraryIds = libraryIdsFromHref(doors.ownedHref);
   return {
     title: String(source.title || '').trim() || 'Untitled source',
     passage,
@@ -137,8 +127,8 @@ const bindPassage = (source, notes = []) => {
     originalHref: doors.originalHref,
     isLibrary: doors.isLibrary,
     here: false,
-    articleId: libraryIds.articleId,
-    highlightId: libraryIds.highlightId
+    articleId: doors.articleId,
+    highlightId: doors.highlightId
   };
 };
 

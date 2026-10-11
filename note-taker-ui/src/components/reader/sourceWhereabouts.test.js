@@ -31,6 +31,14 @@ describe('where the passages went', () => {
     expect([...heldHighlightIds(lines)]).toEqual(['h1']);
   });
 
+  it('counts a web source the server matched to this piece, and not one it did not', () => {
+    const lines = sourceWhereabouts([
+      { _id: 'p1', title: 'intrinsic value', sourceRefs: [{ type: 'external', url: 'https://x.com/a', parentObjectId: 'a1' }] },
+      { _id: 'p2', title: 'elsewhere', sourceRefs: [{ type: 'external', url: 'https://x.com/a' }] }
+    ], { articleId: 'a1' });
+    expect(lines.map((line) => line.title)).toEqual(['intrinsic value']);
+  });
+
   it('says at most three things', () => {
     const pages = ['A', 'B', 'C', 'D'].map((name) => ({ _id: name, title: name, sourceRefs: [{ type: 'article', objectId: 'a1' }] }));
     expect(sourceWhereabouts(pages, { articleId: 'a1' })).toHaveLength(3);

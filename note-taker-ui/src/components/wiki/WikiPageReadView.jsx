@@ -23,13 +23,11 @@ import {
   getWikiFirstHeadCandidate,
   reviewWikiFirstHeadCandidate
 } from '../../api/wiki';
-import api from '../../api';
-import { getAuthHeaders } from '../../hooks/useAuthHeaders';
 import { getConnectionsForItem } from '../../api/connections';
 import { recordClaimCheckIn, recordWikiPageVisit } from '../../api/dailyLoop';
 import { trackWikiReadModePageView } from '../../utils/wikiAnalytics';
 import { wikiPagePath, wikiReadPath } from '../../utils/wikiFeatureFlags';
-import { resolveSourceDoors } from '../../utils/sourceRoutes';
+import { libraryIdentity, resolveSourceDoors } from '../../utils/sourceRoutes';
 import { cleanSourceTextForDisplay } from '../../utils/sourceDisplayText';
 import ClaimCitationPopover from './ClaimCitationPopover';
 import renderTiptapDoc, { citationAnchorId, extractTocItems, firstParagraphText } from './renderTiptapDoc';
@@ -64,8 +62,6 @@ import {
   historicalRevisionSnapshot,
   popReaderPanel,
   pushReaderPanel,
-  resolveLibraryHighlight,
-  sourceArticleId,
   surroundingFromLibrarySource
 } from './wikiReaderContextModel';
 import { wikiPassageReference } from './wikiCopyReference';
@@ -100,6 +96,7 @@ import {
   wrapOpenableParagraph
 } from './open-sentence/WikiOpenSentence';
 import { companionForOpenedClaim } from './open-sentence/openSentenceCompanion';
+import { loadOwnedArticle } from './open-sentence/LibraryPassagePicker';
 import WikiLivingThesis from './WikiLivingThesis';
 import WikiInvestmentValuation from './WikiInvestmentValuation';
 import WikiFirstHeadReview from './WikiFirstHeadReview';
@@ -417,19 +414,6 @@ const formatOptionalDate = (value, fallback = '') => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return String(value);
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-};
-
-const loadOwnedLibraryArticle = async (articleId) => {
-  const id = String(articleId || '').trim();
-  if (!id) return { article: null, highlights: [] };
-  const [articleResponse, highlightResponse] = await Promise.all([
-    api.get(`/articles/${encodeURIComponent(id)}`, getAuthHeaders()),
-    api.get(`/api/articles/${encodeURIComponent(id)}/highlights`, getAuthHeaders())
-  ]);
-  return {
-    article: articleResponse?.data || null,
-    highlights: Array.isArray(highlightResponse?.data) ? highlightResponse.data : []
-  };
 };
 
 const hasSharedWikiProvenance = (adoptedFrom = {}) => {
@@ -963,7 +947,7 @@ const WikiReadReferences = ({ sources = [], citations = [], highlightedRef, onJu
           const citation = firstCitationByIndex.get(citationIndex);
           const refId = `wiki-ref-${citationIndex}`;
           const excerpt = sourceExcerpt(source);
-          const doors = resolveSourceDoors(source);
+          const doors = resolveSourceDoors(source, { passage: excerpt });
           return (
             <li
               key={source._id || source.id || `${source.title}-${index}`}
@@ -1846,11 +1830,11 @@ const WikiPageReadView = ({
       proposed: previewMode === 'candidate'
     }));
     setRailCollapsed(false);
-    const articleId = sourceArticleId(source);
+    const { articleId, highlightId } = libraryIdentity(source);
     if (!articleId || surround.canExpand) return;
     try {
-      const { article, highlights } = await loadOwnedLibraryArticle(articleId);
-      const highlight = resolveLibraryHighlight({ source, highlights });
+      const { article, highlights } = await loadOwnedArticle(articleId);
+      const highlight = (highlightId && highlights.find(entry => idsMatch(entry?._id || entry?.id, highlightId))) || null;
       const next = surroundingFromLibrarySource({ source, article, highlight });
       setPanelTrail((current) => {
         const last = current[current.length - 1];

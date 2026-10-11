@@ -1,4 +1,5 @@
 import {
+  buildArticlePassageHref,
   buildAuthoredContinuationPath,
   buildCanonicalArticlePath,
   buildCanonicalHighlightPath,
@@ -64,7 +65,9 @@ describe('sourceRoutes', () => {
       originalHref: 'https://sec.gov/filing',
       openHref: '/library?articleId=article-1',
       isLibrary: true,
-      isExternalOnly: false
+      isExternalOnly: false,
+      articleId: 'article-1',
+      highlightId: ''
     });
     expect(resolveSourceDoors({
       type: 'external',
@@ -74,8 +77,24 @@ describe('sourceRoutes', () => {
       originalHref: 'https://sec.gov/filing',
       openHref: 'https://sec.gov/filing',
       isLibrary: false,
-      isExternalOnly: true
+      isExternalOnly: true,
+      articleId: '',
+      highlightId: ''
     });
+  });
+
+  it('opens a web source the server matched to a saved piece at the cited words', () => {
+    const source = { type: 'external', parentObjectId: 'article-1', url: 'https://example.com/piece' };
+    const doors = resolveSourceDoors(source, { passage: 'Price is what you pay.' });
+    expect(doors.ownedHref).toBe(buildArticlePassageHref({
+      articleId: 'article-1',
+      anchor: { text: 'Price is what you pay.', prefix: '', suffix: '', startOffsetApprox: 0 }
+    }));
+    expect(doors).toMatchObject({ isLibrary: true, articleId: 'article-1', originalHref: 'https://example.com/piece' });
+    expect(resolveSourceDoors(source, { passage: 'x'.repeat(601) }).ownedHref).toBe('/library?articleId=article-1');
+    expect(resolveSourceDoors({ type: 'highlight', objectId: 'h-1', parentObjectId: 'article-1' }, { passage: 'Price' }))
+      .toMatchObject({ ownedHref: '/library?articleId=article-1&highlightId=h-1', highlightId: 'h-1' });
+    expect(resolveSourceDoors({ type: 'highlight', objectId: 'h-1' }).ownedHref).toBe('');
   });
 
   it('keeps real external sources external and rejects unsafe fallbacks', () => {
