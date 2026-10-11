@@ -40,7 +40,7 @@ const RichTextToolbar = ({
       {onAskSelection ? (
         <QuietButton
           type="button"
-          aria-label="Ask thought partner about selection"
+          aria-label="Ask Partner about selection"
           className="think-rich-text-toolbar__partner"
           onMouseDown={(event) => event.preventDefault()}
           onClick={onAskSelection}

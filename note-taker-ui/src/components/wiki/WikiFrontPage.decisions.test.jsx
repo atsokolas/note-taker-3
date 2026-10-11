@@ -14,12 +14,7 @@ jest.mock('../../utils/wikiFeatureFlags', () => ({
 jest.mock('./WikiBuildPageComposer', () => () => null);
 jest.mock('./WikiRepoCreateComposer', () => () => null);
 jest.mock('./WikiCompanyDossierComposer', () => () => null);
-jest.mock('./WikiFrontPageGraphMotif', () => () => null);
-jest.mock('./WikiMovementReturnSurface', () => () => null);
 jest.mock('../agent/ThoughtPartnerPanel', () => () => null);
-jest.mock('./decisions/DecisionsIndex', () => () => (
-  <section aria-label="Decisions index fixture">Decisions index fixture</section>
-));
 
 const page = {
   _id: '64f100000000000000000001',

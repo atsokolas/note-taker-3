@@ -142,7 +142,7 @@ const SystemStatus = ({
           ) : null}
           {backgroundWork ? (
             <section className="system-status__section system-status__section--working" role="status">
-              <p className="system-status__section-kicker">Background work</p>
+              <p className="system-status__section-kicker">Working on</p>
               <p className="system-status__section-title">{backgroundWork.label}</p>
               {backgroundWork.stage ? (
                 <p className="system-status__section-body">{backgroundWork.stage}</p>
@@ -151,7 +151,7 @@ const SystemStatus = ({
           ) : null}
           {latestReceipt ? (
             <section className="system-status__section system-status__section--receipt" role="status">
-              <p className="system-status__section-kicker">Latest receipt</p>
+              <p className="system-status__section-kicker">Just now</p>
               <p className="system-status__section-title">{latestReceipt.title}</p>
               <p className="system-status__section-body">{latestReceipt.summary}</p>
               {latestReceipt.href ? (

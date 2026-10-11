@@ -15,6 +15,8 @@ const writeAnalyticsLog = async ({ filePath, entries = [] }) => {
 };
 
 const run = async () => {
+  // The window reaches back to the fixture's dates, however long ago they now are.
+  const days = Math.ceil((Date.now() - Date.parse('2026-04-18')) / (24 * 60 * 60 * 1000)) + 1;
   const filePath = path.join(os.tmpdir(), `marketing-funnel-${Date.now()}.jsonl`);
   const userId = 'user-42';
   const userIdHash = hashValue(userId);
@@ -111,7 +113,7 @@ const run = async () => {
 
   const snapshot = await buildMarketingFunnelSnapshot({
     analyticsLogPath: filePath,
-    days: 120
+    days
   });
 
   assert.strictEqual(snapshot.totals.signupViewed, 2, 'Should count signup views.');
@@ -131,7 +133,7 @@ const run = async () => {
 
   const series = await buildMarketingFunnelSeries({
     analyticsLogPath: filePath,
-    days: 120
+    days
   });
 
   const april18 = series.series.find((bucket) => bucket.date === '2026-04-18');

@@ -214,7 +214,7 @@ jest.mock('../components/agent/ThoughtPartnerPanel', () => ({
   __esModule: true,
   default: (props) => {
     mockThoughtPartnerPanel(props);
-    return <div data-testid={`thought-partner-${props.title || 'panel'}`}>{props.title || 'Thought partner'}</div>;
+    return <div data-testid={`thought-partner-${props.title || 'panel'}`}>{props.title || 'Partner'}</div>;
   }
 }));
 jest.mock('../components/think/concepts/ConceptNotebook', () => () => null);
