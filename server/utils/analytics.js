@@ -9,15 +9,10 @@ const EVENT_NAMES = Object.freeze({
   MARKETING_SIGNUP_VIEWED: 'marketing_signup_viewed',
   MARKETING_SIGNUP_STARTED: 'marketing_signup_started',
   MARKETING_SIGNUP_FAILED: 'marketing_signup_failed',
-  HIGHLIGHT_CAPTURED: 'highlight_captured',
   WORKSPACE_CREATED: 'workspace_created',
   CAPTURE_COMPLETED: 'capture_completed',
   CONCEPT_CREATED: 'concept_created',
   REVISIT_SCHEDULED: 'revisit_scheduled',
-  SEMANTIC_SEARCH_PERFORMED: 'semantic_search_performed',
-  AI_DRAFT_GENERATED: 'ai_draft_generated',
-  AI_DRAFT_ACCEPTED: 'ai_draft_accepted',
-  RELATED_HIGHLIGHT_CLICKED: 'related_highlight_clicked',
   AGENT_PROPOSAL_BUNDLE_STAGED: 'agent_proposal_bundle_staged',
   AGENT_EXECUTION_INTENT_MATCHED: 'agent_execution_intent_matched',
   AGENT_EXECUTION_INTENT_AMBIGUOUS: 'agent_execution_intent_ambiguous',
@@ -38,8 +33,6 @@ const EVENT_NAMES = Object.freeze({
   AGENT_ARTIFACT_DRAFT_DISMISSED: 'agent_artifact_draft_dismissed',
   AGENT_RUN_APPROVAL_APPROVED: 'agent_run_approval_approved',
   AGENT_RUN_APPROVAL_REJECTED: 'agent_run_approval_rejected',
-  WIKI_READ_MODE_PAGE_VIEW: 'wiki_read_mode_page_view',
-  WIKI_EDIT_MODE_ENTERED: 'wiki_edit_mode_entered',
   WIKI_PAGE_CREATED: 'wiki_page_created',
   WIKI_SOURCE_ATTACHED: 'wiki_source_attached',
   WIKI_DRAFT_GENERATED: 'wiki_draft_generated',
@@ -49,7 +42,15 @@ const EVENT_NAMES = Object.freeze({
   WIKI_INGEST_NO_MATCH: 'wiki_ingest_no_match',
   WIKI_QA_PROMOTED: 'wiki_qa_promoted',
   WIKI_SCHEMA_SAVED: 'wiki_schema_saved',
-  WIKI_SCHEMA_SUGGESTED: 'wiki_schema_suggested'
+  WIKI_SCHEMA_SUGGESTED: 'wiki_schema_suggested',
+  // Judgment: a view is held, meets evidence, changes, and is settled.
+  VIEW_HELD: 'view_held',
+  EVIDENCE_PROPOSED: 'evidence_proposed',
+  EVIDENCE_FILED: 'evidence_filed',
+  EVIDENCE_DISMISSED: 'evidence_dismissed',
+  VIEW_REVISED: 'view_revised',
+  VIEW_RESOLVED: 'view_resolved',
+  RETURN_VISIT: 'return_visit'
 });
 
 const VALID_EVENT_NAMES = new Set(Object.values(EVENT_NAMES));
@@ -198,8 +199,25 @@ const trackEvent = ({ event, userId, requestId = '', properties = {} } = {}) => 
   }
 };
 
+/* One return_visit per user per day. Kept in memory: a restart can count a
+   reader twice in one day, which a per-day distinct count absorbs. */
+let visitDay = '';
+const visitedToday = new Set();
+const trackReturnVisit = (userId) => {
+  const day = new Date().toISOString().slice(0, 10);
+  if (day !== visitDay) {
+    visitDay = day;
+    visitedToday.clear();
+  }
+  const key = toSafeString(userId);
+  if (!key || visitedToday.has(key)) return;
+  visitedToday.add(key);
+  trackEvent({ event: EVENT_NAMES.RETURN_VISIT, userId: key });
+};
+
 module.exports = {
   EVENT_NAMES,
   trackEvent,
+  trackReturnVisit,
   hashValue
 };

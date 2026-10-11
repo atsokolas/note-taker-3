@@ -722,6 +722,12 @@ const buildSystemRouter = ({
   joinUrl,
   isDatabaseReady = () => true,
   getWikiStorageStatus = async () => null,
+  getVectorIndexHealth = async () => {
+    // eslint-disable-next-line global-require
+    const { vectorIndexHealth } = require('../ai/vectorStore');
+    // eslint-disable-next-line global-require
+    return vectorIndexHealth({ VectorItem: require('../models').VectorItem });
+  },
   allowDebugFixtures = process.env.NODE_ENV !== 'production',
   IntegrationConnection,
   ImportSession,
@@ -865,11 +871,7 @@ const buildSystemRouter = ({
     // were indexed. An empty index must be visible from a curl.
     let vectorIndex = null;
     try {
-      // eslint-disable-next-line global-require
-      const { vectorIndexHealth } = require('../ai/vectorStore');
-      // eslint-disable-next-line global-require
-      const { VectorItem } = require('../models');
-      vectorIndex = await vectorIndexHealth({ VectorItem });
+      vectorIndex = await getVectorIndexHealth();
       if (vectorIndex.status === 'ready' && vectorIndex.itemCount === 0) {
         vectorIndex.warning = 'index is READY but empty — run scripts/backfill_embeddings.js';
       }

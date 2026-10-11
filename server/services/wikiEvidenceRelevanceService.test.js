@@ -82,7 +82,9 @@ const { compareClaimLedgers } = require('./wikiClaimComparisonService');
   assert.strictEqual(String(page.claims[0].citationIds[0]), String(page.citations[0]._id));
   assert.strictEqual(page.claims[0].history[0].event, 'source_evidence_added');
   const comparison = compareClaimLedgers({ beforeClaims, afterClaims: page.claims });
-  assert.strictEqual(comparison.counts.changed, 1);
+  // New evidence is reported as evidence, not as a rewrite of the claim.
+  assert.strictEqual(comparison.counts.changed, 0);
+  assert.strictEqual(comparison.counts.evidenceRefreshed, 1);
   assert.strictEqual(comparison.counts.gainedSupport, 1);
   assert.strictEqual(comparison.counts.removed, 0);
 

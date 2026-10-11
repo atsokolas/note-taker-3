@@ -9,7 +9,8 @@ const run = async () => {
     authenticateToken: (_req, _res, next) => next(),
     parseAiServiceUrl: () => ({ origin: '', hasPath: false }),
     joinUrl: () => '',
-    isDatabaseReady: () => databaseReady
+    isDatabaseReady: () => databaseReady,
+    getVectorIndexHealth: async () => ({ status: 'ready', itemCount: 0 })
   }));
 
   const server = await new Promise((resolve) => {
@@ -32,7 +33,12 @@ const run = async () => {
     assert.strictEqual(readyResponse.status, 200);
     assert.deepStrictEqual(await readyResponse.json(), {
       status: 'ok',
-      message: 'Server is warm.'
+      message: 'Server is warm.',
+      vectorIndex: {
+        status: 'ready',
+        itemCount: 0,
+        warning: 'index is READY but empty — run scripts/backfill_embeddings.js'
+      }
     });
   } finally {
     await new Promise(resolve => server.close(resolve));

@@ -26,7 +26,7 @@ const {
   enqueueQuestionEmbedding,
   drainEmbeddingJobQueue
 } = require('./ai/embeddingJobs');
-const { EVENT_NAMES, trackEvent } = require('./utils/analytics');
+const { EVENT_NAMES, trackEvent, trackReturnVisit } = require('./utils/analytics');
 const { EmbeddingError } = require('./ai/embed');
 const { enqueueBrainSummary, registerBrainSummaryHandler } = require('./ai/brainSummaryJobs');
 const { semanticSearch: atlasSemanticSearch } = require('./ai/semanticSearch');
@@ -5489,7 +5489,8 @@ app.use(buildJudgmentResolutionRouter({
   WorldModelScenario,
   ResearchMandate,
   InstitutionalHold,
-  DecisionMemoryEvent
+  DecisionMemoryEvent,
+  trackEvent
 }));
 
 app.use(buildJudgmentThreadRouter({
@@ -5619,7 +5620,8 @@ app.use(buildUiTourRouter({
   TOUR_SIGNAL_DEFAULTS,
   TOUR_EVENT_TIMESTAMP_DEFAULTS,
   TOUR_EVENT_TO_SIGNAL,
-  markTourSignal
+  markTourSignal,
+  trackReturnVisit
 }));
 
 app.use(buildReturnQueueRouter({

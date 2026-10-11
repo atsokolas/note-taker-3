@@ -5,7 +5,7 @@ import { Card, Page } from '../components/ui';
 
 const SCOPE_LABELS = {
   read: 'Search and read your Library, exact source passages, highlights, notes, and Wikis.',
-  'agent-write': 'Save private thoughts on source passages, add research with receipts to Editions, and prepare Wiki sources and candidates for your review. Wiki publication, sharing, deletion, and accepted content changes remain in NOEIS.'
+  'agent-write': 'Save private thoughts on source passages, add research with its sources to Editions, and prepare Wiki sources and candidates for your review. Wiki publication, sharing, deletion, and changes to accepted pages remain in NOEIS.'
 };
 const redirect = (url) => window.location.assign(url);
 

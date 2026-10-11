@@ -4,6 +4,7 @@ const { buildJudgmentResolutionRouter } = require('./judgmentResolutionRoutes');
 
 const PAGE_ID = '64f500000000000000000010';
 const calls = [];
+const events = [];
 const app = express();
 app.use(express.json());
 app.use(buildJudgmentResolutionRouter({
@@ -35,7 +36,8 @@ app.use(buildJudgmentResolutionRouter({
   revokeSeat: async input => { calls.push(['revoke', input]); return { team: { visible: true }, receipt: {} }; },
   setMandate: async input => { calls.push(['mandate', input]); return { team: { mandate: { purpose: input.purpose } }, receipt: {} }; },
   approveVersion: async input => { calls.push(['approve', input]); return { team: { visible: true }, approval: { receiptId: 'a1' }, receipt: {} }; },
-  handOffCase: async input => { calls.push(['handoff', input]); return { team: { visible: true }, walk: { fromAuthorshipIntact: true }, receipt: {} }; }
+  handOffCase: async input => { calls.push(['handoff', input]); return { team: { visible: true }, walk: { fromAuthorshipIntact: true }, receipt: {} }; },
+  trackEvent: event => events.push(event)
 }));
 
 const server = app.listen(0, '127.0.0.1', async () => {
@@ -79,6 +81,11 @@ const server = app.listen(0, '127.0.0.1', async () => {
     assert.strictEqual((await request(`/api/judgment/pages/${PAGE_ID}/team/approve`, { method: 'POST', body: { conditions: 'If conversion holds.' } })).response.status, 201);
     assert.strictEqual((await request(`/api/judgment/pages/${PAGE_ID}/team/handoff`, { method: 'POST', body: { toUserId: 'user-2' } })).response.status, 201);
     assert.strictEqual((await request(`/api/judgment/pages/${PAGE_ID}/team/approve`, { method: 'POST', body: {}, token: 'agent' })).response.status, 403);
+    // Settling a view and filing a passage are measured by ids and kinds, never by their words.
+    assert.deepStrictEqual(events.map(({ event, userId, properties }) => ({ event, userId, properties })), [
+      { event: 'view_resolved', userId: 'user-1', properties: { pageId: PAGE_ID, result: 'held_up' } },
+      { event: 'evidence_filed', userId: 'user-1', properties: { pageId: PAGE_ID, field: 'against' } }
+    ]);
     assert.deepStrictEqual(calls.map(call => call[0]), ['criteria', 'verdict', 'evidence', 'mirror', 'audit', 'ledger', 'clock', 'outcome', 'lesson', 'team', 'grant', 'revoke', 'mandate', 'approve', 'handoff']);
     console.log('judgmentResolutionRoutes tests passed');
   } catch (error) {

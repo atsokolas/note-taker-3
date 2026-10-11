@@ -11,6 +11,7 @@ require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 const { runAgentEval } = require('../server/agentEval/runEval');
+const { regressions } = require('../server/agentEval/score');
 
 const BASELINE_PATH = path.join(__dirname, '..', 'server', 'agentEval', 'baseline.json');
 const REPORT_DIR = path.join(__dirname, '..', 'tmp', 'agent-eval');
@@ -19,22 +20,22 @@ const args = process.argv.slice(2);
 const flag = name => args.includes(`--${name}`);
 const option = name => (args.find(arg => arg.startsWith(`--${name}=`)) || '').split('=')[1] || '';
 
-const readBaseline = () => {
+// Two baselines: the model path (a model configured in .env) and the path
+// readers get when no model answers, which is what CI measures.
+const readBaselines = () => {
   try {
     return JSON.parse(fs.readFileSync(BASELINE_PATH, 'utf8'));
   } catch (_error) {
-    return null;
+    return {};
   }
 };
 
 const failedChecks = item => Object.entries(item.checks).filter(([, ok]) => !ok).map(([name]) => name);
 
 const main = async () => {
-  const baseline = readBaseline();
   const verbose = flag('verbose');
   const run = await runAgentEval({
     only: option('case').split(',').filter(Boolean),
-    baseline,
     onCase: item => {
       const status = item.pass ? 'pass' : `fail  ${failedChecks(item).join(', ')}`;
       console.log(`${item.id.padEnd(24)} ${String(item.mode || '-').padEnd(14)} ${status}`);
@@ -43,6 +44,9 @@ const main = async () => {
   });
 
   const { summary } = run;
+  const baselines = readBaselines();
+  const measured = summary.modelAnswered ? 'withModel' : 'withoutModel';
+  run.regressions = regressions(summary, baselines[measured]);
   console.log(`\n${summary.passed}/${summary.total} passed`);
   Object.entries(summary.checks).forEach(([name, value]) => console.log(`  ${name.padEnd(20)} ${value}`));
   console.log(`  ${'modelAnswered'.padEnd(20)} ${summary.modelAnswered}`);
@@ -54,8 +58,9 @@ const main = async () => {
 
   if (flag('update-baseline')) {
     const { checks, passRate, passed, total, modelAnswered } = summary;
-    fs.writeFileSync(BASELINE_PATH, `${JSON.stringify({ passed, total, passRate, checks, modelAnswered }, null, 2)}\n`);
-    console.log('Baseline updated.');
+    const next = { ...baselines, [measured]: { passed, total, passRate, checks, modelAnswered } };
+    fs.writeFileSync(BASELINE_PATH, `${JSON.stringify(next, null, 2)}\n`);
+    console.log(`Baseline updated (${measured}).`);
   }
   if (flag('check') && run.regressions.length) {
     run.regressions.forEach(({ name, now, before }) => console.error(`Regressed: ${name} ${before} → ${now}`));

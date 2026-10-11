@@ -1,4 +1,5 @@
 const express = require('express');
+const { requireAdmin } = require('../utils/requireAdmin');
 
 const buildMarketingFunnelRouter = ({
   authenticateToken,
@@ -7,7 +8,7 @@ const buildMarketingFunnelRouter = ({
 }) => {
   const router = express.Router();
 
-  router.get('/api/analytics/marketing/funnel', authenticateToken, async (req, res) => {
+  router.get('/api/analytics/marketing/funnel', authenticateToken, requireAdmin, async (req, res) => {
     try {
       const days = Math.max(1, Math.min(180, Number(req.query.days) || 30));
       const snapshot = await buildMarketingFunnelSnapshot({ days });
@@ -18,7 +19,7 @@ const buildMarketingFunnelRouter = ({
     }
   });
 
-  router.get('/api/analytics/marketing/funnel/timeseries', authenticateToken, async (req, res) => {
+  router.get('/api/analytics/marketing/funnel/timeseries', authenticateToken, requireAdmin, async (req, res) => {
     try {
       const days = Math.max(1, Math.min(180, Number(req.query.days) || 30));
       const series = await buildMarketingFunnelSeries({ days });

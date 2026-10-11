@@ -1,15 +1,22 @@
 {
-  "passed": 20,
-  "total": 25,
-  "passRate": 0.8,
-  "checks": {
-    "found": 0.905,
-    "drawsOnPassages": 0.905,
-    "citesOnlyRelevant": 0.81,
-    "noInventedQuotes": 1,
-    "notTemplate": 1,
-    "declines": 1,
-    "citesNothing": 1
+  "withModel": {
+    "passed": 24,
+    "total": 25,
+    "passRate": 0.96
   },
-  "modelAnswered": 0
+  "withoutModel": {
+    "passed": 21,
+    "total": 25,
+    "passRate": 0.84,
+    "checks": {
+      "found": 0.905,
+      "drawsOnPassages": 0.905,
+      "citesOnlyRelevant": 0.857,
+      "noInventedQuotes": 1,
+      "notTemplate": 1,
+      "declines": 1,
+      "citesNothing": 1
+    },
+    "modelAnswered": 0
+  }
 }

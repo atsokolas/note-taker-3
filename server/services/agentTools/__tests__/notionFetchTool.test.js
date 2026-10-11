@@ -83,6 +83,10 @@ describe('fetchNotionPagesForAgent', () => {
       savedEvents.push(event);
       return event;
     });
+    // Maintenance claims the event atomically before it works on it.
+    deps.WikiSourceEvent.findOneAndUpdate = jest.fn(async ({ _id }, { $set }) => (
+      Object.assign(savedEvents.find((event) => event._id === _id), $set)
+    ));
     deps.WikiPage = {
       findOne: jest.fn().mockReturnValue({
         then: (resolve) => resolve(null)

@@ -143,20 +143,23 @@ const testReadwiseTransforms = () => {
       user_book_id: 'book-1',
       title: 'Deep Work',
       author: 'Cal Newport',
-      book_tags: [{ name: 'Attention' }, { name: 'Focus' }]
+      book_tags: [{ name: 'Attention' }, { name: 'Focus' }],
+      highlights: [{ text: 'Clarity about what matters provides clarity about what does not.' }]
     },
     {
       id: 'doc-2',
       user_book_id: 'book-1',
       title: 'Deep Work',
       author: 'Cal Newport',
-      book_tags: ['Attention']
+      book_tags: ['Attention'],
+      highlights: [{ text: 'Depth is a skill.' }]
     },
     {
       id: 'doc-3',
       title: 'Systems Thinking',
       author: 'Donella Meadows',
-      book_tags: [{ name: 'Systems' }]
+      book_tags: [{ name: 'Systems' }],
+      highlights: [{ text: 'A system is more than the sum of its parts.' }]
     }
   ];
 
