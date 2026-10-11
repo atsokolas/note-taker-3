@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Button, QuietButton, SectionHeader } from '../ui';
+import { Button, SectionHeader } from '../ui';
 import {
   addConceptPathItem,
   createConceptPath,
@@ -456,7 +456,7 @@ const ConceptPathWorkspace = ({ selectedPathId = '', onSelectPath }) => {
               <Button onClick={handleSaveMeta} disabled={savingMeta}>
                 {savingMeta ? 'Saving…' : 'Save path'}
               </Button>
-              <QuietButton onClick={handleDeletePath} disabled={working}>Delete path</QuietButton>
+              <Button variant="quiet" onClick={handleDeletePath} disabled={working}>Delete path</Button>
             </div>
           </div>
 
@@ -482,12 +482,12 @@ const ConceptPathWorkspace = ({ selectedPathId = '', onSelectPath }) => {
                   : 'Treat this as the next thing to resolve before you widen the path again.'}
               </p>
               <div className="concept-path-step-actions">
-                <QuietButton onClick={() => handleSetCurrentStep(currentIndex - 1)} disabled={currentIndex <= 0}>Previous</QuietButton>
-                <QuietButton onClick={() => handleSetCurrentStep(currentIndex + 1)} disabled={currentIndex >= activePath.itemRefs.length - 1}>Next</QuietButton>
+                <Button variant="quiet" onClick={() => handleSetCurrentStep(currentIndex - 1)} disabled={currentIndex <= 0}>Previous</Button>
+                <Button variant="quiet" onClick={() => handleSetCurrentStep(currentIndex + 1)} disabled={currentIndex >= activePath.itemRefs.length - 1}>Next</Button>
                 {currentStep.item?.openPath && (
-                  <QuietButton onClick={() => { window.location.href = currentStep.item.openPath; }}>
+                  <Button variant="quiet" onClick={() => { window.location.href = currentStep.item.openPath; }}>
                     Open item
-                  </QuietButton>
+                  </Button>
                 )}
               </div>
 
@@ -504,9 +504,9 @@ const ConceptPathWorkspace = ({ selectedPathId = '', onSelectPath }) => {
                         <div className="concept-path-connected-title">{item.title}</div>
                         <div className="muted small">{formatItemType(item.type)} · {item.relationType}</div>
                       </div>
-                      <QuietButton onClick={() => handleAddItem(item.type, item.id)} disabled={working}>
+                      <Button variant="quiet" onClick={() => handleAddItem(item.type, item.id)} disabled={working}>
                         Add connected
-                      </QuietButton>
+                      </Button>
                     </div>
                   ))}
                 </div>
@@ -553,9 +553,9 @@ const ConceptPathWorkspace = ({ selectedPathId = '', onSelectPath }) => {
                   <span className="concept-path-step-type">{formatItemType(itemRef.type)}</span>
                 </button>
                 <div className="concept-path-step-controls">
-                  <QuietButton onClick={() => handleMoveItem(index, -1)} disabled={index === 0 || working}>Up</QuietButton>
-                  <QuietButton onClick={() => handleMoveItem(index, 1)} disabled={index === activePath.itemRefs.length - 1 || working}>Down</QuietButton>
-                  <QuietButton onClick={() => handleRemoveItem(itemRef._id)} disabled={working}>Remove</QuietButton>
+                  <Button variant="quiet" onClick={() => handleMoveItem(index, -1)} disabled={index === 0 || working}>Up</Button>
+                  <Button variant="quiet" onClick={() => handleMoveItem(index, 1)} disabled={index === activePath.itemRefs.length - 1 || working}>Down</Button>
+                  <Button variant="quiet" onClick={() => handleRemoveItem(itemRef._id)} disabled={working}>Remove</Button>
                 </div>
                 <textarea
                   className="concept-path-step-notes"

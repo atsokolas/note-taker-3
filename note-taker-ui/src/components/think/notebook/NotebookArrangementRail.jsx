@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { QuietButton } from '../../ui';
+import { Button } from '../../ui';
 import { useFinePointer, usePrefersReducedMotion } from '../../../hooks/useMotionPreferences';
 import { pieceIndexNearOffset } from '../../../utils/notebookArrangement';
 
@@ -241,62 +241,62 @@ const NotebookArrangementRail = ({
           ) : null}
           <small className="notebook-arrangement__shortcut">⌘/ · Ctrl+/ <span>to open · Esc to return</span></small>
           <div className="notebook-arrangement__controls">
-            <QuietButton
+            <Button variant="quiet"
               disabled={!canMoveUp}
               onClick={() => onMove?.('up', trackedIndex)}
             >
               Move up
-            </QuietButton>
-            <QuietButton
+            </Button>
+            <Button variant="quiet"
               disabled={!canMoveDown}
               onClick={() => onMove?.('down', trackedIndex)}
             >
               Move down
-            </QuietButton>
-            <QuietButton
+            </Button>
+            <Button variant="quiet"
               disabled={!enabled || !tracked}
               aria-label="Try without this passage"
               onClick={() => leaveRail(() => onSetAside?.(trackedIndex))}
             >
               Try without
-            </QuietButton>
-            <QuietButton
+            </Button>
+            <Button variant="quiet"
               disabled={!enabled || !tracked}
               onClick={() => leaveRail(() => onTryWording?.(trackedIndex))}
             >
               Try another wording
-            </QuietButton>
-            <QuietButton
+            </Button>
+            <Button variant="quiet"
               disabled={!enabled || !tracked}
               onClick={() => leaveRail(() => onReadTighter?.(trackedIndex))}
             >
               Read tighter
-            </QuietButton>
-            <QuietButton
+            </Button>
+            <Button variant="quiet"
               disabled={!enabled || !tracked}
               onClick={() => leaveRail(() => onHoldThought?.(trackedIndex))}
             >
               Hold a thought
-            </QuietButton>
-            <QuietButton
+            </Button>
+            <Button variant="quiet"
               disabled={!enabled || !tracked}
               aria-label="Delete this passage"
               onClick={() => leaveRail(() => onDeletePiece?.(trackedIndex))}
             >
               Delete
-            </QuietButton>
+            </Button>
             {receipt?.operation ? (
-              <QuietButton onClick={onUndo}>
+              <Button variant="quiet" onClick={onUndo}>
                 {receipt.label}
-              </QuietButton>
+              </Button>
             ) : null}
             {asidePieces.map((piece) => (
-              <QuietButton
+              <Button variant="quiet"
                 key={piece.id}
                 onClick={() => onRestore?.(piece.id)}
               >
                 {`Bring back: ${piece.label}`}
-              </QuietButton>
+              </Button>
             ))}
           </div>
         </div>

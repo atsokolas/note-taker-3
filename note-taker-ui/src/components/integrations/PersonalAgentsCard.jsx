@@ -81,7 +81,6 @@ POST /api/agent/byo/protocol/handoffs/:handoffId/reject`}
         )}
         <div className="settings-import-row" style={{ marginTop: 8 }}>
           <Button
-            variant="secondary"
             disabled={entitlementsSaving}
             onClick={() => handleSetEntitlementsDev({
               premiumTier: 'premium',
@@ -92,7 +91,6 @@ POST /api/agent/byo/protocol/handoffs/:handoffId/reject`}
             {entitlementsSaving ? 'Saving…' : 'Enable premium research (dev)'}
           </Button>
           <Button
-            variant="secondary"
             disabled={entitlementsSaving}
             onClick={() => handleSetEntitlementsDev({
               premiumTier: 'free',
@@ -157,7 +155,6 @@ POST /api/agent/byo/protocol/handoffs/:handoffId/reject`}
               </div>
               <div className="settings-import-row" style={{ marginTop: 8 }}>
                 <Button
-                  variant="secondary"
                   disabled={Boolean(agentBusyId)}
                   onClick={() => handleUpdateAgent(agent._id, {
                     preferredWorkerRoles: Array.isArray(roleDrafts[agent._id]) ? roleDrafts[agent._id] : []
@@ -166,14 +163,12 @@ POST /api/agent/byo/protocol/handoffs/:handoffId/reject`}
                   {agentBusyId === agent._id ? 'Working…' : 'Save specialties'}
                 </Button>
                 <Button
-                  variant="secondary"
                   disabled={Boolean(agentBusyId)}
                   onClick={() => handleRotateKey(agent._id)}
                 >
                   {agentBusyId === agent._id ? 'Working…' : 'Rotate key'}
                 </Button>
                 <Button
-                  variant="secondary"
                   disabled={Boolean(agentBusyId) || agent.status === 'disabled'}
                   onClick={() => handleDisableAgent(agent._id)}
                 >

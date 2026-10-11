@@ -61,7 +61,7 @@ const HandoffQueueControls = ({
             )}
           </div>
         </div>
-        <Button variant="secondary" className="think-index__new-question" onClick={onRefresh} disabled={loading}>
+        <Button className="think-index__new-question" onClick={onRefresh} disabled={loading}>
           {loading ? 'Refreshing…' : 'Refresh queue'}
         </Button>
       </div>
@@ -109,7 +109,7 @@ const HandoffQueueControls = ({
           )}
         </div>
       </div>
-      <Button variant="secondary" disabled={loading} onClick={onRefresh}>
+      <Button disabled={loading} onClick={onRefresh}>
         Refresh queue
       </Button>
     </div>

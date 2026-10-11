@@ -2,7 +2,7 @@
    invent a new way to browse, search, or mark the object currently open. */
 .room-shelf {
   min-width: 0;
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
 }
 
 .room-shelf__heading {
@@ -17,7 +17,7 @@
 .room-shelf__section-label {
   margin: 0;
   color: color-mix(in srgb, var(--text-muted, var(--vellum-subtle)) 82%, transparent);
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.7rem;
   font-weight: 600;
   letter-spacing: 0.16em;

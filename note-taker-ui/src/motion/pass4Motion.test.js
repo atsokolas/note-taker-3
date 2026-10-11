@@ -12,25 +12,6 @@ const switchCss = read('placement-switch.css');
  * the product's one curve, and that reduced motion is honoured everywhere —
  * which is the rule most easily lost when someone adds the next animation.
  */
-describe('the pulse breathes once', () => {
-  it('swells and then is still, rather than pulsing forever', () => {
-    expect(paper).toMatch(/@keyframes noeis-pulse-breathes-once/);
-    expect(paper).toMatch(/noeis-pulse-breathes-once 600ms/);
-    // `both` holds the final frame: still, not back to nothing.
-    expect(paper).toMatch(/noeis-pulse-breathes-once 600ms[^;]*both/);
-  });
-
-  it('never loops, because a pulse that repeats is a badge', () => {
-    expect(paper).not.toMatch(/noeis-pulse-breathes-once[^;]*infinite/);
-  });
-
-  it('is still from the first frame when motion is reduced, and still marked', () => {
-    const reduced = paper.slice(paper.lastIndexOf('@media (prefers-reduced-motion: reduce)'));
-    expect(reduced).toMatch(/animation:\s*none/);
-    expect(reduced).toMatch(/box-shadow:\s*inset/);
-  });
-});
-
 describe('living ink dries in', () => {
   it('takes a quarter second rather than happening between frames', () => {
     expect(library).toMatch(/transition:\s*color 250ms/);

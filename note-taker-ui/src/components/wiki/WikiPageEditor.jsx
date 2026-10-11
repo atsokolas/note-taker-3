@@ -399,10 +399,10 @@ const WikiPageEditor = ({ pageId, onDoneEditing }) => {
             Done editing
           </Button>
         ) : null}
-        <Button type="button" variant="secondary" onClick={handleLinkify} disabled={linkifying}>
+        <Button type="button" onClick={handleLinkify} disabled={linkifying}>
           {linkifying ? 'Linkifying...' : 'Linkify'}
         </Button>
-        <Button type="button" variant="secondary" onClick={handleDeletePage} disabled={deleting}>
+        <Button type="button" onClick={handleDeletePage} disabled={deleting}>
           {deleting ? 'Deleting...' : 'Delete Wiki'}
         </Button>
         {error ? <span className="wiki-editor__error" role="alert">{error}</span> : null}
@@ -424,11 +424,11 @@ const WikiPageEditor = ({ pageId, onDoneEditing }) => {
           />
           <WikiPageMetaBar page={page} onChange={handleMetaChange} saveStatus={saveStatus} />
           <div className="wiki-editor__inline-tools" aria-label="Wiki editor insert tools">
-            <Button type="button" variant="secondary" onClick={handleInsertPullquote}>
+            <Button type="button" onClick={handleInsertPullquote}>
               Pullquote
             </Button>
             {canMakeThisTheTitle(page?.title, selectedWording) ? (
-              <Button type="button" variant="secondary" onClick={handleMakeThisTheTitle}>
+              <Button type="button" onClick={handleMakeThisTheTitle}>
                 Make this the title
               </Button>
             ) : null}

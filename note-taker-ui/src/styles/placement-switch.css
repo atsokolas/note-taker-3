@@ -35,7 +35,7 @@
   background: none;
   color: var(--text-muted, var(--vellum-subtle));
   /* Mono operates. A control never wears serif. */
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-family: var(--font-mono);
   font-size: 0.68rem;
   font-variant-caps: all-small-caps;
   letter-spacing: 0.13em;
@@ -126,7 +126,7 @@
   border: 0;
   background: none;
   color: var(--text-secondary, var(--vellum-ink));
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-family: var(--font-mono);
   font-size: 0.72rem;
   text-align: left;
   cursor: pointer;
@@ -139,7 +139,7 @@
 .placement-switch__error {
   margin-top: 0.3rem;
   color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-family: var(--font-mono);
   font-size: 0.68rem;
 }
 
@@ -156,7 +156,7 @@
 .article-reader-provenance {
   margin: 0 0 0.2rem;
   color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.72rem;
   font-variant-caps: all-small-caps;
   letter-spacing: 0.12em;

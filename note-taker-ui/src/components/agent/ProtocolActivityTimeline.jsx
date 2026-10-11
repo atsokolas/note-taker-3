@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { QuietButton, SectionHeader, SurfaceCard } from '../ui';
+import { Button, SectionHeader, SurfaceCard } from '../ui';
 import { wordBoundaryTrim } from '../../utils/editorialText';
 import { humanizeLabel } from '../../utils/humanizeLabel';
 
@@ -450,13 +450,13 @@ const ProtocolActivityTimeline = ({
                 {Array.isArray(entry.actions) && entry.actions.length > 0 && (
                   <div className="protocol-activity-log__actions">
                     {entry.actions.map((action, index) => (
-                      <QuietButton
+                      <Button variant="quiet"
                         key={`${entry.id}-action-${index}`}
                         type="button"
                         onClick={action.onClick}
                       >
                         {action.label}
-                      </QuietButton>
+                      </Button>
                     ))}
                   </div>
                 )}

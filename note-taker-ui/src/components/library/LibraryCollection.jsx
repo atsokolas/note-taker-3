@@ -13,6 +13,7 @@ import {
 } from '../../api/libraryCollection';
 import LibrarySourcePeek, { sourcePassage } from './LibrarySourcePeek';
 import { LibraryMenu } from './LibraryActions';
+import { EmptyState, PageHeader } from '../ui';
 import { sourceLabel } from './libraryColumnModel';
 import {
   buildEvergreenIndex,
@@ -305,23 +306,26 @@ export default function LibraryCollection({
       hidden={Boolean(selectedArticleId)}
       aria-label="Source collection"
     >
-      <header className="library-collection-head">
-        <h1>{LABELS[scope] || folderName || 'Library'}</h1>
-        <div>
-          <LibraryMenu
-            className="library-sort"
-            label={SORT_OPTIONS.find(option => option.value === sort)?.label || 'Sort sources'}
-            menuLabel="Sort sources"
-            actions={SORT_OPTIONS.map(option => ({
-              id: option.value,
-              label: option.label,
-              current: option.value === sort,
-              onSelect: () => onSortChange(option.value)
-            }))}
-          />
-          {tools}
-        </div>
-      </header>
+      <PageHeader
+        className="library-collection-head"
+        title={LABELS[scope] || folderName || 'Library'}
+        actions={(
+          <>
+            <LibraryMenu
+              className="library-sort"
+              label={SORT_OPTIONS.find(option => option.value === sort)?.label || 'Sort sources'}
+              menuLabel="Sort sources"
+              actions={SORT_OPTIONS.map(option => ({
+                id: option.value,
+                label: option.label,
+                current: option.value === sort,
+                onSelect: () => onSortChange(option.value)
+              }))}
+            />
+            {tools}
+          </>
+        )}
+      />
       <label className="library-collection-search">
         <span className="sr-only">Find a title, passage, or thought</span>
         <input
@@ -356,13 +360,13 @@ export default function LibraryCollection({
       !pages.length &&
       !state.error &&
       (scope !== 'kept' || keptPages !== null) ? (
-        <p className="library-collection-empty">
-          {query
+        <EmptyState
+          title={query
             ? 'Nothing matches that yet.'
             : scope === 'set-aside'
               ? 'A clear desk.'
               : 'Nothing here yet.'}
-        </p>
+        />
       ) : null}
       {scope === 'kept' && letGo ? (
         <p className="library-placement-receipt">

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import api from '../../../api';
 import { getAuthHeaders } from '../../../hooks/useAuthHeaders';
-import { QuietButton } from '../../ui';
+import { Button } from '../../ui';
 
 // What changed: an entry's history read as sentences, not a diff.
 // "Oct 12 · Added two paragraphs and a passage from Costco's Moat."
@@ -135,12 +135,12 @@ const EntryHistory = ({ kind, entryId, onRestore, onClose }) => {
     <section className="think-entry-history" aria-label="History">
       <header>
         <h2>History</h2>
-        <QuietButton onClick={onClose}>Close</QuietButton>
+        <Button variant="quiet" onClick={onClose}>Close</Button>
       </header>
       {undo ? (
         <p className="think-entry-history__undo" role="status">
           Restored the version from {day(undo.at)}.{' '}
-          <QuietButton disabled={busy} onClick={() => bringBack(undo.revision, null)}>Undo</QuietButton>
+          <Button variant="quiet" disabled={busy} onClick={() => bringBack(undo.revision, null)}>Undo</Button>
         </p>
       ) : null}
       {error ? <p className="think-entry-history__quiet" role="alert">{error}</p> : null}
@@ -154,7 +154,7 @@ const EntryHistory = ({ kind, entryId, onRestore, onClose }) => {
             <li key={revision.id}>
               <time dateTime={revision.at}>{when}</time>
               <span>{text}</span>
-              {index ? <QuietButton disabled={busy} onClick={() => bringBack(revision, revisions[0])}>Restore</QuietButton> : <em>Now</em>}
+              {index ? <Button variant="quiet" disabled={busy} onClick={() => bringBack(revision, revisions[0])}>Restore</Button> : <em>Now</em>}
             </li>
           ))}
         </ol>

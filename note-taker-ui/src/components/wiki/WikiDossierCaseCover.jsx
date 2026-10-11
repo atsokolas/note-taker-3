@@ -32,7 +32,7 @@ const WikiDossierCaseCover = ({
           {reviewPending ? (
             <a className="wiki-dossier-cover__primary" href="#wiki-dossier-review">Review research update</a>
           ) : (
-            <Button type="button" variant="secondary" onClick={onMaintain} disabled={maintenanceActive}>
+            <Button type="button" onClick={onMaintain} disabled={maintenanceActive}>
               {maintenanceActive ? 'Checking research…' : 'Check for research updates'}
             </Button>
           )}

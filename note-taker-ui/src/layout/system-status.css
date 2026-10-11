@@ -60,7 +60,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-family: var(--noeis-ui-font, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.62rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -116,7 +116,7 @@
 
 .system-status__section-kicker {
   margin: 0;
-  font-family: var(--noeis-ui-font, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.58rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -125,7 +125,7 @@
 
 .system-status__section-title {
   margin: 0;
-  font-family: var(--noeis-ui-font, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.78rem;
   line-height: 1.35;
   color: var(--vellum-ink, #1a1a1a);
@@ -133,7 +133,7 @@
 
 .system-status__section-body {
   margin: 0;
-  font-family: var(--noeis-ui-font, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.72rem;
   line-height: 1.4;
   color: color-mix(in srgb, var(--vellum-ink, #1a1a1a) 72%, transparent);
@@ -226,14 +226,14 @@
 }
 
 .system-status__recent-title {
-  font-family: var(--noeis-ui-font, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.72rem;
   line-height: 1.35;
   color: var(--vellum-ink, #1a1a1a);
 }
 
 .system-status__recent-summary {
-  font-family: var(--noeis-ui-font, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.66rem;
   line-height: 1.35;
   color: color-mix(in srgb, var(--vellum-ink, #1a1a1a) 62%, transparent);

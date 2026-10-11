@@ -21,7 +21,7 @@ body.noeis-editorial .wiki-dossier-cover__heading p {
 body.noeis-editorial .wiki-dossier-cover__eyebrow,
 body.noeis-editorial .wiki-dossier-cover__facts dt {
   color: var(--vellum-accent);
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.66rem;
   font-weight: 700;
   letter-spacing: 0.14em;
@@ -39,7 +39,7 @@ body.noeis-editorial .wiki-dossier-cover__heading h2 + p {
   max-width: 66ch;
   margin-top: 7px;
   color: var(--vellum-subtle);
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.84rem;
   line-height: 1.55;
 }
@@ -59,7 +59,7 @@ body.noeis-editorial .wiki-dossier-cover__text-action {
   border-bottom: 1px solid currentColor;
   background: transparent;
   color: var(--vellum-ink);
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.78rem;
   text-decoration: none;
   cursor: pointer;
@@ -91,7 +91,7 @@ body.noeis-editorial .wiki-dossier-cover__facts > div:nth-child(3n + 3) {
 body.noeis-editorial .wiki-dossier-cover__facts dd {
   margin: 7px 0 3px;
   color: var(--vellum-ink);
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1.03rem;
   line-height: 1.28;
 }
@@ -99,7 +99,7 @@ body.noeis-editorial .wiki-dossier-cover__facts dd {
 body.noeis-editorial .wiki-dossier-cover__facts small {
   display: block;
   color: var(--vellum-subtle);
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.7rem;
   line-height: 1.45;
 }
@@ -112,7 +112,7 @@ body.noeis-editorial .wiki-dossier-cover__facts .is-attention dd {
 body.noeis-editorial .wiki-dossier-cover__status {
   margin: 14px 0 0;
   color: var(--noeis-danger, #8f332c);
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.78rem;
 }
 

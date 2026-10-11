@@ -11,7 +11,7 @@ import { BlockIdExtension, EntryBar, HighlightRefNode, passageContent } from './
 import InsertHighlightModal from './notebook/InsertHighlightModal';
 import ConceptShareModal from './concepts/ConceptShareModal';
 import QuestionShareModal from './questions/QuestionShareModal';
-import { QuietButton } from '../ui';
+import { Button } from '../ui';
 import useHighlights from '../../hooks/useHighlights';
 import { getConcept, getConceptIdeaWorkbench, renameConcept, updateConcept, updateConceptIdeaWorkbench } from '../../api/concepts';
 import { getConceptQuestions, getQuestion, updateQuestion } from '../../api/questions';
@@ -327,9 +327,9 @@ const ThinkEntryEditor = ({
           partnerOpen={partnerOpen}
           onPartner={onPartner}
         >
-          <QuietButton onClick={() => setPicking(true)}>Pull a passage in</QuietButton>
-          <QuietButton onClick={() => setSharing(true)}>Share</QuietButton>
-          {entry.record?._id ? <QuietButton onClick={openHistory}>History</QuietButton> : null}
+          <Button variant="quiet" onClick={() => setPicking(true)}>Pull a passage in</Button>
+          <Button variant="quiet" onClick={() => setSharing(true)}>Share</Button>
+          {entry.record?._id ? <Button variant="quiet" onClick={openHistory}>History</Button> : null}
         </EntryBar>
         <div className="think-notebook-title-block">
           <h1 className="sr-only">{title || entry.title}</h1>

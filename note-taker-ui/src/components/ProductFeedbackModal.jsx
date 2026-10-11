@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import api from '../api';
-import { Button, QuietButton } from './ui';
+import { Button } from './ui';
 
 const OPTIONS = [
   { value: 'feature', label: 'Feature request' },
@@ -74,7 +74,7 @@ const ProductFeedbackModal = ({ open, onClose }) => {
             <h2>Product feedback</h2>
             <p>Request a feature, report a bug, or leave a note for review.</p>
           </div>
-          <QuietButton type="button" onClick={onClose}>Close</QuietButton>
+          <Button variant="quiet" type="button" onClick={onClose}>Close</Button>
         </div>
 
         <div className="product-feedback-modal__type" role="radiogroup" aria-label="Feedback type">

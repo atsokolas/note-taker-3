@@ -432,7 +432,7 @@ const ExternalBridgeCard = ({
               disabled={bridgeBusy}
             />
           </div>
-          <Button variant="secondary" disabled={bridgeBusy} onClick={handleCreateBridgeToken}>
+          <Button disabled={bridgeBusy} onClick={handleCreateBridgeToken}>
             {bridgeBusy ? 'Minting...' : 'Mint bridge token'}
           </Button>
         </div>
@@ -469,7 +469,7 @@ const ExternalBridgeCard = ({
           <div className="external-bridge-token-well" role="region" aria-label="Bridge token">
             <div className="external-bridge-token-well__header">
               <p className="muted-label external-bridge-token-well__label">Bridge token (shown once)</p>
-              <Button type="button" variant="secondary" onClick={handleCopyToken}>
+              <Button type="button" onClick={handleCopyToken}>
                 {tokenCopyStatus === 'copied' ? 'Copied' : 'Copy token'}
               </Button>
             </div>
@@ -491,19 +491,19 @@ const ExternalBridgeCard = ({
         )}
 
         <div className="external-bridge-primary-actions" role="group" aria-label="Bridge actions">
-          <Button variant="secondary" disabled={!bridgeToken || bridgeManifestLoading} onClick={handleTestBridgeConnection}>
+          <Button disabled={!bridgeToken || bridgeManifestLoading} onClick={handleTestBridgeConnection}>
             {bridgeManifestLoading ? 'Testing...' : 'Test bridge connection'}
           </Button>
-          <Button variant="secondary" disabled={!bridgeToken || bridgeAccessCheckLoading} onClick={() => handleRunBridgeAccessCheck(selectedRuntime)}>
+          <Button disabled={!bridgeToken || bridgeAccessCheckLoading} onClick={() => handleRunBridgeAccessCheck(selectedRuntime)}>
             {bridgeAccessCheckLoading ? 'Checking...' : 'Run project access check'}
           </Button>
-          <Button variant="secondary" disabled={!bridgeToken} onClick={() => handleCopyBridgeConfig(selectedAgentName, selectedRuntime)}>
+          <Button disabled={!bridgeToken} onClick={() => handleCopyBridgeConfig(selectedAgentName, selectedRuntime)}>
             {runtime.copyLabel}
           </Button>
-          <Button variant="secondary" disabled={bridgeBusy} onClick={handleCreateBridgeToken}>
+          <Button disabled={bridgeBusy} onClick={handleCreateBridgeToken}>
             Rotate token
           </Button>
-          <Button variant="secondary" onClick={handleForgetBridgeHealth}>
+          <Button onClick={handleForgetBridgeHealth}>
             Forget health
           </Button>
         </div>
@@ -624,14 +624,12 @@ POST /api/agent/protocol/bridge/mcp`}
                   </div>
                   <div className="settings-import-row external-bridge-approval-actions">
                     <Button
-                      variant="secondary"
                       disabled={busy}
                       onClick={() => handleApproveProtocolApproval(approvalId)}
                     >
                       {busy ? 'Applying...' : 'Approve'}
                     </Button>
                     <Button
-                      variant="secondary"
                       disabled={busy}
                       onClick={() => handleRejectProtocolApproval(approvalId)}
                     >

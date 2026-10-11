@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import useDocumentTitle from '../hooks/useDocumentTitle';
 import '../styles/settings-redesign.css';
 import SettingsShell from '../components/settings/SettingsShell';
 import AppearanceSection from '../components/settings/AppearanceSection';
@@ -25,6 +26,7 @@ const Settings = ({
   onAppearanceCommit = async () => ({ ok: false }),
   onAppearanceUndo = async () => ({ ok: false })
 }) => {
+  useDocumentTitle('Settings');
   const location = useLocation();
   const navigate = useNavigate();
   const parsed = parseSettingsLocation(location.search, location.hash);
@@ -218,7 +220,7 @@ const Settings = ({
       </SettingsShell>
       {helpOpen ? (
         <dialog className="settings-redesign__dialog" open>
-          <h2 style={{ fontFamily: 'var(--noeis-serif, Georgia, serif)', fontWeight: 400 }}>A little help, not a reset</h2>
+          <h2>A little help, not a reset</h2>
           <p className="settings-redesign__help">Use the search field to find a setting. Escape closes dialogs without discarding drafts.</p>
           <Link to="/how-to-use" className="settings-redesign__link" onClick={() => setHelpOpen(false)}>Open full help</Link>
           <div style={{ marginTop: '1rem' }}>

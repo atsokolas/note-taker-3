@@ -50,7 +50,7 @@ body.noeis-editorial .think-notebook-editor .ProseMirror:focus-visible,
 
 .think-notebook-save-state {
   color: var(--vellum-subtle, #827c72);
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.75rem;
   letter-spacing: 0.02em;
   white-space: nowrap;
@@ -223,7 +223,7 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
     padding-block: 6px;
     content: attr(data-writing-rail-label);
     color: color-mix(in srgb, var(--vellum-accent, #9b6a18) 72%, var(--vellum-subtle, #827c72));
-    font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+    font-family: var(--font-sans);
     font-size: 0.56rem;
     font-weight: 600;
     letter-spacing: 0.16em;
@@ -433,7 +433,7 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
 
 .notebook-arrangement__shortcut {
   color: var(--noeis-pointer, #6f87ff);
-  font-family: var(--noeis-font-ui, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.65rem;
 }
 .notebook-arrangement__shortcut span { color: var(--text-secondary); }
@@ -495,7 +495,7 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
   margin: 0;
   max-width: 15rem;
   color: var(--text-primary, var(--vellum-ink, #29251f));
-  font-family: var(--font-serif, Georgia, serif);
+  font-family: var(--font-serif);
   font-size: 0.84rem;
   font-style: italic;
   line-height: 1.35;
@@ -566,7 +566,7 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
   content: "Source quotation";
   display: block;
   margin-bottom: 0.35rem;
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.72rem;
   font-style: normal;
   font-weight: 700;
@@ -578,7 +578,7 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
   content: " — " attr(data-article-title);
   display: block;
   margin-top: 0.4rem;
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.85rem;
   font-style: normal;
 }
@@ -627,7 +627,7 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
 
 /* A passage found from "/" reads as the passage, its source beneath. */
 .think-slash-menu__item.is-passage .think-slash-menu__item-label {
-  font-family: var(--noeis-reading-font, Newsreader, Georgia, serif);
+  font-family: var(--font-serif);
   font-style: italic;
   white-space: normal;
 }
@@ -638,7 +638,7 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
   flex-wrap: wrap;
   gap: 8px 28px;
   margin: 14px 0 22px;
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.8rem;
   color: var(--text-secondary);
 }
@@ -668,7 +668,7 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
   margin: 10px 0 24px;
   padding: 12px 0 4px;
   border-top: 1px solid var(--vellum-line, var(--border-color));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.82rem;
   color: var(--text-secondary);
   animation: think-history-in 180ms ease-out;
@@ -699,7 +699,7 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
   padding: 6px 0;
 }
 .think-entry-history time { color: var(--text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.think-entry-history li > span { color: var(--text-primary); font-family: var(--noeis-reading-font, Newsreader, Georgia, serif); font-size: 0.95rem; }
+.think-entry-history li > span { color: var(--text-primary); font-family: var(--font-serif); font-size: 0.95rem; }
 .think-entry-history em { color: var(--text-muted); font-style: normal; font-size: 0.72rem; }
 .think-entry-history li .ui-quiet-button { min-height: 28px; padding: 2px; font-size: 0.72rem; }
 @media (hover: hover) {
@@ -717,7 +717,7 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
 .think-entry-rename-note {
   margin: 4px 0 0;
   color: var(--noeis-danger, var(--danger));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.82rem;
 }
 @keyframes think-history-in { from { opacity: 0; transform: translateY(-3px); } }

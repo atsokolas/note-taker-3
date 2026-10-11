@@ -98,7 +98,7 @@ const DataSection = () => {
       <div className="settings-redesign__data-row" id="export-json">
         <div className="settings-redesign__eyebrow" style={{ border: '1px solid var(--settings-rule)', padding: '0.5rem', textAlign: 'center' }}>JSON</div>
         <div>
-          <h3 style={{ fontFamily: 'var(--noeis-serif, Georgia, serif)', fontWeight: 400, margin: '0 0 0.35rem' }}>Structured export</h3>
+          <h3 style={{ margin: '0 0 0.35rem' }}>Structured export</h3>
           <p className="settings-redesign__help">Articles, highlights, notebook entries, collections, tags, and saved views. Not a restorable backup by itself.</p>
         </div>
         <button type="button" className="settings-redesign__link" onClick={loadManifest} disabled={loading}>
@@ -109,7 +109,7 @@ const DataSection = () => {
       <div className="settings-redesign__data-row">
         <div className="settings-redesign__eyebrow" style={{ border: '1px solid var(--settings-rule)', padding: '0.5rem', textAlign: 'center' }}>PDF</div>
         <div>
-          <h3 style={{ fontFamily: 'var(--noeis-serif, Georgia, serif)', fontWeight: 400, margin: '0 0 0.35rem' }}>Reading copy</h3>
+          <h3 style={{ margin: '0 0 0.35rem' }}>Reading copy</h3>
           <p className="settings-redesign__help">A readable bundle for keeping outside NOEIS. A reading copy is not the same as a restorable workspace.</p>
         </div>
         <button type="button" className="settings-redesign__link" onClick={downloadPdfZip} disabled={loading}>Download →</button>
@@ -135,7 +135,7 @@ const DataSection = () => {
       {error ? <div className="settings-redesign__receipt is-error" role="alert">{error}</div> : null}
 
       <div style={{ marginTop: '2rem', borderTop: '1px solid var(--settings-rule)', paddingTop: '1.5rem' }}>
-        <h3 style={{ fontFamily: 'var(--noeis-serif, Georgia, serif)', fontWeight: 400 }}>Connections and access</h3>
+        <h3>Connections and access</h3>
         <p className="settings-redesign__help">Sources, agent credentials, permissions and revocation have one home.</p>
         <Link to="/connections" className="settings-redesign__link">Open Connections ↗</Link>
       </div>

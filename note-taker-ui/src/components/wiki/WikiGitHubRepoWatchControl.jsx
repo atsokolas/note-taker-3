@@ -315,7 +315,7 @@ const WikiGitHubRepoWatchControl = ({ pageId, page, onPageUpdate }) => {
             onChange={(event) => setRepo(event.target.value)}
             disabled={busy}
           />
-          <Button type="submit" variant="secondary" disabled={busy}>
+          <Button type="submit" disabled={busy}>
             {busy ? 'Arming...' : state.armed ? 'Update watch' : 'Track repo'}
           </Button>
         </div>

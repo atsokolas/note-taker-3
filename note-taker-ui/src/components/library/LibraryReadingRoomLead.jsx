@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { QuietButton } from '../ui';
+import { Button } from '../ui';
 import {
   buildMaintenanceSummary,
   composeReopenLead,
@@ -51,7 +51,7 @@ const LibraryReadingRoomLead = ({
         )}
         <p className="library-reading-room-lead__detail">{reopen.detail}</p>
         {reopen.articleId ? (
-          <QuietButton
+          <Button variant="quiet"
             type="button"
             className="library-reading-room-lead__open"
             aria-label="Open in Reading Room"
@@ -59,7 +59,7 @@ const LibraryReadingRoomLead = ({
             onClick={() => onSelectArticle?.(reopen.articleId)}
           >
             Open in reading room
-          </QuietButton>
+          </Button>
         ) : null}
       </div>
 
@@ -80,14 +80,14 @@ const LibraryReadingRoomLead = ({
           ) : null}
         </div>
         {maintenance.actionLabel ? (
-          <QuietButton
+          <Button variant="quiet"
             type="button"
             className="library-reading-room-lead__filing-action"
             onClick={onReviewFiling}
             disabled={filingLaunching}
           >
             {filingLaunching ? 'Filing…' : maintenance.actionLabel}
-          </QuietButton>
+          </Button>
         ) : null}
         {filingReceipt?.summary ? (
           <p
@@ -110,13 +110,13 @@ const LibraryReadingRoomLead = ({
               </p>
             ) : null}
             {onToggleSuppressed ? (
-              <QuietButton
+              <Button variant="quiet"
                 type="button"
                 className="library-reading-room-lead__suppressed-action"
                 onClick={onToggleSuppressed}
               >
                 {suppressedVisible ? 'Hide review imports' : 'Show review imports'}
-              </QuietButton>
+              </Button>
             ) : null}
           </div>
         ) : null}

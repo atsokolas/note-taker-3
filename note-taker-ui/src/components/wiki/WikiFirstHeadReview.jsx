@@ -201,7 +201,7 @@ const WikiFirstHeadReview = ({
       </dl>
       {typeof onPreview === 'function' ? (
         <div className="wiki-first-head__actions">
-          <Button type="button" variant="secondary" onClick={() => onPreview(candidatePage)} disabled={!candidatePage}>
+          <Button type="button" onClick={() => onPreview(candidatePage)} disabled={!candidatePage}>
             {previewActive ? 'Back to current version' : 'Read it in the page'}
           </Button>
         </div>
@@ -228,11 +228,11 @@ const WikiFirstHeadReview = ({
         <Button type="button" onClick={() => decide('accept')} disabled={!confirmed || Boolean(busy)}>
           {busy === 'accept' ? 'Accepting…' : 'Accept'}
         </Button>
-        <Button type="button" variant="secondary" onClick={() => decide('reject')} disabled={Boolean(busy)}>
+        <Button type="button" onClick={() => decide('reject')} disabled={Boolean(busy)}>
           {busy === 'reject' ? 'Keeping…' : 'Keep current version'}
         </Button>
         {typeof onNotNow === 'function' ? (
-          <Button type="button" variant="ghost" onClick={onNotNow} disabled={Boolean(busy)}>
+          <Button type="button" onClick={onNotNow} disabled={Boolean(busy)}>
             Not now
           </Button>
         ) : null}

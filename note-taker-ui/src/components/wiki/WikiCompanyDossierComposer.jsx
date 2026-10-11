@@ -126,7 +126,7 @@ const WikiCompanyDossierComposer = ({
               <span><input aria-label="Investment horizon" type="number" min="1" max="20" step="1" value={horizonYears} onChange={event => setHorizonYears(event.target.value)} disabled={busy} /> years</span>
             </label>
           </div>
-          <Button type="submit" variant="secondary" disabled={busy || !ticker.trim() || startingJudgment.trim().length < 20}>
+          <Button type="submit" disabled={busy || !ticker.trim() || startingJudgment.trim().length < 20}>
             {busy ? 'Attaching SEC filings…' : 'Create dossier'}
           </Button>
           {status ? <p className="wiki-company-dossier__status" role="status">{status}</p> : null}

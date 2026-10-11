@@ -17,7 +17,7 @@ import {
   updateAgentProposedChange,
   updateAgentArtifactDraft
 } from '../../api/agent';
-import { Button, QuietButton, SurfaceCard } from '../ui';
+import { Button, SurfaceCard } from '../ui';
 import { buildCanonicalArticlePath } from '../../utils/sourceRoutes';
 import { buildQueuedAgentSkillPrompt } from '../../utils/agentSkillInvocation';
 import useProtocolApprovals from '../../hooks/useProtocolApprovals';
@@ -1084,14 +1084,14 @@ const ThoughtPartnerPanel = ({
       {promptTemplates.map((template) => {
         const prompt = buildPrompt(template, namedContext);
         return (
-          <QuietButton
+          <Button variant="quiet"
             key={template}
             type="button"
             disabled={loading || disabled}
             onClick={() => submitMessage(prompt, { allowPendingSkillInvocation: false })}
           >
             {prompt}
-          </QuietButton>
+          </Button>
         );
       })}
     </div>
@@ -1192,18 +1192,17 @@ const ThoughtPartnerPanel = ({
       {(streamPlanPreview.proposalBundle || streamPlanPreview.hasReviewStage) && (
         <div className="agent-thought-partner__plan-preview-actions">
           {streamPlanPreview.hasReviewStage && (
-            <QuietButton
+            <Button variant="quiet"
               type="button"
               onClick={handleFocusReviewStage}
               disabled={loading || disabled}
             >
               Review/edit plan
-            </QuietButton>
+            </Button>
           )}
           {streamPlanPreview.proposalBundle && (
             <Button
               type="button"
-              variant="secondary"
               onClick={() => handleExecuteProposalBundle(streamPlanPreview.proposalBundle)}
               disabled={loading || disabled}
             >
@@ -1242,7 +1241,6 @@ const ThoughtPartnerPanel = ({
             <div className="agent-thought-partner__draft-actions">
               <Button
                 type="button"
-                variant="secondary"
                 onClick={() => handleExecuteProposalBundle(bundle)}
                 disabled={loading || disabled}
               >
@@ -1365,20 +1363,19 @@ const ThoughtPartnerPanel = ({
               </label>
               <div className="agent-thought-partner__draft-actions">
                 <Button
-                  variant="secondary"
                   type="button"
                   disabled={proposedChangeLoadingId === change.proposedChangeId}
                   onClick={() => handleSaveProposedChangeEdit(change)}
                 >
                   {proposedChangeLoadingId === change.proposedChangeId ? 'Saving…' : 'Save edit'}
                 </Button>
-                <QuietButton
+                <Button variant="quiet"
                   type="button"
                   disabled={proposedChangeLoadingId === change.proposedChangeId}
                   onClick={handleCancelEditProposedChange}
                 >
                   Cancel
-                </QuietButton>
+                </Button>
               </div>
             </div>
           ) : (
@@ -1395,7 +1392,6 @@ const ThoughtPartnerPanel = ({
               </div>
               <div className="agent-thought-partner__draft-actions">
                 <Button
-                  variant="secondary"
                   type="button"
                   disabled={proposedChangeLoadingId === change.proposedChangeId || clean(change.status).toLowerCase() !== 'pending'}
                   onClick={() => handleAcceptProposedChange(change.proposedChangeId)}
@@ -1403,20 +1399,19 @@ const ThoughtPartnerPanel = ({
                   {proposedChangeLoadingId === change.proposedChangeId ? 'Applying…' : 'Accept'}
                 </Button>
                 <Button
-                  variant="secondary"
                   type="button"
                   disabled={proposedChangeLoadingId === change.proposedChangeId || clean(change.status).toLowerCase() !== 'pending'}
                   onClick={() => handleStartEditProposedChange(change)}
                 >
                   Edit before accept
                 </Button>
-                <QuietButton
+                <Button variant="quiet"
                   type="button"
                   disabled={proposedChangeLoadingId === change.proposedChangeId || clean(change.status).toLowerCase() !== 'pending'}
                   onClick={() => handleRejectProposedChange(change.proposedChangeId)}
                 >
                   Reject
-                </QuietButton>
+                </Button>
               </div>
             </>
           )}
@@ -1480,7 +1475,6 @@ const ThoughtPartnerPanel = ({
             {isApplied && (
               <div className="agent-thought-partner__draft-actions">
                 <Button
-                  variant="secondary"
                   type="button"
                   disabled={proposedChangeLoadingId === change.proposedChangeId}
                   onClick={() => handleRollbackProposedChange(change.proposedChangeId)}
@@ -1563,20 +1557,19 @@ const ThoughtPartnerPanel = ({
                 </label>
                 <div className="agent-thought-partner__draft-actions">
                   <Button
-                    variant="secondary"
                     type="button"
                     disabled={isLoadingDraft || !clean(editingDraftTitle) || !clean(editingDraftBody)}
                     onClick={() => handleSaveEditDraft(draft.draftId)}
                   >
                     {isLoadingDraft ? 'Saving…' : 'Save revision'}
                   </Button>
-                  <QuietButton
+                  <Button variant="quiet"
                     type="button"
                     disabled={isLoadingDraft}
                     onClick={handleCancelEditDraft}
                   >
                     Cancel
-                  </QuietButton>
+                  </Button>
                 </div>
               </div>
             )}
@@ -1587,7 +1580,6 @@ const ThoughtPartnerPanel = ({
             ) : editingDraftId !== draft.draftId ? (
               <div className="agent-thought-partner__draft-actions">
                 <Button
-                  variant="secondary"
                   type="button"
                   disabled={isLoadingDraft}
                   onClick={() => handleStartEditDraft(draft)}
@@ -1595,20 +1587,19 @@ const ThoughtPartnerPanel = ({
                   {isLoadingDraft ? 'Working…' : 'Revise'}
                 </Button>
                 <Button
-                  variant="secondary"
                   type="button"
                   disabled={isLoadingDraft}
                   onClick={() => handlePromoteDraft(draft.draftId)}
                 >
                   {isLoadingDraft ? 'Applying…' : 'Promote'}
                 </Button>
-                <QuietButton
+                <Button variant="quiet"
                   type="button"
                   disabled={isLoadingDraft}
                   onClick={() => handleDismissDraft(draft.draftId)}
                 >
                   Dismiss
-                </QuietButton>
+                </Button>
               </div>
             ) : null}
             {editingDraftId !== draft.draftId && nextSkills.length > 0 && (
@@ -1618,7 +1609,6 @@ const ThoughtPartnerPanel = ({
                   {nextSkills.map((skill) => (
                     <Button
                       key={`${draft.draftId}-${skill.id}`}
-                      variant="secondary"
                       type="button"
                       disabled={isLoadingDraft}
                       onClick={() => handleContinueWorkflowDraft(draft, skill)}
@@ -1682,7 +1672,6 @@ const ThoughtPartnerPanel = ({
           disabled={loading || disabled}
         />
         <Button
-          variant="secondary"
           type="submit"
           className={isStreamVariant ? 'agent-thought-partner__submit' : ''}
           disabled={loading || disabled || !clean(input)}
@@ -1705,9 +1694,9 @@ const ThoughtPartnerPanel = ({
             <p className="agent-thought-partner__message-role">{message.role === 'assistant' ? AGENT_DISPLAY_NAME : 'You'}</p>
             <p>{message.text}</p>
             {message.role === 'assistant' && onTryWording && isWording(message) ? (
-              <QuietButton type="button" onClick={() => onTryWording(message.text)}>
+              <Button variant="quiet" type="button" onClick={() => onTryWording(message.text)}>
                 Try as alternate wording
-              </QuietButton>
+              </Button>
             ) : null}
             {message.role === 'assistant' && message.proposalBundle && (
               <div className="agent-thought-partner__draft-workflow">
@@ -1729,7 +1718,6 @@ const ThoughtPartnerPanel = ({
                   <div className="agent-thought-partner__draft-actions">
                     <Button
                       type="button"
-                      variant="secondary"
                       onClick={() => handleExecuteProposalBundle(message.proposalBundle)}
                       disabled={loading || disabled}
                     >

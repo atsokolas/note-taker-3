@@ -81,7 +81,7 @@ const OrchestrationPolicyCard = ({
               />
               Prefer specialist-matched agents
             </label>
-            <Button variant="secondary" disabled={policySaving} onClick={handleSaveProtocolPolicy}>
+            <Button disabled={policySaving} onClick={handleSaveProtocolPolicy}>
               {policySaving ? 'Saving…' : 'Save policy'}
             </Button>
           </div>

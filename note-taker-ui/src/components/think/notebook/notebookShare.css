@@ -20,7 +20,7 @@
 .notebook-essay__source {
   margin: 0;
   color: var(--noeis-ink-subtle, #6b6458);
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.78rem;
   letter-spacing: 0.04em;
 }
@@ -33,7 +33,7 @@
 
 .notebook-essay__title {
   margin: 0;
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-family: var(--font-serif);
   font-size: clamp(1.8rem, 3.2vw, 2.55rem);
   font-weight: 400;
   line-height: 1.12;
@@ -49,7 +49,7 @@
 .notebook-essay__correction {
   margin: 0.35rem 0 0;
   color: var(--noeis-ink-subtle, #6b6458);
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.9rem;
   letter-spacing: 0;
   line-height: 1.45;
@@ -58,7 +58,7 @@
 .notebook-essay__correction {
   max-width: 54ch;
   color: var(--noeis-ink, #1c1812);
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-family: var(--font-serif);
   font-style: italic;
 }
 
@@ -73,7 +73,7 @@
 .notebook-essay__quote p,
 .notebook-essay__name {
   margin: 0;
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-family: var(--font-serif);
   line-height: 1.55;
 }
 
@@ -134,7 +134,7 @@
 .notebook-essay__ask-receipt {
   margin: 0.35rem 0 0;
   color: var(--noeis-ink-subtle, #6b6458);
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.78rem;
   letter-spacing: 0.02em;
   line-height: 1.45;
@@ -169,7 +169,7 @@
 .notebook-essay__copy button,
 .notebook-essay__ask button {
   font: inherit;
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.78rem;
   letter-spacing: 0.02em;
   color: var(--noeis-ink-subtle, #6b6458);
@@ -274,7 +274,7 @@
   padding: 0 0 0 1rem;
   border-left: 1px solid var(--noeis-rule, rgba(28, 24, 18, 0.18));
   color: var(--noeis-ink-subtle, #6b6458);
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-family: var(--font-serif);
   font-style: italic;
   line-height: 1.45;
 }
@@ -282,7 +282,7 @@
 .notebook-share__letter-text {
   margin: 0;
   color: var(--noeis-ink, #1c1812);
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-family: var(--font-serif);
   line-height: 1.5;
 }
 
@@ -354,7 +354,7 @@
   display: inline-block;
   margin-bottom: 2rem;
   color: var(--noeis-ink-subtle, #6b6458);
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.84rem;
 }
 
@@ -372,7 +372,7 @@
 
 .shared-notebook-page__print button {
   font: inherit;
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.84rem;
   color: var(--noeis-ink-subtle, #6b6458);
   background: transparent;
@@ -409,7 +409,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem 1rem;
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.84rem;
 }
 
@@ -461,7 +461,7 @@
   gap: 0.4rem;
   align-items: baseline;
   color: var(--noeis-ink-subtle, #6b6458);
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.78rem;
 }
 
@@ -479,7 +479,7 @@
 .notebook-volume-page__intro {
   margin: 0 0 1.5rem;
   max-width: 54ch;
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1.05rem;
   font-style: italic;
   line-height: 1.5;
@@ -493,14 +493,14 @@
 .notebook-volume-page__contents li,
 .notebook-volume-page__sources li {
   margin: 0.35rem 0 0;
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-family: var(--font-serif);
   line-height: 1.45;
 }
 
 .notebook-volume-page__ideas {
   display: block;
   color: var(--noeis-ink-subtle, #6b6458);
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.82rem;
 }
 

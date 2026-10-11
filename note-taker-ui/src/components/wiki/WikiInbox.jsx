@@ -63,7 +63,7 @@ const WikiInbox = () => {
           <p className="wiki-inbox__eyebrow">Source inbox</p>
           <h2>New material affecting the wiki</h2>
         </div>
-        <Button type="button" variant="secondary" onClick={processPending} disabled={!pendingCount || processingAll}>
+        <Button type="button" onClick={processPending} disabled={!pendingCount || processingAll}>
           {processingAll ? 'Processing...' : `Process ${pendingCount || ''}`.trim()}
         </Button>
       </div>
@@ -80,7 +80,6 @@ const WikiInbox = () => {
             {(event.status === 'pending' || event.status === 'failed') ? (
               <Button
                 type="button"
-                variant="secondary"
                 onClick={() => processOne(event._id)}
                 disabled={busyId === event._id}
               >

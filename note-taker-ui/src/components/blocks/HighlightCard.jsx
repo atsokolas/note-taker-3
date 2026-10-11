@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Button, QuietButton } from '../ui';
+import { Button } from '../ui';
 import HighlightBlock from './HighlightBlock';
 import ReturnLaterControl from '../return-queue/ReturnLaterControl';
 import ConnectionBuilder from '../connections/ConnectionBuilder';
@@ -225,9 +225,9 @@ const HighlightCard = ({
             )}
           </div>
         </div>
-        <QuietButton onClick={() => setExpanded(prev => !prev)}>
+        <Button variant="quiet" onClick={() => setExpanded(prev => !prev)}>
           {expanded ? 'Collapse' : 'Expand'}
-        </QuietButton>
+        </Button>
       </div>
 
       {expanded && (
@@ -235,28 +235,28 @@ const HighlightCard = ({
           <HighlightBlock highlight={{ ...highlight, tags: itemTags }} compact={compact} />
           <div className="highlight-card-actions">
             {organizable && (
-              <QuietButton onClick={() => setOrganizeOpen(prev => !prev)}>
+              <Button variant="quiet" onClick={() => setOrganizeOpen(prev => !prev)}>
                 {organizeOpen ? 'Close Edit/Tag/Link' : 'Edit / Tag / Link'}
-              </QuietButton>
+              </Button>
             )}
             {onAddNotebook && (
-              <QuietButton onClick={() => onAddNotebook(highlight)}>Add to Notebook</QuietButton>
+              <Button variant="quiet" onClick={() => onAddNotebook(highlight)}>Add to Notebook</Button>
             )}
             {onAddConcept && (
-              <QuietButton
+              <Button variant="quiet"
                 onClick={() => onAddConcept(highlight)}
                 data-tour-anchor="highlight-add-concept"
               >
                 Add to Concept
-              </QuietButton>
+              </Button>
             )}
             {onAddQuestion && (
-              <QuietButton onClick={() => onAddQuestion(highlight)}>Add to Question</QuietButton>
+              <Button variant="quiet" onClick={() => onAddQuestion(highlight)}>Add to Question</Button>
             )}
             {highlight?.articleId && (
-              <QuietButton onClick={() => { window.location.href = buildCanonicalArticlePath(highlight.articleId); }}>
+              <Button variant="quiet" onClick={() => { window.location.href = buildCanonicalArticlePath(highlight.articleId); }}>
                 Link to Source
-              </QuietButton>
+              </Button>
             )}
             <ReturnLaterControl
               itemType="highlight"
@@ -271,14 +271,14 @@ const HighlightCard = ({
               scopeId={connectionScopeId}
             />
             {onDumpToWorkingMemory && (
-              <QuietButton onClick={() => onDumpToWorkingMemory(highlight)}>
+              <Button variant="quiet" onClick={() => onDumpToWorkingMemory(highlight)}>
                 Dump to Working Memory
-              </QuietButton>
+              </Button>
             )}
             {onDelete && highlightId && (
-              <QuietButton onClick={() => onDelete(highlight)}>
+              <Button variant="quiet" onClick={() => onDelete(highlight)}>
                 Delete
-              </QuietButton>
+              </Button>
             )}
           </div>
           <RelatedSuggestions
@@ -346,7 +346,7 @@ const HighlightCard = ({
                     }}
                     placeholder="Add tag"
                   />
-                  <QuietButton onClick={addTag}>Add tag</QuietButton>
+                  <Button variant="quiet" onClick={addTag}>Add tag</Button>
                 </div>
               </div>
               {itemType === 'evidence' && (
@@ -377,9 +377,9 @@ const HighlightCard = ({
                 <div className="highlight-organize-row">
                   <div className="highlight-organize-inline">
                     <span className="highlight-organize-label">Evidence</span>
-                    <QuietButton onClick={() => setClaimEvidenceOpen(prev => !prev)}>
+                    <Button variant="quiet" onClick={() => setClaimEvidenceOpen(prev => !prev)}>
                       {claimEvidenceOpen ? 'Hide' : 'Show'}
-                    </QuietButton>
+                    </Button>
                   </div>
                   {highlight?.type !== 'claim' && (
                     <p className="muted small">Save this highlight as Claim to load linked evidence.</p>

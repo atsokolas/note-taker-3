@@ -77,7 +77,7 @@ const AgentTaskRun = ({ taskIdOverride = '' }) => {
           <>
             <h2>Task unavailable</h2>
             <p className="muted">{error}</p>
-            <Link to="/integrations" className="ui-button ui-button-secondary">Open integrations</Link>
+            <Link to="/integrations" className="ui-button">Open integrations</Link>
           </>
         ) : (
           <>
@@ -117,7 +117,7 @@ const AgentTaskRun = ({ taskIdOverride = '' }) => {
                 <strong>Connect {connectionRequired.runtimeLabel} first.</strong>
                 <p className="muted small">Run this in your terminal, approve in Noeis, then return to this link.</p>
                 <pre className="external-bridge-pre">{connectionRequired.connectCommand}</pre>
-                <Link to={connectionRequired.connectPath || '/integrations'} className="ui-button ui-button-secondary">
+                <Link to={connectionRequired.connectPath || '/integrations'} className="ui-button">
                   Open integrations
                 </Link>
               </div>
@@ -144,7 +144,7 @@ const AgentTaskRun = ({ taskIdOverride = '' }) => {
                   >
                     {dispatching ? 'Dispatching...' : `Run with ${task?.runtimeLabel || 'agent'}`}
                   </button>
-                  <Link to="/integrations" className="ui-button ui-button-secondary">Cancel</Link>
+                  <Link to="/integrations" className="ui-button">Cancel</Link>
                 </div>
               </>
             )}
