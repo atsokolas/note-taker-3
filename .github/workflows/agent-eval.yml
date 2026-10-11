@@ -54,7 +54,7 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci
-      - run: node --test server/agentEval/*.test.js
+      - run: node scripts/run_server_tests.js server/agentEval/
       - run: npm run agent:eval:check
       - uses: actions/upload-artifact@v4
         if: always()
