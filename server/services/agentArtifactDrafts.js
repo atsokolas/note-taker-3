@@ -214,78 +214,6 @@ const sanitizeAgentArtifactDraftDoc = (doc) => ({
   updatedAt: doc?.updatedAt || null
 });
 
-const createAgentArtifactDraftFromSkillReply = async ({
-  AgentArtifactDraft,
-  userId,
-  actor,
-  reply = '',
-  thread = null,
-  handoffId = null,
-  context = null,
-  skillInvocation = {}
-} = {}) => {
-  const artifactType = artifactTypeFromOutputType(skillInvocation?.outputType);
-  const body = deriveDraftBody(reply);
-  if (!artifactType || !body || !AgentArtifactDraft) return null;
-
-  const sourceContext = context && typeof context === 'object' ? {
-    type: clean(context.type),
-    id: clean(context.id),
-    title: clean(context.title)
-  } : {};
-
-  const created = await AgentArtifactDraft.create({
-    userId,
-    artifactType,
-    status: 'pending',
-    title: deriveDraftTitle({
-      artifactType,
-      reply,
-      contextTitle: sourceContext.title,
-      skillTitle: skillInvocation?.skillTitle,
-      outputType: skillInvocation?.outputType
-    }),
-    summary: deriveDraftSummary(reply),
-    body,
-    sourceThreadId: thread?._id || null,
-    sourceHandoffId: handoffId || thread?.handoffId || null,
-    sourceContext,
-    skill: {
-      id: clean(skillInvocation?.skillId),
-      title: clean(skillInvocation?.skillTitle),
-      outputType: clean(skillInvocation?.outputType),
-      workerRole: clean(skillInvocation?.workerRole),
-      workflow: skillInvocation?.workflow && typeof skillInvocation.workflow === 'object'
-        ? {
-            id: clean(skillInvocation.workflow.id),
-            label: clean(skillInvocation.workflow.label),
-            track: clean(skillInvocation.workflow.track),
-            cadence: clean(skillInvocation.workflow.cadence),
-            loop: Boolean(skillInvocation.workflow.loop),
-            steps: Array.isArray(skillInvocation.workflow.steps)
-              ? skillInvocation.workflow.steps.map((step) => clean(step)).filter(Boolean)
-              : [],
-            nextSkills: Array.isArray(skillInvocation.workflow.nextSkills)
-              ? skillInvocation.workflow.nextSkills.map((skill) => ({
-                  id: clean(skill?.id),
-                  title: clean(skill?.title),
-                  workerRole: clean(skill?.workerRole),
-                  outputType: clean(skill?.outputType),
-                  instruction: clean(skill?.instruction)
-                })).filter((skill) => skill.id && skill.title)
-              : []
-          }
-        : null
-    },
-    createdBy: actor && typeof actor === 'object' ? {
-      actorType: clean(actor.actorType),
-      actorId: clean(actor.actorId)
-    } : { actorType: 'user', actorId: '' }
-  });
-
-  return created;
-};
-
 const createAgentArtifactDraftRecord = async ({
   AgentArtifactDraft,
   userId,
@@ -509,7 +437,6 @@ module.exports = {
   artifactTypeFromOutputType,
   deriveDraftSummary,
   sanitizeAgentArtifactDraftDoc,
-  createAgentArtifactDraftFromSkillReply,
   createAgentArtifactDraftRecord,
   promoteAgentArtifactDraftRecord
 };

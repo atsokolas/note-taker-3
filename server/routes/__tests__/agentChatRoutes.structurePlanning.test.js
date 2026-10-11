@@ -80,7 +80,6 @@ const run = async () => {
       messages: thread?.messages || []
     }),
     sanitizeAgentRunDoc: (value) => value,
-    createAgentArtifactDraftFromSkillReply: async () => null,
     createRunFromProposalBundle: () => ({}),
     executeAgentRun: async () => ({}),
     applyProposalBundleRunOutcome: () => {},

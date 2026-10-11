@@ -28,14 +28,12 @@ const buildAgentChatRouter = ({
   NotebookFolder,
   TagMeta,
   NotebookEntry,
-  AgentArtifactDraft,
   normalizeThreadScope,
   appendThreadMessage,
   compactThreadState,
   normalizeThreadPlanner,
   sanitizeAgentThreadDoc,
   sanitizeAgentRunDoc,
-  createAgentArtifactDraftFromSkillReply,
   createRunFromProposalBundle,
   executeAgentRun,
   applyProposalBundleRunOutcome,
@@ -48,7 +46,6 @@ const buildAgentChatRouter = ({
   sanitizeAgentHandoffDoc,
   resolveRequestedProposalBundle,
   applyProposalBundleInvalidations,
-  sanitizeAgentArtifactDraftDoc,
   sanitizeAgentStructureProposalDoc,
   planLibraryStructureProposal = defaultPlanLibraryStructureProposal,
   persistLibraryStructureProposal = defaultPersistLibraryStructureProposal,
@@ -465,33 +462,10 @@ const buildAgentChatRouter = ({
         properties: { threadId, bundleId: String(result.proposalBundle.bundleId || ''), source }
       });
     }
-    const draftArtifact = await createAgentArtifactDraftFromSkillReply({
-      AgentArtifactDraft,
-      userId,
-      actor,
-      reply: result?.reply,
-      thread: persistedThread,
-      context: body.context || thread?.scope || null,
-      skillInvocation: body.skillInvocation || {}
-    });
-    if (draftArtifact?._id) {
-      emitHarnessEvent({
-        event: EVENT_NAMES?.AGENT_ARTIFACT_DRAFT_STAGED,
-        userId,
-        requestId,
-        properties: {
-          threadId,
-          draftId: String(draftArtifact._id),
-          artifactType: String(draftArtifact.artifactType || ''),
-          source
-        }
-      });
-    }
     return {
       ...result,
       entitlements,
       thread: persistedThread ? sanitizeAgentThreadDoc(persistedThread) : undefined,
-      draftArtifact: draftArtifact ? sanitizeAgentArtifactDraftDoc(draftArtifact) : undefined,
       structureProposal: structureProposal || undefined
     };
   };

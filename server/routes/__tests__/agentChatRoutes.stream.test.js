@@ -74,7 +74,6 @@ const buildRouter = (overrides = {}) => buildAgentChatRouter({
   normalizeThreadPlanner: (planner) => planner || {},
   sanitizeAgentThreadDoc: (doc = {}) => ({ threadId: String(doc?._id || '') }),
   sanitizeAgentRunDoc: (doc = {}) => doc,
-  createAgentArtifactDraftFromSkillReply: async () => null,
   createRunFromProposalBundle: () => ({}),
   executeAgentRun: async () => ({}),
   applyProposalBundleRunOutcome: () => {},

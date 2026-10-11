@@ -745,7 +745,6 @@ const {
 } = require('./services/agentWorkerRoles');
 const {
   sanitizeAgentArtifactDraftDoc,
-  createAgentArtifactDraftFromSkillReply,
   createAgentArtifactDraftRecord,
   promoteAgentArtifactDraftRecord
 } = require('./services/agentArtifactDrafts');
@@ -6561,8 +6560,6 @@ app.use(buildAgentChatRouter({
   normalizeThreadPlanner,
   sanitizeAgentThreadDoc,
   sanitizeAgentRunDoc,
-  AgentArtifactDraft,
-  createAgentArtifactDraftFromSkillReply,
   createRunFromProposalBundle,
   executeAgentRun,
   applyProposalBundleRunOutcome,
@@ -6575,7 +6572,6 @@ app.use(buildAgentChatRouter({
   sanitizeAgentHandoffDoc,
   resolveRequestedProposalBundle,
   applyProposalBundleInvalidations,
-  sanitizeAgentArtifactDraftDoc,
   sanitizeAgentStructureProposalDoc,
   planLibraryStructureProposal,
   persistLibraryStructureProposal,
