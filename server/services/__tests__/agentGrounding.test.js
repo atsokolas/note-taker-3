@@ -37,6 +37,9 @@ describe('quotedIn', () => {
     expect(quotedIn('mostly about identity. Same thing happens with code review', [highlight])).toBe(false);
     expect(quotedIn('mostly about identity. Your note: Same thing happens', [highlight])).toBe(false);
     expect(quotedIn('mostly about identity … Same thing happens with code review', [highlight])).toBe(false);
+    const page = `${highlight}\n\nThe second passage says teams skip the list under pressure.`;
+    expect(quotedIn('Same thing happens with code review … teams skip the list under pressure', [page])).toBe(false);
+    expect(quotedIn('The second passage says teams skip the list', [page])).toBe(true);
   });
 
   /* A passage of nothing quotes nothing, so it is never found. */

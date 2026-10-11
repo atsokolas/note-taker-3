@@ -34,12 +34,22 @@ const quotations = (reply = '') => [...String(reply).matchAll(/[“"]([^”"]+)[
   .map(match => match[1])
   .filter(span => words(span).length >= QUOTE_MIN_WORDS);
 
+// A text's separate statements: the author's words, and each margin note, which
+// runs from its label to the end of its paragraph.
+const statements = (text = '') => {
+  const [first, ...noted] = String(text || '').split(NOTE_LABEL);
+  return [first, ...noted.flatMap((part) => {
+    const [note, ...rest] = part.split(/\n\s*\n/);
+    return [note, rest.join('\n\n')];
+  })];
+};
+
 // Whether a quoted span appears in one of the texts, word for word. An
 // ellipsis marks words left out, so each piece between ellipses must appear
 // on its own, however short, but all of them in the same statement.
 const quotedIn = (span = '', texts = []) => {
   const haystacks = (Array.isArray(texts) ? texts : [])
-    .flatMap(text => String(text || '').split(NOTE_LABEL))
+    .flatMap(statements)
     .map(text => ` ${words(text).join(' ')} `);
   const pieces = String(span)
     .split(/…|\.{3}/)
