@@ -138,8 +138,8 @@ export const PushesAgainst = ({ reading, onSettled }) => {
   return (
     <li className="article-pushes-against">
       This pushes against your view that <Link to={`/judgment/${encodeURIComponent(reading.pageId)}`}>{view}</Link>. File it?{' '}
-      <QuietButton onClick={file}>File against</QuietButton>
-      <QuietButton onClick={onSettled}>Not now</QuietButton>
+      <Button variant="quiet" onClick={file}>File against</Button>
+      <Button variant="quiet" onClick={onSettled}>Not now</Button>
     </li>
   );
 };

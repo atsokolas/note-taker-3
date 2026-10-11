@@ -249,7 +249,7 @@ export const HeldOpposite = ({ line, onAside }) => {
           You hold the opposite. Your view{month ? ` from ${month}` : ''} says{' '}
           <Link to={`/judgment/${encodeURIComponent(line.pageId)}`}>“{line.view}”</Link>
         </p>
-        <QuietButton onClick={onAside}>Not now</QuietButton>
+        <Button variant="quiet" onClick={onAside}>Not now</Button>
       </div>
     </aside>
   );
