@@ -128,7 +128,15 @@ describe('LibraryShelfNav', () => {
     it('says nothing about a cabinet that has no shelves in it', () => {
       renderNav({ folders: [] });
       expect(screen.queryByRole('button', { name: /shelves$/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole('region', { name: 'Shelves' })).not.toBeInTheDocument();
+      expect(screen.queryByText('No shelves yet.')).not.toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Review filing' })).toBeInTheDocument();
+    });
+
+    it('offers no filing to review when nothing is unfiled', () => {
+      renderNav({ folders: [], unfiledCount: 0 });
+      expect(screen.queryByRole('button', { name: 'Review filing' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /^Ask about/ })).not.toBeInTheDocument();
     });
 
     it('keeps placement and Keepers directly available at every width', () => {

@@ -1,5 +1,4 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { QuietButton } from './ui';
 import { createHighlight } from '../api/highlights';
@@ -14,6 +13,7 @@ import ReadFresh, { useReadFresh } from './reader/ReadFresh';
 import useArticleReadingPlace from './reader/useArticleReadingPlace';
 import MagneticReadingRail from './reader/MagneticReadingRail';
 import PassageDoor from './reader/PassageDoorView';
+import { heldHighlightIds, sourceWhereabouts } from './reader/sourceWhereabouts';
 import OpenedLibraryPassage, { LibraryOriginReturn } from './wiki/open-sentence/OpenedLibraryPassage';
 import { matchingReturnTicket } from './wiki/open-sentence/openSentenceJourney';
 import {
@@ -33,12 +33,8 @@ import {
 } from '../utils/articlePassageAnchor';
 import { findExistingHighlightForSelection } from '../utils/libraryThinkSeam';
 import { sourceLabel } from './library/libraryColumnModel';
-
-const formatDate = (value) => {
-  if (!value) return '';
-  const date = new Date(value);
-  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-};
+import { formatCalendarDate } from '../utils/dateDisplay';
+import { AGENT_DISPLAY_NAME } from '../constants/agentIdentity';
 
 const hasReadableContent = (value) => String(value || '').replace(/<[^>]*>/g, '').trim().length > 0;
 
@@ -157,6 +153,8 @@ const ArticleReader = ({
      It resets when a different source is opened. */
   const [kept, setKept] = useState(Boolean(article?.evergreen));
   const [placement, setPlacement] = useState(() => placementOf(article));
+  /* When the reader last decided what this piece is, if it was in this sitting. */
+  const [closedOn, setClosedOn] = useState(null);
   const [folioPages, setFolioPages] = useState([]);
   const [passageLocation, setPassageLocation] = useState(() => ({
     hash: typeof window === 'undefined' ? '' : window.location.hash,
@@ -165,6 +163,7 @@ const ArticleReader = ({
       : new URLSearchParams(window.location.search).get('articleId') || ''
   }));
   useEffect(() => { setKept(Boolean(article?.evergreen)); }, [article?._id, article?.evergreen]);
+  useEffect(() => { setClosedOn(null); }, [articleId]);
   useEffect(() => {
     setPlacement(placementOf({ placement: articlePlacement }));
   }, [articleId, articlePlacement]);
@@ -252,6 +251,18 @@ const ArticleReader = ({
     search: typeof window === 'undefined' ? '' : window.location.search
   }), [article?._id, folioPages, graphConnections, highlights, preferredClaimId]);
 
+  const whereabouts = useMemo(
+    () => sourceWhereabouts(folioPages, { articleId, highlights }),
+    [articleId, folioPages, highlights]
+  );
+  const heldPassages = useMemo(() => heldHighlightIds(whereabouts), [whereabouts]);
+
+  const keep = async (next) => {
+    const saved = await onToggleEvergreen(article._id, next);
+    setKept(Boolean(saved?.evergreen ?? next));
+    setClosedOn(new Date());
+  };
+
   const park = async (next) => {
     if (next === 'later' || next === 'setAside') {
       const origin = titleRef.current;
@@ -266,6 +277,7 @@ const ArticleReader = ({
     }
     const saved = await onTogglePlacement(article._id, next);
     setPlacement(placementOf({ placement: saved?.placement ?? next }));
+    setClosedOn(new Date());
   };
 
   const passageDoorFor = (highlight, index) => {
@@ -325,7 +337,7 @@ const ArticleReader = ({
     return '';
   })();
 
-  const readingPlace = useArticleReadingPlace({
+  useArticleReadingPlace({
     articleId, contentRef, contentKey: article?.content,
     explicitDestination: Boolean(focusedHighlightId || location.hash || new URLSearchParams(location.search).has('searchMissing') || location.state?.explicitPassage),
     enabled: Boolean(articleId && hasReadableContent(article?.content))
@@ -350,6 +362,14 @@ const ArticleReader = ({
       </div>
     );
   }
+
+  const published = formatCalendarDate(article.publicationDate);
+  const closedDate = (at) => formatCalendarDate(closedOn || at);
+  const closingLine = kept
+    ? `Kept for good${closedDate(article.evergreenAt) ? ` on ${closedDate(article.evergreenAt)}` : ''}.`
+    : placement === 'setAside'
+      ? `Set aside${closedDate(article.placementAt) ? ` on ${closedDate(article.placementAt)}` : ''}.`
+      : '';
 
   const persistHighlight = async (afterSave, inkChoice) => {
     /* This used to return in silence. Pressing Highlight then did nothing at
@@ -459,7 +479,7 @@ const ArticleReader = ({
             params.set('thought', '1');
             navigate({ pathname: '/library', search: params.toString(), hash: '' });
           })}
-          onAskLibrarian={() => handleSaveAndOpen(onAskLibrarian, 'The agent is unavailable here.')}
+          onAskLibrarian={() => handleSaveAndOpen(onAskLibrarian, `${AGENT_DISPLAY_NAME} is not here right now.`)}
         />
       )}
       <div className="article-reader-header">
@@ -472,7 +492,8 @@ const ArticleReader = ({
           ) : null}
           <h1 ref={titleRef} className="article-reader-title">{article.title || 'Untitled article'}</h1>
           <div className="article-reader-meta">
-            {article.createdAt && <span>{formatDate(article.createdAt)}</span>}
+            {/* When it was published. When you saved it lives in the source record. */}
+            {published ? <span>{published}</span> : null}
             {article.url && (
               <a href={article.url} target="_blank" rel="noopener noreferrer">Open source</a>
             )}
@@ -502,10 +523,7 @@ const ArticleReader = ({
             <EvergreenToggle
               evergreen={kept}
               label={kept ? 'Kept for good' : 'Keep for good'}
-              onChange={async (next) => {
-                const saved = await onToggleEvergreen(article._id, next);
-                setKept(Boolean(saved?.evergreen ?? next));
-              }}
+              onChange={keep}
             />
           ) : null}
           {onMove && (
@@ -518,12 +536,6 @@ const ArticleReader = ({
       {new URLSearchParams(location.search).has('searchMissing') ? <p role="status">The matching text could not be located in the readable source. Your source record is still here.</p> : null}
       {passageReturnStatus ? (
         <p className="status-message" role="status">{passageReturnStatus}</p>
-      ) : null}
-      {readingPlace.arrival ? createPortal(
-        <div className="article-reading-arrival" role="status" data-reader-control>
-          <span>{readingPlace.arrival}</span>
-          <button type="button" onClick={readingPlace.startAtTop}>Start at top</button>
-        </div>, document.body
       ) : null}
       {!focusedHighlight && passageFragment.status === 'ready' ? (
         <LibraryOriginReturn ticket={matchingReturnTicket({ articleId, passage: passageFragment.anchor.text, anchor: passageFragment.anchor })} />
@@ -556,7 +568,7 @@ const ArticleReader = ({
               {highlights.map((highlight, index) => {
                 const highlightId = highlight?._id || highlight?.id || `${article?._id || 'article'}-${index}`;
                 const tags = Array.isArray(highlight?.tags) ? highlight.tags.filter(Boolean) : [];
-                const createdAt = formatDate(highlight?.createdAt || highlight?.highlightedAt);
+                const createdAt = formatCalendarDate(highlight?.createdAt || highlight?.highlightedAt);
                 return (
                   <li
                     key={highlightId}
@@ -584,7 +596,9 @@ const ArticleReader = ({
         <>
           <div className="article-reader-content reader" ref={contentRef} dangerouslySetInnerHTML={contentMarkup} />
           <div className="article-passage-threads" aria-label="Connections to held judgments">
-            {highlights.map(passageDoorFor)}
+            {highlights
+              .filter((highlight) => !heldPassages.has(String(highlight?._id || highlight?.id || '')))
+              .map(passageDoorFor)}
           </div>
         </>
       )}
@@ -596,7 +610,23 @@ const ArticleReader = ({
       {thought ? <PassageThought key={thought._id} articleId={articleId} highlight={thought} contentRef={contentRef}
         contentHtml={contentMarkup.__html} onSaved={onHighlightReplace} onClose={() => setThought(null)} /> : null}
       {focusedHighlight?.note && !thought ? <button className="article-thought-reopen" onClick={() => setThought(focusedHighlight)}>Your thought: {focusedHighlight.note}</button> : null}
+      {onToggleEvergreen && onTogglePlacement ? (
+        /* Done reading: what this piece is now, in one line. No modal. */
+        <p className={`article-done${kept || placement === 'setAside' ? ' is-settled' : ''}`} data-reader-control>
+          <button type="button" aria-pressed={kept} onClick={() => keep(!kept)}>Keep for good</button>
+          <span aria-hidden="true"> · </span>
+          <button type="button" aria-pressed={placement === 'setAside'} onClick={() => park(placement === 'setAside' ? 'stream' : 'setAside')}>Set aside</button>
+        </p>
+      ) : null}
       {sourceTrace}
+      {closingLine || whereabouts.length ? (
+        <ul className="article-whereabouts" aria-label="Where this piece went">
+          {closingLine ? <li>{closingLine}</li> : null}
+          {whereabouts.map((line) => (
+            <li key={line.id}>{line.lead} <Link to={line.href}>{line.title}</Link>.</li>
+          ))}
+        </ul>
+      ) : null}
       <MagneticReadingRail rootRef={readerRootRef} contentRef={contentRef} />
       {saveError && <p className="status-message error-message">{saveError}</p>}
     </div>

@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from
 import { createPortal } from 'react-dom';
 import useCssMagneticLerp from '../../hooks/useCssMagneticLerp';
 import { useFinePointer, usePrefersReducedMotion } from '../../hooks/useMotionPreferences';
-import { HIGHLIGHT_COLOR_OPTIONS } from '../../constants/highlightColors';
+import { MORE_HIGHLIGHT_COLORS, NAMED_HIGHLIGHT_COLORS } from '../../constants/highlightColors';
 
 /* Clear of the line, not sitting on it. Eight pixels put the menu's bottom
    edge into the sentence you had selected; eighteen still landed it in the
@@ -16,6 +16,26 @@ const keepReadingPlace = (event) => {
   event.preventDefault();
 };
 const MAX_DRIFT_PX = 14;
+
+/* H, T and A act on a selection. The menu says so the first three times it
+   opens on this device, and then trusts the reader to remember. */
+const KEY_HINTS_KEY = 'noeis.reader.selectionKeyHints';
+const KEY_HINT_SHOWINGS = 3;
+const keyHintShowings = () => {
+  try {
+    return Number(window.localStorage.getItem(KEY_HINTS_KEY)) || 0;
+  } catch (_error) {
+    return KEY_HINT_SHOWINGS;
+  }
+};
+const countKeyHintShowing = () => {
+  try {
+    window.localStorage.setItem(KEY_HINTS_KEY, String(keyHintShowings() + 1));
+  } catch (_error) {
+    // A browser that cannot remember simply never shows the hints again.
+  }
+};
+const typingInto = (target) => Boolean(target?.closest?.('input, textarea, select, [contenteditable="true"]'));
 const POINTER_INFLUENCE_RADIUS_PX = 280;
 
 const SelectionMenu = React.forwardRef(({
@@ -36,6 +56,25 @@ const SelectionMenu = React.forwardRef(({
      to top: 8 and lands on the words instead of near them. */
   const [placeBelow, setPlaceBelow] = useState(false);
   const [center, setCenter] = useState(null);
+  const [showKeys] = useState(() => keyHintShowings() < KEY_HINT_SHOWINGS);
+  const [moreInks, setMoreInks] = useState(false);
+  useEffect(() => { if (showKeys) countKeyHintShowing(); }, [showKeys]);
+
+  const keys = useRef({});
+  keys.current = { h: () => onHighlight?.(), t: onThought, a: onAskLibrarian };
+  useEffect(() => {
+    if (!rect) return undefined;
+    const press = (event) => {
+      if (saving || event.metaKey || event.ctrlKey || event.altKey || typingInto(event.target)) return;
+      const action = keys.current[String(event.key || '').toLowerCase()];
+      if (!action) return;
+      event.preventDefault();
+      action();
+    };
+    window.addEventListener('keydown', press);
+    return () => window.removeEventListener('keydown', press);
+  }, [rect, saving]);
+  const hint = (key) => (showKeys ? <kbd className="selection-menu__key" aria-hidden="true">{key}</kbd> : null);
 
   const setRefs = useCallback((node) => {
     innerRef.current = node;
@@ -113,23 +152,24 @@ const SelectionMenu = React.forwardRef(({
       {/* Keep a sentence, ask about it, or begin writing from it.
 
           Highlight keeps it in the default ink, so the reader who just wants
-          the sentence never meets a decision. The swatches are for the reader
-          who keeps a taxonomy — one press, a colour of their choosing — and
-          they sit after Ask about this rather than in front of it, because
-          choosing a colour is the rarer thing and the rarer thing goes last. */}
+          the sentence never meets a decision. The inks sit after Ask about
+          this, because choosing a colour is the rarer thing and the rarer
+          thing goes last. */}
       <div className="selection-menu__actions">
-        <button type="button" className="selection-menu-button" onMouseDown={keepReadingPlace} onClick={() => onHighlight?.()} disabled={saving}>
-          {saving ? 'Saving...' : 'Highlight'}
+        <button type="button" className="selection-menu-button" onMouseDown={keepReadingPlace} onClick={() => onHighlight?.()} disabled={saving} aria-keyshortcuts="H">
+          {saving ? 'Saving...' : 'Highlight'}{hint('H')}
         </button>
-        {onThought ? <button type="button" className="selection-menu-button" onMouseDown={keepReadingPlace} onClick={onThought} disabled={saving}>Leave a thought</button> : null}
-        <button type="button" className="selection-menu-button is-muted" onMouseDown={keepReadingPlace} onClick={onAskLibrarian} disabled={saving}>
-          Ask about this
+        {onThought ? <button type="button" className="selection-menu-button" onMouseDown={keepReadingPlace} onClick={onThought} disabled={saving} aria-keyshortcuts="T">Leave a thought{hint('T')}</button> : null}
+        <button type="button" className="selection-menu-button is-muted" onMouseDown={keepReadingPlace} onClick={onAskLibrarian} disabled={saving} aria-keyshortcuts="A">
+          Ask about this{hint('A')}
         </button>
         {onWorkWithPassage ? <button type="button" className="selection-menu-button" onMouseDown={keepReadingPlace} onClick={onWorkWithPassage} disabled={saving}>
           Work with this passage
         </button> : null}
-        <span className="selection-menu__inks" role="group" aria-label="Highlight in a colour">
-          {HIGHLIGHT_COLOR_OPTIONS.map((ink) => (
+        {/* For, Against, Keep: what a passage is to a view, said in its ink.
+            The two inks without a meaning wait behind "more". */}
+        <span className="selection-menu__inks" role="group" aria-label="Highlight as">
+          {[...NAMED_HIGHLIGHT_COLORS, ...(moreInks ? MORE_HIGHLIGHT_COLORS : [])].map((ink) => (
             <button
               key={ink.value}
               type="button"
@@ -139,9 +179,14 @@ const SelectionMenu = React.forwardRef(({
               onClick={() => onHighlight?.(ink.value)}
               disabled={saving}
               title={ink.label}
-              aria-label={`Highlight in ${ink.label.toLowerCase()}`}
-            />
+              aria-label={`Highlight as ${ink.label.toLowerCase()}`}
+            >
+              {NAMED_HIGHLIGHT_COLORS.includes(ink) ? <span>{ink.label}</span> : null}
+            </button>
           ))}
+          {moreInks ? null : (
+            <button type="button" className="selection-menu__more" onMouseDown={keepReadingPlace} onClick={() => setMoreInks(true)}>more</button>
+          )}
         </span>
       </div>
     </div>

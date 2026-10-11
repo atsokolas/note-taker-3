@@ -1177,7 +1177,6 @@ const Library = () => {
           Highlights is a shelf like any other; choosing it puts you in your
           highlights with the same folders alongside. */}
       <LibraryShelfNav
-        reading={isReadingView}
         landedFolderId={landedFolderId}
         folders={folders}
         folderCounts={folderCounts}

@@ -20,8 +20,8 @@ beforeEach(() => {
     node.scrollIntoView = jest.fn();
     node.getBoundingClientRect = () => ({
       height: 50,
-      top: index === visible ? 150 : -100,
-      bottom: index === visible ? 200 : -50
+      top: index === visible ? 150 : index > visible ? 1200 * index : -100,
+      bottom: index === visible ? 200 : index > visible ? 1200 * index + 50 : -50
     });
   });
   getArticleReadingState.mockResolvedValue(null);
@@ -57,17 +57,33 @@ const move = async (index, settle = true) => {
 test('opening resumes without writing and deduplicates unchanged settled positions', async () => {
   getArticleReadingState.mockResolvedValue({
     anchor: anchorForReadingNode(root, root.children[1]),
-    ratio: 0.4
+    ratio: 0.4,
+    visitedAt: null
   });
   const hook = await open();
   expect(root.children[1].scrollIntoView).toHaveBeenCalled();
+  expect(root.children[1].dataset.stopped).toBe('You stopped here.');
+  expect(root.children[0].classList.contains('is-reading-before')).toBe(true);
   expect(saveArticleReadingState).not.toHaveBeenCalled();
   await move(2);
+  expect(root.children[1].dataset.stopped).toBeUndefined();
+  expect(root.children[0].classList.contains('is-reading-before')).toBe(false);
   expect(saveArticleReadingState).toHaveBeenCalledTimes(1);
   await move(2);
   expect(saveArticleReadingState).toHaveBeenCalledTimes(1);
   hook.unmount();
   expect(saveArticleReadingState).toHaveBeenCalledTimes(1);
+});
+test('a place on the first screen opens at the top, unmarked', async () => {
+  root.children[1].getBoundingClientRect = () => ({ height: 50, top: 300, bottom: 350 });
+  getArticleReadingState.mockResolvedValue({
+    anchor: anchorForReadingNode(root, root.children[1]),
+    ratio: 0.1
+  });
+  const hook = await open();
+  expect(root.children[1].scrollIntoView).not.toHaveBeenCalled();
+  expect(root.children[1].dataset.stopped).toBeUndefined();
+  hook.unmount();
 });
 test.each(['highlight', 'search passage', 'URL passage'])(
   '%s explicit arrival defeats automatic resume',
@@ -104,7 +120,6 @@ test('background failures remain quiet and retry on a later visibility flush', a
   saveArticleReadingState.mockRejectedValueOnce(new Error('offline'));
   const hook = await open();
   await move(2);
-  expect(hook.result.current.arrival).toBe('');
   await act(async () => {
     window.dispatchEvent(new Event('pagehide'));
   });

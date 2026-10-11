@@ -9,6 +9,7 @@ const MagneticReadingRail = ({
   contentRef,
   enabled = true
 }) => {
+  const railRef = useRef(null);
   const progressRef = useRef(null);
   const reducedMotion = usePrefersReducedMotion();
   const finePointer = useFinePointer();
@@ -25,6 +26,8 @@ const MagneticReadingRail = ({
     const total = rect.height + vh * 0.35;
     const seen = clamp01((vh - rect.top) / Math.max(total, 1));
     bar.style.setProperty('--reading-progress', String(seen));
+    /* Out of the way until the reading is under way: a fifth of the piece. */
+    railRef.current?.classList.toggle('is-shown', seen >= 0.2);
   }, [contentRef]);
 
   const handlePointerMove = useCallback((event) => {
@@ -100,7 +103,7 @@ const MagneticReadingRail = ({
   ), [motionOk]);
 
   return (
-    <div className={railClass} aria-hidden={motionOk ? undefined : 'true'}>
+    <div ref={railRef} className={railClass} aria-hidden={motionOk ? undefined : 'true'}>
       <div className="magnetic-reading-rail__track" ref={progressRef}>
         <div className="magnetic-reading-rail__fill" />
       </div>

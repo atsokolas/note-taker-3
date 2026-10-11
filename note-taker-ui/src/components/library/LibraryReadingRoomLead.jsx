@@ -66,17 +66,17 @@ const LibraryReadingRoomLead = ({
       <aside
         className="library-reading-room-lead__maintenance library-reading-room-lead__maintenance-strip"
         data-maintenance-state={maintenance.status}
-        aria-label="Corpus maintenance"
+        aria-label="Filing"
       >
         <div className="library-reading-room-lead__maintenance-copy">
-          <span className="library-reading-room-lead__maintenance-label">Corpus maintenance</span>
+          <span className="library-reading-room-lead__maintenance-label">Filing</span>
           <p>{maintenance.message}</p>
         </div>
-        <div className="library-reading-room-lead__stats" aria-label="Library maintenance counts">
+        <div className="library-reading-room-lead__stats" aria-label="Filing counts">
           <span>{maintenance.total} sources</span>
           <span>{maintenance.unfiled} unfiled</span>
           {maintenance.readyToClassify > 0 ? (
-            <span>{maintenance.readyToClassify} ready to classify</span>
+            <span>{maintenance.readyToClassify} ready to file</span>
           ) : null}
         </div>
         {maintenance.actionLabel ? (
@@ -86,7 +86,7 @@ const LibraryReadingRoomLead = ({
             onClick={onReviewFiling}
             disabled={filingLaunching}
           >
-            {filingLaunching ? 'Classifying…' : maintenance.actionLabel}
+            {filingLaunching ? 'Filing…' : maintenance.actionLabel}
           </QuietButton>
         ) : null}
         {filingReceipt?.summary ? (

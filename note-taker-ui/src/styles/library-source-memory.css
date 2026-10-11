@@ -101,8 +101,7 @@ body.noeis-editorial .library-composition__index {
 
 body.noeis-editorial .library-composition__list,
 body.noeis-editorial .library-source-list__block,
-body.noeis-editorial .library-source-index,
-body.noeis-editorial .library-source-trace__heading {
+body.noeis-editorial .library-source-index {
   display: grid;
   min-width: 0;
 }
@@ -110,8 +109,7 @@ body.noeis-editorial .library-source-trace__heading {
 body.noeis-editorial .library-source-index { gap: 22px; }
 body.noeis-editorial .library-source-index__group { display: grid; gap: 6px; }
 
-body.noeis-editorial .library-source-index__label,
-body.noeis-editorial .library-source-trace__section-label {
+body.noeis-editorial .library-source-index__label {
   margin: 0 0 4px;
   font-family: var(--noeis-ui-font);
   font-size: .61rem;
@@ -314,135 +312,66 @@ body.noeis-editorial .library-composition .library-article-row-relevance a:is(:h
   color: var(--library-memory-accent);
 }
 
-body.noeis-editorial .library-source-trace--preview {
-  display: grid;
-  gap: 18px;
-  margin: 0;
-  padding-top: 4px;
-  border: 0;
-}
-
-body.noeis-editorial .library-source-trace__header {
-  display: flex;
-  align-items: start;
-  justify-content: space-between;
-  gap: 16px;
-  min-width: 0;
-}
-
-body.noeis-editorial .library-source-trace__header > span {
-  flex: 0 0 auto;
-  font-family: var(--noeis-ui-font);
-  font-size: .68rem;
-  color: color-mix(in srgb, var(--vellum-ink) 52%, transparent);
-}
-
-body.noeis-editorial .library-source-trace__title {
-  margin: 0;
-  font-family: "Newsreader", var(--noeis-serif, Georgia), Georgia, serif;
-  font-size: clamp(1.85rem, 2.45vw, 2.65rem);
-  font-weight: 400;
-  line-height: 1.04;
-  letter-spacing: -.025em;
-  overflow-wrap: anywhere;
-}
-
-body.noeis-editorial .library-source-trace__quote {
-  margin: 0;
-  padding: 4px 0 4px 14px;
-  border-left: 3px solid var(--library-memory-accent);
-  font-family: var(--noeis-display-font, var(--noeis-serif));
-  font-style: italic;
-  line-height: 1.45;
-}
-
-body.noeis-editorial .library-source-trace__excerpt,
-body.noeis-editorial .library-source-trace__status,
-body.noeis-editorial .library-source-trace__uses > p {
-  margin: 0;
-  line-height: 1.5;
-  color: color-mix(in srgb, var(--vellum-ink) 66%, transparent);
-}
-
-body.noeis-editorial .library-source-trace--preview .library-source-trace__excerpt {
-  max-width: 34rem;
-  padding-block: 20px;
-  border-block: 1px solid var(--vellum-line);
-  font-family: var(--noeis-display-font, var(--noeis-serif));
-  font-size: 1.16rem;
-  line-height: 1.62;
-  color: var(--vellum-ink);
-}
-
-body.noeis-editorial .library-source-trace__provenance,
-body.noeis-editorial .library-source-trace__uses {
-  display: grid;
-  gap: 9px;
-  min-width: 0;
-}
-
-body.noeis-editorial .library-source-trace__provenance ul,
-body.noeis-editorial .library-source-trace__uses nav {
+/* The source record, at the foot of the piece, and the lines under it that
+   say where the piece went. One quiet register: small sans, ink at rest. */
+body.noeis-editorial .library-source-trace {
   display: grid;
   gap: 8px;
-  min-width: 0;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-body.noeis-editorial .library-source-trace__provenance li,
-body.noeis-editorial .library-source-trace__uses nav a {
-  display: grid;
-  grid-template-columns: minmax(76px, max-content) minmax(0, 1fr);
-  column-gap: 12px;
-  align-items: start;
-  min-width: 0;
-}
-
-body.noeis-editorial .library-source-trace__provenance li > span,
-body.noeis-editorial .library-source-trace__uses > span,
-body.noeis-editorial .library-source-trace__uses nav a > span {
+  margin-top: 28px;
   font-family: var(--noeis-ui-font);
+  font-size: .92rem;
+}
+
+body.noeis-editorial .library-source-trace__header p {
+  margin: 0;
   font-size: .64rem;
   font-weight: 600;
   letter-spacing: .08em;
-  line-height: 1.55;
   text-transform: uppercase;
   color: color-mix(in srgb, var(--vellum-ink) 48%, transparent);
 }
 
-body.noeis-editorial .library-source-trace__provenance li > :last-child,
-body.noeis-editorial .library-source-trace__uses nav a {
-  min-width: 0;
-  overflow-wrap: anywhere;
-  line-height: 1.45;
+body.noeis-editorial :is(.library-source-trace__facts, .library-source-trace__author, .library-source-trace__status),
+body.noeis-editorial .article-whereabouts {
+  margin: 0;
+  font-family: var(--noeis-ui-font);
+  font-size: .92rem;
+  line-height: 1.5;
+  color: color-mix(in srgb, var(--vellum-ink) 72%, transparent);
 }
 
-body.noeis-editorial .library-source-trace__provenance strong {
-  font-weight: 500;
-}
-
-body.noeis-editorial .library-source-trace__uses nav a {
-  padding: 7px 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--vellum-line) 72%, transparent);
-  color: var(--vellum-ink);
-  text-decoration: none;
-}
-
-body.noeis-editorial .library-source-trace__uses nav a:is(:hover, :focus-visible) {
-  color: var(--library-memory-accent);
-}
-
-body.noeis-editorial .library-source-trace__actions {
+body.noeis-editorial .library-source-trace__uses {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  gap: 10px 16px;
+  gap: 4px 14px;
+  min-width: 0;
 }
 
-body.noeis-editorial .library-source-trace__actions a {
-  overflow-wrap: anywhere;
+body.noeis-editorial .library-source-trace__uses > span {
+  color: color-mix(in srgb, var(--vellum-ink) 48%, transparent);
+}
+
+body.noeis-editorial .library-source-trace__uses nav {
+  display: contents;
+}
+
+body.noeis-editorial :is(.library-source-trace, .article-whereabouts) a {
+  color: var(--vellum-ink);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--noeis-thread, #b1862e) 55%, transparent);
+  text-underline-offset: 3px;
+}
+
+body.noeis-editorial :is(.library-source-trace, .article-whereabouts) a:is(:hover, :focus-visible) {
+  text-decoration-color: currentColor;
+}
+
+body.noeis-editorial .article-whereabouts {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 0;
+  list-style: none;
 }
 
 @media (max-width: 720px) {
@@ -455,11 +384,6 @@ body.noeis-editorial .library-source-trace__actions a {
     order: 1;
   }
   body.noeis-editorial .library-composition__list { order: 2; }
-  body.noeis-editorial .library-source-trace__provenance li,
-  body.noeis-editorial .library-source-trace__uses nav a {
-    grid-template-columns: minmax(68px, max-content) minmax(0, 1fr);
-    column-gap: 10px;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

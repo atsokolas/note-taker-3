@@ -417,6 +417,26 @@ const buildLibraryRelevancePage = async ({
   };
 };
 
+const escapeRegExp = value => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/* Which piece by its author this is, in the order they were saved: the
+   reader says "your fourth piece by Ben Carlson" from the third one on. */
+const countAuthorPieces = async ({ userId, articleId, models = {} }) => {
+  const { Article } = models;
+  if (!Article?.findOne || !Article?.countDocuments) return null;
+  const article = await awaitQuery(Article.findOne({ _id: articleId, userId }), { select: 'author createdAt' });
+  const author = clean(article?.author, 160);
+  if (!author || !article?.createdAt) return null;
+  return Article.countDocuments({
+    userId,
+    author: new RegExp(`^\\s*${escapeRegExp(author)}\\s*$`, 'i'),
+    hiddenFromHome: { $ne: true },
+    debugOnly: { $ne: true },
+    archived: { $ne: true },
+    createdAt: { $lte: article.createdAt }
+  });
+};
+
 const buildLibrarySourceDetail = async ({
   userId,
   articleId,
@@ -431,7 +451,10 @@ const buildLibrarySourceDetail = async ({
     articleId,
     movementBuilder
   });
-  return sources[0] || null;
+  const source = sources[0] || null;
+  if (!source) return null;
+  const authorPieces = await countAuthorPieces({ userId, articleId, models });
+  return Number.isInteger(authorPieces) ? { ...source, authorPieces } : source;
 };
 
 module.exports = {

@@ -837,10 +837,36 @@ describe('Later and Set aside', () => {
       />
     );
 
-    const keep = screen.getByRole('button', { name: 'Keep for good' });
+    const keep = within(document.querySelector('.article-reader-decisions')).getByRole('button', { name: 'Keep for good' });
     const group = screen.getByRole('group', { name: 'Where this sits' });
     expect(group.contains(keep)).toBe(false);
-    expect(keep.closest('.article-reader-decisions')).toBeTruthy();
+  });
+
+  it('closes a piece at its end in one line, and writes what was chosen into the record', async () => {
+    const onToggleEvergreen = jest.fn().mockResolvedValue({ evergreen: true });
+    const onTogglePlacement = jest.fn().mockResolvedValue({ placement: 'setAside' });
+    render(
+      <MemoryRouter>
+        <ArticleReader
+          article={{ _id: 'a1', title: 'A source', content: '<p>Text.</p>' }}
+          highlights={[]}
+          onToggleEvergreen={onToggleEvergreen}
+          onTogglePlacement={onTogglePlacement}
+        />
+      </MemoryRouter>
+    );
+    const done = document.querySelector('.article-done');
+    expect(done).not.toHaveClass('is-settled');
+    expect(screen.queryByRole('list', { name: 'Where this piece went' })).toBeNull();
+
+    fireEvent.click(within(done).getByRole('button', { name: 'Keep for good' }));
+    await waitFor(() => expect(onToggleEvergreen).toHaveBeenCalledWith('a1', true));
+    await waitFor(() => expect(done).toHaveClass('is-settled'));
+    expect(within(screen.getByRole('list', { name: 'Where this piece went' })).getByText(/^Kept for good on /)).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).toBeNull();
+
+    fireEvent.click(within(done).getByRole('button', { name: 'Set aside' }));
+    await waitFor(() => expect(onTogglePlacement).toHaveBeenCalledWith('a1', 'setAside'));
   });
 
   it('returns home when the position it already sits in is pressed again', async () => {
@@ -1009,5 +1035,65 @@ describe('the folio line', () => {
     const folio = await screen.findByTestId('article-folio');
     expect(folio).toHaveTextContent('Rates still matter.');
     expect(folio).toHaveAttribute('href', '/judgment/wiki-graph');
+  });
+});
+
+describe('the masthead and the record under the piece', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    getArticleReadingState.mockResolvedValue(null);
+    useTextSelection.mockReturnValue({ selectionState: { isOpen: false, text: '', rect: null, anchor: null }, clearSelection: jest.fn() });
+    jest.spyOn(Router, 'useLocation').mockImplementation(() => ({ pathname: '/library', search: '?articleId=a1', hash: '' }));
+  });
+
+  it('dates the masthead by publication, never by the day it was saved', () => {
+    listWikiPages.mockResolvedValue([]);
+    const { rerender } = render(
+      <MemoryRouter>
+        <ArticleReader article={{ _id: 'a1', title: 'A source', content: '<p>Text.</p>', publicationDate: '2026-09-28', createdAt: '2026-10-10T12:00:00Z' }} highlights={[]} />
+      </MemoryRouter>
+    );
+    const meta = document.querySelector('.article-reader-meta');
+    expect(meta).toHaveTextContent('Sep 28, 2026');
+    expect(meta).not.toHaveTextContent('Oct 10');
+    rerender(
+      <MemoryRouter>
+        <ArticleReader article={{ _id: 'a1', title: 'A source', content: '<p>Text.</p>', createdAt: '2026-10-10T12:00:00Z' }} highlights={[]} />
+      </MemoryRouter>
+    );
+    expect(document.querySelector('.article-reader-meta')).not.toHaveTextContent('Oct 10');
+  });
+
+  it('says where the passages went, under the record, each a link', async () => {
+    listWikiPages.mockResolvedValue([
+      {
+        _id: 'view-1',
+        title: 'Costco',
+        sourceRefs: [{ _id: 'ref-2', type: 'highlight', objectId: 'h2' }],
+        judgment: {
+          currentJudgment: 'The fee makes Costco recession-proof.',
+          why: [
+            { reasonId: 'w1', text: 'Fee', acceptedFrom: 'highlight:a1:h1' },
+            { reasonId: 'w2', text: 'Renewals', sourceRefIds: ['ref-2'] }
+          ]
+        }
+      },
+      { _id: 'page-1', title: 'membership models', sourceRefs: [{ _id: 'ref-3', type: 'highlight', objectId: 'h3' }] }
+    ]);
+    render(
+      <MemoryRouter>
+        <ArticleReader
+          article={{ _id: 'a1', title: 'A source', content: '<p>The fee. Renewals. Markup.</p>' }}
+          highlights={[{ _id: 'h1', text: 'The fee' }, { _id: 'h2', text: 'Renewals' }, { _id: 'h3', text: 'Markup' }]}
+        />
+      </MemoryRouter>
+    );
+    const record = await screen.findByRole('list', { name: 'Where this piece went' });
+    expect(record).toHaveTextContent('Two passages from this piece sit under your view on Costco.');
+    expect(record).toHaveTextContent('One passage is cited on your page about membership models.');
+    expect(within(record).getByRole('link', { name: 'Costco' })).toHaveAttribute('href', '/judgment/view-1');
+    expect(within(record).getByRole('link', { name: 'membership models' })).toHaveAttribute('href', '/wiki/workspace?page=page-1');
+    // The view's filed passages are said once, in the sentence, not again as doors.
+    expect(screen.queryAllByTestId('passage-door')).toHaveLength(0);
   });
 });

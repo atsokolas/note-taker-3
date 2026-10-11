@@ -76,34 +76,67 @@ describe('SelectionMenu', () => {
     expect(screen.queryByPlaceholderText(/Tags/i)).toBeNull();
   });
 
-  /* The inks are for a reader who keeps a taxonomy of their own. They come
-     after the two actions, because choosing a colour is the rarer thing. */
   it('does not focus the menu on a pointer press, so closing it cannot jump the page', () => {
     render(<SelectionMenu {...baseProps} />);
     expect(fireEvent.mouseDown(screen.getByRole('button', { name: 'Highlight' }))).toBe(false);
-    expect(fireEvent.mouseDown(screen.getByRole('button', { name: 'Highlight in yellow' }))).toBe(false);
+    expect(fireEvent.mouseDown(screen.getByRole('button', { name: 'Highlight as keep' }))).toBe(false);
   });
 
-  it('offers five inks, and keeps in the default when none is chosen', () => {
+  it('names three inks For, Against, Keep, and keeps the other two behind more', () => {
     const onHighlight = jest.fn();
     render(<SelectionMenu {...baseProps} onHighlight={onHighlight} />);
 
-    const inks = screen.getAllByRole('button', { name: /^Highlight in / });
-    expect(inks).toHaveLength(5);
-    expect(inks.map(ink => ink.getAttribute('title')))
-      .toEqual(['Yellow', 'Peach', 'Sage', 'Sky', 'Lilac']);
+    const inks = () => screen.getAllByRole('button', { name: /^Highlight as / });
+    expect(inks().map(ink => ink.textContent)).toEqual(['For', 'Against', 'Keep']);
 
     fireEvent.click(screen.getByRole('button', { name: 'Highlight' }));
     expect(onHighlight).toHaveBeenCalledWith();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Highlight in sage' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Highlight as for' }));
     expect(onHighlight).toHaveBeenLastCalledWith('#cfe3b4');
+    fireEvent.click(screen.getByRole('button', { name: 'Highlight as against' }));
+    expect(onHighlight).toHaveBeenLastCalledWith('#f7c9a3');
+
+    fireEvent.click(screen.getByRole('button', { name: 'more' }));
+    expect(inks().map(ink => ink.getAttribute('title'))).toEqual(['For', 'Against', 'Keep', 'Sky', 'Lilac']);
+    expect(screen.queryByRole('button', { name: 'more' })).toBeNull();
   });
 
   it('will not offer an ink while a save is already in flight', () => {
     render(<SelectionMenu {...baseProps} saving />);
-    screen.getAllByRole('button', { name: /^Highlight in / })
+    screen.getAllByRole('button', { name: /^Highlight as / })
       .forEach(ink => expect(ink).toBeDisabled());
+  });
+
+  it('acts on H, T and A, and leaves typing and shortcuts alone', () => {
+    const onHighlight = jest.fn();
+    const onThought = jest.fn();
+    const onAskLibrarian = jest.fn();
+    render(<SelectionMenu {...baseProps} onHighlight={onHighlight} onThought={onThought} onAskLibrarian={onAskLibrarian} />);
+    fireEvent.keyDown(window, { key: 'h' });
+    fireEvent.keyDown(window, { key: 'T' });
+    fireEvent.keyDown(window, { key: 'a' });
+    fireEvent.keyDown(window, { key: 'a', metaKey: true });
+    const input = document.createElement('input');
+    document.body.appendChild(input);
+    fireEvent.keyDown(input, { key: 'h' });
+    input.remove();
+    expect(onHighlight).toHaveBeenCalledTimes(1);
+    expect(onHighlight).toHaveBeenCalledWith();
+    expect(onThought).toHaveBeenCalledTimes(1);
+    expect(onAskLibrarian).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the keys the first three times on this device, then stops', () => {
+    window.localStorage.removeItem('noeis.reader.selectionKeyHints');
+    for (let showing = 1; showing <= 3; showing += 1) {
+      const { unmount } = render(<SelectionMenu {...baseProps} />);
+      expect(document.querySelectorAll('.selection-menu__key')).toHaveLength(2);
+      expect(screen.getByRole('button', { name: 'Highlight' })).toHaveAttribute('aria-keyshortcuts', 'H');
+      unmount();
+    }
+    render(<SelectionMenu {...baseProps} />);
+    expect(document.querySelectorAll('.selection-menu__key')).toHaveLength(0);
   });
 
   it('drives --selection-menu-x toward the pointer when motion is allowed', () => {

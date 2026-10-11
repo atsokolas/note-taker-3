@@ -4,9 +4,18 @@ const MS_PER_MINUTE = 60 * 1000;
 
 export const parseDisplayDate = (value) => {
   if (!value) return null;
-  const date = new Date(value);
+  /* A bare day ("2026-09-28") is that day where you are, not midnight in
+     Greenwich, which west of it is the evening before. */
+  const day = typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T00:00:00` : value;
+  const date = new Date(day);
   if (Number.isNaN(date.getTime())) return null;
   return date;
+};
+
+/** "Sep 28, 2026", or '' for a date we cannot read. */
+export const formatCalendarDate = (value) => {
+  const date = parseDisplayDate(value);
+  return date ? date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '';
 };
 
 export const formatSurfaceDate = (value, { now = new Date(), fallback = '', includeYear = true } = {}) => {
