@@ -1964,6 +1964,275 @@ const buildImportRouter = ({
     }
   });
 
+  /**
+   * Bring one Readwise connection up to date: what changed since the last check,
+   * or the whole archive the first time. The Sync button and the timer both come
+   * through here, and both are safe to repeat: a highlight already in the library
+   * is matched by its Readwise id, or failing that its text, and never added twice.
+   */
+  const syncReadwiseConnection = async ({
+    connection,
+    importSessionId = '',
+    fullSync = false,
+    recordEmpty = true
+  }) => {
+    const userId = connection.userId;
+    const credential = resolveReadwiseCredential(connection);
+    if (!credential) throw new Error('This Readwise connection has nothing to read with.');
+    // The clock starts when we ask, not when we finish, so a highlight made
+    // while a long archive was coming across is still picked up next time.
+    const checkedAt = new Date();
+    // No lastSyncAt means nothing has ever been imported, so take the whole
+    // archive whether or not the caller thought to ask for it.
+    const updatedAfter = !fullSync && connection.lastSyncAt
+      ? new Date(connection.lastSyncAt).toISOString()
+      : '';
+    const rows = await fetchReadwiseExportRows({
+      token: credential.token,
+      tokenType: credential.tokenType,
+      updatedAfter
+    });
+
+    let importedArticles = 0;
+    let importedHighlights = 0;
+    let skippedRows = 0;
+    let duplicateSkips = 0;
+    let invalidSkips = 0;
+    const articleCache = new Map();
+    const dirtyArticles = new Set();
+    const pendingHighlightRefs = [];
+    const pendingCorrections = [];
+
+    for (const row of rows) {
+      const metadataTitle = toTrimmedString(row.title);
+      const author = toTrimmedString(row.author);
+      const sourceUrl = toTrimmedString(row.source_url || row.url || row.readwise_url);
+      const externalId = toTrimmedString(row.user_book_id || row.id);
+      const sourceLabel = connection.accountLabel || 'Readwise';
+      const url = sourceUrl || `import://readwise/${externalId || slugify(metadataTitle) || crypto.randomUUID()}`;
+      const documentTags = Array.isArray(row.book_tags)
+        ? row.book_tags.map(tag => toTrimmedString(tag?.name || tag)).filter(Boolean)
+        : [];
+      const firstHighlightText = (Array.isArray(row.highlights) ? row.highlights : [])
+        .map(highlight => toTrimmedString(highlight?.text))
+        .find(Boolean) || '';
+      const title = deriveImportedTitle({
+        metadataTitle,
+        content: toTrimmedString(row.summary || row.document_note || firstHighlightText),
+        author,
+        sourceType: /(?:x\.com|twitter\.com)/i.test(sourceUrl) ? 'social_thread' : 'api',
+        url: sourceUrl,
+        publishedAt: row.published_date || row.updated_at || null
+      });
+
+      let article = articleCache.get(url);
+      if (!article) {
+        article = await Article.findOne({ userId, url });
+        if (!article) {
+          article = new Article({
+            url,
+            title,
+            author,
+            content: toTrimmedString(row.summary || row.document_note || ''),
+            userId,
+            importMeta: {
+              provider: 'readwise',
+              sourceType: 'api',
+              sourceLabel,
+              sourceUrl,
+              externalId,
+              importSessionId: importSessionId || null,
+              importedAt: new Date()
+            }
+          });
+          importedArticles += 1;
+        } else if (isFragmentTitle(article.title)) {
+          article.title = title;
+          dirtyArticles.add(article);
+        }
+        articleCache.set(url, article);
+      }
+
+      const highlights = Array.isArray(row.highlights) ? row.highlights : [];
+      for (const highlightRow of highlights) {
+        if (highlightRow?.is_deleted) continue;
+        const highlightText = toTrimmedString(highlightRow.text);
+        if (!highlightText) {
+          skippedRows += 1;
+          invalidSkips += 1;
+          continue;
+        }
+        const highlightExternalId = toTrimmedString(highlightRow.id);
+        const existingHighlight = (article.highlights || []).find((highlight) => (
+          toTrimmedString(highlight?.importMeta?.externalId)
+          && toTrimmedString(highlight?.importMeta?.externalId) === highlightExternalId
+        ));
+        if (existingHighlight && existingHighlight.text !== highlightText) {
+          pendingCorrections.push({
+            article,
+            highlight: existingHighlight,
+            previousText: existingHighlight.text
+          });
+          existingHighlight.text = highlightText;
+          dirtyArticles.add(article);
+          continue;
+        }
+        const highlightAlreadyExists = Boolean(existingHighlight) || (article.highlights || []).some((highlight) => (
+          highlight.text === highlightText
+        ));
+        if (highlightAlreadyExists) {
+          skippedRows += 1;
+          duplicateSkips += 1;
+          continue;
+        }
+        const highlightTags = Array.isArray(highlightRow.tags)
+          ? highlightRow.tags.map(tag => toTrimmedString(tag?.name || tag)).filter(Boolean)
+          : [];
+        article.highlights.push({
+          text: highlightText,
+          note: toTrimmedString(highlightRow.note),
+          tags: highlightTags.length > 0 ? highlightTags : (documentTags.length > 0 ? documentTags : ['imported']),
+          createdAt: highlightRow.highlighted_at || highlightRow.created_at || new Date(),
+          importMeta: {
+            provider: 'readwise',
+            sourceType: 'api',
+            sourceLabel,
+            sourceUrl: toTrimmedString(highlightRow.readwise_url || sourceUrl),
+            externalId: highlightExternalId,
+            parentExternalId: externalId,
+            importSessionId: importSessionId || null,
+            importedAt: new Date()
+          }
+        });
+        const highlightRef = article.highlights[article.highlights.length - 1];
+        pendingHighlightRefs.push({ article, highlight: highlightRef });
+        dirtyArticles.add(article);
+        importedHighlights += 1;
+      }
+    }
+
+    // Nothing new is not news. The button still answers "no new material";
+    // the timer just moves the clock.
+    const quiet = !recordEmpty && importedArticles + importedHighlights === 0;
+
+    await Promise.all(Array.from(dirtyArticles).map(article => article.save()));
+    await Promise.all(pendingCorrections.map(({ article, highlight, previousText }) => recordSourceCorrection({
+      WikiSourceEvent,
+      userId,
+      sourceType: 'highlight',
+      sourceObjectId: highlight._id,
+      parentObjectId: article._id,
+      provider: 'readwise',
+      externalId: toTrimmedString(highlight?.importMeta?.externalId),
+      title: article.title,
+      url: article.url,
+      previousText,
+      text: highlight.text,
+      sourceUpdatedAt: article.updatedAt || new Date(),
+      metadata: { source: 'readwise-api', importSessionId }
+    })));
+    await Promise.all(Array.from(dirtyArticles).map(article => emitWikiSourceEvent({
+      userId,
+      sourceType: 'article',
+      sourceObjectId: article._id,
+      provider: 'readwise',
+      eventType: 'synced',
+      title: article.title,
+      summary: article.content || '',
+      url: article.url,
+      sourceUpdatedAt: article.updatedAt || new Date(),
+      metadata: { source: 'readwise-api', importSessionId }
+    })));
+    await Promise.all(pendingHighlightRefs.map(({ article, highlight }) => emitWikiSourceEvent({
+      userId,
+      sourceType: 'highlight',
+      sourceObjectId: highlight._id,
+      parentObjectId: article._id,
+      provider: 'readwise',
+      eventType: 'synced',
+      title: article.title,
+      summary: [highlight.text, highlight.note].filter(Boolean).join(' - '),
+      url: article.url,
+      sourceUpdatedAt: highlight.createdAt || article.updatedAt || new Date(),
+      metadata: { source: 'readwise-api', importSessionId }
+    })));
+    if (!quiet) await logConnectorAction({
+      userId,
+      connector: 'readwise',
+      action: 'sync',
+      targetType: 'import_session',
+      targetId: importSessionId || '',
+      summary: `Synced ${importedHighlights} Readwise highlights.`,
+      metadata: { importedArticles, importedHighlights, skippedRows }
+    });
+
+    const indexing = buildIndexingSummary();
+    await Promise.all([
+      ...Array.from(dirtyArticles).map(article => queueIndexingAttempt(
+        indexing,
+        () => enqueueArticleEmbedding(article),
+        `Article indexing failed for ${article.title || article._id}`
+      )),
+      ...pendingHighlightRefs.map(({ article, highlight }) => queueIndexingAttempt(
+        indexing,
+        () => enqueueHighlightEmbedding({ highlight, article }),
+        `Highlight indexing failed for ${article.title || article._id}`
+      ))
+    ]);
+
+    const warningSummary = summarizeWarnings(
+      indexing.warnings.map(message => buildWarning('indexing_failed', message))
+    );
+    const status = finalizeSessionStatus(indexing, 0);
+    const resultPayload = {
+      importedArticles,
+      importedHighlights,
+      importedNotes: 0,
+      skippedRows,
+      duplicateSkips,
+      invalidSkips,
+      parseErrors: 0,
+      indexingAttempts: indexing.indexingAttempts,
+      indexingFailures: indexing.indexingFailures,
+      indexingQueued: indexing.indexingQueued,
+      warningCodes: warningSummary.warningCodes,
+      warnings: warningSummary.warnings,
+      articleIds: Array.from(dirtyArticles).map(article => String(article._id || '')),
+      importedArticleIds: Array.from(dirtyArticles).map(article => String(article._id || '')),
+      updatedAfter,
+      connection: sanitizeConnection(connection.toObject()),
+      indexingState: indexing.indexingFailures > 0 ? 'partial' : (indexing.indexingQueued > 0 ? 'queued' : 'not_started'),
+    };
+    resultPayload.receipt = buildNoeisImportReceipt({
+      id: `import-${importSessionId || 'readwise-api'}-${Date.now()}`,
+      source: 'readwise',
+      sourceLabel: connection.accountLabel || 'Readwise',
+      status,
+      result: resultPayload,
+      touched: Array.from(dirtyArticles).map(article => ({
+        type: 'article',
+        id: String(article._id || ''),
+        title: article.title || 'Imported source'
+      })),
+      nextAction: importSessionId && resultPayload.importedArticleIds.length > 0
+        ? { label: 'Review filing suggestions', intent: 'organize_import' }
+        : null
+    });
+    persistConnectionLastSyncResult(connection, {
+      importedNotes: 0,
+      skippedRows,
+      indexingQueued: indexing.indexingQueued,
+      indexingFailures: indexing.indexingFailures,
+      completedAt: resultPayload.receipt.completedAt
+    });
+    connection.lastSyncAt = checkedAt;
+    if (!quiet) connection.lastReceipt = resultPayload.receipt;
+    await markConnectionHealthy(connection);
+    resultPayload.connection = sanitizeConnection(connection.toObject());
+    if (!quiet) await persistImportReceipt({ userId, receipt: resultPayload.receipt });
+    return { result: resultPayload, itemCount: rows.length };
+  };
+
   router.post('/api/import/readwise/sync', authenticateToken, async (req, res) => {
     const userId = req.user.id;
     const importSessionId = readImportSessionId(req);
@@ -1986,8 +2255,7 @@ const buildImportRouter = ({
       // This used to refuse it and send the user to find an API token under
       // Advanced, so the recommended way to connect was the one way that could
       // not fill a library.
-      const readwiseCredential = resolveReadwiseCredential(connection);
-      if (!readwiseCredential) {
+      if (!resolveReadwiseCredential(connection)) {
         const message = 'Readwise is connected but did not return anything Noeis can read with. Reconnect, or add an API token under Advanced.';
         await markImportSessionUnavailable({
           sessionId: importSessionId,
@@ -2016,267 +2284,30 @@ const buildImportRouter = ({
         }
       });
 
-      // No lastSyncAt means nothing has ever been imported, so take the whole
-      // archive whether or not the caller thought to ask for it.
-      const updatedAfter = !fullSync && connection.lastSyncAt
-        ? new Date(connection.lastSyncAt).toISOString()
-        : '';
-      const rows = await fetchReadwiseExportRows({
-        token: readwiseCredential.token,
-        tokenType: readwiseCredential.tokenType,
-        updatedAfter
+      const { result, itemCount } = await syncReadwiseConnection({
+        connection,
+        importSessionId,
+        fullSync
       });
-
-      let importedArticles = 0;
-      let importedHighlights = 0;
-      let skippedRows = 0;
-      let duplicateSkips = 0;
-      let invalidSkips = 0;
-      const articleCache = new Map();
-      const dirtyArticles = new Set();
-      const pendingHighlightRefs = [];
-      const pendingCorrections = [];
-
-      for (const row of rows) {
-        const metadataTitle = toTrimmedString(row.title);
-        const author = toTrimmedString(row.author);
-        const sourceUrl = toTrimmedString(row.source_url || row.url || row.readwise_url);
-        const externalId = toTrimmedString(row.user_book_id || row.id);
-        const sourceLabel = connection.accountLabel || 'Readwise';
-        const url = sourceUrl || `import://readwise/${externalId || slugify(metadataTitle) || crypto.randomUUID()}`;
-        const documentTags = Array.isArray(row.book_tags)
-          ? row.book_tags.map(tag => toTrimmedString(tag?.name || tag)).filter(Boolean)
-          : [];
-        const firstHighlightText = (Array.isArray(row.highlights) ? row.highlights : [])
-          .map(highlight => toTrimmedString(highlight?.text))
-          .find(Boolean) || '';
-        const title = deriveImportedTitle({
-          metadataTitle,
-          content: toTrimmedString(row.summary || row.document_note || firstHighlightText),
-          author,
-          sourceType: /(?:x\.com|twitter\.com)/i.test(sourceUrl) ? 'social_thread' : 'api',
-          url: sourceUrl,
-          publishedAt: row.published_date || row.updated_at || null
-        });
-
-        let article = articleCache.get(url);
-        if (!article) {
-          article = await Article.findOne({ userId, url });
-          if (!article) {
-            article = new Article({
-              url,
-              title,
-              author,
-              content: toTrimmedString(row.summary || row.document_note || ''),
-              userId,
-              importMeta: {
-                provider: 'readwise',
-                sourceType: 'api',
-                sourceLabel,
-                sourceUrl,
-                externalId,
-                importSessionId: importSessionId || null,
-                importedAt: new Date()
-              }
-            });
-            importedArticles += 1;
-          } else if (isFragmentTitle(article.title)) {
-            article.title = title;
-            dirtyArticles.add(article);
-          }
-          articleCache.set(url, article);
-        }
-
-        const highlights = Array.isArray(row.highlights) ? row.highlights : [];
-        for (const highlightRow of highlights) {
-          if (highlightRow?.is_deleted) continue;
-          const highlightText = toTrimmedString(highlightRow.text);
-          if (!highlightText) {
-            skippedRows += 1;
-            invalidSkips += 1;
-            continue;
-          }
-          const highlightExternalId = toTrimmedString(highlightRow.id);
-          const existingHighlight = (article.highlights || []).find((highlight) => (
-            toTrimmedString(highlight?.importMeta?.externalId)
-            && toTrimmedString(highlight?.importMeta?.externalId) === highlightExternalId
-          ));
-          if (existingHighlight && existingHighlight.text !== highlightText) {
-            pendingCorrections.push({
-              article,
-              highlight: existingHighlight,
-              previousText: existingHighlight.text
-            });
-            existingHighlight.text = highlightText;
-            dirtyArticles.add(article);
-            continue;
-          }
-          const highlightAlreadyExists = Boolean(existingHighlight) || (article.highlights || []).some((highlight) => (
-            highlight.text === highlightText
-          ));
-          if (highlightAlreadyExists) {
-            skippedRows += 1;
-            duplicateSkips += 1;
-            continue;
-          }
-          const highlightTags = Array.isArray(highlightRow.tags)
-            ? highlightRow.tags.map(tag => toTrimmedString(tag?.name || tag)).filter(Boolean)
-            : [];
-          article.highlights.push({
-            text: highlightText,
-            note: toTrimmedString(highlightRow.note),
-            tags: highlightTags.length > 0 ? highlightTags : (documentTags.length > 0 ? documentTags : ['imported']),
-            createdAt: highlightRow.highlighted_at || highlightRow.created_at || new Date(),
-            importMeta: {
-              provider: 'readwise',
-              sourceType: 'api',
-              sourceLabel,
-              sourceUrl: toTrimmedString(highlightRow.readwise_url || sourceUrl),
-              externalId: highlightExternalId,
-              parentExternalId: externalId,
-              importSessionId: importSessionId || null,
-              importedAt: new Date()
-            }
-          });
-          const highlightRef = article.highlights[article.highlights.length - 1];
-          pendingHighlightRefs.push({ article, highlight: highlightRef });
-          dirtyArticles.add(article);
-          importedHighlights += 1;
-        }
-      }
-
-      await Promise.all(Array.from(dirtyArticles).map(article => article.save()));
-      await Promise.all(pendingCorrections.map(({ article, highlight, previousText }) => recordSourceCorrection({
-        WikiSourceEvent,
-        userId,
-        sourceType: 'highlight',
-        sourceObjectId: highlight._id,
-        parentObjectId: article._id,
-        provider: 'readwise',
-        externalId: toTrimmedString(highlight?.importMeta?.externalId),
-        title: article.title,
-        url: article.url,
-        previousText,
-        text: highlight.text,
-        sourceUpdatedAt: article.updatedAt || new Date(),
-        metadata: { source: 'readwise-api', importSessionId }
-      })));
-      await Promise.all(Array.from(dirtyArticles).map(article => emitWikiSourceEvent({
-        userId,
-        sourceType: 'article',
-        sourceObjectId: article._id,
-        provider: 'readwise',
-        eventType: 'synced',
-        title: article.title,
-        summary: article.content || '',
-        url: article.url,
-        sourceUpdatedAt: article.updatedAt || new Date(),
-        metadata: { source: 'readwise-api', importSessionId }
-      })));
-      await Promise.all(pendingHighlightRefs.map(({ article, highlight }) => emitWikiSourceEvent({
-        userId,
-        sourceType: 'highlight',
-        sourceObjectId: highlight._id,
-        parentObjectId: article._id,
-        provider: 'readwise',
-        eventType: 'synced',
-        title: article.title,
-        summary: [highlight.text, highlight.note].filter(Boolean).join(' - '),
-        url: article.url,
-        sourceUpdatedAt: highlight.createdAt || article.updatedAt || new Date(),
-        metadata: { source: 'readwise-api', importSessionId }
-      })));
-      await logConnectorAction({
-        userId,
-        connector: 'readwise',
-        action: 'sync',
-        targetType: 'import_session',
-        targetId: importSessionId || '',
-        summary: `Synced ${importedHighlights} Readwise highlights.`,
-        metadata: { importedArticles, importedHighlights, skippedRows }
-      });
-
-      const indexing = buildIndexingSummary();
-      await Promise.all([
-        ...Array.from(dirtyArticles).map(article => queueIndexingAttempt(
-          indexing,
-          () => enqueueArticleEmbedding(article),
-          `Article indexing failed for ${article.title || article._id}`
-        )),
-        ...pendingHighlightRefs.map(({ article, highlight }) => queueIndexingAttempt(
-          indexing,
-          () => enqueueHighlightEmbedding({ highlight, article }),
-          `Highlight indexing failed for ${article.title || article._id}`
-        ))
-      ]);
-
-      const warningSummary = summarizeWarnings(
-        indexing.warnings.map(message => buildWarning('indexing_failed', message))
-      );
-      const status = finalizeSessionStatus(indexing, 0);
-      const resultPayload = {
-        importedArticles,
-        importedHighlights,
-        importedNotes: 0,
-        skippedRows,
-        duplicateSkips,
-        invalidSkips,
-        parseErrors: 0,
-        indexingAttempts: indexing.indexingAttempts,
-        indexingFailures: indexing.indexingFailures,
-        indexingQueued: indexing.indexingQueued,
-        warningCodes: warningSummary.warningCodes,
-        warnings: warningSummary.warnings,
-        articleIds: Array.from(dirtyArticles).map(article => String(article._id || '')),
-        importedArticleIds: Array.from(dirtyArticles).map(article => String(article._id || '')),
-        updatedAfter,
-        connection: sanitizeConnection(connection.toObject()),
-        indexingState: indexing.indexingFailures > 0 ? 'partial' : (indexing.indexingQueued > 0 ? 'queued' : 'not_started'),
-      };
-      resultPayload.receipt = buildNoeisImportReceipt({
-        id: `import-${importSessionId || 'readwise-api'}-${Date.now()}`,
-        source: 'readwise',
-        sourceLabel: connection.accountLabel || 'Readwise',
-        status,
-        result: resultPayload,
-        touched: Array.from(dirtyArticles).map(article => ({
-          type: 'article',
-          id: String(article._id || ''),
-          title: article.title || 'Imported source'
-        })),
-        nextAction: resultPayload.importedArticleIds.length > 0
-          ? { label: 'Review filing suggestions', intent: 'organize_import' }
-          : null
-      });
-      persistConnectionLastSyncResult(connection, {
-        importedNotes: 0,
-        skippedRows,
-        indexingQueued: indexing.indexingQueued,
-        indexingFailures: indexing.indexingFailures,
-        completedAt: resultPayload.receipt.completedAt
-      });
-      connection.lastReceipt = resultPayload.receipt;
-      await markConnectionHealthy(connection);
-      resultPayload.connection = sanitizeConnection(connection.toObject());
-
+      const { importedArticles, importedHighlights, skippedRows } = result;
       const completedSession = await patchImportSession({
         sessionId: importSessionId,
         userId,
         mutate: (session) => {
-          session.status = status;
+          session.status = result.receipt.status;
           session.preview = {
             ...(session.preview || {}),
-            items: rows.length,
+            items: itemCount,
             articles: importedArticles,
             highlights: importedHighlights
           };
           session.progress = {
             ...(session.progress || {}),
             stage: 'import_complete',
-            itemsProcessed: rows.length,
-            itemsTotal: rows.length,
+            itemsProcessed: itemCount,
+            itemsTotal: itemCount,
             percent: 100,
-            indexingState: resultPayload.indexingState
+            indexingState: result.indexingState
           };
           session.result = {
             ...(session.result || {}),
@@ -2284,18 +2315,18 @@ const buildImportRouter = ({
             importedHighlights,
             importedNotes: 0,
             skippedRows,
-            duplicateSkips,
-            invalidSkips,
+            duplicateSkips: result.duplicateSkips,
+            invalidSkips: result.invalidSkips,
             parseErrors: 0,
-            indexingAttempts: indexing.indexingAttempts,
-            indexingFailures: indexing.indexingFailures,
-            indexingQueued: indexing.indexingQueued,
-            warningCodes: warningSummary.warningCodes,
-            warnings: warningSummary.warnings,
-            lastImportedArticleId: resultPayload.articleIds[0] || '',
-            importedArticleIds: resultPayload.importedArticleIds
+            indexingAttempts: result.indexingAttempts,
+            indexingFailures: result.indexingFailures,
+            indexingQueued: result.indexingQueued,
+            warningCodes: result.warningCodes,
+            warnings: result.warnings,
+            lastImportedArticleId: result.articleIds[0] || '',
+            importedArticleIds: result.importedArticleIds
           };
-          session.receipt = resultPayload.receipt;
+          session.receipt = result.receipt;
           session.lastError = '';
           applyImportOrganizationOffer(session);
         }
@@ -2303,9 +2334,8 @@ const buildImportRouter = ({
       await stageImportOrganizationProposalForSession({
         session: completedSession,
         userId,
-        articleIds: resultPayload.importedArticleIds
+        articleIds: result.importedArticleIds
       });
-      await persistImportReceipt({ userId, receipt: resultPayload.receipt });
 
       trackEvent({
         event: EVENT_NAMES.CAPTURE_COMPLETED,
@@ -2319,7 +2349,7 @@ const buildImportRouter = ({
         }
       });
 
-      res.status(200).json(resultPayload);
+      res.status(200).json(result);
     } catch (error) {
       console.error('Readwise sync failed:', error);
       const failedSession = await patchImportSession({
@@ -3452,6 +3482,8 @@ const buildImportRouter = ({
     }
   });
 
+  // The timer imports exactly the way the button does.
+  router.syncReadwiseConnection = syncReadwiseConnection;
   return router;
 };
 

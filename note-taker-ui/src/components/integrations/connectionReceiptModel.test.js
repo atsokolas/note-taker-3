@@ -2,6 +2,7 @@ import {
   buildEvernoteConnectionReceipt,
   buildNotionConnectionReceipt,
   buildReadwiseConnectionReceipt,
+  describeReadwiseCadence,
   formatProviderSyncSummary
 } from './connectionReceiptModel';
 
@@ -68,6 +69,7 @@ describe('connectionReceiptModel', () => {
         lastReceipt: {
           id: 'receipt-rw',
           status: 'completed',
+          metrics: { importedHighlights: 12 },
           title: 'Readwise import finished',
           summary: 'Imported 2 sources, 12 highlights.',
           completedAt: '2026-06-27T12:00:00.000Z',
@@ -77,7 +79,9 @@ describe('connectionReceiptModel', () => {
       }
     });
 
-    expect(receipt.summary).toBe('Imported 2 sources, 12 highlights.');
+    expect(receipt.headline).toMatch(/^Checked .+\. 12 new passages came in /);
+    expect(receipt.headline).not.toMatch(/receipt/i);
+    expect(receipt.summary).toBe('');
     expect(receipt.detail).toMatch(/Poor Charlie/);
     expect(receipt.nextAction.label).toBe('Review filing suggestions');
   });
@@ -141,5 +145,39 @@ describe('connectionReceiptModel', () => {
 
     expect(receipt.summary).toBe('Imported 9 notes.');
     expect(receipt.detail).toMatch(/Research Note/);
+  });
+
+  describe('the Readwise timer, in plain words', () => {
+    const now = new Date(2026, 9, 11, 14, 0);
+    const at = (days, hours = 0) => new Date(now.getTime() - ((days * 24) + hours) * 60 * 60 * 1000).toISOString();
+    const weekday = (iso) => new Date(iso).toLocaleDateString(undefined, { weekday: 'long' });
+
+    it('says when it last looked and when anything last came in', () => {
+      const arrivedAt = at(5);
+      expect(describeReadwiseCadence({
+        lastSyncAt: at(0, 2),
+        lastReceipt: { status: 'completed', metrics: { importedHighlights: 14 }, completedAt: arrivedAt }
+      }, now)).toBe(`Checked 2 hours ago. 14 new passages came in on ${weekday(arrivedAt)}.`);
+    });
+
+    it('stays quiet about arrivals when nothing has come in', () => {
+      expect(describeReadwiseCadence({
+        lastSyncAt: at(0, 1),
+        lastReceipt: { status: 'completed', metrics: { importedHighlights: 0 }, completedAt: at(0, 1) }
+      }, now)).toBe('Checked an hour ago.');
+      expect(describeReadwiseCadence({ lastSyncAt: new Date(now.getTime() - 30000).toISOString() }, now)).toBe('Checked just now.');
+    });
+
+    it('says nothing before the first check', () => {
+      expect(describeReadwiseCadence({ lastSyncAt: null }, now)).toBe('');
+      expect(describeReadwiseCadence(null, now)).toBe('');
+    });
+
+    it('speaks of one passage as one, and of yesterday as yesterday', () => {
+      expect(describeReadwiseCadence({
+        lastSyncAt: at(0, 3),
+        lastReceipt: { status: 'completed', metrics: { importedHighlights: 1 }, completedAt: at(1) }
+      }, now)).toBe('Checked 3 hours ago. 1 new passage came in yesterday.');
+    });
   });
 });

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Note Taker</title>
+    <title>Noeis</title>
     <link rel="stylesheet" href="popup.css">
   <link rel="stylesheet" href="note-taker-ui/src/styles/placement-switch.css">
 </head>
@@ -11,11 +11,6 @@
 
         <div id="loginView">
             <h2>Welcome</h2>
-            <div class="cta-panel">
-                <p class="cta-title">New: Web workspace</p>
-                <p class="cta-text">Open the full app to browse, highlight, and organize everything.</p>
-                <a class="cta-link" href="https://noeis.io" target="_blank" rel="noreferrer">Go to noeis.io</a>
-            </div>
             <form id="loginForm">
                 <div class="form-group">
                     <label for="username">Username:</label>
@@ -58,13 +53,8 @@
 
     </div>
     <div id="loggedInView" class="container" style="display: none;">
-        <h1 class="title">Save Article</h1>
-        <div class="cta-panel">
-            <p class="cta-title">Visit the web app</p>
-            <p class="cta-text">View your highlights, notebooks, and PDFs in one calm workspace.</p>
-            <a class="cta-link" href="https://noeis.io" target="_blank" rel="noreferrer">Open noeis.io</a>
-            <a class="cta-link" href="https://noeis.io/search?tour=resume" target="_blank" rel="noreferrer" style="margin-left: 8px;">Continue tour</a>
-        </div>
+        <h1 class="title">Save to Noeis</h1>
+        <a class="cta-link" href="https://www.noeis.io/library" target="_blank" rel="noreferrer">Open your Library</a>
         
         <div class="form-group">
             <label for="folderSelect">Choose a Folder:</label>
@@ -80,7 +70,7 @@
             <button id="createFolderButton">+</button>
         </div>
 
-        <button id="saveArticleButton">Save Article</button>
+        <button id="saveArticleButton">Save</button>
         
         <hr>
         <button id="logoutButton" class="secondary-button">Logout</button>
