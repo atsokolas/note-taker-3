@@ -207,10 +207,12 @@ export const writeTools = [
   },
   {
     name: 'file_edition_items',
-    description: 'Add what you found today to the issue this moment belongs to, WITHOUT resending what is already there. This is how a paper is maintained: file each morning and the issue fills up over its window. Noeis picks the issue from the topic\'s cadence, so two agents filing the same day file into the same one, and if another agent already filed the same link, your item is kept as a second reading beside theirs (your own repeats are skipped). Write your own finding and boundary; do not paraphrase theirs. Every item still needs its boundary. If you looked at a section and nothing met your bar, say so in `checked`. A section you leave silent reads to the reader as \'not reported\'. Answer the last issue\'s watch list in `followUps`, and set the issue\'s `headline` once you have seen enough of the week (the newest one stands). Send any of these. Requires an agent-write token.',
+    description: 'Add what you found today to the issue this moment belongs to, WITHOUT resending what is already there. Noeis picks the issue from the topic\'s cadence, so two agents filing the same day file into the same one. Existing research items and reader saves remain. If another agent already filed the same link, your item is kept as a second reading beside theirs (your own repeats are skipped). Write your own finding and boundary; do not paraphrase theirs. Every item needs its boundary. If you looked at a section and nothing met your bar, say so in `checked`. A section you leave silent reads to the reader as \'not reported\'. A supplied nonempty `headline` replaces the issue\'s current headline. A `followUps` answer for an already answered watch line replaces its status and note. These replacements keep no history and have no undo through this connection; read the current issue and confirm the intended replacement with the reader first. Adding new items can also update the issue\'s masthead attribution. This tool cannot delete research items or publish the issue. Send items, checked, followUps or a headline. Requires an agent-write token.',
     inputSchema: {
       profile: z.string().min(1).describe('Topic key, from list_edition_profiles.'),
-      items: z.array(editionItemShape).optional().describe('Only the new findings. What is already filed stays. May be left out when you send checked.'),
+      items: z.array(editionItemShape.extend({
+        itemId: z.string().optional().describe('Stable identifier for a new item. A different URL reusing an existing id is rejected; repeats of a held URL preserve its first item.')
+      })).optional().describe('Only the new findings. What is already filed stays. May be left out when you send checked.'),
       checked: editionChecksShape.optional(),
       followUps: editionFollowUpsShape.optional(),
       headline: editionHeadlineShape.optional(),
