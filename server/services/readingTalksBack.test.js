@@ -341,6 +341,16 @@ describe('what would change your mind', () => {
     expect(tests).toHaveLength(1);
   });
 
+  it('asks each view its sentence too, so views with tests cannot spend the budget on tests alone', async () => {
+    const models = withTest({}, `${SOURCE} ${MET}`);
+    const [first] = models.WikiPage.rows;
+    models.WikiPage.rows.push(...[2, 3, 4, 5].map(n => ({ ...first, _id: `v${n}` })));
+    const nothing = answer({ stance: 'nothing', quote: '' });
+    await read(models, nothing);
+    const sentences = nothing.mock.calls.filter(([{ messages }]) => !messages[1].content.includes('change their mind if'));
+    expect(sentences.length).toBeGreaterThan(0);
+  });
+
   it('goes quiet once the test it met is retired or reworded', async () => {
     const models = withTest();
     const [proposal] = await read(models, reader);

@@ -252,8 +252,12 @@ const proposeFromReading = async ({
   const proposed = [];
   const asks = views.flatMap(asksOf);
   const candidates = await candidateViews({ views: asks, passages, embed, textOf: askedText, limit: asks.length });
-  // A met test says more than a challenge to the sentence: it is asked first.
-  candidates.sort((left, right) => Boolean(right.page.condition) - Boolean(left.page.condition));
+  // Views keep their rank; within a view a met test says more than a challenge
+  // to the sentence, so it is asked first. Tests never crowd out sentences.
+  const rank = new Map();
+  candidates.forEach(({ page }, index) => { if (!rank.has(String(page._id))) rank.set(String(page._id), index); });
+  candidates.sort((left, right) => rank.get(String(left.page._id)) - rank.get(String(right.page._id))
+    || Boolean(right.page.condition) - Boolean(left.page.condition));
   // The budget is readings made, not asks ranked, and a view puts at most its
   // best test and its sentence: one view's many tests do not crowd out the next.
   const asked = new Set();
