@@ -33,6 +33,21 @@ const findBlock = (doc, blockId) => {
   return match;
 };
 
+/* The sentence of the note that contradicts a view the reader holds, by its
+   words: in its own block when that block still carries them, else anywhere. */
+const locateSentence = (doc, { blockId = '', sentence = '' } = {}) => {
+  if (!sentence) return null;
+  let found = null;
+  doc.descendants((node, pos) => {
+    if (found) return false;
+    if (!node.isTextblock) return undefined;
+    const at = blockId && String(node.attrs?.blockId || '') !== blockId ? -1 : node.textContent.indexOf(sentence);
+    if (at >= 0) found = { from: pos + 1 + at, to: pos + 1 + at + sentence.length };
+    return false;
+  });
+  return found || (blockId ? locateSentence(doc, { sentence }) : null);
+};
+
 const identity = (mark) => ({
   trialKey: String(mark?.trialKey || ''),
   trialId: String(mark?.trialId || ''),
@@ -89,6 +104,8 @@ const decorations = (doc, state = {}) => {
       return button;
     }, { key: `saved-mark-${saved.trialKey}`, side: 1 }));
   });
+  const opposite = locateSentence(doc, state.opposite || {});
+  if (opposite) rows.push(Decoration.inline(opposite.from, opposite.to, { class: 'notebook-opposite-sentence' }));
   return DecorationSet.create(doc, rows);
 };
 
@@ -98,7 +115,7 @@ export const NotebookWorkbenchDecorations = Extension.create({
     return [new Plugin({
       key,
       state: {
-        init: () => ({ targetBlockId: '', targetRange: null, preview: null, savedMarks: [] }),
+        init: () => ({ targetBlockId: '', targetRange: null, preview: null, savedMarks: [], opposite: null }),
         apply: (tr, previous) => tr.getMeta(key) || previous
       },
       props: {
@@ -129,7 +146,10 @@ export const setNotebookWorkbenchDecorations = (editor, state = {}) => {
       rangeStart: state.preview.rangeStart,
       rangeEnd: state.preview.rangeEnd
     } : null,
-    savedMarks: Array.isArray(state.savedMarks) ? state.savedMarks.map(identity) : []
+    savedMarks: Array.isArray(state.savedMarks) ? state.savedMarks.map(identity) : [],
+    opposite: state.opposite?.sentence
+      ? { blockId: String(state.opposite.blockId || ''), sentence: String(state.opposite.sentence) }
+      : null
   }));
   return true;
 };

@@ -6,6 +6,7 @@ const { generateNotebookWordingOptions } = require('../services/notebookWordingO
 const express = require('express');
 const mongoose = require('mongoose');
 const { createWikiSourceEvent } = require('../services/wikiSourceEventService');
+const { opposeFromNote, setOppositeAside } = require('../services/readingTalksBack');
 const { processWikiSourceEvent } = require('../services/wikiMaintenanceOrchestrator');
 const {
   asObjectIdOrNull,
@@ -690,6 +691,37 @@ const buildNotebookRouter = ({
     } catch (error) {
       console.error('❌ Error updating notebook workbench:', error);
       return res.status(500).json({ error: 'Failed to save nearby material.' });
+    }
+  });
+
+  /* You hold the opposite. After a save, the note's sentences meet the views
+     the reader holds: one line, or nothing. */
+  router.post('/api/notebook/:id/opposite', authenticateToken, humanOnly, async (req, res) => {
+    try {
+      const userId = req.user.id;
+      const entry = await NotebookEntry.findOne({ _id: req.params.id, userId }).select('_id blocks viewReadings').lean();
+      if (!entry) return res.status(404).json({ error: 'Notebook entry not found.' });
+      const line = WikiPage
+        ? await opposeFromNote({ entry, userId, models: { NotebookEntry, WikiPage } }).catch((error) => {
+          console.error('Reading a note against held views failed:', error.message);
+          return null;
+        })
+        : null;
+      noStore(res);
+      return res.status(200).json({ line });
+    } catch (error) {
+      console.error('❌ Error reading a note against held views:', error);
+      return res.status(500).json({ error: 'Failed to read the note against your views.' });
+    }
+  });
+
+  router.post('/api/notebook/:id/opposite/:key/aside', authenticateToken, humanOnly, async (req, res) => {
+    try {
+      await setOppositeAside({ entryId: req.params.id, userId: req.user.id, key: req.params.key, models: { NotebookEntry } });
+      return res.status(200).json({ line: null });
+    } catch (error) {
+      console.error('❌ Error setting a line aside:', error);
+      return res.status(500).json({ error: 'Failed to set the line aside.' });
     }
   });
 
