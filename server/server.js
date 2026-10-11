@@ -5254,6 +5254,7 @@ app.use(buildAuthDiscoveryRouter({
   authenticateToken,
   Recommendation,
   Article,
+  TourState,
   trackEvent,
   EVENT_NAMES
 }));

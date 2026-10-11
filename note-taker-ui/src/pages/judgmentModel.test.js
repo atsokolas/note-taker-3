@@ -17,6 +17,7 @@ import {
   provenanceLine,
   reviseCurrentJudgment,
   selectOvernightLine,
+  fileEvidenceIntoJudgment,
   sourceHrefFromOrigin,
   verdictEvidenceOptions,
   writeLineIntoJudgment
@@ -346,6 +347,19 @@ describe('judgmentModel', () => {
     expect(lowercase.sentence).toBe('Overnight: deliverable capacity still lags demand. The filing restates the same gap.');
     expect(lowercase.body).toBe('Deliverable capacity still lags demand. The filing restates the same gap.');
     expect(selectOvernightLine(page(), [events[2]])).toBeNull();
+  });
+
+  it('does not announce overnight a source whose passage is already filed', () => {
+    const event = {
+      _id: 'event-9',
+      affectedPageIds: ['wiki-nvidia'],
+      sourceObjectId: 'article-7',
+      title: 'Deliverable capacity still lags demand',
+      createdAt: '2026-08-14T04:00:00.000Z'
+    };
+    const filed = fileEvidenceIntoJudgment(page(), { id: 'article:article-7', text: 'Capacity lags demand.' }, 'why');
+    expect(selectOvernightLine(page(), [event])).not.toBeNull();
+    expect(selectOvernightLine({ ...page(), judgment: filed }, [event])).toBeNull();
   });
 
   it('does not resurrect a dismissed overnight line, and still files', () => {

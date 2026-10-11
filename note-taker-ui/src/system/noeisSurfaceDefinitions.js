@@ -69,7 +69,7 @@ export const NOEIS_SURFACE_DEFINITIONS = Object.freeze([
     verb: 'Keep',
     orientation: 'Read and maintain knowledge you have chosen to keep.',
     activePrefixes: ['/', '/wiki', '/paper'],
-    authenticatedPrefixes: ['/wiki', '/paper', '/today', '/onboarding'],
+    authenticatedPrefixes: ['/wiki', '/paper', '/today'],
     match: ({ pathname = '' } = {}) => pathname === '/' || prefixMatch(pathname, ['/wiki', '/paper'])
   }),
   /* Papers your agents maintain for you.
@@ -97,7 +97,7 @@ export const NOEIS_SURFACE_DEFINITIONS = Object.freeze([
     navigationGroup: 'primary',
     verb: 'Decide',
     orientation: 'Make and revisit consequential calls against their evidence.',
-    authenticatedPrefixes: ['/judgment', '/mirror']
+    authenticatedPrefixes: ['/judgment', '/mirror', '/welcome']
   }),
   surface({
     id: 'surface.connections',

@@ -3402,6 +3402,35 @@ body.noeis-editorial .auth-editorial__field input {
   box-shadow: none !important;
 }
 
+body.noeis-editorial .auth-editorial__password {
+  position: relative;
+}
+
+body.noeis-editorial .auth-editorial__password input {
+  width: 100%;
+  padding-right: 64px;
+}
+
+body.noeis-editorial .auth-editorial__reveal {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  min-height: 0;
+  padding: 4px 2px;
+  border: 0;
+  background: transparent;
+  color: var(--vellum-subtle);
+  font-family: var(--noeis-ui-font);
+  font-size: 0.78rem;
+  transform: translateY(-50%);
+  cursor: pointer;
+}
+
+body.noeis-editorial .auth-editorial__reveal:hover,
+body.noeis-editorial .auth-editorial__reveal:focus-visible {
+  color: var(--vellum-ink);
+}
+
 body.noeis-editorial .auth-editorial__submit {
   width: 100%;
   margin-top: 4px;

@@ -1,55 +1,47 @@
 /**
- * onboardingState — single source of truth for "has this user finished onboarding?"
+ * onboardingState — "has this account finished first run?", answered locally.
  *
- * Why this exists: the completion flag was read and written by string literal in
- * WikiOnboarding and WikiFrontPage, and a third consumer (TourManager) now needs it
- * to stay out of onboarding's way. Three copies of a storage key is how they drift.
+ * The server record (GET /api/onboarding/state) is the durable one: a new account
+ * starts 'pending', and only 'pending' is ever walked through first run. This flag
+ * is the synchronous cache of "not pending any more", so an established reader
+ * never pays a request for it, and render paths can ask without awaiting.
  *
- * The local key is namespaced per account. It used to be bare, so one account
- * finishing onboarding marked it done for the next account signing in on the same
- * browser, and that user never met first-run at all.
- *
- * Storage is two-layer on purpose. localStorage answers synchronously, because
- * render paths ask "is onboarding done?" while deciding what to show. The server
- * record is the durable one: it survives a new browser and makes the funnel
- * measurable. syncWikiOnboardingState reconciles them once per session.
+ * The key is namespaced per account. It used to be bare, so one account finishing
+ * marked it done for the next account signing in on the same browser. The value of
+ * the key is unchanged from the wiki-first flow, so readers who finished that one
+ * are not asked again.
  */
 
 import { purgeUnscopedKeys, scopedKey } from '../utils/browserScope';
 
-export const WIKI_ONBOARDING_COMPLETE_KEY = 'noeis.wikiOnboardingComplete';
+const ONBOARDING_COMPLETE_KEY = 'noeis.wikiOnboardingComplete';
 
-// The bare key is the pre-scoping one. It is read nowhere and removed on sight, so
-// a value left by another account cannot decide this account's first run.
-export const onboardingCompleteKey = () => scopedKey(WIKI_ONBOARDING_COMPLETE_KEY);
+export const onboardingCompleteKey = () => scopedKey(ONBOARDING_COMPLETE_KEY);
 
-export const isWikiOnboardingComplete = () => {
+export const isOnboardingComplete = () => {
   try {
-    purgeUnscopedKeys([WIKI_ONBOARDING_COMPLETE_KEY]);
+    purgeUnscopedKeys([ONBOARDING_COMPLETE_KEY]);
     return window.localStorage?.getItem(onboardingCompleteKey()) === 'true';
   } catch (_error) {
-    // Private mode / blocked storage: treat as not complete rather than throwing.
+    // Private mode / blocked storage: not known to be complete.
     return false;
   }
 };
 
-export const isWikiOnboardingPending = () => !isWikiOnboardingComplete();
-
-export const markWikiOnboardingComplete = () => {
+/* Remember locally only. For an account the server already says is past first run. */
+export const rememberOnboardingComplete = () => {
   try {
     window.localStorage?.setItem(onboardingCompleteKey(), 'true');
   } catch (_error) {
-    // Best effort. A user who cannot persist the flag sees onboarding again next
-    // visit, which is recoverable; throwing here would break the flow they just
-    // finished.
+    // Best effort: the gate asks the server again next session, which is cheap.
   }
-  // Record it where it outlives this browser. Fire and forget: the local flag has
-  // already made the UI correct, and a failed write must not interrupt someone who
-  // just finished onboarding. The next session's sync will settle it.
-  //
-  // Imported lazily on purpose. This module is read synchronously from render paths
-  // all over the app; pulling the API layer (and axios) into its import graph would
-  // drag it into every consumer.
+};
+
+export const markOnboardingComplete = () => {
+  rememberOnboardingComplete();
+  // Fire and forget. The local flag already made the UI correct, and a failed write
+  // must not interrupt someone who just finished. Imported lazily so this module,
+  // read from render paths everywhere, stays out of the API layer's import graph.
   import('../api/onboarding')
     .then(({ markOnboardingCompleteOnServer }) => markOnboardingCompleteOnServer())
     .catch(() => {});

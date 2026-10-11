@@ -1,5 +1,5 @@
 import { normalizeSpaces, sentenceBoundaryTrim } from '../utils/editorialText';
-import { buildSourceOpenPath, buildSourceOriginPath, isLibraryHref } from '../utils/sourceRoutes';
+import { buildSourceOpenPath, buildSourceOriginPath, isLibraryHref, parseSourceOrigin } from '../utils/sourceRoutes';
 import { answersHeldSentence } from './judgmentHold';
 
 // The Judgment page's read model.
@@ -614,10 +614,14 @@ const dismissedOvernightIds = (judgment = {}) => {
     });
 };
 
+/* What is already filed, by event id and by the source it came from. A passage
+   filed from the library carries its article, not the event that announced the
+   article, so the same reading offered again overnight would read as news. */
 const filedOvernightOrigins = (judgment = {}) => new Set(
   [...whyLines(judgment), ...againstLines(judgment)]
     .map(line => normalizeSpaces(line.acceptedFrom))
     .filter(Boolean)
+    .flatMap(origin => [origin, parseSourceOrigin(origin).articleId].filter(Boolean))
 );
 
 /* The overnight line: one sentence about what arrived while the human was not
@@ -637,12 +641,14 @@ export const selectOvernightLine = (page, events = []) => {
     .filter(event => normalizeSpaces(event?.status) !== 'ignored')
     .map(event => ({
       id: idOf(event),
+      sources: [event?.sourceObjectId, event?.parentObjectId].map(idOf).filter(Boolean),
       at: event?.sourceUpdatedAt || event?.createdAt || null,
       title: oneSentence(event?.title, 120),
       detail: oneSentence(event?.summary, 140)
     }))
     .filter(event => event.id && event.title)
     .filter(event => !silenced.has(event.id) && !filed.has(event.id))
+    .filter(event => !event.sources.some(source => filed.has(source)))
     .filter(event => answersHeldSentence(`${event.title} ${event.detail}`, claim).ok)
     .sort((left, right) => (time(right.at) || 0) - (time(left.at) || 0));
   const latest = candidates[0];

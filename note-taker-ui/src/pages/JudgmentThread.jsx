@@ -183,6 +183,9 @@ const MorningInbox = ({
      it is said once, quietly. Dismissing your way down to an empty list is
      not the same event, so it stays quiet — the search did find something,
      you just dealt with it. */
+  /* A case that already has lines filed has heard from the library; "nothing
+     speaks to this" under two filed passages reads as the page forgetting them. */
+  if (!found.length && (view?.why?.length || view?.against?.length)) return null;
   if (!found.length) {
     return (
       <p className="judgment-inbox__nothing" role="status">

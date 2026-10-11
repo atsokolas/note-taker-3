@@ -159,7 +159,7 @@ const SharedWikiCollectionPage = () => {
       const firstPage = adoptedPages[0] || result.page || {};
       const adoptedId = pageIdFor(firstPage);
       if (adoptedId && shouldAutoAdopt) {
-        navigate(`/onboarding/wiki?adoptedPage=${encodeURIComponent(adoptedId)}&source=shared`, { replace: true });
+        navigate(`/welcome?took=${encodeURIComponent(adoptedId)}`, { replace: true });
         return;
       }
       if (adoptedId) {

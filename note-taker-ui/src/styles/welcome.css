@@ -1,0 +1,430 @@
+/* First run. One column, the reader's own sentence, and a way out.
+   Written in the judgment page's register, because that is where it lands. */
+
+.welcome {
+  --welcome-ink: var(--noeis-ink, var(--text-primary));
+  --welcome-muted: var(--noeis-ink-muted, var(--text-secondary));
+  --welcome-subtle: var(--noeis-ink-subtle, var(--text-muted));
+  --welcome-rule: var(--noeis-rule, var(--vellum-line));
+  --welcome-thread: var(--noeis-thread, var(--wiki-warm-accent));
+  --welcome-ui: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  --welcome-serif: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  min-height: 100vh;
+  padding: 0 24px 120px;
+  color: var(--welcome-ink);
+  font-family: var(--welcome-ui);
+}
+
+/* ---------- the bar ---------- */
+
+.welcome__bar {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: baseline;
+  gap: 16px;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 22px 0;
+}
+
+.welcome__brand {
+  font-family: var(--welcome-serif);
+  font-size: 1.45rem;
+  font-style: italic;
+  letter-spacing: -0.01em;
+}
+
+.welcome__steps {
+  display: flex;
+  gap: 22px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--welcome-subtle);
+  font-size: 0.84rem;
+}
+
+.welcome__steps li[aria-current='step'] { color: var(--welcome-ink); }
+.welcome__steps li.is-done { color: var(--welcome-muted); }
+
+.welcome .welcome__skip,
+.welcome__skip {
+  justify-self: end;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--welcome-subtle);
+  font: inherit;
+  font-size: 0.84rem;
+  cursor: pointer;
+}
+
+.welcome__skip:hover,
+.welcome__skip:focus-visible { color: var(--welcome-ink); }
+
+/* ---------- the column ---------- */
+
+.welcome__column {
+  display: grid;
+  gap: 28px;
+  width: min(100%, 620px);
+  margin: 0 auto;
+  padding-top: clamp(32px, 9vh, 96px);
+}
+
+/* One brief arrival per step, then stillness. */
+@media (prefers-reduced-motion: no-preference) {
+  .welcome__column {
+    animation: welcome-arrive 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+}
+
+@keyframes welcome-arrive {
+  from { opacity: 0; transform: translate3d(0, 6px, 0); }
+  to { opacity: 1; transform: none; }
+}
+
+.welcome__step {
+  display: grid;
+  gap: 22px;
+}
+
+.welcome h1 {
+  margin: 0;
+  font-family: var(--welcome-serif);
+  font-size: clamp(2rem, 3.6vw, 2.75rem);
+  font-weight: 400;
+  line-height: 1.1;
+  letter-spacing: -0.015em;
+}
+
+.welcome h2 {
+  margin: 0;
+  font-family: var(--welcome-ui);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.welcome p { margin: 0; }
+
+.welcome__lede {
+  color: var(--welcome-muted);
+  font-size: 1.02rem;
+  line-height: 1.6;
+}
+
+.welcome__held {
+  display: grid;
+  gap: 4px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid var(--welcome-rule);
+  font-family: var(--welcome-serif);
+  font-size: 1.2rem;
+  font-style: italic;
+  line-height: 1.4;
+}
+
+.welcome__held span {
+  color: var(--welcome-subtle);
+  font-family: var(--welcome-ui);
+  font-size: 0.8rem;
+  font-style: normal;
+}
+
+.welcome__quiet,
+.welcome__hint {
+  color: var(--welcome-subtle);
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+
+.welcome__receipt {
+  color: var(--welcome-ink);
+  font-size: 0.92rem;
+}
+
+.welcome__receipt::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin: 0 10px 2px 0;
+  border-radius: 50%;
+  background: var(--welcome-thread);
+}
+
+.welcome__error {
+  color: var(--noeis-danger, #a33);
+  font-size: 0.88rem;
+}
+
+.welcome a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--welcome-rule);
+  text-underline-offset: 3px;
+}
+
+.welcome a:hover { text-decoration-color: currentColor; }
+
+/* ---------- fields ---------- */
+
+/* body.noeis-editorial paints every field with !important, so these out-rank it. */
+body.noeis-editorial .welcome textarea,
+body.noeis-editorial .welcome input,
+.welcome textarea,
+.welcome input {
+  width: 100%;
+  padding: 8px 0 !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--welcome-rule) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--welcome-ink) !important;
+  font-family: var(--welcome-ui) !important;
+  font-size: 0.98rem;
+  line-height: 1.5;
+  resize: none;
+}
+
+body.noeis-editorial .welcome textarea:focus,
+body.noeis-editorial .welcome input:focus,
+.welcome textarea:focus,
+.welcome input:focus {
+  border-bottom-color: var(--welcome-ink) !important;
+  outline: none;
+}
+
+body.noeis-editorial .welcome .welcome__view-field,
+.welcome .welcome__view-field {
+  overflow: hidden;
+  font-family: var(--welcome-serif) !important;
+  font-size: clamp(1.35rem, 2.4vw, 1.6rem);
+  line-height: 1.35;
+}
+
+.welcome__inline {
+  display: flex;
+  align-items: baseline;
+  gap: 18px;
+}
+
+/* ---------- actions ---------- */
+
+.welcome button:not(.welcome__skip) {
+  min-height: 0;
+  padding: 0 0 1px;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  border-radius: 0;
+  background: transparent;
+  color: var(--welcome-ink);
+  font-family: var(--welcome-ui);
+  font-size: 0.92rem;
+  font-weight: 400;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.welcome button:disabled {
+  border-bottom-color: transparent;
+  color: var(--welcome-subtle);
+  cursor: default;
+}
+
+.welcome .welcome__primary {
+  font-weight: 500;
+}
+
+.welcome .welcome__quiet-action {
+  border-bottom-color: transparent;
+  color: var(--welcome-subtle);
+}
+
+.welcome .welcome__quiet-action:hover { color: var(--welcome-ink); }
+
+.welcome__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px 26px;
+}
+
+.welcome__actions--end {
+  padding-top: 8px;
+}
+
+/* ---------- step one ---------- */
+
+.welcome__examples {
+  display: grid;
+  gap: 10px;
+  padding-top: 18px;
+  border-top: 1px solid var(--welcome-rule);
+  color: var(--welcome-subtle);
+  font-size: 0.86rem;
+}
+
+.welcome__examples ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.welcome .welcome__examples button {
+  padding: 0;
+  border: 0;
+  color: var(--welcome-muted);
+  font-family: var(--welcome-serif);
+  font-size: 1.05rem;
+  font-style: italic;
+  white-space: normal;
+  text-align: left;
+  transition: color 140ms ease;
+}
+
+.welcome .welcome__examples button:hover,
+.welcome .welcome__examples button:focus-visible { color: var(--welcome-ink); }
+
+/* ---------- step two ---------- */
+
+.welcome__source {
+  display: grid;
+  gap: 12px;
+  padding-top: 22px;
+  border-top: 1px solid var(--welcome-rule);
+}
+
+.welcome__source > p {
+  color: var(--welcome-muted);
+  font-size: 0.94rem;
+  line-height: 1.55;
+}
+
+.welcome__arrivals {
+  display: grid;
+  gap: 8px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.welcome__arrivals li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 2px 16px;
+  font-family: var(--welcome-serif);
+  font-size: 1.02rem;
+}
+
+.welcome__arrivals small {
+  color: var(--welcome-subtle);
+  font-family: var(--welcome-ui);
+  font-size: 0.8rem;
+}
+
+.welcome__arrivals li.is-reading span { color: var(--welcome-subtle); }
+.welcome__arrivals li.is-in small { color: var(--welcome-thread); }
+.welcome__arrivals li.is-failed small { color: var(--noeis-danger, #a33); }
+
+/* ---------- step three ---------- */
+
+.welcome__reading {
+  color: var(--welcome-muted);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .welcome__reading {
+    animation: welcome-breathe 1.8s ease-in-out infinite;
+  }
+}
+
+@keyframes welcome-breathe {
+  50% { opacity: 0.55; }
+}
+
+.welcome__passages {
+  display: grid;
+  gap: 34px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.welcome__passages li {
+  display: grid;
+  gap: 10px;
+}
+
+.welcome__passages blockquote {
+  margin: 0;
+  padding-left: 18px;
+  border-left: 1px solid var(--welcome-rule);
+  font-family: var(--welcome-serif);
+  font-size: 1.12rem;
+  line-height: 1.55;
+  transition: color 180ms ease, border-color 180ms ease;
+}
+
+.welcome__passages mark {
+  background: none;
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--welcome-thread) 70%, transparent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+}
+
+.welcome__passage-meta {
+  padding-left: 19px;
+  color: var(--welcome-subtle);
+  font-size: 0.82rem;
+}
+
+.welcome__file,
+.welcome__verdict {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+  padding-left: 19px;
+}
+
+.welcome__verdict {
+  color: var(--welcome-muted);
+  font-size: 0.86rem;
+}
+
+.welcome__passages li.is-why blockquote,
+.welcome__passages li.is-against blockquote {
+  border-left-color: var(--welcome-thread);
+}
+
+.welcome__passages li.is-skip blockquote {
+  color: var(--welcome-subtle);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .welcome__verdict { animation: welcome-arrive 180ms ease-out both; }
+}
+
+/* ---------- narrow ---------- */
+
+@media (max-width: 720px) {
+  .welcome { padding: 0 16px 96px; }
+  .welcome__bar { grid-template-columns: auto 1fr auto; padding: 16px 0; }
+  .welcome__steps { justify-content: center; }
+  .welcome__steps li:not([aria-current='step']) { display: none; }
+  .welcome__column { gap: 24px; padding-top: 28px; }
+  .welcome__inline { flex-direction: column; align-items: stretch; gap: 12px; }
+  .welcome__inline button { align-self: flex-start; }
+}
+
+/* The shell reserves room for a top bar first run does not show. */
+body.noeis-editorial .app-shell-new__body:has(.welcome),
+.app-shell-new__body:has(.welcome) {
+  padding-top: 0 !important;
+}

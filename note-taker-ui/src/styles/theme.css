@@ -558,9 +558,6 @@ body.noeis-editorial .palette-list {
   color: var(--text);
 }
 
-@media (max-width: 640px) {
-}
-
 .three-pane {
   display: grid;
   grid-template-columns: 240px minmax(0, 1fr) 320px;
@@ -10302,103 +10299,6 @@ textarea.think-share-view__offer-field {
   }
 }
 
-/* Onboarding — ambient build progress.
-   A build the user is not waiting on. Calm, corner-anchored, always escapable. */
-.onboarding-build-banner {
-  position: fixed;
-  right: 24px;
-  bottom: 24px;
-  z-index: 2400;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  max-width: min(420px, calc(100vw - 48px));
-  padding: 14px 16px;
-  border: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.12));
-  border-radius: 14px;
-  background: var(--surface-raised, #fff);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
-}
-
-.onboarding-build-banner__copy {
-  display: grid;
-  gap: 3px;
-  min-width: 0;
-}
-
-.onboarding-build-banner__copy strong {
-  font-size: 0.92rem;
-  line-height: 1.3;
-}
-
-.onboarding-build-banner__copy span {
-  font-size: 0.82rem;
-  color: var(--text-secondary);
-  line-height: 1.35;
-}
-
-.onboarding-build-banner__actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-.onboarding-build-banner__primary,
-.onboarding-build-banner__secondary,
-.onboarding-build-banner__dismiss {
-  font-size: 0.8rem;
-  white-space: nowrap;
-  border-radius: 8px;
-  padding: 7px 11px;
-  cursor: pointer;
-  transition: opacity 140ms ease, background-color 140ms ease;
-}
-
-.onboarding-build-banner__primary {
-  border: 1px solid color-mix(in srgb, var(--accent-primary, var(--accent)) 38%, var(--border-subtle));
-  background: color-mix(in srgb, var(--accent-primary, var(--accent)) 10%, transparent);
-  color: var(--text-primary);
-  font-weight: 600;
-}
-
-.onboarding-build-banner__secondary {
-  border: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.16));
-  background: transparent;
-  color: var(--text-primary);
-}
-
-.onboarding-build-banner__dismiss {
-  border: none;
-  background: transparent;
-  color: var(--text-secondary);
-}
-
-.onboarding-build-banner__primary:hover,
-.onboarding-build-banner__secondary:hover,
-.onboarding-build-banner__dismiss:hover {
-  opacity: 0.82;
-}
-
-.onboarding-build-banner.is-failed {
-  border-color: var(--danger-border, rgba(200, 60, 60, 0.35));
-}
-
-@media (max-width: 560px) {
-  .onboarding-build-banner {
-    right: 12px;
-    left: 12px;
-    bottom: 12px;
-    max-width: none;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 10px;
-  }
-
-  .onboarding-build-banner__actions {
-    width: 100%;
-  }
-}
 
 /* Onboarding — the extension ask.
    Reads as the agent asking for something, not as a settings row. */
@@ -10477,117 +10377,6 @@ textarea.think-share-view__offer-field {
   }
 }
 
-/* Onboarding — the first-run walkthrough.
-   Sits beside the product it is describing; never covers it. */
-.onboarding-walkthrough {
-  position: fixed;
-  right: 24px;
-  bottom: 24px;
-  z-index: 2450;
-  width: min(360px, calc(100vw - 48px));
-  display: grid;
-  gap: 10px;
-  padding: 18px 20px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 14px;
-  background: var(--surface-raised, var(--surface));
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.14);
-}
-
-.onboarding-walkthrough__head {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-}
-
-.onboarding-walkthrough__count,
-.onboarding-walkthrough__eyebrow {
-  font-size: 0.68rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-secondary);
-}
-
-.onboarding-walkthrough__title {
-  font-size: 1.02rem;
-  line-height: 1.32;
-}
-
-.onboarding-walkthrough__detail {
-  margin: 0;
-  font-size: 0.87rem;
-  line-height: 1.45;
-  color: var(--text-secondary);
-}
-
-.onboarding-walkthrough__slot {
-  margin-top: 2px;
-}
-
-.onboarding-walkthrough__build {
-  margin: 2px 0 0;
-  padding-top: 10px;
-  border-top: 1px solid var(--border-subtle);
-  font-size: 0.79rem;
-  color: var(--text-secondary);
-}
-
-.onboarding-walkthrough.is-failed .onboarding-walkthrough__build {
-  color: var(--text-primary);
-}
-
-.onboarding-walkthrough__actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-top: 4px;
-}
-
-.onboarding-walkthrough__primary,
-.onboarding-walkthrough__secondary,
-.onboarding-walkthrough__skip {
-  font-size: 0.82rem;
-  padding: 8px 13px;
-  border-radius: 9px;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.onboarding-walkthrough__primary {
-  border: 1px solid color-mix(in srgb, var(--accent-primary, var(--accent)) 38%, var(--border-subtle));
-  background: color-mix(in srgb, var(--accent-primary, var(--accent)) 10%, transparent);
-  color: var(--text-primary);
-  font-weight: 600;
-}
-
-.onboarding-walkthrough__secondary {
-  border: 1px solid var(--border-subtle);
-  background: transparent;
-  color: var(--text-primary);
-}
-
-.onboarding-walkthrough__skip {
-  border: none;
-  background: transparent;
-  color: var(--text-secondary);
-  margin-left: auto;
-}
-
-.onboarding-walkthrough__primary:hover,
-.onboarding-walkthrough__secondary:hover,
-.onboarding-walkthrough__skip:hover {
-  opacity: 0.82;
-}
-
-@media (max-width: 560px) {
-  .onboarding-walkthrough {
-    right: 12px;
-    left: 12px;
-    bottom: 12px;
-    width: auto;
-  }
-}
 
 /* Public wikis you can fork. Editorial, matching the proof gallery around it. */
 .forkable-wikis {
@@ -10768,7 +10557,6 @@ textarea.noeis-form-control {
 .noeis-form-control::placeholder {
   color: color-mix(in srgb, var(--text-muted) 78%, transparent);
 }
-
 
 /* ---------- the inks on the selection menu ----------
 

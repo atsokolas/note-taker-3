@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { listWikiPages } from '../../api/wiki';
 import { wikiReadPath } from '../../utils/wikiFeatureFlags';
-import { isWikiOnboardingComplete, markWikiOnboardingComplete } from '../../onboarding/onboardingState';
 import { purgeUnscopedKeys, scopedKey } from '../../utils/browserScope';
 import { filterReturnViewItems } from '../../utils/cruftSuppression';
 import { formatSurfaceDate } from '../../utils/dateDisplay';
@@ -265,16 +264,6 @@ const WikiFrontPage = ({ initialKind = '' }) => {
     [searchPages]
   );
 
-  const onboardingComplete = isWikiOnboardingComplete();
-  const shouldOpenOnboarding = !loading && !error && !onboardingComplete && hasAnyWikiContent === false;
-
-  useEffect(() => {
-    if (loading || error) return;
-    if (hasAnyWikiContent !== true) return;
-    if (onboardingComplete) return;
-    markWikiOnboardingComplete();
-  }, [error, hasAnyWikiContent, loading, onboardingComplete]);
-
   const proposedCount = useMemo(
     () => canonicalPages.filter(pendingWikiProposal).length,
     [canonicalPages]
@@ -446,15 +435,6 @@ const WikiFrontPage = ({ initialKind = '' }) => {
       <main className="wiki-page wiki-collection" aria-busy="true">
         <h1 className="sr-only">Opening Wiki</h1>
         <p className="wiki-collection__status" role="status">Opening your pages…</p>
-      </main>
-    );
-  }
-
-  if (shouldOpenOnboarding) {
-    return (
-      <main className="wiki-page wiki-collection" aria-busy="true">
-        <h1 className="sr-only">Opening your Wiki</h1>
-        <p className="wiki-collection__status" role="status">Opening the first-page flow...</p>
       </main>
     );
   }
