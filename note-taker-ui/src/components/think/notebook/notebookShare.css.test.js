@@ -51,7 +51,7 @@ describe('printed notebook paper', () => {
     const style = document.createElement('style');
     style.textContent = `${css}\n${printCss}`;
     document.head.appendChild(style);
-    document.documentElement.setAttribute('data-noeis-theme', 'theme.editorial.dark');
+    document.documentElement.setAttribute('data-ui-theme', 'dark');
     document.documentElement.style.setProperty('--noeis-ink', '#f1eadc');
     document.documentElement.style.setProperty('--noeis-ink-subtle', '#948b7d');
     document.documentElement.style.setProperty('--noeis-rule', 'rgba(223, 206, 166, 0.16)');
@@ -88,7 +88,7 @@ describe('printed notebook paper', () => {
     } finally {
       style.remove();
       document.body.innerHTML = '';
-      document.documentElement.removeAttribute('data-noeis-theme');
+      document.documentElement.removeAttribute('data-ui-theme');
       document.documentElement.style.removeProperty('--noeis-ink');
       document.documentElement.style.removeProperty('--noeis-ink-subtle');
       document.documentElement.style.removeProperty('--noeis-rule');

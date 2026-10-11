@@ -53,7 +53,7 @@ describe('IdeaWorkbenchAgentRail', () => {
       />
     );
 
-    expect(screen.getByLabelText('Thought partner computation trace')).toBeInTheDocument();
+    expect(screen.getByLabelText('Partner computation trace')).toBeInTheDocument();
     /* The ticker types one line and folds the rest behind its history control,
        so only the newest is on screen. These tests were written when every
        line rendered at once. Assert what the ticker actually promises: the

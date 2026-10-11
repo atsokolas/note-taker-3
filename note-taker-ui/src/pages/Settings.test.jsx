@@ -38,8 +38,6 @@ const renderSettings = (props = {}) => render(
           typographyScale: 'default',
           density: 'comfortable',
           theme: 'auto',
-          accent: 'electric',
-          brandEnergy: true,
           motion: 'system'
         }}
         onAppearanceCommit={props.onAppearanceCommit || jest.fn().mockResolvedValue({ ok: true })}
@@ -85,8 +83,6 @@ describe('Settings redesign', () => {
       typographyScale: 'large',
       density: 'comfortable',
       theme: 'auto',
-      accent: 'electric',
-      brandEnergy: true,
       motion: 'system'
     } });
 
@@ -129,10 +125,10 @@ describe('Settings redesign', () => {
     expect(await screen.findByText(/1 schema update suggestion/i)).toBeInTheDocument();
   });
 
-  it('finds decorative color through setting search', async () => {
+  it('finds motion through setting search', async () => {
     renderSettings();
-    fireEvent.change(screen.getByLabelText('Find a setting'), { target: { value: 'brand energy' } });
-    fireEvent.click(screen.getByRole('button', { name: /Decorative color/i }));
-    expect(await screen.findByText(/Motion & decoration/i)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Find a setting'), { target: { value: 'animation' } });
+    fireEvent.click(await screen.findByRole('button', { name: /Motion/i }));
+    expect(await screen.findByText(/Reduce Motion preference always wins/i)).toBeInTheDocument();
   });
 });

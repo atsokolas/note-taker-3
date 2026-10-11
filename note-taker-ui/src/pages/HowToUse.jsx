@@ -51,7 +51,7 @@ const HowToUse = () => {
                 <strong>Write a note.</strong> Think is where you turn raw highlights into your words.
               </li>
               <li>
-                <strong>Use Thought partner (optional).</strong> Ask for context, or create a handoff when you want to delegate.
+                <strong>Use Partner (optional).</strong> Ask for context, or create a handoff when you want to delegate.
               </li>
               <li>
                 <strong>Come back to Today.</strong> It resurfaces what matters so your brain stays warm.
