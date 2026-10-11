@@ -3,6 +3,9 @@
 
 const PASSAGE_WORDS = 6;
 const QUOTE_MIN_WORDS = 5;
+// A highlight is shown with the reader's margin note after this label. The
+// author's words and the reader's are two statements, never one quotation.
+const NOTE_LABEL = 'Your note:';
 
 const words = (text = '') => String(text || '')
   .toLowerCase()
@@ -35,7 +38,9 @@ const quotations = (reply = '') => [...String(reply).matchAll(/[“"]([^”"]+)[
 // ellipsis marks words left out, so each piece between ellipses must appear
 // on its own, however short.
 const quotedIn = (span = '', texts = []) => {
-  const haystacks = (Array.isArray(texts) ? texts : []).map(text => ` ${words(text).join(' ')} `);
+  const haystacks = (Array.isArray(texts) ? texts : [])
+    .flatMap(text => String(text || '').split(NOTE_LABEL))
+    .map(text => ` ${words(text).join(' ')} `);
   const pieces = String(span)
     .split(/…|\.{3}/)
     .map(piece => words(piece).join(' '))
@@ -48,4 +53,4 @@ const quotedIn = (span = '', texts = []) => {
 // about what a source said.
 const inventedQuotes = (reply = '', texts = []) => quotations(reply).filter(span => !quotedIn(span, texts));
 
-module.exports = { PASSAGE_WORDS, words, drawsOn, groundedIn, inventedQuotes, quotedIn };
+module.exports = { PASSAGE_WORDS, NOTE_LABEL, words, drawsOn, groundedIn, inventedQuotes, quotedIn };

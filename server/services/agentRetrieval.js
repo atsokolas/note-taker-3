@@ -11,6 +11,7 @@
 // Silence fallback: nothing qualifies, nothing is returned. The caller says
 // the library is quiet; it does not pad the answer with the newest saves.
 const { buildArticlePassages } = require('../ai/articlePassages');
+const { NOTE_LABEL } = require('./agentGrounding');
 
 const CANDIDATES_PER_MODEL = 40;
 const SNIPPET_LENGTH = 700;
@@ -47,10 +48,14 @@ const words = (text = '') => String(text || '')
   .map(word => word.replace(/^'+|'+$/g, '').replace(/'s$/, ''))
   .filter(Boolean);
 
-// Truncation stemming: long words compare on their first six letters, short
-// ones lose a plural s. Crude, but "decisions" finds "decision" and
-// "imagining" finds "imagine" without a dependency.
-const stem = word => (word.length > 6 ? word.slice(0, 6) : word.replace(/(?<=\w{3})s$/, ''));
+// Truncation stemming: a word loses a plural s and an -ed or -ing ending,
+// then compares on its first six letters. Crude, but "decisions" finds
+// "decision", "imagining" finds "imagine" and "trusted" finds "trust"
+// without a dependency.
+const stem = (word) => {
+  const root = word.replace(/(?<=\w{3})s$/, '').replace(/(?<=\w{4})(?:ed|ing)$/, '');
+  return root.length > 6 ? root.slice(0, 6) : root;
+};
 
 const queryTerms = (query = '') => [...new Set(
   words(query).filter(word => word.length >= 3 && !STOPWORDS.has(word))
@@ -93,7 +98,7 @@ const articleUnits = article => [
     .filter(highlight => highlight?.text || highlight?.note)
     .map(highlight => ({
       key: `h${highlight._id}`,
-      text: [highlight.text, highlight.note ? `Your note: ${highlight.note}` : ''].filter(Boolean).join(' ')
+      text: [highlight.text, highlight.note ? `${NOTE_LABEL} ${highlight.note}` : ''].filter(Boolean).join(' ')
     }))
 ].map(unit => ({ ...unit, type: 'article', id: String(article._id), title: article.title || 'Article', updatedAt: article.updatedAt }));
 

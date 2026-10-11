@@ -1,4 +1,4 @@
-const { retrievePassages, readSource, readStandingContext, __testables: { queryTerms, stripImportChrome } } = require('../agentRetrieval');
+const { retrievePassages, readSource, readStandingContext, __testables: { queryTerms, stem, stripImportChrome } } = require('../agentRetrieval');
 
 // A stand-in for a Mongoose model: every query resolves to the given rows,
 // and $text is supported so the lexical path is the one under test.
@@ -36,6 +36,16 @@ describe('retrievePassages', () => {
     expect(queryTerms('What have I saved about tired people making worse decisions?'))
       .toEqual(['tired', 'people', 'making', 'worse', 'decisions']);
     expect(queryTerms('Connect this to anything else I have saved.')).toEqual([]);
+  });
+
+  it('compares a word with its inflections: a search for "trusting" finds "trust"', () => {
+    expect(new Set(['trust', 'trusted', 'trusting', 'trusts'].map(stem)).size).toBe(1);
+    expect(stem('decisions')).toBe(stem('decision'));
+    expect(stem('imagining')).toBe(stem('imagine'));
+    expect(stem('rates')).toBe(stem('rate'));
+    // Short words keep their endings: "red" and "thing" are words, not inflections.
+    expect(stem('thing')).toBe('thing');
+    expect(stem('need')).toBe('need');
   });
 
   it('returns the passage that answers, not every source that shares a word', async () => {

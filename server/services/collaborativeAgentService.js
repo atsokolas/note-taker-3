@@ -13,7 +13,7 @@ const { buildLivingThesisCriticMandate } = require('./agentWorkerRoles');
 const { brokerAgentTurn, resolveAgentCapability, isSharedQuestionContext, sharedQuestionReadCapability } = require('./agentCapabilityBroker');
 const { resolveAgentModelRoute } = require('./agentModelRouter');
 const { chatComplete, isTextGenerationConfigured } = require('../ai/hfTextClient');
-const { groundedIn } = require('./agentGrounding');
+const { groundedIn, NOTE_LABEL } = require('./agentGrounding');
 const { retrievePassages, bestPassage, readSource, readStandingContext } = require('./agentRetrieval');
 const { runAgentLoop } = require('./agentLoop');
 const { describeRevisions, MAX_TEMPORAL_REVISIONS } = require('./wikiAskService');
@@ -152,7 +152,7 @@ const mergeAmbientRelatedItems = ({
 
 // Without a model the partner still answers honestly: it brings the passages
 // that bear on the question, word for word, or says that nothing does.
-const buildPassageReply = ({ query = '', contextItem = null, relatedItems = [] } = {}) => {
+const buildPassageReply = ({ query = '', contextItem = null, relatedItems = [], lead = '' } = {}) => {
   const bound = contextItem?.fullText
     ? bestPassage({ title: contextItem.title, text: contextItem.fullText, query })
     : null;
@@ -163,17 +163,17 @@ const buildPassageReply = ({ query = '', contextItem = null, relatedItems = [] }
     ...shown.filter(item => !item.held).map(item => ({ title: item.title, text: item.replySnippet || item.snippet }))
   ].filter(passage => toSafeString(passage.text));
   if (!passages.length && !views.length) return 'Nothing in your library speaks to this yet.';
-  const opening = views.length
+  const opening = lead || (views.length
     ? `This bears on ${views.length === 1 ? 'a view' : 'views'} you hold.`
-    : passages.length === 1 ? 'This is the passage in your library that bears on it.' : 'These are the passages in your library that bear on it.';
+    : passages.length === 1 ? 'This is the passage in your library that bears on it.' : 'These are the passages in your library that bear on it.');
   return [
     opening,
     // What the reader holds comes first: it is what the reading is weighed against.
     ...views.map(view => `You hold, in ${view.title}: “${truncate(view.held, 400)}”`),
     // A highlight carries the reader's margin note; each is quoted as itself.
     ...passages.map((passage) => {
-      const [said, note] = truncate(passage.text, 600).split(' Your note: ');
-      return `${passage.title}: “${said}”${note ? ` Your note: “${note}”` : ''}`;
+      const [said, note] = truncate(passage.text, 600).split(` ${NOTE_LABEL} `);
+      return `${passage.title}: “${said}”${note ? ` ${NOTE_LABEL} “${note}”` : ''}`;
     })
   ].join('\n\n');
 };
@@ -2386,6 +2386,10 @@ const generateCollaborativeReply = async ({
   let provider = '';
   let loopSources = [];
   let proposals = [];
+  // What the model's own searches found survives a turn that fails after
+  // them (a timeout, an invented quotation): the reader still gets those
+  // passages rather than being told the library has nothing.
+  const searched = [];
   if (!reply && isTextGenerationConfigured()) {
     try {
       const standing = sharedQuestionScoped
@@ -2403,7 +2407,11 @@ const generateCollaborativeReply = async ({
         }),
         sources: [contextItem, ...relatedItems].filter(Boolean),
         ...(sharedQuestionScoped ? {} : {
-          search: query => retrievePassages({ ...retrievalScope, query, forModel: true }),
+          search: async (query) => {
+            const found = await retrievePassages({ ...retrievalScope, query, forModel: true });
+            searched.push(...found);
+            return found;
+          },
           read: id => readSource({ userId: userObjectId, id, models: { Article, NotebookEntry, WikiPage } })
         }),
         ...(WikiRevision && contextItem?.pageId ? {
@@ -2431,7 +2439,15 @@ const generateCollaborativeReply = async ({
     }
   }
   if (!reply && mode === 'internal_only' && !authoredExploration) {
-    finalReply = buildPassageReply({ query: resolvedMessage, contextItem, relatedItems });
+    // The question's own passages first; without any, what the model's
+    // searches found, said to be just that.
+    if (!relatedItems.length) loopSources = mergeSources(searched);
+    finalReply = buildPassageReply({
+      query: resolvedMessage,
+      contextItem,
+      relatedItems: relatedItems.length ? relatedItems : loopSources,
+      lead: !relatedItems.length && loopSources.length ? 'I could not finish an answer; here is what my search found.' : ''
+    });
   }
   finalReply = groundOrdinalWorkspaceReferences(
     finalReply,
