@@ -208,7 +208,7 @@ const TourOverlay = ({
         {step.cta && (
           <button
             type="button"
-            className="ui-button ui-button-secondary tour-cta"
+            className="ui-button tour-cta"
             onClick={() => onAction(step.cta)}
           >
             {step.cta.label}

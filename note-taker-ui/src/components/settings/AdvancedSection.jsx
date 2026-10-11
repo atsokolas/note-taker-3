@@ -37,13 +37,13 @@ const AdvancedSection = ({ uiSettings = {}, section = 'advanced' }) => {
       </div>
 
       <div id="settings-diagnostics" style={{ marginTop: '1.5rem' }}>
-        <h3 style={{ fontFamily: 'var(--noeis-serif, Georgia, serif)', fontWeight: 400 }}>Diagnostics</h3>
+        <h3>Diagnostics</h3>
         <p className="settings-redesign__help">A small redacted report for support. No reading text or credentials.</p>
         <button type="button" className="settings-redesign__btn" onClick={() => setDiagnosticOpen(true)}>Review diagnostic report</button>
       </div>
 
       <div style={{ marginTop: '1.5rem', borderTop: '1px solid var(--settings-rule)', paddingTop: '1.5rem' }}>
-        <h3 style={{ fontFamily: 'var(--noeis-serif, Georgia, serif)', fontWeight: 400 }}>Help & onboarding</h3>
+        <h3>Help & onboarding</h3>
         <p className="settings-redesign__help">Open keyboard help from the top bar. A refresher does not erase drafts or imports.</p>
         <Link to="/how-to-use" className="settings-redesign__link">Help & shortcuts</Link>
         <button
@@ -65,7 +65,7 @@ const AdvancedSection = ({ uiSettings = {}, section = 'advanced' }) => {
       </div>
 
       <div style={{ marginTop: '1.5rem' }}>
-        <h3 style={{ fontFamily: 'var(--noeis-serif, Georgia, serif)', fontWeight: 400 }}>Product administration</h3>
+        <h3>Product administration</h3>
         <p className="settings-redesign__help">Operator analytics and growth tools stay on their own routes.</p>
         <Link to="/marketing-analytics" className="settings-redesign__link">Marketing analytics ↗</Link>
         {' · '}
@@ -80,7 +80,7 @@ const AdvancedSection = ({ uiSettings = {}, section = 'advanced' }) => {
 
       {diagnosticOpen ? (
         <dialog className="settings-redesign__dialog" open>
-          <h2 style={{ fontFamily: 'var(--noeis-serif, Georgia, serif)', fontWeight: 400 }}>Diagnostic report</h2>
+          <h2>Diagnostic report</h2>
           <pre style={{ whiteSpace: 'pre-wrap', fontSize: '0.6875rem' }}>{JSON.stringify(diagnosticReport, null, 2)}</pre>
           <div style={{ marginTop: '1rem', display: 'flex', gap: '0.75rem' }}>
             <button type="button" className="settings-redesign__btn is-primary" onClick={copyDiagnostic}>Copy report</button>

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import ShareDestinations from '../../sharing/ShareDestinations';
-import { Button, QuietButton } from '../../ui';
+import { Button } from '../../ui';
 import {
   getQuestionShare,
   interpretQuestionContribution,
@@ -107,7 +107,7 @@ const TakeReading = ({ reading, disabled, onSave }) => {
       />
       <p className="muted small">{QUESTION_SHARE_TAKE}</p>
       {error ? <p className="status-message error-message">{error}</p> : null}
-      <Button type="button" variant="secondary" onClick={save} disabled={disabled || busy}>
+      <Button type="button" onClick={save} disabled={disabled || busy}>
         {busy ? 'Saving…' : 'Save how you take it'}
       </Button>
     </div>
@@ -140,7 +140,7 @@ const PlaceReading = ({ reading, disabled, onPlace }) => {
       ) : null}
       <p className="muted small">{QUESTION_SHARE_PLACE}</p>
       {error ? <p className="status-message error-message">{error}</p> : null}
-      <Button type="button" variant="secondary" onClick={place} disabled={disabled || busy}>
+      <Button type="button" onClick={place} disabled={disabled || busy}>
         {busy ? 'Placing…' : 'Let this sit beside the question'}
       </Button>
     </article>
@@ -217,7 +217,7 @@ const ShareBrief = ({ brief, disabled, onSave }) => {
       />
       <p className="muted small">{QUESTION_SHARE_BRIEF}</p>
       {error ? <p className="status-message error-message">{error}</p> : null}
-      <Button type="button" variant="secondary" onClick={save} disabled={disabled || busy}>
+      <Button type="button" onClick={save} disabled={disabled || busy}>
         {busy ? 'Saving…' : 'Save this brief'}
       </Button>
     </div>
@@ -263,7 +263,7 @@ const ShareSuccession = ({ succession, disabled, onSave }) => {
       />
       <p className="muted small">{handed ? QUESTION_SHARE_ARCHIVE : QUESTION_SHARE_HAND}</p>
       {error ? <p className="status-message error-message">{error}</p> : null}
-      <Button type="button" variant="secondary" onClick={save} disabled={disabled || busy}>
+      <Button type="button" onClick={save} disabled={disabled || busy}>
         {busy ? 'Saving…' : handed ? 'Save what happened later' : 'Hand this on'}
       </Button>
     </div>
@@ -329,7 +329,7 @@ const ShareMandate = ({ mandate, ownerName, disabled, onSave, onEnd }) => {
       <div className="concept-share-modal__note" data-testid="question-share-mandate-form">
         <p className="muted small">{QUESTION_SHARE_MANDATE}</p>
         {error ? <p className="status-message error-message">{error}</p> : null}
-        <Button type="button" variant="secondary" onClick={end} disabled={disabled || busy}>
+        <Button type="button" onClick={end} disabled={disabled || busy}>
           {busy ? 'Saving…' : QUESTION_SHARE_END_MANDATE}
         </Button>
       </div>
@@ -412,7 +412,7 @@ const ShareMandate = ({ mandate, ownerName, disabled, onSave, onEnd }) => {
       />
       <p className="muted small">{QUESTION_SHARE_MANDATE}</p>
       {error ? <p className="status-message error-message">{error}</p> : null}
-      <Button type="button" variant="secondary" onClick={save} disabled={disabled || busy}>
+      <Button type="button" onClick={save} disabled={disabled || busy}>
         {busy ? 'Saving…' : QUESTION_SHARE_NAME_MANDATE}
       </Button>
     </div>
@@ -461,17 +461,17 @@ const ShareRecords = ({
       {receipt ? <p className="muted small" role="status">{receipt}</p> : null}
       <div className="concept-share-modal__actions">
         {canTake ? (
-          <Button type="button" variant="secondary" onClick={take} disabled={disabled || busy}>
+          <Button type="button" onClick={take} disabled={disabled || busy}>
             {QUESTION_SHARE_TAKE_RECORDS}
           </Button>
         ) : null}
-        <QuietButton
+        <Button variant="quiet"
           type="button"
           onClick={() => fileRef.current?.click()}
           disabled={disabled || busy}
         >
           {busy ? 'Returning…' : QUESTION_SHARE_BRING_RECORDS}
-        </QuietButton>
+        </Button>
         <input
           ref={fileRef}
           type="file"
@@ -828,7 +828,7 @@ const QuestionShareModal = ({ open, questionId, questionText, onClose }) => {
                     onFocus={(event) => event.target.select()}
                   />
                   <ShareDestinations url={url} title="A question from Noeis" />
-                  <Button type="button" variant="secondary" onClick={handleCopy} disabled={busy}>
+                  <Button type="button" onClick={handleCopy} disabled={busy}>
                     Copy link
                   </Button>
                 </div>
@@ -856,9 +856,9 @@ const QuestionShareModal = ({ open, questionId, questionText, onClose }) => {
                       {busy ? 'Updating…' : 'Update shared version'}
                     </Button>
                   ) : null}
-                  <QuietButton type="button" onClick={handleRevoke} disabled={busy}>
+                  <Button variant="quiet" type="button" onClick={handleRevoke} disabled={busy}>
                     Revoke link
-                  </QuietButton>
+                  </Button>
                   <Button type="button" onClick={onClose}>Done</Button>
                 </div>
               </div>
@@ -867,11 +867,11 @@ const QuestionShareModal = ({ open, questionId, questionText, onClose }) => {
                 <Button type="button" onClick={handleMint} disabled={busy} data-testid="question-publish-share">
                   Create public link
                 </Button>
-                <QuietButton type="button" onClick={onClose}>Cancel</QuietButton>
+                <Button variant="quiet" type="button" onClick={onClose}>Cancel</Button>
               </div>
             ) : (
               <div className="concept-share-modal__actions">
-                <QuietButton type="button" onClick={onClose}>Cancel</QuietButton>
+                <Button variant="quiet" type="button" onClick={onClose}>Cancel</Button>
               </div>
             )}
             {error ? <p className="status-message error-message">{error}</p> : null}

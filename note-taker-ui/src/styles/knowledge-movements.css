@@ -23,7 +23,7 @@
 
 .knowledge-movements__heading h2 {
   color: var(--text-primary);
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--font-serif);
   font-size: clamp(1.65rem, 3vw, 2.7rem);
   font-weight: 580;
   letter-spacing: -0.025em;
@@ -36,7 +36,7 @@
   margin: 0;
   max-width: 64ch;
   color: var(--text-secondary);
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--font-serif);
   font-size: 1rem;
   line-height: 1.62;
 }
@@ -109,7 +109,7 @@
   flex-wrap: wrap;
   gap: 7px 14px;
   color: var(--text-muted);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: 0.67rem;
   font-weight: 700;
   letter-spacing: 0.1em;
@@ -131,7 +131,7 @@
   grid-column: 1;
   margin: 6px 0 0;
   max-width: 29ch;
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--font-serif);
   font-size: clamp(1.2rem, 2.2vw, 1.8rem);
   font-weight: 620;
   letter-spacing: -0.018em;
@@ -156,7 +156,7 @@
   margin: 4px 0 0;
   max-width: 68ch;
   color: var(--text-secondary);
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--font-serif);
   font-size: 1.03rem;
   line-height: 1.62;
   text-wrap: pretty;
@@ -194,7 +194,7 @@
 .knowledge-movement__outcome-result strong {
   display: block;
   margin-top: 5px;
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--font-serif);
   font-size: clamp(1.45rem, 2.4vw, 2rem);
   font-weight: 520;
   line-height: 1.05;
@@ -204,7 +204,7 @@
 .knowledge-movement__reviewed-outcome div > p {
   margin: 7px 0 0;
   color: var(--text-secondary);
-  font: 1rem/1.55 Georgia, "Times New Roman", serif;
+  font: 1rem/1.55 var(--font-serif);
   text-wrap: pretty;
 }
 
@@ -376,7 +376,7 @@
 .knowledge-movement__delta-label {
   margin: 0 0 0.2rem;
   color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.7rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -391,7 +391,7 @@
 }
 
 .knowledge-movement__affects li {
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 0.92rem;
   line-height: 1.45;
 }
@@ -403,7 +403,7 @@
 
 .knowledge-movement__asks-line {
   margin: 0;
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 0.92rem;
 }
 

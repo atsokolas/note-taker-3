@@ -333,8 +333,8 @@ const WikiSparsePages = ({ pages = [], onOpenPage, onOpenWorkspace, onBuildPage,
       <strong>Grow the map deliberately</strong>
       <span>Add pages with citations, then connect them through links, shared sources, and review relationships.</span>
       <div className="wiki-index__sparse-actions">
-        <Button type="button" variant="secondary" onClick={onBuildPage || onOpenWorkspace}>Build page</Button>
-        <Button type="button" variant="secondary" onClick={onOpenSources || onOpenWorkspace}>Add source</Button>
+        <Button type="button" onClick={onBuildPage || onOpenWorkspace}>Build page</Button>
+        <Button type="button" onClick={onOpenSources || onOpenWorkspace}>Add source</Button>
       </div>
     </div>
     {pages.length ? (
@@ -473,7 +473,7 @@ const WikiGraph = ({ graph, mapGraph, onOpenPage }) => {
   return (
     <div className="wiki-graph" aria-label="Knowledge map">
       <div className="wiki-graph__actions" aria-label="Map controls">
-        <Button type="button" variant="secondary" onClick={() => graphRef.current?.zoomToFit?.(650, 80)}>
+        <Button type="button" onClick={() => graphRef.current?.zoomToFit?.(650, 80)}>
           Center map
         </Button>
       </div>
@@ -845,7 +845,7 @@ const WikiIndex = ({ onOpenPage, onOpenList, onBuildPage, onOpenSources }) => {
             />
           )}
         </div>
-        <Button type="submit" variant="secondary" disabled={ingestingSource || !(sourceMode === 'text' ? sourceText.trim() : sourceUrl.trim())}>
+        <Button type="submit" disabled={ingestingSource || !(sourceMode === 'text' ? sourceText.trim() : sourceUrl.trim())}>
           {ingestingSource ? 'Dropping...' : 'Drop'}
         </Button>
       </form>

@@ -8,8 +8,6 @@ body.noeis-editorial.judgment-route .topbar .brand-gradient {
 }
 
 .judgment-room {
-  --judgment-display: var(--noeis-display-font, var(--noeis-font-reading, Georgia, serif));
-  --judgment-reading: var(--noeis-font-reading, Georgia, serif);
   --judgment-ui: var(--noeis-font-ui, system-ui, sans-serif);
   --judgment-ink: var(--noeis-ink, var(--text-primary));
   --judgment-muted: var(--noeis-ink-muted, var(--text-muted));
@@ -36,7 +34,7 @@ body.noeis-editorial.judgment-route .topbar .brand-gradient {
 }
 
 .judgment-shelf .room-shelf__item {
-  font-family: var(--judgment-reading);
+  font-family: var(--font-serif);
 }
 
 /* ---------- the column ---------- */
@@ -70,7 +68,7 @@ body.noeis-editorial.judgment-route .topbar .brand-gradient {
 .judgment-quiet {
   margin: 0;
   color: var(--judgment-subtle);
-  font: italic 400 0.98rem/1.5 var(--judgment-reading);
+  font: italic 400 0.98rem/1.5 var(--font-serif);
 }
 
 .judgment-error {
@@ -88,7 +86,6 @@ body.noeis-editorial.judgment-route .topbar .brand-gradient {
 
 /* Every control on these pages is a word with a hairline under it. */
 .judgment-actions button,
-.judgment-index__hold,
 .judgment-view__actions button,
 .judgment-view__resolve button,
 .judgment-view__record-foot button,
@@ -124,12 +121,6 @@ body.noeis-editorial.judgment-route .topbar .brand-gradient {
 
 /* ---------- the index ---------- */
 
-.judgment-index__title {
-  margin: 0 0 32px;
-  font: 400 var(--noeis-type-display, 2.6rem)/1.05 var(--judgment-display);
-  letter-spacing: -0.01em;
-}
-
 .judgment-hold {
   display: grid;
   gap: 14px;
@@ -148,17 +139,12 @@ body.noeis-editorial.judgment-route .topbar .brand-gradient {
   border-bottom: 1px solid var(--judgment-rule);
   background: transparent;
   color: var(--judgment-ink);
-  font: 400 clamp(1.25rem, 1.1rem + 0.6vw, 1.6rem)/1.35 var(--judgment-reading);
+  font: 400 clamp(1.25rem, 1.1rem + 0.6vw, 1.6rem)/1.35 var(--font-serif);
 }
 
 .judgment-hold input::placeholder {
   color: var(--judgment-subtle);
   opacity: 0.8;
-}
-
-.judgment-index__hold {
-  justify-self: start;
-  margin-bottom: 40px;
 }
 
 .judgment-index__list {
@@ -178,7 +164,7 @@ body.noeis-editorial.judgment-route .topbar .brand-gradient {
 
 .judgment-index__list a {
   color: var(--judgment-ink);
-  font: 400 1.22rem/1.38 var(--judgment-reading);
+  font: 400 1.22rem/1.38 var(--font-serif);
   text-decoration: none;
   text-wrap: pretty;
 }
@@ -206,14 +192,14 @@ body.noeis-editorial.judgment-route .topbar .brand-gradient {
 .judgment-view__sentence {
   margin: 0;
   color: var(--judgment-ink);
-  font: 400 clamp(1.9rem, 1.4rem + 1.8vw, 2.9rem)/1.14 var(--judgment-display);
+  font: 400 clamp(1.9rem, 1.4rem + 1.8vw, 2.9rem)/1.14 var(--font-serif);
   letter-spacing: -0.012em;
   text-wrap: balance;
 }
 
 .judgment textarea.judgment-view__sentence {
   width: 100%;
-  font: 400 clamp(1.9rem, 1.4rem + 1.8vw, 2.9rem)/1.14 var(--judgment-display);
+  font: 400 clamp(1.9rem, 1.4rem + 1.8vw, 2.9rem)/1.14 var(--font-serif);
   color: var(--judgment-ink);
   padding: 0 0 10px;
   border: 0;
@@ -285,7 +271,7 @@ body.noeis-editorial.judgment-route .topbar .brand-gradient {
 .judgment-column blockquote {
   margin: 0;
   color: var(--judgment-ink);
-  font: 400 1.02rem/1.55 var(--judgment-reading);
+  font: 400 1.02rem/1.55 var(--font-serif);
   text-wrap: pretty;
 }
 
@@ -316,7 +302,7 @@ body.noeis-editorial.judgment-route .topbar .brand-gradient {
   border: 0;
   background: transparent;
   color: var(--judgment-ink);
-  font: 400 1.12rem/1.5 var(--judgment-reading);
+  font: 400 1.12rem/1.5 var(--font-serif);
   text-align: left;
   cursor: text;
 }
@@ -342,7 +328,7 @@ body.noeis-editorial.judgment-route .topbar .brand-gradient {
   border-bottom: 1px solid var(--judgment-rule);
   background: transparent;
   color: var(--judgment-ink);
-  font: 400 1.12rem/1.5 var(--judgment-reading);
+  font: 400 1.12rem/1.5 var(--font-serif);
 }
 
 .judgment-test__form label {
@@ -379,7 +365,7 @@ body.noeis-editorial.judgment-route .topbar .brand-gradient {
   display: grid;
   grid-template-columns: 4.5rem minmax(0, 1fr);
   gap: 12px;
-  font: 400 0.98rem/1.5 var(--judgment-reading);
+  font: 400 0.98rem/1.5 var(--font-serif);
 }
 
 .judgment-record time {
@@ -441,7 +427,7 @@ body.noeis-editorial.judgment-route .topbar .brand-gradient {
 .judgment-reading blockquote {
   margin: 0;
   color: var(--judgment-ink);
-  font: 400 1.02rem/1.55 var(--judgment-reading);
+  font: 400 1.02rem/1.55 var(--font-serif);
 }
 
 @keyframes judgment-arrive {
@@ -471,7 +457,7 @@ body.noeis-editorial.judgment-route .topbar .brand-gradient {
 .judgment-mirror h1 {
   margin: 0.4rem 0;
   color: var(--noeis-ink, var(--text-primary));
-  font: 400 clamp(3rem, 7vw, 5.5rem)/0.95 var(--noeis-display-font, var(--noeis-font-reading, serif));
+  font: 400 clamp(3rem, 7vw, 5.5rem)/0.95 var(--font-serif);
 }
 
 .judgment-mirror h2 {
@@ -504,7 +490,7 @@ body.noeis-editorial.judgment-route .topbar .brand-gradient {
 .mirror__stat-value {
   justify-self: start;
   color: var(--noeis-ink, var(--text-primary));
-  font: 400 1.28rem/1.35 var(--noeis-font-reading, serif);
+  font: 400 1.28rem/1.35 var(--font-serif);
   border-bottom: 1px solid transparent;
 }
 
@@ -536,7 +522,7 @@ body.noeis-editorial.judgment-route .topbar .brand-gradient {
 
 .judgment-mirror__record ul { margin: 0; padding: 0; list-style: none; }
 .judgment-mirror__due span,
-.judgment-mirror__record a { color: var(--noeis-ink, var(--text-primary)); font: 400 1.05rem/1.4 var(--noeis-font-reading, serif); }
+.judgment-mirror__record a { color: var(--noeis-ink, var(--text-primary)); font: 400 1.05rem/1.4 var(--font-serif); }
 .judgment-mirror__record p { grid-column: 1; margin: 0; }
 .judgment-mirror__record time,
 .judgment-mirror__due small { grid-column: 2; grid-row: 1 / span 2; font: 400 0.78rem/1.4 var(--noeis-font-ui, sans-serif); }
@@ -544,7 +530,7 @@ body.noeis-editorial.judgment-route .topbar .brand-gradient {
 .judgment-mirror__calibration p {
   margin: 0 0 0.45rem;
   color: var(--noeis-ink, var(--text-primary));
-  font: 400 1.05rem/1.45 var(--noeis-font-reading, serif);
+  font: 400 1.05rem/1.45 var(--font-serif);
 }
 
 .judgment-mirror__decisions {
@@ -566,7 +552,7 @@ body.noeis-editorial.judgment-route .topbar .brand-gradient {
 .judgment-mirror__decision h3 {
   margin: 0;
   color: var(--noeis-ink, var(--text-primary));
-  font: 400 1.35rem/1.28 var(--noeis-font-reading, serif);
+  font: 400 1.35rem/1.28 var(--font-serif);
 }
 
 .judgment-mirror__decision dl {
@@ -583,7 +569,7 @@ body.noeis-editorial.judgment-route .topbar .brand-gradient {
 
 .judgment-mirror__decision dd {
   margin: 7px 0 0;
-  font: 400 1rem/1.5 var(--noeis-font-reading, serif);
+  font: 400 1rem/1.5 var(--font-serif);
 }
 
 .judgment-mirror__sources {

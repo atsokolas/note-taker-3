@@ -1066,7 +1066,7 @@ const CommandPalette = ({ open, onClose }) => {
             placeholder={isWikiSurface ? 'Quick open wiki pages, notes, sources...' : 'Quick open notes, highlights, claims, evidence...'}
             className="palette-input"
           />
-          <Button variant="secondary" onClick={onClose}>Close</Button>
+          <Button onClick={onClose}>Close</Button>
         </div>
         <div className="palette-shortcuts">
           <span className="muted small">Cmd/Ctrl+K: Open</span>

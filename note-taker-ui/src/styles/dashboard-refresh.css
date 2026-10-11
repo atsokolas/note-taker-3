@@ -252,18 +252,8 @@ select {
   letter-spacing: 0.01em;
 }
 
-.ui-button-secondary,
-.ui-button-ghost {
-  background: color-mix(in srgb, var(--noeis-paper) 88%, var(--noeis-paper-muted));
-  color: var(--noeis-ink-muted);
-}
-
 .ui-button-primary {
   background: #1f2f4f;
-}
-
-.ui-pill-button {
-  min-height: 34px;
 }
 
 .ui-chip,
@@ -289,20 +279,6 @@ select {
 .ui-section-header__subtitle {
   font-size: 0.8rem;
   color: var(--noeis-ink-subtle);
-}
-
-.ui-page-title__eyebrow {
-  color: var(--noeis-ink-subtle);
-}
-
-.ui-page-title__title {
-  font-size: var(--type-h1);
-  font-weight: 760;
-}
-
-.ui-page-title__subtitle {
-  color: var(--noeis-ink-muted);
-  font-size: 0.9rem;
 }
 
 .skeleton-block {
@@ -683,14 +659,6 @@ select {
 .article-card-collapsed-text,
 .note-card-collapsed-text {
   color: var(--noeis-ink-muted);
-}
-
-.mode-surface-page > .ui-page-title {
-  padding: 2px 2px 4px;
-}
-
-.mode-surface-page > .ui-page-title .ui-page-title__title {
-  letter-spacing: -0.02em;
 }
 
 .return-queue-page .return-queue-toolbar,
@@ -1237,22 +1205,6 @@ select {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-soft) 30%, transparent);
 }
 
-
-.think-page-title .ui-page-title__title {
-  font-size: clamp(1.55rem, 1.12rem + 1.15vw, 2.16rem);
-  line-height: 1.04;
-  letter-spacing: -0.03em;
-  font-weight: 780;
-  margin: 0;
-}
-
-.think-page-title .ui-page-title__subtitle {
-  margin-top: 6px;
-  font-size: 0.84rem;
-  color: var(--text-muted);
-  line-height: 1.45;
-}
-
 .think-main-actions {
   padding: 0;
   border: none;
@@ -1335,11 +1287,6 @@ select:focus-visible {
 .ui-button-primary:hover {
   background: color-mix(in srgb, var(--accent) 26%, #253864);
   color: #fff;
-}
-
-.ui-pill-button {
-  min-height: 32px;
-  border-radius: 999px;
 }
 
 .ui-tag-chip,
@@ -1472,11 +1419,6 @@ select {
 
 .think-home__continue .ui-section-header {
   align-items: start;
-}
-
-.think-home__continue-actions .ui-pill-button {
-  min-height: 32px;
-  font-weight: 640;
 }
 
 .think-home__row--continue .think-home__row-title {
@@ -1727,11 +1669,6 @@ select {
 }
 
 @media (max-width: 720px) {
-
-  .think-home__continue-actions .ui-pill-button {
-    flex: 1 1 calc(50% - 4px);
-    justify-content: center;
-  }
 
   .think-main-actions__segments {
     width: 100%;

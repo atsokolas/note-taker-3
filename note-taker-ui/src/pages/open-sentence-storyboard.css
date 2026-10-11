@@ -24,7 +24,7 @@
 
 .open-sentence-storyboard h1 {
   margin: 0 0 var(--noeis-space-3);
-  font-family: var(--noeis-font-reading);
+  font-family: var(--font-serif);
   font-size: var(--noeis-type-title);
   font-weight: 520;
 }
@@ -104,7 +104,7 @@
   color: var(--noeis-ink);
   cursor: pointer;
   font: inherit;
-  font-family: var(--noeis-font-ui);
+  font-family: var(--font-sans);
   font-size: 0.88rem;
   font-style: normal;
 }
@@ -120,7 +120,7 @@
   padding-top: var(--noeis-space-6);
   border-top: 1px solid var(--noeis-rule);
   color: var(--noeis-ink-muted);
-  font-family: var(--noeis-font-reading);
+  font-family: var(--font-serif);
   font-style: italic;
 }
 

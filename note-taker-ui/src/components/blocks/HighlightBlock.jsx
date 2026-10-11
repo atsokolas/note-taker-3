@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { TagChip, QuietButton } from '../ui';
+import { TagChip, Button } from '../ui';
 import { buildCanonicalArticlePath } from '../../utils/sourceRoutes';
 
 /**
@@ -67,10 +67,10 @@ const HighlightBlock = ({ highlight, onOpenArticle, onRemove, removeLabel = 'Rem
       {(onRemove || onOpenArticle) && (
         <div className="highlight-block-actions">
           {onOpenArticle && highlight.articleId && (
-            <QuietButton onClick={handleOpenArticle}>Open article</QuietButton>
+            <Button variant="quiet" onClick={handleOpenArticle}>Open article</Button>
           )}
           {onRemove && highlightId && (
-            <QuietButton onClick={() => onRemove(highlightId)}>{removeLabel}</QuietButton>
+            <Button variant="quiet" onClick={() => onRemove(highlightId)}>{removeLabel}</Button>
           )}
         </div>
       )}

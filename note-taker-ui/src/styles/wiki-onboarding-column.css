@@ -26,7 +26,7 @@ body.noeis-editorial .wiki-onboarding__panel,
   border-radius: 0;
   background: transparent;
   box-shadow: none;
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
 }
 
 /* One brief entrance, then stillness — the same arrival as every other page. */
@@ -45,7 +45,7 @@ body.noeis-editorial .wiki-onboarding__paste span,
 .wiki-onboarding__pack span,
 .wiki-onboarding__paste span {
   color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.82rem;
   font-weight: 400;
   letter-spacing: 0;
@@ -54,7 +54,7 @@ body.noeis-editorial .wiki-onboarding__paste span,
 
 body.noeis-editorial .wiki-onboarding h1,
 .wiki-onboarding h1 {
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-family: var(--font-serif);
   font-size: clamp(1.9rem, 3.4vw, 2.8rem);
   font-weight: 400;
   line-height: 1.12;
@@ -64,7 +64,7 @@ body.noeis-editorial .wiki-onboarding h1,
 
 body.noeis-editorial .wiki-onboarding h2,
 .wiki-onboarding h2 {
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 1rem;
   font-weight: 600;
 }
@@ -88,7 +88,7 @@ body.noeis-editorial .wiki-onboarding button,
   border-radius: 0;
   background: transparent;
   color: var(--text-primary, var(--vellum-ink));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.92rem;
   font-weight: 400;
   letter-spacing: 0;
@@ -138,7 +138,7 @@ body.noeis-editorial .wiki-onboarding .wiki-onboarding__pack,
 
 body.noeis-editorial .wiki-onboarding__pack strong,
 .wiki-onboarding__pack strong {
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1.06rem;
   font-weight: 400;
 }
@@ -175,25 +175,25 @@ body.noeis-editorial .wiki-onboarding__example-page,
 .wiki-onboarding__example-page {
   display: grid;
   gap: 18px;
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-family: var(--font-serif);
 }
 
 body.noeis-editorial .wiki-onboarding__example-page p,
 .wiki-onboarding__example-page p {
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1.02rem;
 }
 
 body.noeis-editorial .wiki-onboarding__example > span,
 .wiki-onboarding__example > span {
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1.4rem;
 }
 
 body.noeis-editorial .wiki-onboarding__example small,
 .wiki-onboarding__example small {
   color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.8rem;
   font-weight: 400;
   letter-spacing: 0;
@@ -214,7 +214,7 @@ body.noeis-editorial .wiki-onboarding__paste textarea,
   width: 100%;
   padding: 8px 0 !important;
   color: var(--text-primary, var(--vellum-ink)) !important;
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif) !important;
+  font-family: var(--font-sans) !important;
   font-size: 0.94rem;
 }
 
@@ -258,7 +258,7 @@ body.noeis-editorial .wiki-onboarding__error,
 .wiki-onboarding__archive-primary {
   justify-self: start;
   color: var(--text-primary, var(--vellum-ink));
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1.24rem;
   text-decoration: none;
   border-bottom: 1px solid currentColor;
@@ -267,7 +267,7 @@ body.noeis-editorial .wiki-onboarding__error,
 .wiki-onboarding__archive p {
   margin: 0;
   color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.88rem;
   line-height: 1.6;
 }
@@ -275,7 +275,7 @@ body.noeis-editorial .wiki-onboarding__error,
 .wiki-onboarding__packs-lead {
   margin: 26px 0 10px;
   color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.86rem;
 }
 
@@ -295,14 +295,14 @@ body.noeis-editorial .wiki-onboarding__error,
 }
 
 .wiki-onboarding__claim label strong {
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1.24rem;
   font-weight: 400;
 }
 
 .wiki-onboarding__claim label span {
   color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.88rem;
   line-height: 1.6;
 }
@@ -312,7 +312,7 @@ body.noeis-editorial .wiki-onboarding .wiki-onboarding__claim input,
   width: 100%;
   padding: 6px 0 !important;
   color: var(--text-primary, var(--vellum-ink)) !important;
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif !important;
+  font-family: var(--font-serif) !important;
   font-size: 1.2rem;
   line-height: 1.35;
 }
@@ -335,7 +335,7 @@ body.noeis-editorial .wiki-onboarding .wiki-onboarding__claim input,
 body.noeis-editorial .wiki-onboarding__primary-action,
 .wiki-onboarding__primary-action {
   justify-self: start;
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1.24rem;
   line-height: 1.3;
   color: var(--text-primary, var(--vellum-ink));
@@ -375,7 +375,7 @@ body.noeis-editorial .wiki-onboarding__arrival,
   padding: 10px 0 0;
   border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 62%, transparent);
   color: var(--text-primary, var(--vellum-ink));
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1.06rem;
 }
 
@@ -384,7 +384,7 @@ body.noeis-editorial .wiki-onboarding__arrival,
 .wiki-onboarding__archive-lead {
   margin: 0;
   color: var(--text-primary, var(--vellum-ink));
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1.24rem;
   line-height: 1.3;
 }
@@ -401,7 +401,7 @@ body.noeis-editorial .wiki-onboarding__arrival,
 body.noeis-editorial .wiki-onboarding__provider,
 .wiki-onboarding__provider {
   color: var(--text-primary, var(--vellum-ink));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 1rem;
   text-decoration: none;
   border-bottom: 1px solid currentColor;

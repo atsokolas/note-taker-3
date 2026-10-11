@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { QuietButton } from './ui';
+import { Button } from './ui';
 import { createHighlight } from '../api/highlights';
 import { listWikiPages } from '../api/wiki';
 import EvergreenToggle from './EvergreenToggle';
@@ -527,9 +527,9 @@ const ArticleReader = ({
             />
           ) : null}
           {onMove && (
-            <QuietButton onClick={onMove}>
+            <Button variant="quiet" onClick={onMove}>
               Move
-            </QuietButton>
+            </Button>
           )}
         </div>
       </div>

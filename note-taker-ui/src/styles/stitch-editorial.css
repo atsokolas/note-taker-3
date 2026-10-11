@@ -69,7 +69,7 @@ body.noeis-editorial {
   color-scheme: inherit;
   background: var(--vellum-bg) !important;
   color: var(--vellum-ink);
-  font-family: var(--noeis-font-reading);
+  font-family: var(--font-serif);
 }
 
 body.noeis-editorial,
@@ -225,7 +225,6 @@ html[data-ui-theme='dark'] body.noeis-editorial {
 
 body.noeis-editorial::before,
 body.noeis-editorial::after,
-body.noeis-editorial .brand-gradient,
 body.noeis-editorial .app-shell-new::before,
 body.noeis-editorial .app-shell-new::after {
   display: none !important;
@@ -298,17 +297,12 @@ body.noeis-editorial h3,
 body.noeis-editorial h4,
 body.noeis-editorial h5,
 body.noeis-editorial h6,
-body.noeis-editorial .ui-page-title__title,
 body.noeis-editorial .ui-section-header__title,
 body.noeis-editorial .article-reader-title,
 body.noeis-editorial .library-article-row-title,
 body.noeis-editorial .notebook-ref-title,
-body.noeis-editorial .wiki-front-page__story h1,
-body.noeis-editorial .wiki-front-page__story h1 a,
-body.noeis-editorial .wiki-front-page__grown a,
-body.noeis-editorial .wiki-front-page__index a,
 body.noeis-editorial .think-index__row-title {
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-weight: 350;
   letter-spacing: -0.04em;
   color: var(--text-primary);
@@ -317,14 +311,11 @@ body.noeis-editorial .think-index__row-title {
 body.noeis-editorial p,
 body.noeis-editorial .muted,
 body.noeis-editorial .small,
-body.noeis-editorial .ui-page-title__subtitle,
 body.noeis-editorial .ui-section-header__subtitle,
 body.noeis-editorial .library-article-row-excerpt,
 body.noeis-editorial .article-reader-meta,
 body.noeis-editorial .article-reader-content,
-body.noeis-editorial .think-index__row-meta,
-body.noeis-editorial .today-item-text,
-body.noeis-editorial .review-resurface-text {
+body.noeis-editorial .think-index__row-meta {
   color: var(--vellum-muted) !important;
 }
 
@@ -332,7 +323,7 @@ body.noeis-editorial input,
 body.noeis-editorial textarea,
 body.noeis-editorial select,
 body.noeis-editorial button {
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
 }
 
 body.noeis-editorial .app-shell-new--stitch.app-shell-new--navless {
@@ -429,7 +420,7 @@ body.noeis-editorial .topbar__brand-nav {
 
 body.noeis-editorial .topbar__brand {
   color: var(--vellum-ink);
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1.82rem;
   font-style: italic;
   line-height: 1;
@@ -457,7 +448,7 @@ body.noeis-editorial .topbar__search-slot {
 
 body.noeis-editorial .topbar__primary-link {
   color: color-mix(in srgb, var(--vellum-ink) 72%, transparent);
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1.04rem;
   line-height: 1;
   padding: 4px 0 7px;
@@ -525,7 +516,7 @@ body.noeis-editorial .topbar__search-kbd {
   border: 0 !important;
   background: none !important;
   color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-family: var(--font-mono);
   font-size: 0.68rem;
   letter-spacing: 0.06em;
 }
@@ -561,31 +552,6 @@ body.noeis-editorial .topbar__search-icon::after {
   background: color-mix(in srgb, var(--vellum-ink) 72%, transparent);
   transform: rotate(45deg);
   transform-origin: right center;
-}
-
-body.noeis-editorial .topbar__search {
-  width: 100%;
-  height: 38px;
-  padding: 0 48px 0 38px;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-  background: var(--vellum-panel);
-  color: var(--vellum-ink);
-  font-family: var(--noeis-ui-font);
-  font-size: 0.68rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  -webkit-text-fill-color: var(--vellum-ink);
-}
-
-body.noeis-editorial .topbar__search::placeholder {
-  color: color-mix(in srgb, var(--vellum-ink) 54%, transparent);
-}
-
-body.noeis-editorial .topbar__search:focus {
-  outline: none;
-  box-shadow: inset 0 -1px 0 var(--vellum-accent);
 }
 
 body.noeis-editorial .topbar__right {
@@ -646,11 +612,7 @@ body.noeis-editorial .topbar__button,
 body.noeis-editorial .topbar__menu-item,
 body.noeis-editorial .ui-button,
 body.noeis-editorial .ui-quiet-button,
-body.noeis-editorial .ui-pill-button,
-body.noeis-editorial .list-button,
-body.noeis-editorial .library-empty-cta,
 body.noeis-editorial .ui-tag-chip,
-body.noeis-editorial .tag-chip,
 body.noeis-editorial .notebook-tag-chip {
   border: 0 !important;
   border-radius: 0 !important;
@@ -663,9 +625,7 @@ body.noeis-editorial .notebook-tag-chip {
 body.noeis-editorial .topbar__button,
 body.noeis-editorial .topbar__menu-item,
 body.noeis-editorial .ui-button,
-body.noeis-editorial .ui-quiet-button,
-body.noeis-editorial .ui-pill-button,
-body.noeis-editorial .list-button {
+body.noeis-editorial .ui-quiet-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -680,9 +640,7 @@ body.noeis-editorial .list-button {
 body.noeis-editorial .topbar__button:hover,
 body.noeis-editorial .topbar__menu-item:hover,
 body.noeis-editorial .ui-button:hover,
-body.noeis-editorial .ui-quiet-button:hover,
-body.noeis-editorial .ui-pill-button:hover,
-body.noeis-editorial .list-button:hover {
+body.noeis-editorial .ui-quiet-button:hover {
   background: var(--vellum-panel-strong) !important;
   color: var(--vellum-ink) !important;
   text-decoration: none;
@@ -691,7 +649,6 @@ body.noeis-editorial .list-button:hover {
 
 body.noeis-editorial .topbar__button.is-active,
 body.noeis-editorial .ui-button-primary,
-body.noeis-editorial .list-button.is-active,
 body.noeis-editorial .ui-segmented-nav__item.is-active {
   background: var(--vellum-panel-stronger) !important;
   color: var(--vellum-ink) !important;
@@ -722,44 +679,6 @@ body.noeis-editorial .topbar__menu-popover .topbar__menu-item {
   gap: 8px;
   justify-content: flex-start;
   width: 100%;
-}
-
-body.noeis-editorial .topbar__menu-separator {
-  height: 1px;
-  margin: 3px 0;
-  background: color-mix(in srgb, var(--vellum-line) 76%, transparent);
-}
-
-body.noeis-editorial .topbar--manuscript .topbar__content {
-  grid-template-columns: max-content max-content;
-  gap: 18px;
-  padding: 16px 0 14px;
-}
-
-body.noeis-editorial .topbar--manuscript .topbar__left {
-  gap: 22px;
-}
-
-body.noeis-editorial .topbar--manuscript .topbar__brand {
-  font-size: 1.72rem;
-}
-
-body.noeis-editorial .topbar--manuscript .topbar__brand-nav {
-  gap: 20px;
-}
-
-body.noeis-editorial .topbar--manuscript .topbar__primary-nav {
-  gap: 16px;
-}
-
-body.noeis-editorial .topbar--manuscript .topbar__primary-link {
-  font-size: 0.96rem;
-  color: color-mix(in srgb, var(--vellum-ink) 64%, transparent);
-}
-
-body.noeis-editorial .topbar--manuscript .topbar__right {
-  gap: 6px;
-  flex-wrap: nowrap;
 }
 
 @media (max-width: 1480px) {
@@ -802,7 +721,6 @@ body.noeis-editorial .topbar--manuscript .topbar__right {
   }
 }
 
-
 /* Panels embedded in the page have no chrome — the page is the surface, and a
    card drawn around something already sitting on paper is a box around a box.
 
@@ -817,7 +735,6 @@ body.noeis-editorial .topbar--manuscript .topbar__right {
 body.noeis-editorial .ui-card:not(.palette-card),
 body.noeis-editorial .ui-surface-card,
 body.noeis-editorial .article-reader,
-body.noeis-editorial .working-memory-panel,
 body.noeis-editorial .think-notebook-editor,
 body.noeis-editorial .library-article-list,
 body.noeis-editorial .library-highlights-surface {
@@ -838,38 +755,18 @@ body.noeis-editorial .modal-content {
   box-shadow: 0 18px 48px color-mix(in srgb, var(--vellum-ink, #1c1a17) 12%, transparent);
 }
 
-
-
-body.noeis-editorial .ui-page-title__eyebrow,
 body.noeis-editorial .ui-section-header__subtitle,
 body.noeis-editorial .muted-label,
 body.noeis-editorial .think-index__label,
-body.noeis-editorial .library-highlight-group-header,
 body.noeis-editorial .notebook-insert-label,
 body.noeis-editorial .notebook-organize-label,
-body.noeis-editorial .library-article-row-source,
-body.noeis-editorial .review-resurface-context-title,
-body.noeis-editorial .today-context-title {
-  font-family: var(--noeis-ui-font) !important;
+body.noeis-editorial .library-article-row-source {
+  font-family: var(--font-sans) !important;
   font-size: 0.68rem !important;
   font-weight: 600 !important;
   letter-spacing: 0.18em !important;
   text-transform: uppercase !important;
   color: var(--vellum-subtle) !important;
-}
-
-body.noeis-editorial .ui-page-title__title {
-  font-size: clamp(2.8rem, 5vw, 4.5rem);
-  line-height: 0.96;
-  margin: 0 0 12px;
-}
-
-body.noeis-editorial .ui-page-title__subtitle {
-  max-width: 720px;
-  font-size: 1.24rem;
-  line-height: 1.42;
-  font-style: italic;
-  margin: 0;
 }
 
 body.noeis-editorial .ui-section-header {
@@ -888,17 +785,6 @@ body.noeis-editorial .section-stack {
   gap: 28px;
 }
 
-body.noeis-editorial .library-main-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  margin: 0;
-  padding: 0;
-  position: static;
-  border: 0;
-  background: transparent !important;
-}
-
 body.noeis-editorial .ui-segmented-nav {
   display: flex;
   align-items: center;
@@ -913,35 +799,21 @@ body.noeis-editorial .ui-segmented-nav__item {
 
 body.noeis-editorial .think-index__controls,
 body.noeis-editorial .think-index__group,
-body.noeis-editorial .library-cabinet-actions,
-body.noeis-editorial .library-saved-views,
 body.noeis-editorial .notebook-organize-panel,
 body.noeis-editorial .search-section,
 body.noeis-editorial .first-insight-card,
-body.noeis-editorial .library-context-section__body,
-body.noeis-editorial .working-memory-item,
-body.noeis-editorial .today-item,
-body.noeis-editorial .review-resurface-row,
-body.noeis-editorial .reflection-row,
-body.noeis-editorial .reflection-group {
+body.noeis-editorial .library-context-section__body {
   background: var(--vellum-panel) !important;
 }
 
 body.noeis-editorial .search-section,
 body.noeis-editorial .first-insight-card,
 body.noeis-editorial .notebook-organize-panel,
-body.noeis-editorial .working-memory-panel,
-body.noeis-editorial .library-context-section__body,
-body.noeis-editorial .today-item,
-body.noeis-editorial .review-resurface-row,
-body.noeis-editorial .reflection-row {
+body.noeis-editorial .library-context-section__body {
   padding: 20px;
 }
 
-body.noeis-editorial .think-index__group,
-body.noeis-editorial .library-cabinet-actions,
-body.noeis-editorial .library-saved-views,
-body.noeis-editorial .working-memory-panel {
+body.noeis-editorial .think-index__group {
   padding: 18px;
 }
 
@@ -991,7 +863,6 @@ body.noeis-editorial .think-index__filter select,
 body.noeis-editorial .think-notebook-title-input,
 body.noeis-editorial .notebook-organize-panel input,
 body.noeis-editorial .notebook-organize-panel select,
-body.noeis-editorial .working-memory-input,
 body.noeis-editorial .room-shelf__search input {
   border: 1px solid transparent !important;
   border-radius: 2px !important;
@@ -1003,15 +874,13 @@ body.noeis-editorial .think-index__filter select:focus,
 body.noeis-editorial .think-notebook-title-input:focus,
 body.noeis-editorial .notebook-organize-panel input:focus,
 body.noeis-editorial .notebook-organize-panel select:focus,
-body.noeis-editorial .working-memory-input:focus,
 body.noeis-editorial .room-shelf__search input:focus {
   border-color: var(--wiki-warm-accent, var(--vellum-warm)) !important;
 }
 
 body.noeis-editorial .think-notebook-title-input,
 body.noeis-editorial .notebook-organize-panel input,
-body.noeis-editorial .notebook-organize-panel select,
-body.noeis-editorial .working-memory-input {
+body.noeis-editorial .notebook-organize-panel select {
   min-height: 42px;
   padding: 10px 12px;
 }
@@ -1068,7 +937,7 @@ body.noeis-editorial .library-article-row.is-magnetic.is-activated {
 body.noeis-editorial .library-article-row-receipt {
   align-self: end;
   color: var(--vellum-subtle);
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.62rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -1087,7 +956,7 @@ body.noeis-editorial .library-article-row-receipt {
 
 body.noeis-editorial .library-article-row-date {
   padding-top: 6px;
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.66rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -1139,7 +1008,7 @@ body.noeis-editorial .library-article-row-tag {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.68rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -1163,7 +1032,7 @@ body.noeis-editorial .library-article-row-meta {
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.7rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -1203,7 +1072,7 @@ body.noeis-editorial .article-reader-meta {
   display: flex;
   gap: 14px;
   flex-wrap: wrap;
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.7rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -1212,21 +1081,21 @@ body.noeis-editorial .article-reader-meta {
 body.noeis-editorial .article-folio {
   margin-top: 8px;
   max-width: 38rem;
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1.12rem;
   line-height: 1.5;
   color: var(--ink-human, var(--vellum-ink));
 }
 
 body.noeis-editorial .passage-door {
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   color: var(--ink-human, var(--vellum-ink));
 }
 
 body.noeis-editorial .article-reader-content.reader {
   max-width: 780px;
   margin: 0;
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1.38rem;
   line-height: 1.86;
   color: var(--vellum-ink);
@@ -1241,9 +1110,7 @@ body.noeis-editorial .ProseMirror p {
 body.noeis-editorial .library-context-feed__controls,
 body.noeis-editorial .notebook-toolbar,
 body.noeis-editorial .notebook-insert-buttons,
-body.noeis-editorial .capture-actions,
-body.noeis-editorial .review-resurface-context-actions,
-body.noeis-editorial .today-filter-list {
+body.noeis-editorial .capture-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -1272,11 +1139,7 @@ body.noeis-editorial .think-notebook-editor-header {
 }
 
 body.noeis-editorial .library-reference-item,
-body.noeis-editorial .library-context-feed-item,
-body.noeis-editorial .context-connection-row,
-body.noeis-editorial .today-item,
-body.noeis-editorial .review-resurface-row,
-body.noeis-editorial .reflection-row {
+body.noeis-editorial .library-context-feed-item {
   border: 0 !important;
   border-bottom: 1px solid var(--vellum-line) !important;
   border-radius: 0 !important;
@@ -1289,7 +1152,7 @@ body.noeis-editorial .think-notebook-title-input {
   padding: 0 0 12px;
   background: transparent !important;
   border-bottom: 1px solid var(--vellum-line-strong) !important;
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-size: clamp(2.8rem, 4.4vw, 5rem);
   line-height: 0.96;
   letter-spacing: -0.05em;
@@ -1301,7 +1164,7 @@ body.noeis-editorial .think-notebook-editor-body {
   min-height: 540px;
   padding: 0;
   background: transparent !important;
-  font-family: "Newsreader", Georgia, serif !important;
+  font-family: var(--font-serif) !important;
   font-size: 1.3rem;
   line-height: 1.85;
   color: var(--vellum-ink) !important;
@@ -1325,13 +1188,8 @@ body.noeis-editorial .notebook-list-item {
   background: transparent !important;
 }
 
-body.noeis-editorial .think-index__row-title,
-body.noeis-editorial .today-item-title,
-body.noeis-editorial .review-resurface-title,
-body.noeis-editorial .reflection-row-title,
-body.noeis-editorial .today-context-title,
-body.noeis-editorial .review-resurface-context-title {
-  font-family: "Newsreader", Georgia, serif;
+body.noeis-editorial .think-index__row-title {
+  font-family: var(--font-serif);
   font-size: 1.5rem;
   line-height: 1.1;
   color: var(--vellum-ink);
@@ -1386,7 +1244,7 @@ body.noeis-editorial .agent-ticker__lines {
   margin: 0;
   padding: 0;
   list-style: none;
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 0.76rem;
   line-height: 1.45;
   color: color-mix(in srgb, var(--vellum-ink) 72%, transparent);
@@ -1446,7 +1304,7 @@ body.noeis-editorial .wiki-workspace-chat__ticker .agent-ticker__history {
 }
 
 body.noeis-editorial .wiki-workspace-chat__ticker .agent-ticker__lines {
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.72rem;
   line-height: 1.35;
   color: color-mix(in srgb, var(--vellum-ink) 74%, transparent);
@@ -1483,61 +1341,6 @@ body.noeis-editorial .wiki-workspace-chat__ticker .agent-ticker__line span:not(.
 /* Primary action variant — magnetic-bloom hover. Pairs with rail/toolbar/selection
    motion language. CSS-only fallback uses centered bloom; pointer handler
    in QuietButton sets --bloom-x/y for cursor follow. */
-body.noeis-editorial .ui-quiet-button--primary {
-  position: relative;
-  overflow: hidden;
-  isolation: isolate;
-  padding: 10px 22px !important;
-  border: 1px solid var(--vellum-line-strong) !important;
-  border-radius: 999px !important;
-  background: var(--vellum-bg) !important;
-  color: var(--vellum-ink) !important;
-  font-size: 0.72rem !important;
-  letter-spacing: 0.18em !important;
-  text-transform: uppercase;
-  font-weight: 500;
-  transition: border-color 220ms ease-out, color 220ms ease-out, transform 220ms ease-out, box-shadow 220ms ease-out;
-}
-
-body.noeis-editorial .ui-quiet-button--primary::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: radial-gradient(
-    140px circle at var(--bloom-x, 50%) var(--bloom-y, 50%),
-    rgba(247, 240, 226, 0.95),
-    rgba(247, 240, 226, 0) 65%
-  );
-  opacity: 0;
-  transition: opacity 220ms ease-out;
-  z-index: -1;
-}
-
-body.noeis-editorial .ui-quiet-button--primary:hover {
-  border-color: var(--vellum-ink) !important;
-  transform: translateY(-1px);
-  box-shadow: 0 6px 18px color-mix(in srgb, var(--vellum-ink) 10%, transparent);
-}
-
-body.noeis-editorial .ui-quiet-button--primary:hover::before {
-  opacity: 1;
-}
-
-body.noeis-editorial .ui-quiet-button--primary:focus-visible {
-  outline: 2px solid var(--vellum-ink);
-  outline-offset: 3px;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  body.noeis-editorial .ui-quiet-button--primary,
-  body.noeis-editorial .ui-quiet-button--primary::before {
-    transition: none;
-  }
-  body.noeis-editorial .ui-quiet-button--primary:hover {
-    transform: none;
-  }
-}
 
 /* Override launchpad's flat-link styling for the primary button only */
 
@@ -1569,7 +1372,7 @@ body.noeis-editorial .landing-public__footer {
 }
 
 body.noeis-editorial .landing-public__brand {
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-size: clamp(2.2rem, 3vw, 3rem);
   font-style: italic;
   font-weight: 500;
@@ -1587,7 +1390,7 @@ body.noeis-editorial .landing-public__footer-links {
 
 body.noeis-editorial .landing-public__nav a,
 body.noeis-editorial .landing-public__footer-links a {
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.72rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -1606,7 +1409,7 @@ body.noeis-editorial .landing-public__hero {
 }
 
 body.noeis-editorial .landing-public__eyebrow {
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.68rem;
   font-weight: 600;
   letter-spacing: 0.18em;
@@ -1630,7 +1433,7 @@ body.noeis-editorial .landing-public__main {
 body.noeis-editorial .landing-public__main h1 {
   max-width: 14ch;
   margin: 0;
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-size: clamp(4rem, 8vw, 6.6rem);
   font-weight: 400;
   line-height: 0.9;
@@ -1641,7 +1444,7 @@ body.noeis-editorial .landing-public__main h1 {
 body.noeis-editorial .landing-public__lede {
   max-width: 42rem;
   margin: 0;
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1.28rem;
   line-height: 1.58;
   font-style: italic;
@@ -1704,7 +1507,7 @@ body.noeis-editorial .auth-editorial__lead {
 }
 
 body.noeis-editorial .auth-editorial__brand {
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-size: clamp(2.4rem, 3vw, 3.2rem);
   font-style: italic;
   line-height: 0.95;
@@ -1713,7 +1516,7 @@ body.noeis-editorial .auth-editorial__brand {
 }
 
 body.noeis-editorial .auth-editorial__eyebrow {
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.66rem;
   font-weight: 600;
   letter-spacing: 0.18em;
@@ -1724,7 +1527,7 @@ body.noeis-editorial .auth-editorial__eyebrow {
 body.noeis-editorial .auth-editorial__lead h1,
 body.noeis-editorial .auth-editorial__panel h2 {
   margin: 0;
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-weight: 400;
   line-height: 0.94;
   letter-spacing: -0.05em;
@@ -1743,7 +1546,7 @@ body.noeis-editorial .auth-editorial__panel h2 {
 body.noeis-editorial .auth-editorial__lede,
 body.noeis-editorial .auth-editorial__panel-head p {
   margin: 0;
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1.12rem;
   line-height: 1.58;
   font-style: italic;
@@ -1766,7 +1569,7 @@ body.noeis-editorial .auth-editorial__note {
 body.noeis-editorial .auth-editorial__note span,
 body.noeis-editorial .auth-editorial__field span,
 body.noeis-editorial .auth-editorial__switch span {
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.66rem;
   font-weight: 600;
   letter-spacing: 0.18em;
@@ -1837,7 +1640,7 @@ body.noeis-editorial .auth-editorial__switch-button {
   border-bottom: 1px solid transparent;
   background: transparent;
   color: color-mix(in srgb, var(--vellum-ink) 76%, transparent);
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.72rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -1917,14 +1720,12 @@ body.noeis-editorial .notebook-editorial-shell__main {
   scrollbar-gutter: stable;
 }
 
-
 body.noeis-editorial .notebook-editorial-shell__left,
 body.noeis-editorial .notebook-editorial-shell__main,
 body.noeis-editorial .notebook-editorial-shell__right {
   scrollbar-width: thin;
   scrollbar-color: var(--vellum-scrollbar-thumb) transparent;
 }
-
 
 body.noeis-editorial .notebook-editorial-shell__left::-webkit-scrollbar,
 body.noeis-editorial .notebook-editorial-shell__main::-webkit-scrollbar,
@@ -1933,13 +1734,11 @@ body.noeis-editorial .notebook-editorial-shell__right::-webkit-scrollbar {
   height: 11px;
 }
 
-
 body.noeis-editorial .notebook-editorial-shell__left::-webkit-scrollbar-track,
 body.noeis-editorial .notebook-editorial-shell__main::-webkit-scrollbar-track,
 body.noeis-editorial .notebook-editorial-shell__right::-webkit-scrollbar-track {
   background: linear-gradient(180deg, transparent, var(--vellum-scrollbar-track), transparent);
 }
-
 
 body.noeis-editorial .notebook-editorial-shell__left::-webkit-scrollbar-thumb,
 body.noeis-editorial .notebook-editorial-shell__main::-webkit-scrollbar-thumb,
@@ -1951,7 +1750,6 @@ body.noeis-editorial .notebook-editorial-shell__right::-webkit-scrollbar-thumb {
   min-height: 44px;
 }
 
-
 body.noeis-editorial .notebook-editorial-shell__left:hover,
 body.noeis-editorial .notebook-editorial-shell__left:focus-within,
 body.noeis-editorial .notebook-editorial-shell__main:hover,
@@ -1961,7 +1759,6 @@ body.noeis-editorial .notebook-editorial-shell__right:focus-within {
   scrollbar-color: var(--vellum-scrollbar-thumb-hover) transparent;
 }
 
-
 body.noeis-editorial .notebook-editorial-shell__left:hover::-webkit-scrollbar-thumb,
 body.noeis-editorial .notebook-editorial-shell__left:focus-within::-webkit-scrollbar-thumb,
 body.noeis-editorial .notebook-editorial-shell__main:hover::-webkit-scrollbar-thumb,
@@ -1970,7 +1767,6 @@ body.noeis-editorial .notebook-editorial-shell__right:hover::-webkit-scrollbar-t
 body.noeis-editorial .notebook-editorial-shell__right:focus-within::-webkit-scrollbar-thumb {
   background-color: var(--vellum-scrollbar-thumb-hover);
 }
-
 
 body.noeis-editorial .notebook-editorial-shell__left::-webkit-scrollbar-thumb:active,
 body.noeis-editorial .notebook-editorial-shell__main::-webkit-scrollbar-thumb:active,
@@ -2060,7 +1856,7 @@ body.noeis-editorial .editorial-side-rail__collapsible summary::-webkit-details-
 
 body.noeis-editorial .notebook-editorial-context__advanced summary span,
 body.noeis-editorial .editorial-side-rail__collapsible summary span {
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -2088,7 +1884,7 @@ body.noeis-editorial .agent-thought-partner__passive-status {
   margin: 0;
   padding: 10px 0 0;
   border-top: 1px solid color-mix(in srgb, var(--vellum-ink) 8%, transparent);
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.72rem;
   line-height: 1.45;
   color: color-mix(in srgb, var(--vellum-ink) 58%, transparent);
@@ -2134,7 +1930,7 @@ body.noeis-editorial .reference-pull-in__relations button {
   border-radius: 999px;
   background: transparent;
   color: color-mix(in srgb, var(--vellum-ink) 64%, transparent);
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.62rem;
   font-weight: 800;
   letter-spacing: 0.12em;
@@ -2163,7 +1959,7 @@ body.noeis-editorial .reference-pull-in__search input {
   border-radius: 0;
   background: color-mix(in srgb, var(--vellum-page) 78%, transparent);
   color: var(--vellum-ink);
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.82rem;
   line-height: 1.3;
   padding: 10px 11px;
@@ -2196,7 +1992,7 @@ body.noeis-editorial .reference-pull-in__receipt {
       color-mix(in srgb, var(--vellum-page) 88%, transparent)
     );
   color: var(--vellum-ink);
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.72rem;
   line-height: 1.35;
   animation: referenceReceiptLand 360ms ease-out both;
@@ -2252,7 +2048,7 @@ body.noeis-editorial .reference-pull-in__trace {
   border-left: 1px solid color-mix(in srgb, var(--vellum-cyan) 44%, var(--vellum-line));
   background: color-mix(in srgb, var(--vellum-page) 74%, transparent);
   color: var(--vellum-muted);
-  font-family: var(--noeis-mono-font, "SFMono-Regular", Consolas, monospace);
+  font-family: var(--font-mono);
   font-size: 0.68rem;
   line-height: 1.35;
 }
@@ -2303,7 +2099,7 @@ body.noeis-editorial .reference-pull-in__constellation-head {
   gap: 10px;
   min-width: 0;
   color: var(--vellum-muted);
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.6rem;
   font-weight: 800;
   letter-spacing: 0.16em;
@@ -2331,7 +2127,7 @@ body.noeis-editorial .reference-pull-in__constellation-types span {
   border: 1px solid color-mix(in srgb, var(--vellum-line) 80%, transparent);
   border-radius: 999px;
   color: color-mix(in srgb, var(--vellum-ink) 72%, transparent);
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.64rem;
   font-weight: 650;
   white-space: nowrap;
@@ -2350,7 +2146,7 @@ body.noeis-editorial .reference-pull-in__constellation-edge {
   align-items: baseline;
   min-width: 0;
   color: var(--vellum-ink);
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.7rem;
   text-decoration: none;
 }
@@ -2394,7 +2190,7 @@ body.noeis-editorial .reference-pull-in__backlink-row {
 
 body.noeis-editorial .reference-pull-in__backlinks-head {
   color: var(--vellum-muted);
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.6rem;
   font-weight: 700;
   letter-spacing: 0.16em;
@@ -2409,7 +2205,7 @@ body.noeis-editorial .reference-pull-in__backlink-list {
 
 body.noeis-editorial .reference-pull-in__backlink-row {
   color: color-mix(in srgb, var(--vellum-ink) 82%, transparent);
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.72rem;
   line-height: 1.4;
   text-decoration: none;
@@ -2494,7 +2290,7 @@ body.noeis-editorial .reference-pull-in__result-open {
   align-items: center;
   overflow: hidden;
   color: var(--text-link);
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -2513,7 +2309,7 @@ body.noeis-editorial .reference-pull-in__result-title {
   max-width: 100%;
   overflow: hidden;
   color: var(--vellum-ink);
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.82rem;
   font-weight: 650;
   text-overflow: ellipsis;
@@ -2614,7 +2410,7 @@ body.noeis-editorial .notebook-folder-tree__toolbar-actions {
 
 body.noeis-editorial .notebook-folder-tree__toolbar-label,
 body.noeis-editorial .notebook-folder-tree__toolbar-action {
-  font-family: var(--noeis-ui-font) !important;
+  font-family: var(--font-sans) !important;
   font-size: 0.68rem !important;
   font-weight: 600;
   line-height: 1.45 !important;
@@ -2667,7 +2463,7 @@ body.noeis-editorial .notebook-folder-tree__root {
 }
 
 body.noeis-editorial .notebook-folder-tree__root-label {
-  font-family: var(--noeis-ui-font) !important;
+  font-family: var(--font-sans) !important;
   font-size: 0.82rem !important;
   line-height: 1.45 !important;
   letter-spacing: 0.01em;
@@ -2679,7 +2475,7 @@ body.noeis-editorial .notebook-folder-tree__root-label {
 }
 
 body.noeis-editorial .notebook-folder-tree__entry-meta {
-  font-family: var(--noeis-ui-font) !important;
+  font-family: var(--font-sans) !important;
   font-size: 0.66rem !important;
   line-height: 1.45 !important;
   letter-spacing: 0.12em;
@@ -2736,7 +2532,7 @@ body.noeis-editorial .notebook-folder-tree__entry.is-active {
 
 body.noeis-editorial .notebook-folder-tree__entry-title {
   min-width: 0;
-  font-family: "Newsreader", Georgia, serif !important;
+  font-family: var(--font-serif) !important;
   font-size: 1rem !important;
   line-height: 1.26 !important;
   color: var(--vellum-ink);
@@ -2752,7 +2548,7 @@ body.noeis-editorial .notebook-folder-tree__entry-move {
   border: 0;
   background: transparent;
   color: color-mix(in srgb, var(--vellum-ink) 68%, transparent);
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.66rem;
   font-weight: 600;
   letter-spacing: 0.14em;
@@ -2779,7 +2575,7 @@ body.noeis-editorial .notebook-folder-tree__root-empty {
   padding: 2px 0 10px 24px;
   border-bottom: 1px solid var(--vellum-line);
   color: color-mix(in srgb, var(--vellum-ink) 62%, transparent);
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.72rem;
   line-height: 1.5;
 }
@@ -2811,7 +2607,7 @@ body.noeis-editorial .notebook-move-entry-modal__header {
 
 body.noeis-editorial .notebook-move-entry-modal__eyebrow {
   margin: 0 0 8px;
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.68rem;
   font-weight: 600;
   letter-spacing: 0.16em;
@@ -2840,7 +2636,7 @@ body.noeis-editorial .notebook-move-entry-modal__create-row {
 body.noeis-editorial .notebook-move-entry-modal__create-copy {
   margin: 0;
   color: color-mix(in srgb, var(--vellum-ink) 80%, transparent);
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.78rem;
   line-height: 1.5;
 }
@@ -2885,7 +2681,7 @@ body.noeis-editorial .notebook-move-entry-modal__destination.is-active {
 
 body.noeis-editorial .notebook-move-entry-modal__destination-name,
 body.noeis-editorial .notebook-move-entry-modal__destination-state {
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
 }
 
 body.noeis-editorial .notebook-move-entry-modal__destination-name {
@@ -2981,7 +2777,7 @@ body.noeis-editorial .library-reading-room-lead__hero {
 
 body.noeis-editorial .library-reading-room-lead__eyebrow,
 body.noeis-editorial .library-reading-room-lead__maintenance-label {
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.62rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -2994,7 +2790,7 @@ body.noeis-editorial .library-reading-room-lead__headline {
   border: 0;
   background: transparent;
   text-align: left;
-  font-family: var(--noeis-display-font, var(--noeis-serif));
+  font-family: var(--font-serif);
   font-size: clamp(1.55rem, 2.2vw, 2.15rem);
   line-height: 1.12;
   color: var(--vellum-ink);
@@ -3075,7 +2871,7 @@ body.noeis-editorial .library-reading-room-lead__stats {
   display: flex;
   flex-wrap: wrap;
   gap: 10px 16px;
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.72rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -3221,22 +3017,6 @@ body.noeis-editorial .import-source-card--neutral {
   border-left-color: color-mix(in srgb, var(--text-muted) 72%, transparent);
 }
 
-body.noeis-editorial .import-source-status--connected {
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-body.noeis-editorial .import-source-status--warning {
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-body.noeis-editorial .import-source-status--disconnected {
-  color: color-mix(in srgb, var(--text-muted) 88%, transparent);
-}
-
 body.noeis-editorial .library-article-row-concepts {
   color: color-mix(in srgb, var(--text-link) 72%, var(--vellum-ink));
 }
@@ -3299,7 +3079,7 @@ body.noeis-editorial .library-article-search {
 }
 
 body.noeis-editorial .library-article-search span {
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.62rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -3328,181 +3108,6 @@ body.noeis-editorial .agent-thought-partner__quick-prompts {
   width: 100%;
   max-width: 100%;
   min-width: 0;
-}
-
-body.noeis-editorial .agent-skill-dock {
-  display: grid;
-  gap: 16px;
-  padding: 18px 18px 20px;
-  border: 1px solid var(--vellum-line) !important;
-  border-radius: 26px;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--vellum-panel) 98%, transparent), color-mix(in srgb, var(--vellum-panel-strong) 90%, transparent)) !important;
-  box-shadow: none !important;
-}
-
-body.noeis-editorial .agent-skill-dock__head {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 14px;
-  align-items: start;
-  padding-bottom: 14px;
-  border-bottom: 1px solid var(--vellum-line);
-}
-
-body.noeis-editorial .agent-skill-dock__eyebrow {
-  margin: 0 0 6px;
-  font-family: var(--noeis-ui-font);
-  font-size: 0.56rem;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--dropzone-text-quiet);
-}
-
-body.noeis-editorial .agent-skill-dock__head h3 {
-  margin: 0;
-  font-family: "Newsreader", Georgia, serif;
-  font-size: 1.42rem;
-  line-height: 1.06;
-  letter-spacing: -0.03em;
-  color: var(--vellum-ink);
-}
-
-body.noeis-editorial .agent-skill-dock__head p:last-child {
-  margin: 4px 0 0;
-  font-family: var(--noeis-ui-font);
-  font-size: 0.78rem;
-  line-height: 1.6;
-  color: rgba(79, 74, 70, 0.72);
-}
-
-body.noeis-editorial .agent-skill-dock__selection-pill {
-  align-self: start;
-  padding: 5px 9px;
-  border: 1px solid var(--vellum-line) !important;
-  background: color-mix(in srgb, var(--vellum-bg) 82%, transparent) !important;
-  color: rgba(79, 74, 70, 0.78);
-  font-size: 0.56rem;
-  letter-spacing: 0.16em;
-}
-
-body.noeis-editorial .agent-skill-dock__skills {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-  gap: 12px;
-}
-
-body.noeis-editorial .agent-skill-dock__skill {
-  display: grid;
-  gap: 7px;
-  min-height: 0;
-  padding: 15px 16px;
-  border: 1px solid var(--vellum-line) !important;
-  border-radius: 18px;
-  background: color-mix(in srgb, var(--vellum-bg) 92%, transparent) !important;
-  color: var(--vellum-ink) !important;
-  box-shadow: none !important;
-  text-align: left;
-  transition: border-color 140ms ease, background 140ms ease;
-}
-
-body.noeis-editorial .agent-skill-dock__skill:hover {
-  transform: none;
-  border-color: var(--vellum-line-strong) !important;
-  background: color-mix(in srgb, var(--vellum-panel-strong) 96%, transparent) !important;
-}
-
-body.noeis-editorial .agent-skill-dock__skill-title {
-  font-family: "Newsreader", Georgia, serif;
-  font-size: 1.04rem;
-  line-height: 1.16;
-  letter-spacing: -0.02em;
-}
-
-body.noeis-editorial .agent-skill-dock__skill-summary {
-  font-family: var(--noeis-ui-font);
-  font-size: 0.78rem;
-  line-height: 1.55;
-  color: rgba(79, 74, 70, 0.72);
-}
-
-body.noeis-editorial .agent-skill-dock__skill-meta {
-  font-size: 0.56rem;
-  letter-spacing: 0.16em;
-  color: var(--dropzone-text-quiet);
-}
-
-body.noeis-editorial .agent-skill-dock__footer .ui-quiet-button {
-  padding: 0;
-  border: 0 !important;
-  border-bottom: 1px solid transparent !important;
-  background: transparent !important;
-  color: rgba(79, 74, 70, 0.8) !important;
-  font-family: var(--noeis-ui-font);
-  font-size: 0.62rem;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-}
-
-body.noeis-editorial .agent-skill-dock__footer .ui-quiet-button:hover {
-  border-bottom-color: var(--vellum-line) !important;
-}
-
-body.noeis-editorial .agent-skill-dock--inline {
-  gap: 14px;
-  padding: 14px 0 16px;
-  border: 0 !important;
-  border-top: 1px solid var(--vellum-line) !important;
-  border-bottom: 1px solid var(--vellum-line) !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-}
-
-body.noeis-editorial .agent-skill-dock--inline .agent-skill-dock__head {
-  gap: 10px;
-  padding-bottom: 0;
-  border-bottom: 0;
-}
-
-body.noeis-editorial .agent-skill-dock--inline .agent-skill-dock__head h3 {
-  font-size: 1.02rem;
-  line-height: 1.2;
-  letter-spacing: -0.015em;
-}
-
-body.noeis-editorial .agent-skill-dock--inline .agent-skill-dock__head p:last-child {
-  max-width: 58ch;
-  font-size: 0.74rem;
-  line-height: 1.55;
-}
-
-body.noeis-editorial .agent-skill-dock--inline .agent-skill-dock__skills {
-  grid-template-columns: repeat(auto-fit, minmax(176px, 1fr));
-  gap: 10px;
-}
-
-body.noeis-editorial .agent-skill-dock--inline .agent-skill-dock__skill {
-  gap: 6px;
-  padding: 12px 13px 13px;
-  border-radius: 16px;
-}
-
-body.noeis-editorial .agent-skill-dock--inline .agent-skill-dock__skill-title {
-  font-size: 0.96rem;
-  line-height: 1.14;
-}
-
-body.noeis-editorial .agent-skill-dock--inline .agent-skill-dock__skill-summary {
-  font-size: 0.74rem;
-  line-height: 1.48;
-}
-
-body.noeis-editorial .agent-skill-dock--inline .agent-skill-dock__skill-meta {
-  font-size: 0.53rem;
-}
-
-body.noeis-editorial .agent-skill-dock--inline .agent-skill-dock__footer {
-  display: flex;
-  justify-content: flex-end;
 }
 
 body.noeis-editorial .agent-thought-partner--stream {
@@ -3569,7 +3174,7 @@ body.noeis-editorial .agent-thought-partner__quick-prompts .ui-quiet-button {
   text-align: left;
   text-transform: none;
   letter-spacing: 0;
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 0.92rem;
   font-weight: 400;
   line-height: 1.45;
@@ -3608,7 +3213,7 @@ body.noeis-editorial .agent-thought-partner__posture-tab {
   border: 0;
   background: transparent;
   color: var(--dropzone-text);
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.58rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -3636,7 +3241,7 @@ body.noeis-editorial .agent-thought-partner__posture-tab:disabled {
 body.noeis-editorial .agent-thought-partner__posture-summary {
   margin: 0;
   color: var(--dropzone-text-quiet);
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.72rem;
   line-height: 1.45;
 }
@@ -3665,7 +3270,7 @@ body.noeis-editorial .agent-thought-partner__composer textarea {
   border: 1px solid var(--vellum-line) !important;
   background: color-mix(in srgb, var(--vellum-bg) 84%, transparent) !important;
   color: var(--vellum-ink) !important;
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 0.9rem;
   line-height: 1.5;
   resize: vertical;
@@ -3739,7 +3344,7 @@ body.noeis-editorial .agent-thought-partner__plan-preview::before {
 
 body.noeis-editorial .agent-thought-partner__plan-preview-status {
   margin-top: 5px;
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 0.94rem;
   line-height: 1.22;
   color: color-mix(in srgb, var(--vellum-ink) 90%, transparent);
@@ -3747,7 +3352,7 @@ body.noeis-editorial .agent-thought-partner__plan-preview-status {
 
 body.noeis-editorial .agent-thought-partner__plan-preview h4 {
   margin: 0;
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-size: clamp(1.55rem, 2.4vw, 2.2rem);
   line-height: 0.98;
   letter-spacing: -0.045em;
@@ -3756,7 +3361,7 @@ body.noeis-editorial .agent-thought-partner__plan-preview h4 {
 
 body.noeis-editorial .agent-thought-partner__plan-preview p {
   margin: 0;
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.78rem;
   line-height: 1.58;
   color: rgba(79, 74, 70, 0.78);
@@ -3776,7 +3381,7 @@ body.noeis-editorial .agent-thought-partner__plan-preview-list {
 body.noeis-editorial .agent-thought-partner__plan-preview-list li {
   grid-template-columns: 30px minmax(0, 1fr);
   gap: 10px;
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.82rem;
   line-height: 1.5;
   color: color-mix(in srgb, var(--vellum-ink) 82%, transparent);
@@ -3788,7 +3393,7 @@ body.noeis-editorial .agent-thought-partner__plan-preview-list li::before {
   border: 1px solid rgba(120, 110, 98, 0.14);
   background: rgba(255, 251, 246, 0.9);
   color: rgba(47, 70, 72, 0.8);
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
 }
 
 body.noeis-editorial .agent-thought-partner__plan-preview-actions {
@@ -3834,7 +3439,7 @@ body.noeis-editorial .agent-thought-partner__message.is-user {
 
 body.noeis-editorial .agent-thought-partner__message-role {
   margin: 0;
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.62rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -3846,7 +3451,7 @@ body.noeis-editorial .agent-thought-partner__message p {
   min-width: 0;
   max-width: 100%;
   overflow-wrap: anywhere;
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 0.96rem;
   font-weight: 400;
   line-height: 1.58;
@@ -3891,7 +3496,7 @@ body.noeis-editorial .agent-thought-partner__drafts {
 
 body.noeis-editorial .agent-thought-partner__drafts-head h4 {
   margin: 0;
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1.08rem;
   line-height: 1.14;
   color: var(--vellum-ink);
@@ -3899,7 +3504,7 @@ body.noeis-editorial .agent-thought-partner__drafts-head h4 {
 
 body.noeis-editorial .agent-thought-partner__drafts-head p {
   margin: 4px 0 0;
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.74rem;
   line-height: 1.55;
   color: rgba(79, 74, 70, 0.72);
@@ -3949,7 +3554,7 @@ body.noeis-editorial .agent-thought-partner__draft-meta span {
   border: 1px solid var(--vellum-line) !important;
   border-radius: 999px;
   background: rgba(255, 251, 246, 0.88) !important;
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.56rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -3960,7 +3565,7 @@ body.noeis-editorial .agent-thought-partner__draft-meta span {
 
 body.noeis-editorial .agent-thought-partner__draft-card h4 {
   margin: 0;
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1.18rem;
   line-height: 1.14;
   letter-spacing: -0.02em;
@@ -3972,7 +3577,7 @@ body.noeis-editorial .agent-thought-partner__draft-summary {
   min-width: 0;
   max-width: 100%;
   overflow-wrap: anywhere;
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.82rem;
   line-height: 1.62;
   color: rgba(79, 74, 70, 0.8);
@@ -4039,21 +3644,21 @@ body.noeis-editorial .protocol-activity-log__item:hover .protocol-activity-log__
 }
 
 body.noeis-editorial .protocol-activity-log__eyebrow {
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.58rem;
   letter-spacing: 0.18em;
   color: color-mix(in srgb, var(--vellum-ink) 54%, transparent);
 }
 
 body.noeis-editorial .protocol-activity-log__body h4 {
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1.04rem;
   line-height: 1.08;
   color: var(--vellum-ink);
 }
 
 body.noeis-editorial .protocol-activity-log__body p {
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.8rem;
   line-height: 1.62;
   color: rgba(79, 74, 70, 0.74);
@@ -4064,43 +3669,29 @@ body.noeis-editorial .protocol-activity-log__meta span {
   padding: 0.05rem 0.5rem;
   border: 1px solid rgba(120, 110, 98, 0.12) !important;
   background: rgba(255, 251, 246, 0.84) !important;
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.63rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-}
-
-body.noeis-editorial .article-reader-agent-band {
-  gap: 18px;
-  margin-bottom: 26px;
-}
-
-body.noeis-editorial .article-reader-agent-band__skills {
-  margin: 0;
 }
 
 body.noeis-editorial .article-reader-agent-band__partner.agent-thought-partner {
   padding-top: 2px;
 }
 
-body.noeis-editorial .library-context-stack,
-body.noeis-editorial .review-mode__right-panel {
+body.noeis-editorial .library-context-stack {
   gap: 20px;
 }
 
-
-
-body.noeis-editorial .working-memory-eyebrow,
 body.noeis-editorial .notebook-context__eyebrow,
 body.noeis-editorial .library-context-section__title,
 body.noeis-editorial .library-context-related__title {
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.64rem;
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: color-mix(in srgb, var(--vellum-ink) 72%, transparent);
 }
-
 
 body.noeis-editorial .library-context-feed-panel,
 body.noeis-editorial .notebook-context {
@@ -4128,7 +3719,7 @@ body.noeis-editorial .library-context-section__header {
 }
 
 body.noeis-editorial .library-context-section__meta {
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.66rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -4167,7 +3758,7 @@ body.noeis-editorial .library-context-feed-item__focus {
 }
 
 body.noeis-editorial .library-context-feed-item__text {
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1.08rem;
   line-height: 1.55;
   color: var(--vellum-ink);
@@ -4178,10 +3769,8 @@ body.noeis-editorial .library-context-feed-item .passage-door {
 }
 
 body.noeis-editorial .library-context-feed-item__meta,
-body.noeis-editorial .working-memory-block-meta,
-body.noeis-editorial .working-memory-block-tags,
 body.noeis-editorial .notebook-context .muted-label {
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.66rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -4210,203 +3799,10 @@ body.noeis-editorial .library-context-related {
   gap: 14px;
 }
 
-body.noeis-editorial .working-memory-panel {
-  display: grid;
-  gap: 18px;
-  padding: 0;
-  background: transparent !important;
-}
-
-body.noeis-editorial .working-memory-header-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 14px;
-  align-items: start;
-  padding-top: 14px;
-  border-top: 1px solid var(--vellum-line);
-}
-
-body.noeis-editorial .working-memory-heading {
-  display: grid;
-  gap: 4px;
-}
-
-body.noeis-editorial .working-memory-header-controls {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  min-width: 0;
-}
-
-body.noeis-editorial .working-memory-title,
 body.noeis-editorial .notebook-context__title {
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 2rem;
   line-height: 1;
-  color: var(--vellum-ink);
-}
-
-body.noeis-editorial .working-memory-status-toggle {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-body.noeis-editorial .working-memory-status-toggle button,
-body.noeis-editorial .working-memory-toggle {
-  padding: 0 0 6px;
-  border: 0;
-  border-bottom: 1px solid transparent;
-  border-radius: 0;
-  background: transparent;
-  font-family: var(--noeis-ui-font);
-  font-size: 0.68rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: color-mix(in srgb, var(--vellum-ink) 58%, transparent);
-}
-
-body.noeis-editorial .working-memory-status-toggle button.is-active,
-body.noeis-editorial .working-memory-toggle:hover {
-  color: var(--vellum-ink);
-  border-bottom-color: var(--vellum-line-strong);
-}
-
-body.noeis-editorial .working-memory-toggle {
-  margin-left: auto;
-  white-space: nowrap;
-}
-
-body.noeis-editorial .working-memory-toggle-icon {
-  display: none;
-}
-
-body.noeis-editorial .working-memory-body,
-body.noeis-editorial .working-memory-list {
-  display: grid;
-  gap: 18px;
-}
-
-body.noeis-editorial .working-memory-input-row,
-body.noeis-editorial .working-memory-promote-top,
-body.noeis-editorial .working-memory-promote-details {
-  display: grid;
-  gap: 12px;
-}
-
-body.noeis-editorial .working-memory-input-row .ui-button {
-  justify-self: start;
-}
-
-body.noeis-editorial .working-memory-list-toolbar,
-body.noeis-editorial .working-memory-block-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 12px;
-  align-items: center;
-}
-
-body.noeis-editorial .working-memory-select-all {
-  padding: 0;
-  border: 0;
-  background: transparent;
-  font-family: var(--noeis-ui-font);
-  font-size: 0.68rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--vellum-accent);
-}
-
-body.noeis-editorial .working-memory-promote-bar,
-body.noeis-editorial .working-memory-restore-bar {
-  display: grid;
-  gap: 12px;
-  padding-top: 14px;
-  border-top: 1px solid var(--vellum-line);
-}
-
-body.noeis-editorial .working-memory-promote-bar label {
-  display: grid;
-  gap: 6px;
-}
-
-body.noeis-editorial .working-memory-promote-bar label > span {
-  font-family: var(--noeis-ui-font);
-  font-size: 0.64rem;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: color-mix(in srgb, var(--vellum-ink) 58%, transparent);
-}
-
-body.noeis-editorial .working-memory-promote-buttons {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-}
-
-body.noeis-editorial .working-memory-block {
-  position: relative;
-}
-
-body.noeis-editorial .working-memory-block.is-selected {
-  box-shadow: inset 2px 0 0 var(--vellum-accent);
-}
-
-body.noeis-editorial .working-memory-block-header {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 10px;
-  align-items: baseline;
-}
-
-body.noeis-editorial .working-memory-block-check {
-  padding-top: 2px;
-}
-
-body.noeis-editorial .working-memory-more {
-  padding: 0;
-  border: 0;
-  background: transparent;
-  font-size: 1.1rem;
-  color: color-mix(in srgb, var(--vellum-ink) 58%, transparent);
-}
-
-body.noeis-editorial .working-memory-block-text {
-  margin-top: 8px;
-  font-family: "Newsreader", Georgia, serif;
-  font-size: 1.16rem;
-  line-height: 1.62;
-  color: var(--vellum-ink);
-}
-
-body.noeis-editorial .working-memory-tag {
-  padding: 0;
-  border: 0;
-  background: transparent;
-}
-
-body.noeis-editorial .working-memory-menu {
-  position: absolute;
-  right: 0;
-  top: 22px;
-  z-index: 4;
-  display: grid;
-  gap: 2px;
-  min-width: 220px;
-  padding: 8px;
-  background: var(--vellum-panel-strong);
-  box-shadow: var(--vellum-shadow);
-}
-
-body.noeis-editorial .working-memory-menu button {
-  padding: 8px 10px;
-  border: 0;
-  background: transparent;
-  text-align: left;
-  font-family: var(--noeis-ui-font);
-  font-size: 0.76rem;
   color: var(--vellum-ink);
 }
 
@@ -4438,7 +3834,7 @@ body.noeis-editorial .notebook-insert-labels {
 }
 
 body.noeis-editorial .notebook-insert-label {
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.64rem;
   letter-spacing: 0.22em;
   text-transform: uppercase;
@@ -4571,7 +3967,7 @@ body.noeis-editorial .notebook-context__source--library::after {
 }
 
 body.noeis-editorial .notebook-context__source-kicker {
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.62rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -4580,7 +3976,7 @@ body.noeis-editorial .notebook-context__source-kicker {
 
 body.noeis-editorial .notebook-context__source-link,
 body.noeis-editorial .think-notebook-editor-provenance__body a {
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1rem;
   line-height: 1.24;
   color: var(--vellum-ink);
@@ -4624,7 +4020,7 @@ body.noeis-editorial .think-notebook-editor-provenance--library::before {
 }
 
 body.noeis-editorial .think-notebook-editor-provenance__eyebrow {
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.62rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -4640,7 +4036,7 @@ body.noeis-editorial .think-notebook-editor-provenance__body {
 
 body.noeis-editorial .think-notebook-editor-provenance__body p {
   margin: 6px 0 0;
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 0.92rem;
   line-height: 1.56;
   color: color-mix(in srgb, var(--vellum-ink) 78%, transparent);
@@ -4653,11 +4049,6 @@ body.noeis-editorial .think-notebook-editor-provenance__link {
 body.noeis-editorial .think-notebook-editor-provenance__keep {
   align-self: center;
   white-space: nowrap;
-}
-
-
-body.noeis-editorial .working-memory-panel textarea {
-  min-height: 140px;
 }
 
 body.noeis-editorial .status-message.error-message {
@@ -4674,16 +4065,14 @@ body.noeis-editorial .import-source-card {
 }
 
 body.noeis-editorial .connections-return-loop__feed strong,
-body.noeis-editorial .import-source-card h3,
-body.noeis-editorial .import-source-status {
+body.noeis-editorial .import-source-card h3 {
   overflow-wrap: normal;
   word-break: normal;
   hyphens: manual;
 }
 
 body.noeis-editorial .connections-return-loop__feed p,
-body.noeis-editorial .import-source-card p,
-body.noeis-editorial .import-source-helper {
+body.noeis-editorial .import-source-card p {
   overflow-wrap: break-word;
   word-break: normal;
 }
@@ -4698,19 +4087,6 @@ body.noeis-editorial a:hover {
 
 /* Shared contextual agent frame. The rail stays editorial and subordinate to
    the reading/working plane; surface components still own every action. */
-body.noeis-editorial .agent-context-shell {
-  min-width: 0;
-}
-
-body.noeis-editorial .agent-context-shell__orientation {
-  margin: 0 0 18px;
-  color: var(--vellum-subtle);
-  font-family: var(--noeis-ui-font);
-  font-size: 0.72rem;
-  line-height: 1.55;
-  letter-spacing: 0.04em;
-}
-
 
 body.noeis-editorial .wiki-read__dossier-review {
   margin: 26px 0;
@@ -4721,7 +4097,7 @@ body.noeis-editorial .wiki-read__dossier-judgment-link {
   padding: 18px 0 0;
   border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 58%, transparent);
   color: var(--vellum-subtle);
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.8rem;
 }
 
@@ -4814,7 +4190,7 @@ body.noeis-editorial .wiki-read--standard .wiki-read__toc nav {
 body.noeis-editorial .wiki-read--standard .wiki-read__toc h2,
 body.noeis-editorial .wiki-read--standard .wiki-read__infobox--primary h2 {
   color: var(--vellum-ink);
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -4823,7 +4199,7 @@ body.noeis-editorial .wiki-read--standard .wiki-read__infobox--primary h2 {
 
 body.noeis-editorial .wiki-read--standard .wiki-read__toc a {
   color: var(--vellum-subtle);
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.76rem;
   line-height: 1.4;
 }
@@ -4847,7 +4223,7 @@ body.noeis-editorial .wiki-read--standard .wiki-read__infobox--primary dl {
 body.noeis-editorial .wiki-read--standard .wiki-read__infobox-type {
   margin: -2px 0 12px;
   color: var(--vellum-subtle);
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.72rem;
 }
 
@@ -4856,12 +4232,11 @@ body.noeis-editorial .wiki-read--standard .wiki-read__infobox--primary dl > div 
   gap: 10px;
 }
 
-
 body.noeis-editorial .wiki-read__article-tools {
   margin: 38px 0 18px;
   border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 72%, transparent);
   border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule) 60%, transparent);
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
 }
 
 body.noeis-editorial .wiki-read__article-tools > summary {
@@ -4916,7 +4291,7 @@ body.noeis-editorial .wiki-read__rail-details > summary {
   cursor: pointer;
   list-style: none;
   color: var(--vellum-subtle);
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.7rem;
   font-weight: 650;
   letter-spacing: 0.12em;
@@ -4953,7 +4328,7 @@ body.noeis-editorial .wiki-read__rail-details[open] > summary::after {
     margin: 0 0 8px;
     border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 68%, transparent);
     border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule) 68%, transparent);
-    font-family: var(--noeis-ui-font);
+    font-family: var(--font-sans);
   }
 
   body.noeis-editorial .wiki-read--standard .wiki-read__toc nav {
@@ -5066,7 +4441,6 @@ body.noeis-editorial .wiki-read--standard .wiki-read__toc--mobile {
     padding: 130px 24px 40px;
   }
 
-
   body.noeis-editorial .landing-public {
     width: min(100vw - 32px, 100%);
     padding-top: 20px;
@@ -5088,8 +4462,7 @@ body.noeis-editorial .wiki-read--standard .wiki-read__toc--mobile {
     align-items: flex-start;
   }
 
-  body.noeis-editorial .library-context-feed__controls,
-  body.noeis-editorial .working-memory-header-row {
+  body.noeis-editorial .library-context-feed__controls {
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -5099,10 +4472,6 @@ body.noeis-editorial .wiki-read--standard .wiki-read__toc--mobile {
 
   body.noeis-editorial .library-article-row-date {
     padding-top: 0;
-  }
-
-  body.noeis-editorial .topbar--manuscript .topbar__content {
-    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -5116,19 +4485,13 @@ body.noeis-editorial .wiki-read--standard .wiki-read__toc--mobile {
   }
 
   body.noeis-editorial .topbar__search-slot,
-  body.noeis-editorial .topbar__reference-button,
-  body.noeis-editorial .topbar__utility-button:not(.topbar__utility-button--essential) {
+body.noeis-editorial .topbar__utility-button:not(.topbar__utility-button--essential) {
     display: none !important;
   }
 
   body.noeis-editorial .topbar__brand-nav {
     flex-wrap: nowrap;
     gap: 10px;
-  }
-
-  body.noeis-editorial .working-memory-header-controls {
-    flex-direction: column;
-    align-items: flex-start;
   }
 
   body.noeis-editorial .topbar__primary-nav {
@@ -5188,14 +4551,9 @@ body.noeis-editorial .wiki-read--standard .wiki-read__toc--mobile {
     gap: 10px;
   }
 
-  body.noeis-editorial .ui-page-title__title,
   body.noeis-editorial .article-reader-title,
-  body.noeis-editorial .think-notebook-title-input {
+body.noeis-editorial .think-notebook-title-input {
     font-size: 3rem;
-  }
-
-  body.noeis-editorial .ui-page-title__subtitle {
-    font-size: 1.25rem;
   }
 
   body.noeis-editorial .article-reader-content.reader,
@@ -5244,130 +4602,11 @@ body.noeis-editorial .library-reading-room-lead__cruft-notice {
   max-width: 42ch;
 }
 
-body.noeis-editorial .tix-thread__tag,
-.tix-thread__tag {
-  color: color-mix(in srgb, var(--text-muted) 88%, transparent);
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.tix-lead {
-  margin: 8px 0 0;
-  max-width: 40ch;
-  color: var(--text-primary);
-  font-family: Georgia, "Times New Roman", serif;
-  font-weight: 560;
-  font-size: clamp(1.45rem, 2.4vw, 2.1rem);
-  line-height: 1.32;
-}
-
-.tix-list { display: grid; gap: 30px; }
-
-.tix-eyebrow {
-  margin: 0;
-  color: color-mix(in srgb, var(--text-muted) 92%, transparent);
-  font-size: 0.72rem;
-  font-weight: 750;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
-.tix-motion { display: grid; gap: 6px; padding-top: 14px; border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 72%, transparent); }
-.tix-motion__list { display: grid; gap: 4px; }
-
-.tix-thread {
-  display: grid;
-  gap: 5px;
-  padding: 14px 10px;
-  margin: 0 -10px;
-  border: 0;
-  border-radius: 10px;
-  background: transparent;
-  text-align: left;
-  cursor: pointer;
-}
-.tix-thread:hover { background: color-mix(in srgb, var(--surface) 70%, transparent); }
-.tix-thread__title {
-  color: var(--text-primary);
-  font-family: Georgia, "Times New Roman", serif;
-  font-weight: 650;
-  font-size: 1.3rem;
-  line-height: 1.15;
-}
-.tix-thread__note {
-  color: color-mix(in srgb, var(--text-muted) 92%, transparent);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.72rem;
-  letter-spacing: 0.04em;
-}
-.tix-thread.is-stale .tix-thread__note { color: var(--accent-primary); }
-.tix-thread__desc {
-  color: var(--text-secondary);
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 0.98rem;
-  line-height: 1.55;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.tix-shelf { padding-top: 16px; border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 72%, transparent); }
-.tix-shelf__index {
-  margin: 10px 0 0;
-  max-width: 70ch;
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 1rem;
-  line-height: 1.9;
-}
-.tix-shelf__remainder {
-  margin: 10px 0 0;
-  color: var(--text-muted);
-  font-family: var(--noeis-ui-font);
-  font-size: 0.68rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-.tix-shelf__link {
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--text-primary);
-  font: inherit;
-  cursor: pointer;
-  border-bottom: 1px solid color-mix(in srgb, var(--accent-primary) 45%, transparent);
-}
-.tix-shelf__link:hover { color: var(--accent-primary); border-bottom-color: var(--accent-primary); }
-.tix-shelf__dot { color: var(--text-muted); }
-
-.tix-actions {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  padding-top: 16px;
-  border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 72%, transparent);
-}
-
 /* Arrival: one thing leads, others follow; then stillness. */
-.tix-anim {
-  opacity: 0;
-  transform: translateY(8px);
-  animation: tix-enter 0.5s cubic-bezier(0.18, 0.85, 0.3, 1.04) forwards;
-}
-.tix-anim--1 { animation-delay: 0.05s; }
-.tix-anim--2 { animation-delay: 0.22s; }
-.tix-anim--3 { animation-delay: 0.38s; }
-.tix-anim--4 { animation-delay: 0.5s; }
 @keyframes tix-enter { to { opacity: 1; transform: translateY(0); } }
 
 /* AT-354 — the concept workbench rails must never clip their own content.
    Long letter-spaced eyebrows and prompt rows wrap instead of overflowing. */
-
-@media (prefers-reduced-motion: reduce) {
-  .tix-anim { animation: none; opacity: 1; transform: none; }
-}
 
 /* ---- The top bar, at widths narrower than a desktop ----------------------
  *
@@ -5437,8 +4676,7 @@ body.noeis-editorial .topbar__menu-item--mobile-room {
 
   /* On a phone the search field goes too: there is no keyboard for ⌘K, and the
      palette is still reachable from the icon. */
-  body.noeis-editorial .topbar__search-slot,
-  body.noeis-editorial .topbar__reference-button {
+  body.noeis-editorial .topbar__search-slot {
     display: none !important;
   }
 

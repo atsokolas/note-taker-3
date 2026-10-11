@@ -114,7 +114,7 @@ const AgentLaunchLinkCard = ({ compact = false }) => {
         <div className="agent-launch-link-card__result" role="status">
           <strong>Launch link ready</strong>
           <pre className="external-bridge-pre">{created.runUrl}</pre>
-          <a className="ui-button ui-button-secondary" href={created.runUrl}>Open link</a>
+          <a className="ui-button" href={created.runUrl}>Open link</a>
         </div>
       ) : null}
     </Container>

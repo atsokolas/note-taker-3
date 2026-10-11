@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Page } from '../components/ui';
+import { Page, PageHeader } from '../components/ui';
 import AgentLaunchLinkCard from '../components/integrations/AgentLaunchLinkCard';
 import ConnectionsActivity from '../components/integrations/ConnectionsActivity';
 import ConnectionsAgents from '../components/integrations/ConnectionsAgents';
@@ -16,8 +16,10 @@ import useAgentTokens from '../hooks/integrations/useAgentTokens';
 import usePersonalAgents from '../hooks/integrations/usePersonalAgents';
 import DataIntegrations from './DataIntegrations';
 import ExtensionCaptureCard from '../onboarding/ExtensionCaptureCard';
+import useDocumentTitle from '../hooks/useDocumentTitle';
 
 const Integrations = () => {
+  useDocumentTitle('Connections');
   const [showTaskLinkBuilder, setShowTaskLinkBuilder] = useState(false);
   const [showConnectionDetails, setShowConnectionDetails] = useState(false);
   const [activeTab, setActiveTab] = useState(() => {
@@ -66,10 +68,7 @@ const Integrations = () => {
 
   return (
     <Page className="settings-page integrations-page connections-hub">
-      <header className="connections-hub__header">
-        <h1>Connections</h1>
-        <p>Bring your reading in. Choose who can work with it.</p>
-      </header>
+      <PageHeader title="Connections" lede="Bring your reading in. Choose who can work with it." />
 
       <div className="connections-tabs" role="tablist" aria-label="Connections views">
         {[

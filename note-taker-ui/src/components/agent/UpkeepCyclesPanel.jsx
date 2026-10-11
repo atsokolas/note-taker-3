@@ -1,5 +1,5 @@
 import React from 'react';
-import { Button, QuietButton, SectionHeader, SurfaceCard } from '../ui';
+import { Button, SectionHeader, SurfaceCard } from '../ui';
 
 const clean = (value) => String(value || '').trim();
 
@@ -130,7 +130,6 @@ const UpkeepCyclesPanel = ({
                 <div className="think-upkeep-cycle__actions">
                   <Button
                     type="button"
-                    variant="secondary"
                     disabled={busy || requireForce}
                     onClick={async () => {
                       const response = await handleResumeUpkeepCycle?.(cycleId);
@@ -141,7 +140,7 @@ const UpkeepCyclesPanel = ({
                     {busy ? 'Working…' : (hasOpenRun ? 'Resume run' : 'Start next pass')}
                   </Button>
                   {requireForce && (
-                    <QuietButton
+                    <Button variant="quiet"
                       type="button"
                       disabled={busy}
                       onClick={async () => {
@@ -151,24 +150,24 @@ const UpkeepCyclesPanel = ({
                       }}
                     >
                       Run now
-                    </QuietButton>
+                    </Button>
                   )}
                   {status === 'paused' ? (
-                    <QuietButton type="button" disabled={busy} onClick={() => handleActivateUpkeepCycle?.(cycleId)}>
+                    <Button variant="quiet" type="button" disabled={busy} onClick={() => handleActivateUpkeepCycle?.(cycleId)}>
                       Activate
-                    </QuietButton>
+                    </Button>
                   ) : (
-                    <QuietButton type="button" disabled={busy} onClick={() => handlePauseUpkeepCycle?.(cycleId)}>
+                    <Button variant="quiet" type="button" disabled={busy} onClick={() => handlePauseUpkeepCycle?.(cycleId)}>
                       Pause
-                    </QuietButton>
+                    </Button>
                   )}
-                  <QuietButton type="button" disabled={busy} onClick={() => handleCompleteUpkeepCycle?.(cycleId)}>
+                  <Button variant="quiet" type="button" disabled={busy} onClick={() => handleCompleteUpkeepCycle?.(cycleId)}>
                     Complete
-                  </QuietButton>
+                  </Button>
                   {linkedThreadId && typeof onOpenThread === 'function' && (
-                    <QuietButton type="button" disabled={busy} onClick={() => onOpenThread(linkedThreadId)}>
+                    <Button variant="quiet" type="button" disabled={busy} onClick={() => onOpenThread(linkedThreadId)}>
                       Open thread
-                    </QuietButton>
+                    </Button>
                   )}
                 </div>
               </article>

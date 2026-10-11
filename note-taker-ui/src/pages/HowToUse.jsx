@@ -21,9 +21,9 @@ const HowToUse = () => {
         <p className="muted">You read a lot. You highlight the good parts. You want those ideas to show up when you need them, not vanish into a folder. This fixes that.</p>
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
           <Button onClick={() => navigate('/today')}>Start in Today</Button>
-          <Button variant="secondary" onClick={() => navigate('/library')}>Build your Library</Button>
-          <Button variant="secondary" onClick={() => navigate('/settings')}>Open Settings</Button>
-          <Button variant="secondary" onClick={handleTourClick}>Take the 5‑minute tour</Button>
+          <Button onClick={() => navigate('/library')}>Build your Library</Button>
+          <Button onClick={() => navigate('/settings')}>Open Settings</Button>
+          <Button onClick={handleTourClick}>Take the 5‑minute tour</Button>
         </div>
       </div>
 
@@ -151,7 +151,7 @@ const HowToUse = () => {
               <p className="muted">{card.copy}</p>
               <p className="muted small"><strong>Use this when:</strong> {card.intent}</p>
               <p className="muted small"><strong>Do this next:</strong> {card.next}</p>
-              <Button variant="secondary" onClick={() => navigate(card.route)}>
+              <Button onClick={() => navigate(card.route)}>
                 Go to {card.title}
               </Button>
             </Card>

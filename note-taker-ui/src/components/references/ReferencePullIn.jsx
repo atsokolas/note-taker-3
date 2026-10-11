@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Button, QuietButton, SectionHeader } from '../ui';
+import { Button, SectionHeader } from '../ui';
 import { createConnection, getConnectionsForItem, searchConnectableItems } from '../../api/connections';
 
 const ITEM_TYPE_LABELS = {
@@ -542,7 +542,6 @@ const ReferencePullIn = ({
           aria-label="Search references to pull in"
         />
         <Button
-          variant="secondary"
           disabled={!canLink || results.length === 0 || loading}
           onClick={() => handleLink(results[0])}
         >
@@ -620,14 +619,14 @@ const ReferencePullIn = ({
           {visibleItems.map((item) => {
             const key = `${item.itemType}:${item.itemId}`;
             return (
-              <QuietButton
+              <Button variant="quiet"
                 key={key}
                 className={`reference-pull-in__chip${linkReceipt?.key === key ? ' is-linked' : ''}`}
                 onClick={() => handleLink(item)}
                 disabled={!canLink}
               >
                 {formatTypeLabel(item.itemType)} · {item.title}
-              </QuietButton>
+              </Button>
             );
           })}
         </div>

@@ -1,6 +1,5 @@
 /* Think room styles consume the shared semantic shell package. */
 
-
 .think-layout__left-panel {
   gap: 26px;
 }
@@ -51,12 +50,6 @@
 .think-index__filter select:focus {
   border-color: color-mix(in srgb, var(--accent) 25%, transparent);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-soft) 16%, transparent);
-}
-
-.article-reader-agent-band {
-  display: grid;
-  gap: 14px;
-  margin-bottom: 18px;
 }
 
 .article-reader-agent-band__partner.agent-thought-partner {
@@ -1115,7 +1108,6 @@
    Matches the Library first-run shell from PR #7 so the growth
    onboarding surfaces share one visual vocabulary. */
 
-
 .think-concept-loading {
   border: 0;
   background: var(--noeis-paper);
@@ -1123,7 +1115,6 @@
     0 14px 28px rgba(0, 0, 0, 0.16),
     inset 0 1px 0 rgba(255,255,255,0.02);
 }
-
 
 @media (max-width: 1024px) {
   .topbar {
@@ -1153,8 +1144,6 @@ html[data-ui-theme='dark'] {
   --think-card-shadow-hover: 0 12px 28px rgba(0, 0, 0, 0.28);
 }
 
-
-
 .ui-surface-card,
 .think-concept-loading {
   border: 1px solid var(--think-card-border);
@@ -1163,11 +1152,9 @@ html[data-ui-theme='dark'] {
   background: var(--noeis-paper);
 }
 
-
 .ui-surface-card:hover {
   box-shadow: var(--think-card-shadow-hover);
 }
-
 
 .ui-section-header__subtitle,
 .think-index__row-meta,
@@ -2369,7 +2356,7 @@ html[data-ui-theme='dark'] {
 .wiki-repo-create__progress-kicker,
 .wiki-repo-create__elapsed {
   color: color-mix(in srgb, var(--text-muted) 90%, var(--text-primary));
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 0.62rem;
   font-weight: 800;
   letter-spacing: 0.13em;
@@ -2839,7 +2826,7 @@ html[data-ui-theme='dark'] {
 .wiki-graph__inspector h2 {
   margin: 0;
   color: var(--text-primary);
-  font-family: var(--display-font, Georgia, serif);
+  font-family: var(--font-serif);
   font-size: 1.35rem;
 }
 
@@ -3231,14 +3218,14 @@ html[data-ui-theme='dark'] {
 .wiki-read__share-status {
   margin-top: 5px !important;
   color: var(--accent-primary, var(--noeis-action));
-  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-family: var(--font-sans);
   font-size: 0.72rem !important;
   font-weight: 800;
 }
 
 .wiki-read__share-open {
   color: var(--text-primary);
-  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-family: var(--font-sans);
   font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.14em;
@@ -3479,7 +3466,7 @@ html[data-ui-theme='dark'] {
 .wiki-read__header h1 {
   margin: 0;
   color: var(--text-primary);
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: var(--font-serif);
   font-size: clamp(2.25rem, 5vw, 4.4rem);
   font-weight: 650;
   line-height: 1.02;
@@ -3489,85 +3476,6 @@ html[data-ui-theme='dark'] {
   color: inherit;
   font-style: italic;
   font-weight: inherit;
-}
-
-.wiki-read__exports {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 10px;
-  align-items: center;
-}
-
-.wiki-read__exports button {
-  padding: 6px 10px;
-  border: 1px solid color-mix(in srgb, var(--noeis-rule) 76%, transparent);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--surface) 96%, transparent);
-  color: var(--text-secondary);
-  font: inherit;
-  font-size: 0.78rem;
-  font-weight: 750;
-  cursor: pointer;
-}
-
-.wiki-read__exports button:hover,
-.wiki-read__exports button:focus-visible {
-  border-color: color-mix(in srgb, var(--accent-primary, var(--noeis-action)) 45%, var(--noeis-rule));
-  color: var(--text-primary);
-  outline: none;
-}
-
-.wiki-read__exports span {
-  color: var(--text-muted);
-  font-size: 0.78rem;
-}
-
-.wiki-read__viewbar {
-  display: flex;
-  gap: 12px;
-  align-items: end;
-  justify-content: space-between;
-  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule) 76%, transparent);
-}
-
-.wiki-read__tabs {
-  display: flex;
-  gap: 0;
-  align-items: flex-end;
-  border-bottom: 0;
-}
-
-.wiki-read__tabs button {
-  margin: 0 0 -1px;
-  border: 1px solid transparent;
-  border-bottom-color: color-mix(in srgb, var(--noeis-rule) 76%, transparent);
-  border-radius: 6px 6px 0 0;
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: pointer;
-  font: inherit;
-  font-size: 0.9rem;
-  font-weight: 700;
-  padding: 8px 14px;
-}
-
-.wiki-read__tabs button:hover,
-.wiki-read__tabs button:focus-visible {
-  color: var(--text-primary);
-  outline: none;
-}
-
-.wiki-read__tabs button.is-active {
-  border-color: color-mix(in srgb, var(--noeis-rule) 76%, transparent);
-  border-bottom-color: var(--surface);
-  background: var(--surface);
-  color: var(--text-primary);
-}
-
-.wiki-read__tabs span {
-  margin-left: 6px;
-  color: var(--text-muted);
-  font-size: 0.78rem;
 }
 
 .wiki-read__share-card {
@@ -3593,7 +3501,7 @@ html[data-ui-theme='dark'] {
   display: block;
   margin-bottom: 5px;
   color: color-mix(in srgb, var(--text-muted) 86%, var(--text-primary));
-  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-family: var(--font-sans);
   font-size: 0.66rem;
   font-weight: 800;
   letter-spacing: 0.14em;
@@ -3610,26 +3518,6 @@ html[data-ui-theme='dark'] {
 
 .wiki-read__share-card p + p {
   margin-top: 8px;
-}
-
-.wiki-read__share-receipt {
-  display: inline-flex;
-  width: fit-content;
-  max-width: 100%;
-  padding: 6px 9px;
-  border: 1px solid color-mix(in srgb, var(--border-subtle, #d8d0c4) 82%, transparent);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--surface-raised, #fffaf2) 84%, transparent);
-  color: color-mix(in srgb, var(--text-primary) 82%, var(--text-muted));
-  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-}
-
-.wiki-read__share-card.is-blocked .wiki-read__share-receipt {
-  border-color: color-mix(in srgb, var(--warning, #b9822f) 36%, var(--border-subtle, #d8d0c4));
-  color: color-mix(in srgb, var(--warning, #b9822f) 72%, var(--text-primary));
 }
 
 .wiki-read__share-review-note {
@@ -3664,12 +3552,6 @@ html[data-ui-theme='dark'] .wiki-read__share-card-kicker {
 
 html[data-ui-theme='dark'] .wiki-read__share-card p {
   color: color-mix(in srgb, var(--text-primary) 72%, var(--text-muted));
-}
-
-html[data-ui-theme='dark'] .wiki-read__share-receipt {
-  border-color: color-mix(in srgb, var(--wiki-warm-accent, #d2a45f) 30%, rgba(255, 255, 255, 0.10));
-  background: color-mix(in srgb, var(--wiki-warm-accent, #d2a45f) 11%, rgba(255, 255, 255, 0.05));
-  color: color-mix(in srgb, var(--text-primary) 88%, var(--wiki-warm-accent, #d2a45f));
 }
 
 html[data-ui-theme='dark'] .wiki-read__share-card-actions .wiki-read__share-open {
@@ -3708,7 +3590,7 @@ html[data-ui-theme='dark'] .wiki-read__share-card-actions .wiki-read__share-open
 
 .wiki-read__page-status-label,
 .wiki-read__page-status-action {
-  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-family: var(--font-sans);
   font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.1em;
@@ -3800,7 +3682,7 @@ html[data-ui-theme='dark'] .wiki-read__page-status {
   display: block;
   margin-bottom: 5px;
   color: color-mix(in srgb, var(--text-muted) 86%, var(--text-primary));
-  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-family: var(--font-sans);
   font-size: 0.66rem;
   font-weight: 800;
   letter-spacing: 0.14em;
@@ -3838,7 +3720,7 @@ html[data-ui-theme='dark'] .wiki-read__page-status {
   border-radius: 6px;
   background: color-mix(in srgb, var(--accent-primary, var(--noeis-action)) 6%, var(--surface, #fffaf2));
   color: var(--text-primary);
-  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-family: var(--font-sans);
   font-size: 0.72rem;
   font-weight: 700;
   line-height: 1.35;
@@ -3865,7 +3747,7 @@ html[data-ui-theme='dark'] .wiki-read__page-status {
 
 .wiki-read__edgar-watch-form label {
   color: var(--text-muted);
-  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-family: var(--font-sans);
   font-size: 0.66rem;
   font-weight: 800;
   letter-spacing: 0.12em;
@@ -3958,7 +3840,7 @@ html[data-ui-theme='dark'] .wiki-read__edgar-watch-receipt {
   display: block;
   margin-bottom: 3px;
   color: color-mix(in srgb, var(--text-muted) 90%, var(--text-primary));
-  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-family: var(--font-sans);
   font-size: 0.6rem;
   font-weight: 800;
   letter-spacing: 0.12em;
@@ -3989,7 +3871,7 @@ html[data-ui-theme='dark'] .wiki-read__edgar-watch-receipt {
 .wiki-read__github-watch-status {
   margin-top: 6px !important;
   color: color-mix(in srgb, var(--accent-primary, var(--noeis-action)) 72%, var(--text-secondary)) !important;
-  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-family: var(--font-sans);
   font-size: 0.7rem !important;
   font-weight: 700;
 }
@@ -4004,7 +3886,7 @@ html[data-ui-theme='dark'] .wiki-read__edgar-watch-receipt {
   border-radius: 5px;
   background: color-mix(in srgb, var(--accent-primary, var(--noeis-action)) 4%, var(--surface, #fffaf2));
   color: var(--text-primary);
-  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-family: var(--font-sans);
   font-size: 0.68rem;
   font-weight: 650;
   line-height: 1.3;
@@ -4024,7 +3906,7 @@ html[data-ui-theme='dark'] .wiki-read__edgar-watch-receipt {
   gap: 4px;
   margin: 0;
   color: var(--text-secondary);
-  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-family: var(--font-sans);
   font-size: 0.68rem;
   line-height: 1.35;
 }
@@ -4050,7 +3932,7 @@ html[data-ui-theme='dark'] .wiki-read__edgar-watch-receipt {
 
 .wiki-read__github-watch-form label {
   color: var(--text-muted);
-  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-family: var(--font-sans);
   font-size: 0.6rem;
   font-weight: 800;
   letter-spacing: 0.1em;
@@ -4111,7 +3993,7 @@ html[data-ui-theme='dark'] .wiki-read__github-watch-receipt {
   display: block;
   margin-bottom: 3px;
   color: color-mix(in srgb, var(--text-muted) 90%, var(--text-primary));
-  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-family: var(--font-sans);
   font-size: 0.6rem;
   font-weight: 800;
   letter-spacing: 0.12em;
@@ -4121,7 +4003,7 @@ html[data-ui-theme='dark'] .wiki-read__github-watch-receipt {
 .wiki-read__repo-quickstart-head h4 {
   margin: 0 0 4px;
   color: var(--text-primary);
-  font-family: var(--font-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.92rem;
   font-weight: 650;
   letter-spacing: -0.01em;
@@ -4130,7 +4012,7 @@ html[data-ui-theme='dark'] .wiki-read__github-watch-receipt {
 .wiki-read__repo-quickstart-head p {
   margin: 0;
   color: color-mix(in srgb, var(--text-muted) 92%, var(--text-primary));
-  font-family: var(--font-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.74rem;
   line-height: 1.45;
 }
@@ -4149,7 +4031,7 @@ html[data-ui-theme='dark'] .wiki-read__github-watch-receipt {
 
 .wiki-read__repo-quickstart-label {
   color: color-mix(in srgb, var(--text-muted) 88%, var(--text-primary));
-  font-family: var(--font-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.68rem;
   font-weight: 650;
   letter-spacing: 0.04em;
@@ -4159,7 +4041,7 @@ html[data-ui-theme='dark'] .wiki-read__github-watch-receipt {
 .wiki-read__repo-quickstart-value {
   min-width: 0;
   color: var(--text-primary);
-  font-family: var(--font-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.78rem;
   line-height: 1.45;
 }
@@ -4173,7 +4055,7 @@ html[data-ui-theme='dark'] .wiki-read__github-watch-receipt {
   border-radius: 4px;
   background: color-mix(in srgb, var(--surface-muted, #f3ede3) 88%, transparent);
   color: color-mix(in srgb, var(--text-primary) 92%, #000);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 0.72rem;
   line-height: 1.35;
   overflow-wrap: anywhere;
@@ -4190,7 +4072,7 @@ html[data-ui-theme='dark'] .wiki-read__github-watch-receipt {
 
 .wiki-read__repo-quickstart-cwd {
   color: color-mix(in srgb, var(--text-muted) 86%, var(--text-primary));
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 0.66rem;
   letter-spacing: 0.02em;
   overflow-wrap: anywhere;
@@ -4199,7 +4081,7 @@ html[data-ui-theme='dark'] .wiki-read__github-watch-receipt {
 .wiki-read__repo-quickstart-entrypoint,
 .wiki-read__repo-quickstart-source {
   color: color-mix(in srgb, var(--text-muted) 88%, var(--text-primary));
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 0.68rem;
   overflow-wrap: anywhere;
 }
@@ -4268,7 +4150,7 @@ html[data-ui-theme='dark'] .wiki-read__repo-quickstart-source {
 .wiki-read__repo-dossier-kicker,
 .wiki-read__repo-dossier-label {
   color: var(--text-muted);
-  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-family: var(--font-sans);
   font-size: 0.66rem;
   font-weight: 800;
   letter-spacing: 0.12em;
@@ -4277,7 +4159,7 @@ html[data-ui-theme='dark'] .wiki-read__repo-quickstart-source {
 
 .wiki-read__repo-dossier-head h4 {
   margin: 4px 0 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--font-sans);
   font-size: 1rem;
   font-weight: 650;
 }
@@ -4307,7 +4189,7 @@ html[data-ui-theme='dark'] .wiki-read__repo-quickstart-source {
 
 .wiki-read__repo-dossier-orientation a {
   color: var(--text-primary);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.86rem;
   font-weight: 600;
   overflow-wrap: anywhere;
@@ -4332,7 +4214,7 @@ html[data-ui-theme='dark'] .wiki-read__repo-quickstart-source {
   border: 1px solid color-mix(in srgb, var(--border-subtle, #d8d0c4) 90%, transparent);
   border-radius: 999px;
   color: var(--text-primary);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.78rem;
   text-decoration: none;
 }
@@ -4390,7 +4272,7 @@ html[data-ui-theme='dark'] .wiki-read__repo-quickstart-source {
   justify-content: space-between;
   gap: 18px;
   padding: 10px 12px;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.92rem;
   font-weight: 650;
 }
@@ -4404,7 +4286,7 @@ html[data-ui-theme='dark'] .wiki-read__repo-quickstart-source {
 }
 
 .wiki-read__repo-dossier-section-state {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.68rem;
   font-weight: 650;
   letter-spacing: 0.04em;
@@ -4460,7 +4342,7 @@ html[data-ui-theme='dark'] .wiki-read__repo-dossier-section {
   max-width: 68ch;
   padding: 26px 0 12px;
   color: var(--text-primary);
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: var(--font-serif);
   font-size: 1.12rem;
   line-height: 1.6;
   opacity: 1;
@@ -4490,7 +4372,7 @@ html[data-ui-theme='dark'] .wiki-read__repo-dossier-section {
 .wiki-read__body h3 {
   scroll-margin-top: 32px;
   color: var(--text-primary);
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: var(--font-serif);
   line-height: 1.16;
 }
 
@@ -4558,7 +4440,7 @@ html[data-ui-theme='dark'] .wiki-read__repo-dossier-section {
   display: block;
   margin-top: 0.65em;
   color: var(--text-secondary);
-  font-family: var(--wiki-ui-font, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.78rem;
   font-style: normal;
   font-weight: 700;
@@ -4718,8 +4600,6 @@ html[data-ui-theme='dark'] .wiki-read__repo-dossier-section {
 
 .wiki-numeric-value,
 .wiki-read__infobox dd,
-.wiki-read__tabs span,
-.wiki-read__exports span,
 .wiki-read__reference-index,
 .wiki-read__reference-backlink,
 .wiki-claim-citation,
@@ -4752,80 +4632,6 @@ html[data-ui-theme='dark'] .wiki-read__repo-dossier-section {
   100% {
     opacity: 1;
   }
-}
-
-.wiki-read__talk {
-  padding-top: 6px;
-}
-
-.wiki-read__streaming-answer {
-  margin: 0 0 18px;
-  padding: 14px 16px;
-  border: 1px solid color-mix(in srgb, var(--accent-primary, var(--noeis-action)) 22%, var(--noeis-rule));
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--accent-primary, var(--noeis-action)) 5%, transparent);
-  color: var(--wiki-reading-ink);
-  line-height: 1.55;
-}
-
-.wiki-read__claim-health ul,
-.wiki-read__source-list ol {
-  display: grid;
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.wiki-read__claim-health li {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  color: var(--text-secondary);
-  font-size: 0.86rem;
-}
-
-.wiki-read__claim-health li span {
-  color: var(--text-primary);
-  font-weight: 750;
-}
-
-.wiki-read__source-list li {
-  display: grid;
-  gap: 4px;
-  color: var(--text-secondary);
-  font-size: 0.86rem;
-  line-height: 1.4;
-}
-
-.wiki-read__source-list li span {
-  color: var(--text-primary);
-  font-weight: 700;
-}
-
-.wiki-read__source-list li p {
-  margin: 0;
-}
-
-.wiki-read__source-list li small {
-  color: var(--text-tertiary);
-  font-size: 0.78rem;
-  font-weight: 700;
-}
-
-.wiki-read__source-list details {
-  margin-top: 2px;
-}
-
-.wiki-read__source-list summary {
-  cursor: pointer;
-  color: var(--text-tertiary);
-  font-size: 0.78rem;
-  font-weight: 750;
-}
-
-.wiki-read__source-list details p {
-  margin-top: 6px;
 }
 
 .wiki-read-mentioned {
@@ -4913,10 +4719,6 @@ html[data-ui-theme='dark'] .wiki-read__repo-dossier-section {
   grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
   gap: 14px;
   align-items: start;
-}
-
-.wiki-editor__layout--panel-collapsed {
-  grid-template-columns: minmax(0, 1fr);
 }
 
 .wiki-editor__main {
@@ -5045,20 +4847,6 @@ html[data-ui-theme='dark'] .wiki-read__repo-dossier-section {
   outline: none;
 }
 
-
-.semantic-row--with-action {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 12px;
-  align-items: center;
-}
-
-.semantic-row__main {
-  min-width: 0;
-  color: inherit;
-  text-decoration: none;
-}
-
 @media (max-width: 1024px) {
   .think-threads-meta,
   .think-threads-dual,
@@ -5156,11 +4944,6 @@ html[data-ui-theme='dark'] .wiki-read__repo-dossier-section {
     width: 100%;
     margin-left: 0;
   }
-
-
-  .semantic-row--with-action {
-    grid-template-columns: 1fr;
-  }
 }
 
 /* Wiki ambient agent presence ---------------------------------------------
@@ -5177,7 +4960,7 @@ html[data-ui-theme='dark'] .wiki-read__repo-dossier-section {
   border: 1px solid var(--vellum-line);
   border-radius: 10px;
   background: color-mix(in srgb, var(--vellum-panel) 70%, transparent);
-  font-family: var(--wiki-ui-font, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif);
+  font-family: var(--font-sans);
   transition: background-color 200ms ease-out, border-color 200ms ease-out;
 }
 
@@ -5376,7 +5159,7 @@ html[data-ui-theme='dark'] .wiki-agent-presence[data-status='error'] .wiki-agent
   border-bottom: 1px solid currentColor;
   background: transparent;
   color: var(--wiki-claim-color, var(--vellum-accent));
-  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-family: var(--font-sans);
   font-size: 0.72em;
   font-weight: 700;
   line-height: 1;
@@ -5444,7 +5227,7 @@ html[data-ui-theme='dark'] .wiki-claim-citation[data-support='conflicted'] {
   border-radius: 12px;
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.16), 0 2px 6px rgba(0, 0, 0, 0.06);
   padding: 14px 16px 12px;
-  font-family: var(--wiki-ui-font, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.86rem;
   line-height: 1.5;
   color: var(--vellum-ink);
@@ -5471,7 +5254,7 @@ html[data-ui-theme='dark'] .wiki-claim-popover {
 .wiki-claim-popover__pill {
   display: inline-flex;
   align-items: center;
-  font-family: var(--wiki-ui-font, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.62rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -5554,7 +5337,7 @@ html[data-ui-theme='dark'] .wiki-claim-popover__pill--conflicted { color: var(--
 
 .wiki-claim-popover__evidence-title {
   margin: 0;
-  font-family: var(--wiki-ui-font, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.62rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -5601,7 +5384,7 @@ html[data-ui-theme='dark'] .wiki-claim-popover__evidence--contradicts .wiki-clai
 }
 
 .wiki-claim-popover__item-index {
-  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-family: var(--font-sans);
   font-size: 0.72rem;
   color: var(--vellum-subtle);
   flex-shrink: 0;
@@ -5668,7 +5451,7 @@ a.wiki-claim-popover__item-title:focus-visible {
   margin-top: 42px;
   padding-top: 18px;
   border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 60%, transparent);
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: var(--font-serif);
 }
 
 .wiki-read__references h2 {
@@ -5732,7 +5515,7 @@ a.wiki-claim-popover__item-title:focus-visible {
 .wiki-read__reference-index,
 .wiki-read__reference-backlink {
   color: var(--text-tertiary);
-  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-family: var(--font-sans);
   font-size: 0.78rem;
   font-weight: 700;
 }
@@ -5854,7 +5637,7 @@ a.wiki-read__reference-title:focus-visible {
 .shared-wiki-page__company-brief h2 {
   margin: 0 0 9px;
   color: var(--text-primary);
-  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-family: var(--font-sans);
   font-size: 0.7rem;
   font-weight: 800;
   letter-spacing: 0.14em;
@@ -5864,7 +5647,7 @@ a.wiki-read__reference-title:focus-visible {
 .shared-wiki-page__company-brief p {
   margin: 0 0 10px;
   color: var(--text-primary);
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: var(--font-serif);
   font-size: 1.14rem;
   line-height: 1.5;
 }
@@ -5900,7 +5683,7 @@ a.wiki-read__reference-title:focus-visible {
 .shared-wiki-page__hero h1 {
   margin: 0;
   color: var(--text-primary);
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: var(--font-serif);
   font-size: clamp(3rem, 8vw, 6.5rem);
   font-weight: 500;
   line-height: 0.92;
@@ -6000,7 +5783,7 @@ a.wiki-read__reference-title:focus-visible {
   );
   color: #fffaf2;
   cursor: pointer;
-  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-family: var(--font-sans);
   font-size: 0.76rem;
   font-weight: 800;
   letter-spacing: 0.14em;
@@ -6048,7 +5831,7 @@ a.wiki-read__reference-title:focus-visible {
   border-radius: 999px;
   background: color-mix(in srgb, var(--accent-primary, #b1862e) 10%, var(--surface));
   color: var(--text-primary);
-  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-family: var(--font-sans);
   font-size: 0.7rem;
   font-weight: 800;
   letter-spacing: 0.1em;
@@ -6065,7 +5848,7 @@ a.wiki-read__reference-title:focus-visible {
 .shared-wiki-page__intro {
   margin: 0;
   color: var(--text-secondary);
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: var(--font-serif);
   font-size: 1.2rem;
   line-height: 1.55;
 }
@@ -6074,7 +5857,7 @@ a.wiki-read__reference-title:focus-visible {
   display: flex;
   flex-wrap: wrap;
   gap: 10px 14px;
-  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-family: var(--font-sans);
   font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.13em;
@@ -6134,7 +5917,7 @@ a.wiki-read__reference-title:focus-visible {
 
 .shared-wiki-page__toc span {
   color: var(--text-secondary);
-  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-family: var(--font-sans);
   font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.14em;
@@ -6167,7 +5950,7 @@ a.wiki-read__reference-title:focus-visible {
 
 .shared-wiki-page__sources h2 {
   margin: 0 0 8px;
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: var(--font-serif);
   font-size: 1.5rem;
   font-weight: 540;
 }
@@ -6235,7 +6018,7 @@ a.wiki-read__reference-title:focus-visible {
 
 .shared-wiki-collection__page h2 {
   color: var(--text-primary);
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: var(--font-serif);
   font-size: clamp(1.7rem, 4vw, 3rem);
   font-weight: 520;
   line-height: 1;
@@ -6244,7 +6027,7 @@ a.wiki-read__reference-title:focus-visible {
 .shared-wiki-collection__page-header span {
   flex: 0 0 auto;
   color: var(--text-secondary);
-  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-family: var(--font-sans);
   font-size: 0.66rem;
   font-weight: 800;
   letter-spacing: 0.12em;
@@ -6322,13 +6105,12 @@ a.wiki-read__reference-title:focus-visible {
     left: -8px;
   }
 
-  .wiki-read__viewbar,
   .wiki-read__share-card,
-  .wiki-read__edgar-watch,
-  .wiki-read__github-watch,
-  .shared-wiki-page__adopt,
-  .shared-wiki-page__topbar,
-  .shared-wiki-page__metrics {
+.wiki-read__edgar-watch,
+.wiki-read__github-watch,
+.shared-wiki-page__adopt,
+.shared-wiki-page__topbar,
+.shared-wiki-page__metrics {
     align-items: flex-start;
     flex-direction: column;
   }
@@ -6445,7 +6227,7 @@ a.wiki-read__reference-title:focus-visible {
 }
 
 .wiki-changes-banner__eyebrow {
-  font-family: var(--wiki-ui-font, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.62rem;
   font-weight: 700;
   letter-spacing: 0.22em;
@@ -6480,7 +6262,7 @@ a.wiki-read__reference-title:focus-visible {
   font-size: 0.78rem;
   color: var(--vellum-ink);
   cursor: pointer;
-  font-family: var(--wiki-ui-font, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif);
+  font-family: var(--font-sans);
 }
 
 .wiki-changes-banner__toggle:hover,
@@ -6498,7 +6280,7 @@ a.wiki-read__reference-title:focus-visible {
   font-size: 0.78rem;
   font-weight: 600;
   cursor: pointer;
-  font-family: var(--wiki-ui-font, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif);
+  font-family: var(--font-sans);
 }
 
 .wiki-changes-banner__primary:hover,
@@ -6518,7 +6300,7 @@ a.wiki-read__reference-title:focus-visible {
 
 .wiki-changes-banner__group-title {
   margin: 0 0 6px;
-  font-family: var(--wiki-ui-font, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.66rem;
   font-weight: 700;
   letter-spacing: 0.2em;
@@ -6577,7 +6359,7 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
   border-radius: 50%;
   font-size: 0.78rem;
   font-weight: 700;
-  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-family: var(--font-sans);
   line-height: 1;
 }
 
@@ -6644,7 +6426,6 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
    answer body re-uses .wiki-claim markup so the same hover popover
    already mounted on the editor lights up on hover. */
 
-
 /* Composer ---------------------------------------------------------------- */
 
 /* Wiki morning paper ------------------------------------------------------
@@ -6652,14 +6433,6 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
    optional review / recently-updated rails. */
 
 /* Wiki editor rail + backlink panel ------------------------------------- */
-
-.wiki-editor__rail {
-  display: grid;
-  gap: 14px;
-  align-self: start;
-  min-width: 0;
-}
-
 
 @keyframes wikiBacklinksShimmer {
   0% { background-position: 200% 0; }
@@ -6674,7 +6447,7 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
   border: 1px solid var(--vellum-line);
   border-radius: 12px;
   background: color-mix(in srgb, var(--vellum-panel) 72%, transparent);
-  font-family: var(--wiki-ui-font, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif);
+  font-family: var(--font-sans);
 }
 
 .wiki-inbox {
@@ -6682,7 +6455,6 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
   margin: 0 auto 24px;
   padding: 18px 20px;
 }
-
 
 .wiki-inbox__head {
   display: flex;
@@ -6693,7 +6465,7 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
 
 .wiki-inbox__head h2 {
   margin: 4px 0 0;
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1.2rem;
   color: var(--vellum-ink);
 }
@@ -6728,7 +6500,7 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
 
 .wiki-inbox__item h3 {
   margin: 2px 0 4px;
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1rem;
   color: var(--vellum-ink);
 }
@@ -6750,17 +6522,13 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
   letter-spacing: 0.12em;
 }
 
-
-
 .wiki-inbox__item--pending {
   border-color: color-mix(in srgb, var(--wiki-warm-accent, #b1862e) 35%, var(--vellum-line));
 }
 
-
 .wiki-inbox__item--failed {
   border-color: color-mix(in srgb, var(--wiki-quiet-danger, #9b5a46) 38%, var(--vellum-line));
 }
-
 
 .wiki-internal-link {
   color: var(--vellum-ink);
@@ -6773,9 +6541,7 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
   border-bottom-color: currentColor;
 }
 
-
 /* Wiki autolink suggestions rail panel ----------------------------------- */
-
 
 @keyframes wikiAutolinksShimmer {
   0% { background-position: 200% 0; }
@@ -6839,7 +6605,7 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
 .wiki-workspace-onboarding__copy h1 {
   margin: 0;
   color: var(--text-primary);
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-size: clamp(2rem, 5vw, 3.5rem);
   font-weight: 540;
   line-height: 1.02;
@@ -6898,7 +6664,7 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
 .wiki-onboarding__paste span {
   margin: 0;
   color: var(--text-secondary);
-  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-family: var(--font-sans);
   font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.14em;
@@ -6908,7 +6674,7 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
 .wiki-onboarding h1 {
   margin: 0;
   color: var(--text-primary);
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-size: clamp(2.6rem, 7vw, 5.6rem);
   font-weight: 540;
   line-height: 0.98;
@@ -6933,7 +6699,7 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
   background: color-mix(in srgb, var(--accent-primary) 10%, var(--surface));
   color: var(--text-primary);
   cursor: pointer;
-  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-family: var(--font-sans);
   font-size: 0.7rem;
   font-weight: 800;
   letter-spacing: 0.12em;
@@ -6980,7 +6746,7 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
 .wiki-onboarding__example-page h2 {
   margin: 0;
   color: var(--text-primary);
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1.08rem;
   font-weight: 560;
   line-height: 1.15;
@@ -6995,7 +6761,7 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
 
 .wiki-onboarding__example-page small {
   color: var(--text-secondary);
-  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-family: var(--font-sans);
   font-size: 0.68rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -7004,7 +6770,7 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
 .wiki-onboarding__example span,
 .wiki-onboarding__pack strong {
   color: var(--text-primary);
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-size: clamp(1.08rem, 1rem + 0.35vw, 1.35rem);
   font-weight: 560;
   line-height: 1.15;
@@ -7091,7 +6857,7 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
 .wiki-onboarding__return-loop h2 {
   margin-top: 6px;
   color: var(--text-primary);
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-size: clamp(1.35rem, 3vw, 2rem);
   font-weight: 560;
   line-height: 1.08;
@@ -7104,7 +6870,7 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
 
 .wiki-onboarding__return-kicker {
   color: var(--text-secondary);
-  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-family: var(--font-sans);
   font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.14em;
@@ -7328,7 +7094,7 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
 .wiki-workspace-schema h1 {
   margin: 0;
   color: var(--text-primary);
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1.25rem;
   font-weight: 500;
 }
@@ -7707,7 +7473,7 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
   border-radius: 999px;
   background: color-mix(in srgb, var(--accent-primary, var(--noeis-action)) 8%, var(--surface));
   color: var(--text-secondary);
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace);
+  font-family: var(--font-mono);
   font-size: 0.63rem;
   font-weight: 780;
   line-height: 1.2;
@@ -8479,7 +8245,6 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
 /* AT-291: final tap-target floor after all narrow chat and reader overrides. */
 .wiki-index__page-more,
 .wiki-index__page-delete,
-.wiki-read__tabs button,
 .wiki-workspace-chat__build-button,
 .wiki-workspace-chat__send,
 .wiki-workspace-chat__composer-footer .ui-button,
@@ -8752,7 +8517,7 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
 .wiki-workspace-schema textarea {
   min-height: 460px;
   padding: 14px;
-  font-family: "SFMono-Regular", Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 0.9rem;
   line-height: 1.5;
 }
@@ -8872,36 +8637,6 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
   line-height: 1.35;
 }
 
-.wiki-read__promotion-steps {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: 9px 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.wiki-read__promotion-steps li {
-  display: inline-flex;
-  align-items: center;
-  min-height: 24px;
-  padding: 0 8px;
-  border: 1px solid color-mix(in srgb, var(--accent-primary, #b1862e) 24%, var(--noeis-rule));
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--accent-primary, #b1862e) 8%, var(--surface));
-  color: color-mix(in srgb, var(--text-primary) 78%, var(--text-muted));
-  font-size: 0.68rem;
-  font-weight: 720;
-}
-
-.wiki-read__promotion-kicker {
-  color: color-mix(in srgb, var(--text-muted) 88%, transparent);
-  font-size: 0.68rem !important;
-  font-weight: 760;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
 .wiki-read__promotion-witness a {
   color: var(--text-primary);
   font-size: 0.78rem;
@@ -8909,110 +8644,6 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
   text-decoration: underline;
   text-underline-offset: 3px;
   white-space: nowrap;
-}
-
-.wiki-read__maintenance-receipt {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(220px, 360px) minmax(210px, auto);
-  gap: 14px;
-  align-items: center;
-  max-width: 1060px;
-  margin: 0 auto 18px;
-  padding: 12px 14px;
-  border: 1px solid color-mix(in srgb, var(--noeis-rule) 82%, transparent);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--surface) 91%, transparent);
-}
-
-.wiki-read__maintenance-receipt.is-working {
-  border-color: color-mix(in srgb, var(--accent-primary, #b1862e) 32%, var(--noeis-rule));
-}
-
-.wiki-read__maintenance-receipt.is-review {
-  border-color: color-mix(in srgb, #b1862e 42%, var(--noeis-rule));
-  background: color-mix(in srgb, #b1862e 6%, var(--surface));
-}
-
-.wiki-read__maintenance-receipt.is-research {
-  border-color: color-mix(in srgb, #b1862e 32%, var(--noeis-rule));
-  background: color-mix(in srgb, #b1862e 4%, var(--surface));
-}
-
-.wiki-read__maintenance-receipt.is-failed {
-  border-color: color-mix(in srgb, #9b5a46 42%, var(--noeis-rule));
-  background: color-mix(in srgb, #9b5a46 6%, var(--surface));
-}
-
-.wiki-read__maintenance-receipt.is-compact {
-  grid-template-columns: minmax(0, 1fr) auto;
-  min-height: 46px;
-  padding: 7px 12px;
-  border-inline: 0;
-  border-radius: 0;
-  background: transparent;
-}
-
-.wiki-read__maintenance-receipt.is-compact .wiki-read__promotion-kicker,
-.wiki-read__maintenance-receipt.is-compact .wiki-read__maintenance-copy > p,
-.wiki-read__maintenance-receipt.is-compact .wiki-read__maintenance-ticker {
-  display: none;
-}
-
-.wiki-read__maintenance-receipt.is-compact .wiki-read__maintenance-copy h2 {
-  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
-  font-size: 0.72rem;
-  font-weight: 760;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.wiki-read__maintenance-receipt.is-compact .wiki-read__maintenance-actions > button {
-  min-height: 34px;
-  padding: 5px 9px;
-  border: 0;
-  background: transparent;
-  font-size: 0.68rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.wiki-read__maintenance-copy {
-  display: grid;
-  gap: 3px;
-}
-
-.wiki-read__maintenance-copy h2,
-.wiki-read__maintenance-copy p {
-  margin: 0;
-}
-
-.wiki-read__maintenance-copy h2 {
-  color: var(--text-primary);
-  font-size: 0.98rem;
-  line-height: 1.25;
-}
-
-.wiki-read__maintenance-copy p:not(.wiki-read__promotion-kicker) {
-  color: var(--text-secondary);
-  font-size: 0.82rem;
-  line-height: 1.35;
-}
-
-.wiki-read__maintenance-ticker.agent-ticker {
-  max-width: none;
-  padding: 8px 10px;
-  border-radius: 8px;
-}
-
-.wiki-read__maintenance-actions {
-  display: grid;
-  gap: 8px;
-  justify-items: end;
-  min-width: 0;
-}
-
-.wiki-read__maintenance-actions > button {
-  justify-self: end;
 }
 
 .wiki-read-link-preview {
@@ -9050,19 +8681,6 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
   .wiki-read__promotion-witness a {
     grid-column: 2;
     justify-self: start;
-  }
-
-  .wiki-read__maintenance-receipt {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .wiki-read__maintenance-receipt.is-compact {
-    grid-template-columns: minmax(0, 1fr) auto;
-    margin-bottom: 10px;
-  }
-
-  .wiki-read__maintenance-actions {
-    justify-items: start;
   }
 }
 
@@ -9222,7 +8840,7 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
 .wiki-thesis__question h2 {
   max-width: 28ch;
   margin: 0;
-  font: 500 clamp(1.5rem, 2.55vw, 2.1rem)/1.16 Georgia, "Times New Roman", serif;
+  font: 500 clamp(1.5rem, 2.55vw, 2.1rem)/1.16 var(--font-serif);
   font-optical-sizing: auto;
   letter-spacing: -0.025em;
   text-wrap: balance;
@@ -9255,7 +8873,7 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
 .wiki-thesis__judgment p {
   max-width: 62ch;
   margin: 0;
-  font: 1.08rem/1.62 Georgia, "Times New Roman", serif;
+  font: 1.08rem/1.62 var(--font-serif);
 }
 
 .wiki-thesis__decision-focus {
@@ -9290,7 +8908,7 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
 
 .wiki-thesis__decision-focus h3 {
   margin: 0;
-  font: 500 1.14rem/1.35 Georgia, "Times New Roman", serif;
+  font: 500 1.14rem/1.35 var(--font-serif);
   letter-spacing: -0.012em;
 }
 
@@ -9390,7 +9008,7 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
 .wiki-thesis__narrative > p {
   max-width: 68ch;
   margin: 0;
-  font: 1.04rem/1.68 Georgia, "Times New Roman", serif;
+  font: 1.04rem/1.68 var(--font-serif);
 }
 
 .wiki-thesis__counterargument {
@@ -9422,7 +9040,7 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
 
 .wiki-thesis__ledger-section summary span {
   color: var(--text-secondary);
-  font: 500 0.88rem/1.2 Georgia, serif;
+  font: 500 0.88rem/1.2 var(--font-serif);
   letter-spacing: 0;
 }
 
@@ -9455,7 +9073,7 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
 .wiki-thesis textarea { min-height: 96px; resize: vertical; }
 .wiki-thesis__question textarea {
   min-height: 112px;
-  font: 500 clamp(1.35rem, 2.2vw, 1.85rem)/1.2 Georgia, "Times New Roman", serif;
+  font: 500 clamp(1.35rem, 2.2vw, 1.85rem)/1.2 var(--font-serif);
   letter-spacing: -0.02em;
 }
 .wiki-thesis__judgment textarea {
@@ -9464,11 +9082,11 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
   border-width: 0 0 1px;
   border-radius: 0;
   background: transparent;
-  font: 1.08rem/1.55 Georgia, "Times New Roman", serif;
+  font: 1.08rem/1.55 var(--font-serif);
 }
 .wiki-thesis__narrative > textarea {
   min-height: 132px;
-  font: 1.04rem/1.62 Georgia, "Times New Roman", serif;
+  font: 1.04rem/1.62 var(--font-serif);
 }
 .wiki-thesis__field small,
 .wiki-thesis__edit-row small { color: var(--text-secondary); font-size: 0.76rem; }

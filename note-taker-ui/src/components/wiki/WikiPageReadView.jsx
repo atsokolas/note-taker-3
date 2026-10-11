@@ -106,6 +106,7 @@ import WikiFirstHeadReview from './WikiFirstHeadReview';
 import WikiInvestmentMaintenanceComparison from './WikiInvestmentMaintenanceComparison';
 import WikiDossierCaseCover from './WikiDossierCaseCover';
 import WikiWeekendReadingsPublication from './WikiWeekendReadingsPublication';
+import useDocumentTitle from '../../hooks/useDocumentTitle';
 import '../../styles/wiki-claim-focus.css';
 import '../../styles/wiki-reader-context.css';
 import DecisionCreateForm from './decisions/DecisionCreateForm';
@@ -1086,7 +1087,7 @@ const RereadSources = ({ state = 'idle', summary = '', trustedArticle = true, so
     <section className="wiki-read__reread" aria-label="Reread the sources" data-state={state}>
       <p>{line}</p>
       <div className="wiki-read__reread-actions">
-        <Button type="button" variant="secondary" onClick={onReread} disabled={state === 'working' || sourcesUnchanged}>
+        <Button type="button" onClick={onReread} disabled={state === 'working' || sourcesUnchanged}>
           {state === 'working' ? 'Rereading…' : sourcesUnchanged ? 'Sources unchanged' : state === 'failed' ? 'Try again' : 'Reread the sources'}
         </Button>
         {children}
@@ -1200,6 +1201,7 @@ const WikiPageReadView = ({
     [traceSearch]
   );
   const [page, setPage] = useState(null);
+  useDocumentTitle(page?.title, 'Wiki');
   const [loading, setLoading] = useState(true);
   const [maintaining, setMaintaining] = useState(false);
   const [archiveConfirming, setArchiveConfirming] = useState(false);
@@ -2747,7 +2749,7 @@ const WikiPageReadView = ({
       onReread={handleMaintain}
     >
       {persistedMaintenanceFailure && companyDossier && !page?.aiState?.lastDraftedAt ? (
-        <Button type="button" variant="ghost" onClick={handleDiscardFailedDossier} disabled={maintenanceActive}>
+        <Button type="button" onClick={handleDiscardFailedDossier} disabled={maintenanceActive}>
           Discard draft
         </Button>
       ) : null}
@@ -2776,7 +2778,7 @@ const WikiPageReadView = ({
         ) : null}
       </div>
       <div className="wiki-read__share-card-actions">
-        <Button type="button" variant="secondary" onClick={handleShareSafely} disabled={shareBusy || shareBlocked}>
+        <Button type="button" onClick={handleShareSafely} disabled={shareBusy || shareBlocked}>
           {shareBusy ? 'Preparing...' : shareBlocked ? 'Review first' : publicShareReady ? 'Copy link' : 'Share'}
         </Button>
         {shareBlocked ? (
@@ -2793,7 +2795,7 @@ const WikiPageReadView = ({
           </>
         ) : null}
         {isSharedPublicly ? (
-          <Button type="button" variant="secondary" onClick={handleStopSharing} disabled={shareBusy}>
+          <Button type="button" onClick={handleStopSharing} disabled={shareBusy}>
             Stop sharing
           </Button>
         ) : null}
@@ -3337,7 +3339,6 @@ const WikiPageReadView = ({
                         {archiveConfirming ? (
                           <Button
                             type="button"
-                            variant="ghost"
                             onClick={() => setArchiveConfirming(false)}
                             disabled={archiving}
                           >

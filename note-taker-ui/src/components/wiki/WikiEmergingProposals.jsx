@@ -182,10 +182,10 @@ const WikiEmergingProposals = () => {
                   <Button type="button" onClick={() => handleCreate(proposal)} disabled={busyId === proposal._id}>
                     {busyId === proposal._id ? 'Creating...' : 'Create'}
                   </Button>
-                  <Button type="button" variant="secondary" onClick={() => handleWatch(proposal)} disabled={busyId === proposal._id}>
+                  <Button type="button" onClick={() => handleWatch(proposal)} disabled={busyId === proposal._id}>
                     Watch
                   </Button>
-                  <Button type="button" variant="secondary" onClick={() => handleDismiss(proposal)} disabled={busyId === proposal._id}>
+                  <Button type="button" onClick={() => handleDismiss(proposal)} disabled={busyId === proposal._id}>
                     Dismiss
                   </Button>
                 </div>
@@ -201,7 +201,7 @@ const WikiEmergingProposals = () => {
                       <option key={page._id} value={page._id}>{displayWikiPageTitle(page)}</option>
                     ))}
                   </select>
-                  <Button type="button" variant="secondary" onClick={() => handleMerge(proposal)} disabled={busyId === proposal._id || !proposal.mergeTargetId}>
+                  <Button type="button" onClick={() => handleMerge(proposal)} disabled={busyId === proposal._id || !proposal.mergeTargetId}>
                     Merge
                   </Button>
                 </div>

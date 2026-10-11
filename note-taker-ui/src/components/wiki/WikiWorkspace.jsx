@@ -47,6 +47,7 @@ import { collectWikiText, countWikiSources, countWikiWords } from './wikiPageMet
 import { buildWikiSurfaceDescriptor } from './wikiSurfaceModel';
 import { displayWikiPageTitle } from './wikiRepoDossierModel';
 import { humanizeLabel } from '../../utils/humanizeLabel';
+import useDocumentTitle from '../../hooks/useDocumentTitle';
 
 const LAST_PAGE_KEY = 'noeis.wiki.workspace.last_page_id';
 const CHAT_WIDTH_KEY = 'noeis.wiki.workspace.chat_width';
@@ -1154,7 +1155,7 @@ const WorkspaceSchema = () => {
       />
       <div>
         <Button type="button" onClick={handleSave} disabled={Boolean(busy)}>Save schema</Button>
-        <Button type="button" variant="secondary" onClick={handleSuggest} disabled={Boolean(busy)}>Suggest updates</Button>
+        <Button type="button" onClick={handleSuggest} disabled={Boolean(busy)}>Suggest updates</Button>
         {status ? <span role="status">{status}</span> : null}
       </div>
       <section className="wiki-workspace-schema__review" aria-label="Schema review">
@@ -2981,6 +2982,7 @@ const WikiWorkspaceChat = ({
 };
 
 const WikiWorkspace = () => {
+  useDocumentTitle('Wiki');
   const location = useLocation();
   const navigate = useNavigate();
   const systemStatus = useSystemStatusControls();
@@ -3582,7 +3584,6 @@ const WikiWorkspace = () => {
             </div>
             <Button
               type="button"
-              variant="secondary"
               onClick={createQaSourceFixture}
               disabled={qaFixtureState.status === 'loading'}
             >
@@ -3602,10 +3603,10 @@ const WikiWorkspace = () => {
             placeholder="Ask, paste a source, or type /"
             aria-label={`${AGENT_DISPLAY_NAME} quick message`}
           />
-          <Button type="submit" variant="secondary">
+          <Button type="submit">
             Ask
           </Button>
-          <Button type="button" variant="secondary" onClick={handleWorkspaceBuild}>
+          <Button type="button" onClick={handleWorkspaceBuild}>
             Build
           </Button>
         </form> : null}
@@ -3636,7 +3637,7 @@ const WikiWorkspace = () => {
             </div>
             <div className="wiki-workspace-onboarding__actions">
               <Button type="button" variant="primary" onClick={handleFirstVisitBuild}>Build page</Button>
-              <Button type="button" variant="secondary" onClick={handleFirstVisitSource}>Drop source</Button>
+              <Button type="button" onClick={handleFirstVisitSource}>Drop source</Button>
             </div>
             <button
               type="button"

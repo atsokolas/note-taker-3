@@ -222,7 +222,7 @@ html[data-ui-typography='large'] {
 html[data-ui-theme][data-ui-scheme] body.noeis-editorial {
   background: var(--noeis-canvas) !important;
   color: var(--noeis-ink);
-  font-family: var(--noeis-font-ui);
+  font-family: var(--font-sans);
 }
 
 html[data-ui-theme][data-ui-scheme] .app-shell-new {
@@ -241,7 +241,7 @@ html[data-ui-theme][data-ui-scheme] .topbar {
 }
 
 html[data-ui-theme][data-ui-scheme] .topbar__brand {
-  font-family: var(--noeis-font-reading);
+  font-family: var(--font-serif);
 }
 
 

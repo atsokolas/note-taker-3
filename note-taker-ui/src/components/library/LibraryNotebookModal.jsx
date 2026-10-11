@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Button, QuietButton } from '../ui';
+import { Button } from '../ui';
 import useNotebookEntries from '../../hooks/useNotebookEntries';
 import api from '../../api';
 
@@ -74,18 +74,18 @@ const LibraryNotebookModal = ({ open, highlight, onClose, onSend }) => {
         </label>
         <div className="library-folder-picker">
           {filteredEntries.map(entry => (
-            <QuietButton
+            <Button variant="quiet"
               key={entry._id}
               className={selectedId === entry._id ? 'is-active' : ''}
               onClick={() => setSelectedId(entry._id)}
             >
               {entry.title || 'Untitled note'}
-            </QuietButton>
+            </Button>
           ))}
         </div>
         <div className="modal-actions" style={{ justifyContent: 'flex-end', gap: 8 }}>
-          <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button variant="secondary" onClick={handleCreate} disabled={creating || !query.trim()}>
+          <Button onClick={onClose}>Cancel</Button>
+          <Button onClick={handleCreate} disabled={creating || !query.trim()}>
             {creating ? 'Creating…' : 'Create new'}
           </Button>
           <Button onClick={handleSend} disabled={!selectedId || creating}>

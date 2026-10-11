@@ -126,37 +126,6 @@ body.noeis-editorial.wiki-front-page-route .topbar .brand-gradient {
   max-width: 964px;
 }
 
-.wiki-collection__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  padding: 0 0 22px;
-  border-bottom: 1px solid var(--noeis-rule, var(--vellum-line, #dcded3));
-}
-
-.wiki-collection__title-row {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  min-width: 0;
-}
-
-.wiki-collection__head h1 {
-  margin: 0;
-  font-family: var(--serif, Georgia, serif);
-  font-weight: 400;
-  font-size: 42px;
-  letter-spacing: -1.15px;
-  line-height: 1.1;
-}
-
-.wiki-collection__actions {
-  display: flex;
-  gap: 18px;
-  align-items: center;
-}
-
 .wiki-collection__text,
 .wiki-collection__sort {
   font-size: 12px;
@@ -250,7 +219,7 @@ body.noeis-editorial.wiki-front-page-route .topbar .brand-gradient {
 }
 
 .wiki-collection__title {
-  font-family: var(--serif, Georgia, serif);
+  font-family: var(--font-serif);
   font-size: 25px;
   line-height: 1.2;
   letter-spacing: -0.35px;
@@ -281,7 +250,7 @@ body.noeis-editorial.wiki-front-page-route .topbar .brand-gradient {
 }
 
 .wiki-collection__dek {
-  font-family: var(--serif, Georgia, serif);
+  font-family: var(--font-serif);
   font-size: 17px;
   line-height: 1.5;
   color: #5b6554;
@@ -293,7 +262,7 @@ body.noeis-editorial.wiki-front-page-route .topbar .brand-gradient {
   border-left: 2px solid #c4cfb4;
   padding-left: 13px;
   margin-top: 11px;
-  font: 15px/1.6 var(--serif, Georgia, serif);
+  font: 15px/1.6 var(--font-serif);
 }
 
 .wiki-collection__hit-kicker {
@@ -335,7 +304,7 @@ body.noeis-editorial.wiki-front-page-route .topbar .brand-gradient {
 /* What moved since you last looked: one quiet block above the list. */
 .wiki-collection__since-quiet {
   margin: 22px 0 0;
-  font: 16px/1.5 var(--serif, Georgia, serif);
+  font: 16px/1.5 var(--font-serif);
   color: var(--muted, #676e62);
 }
 
@@ -364,7 +333,7 @@ body.noeis-editorial.wiki-front-page-route .topbar .brand-gradient {
 }
 
 .wiki-collection__since-page {
-  font: 19px/1.3 var(--serif, Georgia, serif);
+  font: 19px/1.3 var(--font-serif);
   color: inherit;
   text-decoration: none;
 }
@@ -377,25 +346,13 @@ body.noeis-editorial.wiki-front-page-route .topbar .brand-gradient {
 
 .wiki-collection__since-sentence {
   margin: 6px 0 0;
-  font: 16px/1.5 var(--serif, Georgia, serif);
+  font: 16px/1.5 var(--font-serif);
   max-width: 68ch;
 }
 
 .wiki-collection__since .wiki-collection__meta {
   justify-content: flex-start;
   margin-top: 8px;
-}
-
-.wiki-collection__empty {
-  padding: 50px 0;
-  max-width: 500px;
-}
-
-.wiki-collection__empty h2 {
-  font-family: var(--serif, Georgia, serif);
-  font-weight: 400;
-  font-size: 28px;
-  margin: 0 0 13px;
 }
 
 .wiki-collection__foot {
@@ -432,10 +389,6 @@ body.noeis-editorial.wiki-front-page-route .topbar .brand-gradient {
   .wiki-collection__stage {
     max-width: none;
   }
-
-  .wiki-collection__head h1 {
-    font-size: 38px;
-  }
 }
 
 @media (max-width: 900px) {
@@ -450,10 +403,6 @@ body.noeis-editorial.wiki-front-page-route .topbar .brand-gradient {
 
   .wiki-collection__nav-btn {
     font-size: 11px;
-  }
-
-  .wiki-collection__head h1 {
-    font-size: 37px;
   }
 
   .wiki-collection__title {
@@ -492,23 +441,6 @@ body.noeis-editorial.wiki-front-page-route .topbar .brand-gradient {
 
   .wiki-collection__nav-toggle {
     display: inline-block;
-  }
-
-  .wiki-collection__head {
-    gap: 13px;
-    padding-bottom: 17px;
-  }
-
-  .wiki-collection__head h1 {
-    font-size: 36px;
-  }
-
-  .wiki-collection__actions {
-    gap: 10px;
-  }
-
-  .wiki-collection__actions .wiki-collection__text {
-    font-size: 10px;
   }
 
   .wiki-collection__newpage {
@@ -575,11 +507,10 @@ body.noeis-editorial.wiki-front-page-route .topbar .brand-gradient {
 
 @media print {
   .wiki-collection__nav,
-  .wiki-collection__nav-toggle,
-  .wiki-collection__actions,
-  .wiki-collection__search,
-  .wiki-collection__open,
-  .wiki-collection__composer {
+.wiki-collection__nav-toggle,
+.wiki-collection__search,
+.wiki-collection__open,
+.wiki-collection__composer {
     display: none !important;
   }
 

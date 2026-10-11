@@ -25,7 +25,7 @@
 
 .noeis-surface-frame__eyebrow {
   color: var(--vellum-accent, var(--accent));
-  font-family: var(--noeis-ui-font, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.68rem;
   font-weight: 650;
   letter-spacing: 0.18em;
@@ -35,7 +35,7 @@
 .noeis-surface-frame__title {
   margin-top: 7px;
   color: var(--vellum-ink, var(--text));
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-size: clamp(2rem, 4vw, 3.8rem);
   font-weight: 400;
   line-height: 0.98;
@@ -46,7 +46,7 @@
   max-width: 620px;
   margin-top: 9px;
   color: var(--vellum-muted, var(--text-secondary));
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1rem;
   line-height: 1.5;
 }

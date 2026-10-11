@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import ShareDestinations from '../../sharing/ShareDestinations';
-import { Button, QuietButton } from '../../ui';
+import { Button } from '../../ui';
 import {
   getConceptShare,
   mintConceptShare,
@@ -203,7 +203,7 @@ const ConceptShareModal = ({ open, conceptName, onClose }) => {
                     readOnly
                     onFocus={(event) => event.target.select()}
                   />
-                  <Button variant="secondary" onClick={handleCopy} disabled={busy}>Copy link</Button>
+                  <Button onClick={handleCopy} disabled={busy}>Copy link</Button>
                 </div>
                 <div className="concept-share-modal__active-actions"><ShareDestinations url={url} title="A concept from Noeis" /></div>
                 <p className="muted small">{THINK_SHARE_REVOKE}</p>
@@ -247,13 +247,13 @@ const ConceptShareModal = ({ open, conceptName, onClose }) => {
                       {busy ? 'Updating…' : 'Update shared version'}
                     </Button>
                   ) : null}
-                  <QuietButton
+                  <Button variant="quiet"
                     className="concept-share-modal__revoke"
                     onClick={handleRevoke}
                     disabled={busy}
                   >
                     {busy ? 'Working…' : 'Revoke'}
-                  </QuietButton>
+                  </Button>
                 </div>
               </div>
             ) : (
@@ -271,7 +271,7 @@ const ConceptShareModal = ({ open, conceptName, onClose }) => {
                   <span className="insert-modal__footer-hint">
                     <kbd>esc</kbd> to close
                   </span>
-                  <QuietButton onClick={onClose}>Cancel</QuietButton>
+                  <Button variant="quiet" onClick={onClose}>Cancel</Button>
                 </div>
               </>
             )}

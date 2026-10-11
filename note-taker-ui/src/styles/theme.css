@@ -177,7 +177,7 @@ p {
   position: absolute;
   top: 6px;
   right: -8px;
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-family: var(--font-mono);
   font-size: 0.64rem;
   font-weight: 600;
   line-height: 1;
@@ -251,7 +251,7 @@ body.go-to-primed .topbar__primary-key {
   border-radius: 4px;
   background: color-mix(in srgb, var(--surface) 92%, transparent);
   color: var(--text-secondary);
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.68rem;
   font-weight: 600;
   line-height: 1;
@@ -330,7 +330,7 @@ body.go-to-primed .topbar__primary-key {
   border-radius: 5px;
   background: color-mix(in srgb, var(--surface) 90%, transparent);
   color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.74rem;
   font-weight: 600;
   line-height: 1;
@@ -543,18 +543,111 @@ body.noeis-editorial .palette-list {
   background: #0b0f1a;
 }
 
-.ui-button-secondary,
-.ui-button-ghost {
-  background: transparent;
-  color: var(--text);
-  border: 1px solid var(--border-subtle-2);
+/* One page header and one empty state for every room. Page titles are the
+   reader's serif at three sizes: --noeis-type-display (a room), -title (an
+   object), -heading (a section). */
+.ui-page-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px 24px;
+  margin: 0 0 24px;
 }
 
-.ui-button-ghost:hover,
-.ui-button-secondary:hover {
-  background: var(--surface-muted);
-  border-color: var(--border-subtle-2);
-  color: var(--text);
+.ui-page-header__copy {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.ui-page-header__eyebrow,
+.ui-empty-state__eyebrow {
+  font-family: var(--font-sans);
+  font-size: var(--type-label);
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--noeis-ink-subtle);
+}
+
+.ui-page-header__eyebrow a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.ui-page-header__title {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: var(--noeis-type-display);
+  font-weight: 400;
+  line-height: 1.08;
+  letter-spacing: -0.015em;
+  color: var(--noeis-ink);
+}
+
+.ui-page-header__lede {
+  margin: 0;
+  max-width: 68ch;
+  font-family: var(--font-serif);
+  font-size: 1.05rem;
+  line-height: 1.5;
+  color: var(--noeis-ink-muted);
+}
+
+.ui-page-header__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.ui-empty-state {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+  max-width: 68ch;
+  padding: 24px 0;
+}
+
+.ui-empty-state__title {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: var(--noeis-type-heading);
+  font-weight: 400;
+  line-height: 1.25;
+  color: var(--noeis-ink);
+}
+
+.ui-empty-state__body {
+  display: grid;
+  gap: 8px;
+  font-family: var(--font-serif);
+  line-height: 1.55;
+  color: var(--noeis-ink-muted);
+}
+
+.ui-empty-state__body p {
+  margin: 0;
+}
+
+.ui-empty-state__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin-top: 4px;
+}
+
+.ui-empty-state__link {
+  font-size: var(--type-small);
+  color: var(--noeis-ink-muted);
+  text-decoration: none;
+}
+
+.ui-empty-state__link:hover {
+  color: var(--noeis-ink);
+  text-decoration: underline;
 }
 
 .page-area {
@@ -1113,7 +1206,7 @@ body.noeis-editorial .palette-list {
   max-width: 42rem;
   margin: 2px 0 0;
   color: var(--ink-human, var(--text-primary, var(--vellum-ink)));
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 0.92rem;
   font-style: italic;
   font-weight: 400;
@@ -1126,7 +1219,7 @@ body.noeis-editorial .palette-list {
 
 .passage-door__stance {
   font-style: normal;
-  font-family: var(--font-sans, var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif));
+  font-family: var(--font-sans);
   font-size: 0.66rem;
   font-weight: 600;
   letter-spacing: 0.1em;
@@ -1166,7 +1259,7 @@ body.noeis-editorial .palette-list {
   border-bottom: 1px solid transparent;
   background: transparent;
   color: var(--muted, var(--text-muted, var(--vellum-subtle)));
-  font-family: var(--font-sans, var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif));
+  font-family: var(--font-sans);
   font-size: 0.82rem;
   font-weight: 400;
   letter-spacing: 0;
@@ -1189,7 +1282,7 @@ body.noeis-editorial .palette-list {
 .passage-door__error {
   flex-basis: 100%;
   color: var(--danger, #8b3a2c);
-  font-family: var(--font-sans, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.75rem;
   font-style: normal;
 }
@@ -1211,20 +1304,6 @@ body.noeis-editorial .palette-list {
   width: min(100%, 1032px);
   min-height: calc(100vh - 110px);
   padding: clamp(30px, 4vw, 44px) 0 max(90px, env(safe-area-inset-bottom));
-}
-
-.connections-hub__header h1 {
-  margin: 0;
-  font-family: var(--font-serif);
-  font-size: clamp(2.55rem, 5vw, 3.3rem);
-  font-weight: 500;
-  letter-spacing: -0.045em;
-  line-height: 1.04;
-}
-
-.connections-hub__header p {
-  margin: 10px 0 0;
-  font-size: 0.9rem;
 }
 
 .connections-tabs {
@@ -2095,10 +2174,6 @@ button.connections-row {
 @media (max-width: 600px) {
   .connections-hub {
     padding-top: 24px;
-  }
-
-  .connections-hub__header h1 {
-    font-size: 2.35rem;
   }
 
   .connections-tabs {
@@ -3672,126 +3747,11 @@ button.connections-row {
   color: var(--muted);
 }
 
-.library-empty-state {
-  border: 1px dashed var(--border-subtle);
-  border-radius: 12px;
-  padding: 16px;
-  background: #fbfcff;
-}
-
-.library-empty-cta {
-  display: inline-flex;
-  margin-top: 6px;
-  font-size: 13px;
-  color: var(--accent);
-  text-decoration: none;
-}
-
-.library-empty-cta:hover {
-  text-decoration: underline;
-}
-
 /* Scoped empty — view is empty but the corpus has sources elsewhere. */
-.library-empty-state--scoped {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 14px;
-  padding: 24px 22px;
-  border: 1px dashed var(--border-subtle);
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--surface) 96%, var(--accent-soft) 4%);
-  max-width: 560px;
-}
-
-.library-empty-state__receipt {
-  margin: 4px 0 0;
-  padding: 8px 10px;
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--surface) 88%, var(--accent-soft) 12%);
-}
 
 /* First-run empty state — when the library has zero articles globally,
    show a meaningful onboarding step instead of a flat "no articles" message.
    Reuses the .ui-quiet-button--primary vocabulary from ThinkHome (Iter 7). */
-.library-empty-state--first-run {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 18px;
-  padding: 32px 28px;
-  border: 1px dashed var(--border-subtle);
-  border-radius: 16px;
-  background: color-mix(in srgb, var(--surface) 92%, var(--accent-soft) 6%);
-  max-width: 640px;
-}
-
-.library-empty-state__copy {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.library-empty-state__eyebrow {
-  font-size: 0.66rem;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--text-secondary);
-  font-weight: 600;
-}
-
-.library-empty-state__title {
-  margin: 0;
-  font-size: 1.4rem;
-  line-height: 1.2;
-  color: var(--text);
-}
-
-.library-empty-state__body {
-  margin: 0;
-  font-size: 0.92rem;
-  line-height: 1.55;
-  color: var(--text-secondary);
-  max-width: 52ch;
-}
-
-.library-empty-state__actions {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 16px;
-}
-
-.library-empty-state__primary {
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-}
-
-.library-empty-state__secondary {
-  color: var(--text-secondary);
-  text-decoration: none;
-  border-bottom: 1px solid transparent;
-  transition: color 180ms ease-out, border-color 180ms ease-out;
-}
-
-.library-empty-state__secondary:hover {
-  color: var(--text);
-  border-bottom-color: var(--border-subtle);
-}
-
-@media (max-width: 640px) {
-  .library-empty-state--first-run {
-    padding: 24px 18px;
-  }
-  .library-empty-state__primary {
-    width: 100%;
-    justify-content: center;
-  }
-  .library-empty-state__actions {
-    width: 100%;
-  }
-}
 
 .library-folder-picker {
   display: grid;
@@ -3872,7 +3832,7 @@ button.connections-row {
   max-width: 42rem;
   margin: 6px 0 0;
   color: var(--ink-human, var(--text-primary, var(--vellum-ink)));
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1.02rem;
   font-style: italic;
   font-weight: 400;
@@ -4640,32 +4600,6 @@ button.connections-row {
   font-weight: 600;
   color: var(--text);
   margin-bottom: 4px;
-}
-
-.ui-page-title {
-  display: grid;
-  gap: 4px;
-}
-
-.ui-page-title__eyebrow {
-  font-size: var(--type-label);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--muted);
-  font-weight: 700;
-}
-
-.ui-page-title__title {
-  font-size: var(--type-h1);
-  margin: 0;
-  line-height: 1.12;
-  letter-spacing: -0.015em;
-}
-
-.ui-page-title__subtitle {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.95rem;
 }
 
 .wiki-agent-presence__copy,
@@ -6569,7 +6503,7 @@ html[data-ui-theme='dark'] .article-reader-header {
 .notebook-ref-label {
   margin-bottom: 4px;
   color: var(--noeis-ink-subtle, var(--muted));
-  font-family: var(--noeis-font-ui, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.68rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -6577,7 +6511,7 @@ html[data-ui-theme='dark'] .article-reader-header {
 
 .notebook-ref-title {
   color: var(--noeis-ink, var(--text));
-  font-family: var(--noeis-font-reading, "Newsreader", Georgia, serif);
+  font-family: var(--font-serif);
   font-size: 1.02rem;
   font-weight: 400;
   line-height: 1.42;
@@ -6815,7 +6749,7 @@ a.notebook-ref-title:focus-visible {
   border-radius: 4px;
   background: color-mix(in srgb, var(--surface) 92%, transparent);
   color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.68rem;
   line-height: 1;
 }
@@ -7165,7 +7099,7 @@ a.notebook-ref-title:focus-visible {
   background: var(--surface);
   color: var(--text);
   font-weight: 700;
-  font-family: var(--font-mono, monospace);
+  font-family: var(--font-mono);
 }
 
 .think-editor-block-controls {
@@ -7368,7 +7302,7 @@ a.notebook-ref-title:focus-visible {
   border-radius: 4px;
   background: color-mix(in srgb, var(--surface) 92%, transparent);
   color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.68rem;
   line-height: 1;
 }
@@ -7962,7 +7896,7 @@ html[data-ui-theme='dark'] .external-bridge-pre {
 .agent-connect-simple-card__terminal-body p {
   margin: 0;
   color: var(--text-primary);
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-family: var(--font-mono);
   font-size: 0.9rem;
 }
 
@@ -7978,7 +7912,7 @@ html[data-ui-theme='dark'] .external-bridge-pre {
   border-radius: 8px;
   background: var(--surface-card);
   color: var(--text-primary);
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-family: var(--font-mono);
   font-size: 0.9rem;
   line-height: 1.45;
 }
@@ -8186,7 +8120,7 @@ html[data-ui-theme='dark'] .external-bridge-pre {
 
 .agent-connect-authorize-card__code strong {
   color: var(--text-primary);
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-family: var(--font-mono);
   font-size: 1.15rem;
   letter-spacing: 0.08em;
 }
@@ -8749,7 +8683,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .concept-editorial-evidence__ite
   border: 0;
   background: transparent;
   color: var(--text);
-  font-family: var(--wiki-ui-font, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.78rem;
   font-weight: 500;
   cursor: pointer;
@@ -8879,7 +8813,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .concept-editorial-evidence__ite
   border-radius: 999px;
   background: transparent;
   color: var(--text-secondary);
-  font-family: var(--wiki-ui-font, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.72rem;
   font-weight: 500;
   cursor: pointer;
@@ -8938,7 +8872,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .concept-editorial-evidence__ite
   border-radius: 8px;
   background: color-mix(in srgb, var(--surface) 92%, transparent);
   color: var(--text-primary);
-  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-family: var(--font-sans);
   font-size: 0.84rem;
 }
 
@@ -8965,7 +8899,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .concept-editorial-evidence__ite
 
 .concept-share-modal__eyebrow {
   display: inline-block;
-  font-family: var(--wiki-ui-font, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.6rem;
   letter-spacing: 0.22em;
   text-transform: uppercase;
@@ -9012,7 +8946,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .concept-editorial-evidence__ite
 
 .concept-share-modal__preview-host {
   margin-left: 8px;
-  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-family: var(--font-sans);
   font-size: 0.72rem;
   color: var(--text-secondary);
   white-space: nowrap;
@@ -9030,7 +8964,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .concept-editorial-evidence__ite
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-weight: 600;
   font-size: 0.92rem;
   color: var(--text);
@@ -9046,7 +8980,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .concept-editorial-evidence__ite
 }
 
 .concept-share-modal__preview-eyebrow {
-  font-family: var(--wiki-ui-font, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.58rem;
   letter-spacing: 0.22em;
   text-transform: uppercase;
@@ -9055,7 +8989,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .concept-editorial-evidence__ite
 }
 
 .concept-share-modal__preview-title {
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1.18rem;
   line-height: 1.2;
   letter-spacing: -0.02em;
@@ -9201,7 +9135,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .concept-editorial-evidence__ite
 
 .concept-share-modal__waiting-text {
   margin: 0;
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-family: var(--font-serif);
   line-height: 1.55;
 }
 
@@ -9226,7 +9160,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .concept-editorial-evidence__ite
 .think-share-view__revised {
   margin: 0;
   color: var(--text-secondary);
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.78rem;
 }
 
@@ -9238,7 +9172,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .concept-editorial-evidence__ite
 
 .think-share-view__title {
   margin: 0;
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-family: var(--font-serif);
   font-size: clamp(1.6rem, 3vw, 2.3rem);
   font-weight: 400;
   line-height: 1.15;
@@ -9255,7 +9189,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .concept-editorial-evidence__ite
 .think-share-view__silence,
 .think-share-view__correction {
   margin: 0;
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-family: var(--font-serif);
   line-height: 1.55;
 }
 
@@ -9266,7 +9200,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .concept-editorial-evidence__ite
 .think-share-view__section {
   margin: 0 0 0.6rem;
   color: var(--text-secondary);
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.72rem;
   font-weight: 650;
   letter-spacing: 0.08em;
@@ -9276,7 +9210,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .concept-editorial-evidence__ite
 .think-share-view__colophon {
   margin: 0.4rem 0 0;
   color: var(--text-secondary);
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.84rem;
   line-height: 1.45;
 }
@@ -9291,7 +9225,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .concept-editorial-evidence__ite
 .think-share-view__archive-silence {
   margin: 0;
   color: var(--text-secondary);
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.84rem;
   line-height: 1.45;
   font-style: italic;
@@ -9316,7 +9250,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .concept-editorial-evidence__ite
 .think-share-view__reading-by {
   margin: 0;
   color: var(--text-secondary);
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.78rem;
   font-weight: 650;
   letter-spacing: 0.04em;
@@ -9324,7 +9258,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .concept-editorial-evidence__ite
 
 .think-share-view__reading p {
   margin: 0;
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-family: var(--font-serif);
   line-height: 1.55;
 }
 
@@ -9348,14 +9282,14 @@ html[data-ui-theme='dark'] body.noeis-editorial .concept-editorial-evidence__ite
 .think-share-view__succession p,
 .think-share-view__mandate p {
   margin: 0;
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-family: var(--font-serif);
   line-height: 1.55;
 }
 
 .think-share-view__brief-label {
   margin: 0.35rem 0 0;
   color: var(--text-secondary);
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.72rem;
   font-weight: 650;
   letter-spacing: 0.08em;
@@ -9385,7 +9319,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .concept-editorial-evidence__ite
 .think-share-view__offer-receipt {
   margin: 0.35rem 0 0;
   color: var(--text-secondary);
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.78rem;
   letter-spacing: 0.02em;
   line-height: 1.45;
@@ -9426,7 +9360,7 @@ textarea.think-share-view__offer-field {
 .think-share-view__offer button,
 .think-share-view__withdraw button {
   font: inherit;
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.78rem;
   letter-spacing: 0.02em;
   color: var(--text-secondary);
@@ -9454,7 +9388,7 @@ textarea.think-share-view__offer-field {
 
 .think-share-view__export button {
   font: inherit;
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.78rem;
   letter-spacing: 0.02em;
   color: var(--text-secondary);
@@ -9473,7 +9407,7 @@ textarea.think-share-view__offer-field {
 .shared-question-companion__ask,
 .shared-question-companion__away {
   font: inherit;
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.78rem;
   letter-spacing: 0.02em;
   color: var(--text-secondary);
@@ -9492,7 +9426,7 @@ textarea.think-share-view__offer-field {
 .shared-question-companion__pause {
   margin: 0.55rem 0 0;
   color: var(--text-secondary);
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.82rem;
   line-height: 1.45;
   font-style: italic;
@@ -9537,7 +9471,7 @@ textarea.think-share-view__offer-field {
   max-width: 760px;
   margin: 0 auto;
   padding: 56px 28px 96px;
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   color: var(--text);
 }
 
@@ -9565,7 +9499,7 @@ textarea.think-share-view__offer-field {
   padding: 4px 10px;
   border: 1px solid var(--border-subtle);
   border-radius: 999px;
-  font-family: var(--wiki-ui-font, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.62rem;
   letter-spacing: 0.22em;
   text-transform: uppercase;
@@ -9601,7 +9535,7 @@ textarea.think-share-view__offer-field {
 
 .shared-concept-page__section-title {
   margin: 0 0 16px;
-  font-family: var(--wiki-ui-font, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.66rem;
   letter-spacing: 0.22em;
   text-transform: uppercase;
@@ -9618,7 +9552,7 @@ textarea.think-share-view__offer-field {
 }
 
 .shared-concept-page__prose {
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1.08rem;
   line-height: 1.7;
   color: var(--text);
@@ -9645,7 +9579,7 @@ textarea.think-share-view__offer-field {
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 8px;
-  font-family: var(--wiki-ui-font, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.62rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -9658,7 +9592,7 @@ textarea.think-share-view__offer-field {
 
 .shared-concept__card-title {
   margin: 0 0 6px;
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1.08rem;
   line-height: 1.3;
 }
@@ -9720,7 +9654,7 @@ textarea.think-share-view__offer-field {
   gap: 10px;
   text-decoration: none;
   color: var(--text);
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1.05rem;
   font-weight: 600;
   letter-spacing: -0.01em;
@@ -9808,7 +9742,7 @@ textarea.think-share-view__offer-field {
 }
 
 .shared-concept-page__sticky-title {
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-weight: 600;
   font-size: 0.96rem;
   color: var(--text);
@@ -10067,7 +10001,7 @@ textarea.think-share-view__offer-field {
 
 .notion-agent-fetch-card__error-page {
   flex-shrink: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-family: var(--font-sans);
   font-size: 0.7rem;
   color: var(--text);
   background: color-mix(in srgb, var(--surface-muted) 60%, var(--surface));

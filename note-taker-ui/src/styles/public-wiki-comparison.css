@@ -34,7 +34,7 @@
 }
 
 .public-wiki-comparison__brand {
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--font-serif);
   font-size: 1.2rem;
 }
 
@@ -51,7 +51,7 @@
 
 .public-wiki-comparison__state h1 {
   margin: 0 0 12px;
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--font-serif);
   font-size: clamp(1.8rem, 4vw, 2.4rem);
   font-weight: 500;
 }
@@ -78,7 +78,7 @@
 
 .public-wiki-comparison__eyebrow {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-family: var(--font-sans);
   font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.14em;
@@ -88,7 +88,7 @@
 
 .public-wiki-comparison__hero h1 {
   margin: 0;
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--font-serif);
   font-size: clamp(2rem, 4.2vw, 3rem);
   font-weight: 500;
   line-height: 1.12;
@@ -125,7 +125,7 @@
 
 .public-wiki-comparison__summary h2 {
   margin: 0;
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--font-serif);
   font-size: 1.35rem;
   font-weight: 500;
 }
@@ -144,7 +144,7 @@
   align-items: center;
   gap: 8px 10px;
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-family: var(--font-sans);
   font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.12em;
@@ -167,7 +167,7 @@
 .public-wiki-comparison__pulse-headline {
   margin: 0;
   max-width: 34ch;
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--font-serif);
   font-size: clamp(1.55rem, 3.4vw, 2.15rem);
   font-weight: 500;
   line-height: 1.2;
@@ -194,7 +194,7 @@
 
 .public-wiki-comparison__pulse-versions dt {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-family: var(--font-sans);
   font-size: 0.6rem;
   font-weight: 800;
   letter-spacing: 0.12em;
@@ -204,7 +204,7 @@
 
 .public-wiki-comparison__pulse-versions dd {
   margin: 0;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 1.05rem;
   font-weight: 700;
   overflow-wrap: anywhere;
@@ -416,7 +416,7 @@
 .public-wiki-comparison__change-narrative h3 {
   margin: 0;
   color: var(--pwc-ink);
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: var(--font-serif);
   font-size: clamp(1.35rem, 2.6vw, 1.9rem);
   font-weight: 520;
   line-height: 1.15;
@@ -459,7 +459,7 @@
   padding: 0;
   border: 0;
   color: var(--pwc-muted);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 0.78rem;
 }
 
@@ -593,7 +593,7 @@
 
 .public-wiki-comparison__three-facts dt {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-family: var(--font-sans);
   font-size: 0.62rem;
   font-weight: 800;
   letter-spacing: 0.12em;
@@ -628,7 +628,7 @@
 
 .public-wiki-comparison__section > h2 {
   margin: 0;
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--font-serif);
   font-size: 1.35rem;
   font-weight: 500;
 }
@@ -665,7 +665,7 @@
 
 .public-wiki-comparison__sha {
   margin: 0;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 1.05rem;
   font-weight: 700;
   overflow-wrap: anywhere;

@@ -170,7 +170,7 @@ mark.highlight.open-sentence__held.is-placed:not(.is-open)::before {
 .open-sentence__been {
   margin: 0;
   color: var(--noeis-ink-muted);
-  font-family: var(--noeis-font-reading);
+  font-family: var(--font-serif);
   font-size: 0.88rem;
   font-style: italic;
 }
@@ -185,7 +185,7 @@ mark.highlight.open-sentence__held.is-placed:not(.is-open)::before {
   color: var(--noeis-thread-strong);
   cursor: pointer;
   font: inherit;
-  font-family: var(--noeis-font-reading);
+  font-family: var(--font-serif);
   font-size: 0.92rem;
   font-style: italic;
   text-align: left;
@@ -204,7 +204,7 @@ mark.highlight.open-sentence__held.is-placed:not(.is-open)::before {
   align-items: baseline;
   margin: 0 0 var(--noeis-space-4);
   color: var(--noeis-thread-strong);
-  font-family: var(--noeis-font-reading);
+  font-family: var(--font-serif);
   font-size: 0.95rem;
   font-style: italic;
   animation: open-sentence-place var(--noeis-motion-base) cubic-bezier(0.16, 1, 0.3, 1) both;
@@ -214,7 +214,7 @@ mark.highlight.open-sentence__held.is-placed:not(.is-open)::before {
   display: inline-flex;
   align-items: center;
   min-height: 44px;
-  font-family: var(--noeis-font-ui);
+  font-family: var(--font-sans);
   font-size: 0.88rem;
   font-style: normal;
   color: var(--noeis-ink);
@@ -256,7 +256,7 @@ mark.highlight.open-sentence__held.is-placed:not(.is-open)::before {
 .open-sentence-pocket__kicker {
   margin: 0;
   color: var(--noeis-ink-subtle);
-  font-family: var(--noeis-font-ui);
+  font-family: var(--font-sans);
   font-size: var(--noeis-type-meta);
   font-weight: 650;
   letter-spacing: 0.08em;
@@ -316,7 +316,7 @@ mark.highlight.open-sentence__held.is-placed:not(.is-open)::before {
   border-top: 1px solid var(--noeis-rule);
   margin-top: 2rem;
   padding-top: 1rem;
-  font-family: var(--noeis-ui-font);
+  font-family: var(--font-sans);
   font-size: 0.88rem;
 }
 .open-sentence-works > p { color: var(--noeis-ink-muted); }
@@ -370,7 +370,7 @@ mark.highlight.open-sentence__held.is-placed:not(.is-open)::before {
   padding: 10px 0;
   cursor: pointer;
   color: var(--noeis-ink-muted);
-  font-family: var(--noeis-font-ui);
+  font-family: var(--font-sans);
   font-size: 0.88rem;
 }
 
@@ -383,7 +383,7 @@ mark.highlight.open-sentence__held.is-placed:not(.is-open)::before {
 }
 
 .open-sentence-pocket__writing-head label {
-  font-family: var(--noeis-font-reading);
+  font-family: var(--font-serif);
   font-size: 1.12rem;
   overflow-wrap: anywhere;
 }
@@ -404,7 +404,7 @@ mark.highlight.open-sentence__held.is-placed:not(.is-open)::before {
   max-width: none;
   resize: vertical;
   line-height: 1.65;
-  font-family: var(--noeis-font-reading);
+  font-family: var(--font-serif);
   background: transparent;
 }
 
@@ -412,7 +412,7 @@ mark.highlight.open-sentence__held.is-placed:not(.is-open)::before {
 .open-sentence-pocket__receipt {
   margin: 0;
   min-height: 1.5em;
-  font-family: var(--noeis-font-ui);
+  font-family: var(--font-sans);
   font-size: 0.82rem;
   color: var(--noeis-ink-muted);
 }
@@ -433,7 +433,7 @@ mark.highlight.open-sentence__held.is-placed:not(.is-open)::before {
 .open-sentence-pocket__label {
   margin: 0;
   color: var(--noeis-ink-muted);
-  font-family: var(--noeis-font-ui);
+  font-family: var(--font-sans);
   font-size: 0.78rem;
 }
 
@@ -454,7 +454,7 @@ mark.highlight.open-sentence__held.is-placed:not(.is-open)::before {
 .open-sentence-pocket__qualification {
   margin: 0;
   color: var(--noeis-ink-subtle);
-  font-family: var(--noeis-font-ui);
+  font-family: var(--font-sans);
   font-size: 0.72rem;
 }
 
@@ -465,13 +465,13 @@ mark.highlight.open-sentence__held.is-placed:not(.is-open)::before {
   border: 0;
   color: var(--noeis-ink);
   font: inherit;
-  font-family: var(--noeis-font-reading);
+  font-family: var(--font-serif);
 }
 
 .open-sentence-pocket__proposal {
   margin: 0;
   color: var(--noeis-ink-muted);
-  font-family: var(--noeis-font-reading);
+  font-family: var(--font-serif);
   font-size: 0.92rem;
 }
 
@@ -479,7 +479,7 @@ mark.highlight.open-sentence__held.is-placed:not(.is-open)::before {
 .open-sentence-pocket__placed {
   margin: 0;
   color: var(--noeis-thread-strong);
-  font-family: var(--noeis-font-reading);
+  font-family: var(--font-serif);
   font-size: 0.92rem;
   font-style: italic;
 }
@@ -506,7 +506,7 @@ mark.highlight.open-sentence__held.is-placed:not(.is-open)::before {
 .open-sentence-pocket__stale {
   margin: 0;
   color: var(--noeis-ink-muted);
-  font-family: var(--noeis-font-ui);
+  font-family: var(--font-sans);
   font-size: 0.9rem;
 }
 

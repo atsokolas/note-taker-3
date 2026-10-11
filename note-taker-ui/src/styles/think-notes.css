@@ -26,7 +26,7 @@
   min-width: 0;
   padding-right: 18px;
   border-right: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 68%, transparent);
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
 }
 
 .think-notes__shelf .think-notes__shelf-more {
@@ -39,7 +39,7 @@
   border-bottom: 1px solid currentColor;
   background: transparent;
   color: var(--text-secondary, var(--vellum-muted));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.8rem;
   cursor: pointer;
 }
@@ -115,7 +115,7 @@
   margin: 0;
   max-width: 48ch;
   color: var(--text-secondary, var(--vellum-muted));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.96rem;
   line-height: 1.62;
 }
@@ -237,7 +237,7 @@ body.noeis-editorial .think-notes .think-notebook-title-input:focus {
   border-radius: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif !important;
+  font-family: var(--font-serif) !important;
   font-size: 2.375rem;
   font-weight: 400;
   line-height: 1.14;
@@ -280,7 +280,7 @@ body.noeis-editorial .think-notes .think-notebook-editor-header {
   min-height: 36px;
   margin-bottom: 0;
   border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 52%, transparent);
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
 }
 .think-notes .think-notebook-utility:has(.think-notebook-utility__more[open]) {
   align-items: flex-start;
@@ -317,16 +317,16 @@ body.noeis-editorial .think-notes .think-notebook-editor-header {
   margin: 0 0 26px;
   padding: 12px 0 14px;
   border-bottom: 1px solid color-mix(in srgb, var(--noeis-pointer, #6f87ff) 28%, var(--vellum-line));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
 }
 .think-next-line > span { color: var(--noeis-pointer, #6f87ff); font-size: 0.68rem; letter-spacing: 0.1em; text-transform: uppercase; }
-.think-next-line p { margin: 5px 0 8px; font: italic 0.95rem/1.5 var(--font-serif, Georgia, serif); }
+.think-next-line p { margin: 5px 0 8px; font: italic 0.95rem/1.5 var(--font-serif); }
 .think-next-line > div { display: flex; flex-wrap: wrap; gap: 8px; }
 
-.notebook-workbench { font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif); }
+.notebook-workbench { font-family: var(--font-sans); }
 .notebook-workbench header { margin-bottom: 22px; }
 .notebook-workbench h2,
-.notebook-workbench h3 { margin: 0; color: var(--text-primary); font-family: var(--font-serif, Georgia, serif); font-weight: 400; }
+.notebook-workbench h3 { margin: 0; color: var(--text-primary); font-family: var(--font-serif); font-weight: 400; }
 .notebook-workbench h2 { font-size: 1.35rem; }
 .notebook-workbench h3 { font-size: 1rem; }
 .notebook-workbench header p,
@@ -353,7 +353,7 @@ body.noeis-editorial .think-notes .think-notebook-editor-header {
   border-top: 1px solid color-mix(in srgb, var(--vellum-line) 70%, transparent);
 }
 .notebook-workbench__row strong,
-.notebook-workbench__row a { color: var(--text-primary); font: 400 0.92rem/1.35 var(--font-serif, Georgia, serif); }
+.notebook-workbench__row a { color: var(--text-primary); font: 400 0.92rem/1.35 var(--font-serif); }
 .notebook-workbench__row p { margin: 6px 0 10px; color: var(--text-secondary); font-size: 0.78rem; line-height: 1.55; }
 .notebook-workbench__row.is-used { opacity: 0.72; }
 .notebook-workbench__section { margin-top: 28px; }
@@ -364,7 +364,7 @@ body.noeis-editorial .think-notes .think-notebook-editor-header {
 .notebook-scratchpad__thought:focus-visible { outline: 2px solid var(--noeis-pointer, #6f87ff); outline-offset: 3px; }
 .notebook-scratchpad > details { padding-top: 14px; border-top: 1px solid var(--vellum-line); }
 .notebook-scratchpad .notebook-workbench__row { padding: 8px 0; }
-.notebook-scratchpad .notebook-workbench__row p { margin: 0 0 2px; color: var(--text-primary); font: 400 .9rem/1.45 var(--font-serif, Georgia, serif); }
+.notebook-scratchpad .notebook-workbench__row p { margin: 0 0 2px; color: var(--text-primary); font: 400 .9rem/1.45 var(--font-serif); }
 body.noeis-editorial .notebook-scratchpad .notebook-workbench__row-actions { gap: 6px; }
 body.noeis-editorial .notebook-scratchpad .notebook-workbench__row-actions .ui-quiet-button { min-width: 28px; min-height: 28px; padding: 3px; font-size: 1rem; letter-spacing: 0; text-transform: none; }
 @media (pointer: coarse) {
@@ -380,7 +380,7 @@ body.noeis-editorial .notebook-scratchpad .notebook-workbench__row-actions .ui-q
   border-radius: 0;
   background: transparent;
   color: var(--text-primary);
-  font: 400 0.95rem/1.55 var(--font-serif, Georgia, serif);
+  font: 400 0.95rem/1.55 var(--font-serif);
 }
 .notebook-workbench-receipt { margin: 16px 0; padding: 8px 0; border-top: 1px solid color-mix(in srgb, var(--noeis-pointer, #6f87ff) 30%, transparent); color: var(--text-secondary); font: 0.76rem/1.5 var(--noeis-ui-font, system-ui, sans-serif); }
 .notebook-workbench-receipt .ui-quiet-button { margin-left: 8px; }
@@ -408,7 +408,7 @@ body.noeis-editorial .notebook-scratchpad .notebook-workbench__row-actions .ui-q
 
 .think-notes .ProseMirror {
   padding: 0;
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-family: var(--font-serif);
   font-size: clamp(1.14rem, 1.35vw, 1.24rem);
   line-height: 1.68;
 }
@@ -424,7 +424,7 @@ body.noeis-editorial .notebook-scratchpad .notebook-workbench__row-actions .ui-q
 .think-notes .think-notebook-title-meta {
   margin: 6px 0 0;
   color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.84rem;
 }
 

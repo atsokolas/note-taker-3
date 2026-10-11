@@ -32,6 +32,7 @@ import {
   targetParams
 } from './thinkNotesModel';
 import { plainTextFrom } from '../utils/editorialText';
+import useDocumentTitle from '../hooks/useDocumentTitle';
 
 // Think.
 //
@@ -423,6 +424,8 @@ const ThinkNotes = () => {
       contextTitle: (openRecord?.key === openKey && openRecord.title) || 'Think',
       contextMetadata: null
     };
+
+  useDocumentTitle(partner.contextTitle === 'Think' ? '' : partner.contextTitle, 'Think');
 
   const askPartner = useCallback((selectedText) => {
     const passage = String(selectedText || '').trim();

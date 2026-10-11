@@ -130,7 +130,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
   gap: 8px 18px;
   align-items: center;
   padding: 0;
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.82rem;
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -155,7 +155,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
   margin: 0;
   max-width: 44ch;
   color: var(--text-primary);
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--font-serif);
   font-size: clamp(1.25rem, 2.1vw, 1.6rem);
   line-height: 1.45;
   overflow-wrap: anywhere;
@@ -175,7 +175,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
 }
 .wiki-front-page__next-action-kicker {
   color: var(--text-muted);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: 0.62rem;
   font-weight: 750;
   letter-spacing: 0.18em;
@@ -184,7 +184,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
 .wiki-front-page__next-action-link {
   justify-self: start;
   color: var(--text-primary);
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--font-serif);
   font-size: clamp(1rem, 1.4vw, 1.18rem);
   font-weight: 650;
   text-decoration: none;
@@ -201,7 +201,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
   gap: 7px;
   max-width: min(58ch, 100%);
   color: var(--text-muted);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: 0.72rem;
   line-height: 1.5;
 }
@@ -215,7 +215,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
 .wiki-front-page__watcher-summary {
   max-width: 54ch;
   color: var(--text-primary);
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--font-serif);
   font-size: 0.94rem;
   line-height: 1.45;
 }
@@ -268,7 +268,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
   max-width: min(58ch, 100%);
   margin: 0;
   color: var(--text-muted);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: 0.72rem;
   letter-spacing: 0.04em;
 }
@@ -316,7 +316,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
 .wiki-front-page__story { display: grid; gap: 12px; }
 .wiki-front-page__story h1 {
   margin: 0;
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--font-serif);
   font-weight: 650;
   font-size: clamp(2rem, 4.2vw, 3.45rem);
   line-height: 1.02;
@@ -332,7 +332,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
   margin: 0;
   max-width: 62ch;
   color: var(--text-secondary);
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--font-serif);
   font-size: 1.06rem;
   line-height: 1.62;
 }
@@ -340,7 +340,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
 .wiki-front-page__story-meta {
   margin: -2px 0 2px;
   color: var(--text-muted);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: 0.72rem;
   letter-spacing: 0.04em;
 }
@@ -372,14 +372,14 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
 }
 .wiki-front-page__section-heading h2 {
   margin: 0;
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--font-serif);
   font-size: clamp(1.35rem, 2.3vw, 1.85rem);
   font-weight: 600;
   letter-spacing: -0.018em;
 }
 .wiki-front-page__section-heading > span {
   color: var(--text-muted);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: 0.72rem;
 }
 .wiki-front-page__grown li {
@@ -400,7 +400,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
 }
 .wiki-front-page__grown a {
   color: var(--text-primary);
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--font-serif);
   font-size: 1.04rem;
   font-weight: 650;
   text-decoration: none;
@@ -408,7 +408,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
 .wiki-front-page__row-index,
 .wiki-front-page__row-arrow {
   color: var(--text-muted);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: 0.72rem;
 }
 .wiki-front-page__row-arrow {
@@ -418,7 +418,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
 .wiki-front-page__growth-note {
   display: block;
   color: color-mix(in srgb, var(--text-muted) 92%, transparent);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: 0.72rem;
   letter-spacing: 0.04em;
 }
@@ -437,12 +437,12 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
 .wiki-front-page__library-head > div { display: grid; gap: 4px; }
 .wiki-front-page__library-head p {
   margin: 0;
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--font-serif);
   font-size: clamp(1.25rem, 2vw, 1.65rem);
   color: var(--text-primary);
 }
 .wiki-front-page__library-head > span {
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: .7rem;
   letter-spacing: .12em;
   color: var(--text-muted);
@@ -451,7 +451,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
 .wiki-front-page__library-boundary {
   margin: 10px 0 0;
   color: var(--text-muted);
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: .76rem;
 }
 .wiki-front-page__library-search input {
@@ -482,7 +482,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
 }
 .wiki-front-page__index li > span,
 .wiki-front-page__index li > small {
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: .62rem;
   letter-spacing: .1em;
   text-transform: uppercase;
@@ -490,7 +490,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
 }
 .wiki-front-page__index a {
   color: var(--text-primary);
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--font-serif);
   font-size: 1.02rem;
   line-height: 1.35;
   text-decoration: none;
@@ -716,7 +716,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
 .wiki-front-page__empty { display: grid; gap: 12px; max-width: 56ch; }
 .wiki-front-page__empty h1 {
   margin: 0;
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--font-serif);
   font-weight: 650;
   font-size: clamp(1.7rem, 3vw, 2.4rem);
   line-height: 1.1;
@@ -787,7 +787,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
   display: block;
   margin-top: 6px;
   color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-family: var(--font-mono);
   font-size: 0.72rem;
   letter-spacing: 0.04em;
 }
@@ -814,7 +814,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
 .wiki-front-page__asked-back-eyebrow {
   margin: 0;
   color: var(--noeis-living-sap, var(--noeis-living, #6f7340));
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-family: var(--font-mono);
   font-size: 0.72rem;
   letter-spacing: 0.12em;
 }
@@ -823,7 +823,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
 .wiki-front-page__asked-back-list a {
   margin: 0;
   color: var(--text-primary, var(--vellum-ink));
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1.05rem;
   line-height: 1.45;
   text-wrap: pretty;
@@ -850,7 +850,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
 .wiki-front-page__asked-back-line {
   margin: 4px 0 0;
   color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.82rem;
 }
 
@@ -862,7 +862,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
   border-radius: 0;
   background: transparent;
   color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.82rem;
   cursor: pointer;
 }
@@ -881,7 +881,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
 .wfp-drift__sentence {
   margin: 0;
   color: var(--text-primary, var(--vellum-ink));
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1.05rem;
   line-height: 1.45;
   text-wrap: pretty;
@@ -909,7 +909,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
 .wiki-front-page__check-in-claim {
   margin: 0;
   color: var(--text-primary, var(--vellum-ink));
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1.05rem;
   line-height: 1.45;
   text-wrap: pretty;
@@ -934,7 +934,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
   border-radius: 0;
   background: transparent;
   color: var(--text-primary, var(--vellum-ink));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.88rem;
   cursor: pointer;
 }
@@ -951,7 +951,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
 .wiki-front-page__check-in-tally {
   margin: 0;
   color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-family: var(--font-mono);
   font-size: 0.72rem;
   letter-spacing: 0.04em;
 }
@@ -960,7 +960,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
 .wiki-front-page__check-in-criteria {
   margin: 0;
   color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-family: var(--font-mono);
   font-size: 0.72rem;
   letter-spacing: 0.04em;
 }
@@ -980,7 +980,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
 .morning-consequence__wording span {
   display: block;
   color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-family: var(--font-mono);
   font-size: 0.72rem;
   letter-spacing: 0.04em;
 }
@@ -993,7 +993,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
 
 .morning-consequence__wording p {
   color: var(--text-primary, var(--vellum-ink));
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1.05rem;
   line-height: 1.45;
   text-wrap: pretty;
@@ -1015,7 +1015,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
 .morning-consequence__passage a,
 .morning-consequence__dependents {
   color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-family: var(--font-mono);
   font-size: 0.72rem;
   letter-spacing: 0.04em;
 }
@@ -1041,7 +1041,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
 
 .claim-falsifiability > summary {
   color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.88rem;
   cursor: pointer;
 }
@@ -1070,7 +1070,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
   display: grid;
   gap: 4px;
   color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-family: var(--font-mono);
   font-size: 0.72rem;
   letter-spacing: 0.04em;
 }
@@ -1084,7 +1084,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
   border-radius: 0;
   background: transparent;
   color: var(--text-primary, var(--vellum-ink));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.88rem;
   cursor: pointer;
 }
@@ -1092,7 +1092,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
 .claim-falsifiability__kept {
   margin: 0;
   color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-family: var(--font-mono);
   font-size: 0.72rem;
   letter-spacing: 0.04em;
 }
@@ -1200,7 +1200,7 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
 .wiki-living-index__header h1 {
   margin: 0;
   color: var(--text-primary);
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-size: clamp(2.35rem, 4.2vw, 4.35rem);
   font-weight: 450;
   letter-spacing: -0.045em;
@@ -1210,7 +1210,7 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
 .wiki-living-index__header > p:not(.wiki-index__eyebrow):not(.wiki-living-index__briefing):not(.wiki-front-page__availability):not(.wiki-front-page__review-triage):not(.paper-open__sign-off-date) {
   margin: 0;
   color: var(--text-secondary);
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1.02rem;
 }
 
@@ -1219,7 +1219,7 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
   padding-left: 13px;
   border-left: 1px solid color-mix(in srgb, var(--vellum-warm, #b1862e) 48%, var(--noeis-rule));
   color: var(--text-muted);
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 0.92rem;
   font-style: italic;
   line-height: 1.5;
@@ -1229,7 +1229,7 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
   margin: 8px 0 0;
   max-width: 48ch;
   color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.84rem;
   line-height: 1.45;
 }
@@ -1258,7 +1258,7 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
   border-radius: 0;
   background: transparent;
   color: var(--text-primary);
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1rem;
   outline: none;
 }
@@ -1282,7 +1282,7 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
 .wiki-living-table__head {
   min-height: 42px;
   color: var(--text-muted);
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.58rem;
   font-weight: 650;
   letter-spacing: 0.13em;
@@ -1333,7 +1333,7 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
 .wiki-living-row__title a {
   overflow: hidden;
   color: var(--text-primary);
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1rem;
   text-decoration: none;
   text-overflow: ellipsis;
@@ -1342,7 +1342,7 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
 
 .wiki-living-row__title small {
   color: var(--text-muted);
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.58rem;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -1394,7 +1394,7 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
 .wiki-living-changes h2 {
   margin: 2px 0 0;
   color: var(--text-primary);
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1.45rem;
   font-weight: 500;
 }
@@ -1424,7 +1424,7 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
 
 .wiki-living-changes li > a:last-child {
   color: var(--wiki-warm-accent, #9a6d19);
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.7rem;
   letter-spacing: 0.05em;
 }
@@ -1447,7 +1447,7 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
 .wiki-living-curator > header h2 {
   margin: 0;
   color: var(--text-primary);
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1.8rem;
   font-weight: 500;
 }
@@ -1456,7 +1456,7 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
 .wiki-living-curator__repo > p {
   margin: 0;
   color: var(--text-secondary);
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   line-height: 1.5;
 }
 
@@ -1473,7 +1473,7 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
   display: block;
   margin: 0 0 12px;
   color: var(--text-muted);
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.62rem;
   font-weight: 650;
   letter-spacing: 0.14em;
@@ -1507,7 +1507,7 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
 
 .wiki-living-curator__return a {
   color: var(--text-primary);
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1rem;
   text-decoration: none;
 }
@@ -1522,7 +1522,7 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
 .wiki-living-curator__conversation summary {
   color: var(--text-primary);
   cursor: pointer;
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1rem;
 }
 
@@ -1752,7 +1752,7 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
 }
 
 .wiki-front-page__watching-header h2 {
-  font-family: var(--font-serif, Georgia, serif);
+  font-family: var(--font-serif);
   font-size: 1.55rem;
   margin: 4px 0 0;
 }
@@ -1763,7 +1763,7 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
 .wiki-front-page__watching-empty {
   color: var(--text-muted, #8c867c);
   display: block;
-  font-family: var(--font-mono, ui-monospace, monospace);
+  font-family: var(--font-mono);
   font-size: .72rem;
   font-style: normal;
   margin-top: 4px;
@@ -1795,7 +1795,7 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
 .wiki-front-page__reading-watch label {
   display: grid;
   flex: 1 1 210px;
-  font-family: var(--font-mono, ui-monospace, monospace);
+  font-family: var(--font-mono);
   font-size: .7rem;
   gap: 5px;
 }
@@ -1824,7 +1824,7 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
   width: fit-content;
   cursor: pointer;
   color: var(--text-secondary);
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.8rem;
   font-weight: 650;
   list-style: none;
@@ -1864,7 +1864,7 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
   padding: 10px 14px;
   border-left: 2px solid color-mix(in srgb, var(--wiki-warm-accent, #b1862e) 52%, var(--noeis-rule));
   color: var(--text-secondary);
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.82rem;
   line-height: 1.5;
 }
@@ -1884,7 +1884,7 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
   cursor: pointer;
   list-style: none;
   color: var(--text-secondary);
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
 }
 
 .wiki-front-page__operations-summary::-webkit-details-marker {
@@ -2043,7 +2043,7 @@ body.noeis-editorial .wiki-front-page__operations-summary strong,
 body.noeis-editorial .wiki-front-page__operations-summary small,
 body.noeis-editorial .wiki-front-page__operations-summary span[aria-hidden] {
   color: var(--text-muted, var(--vellum-subtle)) !important;
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif) !important;
+  font-family: var(--font-sans) !important;
   font-size: 0.8rem !important;
   font-weight: 400 !important;
   letter-spacing: 0 !important;
@@ -2057,7 +2057,7 @@ body.noeis-editorial .wiki-front-page__check-in-reason,
 body.noeis-editorial .wiki-front-page__check-in-criteria,
 body.noeis-editorial .claim-falsifiability__kept {
   color: var(--text-muted, var(--vellum-subtle)) !important;
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace) !important;
+  font-family: var(--font-mono) !important;
   font-size: 0.72rem !important;
   letter-spacing: 0.04em !important;
   text-transform: none !important;
@@ -2065,7 +2065,7 @@ body.noeis-editorial .claim-falsifiability__kept {
 
 body.noeis-editorial .wiki-living-index__briefing {
   color: var(--text-muted) !important;
-  font-family: "Newsreader", Georgia, serif !important;
+  font-family: var(--font-serif) !important;
   font-size: 0.92rem !important;
   font-style: italic;
   letter-spacing: 0 !important;
@@ -2073,7 +2073,7 @@ body.noeis-editorial .wiki-living-index__briefing {
 body.noeis-editorial .wiki-living-index__search input,
 body.noeis-editorial .wiki-living-shell input[type='search'] {
   padding: 8px 0 !important;
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif) !important;
+  font-family: var(--font-sans) !important;
   font-size: 0.94rem;
 }
 
@@ -2110,7 +2110,7 @@ body.noeis-editorial .wiki-front-page__making {
 
 body.noeis-editorial .wiki-front-page__making > summary {
   color: var(--text-primary, var(--vellum-ink));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.9rem;
   cursor: pointer;
 }
@@ -2127,7 +2127,7 @@ body.noeis-editorial .wiki-front-page__return-path {
   align-items: baseline;
   gap: 6px 18px;
   margin: 26px 0 0;
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.88rem;
 }
 
@@ -2138,7 +2138,7 @@ body.noeis-editorial .wiki-front-page__return-path span {
 /* The activity bar at the foot of the page: a summary you can open, said in
    the same voice as everything above it rather than stamped in caps. */
 body.noeis-editorial .wiki-front-page__operations-summary {
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   letter-spacing: 0;
   text-transform: none;
 }
@@ -2154,13 +2154,13 @@ body.noeis-editorial .wiki-front-page__continue {
 
 body.noeis-editorial .wiki-front-page__continue span {
   color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.82rem;
 }
 
 body.noeis-editorial .wiki-front-page__continue a {
   color: var(--text-primary, var(--vellum-ink));
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1.24rem;
   line-height: 1.25;
   text-decoration: none;
@@ -2185,7 +2185,7 @@ body.noeis-editorial .wiki-front-page__operations-panel .ui-button {
   background-color: transparent !important;
   box-shadow: none !important;
   color: var(--text-primary, var(--vellum-ink)) !important;
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.88rem;
   font-weight: 400;
   letter-spacing: 0;
@@ -2197,7 +2197,7 @@ body.noeis-editorial .wiki-front-page__operations-panel .wiki-index__eyebrow,
 body.noeis-editorial .wiki-front-page__making label,
 body.noeis-editorial .wiki-front-page__operations-panel label {
   color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.82rem;
   font-weight: 400;
   letter-spacing: 0;
@@ -2208,7 +2208,7 @@ body.noeis-editorial .wiki-front-page__making input,
 body.noeis-editorial .wiki-front-page__making textarea,
 body.noeis-editorial .wiki-front-page__operations-panel input {
   padding: 7px 0 !important;
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif) !important;
+  font-family: var(--font-sans) !important;
   font-size: 0.92rem;
 }
 
@@ -2232,7 +2232,7 @@ body.noeis-editorial .wiki-front-page__operations-panel input {
 
 .wfp-week__title {
   margin: 0;
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -2241,7 +2241,7 @@ body.noeis-editorial .wiki-front-page__operations-panel input {
 
 .wfp-week__range {
   margin: 0;
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.1em;
   color: var(--text-muted, #5f6b7a);
@@ -2254,7 +2254,7 @@ body.noeis-editorial .wiki-front-page__operations-panel input {
 
 .wfp-week__page {
   margin: 0;
-  font-family: var(--font-serif, 'Newsreader', Georgia, serif);
+  font-family: var(--font-serif);
   font-size: 20px;
   font-weight: 400;
   line-height: 1.3;
@@ -2295,7 +2295,7 @@ body.noeis-editorial .wiki-front-page__operations-panel input {
 }
 
 .wfp-week__kind {
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -2330,7 +2330,7 @@ body.noeis-editorial .wiki-front-page__operations-panel input {
 .paper-open__end {
   margin: 0.2rem 0 0;
   color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-family: var(--font-mono);
   font-size: 0.7rem;
   letter-spacing: 0.06em;
   /* Lining tabular figures in every mono receipt: numbers that line up when
@@ -2474,7 +2474,7 @@ body.noeis-editorial .wiki-front-page__operations-panel input {
 .paper-desk__eyebrow {
   margin: 0 0 2px;
   color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.68rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -2483,7 +2483,7 @@ body.noeis-editorial .wiki-front-page__operations-panel input {
 .paper-desk__line {
   margin: 0;
   color: var(--text-secondary, var(--vellum-muted));
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1.02rem;
   line-height: 1.5;
   text-wrap: pretty;
@@ -2524,7 +2524,7 @@ body.noeis-editorial .wiki-front-page__operations-panel input {
 
 .paper-open__headline {
   margin: 0 0 4px;
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-size: clamp(1.9rem, 3.2vw, 3.1rem);
   font-weight: 450;
   line-height: 1.1;
@@ -2555,7 +2555,7 @@ body.noeis-editorial .wiki-front-page__operations-panel input {
 .paper-column__standfirst,
 .paper-column__footnote,
 .paper-column__correction-note {
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-family: var(--font-mono);
   font-size: 0.66rem;
   font-weight: 600;
   letter-spacing: 0.11em;
@@ -2580,7 +2580,7 @@ body.noeis-editorial .wiki-front-page__operations-panel input {
   display: block;
   margin: 0;
   color: var(--text-primary);
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1.22rem;
   line-height: 1.42;
   text-decoration: none;
@@ -2615,7 +2615,7 @@ a.paper-column__body:hover {
 .paper-column__corrections a,
 .paper-column__corrections span:first-child {
   color: var(--text-primary);
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1rem;
   line-height: 1.4;
   text-decoration: none;
@@ -2652,7 +2652,7 @@ a.paper-column__body:hover {
   border-top: 2px solid var(--noeis-rule, var(--border-subtle-2));
   max-width: 48ch;
   color: color-mix(in srgb, var(--text-muted) 92%, transparent);
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1.16rem;
   font-style: italic;
   line-height: 1.5;
@@ -2734,7 +2734,7 @@ body.noeis-editorial .wiki-living-index__header h1.paper-open__headline {
 .paper-column__closings li,
 .paper-column__closings a {
   color: var(--text-primary);
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1rem;
   line-height: 1.45;
   text-decoration: none;

@@ -52,7 +52,7 @@
   max-height: calc(100vh - 88px);
   padding: clamp(24px, 4vh, 44px) 18px 48px 0;
   border-right: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 68%, transparent);
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-color: color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 55%, transparent) transparent;
@@ -91,7 +91,7 @@
   border-bottom: 1px solid currentColor;
   background: transparent;
   color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.86rem;
   cursor: pointer;
 }
@@ -110,7 +110,7 @@
   border-bottom: 1px solid currentColor;
   background: transparent;
   color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.86rem;
   cursor: pointer;
 }
@@ -183,7 +183,7 @@
   margin: 0 auto;
   padding: clamp(40px, 7vh, 84px) 20px clamp(96px, 20vh, 200px);
   color: var(--text-primary, var(--vellum-ink));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
 }
 
 .library-column__return {
@@ -224,7 +224,7 @@
 
 .library-column .library-column__continue h2 {
   margin: 0;
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-family: var(--font-serif);
   font-size: clamp(1.7rem, 2.9vw, 2.3rem);
   font-weight: 400;
   line-height: 1.16;
@@ -249,7 +249,7 @@
 
 .library-column__source {
   margin: 0;
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1.02rem;
   color: var(--text-secondary, var(--vellum-muted));
 }
@@ -373,7 +373,7 @@
 
 .library-column__row-title {
   min-width: 0;
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1.06rem;
   line-height: 1.35;
 }
@@ -417,7 +417,7 @@
 
 .library-column__shelf--feed .library-column__row-source {
   order: -1;
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.72rem;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -438,7 +438,7 @@
   overflow: hidden;
   max-width: 62ch;
   color: var(--text-secondary, var(--vellum-muted));
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 0.98rem;
   line-height: 1.5;
 }
@@ -493,7 +493,7 @@
 
 .library-column__shelf--gallery .library-column__row-date {
   align-self: end;
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-family: var(--font-mono);
   font-size: 0.7rem;
 }
 
@@ -522,7 +522,7 @@
 .library-pile__eyebrow {
   margin: 0;
   color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.72rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -545,7 +545,7 @@
   margin: 0;
   max-width: 52ch;
   color: var(--text-secondary, var(--vellum-muted));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.82rem;
   line-height: 1.5;
 }
@@ -578,7 +578,7 @@
 
 .library-pile__title {
   color: var(--text-primary, var(--vellum-ink));
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1.12rem;
   line-height: 1.35;
   text-align: left;
@@ -593,7 +593,7 @@
   flex: 0 0 auto;
   border-bottom: 1px solid currentColor;
   color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.82rem;
 }
 
@@ -607,7 +607,7 @@
   gap: 10px;
   justify-items: start;
   color: var(--noeis-living-sap, var(--noeis-living, #6f7340));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.82rem;
 }
 
@@ -640,7 +640,7 @@
   border-bottom: 1px solid currentColor;
   background: transparent;
   color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.82rem;
   cursor: pointer;
 }
@@ -746,7 +746,7 @@
   display: inline-block;
   margin-bottom: 20px;
   color: var(--text-primary, var(--vellum-ink));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.86rem;
   text-decoration: none;
   border: 0;
@@ -817,7 +817,7 @@
 .library-page-shell__tools {
   position: relative;
   color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.82rem;
 }
 
@@ -878,7 +878,7 @@
   border-radius: 0;
   background: transparent;
   color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.86rem;
   font-weight: 400;
   letter-spacing: 0;
@@ -958,7 +958,7 @@ body.noeis-editorial .library-page-shell .library-section-head,
 
 body.noeis-editorial .library-page-shell .library-section-head .ui-section-header__title,
 .library-page-shell .library-section-head .ui-section-header__title {
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1.5rem;
   font-weight: 400;
   letter-spacing: -0.01em;
@@ -982,7 +982,7 @@ body.noeis-editorial .library-page-shell .library-cabinet-count,
 .library-page-shell .library-cabinet-group-label,
 .library-page-shell .library-cabinet-count {
   color: var(--text-muted, var(--vellum-subtle)) !important;
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif) !important;
+  font-family: var(--font-sans) !important;
   font-size: 0.82rem !important;
   font-weight: 400 !important;
   letter-spacing: 0 !important;
@@ -994,7 +994,7 @@ body.noeis-editorial .library-page-shell .library-cabinet-nested .library-cabine
 .library-page-shell .library-cabinet-nested .library-cabinet-item {
   justify-content: flex-start;
   text-align: left;
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.9rem;
   font-weight: 400;
   letter-spacing: 0;
@@ -1005,14 +1005,14 @@ body.noeis-editorial .library-page-shell .library-cabinet-nested .library-cabine
 body.noeis-editorial .library-page-shell .library-article-search input,
 .library-page-shell .library-article-search input {
   padding: 8px 0 !important;
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif) !important;
+  font-family: var(--font-sans) !important;
   font-size: 0.94rem;
 }
 
 /* Titles are the reading. */
 body.noeis-editorial .library-page-shell .library-article-row-title,
 .library-page-shell .library-article-row-title {
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-family: var(--font-serif);
   font-weight: 400;
 }
 
@@ -1047,7 +1047,7 @@ body.noeis-editorial .library-page-shell .library-cabinet > span,
 .library-page-shell .library-cabinet-section > span,
 .library-page-shell .library-cabinet > span {
   color: var(--text-muted, var(--vellum-subtle)) !important;
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif) !important;
+  font-family: var(--font-sans) !important;
   font-size: 0.8rem !important;
   font-weight: 400 !important;
   letter-spacing: 0 !important;
@@ -1060,7 +1060,7 @@ body.noeis-editorial .library-page-shell .library-cabinet a,
 .library-page-shell .library-cabinet a {
   justify-content: flex-start;
   text-align: left;
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.9rem;
   font-weight: 400;
   letter-spacing: 0;
@@ -1071,7 +1071,7 @@ body.noeis-editorial .library-page-shell .library-cabinet a,
 body.noeis-editorial .library-page-shell .library-source-index__label,
 .library-page-shell .library-source-index__label {
   color: var(--text-muted, var(--vellum-subtle)) !important;
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif) !important;
+  font-family: var(--font-sans) !important;
   font-size: 0.8rem !important;
   font-weight: 400 !important;
   letter-spacing: 0 !important;
@@ -1089,7 +1089,7 @@ body.noeis-editorial .library-page-shell .library-folder-button,
 
 body.noeis-editorial .library-page-shell .library-folder-name,
 .library-page-shell .library-folder-name {
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif) !important;
+  font-family: var(--font-sans) !important;
   font-size: 0.9rem !important;
   font-weight: 400 !important;
   letter-spacing: 0 !important;
@@ -1110,7 +1110,7 @@ body.noeis-editorial .library-page-shell .library-folder-name,
 
 .library-column__eyebrow {
   margin: 0 0 26px;
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -1118,7 +1118,7 @@ body.noeis-editorial .library-page-shell .library-folder-name,
 }
 
 .library-column__kicker {
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1.02rem;
   letter-spacing: 0;
   text-transform: none;
@@ -1135,7 +1135,7 @@ body.noeis-editorial .library-page-shell .library-folder-name,
 .library-column__rows a,
 .library-column__rows button,
 .library-column__row-title {
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1.14rem;
   line-height: 1.45;
 }
@@ -1150,7 +1150,7 @@ body.noeis-editorial .library-page-shell .library-folder-name,
 
 .library-column__find span,
 .library-column__saver {
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.82rem;
 }
 
@@ -1170,7 +1170,7 @@ body.noeis-editorial .library-page-shell .library-folder-name,
   flex-wrap: wrap;
   align-items: baseline;
   min-width: 0;
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
 }
 
 .library-places__doors {
@@ -1183,7 +1183,7 @@ body.noeis-editorial .library-page-shell .library-folder-name,
 .library-places__doors a {
   padding-bottom: 3px;
   color: var(--text-muted, var(--vellum-subtle));
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1.24rem;
   line-height: 1.2;
   text-decoration: none;
@@ -1233,7 +1233,7 @@ body.noeis-editorial .library-page-shell .library-folder-name,
 .library-folder-screen .library-screen-word {
   border-bottom: 1px solid currentColor;
   color: var(--noeis-living-sap, var(--noeis-living, #6f7340));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.86rem;
 }
 
@@ -1252,7 +1252,7 @@ body.noeis-editorial .library-page-shell .library-folder-name,
 
 .library-feed__title {
   color: inherit;
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-family: var(--font-serif);
   font-size: clamp(1.35rem, 2.1vw, 1.7rem);
   font-weight: 500;
   line-height: 1.25;
@@ -1262,7 +1262,7 @@ body.noeis-editorial .library-page-shell .library-folder-name,
 .library-feed__source {
   margin: 6px 0 0;
   color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.82rem;
 }
 
@@ -1270,7 +1270,7 @@ body.noeis-editorial .library-page-shell .library-folder-name,
   margin: 12px 0 0;
   max-width: 38rem;
   color: var(--text-primary, var(--vellum-ink));
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1.05rem;
   line-height: 1.55;
 }
@@ -1319,7 +1319,7 @@ body.noeis-editorial .library-page-shell .library-folder-name,
 .library-column__row-kind {
   display: block;
   color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-family: var(--font-mono);
   font-size: 0.68rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -1336,7 +1336,7 @@ body.noeis-editorial .library-page-shell .library-folder-name,
 .library-column__row-retired {
   display: block;
   color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-family: var(--font-mono);
   font-size: 0.68rem;
   letter-spacing: 0.04em;
 }
@@ -1346,7 +1346,7 @@ body.noeis-editorial .library-page-shell .library-folder-name,
 .library-column__colophon {
   margin: 1.6rem 0 0;
   color: var(--text-muted, var(--vellum-subtle));
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 0.82rem;
   letter-spacing: 0.18em;
   text-align: center;
@@ -1357,7 +1357,7 @@ body.noeis-editorial .library-page-shell .library-folder-name,
 .library-column__place {
   margin: 0.2rem 0 0;
   color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-family: var(--font-mono);
   font-size: 0.72rem;
   letter-spacing: 0.04em;
 }
@@ -1373,7 +1373,7 @@ body.noeis-editorial .library-page-shell .library-folder-name,
   align-items: baseline;
   margin: 1.2rem 0 0;
   color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-family: var(--font-mono);
   font-size: 0.72rem;
   letter-spacing: 0.04em;
 }
@@ -1394,7 +1394,7 @@ body.noeis-editorial .library-page-shell .library-folder-name,
 .library-feed__screened {
   margin: 0.2rem 0 0;
   color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-family: var(--font-mono);
   font-size: 0.68rem;
   letter-spacing: 0.04em;
   font-variant-numeric: lining-nums tabular-nums;
@@ -1448,7 +1448,7 @@ body.noeis-editorial .library-page-shell .library-folder-name,
   border: 0;
   background: none;
   color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-family: var(--font-mono);
   font-size: 0.68rem;
   letter-spacing: 0.06em;
   cursor: pointer;
@@ -1469,7 +1469,7 @@ body.noeis-editorial .library-page-shell .library-folder-name,
 .library-pile__more {
   margin-left: 0.3rem;
   color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-family: var(--font-mono);
   font-size: 0.62rem;
   letter-spacing: 0.06em;
   font-variant-numeric: lining-nums tabular-nums;
@@ -1528,7 +1528,7 @@ body.noeis-editorial .library-page-shell .library-folder-name,
   display: grid;
   gap: 6px;
   color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-family: var(--font-mono);
   font-size: 0.72rem;
   letter-spacing: 0.02em;
 }
@@ -1559,7 +1559,7 @@ body.noeis-editorial .library-page-shell .library-folder-name,
 .library-pile__keys {
   margin-left: 0.5rem;
   color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-family: var(--font-mono);
   font-size: 0.62rem;
   letter-spacing: 0.18em;
 }

@@ -5,7 +5,7 @@
 .drift h2 {
   margin: 0 0 4px;
   color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.78rem;
   font-weight: 600;
   letter-spacing: 0.14em;
@@ -101,7 +101,7 @@
 
 .drift__direction {
   color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.72rem;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -223,7 +223,7 @@
   display: block;
   margin-bottom: 2px;
   color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.63rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -247,7 +247,7 @@
   display: block;
   margin-top: 4px;
   color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.62rem;
   font-weight: 400;
   letter-spacing: 0.06em;
@@ -279,7 +279,7 @@
 .drift__works small,
 .drift__more {
   color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.66rem;
 }
 
@@ -304,7 +304,7 @@
   max-width: 100%;
   margin: 10px 0 0;
   color: color-mix(in srgb, var(--text-muted, var(--vellum-subtle)) 70%, transparent);
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.68rem;
   letter-spacing: 0.08em;
 }

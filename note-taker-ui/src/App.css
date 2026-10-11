@@ -22,7 +22,7 @@ body {
    hundred milliseconds, and drawing anything in that window makes a fast load
    look like a slow one. */
 .page-loading__word {
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.86rem;
   opacity: 0;
   animation: page-loading-admit 240ms ease-out 700ms forwards;
@@ -1204,7 +1204,7 @@ body.noeis-editorial .product-feedback-modal .feedback-field textarea::placehold
     gap: 8px;
     padding: 12px 15px;
 
-    font-family: 'SF Pro Text', 'Helvetica Neue', 'Segoe UI', sans-serif;
+    font-family: var(--font-sans);
     font-size: 14px;
     color: var(--text-primary);
     width: 320px;
@@ -1504,7 +1504,7 @@ body.noeis-editorial .product-feedback-modal .feedback-field textarea::placehold
     line-height: 1.5;
     word-break: break-all;
     white-space: pre-wrap;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-family: var(--font-mono);
 }
 
 .external-bridge-token-well__copy-err {
@@ -2064,7 +2064,7 @@ body.noeis-editorial .product-feedback-modal .feedback-field textarea::placehold
 }
 
 .citation-text {
-  font-family: 'Times New Roman', Times, serif; /* Citations often look best in a serif font */
+  font-family: var(--font-serif); /* Citations often look best in a serif font */
   font-size: 1.1em;
   line-height: 1.5;
   margin-bottom: 8px;
@@ -3328,7 +3328,7 @@ body.noeis-editorial .product-feedback-modal .feedback-field textarea::placehold
   min-height: 100vh;
   background: var(--vellum-bg, #fbf8f1);
   color: var(--vellum-ink, #35332f);
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--font-serif);
 }
 
 .shared-wiki-page__topbar {
@@ -3350,7 +3350,7 @@ body.noeis-editorial .product-feedback-modal .feedback-field textarea::placehold
 }
 
 .shared-wiki-page__home {
-  font-family: var(--noeis-ui-font, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.68rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -3377,7 +3377,7 @@ body.noeis-editorial .product-feedback-modal .feedback-field textarea::placehold
 
 .shared-wiki-page__eyebrow {
   margin: 0 0 8px;
-  font-family: var(--noeis-ui-font, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.68rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -3406,7 +3406,7 @@ body.noeis-editorial .product-feedback-modal .feedback-field textarea::placehold
   gap: 14px;
   flex-wrap: wrap;
   margin-top: 24px;
-  font-family: var(--noeis-ui-font, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.68rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -3430,7 +3430,7 @@ body.noeis-editorial .product-feedback-modal .feedback-field textarea::placehold
   top: 24px;
   display: grid;
   gap: 8px;
-  font-family: var(--noeis-ui-font, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.78rem;
 }
 

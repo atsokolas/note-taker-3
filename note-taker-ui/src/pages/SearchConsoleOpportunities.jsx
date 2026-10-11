@@ -629,15 +629,14 @@ const SearchConsoleOpportunities = () => {
 
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             <Button type="submit">Analyze export</Button>
-            <Button type="button" variant="secondary" onClick={() => setPasteInput(SAMPLE_INPUT)}>
+            <Button type="button" onClick={() => setPasteInput(SAMPLE_INPUT)}>
               Load sample
             </Button>
-            <Button type="button" variant="secondary" onClick={() => setPasteInput(GSC_PASTE_TEMPLATE)}>
+            <Button type="button" onClick={() => setPasteInput(GSC_PASTE_TEMPLATE)}>
               Load GSC header
             </Button>
             <Button
               type="button"
-              variant="secondary"
               onClick={() => {
                 setPasteInput('');
                 setAnalysis(buildSearchConsoleOpportunityReport());
