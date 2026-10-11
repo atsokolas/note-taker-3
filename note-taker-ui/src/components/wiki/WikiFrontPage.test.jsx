@@ -2,10 +2,14 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import * as router from 'react-router-dom';
 import WikiFrontPage from './WikiFrontPage';
-import { listWikiPages } from '../../api/wiki';
+import { AGENT_DISPLAY_NAME } from '../../constants/agentIdentity';
+import * as api from '../../api/wiki';
+
+const { listWikiPages } = api;
 
 jest.mock('../../api/wiki', () => ({
-  listWikiPages: jest.fn()
+  listWikiPages: jest.fn(),
+  listWikiChanges: jest.fn()
 }));
 
 jest.mock('./WikiCreationComposer', () => () => (
@@ -63,6 +67,7 @@ describe('WikiFrontPage collection', () => {
     localStorage.clear();
     jest.spyOn(router, 'useNavigate').mockReturnValue(jest.fn());
     listWikiPages.mockResolvedValue(pages);
+    api.listWikiChanges.mockResolvedValue({ pageCount: 0, changes: [] });
   });
 
   afterEach(() => jest.restoreAllMocks());
@@ -82,7 +87,7 @@ describe('WikiFrontPage collection', () => {
     expect(document.querySelector('.paper-desk')).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Full workspace' }))
       .toHaveAttribute('href', '/wiki/workspace?view=list');
-    expect(screen.getByRole('link', { name: 'Map & disagreements' }))
+    expect(screen.getByRole('link', { name: 'Map' }))
       .toHaveAttribute('href', '/wiki/workspace?view=graph');
   });
 
@@ -97,11 +102,41 @@ describe('WikiFrontPage collection', () => {
     expect(nav).toHaveClass('wiki-collection__nav');
     expect(within(nav).getByRole('button', { name: 'All pages' })).toBeInTheDocument();
     expect(within(nav).getByRole('button', { name: 'Proposed changes' })).toBeInTheDocument();
-    expect(within(nav).getByRole('button', { name: 'Recently changed' })).toBeInTheDocument();
+    expect(within(nav).queryByText('Types')).not.toBeInTheDocument();
+    expect(within(nav).queryByRole('button', { name: 'General wikis' })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'First Principles Thinking' }).closest('.wiki-collection__stage'))
       .not.toBeNull();
     expect(screen.getByRole('button', { name: 'Ask' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '+ New page' })).toBeInTheDocument();
+  });
+
+  it('opens on what changed since you last looked, one sentence a page', async () => {
+    api.listWikiChanges.mockResolvedValue({
+      pageCount: 3,
+      changes: [
+        { pageId: 'wiki-opportunity-cost', title: 'Opportunity Cost', at: '2026-06-09T12:00:00.000Z', by: 'partner', sentence: 'Added a section on Sunk costs, citing Ben Carlson.', changeSource: { title: 'Ben Carlson' } },
+        { pageId: 'not-in-the-list', title: 'Held view', sentence: 'Hidden.', by: 'you' }
+      ]
+    });
+    render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
+    const since = await screen.findByRole('region', { name: 'This week' });
+    expect(within(since).getByText('Added a section on Sunk costs, citing Ben Carlson.')).toBeInTheDocument();
+    expect(within(since).getByText('when you saved Ben Carlson')).toBeInTheDocument();
+    expect(within(since).queryByText('Held view')).not.toBeInTheDocument();
+  });
+
+  it('says so in one line when nothing moved', async () => {
+    api.listWikiChanges.mockResolvedValue({ pageCount: 3, changes: [] });
+    render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
+    expect(await screen.findByText('Nothing has changed this week. 3 pages, all current.')).toBeInTheDocument();
+  });
+
+  it('bylines rows instead of naming their type', async () => {
+    listWikiPages.mockResolvedValueOnce([{ ...pages[0], aiState: { lastDraftedAt: '2026-06-10T12:00:00.000Z' } }, pages[1]]);
+    render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
+    expect(await screen.findByText(`kept by ${AGENT_DISPLAY_NAME}`)).toBeInTheDocument();
+    expect(screen.getByText('written by you')).toBeInTheDocument();
+    expect(screen.queryByText('General wikis')).not.toBeInTheDocument();
   });
 
   it('opens accepted pages without waiting for a Daily Loop briefing', async () => {

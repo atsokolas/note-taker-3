@@ -1222,9 +1222,20 @@ export const downloadJudgmentPamphlet = async (id) => {
 };
 
 /* Every claim in the wiki that something in the library argues with. */
-export const listWikiContradictions = async ({ limit = 50 } = {}) => {
-  const res = await api.get(`/api/wiki/contradictions?limit=${encodeURIComponent(limit)}`, getAuthHeaders());
+export const listWikiContradictions = async ({ limit = 50, pageId = '' } = {}) => {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (pageId) params.set('pageId', pageId);
+  const res = await api.get(`/api/wiki/contradictions?${params}`, getAuthHeaders());
   return Array.isArray(res.data?.contradictions) ? res.data.contradictions : [];
+};
+
+/* The pages that moved since `since`, each with one sentence of what changed. */
+export const listWikiChanges = async (since) => {
+  const res = await api.get(`/api/wiki/changes?since=${encodeURIComponent(since || '')}`, getAuthHeaders());
+  return {
+    pageCount: Number(res.data?.pageCount) || 0,
+    changes: Array.isArray(res.data?.changes) ? res.data.changes : []
+  };
 };
 
 /**

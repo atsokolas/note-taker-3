@@ -5,7 +5,8 @@ import WikiFrontPage from './WikiFrontPage';
 import { listWikiPages } from '../../api/wiki';
 
 jest.mock('../../api/wiki', () => ({
-  listWikiPages: jest.fn()
+  listWikiPages: jest.fn(),
+  listWikiChanges: async () => ({ pageCount: 0, changes: [] })
 }));
 jest.mock('../../utils/wikiPaths', () => ({
   wikiPagePath: pageId => `/wiki/workspace?page=${pageId}`,
@@ -49,7 +50,7 @@ describe('WikiFrontPage Decisions return surface', () => {
     expect(screen.queryByRole('region', { name: 'Decisions index fixture' })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Full workspace' }))
       .toHaveAttribute('href', '/wiki/workspace?view=list');
-    expect(screen.getByRole('link', { name: 'Map & disagreements' }))
+    expect(screen.getByRole('link', { name: 'Map' }))
       .toHaveAttribute('href', '/wiki/workspace?view=graph');
   });
 

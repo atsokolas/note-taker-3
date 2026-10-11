@@ -1,14 +1,15 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { listWikiPages } from '../../api/wiki';
+import { listWikiChanges, listWikiPages } from '../../api/wiki';
 import { wikiReadPath } from '../../utils/wikiPaths';
 import { isWikiOnboardingComplete, markWikiOnboardingComplete } from '../../onboarding/onboardingState';
 import { purgeUnscopedKeys, scopedKey } from '../../utils/browserScope';
 import { filterReturnViewItems } from '../../utils/cruftSuppression';
 import { formatSurfaceDate } from '../../utils/dateDisplay';
 import { useNoeisAgentSurface } from '../../agent/AgentRailContext';
+import { AGENT_DISPLAY_NAME } from '../../constants/agentIdentity';
 import WikiCreationComposer from './WikiCreationComposer';
-import { WIKI_KINDS, WIKI_KIND_LABELS } from './wikiFacetModel';
+import { WIKI_KINDS, WIKI_KIND_LABELS, wikiKindForPage } from './wikiFacetModel';
 import { buildWikiFrontSurfaceDescriptor } from './wikiSurfaceModel';
 import { dedupePagesByRepoKey } from './wikiRepoDedupeModel';
 import { canonicalWikiPages } from './wikiTitleGroupModel';
@@ -54,6 +55,35 @@ const writeFrontPageCache = ({ pages, hasAnyWikiContent }) => {
   }
 };
 
+/* When you last looked at the Wiki. A per-reader convenience: without it the
+   front page reads the last week. */
+const LAST_LOOKED_KEY = 'noeis.wiki.lastLooked.v1';
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
+const takeLastLooked = () => {
+  const firstLook = { at: new Date(Date.now() - WEEK_MS).toISOString(), first: true };
+  try {
+    const stored = window.localStorage?.getItem(scopedKey(LAST_LOOKED_KEY));
+    window.localStorage?.setItem(scopedKey(LAST_LOOKED_KEY), new Date().toISOString());
+    return stored && Number.isFinite(new Date(stored).getTime()) ? { at: stored, first: false } : firstLook;
+  } catch (_error) {
+    return firstLook;
+  }
+};
+
+export const sinceLabel = (iso, now = new Date()) => {
+  const then = new Date(iso);
+  const days = Math.floor((new Date(now).setHours(0, 0, 0, 0) - new Date(then).setHours(0, 0, 0, 0)) / 86400000);
+  if (days <= 0) return 'earlier today';
+  if (days === 1) return 'yesterday';
+  if (days < 7) return then.toLocaleDateString(undefined, { weekday: 'long' });
+  return then.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+};
+
+export const bylineFor = (page = {}) => (
+  page?.aiState?.lastDraftedAt ? `kept by ${AGENT_DISPLAY_NAME}` : 'written by you'
+);
+
 const openExistingAgent = () => {
   window.dispatchEvent(new Event('noeis:open-agent'));
 };
@@ -79,50 +109,21 @@ const CollectionNav = ({
   <>
     <p className="wiki-collection__nav-title">Wiki</p>
     <div className="wiki-collection__nav-group">
-      {[
-        ['all', 'All pages'],
-        ['proposed', 'Proposed changes'],
-        ['recent', 'Recently changed']
-      ].map(([value, label]) => (
-        <CollectionNavButton
-          key={value}
-          active={wikiFilter === value}
-          onClick={() => onSelect(value)}
-        >
-          <span>{label}</span>
-          {value === 'proposed' && proposedCount > 0
-            ? <span className="wiki-collection__nav-count">{proposedCount}</span>
-            : null}
-        </CollectionNavButton>
-      ))}
+      <CollectionNavButton active={wikiFilter !== 'proposed'} onClick={() => onSelect('all')}>
+        <span>All pages</span>
+      </CollectionNavButton>
+      <CollectionNavButton active={wikiFilter === 'proposed'} onClick={() => onSelect('proposed')}>
+        <span>Proposed changes</span>
+        {proposedCount > 0 ? <span className="wiki-collection__nav-count">{proposedCount}</span> : null}
+      </CollectionNavButton>
     </div>
     <div className="wiki-collection__nav-group">
-      <p className="wiki-collection__nav-label">Types</p>
-      {WIKI_KINDS.map((item) => (
-        <CollectionNavButton
-          key={item}
-          active={wikiFilter === `kind:${item}`}
-          onClick={() => onSelect(`kind:${item}`)}
-        >
-          <span>{WIKI_KIND_LABELS[item]}</span>
-        </CollectionNavButton>
-      ))}
-    </div>
-    <div className="wiki-collection__nav-group">
-      <p className="wiki-collection__nav-label">Workspace</p>
       <Link
         className="wiki-collection__nav-btn wiki-collection__nav-btn--link"
         to="/wiki/workspace?view=graph"
         onClick={onNavigate}
       >
-        Map & disagreements
-      </Link>
-      <Link
-        className="wiki-collection__nav-btn wiki-collection__nav-btn--link"
-        to="/wiki/contradictions"
-        onClick={onNavigate}
-      >
-        Disagreements
+        Map
       </Link>
       <Link
         className="wiki-collection__nav-btn wiki-collection__nav-btn--link"
@@ -140,6 +141,41 @@ const CollectionNav = ({
     </p>
   </>
 );
+
+/* What moved since you last looked. Silence is a state: when nothing moved,
+   one line says so and the list follows. */
+const SinceYouLooked = ({ since, changes, pageCount, proposedCount }) => {
+  if (!since || !changes) return null;
+  const when = since.first ? 'this week' : `since ${sinceLabel(since.at)}`;
+  if (!changes.length) {
+    return (
+      <p className="wiki-collection__since-quiet" role="status">
+        Nothing has changed {when}. {pageCount} page{pageCount === 1 ? '' : 's'}, {proposedCount
+          ? `${proposedCount} with a proposed change`
+          : 'all current'}.
+      </p>
+    );
+  }
+  return (
+    <section className="wiki-collection__since" aria-labelledby="wiki-since-title">
+      <h2 id="wiki-since-title" className="wiki-collection__since-title">{since.first ? 'This week' : `Since you looked ${sinceLabel(since.at)}`}</h2>
+      <ul>
+        {changes.map(change => (
+          <li key={change.pageId}>
+            <Link className="wiki-collection__since-page" to={wikiReadPath(change.pageId)}>{change.title}</Link>
+            <p className="wiki-collection__since-sentence">{change.sentence}</p>
+            <p className="wiki-collection__meta">
+              <span>
+                {change.changeSource?.title ? `when you saved ${change.changeSource.title}` : (change.by === 'you' ? 'by you' : `by ${AGENT_DISPLAY_NAME}`)}
+              </span>
+              {change.at ? <span>{formatSurfaceDate(change.at, { includeYear: true })}</span> : null}
+            </p>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+};
 
 const WikiFrontPage = ({ initialKind = '' }) => {
   const location = useLocation();
@@ -163,28 +199,29 @@ const WikiFrontPage = ({ initialKind = '' }) => {
   const searchParams = new URLSearchParams(location.search);
   const requestedKind = searchParams.get('kind') || initialKind;
   const requestedView = searchParams.get('view');
-  const requestedFilter = WIKI_KINDS.includes(requestedKind)
-    ? `kind:${requestedKind}`
-    : ['proposed', 'review', 'recent'].includes(requestedView)
-      ? (requestedView === 'review' ? 'proposed' : requestedView)
-      : 'all';
-  const [wikiFilter, setWikiFilter] = useState(requestedFilter);
+  const kind = WIKI_KINDS.includes(requestedKind) ? requestedKind : '';
+  const wikiFilter = ['proposed', 'review'].includes(requestedView) ? 'proposed' : 'all';
+  const [since] = useState(takeLastLooked);
+  const [changes, setChanges] = useState(null);
 
-  useEffect(() => {
-    setWikiFilter(requestedFilter);
-  }, [requestedFilter]);
-
-  const selectWikiFilter = (value) => {
-    setWikiFilter(value);
+  const setQuery = (key, value) => {
     const next = new URLSearchParams(location.search);
-    next.delete('kind');
-    next.delete('view');
-    if (value.startsWith('kind:')) next.set('kind', value.slice(5));
-    else if (['proposed', 'recent'].includes(value)) next.set('view', value);
+    if (initialKind && key !== 'kind' && !next.has('kind')) next.set('kind', initialKind);
+    if (value) next.set(key, value);
+    else next.delete(key);
     const query = next.toString();
-    navigate(`${location.pathname}${query ? `?${query}` : ''}`, { replace: true });
+    navigate(`/wiki${query ? `?${query}` : ''}`, { replace: true });
     setMobileNavOpen(false);
   };
+  const selectWikiFilter = value => setQuery('view', value === 'proposed' ? 'proposed' : '');
+
+  useEffect(() => {
+    let cancelled = false;
+    listWikiChanges(since.at)
+      .then(result => { if (!cancelled) setChanges(result.changes); })
+      .catch(() => { if (!cancelled) setChanges(null); });
+    return () => { cancelled = true; };
+  }, [since]);
 
   useEffect(() => {
     document.body.classList.add('wiki-front-page-route');
@@ -280,8 +317,18 @@ const WikiFrontPage = ({ initialKind = '' }) => {
     [canonicalPages]
   );
 
-  const scope = wikiFilter === 'proposed' || wikiFilter === 'recent' ? wikiFilter : 'all';
-  const kind = wikiFilter.startsWith('kind:') ? wikiFilter.slice(5) : '';
+  const scope = wikiFilter;
+  const presentKinds = useMemo(
+    () => WIKI_KINDS.filter(item => canonicalPages.some(page => wikiKindForPage(page) === item)),
+    [canonicalPages]
+  );
+  /* Changes are shown only for pages this list would show: suppressed and
+     held pages never surface here by another door. */
+  const visibleChanges = useMemo(() => {
+    if (!changes) return null;
+    const ids = new Set(canonicalPages.map(page => String(page?._id || page?.id || '')));
+    return changes.filter(change => ids.has(String(change.pageId)));
+  }, [canonicalPages, changes]);
   const sourcePages = searchedPages || canonicalPages;
   const visiblePages = useMemo(
     () => filterCollectionPages({
@@ -358,16 +405,36 @@ const WikiFrontPage = ({ initialKind = '' }) => {
             value={wikiSearch}
             onChange={(event) => setWikiSearch(event.target.value)}
           />
+          {presentKinds.length > 1 || kind ? (
+            <select
+              className="wiki-collection__kind-filter"
+              aria-label="Kind of page"
+              value={kind}
+              onChange={(event) => setQuery('kind', event.target.value)}
+            >
+              <option value="">Every kind</option>
+              {WIKI_KINDS.map(item => <option key={item} value={item}>{WIKI_KIND_LABELS[item]}</option>)}
+            </select>
+          ) : null}
         </div>
 
         {availabilityNotice ? <p className="wiki-collection__status" role="status">{availabilityNotice}</p> : null}
         {error ? <div className="wiki-index__error" role="alert">{error}</div> : null}
 
+        {scope === 'all' && !kind && !wikiSearch.trim() ? (
+          <SinceYouLooked
+            since={since}
+            changes={visibleChanges}
+            pageCount={canonicalPages.length}
+            proposedCount={proposedCount}
+          />
+        ) : null}
+
         <div className="wiki-collection__label">
           <span>
             {wikiSearch.trim()
-              ? `${visiblePages.length} matching page${visiblePages.length === 1 ? '' : 's'} · current versions only`
-              : `${visiblePages.length} page${visiblePages.length === 1 ? '' : 's'} · ${scope === 'all' && !kind ? 'the current collection' : wikiFilter.replace('kind:', '').replace('proposed', 'proposed changes')}`}
+              ? `${visiblePages.length} matching page${visiblePages.length === 1 ? '' : 's'}`
+              : `${visiblePages.length} page${visiblePages.length === 1 ? '' : 's'}${scope === 'proposed' ? ' with a proposed change' : kind ? ` · ${WIKI_KIND_LABELS[kind]}` : ''}`}
           </span>
         </div>
 
@@ -395,7 +462,7 @@ const WikiFrontPage = ({ initialKind = '' }) => {
                   ) : null}
                   <div className="wiki-collection__meta">
                     <span className="wiki-collection__meta-left">
-                      <span className="wiki-collection__kind">{WIKI_KIND_LABELS[row.kind] || row.kind}</span>
+                      <span>{bylineFor(page)}</span>
                       {row.updatedAt ? <span>{formatSurfaceDate(row.updatedAt, { includeYear: true })}</span> : null}
                     </span>
                     {row.pending ? (
