@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { createRepoWikiFromGitHub, createWikiPage } from '../../api/wiki';
 import { useSystemStatusControls } from '../../system/SystemStatusContext';
 import { buildWikiCreatePayload } from '../../utils/wikiCreate';
-import { wikiPagePath } from '../../utils/wikiPaths';
+import { wikiPagePath } from '../../utils/wikiFeatureFlags';
 import { parseGitHubRepoInput } from '../../utils/githubRepoInput';
 import { AGENT_DISPLAY_NAME } from '../../constants/agentIdentity';
 import { Button } from '../ui';

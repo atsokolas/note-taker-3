@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getWikiAutolinkSuggestions } from '../../api/wiki';
-import { wikiPagePath } from '../../utils/wikiPaths';
+import { wikiPagePath } from '../../utils/wikiFeatureFlags';
 import { cleanWikiLinkSnippetText } from './wikiLinkText';
 
 /**

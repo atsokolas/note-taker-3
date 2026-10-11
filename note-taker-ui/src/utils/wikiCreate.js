@@ -1,4 +1,4 @@
-import { wikiPagePath } from './wikiPaths';
+import { wikiPagePath } from './wikiFeatureFlags';
 import { normalizeSpaces } from './editorialText';
 
 const CREATED_FROM_TYPES = new Set([

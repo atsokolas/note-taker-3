@@ -38,7 +38,7 @@ import '../styles/think-room.css';
 import VirtualList from '../components/virtual/VirtualList';
 import { createConnection, getConnectionsForScope } from '../api/connections';
 import { createWikiPage, listWikiActivity, listWikiPages } from '../api/wiki';
-import { wikiPagePath } from '../utils/wikiPaths';
+import { wikiPagePath } from '../utils/wikiFeatureFlags';
 import { createProfilerLogger, endPerfTimer, logPerf, startPerfTimer } from '../utils/perf';
 import { getArticles } from '../api/articles';
 import { listReturnQueue } from '../api/returnQueue';

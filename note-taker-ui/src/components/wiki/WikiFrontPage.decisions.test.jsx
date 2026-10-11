@@ -8,7 +8,7 @@ jest.mock('../../api/wiki', () => ({
   listWikiPages: jest.fn(),
   listWikiChanges: async () => ({ pageCount: 0, changes: [] })
 }));
-jest.mock('../../utils/wikiPaths', () => ({
+jest.mock('../../utils/wikiFeatureFlags', () => ({
   wikiPagePath: pageId => `/wiki/workspace?page=${pageId}`,
   wikiReadPath: pageId => `/wiki/read/${pageId}`
 }));

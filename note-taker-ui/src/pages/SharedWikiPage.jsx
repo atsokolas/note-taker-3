@@ -17,7 +17,7 @@ import {
   repoDossierShouldCollapseSections,
   repoSectionIdForHeading
 } from '../components/wiki/wikiRepoDossierModel';
-import { wikiPagePath } from '../utils/wikiPaths';
+import { wikiPagePath } from '../utils/wikiFeatureFlags';
 import { buildSharePreviewReceipt } from '../utils/connectionMagicMoment';
 import useSeoMetadata from '../hooks/useSeoMetadata';
 import { CANONICAL_HOST, SITE_NAME, buildCanonicalUrl } from '../seo/siteMetadata';

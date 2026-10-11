@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createCompanyDossier } from '../../api/wiki';
 import { useSystemStatusControls } from '../../system/SystemStatusContext';
-import { wikiPagePath } from '../../utils/wikiPaths';
+import { wikiPagePath } from '../../utils/wikiFeatureFlags';
 import { Button } from '../ui';
 
 const WikiCompanyDossierComposer = ({

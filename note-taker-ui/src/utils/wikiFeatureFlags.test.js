@@ -1,4 +1,4 @@
-import { wikiPageEditPath, wikiPagePath, wikiReadPath } from './wikiPaths';
+import { wikiPageEditPath, wikiPagePath, wikiReadPath } from './wikiFeatureFlags';
 
 describe('wiki paths', () => {
   it('opens pages in the workspace, with any extra query joined on', () => {

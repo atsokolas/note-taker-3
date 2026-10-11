@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import useWikiBuildProgress from './useWikiBuildProgress';
 import { ACTIVE_BUILD_EVENT, clearActiveBuild, readActiveBuild } from './activeBuild';
 import { WALKTHROUGH_EVENT, isWalkthroughRunning } from './walkthroughState';
-import { wikiPagePath } from '../utils/wikiPaths';
+import { wikiPagePath } from '../utils/wikiFeatureFlags';
 
 /**
  * OnboardingBuildBanner — ambient progress for a build the user is not waiting on.

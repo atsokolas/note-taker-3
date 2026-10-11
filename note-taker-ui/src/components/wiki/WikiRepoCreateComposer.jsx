@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createRepoWikiFromGitHub } from '../../api/wiki';
 import { useSystemStatusControls } from '../../system/SystemStatusContext';
-import { wikiPagePath } from '../../utils/wikiPaths';
+import { wikiPagePath } from '../../utils/wikiFeatureFlags';
 import { Button } from '../ui';
 import AgentTicker from '../agent/AgentTicker';
 import { repoWikiReceiptTitle, repoWikiSystemReceipt, displayWikiPageTitle } from './wikiRepoDossierModel';

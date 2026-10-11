@@ -9,7 +9,7 @@ import {
 } from './walkthroughState';
 import { ACTIVE_BUILD_EVENT, clearActiveBuild, readActiveBuild } from './activeBuild';
 import useWikiBuildProgress from './useWikiBuildProgress';
-import { wikiPagePath } from '../utils/wikiPaths';
+import { wikiPagePath } from '../utils/wikiFeatureFlags';
 
 /**
  * OnboardingWalkthrough — four short stops over the user's own product, running

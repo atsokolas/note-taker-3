@@ -10,7 +10,7 @@ import {
   reviewWikiFreshness
 } from '../../api/wiki';
 import { fetchGraphData } from '../../api/map';
-import { wikiPagePath } from '../../utils/wikiPaths';
+import { wikiPagePath } from '../../utils/wikiFeatureFlags';
 
 const formatDate = (value) => {
   if (!value) return '';
