@@ -15,7 +15,7 @@
   padding: clamp(48px, 9vh, 104px) 0 40px 26px;
   background: transparent;
   color: var(--text-primary, var(--vellum-ink));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
 }
 
 /* A single living thread ties the agent to the object in the column. It is a
@@ -95,7 +95,7 @@
 
 .agent-rail__envelope {
   color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--mono, ui-monospace, "SF Mono", Menlo, monospace);
+  font-family: var(--font-mono);
   font-size: 0.64rem;
   letter-spacing: 0.06em;
   font-variant-numeric: tabular-nums;
@@ -117,7 +117,7 @@
 .agent-rail__role-description {
   margin: -5px 0 2px 26px;
   color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-reading-font, ui-serif, Georgia, serif);
+  font-family: var(--font-serif);
   font-size: 0.82rem;
   font-style: italic;
   line-height: 1.5;
@@ -166,7 +166,7 @@
 .agent-rail__message > p {
   margin: 0;
   color: var(--text-primary, var(--vellum-ink));
-  font-family: var(--noeis-reading-font, ui-serif, Georgia, serif);
+  font-family: var(--font-serif);
   font-size: 0.84rem;
   line-height: 1.55;
   text-wrap: pretty;
@@ -175,7 +175,7 @@
 
 .agent-rail__message--user > p {
   color: var(--text-secondary, var(--vellum-muted));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-family: var(--font-sans);
   font-size: 0.79rem;
 }
 

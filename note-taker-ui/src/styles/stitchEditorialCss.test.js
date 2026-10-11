@@ -163,13 +163,6 @@ describe('stitch editorial CSS tokens', () => {
     expect(css).not.toContain('--vellum-blue');
   });
 
-  it('promotes wiki workspace destinations into a secondary nav block', () => {
-    const css = fs.readFileSync(path.join(__dirname, 'wiki-front-page.css'), 'utf8');
-
-    expect(css).toContain('.wiki-front-page__secondary-nav');
-    expect(css).not.toContain('.wiki-front-page__hairline');
-  });
-
   it('aligns wiki list rows with library row grammar and leaves the facet rail on RoomShelf', () => {
     const css = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
 

@@ -42,6 +42,7 @@ import { buildArticlePassageHref } from '../utils/sourceRoutes';
 import LibraryShelfNav from '../components/library/LibraryShelfNav';
 import LibraryActions from '../components/library/LibraryActions';
 import ScreenWord from '../components/library/ScreenWord';
+import useDocumentTitle from '../hooks/useDocumentTitle';
 import '../styles/library-column.css';
 import '../styles/reader-editorial.css';
 import '../styles/library-collection.css';
@@ -1035,6 +1036,7 @@ const Library = () => {
     );
     return promiseLedger(promiseEntries, byId);
   }, [promiseEntries, allArticles]);
+  useDocumentTitle(selectedArticle?.title, 'Library');
   const columnEntering = useMemo(() => takeFirstPaint('library-shelf'), []);
 
   /* One persistent agent, narrowed to the same exact source as the room. The

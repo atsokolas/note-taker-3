@@ -163,7 +163,7 @@ const WikiRepoCreateComposer = ({ className = '', compact = false, onCreated, on
           spellCheck={false}
           disabled={busy}
         />
-        <Button type="submit" variant="secondary" disabled={busy || !repoUrl.trim()}>
+        <Button type="submit" disabled={busy || !repoUrl.trim()}>
           {busy ? 'Building...' : 'Create repo wiki'}
         </Button>
       </div>

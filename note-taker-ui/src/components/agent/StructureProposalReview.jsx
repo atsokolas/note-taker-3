@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { Button, QuietButton } from '../ui';
+import { Button } from '../ui';
 import {
   getSelectableStructureOperations,
   resolveOperationEvidence,
@@ -265,34 +265,34 @@ const StructureProposalReview = ({
             <span>selected</span>
           </div>
           <div className="agent-thought-partner__structure-bulk-actions">
-            <QuietButton
+            <Button variant="quiet"
               type="button"
               disabled={bulkDisabled || selectableOpIds.length === 0 || allSelected}
               onClick={handleSelectAll}
             >
               Select all
-            </QuietButton>
-            <QuietButton
+            </Button>
+            <Button variant="quiet"
               type="button"
               disabled={bulkDisabled || selectedCount === 0}
               onClick={() => handleBulkStatus('approved')}
             >
               {bulkBusy ? 'Saving…' : 'Accept selected'}
-            </QuietButton>
-            <QuietButton
+            </Button>
+            <Button variant="quiet"
               type="button"
               disabled={bulkDisabled || selectedCount === 0}
               onClick={() => handleBulkStatus('rejected')}
             >
               {bulkBusy ? 'Saving…' : 'Reject selected'}
-            </QuietButton>
-            <QuietButton
+            </Button>
+            <Button variant="quiet"
               type="button"
               disabled={bulkDisabled || selectedCount === 0}
               onClick={handleClearSelection}
             >
               Clear
-            </QuietButton>
+            </Button>
           </div>
         </div>
       )}
@@ -373,7 +373,7 @@ const StructureProposalReview = ({
               )}
               {isPending && typeof onUpdateOperationStatus === 'function' && opId && (
                 <div className="agent-thought-partner__draft-actions">
-                  <QuietButton
+                  <Button variant="quiet"
                     type="button"
                     disabled={isLoading || isOperationLoading}
                     onClick={() => onUpdateOperationStatus(proposal, operation, nextStatus)}
@@ -383,7 +383,7 @@ const StructureProposalReview = ({
                       : operationStatus === 'rejected'
                         ? 'Restore step'
                         : 'Reject step'}
-                  </QuietButton>
+                  </Button>
                 </div>
               )}
             </section>
@@ -394,7 +394,6 @@ const StructureProposalReview = ({
       <div className="agent-thought-partner__draft-actions">
         {isPending && typeof onApply === 'function' && (
           <Button
-            variant="secondary"
             type="button"
             disabled={isLoading || actionableOperations.length === 0}
             onClick={() => onApply(proposal)}
@@ -403,17 +402,16 @@ const StructureProposalReview = ({
           </Button>
         )}
         {isPending && typeof onReject === 'function' && (
-          <QuietButton
+          <Button variant="quiet"
             type="button"
             disabled={isLoading}
             onClick={() => onReject(proposal)}
           >
             {isLoading ? 'Rejecting…' : 'Reject plan'}
-          </QuietButton>
+          </Button>
         )}
         {isRollbackable && typeof onRollback === 'function' && (
           <Button
-            variant="secondary"
             type="button"
             disabled={isLoading}
             onClick={() => onRollback(proposal)}

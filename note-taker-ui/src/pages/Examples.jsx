@@ -78,7 +78,7 @@ const Examples = () => {
             >
               Build your own research wiki
             </a>
-            <a href="/from-saved-article-to-draft-in-noeis" className="ui-button ui-button-secondary">
+            <a href="/from-saved-article-to-draft-in-noeis" className="ui-button">
               See the draft workflow
             </a>
           </div>

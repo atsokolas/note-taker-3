@@ -105,7 +105,6 @@ const ProtocolApprovalsPanel = ({
                     <div className="think-protocol-approval__actions">
                       <Button
                         type="button"
-                        variant="secondary"
                         disabled={busy}
                         onClick={() => handleApproveProtocolApproval?.(approvalId)}
                       >
@@ -115,7 +114,6 @@ const ProtocolApprovalsPanel = ({
                         <>
                           <Button
                             type="button"
-                            variant="secondary"
                             disabled={busy}
                             onClick={async () => {
                               await handleRejectProtocolApproval?.(approvalId, { note: rejectNote });
@@ -126,7 +124,6 @@ const ProtocolApprovalsPanel = ({
                           </Button>
                           <Button
                             type="button"
-                            variant="secondary"
                             disabled={busy}
                             onClick={() => setRejectingApprovalId('')}
                           >
@@ -136,7 +133,6 @@ const ProtocolApprovalsPanel = ({
                       ) : (
                         <Button
                           type="button"
-                          variant="secondary"
                           disabled={busy}
                           onClick={() => setRejectingApprovalId(approvalId)}
                         >

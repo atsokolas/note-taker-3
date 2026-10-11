@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Button, QuietButton } from '../ui';
+import { Button } from '../ui';
 
 /**
  * @param {{
@@ -61,20 +61,20 @@ const MoveToFolderModal = ({
           />
         </label>
         <div className="library-folder-picker">
-          <QuietButton
+          <Button variant="quiet"
             className={selectedFolderId === '' ? 'is-active' : ''}
             onClick={() => setSelectedFolderId('')}
           >
             Unfile
-          </QuietButton>
+          </Button>
           {filtered.map(folder => (
-            <QuietButton
+            <Button variant="quiet"
               key={folder._id}
               className={selectedFolderId === folder._id ? 'is-active' : ''}
               onClick={() => setSelectedFolderId(folder._id)}
             >
               {folder.name}
-            </QuietButton>
+            </Button>
           ))}
           {filtered.length === 0 && (
             <p className="muted small">No folders match that search.</p>
@@ -82,7 +82,7 @@ const MoveToFolderModal = ({
         </div>
         {error && <p className="status-message error-message">{error}</p>}
         <div className="modal-actions" style={{ justifyContent: 'flex-end', gap: 8 }}>
-          <Button variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button onClick={onClose}>Cancel</Button>
           <Button onClick={() => onMove(selectedFolderId || null)} disabled={loading}>
             {loading ? 'Moving…' : 'Move'}
           </Button>

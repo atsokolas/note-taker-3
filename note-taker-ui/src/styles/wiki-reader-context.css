@@ -21,7 +21,7 @@
 }
 
 .wiki-reader-context h2 {
-  font-family: var(--serif, Georgia, serif);
+  font-family: var(--font-serif);
   font-weight: 400;
   font-size: 27px;
   line-height: 1.2;
@@ -39,7 +39,7 @@
 }
 
 .wiki-reader-context__quote {
-  font-family: var(--serif, Georgia, serif);
+  font-family: var(--font-serif);
   font-size: 18px;
   line-height: 1.58;
   margin: 13px 0 20px;
@@ -50,7 +50,7 @@
 
 .wiki-reader-context__old,
 .wiki-reader-context__new {
-  font-family: var(--serif, Georgia, serif);
+  font-family: var(--font-serif);
   line-height: 1.6;
   padding-left: 12px;
   margin: 0 0 16px;
@@ -68,7 +68,6 @@
 .wiki-reader-context__close,
 .wiki-reader-context__back,
 .wiki-reader-context__text,
-.wiki-reader-context__link,
 .wiki-reader-context__actions button {
   background: none;
   border: 0;
@@ -89,7 +88,6 @@
   color: var(--muted, #676e62);
 }
 
-.wiki-reader-context__link,
 .wiki-reader-context__history {
   display: block;
   width: 100%;
@@ -120,7 +118,7 @@
   border: 1px solid #cdd3c0;
   border-radius: 3px;
   padding: 10px;
-  font: 16px/1.6 var(--serif, Georgia, serif);
+  font: 16px/1.6 var(--font-serif);
   resize: vertical;
 }
 
@@ -138,7 +136,7 @@
 }
 
 .wiki-reader-context__neighbor {
-  font-family: var(--serif, Georgia, serif);
+  font-family: var(--font-serif);
   font-size: 17px;
   line-height: 1.66;
   color: #616b57;
@@ -277,7 +275,7 @@
     content: 'A proposal or earlier version is being previewed. Export the current version from the page for an unambiguous copy.';
     display: block;
     padding: 24px;
-    font: 14pt Georgia, serif;
+    font: 14pt var(--font-serif);
   }
 }
 

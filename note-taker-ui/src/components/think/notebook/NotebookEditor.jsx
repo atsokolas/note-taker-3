@@ -5,7 +5,7 @@ import { NodeViewWrapper, ReactNodeViewRenderer, useEditor } from '@tiptap/react
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import { Extension, Node, mergeAttributes } from '@tiptap/core';
-import { QuietButton } from '../../ui';
+import { Button } from '../../ui';
 import InsertHighlightModal from './InsertHighlightModal';
 import InsertReferenceModal from './InsertReferenceModal';
 import { BlockIdExtension, EntryBar, HighlightRefNode, passageContent } from '../editor/writingParts';
@@ -1620,27 +1620,27 @@ const NotebookEditor = ({
           partnerOpen={['partner', 'scratchpad', 'material'].includes(activeContext)}
           onPartner={() => onOpenContext?.('partner')}
         >
-          <QuietButton
+          <Button variant="quiet"
             onMouseDown={(event) => event.preventDefault()}
             onClick={() => (selectionNotebookTarget(editor) || (!editor?.isFocused && highlightedRef.current) ? startTrialFromSelection() : startTrial())}
-          >Try wording</QuietButton>
-          <QuietButton data-context-trigger="scratchpad" onClick={() => { holdCurrentPlace(); onOpenContext?.('scratchpad'); }}>Scratchpad</QuietButton>
-          <QuietButton data-context-trigger="material" onClick={() => openMaterial()}>Material</QuietButton>
-          <QuietButton onClick={handleExport}>Export draft</QuietButton>
-          <QuietButton onClick={handleRecoveryExport}>Private recovery file</QuietButton>
-          <QuietButton onClick={handleShare}>{shareOpen ? 'Close share' : 'Share snapshot'}</QuietButton>
-          <QuietButton onClick={() => setOrganizeOpen(previous => !previous)}>Structure</QuietButton>
-          <QuietButton onClick={openHistory}>History</QuietButton>
+          >Try wording</Button>
+          <Button variant="quiet" data-context-trigger="scratchpad" onClick={() => { holdCurrentPlace(); onOpenContext?.('scratchpad'); }}>Scratchpad</Button>
+          <Button variant="quiet" data-context-trigger="material" onClick={() => openMaterial()}>Material</Button>
+          <Button variant="quiet" onClick={handleExport}>Export draft</Button>
+          <Button variant="quiet" onClick={handleRecoveryExport}>Private recovery file</Button>
+          <Button variant="quiet" onClick={handleShare}>{shareOpen ? 'Close share' : 'Share snapshot'}</Button>
+          <Button variant="quiet" onClick={() => setOrganizeOpen(previous => !previous)}>Structure</Button>
+          <Button variant="quiet" onClick={openHistory}>History</Button>
         </EntryBar>
         {workbench.state.nextTimeLine?.text && !nextLineDismissed ? (
           <aside className="think-next-line" aria-label="A line you left yourself">
             <span>A line you left yourself</span>
             <p>{workbench.state.nextTimeLine.text}</p>
             <div>
-              <QuietButton onClick={() => focusEditorTarget(editor, workbench.state.nextTimeLine.target)}>Pick up here →</QuietButton>
-              <QuietButton onClick={() => setNextLineDismissed(true)}>Not now</QuietButton>
-              <QuietButton onClick={() => { openMaterial(); }}>Edit</QuietButton>
-              <QuietButton onClick={clearNextLine}>Clear this line</QuietButton>
+              <Button variant="quiet" onClick={() => focusEditorTarget(editor, workbench.state.nextTimeLine.target)}>Pick up here →</Button>
+              <Button variant="quiet" onClick={() => setNextLineDismissed(true)}>Not now</Button>
+              <Button variant="quiet" onClick={() => { openMaterial(); }}>Edit</Button>
+              <Button variant="quiet" onClick={clearNextLine}>Clear this line</Button>
             </div>
           </aside>
         ) : null}
@@ -1734,12 +1734,12 @@ const NotebookEditor = ({
         <UseDistinctionHere distinctions={usableDistinctions} startOpen onUse={applyDistinction} />
       ) : null}
       {error && <p className="status-message error-message">{error}</p>}
-      {workbench.error && <p className="status-message error-message">{workbench.error} <QuietButton onClick={workbench.flush}>Retry nearby material</QuietButton></p>}
+      {workbench.error && <p className="status-message error-message">{workbench.error} <Button variant="quiet" onClick={workbench.flush}>Retry nearby material</Button></p>}
       {finishError && <p className="status-message error-message">{finishError}</p>}
       {workbenchReceipt ? (
         <p className={`notebook-workbench-receipt is-${workbenchReceipt.type}`} role="status">
           {workbenchReceipt.text}
-          {['insert', 'thought', 'trial', 'next-line'].includes(workbenchReceipt.type) ? <QuietButton onClick={undoWorkbenchReceipt}>Undo</QuietButton> : null}
+          {['insert', 'thought', 'trial', 'next-line'].includes(workbenchReceipt.type) ? <Button variant="quiet" onClick={undoWorkbenchReceipt}>Undo</Button> : null}
         </p>
       ) : null}
       {shareOpen && entry?._id ? (
@@ -1797,7 +1797,7 @@ const NotebookEditor = ({
                 }}
                 placeholder="Add tag"
               />
-              <QuietButton onClick={addTag}>Add tag</QuietButton>
+              <Button variant="quiet" onClick={addTag}>Add tag</Button>
             </div>
           </div>
 
@@ -1830,9 +1830,9 @@ const NotebookEditor = ({
             <div className="notebook-organize-row">
               <div className="notebook-organize-inline">
                 <span className="notebook-organize-label">Evidence</span>
-                <QuietButton onClick={() => setClaimEvidenceOpen(prev => !prev)}>
+                <Button variant="quiet" onClick={() => setClaimEvidenceOpen(prev => !prev)}>
                   {claimEvidenceOpen ? 'Hide' : 'Show'}
-                </QuietButton>
+                </Button>
               </div>
               {entry?.type !== 'claim' && (
                 <p className="muted small">Save this note as Claim to load linked evidence.</p>

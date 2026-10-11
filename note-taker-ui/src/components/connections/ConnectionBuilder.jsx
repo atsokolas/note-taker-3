@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Button, QuietButton } from '../ui';
+import { Button } from '../ui';
 import {
   createConnection,
   deleteConnection,
@@ -213,9 +213,9 @@ const ConnectionBuilder = ({ itemType, itemId, scopeType = '', scopeId = '', ite
 
   return (
     <div className={`connection-builder ${open ? 'is-open' : ''}`}>
-      <QuietButton onClick={() => setOpen(prev => !prev)}>
+      <Button variant="quiet" onClick={() => setOpen(prev => !prev)}>
         {open ? 'Close Connect' : `Connect${totalCount ? ` (${totalCount})` : ''}`}
-      </QuietButton>
+      </Button>
       {!open && (
         <div className="connection-preview">
         {loading ? (
@@ -241,9 +241,9 @@ const ConnectionBuilder = ({ itemType, itemId, scopeType = '', scopeId = '', ite
             {scopeLabel && <div className="connection-builder-scope">Scoped to {scopeLabel}</div>}
           </div>
           <div className="connection-builder-head-actions">
-            <QuietButton onClick={handleStartPath} disabled={startingPath}>
+            <Button variant="quiet" onClick={handleStartPath} disabled={startingPath}>
               {startingPath ? 'Starting…' : 'Start a path'}
-            </QuietButton>
+            </Button>
           </div>
           <div className="connection-explainer">
             <span><strong>Outgoing</strong> = this item points to other items.</span>
@@ -321,7 +321,7 @@ const ConnectionBuilder = ({ itemType, itemId, scopeType = '', scopeId = '', ite
                         <div className="connection-row-relation">{RELATION_LABELS[row.relationType] || row.relationType}</div>
                         <div className="connection-row-text">{row.target?.title || row.toType}</div>
                       </div>
-                      <QuietButton onClick={() => handleDelete(row._id, 'outgoing')}>Remove</QuietButton>
+                      <Button variant="quiet" onClick={() => handleDelete(row._id, 'outgoing')}>Remove</Button>
                     </div>
                   ))
                 )}
@@ -337,7 +337,7 @@ const ConnectionBuilder = ({ itemType, itemId, scopeType = '', scopeId = '', ite
                         <div className="connection-row-relation">{RELATION_LABELS[row.relationType] || row.relationType}</div>
                         <div className="connection-row-text">{row.source?.title || row.fromType}</div>
                       </div>
-                      <QuietButton onClick={() => handleDelete(row._id, 'incoming')}>Remove</QuietButton>
+                      <Button variant="quiet" onClick={() => handleDelete(row._id, 'incoming')}>Remove</Button>
                     </div>
                   ))
                 )}

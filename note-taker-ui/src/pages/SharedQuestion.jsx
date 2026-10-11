@@ -6,18 +6,8 @@ import { QUESTION_NOT_PUBLISHED } from '../components/think/thinkShareFixture';
 import useQuestionPresence from '../hooks/useQuestionPresence';
 import SharedQuestionCompanion from './SharedQuestionCompanion.jsx';
 import { hasShareToken } from './sharedQuestionCompanion';
+import useDocumentTitle from '../hooks/useDocumentTitle';
 import '../styles/shared-page-column.css';
-
-const useDocumentTitle = (title) => {
-  useEffect(() => {
-    if (!title) return undefined;
-    const previous = document.title;
-    document.title = title;
-    return () => {
-      document.title = previous;
-    };
-  }, [title]);
-};
 
 const useDocumentMeta = (name, content, attr = 'name') => {
   useEffect(() => {
@@ -107,7 +97,7 @@ const SharedQuestion = () => {
     seed: data?.here
   });
 
-  useDocumentTitle(data ? `${title} · Noeis` : 'Shared question · Noeis');
+  useDocumentTitle(data ? title : 'Shared question');
   useDocumentMeta('description', description);
   useDocumentMeta('og:title', title, 'property');
   useDocumentMeta('og:description', description, 'property');

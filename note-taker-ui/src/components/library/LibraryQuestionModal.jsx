@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Button, QuietButton } from '../ui';
+import { Button } from '../ui';
 import useConcepts from '../../hooks/useConcepts';
 import useQuestions from '../../hooks/useQuestions';
 
@@ -47,19 +47,19 @@ const LibraryQuestionModal = ({ open, highlight, onClose, onCreate, onAttach }) 
         </label>
         <div className="library-folder-picker">
           {filtered.map(question => (
-            <QuietButton
+            <Button variant="quiet"
               key={question._id}
               className={selectedId === question._id ? 'is-active' : ''}
               onClick={() => setSelectedId(question._id)}
             >
               {question.text}
-            </QuietButton>
+            </Button>
           ))}
           {!loading && filtered.length === 0 && <p className="muted small">No open questions yet.</p>}
         </div>
         <div className="modal-actions" style={{ justifyContent: 'flex-end', gap: 8 }}>
-          <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button variant="secondary" onClick={() => onAttach(highlight, selectedId)} disabled={!selectedId}>
+          <Button onClick={onClose}>Cancel</Button>
+          <Button onClick={() => onAttach(highlight, selectedId)} disabled={!selectedId}>
             Add to selected
           </Button>
         </div>

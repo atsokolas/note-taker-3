@@ -84,7 +84,7 @@ const Landing = () => {
           <p className="landing-public__lede">{HOME.lede}</p>
           <div className="landing-public__actions">
             <Button onClick={() => start('hero')}>{HOME.primaryCta.label}</Button>
-            <Button variant="secondary" onClick={seeHow}>{HOME.secondaryCta.label}</Button>
+            <Button onClick={seeHow}>{HOME.secondaryCta.label}</Button>
           </div>
         </div>
       </section>

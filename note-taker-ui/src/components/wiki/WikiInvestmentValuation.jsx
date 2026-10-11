@@ -330,7 +330,7 @@ const WikiInvestmentValuation = ({
             <div className="wiki-valuation__hurdle">
               Owner hurdle: <strong>{percentLabel(form.annualReturn)}</strong> over <strong>{numberLabel(form.horizonYears, 0)} years</strong>. Change the decision record to revise it.
             </div>
-            <Button type="submit" variant="secondary" disabled={busy || operatingSources.length === 0}>
+            <Button type="submit" disabled={busy || operatingSources.length === 0}>
               {busy ? 'Recalculating…' : complete ? 'Refresh expectations' : 'Calculate expectations'}
             </Button>
             {status ? <p className="wiki-valuation__status" role="status">{status}</p> : null}

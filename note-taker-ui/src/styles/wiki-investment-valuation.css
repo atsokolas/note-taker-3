@@ -30,7 +30,7 @@
 
 .wiki-valuation__header h2 {
   margin-top: 5px;
-  font-family: var(--font-serif, Georgia, serif);
+  font-family: var(--font-serif);
   font-size: clamp(1.35rem, 2vw, 1.8rem);
   font-weight: 500;
 }
@@ -79,7 +79,7 @@
 }
 
 .wiki-valuation__facts strong {
-  font-family: var(--font-serif, Georgia, serif);
+  font-family: var(--font-serif);
   font-size: 1.3rem;
   font-weight: 500;
 }

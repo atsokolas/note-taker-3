@@ -5,6 +5,8 @@ import { createJudgment } from './judgmentModel';
 import { useContextualAgentSurface } from '../agent/AgentRailContext';
 import { takeFirstPaint } from '../motion/columnMotion';
 import { wikiReadPath } from '../utils/wikiFeatureFlags';
+import useDocumentTitle from '../hooks/useDocumentTitle';
+import { PageHeader } from '../components/ui';
 import '../styles/contradictions.css';
 
 // Where the library disagrees with itself.
@@ -80,6 +82,7 @@ const Contradiction = ({ item, onDecide, deciding, error, focused = false, focus
 );
 
 const Contradictions = () => {
+  useDocumentTitle('Contradictions', 'Wiki');
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -160,15 +163,15 @@ const Contradictions = () => {
 
   return (
     <main className="contradictions" aria-labelledby="contradictions-title">
-      <div className={`contradictions__head ${step(1)}`}>
-        <Link className="contradictions__back" to="/wiki">← Wiki</Link>
-        <h1 id="contradictions__title-h" className="contradictions__title">Where your reading disagrees</h1>
-        <p className="contradictions__dek" id="contradictions-title">
-          {items.length
-            ? 'Two things you read, set against each other. Read both, then decide.'
-            : 'Nothing in your library argues with itself yet.'}
-        </p>
-      </div>
+      <PageHeader
+        className={step(1)}
+        eyebrow={<Link to="/wiki">← Wiki</Link>}
+        titleId="contradictions-title"
+        title="Where your reading disagrees"
+        lede={items.length
+          ? 'Two things you read, set against each other. Read both, then decide.'
+          : 'Nothing in your library argues with itself yet.'}
+      />
 
       {error ? <p className="contradictions__error" role="alert">{error}</p> : null}
 

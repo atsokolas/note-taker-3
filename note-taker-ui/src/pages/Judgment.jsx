@@ -2,10 +2,12 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { createWikiPage, listWikiPages, updateWikiPage } from '../api/wiki';
 import { useNoeisAgentSurface } from '../agent/AgentRailContext';
+import { Button, EmptyState, PageHeader } from '../components/ui';
 import JudgmentShelf from '../components/collection/JudgmentShelf';
 import JudgmentView from '../components/judgment/JudgmentView';
 import { buildJudgmentIndex, createJudgment, oneSentence } from './judgmentModel';
 import { buildJudgmentSurfaceDescriptor } from './judgmentSurfaceModel';
+import useDocumentTitle from '../hooks/useDocumentTitle';
 import '../styles/judgment.css';
 
 // Judgment.
@@ -65,13 +67,16 @@ const JudgmentIndex = ({ items, loading, error, setAsideView }) => {
 
   return (
     <main className="judgment judgment-index" aria-labelledby="judgment-index-title">
-      <h1 className="judgment-index__title" id="judgment-index-title">{setAsideView ? 'Set aside' : 'Views'}</h1>
+      <PageHeader
+        titleId="judgment-index-title"
+        title={setAsideView ? 'Set aside' : 'Views'}
+        actions={!setAsideView && !alone && !holding
+          ? <Button onClick={() => setHolding(true)}>Hold a view</Button>
+          : null}
+      />
       {!setAsideView && (alone || holding)
         ? <HoldForm alone={alone} onClose={() => setHolding(false)} />
         : null}
-      {!setAsideView && !alone && !holding ? (
-        <button type="button" className="judgment-index__hold" onClick={() => setHolding(true)}>Hold a view</button>
-      ) : null}
       {loading && !items.length ? <p className="judgment-quiet" role="status">Reading back what you hold…</p> : null}
       {shown.length ? (
         <ul className="judgment-index__list">
@@ -83,7 +88,7 @@ const JudgmentIndex = ({ items, loading, error, setAsideView }) => {
           ))}
         </ul>
       ) : null}
-      {setAsideView && !loading && !shown.length ? <p className="judgment-quiet">Nothing set aside.</p> : null}
+      {setAsideView && !loading && !shown.length ? <EmptyState title="Nothing set aside." /> : null}
       {error ? <p className="judgment-error" role="alert">{error}</p> : null}
     </main>
   );
@@ -113,6 +118,8 @@ const Judgment = () => {
   useEffect(load, [load, pageId]);
 
   const items = useMemo(() => buildJudgmentIndex(pages), [pages]);
+  const opened = items.find(item => String(item.id) === String(pageId));
+  useDocumentTitle(pageId ? opened?.sentence : setAsideView && 'Set aside', 'Judgment');
 
   return (
     <div className="judgment-room">

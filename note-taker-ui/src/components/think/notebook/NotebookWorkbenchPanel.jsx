@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { QuietButton } from '../../ui';
+import { Button } from '../../ui';
 
 const SourceRow = ({ item, used, targets, onInsert, onRemove, onGoTo }) => (
   <article className={`notebook-workbench__row${used ? ' is-used' : ''}`}>
@@ -9,15 +9,15 @@ const SourceRow = ({ item, used, targets, onInsert, onRemove, onGoTo }) => (
       {item.text ? <p>{item.text}</p> : null}
     </div>
     <div className="notebook-workbench__row-actions">
-      {used && targets.length <= 1 ? <QuietButton onClick={() => onGoTo(targets[0])}>In your draft · Go to passage</QuietButton> : null}
+      {used && targets.length <= 1 ? <Button variant="quiet" onClick={() => onGoTo(targets[0])}>In your draft · Go to passage</Button> : null}
       {used && targets.length > 1 ? (
         <span className="notebook-workbench__citation-choices" aria-label="Citations in this draft">
           <span>In your draft</span>
-          {targets.map((blockId, index) => <QuietButton key={blockId} onClick={() => onGoTo(blockId)}>Passage {index + 1}</QuietButton>)}
+          {targets.map((blockId, index) => <Button variant="quiet" key={blockId} onClick={() => onGoTo(blockId)}>Passage {index + 1}</Button>)}
         </span>
       ) : null}
-      {!used ? <QuietButton onClick={onInsert}>Insert here</QuietButton> : null}
-      <QuietButton onClick={onRemove}>Remove from note</QuietButton>
+      {!used ? <Button variant="quiet" onClick={onInsert}>Insert here</Button> : null}
+      <Button variant="quiet" onClick={onRemove}>Remove from note</Button>
     </div>
   </article>
 );
@@ -73,7 +73,7 @@ const NotebookWorkbenchPanel = ({
         {trialStatus === 'stale' ? (
           <div className="notebook-workbench__notice" role="status">
             This paragraph changed. Your trial is safe beside it.
-            <QuietButton onClick={onReviewTrial}>Review against the current paragraph</QuietButton>
+            <Button variant="quiet" onClick={onReviewTrial}>Review against the current paragraph</Button>
           </div>
         ) : trialStatus === 'missing' ? (
           <p className="notebook-workbench__notice" role="status">The original paragraph is gone. Keep the trial or choose another passage.</p>
@@ -83,11 +83,11 @@ const NotebookWorkbenchPanel = ({
           <textarea value={activeTrial.alternative || ''} onChange={(event) => onChangeTrial(event.target.value)} rows={8} />
         </label>
         <div className="notebook-workbench__actions">
-          <QuietButton onClick={() => onPreviewTrial('original')}>Original</QuietButton>
-          <QuietButton onClick={() => onPreviewTrial('trial')}>Read it in place</QuietButton>
-          <QuietButton disabled={!activeTrial.alternative?.trim() || trialStatus !== 'ready'} onClick={onUseTrial}>Use this version</QuietButton>
-          <QuietButton onClick={onKeepOriginal}>Keep my original</QuietButton>
-          <QuietButton onClick={onDiscardTrial}>Discard trial</QuietButton>
+          <Button variant="quiet" onClick={() => onPreviewTrial('original')}>Original</Button>
+          <Button variant="quiet" onClick={() => onPreviewTrial('trial')}>Read it in place</Button>
+          <Button variant="quiet" disabled={!activeTrial.alternative?.trim() || trialStatus !== 'ready'} onClick={onUseTrial}>Use this version</Button>
+          <Button variant="quiet" onClick={onKeepOriginal}>Keep my original</Button>
+          <Button variant="quiet" onClick={onDiscardTrial}>Discard trial</Button>
         </div>
       </section>
     );
@@ -109,8 +109,8 @@ const NotebookWorkbenchPanel = ({
       </div>
 
       <div className="notebook-workbench__source-actions" role="group" aria-label="Keep material beside this note">
-        <QuietButton onClick={() => onChooseSource('highlight')}>Keep a passage beside</QuietButton>
-        <QuietButton onClick={() => onChooseSource('article')}>Keep a source beside</QuietButton>
+        <Button variant="quiet" onClick={() => onChooseSource('highlight')}>Keep a passage beside</Button>
+        <Button variant="quiet" onClick={() => onChooseSource('article')}>Keep a source beside</Button>
       </div>
 
       {workingState.materials.length ? (
@@ -135,31 +135,31 @@ const NotebookWorkbenchPanel = ({
 
         {splitDrawer && workingState.trials.length ? <details className="notebook-workbench__section">
           <summary>Wording to revisit · {workingState.trials.length}</summary>
-          {workingState.trials.map(trial => <div className="notebook-workbench__row" key={trial.id}><p>{trial.alternative || 'Unfinished alternative'}</p><QuietButton onClick={() => onOpenTrial?.(trial)}>Open alternative</QuietButton></div>)}
+          {workingState.trials.map(trial => <div className="notebook-workbench__row" key={trial.id}><p>{trial.alternative || 'Unfinished alternative'}</p><Button variant="quiet" onClick={() => onOpenTrial?.(trial)}>Open alternative</Button></div>)}
         </details> : null}
       </> : null}
       {!splitDrawer || mode !== 'material' ? <>
       <div className="notebook-workbench__section">
         {!simpleScratchpad ? <div className="notebook-workbench__section-title">
           <h3>Loose thoughts</h3>
-          <QuietButton onClick={() => jotRef.current?.focus()}>Jot something</QuietButton>
+          <Button variant="quiet" onClick={() => jotRef.current?.focus()}>Jot something</Button>
         </div> : null}
         <label className="notebook-workbench__field">
           <span className="sr-only">Hold a thought</span>
           <textarea ref={jotRef} value={jot} onChange={(event) => setJot(event.target.value)} placeholder={simpleScratchpad ? 'A thought for later…' : thoughtTarget ? 'Keep the digression here…' : 'Choose a passage, then hold a thought…'} rows={3} />
         </label>
-        <QuietButton disabled={!jot.trim()} onClick={() => { onJot(jot); setJot(''); }}>{simpleScratchpad ? 'Keep thought' : 'Hold this thought'}</QuietButton>
+        <Button variant="quiet" disabled={!jot.trim()} onClick={() => { onJot(jot); setJot(''); }}>{simpleScratchpad ? 'Keep thought' : 'Hold this thought'}</Button>
         {workingState.looseThoughts.map(item => (
           <article className="notebook-workbench__row" key={item.id}>
             <p>{simpleScratchpad ? <button type="button" className="notebook-scratchpad__thought" title="Back to passage" onClick={() => onGoToThought(item)}>{item.text}</button> : item.text}</p>
             <div className="notebook-workbench__row-actions">
               {simpleScratchpad ? <>
-                <QuietButton aria-label="Insert thought into draft" title="Insert into draft" onClick={() => onInsertThought(item)}>+</QuietButton>
-                <QuietButton aria-label="Discard thought" title="Discard thought" onClick={() => onDiscardThought(item.id)}>×</QuietButton>
+                <Button variant="quiet" aria-label="Insert thought into draft" title="Insert into draft" onClick={() => onInsertThought(item)}>+</Button>
+                <Button variant="quiet" aria-label="Discard thought" title="Discard thought" onClick={() => onDiscardThought(item.id)}>×</Button>
               </> : <>
-                <QuietButton onClick={() => onGoToThought(item)}>Back to my sentence</QuietButton>
-                <QuietButton onClick={() => onInsertThought(item)}>Put into the draft</QuietButton>
-                <QuietButton onClick={() => onDiscardThought(item.id)}>Discard</QuietButton>
+                <Button variant="quiet" onClick={() => onGoToThought(item)}>Back to my sentence</Button>
+                <Button variant="quiet" onClick={() => onInsertThought(item)}>Put into the draft</Button>
+                <Button variant="quiet" onClick={() => onDiscardThought(item.id)}>Discard</Button>
               </>}
             </div>
           </article>
@@ -172,7 +172,7 @@ const NotebookWorkbenchPanel = ({
           {asidePieces.map(piece => (
             <article className="notebook-workbench__row" key={piece.id}>
               <p>{piece.label || 'Set-aside passage'}</p>
-              <QuietButton onClick={() => onRestoreAside(piece.id)}>Bring back</QuietButton>
+              <Button variant="quiet" onClick={() => onRestoreAside(piece.id)}>Bring back</Button>
             </article>
           ))}
         </div>
@@ -185,9 +185,9 @@ const NotebookWorkbenchPanel = ({
           <textarea value={nextLine} onChange={(event) => setNextLine(event.target.value)} rows={2} />
         </label>
         <div className="notebook-workbench__row-actions">
-          <QuietButton disabled={!nextLine.trim()} onClick={() => onSaveNextLine(nextLine)}>Save this line</QuietButton>
-          {workingState.nextTimeLine?.text ? <QuietButton onClick={onGoToNextLine}>Pick up here</QuietButton> : null}
-          {workingState.nextTimeLine?.text ? <QuietButton onClick={onClearNextLine}>Clear this line</QuietButton> : null}
+          <Button variant="quiet" disabled={!nextLine.trim()} onClick={() => onSaveNextLine(nextLine)}>Save this line</Button>
+          {workingState.nextTimeLine?.text ? <Button variant="quiet" onClick={onGoToNextLine}>Pick up here</Button> : null}
+          {workingState.nextTimeLine?.text ? <Button variant="quiet" onClick={onClearNextLine}>Clear this line</Button> : null}
         </div>
       </NextTimeSection>
       </> : null}

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Button, QuietButton } from '../ui';
+import { Button } from '../ui';
 
 /**
  * Holding a belief, from a sentence you marked.
@@ -102,10 +102,10 @@ const LibraryClaimModal = ({ open, highlight, onClose, onCreate }) => {
         {error ? <p className="status-message error-message">{error}</p> : null}
 
         <div className="modal-footer">
-          <Button variant="secondary" onClick={hold} disabled={!sentence || saving} data-testid="claim-modal-hold">
+          <Button onClick={hold} disabled={!sentence || saving} data-testid="claim-modal-hold">
             {saving ? 'Holding…' : 'Hold it'}
           </Button>
-          <QuietButton onClick={onClose} disabled={saving}>Cancel</QuietButton>
+          <Button variant="quiet" onClick={onClose} disabled={saving}>Cancel</Button>
         </div>
       </div>
     </div>

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { getChatGPTConsentRequest, decideChatGPTConsent } from '../api/chatgpt';
-import { Card, Page } from '../components/ui';
+import { Card, Page, PageHeader } from '../components/ui';
 
 const SCOPE_LABELS = {
   read: 'Search and read your Library, exact source passages, highlights, notes, and Wikis.',
@@ -66,11 +66,11 @@ export default function ChatGPTConnectAuthorize({ navigateToClient = redirect })
 
   return (
     <Page className="settings-page agent-connect-authorize-page connections-approval-page">
-      <header className="connections-hub__header">
-        <p className="muted-label">Account connection</p>
-        <h1>Connect your NOEIS to ChatGPT</h1>
-        <p>Your reading stays tied to its source. Your own thoughts remain yours.</p>
-      </header>
+      <PageHeader
+        eyebrow="Account connection"
+        title="Connect your NOEIS to ChatGPT"
+        lede="Your reading stays tied to its source. Your own thoughts remain yours."
+      />
       <Card className="settings-card agent-connect-authorize-card connections-approval-card">
         {loading ? <p role="status">Loading connection request…</p> : completed ? <p role="status">Returning to ChatGPT…</p> : (
           <>
@@ -84,12 +84,12 @@ export default function ChatGPTConnectAuthorize({ navigateToClient = redirect })
               {!supported ? <p role="alert">These permissions cannot be approved. Start a new connection request.</p> : null}
               <div className="settings-actions">
                 <button className="ui-button ui-button-primary" disabled={submitting || expired || !supported} onClick={() => decide(true)}>{submitting ? 'Returning to ChatGPT…' : 'Allow connection'}</button>
-                <button className="ui-button ui-button-secondary" disabled={submitting} onClick={() => decide(false)}>Deny connection</button>
+                <button className="ui-button" disabled={submitting} onClick={() => decide(false)}>Deny connection</button>
               </div>
             </> : null}
             {error ? <p role="alert">{error}</p> : null}
-            {!request && requestId && !error.startsWith('The connection result') ? <button className="ui-button ui-button-secondary" onClick={() => setReload((value) => value + 1)}>Try loading again</button> : null}
-            <Link to="/connections#agents" className="ui-button ui-button-secondary">Open Connections</Link>
+            {!request && requestId && !error.startsWith('The connection result') ? <button className="ui-button" onClick={() => setReload((value) => value + 1)}>Try loading again</button> : null}
+            <Link to="/connections#agents" className="ui-button">Open Connections</Link>
           </>
         )}
       </Card>

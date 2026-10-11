@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { QuietButton } from '../ui';
+import { Button } from '../ui';
 import useConcepts from '../../hooks/useConcepts';
 
 const LibraryConceptModal = ({ open, highlight, onClose, onSelect }) => {
@@ -39,20 +39,20 @@ const LibraryConceptModal = ({ open, highlight, onClose, onSelect }) => {
         </label>
         <div className="library-folder-picker">
           {filtered.map(concept => (
-            <QuietButton
+            <Button variant="quiet"
               key={concept.name}
               onClick={() => onSelect(highlight, concept.name)}
             >
               {concept.name}
-            </QuietButton>
+            </Button>
           ))}
           {!loading && filtered.length === 0 && <p className="muted small">No concepts yet.</p>}
         </div>
         <div className="modal-actions" style={{ justifyContent: 'flex-end', gap: 8 }}>
-          <QuietButton onClick={onClose}>Cancel</QuietButton>
-          <QuietButton onClick={() => onSelect(highlight, query.trim())} disabled={!query.trim()}>
+          <Button variant="quiet" onClick={onClose}>Cancel</Button>
+          <Button variant="quiet" onClick={() => onSelect(highlight, query.trim())} disabled={!query.trim()}>
             Create new
-          </QuietButton>
+          </Button>
         </div>
       </div>
     </div>

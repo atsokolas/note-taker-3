@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Button, QuietButton } from '../../ui';
+import { Button } from '../../ui';
 
 /**
  * @typedef {Object} InsertReferenceModalProps
@@ -89,7 +89,7 @@ const InsertReferenceModal = ({
               <div className="modal-highlight-title">{getLabel(item)}</div>
               {getMeta && <p className="modal-highlight-text">{getMeta(item)}</p>}
               <div className="modal-highlight-actions">
-                <Button variant="secondary" onClick={(event) => { event.stopPropagation(); onSelect(item); }}>Insert</Button>
+                <Button onClick={(event) => { event.stopPropagation(); onSelect(item); }}>Insert</Button>
               </div>
             </div>
           ))}
@@ -99,7 +99,7 @@ const InsertReferenceModal = ({
           <span className="insert-modal__footer-hint">
             <kbd>esc</kbd> to close
           </span>
-          <QuietButton onClick={onClose}>Close</QuietButton>
+          <Button variant="quiet" onClick={onClose}>Close</Button>
         </div>
       </div>
     </div>

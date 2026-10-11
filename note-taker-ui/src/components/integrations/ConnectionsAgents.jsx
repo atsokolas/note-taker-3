@@ -385,7 +385,7 @@ export default function ConnectionsAgents({ tokenModel, onOpenTaskLink = null })
         </div>
         <button
           type="button"
-          className="ui-button ui-button-secondary"
+          className="ui-button"
           disabled={tokenModel.creatingToken}
           onClick={tokenModel.handleCreateToken}
         >

@@ -157,7 +157,6 @@ const WikiPageRow = ({
         <div className="wiki-index__page-actions wiki-index__page-actions--quality-review">
           <Button
             type="button"
-            variant="secondary"
             className="wiki-index__page-open library-article-row-action"
             disabled={deleting}
             aria-label={`Open ${title}`}
@@ -167,7 +166,6 @@ const WikiPageRow = ({
           </Button>
           <Button
             type="button"
-            variant="secondary"
             className="wiki-index__page-delete library-article-row-action"
             disabled={deleting}
             aria-label={`Archive ${title}`}
@@ -197,7 +195,6 @@ const WikiPageRow = ({
             <div className="wiki-index__page-menu" role="menu" aria-label={`Actions for ${title}`}>
               <Button
                 type="button"
-                variant="secondary"
                 className="wiki-index__page-delete"
                 disabled={deleting}
                 aria-label={`Archive ${title}`}
