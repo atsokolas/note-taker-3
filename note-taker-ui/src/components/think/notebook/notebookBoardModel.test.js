@@ -44,3 +44,8 @@ test('placing a card changes only that note', () => {
   expect(placed[0].board.stage).toBe('done');
   expect(placed[1]).toBe(notes[1]);
 });
+
+test('an unnamed note is called by its first words, as in the list', () => {
+  const [card] = buildBoard([{ _id: 'u', title: '', snippet: 'Members pay to keep the promise.' }], NOW).columns.idea;
+  expect(card.title).toBe('Members pay to keep the promise.');
+});

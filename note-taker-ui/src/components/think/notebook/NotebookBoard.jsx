@@ -164,7 +164,8 @@ const NotebookBoard = ({ view = 'board', onView, onOpen, onClose }) => {
                 <ul>
                   {board.columns[key].map(card => <BoardCard key={card.id} card={card} now={now} onOpen={onOpen} onMove={moveOne} />)}
                 </ul>
-              ) : !loading ? <p className="notebook-board__quiet">{empty}</p> : null}
+              ) : loading ? null : notes.length ? <p className="notebook-board__quiet">{empty}</p>
+                : key === 'idea' ? <p className="notebook-board__quiet">Nothing written yet. A new note starts here.</p> : null}
             </section>
           ))}
         </div>

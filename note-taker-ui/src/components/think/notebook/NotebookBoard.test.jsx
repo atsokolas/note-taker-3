@@ -101,3 +101,10 @@ test('the archive groups what was set down and restores it to the board', async 
   expect(moveNotebookEntry).toHaveBeenCalledWith('e', { archived: false });
   expect(screen.queryByRole('region', { name: 'Finished' })).not.toBeInTheDocument();
 });
+
+test('a writer with no notes yet is told where a new one goes', async () => {
+  getNotebookBoard.mockResolvedValue([]);
+  await renderBoard();
+  expect(within(screen.getByRole('region', { name: 'Ideas' })).getByText('Nothing written yet. A new note starts here.')).toBeInTheDocument();
+  expect(within(screen.getByRole('region', { name: 'Done' })).queryByText('Nothing finished yet.')).not.toBeInTheDocument();
+});

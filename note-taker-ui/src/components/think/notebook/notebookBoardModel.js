@@ -1,3 +1,5 @@
+import { noteTitle } from '../../../pages/thinkNotesModel';
+
 // Where each piece of writing stands: an idea, in progress, or done, and the
 // archive for what has been set down. A note from before the board is an idea.
 
@@ -25,7 +27,7 @@ const time = (value) => {
 
 export const toCard = (note) => ({
   id: String(note._id),
-  title: String(note.title || '').trim() || 'Untitled',
+  title: noteTitle(note),
   snippet: String(note.snippet || '').replace(/\s+/g, ' ').trim(),
   nextTimeLine: String(note.workingState?.nextTimeLine?.text || '').trim(),
   stage: STAGES.some(stage => stage.key === note.board?.stage) ? note.board.stage : 'idea',
