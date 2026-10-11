@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button, SectionHeader } from '../ui';
 import { createConnection, getConnectionsForItem, searchConnectableItems } from '../../api/connections';
+import { buildCanonicalArticlePath, buildCanonicalHighlightPath } from '../../utils/sourceRoutes';
 
 const ITEM_TYPE_LABELS = {
   article: 'Article',
@@ -62,9 +63,7 @@ const canonicalOpenPath = ({ item = {}, itemType = '', itemId = '' } = {}) => {
   if (!id) return '';
   if (itemType === 'highlight') {
     const articleId = String(item?.articleId || item?.metadata?.articleId || '').trim();
-    return articleId
-      ? `/library?articleId=${encodeURIComponent(articleId)}&highlightId=${encodeURIComponent(id)}`
-      : '';
+    return articleId ? buildCanonicalHighlightPath({ articleId, highlightId: id }) : '';
   }
   if (itemType === 'wiki_page') {
     if (id) return `/wiki/workspace?page=${encodeURIComponent(id)}`;
@@ -79,7 +78,7 @@ const canonicalOpenPath = ({ item = {}, itemType = '', itemId = '' } = {}) => {
   }
   const explicitPath = safeInternalPath(item?.openPath || item?.path || '');
   if (explicitPath) return explicitPath;
-  if (itemType === 'article') return `/library?articleId=${encodeURIComponent(id)}`;
+  if (itemType === 'article') return buildCanonicalArticlePath(id);
   if (itemType === 'question') return `/think?tab=questions&questionId=${encodeURIComponent(id)}`;
   if (itemType === 'notebook') return `/think?tab=notebook&entryId=${encodeURIComponent(id)}`;
   if (itemType === 'concept') {

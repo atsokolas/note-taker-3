@@ -2,11 +2,11 @@ import {
   ARTICLE_PASSAGE_CONTEXT_LIMIT,
   ARTICLE_PASSAGE_FRAGMENT_LIMIT,
   ARTICLE_PASSAGE_TEXT_LIMIT,
-  buildArticlePassageHref,
   markExactArticlePassage,
   readArticlePassageFragment,
   resolveExactArticlePassage
 } from './articlePassageAnchor';
+import { buildArticlePassageHref } from './sourceRoutes';
 
 const articleId = 'article-1';
 const anchor = {

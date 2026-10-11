@@ -5,7 +5,6 @@ const { serializeHighlightWithArticle } = require('./utils/highlightUtils');
 const dotenv = require('dotenv');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const axios = require('axios');
 const PDFDocument = require('pdfkit');
 const archiver = require('archiver');
 const multer = require('multer');
@@ -17,7 +16,6 @@ const {
   applyPatchOp,
   validateWorkspacePayload
 } = require('./utils/workspaceUtils');
-const { checkHealth } = require('./ai/ollamaClient');
 const {
   enqueueArticleEmbedding,
   deleteArticleEmbeddingState,
@@ -28,7 +26,6 @@ const {
 } = require('./ai/embeddingJobs');
 const { EVENT_NAMES, trackEvent, trackReturnVisit } = require('./utils/analytics');
 const { EmbeddingError } = require('./ai/embed');
-const { enqueueBrainSummary, registerBrainSummaryHandler } = require('./ai/brainSummaryJobs');
 const { semanticSearch: atlasSemanticSearch } = require('./ai/semanticSearch');
 const { similarToVectorItem } = require('./ai/vectorStore');
 const {
@@ -55,7 +52,6 @@ const {
   conceptToEmbeddingItem,
   questionToEmbeddingItem
 } = require('./ai/mappers');
-const { isGenerationEnabled, generateDraftInsights } = require('./ai/generation');
 
 dotenv.config();
 
@@ -119,6 +115,7 @@ const {
   Note,
   NotebookEntry,
   NotebookFolder,
+  EntryRevision,
   TagMeta,
   ConceptDecisionLessonEvidence,
   ConceptNote,
@@ -135,17 +132,13 @@ const {
   ItemViewEvent,
   ConceptPath,
   ConceptPathProgress,
-  BrainSummary,
   PersonalAgent,
   AgentToken,
   AgentConnectSession,
   AgentTaskLink,
   AgentThread,
-  AgentActionApproval,
   AgentProtocolApproval,
   AgentProtocolHookRun,
-  AgentActionAudit,
-  AgentSoftDeleteRecord,
   AgentHandoff,
   AgentArtifactDraft,
   AgentRun,
@@ -175,13 +168,6 @@ const {
   QuestionContribution,
   QuestionPresence,
   CasebookLineage,
-  CaseTeam,
-  CrossCaseLink,
-  WorldModelScenario,
-  ResearchMandate,
-  InstitutionalHold,
-  DecisionMemoryEvent,
-  JudgmentObservationLineage,
   JudgmentResponseDraft,
   WikiPage,
   WikiProposal,
@@ -610,6 +596,7 @@ if (mongoose.connection.readyState === 1) {
 const { buildFolderService } = require('./services/folderService');
 const { getFoldersWithCounts } = buildFolderService({ Folder, Article, mongoose });
 const { buildNotebookRouter } = require('./routes/notebookRoutes');
+const { buildEntryHistoryRouter } = require('./routes/entryHistoryRoutes');
 const { buildNotebookVolumeRouter } = require('./routes/notebookVolumeRoutes');
 const { buildAuthoredExplorationRouter } = require('./routes/authoredExplorationRoutes');
 const { buildWikiRouter } = require('./routes/wikiRoutes');
@@ -646,8 +633,6 @@ const { buildSystemLoopRouter } = require('./routes/systemLoopRoutes');
 const { buildDecisionIndexRouter } = require('./routes/decisionIndexRoutes');
 const { buildDecisionMutationRouter } = require('./routes/decisionMutationRoutes');
 const { buildJudgmentResolutionRouter } = require('./routes/judgmentResolutionRoutes');
-const { buildJudgmentThreadRouter } = require('./routes/judgmentThreadRoutes');
-const { buildDecisionMemoryRouter } = require('./routes/decisionMemoryRoutes');
 const { buildLibraryRelevanceRouter } = require('./routes/libraryRelevanceRoutes');
 const { buildReadingLoopRouter } = require('./routes/readingLoopRoutes');
 const { buildPersonalAgentRouter } = require('./routes/personalAgentRoutes');
@@ -711,14 +696,10 @@ const { buildTagInsightRouter } = require('./routes/tagInsightRoutes');
 const { buildConceptQuestionBoardRouter } = require('./routes/conceptQuestionBoardRoutes');
 const { buildSemanticReferenceRouter } = require('./routes/semanticReferenceRoutes');
 const { buildReferenceBacklinkRouter } = require('./routes/referenceBacklinkRoutes');
-const { buildSavedViewRouter } = require('./routes/savedViewRoutes');
-const { buildTodayRouter } = require('./routes/todayRoutes');
 const { buildImportRouter } = require('./routes/importRoutes');
 const { buildImportSessionRouter } = require('./routes/importSessionRoutes');
 const { buildExportPublicRouter } = require('./routes/exportPublicRoutes');
 const { buildBulkExportRouter } = require('./routes/bulkExportRoutes');
-const { buildReflectionRouter } = require('./routes/reflectionRoutes');
-const { buildCollectionRouter } = require('./routes/collectionRoutes');
 const { buildHighlightMutationRouter } = require('./routes/highlightMutationRoutes');
 const { buildAiMaintenanceRouter } = require('./routes/aiMaintenanceRoutes');
 const { buildSystemRouter } = require('./routes/systemRoutes');
@@ -747,14 +728,6 @@ const { getConcepts, getConceptMeta, updateConceptMeta, getConceptRelated } = bu
   ReferenceEdge,
   mongoose,
   workspaceAuthorization: conceptWorkspaceAuthorization
-});
-const { buildReflectionService } = require('./services/reflectionService');
-const { getReflections } = buildReflectionService({
-  Article,
-  NotebookEntry,
-  Question,
-  TagMeta,
-  mongoose
 });
 const {
   buildConceptWorkspace,
@@ -853,7 +826,6 @@ const {
 } = require('./services/agentActionService');
 const { logAgentMetric, getAgentMetricsSnapshot } = require('./utils/agentMetrics');
 
-registerBrainSummaryHandler({ Article, BrainSummary });
 
 const createBlockId = () => (
   (crypto.randomUUID ? crypto.randomUUID() : `block-${Math.random().toString(36).slice(2, 9)}-${Date.now()}`)
@@ -1506,13 +1478,6 @@ const BRIDGE_PROJECT_READ_TYPES = new Set([
   'handoff',
   'artifact_draft'
 ]);
-
-const BRIDGE_PROJECT_ACCESS_OPERATIONS = [
-  'project.search',
-  'project.read',
-  'project.write_draft',
-  'bridge.access_check'
-];
 
 const clampBridgeText = (value = '', maxLength = 1200) => (
   String(value || '')
@@ -5360,9 +5325,11 @@ app.use(buildLibraryFilingRouter({
     sanitizeAgentThreadDoc
   })
 }));
+app.use(buildEntryHistoryRouter({ authenticateToken, EntryRevision }));
 app.use(buildNotebookRouter({
   authenticateToken: authenticateUserOrAgentToken,
   NotebookEntry,
+  EntryRevision,
   NotebookFolder,
   ReferenceEdge,
   ensureNotebookBlocks,
@@ -5483,38 +5450,7 @@ app.use(buildJudgmentResolutionRouter({
   WikiPage,
   WikiRevision,
   NoeisReceipt,
-  WikiSourceEvent,
-  WikiMaintenanceRun,
-  CaseTeam,
-  CasebookLineage,
-  CrossCaseLink,
-  WorldModelScenario,
-  ResearchMandate,
-  InstitutionalHold,
-  DecisionMemoryEvent,
   trackEvent
-}));
-
-app.use(buildJudgmentThreadRouter({
-  authenticateToken: authenticateUserOrAgentToken,
-  WikiPage,
-  NoeisReceipt,
-  WikiSourceEvent,
-  JudgmentObservationLineage,
-  JudgmentResponseDraft
-}));
-
-app.use(buildDecisionMemoryRouter({
-  authenticateToken: authenticateUserOrAgentToken,
-  WikiPage,
-  WikiRevision,
-  NoeisReceipt,
-  CaseTeam,
-  CrossCaseLink,
-  WorldModelScenario,
-  ResearchMandate,
-  InstitutionalHold,
-  DecisionMemoryEvent
 }));
 
 app.use(buildLibraryRelevanceRouter({
@@ -5816,352 +5752,9 @@ const hydrateSemanticResults = async ({ matches = [], userId }) => {
     });
 };
 
-const SEARCH_SCOPE_VALUES = new Set(['all', 'articles', 'highlights', 'notebook']);
-const SEARCH_TYPE_VALUES = new Set(['article', 'highlight', 'notebook', 'note', 'claim', 'evidence']);
-const SEARCH_ENTRY_TYPE_VALUES = new Set(['note', 'claim', 'evidence']);
-
-const normalizeSearchScope = (value) => {
-  const candidate = String(value || 'all').trim().toLowerCase();
-  if (SEARCH_SCOPE_VALUES.has(candidate)) return candidate;
-  return 'all';
-};
-
-const normalizeSearchTypeFilters = (value) => (
-  parseCsvList(value)
-    .map((item) => String(item || '').trim().toLowerCase())
-    .filter((item) => SEARCH_TYPE_VALUES.has(item))
-);
-
-const normalizeSearchTagFilters = (value) => (
-  parseCsvList(value)
-    .map((item) => String(item || '').trim())
-    .filter(Boolean)
-    .slice(0, 10)
-);
-
-const normalizeEntryTypeFilters = (types = []) => {
-  const entryTypes = types.filter(type => SEARCH_ENTRY_TYPE_VALUES.has(type));
-  return Array.from(new Set(entryTypes));
-};
-
-const hasRequestedType = (typeSet, candidates = []) => (
-  typeSet.size === 0 || candidates.some(candidate => typeSet.has(candidate))
-);
-
-const toCaseInsensitiveTagRegexes = (tags = []) => (
-  tags
-    .map(tag => String(tag || '').trim())
-    .filter(Boolean)
-    .map(tag => new RegExp(`^${escapeRegExp(tag)}$`, 'i'))
-);
-
 const toSafeObjectId = (value) => (
   mongoose.Types.ObjectId.isValid(value) ? new mongoose.Types.ObjectId(value) : null
 );
-
-const resolveNotebookSnippet = (entry) => {
-  const blockText = Array.isArray(entry?.blocks)
-    ? (entry.blocks.find(block => String(block?.text || '').trim())?.text || '')
-    : '';
-  return buildQueueSnippet(entry?.content || '', blockText, entry?.title || '');
-};
-
-const RELATED_REASON_SCORES = Object.freeze({
-  connection: 5,
-  tag: 3,
-  coview: 2
-});
-
-const normalizeRelatedLimit = (value, fallback = 8) => {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return fallback;
-  return Math.min(Math.max(Math.round(parsed), 1), 20);
-};
-
-const buildRelatedKey = (itemType, itemId) => `${itemType}:${itemId}`;
-
-const scoreRelatedCandidate = (candidateMap, itemType, itemId, reason, score = 1) => {
-  const safeType = normalizeConnectionItemType(itemType);
-  const safeId = String(itemId || '').trim();
-  if (!safeType || !safeId) return;
-  const key = buildRelatedKey(safeType, safeId);
-  const existing = candidateMap.get(key);
-  const reasonScore = Number(score) || 0;
-  if (!existing) {
-    candidateMap.set(key, {
-      itemType: safeType,
-      itemId: safeId,
-      score: reasonScore,
-      reasons: new Set([reason])
-    });
-    return;
-  }
-  existing.score += reasonScore;
-  existing.reasons.add(reason);
-};
-
-const normalizeTagValues = (tags = []) => {
-  const set = new Set();
-  (Array.isArray(tags) ? tags : []).forEach(tag => {
-    const value = String(tag || '').trim();
-    if (!value) return;
-    set.add(value.toLowerCase());
-  });
-  return Array.from(set);
-};
-
-const computeTagOverlapScore = (sourceTagSet, targetTags = []) => {
-  if (!sourceTagSet.size) return 0;
-  const overlap = normalizeTagValues(targetTags).reduce((count, tag) => (
-    sourceTagSet.has(tag) ? count + 1 : count
-  ), 0);
-  return overlap;
-};
-
-const resolveItemTagSignals = async (userId, itemType, itemId) => {
-  const safeType = normalizeConnectionItemType(itemType);
-  const safeId = String(itemId || '').trim();
-  if (!safeType || !safeId) return [];
-
-  if (safeType === 'highlight') {
-    const highlight = await findHighlightById(userId, safeId);
-    return normalizeTagValues(highlight?.tags || []);
-  }
-  if (safeType === 'notebook') {
-    if (!mongoose.Types.ObjectId.isValid(safeId)) return [];
-    const note = await NotebookEntry.findOne({ _id: safeId, userId })
-      .select('tags')
-      .lean();
-    return normalizeTagValues(note?.tags || []);
-  }
-  if (safeType === 'concept') {
-    if (!mongoose.Types.ObjectId.isValid(safeId)) return [];
-    const concept = await TagMeta.findOne({ _id: safeId, userId })
-      .select('name')
-      .lean();
-    return concept?.name ? normalizeTagValues([concept.name]) : [];
-  }
-  if (safeType === 'question') {
-    if (!mongoose.Types.ObjectId.isValid(safeId)) return [];
-    const question = await Question.findOne({ _id: safeId, userId })
-      .select('linkedTagName conceptName')
-      .lean();
-    return normalizeTagValues([question?.linkedTagName, question?.conceptName]);
-  }
-  if (safeType === 'article') {
-    if (!mongoose.Types.ObjectId.isValid(safeId)) return [];
-    const article = await Article.findOne({ _id: safeId, userId })
-      .select('highlights.tags')
-      .lean();
-    const tags = [];
-    (article?.highlights || []).forEach(highlight => {
-      (highlight?.tags || []).forEach(tag => tags.push(tag));
-    });
-    return normalizeTagValues(tags).slice(0, 20);
-  }
-  return [];
-};
-
-const collectTagRelatedCandidates = async (userId, sourceType, sourceId, sourceTags = [], candidateMap) => {
-  if (!sourceTags.length) return;
-  const sourceTagSet = new Set(sourceTags);
-  const tagRegexes = toCaseInsensitiveTagRegexes(sourceTags);
-  const userObjectId = new mongoose.Types.ObjectId(userId);
-
-  const [highlightRows, notebookRows, conceptRows, questionRows, articleRows] = await Promise.all([
-    Article.aggregate([
-      { $match: { userId: userObjectId } },
-      { $unwind: '$highlights' },
-      { $match: { 'highlights.tags': { $in: tagRegexes } } },
-      {
-        $project: {
-          _id: '$highlights._id',
-          tags: '$highlights.tags'
-        }
-      },
-      { $sort: { 'highlights.createdAt': -1 } },
-      { $limit: 120 }
-    ]),
-    NotebookEntry.find({ userId, tags: { $in: tagRegexes } })
-      .select('_id tags updatedAt')
-      .sort({ updatedAt: -1 })
-      .limit(120)
-      .lean(),
-    TagMeta.find({ userId, name: { $in: tagRegexes } })
-      .select('_id name updatedAt')
-      .sort({ updatedAt: -1 })
-      .limit(30)
-      .lean(),
-    Question.find({
-      userId,
-      $or: [{ linkedTagName: { $in: tagRegexes } }, { conceptName: { $in: tagRegexes } }]
-    })
-      .select('_id linkedTagName conceptName updatedAt')
-      .sort({ updatedAt: -1 })
-      .limit(60)
-      .lean(),
-    Article.find({ userId, 'highlights.tags': { $in: tagRegexes } })
-      .select('_id highlights.tags updatedAt')
-      .sort({ updatedAt: -1 })
-      .limit(60)
-      .lean()
-  ]);
-
-  highlightRows.forEach(row => {
-    const itemId = String(row?._id || '');
-    if (sourceType === 'highlight' && itemId === sourceId) return;
-    const overlap = computeTagOverlapScore(sourceTagSet, row?.tags || []);
-    scoreRelatedCandidate(
-      candidateMap,
-      'highlight',
-      itemId,
-      'tag',
-      RELATED_REASON_SCORES.tag + overlap
-    );
-  });
-
-  notebookRows.forEach(row => {
-    const itemId = String(row?._id || '');
-    if (sourceType === 'notebook' && itemId === sourceId) return;
-    const overlap = computeTagOverlapScore(sourceTagSet, row?.tags || []);
-    scoreRelatedCandidate(
-      candidateMap,
-      'notebook',
-      itemId,
-      'tag',
-      RELATED_REASON_SCORES.tag + overlap
-    );
-  });
-
-  conceptRows.forEach(row => {
-    const itemId = String(row?._id || '');
-    if (sourceType === 'concept' && itemId === sourceId) return;
-    scoreRelatedCandidate(candidateMap, 'concept', itemId, 'tag', RELATED_REASON_SCORES.tag + 1);
-  });
-
-  questionRows.forEach(row => {
-    const itemId = String(row?._id || '');
-    if (sourceType === 'question' && itemId === sourceId) return;
-    const overlap = computeTagOverlapScore(sourceTagSet, [row?.linkedTagName, row?.conceptName]);
-    scoreRelatedCandidate(
-      candidateMap,
-      'question',
-      itemId,
-      'tag',
-      RELATED_REASON_SCORES.tag + overlap
-    );
-  });
-
-  articleRows.forEach(row => {
-    const itemId = String(row?._id || '');
-    if (sourceType === 'article' && itemId === sourceId) return;
-    const articleTags = [];
-    (row?.highlights || []).forEach(highlight => {
-      (highlight?.tags || []).forEach(tag => articleTags.push(tag));
-    });
-    const overlap = computeTagOverlapScore(sourceTagSet, articleTags);
-    scoreRelatedCandidate(
-      candidateMap,
-      'article',
-      itemId,
-      'tag',
-      RELATED_REASON_SCORES.tag + overlap
-    );
-  });
-};
-
-const collectConnectionRelatedCandidates = async (userId, sourceType, sourceId, candidateMap) => {
-  const connections = await Connection.find({
-    userId,
-    $or: [
-      { fromType: sourceType, fromId: sourceId },
-      { toType: sourceType, toId: sourceId }
-    ]
-  })
-    .select('fromType fromId toType toId relationType')
-    .sort({ createdAt: -1 })
-    .limit(160)
-    .lean();
-
-  connections.forEach(connection => {
-    const pointsFromSource = connection.fromType === sourceType && connection.fromId === sourceId;
-    const itemType = pointsFromSource ? connection.toType : connection.fromType;
-    const itemId = pointsFromSource ? connection.toId : connection.fromId;
-    if (!itemType || !itemId) return;
-    scoreRelatedCandidate(
-      candidateMap,
-      itemType,
-      itemId,
-      'connection',
-      RELATED_REASON_SCORES.connection
-    );
-  });
-};
-
-const collectCoViewCandidates = async (userId, sourceType, sourceId, candidateMap) => {
-  const lookbackStart = new Date(Date.now() - 45 * 24 * 60 * 60 * 1000);
-  const rows = await ItemViewEvent.find({
-    userId,
-    createdAt: { $gte: lookbackStart },
-    $or: [
-      { itemType: sourceType, itemId: sourceId, previousItemType: { $ne: '' }, previousItemId: { $ne: '' } },
-      { previousItemType: sourceType, previousItemId: sourceId }
-    ]
-  })
-    .select('itemType itemId previousItemType previousItemId')
-    .sort({ createdAt: -1 })
-    .limit(260)
-    .lean();
-
-  rows.forEach(row => {
-    const sourceIsCurrent = row.itemType === sourceType && row.itemId === sourceId;
-    const candidateType = sourceIsCurrent ? row.previousItemType : row.itemType;
-    const candidateId = sourceIsCurrent ? row.previousItemId : row.itemId;
-    scoreRelatedCandidate(candidateMap, candidateType, candidateId, 'coview', RELATED_REASON_SCORES.coview);
-  });
-};
-
-const hydrateRelatedCandidates = async (userId, candidateMap, limit = 8) => {
-  const idsByType = {
-    highlight: new Set(),
-    notebook: new Set(),
-    article: new Set(),
-    concept: new Set(),
-    question: new Set(),
-    wiki_page: new Set(),
-    wiki_claim: new Set()
-  };
-  candidateMap.forEach(candidate => {
-    addToCandidateSet(idsByType[candidate.itemType], candidate.itemId);
-  });
-  const nodeMap = await buildGraphNodeMap(userId, idsByType);
-
-  const hydrated = [];
-  candidateMap.forEach((candidate, key) => {
-    const nodeKey = buildGraphNodeKey(candidate.itemType, candidate.itemId);
-    const node = nodeMap.get(nodeKey);
-    if (!node) return;
-    hydrated.push({
-      id: key,
-      itemType: candidate.itemType,
-      itemId: candidate.itemId,
-      title: node.title || 'Untitled',
-      snippet: node.snippet || '',
-      tags: Array.isArray(node.tags) ? node.tags : [],
-      updatedAt: node.updatedAt || null,
-      openPath: node.openPath || '',
-      score: candidate.score,
-      reasons: Array.from(candidate.reasons)
-    });
-  });
-
-  return hydrated
-    .sort((a, b) => (
-      (b.score - a.score) ||
-      (new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime())
-    ))
-    .slice(0, limit);
-};
 
 app.use(buildSearchRetrievalRouter({
   mongoose,
@@ -6183,48 +5776,6 @@ app.use(buildSearchRetrievalRouter({
   findHighlightById,
   normalizeItemType
 }));
-
-const normalizeSearchTypes = (types) => {
-  if (!Array.isArray(types)) return undefined;
-  return types
-    .map((type) => String(type || '').trim())
-    .filter(Boolean)
-    .map((type) => {
-      if (type === 'notebook' || type === 'notebook_entry') return 'notebook_block';
-      return type;
-    });
-};
-
-const normalizeRelatedTypes = (types) => normalizeSearchTypes(types);
-const SEMANTIC_RESULT_TYPES = new Set(['highlight', 'concept']);
-
-const parseSemanticResultTypes = (value, fallback = ['highlight']) => {
-  const parsed = parseCsvList(value)
-    .map(type => normalizeConnectionItemType(type))
-    .filter(type => SEMANTIC_RESULT_TYPES.has(type));
-  if (parsed.length === 0) return fallback;
-  return Array.from(new Set(parsed));
-};
-
-const isAiRouteMissingError = (error) => {
-  if (!error || Number(error.status) !== 404) return false;
-  const detail = String(error?.payload?.detail || '').trim();
-  return detail === 'Not Found' && error?.payload?.upstream === 'ai_service';
-};
-
-const isAiTransientCapacityError = (error) => {
-  const status = Number(error?.status);
-  if (![429, 502, 503, 504].includes(status)) return false;
-  const detail = String(error?.payload?.detail || '').toLowerCase();
-  const message = String(error?.message || '').toLowerCase();
-  return (
-    status === 429 ||
-    detail.includes('rate-limited') ||
-    detail.includes('credits depleted') ||
-    message.includes('service error 429') ||
-    message.includes('timed out')
-  );
-};
 
 const fetchSimilarEmbeddingsWithAvailability = async ({ userId, sourceId, types, limit }) => {
   if (!isAiEnabled()) {
@@ -6283,47 +5834,6 @@ const filterOutIds = (items, type, ids) => {
     if (item.objectType !== type) return true;
     return !ids.has(String(item.objectId));
   });
-};
-
-const toSimilarityBand = (score) => {
-  const safeScore = Number(score);
-  if (!Number.isFinite(safeScore) || safeScore <= 0) return 'Low';
-  if (safeScore >= 0.82) return 'High';
-  if (safeScore >= 0.72) return 'Medium';
-  return 'Low';
-};
-
-const buildSemanticSourceId = async (sourceType, sourceId, userId) => {
-  const safeType = normalizeConnectionItemType(sourceType);
-  const safeSourceId = String(sourceId || '').trim();
-  if (!safeType || !safeSourceId) return null;
-  if (safeType === 'highlight') {
-    const highlight = await findHighlightById(userId, safeSourceId);
-    if (!highlight) return null;
-    return {
-      sourceType: 'highlight',
-      sourceObjectId: String(highlight._id),
-      embeddingId: buildEmbeddingId({
-        userId: String(userId),
-        objectType: 'highlight',
-        objectId: String(highlight._id)
-      })
-    };
-  }
-  if (safeType === 'concept') {
-    const concept = await resolveConceptByParam(userId, safeSourceId, { createIfMissing: false });
-    if (!concept) return null;
-    return {
-      sourceType: 'concept',
-      sourceObjectId: String(concept._id),
-      embeddingId: buildEmbeddingId({
-        userId: String(userId),
-        objectType: 'concept',
-        objectId: String(concept._id)
-      })
-    };
-  }
-  return null;
 };
 
 const buildRangeStart = (range) => {
@@ -6536,7 +6046,7 @@ const ensureBestEffortSynthesis = ({
   };
 };
 
-const { parseAiServiceUrl, normalizeAiServiceOrigin, joinUrl } = require('./utils/aiUpstream');
+const { parseAiServiceUrl, joinUrl } = require('./utils/aiUpstream');
 
 const toPositiveInt = (value, fallback) => {
   const parsed = Number(value);
@@ -6721,6 +6231,8 @@ app.use(buildConceptMetaRouter({
   updateConceptMeta,
   getConceptRelated,
   TagMeta,
+  EntryRevision,
+  conceptReferences: { Article, NotebookEntry, Question, ConceptNote, ReferenceEdge, SharedConcept, ConceptPath, Connection, ReturnQueueEntry },
   escapeRegExp,
   trackEvent,
   EVENT_NAMES
@@ -7269,9 +6781,7 @@ app.use(buildAiInsightsRouter({
   extractQuestions,
   ensureBestEffortSynthesis,
   aiSemanticSearch,
-  hydrateSemanticResults,
-  isGenerationEnabled,
-  generateDraftInsights
+  hydrateSemanticResults
 }));
 
 app.use(buildConceptPinRouter({
@@ -7291,6 +6801,7 @@ app.use(buildTagInsightRouter({
 app.use(buildConceptQuestionBoardRouter({
   mongoose,
   authenticateToken: authenticateUserOrAgentToken,
+  EntryRevision,
   Article,
   NotebookEntry,
   ReferenceEdge,
@@ -7343,21 +6854,6 @@ app.use(buildReferenceBacklinkRouter({
   Question,
   buildNotebookBlocksFromEdges,
   loadNotebookBacklinks
-}));
-
-app.use(buildSavedViewRouter({
-  mongoose,
-  authenticateToken,
-  SavedView,
-  Article,
-  NotebookEntry
-}));
-
-app.use(buildTodayRouter({
-  mongoose,
-  authenticateToken,
-  Article,
-  NotebookEntry
 }));
 
 app.use(buildImportSessionRouter({
@@ -7451,24 +6947,6 @@ app.use(buildBulkExportRouter({
   SavedView,
   PDFDocument,
   archiver
-}));
-
-app.use(buildReflectionRouter({
-  mongoose,
-  authenticateToken,
-  enqueueBrainSummary,
-  BrainSummary,
-  Article,
-  Question,
-  getReflections
-}));
-
-app.use(buildCollectionRouter({
-  mongoose,
-  authenticateToken,
-  Collection,
-  slugify,
-  Article
 }));
 
 app.use(buildHighlightMutationRouter({

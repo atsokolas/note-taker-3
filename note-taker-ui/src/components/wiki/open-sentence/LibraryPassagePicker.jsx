@@ -5,8 +5,11 @@ import { getFolders } from '../../../api/folders';
 import { searchKeyword } from '../../../api/retrieval';
 import { getAuthHeaders } from '../../../hooks/useAuthHeaders';
 import { buildFolderTree, flattenFolderTree } from '../../../pages/folderTreeModel';
-import { buildArticlePassageHref } from '../../../utils/articlePassageAnchor';
-import { buildCanonicalArticlePath, buildCanonicalHighlightPath } from '../../../utils/sourceRoutes';
+import {
+  buildArticlePassageHref,
+  buildCanonicalArticlePath,
+  buildCanonicalHighlightPath
+} from '../../../utils/sourceRoutes';
 import { cleanSourceTextForDisplay } from '../../../utils/sourceDisplayText';
 import { alreadyUsedHere } from '../../../utils/libraryPassageUse';
 import {

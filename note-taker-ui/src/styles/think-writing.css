@@ -663,7 +663,67 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
 .think-entry-facts__act:hover,
 .think-entry-facts__act:focus-visible { color: var(--noeis-pointer, #6f87ff); }
 
+/* What changed: dated sentences under the title, one earlier version a click away. */
+.think-entry-history {
+  margin: 10px 0 24px;
+  padding: 12px 0 4px;
+  border-top: 1px solid var(--vellum-line, var(--border-color));
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  animation: think-history-in 180ms ease-out;
+}
+.think-entry-history header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.think-entry-history h2 {
+  margin: 0;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.66rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.think-entry-history ol {
+  display: grid;
+  grid-template-columns: max-content 1fr auto;
+  gap: 2px 14px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.think-entry-history li {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  align-items: baseline;
+  row-gap: 4px;
+  padding: 6px 0;
+}
+.think-entry-history time { color: var(--text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.think-entry-history li > span { color: var(--text-primary); font-family: var(--font-serif); font-size: 0.95rem; }
+.think-entry-history em { color: var(--text-muted); font-style: normal; font-size: 0.72rem; }
+.think-entry-history li .ui-quiet-button { min-height: 28px; padding: 2px; font-size: 0.72rem; }
+@media (hover: hover) {
+  .think-entry-history li .ui-quiet-button { opacity: 0; transition: opacity 140ms ease; }
+  .think-entry-history li:hover .ui-quiet-button,
+  .think-entry-history li .ui-quiet-button:focus-visible { opacity: 1; }
+}
+.think-entry-history__undo,
+.think-entry-history__quiet { margin: 8px 0 0; color: var(--text-muted); }
+@media (max-width: 560px) {
+  .think-entry-history ol { grid-template-columns: 1fr auto; }
+  .think-entry-history li > span { grid-column: 1 / -1; grid-row: 2; }
+}
+/* A refused rename is one quiet sentence under the name, not an alarm. */
+.think-entry-rename-note {
+  margin: 4px 0 0;
+  color: var(--noeis-danger, var(--danger));
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+}
+@keyframes think-history-in { from { opacity: 0; transform: translateY(-3px); } }
+
 @media (prefers-reduced-motion: reduce) {
   .think-notebook-save-state__time { animation: none; opacity: 0.6; }
   .notebook-arrangement { transition: none; }
+  .think-entry-history { animation: none; }
 }

@@ -1,4 +1,5 @@
 const { chatComplete } = require('../ai/hfTextClient');
+const { canonicalSourceUrl } = require('./librarySource');
 
 const clean = (value) => String(value || '').trim();
 
@@ -104,22 +105,6 @@ const normalizeSourceQuality = (value = '') => {
   return ['strong', 'thin', 'needs_review'].includes(safe) ? safe : '';
 };
 
-const normalizeUrlForMerge = (value = '') => {
-  const raw = clean(value);
-  if (!raw) return '';
-  try {
-    const parsed = new URL(raw);
-    parsed.hash = '';
-    ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'ref', 'source'].forEach((key) => {
-      parsed.searchParams.delete(key);
-    });
-    const path = parsed.pathname.replace(/\/+$/, '') || '/';
-    return `${parsed.hostname.replace(/^www\./, '').toLowerCase()}${path.toLowerCase()}${parsed.searchParams.toString() ? `?${parsed.searchParams.toString()}` : ''}`;
-  } catch (_error) {
-    return raw.toLowerCase().replace(/[#?].*$/, '').replace(/\/+$/, '');
-  }
-};
-
 const normalizeTitleForMerge = (value = '') => (
   clean(value)
     .toLowerCase()
@@ -129,7 +114,7 @@ const normalizeTitleForMerge = (value = '') => (
 );
 
 const buildSourceMergeKey = (entry = {}) => {
-  const urlKey = normalizeUrlForMerge(entry?.url || entry?.sourceUrl || entry?.importMeta?.sourceUrl);
+  const urlKey = canonicalSourceUrl(entry?.url || entry?.sourceUrl || entry?.importMeta?.sourceUrl);
   if (urlKey) return `url:${urlKey}`;
   const titleKey = normalizeTitleForMerge(entry?.title);
   const siteKey = normalizeTitleForMerge(entry?.siteName || entry?.sourceName || entry?.author);
@@ -173,7 +158,7 @@ const buildSourceMergeOperations = (classifications = []) => {
       if (!sourceItemId || !destinationItemId || sourceItemId === destinationItemId) return;
       const duplicateHighlights = Number(duplicate?.highlightCount) || 0;
       const canonicalHighlights = Number(canonical?.highlightCount) || 0;
-      const reason = `Likely duplicate source: same ${normalizeUrlForMerge(duplicate?.url || duplicate?.sourceUrl) ? 'URL' : 'title/source'} as ${clean(canonical?.title) || 'the canonical article'}. Merge ${duplicateHighlights} ${duplicateHighlights === 1 ? 'highlight' : 'highlights'} into the stronger copy with ${canonicalHighlights} ${canonicalHighlights === 1 ? 'highlight' : 'highlights'}.`;
+      const reason = `Likely duplicate source: same ${canonicalSourceUrl(duplicate?.url || duplicate?.sourceUrl) ? 'URL' : 'title/source'} as ${clean(canonical?.title) || 'the canonical article'}. Merge ${duplicateHighlights} ${duplicateHighlights === 1 ? 'highlight' : 'highlights'} into the stronger copy with ${canonicalHighlights} ${canonicalHighlights === 1 ? 'highlight' : 'highlights'}.`;
       operations.push({
         opId: `merge-library-source-${operations.length + 1}`,
         type: 'merge_item',

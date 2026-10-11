@@ -2,8 +2,6 @@ const { CHATGPT_ACCESS_PROFILE } = require('../services/chatgptAccessPolicy');
 const express = require('express');
 const { collectContradictions, contradictionsTouching } = require('../services/wikiContradictionService');
 const { describeHistory, describeSince, isPromoted } = require('../services/wikiChangeStory');
-const PDFDocument = require('pdfkit');
-const { buildPamphletPdf } = require('../services/judgmentPamphlet');
 const { inkWikiPageReview } = require('../services/wikiReviewClock');
 const { findLibraryEvidence } = require('../services/judgmentEvidenceService');
 const mongoose = require('mongoose');
@@ -27,6 +25,7 @@ const {
 const { openTargets, paperColumns } = require('../services/paperColumns');
 const { buildClaimPage } = require('../services/claimFromHighlight');
 const { fetchReadableArticle } = require('../services/readableArticle');
+const { linkPageSources } = require('../services/librarySource');
 const { assertionsFrom, askedBefore, closings, dayOf, quietStreak } = require('../services/paperLedger');
 const { findWikiBacklinks: defaultFindWikiBacklinks } = require('../services/wikiBacklinkService');
 const {
@@ -1781,7 +1780,7 @@ const WIKI_PAGE_SUMMARY_FIELDS = Object.freeze([
   ...WIKI_JUDGMENT_FIELDS,
   'externalWatches.githubRepo', 'externalWatches.edgar', 'externalWatches.transcripts',
   'sourceRefs._id', 'sourceRefs.title', 'sourceRefs.url',
-  'sourceRefs.type', 'sourceRefs.objectId',
+  'sourceRefs.type', 'sourceRefs.objectId', 'sourceRefs.parentObjectId',
   'claims.claimId', 'citations.sourceRefId', 'citations.claimId',
   'aiState.draftStatus', 'aiState.candidateStatus', 'aiState.lastError', 'aiState.errorCode',
   'aiState.quality.ok', 'aiState.quality.status', 'aiState.quality.checkedAt',
@@ -5419,6 +5418,8 @@ const buildWikiRouter = ({
       }
       const page = await pageQuery.lean();
       if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
+      await linkPageSources({ Article, WikiSourceEvent, WikiPage, page })
+        .catch(error => console.error('Could not link wiki sources to the Library:', error));
       const repoWatch = page.externalWatches?.githubRepo || {};
       const lastProbeAt = repoWatch.lastHeadProbeAt ? new Date(repoWatch.lastHeadProbeAt).getTime() : 0;
       const probeStale = Date.now() - lastProbeAt >= 15 * 60 * 1000;
@@ -6612,35 +6613,6 @@ const buildWikiRouter = ({
       res.send(renderWikiPageMarkdown(page));
     } catch (_error) {
       res.status(400).json({ error: 'Invalid wiki page id.' });
-    }
-  });
-
-  /* One claim, on one page, that you can hand to someone.
-     A judgment lives behind a login, which makes it hard to be held to. This
-     is the same four sections on a single sheet — nothing summarised, nothing
-     added, and an empty section absent, exactly as on the page. */
-  router.get('/api/wiki/pages/:id/pamphlet.pdf', wikiAuth, async (req, res) => {
-    let page;
-    try {
-      page = await findOwnedPage(req).lean();
-    } catch (_error) {
-      return res.status(400).json({ error: 'Invalid wiki page id.' });
-    }
-    if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
-    const claim = String(page?.judgment?.currentJudgment || page?.judgment?.governingQuestion || '').trim();
-    if (!claim) {
-      return res.status(409).json({ error: 'There is no claim on this page to print.' });
-    }
-    try {
-      const pdf = await buildPamphletPdf({ PDFDocument, page });
-      const filename = `${sanitizeFilename(page.slug || page.title)}-judgment.pdf`;
-      res.status(200);
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-      return res.send(pdf);
-    } catch (error) {
-      console.error('Error building judgment pamphlet:', error);
-      return res.status(500).json({ error: 'The pamphlet could not be built.' });
     }
   });
 

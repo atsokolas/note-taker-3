@@ -6,6 +6,7 @@ import { getArticleEvergreen } from '../../../api/articles';
 import { disposeNotebookSourceCorrection, exportNotebookMarkdown, getNotebookShare, getNotebookSummaries, getNotebookVolume, previewNotebookVolume } from '../../../api/notebook';
 import { THINK_WRITING_IDLE_MS } from '../editor/useThinkWritingActivity';
 import useConcepts from '../../../hooks/useConcepts';
+import api from '../../../api';
 
 const mockUseEditor = jest.fn();
 const mockChain = {
@@ -60,6 +61,7 @@ jest.mock('@tiptap/react', () => ({
 
 jest.mock('../../return-queue/ReturnLaterControl', () => () => <div data-testid="return-later-control" />);
 jest.mock('./InsertHighlightModal', () => () => null);
+jest.mock('../../../api', () => ({ __esModule: true, default: { get: jest.fn() } }));
 jest.mock('./InsertReferenceModal', () => ({ open, title }) => (
   open ? <div data-testid={`reference-modal-${title}`}>{title}</div> : null
 ));
@@ -1473,5 +1475,29 @@ describe('NotebookEditor', () => {
       eventId: 'evt-1',
       action: 'no_change'
     });
+  });
+
+  it('brings an earlier version back from History through the ordinary save, marked as a restore', async () => {
+    api.get.mockResolvedValue({ data: { revisions: [
+      { id: 'r2', reason: 'edit', at: '2026-10-12T09:00:00.000Z', snapshot: { title: 'Playing to Win', blocks: [{ id: 'a', type: 'paragraph', text: 'Draft' }] } },
+      { id: 'r1', reason: 'before', at: '2026-10-03T09:00:00.000Z', snapshot: { title: 'Where to play', blocks: [{ id: 'a', type: 'paragraph', text: 'First draft' }] } }
+    ] } });
+    const onSave = jest.fn().mockResolvedValue({});
+    render(
+      <NotebookEditor
+        entry={{ _id: 'note-1', title: 'Playing to Win', content: '<p>Draft</p>', blocks: [], type: 'note', tags: [] }}
+        saving={false}
+        error=""
+        onSave={onSave}
+      />
+    );
+    fireEvent.click(screen.getByLabelText('More'));
+    fireEvent.click(screen.getByRole('button', { name: 'History' }));
+    expect(await screen.findByText('Retitled it “Playing to Win”. Revised a paragraph.')).toBeInTheDocument();
+    expect(api.get).toHaveBeenCalledWith('/api/think/history/note/note-1', expect.anything());
+    fireEvent.click(screen.getByRole('button', { name: 'Restore' }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ title: 'Where to play', restoredFrom: 'r1' })));
+    expect(screen.getByPlaceholderText('Title')).toHaveValue('Where to play');
+    expect(mockEditor.commands.setContent).toHaveBeenCalledWith(expect.objectContaining({ type: 'doc' }), false);
   });
 });

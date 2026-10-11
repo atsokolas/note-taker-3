@@ -1,4 +1,6 @@
 const express = require('express');
+const { recordRevision, snapshotOf } = require('../services/entryHistory');
+const { ConceptRenameError, renameConcept } = require('../services/conceptRename');
 
 const buildConceptMetaRouter = ({
   authenticateToken,
@@ -7,6 +9,8 @@ const buildConceptMetaRouter = ({
   updateConceptMeta,
   getConceptRelated,
   TagMeta,
+  EntryRevision = null,
+  conceptReferences = {},
   escapeRegExp,
   trackEvent,
   EVENT_NAMES
@@ -77,15 +81,6 @@ const buildConceptMetaRouter = ({
       applyMessage: String(draft?.applyMessage || '').trim()
     })).filter((draft) => draft.id && draft.kind && draft.status);
 
-    const versions = (Array.isArray(value?.hypothesis?.versions) ? value.hypothesis.versions : []).map((version) => ({
-      id: String(version?.id || '').trim(),
-      label: String(version?.label || '').trim(),
-      maturity: String(version?.maturity || '').trim(),
-      html: String(version?.html || '').trim(),
-      summary: String(version?.summary || '').trim(),
-      createdAt: String(version?.createdAt || '').trim()
-    })).filter((version) => version.id && version.label);
-
     const comments = (Array.isArray(value?.agent?.comments) ? value.agent.comments : []).map((comment) => ({
       id: String(comment?.id || '').trim(),
       title: String(comment?.title || '').trim(),
@@ -141,8 +136,8 @@ const buildConceptMetaRouter = ({
         .slice(0, 200),
       cards,
       hypothesis: {
-        html: String(value?.hypothesis?.html || '').trim(),
-        versions
+        // Earlier wording is kept by the entry history, not inside the draft.
+        html: String(value?.hypothesis?.html || '').trim()
       },
       agent: {
       comments,
@@ -312,6 +307,26 @@ const buildConceptMetaRouter = ({
     }
   });
 
+  router.post('/api/concepts/:name/rename', authenticateToken, async (req, res) => {
+    if (req.agentToken || req.authInfo?.tokenSource === 'agent-token' || req.personalAgent) {
+      return res.status(403).json({ error: 'Only the human owner can rename a concept.' });
+    }
+    try {
+      const concept = await findConceptDocument(req.user.id, req.params.name);
+      return res.status(200).json(await renameConcept({
+        TagMeta,
+        models: conceptReferences,
+        userId: req.user.id,
+        from: concept?.name || req.params.name,
+        to: req.body?.name
+      }));
+    } catch (error) {
+      if (error instanceof ConceptRenameError) return res.status(error.status).json({ error: error.message });
+      console.error('❌ Error renaming concept:', error);
+      return res.status(500).json({ error: 'The concept kept its old name. Try again in a moment.' });
+    }
+  });
+
   router.get('/api/concepts/:name/related', authenticateToken, async (req, res) => {
     try {
       const { limit = 20, offset = 0 } = req.query;
@@ -365,7 +380,13 @@ const buildConceptMetaRouter = ({
         });
       }
       const ideaWorkbench = normalizeIdeaWorkbenchPayload(req.body?.ideaWorkbench || req.body || {});
+      const before = snapshotOf('concept', concept);
+      const beforeAt = concept.updatedAt;
       const response = await saveWorkbenchMutation(concept, ideaWorkbench, null);
+      await recordRevision({
+        EntryRevision, userId: req.user.id, kind: 'concept', entryId: concept._id,
+        before, beforeAt, after: snapshotOf('concept', concept), restoredFrom: req.body?.restoredFrom
+      });
       return res.status(200).json(response);
     } catch (error) {
       if (Number(error?.status) === 400) {

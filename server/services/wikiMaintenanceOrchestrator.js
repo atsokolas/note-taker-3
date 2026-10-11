@@ -256,25 +256,31 @@ const attachRepoSnapshotEvidence = async ({ WikiSourceEvent, page, event } = {})
   return page;
 };
 
+const libraryEventObjectId = event => (
+  ['article', 'highlight'].includes(event?.sourceType) ? event.sourceObjectId || null : null
+);
+
 const attachSourceEventEvidence = async ({ page, event } = {}) => {
   if (!page || !event?._id || event.metadata?.source === 'github-repo-snapshot') return page;
   const provider = asText(event.provider || event.metadata?.source || event.sourceType).slice(0, 120);
   const eventId = String(event._id);
+  /* A piece or passage from the Library is cited as itself, so the citation
+     opens the reader; the event that brought it is kept beside it. */
   const ref = {
     type: event.sourceType || 'external',
-    objectId: event._id,
+    objectId: libraryEventObjectId(event) || event._id,
+    parentObjectId: event.parentObjectId || null,
     title: asText(event.title || event.url || provider).slice(0, 240),
     snippet: asText(event.text || event.summary).slice(0, 7800),
     url: String(event.url || '').slice(0, 1000),
     provider,
-    metadata: event.metadata?.toObject ? event.metadata.toObject() : event.metadata || {},
+    metadata: { ...(event.metadata?.toObject ? event.metadata.toObject() : event.metadata || {}), sourceEventId: event._id },
     addedBy: 'ai'
   };
-  const existing = Array.isArray(page.sourceRefs) ? page.sourceRefs : [];
-  page.sourceRefs = [
-    ...existing.filter(source => String(source?.objectId || '') !== eventId),
-    ref
-  ].slice(-80);
+  const existing = (Array.isArray(page.sourceRefs) ? page.sourceRefs : [])
+    .filter(source => ![source?.objectId, source?.metadata?.sourceEventId].some(id => String(id || '') === eventId));
+  const held = existing.some(source => source?.type === ref.type && String(source?.objectId || '') === String(ref.objectId));
+  page.sourceRefs = [...existing, ...(held ? [] : [ref])].slice(-80);
   if (typeof page.markModified === 'function') page.markModified('sourceRefs');
   if (typeof page.save === 'function') await page.save();
   return page;
@@ -594,7 +600,7 @@ const runWikiSourceEvent = async ({
       const maintainArgs = {
         models: { Article, NotebookEntry, TagMeta, Question },
         trigger: 'source_event',
-        preferredSourceObjectId: String(event._id || ''),
+        preferredSourceObjectId: String(libraryEventObjectId(event) || event._id || ''),
         wikiSchemaContent: effectiveWikiSchemaContent
       };
       const ownerReviewRequired = event.metadata?.requireOwnerAcceptance === true;
@@ -957,6 +963,7 @@ const processPendingWikiSourceEvents = async ({ userId, models = {}, limit = 5, 
 };
 
 module.exports = {
+  attachSourceEventEvidence,
   buildAcceptedThrough,
   createPageForEvent,
   findAffectedPages,

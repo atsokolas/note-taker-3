@@ -370,6 +370,22 @@ const ThinkNotes = () => {
     else setConcepts(current => current.map(row => row.name?.toLowerCase() === String(record.name || '').toLowerCase() ? { ...row, _id: String(record._id || row._id), ...stamp } : row));
   }, []);
 
+  /* A renamed concept is the same open page under its new name: the editor
+     keeps the key it was opened with, and the URL and list follow the name. */
+  const editorKeys = useRef({});
+  const editorKey = editorKeys.current[openKey] || openKey;
+  const conceptRenamed = useCallback(({ previousName, name }) => {
+    const key = `concept:${name}`;
+    editorKeys.current[key] = editorKeys.current[`concept:${previousName}`] || `concept:${previousName}`;
+    setConcepts(current => current.map(row => (row.name?.toLowerCase() === previousName.toLowerCase() ? { ...row, name } : row)));
+    setOpenRecord(current => (current ? { ...current, key, title: name } : current));
+    setSearchParams(current => {
+      const params = new URLSearchParams(current);
+      params.set('concept', name);
+      return params;
+    }, { replace: true });
+  }, [setSearchParams]);
+
   const startNote = async () => {
     if (creatingRef.current) return;
     creatingRef.current = true;
@@ -586,7 +602,7 @@ const ThinkNotes = () => {
         {openTarget && openTarget.kind !== 'note' ? (
           <div className={step(2)}>
             <ThinkEntryEditor
-              key={openKey}
+              key={editorKey}
               target={openTarget}
               startPull={pullKey === openKey}
               partnerOpen={activeContext === 'partner'}
@@ -594,6 +610,7 @@ const ThinkNotes = () => {
               onAsk={askPartner}
               onLoaded={loaded => setOpenRecord({ ...loaded, key: openKey })}
               onSaved={entrySaved}
+              onRenamed={conceptRenamed}
               onRegisterSave={registerSave}
             />
           </div>
