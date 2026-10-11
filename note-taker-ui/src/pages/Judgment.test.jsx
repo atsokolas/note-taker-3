@@ -191,6 +191,8 @@ describe('the view', () => {
       horizonAt: expect.stringMatching(/^2027-06-30/)
     })));
     expect(await screen.findByText(/By Jun 30\./)).toBeInTheDocument();
+    // Passages read against the old test are asked for again.
+    expect(listReadingProposals).toHaveBeenCalledTimes(2);
   });
 
   it('sets a view aside at once, and offers it back for six seconds', async () => {
