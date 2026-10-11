@@ -56,9 +56,9 @@ describe('app theme design-system tokens', () => {
     expect(tokyoEditorial).toContain('--paper: var(--noeis-paper)');
     expect(tokyoEditorial).toContain('--vellum-surface: var(--noeis-floating)');
     expect(tokyoEditorial).toContain('--vellum-paper: var(--noeis-paper)');
-    expect(css).toContain("html[data-ui-theme='tokyo-midnight'] .wiki-collection__nav-btn.is-active");
+    expect(css).not.toContain("html[data-ui-theme='tokyo-midnight'] .wiki-collection__nav-btn.is-active");
     expect(css).toContain("html[data-ui-theme='tokyo-midnight'] .library-highlights-surface");
-    expect(css).toContain("html[data-ui-theme='tokyo-midnight'] .app-shell-new--agent-on-demand .agent-rail-drawer__trigger");
+    expect(css).not.toContain("html[data-ui-theme='tokyo-midnight'] .app-shell-new--agent-on-demand .agent-rail-drawer__trigger");
     expect(darkBlock).not.toContain('--sagewash:');
     expect(darkBlock).not.toContain('--vellum-surface:');
   });
