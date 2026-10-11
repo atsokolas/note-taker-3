@@ -27,7 +27,7 @@ const {
 } = require('./ai/embeddingJobs');
 const { EVENT_NAMES, trackEvent, trackReturnVisit } = require('./utils/analytics');
 const { EmbeddingError, isEmbeddingConfigured } = require('./ai/embed');
-const { similarToVectorItem } = require('./ai/vectorStore');
+const { similarToSource } = require('./ai/semanticSearch');
 const { buildEmbeddingId } = require('./ai/embeddingTypes');
 const { buildConnectionScopeQuery } = require('./utils/connectionScopeQuery');
 const { asObjectIdOrNull } = require('./utils/notebookIdentity');
@@ -5689,21 +5689,18 @@ app.use(buildSearchRetrievalRouter({
 }));
 
 const fetchSimilarEmbeddingsWithAvailability = async ({ userId, sourceId, types, limit }) => {
-  // The stored vector is reused directly, so a
-  // "more like this" lookup costs no embedding call.
   const parsed = parseEmbeddingId(String(sourceId || ''));
   const objectType = String(parsed.objectType || '');
   const objectId = String(parsed.objectId || '');
   if (!objectType || !objectId) return { results: [], modelAvailable: true };
   try {
-    const rows = await similarToVectorItem({
-      VectorItem,
+    const rows = await similarToSource({
       userId,
       objectType,
       objectId,
       subId: String(parsed.subId || ''),
       limit,
-      objectTypes: Array.isArray(types) && types.length ? types : []
+      types: Array.isArray(types) && types.length ? types : []
     });
     return {
       results: rows.map(row => ({
