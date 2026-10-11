@@ -1736,20 +1736,6 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
   backdrop-filter: blur(18px) saturate(118%);
 }
 
-.wiki-front-page__activity-rail > .right-drawer {
-  min-width: 0;
-  height: auto;
-}
-
-.wiki-front-page__activity-rail > .right-drawer > .right-drawer__panel {
-  padding-left: 0;
-  border-left: 0;
-  background: transparent !important;
-}
-
-.wiki-front-page__activity-rail > .right-drawer.is-open > .right-drawer__edge-toggle {
-  display: none;
-}
 
 .wiki-front-page__partner {
   margin-bottom: 22px;

@@ -991,8 +991,7 @@ body.noeis-editorial .library-page-shell .library-cabinet-count,
 
 /* Folder names were centred small-caps. They are names in a list. */
 body.noeis-editorial .library-page-shell .library-cabinet-nested .library-cabinet-item,
-.library-page-shell .library-cabinet-nested .library-cabinet-item,
-.library-page-shell .folder-row {
+.library-page-shell .library-cabinet-nested .library-cabinet-item {
   justify-content: flex-start;
   text-align: left;
   font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);

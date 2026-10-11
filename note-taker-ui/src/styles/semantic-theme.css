@@ -245,16 +245,6 @@ html[data-ui-theme][data-ui-scheme] .topbar__brand {
 }
 
 
-html[data-ui-theme][data-ui-scheme] :is(
-  .topbar__menu-popover,
-  .system-status__drawer,
-  .right-drawer__panel
-) {
-  background: var(--noeis-floating);
-  border-color: var(--noeis-rule);
-  box-shadow: var(--noeis-shadow-float);
-}
-
 /* Living ink as a margin, not an edge: a 1px Greek key, sap on paper. */
 .noeis-meander {
   position: relative;
@@ -542,18 +532,4 @@ html[data-ui-theme='tokyo-midnight'] .app-shell-new--agent-on-demand .agent-rail
     scroll-behavior: auto;
   }
 
-  html[data-ui-theme][data-ui-scheme] :is(
-    .app-shell-new,
-    .topbar,
-    .topbar *,
-    .palette-card,
-    .system-status__drawer,
-    .agent-rail,
-    .right-drawer__panel
-  ) {
-    animation: none !important;
-    scroll-behavior: auto !important;
-    transition-duration: 1ms !important;
-    transform: none !important;
-  }
 }

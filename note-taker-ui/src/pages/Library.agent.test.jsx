@@ -27,24 +27,6 @@ jest.mock('../hooks/useArticleDetail', () => jest.fn());
 jest.mock('../hooks/useTags', () => jest.fn());
 jest.mock('../hooks/useLibraryRoom', () => jest.fn());
 
-jest.mock('../layout/ThreePaneLayout', () => ({
-  __esModule: true,
-  default: ({ left, main, right, rightTitle, rightToggleLabel, mainHeader, mainActions, leftOpen, rightOpen }) => (
-    <div>
-      {leftOpen ? <aside data-testid="library-left">{left}</aside> : null}
-      <main data-testid="library-main">
-        {mainHeader}
-        {mainActions}
-        {main}
-      </main>
-      <aside data-testid="library-right" aria-label={rightTitle} data-open={String(rightOpen)}>
-        <button type="button">{rightToggleLabel}</button>
-        {right}
-      </aside>
-    </div>
-  )
-}));
-
 jest.mock('../components/library/LibraryMain', () => ({
   __esModule: true,
   default: ({

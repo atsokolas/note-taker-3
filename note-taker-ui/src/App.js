@@ -56,9 +56,7 @@ import './styles/global.css';
 import './App.css';
 import './styles/reading-layout.css';
 import './styles/dashboard-refresh.css';
-import './styles/idea-workbench.css';
 import './styles/editions.css';
-import './styles/design-preview.css';
 import './styles/stitch-editorial.css';
 import './styles/think-notes.css';
 import './surface/surface-frame.css';
@@ -99,7 +97,6 @@ const MarketingAnalytics = lazy(() => import('./pages/MarketingAnalytics'));
 const SearchConsoleOpportunities = lazy(() => import('./pages/SearchConsoleOpportunities'));
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
 const TermsOfUse = lazy(() => import('./pages/TermsOfUse'));
-const DesignPreview = lazy(() => import('./pages/DesignPreview'));
 const OpenSentenceStoryboard = lazy(() => import('./pages/OpenSentenceStoryboard'));
 const SharedConcept = lazy(() => import('./pages/SharedConcept'));
 const SharedQuestion = lazy(() => import('./pages/SharedQuestion'));
@@ -288,7 +285,6 @@ const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess }) => {
           <Route path="/design-preview/notebook-volume" element={<NotebookVolumePreview />} />
           <Route path="/design-preview/question-share" element={<QuestionSharePreview />} />
           <Route path="/design-preview/concept-share" element={<ConceptSharePreview />} />
-          <Route path="/design-preview" element={<DesignPreview />} />
           <Route path="/share/concepts/:slug" element={<SharedConcept />} />
           <Route path="/share/questions/:slug" element={<SharedQuestion />} />
           <Route path="/share/editions/:slug" element={<SharedEdition />} />

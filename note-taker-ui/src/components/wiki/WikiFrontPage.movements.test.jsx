@@ -16,7 +16,6 @@ jest.mock('./WikiBuildPageComposer', () => () => null);
 jest.mock('./WikiRepoCreateComposer', () => () => null);
 jest.mock('./WikiCompanyDossierComposer', () => () => null);
 jest.mock('../agent/ThoughtPartnerPanel', () => () => null);
-jest.mock('../../layout/RightDrawer', () => ({ children }) => <>{children}</>);
 
 const page = {
   _id: '64f100000000000000000001',
