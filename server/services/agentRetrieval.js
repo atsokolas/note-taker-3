@@ -309,9 +309,10 @@ const retrievePassages = async ({
 // The passages of one source that best answer a query, strongest first, each
 // with its score. A query that names nothing ("connect this") is about the
 // whole source; its opening passage is where the argument is stated.
-const topPassages = ({ title = '', text = '', query = '', limit = 3 } = {}) => {
+// A caller holding its own passages (a note's sentences) passes them in.
+const sourcePassages = (title = '', text = '') => passagesOf(title, stripImportChrome(text));
+const topPassages = ({ title = '', text = '', passages = sourcePassages(title, text), query = '', limit = 3 } = {}) => {
   const terms = queryTerms(query);
-  const passages = passagesOf(title, stripImportChrome(text));
   if (!terms.length) return passages.slice(0, 1).map(passage => ({ text: passage, score: 0 }));
   return scoreUnits(
     passages.map((passage, index) => ({ key: `p${index}`, text: passage, title: '' })),
@@ -386,4 +387,4 @@ const readStandingContext = async ({ userId, models: { Article, WikiPage = null 
   };
 };
 
-module.exports = { retrievePassages, bestPassage, topPassages, readSource, readStandingContext, __testables: { queryTerms, stem, scoreUnits, semanticKey, stripImportChrome, articleUnits, noteUnits, conceptUnits, viewUnits } };
+module.exports = { retrievePassages, bestPassage, topPassages, sourcePassages, readSource, readStandingContext, __testables: { queryTerms, stem, scoreUnits, semanticKey, stripImportChrome, articleUnits, noteUnits, conceptUnits, viewUnits } };

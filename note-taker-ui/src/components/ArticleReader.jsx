@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from './ui';
 import { createHighlight } from '../api/highlights';
 import { listWikiPages } from '../api/wiki';
+import { fileReadingProposal, getPushesAgainst } from '../api/judgmentResolution';
 import EvergreenToggle from './EvergreenToggle';
 import PlacementSwitch from './PlacementSwitch';
 import useTourSignal from '../tour/useTourSignal';
@@ -117,6 +118,32 @@ const ArticleFolioLine = ({ line, articleId }) => {
   );
 };
 
+/* When this source bears against a view you hold, one quiet line under the
+   source record. It is the passage reading-talks-back already proposed on
+   the view; filing it here is filing it there. */
+export const PushesAgainst = ({ reading, onSettled }) => {
+  const [filed, setFiled] = useState(false);
+  const view = String(reading.view || '').replace(/[.\s]+$/, '');
+  const file = async () => {
+    setFiled(true);
+    try {
+      await fileReadingProposal({ pageId: reading.pageId, proposalId: reading.proposal.id, field: 'against' });
+    } catch (_error) {
+      setFiled(false);
+    }
+  };
+  if (filed) {
+    return <li>Filed against <Link to={`/judgment/${encodeURIComponent(reading.pageId)}`}>your view</Link>.</li>;
+  }
+  return (
+    <li className="article-pushes-against">
+      This pushes against your view that <Link to={`/judgment/${encodeURIComponent(reading.pageId)}`}>{view}</Link>. File it?{' '}
+      <Button variant="quiet" onClick={file}>File against</Button>
+      <Button variant="quiet" onClick={onSettled}>Not now</Button>
+    </li>
+  );
+};
+
 const ArticleReader = ({
   article,
   highlights = [],
@@ -156,6 +183,7 @@ const ArticleReader = ({
   /* When the reader last decided what this piece is, if it was in this sitting. */
   const [closedOn, setClosedOn] = useState(null);
   const [folioPages, setFolioPages] = useState([]);
+  const [against, setAgainst] = useState(null);
   const [passageLocation, setPassageLocation] = useState(() => ({
     hash: typeof window === 'undefined' ? '' : window.location.hash,
     articleId: typeof window === 'undefined'
@@ -250,6 +278,13 @@ const ArticleReader = ({
     preferredId: preferredClaimId,
     search: typeof window === 'undefined' ? '' : window.location.search
   }), [article?._id, folioPages, graphConnections, highlights, preferredClaimId]);
+
+  useEffect(() => {
+    let live = true;
+    setAgainst(null);
+    if (articleId) getPushesAgainst(articleId).then((reading) => { if (live) setAgainst(reading); }).catch(() => {});
+    return () => { live = false; };
+  }, [articleId]);
 
   const whereabouts = useMemo(
     () => sourceWhereabouts(folioPages, { articleId, highlights }),
@@ -619,8 +654,9 @@ const ArticleReader = ({
         </p>
       ) : null}
       {sourceTrace}
-      {closingLine || whereabouts.length ? (
+      {closingLine || whereabouts.length || against ? (
         <ul className="article-whereabouts" aria-label="Where this piece went">
+          {against ? <PushesAgainst key={against.proposal.id} reading={against} onSettled={() => setAgainst(null)} /> : null}
           {closingLine ? <li>{closingLine}</li> : null}
           {whereabouts.map((line) => (
             <li key={line.id}>{line.lead} <Link to={line.href}>{line.title}</Link>.</li>

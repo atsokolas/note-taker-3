@@ -63,7 +63,49 @@ const CASES = Object.freeze([
     view: 'Network effects protect marketplaces better than brand does.',
     source: 'When a rival copied the brand and halved fees, sellers stayed because the buyers were here, and buyers stayed because the sellers were here. The network, not the logo, kept both sides.',
     expect: 'support'
+  },
+  {
+    // No word in common with the view: only the meaning half finds it.
+    id: 'warehouse-meaning-supports',
+    view: 'Costco’s membership model makes it recession-resistant.',
+    source: 'Warehouse club renewals barely dipped through the last downturn. Shoppers kept paying the annual fee even while they cut back on almost everything else.',
+    expect: 'support'
   }
 ]);
 
-module.exports = { CASES };
+// You hold the opposite: a sentence written in Think against a held view.
+// Only `contradicts` is ever shown; sharing words is not contradiction.
+const OPPOSITE_CASES = Object.freeze([
+  {
+    id: 'costco-opposite',
+    view: 'Costco’s membership model makes it recession-resistant.',
+    sentence: 'When a real recession comes, Costco members cancel faster than anyone expects.',
+    expect: 'contradicts'
+  },
+  {
+    id: 'costco-agrees',
+    view: 'Costco’s membership model makes it recession-resistant.',
+    sentence: 'Renewals held near ninety percent through 2008, which is what a recession-resistant model looks like.',
+    expect: 'supports'
+  },
+  {
+    id: 'costco-hotdog-unrelated',
+    view: 'Costco’s membership model makes it recession-resistant.',
+    sentence: 'The Costco hot dog has cost a dollar fifty since 1985, membership or not.',
+    expect: 'unrelated'
+  },
+  {
+    id: 'remote-opposite',
+    view: 'Remote work raises output for senior engineers.',
+    sentence: 'Senior engineers ship less at home; their best work happens in the office, side by side.',
+    expect: 'contradicts'
+  },
+  {
+    id: 'remote-desk-unrelated',
+    view: 'Remote work raises output for senior engineers.',
+    sentence: 'Our remote team finally agreed on a standing desk for the senior editors.',
+    expect: 'unrelated'
+  }
+]);
+
+module.exports = { CASES, OPPOSITE_CASES };

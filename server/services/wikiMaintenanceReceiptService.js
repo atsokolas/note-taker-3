@@ -46,9 +46,6 @@ const buildWikiMaintenanceReceipt = ({ run, event = {}, pages = [], comparisons 
   const source = sourceName(event);
   const counts = aggregateComparisonCounts(comparisons);
   const firstPage = pages[0] || null;
-  const directMatchCount = comparisons.reduce((sum, comparison) => (
-    sum + Number(comparison?.evidenceAssessment?.directMatchCount || 0)
-  ), 0);
   const baseSummary = comparisonSummary(counts);
   const investmentSummary = comparisons.find(comparison => comparison?.investmentExplanation)?.investmentExplanation;
   return {
@@ -60,7 +57,7 @@ const buildWikiMaintenanceReceipt = ({ run, event = {}, pages = [], comparisons 
     title: `${source.label} maintained ${pages.length === 1 ? clean(firstPage?.title, 100) || 'a wiki page' : `${pages.length} wiki pages`}`,
     summary: investmentSummary
       ? `${clean(investmentSummary.headline, 220)} ${clean(investmentSummary.summary, 320)}`
-      : `${baseSummary} · ${directMatchCount ? `${directMatchCount} direct source match${directMatchCount === 1 ? '' : 'es'}` : 'source reviewed, no direct claim match'}`,
+      : baseSummary,
     metrics: {
       claimsAdded: counts.added,
       claimsChanged: counts.changed,
@@ -69,8 +66,7 @@ const buildWikiMaintenanceReceipt = ({ run, event = {}, pages = [], comparisons 
       claimsPreserved: counts.preserved,
       claimsRemoved: counts.removed,
       acceptedPages: counts.acceptedPages,
-      rejectedPages: counts.rejectedPages,
-      directSourceClaimMatches: directMatchCount
+      rejectedPages: counts.rejectedPages
     },
     touched: pages.slice(0, 24).map(page => ({
       type: 'wiki_page',

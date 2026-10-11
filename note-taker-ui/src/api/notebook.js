@@ -67,6 +67,17 @@ export const updateNotebookWorkbench = async (id, workingState, expectedRevision
   return res.data?.workingState || null;
 };
 
+// After a save: the one sentence of this note that contradicts a view the
+// reader holds, or null.
+export const readNoteAgainstViews = async (id) => {
+  const res = await api.post(`/api/notebook/${encodeURIComponent(id)}/opposite`, {}, getAuthHeaders());
+  return res.data?.line || null;
+};
+
+export const setOppositeAside = async (id, key) => {
+  await api.post(`/api/notebook/${encodeURIComponent(id)}/opposite/${encodeURIComponent(key)}/aside`, {}, getAuthHeaders());
+};
+
 export const createNotebookEntry = async (payload) => {
   const res = await api.post('/api/notebook', payload, getAuthHeaders());
   summariesCache.reset();

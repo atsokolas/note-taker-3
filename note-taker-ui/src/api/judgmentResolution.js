@@ -40,6 +40,12 @@ export const fileJudgmentEvidence = async ({
   return response.data || {};
 };
 
+// The passage this source already proposed against a view you hold, if any.
+export const getPushesAgainst = async (articleId) => {
+  const response = await api.get(`/api/judgment/pushes-against?articleId=${safe(articleId)}`, getAuthHeaders());
+  return response.data?.reading || null;
+};
+
 export const fileReadingProposal = async ({ pageId, proposalId, field }) => {
   const response = await api.post(
     `/api/judgment/pages/${safe(pageId)}/evidence`,

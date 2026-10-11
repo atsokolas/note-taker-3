@@ -258,37 +258,6 @@ const obituary = ({ pages = [], now = Date.now() } = {}) => (
 );
 
 /**
- * The thing you said would change your mind may have happened.
- *
- * A falsifier a watcher matched is the loudest thing this product can print,
- * so it leads — above the anniversary, above everything. It is `warning`, not
- * `triggered`: the software noticed, and the reader decides. The verdict
- * vocabulary is waiting for an answer only a person can give.
- *
- * The newest first, and only one. Two of these on one morning is not twice
- * the signal, it is a queue.
- */
-const warned = ({ pages = [] } = {}) => {
-  const rows = list(pages).flatMap((page) => {
-    const pageId = idOf(page);
-    const pageTitle = clean(page?.title, 200);
-    if (!pageId || !pageTitle) return [];
-    return list(page?.judgment?.falsifiers)
-      .filter(falsifier => falsifier?.status === 'warning' && clean(falsifier.text))
-      .map(falsifier => ({
-        pageId,
-        pageTitle,
-        falsifierId: clean(falsifier.falsifierId, 120),
-        text: excerpt(falsifier.text),
-        signal: excerpt(falsifier.observableSignal),
-        at: falsifier.lastCheckedAt ? new Date(time(falsifier.lastCheckedAt)).toISOString() : null
-      }));
-  });
-  if (!rows.length) return null;
-  return rows.sort((left, right) => time(right.at) - time(left.at))[0];
-};
-
-/**
  * How your confidence has met later outcomes.
  *
  * The instrument already exists and already refuses to speak without enough
@@ -421,15 +390,10 @@ const firstWeek = ({ pages = [], now = Date.now() } = {}) => {
  * oldest open question names the one you have been avoiding — fair on a
  * Tuesday, and not what a Saturday is for.
  *
- * The warning is exempt. A falsifier that may have fired does not keep until
- * Monday, and a paper that sat on it to protect the reader's weekend would be
- * protecting them from the one thing they asked to be told.
- *
  * The client says which edition it is printing, because the client is where
  * the reader's Saturday actually is; a server reads UTC.
  */
 const paperColumns = ({ pages = [], now = Date.now(), userId = '', weekend = false } = {}) => ({
-  warned: warned({ pages }),
   calibration: calibration({ pages, userId }),
   firstWeek: firstWeek({ pages, now }),
   oldestOpen: weekend ? null : oldestOpen({ pages, now }),
@@ -472,6 +436,5 @@ module.exports = {
   isNewReader,
   openTargets,
   paperColumns,
-  rightForWrongReasons,
-  warned
+  rightForWrongReasons
 };
