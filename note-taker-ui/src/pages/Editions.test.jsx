@@ -178,23 +178,47 @@ it('shows only one hand’s filings and says what it hid', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Show everyone' }));
   expect(mockNavigate).toHaveBeenLastCalledWith('/editions/twia-5', { replace: true });
 });
-it('stands every paper on one line, with what is new and the way back in', async () => {
+const twoPapers = () => {
   mockId = undefined;
-  issueFive();
+  const lead = {
+    ...item, itemId: 'x', title: 'Agents finish the task', plain: 'Few recover when a step fails.',
+    figures: [{ label: 'recover from a failed step', value: '46.7%' }], passage: 'recovered 46.7%', passageCheck: 'found', confidence: 'moderate'
+  };
+  const ai = { ...edition, _id: 'ai', profile: 'ai', profileLabel: 'This Week in AI', headline: 'Competence is not recovery', items: [lead] };
   api.listEditions.mockResolvedValue([
     { ...edition, items: undefined, newCount: 2, standfirst: 'A weekend of reading.' },
-    { ...edition, _id: 'ai', profile: 'ai', profileLabel: 'This Week in AI', items: undefined, newCount: 0 }
+    { ...ai, items: undefined, newCount: 0, filings: [{ section: 'ideas', filedBy: 'Codex job', filedByRuntime: 'codex', filedAt: '2026-10-06T09:00:00Z' }] }
   ]);
+  api.getEdition.mockImplementation(async id => (id === 'ai' ? ai : edition));
   readingState.readEditionLocal.mockImplementation((issueId) => (issueId === 'last' ? { issueId: 'e1', itemId: 'one', title: 'A useful distinction' } : null));
+};
+it('sets every paper as one front page, led by the finding with the most you can check', async () => {
+  twoPapers();
   render(<Editions />);
-  expect(await screen.findByRole('heading', { name: 'Your papers' })).toBeVisible();
-  expect(screen.getByText('2 new findings across 1 paper.')).toBeVisible();
-  expect(screen.getByRole('link', { name: /Weekend Readings/ })).toHaveAttribute('href', '/editions?paper=weekend');
-  expect(screen.getByText('2 new')).toBeVisible();
+  expect(await screen.findByRole('heading', { name: 'The Noeis Edition' })).toBeVisible();
+  const lead = await screen.findByRole('link', { name: 'Agents finish the task' });
+  expect(lead).toHaveAttribute('href', '/editions/ai?item=x');
+  expect(screen.getByText('recovered 46.7%').tagName).toBe('BLOCKQUOTE');
+  expect(screen.getByRole('link', { name: 'A useful distinction' })).toHaveAttribute('href', '/editions/e1?item=one');
+  expect(screen.getByText(/2 new findings across 1 paper/)).toBeVisible();
+  expect(screen.getByRole('link', { name: /Codex filed 1 to This Week in AI/ })).toHaveAttribute('href', '/editions/ai');
   expect(screen.getByRole('link', { name: /Back to where you stopped/ })).toHaveAttribute('href', '/editions/e1?item=one');
   expect(screen.getByRole('link', { name: /Power through/ })).toHaveAttribute('href', '/editions?power=1');
   fireEvent.keyDown(document, { key: ']' });
   expect(mockNavigate).toHaveBeenLastCalledWith('/editions?paper=weekend');
+});
+it('turns the stand into a newsstand of covers, and back', async () => {
+  twoPapers();
+  render(<Editions />);
+  await screen.findByRole('heading', { name: 'The Noeis Edition' });
+  fireEvent.click(screen.getByRole('button', { name: 'Newsstand' }));
+  const cover = await screen.findByRole('link', { name: /This Week in AI.*46\.7%/ });
+  expect(cover).toHaveAttribute('href', '/editions?paper=ai');
+  expect(within(cover).getByText('Competence is not recovery')).toBeVisible();
+  expect(within(screen.getByRole('link', { name: /Weekend Readings/ })).getByText('2 new')).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Newsstand' })).toHaveAttribute('aria-pressed', 'true');
+  fireEvent.click(screen.getByRole('button', { name: 'Front page' }));
+  expect(screen.getByRole('heading', { name: 'The Noeis Edition' })).toBeVisible();
 });
 it('zooms from an issue to a finding and its source, and steps back out', async () => {
   render(<Editions />);

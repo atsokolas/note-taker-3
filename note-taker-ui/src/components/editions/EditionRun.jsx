@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import {
-  issueLine, newCountOf, runGrid, sectionTones, stateOf, WATCH_STATUS, watchThreads, windowLine
+  issueLine, newCountOf, plural, runGrid, sectionTones, stateOf, WATCH_STATUS, watchThreads, windowLine
 } from '../../pages/editionModel';
 
 const SAID = {
@@ -34,8 +34,6 @@ export function RunMark({ cells = [], tones = {} }) {
     </span>
   );
 }
-
-const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 /* What is still waiting on an issue, and what the reader took from it. */
 const yoursLine = (issue) => [
@@ -119,4 +117,3 @@ function Watching({ paper }) {
   );
 }
 
-export { plural };

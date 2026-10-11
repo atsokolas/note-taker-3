@@ -1,7 +1,7 @@
 import {
   aheadLine, barsOf, byHand, byPaper, bySection, costLine, datelineLine, handsOf,
   issueLine, latestFilingLine, newCountOf, passageHref, publicSourceHref, sourceLine, sourceNote, sureLine, watchThreads,
-  runGrid, sectionTones, standLayout, stateOf, windowLine
+  runGrid, sectionTones, standLayout, stateOf, windowLine, frontPage, wireOf, coverFigure
 } from './editionModel';
 
 describe('the window a paper covers', () => {
@@ -321,3 +321,36 @@ describe('reading an issue before you start', () => {
     expect(aheadLine(issue, 'Issue', Date.parse('2026-09-20'))).toBe('Opens Mon, Sep 28');
   });
 });
+
+describe('the stand as a front page and a newsstand', () => {
+  const finding = (itemId, extra = {}) => ({ itemId, title: itemId, finding: 'A finding.', boundary: 'A limit.', filedAt: '2026-10-05T10:00:00Z', ...extra });
+  const paper = (profile, issue) => ({ profile, title: profile, issues: [{ _id: `${profile}-old`, windowStart: '2026-09-01' }, issue] });
+  const ai = { _id: 'ai', windowStart: '2026-10-04', filings: [{ filedBy: 'Codex job', filedByRuntime: 'codex', filedAt: '2026-10-06T09:00:00Z' }, { filedBy: 'Claw', filedByRuntime: 'openclaw', filedAt: '2026-10-05T09:00:00Z' }] };
+  const wr = { _id: 'wr', windowStart: '2026-10-03', filings: [{ filedBy: 'Codex job', filedByRuntime: 'codex', filedAt: '2026-10-07T09:00:00Z' }] };
+  const papers = [paper('ai', ai), paper('wr', wr), paper('empty', { _id: 'empty', windowStart: '2026-10-01' })];
+  const opened = {
+    ai: { ...ai, items: [finding('plain'), finding('checked', { passage: 'x', passageCheck: 'found', figures: [{ label: 'share', value: '46.7%' }] })], silences: [{ key: 'infra', label: 'Infrastructure', state: 'checked' }] },
+    wr: { ...wr, items: [finding('reading', { confidence: 'high' })] },
+    empty: { _id: 'empty', items: [] }
+  };
+
+  it('leads with the finding a reader can check most, gives every other filled paper a column, and invents nothing', () => {
+    const page = frontPage(papers, opened);
+    expect(page.lead.item.itemId).toBe('checked');
+    expect(page.alsoIn.map(story => story.item.itemId)).toEqual(['plain']);
+    expect(page.columns.map(column => [column.paper.profile, column.stories.map(story => story.item.itemId)])).toEqual([['wr', ['reading']]]);
+    expect(page.quiet).toEqual([expect.objectContaining({ silence: expect.objectContaining({ label: 'Infrastructure' }) })]);
+    expect(frontPage(papers, {})).toEqual({ lead: null, alsoIn: [], columns: [], quiet: [], watching: [] });
+  });
+
+  it('puts the newest filing on the wire first, one line per hand per paper', () => {
+    expect(wireOf(papers).map(entry => [entry.paper.profile, entry.agent.name, entry.count])).toEqual([['wr', 'Codex', 1], ['ai', 'Codex', 1], ['ai', 'OpenClaw', 1]]);
+  });
+
+  it('fronts a cover with its strongest figure, or nothing', () => {
+    expect(coverFigure(opened.ai)).toEqual({ label: 'share', value: '46.7%' });
+    expect(coverFigure(opened.wr)).toBeNull();
+    expect(coverFigure(null)).toBeNull();
+  });
+});
+
