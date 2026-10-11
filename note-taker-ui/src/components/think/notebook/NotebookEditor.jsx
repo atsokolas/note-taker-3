@@ -5,12 +5,12 @@ import { NodeViewWrapper, ReactNodeViewRenderer, useEditor } from '@tiptap/react
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import { Extension, Node, mergeAttributes } from '@tiptap/core';
-import { Button, QuietButton } from '../../ui';
-import HighlightBlock from '../../blocks/HighlightBlock';
-import ReturnLaterControl from '../../return-queue/ReturnLaterControl';
+import { QuietButton } from '../../ui';
 import InsertHighlightModal from './InsertHighlightModal';
 import InsertReferenceModal from './InsertReferenceModal';
-import AgentSkillDock from '../../agent/AgentSkillDock';
+import { BlockIdExtension, EntryBar, HighlightRefNode, passageNode } from '../editor/writingParts';
+import { passageSlashItems } from '../editor/slashCommands';
+import { begunLine, countWords } from '../../../pages/thinkNotesModel';
 import EvergreenToggle from '../../EvergreenToggle';
 import EditorDraftShell from '../editor/EditorDraftShell';
 import AuthoredWorkOrigin from '../AuthoredWorkOrigin';
@@ -45,7 +45,6 @@ import {
 } from '../../../utils/notebookArrangement';
 import { getNotebookClaimEvidence, searchNotebookClaims } from '../../../api/organize';
 import { listWikiPages } from '../../../api/wiki';
-import { AGENT_DISPLAY_NAME } from '../../../constants/agentIdentity';
 import { resolveNotebookSource } from './notebookSourceModel';
 import useNotebookSourceEvergreen from './useNotebookSourceEvergreen';
 import NotebookArrangementRail from './NotebookArrangementRail';
@@ -118,148 +117,6 @@ const ListIndentExtension = Extension.create({
         return false;
       }
     };
-  }
-});
-
-const BlockIdExtension = Extension.create({
-  name: 'blockId',
-  addGlobalAttributes() {
-    return [
-      {
-        types: ['paragraph', 'heading', 'blockquote', 'listItem', 'codeBlock'],
-        attributes: {
-          blockId: {
-            default: null,
-            parseHTML: element => element.getAttribute('data-block-id'),
-            renderHTML: attributes => (
-              attributes.blockId ? { 'data-block-id': attributes.blockId } : {}
-            )
-          },
-          highlightId: {
-            default: null,
-            parseHTML: element => element.getAttribute('data-highlight-id'),
-            renderHTML: attributes => (
-              attributes.highlightId ? { 'data-highlight-id': attributes.highlightId } : {}
-            )
-          }
-        }
-      },
-      {
-        types: ['blockquote'],
-        attributes: {
-          sourcePath: {
-            default: null,
-            parseHTML: element => element.getAttribute('data-source-path'),
-            renderHTML: attributes => (
-              attributes.sourcePath ? { 'data-source-path': attributes.sourcePath } : {}
-            )
-          },
-          articleId: {
-            default: null,
-            parseHTML: element => element.getAttribute('data-article-id'),
-            renderHTML: attributes => (
-              attributes.articleId ? { 'data-article-id': attributes.articleId } : {}
-            )
-          },
-          articleTitle: {
-            default: '',
-            parseHTML: element => element.getAttribute('data-article-title') || '',
-            renderHTML: attributes => (
-              attributes.articleTitle ? { 'data-article-title': attributes.articleTitle } : {}
-            )
-          }
-        }
-      }
-    ];
-  }
-});
-
-const HighlightRefNode = Node.create({
-  name: 'highlightRef',
-  group: 'block',
-  atom: true,
-  selectable: true,
-  draggable: true,
-  addAttributes() {
-    return {
-      highlightId: {
-        default: null,
-        parseHTML: element => element.getAttribute('data-highlight-id'),
-        renderHTML: attributes => (
-          attributes.highlightId ? { 'data-highlight-id': attributes.highlightId } : {}
-        )
-      },
-      highlightText: {
-        default: '',
-        parseHTML: element => element.getAttribute('data-highlight-text') || '',
-        renderHTML: attributes => (
-          attributes.highlightText ? { 'data-highlight-text': attributes.highlightText } : {}
-        )
-      },
-      articleTitle: {
-        default: '',
-        parseHTML: element => element.getAttribute('data-article-title') || '',
-        renderHTML: attributes => (
-          attributes.articleTitle ? { 'data-article-title': attributes.articleTitle } : {}
-        )
-      },
-      articleId: {
-        default: '',
-        parseHTML: element => element.getAttribute('data-article-id') || '',
-        renderHTML: attributes => (
-          attributes.articleId ? { 'data-article-id': attributes.articleId } : {}
-        )
-      },
-      tags: {
-        default: '',
-        parseHTML: element => element.getAttribute('data-highlight-tags') || '',
-        renderHTML: attributes => (
-          attributes.tags ? { 'data-highlight-tags': attributes.tags } : {}
-        )
-      },
-      sourcePath: {
-        default: '',
-        parseHTML: element => element.getAttribute('data-source-path') || '',
-        renderHTML: attributes => (
-          attributes.sourcePath ? { 'data-source-path': attributes.sourcePath } : {}
-        )
-      },
-      blockId: {
-        default: null,
-        parseHTML: element => element.getAttribute('data-block-id'),
-        renderHTML: attributes => (
-          attributes.blockId ? { 'data-block-id': attributes.blockId } : {}
-        )
-      }
-    };
-  },
-  parseHTML() {
-    return [
-      { tag: 'blockquote[data-highlight-id]' }
-    ];
-  },
-  renderHTML({ HTMLAttributes }) {
-    return ['blockquote', mergeAttributes(HTMLAttributes)];
-  },
-  addNodeView() {
-    return ReactNodeViewRenderer(({ node, extension }) => {
-      const highlight = extension.options.getHighlightById(node.attrs.highlightId) || {
-        id: node.attrs.highlightId,
-        text: node.attrs.highlightText || 'Highlight',
-        tags: node.attrs.tags ? node.attrs.tags.split(',').filter(Boolean) : [],
-        articleTitle: node.attrs.articleTitle || '',
-        articleId: node.attrs.articleId || ''
-      };
-      return (
-        <NodeViewWrapper
-          className="highlight-ref-node notebook-source-quote"
-          contentEditable={false}
-          aria-label={highlight.articleTitle ? `Source quotation from ${highlight.articleTitle}` : 'Source quotation'}
-        >
-          <HighlightBlock highlight={highlight} compact />
-        </NodeViewWrapper>
-      );
-    });
   }
 });
 
@@ -378,18 +235,10 @@ const NotebookEditor = ({
   onSave,
   onRegisterSave,
   startWriting = false,
-  onDelete,
-  onRegisterInsert,
-  onCreate,
-  onSynthesize,
-  onDump,
+  startPull = false,
   claimCandidates = EMPTY_CLAIM_CANDIDATES,
-  // When it was last touched, shown under the title rather than above it: the
-  // title is the first thing on the page and the timestamp is a footnote to it.
-  metaLine = null,
   metaId = undefined,
   onInvokeAgentSkill = null,
-  showInlineAgentDock = true,
   agentContextType = 'notebook',
   agentContextId = '',
   agentContextTitle = '',
@@ -402,8 +251,7 @@ const NotebookEditor = ({
   onAlternativesOpenChange = null,
   onFocusAlternatives = null,
   onWorkingStateChange = null,
-  onRegisterPartnerTrial = null,
-  quietWorkspace = false
+  onRegisterPartnerTrial = null
 }) => {
   const liveSourceEvergreen = useNotebookSourceEvergreen(entry);
   const resolvedSourceEvergreen = sourceEvergreen || liveSourceEvergreen;
@@ -418,12 +266,12 @@ const NotebookEditor = ({
   const titleDraftRef = useRef(entry?.title || '');
   const [titleDraft, setTitleDraft] = useState(entry?.title || '');
   const [saveState, setSaveState] = useState('idle');
+  const [savedAt, setSavedAt] = useState(null);
   const [agentThreadPulse, setAgentThreadPulse] = useState(false);
   const [insertMode, setInsertMode] = useState('');
   const [stageSelection, setStageSelection] = useState(false);
   const [wikiPages, setWikiPages] = useState([]);
   const [wikiPagesLoading, setWikiPagesLoading] = useState(false);
-  const [insertMenuOpen, setInsertMenuOpen] = useState(false);
   const [savedDistinctions, setSavedDistinctions] = useState([]);
   const [organizeOpen, setOrganizeOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
@@ -515,7 +363,6 @@ const NotebookEditor = ({
           applyDistinctionRef.current(choices[0]);
           return;
         }
-        setInsertMenuOpen(true);
         setInsertMode('distinction');
       }
     },
@@ -581,7 +428,7 @@ const NotebookEditor = ({
     editable: false,
     extensions: [
       StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
-      Placeholder.configure({ placeholder: 'Write freely… Type / for commands.' }),
+      Placeholder.configure({ placeholder: 'Start writing…', showOnlyWhenEditable: false }),
       ListIndentExtension,
       BlockIdExtension,
       UniqueBlockIds,
@@ -676,35 +523,21 @@ const NotebookEditor = ({
     editor,
     variant: 'full',
     containerRef: slashSurfaceRef,
-    extraItems: slashActionItems
+    extraItems: slashActionItems,
+    queryItems: (query) => passageSlashItems(highlights, query, (highlight) => handleInsertHighlightRef.current(highlight))
   });
+  const handleInsertHighlightRef = useRef(null);
+  useEffect(() => { handleInsertHighlightRef.current = handleInsertHighlight; });
+  const wordCount = useMemo(() => countWords(editor?.getText?.() || ''), [editor, docTick]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* Pull a passage in from anywhere (⌘K): the passage picker opens on the note. */
+  useEffect(() => {
+    if (startPull && editor) setInsertMode('highlight');
+  }, [startPull, editor]);
 
   useEffect(() => {
     slashKeyDownRef.current = slashCommands.onKeyDown;
   }, [slashCommands.onKeyDown]);
-
-  useEffect(() => {
-    if (!onRegisterInsert) return;
-    const insert = (highlight) => {
-      if (!editor) return;
-      editor.commands.insertContent({
-        type: 'highlightRef',
-        attrs: {
-          highlightId: highlight._id,
-          highlightText: highlight.text || '',
-          articleTitle: highlight.articleTitle || '',
-          articleId: highlight.articleId || '',
-          sourcePath: highlight.articleId
-            ? `/library?articleId=${encodeURIComponent(highlight.articleId)}${highlight._id ? `&highlightId=${encodeURIComponent(highlight._id)}` : ''}`
-            : '',
-          tags: (highlight.tags || []).join(','),
-          blockId: createId()
-        }
-      });
-    };
-    onRegisterInsert(insert);
-    return () => onRegisterInsert(null);
-  }, [editor, onRegisterInsert]);
 
   useEffect(() => {
     if (!entry?._id) return;
@@ -879,6 +712,7 @@ const NotebookEditor = ({
         await onSave(payload);
         if (sequence === saveSequenceRef.current) {
           setSaveState(dirtyRef.current ? 'dirty' : 'saved');
+          if (!dirtyRef.current) setSavedAt(new Date().toISOString());
           if (shareOpenRef.current) setShareRevision((value) => value + 1);
         }
         return true;
@@ -1004,20 +838,8 @@ const NotebookEditor = ({
 
   const handleInsertHighlight = (highlight) => {
     if (!editor) return;
-    editor.commands.insertContent({
-      type: 'highlightRef',
-      attrs: {
-        highlightId: highlight._id,
-        highlightText: highlight.text || '',
-        articleTitle: highlight.articleTitle || '',
-        articleId: highlight.articleId || '',
-        sourcePath: highlight.articleId
-          ? `/library?articleId=${encodeURIComponent(highlight.articleId)}${highlight._id ? `&highlightId=${encodeURIComponent(highlight._id)}` : ''}`
-          : '',
-        tags: (highlight.tags || []).join(','),
-        blockId: createId()
-      }
-    });
+    const node = passageNode(highlight);
+    editor.commands.insertContent({ ...node, attrs: { ...node.attrs, blockId: createId() } });
   };
 
   const handleInsertArticle = (article) => {
@@ -1081,12 +903,6 @@ const NotebookEditor = ({
     setInsertMode('');
   };
   applyDistinctionRef.current = applyDistinction;
-
-  const handleSelectInsertMode = (mode) => {
-    referenceTriggerRef.current = null;
-    setInsertMenuOpen(false);
-    setInsertMode(mode);
-  };
 
   const handleAskSelection = (selectedText) => {
     const passage = String(selectedText || '').trim();
@@ -1721,11 +1537,6 @@ const NotebookEditor = ({
     return (
       <div className="think-notebook-editor think-notebook-editor--empty">
         <p className="muted small">Select a note to start editing.</p>
-        {onCreate && (
-          <Button variant="secondary" onClick={onCreate}>
-            New page
-          </Button>
-        )}
       </div>
     );
   }
@@ -1733,35 +1544,28 @@ const NotebookEditor = ({
   return (
     <div className="think-notebook-editor">
       <div className="think-notebook-editor-header">
-        {quietWorkspace ? (
-          <div className="think-notebook-utility" aria-label="Note utilities">
-            <span className="think-notebook-utility__kind">{entryType || 'note'}</span>
-            <span className={`think-notebook-save-state is-${saveState}`} role="status" aria-live="polite">
-              {saving || saveState === 'saving' || saveState === 'dirty' || workbench.saveState === 'saving' || workbench.saveState === 'dirty'
-                ? 'Saving…'
-                : saveState === 'error' || workbench.saveState === 'error'
-                ? 'Not saved'
-                : 'Saved'}
-            </span>
-            <QuietButton data-context-trigger="scratchpad" aria-pressed={activeContext === 'scratchpad'} onClick={() => { holdCurrentPlace(); onOpenContext?.('scratchpad'); }}>Scratchpad</QuietButton>
-            <QuietButton
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={() => (selectionNotebookTarget(editor) || (!editor?.isFocused && highlightedRef.current) ? startTrialFromSelection() : startTrial())}
-            >Try wording</QuietButton>
-            <QuietButton data-context-trigger="material" aria-pressed={activeContext === 'material'} onClick={() => openMaterial()}>Material</QuietButton>
-            <QuietButton data-context-trigger="partner" aria-pressed={activeContext === 'partner'} onClick={() => onOpenContext?.('partner')}>Partner</QuietButton>
-            <details className="think-notebook-utility__more">
-              <summary className="ui-quiet-button">More</summary>
-              <div>
-                <QuietButton onClick={handleExport}>Export draft</QuietButton>
-                <QuietButton onClick={handleRecoveryExport}>Private recovery file</QuietButton>
-                <QuietButton onClick={handleShare}>{shareOpen ? 'Close share' : 'Share snapshot'}</QuietButton>
-                <QuietButton onClick={() => setOrganizeOpen(previous => !previous)}>Structure</QuietButton>
-              </div>
-            </details>
-          </div>
-        ) : null}
-        {quietWorkspace && workbench.state.nextTimeLine?.text && !nextLineDismissed ? (
+        <EntryBar
+          kind={entryType || 'note'}
+          saveState={saving || ['saving', 'dirty'].includes(saveState) || ['saving', 'dirty'].includes(workbench.saveState)
+            ? 'saving'
+            : saveState === 'error' || workbench.saveState === 'error' ? 'error' : 'saved'}
+          savedAt={savedAt || entry.updatedAt}
+          onRetry={commitDraft}
+          partnerOpen={['partner', 'scratchpad', 'material'].includes(activeContext)}
+          onPartner={() => onOpenContext?.('partner')}
+        >
+          <QuietButton
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => (selectionNotebookTarget(editor) || (!editor?.isFocused && highlightedRef.current) ? startTrialFromSelection() : startTrial())}
+          >Try wording</QuietButton>
+          <QuietButton data-context-trigger="scratchpad" onClick={() => { holdCurrentPlace(); onOpenContext?.('scratchpad'); }}>Scratchpad</QuietButton>
+          <QuietButton data-context-trigger="material" onClick={() => openMaterial()}>Material</QuietButton>
+          <QuietButton onClick={handleExport}>Export draft</QuietButton>
+          <QuietButton onClick={handleRecoveryExport}>Private recovery file</QuietButton>
+          <QuietButton onClick={handleShare}>{shareOpen ? 'Close share' : 'Share snapshot'}</QuietButton>
+          <QuietButton onClick={() => setOrganizeOpen(previous => !previous)}>Structure</QuietButton>
+        </EntryBar>
+        {workbench.state.nextTimeLine?.text && !nextLineDismissed ? (
           <aside className="think-next-line" aria-label="A line you left yourself">
             <span>A line you left yourself</span>
             <p>{workbench.state.nextTimeLine.text}</p>
@@ -1804,12 +1608,7 @@ const NotebookEditor = ({
             }}
             placeholder="Title"
           />
-          {metaLine ? <p className="think-notebook-title-meta" id={metaId}>{metaLine}</p> : null}
-          {!quietWorkspace ? (
-            <p className="think-notebook-title-hint">
-              Write naturally. Use ## for a heading, - for a list, &gt; for a quote, @ for a source, [[ for a concept, or / for anything else.
-            </p>
-          ) : null}
+          <p className="think-notebook-title-meta" id={metaId}>{begunLine(entry.createdAt, wordCount)}</p>
         </div>
         {notebookSourceMeta && (
           <div className={`think-notebook-editor-provenance think-notebook-editor-provenance--${notebookSourceMeta.kind}`}>
@@ -1860,128 +1659,9 @@ const NotebookEditor = ({
             onSourceCorrectionSettled?.(result);
           }}
         />
-        {!quietWorkspace ? <div className="think-notebook-editor-actions">
-          <div className="think-notebook-editor-actions-left">
-            {onCreate && (
-              <Button variant="secondary" onClick={onCreate}>
-                New page
-              </Button>
-            )}
-            <div className="notebook-insert-group">
-              <div className="notebook-insert-labels">
-                <span className="notebook-insert-label">Reuse actions</span>
-                <span className="notebook-insert-hint">
-                  Pull saved material onto the page only when it sharpens the draft.
-                </span>
-              </div>
-              <div className="notebook-insert-menu">
-                <QuietButton
-                  className={insertMenuOpen ? 'is-active' : ''}
-                  aria-expanded={insertMenuOpen}
-                  aria-controls="notebook-insert-options"
-                  onClick={() => setInsertMenuOpen((previous) => !previous)}
-                >
-                  Insert material
-                </QuietButton>
-                {insertMenuOpen && (
-                  <div
-                    id="notebook-insert-options"
-                    className="notebook-insert-buttons"
-                    role="group"
-                    aria-label="Insert from library"
-                  >
-                    <QuietButton
-                      className={insertMode === 'highlight' ? 'is-active' : ''}
-                      onClick={() => handleSelectInsertMode('highlight')}
-                    >
-                      Highlight
-                    </QuietButton>
-                    <QuietButton
-                      className={insertMode === 'article' ? 'is-active' : ''}
-                      onClick={() => handleSelectInsertMode('article')}
-                    >
-                      Article
-                    </QuietButton>
-                    <QuietButton
-                      className={insertMode === 'concept' ? 'is-active' : ''}
-                      onClick={() => handleSelectInsertMode('concept')}
-                    >
-                      Concept
-                    </QuietButton>
-                    <QuietButton
-                      className={insertMode === 'question' ? 'is-active' : ''}
-                      onClick={() => handleSelectInsertMode('question')}
-                    >
-                      Question
-                    </QuietButton>
-                    {usableDistinctions.length ? (
-                      <UseDistinctionHere
-                        distinctions={usableDistinctions}
-                        startOpen={insertMode === 'distinction'}
-                        onUse={applyDistinction}
-                      />
-                    ) : null}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-          <div className="think-notebook-editor-actions-right">
-            <QuietButton data-notebook-finish="export" onClick={handleExport}>Export</QuietButton>
-            <QuietButton
-              data-notebook-finish="share"
-              aria-expanded={shareOpen}
-              onClick={handleShare}
-            >
-              {shareOpen ? 'Close share' : 'Share'}
-            </QuietButton>
-            <QuietButton onClick={() => {
-              setOrganizeOpen((prev) => !prev);
-              setShareOpen(false);
-            }}>
-              {organizeOpen ? 'Close structure' : 'Structure'}
-            </QuietButton>
-            <details className="think-notebook-editor-actions-overflow">
-              <summary className="ui-quiet-button">More</summary>
-              <div className="think-notebook-editor-actions-overflow__menu">
-                {onDump && (
-                  <QuietButton onClick={onDump}>Dump</QuietButton>
-                )}
-                {onSynthesize && (
-                  <QuietButton onClick={() => onSynthesize(entry)}>Synthesize</QuietButton>
-                )}
-                <ReturnLaterControl
-                  itemType="notebook"
-                  itemId={entry?._id}
-                  defaultReason={titleDraft || entry?.title || 'Notebook entry'}
-                />
-                <QuietButton onClick={() => onDelete(entry)} disabled={saving}>Delete</QuietButton>
-              </div>
-            </details>
-            {editingBody || saveState !== 'idle' ? (
-              <span className={`think-notebook-save-state is-${saveState}`} role="status" aria-live="polite">
-                {saving || saveState === 'saving' ? 'Saving…' : saveState === 'error' ? 'Not saved' : saveState === 'saved' ? 'Saved' : 'Editing'}
-                {saveState === 'error' && !saving ? <QuietButton onClick={commitDraft}>Retry save</QuietButton> : null}
-              </span>
-            ) : null}
-            {!editingBody ? <QuietButton onClick={startEditingBody}>Edit</QuietButton> : null}
-          </div>
-        </div> : null}
       </div>
-      {showInlineAgentDock ? (
-        <AgentSkillDock
-          surface="notebook"
-          contextType="notebook"
-          contextId={entry?._id}
-          targetContextType={agentContextType}
-          targetContextId={agentContextId || entry?._id}
-          contextTitle={agentContextTitle || titleDraft || entry?.title || 'Notebook note'}
-          headline="Draft what this page can become"
-          title={AGENT_DISPLAY_NAME}
-          subtitle="Use the current page as raw material for a brief, critique, concept lead, or question."
-          className="think-notebook-editor__skills agent-skill-dock--inline"
-          onInvoke={onInvokeAgentSkill}
-        />
+      {insertMode === 'distinction' && usableDistinctions.length ? (
+        <UseDistinctionHere distinctions={usableDistinctions} startOpen onUse={applyDistinction} />
       ) : null}
       {error && <p className="status-message error-message">{error}</p>}
       {workbench.error && <p className="status-message error-message">{workbench.error} <QuietButton onClick={workbench.flush}>Retry nearby material</QuietButton></p>}

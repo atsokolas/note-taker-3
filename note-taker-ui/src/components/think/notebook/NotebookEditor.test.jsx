@@ -59,14 +59,14 @@ jest.mock('@tiptap/react', () => ({
 }));
 
 jest.mock('../../return-queue/ReturnLaterControl', () => () => <div data-testid="return-later-control" />);
-jest.mock('../../agent/AgentSkillDock', () => () => <div data-testid="agent-skill-dock" />);
 jest.mock('./InsertHighlightModal', () => () => null);
 jest.mock('./InsertReferenceModal', () => ({ open, title }) => (
   open ? <div data-testid={`reference-modal-${title}`}>{title}</div> : null
 ));
 
+const mockHighlights = [];
 jest.mock('../../../hooks/useHighlights', () => () => ({
-  highlights: [],
+  highlights: mockHighlights,
   highlightMap: new Map(),
   loading: false,
   error: ''
@@ -179,13 +179,12 @@ describe('NotebookEditor', () => {
         saving={false}
         error=""
         onSave={jest.fn()}
-        onDelete={jest.fn()}
       />
     );
 
     expect(screen.getByPlaceholderText('Title')).toBeInTheDocument();
     expect(screen.getByText(/Type \/ for commands/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Export' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Export draft' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Move up' })).not.toBeInTheDocument();
     expect(screen.queryByText('Arrangement')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Bold' })).toBeInTheDocument();
@@ -196,17 +195,15 @@ describe('NotebookEditor', () => {
   it('opens More below the note utilities instead of covering the title', () => {
     render(
       <NotebookEditor
-        quietWorkspace
         entry={{ _id: 'note-1', title: 'Playing to Win', content: '<p>Draft</p>', blocks: [], type: 'note', tags: [] }}
         saving={false}
         error=""
         onSave={jest.fn()}
-        onDelete={jest.fn()}
       />
     );
 
     const title = screen.getByPlaceholderText('Title');
-    fireEvent.click(screen.getByText('More'));
+    fireEvent.click(screen.getByLabelText('More'));
     const exportDraft = screen.getByRole('button', { name: 'Export draft' });
     expect(exportDraft).toBeVisible();
     expect(title.compareDocumentPosition(exportDraft) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(0);
@@ -220,7 +217,6 @@ describe('NotebookEditor', () => {
         saving={false}
         error=""
         onSave={jest.fn()}
-        onDelete={jest.fn()}
       />
     );
     expect(screen.getByRole('button', { name: 'Quote' })).toBeInTheDocument();
@@ -238,8 +234,6 @@ describe('NotebookEditor', () => {
         saving={false}
         error=""
         onSave={jest.fn()}
-        onDelete={jest.fn()}
-        showInlineAgentDock={false}
       />
     );
     const { extensions } = mockUseEditor.mock.calls[0][0];
@@ -264,12 +258,10 @@ describe('NotebookEditor', () => {
         saving={false}
         error=""
         onSave={onSave}
-        onDelete={jest.fn()}
-        showInlineAgentDock={false}
       />
     );
     mockEditor.commands.setContent.mockClear();
-    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    fireEvent.click(screen.getByTestId('editor-content'));
     const updateRegistration = [...mockEditor.on.mock.calls].reverse().find(([eventName]) => eventName === 'update');
     act(() => updateRegistration[1]());
     await waitFor(() => expect(onSave).toHaveBeenCalled(), { timeout: 1800 });
@@ -322,12 +314,10 @@ describe('NotebookEditor', () => {
         saving={false}
         error=""
         onSave={onSave}
-        onDelete={jest.fn()}
-        showInlineAgentDock={false}
       />
     );
     mockEditor.commands.setContent.mockClear();
-    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    fireEvent.click(screen.getByTestId('editor-content'));
     const updateRegistration = [...mockEditor.on.mock.calls].reverse().find(([eventName]) => eventName === 'update');
     act(() => updateRegistration[1]());
     await waitFor(() => expect(onSave).toHaveBeenCalled(), { timeout: 1800 });
@@ -361,7 +351,6 @@ describe('NotebookEditor', () => {
         saving={false}
         error=""
         onSave={jest.fn()}
-        onDelete={jest.fn()}
       />
     );
 
@@ -421,7 +410,6 @@ describe('NotebookEditor', () => {
         saving={false}
         error=""
         onSave={onSave}
-        onDelete={jest.fn()}
       />
     );
 
@@ -438,7 +426,7 @@ describe('NotebookEditor', () => {
       'href',
       sourceBlock.sourcePath
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    fireEvent.click(screen.getByTestId('editor-content'));
     const updateRegistration = [...mockEditor.on.mock.calls].reverse().find(([eventName]) => eventName === 'update');
     act(() => updateRegistration[1]());
     await waitFor(() => expect(onSave).toHaveBeenCalled(), { timeout: 1800 });
@@ -470,7 +458,6 @@ describe('NotebookEditor', () => {
         saving={false}
         error=""
         onSave={jest.fn()}
-        onDelete={jest.fn()}
       />
     );
 
@@ -507,7 +494,6 @@ describe('NotebookEditor', () => {
         saving={false}
         error=""
         onSave={jest.fn()}
-        onDelete={jest.fn()}
         sourceEvergreen={{ status: 'ready', evergreen: false, setEvergreen }}
       />
     );
@@ -523,7 +509,6 @@ describe('NotebookEditor', () => {
         saving={false}
         error=""
         onSave={jest.fn()}
-        onDelete={jest.fn()}
       />
     );
 
@@ -549,7 +534,6 @@ describe('NotebookEditor', () => {
         saving={false}
         error=""
         onSave={jest.fn()}
-        onDelete={jest.fn()}
       />
     );
 
@@ -571,39 +555,50 @@ describe('NotebookEditor', () => {
         saving={false}
         error=""
         onSave={jest.fn()}
-        onDelete={jest.fn()}
       />
     );
 
     expect(await screen.findByRole('menuitem', { name: /Use this here/i })).toBeInTheDocument();
   });
 
-  it('keeps insert actions collapsed until requested', () => {
+  it('pulls a remembered passage in from "/" and a few words, with its source', async () => {
+    mockEditor.state.selection.from = 16;
+    mockEditor.state.selection.to = 16;
+    mockEditor.state.selection.$from.parent = { textContent: '/downside lands' };
+    mockEditor.state.selection.$from.parentOffset = 16;
+    mockEditor.view.coordsAtPos.mockReturnValue({ left: 12, right: 12, top: 10, bottom: 24 });
+    mockHighlights.splice(0, mockHighlights.length, {
+      _id: 'h1',
+      text: 'The exception is when the downside lands on someone who never chose it.',
+      articleId: 'a1',
+      articleTitle: 'Ben Carlson, A Wealth of Common Sense'
+    });
+
     render(
       <NotebookEditor
         entry={{ _id: 'note-1', title: 'Draft', content: '<p>Draft</p>', blocks: [], type: 'note', tags: [] }}
         saving={false}
         error=""
         onSave={jest.fn()}
-        onDelete={jest.fn()}
       />
     );
 
-    expect(screen.getByRole('button', { name: 'Insert material' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Highlight' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Article' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Concept' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Question' })).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Insert material' }));
-
-    expect(screen.getByRole('button', { name: 'Highlight' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Article' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Concept' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Question' })).toBeInTheDocument();
+    const passage = await screen.findByRole('menuitem', { name: /downside lands on someone/ });
+    expect(passage).toHaveTextContent('Ben Carlson, A Wealth of Common Sense');
+    fireEvent.click(passage);
+    expect(mockEditor.commands.insertContent).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'highlightRef',
+      attrs: expect.objectContaining({ highlightId: 'h1', articleTitle: 'Ben Carlson, A Wealth of Common Sense', sourcePath: '/library?articleId=a1&highlightId=h1' })
+    }));
+    mockHighlights.splice(0, mockHighlights.length);
   });
 
   it('inserts the recorded distinction wording, not a live note rewrite', async () => {
+    mockEditor.state.selection.from = 4;
+    mockEditor.state.selection.to = 4;
+    mockEditor.state.selection.$from.parent = { textContent: '/use' };
+    mockEditor.state.selection.$from.parentOffset = 4;
+    mockEditor.view.coordsAtPos.mockReturnValue({ left: 12, right: 12, top: 10, bottom: 24 });
     getNotebookSummaries.mockResolvedValue([{
       _id: 'note-room',
       title: 'Room to be wrong',
@@ -616,11 +611,9 @@ describe('NotebookEditor', () => {
         saving={false}
         error=""
         onSave={jest.fn()}
-        onDelete={jest.fn()}
       />
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Insert material' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Use this here' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: /Use this here/i }));
     expect(mockChain.insertContent).toHaveBeenCalledWith(expect.arrayContaining([
       expect.objectContaining({
         type: 'heading',
@@ -641,6 +634,11 @@ describe('NotebookEditor', () => {
   });
 
   it('applies a Concept definition with the recorded version, not a live rewrite', async () => {
+    mockEditor.state.selection.from = 4;
+    mockEditor.state.selection.to = 4;
+    mockEditor.state.selection.$from.parent = { textContent: '/use' };
+    mockEditor.state.selection.$from.parentOffset = 4;
+    mockEditor.view.coordsAtPos.mockReturnValue({ left: 12, right: 12, top: 10, bottom: 24 });
     getNotebookSummaries.mockResolvedValue([]);
     useConcepts.mockReturnValue({
       concepts: [{
@@ -655,11 +653,9 @@ describe('NotebookEditor', () => {
         saving={false}
         error=""
         onSave={jest.fn()}
-        onDelete={jest.fn()}
       />
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Insert material' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Use this here' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: /Use this here/i }));
     expect(mockChain.insertContent).toHaveBeenCalledWith(expect.arrayContaining([
       expect.objectContaining({
         type: 'heading',
@@ -682,8 +678,6 @@ describe('NotebookEditor', () => {
         saving={false}
         error=""
         onSave={jest.fn()}
-        onDelete={jest.fn()}
-        showInlineAgentDock={false}
       />
     );
 
@@ -706,7 +700,6 @@ describe('NotebookEditor', () => {
         saving={false}
         error=""
         onSave={jest.fn()}
-        onDelete={jest.fn()}
       />
     );
 
@@ -742,8 +735,6 @@ describe('NotebookEditor', () => {
         saving={false}
         error=""
         onSave={jest.fn()}
-        onDelete={jest.fn()}
-        showInlineAgentDock={false}
       />
     );
 
@@ -786,8 +777,6 @@ describe('NotebookEditor', () => {
         saving={false}
         error=""
         onSave={jest.fn()}
-        onDelete={jest.fn()}
-        showInlineAgentDock={false}
       />
     );
 
@@ -806,7 +795,7 @@ describe('NotebookEditor', () => {
     expect(screen.queryByRole('button', { name: 'Move up' })).not.toBeInTheDocument();
 
     fireEvent.focus(body);
-    fireEvent.blur(body, { relatedTarget: screen.getByRole('button', { name: 'Export' }) });
+    fireEvent.blur(body, { relatedTarget: screen.getByRole('button', { name: 'Export draft' }) });
     expect(screen.getByRole('button', {
       name: 'Arrange this passage: Recoverable mistakes belong to the person who can still put things back.'
     })).toBeInTheDocument();
@@ -859,8 +848,6 @@ describe('NotebookEditor', () => {
         saving={false}
         error=""
         onSave={jest.fn()}
-        onDelete={jest.fn()}
-        showInlineAgentDock={false}
       />
     );
 
@@ -900,8 +887,6 @@ describe('NotebookEditor', () => {
         saving={false}
         error=""
         onSave={jest.fn()}
-        onDelete={jest.fn()}
-        showInlineAgentDock={false}
       />
     );
 
@@ -938,8 +923,6 @@ describe('NotebookEditor', () => {
         saving={false}
         error=""
         onSave={onSave}
-        onDelete={jest.fn()}
-        showInlineAgentDock={false}
       />
     );
 
@@ -982,8 +965,6 @@ describe('NotebookEditor', () => {
         saving={false}
         error=""
         onSave={jest.fn()}
-        onDelete={jest.fn()}
-        showInlineAgentDock={false}
       />
     );
 
@@ -1010,8 +991,6 @@ describe('NotebookEditor', () => {
         saving={false}
         error=""
         onSave={jest.fn()}
-        onDelete={jest.fn()}
-        showInlineAgentDock={false}
       />
     );
 
@@ -1042,8 +1021,6 @@ describe('NotebookEditor', () => {
         saving={false}
         error=""
         onSave={onSave}
-        onDelete={jest.fn()}
-        showInlineAgentDock={false}
       />
     );
 
@@ -1058,7 +1035,7 @@ describe('NotebookEditor', () => {
     global.URL.revokeObjectURL = jest.fn();
     global.fetch = jest.fn();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Export' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Export draft' }));
     await waitFor(() => expect(onSave).toHaveBeenCalled());
     await waitFor(() => expect(exportNotebookMarkdown).toHaveBeenCalledWith('essay-1'));
     expect(global.fetch).not.toHaveBeenCalled();
@@ -1084,12 +1061,10 @@ describe('NotebookEditor', () => {
         saving={false}
         error=""
         onSave={onSave}
-        onDelete={jest.fn()}
-        showInlineAgentDock={false}
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Export' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Export draft' }));
     await waitFor(() => expect(onSave).toHaveBeenCalled());
     expect(exportNotebookMarkdown).not.toHaveBeenCalled();
     expect(screen.getByText('Could not save this draft, so export did not start.')).toBeInTheDocument();
@@ -1112,12 +1087,10 @@ describe('NotebookEditor', () => {
         saving={false}
         error=""
         onSave={jest.fn()}
-        onDelete={jest.fn()}
-        showInlineAgentDock={false}
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Share' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Share snapshot' }));
     expect(await screen.findByTestId('notebook-share-preview')).toBeInTheDocument();
     expect(screen.getByText('The exception arrives first.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Create share link' })).toBeInTheDocument();
@@ -1133,12 +1106,10 @@ describe('NotebookEditor', () => {
         saving={false}
         error=""
         onSave={onSave}
-        onDelete={jest.fn()}
-        showInlineAgentDock={false}
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Share' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Share snapshot' }));
     await waitFor(() => expect(onSave).toHaveBeenCalled());
     expect(screen.queryByTestId('notebook-share')).not.toBeInTheDocument();
     expect(screen.getByText('Could not save this draft, so sharing did not open.')).toBeInTheDocument();
@@ -1187,12 +1158,10 @@ describe('NotebookEditor', () => {
         saving={false}
         error=""
         onSave={onSave}
-        onDelete={jest.fn()}
-        showInlineAgentDock={false}
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Share' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Share snapshot' }));
     expect(await screen.findByTestId('notebook-share-preview')).toBeInTheDocument();
     expect(getNotebookShare).toHaveBeenCalledTimes(1);
 
@@ -1210,7 +1179,6 @@ describe('NotebookEditor', () => {
         saving={false}
         error=""
         onSave={jest.fn()}
-        onDelete={jest.fn()}
       />
     );
     const editorProps = mockUseEditor.mock.calls[0][0].editorProps;
@@ -1232,7 +1200,6 @@ describe('NotebookEditor', () => {
         saving={false}
         error=""
         onSave={jest.fn()}
-        onDelete={jest.fn()}
         onInvokeAgentSkill={onInvokeAgentSkill}
       />
     );
@@ -1279,7 +1246,6 @@ describe('NotebookEditor', () => {
         saving={false}
         error=""
         onSave={jest.fn()}
-        onDelete={jest.fn()}
       />
     );
 
@@ -1287,20 +1253,18 @@ describe('NotebookEditor', () => {
       eventName === 'update' && handler.length > 0
     ));
 
-    it('opens closed, and offers Edit rather than Save', () => {
+    it('opens closed, with no Save button and no standing "Saved"', () => {
       paint();
       expect(mockEditor.setEditable).toHaveBeenCalledWith(false);
       expect(mockEditor.setEditable).not.toHaveBeenCalledWith(true);
-      expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
+      expect(screen.getByRole('status')).toHaveTextContent('');
     });
 
-    it('becomes editable when you press Edit and replaces the Save button with quiet autosave state', () => {
-      paint();
-      fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
-      expect(mockEditor.setEditable).toHaveBeenCalledWith(true);
-      expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
-      expect(screen.getByRole('status')).toHaveTextContent('Editing');
+    it('says when it last saved as a quiet time, not a label', () => {
+      render(<NotebookEditor entry={{ _id: 'note-1', title: 'Dated', blocks: [], updatedAt: '2026-10-07T15:42:00.000Z', createdAt: '2026-10-07T09:00:00.000Z' }} onSave={jest.fn()} />);
+      expect(screen.getByRole('status')).toHaveTextContent(/^Saved \d{1,2}:42/);
+      expect(screen.getByText(/^Begun Wednesday 7 October/)).toBeInTheDocument();
     });
 
     it('also opens on a click in the note, because that is what a reader reaches for', () => {
@@ -1317,14 +1281,13 @@ describe('NotebookEditor', () => {
           saving={false}
           error=""
           onSave={onSave}
-          onDelete={jest.fn()}
         />
       );
-      fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+      fireEvent.click(screen.getByTestId('editor-content'));
       const updateRegistration = [...mockEditor.on.mock.calls].reverse().find(([eventName]) => eventName === 'update');
       expect(updateRegistration).toBeTruthy();
       act(() => updateRegistration[1]());
-      expect(screen.getByRole('status')).toHaveTextContent('Editing');
+      expect(screen.getByRole('status')).toHaveTextContent('Saving');
       await waitFor(() => {
         expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ id: 'note-1', title: 'Playing to Win' }));
       }, { timeout: 1800 });
@@ -1369,14 +1332,14 @@ describe('NotebookEditor', () => {
       fireEvent.change(screen.getByPlaceholderText('Title'), { target: { value: 'Keep these words' } });
       await act(async () => { await flush(); });
       expect(screen.getByRole('status')).toHaveTextContent('Not saved');
-      await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Retry save' })); });
+      await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Retry' })); });
       expect(onSave).toHaveBeenCalledTimes(2);
       expect(onSave.mock.calls[1][0]).toEqual(onSave.mock.calls[0][0]);
       expect(screen.getByRole('status')).toHaveTextContent('Saving');
       expect(screen.getByPlaceholderText('Title')).toHaveValue('Keep these words');
       await act(async () => { finishRetry({}); });
       expect(screen.getByRole('status')).toHaveTextContent('Saved');
-      expect(screen.queryByRole('button', { name: 'Retry save' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
     });
 
     it('finishes edits made during the navigation flush before reporting Saved', async () => {
@@ -1390,7 +1353,7 @@ describe('NotebookEditor', () => {
       let saving;
       await act(async () => { saving = flush(); });
       fireEvent.change(screen.getByPlaceholderText('Title'), { target: { value: 'The words after that' } });
-      expect(screen.getByRole('status')).toHaveTextContent('Editing');
+      expect(screen.getByRole('status')).toHaveTextContent('Saving');
       await act(async () => { finishSave({}); await saving; });
       expect(onSave.mock.calls.map(([payload]) => payload.title)).toEqual(['First words', 'The words after that']);
       expect(screen.getByRole('status')).toHaveTextContent('Saved');
@@ -1406,7 +1369,7 @@ describe('NotebookEditor', () => {
 
     it('keeps rails visible on focus and fades them only after typing', () => {
       paint();
-      fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+      fireEvent.click(screen.getByTestId('editor-content'));
       const focusRegistration = mockEditor.on.mock.calls.find(([eventName]) => eventName === 'focus');
       if (focusRegistration) {
         act(() => focusRegistration[1]());
@@ -1423,7 +1386,7 @@ describe('NotebookEditor', () => {
 
     it('does not retreat rails for a selection-only update', () => {
       paint();
-      fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+      fireEvent.click(screen.getByTestId('editor-content'));
       act(() => {
         writingUpdates().forEach(([, handler]) => handler({ transaction: { docChanged: false } }));
       });
@@ -1434,7 +1397,7 @@ describe('NotebookEditor', () => {
       jest.useFakeTimers();
       try {
         paint();
-        fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+        fireEvent.click(screen.getByTestId('editor-content'));
         act(() => {
           writingUpdates().forEach(([, handler]) => handler({ transaction: { docChanged: true } }));
         });
@@ -1495,8 +1458,6 @@ describe('NotebookEditor', () => {
         saving={false}
         error=""
         onSave={jest.fn()}
-        onDelete={jest.fn()}
-        showInlineAgentDock={false}
       />
     );
     expect(screen.getByLabelText('Source correction')).toBeInTheDocument();
