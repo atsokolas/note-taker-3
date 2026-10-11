@@ -456,9 +456,11 @@ const byLead = (left, right) => leadWeight(right.item) - leadWeight(left.item)
  * stand with nothing filed has no lead; nothing is promoted to fill space.
  */
 export const frontPage = (papers = [], opened = {}) => {
-  const columns = papers
+  const newest = papers
     .map(paper => ({ paper, issue: opened[latestOf(paper)?._id] }))
-    .filter(({ issue }) => issue?.items?.length)
+    .filter(({ issue }) => issue);
+  const columns = newest
+    .filter(({ issue }) => issue.items?.length)
     .map(({ paper, issue }) => ({
       paper,
       issue,
@@ -471,7 +473,8 @@ export const frontPage = (papers = [], opened = {}) => {
        belong to the other papers. */
     alsoIn: lead ? columns.find(column => column.paper === lead.paper).stories.filter(story => story !== lead) : [],
     columns: columns.filter(column => column.paper !== lead?.paper),
-    quiet: columns.flatMap(({ paper, issue }) => (issue.silences || [])
+    /* A paper that filed nothing can still say where it looked. */
+    quiet: newest.flatMap(({ paper, issue }) => (issue.silences || [])
       .filter(silence => silence.state === 'checked')
       .map(silence => ({ paper, silence }))),
     watching: papers.flatMap(paper => watchThreads(paper.issues).open.map(thread => ({ paper, ...thread })))

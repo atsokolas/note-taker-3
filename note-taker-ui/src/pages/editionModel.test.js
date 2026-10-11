@@ -331,7 +331,7 @@ describe('the stand as a front page and a newsstand', () => {
   const opened = {
     ai: { ...ai, items: [finding('plain'), finding('checked', { passage: 'x', passageCheck: 'found', figures: [{ label: 'share', value: '46.7%' }] })], silences: [{ key: 'infra', label: 'Infrastructure', state: 'checked' }] },
     wr: { ...wr, items: [finding('reading', { confidence: 'high' })] },
-    empty: { _id: 'empty', items: [] }
+    empty: { _id: 'empty', items: [], silences: [{ key: 'policy', label: 'Policy', state: 'checked' }] }
   };
 
   it('leads with the finding a reader can check most, gives every other filled paper a column, and invents nothing', () => {
@@ -339,7 +339,7 @@ describe('the stand as a front page and a newsstand', () => {
     expect(page.lead.item.itemId).toBe('checked');
     expect(page.alsoIn.map(story => story.item.itemId)).toEqual(['plain']);
     expect(page.columns.map(column => [column.paper.profile, column.stories.map(story => story.item.itemId)])).toEqual([['wr', ['reading']]]);
-    expect(page.quiet).toEqual([expect.objectContaining({ silence: expect.objectContaining({ label: 'Infrastructure' }) })]);
+    expect(page.quiet.map(entry => entry.silence.label)).toEqual(['Infrastructure', 'Policy']);
     expect(frontPage(papers, {})).toEqual({ lead: null, alsoIn: [], columns: [], quiet: [], watching: [] });
   });
 

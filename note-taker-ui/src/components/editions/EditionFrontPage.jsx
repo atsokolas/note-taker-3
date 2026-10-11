@@ -35,10 +35,11 @@ const Story = ({ story, size = 'm' }) => (
  */
 export default function EditionFrontPage({ papers, opened, news }) {
   const { lead, alsoIn, columns, quiet, watching } = frontPage(papers, opened);
-  const wire = wireOf(papers).slice(0, 4);
+  const filings = wireOf(papers);
+  const wire = filings.slice(0, 4);
   const stories = [lead, ...alsoIn, ...columns.flatMap(column => column.stories)].filter(Boolean);
   const [first, ...rest] = columns;
-  const hands = [...new Map(wire.map(entry => [entry.agent.key, entry.agent])).values()];
+  const hands = [...new Map(filings.map(entry => [entry.agent.key, entry.agent])).values()];
   return (
     <section className="front" aria-label="Front page">
       <div className="front__folio">

@@ -16,16 +16,20 @@ const newsLine = (papers) => {
   return total ? `${plural(total, 'new finding')} across ${plural(counts.filter(Boolean).length, 'paper')}` : 'Every paper read';
 };
 
-/* Each paper's newest issue, opened, since both views print what is inside. */
+/* Each paper's newest issue, opened, since both views print what is inside.
+   Reopened with every refresh of the stand, so a finding filed while you
+   read appears, and an issue that failed to open is tried again; the last
+   good copy stays up meanwhile. */
 const useNewest = (papers) => {
-  const ids = papers.map(paper => latestOf(paper)._id).join(',');
   const [opened, setOpened] = useState({});
   useEffect(() => {
     let active = true;
-    Promise.all(ids.split(',').filter(Boolean).map(id => getEdition(id).catch(() => null)))
-      .then(rows => { if (active) setOpened(Object.fromEntries(rows.filter(Boolean).map(row => [row._id, row]))); });
+    Promise.all(papers.map(paper => getEdition(latestOf(paper)._id).catch(() => null)))
+      .then(rows => {
+        if (active) setOpened(held => ({ ...held, ...Object.fromEntries(rows.filter(Boolean).map(row => [row._id, row])) }));
+      });
     return () => { active = false; };
-  }, [ids]);
+  }, [papers]);
   return opened;
 };
 
