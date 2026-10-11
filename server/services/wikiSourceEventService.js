@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const { wordBoundaryTrim } = require('../lib/editorialText');
+const { policy, isReviewer } = require('./reviewerRehearsalBudget');
 
 const SOURCE_TYPES = new Set(['article', 'highlight', 'notebook', 'concept', 'question', 'memory', 'external']);
 const EVENT_TYPES = new Set(['created', 'updated', 'deleted', 'imported', 'synced']);
@@ -117,7 +118,8 @@ const createConnectorWikiSourceEvent = async ({
   parentObjectId = null,
   importSessionId = null,
   affectedPageIds = [],
-  metadata = {}
+  metadata = {},
+  reviewerPolicy = policy
 } = {}) => {
   const normalizedProvider = normalizeProvider(provider || payload.provider);
   if (!normalizedProvider || !payload || typeof payload !== 'object') return null;
@@ -138,7 +140,8 @@ const createConnectorWikiSourceEvent = async ({
     url: connectorUrl(payload),
     sourceUpdatedAt: connectorUpdatedAt(payload),
     affectedPageIds: payload.affectedPageIds || payload.affected_page_ids || affectedPageIds,
-    metadata: connectorMetadata({ provider: normalizedProvider, payload, metadata })
+    metadata: connectorMetadata({ provider: normalizedProvider, payload, metadata }),
+    reviewerPolicy
   });
 };
 
@@ -159,7 +162,8 @@ const createWikiSourceEvent = async ({
   sourceUpdatedAt = null,
   affectedPageIds = [],
   status = 'pending',
-  metadata = {}
+  metadata = {},
+  reviewerPolicy = policy
 } = {}) => {
   if (!WikiSourceEvent || !userId) return null;
   const normalizedSourceType = SOURCE_TYPES.has(String(sourceType || '')) ? String(sourceType) : '';
@@ -182,8 +186,10 @@ const createWikiSourceEvent = async ({
     affectedPageIds: Array.isArray(affectedPageIds)
       ? affectedPageIds.map(normalizeObjectId).filter(Boolean).slice(0, 50)
       : [],
-    status: ['pending', 'processing', 'processed', 'failed', 'ignored'].includes(status) ? status : 'pending',
-    metadata: metadata && typeof metadata === 'object' ? metadata : {}
+    status: isReviewer(userId, reviewerPolicy) ? 'held'
+      : (['pending', 'processing', 'processed', 'failed', 'ignored', 'held'].includes(status) ? status : 'pending'),
+    metadata: { ...(metadata && typeof metadata === 'object' ? metadata : {}),
+      ...(isReviewer(userId, reviewerPolicy) ? { reviewerRehearsalHold: { reason: 'reviewer_rehearsal', inferenceAttemptedByHold: false } } : {}) }
   });
   await event.save();
   return event;

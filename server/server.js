@@ -617,6 +617,7 @@ const { buildSearchRetrievalRouter } = require('./routes/searchRetrievalRoutes')
 const { buildSemanticSearchRouter } = require('./routes/semanticSearchRoutes');
 const { buildTagTemplateRouter } = require('./routes/tagTemplateRoutes');
 const { buildConceptMetaRouter } = require('./routes/conceptMetaRoutes');
+const { createReviewerSafeLegacyEmbeddingQueue } = require('./services/reviewerRehearsalBudget');
 const { buildConceptInvestigationRouter } = require('./routes/conceptInvestigationRoutes');
 const { buildConceptContinuityRouter } = require('./routes/conceptContinuityRoutes');
 const { buildConceptDecisionLessonAdoptionRouter } = require('./routes/conceptDecisionLessonAdoptionRoutes');
@@ -5014,17 +5015,10 @@ const buildConceptMarkdown = ({ concept, related, questions }) => {
   return lines.join('\n').trim() + '\n';
 };
 
-const queueEmbeddingUpsert = (items) => {
-  if (!isAiEnabled()) return;
-  const payload = (items || []).filter(Boolean);
-  if (payload.length === 0) return;
-  setImmediate(() => {
-    upsertEmbeddings(payload, { requestId: 'embedding-upsert' })
-      .catch(err => {
-        console.error('❌ AI upsert failed:', err.message || err);
-      });
-  });
-};
+const queueEmbeddingUpsert = createReviewerSafeLegacyEmbeddingQueue({
+  isAiEnabled, upsertEmbeddings,
+  onError: err => console.error('❌ AI upsert failed:', err.message || err)
+});
 
 const queueEmbeddingDelete = (ids) => {
   if (!isAiEnabled()) return;
@@ -6196,6 +6190,7 @@ app.use(buildConceptMetaRouter({
   updateConceptMeta,
   getConceptRelated,
   TagMeta,
+  User,
   EntryRevision,
   conceptReferences: { Article, NotebookEntry, Question, ConceptNote, ReferenceEdge, SharedConcept, ConceptPath, Connection, ReturnQueueEntry },
   escapeRegExp,

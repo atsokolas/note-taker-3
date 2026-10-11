@@ -283,7 +283,7 @@ const buildImportRouter = ({
           contentLength: String(result.article.content || '').length
         },
         sourceEventId: result.sourceEvent?._id || null,
-        status: result.sourceEvent ? 'queued' : 'imported'
+        status: result.sourceEvent?.status === 'held' ? 'held' : (result.sourceEvent ? 'queued' : 'imported')
       });
     } catch (error) {
       console.error('Error importing pasted text:', error);

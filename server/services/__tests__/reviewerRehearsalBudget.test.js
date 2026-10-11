@@ -71,12 +71,13 @@ test('lost response and timeout freeze consumed reservation through retries and 
 });
 
 test('unsupported provider response, unknown cost, changed model and over-limit usage freeze without fallback', async () => {
-  for (const variant of ['reject', 'cost', 'model', 'tokens', 'output']) {
+  for (const variant of ['reject', 'cost', 'nan_cost', 'model', 'tokens', 'output']) {
     const collection = ledger(); let calls = 0;
     const chat = adapter(collection, async () => {
       calls++; const good = reply(); const data = await good.json();
       if (variant === 'reject') return { ok: false, status: 400 };
       if (variant === 'cost') delete data.usage.cost;
+      if (variant === 'nan_cost') data.usage.cost = NaN;
       if (variant === 'model') data.model = 'expensive/unapproved-model';
       if (variant === 'tokens') data.usage.prompt_tokens = 128001;
       if (variant === 'output') data.usage.completion_tokens = 4201;

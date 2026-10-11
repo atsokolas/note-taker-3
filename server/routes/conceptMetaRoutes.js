@@ -1,6 +1,7 @@
 const express = require('express');
 const { recordRevision, snapshotOf } = require('../services/entryHistory');
 const { ConceptRenameError, renameConcept } = require('../services/conceptRename');
+const { verifyReviewerConceptOwner } = require('../services/reviewerRehearsalBudget');
 
 const buildConceptMetaRouter = ({
   authenticateToken,
@@ -9,6 +10,7 @@ const buildConceptMetaRouter = ({
   updateConceptMeta,
   getConceptRelated,
   TagMeta,
+  User = null,
   EntryRevision = null,
   conceptReferences = {},
   escapeRegExp,
@@ -342,7 +344,11 @@ const buildConceptMetaRouter = ({
     try {
       const concept = await findConceptDocument(req.user.id, req.params.name);
       if (!concept) return res.status(404).json({ error: 'Concept not found.' });
+      const reviewerIdentity = req.agentToken ? null
+        : await verifyReviewerConceptOwner({ concept, userId: req.user.id, User });
+      if (reviewerIdentity) console.info(`[REVIEWER_IDENTITY] concept=${reviewerIdentity.conceptId} user=${reviewerIdentity.userId} username=${reviewerIdentity.username}`);
       return res.status(200).json({
+        ...(reviewerIdentity ? { reviewerIdentity } : {}),
         conceptId: String(concept._id),
         conceptName: String(concept.name || ''),
         ideaWorkbench: concept.ideaWorkbench && typeof concept.ideaWorkbench === 'object'

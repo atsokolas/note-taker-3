@@ -1,5 +1,5 @@
 const { CHATGPT_ACCESS_PROFILE } = require('../services/chatgptAccessPolicy');
-const { reviewerMaintenanceArgs: defaultReviewerMaintenanceArgs, isReviewer } = require('../services/reviewerRehearsalBudget');
+const { reviewerMaintenanceArgs: defaultReviewerMaintenanceArgs, isReviewer, readReviewerBudgetStatus } = require('../services/reviewerRehearsalBudget');
 const express = require('express');
 const { collectContradictions, contradictionsTouching } = require('../services/wikiContradictionService');
 const { describeHistory, describeSince, isPromoted } = require('../services/wikiChangeStory');
@@ -5454,7 +5454,9 @@ const buildWikiRouter = ({
           }
         });
       }
-      res.status(200).json(serializeWikiPage(page));
+      const reviewerBudget = page.visibility === 'private'
+        ? await readReviewerBudgetStatus({ userId: req.user.id, pageId: page._id }) : null;
+      res.status(200).json({ ...serializeWikiPage(page), ...(reviewerBudget ? { reviewerBudget } : {}) });
     } catch (_error) {
       res.status(400).json({ error: 'Invalid wiki page id.' });
     }

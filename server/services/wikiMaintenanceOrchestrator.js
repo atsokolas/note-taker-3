@@ -1,4 +1,5 @@
 const { acquireWikiWriteBudget } = require('./wikiAutomaticRetentionService');
+const { policy, isReviewer, holdReviewerSourceEvent } = require('./reviewerRehearsalBudget');
 const { isGitHubRepoPage, maintainWikiPage } = require('./wikiMaintenanceService');
 const { createWikiRevision, snapshotPage } = require('./wikiRevisionService');
 const { runWikiMaintenanceCandidate } = require('./wikiMaintenancePublicationService');
@@ -848,7 +849,18 @@ const afterPreviousMaintenance = (userId, task) => {
   return result;
 };
 
-const processWikiSourceEvent = (args = {}) => readBack(args, afterPreviousMaintenance(
+const processWikiSourceEvent = async (args = {}) => {
+  const target = args.reviewerPolicy || policy;
+  let event = args.sourceEvent;
+  // Resolve event-ID calls before scheduling only when reviewer ownership could
+  // apply. Ordinary owned calls retain their existing read/maintenance path.
+  if (!event && args.sourceEventId && (isReviewer(args.userId, target) || (!args.userId && isReviewer(target.userId, target)))) {
+    event = await args.models?.WikiSourceEvent?.findOne({ _id: args.sourceEventId, ...(args.userId ? { userId: args.userId } : {}) });
+  }
+  const held = await holdReviewerSourceEvent({ event, userId: args.userId,
+    WikiSourceEvent: args.models?.WikiSourceEvent, target });
+  if (held) return held; // Includes the readBack/proposeFromReading sidecar.
+  return readBack(args, afterPreviousMaintenance(
   args.userId || args.sourceEvent?.userId,
   async () => {
     const budget = await acquireWikiWriteBudget(args.models?.WikiPage?.db?.db);
@@ -863,7 +875,8 @@ const processWikiSourceEvent = (args = {}) => readBack(args, afterPreviousMainte
     }
     try { return await runWikiSourceEvent(args); } finally { await budget.release(); }
   }
-));
+  ));
+};
 
 const processPendingWikiSourceEvents = async ({ userId, models = {}, limit = 5, buildUniqueSlug = null, wikiSchemaContent = '' } = {}) => {
   const { WikiSourceEvent } = models;

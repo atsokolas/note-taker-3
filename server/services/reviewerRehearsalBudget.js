@@ -15,11 +15,88 @@ const validId = value => typeof value === 'string' && /^[a-f0-9]{24}$/.test(valu
 const isReviewer = (userId, target = policy) => validId(target.userId) && String(userId || '') === target.userId;
 const gateError = (code, message, status = 409) => Object.assign(new Error(message), { code, status });
 
+// This is an existing authenticated concept read, not a support executor or
+// new grant. Only the browser-verified private fixture may disclose its owner.
+const verifyReviewerConceptOwner = async ({ concept, userId, User, target = policy } = {}) => {
+  if (!User || !validId(target.identityConceptId) || String(concept?._id) !== target.identityConceptId
+    || concept?.isPublic !== false || String(concept?.userId) !== String(userId) || !validId(String(userId))) return null;
+  const owner = await User.findOne({ _id: userId, username: 'noeis_openai_review', accountDisabledAt: null })
+    .select('_id username').lean();
+  if (!owner || String(owner._id) !== String(userId)) return null;
+  return { userId: String(owner._id), username: owner.username, conceptId: target.identityConceptId, ownershipVerified: true };
+};
+
+const createReviewerSafeLegacyEmbeddingQueue = ({
+  isAiEnabled, upsertEmbeddings, schedule = setImmediate, onError = () => {}, target = policy
+} = {}) => items => {
+  if (!isAiEnabled()) return;
+  const allowed = (Array.isArray(items) ? items : []).filter(item => item && !isReviewer(item.userId, target));
+  if (!allowed.length) return;
+  schedule(() => {
+    // Defend an already scheduled batch if the verified policy changes before execution.
+    const current = allowed.filter(item => !isReviewer(item.userId, target));
+    if (current.length) Promise.resolve().then(() => upsertEmbeddings(current, { requestId: 'embedding-upsert' })).catch(onError);
+  });
+};
+
+const holdReviewerSourceEvent = async ({ event, userId, WikiSourceEvent, target = policy } = {}) => {
+  const ownerId = String(event?.userId || userId || '');
+  const alreadyHeld = event?.status === 'held' && event?.metadata?.reviewerRehearsalHold;
+  if (!isReviewer(ownerId, target) && !isReviewer(userId, target) && !alreadyHeld) return null;
+  if (!event?._id || !event.userId || (userId && String(userId) !== ownerId)) {
+    throw gateError('REVIEWER_SOURCE_EVENT_OWNER_MISMATCH', 'Reviewer source-event ownership is unresolved.', 422);
+  }
+  try {
+    const result = await WikiSourceEvent.updateOne({ _id: event._id, userId: event.userId }, { $set: {
+      status: 'held', lockedAt: null, nextAttemptAt: null,
+      'metadata.reviewerRehearsalHold': { reason: 'reviewer_rehearsal', inferenceAttemptedByHold: false }
+    } });
+    if (result.matchedCount !== 1) throw new Error('Hold did not match its owned event.');
+  } catch (_error) {
+    throw gateError('REVIEWER_SOURCE_EVENT_HOLD_UNAVAILABLE', 'Reviewer source-event hold could not be persisted.', 503);
+  }
+  return { event: { _id: event._id, status: 'held' }, pages: [], deferred: true, held: true,
+    reason: 'reviewer_rehearsal', inferenceAttemptedByHold: false };
+};
+
 // The fixed _id is the lifetime budget identity. Neither clients nor retries can
 // choose/reset it. Mongo's _id uniqueness and conditional update serialize POSTs.
 const ledgerCollection = () => {
   if (!mongoose.connection.db) throw gateError('REVIEWER_LEDGER_UNAVAILABLE', 'Reviewer budget storage is unavailable.', 503);
   return mongoose.connection.db.collection('reviewer_rehearsal_budgets');
+};
+
+// Owned rehearsal metadata on the existing private Wiki read. Never return
+// cached completions, prompts, credentials or another ledger owner's values.
+const readReviewerBudgetStatus = async ({ userId, pageId, target = policy, getLedger = ledgerCollection } = {}) => {
+  if (!isReviewer(userId, target) || !validId(target.pageId) || String(pageId) !== target.pageId) return null;
+  const limits = { maxRequests: MAX_REQUESTS, maxReservedUsd: MAX_RESERVED_MICRO_USD / 1e6 };
+  try {
+    const row = await getLedger().findOne({ _id: target.ledgerId }, { projection: {
+      userId: 1, pageId: 1, requests: 1, reservedMicroUsd: 1, inFlight: 1, frozen: 1, failureCode: 1,
+      'receipts.generationId': 1, 'receipts.usage': 1
+    } });
+    if (!row) return { ...limits, status: 'not_started', requests: 0, reservedUsd: 0, receipts: [] };
+    if (row.userId !== target.userId || row.pageId !== target.pageId
+      || !Number.isInteger(row.requests) || row.requests < 0 || row.requests > MAX_REQUESTS
+      || !Number.isInteger(row.reservedMicroUsd) || row.reservedMicroUsd < 0 || row.reservedMicroUsd > MAX_RESERVED_MICRO_USD
+      || row.reservedMicroUsd !== row.requests * RESERVATION_MICRO_USD
+      || typeof row.inFlight !== 'boolean' || typeof row.frozen !== 'boolean'
+      || !Array.isArray(row.receipts) || row.receipts.length > row.requests
+      || row.receipts.some(receipt => !Number.isInteger(receipt.usage?.promptTokens) || receipt.usage.promptTokens < 0
+        || receipt.usage.promptTokens > 128000 || !Number.isInteger(receipt.usage?.completionTokens)
+        || receipt.usage.completionTokens < 0 || receipt.usage.completionTokens > MAX_OUTPUT_TOKENS
+        || !Number.isFinite(receipt.usage?.cost) || receipt.usage.cost < 0 || receipt.usage.cost > MAX_TOKEN_COST)) {
+      return { ...limits, status: 'unavailable', code: 'REVIEWER_LEDGER_UNVERIFIED' };
+    }
+    return { ...limits, status: row.frozen || row.inFlight ? 'held' : (row.requests >= MAX_REQUESTS ? 'exhausted' : 'available'),
+      requests: row.requests, reservedUsd: row.reservedMicroUsd / 1e6,
+      inFlight: Boolean(row.inFlight), frozen: Boolean(row.frozen), failureCode: row.failureCode || '',
+      receipts: row.receipts.map(receipt => ({ generationId: String(receipt.generationId || ''),
+        usage: { promptTokens: receipt.usage.promptTokens, completionTokens: receipt.usage.completionTokens, cost: receipt.usage.cost } })) };
+  } catch (_error) {
+    return { ...limits, status: 'unavailable', code: 'REVIEWER_LEDGER_UNAVAILABLE' };
+  }
 };
 
 const buildPayload = (request = {}) => {
@@ -133,7 +210,7 @@ const createBoundedReviewerChat = ({
     if (typeof text !== 'string' || !text.trim() || data.model !== MODEL
       || !Number.isInteger(usage.prompt_tokens) || usage.prompt_tokens < 0 || usage.prompt_tokens > 128000
       || !Number.isInteger(usage.completion_tokens) || usage.completion_tokens < 0 || usage.completion_tokens > MAX_OUTPUT_TOKENS
-      || typeof usage.cost !== 'number' || usage.cost < 0 || usage.cost > MAX_TOKEN_COST) {
+      || !Number.isFinite(usage.cost) || usage.cost < 0 || usage.cost > MAX_TOKEN_COST) {
       throw gateError('REVIEWER_PROVIDER_RECEIPT_INVALID', 'The provider did not return a verifiable bounded receipt.', 502);
     }
     const completion = { text, model: MODEL, provider: 'openrouter' };
@@ -179,6 +256,8 @@ const reviewerMaintenanceArgs = ({ userId, page, target = policy, chat = createB
 };
 
 module.exports = {
+  readReviewerBudgetStatus,
+  verifyReviewerConceptOwner, createReviewerSafeLegacyEmbeddingQueue, holdReviewerSourceEvent,
   policy, isReviewer, reviewerMaintenanceArgs, createBoundedReviewerChat,
   buildPayload, HOLD_REASON,
   bounds: { MODEL, ENDPOINT, MAX_REQUESTS, MAX_RESERVED_MICRO_USD, MAX_OUTPUT_TOKENS, MAX_MESSAGE_BYTES, MAX_TOKEN_COST }
