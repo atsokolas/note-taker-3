@@ -182,3 +182,14 @@ export const getPublicVolume = async (slug) => {
   const res = await api.get(`/api/public/volumes/${encodeURIComponent(slug)}`);
   return res.data || null;
 };
+
+/* Every note, compact, with where it stands; the board is never stale cache. */
+export const getNotebookBoard = async () => {
+  const res = await api.get('/api/notebook?summary=1&compact=1', getAuthHeaders());
+  return Array.isArray(res.data) ? res.data : [];
+};
+
+export const moveNotebookEntry = async (id, board) => {
+  const res = await api.patch(`/api/notebook/${encodeURIComponent(id)}/board`, board, getAuthHeaders());
+  return res.data?.board || null;
+};

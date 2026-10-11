@@ -147,7 +147,9 @@ body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.think-note
 .think-notes__shelf { grid-column: 1; grid-row: 1; padding-top: 32px; }
 .think-notes__note { grid-column: 3; grid-row: 1; width: 100%; max-width: 740px; padding-inline: clamp(24px, 3vw, 48px); justify-self: center; }
 .think-notes__partner { grid-column: 4; grid-row: 1; padding-left: 20px; }
-.think-notes__shelf-toggle { position: absolute; top: 0; left: 0; min-height: 32px; border: 0; background: transparent; color: var(--text-secondary); font: .72rem var(--noeis-ui-font, system-ui); cursor: pointer; }
+.think-notes__toggles { position: absolute; top: 0; left: 0; display: flex; gap: 16px; }
+.think-notes__shelf-toggle { min-height: 32px; padding: 0; border: 0; border-bottom: 1px solid transparent; background: transparent; color: var(--text-secondary); font: .72rem var(--noeis-ui-font, system-ui); cursor: pointer; }
+.think-notes__shelf-toggle[aria-pressed='true'] { border-bottom-color: currentColor; color: var(--text-primary); }
 .think-notes__alternatives { grid-column: 2; grid-row: 1; position: sticky; top: 104px; max-height: calc(100dvh - 120px); overflow: auto; min-width: 0; padding: 36px 20px 20px; border-right: 1px solid var(--vellum-line); }
 .notebook-alternatives { outline: none; font: .78rem/1.55 ui-monospace, SFMono-Regular, monospace; }
 .notebook-alternatives header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
@@ -178,9 +180,10 @@ body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.think-note
   .think-notes { --notes-width: 0px; }
   .think-notes.has-context { --drawer-width: 0px; padding-bottom: 80px; }
   .think-notes.has-alternatives { --alternatives-width: 0px; padding-bottom: calc(58dvh + 120px); }
-  .think-notes__note { padding-inline: 0; }
-  .think-notes__shelf { grid-column: 3; grid-row: 2; position: static; max-height: none; overflow: visible; padding-top: 28px; border-right: 0; }
-  .think-notes__shelf-toggle { position: static; grid-column: 3; margin-bottom: 16px; justify-self: start; }
+  .think-notes__note { grid-row: 2; padding-inline: 0; }
+  .think-notes__shelf { grid-column: 3; grid-row: 3; position: static; max-height: none; overflow: visible; padding-top: 28px; border-right: 0; }
+  .think-notes__toggles { position: static; grid-column: 3; grid-row: 1; margin-bottom: 16px; justify-self: start; }
+  .think-notes.has-board .think-notes__shelf { display: none; }
   .think-notes__alternatives { position: fixed; inset: 42dvh 0 0; z-index: 40; padding: 18px 24px; max-height: 58dvh; background: var(--vellum-paper, #fbf8f1); border-top: 1px solid var(--vellum-line); border-right: 0; }
   .think-notes__alternatives header { margin-bottom: 12px; }
   .think-notes__partner:not([hidden]) { position: fixed; inset: 88px 0 0; z-index: 41; width: 100vw; padding: 20px 24px 48px; background: var(--vellum-paper, #fbf8f1); border-left: 0; }
@@ -621,3 +624,74 @@ body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.think-note
 
 /* Partner speaks when asked: an idle trace line ("anchored to …") is noise here. */
 .think-notes__partner .agent-ticker[data-state='idle'] { display: none; }
+
+/* ---- The board: where each piece of writing stands -------------------- */
+.think-notes.has-board { --alternatives-width: 0px; --drawer-width: 0px; }
+.think-notes.has-board > :is(.think-notes__note, .think-notes__alternatives, .think-notes__partner) { display: none !important; }
+.think-notes__board { grid-column: 2 / -1; grid-row: 1; min-width: 0; padding: 32px 0 0 clamp(20px, 3vw, 44px); font-family: var(--font-sans); }
+.notebook-board__header.ui-page-header { margin-bottom: 4px; }
+.notebook-board__header .ui-page-header__actions { display: flex; flex-wrap: wrap; gap: 4px 18px; }
+.notebook-board__receipt { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; min-height: 1.6em; margin: 0 0 18px; color: var(--text-secondary); font-size: .8rem; }
+.notebook-board__receipt button,
+.notebook-board__stale button,
+.notebook-board__restore {
+  padding: 0; border: 0; border-bottom: 1px solid currentColor; background: transparent;
+  color: var(--noeis-pointer, #6f87ff); font: inherit; cursor: pointer;
+}
+.notebook-board__columns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(16px, 2.2vw, 32px); align-items: start; }
+.notebook-board__column {
+  min-height: 240px; padding: 14px 12px 18px; border-radius: 10px;
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 80%, transparent);
+  transition: background-color 140ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.notebook-board__column.is-over { background: color-mix(in srgb, var(--noeis-pointer, #6f87ff) 8%, transparent); }
+.notebook-board__column h2,
+.notebook-board__group h2 {
+  display: flex; justify-content: space-between; margin: 0 0 12px;
+  color: var(--text-secondary); font: 500 .7rem var(--noeis-ui-font, system-ui); letter-spacing: .12em; text-transform: uppercase;
+}
+.notebook-board__column h2 span,
+.notebook-board__group h2 span { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.notebook-board ul { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.notebook-board__card {
+  display: grid; gap: 6px; padding: 12px 14px; border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 70%, transparent);
+  background: var(--vellum-paper, var(--surface-1, transparent));
+}
+@media (pointer: fine) {
+  .notebook-board__card[draggable='true'] { cursor: grab; }
+  .notebook-board__card[draggable='true']:active { cursor: grabbing; }
+}
+.notebook-board__title {
+  padding: 0; border: 0; background: transparent; color: var(--text-primary); text-align: left; cursor: pointer;
+  font: 1.02rem/1.3 var(--font-serif, 'Newsreader', Georgia, serif); overflow-wrap: anywhere;
+}
+.notebook-board__title:hover,
+.notebook-board__title:focus-visible { color: var(--noeis-pointer, #6f87ff); }
+.notebook-board__snippet,
+.notebook-board__next { margin: 0; color: var(--text-secondary); font-size: .8rem; line-height: 1.45; overflow-wrap: anywhere; }
+.notebook-board__snippet { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.notebook-board__next { font-style: italic; }
+.notebook-board__meta { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 2px 10px; color: var(--text-muted); font-size: .7rem; }
+.notebook-board__meta select {
+  min-height: 28px; margin-left: auto; padding: 0 2px; border: 0; border-bottom: 1px solid transparent; border-radius: 0;
+  background: transparent; color: var(--text-secondary); font: inherit; cursor: pointer;
+}
+.notebook-board__meta select:hover,
+.notebook-board__meta select:focus-visible { border-bottom-color: currentColor; color: var(--text-primary); }
+.notebook-board__stale { margin: 0 0 12px; color: var(--text-secondary); font-size: .78rem; line-height: 1.5; }
+.notebook-board__quiet { margin: 6px 0; color: var(--text-muted); font-size: .8rem; }
+.notebook-board__archive { display: grid; gap: 32px; max-width: 760px; }
+.notebook-board__group ul { grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); }
+.notebook-board :is(button, select):focus-visible { outline: 2px solid var(--noeis-pointer, #6f87ff); outline-offset: 3px; }
+@container noeis-column (max-width: 1040px) {
+  .notebook-board__columns { gap: 12px; }
+  .notebook-board__column { padding-inline: 6px; }
+}
+@container noeis-column (max-width: 760px) {
+  .think-notes__board { grid-column: 3; grid-row: 2; padding: 0; }
+  .notebook-board__columns { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+  .notebook-board__column { min-height: 0; padding-inline: 0; }
+  .notebook-board__meta select { min-height: 36px; }
+}
+@media (prefers-reduced-motion: reduce) { .notebook-board__column { transition: none; } }
