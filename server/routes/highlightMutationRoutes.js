@@ -17,6 +17,7 @@ const buildHighlightMutationRouter = ({
   Article,
   normalizeTags,
   enqueueHighlightEmbedding,
+  deleteHighlightEmbeddingState = async () => {},
   markTourSignal,
   normalizeItemType,
   parseClaimId,
@@ -362,6 +363,7 @@ const buildHighlightMutationRouter = ({
 
         article.highlights.pull(highlightId);
         await article.save();
+        await deleteHighlightEmbeddingState({ userId, highlightId });
 
         /* Re-read only for the populated folder the response carries, and named
            by owner like every other query here. */

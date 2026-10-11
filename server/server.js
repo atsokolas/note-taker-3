@@ -19,6 +19,7 @@ const {
 const {
   enqueueArticleEmbedding,
   deleteArticleEmbeddingState,
+  deleteHighlightEmbeddingState,
   enqueueHighlightEmbedding,
   enqueueNotebookEmbedding,
   enqueueQuestionEmbedding,
@@ -6477,6 +6478,7 @@ app.use(buildHighlightMutationRouter({
   Article,
   normalizeTags,
   enqueueHighlightEmbedding,
+  deleteHighlightEmbeddingState,
   markTourSignal,
   normalizeItemType,
   parseClaimId,

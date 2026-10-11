@@ -1534,17 +1534,21 @@ async function createConceptSuggestionDraft({ conceptId, userId, mode = SUPPORTE
     itemSuggestions = built.itemSuggestions;
     conceptSuggestions = built.conceptSuggestions;
 
-    if (itemSuggestions.length === 0 && conceptSuggestions.length === 0) {
+    // Concepts are not in the vector index, so related concepts always come
+    // from the library; items do too when the index finds nothing.
+    if (itemSuggestions.length === 0 || conceptSuggestions.length === 0) {
       const fallback = await buildFallbackSuggestionsFromLibrary({
         userId: safeUserId,
         conceptTitle,
         conceptDescription,
         concept
       });
-      itemSuggestions = fallback.itemSuggestions;
-      conceptSuggestions = fallback.conceptSuggestions;
-      usedFallbackSuggestions = true;
-      logAgentMetric('scout.fallback_suggestions', { mode: safeMode });
+      if (itemSuggestions.length === 0) {
+        itemSuggestions = fallback.itemSuggestions;
+        usedFallbackSuggestions = true;
+        logAgentMetric('scout.fallback_suggestions', { mode: safeMode });
+      }
+      if (conceptSuggestions.length === 0) conceptSuggestions = fallback.conceptSuggestions;
     }
   }
 
@@ -1886,27 +1890,22 @@ async function buildConceptWorkspace({
       });
     }
 
-    let planResponse = null;
-    try {
-      planResponse = await planConcept({ conceptTitle, conceptDescription, candidateItems });
-    } catch (error) {
+    // The model only groups; queries, outline, claims and questions come from
+    // the local plan, which also answers whole when the model cannot.
+    const localPlan = buildLocalFallbackPlan({ conceptTitle, conceptDescription, initialQueries, candidateItems });
+    const groupedPlan = await planConcept({ conceptTitle, conceptDescription, candidateItems }).catch((error) => {
       console.warn('[AGENT-BUILD] plan unavailable, using local fallback plan', {
         conceptId: safeConceptId,
         status: error?.status || null,
         message: error?.message || ''
       });
-    }
-    if (!planResponse) {
+      return null;
+    });
+    if (!groupedPlan) {
       usedFallbackPlan = true;
       logAgentMetric('build.fallback_plan', { mode: safeMode });
-      planResponse = buildLocalFallbackPlan({
-        conceptTitle,
-        conceptDescription,
-        initialQueries,
-        candidateItems
-      });
     }
-    plan = normalizePlan(planResponse);
+    plan = normalizePlan({ ...localPlan, groups: groupedPlan?.groups || localPlan.groups });
   }
 
   if (previewOnly) {
