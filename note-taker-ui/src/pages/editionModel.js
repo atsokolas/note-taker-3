@@ -239,7 +239,7 @@ export const sourceLine = (item = {}) => [
   item.confidence ? `${item.confidence} confidence` : ''
 ].filter(Boolean).join(' · ');
 
-const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+export const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 const shortDay = (date) => `${MONTHS[date.getUTCMonth()].slice(0, 3)} ${date.getUTCDate()}`;
 const READING_WPM = 230;
 const KIND_NOUN = { preprint: 'preprint', peer_reviewed: 'peer-reviewed paper', company: 'company source', news: 'news report' };
@@ -428,3 +428,81 @@ export const watchThreads = (issues = []) => {
   const all = [...threads.values()].reverse();
   return { open: all.filter(thread => !settled(thread.status)), settled: all.filter(thread => settled(thread.status)) };
 };
+
+/* What a finding means, in its own plain line, before the title of the source it rests on. */
+export const headlineOf = (item = {}) => item.plain || item.title;
+
+/* The newest issue of a paper: what its cover and its front-page column print. */
+export const latestOf = paper => paper.issues[paper.issues.length - 1];
+
+/* How strongly a finding can lead a front page: by what it carries that a
+   reader can check, never by who filed it. */
+const leadWeight = item => (item.passageCheck === 'found' ? 4 : 0)
+  + (item.figures?.length ? 2 : 0)
+  + ({ high: 2, moderate: 1 }[item.confidence] || 0)
+  + (item.plain ? 1 : 0);
+
+const byLead = (left, right) => leadWeight(right.item) - leadWeight(left.item)
+  || timestampOf(right.item.filedAt) - timestampOf(left.item.filedAt);
+
+/**
+ * One front page for every paper you keep, set from each paper's newest
+ * issue (`opened` holds those issues with their findings).
+ *
+ * Eligibility: findings filed into the newest issue of a paper. Quality: the
+ * lead is the finding with the most a reader can check (a passage found in
+ * its source, figures, stated confidence, a plain line), newest on a tie.
+ * Silence: a paper whose newest issue holds nothing gets no column, and a
+ * stand with nothing filed has no lead; nothing is promoted to fill space.
+ */
+export const frontPage = (papers = [], opened = {}) => {
+  const newest = papers
+    .map(paper => ({ paper, issue: opened[latestOf(paper)?._id] }))
+    .filter(({ issue }) => issue);
+  const columns = newest
+    .filter(({ issue }) => issue.items?.length)
+    .map(({ paper, issue }) => ({
+      paper,
+      issue,
+      stories: issue.items.map(item => ({ paper, issue, item })).sort(byLead)
+    }));
+  const lead = columns.flatMap(column => column.stories).sort(byLead)[0] || null;
+  return {
+    lead,
+    /* The rest of the lead's issue runs under it, so the columns beside it
+       belong to the other papers. */
+    alsoIn: lead ? columns.find(column => column.paper === lead.paper).stories.filter(story => story !== lead) : [],
+    columns: columns.filter(column => column.paper !== lead?.paper),
+    /* A paper that filed nothing can still say where it looked. */
+    quiet: newest.flatMap(({ paper, issue }) => (issue.silences || [])
+      .filter(silence => silence.state === 'checked')
+      .map(silence => ({ paper, silence }))),
+    watching: papers.flatMap(paper => watchThreads(paper.issues).open.map(thread => ({ paper, ...thread })))
+  };
+};
+
+/**
+ * The wire: who filed what into each paper's newest issue, newest first.
+ * Read off the stand's rows, so it costs nothing to print.
+ */
+export const wireOf = (papers = []) => papers
+  .flatMap((paper) => {
+    const issue = latestOf(paper);
+    const hands = new Map();
+    filingsOf(issue).forEach((filing) => {
+      const agent = filerOf(filing);
+      if (!agent) return;
+      const held = hands.get(agent.key) || { agent, count: 0, at: 0 };
+      hands.set(agent.key, { ...held, count: held.count + 1, at: Math.max(held.at, timestampOf(filing.filedAt)) });
+    });
+    return [...hands.values()].map(hand => ({ paper, issue, ...hand }));
+  })
+  .sort((left, right) => right.at - left.at);
+
+/** What a paper's cover leads with: its strongest finding's first figure. */
+export const coverFigure = (issue = null) => (issue?.items || [])
+  .map(item => ({ item }))
+  .sort(byLead)
+  .map(({ item }) => item.figures?.[0])
+  .find(Boolean) || null;
+

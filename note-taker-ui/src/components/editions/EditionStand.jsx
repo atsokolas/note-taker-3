@@ -1,92 +1,76 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { datelineLine, issueLine, latestFilingLine, newCountOf, stateOf, windowLine } from '../../pages/editionModel';
-import { plural } from './EditionRun';
+import React, { useEffect, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { getEdition } from '../../api/editions';
+import { latestOf, newCountOf, plural } from '../../pages/editionModel';
+import EditionFrontPage from './EditionFrontPage';
+import EditionNewsstand from './EditionNewsstand';
+import { readEditionLocal, writeEditionLocal } from './editionReadingState';
 
-/* How many of a paper's issues its line on the stand shows: about a season. */
-const YEAR_MARK_ISSUES = 26;
+const VIEWS = { front: 'Front page', stand: 'Newsstand' };
 
-/**
- * A paper's run at the scale of a year: one bar per issue, oldest to newest,
- * taller for more findings, marked where you kept something, dashed while
- * the newest is still being written.
- */
-function YearMark({ issues }) {
-  const shown = issues.slice(-YEAR_MARK_ISSUES);
-  const kept = shown.filter(issue => issue.savedCount).length;
-  return (
-    <span
-      className="year-mark"
-      role="img"
-      aria-label={`${plural(shown.length, 'issue')} since ${windowLine(shown[0]).split(' – ')[0]}${kept ? `; you kept from ${kept}` : ''}`}
-    >
-      {shown.map(issue => (
-        <span
-          key={issue._id}
-          className={`year-mark__issue${issue.savedCount ? ' is-kept' : ''}${stateOf(issue) === 'filling' ? ' is-filling' : ''}`}
-          style={{ '--filed': Math.min(issue.itemCount ?? (issue.filings || []).length, 8) }}
-        />
-      ))}
-    </span>
-  );
-}
-
-/* The answer to "anything for me?", in one sentence. Unknown says nothing. */
+/* The answer to "anything for me?", in one line. Unknown says nothing. */
 const newsLine = (papers) => {
   const counts = papers.map(paper => newCountOf(paper.issues));
   if (counts.every(count => count === null)) return '';
   const total = counts.reduce((sum, count) => sum + (count || 0), 0);
-  if (!total) return 'Nothing new since you last read. Every paper is caught up.';
-  const waiting = counts.filter(Boolean).length;
-  return `${plural(total, 'new finding')} across ${plural(waiting, 'paper')}.`;
+  return total ? `${plural(total, 'new finding')} across ${plural(counts.filter(Boolean).length, 'paper')}` : 'Every paper read';
+};
+
+/* Each paper's newest issue, opened, since both views print what is inside.
+   Reopened with every refresh of the stand, so a finding filed while you
+   read appears, and an issue that failed to open is tried again; the last
+   good copy stays up meanwhile. */
+const useNewest = (papers) => {
+  const [opened, setOpened] = useState({});
+  useEffect(() => {
+    let active = true;
+    Promise.all(papers.map(paper => getEdition(latestOf(paper)._id).catch(() => null)))
+      .then(rows => {
+        if (active) setOpened(held => ({ ...held, ...Object.fromEntries(rows.filter(Boolean).map(row => [row._id, row])) }));
+      });
+    return () => { active = false; };
+  }, [papers]);
+  return opened;
 };
 
 /**
- * 10⁴ — every paper you keep, one line each: what it last printed, the shape
- * of its year, and what is new on it. The paper with the latest filing leads,
- * and the place you stopped reading is one tap away.
+ * Every paper you keep, read the way you choose: one front page set from all
+ * of them, or a newsstand with each paper as a cover. The choice is yours and
+ * is remembered on this device.
  */
 export default function EditionStand({ papers, resume = null }) {
-  const news = newsLine(papers);
+  const [chosen, setView] = useState(() => readEditionLocal('stand', 'view') || 'front');
+  const [params] = useSearchParams();
+  const navigate = useNavigate();
+  /* A magazine opened by link opens on the newsstand, whichever view is set. */
+  const view = params.get('open') ? 'stand' : chosen;
+  const opened = useNewest(papers);
+  const choose = (next) => {
+    setView(next);
+    writeEditionLocal('stand', 'view', next);
+    if (params.get('open')) navigate('/editions');
+  };
   const place = resume?.issueId && papers.some(paper => paper.issues.some(issue => issue._id === resume.issueId))
     ? `/editions/${encodeURIComponent(resume.issueId)}${resume.itemId ? `?item=${encodeURIComponent(resume.itemId)}` : ''}`
     : '';
+  const news = newsLine(papers);
   return (
-    <section className="edition-stand" aria-labelledby="edition-stand-title">
-      <header className="edition-stand__head">
-        <h1 id="edition-stand-title">Your papers</h1>
-        {news ? <p>{news}</p> : null}
+    <div className={`edition-stand edition-stand--${view}`}>
+      <div className="edition-stand__bar">
+        <div className="edition-stand__views" role="group" aria-label="Read your papers as">
+          {Object.entries(VIEWS).map(([key, label]) => (
+            <button key={key} type="button" aria-pressed={view === key} onClick={() => choose(key)}>{label}</button>
+          ))}
+        </div>
         {place ? (
           <Link className="edition-stand__resume" to={place}>
             Back to where you stopped{resume.title ? <i>{resume.title}</i> : null}
           </Link>
         ) : null}
-      </header>
-      <ol className="edition-stand__papers">
-        {papers.map((paper) => {
-          const latest = paper.issues[paper.issues.length - 1];
-          const fresh = newCountOf(paper.issues);
-          return (
-            <li key={paper.profile}>
-              <Link to={`/editions?paper=${encodeURIComponent(paper.profile)}`} className="edition-stand__paper">
-                <span className="edition-stand__title">{paper.title}</span>
-                <span className="edition-stand__latest">
-                  {[
-                    issueLine({ ...latest, issueLabel: paper.issueLabel }),
-                    datelineLine(latest),
-                    latestFilingLine(latest)
-                  ].filter(Boolean).join(' · ')}
-                </span>
-                {latest.headline || latest.standfirst
-                  ? <span className="edition-stand__standfirst">{latest.headline || latest.standfirst}</span>
-                  : null}
-                <YearMark issues={paper.issues} />
-                <span className={`edition-stand__new${fresh ? ' is-new' : ''}`}>{fresh ? `${fresh} new` : ''}</span>
-              </Link>
-            </li>
-          );
-        })}
-      </ol>
-    </section>
+      </div>
+      {view === 'stand'
+        ? <EditionNewsstand papers={papers} opened={opened} />
+        : <EditionFrontPage papers={papers} opened={opened} news={news} />}
+    </div>
   );
 }
