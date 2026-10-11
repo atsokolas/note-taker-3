@@ -1,13 +1,18 @@
 import {
+  buildFailure,
   extraSentenceNotice,
   linkLabel,
   markMatches,
   passageTitle,
+  pageLede,
+  pageState,
   passagesHeadline,
   readPastedReading,
   readwiseReceipt,
   savedOn,
-  viewProblem
+  topicProblem,
+  viewProblem,
+  writtenFrom
 } from './welcomeModel';
 
 describe('welcomeModel', () => {
@@ -68,5 +73,38 @@ describe('welcomeModel', () => {
     expect(savedOn('2026-10-09T12:00:00Z', now)).toBe('saved Oct 9');
     expect(savedOn('2025-03-02T12:00:00Z', now)).toBe('saved Mar 2, 2025');
     expect(savedOn('', now)).toBe('');
+  });
+
+  it('takes a topic in a few words and sends a sentence on to the view', () => {
+    expect(topicProblem('Costco')).toBe('');
+    expect(topicProblem('')).toMatch(/Name what the page/);
+    expect(topicProblem('Costco membership fees make it very hard to compete with')).toMatch(/few words/);
+  });
+
+  it('reads where a build stands off the page', () => {
+    expect(pageState(null)).toBe('none');
+    expect(pageState({ aiState: { draftStatus: 'maintaining' } })).toBe('writing');
+    expect(pageState({ aiState: { draftStatus: 'error' } })).toBe('failed');
+    expect(pageState({ aiState: { draftStatus: 'ready' } })).toBe('written');
+    expect(pageState({})).toBe('written');
+  });
+
+  it('says a refused build stopped rather than invent, and offers no retry', () => {
+    const refused = buildFailure({ title: 'Costco', aiState: { errorCode: 'WIKI_CANDIDATE_REJECTED' } });
+    expect(refused.headline).toBe('Your reading does not say enough about Costco yet.');
+    expect(refused.retry).toBe(false);
+    expect(buildFailure({ aiState: { errorCode: 'WIKI_ASYNC_BUILD_TIMED_OUT' } }).retry).toBe(true);
+  });
+
+  it('opens the page on its first real paragraph', () => {
+    const page = { plainText: '# Costco\n\nShort.\n\nCostco charges a fee up front, and the fee is most of its profit, so prices can sit near cost.' };
+    expect(pageLede(page)).toMatch(/^Costco charges a fee/);
+    expect(pageLede({})).toBe('');
+  });
+
+  it('counts the sources a page was written from', () => {
+    expect(writtenFrom(0)).toBe('Your first page is written.');
+    expect(writtenFrom(1)).toBe('Your first page is written, from one of your sources.');
+    expect(writtenFrom(3)).toBe('Your first page is written, from three of your sources.');
   });
 });

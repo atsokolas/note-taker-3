@@ -255,7 +255,7 @@ body.noeis-editorial .welcome .welcome__view-field,
   padding-top: 8px;
 }
 
-/* ---------- step one ---------- */
+/* ---------- sample wikis ---------- */
 
 .welcome__examples {
   display: grid;
@@ -289,7 +289,7 @@ body.noeis-editorial .welcome .welcome__view-field,
 .welcome .welcome__examples button:hover,
 .welcome .welcome__examples button:focus-visible { color: var(--welcome-ink); }
 
-/* ---------- step two ---------- */
+/* ---------- reading ---------- */
 
 .welcome__source {
   display: grid;
@@ -331,7 +331,50 @@ body.noeis-editorial .welcome .welcome__view-field,
 .welcome__arrivals li.is-in small { color: var(--welcome-thread); }
 .welcome__arrivals li.is-failed small { color: var(--noeis-danger, #a33); }
 
-/* ---------- step three ---------- */
+/* ---------- the first page ---------- */
+
+.welcome__topics {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.welcome__topics li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 2px 16px;
+}
+
+.welcome .welcome__topics button {
+  padding: 0;
+  border: 0;
+  color: var(--welcome-ink);
+  font-family: var(--welcome-serif);
+  font-size: 1.2rem;
+  white-space: normal;
+  text-align: left;
+  transition: color 140ms ease;
+}
+
+.welcome .welcome__topics button:hover,
+.welcome .welcome__topics button:focus-visible { color: var(--welcome-thread); }
+
+.welcome__topics small {
+  color: var(--welcome-subtle);
+  font-size: 0.8rem;
+}
+
+.welcome__page-lede {
+  font-family: var(--welcome-serif);
+  font-size: 1.12rem;
+  line-height: 1.6;
+}
+
+/* ---------- what it says ---------- */
 
 .welcome__reading {
   color: var(--welcome-muted);

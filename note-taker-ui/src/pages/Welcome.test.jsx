@@ -2,10 +2,14 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import Welcome from './Welcome';
 import {
+  adoptWikiStarterPack,
+  archiveWikiPage,
   createWikiPage,
   getJudgmentLibraryEvidence,
   getWikiPage,
-  listWikiPages,
+  listWikiProposals,
+  listWikiStarterPacks,
+  startWikiPageBuild,
   updateWikiPage
 } from '../api/wiki';
 import { getArticles } from '../api/articles';
@@ -31,10 +35,14 @@ jest.mock('react-router-dom', () => {
 }, { virtual: true });
 
 jest.mock('../api/wiki', () => ({
+  adoptWikiStarterPack: jest.fn(),
+  archiveWikiPage: jest.fn().mockResolvedValue({}),
   createWikiPage: jest.fn(),
   getJudgmentLibraryEvidence: jest.fn(),
   getWikiPage: jest.fn(),
-  listWikiPages: jest.fn(),
+  listWikiProposals: jest.fn(),
+  listWikiStarterPacks: jest.fn(),
+  startWikiPageBuild: jest.fn(),
   updateWikiPage: jest.fn()
 }));
 jest.mock('../api/articles', () => ({ getArticles: jest.fn() }));
@@ -52,11 +60,15 @@ jest.mock('../onboarding/useExtensionPresence', () => ({
 }));
 
 const SENTENCE = 'Remote teams write better than they meet.';
-const heldPage = (judgment = {}) => ({
-  _id: 'view-1',
-  createdAt: '2026-10-11T00:00:00Z',
-  judgment: { currentJudgment: SENTENCE, ...judgment }
+const writtenPage = (extra = {}) => ({
+  _id: 'page-1',
+  title: 'Remote work',
+  plainText: '# Remote work\n\nRemote teams lean on writing, and the written record outlasts the meetings that would have replaced it.',
+  sourceRefs: [{ title: 'a' }, { title: 'b' }, { title: 'c' }],
+  aiState: { draftStatus: 'ready' },
+  ...extra
 });
+const heldPage = (judgment = {}) => writtenPage({ judgment: { currentJudgment: SENTENCE, ...judgment } });
 
 const renderAt = (search = '') => {
   mockSearch = search;
@@ -70,51 +82,20 @@ describe('Welcome', () => {
     localStorage.clear();
     window.scrollTo = jest.fn();
     getArticles.mockResolvedValue([]);
-    getWikiPage.mockResolvedValue(heldPage());
-    listWikiPages.mockResolvedValue([]);
+    getWikiPage.mockResolvedValue(writtenPage());
+    listWikiProposals.mockResolvedValue({ proposals: [] });
+    listWikiStarterPacks.mockResolvedValue([]);
+    archiveWikiPage.mockResolvedValue({});
+    getJudgmentLibraryEvidence.mockResolvedValue({ candidates: [] });
   });
 
-  it('holds the sentence you write and carries it into the next step', async () => {
-    createWikiPage.mockResolvedValue({ _id: 'view-1' });
-    updateWikiPage.mockResolvedValue(heldPage());
-
-    renderAt('');
-    fireEvent.change(screen.getByLabelText('Your view'), { target: { value: SENTENCE } });
-    fireEvent.click(screen.getByRole('button', { name: 'Hold it' }));
-
-    expect(await screen.findByRole('heading', { name: 'Bring what you have read.' })).toBeInTheDocument();
-    expect(createWikiPage).toHaveBeenCalledWith({ title: SENTENCE, pageType: 'topic' });
-    expect(updateWikiPage).toHaveBeenCalledWith('view-1', expect.objectContaining({
-      judgment: expect.objectContaining({ currentJudgment: SENTENCE })
-    }));
-    expect(screen.getByText(SENTENCE)).toBeInTheDocument();
-    expect(where()).toBe('step=reading&view=view-1');
-  });
-
-  it('lends an example without holding it for you', () => {
-    renderAt('');
-    fireEvent.click(screen.getByRole('button', { name: /Costco/ }));
-
-    expect(screen.getByLabelText('Your view').value).toMatch(/^Costco/);
-    expect(createWikiPage).not.toHaveBeenCalled();
-  });
-
-  it('asks for a sentence when given a topic', () => {
-    renderAt('');
-    fireEvent.change(screen.getByLabelText('Your view'), { target: { value: 'Costco' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Hold it' }));
-
-    expect(screen.getByRole('alert')).toHaveTextContent('A view is a sentence someone could disagree with.');
-    expect(createWikiPage).not.toHaveBeenCalled();
-  });
-
-  it('brings in each pasted link and names it when it arrives', async () => {
+  it('starts with your reading and brings in each pasted link by name', async () => {
     importPastedUrl.mockImplementation(async ({ url }) => ({
       article: { title: url.includes('one') ? 'The first essay' : 'The second essay' }
     }));
 
-    renderAt('step=reading&view=view-1');
-    const continueButton = await screen.findByRole('button', { name: 'See what it says' });
+    renderAt('');
+    const continueButton = await screen.findByRole('button', { name: 'Write my first page' });
     expect(continueButton).toBeDisabled();
 
     fireEvent.change(screen.getByLabelText('Links to things you have read'), {
@@ -126,12 +107,14 @@ describe('Welcome', () => {
     expect(await screen.findByText('The second essay')).toBeInTheDocument();
     expect(importPastedUrl).toHaveBeenCalledTimes(2);
     await waitFor(() => expect(continueButton).not.toBeDisabled());
+    fireEvent.click(continueButton);
+    expect(where()).toBe('step=page');
   });
 
   it('takes a long passage as one source and refuses a sentence', async () => {
     importPastedText.mockResolvedValue({ article: { title: 'Pasted passage' } });
 
-    renderAt('step=reading&view=view-1');
+    renderAt('step=reading');
     const field = await screen.findByLabelText('Links to things you have read');
     fireEvent.change(field, { target: { value: 'Too short to find anything in.' } });
     fireEvent.click(screen.getByRole('button', { name: 'Add them' }));
@@ -146,17 +129,94 @@ describe('Welcome', () => {
     connectReadwiseToken.mockResolvedValue({ _id: 'conn-1' });
     syncReadwiseConnection.mockResolvedValue({ importedHighlights: 412, importedArticles: 63 });
 
-    renderAt('step=reading&view=view-1');
+    renderAt('step=reading');
     fireEvent.change(await screen.findByLabelText('Readwise access token'), { target: { value: ' tok-123 ' } });
     fireEvent.click(screen.getByRole('button', { name: 'Bring them in' }));
 
     expect(await screen.findByText('412 highlights from 63 sources came in from Readwise.')).toBeInTheDocument();
     expect(connectReadwiseToken).toHaveBeenCalledWith({ apiToken: 'tok-123' });
     expect(syncReadwiseConnection).toHaveBeenCalledWith({ connectionId: 'conn-1' });
-    expect(screen.getByRole('button', { name: 'See what it says' })).not.toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Write my first page' })).not.toBeDisabled();
+  });
+
+  it('offers a sample wiki only to a reader with nothing to bring, and ends on it', async () => {
+    listWikiStarterPacks.mockResolvedValue([{ id: 'mental-models', name: 'Mental Models' }]);
+    adoptWikiStarterPack.mockResolvedValue({ pages: [{ _id: 'starter-1' }] });
+
+    renderAt('step=reading');
+    fireEvent.click(await screen.findByRole('button', { name: 'Mental Models' }));
+
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/wiki/read/starter-1', { replace: true }));
+    expect(markOnboardingCompleteOnServer).toHaveBeenCalled();
+  });
+
+  it('offers what your reading keeps coming back to, and writes the page you pick', async () => {
+    listWikiProposals.mockResolvedValue({
+      proposals: [{ _id: 'p1', title: 'Remote work', sourceRefs: [{}, {}, {}] }]
+    });
+    createWikiPage.mockResolvedValue({ _id: 'page-1' });
+    startWikiPageBuild.mockResolvedValue({ status: 'maintaining' });
+    getWikiPage.mockResolvedValue(writtenPage({ aiState: { draftStatus: 'maintaining' } }));
+
+    renderAt('step=page');
+    expect(await screen.findByText('from three of your sources')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Remote work' }));
+
+    await waitFor(() => expect(startWikiPageBuild).toHaveBeenCalledWith('page-1'));
+    expect(createWikiPage).toHaveBeenCalledWith({ title: 'Remote work', pageType: 'topic' });
+    expect(where()).toBe('step=page&page=page-1');
+    expect(await screen.findByRole('heading', { name: 'Writing Remote work…' })).toBeInTheDocument();
+  });
+
+  it('asks for a topic, not a sentence, when you name your own', async () => {
+    renderAt('step=page');
+    const field = await screen.findByLabelText('Topic for your first page');
+    fireEvent.change(field, { target: { value: 'Costco membership fees make it very hard to compete with' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Write it' }));
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Keep it to a few words');
+    expect(createWikiPage).not.toHaveBeenCalled();
+  });
+
+  it('says plainly when the reading could not carry a page, and clears it away', async () => {
+    getWikiPage.mockResolvedValue(writtenPage({ aiState: { draftStatus: 'error', errorCode: 'WIKI_CANDIDATE_REJECTED' } }));
+
+    renderAt('step=page&page=page-1');
+    expect(await screen.findByRole('heading', { name: 'Your reading does not say enough about Remote work yet.' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Pick another topic' }));
+    await waitFor(() => expect(archiveWikiPage).toHaveBeenCalledWith('page-1'));
+    await waitFor(() => expect(where()).toBe('step=page'));
+  });
+
+  it('shows the written page and holds what you think about it on that page', async () => {
+    updateWikiPage.mockResolvedValue(heldPage());
+
+    renderAt('step=page&page=page-1');
+    expect(await screen.findByText('Your first page is written, from three of your sources.')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Remote work' })).toBeInTheDocument();
+    expect(screen.getByText(/the written record outlasts/)).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Your view'), { target: { value: SENTENCE } });
+    fireEvent.click(screen.getByRole('button', { name: 'Hold it' }));
+
+    await waitFor(() => expect(where()).toBe('step=moment&page=page-1'));
+    expect(updateWikiPage).toHaveBeenCalledWith('page-1', {
+      judgment: expect.objectContaining({ currentJudgment: SENTENCE })
+    });
+  });
+
+  it('lets you leave the page without a view', async () => {
+    renderAt('step=page&page=page-1');
+    fireEvent.click(await screen.findByRole('button', { name: 'Not yet' }));
+
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/wiki/read/page-1', { replace: true }));
+    expect(markOnboardingCompleteOnServer).toHaveBeenCalled();
   });
 
   it('quotes what you saved and files it where you say', async () => {
+    getWikiPage.mockResolvedValue(heldPage());
     getJudgmentLibraryEvidence.mockResolvedValue({
       candidates: [
         {
@@ -171,16 +231,17 @@ describe('Welcome', () => {
     });
     updateWikiPage.mockImplementation(async (_id, { judgment }) => heldPage(judgment));
 
-    renderAt('step=moment&view=view-1');
+    renderAt('step=moment&page=page-1');
 
     expect(await screen.findByRole('heading', { name: 'Two passages you saved bear on this.' })).toBeInTheDocument();
+    expect(screen.getByText(SENTENCE)).toBeInTheDocument();
     expect(screen.getByText(/The Async Manifesto · saved Oct 9/)).toBeInTheDocument();
     expect(screen.getAllByRole('link', { name: 'Open where it came from' })[0])
       .toHaveAttribute('href', expect.stringContaining('/library?articleId=a1'));
 
     fireEvent.click(screen.getAllByRole('button', { name: 'Supports it' })[0]);
     expect(await screen.findByText('Filed under why you hold it.')).toBeInTheDocument();
-    expect(updateWikiPage).toHaveBeenCalledWith('view-1', {
+    expect(updateWikiPage).toHaveBeenCalledWith('page-1', {
       judgment: expect.objectContaining({
         why: [expect.objectContaining({ text: 'Written decisions outlast the meetings that made them.' })]
       })
@@ -191,27 +252,27 @@ describe('Welcome', () => {
     expect(updateWikiPage).toHaveBeenCalledTimes(1);
 
     fireEvent.click(screen.getByRole('button', { name: 'Open your view' }));
-    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/judgment/view-1', { replace: true }));
-    expect(markOnboardingCompleteOnServer).toHaveBeenCalled();
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/judgment/page-1', { replace: true }));
   });
 
   it('says plainly when nothing you brought speaks to the view', async () => {
+    getWikiPage.mockResolvedValue(heldPage());
     getJudgmentLibraryEvidence.mockResolvedValue({ candidates: [] });
 
-    renderAt('step=moment&view=view-1');
+    renderAt('step=moment&page=page-1');
 
     expect(await screen.findByRole('heading', { name: 'Nothing you brought speaks to this yet.' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Bring one more source' }));
-    await waitFor(() => expect(where()).toContain('step=reading'));
+    await waitFor(() => expect(where()).toBe('step=reading'));
   });
 
-  it('picks up the view you already hold when the URL has lost it', async () => {
-    listWikiPages.mockResolvedValue([heldPage()]);
+  it('opens a new reader who took a shared wiki on that wiki, ready for a view', async () => {
+    getWikiPage.mockResolvedValue(writtenPage({ _id: 'page-9' }));
 
-    renderAt('step=reading');
+    renderAt('took=page-9');
 
-    expect(await screen.findByText(SENTENCE)).toBeInTheDocument();
-    await waitFor(() => expect(where()).toContain('view=view-1'));
+    expect(await screen.findByText('The wiki you took is in your Wiki now.')).toBeInTheDocument();
+    expect(screen.getByLabelText('Your view')).toBeInTheDocument();
   });
 
   it('lets you leave at any step, and does not ask again', async () => {

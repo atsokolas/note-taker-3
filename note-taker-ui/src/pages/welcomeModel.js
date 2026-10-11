@@ -4,22 +4,68 @@
 import { countWord, oneSentence } from './judgmentModel';
 
 export const STEPS = [
-  { id: 'view', label: 'Your view' },
   { id: 'reading', label: 'Your reading' },
+  { id: 'page', label: 'Your first page' },
   { id: 'moment', label: 'What it says' }
-];
-
-/* Borrowed, then edited. Each one is a sentence a reasonable person could argue
-   with, which is the only thing that makes a view worth reading against. */
-export const EXAMPLE_VIEWS = [
-  'Costco’s membership fees make it very hard to compete with.',
-  'Remote teams write better than they meet.',
-  'Most productivity advice describes people who already had the time.'
 ];
 
 export const READWISE_TOKEN_URL = 'https://readwise.io/access_token';
 
 const words = (value = '') => String(value || '').trim().split(/\s+/).filter(Boolean);
+
+/* A topic is a few words a library can be searched for. A sentence is a
+   view, and belongs on the page once it exists, not in its title. */
+export const topicProblem = (draft = '') => {
+  const topic = String(draft || '').trim();
+  if (!topic) return 'Name what the page should be about.';
+  if (words(topic).length > 8) return 'Keep it to a few words, like a page title. What you think about it comes next.';
+  return '';
+};
+
+/* Where a page build stands, read off the page itself. A page someone took
+   arrives written, with no build behind it. */
+export const pageState = (page) => {
+  if (!page) return 'none';
+  const status = page.aiState?.draftStatus || 'idle';
+  if (status === 'maintaining') return 'writing';
+  if (status === 'error') return 'failed';
+  return 'written';
+};
+
+export const buildFailure = (page = {}) => (
+  page?.aiState?.errorCode === 'WIKI_CANDIDATE_REJECTED'
+    ? {
+      headline: `Your reading does not say enough about ${page.title || 'this'} yet.`,
+      lede: 'Noeis would have had to invent parts of the page, so it stopped. Pick a topic your sources share, or bring a few more about this one.',
+      retry: false
+    }
+    : {
+      headline: 'That page did not finish.',
+      lede: 'The writing stopped partway. Nothing you brought was lost.',
+      retry: true
+    }
+);
+
+/* The page's opening paragraph, which is the first thing worth reading on it:
+   headings and empty lines are skipped. */
+export const pageLede = (page = {}, max = 420) => {
+  const paragraph = String(page?.plainText || '')
+    .split(/\n\s*\n/)
+    .map(block => block.replace(/\s+/g, ' ').trim())
+    .find(block => block && !/^#/.test(block) && words(block).length >= 8) || '';
+  if (paragraph.length <= max) return paragraph;
+  const cut = paragraph.slice(0, max);
+  return `${cut.slice(0, cut.lastIndexOf(' '))}…`;
+};
+
+export const writtenFrom = (count = 0) => {
+  if (!count) return 'Your first page is written.';
+  return `Your first page is written, from ${count === 1 ? 'one of your sources' : `${countWord(count)} of your sources`}.`;
+};
+
+export const proposalSources = (count = 0) => (
+  count === 1 ? 'from one of your sources' : `from ${countWord(count)} of your sources`
+);
 
 /* A view is a sentence someone could disagree with. One word is a topic, and a
    topic cannot be supported or cut against. */
