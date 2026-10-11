@@ -37,3 +37,12 @@ export const fileJudgmentEvidence = async ({
   );
   return response.data || {};
 };
+
+export const fileReadingProposal = async ({ pageId, proposalId, field }) => {
+  const response = await api.post(
+    `/api/judgment/pages/${safe(pageId)}/evidence`,
+    { proposalId, field },
+    getAuthHeaders()
+  );
+  return response.data || {};
+};

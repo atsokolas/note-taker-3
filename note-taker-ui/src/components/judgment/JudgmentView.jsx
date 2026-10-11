@@ -2,11 +2,12 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom';
 import {
   getWikiPage,
+  listReadingProposals,
   proposeJudgmentChange,
   resolveJudgmentChange,
   updateWikiPage
 } from '../../api/wiki';
-import { recordJudgmentVerdict, setJudgmentResolution } from '../../api/judgmentResolution';
+import { fileReadingProposal, recordJudgmentVerdict, setJudgmentResolution } from '../../api/judgmentResolution';
 import { useNoeisAgentSurface } from '../../agent/AgentRailContext';
 import { rememberOpenedJudgment } from '../reader/folioModel';
 import { buildJudgmentSurfaceDescriptor } from '../../pages/judgmentSurfaceModel';
@@ -26,7 +27,8 @@ import {
 // One sentence, large. How long you have held it and how sure you are. The
 // passages for it and against it, side by side. What would change your mind.
 // A record of what happened. Two things you can do: revise it, or say how it
-// turned out. Nothing else is on the page.
+// turned out. Above the passages, a quiet line for each passage a newly saved
+// source offered, until you file it or say it is not relevant.
 
 const UNDO_MS = 6000;
 
@@ -99,6 +101,34 @@ const PassageColumn = ({ title, passages }) => (
     ) : <p className="judgment-quiet">Nothing yet.</p>}
   </section>
 );
+
+/* "Ben Carlson, Oct 1, argues against this:" and the passage, verbatim. */
+const ReadingLine = ({ proposal, busy, onFile, onDismiss }) => {
+  const { stance, author, publishedAt, articleId } = proposal.provenance || {};
+  const against = stance === 'challenge';
+  const who = author || proposal.sourceLabel;
+  const file = [
+    { field: 'against', label: 'File against' },
+    { field: 'why', label: 'File for' }
+  ];
+  return (
+    <li className="judgment-reading__line">
+      <p>
+        {articleId ? <Link to={`/articles/${articleId}`}>{who}</Link> : who}
+        {publishedAt ? `, ${formatLedgerDate(publishedAt)}` : ''}, argues {against ? 'against' : 'for'} this:
+      </p>
+      <blockquote>{proposal.provenance?.after}</blockquote>
+      <span className="judgment-actions">
+        {(against ? file : [...file].reverse()).map(option => (
+          <button key={option.field} type="button" onClick={() => onFile(proposal, option.field)} disabled={busy}>
+            {option.label}
+          </button>
+        ))}
+        <button type="button" className="is-quiet" onClick={() => onDismiss(proposal)} disabled={busy}>Not relevant</button>
+      </span>
+    </li>
+  );
+};
 
 const toDateInput = (value) => {
   if (!value) return '';
@@ -182,8 +212,9 @@ const Record = ({ lines }) => (
   </ol>
 );
 
-const JudgmentView = ({ pageId, initialPage = null, children = null }) => {
+const JudgmentView = ({ pageId, initialPage = null }) => {
   const [page, setPage] = useState(initialPage);
+  const [reading, setReading] = useState([]);
   const [loading, setLoading] = useState(!initialPage);
   const [error, setError] = useState('');
   const [revising, setRevising] = useState(false);
@@ -202,6 +233,9 @@ const JudgmentView = ({ pageId, initialPage = null, children = null }) => {
       .then(loaded => { if (!cancelled) setPage(loaded); })
       .catch(failure => { if (!cancelled) setError(messageOf(failure, 'Could not open this view.')); })
       .finally(() => { if (!cancelled) setLoading(false); });
+    listReadingProposals(pageId)
+      .then(rows => { if (!cancelled) setReading(rows); })
+      .catch(() => {});
     return () => { cancelled = true; };
   }, [pageId]);
 
@@ -277,6 +311,27 @@ const JudgmentView = ({ pageId, initialPage = null, children = null }) => {
   });
   const pickUp = () => run(() => commit(resumeJudgment(pageRef.current)));
 
+  const fileReading = (proposal, field) => run(async () => {
+    await fileReadingProposal({ pageId, proposalId: proposal.id, field });
+    setReading(rows => rows.filter(row => row.id !== proposal.id));
+    setPage(await getWikiPage(pageId, { reader: 1 }));
+  });
+
+  const dismissReading = (proposal) => {
+    setReading(rows => rows.filter(row => row.id !== proposal.id));
+    offer({
+      at: 'reading',
+      label: 'Not relevant.',
+      undo: () => setReading(rows => [proposal, ...rows]),
+      settle: () => resolveJudgmentChange(pageId, proposal.id, 'reject')
+        .then(resolved => mergeJudgment(resolved?.page?.judgment))
+        .catch(failure => {
+          setReading(rows => [proposal, ...rows]);
+          setError(messageOf(failure, 'That did not save.'));
+        })
+    });
+  };
+
   const boundSources = view
     ? [...view.forPassages, ...view.againstPassages].filter(passage => passage.source).length
     : 0;
@@ -346,7 +401,16 @@ const JudgmentView = ({ pageId, initialPage = null, children = null }) => {
         </div>
       </header>
 
-      {children}
+      {reading.length || pending?.at === 'reading' ? (
+        <section className="judgment-reading" aria-label="From your reading">
+          <ul>
+            {reading.map(proposal => (
+              <ReadingLine key={proposal.id} proposal={proposal} busy={busy} onFile={fileReading} onDismiss={dismissReading} />
+            ))}
+          </ul>
+          <UndoLine pending={pending} onUndo={undo} at="reading" />
+        </section>
+      ) : null}
 
       <div className="judgment-view__columns">
         <PassageColumn title="For" passages={view.forPassages} />

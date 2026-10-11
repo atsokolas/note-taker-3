@@ -6,18 +6,20 @@ import { useNoeisSurface } from '../surface/NoeisSurfaceContext';
 import {
   createWikiPage,
   getWikiPage,
+  listReadingProposals,
   listWikiPages,
   proposeJudgmentChange,
   resolveJudgmentChange,
   updateWikiPage
 } from '../api/wiki';
-import { recordJudgmentVerdict, setJudgmentResolution } from '../api/judgmentResolution';
+import { fileReadingProposal, recordJudgmentVerdict, setJudgmentResolution } from '../api/judgmentResolution';
 
 jest.mock('../surface/NoeisSurfaceContext', () => ({ useNoeisSurface: jest.fn() }));
 
 jest.mock('../api/wiki', () => ({
   createWikiPage: jest.fn(),
   getWikiPage: jest.fn(),
+  listReadingProposals: jest.fn(),
   listWikiPages: jest.fn(),
   proposeJudgmentChange: jest.fn(),
   resolveJudgmentChange: jest.fn(),
@@ -25,6 +27,7 @@ jest.mock('../api/wiki', () => ({
 }));
 
 jest.mock('../api/judgmentResolution', () => ({
+  fileReadingProposal: jest.fn(),
   recordJudgmentVerdict: jest.fn(),
   setJudgmentResolution: jest.fn()
 }));
@@ -70,6 +73,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   jest.restoreAllMocks();
   listWikiPages.mockResolvedValue([]);
+  listReadingProposals.mockResolvedValue([]);
   getWikiPage.mockResolvedValue(viewPage());
   updateWikiPage.mockImplementation(async (_id, updates) => ({ ...viewPage(), judgment: updates.judgment }));
 });
@@ -221,5 +225,55 @@ describe('the view', () => {
       objectType: 'judgment_claim',
       objectId: 'view-1'
     }));
+  });
+
+  describe('reading talks back', () => {
+    const QUOTE = 'Executive membership upgrades slowed sharply during the last downturn.';
+    const proposal = {
+      id: 'judgment-change-proposal:view-1:abc',
+      sourceLabel: 'When Bulk Stops Making Sense',
+      provenance: { change: 'evidence', stance: 'challenge', after: QUOTE, articleId: 'article-9', author: 'Ben Carlson', publishedAt: '2026-10-01T12:00:00.000Z' }
+    };
+
+    it('shows one quiet line per waiting passage, and files it where you say', async () => {
+      listReadingProposals.mockResolvedValue([proposal]);
+      fileReadingProposal.mockResolvedValue({});
+      openView();
+      const region = await screen.findByRole('region', { name: 'From your reading' });
+      const who = within(region).getByRole('link', { name: 'Ben Carlson' });
+      expect(who).toHaveAttribute('href', '/articles/article-9');
+      expect(who.closest('p')).toHaveTextContent('Ben Carlson, Oct 1, argues against this:');
+      expect(screen.getByText(QUOTE)).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: 'File against' }));
+      await waitFor(() => expect(fileReadingProposal).toHaveBeenCalledWith({ pageId: 'view-1', proposalId: proposal.id, field: 'against' }));
+      await waitFor(() => expect(screen.queryByText(QUOTE)).not.toBeInTheDocument());
+      expect(getWikiPage).toHaveBeenCalledTimes(2);
+    });
+
+    it('sets a passage aside as not relevant at once, with six seconds to take it back', async () => {
+      jest.useFakeTimers();
+      try {
+        listReadingProposals.mockResolvedValue([proposal]);
+        resolveJudgmentChange.mockResolvedValue({ page: viewPage() });
+        openView();
+        fireEvent.click(await screen.findByRole('button', { name: 'Not relevant' }));
+        expect(screen.queryByText(QUOTE)).not.toBeInTheDocument();
+        fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
+        expect(screen.getByText(QUOTE)).toBeInTheDocument();
+        expect(resolveJudgmentChange).not.toHaveBeenCalled();
+
+        fireEvent.click(screen.getByRole('button', { name: 'Not relevant' }));
+        act(() => { jest.advanceTimersByTime(6000); });
+        await waitFor(() => expect(resolveJudgmentChange).toHaveBeenCalledWith('view-1', proposal.id, 'reject'));
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it('says nothing when no passage is waiting', async () => {
+      openView();
+      await screen.findByRole('heading', { level: 1, name: CLAIM });
+      expect(screen.queryByRole('region', { name: 'From your reading' })).not.toBeInTheDocument();
+    });
   });
 });

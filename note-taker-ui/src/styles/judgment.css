@@ -92,8 +92,7 @@ body.noeis-editorial.judgment-route .topbar .brand-gradient {
 .judgment-view__actions button,
 .judgment-view__resolve button,
 .judgment-view__record-foot button,
-.judgment-undo button,
-.judgment-reading__actions button {
+.judgment-undo button {
   padding: 0 0 2px;
   border: 0;
   border-bottom: 1px solid currentColor;
@@ -420,32 +419,29 @@ body.noeis-editorial.judgment-route .topbar .brand-gradient {
 
 /* ---------- reading talks back ---------- */
 
-.judgment-reading {
+.judgment-reading { margin: 0 0 40px; }
+.judgment-reading ul { display: grid; gap: 24px; margin: 0; padding: 0; list-style: none; }
+
+.judgment-reading__line {
   display: grid;
   gap: 8px;
-  margin: 0 0 32px;
   padding-left: 14px;
   border-left: 1px solid var(--judgment-thread);
   animation: judgment-arrive 220ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.judgment-reading > p {
+.judgment-reading__line > p {
   margin: 0;
   color: var(--judgment-muted);
   font: 400 0.88rem/1.45 var(--judgment-ui);
 }
 
+.judgment-reading__line > p a { color: inherit; text-underline-offset: 0.18em; }
+
 .judgment-reading blockquote {
   margin: 0;
   color: var(--judgment-ink);
   font: 400 1.02rem/1.55 var(--judgment-reading);
-}
-
-.judgment-reading__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 18px;
-  margin-top: 4px;
 }
 
 @keyframes judgment-arrive {
@@ -454,7 +450,7 @@ body.noeis-editorial.judgment-route .topbar .brand-gradient {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .judgment-reading { animation: none; }
+  .judgment-reading__line { animation: none; }
 }
 
 /* ---------- the Mirror ---------- */

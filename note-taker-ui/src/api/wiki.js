@@ -151,6 +151,12 @@ export const proposeJudgmentChange = async (pageId, proposedJudgment) => {
   return res.data?.proposal || null;
 };
 
+/* Passages a newly saved source offered this view, waiting to be filed. */
+export const listReadingProposals = async (pageId) => {
+  const res = await api.get(`${WIKI_PAGES_PATH}/${safeId(pageId)}/judgment-change-proposal`, getAuthHeaders());
+  return Array.isArray(res.data?.reading) ? res.data.reading : [];
+};
+
 export const resolveJudgmentChange = async (pageId, receiptId, action, options = {}) => {
   const selected = ['accept', 'narrow', 'preserve', 'reject', 'defer'].includes(action) ? action : '';
   if (!selected) throw new Error('Choose accept, narrow, preserve, reject, or defer.');
