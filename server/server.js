@@ -7397,8 +7397,8 @@ const importRouter = buildImportRouter({
 app.use(importRouter);
 
 // Readwise on a timer: whoever connected keeps getting new highlights without
-// pressing anything. Same import as the Sync button; off with
-// READWISE_SYNC_WORKER_DISABLED=true.
+// pressing anything. Same import as the Sync button; on only with
+// READWISE_SYNC_WORKER_ENABLED=true.
 let readwiseSyncWorkerRunning = false;
 const runReadwiseSyncWorker = async () => {
   if (readwiseSyncWorkerRunning || mongoose.connection.readyState !== 1) return;
@@ -7419,7 +7419,7 @@ const runReadwiseSyncWorker = async () => {
   }
 };
 
-if (process.env.READWISE_SYNC_WORKER_DISABLED !== 'true') {
+if (process.env.READWISE_SYNC_WORKER_ENABLED === 'true') {
   const intervalMs = Math.max(5 * 60 * 1000, Number(process.env.READWISE_SYNC_WORKER_INTERVAL_MS || 30 * 60 * 1000));
   setInterval(runReadwiseSyncWorker, intervalMs).unref?.();
 }
