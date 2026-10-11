@@ -43,6 +43,8 @@ describe('retrievePassages', () => {
     expect(stem('decisions')).toBe(stem('decision'));
     expect(stem('imagining')).toBe(stem('imagine'));
     expect(stem('rates')).toBe(stem('rate'));
+    expect(stem('created')).toBe(stem('create'));
+    expect(stem('shared')).toBe(stem('share'));
     // Short words keep their endings: "red" and "thing" are words, not inflections.
     expect(stem('thing')).toBe('thing');
     expect(stem('need')).toBe('need');

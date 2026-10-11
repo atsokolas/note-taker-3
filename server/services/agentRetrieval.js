@@ -48,12 +48,12 @@ const words = (text = '') => String(text || '')
   .map(word => word.replace(/^'+|'+$/g, '').replace(/'s$/, ''))
   .filter(Boolean);
 
-// Truncation stemming: a word loses a plural s and an -ed or -ing ending,
-// then compares on its first six letters. Crude, but "decisions" finds
+// Truncation stemming: a word loses a plural s, an -ed or -ing ending and a
+// silent e, then compares on its first six letters. Crude, but "decisions" finds
 // "decision", "imagining" finds "imagine" and "trusted" finds "trust"
 // without a dependency.
 const stem = (word) => {
-  const root = word.replace(/(?<=\w{3})s$/, '').replace(/(?<=\w{4})(?:ed|ing)$/, '');
+  const root = word.replace(/(?<=\w{3})s$/, '').replace(/(?<=\w{4})(?:ed|ing)$/, '').replace(/(?<=\w{2})e$/, '');
   return root.length > 6 ? root.slice(0, 6) : root;
 };
 

@@ -34,9 +34,9 @@ const quotations = (reply = '') => [...String(reply).matchAll(/[“"]([^”"]+)[
   .map(match => match[1])
   .filter(span => words(span).length >= QUOTE_MIN_WORDS);
 
-// Whether a quoted span appears in any of the texts, word for word. An
+// Whether a quoted span appears in one of the texts, word for word. An
 // ellipsis marks words left out, so each piece between ellipses must appear
-// on its own, however short.
+// on its own, however short, but all of them in the same statement.
 const quotedIn = (span = '', texts = []) => {
   const haystacks = (Array.isArray(texts) ? texts : [])
     .flatMap(text => String(text || '').split(NOTE_LABEL))
@@ -45,7 +45,7 @@ const quotedIn = (span = '', texts = []) => {
     .split(/…|\.{3}/)
     .map(piece => words(piece).join(' '))
     .filter(Boolean);
-  return pieces.length > 0 && pieces.every(piece => haystacks.some(text => text.includes(` ${piece} `)));
+  return pieces.length > 0 && haystacks.some(text => pieces.every(piece => text.includes(` ${piece} `)));
 };
 
 // Quotations of five words or more that appear in none of the given texts.
