@@ -6377,8 +6377,7 @@ const buildWikiRouter = ({
    * A belief, born from a sentence you marked.
    *
    * The one door into the ledger from the Library. Everything the morning
-   * paper reads — the anniversary, the calibration line, the falsifier watch
-   * — reads claims, and until now a highlight could become a question, a
+   * paper reads — the anniversary, the calibration line — reads claims, and until now a highlight could become a question, a
    * note, a concept or a wiki section, but never a claim.
    */
   router.post('/api/judgment/from-highlight', wikiAuth, async (req, res) => {

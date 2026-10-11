@@ -11,6 +11,7 @@ jest.mock('../api/authoredExplorations', () => ({
   libraryExplorations: { load: jest.fn(), save: jest.fn(), keep: jest.fn(), discard: jest.fn() }
 }));
 import { listWikiPages } from '../api/wiki';
+import { fileReadingProposal, getPushesAgainst } from '../api/judgmentResolution';
 import useTextSelection from './reader/useTextSelection';
 import { handOffSentence, resetFirstPaint } from '../motion/columnMotion';
 import { useFinePointer, usePrefersReducedMotion } from '../hooks/useMotionPreferences';
@@ -28,6 +29,10 @@ jest.mock('../api/highlights', () => ({
 }));
 jest.mock('../api/wiki', () => ({
   listWikiPages: jest.fn(async () => [])
+}));
+jest.mock('../api/judgmentResolution', () => ({
+  getPushesAgainst: jest.fn(async () => null),
+  fileReadingProposal: jest.fn(async () => ({}))
 }));
 jest.mock('./reader/SelectionMenu', () => ({ onAskLibrarian, onWorkWithPassage, onThought }) => (
   <>
@@ -52,6 +57,7 @@ jest.mock('../motion/columnMotion', () => {
 });
 
 beforeEach(() => {
+  getPushesAgainst.mockResolvedValue(null);
   getArticleReadingState.mockResolvedValue(null);
   saveArticleReadingState.mockResolvedValue();
   libraryExplorations.load.mockResolvedValue({ userId: 'owner-1', explorations: [] });
@@ -1095,5 +1101,25 @@ describe('the masthead and the record under the piece', () => {
     expect(within(record).getByRole('link', { name: 'membership models' })).toHaveAttribute('href', '/wiki/workspace?page=page-1');
     // The view's filed passages are said once, in the sentence, not again as doors.
     expect(screen.queryAllByTestId('passage-door')).toHaveLength(0);
+  });
+
+  it('says once, under the source record, when this piece pushes against a view you hold', async () => {
+    listWikiPages.mockResolvedValue([]);
+    getPushesAgainst.mockResolvedValue({
+      pageId: 'view-1',
+      view: 'Costco’s membership model makes it recession-resistant.',
+      proposal: { id: 'judgment-change-proposal:view-1:r1', provenance: { stance: 'challenge' } }
+    });
+    render(
+      <MemoryRouter>
+        <ArticleReader article={{ _id: 'a1', title: 'A source', content: '<p>Members cancel.</p>' }} highlights={[]} />
+      </MemoryRouter>
+    );
+    const record = await screen.findByRole('list', { name: 'Where this piece went' });
+    expect(getPushesAgainst).toHaveBeenCalledWith('a1');
+    expect(record).toHaveTextContent('This pushes against your view that Costco’s membership model makes it recession-resistant. File it?');
+    fireEvent.click(within(record).getByRole('button', { name: 'File against' }));
+    expect(fileReadingProposal).toHaveBeenCalledWith({ pageId: 'view-1', proposalId: 'judgment-change-proposal:view-1:r1', field: 'against' });
+    expect(await within(record).findByText(/Filed against/)).toBeInTheDocument();
   });
 });

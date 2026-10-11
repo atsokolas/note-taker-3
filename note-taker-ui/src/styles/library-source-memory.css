@@ -374,6 +374,10 @@ body.noeis-editorial .article-whereabouts {
   list-style: none;
 }
 
+body.noeis-editorial .article-pushes-against button {
+  margin-left: 10px;
+}
+
 @media (max-width: 720px) {
   body.noeis-editorial .library-composition {
     grid-template-columns: minmax(0, 1fr);

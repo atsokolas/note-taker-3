@@ -3,7 +3,8 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import NotebookEditor from './NotebookEditor';
 import { listWikiPages } from '../../../api/wiki';
 import { getArticleEvergreen } from '../../../api/articles';
-import { disposeNotebookSourceCorrection, exportNotebookMarkdown, getNotebookShare, getNotebookSummaries, getNotebookVolume, previewNotebookVolume } from '../../../api/notebook';
+import { disposeNotebookSourceCorrection, exportNotebookMarkdown, getNotebookShare, getNotebookSummaries, getNotebookVolume, previewNotebookVolume, readNoteAgainstViews, setOppositeAside } from '../../../api/notebook';
+import { MemoryRouter } from 'react-router-dom';
 import { THINK_WRITING_IDLE_MS } from '../editor/useThinkWritingActivity';
 import useConcepts from '../../../hooks/useConcepts';
 
@@ -90,7 +91,9 @@ jest.mock('../../../api/notebook', () => ({
   disposeNotebookSourceCorrection: jest.fn(),
   getNotebookShare: jest.fn(async () => ({ shared: false, preview: null })),
   getNotebookVolume: jest.fn(async () => ({ shared: false, catalog: [] })),
-  previewNotebookVolume: jest.fn(async () => ({ shared: false, catalog: [] }))
+  previewNotebookVolume: jest.fn(async () => ({ shared: false, catalog: [] })),
+  readNoteAgainstViews: jest.fn(async () => null),
+  setOppositeAside: jest.fn(async () => {})
 }));
 
 jest.mock('../../../api/wiki', () => ({
@@ -139,6 +142,8 @@ describe('NotebookEditor', () => {
     getNotebookVolume.mockResolvedValue({ shared: false, catalog: [] });
     previewNotebookVolume.mockReset();
     previewNotebookVolume.mockResolvedValue({ shared: false, catalog: [] });
+    readNoteAgainstViews.mockResolvedValue(null);
+    setOppositeAside.mockResolvedValue(undefined);
     mockUseEditor.mockReturnValue(mockEditor);
     mockEditor.chain.mockReturnValue(mockChain);
     mockEditor.isActive.mockImplementation(() => false);
@@ -190,6 +195,34 @@ describe('NotebookEditor', () => {
     expect(screen.getByRole('button', { name: 'Bold' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Italic' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Quote' })).toBeInTheDocument();
+  });
+
+  it('says beside the note when a sentence contradicts a view you hold, and sets it aside on Not now', async () => {
+    readNoteAgainstViews.mockResolvedValueOnce({
+      key: 'k1',
+      sentence: 'Members cancel faster than anyone expects.',
+      blockId: 'b1',
+      pageId: 'view-1',
+      view: 'Costco’s membership model makes it recession-resistant.',
+      heldSince: '2026-08-04T12:00:00.000Z'
+    });
+    render(
+      <MemoryRouter>
+        <NotebookEditor
+          entry={{ _id: 'note-1', title: 'Costco', content: '<p>Draft</p>', blocks: [], type: 'note', tags: [] }}
+          saving={false}
+          error=""
+          onSave={jest.fn()}
+        />
+      </MemoryRouter>
+    );
+    const line = await screen.findByRole('complementary', { name: 'A view you hold' });
+    expect(readNoteAgainstViews).toHaveBeenCalledWith('note-1');
+    expect(line).toHaveTextContent('You hold the opposite. Your view from August says “Costco’s membership model makes it recession-resistant.”');
+    expect(screen.getByRole('link', { name: /Costco’s membership model/ })).toHaveAttribute('href', '/judgment/view-1');
+    fireEvent.click(screen.getByRole('button', { name: 'Not now' }));
+    expect(screen.queryByRole('complementary', { name: 'A view you hold' })).not.toBeInTheDocument();
+    expect(setOppositeAside).toHaveBeenCalledWith('note-1', 'k1');
   });
 
   it('opens More below the note utilities instead of covering the title', () => {

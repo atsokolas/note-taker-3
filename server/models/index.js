@@ -392,6 +392,20 @@ const notebookEntrySchema = new mongoose.Schema({
   blocks: { type: [notebookBlockSchema], default: [] },
   asidePieces: { type: [notebookAsidePieceSchema], default: [] },
   workingState: { type: notebookWorkbenchSchema, default: () => ({}) },
+  /* Each sentence of this note read once against a view the reader holds:
+     the verdict, and whether the reader set the line aside. */
+  viewReadings: {
+    type: [new mongoose.Schema({
+      key: { type: String, required: true },
+      pageId: { type: String, required: true },
+      sentence: { type: String, default: '' },
+      verdict: { type: String, enum: ['contradicts', 'supports', 'unrelated', 'unsure'], required: true },
+      at: { type: Date, default: Date.now },
+      dismissedAt: { type: Date, default: null }
+    }, { _id: false })],
+    default: [],
+    select: false
+  },
   folder: { type: mongoose.Schema.Types.ObjectId, ref: 'NotebookFolder', default: null },
   type: { type: String, enum: ['claim', 'evidence', 'note'], default: 'note' },
   claimId: { type: mongoose.Schema.Types.ObjectId, default: null },

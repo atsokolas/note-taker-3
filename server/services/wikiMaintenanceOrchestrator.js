@@ -8,7 +8,6 @@ const {
 } = require('./wikiRepoBuildLeaseService');
 const { createProposalFromSourceEvent } = require('./wikiProposalService');
 const { syncWikiPageGraphConnections } = require('./wikiGraphConnectionService');
-const { matchesForPage } = require('./falsifierWatch');
 const { proposeFromReading } = require('./readingTalksBack');
 const { getWikiSchemaPromptContent } = require('./wikiSchemaService');
 const { compareClaimLedgers } = require('./wikiClaimComparisonService');
@@ -17,7 +16,6 @@ const { buildWikiMaintenanceReceipt } = require('./wikiMaintenanceReceiptService
 const { persistNoeisReceipt } = require('./noeisReceiptService');
 const { invalidateWikiBriefingCache } = require('./wikiBriefingService');
 const { isHumanOnlyWikiArtifact } = require('./wikiProtectedArtifactService');
-const { applyDirectEvidenceMatches, assessEventAgainstClaims } = require('./wikiEvidenceRelevanceService');
 const {
   claimableEventQuery,
   hasActiveProcessingLease,
@@ -365,70 +363,6 @@ const createPageForEvent = async ({ WikiPage, userId, event, buildUniqueSlug }) 
   return page;
 };
 
-/**
- * Move any falsifier this arrival could have satisfied to `warning`.
- *
- * `warning`, never `triggered`. The software noticed; the reader decides —
- * marking a person's belief broken on a keyword overlap would be the one
- * thing this product exists to keep in human hands.
- *
- * The page is saved only when something actually changed, so an ordinary
- * arrival against a page with no open falsifiers costs one comparison and no
- * write.
- */
-const warnMatchedFalsifiers = async ({ page, arrival, at = new Date() } = {}) => {
-  const matches = matchesForPage({ page, arrival });
-  if (!matches.length) return [];
-
-  page.judgment = page.judgment || {};
-  page.judgment.falsifiers = page.judgment.falsifiers || [];
-
-  const byId = new Map(
-    matches.filter(match => match.kind === 'falsifier').map(match => [match.falsifierId, match])
-  );
-  let changed = false;
-
-  page.judgment.falsifiers.forEach((falsifier) => {
-    const match = byId.get(String(falsifier.falsifierId || ''));
-    if (!match || falsifier.status !== 'unobserved') return;
-    falsifier.status = 'warning';
-    falsifier.lastCheckedAt = at;
-    changed = true;
-  });
-
-  /* A criteria answer that has never had a falsifier of its own gets one now,
-     already warned. The reader wrote the sentence; this is the row that
-     sentence should always have created, and writing it here means a corpus
-     full of existing answers starts being watched without a migration. */
-  matches.filter(match => match.kind === 'claim' && match.claimId).forEach((match) => {
-    page.judgment.falsifiers.push({
-      falsifierId: `claim-${match.claimId}`,
-      text: match.text || match.observableSignal,
-      observableSignal: match.observableSignal,
-      status: 'warning',
-      affectedClaimIds: [match.claimId],
-      lastCheckedAt: at,
-      createdAt: at
-    });
-    changed = true;
-  });
-
-  if (!changed) return [];
-
-  if (typeof page.markModified === 'function') page.markModified('judgment.falsifiers');
-  if (typeof page.save === 'function') await page.save();
-
-  return matches.map(match => ({
-    ...match,
-    pageId: String(page._id || ''),
-    pageTitle: asText(page.title),
-    sourceEventId: String(arrival?._id || ''),
-    sourceTitle: asText(arrival?.title),
-    sourceUrl: asText(arrival?.url),
-    at: at.toISOString()
-  }));
-};
-
 const runWikiSourceEvent = async ({
   sourceEventId,
   sourceEvent = null,
@@ -573,8 +507,6 @@ const runWikiSourceEvent = async ({
     let reviewCount = 0;
     let skippedCount = 0;
     const comparisons = [];
-    /* Falsifiers this arrival may have satisfied, for the caller and the log. */
-    const warned = [];
     for (let page of pages) {
       const before = snapshotPage(page);
       const protectedPublicPage = isProtectedPublicPage(page);
@@ -584,7 +516,6 @@ const runWikiSourceEvent = async ({
       } else {
         page = await attachSourceEventEvidence({ page, event });
       }
-      const evidenceAssessment = assessEventAgainstClaims({ event, claims: before.claims || [] });
       page.freshness = {
         ...(page.freshness?.toObject ? page.freshness.toObject() : page.freshness || {}),
         status: 'needs_review',
@@ -660,12 +591,6 @@ const runWikiSourceEvent = async ({
         }
         throw error;
       }
-      /* The thing the reader said would change their mind may have just
-         happened. This runs whether or not the page was republished: an
-         arrival that changes nothing on the page can still be the exact
-         event a falsifier named. */
-      warned.push(...await warnMatchedFalsifiers({ page, arrival: event }));
-
       if (!publication.promoted) {
         if (publication.awaitingAcceptance) {
           reviewCount += 1;
@@ -733,21 +658,10 @@ const runWikiSourceEvent = async ({
         }
         continue;
       }
-      if (publication.evidenceOnly && evidenceAssessment.directMatchCount > 0) {
-        evidenceAssessment.applied = applyDirectEvidenceMatches({
-          page,
-          event,
-          assessment: evidenceAssessment,
-          now: new Date()
-        }).applied;
-      } else {
-        evidenceAssessment.applied = 0;
-      }
       const acceptedComparison = {
         pageId: String(page._id || ''),
         pageTitle: asText(page.title),
         sourceEventId: String(event._id || ''),
-        evidenceAssessment,
         ...compareClaimLedgers({
           beforeClaims: before.claims || [],
           afterClaims: page.claims || [],
@@ -868,7 +782,7 @@ const runWikiSourceEvent = async ({
         }
       }
     }
-    return { event, pages, run, rejectedCount, reviewCount, skippedCount, comparisons, warned };
+    return { event, pages, run, rejectedCount, reviewCount, skippedCount, comparisons };
   } catch (error) {
     event.status = 'failed';
     event.errorMessage = error.message || 'Failed to process wiki source event.';

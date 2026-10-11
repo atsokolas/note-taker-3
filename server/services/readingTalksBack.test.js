@@ -1,4 +1,4 @@
-const { fileReadingProposal, proposeFromReading, PER_DAY } = require('./readingTalksBack');
+const { fileReadingProposal, opposeFromNote, proposeFromReading, pushesAgainst, PER_DAY } = require('./readingTalksBack');
 const { buildReadingProposal, planJudgmentChangeDisposition } = require('./judgmentChangeProposalService');
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -6,7 +6,7 @@ const now = new Date('2026-10-11T12:00:00.000Z');
 
 // Queries that resolve whether awaited directly or through .select().lean().
 const query = (value) => {
-  const chain = { select: () => chain, sort: () => chain, lean: async () => value, then: (ok, fail) => Promise.resolve(value).then(ok, fail) };
+  const chain = { select: () => chain, sort: () => chain, limit: () => chain, lean: async () => value, then: (ok, fail) => Promise.resolve(value).then(ok, fail) };
   return chain;
 };
 
@@ -59,8 +59,13 @@ const world = ({ heldAt = new Date(now.getTime() - 30 * DAY), receipts = [] } = 
 const event = { _id: 'e1', userId: 'u1', sourceType: 'article', sourceObjectId: 'a1' };
 const answer = body => jest.fn(async () => ({ text: JSON.stringify(body) }));
 const read = (models, complete, extra = {}) => proposeFromReading({
-  event, userId: 'u1', models, complete, configured: () => true, now, ...extra
+  event, userId: 'u1', models, complete, configured: () => true, embed: null, now, ...extra
 });
+
+// Stub embeddings: texts about membership and downturns sit together.
+const embed = jest.fn(async texts => texts.map(text => (
+  /membership|recession|renewal|downturn|fee/i.test(text) ? [1, 0.1] : [0.1, 1]
+)));
 
 describe('reading talks back', () => {
   it('proposes a passage when the model finds support and quotes the source verbatim', async () => {
@@ -128,5 +133,121 @@ describe('reading talks back', () => {
     expect(planned.judgment.currentJudgment).toBe(page.judgment.currentJudgment);
     expect(planned.judgment.decisions.at(-1).summary).toBe('Not relevant: a passage from Costco and the Membership Moat.');
     expect(() => planJudgmentChangeDisposition({ receipt: stored, page, action: 'accept', now })).toThrow(/for or against/);
+  });
+});
+
+describe('reading talks back, by meaning', () => {
+  const WAREHOUSE = 'Warehouse club renewals barely dipped through the last downturn. Shoppers kept paying the annual fee even while they cut back on almost everything else.';
+  const unworded = () => {
+    const models = world();
+    models.Article.rows[0].content = WAREHOUSE;
+    return models;
+  };
+  const quote = 'Warehouse club renewals barely dipped through the last downturn.';
+
+  it('finds a view the source shares no words with when embeddings are on', async () => {
+    const complete = answer({ stance: 'support', quote });
+    const [proposal] = await read(unworded(), complete, { embed });
+    expect(complete).toHaveBeenCalledTimes(1);
+    expect(complete.mock.calls[0][0].messages[1].content).toContain('Warehouse club renewals');
+    expect(proposal.provenance).toMatchObject({ stance: 'support', after: quote });
+  });
+
+  it('falls back to words alone, deterministically, when embeddings are off or fail', async () => {
+    const complete = answer({ stance: 'support', quote });
+    expect(await read(unworded(), complete)).toEqual([]);
+    expect(await read(unworded(), complete, { embed: async () => { throw new Error('402'); } })).toEqual([]);
+    expect(complete).not.toHaveBeenCalled();
+    // A source that shares the view's words is still read without embeddings.
+    expect(await read(world(), answer({ stance: 'nothing', quote: '' }))).toEqual([]);
+  });
+});
+
+describe('the reader version', () => {
+  const quote = 'In 2009 traffic held while discretionary retailers saw double-digit declines.';
+
+  it('says the pending challenge this source already made, while the view is held in the same words', async () => {
+    const models = world();
+    await read(models, answer({ stance: 'challenge', quote }));
+    const found = await pushesAgainst({ userId: 'u1', articleId: 'a1', models });
+    expect(found).toMatchObject({ pageId: 'v1', view: 'Costco’s membership model makes it recession-resistant.' });
+    expect(found.proposal.provenance).toMatchObject({ stance: 'challenge', articleId: 'a1' });
+
+    models.WikiPage.rows[0].judgment.currentJudgment = 'Costco is a toll road on suburban errands.';
+    expect(await pushesAgainst({ userId: 'u1', articleId: 'a1', models })).toBeNull();
+  });
+
+  it('is silent for support, and for a source with nothing waiting', async () => {
+    const models = world();
+    await read(models, answer({ stance: 'support', quote }));
+    expect(await pushesAgainst({ userId: 'u1', articleId: 'a1', models })).toBeNull();
+    expect(await pushesAgainst({ userId: 'u1', articleId: 'a2', models })).toBeNull();
+  });
+});
+
+describe('you hold the opposite', () => {
+  const OPPOSITE = 'When a real recession comes, Costco members cancel their membership faster than anyone expects.';
+  const note = (over = {}) => ({
+    _id: 'n1',
+    blocks: [{ id: 'b1', type: 'paragraph', text: `Notes from the call. ${OPPOSITE}` }],
+    viewReadings: [],
+    ...over
+  });
+  const setup = () => {
+    const models = world();
+    models.NotebookEntry = { updateOne: jest.fn(async () => ({})) };
+    return models;
+  };
+  const verdict = (body) => jest.fn(async () => ({ text: JSON.stringify(body) }));
+  const check = (models, entry, complete, extra = {}) => opposeFromNote({
+    entry, userId: 'u1', models, complete, configured: () => true, embed: null, now, ...extra
+  });
+
+  it('names the sentence and the view it contradicts, once, and keeps the verdict on the note', async () => {
+    const models = setup();
+    const complete = verdict({ verdict: 'contradicts', confidence: 'high' });
+    const line = await check(models, note(), complete);
+    expect(complete).toHaveBeenCalledTimes(1);
+    expect(complete.mock.calls[0][0].messages[1].content).toContain(OPPOSITE);
+    expect(line).toMatchObject({
+      sentence: OPPOSITE,
+      blockId: 'b1',
+      pageId: 'v1',
+      view: 'Costco’s membership model makes it recession-resistant.'
+    });
+    const [, update] = models.NotebookEntry.updateOne.mock.calls[0];
+    const [kept] = update.$push.viewReadings.$each;
+    expect(kept).toMatchObject({ key: line.key, verdict: 'contradicts', sentence: OPPOSITE, pageId: 'v1' });
+
+    // The next save asks nothing; the line stands while sentence and view do.
+    const again = await check(models, note({ viewReadings: [kept] }), complete, { configured: () => false });
+    expect(again).toMatchObject({ key: line.key });
+    expect(complete).toHaveBeenCalledTimes(1);
+    // Rewrite the sentence and the line goes.
+    expect(await check(models, note({ viewReadings: [kept], blocks: [{ id: 'b1', text: 'Notes from the call.' }] }), complete)).toBeNull();
+  });
+
+  it('never repeats a line set aside, and never asks that pair again', async () => {
+    const models = setup();
+    const line = await check(models, note(), verdict({ verdict: 'contradicts', confidence: 'high' }));
+    const [kept] = models.NotebookEntry.updateOne.mock.calls[0][1].$push.viewReadings.$each;
+    const complete = verdict({ verdict: 'contradicts', confidence: 'high' });
+    expect(await check(models, note({ viewReadings: [{ ...kept, dismissedAt: now }] }), complete)).toBeNull();
+    expect(complete).not.toHaveBeenCalled();
+    expect(line.key).toBe(kept.key);
+  });
+
+  it('stays silent on support, on an unsure contradiction, on shared words, and without a model', async () => {
+    for (const body of [
+      { verdict: 'supports', confidence: 'high' },
+      { verdict: 'contradicts', confidence: 'low' },
+      { verdict: 'unrelated', confidence: 'high' }
+    ]) {
+      expect(await check(setup(), note(), verdict(body))).toBeNull();
+    }
+    const complete = verdict({ verdict: 'contradicts', confidence: 'high' });
+    expect(await check(setup(), note(), complete, { configured: () => false })).toBeNull();
+    expect(await check(setup(), note({ blocks: [{ id: 'b1', text: 'Too short to read.' }] }), complete)).toBeNull();
+    expect(complete).not.toHaveBeenCalled();
   });
 });
