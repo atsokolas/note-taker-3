@@ -322,10 +322,68 @@ body.noeis-editorial.wiki-front-page-route .topbar .brand-gradient {
   flex-wrap: wrap;
 }
 
-.wiki-collection__kind {
-  font-size: 9px;
+.wiki-collection__kind-filter {
+  flex-shrink: 0;
+  border: 0;
+  background: none;
+  color: var(--muted, #676e62);
+  font-size: 12px;
+  padding: 4px 0;
+  cursor: pointer;
+}
+
+/* What moved since you last looked: one quiet block above the list. */
+.wiki-collection__since-quiet {
+  margin: 22px 0 0;
+  font: 16px/1.5 var(--serif, Georgia, serif);
+  color: var(--muted, #676e62);
+}
+
+.wiki-collection__since {
+  margin-top: 26px;
+}
+
+.wiki-collection__since-title {
+  margin: 0 0 4px;
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  letter-spacing: 0.09em;
+  color: var(--muted, #676e62);
+}
+
+.wiki-collection__since ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.wiki-collection__since li {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--noeis-rule, var(--vellum-line, #dcded3));
+}
+
+.wiki-collection__since-page {
+  font: 19px/1.3 var(--serif, Georgia, serif);
+  color: inherit;
+  text-decoration: none;
+}
+
+.wiki-collection__since-page:hover {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+}
+
+.wiki-collection__since-sentence {
+  margin: 6px 0 0;
+  font: 16px/1.5 var(--serif, Georgia, serif);
+  max-width: 68ch;
+}
+
+.wiki-collection__since .wiki-collection__meta {
+  justify-content: flex-start;
+  margin-top: 8px;
 }
 
 .wiki-collection__empty {

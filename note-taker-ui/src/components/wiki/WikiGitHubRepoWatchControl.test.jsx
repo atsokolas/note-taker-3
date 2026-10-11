@@ -245,14 +245,14 @@ describe('WikiGitHubRepoWatchControl', () => {
     }, { systemStatusControls });
 
     expect(screen.getByRole('status')).toHaveTextContent(
-      'The latest update did not pass the evidence bar. Showing the last trusted version from 4cbdac0.'
+      'The latest update did not hold up against its sources. Showing the version from 4cbdac0.'
     );
     expect(screen.getByLabelText('Repository publication status')).toHaveTextContent(/Build state Needs review/);
     expect(screen.getByRole('region', { name: 'GitHub repository watch' })).toHaveAttribute('data-repo-watch-state', 'failed_candidate');
     expect(systemStatusControls.setLatestReceipt).toHaveBeenCalledWith({
       id: 'repo-watch-review-wiki-project-1',
       title: 'Repo wiki update needs review',
-      summary: 'The latest update did not pass the evidence bar. Showing the last trusted version from 4cbdac0.',
+      summary: 'The latest update did not hold up against its sources. Showing the version from 4cbdac0.',
       status: 'needs_review',
       href: '/wiki/workspace?page=wiki-project-1'
     });
@@ -317,7 +317,7 @@ describe('WikiGitHubRepoWatchControl', () => {
       watchBase,
       page,
       'failed_candidate'
-    )).toBe('The latest update did not pass the evidence bar. Showing the last trusted version from 4cbdac0.');
+    )).toBe('The latest update did not hold up against its sources. Showing the version from 4cbdac0.');
 
     expect(formatRepoWatchPublicationMessage(watchBase, page, 'superseded')).toBe(
       'A newer commit arrived while this page was rebuilding. Continuing with the latest head.'

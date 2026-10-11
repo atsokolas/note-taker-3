@@ -45,12 +45,6 @@
   border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 62%, transparent);
 }
 
-@media (max-width: 1240px) {
-  .library-page-shell.is-reading .magnetic-reading-rail {
-    bottom: 78px;
-  }
-}
-
 .library-shelf {
   position: sticky;
   top: 88px;

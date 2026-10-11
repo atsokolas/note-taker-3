@@ -30,7 +30,7 @@ import TourManager from './tour/TourManager';
 import OnboardingBuildBanner from './onboarding/OnboardingBuildBanner';
 import FirstRunGate from './onboarding/FirstRunGate';
 import OnboardingWalkthrough from './onboarding/OnboardingWalkthrough';
-import { buildCanonicalArticlePath } from './utils/sourceRoutes';
+import { buildCanonicalHighlightPath } from './utils/sourceRoutes';
 import {
   buildThinkPosturePath,
   consumeGoToChord,
@@ -57,7 +57,6 @@ import './App.css';
 import './styles/reading-layout.css';
 import './styles/dashboard-refresh.css';
 import './styles/idea-workbench.css';
-import './styles/brand-energy.css';
 import './styles/editions.css';
 import './styles/design-preview.css';
 import './styles/stitch-editorial.css';
@@ -65,23 +64,12 @@ import './styles/think-notes.css';
 import './surface/surface-frame.css';
 import './styles/semantic-theme.css';
 
-const AllHighlights = lazy(() => import('./pages/AllHighlights'));
-const Search = lazy(() => import('./pages/Search'));
-const TagBrowser = lazy(() => import('./pages/TagBrowser'));
-const Collections = lazy(() => import('./pages/Collections'));
-const CollectionDetail = lazy(() => import('./pages/CollectionDetail'));
-const Views = lazy(() => import('./pages/Views'));
-const ViewDetail = lazy(() => import('./pages/ViewDetail'));
-const Export = lazy(() => import('./pages/Export'));
 const Library = lazy(() => import('./pages/Library'));
 const Editions = lazy(() => import('./pages/Editions'));
 const EditionRead = lazy(() => import('./pages/EditionRead'));
 const ThinkMode = lazy(() => import('./pages/ThinkMode'));
 const ThinkNotes = lazy(() => import('./pages/ThinkNotes'));
 const AuthoredRecovery = lazy(() => import('./components/think/AuthoredRecovery'));
-const MapView = lazy(() => import('./pages/MapView'));
-const ReviewMode = lazy(() => import('./pages/ReviewMode'));
-const ReturnQueue = lazy(() => import('./pages/ReturnQueue'));
 const Settings = lazy(() => import('./pages/Settings'));
 const Wiki = lazy(() => import('./pages/Wiki'));
 /* Home is not code-split.
@@ -184,6 +172,26 @@ const ThinkSurface = () => {
   return namesAThinkObject(location.search) ? <ThinkMode /> : <ThinkNotes />;
 };
 
+/* Rooms that were retired. Their addresses still resolve, to the place that
+   now does the job: highlights and saved searches live in Library, export in
+   Settings, and the review and map postures in Think. */
+const RETIRED_ROOMS = [
+  ['/all-highlights', '/library?scope=highlights'],
+  ['/search', '/library'],
+  ['/views/*', '/library'],
+  ['/views', '/library'],
+  ['/collections/*', '/library'],
+  ['/collections', '/library'],
+  ['/tags', '/think?tab=concepts'],
+  ['/export', '/settings?section=data'],
+  ['/map', '/think'],
+  ['/review', '/think'],
+  ['/return-queue', '/think'],
+  ['/brain', '/think'],
+  ['/resurface', '/think'],
+  ['/journey', '/think']
+];
+
 const LegacyConceptRedirect = () => {
   const { tagName, tag } = useParams();
   const conceptName = String(tagName || tag || '').trim();
@@ -200,9 +208,11 @@ const LegacyQuestionRedirect = () => {
   return <Navigate to={buildThinkPosturePath('questions', questionId)} replace />;
 };
 
+/* An old article link that named a passage still opens at the passage. */
 const LegacyArticleRedirect = () => {
   const { id } = useParams();
-  return <Navigate to={buildCanonicalArticlePath(id)} replace />;
+  const highlightId = new URLSearchParams(useLocation().search).get('highlightId') || '';
+  return <Navigate to={buildCanonicalHighlightPath({ articleId: id, highlightId })} replace />;
 };
 
 const LegacyWikiPageRedirect = () => {
@@ -230,7 +240,14 @@ export const isDesignPreviewPath = (pathname = '') => (
   pathname === '/design-preview' || pathname.startsWith('/design-preview/')
 );
 
-const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess, uiSettings }) => {
+/* Pages that read the same signed in or out. They are drawn by the public
+   tree either way, so they are declared once. */
+const PUBLIC_PAGES = new Set(['/guides', '/examples', '/proof', '/privacy', '/terms', ...GUIDE_SLUGS.map((slug) => `/${slug}`)]);
+export const isPublicPage = (pathname = '') => (
+  isPublicSharePath(pathname) || isDesignPreviewPath(pathname) || PUBLIC_PAGES.has(pathname)
+);
+
+const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess }) => {
   const location = useLocation();
   const isShareRoute = isPublicSharePath(location.pathname);
   const isLongformRoute = (
@@ -298,7 +315,6 @@ const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess, uiSettings }) => {
               <Login
                 onLoginSuccess={handleLoginSuccess}
                 chromeStoreLink={chromeStoreLink}
-                brandEnergy={uiSettings.brandEnergy}
               />
             )}
           />
@@ -422,7 +438,7 @@ const AppRouterContent = ({
   setShortcutOverlayOpen
 }) => {
   const location = useLocation();
-  const shouldUsePublicRoutes = !isAuthenticated || isPublicSharePath(location.pathname);
+  const shouldUsePublicRoutes = !isAuthenticated || isPublicPage(location.pathname);
 
   if (shouldUsePublicRoutes) return <PublicRoutes {...publicRouteProps} />;
   return (
@@ -444,7 +460,6 @@ function App() {
   const [shortcutOverlayOpen, setShortcutOverlayOpen] = useState(false);
   const [productFeedbackOpen, setProductFeedbackOpen] = useState(false);
   const [uiSettings, setUiSettings] = useState(() => loadUiSettingsFromStorage());
-  const [uiSettingsSaving, setUiSettingsSaving] = useState(false);
   const systemStatus = useSystemStatus();
   const storageFailure = useStorageStatus(isAuthenticated);
   const recoverableFailure = systemStatus.recoverableFailure || storageFailure;
@@ -587,29 +602,8 @@ function App() {
     setIsAuthenticated(true);
   };
 
-  const handleUiSettingsChange = async (updates) => {
-    const previous = uiSettings;
-    const optimistic = normalizeUiSettings({ ...uiSettings, ...updates });
-    setUiSettings(optimistic);
-    if (!isAuthenticated) return;
-    setUiSettingsSaving(true);
-    try {
-      const saved = await saveUiSettings(optimistic);
-      const normalized = normalizeUiSettings(saved);
-      setUiSettings(normalized);
-      persistUiSettingsToStorage(normalized);
-    } catch (error) {
-      console.error('Failed to save UI settings:', error);
-      setUiSettings(previous);
-      applyUiSettingsToRoot(document.documentElement, previous);
-    } finally {
-      setUiSettingsSaving(false);
-    }
-  };
-
   const handleAppearanceCommit = async (patch, nextDraft) => {
     const optimistic = normalizeUiSettings({ ...uiSettings, ...patch });
-    setUiSettingsSaving(true);
     try {
       const saved = await saveUiSettings(optimistic);
       const normalized = normalizeUiSettings(saved);
@@ -620,8 +614,6 @@ function App() {
       console.error('Failed to save appearance settings:', error);
       applyUiSettingsToRoot(document.documentElement, uiSettings);
       return { ok: false };
-    } finally {
-      setUiSettingsSaving(false);
     }
   };
 
@@ -754,9 +746,6 @@ function App() {
                 addressable: a URL that names a concept, question, thread or
                 entry still opens that object in the older workspace. */}
             <Route path="/think" element={<ThinkSurface />} />
-            <Route path="/map" element={<MapView />} />
-            <Route path="/return-queue" element={<ReturnQueue />} />
-            <Route path="/review" element={<ReviewMode />} />
             {/* /wiki is the quiet collection; the maintenance workspace stays
                 one hairline away at /wiki/workspace. */}
             {/* Judgment: the index is a list of claim sentences; opening one
@@ -793,42 +782,17 @@ function App() {
             <Route path="/connections" element={<Integrations />} />
             <Route path="/integrations" element={<Integrations />} />
             <Route path="/settings/connected-agents/authorize" element={<AgentConnectAuthorize />} />
-          <Route path="/settings/connected-agents/chatgpt" element={<ChatGPTConnectAuthorize />} />
+            <Route path="/settings/connected-agents/chatgpt" element={<ChatGPTConnectAuthorize />} />
             <Route path="/a/run/:taskId" element={<AgentTaskRun />} />
             <Route path="/data-integrations" element={<DataIntegrationsRedirect />} />
             <Route path="/marketing-analytics" element={<MarketingAnalytics />} />
             <Route path="/search-console-opportunities" element={<SearchConsoleOpportunities />} />
-            <Route path="/guides" element={<GuidesHub />} />
-            <Route path="/examples" element={<Examples />} />
-            <Route path="/proof" element={<PublicProofGallery />} />
-            {GUIDE_SLUGS.map((slug) => (
-              <Route key={slug} path={`/${slug}`} element={<GuideArticlePage slug={slug} />} />
-            ))}
-            <Route path="/privacy" element={<PrivacyPolicy />} />
-            <Route path="/terms" element={<TermsOfUse />} />
-            <Route path="/design-preview/open-sentence" element={<OpenSentenceStoryboard />} />
-            <Route path="/design-preview/notebook-share" element={<NotebookSharePreview />} />
-            <Route path="/design-preview/notebook-volume" element={<NotebookVolumePreview />} />
-            <Route path="/design-preview/question-share" element={<QuestionSharePreview />} />
-            <Route path="/design-preview/concept-share" element={<ConceptSharePreview />} />
-            <Route path="/design-preview" element={<DesignPreview />} />
-            <Route path="/share/notebooks/:slug" element={<SharedNotebook />} />
-            <Route path="/share/volumes/:slug" element={<SharedNotebookVolume />} />
-            <Route path="/share/concepts/:slug" element={<SharedConcept />} />
-            <Route path="/share/wiki/collection/:idOrSlug" element={<SharedWikiCollectionPage />} />
-            <Route path="/share/wiki/:idOrSlug/comparison" element={<PublicWikiComparison />} />
-            <Route path="/share/wiki/:idOrSlug" element={<SharedWikiPage />} />
-            <Route path="/share/questions/:slug" element={<SharedQuestion />} />
-            <Route path="/share/editions/:slug" element={<SharedEdition />} />
 
             {/* Legacy/feature routes kept for compatibility */}
-            <Route path="/brain" element={<Navigate to="/review?tab=patterns" replace />} />
-            <Route path="/resurface" element={<Navigate to="/review?tab=resurface" replace />} />
-            <Route path="/all-highlights" element={<AllHighlights />} />
-            <Route path="/tags" element={<TagBrowser />} />
+            {RETIRED_ROOMS.map(([path, to]) => (
+              <Route key={path} path={path} element={<Navigate to={to} replace />} />
+            ))}
             <Route path="/tags/:tagName" element={<LegacyConceptRedirect />} />
-            <Route path="/collections" element={<Collections />} />
-            <Route path="/collections/:slug" element={<CollectionDetail />} />
             <Route path="/concepts" element={<LegacyConceptRedirect />} />
             <Route path="/concepts/:tag" element={<LegacyConceptRedirect />} />
             <Route path="/notebook" element={<LegacyNotebookRedirect />} />
@@ -836,17 +800,12 @@ function App() {
             <Route path="/questions" element={<LegacyQuestionRedirect />} />
             <Route path="/questions/:questionId" element={<LegacyQuestionRedirect />} />
             <Route path="/question/:questionId" element={<LegacyQuestionRedirect />} />
-            <Route path="/views" element={<Views />} />
-            <Route path="/views/:id" element={<ViewDetail />} />
-            <Route path="/search" element={<Search />} />
-            <Route path="/journey" element={<Navigate to="/review?tab=journey" replace />} />
             <Route path="/concept/:tag" element={<LegacyConceptRedirect />} />
             <Route path="/board" element={<Navigate to="/think?tab=concepts" replace />} />
             <Route path="/studio-board" element={<Navigate to="/think?tab=concepts" replace />} />
             <Route path="/boards" element={<Navigate to="/think?tab=concepts" replace />} />
             <Route path="/boards/*" element={<Navigate to="/think?tab=concepts" replace />} />
             <Route path="/articles/:id" element={<LegacyArticleRedirect />} />
-            <Route path="/export" element={<Export />} />
             {/* Redirect authenticated users away from auth pages */}
             <Route path="/login" element={<AuthenticatedLoginRedirect />} />
             <Route path="/register" element={<Navigate to="/" replace />} />
@@ -869,9 +828,8 @@ function App() {
         )}
       >
       <AppShell
-        brandEnergy={uiSettings.brandEnergy}
         surface={surface}
-        /* Think owns its thought partner inside the writing surface. The shell
+        /* Think owns its Partner inside the writing surface. The shell
            must never mount a second, generic agent beside it. The Wiki
            collection keeps the steward reachable from Ask, not as a resting
            column beside the list. */
@@ -883,15 +841,11 @@ function App() {
         topBar={(
           <TopBar
             routeLocation={shellLocation}
-            brandEnergy={uiSettings.brandEnergy}
             primaryNav={primaryNavItems}
             utilityNav={utilityNavItems}
             secondaryNav={moreNavItems}
             searchMode="field"
             onSearchOpen={openPalette}
-            theme={uiSettings.theme}
-            onThemeChange={(nextTheme) => handleUiSettingsChange({ theme: nextTheme })}
-            themeSaving={uiSettingsSaving}
             accountMenuItems={topBarAccountMenuItems}
             systemStatus={{
               backgroundWork: systemStatus.backgroundWork,
@@ -924,7 +878,7 @@ function App() {
         <Analytics />
         <AppRouterContent
           isAuthenticated={isAuthenticated}
-          publicRouteProps={{ chromeStoreLink, handleLoginSuccess, uiSettings }}
+          publicRouteProps={{ chromeStoreLink, handleLoginSuccess }}
           renderLayout={renderAppLayout}
           openPalette={openPalette}
           setShortcutOverlayOpen={setShortcutOverlayOpen}

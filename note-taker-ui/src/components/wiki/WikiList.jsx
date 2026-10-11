@@ -12,7 +12,8 @@ import {
   computeWikiFacetCounts,
   isWikiAllPagesActive,
   WIKI_KIND_FLAGS,
-  wikiKindForPage
+  wikiKindForPage,
+  withoutHeldViews
 } from './wikiFacetModel';
 import {
   formatWikiRowDate,
@@ -306,7 +307,7 @@ const WikiList = ({ compact = false, onOpenPage }) => {
     setLoading(true);
     setError('');
     try {
-      const nextPages = await listWikiPages(requestParams);
+      const nextPages = withoutHeldViews(await listWikiPages(requestParams));
       setPages(nextPages);
       if (
         compact

@@ -142,14 +142,14 @@ export const buildMaintenanceSummary = ({
       filed,
       readyToClassify,
       status: 'unfiled',
-      message: `${unfiled} source${unfiled === 1 ? '' : 's'} still unfiled. The corpus is readable, but filing suggestions are waiting.`,
+      message: `${unfiled} source${unfiled === 1 ? '' : 's'} still unfiled. Everything is readable; filing suggestions are waiting.`,
       actionLabel: 'Review filing suggestions'
     });
   }
 
   if (unfiled > 0) {
     const classifyHint = readyToClassify > 0
-      ? `${readyToClassify} unfiled source${readyToClassify === 1 ? '' : 's'} already have highlights ready to classify.`
+      ? `${readyToClassify} unfiled source${readyToClassify === 1 ? '' : 's'} already have passages and are ready to file.`
       : `${unfiled} source${unfiled === 1 ? '' : 's'} still need a cabinet home.`;
     return withCruftNotice({
       total,

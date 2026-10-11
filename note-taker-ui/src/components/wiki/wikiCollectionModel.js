@@ -3,8 +3,6 @@ import { wikiKindForPage } from './wikiFacetModel';
 import { wikiPreviewForPage } from './wikiPageMetrics';
 import { isPageQualityBlocked } from './wikiPageQualityReview';
 
-export const COLLECTION_SCOPES = ['all', 'proposed', 'recent'];
-
 export const collectionPageId = (page = {}) => String(page?._id || page?.id || page?.pageId || '').trim();
 
 const asText = (value) => String(value || '').replace(/\s+/g, ' ').trim();
@@ -56,11 +54,6 @@ export const filterCollectionPages = ({
   if (kind) visible = visible.filter(page => wikiKindForPage(page) === kind);
   if (scope === 'proposed') visible = visible.filter(pendingWikiProposal);
   else visible = visible.filter(isCurrentCollectionPage);
-  if (scope === 'recent') {
-    visible = [...visible]
-      .filter(page => page?.updatedAt)
-      .sort((left, right) => new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime());
-  }
   if (needle) visible = visible.filter(page => pageMatchesCollectionQuery(page, needle));
   return visible;
 };

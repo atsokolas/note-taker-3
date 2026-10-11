@@ -3,13 +3,11 @@ import { Link, useNavigate } from 'react-router-dom';
 import {
   adoptPublicWikiPage,
   followPublicCasebook,
-  forkPublicCasebook,
-  getWikiPublicPreview
+  forkPublicCasebook
 } from '../api/wiki';
 import { CLOCK_LABEL, VERDICT_LABEL } from './judgmentLedgerClient';
 import { wikiPagePath } from '../utils/wikiFeatureFlags';
 import { describeReturn, readLastSeen, rememberSeen } from './publicReturn';
-import useControlledDisclosure from '../components/judgment/useControlledDisclosure';
 import '../styles/public-casebook.css';
 
 const months = Object.freeze([
@@ -99,8 +97,7 @@ const PublicCasebook = ({
   casebook,
   idOrSlug,
   location,
-  onNeedAuth,
-  preview = false
+  onNeedAuth
 }) => {
   const navigate = useNavigate();
   /* What this reader had already seen when they arrived. Read once, before
@@ -112,13 +109,10 @@ const PublicCasebook = ({
   const [note, setNote] = useState('');
 
   /* Record the visit after the page has been read, never before it is shown.
-     A preview is the owner looking at their own work and is not a visit, so
-     it must not consume the reader's next "since you were last here".
      Everything here stays in this browser: no account, no beacon, no write. */
   useEffect(() => {
-    if (preview) return;
     rememberSeen(idOrSlug, casebook?.deltas);
-  }, [idOrSlug, casebook, preview]);
+  }, [idOrSlug, casebook]);
 
   const goAuth = useCallback((intent) => {
     if (onNeedAuth) onNeedAuth(intent);
@@ -287,9 +281,6 @@ const PublicCasebook = ({
 
       <LineageTree lineage={casebook.lineage} />
 
-      {preview ? (
-        <p className="public-casebook__privacy">This is the sealed folio. Private notes never leave the case.</p>
-      ) : (
       <section className="public-casebook__hands" aria-label="Follow, fork, or adopt">
         <p>Follow watches. Fork branches the claim. Adopt copies the page. None of them keep a count.</p>
         <div>
@@ -305,53 +296,9 @@ const PublicCasebook = ({
         </div>
         {note ? <p role="status">{note}</p> : null}
       </section>
-      )}
     </article>
   );
 };
 
 export default PublicCasebook;
 export { formatDay, hasAuthToken };
-
-export const CasebookPreview = ({ pageId, expanded, onExpandedChange }) => {
-  const { controlled, open, setOpen, triggerRef } = useControlledDisclosure({ expanded, onExpandedChange });
-  const [folio, setFolio] = useState(null);
-  useEffect(() => {
-    if (!open || !pageId) return undefined;
-    let cancelled = false;
-    getWikiPublicPreview(pageId)
-      .then((payload) => {
-        if (!cancelled) setFolio(payload?.casebook || null);
-      })
-      .catch(() => {
-        if (!cancelled) setFolio(null);
-      });
-    return () => { cancelled = true; };
-  }, [open, pageId]);
-  if (!pageId) return null;
-  if (controlled) {
-    if (!open) {
-      return (
-        <section className="public-casebook-preview">
-          <button ref={triggerRef} type="button" onClick={() => setOpen(true)}>What a visitor would see</button>
-        </section>
-      );
-    }
-    return (
-      <section className="public-casebook-preview" aria-labelledby="public-casebook-preview-title">
-        <h2 id="public-casebook-preview-title">What a visitor would see</h2>
-        {folio ? <PublicCasebook casebook={folio} idOrSlug={pageId} preview /> : <p className="public-casebook__privacy">Nothing public is sealed yet.</p>}
-      </section>
-    );
-  }
-  return (
-    <details
-      className="public-casebook-preview"
-      onToggle={(event) => setOpen(event.currentTarget.open)}
-    >
-      <summary>What a visitor would see</summary>
-      {open && folio ? <PublicCasebook casebook={folio} idOrSlug={pageId} preview /> : null}
-      {open && !folio ? <p className="public-casebook__privacy">Nothing public is sealed yet.</p> : null}
-    </details>
-  );
-};

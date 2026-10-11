@@ -1,6 +1,7 @@
 const { CHATGPT_ACCESS_PROFILE } = require('../services/chatgptAccessPolicy');
 const express = require('express');
-const { collectContradictions } = require('../services/wikiContradictionService');
+const { collectContradictions, contradictionsTouching } = require('../services/wikiContradictionService');
+const { describeHistory, describeSince, isPromoted } = require('../services/wikiChangeStory');
 const PDFDocument = require('pdfkit');
 const { buildPamphletPdf } = require('../services/judgmentPamphlet');
 const { inkWikiPageReview } = require('../services/wikiReviewClock');
@@ -1723,7 +1724,8 @@ const WIKI_JUDGMENT_FIELDS = Object.freeze([
   'judgment.dependsOn.note', 'judgment.dependsOn.proposedBy',
   'judgment.bornAt', 'judgment.resolutionCriteria',
   'judgment.resolutionHorizonAt', 'judgment.resolutionSetAt',
-  'judgment.resolutionHistory', 'judgment.verdicts'
+  'judgment.resolutionHistory', 'judgment.verdicts',
+  'judgment.heldHistory', 'judgment.confidence', 'judgment.parkedAt'
 ]);
 
 const WIKI_JUDGMENT_INDEX_FIELDS = Object.freeze([
@@ -2776,7 +2778,8 @@ const buildWikiRouter = ({
     NoeisReceipt,
     findOwnedPage,
     serializePage: serializeWikiPage,
-    onPageChanged: onOwnedPageChanged
+    onPageChanged: onOwnedPageChanged,
+    trackWikiEvent
   }));
   router.use(buildOpenSentenceAcceptRouter({
     authenticateToken: wikiAuth,
@@ -6410,6 +6413,7 @@ const buildWikiRouter = ({
         }).catch(() => null);
       }
       if (WikiBriefingCache) await WikiBriefingCache.deleteOne({ userId }).catch(() => null);
+      trackWikiEvent(req, EVENT_NAMES.VIEW_HELD, { pageId: String(page._id), from: 'highlight' });
 
       return res.status(201).json({
         pageId: String(page._id),
@@ -6512,6 +6516,73 @@ const buildWikiRouter = ({
     }
   });
 
+  /* The reading that caused a change: the source event behind the revision,
+     or behind the run that wrote it. Unknown stays unknown. */
+  const changeSourcesFor = async (userId, revisions = []) => {
+    const found = new Map();
+    if (!WikiSourceEvent?.find) return found;
+    const runIds = revisions.filter(revision => !revision.sourceEventId && revision.maintenanceRunId)
+      .map(revision => revision.maintenanceRunId);
+    const runs = runIds.length && WikiMaintenanceRun?.find
+      ? await WikiMaintenanceRun.find({ userId, _id: { $in: runIds } }).select('sourceEventId').lean()
+      : [];
+    const eventByRun = new Map(runs.map(run => [String(run._id), run.sourceEventId]));
+    const eventFor = revision => revision.sourceEventId || eventByRun.get(String(revision.maintenanceRunId || '')) || null;
+    const eventIds = revisions.map(eventFor).filter(Boolean);
+    if (!eventIds.length) return found;
+    const events = await WikiSourceEvent.find({ userId, _id: { $in: eventIds } }).select('title createdAt').lean();
+    const eventById = new Map(events.map(event => [String(event._id), event]));
+    revisions.forEach((revision) => {
+      const event = eventById.get(String(eventFor(revision) || ''));
+      if (event?.title) found.set(String(revision._id), { title: event.title, at: event.createdAt || null });
+    });
+    return found;
+  };
+
+  /* What moved since you last looked: one sentence per page, the net change
+     from the page as it stood at `since` to the page now. A page whose
+     updatedAt moved without a promoted revision (a visit, a status flag) did
+     not change for the reader and is left out. */
+  router.get('/api/wiki/changes', wikiAuth, async (req, res) => {
+    try {
+      const sinceTime = new Date(req.query.since || 0);
+      const since = Number.isFinite(sinceTime.getTime()) ? sinceTime : new Date(0);
+      const live = { userId: req.user.id, status: { $ne: 'archived' } };
+      const [pageCount, pages] = await Promise.all([
+        WikiPage.countDocuments(live),
+        WikiPage.find({ ...live, updatedAt: { $gt: since } })
+          .select('title body sourceRefs.title sourceRefs.url sourceRefs.objectId updatedAt')
+          .sort({ updatedAt: -1 })
+          .limit(12)
+          .lean()
+      ]);
+      if (!WikiRevision?.find || !pages.length) return res.status(200).json({ since, pageCount, changes: [] });
+      const changes = (await Promise.all(pages.map(async (page) => {
+        const revisions = (await WikiRevision.find({ userId: req.user.id, pageId: page._id, createdAt: { $gt: since } })
+          .select('reason actorType sourceEventId maintenanceRunId promotionStatus snapshotUnchanged summary before.body before.sourceRefs createdAt')
+          .sort({ createdAt: -1 })
+          .limit(20)
+          .lean()).filter(revision => isPromoted(revision) && !revision.snapshotUnchanged);
+        if (!revisions.length) return null;
+        const oldest = revisions[revisions.length - 1];
+        const sentence = describeSince(oldest, page) || describeHistory([revisions[0]], page)[0];
+        const sources = await changeSourcesFor(req.user.id, [revisions[0]]);
+        return {
+          pageId: String(page._id),
+          title: page.title,
+          at: revisions[0].createdAt,
+          by: revisions[0].actorType === 'user' ? 'you' : 'partner',
+          sentence,
+          changeSource: sources.get(String(revisions[0]._id)) || null
+        };
+      }))).filter(Boolean);
+      return res.status(200).json({ since, pageCount, changes });
+    } catch (error) {
+      console.error('Error reading wiki changes:', error);
+      return res.status(500).json({ error: 'Could not read what changed.' });
+    }
+  });
+
   router.get('/api/wiki/contradictions', wikiAuth, async (req, res) => {
     try {
       const limit = Math.max(1, Math.min(Number(req.query.limit) || 50, 200));
@@ -6520,7 +6591,9 @@ const buildWikiRouter = ({
         .sort({ updatedAt: -1 })
         .limit(300)
         .lean();
-      const contradictions = collectContradictions(pages).slice(0, limit);
+      const all = collectContradictions(pages);
+      const pageId = String(req.query.pageId || '').trim();
+      const contradictions = (pageId ? contradictionsTouching(all, pageId) : all).slice(0, limit);
       return res.status(200).json({ contradictions });
     } catch (error) {
       console.error('Error collecting wiki contradictions:', error);
@@ -6825,6 +6898,13 @@ const buildWikiRouter = ({
       }
 
       await page.save();
+      const heldBefore = String(before?.judgment?.currentJudgment || '').trim();
+      if (held !== heldBefore) {
+        trackWikiEvent(req, heldBefore ? EVENT_NAMES.VIEW_REVISED : EVENT_NAMES.VIEW_HELD, {
+          pageId: serializeId(page._id),
+          actorType
+        });
+      }
       publicPageCache.invalidate(serializeId(page._id), before?.slug, page.slug);
       await syncPageGraph(page, req.user.id);
       const revision = await createWikiRevision({
@@ -9077,7 +9157,7 @@ const buildWikiRouter = ({
 
   router.get('/api/wiki/pages/:id/revisions', wikiAuth, async (req, res) => {
     try {
-      const page = await findOwnedPage(req).select('_id').lean();
+      const page = await findOwnedPage(req).select('_id body sourceRefs.title sourceRefs.url sourceRefs.objectId').lean();
       if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
       if (!WikiRevision) return res.status(200).json({ revisions: [] });
       const limit = Math.max(1, Math.min(Number(req.query.limit) || 50, 100));
@@ -9102,7 +9182,15 @@ const buildWikiRouter = ({
         'before.body', 'before.claims', 'before.citations', 'before.sourceRefs',
         'after.claims'
       ].join(' '))).lean();
-      res.status(200).json({ revisions });
+      const sentences = describeHistory(revisions, page);
+      const sources = await changeSourcesFor(req.user.id, revisions);
+      res.status(200).json({
+        revisions: revisions.map((revision, index) => ({
+          ...revision,
+          sentence: sentences[index],
+          changeSource: sources.get(String(revision._id)) || null
+        }))
+      });
     } catch (error) {
       console.error('Error listing wiki revisions:', error);
       res.status(500).json({ error: 'Failed to list wiki revisions.' });

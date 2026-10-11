@@ -146,8 +146,7 @@
 
 .wiki-read__preview-strip,
 .wiki-read__history-banner,
-.wiki-read__return-thread,
-.wiki-read__acceptance-receipt {
+.wiki-read__return-thread {
   border-top: 1px solid var(--noeis-rule, #dcded3);
   border-bottom: 1px solid var(--noeis-rule, #dcded3);
   padding: 12px 0;
@@ -212,8 +211,7 @@
 @media (max-width: 1024px) {
   .wiki-read__preview-strip,
   .wiki-read__history-banner,
-  .wiki-read__return-thread,
-  .wiki-read__acceptance-receipt {
+  .wiki-read__return-thread {
     flex-direction: column;
     align-items: flex-start;
   }
@@ -261,12 +259,10 @@
   .wiki-read__preview-strip,
   .wiki-read__history-banner,
   .wiki-read__return-thread,
-  .wiki-read__acceptance-receipt,
   .wiki-reader-context,
   .wiki-read__rail,
   .wiki-read__topline,
   .wiki-changes-banner,
-  .wiki-read__exports,
   .wiki-read__article-tools {
     display: none !important;
   }
@@ -283,4 +279,14 @@
     padding: 24px;
     font: 14pt Georgia, serif;
   }
+}
+
+/* The passage opens the reader at the words. */
+.wiki-reader-context__passage {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+.wiki-reader-context__passage:hover blockquote {
+  border-left-color: var(--accent-primary, #b1862e);
 }
