@@ -1,10 +1,16 @@
 import {
-  buildNoteShelf,
+  begunLine,
+  buildThinkEntries,
+  countWords,
+  isTarget,
   noteTitle,
   buildWritingResults,
   buildAuthoredShelf,
-  editedLine,
   namesAThinkObject,
+  questionBlocksFromDoc,
+  readThinkFilter,
+  readThinkTarget,
+  targetParams,
   readRecentNoteIds,
   resolveOpenNoteId
 } from './thinkNotesModel';
@@ -57,67 +63,93 @@ describe('readRecentNoteIds', () => {
   });
 });
 
-describe('the faint shelf', () => {
-  it('lists every note newest first and marks the open one', () => {
-    const shelf = buildNoteShelf({ notes, openId: 'n2' });
+describe('one list', () => {
+  const concepts = [
+    { _id: 'c1', name: 'Moats', updatedAt: '2026-08-13T20:00:00.000Z' },
+    { _id: '', name: 'tag-only', count: 4 },
+    { _id: 'c2', name: 'Hidden', hiddenFromHome: true, updatedAt: '2026-08-15T00:00:00.000Z' }
+  ];
+  const questions = [
+    { _id: 'q1', text: 'What would change my mind?', status: 'answered', updatedAt: '2026-08-14T09:00:00.000Z' },
+    { _id: 'q2', text: 'Archived', archived: true }
+  ];
 
-    expect(shelf.map(item => item.title)).toEqual(['Replication checklist', 'First principles', 'Reading map']);
-    expect(shelf.map(item => item.isOpen)).toEqual([false, true, false]);
+  it('holds notes, concepts and questions newest first, with the kind on each', () => {
+    const entries = buildThinkEntries({ notes, concepts, questions });
+    expect(entries.map(item => `${item.kind}:${item.title}`)).toEqual([
+      'question:What would change my mind?',
+      'note:Replication checklist',
+      'concept:Moats',
+      'note:First principles',
+      'note:Reading map'
+    ]);
+    expect(entries[0].settled).toBe(true);
   });
 
-  it('stays bounded until the human asks for the full recent set', () => {
-    const many = Array.from({ length: 24 }, (_, index) => ({
-      _id: `note-${index}`,
-      title: index === 22 ? 'A specific parenting thought' : `Note ${index}`,
-      updatedAt: new Date(Date.UTC(2026, 7, 24, 0, index)).toISOString()
-    }));
+  it('narrows to one kind, and only then shows tags that are not yet concepts', () => {
+    expect(buildThinkEntries({ notes, concepts, questions, filter: 'concept' }).map(item => item.title)).toEqual(['Moats', 'tag-only']);
+    expect(buildThinkEntries({ notes, concepts, questions, filter: 'note' })).toHaveLength(3);
+  });
 
-    expect(buildNoteShelf({ notes: many })).toHaveLength(18);
-    expect(buildNoteShelf({ notes: many, expanded: true })).toHaveLength(24);
+  it('reads the entry a link names, and keeps the old addresses', () => {
+    const read = search => readThinkTarget(new URLSearchParams(search));
+    expect(read('tab=concepts&concept=Moats&conceptId=c1')).toEqual({ kind: 'concept', id: 'Moats' });
+    expect(read('tab=concepts&conceptId=c1')).toEqual({ kind: 'concept', id: 'c1' });
+    expect(read('tab=questions&questionId=q1')).toEqual({ kind: 'question', id: 'q1' });
+    expect(read('tab=notebook&entryId=n1')).toEqual({ kind: 'note', id: 'n1' });
+    expect(read('tab=concepts')).toBeNull();
+    expect(readThinkFilter(new URLSearchParams('tab=questions'))).toBe('question');
+    expect(readThinkFilter(new URLSearchParams('tab=questions&questionId=q1'))).toBe('all');
+    expect(readThinkFilter(new URLSearchParams('tab=notebook'))).toBe('all');
+  });
+
+  it('writes an entry back to the address other rooms already link to', () => {
+    expect(targetParams({ kind: 'concept', id: 'Moats', recordId: 'c1' })).toEqual({ tab: 'concepts', concept: 'Moats', conceptId: 'c1' });
+    expect(targetParams({ kind: 'question', id: 'q1' })).toEqual({ tab: 'questions', questionId: 'q1' });
+    expect(targetParams({ kind: 'note', id: 'n1' })).toEqual({ tab: 'notebook', entryId: 'n1' });
+    expect(isTarget({ kind: 'concept', id: 'Moats', recordId: 'c1' }, { kind: 'concept', id: 'c1' })).toBe(true);
+    expect(isTarget({ kind: 'concept', id: 'Moats' }, { kind: 'concept', id: 'moats' })).toBe(true);
   });
 });
 
-describe('editedLine', () => {
-  const now = new Date('2026-08-14T15:00:00.000Z').getTime();
-
-  it('says when, from the timestamp', () => {
-    expect(editedLine({ updatedAt: new Date('2026-08-14T09:00:00.000Z') }, now)).toMatch(/^edited (this morning|today)$/);
-    expect(editedLine({ updatedAt: '2026-08-13T09:00:00.000Z' }, now)).toBe('edited yesterday');
-    expect(editedLine({ updatedAt: '2026-06-01T09:00:00.000Z' }, now)).toBe('edited June 1');
+describe('begunLine', () => {
+  const now = new Date('2026-10-11T12:00:00.000Z').getTime();
+  it('names the day it began and, only here, the words', () => {
+    expect(begunLine('2026-10-07T09:00:00.000Z', 640, now)).toBe('Begun Wednesday 7 October · 640 words');
+    expect(begunLine('2025-10-07T09:00:00.000Z', 1, now)).toBe('Begun Tuesday 7 October 2025 · 1 word');
+    expect(begunLine('2026-10-07T09:00:00.000Z', 0, now)).toBe('Begun Wednesday 7 October');
+    expect(begunLine(null, 0, now)).toBe('');
   });
+  it('counts words, not punctuation', () => {
+    expect(countWords("It's the downside — not the upside — that matters.")).toBe(8);
+  });
+});
 
-  it('says nothing when there is no timestamp', () => {
-    expect(editedLine({}, now)).toBe('');
+describe('question blocks', () => {
+  it('keeps words and passages, and a block\'s earlier challenge', () => {
+    const doc = { type: 'doc', content: [
+      { type: 'heading', attrs: { level: 2, blockId: 'b1' }, content: [{ type: 'text', text: 'Why it matters' }] },
+      { type: 'highlightRef', attrs: { blockId: 'b2', highlightId: '64b7f0f0f0f0f0f0f0f0f0f0', highlightText: 'A passage', articleId: '64b7f0f0f0f0f0f0f0f0f0f1', articleTitle: 'Source' } },
+      { type: 'paragraph', attrs: { blockId: 'b3' } }
+    ] };
+    const blocks = questionBlocksFromDoc(doc, [{ id: 'b1', challenge: { enabled: true } }]);
+    expect(blocks).toEqual([
+      { id: 'b1', type: 'paragraph', text: 'Why it matters', challenge: { enabled: true } },
+      expect.objectContaining({ id: 'b2', type: 'highlight-ref', text: 'A passage', articleTitle: 'Source' })
+    ]);
   });
 });
 
 describe('namesAThinkObject', () => {
-  it('is false for the ways a human asks for "Think"', () => {
-    expect(namesAThinkObject('')).toBe(false);
-    expect(namesAThinkObject('?tab=home')).toBe(false);
-    // The posture with nothing named is the case that used to blank the editor.
-    expect(namesAThinkObject('?tab=notebook')).toBe(false);
-    // A named note is still the note surface — it is Think's face now.
-    expect(namesAThinkObject('?tab=notebook&entryId=n1')).toBe(false);
+  it('sends every kind of writing to the one editor', () => {
+    ['', '?tab=home', '?tab=notebook', '?tab=concepts', '?tab=questions', '?tab=concepts&concept=Moats',
+      '?tab=questions&questionId=q1', '?tab=threads&threadId=t1', '?tab=insights'].forEach(search => {
+      expect(namesAThinkObject(search)).toBe(false);
+    });
   });
-
-  /* Concepts and Questions are rooms, not just addresses: each has an index
-     of its own. Requiring an object to reach them left the Think rail's two
-     buttons doing nothing and sent the first-run tour's "Open Think Concepts"
-     to the notebook. */
-  it('is true for the two postures that have an index to stand in', () => {
-    expect(namesAThinkObject('?tab=concepts')).toBe(true);
-    expect(namesAThinkObject('?tab=questions')).toBe(true);
-  });
-
-  it('is true when a link points at one specific object elsewhere in Think', () => {
-    expect(namesAThinkObject('?tab=concepts&concept=Moats')).toBe(true);
-    expect(namesAThinkObject('?tab=questions&questionId=q1')).toBe(true);
-    expect(namesAThinkObject('?tab=threads&threadId=t1')).toBe(true);
-  });
-
-  it('leaves postures it does not know to the older workspace', () => {
-    expect(namesAThinkObject('?tab=organize')).toBe(true);
+  it('leaves handoffs and learning paths to their own page', () => {
+    expect(namesAThinkObject('?tab=handoffs&handoffId=h1')).toBe(true);
+    expect(namesAThinkObject('?tab=paths&pathId=p1')).toBe(true);
   });
 });
 

@@ -20,8 +20,6 @@ describe('Think writing focus mode', () => {
     expect(css).toContain('body:is(.think-rails-away, .think-focus-held) [data-writing-rail] > *');
     expect(css).toContain('min-width: var(--think-rail-rest);');
     expect(css).toContain('overflow-x: hidden;');
-    expect(css).toContain('body.noeis-editorial .think-home-editorial-shell');
-    expect(css).toContain('body.noeis-editorial .concept-index-editorial-shell');
     expect(css).not.toMatch(/transition-delay:\s*48ms/);
     expect(css).not.toContain('--think-rail-retreat');
     expect(css).not.toMatch(/opacity 680ms/);
@@ -56,11 +54,8 @@ describe('Think writing focus mode', () => {
 
   it('outranks stitch-editorial resting columns so focus can close the rails', () => {
     expect(css).toContain('body.noeis-editorial:is(.think-rails-away, .think-focus-held) .notebook-editorial-shell');
-    expect(css).toContain('body.noeis-editorial:is(.think-rails-away, .think-focus-held) .think-home-editorial-shell');
-    expect(css).toContain('body.noeis-editorial:is(.think-rails-away, .think-focus-held) .concept-index-editorial-shell');
     const stitch = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
     expect(stitch).toContain('grid-template-columns: 250px minmax(0, 1fr) 300px;');
-    expect(stitch).toContain('grid-template-columns: 260px minmax(0, 1fr) 320px;');
   });
 
   it('lets the Think More menu grow the header instead of overlaying the title', () => {

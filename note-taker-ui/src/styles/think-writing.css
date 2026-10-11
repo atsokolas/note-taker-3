@@ -3,12 +3,10 @@
 
 /* The notebook is a document, not a form inside a card. Keep this contract
    beside the shared editor so every Think route gets the same writing feel. */
-body.noeis-editorial .think-notebook-editor-pane,
 body.noeis-editorial .think-notebook-editor,
 body.noeis-editorial .think-notebook-editor__body,
 body.noeis-editorial .think-editor-draft-surface,
 body.noeis-editorial .think-editor-draft-surface > div,
-.think-notebook-editor-pane,
 .think-notebook-editor,
 .think-notebook-editor__body,
 .think-editor-draft-surface,
@@ -143,8 +141,6 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
 @media (min-width: 1121px) {
   .think-notes,
   body.noeis-editorial .notebook-editorial-shell,
-  body.noeis-editorial .think-home-editorial-shell,
-  body.noeis-editorial .concept-index-editorial-shell,
   [data-writing-rail] {
     --think-rail-push: var(--noeis-motion-deliberate, 320ms) var(--noeis-ease-standard, cubic-bezier(0.2, 0.8, 0.2, 1));
   }
@@ -160,22 +156,16 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
   /* Outrank stitch-editorial's resting 250/300 (and 260/320 under 1360px).
      FocusMode imports this file before App imports stitch-editorial, so equal
      specificity would leave two full-width empty columns while the words fade. */
-  body.noeis-editorial:is(.think-rails-away, .think-focus-held) .notebook-editorial-shell,
-  body.noeis-editorial:is(.think-rails-away, .think-focus-held) .think-home-editorial-shell,
-  body.noeis-editorial:is(.think-rails-away, .think-focus-held) .concept-index-editorial-shell {
+  body.noeis-editorial:is(.think-rails-away, .think-focus-held) .notebook-editorial-shell {
     grid-template-columns: 30px minmax(0, 1fr) 30px;
     gap: 18px;
   }
 
-  body.noeis-editorial:is(.think-rails-away, .think-focus-held) .notebook-editorial-shell:has([data-writing-rail='left']:is(:hover, :focus-within)),
-  body.noeis-editorial:is(.think-rails-away, .think-focus-held) .think-home-editorial-shell:has([data-writing-rail='left']:is(:hover, :focus-within)),
-  body.noeis-editorial:is(.think-rails-away, .think-focus-held) .concept-index-editorial-shell:has([data-writing-rail='left']:is(:hover, :focus-within)) {
+  body.noeis-editorial:is(.think-rails-away, .think-focus-held) .notebook-editorial-shell:has([data-writing-rail='left']:is(:hover, :focus-within)) {
     grid-template-columns: 250px minmax(0, 1fr) 30px;
   }
 
-  body.noeis-editorial:is(.think-rails-away, .think-focus-held) .notebook-editorial-shell:has([data-writing-rail='right']:is(:hover, :focus-within)),
-  body.noeis-editorial:is(.think-rails-away, .think-focus-held) .think-home-editorial-shell:has([data-writing-rail='right']:is(:hover, :focus-within)),
-  body.noeis-editorial:is(.think-rails-away, .think-focus-held) .concept-index-editorial-shell:has([data-writing-rail='right']:is(:hover, :focus-within)) {
+  body.noeis-editorial:is(.think-rails-away, .think-focus-held) .notebook-editorial-shell:has([data-writing-rail='right']:is(:hover, :focus-within)) {
     grid-template-columns: 30px minmax(0, 1fr) 300px;
   }
 
@@ -278,9 +268,7 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
 
   @media (hover: hover) and (pointer: fine) {
     .think-notes,
-    body.noeis-editorial .notebook-editorial-shell,
-    body.noeis-editorial .think-home-editorial-shell,
-    body.noeis-editorial .concept-index-editorial-shell {
+    body.noeis-editorial .notebook-editorial-shell {
       transition:
         grid-template-columns var(--think-rail-push),
         gap var(--think-rail-push);
@@ -302,9 +290,7 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
 
 @media (prefers-reduced-motion: reduce) {
   .think-notes,
-  body.noeis-editorial .notebook-editorial-shell,
-  body.noeis-editorial .think-home-editorial-shell,
-  body.noeis-editorial .concept-index-editorial-shell {
+  body.noeis-editorial .notebook-editorial-shell {
     transition: none;
   }
 
@@ -329,7 +315,6 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
     display: none;
   }
 }
-
 
 /* The shared focus control; Notebook gives it a labelled rail position. */
 .think-focus-mode {
@@ -407,17 +392,6 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
   body.think-focus-held .think-notes__shelf [data-writing-rail='left'],
   body.think-focus-held .think-notes__partner {
     display: none;
-  }
-}
-
-@media (max-width: 760px) {
-  /* The shelf stacks below the note on phones; its control stays with the
-     writing controls at the top of the same page. */
-  .think-notes__shelf .think-focus-mode {
-    position: absolute;
-    top: clamp(24px, 4vh, 48px);
-    right: 0;
-    margin: 0;
   }
 }
 
@@ -615,4 +589,81 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
     transition: none !important;
     animation: none !important;
   }
+}
+
+/* ---- One editor ------------------------------------------------------------
+ * The empty page is honest: the title, then "Start writing…" in grey italic.
+ */
+.think-notebook-editor-body p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-style: italic;
+  pointer-events: none;
+}
+
+/* "Saved 3:42" says it once and fades; hover the bar to read it again. */
+.think-notebook-save-state__time { animation: think-saved-fade 2.4s ease 1.6s forwards; }
+.think-notebook-utility:hover .think-notebook-save-state__time { animation: none; opacity: 1; }
+@keyframes think-saved-fade { to { opacity: 0; } }
+
+/* Written on a day: the begun line sits under the title in small caps. */
+.think-notebook-title-meta {
+  font-variant-caps: all-small-caps;
+  letter-spacing: 0.06em;
+}
+
+/* The arrange handle is there when the hand is: hover or focus only. */
+@media (hover: hover) {
+  .notebook-arrangement { opacity: 0; transition: opacity 160ms ease; }
+  .think-notebook-editor__body:hover .notebook-arrangement,
+  .notebook-arrangement:focus-within,
+  .notebook-arrangement.is-open { opacity: 1; }
+}
+@media (hover: none) {
+  .think-notebook-editor__body:not(.is-editing) .notebook-arrangement { opacity: 0; pointer-events: none; }
+}
+
+/* A passage found from "/" reads as the passage, its source beneath. */
+.think-slash-menu__item.is-passage .think-slash-menu__item-label {
+  font-family: var(--noeis-reading-font, Newsreader, Georgia, serif);
+  font-style: italic;
+  white-space: normal;
+}
+
+/* A concept's or question's own facts, quiet beside the writing. */
+.think-entry-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 28px;
+  margin: 14px 0 22px;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+.think-entry-facts > div { display: grid; gap: 3px; min-width: 0; max-width: 34ch; }
+.think-entry-facts dt {
+  color: var(--text-muted);
+  font-size: 0.66rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.think-entry-facts dd { margin: 0; overflow-wrap: anywhere; }
+.think-entry-facts a { color: inherit; text-decoration-color: color-mix(in srgb, currentColor 40%, transparent); }
+.think-entry-facts__act {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.think-entry-facts__act:hover,
+.think-entry-facts__act:focus-visible { color: var(--noeis-pointer, #6f87ff); }
+
+@media (prefers-reduced-motion: reduce) {
+  .think-notebook-save-state__time { animation: none; opacity: 0.6; }
+  .notebook-arrangement { transition: none; }
 }

@@ -1,5 +1,6 @@
 import { normalizeSpaces, plainTextFrom, wordBoundaryTrim } from '../utils/editorialText';
 import { buildAuthoredContinuationPath } from '../utils/sourceRoutes';
+import { serializeBlocksFromDoc } from '../utils/notebookBlocks';
 
 // Which note Think opens, and how it reads.
 //
@@ -73,76 +74,97 @@ export const buildWritingResults = (rows = [], query = '') => list(rows)
   .filter(row => ['notebook', 'exploration'].includes(row?.kind) && authoredWorkHref(row))
   .map(row => ({ ...row, title: row.kind === 'notebook' ? noteTitle(row) : row.title, href: authoredWorkHref(row, query) }));
 
-/** The faint list beside the note: every other note, most recent first. */
-export const buildNoteShelf = ({ notes = [], openId = '', expanded = false, limit = 18 } = {}) => {
-  const sorted = list(notes)
-  .map(entry => ({
+/* "Begun Tuesday 7 October · 640 words". The day a piece of writing started
+   is a fact about it worth seeing; the word count lives here and nowhere else. */
+export const begunLine = (createdAt, words = 0, now = Date.now()) => {
+  const at = time(createdAt);
+  if (!at) return words ? `${words} ${words === 1 ? 'word' : 'words'}` : '';
+  const date = new Date(at);
+  const sameYear = date.getFullYear() === new Date(now).getFullYear();
+  const day = date.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', ...(sameYear ? {} : { year: 'numeric' }) })
+    .replace(',', '');
+  return words ? `Begun ${day} · ${words} ${words === 1 ? 'word' : 'words'}` : `Begun ${day}`;
+};
+
+export const countWords = (text = '') => (String(text).match(/[\p{L}\p{N}][\p{L}\p{N}'’-]*/gu) || []).length;
+
+/* One list, one editor. Notes, concepts and questions live in different
+   records, but they are all writing: the kind is a chip on the entry, never a
+   room of its own. A URL names one entry; ?tab=concepts or ?tab=questions on
+   its own narrows the list to that kind. */
+export const KIND_TAB = { note: 'notebook', concept: 'concepts', question: 'questions' };
+const TAB_KIND = { concepts: 'concept', questions: 'question' };
+
+export const readThinkTarget = (params) => {
+  const questionId = normalizeSpaces(params.get('questionId'));
+  if (questionId) return { kind: 'question', id: questionId };
+  const concept = normalizeSpaces(params.get('concept')) || normalizeSpaces(params.get('conceptId'));
+  if (concept) return { kind: 'concept', id: concept };
+  const entryId = normalizeSpaces(params.get('entryId'));
+  if (entryId) return { kind: 'note', id: entryId };
+  return null;
+};
+
+export const readThinkFilter = (params) => (
+  readThinkTarget(params) ? 'all' : TAB_KIND[normalizeSpaces(params.get('tab')).toLowerCase()] || 'all'
+);
+
+export const targetParams = (item) => {
+  if (item.kind === 'concept') {
+    return { tab: 'concepts', concept: item.id, ...(item.recordId ? { conceptId: item.recordId } : {}) };
+  }
+  if (item.kind === 'question') return { tab: 'questions', questionId: item.id };
+  return { tab: 'notebook', entryId: item.id };
+};
+
+export const isTarget = (item, target) => Boolean(item && target && item.kind === target.kind && (
+  item.id.toLowerCase() === target.id.toLowerCase() || (item.recordId && item.recordId === target.id)
+));
+
+const suppressed = (row) => Boolean(row?.archived || row?.hiddenFromHome || row?.debugOnly);
+
+/**
+ * Every entry the list can hold. Eligibility: notes always; questions unless
+ * archived or hidden; concepts only once they are concepts (a record exists)
+ * when the list is mixed, every unhidden tag when the reader asks for concepts.
+ * Nothing qualifies → the list is empty and says so; nothing is invented.
+ */
+export const buildThinkEntries = ({ notes = [], concepts = [], questions = [], filter = 'all' } = {}) => [
+  ...(filter === 'all' || filter === 'note' ? list(notes).map(entry => ({
+    kind: 'note',
     id: idOf(entry),
     title: noteTitle(entry),
     nextTimeLine: normalizeSpaces(entry?.workingState?.nextTimeLine?.text),
-    updatedAt: entry?.updatedAt || entry?.createdAt || null,
-    isOpen: idOf(entry) === normalizeSpaces(openId)
-  }))
-  .filter(item => item.id)
-  .sort((left, right) => time(right.updatedAt) - time(left.updatedAt));
-  return expanded ? sorted : sorted.slice(0, limit);
-};
+    updatedAt: entry?.updatedAt || entry?.createdAt || null
+  })) : []),
+  ...(filter === 'all' || filter === 'concept' ? list(concepts)
+    .filter(concept => !suppressed(concept) && normalizeSpaces(concept?.name) && (filter === 'concept' || concept?._id))
+    .map(concept => ({
+      kind: 'concept',
+      id: normalizeSpaces(concept.name),
+      recordId: normalizeSpaces(concept._id),
+      title: normalizeSpaces(concept.name),
+      updatedAt: concept.updatedAt || null
+    })) : []),
+  ...(filter === 'all' || filter === 'question' ? list(questions)
+    .filter(question => !suppressed(question) && idOf(question))
+    .map(question => ({
+      kind: 'question',
+      id: idOf(question),
+      title: wordBoundaryTrim(normalizeSpaces(question.text), { maxLength: 120 }) || 'Untitled question',
+      settled: question.status === 'answered',
+      updatedAt: question.updatedAt || question.createdAt || null
+    })) : [])
+].filter(item => item.id).sort((left, right) => time(right.updatedAt) - time(left.updatedAt));
 
-/** "edited this morning" — from the timestamp, never guessed. */
-export const editedLine = (entry, now = Date.now()) => {
-  const at = time(entry?.updatedAt || entry?.createdAt);
-  if (!at) return '';
-  const date = new Date(at);
-  const today = new Date(now);
-  const sameDay = date.getFullYear() === today.getFullYear()
-    && date.getMonth() === today.getMonth()
-    && date.getDate() === today.getDate();
-  if (sameDay) return date.getHours() < 12 ? 'edited this morning' : 'edited today';
-  const yesterday = new Date(now);
-  yesterday.setDate(yesterday.getDate() - 1);
-  const wasYesterday = date.getFullYear() === yesterday.getFullYear()
-    && date.getMonth() === yesterday.getMonth()
-    && date.getDate() === yesterday.getDate();
-  if (wasYesterday) return 'edited yesterday';
-  return `edited ${date.toLocaleDateString(undefined, { month: 'long', day: 'numeric' })}`;
-};
+/* Handoffs and learning paths are not writing; they keep the older page until
+   they leave Think altogether. Everything else — a note, a concept, a
+   question, a thread with the partner — opens in the one editor. */
+const LEDGER_TABS = new Set(['handoffs', 'paths']);
 
-/* Think's other postures are still addressable — links from Library, Wiki and
-   the palette point straight at a concept, a question, a thread, and those
-   requests open what they name in the older workspace.
-   Notes are not among them: the note surface *is* Think's face now, so
-   ?tab=notebook belongs here whether or not it names an entry. That is also
-   the case that used to blank the editor. */
-/* Concepts and Questions are rooms, not just addresses. They have index
-   pages of their own — a shelf of every concept, a docket of every open
-   question — and requiring an object to reach them made the rail's two
-   buttons dead and sent the first-run tour's "Open Think Concepts" to the
-   notebook. The tab alone is enough to stand in them. */
-const INDEXED_TABS = new Set(['concepts', 'questions']);
-
-const OBJECT_PARAMS = {
-  concepts: ['concept', 'conceptId'],
-  questions: ['questionId'],
-  threads: ['threadId'],
-  handoffs: ['handoffId'],
-  paths: ['pathId'],
-  protocol: ['protocolId'],
-  insights: ['insightId']
-};
-
-const NOTE_TABS = new Set(['', 'home', 'notebook', 'notes']);
-
-export const namesAThinkObject = (search = '') => {
-  const params = new URLSearchParams(search);
-  const tab = normalizeSpaces(params.get('tab')).toLowerCase();
-  if (NOTE_TABS.has(tab)) return false;
-  if (INDEXED_TABS.has(tab)) return true;
-  const keys = OBJECT_PARAMS[tab];
-  // A posture this module does not know about is left to the legacy surface
-  // rather than swallowed.
-  if (!keys) return true;
-  return keys.some(key => normalizeSpaces(params.get(key)));
-};
+export const namesAThinkObject = (search = '') => (
+  LEDGER_TABS.has(normalizeSpaces(new URLSearchParams(search).get('tab')).toLowerCase())
+);
 
 /** Recent private writing shares the shelf, but keeps its own Wiki identity. */
 export const buildAuthoredShelf = (rows = []) => list(rows)
@@ -157,3 +179,29 @@ export const buildAuthoredShelf = (rows = []) => list(rows)
     ...(row.sourceUnavailable ? { sourceUnavailable: true } : {}),
     href: authoredWorkHref(row)
   }));
+
+/* A question keeps two kinds of block: words and passages. The editor's
+   richer shapes (headings, lists) are saved as their words; a passage keeps
+   its source; a block's earlier challenge survives an edit to its text. */
+export const questionBlocksFromDoc = (doc, previous = []) => {
+  const before = new Map(list(previous).map(block => [block?.id, block]));
+  return serializeBlocksFromDoc(doc)
+    .map(block => {
+      const challenge = before.get(block.id)?.challenge;
+      const kept = challenge ? { challenge } : {};
+      if (block.type === 'highlight_embed' || (block.type === 'quote' && block.highlightId)) {
+        return {
+          id: block.id,
+          type: 'highlight-ref',
+          text: block.text || '',
+          highlightId: block.highlightId || null,
+          ...(block.articleId ? { articleId: block.articleId } : {}),
+          ...(block.articleTitle ? { articleTitle: block.articleTitle } : {}),
+          ...(block.sourcePath ? { sourcePath: block.sourcePath } : {}),
+          ...kept
+        };
+      }
+      return { id: block.id, type: 'paragraph', text: String(block.text || ''), ...kept };
+    })
+    .filter(block => block.type === 'highlight-ref' || block.text.trim());
+};
