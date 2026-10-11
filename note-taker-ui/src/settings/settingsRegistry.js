@@ -31,30 +31,13 @@ export const SETTINGS_REGISTRY = Object.freeze([
     focusId: 'theme'
   },
   {
-    id: 'accent',
-    section: 'appearance',
-    title: 'Accent color',
-    description: 'A small point of color without coloring body text.',
-    keywords: 'color colour cyan violet indigo accent',
-    focusId: 'accent'
-  },
-  {
-    id: 'decoration',
-    section: 'appearance',
-    title: 'Decorative color',
-    description: 'The clearer name for brand energy in the interface.',
-    keywords: 'brand energy glow gradient decoration',
-    focusId: 'decoration',
-    unfold: 'motion-decoration'
-  },
-  {
     id: 'motion',
     section: 'appearance',
     title: 'Motion',
     description: 'Follow the device or choose less motion.',
     keywords: 'animation motion moving wiggle reduce dizzy',
     focusId: 'motion',
-    unfold: 'motion-decoration'
+    unfold: 'motion-more'
   },
   {
     id: 'email',

@@ -691,7 +691,7 @@ export const ConceptEvidenceStreamRail = ({
         </div>
         <AgentTicker
           className="concept-editorial-evidence__ticker"
-          label="Thought partner computation trace"
+          label="Partner computation trace"
           lines={tickerLines}
           state={model.agentBusy ? 'working' : 'idle'}
         />
@@ -734,7 +734,7 @@ export const ConceptEvidenceStreamRail = ({
 
       <AgentTicker
         className="concept-editorial-evidence__ticker"
-        label="Thought partner computation trace"
+        label="Partner computation trace"
         lines={tickerLines}
         state={model.agentBusy ? 'working' : 'idle'}
       />

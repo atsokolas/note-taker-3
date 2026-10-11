@@ -325,8 +325,8 @@ const WikiSparsePages = ({ pages = [], onOpenPage, onOpenWorkspace, onBuildPage,
       <h2>{pages.length ? `${pages.length} source-backed page${pages.length === 1 ? '' : 's'}` : 'Start the wiki'}</h2>
       <p>
         {pages.length
-          ? `The map will stay out of the way until there is enough material to connect. Open a page, or ask ${AGENT_DISPLAY_NAME.toLowerCase()} to build the next source-backed page.`
-          : `Ask ${AGENT_DISPLAY_NAME.toLowerCase()} to build a source-backed page from your library. The map appears after the wiki has enough pages to form a useful constellation.`}
+          ? `The map will stay out of the way until there is enough material to connect. Open a page, or ask ${AGENT_DISPLAY_NAME} to build the next source-backed page.`
+          : `Ask ${AGENT_DISPLAY_NAME} to build a source-backed page from your library. The map appears after the wiki has enough pages to form a useful constellation.`}
       </p>
     </div>
     <div className="wiki-index__sparse-agent" aria-label="Build wiki pages">

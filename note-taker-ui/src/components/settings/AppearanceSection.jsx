@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ACCENT_OPTIONS,
   DEFAULT_UI_SETTINGS,
   MOTION_OPTIONS,
   THEME_OPTIONS,
@@ -150,46 +149,10 @@ const AppearanceSection = ({
             />
           </fieldset>
 
-          <fieldset id="accent">
-            <legend className="settings-redesign__label">Accent</legend>
-            <p className="settings-redesign__help">A small point of color. The words stay readable.</p>
-            <div className="settings-redesign__colors">
-              {ACCENT_OPTIONS.map((option) => (
-                <label key={option.value} className="settings-redesign__color" style={{ position: 'relative' }}>
-                  <input
-                    type="radio"
-                    name="accent"
-                    value={option.value}
-                    checked={draft.accent === option.value}
-                    onChange={() => setField('accent', option.value)}
-                  />
-                  <span>
-                    <i className="settings-redesign__swatch" style={{ background: option.color }} aria-hidden="true" />
-                    {option.label.replace(/^(Electric |Ion |Arc )/, '').split(' ')[0]}
-                  </span>
-                </label>
-              ))}
-            </div>
-          </fieldset>
-
-          <details id="motion-decoration" style={{ borderTop: '1px solid var(--settings-rule)', paddingTop: '1rem' }}>
+          <details id="motion-more" style={{ borderTop: '1px solid var(--settings-rule)', paddingTop: '1rem' }}>
             <summary className="settings-redesign__label" style={{ cursor: 'pointer', listStyle: 'none' }}>
-              Motion & decoration
+              Motion
             </summary>
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', padding: '0.75rem 0' }} id="decoration">
-              <div>
-                <span className="settings-redesign__label">Decorative color</span>
-                <p className="settings-redesign__help">A little color in the surrounding interface.</p>
-              </div>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={Boolean(draft.brandEnergy)}
-                  onChange={(event) => setField('brandEnergy', event.target.checked)}
-                  aria-label="Decorative color"
-                />
-              </label>
-            </div>
             <fieldset id="motion">
               <legend className="settings-redesign__label">Motion</legend>
               <p className="settings-redesign__help">The device’s Reduce Motion preference always wins.</p>

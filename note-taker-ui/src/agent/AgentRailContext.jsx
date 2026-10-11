@@ -25,7 +25,7 @@ const REMEMBERED_SURFACE_THREADS = 40;
 
 const EMPTY_SURFACE = Object.freeze({
   id: '',
-  roleLabel: 'Agent',
+  roleLabel: 'Partner',
   roleDescription: '',
   subject: '',
   lines: [],

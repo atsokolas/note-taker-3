@@ -24,7 +24,7 @@ const OrchestrationPolicyCard = ({
   return (
     <Card className="settings-card">
       <h2>Agent orchestration policy</h2>
-      <p className="muted">Set default routing so new auto-planned handoffs are assigned to the thought partner or specialist agents.</p>
+      <p className="muted">Set default routing so new auto-planned handoffs are assigned to Partner or specialist agents.</p>
       {policyLoading ? (
         <p className="muted small">Loading policy…</p>
       ) : (

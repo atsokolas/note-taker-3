@@ -10,7 +10,7 @@ describe('AgentContextShell', () => {
       </AgentContextShell>
     );
 
-    const shell = screen.getByRole('region', { name: 'Thought partner context' });
+    const shell = screen.getByRole('region', { name: 'Partner context' });
     expect(shell).toHaveAttribute('data-agent-context-surface', 'library');
     expect(shell).toHaveTextContent('Source provenance is available.');
     expect(screen.getByRole('button', { name: 'Reference source' })).toBeInTheDocument();
@@ -28,8 +28,8 @@ describe('AgentContextShell', () => {
       </AgentContextShell>
     );
 
-    expect(screen.getByRole('status', { name: 'Thought partner status' })).toHaveAttribute('data-status', 'error');
-    expect(screen.getByRole('status', { name: 'Thought partner status' })).toHaveTextContent('Context');
+    expect(screen.getByRole('status', { name: 'Partner status' })).toHaveAttribute('data-status', 'error');
+    expect(screen.getByRole('status', { name: 'Partner status' })).toHaveTextContent('Context');
     expect(screen.getByText('Retrieving linked evidence…')).toBeInTheDocument();
     expect(screen.getByRole('alert')).toHaveTextContent('Context is unavailable. Try again.');
     expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
@@ -42,7 +42,7 @@ describe('AgentContextShell', () => {
       </AgentContextShell>
     );
 
-    expect(screen.queryByRole('status', { name: 'Thought partner status' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('status', { name: 'Partner status' })).not.toBeInTheDocument();
     expect(screen.getByText('Exact source identity retained.')).toBeInTheDocument();
   });
 });

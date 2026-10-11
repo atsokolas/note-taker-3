@@ -195,11 +195,11 @@ describe('Concept evidence shell surfaces', () => {
     );
 
     expect(screen.getByText('Ask for support, contradiction, a cleaner draft, or the piece of prior reading you know is somewhere in the archive.')).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByLabelText('Thought partner computation trace')).toHaveTextContent('1 tension visible'));
+    await waitFor(() => expect(screen.getByLabelText('Partner computation trace')).toHaveTextContent('1 tension visible'));
     fireEvent.click(screen.getByRole('button', { name: /Expand .* trace history lines/ }));
-    expect(screen.getByLabelText('Thought partner computation trace')).toHaveTextContent('Found 2 good leads.');
-    expect(screen.getByLabelText('Thought partner computation trace')).toHaveTextContent('1 support signal staged');
-    expect(screen.getByLabelText('Thought partner computation trace')).toHaveTextContent('1 tension visible');
+    expect(screen.getByLabelText('Partner computation trace')).toHaveTextContent('Found 2 good leads.');
+    expect(screen.getByLabelText('Partner computation trace')).toHaveTextContent('1 support signal staged');
+    expect(screen.getByLabelText('Partner computation trace')).toHaveTextContent('1 tension visible');
     expect(screen.getByLabelText('Reference pull-in')).toHaveTextContent('Reference control');
     expect(screen.getByRole('button', { name: 'Pull support' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Find tension' })).toBeInTheDocument();

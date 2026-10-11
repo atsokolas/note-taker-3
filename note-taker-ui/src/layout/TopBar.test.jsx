@@ -324,69 +324,13 @@ describe('TopBar help menu', () => {
     expect(screen.queryByText('5/5')).toBeNull();
   });
 
-  it('hides the theme toggle when no onThemeChange handler is provided', () => {
+  it('leaves the theme to Settings rather than the bar', () => {
     render(
       <MemoryRouter>
         <TopBar />
       </MemoryRouter>
     );
     expect(screen.queryByTestId('topbar-theme-toggle')).toBeNull();
-  });
-
-  it('renders the theme pill with the current preference label', () => {
-    render(
-      <MemoryRouter>
-        <TopBar theme="auto" onThemeChange={() => {}} />
-      </MemoryRouter>
-    );
-    const pill = screen.getByTestId('topbar-theme-toggle');
-    expect(pill).toHaveTextContent('System');
-    expect(pill).toHaveAttribute('aria-label', 'Theme: System');
-    expect(pill).toHaveAttribute('title', 'Theme: System');
-  });
-
-  it('opens every theme option from the top control and selects Tokyo Midnight', () => {
-    const onThemeChange = jest.fn();
-    render(
-      <MemoryRouter>
-        <TopBar theme="light" onThemeChange={onThemeChange} />
-      </MemoryRouter>
-    );
-    fireEvent.click(screen.getByTestId('topbar-theme-toggle'));
-    const menu = screen.getByTestId('topbar-theme-menu');
-    expect(menu).toHaveAttribute('aria-label', 'Theme');
-    expect(screen.getByRole('menuitemradio', { name: 'System' })).toHaveAttribute('aria-checked', 'false');
-    expect(screen.getByRole('menuitemradio', { name: 'Light' })).toHaveAttribute('aria-checked', 'true');
-    expect(screen.getByRole('menuitemradio', { name: 'Dark' })).toBeInTheDocument();
-    expect(screen.getByRole('menuitemradio', { name: 'Tokyo Midnight' })).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Tokyo Midnight' }));
-    expect(onThemeChange).toHaveBeenCalledWith('tokyo-midnight');
-    expect(screen.queryByTestId('topbar-theme-menu')).toBeNull();
-    expect(screen.getByTestId('topbar-theme-toggle')).toHaveFocus();
-  });
-
-  it('moves through the theme menu with the keyboard and restores focus on Escape', () => {
-    const onThemeChange = jest.fn();
-    render(
-      <MemoryRouter>
-        <TopBar theme="dark" onThemeChange={onThemeChange} />
-      </MemoryRouter>
-    );
-    const toggle = screen.getByTestId('topbar-theme-toggle');
-    fireEvent.keyDown(toggle, { key: 'ArrowDown' });
-    const menu = screen.getByTestId('topbar-theme-menu');
-    expect(screen.getByRole('menuitemradio', { name: 'Dark' })).toHaveFocus();
-
-    fireEvent.keyDown(menu, { key: 'ArrowDown' });
-    expect(screen.getByRole('menuitemradio', { name: 'Tokyo Midnight' })).toHaveFocus();
-    fireEvent.keyDown(menu, { key: 'ArrowUp' });
-    expect(screen.getByRole('menuitemradio', { name: 'Dark' })).toHaveFocus();
-
-    fireEvent.keyDown(window, { key: 'Escape' });
-    expect(screen.queryByTestId('topbar-theme-menu')).toBeNull();
-    expect(toggle).toHaveFocus();
-    expect(onThemeChange).not.toHaveBeenCalled();
   });
 
   it('renders the system status affordance when status props are provided', () => {

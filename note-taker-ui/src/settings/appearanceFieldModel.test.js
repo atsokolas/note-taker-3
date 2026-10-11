@@ -9,8 +9,6 @@ describe('appearanceFieldModel', () => {
     typographyScale: 'default',
     density: 'comfortable',
     theme: 'auto',
-    accent: 'electric',
-    brandEnergy: true,
     motion: 'system'
   };
 
@@ -32,6 +30,6 @@ describe('appearanceFieldModel', () => {
   });
 
   it('lists keys that differ between snapshots', () => {
-    expect(appearanceDiffKeys(base, { ...base, accent: 'violet' })).toEqual(['accent']);
+    expect(appearanceDiffKeys(base, { ...base, motion: 'reduced' })).toEqual(['motion']);
   });
 });

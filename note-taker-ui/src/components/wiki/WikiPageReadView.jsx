@@ -2924,7 +2924,7 @@ const WikiPageReadView = ({
           <h1>This wiki page could not be opened.</h1>
           <p>
             {error || 'The page may have been archived, deleted, or not migrated into the current workspace.'}
-            {' '}Open the wiki list to find the current page, or ask {AGENT_DISPLAY_NAME.toLowerCase()} to rebuild it from the topic.
+            {' '}Open the wiki list to find the current page, or ask {AGENT_DISPLAY_NAME} to rebuild it from the topic.
           </p>
           <div className="wiki-read__missing-actions">
             <Link to="/wiki/workspace?view=list">Open wiki list</Link>
@@ -3191,7 +3191,7 @@ const WikiPageReadView = ({
                   ? (page?.aiState?.lastError || 'The saved evidence pack is incomplete. Continue research when more sources are available.')
                   : maintenanceDisplayState === 'failed'
                   ? (page?.aiState?.lastCandidateSummary || page?.aiState?.lastError || 'Resume from saved evidence, or discard this failed draft.')
-                  : `Ask ${AGENT_DISPLAY_NAME.toLowerCase()} to check sources, claims, and weak signals without leaving the reading surface.`}
+                  : `Ask ${AGENT_DISPLAY_NAME} to check sources, claims, and weak signals without leaving the reading surface.`}
               </p>
             )}
           </div>

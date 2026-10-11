@@ -9,9 +9,7 @@ const validInput = {
   activeTheme: 'light',
   preferredTheme: 'auto',
   density: 'comfortable',
-  typographyScale: 'default',
-  brandEnergy: true,
-  accent: { color: '#36e4ff', soft: 'rgba(54, 228, 255, 0.22)' }
+  typographyScale: 'default'
 };
 
 describe('semanticTheme', () => {
@@ -25,18 +23,15 @@ describe('semanticTheme', () => {
 
   it('fails closed for incomplete or unknown variants', () => {
     expect(buildSemanticThemeSnapshot({ ...validInput, activeTheme: 'sepia' })).toBeNull();
-    expect(buildSemanticThemeSnapshot({ ...validInput, accent: null })).toBeNull();
+    expect(buildSemanticThemeSnapshot({ ...validInput, density: 'airy' })).toBeNull();
   });
 
-  it('commits one canonical identity after compatibility attributes', () => {
+  it('names the theme with one attribute', () => {
     const root = document.createElement('html');
     const snapshot = buildSemanticThemeSnapshot({ ...validInput, activeTheme: 'dark' });
     expect(applySemanticThemeSnapshot(root, snapshot)).toBe(true);
-    expect(root.getAttribute('data-noeis-theme')).toBe('theme.editorial.dark');
-    expect(root.getAttribute('data-noeis-theme-package')).toBe(NOEIS_THEME_PACKAGE_ID);
     expect(root.getAttribute('data-ui-theme')).toBe('dark');
     expect(root.getAttribute('data-ui-scheme')).toBe('dark');
-    expect(root.style.getPropertyValue('--ui-accent')).toBe('#36e4ff');
   });
 
   it('commits Tokyo Midnight as its own dark-scheme variant', () => {
@@ -52,15 +47,14 @@ describe('semanticTheme', () => {
       preferredTheme: 'tokyo-midnight'
     });
     expect(applySemanticThemeSnapshot(root, snapshot)).toBe(true);
-    expect(root.getAttribute('data-noeis-theme')).toBe('theme.editorial.tokyo-midnight');
     expect(root.getAttribute('data-ui-theme')).toBe('tokyo-midnight');
     expect(root.getAttribute('data-ui-scheme')).toBe('dark');
   });
 
   it('preserves the last known-good identity when a snapshot is invalid', () => {
     const root = document.createElement('html');
-    root.setAttribute('data-noeis-theme', 'theme.editorial.light');
+    root.setAttribute('data-ui-theme', 'light');
     expect(applySemanticThemeSnapshot(root, { schemaVersion: 99 })).toBe(false);
-    expect(root.getAttribute('data-noeis-theme')).toBe('theme.editorial.light');
+    expect(root.getAttribute('data-ui-theme')).toBe('light');
   });
 });

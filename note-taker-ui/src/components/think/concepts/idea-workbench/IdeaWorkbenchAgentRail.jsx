@@ -103,7 +103,7 @@ const IdeaWorkbenchAgentRail = ({ model }) => {
 
       <AgentTicker
         className="idea-workbench-rail__ticker"
-        label="Thought partner computation trace"
+        label="Partner computation trace"
         lines={tickerLines}
         state={model.agentBusy ? 'working' : 'idle'}
       />

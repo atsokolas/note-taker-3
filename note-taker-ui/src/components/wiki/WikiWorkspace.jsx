@@ -239,7 +239,7 @@ const COMMANDS = [
     verb: 'build',
     template: '/build ',
     label: 'Build new page',
-    hint: `Create a new overview page and draft it with ${AGENT_DISPLAY_NAME.toLowerCase()}.`
+    hint: `Create a new overview page and draft it with ${AGENT_DISPLAY_NAME}.`
   },
   {
     verb: 'page',
@@ -1188,7 +1188,7 @@ const WorkspaceSchema = () => {
               rows={8}
             />
           ) : (
-            <p>Ask {AGENT_DISPLAY_NAME.toLowerCase()} to suggest schema updates from the current conventions.</p>
+            <p>Ask {AGENT_DISPLAY_NAME} to suggest schema updates from the current conventions.</p>
           )}
         </div>
       </section>
@@ -3630,7 +3630,7 @@ const WikiWorkspace = () => {
               <p className="wiki-index__eyebrow">First visit</p>
               <h1 id="wiki-workspace-onboarding-title">Start the wiki with one page or one source.</h1>
               <p>
-                The workspace is split between {AGENT_DISPLAY_NAME.toLowerCase()} and the page canvas. Build a page from a topic,
+                The workspace is split between {AGENT_DISPLAY_NAME} and the page canvas. Build a page from a topic,
                 or drop source material and let the wiki decide what should change.
               </p>
             </div>

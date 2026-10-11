@@ -52,7 +52,7 @@ const HandoffQueueCard = ({
   return (
     <Card className="settings-card">
       <h2>Agent handoff queue</h2>
-      <p className="muted">Create, triage, and close handoffs shared between you, the thought partner, and specialist agents.</p>
+      <p className="muted">Create, triage, and close handoffs shared between you, Partner, and specialist agents.</p>
       <HandoffCreateForm
         mode="integrations"
         sortedAgents={sortedAgents}

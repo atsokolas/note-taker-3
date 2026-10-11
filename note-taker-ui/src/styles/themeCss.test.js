@@ -18,13 +18,13 @@ describe('app theme design-system tokens', () => {
     ].forEach(token => {
       expect(rootBlock).toContain(token);
     });
-    expect(css).toContain("html[data-noeis-theme='theme.editorial.dark']");
+    expect(css).toContain("html[data-ui-theme='dark']");
     expect(css).toContain('@media (prefers-reduced-motion: reduce)');
   });
 
   it('uses a warm near-black dark palette instead of the old cold blue shell', () => {
     const css = fs.readFileSync(path.join(__dirname, 'semantic-theme.css'), 'utf8');
-    const darkBlock = css.match(/html\[data-noeis-theme='theme\.editorial\.dark'\] \{[\s\S]*?\n\}/)?.[0] || '';
+    const darkBlock = css.match(/html\[data-ui-theme='dark'\] \{[\s\S]*?\n\}/)?.[0] || '';
 
     expect(darkBlock).toContain('--noeis-canvas: #16140f');
     expect(darkBlock).toContain('--noeis-paper: #211e17');
@@ -38,8 +38,8 @@ describe('app theme design-system tokens', () => {
 
   it('scopes Tokyo Midnight to its own palette and leaves the dark palette warm', () => {
     const css = fs.readFileSync(path.join(__dirname, 'semantic-theme.css'), 'utf8');
-    const tokyoBlock = css.match(/html\[data-noeis-theme='theme\.editorial\.tokyo-midnight'\] \{[\s\S]*?\n\}/)?.[0] || '';
-    const darkBlock = css.match(/html\[data-noeis-theme='theme\.editorial\.dark'\] \{[\s\S]*?\n\}/)?.[0] || '';
+    const tokyoBlock = css.match(/html\[data-ui-theme='tokyo-midnight'\] \{[\s\S]*?\n\}/)?.[0] || '';
+    const darkBlock = css.match(/html\[data-ui-theme='dark'\] \{[\s\S]*?\n\}/)?.[0] || '';
 
     expect(tokyoBlock).toContain('--noeis-canvas: #0e1829');
     expect(tokyoBlock).toContain('--noeis-chrome: #09111e');
@@ -90,7 +90,7 @@ describe('app theme design-system tokens', () => {
   it('defines canonical editorial text role tokens in light and dark palettes', () => {
     const css = fs.readFileSync(path.join(__dirname, 'semantic-theme.css'), 'utf8');
     const rootBlock = css.match(/:root,[\s\S]*?\n\}/)?.[0] || '';
-    const darkBlock = css.match(/html\[data-noeis-theme='theme\.editorial\.dark'\] \{[\s\S]*?\n\}/)?.[0] || '';
+    const darkBlock = css.match(/html\[data-ui-theme='dark'\] \{[\s\S]*?\n\}/)?.[0] || '';
 
     [
       '--text-primary:',
@@ -128,7 +128,7 @@ describe('app theme design-system tokens', () => {
     expect(semanticCss).not.toContain('#0d1422');
     expect(semanticCss).not.toContain('#9eb0cf');
     expect(semanticCss).not.toContain('rgba(96, 118, 153');
-    expect(semanticCss).toMatch(/html\[data-noeis-theme='theme\.editorial\.dark'\] \{[\s\S]*--noeis-canvas: #16140f;/);
+    expect(semanticCss).toMatch(/html\[data-ui-theme='dark'\] \{[\s\S]*--noeis-canvas: #16140f;/);
     expect(editorialCss).toMatch(/html\[data-ui-theme='dark'\] body\.noeis-editorial \{[\s\S]*background: var\(--vellum-bg\) !important;/);
   });
 

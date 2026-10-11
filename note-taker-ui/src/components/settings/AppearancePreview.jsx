@@ -1,18 +1,12 @@
 import React, { useMemo } from 'react';
 import { colorSchemeForTheme } from '../../settings/semanticTheme';
-import { ACCENT_OPTIONS, resolveActiveTheme, THEME_OPTIONS } from '../../settings/uiPreferences';
+import { resolveActiveTheme, THEME_OPTIONS } from '../../settings/uiPreferences';
 
 const READER_SIZES = { small: '17px', default: '19px', large: '22px' };
 const ROW_SPACES = { comfortable: '20px', compact: '10px' };
 
-const accentColor = (accent, dark) => {
-  const map = {
-    electric: dark ? '#8bdbe8' : '#226a78',
-    violet: dark ? '#c7b1ed' : '#73518e',
-    indigo: dark ? '#aebbe9' : '#4c6199'
-  };
-  return map[accent] || ACCENT_OPTIONS[0].color;
-};
+/* The house accent, at the strength each scheme reads it. */
+const ACCENT = { light: '#8b5f1d', dark: '#e0b971' };
 
 const AppearancePreview = ({
   settings,
@@ -31,7 +25,7 @@ const AppearancePreview = ({
   const style = useMemo(() => ({
     '--reader-size': READER_SIZES[settings.typographyScale] || READER_SIZES.default,
     '--row-space': ROW_SPACES[settings.density] || ROW_SPACES.comfortable,
-    '--preview-accent': accentColor(settings.accent, dark)
+    '--preview-accent': dark ? ACCENT.dark : ACCENT.light
   }), [settings, dark]);
 
   return (
@@ -51,8 +45,8 @@ const AppearancePreview = ({
         </button>
       </div>
       <div
-        className={`settings-redesign__preview${dark ? ' is-dark' : ''}${tokyo ? ' is-tokyo-midnight' : ''}${settings.brandEnergy ? ' is-energy' : ''}`}
-        style={{ ...style, '--preview-accent': accentColor(settings.accent, dark) }}
+        className={`settings-redesign__preview${dark ? ' is-dark' : ''}${tokyo ? ' is-tokyo-midnight' : ''}`}
+        style={style}
       >
         <div className="settings-redesign__preview-top">
           <span style={{ fontFamily: 'var(--noeis-serif, Georgia, serif)', fontStyle: 'italic' }}>Noeis</span>

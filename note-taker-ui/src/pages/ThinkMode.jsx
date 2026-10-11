@@ -268,17 +268,15 @@ const formatAiError = (err, fallback = 'Request failed.') => {
   const status = err?.response?.status;
   const data = err?.response?.data;
   const detail = typeof data?.detail === 'string' ? data.detail : '';
-  const provider = typeof data?.provider === 'string' ? data.provider : '';
-  const model = typeof data?.model === 'string' ? data.model : '';
   const message = typeof data?.message === 'string' ? data.message : '';
   if (status === 400 && detail === 'HF model not supported by enabled provider') {
-    return `Thought partner model configuration issue (${provider || 'unknown provider'} / ${model || 'unknown model'}). Ask admin to update HF_TEXT_MODEL or HF_PROVIDER.`;
+    return 'Partner can’t answer right now. Your note is safe; try again later.';
   }
   if (status === 429 && detail === 'HF credits depleted') {
-    return 'Thought partner credits are depleted. Buy Hugging Face credits or wait for reset.';
+    return 'Partner can’t answer right now. Your note is safe; try again later.';
   }
   if (status === 502 && /service error 429/i.test(message)) {
-    return 'Thought partner provider is temporarily rate-limited. Please retry in a minute.';
+    return 'Partner is busy. Try again in a minute.';
   }
   const bodySnippet = typeof data === 'string'
     ? data.slice(0, 300)

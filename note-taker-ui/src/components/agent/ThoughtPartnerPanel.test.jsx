@@ -132,7 +132,7 @@ describe('ThoughtPartnerPanel', () => {
     expect(screen.getByRole('button', { name: 'Notebook' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.queryByRole('button', { name: 'Suggest a structure.' })).not.toBeInTheDocument();
     expect(screen.getByTestId('thought-partner-passive-status')).toHaveTextContent('Quiet mode is active');
-    expect(screen.getByPlaceholderText('Ask your thought partner...')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Ask about this')).toBeInTheDocument();
   });
 
   it('renders the shared computation ticker inside the agent panel', () => {
@@ -152,8 +152,8 @@ describe('ThoughtPartnerPanel', () => {
       />
     );
 
-    expect(screen.getByRole('status', { name: 'Thought partner status' })).toHaveTextContent('Thought partner');
-    expect(screen.getByLabelText('Thought partner computation trace')).toBeInTheDocument();
+    expect(screen.getByRole('status', { name: 'Partner status' })).toHaveTextContent('Partner');
+    expect(screen.getByLabelText('Partner computation trace')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Expand 1 trace history line/ }));
     expect(screen.getByText('holding 2 related items')).toBeInTheDocument();
     expect(screen.getByText('anchored to Investing')).toBeInTheDocument();
@@ -180,7 +180,7 @@ describe('ThoughtPartnerPanel', () => {
       />
     );
 
-    fireEvent.change(screen.getByPlaceholderText('Ask your thought partner...'), {
+    fireEvent.change(screen.getByPlaceholderText('Ask about this'), {
       target: { value: 'Find the strongest support.' }
     });
     fireEvent.click(screen.getByRole('button', { name: 'Ask' }));
@@ -202,7 +202,7 @@ describe('ThoughtPartnerPanel', () => {
       />
     );
 
-    fireEvent.change(screen.getByPlaceholderText('Ask your thought partner...'), {
+    fireEvent.change(screen.getByPlaceholderText('Ask about this'), {
       target: { value: 'Challenge this concept.' }
     });
     fireEvent.click(screen.getByRole('button', { name: 'Ask' }));
@@ -273,7 +273,7 @@ describe('ThoughtPartnerPanel', () => {
       />
     );
 
-    fireEvent.change(screen.getByPlaceholderText('Ask your thought partner...'), {
+    fireEvent.change(screen.getByPlaceholderText('Ask about this'), {
       target: { value: 'Challenge this.' }
     });
     fireEvent.click(screen.getByRole('button', { name: 'Ask' }));
@@ -1050,7 +1050,7 @@ describe('ThoughtPartnerPanel', () => {
     expect(screen.queryByText('Runs')).not.toBeInTheDocument();
     expect(screen.queryByText('Run approvals')).not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByPlaceholderText('Ask your thought partner...'), {
+    fireEvent.change(screen.getByPlaceholderText('Ask about this'), {
       target: { value: 'Continue with the library cleanup.' }
     });
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));

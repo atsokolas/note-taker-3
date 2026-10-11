@@ -1,3 +1,5 @@
+import { AGENT_DISPLAY_NAME } from '../constants/agentIdentity';
+
 export const CONTEXTUAL_AGENT_CONTRACT_VERSION = 1;
 
 export const CONTEXTUAL_AGENT_PRESENTATIONS = Object.freeze({
@@ -8,7 +10,6 @@ export const CONTEXTUAL_AGENT_PRESENTATIONS = Object.freeze({
 const contract = ({
   id,
   room,
-  roleLabel,
   roleDescription,
   agentId = 'agent.context-partner',
   presentation = CONTEXTUAL_AGENT_PRESENTATIONS.rail,
@@ -19,7 +20,6 @@ const contract = ({
   schemaVersion: CONTEXTUAL_AGENT_CONTRACT_VERSION,
   id,
   room,
-  roleLabel,
   roleDescription,
   agentId,
   presentation,
@@ -51,7 +51,6 @@ export const CONTEXTUAL_AGENT_CONTRACTS = Object.freeze([
   contract({
     id: 'agent-surface.library',
     room: 'library',
-    roleLabel: 'Source guide',
     roleDescription: 'Follows the source, its provenance, and where it connects.',
     capabilities: ['capability.library.retrieve', 'capability.knowledge.connect'],
     actions: ['retrieve', 'accept.keep'],
@@ -60,7 +59,6 @@ export const CONTEXTUAL_AGENT_CONTRACTS = Object.freeze([
   contract({
     id: 'agent-surface.think',
     room: 'think',
-    roleLabel: 'Thought partner',
     roleDescription: 'Works beside the thought without writing over it.',
     capabilities: ['capability.library.retrieve', 'capability.knowledge.connect'],
     actions: ['retrieve', 'accept.append'],
@@ -69,8 +67,7 @@ export const CONTEXTUAL_AGENT_CONTRACTS = Object.freeze([
   contract({
     id: 'agent-surface.wiki',
     room: 'wiki',
-    roleLabel: 'Wiki steward',
-    roleDescription: 'Checks the accepted page against its sources and maintenance history.',
+    roleDescription: 'Ask about this page.',
     capabilities: ['capability.library.retrieve', 'capability.wiki.maintain'],
     actions: ['retrieve', 'accept.edit'],
     match: ({ pathname }) => {
@@ -83,8 +80,7 @@ export const CONTEXTUAL_AGENT_CONTRACTS = Object.freeze([
   contract({
     id: 'agent-surface.judgment',
     room: 'judgment',
-    roleLabel: 'Skeptical partner',
-    roleDescription: 'Tests the live judgment against support, counterevidence, and unknowns.',
+    roleDescription: 'Ask about this view.',
     capabilities: ['capability.library.retrieve', 'capability.judgment.review'],
     actions: ['retrieve', 'accept.why', 'accept.against', 'accept.criteria'],
     match: ({ pathname }) => String(pathname || '').startsWith('/judgment')
@@ -120,7 +116,7 @@ export const buildContextualAgentSurface = (contractId, context = {}) => {
     contractId: resolved.id,
     agentId: resolved.agentId,
     room: resolved.room,
-    roleLabel: String(context.roleLabel || resolved.roleLabel || 'Agent').trim(),
+    roleLabel: AGENT_DISPLAY_NAME,
     roleDescription: String(context.roleDescription || resolved.roleDescription || '').trim(),
     objectType,
     objectId,
@@ -135,8 +131,8 @@ export const buildContextualAgentSurface = (contractId, context = {}) => {
       : null,
     lines: normalizeLines(context.lines),
     empty: String(context.empty || 'Nothing to retrieve until you ask.').trim(),
-    askPlaceholder: String(context.askPlaceholder || 'Bring evidence or counterevidence').trim(),
-    caption: String(context.caption || 'Retrieves. You accept.').trim(),
+    askPlaceholder: String(context.askPlaceholder || 'Ask about this').trim(),
+    caption: String(context.caption || '').trim(),
     supportedActions: [...resolved.actions],
     capabilities: [...resolved.capabilities],
     proposalPolicy: resolved.proposalPolicy

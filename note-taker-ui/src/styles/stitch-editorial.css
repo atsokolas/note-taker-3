@@ -967,8 +967,7 @@ body.noeis-editorial .topbar--manuscript .topbar__right {
     gap: 4px;
   }
 
-  body.noeis-editorial .topbar__button,
-  body.noeis-editorial .topbar__theme-pill {
+  body.noeis-editorial .topbar__button {
     padding-inline: 7px;
     letter-spacing: 0.1em;
   }
@@ -10193,7 +10192,6 @@ body.noeis-editorial .right-drawer__mobile-sheet .right-drawer__header-icon {
   }
 
   body.noeis-editorial .topbar__button,
-  body.noeis-editorial .topbar__theme-pill,
   body.noeis-editorial .topbar__icon-button {
     min-height: 34px;
     height: 34px;

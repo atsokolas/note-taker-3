@@ -1,7 +1,7 @@
-export const AGENT_DISPLAY_NAME = 'Thought partner';
+export const AGENT_DISPLAY_NAME = 'Partner';
 export const AGENT_CHAT_LABEL = `${AGENT_DISPLAY_NAME} chat`;
 export const AGENT_STATUS_LABEL = `${AGENT_DISPLAY_NAME} status`;
-export const AGENT_DEFAULT_PLACEHOLDER = 'Ask your thought partner...';
+export const AGENT_DEFAULT_PLACEHOLDER = 'Ask about this';
 export const SPECIALIST_AGENT_LABEL = 'Specialist agent';
 export const USER_BRIDGE_LABEL = 'User bridge';
 

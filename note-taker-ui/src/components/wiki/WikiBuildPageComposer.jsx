@@ -138,7 +138,7 @@ const WikiBuildPageComposer = ({ className = '', compact = false, onBuilt, onBus
     <form
       className={`wiki-build-page${compact ? ' wiki-build-page--compact' : ''}${className ? ` ${className}` : ''}`}
       onSubmit={handleSubmit}
-      aria-label={`Ask ${AGENT_DISPLAY_NAME.toLowerCase()} to build a page`}
+      aria-label={`Ask ${AGENT_DISPLAY_NAME} to build a page`}
     >
       {!compact ? (
         <div>
@@ -156,7 +156,7 @@ const WikiBuildPageComposer = ({ className = '', compact = false, onBuilt, onBus
         <input
           value={prompt}
           onChange={(event) => setPrompt(event.target.value)}
-          placeholder={creationMode === 'living_thesis' ? 'Living thesis title' : `Ask ${AGENT_DISPLAY_NAME.toLowerCase()} to build a wiki page...`}
+          placeholder={creationMode === 'living_thesis' ? 'Living thesis title' : `Ask ${AGENT_DISPLAY_NAME} to build a wiki page...`}
           aria-label={creationMode === 'living_thesis' ? 'Living thesis title' : 'Wiki page to build'}
         />
         <Button type="submit" disabled={busy || !prompt.trim() || (creationMode === 'living_thesis' && !governingQuestion.trim())}>
