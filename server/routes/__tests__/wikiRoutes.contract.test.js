@@ -2591,7 +2591,7 @@ const run = async () => {
     // An address already saved in the Library is ingested as that article, not fetched again.
     const savedIngest = await request(url, '/api/wiki/ingest', {
       method: 'POST',
-      body: JSON.stringify({ source: { type: 'url', url: 'http://www.example.com/memory/?utm_source=mail' } })
+      body: JSON.stringify({ source: { type: 'url', url: 'http://www.example.com/memory/?utm_source=mail', title: 'Stale tab title', text: 'Whatever the page said once.' } })
     });
     assert.strictEqual(savedIngest.res.status, 202, savedIngest.text);
     assert.strictEqual(savedIngest.body.sourceRef.type, 'article');

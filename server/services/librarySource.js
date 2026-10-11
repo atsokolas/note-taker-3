@@ -38,11 +38,12 @@ const canonicalSourceUrl = (value = '') => {
 };
 
 /* Article urls are stored as they were saved, so the lookup asks the index
-   for every spelling of the same place and keeps only the true matches. */
+   for every spelling of the same place and keeps only the true matches. An
+   address carrying a user name or password matches nothing. */
 const urlPattern = (value = '') => {
   try {
     const url = new URL(String(value || '').trim());
-    if (!/^https?:$/.test(url.protocol)) return null;
+    if (!/^https?:$/.test(url.protocol) || url.username || url.password) return null;
     const place = `${url.host.replace(/^www\./, '')}${url.pathname.replace(/\/+$/, '')}`
       .replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     return new RegExp(`^https?://(www\\.)?${place}/*([?#]|$)`, 'i');
@@ -88,8 +89,8 @@ const resolveSourceRefs = async ({ Article, WikiSourceEvent, userId, refs = [] }
   }
 
   const orphans = refs.filter(ref => ref.type === 'highlight' && ref.objectId && !ref.parentObjectId);
-  const addressed = refs.filter(ref => ref.url && !libraryArticleIdOf(ref) && ref.type !== 'highlight');
-  const patterns = addressed.map(ref => urlPattern(ref.url)).filter(Boolean);
+  const addressed = refs.filter(ref => ref.url && !libraryArticleIdOf(ref) && ref.type !== 'highlight' && urlPattern(ref.url));
+  const patterns = addressed.map(ref => urlPattern(ref.url));
   if (Article && (orphans.length || patterns.length)) {
     const articles = await Article.find({
       userId,

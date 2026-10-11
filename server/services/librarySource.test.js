@@ -94,6 +94,7 @@ async function run() {
     assert.equal(await findLibraryArticle({ Article, userId, url: 'https://example.com/journals?page=2' }), null);
     assert.equal(await findLibraryArticle({ Article, userId, url: 'https://example.com/elsewhere' }), null, 'only your own Library');
     assert.equal(await findLibraryArticle({ Article, userId, url: 'not a url' }), null);
+    assert.equal(await findLibraryArticle({ Article, userId, url: 'https://someone:secret@example.com/journals' }), null, 'an address with a password is not your article');
 
     // The backfill says what it would do, and does it only when asked.
     const unread = await WikiPage.collection.insertOne({
