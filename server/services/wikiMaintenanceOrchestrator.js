@@ -9,6 +9,7 @@ const {
 const { createProposalFromSourceEvent } = require('./wikiProposalService');
 const { syncWikiPageGraphConnections } = require('./wikiGraphConnectionService');
 const { matchesForPage } = require('./falsifierWatch');
+const { proposeFromReading } = require('./readingTalksBack');
 const { getWikiSchemaPromptContent } = require('./wikiSchemaService');
 const { compareClaimLedgers } = require('./wikiClaimComparisonService');
 const { buildInvestmentMaintenanceComparison } = require('./investmentDossierComparisonService');
@@ -898,6 +899,20 @@ const runWikiSourceEvent = async ({
    would need a durable page lease of the kind repo builds already take. */
 const maintenanceQueues = new Map();
 
+/* Reading talks back. Once an arrival is maintained, it is read against the
+   views it may bear on, outside the queue so a model call never holds up
+   maintenance. Whatever happens there is silence to the caller. */
+const readBack = (args, maintained) => {
+  maintained
+    .then(result => (result?.deferred || !args.sourceEvent ? null : proposeFromReading({
+      event: args.sourceEvent,
+      userId: args.userId || args.sourceEvent.userId,
+      models: args.models
+    })))
+    .catch(() => null);
+  return maintained;
+};
+
 const afterPreviousMaintenance = (userId, task) => {
   const key = String(userId || 'anonymous');
   /* A failed pass must not poison the queue behind it, so the tail forgets both
@@ -913,7 +928,7 @@ const afterPreviousMaintenance = (userId, task) => {
   return result;
 };
 
-const processWikiSourceEvent = (args = {}) => afterPreviousMaintenance(
+const processWikiSourceEvent = (args = {}) => readBack(args, afterPreviousMaintenance(
   args.userId || args.sourceEvent?.userId,
   async () => {
     const budget = await acquireWikiWriteBudget(args.models?.WikiPage?.db?.db);
@@ -928,7 +943,7 @@ const processWikiSourceEvent = (args = {}) => afterPreviousMaintenance(
     }
     try { return await runWikiSourceEvent(args); } finally { await budget.release(); }
   }
-);
+));
 
 const processPendingWikiSourceEvents = async ({ userId, models = {}, limit = 5, buildUniqueSlug = null, wikiSchemaContent = '' } = {}) => {
   const { WikiSourceEvent } = models;
