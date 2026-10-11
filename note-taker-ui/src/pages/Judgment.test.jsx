@@ -284,6 +284,18 @@ describe('the view', () => {
       expect(screen.queryByRole('region', { name: 'From your reading' })).not.toBeInTheDocument();
     });
 
+    it('takes passages read against the old test away at once when the test changes', async () => {
+      const met = { ...proposal, provenance: { ...proposal.provenance, falsifier: 'Two quarters of falling renewals.' } };
+      listReadingProposals.mockResolvedValueOnce([met]).mockReturnValueOnce(new Promise(() => {}));
+      setJudgmentResolution.mockResolvedValue({ judgment: viewPage({ resolutionCriteria: 'Churn above ten percent.' }).judgment });
+      openView();
+      expect(await screen.findByText(QUOTE)).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: /what would change your mind|Edit/i }));
+      fireEvent.change(screen.getByLabelText('In one line'), { target: { value: 'Churn above ten percent.' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+      await waitFor(() => expect(screen.queryByText(QUOTE)).not.toBeInTheDocument());
+    });
+
     it('says nothing when no passage is waiting', async () => {
       openView();
       await screen.findByRole('heading', { level: 1, name: CLAIM });

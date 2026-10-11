@@ -243,8 +243,11 @@ const JudgmentView = ({ pageId, initialPage = null }) => {
     return () => { cancelled = true; };
   }, [pageId]);
 
-  // Passages are read against the sentence and its test; when either changes, ask again.
-  const rereadPassages = useCallback(() => listReadingProposals(pageId).then(setReading).catch(() => {}), [pageId]);
+  // Passages are read against the sentence and its test; when either changes, the old readings go and are asked for again.
+  const rereadPassages = useCallback(() => {
+    setReading([]);
+    return listReadingProposals(pageId).then(setReading).catch(() => {});
+  }, [pageId]);
 
   const view = useMemo(() => (page ? projectView(page) : null), [page]);
   const mergeJudgment = useCallback((judgment) => {
