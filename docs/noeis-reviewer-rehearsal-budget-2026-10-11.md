@@ -28,6 +28,8 @@ The reviewer embedding enqueue persists `held` jobs. Both the durable worker and
 
 This is a bound on the exact synchronous MCP rehearsal, **not all AI endpoints for this account**. Streaming/async Wiki drafts, ingestion/ask routes, semantic queries and the legacy `queueEmbeddingUpsert` retain their existing behavior. They must be demonstrably outside the actual setup/walkthrough or receive a separately reviewed guard before invocation. A permanent restriction of advertised reviewer capabilities is not introduced.
 
+Scheduled Wiki maintenance excludes only the verified policy reviewer from its query and checks that owner again before budget acquisition, run creation or inference. A stale/adaptor query result returns a truthful held result without a save, event or invented draft timestamp. Empty policy IDs leave normal scheduling unchanged. This reviewer-only quiet-window hold prevents a newly restored draft fixture from entering generic scheduled inference; it is not a global scheduler pause. Restore staged fixtures to draft only after this hold and the exact active policy have deployed and been verified.
+
 The five cases use:
 
 - P1: source/highlight database reads, exact author/reader/interpretation distinction.
