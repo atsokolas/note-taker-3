@@ -156,3 +156,7 @@
   font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
   font-size: 0.82rem;
 }
+
+.contradiction.is-focused {
+  scroll-margin-top: 24px;
+}

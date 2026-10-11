@@ -750,18 +750,6 @@ body.noeis-editorial .wiki-index .library-article-row-title,
   }
 }
 
-/* "Ready for maintenance" is a report on the page, so it sits above the page
-   as a line of text rather than as a stamp floating in its own frame. */
-.wiki-workspace .wiki-read__maintenance-receipt {
-  padding: 0 0 18px;
-  border: 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 62%, transparent);
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-.wiki-workspace .wiki-read__promotion-kicker,
 .wiki-workspace .wiki-read__page-status-label,
 .wiki-workspace .wiki-read__page-status-facts,
 .wiki-workspace .wiki-read__page-status-action {
@@ -773,61 +761,8 @@ body.noeis-editorial .wiki-index .library-article-row-title,
   text-transform: none !important;
 }
 
-.wiki-workspace .wiki-read__maintenance-receipt h2,
-.wiki-workspace .wiki-read__maintenance-receipt.is-compact .wiki-read__maintenance-copy h2 {
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.86rem;
-  font-weight: 400;
-  letter-spacing: 0;
-  text-transform: none;
-}
-
-.wiki-workspace .wiki-read__maintenance-receipt .wiki-read__maintenance-actions > button,
-.wiki-workspace .wiki-read__maintenance-receipt.is-compact .wiki-read__maintenance-actions > button,
-.wiki-workspace .wiki-read__maintenance-receipt .wiki-read__maintenance-actions > .btn {
-  min-height: 0;
-  padding: 0;
-  border: 0 !important;
-  border-bottom: 1px solid currentColor !important;
-  border-radius: 0 !important;
-  background: none !important;
-  background-color: transparent !important;
-  box-shadow: none !important;
-  color: var(--text-primary, var(--vellum-ink)) !important;
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.86rem;
-  font-weight: 400;
-  letter-spacing: 0;
-  text-transform: none;
-}
-
 .wiki-workspace .wiki-read__page-status-action {
   border-bottom: 1px solid currentColor;
-}
-
-/* Article and Talk are two words with a rule under the one you are reading. */
-.wiki-workspace .wiki-read__tabs button {
-  padding: 0 0 6px;
-  border: 0;
-  border-bottom: 1px solid transparent;
-  border-radius: 0;
-  background: transparent;
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.92rem;
-  font-weight: 400;
-}
-
-.wiki-workspace .wiki-read__tabs button.is-active {
-  border-bottom-color: currentColor;
-  background: transparent;
-  color: var(--text-primary, var(--vellum-ink));
-}
-
-.wiki-workspace .wiki-read__tabs {
-  gap: 22px;
-  border: 0;
-  background: transparent;
 }
 
 /* The context gutter opened from a rounded tab with its label turned on its

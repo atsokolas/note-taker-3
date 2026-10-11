@@ -255,6 +255,7 @@ const OpenableParagraph = ({ node, id, className, children }) => {
       suspended={ctx.readFresh}
       onChange={(next) => ctx.commit(claim.claimId, next)}
       heldInteractive={false}
+      openOnClick
       lineRef={lineRef}
       homecoming={homecomingLine(matchingWikiTicket({
         pageId: ctx.pageId,

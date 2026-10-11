@@ -2,6 +2,7 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { resolveSourceDoors } from '../../utils/sourceRoutes';
 import { formatClaimBornAt } from '../../utils/claimBornAt';
+import { AGENT_DISPLAY_NAME } from '../../constants/agentIdentity';
 
 /**
  * ClaimCitationPopover — Wikipedia-style footnote popover for an inline
@@ -32,7 +33,7 @@ const SUPPORT_LABEL = {
 const SUPPORT_BLURB = {
   supported: 'This claim is grounded in your library.',
   partial: 'Only one source partially supports this claim.',
-  unsupported: 'The agent wrote this without an attached source.',
+  unsupported: `${AGENT_DISPLAY_NAME} wrote this without an attached source.`,
   contradicted: 'A source in your library contradicts this claim.',
   conflicted: 'A source in your library conflicts with this claim.'
 };
@@ -236,7 +237,7 @@ const ClaimCitationPopover = ({ anchorRect, support, sources, claim, onClose, on
           ) : null}
           {historyCount ? (
             <div>
-              <dt>Ledger</dt>
+              <dt>History</dt>
               <dd>{historyCount} event{historyCount === 1 ? '' : 's'}</dd>
             </div>
           ) : null}

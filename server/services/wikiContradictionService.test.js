@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { collectContradictions, contradictionsOnPage } = require('./wikiContradictionService');
+const { collectContradictions, contradictionsOnPage, contradictionsTouching } = require('./wikiContradictionService');
 
 /* Contradiction was a colour on a citation inside one article: you had to
    already be reading the right page to learn that two things you read do not
@@ -82,6 +82,22 @@ const run = () => {
   const older = page({ _id: 'p0', title: 'Older', updatedAt: '2026-01-01T00:00:00.000Z' });
   const ordered = collectContradictions([older, page()]);
   assert.deepStrictEqual(ordered.map(item => item.pageTitle), ['Strategy', 'Older']);
+
+  // When another of your pages leans on the source that argues, the
+  // disagreement is between your two pages, and it shows on both.
+  const membership = {
+    _id: 'p9',
+    title: 'Membership',
+    updatedAt: '2026-07-01T00:00:00.000Z',
+    sourceRefs: [{ _id: 'm1', title: 'Operational effectiveness trap' }],
+    claims: [{ claimId: 'm-cl', text: 'Demand is the risk.', sourceRefIds: ['m1'] }],
+    citations: []
+  };
+  const [paired] = collectContradictions([page(), membership]);
+  assert.deepStrictEqual(paired.elsewhere, [{ pageId: 'p9', pageTitle: 'Membership', claimId: 'm-cl', claimText: 'Demand is the risk.' }]);
+  assert.strictEqual(contradictionsTouching([paired], 'p9').length, 1, 'shows on the other page too');
+  assert.strictEqual(contradictionsTouching([paired], 'p1').length, 1);
+  assert.strictEqual(contradictionsTouching([paired], 'elsewhere').length, 0);
 
   console.log('ok - wiki contradiction view');
 };

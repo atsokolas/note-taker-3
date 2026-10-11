@@ -17,7 +17,7 @@ const REPO_BUILD_STAGES = [
   {
     label: 'Attach evidence',
     trace: 'fetching README, package files, workflows, and key paths',
-    detail: 'Pulling read-only repository sources into the page ledger.'
+    detail: 'Reading the repository’s sources into the page.'
   },
   {
     label: 'Select developer paths',

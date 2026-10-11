@@ -113,7 +113,7 @@ export const formatRepoWatchPublicationMessage = (watch = {}, page = {}, publica
     case 'rebuilding':
       return `New commits detected at ${observed || shortHeadSha(watch.candidateHeadSha)} · rebuilding from ${sourceCount} repository source${sourceCount === 1 ? '' : 's'}`;
     case 'failed_candidate':
-      return `The latest update did not pass the evidence bar. Showing the last trusted version from ${published}.`;
+      return `The latest update did not hold up against its sources. Showing the version from ${published}.`;
     case 'superseded':
       return 'A newer commit arrived while this page was rebuilding. Continuing with the latest head.';
     default:

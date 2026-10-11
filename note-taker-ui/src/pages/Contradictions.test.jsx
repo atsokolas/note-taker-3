@@ -33,6 +33,7 @@ describe('where the library disagrees with itself', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.spyOn(router, 'useNavigate').mockReturnValue(navigate);
+    jest.spyOn(router, 'useSearchParams').mockReturnValue([new URLSearchParams(), jest.fn()]);
     listWikiContradictions.mockResolvedValue([item]);
   });
 
@@ -54,6 +55,23 @@ describe('where the library disagrees with itself', () => {
   it('says where the claim lives, so the passage can be read in place', async () => {
     render(<MemoryRouter><Contradictions /></MemoryRouter>);
     expect(await screen.findByRole('link', { name: 'Strategy' })).toHaveAttribute('href', expect.stringContaining('p1'));
+  });
+
+  it('leads with the disagreement a wiki page named, with both pages a click away', async () => {
+    const other = { ...item, pageId: 'p0', claimId: 'cl0', claimText: 'Scale wins.', pageTitle: 'Scale' };
+    listWikiContradictions.mockResolvedValue([other, {
+      ...item,
+      elsewhere: [{ pageId: 'p2', pageTitle: 'Operations', claimId: 'c2', claimText: 'Execution is the strategy.' }]
+    }]);
+    window.HTMLElement.prototype.scrollIntoView = jest.fn();
+    router.useSearchParams.mockReturnValue([new URLSearchParams('claim=p1:cl1'), jest.fn()]);
+    render(<MemoryRouter><Contradictions /></MemoryRouter>);
+
+    const focused = (await screen.findByRole('heading', { name: 'Positioning beats operations.' })).closest('article');
+    expect(focused).toHaveAttribute('aria-current', 'true');
+    expect(screen.getAllByRole('article')[0]).toBe(focused);
+    expect(within(focused).getByRole('link', { name: 'Strategy' })).toHaveAttribute('href', expect.stringContaining('p1'));
+    expect(within(focused).getByRole('link', { name: 'Operations' })).toHaveAttribute('href', expect.stringContaining('p2'));
   });
 
   /* Deciding is the exit: both sides are already written, so the judgment

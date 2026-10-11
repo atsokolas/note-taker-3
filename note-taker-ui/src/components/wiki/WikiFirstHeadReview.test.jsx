@@ -53,7 +53,7 @@ test('requires review confirmation before accepting the exact candidate', async 
   render(<WikiFirstHeadReview page={page} pageId="page-1" onPageUpdate={onPageUpdate} />);
 
   expect(await screen.findByText('Candidate research body.')).toBeInTheDocument();
-  const accept = screen.getByRole('button', { name: 'Accept trusted head' });
+  const accept = screen.getByRole('button', { name: 'Accept' });
   expect(accept).toBeDisabled();
   fireEvent.click(screen.getByRole('checkbox'));
   fireEvent.click(accept);

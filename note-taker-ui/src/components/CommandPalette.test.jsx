@@ -186,7 +186,7 @@ describe('CommandPalette', () => {
     expect(parseWikiTemporalCommand('what changed in my thinking about opportunity cost over the last month')).toMatchObject({
       topic: 'opportunity cost',
       period: 'month',
-      label: 'Draft change ledger for "opportunity cost"'
+      label: 'Write how "opportunity cost" changed'
     });
     expect(parseWikiTemporalCommand('what changed since I last opened loss aversion')).toMatchObject({
       topic: 'loss aversion'
@@ -334,12 +334,12 @@ describe('CommandPalette', () => {
     });
     await flushSearch();
 
-    fireEvent.click(await screen.findByText('Draft change ledger for "opportunity cost"'));
+    fireEvent.click(await screen.findByText('Write how "opportunity cost" changed'));
 
     await waitFor(() => expect(buildWikiCreatePayload).toHaveBeenCalledWith(expect.objectContaining({
       type: 'search',
       pageType: 'temporal_review',
-      title: 'opportunity cost change ledger',
+      title: 'How opportunity cost changed',
       text: 'what changed in my thinking about opportunity cost over the last month',
       label: 'what changed in my thinking about opportunity cost over the last month',
       createdFrom: expect.objectContaining({
@@ -350,12 +350,12 @@ describe('CommandPalette', () => {
     })));
     expect(createWikiPage).toHaveBeenCalled();
     expect(systemStatusControls.setBackgroundWork).toHaveBeenCalledWith({
-      label: 'Creating change ledger',
+      label: 'Starting the page',
       stage: 'Reading history for opportunity cost'
     });
     expect(systemStatusControls.setLatestReceipt).toHaveBeenCalledWith(expect.objectContaining({
       id: 'command-temporal-wiki-new',
-      title: 'Change ledger started',
+      title: 'Started “How opportunity cost changed”',
       summary: 'Started a wiki draft to inspect what changed about "opportunity cost" across month.',
       status: 'needs_review',
       href: '/wiki/workspace?page=wiki-new'
@@ -373,11 +373,11 @@ describe('CommandPalette', () => {
     });
     await flushSearch();
 
-    fireEvent.click(await screen.findByText('Draft change ledger for "compounding"'));
+    fireEvent.click(await screen.findByText('Write how "compounding" changed'));
 
     await waitFor(() => expect(systemStatusControls.setRecoverableFailure).toHaveBeenCalledWith(expect.objectContaining({
       stage: 'Command palette',
-      message: 'Could not create the change ledger.',
+      message: 'Could not start that page.',
       retryable: true
     })));
     expect(systemStatusControls.setBackgroundWork).toHaveBeenLastCalledWith(null);

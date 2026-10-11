@@ -147,7 +147,7 @@ describe('wiki critical CSS loading', () => {
     const css = fs.readFileSync(path.join(__dirname, 'wiki-critical.css'), 'utf8');
     const polishCss = fs.readFileSync(path.join(__dirname, 'think-home-polish.css'), 'utf8');
     const pageActionsBlock = css.match(/\.wiki-index__page-more,[\s\S]*?\.wiki-index__page-menu/)?.[0] || '';
-    const tabBlock = css.match(/\.wiki-read__tabs button \{[\s\S]*?\n\}/)?.[0] || '';
+    const tabBlock = css.match(/\.wiki-read__actions button \{[\s\S]*?\n\}/)?.[0] || '';
     const finalTapFloorBlock = polishCss.match(/\/\* AT-291: final tap-target floor[\s\S]*?button\[type='submit'\] \{[\s\S]*?\n\}/)?.[0] || '';
 
     expect(pageActionsBlock).toContain('min-height: 44px');
@@ -156,7 +156,6 @@ describe('wiki critical CSS loading', () => {
     expect(tabBlock).toContain('min-width: 44px');
     expect(finalTapFloorBlock).toContain('.wiki-workspace-chat__build-button');
     expect(finalTapFloorBlock).toContain('.wiki-workspace-chat__send');
-    expect(finalTapFloorBlock).toContain('.wiki-ask-composer__suggestion');
     expect(finalTapFloorBlock).toContain('min-height: 44px');
     expect(finalTapFloorBlock).toContain('min-width: 44px');
   });

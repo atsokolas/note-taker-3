@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { createWikiPage, listWikiContradictions, updateWikiPage } from '../api/wiki';
 import { createJudgment } from './judgmentModel';
 import { useContextualAgentSurface } from '../agent/AgentRailContext';
@@ -36,14 +36,25 @@ const Side = ({ side, role }) => (
   </div>
 );
 
-const Contradiction = ({ item, onDecide, deciding, error }) => (
-  <article className="contradiction" aria-labelledby={`contradiction-${item.pageId}-${item.claimId}`}>
+const Contradiction = ({ item, onDecide, deciding, error, focused = false, focusRef = null }) => (
+  <article
+    ref={focused ? focusRef : null}
+    className={`contradiction${focused ? ' is-focused' : ''}`}
+    aria-labelledby={`contradiction-${item.pageId}-${item.claimId}`}
+    aria-current={focused ? 'true' : undefined}
+  >
     <h2 className="contradiction__claim" id={`contradiction-${item.pageId}-${item.claimId}`}>
       {item.claimText}
     </h2>
     <p className="contradiction__where">
       <Link to={wikiReadPath(item.pageId)}>{item.pageTitle}</Link>
       {item.section ? <span> · {item.section}</span> : null}
+      {(item.elsewhere || []).map(page => (
+        <span key={page.pageId}>
+          {' · '}
+          <Link to={wikiReadPath(page.pageId)}>{page.pageTitle}</Link>
+        </span>
+      ))}
     </p>
 
     <div className="contradiction__sides">
@@ -75,6 +86,18 @@ const Contradictions = () => {
   const [decidingId, setDecidingId] = useState('');
   const [decideError, setDecideError] = useState({});
   const navigate = useNavigate();
+  /* "Open both" from a wiki page lands here with the one disagreement it
+     named; that one leads, so both pages are a click away. */
+  const [searchParams] = useSearchParams();
+  const focusKey = searchParams.get('claim') || '';
+  const focusRef = useRef(null);
+  const ordered = useMemo(() => {
+    const focused = items.filter(item => `${item.pageId}:${item.claimId}` === focusKey);
+    return focused.length ? [...focused, ...items.filter(item => !focused.includes(item))] : items;
+  }, [focusKey, items]);
+  useEffect(() => {
+    focusRef.current?.scrollIntoView?.({ block: 'start' });
+  }, [ordered]);
   const arriving = useMemo(() => takeFirstPaint('contradictions'), []);
   const step = (n) => (arriving ? `wfp-anim wfp-anim--${n}` : '');
 
@@ -150,10 +173,12 @@ const Contradictions = () => {
       {error ? <p className="contradictions__error" role="alert">{error}</p> : null}
 
       <div className={step(2)}>
-        {items.map(item => (
+        {ordered.map(item => (
           <Contradiction
             key={`${item.pageId}:${item.claimId}`}
             item={item}
+            focused={`${item.pageId}:${item.claimId}` === focusKey}
+            focusRef={focusRef}
             onDecide={decide}
             deciding={decidingId === `${item.pageId}:${item.claimId}`}
             error={decideError[`${item.pageId}:${item.claimId}`]}

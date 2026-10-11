@@ -329,7 +329,7 @@ describe('WikiWorkspace', () => {
     expect(embeddedAgent).toHaveAttribute('data-agent-presentation', 'embedded');
     expect(embeddedAgent.getAttribute('data-agent-actions')).toContain('maintain');
     expect(embeddedAgent).toHaveAttribute('data-agent-proposal-policy', 'human_acceptance');
-    await waitFor(() => expect(screen.getByLabelText('Partner status')).toHaveTextContent('Agent ready.'));
+    await waitFor(() => expect(screen.getByLabelText('Partner status')).toHaveTextContent('Partner is here.'));
     expect(screen.queryByLabelText('Partner trace')).not.toBeInTheDocument();
     expect(screen.getByTestId('wiki-index')).toBeInTheDocument();
     expect(document.querySelector('.wiki-workspace')).toHaveStyle('--wiki-workspace-chat-width: 260px');
@@ -694,7 +694,7 @@ describe('WikiWorkspace', () => {
       });
       await settleWorkspaceEffects();
 
-      expect(screen.getByRole('status', { name: 'Partner status' })).toHaveTextContent(/ready/i);
+      expect(screen.getByRole('status', { name: 'Partner status' })).toHaveTextContent(/is here/i);
     } finally {
       jest.useRealTimers();
     }
@@ -720,7 +720,7 @@ describe('WikiWorkspace', () => {
     await settleWorkspaceEffects();
 
     const status = await screen.findByRole('status', { name: 'Partner status' });
-    expect(status).toHaveTextContent('1 review item for Investing.');
+    expect(status).toHaveTextContent('1 proposed change for Investing.');
     expect(status).toHaveAttribute('data-status', 'ready');
   });
 
@@ -763,7 +763,7 @@ describe('WikiWorkspace', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
 
     const status = await screen.findByRole('status', { name: 'Partner status' });
-    expect(status).toHaveTextContent('Agent updating Wiki page...');
+    expect(status).toHaveTextContent('Partner is updating Wiki page…');
     expect(status).toHaveAttribute('data-status', 'working');
 
     await act(async () => { resolveDraft(); });
@@ -1318,11 +1318,11 @@ describe('WikiWorkspace', () => {
     renderWorkspace('/wiki/workspace?page=wiki-new&build=1', { systemStatusControls });
     await settleWorkspaceEffects();
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('The maintenance stream for wiki-new timed out.');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Rereading wiki-new took too long. Try again.');
     expect(await screen.findByRole('status', { name: 'Partner status' })).not.toHaveAttribute('data-status', 'working');
     expect(systemStatusControls.setRecoverableFailure).toHaveBeenCalledWith(expect.objectContaining({
       stage: 'Wiki build',
-      message: 'The maintenance stream for wiki-new timed out.',
+      message: 'Rereading wiki-new took too long. Try again.',
       retryable: true,
       retry: expect.any(Function)
     }));
@@ -1435,7 +1435,7 @@ describe('WikiWorkspace', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
 
     expect(await screen.findByText('First chunk.')).toBeInTheDocument();
-    const receipts = await screen.findByLabelText('Agent activity');
+    const receipts = await screen.findByLabelText('What happened');
     expect(receipts).toHaveTextContent('Read the selected wiki page.');
     expect(receipts.querySelectorAll('li')).toHaveLength(1);
     expect(receipts.querySelector('.wiki-workspace-chat__receipt-icon')).toBeInTheDocument();
@@ -1588,7 +1588,7 @@ describe('WikiWorkspace', () => {
 
     await waitFor(() => expect(streamSignal.aborted).toBe(true));
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument());
-    expect(screen.getByText('Agent reply cancelled before completion.')).toBeInTheDocument();
+    expect(screen.getByText('Stopped before finishing.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
   });
 
@@ -1605,7 +1605,7 @@ describe('WikiWorkspace', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
 
-    expect(await screen.findByText('Agent chat failed. Your draft is still in the composer; retry when ready.')).toBeInTheDocument();
+    expect(await screen.findByText('Partner could not answer. Your message is still in the box; send it again when ready.')).toBeInTheDocument();
     expect(screen.queryByText('Half answer that should not render')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument();
     expect(screen.getByLabelText('Wiki workspace message')).toHaveValue('Fail this response');
