@@ -1,34 +1,21 @@
 import { normalizeSpaces, sentenceBoundaryTrim } from '../utils/editorialText';
-import { buildSourceOpenPath, buildSourceOriginPath, isLibraryHref } from '../utils/sourceRoutes';
-import { answersHeldSentence } from './judgmentHold';
+import { buildSourceOpenPath, buildSourceOriginPath } from '../utils/sourceRoutes';
 
-// The Judgment page's read model.
+// The Judgment room's read model.
 //
-// Judgment compounds human judgment: agents retrieve, the human accepts. The
-// page shows one claim and four human-labelled fields — Why, Against, I'd
-// change my mind if, What I did — and nothing else until there is something
-// else to say. Everything here is a projection of what is actually stored on
-// the wiki page's judgment contract. Nothing is inferred, nothing is filled in
-// to keep a section from being empty: an empty section is absent, not a box.
+// A view is one sentence you hold, the passages for and against it, what would
+// change your mind, and a record of what happened to it. Everything here is a
+// projection of what is stored on the page's judgment contract. Nothing is
+// inferred, and an empty part is absent rather than padded.
 
 const list = (value) => (Array.isArray(value) ? value : []);
 const idOf = (value) => normalizeSpaces(value?._id || value?.id || value);
+const DAY = 24 * 60 * 60 * 1000;
 
 const time = (value) => {
   if (!value) return NaN;
   const parsed = new Date(value).getTime();
   return Number.isNaN(parsed) ? NaN : parsed;
-};
-
-/** Tiptap answers arrive as a doc; the page only ever renders one sentence. */
-export const docText = (node) => {
-  if (!node) return '';
-  if (typeof node === 'string') return normalizeSpaces(node);
-  if (Array.isArray(node)) return normalizeSpaces(node.map(docText).filter(Boolean).join(' '));
-  if (typeof node !== 'object') return '';
-  const own = typeof node.text === 'string' ? node.text : '';
-  const child = Array.isArray(node.content) ? docText(node.content) : '';
-  return normalizeSpaces([own, child].filter(Boolean).join(' '));
 };
 
 /** One sentence, ending where the first sentence ends. */
@@ -40,30 +27,13 @@ export const oneSentence = (value, maxLength = 240) => {
   return sentenceBoundaryTrim(sentence, { maxLength, fallback: '' });
 };
 
-/* A page is a judgment page when it holds a judgment — meaning any of the four
-   things this page renders. It used to ask only about the claim, the kind, the
-   falsifiers and the ledger, which left out Why and Against entirely. So a page
-   whose Why and Against were filled in through the wiki's own dossier panel —
-   stored as `assumptions` and `strongestCounterargument`, which the four fields
-   below read and render — was not counted, and never appeared on the index. You
-   could fill a judgment in and then not find it. This asks the same question
-   the page answers: is there anything under the claim? */
-export const isJudgmentPage = (page) => {
-  const judgment = page?.judgment || {};
-  return Boolean(
-    normalizeSpaces(judgment.currentJudgment)
-    || normalizeSpaces(judgment.kind)
-    || whyLines(judgment).length
-    || againstLines(judgment).length
-    || changeMindLines(judgment).length
-    || whatIDidLines(judgment).length
-  );
-};
+/* A page is a view when it holds a sentence. The index, the Mirror and the
+   reader all ask this one question, so they count the same objects. */
+export const isJudgmentPage = (page) => Boolean(normalizeSpaces(page?.judgment?.currentJudgment));
 
 const sameLine = (left, right) => normalizeSpaces(left).toLowerCase() === normalizeSpaces(right).toLowerCase();
 
-/** Normalized claim identity: case, punctuation, and extra space do not make a second hold. */
-export const normalizeClaimKey = (value = '') => String(value || '')
+const normalizeClaimKey = (value = '') => String(value || '')
   .normalize('NFKC')
   .toLowerCase()
   .replace(/[^\p{L}\p{N}]+/gu, ' ')
@@ -77,13 +47,7 @@ export const claimSentence = (page) => (
   || normalizeSpaces(page?.title)
 );
 
-/* The wiki name, when it is actually a name.
-
-   Graph, links, same-title grouping, and every other room already key off
-   `page.title`. A judgment starts with the claim written into that field as
-   well, because a case has to exist as a wiki page from the first sentence.
-   That copy is not a name yet. Naming the page is what lets the case join
-   the wiki hierarchy without rewriting what you think. */
+/* The page title, when it is a name rather than a copy of the sentence. */
 export const namedTitle = (page = {}) => {
   const title = normalizeSpaces(page?.title);
   const claim = claimSentence(page);
@@ -91,315 +55,7 @@ export const namedTitle = (page = {}) => {
   return title;
 };
 
-/** What pops up: the name if there is one, otherwise the claim. */
 export const judgmentHeadline = (page = {}) => namedTitle(page) || claimSentence(page);
-
-export { isLibraryHref };
-
-const heldClaimOf = (page = {}) => {
-  const claims = list(page?.claims);
-  const key = normalizeClaimKey(claimSentence(page));
-  if (key) {
-    const match = claims.find((claim) => normalizeClaimKey(claim?.text) === key);
-    if (match) return match;
-  }
-  return claims[0] || null;
-};
-
-const sourceLabel = (ref) => (
-  normalizeSpaces(ref?.citationLabel)
-  || normalizeSpaces(ref?.provider)
-  || normalizeSpaces(ref?.title)
-);
-
-/** Sources a human can bind to a verdict. Keep this projection beside the
- * other Judgment provenance helpers so the resolution UI never invents a
- * second naming scheme for the same Library evidence. */
-export const verdictEvidenceOptions = (page = {}) => {
-  const seen = new Set();
-  return list(page?.sourceRefs).reduce((options, ref) => {
-    const id = idOf(ref);
-    // Reader citations are deliberately compact ("[1]"), but a verdict is a
-    // durable human record. Name the evidence there so the record remains
-    // intelligible after the reader's citation order changes.
-    const label = normalizeSpaces(ref?.title) || sourceLabel(ref) || normalizeSpaces(ref?.url);
-    if (!id || !label || seen.has(id)) return options;
-    seen.add(id);
-    options.push({ id, label, href: buildSourceOpenPath(ref) });
-    return options;
-  }, []);
-};
-
-/* Library evidence arrives as highlight:article:highlight or article:article.
-   Wiki already opens those in the library rather than reprinting the title;
-   Why and Against should do the same. */
-export const sourceHrefFromOrigin = (origin = '', fallbackUrl = '') => {
-  return buildSourceOriginPath(origin, fallbackUrl);
-};
-
-/** Where a retrieved answer came from, as one line: the citations the answer
- *  carried, in the human's own naming for them. Returns '' when the answer
- *  cited nothing, which the rail says out loud rather than hiding. */
-export const answerProvenance = (page, answer) => {
-  const byId = new Map(list(page?.sourceRefs).map(ref => [idOf(ref), ref]));
-  const labels = [];
-  list(answer?.citations).forEach((citation) => {
-    const ref = byId.get(idOf(citation?.sourceRefId ?? citation)) || citation;
-    const label = sourceLabel(ref);
-    if (label && !labels.includes(label)) labels.push(label);
-  });
-  return labels.slice(0, 3).join(' · ');
-};
-
-const sourceKey = (source) => source?.href || source?.id || source?.label;
-
-const sourcesForLine = (page, line = {}) => {
-  const byId = new Map(list(page?.sourceRefs).map(ref => [idOf(ref), ref]));
-  const seen = new Set();
-  const sources = [];
-  const add = (source) => {
-    const key = sourceKey(source);
-    if (!source.label || !key || seen.has(key)) return;
-    seen.add(key);
-    sources.push(source);
-  };
-  list(line.sourceRefIds).map(idOf).forEach((refId) => {
-    const ref = byId.get(refId);
-    const label = sourceLabel(ref);
-    if (!ref || !label) return;
-    add({ id: refId, label, href: buildSourceOpenPath(ref) });
-  });
-  const literal = normalizeSpaces(line.sourceLabel);
-  if (literal) {
-    add({
-      id: `label:${literal}`,
-      label: literal,
-      href: sourceHrefFromOrigin(line.acceptedFrom)
-    });
-  }
-  return sources;
-};
-
-const numberCitations = (lines = []) => {
-  const numbers = new Map();
-  let next = 1;
-  return lines.map((line) => ({
-    ...line,
-    sources: list(line.sources).map((source) => {
-      const key = sourceKey(source);
-      if (!numbers.has(key)) numbers.set(key, next++);
-      return { ...source, n: numbers.get(key) };
-    })
-  }));
-};
-
-const uniqueSources = (lines = []) => {
-  const seen = new Set();
-  const sources = [];
-  lines.forEach((line) => {
-    list(line.sources).forEach((source) => {
-      const key = sourceKey(source);
-      if (!key || seen.has(key)) return;
-      seen.add(key);
-      sources.push(source);
-    });
-  });
-  return sources;
-};
-
-const reasonLines = (items = [], prefix) => list(items)
-  .map((item, index) => ({
-    id: normalizeSpaces(item?.reasonId) || `${prefix}:${index}`,
-    text: normalizeSpaces(item?.text),
-    sourceRefIds: list(item?.sourceRefIds),
-    sourceLabel: normalizeSpaces(item?.sourceLabel),
-    acceptedFrom: normalizeSpaces(item?.acceptedFrom),
-    at: item?.at || item?.createdAt || null
-  }))
-  .filter(line => line.text);
-
-/* Why and Against read the judgment's own lists first. Pages written by the
-   older dossier surfaces only have `assumptions` and the single
-   `strongestCounterargument`; those read as the same two fields rather than
-   showing the human a blank page over a storage detail. */
-const whyLines = (judgment = {}) => {
-  const own = reasonLines(judgment.why, 'why');
-  if (own.length) return own;
-  return list(judgment.assumptions)
-    .filter(item => normalizeSpaces(item?.status) !== 'failed')
-    .map((item, index) => ({
-      id: normalizeSpaces(item?.assumptionId) || `assumption:${index}`,
-      text: normalizeSpaces(item?.text),
-      sourceRefIds: list(item?.sourceRefIds),
-      sourceLabel: '',
-      acceptedFrom: '',
-      at: item?.at || item?.createdAt || null
-    }))
-    .filter(line => line.text);
-};
-
-const againstLines = (judgment = {}) => {
-  const own = reasonLines(judgment.against, 'against');
-  if (own.length) return own;
-  const counter = normalizeSpaces(judgment.strongestCounterargument);
-  return counter ? [{
-    id: 'strongest-counterargument',
-    text: counter,
-    sourceRefIds: [],
-    sourceLabel: '',
-    acceptedFrom: '',
-    at: null
-  }] : [];
-};
-
-const changeMindLines = (judgment = {}) => list(judgment.falsifiers)
-  .filter(item => normalizeSpaces(item?.status) !== 'retired')
-  .map((item, index) => ({
-    id: normalizeSpaces(item?.falsifierId) || `falsifier:${index}`,
-    text: normalizeSpaces(item?.text),
-    /* Without a signal nothing can watch this, and the page is the only place
-       that knows. A test nobody is watching is a test in name only. */
-    signal: normalizeSpaces(item?.observableSignal)
-  }))
-  .filter(line => line.text);
-
-/* What the sentence used to say, newest first: the one it replaced reads
-   directly under the one you hold. Append-only on the way in, so the order
-   here is the only thing that needs reversing. */
-const earlierLines = (judgment = {}) => list(judgment.heldHistory)
-  .map((entry, index) => ({
-    id: `held:${index}`,
-    text: normalizeSpaces(entry?.text),
-    until: entry?.until || null
-  }))
-  .filter(line => line.text)
-  .reverse();
-
-/* What I did is a ledger. Lines are ordered oldest first and are never
-   rewritten — a cancelled decision stays on the page as a thing that was
-   decided, because that is what happened. */
-const whatIDidLines = (judgment = {}) => list(judgment.decisions)
-  .map((item, index) => ({
-    id: normalizeSpaces(item?.decisionId) || `decision:${index}`,
-    text: normalizeSpaces(item?.summary),
-    at: item?.decidedAt || item?.createdAt || null,
-    status: normalizeSpaces(item?.status) || 'planned',
-    order: index
-  }))
-  .filter(line => line.text)
-  .sort((left, right) => {
-    const delta = (time(left.at) || 0) - (time(right.at) || 0);
-    return Number.isNaN(delta) || delta === 0 ? left.order - right.order : delta;
-  });
-
-/* The review is not on the page until the review date. Then one block arrives
-   and asks the human what happened. The answer is never inferred from
-   anything the agents observed. */
-const reviewBlock = (judgment = {}, now = Date.now()) => {
-  const dated = list(judgment.decisions)
-    .map(item => ({
-      id: normalizeSpaces(item?.decisionId),
-      summary: normalizeSpaces(item?.summary),
-      reviewAt: item?.reviewAt || null,
-      outcome: item?.outcome || {}
-    }))
-    .filter(item => item.reviewAt || item.outcome?.observedAt);
-  if (!dated.length) return null;
-  const latest = dated
-    .slice()
-    .sort((left, right) => (time(right.reviewAt) || 0) - (time(left.reviewAt) || 0))[0];
-
-  const observedAt = latest.outcome?.observedAt || null;
-  if (observedAt) {
-    return {
-      state: 'observed',
-      decisionId: latest.id,
-      at: observedAt,
-      summary: normalizeSpaces(latest.outcome.summary),
-      lesson: normalizeSpaces(latest.outcome.lesson)
-    };
-  }
-  const due = time(latest.reviewAt);
-  if (!Number.isNaN(due) && now >= due) {
-    return { state: 'due', decisionId: latest.id, at: latest.reviewAt, summary: '', lesson: '' };
-  }
-  return null;
-};
-
-const sameLocalDay = (a, b) => (
-  a.getFullYear() === b.getFullYear()
-  && a.getMonth() === b.getMonth()
-  && a.getDate() === b.getDate()
-);
-
-/* "Since November. You looked this morning." Both halves come from real
-   timestamps; a half with no timestamp behind it simply is not written. */
-/* When you were last here. On the index this rides behind "Since November";
-   on a case the standing line has already said how long the belief has been
-   held, so the case asks for this clause alone rather than repeating itself. */
-export const lastLookedLine = (judgment = {}, now = Date.now()) => {
-  const looked = time(judgment.lastReviewedAt);
-  if (Number.isNaN(looked)) return '';
-  const date = new Date(looked);
-  const today = new Date(now);
-  if (sameLocalDay(date, today)) return date.getHours() < 12 ? 'You looked this morning.' : 'You looked today.';
-  const yesterday = new Date(now);
-  yesterday.setDate(yesterday.getDate() - 1);
-  return sameLocalDay(date, yesterday)
-    ? 'You looked yesterday.'
-    : `You looked ${date.toLocaleDateString(undefined, { month: 'long', day: 'numeric' })}.`;
-};
-
-export const provenanceLine = (page, now = Date.now()) => {
-  const judgment = page?.judgment || {};
-  const parts = [];
-  const startedAt = judgment.bornAt
-    || judgment.startedAt
-    || whatIDidLines(judgment)[0]?.at
-    || null;
-  const started = time(startedAt);
-  if (!Number.isNaN(started)) {
-    const date = new Date(started);
-    // Inside a year the month names itself. Past that it needs the year, or
-    // "Since November" quietly means one of several Novembers.
-    const withinAYear = now - started < 365 * 24 * 60 * 60 * 1000;
-    parts.push(`Since ${date.toLocaleDateString(undefined, withinAYear
-      ? { month: 'long' }
-      : { month: 'long', year: 'numeric' })}.`);
-  }
-  const looked = lastLookedLine(judgment, now);
-  if (looked) parts.push(looked);
-  return parts.join(' ');
-};
-
-/* Counts belong in a sentence, and a sentence spells its numbers. "2 reasons"
-   is a scoreboard; "two reasons" is English. Past ten the digit reads better
-   than the word, which is where prose keeps the line too. */
-const COUNT_WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
-export const countWord = (n) => COUNT_WORDS[n] || String(n);
-
-/* Where you stand, under the sentence you hold.
- *
- * The four blocks already name the reasons, the objections and the tests.
- * Repeating that census here as "two reasons, two objections, one test" is
- * a scoreboard on top of the scoreboard. What belongs here is how long you
- * have held it, and — only when it is true — that a test still has no signal.
- */
-const standingLine = (judgment = {}, { changeMindIf }, now = Date.now()) => {
-  const startedAt = time(judgment.bornAt || judgment.startedAt || whatIDidLines(judgment)[0]?.at || null);
-  const withinAYear = now - startedAt < 365 * 24 * 60 * 60 * 1000;
-  const unwatched = changeMindIf.filter(line => !line.signal).length;
-  return {
-    since: Number.isNaN(startedAt) ? '' : `Held since ${new Date(startedAt).toLocaleDateString(undefined, withinAYear
-      ? { month: 'long', day: 'numeric' }
-      : { month: 'long', year: 'numeric' })}.`,
-    unwatched: unwatched
-      ? (changeMindIf.length === 1
-        ? 'The test has no signal yet.'
-        : `${countWord(unwatched).replace(/^./, c => c.toUpperCase())} tests have no signal yet.`)
-      : ''
-  };
-};
 
 export const formatLedgerDate = (value) => {
   const at = time(value);
@@ -407,138 +63,223 @@ export const formatLedgerDate = (value) => {
   return new Date(at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 };
 
-/** The whole page, as one object. Empty fields come back empty, not padded. */
-export const projectJudgment = (page, now = Date.now()) => {
+/* ---------- the parts of a view ---------- */
+
+/* The confidence you chose, as a word. Stored on the existing 0–1 field so the
+   Mirror's calibration reads the same number. */
+export const CONFIDENCE = [
+  { word: 'I think so', value: 0.6 },
+  { word: 'Fairly sure', value: 0.75 },
+  { word: 'Sure', value: 0.9 }
+];
+
+export const confidenceWord = (value) => {
+  if (value === null || value === undefined || value === '') return '';
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '';
+  return CONFIDENCE.reduce((best, option) => (
+    Math.abs(option.value - n) < Math.abs(best.value - n) ? option : best
+  )).word;
+};
+
+export const VERDICTS = [
+  { result: 'held_up', word: 'Held up' },
+  { result: 'broke', word: 'Broke' },
+  { result: 'partly', word: 'Partly' }
+];
+
+const VERDICT_WORDS = {
+  held_up: 'held up',
+  broke: 'broke',
+  partly: 'held up in part',
+  unresolvable: 'could not be settled',
+  right_for_wrong_reasons: 'right, for the wrong reasons'
+};
+
+/* Why and Against read the judgment's own lists first. Pages written by the
+   older dossier surfaces only have `assumptions` and the single
+   `strongestCounterargument`; those read as the same two columns. */
+const reasonLines = (items = []) => list(items)
+  .map((item, index) => ({
+    id: normalizeSpaces(item?.reasonId) || `reason:${index}`,
+    text: normalizeSpaces(item?.text),
+    sourceRefIds: list(item?.sourceRefIds),
+    sourceLabel: normalizeSpaces(item?.sourceLabel),
+    acceptedFrom: normalizeSpaces(item?.acceptedFrom),
+    at: item?.createdAt || item?.at || null
+  }))
+  .filter(line => line.text);
+
+const whyLines = (judgment = {}) => {
+  const own = reasonLines(judgment.why);
+  if (own.length) return own;
+  return reasonLines(list(judgment.assumptions)
+    .filter(item => normalizeSpaces(item?.status) !== 'failed')
+    .map(item => ({ ...item, reasonId: item?.assumptionId })));
+};
+
+const againstLines = (judgment = {}) => {
+  const own = reasonLines(judgment.against);
+  if (own.length) return own;
+  const counter = normalizeSpaces(judgment.strongestCounterargument);
+  return counter ? reasonLines([{ reasonId: 'strongest-counterargument', text: counter }]) : [];
+};
+
+const changeMindLines = (judgment = {}) => list(judgment.falsifiers)
+  .filter(item => normalizeSpaces(item?.status) !== 'retired')
+  .map(item => normalizeSpaces(item?.text))
+  .filter(Boolean);
+
+/* Where a passage came from, and the door that opens it at the words. */
+const passageOf = (page, line) => {
+  const ref = list(page?.sourceRefs).find(item => line.sourceRefIds.map(idOf).includes(idOf(item)));
+  const label = line.sourceLabel
+    || normalizeSpaces(ref?.title)
+    || normalizeSpaces(ref?.citationLabel)
+    || normalizeSpaces(ref?.provider);
+  const href = buildSourceOriginPath(line.acceptedFrom) || (ref ? buildSourceOpenPath(ref) : '');
+  return { id: line.id, text: line.text, source: label, href, at: line.at };
+};
+
+export const isParked = (page) => normalizeSpaces(page?.judgment?.status) === 'parked';
+const setAside = (page) => isParked(page) || normalizeSpaces(page?.judgment?.status) === 'closed';
+
+export const heldSinceOf = (page = {}) => (
+  page?.judgment?.startedAt || page?.judgment?.bornAt || page?.createdAt || null
+);
+
+const SYSTEM_DECISION = /^judgment-change-/;
+
+/* What happened to the view, oldest first, each a dated plain sentence. Built
+   only from what is stored: a line that has no date has no place here. */
+export const viewRecord = (page = {}) => {
   const judgment = page?.judgment || {};
-  const withSources = (lines) => lines.map((line) => ({ ...line, sources: sourcesForLine(page, line) }));
-  const whyBase = withSources(whyLines(judgment));
-  const againstBase = withSources(againstLines(judgment));
-  const numbered = numberCitations([...whyBase, ...againstBase]);
-  const why = numbered.slice(0, whyBase.length);
-  const against = numbered.slice(whyBase.length);
-  const changeMindIf = changeMindLines(judgment);
+  const lines = [];
+  const add = (at, text, was = '') => {
+    if (Number.isNaN(time(at)) || !text) return;
+    lines.push({ id: `${lines.length}:${time(at)}`, at, text, was });
+  };
+  add(heldSinceOf(page), 'Held.');
+  whyLines(judgment).forEach(line => add(line.at, line.sourceLabel
+    ? `Filed a passage for, from ${line.sourceLabel}.`
+    : 'Wrote a reason for.'));
+  againstLines(judgment).forEach(line => add(line.at, line.sourceLabel
+    ? `Filed a passage against, from ${line.sourceLabel}.`
+    : 'Wrote a reason against.'));
+  list(judgment.heldHistory).forEach(entry => add(entry?.until, 'Revised. Was:', normalizeSpaces(entry?.text)));
+  list(judgment.resolutionHistory).forEach(entry => add(entry?.setAt, entry?.horizonAt
+    ? `Said what would change my mind, by ${formatLedgerDate(entry.horizonAt)}.`
+    : 'Said what would change my mind.'));
+  list(judgment.verdicts).forEach(verdict => add(
+    verdict?.recordedAt,
+    `Resolved: ${VERDICT_WORDS[verdict?.result] || 'settled'}.`
+  ));
+  list(judgment.decisions)
+    .filter(decision => !SYSTEM_DECISION.test(normalizeSpaces(decision?.decisionId)))
+    .forEach(decision => add(decision?.decidedAt || decision?.createdAt, oneSentence(decision?.summary)));
+  if (normalizeSpaces(judgment.status) === 'parked') add(judgment.parkedAt, 'Set aside.');
+  return lines.sort((left, right) => time(left.at) - time(right.at));
+};
+
+/** The whole view, as one object. Empty parts come back empty. */
+export const projectView = (page) => {
+  const judgment = page?.judgment || {};
+  const verdicts = list(judgment.verdicts);
+  const latest = verdicts[verdicts.length - 1] || null;
   return {
     id: idOf(page),
     claim: claimSentence(page),
-    title: namedTitle(page),
-    headline: judgmentHeadline(page),
-    pageTitle: normalizeSpaces(page?.title),
-    provenance: provenanceLine(page, now),
-    looked: lastLookedLine(judgment, now),
-    why,
-    whySources: uniqueSources(why),
-    against,
-    againstSources: uniqueSources(against),
-    // Everything the case actually cites, counted once across both sides.
-    // This is what the agent can see when it is asked about this claim, so
-    // it is also the number the rail is allowed to show.
-    boundSourceCount: uniqueSources([...why, ...against]).length,
-    changeMindIf,
-    standing: standingLine(judgment, { why, against, changeMindIf }, now),
-    whatIDid: whatIDidLines(judgment),
-    earlier: earlierLines(judgment),
-    lessons: lessonLines(judgment),
-    parked: normalizeSpaces(judgment.status) === 'parked',
-    evergreen: Boolean(page?.evergreen),
-    review: reviewBlock(judgment, now),
-    resolution: {
-      bornAt: judgment.bornAt || judgment.startedAt || page?.createdAt || null,
-      criteria: normalizeSpaces(judgment.resolutionCriteria),
-      horizonAt: judgment.resolutionHorizonAt || null,
-      setAt: judgment.resolutionSetAt || null,
-      verdicts: list(judgment.verdicts)
+    heldSince: heldSinceOf(page),
+    confidence: confidenceWord(judgment.confidence),
+    forPassages: whyLines(judgment).map(line => passageOf(page, line)),
+    againstPassages: againstLines(judgment).map(line => passageOf(page, line)),
+    test: {
+      text: normalizeSpaces(judgment.resolutionCriteria) || changeMindLines(judgment)[0] || '',
+      by: judgment.resolutionHorizonAt || null
     },
-    claimId: normalizeSpaces(heldClaimOf(page)?.claimId),
-    resolutionCriteria: normalizeSpaces(heldClaimOf(page)?.resolutionCriteria || judgment.resolutionCriteria),
-    horizon: heldClaimOf(page)?.horizon || judgment.resolutionHorizonAt || null
+    resolved: latest ? VERDICT_WORDS[latest.result] || '' : '',
+    record: viewRecord(page),
+    parked: setAside(page)
   };
 };
 
-/* Why a judgment goes quiet, and which kind of quiet it is.
+/* ---------- the index ---------- */
 
-   Three states are worth telling apart, and every tool that collapses them
-   into "stale" ends up nagging:
+export const heldDaysBetween = (startedAt, now = Date.now()) => {
+  const start = time(startedAt);
+  if (Number.isNaN(start)) return 0;
+  return Math.max(0, Math.floor((now - start) / DAY));
+};
 
-     live     evidence arrived and the reader has been here since
-     quiet    nothing has arrived. Not the reader's fault, and not a problem —
-              a belief nothing has touched in six months may be the best one
-              they hold
-     avoided  evidence arrived and has sat unread. This is the only one worth
-              surfacing, and it is the whole job
+/* "Held 84 days · 3 for · 1 against · moved Oct 12". Each part appears only
+   when it is true; a view with nothing filed is just how long it has been held. */
+export const indexCardLine = (page = {}, now = Date.now()) => {
+  const judgment = page?.judgment || {};
+  const days = heldDaysBetween(heldSinceOf(page), now);
+  const forCount = whyLines(judgment).length;
+  const againstCount = againstLines(judgment).length;
+  const held = time(heldSinceOf(page));
+  const moved = viewRecord(page)
+    .map(line => time(line.at))
+    .filter(at => at > held + 60 * 1000)
+    .pop();
+  return [
+    days === 0 ? 'Held today' : `Held ${days} ${days === 1 ? 'day' : 'days'}`,
+    forCount ? `${forCount} for` : '',
+    againstCount ? `${againstCount} against` : '',
+    moved ? `moved ${formatLedgerDate(moved)}` : ''
+  ].filter(Boolean).join(' · ');
+};
 
-   And a fourth that is not about time at all: a claim with nothing that could
-   ever bear on it. Saying so once is a service; a belief that cannot be
-   checked is not a belief being maintained.
-
-   Parked is its own answer. The reader already said they are not tending it,
-   so it is never bubbled. */
-export const AVOIDED_AFTER_DAYS = 21;
-const DAY = 24 * 60 * 60 * 1000;
+/* Why a judgment goes quiet, and which kind of quiet it is. Kept for the
+   weekly brief, which still reads it. */
+const AVOIDED_AFTER_DAYS = 21;
 
 export const judgmentActivity = (page, events = [], now = Date.now()) => {
   const judgment = page?.judgment || {};
   const pageId = idOf(page);
   if (normalizeSpaces(judgment.status) === 'parked') return { state: 'parked', arrived: 0, newestAt: null };
-  /* Evergreen outranks the clock entirely. The reader said this one is
-     permanent, so it is never quiet, never avoided, and never told it lacks a
-     falsifier — those are all ways of saying "you have neglected this", and
-     you cannot neglect something you decided to keep. */
   if (page?.evergreen) return { state: 'evergreen', arrived: 0, newestAt: null };
-
-  const lastTouched = time(judgment.lastReviewedAt || page?.updatedAt || null);
-  const touchedAt = Number.isNaN(lastTouched) ? 0 : lastTouched;
-
+  const touched = time(judgment.lastReviewedAt || page?.updatedAt || null);
+  const touchedAt = Number.isNaN(touched) ? 0 : touched;
   const arrivals = list(events)
     .filter(event => list(event?.affectedPageIds).map(idOf).includes(pageId))
     .filter(event => normalizeSpaces(event?.status) !== 'ignored')
     .map(event => time(event?.sourceUpdatedAt || event?.createdAt || null))
     .filter(at => !Number.isNaN(at) && at > touchedAt)
     .sort((left, right) => right - left);
-
   if (arrivals.length) {
-    const newestAt = arrivals[0];
-    const state = (now - newestAt) > AVOIDED_AFTER_DAYS * DAY ? 'avoided' : 'live';
-    return { state, arrived: arrivals.length, newestAt: new Date(newestAt).toISOString() };
+    const state = (now - arrivals[0]) > AVOIDED_AFTER_DAYS * DAY ? 'avoided' : 'live';
+    return { state, arrived: arrivals.length, newestAt: new Date(arrivals[0]).toISOString() };
   }
-
-  /* Only worth saying about a claim nothing is arriving for anyway. A live
-     claim gathering evidence does not need to be told it lacks a falsifier. */
   if (!changeMindLines(judgment).length) return { state: 'unfalsifiable', arrived: 0, newestAt: null };
-
   return { state: 'quiet', arrived: 0, newestAt: null };
 };
 
-/* The mark the index carries. Live, quiet, and a claim without a falsifier
-   say nothing at all — a missing pin is not a nag. */
 export const activityNote = ({ state, arrived } = {}) => {
   if (state === 'avoided') {
     return `${arrived} thing${arrived === 1 ? '' : 's'} arrived about this and ${arrived === 1 ? 'is' : 'are'} unread`;
   }
-  if (state === 'unfalsifiable') return '';
   if (state === 'parked') return 'Parked';
   if (state === 'evergreen') return 'Kept';
   return '';
 };
 
-/* One claim, one row.
+export const lessonLines = (judgment = {}) => list(judgment.lessons)
+  .map((item, index) => ({
+    id: normalizeSpaces(item?.lessonId) || `lesson:${index}`,
+    text: normalizeSpaces(item?.text),
+    closedAs: normalizeSpaces(item?.closedAs),
+    at: item?.at || null
+  }))
+  .filter(line => line.text);
 
-   A judgment is a wiki page, and the agent drafts pages more than once, so the
-   index shipped listing the same belief five times. A list of five identical
-   claims is not a list of what you believe — it is a list of what the software
-   did — and the copy you land on should be the one that has actually been
-   argued, not whichever was written last.
-
-   The same rule as the wiki list: most evidence wins, then most learned from,
-   then most recent. Write-time dedupe prevents new copies; this fold keeps
-   legacy data from leaking into the index while the migration is pending. */
-const claimKey = (page) => normalizeClaimKey(claimSentence(page));
-
+/* One claim, one row. Write-time dedupe prevents new copies; this fold keeps
+   legacy duplicates out of the list: most evidence wins, then most recent. */
 const claimWeight = (page) => {
   const judgment = page?.judgment || {};
   return [
     whyLines(judgment).length + againstLines(judgment).length,
-    lessonLines(judgment).length,
-    changeMindLines(judgment).length,
     time(judgment.lastReviewedAt || page?.updatedAt || 0) || 0
   ];
 };
@@ -554,353 +295,85 @@ const strongerClaim = (candidate, incumbent) => {
 
 export const foldJudgmentPages = (pages = []) => {
   const byKey = new Map();
-  const loose = [];
   list(pages).forEach((page, index) => {
-    const key = claimKey(page);
-    if (!key) {
-      loose.push({ page, index });
-      return;
-    }
+    const key = normalizeClaimKey(claimSentence(page));
     const existing = byKey.get(key);
-    if (!existing) {
-      byKey.set(key, { page, index });
-      return;
-    }
-    if (strongerClaim(page, existing.page)) existing.page = page;
+    if (!existing) byKey.set(key, { page, index });
+    else if (strongerClaim(page, existing.page)) existing.page = page;
   });
-  return [...byKey.values(), ...loose].sort((left, right) => left.index - right.index);
+  return [...byKey.values()].sort((left, right) => left.index - right.index);
 };
 
-/** The index is a title column. The claim sits under it when they differ. */
-export const buildJudgmentIndex = (pages = [], events = [], now = Date.now()) => foldJudgmentPages(
+/** The index: one row per view, newest movement first. The middle argument is
+    the source-event list older callers still pass; the card no longer reads it. */
+export const buildJudgmentIndex = (pages = [], _events = [], now = Date.now()) => foldJudgmentPages(
   list(pages).filter(isJudgmentPage)
 )
-  .map(({ page }) => {
-    const activity = judgmentActivity(page, events, now);
-    const decisions = list(page?.judgment?.decisions);
-    const sentence = claimSentence(page);
-    return {
-      id: idOf(page),
-      title: namedTitle(page),
-      headline: judgmentHeadline(page),
-      sentence,
-      provenance: provenanceLine(page, now),
-      state: activity.state,
-      note: activityNote(activity),
-      evergreen: Boolean(page?.evergreen),
-      /* Nested rather than gathered into a room of their own. A lesson without
-         the claim it came out of is a fortune cookie; under the claim, it is a
-         record of what believing that cost you. */
-      lessons: lessonLines(page?.judgment || {}),
-      decisionCount: decisions.length,
-      outcomeCount: decisions.filter((decision) => Boolean(decision?.outcome?.observedAt)).length,
-      updatedAt: page?.judgment?.lastReviewedAt || page?.updatedAt || null
-    };
-  })
+  .map(({ page }) => ({
+    id: idOf(page),
+    title: namedTitle(page),
+    headline: judgmentHeadline(page),
+    sentence: claimSentence(page),
+    card: indexCardLine(page, now),
+    state: setAside(page) ? 'parked' : 'open',
+    updatedAt: page?.judgment?.lastReviewedAt || page?.updatedAt || null
+  }))
   .filter(item => item.id && item.sentence)
   .sort((left, right) => (time(right.updatedAt) || 0) - (time(left.updatedAt) || 0));
 
-/* Overnight silence is per case. A global event ignore would hide the same
-   filing from every other claim it touched. These ids live on the judgment
-   blob so tomorrow’s open can be honestly empty. */
-const dismissedOvernightIds = (judgment = {}) => {
-  const seen = new Set();
-  return list(judgment.dismissedOvernightEventIds)
-    .map(value => idOf(value) || normalizeSpaces(value))
-    .filter((id) => {
-      if (!id || seen.has(id)) return false;
-      seen.add(id);
-      return true;
-    });
-};
+/* ---------- writes ---------- */
 
-const filedOvernightOrigins = (judgment = {}) => new Set(
-  [...whyLines(judgment), ...againstLines(judgment)]
-    .map(line => normalizeSpaces(line.acceptedFrom))
-    .filter(Boolean)
-);
+export const parkJudgment = (page) => ({ ...(page?.judgment || {}), status: 'parked' });
 
-/* The overnight line: one sentence about what arrived while the human was not
-   here, and only if that sentence answers the hold. A filing tagged to the
-   page is not an answer. It is a proposal — it sits above the claim until the
-   human accepts it into Why or Against, or dismisses it. It never writes
-   itself in. */
-export const selectOvernightLine = (page, events = []) => {
-  const pageId = idOf(page);
-  if (!pageId) return null;
-  const judgment = page?.judgment || {};
-  const claim = normalizeSpaces(judgment.currentJudgment);
-  const silenced = new Set(dismissedOvernightIds(judgment));
-  const filed = filedOvernightOrigins(judgment);
-  const candidates = list(events)
-    .filter(event => list(event?.affectedPageIds).map(idOf).includes(pageId))
-    .filter(event => normalizeSpaces(event?.status) !== 'ignored')
-    .map(event => ({
-      id: idOf(event),
-      at: event?.sourceUpdatedAt || event?.createdAt || null,
-      title: oneSentence(event?.title, 120),
-      detail: oneSentence(event?.summary, 140)
-    }))
-    .filter(event => event.id && event.title)
-    .filter(event => !silenced.has(event.id) && !filed.has(event.id))
-    .filter(event => answersHeldSentence(`${event.title} ${event.detail}`, claim).ok)
-    .sort((left, right) => (time(right.at) || 0) - (time(left.at) || 0));
-  const latest = candidates[0];
-  if (!latest) return null;
-  const title = /[.!?]$/.test(latest.title) ? latest.title : `${latest.title}.`;
-  const body = `${title}${latest.detail ? ` ${latest.detail}` : ''}`;
-  return {
-    id: latest.id,
-    origin: 'overnight',
-    // What the human reads above the claim — the event continues the clause,
-    // so it keeps the case it arrived in…
-    sentence: `Overnight: ${body}`,
-    // …and what gets written down if they accept it: a line that has to stand
-    // on its own under Why or Against. The framing is the page's, not the
-    // record's.
-    body: body.charAt(0).toUpperCase() + body.slice(1),
-    sourceLabel: ''
-  };
-};
-
-/** Persist that this case has heard the overnight line and let it go. */
-export const dismissOvernightLine = (page, eventId) => {
-  const judgment = page?.judgment || {};
-  const id = idOf(eventId);
-  if (!id) return judgment;
-  const existing = dismissedOvernightIds(judgment);
-  if (existing.includes(id)) return judgment;
-  return {
-    ...judgment,
-    dismissedOvernightEventIds: [...existing, id]
-  };
-};
+export const resumeJudgment = (page) => ({ ...(page?.judgment || {}), status: 'monitoring', parkedAt: null });
 
 const persistReason = (line = {}) => {
   const next = {
-    reasonId: line.id || line.reasonId,
+    reasonId: line.id,
     text: line.text,
     sourceRefIds: line.sourceRefIds,
     sourceLabel: line.sourceLabel
   };
-  const origin = normalizeSpaces(line.acceptedFrom);
-  if (origin) next.acceptedFrom = origin;
-  const when = line.createdAt || line.at;
-  if (when) next.createdAt = when;
+  if (line.acceptedFrom) next.acceptedFrom = line.acceptedFrom;
+  if (line.at) next.createdAt = line.at;
   return next;
 };
 
-const stampedReason = (fields = {}) => ({
-  ...fields,
-  createdAt: fields.createdAt || fields.at || new Date().toISOString()
-});
-
-/* Accepting a proposal appends one line to Why or Against. It appends: the
-   lines already on the page are carried over untouched, and the proposal's
-   origin travels with the new line so the page can always say where the
-   sentence came from. */
-export const acceptProposalIntoJudgment = (page, proposal, field) => {
-  const text = normalizeSpaces(proposal?.body || proposal?.sentence);
-  if (field === 'criteria' || field === 'changeMindIf') {
-    return writeLineIntoJudgment(page, text, 'changeMindIf');
-  }
-  const judgment = page?.judgment || {};
+const appendReason = (judgment, field, fields) => {
   const target = field === 'why' ? 'why' : 'against';
   const current = target === 'why' ? whyLines(judgment) : againstLines(judgment);
   return {
     ...judgment,
     [target]: [
       ...current.map(persistReason),
-      stampedReason({
-        text: normalizeSpaces(proposal?.body || proposal?.sentence),
-        acceptedFrom: normalizeSpaces(proposal?.acceptedFrom || proposal?.id),
-        sourceLabel: normalizeSpaces(proposal?.sourceLabel || proposal?.source)
-      })
+      { ...fields, createdAt: new Date().toISOString() }
     ]
   };
 };
 
-/* What a belief rests on, and what rests on it.
-
-   A list of claims is a list. A belief that depends on another belief is
-   structure, and it is the only thing here that compounds: retiring "compute
-   is scarce" has to raise a question about "CoreWeave is undervalued", or the
-   second one quietly outlives its own foundation.
-
-   The edge is never drawn for you. An agent may propose one; accepting it is
-   the reader's, like everything else on this page. */
-export const dependencyLines = (judgment = {}, pagesById = new Map()) => list(judgment.dependsOn)
-  .map((item, index) => {
-    const pageId = idOf(item?.pageId);
-    const page = pagesById.get(String(pageId)) || null;
-    return {
-      id: normalizeSpaces(item?.dependencyId) || `dependency:${index}`,
-      pageId,
-      title: page ? namedTitle(page) : '',
-      headline: page ? judgmentHeadline(page) : '',
-      claim: page ? claimSentence(page) : '',
-      note: normalizeSpaces(item?.note),
-      proposedBy: normalizeSpaces(item?.proposedBy) || 'user'
-    };
-  })
-  .filter(line => line.pageId);
-
-/** The other direction: everything in the corpus that rests on this page. */
-export const restingOn = (pageId, pages = []) => {
-  const target = String(idOf(pageId));
-  if (!target) return [];
-  return list(pages)
-    .filter(page => list(page?.judgment?.dependsOn).some(item => String(idOf(item?.pageId)) === target))
-    .map(page => ({
-      id: idOf(page),
-      title: namedTitle(page),
-      headline: judgmentHeadline(page),
-      claim: claimSentence(page),
-      note: normalizeSpaces(
-        list(page?.judgment?.dependsOn).find(item => String(idOf(item?.pageId)) === target)?.note
-      )
-    }))
-    .filter(item => item.id && item.claim);
+/* Accepting a line the Partner retrieved appends it to For or Against, with
+   the origin it came from, or sets it as what would change your mind. */
+export const acceptProposalIntoJudgment = (page, proposal, field) => {
+  const text = normalizeSpaces(proposal?.body || proposal?.sentence);
+  if (field === 'criteria' || field === 'changeMindIf') {
+    return writeLineIntoJudgment(page, text, 'changeMindIf');
+  }
+  return appendReason(page?.judgment || {}, field, {
+    text,
+    acceptedFrom: normalizeSpaces(proposal?.acceptedFrom || proposal?.id),
+    sourceLabel: normalizeSpaces(proposal?.sourceLabel || proposal?.source)
+  });
 };
 
-export const addDependency = (page, dependsOnPageId, note = '') => {
-  const judgment = page?.judgment || {};
-  const target = String(idOf(dependsOnPageId));
-  if (!target || target === String(idOf(page))) return judgment;
-  const existing = list(judgment.dependsOn);
-  if (existing.some(item => String(idOf(item?.pageId)) === target)) return judgment;
-  return {
-    ...judgment,
-    dependsOn: [...existing, { pageId: target, note: normalizeSpaces(note), proposedBy: 'user' }]
-  };
-};
-
-export const removeDependency = (page, dependencyId) => {
-  const judgment = page?.judgment || {};
-  const id = normalizeSpaces(dependencyId);
-  return {
-    ...judgment,
-    dependsOn: list(judgment.dependsOn).filter(item => normalizeSpaces(item?.dependencyId) !== id)
-  };
-};
-
-/* Parking, and the lesson it leaves behind.
-
-   Judgment had three moves and one of them was Retire, which means "I no
-   longer believe this". A belief you have simply stopped tending is a
-   different thing, and forcing it through Retire made it leave the list
-   looking abandoned — so instead it stayed, and the list filled with claims
-   nobody was watching.
-
-   Park says nothing about whether the claim is true. And the moment of
-   parking or closing is where the durable thing gets made: not the claim,
-   but what holding it taught you. */
-export const isParked = (page) => normalizeSpaces(page?.judgment?.status) === 'parked';
-
-export const parkJudgment = (page, lessonText = '') => {
-  const judgment = page?.judgment || {};
-  return {
-    ...judgment,
-    status: 'parked',
-    lessons: appendLesson(judgment, lessonText, 'parked')
-  };
-};
-
-export const resumeJudgment = (page) => {
-  const judgment = page?.judgment || {};
-  return { ...judgment, status: 'monitoring', parkedAt: null };
-};
-
-const appendLesson = (judgment = {}, text = '', closedAs = '') => {
-  const lesson = normalizeSpaces(text);
-  const existing = list(judgment.lessons);
-  if (!lesson) return existing;
-  return [...existing, { text: lesson, closedAs, at: new Date().toISOString() }];
-};
-
-/* A lesson can also be written without closing anything, because sometimes you
-   learn the thing while you are still holding the belief. */
-export const writeLessonIntoJudgment = (page, text) => {
-  const judgment = page?.judgment || {};
-  const lessons = appendLesson(judgment, text, '');
-  return lessons === list(judgment.lessons) ? judgment : { ...judgment, lessons };
-};
-
-export const lessonLines = (judgment = {}) => list(judgment.lessons)
-  .map((item, index) => ({
-    id: normalizeSpaces(item?.lessonId) || `lesson:${index}`,
-    text: normalizeSpaces(item?.text),
-    closedAs: normalizeSpaces(item?.closedAs),
-    at: item?.at || null
-  }))
-  .filter(line => line.text);
-
-/* Every lesson in the product, newest first, each still naming the claim it
-   came from. This is the shortest thing in Noeis and the most re-readable. */
-export const buildLessonsIndex = (pages = []) => list(pages)
-  .flatMap(page => lessonLines(page?.judgment || {}).map(lesson => ({
-    ...lesson,
-    id: `${idOf(page)}:${lesson.id}`,
-    pageId: idOf(page),
-    claim: claimSentence(page)
-  })))
-  .filter(item => item.pageId && item.text)
-  .sort((left, right) => (time(right.at) || 0) - (time(left.at) || 0));
-
-/* Filing something the library already held.
-   The candidate keeps its provenance on the line: sourceLabel is the source a
-   reader can name, acceptedFrom is the passage it came from, so the same
-   passage is not offered back once it has been decided about. sourceRefIds is
-   left alone — it addresses this page's own source ledger, and a library
-   article is not in it. */
-export const fileEvidenceIntoJudgment = (page, candidate, field) => {
-  const judgment = page?.judgment || {};
-  const text = normalizeSpaces(candidate?.text);
-  if (!text) return judgment;
-  const target = field === 'against' ? 'against' : 'why';
-  const current = target === 'why' ? whyLines(judgment) : againstLines(judgment);
-  return {
-    ...judgment,
-    [target]: [
-      ...current.map(persistReason),
-      stampedReason({
-        reasonId: newLineId(target),
-        text,
-        sourceLabel: normalizeSpaces(candidate?.sourceLabel),
-        acceptedFrom: normalizeSpaces(candidate?.id)
-      })
-    ]
-  };
-};
-
-/* Writing a line by hand.
-   Three of the four fields could only be filled by accepting something an
-   agent brought back, so a judgment you started yourself could never carry a
-   falsifier or a ledger line — the page had four sections and two usable ones.
-   The same append rule holds: what is already written is carried over
-   untouched, and the new line goes last. */
+/* A line written by hand, from wherever a judgment is started. */
 export const writeLineIntoJudgment = (page, text, field) => {
   const judgment = page?.judgment || {};
   const line = normalizeSpaces(text);
   if (!line) return judgment;
-
-  if (field === 'why' || field === 'against') {
-    const current = field === 'why' ? whyLines(judgment) : againstLines(judgment);
-    return {
-      ...judgment,
-      [field]: [
-        ...current.map(persistReason),
-        stampedReason({ text: line })
-      ]
-    };
-  }
-
+  if (field === 'why' || field === 'against') return appendReason(judgment, field, { text: line });
   if (field === 'changeMindIf') {
     return { ...judgment, falsifiers: [...list(judgment.falsifiers), { text: line }] };
   }
-
-  /* What I did is a ledger, so a line written here is dated the day it was
-     written and marked taken. It is a record of an action, not a plan. */
   if (field === 'whatIDid') {
     return {
       ...judgment,
@@ -910,137 +383,19 @@ export const writeLineIntoJudgment = (page, text, field) => {
       ]
     };
   }
-
   return judgment;
 };
 
-/* A line the human is still typing.
-   Writing used to mean pressing a button, which meant a line only existed once
-   you had told the page you were finished with it — and a sentence you had
-   typed but not submitted was not anywhere. These write as you go: the same
-   line is updated in place while you are writing it, and only becomes another
-   line when you start one. */
-let lineCounter = 0;
-export const newLineId = (prefix) => {
-  lineCounter += 1;
-  const random = typeof crypto !== 'undefined' && crypto.randomUUID
-    ? crypto.randomUUID()
-    : `${Date.now()}-${lineCounter}`;
-  return `${prefix}_${random}`;
-};
-
-const upsertById = (items, idKey, lineId, make, update) => {
-  const list_ = list(items);
-  const index = list_.findIndex(item => normalizeSpaces(item?.[idKey]) === lineId);
-  if (index < 0) return [...list_, make()];
-  return list_.map((item, at) => (at === index ? update(item) : item));
-};
-
-export const upsertLineIntoJudgment = (page, text, field, lineId, source = null) => {
-  const judgment = page?.judgment || {};
-  const line = normalizeSpaces(text);
-  if (!line || !lineId) return judgment;
-
-  if (field === 'why' || field === 'against') {
-    /* Read the projection first, so a page whose Why came from the older
-       dossier shape keeps those lines rather than losing them to this write. */
-    const current = (field === 'why' ? whyLines(judgment) : againstLines(judgment))
-      .map(persistReason);
-    /* A reason and the thing it rests on are written together. Until now the
-       only way a source reached a line was to accept one the agent had already
-       brought you, so a reason you wrote yourself could never say where it
-       came from — which is the one question the case exists to answer later. */
-    const cited = source ? {
-      sourceLabel: normalizeSpaces(source.label),
-      sourceRefIds: idOf(source) ? [idOf(source)] : [],
-      acceptedFrom: normalizeSpaces(source.href)
-    } : {};
-    return {
-      ...judgment,
-      [field]: upsertById(
-        current,
-        'reasonId',
-        lineId,
-        () => stampedReason({ reasonId: lineId, text: line, ...cited }),
-        item => ({ ...item, text: line, ...cited })
-      )
-    };
-  }
-
-  if (field === 'changeMindIf') {
-    return {
-      ...judgment,
-      falsifiers: upsertById(
-        judgment.falsifiers,
-        'falsifierId',
-        lineId,
-        () => ({ falsifierId: lineId, text: line }),
-        item => ({ ...item, text: line })
-      )
-    };
-  }
-
-  if (field === 'whatIDid') {
-    return {
-      ...judgment,
-      decisions: upsertById(
-        judgment.decisions,
-        'decisionId',
-        lineId,
-        () => ({ decisionId: lineId, summary: line, decidedAt: new Date().toISOString(), status: 'taken' }),
-        item => ({ ...item, summary: line })
-      )
-    };
-  }
-
-  return judgment;
-};
-
-/* Changing what you hold is a mind-change, not a silent rewrite. The claim
-   updates, and a dated Did line records that it did. Why and Against keep
-   the dates they were written. An empty field is not a new opinion. Pass a
-   lineId to rewrite the in-progress revision instead of stacking another. */
-export const reviseCurrentJudgment = (page, sentence, lineId = '') => {
-  const next = oneSentence(sentence);
-  const judgment = page?.judgment || {};
-  if (!next) return judgment;
-  const previous = oneSentence(judgment.currentJudgment);
-  if (next === previous) return judgment;
-  const nextPage = { ...page, judgment: { ...judgment, currentJudgment: next } };
-  const note = `Changed what I hold: ${next}`;
-  return lineId
-    ? upsertLineIntoJudgment(nextPage, note, 'whatIDid', lineId)
-    : writeLineIntoJudgment(nextPage, note, 'whatIDid');
-};
-
-/* Writing a judgment down, wherever you are when you decide to.
-   A judgment is a wiki page carrying a judgment contract, which is two calls,
-   not one — and the second one is easy to get wrong. Sending `kind` as well
-   makes the server ask for a governing question and refuse with a 400 when
-   there is none; a claim you wrote is not a question, and inventing one you
-   never asked would put words on the page. This is the one place that knows
-   that, so every surface that starts a judgment starts the same one. */
 export const judgmentIdOf = (held) => (
   typeof held === 'string' || typeof held === 'number'
     ? String(held)
     : String(held?.id || '')
 );
 
-export const heldDaysBetween = (startedAt, now = Date.now()) => {
-  const start = time(startedAt);
-  if (Number.isNaN(start)) return 0;
-  return Math.max(0, Math.floor((now - start) / DAY));
-};
-
-export const formatHoldAge = (days) => {
-  const count = Math.max(0, Number(days) || 0);
-  if (count <= 0) return 'today';
-  if (count === 1) return '1 day';
-  return `${count} days`;
-};
-
-export const PARTNER_ACK = 'Noted. I’ll look for what cuts against it.';
-
+/* Writing a judgment down, wherever you are when you decide to. A judgment is
+   a wiki page carrying a judgment contract, which is two calls. Sending `kind`
+   as well would make the server ask for a governing question; a claim is not a
+   question, so this is the one place that knows to leave it out. */
 export const createJudgment = async (claim, { createPage, updatePage, now = Date.now() } = {}) => {
   const sentence = oneSentence(claim);
   if (!sentence) throw new Error('A judgment starts with a sentence.');
@@ -1048,11 +403,9 @@ export const createJudgment = async (claim, { createPage, updatePage, now = Date
   const id = idOf(page);
   if (!id) throw new Error('The judgment was not created.');
   const held = normalizeClaimKey(page?.judgment?.currentJudgment);
-  const next = normalizeClaimKey(sentence);
-  const reused = Boolean(held && (held === next || page?.reusedExisting));
+  const reused = Boolean(held && (held === normalizeClaimKey(sentence) || page?.reusedExisting));
   const startedAt = page?.judgment?.startedAt || page?.createdAt || now;
-  const heldDays = heldDaysBetween(startedAt, now);
-  if (reused) return { id, reused: true, heldDays, sentence };
+  if (reused) return { id, reused: true, heldDays: heldDaysBetween(startedAt, now), sentence };
   await updatePage(id, {
     judgment: {
       currentJudgment: sentence,

@@ -256,10 +256,10 @@ describe('WikiBuildPageComposer', () => {
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 
-  it('exposes the full build placeholder for the thought partner prompt', () => {
+  it('exposes the full build placeholder for the Partner prompt', () => {
     renderComposer();
 
-    expect(screen.getByPlaceholderText('Ask thought partner to build a wiki page...')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Ask Partner to build a wiki page...')).toBeInTheDocument();
   });
 
   it('surfaces a build failure without navigating', async () => {

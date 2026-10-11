@@ -93,8 +93,8 @@ jest.mock('../../api/authoredExplorations', () => ({
 
 jest.mock('./decisions/DecisionCreateForm', () => () => null);
 jest.mock('./decisions/DecisionReviewPanel', () => () => null);
-jest.mock('../agent/ThoughtPartnerPanel', () => ({ title = 'Thought partner' }) => (
-  <section aria-label={`${title} panel`}>Thought partner</section>
+jest.mock('../agent/ThoughtPartnerPanel', () => ({ title = 'Partner' }) => (
+  <section aria-label={`${title} panel`}>Partner</section>
 ));
 
 jest.mock('../../utils/wikiAnalytics', () => ({
@@ -951,7 +951,7 @@ describe('WikiPageReadView', () => {
     expect(title.compareDocumentPosition(contents) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(contents.compareDocumentPosition(articleBody) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(await screen.findByText('Reference…')).toBeInTheDocument();
-    expect(screen.queryByLabelText('Thought partner panel')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Partner panel')).not.toBeInTheDocument();
   });
 
   it('renders citation marginalia on wide readers without replacing references', async () => {
@@ -1754,7 +1754,7 @@ describe('WikiPageReadView', () => {
     expect(screen.queryByText(/as accepted knowledge/)).not.toBeInTheDocument();
     const presenceToggle = within(presenceRail).queryByRole('button', { name: /show context/i });
     if (presenceToggle) await act(async () => { fireEvent.click(presenceToggle); });
-    expect(screen.queryByRole('status', { name: 'Thought partner status' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('status', { name: 'Partner status' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Maintain page' })).not.toBeInTheDocument();
     expect(screen.getByRole('navigation', { name: 'Page actions' })).toBeInTheDocument();
     expect(screen.getAllByText(/Enterprise AI Memory depends on/).length).toBeGreaterThan(0);

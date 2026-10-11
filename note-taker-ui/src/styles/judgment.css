@@ -1,2521 +1,489 @@
-/* Judgment — the same bookshelf as the other rooms, with a casebook in the
-   center. The shelf preserves orientation; the center remains the evidence-
-   bound work. The contextual agent continues to live in AppShell's margin. */
+/* Judgment — the shelf on the left, one column in the middle. A view is one
+   sentence, the passages for and against it, what would change your mind, and
+   a record. The partner lives in the shell's margin, not here. */
 
 body.noeis-editorial.judgment-route .brand-gradient,
 body.noeis-editorial.judgment-route .topbar .brand-gradient {
   display: none !important;
 }
 
-body.noeis-editorial.judgment-route .app-shell-new__body:has(.judgment) {
-  position: relative;
-  isolation: isolate;
-}
-
 .judgment-room {
+  --judgment-display: var(--noeis-display-font, var(--noeis-font-reading, Georgia, serif));
+  --judgment-reading: var(--noeis-font-reading, Georgia, serif);
+  --judgment-ui: var(--noeis-font-ui, system-ui, sans-serif);
+  --judgment-ink: var(--noeis-ink, var(--text-primary));
+  --judgment-muted: var(--noeis-ink-muted, var(--text-muted));
+  --judgment-subtle: var(--noeis-ink-subtle, var(--text-muted));
+  --judgment-rule: var(--noeis-rule, var(--border-subtle));
+  --judgment-thread: var(--noeis-thread-strong, var(--accent));
   display: grid;
-  grid-template-columns: minmax(220px, 268px) minmax(0, 1fr);
-  grid-template-areas: "shelf content";
+  grid-template-columns: 240px minmax(0, 1fr);
   min-height: calc(100vh - var(--topbar-height, 76px));
-}
-
-.judgment-room__content {
-  grid-area: content;
-  min-width: 0;
-  border-left: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 72%, transparent);
+  background: var(--noeis-canvas, var(--page-bg));
+  color: var(--judgment-ink);
 }
 
 .judgment-room__shelf {
-  grid-area: shelf;
-  min-width: 0;
+  grid-row: 1;
+  grid-column: 1;
   padding: 42px 24px 72px;
 }
 
-.judgment-shelf .room-shelf__section:first-of-type {
-  margin-top: 18px;
+.judgment-room__content {
+  grid-column: 2;
+  min-width: 0;
+  border-left: 1px solid var(--judgment-rule);
 }
 
 .judgment-shelf .room-shelf__item {
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-family: var(--judgment-reading);
 }
 
-.judgment-shelf .room-shelf__item > span:first-child {
-  overflow-wrap: anywhere;
-  text-wrap: pretty;
-}
+/* ---------- the column ---------- */
 
-.judgment-shelf span.room-shelf__item {
-  cursor: default;
-}
-
-.judgment-shelf__empty {
-  margin: 0;
-  color: var(--text-muted, var(--vellum-subtle));
-  font-size: 0.82rem;
-  line-height: 1.5;
-}
-
-.judgment-shelf::after {
-  content: "μνήμη · κρίσις";
-  display: block;
-  margin-top: 52px;
-  color: color-mix(in srgb, var(--wiki-warm-accent, var(--vellum-warm)) 64%, transparent);
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
-  font-size: 0.78rem;
-  font-style: italic;
-  letter-spacing: 0.08em;
-}
-
-html[data-ui-theme='dark'] body.noeis-editorial.judgment-route,
-html[data-ui-theme='dark'] .page-area:has(.judgment),
-html[data-ui-theme='dark'] .app-shell-new__body:has(.judgment) {
-  background: var(--vellum-bg, var(--noeis-canvas));
-}
-
-/* The measure. Optically centred — a little above true centre, because a page
-   that starts at the vertical middle reads as though it is falling. */
 .judgment {
-  position: relative;
-  z-index: 1;
   display: grid;
   gap: 0;
   align-content: start;
-  width: min(100%, 940px);
+  width: min(100%, 68ch + 48px);
   margin: 0 auto;
-  padding: clamp(48px, 9vh, 104px) 20px clamp(96px, 22vh, 220px);
-  color: var(--text-primary, var(--vellum-ink));
-  --judgment-ghost-ink: var(--ink-human, var(--text-primary, var(--vellum-ink)));
-  --judgment-ghost-rest: 0.36;
-  --judgment-ghost-fade: 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  padding: clamp(40px, 8vh, 96px) 24px 120px;
 }
 
-/* A return is not an arrival. The stagger is a first-paint cue; coming back to
-   a column you have already read crossfades instead of reassembling. */
-.judgment-return {
-  animation: wfp-materialize 180ms cubic-bezier(0.16, 1, 0.3, 1);
+.judgment button {
+  font: inherit;
+}
+
+.judgment-back {
+  justify-self: start;
+  margin-bottom: 36px;
+  color: var(--judgment-muted);
+  font: 400 0.86rem/1.4 var(--judgment-ui);
+  text-decoration: none;
+}
+
+.judgment-back:hover,
+.judgment-back:focus-visible {
+  color: var(--judgment-ink);
+}
+
+.judgment-quiet {
+  margin: 0;
+  color: var(--judgment-subtle);
+  font: italic 400 0.98rem/1.5 var(--judgment-reading);
+}
+
+.judgment-error {
+  margin: 16px 0 0;
+  color: var(--noeis-danger, #9b5a46);
+  font: 400 0.86rem/1.45 var(--judgment-ui);
+}
+
+.judgment-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 18px;
+}
+
+/* Every control on these pages is a word with a hairline under it. */
+.judgment-actions button,
+.judgment-index__hold,
+.judgment-view__actions button,
+.judgment-view__resolve button,
+.judgment-view__record-foot button,
+.judgment-undo button {
+  padding: 0 0 2px;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  background: transparent;
+  color: var(--judgment-ink);
+  font: 500 0.9rem/1.4 var(--judgment-ui);
+  cursor: pointer;
+}
+
+.judgment-actions button.is-quiet,
+.judgment-view__resolve button.is-quiet,
+.judgment-view__record-foot button {
+  color: var(--judgment-muted);
+  border-bottom-color: color-mix(in srgb, currentColor 40%, transparent);
+}
+
+.judgment button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.judgment button:focus-visible,
+.judgment a:focus-visible,
+.judgment input:focus-visible,
+.judgment textarea:focus-visible {
+  outline: 2px solid var(--noeis-focus, var(--judgment-thread));
+  outline-offset: 3px;
+}
+
+/* ---------- the index ---------- */
+
+.judgment-index__title {
+  margin: 0 0 32px;
+  font: 400 var(--noeis-type-display, 2.6rem)/1.05 var(--judgment-display);
+  letter-spacing: -0.01em;
+}
+
+.judgment-hold {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 40px;
+}
+
+.judgment-hold label {
+  color: var(--judgment-muted);
+  font: 400 0.9rem/1.4 var(--judgment-ui);
+}
+
+.judgment-hold input {
+  width: 100%;
+  padding: 0 0 12px;
+  border: 0;
+  border-bottom: 1px solid var(--judgment-rule);
+  background: transparent;
+  color: var(--judgment-ink);
+  font: 400 clamp(1.25rem, 1.1rem + 0.6vw, 1.6rem)/1.35 var(--judgment-reading);
+}
+
+.judgment-hold input::placeholder {
+  color: var(--judgment-subtle);
+  opacity: 0.8;
+}
+
+.judgment-index__hold {
+  justify-self: start;
+  margin-bottom: 40px;
+}
+
+.judgment-index__list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--judgment-rule);
+}
+
+.judgment-index__list li {
+  display: grid;
+  gap: 6px;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--judgment-rule);
+}
+
+.judgment-index__list a {
+  color: var(--judgment-ink);
+  font: 400 1.22rem/1.38 var(--judgment-reading);
+  text-decoration: none;
+  text-wrap: pretty;
+}
+
+.judgment-index__list a:hover {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+}
+
+.judgment-index__list p {
+  margin: 0;
+  color: var(--judgment-subtle);
+  font: 400 0.82rem/1.4 var(--judgment-ui);
+}
+
+/* ---------- the view ---------- */
+
+.judgment-view__head {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 48px;
+}
+
+.judgment-view__sentence {
+  margin: 0;
+  color: var(--judgment-ink);
+  font: 400 clamp(1.9rem, 1.4rem + 1.8vw, 2.9rem)/1.14 var(--judgment-display);
+  letter-spacing: -0.012em;
+  text-wrap: balance;
+}
+
+.judgment textarea.judgment-view__sentence {
+  width: 100%;
+  font: 400 clamp(1.9rem, 1.4rem + 1.8vw, 2.9rem)/1.14 var(--judgment-display);
+  color: var(--judgment-ink);
+  padding: 0 0 10px;
+  border: 0;
+  border-bottom: 1px solid var(--judgment-rule);
+  background: transparent;
+  resize: vertical;
+}
+
+.judgment-view__revise {
+  display: grid;
+  gap: 14px;
+}
+
+.judgment-view__standing {
+  margin: 0;
+  color: var(--judgment-muted);
+  font: 400 0.9rem/1.4 var(--judgment-ui);
+}
+
+.judgment-view__sure {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+}
+
+.judgment-view__sure button {
+  padding: 0 0 2px;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  background: transparent;
+  color: var(--judgment-subtle);
+  font: 400 0.9rem/1.4 var(--judgment-ui);
+  cursor: pointer;
+}
+
+.judgment-view__sure button:hover {
+  color: var(--judgment-ink);
+}
+
+.judgment-view__sure button[aria-pressed='true'] {
+  border-bottom-color: var(--judgment-thread);
+  color: var(--judgment-ink);
+}
+
+.judgment-view h2 {
+  margin: 0 0 14px;
+  color: var(--judgment-muted);
+  font: 600 0.74rem/1.3 var(--judgment-ui);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.judgment-view__columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 40px;
+  padding: 28px 0 40px;
+  border-top: 1px solid var(--judgment-rule);
+}
+
+.judgment-column ul {
+  display: grid;
+  gap: 22px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.judgment-column blockquote {
+  margin: 0;
+  color: var(--judgment-ink);
+  font: 400 1.02rem/1.55 var(--judgment-reading);
+  text-wrap: pretty;
+}
+
+.judgment-column__cite {
+  margin: 6px 0 0;
+  color: var(--judgment-subtle);
+  font: 400 0.8rem/1.4 var(--judgment-ui);
+}
+
+.judgment-column__cite a {
+  color: var(--judgment-thread);
+  text-decoration: none;
+}
+
+.judgment-column__cite a:hover {
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+
+.judgment-test {
+  padding: 28px 0 36px;
+  border-top: 1px solid var(--judgment-rule);
+}
+
+.judgment-test__line {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--judgment-ink);
+  font: 400 1.12rem/1.5 var(--judgment-reading);
+  text-align: left;
+  cursor: text;
+}
+
+.judgment-test__line.is-empty {
+  color: var(--judgment-subtle);
+  font-style: italic;
+}
+
+.judgment-test__by {
+  color: var(--judgment-muted);
+}
+
+.judgment-test__form {
+  display: grid;
+  gap: 14px;
+}
+
+.judgment-test__form input:not([type='date']) {
+  width: 100%;
+  padding: 0 0 10px;
+  border: 0;
+  border-bottom: 1px solid var(--judgment-rule);
+  background: transparent;
+  color: var(--judgment-ink);
+  font: 400 1.12rem/1.5 var(--judgment-reading);
+}
+
+.judgment-test__form label {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+  color: var(--judgment-muted);
+  font: 400 0.86rem/1.4 var(--judgment-ui);
+}
+
+.judgment-test__form input[type='date'] {
+  border: 0;
+  border-bottom: 1px solid var(--judgment-rule);
+  background: transparent;
+  color: var(--judgment-ink);
+  font: 400 0.9rem/1.4 var(--judgment-ui);
+  color-scheme: inherit;
+}
+
+.judgment-view__record {
+  padding: 28px 0 32px;
+  border-top: 1px solid var(--judgment-rule);
+}
+
+.judgment-record {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.judgment-record li {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(0, 1fr);
+  gap: 12px;
+  font: 400 0.98rem/1.5 var(--judgment-reading);
+}
+
+.judgment-record time {
+  color: var(--judgment-subtle);
+  font: 400 0.8rem/1.9 var(--judgment-ui);
+}
+
+.judgment-record s {
+  color: var(--judgment-muted);
+  text-decoration-thickness: 1px;
+}
+
+.judgment-view__record-foot {
+  margin: 18px 0 0;
+}
+
+.judgment-undo {
+  margin: 18px 0 0;
+  color: var(--judgment-muted);
+  font: 400 0.9rem/1.4 var(--judgment-ui);
+}
+
+.judgment-view__actions,
+.judgment-view__resolve {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 22px;
+  padding-top: 24px;
+  border-top: 1px solid var(--judgment-rule);
+}
+
+.judgment-view__resolve > span {
+  color: var(--judgment-muted);
+  font: 400 0.9rem/1.4 var(--judgment-ui);
+}
+
+/* ---------- reading talks back ---------- */
+
+.judgment-reading { margin: 0 0 40px; }
+.judgment-reading ul { display: grid; gap: 24px; margin: 0; padding: 0; list-style: none; }
+
+.judgment-reading__line {
+  display: grid;
+  gap: 8px;
+  padding-left: 14px;
+  border-left: 1px solid var(--judgment-thread);
+  animation: judgment-arrive 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.judgment-reading__line > p {
+  margin: 0;
+  color: var(--judgment-muted);
+  font: 400 0.88rem/1.45 var(--judgment-ui);
+}
+
+.judgment-reading__line > p a { color: inherit; text-underline-offset: 0.18em; }
+
+.judgment-reading blockquote {
+  margin: 0;
+  color: var(--judgment-ink);
+  font: 400 1.02rem/1.55 var(--judgment-reading);
+}
+
+@keyframes judgment-arrive {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .judgment-return {
-    animation: wfp-fade-in 80ms linear;
-  }
+  .judgment-reading__line { animation: none; }
 }
 
-/* ---------- a note under the door ---------- */
-
-/* Overnight and the library inbox share one paper edge: slightly offset from
-   the type, a hairline of agent ink, no fill, no glass, no card. Empty
-   overnight is silence — this block is not rendered. */
-.judgment-slip {
-  margin-left: -0.55rem;
-  padding-left: 0.8rem;
-  border-left: 1px solid color-mix(
-    in srgb,
-    var(--ink-agent, color-mix(in srgb, var(--vellum-warm, #b1862e) 26%, var(--vellum-ink))) 40%,
-    transparent
-  );
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-.judgment__proposal {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 6px 22px;
-  max-width: 44ch;
-  margin-top: 6px;
-  margin-bottom: 10px;
-  padding-top: 1px;
-  padding-bottom: 1px;
-  opacity: 1;
-  transform: translateY(0);
-  transition:
-    opacity 160ms cubic-bezier(0.16, 1, 0.3, 1),
-    transform 200ms cubic-bezier(0.16, 1, 0.3, 1),
-    border-color 160ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.judgment__proposal.is-leaving {
-  opacity: 0;
-  pointer-events: none;
-  transform: translateY(-4px);
-  border-left-color: transparent;
-}
-
-.judgment__proposal-sentence {
-  margin: 0;
-  color: var(--ink-agent, color-mix(in srgb, var(--vellum-warm, #b1862e) 26%, var(--vellum-ink)));
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
-  font-size: 1.02rem;
-  font-weight: 400;
-  line-height: 1.5;
-  text-wrap: pretty;
-}
-
-.judgment__proposal-actions {
-  display: inline-flex;
-  gap: 22px;
-  white-space: nowrap;
-}
-
-/* Accept and Dismiss are words, not buttons. */
-.judgment__proposal-actions button {
-  padding: 0;
-  border: 0;
-  border-bottom: 1px solid currentColor;
-  background: transparent;
-  color: var(--text-primary, var(--vellum-ink));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.9rem;
-  line-height: 1.55;
-  cursor: pointer;
-}
-
-.judgment__proposal-actions button:hover,
-.judgment__proposal-actions button:focus-visible {
-  color: var(--wiki-warm-accent, var(--vellum-warm));
-}
-
-.judgment__proposal-actions button:disabled {
-  cursor: wait;
-  opacity: 0.5;
-}
-
-/* ---------- the claim ---------- */
-
-.judgment__back {
-  justify-self: start;
-  margin-bottom: 22px;
-  color: var(--text-primary, var(--vellum-ink));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.86rem;
-  text-decoration: none;
-  border-bottom: 1px solid currentColor;
-}
-
-.judgment__back:hover,
-.judgment__back:focus-visible {
-  color: var(--wiki-warm-accent, var(--vellum-warm));
-}
-
-.judgment .judgment__claim {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 0.2rem;
-  margin: 0;
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
-  font-size: clamp(1.9rem, 3.1vw, 2.6rem);
-  font-weight: 400;
-  line-height: 1.22;
-  letter-spacing: -0.012em;
-}
-
-/* The title is the heading. body.noeis-editorial paints inputs with
-   !important, so the name has to outrank that rather than match it. */
-body.noeis-editorial .judgment .judgment__title,
-.judgment .judgment__title {
-  display: block;
-  width: 100%;
-  margin: 0;
-  padding: 0 0 4px !important;
-  border: 0 !important;
-  border-bottom: 1px solid transparent !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  color: inherit !important;
-  font: inherit !important;
-  letter-spacing: inherit;
-  line-height: inherit;
-  text-wrap: balance;
-  resize: none;
-  overflow: hidden;
-}
-
-body.noeis-editorial .judgment .judgment__title:focus,
-.judgment .judgment__title:focus {
-  outline: none;
-  border-bottom-color: color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 78%, transparent) !important;
-}
-
-/* Ghost of the missing name — italic paper, not a muted form label.
-   Yields on focus and as soon as a name is typed. Same ink as the
-   opinion linger. body.noeis-editorial paints placeholders, so this
-   has to outrank that. */
-body.noeis-editorial .judgment .judgment__title::placeholder,
-.judgment .judgment__title::placeholder {
-  color: var(--judgment-ghost-ink) !important;
-  font-style: italic;
-  font-weight: 400;
-  letter-spacing: inherit;
-  opacity: var(--judgment-ghost-rest);
-  transition: opacity var(--judgment-ghost-fade);
-}
-
-body.noeis-editorial .judgment .judgment__title:focus::placeholder,
-.judgment .judgment__title:focus::placeholder {
-  opacity: 0;
-}
-
-/* The opinion sits under the name, always. Same face as the index's claim
-   line: Newsreader, quieter, one sentence. body.noeis-editorial paints
-   inputs with a filled panel, so this has to outrank that the way the
-   title does. */
-body.noeis-editorial .judgment .judgment__opinion,
-.judgment .judgment__opinion {
-  display: block;
-  width: 100%;
-  max-width: 46ch;
-  margin: 10px 0 0;
-  padding: 0 0 2px !important;
-  border: 0 !important;
-  border-bottom: 1px solid transparent !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  color: var(--text-secondary, var(--vellum-muted)) !important;
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif !important;
-  font-size: 1.08rem !important;
-  font-weight: 400 !important;
-  letter-spacing: 0;
-  line-height: 1.42 !important;
-  text-wrap: pretty;
-  resize: none;
-  overflow: hidden;
-}
-
-body.noeis-editorial .judgment .judgment__opinion:focus,
-.judgment .judgment__opinion:focus {
-  outline: none;
-  border-bottom-color: color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 78%, transparent) !important;
-}
-
-/* Shared ghost ink. The missing name uses the title placeholder; the
-   previous hold uses this line. Opacity only — no slide, no height trick —
-   so reduced motion can skip the linger in JS without a second animation. */
-.judgment .judgment__ghost {
-  color: var(--judgment-ghost-ink);
-  font-style: italic;
-  font-weight: 400;
-  pointer-events: none;
-  opacity: var(--judgment-ghost-rest);
-  transition: opacity var(--judgment-ghost-fade);
-}
-
-.judgment .judgment__ghost.is-yielding {
-  opacity: 0;
-}
-
-.judgment .judgment__opinion-ghost {
-  display: block;
-  max-width: 46ch;
-  margin: 8px 0 0;
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
-  font-size: 1.02rem;
-  line-height: 1.42;
-  text-wrap: pretty;
-}
-
-.judgment__claim-sentence,
-.judgment__index-claim,
-.judgment-depends__claim {
-  margin: 10px 0 0;
-  max-width: 46ch;
-  color: var(--text-secondary, var(--vellum-muted));
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
-  font-size: 1.08rem;
-  font-weight: 400;
-  line-height: 1.42;
-  text-wrap: pretty;
-}
-
-.judgment__index-claim {
-  margin-top: 6px;
-  font-size: 1.02rem;
-}
-
-.judgment-depends__claim {
-  margin: 4px 0 0;
-  font-size: 0.94rem;
-  line-height: 1.45;
-}
-
-/* How long you have held it. One quiet line, not a census of the blocks. */
-body.noeis-editorial .judgment .judgment__standing,
-.judgment .judgment__standing {
-  margin: 22px 0 0;
-  max-width: 36rem;
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
-  font-size: 1.02rem;
-  line-height: 1.5;
-  color: var(--text-muted, var(--vellum-subtle)) !important;
-}
-
-/* The only warning ink above the record, and only when it is true.
-   Its own line, so it cannot wrap through the date. */
-.judgment__standing-warning {
-  margin: 8px 0 0;
-  max-width: 36rem;
-  color: var(--noeis-warning, #9a6a2d);
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
-  font-size: 1.02rem;
-  line-height: 1.5;
-}
-
-/* The cure, in the same ink as the problem. A warning that names no way out
-   is just a complaint. */
-.judgment__standing-warning button {
-  padding: 0;
-  border: 0;
-  background: none;
-  font: inherit;
-  color: inherit;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  cursor: pointer;
-}
-
-.judgment__provenance {
-  margin: 18px 0 0;
-  color: var(--text-secondary, var(--vellum-muted));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.88rem;
-  line-height: 1.5;
-}
-
-.judgment-resolution__said {
-  display: grid;
-  gap: 4px;
-  margin: 22px 0 0;
-  max-width: 46ch;
-  color: var(--text-secondary, var(--vellum-muted));
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
-  font-size: 1.02rem;
-  line-height: 1.45;
-}
-
-.judgment-resolution__said span:first-child {
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.72rem;
-  font-style: normal;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.judgment-resolution__said .is-arriving {
-  animation: judgment-log-arrive 220ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-/* ---------- composer + log ---------- */
-
-.judgment-composer {
-  display: grid;
-  gap: 10px;
-  margin: 40px 0 0;
-  padding: 0 0 22px;
-  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 62%, transparent);
-}
-
-.judgment-composer__kinds {
-  position: relative;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 18px;
-}
-
-.judgment-composer__kinds::after {
-  content: "";
-  position: absolute;
-  bottom: -2px;
-  left: 0;
-  width: 22px;
-  height: 1px;
-  background: color-mix(in srgb, var(--wiki-warm-accent, var(--vellum-warm)) 70%, transparent);
-  transform: translate3d(var(--kind-x, 0px), 0, 0);
-  opacity: 0;
-  pointer-events: none;
-}
-
-.judgment-composer__kinds button {
-  min-height: 0;
-  padding: 0 0 4px;
-  border: 0;
-  border-bottom: 1px solid transparent;
-  border-radius: 0;
-  background: transparent;
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.82rem;
-  cursor: pointer;
-}
-
-.judgment-composer__kinds button.is-active,
-.judgment-composer__kinds button[aria-checked='true'],
-.judgment-composer__kinds button.is-hint {
-  border-bottom-color: currentColor;
-  color: var(--text-primary, var(--vellum-ink));
-}
-
-@media (pointer: fine) {
-  .judgment-composer__kinds::after {
-    opacity: 0.85;
-  }
-
-  .judgment-composer__kinds button.is-active,
-  .judgment-composer__kinds button[aria-checked='true'],
-  .judgment-composer__kinds button.is-hint {
-    border-bottom-color: transparent;
-  }
-}
-
-body.noeis-editorial .judgment .judgment-composer input,
-.judgment-composer input {
-  width: 100%;
-  padding: 6px 0 !important;
-  color: var(--text-primary, var(--vellum-ink)) !important;
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif !important;
-  font-size: 1.12rem;
-  line-height: 1.4;
-}
-
-.judgment-composer__meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 8px 18px;
-  min-height: 1.1em;
-}
-
-.judgment-composer__meta [role='alert'] {
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.82rem;
-}
-
-/* Quiet lines the library already held, in the composer band. Filing one is
-   the same gesture as writing a Why: the rail names the side, the line
-   settles into the log, and the inbox evaporates. Same paper edge as
-   overnight — a slip under the rail, not a second tray. */
-.judgment-inbox {
-  display: grid;
-  gap: 2px;
-  margin-top: 10px;
-}
-
-.judgment-inbox__list {
-  display: grid;
-  gap: 0;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.judgment-inbox__line {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px 18px;
-  align-items: baseline;
-  overflow: hidden;
-  margin: 0;
-  padding: 7px 0;
-  opacity: 1;
-  transform: translateY(0);
-  transition:
-    opacity 160ms cubic-bezier(0.16, 1, 0.3, 1),
-    transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.judgment-inbox__line.is-leaving {
-  opacity: 0;
-  pointer-events: none;
-  transform: translateY(-4px);
-}
-
-.judgment-inbox__passage {
-  min-width: 0;
-  margin: 0;
-}
-
-.judgment-inbox__hold {
-  display: block;
-  margin: 0.15rem 0 0;
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.72rem;
-  font-weight: 400;
-  letter-spacing: 0.04em;
-  line-height: 1.4;
-}
-
-.judgment-inbox__text {
-  display: inline;
-  min-width: 0;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--ink-agent, color-mix(in srgb, var(--vellum-warm, #b1862e) 26%, var(--vellum-ink)));
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
-  font-size: 0.94rem;
-  font-weight: 400;
-  line-height: 1.5;
-  text-align: left;
-  text-wrap: pretty;
-  cursor: pointer;
-}
-
-button.judgment-inbox__text:hover,
-button.judgment-inbox__text:focus-visible {
-  color: var(--ink-human, var(--text-primary, var(--vellum-ink)));
-}
-
-.judgment-inbox__line.is-kin .judgment-inbox__text {
-  color: var(--ink-human, var(--text-primary, var(--vellum-ink)));
-}
-
-.judgment-inbox.is-listening .judgment-inbox__line:not(.is-kin) {
-  opacity: 0.38;
-}
-
-.judgment-inbox__more {
-  justify-self: start;
-  min-height: 0;
-  margin: 2px 0 0;
-  padding: 0;
-  border: 0;
-  border-bottom: 1px solid currentColor;
-  background: transparent;
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.78rem;
-  cursor: pointer;
-}
-
-.judgment-inbox__more:hover,
-.judgment-inbox__more:focus-visible {
-  color: var(--text-primary, var(--vellum-ink));
-}
-
-.judgment__kind-words {
-  display: inline-flex;
-  gap: 18px;
-  white-space: nowrap;
-}
-
-.judgment__kind-words button {
-  padding: 0;
-  border: 0;
-  border-bottom: 1px solid transparent;
-  background: transparent;
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.82rem;
-  line-height: 1.55;
-  cursor: pointer;
-}
-
-.judgment__kind-words button.is-lit,
-.judgment__kind-words button:hover,
-.judgment__kind-words button:focus-visible {
-  border-bottom-color: currentColor;
-  color: var(--text-primary, var(--vellum-ink));
-}
-
-.judgment__kind-words button:disabled {
-  cursor: wait;
-  opacity: 0.5;
-}
-
-.judgment-log {
-  margin: 8px 0 0;
-}
-
-.judgment-log__filters {
-  display: flex;
-  align-items: baseline;
-  gap: 16px;
-  margin: 0 0 18px;
-}
-
-.judgment-log__filters button {
-  min-height: 0;
-  padding: 0;
-  border: 0;
-  border-bottom: 1px solid transparent;
-  background: transparent;
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.78rem;
-  letter-spacing: 0.04em;
-  cursor: pointer;
-}
-
-.judgment-log__filters button.is-active,
-.judgment-log__filters button[aria-selected='true'] {
-  border-bottom-color: currentColor;
-  color: var(--text-primary, var(--vellum-ink));
-}
-
-.judgment-log__list {
-  display: grid;
-  gap: 14px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.judgment-log__row {
-  display: grid;
-  grid-template-columns: 4.6rem minmax(0, 1fr) auto;
-  gap: 10px 14px;
-  align-items: baseline;
-  margin: 0 -8px;
-  padding: 4px 8px;
-  border-radius: 4px;
-  transition: background-color 180ms cubic-bezier(0.16, 1, 0.3, 1), opacity 180ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.judgment-log__kind {
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.72rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.judgment-log__row--did .judgment-log__kind,
-.judgment-log__row--did .judgment-log__text {
-  color: var(--text-muted, var(--vellum-subtle));
-}
-
-/* Counterevidence ink.
-   Opposition is not an alarm. A line that cuts against what you hold gets a
-   quieter register and a rule down its left edge — the margin mark an editor
-   makes beside a passage that argues back. No red, no badge, no count. The
-   reader should be able to scan the log and see where the argument is
-   contested without being told to feel anything about it. */
-.judgment-log__row--against {
-  border-left: 2px solid var(--rule-soft, var(--vellum-rule, rgba(120, 120, 120, 0.28)));
-  padding-left: 0.7rem;
-}
-
-.judgment-log__row--against .judgment-log__kind {
-  color: var(--ink-counter, var(--text-muted, var(--vellum-subtle)));
-}
-
-.judgment-log__row--against .judgment-log__text {
-  color: var(--ink-counter, var(--text-secondary, var(--vellum-ink)));
-  font-style: italic;
-}
-
-.judgment-log__text {
-  margin: 0;
-  color: var(--ink-human, var(--text-primary, var(--vellum-ink)));
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
-  font-size: 0.94rem;
-  line-height: 1.55;
-  text-wrap: pretty;
-}
-
-.judgment-log__when {
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.72rem;
-  white-space: nowrap;
-  cursor: default;
-}
-
-.judgment-log__whisper {
-  margin: 0 0 0 auto;
-  color: var(--wiki-warm-accent, var(--vellum-warm));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.72rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.judgment-log.is-listening .judgment-log__row:not(.is-kin) {
-  opacity: 0.38;
-}
-
-.judgment-log__row.is-kin {
-  background: color-mix(in srgb, var(--wiki-warm-accent, var(--vellum-warm)) 10%, transparent);
-  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--wiki-warm-accent, var(--vellum-warm)) 72%, transparent);
-}
-
-.judgment-log__row.is-kin .judgment__cite {
-  color: var(--wiki-warm-accent, var(--vellum-warm));
-}
-
-.judgment-log__row.is-arriving {
-  animation: judgment-log-arrive 220ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-@keyframes judgment-log-arrive {
-  from {
-    opacity: 0;
-    transform: translateY(-7px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-.judgment-log__month-name {
-  margin: 22px 0 10px;
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.78rem;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-}
-
-.judgment-log__fold {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 16px;
-  width: 100%;
-  margin: 18px 0 0;
-  padding: 8px 0;
-  border: 0;
-  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 70%, transparent);
-  background: transparent;
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.82rem;
-  text-align: left;
-  cursor: pointer;
-}
-
-.judgment-log__fold:hover,
-.judgment-log__fold:focus-visible {
-  color: var(--text-primary, var(--vellum-ink));
-}
-
-.judgment-log__empty {
-  margin: 0;
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.88rem;
-}
-
-/* ---------- under the case ---------- */
-
-/* What has happened to this belief. The seam is set in the register of the
-   four block heads because it is their peer; the ledger, the room and the
-   rest underneath it are parts, not peers, and share one small label. */
-.judgment-record {
-  margin-top: clamp(3rem, 7vw, 4.6rem);
-}
-
-.judgment .judgment-record__seam {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  margin: 0;
-  color: var(--text-primary, var(--vellum-ink)) !important;
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
-  font-size: clamp(0.88rem, 0.62rem + 0.5vw, 1rem);
-  font-weight: 500;
-  font-variant-caps: all-small-caps;
-  letter-spacing: 0.06em;
-}
-
-.judgment-record__seam::after {
-  content: "";
-  flex: 1;
-  height: 1px;
-  background: var(--noeis-rule-strong, var(--vellum-line));
-}
-
-.judgment-record > section {
-  margin: 2rem 0 0;
-}
-
-/* A spine of what happened. Date, then a short line; the rest waits
-   behind a native disclosure. One left rule, one mark per event. */
-.judgment-history {
-  margin: 1.35rem 0 0;
-}
-
-.judgment-history__spine {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  border-left: 1px solid var(--noeis-rule, var(--vellum-line));
-}
-
-.judgment-history__event {
-  position: relative;
-  margin: 0;
-  padding: 0 0 1.05rem 1.15rem;
-}
-
-.judgment-history__event:last-child {
-  padding-bottom: 0.2rem;
-}
-
-.judgment-history__event::before {
-  content: "";
-  position: absolute;
-  left: -3.5px;
-  top: 0.55em;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--text-primary, var(--vellum-ink));
-}
-
-.judgment-history__event details {
-  margin: 0;
-}
-
-.judgment-history__event summary,
-.judgment-history__fold > summary {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.35rem 0.75rem;
-  cursor: pointer;
-  list-style: none;
-  color: var(--text-primary, var(--vellum-ink));
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
-  font-size: 1.02rem;
-  line-height: 1.45;
-}
-
-.judgment-history__event summary::-webkit-details-marker,
-.judgment-history__fold > summary::-webkit-details-marker {
-  display: none;
-}
-
-.judgment-history__event:not(:has(details)) {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.35rem 0.75rem;
-  color: var(--text-primary, var(--vellum-ink));
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
-  font-size: 1.02rem;
-  line-height: 1.45;
-}
-
-.judgment-history__when {
-  flex: none;
-  min-width: 5.5rem;
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.78rem;
-  font-variant-numeric: lining-nums tabular-nums;
-  letter-spacing: 0.02em;
-}
-
-.judgment-history__teaser {
-  flex: 1 1 12rem;
-}
-
-.judgment-history__event details[open] summary {
-  margin-bottom: 0.35rem;
-}
-
-.judgment-history__event details p {
-  margin: 0.2rem 0 0;
-  max-width: 36rem;
-  color: var(--text-secondary, var(--vellum-muted));
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
-  font-size: 0.98rem;
-  line-height: 1.5;
-}
-
-.judgment-history__fold {
-  margin: 1.15rem 0 0;
-  padding-top: 0.85rem;
-  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 70%, transparent);
-}
-
-.judgment-history__fold > summary {
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.78rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.judgment-history__empty {
-  margin: 0.8rem 0 0;
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
-  font-size: 1rem;
-}
-
-/* Nested machines keep their body and lose their second title. */
-.judgment-history .judgment-ledger {
-  margin: 1.2rem 0 0;
-}
-
-.judgment-history .judgment-ledger > h2,
-.judgment-history__fold .living-team > h2,
-.judgment-history__fold .judgment-depends > h2,
-.judgment-history__fold .judgment-depends h3 {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-}
-
-.judgment-history__fold .living-team,
-.judgment-history__fold .judgment-depends {
-  margin-top: 0.85rem;
-}
-
-/* The parts share one small label. The ledger and the room asked for tracked
-   uppercase sans and got the editorial serif instead; the fields underneath
-   asked for a bold sans. One rule, in the reading face, for all of them. */
-.judgment .judgment-record section > h2 {
-  margin: 0 0 1rem;
-  color: var(--text-primary, var(--vellum-ink));
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
-  font-size: 0.72rem;
-  font-weight: 500;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
-/* What you could still do to it. One row of verbs under a hairline, and
-   nothing in it is a heading. A tool you have opened, or one with something
-   to say, carries a title or an open disclosure — and anything titled takes
-   the full width beneath the row rather than squeezing into it. */
-.judgment-tools {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.6rem 1.6rem;
-  margin-top: clamp(2.6rem, 6vw, 4rem);
-  padding-top: 1rem;
-  border-top: 1px solid var(--noeis-rule, var(--vellum-line));
-}
-
-.judgment-tools > section,
-.judgment-tools > details,
-.judgment-tools > div {
-  margin: 0;
-  padding: 0;
-  border-top: 0;
-}
-
-.judgment-tools > section[aria-labelledby],
-.judgment-tools > details[open],
-.judgment-tools > .judgment-park.is-asking,
-.judgment-tools > .judgment-park.is-parked {
-  flex-basis: 100%;
-  order: 1;
-  margin-top: 1.4rem;
-}
-
-/* Every verb in the row speaks in the same voice as the print and park
-   buttons beside it. */
-.judgment-tools .ariadne-lineage__quiet,
-.judgment-tools .tracing-paper__quiet,
-.judgment-tools .night-watch__quiet,
-.judgment-tools .take-the-paper__quiet,
-.judgment-tools .public-casebook-preview > button {
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.84rem;
-  border-bottom-color: currentColor;
-}
-
-.judgment-tools .ariadne-lineage__quiet:hover,
-.judgment-tools .tracing-paper__quiet:hover,
-.judgment-tools .night-watch__quiet:hover,
-.judgment-tools .take-the-paper__quiet:hover,
-.judgment-tools .public-casebook-preview > button:hover,
-.judgment-tools .ariadne-lineage__quiet:focus-visible,
-.judgment-tools .tracing-paper__quiet:focus-visible,
-.judgment-tools .night-watch__quiet:focus-visible,
-.judgment-tools .take-the-paper__quiet:focus-visible,
-.judgment-tools .public-casebook-preview > button:focus-visible {
-  color: var(--text-primary, var(--vellum-ink));
-}
-
-/* Resolution is a margin ritual, not a workflow card. The only ornament is a
-   small ink diamond after a verdict lands; motion disappears for readers who
-   ask it to. */
-.judgment-resolution {
-  margin: clamp(2.6rem, 6vw, 5.5rem) 0 1rem;
-  padding: 1.35rem 0;
-  border-block: 1px solid var(--hairline, rgba(38, 32, 24, .15));
-  color: var(--ink-muted, #6f695f);
-}
-
-.judgment-resolution__heading,
-.judgment-resolution__actions {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.judgment-resolution h2,
-.judgment-mirror h2 {
-  margin: 0;
-  color: var(--ink, #302a23);
-  font: 500 .72rem/1.2 var(--font-sans, sans-serif);
-  letter-spacing: .16em;
-  text-transform: uppercase;
-}
-
-.judgment-resolution button {
-  border: 0;
-  padding: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-}
-
-.judgment-resolution button:hover,
-.judgment-resolution button:focus-visible {
-  color: var(--ink, #302a23);
-}
-
-.judgment-resolution__invitation,
-.judgment-resolution__verdict-door {
-  margin-top: 1rem;
-  border-bottom: 1px solid currentColor !important;
-}
-
-.judgment-resolution__verdict-door.is-due {
-  color: var(--accent, #a56a12);
-}
-
-.judgment-resolution__test,
-.judgment-resolution__verdict-form {
-  display: grid;
-  gap: .9rem;
-  margin-top: 1.1rem;
-}
-
-.judgment-resolution textarea,
-.judgment-resolution input {
-  width: 100%;
-  box-sizing: border-box;
-  border: 0;
-  border-bottom: 1px solid var(--hairline, rgba(38, 32, 24, .2));
-  border-radius: 0;
-  padding: .45rem 0;
-  background: transparent;
-  color: var(--ink, #302a23);
-  font: 400 1rem/1.55 var(--font-serif, serif);
-  resize: none;
-}
-
-.judgment-resolution textarea:focus,
-.judgment-resolution input:focus {
-  outline: 0;
-  border-color: var(--accent, #a56a12);
-}
-
-.judgment-resolution__date {
-  display: flex;
-  align-items: baseline;
-  gap: .65rem;
-  max-width: 18rem;
-}
-
-.judgment-resolution__preview {
-  display: grid;
-  gap: 1rem;
-}
-
-.judgment-resolution__preview-label,
-.judgment-resolution__comparison span {
-  margin: 0;
-  color: var(--ink-muted, #6f695f);
-  font: 500 .68rem/1.2 var(--font-sans, sans-serif);
-  letter-spacing: .14em;
-  text-transform: uppercase;
-}
-
-.judgment-resolution__comparison {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: clamp(1rem, 4vw, 2.5rem);
-}
-
-.judgment-resolution__comparison > div + div {
-  border-left: 1px solid var(--hairline, rgba(38, 32, 24, .15));
-  padding-left: clamp(1rem, 4vw, 2.5rem);
-}
-
-.judgment-resolution__comparison p,
-.judgment-resolution__preview blockquote {
-  margin: .45rem 0 0;
-  color: var(--ink, #302a23);
-  font: 400 1.08rem/1.55 var(--font-serif, serif);
-}
-
-.judgment-resolution__comparison small {
-  color: var(--ink-muted, #6f695f);
-  font: 400 .75rem/1.4 var(--font-sans, sans-serif);
-}
-
-.judgment-resolution__preview-note {
-  max-width: 38rem;
-  margin: 0;
-  font-size: .82rem;
-  line-height: 1.55;
-}
-
-.judgment-resolution__criteria {
-  margin: 1rem 0 0;
-  color: var(--ink, #302a23);
-  font: 400 1.15rem/1.55 var(--font-serif, serif);
-}
-
-.judgment-resolution__criteria small,
-.judgment-resolution__latest small {
-  display: block;
-  margin-top: .25rem;
-  color: var(--ink-muted, #6f695f);
-  font: 400 .75rem/1.4 var(--font-sans, sans-serif);
-}
-
-.judgment-resolution__choices {
-  display: flex;
-  flex-wrap: wrap;
-  gap: .65rem 1.1rem;
-}
-
-.judgment-resolution__choices button[aria-pressed="true"] {
-  color: var(--ink, #302a23);
-  text-decoration: underline;
-  text-underline-offset: .25rem;
-}
-
-.judgment-resolution__evidence {
-  display: grid;
-  gap: .45rem;
-  margin: .25rem 0 0;
-  padding: 0;
-  border: 0;
-}
-
-.judgment-resolution__evidence legend {
-  margin-bottom: .35rem;
-  color: var(--ink-muted, #6f695f);
-  font: 600 .68rem/1.2 var(--font-sans, sans-serif);
-  letter-spacing: .12em;
-  text-transform: uppercase;
-}
-
-.judgment-resolution__evidence label {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: .55rem;
-  align-items: start;
-  color: var(--ink-secondary, #514a41);
-  font: 400 .82rem/1.35 var(--font-sans, sans-serif);
-  cursor: pointer;
-}
-
-.judgment-resolution__evidence input {
-  width: auto;
-  margin: .15rem 0 0;
-  padding: 0;
-  border: 0;
-  accent-color: var(--accent, #a56a12);
-}
-
-.judgment-resolution__actions {
-  justify-content: flex-start;
-}
-
-.judgment-resolution__actions button:first-child {
-  color: var(--ink, #302a23);
-  border-bottom: 1px solid currentColor;
-}
-
-.judgment-resolution__latest {
-  position: relative;
-  margin: 1.3rem 0 0;
-  padding-left: 1.35rem;
-  color: var(--ink, #302a23);
-}
-
-.judgment-resolution__latest > span:not(.judgment-resolution__seal) {
-  display: block;
-  margin-top: .25rem;
-  color: var(--ink-muted, #6f695f);
-}
-
-.judgment-resolution__seal {
-  position: absolute;
-  left: 0;
-  top: .08rem;
-  color: var(--accent, #a56a12);
-  font-size: .62rem;
-}
-
-.judgment-resolution__latest.is-new .judgment-resolution__seal {
-  animation: judgment-ink-settle 680ms cubic-bezier(.2, .8, .2, 1) both;
-}
-
-@keyframes judgment-ink-settle {
-  from { opacity: 0; transform: scale(2.2) rotate(45deg); filter: blur(3px); }
-  to { opacity: 1; transform: scale(1) rotate(0); filter: blur(0); }
-}
-
-.judgment-resolution__error { color: var(--danger, #8b3d32); }
-
-/* Tracing paper, five clocks, a flipbook. No bounce. Pivotal frames
-   simply come forward in opacity. */
-.judgment-ledger {
-  margin: 2.4rem 0 1rem;
-  color: var(--ink-muted, #6f695f);
-}
-
-.judgment-ledger h2,
-.judgment-ledger h3 {
-  margin: 0 0 1rem;
-  color: var(--ink, #302a23);
-  font: 500 .72rem/1.2 var(--font-sans, sans-serif);
-  letter-spacing: .16em;
-  text-transform: uppercase;
-}
-
-.judgment-clocks {
-  display: grid;
-  gap: .85rem;
-  margin: 0 0 1.8rem;
-  padding: 0;
-  list-style: none;
-}
-
-.judgment-history .judgment-clocks {
-  gap: 0;
-  margin: 1.15rem 0 0;
-}
-
-.judgment-history .judgment-clock {
-  display: block;
-}
-
-.judgment-clock {
-  display: grid;
-  gap: .15rem;
-}
-
-.judgment-clock__name {
-  font: 500 .68rem/1.3 var(--font-sans, sans-serif);
-  letter-spacing: .12em;
-  text-transform: uppercase;
-}
-
-/* The sentence is the reading. */
-.judgment-clock__summary {
-  color: var(--ink, #302a23);
-  font: 400 1.05rem/1.45 "Newsreader", var(--font-serif, Georgia), serif;
-}
-
-/* The day and who wrote it down, on one quiet line under the sentence.
-   Mono, because this is the record operating rather than the record
-   speaking — the same split the rest of the product keeps. */
-.judgment-clock__stamp {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: .2rem .7rem;
-  margin-top: .1rem;
-  color: var(--text-muted, var(--vellum-subtle));
-}
-
-.judgment-clock__when {
-  display: inline-flex;
-  align-items: center;
-  gap: .34rem;
-  font: 400 .74rem/1.4 var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
-  letter-spacing: .02em;
-  white-space: nowrap;
-}
-
-.judgment-clock small {
-  font-size: .74rem;
-}
-
-/* Sits on the text baseline rather than the line box, so the mark reads as
-   part of the date instead of a button next to it. */
-.calendar-mark {
-  flex: none;
-  opacity: .62;
-  transform: translateY(.5px);
-}
-
-.judgment-time {
-  display: grid;
-  gap: .45rem;
-  margin: 0 0 1.6rem;
-}
-
-.judgment-time input[type='range'] {
-  width: min(100%, 28rem);
-  accent-color: var(--noeis-pointer, var(--ink, #302a23));
-}
-
-.judgment-time label {
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.78rem;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  color: var(--noeis-pointer, var(--text-primary));
-}
-
-.judgment-time__caption {
-  margin: 0;
-  font-style: italic;
-}
-
-.judgment-trace {
-  position: relative;
-  margin: 0 0 2rem;
-  padding: 1.4rem 1.2rem 1.6rem;
-  background: color-mix(in srgb, var(--paper, #f7f3eb) 78%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 42%, transparent);
-  transition: opacity 180ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.judgment-trace__claim {
-  margin: 0 0 .8rem;
-  color: var(--ink, #302a23);
-  font: 400 1.35rem/1.25 "Newsreader", var(--font-serif, Georgia), serif;
-}
-
-.judgment-trace__posture,
-.judgment-trace p span {
-  display: block;
-  margin-bottom: .2rem;
-  letter-spacing: .12em;
-  text-transform: uppercase;
-  font: 500 .68rem/1.3 var(--font-sans, sans-serif);
-}
-
-.judgment-trace small.is-absent {
-  font-style: italic;
-}
-
-.judgment-replay ol {
-  display: grid;
-  gap: .4rem;
-  margin: .8rem 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.judgment-replay li {
-  opacity: .42;
-  transition: opacity 180ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.judgment-replay li.is-pivotal { opacity: .72; }
-.judgment-replay li.is-open { opacity: 1; }
-
-.judgment-replay button {
-  display: grid;
-  gap: .15rem;
-  width: 100%;
-  padding: .35rem 0;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.judgment-replay button span:first-child {
-  letter-spacing: .12em;
-  text-transform: uppercase;
-  font: 500 .68rem/1.3 var(--font-sans, sans-serif);
-}
-
-.judgment-postmortem,
-.judgment-lessons-forward,
-.judgment-lessons-carried,
-.judgment-outcomes {
-  display: grid;
-  gap: .8rem;
-  margin: 1.8rem 0 0;
-}
-
-.judgment-lessons-forward article,
-.judgment-lessons-carried article,
-.judgment-outcomes li {
-  display: grid;
-  gap: .3rem;
-}
-
-.judgment-lessons-forward input,
-.judgment-lessons-forward select,
-.judgment-postmortem textarea {
-  width: 100%;
-  border: 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 70%, transparent);
-  background: transparent;
-  color: var(--ink, #302a23);
-  font: inherit;
-}
-
-.judgment-lesson-transfer {
-  display: grid;
-  gap: .7rem;
-  margin-top: .6rem;
-}
-
-.judgment-lesson-transfer label {
-  display: grid;
-  gap: .3rem;
-  color: var(--text-muted, var(--vellum-subtle));
-  font: 500 .72rem/1.4 var(--noeis-ui-font, sans-serif);
-}
-
-.judgment-lessons-carried article {
-  padding-left: 1rem;
-  border-left: 2px solid color-mix(in srgb, var(--vellum-accent) 55%, transparent);
-}
-
-.judgment-lessons-carried small {
-  color: var(--text-muted, var(--vellum-subtle));
-}
-
-.judgment-lessons-forward button,
-.judgment-lessons-carried button {
-  width: max-content;
-  padding: 0;
-  border: 0;
-  border-bottom: 1px solid color-mix(in srgb, currentColor 45%, transparent);
-  background: transparent;
-  color: var(--ink-muted, #6f695f);
-  font: inherit;
-  cursor: pointer;
-}
-
-.judgment-lessons-forward button:hover,
-.judgment-lessons-forward button:focus-visible,
-.judgment-lessons-carried button:hover,
-.judgment-lessons-carried button:focus-visible {
-  color: var(--ink, #302a23);
-}
-
-.judgment-lessons-forward button:disabled,
-.judgment-lessons-carried button:disabled {
-  cursor: default;
-  opacity: .45;
-}
-
-.judgment-ledger.is-still .judgment-trace,
-.judgment-ledger.is-still .judgment-replay li {
-  transition: none;
-}
+/* ---------- the Mirror ---------- */
 
 .judgment-mirror {
   width: min(100% - 3rem, 52rem);
   margin: 0 auto;
   padding: clamp(3rem, 8vw, 7rem) 0;
-  color: var(--ink-muted, #6f695f);
+  color: var(--noeis-ink-muted, var(--text-muted));
 }
 
-.judgment-mirror header { margin: 3rem 0 4rem; }
-.judgment-mirror header > p:first-child { letter-spacing: .12em; text-transform: uppercase; font-size: .72rem; }
-.judgment-mirror h1 { margin: .4rem 0; color: var(--ink, #302a23); font: 400 clamp(3.5rem, 8vw, 7rem)/.9 var(--font-serif, serif); }
+.judgment-mirror header { margin: 1rem 0 4rem; }
 
-.judgment-mirror__measure {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 1px;
-  margin: 0 0 5rem;
-  border-block: 1px solid var(--hairline, rgba(38, 32, 24, .15));
+.judgment-mirror header > p:first-child {
+  font: 500 0.78rem/1.3 var(--noeis-font-ui, sans-serif);
 }
 
-.judgment-mirror__measure div { padding: 1.3rem 1rem 1.3rem 0; }
-.judgment-mirror__measure dt { font-size: .72rem; text-transform: uppercase; letter-spacing: .12em; }
-.judgment-mirror__measure dd { margin: .4rem 0 0; color: var(--ink, #302a23); font: 400 1.6rem/1 var(--font-serif, serif); }
-
-.judgment-mirror__due,
-.judgment-mirror__record { margin: 0 0 4rem; }
-.judgment-mirror__due > a,
-.judgment-mirror__record article { display: grid; grid-template-columns: 1fr auto; gap: .2rem 1rem; padding: 1.1rem 0; border-bottom: 1px solid var(--hairline, rgba(38, 32, 24, .12)); color: inherit; text-decoration: none; }
-.judgment-mirror__due span,
-.judgment-mirror__record a { color: var(--ink, #302a23); font: 400 1.05rem/1.4 var(--font-serif, serif); }
-.judgment-mirror__record p { grid-column: 1; margin: 0; }
-.judgment-mirror__record time { grid-column: 2; grid-row: 1 / span 2; font-size: .75rem; }
-
-.judgment-mirror__decisions {
-  margin: clamp(44px, 8vw, 88px) 0 4rem;
-  padding-top: 22px;
-  border-top: 1px solid var(--noeis-rule, var(--vellum-line));
-}
-
-.judgment-mirror__decisions > h2 {
-  margin: 0 0 28px;
-  font: 450 clamp(1.7rem, 3vw, 2.35rem)/1.1 var(--font-serif, Georgia, serif);
-}
-
-.judgment-mirror__decision-list { display: grid; gap: 48px; }
-
-.judgment-mirror__decision {
-  display: grid;
-  gap: 20px;
-  max-width: 48rem;
-}
-
-.judgment-mirror__decision > header p,
-.judgment-mirror__eyebrow {
-  margin: 0 0 6px;
-  color: var(--text-muted, var(--vellum-subtle));
-  font: 600 .67rem/1.3 var(--noeis-ui-font, sans-serif);
-  letter-spacing: .12em;
-  text-transform: uppercase;
-}
-
-.judgment-mirror__decision h3 {
-  margin: 0;
-  font: 450 1.35rem/1.28 var(--font-serif, Georgia, serif);
-}
-
-.judgment-mirror__decision dl {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px 36px;
-  margin: 0;
-}
-
-.judgment-mirror__decision dt {
-  color: var(--text-muted, var(--vellum-subtle));
-  font: 600 .66rem/1.2 var(--noeis-ui-font, sans-serif);
-  letter-spacing: .1em;
-  text-transform: uppercase;
-}
-
-.judgment-mirror__decision dd {
-  margin: 7px 0 0;
-  font: 400 1rem/1.5 var(--font-serif, Georgia, serif);
-}
-
-.judgment-mirror__sources {
-  padding: 12px 0;
-  border-top: 1px solid var(--noeis-rule, var(--vellum-line));
-  border-bottom: 1px solid var(--noeis-rule, var(--vellum-line));
-}
-
-.judgment-mirror__sources summary {
-  color: var(--text-secondary, var(--vellum-subtle));
-  font: 500 .8rem/1.4 var(--noeis-ui-font, sans-serif);
-  cursor: pointer;
-}
-
-.judgment-mirror__sources ul {
-  display: grid;
-  gap: 18px;
-  margin: 18px 0 4px;
-  padding: 0;
-  list-style: none;
-}
-
-.judgment-mirror__sources li { display: grid; gap: 6px; }
-
-.judgment-mirror__sources blockquote,
-.judgment-mirror__sources p {
-  margin: 0;
-  color: var(--text-secondary, var(--vellum-subtle));
-  line-height: 1.5;
-}
-
-.judgment-mirror__sources time,
-.judgment-mirror__sources small,
-.judgment-mirror__after > small {
-  color: var(--text-muted, var(--vellum-subtle));
-  font: 400 .72rem/1.4 var(--noeis-ui-font, sans-serif);
-}
-
-.judgment-mirror__reveal {
-  justify-self: start;
-  padding: 0 0 3px;
-  border: 0;
-  border-bottom: 1px solid currentColor;
-  background: transparent;
-  color: var(--text-primary, var(--vellum-ink));
-  font: 600 .72rem/1.4 var(--noeis-ui-font, sans-serif);
-  letter-spacing: .09em;
-  text-transform: uppercase;
-  cursor: pointer;
-}
-
-.judgment-mirror__after {
-  display: grid;
-  gap: 14px;
-  padding-left: 18px;
-  border-left: 2px solid var(--vellum-accent);
-}
-
-.judgment-mirror__after > p { margin: 0; }
-.judgment-mirror__after > a { width: max-content; color: inherit; }
-.judgment-mirror__silence { margin-top: 1.5rem; font-style: italic; }
-.judgment-mirror footer { font-size: .76rem; line-height: 1.6; }
-
-@media (max-width: 700px) {
-  .judgment-mirror__measure { grid-template-columns: repeat(2, 1fr); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .judgment-resolution__latest.is-new .judgment-resolution__seal { animation: none; }
-  .judgment-trace,
-  .judgment-replay li {
-    transition: none;
-  }
-}
-
-@media (max-width: 640px) {
-  .judgment-log__row {
-    grid-template-columns: 4.2rem minmax(0, 1fr);
-  }
-
-  .judgment-log__when {
-    grid-column: 2;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .judgment-replay li {
-    opacity: 1;
-    transition: none;
-  }
-
-  .judgment-trace {
-    transition: none;
-  }
-
-  .judgment-composer__kinds button.is-active,
-  .judgment-composer__kinds button[aria-checked='true'],
-  .judgment-composer__kinds button.is-hint {
-    border-bottom-color: currentColor;
-  }
-
-  .judgment-log__row.is-arriving,
-  .judgment-resolution__said .is-arriving {
-    animation: none;
-  }
-
-  .judgment-log.is-listening .judgment-log__row:not(.is-kin),
-  .judgment-log__row,
-  .judgment-block__entry,
-  .judgment-inbox.is-listening .judgment-inbox__line:not(.is-kin),
-  .judgment-inbox__line {
-    opacity: 1;
-    transform: none;
-    transition: none;
-  }
-
-  .judgment .judgment__title::placeholder,
-  .judgment .judgment__ghost {
-    transition: none;
-  }
-
-  .judgment .judgment__opinion-ghost {
-    display: none;
-  }
-}
-
-/* ---------- quieter rooms under the log ---------- */
-
-.judgment .judgment__field h2 {
-  margin: 0 0 10px;
-  color: var(--text-primary, var(--vellum-ink));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 1.02rem;
-  font-weight: 600;
-  letter-spacing: -0.004em;
-}
-
-.judgment__line {
-  margin: 0;
-  color: var(--text-primary, var(--vellum-ink));
-  /* The lock sets the reasons in the reading face, not the apparatus face:
-     these are sentences the human wrote, not labels. */
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
-  font-size: 0.9rem;
-  line-height: 1.62;
-  text-wrap: pretty;
-}
-
-.judgment__line--asking {
-  color: var(--text-secondary, var(--vellum-muted));
-}
-
-/* Wiki cites with a number, not the publication's name. The mark is the
-   link; the name is the destination. */
-.judgment__cites {
-  margin-left: 0.18em;
-  line-height: 0;
-}
-
-.judgment__cite {
-  appearance: none;
-  display: inline;
-  margin: 0;
-  padding: 0 0.12em;
-  border: 0;
-  border-bottom: 1px solid currentColor;
-  background: transparent;
-  color: var(--wiki-warm-accent, var(--vellum-warm));
-  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
-  font-size: 0.72em;
-  font-weight: 700;
-  line-height: 1;
-  letter-spacing: 0.01em;
-  text-decoration: none;
-  white-space: nowrap;
-}
-
-.judgment__cite + .judgment__cite {
-  margin-left: 0.08em;
-}
-
-.judgment__cite.is-passage {
-  background-color: color-mix(in srgb, #f6e27a 28%, transparent);
-  border-radius: 2px;
-}
-
-.judgment__cite:hover,
-.judgment__cite:focus-visible {
-  background-color: color-mix(in srgb, currentColor 12%, transparent);
-  border-radius: 3px;
-  outline: none;
-}
-
-.judgment__cite.is-passage:hover,
-.judgment__cite.is-passage:focus-visible {
-  background-color: color-mix(in srgb, #f6e27a 46%, transparent);
-}
-
-.judgment__error {
-  margin: 26px 0 0;
-  color: var(--vellum-error, #a54731);
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.86rem;
-}
-
-/* ---------- the index ---------- */
-
-.judgment__collection-title {
-  margin: 0 0 28px;
-  color: var(--text-primary, var(--vellum-ink));
-  font: 450 clamp(2.2rem, 5vw, 3.25rem)/1.02 "Newsreader", var(--font-serif, Georgia), serif;
-  letter-spacing: -.035em;
-}
-
-.judgment__find {
-  display: grid;
-  gap: 9px;
-  margin: 0 0 34px;
-}
-
-.judgment__find > label {
-  color: var(--text-muted, var(--vellum-subtle));
-  font: 600 .68rem/1.2 var(--noeis-ui-font, sans-serif);
-  letter-spacing: .12em;
-  text-transform: uppercase;
-}
-
-.judgment__find > div {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: end;
-  gap: 18px;
-  border-bottom: 1px solid var(--noeis-rule, var(--vellum-line));
-}
-
-body.noeis-editorial .judgment .judgment__find input,
-.judgment .judgment__find input,
-.judgment__find select {
-  min-width: 0;
-  padding: 9px 0 !important;
-  border: 0 !important;
-  border-radius: 0;
-  background: transparent !important;
-  color: var(--text-primary, var(--vellum-ink)) !important;
-  font: 400 .92rem/1.4 var(--noeis-ui-font, sans-serif) !important;
-}
-
-.judgment__find select { color: var(--text-secondary, var(--vellum-subtle)) !important; }
-
-.judgment__find input:focus,
-.judgment__find select:focus { outline: 0; }
-
-.judgment__find > div:focus-within {
-  border-bottom-color: var(--vellum-accent);
-}
-
-.judgment__find > p {
-  margin: 0;
-  color: var(--text-muted, var(--vellum-subtle));
-  font: 400 .72rem/1.4 var(--noeis-ui-font, sans-serif);
-}
-
-.judgment__no-match {
-  padding: 28px 0;
-}
-
-.judgment__no-match h2 {
-  margin: 0 0 8px;
-  font: 450 1.25rem/1.3 var(--font-serif, Georgia, serif);
-}
-
-.judgment__no-match p {
-  max-width: 50ch;
-  margin: 0;
-  color: var(--text-secondary, var(--vellum-subtle));
-  line-height: 1.55;
-}
-
-.judgment__index {
-  display: grid;
-  gap: 26px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.judgment .judgment__index a {
-  color: var(--text-primary, var(--vellum-ink));
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
-  font-size: 1.28rem;
-  font-weight: 400;
-  line-height: 1.32;
-  text-decoration: none;
-  text-wrap: pretty;
-}
-
-.judgment__index a:hover,
-.judgment__index a:focus-visible {
-  color: var(--wiki-warm-accent, var(--vellum-warm));
-}
-
-/* The empty state is a sentence. */
-.judgment__nothing {
-  margin: 0;
-  max-width: 46ch;
-  color: var(--text-secondary, var(--vellum-muted));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.96rem;
-  line-height: 1.62;
-}
-
-@media (max-width: 640px) {
-  body.judgment-response-open,
-  body.judgment-context-open { overflow: hidden; }
-
-  .judgment-room {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .judgment-room__content {
-    order: 1;
-    border-left: 0;
-  }
-
-  .judgment-room__shelf {
-    order: 2;
-    padding: 24px 20px 56px;
-    border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 72%, transparent);
-  }
-
-  .judgment {
-    padding: 32px 20px 72px;
-  }
-
-  .judgment__find > div { grid-template-columns: 1fr; gap: 0; }
-  .judgment__find select { padding-top: 0 !important; }
-
-  .judgment-research-review.is-open {
-    position: fixed;
-    inset: 68px 0 0;
-    z-index: 40;
-    margin: 0;
-    padding: 0 24px 56px;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    border: 0;
-    background: var(--page-bg, var(--vellum-paper, #f8f5ee));
-  }
-
-  .judgment-research-review__panel { min-height: 100%; }
-
-  .judgment-context-tools.is-open {
-    position: fixed;
-    inset: 68px 0 0;
-    z-index: 40;
-    display: block;
-    margin: 0;
-    padding: 18px 24px 56px;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    border: 0;
-    background: var(--page-bg, var(--vellum-paper, #f8f5ee));
-  }
-
-  .judgment-context-tools.is-open > :not([aria-labelledby]):not(.judgment-context-tools__close) {
-    display: none;
-  }
-
-  .judgment-context-tools.is-open > section[aria-labelledby] {
-    margin-top: 24px;
-  }
-
-  .judgment-context-tools__close {
-    display: block;
-    margin-left: auto;
-  }
-
-  body.judgment-response-open .agent-rail-drawer__trigger,
-  body.judgment-context-open .agent-rail-drawer__trigger { display: none !important; }
-
-  .judgment-inbox__line {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 5px;
-    align-items: start;
-    max-height: 24rem;
-  }
-
-  .judgment__kind-words {
-    justify-self: start;
-  }
-}
-
-/* Reduced motion: everything appears instantly; nothing is lost. */
-@media (prefers-reduced-motion: reduce) {
-  .judgment__proposal,
-  .judgment-inbox__line,
-  .judgment__index li.is-forward,
-  .judgment__partner-note {
-    transform: none;
-    transition: none;
-    animation: none;
-  }
-}
-
-/* ---- Holding a sentence --------------------------------------------------
- *
- * The index is one field. The sentence you type is the claim. Nothing else
- * sits beside it.
- */
-.judgment__new {
-  display: grid;
-  gap: 10px;
-  margin: 0 0 44px;
-  padding: 0 0 28px;
-  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 62%, transparent);
-}
-
-.judgment__new.is-alone {
-  margin-bottom: 0;
-  padding-bottom: 0;
-  border-bottom: 0;
-}
-
-.judgment__new label {
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.84rem;
-}
-
-/* body.noeis-editorial input paints every field with !important, so the answer
-   has to out-rank it rather than match it. */
-body.noeis-editorial .judgment .judgment__new input,
-.judgment .judgment__new input {
-  width: 100%;
-  padding: 6px 0 !important;
-  color: var(--text-primary, var(--vellum-ink)) !important;
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif !important;
-  font-size: 1.32rem;
-  line-height: 1.3;
-}
-
-.judgment__new-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 8px 22px;
-}
-
-.judgment__new button {
-  min-height: 0;
-  padding: 0;
-  border: 0;
-  border-bottom: 1px solid currentColor;
-  border-radius: 0;
-  background: transparent;
-  color: var(--text-primary, var(--vellum-ink));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.9rem;
-  font-weight: 400;
-  cursor: pointer;
-}
-
-.judgment__new button:disabled {
-  border-bottom-color: transparent;
-  color: var(--text-muted, var(--vellum-subtle));
-  cursor: default;
-}
-
-.judgment__partner-note {
-  margin: 4px 0 0;
-  max-width: 46ch;
-  color: var(--ink-agent, color-mix(in srgb, var(--vellum-warm, #b1862e) 26%, var(--vellum-ink)));
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
-  font-size: 0.92rem;
-  font-style: italic;
-  line-height: 1.45;
-}
-
-.judgment__index-birth {
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
-  font-size: 0.72rem;
-  letter-spacing: 0.04em;
-}
-
-.judgment__index li.is-forward {
-  animation: judgment-slide-forward 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-@keyframes judgment-slide-forward {
-  from { transform: translate3d(0, 10px, 0); opacity: 0.55; }
-  to { transform: translate3d(0, 0, 0); opacity: 1; }
-}
-
-.judgment__new [role='alert'] {
-  color: var(--danger, #b94a48);
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.84rem;
-}
-
-.judgment__write-state {
-  min-width: 3.4rem;
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.78rem;
-}
-
-/* The pamphlet door, beside the way back. Quiet: printing a claim is a thing
-   you do occasionally, not the point of the page. */
-.judgment__print {
-  min-height: 0;
-  padding: 0;
-  border: 0;
-  border-bottom: 1px solid currentColor;
-  border-radius: 0;
-  background: transparent;
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.84rem;
-  cursor: pointer;
-}
-
-.judgment__print:disabled {
-  border-bottom-color: transparent;
-  cursor: default;
-  opacity: 0.6;
-}
-
-.judgment__print-error {
-  margin: 8px 0 0;
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.82rem;
-}
-
-/* What it taught me, on the claim it came from. */
-.judgment__lessons ul {
-  display: grid;
-  gap: 10px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.judgment__lessons li {
-  display: grid;
-  gap: 2px;
-  padding-left: 14px;
-  border-left: 1px solid var(--noeis-rule, var(--vellum-line));
-}
-
-.judgment__lessons li span {
-  color: var(--text-primary, var(--vellum-ink));
-  font-size: 1.02rem;
-  line-height: 1.5;
-}
-
-.judgment__lessons li small {
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.74rem;
-}
-
-/* Park: a word at the foot of the page, not a button competing with the claim. */
-.judgment-park {
-  display: grid;
-  gap: 10px;
-  justify-items: start;
-  padding-top: 18px;
-  border-top: 1px solid var(--noeis-rule, var(--vellum-line));
-}
-
-.judgment-park button {
-  min-height: 0;
-  padding: 0;
-  border: 0;
-  border-bottom: 1px solid currentColor;
-  border-radius: 0;
-  background: transparent;
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.84rem;
-  cursor: pointer;
-}
-
-.judgment-park button:hover,
-.judgment-park button:focus-visible {
-  color: var(--text-primary, var(--vellum-ink));
-}
-
-.judgment-park button:disabled {
-  border-bottom-color: transparent;
-  cursor: default;
-  opacity: 0.6;
-}
-
-.judgment-park button.is-quiet {
-  color: color-mix(in srgb, var(--text-muted, var(--vellum-subtle)) 70%, transparent);
-}
-
-.judgment-park label {
-  color: var(--text-primary, var(--vellum-ink));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.84rem;
-}
-
-/* Doubled and forced, the way every other writable line on this page has to
-   be: the app chrome styles bare inputs with a filled box, and a lesson is
-   written on a rule like everything else here. */
-body.noeis-editorial .judgment .judgment-park textarea,
-.judgment .judgment-park textarea {
-  width: min(100%, 52ch) !important;
-  padding: 4px 0 !important;
-  border: 0 !important;
-  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 55%, transparent) !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  color: var(--text-primary, var(--vellum-ink)) !important;
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif !important;
-  font-size: 1.02rem;
-  line-height: 1.5;
-  resize: vertical;
-}
-
-body.noeis-editorial .judgment .judgment-park textarea:focus,
-.judgment .judgment-park textarea:focus {
-  outline: none;
-  border-bottom-color: var(--text-primary, var(--vellum-ink)) !important;
-}
-
-body.noeis-editorial .judgment .judgment-park textarea::placeholder,
-.judgment .judgment-park textarea::placeholder {
-  color: var(--text-muted, var(--vellum-subtle));
-  opacity: 0.72;
-}
-
-.judgment-park__actions {
-  display: flex;
-  gap: 18px;
-}
-
-.judgment-park__state {
-  max-width: 56ch;
-  margin: 0;
-  color: var(--text-secondary, var(--vellum-subtle));
-  font-size: 0.96rem;
-  line-height: 1.5;
-}
-
-.judgment-park__error {
-  margin: 0;
-  color: var(--noeis-warning, #9a4a2d);
-  font-size: 0.88rem;
-}
-
-.judgment__lessons-door {
-  margin: 26px 0 0;
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.84rem;
-}
-
-.judgment__lessons-door a {
-  color: var(--text-muted, var(--vellum-subtle));
-  border-bottom: 1px solid currentColor;
-  text-decoration: none;
-}
-
-.judgment__lessons-door a:hover {
-  color: var(--text-primary, var(--vellum-ink));
-}
-
-/* The lessons page. The shortest thing in the product. */
-.lessons__title {
-  margin: 0 0 8px;
-  font-size: clamp(2rem, 3.4vw, 2.8rem);
-  line-height: 1.08;
-}
-
-.lessons__dek,
-.lessons__empty {
-  max-width: 54ch;
-  margin: 0 0 34px;
-  color: var(--text-secondary, var(--vellum-subtle));
-  font-size: 1.02rem;
-  line-height: 1.5;
-}
-
-.lessons__list {
-  display: grid;
-  gap: 30px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.lessons__text {
-  max-width: 58ch;
-  margin: 0 0 4px;
-  color: var(--text-primary, var(--vellum-ink));
-  font-size: 1.24rem;
-  line-height: 1.42;
-}
-
-.lessons__origin {
-  margin: 0;
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.78rem;
-}
-
-.lessons__origin a {
-  color: inherit;
-  border-bottom: 1px solid currentColor;
-  text-decoration: none;
-}
-
-.lessons__origin a:hover {
-  color: var(--text-primary, var(--vellum-ink));
-}
-
-/* The mark on an index row. It appears on two states out of five, and on a
-   quiet list it appears nowhere at all — a claim nothing has arrived for is
-   not a problem, and the list has to be able to say nothing. */
-.judgment__index li {
-  display: grid;
-  gap: 2px;
-}
-
-.judgment__index-note {
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.76rem;
-  letter-spacing: 0.02em;
-}
-
-.judgment__index-research-review {
-  margin-top: 3px;
-  color: color-mix(in srgb, var(--vellum-accent) 84%, var(--text-primary, var(--vellum-ink)));
-}
-
-.judgment__index li[data-state="avoided"] .judgment__index-note {
-  color: color-mix(in srgb, var(--wiki-warm-accent, var(--vellum-warm, #b1862e)) 78%, var(--text-primary, var(--vellum-ink)));
-}
-
-.judgment__index li[data-state="parked"] a {
-  color: color-mix(in srgb, var(--text-primary, var(--vellum-ink)) 62%, transparent);
-}
-
-/* The week. Counts, not exhortation; and the only section that asks anything
-   is the one about evidence you have not read. */
-.brief__title {
-  margin: 0 0 20px;
-  font-size: clamp(2rem, 3.4vw, 2.8rem);
-  line-height: 1.08;
-}
-
-.brief__opening {
-  max-width: 54ch;
-  margin: 0 0 40px;
-  color: var(--text-primary, var(--vellum-ink));
-  font-size: 1.24rem;
-  line-height: 1.42;
-}
-
-.brief__body {
-  display: grid;
-  gap: 34px;
-}
-
-.brief__return {
-  position: relative;
-  display: grid;
-  gap: 6px;
-  max-width: 58ch;
-  padding: 4px 0 4px 20px;
-}
-
-.brief__return::before {
-  position: absolute;
-  top: 8px;
-  bottom: 8px;
-  left: 0;
-  width: 1px;
-  background: var(--wiki-warm-accent, var(--vellum-warm, #b1862e));
-  content: '';
-}
-
-.brief__return-label {
-  margin: 0;
-  color: var(--wiki-warm-accent, var(--vellum-warm, #b1862e));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
-.brief__return h2,
-.brief__return p {
-  margin: 0;
-}
-
-.brief__return h2 {
-  font-size: 1.3rem;
-  font-weight: 500;
-  line-height: 1.3;
-}
-
-.brief__return p:not(.brief__return-label) {
-  color: var(--text-secondary, var(--vellum-subtle));
-  line-height: 1.5;
-}
-
-.brief__return a {
-  justify-self: start;
-  margin-top: 6px;
-  color: var(--text-primary, var(--vellum-ink));
-  border-bottom: 1px solid currentColor;
-  text-decoration: none;
-}
-
-.brief__section h2 {
-  margin: 0 0 4px;
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.78rem;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
-.brief__section-note {
-  max-width: 54ch;
-  margin: 0 0 12px;
-  color: var(--text-secondary, var(--vellum-subtle));
-  font-size: 0.94rem;
-  line-height: 1.5;
-}
-
-.brief__section ul {
-  display: grid;
-  gap: 12px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.brief__section li {
-  display: grid;
-  gap: 2px;
-}
-
-.brief__section a {
-  max-width: 58ch;
-  color: var(--text-primary, var(--vellum-ink));
-  font-size: 1.06rem;
-  line-height: 1.42;
-  text-decoration: none;
-}
-
-.brief__section a:hover {
-  border-bottom: 1px solid currentColor;
-}
-
-.brief__row-note {
-  color: color-mix(in srgb, var(--wiki-warm-accent, var(--vellum-warm, #b1862e)) 78%, var(--text-primary, var(--vellum-ink)));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.76rem;
-}
-
-.brief__learned li span {
-  display: block;
-  max-width: 58ch;
-  color: var(--text-primary, var(--vellum-ink));
-  font-size: 1.06rem;
-  line-height: 1.42;
-}
-
-.brief__learned li a {
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.76rem;
-}
-
-.brief__quiet-note,
-.brief__kept {
-  margin: 0;
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.82rem;
-}
-
-.brief__kept a {
-  color: inherit;
-  border-bottom: 1px solid currentColor;
-  text-decoration: none;
+.judgment-mirror h1 {
+  margin: 0.4rem 0;
+  color: var(--noeis-ink, var(--text-primary));
+  font: 400 clamp(3rem, 7vw, 5.5rem)/0.95 var(--noeis-display-font, var(--noeis-font-reading, serif));
 }
 
-.brief__kept a:hover {
-  color: var(--text-primary, var(--vellum-ink));
+.judgment-mirror h2 {
+  margin: 0 0 1rem;
+  color: var(--noeis-ink, var(--text-primary));
+  font: 600 0.78rem/1.3 var(--noeis-font-ui, sans-serif);
 }
 
-/* The Mirror. Typographic, not a dashboard. Every number is a door. */
 .mirror__stats {
   display: grid;
   gap: 18px;
-  margin: 0 0 36px;
+  margin: 0 0 3rem;
   padding: 0;
   list-style: none;
 }
@@ -2529,1628 +497,149 @@ body.noeis-editorial .judgment .judgment-park textarea::placeholder,
 }
 
 .mirror__stat-label {
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
-  font-size: 0.72rem;
-  letter-spacing: 0.04em;
+  color: var(--noeis-ink-subtle, var(--text-muted));
+  font: 400 0.8rem/1.3 var(--noeis-font-ui, sans-serif);
 }
 
 .mirror__stat-value {
-  color: var(--text-primary, var(--vellum-ink));
-  font-family: "Newsreader", Georgia, serif;
-  font-size: 1.28rem;
-  line-height: 1.35;
-  text-wrap: pretty;
-}
-
-.mirror__stats li.is-open .mirror__stat-value {
-  border-bottom: 1px solid currentColor;
-}
-
-.mirror__stats a:hover .mirror__stat-value {
-  border-bottom: 1px solid currentColor;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .mirror__stats a {
-    transition: none;
-  }
-}
-
-/* What this rests on. The only structure in the product, and it stays in the
-   page's grammar: sentences, a rule, and a word to press. */
-.judgment-depends__list,
-.judgment-depends__supports ul {
-  display: grid;
-  gap: 12px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.judgment-depends__list li,
-.judgment-depends__supports li {
-  display: grid;
-  gap: 2px;
-  padding-left: 14px;
-  border-left: 1px solid var(--noeis-rule, var(--vellum-line));
-}
-
-.judgment-depends a {
-  max-width: 58ch;
-  color: var(--text-primary, var(--vellum-ink));
-  font-size: 1.02rem;
-  line-height: 1.45;
-  text-decoration: none;
-}
-
-.judgment-depends a:hover {
-  border-bottom: 1px solid currentColor;
-}
-
-.judgment-depends__note {
-  margin: 0;
-  max-width: 56ch;
-  color: var(--text-secondary, var(--vellum-subtle));
-  font-size: 0.92rem;
-  line-height: 1.45;
-}
-
-.judgment-depends__missing {
-  color: var(--text-muted, var(--vellum-subtle));
-  font-style: italic;
-}
-
-.judgment-depends__empty {
-  margin: 0;
-  color: var(--text-secondary, var(--vellum-subtle));
-  font-size: 0.96rem;
-}
-
-.judgment-depends button,
-.judgment-depends__open {
   justify-self: start;
-  min-height: 0;
-  padding: 0;
-  border: 0;
-  border-bottom: 1px solid currentColor;
-  border-radius: 0;
-  background: transparent;
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.8rem;
-  cursor: pointer;
-}
-
-.judgment-depends button:hover,
-.judgment-depends button:focus-visible {
-  color: var(--text-primary, var(--vellum-ink));
-}
-
-.judgment-depends button:disabled {
-  border-bottom-color: transparent;
-  cursor: default;
-  opacity: 0.6;
-}
-
-.judgment-depends__add {
-  display: grid;
-  gap: 6px;
-  justify-items: start;
-  margin-top: 14px;
-}
-
-.judgment-depends__add label {
-  color: var(--text-primary, var(--vellum-ink));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.82rem;
-}
-
-body.noeis-editorial .judgment .judgment-depends__add input,
-body.noeis-editorial .judgment .judgment-depends__add select,
-.judgment .judgment-depends__add input,
-.judgment .judgment-depends__add select {
-  width: min(100%, 52ch) !important;
-  padding: 4px 0 !important;
-  border: 0 !important;
-  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 55%, transparent) !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  color: var(--text-primary, var(--vellum-ink)) !important;
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif !important;
-  font-size: 1.02rem;
-  line-height: 1.5;
-}
-
-.judgment-depends__actions {
-  display: flex;
-  gap: 18px;
-  margin-top: 6px;
-}
-
-.judgment-depends__supports {
-  margin-top: 22px;
-  padding-top: 16px;
-  border-top: 1px solid var(--noeis-rule, var(--vellum-line));
-}
-
-.judgment-depends__supports h3 {
-  margin: 0 0 10px;
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.76rem;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
-.judgment-depends__error {
-  margin: 0;
-  color: var(--noeis-warning, #9a4a2d);
-  font-size: 0.88rem;
-}
-
-.judgment-park__supports {
-  max-width: 56ch;
-  margin: 0;
-  color: var(--text-secondary, var(--vellum-subtle));
-  font-size: 0.94rem;
-  line-height: 1.5;
-}
-
-.judgment-park__supports a {
-  color: var(--text-primary, var(--vellum-ink));
-  border-bottom: 1px solid currentColor;
-  text-decoration: none;
-}
-
-/* Lessons under the claim they came out of. Indented so they read as
-   belonging to it, and quieter, because the claim is still the row. */
-.judgment__index-lessons {
-  display: grid;
-  gap: 4px;
-  margin: 4px 0 0;
-  padding: 0 0 0 14px;
-  border-left: 1px solid var(--noeis-rule, var(--vellum-line));
-  list-style: none;
-}
-
-.judgment__index-lessons li {
-  max-width: 56ch;
-  color: var(--text-secondary, var(--vellum-subtle));
-  font-size: 0.94rem;
-  line-height: 1.45;
-}
-
-/* The one way in to the week, at the foot of the claims it reports on. */
-.judgment__week-door {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 22px;
-  margin: 26px 0 0;
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.84rem;
-}
-
-.judgment__week-door a {
-  color: var(--text-muted, var(--vellum-subtle));
-  border-bottom: 1px solid currentColor;
-  text-decoration: none;
-}
-
-.judgment__week-door a:hover {
-  color: var(--text-primary, var(--vellum-ink));
-}
-
-/* Accepted research enters Judgment as a question, never as a rewritten
-   belief. It shares the case's typography and rules instead of becoming a
-   dashboard card, so the owner can read the delta and answer in place. */
-.judgment-research-review {
-  margin: 22px 0 30px;
-  padding: 0;
-  border-top: 1px solid var(--noeis-rule, var(--vellum-line));
-  border-bottom: 1px solid var(--noeis-rule, var(--vellum-line));
-}
-
-.judgment-research-review__cue {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 5px 18px;
-  width: 100%;
-  padding: 17px 0 18px;
-  border: 0;
-  background: transparent;
-  color: var(--text-primary, var(--vellum-ink));
-  text-align: left;
-  cursor: pointer;
-}
-
-.judgment-research-review__cue span {
-  grid-column: 1;
-  color: var(--vellum-accent);
-  font: 700 .68rem/1.2 var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  letter-spacing: .14em;
-  text-transform: uppercase;
-}
-
-.judgment-research-review__cue strong {
-  grid-column: 1;
-  max-width: 58ch;
-  font: 450 1.08rem/1.35 var(--font-serif, Georgia, serif);
-}
-
-.judgment-research-review__cue i {
-  grid-column: 2;
-  grid-row: 1 / 3;
-  align-self: center;
-  color: var(--vellum-accent);
-  font: 300 2.7rem/1 var(--font-serif, Georgia, serif);
-  transform: scaleX(.72);
-}
-
-.judgment-research-review__panel {
-  display: grid;
-  gap: 18px;
-  padding: 22px 0 24px;
-}
-
-.judgment-research-review__panel > header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 24px;
-}
-
-.judgment-research-review__close {
-  border: 0;
-  padding: 0;
-  background: transparent;
-  color: var(--text-muted, var(--vellum-subtle));
-  font: 300 1.6rem/1 var(--noeis-ui-font, sans-serif);
-  cursor: pointer;
-}
-
-.judgment-research-review__eyebrow {
-  margin: 0 0 7px;
-  color: var(--vellum-accent);
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
-.judgment-research-review h2 {
-  max-width: 34ch;
-  margin: 0;
-  font-size: clamp(1.35rem, 2.5vw, 1.8rem);
-  font-weight: 450;
-  line-height: 1.12;
-}
-
-.judgment-research-review__panel > p:not(.judgment-research-review__eyebrow):not(.judgment-research-review__error) {
-  max-width: 64ch;
-  margin: 9px 0 0;
-  color: var(--text-secondary, var(--vellum-subtle));
-  line-height: 1.5;
-}
-
-.judgment-research-review__beside {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: clamp(18px, 4vw, 38px);
-}
-
-.judgment-research-review__beside > div + div {
-  border-left: 1px solid var(--noeis-rule, var(--vellum-line));
-  padding-left: clamp(18px, 4vw, 38px);
-}
-
-.judgment-research-review__beside span,
-.judgment-research-review__preview-label,
-.judgment-research-review dt {
-  color: var(--text-muted, var(--vellum-subtle));
-  font: 600 .66rem/1.2 var(--noeis-ui-font, sans-serif);
-  letter-spacing: .12em;
-  text-transform: uppercase;
-}
-
-.judgment-research-review blockquote {
-  margin: 7px 0 0;
-  color: var(--text-primary, var(--vellum-ink));
-  font: 400 1.04rem/1.48 var(--font-serif, Georgia, serif);
-}
-
-.judgment-research-review__beside small,
-.judgment-research-review__provenance {
-  display: block;
-  margin-top: 7px;
-  color: var(--text-muted, var(--vellum-subtle));
-  font: 400 .75rem/1.45 var(--noeis-ui-font, sans-serif);
-}
-
-.judgment-research-review ul {
-  display: grid;
-  gap: 9px;
-  margin: 16px 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.judgment-research-review li {
-  display: grid;
-  gap: 2px;
-  max-width: 68ch;
-}
-
-.judgment-research-review li strong {
-  font-weight: 500;
-}
-
-.judgment-research-review li span,
-.judgment-research-review__expectations {
-  color: var(--text-secondary, var(--vellum-subtle));
-  font-size: 0.9rem;
-  line-height: 1.45;
-}
-
-.judgment-research-review__panel > a {
-  width: max-content;
-  color: var(--text-secondary, var(--vellum-subtle));
-  border-bottom: 1px solid currentColor;
-  font: 400 .8rem/1.4 var(--noeis-ui-font, sans-serif);
-  text-decoration: none;
-}
-
-.judgment-research-review__panel label {
-  display: grid;
-  gap: 7px;
-  color: var(--text-muted, var(--vellum-subtle));
-  font: 600 .68rem/1.2 var(--noeis-ui-font, sans-serif);
-  letter-spacing: .1em;
-  text-transform: uppercase;
-}
-
-.judgment-research-review textarea,
-.judgment-research-review input {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 8px 0;
-  border: 0;
-  border-bottom: 1px solid var(--noeis-rule, var(--vellum-line));
-  border-radius: 0;
-  background: transparent;
-  color: var(--text-primary, var(--vellum-ink));
-  font: 400 1rem/1.5 var(--font-serif, Georgia, serif);
-  letter-spacing: 0;
-  text-transform: none;
-  resize: vertical;
-}
-
-.judgment-research-review textarea:focus,
-.judgment-research-review input:focus {
-  outline: 0;
-  border-color: var(--vellum-accent);
-}
-
-.judgment-research-review__choices {
-  display: grid;
-  gap: 10px;
-  margin: 0;
-  padding: 0;
-  border: 0;
-}
-
-.judgment-research-review__choices legend {
-  margin-bottom: 8px;
-  color: var(--text-secondary, var(--vellum-subtle));
-  font: 500 .82rem/1.35 var(--noeis-ui-font, sans-serif);
-}
-
-.judgment-research-review__choices > div {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.judgment-research-review__choices button {
-  padding: 7px 12px;
-  border: 1px solid var(--noeis-rule, var(--vellum-line));
-  border-radius: 999px;
-  background: transparent;
-  color: var(--text-secondary, var(--vellum-subtle));
-  font: 500 .76rem/1 var(--noeis-ui-font, sans-serif);
-  cursor: pointer;
-}
-
-.judgment-research-review__choices button[aria-pressed="true"] {
-  border-color: var(--vellum-accent);
-  background: color-mix(in srgb, var(--vellum-accent) 9%, transparent);
-  color: var(--text-primary, var(--vellum-ink));
-}
-
-.judgment-research-review__return {
-  margin-top: 4px;
-}
-
-.judgment-research-review__preview {
-  display: grid;
-  gap: 18px;
-}
-
-.judgment-research-review__preview > p { margin: 0; }
-
-.judgment-research-review__preview dl {
-  display: grid;
-  gap: 13px;
-  margin: 0;
-}
-
-.judgment-research-review__preview dl > div {
-  display: grid;
-  grid-template-columns: 8rem 1fr;
-  gap: 18px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--noeis-rule, var(--vellum-line));
-}
-
-.judgment-research-review dd {
-  margin: 0;
-  color: var(--text-primary, var(--vellum-ink));
-  font: 400 1rem/1.48 var(--font-serif, Georgia, serif);
-}
-
-.judgment-research-review__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px 20px;
-  margin-top: 18px;
-}
-
-.judgment-research-review__actions button {
-  padding: 0 0 3px;
-  border: 0;
-  border-bottom: 1px solid currentColor;
-  background: transparent;
-  color: var(--text-primary, var(--vellum-ink));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.8rem;
-  text-decoration: none;
-  cursor: pointer;
-}
-
-.judgment-research-review__actions button:disabled {
-  cursor: default;
-  opacity: 0.55;
-}
-
-.judgment-research-review__error {
-  margin: 12px 0 0;
-  color: var(--noeis-warning, #9a4a2d);
-  font-size: 0.86rem;
-}
-
-.judgment-research-review__saved {
-  margin: -8px 0 0;
-  color: var(--text-muted, var(--vellum-subtle));
-  font: 400 .74rem/1.4 var(--noeis-ui-font, sans-serif);
-}
-
-.judgment-research-review__provenance p {
-  margin: 0;
-}
-
-.judgment-research-review__provenance button,
-.judgment-context__back,
-.judgment-context-tools__close {
-  width: max-content;
-  margin-top: 7px;
-  padding: 0 0 2px;
-  border: 0;
-  border-bottom: 1px solid currentColor;
-  background: transparent;
-  color: var(--vellum-accent);
-  font: 600 .72rem/1.35 var(--noeis-ui-font, sans-serif);
-  cursor: pointer;
-}
-
-.judgment-research-review__provenance small {
-  display: block;
-  margin-top: 5px;
-}
-
-.judgment-observation-lineage {
-  display: grid;
-  gap: 24px;
-}
-
-.judgment-observation-lineage > header,
-.judgment-observation-lineage > section,
-.judgment-observation-lineage > article {
-  max-width: 66ch;
-}
-
-.judgment-observation-lineage h3 {
-  margin: 0;
-  color: var(--text-primary, var(--vellum-ink));
-  font: 450 clamp(1.35rem, 2.5vw, 1.8rem)/1.15 var(--font-serif, Georgia, serif);
-}
-
-.judgment-observation-lineage h4 {
-  margin: 0 0 5px;
-  color: var(--text-primary, var(--vellum-ink));
-  font: 500 1rem/1.35 var(--font-serif, Georgia, serif);
-}
-
-.judgment-observation-lineage p {
-  margin: 5px 0 0;
-  color: var(--text-secondary, var(--vellum-subtle));
-  line-height: 1.5;
-}
-
-.judgment-observation-lineage ol {
-  display: grid;
-  gap: 0;
-  margin: 14px 0 0;
-  padding: 0;
-  border-top: 1px solid var(--noeis-rule, var(--vellum-line));
-  list-style: none;
-}
-
-.judgment-observation-lineage li {
-  max-width: none;
-  border-bottom: 1px solid var(--noeis-rule, var(--vellum-line));
-}
-
-.judgment-observation-lineage li button {
-  display: flex;
-  justify-content: space-between;
-  gap: 18px;
-  width: 100%;
-  padding: 12px 0;
-  border: 0;
-  background: transparent;
-  color: var(--text-primary, var(--vellum-ink));
-  font: 400 .95rem/1.4 var(--font-serif, Georgia, serif);
-  text-align: left;
-  cursor: pointer;
-}
-
-.judgment-observation-lineage li button small {
-  flex: none;
-  color: var(--text-muted, var(--vellum-subtle));
-  font: 500 .66rem/1.4 var(--noeis-ui-font, sans-serif);
-  letter-spacing: .08em;
-  text-transform: uppercase;
-}
-
-.judgment-observation-lineage__proposed {
-  padding-top: 18px;
-  border-top: 1px solid var(--noeis-rule, var(--vellum-line));
-}
-
-.judgment-observation-lineage__proposal {
-  padding: 10px 0;
-  border-bottom: 1px solid var(--noeis-rule, var(--vellum-line));
-}
-
-.judgment-observation-lineage__proposal > span {
-  display: flex;
-  gap: 14px;
-  margin-top: 7px;
-}
-
-.judgment-observation-lineage__proposal button {
-  padding: 0 0 2px;
-  border: 0;
-  border-bottom: 1px solid currentColor;
-  background: transparent;
-  color: var(--vellum-accent);
-  font: 600 .7rem/1.4 var(--noeis-ui-font, sans-serif);
-  cursor: pointer;
-}
-
-.judgment-observation-lineage--account blockquote {
-  margin: 18px 0;
-  padding-left: 18px;
-  border-left: 2px solid color-mix(in srgb, var(--vellum-accent) 55%, transparent);
-  white-space: pre-wrap;
-}
-
-.judgment-observation-lineage--account dl {
-  display: grid;
-  gap: 7px;
-  margin: 18px 0;
-}
-
-.judgment-observation-lineage--account dl div {
-  display: grid;
-  grid-template-columns: 8rem 1fr;
-  gap: 16px;
-}
-
-.judgment-observation-lineage--account dd { margin: 0; }
-
-.judgment-observation-lineage--account a {
-  color: var(--text-secondary, var(--vellum-subtle));
-  text-underline-offset: 3px;
-}
-
-.judgment-observation-lineage__version,
-.judgment-observation-lineage__missing {
-  color: var(--text-muted, var(--vellum-subtle));
-  font: 400 .76rem/1.45 var(--noeis-ui-font, sans-serif);
-}
-
-.judgment-context-tools__close {
-  margin: 0 0 0 auto;
-  color: var(--text-muted, var(--vellum-subtle));
-}
-
-.judgment-context-tools.is-open > section[aria-labelledby] {
-  animation: judgment-context-enter 180ms cubic-bezier(.16, 1, .3, 1) both;
-}
-
-@keyframes judgment-context-enter {
-  from { opacity: 0; transform: translateY(5px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .judgment-context-tools.is-open > section[aria-labelledby] { animation: none; }
-}
-
-/* A proposed mind-change is set like an editorial correction beneath the
-   sentence it may replace. No card chrome: the two sentences and four quiet
-   verbs are the whole interaction. */
-.judgment-change {
-  margin: clamp(1.4rem, 3vw, 2.6rem) 0;
-  padding: 1rem 0 1.15rem;
-  border-top: 1px solid var(--line, rgba(28, 25, 20, 0.14));
-  border-bottom: 1px solid var(--line, rgba(28, 25, 20, 0.14));
-}
-
-.judgment-change__eyebrow,
-.judgment-change__receipt {
-  margin: 0 0 0.75rem;
-  color: var(--ink-muted, #777066);
-  font: 500 0.68rem/1.35 var(--font-sans, sans-serif);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
-.judgment-change__before,
-.judgment-change__after {
-  margin: 0;
-  max-width: 44rem;
-  font: 400 clamp(1.02rem, 1.5vw, 1.22rem)/1.48 var(--font-serif, serif);
-}
-
-.judgment-change__before {
-  color: var(--ink-muted, #777066);
-  text-decoration: line-through;
-  text-decoration-thickness: 1px;
-}
-
-.judgment-change__after {
-  margin-top: 0.45rem;
-  color: var(--ink, #2d2922);
-}
-
-.judgment-change__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem 1rem;
-  margin-top: 1rem;
-}
-
-.judgment-change__actions button {
-  appearance: none;
-  padding: 0.2rem 0;
-  border: 0;
-  border-bottom: 1px solid currentColor;
-  background: transparent;
-  color: var(--ink-muted, #777066);
-  font: 500 0.75rem/1.4 var(--font-sans, sans-serif);
-  cursor: pointer;
-}
-
-.judgment-change__actions button:first-child {
-  color: var(--ink, #2d2922);
-}
-
-.judgment-change__actions button:disabled {
-  cursor: wait;
-  opacity: 0.45;
-}
-
-.judgment-change__receipt {
-  margin-top: 0.9rem;
-  margin-bottom: 0;
-  letter-spacing: 0.04em;
-  text-transform: none;
-}
-
-.judgment-change__error {
-  margin: 0.8rem 0 0;
-  color: var(--danger, #8b3328);
-  font: 400 0.82rem/1.5 var(--font-sans, sans-serif);
-}
-/* One accepted write, one quiet thread. It lives over the page rather than in
-   layout, so neither the claim nor its receipt moves while provenance arrives. */
-.ariadne-thread {
-  position: fixed;
-  inset: 0;
-  z-index: 18;
-  display: block;
-  pointer-events: none;
-}
-
-.ariadne-thread__line {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-}
-
-.ariadne-thread__line path {
-  fill: none;
-  stroke: var(--noeis-gold, #a77721);
-  stroke-width: 1;
-  stroke-linecap: round;
-  stroke-dasharray: 1;
-  stroke-dashoffset: 1;
-  vector-effect: non-scaling-stroke;
-  animation: ariadne-travel 760ms cubic-bezier(0.16, 1, 0.3, 1) forwards,
-    ariadne-vanish 320ms ease 980ms forwards;
-}
-
-.ariadne-thread__knot {
-  position: fixed;
-  width: 6px;
-  height: 6px;
-  border: 1px solid var(--noeis-gold, #a77721);
-  border-radius: 50%;
-  background: var(--paper, #f7f3eb);
-  opacity: 0;
-  transform: translate(-50%, -50%) scale(0.7);
-  animation: ariadne-knot 700ms cubic-bezier(0.16, 1, 0.3, 1) 560ms forwards;
-}
-
-.ariadne-thread--reduced .ariadne-thread__knot {
-  animation: ariadne-knot-reduced 600ms linear forwards;
-}
-
-@keyframes ariadne-travel {
-  to { stroke-dashoffset: 0; }
-}
-
-@keyframes ariadne-vanish {
-  to { opacity: 0; }
-}
-
-@keyframes ariadne-knot {
-  30%, 70% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-  to { opacity: 0; transform: translate(-50%, -50%) scale(0.82); }
-}
-
-@keyframes ariadne-knot-reduced {
-  20%, 70% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-  to { opacity: 0; transform: translate(-50%, -50%) scale(1); }
-}
-
-/* Stage 5 — the room. Overlay, not a merge. Ink on paper. No glass,
-   no member counts, no chat, no likes. */
-.living-team {
-  margin: 2.6rem 0 1.2rem;
-  color: var(--ink-muted, #6f695f);
-}
-
-.living-team h2,
-.living-team h3 {
-  margin: 0 0 .85rem;
-  color: var(--ink, #302a23);
-  font: 500 .72rem/1.2 var(--font-sans, sans-serif);
-  letter-spacing: .16em;
-  text-transform: uppercase;
-}
-
-.living-team__silence,
-.living-team__exposure,
-.living-team__memory,
-.living-team__authority,
-.living-team small {
-  font-size: .84rem;
-  line-height: 1.5;
-}
-
-.living-team__memory {
-  max-width: 38rem;
-  margin: 1rem 0 0;
-  color: var(--ink, #302a23);
-  font-family: "Newsreader", var(--font-serif, Georgia), serif;
-  font-style: italic;
-}
-
-.living-team__silence button,
-.living-team button {
-  margin-left: .6rem;
-  padding: 0;
-  border: 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 70%, transparent);
-  background: transparent;
-  color: var(--ink, #302a23);
-  font: inherit;
-  cursor: pointer;
-}
-
-.living-team__mandate,
-.living-team__claim {
-  margin: 0 0 .8rem;
-  color: var(--ink, #302a23);
-  font: 400 1.25rem/1.35 "Newsreader", var(--font-serif, Georgia), serif;
-}
-
-.living-team__overlay {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
-  gap: 1.4rem 2rem;
-  margin: 1.2rem 0 2rem;
-}
-
-.living-team__position {
-  display: grid;
-  gap: .35rem;
-}
-
-.living-team__who,
-.living-team__posture,
-.living-team__confidence,
-.living-team__position span,
-.living-team__brief span,
-.living-team__walk span {
-  letter-spacing: .12em;
-  text-transform: uppercase;
-  font: 500 .68rem/1.3 var(--font-sans, sans-serif);
-}
-
-.living-team__who a,
-.living-team__brief a,
-.living-team__dissent a,
-.living-team__walk a {
-  color: var(--ink, #302a23);
-  text-decoration: none;
-  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 55%, transparent);
-}
-
-.living-team__dissent ol,
-.living-team__brief ol,
-.living-team__approvals ol,
-.living-team__walk ol {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.living-team__dissent li,
-.living-team__brief li,
-.living-team__approvals li,
-.living-team__walk li {
-  display: grid;
-  gap: .2rem;
-  padding: .7rem 0;
-  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 55%, transparent);
-}
-
-.living-team__approvals li.is-superseded {
-  opacity: .62;
-}
-
-.living-team__grant,
-.living-team__handoff,
-.living-team__approve {
-  display: grid;
-  gap: .7rem;
-  margin: 1.8rem 0 0;
-  max-width: 28rem;
-}
-
-.living-team label {
-  display: grid;
-  gap: .25rem;
-  font: 500 .68rem/1.3 var(--font-sans, sans-serif);
-  letter-spacing: .12em;
-  text-transform: uppercase;
-}
-
-.living-team input,
-.living-team select {
-  width: 100%;
-  border: 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 70%, transparent);
-  background: transparent;
-  color: var(--ink, #302a23);
-  font: 400 1.05rem/1.4 "Newsreader", var(--font-serif, Georgia), serif;
-}
-
-.living-team__error { color: var(--danger, #8b3d32); }
-
-.living-team__overlay,
-.living-team__dissent,
-.living-team__brief {
-  transition: opacity 180ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.living-team.is-still .living-team__overlay,
-.living-team.is-still .living-team__dissent,
-.living-team.is-still .living-team__brief {
-  transition: none;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .living-team__overlay,
-  .living-team__dissent,
-  .living-team__brief {
-    transition: none;
-  }
-}
-
-/* Stage 6 — quiet thread, tracing paper, night watch. Ink on paper. */
-.ariadne-lineage,
-.tracing-paper,
-.night-watch,
-.take-the-paper {
-  margin: 2.4rem 0 1rem;
-  color: var(--ink-muted, #6f695f);
-}
-
-.ariadne-lineage h2,
-.tracing-paper h2,
-.night-watch h2,
-.take-the-paper h2,
-.judgment-mirror__calibration h2 {
-  margin: 0 0 .85rem;
-  color: var(--ink, #302a23);
-  font: 500 .72rem/1.2 var(--font-sans, sans-serif);
-  letter-spacing: .16em;
-  text-transform: uppercase;
-}
-
-.ariadne-lineage ol,
-.tracing-paper ol,
-.night-watch ol {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.ariadne-lineage li,
-.tracing-paper__sheet,
-.night-watch article {
-  padding: .75rem 0;
-  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 55%, transparent);
-}
-
-.ariadne-lineage p,
-.tracing-paper p,
-.night-watch p,
-.take-the-paper p,
-.judgment-mirror__calibration p,
-.judgment-mirror__selection {
-  margin: 0 0 .45rem;
-  font: 400 1.05rem/1.45 "Newsreader", var(--font-serif, Georgia), serif;
-  color: var(--ink, #302a23);
-}
-
-.ariadne-lineage__silence,
-.night-watch__silence,
-.tracing-paper__uncertainty,
-.take-the-paper small,
-.tracing-paper small,
-.night-watch small {
-  color: var(--ink-muted, #6f695f);
-  font-size: .84rem;
-  font-style: italic;
-}
-
-.ariadne-lineage a,
-.tracing-paper a {
-  color: var(--ink, #302a23);
-  text-decoration: none;
-  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 55%, transparent);
-}
-
-.ariadne-lineage button,
-.tracing-paper button,
-.night-watch button,
-.take-the-paper button,
-.ariadne-lineage__quiet,
-.tracing-paper__quiet,
-.night-watch__quiet,
-.take-the-paper__quiet {
-  padding: 0;
-  border: 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 70%, transparent);
-  background: transparent;
-  color: var(--ink, #302a23);
-  font: inherit;
-  cursor: pointer;
-}
-
-.ariadne-lineage__form,
-.tracing-paper__form,
-.night-watch form,
-.take-the-paper label {
-  display: grid;
-  gap: .7rem;
-  margin: 1.4rem 0 0;
-  max-width: 28rem;
-}
-
-.ariadne-lineage label,
-.tracing-paper label,
-.night-watch label,
-.take-the-paper label {
-  display: grid;
-  gap: .25rem;
-  font: 500 .68rem/1.3 var(--font-sans, sans-serif);
-  letter-spacing: .12em;
-  text-transform: uppercase;
-}
-
-.ariadne-lineage input,
-.tracing-paper input,
-.night-watch input {
-  width: 100%;
-  border: 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 70%, transparent);
-  background: transparent;
-  color: var(--ink, #302a23);
-  font: 400 1.05rem/1.4 "Newsreader", var(--font-serif, Georgia), serif;
-}
-
-.tracing-paper__live {
-  font: 400 1.25rem/1.35 "Newsreader", var(--font-serif, Georgia), serif;
-}
-
-.tracing-paper__kind,
-.ariadne-lineage__part {
-  letter-spacing: .12em;
-  text-transform: uppercase;
-  font: 500 .68rem/1.3 var(--font-sans, sans-serif) !important;
-}
-
-.tracing-paper__sheet,
-.ariadne-lineage li,
-.night-watch article {
-  transition: opacity 180ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.ariadne-lineage.is-still .ariadne-lineage li,
-.tracing-paper.is-still .tracing-paper__sheet {
-  transition: none;
-}
-
-.ariadne-lineage__error,
-.tracing-paper__error,
-.night-watch__error,
-.take-the-paper__error {
-  color: var(--danger, #8b3d32);
-}
-
-.judgment-mirror__calibration {
-  margin: 0 0 4rem;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .tracing-paper__sheet,
-  .ariadne-lineage li,
-  .night-watch article {
-    transition: none;
-  }
-}
-
-/* The receipt a revised belief leaves behind. Mono, quiet, and only ever
-   printing clauses that were true at the moment the write completed. */
-.judgment__landing {
-  margin: 0.35rem 0 0;
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
-  font-size: 0.72rem;
-  letter-spacing: 0.04em;
-}
-
-/* The skeptic reporting an empty search. Same paper edge as the inbox it
-   replaces, so the slot does not move when a finding becomes no finding. */
-.judgment-inbox__nothing {
-  margin: 0;
-  padding-left: 0.7rem;
-  border-left: 1px solid var(--rule-soft, var(--vellum-rule, rgba(120, 120, 120, 0.22)));
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
-  font-size: 0.72rem;
-  letter-spacing: 0.04em;
-}
-
-/* What pressing a disposition would do, said before it is pressed. It holds
-   its line whether or not anything is being previewed, so the buttons never
-   move under the cursor that is reading about them. */
-.judgment-change__preview {
-  min-height: 1.05rem;
-  margin: 0.4rem 0 0;
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
-  font-size: 0.72rem;
-  letter-spacing: 0.04em;
-}
-
-/* The research anniversary.
-   Once a year, and never announced twice. It is set in the reading serif
-   rather than the mono readouts, because this is the one line on the page
-   that is not a measurement — it is the product remembering something with
-   you. The rule to its left is the same one the delta and the empty search
-   use, so a memory arrives in the margin where everything else does.
-
-   The ink settles rather than appears: a memory that popped would read as a
-   notification, and this is not one. Reduced motion gets the line instantly,
-   fully inked, which is the same fact without the flourish. */
-.judgment__anniversary {
-  margin: 0.5rem 0 0;
-  padding-left: 0.85rem;
-  border-left: 1px solid var(--border-subtle, rgba(120, 120, 120, 0.22));
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
-  font-size: 0.92rem;
-  font-style: italic;
-  line-height: 1.5;
-  animation: judgment-anniversary-settle 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-@keyframes judgment-anniversary-settle {
-  from { opacity: 0; letter-spacing: 0.04em; }
-  to { opacity: 1; letter-spacing: normal; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .judgment__anniversary { animation: none; }
-}
-
-
-/* ---------- reaching for a source ----------
-
-   Why and Against are where a belief is formed, and until now the only way a
-   source reached one was to accept something an agent had already brought you.
-   `@` is the reach — the same mark the note editor uses, so it is one gesture
-   in two places rather than two to learn. */
-
-.judgment-sources {
-  position: relative;
-  z-index: 2;
-  display: grid;
-  gap: 0;
-  margin-top: 6px;
-  max-width: 46ch;
-  border: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 78%, transparent);
-  border-radius: 3px;
-  background: var(--noeis-paper, var(--vellum-bg, #fffdf8));
-  box-shadow: 0 12px 32px color-mix(in srgb, var(--vellum-ink, #1c1a17) 10%, transparent);
-  overflow: hidden;
-}
-
-.judgment-sources__option {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  width: 100%;
-  padding: 9px 12px;
-  border: 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 48%, transparent);
-  background: none;
-  color: var(--text-primary, var(--vellum-ink));
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.judgment-sources__option:last-of-type {
-  border-bottom: 0;
-}
-
-/* Ink on the one you are about to take, the way every other chosen thing in
-   this product marks itself. */
-.judgment-sources__option:hover,
-.judgment-sources__option:focus-visible {
-  outline: none;
-  background: color-mix(in srgb, var(--vellum-ink, #1c1a17) 5%, transparent);
-  box-shadow: inset 2px 0 0 0 var(--vellum-ink, #1c1a17);
-}
-
-.judgment-sources__label {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  min-width: 0;
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
-  font-size: 0.98rem;
-  line-height: 1.35;
-}
-
-/* The address, shown only where a name repeats inside this very list. Mono,
-   because it is the record operating rather than the record speaking. */
-.judgment-sources__detail {
-  flex: none;
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
-  font-size: 0.72rem;
-}
-
-/* Said once, on the sources already bound to this case, so the reader can see
-   why those are at the top without a heading over them. */
-.judgment-sources__where,
-.judgment-sources__quiet,
-.judgment-sources__close {
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.72rem;
-  letter-spacing: 0.04em;
-  white-space: nowrap;
-}
-
-.judgment-sources__quiet {
-  margin: 0;
-  padding: 10px 12px;
-  white-space: normal;
-}
-
-.judgment-sources__close {
-  padding: 8px 12px;
-  border: 0;
-  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 48%, transparent);
-  background: none;
-  text-align: left;
-  cursor: pointer;
-}
-
-/* What the line will rest on, shown while it is still a draft. */
-.judgment-composer__source {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: 6px 0 0;
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.76rem;
-}
-
-.judgment-composer__source-name {
-  color: var(--text-primary, var(--vellum-ink));
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
-  font-size: 0.94rem;
-}
-
-.judgment-composer__source button,
-.judgment-composer__find {
-  padding: 0;
-  border: 0;
+  color: var(--noeis-ink, var(--text-primary));
+  font: 400 1.28rem/1.35 var(--noeis-font-reading, serif);
   border-bottom: 1px solid transparent;
-  background: none;
-  color: var(--text-muted, var(--vellum-subtle));
-  font: inherit;
-  cursor: pointer;
 }
 
-.judgment-composer__source button:hover,
-.judgment-composer__find:hover,
-.judgment-composer__find:focus-visible {
-  outline: none;
-  color: var(--text-primary, var(--vellum-ink));
+.mirror__stats li.is-open .mirror__stat-value,
+.mirror__stats a:hover .mirror__stat-value {
   border-bottom-color: currentColor;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .judgment-sources__option {
-    transition: none;
-  }
+.mirror__note {
+  color: var(--noeis-thread-strong, var(--accent));
+  font: 400 0.78rem/1.4 var(--noeis-font-ui, sans-serif);
 }
 
+.judgment-mirror__due,
+.judgment-mirror__record,
+.judgment-mirror__calibration { margin: 0 0 4rem; }
 
-/* The invitation, when the room already holds something.
+.judgment-mirror__due > a,
+.judgment-mirror__record article,
+.judgment-mirror__record li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.2rem 1rem;
+  padding: 1.1rem 0;
+  border-bottom: 1px solid var(--noeis-rule, var(--border-subtle));
+  color: inherit;
+  text-decoration: none;
+}
 
-   The form used to stand open above the cases, so a reader with five live
-   judgments met a blank field demanding a sixth every time they walked in. It
-   is a line you press now, and it reads as one — the same weight as the case
-   names under it, because starting a new one is not a louder act than
-   returning to an old one. */
-.judgment__hold-door {
+.judgment-mirror__record ul { margin: 0; padding: 0; list-style: none; }
+.judgment-mirror__due span,
+.judgment-mirror__record a { color: var(--noeis-ink, var(--text-primary)); font: 400 1.05rem/1.4 var(--noeis-font-reading, serif); }
+.judgment-mirror__record p { grid-column: 1; margin: 0; }
+.judgment-mirror__record time,
+.judgment-mirror__due small { grid-column: 2; grid-row: 1 / span 2; font: 400 0.78rem/1.4 var(--noeis-font-ui, sans-serif); }
+
+.judgment-mirror__calibration p {
+  margin: 0 0 0.45rem;
+  color: var(--noeis-ink, var(--text-primary));
+  font: 400 1.05rem/1.45 var(--noeis-font-reading, serif);
+}
+
+.judgment-mirror__decisions {
+  margin: 0 0 4rem;
+  padding-top: 22px;
+  border-top: 1px solid var(--noeis-rule, var(--border-subtle));
+}
+
+.judgment-mirror__decision-list { display: grid; gap: 48px; }
+.judgment-mirror__decision { display: grid; gap: 20px; max-width: 48rem; }
+
+.judgment-mirror__decision > header p,
+.judgment-mirror__eyebrow {
+  margin: 0 0 6px;
+  color: var(--noeis-ink-subtle, var(--text-muted));
+  font: 500 0.78rem/1.3 var(--noeis-font-ui, sans-serif);
+}
+
+.judgment-mirror__decision h3 {
+  margin: 0;
+  color: var(--noeis-ink, var(--text-primary));
+  font: 400 1.35rem/1.28 var(--noeis-font-reading, serif);
+}
+
+.judgment-mirror__decision dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px 36px;
+  margin: 0;
+}
+
+.judgment-mirror__decision dt {
+  color: var(--noeis-ink-subtle, var(--text-muted));
+  font: 500 0.78rem/1.3 var(--noeis-font-ui, sans-serif);
+}
+
+.judgment-mirror__decision dd {
+  margin: 7px 0 0;
+  font: 400 1rem/1.5 var(--noeis-font-reading, serif);
+}
+
+.judgment-mirror__sources {
+  padding: 12px 0;
+  border-block: 1px solid var(--noeis-rule, var(--border-subtle));
+}
+
+.judgment-mirror__sources summary {
+  font: 500 0.8rem/1.4 var(--noeis-font-ui, sans-serif);
+  cursor: pointer;
+}
+
+.judgment-mirror__sources ul { display: grid; gap: 18px; margin: 18px 0 4px; padding: 0; list-style: none; }
+.judgment-mirror__sources li { display: grid; gap: 6px; }
+.judgment-mirror__sources blockquote,
+.judgment-mirror__sources p { margin: 0; line-height: 1.5; }
+
+.judgment-mirror__sources time,
+.judgment-mirror__sources small,
+.judgment-mirror__after > small {
+  font: 400 0.75rem/1.4 var(--noeis-font-ui, sans-serif);
+}
+
+.judgment-mirror__reveal {
   justify-self: start;
-  margin: 0 0 26px;
-  padding: 0 0 3px;
+  padding: 0 0 2px;
   border: 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 78%, transparent);
-  background: none;
-  color: var(--text-secondary, var(--vellum-muted));
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
-  font-size: 1.06rem;
-  line-height: 1.3;
+  border-bottom: 1px solid currentColor;
+  background: transparent;
+  color: var(--noeis-ink, var(--text-primary));
+  font: 500 0.86rem/1.4 var(--noeis-font-ui, sans-serif);
   cursor: pointer;
 }
 
-.judgment__hold-door:hover,
-.judgment__hold-door:focus-visible {
-  outline: none;
-  color: var(--text-primary, var(--vellum-ink));
-  border-bottom-color: var(--vellum-ink, #1c1a17);
-}
-
-.judgment__new-actions .is-quiet {
-  color: var(--text-muted, var(--vellum-subtle));
-}
-
-/* ---- The case, two by two ------------------------------------------------ */
-
-/* The name was set at 2.6rem and the sentence at 1.08rem, which is why an
-   unwritten case showed a grey imperative as the largest thing on the page
-   and the belief as a caption under it. The sentence is the case; the name is
-   a handle for it. */
-body.noeis-editorial .judgment .judgment__title,
-.judgment .judgment__title {
-  max-width: 44ch;
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif) !important;
-  font-size: 0.78rem !important;
-  font-weight: 600 !important;
-  letter-spacing: 0.06em !important;
-  line-height: 1.4 !important;
-  text-transform: uppercase;
-  color: color-mix(in srgb, var(--text-muted) 88%, transparent) !important;
-}
-
-body.noeis-editorial .judgment .judgment__opinion,
-.judgment .judgment__opinion {
-  max-width: 38rem;
-  margin: 18px 0 0;
-  color: var(--text-primary) !important;
-  font-size: clamp(1.34rem, 2.2vw, 1.62rem) !important;
-  font-weight: 500 !important;
-  line-height: 1.4 !important;
-  letter-spacing: -0.008em;
-}
-
-/* What it used to say. Dated and quiet, never struck: superseded is not
-   retracted, and a judgment that changed is the record. */
-.judgment__earlier {
-  margin: 22px 0 0;
-  padding-top: 14px;
-  border-top: 1px solid var(--noeis-rule, var(--border-subtle-2));
-  max-width: 60ch;
-}
-
-.judgment__earlier h2 {
-  margin: 0 0 8px;
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-  color: color-mix(in srgb, var(--text-muted) 78%, transparent);
-}
-
-body.noeis-editorial .judgment .judgment__earlier-line,
-.judgment .judgment__earlier-line {
+.judgment-mirror__after {
   display: grid;
-  grid-template-columns: 6.5rem 1fr;
   gap: 14px;
-  margin: 0 0 7px;
-  font-size: 0.94rem;
-  color: color-mix(in srgb, var(--text-muted) 92%, transparent) !important;
+  padding-left: 18px;
+  border-left: 1px solid var(--noeis-thread-strong, var(--accent));
 }
 
-.judgment__earlier-line time {
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.78rem;
-  font-variant-numeric: lining-nums tabular-nums;
-  color: color-mix(in srgb, var(--text-muted) 74%, transparent);
-  padding-top: 0.2em;
-}
+.judgment-mirror__after > p { margin: 0; }
+.judgment-mirror__after > a { width: max-content; color: inherit; }
+.judgment-mirror__silence { margin-top: 1.5rem; font-style: italic; }
 
-/* The grid. Top row is what you claim; bottom row is what happened since. */
-.judgment-case__grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  border-top: 1px solid var(--noeis-rule, var(--border-subtle-2));
-}
-
-.judgment-block {
-  min-width: 0;
-  padding: 24px 28px 26px;
-  border-bottom: 1px solid var(--noeis-rule, var(--border-subtle-2));
-}
-
-.judgment-block:nth-child(odd) { border-right: 1px solid var(--noeis-rule, var(--border-subtle-2)); }
-
-.judgment-block__head {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 12px;
-  margin: 0 0 14px;
-}
-
-/* Small caps in the serif, the register the rest of the product reads its
-   labels in. "What would change your mind" is three times the length of
-   "Why" — balanced wrapping and a shared baseline keep four heads of very
-   different lengths looking like one row. */
-.judgment-block__head h3 {
-  margin: 0;
-  min-width: 0;
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
-  font-variant-caps: all-small-caps;
-  font-feature-settings: "smcp" 1, "c2sc" 1, "lnum" 1, "kern" 1;
-  font-size: clamp(0.88rem, 0.62rem + 0.5vw, 1rem);
-  font-weight: 600;
-  letter-spacing: 0.07em;
-  line-height: 1.2;
-  text-wrap: balance;
-  color: color-mix(in srgb, var(--text-muted) 96%, transparent);
-}
-
-/* Silent at zero: the ghost invitation already says the room is empty, and
-   "none" beside a head that reads "What argues against it" says it twice. */
-.judgment-block__count {
-  flex: none;
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
-  font-variant-numeric: lining-nums tabular-nums;
-  font-size: 0.9rem;
-  color: color-mix(in srgb, var(--text-muted) 66%, transparent);
-}
-
-/* WRITTEN: plain text on the page. No border, no fill — a record reads as a
-   document, and nothing here may look like a field. */
-.judgment-block__entry { margin: 0 0 16px; }
-.judgment-block__entry:last-of-type { margin-bottom: 0; }
-/* `body.noeis-editorial p` paints every paragraph muted with !important, so
-   specificity alone loses and every line here — the record, the absences and
-   the one warning — renders in the same grey. Outranking it takes the same
-   !important the title and the opinion above already use. */
-/* Two lines at rest, the whole sentence on a click — a column of full
-   paragraphs is a wall, and an edition already reads this way. */
-body.noeis-editorial .judgment .judgment-block__text,
-.judgment .judgment-block__text {
-  margin: 0;
-  line-height: 1.5;
-  color: var(--text-primary) !important;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-body.noeis-editorial .judgment .judgment-block__entry.is-open .judgment-block__text,
-.judgment .judgment-block__entry.is-open .judgment-block__text {
-  display: block;
-  overflow: visible;
-}
-
-/* Open, a line names what it rests on and what watches it. Both are read, not
-   operated, so both stay in the reading face and neither takes a rule. */
-body.noeis-editorial .judgment .judgment-block__source,
-.judgment .judgment-block__source {
-  margin: 4px 0 0;
-  font-style: italic;
-  font-size: 0.86rem;
-  color: color-mix(in srgb, var(--text-muted) 84%, transparent) !important;
-}
-
-.judgment-block__source::before { content: "↳ "; font-style: normal; }
-
-body.noeis-editorial .judgment .judgment-block__signal,
-.judgment .judgment-block__signal {
-  margin: 4px 0 0;
-  font-size: 0.86rem;
-  color: color-mix(in srgb, var(--text-muted) 84%, transparent) !important;
-}
-
-/* The door to what is older. One per block, in the operating register,
-   because it is the only thing in a block you press rather than read. */
-.judgment-block__door {
-  margin: 12px 0 0;
-  padding: 0;
-  border: 0;
-  background: none;
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.78rem;
-  color: color-mix(in srgb, var(--text-muted) 88%, transparent);
-  cursor: pointer;
-}
-
-.judgment-block__door::after { content: " \203A"; }
-.judgment-block__door.is-open::after { content: " \2039"; }
-.judgment-block__door:hover,
-.judgment-block__door:focus-visible { color: var(--text-primary); }
-
-.judgment-block__when {
-  display: block;
-  margin-top: 4px;
-  cursor: default;
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.78rem;
-  font-style: normal;
-  color: color-mix(in srgb, var(--text-muted) 78%, transparent);
-}
-
-/* How far a source reaches, said while you hover it. */
-body.noeis-editorial .judgment .judgment-case__whisper,
-.judgment .judgment-case__whisper {
-  margin: 0 0 10px;
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.78rem;
-  color: color-mix(in srgb, var(--text-muted) 82%, transparent) !important;
-}
-
-.judgment-block__entry.is-kin .judgment-block__text {
-  background: color-mix(in srgb, var(--wiki-warm-accent, var(--vellum-warm)) 10%, transparent);
-  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--wiki-warm-accent, var(--vellum-warm)) 72%, transparent);
-}
-
-/* At rest the page carries no fields. This is not one either: it is the next
-   sentence of the block, set in the block's own hand and left faint until you
-   reach for it, so an empty case reads as a page with room on it rather than
-   as a form waiting to be filled. It carries the empty state too. */
-body.noeis-editorial .judgment .judgment-block__ghost,
-.judgment .judgment-block__ghost {
-  display: block;
-  width: 100%;
-  margin: 0 0 16px;
-  padding: 0;
-  border: 0;
-  background: none;
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
-  font-size: 1rem;
-  font-style: italic;
-  line-height: 1.5;
-  text-align: left;
-  color: color-mix(in srgb, var(--text-muted) 70%, transparent);
-  cursor: text;
-}
-
-.judgment .judgment-block__ghost:hover,
-.judgment .judgment-block__ghost:focus-visible {
-  color: var(--text-muted);
-}
-
-/* The caret that says a field is one reach away. */
-.judgment-block__ghost::after {
-  content: "";
-  display: inline-block;
-  width: 1px;
-  height: 0.95em;
-  margin-left: 2px;
-  vertical-align: -2px;
-  background: var(--noeis-pointer, currentColor);
-  opacity: 0;
-}
-
-.judgment-block__ghost:hover::after,
-.judgment-block__ghost:focus-visible::after { opacity: 1; }
-
-.judgment-block .judgment-composer { margin: 0 0 18px; }
+/* ---------- narrow ---------- */
 
 @media (max-width: 860px) {
-  .judgment-case__grid { grid-template-columns: 1fr; }
-  .judgment-block { padding: 22px 20px 24px; }
-  .judgment-block:nth-child(odd) { border-right: 0; }
-  .judgment__earlier-line { grid-template-columns: 5rem 1fr; gap: 10px; }
-  .judgment-research-review__beside,
-  .judgment-resolution__comparison,
+  .judgment-room { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr; }
+  .judgment-room__shelf { grid-row: 1; grid-column: 1; padding: 12px 16px 0; }
+  /* On a phone the four places are one line, so the sentence comes first. */
+  .judgment-shelf .room-shelf__heading { display: none; }
+  .judgment-shelf .room-shelf__list { display: flex; flex-wrap: wrap; gap: 0 4px; }
+  .judgment-shelf .room-shelf__item { width: auto; gap: 6px; }
+  .judgment-room__content { grid-row: 2; grid-column: 1; border-left: 0; }
+  .judgment { padding: 28px 16px 96px; }
+  .judgment-view__columns { grid-template-columns: minmax(0, 1fr); gap: 32px; }
   .judgment-mirror__decision dl { grid-template-columns: 1fr; }
-  .judgment-research-review__beside > div + div,
-  .judgment-resolution__comparison > div + div {
-    padding: 16px 0 0;
-    border-top: 1px solid var(--noeis-rule, var(--vellum-line));
-    border-left: 0;
-  }
-  .judgment-research-review__preview dl > div { grid-template-columns: 1fr; gap: 5px; }
 }

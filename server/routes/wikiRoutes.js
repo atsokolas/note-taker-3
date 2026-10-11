@@ -1724,7 +1724,8 @@ const WIKI_JUDGMENT_FIELDS = Object.freeze([
   'judgment.dependsOn.note', 'judgment.dependsOn.proposedBy',
   'judgment.bornAt', 'judgment.resolutionCriteria',
   'judgment.resolutionHorizonAt', 'judgment.resolutionSetAt',
-  'judgment.resolutionHistory', 'judgment.verdicts'
+  'judgment.resolutionHistory', 'judgment.verdicts',
+  'judgment.heldHistory', 'judgment.confidence', 'judgment.parkedAt'
 ]);
 
 const WIKI_JUDGMENT_INDEX_FIELDS = Object.freeze([
@@ -2777,7 +2778,8 @@ const buildWikiRouter = ({
     NoeisReceipt,
     findOwnedPage,
     serializePage: serializeWikiPage,
-    onPageChanged: onOwnedPageChanged
+    onPageChanged: onOwnedPageChanged,
+    trackWikiEvent
   }));
   router.use(buildOpenSentenceAcceptRouter({
     authenticateToken: wikiAuth,
@@ -6411,6 +6413,7 @@ const buildWikiRouter = ({
         }).catch(() => null);
       }
       if (WikiBriefingCache) await WikiBriefingCache.deleteOne({ userId }).catch(() => null);
+      trackWikiEvent(req, EVENT_NAMES.VIEW_HELD, { pageId: String(page._id), from: 'highlight' });
 
       return res.status(201).json({
         pageId: String(page._id),
@@ -6895,6 +6898,13 @@ const buildWikiRouter = ({
       }
 
       await page.save();
+      const heldBefore = String(before?.judgment?.currentJudgment || '').trim();
+      if (held !== heldBefore) {
+        trackWikiEvent(req, heldBefore ? EVENT_NAMES.VIEW_REVISED : EVENT_NAMES.VIEW_HELD, {
+          pageId: serializeId(page._id),
+          actorType
+        });
+      }
       publicPageCache.invalidate(serializeId(page._id), before?.slug, page.slug);
       await syncPageGraph(page, req.user.id);
       const revision = await createWikiRevision({

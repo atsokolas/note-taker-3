@@ -92,7 +92,8 @@ export const getSlashCommandMatch = (textBeforeCursor = '') => {
   const query = textBeforeCursor.slice(triggerIndex + 1);
 
   if (prefix && !/\s$/.test(prefix)) return null;
-  if (/\s/.test(query)) return null;
+  // A few words may follow the slash — they look for a passage you remember.
+  if (/^\s/.test(query) || query.length > 80) return null;
 
   return {
     query,
@@ -157,4 +158,27 @@ export const applySlashCommand = ({ editor, command, range }) => {
   chain.run?.();
   command.onSelect?.({ editor });
   return true;
+};
+
+/* "/" then a few words of a passage you remember: the passages that hold every
+   word, most recent first. Under three letters there is nothing to look for. */
+export const passageSlashItems = (highlights = [], query = '', onPick = () => {}) => {
+  const words = String(query || '').toLowerCase().split(/\s+/).filter(Boolean);
+  if (words.join('').length < 3) return [];
+  return (Array.isArray(highlights) ? highlights : [])
+    .filter(highlight => {
+      const haystack = `${highlight?.text || ''} ${highlight?.articleTitle || ''}`.toLowerCase();
+      return highlight?.text && words.every(word => haystack.includes(word));
+    })
+    .slice(0, 5)
+    .map(highlight => {
+      const text = String(highlight.text).replace(/\s+/g, ' ').trim();
+      return {
+        id: `passage-${highlight._id}`,
+        label: `“${text.length > 72 ? `${text.slice(0, 71).trimEnd()}…` : text}”`,
+        description: highlight.articleTitle || 'Saved passage',
+        passage: true,
+        onSelect: () => onPick(highlight)
+      };
+    });
 };

@@ -20,8 +20,8 @@ jest.mock('./WikiCreationComposer', () => () => (
   </section>
 ));
 
-jest.mock('../agent/ThoughtPartnerPanel', () => ({ title = 'Thought partner' }) => (
-  <section aria-label={`${title} panel`}>Thought partner</section>
+jest.mock('../agent/ThoughtPartnerPanel', () => ({ title = 'Partner' }) => (
+  <section aria-label={`${title} panel`}>Partner</section>
 ));
 
 jest.mock('../../utils/wikiFeatureFlags', () => ({
