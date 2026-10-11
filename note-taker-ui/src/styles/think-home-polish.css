@@ -6106,11 +6106,11 @@ a.wiki-read__reference-title:focus-visible {
   }
 
   .wiki-read__share-card,
-.wiki-read__edgar-watch,
-.wiki-read__github-watch,
-.shared-wiki-page__adopt,
-.shared-wiki-page__topbar,
-.shared-wiki-page__metrics {
+  .wiki-read__edgar-watch,
+  .wiki-read__github-watch,
+  .shared-wiki-page__adopt,
+  .shared-wiki-page__topbar,
+  .shared-wiki-page__metrics {
     align-items: flex-start;
     flex-direction: column;
   }
