@@ -405,4 +405,11 @@ describe('what would change your mind', () => {
     } };
     expect(asksOf(page).map(askedText)).toEqual(['Costco holds up.', 'Renewals under eighty percent.', 'Fees cut.']);
   });
+
+  it('asks with a view\'s first three tests however many it lists', () => {
+    const { __testables: { asksOf, askedText } } = require('./readingTalksBack');
+    const falsifiers = Array.from({ length: 40 }, (_, index) => ({ text: `Signal ${index}.` }));
+    const page = { _id: 'v1', judgment: { currentJudgment: 'Costco holds up.', falsifiers } };
+    expect(asksOf(page).map(askedText)).toEqual(['Costco holds up.', 'Signal 0.', 'Signal 1.', 'Signal 2.']);
+  });
 });

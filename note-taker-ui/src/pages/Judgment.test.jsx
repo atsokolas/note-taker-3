@@ -261,7 +261,7 @@ describe('the view', () => {
         fireEvent.click(await screen.findByRole('button', { name: 'Not relevant' }));
         expect(screen.queryByText(QUOTE)).not.toBeInTheDocument();
         fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
-        expect(screen.getByText(QUOTE)).toBeInTheDocument();
+        expect(await screen.findByText(QUOTE)).toBeInTheDocument();
         expect(resolveJudgmentChange).not.toHaveBeenCalled();
 
         fireEvent.click(screen.getByRole('button', { name: 'Not relevant' }));
@@ -322,6 +322,21 @@ describe('the view', () => {
       fireEvent.change(screen.getByLabelText('In one line'), { target: { value: 'Churn above ten percent.' } });
       fireEvent.click(screen.getByRole('button', { name: 'Save' }));
       await waitFor(() => expect(listReadingProposals).toHaveBeenCalledTimes(2));
+      await act(async () => {});
+      expect(screen.queryByText(QUOTE)).not.toBeInTheDocument();
+    });
+
+    it('takes back a passage set aside only if it still reads against the view', async () => {
+      listReadingProposals.mockResolvedValueOnce([proposal]).mockResolvedValue([]);
+      setJudgmentResolution.mockResolvedValue({ judgment: viewPage({ resolutionCriteria: 'Churn above ten percent.' }).judgment });
+      openView();
+      fireEvent.click(await screen.findByRole('button', { name: 'Not relevant' }));
+      fireEvent.click(screen.getByRole('button', { name: /what would change your mind|Edit/i }));
+      fireEvent.change(screen.getByLabelText('In one line'), { target: { value: 'Churn above ten percent.' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+      await waitFor(() => expect(listReadingProposals).toHaveBeenCalledTimes(2));
+      fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
+      await waitFor(() => expect(listReadingProposals).toHaveBeenCalledTimes(3));
       await act(async () => {});
       expect(screen.queryByText(QUOTE)).not.toBeInTheDocument();
     });

@@ -337,9 +337,10 @@ const JudgmentView = ({ pageId, initialPage = null }) => {
   const dismissReading = (proposal) => {
     dismissed.current.add(proposal.id);
     setReading(rows => rows.filter(row => row.id !== proposal.id));
+    // Taken back, the passage returns only if it still reads against the view.
     const putBack = () => {
       dismissed.current.delete(proposal.id);
-      setReading(rows => [proposal, ...rows]);
+      rereadPassages();
     };
     offer({
       at: proposal.provenance?.falsifier ? 'test' : 'reading',

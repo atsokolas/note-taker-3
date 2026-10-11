@@ -96,8 +96,11 @@ const testsOf = page => [...new Set([
 const readingStands = (page, reading) => sentenceOf(page) === clean(reading?.provenance?.before, 8000)
   && (!reading?.provenance?.falsifier || testsOf(page).includes(reading.provenance.falsifier));
 
-/* The asks a view puts to a source: its sentence, and each open test. */
-const asksOf = page => [page, ...testsOf(page).map(condition => ({ ...page, condition }))];
+/* The asks a view puts to a source: its sentence, and its first open tests.
+   Every ask is one more text in the embedding call, so a view with a long
+   list of falsifiers asks with the first few rather than all of them. */
+const TESTS_PER_VIEW = 3;
+const asksOf = page => [page, ...testsOf(page).slice(0, TESTS_PER_VIEW).map(condition => ({ ...page, condition }))];
 const askedText = ask => ask.condition || sentenceOf(ask);
 
 /* Meaning: each view's sentence beside the text's passages, one embedding
