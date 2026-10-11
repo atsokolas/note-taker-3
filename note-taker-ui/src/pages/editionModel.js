@@ -429,6 +429,9 @@ export const watchThreads = (issues = []) => {
   return { open: all.filter(thread => !settled(thread.status)), settled: all.filter(thread => settled(thread.status)) };
 };
 
+/* What a finding means, in its own plain line, before the title of the source it rests on. */
+export const headlineOf = (item = {}) => item.plain || item.title;
+
 /* The newest issue of a paper: what its cover and its front-page column print. */
 export const latestOf = paper => paper.issues[paper.issues.length - 1];
 

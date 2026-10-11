@@ -196,8 +196,10 @@ it('sets every paper as one front page, led by the finding with the most you can
   twoPapers();
   render(<Editions />);
   expect(await screen.findByRole('heading', { name: 'The Noeis Edition' })).toBeVisible();
-  const lead = await screen.findByRole('link', { name: 'Agents finish the task' });
+  /* Led by what it means; the source's own title sits under it. */
+  const lead = await screen.findByRole('link', { name: 'Few recover when a step fails.' });
   expect(lead).toHaveAttribute('href', '/editions/ai?item=x');
+  expect(screen.getByText(/^Agents finish the task\. /)).toHaveClass('front__source');
   expect(screen.getByText('recovered 46.7%').tagName).toBe('BLOCKQUOTE');
   expect(screen.getByRole('link', { name: 'A useful distinction' })).toHaveAttribute('href', '/editions/e1?item=one');
   expect(screen.getByText(/2 new findings across 1 paper/)).toBeVisible();
@@ -226,7 +228,7 @@ it('opens a magazine: the cover on the left, what is in it and its feature on th
   render(<Editions />);
   const spread = await screen.findByRole('region', { name: 'This Week in AI, opened' });
   expect(await within(spread).findByRole('heading', { name: /In this issue/ })).toBeVisible();
-  expect(await within(spread).findByRole('heading', { name: 'Agents finish the task' })).toBeVisible();
+  expect(await within(spread).findByRole('heading', { name: 'Few recover when a step fails.' })).toBeVisible();
   expect(within(spread).getByRole('link', { name: 'Read the whole issue →' })).toHaveAttribute('href', '/editions/ai');
   expect(within(spread).getByRole('link', { name: 'Every issue of This Week in AI →' })).toHaveAttribute('href', '/editions?paper=ai');
   fireEvent.keyDown(document, { key: 'Escape' });

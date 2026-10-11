@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { costLine, frontPage, sourceNote, WATCH_STATUS, wireOf } from '../../pages/editionModel';
+import { costLine, frontPage, headlineOf, sourceNote, WATCH_STATUS, wireOf } from '../../pages/editionModel';
 import AgentMark from './AgentMark';
 import { EditionBoundary } from './EditionFinding';
 import { handOf } from './editionAgent';
@@ -10,15 +10,20 @@ const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const today = (date = new Date()) => `${DAYS[date.getDay()]}, ${MONTHS[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
 
+/* Under a headline led by its plain line, the source's own title, then what kind of source it is. */
+export const SourceLine = ({ item }) => (
+  <p className="front__source">{[item.plain ? item.title : '', sourceNote(item)].filter(Boolean).join('. ')}</p>
+);
+
 const storyPath = ({ issue, item }) => `/editions/${encodeURIComponent(issue._id)}?item=${encodeURIComponent(item.itemId)}`;
 const paperPath = paper => `/editions?paper=${encodeURIComponent(paper.profile)}`;
 
-/* A story set small: its headline and its plain line. Its paper is the
-   column's head, said once. */
+/* A story set small: led by what it means, then the source it came from.
+   Its paper is the column's head, said once. */
 const Story = ({ story, size = 'm' }) => (
   <article className={`front-story front-story--${size}`}>
-    <h3><Link to={storyPath(story)}>{story.item.title}</Link></h3>
-    {story.item.plain || story.item.finding ? <p>{story.item.plain || story.item.finding}</p> : null}
+    <h3><Link to={storyPath(story)}>{headlineOf(story.item)}</Link></h3>
+    <p>{story.item.plain ? story.item.title : story.item.finding}</p>
   </article>
 );
 
@@ -50,9 +55,8 @@ export default function EditionFrontPage({ papers, opened, news }) {
         <div className="front__page">
           <article className="front__lead">
             <span className="front-kicker">{lead.paper.title} · lead story</span>
-            <h2><Link to={storyPath(lead)}>{lead.item.title}</Link></h2>
-            <p className="front__source">{sourceNote(lead.item)}</p>
-            {lead.item.plain ? <p className="front__plain">{lead.item.plain}</p> : null}
+            <h2><Link to={storyPath(lead)}>{headlineOf(lead.item)}</Link></h2>
+            <SourceLine item={lead.item} />
             <Figures figures={lead.item.figures} />
             <p className="front__body">{lead.item.finding}</p>
             <Passage item={lead.item} />
@@ -62,7 +66,7 @@ export default function EditionFrontPage({ papers, opened, news }) {
                 <b>Also in the issue: </b>
                 {alsoIn.slice(0, 3).map((story, index) => (
                   <React.Fragment key={story.item.itemId}>
-                    {index ? '; ' : ''}<Link to={storyPath(story)}>{story.item.title}</Link>
+                    {index ? '; ' : ''}<Link to={storyPath(story)}>{headlineOf(story.item).replace(/\.$/, '')}</Link>
                   </React.Fragment>
                 ))}.
               </p>

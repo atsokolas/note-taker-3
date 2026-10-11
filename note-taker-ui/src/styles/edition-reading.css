@@ -361,7 +361,7 @@
 
 /* The front page: a broadsheet set from every paper. */
 .front { --front-red: var(--noeis-danger, #9b5a46); font-family: var(--noeis-font-editorial, Georgia, serif); }
-.front a { color: inherit; text-decoration: none; }
+.edition-reading .front a, .edition-reading .stand__page a { color: var(--reading-ink); text-decoration: none; }
 .front a:hover { text-decoration: underline; text-underline-offset: 3px; }
 .front__folio { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 24px; padding-bottom: 8px; border-bottom: 1px solid var(--reading-ink); font-size: 14px; }
 .front .front__masthead { margin: 18px 0 12px; text-align: center; font: 800 clamp(40px, 5vw, 96px)/.92 var(--noeis-font-editorial, Georgia, serif); letter-spacing: -.035em; }
@@ -372,7 +372,6 @@
 .front__lead { padding-right: 28px; border-right: 1px solid var(--reading-ink); }
 .front .front__lead h2 { margin: 10px 0 10px; font: 700 clamp(30px, 2.9vw, 46px)/1.04 var(--noeis-font-editorial, Georgia, serif); letter-spacing: -.03em; text-wrap: balance; }
 .front__source { margin: 0 0 14px; font: 13px/1.5 var(--noeis-font-ui, system-ui); color: var(--reading-muted); }
-.front__plain { margin: 0 0 14px; font: italic 21px/1.45 var(--noeis-font-editorial, Georgia, serif); }
 .front__body { margin: 0 0 16px; font-size: 19px; line-height: 1.6; }
 .front__body::first-letter { float: left; padding: 6px 10px 0 0; font: 800 76px/.78 var(--noeis-font-editorial, Georgia, serif); color: var(--front-red); }
 .front__also { margin: 18px 0 0; padding-top: 12px; border-top: 1px solid var(--reading-rule); font-size: 17px; line-height: 1.5; }
@@ -433,7 +432,6 @@
 .stand__cover.is-open .stand__title { font-size: clamp(40px, 4vw, 64px); }
 .stand__cover.is-open .stand__line { font-size: clamp(22px, 2vw, 30px); -webkit-line-clamp: 5; }
 .stand__page { padding: 30px 36px; background: var(--reading-paper); border-left: 1px solid var(--reading-rule); display: flex; flex-direction: column; gap: 18px; }
-.stand__page a { color: inherit; }
 .edition-reading .stand__contents-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin: 0; padding-bottom: 8px; border-bottom: 2px solid var(--reading-ink); font: 700 12px/1.4 var(--noeis-font-ui, system-ui); letter-spacing: .16em; text-transform: uppercase; }
 .stand__contents-head span { font: italic 15px/1.4 var(--noeis-font-editorial, Georgia, serif); letter-spacing: 0; text-transform: none; color: var(--reading-muted); }
 .stand__contents { list-style: none; margin: 0; padding: 0; }

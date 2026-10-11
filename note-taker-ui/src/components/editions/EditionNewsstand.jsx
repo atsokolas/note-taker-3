@@ -1,7 +1,8 @@
 import React, { useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { costLine, coverFigure, frontPage, issueLine, latestOf, newCountOf, sourceNote, windowLine } from '../../pages/editionModel';
+import { costLine, coverFigure, frontPage, headlineOf, issueLine, latestOf, newCountOf, sourceNote, windowLine } from '../../pages/editionModel';
 import { Figures, Passage } from './EditionLayer';
+import { SourceLine } from './EditionFrontPage';
 
 /* Each paper wears its own cover, in the house's own inks. */
 const COVERS = ['ink', 'thread', 'living', 'slate', 'danger'];
@@ -73,7 +74,7 @@ function Spread({ papers, paper, opened }) {
                 {issue.items.map((item, index) => (
                   <li key={item.itemId}>
                     <span className="stand__number">{String(index + 1).padStart(2, '0')}</span>
-                    <Link to={findingPath(issue, item)}>{item.title}</Link>
+                    <Link to={findingPath(issue, item)}>{headlineOf(item)}</Link>
                     <small>{sourceNote(item)}</small>
                   </li>
                 ))}
@@ -81,8 +82,8 @@ function Spread({ papers, paper, opened }) {
               {lead ? (
                 <article className="stand__feature">
                   <span className="front-kicker">The feature</span>
-                  <h3><Link to={findingPath(issue, lead.item)}>{lead.item.title}</Link></h3>
-                  {lead.item.plain ? <p className="front__plain">{lead.item.plain}</p> : null}
+                  <h3><Link to={findingPath(issue, lead.item)}>{headlineOf(lead.item)}</Link></h3>
+                  <SourceLine item={lead.item} />
                   <Figures figures={lead.item.figures} />
                   <p className="front__body">{lead.item.finding}</p>
                   <Passage item={lead.item} />
