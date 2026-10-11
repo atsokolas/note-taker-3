@@ -35,7 +35,6 @@ describe('WikiRepoCreateComposer', () => {
     jest.clearAllMocks();
     systemStatusControls = buildSystemStatusControls();
     jest.spyOn(router, 'useNavigate').mockReturnValue(mockNavigate);
-    process.env.REACT_APP_WIKI_WORKSPACE_V1 = 'true';
     createRepoWikiFromGitHub.mockResolvedValue({
       action: 'created',
       page: {
@@ -49,7 +48,6 @@ describe('WikiRepoCreateComposer', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
-    delete process.env.REACT_APP_WIKI_WORKSPACE_V1;
   });
 
   it('accepts a valid GitHub URL and creates a repo wiki', async () => {

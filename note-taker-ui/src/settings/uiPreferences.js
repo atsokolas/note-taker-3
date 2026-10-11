@@ -2,23 +2,10 @@ import { applySemanticThemeSnapshot, buildSemanticThemeSnapshot } from './semant
 
 export const UI_SETTINGS_STORAGE_KEY = 'ui-settings.v1';
 
-export const ACCENT_OPTIONS = [
-  { value: 'electric', label: 'Electric Cyan', color: '#36e4ff', soft: 'rgba(54, 228, 255, 0.22)' },
-  { value: 'violet', label: 'Ion Violet', color: '#9d84ff', soft: 'rgba(157, 132, 255, 0.22)' },
-  { value: 'indigo', label: 'Arc Indigo', color: '#6f87ff', soft: 'rgba(111, 135, 255, 0.2)' }
-];
-
-const ACCENT_BY_VALUE = ACCENT_OPTIONS.reduce((accumulator, accent) => {
-  accumulator[accent.value] = accent;
-  return accumulator;
-}, {});
-
 export const DEFAULT_UI_SETTINGS = {
   typographyScale: 'default',
   density: 'comfortable',
   theme: 'auto',
-  accent: 'electric',
-  brandEnergy: true,
   motion: 'system'
 };
 
@@ -42,41 +29,16 @@ export const MOTION_OPTIONS = [
   { value: 'reduced', label: 'Less motion' }
 ];
 
-const ACCENT_VALUES = new Set(ACCENT_OPTIONS.map(option => option.value));
-
 const normalizeOption = (value, allowedValues, fallbackValue) => {
   const candidate = String(value || '').trim().toLowerCase();
   if (allowedValues.has(candidate)) return candidate;
   return fallbackValue;
 };
 
-const normalizeBoolean = (value, fallbackValue = true) => {
-  if (typeof value === 'boolean') return value;
-  if (value === 'true' || value === '1') return true;
-  if (value === 'false' || value === '0') return false;
-  return fallbackValue;
-};
-
-const LEGACY_ACCENT_MAP = {
-  blue: 'electric',
-  emerald: 'electric',
-  amber: 'indigo',
-  rose: 'violet'
-};
-
-const normalizeAccent = (value) => {
-  const candidate = String(value || '').trim().toLowerCase();
-  if (ACCENT_VALUES.has(candidate)) return candidate;
-  if (LEGACY_ACCENT_MAP[candidate]) return LEGACY_ACCENT_MAP[candidate];
-  return DEFAULT_UI_SETTINGS.accent;
-};
-
 export const normalizeUiSettings = (input = {}) => ({
   typographyScale: normalizeOption(input.typographyScale, TYPOGRAPHY_VALUES, DEFAULT_UI_SETTINGS.typographyScale),
   density: normalizeOption(input.density, DENSITY_VALUES, DEFAULT_UI_SETTINGS.density),
   theme: normalizeOption(input.theme, THEME_VALUES, DEFAULT_UI_SETTINGS.theme),
-  accent: normalizeAccent(input.accent),
-  brandEnergy: normalizeBoolean(input.brandEnergy, DEFAULT_UI_SETTINGS.brandEnergy),
   motion: normalizeOption(input.motion, MOTION_VALUES, DEFAULT_UI_SETTINGS.motion)
 });
 
@@ -129,16 +91,13 @@ export const resolveActiveTheme = (preferredTheme, mediaQuery) => {
 export const applyUiSettingsToRoot = (root, settings) => {
   if (!root) return normalizeUiSettings(settings);
   const normalized = normalizeUiSettings(settings);
-  const accent = ACCENT_BY_VALUE[normalized.accent] || ACCENT_BY_VALUE[DEFAULT_UI_SETTINGS.accent];
   const activeTheme = resolveActiveTheme(normalized.theme);
 
   applySemanticThemeSnapshot(root, buildSemanticThemeSnapshot({
     activeTheme,
     preferredTheme: normalized.theme,
     density: normalized.density,
-    typographyScale: normalized.typographyScale,
-    brandEnergy: normalized.brandEnergy,
-    accent
+    typographyScale: normalized.typographyScale
   }));
 
   const reducedMotion = effectiveReducedMotion(normalized.motion);
@@ -148,9 +107,4 @@ export const applyUiSettingsToRoot = (root, settings) => {
   }
 
   return normalized;
-};
-
-export const getAccentOption = (accent) => {
-  const normalized = normalizeOption(accent, ACCENT_VALUES, DEFAULT_UI_SETTINGS.accent);
-  return ACCENT_BY_VALUE[normalized];
 };

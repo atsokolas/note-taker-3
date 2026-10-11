@@ -181,6 +181,28 @@ const run = async () => {
   assert.strictEqual(detail.provenance.sourceType, null);
   assert.strictEqual(detail.provenance.sourceLabel, null);
   assert.strictEqual(detail.provenance.importedAt, null);
+  assert.strictEqual(detail.authorPieces, undefined);
+
+  // The fourth saved piece by an author knows it is the fourth.
+  const counted = [];
+  const authored = await buildLibrarySourceDetail({
+    userId: USER_ID,
+    articleId: unconnectedArticle._id,
+    models: {
+      ...modelsFor([]),
+      Article: {
+        ...modelsFor([]).Article,
+        findOne: () => new Query({ author: 'Ben Carlson', createdAt: unconnectedArticle.createdAt }),
+        countDocuments: async (query) => { counted.push(query); return 4; }
+      }
+    },
+    movementBuilder
+  });
+  assert.strictEqual(authored.authorPieces, 4);
+  assert.ok(counted[0].author.test(' ben carlson '));
+  assert.ok(!counted[0].author.test('Ben Carlson Jr'));
+  assert.deepStrictEqual(counted[0].createdAt, { $lte: unconnectedArticle.createdAt });
+  assert.deepStrictEqual(counted[0].archived, { $ne: true });
 
   const pageResult = await buildLibraryRelevancePage({
     userId: USER_ID,

@@ -62,14 +62,14 @@ const WikiFirstHeadReview = ({
     setError('');
     systemStatus.clearRecoverableFailure?.();
     systemStatus.setBackgroundWork?.({
-      label: 'Trusted research head',
+      label: 'Keeping this version',
       stage: 'Adopting reviewed article'
     });
     try {
       const result = await adoptWikiCurrentResearchHead(pageId);
       if (result?.page) onPageUpdate?.(result.page);
       systemStatus.setLatestReceipt?.({
-        title: result?.receipt?.title || 'Current trusted head adopted',
+        title: result?.receipt?.title || 'This version is now the page.',
         summary: result?.receipt?.summary || '',
         status: 'completed',
         href: `/wiki/workspace?page=${encodeURIComponent(pageId)}`
@@ -78,7 +78,7 @@ const WikiFirstHeadReview = ({
       const message = requestError?.response?.data?.error || requestError?.message || 'Could not adopt the current research head.';
       setError(message);
       systemStatus.setRecoverableFailure?.({
-        stage: 'Trusted research head',
+        stage: 'Keeping this version',
         message,
         retryable: true
       });
@@ -92,14 +92,14 @@ const WikiFirstHeadReview = ({
     if (accepted) return (
       <section className="wiki-first-head is-accepted" aria-label="First trusted head">
         <p className="wiki-first-head__eyebrow">Research head</p>
-        <p><strong>Owner accepted.</strong> Future evidence creates reviewable maintenance candidates.</p>
+        <p><strong>You accepted this page.</strong> New reading arrives as a proposed change you can accept or set aside.</p>
       </section>
     );
     if (!legacyHeadAvailable) return null;
     return (
       <section className="wiki-first-head is-adoption" aria-labelledby="wiki-legacy-head-title">
         <p className="wiki-first-head__eyebrow">Legacy research head</p>
-        <h2 id="wiki-legacy-head-title">Adopt this exact article as the trusted head</h2>
+        <h2 id="wiki-legacy-head-title">Keep this article as the page</h2>
         <p>
           This dossier predates explicit first-head acceptance. Adoption records your approval of the current private
           article without changing its claims, sources, valuation, or evidence clock.
@@ -149,14 +149,14 @@ const WikiFirstHeadReview = ({
     setError('');
     systemStatus.clearRecoverableFailure?.();
     systemStatus.setBackgroundWork?.({
-      label: 'First trusted head',
+      label: 'First version',
       stage: decision === 'accept' ? 'Accepting reviewed research' : 'Keeping the current version'
     });
     try {
       const result = await reviewWikiFirstHeadCandidate(pageId, decision);
       if (result?.page) onPageUpdate?.(result.page);
       systemStatus.setLatestReceipt?.({
-        title: result?.receipt?.title || (decision === 'accept' ? 'First trusted head accepted.' : 'Current version kept.'),
+        title: result?.receipt?.title || (decision === 'accept' ? 'The first version is the page now.' : 'Current version kept.'),
         summary: result?.receipt?.summary || '',
         status: decision === 'accept' ? 'completed' : 'needs_review',
         href: `/wiki/workspace?page=${encodeURIComponent(pageId)}`
@@ -170,7 +170,7 @@ const WikiFirstHeadReview = ({
         : (requestError?.response?.data?.error || requestError?.message || 'Could not record the first-head decision.');
       setError(message);
       systemStatus.setRecoverableFailure?.({
-        stage: 'First trusted head',
+        stage: 'First version',
         message,
         retryable: !stale
       });
@@ -186,7 +186,7 @@ const WikiFirstHeadReview = ({
         <div>
           <p className="wiki-first-head__eyebrow">Owner acceptance required</p>
           <h2 id="wiki-first-head-title">
-            {firstHeadReview ? 'Review the first trusted head' : 'Review the maintenance candidate'}
+            {firstHeadReview ? 'Read the first version' : 'Read the proposed change'}
           </h2>
         </div>
         <span>Private candidate</span>
@@ -222,11 +222,11 @@ const WikiFirstHeadReview = ({
           onChange={event => setConfirmed(event.target.checked)}
           disabled={Boolean(busy)}
         />
-        I reviewed this exact candidate and want it to become the trusted private research head.
+        I read this version and want it to become the page.
       </label>
       <div className="wiki-first-head__actions">
         <Button type="button" onClick={() => decide('accept')} disabled={!confirmed || Boolean(busy)}>
-          {busy === 'accept' ? 'Accepting…' : firstHeadReview ? 'Accept trusted head' : 'Accept maintenance'}
+          {busy === 'accept' ? 'Accepting…' : 'Accept'}
         </Button>
         <Button type="button" variant="secondary" onClick={() => decide('reject')} disabled={Boolean(busy)}>
           {busy === 'reject' ? 'Keeping…' : 'Keep current version'}

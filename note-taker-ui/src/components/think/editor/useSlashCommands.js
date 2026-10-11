@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   applySlashCommand,
   filterSlashCommandItems,
@@ -30,9 +30,12 @@ const useSlashCommands = ({
   editor,
   variant = 'full',
   containerRef,
-  extraItems = []
+  extraItems = [],
+  queryItems = null
 }) => {
   const [menu, setMenu] = useState(CLOSED_MENU);
+  const queryItemsRef = useRef(queryItems);
+  queryItemsRef.current = queryItems;
   const items = useMemo(() => getSlashCommandItems(variant, extraItems), [extraItems, variant]);
 
   const closeMenu = useCallback(() => {
@@ -71,7 +74,15 @@ const useSlashCommands = ({
       return;
     }
 
-    const filteredItems = filterSlashCommandItems(items, match.query);
+    const spaced = /\s/.test(match.query);
+    const filteredItems = [
+      ...(queryItemsRef.current?.(match.query) || []),
+      ...(spaced ? [] : filterSlashCommandItems(items, match.query))
+    ];
+    if (spaced && !filteredItems.length) {
+      closeMenu();
+      return;
+    }
     const range = {
       from: state.selection.from - (match.query.length + 1),
       to: state.selection.from

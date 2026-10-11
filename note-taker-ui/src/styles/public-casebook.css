@@ -144,19 +144,6 @@
   text-underline-offset: 0.18em;
 }
 
-.public-casebook-preview {
-  margin: 1.4rem 0 0;
-  padding-top: 1rem;
-  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line, #d8d0c4)) 62%, transparent);
-}
-
-.public-casebook-preview summary {
-  cursor: pointer;
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.84rem;
-  color: var(--text-muted, var(--vellum-subtle, #6b645c));
-}
-
 @media (prefers-reduced-motion: reduce) {
   .public-casebook,
   .public-casebook * {

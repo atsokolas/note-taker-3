@@ -46,7 +46,7 @@ const SlashCommandMenu = ({
                   type="button"
                   role="menuitem"
                   aria-current={isActive ? 'true' : undefined}
-                  className={`think-slash-menu__item ${isActive ? 'is-active' : ''}`.trim()}
+                  className={`think-slash-menu__item${isActive ? ' is-active' : ''}${item.passage ? ' is-passage' : ''}`}
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={() => onSelect(item)}
                 >

@@ -105,7 +105,7 @@ const WikiIngestRun = () => {
           <div>
             <p className="wiki-index__eyebrow">No matching pages</p>
             <h2>{run.suggestedCreatePage.title}</h2>
-            <p>Create a source page from this ingest so the wiki has somewhere to attach future maintenance.</p>
+            <p>Create a source page from this ingest so later reading has a page to land on.</p>
           </div>
           <button type="button" onClick={handleCreatePage} disabled={acting}>
             Create wiki page

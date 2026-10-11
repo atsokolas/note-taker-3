@@ -1,12 +1,11 @@
 /**
  * AT-429 — The Mirror. How good is my judgment?
  *
- * Typographic aggregations over this user's claims. Every stat is a list of
- * claims, not a score. No founder shortcut: pages arrive already scoped to
+ * Typographic aggregations over this user's views. Every stat is a list of
+ * views, not a score. No founder shortcut: pages arrive already scoped to
  * the signed-in userId.
  */
 
-const { parseHorizon } = require('./claimFalsifiability');
 const { wordBoundaryTrim } = require('../lib/editorialText');
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -22,35 +21,21 @@ const time = (value) => {
   return Number.isNaN(parsed) ? NaN : parsed;
 };
 
-const isRetired = (claim = {}) => claim.checkInStatus === 'retired' || Boolean(claim.retiredAt);
-const historyOf = (claim = {}) => (Array.isArray(claim.history) ? claim.history : []);
-const verdictsOf = (claim = {}) => (Array.isArray(claim.verdicts) ? claim.verdicts : []);
+/* A view is a page holding a sentence — the same object the Judgment index
+   lists. Counting the wiki claim ledger instead made the Mirror report views
+   the index had never heard of. */
+const heldSentence = (page = {}) => String(page?.judgment?.currentJudgment || '').trim();
+const isActive = (page = {}) => !['parked', 'closed', 'archived'].includes(String(page?.judgment?.status || ''));
+const heldSince = (page = {}) => page?.judgment?.startedAt || page?.judgment?.bornAt || page?.createdAt || null;
 
-const hrefFor = (page, claim) => {
-  const pageId = id(page);
-  if (page?.judgment?.currentJudgment || page?.judgment?.kind) {
-    return `/judgment/${encodeURIComponent(pageId)}`;
-  }
-  return `/wiki/workspace?page=${encodeURIComponent(pageId)}&claimId=${encodeURIComponent(claim.claimId)}`;
-};
-
-const claimRow = (page, claim, extra = {}) => ({
+const viewRow = (page, extra = {}) => ({
   pageId: id(page),
-  claimId: String(claim.claimId || ''),
-  text: clean(claim.text || page?.judgment?.currentJudgment || page?.title || ''),
-  href: hrefFor(page, claim),
-  bornAt: claim.bornAt || claim.createdAt || page.createdAt || null,
+  claimId: '',
+  text: clean(heldSentence(page)),
+  href: `/judgment/${encodeURIComponent(id(page))}`,
+  bornAt: heldSince(page),
   ...extra
 });
-
-const walkClaims = (pages = [], visit) => {
-  (Array.isArray(pages) ? pages : []).forEach((pageValue) => {
-    const page = asPlain(pageValue);
-    (Array.isArray(page.claims) ? page.claims : []).forEach((claimValue) => {
-      visit(page, asPlain(claimValue));
-    });
-  });
-};
 
 const mean = (values) => {
   const list = values.filter((value) => Number.isFinite(value));
@@ -65,21 +50,13 @@ const daysBetween = (from, to) => {
   return Math.max(0, (end - start) / DAY);
 };
 
-const latestVerdict = (claim) => {
-  const rows = verdictsOf(claim);
-  if (!rows.length) return null;
-  return rows.reduce((latest, row) => (
-    time(row.at) >= time(latest?.at) ? row : latest
-  ));
-};
-
 const roundDays = (value) => (value == null ? null : Math.round(value * 10) / 10);
 
-const collect = (pages = {}, now = new Date()) => {
+const collect = (pages = [], now = new Date()) => {
+  const views = (Array.isArray(pages) ? pages : []).map(asPlain).filter(page => heldSentence(page));
   const held = [];
   const holdTimes = [];
   const revised = [];
-  const checked = [];
   const byVerdict = {
     held_up: [],
     broke: [],
@@ -88,30 +65,23 @@ const collect = (pages = {}, now = new Date()) => {
     right_for_wrong_reasons: []
   };
 
-  walkClaims(pages, (page, claim) => {
-    if (!claim?.claimId) return;
-    if (!isRetired(claim)) {
-      held.push(claimRow(page, claim));
-      const age = daysBetween(claim.bornAt || claim.createdAt || page.createdAt, now);
+  views.forEach((page) => {
+    if (isActive(page)) {
+      held.push(viewRow(page));
+      const age = daysBetween(heldSince(page), now);
       if (age != null) holdTimes.push(age);
     }
-    const actions = historyOf(claim).map((row) => String(row?.action || row?.event));
-    if (actions.includes('revised') || actions.includes('reaffirmed')) {
-      checked.push(claimRow(page, claim));
+    if (Array.isArray(page.judgment?.heldHistory) && page.judgment.heldHistory.length) {
+      revised.push(viewRow(page));
     }
-    if (actions.includes('revised')) {
-      revised.push(claimRow(page, claim));
-    }
-    const last = latestVerdict(claim);
-    if (last && byVerdict[last.verdict]) {
-      byVerdict[last.verdict].push(claimRow(page, claim, {
-        verdict: last.verdict,
-        at: last.at
-      }));
+    const verdicts = Array.isArray(page.judgment?.verdicts) ? page.judgment.verdicts : [];
+    const last = verdicts[verdicts.length - 1];
+    if (last && byVerdict[last.result]) {
+      byVerdict[last.result].push(viewRow(page, { verdict: last.result, at: last.recordedAt }));
     }
   });
 
-  return { held, holdTimes, revised, checked, byVerdict };
+  return { views, held, holdTimes, revised, byVerdict };
 };
 
 const formatDays = (value) => {
@@ -139,9 +109,8 @@ const buildJudgmentMirror = ({
 } = {}) => {
   const at = now instanceof Date ? now : new Date(now);
   const bundle = collect(pages, at);
-  const checkedCount = bundle.checked.length;
-  const revisionRate = checkedCount
-    ? bundle.revised.length / checkedCount
+  const revisionRate = bundle.views.length
+    ? bundle.revised.length / bundle.views.length
     : null;
   const avgHold = mean(bundle.holdTimes);
   const exactCounterevidence = Array.isArray(counterevidence) ? counterevidence : [];
@@ -155,7 +124,7 @@ const buildJudgmentMirror = ({
     stats: {
       held: {
         id: 'held',
-        label: 'Claims held',
+        label: 'Views held',
         value: bundle.held.length,
         display: String(bundle.held.length),
         href: '/judgment/mirror?stat=held'
@@ -185,14 +154,12 @@ const buildJudgmentMirror = ({
           right_for_wrong_reasons: bundle.byVerdict.right_for_wrong_reasons.length
         },
         display: [
-          `${bundle.byVerdict.held_up.length} held up`,
-          `${bundle.byVerdict.broke.length} broke`,
-          `${bundle.byVerdict.partly.length} partly`,
-          `${bundle.byVerdict.unresolvable.length} unresolvable`,
-          ...(bundle.byVerdict.right_for_wrong_reasons.length
-            ? [`${bundle.byVerdict.right_for_wrong_reasons.length} right for the wrong reasons`]
-            : [])
-        ].join(' · '),
+          [bundle.byVerdict.held_up.length, 'held up'],
+          [bundle.byVerdict.broke.length, 'broke'],
+          [bundle.byVerdict.partly.length, 'partly'],
+          [bundle.byVerdict.unresolvable.length, 'could not be settled'],
+          [bundle.byVerdict.right_for_wrong_reasons.length, 'right for the wrong reasons']
+        ].filter(([count]) => count).map(([count, word]) => `${count} ${word}`).join(' · '),
         href: '/judgment/mirror?stat=verdicts'
       },
       counterEvidence: {
