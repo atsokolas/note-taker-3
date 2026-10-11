@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const { ensureWorkspace, applyPatchOp } = require('../utils/workspaceUtils');
 const { semanticSearch } = require('../ai/semanticSearch');
 const { buildArticlePassages } = require('../ai/articlePassages');
-const { chatComplete, isTextGenerationConfigured } = require('../ai/hfTextClient');
+const { chatComplete, isTextGenerationConfigured, parseStructuredText } = require('../ai/hfTextClient');
 const { logAgentMetric } = require('../utils/agentMetrics');
 
 const SUPPORTED_MODE = 'library_only';
@@ -1093,7 +1093,7 @@ const planConcept = async ({ conceptTitle, conceptDescription, candidateItems })
       }
     ]
   });
-  const plan = JSON.parse(completion.text);
+  const plan = parseStructuredText(completion.text);
   const known = new Set(candidateItems.map(({ type, id }) => `${type}:${id}`));
   const groups = (Array.isArray(plan?.groups) ? plan.groups : [])
     .map(group => ({ ...group, item_refs: (Array.isArray(group?.item_refs) ? group.item_refs : []).filter(ref => known.has(`${normalizeRefType(ref?.type)}:${toSafeString(ref?.id)}`)) }))

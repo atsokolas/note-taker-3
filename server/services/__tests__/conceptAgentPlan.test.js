@@ -2,7 +2,8 @@
 // nothing the reader holds is no plan: the local one answers instead.
 jest.mock('../../ai/hfTextClient', () => ({
   isTextGenerationConfigured: () => true,
-  chatComplete: jest.fn()
+  chatComplete: jest.fn(),
+  parseStructuredText: jest.requireActual('../../ai/hfTextClient').parseStructuredText
 }));
 
 const { chatComplete } = require('../../ai/hfTextClient');
@@ -22,6 +23,12 @@ describe('planConcept', () => {
     ]);
     const result = await planConcept({ conceptTitle: 'Forecasting', candidateItems });
     expect(result.groups).toEqual([{ title: 'Track record', item_refs: [{ type: 'article', id: 'a1' }] }]);
+  });
+
+  it('reads a plan the model wrapped in a code fence', async () => {
+    chatComplete.mockResolvedValueOnce({ text: '```json\n{"groups":[{"title":"Track record","item_refs":[{"type":"article","id":"a1"}]}]}\n```' });
+    const result = await planConcept({ conceptTitle: 'Forecasting', candidateItems });
+    expect(result.groups.map(group => group.title)).toEqual(['Track record']);
   });
 
   it('answers null when no group names a candidate, so the local plan runs', async () => {
