@@ -1500,6 +1500,11 @@ body.noeis-editorial .product-feedback-modal .feedback-field textarea::placehold
   gap: 20px;
 }
 
+.legal-shell > article {
+  display: grid;
+  gap: 20px;
+}
+
 .legal-card {
   padding: 24px;
 }

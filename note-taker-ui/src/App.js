@@ -95,6 +95,7 @@ const MarketingAnalytics = lazy(() => import('./pages/MarketingAnalytics'));
 const SearchConsoleOpportunities = lazy(() => import('./pages/SearchConsoleOpportunities'));
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
 const TermsOfUse = lazy(() => import('./pages/TermsOfUse'));
+const Support = lazy(() => import('./pages/Support'));
 const OpenSentenceStoryboard = lazy(() => import('./pages/OpenSentenceStoryboard'));
 const SharedConcept = lazy(() => import('./pages/SharedConcept'));
 const SharedQuestion = lazy(() => import('./pages/SharedQuestion'));
@@ -237,7 +238,7 @@ export const isDesignPreviewPath = (pathname = '') => (
 
 /* Pages that read the same signed in or out. They are drawn by the public
    tree either way, so they are declared once. */
-const PUBLIC_PAGES = new Set(['/guides', '/examples', '/proof', '/privacy', '/terms', ...GUIDE_SLUGS.map((slug) => `/${slug}`)]);
+const PUBLIC_PAGES = new Set(['/guides', '/examples', '/proof', '/privacy', '/terms', '/support', ...GUIDE_SLUGS.map((slug) => `/${slug}`)]);
 export const isPublicPage = (pathname = '') => (
   isPublicSharePath(pathname) || isDesignPreviewPath(pathname) || PUBLIC_PAGES.has(pathname)
 );
@@ -256,6 +257,7 @@ const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess }) => {
     location.pathname === '/'
     || location.pathname === '/privacy'
     || location.pathname === '/terms'
+    || location.pathname === '/support'
     || isShareRoute
     || isLongformRoute
   );
@@ -278,6 +280,7 @@ const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess }) => {
           ))}
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/terms" element={<TermsOfUse />} />
+          <Route path="/support" element={<Support />} />
           <Route path="/design-preview/open-sentence" element={<OpenSentenceStoryboard />} />
           <Route path="/design-preview/notebook-share" element={<NotebookSharePreview />} />
           <Route path="/design-preview/notebook-volume" element={<NotebookVolumePreview />} />

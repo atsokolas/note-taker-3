@@ -58,6 +58,8 @@ test('treats shared routes as public even when auth is available', () => {
 
 test('draws pages that read the same signed in or out from one tree', () => {
   expect(isPublicPage('/privacy')).toBe(true);
+  expect(isPublicPage('/terms')).toBe(true);
+  expect(isPublicPage('/support')).toBe(true);
   expect(isPublicPage('/guides')).toBe(true);
   expect(isPublicPage('/design-preview/open-sentence')).toBe(true);
   expect(isPublicPage('/share/concepts/opportunity-cost')).toBe(true);
