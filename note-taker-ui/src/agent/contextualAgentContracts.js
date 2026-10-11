@@ -80,7 +80,7 @@ export const CONTEXTUAL_AGENT_CONTRACTS = Object.freeze([
   contract({
     id: 'agent-surface.judgment',
     room: 'judgment',
-    roleDescription: 'Tests the live judgment against support, counterevidence, and unknowns.',
+    roleDescription: 'Ask about this view.',
     capabilities: ['capability.library.retrieve', 'capability.judgment.review'],
     actions: ['retrieve', 'accept.why', 'accept.against', 'accept.criteria'],
     match: ({ pathname }) => String(pathname || '').startsWith('/judgment')
@@ -132,7 +132,7 @@ export const buildContextualAgentSurface = (contractId, context = {}) => {
     lines: normalizeLines(context.lines),
     empty: String(context.empty || 'Nothing to retrieve until you ask.').trim(),
     askPlaceholder: String(context.askPlaceholder || 'Ask about this').trim(),
-    caption: String(context.caption || 'Retrieves. You accept.').trim(),
+    caption: String(context.caption || '').trim(),
     supportedActions: [...resolved.actions],
     capabilities: [...resolved.capabilities],
     proposalPolicy: resolved.proposalPolicy

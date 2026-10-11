@@ -186,7 +186,7 @@ const AgentRail = () => {
   const quietLine = surface.empty
     || (canAsk ? 'Nothing to retrieve until you ask.' : availabilityReason || 'Nothing to retrieve here yet.');
   const askPlaceholder = surface.askPlaceholder || ASK_PLACEHOLDER;
-  const caption = surface.caption || 'Retrieves. You accept.';
+  const caption = threadId ? 'This page keeps its own conversation.' : surface.caption;
 
   return (
     <aside
@@ -325,7 +325,7 @@ const AgentRail = () => {
         />
         <button type="submit" disabled={busy || !draft.trim()}>Ask</button>
       </form>
-      <p className="agent-rail__caption">{threadId ? 'This page keeps its own conversation.' : caption}</p>
+      {caption ? <p className="agent-rail__caption">{caption}</p> : null}
     </aside>
   );
 };

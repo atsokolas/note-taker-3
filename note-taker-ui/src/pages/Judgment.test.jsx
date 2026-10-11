@@ -1204,7 +1204,7 @@ describe('the agent rail', () => {
     expect(await within(rail).findByText('NVIDIA demand still outruns deliverable capacity.')).toBeInTheDocument();
     expect(within(rail).getByText('Nothing to retrieve until you ask.')).toBeInTheDocument();
     expect(within(rail).getByPlaceholderText('Ask about this')).toBeInTheDocument();
-    expect(within(rail).getByText('Retrieves. You accept.')).toBeInTheDocument();
+    expect(within(rail).queryByText('Retrieves. You accept.')).not.toBeInTheDocument();
   });
 
   it('writes a rail answer only when the human accepts it', async () => {

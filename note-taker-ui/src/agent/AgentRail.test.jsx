@@ -138,8 +138,8 @@ describe('AgentRail', () => {
     expect(rail()).toHaveAttribute('data-agent-actions', expect.stringContaining('accept.against'));
     expect(rail()).toHaveAttribute('data-agent-proposal-policy', 'human_acceptance');
     expect(within(rail()).getByText('Partner')).toBeInTheDocument();
-    expect(within(rail()).getByText(/tests the live judgment/i)).toBeInTheDocument();
-    expect(within(rail()).getByText('Retrieves. You accept.')).toBeInTheDocument();
+    expect(within(rail()).getByText('Ask about this view.')).toBeInTheDocument();
+    expect(within(rail()).queryByText('Retrieves. You accept.')).not.toBeInTheDocument();
     expect(within(rail()).getByPlaceholderText('Ask about this')).toBeInTheDocument();
     expect(within(rail()).queryByText(/thought partner/i)).not.toBeInTheDocument();
   });
