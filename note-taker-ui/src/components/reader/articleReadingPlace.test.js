@@ -1,7 +1,8 @@
 import {
   anchorForReadingNode,
   previewPassage,
-  resolveReadingPlace
+  resolveReadingPlace,
+  stoppedHereLine
 } from './articleReadingPlace';
 import { canonicalArticleSnapshot } from '../../utils/articlePassageAnchor';
 const rootFor = (html) => {
@@ -54,4 +55,14 @@ test('source anchors exclude private controls and Peek resolves the exact matchi
     'A different surrounding thought.'
   );
   expect(previewPassage(root, { query: 'private thought' })).toBe(null);
+});
+
+test('the stopped line names the day the way a person would', () => {
+  const now = new Date(2026, 9, 11, 9);
+  expect(stoppedHereLine(new Date(2026, 9, 11, 7), { now })).toBe('You stopped here earlier today.');
+  expect(stoppedHereLine(new Date(2026, 9, 10, 22), { now })).toBe('You stopped here yesterday.');
+  expect(stoppedHereLine(new Date(2026, 9, 6, 12), { now })).toBe('You stopped here on Tuesday.');
+  expect(stoppedHereLine(new Date(2026, 8, 28, 12), { now })).toBe('You stopped here on September 28.');
+  expect(stoppedHereLine(new Date(2026, 9, 6, 12), { now, exact: false })).toBe('You stopped near here on Tuesday.');
+  expect(stoppedHereLine(null)).toBe('You stopped here.');
 });

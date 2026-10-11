@@ -3383,12 +3383,6 @@ const DataIntegrations = () => {
             >
               {derivedActivationState?.conceptName ? 'Open concept in Think' : derivedActivationState?.notebookEntryId ? 'Open note in Think' : 'Open current item'}
             </Button>
-            <Button type="button" variant="secondary" onClick={() => navigate('/today')}>
-              Open Today
-            </Button>
-            <Button type="button" variant="secondary" onClick={() => navigate('/review?tab=reflections')}>
-              Open Review
-            </Button>
             {canExportCurrentToNotion && (
               <Button
                 type="button"

@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState } from 'react';
-import BrandGradient from '../components/BrandGradient';
 
 // The rail is rendered here, beside the routed column, so that changing routes
 // changes the column and nothing else. Mounting it inside a page would make it
@@ -9,7 +8,6 @@ const AppShell = ({
   topBar,
   children,
   rightRail = null,
-  brandEnergy = true,
   surface = null,
   agentOnDemand = false
 }) => {
@@ -73,7 +71,6 @@ const AppShell = ({
       <a className="app-shell-new__skip-link" href="#main-content">Skip to content</a>
       {leftNav && (
         <aside className="app-shell-new__nav">
-          <BrandGradient variant="sidebar" enabled={brandEnergy} />
           <div className="app-shell-new__nav-content">
             {leftNav}
           </div>

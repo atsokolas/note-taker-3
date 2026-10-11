@@ -7,6 +7,7 @@ const {
 const { normalizeJudgment } = require('../services/wikiJudgmentService');
 const { createWikiRevision, snapshotPage } = require('../services/wikiRevisionService');
 const { persistNoeisReceipt, serializeStoredReceipt } = require('../services/noeisReceiptService');
+const { EVENT_NAMES } = require('../utils/analytics');
 
 const serializeId = value => String(value?._id || value?.id || value || '');
 
@@ -22,7 +23,8 @@ const buildJudgmentChangeProposalRouter = ({
   NoeisReceipt,
   findOwnedPage,
   serializePage,
-  onPageChanged = async () => {}
+  onPageChanged = async () => {},
+  trackWikiEvent = () => {}
 }) => {
   const router = express.Router();
 
@@ -140,7 +142,10 @@ const buildJudgmentChangeProposalRouter = ({
       } else {
         result = await resolve();
       }
-      if (result.changed) await onPageChanged(result.page, req.user.id);
+      if (result.changed) {
+        await onPageChanged(result.page, req.user.id);
+        trackWikiEvent(req, EVENT_NAMES.VIEW_REVISED, { pageId: serializeId(result.page), how: req.params.action });
+      }
       return res.status(200).json({
         page: serializePage(result.page),
         proposal: result.receipt,

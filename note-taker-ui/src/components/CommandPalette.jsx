@@ -257,7 +257,6 @@ const CommandPalette = ({ open, onClose }) => {
   const [shelfArticles, setShelfArticles] = useState([]);
   const [searchGroups, setSearchGroups] = useState(EMPTY_GROUPS);
   const [notebook, setNotebook] = useState([]);
-  const [collections, setCollections] = useState([]);
   const [concepts, setConcepts] = useState([]);
   const [wikiPages, setWikiPages] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -290,16 +289,14 @@ const CommandPalette = ({ open, onClose }) => {
       try {
         const token = localStorage.getItem('token');
         const headers = { Authorization: `Bearer ${token}` };
-        const [notebookRows, colRes, tagRes, wikiRows, folderRows, shelfRes] = await Promise.allSettled([
+        const [notebookRows, tagRes, wikiRows, folderRows, shelfRes] = await Promise.allSettled([
           getNotebookSummaries(),
-          api.get('/api/collections', { headers }),
           api.get('/api/tags', { headers }),
           listWikiPages({ limit: 12, summary: 1 }),
           getFolders(),
           api.get('/api/articles', { headers })
         ]);
         setNotebook(notebookRows.status === 'fulfilled' ? notebookRows.value || [] : []);
-        setCollections(colRes.status === 'fulfilled' ? colRes.value?.data || [] : []);
         setConcepts(tagRes.status === 'fulfilled' ? tagRes.value?.data || [] : []);
         setWikiPages(wikiRows.status === 'fulfilled' && Array.isArray(wikiRows.value) ? wikiRows.value : []);
         setFolders(folderRows.status === 'fulfilled' && Array.isArray(folderRows.value) ? folderRows.value : []);
@@ -426,43 +423,6 @@ const CommandPalette = ({ open, onClose }) => {
       });
       onClose?.();
       navigate('/wiki');
-    } finally {
-      systemStatus.setBackgroundWork(null);
-    }
-  }, [navigate, onClose, query, systemStatus]);
-
-  const createCollection = useCallback(async () => {
-    const seed = query.trim();
-    const name = seed || 'Untitled collection';
-    systemStatus.clearRecoverableFailure();
-    systemStatus.setBackgroundWork({
-      label: 'Creating collection',
-      stage: `Saving ${name.slice(0, 48)}`
-    });
-    try {
-      const token = localStorage.getItem('token');
-      const headers = { Authorization: `Bearer ${token}` };
-      const res = await api.post('/api/collections', { name, description: '' }, { headers });
-      const slug = String(res?.data?.slug || '').trim();
-      const href = slug ? `/collections/${slug}` : '/collections';
-      systemStatus.setLatestReceipt({
-        id: `command-collection-${res?.data?._id || slug || Date.now()}`,
-        title: 'Collection created',
-        summary: `Created "${name}" from the command palette.`,
-        status: 'completed',
-        href
-      });
-      onClose?.();
-      navigate(href);
-    } catch (err) {
-      console.error('Palette new collection failed', err);
-      systemStatus.setRecoverableFailure({
-        stage: 'Command palette',
-        message: 'Could not create a collection.',
-        retryable: true,
-        retry: () => { createCollection(); }
-      });
-      onClose?.();
     } finally {
       systemStatus.setBackgroundWork(null);
     }
@@ -864,8 +824,7 @@ const CommandPalette = ({ open, onClose }) => {
         } : null,
         { id: 'action-new-note', type: 'Action', label: 'New Think note', action: createNote },
         { id: 'action-pull-reference', type: 'Action', label: 'Pull reference into current surface', path: pullReferencePath },
-        { id: 'action-new-wiki', type: 'Action', label: q ? `New Wiki page from "${q.slice(0, 48)}"` : 'New Wiki page', action: createWiki },
-        { id: 'action-new-collection', type: 'Action', label: q ? `New collection from "${q.slice(0, 48)}"` : 'New collection', action: createCollection }
+        { id: 'action-new-wiki', type: 'Action', label: q ? `New Wiki page from "${q.slice(0, 48)}"` : 'New Wiki page', action: createWiki }
       ]
     };
 
@@ -1009,20 +968,12 @@ const CommandPalette = ({ open, onClose }) => {
           path: `/think?tab=notebook&entryId=${item._id}`
         }))
       });
-      list.push({
-        title: 'Collections',
-        items: collections.slice(0, 6).map(item => ({
-          type: 'Collection',
-          label: item.name,
-          path: `/collections/${item.slug}`
-        }))
-      });
     }
 
     return list
       .map(section => ({ ...section, items: section.items.filter(Boolean) }))
       .filter(section => section.items.length > 0);
-  }, [articles, capabilityModel.commands, collections, concepts, createCollection, createNote, createQuestionFromHighlights, createTemporalReview, createWiki, createWikiComparison, createWikiSectionFromHighlights, isWikiSurface, notebook, pages, pullReferencePath, query, retrieveHighlight, reviewLibraryFiling, searchGroups, wikiPages]);
+  }, [articles, capabilityModel.commands, concepts, createNote, createQuestionFromHighlights, createTemporalReview, createWiki, createWikiComparison, createWikiSectionFromHighlights, isWikiSurface, notebook, pages, pullReferencePath, query, retrieveHighlight, reviewLibraryFiling, searchGroups, wikiPages]);
 
   const selectableItems = useMemo(
     () => sections.flatMap(section => section.items),
