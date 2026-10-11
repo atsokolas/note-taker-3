@@ -18,7 +18,7 @@ const baseToken = { _id: 'token', userId: 'owner', hashedSecret: hashAgentTokenS
     let next = false;
     const req = { method, originalUrl: path, headers: { authorization: `Bearer ${secret}` } };
     const res = response();
-    const middleware = buildAuthenticateAgentToken({ AgentToken: { findOne: async () => token }, OAuthGrant: { findOne: async query => { assert.equal(query.userId, 'owner'); assert.equal(query.clientId, 'client'); assert.equal(query.resource, 'https://api.example/mcp'); return grant; } }, oauthResource: 'https://api.example/mcp', consume: false });
+    const middleware = buildAuthenticateAgentToken({ isAccountActive: async () => true, AgentToken: { findOne: async () => token }, OAuthGrant: { findOne: async query => { assert.equal(query.userId, 'owner'); assert.equal(query.clientId, 'client'); assert.equal(query.resource, 'https://api.example/mcp'); return grant; } }, oauthResource: 'https://api.example/mcp', consume: false });
     await middleware(req, res, error => { if (error) throw error; next = true; });
     return { next, req, res };
   };

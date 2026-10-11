@@ -72,7 +72,7 @@ const run = async () => {
       return records.get(query.hashedSecret) || null;
     }
   };
-  const middleware = buildAuthenticateAgentToken({ AgentToken, now: () => now });
+  const middleware = buildAuthenticateAgentToken({ isAccountActive: async () => true, AgentToken, now: () => now });
 
   const req = {
     method: 'GET',
@@ -103,7 +103,7 @@ const run = async () => {
   await runMiddleware(middleware, writeReq, writeRes);
   assert.strictEqual(writeRes.statusCode, 403);
 
-  const gatewayMiddleware = buildAuthenticateAgentToken({
+  const gatewayMiddleware = buildAuthenticateAgentToken({ isAccountActive: async () => true,
     AgentToken,
     now: () => now,
     requiredScope: 'read',

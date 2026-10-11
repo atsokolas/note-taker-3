@@ -82,6 +82,7 @@ const READWISE_DYNAMIC_CLIENTS = new Map();
 
 const buildImportRouter = ({
   authenticateToken,
+  isAccountActive = async () => false,
   upload,
   Papa,
   findRowValue,
@@ -1794,6 +1795,7 @@ const buildImportRouter = ({
         throw new Error('Missing OAuth code or state.');
       }
       const decoded = verifyReadwiseState(state);
+      if (!await isAccountActive(String(decoded.userId || ''))) throw new Error('Account is unavailable.');
       const tokenPayload = await exchangeReadwiseCode({
         code,
         redirectUri,
@@ -1804,6 +1806,7 @@ const buildImportRouter = ({
       const accessToken = toTrimmedString(tokenPayload.access_token);
       const refreshToken = toTrimmedString(tokenPayload.refresh_token);
       const userInfo = await fetchReadwiseUserInfo(accessToken);
+      if (!await isAccountActive(String(decoded.userId || ''))) throw new Error('Account is unavailable.');
 
       let connection = await IntegrationConnection.findOne({
         userId: decoded.userId,
@@ -2485,10 +2488,12 @@ const buildImportRouter = ({
         throw new Error('Missing OAuth code or state.');
       }
       const decoded = verifyNotionState(state);
+      if (!await isAccountActive(String(decoded.userId || ''))) throw new Error('Account is unavailable.');
       const payload = await exchangeNotionCode({
         code,
         redirectUri
       });
+      if (!await isAccountActive(String(decoded.userId || ''))) throw new Error('Account is unavailable.');
       let connection = await IntegrationConnection.findOne({
         userId: decoded.userId,
         provider: 'notion',
