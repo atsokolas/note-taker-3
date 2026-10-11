@@ -1443,6 +1443,20 @@ button.connections-row {
   border-bottom: 1px solid var(--border-subtle);
 }
 
+.connections-forwarding {
+  margin: 24px 0 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  overflow-wrap: anywhere;
+}
+
+.connections-forwarding strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
 .connections-fold > summary {
   display: flex;
   min-height: 52px;

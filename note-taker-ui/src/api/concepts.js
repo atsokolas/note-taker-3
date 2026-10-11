@@ -187,6 +187,13 @@ export const updateConcept = async (name, payload) => {
   return res.data;
 };
 
+/* Renames the concept and every reference to its name; refused (409) onto a name already in use. */
+export const renameConcept = async (nameOrId, name) => {
+  const res = await api.post(`/api/concepts/${encodeURIComponent(nameOrId)}/rename`, { name }, getAuthHeaders());
+  clearConceptsCache();
+  return res.data;
+};
+
 export const updateConceptPins = async (name, payload) => {
   const res = await api.put(`/api/concepts/${encodeURIComponent(name)}/pins`, payload, getAuthHeaders());
   clearConceptsCache();

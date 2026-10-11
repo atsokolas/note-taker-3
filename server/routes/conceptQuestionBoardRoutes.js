@@ -4,6 +4,7 @@ const {
   filterWikiOpenQuestions
 } = require('../services/wikiOpenQuestionsService');
 const { normalizeInquiry } = require('../utils/questionInquiry');
+const { recordRevision, snapshotOf } = require('../services/entryHistory');
 
 const buildConceptQuestionBoardRouter = ({
   mongoose,
@@ -13,6 +14,7 @@ const buildConceptQuestionBoardRouter = ({
   ReferenceEdge,
   ConceptNote,
   Question,
+  EntryRevision = null,
   WikiPage,
   enqueueQuestionEmbedding,
   findHighlightById,
@@ -392,8 +394,18 @@ const buildConceptQuestionBoardRouter = ({
       if (linkedHighlightId !== undefined) payload.linkedHighlightId = linkedHighlightId;
       if (linkedHighlightIds !== undefined) payload.linkedHighlightIds = linkedHighlightIds;
       if (linkedNotebookEntryId !== undefined) payload.linkedNotebookEntryId = linkedNotebookEntryId;
+      const before = EntryRevision && (payload.text !== undefined || payload.blocks !== undefined)
+        ? await Question.findOne({ _id: id, userId }).lean()
+        : null;
       const updated = await Question.findOneAndUpdate({ _id: id, userId }, payload, { new: true });
       if (!updated) return res.status(404).json({ error: "Question not found." });
+      if (before) {
+        await recordRevision({
+          EntryRevision, userId, kind: 'question', entryId: updated._id,
+          before: snapshotOf('question', before), beforeAt: before.updatedAt,
+          after: snapshotOf('question', updated), restoredFrom: req.body.restoredFrom
+        });
+      }
       enqueueQuestionEmbedding(updated);
       res.status(200).json(updated);
     } catch (error) {

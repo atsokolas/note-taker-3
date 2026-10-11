@@ -9,6 +9,7 @@ import { QuietButton } from '../../ui';
 import InsertHighlightModal from './InsertHighlightModal';
 import InsertReferenceModal from './InsertReferenceModal';
 import { BlockIdExtension, EntryBar, HighlightRefNode, passageContent } from '../editor/writingParts';
+import EntryHistory from '../editor/EntryHistory';
 import { passageSlashItems } from '../editor/slashCommands';
 import { begunLine, countWords } from '../../../pages/thinkNotesModel';
 import EvergreenToggle from '../../EvergreenToggle';
@@ -300,6 +301,8 @@ const NotebookEditor = ({
   const [savedDistinctions, setSavedDistinctions] = useState([]);
   const [organizeOpen, setOrganizeOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const restoredFromRef = useRef('');
   const shareOpenRef = useRef(false);
   shareOpenRef.current = shareOpen;
   const [shareRevision, setShareRevision] = useState(0);
@@ -578,6 +581,7 @@ const NotebookEditor = ({
     setOrganizeError('');
     setClaimEvidenceOpen(false);
     setClaimEvidenceItems([]);
+    setHistoryOpen(false);
     writeAsidePieces(hydrateAsidePieces(entry.asidePieces));
     setArrangementReceipt(null);
     if (editor) {
@@ -729,6 +733,8 @@ const NotebookEditor = ({
     if (!dirtyRef.current) return true;
     const payload = buildSavePayload();
     if (!payload) return false;
+    if (restoredFromRef.current) payload.restoredFrom = restoredFromRef.current;
+    restoredFromRef.current = '';
     const sequence = ++saveSequenceRef.current;
     dirtyRef.current = false;
     setSaveState('saving');
@@ -1574,6 +1580,24 @@ const NotebookEditor = ({
     setShareOpen(true);
   };
 
+  /* An earlier version comes back through the ordinary save, marked as a
+     restore so the history can say so. */
+  const restoreRevision = async ({ id, snapshot }) => {
+    if (!editor || !(await commitDraft())) return false;
+    titleDraftRef.current = snapshot.title || '';
+    setTitleDraft(titleDraftRef.current);
+    editor.commands.setContent(buildDocFromBlocks(snapshot.blocks || []), false);
+    restoredFromRef.current = id;
+    dirtyRef.current = true;
+    return commitDraft();
+  };
+
+  const openHistory = async (event) => {
+    event.currentTarget.closest('details')?.removeAttribute('open');
+    await commitDraft();
+    setHistoryOpen(true);
+  };
+
   if (!entry) {
     return (
       <div className="think-notebook-editor think-notebook-editor--empty">
@@ -1605,6 +1629,7 @@ const NotebookEditor = ({
           <QuietButton onClick={handleRecoveryExport}>Private recovery file</QuietButton>
           <QuietButton onClick={handleShare}>{shareOpen ? 'Close share' : 'Share snapshot'}</QuietButton>
           <QuietButton onClick={() => setOrganizeOpen(previous => !previous)}>Structure</QuietButton>
+          <QuietButton onClick={openHistory}>History</QuietButton>
         </EntryBar>
         {workbench.state.nextTimeLine?.text && !nextLineDismissed ? (
           <aside className="think-next-line" aria-label="A line you left yourself">
@@ -1651,6 +1676,9 @@ const NotebookEditor = ({
           />
           <p className="think-notebook-title-meta" id={metaId}>{begunLine(entry.createdAt, wordCount)}</p>
         </div>
+        {historyOpen ? (
+          <EntryHistory kind="note" entryId={String(entry._id)} onRestore={restoreRevision} onClose={() => setHistoryOpen(false)} />
+        ) : null}
         {notebookSourceMeta && (
           <div className={`think-notebook-editor-provenance think-notebook-editor-provenance--${notebookSourceMeta.kind}`}>
             <span className="think-notebook-editor-provenance__eyebrow">

@@ -1,4 +1,5 @@
 const { plainNotebookText } = require('../services/authoredWorkDiscovery');
+const { recordRevision, snapshotOf } = require('../services/entryHistory');
 const { sanitizeNotebookWorkbench, sanitizeNotebookTarget } = require('../utils/notebookWorkbench');
 const { passageFromTarget } = require('../utils/notebookWordingOptions');
 const { generateNotebookWordingOptions } = require('../services/notebookWordingOptionsService');
@@ -39,6 +40,7 @@ const buildNotebookRouter = ({
   authenticateToken,
   NotebookEntry,
   NotebookFolder,
+  EntryRevision = null,
   ReferenceEdge,
   ensureNotebookBlocks,
   createBlockId,
@@ -813,9 +815,15 @@ const buildNotebookRouter = ({
       }
 
       await attachPersistedIdentity(existing);
+      const before = snapshotOf('note', existing);
+      const beforeAt = existing.updatedAt;
       Object.assign(existing, updates);
       sanitizeNotebookEntry(existing);
       const updated = await existing.save();
+      await recordRevision({
+        EntryRevision, userId, kind: 'note', entryId: updated._id,
+        before, beforeAt, after: snapshotOf('note', updated), restoredFrom: req.body.restoredFrom
+      });
       if (updates.blocks !== undefined) {
         try {
           await syncNotebookReferences(userId, updated._id, updated.blocks || []);

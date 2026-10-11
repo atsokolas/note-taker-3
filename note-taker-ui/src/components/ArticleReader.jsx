@@ -33,7 +33,7 @@ import {
   readArticlePassageFragment
 } from '../utils/articlePassageAnchor';
 import { findExistingHighlightForSelection } from '../utils/libraryThinkSeam';
-import { sourceLabel } from './library/libraryColumnModel';
+import { originalUrl, sourceLabel } from './library/libraryColumnModel';
 import { formatCalendarDate } from '../utils/dateDisplay';
 import { AGENT_DISPLAY_NAME } from '../constants/agentIdentity';
 
@@ -529,9 +529,9 @@ const ArticleReader = ({
           <div className="article-reader-meta">
             {/* When it was published. When you saved it lives in the source record. */}
             {published ? <span>{published}</span> : null}
-            {article.url && (
-              <a href={article.url} target="_blank" rel="noopener noreferrer">Open source</a>
-            )}
+            {originalUrl(article) ? (
+              <a href={originalUrl(article)} target="_blank" rel="noopener noreferrer">Open source</a>
+            ) : null}
           </div>
           {folioLine ? <ArticleFolioLine line={folioLine} articleId={article._id} /> : null}
         </div>

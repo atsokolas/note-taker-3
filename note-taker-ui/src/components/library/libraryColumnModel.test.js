@@ -1,4 +1,4 @@
-import { librarySubject, sourceLabel } from './libraryColumnModel';
+import { librarySubject, originalUrl, sourceLabel } from './libraryColumnModel';
 
 const article = (overrides = {}) => ({
   _id: 'a1',
@@ -21,6 +21,14 @@ describe('sourceLabel', () => {
   it('says nothing rather than inventing a source', () => {
     expect(sourceLabel(article())).toBe('');
     expect(sourceLabel(article({ url: 'not a url' }))).toBe('');
+  });
+});
+
+describe('originalUrl', () => {
+  it('opens the web address, never an email or paste scheme', () => {
+    expect(originalUrl(article({ url: 'https://example.com/p' }))).toBe('https://example.com/p');
+    expect(originalUrl(article({ url: 'email://id@mail', importMeta: { sourceUrl: 'https://example.com/web' } }))).toBe('https://example.com/web');
+    expect(originalUrl(article({ url: 'import://manual/1' }))).toBe('');
   });
 });
 

@@ -309,7 +309,7 @@ test('early OAuth ingress enforces 8192 raw bytes before actual 50MB JSON/form p
   const f = await fixture();
   try {
     const source = require('node:fs').readFileSync(require('node:path').join(__dirname, '../../server.js'), 'utf8');
-    assert.ok(source.indexOf('app.use(buildChatgptOAuthIngress())') < source.indexOf("app.use(express.json({ limit: '50mb' }))"));
+    assert.ok(source.indexOf('app.use(buildChatgptOAuthIngress())') < source.indexOf("app.use(express.json({ limit: '50mb'"));
     const post = async (path, body, type, headers = {}) => fetch(`${f.base}${path}`, { method: 'POST', headers: { 'Content-Type': type, ...headers }, body });
     for (const path of ['/oauth/chatgpt/token', '/OAUTH/CHATGPT/TOKEN', '/OaUtH/ChAtGpT/ToKeN', '/oauth/chatgpt/revoke', '/OAUTH/CHATGPT/REVOKE', '/api/chatgpt/oauth/requests/not-real/consent', '/API/CHATGPT/OAUTH/REQUESTS/not-real/CONSENT', '/aPi/ChAtGpT/oAuTh/ReQuEsTs/not-real/CoNsEnT']) {
       assert.equal((await post(path, JSON.stringify({ padding: 'a'.repeat(8200) }), 'application/json')).status, 413);

@@ -456,6 +456,22 @@ notebookFolderSchema.index({ userId: 1, parentFolderId: 1, sortOrder: 1, name: 1
 
 const NotebookFolder = mongoose.model('NotebookFolder', notebookFolderSchema);
 
+/* What a note, concept or question said at a moment, kept so its history can
+   be read as sentences and an earlier version restored. One row per stretch of
+   editing (see services/entryHistory.js), a few dozen per entry at most. */
+const entryRevisionSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  kind: { type: String, enum: ['note', 'concept', 'question'], required: true },
+  entryId: { type: mongoose.Schema.Types.ObjectId, required: true },
+  reason: { type: String, enum: ['before', 'edit', 'restore'], default: 'edit' },
+  restoredFromAt: { type: Date, default: null },
+  snapshot: { type: mongoose.Schema.Types.Mixed, required: true }
+}, { timestamps: true, minimize: false });
+
+entryRevisionSchema.index({ userId: 1, kind: 1, entryId: 1, createdAt: -1 });
+
+const EntryRevision = mongoose.model('EntryRevision', entryRevisionSchema);
+
 const WIKI_PAGE_STATUSES = ['draft', 'published', 'archived'];
 const WIKI_PROPOSAL_TYPES = ['repeated_theme', 'bridge_idea'];
 const WIKI_PROPOSAL_STATUSES = ['pending', 'watched', 'accepted', 'dismissed', 'merged'];
@@ -3721,6 +3737,7 @@ module.exports = {
   Note,
   NotebookEntry,
   NotebookFolder,
+  EntryRevision,
   WikiPage,
   WikiProposal,
   WikiRevision,
