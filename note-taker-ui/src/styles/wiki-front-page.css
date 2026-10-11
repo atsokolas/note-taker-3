@@ -4,68 +4,10 @@
 
 /* Push 5 — quiet knowledge-graph motif replaces generic brand-energy drift
    on this surface. Warm nodes/edges, low opacity, reduced-motion-safe. */
-body.noeis-editorial.wiki-front-page-route .brand-gradient,
-body.noeis-editorial.wiki-front-page-route .topbar .brand-gradient {
-  display: none !important;
-}
 
 body.noeis-editorial.wiki-front-page-route .app-shell-new__body:has(.wiki-front-page) {
   position: relative;
   isolation: isolate;
-}
-
-.wiki-front-page__graph-motif {
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  overflow: hidden;
-  opacity: 0.38;
-  -webkit-mask-image: linear-gradient(
-    90deg,
-    #000 0%,
-    transparent 14%,
-    transparent 86%,
-    #000 100%
-  );
-  mask-image: linear-gradient(
-    90deg,
-    #000 0%,
-    transparent 14%,
-    transparent 86%,
-    #000 100%
-  );
-}
-
-.wiki-front-page__graph-motif-svg {
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-
-.wiki-front-page__graph-motif-edges line {
-  stroke: color-mix(in srgb, var(--wiki-warm-accent, var(--vellum-warm)) 22%, transparent);
-  stroke-width: 1;
-  stroke-linecap: round;
-}
-
-.wiki-front-page__graph-motif-nodes circle {
-  fill: color-mix(in srgb, var(--wiki-warm-accent, var(--vellum-warm)) 34%, transparent);
-  stroke: color-mix(in srgb, var(--vellum-bg, var(--noeis-canvas)) 72%, transparent);
-  stroke-width: 1.25;
-}
-
-html[data-ui-theme='dark'] .wiki-front-page__graph-motif-edges line {
-  stroke: color-mix(in srgb, var(--wiki-warm-accent, var(--noeis-thread)) 18%, transparent);
-}
-
-html[data-ui-theme='dark'] .wiki-front-page__graph-motif-nodes circle {
-  fill: color-mix(in srgb, var(--wiki-warm-accent, var(--noeis-thread)) 28%, transparent);
-  stroke: color-mix(in srgb, var(--vellum-bg, var(--noeis-canvas)) 55%, transparent);
-}
-
-.wiki-front-page__graph-motif-network {
-  transform-origin: 50% 42%;
 }
 
 .wiki-front-page {
@@ -93,125 +35,9 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
   background: var(--vellum-bg, var(--noeis-canvas));
 }
 
-.wiki-front-page__masthead {
-  letter-spacing: 0.14em;
-  margin: 0;
-}
-
-.wiki-front-page__top-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 28px;
-}
-
-.wiki-front-page__intro {
-  display: grid;
-  gap: 16px;
-  margin-top: 10px;
-}
-
-.wiki-front-page__intro--split {
-  grid-template-columns: minmax(0, 1.2fr) minmax(300px, 0.8fr);
-  gap: clamp(30px, 4vw, 56px);
-  align-items: start;
-}
-
-.wiki-front-page__briefing-copy {
-  display: grid;
-  gap: 16px;
-  min-width: 0;
-}
-
 /* Legible secondary nav — workspace destinations near the door. */
-.wiki-front-page__secondary-nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 18px;
-  align-items: center;
-  padding: 0;
-  font-family: var(--font-sans);
-  font-size: 0.82rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-}
-
-.wiki-front-page__secondary-nav a {
-  color: var(--text-secondary);
-  text-decoration: none;
-  padding: 4px 0;
-  border-bottom: 1px solid transparent;
-}
-
-.wiki-front-page__secondary-nav a:hover,
-.wiki-front-page__secondary-nav a:focus-visible {
-  color: var(--text-link, var(--accent-primary));
-  border-bottom-color: color-mix(in srgb, var(--text-link, var(--accent-primary)) 55%, transparent);
-  outline: none;
-}
 
 /* The agent's lead sentence — editorial voice, serif, generous. */
-.wiki-front-page__lead {
-  margin: 0;
-  max-width: 44ch;
-  color: var(--text-primary);
-  font-family: var(--font-serif);
-  font-size: clamp(1.25rem, 2.1vw, 1.6rem);
-  line-height: 1.45;
-  overflow-wrap: anywhere;
-  text-wrap: pretty;
-}
-.wiki-front-page__lead-text {
-  min-height: 1.4em;
-  display: inline;
-}
-
-.wiki-front-page__next-action {
-  display: grid;
-  gap: 6px;
-  max-width: min(52ch, 100%);
-  padding: 8px 0 8px 14px;
-  border-left: 2px solid color-mix(in srgb, var(--wiki-warm-accent, #b1862e) 54%, var(--noeis-rule));
-}
-.wiki-front-page__next-action-kicker {
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-  font-size: 0.62rem;
-  font-weight: 750;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-}
-.wiki-front-page__next-action-link {
-  justify-self: start;
-  color: var(--text-primary);
-  font-family: var(--font-serif);
-  font-size: clamp(1rem, 1.4vw, 1.18rem);
-  font-weight: 650;
-  text-decoration: none;
-}
-.wiki-front-page__next-action-link:hover { text-decoration: underline; }
-.wiki-front-page__next-action-reason {
-  margin: 0;
-  color: var(--text-secondary);
-  font-size: 0.82rem;
-  line-height: 1.45;
-}
-.wiki-front-page__watcher-contract {
-  display: grid;
-  gap: 7px;
-  max-width: min(58ch, 100%);
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
-  line-height: 1.5;
-}
-.wiki-front-page__watcher-contract > span {
-  color: var(--text-secondary);
-}
-.wiki-front-page__watcher-contract p,
-.wiki-front-page__watcher-contract ul {
-  margin: 0;
-}
 .wiki-front-page__watcher-summary {
   max-width: 54ch;
   color: var(--text-primary);
@@ -219,318 +45,16 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
   font-size: 0.94rem;
   line-height: 1.45;
 }
-.wiki-front-page__watcher-register {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 16px;
-  color: var(--text-secondary);
-  font-size: 0.68rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-.wiki-front-page__watcher-register strong {
-  color: var(--text-primary);
-  font-size: 0.82rem;
-}
-.wiki-front-page__watcher-ledger {
-  padding-top: 4px;
-  border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 72%, transparent);
-}
-.wiki-front-page__watcher-ledger summary {
-  width: fit-content;
-  color: var(--text-secondary);
-  cursor: pointer;
-}
-.wiki-front-page__watcher-ledger[open] summary {
-  margin-bottom: 8px;
-}
-.wiki-front-page__watcher-contract ul {
-  display: grid;
-  gap: 3px;
-  padding: 0;
-  list-style: none;
-}
-.wiki-front-page__watcher-contract li {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-.wiki-front-page__watcher-contract code {
-  color: var(--text-primary);
-  overflow-wrap: anywhere;
-}
-
-.wiki-front-page__evidence-strip {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 7px;
-  align-items: baseline;
-  max-width: min(58ch, 100%);
-  margin: 0;
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
-  letter-spacing: 0.04em;
-}
-.wiki-front-page__evidence-strip span {
-  text-transform: uppercase;
-  letter-spacing: 0.16em;
-  font-weight: 750;
-}
-.wiki-front-page__evidence-strip a {
-  color: var(--text-primary);
-  text-decoration: none;
-}
-.wiki-front-page__evidence-strip a:hover,
-.wiki-front-page__evidence-strip a:focus-visible {
-  text-decoration: underline;
-}
-.wiki-front-page__evidence-strip em {
-  font-style: normal;
-  color: var(--text-secondary);
-}
 
 /* Operational workspace: the paper remains primary; activity stays contextual. */
-.wiki-front-page__workspace {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(260px, 0.36fr);
-  gap: clamp(32px, 4vw, 58px);
-  align-items: start;
-  padding-top: 20px;
-  border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 78%, transparent);
-}
-
-.wiki-front-page__primary {
-  min-width: 0;
-  display: grid;
-  gap: 34px;
-}
-
-.wiki-front-page__columns {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 36px;
-  align-items: start;
-}
-
-.wiki-front-page__story { display: grid; gap: 12px; }
-.wiki-front-page__story h1 {
-  margin: 0;
-  font-family: var(--font-serif);
-  font-weight: 650;
-  font-size: clamp(2rem, 4.2vw, 3.45rem);
-  line-height: 1.02;
-  letter-spacing: -0.025em;
-  font-optical-sizing: auto;
-}
-.wiki-front-page__story h1 a {
-  color: var(--text-primary);
-  text-decoration: none;
-}
-
-.wiki-front-page__excerpt {
-  margin: 0;
-  max-width: 62ch;
-  color: var(--text-secondary);
-  font-family: var(--font-serif);
-  font-size: 1.06rem;
-  line-height: 1.62;
-}
-
-.wiki-front-page__story-meta {
-  margin: -2px 0 2px;
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
-  letter-spacing: 0.04em;
-}
-
-.wiki-front-page__story h1 a:hover { text-decoration: underline; }
-
-.wiki-front-page__continue {
-  justify-self: start;
-  color: var(--text-link, var(--accent-primary));
-  font-size: 0.92rem;
-  font-weight: 650;
-  text-decoration: none;
-}
-.wiki-front-page__continue:hover { text-decoration: underline; }
 
 /* Recently grown — secondary stories with instrument-register growth notes. */
-.wiki-front-page__grown ul {
-  margin: 12px 0 0;
-  padding: 0;
-  list-style: none;
-  display: grid;
-  gap: 0;
-}
-.wiki-front-page__section-heading {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 16px;
-}
-.wiki-front-page__section-heading h2 {
-  margin: 0;
-  font-family: var(--font-serif);
-  font-size: clamp(1.35rem, 2.3vw, 1.85rem);
-  font-weight: 600;
-  letter-spacing: -0.018em;
-}
-.wiki-front-page__section-heading > span {
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
-}
-.wiki-front-page__grown li {
-  display: grid;
-  grid-template-columns: 30px minmax(0, 1fr) auto;
-  gap: 14px;
-  align-items: center;
-  min-height: 70px;
-  border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 70%, transparent);
-}
-.wiki-front-page__grown li:last-child {
-  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule) 70%, transparent);
-}
-.wiki-front-page__grown li > div {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-}
-.wiki-front-page__grown a {
-  color: var(--text-primary);
-  font-family: var(--font-serif);
-  font-size: 1.04rem;
-  font-weight: 650;
-  text-decoration: none;
-}
-.wiki-front-page__row-index,
-.wiki-front-page__row-arrow {
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
-}
-.wiki-front-page__row-arrow {
-  font-size: 0.92rem;
-}
-.wiki-front-page__grown a:hover { text-decoration: underline; }
-.wiki-front-page__growth-note {
-  display: block;
-  color: color-mix(in srgb, var(--text-muted) 92%, transparent);
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
-  letter-spacing: 0.04em;
-}
 
 /* Explore — a book's index, not a dashboard. */
-.wiki-front-page__explore {
-  padding-top: 18px;
-  border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 72%, transparent);
-}
-.wiki-front-page__library-head {
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: 20px;
-}
-.wiki-front-page__library-head > div { display: grid; gap: 4px; }
-.wiki-front-page__library-head p {
-  margin: 0;
-  font-family: var(--font-serif);
-  font-size: clamp(1.25rem, 2vw, 1.65rem);
-  color: var(--text-primary);
-}
-.wiki-front-page__library-head > span {
-  font-family: var(--font-sans);
-  font-size: .7rem;
-  letter-spacing: .12em;
-  color: var(--text-muted);
-}
-.wiki-front-page__library-search { display: block; margin-top: 16px; }
-.wiki-front-page__library-boundary {
-  margin: 10px 0 0;
-  color: var(--text-muted);
-  font-family: var(--font-sans);
-  font-size: .76rem;
-}
-.wiki-front-page__library-search input {
-  width: min(100%, 520px);
-  min-height: 42px;
-  padding: 9px 12px;
-  border: 1px solid color-mix(in srgb, var(--noeis-rule) 78%, transparent);
-  border-radius: 0;
-  background: color-mix(in srgb, var(--vellum-bg, var(--noeis-canvas)) 88%, white);
-  color: var(--text-primary);
-  font: 0.86rem/1.35 var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-}
-.wiki-front-page__index {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0 28px;
-  margin: 14px 0 0;
-  padding: 0;
-  list-style: none;
-}
-.wiki-front-page__index li {
-  display: grid;
-  grid-template-columns: 28px minmax(0, 1fr) auto;
-  gap: 10px;
-  align-items: baseline;
-  padding: 12px 0;
-  border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 62%, transparent);
-}
-.wiki-front-page__index li > span,
-.wiki-front-page__index li > small {
-  font-family: var(--font-sans);
-  font-size: .62rem;
-  letter-spacing: .1em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-.wiki-front-page__index a {
-  color: var(--text-primary);
-  font-family: var(--font-serif);
-  font-size: 1.02rem;
-  line-height: 1.35;
-  text-decoration: none;
-}
-.wiki-front-page__index a:hover {
-  color: var(--text-link, var(--accent-primary));
-  text-decoration: underline;
-}
-.wiki-front-page__library-empty { color: var(--text-muted); }
-
-@media (max-width: 760px) {
-  .wiki-front-page__index { grid-template-columns: minmax(0, 1fr); }
-  .wiki-front-page__index li { grid-template-columns: 24px minmax(0, 1fr); }
-  .wiki-front-page__index li > small { grid-column: 2; }
-}
 
 /* Quiet composer — present, breathing, never shouting. */
-.wiki-front-page__composer {
-  position: relative;
-  max-width: min(100%, 560px);
-  border-radius: 10px;
-}
 
 /* Front-page builder: let the input use the full composer width. */
-.wiki-front-page__composer .wiki-build-page.wiki-front-page__builder {
-  max-width: 100%;
-  padding: 0;
-  border: 0;
-  background: transparent;
-}
-
-.wiki-front-page__composer .wiki-build-page__row {
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 12px;
-}
-
-.wiki-front-page__composer .wiki-build-page__row input {
-  min-width: 0;
-  width: 100%;
-}
 
 .wiki-front-page__company-builder {
   max-width: min(100%, 760px);
@@ -607,45 +131,6 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
   }
 }
 
-@media (min-width: 1280px) {
-  .wiki-front-page__composer {
-    max-width: min(100%, 720px);
-  }
-}
-
-@media (min-width: 1440px) {
-  .wiki-front-page__composer {
-    max-width: min(100%, 760px);
-  }
-}
-.wiki-front-page__composer::before {
-  content: '';
-  position: absolute;
-  inset: -1px;
-  border-radius: 11px;
-  padding: 1.5px;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    color-mix(in srgb, var(--accent-primary) 38%, transparent),
-    transparent
-  );
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  mask-composite: exclude;
-  opacity: 0.35;
-  pointer-events: none;
-}
-.wiki-front-page__composer:focus-within::before { opacity: 0.7; }
-
-.wiki-front-page__creation-tools {
-  display: grid;
-  gap: 16px;
-  padding-top: 18px;
-  border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 72%, transparent);
-}
-
 .wiki-creation {
   display: grid;
   gap: 12px;
@@ -713,39 +198,9 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
 }
 
 /* Empty corpus — the agent leans in; never a dead screen. */
-.wiki-front-page__empty { display: grid; gap: 12px; max-width: 56ch; }
-.wiki-front-page__empty h1 {
-  margin: 0;
-  font-family: var(--font-serif);
-  font-weight: 650;
-  font-size: clamp(1.7rem, 3vw, 2.4rem);
-  line-height: 1.1;
-  color: var(--text-primary);
-}
-.wiki-front-page__empty p { margin: 0; color: var(--text-secondary); line-height: 1.6; }
 
 /* Loading skeleton (self-contained — do not depend on other sheets). */
-.wiki-front-page__loading-copy {
-  margin: 0 0 16px;
-  max-width: 42ch;
-  color: var(--text-secondary);
-  font-size: 0.96rem;
-  line-height: 1.55;
-}
-.wiki-front-page__skeleton { display: grid; gap: 12px; max-width: 540px; }
-.wiki-front-page .wiki-skeleton {
-  display: inline-block;
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--text-primary) 10%, transparent);
-  animation: wfp-skeleton-pulse 1.2s cubic-bezier(0.22, 1, 0.36, 1) infinite alternate;
-}
 .wiki-front-page .wiki-skeleton--title { width: 70%; height: 2rem; }
-.wiki-front-page .wiki-skeleton--line { width: 100%; height: 0.85rem; }
-.wiki-front-page .wiki-skeleton--line-short { width: 55%; }
-@keyframes wfp-skeleton-pulse {
-  from { opacity: 0.48; }
-  to { opacity: 0.92; }
-}
 
 /* Arrival choreography: one brief orientation cue, then stillness. */
 .wfp-anim {
@@ -767,144 +222,13 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
 
 /* One entrance: lead is cache-first and instant; mono readouts settle
    inside 400ms. Not scattered fades. */
-.paper-open.is-settling .paper-open__masthead,
-.paper-open.is-settling .paper-open__mono {
-  animation: paper-open-settle 220ms cubic-bezier(0.16, 1, 0.3, 1) 180ms both;
-}
-
-.paper-open.is-settling .paper-open__lead {
-  animation: none;
-  opacity: 1;
-  transform: none;
-}
-
-@keyframes paper-open-settle {
-  from { opacity: 0; transform: translate3d(0, 4px, 0); }
-  to { opacity: 1; transform: translate3d(0, 0, 0); }
-}
-
-.paper-open__sign-off-date {
-  display: block;
-  margin-top: 6px;
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
-  letter-spacing: 0.04em;
-}
 
 /* Scan-for-blue = read-the-day. Exactly one pulse, and only when something
    is alive this morning. */
-.paper-open .is-morning-pulse:not(.wiki-front-page__asked-back),
-.wiki-front-page__check-in.is-morning-pulse {
-  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--accent, #3b82f6) 82%, #1d4ed8);
-}
-
-.wiki-front-page__asked-back {
-  display: grid;
-  gap: 6px;
-  max-width: 46ch;
-  margin: 28px 0 0;
-  padding: 4px 0 4px 13px;
-}
-
-.wiki-front-page__asked-back.is-morning-pulse::before {
-  background: color-mix(in srgb, var(--accent, #3b82f6) 82%, #1d4ed8);
-}
-
-.wiki-front-page__asked-back-eyebrow {
-  margin: 0;
-  color: var(--noeis-living-sap, var(--noeis-living, #6f7340));
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
-  letter-spacing: 0.12em;
-}
-
-.wiki-front-page__asked-back-sentence,
-.wiki-front-page__asked-back-list a {
-  margin: 0;
-  color: var(--text-primary, var(--vellum-ink));
-  font-family: var(--font-serif);
-  font-size: 1.05rem;
-  line-height: 1.45;
-  text-wrap: pretty;
-}
-
-.wiki-front-page__asked-back-list {
-  margin: 8px 0 0;
-  padding: 0;
-  list-style: none;
-  display: grid;
-  gap: 14px;
-}
-
-.wiki-front-page__asked-back-list a {
-  text-decoration: none;
-  border-bottom: 1px solid transparent;
-}
-
-.wiki-front-page__asked-back-list a:hover,
-.wiki-front-page__asked-back-list a:focus-visible {
-  border-bottom-color: currentColor;
-}
-
-.wiki-front-page__asked-back-line {
-  margin: 4px 0 0;
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--font-sans);
-  font-size: 0.82rem;
-}
-
-.wiki-front-page__asked-back-snooze {
-  margin-top: 6px;
-  padding: 0;
-  border: 0;
-  border-bottom: 1px solid currentColor;
-  border-radius: 0;
-  background: transparent;
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--font-sans);
-  font-size: 0.82rem;
-  cursor: pointer;
-}
 
 /* The drift's fortnightly sentence: same measure and meander as the
    asked-back block beside it, serif because it is an observation, a door
    because the chart lives on Judgment. */
-.wfp-drift {
-  display: grid;
-  gap: 6px;
-  max-width: 46ch;
-  margin: 28px 0 0;
-  padding: 4px 0 4px 13px;
-}
-
-.wfp-drift__sentence {
-  margin: 0;
-  color: var(--text-primary, var(--vellum-ink));
-  font-family: var(--font-serif);
-  font-size: 1.05rem;
-  line-height: 1.45;
-  text-wrap: pretty;
-}
-
-.wfp-drift__sentence a {
-  text-decoration: none;
-  border-bottom: 1px solid transparent;
-  white-space: nowrap;
-}
-
-.wfp-drift__sentence a:hover,
-.wfp-drift__sentence a:focus-visible {
-  border-bottom-color: currentColor;
-}
-
-.wiki-front-page__check-in {
-  display: grid;
-  gap: 8px;
-  max-width: 46ch;
-  margin: 28px 0 0;
-  padding: 4px 0 4px 13px;
-}
 
 .wiki-front-page__check-in-claim {
   margin: 0;
@@ -918,121 +242,6 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
 .wiki-front-page__check-in-claim.is-struck {
   text-decoration: line-through;
   color: var(--text-muted, var(--vellum-subtle));
-}
-
-.wiki-front-page__check-in-verbs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 22px;
-}
-
-.wiki-front-page__check-in-verbs button {
-  min-height: 0;
-  padding: 0;
-  border: 0;
-  border-bottom: 1px solid transparent;
-  border-radius: 0;
-  background: transparent;
-  color: var(--text-primary, var(--vellum-ink));
-  font-family: var(--font-sans);
-  font-size: 0.88rem;
-  cursor: pointer;
-}
-
-.wiki-front-page__check-in-verbs button.is-inked {
-  border-bottom-color: currentColor;
-  color: var(--ink-human, var(--text-primary, var(--vellum-ink)));
-}
-
-.wiki-front-page__check-in-verbs button:disabled {
-  cursor: default;
-}
-
-.wiki-front-page__check-in-tally {
-  margin: 0;
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
-  letter-spacing: 0.04em;
-}
-
-.wiki-front-page__check-in-reason,
-.wiki-front-page__check-in-criteria {
-  margin: 0;
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
-  letter-spacing: 0.04em;
-}
-
-.morning-consequence {
-  max-width: 48ch;
-}
-
-.morning-consequence__fold,
-.morning-consequence__wording p,
-.morning-consequence__passage,
-.morning-consequence__dependents {
-  margin: 0;
-}
-
-.morning-consequence__fold span,
-.morning-consequence__wording span {
-  display: block;
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
-  letter-spacing: 0.04em;
-}
-
-.morning-consequence__wording {
-  display: grid;
-  gap: 10px;
-  margin: 4px 0;
-}
-
-.morning-consequence__wording p {
-  color: var(--text-primary, var(--vellum-ink));
-  font-family: var(--font-serif);
-  font-size: 1.05rem;
-  line-height: 1.45;
-  text-wrap: pretty;
-}
-
-.morning-consequence__wording textarea {
-  display: block;
-  width: 100%;
-  margin-top: 4px;
-  padding: 0;
-  border: 0;
-  border-bottom: 1px solid var(--hairline, rgba(38, 32, 24, .2));
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  resize: none;
-}
-
-.morning-consequence__passage a,
-.morning-consequence__dependents {
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
-  letter-spacing: 0.04em;
-}
-
-.morning-consequence.consequence-ripple {
-  animation: consequence-ripple 720ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-@keyframes consequence-ripple {
-  from { box-shadow: inset 2px 0 0 color-mix(in srgb, var(--accent, #3b82f6) 0%, transparent); }
-  to { box-shadow: inset 2px 0 0 color-mix(in srgb, var(--accent, #3b82f6) 82%, #1d4ed8); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .morning-consequence.consequence-ripple {
-    animation: none;
-  }
 }
 
 .claim-falsifiability {
@@ -1097,48 +306,15 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
   letter-spacing: 0.04em;
 }
 
-.wiki-front-page__check-in.is-settled {
-  opacity: 1;
-}
-
-.wiki-front-page__check-in.is-filing {
-  pointer-events: none;
-}
-
 /* Narrow viewports: the paper folds to one column. */
-@media (max-width: 1040px) {
-  .wiki-front-page__intro--split {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .wiki-front-page__workspace {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .wiki-front-page__activity-rail {
-    position: static;
-  }
-}
 
 @media (max-width: 760px) {
   .wiki-front-page { padding: 28px 18px 56px; gap: 28px; }
-  .wiki-front-page__top-row { align-items: flex-start; flex-direction: column; gap: 14px; }
-  .wiki-front-page__secondary-nav { gap: 8px 14px; }
-  .wiki-front-page__workspace { gap: 30px; padding-top: 16px; }
-  .wiki-front-page__columns { gap: 30px; }
 }
 
 /* Reduced motion: everything appears instantly; nothing is lost. */
 @media (prefers-reduced-motion: reduce) {
   .wfp-anim { animation: none; opacity: 1; transform: none; }
-  .wiki-front-page .wiki-skeleton { animation: none; }
-  .paper-open.is-settling .paper-open__masthead,
-  .paper-open.is-settling .paper-open__mono,
-  .wiki-front-page__check-in {
-    animation: none;
-    opacity: 1;
-    transform: none;
-  }
 }
 
 /* Four-room Stage 4 — the Wiki return surface is a living table of contents.
@@ -1151,156 +327,8 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
   gap: 0;
 }
 
-.wiki-living-shell {
-  display: grid;
-  width: 100%;
-  max-width: 100%;
-  grid-template-columns: minmax(220px, 0.3fr) minmax(560px, 1fr) minmax(286px, 0.42fr);
-  min-height: calc(100vh - var(--app-topbar-h, 64px));
-  border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 72%, transparent);
-}
-
-.wiki-living-nav,
-.wiki-living-index,
-.wiki-living-curator {
-  min-width: 0;
-}
-
-.wiki-living-nav {
-  padding: 32px 24px 48px;
-  border-right: 1px solid color-mix(in srgb, var(--noeis-rule) 76%, transparent);
-}
-
-.wiki-living-nav__pages .room-shelf__item {
-  align-items: flex-start;
-  line-height: 1.3;
-}
-
-.wiki-living-nav__mobile-toggle {
-  display: none;
-}
-
-.wiki-living-index {
-  padding: clamp(38px, 4vw, 60px) clamp(28px, 4vw, 62px) 72px;
-}
-
-.wiki-living-index__header {
-  display: grid;
-  gap: 8px;
-  padding-bottom: 26px;
-  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule) 78%, transparent);
-}
-
-.wiki-living-index__header .library-places,
-.wiki-front-page__top .library-places,
-.wiki-front-page > .library-places {
-  margin: 4px 0 2px;
-}
-
-.wiki-living-index__header h1 {
-  margin: 0;
-  color: var(--text-primary);
-  font-family: var(--font-serif);
-  font-size: clamp(2.35rem, 4.2vw, 4.35rem);
-  font-weight: 450;
-  letter-spacing: -0.045em;
-  line-height: 0.98;
-}
-
-.wiki-living-index__header > p:not(.wiki-index__eyebrow):not(.wiki-living-index__briefing):not(.wiki-front-page__availability):not(.wiki-front-page__review-triage):not(.paper-open__sign-off-date) {
-  margin: 0;
-  color: var(--text-secondary);
-  font-family: var(--font-serif);
-  font-size: 1.02rem;
-}
-
-.wiki-living-index__briefing {
-  margin: 9px 0 0;
-  padding-left: 13px;
-  border-left: 1px solid color-mix(in srgb, var(--vellum-warm, #b1862e) 48%, var(--noeis-rule));
-  color: var(--text-muted);
-  font-family: var(--font-serif);
-  font-size: 0.92rem;
-  font-style: italic;
-  line-height: 1.5;
-}
-
-.wiki-front-page__review-triage {
-  margin: 8px 0 0;
-  max-width: 48ch;
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--font-sans);
-  font-size: 0.84rem;
-  line-height: 1.45;
-}
-
-.wiki-front-page__review-triage a {
-  color: inherit;
-  text-decoration: none;
-  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule) 70%, transparent);
-}
-
-.wiki-front-page__review-triage a:hover {
-  color: var(--text-primary);
-}
-
-.wiki-living-index__search {
-  display: block;
-  margin: 24px 0 10px;
-}
-
-.wiki-living-index__search input {
-  width: 100%;
-  min-height: 42px;
-  padding: 0 0 8px;
-  border: 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule) 86%, transparent);
-  border-radius: 0;
-  background: transparent;
-  color: var(--text-primary);
-  font-family: var(--font-serif);
-  font-size: 1rem;
-  outline: none;
-}
-
-.wiki-living-index__search input:focus {
-  border-bottom-color: color-mix(in srgb, var(--vellum-warm, #b1862e) 64%, var(--text-primary));
-}
-
 .wiki-living-table {
   margin-top: 10px;
-}
-
-.wiki-living-table__head,
-.wiki-living-row {
-  display: grid;
-  grid-template-columns: minmax(210px, 1.35fr) minmax(120px, 0.76fr) minmax(105px, 0.65fr) minmax(128px, 0.72fr) 24px;
-  gap: 18px;
-  align-items: center;
-}
-
-.wiki-living-table__head {
-  min-height: 42px;
-  color: var(--text-muted);
-  font-family: var(--font-sans);
-  font-size: 0.58rem;
-  font-weight: 650;
-  letter-spacing: 0.13em;
-  text-transform: uppercase;
-}
-
-.wiki-living-row {
-  position: relative;
-  min-height: 72px;
-  border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 76%, transparent);
-  border-radius: 3px;
-  color: var(--text-secondary);
-  font-size: 0.8rem;
-  transition: color 150ms ease-out, box-shadow 180ms ease-out;
-}
-
-.wiki-living-row:last-of-type {
-  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule) 76%, transparent);
 }
 
 /* The same ring the Library takes. This was a warm gradient washing off to
@@ -1308,571 +336,6 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
    because these rows are their own component and the Library's ring never
    reached them. A row under the pointer says "this one" the same way in
    every room, or the reader learns it twice. */
-.wiki-living-row:hover,
-.wiki-living-row:focus-within {
-  color: var(--text-primary);
-  box-shadow: 0 0 0 2px var(--noeis-pointer, #6f87ff);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .wiki-living-row {
-    transition: none;
-  }
-}
-
-.wiki-living-row__title {
-  display: block;
-  align-items: center;
-}
-
-.wiki-living-row__title div {
-  display: grid;
-  gap: 3px;
-}
-
-.wiki-living-row__title a {
-  overflow: hidden;
-  color: var(--text-primary);
-  font-family: var(--font-serif);
-  font-size: 1rem;
-  text-decoration: none;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.wiki-living-row__title small {
-  color: var(--text-muted);
-  font-family: var(--font-sans);
-  font-size: 0.58rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-.wiki-living-row__state {
-  display: inline-flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.wiki-living-row__state i {
-  width: 6px;
-  height: 6px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--text-muted) 60%, transparent);
-}
-
-.wiki-living-row__state.is-review i,
-.wiki-living-row__state.is-evidence i {
-  background: var(--wiki-warm-accent, #b1862e);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--wiki-warm-accent, #b1862e) 9%, transparent);
-}
-
-.wiki-living-row__open {
-  color: var(--text-muted);
-  text-decoration: none;
-  transition: transform 180ms cubic-bezier(0.23, 1, 0.32, 1), color 150ms ease-out;
-}
-
-.wiki-living-row:hover .wiki-living-row__open {
-  color: var(--text-primary);
-  transform: translateX(3px);
-}
-
-.wiki-living-table__empty {
-  margin: 0;
-  padding: 32px 0;
-  border-top: 1px solid var(--noeis-rule);
-  color: var(--text-muted);
-}
-
-.wiki-living-changes {
-  display: grid;
-  gap: 16px;
-  margin-top: 42px;
-}
-
-.wiki-living-changes h2 {
-  margin: 2px 0 0;
-  color: var(--text-primary);
-  font-family: var(--font-serif);
-  font-size: 1.45rem;
-  font-weight: 500;
-}
-
-.wiki-living-changes ol {
-  margin: 0;
-  padding: 0;
-  border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 76%, transparent);
-  list-style: none;
-}
-
-.wiki-living-changes li {
-  display: grid;
-  grid-template-columns: minmax(180px, 1fr) minmax(180px, 1.2fr) auto;
-  gap: 20px;
-  align-items: center;
-  min-height: 58px;
-  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule) 76%, transparent);
-  color: var(--text-secondary);
-  font-size: 0.8rem;
-}
-
-.wiki-living-changes a {
-  color: var(--text-primary);
-  text-decoration: none;
-}
-
-.wiki-living-changes li > a:last-child {
-  color: var(--wiki-warm-accent, #9a6d19);
-  font-family: var(--font-sans);
-  font-size: 0.7rem;
-  letter-spacing: 0.05em;
-}
-
-.wiki-living-curator {
-  display: grid;
-  align-content: start;
-  gap: 0;
-  padding: clamp(38px, 4vw, 58px) clamp(22px, 3vw, 38px) 56px;
-  border-left: 1px solid color-mix(in srgb, var(--noeis-rule) 76%, transparent);
-  background: color-mix(in srgb, var(--vellum-bg, var(--noeis-canvas)) 96%, var(--wiki-warm-accent, #b1862e) 4%);
-}
-
-.wiki-living-curator > header {
-  display: grid;
-  gap: 8px;
-  padding-bottom: 24px;
-}
-
-.wiki-living-curator > header h2 {
-  margin: 0;
-  color: var(--text-primary);
-  font-family: var(--font-serif);
-  font-size: 1.8rem;
-  font-weight: 500;
-}
-
-.wiki-living-curator > header p:last-child,
-.wiki-living-curator__repo > p {
-  margin: 0;
-  color: var(--text-secondary);
-  font-family: var(--font-serif);
-  line-height: 1.5;
-}
-
-.wiki-living-curator__builder,
-.wiki-living-curator__repo,
-.wiki-living-curator__return,
-.wiki-living-curator__conversation {
-  padding: 22px 0;
-  border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 76%, transparent);
-}
-
-.wiki-living-curator h3,
-.wiki-living-curator__return > span {
-  display: block;
-  margin: 0 0 12px;
-  color: var(--text-muted);
-  font-family: var(--font-sans);
-  font-size: 0.62rem;
-  font-weight: 650;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
-.wiki-living-curator .wiki-build-page__row,
-.wiki-living-curator .wiki-repo-create__row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 9px;
-}
-
-.wiki-living-curator input {
-  min-width: 0;
-}
-
-.wiki-living-curator__repo > p {
-  margin-bottom: 14px;
-  font-size: 0.9rem;
-}
-
-.wiki-living-curator__return {
-  display: grid;
-  gap: 5px;
-}
-
-.wiki-living-curator__return > span {
-  margin-bottom: 2px;
-}
-
-.wiki-living-curator__return a {
-  color: var(--text-primary);
-  font-family: var(--font-serif);
-  font-size: 1rem;
-  text-decoration: none;
-}
-
-.wiki-living-curator__return p {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: 0.78rem;
-  line-height: 1.45;
-}
-
-.wiki-living-curator__conversation summary {
-  color: var(--text-primary);
-  cursor: pointer;
-  font-family: var(--font-serif);
-  font-size: 1rem;
-}
-
-.wiki-living-curator__conversation[open] summary {
-  margin-bottom: 16px;
-}
-
-.wiki-living-curator .agent-context-shell,
-.wiki-living-curator .thought-partner-panel {
-  padding: 0;
-  border: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-@media (max-width: 1120px) {
-  .wiki-living-shell {
-    grid-template-columns: minmax(174px, 0.3fr) minmax(0, 1fr);
-  }
-
-  .wiki-living-curator {
-    grid-column: 1 / -1;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0 30px;
-    border-top: 1px solid var(--noeis-rule);
-    border-left: 0;
-  }
-
-  .wiki-living-curator > header,
-  .wiki-living-curator__return,
-  .wiki-living-curator__conversation {
-    grid-column: 1 / -1;
-  }
-}
-
-@media (max-width: 760px) {
-  .wiki-living-shell {
-    display: block;
-    overflow: hidden;
-    min-height: 0;
-  }
-
-  .wiki-living-nav {
-    padding: 18px 24px;
-    border-right: 0;
-    border-bottom: 1px solid var(--noeis-rule);
-  }
-
-  .wiki-living-nav__mobile-toggle {
-    display: flex;
-    width: 100%;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    color: var(--text-primary);
-    font: 0.78rem/1.4 var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-  }
-
-  .wiki-living-nav:not(.is-mobile-open) > :not(.wiki-living-nav__mobile-toggle) {
-    display: none;
-  }
-
-  .wiki-living-nav.is-mobile-open .room-shelf__heading {
-    display: none;
-  }
-
-  .wiki-living-nav.is-mobile-open .wiki-living-nav__primary,
-  .wiki-living-nav.is-mobile-open .wiki-living-nav__kinds,
-  .wiki-living-nav.is-mobile-open .wiki-living-nav__workspace,
-  .wiki-living-nav.is-mobile-open .wiki-living-nav__pages {
-    margin-top: 18px;
-  }
-
-  .wiki-living-nav.is-mobile-open .room-shelf__item {
-    width: 100%;
-  }
-
-  .wiki-living-index {
-    padding: 34px 24px 48px;
-  }
-
-  .wiki-living-index__header h1 {
-    font-size: clamp(2.4rem, 13vw, 3.4rem);
-  }
-
-  .wiki-living-table__head {
-    display: none;
-  }
-
-  .wiki-living-row {
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 7px 14px;
-    padding: 16px 0;
-  }
-
-  .wiki-living-row__title {
-    grid-column: 1;
-    grid-row: 1;
-  }
-
-  .wiki-living-row > span[role='cell']:not(.wiki-living-row__state) {
-    grid-column: 1;
-    padding-left: 29px;
-    font-size: 0.72rem;
-  }
-
-  .wiki-living-row__state {
-    grid-column: 1;
-    padding-left: 29px;
-    font-size: 0.72rem;
-  }
-
-  .wiki-living-row__open {
-    grid-column: 2;
-    grid-row: 1 / span 3;
-  }
-
-  .wiki-living-changes li {
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 6px 14px;
-    padding: 13px 0;
-  }
-
-  .wiki-living-changes li > span {
-    grid-column: 1;
-    font-size: 0.72rem;
-  }
-
-  .wiki-living-changes li > a:last-child {
-    grid-column: 2;
-    grid-row: 1 / span 2;
-    align-self: center;
-  }
-
-  .wiki-living-curator {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    padding: 36px 24px 70px;
-  }
-
-  .wiki-living-curator > * {
-    grid-column: 1;
-  }
-}
-
-@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
-  .wiki-living-row.is-library-changed::before {
-    position: absolute;
-    top: 14px;
-    bottom: 14px;
-    left: -12px;
-    width: 1px;
-    background: linear-gradient(180deg, transparent, var(--wiki-warm-accent, #b1862e), transparent);
-    content: '';
-    opacity: 0.42;
-    animation: wiki-library-thread 4.8s ease-in-out infinite;
-  }
-}
-
-@keyframes wiki-library-thread {
-  0%, 100% { opacity: 0.22; transform: scaleY(0.55); }
-  50% { opacity: 0.72; transform: scaleY(1); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .wiki-living-row,
-  .wiki-living-row__open {
-    transition: none;
-  }
-}
-
-.wiki-front-page__reading-watch {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.wiki-front-page__watching button {
-  background: transparent;
-  border: 1px solid color-mix(in srgb, var(--noeis-rule, #7d7669) 62%, transparent);
-  border-radius: 999px;
-  color: inherit;
-  cursor: pointer;
-  padding: 7px 12px;
-}
-
-.wiki-front-page__watching button:disabled {
-  cursor: wait;
-  opacity: .55;
-}
-
-.wiki-front-page__watching {
-  margin: 0;
-  padding: 0;
-  border: 0;
-}
-
-.wiki-front-page__activity-rail {
-  position: sticky;
-  top: 92px;
-  padding: 4px 0 20px 26px;
-  border-left: 1px solid color-mix(in srgb, var(--noeis-rule) 74%, transparent);
-  background: color-mix(in srgb, var(--vellum-bg, var(--noeis-canvas)) 84%, transparent);
-  -webkit-backdrop-filter: blur(18px) saturate(118%);
-  backdrop-filter: blur(18px) saturate(118%);
-}
-
-
-.wiki-front-page__partner {
-  margin-bottom: 22px;
-  padding-bottom: 22px;
-  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule) 74%, transparent);
-}
-
-.wiki-front-page__watching-header,
-.wiki-front-page__watching li {
-  align-items: center;
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.wiki-front-page__watching-header h2 {
-  font-family: var(--font-serif);
-  font-size: 1.55rem;
-  margin: 4px 0 0;
-}
-
-.wiki-front-page__watching-header > span,
-.wiki-front-page__watching li span,
-.wiki-front-page__watching li em,
-.wiki-front-page__watching-empty {
-  color: var(--text-muted, #8c867c);
-  display: block;
-  font-family: var(--font-mono);
-  font-size: .72rem;
-  font-style: normal;
-  margin-top: 4px;
-}
-
-.wiki-front-page__watching ul {
-  list-style: none;
-  margin: 18px 0 14px;
-  padding: 0;
-}
-
-.wiki-front-page__watching li {
-  position: relative;
-  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, #7d7669) 28%, transparent);
-  padding: 14px 0 14px 18px;
-}
-
-.wiki-front-page__watching li::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 20px;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--text-muted) 70%, transparent);
-}
-
-.wiki-front-page__reading-watch label {
-  display: grid;
-  flex: 1 1 210px;
-  font-family: var(--font-mono);
-  font-size: .7rem;
-  gap: 5px;
-}
-
-.wiki-front-page__reading-watch input,
-.wiki-front-page__reading-watch select {
-  background: color-mix(in srgb, var(--surface, #191918) 86%, transparent);
-  border: 1px solid color-mix(in srgb, var(--noeis-rule, #7d7669) 52%, transparent);
-  border-radius: 8px;
-  color: inherit;
-  padding: 9px 10px;
-}
-
-.wiki-front-page__watching-add {
-  padding-top: 12px;
-  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, #7d7669) 28%, transparent);
-}
-
-.wiki-front-page__watching-more {
-  margin: -14px 0 14px;
-  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, #7d7669) 28%, transparent);
-}
-
-.wiki-front-page__watching-more > summary,
-.wiki-front-page__watching-add summary {
-  width: fit-content;
-  cursor: pointer;
-  color: var(--text-secondary);
-  font-family: var(--font-sans);
-  font-size: 0.8rem;
-  font-weight: 650;
-  list-style: none;
-}
-
-.wiki-front-page__watching-more > summary {
-  margin: 0 0 14px 18px;
-}
-
-.wiki-front-page__watching-more > summary::-webkit-details-marker,
-.wiki-front-page__watching-add summary::-webkit-details-marker {
-  display: none;
-}
-
-.wiki-front-page__watching-more > summary::after,
-.wiki-front-page__watching-add summary::after {
-  content: ' +';
-}
-
-.wiki-front-page__watching-more[open] > summary::after,
-.wiki-front-page__watching-add[open] summary::after {
-  content: ' −';
-}
-
-.wiki-front-page__watching-more[open] > ul,
-.wiki-front-page__watching-add[open] .wiki-front-page__reading-watch {
-  transform-origin: top left;
-  animation: wfp-materialize 180ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.wiki-front-page__watching-more > ul {
-  margin: 0;
-}
-
-.wiki-front-page__availability {
-  margin: 0;
-  padding: 10px 14px;
-  border-left: 2px solid color-mix(in srgb, var(--wiki-warm-accent, #b1862e) 52%, var(--noeis-rule));
-  color: var(--text-secondary);
-  font-family: var(--font-sans);
-  font-size: 0.82rem;
-  line-height: 1.5;
-}
-
-.wiki-front-page__operations {
-  border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 82%, transparent);
-  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule) 70%, transparent);
-}
 
 .wiki-front-page__operations-summary {
   min-height: 58px;
@@ -1914,115 +377,17 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
   text-transform: uppercase;
 }
 
-.wiki-front-page__operations[open] .wiki-front-page__operations-summary > span:last-child::before {
-  content: 'Close';
-  font-size: inherit;
-}
-
-.wiki-front-page__operations[open] .wiki-front-page__operations-summary > span:last-child {
-  font-size: 0;
-}
-
-.wiki-front-page__operations-panel {
-  display: grid;
-  gap: 28px;
-  padding: 24px 0 32px;
-}
-
-.wiki-front-page__operations-panel > * + * {
-  padding-top: 24px;
-  border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 66%, transparent);
-}
-
-.wiki-front-page__operations-panel .wiki-front-page__secondary-nav {
-  padding-top: 0;
-  border-top: 0;
-}
-
 @keyframes wfp-materialize {
   from { opacity: 0; transform: translate3d(0, -4px, 0) scale(0.98); }
   to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .wiki-front-page__grown li,
-  .wiki-front-page__watching li,
-  .wiki-front-page__continue,
-  .wiki-front-page__watching-more > summary,
-  .wiki-front-page__watching-add summary {
-    transition: transform 160ms cubic-bezier(0.16, 1, 0.3, 1), opacity 160ms cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  .wiki-front-page__grown li:hover,
-  .wiki-front-page__watching li:hover {
-    transform: translate3d(3px, 0, 0);
-  }
-
-  .wiki-front-page__continue:hover,
-  .wiki-front-page__watching-more > summary:hover,
-  .wiki-front-page__watching-add summary:hover {
-    transform: translate3d(2px, 0, 0);
-  }
-}
-
-.wiki-front-page__watching button:active,
-.wiki-front-page__watching-more > summary:active,
-.wiki-front-page__watching-add summary:active {
-  transform: scale(0.97);
-  transition: transform 90ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-@media (prefers-reduced-transparency: reduce) {
-  .wiki-front-page__activity-rail {
-    background: var(--vellum-bg, var(--noeis-canvas));
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
-  }
-}
-
-@media (prefers-contrast: more) {
-  .wiki-front-page__activity-rail {
-    background: var(--vellum-bg, var(--noeis-canvas));
-    border-left-color: currentColor;
-  }
-}
-
 @media (max-width: 560px) {
-  .wiki-front-page__watching-header,
-  .wiki-front-page__watching li {
-    align-items: flex-start;
-  }
-
-  .wiki-front-page__watching li {
-    flex-direction: column;
-  }
-
-  .wiki-front-page__watching li button,
-  .wiki-front-page__reading-watch button {
-    width: 100%;
-  }
 
   .wiki-front-page__operations-summary {
     align-items: flex-start;
   }
 
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .wiki-front-page__watching-more[open] > ul,
-  .wiki-front-page__watching-add[open] .wiki-front-page__reading-watch {
-    animation: none;
-  }
-
-  .wiki-front-page__grown li,
-  .wiki-front-page__watching li,
-  .wiki-front-page__continue,
-  .wiki-front-page__watching-more > summary,
-  .wiki-front-page__watching-add summary,
-  .wiki-front-page__watching button {
-    transition: none;
-    transform: none;
-  }
 }
 
 /* ---- The wiki index, in the reading language -----------------------------
@@ -2032,13 +397,6 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
  * is volume: this surface still labels itself in spaced uppercase mono the way
  * the rest of the product did before it stopped.
  */
-body.noeis-editorial .wiki-living-shell .wiki-index__eyebrow,
-body.noeis-editorial .wiki-living-table__head > *,
-body.noeis-editorial .wiki-living-row__kind,
-body.noeis-editorial .wiki-living-index__header > p,
-body.noeis-editorial .wiki-living-changes__head,
-body.noeis-editorial .wiki-living-changes__head *,
-body.noeis-editorial .wiki-living-shell [class*='__kicker'],
 body.noeis-editorial .wiki-front-page__operations-summary strong,
 body.noeis-editorial .wiki-front-page__operations-summary small,
 body.noeis-editorial .wiki-front-page__operations-summary span[aria-hidden] {
@@ -2050,11 +408,6 @@ body.noeis-editorial .wiki-front-page__operations-summary span[aria-hidden] {
   text-transform: none !important;
 }
 
-body.noeis-editorial .wiki-living-shell .paper-open__masthead,
-body.noeis-editorial .paper-open__sign-off-date,
-body.noeis-editorial .wiki-front-page__check-in-tally,
-body.noeis-editorial .wiki-front-page__check-in-reason,
-body.noeis-editorial .wiki-front-page__check-in-criteria,
 body.noeis-editorial .claim-falsifiability__kept {
   color: var(--text-muted, var(--vellum-subtle)) !important;
   font-family: var(--font-mono) !important;
@@ -2063,77 +416,14 @@ body.noeis-editorial .claim-falsifiability__kept {
   text-transform: none !important;
 }
 
-body.noeis-editorial .wiki-living-index__briefing {
-  color: var(--text-muted) !important;
-  font-family: var(--font-serif) !important;
-  font-size: 0.92rem !important;
-  font-style: italic;
-  letter-spacing: 0 !important;
-}
-body.noeis-editorial .wiki-living-index__search input,
-body.noeis-editorial .wiki-living-shell input[type='search'] {
-  padding: 8px 0 !important;
-  font-family: var(--font-sans) !important;
-  font-size: 0.94rem;
-}
-
 /* A wiki's name is the reading. The decorative page mark looked like an
    unlabelled checkbox, so the row is now one clear target: title, kind, state,
    and the open affordance. */
-body.noeis-editorial .wiki-living-row__title {
-  align-items: start;
-}
-
-body.noeis-editorial .wiki-living-row__title a {
-  overflow: visible;
-  font-size: 1.02rem;
-  line-height: 1.32;
-  white-space: normal;
-  text-overflow: clip;
-}
-
 
 /* The kind of page — topic, overview — at 0.58rem in spaced caps was a stamp.
    It is an aside. */
-body.noeis-editorial .wiki-living-row__title small {
-  font-size: 0.8rem;
-  letter-spacing: 0;
-  text-transform: none;
-}
 
 /* Building is a verb behind one disclosure, under the list of what exists. */
-body.noeis-editorial .wiki-front-page__making {
-  margin-top: 36px;
-  padding-top: 24px;
-  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 62%, transparent);
-}
-
-body.noeis-editorial .wiki-front-page__making > summary {
-  color: var(--text-primary, var(--vellum-ink));
-  font-family: var(--font-sans);
-  font-size: 0.9rem;
-  cursor: pointer;
-}
-
-body.noeis-editorial .wiki-front-page__creation-tools {
-  display: grid;
-  gap: 26px;
-  margin-top: 18px;
-}
-
-body.noeis-editorial .wiki-front-page__return-path {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 6px 18px;
-  margin: 26px 0 0;
-  font-family: var(--font-sans);
-  font-size: 0.88rem;
-}
-
-body.noeis-editorial .wiki-front-page__return-path span {
-  color: var(--text-muted, var(--vellum-subtle));
-}
 
 /* The activity bar at the foot of the page: a summary you can open, said in
    the same voice as everything above it rather than stamped in caps. */
@@ -2144,174 +434,11 @@ body.noeis-editorial .wiki-front-page__operations-summary {
 }
 
 /* Where you were, above the list of everything you have. */
-body.noeis-editorial .wiki-front-page__continue {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 6px 16px;
-  margin: 0 0 22px;
-}
-
-body.noeis-editorial .wiki-front-page__continue span {
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--font-sans);
-  font-size: 0.82rem;
-}
-
-body.noeis-editorial .wiki-front-page__continue a {
-  color: var(--text-primary, var(--vellum-ink));
-  font-family: var(--font-serif);
-  font-size: 1.24rem;
-  line-height: 1.25;
-  text-decoration: none;
-  border-bottom: 1px solid color-mix(in srgb, currentColor 34%, transparent);
-}
-
-body.noeis-editorial .wiki-front-page__continue a:hover,
-body.noeis-editorial .wiki-front-page__continue a:focus-visible {
-  color: var(--wiki-warm-accent, var(--vellum-warm));
-}
 
 /* Inside the builders and the activity panel: the same rules as everywhere
    else. An action is a word; a label is a quiet sans in sentence case. */
-body.noeis-editorial .wiki-front-page__making .ui-button,
-body.noeis-editorial .wiki-front-page__operations-panel .ui-button {
-  min-height: 0;
-  padding: 0;
-  border: 0 !important;
-  border-bottom: 1px solid currentColor !important;
-  border-radius: 0 !important;
-  background: none !important;
-  background-color: transparent !important;
-  box-shadow: none !important;
-  color: var(--text-primary, var(--vellum-ink)) !important;
-  font-family: var(--font-sans);
-  font-size: 0.88rem;
-  font-weight: 400;
-  letter-spacing: 0;
-  text-transform: none;
-}
-
-body.noeis-editorial .wiki-front-page__making .wiki-index__eyebrow,
-body.noeis-editorial .wiki-front-page__operations-panel .wiki-index__eyebrow,
-body.noeis-editorial .wiki-front-page__making label,
-body.noeis-editorial .wiki-front-page__operations-panel label {
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--font-sans);
-  font-size: 0.82rem;
-  font-weight: 400;
-  letter-spacing: 0;
-  text-transform: none;
-}
-
-body.noeis-editorial .wiki-front-page__making input,
-body.noeis-editorial .wiki-front-page__making textarea,
-body.noeis-editorial .wiki-front-page__operations-panel input {
-  padding: 7px 0 !important;
-  font-family: var(--font-sans) !important;
-  font-size: 0.92rem;
-}
 
 /* ---------- the week in your thinking ---------- */
-
-.wfp-week {
-  display: grid;
-  gap: 18px;
-  max-width: 72ch;
-  margin: 8px auto 0;
-  padding: 26px 0 8px;
-  border-top: 1px solid var(--surface-border, rgba(15, 23, 42, 0.14));
-}
-
-.wfp-week__head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.wfp-week__title {
-  margin: 0;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--text-muted, #5f6b7a);
-}
-
-.wfp-week__range {
-  margin: 0;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  color: var(--text-muted, #5f6b7a);
-}
-
-.wfp-week__group {
-  display: grid;
-  gap: 8px;
-}
-
-.wfp-week__page {
-  margin: 0;
-  font-family: var(--font-serif);
-  font-size: 20px;
-  font-weight: 400;
-  line-height: 1.3;
-}
-
-.wfp-week__page a {
-  color: var(--text-primary, #111827);
-  text-decoration: none;
-}
-
-.wfp-week__page a:hover {
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-.wfp-week__items {
-  margin: 0;
-  padding: 0 0 0 2px;
-  list-style: none;
-  display: grid;
-  gap: 7px;
-}
-
-.wfp-week__items li {
-  font-size: 15px;
-  line-height: 1.5;
-  color: var(--text-primary, #111827);
-}
-
-.wfp-week__items a {
-  color: inherit;
-  text-decoration: none;
-}
-
-.wfp-week__items a:hover {
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-.wfp-week__kind {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--text-muted, #5f6b7a);
-}
-
-@media (max-width: 640px) {
-  .wfp-week {
-    padding: 20px 0 4px;
-  }
-
-  .wfp-week__head {
-    flex-direction: column;
-    gap: 2px;
-  }
-}
 
 /* ── The editions ─────────────────────────────────────────────────────────
    A paper teaches its cadence by printing it. The masthead now says which
@@ -2319,57 +446,15 @@ body.noeis-editorial .wiki-front-page__operations-panel input {
    on, with the current one underlined. All of it mono: these are readouts,
    and a control or a readout never wears serif. */
 
-.paper-open__edition-no {
-  margin-left: 0.6rem;
-  font-variant-numeric: lining-nums tabular-nums;
-}
-
-.paper-open__printed,
-.paper-open__editions,
-.paper-open__milestone,
-.paper-open__end {
-  margin: 0.2rem 0 0;
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
-  letter-spacing: 0.06em;
-  /* Lining tabular figures in every mono receipt: numbers that line up when
-     they stack, which is what a receipt is for. */
-  font-variant-numeric: lining-nums tabular-nums;
-}
-
-.paper-open__editions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.9rem;
-}
-
 /* The edition you are holding, underlined. Not colored: the pulse is the one
    blue thing on the page and it belongs to whatever is alive, not to a label. */
-.paper-open__editions .is-current {
-  color: var(--text-primary, var(--vellum-ink));
-  text-decoration: underline;
-  text-underline-offset: 0.35em;
-  text-decoration-thickness: 1px;
-}
 
 /* Three rules, three meanings. Double for the masthead, because an edition
    boundary is the strongest line on the page. */
-.paper-open__editions {
-  padding-bottom: 0.7rem;
-  border-bottom: 3px double var(--border-subtle, rgba(120, 120, 120, 0.3));
-}
 
 /* Hairlines at half a pixel where the screen can draw one. */
-.wiki-front-page hr,
-.wiki-living-index__header {
+.wiki-front-page hr {
   border-width: thin;
-}
-
-.paper-open__end {
-  margin-top: 2.4rem;
-  text-align: center;
-  letter-spacing: 0.14em;
 }
 
 /* Old-style figures in serif running text: numbers that sit in the line
@@ -2378,12 +463,6 @@ body.noeis-editorial .wiki-front-page__operations-panel input {
 .wiki-front-page h1,
 .wiki-front-page h2 {
   font-variant-numeric: oldstyle-nums;
-}
-
-.wiki-front-page .paper-open__printed,
-.wiki-front-page .paper-open__editions,
-.wiki-front-page .paper-open__end {
-  font-variant-numeric: lining-nums tabular-nums;
 }
 
 /* ── ⌘P yields a real paper ───────────────────────────────────────────────
@@ -2400,8 +479,6 @@ body.noeis-editorial .wiki-front-page__operations-panel input {
 
   /* Controls do not print. A button on paper is a lie about what paper does. */
   .wiki-front-page button,
-  .library-places__doors,
-  .wiki-front-page__graph-motif,
   nav {
     display: none !important;
   }
@@ -2411,18 +488,10 @@ body.noeis-editorial .wiki-front-page__operations-panel input {
     text-decoration: none;
   }
 
-  .paper-open__editions {
-    border-bottom: 3px double #000;
-  }
-
   /* The pulse is a screen idea. On paper there is no today to point at. */
   .is-morning-pulse {
     animation: none !important;
     color: #000 !important;
-  }
-
-  .paper-open__end {
-    margin-top: 2rem;
   }
 }
 
@@ -2438,25 +507,6 @@ body.noeis-editorial .wiki-front-page__operations-panel input {
 
    Under reduced motion it is still from the first frame. The mark is a fact
    about today; the swell is only how it arrives. */
-@keyframes noeis-pulse-breathes-once {
-  0%   { box-shadow: inset 0 0 0 0 color-mix(in srgb, var(--accent, #3b82f6) 82%, #1d4ed8); }
-  55%  { box-shadow: inset 3px 0 0 0 color-mix(in srgb, var(--accent, #3b82f6) 82%, #1d4ed8); }
-  100% { box-shadow: inset 2px 0 0 0 color-mix(in srgb, var(--accent, #3b82f6) 82%, #1d4ed8); }
-}
-
-.paper-open .is-morning-pulse:not(.wiki-front-page__asked-back),
-.wiki-front-page__check-in.is-morning-pulse {
-  animation: noeis-pulse-breathes-once 600ms cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .paper-open .is-morning-pulse:not(.wiki-front-page__asked-back),
-  .wiki-front-page__check-in.is-morning-pulse {
-    animation: none;
-    box-shadow: inset 2px 0 0 color-mix(in srgb, var(--accent, #3b82f6) 82%, #1d4ed8);
-  }
-}
-
 
 /* ---------- the top of the paper ----------
 
@@ -2464,52 +514,12 @@ body.noeis-editorial .wiki-front-page__operations-panel input {
    printed an edition number, a press hour, three place names and a count of
    each — all true, none of it a door. Every line here goes somewhere. */
 
-.paper-desk {
-  display: grid;
-  gap: 4px;
-  margin: 10px 0 26px;
-  max-width: 62ch;
-}
-
-.paper-desk__eyebrow {
-  margin: 0 0 2px;
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--font-sans);
-  font-size: 0.68rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
-.paper-desk__line {
-  margin: 0;
-  color: var(--text-secondary, var(--vellum-muted));
-  font-family: var(--font-serif);
-  font-size: 1.02rem;
-  line-height: 1.5;
-  text-wrap: pretty;
-}
-
 /* The canon has no clock, so its one line a morning sits a little apart from
    the desk's business rather than in the middle of it. */
-.paper-desk__line--shelf {
-  margin-top: 6px;
-}
 
 /* A door is the sentence it sits in, underlined on approach. Not a colour —
    the reading face carries one ink, and a link that recolours a serif line
    turns a report into a set of buttons. */
-.paper-desk__door {
-  color: var(--text-primary, var(--vellum-ink));
-  text-decoration: none;
-  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 88%, transparent);
-}
-
-.paper-desk__door:hover,
-.paper-desk__door:focus-visible {
-  outline: none;
-  border-bottom-color: var(--vellum-ink, #1c1a17);
-}
-
 
 /* ── The paper with nerve ─────────────────────────────────────────────────
  *
@@ -2522,147 +532,16 @@ body.noeis-editorial .wiki-front-page__operations-panel input {
  * the claim itself in the reading one, a footnote under it. Quoted claims are
  * the reader's own words, so they get the serif and the size. */
 
-.paper-open__headline {
-  margin: 0 0 4px;
-  font-family: var(--font-serif);
-  font-size: clamp(1.9rem, 3.2vw, 3.1rem);
-  font-weight: 450;
-  line-height: 1.1;
-  letter-spacing: -0.03em;
-  text-wrap: balance;
-}
-
-.paper-open__headline a {
-  color: var(--text-primary);
-  text-decoration: none;
-}
-
-.paper-open__headline a:hover {
-  text-decoration: underline;
-  text-decoration-thickness: 1px;
-  text-underline-offset: 6px;
-}
-
-.paper-columns {
-  display: grid;
-  gap: 26px;
-  margin: 30px 0 4px;
-  padding: 22px 0 0;
-  border-top: 2px solid var(--noeis-rule, var(--border-subtle-2));
-  max-width: 62ch;
-}
-
-.paper-column__standfirst,
-.paper-column__footnote,
-.paper-column__correction-note {
-  font-family: var(--font-mono);
-  font-size: 0.66rem;
-  font-weight: 600;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
-  color: color-mix(in srgb, var(--text-muted) 90%, transparent);
-}
-
-.paper-column__standfirst {
-  margin: 0 0 6px;
-}
-
-.paper-column__footnote {
-  margin: 6px 0 0;
-  font-weight: 500;
-  letter-spacing: 0.06em;
-  text-transform: none;
-}
-
 /* The reader's own sentence, given back to them. Serif, and big enough to
    feel like a quotation rather than a field value. */
-.paper-column__body {
-  display: block;
-  margin: 0;
-  color: var(--text-primary);
-  font-family: var(--font-serif);
-  font-size: 1.22rem;
-  line-height: 1.42;
-  text-decoration: none;
-}
-
-a.paper-column__body:hover {
-  text-decoration: underline;
-  text-underline-offset: 4px;
-  text-decoration-color: color-mix(in srgb, var(--noeis-pointer, var(--text-muted)) 50%, transparent);
-}
 
 /* A belief a year old, asking to be answered. The rule marks it as the one
    column that wants something from the reader. */
-.paper-column--anniversary {
-  padding-left: 16px;
-  border-left: 2px solid color-mix(in srgb, var(--noeis-pointer, var(--text-muted)) 45%, transparent);
-}
-
-.paper-column__corrections {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 10px;
-}
-
-.paper-column__corrections li {
-  display: grid;
-  gap: 2px;
-}
-
-.paper-column__corrections a,
-.paper-column__corrections span:first-child {
-  color: var(--text-primary);
-  font-family: var(--font-serif);
-  font-size: 1rem;
-  line-height: 1.4;
-  text-decoration: none;
-}
-
-.paper-column__corrections a:hover {
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-.paper-column__correction-note {
-  letter-spacing: 0.05em;
-  text-transform: none;
-}
 
 /* Papers have always run these. Wry, small, and set apart. */
-.paper-column__obituary {
-  margin: 0;
-  padding: 14px 0 0;
-  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--border-subtle-2)) 65%, transparent);
-  color: color-mix(in srgb, var(--text-muted) 88%, transparent);
-  font-style: italic;
-}
-
-.paper-column__obituary a {
-  color: inherit;
-}
 
 /* The best sentence this product can print, and the only one none of its
    competitors would dare: there is nothing here, go away. */
-.paper-column__quiet {
-  margin: 30px 0 4px;
-  padding: 22px 0 0;
-  border-top: 2px solid var(--noeis-rule, var(--border-subtle-2));
-  max-width: 48ch;
-  color: color-mix(in srgb, var(--text-muted) 92%, transparent);
-  font-family: var(--font-serif);
-  font-size: 1.16rem;
-  font-style: italic;
-  line-height: 1.5;
-}
-
-.wiki-living-table__rest {
-  margin: 14px 0 0;
-  font-size: 0.86rem;
-}
-
 
 /* ── Card 56: the paper takes the room it is in ───────────────────────────
  *
@@ -2681,11 +560,6 @@ body.noeis-editorial.wiki-front-page-route .app-shell-new--stitch .app-shell-new
 
 /* A wider grid must not become a wider line. Prose keeps its measure; the
    table and the headline are free to use the room. */
-body.noeis-editorial .wiki-living-index__briefing,
-body.noeis-editorial .paper-desk__line,
-body.noeis-editorial .wiki-front-page__continue {
-  max-width: 68ch;
-}
 
 /* Card 56: "make top link a little smaller".
  *
@@ -2694,86 +568,23 @@ body.noeis-editorial .wiki-front-page__continue {
  * selector and had been winning silently. Nine lines of display serif in a
  * narrow column. Same specificity now, and a size that leads the page without
  * being the page. */
-body.noeis-editorial .wiki-living-index__header h1.paper-open__headline {
-  font-size: clamp(1.75rem, 2.1vw, 2.9rem);
-  line-height: 1.12;
-  letter-spacing: -0.028em;
-  max-width: 26ch;
-}
 
 /* The paper counting its own asking. Set apart from the footnote above it
    because it is the paper talking about itself rather than about the claim —
    the one line on the page whose subject is the software. */
-.paper-column__asked {
-  margin: 8px 0 0;
-  padding: 6px 0 0;
-  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--border-subtle-2)) 55%, transparent);
-  color: color-mix(in srgb, var(--text-muted) 88%, transparent);
-  font-size: 0.86rem;
-  font-style: italic;
-}
 
 /* A correction is the paper about itself, so it carries the warning ink
    rather than the pointer — the only place the paper is the subject and the
    news is bad. One rule, one meaning: this is not an error state, it is an
    admission, so the ink is warning and never danger. */
-.paper-column--correction .paper-column__standfirst {
-  color: color-mix(in srgb, var(--warning, var(--text-muted)) 82%, transparent);
-}
 
 /* What you closed since the paper last asked. Good news, so it is not dimmed
    the way an unanswered thing is. */
-.paper-column__closings {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 6px;
-}
-
-.paper-column__closings li,
-.paper-column__closings a {
-  color: var(--text-primary);
-  font-family: var(--font-serif);
-  font-size: 1rem;
-  line-height: 1.45;
-  text-decoration: none;
-}
-
-.paper-column__closings a:hover {
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
 
 /* The falsifier the watchers matched. The one column that is genuinely
    urgent, so it gets the warning ink and a rule heavy enough to stop a
    reader — and never the danger ink, because nothing has broken yet. The
    software noticed; the reader rules. */
-.paper-column--warned {
-  padding-left: 16px;
-  border-left: 3px solid color-mix(in srgb, var(--warning, var(--text-muted)) 72%, transparent);
-}
-
-.paper-column--warned .paper-column__standfirst {
-  color: color-mix(in srgb, var(--warning, var(--text-muted)) 88%, transparent);
-}
 
 /* One line about the reader rather than about the corpus. It is not news, so
    it sits last and speaks softly. */
-.paper-column__calibration {
-  margin: 22px 0 0;
-  padding: 14px 0 0;
-  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--border-subtle-2)) 65%, transparent);
-  color: color-mix(in srgb, var(--text-muted) 90%, transparent);
-  font-size: 0.92rem;
-}
-
-.paper-column__calibration a {
-  color: inherit;
-  text-decoration: none;
-}
-
-.paper-column__calibration a:hover {
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}

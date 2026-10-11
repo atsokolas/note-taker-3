@@ -37,11 +37,9 @@ body.noeis-editorial .wiki-onboarding__panel,
 }
 
 body.noeis-editorial .wiki-onboarding__eyebrow,
-body.noeis-editorial .wiki-onboarding__counter,
 body.noeis-editorial .wiki-onboarding__pack span,
 body.noeis-editorial .wiki-onboarding__paste span,
 .wiki-onboarding__eyebrow,
-.wiki-onboarding__counter,
 .wiki-onboarding__pack span,
 .wiki-onboarding__paste span {
   color: var(--text-muted, var(--vellum-subtle));
@@ -255,15 +253,6 @@ body.noeis-editorial .wiki-onboarding__error,
   border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 62%, transparent);
 }
 
-.wiki-onboarding__archive-primary {
-  justify-self: start;
-  color: var(--text-primary, var(--vellum-ink));
-  font-family: var(--font-serif);
-  font-size: 1.24rem;
-  text-decoration: none;
-  border-bottom: 1px solid currentColor;
-}
-
 .wiki-onboarding__archive p {
   margin: 0;
   color: var(--text-muted, var(--vellum-subtle));
@@ -280,49 +269,6 @@ body.noeis-editorial .wiki-onboarding__error,
 }
 
 /* ---------- leaving with a claim ---------- */
-
-.wiki-onboarding__claim {
-  display: grid;
-  gap: 10px;
-  margin: 28px 0 0;
-  padding: 24px 0 0;
-  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 62%, transparent);
-}
-
-.wiki-onboarding__claim label {
-  display: grid;
-  gap: 4px;
-}
-
-.wiki-onboarding__claim label strong {
-  font-family: var(--font-serif);
-  font-size: 1.24rem;
-  font-weight: 400;
-}
-
-.wiki-onboarding__claim label span {
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--font-sans);
-  font-size: 0.88rem;
-  line-height: 1.6;
-}
-
-body.noeis-editorial .wiki-onboarding .wiki-onboarding__claim input,
-.wiki-onboarding .wiki-onboarding__claim input {
-  width: 100%;
-  padding: 6px 0 !important;
-  color: var(--text-primary, var(--vellum-ink)) !important;
-  font-family: var(--font-serif) !important;
-  font-size: 1.2rem;
-  line-height: 1.35;
-}
-
-.wiki-onboarding__claim-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 8px 22px;
-}
 
 /* ---------- one ask per screen ---------- */
 

@@ -6434,11 +6434,6 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
 
 /* Wiki editor rail + backlink panel ------------------------------------- */
 
-@keyframes wikiBacklinksShimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -50% 0; }
-}
-
 /* Living wiki inbox + activity ------------------------------------------ */
 
 .wiki-inbox {
@@ -6542,11 +6537,6 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
 }
 
 /* Wiki autolink suggestions rail panel ----------------------------------- */
-
-@keyframes wikiAutolinksShimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -50% 0; }
-}
 
 /* Wiki workspace --------------------------------------------------------- */
 

@@ -4643,7 +4643,6 @@ body.noeis-editorial .library-reading-room-lead__cruft-notice {
 }
 
 /* Arrival: one thing leads, others follow; then stillness. */
-@keyframes tix-enter { to { opacity: 1; transform: translateY(0); } }
 
 /* AT-354 — the concept workbench rails must never clip their own content.
    Long letter-spaced eyebrows and prompt rows wrap instead of overflowing. */

@@ -313,7 +313,6 @@
   margin: 0;
 }
 
-.public-wiki-comparison__four-answers,
 .public-wiki-comparison__five-answers {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -848,7 +847,6 @@ html.dark .public-wiki-comparison {
     border-radius: 10px;
   }
 
-  .public-wiki-comparison__four-answers,
   .public-wiki-comparison__five-answers,
   .public-wiki-comparison__five-answers > div:last-child,
   .public-wiki-comparison__examples li,

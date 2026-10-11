@@ -13,35 +13,4 @@ describe('wiki push-2 polish CSS', () => {
     expect(polish).toMatch(/\.wiki-read__body\s*\{[\s\S]*?max-width:\s*68ch;/);
     expect(critical).toMatch(/\.wiki-read__body\s*\{[\s\S]*?font-size:\s*1\.12rem;/);
   });
-
-  it('widens the front-page build composer at 1280 and 1440', () => {
-    const css = readCss('wiki-front-page.css');
-
-    expect(css).toContain('.wiki-front-page__composer .wiki-build-page__row input');
-    expect(css).toMatch(/@media \(min-width:\s*1280px\)[\s\S]*?max-width:\s*min\(100%,\s*720px\)/);
-    expect(css).toMatch(/@media \(min-width:\s*1440px\)[\s\S]*?max-width:\s*min\(100%,\s*760px\)/);
-  });
-
-  it('renders a warm, static knowledge-graph motif without ambient drift', () => {
-    const css = readCss('wiki-front-page.css');
-
-    expect(css).toContain('.wiki-front-page__graph-motif');
-    expect(css).toContain('.wiki-front-page__graph-motif-edges line');
-    expect(css).toContain('var(--wiki-warm-accent');
-    expect(css).toContain('body.noeis-editorial.wiki-front-page-route .brand-gradient');
-    expect(css).toContain('mask-image:');
-    expect(css).not.toContain('animation: wfp-graph-drift');
-    expect(css).not.toContain('@keyframes wfp-graph-drift');
-  });
-
-  it('keeps front-page motion short, pointer-gated, and accessibility-aware', () => {
-    const css = readCss('wiki-front-page.css');
-
-    expect(css).toContain('animation: wfp-enter 220ms cubic-bezier(0.16, 1, 0.3, 1) forwards;');
-    expect(css).toContain('transform-origin: top left;');
-    expect(css).toContain('@media (hover: hover) and (pointer: fine)');
-    expect(css).toContain('@media (prefers-reduced-motion: reduce)');
-    expect(css).toContain('@media (prefers-reduced-transparency: reduce)');
-    expect(css).not.toContain('animation: wfp-breathe');
-  });
 });

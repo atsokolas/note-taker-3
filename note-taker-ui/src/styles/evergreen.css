@@ -8,66 +8,6 @@
   padding: clamp(40px, 7vh, 84px) 20px clamp(96px, 20vh, 200px);
 }
 
-.evergreen__title {
-  margin: 0 0 8px;
-  font-size: clamp(2rem, 3.4vw, 2.8rem);
-  line-height: 1.08;
-}
-
-.evergreen__dek,
-.evergreen__empty,
-.evergreen__quiet,
-.evergreen__error {
-  max-width: 54ch;
-  margin: 0 0 34px;
-  color: var(--text-secondary, var(--vellum-subtle));
-  font-size: 1.02rem;
-  line-height: 1.5;
-}
-
-.evergreen__error {
-  color: var(--noeis-warning, #9a4a2d);
-}
-
-.evergreen__empty a,
-.evergreen__dek a {
-  color: inherit;
-  border-bottom: 1px solid currentColor;
-  text-decoration: none;
-}
-
-.evergreen__list {
-  display: grid;
-  gap: 26px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.evergreen__item {
-  display: grid;
-  gap: 3px;
-}
-
-.evergreen__link {
-  max-width: 58ch;
-  color: var(--text-primary, var(--vellum-ink));
-  font-size: 1.24rem;
-  line-height: 1.42;
-  text-decoration: none;
-}
-
-.evergreen__link:hover {
-  border-bottom: 1px solid currentColor;
-}
-
-.evergreen__meta {
-  margin: 0;
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--font-sans);
-  font-size: 0.78rem;
-}
-
 /* A word with a rule under it — Keep, Later, Set aside. Kept reads as
    settled moss; Later is seed; Set aside is sap. */
 
@@ -111,51 +51,6 @@
 
 .remind-word {
   display: contents;
-}
-
-.remind-strip {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 8px 16px;
-  flex-basis: 100%;
-}
-
-.remind-strip__choice,
-.remind-strip__day {
-  min-height: 0;
-  padding: 0;
-  border: 0;
-  border-bottom: 1px solid currentColor;
-  border-radius: 0;
-  background: transparent;
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--font-sans);
-  font-size: 0.84rem;
-  cursor: pointer;
-}
-
-.remind-strip__choice:hover,
-.remind-strip__choice:focus-visible {
-  color: var(--text-primary, var(--vellum-ink));
-}
-
-.remind-strip__day {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 8px;
-  border-bottom: 0;
-  cursor: default;
-}
-
-.remind-strip__day input[type="date"] {
-  min-width: 11ch;
-  padding: 0;
-  border: 0;
-  border-bottom: 1px solid currentColor;
-  background: transparent;
-  color: inherit;
-  font: inherit;
 }
 
 .source-decision.is-filing,

@@ -3,11 +3,6 @@
    catalog and idle steward column. Workspace, map, create, and Ask remain
    reachable. */
 
-body.noeis-editorial.wiki-front-page-route .brand-gradient,
-body.noeis-editorial.wiki-front-page-route .topbar .brand-gradient {
-  display: none !important;
-}
-
 .wiki-collection {
   position: relative;
   z-index: 1;
@@ -31,8 +26,7 @@ body.noeis-editorial.wiki-front-page-route .topbar .brand-gradient {
   padding-top: 8px;
 }
 
-.wiki-collection__nav-title,
-.wiki-collection__nav-label {
+.wiki-collection__nav-title {
   margin: 0 12px 11px;
   font-size: 10px;
   letter-spacing: 0.13em;
@@ -124,24 +118,6 @@ body.noeis-editorial.wiki-front-page-route .topbar .brand-gradient {
 .wiki-collection__stage {
   min-width: 0;
   max-width: 964px;
-}
-
-.wiki-collection__text,
-.wiki-collection__sort {
-  font-size: 12px;
-  color: var(--muted, #676e62);
-  min-height: 34px;
-  background: none;
-  border: 0;
-  padding: 0;
-  cursor: pointer;
-}
-
-.wiki-collection__text:hover,
-.wiki-collection__sort:hover {
-  color: var(--sage, #506346);
-  text-decoration: underline;
-  text-underline-offset: 4px;
 }
 
 .wiki-collection__pending {

@@ -2,11 +2,6 @@
    sentence, the passages for and against it, what would change your mind, and
    a record. The partner lives in the shell's margin, not here. */
 
-body.noeis-editorial.judgment-route .brand-gradient,
-body.noeis-editorial.judgment-route .topbar .brand-gradient {
-  display: none !important;
-}
-
 .judgment-room {
   --judgment-ui: var(--noeis-font-ui, system-ui, sans-serif);
   --judgment-ink: var(--noeis-ink, var(--text-primary));

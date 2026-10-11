@@ -179,40 +179,6 @@ body.noeis-editorial .settings-redesign {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
 }
 
-.settings-redesign__colors {
-  display: flex;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-}
-
-.settings-redesign__color input {
-  position: absolute;
-  opacity: 0;
-  inset: 0;
-}
-
-.settings-redesign__color span {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.35rem 0.5rem;
-  min-height: 2.5rem;
-  border-bottom: 1px solid transparent;
-  font-size: 0.75rem;
-  cursor: pointer;
-}
-
-.settings-redesign__color input:checked + span {
-  border-bottom: 2px solid var(--settings-green);
-}
-
-.settings-redesign__swatch {
-  width: 1.05rem;
-  height: 1.05rem;
-  border-radius: 50%;
-  border: 1px solid rgba(0, 0, 0, 0.12);
-}
-
 .settings-redesign__preview-wrap {
   position: sticky;
   top: 1.5rem;
@@ -242,7 +208,6 @@ body.noeis-editorial .settings-redesign {
   --preview-rule: #29374d;
   --preview-accent: #e0b07a;
 }
-
 
 .settings-redesign__preview-top {
   height: 2.75rem;

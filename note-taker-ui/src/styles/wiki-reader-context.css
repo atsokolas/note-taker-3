@@ -68,7 +68,6 @@
 .wiki-reader-context__close,
 .wiki-reader-context__back,
 .wiki-reader-context__text,
-.wiki-reader-context__link,
 .wiki-reader-context__actions button {
   background: none;
   border: 0;
@@ -89,7 +88,6 @@
   color: var(--muted, #676e62);
 }
 
-.wiki-reader-context__link,
 .wiki-reader-context__history {
   display: block;
   width: 100%;
