@@ -80,7 +80,7 @@ const heldViews = async ({ WikiPage, userId }) => (await WikiPage.find({
   'judgment.currentJudgment': { $type: 'string', $ne: '' }
 }).select(VIEW_FIELDS).lean()).filter(isOpenView);
 
-const sentenceOf = page => clean(page?.judgment?.currentJudgment);
+const sentenceOf = page => clean(page?.judgment?.currentJudgment, 8000);
 
 /* What would change your mind, still open: the criteria line and each
    falsifier not yet retired or triggered, in the words that name the signal. */
@@ -93,7 +93,7 @@ const testsOf = page => [...new Set([
 
 /* A passage read against a view still stands while the view holds the same
    sentence, and, for a met test, while that test is still open. */
-const readingStands = (page, reading) => sentenceOf(page) === clean(reading?.provenance?.before)
+const readingStands = (page, reading) => sentenceOf(page) === clean(reading?.provenance?.before, 8000)
   && (!reading?.provenance?.falsifier || testsOf(page).includes(reading.provenance.falsifier));
 
 /* The asks a view puts to a source: its sentence, and each open test. */

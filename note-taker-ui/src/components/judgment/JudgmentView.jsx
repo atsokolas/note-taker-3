@@ -233,12 +233,14 @@ const JudgmentView = ({ pageId, initialPage = null }) => {
 
   // Passages are read against the sentence and its test; when either changes,
   // the old readings go at once and only the latest list may bring any back.
+  // A passage set aside stays aside while its undo is still on offer.
   const readingAsk = useRef(0);
+  const dismissed = useRef(new Set());
   const rereadPassages = useCallback(() => {
     const ask = ++readingAsk.current;
     setReading([]);
     return listReadingProposals(pageId)
-      .then(rows => { if (ask === readingAsk.current) setReading(rows); })
+      .then(rows => { if (ask === readingAsk.current) setReading(rows.filter(row => !dismissed.current.has(row.id))); })
       .catch(() => {});
   }, [pageId]);
 
@@ -333,15 +335,20 @@ const JudgmentView = ({ pageId, initialPage = null }) => {
   });
 
   const dismissReading = (proposal) => {
+    dismissed.current.add(proposal.id);
     setReading(rows => rows.filter(row => row.id !== proposal.id));
+    const putBack = () => {
+      dismissed.current.delete(proposal.id);
+      setReading(rows => [proposal, ...rows]);
+    };
     offer({
       at: proposal.provenance?.falsifier ? 'test' : 'reading',
       label: 'Not relevant.',
-      undo: () => setReading(rows => [proposal, ...rows]),
+      undo: putBack,
       settle: () => resolveJudgmentChange(pageId, proposal.id, 'reject')
         .then(resolved => mergeJudgment(resolved?.page?.judgment))
         .catch(failure => {
-          setReading(rows => [proposal, ...rows]);
+          putBack();
           setError(messageOf(failure, 'That did not save.'));
         })
     });

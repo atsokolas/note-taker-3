@@ -312,6 +312,20 @@ describe('the view', () => {
       expect(screen.queryByText(QUOTE)).not.toBeInTheDocument();
     });
 
+    it('keeps a passage set aside out of the list read again while its undo is on offer', async () => {
+      listReadingProposals.mockResolvedValue([proposal]);
+      resolveJudgmentChange.mockResolvedValue({ page: viewPage() });
+      setJudgmentResolution.mockResolvedValue({ judgment: viewPage({ resolutionCriteria: 'Churn above ten percent.' }).judgment });
+      openView();
+      fireEvent.click(await screen.findByRole('button', { name: 'Not relevant' }));
+      fireEvent.click(screen.getByRole('button', { name: /what would change your mind|Edit/i }));
+      fireEvent.change(screen.getByLabelText('In one line'), { target: { value: 'Churn above ten percent.' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+      await waitFor(() => expect(listReadingProposals).toHaveBeenCalledTimes(2));
+      await act(async () => {});
+      expect(screen.queryByText(QUOTE)).not.toBeInTheDocument();
+    });
+
     it('says nothing when no passage is waiting', async () => {
       openView();
       await screen.findByRole('heading', { level: 1, name: CLAIM });
