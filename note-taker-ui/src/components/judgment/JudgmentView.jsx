@@ -28,7 +28,8 @@ import {
 // passages for it and against it, side by side. What would change your mind.
 // A record of what happened. Two things you can do: revise it, or say how it
 // turned out. Above the passages, a quiet line for each passage a newly saved
-// source offered, until you file it or say it is not relevant.
+// source offered, until you file it or say it is not relevant; one that meets
+// what you said would change your mind waits under that line instead.
 
 const UNDO_MS = 6000;
 
@@ -102,9 +103,10 @@ const PassageColumn = ({ title, passages }) => (
   </section>
 );
 
-/* "Ben Carlson, Oct 1, argues against this:" and the passage, verbatim. */
+/* "Ben Carlson, Oct 1, argues against this:" and the passage, verbatim. A
+   passage that meets a test says the words you wrote first. */
 const ReadingLine = ({ proposal, busy, onFile, onDismiss }) => {
-  const { stance, author, publishedAt, articleId } = proposal.provenance || {};
+  const { stance, author, publishedAt, articleId, falsifier } = proposal.provenance || {};
   const against = stance === 'challenge';
   const who = author || proposal.sourceLabel;
   const file = [
@@ -113,9 +115,10 @@ const ReadingLine = ({ proposal, busy, onFile, onDismiss }) => {
   ];
   return (
     <li className="judgment-reading__line">
+      {falsifier ? <p>You said you’d change your mind if “{falsifier}”</p> : null}
       <p>
         {articleId ? <Link to={`/articles/${articleId}`}>{who}</Link> : who}
-        {publishedAt ? `, ${formatLedgerDate(publishedAt)}` : ''}, argues {against ? 'against' : 'for'} this:
+        {publishedAt ? `, ${formatLedgerDate(publishedAt)}` : ''}, {falsifier ? 'meets it' : `argues ${against ? 'against' : 'for'} this`}:
       </p>
       <blockquote>{proposal.provenance?.after}</blockquote>
       <span className="judgment-actions">
@@ -137,7 +140,7 @@ const toDateInput = (value) => {
 };
 
 /* What would change my mind: one line, and an optional date by which to ask. */
-const TheTest = ({ test, onSave }) => {
+const TheTest = ({ test, onSave, children }) => {
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(test.text);
   const [by, setBy] = useState(toDateInput(test.by));
@@ -194,6 +197,7 @@ const TheTest = ({ test, onSave }) => {
           {test.text && test.by ? <span className="judgment-test__by"> By {formatLedgerDate(test.by)}.</span> : null}
         </button>
       )}
+      {children}
     </section>
   );
 };
@@ -227,17 +231,28 @@ const JudgmentView = ({ pageId, initialPage = null }) => {
 
   useEffect(() => { rememberOpenedJudgment(pageId); }, [pageId]);
 
+  // Passages are read against the sentence and its test; when either changes,
+  // the old readings go at once and only the latest list may bring any back.
+  // A passage set aside stays aside while its undo is still on offer.
+  const readingAsk = useRef(0);
+  const dismissed = useRef(new Set());
+  const rereadPassages = useCallback(() => {
+    const ask = ++readingAsk.current;
+    setReading([]);
+    return listReadingProposals(pageId)
+      .then(rows => { if (ask === readingAsk.current) setReading(rows.filter(row => !dismissed.current.has(row.id))); })
+      .catch(() => {});
+  }, [pageId]);
+
   useEffect(() => {
     let cancelled = false;
     getWikiPage(pageId, { reader: 1 })
       .then(loaded => { if (!cancelled) setPage(loaded); })
       .catch(failure => { if (!cancelled) setError(messageOf(failure, 'Could not open this view.')); })
       .finally(() => { if (!cancelled) setLoading(false); });
-    listReadingProposals(pageId)
-      .then(rows => { if (!cancelled) setReading(rows); })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, [pageId]);
+    rereadPassages();
+    return () => { cancelled = true; readingAsk.current += 1; };
+  }, [pageId, rereadPassages]);
 
   const view = useMemo(() => (page ? projectView(page) : null), [page]);
   const mergeJudgment = useCallback((judgment) => {
@@ -287,6 +302,7 @@ const JudgmentView = ({ pageId, initialPage = null }) => {
       const resolved = await resolveJudgmentChange(pageId, proposal.id, 'accept');
       if (resolved?.page) setPage(resolved.page);
       setRevising(false);
+      rereadPassages();
     });
   };
 
@@ -299,6 +315,7 @@ const JudgmentView = ({ pageId, initialPage = null }) => {
   const saveTest = async ({ criteria, horizonAt }) => {
     const saved = await setJudgmentResolution({ pageId, expectedClaim: view.claim, criteria, horizonAt });
     mergeJudgment(saved.judgment);
+    rereadPassages();
   };
 
   const setAside = () => run(async () => {
@@ -318,15 +335,21 @@ const JudgmentView = ({ pageId, initialPage = null }) => {
   });
 
   const dismissReading = (proposal) => {
+    dismissed.current.add(proposal.id);
     setReading(rows => rows.filter(row => row.id !== proposal.id));
+    // Taken back, the passage returns only if it still reads against the view.
+    const putBack = () => {
+      dismissed.current.delete(proposal.id);
+      rereadPassages();
+    };
     offer({
-      at: 'reading',
+      at: proposal.provenance?.falsifier ? 'test' : 'reading',
       label: 'Not relevant.',
-      undo: () => setReading(rows => [proposal, ...rows]),
+      undo: putBack,
       settle: () => resolveJudgmentChange(pageId, proposal.id, 'reject')
         .then(resolved => mergeJudgment(resolved?.page?.judgment))
         .catch(failure => {
-          setReading(rows => [proposal, ...rows]);
+          putBack();
           setError(messageOf(failure, 'That did not save.'));
         })
     });
@@ -338,6 +361,19 @@ const JudgmentView = ({ pageId, initialPage = null }) => {
     { subject: view?.claim || '' },
     { onAccept: (proposal, field) => commit(acceptProposalIntoJudgment(pageRef.current, proposal, field)) }
   );
+
+  const readingLines = (rows, at) => (
+    <>
+      <ul>
+        {rows.map(proposal => (
+          <ReadingLine key={proposal.id} proposal={proposal} busy={busy} onFile={fileReading} onDismiss={dismissReading} />
+        ))}
+      </ul>
+      <UndoLine pending={pending} onUndo={undo} at={at} />
+    </>
+  );
+  const met = reading.filter(proposal => proposal.provenance?.falsifier);
+  const offered = reading.filter(proposal => !proposal.provenance?.falsifier);
 
   if (loading) {
     return <main className="judgment" aria-busy="true"><p className="judgment-quiet" role="status">Opening the view…</p></main>;
@@ -398,14 +434,9 @@ const JudgmentView = ({ pageId, initialPage = null }) => {
         </div>
       </header>
 
-      {reading.length || pending?.at === 'reading' ? (
+      {offered.length || pending?.at === 'reading' ? (
         <section className="judgment-reading" aria-label="From your reading">
-          <ul>
-            {reading.map(proposal => (
-              <ReadingLine key={proposal.id} proposal={proposal} busy={busy} onFile={fileReading} onDismiss={dismissReading} />
-            ))}
-          </ul>
-          <UndoLine pending={pending} onUndo={undo} at="reading" />
+          {readingLines(offered, 'reading')}
         </section>
       ) : null}
 
@@ -414,7 +445,13 @@ const JudgmentView = ({ pageId, initialPage = null }) => {
         <PassageColumn title="Against" passages={view.againstPassages} />
       </div>
 
-      <TheTest key={`${view.test.text}:${view.test.by}`} test={view.test} onSave={saveTest} />
+      <TheTest key={`${view.test.text}:${view.test.by}`} test={view.test} onSave={saveTest}>
+        {met.length || pending?.at === 'test' ? (
+          <section className="judgment-reading judgment-test__met" aria-label="A source meets it">
+            {readingLines(met, 'test')}
+          </section>
+        ) : null}
+      </TheTest>
 
       <section className="judgment-view__record" aria-labelledby="judgment-record-title">
         <h2 id="judgment-record-title">Record</h2>
