@@ -387,6 +387,7 @@ describe('WikiWorkspace', () => {
     })));
     expect(createWikiPage).toHaveBeenCalledTimes(1);
     expect(mockNavigate).toHaveBeenLastCalledWith('/wiki/workspace?page=wiki-new&build=1');
+    expect(await screen.findByRole('button', { name: 'Open the new page' })).toBeEnabled();
   });
 
   it('says a source still being read is still being read, not done', async () => {

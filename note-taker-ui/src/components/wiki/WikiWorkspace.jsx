@@ -766,7 +766,8 @@ const WikiIngestResultCard = ({ run = {}, onNavigate, onBuildFromSource, onRevie
   const [currentRun, setCurrentRun] = useState(run);
   const [reviewBusy, setReviewBusy] = useState('');
   const [reviewError, setReviewError] = useState('');
-  const [building, setBuilding] = useState(false);
+  // '' until asked, 'building' while the page is made, then the new page's id.
+  const [built, setBuilt] = useState('');
   const [selectedCandidateIds, setSelectedCandidateIds] = useState([]);
   useEffect(() => {
     setCurrentRun(run);
@@ -868,16 +869,20 @@ const WikiIngestResultCard = ({ run = {}, onNavigate, onBuildFromSource, onRevie
       ) : null}
       <div className="wiki-workspace-ingest-card__actions">
         {runId ? <Link to={ingestRunActivityPath(currentRun)}>Inspect activity</Link> : null}
-        {suggestedCreatePage ? (
+        {suggestedCreatePage && built && built !== 'building' ? (
+          <button type="button" onClick={() => onNavigate?.({ page: built })}>
+            Open the new page
+          </button>
+        ) : suggestedCreatePage ? (
           <button
             type="button"
-            disabled={building}
+            disabled={built === 'building'}
             onClick={async () => {
-              setBuilding(true);
-              if (!await onBuildFromSource?.(run)) setBuilding(false);
+              setBuilt('building');
+              setBuilt(await onBuildFromSource?.(run) || '');
             }}
           >
-            {building ? 'Building page…' : 'Build page from source'}
+            {built === 'building' ? 'Building page…' : 'Build page from source'}
           </button>
         ) : null}
       </div>

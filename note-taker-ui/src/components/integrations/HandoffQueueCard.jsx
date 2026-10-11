@@ -21,6 +21,7 @@ const HandoffQueueCard = ({
     setQueueActorId,
     handoffActionBusyId,
     handoffActionError,
+    handoffActionInfo,
     newHandoffTitle,
     setNewHandoffTitle,
     newHandoffObjective,
@@ -122,6 +123,7 @@ const HandoffQueueCard = ({
         </div>
       )}
       {handoffsError && <p className="status-message error-message">{handoffsError}</p>}
+      {handoffActionInfo && <p className="status-message" role="status">{handoffActionInfo}</p>}
       {handoffActionError && <p className="status-message error-message">{handoffActionError}</p>}
     </Card>
   );
