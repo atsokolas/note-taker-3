@@ -1605,7 +1605,7 @@ describe('WikiWorkspace', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
 
-    expect(await screen.findByText('Thought partner could not answer. Your message is still in the box; send it again when ready.')).toBeInTheDocument();
+    expect(await screen.findByText('Partner could not answer. Your message is still in the box; send it again when ready.')).toBeInTheDocument();
     expect(screen.queryByText('Half answer that should not render')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument();
     expect(screen.getByLabelText('Wiki workspace message')).toHaveValue('Fail this response');
