@@ -118,8 +118,11 @@ const buildJudgmentResolutionRouter = ({
       const stat = STATS.includes(String(req.query?.stat || '')) ? String(req.query.stat) : '';
       const pageMirror = await buildJudgmentMirror({ ...models, userId: req.user.id });
       const pagesQuery = models.WikiPage?.find
-        ? models.WikiPage.find({ userId: req.user.id, status: { $ne: 'archived' } })
-          .select('_id title pageType claims judgment createdAt')
+        ? models.WikiPage.find({
+          userId: req.user.id,
+          status: { $ne: 'archived' },
+          'judgment.currentJudgment': { $type: 'string', $ne: '' }
+        }).select('_id title createdAt judgment.currentJudgment judgment.status judgment.startedAt judgment.bornAt judgment.heldHistory judgment.verdicts')
         : null;
       const pages = pagesQuery
         ? await (pagesQuery.lean ? pagesQuery.lean() : pagesQuery)
