@@ -40,7 +40,7 @@ import { plainTextFrom } from '../utils/editorialText';
 // a room. The partner fetches into the page from the drawer; the page only
 // changes when the human accepts what came back.
 
-const KIND_LABELS = { all: 'Everything', note: 'Notes', concept: 'Concepts', question: 'Questions' };
+const KIND_LABELS = { all: 'All', note: 'Notes', concept: 'Concepts', question: 'Questions' };
 const NEW_PROMPTS = { concept: 'Name the concept', question: 'Ask the question' };
 
 const WritingMatch = ({ item }) => {

@@ -586,10 +586,14 @@ describe('NotebookEditor', () => {
     const passage = await screen.findByRole('menuitem', { name: /downside lands on someone/ });
     expect(passage).toHaveTextContent('Ben Carlson, A Wealth of Common Sense');
     fireEvent.click(passage);
-    expect(mockEditor.commands.insertContent).toHaveBeenCalledWith(expect.objectContaining({
-      type: 'highlightRef',
-      attrs: expect.objectContaining({ highlightId: 'h1', articleTitle: 'Ben Carlson, A Wealth of Common Sense', sourcePath: '/library?articleId=a1&highlightId=h1' })
-    }));
+    // The passage lands with an empty line after it, so writing carries on below it.
+    expect(mockChain.insertContent).toHaveBeenCalledWith([
+      expect.objectContaining({
+        type: 'highlightRef',
+        attrs: expect.objectContaining({ highlightId: 'h1', articleTitle: 'Ben Carlson, A Wealth of Common Sense', sourcePath: '/library?articleId=a1&highlightId=h1' })
+      }),
+      { type: 'paragraph' }
+    ]);
     mockHighlights.splice(0, mockHighlights.length);
   });
 

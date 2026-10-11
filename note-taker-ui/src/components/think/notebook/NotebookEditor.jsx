@@ -8,7 +8,7 @@ import { Extension, Node, mergeAttributes } from '@tiptap/core';
 import { QuietButton } from '../../ui';
 import InsertHighlightModal from './InsertHighlightModal';
 import InsertReferenceModal from './InsertReferenceModal';
-import { BlockIdExtension, EntryBar, HighlightRefNode, passageNode } from '../editor/writingParts';
+import { BlockIdExtension, EntryBar, HighlightRefNode, passageContent } from '../editor/writingParts';
 import { passageSlashItems } from '../editor/slashCommands';
 import { begunLine, countWords } from '../../../pages/thinkNotesModel';
 import EvergreenToggle from '../../EvergreenToggle';
@@ -838,8 +838,7 @@ const NotebookEditor = ({
 
   const handleInsertHighlight = (highlight) => {
     if (!editor) return;
-    const node = passageNode(highlight);
-    editor.commands.insertContent({ ...node, attrs: { ...node.attrs, blockId: createId() } });
+    editor.chain().focus().insertContent(passageContent(highlight, { blockId: createId() })).run();
   };
 
   const handleInsertArticle = (article) => {

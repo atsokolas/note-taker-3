@@ -149,7 +149,7 @@ export const HighlightRefNode = Node.create({
   }
 });
 
-export const passageNode = (highlight = {}) => ({
+const passageNode = (highlight = {}) => ({
   type: 'highlightRef',
   attrs: {
     highlightId: highlight._id,
@@ -162,6 +162,12 @@ export const passageNode = (highlight = {}) => ({
     tags: (highlight.tags || []).join(',')
   }
 });
+
+/* The passage, then an empty line: writing carries on under it rather than over it. */
+export const passageContent = (highlight = {}, attrs = {}) => {
+  const node = passageNode(highlight);
+  return [{ ...node, attrs: { ...node.attrs, ...attrs } }, { type: 'paragraph' }];
+};
 
 const timeOf = (value) => {
   const at = value ? new Date(value) : null;

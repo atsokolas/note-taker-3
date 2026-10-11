@@ -6,7 +6,7 @@ import Placeholder from '@tiptap/extension-placeholder';
 import EditorDraftShell from './editor/EditorDraftShell';
 import useSlashCommands from './editor/useSlashCommands';
 import { passageSlashItems } from './editor/slashCommands';
-import { BlockIdExtension, EntryBar, HighlightRefNode, passageNode } from './editor/writingParts';
+import { BlockIdExtension, EntryBar, HighlightRefNode, passageContent } from './editor/writingParts';
 import InsertHighlightModal from './notebook/InsertHighlightModal';
 import ConceptShareModal from './concepts/ConceptShareModal';
 import QuestionShareModal from './questions/QuestionShareModal';
@@ -89,7 +89,7 @@ const QuestionFacts = ({ entry, onSettle }) => {
     <dl className="think-entry-facts">
       <div>
         <dt>{settled ? 'Settled' : 'Open'}</dt>
-        <dd><QuietButton onClick={() => onSettle(settled ? 'open' : 'answered')}>{settled ? 'Reopen' : 'Mark settled'}</QuietButton></dd>
+        <dd><button type="button" className="think-entry-facts__act" onClick={() => onSettle(settled ? 'open' : 'answered')}>{settled ? 'Reopen' : 'Mark settled'}</button></dd>
       </div>
       {question.settledBy ? <div><dt>Settled by</dt><dd>{question.settledBy}</dd></div> : null}
       {concept ? <div><dt>Concept</dt><dd><Link to={`/think?tab=concepts&concept=${encodeURIComponent(concept)}`}>{concept}</Link></dd></div> : null}
@@ -218,17 +218,20 @@ const ThinkEntryEditor = ({
     return () => editor.off('update', onUpdate);
   }, [editor, schedule]);
 
+  const saveRef = useRef(save);
+  saveRef.current = save;
   useEffect(() => {
-    onRegisterSave?.(save);
-    return () => { onRegisterSave?.(null); save(); };
-  }, [onRegisterSave, save]);
+    onRegisterSave?.(() => saveRef.current());
+    return () => onRegisterSave?.(null);
+  }, [onRegisterSave]);
+  useEffect(() => () => { saveRef.current(); }, []);
 
   useEffect(() => {
     if (startPull && entry) setPicking(true);
   }, [startPull, entry]);
 
   const insertPassage = useCallback((highlight) => {
-    editor?.chain().focus().insertContent(passageNode(highlight)).run();
+    editor?.chain().focus().insertContent(passageContent(highlight)).run();
   }, [editor]);
 
   const slashCommands = useSlashCommands({

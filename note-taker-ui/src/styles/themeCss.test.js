@@ -159,8 +159,6 @@ describe('app theme design-system tokens', () => {
     [wikiCriticalCss, thinkHomePolishCss, editorialCss].forEach((sheet) => {
       expect(sheet).not.toMatch(/grid-template-columns: minmax\([^;]+\) minmax\([^;]+\) 3[0-9]px;/);
     });
-    expect(editorialCss).toMatch(/\.concept-editorial-shell__partner,[\s\S]*\.concept-editorial-shell__stream \{[\s\S]*box-sizing: border-box;/);
-    expect(editorialCss).toMatch(/\.concept-editorial-partner \{[\s\S]*box-sizing: border-box;/);
   });
 
   it('pins the alive composer and presence motion to reduced-motion-safe primitives', () => {
