@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { SETTINGS_SECTIONS, searchSettingsRegistry } from '../../settings/settingsRegistry';
+import { PageHeader } from '../ui';
 
 const SettingsShell = ({
   section,
@@ -16,7 +17,7 @@ const SettingsShell = ({
   return (
     <div className="settings-redesign__shell">
       <aside className="settings-redesign__sidebar">
-        <h1 className="settings-redesign__title">Settings</h1>
+        <PageHeader title="Settings" />
         <div className="settings-redesign__search">
           <input
             type="search"

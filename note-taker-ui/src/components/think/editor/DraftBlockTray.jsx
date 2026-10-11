@@ -1,5 +1,6 @@
 import React from 'react';
 import { insertArtifactBlock } from './editorArtifacts';
+import { Button } from '../../ui';
 
 const LABELS = {
   evidence: 'Evidence block',
@@ -19,14 +20,13 @@ const DraftBlockTray = ({
       <span className="think-draft-block-tray__label">Draft blocks</span>
       <div className="think-draft-block-tray__actions">
         {items.map((item) => (
-          <button
+          <Button
             key={item}
-            type="button"
-            className="ui-quiet-button"
+            variant="quiet"
             onClick={() => insertArtifactBlock(editor, item)}
           >
             {LABELS[item] || item}
-          </button>
+          </Button>
         ))}
       </div>
     </div>

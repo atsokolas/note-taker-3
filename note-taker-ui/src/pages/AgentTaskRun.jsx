@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { dispatchAgentTaskLink, getAgentTaskLink } from '../api/agent';
-import { Card, Page } from '../components/ui';
+import { Button, Card, Page, buttonClass } from '../components/ui';
 
 const AgentTaskRun = ({ taskIdOverride = '' }) => {
   const { taskId = '' } = useParams();
@@ -77,7 +77,7 @@ const AgentTaskRun = ({ taskIdOverride = '' }) => {
           <>
             <h2>Task unavailable</h2>
             <p className="muted">{error}</p>
-            <Link to="/integrations" className="ui-button">Open integrations</Link>
+            <Link to="/integrations" className={buttonClass()}>Open integrations</Link>
           </>
         ) : (
           <>
@@ -117,7 +117,7 @@ const AgentTaskRun = ({ taskIdOverride = '' }) => {
                 <strong>Connect {connectionRequired.runtimeLabel} first.</strong>
                 <p className="muted small">Run this in your terminal, approve in Noeis, then return to this link.</p>
                 <pre className="external-bridge-pre">{connectionRequired.connectCommand}</pre>
-                <Link to={connectionRequired.connectPath || '/integrations'} className="ui-button">
+                <Link to={connectionRequired.connectPath || '/integrations'} className={buttonClass()}>
                   Open integrations
                 </Link>
               </div>
@@ -127,7 +127,7 @@ const AgentTaskRun = ({ taskIdOverride = '' }) => {
                 <p className="muted small">The handoff is now in the Noeis queue.</p>
                 <Link
                   to={handoff?.handoffId ? `/think?tab=handoffs&handoff=${encodeURIComponent(handoff.handoffId)}` : '/think?tab=handoffs'}
-                  className="ui-button ui-button-primary"
+                  className={buttonClass('primary')}
                 >
                   Open handoff
                 </Link>
@@ -136,15 +136,14 @@ const AgentTaskRun = ({ taskIdOverride = '' }) => {
               <>
                 {error ? <p className="form-error">{error}</p> : null}
                 <div className="settings-actions">
-                  <button
-                    type="button"
-                    className="ui-button ui-button-primary"
+                  <Button
+                    variant="primary"
                     onClick={handleDispatch}
                     disabled={dispatching || task?.status !== 'pending'}
                   >
                     {dispatching ? 'Dispatching...' : `Run with ${task?.runtimeLabel || 'agent'}`}
-                  </button>
-                  <Link to="/integrations" className="ui-button">Cancel</Link>
+                  </Button>
+                  <Link to="/integrations" className={buttonClass()}>Cancel</Link>
                 </div>
               </>
             )}

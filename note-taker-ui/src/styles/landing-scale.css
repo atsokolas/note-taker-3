@@ -5,8 +5,179 @@
  * rule under them, here as everywhere else.
  */
 
-/* stitch-editorial.css declares these at the same specificity and is imported
-   after this file, so every selector here is scoped one level deeper. */
+body.noeis-editorial .landing-public {
+  width: min(1360px, calc(100vw - 64px));
+  margin: 0 auto;
+  padding: 34px 0 56px;
+  display: grid;
+  gap: 34px;
+}
+
+body.noeis-editorial .landing-public__masthead,
+body.noeis-editorial .landing-public__hero,
+body.noeis-editorial .landing-public__strip,
+body.noeis-editorial .landing-public__support,
+body.noeis-editorial .landing-public__footer {
+  border-bottom: 1px solid var(--vellum-line);
+}
+
+body.noeis-editorial .landing-public__masthead,
+body.noeis-editorial .landing-public__footer {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  padding-bottom: 18px;
+}
+
+body.noeis-editorial .landing-public__brand {
+  font-family: var(--font-serif);
+  font-size: clamp(2.2rem, 3vw, 3rem);
+  font-style: italic;
+  font-weight: 500;
+  line-height: 0.95;
+  color: var(--vellum-ink);
+  text-decoration: none;
+}
+
+body.noeis-editorial .landing-public__nav,
+body.noeis-editorial .landing-public__footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+body.noeis-editorial .landing-public__nav a,
+body.noeis-editorial .landing-public__footer-links a {
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--vellum-ink) 78%, transparent);
+  text-decoration: none;
+}
+
+body.noeis-editorial .landing-public__nav a:hover,
+body.noeis-editorial .landing-public__footer-links a:hover {
+  color: var(--vellum-ink);
+}
+
+body.noeis-editorial .landing-public__hero {
+  max-width: 62ch;
+  padding-bottom: 28px;
+}
+
+body.noeis-editorial .landing-public__eyebrow {
+  font-family: var(--font-sans);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--vellum-subtle);
+}
+
+body.noeis-editorial .landing-public__support p,
+body.noeis-editorial .landing-public__strip p {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.62;
+  color: color-mix(in srgb, var(--vellum-ink) 82%, transparent);
+}
+
+body.noeis-editorial .landing-public__main {
+  display: grid;
+  gap: 18px;
+}
+
+body.noeis-editorial .landing-public__main h1 {
+  max-width: 14ch;
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: clamp(4rem, 8vw, 6.6rem);
+  font-weight: 400;
+  line-height: 0.9;
+  letter-spacing: -0.06em;
+  color: var(--vellum-ink);
+}
+
+body.noeis-editorial .landing-public__lede {
+  max-width: 42rem;
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 1.28rem;
+  line-height: 1.58;
+  font-style: italic;
+  color: color-mix(in srgb, var(--vellum-ink) 88%, transparent);
+}
+
+body.noeis-editorial .landing-public__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding-top: 8px;
+}
+
+body.noeis-editorial .landing-public__strip,
+body.noeis-editorial .landing-public__support {
+  display: grid;
+  gap: 28px;
+  padding-bottom: 28px;
+}
+
+body.noeis-editorial .landing-public__strip {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+body.noeis-editorial .landing-public__strip div,
+body.noeis-editorial .landing-public__support div {
+  display: grid;
+  gap: 12px;
+}
+
+body.noeis-editorial .landing-public__support {
+  grid-template-columns: minmax(0, auto);
+}
+
+@media (max-width: 1240px) {
+  body.noeis-editorial .landing-public {
+    width: min(100vw - 32px, 100%);
+    padding-top: 20px;
+  }
+
+  body.noeis-editorial .landing-public__hero,
+  body.noeis-editorial .landing-public__strip,
+  body.noeis-editorial .landing-public__support {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  body.noeis-editorial .landing-public__masthead,
+  body.noeis-editorial .landing-public__footer {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 760px) {
+  body.noeis-editorial .landing-public__main h1 {
+    font-size: clamp(3rem, 16vw, 4.6rem);
+  }
+
+  body.noeis-editorial .landing-public__actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  body.noeis-editorial .landing-public__actions .ui-button {
+    width: 100%;
+  }
+
+  body.noeis-editorial .landing-public__nav,
+  body.noeis-editorial .landing-public__footer-links {
+    gap: 10px;
+  }
+}
+
+/* The base landing rules above sit at the same specificity, so every
+   selector here is scoped one level deeper. */
 body.noeis-editorial .landing-public .landing-public__hero {
   display: block;
   max-width: 62ch;

@@ -13,6 +13,7 @@ import {
 } from '../../settings/appearanceFieldModel';
 import { useTemporaryAppearance } from '../../settings/TemporaryAppearanceContext';
 import AppearancePreview from './AppearancePreview';
+import { Button } from '../ui';
 
 const TYPOGRAPHY_OPTIONS = [
   { value: 'small', label: 'Small' },
@@ -180,23 +181,19 @@ const AppearanceSection = ({
               </div>
             </div>
             <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-              <button
-                type="button"
-                className="settings-redesign__btn"
+              <Button
                 onClick={() => { setMotionDemoReduced(false); setMotionReplay(true); }}
               >
                 Replay an example
-              </button>
-              <button
-                type="button"
-                className="settings-redesign__btn"
+              </Button>
+              <Button
                 onClick={() => {
                   setMotionDemoReduced(true);
                   setMotionReplay(!effectiveReducedMotion('reduced'));
                 }}
               >
                 Show reduced motion
-              </button>
+              </Button>
             </div>
           </details>
 
@@ -262,14 +259,13 @@ const AppearanceSection = ({
           {changedKeys.length ? (
             <button type="button" className="settings-redesign__link" onClick={onCancel}>Cancel</button>
           ) : null}
-          <button
-            type="button"
-            className="settings-redesign__btn is-primary"
+          <Button
+            variant="primary"
             disabled={!changedKeys.length || saveState === 'saving'}
             onClick={handleApply}
           >
             {saveState === 'saving' ? 'Saving…' : saveState === 'failed' ? 'Retry saving' : 'Use this appearance'}
-          </button>
+          </Button>
         </div>
       </div>
       <span ref={announceRef} className="sr-only" aria-live="polite" />
