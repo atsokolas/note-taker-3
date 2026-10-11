@@ -82,7 +82,7 @@ const buildAuthDiscoveryRouter = ({
       }
 
       const user = await User.findOne({ username });
-      if (!user) {
+      if (!user || user.accountDisabledAt) {
         return res.status(401).json({ error: "Invalid credentials." });
       }
 

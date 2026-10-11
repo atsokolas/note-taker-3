@@ -67,6 +67,7 @@ const morningPaperSettingsSchema = new mongoose.Schema({
 const userSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true, trim: true },
   password: { type: String, required: true },
+  accountDisabledAt: { type: Date, default: null },
   agentProfile: { type: userAgentProfileSchema, default: () => ({}) },
   agentProtocolPolicy: { type: userAgentProtocolPolicySchema, default: () => ({}) },
   morningPaper: { type: morningPaperSettingsSchema, default: () => ({}) }

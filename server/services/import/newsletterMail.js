@@ -185,6 +185,7 @@ const readerForMail = async ({ User, mail, inboundAddress = '' }) => {
     .filter(email => email && email !== inboundAddress);
   if (!candidates.length) return null;
   const readers = await User.find({
+    accountDisabledAt: null,
     'morningPaper.email': { $in: candidates },
     'morningPaper.emailConfirmedAt': { $ne: null }
   }).select('_id morningPaper.email').lean();
