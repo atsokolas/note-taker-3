@@ -94,6 +94,8 @@ const requestAnthropic = async ({ token, model, timeoutMs, payload = {}, signal 
       thinking: { type: 'disabled' },
       ...(tools ? { tools, tool_choice: toolChoiceFor(payload.tool_choice) || { type: 'auto' } } : {})
     }, { signal, timeout: timeoutMs }).finalMessage();
+    // A refusal arrives as a 200, sometimes after partial text; it is not an answer.
+    if (message.stop_reason === 'refusal') throw Object.assign(new Error('Claude declined to answer.'), { status: 502 });
     return { body: toChatCompletion(message), model, provider: '' };
   } catch (error) {
     const aborted = signal?.aborted || error instanceof Anthropic.APIUserAbortError;

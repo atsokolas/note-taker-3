@@ -127,6 +127,12 @@ test('when the Claude credit runs out, the same request goes to OpenRouter', asy
   assert.deepStrictEqual(completion.upstreamAttempts.map(attempt => [attempt.upstream, attempt.status]), [['anthropic', 'failed'], ['openrouter', 'succeeded']]);
 });
 
+test('a refusal, even after partial text, goes to OpenRouter', async () => {
+  claudeReply = { blocks: [{ type: 'text', text: 'I can start, but' }], stopReason: 'refusal' };
+  const completion = await client.chatComplete({ messages: [{ role: 'user', content: 'Hello' }] });
+  assert.strictEqual(completion.text, 'From the router.');
+});
+
 test('a revoked key falls back too', async () => {
   claudeReply = { status: 401, message: 'invalid x-api-key' };
   const completion = await client.chatComplete({ messages: [{ role: 'user', content: 'Hello' }] });
