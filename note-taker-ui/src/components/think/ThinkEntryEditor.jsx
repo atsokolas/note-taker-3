@@ -4,6 +4,7 @@ import { useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import EditorDraftShell from './editor/EditorDraftShell';
+import EntryHistory from './editor/EntryHistory';
 import useSlashCommands from './editor/useSlashCommands';
 import { passageSlashItems } from './editor/slashCommands';
 import { BlockIdExtension, EntryBar, HighlightRefNode, passageContent } from './editor/writingParts';
@@ -12,7 +13,7 @@ import ConceptShareModal from './concepts/ConceptShareModal';
 import QuestionShareModal from './questions/QuestionShareModal';
 import { QuietButton } from '../ui';
 import useHighlights from '../../hooks/useHighlights';
-import { getConcept, getConceptIdeaWorkbench, updateConcept, updateConceptIdeaWorkbench } from '../../api/concepts';
+import { getConcept, getConceptIdeaWorkbench, renameConcept, updateConcept, updateConceptIdeaWorkbench } from '../../api/concepts';
 import { getConceptQuestions, getQuestion, updateQuestion } from '../../api/questions';
 import { buildDocFromBlocks } from '../../utils/notebookBlocks';
 import { buildCanonicalArticlePath } from '../../utils/sourceRoutes';
@@ -105,6 +106,7 @@ const ThinkEntryEditor = ({
   onAsk,
   onLoaded,
   onSaved,
+  onRenamed,
   onRegisterSave
 }) => {
   const [entry, setEntry] = useState(null);
@@ -114,6 +116,10 @@ const ThinkEntryEditor = ({
   const [savedAt, setSavedAt] = useState(null);
   const [picking, setPicking] = useState(false);
   const [sharing, setSharing] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [renameError, setRenameError] = useState('');
+  const restoredFromRef = useRef('');
+  const renamingRef = useRef(false);
   const [tick, setTick] = useState(0);
   const surfaceRef = useRef(null);
   const timerRef = useRef(null);
@@ -142,9 +148,13 @@ const ThinkEntryEditor = ({
   });
 
   useEffect(() => {
+    const open = entryRef.current;
+    if (open?.kind === target.kind && String(open.record?.name || '').toLowerCase() === String(target.id).toLowerCase()) return undefined;
     let cancelled = false;
     setEntry(null);
     setError('');
+    setHistoryOpen(false);
+    setRenameError('');
     (target.kind === 'concept' ? loadConcept(target.id) : loadQuestion(target.id)).then(loaded => {
       if (cancelled) return;
       setEntry(loaded);
@@ -168,12 +178,15 @@ const ThinkEntryEditor = ({
     const current = entryRef.current;
     if (!dirtyRef.current || !current || !editor) return true;
     dirtyRef.current = false;
+    const restoredFrom = restoredFromRef.current || undefined;
+    restoredFromRef.current = '';
     setSaveState('saving');
     try {
       if (current.kind === 'question') {
         const record = await updateQuestion(current.record._id, {
           text: titleRef.current.trim() || current.record.text,
-          blocks: questionBlocksFromDoc(editor.getJSON(), current.record.blocks)
+          blocks: questionBlocksFromDoc(editor.getJSON(), current.record.blocks),
+          restoredFrom
         });
         setEntry(previous => ({ ...previous, record: { ...previous.record, ...record } }));
         setSavedAt(record?.updatedAt || new Date().toISOString());
@@ -184,7 +197,7 @@ const ThinkEntryEditor = ({
         const saved = await updateConceptIdeaWorkbench(record._id, {
           ...(workbench || {}),
           hypothesis: { ...(workbench?.hypothesis || {}), html: editor.getHTML() }
-        }, { baseRevision: revision });
+        }, { baseRevision: revision, restoredFrom });
         setEntry(previous => ({ ...previous, record, revision: saved.revision, workbench: saved.ideaWorkbench }));
         setSavedAt(new Date().toISOString());
         onSaved?.({ kind: 'concept', record });
@@ -244,6 +257,54 @@ const ThinkEntryEditor = ({
 
   const words = useMemo(() => countWords(editor?.getText?.() || ''), [editor, tick]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  /* An earlier version comes back through the ordinary save, marked as a
+     restore so the history can say so. */
+  const restore = useCallback(async ({ id, snapshot }) => {
+    if (!editor || !(await saveRef.current())) return false;
+    if (entryRef.current?.kind === 'question') {
+      titleRef.current = snapshot.title || '';
+      setTitle(titleRef.current);
+    }
+    editor.commands.setContent(snapshot.html ?? buildDocFromBlocks(snapshot.blocks || []), false);
+    restoredFromRef.current = id;
+    dirtyRef.current = true;
+    return saveRef.current();
+  }, [editor]);
+
+  const openHistory = async (event) => {
+    event.currentTarget.closest('details')?.removeAttribute('open');
+    await saveRef.current();
+    setHistoryOpen(true);
+  };
+
+  /* A concept's title is its name. Enter renames it everywhere; Esc, or
+     leaving the field, keeps the name it had. */
+  const keepName = () => {
+    setTitle(entry.title);
+    setRenameError('');
+  };
+  const rename = async () => {
+    const name = title.replace(/\s+/g, ' ').trim();
+    if (!name || name === entry.title) {
+      setTitle(entry.title);
+      editor?.commands.focus('start');
+      return;
+    }
+    renamingRef.current = true;
+    try {
+      const result = await renameConcept(entry.record?._id || entry.title, name);
+      setEntry(previous => ({ ...previous, title: result.name, record: { ...previous.record, name: result.name } }));
+      setTitle(result.name);
+      setRenameError('');
+      onRenamed?.({ ...result, conceptId: result.conceptId || String(entry.record?._id || '') });
+      editor?.commands.focus('start');
+    } catch (renameFailure) {
+      setRenameError(renameFailure?.response?.data?.error || 'The concept kept its old name. Try again in a moment.');
+    } finally {
+      renamingRef.current = false;
+    }
+  };
+
   const settle = async (status) => {
     const record = await updateQuestion(entry.record._id, { status });
     setEntry(previous => ({ ...previous, record: { ...previous.record, ...record } }));
@@ -268,6 +329,7 @@ const ThinkEntryEditor = ({
         >
           <QuietButton onClick={() => setPicking(true)}>Pull a passage in</QuietButton>
           <QuietButton onClick={() => setSharing(true)}>Share</QuietButton>
+          {entry.record?._id ? <QuietButton onClick={openHistory}>History</QuietButton> : null}
         </EntryBar>
         <div className="think-notebook-title-block">
           <h1 className="sr-only">{title || entry.title}</h1>
@@ -275,14 +337,23 @@ const ThinkEntryEditor = ({
             rows={1}
             className="think-notebook-title-input"
             value={title}
-            readOnly={!isQuestion}
-            aria-label={isQuestion ? 'Question' : 'Concept'}
-            title={isQuestion ? undefined : 'A concept is named by the tag on its passages.'}
-            onChange={(event) => { setTitle(event.target.value); schedule(); }}
+            aria-label={isQuestion ? 'Question' : 'Concept name'}
+            aria-describedby={renameError ? 'think-entry-rename-error' : undefined}
+            onChange={(event) => {
+              setTitle(event.target.value);
+              if (isQuestion) schedule();
+            }}
+            onBlur={() => { if (!isQuestion && !renamingRef.current) keepName(); }}
             onKeyDown={(event) => {
-              if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
+              if (event.nativeEvent.isComposing) return;
+              if (event.key === 'Enter') {
                 event.preventDefault();
-                editor?.commands.focus('start');
+                if (isQuestion) editor?.commands.focus('start');
+                else rename();
+              } else if (event.key === 'Escape' && !isQuestion) {
+                event.preventDefault();
+                keepName();
+                event.currentTarget.blur();
               }
             }}
             ref={(node) => {
@@ -292,8 +363,12 @@ const ThinkEntryEditor = ({
             }}
             placeholder="Title"
           />
+          {renameError ? <p className="think-entry-rename-note" id="think-entry-rename-error" role="alert">{renameError}</p> : null}
           <p className="think-notebook-title-meta" id="think-note-title">{begunLine(entry.record?.createdAt, words)}</p>
         </div>
+        {historyOpen ? (
+          <EntryHistory kind={entry.kind} entryId={String(entry.record._id)} onRestore={restore} onClose={() => setHistoryOpen(false)} />
+        ) : null}
         {isQuestion ? <QuestionFacts entry={entry} onSettle={settle} /> : <ConceptFacts entry={entry} />}
       </div>
       {error ? <p className="status-message error-message">{error}</p> : null}

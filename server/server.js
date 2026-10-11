@@ -118,6 +118,7 @@ const {
   Note,
   NotebookEntry,
   NotebookFolder,
+  EntryRevision,
   TagMeta,
   ConceptDecisionLessonEvidence,
   ConceptNote,
@@ -609,6 +610,7 @@ if (mongoose.connection.readyState === 1) {
 const { buildFolderService } = require('./services/folderService');
 const { getFoldersWithCounts } = buildFolderService({ Folder, Article, mongoose });
 const { buildNotebookRouter } = require('./routes/notebookRoutes');
+const { buildEntryHistoryRouter } = require('./routes/entryHistoryRoutes');
 const { buildNotebookVolumeRouter } = require('./routes/notebookVolumeRoutes');
 const { buildAuthoredExplorationRouter } = require('./routes/authoredExplorationRoutes');
 const { buildWikiRouter } = require('./routes/wikiRoutes');
@@ -5359,9 +5361,11 @@ app.use(buildLibraryFilingRouter({
     sanitizeAgentThreadDoc
   })
 }));
+app.use(buildEntryHistoryRouter({ authenticateToken, EntryRevision }));
 app.use(buildNotebookRouter({
   authenticateToken: authenticateUserOrAgentToken,
   NotebookEntry,
+  EntryRevision,
   NotebookFolder,
   ReferenceEdge,
   ensureNotebookBlocks,
@@ -6720,6 +6724,8 @@ app.use(buildConceptMetaRouter({
   updateConceptMeta,
   getConceptRelated,
   TagMeta,
+  EntryRevision,
+  conceptReferences: { Article, NotebookEntry, Question, ConceptNote, ReferenceEdge, SharedConcept, ConceptPath, Connection, ReturnQueueEntry },
   escapeRegExp,
   trackEvent,
   EVENT_NAMES
@@ -7290,6 +7296,7 @@ app.use(buildTagInsightRouter({
 app.use(buildConceptQuestionBoardRouter({
   mongoose,
   authenticateToken: authenticateUserOrAgentToken,
+  EntryRevision,
   Article,
   NotebookEntry,
   ReferenceEdge,

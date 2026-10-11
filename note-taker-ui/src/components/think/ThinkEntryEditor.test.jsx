@@ -1,7 +1,8 @@
 import React from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import ThinkEntryEditor from './ThinkEntryEditor';
-import { getConcept, getConceptIdeaWorkbench, updateConcept, updateConceptIdeaWorkbench } from '../../api/concepts';
+import api from '../../api';
+import { getConcept, getConceptIdeaWorkbench, renameConcept, updateConcept, updateConceptIdeaWorkbench } from '../../api/concepts';
 import { getConceptQuestions, getQuestion, updateQuestion } from '../../api/questions';
 
 const mockHandlers = {};
@@ -30,8 +31,9 @@ jest.mock('./concepts/ConceptShareModal', () => () => null);
 jest.mock('./questions/QuestionShareModal', () => () => null);
 jest.mock('../../hooks/useHighlights', () => () => ({ highlights: [], highlightMap: new Map() }));
 jest.mock('../../api/concepts', () => ({
-  getConcept: jest.fn(), getConceptIdeaWorkbench: jest.fn(), updateConcept: jest.fn(), updateConceptIdeaWorkbench: jest.fn()
+  getConcept: jest.fn(), getConceptIdeaWorkbench: jest.fn(), renameConcept: jest.fn(), updateConcept: jest.fn(), updateConceptIdeaWorkbench: jest.fn()
 }));
+jest.mock('../../api', () => ({ __esModule: true, default: { get: jest.fn() } }));
 jest.mock('../../api/questions', () => ({ getConceptQuestions: jest.fn(), getQuestion: jest.fn(), updateQuestion: jest.fn() }));
 
 const typeInBody = () => act(() => { mockHandlers.update.forEach(handler => handler({ transaction: { docChanged: true } })); });
@@ -75,7 +77,7 @@ describe('ThinkEntryEditor', () => {
     const onSaved = jest.fn();
     let flush;
     render(<ThinkEntryEditor target={{ kind: 'concept', id: 'Moats' }} onSaved={onSaved} onRegisterSave={save => { if (save) flush = save; }} />);
-    expect(await screen.findByRole('textbox', { name: 'Concept' })).toHaveAttribute('readonly');
+    expect(await screen.findByRole('textbox', { name: 'Concept name' })).not.toHaveAttribute('readonly');
     expect(getConceptIdeaWorkbench).not.toHaveBeenCalled();
     expect(screen.getByRole('link', { name: 'Costco letter' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Does the moat hold?' })).toHaveAttribute('href', '/think?tab=questions&questionId=q1');
@@ -93,5 +95,69 @@ describe('ThinkEntryEditor', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Ask about selection' }));
     expect(onAsk).toHaveBeenCalledWith('a sentence');
     expect(await screen.findByText('Choose a passage')).toBeInTheDocument();
+  });
+
+  it('renames a concept in place: Enter renames it everywhere, Esc keeps the old name', async () => {
+    getConcept.mockResolvedValue({ _id: 'c1', name: 'Moats' });
+    getConceptIdeaWorkbench.mockResolvedValue({ revision: 2, ideaWorkbench: { hypothesis: { html: '<p>x</p>' } } });
+    renameConcept.mockResolvedValue({ name: 'Durable advantage', previousName: 'Moats', conceptId: 'c1' });
+    const onRenamed = jest.fn();
+    render(<ThinkEntryEditor target={{ kind: 'concept', id: 'Moats' }} onRenamed={onRenamed} />);
+    const name = await screen.findByRole('textbox', { name: 'Concept name' });
+
+    fireEvent.change(name, { target: { value: 'Something else' } });
+    fireEvent.keyDown(name, { key: 'Escape' });
+    expect(name).toHaveValue('Moats');
+    expect(renameConcept).not.toHaveBeenCalled();
+
+    fireEvent.change(name, { target: { value: '  Durable  advantage ' } });
+    fireEvent.keyDown(name, { key: 'Enter' });
+    await waitFor(() => expect(onRenamed).toHaveBeenCalledWith({ name: 'Durable advantage', previousName: 'Moats', conceptId: 'c1' }));
+    expect(renameConcept).toHaveBeenCalledWith('c1', 'Durable advantage');
+    expect(name).toHaveValue('Durable advantage');
+  });
+
+  it('says plainly when the new name is already a concept, and keeps the old one', async () => {
+    getConcept.mockResolvedValue({ _id: 'c1', name: 'Moats' });
+    getConceptIdeaWorkbench.mockResolvedValue({ revision: 2, ideaWorkbench: null });
+    renameConcept.mockRejectedValue({ response: { status: 409, data: { error: 'You already have a concept called “Pricing power”.' } } });
+    const onRenamed = jest.fn();
+    render(<ThinkEntryEditor target={{ kind: 'concept', id: 'Moats' }} onRenamed={onRenamed} />);
+    const name = await screen.findByRole('textbox', { name: 'Concept name' });
+    fireEvent.change(name, { target: { value: 'Pricing power' } });
+    fireEvent.keyDown(name, { key: 'Enter' });
+    expect(await screen.findByRole('alert')).toHaveTextContent('You already have a concept called “Pricing power”.');
+    expect(onRenamed).not.toHaveBeenCalled();
+    fireEvent.blur(name);
+    expect(name).toHaveValue('Moats');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('reads its history as sentences and restores an earlier version through the ordinary save', async () => {
+    getQuestion.mockResolvedValue({ _id: 'q1', text: 'Does the moat hold?', status: 'open', blocks: [] });
+    updateQuestion.mockResolvedValue({ _id: 'q1', text: 'Does the moat hold?' });
+    const older = { id: 'r1', reason: 'edit', at: '2026-10-10T09:00:00.000Z', snapshot: { title: 'Does the moat hold?', blocks: [] } };
+    const newer = {
+      id: 'r2',
+      reason: 'edit',
+      at: '2026-10-12T09:00:00.000Z',
+      snapshot: {
+        title: 'Does the moat hold?',
+        blocks: [
+          { id: 'b1', type: 'paragraph', text: 'Members renew.' },
+          { id: 'b2', type: 'paragraph', text: 'Fees are the business.' },
+          { id: 'b3', type: 'highlight_embed', highlightId: 'h1', text: 'Renewal rates', articleTitle: 'Ben Carlson' }
+        ]
+      }
+    };
+    api.get.mockResolvedValue({ data: { revisions: [newer, older] } });
+    render(<ThinkEntryEditor target={{ kind: 'question', id: 'q1' }} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'History' }));
+    expect(await screen.findByText('Added two paragraphs and a passage from Ben Carlson.')).toBeInTheDocument();
+    expect(api.get).toHaveBeenCalledWith('/api/think/history/question/q1', expect.anything());
+    fireEvent.click(screen.getByRole('button', { name: 'Restore' }));
+    await waitFor(() => expect(updateQuestion).toHaveBeenCalledWith('q1', expect.objectContaining({ restoredFrom: 'r1' })));
+    expect(await screen.findByText(/Restored the version from/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Undo' })).toBeInTheDocument();
   });
 });
