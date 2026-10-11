@@ -102,6 +102,12 @@ async function run() {
     assert.equal(String((await findLibraryArticle({ Article, userId, url: 'https://example.com/twins' }))._id), String(plain._id), 'the exact address first');
     assert.equal(String((await findLibraryArticle({ Article, userId, url: 'https://example.com/twins?utm_source=mail' }))._id), String(tracked._id));
     assert.equal(String((await findLibraryArticle({ Article, userId, url: 'https://www.example.com/twins/' }))._id), String(tracked._id), 'else the first saved');
+    await Article.create({ userId, url: 'https://example.com/report?source=annual', title: 'Annual' });
+    assert.equal(await findLibraryArticle({ Article, userId, url: 'https://example.com/report?source=quarterly' }), null, 'a key that picks the page is part of the address');
+    await Article.create({ userId, url: 'https://example.com/put-away', title: 'Archived', archived: true });
+    await Article.create({ userId, url: 'https://example.com/fixture', title: 'Debug', debugOnly: true });
+    assert.equal(await findLibraryArticle({ Article, userId, url: 'https://example.com/put-away' }), null, 'an archived piece is not reused');
+    assert.equal(await findLibraryArticle({ Article, userId, url: 'https://example.com/fixture' }), null, 'a debug piece is not reused');
 
     // The backfill says what it would do, and does it only when asked.
     const unread = await WikiPage.collection.insertOne({

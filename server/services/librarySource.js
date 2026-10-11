@@ -14,7 +14,8 @@
    next read is direct. Nothing is deleted or copied; a ref that resolves to
    nothing is left exactly as it was. */
 
-const TRACKING_PARAM = /^(?:utm_.*|fbclid|gclid|ref|ref_src|source)$/i;
+// Only keys that never choose what a page says: `ref` and `source` can.
+const TRACKING_PARAM = /^(?:utm_.*|fbclid|gclid|ref_src)$/i;
 const LIBRARY_REF_TYPES = new Set(['article', 'highlight']);
 
 const idOf = (value) => String(value?._id || value || '').trim();
@@ -114,12 +115,13 @@ const resolveSourceRefs = async ({ Article, WikiSourceEvent, userId, refs = [] }
 };
 
 /** The reader's Library article saved at this address, or null: the one saved
-    at exactly this address first, else the first saved at another spelling of it. */
+    at exactly this address first, else the first saved at another spelling of
+    it. Archived, hidden and debug pieces are not in the Library to reuse. */
 const findLibraryArticle = async ({ Article, userId, url }) => {
   const pattern = urlPattern(url);
   if (!Article || !pattern) return null;
   const canonical = canonicalSourceUrl(url);
-  const articles = await Article.find({ userId, url: pattern }).sort({ _id: 1 }).select('_id url title content').lean();
+  const articles = await Article.find({ userId, url: pattern, archived: { $ne: true }, hiddenFromHome: { $ne: true }, debugOnly: { $ne: true } }).sort({ _id: 1 }).select('_id url title content').lean();
   return articles.find(article => article.url === String(url).trim())
     || articles.find(article => canonicalSourceUrl(article.url) === canonical)
     || null;
