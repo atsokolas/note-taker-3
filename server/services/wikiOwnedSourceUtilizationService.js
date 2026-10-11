@@ -15,6 +15,8 @@
 // utilization. Families that genuinely do not belong may be explicitly excluded
 // with a stated reason; silence is not an exclusion.
 
+const { canonicalSourceUrl } = require('./librarySource');
+
 const asString = (value = '') => String(value == null ? '' : value).trim();
 
 // Library material carries a durable account identity. External and provider
@@ -35,30 +37,11 @@ const MIN_OWNED_UTILIZATION_RATIO = 0.5;
 const OWNED_FAMILY_RELEVANCE_COVERAGE = 0.5;
 const MIN_EXCLUSION_REASON_LENGTH = 12;
 
-const normalizeUrl = (value = '') => {
-  const raw = asString(value);
-  if (!raw) return '';
-  const withoutScheme = raw
-    .replace(/^[a-z][a-z0-9+.-]*:\/\//i, '')
-    .replace(/^www\./i, '')
-    .split('#')[0];
-  const [path, query = ''] = withoutScheme.split('?');
-  // Tracking parameters describe how a link was shared, not which source it is.
-  const meaningfulQuery = query
-    .split('&')
-    .filter(Boolean)
-    .filter(part => !/^(?:utm_[^=]*|fbclid|gclid|ref|ref_src)=/i.test(part))
-    .sort()
-    .join('&');
-  const trimmedPath = path.replace(/\/+$/, '');
-  return `${trimmedPath}${meaningfulQuery ? `?${meaningfulQuery}` : ''}`.toLowerCase();
-};
-
 // URL first: two Library rows imported from the same page are one source even
 // when Mongo gave them different ids. Parent id next, so an article and its
 // highlights collapse together when the article carries no URL.
 const sourceFamilyKey = (source = {}) => {
-  const url = normalizeUrl(source.url);
+  const url = canonicalSourceUrl(source.url);
   if (url) return `url:${url}`;
   const parent = asString(source.parentObjectId);
   if (parent) return `id:${parent.toLowerCase()}`;
@@ -267,7 +250,6 @@ module.exports = {
   MIN_OWNED_UTILIZATION_RATIO,
   OWNED_FAMILY_RELEVANCE_COVERAGE,
   MIN_EXCLUSION_REASON_LENGTH,
-  normalizeUrl,
   sourceFamilyKey,
   isOwnedSource,
   deriveSourceFamilies,

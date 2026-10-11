@@ -1,5 +1,5 @@
 import { isJudgmentPage } from '../../pages/judgmentModel';
-import { parseSourceOrigin } from '../../utils/sourceRoutes';
+import { libraryIdentity, parseSourceOrigin } from '../../utils/sourceRoutes';
 import { folioHref, folioSentence } from './folioModel';
 
 // Where the passages went.
@@ -8,7 +8,7 @@ import { folioHref, folioSentence } from './folioModel';
 // piece: which of your views its passages sit under, which of your pages cite
 // it. Built from what the pages already hold; a passage counts only when a
 // view's Why or Against line names it, or a page's sources name it or the
-// piece itself. Nothing linked is silence, not "not used yet".
+// piece itself (a web source the server matched to this piece included). Nothing linked is silence, not "not used yet".
 
 const MAX_LINES = 3;
 const NUMBER_WORDS = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'];
@@ -47,7 +47,7 @@ const citedPassages = (page, articleId, highlightIds) => {
   list(page?.sourceRefs).forEach((ref) => {
     const objectId = idOf(ref?.objectId);
     if (ref?.type === 'highlight' && highlightIds.has(objectId)) cited.add(objectId);
-    if (ref?.type === 'article' && objectId === articleId) piece = true;
+    if (ref?.type !== 'highlight' && libraryIdentity(ref).articleId === articleId) piece = true;
   });
   return { cited, piece };
 };
