@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { wikiPageEditPath } from '../../utils/wikiFeatureFlags';
+import { wikiPageEditPath } from '../../utils/wikiPaths';
 import WikiPageReadView from './WikiPageReadView';
 
 /*

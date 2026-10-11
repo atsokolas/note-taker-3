@@ -20,7 +20,7 @@ jest.mock('../agent/ThoughtPartnerPanel', () => ({ title = 'Thought partner' }) 
   <section aria-label={`${title} panel`}>Thought partner</section>
 ));
 
-jest.mock('../../utils/wikiFeatureFlags', () => ({
+jest.mock('../../utils/wikiPaths', () => ({
   wikiPagePath: (pageId) => `/wiki/workspace?page=${pageId}`,
   wikiReadPath: (pageId, suffix = '') => `/wiki/read/${pageId}${suffix ? `?${String(suffix).replace(/^[?&]/, '')}` : ''}`
 }));

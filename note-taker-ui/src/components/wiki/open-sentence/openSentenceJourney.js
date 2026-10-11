@@ -1,4 +1,4 @@
-import { wikiReadPath } from '../../../utils/wikiFeatureFlags';
+import { wikiReadPath } from '../../../utils/wikiPaths';
 import { cleanSourceTextForDisplay } from '../../../utils/sourceDisplayText';
 import { liveDefinitionAfterFailure } from '../../../utils/distinctionUse';
 import {

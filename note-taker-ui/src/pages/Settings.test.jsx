@@ -3,24 +3,11 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { MemoryRouter } from 'react-router-dom';
 import Settings from './Settings';
 import { getMorningPaperSettings, updateMorningPaperSettings } from '../api/dailyLoop';
-import { getWikiSchema, saveWikiSchema, suggestWikiSchemaUpdates } from '../api/wiki';
 import { TemporaryAppearanceProvider } from '../settings/TemporaryAppearanceContext';
 
 jest.mock('../api/dailyLoop', () => ({
   getMorningPaperSettings: jest.fn(),
   updateMorningPaperSettings: jest.fn()
-}));
-
-jest.mock('../api/wiki', () => ({
-  getWikiSchema: jest.fn(),
-  saveWikiSchema: jest.fn(),
-  revertWikiSchema: jest.fn(),
-  suggestWikiSchemaUpdates: jest.fn()
-}));
-
-jest.mock('../utils/wikiAnalytics', () => ({
-  trackWikiSchemaSaved: jest.fn(),
-  trackWikiSchemaSuggested: jest.fn()
 }));
 
 jest.mock('../api/tourApi', () => ({
@@ -53,11 +40,6 @@ const renderSettings = (props = {}) => render(
 describe('Settings redesign', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    window.localStorage.setItem('noeis.flags.wiki.read_mode_v2', 'true');
-    getWikiSchema.mockResolvedValue({
-      content: '# Wiki instructions\n\n## Page types I want\n- topic',
-      snapshots: []
-    });
     getMorningPaperSettings.mockResolvedValue({
       enabled: false,
       email: '',
@@ -74,10 +56,6 @@ describe('Settings redesign', () => {
       sendHourLocal: patch.sendHourLocal ?? 7,
       configuration: { ready: false, missing: ['RESEND_API_KEY'] }
     }));
-  });
-
-  afterEach(() => {
-    window.localStorage.removeItem('noeis.flags.wiki.read_mode_v2');
   });
 
   it('keeps appearance changes in preview until the reader applies them', async () => {
@@ -103,30 +81,6 @@ describe('Settings redesign', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Delivery' }));
     await waitFor(() => expect(getMorningPaperSettings).toHaveBeenCalled());
     expect(screen.getByText(/Morning paper by email/i)).toBeInTheDocument();
-  });
-
-  it('shows wiki instructions in Advanced without clipping overlong drafts', async () => {
-    renderSettings();
-    fireEvent.click(screen.getByRole('button', { name: 'Advanced' }));
-    const editor = await screen.findByLabelText('Wiki instructions');
-    fireEvent.change(editor, { target: { value: 'x'.repeat(8005) } });
-    expect(editor.value).toHaveLength(8005);
-    expect(screen.getByText(/Over the limit/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Review changes' })).toBeDisabled();
-  });
-
-  it('can suggest wiki instruction updates', async () => {
-    suggestWikiSchemaUpdates.mockResolvedValue({
-      summary: '1 schema update suggestion from recent wiki activity.',
-      proposedPatch: '## Suggested schema updates',
-      suggestions: [{ id: 'evidence', title: 'Tighten evidence standards' }]
-    });
-    renderSettings();
-    fireEvent.click(screen.getByRole('button', { name: 'Advanced' }));
-    await screen.findByLabelText('Wiki instructions');
-    fireEvent.click(screen.getByRole('button', { name: 'Suggest updates' }));
-    await waitFor(() => expect(suggestWikiSchemaUpdates).toHaveBeenCalled());
-    expect(await screen.findByText(/1 schema update suggestion/i)).toBeInTheDocument();
   });
 
   it('finds decorative color through setting search', async () => {

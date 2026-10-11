@@ -206,7 +206,6 @@ const renderReadView = (props = {}, { systemStatusControls = buildSystemStatusCo
 );
 
 describe('WikiPageReadView', () => {
-  const originalWorkspaceFlag = process.env.REACT_APP_WIKI_WORKSPACE_V1;
   const originalScrollIntoView = window.HTMLElement.prototype.scrollIntoView;
   const originalMatchMedia = window.matchMedia;
 
@@ -220,7 +219,6 @@ describe('WikiPageReadView', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
-    process.env.REACT_APP_WIKI_WORKSPACE_V1 = 'false';
     getWikiPage.mockResolvedValue(page);
     getWikiRepoComparison.mockRejectedValue(new Error('not configured'));
     listWikiRevisions.mockResolvedValue([]);
@@ -450,8 +448,6 @@ describe('WikiPageReadView', () => {
   afterEach(() => {
     jest.restoreAllMocks();
     jest.useRealTimers();
-    if (originalWorkspaceFlag === undefined) delete process.env.REACT_APP_WIKI_WORKSPACE_V1;
-    else process.env.REACT_APP_WIKI_WORKSPACE_V1 = originalWorkspaceFlag;
     window.HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
     window.matchMedia = originalMatchMedia;
     window.sessionStorage.clear();
@@ -1264,7 +1260,6 @@ describe('WikiPageReadView', () => {
   });
 
   it('keeps standalone reader presentational even when workspace routing is canonical', async () => {
-    process.env.REACT_APP_WIKI_WORKSPACE_V1 = 'true';
 
     render(
       <MemoryRouter>
@@ -1710,7 +1705,6 @@ describe('WikiPageReadView', () => {
   });
 
   it('keeps Talk controls and mentioned-in backlinks available when workspace v1 is active', async () => {
-    delete process.env.REACT_APP_WIKI_WORKSPACE_V1;
 
     render(
       <MemoryRouter>

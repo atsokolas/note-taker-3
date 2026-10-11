@@ -35,7 +35,7 @@ import {
   getLastVisitState,
   recordVisit
 } from './wikiVisitTracker';
-import { wikiPagePath } from '../../utils/wikiFeatureFlags';
+import { wikiPagePath } from '../../utils/wikiPaths';
 import { trackWikiQaPromoted } from '../../utils/wikiAnalytics';
 import { useNoeisSurface } from '../../surface/NoeisSurfaceContext';
 import { buildWikiSurfaceDescriptor } from './wikiSurfaceModel';

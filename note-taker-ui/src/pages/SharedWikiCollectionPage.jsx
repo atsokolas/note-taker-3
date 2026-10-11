@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { adoptPublicWikiCollection, getPublicWikiCollection } from '../api/wiki';
 import renderTiptapDoc, { firstParagraphText } from '../components/wiki/renderTiptapDoc';
 import { countWikiClaims, countWikiPageWords, countWikiSources } from '../components/wiki/wikiPageMetrics';
-import { wikiPagePath } from '../utils/wikiFeatureFlags';
+import { wikiPagePath } from '../utils/wikiPaths';
 import { buildSharePreviewReceipt } from '../utils/connectionMagicMoment';
 import useSeoMetadata from '../hooks/useSeoMetadata';
 import { CANONICAL_HOST, SITE_NAME, buildCanonicalUrl } from '../seo/siteMetadata';

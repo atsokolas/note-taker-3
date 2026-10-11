@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { wikiReadPath } from '../../utils/wikiFeatureFlags';
+import { wikiReadPath } from '../../utils/wikiPaths';
 import { normalizeSpaces } from '../../utils/editorialText';
 
 /**

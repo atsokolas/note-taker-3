@@ -4,7 +4,7 @@ import { createWikiPage, listWikiContradictions, updateWikiPage } from '../api/w
 import { createJudgment } from './judgmentModel';
 import { useContextualAgentSurface } from '../agent/AgentRailContext';
 import { takeFirstPaint } from '../motion/columnMotion';
-import { wikiReadPath } from '../utils/wikiFeatureFlags';
+import { wikiReadPath } from '../utils/wikiPaths';
 import '../styles/contradictions.css';
 
 // Where the library disagrees with itself.

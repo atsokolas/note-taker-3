@@ -51,7 +51,6 @@ describe('WikiBuildPageComposer', () => {
     });
     systemStatusControls = buildSystemStatusControls();
     jest.spyOn(router, 'useNavigate').mockReturnValue(mockNavigate);
-    process.env.REACT_APP_WIKI_WORKSPACE_V1 = 'true';
     createWikiPage.mockResolvedValue({ _id: 'wiki-new', title: 'Portfolio Concentration' });
     createRepoWikiFromGitHub.mockResolvedValue({
       action: 'created',
@@ -65,7 +64,6 @@ describe('WikiBuildPageComposer', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
-    delete process.env.REACT_APP_WIKI_WORKSPACE_V1;
   });
 
   it('extracts a bounded page title from a natural-language build brief', () => {

@@ -9,7 +9,7 @@ import {
   mergeWikiProposal,
   watchWikiProposal
 } from '../../api/wiki';
-import { wikiPagePath } from '../../utils/wikiFeatureFlags';
+import { wikiPagePath } from '../../utils/wikiPaths';
 import { displayWikiPageTitle } from './wikiRepoDossierModel';
 
 const labelForType = (type) => (type === 'bridge_idea' ? 'Bridge idea' : 'Recurring theme');

@@ -7,7 +7,7 @@ import { listWikiPages } from '../../api/wiki';
 jest.mock('../../api/wiki', () => ({
   listWikiPages: jest.fn()
 }));
-jest.mock('../../utils/wikiFeatureFlags', () => ({
+jest.mock('../../utils/wikiPaths', () => ({
   wikiPagePath: pageId => `/wiki/workspace?page=${pageId}`,
   wikiReadPath: pageId => `/wiki/read/${pageId}`
 }));

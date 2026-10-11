@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { createWikiPage, getWikiIngestRun, undoWikiIngestRun } from '../api/wiki';
-import { wikiPagePath } from '../utils/wikiFeatureFlags';
+import { wikiPagePath } from '../utils/wikiPaths';
 import { humanizeLabel } from '../utils/humanizeLabel';
 
 const labelFor = (value = '') => humanizeLabel(value);

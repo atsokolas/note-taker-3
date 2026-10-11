@@ -33,7 +33,7 @@ import { startKnowledgeMovementInvestigation } from '../../api/knowledgeMovement
 import { getConnectionsForItem } from '../../api/connections';
 import { recordClaimCheckIn, recordWikiPageVisit } from '../../api/dailyLoop';
 import { trackWikiQaPromoted, trackWikiReadModePageView } from '../../utils/wikiAnalytics';
-import { wikiPagePath, wikiReadPath } from '../../utils/wikiFeatureFlags';
+import { wikiPagePath, wikiReadPath } from '../../utils/wikiPaths';
 import { resolveSourceDoors } from '../../utils/sourceRoutes';
 import { cleanSourceTextForDisplay } from '../../utils/sourceDisplayText';
 import ClaimCitationPopover from './ClaimCitationPopover';

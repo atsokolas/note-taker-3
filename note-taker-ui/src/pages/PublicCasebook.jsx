@@ -7,7 +7,7 @@ import {
   getWikiPublicPreview
 } from '../api/wiki';
 import { CLOCK_LABEL, VERDICT_LABEL } from './judgmentLedgerClient';
-import { wikiPagePath } from '../utils/wikiFeatureFlags';
+import { wikiPagePath } from '../utils/wikiPaths';
 import { describeReturn, readLastSeen, rememberSeen } from './publicReturn';
 import useControlledDisclosure from '../components/judgment/useControlledDisclosure';
 import '../styles/public-casebook.css';

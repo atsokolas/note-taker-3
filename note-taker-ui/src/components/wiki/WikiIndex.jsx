@@ -4,7 +4,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '../ui';
 import { downloadWikiExportZip, ingestWikiSource, listWikiActivity, listWikiPages, rebuildWikiGraph } from '../../api/wiki';
 import { fetchGraphData } from '../../api/map';
-import { wikiPagePath } from '../../utils/wikiFeatureFlags';
+import { wikiPagePath } from '../../utils/wikiPaths';
 import { AGENT_DISPLAY_NAME } from '../../constants/agentIdentity';
 import WikiList from './WikiList';
 import {
