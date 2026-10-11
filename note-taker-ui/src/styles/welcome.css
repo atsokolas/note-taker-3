@@ -255,39 +255,98 @@ body.noeis-editorial .welcome .welcome__view-field,
   padding-top: 8px;
 }
 
-/* ---------- sample wikis ---------- */
+/* ---------- what it builds ---------- */
 
-.welcome__examples {
+.welcome__example {
   display: grid;
-  gap: 10px;
-  padding-top: 18px;
-  border-top: 1px solid var(--welcome-rule);
-  color: var(--welcome-subtle);
-  font-size: 0.86rem;
+  gap: 12px;
+  padding: 26px 28px 22px;
+  border: 1px solid var(--welcome-rule);
+  border-radius: 6px;
+  font-family: var(--welcome-serif);
 }
 
-.welcome__examples ul {
+.welcome__example-label,
+.welcome__example small {
+  color: var(--welcome-subtle);
+  font-family: var(--welcome-ui);
+  font-size: 0.78rem;
+}
+
+.welcome .welcome__example h2 {
+  font-family: var(--welcome-serif);
+  font-size: 1.6rem;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+.welcome__example h3 {
+  margin: 6px 0 2px;
+  color: var(--welcome-muted);
+  font-family: var(--welcome-ui);
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.welcome__example p {
+  font-size: 1.04rem;
+  line-height: 1.55;
+}
+
+.welcome__example small {
+  padding-top: 10px;
+  border-top: 1px solid var(--welcome-rule);
+}
+
+.welcome__packs {
   display: grid;
-  gap: 8px;
-  margin: 0;
+  gap: 12px;
+  padding-top: 22px;
+  border-top: 1px solid var(--welcome-rule);
+}
+
+.welcome__packs > p {
+  color: var(--welcome-muted);
+  font-size: 0.94rem;
+  line-height: 1.55;
+}
+
+.welcome__packs ul {
+  display: grid;
+  gap: 18px;
+  margin: 4px 0 0;
   padding: 0;
   list-style: none;
 }
 
-.welcome .welcome__examples button {
+.welcome__packs li {
+  display: grid;
+  gap: 3px;
+}
+
+.welcome .welcome__packs button {
+  justify-self: start;
   padding: 0;
   border: 0;
-  color: var(--welcome-muted);
   font-family: var(--welcome-serif);
-  font-size: 1.05rem;
-  font-style: italic;
+  font-size: 1.2rem;
   white-space: normal;
   text-align: left;
   transition: color 140ms ease;
 }
 
-.welcome .welcome__examples button:hover,
-.welcome .welcome__examples button:focus-visible { color: var(--welcome-ink); }
+.welcome .welcome__packs button:hover,
+.welcome .welcome__packs button:focus-visible { color: var(--welcome-thread); }
+
+.welcome__packs li p {
+  color: var(--welcome-muted);
+  font-size: 0.9rem;
+}
+
+.welcome__packs small {
+  color: var(--welcome-subtle);
+  font-size: 0.8rem;
+}
 
 /* ---------- reading ---------- */
 

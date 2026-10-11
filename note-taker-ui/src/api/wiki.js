@@ -151,6 +151,16 @@ export const proposeJudgmentChange = async (pageId, proposedJudgment) => {
   return res.data?.proposal || null;
 };
 
+/* Passages already in the library that bear on a view. Retrieval only: which
+   side a passage falls on is the reader's to say. */
+export const getJudgmentLibraryEvidence = async (pageId, params = {}) => {
+  const res = await api.get(
+    `${WIKI_PAGES_PATH}/${safeId(pageId)}/library-evidence${buildQueryString(params)}`,
+    getAuthHeaders()
+  );
+  return { candidates: Array.isArray(res.data?.candidates) ? res.data.candidates : [] };
+};
+
 /* Passages a newly saved source offered this view, waiting to be filed. */
 export const listReadingProposals = async (pageId) => {
   const res = await api.get(`${WIKI_PAGES_PATH}/${safeId(pageId)}/judgment-change-proposal`, getAuthHeaders());

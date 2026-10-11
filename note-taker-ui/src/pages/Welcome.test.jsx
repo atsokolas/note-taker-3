@@ -13,6 +13,7 @@ import {
   updateWikiPage
 } from '../api/wiki';
 import { getArticles } from '../api/articles';
+import { fileJudgmentEvidence } from '../api/judgmentResolution';
 import {
   connectReadwiseToken,
   importPastedText,
@@ -46,6 +47,7 @@ jest.mock('../api/wiki', () => ({
   updateWikiPage: jest.fn()
 }));
 jest.mock('../api/articles', () => ({ getArticles: jest.fn() }));
+jest.mock('../api/judgmentResolution', () => ({ fileJudgmentEvidence: jest.fn() }));
 jest.mock('../api/imports', () => ({
   connectReadwiseToken: jest.fn(),
   importPastedText: jest.fn(),
@@ -89,12 +91,20 @@ describe('Welcome', () => {
     getJudgmentLibraryEvidence.mockResolvedValue({ candidates: [] });
   });
 
-  it('starts with your reading and brings in each pasted link by name', async () => {
+  it('opens on what Noeis builds, and goes on to your reading', async () => {
+    renderAt('');
+    expect(screen.getByRole('heading', { name: 'This is what Noeis builds from your reading.' })).toBeInTheDocument();
+    expect(screen.getByRole('article', { name: 'An example page' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Grow one from my reading' }));
+    expect(where()).toBe('step=reading');
+  });
+
+  it('brings in each pasted link by name', async () => {
     importPastedUrl.mockImplementation(async ({ url }) => ({
       article: { title: url.includes('one') ? 'The first essay' : 'The second essay' }
     }));
 
-    renderAt('');
+    renderAt('step=reading');
     const continueButton = await screen.findByRole('button', { name: 'Write my first page' });
     expect(continueButton).toBeDisabled();
 
@@ -139,12 +149,18 @@ describe('Welcome', () => {
     expect(screen.getByRole('button', { name: 'Write my first page' })).not.toBeDisabled();
   });
 
-  it('offers a sample wiki only to a reader with nothing to bring, and ends on it', async () => {
-    listWikiStarterPacks.mockResolvedValue([{ id: 'mental-models', name: 'Mental Models' }]);
+  it('offers ready-made wikis up front, shows what is in each, and ends on the one taken', async () => {
+    listWikiStarterPacks.mockResolvedValue([{
+      id: 'mental-models',
+      name: 'Mental Models',
+      tagline: 'The Munger latticework for better judgment.',
+      pages: ['First Principles', 'Opportunity Cost', 'Margin of Safety', 'Incentives', 'Inversion'].map(title => ({ title }))
+    }]);
     adoptWikiStarterPack.mockResolvedValue({ pages: [{ _id: 'starter-1' }] });
 
-    renderAt('step=reading');
-    fireEvent.click(await screen.findByRole('button', { name: 'Mental Models' }));
+    renderAt('');
+    expect(await screen.findByText('First Principles · Opportunity Cost · Margin of Safety · Incentives · 1 more')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Mental Models' }));
 
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/wiki/read/starter-1', { replace: true }));
     expect(markOnboardingCompleteOnServer).toHaveBeenCalled();
@@ -229,7 +245,9 @@ describe('Welcome', () => {
         { id: 'article:a2', text: 'Teams that meet daily ship faster.', sourceLabel: 'Standups', matched: [] }
       ]
     });
-    updateWikiPage.mockImplementation(async (_id, { judgment }) => heldPage(judgment));
+    fileJudgmentEvidence.mockImplementation(async ({ field }) => ({
+      judgment: { currentJudgment: SENTENCE, [field]: [{ text: 'Written decisions outlast the meetings that made them.' }] }
+    }));
 
     renderAt('step=moment&page=page-1');
 
@@ -241,15 +259,18 @@ describe('Welcome', () => {
 
     fireEvent.click(screen.getAllByRole('button', { name: 'Supports it' })[0]);
     expect(await screen.findByText('Filed under why you hold it.')).toBeInTheDocument();
-    expect(updateWikiPage).toHaveBeenCalledWith('page-1', {
-      judgment: expect.objectContaining({
-        why: [expect.objectContaining({ text: 'Written decisions outlast the meetings that made them.' })]
-      })
+    expect(fileJudgmentEvidence).toHaveBeenCalledWith({
+      pageId: 'page-1',
+      expectedClaim: SENTENCE,
+      field: 'why',
+      articleId: 'a1',
+      highlightId: 'h1',
+      quote: 'Written decisions outlast the meetings that made them.'
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'Not about this' }));
     expect(screen.getByText('Set aside.')).toBeInTheDocument();
-    expect(updateWikiPage).toHaveBeenCalledTimes(1);
+    expect(fileJudgmentEvidence).toHaveBeenCalledTimes(1);
 
     fireEvent.click(screen.getByRole('button', { name: 'Open your view' }));
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/judgment/page-1', { replace: true }));

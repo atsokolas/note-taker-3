@@ -1,13 +1,37 @@
 /* What first run says, kept apart from how it is drawn so the words can be
    tested without a browser. Every function here is pure. */
 
-import { countWord, oneSentence } from './judgmentModel';
+import { oneSentence } from './judgmentModel';
+
+const COUNT_WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
+const countWord = n => COUNT_WORDS[n] || String(n);
 
 export const STEPS = [
+  { id: 'start', label: 'What it builds' },
   { id: 'reading', label: 'Your reading' },
   { id: 'page', label: 'Your first page' },
   { id: 'moment', label: 'What it says' }
 ];
+
+/* The page first run opens on: what a Noeis page looks like, shown as an
+   example and labelled as one. */
+export const EXAMPLE_PAGE = {
+  title: 'Loss aversion',
+  lede: 'People feel a loss more sharply than a gain of the same size, and that pressure bends decisions: a small downside can outweigh a larger upside when the choice feels personal or hard to undo.',
+  sections: [
+    ['Where it shows up', 'Investors hold losing positions too long; teams keep projects alive to avoid admitting the cost already spent.'],
+    ['Where it breaks', 'Caution that protects the downside can also hide the better path nobody chose.']
+  ],
+  sources: 'Every line points back to a passage you saved.'
+};
+
+/* A pack's pages as a line, so the reader sees what they would be taking. */
+export const packContents = (pack = {}, max = 4) => {
+  const titles = (Array.isArray(pack.pages) ? pack.pages : []).map(page => page?.title).filter(Boolean);
+  if (!titles.length) return '';
+  const shown = titles.slice(0, max).join(' · ');
+  return titles.length > max ? `${shown} · ${titles.length - max} more` : shown;
+};
 
 export const READWISE_TOKEN_URL = 'https://readwise.io/access_token';
 

@@ -12,6 +12,7 @@ import {
   updateWikiPage
 } from '../api/wiki';
 import { getArticles } from '../api/articles';
+import { fileJudgmentEvidence } from '../api/judgmentResolution';
 import {
   connectReadwiseToken,
   importPastedText,
@@ -21,9 +22,11 @@ import {
 import { isOnboardingComplete, markOnboardingComplete } from '../onboarding/onboardingState';
 import useExtensionPresence, { EXTENSION_STATE } from '../onboarding/useExtensionPresence';
 import { TOUR_EXTENSION_URL } from '../tour/tourConfig';
+import { buildSourceOriginPath, parseSourceOrigin } from '../utils/sourceRoutes';
 import { wikiReadPath } from '../utils/wikiFeatureFlags';
-import { fileEvidenceIntoJudgment, oneSentence, sourceHrefFromOrigin } from './judgmentModel';
+import { oneSentence } from './judgmentModel';
 import {
+  EXAMPLE_PAGE,
   FILED_LINE,
   READWISE_TOKEN_URL,
   STEPS,
@@ -31,6 +34,7 @@ import {
   extraSentenceNotice,
   linkLabel,
   markMatches,
+  packContents,
   pageLede,
   pageState,
   passageTitle,
@@ -46,12 +50,12 @@ import {
 import '../styles/welcome.css';
 
 /**
- * First run: bring your reading, get your first wiki page, then say what you
- * think about it.
+ * First run: see what Noeis builds, take a ready-made wiki or bring your
+ * reading, get your first page, then say what you think about it.
  *
  * The homepage promises a knowledge base grown from what you read, so that is
- * what the first minutes deliver: the reader's own sources, written up into a
- * page that cites them. Only once there is something on the page do we ask
+ * what the first minutes deliver: first a look at a page, then the reader's
+ * own sources, written up into a page that cites them. Only once there is something on the page do we ask
  * what they think, and then the view is read against the very reading that
  * made the page, so the judgment moment is never empty.
  *
@@ -71,7 +75,7 @@ const Welcome = () => {
   const took = params.get('took') || '';
   const pageId = params.get('page') || took;
   const asked = params.get('step');
-  const step = STEPS.some(item => item.id === asked) ? asked : (took ? 'page' : 'reading');
+  const step = STEPS.some(item => item.id === asked) ? asked : (took ? 'page' : 'start');
   const [page, setPage] = useState(null);
   const [arrivals, setArrivals] = useState([]);
   const [readwise, setReadwise] = useState(null);
@@ -148,6 +152,13 @@ const Welcome = () => {
 
         {!ready ? <p className="welcome__quiet" role="status">Opening your page…</p> : null}
 
+        {ready && step === 'start' ? (
+          <StartStep
+            onReading={() => go('reading', { id: '' })}
+            onPack={firstPage => finish(firstPage ? wikiReadPath(firstPage) : '/wiki')}
+          />
+        ) : null}
+
         {ready && step === 'reading' ? (
           <ReadingStep
             arrivals={arrivals}
@@ -155,7 +166,6 @@ const Welcome = () => {
             readwise={readwise}
             setReadwise={setReadwise}
             onNext={() => go('page', { id: '' })}
-            onPack={firstPage => finish(firstPage ? wikiReadPath(firstPage) : '/wiki')}
             onLater={() => finish('/library')}
           />
         ) : null}
@@ -188,7 +198,32 @@ const Welcome = () => {
 
 /* ------------------------------------------------------------------ 1 */
 
-const ReadingStep = ({ arrivals, setArrivals, readwise, setReadwise, onNext, onPack, onLater }) => {
+const StartStep = ({ onReading, onPack }) => (
+  <section className="welcome__step">
+    <h1 id="welcome-title">This is what Noeis builds from your reading.</h1>
+    <p className="welcome__lede">
+      A wiki that grows from what you save, written up into pages that cite where each line came from.
+    </p>
+    <article className="welcome__example" aria-label="An example page">
+      <span className="welcome__example-label">An example page</span>
+      <h2>{EXAMPLE_PAGE.title}</h2>
+      <p>{EXAMPLE_PAGE.lede}</p>
+      {EXAMPLE_PAGE.sections.map(([heading, body]) => (
+        <section key={heading}>
+          <h3>{heading}</h3>
+          <p>{body}</p>
+        </section>
+      ))}
+      <small>{EXAMPLE_PAGE.sources}</small>
+    </article>
+    <div className="welcome__actions">
+      <button type="button" className="welcome__primary" onClick={onReading}>Grow one from my reading</button>
+    </div>
+    <StarterWikis onTaken={onPack} />
+  </section>
+);
+
+const ReadingStep = ({ arrivals, setArrivals, readwise, setReadwise, onNext, onLater }) => {
   const [token, setToken] = useState('');
   const [readwiseBusy, setReadwiseBusy] = useState(false);
   const [readwiseError, setReadwiseError] = useState('');
@@ -340,13 +375,12 @@ const ReadingStep = ({ arrivals, setArrivals, readwise, setReadwise, onNext, onP
         </button>
       </div>
       {!hasReading && !reading ? <p className="welcome__hint">Bring at least one source first.</p> : null}
-      {!hasReading && !reading ? <StarterWikis onTaken={onPack} /> : null}
     </section>
   );
 };
 
-/* For a reader with nothing to bring yet. Starter wikis are sample pages with
-   no sources behind them, and this says so rather than dressing them up. */
+/* Ready-made wikis to take. They are sample pages with no sources behind
+   them yet, and this says so rather than dressing them up. */
 const StarterWikis = ({ onTaken }) => {
   const [packs, setPacks] = useState([]);
   const [busyId, setBusyId] = useState('');
@@ -376,14 +410,17 @@ const StarterWikis = ({ onTaken }) => {
   };
 
   return (
-    <div className="welcome__examples">
-      <p>Nothing to bring yet? Start from a sample wiki. Its pages grow once your own reading arrives.</p>
+    <div className="welcome__packs">
+      <h2>Or start from a ready-made wiki</h2>
+      <p>Sample pages to explore now. They fill in from your own reading as it arrives.</p>
       <ul>
         {packs.map(pack => (
           <li key={pack.id}>
             <button type="button" disabled={Boolean(busyId)} onClick={() => take(pack)}>
-              {busyId === pack.id ? `Copying ${pack.name}…` : pack.name}
+              {busyId === pack.id ? `Taking ${pack.name}…` : pack.name}
             </button>
+            {pack.tagline ? <p>{pack.tagline}</p> : null}
+            {packContents(pack) ? <small>{packContents(pack)}</small> : null}
           </li>
         ))}
       </ul>
@@ -657,11 +694,17 @@ const MomentStep = ({ page, setPage, onReading, onFinish }) => {
     }
     setBusyId(candidate.id);
     try {
-      const judgment = fileEvidenceIntoJudgment(page, candidate, field);
-      const saved = await updateWikiPage(page._id, { judgment });
-      const before = (page?.judgment?.[field] || []).length;
-      if ((saved?.judgment?.[field] || []).length <= before) throw new Error('not saved');
-      setPage(saved);
+      const { articleId, highlightId } = parseSourceOrigin(candidate.id);
+      const saved = await fileJudgmentEvidence({
+        pageId: page._id,
+        expectedClaim: page.judgment?.currentJudgment || '',
+        field,
+        articleId,
+        highlightId,
+        quote: candidate.text
+      });
+      if (!saved?.judgment) throw new Error('not saved');
+      setPage(current => ({ ...current, judgment: saved.judgment }));
       setFiled(current => ({ ...current, [candidate.id]: field }));
     } catch (_error) {
       setFileError('That did not save. It is still here; try again.');
@@ -714,7 +757,7 @@ const MomentStep = ({ page, setPage, onReading, onFinish }) => {
       <ol className="welcome__passages">
         {candidates.map((candidate) => {
           const verdict = filed[candidate.id];
-          const href = sourceHrefFromOrigin(candidate.id, candidate.url);
+          const href = buildSourceOriginPath(candidate.id, candidate.url);
           const meta = [candidate.sourceLabel, savedOn(candidate.savedAt)].filter(Boolean).join(' · ');
           return (
             <li key={candidate.id} className={verdict ? `is-filed is-${verdict}` : ''}>

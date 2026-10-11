@@ -5,6 +5,7 @@ const { buildJudgmentResolutionRouter } = require('./judgmentResolutionRoutes');
 const PAGE_ID = '64f500000000000000000010';
 const calls = [];
 const events = [];
+const quotes = [];
 const app = express();
 app.use(express.json());
 app.use(buildJudgmentResolutionRouter({
@@ -25,6 +26,7 @@ app.use(buildJudgmentResolutionRouter({
     calls.push(['evidence', input]);
     return { page: { _id: PAGE_ID, judgment: { against: [{ acceptedFrom: input.highlightId }] } }, artifact: {}, receipt: {}, idempotent: false };
   },
+  highlightForQuote: async input => { quotes.push(input); return { highlight: { _id: '64f500000000000000000050' } }; },
   buildJudgmentMirror: async input => { calls.push(['mirror', input]); return { metrics: { claimsHeld: 1 } }; },
   trackEvent: event => events.push(event)
 }));
@@ -59,6 +61,16 @@ const server = app.listen(0, '127.0.0.1', async () => {
       { event: 'evidence_filed', userId: 'user-1', properties: { pageId: PAGE_ID, field: 'against' } }
     ]);
     assert.deepStrictEqual(calls.map(call => call[0]), ['criteria', 'verdict', 'evidence', 'mirror']);
+
+    // A passage nobody highlighted is filed by its words, as a highlight.
+    assert.strictEqual((await request(`/api/judgment/pages/${PAGE_ID}/evidence`, {
+      method: 'POST',
+      body: { field: 'why', articleId: '64f500000000000000000030', quote: 'Written decisions outlast meetings.' }
+    })).response.status, 201);
+    assert.deepStrictEqual(quotes.map(({ userId, articleId, quote }) => ({ userId, articleId, quote })), [
+      { userId: 'user-1', articleId: '64f500000000000000000030', quote: 'Written decisions outlast meetings.' }
+    ]);
+    assert.strictEqual(calls[calls.length - 1][1].highlightId, '64f500000000000000000050');
     console.log('judgmentResolutionRoutes tests passed');
   } catch (error) {
     console.error(error);
