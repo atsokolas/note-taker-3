@@ -41,7 +41,16 @@ const controlSchema = new mongoose.Schema({
   expiresAt: { type: Date, required: true }
 }, { versionKey: false });
 controlSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+// Self-registered public clients (no secrets). Unused clients expire; every use extends them.
+const clientSchema = new mongoose.Schema({
+  clientId: { type: String, required: true, unique: true },
+  name: { type: String, required: true },
+  redirectUris: { type: [String], required: true },
+  expiresAt: { type: Date, required: true }
+}, { timestamps: true });
+clientSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 module.exports = {
+  ChatgptOAuthClient: mongoose.models.ChatgptOAuthClient || mongoose.model('ChatgptOAuthClient', clientSchema),
   ChatgptOAuthControl: mongoose.models.ChatgptOAuthControl || mongoose.model('ChatgptOAuthControl', controlSchema),
   ChatgptOAuthRequest: mongoose.models.ChatgptOAuthRequest || mongoose.model('ChatgptOAuthRequest', requestSchema),
   ChatgptOAuthGrant: mongoose.models.ChatgptOAuthGrant || mongoose.model('ChatgptOAuthGrant', grantSchema)

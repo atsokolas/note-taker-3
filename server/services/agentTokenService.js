@@ -119,7 +119,7 @@ const buildAuthenticateAgentToken = ({
       }
 
       if (token.oauthFamilyId && !isChatgptRequestAllowed(req)) {
-        return res.status(403).json({ error: 'This ChatGPT connection cannot perform this action. Wiki changes require review; use NOEIS to accept or publish them.', code: 'CHATGPT_ACTION_NOT_ALLOWED' });
+        return res.status(403).json({ error: 'This connected app cannot perform this action. Wiki changes require review; use NOEIS to accept or publish them.', code: 'CHATGPT_ACTION_NOT_ALLOWED' });
       }
 
       const requiredScope = configuredScope || requiredScopeForRequest(req);

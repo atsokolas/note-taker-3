@@ -25,6 +25,7 @@ const matches = (row, query) => Object.entries(query).every(([key, value]) => {
     if ('$lt' in value) return row[key] < value.$lt;
     if ('$lte' in value) return row[key] <= value.$lte;
     if ('$ne' in value) return String(row[key]) !== String(value.$ne);
+    if ('$all' in value) return value.$all.every(item => (row[key] || []).includes(item));
   }
   if (Array.isArray(row[key])) return row[key].includes(value);
   return value === null ? row[key] == null : String(row[key]) === String(value);
@@ -40,6 +41,7 @@ const memoryModel = () => {
   return {
     rows,
     async create(row) { const doc = { _id: crypto.randomUUID(), revokedAt: null, usedRefreshHashes: [], ...row }; rows.push(doc); return doc; },
+    async countDocuments(query) { return rows.filter(row => matches(row, query)).length; },
     async findOne(query) { return rows.find(row => matches(row, query)) || null; },
     async findOneAndUpdate(query, changes) { const row = rows.find(row => matches(row, query)); return row ? { ...update(row, changes) } : null; },
     async updateOne(query, changes) { const row = rows.find(row => matches(row, query)); if (row) update(row, changes); },
@@ -48,7 +50,7 @@ const memoryModel = () => {
   };
 };
 const fixture = async (models = {}) => {
-  const Request = models.Request || memoryModel(), Grant = models.Grant || memoryModel(), AgentToken = models.AgentToken || memoryModel();
+  const Request = models.Request || memoryModel(), Grant = models.Grant || memoryModel(), AgentToken = models.AgentToken || memoryModel(), Client = models.Client || memoryModel();
   let time = new Date('2026-10-03T00:00:00Z');
   const app = express();
   app.use(buildChatgptOAuthIngress());
@@ -65,10 +67,10 @@ const fixture = async (models = {}) => {
   // production controls with independent workers and actual atomic pipelines.
   const protocolControls = {
     rate: async () => ({ allowed: true, retryAfter: 60 }),
-    admit: async clientId => ({ id: crypto.randomUUID(), clientId, expiresAt: new Date(time.getTime() + 600000) }),
+    admit: async ({ clientId }) => ({ id: crypto.randomUUID(), clientId, expiresAt: new Date(time.getTime() + 600000) }),
     release: async () => {}
   };
-  app.use(buildChatgptOAuthRouter({ config: models.config || config, authenticateToken: auth, Request, Grant, AgentToken,
+  app.use(buildChatgptOAuthRouter({ config: models.config || config, authenticateToken: auth, Request, Grant, AgentToken, Client,
     Control: models.Control, controls: models.controls || (models.Control ? undefined : protocolControls), isReady: models.isReady, now: () => time }));
   app.get('/api/agent-connection', buildAuthenticateAgentToken({ AgentToken, OAuthGrant: Grant, oauthResource: config.resource, consume: false, now: () => time }), (req, res) => res.json({ user: req.user.id }));
   app.use((err, req, res, next) => res.status(500).json({ error: err.message }));
@@ -92,7 +94,7 @@ const fixture = async (models = {}) => {
     const approved = await consent(start.requestId);
     return exchange(new URL(approved.body.redirectUrl).searchParams.get('code'));
   };
-  return { base, Request, Grant, AgentToken, call, authorize, consent, exchange, connect, setTime: value => { time = value; }, close: () => new Promise(resolve => server.close(resolve)) };
+  return { base, Request, Grant, AgentToken, Client, call, authorize, consent, exchange, connect, setTime: value => { time = value; }, close: () => new Promise(resolve => server.close(resolve)) };
 };
 
 test('OAuth issuance stays 503 during index startup and after failure; unrelated app/discovery remain available', async () => {
@@ -523,4 +525,104 @@ test('real Mongo: failed request storage releases admission without opening cap 
       } finally { await uncertain.close(); }
     } finally { await Promise.all([failed.close(), healthy.close()]); }
   });
+});
+
+const openConfig = (env = {}) => readChatgptOAuthConfig({
+  NOEIS_CHATGPT_OAUTH_ISSUER: 'https://api.noeis.example', NOEIS_APP_URL: 'https://noeis.example', NOEIS_OAUTH_OPEN_CLIENTS: 'true', ...env
+});
+const CLAUDE_CALLBACK = 'https://claude.ai/api/mcp/auth_callback';
+
+test('registration is off unless open clients are switched on', async () => {
+  const f = await fixture();
+  try {
+    assert.equal((await f.call('/.well-known/oauth-authorization-server')).body.registration_endpoint, undefined);
+    assert.equal((await f.call('/oauth/register', { redirect_uris: [CLAUDE_CALLBACK] })).status, 404);
+    assert.equal(f.Client.rows.length, 0);
+  } finally { await f.close(); }
+  assert.doesNotThrow(() => openConfig());
+  assert.throws(() => readChatgptOAuthConfig({ NOEIS_CHATGPT_OAUTH_ISSUER: config.issuer, NOEIS_OAUTH_OPEN_CLIENTS: 'yes' }), 'only "true" opens');
+});
+
+test('registration accepts public web, loopback and app-scheme clients; refuses unsafe redirects and secrets', async () => {
+  const f = await fixture({ config: openConfig() });
+  try {
+    assert.equal((await f.call('/.well-known/oauth-authorization-server')).body.registration_endpoint, 'https://api.noeis.example/oauth/register');
+    for (const redirect of ['javascript:alert(1)', 'data:text/html,hi', 'http://evil.example/cb', 'https://claude.ai/cb#frag', 'https://user:pw@claude.ai/cb', 'file:///etc/passwd', 'not a url']) {
+      assert.equal((await f.call('/oauth/register', { redirect_uris: [redirect] })).status, 400, redirect);
+    }
+    assert.equal((await f.call('/oauth/register', { redirect_uris: [] })).status, 400);
+    assert.equal((await f.call('/oauth/register', { redirect_uris: [CLAUDE_CALLBACK], token_endpoint_auth_method: 'client_secret_basic' })).body.error, 'invalid_client_metadata');
+    assert.equal((await f.call('/oauth/register', { redirect_uris: [CLAUDE_CALLBACK], grant_types: ['client_credentials'] })).status, 400);
+    assert.equal(f.Client.rows.length, 0);
+    const created = await f.call('/oauth/register', { client_name: 'Claude\u0007', redirect_uris: [CLAUDE_CALLBACK, 'http://localhost:6274/oauth/callback', 'cursor://anysphere.cursor-retrieval/oauth/callback'] });
+    assert.equal(created.status, 201);
+    assert.match(created.body.client_id, /^noeis_[A-Za-z0-9_-]{43}$/);
+    assert.equal(created.body.client_name, 'Claude');
+    assert.equal(created.body.token_endpoint_auth_method, 'none');
+    assert.equal(created.body.client_secret, undefined);
+    const unnamed = await f.call('/oauth/register', { redirect_uris: ['https://vscode.dev/redirect'] });
+    assert.equal(unnamed.body.client_name, 'vscode.dev');
+  } finally { await f.close(); }
+});
+
+test('a registered client connects with a person\'s approval, can be held to read-only, and is named by where it returns', async () => {
+  const f = await fixture({ config: openConfig() });
+  try {
+    const { body: { client_id: clientId } } = await f.call('/oauth/register', { client_name: 'Claude', redirect_uris: [CLAUDE_CALLBACK] });
+    assert.equal((await f.authorize({ client_id: clientId, redirect_uri: 'https://claude.ai/other' })).status, 400);
+    const start = await f.authorize({ client_id: clientId, redirect_uri: CLAUDE_CALLBACK });
+    assert.equal(start.status, 302);
+    assert.equal(new URL(start.location).pathname, '/settings/connected-agents/connect');
+    const shown = await f.call(`/api/chatgpt/oauth/requests/${start.requestId}`, undefined, 'user-a');
+    assert.deepEqual({ name: shown.body.clientName, verified: shown.body.clientVerified, returnTo: shown.body.returnTo, scopes: shown.body.scopes },
+      { name: 'Claude', verified: false, returnTo: { kind: 'site', name: 'claude.ai' }, scopes: ['read', 'agent-write'] });
+    // Never more than was asked; the request stays pending after a refused widening.
+    assert.equal((await f.call(`/api/chatgpt/oauth/requests/${start.requestId}/consent`, { approved: true, scopes: ['admin'] }, 'user-a')).status, 400);
+    const approved = await f.call(`/api/chatgpt/oauth/requests/${start.requestId}/consent`, { approved: true, scopes: ['read'] }, 'user-a');
+    const code = new URL(approved.body.redirectUrl).searchParams.get('code');
+    assert.equal(new URL(approved.body.redirectUrl).origin, 'https://claude.ai');
+    const tokenBody = { grant_type: 'authorization_code', client_id: clientId, code, redirect_uri: CLAUDE_CALLBACK, resource: config.resource, code_verifier: verifier };
+    assert.equal((await f.call('/oauth/chatgpt/token', { ...tokenBody, client_id: 'chatgpt-test' })).status, 401);
+    const issued = await f.call('/oauth/chatgpt/token', tokenBody);
+    assert.equal(issued.status, 200);
+    assert.equal(issued.body.scope, 'read');
+    assert.deepEqual({ label: f.AgentToken.rows[0].label, runtime: f.AgentToken.rows[0].runtime, scopes: f.AgentToken.rows[0].scopes },
+      { label: 'Claude · claude.ai', runtime: 'mcp', scopes: ['read'] });
+    const refreshed = await f.call('/oauth/chatgpt/token', { grant_type: 'refresh_token', client_id: clientId, refresh_token: issued.body.refresh_token, resource: config.resource });
+    assert.equal(refreshed.status, 200);
+    assert.equal((await f.call('/oauth/chatgpt/token', { grant_type: 'refresh_token', client_id: clientId, refresh_token: refreshed.body.refresh_token, resource: config.resource, scope: 'read agent-write' })).body.error, 'invalid_scope');
+  } finally { await f.close(); }
+});
+
+test('registered clients expire after 30 unused days, use keeps them, and the client cap holds', async () => {
+  const f = await fixture({ config: openConfig({ NOEIS_OAUTH_REGISTERED_CLIENTS_MAX: '2' }) });
+  try {
+    const t0 = new Date('2026-10-03T00:00:00Z');
+    const day = n => new Date(t0.getTime() + n * 86400000);
+    const kept = (await f.call('/oauth/register', { redirect_uris: [CLAUDE_CALLBACK] })).body.client_id;
+    const idle = (await f.call('/oauth/register', { redirect_uris: [CLAUDE_CALLBACK] })).body.client_id;
+    const full = await f.call('/oauth/register', { redirect_uris: [CLAUDE_CALLBACK] });
+    assert.equal(full.status, 429);
+    f.setTime(day(20));
+    assert.equal((await f.authorize({ client_id: kept, redirect_uri: CLAUDE_CALLBACK })).status, 302);
+    f.setTime(day(40));
+    assert.equal((await f.authorize({ client_id: kept, redirect_uri: CLAUDE_CALLBACK })).status, 302);
+    assert.equal((await f.authorize({ client_id: idle, redirect_uri: CLAUDE_CALLBACK })).status, 400);
+    assert.equal((await f.call('/oauth/register', { redirect_uris: [CLAUDE_CALLBACK] })).status, 201, 'an expired client frees its place');
+  } finally { await f.close(); }
+});
+
+test('consent can hold a configured client to read-only too', async () => {
+  const f = await fixture();
+  try {
+    const start = await f.authorize();
+    const shown = await f.call(`/api/chatgpt/oauth/requests/${start.requestId}`, undefined, 'user-a');
+    assert.deepEqual({ verified: shown.body.clientVerified, returnTo: shown.body.returnTo }, { verified: true, returnTo: { kind: 'site', name: 'chatgpt.com' } });
+    const approved = await f.call(`/api/chatgpt/oauth/requests/${start.requestId}/consent`, { approved: true, scopes: ['read'] }, 'user-a');
+    const issued = await f.exchange(new URL(approved.body.redirectUrl).searchParams.get('code'));
+    assert.equal(issued.body.scope, 'read');
+    assert.equal(f.AgentToken.rows[0].label, 'ChatGPT · NOEIS');
+    const readOnly = await f.authorize({ scope: 'read' });
+    assert.equal((await f.call(`/api/chatgpt/oauth/requests/${readOnly.requestId}/consent`, { approved: true, scopes: ['read', 'agent-write'] }, 'user-a')).status, 409);
+  } finally { await f.close(); }
 });

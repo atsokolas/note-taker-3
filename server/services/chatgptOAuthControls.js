@@ -53,8 +53,9 @@ const buildChatgptOAuthControls = ({ Control, config, now = () => new Date() }) 
       Control.updateOne({ _id: `admission:client:${hashKey(clientId)}` }, { $pull: { leases: { id } } })
     ]);
   };
-  const admit = async clientId => {
-    if (!config.clients.has(clientId)) throw new Error('Configured client required for OAuth admission.');
+  // Callers pass a resolved client: configured, or registered (bounded by registeredClients).
+  const admit = async ({ clientId } = {}) => {
+    if (!clientId) throw new Error('Known client required for OAuth admission.');
     const id = crypto.randomBytes(24).toString('hex');
     const expiresAt = new Date(now().getTime() + REQUEST_TTL_MS);
     const lease = { id, clientId, expiresAt };
