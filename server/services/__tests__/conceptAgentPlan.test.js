@@ -7,7 +7,8 @@ jest.mock('../../ai/hfTextClient', () => ({
 }));
 
 const { chatComplete } = require('../../ai/hfTextClient');
-const { __testables: { planConcept } } = require('../conceptAgentService');
+const { __testables: { planConcept, hitText } } = require('../conceptAgentService');
+const { buildArticlePassages } = require('../../ai/articlePassages');
 
 const candidateItems = [
   { type: 'article', id: 'a1', title: 'Base rates', text: 'How often it worked before.' },
@@ -34,5 +35,14 @@ describe('planConcept', () => {
   it('answers null when no group names a candidate, so the local plan runs', async () => {
     plan([{ title: 'Nothing real', item_refs: [{ type: 'article', id: 'nope' }] }, { title: 'No refs' }]);
     expect(await planConcept({ conceptTitle: 'Forecasting', candidateItems })).toBeNull();
+  });
+});
+
+describe('hitText', () => {
+  it('reads a passage hit as that passage, not the opening', () => {
+    const article = { _id: 'a1', title: 'Long', content: ['Opening line.', ...Array.from({ length: 5 }, (_, i) => `Later ${i} ${'word '.repeat(120)}`)].join('\n\n') };
+    const [, second] = buildArticlePassages(article);
+    expect(hitText({ metadata: { subId: second.subId } }, article)).toBe(second.excerpt);
+    expect(hitText({}, article)).toBe(article.content);
   });
 });

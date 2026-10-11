@@ -443,11 +443,7 @@ const buildCandidateItems = async ({ queryResults, userId, conceptTitle, concept
 
     if (entry.objectType === 'article') {
       title = linkedArticle?.title || toSafeString(entry.metadata?.title) || null;
-      // A passage hit reads as that passage, not the article's opening.
-      const passage = entry.metadata?.subId && linkedArticle
-        ? buildArticlePassages(linkedArticle).find(candidate => candidate.subId === entry.metadata.subId)
-        : null;
-      text = buildSnippet(entry.document || passage?.excerpt || linkedArticle?.content || '', 420);
+      text = buildSnippet(hitText(entry, linkedArticle), 420);
       source = linkedArticle?.url || null;
     } else if (entry.objectType === 'highlight') {
       const highlight = highlightMap.get(id);
@@ -500,6 +496,13 @@ const buildCandidateItems = async ({ queryResults, userId, conceptTitle, concept
 
   return diversifyCandidateItems(ranked, { maxTotal: MAX_CANDIDATE_ITEMS })
     .map(({ _semanticScore, _keywordScore, _articleId, ...rest }) => rest);
+};
+
+// What an article hit says: the matched passage, not the article's opening.
+const hitText = (entry, article) => {
+  const subId = entry.subId || entry.metadata?.subId;
+  const passage = subId && article ? buildArticlePassages(article).find(candidate => candidate.subId === subId) : null;
+  return entry.document || passage?.excerpt || article?.content || '';
 };
 
 const buildSuggestionItems = async ({ queryResults, userId, concept }) => {
@@ -559,7 +562,7 @@ const buildSuggestionItems = async ({ queryResults, userId, concept }) => {
         type: 'article',
         refId: article.id,
         title: article.title || 'Article',
-        text: buildSnippet(entry.document || article.content, 360),
+        text: buildSnippet(hitText(entry, article), 360),
         source: article.url || extractHost(article.url) || null,
         _articleId: article.id,
         score,
@@ -2002,6 +2005,7 @@ module.exports = {
   mutateConceptSuggestionDraft,
   __testables: {
     planConcept,
+    hitText,
     buildLocalFallbackPlan,
     isTransientSemanticUpstreamError,
     scoreTextAgainstKeywords,
