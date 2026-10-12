@@ -37,6 +37,13 @@ test('existing owned concept read verifies only the exact enabled reviewer, with
   const res = response(); await route(req, res);
   assert.equal(res.statusCode, 200); assert.equal(res.body.reviewerIdentity.userId, reviewer);
   assert.equal(res.body.reviewerIdentity.ownershipVerified, true);
+  assert.equal(res.body.reviewerIdentity.holdsActive, true);
+  assert.equal(res.body.reviewerIdentity.fixtureBindingComplete, false);
+  const activeOwner = policy.userId;
+  policy.userId = '';
+  const inactive = response(); await route(req, inactive);
+  assert.equal(inactive.body.reviewerIdentity.holdsActive, false);
+  policy.userId = activeOwner;
   assert.equal(JSON.stringify(res.body).includes('OFFLINE_UNUSABLE'), false);
   const agent = response(); await route({ ...req, agentToken: {} }, agent);
   assert.equal(agent.body.reviewerIdentity, undefined);

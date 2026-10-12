@@ -81,6 +81,7 @@ const Contradictions = lazy(() => import('./pages/Contradictions'));
    a second round trip in series before any of the claim can be drawn. */
 const WikiIngestRun = lazy(() => import('./pages/WikiIngestRun'));
 const Welcome = lazy(() => import('./pages/Welcome'));
+const ReviewerFixtures = lazy(() => import('./pages/ReviewerFixtures'));
 const HowToUse = lazy(() => import('./pages/HowToUse'));
 const Integrations = lazy(() => import('./pages/Integrations'));
 const AgentConnectAuthorize = lazy(() => import('./pages/AgentConnectAuthorize'));
@@ -755,6 +756,7 @@ function App() {
             <Route path="/wiki/workspace" element={<Wiki />} />
             <Route path="/wiki/activity/:runId" element={<WikiIngestRun />} />
             <Route path="/welcome" element={<Welcome />} />
+            <Route path="/reviewer-fixtures" element={<ReviewerFixtures />} />
             <Route path="/wiki/:id" element={<LegacyWikiPageRedirect />} />
             <Route
               path="/settings"

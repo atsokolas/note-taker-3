@@ -1,0 +1,6 @@
+.reviewer-fixtures { max-width: 48rem; margin: 0 auto; padding: 2rem 1.25rem; }
+.reviewer-fixtures details { margin: 1rem 0; padding: 1rem; border: 1px solid var(--border-subtle); border-radius: .5rem; }
+.reviewer-fixtures summary { cursor: pointer; font-weight: 600; }
+.reviewer-fixtures textarea { display: block; width: 100%; box-sizing: border-box; margin: .75rem 0; padding: .75rem; font: inherit; line-height: 1.5; resize: vertical; background: var(--surface); color: var(--text); border: 1px solid var(--border-subtle); border-radius: .25rem; }
+.reviewer-fixtures code { overflow-wrap: anywhere; }
+.reviewer-fixtures__actions { display: flex; flex-wrap: wrap; gap: .75rem; margin: 1.5rem 0; }

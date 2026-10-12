@@ -25,7 +25,10 @@ const verifyReviewerConceptOwner = async ({ concept, userId, User, target = poli
   const owner = await User.findOne({ _id: userId, username: 'noeis_openai_review', accountDisabledAt: null })
     .select('_id username').lean();
   if (!owner || String(owner._id) !== String(userId)) return null;
-  return { userId: String(owner._id), username: owner.username, conceptId: target.identityConceptId, ownershipVerified: true };
+  return { userId: String(owner._id), username: owner.username, conceptId: target.identityConceptId, ownershipVerified: true,
+    holdsActive: isReviewer(owner._id, target),
+    fixtureBindingComplete: validId(target.pageId) && Array.isArray(target.sourceIds) && target.sourceIds.length === 2
+      && target.sourceIds.every(validId) && new Set(target.sourceIds).size === 2 };
 };
 
 const holdReviewerSourceEvent = async ({ event, userId, WikiSourceEvent, target = policy } = {}) => {
