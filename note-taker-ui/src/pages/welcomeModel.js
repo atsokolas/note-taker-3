@@ -57,12 +57,16 @@ export const pageState = (page) => {
 };
 
 /* A refused build means one of two things. Either the reading is thin (no
-   source speaks to the subject, or a claim had nothing behind it), or every
+   source speaks to the subject, or a claim lacks a cited source), or every
    claim was backed and a writing check caught something else, which another
    attempt can pass, so that kind gets a retry. */
 const thinReading = (quality = {}) => {
-  const metrics = quality?.metrics;
-  return !metrics || !metrics.topicallyGroundedSourceCount || metrics.unsupported > 0;
+  const m = quality?.metrics;
+  const backed = m
+    && m.topicallyGroundedSourceCount > 0
+    && !m.unsupported && !m.partial && !m.uncitedSupported
+    && m.cited >= m.claimCount;
+  return !backed;
 };
 
 export const buildFailure = (page = {}) => {
