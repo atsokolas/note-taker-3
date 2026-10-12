@@ -38,6 +38,20 @@ describe('HandoffQueueCard', () => {
     expect(await screen.findByRole('status')).toHaveTextContent('Claim waits on your approval.');
   });
 
+  it('shows the plan a handoff was given and when it counts as done', async () => {
+    listAgentHandoffs.mockResolvedValue({ handoffs: [{
+      ...claimable,
+      plan: {
+        steps: [{ id: 's1', title: 'Read the three moats essays', status: 'done' }],
+        successCriteria: ['Every claim cites a saved passage']
+      }
+    }] });
+    render(<Queue />);
+
+    expect(await screen.findByRole('list', { name: 'Plan' })).toHaveTextContent('Read the three moats essays · done');
+    expect(screen.getByRole('list', { name: 'Done when' })).toHaveTextContent('Every claim cites a saved passage');
+  });
+
   it('opens the thread a handoff\'s agent writes in', async () => {
     listPersonalAgents.mockResolvedValue({ agents: [] });
     listAgentHandoffs.mockResolvedValue({ handoffs: [{ handoffId: 'h1', title: 'Summarise the moats reading', status: 'claimed', events: [] }] });

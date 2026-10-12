@@ -616,6 +616,7 @@ POST /api/agent/protocol/bridge/mcp`}
                 <div key={approvalId} className="external-bridge-approval-item">
                   <p className="external-bridge-approval-title">{approval.op || 'Protocol action'}</p>
                   {approval.reason && <p className="muted small external-bridge-approval-reason">{approval.reason}</p>}
+                  {approval.preview?.text && <blockquote className="external-bridge-approval-text">{approval.preview.text}</blockquote>}
                   <div className="settings-import-row external-bridge-approval-meta">
                     {approval.preview?.title && <span className="muted small">{approval.preview.title}</span>}
                     {approval.preview?.threadId && <span className="muted small">thread {approval.preview.threadId}</span>}

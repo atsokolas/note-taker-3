@@ -1887,7 +1887,9 @@ const requestProtocolApproval = async ({
       ).trim(),
       threadId: String(preview?.threadId || payload?.threadId || '').trim(),
       handoffId: String(preview?.handoffId || payload?.handoffId || '').trim(),
-      draftId: String(preview?.draftId || payload?.draftId || '').trim()
+      draftId: String(preview?.draftId || payload?.draftId || '').trim(),
+      // What the agent wrote, so the owner reads it before saying yes.
+      text: String(preview?.text || payload?.body || payload?.content || '').trim().slice(0, 4000)
     },
     reason: String(reason || '').trim(),
     requestedBy: normalizeActorIdentity(requestedBy || {}, 'native_agent')
@@ -2184,11 +2186,15 @@ const runBridgeHandoffOperation = async ({
     policy
   });
   if (approvalPolicy.requiresApproval && !bypassProtocolApproval) {
+    const draft = operation === 'artifacts.drafts.promote' && mongoose.Types.ObjectId.isValid(String(payload.draftId || ''))
+      ? await AgentArtifactDraft.findOne({ _id: payload.draftId, userId }).select('title body').lean()
+      : null;
     const approval = await requestProtocolApproval({
       userId,
       scope: String(bridgeActor?.scope || 'agent_ops').trim() || 'agent_ops',
       op: operation,
       payload,
+      preview: draft ? { title: draft.title, text: draft.body } : {},
       reason: approvalPolicy.reason,
       requestedBy: actor
     });

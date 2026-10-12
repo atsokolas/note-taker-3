@@ -49,7 +49,11 @@ jest.mock('../hooks/integrations/useAgentProtocolPolicy', () => () => ({
   loading: false
 }));
 
+const mockLoadProtocolApprovals = jest.fn();
+const mockUseHandoffs = jest.fn();
+
 jest.mock('../hooks/integrations/useAgentBridge', () => () => ({
+  loadProtocolApprovals: mockLoadProtocolApprovals,
   bridgeActorType: 'byo_agent',
   setBridgeActorType: jest.fn(),
   bridgeActorId: '',
@@ -82,11 +86,10 @@ jest.mock('../hooks/integrations/useAgentBridge', () => () => ({
   handleRejectProtocolApproval: jest.fn()
 }));
 
-jest.mock('../hooks/useHandoffs', () => () => ({
-  handoffs: [],
-  loading: false,
-  sortedPersonalAgents: []
-}));
+jest.mock('../hooks/useHandoffs', () => (options) => {
+  mockUseHandoffs(options);
+  return { handoffs: [], loading: false, sortedPersonalAgents: [] };
+});
 
 jest.mock('../hooks/integrations/useAgentTokens', () => () => ({
   sortedTokens: [],
@@ -160,6 +163,12 @@ describe('Connections center', () => {
     fireEvent.click(screen.getByRole('tab', { name: /Activity/ }));
     expect(screen.getByTestId('connections-activity')).toBeInTheDocument();
   });
+  it('refreshes pending approvals when a queue action asks for one', () => {
+    render(<MemoryRouter><Integrations /></MemoryRouter>);
+
+    expect(mockUseHandoffs).toHaveBeenLastCalledWith(expect.objectContaining({ onProtocolApprovalQueued: mockLoadProtocolApprovals }));
+  });
+
   it('opens the handoff queue under Advanced when linked to #queue', () => {
     window.history.replaceState({}, '', '/connections#queue');
     try {

@@ -69,6 +69,7 @@ const Integrations = () => {
   const handoffsModel = useHandoffs({
     enabled: true,
     onOpenThread: threadId => navigate(`/think?threadId=${encodeURIComponent(threadId)}`),
+    onProtocolApprovalQueued: bridgeModel.loadProtocolApprovals,
     personalAgentsOverride: personalAgentsModel.sortedAgents,
     initialStatusFilter: 'all'
   });

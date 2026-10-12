@@ -27,6 +27,8 @@ const HandoffDetailBlock = ({
 }) => {
   if (!handoff) return null;
   const events = Array.isArray(handoff.events) ? [...handoff.events].slice(-8).reverse() : [];
+  const steps = Array.isArray(handoff.plan?.steps) ? handoff.plan.steps : [];
+  const criteria = Array.isArray(handoff.plan?.successCriteria) ? handoff.plan.successCriteria : [];
 
   return (
     <div className={className}>
@@ -36,6 +38,21 @@ const HandoffDetailBlock = ({
         <p className="muted">
           Planner: {handoff.planner.rationale}
         </p>
+      )}
+      {steps.length > 0 && (
+        <ol className="handoff-plan" aria-label="Plan">
+          {steps.map((step, index) => (
+            <li key={step.id || index}>
+              {step.title || 'Untitled step'} <span className="muted small">· {step.status || 'pending'}</span>
+              {step.notes && <span className="muted small"> · {step.notes}</span>}
+            </li>
+          ))}
+        </ol>
+      )}
+      {criteria.length > 0 && (
+        <ul className="handoff-plan" aria-label="Done when">
+          {criteria.map(item => <li key={item}>{item}</li>)}
+        </ul>
       )}
       {handoff.checkpoint?.summary && (
         <p className="muted">
