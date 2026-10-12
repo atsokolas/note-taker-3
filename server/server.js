@@ -2186,7 +2186,7 @@ const runBridgeHandoffOperation = async ({
     policy
   });
   if (approvalPolicy.requiresApproval && !bypassProtocolApproval) {
-    const draft = operation === 'artifacts.drafts.promote' && mongoose.Types.ObjectId.isValid(String(payload.draftId || ''))
+    const draft = ['artifacts.drafts.promote', 'artifacts.drafts.dismiss'].includes(operation) && mongoose.Types.ObjectId.isValid(String(payload.draftId || ''))
       ? await AgentArtifactDraft.findOne({ _id: payload.draftId, userId }).select('title body').lean()
       : null;
     const approval = await requestProtocolApproval({
