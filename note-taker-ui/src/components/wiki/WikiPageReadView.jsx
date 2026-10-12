@@ -1247,7 +1247,8 @@ const WikiPageReadView = ({
   const wikiSurfaceDescriptor = buildWikiSurfaceDescriptor({
     page,
     pageId,
-    claimId: openedClaimId || activeClaim?.claimId || focusedClaimId,
+    // Hovering a citation is not a new conversation; opening or linking a claim is.
+    claimId: openedClaimId || focusedClaimId,
     revisionId: new URLSearchParams(traceSearch || '').get('revisionId') || '',
     acceptedRevisionId: continuationBasis?.revisionId || '',
     mode: 'read'

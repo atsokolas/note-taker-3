@@ -2245,6 +2245,15 @@ describe('WikiPageReadView', () => {
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
   });
 
+  it('keeps the Partner on the page while a citation is hovered', async () => {
+    renderReadView();
+
+    fireEvent.mouseOver(await screen.findByRole('button', { name: 'Backlink to source 1' }));
+    await screen.findByRole('dialog', { name: 'Claim citations' });
+
+    expect(mockUseNoeisSurface.mock.calls.map(([surface]) => surface?.claimId || '').filter(Boolean)).toEqual([]);
+  });
+
   it('opens claim citation popovers from read-mode claim marks', async () => {
     render(
       <MemoryRouter>
