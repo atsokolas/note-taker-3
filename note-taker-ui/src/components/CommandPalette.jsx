@@ -847,7 +847,8 @@ const CommandPalette = ({ open, onClose }) => {
         { type: 'Wiki', label: 'Wiki workspace', path: '/wiki/workspace' },
         { type: 'Wiki', label: 'Wiki pages', path: '/wiki/workspace?view=list' },
         { type: 'Wiki', label: 'Knowledge map', path: '/wiki/workspace?view=graph' },
-        { type: 'Wiki', label: 'Wiki activity and check', path: '/wiki/workspace?view=activity' }
+        { type: 'Wiki', label: 'Wiki activity and check', path: '/wiki/workspace?view=activity' },
+        { type: 'Wiki', label: 'Wiki schema', path: '/wiki/workspace?view=schema' }
       ]
     };
     const wikiPagesSection = {
