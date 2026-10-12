@@ -80,7 +80,7 @@ describe('useHandoffs', () => {
     );
 
     await waitFor(() => {
-      expect(listAgentHandoffs).toHaveBeenCalledWith({ status: 'all', limit: 80 });
+      expect(listAgentHandoffs).toHaveBeenCalledWith({ handoffId: '', status: 'all', limit: 80 });
     });
     expect(listPersonalAgents).not.toHaveBeenCalled();
     expect(screen.getByTestId('actor')).toHaveTextContent('Agent One');

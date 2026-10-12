@@ -287,6 +287,7 @@ export const getAgentThread = async (threadId) => {
 };
 
 export const listAgentHandoffs = async ({
+  handoffId = '',
   status = 'all',
   taskType = '',
   requestedActorType = '',
@@ -297,6 +298,7 @@ export const listAgentHandoffs = async ({
   limit = 40
 } = {}) => {
   const params = new URLSearchParams();
+  if (handoffId) params.set('handoffId', String(handoffId).trim());
   if (status) params.set('status', String(status).trim());
   if (taskType) params.set('taskType', String(taskType).trim());
   if (requestedActorType) params.set('requestedActorType', String(requestedActorType).trim());

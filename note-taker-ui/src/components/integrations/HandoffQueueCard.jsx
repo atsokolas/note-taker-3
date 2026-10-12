@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card } from '../ui';
+import { Button, Card } from '../ui';
 import HandoffCreateForm from '../agent/handoffs/HandoffCreateForm';
 import HandoffDetailBlock from '../agent/handoffs/HandoffDetailBlock';
 import HandoffQueueControls from '../agent/handoffs/HandoffQueueControls';
@@ -7,10 +7,12 @@ import HandoffQueueControls from '../agent/handoffs/HandoffQueueControls';
 const HandoffQueueCard = ({
   handoffsModel,
   sortedAgents = [],
-  formatDate = () => ''
+  formatDate = () => '',
+  onShowAll = null
 }) => {
   const {
     handoffs,
+    handoffId: namedHandoffId,
     handoffsLoading,
     handoffsError,
     handoffStatusFilter,
@@ -93,6 +95,12 @@ const HandoffQueueCard = ({
         setupAgentsHref="#personal-agents"
       />
 
+      {namedHandoffId && (
+        <p className="muted small">
+          Showing the handoff you followed a link to.{' '}
+          <Button variant="quiet" onClick={onShowAll}>Show the whole queue</Button>
+        </p>
+      )}
       {handoffsLoading ? (
         <p className="muted small">Loading handoffs…</p>
       ) : handoffs.length === 0 ? (

@@ -413,7 +413,7 @@ const promoteAgentArtifactDraftRecord = async ({
       type: 'handoff',
       id: String(handoff._id),
       title: clean(handoff.title),
-      path: `/think?tab=handoffs&handoffId=${handoff._id}`
+      path: `/connections?handoffId=${handoff._id}#queue`
     };
   } else {
     const error = new Error('Unsupported draft type.');

@@ -16,9 +16,9 @@ jest.mock('../../api/agent', () => ({
   rejectAgentHandoff: jest.fn()
 }));
 
-const Queue = ({ onOpenThread }) => {
-  const handoffsModel = useHandoffs({ enabled: true, personalAgentsOverride: [], initialStatusFilter: 'all', onOpenThread });
-  return <HandoffQueueCard handoffsModel={handoffsModel} />;
+const Queue = ({ onOpenThread, handoffId, onShowAll }) => {
+  const handoffsModel = useHandoffs({ enabled: true, personalAgentsOverride: [], initialStatusFilter: 'all', onOpenThread, handoffId });
+  return <HandoffQueueCard handoffsModel={handoffsModel} onShowAll={onShowAll} />;
 };
 
 const claimable = { handoffId: 'h1', title: 'Summarise the moats reading', status: 'claimed', events: [] };
@@ -27,6 +27,16 @@ describe('HandoffQueueCard', () => {
   beforeEach(() => {
     listPersonalAgents.mockResolvedValue({ agents: [] });
     listAgentHandoffs.mockResolvedValue({ handoffs: [claimable] });
+  });
+
+  it('opens on the handoff a link names, with the whole queue a click away', async () => {
+    const onShowAll = jest.fn();
+    render(<Queue handoffId="h1" onShowAll={onShowAll} />);
+
+    expect(await screen.findByText('Summarise the moats reading', { exact: false })).toBeInTheDocument();
+    expect(listAgentHandoffs).toHaveBeenLastCalledWith(expect.objectContaining({ handoffId: 'h1' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Show the whole queue' }));
+    expect(onShowAll).toHaveBeenCalled();
   });
 
   it('says when an action waits on approval', async () => {

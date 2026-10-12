@@ -263,7 +263,13 @@ const buildAgentHandoffRouter = ({
   router.get('/api/agent/protocol/handoffs', authenticateToken, async (req, res) => {
     try {
       const query = { userId: req.user.id };
-      const status = String(req.query.status || 'all').trim().toLowerCase();
+      // A link to one handoff opens the queue on it, whatever its status or age.
+      const handoffId = String(req.query.handoffId || '').trim();
+      if (handoffId) {
+        if (!mongoose.Types.ObjectId.isValid(handoffId)) return res.status(400).json({ error: 'Invalid handoff id.' });
+        query._id = handoffId;
+      }
+      const status = handoffId ? 'all' : String(req.query.status || 'all').trim().toLowerCase();
       if (status !== 'all') {
         if (!AGENT_HANDOFF_STATUSES.has(status)) {
           return res.status(400).json({ error: 'status must be one of pending, claimed, completed, rejected, cancelled, all.' });

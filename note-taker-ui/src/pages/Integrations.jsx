@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Page, PageHeader } from '../components/ui';
 import { getMorningPaperSettings } from '../api/dailyLoop';
 import AgentLaunchLinkCard from '../components/integrations/AgentLaunchLinkCard';
@@ -66,8 +66,10 @@ const Integrations = () => {
 
   // A handoff's working thread opens in the Partner, where the agent writes.
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const handoffsModel = useHandoffs({
     enabled: true,
+    handoffId: searchParams.get('handoffId') || '',
     onOpenThread: threadId => navigate(`/think?threadId=${encodeURIComponent(threadId)}`),
     onProtocolApprovalQueued: bridgeModel.loadProtocolApprovals,
     personalAgentsOverride: personalAgentsModel.sortedAgents,
@@ -182,6 +184,7 @@ const Integrations = () => {
                     handoffsModel={handoffsModel}
                     sortedAgents={personalAgentsModel.sortedAgents}
                     formatDate={formatDate}
+                    onShowAll={() => navigate('/connections#queue')}
                   />
                   <PersonalAgentsCard
                     agentModel={personalAgentsModel}

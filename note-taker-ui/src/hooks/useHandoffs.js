@@ -14,7 +14,7 @@ import { AGENT_DISPLAY_NAME, SPECIALIST_AGENT_LABEL, labelForAgentActorType } fr
 
 const useHandoffs = ({
   enabled = false,
-  selectedHandoffId = '',
+  handoffId = '',
   onOpenHandoff = null,
   onOpenThread = null,
   onProtocolApprovalQueued = null,
@@ -64,10 +64,6 @@ const useHandoffs = ({
     return map;
   }, [sortedPersonalAgents]);
 
-  const activeHandoffData = useMemo(
-    () => handoffs.find((row) => String(row?.handoffId || '') === selectedHandoffId) || handoffs[0] || null,
-    [handoffs, selectedHandoffId]
-  );
 
   const formatActor = useCallback((actor = {}) => {
     const actorType = String(actor?.actorType || '').trim();
@@ -98,6 +94,7 @@ const useHandoffs = ({
     setHandoffsError('');
     try {
       const response = await listAgentHandoffs({
+        handoffId,
         status: handoffStatusFilter || 'all',
         limit: 80
       });
@@ -108,7 +105,7 @@ const useHandoffs = ({
     } finally {
       setHandoffsLoading(false);
     }
-  }, [handoffStatusFilter]);
+  }, [handoffId, handoffStatusFilter]);
 
   useEffect(() => {
     if (!enabled || Array.isArray(personalAgentsOverride)) return;
@@ -374,7 +371,7 @@ const useHandoffs = ({
     personalAgents,
     sortedPersonalAgents,
     handoffs,
-    activeHandoffData,
+    handoffId,
     handoffsLoading,
     handoffsError,
     handoffStatusFilter,
