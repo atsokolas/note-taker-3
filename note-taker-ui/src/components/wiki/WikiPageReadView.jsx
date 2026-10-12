@@ -911,11 +911,12 @@ const WikiConnectionTraces = ({ pageId }) => {
   );
 };
 
-const WikiReferenceComposer = ({ pageId, pageTitle, defaultOpen = false }) => {
-  const [open, setOpen] = useState(defaultOpen);
+// Each arrival with a reference to pull in opens the composer, even at the same address.
+const WikiReferenceComposer = ({ pageId, pageTitle, openKey = '' }) => {
+  const [open, setOpen] = useState(Boolean(openKey));
   useEffect(() => {
-    if (defaultOpen) setOpen(true);
-  }, [defaultOpen]);
+    if (openKey) setOpen(true);
+  }, [openKey]);
   return (
     <details
       className="wiki-read__rail-details wiki-read__rail-details--references"
@@ -1180,6 +1181,7 @@ const WikiPageReadView = ({
     () => new URLSearchParams(traceSearch || '').get('pull') === '1',
     [traceSearch]
   );
+  const pullKey = shouldOpenPull ? location.key || 'pull' : '';
   const focusedDecisionId = useMemo(
     () => String(new URLSearchParams(traceSearch || '').get('decisionId') || '').trim(),
     [traceSearch]
@@ -1294,8 +1296,8 @@ const WikiPageReadView = ({
     } catch (_e) { /* ignore quota / private mode */ }
   }, [railCollapsed]);
   useEffect(() => {
-    if (shouldOpenTrace || shouldOpenPull) setRailCollapsed(false);
-  }, [shouldOpenTrace, shouldOpenPull]);
+    if (shouldOpenTrace || pullKey) setRailCollapsed(false);
+  }, [shouldOpenTrace, pullKey]);
   const previewTimerRef = useRef(null);
   const previewDismissTimerRef = useRef(null);
   const latestPageRef = useRef(null);
@@ -2884,7 +2886,7 @@ const WikiPageReadView = ({
             <WikiReferenceComposer
               pageId={pageId}
               pageTitle={displayWikiPageTitle(page, 'Wiki page')}
-              defaultOpen={shouldOpenPull}
+              openKey={pullKey}
             />
           ) : null}
         </aside> : null}
@@ -3104,7 +3106,7 @@ const WikiPageReadView = ({
             <WikiReferenceComposer
               pageId={pageId}
               pageTitle={displayWikiPageTitle(page, 'Wiki page')}
-              defaultOpen={shouldOpenPull}
+              openKey={pullKey}
             />
           ) : null}
           <section id="wiki-read-panel-article">

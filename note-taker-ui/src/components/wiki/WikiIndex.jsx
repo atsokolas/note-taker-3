@@ -807,12 +807,14 @@ const WikiIndex = ({ onOpenPage, onOpenList, onBuildPage, onOpenSources }) => {
             <>
               <button type="button" aria-current="page">Map</button>
               <button type="button" onClick={onOpenList}>List</button>
+              <Link to="/wiki/workspace?view=activity">Activity</Link>
               <button type="button" onClick={handleExportWiki}>Export</button>
             </>
           ) : (
             <>
               <Link aria-current="page" to="/wiki">Map</Link>
               <Link to="/wiki/list">List</Link>
+              <Link to="/wiki/workspace?view=activity">Activity</Link>
               <button type="button" onClick={handleExportWiki}>Export</button>
             </>
           )}

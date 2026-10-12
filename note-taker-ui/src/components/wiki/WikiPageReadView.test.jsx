@@ -325,7 +325,7 @@ describe('WikiPageReadView', () => {
   });
 
   it('opens the pull-in when the palette hands a reference to the page already open', async () => {
-    const at = search => ({ pathname: '/wiki/workspace', search, hash: '', state: null, key: search || 'start' });
+    const at = (search, key = search || 'start') => ({ pathname: '/wiki/workspace', search, hash: '', state: null, key });
     const location = jest.spyOn(router, 'useLocation').mockReturnValue(at('?page=wiki-1'));
     const view = () => (
       <MemoryRouter>
@@ -340,6 +340,16 @@ describe('WikiPageReadView', () => {
     await screen.findAllByText('Reference…');
     expect(openReference()).toBe(false);
     location.mockReturnValue(at('?page=wiki-1&pull=1'));
+    rerender(view());
+    await waitFor(() => expect(openReference()).toBe(true));
+
+    // Closed, then asked for again at the same address: it opens again.
+    screen.queryAllByText('Reference…').map(summary => summary.closest('details')).filter(Boolean).forEach(details => {
+      details.open = false;
+      fireEvent(details, new Event('toggle'));
+    });
+    expect(openReference()).toBe(false);
+    location.mockReturnValue(at('?page=wiki-1&pull=1', 'second-arrival'));
     rerender(view());
     await waitFor(() => expect(openReference()).toBe(true));
   });
