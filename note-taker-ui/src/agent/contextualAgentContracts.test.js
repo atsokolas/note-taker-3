@@ -19,16 +19,11 @@ describe('contextual agent contracts', () => {
     });
   });
 
-  it('gives the richer Wiki workspace one embedded owner instead of a second rail', () => {
-    const workspace = resolveContextualAgentContract({ pathname: '/wiki/workspace' });
-    expect(workspace).toEqual(expect.objectContaining({
-      id: 'agent-surface.wiki-workspace',
-      agentId: 'agent.context-partner',
-      presentation: 'embedded'
-    }));
-    expect(workspace.actions).toEqual(expect.arrayContaining(['build', 'ingest', 'lint', 'maintain']));
-    expect(hasPartnerPanel('/wiki/workspace')).toBe(false);
+  it('opens the one Partner on the Wiki workspace like every other Wiki page', () => {
+    expect(resolveContextualAgentContract({ pathname: '/wiki/workspace' })?.id).toBe('agent-surface.wiki');
+    expect(hasPartnerPanel('/wiki/workspace')).toBe(true);
     expect(hasPartnerPanel('/wiki/read/page-1')).toBe(true);
+    expect(hasPartnerPanel('/wiki/activity/run-1')).toBe(false);
   });
 
   it('resolves every primary room without treating operational routes as agent surfaces', () => {
@@ -59,7 +54,6 @@ describe('contextual agent contracts', () => {
       supportedActions: ['retrieve', 'accept.keep'],
       proposalPolicy: 'human_acceptance'
     }));
-    expect(buildContextualAgentSurface('agent-surface.wiki-workspace', {})).toBeNull();
     expect(buildContextualAgentSurface('agent-surface.missing', {})).toBeNull();
   });
 
@@ -82,7 +76,6 @@ describe('contextual agent contracts', () => {
     const onAccept = jest.fn();
     expect(filterContextualAgentHandlers('agent-surface.library', { onAsk, onAccept, onPublish: jest.fn() }))
       .toEqual({ onAccept });
-    expect(filterContextualAgentHandlers('agent-surface.wiki-workspace', { onAsk, onAccept })).toEqual({});
     const onTryWording = jest.fn();
     expect(filterContextualAgentHandlers('agent-surface.think', { onAccept, onTryWording })).toEqual({ onTryWording });
     expect(filterContextualAgentHandlers('agent-surface.missing', { onAsk, onAccept })).toEqual({});

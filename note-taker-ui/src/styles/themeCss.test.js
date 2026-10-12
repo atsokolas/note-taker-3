@@ -160,16 +160,4 @@ describe('app theme design-system tokens', () => {
       expect(sheet).not.toMatch(/grid-template-columns: minmax\([^;]+\) minmax\([^;]+\) 3[0-9]px;/);
     });
   });
-
-  it('pins the alive composer and presence motion to reduced-motion-safe primitives', () => {
-    const css = fs.readFileSync(path.join(__dirname, 'wiki.css'), 'utf8');
-
-    expect(css).toContain('@property --composer-angle');
-    expect(css).toContain('animation: composer-breathe 7s linear infinite;');
-    expect(css).toContain('animation: wikiWorkspacePresenceBreathe 4s ease-in-out infinite;');
-    expect(css).toContain('@media (prefers-reduced-motion: reduce)');
-    expect(css).toContain('.wiki-workspace-chat__composer-field::before {\n    animation: none;');
-    expect(css).toContain('.wiki-workspace-chat__presence-dot,\n  .wiki-workspace-chat__presence-dot::after');
-    expect(css).toContain('animation: none !important;');
-  });
 });

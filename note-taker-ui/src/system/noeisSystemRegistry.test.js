@@ -81,12 +81,12 @@ describe('NoeisSystemRegistry', () => {
     expect(byId['loop.morning-paper'].status).toBe('checking');
   });
 
-  it('reports the Wiki workbench as an embedded projection of the same agent', () => {
+  it('reports the Wiki workspace as a room with the one Partner', () => {
     const inventory = createNoeisSystemInventory({ pathname: '/wiki/workspace', theme: 'auto' });
     const byId = Object.fromEntries(inventory.items.map(item => [item.id, item]));
 
     expect(byId['agent.context-partner'].status).toBe('active');
-    expect(byId['agent.context-partner'].activeBecause[0]).toContain('build composer');
+    expect(byId['agent.context-partner'].activeBecause[0]).toContain('Partner');
     expect(Object.keys(byId)).not.toContain('agent.wiki-workspace');
   });
 });

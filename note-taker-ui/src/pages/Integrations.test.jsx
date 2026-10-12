@@ -4,6 +4,12 @@ import { MemoryRouter } from 'react-router-dom';
 import Integrations from './Integrations';
 import { getMorningPaperSettings } from '../api/dailyLoop';
 
+// The Advanced cards have their own tests; here they only need to be there.
+jest.mock('../components/integrations/ExternalBridgeCard', () => function MockExternalBridgeCard() { return <div data-testid="ExternalBridgeCard" />; });
+jest.mock('../components/integrations/HandoffQueueCard', () => function MockHandoffQueueCard() { return <div data-testid="HandoffQueueCard" />; });
+jest.mock('../components/integrations/OrchestrationPolicyCard', () => function MockOrchestrationPolicyCard() { return <div data-testid="OrchestrationPolicyCard" />; });
+jest.mock('../components/integrations/PersonalAgentsCard', () => function MockPersonalAgentsCard() { return <div data-testid="PersonalAgentsCard" />; });
+jest.mock('../components/integrations/WikiMcpConnectCard', () => function MockWikiMcpConnectCard() { return <div data-testid="WikiMcpConnectCard" />; });
 jest.mock('./DataIntegrations', () => function MockDataIntegrations() {
   return <div data-testid="connections-sources">Sources panel</div>;
 });
@@ -43,7 +49,11 @@ jest.mock('../hooks/integrations/useAgentProtocolPolicy', () => () => ({
   loading: false
 }));
 
+const mockLoadProtocolApprovals = jest.fn();
+const mockUseHandoffs = jest.fn();
+
 jest.mock('../hooks/integrations/useAgentBridge', () => () => ({
+  loadProtocolApprovals: mockLoadProtocolApprovals,
   bridgeActorType: 'byo_agent',
   setBridgeActorType: jest.fn(),
   bridgeActorId: '',
@@ -76,11 +86,10 @@ jest.mock('../hooks/integrations/useAgentBridge', () => () => ({
   handleRejectProtocolApproval: jest.fn()
 }));
 
-jest.mock('../hooks/useHandoffs', () => () => ({
-  handoffs: [],
-  loading: false,
-  sortedPersonalAgents: []
-}));
+jest.mock('../hooks/useHandoffs', () => (options) => {
+  mockUseHandoffs(options);
+  return { handoffs: [], loading: false, sortedPersonalAgents: [] };
+});
 
 jest.mock('../hooks/integrations/useAgentTokens', () => () => ({
   sortedTokens: [],
@@ -153,5 +162,22 @@ describe('Connections center', () => {
 
     fireEvent.click(screen.getByRole('tab', { name: /Activity/ }));
     expect(screen.getByTestId('connections-activity')).toBeInTheDocument();
+  });
+  it('refreshes pending approvals when a queue action asks for one', () => {
+    render(<MemoryRouter><Integrations /></MemoryRouter>);
+
+    expect(mockUseHandoffs).toHaveBeenLastCalledWith(expect.objectContaining({ onProtocolApprovalQueued: mockLoadProtocolApprovals }));
+  });
+
+  it('opens the handoff queue under Advanced when linked to #queue', () => {
+    window.history.replaceState({}, '', '/connections#queue');
+    try {
+      render(<MemoryRouter><Integrations /></MemoryRouter>);
+      expect(screen.getByRole('tab', { name: /Agents/ })).toHaveAttribute('aria-selected', 'true');
+      expect(screen.getByText('Advanced').closest('details')).toHaveAttribute('open');
+      expect(screen.getByTestId('HandoffQueueCard')).toBeInTheDocument();
+    } finally {
+      window.history.replaceState({}, '', '/');
+    }
   });
 });

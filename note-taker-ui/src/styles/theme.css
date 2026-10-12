@@ -739,15 +739,6 @@ body.noeis-editorial .palette-list {
   gap: 10px;
 }
 
-.think-list-skeleton-row {
-  border: 1px solid var(--border-subtle-2);
-  border-radius: 10px;
-  padding: 10px 12px;
-  background: var(--surface-card);
-  display: grid;
-  gap: 8px;
-}
-
 .semantic-title {
   font-weight: 600;
 }
@@ -7083,8 +7074,7 @@ body.noeis-editorial h6,
 body.noeis-editorial .ui-section-header__title,
 body.noeis-editorial .article-reader-title,
 body.noeis-editorial .library-article-row-title,
-body.noeis-editorial .notebook-ref-title,
-body.noeis-editorial .think-index__row-title {
+body.noeis-editorial .notebook-ref-title {
   font-family: var(--font-serif);
   font-weight: 350;
   letter-spacing: -0.04em;
@@ -7097,8 +7087,7 @@ body.noeis-editorial .small,
 body.noeis-editorial .ui-section-header__subtitle,
 body.noeis-editorial .library-article-row-excerpt,
 body.noeis-editorial .article-reader-meta,
-body.noeis-editorial .article-reader-content,
-body.noeis-editorial .think-index__row-meta {
+body.noeis-editorial .article-reader-content {
   color: var(--vellum-muted) !important;
 }
 
@@ -7180,7 +7169,6 @@ body.noeis-editorial .library-highlights-surface {
 
 body.noeis-editorial .ui-section-header__subtitle,
 body.noeis-editorial .muted-label,
-body.noeis-editorial .think-index__label,
 body.noeis-editorial .notebook-organize-label,
 body.noeis-editorial .library-article-row-source {
   font-family: var(--font-sans) !important;
@@ -7259,7 +7247,6 @@ body.noeis-editorial input:where(:not([type='checkbox'], [type='radio'], [type='
    surfaces that asked for it. */
 
 body.noeis-editorial .feedback-field input,
-body.noeis-editorial .think-index__filter select,
 body.noeis-editorial .think-notebook-title-input,
 body.noeis-editorial .notebook-organize-panel input,
 body.noeis-editorial .notebook-organize-panel select,
@@ -7270,7 +7257,6 @@ body.noeis-editorial .room-shelf__search input {
 }
 
 body.noeis-editorial .feedback-field input:focus,
-body.noeis-editorial .think-index__filter select:focus,
 body.noeis-editorial .think-notebook-title-input:focus,
 body.noeis-editorial .notebook-organize-panel input:focus,
 body.noeis-editorial .notebook-organize-panel select:focus,

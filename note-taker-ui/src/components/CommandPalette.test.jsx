@@ -758,14 +758,14 @@ describe('CommandPalette', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/think?tab=questions&questionId=question-1&pull=1');
   });
 
-  it('routes pull-reference action into the wiki chat pane while preserving workspace state', async () => {
+  it('routes pull-reference action into the wiki page pull-in while preserving workspace state', async () => {
     window.history.pushState({}, '', '/wiki/workspace?page=wiki-1&view=graph');
 
     await renderPalette();
 
     fireEvent.click(screen.getByText('Pull reference into current surface'));
 
-    expect(mockNavigate).toHaveBeenCalledWith('/wiki/workspace?page=wiki-1&view=graph&pane=chat&pull=1');
+    expect(mockNavigate).toHaveBeenCalledWith('/wiki/workspace?page=wiki-1&view=graph&pull=1');
   });
 
   it('ranks exact wiki page matches above stale broader wiki results', async () => {

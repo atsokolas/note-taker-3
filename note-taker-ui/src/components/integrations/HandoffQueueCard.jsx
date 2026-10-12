@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card } from '../ui';
+import { Button, Card } from '../ui';
 import HandoffCreateForm from '../agent/handoffs/HandoffCreateForm';
 import HandoffDetailBlock from '../agent/handoffs/HandoffDetailBlock';
 import HandoffQueueControls from '../agent/handoffs/HandoffQueueControls';
@@ -7,10 +7,12 @@ import HandoffQueueControls from '../agent/handoffs/HandoffQueueControls';
 const HandoffQueueCard = ({
   handoffsModel,
   sortedAgents = [],
-  formatDate = () => ''
+  formatDate = () => '',
+  onShowAll = null
 }) => {
   const {
     handoffs,
+    handoffId: namedHandoffId,
     handoffsLoading,
     handoffsError,
     handoffStatusFilter,
@@ -21,6 +23,7 @@ const HandoffQueueCard = ({
     setQueueActorId,
     handoffActionBusyId,
     handoffActionError,
+    handoffActionInfo,
     newHandoffTitle,
     setNewHandoffTitle,
     newHandoffObjective,
@@ -46,7 +49,8 @@ const HandoffQueueCard = ({
     handleClaimHandoff,
     handleCompleteHandoff,
     handleRejectHandoff,
-    handleCancelHandoff
+    handleCancelHandoff,
+    handleContinueInThread
   } = handoffsModel;
 
   return (
@@ -54,7 +58,6 @@ const HandoffQueueCard = ({
       <h2>Agent handoff queue</h2>
       <p className="muted">Create, triage, and close handoffs shared between you, Partner, and specialist agents.</p>
       <HandoffCreateForm
-        mode="integrations"
         sortedAgents={sortedAgents}
         setupAgentsHref="#personal-agents"
         title={newHandoffTitle}
@@ -80,7 +83,6 @@ const HandoffQueueCard = ({
       />
 
       <HandoffQueueControls
-        mode="integrations"
         statusFilter={handoffStatusFilter}
         onStatusFilterChange={setHandoffStatusFilter}
         loading={handoffsLoading}
@@ -93,6 +95,12 @@ const HandoffQueueCard = ({
         setupAgentsHref="#personal-agents"
       />
 
+      {namedHandoffId && (
+        <p className="muted small">
+          Showing the handoff you followed a link to.{' '}
+          <Button variant="quiet" onClick={onShowAll}>Show the whole queue</Button>
+        </p>
+      )}
       {handoffsLoading ? (
         <p className="muted small">Loading handoffs…</p>
       ) : handoffs.length === 0 ? (
@@ -113,7 +121,7 @@ const HandoffQueueCard = ({
                   onComplete={() => handleCompleteHandoff(handoffId)}
                   onReject={() => handleRejectHandoff(handoffId)}
                   onCancel={() => handleCancelHandoff(handoffId)}
-                  variant="integrations"
+                  onOpenThread={() => handleContinueInThread(handoffId)}
                   actionClassName="settings-import-row"
                   actionStyle={{ marginTop: 8 }}
                 />
@@ -123,6 +131,7 @@ const HandoffQueueCard = ({
         </div>
       )}
       {handoffsError && <p className="status-message error-message">{handoffsError}</p>}
+      {handoffActionInfo && <p className="status-message" role="status">{handoffActionInfo}</p>}
       {handoffActionError && <p className="status-message error-message">{handoffActionError}</p>}
     </Card>
   );

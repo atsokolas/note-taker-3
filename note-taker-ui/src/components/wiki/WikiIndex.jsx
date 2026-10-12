@@ -670,7 +670,7 @@ const WikiIndex = ({ onOpenPage, onOpenList, onBuildPage, onOpenSources }) => {
   }, [navigate, onOpenPage]);
 
   const handleOpenWorkspace = useCallback(() => {
-    navigate('/wiki/workspace?pane=chat&view=graph');
+    navigate('/wiki/workspace?view=graph');
   }, [navigate]);
 
   const handleBuildPage = useCallback(() => {
@@ -686,7 +686,7 @@ const WikiIndex = ({ onOpenPage, onOpenList, onBuildPage, onOpenSources }) => {
       onOpenSources();
       return;
     }
-    navigate('/wiki/workspace?pane=chat&view=sources');
+    navigate('/wiki/workspace?view=sources');
   }, [navigate, onOpenSources]);
 
   const handleReviewPages = useCallback(() => {
@@ -807,12 +807,18 @@ const WikiIndex = ({ onOpenPage, onOpenList, onBuildPage, onOpenSources }) => {
             <>
               <button type="button" aria-current="page">Map</button>
               <button type="button" onClick={onOpenList}>List</button>
+              <Link to="/wiki/workspace?view=sources">Sources</Link>
+              <Link to="/wiki/workspace?view=activity">Activity</Link>
+              <Link to="/wiki/workspace?view=schema">Schema</Link>
               <button type="button" onClick={handleExportWiki}>Export</button>
             </>
           ) : (
             <>
               <Link aria-current="page" to="/wiki">Map</Link>
               <Link to="/wiki/list">List</Link>
+              <Link to="/wiki/workspace?view=sources">Sources</Link>
+              <Link to="/wiki/workspace?view=activity">Activity</Link>
+              <Link to="/wiki/workspace?view=schema">Schema</Link>
               <button type="button" onClick={handleExportWiki}>Export</button>
             </>
           )}

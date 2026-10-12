@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Page, PageHeader } from '../components/ui';
 import { getMorningPaperSettings } from '../api/dailyLoop';
 import AgentLaunchLinkCard from '../components/integrations/AgentLaunchLinkCard';
@@ -43,9 +43,11 @@ const ForwardingLine = () => {
 const Integrations = () => {
   useDocumentTitle('Connections');
   const [showTaskLinkBuilder, setShowTaskLinkBuilder] = useState(false);
-  const [showConnectionDetails, setShowConnectionDetails] = useState(false);
+  // #queue is the agents tab with the handoff queue open under Advanced.
+  const [showConnectionDetails, setShowConnectionDetails] = useState(() => window.location.hash === '#queue');
   const [activeTab, setActiveTab] = useState(() => {
     const hash = String(window.location.hash || '').replace(/^#/, '');
+    if (hash === 'queue') return 'agents';
     return ['agents', 'activity'].includes(hash) ? hash : 'sources';
   });
 
@@ -62,8 +64,14 @@ const Integrations = () => {
     return parsed.toLocaleString();
   };
 
+  // A handoff's working thread opens in the Partner, where the agent writes.
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const handoffsModel = useHandoffs({
     enabled: true,
+    handoffId: searchParams.get('handoffId') || '',
+    onOpenThread: threadId => navigate(`/think?threadId=${encodeURIComponent(threadId)}`),
+    onProtocolApprovalQueued: bridgeModel.loadProtocolApprovals,
     personalAgentsOverride: personalAgentsModel.sortedAgents,
     initialStatusFilter: 'all'
   });
@@ -71,7 +79,10 @@ const Integrations = () => {
   useEffect(() => {
     const syncTabFromHash = () => {
       const hash = String(window.location.hash || '').replace(/^#/, '');
-      if (['sources', 'agents', 'activity'].includes(hash)) setActiveTab(hash);
+      if (hash === 'queue') {
+        setActiveTab('agents');
+        setShowConnectionDetails(true);
+      } else if (['sources', 'agents', 'activity'].includes(hash)) setActiveTab(hash);
       else if (['readwise', 'notion', 'evernote', 'files', 'capture'].includes(hash)) setActiveTab('sources');
     };
     window.addEventListener('hashchange', syncTabFromHash);
@@ -173,6 +184,7 @@ const Integrations = () => {
                     handoffsModel={handoffsModel}
                     sortedAgents={personalAgentsModel.sortedAgents}
                     formatDate={formatDate}
+                    onShowAll={() => navigate('/connections#queue')}
                   />
                   <PersonalAgentsCard
                     agentModel={personalAgentsModel}

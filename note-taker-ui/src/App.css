@@ -744,6 +744,15 @@ body.noeis-editorial .product-feedback-modal .feedback-field textarea::placehold
     margin: 4px 0 0;
 }
 
+.external-bridge-approval-text {
+    margin: 8px 0 0;
+    padding-left: 12px;
+    border-left: 2px solid var(--border-subtle, currentColor);
+    max-height: 16em;
+    overflow: auto;
+    white-space: pre-wrap;
+}
+
 .external-bridge-approval-meta,
 .external-bridge-approval-actions {
     margin-top: 8px;

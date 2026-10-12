@@ -12,7 +12,6 @@ import '../styles/agent-rail.css';
 // changes from room to room. It reads and proposes; the reader clicks.
 
 const NOTE_ARRIVAL_MS = 220;
-const NOOP_ASYNC = async () => {};
 
 // Wording to try in a draft is something the Partner wrote. A reply that is
 // mostly quotation, or put together without the model, is evidence instead.
@@ -129,10 +128,7 @@ const PartnerPanel = () => {
     handleRejectStructureProposal,
     handleRollbackStructureProposal
   } = useAgentReviewState({
-    activeThreadId: threadId,
     mapStructureProposal: mapAgentStructureProposal,
-    loadRuns: NOOP_ASYNC,
-    loadHarnessMetrics: NOOP_ASYNC,
     setError: reportReviewError
   });
 

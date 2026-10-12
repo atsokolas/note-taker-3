@@ -138,7 +138,6 @@ const run = async () => {
       runId: String(doc?._id || doc?.runId || ''),
       status: String(doc?.status || '')
     }),
-    createAgentArtifactDraftFromSkillReply: async () => null,
     createRunFromProposalBundle: ({ bundleId }) => ({
       runId: 'run-1',
       threadId: 'thread-1',

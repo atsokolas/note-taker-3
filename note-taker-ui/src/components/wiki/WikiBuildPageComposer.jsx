@@ -28,7 +28,7 @@ export const wikiBuildTopicFromPrompt = (value = '') => {
   return prompt;
 };
 
-const WikiBuildPageComposer = ({ className = '', compact = false, onBuilt, onBusyChange }) => {
+const WikiBuildPageComposer = ({ className = '', compact = false, inputRef, onBuilt, onBusyChange }) => {
   const navigate = useNavigate();
   const systemStatus = useSystemStatusControls();
   const [prompt, setPrompt] = useState('');
@@ -154,6 +154,7 @@ const WikiBuildPageComposer = ({ className = '', compact = false, onBuilt, onBus
       ) : null}
       <div className="wiki-build-page__row">
         <input
+          ref={inputRef}
           value={prompt}
           onChange={(event) => setPrompt(event.target.value)}
           placeholder={creationMode === 'living_thesis' ? 'Living thesis title' : `Ask ${AGENT_DISPLAY_NAME} to build a wiki page...`}

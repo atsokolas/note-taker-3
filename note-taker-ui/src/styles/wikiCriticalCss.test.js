@@ -38,15 +38,17 @@ describe('wiki critical CSS loading', () => {
     expect(wikiFrontPage).toContain("import '../../styles/wiki-critical.css'");
   });
 
-  it('does not collapse the wiki workspace before the mobile tab breakpoint', () => {
+  it('keeps the workspace one canvas, releasing pane scrolling only on mobile', () => {
     const css = fs.readFileSync(path.join(__dirname, 'wiki-critical.css'), 'utf8');
+    const wikiCss = fs.readFileSync(path.join(__dirname, 'wiki.css'), 'utf8');
+    const workspaceBlock = css.match(/\.wiki-workspace \{[\s\S]*?\n\}/)?.[0] || '';
     const tabletBlock = css.match(/@media \(max-width: 980px\) \{[\s\S]*?\n\}/)?.[0] || '';
-    const mobileBlock = css.match(/@media \(max-width: 720px\) \{[\s\S]*?\.wiki-workspace__resizer[\s\S]*?\n\}/)?.[0] || '';
+    const mobileBlock = css.match(/@media \(max-width: 720px\) \{[\s\S]*?\.wiki-workspace__right-pane \{[\s\S]*?\n\}/)?.[0] || '';
 
+    expect(workspaceBlock).toContain('grid-template-columns: minmax(0, 1fr)');
     expect(tabletBlock).not.toContain('.wiki-workspace');
-    expect(mobileBlock).toContain('.wiki-workspace');
-    expect(mobileBlock).toContain('.wiki-workspace__mobile-tabs');
-    expect(mobileBlock).toContain('.wiki-workspace__pane--inactive');
+    expect(mobileBlock).toContain('display: block');
+    [css, wikiCss].forEach(source => expect(source).not.toContain('wiki-workspace-chat'));
   });
 
   it('keeps desktop wiki workspace scrolling inside panes', () => {
@@ -60,27 +62,11 @@ describe('wiki critical CSS loading', () => {
     expect(rightPaneBlocks.some(block => block.includes('overflow: auto'))).toBe(true);
   });
 
-  it('keeps wiki list mode in the Library-style order after deferred CSS loads', () => {
-    const css = fs.readFileSync(path.join(__dirname, 'wiki-critical.css'), 'utf8');
-    const wikiCss = fs.readFileSync(path.join(__dirname, 'wiki.css'), 'utf8');
-
-    [css, wikiCss].forEach(source => {
-      expect(source).toContain('.wiki-workspace--list-view');
-      expect(source).toContain('grid-template-columns: minmax(0, 1fr) var(--wiki-workspace-chat-width)');
-      expect(source).toContain('.wiki-workspace--list-view .wiki-workspace__right-pane');
-      expect(source).toContain('grid-column: 1');
-      expect(source).toContain('.wiki-workspace--list-view .wiki-workspace__chat-pane');
-      expect(source).toContain('grid-column: 2');
-      expect(source).toContain('.wiki-workspace--list-view .wiki-workspace__resizer');
-      expect(source).toContain('display: none');
-    });
-  });
-
   it('keeps the mobile wiki reader article-first with a readable measure', () => {
     const css = fs.readFileSync(path.join(__dirname, 'wiki-critical.css'), 'utf8');
     const wikiCss = fs.readFileSync(path.join(__dirname, 'wiki.css'), 'utf8');
     const tabletBlock = css.match(/@media \(max-width: 980px\) \{[\s\S]*?@media \(max-width: 1280px\)/)?.[0] || '';
-    const mobileBlock = css.match(/@media \(max-width: 720px\) \{[\s\S]*?\.wiki-workspace__resizer[\s\S]*?\n\}/)?.[0] || '';
+    const mobileBlock = css.match(/@media \(max-width: 720px\) \{[\s\S]*?\.wiki-workspace__right-pane \{[\s\S]*?\n\}/)?.[0] || '';
 
     expect(tabletBlock).toContain('.wiki-read__article');
     expect(tabletBlock).toContain('order: 1');
@@ -116,22 +102,6 @@ describe('wiki critical CSS loading', () => {
     expect(wikiCss).not.toContain('left: calc(100% + 24px)');
   });
 
-  it('guards the living-agent composer breathing border primitives', () => {
-    const wikiCss = fs.readFileSync(path.join(__dirname, 'wiki.css'), 'utf8');
-
-    expect(wikiCss).toContain('@property --composer-angle');
-    expect(wikiCss).toContain("syntax: '<angle>'");
-    expect(wikiCss).toContain('initial-value: 0deg');
-    expect(wikiCss).toContain('.wiki-workspace-chat__composer-field::before');
-    expect(wikiCss).toContain('conic-gradient(');
-    expect(wikiCss).toContain('animation: composer-breathe 7s linear infinite');
-    expect(wikiCss).toContain(".wiki-workspace-chat__composer[data-streaming='true'] .wiki-workspace-chat__composer-field::before");
-    expect(wikiCss).toContain('animation-duration: 2.2s');
-    expect(wikiCss).toContain('@keyframes composer-breathe');
-    expect(wikiCss).toContain('@media (prefers-reduced-motion: reduce)');
-    expect(wikiCss).toContain('animation: none');
-  });
-
   it('guards animated tabular rail metrics for the editorial reader', () => {
     const css = fs.readFileSync(path.join(__dirname, 'wiki-critical.css'), 'utf8');
     const wikiCss = fs.readFileSync(path.join(__dirname, 'wiki.css'), 'utf8');
@@ -143,19 +113,18 @@ describe('wiki critical CSS loading', () => {
     expect(wikiCss).toContain('.wiki-numeric-value.is-counting');
   });
 
-  it('guards AT-291 tap-target floors for wiki reader and agent controls', () => {
+  it('guards AT-291 tap-target floors for wiki reader controls', () => {
     const css = fs.readFileSync(path.join(__dirname, 'wiki-critical.css'), 'utf8');
     const wikiCss = fs.readFileSync(path.join(__dirname, 'wiki.css'), 'utf8');
     const pageActionsBlock = css.match(/\.wiki-index__page-more,[\s\S]*?\.wiki-index__page-menu/)?.[0] || '';
     const tabBlock = css.match(/\.wiki-read__actions button \{[\s\S]*?\n\}/)?.[0] || '';
-    const finalTapFloorBlock = wikiCss.match(/\/\* AT-291: final tap-target floor[\s\S]*?button\[type='submit'\] \{[\s\S]*?\n\}/)?.[0] || '';
+    const finalTapFloorBlock = wikiCss.match(/\/\* AT-291: final tap-target floor[\s\S]*?\n\}/)?.[0] || '';
 
     expect(pageActionsBlock).toContain('min-height: 44px');
     expect(pageActionsBlock).toContain('min-width: 44px');
     expect(tabBlock).toContain('min-height: 44px');
     expect(tabBlock).toContain('min-width: 44px');
-    expect(finalTapFloorBlock).toContain('.wiki-workspace-chat__build-button');
-    expect(finalTapFloorBlock).toContain('.wiki-workspace-chat__send');
+    expect(finalTapFloorBlock).toContain('.wiki-index__page-more');
     expect(finalTapFloorBlock).toContain('min-height: 44px');
     expect(finalTapFloorBlock).toContain('min-width: 44px');
   });

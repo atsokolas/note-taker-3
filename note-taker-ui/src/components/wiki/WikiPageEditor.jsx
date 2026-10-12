@@ -17,7 +17,7 @@ import ClaimCitationPopover from './ClaimCitationPopover';
 import Claim, { SUPPORT_STATES } from './extensions/Claim';
 import Pullquote from './extensions/Pullquote';
 import WikiLink from './extensions/WikiLink';
-import { useNoeisSurface } from '../../surface/NoeisSurfaceContext';
+import { useNoeisAgentSurface } from '../../agent/AgentRailContext';
 import { buildWikiSurfaceDescriptor } from './wikiSurfaceModel';
 import { displayWikiPageTitle, unnamedTitlePreview } from './wikiRepoDossierModel';
 import { canMakeThisTheTitle } from './open-sentence/openSentenceModel';
@@ -106,11 +106,13 @@ const WikiPageEditor = ({ pageId, onDoneEditing }) => {
 
   // Hovered/focused claim → drives the citation popover. Stored as the claim
   // attributes plus the anchor rect so the popover can position against it.
+  // The Partner follows only a claim named in the address: a hover is not a
+  // new conversation, and passing over a citation must not cut a reply off.
   const [activeClaim, setActiveClaim] = useState(null);
-  useNoeisSurface(buildWikiSurfaceDescriptor({
+  useNoeisAgentSurface('agent-surface.wiki', buildWikiSurfaceDescriptor({
     page,
     pageId,
-    claimId: activeClaim?.claimId || searchParams.get('claimId') || '',
+    claimId: searchParams.get('claimId') || '',
     revisionId: searchParams.get('revisionId') || '',
     mode: 'edit'
   }));

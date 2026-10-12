@@ -911,8 +911,12 @@ const WikiConnectionTraces = ({ pageId }) => {
   );
 };
 
-const WikiReferenceComposer = ({ pageId, pageTitle }) => {
-  const [open, setOpen] = useState(false);
+// Each arrival with a reference to pull in opens the composer, even at the same address.
+const WikiReferenceComposer = ({ pageId, pageTitle, openKey = '' }) => {
+  const [open, setOpen] = useState(Boolean(openKey));
+  useEffect(() => {
+    if (openKey) setOpen(true);
+  }, [openKey]);
   return (
     <details
       className="wiki-read__rail-details wiki-read__rail-details--references"
@@ -1172,6 +1176,12 @@ const WikiPageReadView = ({
     () => new URLSearchParams(traceSearch || '').get('trace') === '1',
     [traceSearch]
   );
+  // A reference handed over from the palette opens the pull-in on arrival.
+  const shouldOpenPull = useMemo(
+    () => new URLSearchParams(traceSearch || '').get('pull') === '1',
+    [traceSearch]
+  );
+  const pullKey = shouldOpenPull ? location.key || 'pull' : '';
   const focusedDecisionId = useMemo(
     () => String(new URLSearchParams(traceSearch || '').get('decisionId') || '').trim(),
     [traceSearch]
@@ -1239,7 +1249,8 @@ const WikiPageReadView = ({
   const wikiSurfaceDescriptor = buildWikiSurfaceDescriptor({
     page,
     pageId,
-    claimId: openedClaimId || activeClaim?.claimId || focusedClaimId,
+    // Hovering a citation is not a new conversation; opening or linking a claim is.
+    claimId: openedClaimId || focusedClaimId,
     revisionId: new URLSearchParams(traceSearch || '').get('revisionId') || '',
     acceptedRevisionId: continuationBasis?.revisionId || '',
     mode: 'read'
@@ -1270,7 +1281,7 @@ const WikiPageReadView = ({
   // or proposal can temporarily open the rail without rewriting that choice
   // until the reader hides it again.
   const [railCollapsed, setRailCollapsed] = useState(() => {
-    if (shouldOpenTrace) return false;
+    if (shouldOpenTrace || shouldOpenPull) return false;
     try {
       const raw = window.localStorage?.getItem('noeis.wiki.read.rail_collapsed');
       if (raw === '0' || raw === 'false') return false;
@@ -1285,8 +1296,8 @@ const WikiPageReadView = ({
     } catch (_e) { /* ignore quota / private mode */ }
   }, [railCollapsed]);
   useEffect(() => {
-    if (shouldOpenTrace) setRailCollapsed(false);
-  }, [shouldOpenTrace]);
+    if (shouldOpenTrace || pullKey) setRailCollapsed(false);
+  }, [shouldOpenTrace, pullKey]);
   const previewTimerRef = useRef(null);
   const previewDismissTimerRef = useRef(null);
   const latestPageRef = useRef(null);
@@ -2875,6 +2886,7 @@ const WikiPageReadView = ({
             <WikiReferenceComposer
               pageId={pageId}
               pageTitle={displayWikiPageTitle(page, 'Wiki page')}
+              openKey={pullKey}
             />
           ) : null}
         </aside> : null}
@@ -3094,6 +3106,7 @@ const WikiPageReadView = ({
             <WikiReferenceComposer
               pageId={pageId}
               pageTitle={displayWikiPageTitle(page, 'Wiki page')}
+              openKey={pullKey}
             />
           ) : null}
           <section id="wiki-read-panel-article">
