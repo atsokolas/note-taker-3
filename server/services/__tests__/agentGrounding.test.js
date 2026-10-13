@@ -53,6 +53,15 @@ describe('unstatedFigures', () => {
   const { unstatedFigures } = require('../agentGrounding');
   const filing = 'Revenue was $81,615 million, up 85% from a year ago. Gross margin was 75.0%.';
 
+  it('recomputes working the claim shows, and follows a share\'s remainder', () => {
+    const filing = 'Net sales $297,247 million and $269,912 million. Dividend $5.54. Price $954.50. Yield 1.5%. Growth 11% and 10%. Compute revenue $162.85 billion of $177.84 billion.';
+    expect(unstatedFigures('Net sales grew 10% to $297,247 million from $269,912 million.', [filing])).toEqual([]);
+    expect(unstatedFigures('Net sales grew 11% to $297,247 million from $269,912 million.', [filing])).toEqual(['11% to $297,247 million from $269,912 million']);
+    expect(unstatedFigures('The yield is 0.58% ($5.54 / $954.50).', [filing])).toEqual([]);
+    expect(unstatedFigures('The yield is 1.5% ($5.54 / $954.50).', [filing])).toEqual(['($5.54 / $954.50)']);
+    expect(unstatedFigures('Compute was 91.6% ($162.85bn / $177.84bn), with the remaining 8.4% from Graphics.', [filing])).toEqual([]);
+  });
+
   it('reads both ends of a band to watch as the threshold', () => {
     expect(unstatedFigures('A renewal rate below approximately 88-89% would break the thesis.', ['Renewal rate 89.8%.'])).toEqual([]);
   });

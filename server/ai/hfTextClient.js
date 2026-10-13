@@ -755,14 +755,17 @@ const extractChatContent = (body) => {
   return '';
 };
 
-// Two mechanical slips a long JSON answer makes: a raw line break inside a
-// string, and a comma before a closing bracket. Nothing else is guessed.
+// Three mechanical slips a long JSON answer makes: a raw line break inside a
+// string, a quotation mark left unescaped inside one (it closes nothing: no
+// comma, colon or bracket follows it), and a comma before a closing bracket.
+// Nothing else is guessed.
 const repairJson = (text = '') => {
   let out = '';
   let inString = false;
   for (let i = 0; i < text.length; i += 1) {
     const char = text[i];
     if (inString && char === '\\') { out += char + (text[i + 1] || ''); i += 1; continue; }
+    if (inString && char === '"' && !/^\s*(?:[,:}\]]|$)/.test(text.slice(i + 1, i + 40))) { out += '\\"'; continue; }
     if (char === '"') inString = !inString;
     out += inString && char === '\n' ? '\\n' : inString && char === '\r' ? '' : inString && char === '\t' ? '\\t' : char;
   }

@@ -70,6 +70,9 @@ const inventedQuotes = (reply = '', texts = []) => quotations(reply).filter(span
 const SCALES = { thousand: 1e3, million: 1e6, mn: 1e6, mm: 1e6, m: 1e6, billion: 1e9, bn: 1e9, b: 1e9, trillion: 1e12, tn: 1e12, t: 1e12 };
 const NUMBER = /(\$)?(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)(?:\s*(%|percent|thousand|million|billion|trillion|mm|mn|bn|tn|[mbt]\b|x\b|×))?/gi;
 
+// An amount as a sentence writes it: "$297,247 million", "$5.91bn".
+const AMOUNT = '(\\$?\\d[\\d,]*(?:\\.\\d+)?(?:\\s*(?:thousand|million|billion|trillion|mm|mn|bn|tn|[mbt]\\b))?)';
+
 const MONTH_BEFORE = /\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s+$/i;
 
 const figuresIn = (text = '') => {
@@ -86,7 +89,7 @@ const figuresIn = (text = '') => {
     const bare = !dollar && !unit;
     if (bare && !digits.includes(',') && !digits.includes('.') && (base < 10 || (base >= 1900 && base <= 2100))) continue;
     const scale = SCALES[unit] || 1;
-    figures.push({ raw: raw.trim(), value: base * scale, base, step: scale * 10 ** -decimals });
+    figures.push({ raw: raw.trim(), value: base * scale, base, step: scale * 10 ** -decimals, percent: unit === '%' || unit === 'percent' });
   }
   return figures;
 };
@@ -161,11 +164,31 @@ const unstatedFigures = (claim = '', texts = []) => {
     .filter(Number.isFinite);
   const powers = value => exponents.map(e => value ** e).filter(Number.isFinite);
   const powered = value => powers(value).flatMap(p => [p, p - 1, (p - 1) * 100]);
+  // Working shown in the claim must produce what the claim says it does:
+  // "1.5% ($5.54 / $954.50)" is refused, as is "grew 11% to $297.25bn from
+  // $269.91bn", however well sourced each figure is.
+  const valueOf = raw => figuresIn(raw)[0];
+  const wrongWorking = [
+    ...[...text.matchAll(/\(\s*([^()/]+?)\s*\/\s*([^()/]+?)\s*\)(?!\s*\^)/g)].flatMap(([raw, x, y]) => {
+      const [a, b] = [valueOf(x), valueOf(y)];
+      if (!a || !b || !b.value || fractionTerms.has(x.trim())) return [];
+      const others = figures.filter(figure => figure.raw !== a.raw && figure.raw !== b.raw);
+      return others.some(figure => [a.value / b.value, (a.value / b.value) * 100, (a.value / b.value - 1) * 100].some(v => near(v, figure)))
+        ? [] : [raw];
+    }),
+    ...[...text.matchAll(new RegExp(`(\\d+(?:\\.\\d+)?)%\\s+(?:to\\s+${AMOUNT}\\s+from\\s+${AMOUNT}|from\\s+${AMOUNT}\\s+to\\s+${AMOUNT})`, 'gi'))].flatMap(([raw, rate, toA, fromA, fromB, toB]) => {
+      const [now, then] = [valueOf(toA || toB || ''), valueOf(fromA || fromB || '')];
+      if (!now || !then || !then.value) return [];
+      const step = /\./.test(rate) ? 10 ** -rate.split('.')[1].length : 1;
+      return Math.abs((now.value / then.value - 1) * 100 - Number(rate)) <= step / 2 + 0.05 ? [] : [raw];
+    })
+  ];
   const known = figures.filter(figure => statedIn(figure, values));
   const follows = figure => known.some(a => (
     near(a.value, figure)
-    // A rate written as a growth factor: 10% is 1.10.
+    // A rate written as a growth factor: 10% is 1.10; a share's remainder: 91.6% leaves 8.4%.
     || near(1 + a.value / 100, figure)
+    || (a.percent && figure.percent && near(100 - a.value, figure))
     || powered(a.value).concat(powered(1 + a.value / 100)).some(value => near(value, figure))
     || known.some(b => a !== b && b.value !== 0 && powered(a.value / b.value).some(value => near(value, figure)))
     // "$4.90 x 1.10^5" carries a stated base forward at a compounding rate.
@@ -179,7 +202,7 @@ const unstatedFigures = (claim = '', texts = []) => {
     known.push(...next);
     grew = next.length > 0;
   }
-  return figures.filter(figure => !known.includes(figure)).map(figure => figure.raw);
+  return [...figures.filter(figure => !known.includes(figure)).map(figure => figure.raw), ...wrongWorking];
 };
 
 module.exports = {

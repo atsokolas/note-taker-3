@@ -2,7 +2,8 @@ const {
   chatComplete,
   chatCompleteStream,
   getConfig: getTextGenerationConfig,
-  isTextGenerationConfigured
+  isTextGenerationConfigured,
+  parseStructuredText
 } = require('../ai/hfTextClient');
 const {
   alignArticleToPageStructure,
@@ -1267,10 +1268,12 @@ Investment dossier rules:
 - For each source not attached, say plainly in the relevant section that it could not be found (use those words), and draw no conclusion that needs it. With no dated market price, state no market value, multiple or implied return.
 - Every figure must be stated in a cited source, or computed in the same sentence from figures that are, with the inputs written out: "membership fees were 1.99% of net sales ($5.91bn / $297.25bn)". A margin, ratio, multiple or growth rate without its inputs beside it is refused.
 - For each disclosure (buybacks, customer concentration, commitments, guidance), use the latest attached filing that reports it, and give its latest quarter alongside any year-to-date total. A figure from an older period cites the filing that reports it, and is compared only with the same length of period ("first half against first half", never a half-year against nine months).
-- A market value is the dated price times the shares outstanding stated in SEC Company Facts, each with its date; a trailing multiple uses reported net income or diluted EPS, never one backed into from operating income. The two dates need not match: compute it, name both dates, and call it a sensitivity.
+- A market value is the dated price times the shares outstanding stated in SEC Company Facts, each with its date; a trailing multiple uses reported net income or diluted EPS, never one backed into from operating income. The two dates need not match: compute it, name both dates, and call it a sensitivity. Use the cover share count alone, not a weighted-average count beside it.
 - State the latest fiscal year's reported net income and diluted EPS from SEC Company Facts.
 - Use consolidated income-statement totals for margins and earnings; a segment total is named as one ("total segment operating income") and never called the company's total. Cite reported net income and EPS directly; never back into them.
 - Never back a prior-period figure out of a growth rate. If the sources do not state the earlier figure, give the current figure and the rate.
+- Read a multi-year table by column: compare rows within the same year's column, never one row's early year against another's latest.
+- Name a debt figure as the filing does (total, or net of current portion) and take it from the latest balance sheet attached.
 - Open with the judgment and what the filings establish. Say what is missing once, where it matters (Implied Expectations for price and multiples), not in the opening.
 - Write for an investor: never use the words "evidence archetype", "module", "ledger", "maintenance test" or "dossier engine", never write internal labels with underscores, and do not name the app.
 - When a competitor's filing is attached, compare the company against it in Product and Technical Moat, citing it.
@@ -1539,38 +1542,9 @@ Return the complete repaired article. Make defensible claims, compare evidence, 
 // slip, not writing; a CJK word set apart by spaces is left alone.
 const STRAY_GLYPH = /(?<=[A-Za-z])[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]|[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af](?=[A-Za-z])/g;
 
-const extractJson = (value = '') => {
-  const text = asString(value).replace(STRAY_GLYPH, '');
-  if (!text) return null;
-  const parseLooseJson = (candidate = '') => {
-    try {
-      return JSON.parse(candidate);
-    } catch (_error) {
-      // Repair only the mechanical trailing-comma defect commonly returned
-      // by free JSON-capable routes. Never guess missing content or structure.
-      try {
-        return JSON.parse(String(candidate).replace(/,\s*([}\]])/g, '$1'));
-      } catch (__error) {
-        return null;
-      }
-    }
-  };
-  const parsed = parseLooseJson(text);
-  if (parsed) return parsed;
-  {
-    const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
-    if (fenced?.[1]) {
-      const fencedParsed = parseLooseJson(fenced[1]);
-      if (fencedParsed) return fencedParsed;
-    }
-    const start = text.indexOf('{');
-    const end = text.lastIndexOf('}');
-    if (start >= 0 && end > start) {
-      return parseLooseJson(text.slice(start, end + 1));
-    }
-  }
-  return null;
-};
+// The text client's own reading: fences, a sentence around the object, and
+// the mechanical slips it repairs. Never guesses content or structure.
+const extractJson = (value = '') => parseStructuredText(asString(value).replace(STRAY_GLYPH, ''));
 
 const normalizeMaintenanceProfile = (value = '') => {
   const normalized = asString(value).toLowerCase();
