@@ -75,7 +75,7 @@ const applySourceTextBudget = (candidates = []) => {
 };
 const DEFAULT_PROMPT_SOURCE_TEXT_LIMIT = 1300;
 const FAST_PROMPT_SOURCE_TEXT_LIMIT = 800;
-const INVESTMENT_DOSSIER_PROMPT_SOURCE_TEXT_LIMIT = 6000;
+const INVESTMENT_DOSSIER_SNIPPET_LIMIT = 6000;
 const SEC_FILING_EVIDENCE_TEXT_LIMIT = 36000;
 const DEFAULT_DRAFT_MAX_TOKENS = 2600;
 const DEFAULT_REBUILD_MAX_TOKENS = 3600;
@@ -1620,7 +1620,7 @@ const sourceRefFromCandidate = (candidate, { investmentDossier = false } = {}) =
   const snippetLimit = isGitHubConfig
     ? 4000
     : investmentDossier
-      ? INVESTMENT_DOSSIER_PROMPT_SOURCE_TEXT_LIMIT
+      ? INVESTMENT_DOSSIER_SNIPPET_LIMIT
       : 1000;
   return {
     type: candidate.type,
@@ -4366,14 +4366,16 @@ const maintainWikiPage = async ({
     summary: `${candidates.length} saved source${candidates.length === 1 ? '' : 's'} ready for analysis.`,
     sourceCount: candidates.length
   });
+  const investmentDossier = getWikiPageStructureForPage({ page, candidates }).profile === 'investment_dossier';
   // Spend the build's source-text allowance now that the final source count is
   // known. Everything downstream — the prompt and the evidence gate alike — reads
   // candidate text from here, so the writer and its judge stay on the same window
-  // by construction.
-  candidates = applySourceTextBudget(candidates);
+  // by construction. A dossier keeps each filing's whole excerpt: shared out
+  // across twelve sources, the allowance left each filing its cover page, and the
+  // writer said so ("filing identity pages only were retrievable").
+  if (!investmentDossier) candidates = applySourceTextBudget(candidates);
   const budgetedSourceTextLimit = perSourceTextBudget(candidates.length);
   const repoMaintenance = isGitHubRepoPage({ page, candidates });
-  const investmentDossier = getWikiPageStructureForPage({ page, candidates }).profile === 'investment_dossier';
   if (investmentDossier) {
     page.investmentDossier = upgradeInvestmentDossierProfile({
       profile: page.investmentDossier || {},
@@ -4386,8 +4388,8 @@ const maintainWikiPage = async ({
   const explicitSourceTextLimit = Number.isFinite(Number(sourceTextLimit)) && Number(sourceTextLimit) > 0;
   const effectiveSourceTextLimit = investmentDossier
     ? (explicitSourceTextLimit
-        ? Math.min(requestedSourceTextLimit, INVESTMENT_DOSSIER_PROMPT_SOURCE_TEXT_LIMIT)
-        : INVESTMENT_DOSSIER_PROMPT_SOURCE_TEXT_LIMIT)
+        ? Math.min(requestedSourceTextLimit, SEC_FILING_EVIDENCE_TEXT_LIMIT)
+        : SEC_FILING_EVIDENCE_TEXT_LIMIT)
     // A caller asking for less than the budget still gets less — the fast profile
     // is entitled to trade context for latency. A caller that says nothing gets the
     // budget rather than the old flat default, which is what starved single-source

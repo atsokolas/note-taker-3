@@ -100,7 +100,12 @@ const outcome = ({ status, body = {} }) => ({
 });
 
 const SEC_HOST = /(^|\.)sec\.gov$/i;
+/* A dated snapshot is the source as it was read when gathered; its URL now
+   returns raw XBRL JSON or a later price. */
+const SNAPSHOT_PROVIDERS = new Set(['sec-companyfacts', 'nasdaq-public-quote']);
+
 const readSource = async (ref) => {
+  if (SNAPSHOT_PROVIDERS.has(ref?.provider)) return String(ref.snippet || '');
   const url = String(ref?.url || '');
   if (!/^https?:/.test(url)) return '';
   try {
