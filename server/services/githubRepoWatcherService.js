@@ -665,7 +665,8 @@ const createMissingRepoEvents = async ({ WikiSourceEvent, userId, page, snapshot
         snapshotKey: snapshotExternalId,
         documentEventIds: created.map(event => event._id).filter(Boolean),
         evidenceCount: created.length,
-        pageId: String(page._id || '')
+        pageId: String(page._id || ''),
+        enforcePublicationQuality: true
       }
     });
   }
