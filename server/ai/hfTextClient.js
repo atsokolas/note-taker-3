@@ -377,6 +377,12 @@ const getAnthropicConfig = () => {
   };
 };
 
+// A Claude failure is silent to the caller (another model answers), so say it here.
+const noteClaudeFallback = error => console.warn('[AI] Claude did not answer; falling back', {
+  status: Number(error?.status || 0) || undefined,
+  message: String(error?.message || '').slice(0, 200)
+});
+
 const getConfigChain = ({ allowFallback = true } = {}) => {
   const preferred = getConfig();
   const alternateUpstream = preferred.upstream === 'openrouter' ? 'huggingface' : 'openrouter';
@@ -1073,6 +1079,7 @@ const chatComplete = async (input = {}) => {
         error.upstreamAttempts = attempts;
         throw error;
       }
+      if (config.upstream === 'anthropic') noteClaudeFallback(error);
     }
   }
 
@@ -1147,6 +1154,7 @@ const chatCompleteStream = async (input = {}) => {
       return completion;
     } catch (error) {
       if (error?.status === 499) throw error;
+      noteClaudeFallback(error);
     }
   }
   return chatCompleteRouterStream(input);
