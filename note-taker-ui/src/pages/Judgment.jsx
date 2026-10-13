@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { createWikiPage, listWikiPages, updateWikiPage } from '../api/wiki';
 import { useNoeisAgentSurface } from '../agent/AgentRailContext';
@@ -14,14 +14,24 @@ import '../styles/judgment.css';
 //
 // The room holds views: sentences you think are true. The index is the list
 // of them, and the hold form when there are none. Opening one shows the View.
+// A wiki page whose sources disagree sends its sentence here (?hold=…) for
+// the reader to say the way they hold it.
 
-const HOLD_EXAMPLE = 'Costco’s membership model makes it recession-resistant.';
+const HOLD_EXAMPLE = 'Costco can ride out a recession.';
 
-const HoldForm = ({ alone, onClose }) => {
+const HoldForm = ({ alone, onClose, initial = '' }) => {
   const navigate = useNavigate();
-  const [draft, setDraft] = useState('');
+  const [draft, setDraft] = useState(initial);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const fieldRef = useRef(null);
+
+  useEffect(() => {
+    const field = fieldRef.current;
+    if (!field) return;
+    field.style.height = 'auto';
+    field.style.height = `${field.scrollHeight}px`;
+  }, [draft]);
 
   const submit = async (event) => {
     event.preventDefault();
@@ -40,15 +50,28 @@ const HoldForm = ({ alone, onClose }) => {
 
   return (
     <form className={`judgment-hold${alone ? ' is-alone' : ''}`} onSubmit={submit}>
-      <label htmlFor="judgment-new-claim">One sentence you think is true.</label>
-      <input
+      <label htmlFor="judgment-new-claim">
+        {initial ? 'Your sources disagree about this. Say it the way you hold it.' : 'One sentence you think is true.'}
+      </label>
+      <textarea
         id="judgment-new-claim"
+        ref={fieldRef}
+        rows={1}
         value={draft}
         onChange={event => setDraft(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' && !event.shiftKey) submit(event);
+        }}
         placeholder={HOLD_EXAMPLE}
         disabled={busy}
-        autoFocus={!alone}
+        autoFocus={!alone || Boolean(initial)}
       />
+      {alone && !initial ? (
+        <p className="judgment-hold__note">
+          Noeis reads what you have saved against it, and everything you save after. Each passage for or against it is
+          quoted, and filed only when you say so.
+        </p>
+      ) : null}
       <span className="judgment-actions">
         <button type="submit" disabled={busy || !draft.trim()}>{busy ? 'Holding it…' : 'Hold it'}</button>
         {!alone ? <button type="button" className="is-quiet" onClick={onClose} disabled={busy}>Not now</button> : null}
@@ -58,8 +81,8 @@ const HoldForm = ({ alone, onClose }) => {
   );
 };
 
-const JudgmentIndex = ({ items, loading, error, setAsideView }) => {
-  const [holding, setHolding] = useState(false);
+const JudgmentIndex = ({ items, loading, error, setAsideView, initialHold = '' }) => {
+  const [holding, setHolding] = useState(Boolean(initialHold));
   const shown = items.filter(item => (setAsideView ? item.state === 'parked' : item.state !== 'parked'));
   const alone = !items.length && !loading && !error;
 
@@ -75,7 +98,7 @@ const JudgmentIndex = ({ items, loading, error, setAsideView }) => {
           : null}
       />
       {!setAsideView && (alone || holding)
-        ? <HoldForm alone={alone} onClose={() => setHolding(false)} />
+        ? <HoldForm alone={alone} onClose={() => setHolding(false)} initial={initialHold} />
         : null}
       {loading && !items.length ? <p className="judgment-quiet" role="status">Reading back what you hold…</p> : null}
       {shown.length ? (
@@ -98,6 +121,7 @@ const Judgment = () => {
   const { pageId = '' } = useParams();
   const [searchParams] = useSearchParams();
   const setAsideView = searchParams.get('view') === 'parked';
+  const initialHold = oneSentence(searchParams.get('hold') || '');
   const [pages, setPages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -131,7 +155,13 @@ const Judgment = () => {
             initialPage={pages.find(page => String(page?._id || '') === String(pageId)) || null}
           />
         ) : (
-          <JudgmentIndex items={items} loading={loading} error={error} setAsideView={setAsideView} />
+          <JudgmentIndex
+            items={items}
+            loading={loading}
+            error={error}
+            setAsideView={setAsideView}
+            initialHold={initialHold}
+          />
         )}
       </div>
       <aside className="judgment-room__shelf">

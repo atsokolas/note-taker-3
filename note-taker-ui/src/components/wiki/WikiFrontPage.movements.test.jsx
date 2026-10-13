@@ -4,6 +4,11 @@ import * as router from 'react-router-dom';
 import WikiFrontPage from './WikiFrontPage';
 import { listWikiPages } from '../../api/wiki';
 
+jest.mock('../../api/judgmentResolution', () => ({
+  fileReadingProposal: jest.fn(),
+  getPushesAgainst: async () => null
+}));
+
 jest.mock('../../api/wiki', () => ({
   listWikiPages: jest.fn(),
   listWikiChanges: async () => ({ pageCount: 0, changes: [] })

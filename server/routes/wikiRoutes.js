@@ -6614,7 +6614,8 @@ const buildWikiRouter = ({
       const pageQuery = findOwnedPage(req).select({
         'judgment.currentJudgment': 1,
         'judgment.why': 1,
-        'judgment.against': 1
+        'judgment.against': 1,
+        'judgment.notAboutIds': 1
       });
       if (typeof pageQuery.maxTimeMS === 'function') pageQuery.maxTimeMS(2000);
       page = await pageQuery.lean();

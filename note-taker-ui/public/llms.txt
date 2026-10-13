@@ -1,11 +1,11 @@
 # Noeis
 
-> Save articles, highlights and notes, and Noeis grows them into a wiki that cites every source. Ask it questions, or connect your AI agents, and get answers quoted from your own reading.
+> Save what you read, write down what you believe, and Noeis checks one against the other: every passage for or against your view, quoted, and a wiki that cites its sources and shows where they disagree.
 
-- **Save what you read.** Clip articles with the browser extension, paste text, or bring in your Readwise library and Notion pages. Highlights and notes stay with the passage they came from.
-- **Grow a wiki that cites itself.** Noeis turns your sources into pages on the subjects you follow. Pages cite the passages they are built from, so you can always check the source.
-- **Ask, and get the passage back.** Questions are answered from your library with the exact quote. When your reading has nothing on it, Noeis says so instead of guessing.
-- **Let your agents learn from it.** Connect Claude Code, Codex and other agents to your knowledge base. You approve every connection, and access is read-only unless you grant more.
+- **Hold a view, and let your reading test it.** Write what you believe in one sentence. Noeis reads what you have already saved against it, and everything you save after, and quotes each passage for or against. Nothing is filed until you say so.
+- **Hear when a new source pushes back.** When something you save argues with a view you hold, Noeis names the source and quotes it the next time you open it. You decide whether it counts.
+- **A wiki that shows where sources disagree.** Pages are built from your articles, highlights and notes, and cite them. Where two sources disagree, the page says so and asks which you believe.
+- **Ask, and get your own reading back.** Questions are answered from your library with the quote. When your reading has nothing on it, Noeis says so instead of guessing. Connect Claude Code, Codex and other agents, read-only unless you grant more.
 
 ## For agents
 

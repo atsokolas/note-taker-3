@@ -4,12 +4,18 @@ import * as router from 'react-router-dom';
 import WikiFrontPage from './WikiFrontPage';
 import { AGENT_DISPLAY_NAME } from '../../constants/agentIdentity';
 import * as api from '../../api/wiki';
+import { fileReadingProposal, getPushesAgainst } from '../../api/judgmentResolution';
 
 const { listWikiPages } = api;
 
 jest.mock('../../api/wiki', () => ({
   listWikiPages: jest.fn(),
   listWikiChanges: jest.fn()
+}));
+
+jest.mock('../../api/judgmentResolution', () => ({
+  fileReadingProposal: jest.fn(),
+  getPushesAgainst: jest.fn()
 }));
 
 jest.mock('./WikiCreationComposer', () => () => (
@@ -64,6 +70,7 @@ describe('WikiFrontPage collection', () => {
     jest.spyOn(router, 'useNavigate').mockReturnValue(jest.fn());
     listWikiPages.mockResolvedValue(pages);
     api.listWikiChanges.mockResolvedValue({ pageCount: 0, changes: [] });
+    getPushesAgainst.mockResolvedValue(null);
   });
 
   afterEach(() => jest.restoreAllMocks());
@@ -119,6 +126,43 @@ describe('WikiFrontPage collection', () => {
     expect(within(since).getByText('Added a section on Sunk costs, citing Ben Carlson.')).toBeInTheDocument();
     expect(within(since).getByText('when you saved Ben Carlson')).toBeInTheDocument();
     expect(within(since).queryByText('Held view')).not.toBeInTheDocument();
+  });
+
+  it('lists a page told above as what moved only once', async () => {
+    api.listWikiChanges.mockResolvedValue({
+      pageCount: 3,
+      changes: [{ pageId: 'wiki-opportunity-cost', title: 'Opportunity Cost', by: 'partner', sentence: 'Started the page from 2 sources.' }]
+    });
+    render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
+    await screen.findByRole('region', { name: 'This week' });
+    expect(screen.getAllByRole('link', { name: 'Opportunity Cost' })).toHaveLength(1);
+    expect(screen.getByText('2 more pages')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'First Principles Thinking' })).toBeInTheDocument();
+  });
+
+  it('opens on a piece you saved that pushes against a view you hold, and files it there', async () => {
+    const QUOTE = 'Executive membership upgrades slowed sharply during the last downturn.';
+    getPushesAgainst.mockResolvedValue({
+      pageId: 'view-1',
+      view: 'Costco can ride out a recession.',
+      proposal: { id: 'p1', sourceLabel: 'When Bulk Stops Making Sense', provenance: { after: QUOTE, articleId: 'a9', author: 'Ben Carlson' } }
+    });
+    fileReadingProposal.mockResolvedValue({});
+    render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
+    const line = await screen.findByRole('region', { name: 'Your reading argues with you' });
+    expect(getPushesAgainst).toHaveBeenCalledWith();
+    expect(line).toHaveTextContent('Ben Carlson pushes against your view that Costco can ride out a recession:');
+    expect(within(line).getByText(QUOTE)).toBeInTheDocument();
+    expect(within(line).getByRole('link', { name: 'Costco can ride out a recession' })).toHaveAttribute('href', '/judgment/view-1');
+    fireEvent.click(within(line).getByRole('button', { name: 'File against' }));
+    await waitFor(() => expect(fileReadingProposal).toHaveBeenCalledWith({ pageId: 'view-1', proposalId: 'p1', field: 'against' }));
+    expect(await within(line).findByRole('status')).toHaveTextContent('Filed against your view that Costco can ride out a recession.');
+  });
+
+  it('is silent where you land when nothing argues with you', async () => {
+    render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
+    await screen.findByRole('heading', { level: 1, name: 'Wiki' });
+    expect(screen.queryByRole('region', { name: 'Your reading argues with you' })).not.toBeInTheDocument();
   });
 
   it('says so in one line when nothing moved', async () => {

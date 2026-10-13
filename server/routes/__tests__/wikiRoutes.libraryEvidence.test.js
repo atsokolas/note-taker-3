@@ -129,11 +129,12 @@ const run = async () => {
     assert.deepStrictEqual(pageReads[0], {
       projection: {
         'judgment.currentJudgment': 1,
+        'judgment.notAboutIds': 1,
         'judgment.why': 1,
         'judgment.against': 1
       },
       timeout: 2000
-    }, 'the evidence route reads only the claim and already-filed passages, under a deadline');
+    }, 'the evidence route reads only the claim, already-filed and set-aside passages, under a deadline');
 
     const noClaim = await fetch(`${base}/api/wiki/pages/${emptyPage._id}/library-evidence`);
     assert.strictEqual(noClaim.status, 409);

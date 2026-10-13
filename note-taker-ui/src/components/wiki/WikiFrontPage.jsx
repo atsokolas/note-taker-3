@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { listWikiChanges, listWikiPages } from '../../api/wiki';
+import { fileReadingProposal, getPushesAgainst } from '../../api/judgmentResolution';
 import { wikiReadPath } from '../../utils/wikiFeatureFlags';
 import { purgeUnscopedKeys, scopedKey } from '../../utils/browserScope';
 import { filterReturnViewItems } from '../../utils/cruftSuppression';
@@ -112,7 +113,6 @@ const CollectionNavButton = ({ active, onClick, children }) => (
 const CollectionNav = ({
   wikiFilter,
   proposedCount,
-  pageCount,
   onSelect,
   onNavigate
 }) => (
@@ -143,14 +143,48 @@ const CollectionNav = ({
         Full workspace
       </Link>
     </div>
-    <p className="wiki-collection__nav-foot">
-      A collection of living pages.
-      <span>
-        {pageCount} page{pageCount === 1 ? '' : 's'}
-      </span>
-    </p>
   </>
 );
+
+/* The one thing only your own reading can tell you, said where you land: a
+   piece you saved argues with a view you hold. It is the passage reading
+   talks back already proposed on the view; filing it here is filing it
+   there. Silence when nothing waits. */
+export const ArguesWithYou = ({ reading, onSettled }) => {
+  const [filed, setFiled] = useState(false);
+  const { proposal, pageId } = reading;
+  const { after, author, articleId } = proposal.provenance || {};
+  const who = author || proposal.sourceLabel || 'Something you saved';
+  const view = String(reading.view || '').replace(/[.\s]+$/, '');
+  const viewLink = <Link to={`/judgment/${encodeURIComponent(pageId)}`}>{view}</Link>;
+  const file = async () => {
+    setFiled(true);
+    try {
+      await fileReadingProposal({ pageId, proposalId: proposal.id, field: 'against' });
+    } catch (_error) {
+      setFiled(false);
+    }
+  };
+  return (
+    <section className="wiki-collection__argues" aria-label="Your reading argues with you">
+      {filed ? (
+        <p role="status">Filed against your view that {viewLink}.</p>
+      ) : (
+        <>
+          <p>
+            {articleId ? <Link to={`/articles/${encodeURIComponent(articleId)}`}>{who}</Link> : who} pushes against
+            your view that {viewLink}:
+          </p>
+          {after ? <blockquote>{after}</blockquote> : null}
+          <p className="wiki-collection__argues-actions">
+            <Button variant="quiet" onClick={file}>File against</Button>
+            <Button variant="quiet" onClick={onSettled}>Not now</Button>
+          </p>
+        </>
+      )}
+    </section>
+  );
+};
 
 /* What moved since you last looked. Silence is a state: when nothing moved,
    one line says so and the list follows. */
@@ -214,6 +248,15 @@ const WikiFrontPage = ({ initialKind = '' }) => {
   const [since] = useState(readLastLooked);
   useEffect(markLooked, []);
   const [changes, setChanges] = useState(null);
+  const [argues, setArgues] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    getPushesAgainst()
+      .then(reading => { if (!cancelled) setArgues(reading); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   const setQuery = (key, value) => {
     const next = new URLSearchParams(location.search);
@@ -331,21 +374,21 @@ const WikiFrontPage = ({ initialKind = '' }) => {
     return changes.filter(change => ids.has(String(change.pageId)));
   }, [canonicalPages, changes]);
   const sourcePages = searchedPages || canonicalPages;
-  const visiblePages = useMemo(
-    () => filterCollectionPages({
-      pages: sourcePages,
-      query: wikiSearch,
-      scope,
-      kind
-    }),
-    [kind, scope, sourcePages, wikiSearch]
-  );
+  const showingSince = scope === 'all' && !kind && !wikiSearch.trim();
+  /* A page told above as what moved is not listed again under it. */
+  const visiblePages = useMemo(() => {
+    const filtered = filterCollectionPages({ pages: sourcePages, query: wikiSearch, scope, kind });
+    if (!showingSince || !visibleChanges?.length) return filtered;
+    const told = new Set(visibleChanges.map(change => String(change.pageId)));
+    return filtered.filter(page => !told.has(String(page?._id || page?.id || '')));
+  }, [kind, scope, showingSince, sourcePages, visibleChanges, wikiSearch]);
+  const toldAbove = showingSince && visibleChanges?.length > 0;
+  const countedAbove = showingSince && Boolean(since) && Array.isArray(visibleChanges) && !visibleChanges.length;
 
   const nav = (
     <CollectionNav
       wikiFilter={wikiFilter}
       proposedCount={proposedCount}
-      pageCount={canonicalPages.length}
       onSelect={selectWikiFilter}
       onNavigate={() => setMobileNavOpen(false)}
     />
@@ -415,7 +458,9 @@ const WikiFrontPage = ({ initialKind = '' }) => {
         {availabilityNotice ? <p className="wiki-collection__status" role="status">{availabilityNotice}</p> : null}
         {error ? <div className="wiki-index__error" role="alert">{error}</div> : null}
 
-        {scope === 'all' && !kind && !wikiSearch.trim() ? (
+        {showingSince && argues ? <ArguesWithYou reading={argues} onSettled={() => setArgues(null)} /> : null}
+
+        {showingSince ? (
           <SinceYouLooked
             since={since}
             changes={visibleChanges}
@@ -424,15 +469,19 @@ const WikiFrontPage = ({ initialKind = '' }) => {
           />
         ) : null}
 
-        <div className="wiki-collection__label">
-          <span>
-            {wikiSearch.trim()
-              ? `${visiblePages.length} matching page${visiblePages.length === 1 ? '' : 's'}`
-              : `${visiblePages.length} page${visiblePages.length === 1 ? '' : 's'}${scope === 'proposed' ? ' with a proposed change' : kind ? ` · ${WIKI_KIND_LABELS[kind]}` : ''}`}
-          </span>
-        </div>
+        {countedAbove || (toldAbove && !visiblePages.length) ? null : (
+          <div className="wiki-collection__label">
+            <span>
+              {wikiSearch.trim()
+                ? `${visiblePages.length} matching page${visiblePages.length === 1 ? '' : 's'}`
+                : toldAbove
+                  ? `${visiblePages.length} more page${visiblePages.length === 1 ? '' : 's'}`
+                  : `${visiblePages.length} page${visiblePages.length === 1 ? '' : 's'}${scope === 'proposed' ? ' with a proposed change' : kind ? ` · ${WIKI_KIND_LABELS[kind]}` : ''}`}
+            </span>
+          </div>
+        )}
 
-        {visiblePages.length ? (
+        {toldAbove && !visiblePages.length ? null : visiblePages.length ? (
           <ul className="wiki-collection__pages">
             {visiblePages.map((page) => {
               const row = collectionRowCopy(page, wikiSearch);
@@ -483,10 +532,6 @@ const WikiFrontPage = ({ initialKind = '' }) => {
             Showing the first {INDEX_PAGE_LIMIT} pages. Open the full workspace for the complete index.
           </p>
         ) : null}
-
-        <p className="wiki-collection__foot">
-          Sources explain the words. Revisions explain what changed.
-        </p>
 
         {emptyComposer || composerOpen ? (
           <section className="wiki-collection__composer" aria-label="Build a wiki page">

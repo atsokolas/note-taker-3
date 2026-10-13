@@ -282,18 +282,19 @@ const proposeFromReading = async ({
   return proposed;
 };
 
-/* The reader version: a pending passage from this source that argues against
-   a view still held in the same words. It is the proposal the source already
-   made on the view, said where the source is being read. */
-const pushesAgainst = async ({ userId, articleId, models: { WikiPage, NoeisReceipt } = {} }) => {
-  if (!WikiPage?.find || !NoeisReceipt?.find || !articleId) return null;
+/* A pending passage that argues against a view still held in the same words.
+   With a source, it is what that source proposed, said where the source is
+   being read; without one, it is the latest any source proposed, said where
+   the reader lands. */
+const pushesAgainst = async ({ userId, articleId = '', models: { WikiPage, NoeisReceipt } = {} }) => {
+  if (!WikiPage?.find || !NoeisReceipt?.find) return null;
   const pending = await NoeisReceipt.find({
     userId,
     kind: 'judgment_change_proposal',
     status: 'pending',
     'provenance.change': 'evidence',
     'provenance.stance': 'challenge',
-    'provenance.articleId': String(articleId)
+    ...(articleId ? { 'provenance.articleId': String(articleId) } : {})
   }).sort({ createdAt: -1 }).limit(10).lean();
   if (!pending.length) return null;
   const views = await heldViews({ WikiPage, userId });

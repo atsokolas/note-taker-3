@@ -164,6 +164,13 @@ const runReasonLists = () => {
     input: { ...base(), dismissedOvernightEventIds: ['event-1', '  ', 'event-2'] }
   });
   assert.deepStrictEqual(silenced.dismissedOvernightEventIds, ['event-1', 'event-2']);
+  const setAside = normalizeJudgment({ input: { ...base(), notAboutIds: ['highlight:a1:h1', ' '] } });
+  assert.deepStrictEqual(setAside.notAboutIds, ['highlight:a1:h1']);
+  assert.deepStrictEqual(
+    normalizeJudgment({ existing: setAside, input: { ...base(), why: [] } }).notAboutIds,
+    ['highlight:a1:h1'],
+    'a passage set aside stays aside through other edits'
+  );
   const keptSilence = normalizeJudgment({
     existing: silenced,
     input: { ...base(), why: [{ text: 'A reason that does not un-silence morning.' }] }

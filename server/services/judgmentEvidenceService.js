@@ -374,10 +374,11 @@ const rankCandidates = (rows = [], limit = DEFAULT_LIMIT) => [...rows]
   ))
   .slice(0, Math.max(1, limit));
 
-/* Lines already filed under Why or Against, so the same passage is not offered
-   back to a reader who has already made up their mind about it. */
+/* Lines already filed under Why or Against, or set aside as not about the
+   view, so the same passage is not offered back to a reader who has already
+   made up their mind about it. */
 const alreadyFiled = (judgment = {}) => {
-  const filed = new Set();
+  const filed = new Set((Array.isArray(judgment?.notAboutIds) ? judgment.notAboutIds : []).map(clean).filter(Boolean));
   ['why', 'against'].forEach((field) => {
     (Array.isArray(judgment?.[field]) ? judgment[field] : []).forEach((line) => {
       const from = clean(line?.acceptedFrom);

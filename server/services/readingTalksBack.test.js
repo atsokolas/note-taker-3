@@ -183,6 +183,18 @@ describe('the reader version', () => {
     expect(await pushesAgainst({ userId: 'u1', articleId: 'a1', models })).toBeNull();
     expect(await pushesAgainst({ userId: 'u1', articleId: 'a2', models })).toBeNull();
   });
+
+  it('without a source, says the latest challenge any source made, and nothing for support', async () => {
+    const models = world();
+    await read(models, answer({ stance: 'support', quote }));
+    expect(await pushesAgainst({ userId: 'u1', models })).toBeNull();
+
+    const challenged = world();
+    await read(challenged, answer({ stance: 'challenge', quote }));
+    const found = await pushesAgainst({ userId: 'u1', models: challenged });
+    expect(found).toMatchObject({ pageId: 'v1' });
+    expect(found.proposal.provenance).toMatchObject({ stance: 'challenge', after: quote });
+  });
 });
 
 describe('you hold the opposite', () => {

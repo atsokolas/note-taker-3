@@ -5,6 +5,7 @@ import Judgment from './Judgment';
 import { useNoeisSurface } from '../surface/NoeisSurfaceContext';
 import {
   createWikiPage,
+  getJudgmentLibraryEvidence,
   getWikiPage,
   listReadingProposals,
   listWikiPages,
@@ -12,12 +13,18 @@ import {
   resolveJudgmentChange,
   updateWikiPage
 } from '../api/wiki';
-import { fileReadingProposal, recordJudgmentVerdict, setJudgmentResolution } from '../api/judgmentResolution';
+import {
+  fileJudgmentEvidence,
+  fileReadingProposal,
+  recordJudgmentVerdict,
+  setJudgmentResolution
+} from '../api/judgmentResolution';
 
 jest.mock('../surface/NoeisSurfaceContext', () => ({ useNoeisSurface: jest.fn() }));
 
 jest.mock('../api/wiki', () => ({
   createWikiPage: jest.fn(),
+  getJudgmentLibraryEvidence: jest.fn(),
   getWikiPage: jest.fn(),
   listReadingProposals: jest.fn(),
   listWikiPages: jest.fn(),
@@ -27,6 +34,7 @@ jest.mock('../api/wiki', () => ({
 }));
 
 jest.mock('../api/judgmentResolution', () => ({
+  fileJudgmentEvidence: jest.fn(),
   fileReadingProposal: jest.fn(),
   recordJudgmentVerdict: jest.fn(),
   setJudgmentResolution: jest.fn()
@@ -74,6 +82,7 @@ beforeEach(() => {
   jest.restoreAllMocks();
   listWikiPages.mockResolvedValue([]);
   listReadingProposals.mockResolvedValue([]);
+  getJudgmentLibraryEvidence.mockResolvedValue({ candidates: [] });
   getWikiPage.mockResolvedValue(viewPage());
   updateWikiPage.mockImplementation(async (_id, updates) => ({ ...viewPage(), judgment: updates.judgment }));
 });
@@ -82,7 +91,8 @@ describe('the index', () => {
   it('opens the hold form, with an example, when nothing is held', async () => {
     openIndex();
     const field = await screen.findByLabelText('One sentence you think is true.');
-    expect(field).toHaveAttribute('placeholder', CLAIM);
+    expect(field).toHaveAttribute('placeholder', 'Costco can ride out a recession.');
+    expect(screen.getByText(/Noeis reads what you have saved against it/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Hold it' })).toBeDisabled();
     expect(useNoeisSurface).toHaveBeenCalledWith(expect.objectContaining({ room: 'judgment', objectType: 'judgment_index' }));
   });
@@ -97,6 +107,20 @@ describe('the index', () => {
     expect(updateWikiPage).toHaveBeenCalledWith('view-new', {
       judgment: expect.objectContaining({ currentJudgment: 'Rates stay high.' })
     });
+  });
+
+  it('arrives from a wiki disagreement with the sentence ready to say your way', async () => {
+    jest.spyOn(router, 'useSearchParams').mockReturnValue([new URLSearchParams({ hold: CLAIM }), jest.fn()]);
+    createWikiPage.mockResolvedValue({ _id: 'view-new' });
+    updateWikiPage.mockResolvedValue({});
+    openIndex();
+    const field = await screen.findByLabelText('Your sources disagree about this. Say it the way you hold it.');
+    expect(field).toHaveValue(CLAIM);
+    fireEvent.change(field, { target: { value: 'Costco members cancel in a real recession.' } });
+    fireEvent.keyDown(field, { key: 'Enter' });
+    await waitFor(() => expect(updateWikiPage).toHaveBeenCalledWith('view-new', {
+      judgment: expect.objectContaining({ currentJudgment: 'Costco members cancel in a real recession.' })
+    }));
   });
 
   it('lists views with how long they have been held and what moved', async () => {
@@ -227,6 +251,53 @@ describe('the view', () => {
       objectType: 'judgment_claim',
       objectId: 'view-1'
     }));
+  });
+
+  describe('the library, read at once', () => {
+    const PASSAGE = 'Renewal rates held above ninety percent even as shoppers traded down.';
+    const candidate = {
+      id: 'highlight:article-4:highlight-7',
+      text: PASSAGE,
+      sourceLabel: 'Costco and the Membership Moat',
+      savedAt: '2026-10-09T12:00:00.000Z'
+    };
+
+    it('offers what you already saved and files it where you say', async () => {
+      getJudgmentLibraryEvidence.mockResolvedValue({ candidates: [candidate] });
+      fileJudgmentEvidence.mockResolvedValue({ judgment: viewPage().judgment });
+      openView();
+      const region = await screen.findByRole('region', { name: 'Already in your library' });
+      expect(getJudgmentLibraryEvidence).toHaveBeenCalledWith('view-1', { limit: 3 });
+      const who = within(region).getByRole('link', { name: 'Costco and the Membership Moat' });
+      expect(who).toHaveAttribute('href', '/articles/article-4');
+      expect(who.closest('p')).toHaveTextContent('Costco and the Membership Moat, saved Oct 9:');
+      fireEvent.click(within(region).getByRole('button', { name: 'File for' }));
+      await waitFor(() => expect(fileJudgmentEvidence).toHaveBeenCalledWith({
+        pageId: 'view-1',
+        expectedClaim: CLAIM,
+        field: 'why',
+        articleId: 'article-4',
+        highlightId: 'highlight-7',
+        quote: PASSAGE
+      }));
+      await waitFor(() => expect(screen.queryByRole('region', { name: 'Already in your library' })).not.toBeInTheDocument());
+    });
+
+    it('keeps a passage that is not about the view aside, on the view', async () => {
+      getJudgmentLibraryEvidence.mockResolvedValue({ candidates: [candidate] });
+      openView();
+      fireEvent.click(await screen.findByRole('button', { name: 'Not about this' }));
+      await waitFor(() => expect(updateWikiPage).toHaveBeenCalledWith('view-1', {
+        judgment: expect.objectContaining({ notAboutIds: [candidate.id] })
+      }));
+      await waitFor(() => expect(screen.queryByText(PASSAGE)).not.toBeInTheDocument());
+    });
+
+    it('is silent when the library has nothing on it', async () => {
+      openView();
+      await screen.findByRole('heading', { level: 1, name: CLAIM });
+      expect(screen.queryByRole('region', { name: 'Already in your library' })).not.toBeInTheDocument();
+    });
   });
 
   describe('reading talks back', () => {

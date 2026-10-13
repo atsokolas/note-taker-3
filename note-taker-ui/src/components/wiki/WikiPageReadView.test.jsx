@@ -2,7 +2,7 @@ import React from 'react';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import * as router from 'react-router-dom';
-import WikiPageReadView from './WikiPageReadView';
+import WikiPageReadView, { grownFrom } from './WikiPageReadView';
 import { SystemStatusProvider } from '../../system/SystemStatusContext';
 import {
   approveWeekendReadingsRevision,
@@ -280,6 +280,30 @@ describe('WikiPageReadView', () => {
     expect(document.querySelector('.wiki-read--standard')).toBeInTheDocument();
     const createDisclosure = within(workspace).getByText('Record a decision from an accepted revision').closest('details');
     expect(createDisclosure).not.toHaveAttribute('open');
+  });
+
+  it('asks which side you believe on the newest disagreement only', async () => {
+    const disagreement = (claimId, claimText) => ({
+      pageId: 'wiki-1',
+      pageTitle: 'Enterprise AI Memory',
+      claimId,
+      claimText,
+      supporting: [],
+      contradicting: [{ title: 'The Forgetting Curve', quote: '', url: '' }],
+      elsewhere: []
+    });
+    listWikiContradictions.mockResolvedValue([
+      disagreement('c-new', 'Memory makes agents cheaper to run.'),
+      disagreement('c-old', 'Memory never leaks between teams.')
+    ]);
+    renderReadView();
+    await flushDeferredWikiReadWork();
+    const region = await screen.findByRole('region', { name: 'Where your reading disagrees' });
+    expect(region).toHaveTextContent('This page says “Memory makes agents cheaper to run”. The Forgetting Curve argues otherwise.');
+    expect(within(region).getByRole('link', { name: 'Which do you believe?' }))
+      .toHaveAttribute('href', `/judgment?hold=${encodeURIComponent('Memory makes agents cheaper to run.')}`);
+    expect(screen.getAllByRole('region', { name: 'Where your reading disagrees' })).toHaveLength(1);
+    expect(screen.queryByText(/Memory never leaks between teams/)).not.toBeInTheDocument();
   });
 
   it('declares the loaded page as an exact ordinary Wiki surface', async () => {
@@ -906,6 +930,12 @@ describe('WikiPageReadView', () => {
     expect(navigate).toHaveBeenCalledWith('/judgment/wiki-1');
   });
 
+  it('calls a short page a start, and a full one grown', () => {
+    expect(grownFrom({ words: 112, sources: 3 })).toBe('A start: 112 words from 3 sources. It grows as you read.');
+    expect(grownFrom({ words: 1200, sources: 3 })).toBe('1,200 words, grown from 3 sources.');
+    expect(grownFrom({ words: 112, sources: 0 })).toBe('112 words.');
+  });
+
   it('renders an ordinary Wiki as a restrained reference article', async () => {
     const { container } = renderReadView();
 
@@ -915,7 +945,7 @@ describe('WikiPageReadView', () => {
     expect(container.querySelector('.wiki-read__object-label')).not.toBeInTheDocument();
     expect(header.firstElementChild).toBe(title);
     expect(title.querySelector('em')).not.toBeInTheDocument();
-    expect(container.querySelector('.wiki-read__grown')).toHaveTextContent(/grown from \d+ sources?/);
+    expect(container.querySelector('.wiki-read__grown')).toHaveTextContent(/from \d+ sources?/);
     expect(container.querySelector('.wiki-read__toc')).toHaveTextContent('Contents');
 
     await flushDeferredWikiReadWork();
