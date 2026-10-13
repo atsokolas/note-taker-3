@@ -1265,6 +1265,8 @@ Investment dossier rules:
 - Missing evidence archetypes: ${(plan.missingEvidenceArchetypes || []).join(', ') || 'none identified'}.
 - For each missing evidence archetype, say plainly in the relevant section that it could not be found (use those words), and draw no conclusion that needs it. With no dated market price, state no market value, multiple or implied return.
 - Every figure must be stated in a cited source, or computed in the same sentence from figures that are, with the inputs written out: "membership fees were 1.99% of net sales ($5.91bn / $297.25bn)". A margin, ratio, multiple or growth rate without its inputs beside it is refused.
+- For each disclosure (buybacks, customer concentration, commitments, guidance), use the latest attached filing that reports it; cite an older filing only to compare against.
+- When a competitor's filing is attached, compare the company against it in Product and Technical Moat, citing it.
 - Missing analytical modules: ${(plan.missingModuleIds || []).join(', ') || 'none identified'}.
 - Produce at least 1,800 words and at least 20 distinct claim-level analytical paragraphs or bullets. These are minimum decision-dossier gates, not permission to add filler.
 - Every paragraph or bullet must establish a mechanism, calculation, counterargument, falsifier, or next evidence test.

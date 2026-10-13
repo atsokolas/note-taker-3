@@ -97,20 +97,30 @@ const statedIn = (figure, values) => values.some(value => (
 
 // What two stated figures make: a share, a ratio, a change, a sum.
 const derivedFrom = (a, b) => [a / b, (a / b) * 100, ((a - b) / b) * 100, a - b, a + b];
+// Small whole numbers a claim scales by ("x 4", "over 5 years") are not
+// figures a reader checks, but they are inputs to the arithmetic shown.
+const SCALERS = /\b(?:[2-9]|1[0-2])\b/g;
 
 // The figures in a claim that none of the given texts states. A figure the
-// writer computed counts when the claim shows its working: it follows from two
-// figures in the same claim that the sources do state, as "1.99% ($5.91bn /
-// $297.25bn)" does.
+// writer computed counts when the claim shows its working: it follows from
+// figures in the same claim that the sources state, or that follow in turn,
+// as "1.99% ($5.91bn / $297.25bn)" or "$384,884 million ($96,221m x 4)" do.
 const unstatedFigures = (claim = '', texts = []) => {
   const values = (Array.isArray(texts) ? texts : []).flatMap(valuesIn);
   const figures = figuresIn(claim);
-  const stated = figures.filter(figure => statedIn(figure, values));
-  const shown = figure => stated.some(a => stated.some(b => a !== b && b.value !== 0
-    && derivedFrom(a.value, b.value).some(value => (
-      Math.abs(value - figure.value) <= Math.max(figure.step / 2, Math.abs(figure.value) * 0.005)
-    ))));
-  return figures.filter(figure => !stated.includes(figure) && !shown(figure)).map(figure => figure.raw);
+  const scalers = (String(claim).match(SCALERS) || []).map(Number);
+  const near = (value, figure) => Math.abs(value - figure.value) <= Math.max(figure.step / 2, Math.abs(figure.value) * 0.005);
+  const known = figures.filter(figure => statedIn(figure, values));
+  const follows = figure => known.some(a => (
+    scalers.some(k => near(a.value * k, figure) || near(a.value / k, figure))
+    || known.some(b => a !== b && b.value !== 0 && derivedFrom(a.value, b.value).some(value => near(value, figure)))
+  ));
+  for (let grew = true; grew;) {
+    const next = figures.filter(figure => !known.includes(figure) && follows(figure));
+    known.push(...next);
+    grew = next.length > 0;
+  }
+  return figures.filter(figure => !known.includes(figure)).map(figure => figure.raw);
 };
 
 module.exports = {

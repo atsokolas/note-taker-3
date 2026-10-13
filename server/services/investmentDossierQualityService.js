@@ -9,7 +9,12 @@ const clean = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
 const unique = values => Array.from(new Set((Array.isArray(values) ? values : []).filter(Boolean)));
 
 const DECISION_DOSSIER_MIN_WORDS = 1800;
-const MISSING_EVIDENCE = /\bcould not be found\b|\bwas not found\b|\b(?:is|are|was|were) not (?:yet )?(?:attached|available)\b|\bno [^.]{0,80}\b(?:is|are|was|were) attached\b/i;
+const MISSING_EVIDENCE = new RegExp([
+  /\bcould not be found\b|\bwas not found\b/,
+  /\bcannot (?:yet )?be (?:assessed|computed|established|stated)\b/,
+  /\b(?:is|are|was|were) not (?:yet )?(?:attached|available)\b/,
+  /\bno [^.]{0,120}\b(?:is|are|was|were) (?:attached|stated|disclosed|available)\b/
+].map(pattern => pattern.source).join('|'), 'i');
 const DECISION_DOSSIER_MIN_CLAIMS = 20;
 const REPRODUCIBLE_MODULE_IDS = Object.freeze([
   'reverse_expectations',

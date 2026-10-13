@@ -66,6 +66,11 @@ describe('unstatedFigures', () => {
     expect(unstatedFigures('Gross profit of $61.2 billion is 75.0% of $81.6 billion.', [filing, 'Gross profit $61,212 million.'])).toEqual([]);
   });
 
+  it('follows arithmetic through a scale factor and a computed figure', () => {
+    const q = 'Revenue was $96,221 million. Operating income was $66,595 million. Fiscal revenue was $215.9 billion.';
+    expect(unstatedFigures('Annualized, revenue is near $384,884 million ($96,221m x 4), about 1.8x the $215.9 billion fiscal base.', [q])).toEqual([]);
+  });
+
   it('does not accept a computed figure whose inputs are missing or wrong', () => {
     expect(unstatedFigures('Operating margin was 66%.', [filing])).toEqual(['66%']);
     expect(unstatedFigures('Gross profit of $61.2 billion is 80% of $81.6 billion.', [filing, 'Gross profit $61,212 million.'])).toEqual(['80%']);
