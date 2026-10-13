@@ -191,7 +191,7 @@ const runAgentLoop = async ({
     conversation.push({ role: 'assistant', content: reply });
     conversation.push({
       role: 'user',
-      content: `These quotations are not in any source you were shown: ${invented.map(quote => `"${quote}"`).join('; ')}. Rewrite the answer quoting only exact words from the passages, or say the library does not cover it.`
+      content: `These quotations are not in any source you were shown: ${invented.map(quote => `"${quote}"`).join('; ')}. Rewrite the answer quoting only exact words from the passages, or say the library does not cover it. Give only the answer the reader will see, with no word about this correction.`
     });
     completion = await chat({ route, messages: conversation, ...answerOnly, signal });
     reply = String(completion?.text || '').trim();
