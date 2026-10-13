@@ -21,8 +21,11 @@ const REPORT_DIR = path.join(__dirname, '..', 'tmp', 'page-eval');
 const pct = value => (value === null || value === undefined ? '  -' : `${Math.round(value * 100)}%`.padStart(4));
 
 const line = (result) => {
-  if (!result.score) return `${result.id.padEnd(18)} no page (${result.status || '-'} ${result.error || ''})`;
+  const built = result.built || {};
+  const why = [built.status, built.code, built.error, ...(built.gatherStops || []), built.gatherError].filter(Boolean).join(' ');
+  if (!result.score) return `${result.id.padEnd(18)} no page (${why || result.error || '-'})`;
   const { score, support } = result;
+  const refused = result.kept ? '' : `\n${' '.repeat(19)}refused for: ${result.refusedFor.join(' | ') || why || 'no reason given'}`;
   return [
     result.id.padEnd(18),
     (result.kept ? 'kept   ' : 'refused'),
@@ -33,8 +36,9 @@ const line = (result) => {
     `supported ${pct(support?.supportedShare)}`,
     `behind ${score.daysBehindLatestFiling ?? '-'}d`,
     `leaks ${score.leaks.length}`,
-    `${result.seconds}s`
-  ].join('  ');
+    `${result.seconds}s`,
+    result.model
+  ].join('  ') + refused;
 };
 
 const main = async () => {

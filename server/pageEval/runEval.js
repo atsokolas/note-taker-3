@@ -51,9 +51,21 @@ const startApp = async (userId) => {
     try {
       return { status: response.status, body: JSON.parse(text) };
     } catch (_error) {
-      /* A build stream: the last event that names a code is how it ended. */
-      const codes = [...text.matchAll(/"code":"([A-Z_]+)"/g)].map(match => match[1]);
-      return { status: response.status, body: { code: codes[codes.length - 1] || '' } };
+      /* A build stream: the last event that names a code is how it ended,
+         and an error event says why. */
+      const events = [...text.matchAll(/^data: (.*)$/gm)]
+        .map((match) => { try { return JSON.parse(match[1]); } catch (_e) { return null; } })
+        .filter(Boolean);
+      const last = [...events].reverse().find(event => event.code) || {};
+      const failed = [...events].reverse().find(event => event.error || event.message) || {};
+      return {
+        status: response.status,
+        body: {
+          code: last.code || '',
+          error: failed.error || failed.message || '',
+          quality: [...events].reverse().find(event => event.quality)?.quality || null
+        }
+      };
     }
   };
   return { call, close: () => new Promise(resolve => server.close(resolve)), models };
@@ -62,17 +74,30 @@ const startApp = async (userId) => {
 /* What the build produced, whether or not it was kept: the newest revision's
    page if there is one, else the page itself. */
 const builtPage = async ({ models, pageId }) => {
-  const revision = await models.WikiRevision.findOne({ pageId, after: { $ne: null } }).sort({ createdAt: -1 }).lean();
+  const revision = await models.WikiRevision.findOne({ pageId, reason: { $ne: 'created' }, after: { $ne: null } }).sort({ createdAt: -1 }).lean();
   const page = await models.WikiPage.findById(pageId).lean();
-  const after = revision?.after || {};
+  /* Only what the writer produced counts; the page as first created is a
+     placeholder, and scoring it would score nothing. */
+  if (!revision) return null;
+  const after = revision.after;
   return {
     title: after.title || page?.title,
-    body: after.body || page?.body,
-    sourceRefs: after.sourceRefs || page?.sourceRefs || [],
-    kept: !revision || revision.promotionStatus === 'promoted',
-    quality: page?.aiState?.quality || revision?.quality || null
+    body: after.body,
+    sourceRefs: after.sourceRefs || [],
+    kept: revision.promotionStatus === 'promoted',
+    quality: revision.quality || after.aiState?.quality || null,
+    model: [after.aiState?.provider, after.aiState?.model].filter(Boolean).join(' ')
   };
 };
+
+/* Why a build ended the way it did, in the app's own words. */
+const outcome = ({ status, body = {} }) => ({
+  status,
+  code: body.code || '',
+  error: body.error || '',
+  failures: body.quality?.failures || [],
+  hints: body.quality?.hints || []
+});
 
 const SEC_HOST = /(^|\.)sec\.gov$/i;
 const readSource = async (ref) => {
@@ -101,8 +126,8 @@ const filingDates = async ({ ticker, sourceRefs }) => {
 const buildCase = async ({ evalCase, call, models, userId }) => {
   if (evalCase.kind === 'published') {
     const response = await fetch(evalCase.url);
-    const page = await response.json();
-    return { page: { ...page, kept: true }, status: response.status };
+    const { page } = await response.json();
+    return { page: page && { ...page, kept: true }, outcome: { status: response.status } };
   }
   if (evalCase.kind === 'links') {
     for (const url of evalCase.urls) {
@@ -111,9 +136,9 @@ const buildCase = async ({ evalCase, call, models, userId }) => {
     }
     const created = await call('/api/wiki/pages', { title: evalCase.title, pageType: 'topic' });
     const pageId = created.body?._id;
-    if (!pageId) return { page: null, status: created.status, error: created.body?.error };
+    if (!pageId) return { page: null, outcome: outcome(created) };
     const built = await call(`/api/wiki/pages/${pageId}/ai/draft`, {});
-    return { page: await builtPage({ models, pageId }), status: built.status, error: built.body?.error };
+    return { page: await builtPage({ models, pageId }), outcome: outcome(built) };
   }
   const created = await call('/api/wiki/pages/from-company', {
     ticker: evalCase.ticker,
@@ -122,11 +147,21 @@ const buildCase = async ({ evalCase, call, models, userId }) => {
     horizonYears: evalCase.horizonYears
   });
   const pageId = created.body?._id || created.body?.page?._id;
-  if (!pageId) return { page: null, status: created.status, error: created.body?.error || created.body?.code };
-  /* Dossiers build through the stream, as the app does: it is the path that
-     gathers the evidence before writing. */
+  if (!pageId) return { page: null, outcome: outcome(created) };
+  /* What the dossier gathered before a word was written. */
+  const gathered = created.body?.watchResult || {};
+  /* Dossiers build through the stream, as the app does. */
   const built = await call(`/api/wiki/pages/${pageId}/ai/draft/stream`, {});
-  return { page: await builtPage({ models, pageId }), status: built.status, error: built.body?.code || built.body?.error };
+  return {
+    page: await builtPage({ models, pageId }),
+    outcome: {
+      ...outcome(built),
+      sourcesAttached: gathered.totalSourcesAttached ?? null,
+      filingsAttached: gathered.filingsAttached ?? null,
+      gatherStops: (gathered.acquisitionStops || []).map(stop => stop.code || stop),
+      gatherError: gathered.watchError || ''
+    }
+  };
 };
 
 const runPageEval = async ({ only = [], judge = true, onCase = () => {} } = {}) => {
@@ -140,9 +175,9 @@ const runPageEval = async ({ only = [], judge = true, onCase = () => {} } = {}) 
       const startedAt = Date.now();
       let result;
       try {
-        const { page, status, error } = await buildCase({ evalCase, call: app.call, models: app.models, userId });
+        const { page, outcome: built } = await buildCase({ evalCase, call: app.call, models: app.models, userId });
         if (!page?.body) {
-          result = { id: evalCase.id, status, error: error || 'No page was built.' };
+          result = { id: evalCase.id, built, error: 'The writer produced no page.' };
         } else {
           const sources = await Promise.all((page.sourceRefs || []).map(readSource));
           const dates = evalCase.ticker ? await filingDates({ ticker: evalCase.ticker, sourceRefs: page.sourceRefs || [] }).catch(() => ({})) : {};
@@ -150,9 +185,10 @@ const runPageEval = async ({ only = [], judge = true, onCase = () => {} } = {}) 
           const verdicts = judge ? await judgeClaims({ claims: claimsOf(page.body), sources }) : [];
           result = {
             id: evalCase.id,
-            status,
+            built,
+            model: page.model || '',
             kept: page.kept,
-            refusedFor: page.kept ? [] : (page.quality?.failures || []).slice(0, 8),
+            refusedFor: page.kept ? [] : (built.failures.length ? built.failures : page.quality?.failures || []).slice(0, 8),
             score,
             support: judge ? summarizeVerdicts(verdicts) : null,
             unsupported: verdicts.filter(item => item.verdict === 'unsupported').slice(0, 10),
