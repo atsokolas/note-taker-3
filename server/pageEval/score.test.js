@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('assert');
-const { scorePage, claimsOf, figuresIn } = require('./score');
+const { scorePage, claimsOf } = require('./score');
+const { figuresIn } = require('../services/agentGrounding');
 
 const claim = (text, citationIndexes, claimId = text.slice(0, 12)) => ({
   type: 'text',

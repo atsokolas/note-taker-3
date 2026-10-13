@@ -57,7 +57,7 @@ const run = () => {
     'Open Questions is a structural landmark other features navigate by, not a generic heading'
   );
 
-  // 2. An article using it does not fail the gate for that heading.
+  // 2. An article using it is not flagged for that heading.
   const body = docFromArticle({ title: 'Capital allocation', article: articleWithOpenQuestions });
   const quality = evaluateWikiArticleQuality({
     page: { title: 'Capital allocation', pageType: 'concept' },
@@ -67,9 +67,9 @@ const run = () => {
     skipDurableCitationCheck: true
   });
   assert.equal(
-    quality.failures.some(failure => /generic section heading/i.test(failure)),
+    quality.hints.some(hint => /generic section heading/i.test(hint)),
     false,
-    `Open Questions must not count as a generic heading: ${quality.failures.join(' | ')}`
+    `Open Questions must not count as a generic heading: ${quality.hints.join(' | ')}`
   );
   assert.equal(quality.metrics.ordinaryGenericHeadingCount, 0);
 
@@ -80,7 +80,7 @@ const run = () => {
     ['Which window of incremental return separates allocation skill from operating skill?']
   );
 
-  // 4. Genuinely generic headings are still rejected. Relaxing one landmark must
+  // 4. Genuinely generic headings are still flagged for repair. Relaxing one landmark must
   //    not relax the rule it belongs to.
   const genericBody = docFromArticle({
     title: 'Capital allocation',
@@ -100,9 +100,9 @@ const run = () => {
     skipDurableCitationCheck: true
   });
   assert.equal(
-    genericQuality.failures.some(failure => /generic section heading/i.test(failure)),
+    genericQuality.hints.some(hint => /generic section heading/i.test(hint)),
     true,
-    'template headings other than the landmark must still fail'
+    'template headings other than the landmark must still be flagged'
   );
   assert.equal(genericQuality.metrics.ordinaryGenericHeadingCount, 1);
 

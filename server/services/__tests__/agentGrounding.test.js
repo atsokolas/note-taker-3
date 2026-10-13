@@ -48,3 +48,20 @@ describe('quotedIn', () => {
     expect(quotedIn('', [source])).toBe(false);
   });
 });
+
+describe('unstatedFigures', () => {
+  const { unstatedFigures } = require('../agentGrounding');
+  const filing = 'Revenue was $81,615 million, up 85% from a year ago. Gross margin was 75.0%.';
+
+  it('finds a figure in the source at the scale the source states it', () => {
+    expect(unstatedFigures('Revenue reached $81.6 billion, up 85%.', [filing])).toEqual([]);
+  });
+
+  it('names the figures no source states', () => {
+    expect(unstatedFigures('Revenue reached $90 billion with a 78% gross margin.', [filing])).toEqual(['$90 billion', '78%']);
+  });
+
+  it('ignores years and small counts', () => {
+    expect(unstatedFigures('In 2026 three of 5 segments grew.', [filing])).toEqual([]);
+  });
+});

@@ -5,10 +5,7 @@
    whether a source actually says what a claim says is the judge's question
    (judge.js), and this file only gathers what the judge needs. */
 
-const { inventedQuotes } = require('../services/agentGrounding');
-
-const SCALES = { thousand: 1e3, million: 1e6, mn: 1e6, m: 1e6, billion: 1e9, bn: 1e9, b: 1e9, trillion: 1e12, t: 1e12 };
-const NUMBER = /(\$)?(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)(?:\s*(%|percent|thousand|million|billion|trillion|mn|bn|[mbt]\b|x\b|×))?/gi;
+const { inventedQuotes, figuresIn, valuesIn, statedIn } = require('../services/agentGrounding');
 
 /* The app talking to itself. None of these belong in a page a stranger reads. */
 const LEAKS = [
@@ -82,45 +79,6 @@ const textOf = (body = {}) => {
   return parts.join('').replace(/[ \t]+\n/g, '\n').trim();
 };
 
-/* Each number with the value it stands for and how precisely it was written.
-   Years and small bare counts are not figures a reader checks. */
-const figuresIn = (text = '') => {
-  const figures = [];
-  for (const match of String(text).matchAll(NUMBER)) {
-    const [raw, dollar, digits, unitRaw = ''] = match;
-    const unit = unitRaw.toLowerCase();
-    const base = Number(digits.replace(/,/g, ''));
-    if (!Number.isFinite(base)) continue;
-    const decimals = (digits.split('.')[1] || '').length;
-    const bare = !dollar && !unit;
-    if (bare && !digits.includes(',') && !digits.includes('.') && (base < 10 || (base >= 1900 && base <= 2100))) continue;
-    const scale = SCALES[unit] || 1;
-    figures.push({
-      raw: raw.trim(),
-      value: base * scale,
-      step: scale * 10 ** -decimals,
-      percent: unit === '%' || unit === 'percent',
-      multiple: unit === 'x' || unit === '×'
-    });
-  }
-  return figures;
-};
-
-/* Every value a source states, at every scale a filing might state it in
-   (tables are usually in millions). */
-const valuesIn = (text = '') => {
-  const values = [];
-  figuresIn(text).forEach(({ value, step }) => {
-    values.push(value);
-    if (step >= 1) [1e3, 1e6, 1e9].forEach(scale => values.push(value * scale));
-  });
-  return values;
-};
-
-const statedIn = (figure, values) => values.some(value => (
-  Math.abs(value - figure.value) <= Math.max(figure.step / 2, Math.abs(figure.value) * 1e-9)
-));
-
 /**
  * Score one page.
  *   page:    { title, body, sourceRefs }
@@ -175,4 +133,4 @@ const scorePage = ({ page = {}, sources = [], dates = {} } = {}) => {
   };
 };
 
-module.exports = { scorePage, claimsOf, textOf, figuresIn, __testables: { valuesIn, statedIn } };
+module.exports = { scorePage, claimsOf, textOf };

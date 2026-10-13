@@ -24,6 +24,7 @@ const { normalizeComparableText } = require('./wikiDedupeService');
 const { resolveClaimBornAt } = require('./claimBornAt');
 const { buildMaintenanceCitations } = require('./wikiMaintenanceCitations');
 const { wordBoundaryTrim } = require('../lib/editorialText');
+const { unstatedFigures } = require('./agentGrounding');
 const {
   sourceFamilyKey,
   evaluateOwnedSourceUtilization,
@@ -477,13 +478,14 @@ const findOrdinaryGroundingGaps = ({ claims = [], sourceRefs = [] } = {}) => {
       .split(/(?<=[.!?])\s+/)
       .map(sentence => sentence.trim())
       .filter(Boolean)
-      .filter((sentence) => {
+      .map((sentence) => {
         const tokens = ordinaryGroundingTokens(sentence);
-        if (tokens.length < 5) return false;
         const anchors = tokens.filter(token => evidenceTokens.has(token));
+        return { sentence, tokens, anchors };
+      })
+      .filter(({ tokens, anchors }) => {
+        if (tokens.length < 5) return false;
         if (anchors.length / tokens.length >= MIN_ORDINARY_GROUNDING_RATIO) return false;
-        // A sentence with almost no anchor is an unsupported abstraction no
-        // matter how many sources the paragraph cites.
         if (anchors.length < MIN_SYNTHESIS_ANCHORS_TOTAL) return true;
         if (perSourceTokens.length < MIN_SYNTHESIS_BRIDGE_SOURCES) return true;
         // A term every cited source shares says nothing about which source the
@@ -499,8 +501,15 @@ const findOrdinaryGroundingGaps = ({ claims = [], sourceRefs = [] } = {}) => {
           .length;
         return bridgedSources < MIN_SYNTHESIS_BRIDGE_SOURCES;
       })
-      .map(sentence => truncate(sentence, 220));
-  }).filter(Boolean).slice(0, 4);
+      // A sentence with almost no anchor is an abstraction its evidence never
+      // mentions, whatever the paragraph cites; that refuses the page. One
+      // with some anchors but too few is a judgment call about synthesis, so
+      // it is a note for the repair pass, not a refusal.
+      .map(({ sentence, anchors }) => ({
+        sentence: truncate(sentence, 220),
+        unanchored: anchors.length < MIN_SYNTHESIS_ANCHORS_TOTAL
+      }));
+  }).slice(0, 4);
 };
 
 const normalizeOrdinarySentence = (value = '') => asString(value)
@@ -1591,6 +1600,8 @@ const isQualityImprovement = ({ current = {}, retry = {} } = {}) => {
   const currentFailures = Array.isArray(current?.failures) ? current.failures.length : Number.MAX_SAFE_INTEGER;
   const retryFailures = Array.isArray(retry?.failures) ? retry.failures.length : Number.MAX_SAFE_INTEGER;
   if (retryFailures !== currentFailures) return retryFailures < currentFailures;
+  const hintCount = quality => (Array.isArray(quality?.hints) ? quality.hints.length : 0);
+  if (hintCount(retry) !== hintCount(current)) return hintCount(retry) < hintCount(current);
   if (Number(retryMetrics.words || 0) !== Number(currentMetrics.words || 0)) {
     return Number(retryMetrics.words || 0) > Number(currentMetrics.words || 0);
   }
@@ -3844,10 +3855,27 @@ const evaluateWikiArticleQuality = ({
   let ordinaryRepeatedSentences = [];
   let ordinaryGenericHeadingCount = null;
   let ownedSourceUtilization = null;
+  let unstatedFigureClaims = [];
+  // Failures refuse the page: something on it is untrue, unsourced, or not
+  // about its subject. Hints are how it could read better; they go to the
+  // repair pass but never keep a page from the reader. A page whose every
+  // claim is backed is not refused for its headings.
   const failures = [];
+  const hints = [];
 
   SCAFFOLD_PATTERNS.forEach(({ label, pattern }) => {
     if (pattern.test(plainText)) failures.push(`Article contains ${label}.`);
+  });
+  // A number is checked only against sources the writer was given the text
+  // of; a citation to a source with no text is not evidence either way.
+  unstatedFigureClaims = docClaims.flatMap((claim) => {
+    const texts = (claim.citationIndexes || [])
+      .map(index => sourceRefs[index - 1] || {})
+      .map(source => [source.snippet, source.quote, source.text].filter(Boolean).join(' '))
+      .filter(Boolean);
+    if (!texts.length) return [];
+    const figures = unstatedFigures(claim.text, texts);
+    return figures.length ? [{ text: claim.text, figures }] : [];
   });
   const isRepoQualityPage = isGitHubRepoPage({ page, candidates: sourceRefs });
   const isInvestmentQualityPage = getWikiPageStructureForPage({
@@ -3871,20 +3899,26 @@ const evaluateWikiArticleQuality = ({
     const genericHeadingCount = headings.filter(heading => GENERIC_REFERENCE_HEADINGS.has(heading)).length;
     ordinaryGenericHeadingCount = genericHeadingCount;
     if (headings.length >= 4 && genericHeadingCount >= Math.ceil(headings.length * 0.75)) {
-      failures.push('Ordinary reference article uses generic template headings instead of subject-specific sections.');
+      hints.push('Ordinary reference article uses generic template headings instead of subject-specific sections.');
     } else if (genericHeadingCount > 0) {
-      failures.push(`Ordinary reference article contains ${genericHeadingCount} generic section heading${genericHeadingCount === 1 ? '' : 's'}; give every substantial section a subject-specific analytical role.`);
+      hints.push(`Ordinary reference article contains ${genericHeadingCount} generic section heading${genericHeadingCount === 1 ? '' : 's'}; give every substantial section a subject-specific analytical role.`);
     }
     const fillerCount = ORDINARY_REFERENCE_FILLER_PATTERNS
       .reduce((count, pattern) => count + (pattern.test(plainText) ? 1 : 0), 0);
     if (fillerCount >= 2) {
-      failures.push('Ordinary reference article relies on generic scene-setting instead of definitions, mechanisms, or evidence.');
+      hints.push('Ordinary reference article relies on generic scene-setting instead of definitions, mechanisms, or evidence.');
     }
-    if (ordinaryGroundingGaps.length) {
-      failures.push(`Ordinary reference article introduces claims with no lexical anchor in their cited evidence: ${ordinaryGroundingGaps.map(gap => `"${gap}"`).join('; ')}`);
+    const quoteGaps = gaps => gaps.map(gap => `"${gap.sentence}"`).join('; ');
+    const unanchored = ordinaryGroundingGaps.filter(gap => gap.unanchored);
+    const loose = ordinaryGroundingGaps.filter(gap => !gap.unanchored);
+    if (unanchored.length) {
+      failures.push(`Ordinary reference article introduces claims with no lexical anchor in their cited evidence: ${quoteGaps(unanchored)}`);
+    }
+    if (loose.length) {
+      hints.push(`Ordinary reference article has claims only loosely anchored in their cited evidence: ${quoteGaps(loose)}`);
     }
     if (ordinaryRepeatedSentences.length) {
-      failures.push(`Ordinary reference article repeats substantive sentences across sections instead of advancing the synthesis: ${ordinaryRepeatedSentences.map(sentence => `"${sentence}"`).join('; ')}`);
+      hints.push(`Ordinary reference article repeats substantive sentences across sections instead of advancing the synthesis: ${ordinaryRepeatedSentences.map(sentence => `"${sentence}"`).join('; ')}`);
     }
     const topicalTitle = primaryTopicTitle(page?.title || '') || asString(page?.title);
     const titleTopicTokens = topicTokens(topicalTitle);
@@ -3922,28 +3956,28 @@ const evaluateWikiArticleQuality = ({
     if (evidenceBudgetSourceCount >= 5) {
       const minimumEvidenceBlocks = Math.max(6, Math.min(8, Math.ceil(evidenceBudgetSourceCount * 1.15)));
       if (ordinaryHeadingCount < 3) {
-        failures.push(`Ordinary reference article has too little subject structure: ${ordinaryHeadingCount} sections, expected at least 3 subject-shaped sections for ${evidenceBudgetSourceCount} available sources.`);
+        hints.push(`Ordinary reference article has too little subject structure: ${ordinaryHeadingCount} sections, expected at least 3 subject-shaped sections for ${evidenceBudgetSourceCount} available sources.`);
       }
       if (ordinaryEvidenceBlockCount < minimumEvidenceBlocks) {
-        failures.push(`Ordinary reference article has too few evidence-bearing blocks: ${ordinaryEvidenceBlockCount}, expected at least ${minimumEvidenceBlocks} for ${evidenceBudgetSourceCount} available sources.`);
+        hints.push(`Ordinary reference article has too few evidence-bearing blocks: ${ordinaryEvidenceBlockCount}, expected at least ${minimumEvidenceBlocks} for ${evidenceBudgetSourceCount} available sources.`);
       }
       if (!ordinaryCoverageSignals.mechanism) {
-        failures.push('Ordinary reference article does not explain a causal process or organizing mechanism.');
+        hints.push('Ordinary reference article does not explain a causal process or organizing mechanism.');
       }
       if (!ordinaryCoverageSignals.example) {
-        failures.push('Ordinary reference article lacks a concrete example, case, or observable situation.');
+        hints.push('Ordinary reference article lacks a concrete example, case, or observable situation.');
       }
       if (!ordinaryCoverageSignals.boundary) {
-        failures.push('Ordinary reference article lacks a meaningful limit, exception, disagreement, or boundary.');
+        hints.push('Ordinary reference article lacks a meaningful limit, exception, disagreement, or boundary.');
       }
       const minimumUsedSources = Math.min(4, evidenceBudgetSourceCount);
       if (usedCitationIndexes.length < minimumUsedSources) {
-        failures.push(`Ordinary reference article underuses its evidence: ${usedCitationIndexes.length}/${evidenceBudgetSourceCount} available sources cited, expected at least ${minimumUsedSources}.`);
+        hints.push(`Ordinary reference article underuses its evidence: ${usedCitationIndexes.length}/${evidenceBudgetSourceCount} available sources cited, expected at least ${minimumUsedSources}.`);
       }
     }
     const firstArticleClaim = docClaims[0] || null;
     if (sourceCount && firstArticleClaim && !(firstArticleClaim.citationIndexes || []).length) {
-      failures.push('Ordinary reference article opens with an uncited definition or synthesis.');
+      hints.push('Ordinary reference article opens with an uncited definition or synthesis.');
     }
     if (danglingCitationIndexes.length) {
       failures.push(`Ordinary reference article has dangling citation indexes: ${danglingCitationIndexes.slice(0, 8).join(', ')}.`);
@@ -3966,6 +4000,9 @@ const evaluateWikiArticleQuality = ({
     ) {
       failures.push('Ordinary reference article asserts a formal equivalence that the cited source text does not establish.');
     }
+    if (unstatedFigureClaims.length) {
+      failures.push(`Ordinary reference article states figures its cited sources do not: ${unstatedFigureClaims.map(({ figures, text }) => `${figures.join(', ')} in "${truncate(text, 160)}"`).join('; ')}`);
+    }
   }
   const wordGateSourceCount = isFlexibleReferencePage ? evidenceBudgetSourceCount : sourceCount;
   const minWords = isRepoQualityPage
@@ -3977,7 +4014,7 @@ const evaluateWikiArticleQuality = ({
           })
         : (wordGateSourceCount >= 5 ? QUALITY_MIN_WORDS_WITH_MANY_SOURCES : QUALITY_MIN_WORDS));
   if (wordGateSourceCount >= 3 && words < minWords) {
-    failures.push(`Article is too thin for ${wordGateSourceCount} available sources: ${words} words, expected at least ${minWords}.`);
+    (isFlexibleReferencePage ? hints : failures).push(`Article is too thin for ${wordGateSourceCount} available sources: ${words} words, expected at least ${minWords}.`);
   }
   if (isRepoQualityPage && unsupported > 0) {
     failures.push(`GitHub repo article has unsupported claim ledger entries: ${unsupported}.`);
@@ -4061,6 +4098,7 @@ const evaluateWikiArticleQuality = ({
     status: failures.length ? 'needs_rebuild' : 'pass',
     score,
     failures,
+    hints,
     checkedAt: now,
     metrics: {
       words,
@@ -4084,6 +4122,7 @@ const evaluateWikiArticleQuality = ({
       ordinaryGroundingGapCount: ordinaryGroundingGaps.length,
       ordinaryRepeatedSentenceCount: ordinaryRepeatedSentences.length,
       ordinaryGenericHeadingCount,
+      unstatedFigureCount: unstatedFigureClaims.reduce((total, claim) => total + claim.figures.length, 0),
       ownedSourceUtilization,
       durableCitationCheckSkipped: Boolean(skipDurableCitationCheck),
       ...(investmentDossierQuality
@@ -4585,7 +4624,7 @@ const maintainWikiPage = async ({
     for (let repairAttempt = 1; repairAttempt <= maxQualityRebuildAttempts && !materialized.quality.ok; repairAttempt += 1) {
       if (repairAttempt > 1) {
         const remainingFailures = (materialized.quality.failures || []).join(' ');
-        const editorialRepairStillActionable = /repeats substantive sentences|generic section heading|concrete example|too thin|lexical anchor|uncited|underuses its evidence|owned Library evidence|owned Library source|causal process|meaningful limit/i.test(remainingFailures);
+        const editorialRepairStillActionable = /states figures|repeats substantive sentences|generic section heading|concrete example|too thin|lexical anchor|uncited|underuses its evidence|owned Library evidence|owned Library source|causal process|meaningful limit/i.test(remainingFailures);
         if (!editorialRepairStillActionable) break;
       }
       try {
@@ -4628,7 +4667,7 @@ const maintainWikiPage = async ({
               recoveryDraftQuality,
               wikiSchemaContent,
               knownWikiPages,
-              failures: materialized.quality.failures,
+              failures: [...(materialized.quality.failures || []), ...(materialized.quality.hints || [])],
               draftArticle: finalNormalized.article,
               sourceTextLimit: effectiveSourceTextLimit,
               repairAttempt

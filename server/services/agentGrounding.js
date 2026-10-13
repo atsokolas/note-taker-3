@@ -63,4 +63,45 @@ const quotedIn = (span = '', texts = []) => {
 // about what a source said.
 const inventedQuotes = (reply = '', texts = []) => quotations(reply).filter(span => !quotedIn(span, texts));
 
-module.exports = { PASSAGE_WORDS, NOTE_LABEL, words, drawsOn, groundedIn, inventedQuotes, quotedIn };
+// A number is grounded the same way: the source states it. Each figure keeps
+// the value it stands for and how precisely it was written, so "$81.6 billion"
+// matches a filing's "81,615" (in millions) but not "$80 billion". Years and
+// small bare counts are not figures a reader checks.
+const SCALES = { thousand: 1e3, million: 1e6, mn: 1e6, m: 1e6, billion: 1e9, bn: 1e9, b: 1e9, trillion: 1e12, t: 1e12 };
+const NUMBER = /(\$)?(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)(?:\s*(%|percent|thousand|million|billion|trillion|mn|bn|[mbt]\b|x\b|×))?/gi;
+
+const figuresIn = (text = '') => {
+  const figures = [];
+  for (const match of String(text).matchAll(NUMBER)) {
+    const [raw, dollar, digits, unitRaw = ''] = match;
+    const unit = unitRaw.toLowerCase();
+    const base = Number(digits.replace(/,/g, ''));
+    if (!Number.isFinite(base)) continue;
+    const decimals = (digits.split('.')[1] || '').length;
+    const bare = !dollar && !unit;
+    if (bare && !digits.includes(',') && !digits.includes('.') && (base < 10 || (base >= 1900 && base <= 2100))) continue;
+    const scale = SCALES[unit] || 1;
+    figures.push({ raw: raw.trim(), value: base * scale, step: scale * 10 ** -decimals });
+  }
+  return figures;
+};
+
+// Every value a text states, at every scale a table might state it in.
+const valuesIn = (text = '') => figuresIn(text).flatMap(({ value, step }) => (
+  step >= 1 ? [value, value * 1e3, value * 1e6, value * 1e9] : [value]
+));
+
+const statedIn = (figure, values) => values.some(value => (
+  Math.abs(value - figure.value) <= Math.max(figure.step / 2, Math.abs(figure.value) * 1e-9)
+));
+
+// The figures in a claim that none of the given texts states.
+const unstatedFigures = (claim = '', texts = []) => {
+  const values = (Array.isArray(texts) ? texts : []).flatMap(valuesIn);
+  return figuresIn(claim).filter(figure => !statedIn(figure, values)).map(figure => figure.raw);
+};
+
+module.exports = {
+  PASSAGE_WORDS, NOTE_LABEL, words, drawsOn, groundedIn, inventedQuotes, quotedIn,
+  figuresIn, valuesIn, statedIn, unstatedFigures
+};

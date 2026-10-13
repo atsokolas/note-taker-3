@@ -1,6 +1,6 @@
 const { acquireWikiWriteBudget } = require('./wikiAutomaticRetentionService');
 const { policy, isReviewer, holdReviewerSourceEvent } = require('./reviewerRehearsalBudget');
-const { isGitHubRepoPage, maintainWikiPage } = require('./wikiMaintenanceService');
+const { maintainWikiPage } = require('./wikiMaintenanceService');
 const { createWikiRevision, snapshotPage } = require('./wikiRevisionService');
 const { runWikiMaintenanceCandidate } = require('./wikiMaintenancePublicationService');
 const {
@@ -536,12 +536,8 @@ const runWikiSourceEvent = async ({
         wikiSchemaContent: effectiveWikiSchemaContent
       };
       const ownerReviewRequired = event.metadata?.requireOwnerAcceptance === true;
-      const enforcePublicationShield = ownerReviewRequired || isGitHubRepoPage({ page })
-        || protectedPublicPage
-        || event.sourceType === 'external'
-        || event.metadata?.enforcePublicationQuality === true;
       const headSha = String(event.metadata?.commitSha || page.externalWatches?.githubRepo?.lastHeadSha || '');
-      const lease = enforcePublicationShield && headSha
+      const lease = headSha
         ? await acquireRepoBuildLease({
             WikiPage,
             pageId: page._id,
@@ -556,34 +552,28 @@ const runWikiSourceEvent = async ({
       if (lease?.page) page = lease.page;
       let publication;
       try {
-        publication = enforcePublicationShield
-          ? await runWikiMaintenanceCandidate({
-            page,
-            userId: event.userId,
-            WikiRevision,
-            beforeSnapshot: before,
-            sourceEventId: event._id,
-            maintenanceRunId: run?._id || null,
-            rejectDestructiveClaimLoss: event.sourceType === 'external' || protectedPublicPage,
-            promoteEvidenceOnlyOnDestructiveLoss: !ownerReviewRequired && event.sourceType === 'external' && !protectedPublicPage,
-            requireManualReview: protectedPublicPage,
-            requireOwnerAcceptance: ownerReviewRequired || Boolean(page.investmentDossier?.version),
-            sourceVersion: event.metadata?.commitSha ? {
-              provider: 'github',
-              headSha: event.metadata.commitSha,
-              snapshotKey: event.metadata.snapshotKey || ''
-            } : null,
-            maintainWikiPageFn,
-            maintainArgs
-          })
-          : {
-            page: await maintainWikiPageFn({
-              ...maintainArgs,
-              page,
-              userId: event.userId
-            }) || page,
-            promoted: true
-          };
+        // Every update a source triggers passes the same check a first build
+        // does. A page someone already reads is never replaced by one that
+        // states what its sources do not.
+        publication = await runWikiMaintenanceCandidate({
+          page,
+          userId: event.userId,
+          WikiRevision,
+          beforeSnapshot: before,
+          sourceEventId: event._id,
+          maintenanceRunId: run?._id || null,
+          rejectDestructiveClaimLoss: event.sourceType === 'external' || protectedPublicPage,
+          promoteEvidenceOnlyOnDestructiveLoss: !ownerReviewRequired && event.sourceType === 'external' && !protectedPublicPage,
+          requireManualReview: protectedPublicPage,
+          requireOwnerAcceptance: ownerReviewRequired || Boolean(page.investmentDossier?.version),
+          sourceVersion: event.metadata?.commitSha ? {
+            provider: 'github',
+            headSha: event.metadata.commitSha,
+            snapshotKey: event.metadata.snapshotKey || ''
+          } : null,
+          maintainWikiPageFn,
+          maintainArgs
+        });
       } catch (error) {
         if (lease?.acquired) {
           await releaseRepoBuildLease({

@@ -61,15 +61,17 @@ app.use(buildWikiRouter({ WikiPage: PageModel, WikiRevision: Revision,
     assert.ok(candidate); assert.equal(candidate.quality.ok, true); assert.match(candidate.after.plainText, /Feedback repairs an observed gap/);
     const blocked = await fetch(`${origin}/api/wiki/pages/${page._id}/research-head/adopt`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ confirmation: 'ADOPT CURRENT TRUSTED HEAD' }) });
     assert.equal(blocked.status, 403); assert.equal(stored.plainText, before.plainText);
-    // A valid delivery containing insufficient evidence-bearing prose fails
-    // the unchanged quality contract, distinguishing rejection from broken auth.
-    modelOutput = { ...generated, article: { ...generated.article, sections: generated.article.sections.slice(0, 2) }, sourceIndexesUsed: [1, 2] };
+    // A valid delivery stating a figure its source never gives fails the
+    // quality contract, distinguishing rejection from broken auth.
+    const [first, ...rest] = generated.article.sections;
+    const invented = { ...first, paragraphs: [{ ...first.paragraphs[0], text: `${first.paragraphs[0].text} Learners who practise this way remember 62% more a week later.` }] };
+    modelOutput = { ...generated, article: { ...generated.article, sections: [invented, ...rest] } };
     const sparseResponse = await fetch(`${origin}/api/wiki/pages/${page._id}/ai/draft`, { method: 'POST' });
     const sparse = await sparseResponse.json();
     assert.equal(sparseResponse.status, 422, JSON.stringify(sparse));
     assert.equal(sparse.code, 'WIKI_CANDIDATE_REJECTED');
     assert.equal(evaluatedQuality.ok, false);
-    assert.ok(evaluatedQuality.failures.some(failure => /too thin|450|words/.test(failure)), JSON.stringify(evaluatedQuality));
+    assert.ok(evaluatedQuality.failures.some(failure => /states figures its cited sources do not: 62%/.test(failure)), JSON.stringify(evaluatedQuality));
     assert.equal(stored.plainText, before.plainText); assert.deepEqual(stored.body, before.body);
     console.log(JSON.stringify({ passed: true, fixture: 'deterministic successful model output through real Wiki route, maintainer, quality evaluator and candidate holding', positiveModelCalls: 1, positiveQuality: candidate.quality, negativeModelCalls: modelCalls - 1, negativeQuality: evaluatedQuality, sparseStatus: sparseResponse.status, responseStatus: response.status, candidateStatus: body.aiState.candidateStatus, acceptedHeadUnchanged: true, agentAdoptionStatus: blocked.status, limitations: 'In-memory auth/storage; no real model generation, production data, consent, grant or Mongo persistence.' }, null, 2));
   } finally { await new Promise(resolve => server.close(resolve)); }

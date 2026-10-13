@@ -221,9 +221,10 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
         snippet: 'Routines should be regular and predictable without becoming rigid.'
       }]
     });
-    expect(gaps).toEqual([
-      'Cultural norms determine which parenting practices transfer across societies.'
-    ]);
+    expect(gaps).toEqual([{
+      sentence: 'Cultural norms determine which parenting practices transfer across societies.',
+      unanchored: true
+    }]);
   });
   it('remaps repo citation indexes after retained refs reorder the final reference list', () => {
     const article = {
@@ -458,11 +459,11 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
       skipDurableCitationCheck: true
     });
 
-    expect(quality.failures.join(' ')).toMatch(/too few evidence-bearing blocks/i);
-    expect(quality.failures.join(' ')).toMatch(/causal process or organizing mechanism/i);
-    expect(quality.failures.join(' ')).toMatch(/concrete example, case, or observable situation/i);
-    expect(quality.failures.join(' ')).toMatch(/limit, exception, disagreement, or boundary/i);
-    expect(quality.failures.join(' ')).toMatch(/underuses its evidence/i);
+    expect(quality.hints.join(' ')).toMatch(/too few evidence-bearing blocks/i);
+    expect(quality.hints.join(' ')).toMatch(/causal process or organizing mechanism/i);
+    expect(quality.hints.join(' ')).toMatch(/concrete example, case, or observable situation/i);
+    expect(quality.hints.join(' ')).toMatch(/limit, exception, disagreement, or boundary/i);
+    expect(quality.hints.join(' ')).toMatch(/underuses its evidence/i);
     expect(quality.metrics.sourceCount).toBe(2);
     expect(quality.metrics.availableSourceCount).toBe(5);
   });
@@ -483,7 +484,7 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(projectPrompt).toContain('Required section shape, in this order: Purpose | Current State');
   });
 
-  it('rejects a generic five-heading template for an ordinary reference page', () => {
+  it('asks a generic five-heading template to name its sections, without refusing it', () => {
     const body = docFromArticle({
       title: 'Compound Interest',
       article: {
@@ -500,10 +501,11 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
       skipDurableCitationCheck: true
     });
 
-    expect(quality.failures.join(' ')).toMatch(/subject-specific sections/i);
+    expect(quality.hints.join(' ')).toMatch(/subject-specific sections/i);
+    expect(quality.ok).toBe(true);
   });
 
-  it('rejects generic headings even when a narrow ordinary Wiki has one source', () => {
+  it('flags generic headings even when a narrow ordinary Wiki has one source', () => {
     const body = docFromArticle({
       title: 'Sparse attention',
       article: {
@@ -523,10 +525,10 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
       skipDurableCitationCheck: true
     });
 
-    expect(quality.failures.join(' ')).toMatch(/3 generic section headings/i);
+    expect(quality.hints.join(' ')).toMatch(/3 generic section headings/i);
   });
 
-  it('allows subject-specific overview headings while rejecting generic scene-setting', () => {
+  it('allows subject-specific overview headings while flagging generic scene-setting', () => {
     const subjectSpecificBody = docFromArticle({
       title: 'Compound Interest',
       article: {
@@ -546,7 +548,7 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
       sourceRefs: [],
       skipDurableCitationCheck: true
     });
-    expect(subjectSpecificQuality.failures.join(' ')).not.toMatch(/subject-specific sections|generic scene-setting/i);
+    expect(subjectSpecificQuality.hints.join(' ')).not.toMatch(/subject-specific sections|generic scene-setting/i);
 
     const fillerBody = docFromArticle({
       title: 'Compound Interest',
@@ -567,10 +569,10 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
       sourceRefs: [],
       skipDurableCitationCheck: true
     });
-    expect(fillerQuality.failures.join(' ')).toMatch(/generic scene-setting/i);
+    expect(fillerQuality.hints.join(' ')).toMatch(/generic scene-setting/i);
   });
 
-  it('rejects repeated evidence-bearing prose and a generic section role on an ordinary Wiki', () => {
+  it('flags repeated evidence-bearing prose and a generic section role on an ordinary Wiki', () => {
     const repeated = 'Serve and return describes responsive exchanges in which a young child signals and a caregiver answers with attention, words, eye contact, or touch.';
     const body = docFromArticle({
       title: 'Parenting',
@@ -596,8 +598,8 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
       skipDurableCitationCheck: true
     });
 
-    expect(quality.failures.join(' ')).toMatch(/repeats substantive sentences/i);
-    expect(quality.failures.join(' ')).toMatch(/generic section heading/i);
+    expect(quality.hints.join(' ')).toMatch(/repeats substantive sentences/i);
+    expect(quality.hints.join(' ')).toMatch(/generic section heading/i);
     expect(quality.metrics.ordinaryRepeatedSentenceCount).toBe(1);
     expect(quality.metrics.ordinaryGenericHeadingCount).toBe(1);
   });
@@ -623,7 +625,7 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
       skipDurableCitationCheck: true
     });
 
-    expect(quality.failures.join(' ')).not.toMatch(/repeats substantive sentences|generic section heading/i);
+    expect(quality.hints.join(' ')).not.toMatch(/repeats substantive sentences|generic section heading/i);
     expect(quality.metrics.ordinaryRepeatedSentenceCount).toBe(0);
     expect(quality.metrics.ordinaryGenericHeadingCount).toBe(0);
   });
@@ -811,6 +813,34 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
 
     expect(quality.metrics.topicallyGroundedSourceCount).toBe(1);
     expect(quality.failures.join(' ')).toMatch(/formal equivalence/i);
+  });
+
+  it('refuses a figure its cited source does not state, and nothing else about a backed page', () => {
+    const sourceRefs = [{
+      title: 'Costco annual report',
+      snippet: 'Membership fee income was $4,828 million in fiscal 2024, and the renewal rate in the United States and Canada was 92.9%.'
+    }];
+    const evaluate = text => evaluateWikiArticleQuality({
+      page: { title: 'Costco membership', pageType: 'topic' },
+      body: docFromArticle({
+        title: 'Costco membership',
+        article: {
+          summary: { text: 'Costco membership income comes from annual fees that members renew.', citationIndexes: [1], support: 'supported' },
+          sections: [{ heading: 'How it works', paragraphs: [{ text, citationIndexes: [1], support: 'supported' }], bullets: [] }]
+        }
+      }),
+      sourceRefs,
+      skipDurableCitationCheck: true
+    });
+
+    const backed = evaluate('Membership fee income reached $4.8 billion in fiscal 2024, with a 92.9% renewal rate.');
+    expect(backed.ok).toBe(true);
+    expect(backed.hints.join(' ')).toMatch(/generic section heading/i);
+
+    const invented = evaluate('Membership fee income reached $5.2 billion in fiscal 2024, with a 92.9% renewal rate.');
+    expect(invented.ok).toBe(false);
+    expect(invented.failures.join(' ')).toMatch(/states figures its cited sources do not: \$5\.2 billion in "Membership fee income/);
+    expect(invented.metrics.unstatedFigureCount).toBe(1);
   });
 
   it('anchors topical evidence to the subject before a descriptive subtitle', () => {

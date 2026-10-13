@@ -52,7 +52,7 @@ const run = () => {
     skipDurableCitationCheck: true
   });
   const gateFloor = Number(
-    quality.failures
+    quality.hints
       .map(failure => failure.match(/too thin for \d+ available sources: \d+ words, expected at least (\d+)/)?.[1])
       .find(Boolean)
   );
