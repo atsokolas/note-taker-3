@@ -4,6 +4,7 @@ const {
   inferEvidenceArchetype
 } = require('./investmentDossierProfileService');
 const { figuresIn, unstatedFigures } = require('./agentGrounding');
+const { MARKET_PLACEHOLDER } = require('./companyDossierService');
 
 const clean = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
 const unique = values => Array.from(new Set((Array.isArray(values) ? values : []).filter(Boolean)));
@@ -80,8 +81,15 @@ const evaluateInvestmentDossierQuality = ({
   ].filter(Boolean).join(' ');
   const ownersOwn = claim => /\bowner(?:'s)?\b[^.]{0,40}\b(?:hurdle|thesis|judgment|hypothesis)\b|\bstarting (?:judgment|assumption)\b/i.test(clean(claim?.text))
     && ownerText && !unstatedFigures(claim?.text, [ownerText]).length;
+  // Its figures may come from anywhere on the page: "7%-8% growth could not be
+  // corroborated" restates a figure, it does not claim a new one.
+  const pageText = [
+    ownerText,
+    ...sourceList.map(source => [source?.snippet, source?.quote, source?.text].filter(Boolean).join(' ')),
+    ...(Array.isArray(claims) ? claims : []).map(claim => clean(claim?.text))
+  ];
   const namesMissingEvidence = claim => MISSING_EVIDENCE.test(clean(claim?.text))
-    && !unstatedFigures(claim?.text, [sourceTextForClaim({ claim, sourceRefs: sourceList }), ownerText]).length;
+    && !unstatedFigures(claim?.text, pageText.filter(text => text !== clean(claim?.text))).length;
   const claimList = (Array.isArray(claims) ? claims : [])
     .filter(claim => !ownersOwn(claim) && !namesMissingEvidence(claim));
   const unsupportedClaims = claimList.filter(claim => clean(claim?.support).toLowerCase() === 'unsupported');
@@ -96,14 +104,19 @@ const evaluateInvestmentDossierQuality = ({
     || (claim?.sourceRefIds || []).length
     || (claim?.citationIndexes || []).length
   ));
-  // The owner's hurdle and what follows from it alone (1.10^5) are not claims about the company.
+  // The owner's hurdle and what follows from it alone (1.10^5) are not claims
+  // about the company. A figure shown once, anywhere on the page, may be
+  // restated: a question can name the 44% a later paragraph adds up.
   const established = [ownerText];
-  const ungroundedNumericClaims = claimList.filter((claim) => {
-    if (!['supported', 'partial', 'conflicted'].includes(clean(claim?.support).toLowerCase())) return false;
-    if (numericGroundingFailure({ claim, sourceRefs: sourceList, established })) return true;
-    established.push(clean(claim?.text));
-    return false;
-  });
+  let ungroundedNumericClaims = claimList.filter(claim => (
+    ['supported', 'partial', 'conflicted'].includes(clean(claim?.support).toLowerCase())
+  ));
+  for (let grew = true; grew;) {
+    const grounded = ungroundedNumericClaims.filter(claim => !numericGroundingFailure({ claim, sourceRefs: sourceList, established }));
+    established.push(...grounded.map(claim => clean(claim?.text)));
+    ungroundedNumericClaims = ungroundedNumericClaims.filter(claim => !grounded.includes(claim));
+    grew = grounded.length > 0;
+  }
   const observedEvidenceArchetypes = unique([
     ...(plan.evidenceArchetypes || []),
     ...sourceList.map(inferEvidenceArchetype)
@@ -150,6 +163,9 @@ const evaluateInvestmentDossierQuality = ({
   }
   if (claimList.length < DECISION_DOSSIER_MIN_CLAIMS) {
     hints.push(`Investment dossier has too few claim-level analytical units: ${claimList.length}, expected at least ${DECISION_DOSSIER_MIN_CLAIMS}.`);
+  }
+  if (JSON.stringify(body || {}).includes(MARKET_PLACEHOLDER)) {
+    failures.push('Investment dossier still carries the unwritten template: What the market is pricing was never written.');
   }
   if (blockingUnsupportedClaims.length) {
     const samples = blockingUnsupportedClaims

@@ -2,6 +2,10 @@ const { upgradeInvestmentDossierProfile } = require('./investmentDossierProfileS
 
 const clean = (value = '', max = 2400) => String(value || '').replace(/\s+/g, ' ').trim().slice(0, max);
 
+// What a new dossier says before anything is written. A page that still says
+// it has not been written.
+const MARKET_PLACEHOLDER = 'Awaiting a dated price, diluted share count, and normalized operating base. None of these is inferred silently.';
+
 const heading = (text) => ({
   type: 'heading',
   attrs: { level: 2 },
@@ -36,7 +40,7 @@ const buildCompanyDossierBody = ({ companyName, ticker, startingJudgment, requir
     paragraph(startingJudgment),
     paragraph(`Owner hurdle: ${(requiredReturn * 100).toFixed(1)}% annual return over ${horizonYears} years. This is a starting judgment, not a proven conclusion.`),
     heading('What the market is pricing'),
-    paragraph('Awaiting a dated price, diluted share count, and normalized operating base. None of these is inferred silently.'),
+    paragraph(MARKET_PLACEHOLDER),
     heading('Business and product system'),
     paragraph(),
     heading('Technical architecture and moat'),
@@ -144,6 +148,7 @@ const activeCompanyDossierKey = (cik = '') => {
 };
 
 module.exports = {
+  MARKET_PLACEHOLDER,
   activeCompanyDossierKey,
   buildCompanyDossierBody,
   buildCompanyDossierJudgmentInput,

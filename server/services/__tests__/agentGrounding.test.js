@@ -53,6 +53,10 @@ describe('unstatedFigures', () => {
   const { unstatedFigures } = require('../agentGrounding');
   const filing = 'Revenue was $81,615 million, up 85% from a year ago. Gross margin was 75.0%.';
 
+  it('reads both ends of a band to watch as the threshold', () => {
+    expect(unstatedFigures('A renewal rate below approximately 88-89% would break the thesis.', ['Renewal rate 89.8%.'])).toEqual([]);
+  });
+
   it('reads "tn" as trillions and follows a stated base carried forward at a compounding rate', () => {
     const sources = ['Market value of $5.52 trillion.', 'Diluted EPS $4.90.', 'Owner hurdle: 10% a year.'];
     expect(unstatedFigures('At $5.52tn the shares trade near 46x.', [...sources, '46x'])).toEqual([]);

@@ -395,7 +395,7 @@ const askClaude = async (input, config) => {
   } catch (error) {
     if (!error?.contract) throw error;
     const { finishReason, maxTokens } = error.contract;
-    console.warn('[AI] Claude missed the output contract; asking once more', { finishReason, maxTokens });
+    console.warn('[AI] Claude missed the output contract; asking once more', error.contract);
     const roomier = finishReason === 'length' ? Math.min(maxTokens * 2, CLAUDE_RETRY_MAX_TOKENS) : maxTokens;
     return chatCompleteWithConfig({ ...input, maxTokens: roomier }, config);
   }
@@ -755,17 +755,42 @@ const extractChatContent = (body) => {
   return '';
 };
 
+// Two mechanical slips a long JSON answer makes: a raw line break inside a
+// string, and a comma before a closing bracket. Nothing else is guessed.
+const repairJson = (text = '') => {
+  let out = '';
+  let inString = false;
+  for (let i = 0; i < text.length; i += 1) {
+    const char = text[i];
+    if (inString && char === '\\') { out += char + (text[i + 1] || ''); i += 1; continue; }
+    if (char === '"') inString = !inString;
+    out += inString && char === '\n' ? '\\n' : inString && char === '\r' ? '' : inString && char === '\t' ? '\\t' : char;
+  }
+  return out.replace(/,\s*([}\]])/g, '$1');
+};
+
+const parseJsonLoosely = text => parseJsonSafely(text) || parseJsonSafely(repairJson(text));
+
 const parseStructuredText = (value = '') => {
   const text = String(value || '').trim();
   if (!text) return null;
-  const direct = parseJsonSafely(text);
+  const direct = parseJsonLoosely(text);
   if (direct) return direct;
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  if (fenced) return parseJsonSafely(fenced[1].trim());
+  const fencedParsed = fenced && parseJsonLoosely(fenced[1].trim());
+  if (fencedParsed) return fencedParsed;
   // A sentence before or after the object is still an answer.
   const start = text.indexOf('{');
   const end = text.lastIndexOf('}');
-  return start >= 0 && end > start ? parseJsonSafely(text.slice(start, end + 1)) : null;
+  return start >= 0 && end > start ? parseJsonLoosely(text.slice(start, end + 1)) : null;
+};
+
+// The shape of an answer that missed its contract, never its words.
+const describeShape = (text = '') => {
+  const trimmed = String(text || '').trim();
+  let parseError = '';
+  try { JSON.parse(trimmed.slice(Math.max(0, trimmed.indexOf('{')))); } catch (error) { parseError = String(error.message).slice(0, 120); }
+  return { length: trimmed.length, opens: trimmed.slice(0, 1), closes: trimmed.slice(-1), parseError };
 };
 
 const hasReasoningLeak = (value = '') => (
@@ -1032,7 +1057,7 @@ const chatCompleteWithConfig = async ({
           provider: resolvedProvider || provider,
           model: candidateModel,
           upstream
-        }), { contract: { finishReason: body?.choices?.[0]?.finish_reason || '', maxTokens: generationContract.maxTokens } });
+        }), { contract: { finishReason: body?.choices?.[0]?.finish_reason || '', maxTokens: generationContract.maxTokens, ...describeShape(text) } });
       }
 
       return {

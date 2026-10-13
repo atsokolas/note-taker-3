@@ -143,7 +143,9 @@ const unstatedFigures = (claim = '', texts = []) => {
   // "x 52/36" scales a nine-month figure to a year; its terms are not claims.
   const fractions = [...text.matchAll(/\b(\d{1,3})\s*\/\s*(\d{1,3})\b/g)];
   const fractionTerms = new Set(fractions.flatMap(([, a, b]) => [a, b]));
-  const figures = figuresIn(text).filter(figure => !THRESHOLD.test(text.slice(0, text.indexOf(figure.raw)))
+  // "below 88-89%" sets a band to watch; both ends are the threshold.
+  const before = figure => text.slice(0, text.indexOf(figure.raw)).replace(/\d+(?:\.\d+)?%?\s*[-–]\s*$/, '');
+  const figures = figuresIn(text).filter(figure => !THRESHOLD.test(before(figure))
     && !fractionTerms.has(figure.raw));
   const scalers = [
     ...(text.match(SCALERS) || []).map(Number),

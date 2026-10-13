@@ -1267,8 +1267,10 @@ Investment dossier rules:
 - For each source not attached, say plainly in the relevant section that it could not be found (use those words), and draw no conclusion that needs it. With no dated market price, state no market value, multiple or implied return.
 - Every figure must be stated in a cited source, or computed in the same sentence from figures that are, with the inputs written out: "membership fees were 1.99% of net sales ($5.91bn / $297.25bn)". A margin, ratio, multiple or growth rate without its inputs beside it is refused.
 - For each disclosure (buybacks, customer concentration, commitments, guidance), use the latest attached filing that reports it, and give its latest quarter alongside any year-to-date total. A figure from an older period cites the filing that reports it, and is compared only with the same length of period ("first half against first half", never a half-year against nine months).
-- A market value is the dated price times the shares outstanding stated in SEC Company Facts, each with its date; a trailing multiple uses reported net income or diluted EPS, never one backed into from operating income.
-- Use consolidated income-statement totals for margins and earnings; a segment total is named as one and never used as the company's. Cite reported net income and EPS directly; never back into them.
+- A market value is the dated price times the shares outstanding stated in SEC Company Facts, each with its date; a trailing multiple uses reported net income or diluted EPS, never one backed into from operating income. The two dates need not match: compute it, name both dates, and call it a sensitivity.
+- State the latest fiscal year's reported net income and diluted EPS from SEC Company Facts.
+- Use consolidated income-statement totals for margins and earnings; a segment total is named as one ("total segment operating income") and never called the company's total. Cite reported net income and EPS directly; never back into them.
+- Never back a prior-period figure out of a growth rate. If the sources do not state the earlier figure, give the current figure and the rate.
 - Open with the judgment and what the filings establish. Say what is missing once, where it matters (Implied Expectations for price and multiples), not in the opening.
 - Write for an investor: never use the words "evidence archetype", "module", "ledger", "maintenance test" or "dossier engine", never write internal labels with underscores, and do not name the app.
 - When a competitor's filing is attached, compare the company against it in Product and Technical Moat, citing it.
@@ -4581,6 +4583,9 @@ const maintainWikiPage = async ({
         provider: completion.provider || ''
       };
       result = extractJson(completion.text);
+      // A dossier is written by the model or not at all; the generic fallback
+      // would publish the empty template under the model's name.
+      if (investmentDossier && !result) throw Object.assign(new Error('The research model returned no readable draft.'), { status: 502 });
       await emitProgress({
         stage: 'model_drafted',
         summary: 'Draft response received from the maintenance model.',
