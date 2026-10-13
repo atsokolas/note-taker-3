@@ -1717,7 +1717,9 @@ const extractSecFilingEvidenceText = (value = '', limit = SEC_FILING_EVIDENCE_TE
     // excerpt is full, so a long 10-Q keeps its results, buybacks and
     // concentration before its descriptions.
     ['results of operations', /\b(?:management['’]s discussion and analysis|results of operations)\b/ig],
-    ['revenue and cost structure', /\b(?:cost of revenue|gross profit|gross margin|operating loss|membership fees|renewal rate)\b/ig],
+    ['revenue and cost structure', /\b(?:cost of revenue|gross profit|gross margin|operating loss)\b/ig],
+    // The reported rows, with prior years, and the year's renewal rate.
+    ['membership fees and renewal', /\bmembership fees \$|\brenewal rates? (?:was|were|of)\b/ig],
     ['net income and share count', /\b(?:per diluted share|net income per (?:diluted )?share|diluted (?:net income|earnings) per share|weighted[- ]average (?:diluted )?shares)\b/ig],
     ['customer concentration', /\b(?:customer concentration|concentration of revenue|major customers?|largest customer|direct customers? (?:represented|accounted))\b/ig],
     ['capital return', /\b(?:share repurchase|repurchase program|stock repurchases?|repurchased? (?:approximately )?[\d.]+ (?:million|billion) shares)\b/ig],
@@ -1732,7 +1734,7 @@ const extractSecFilingEvidenceText = (value = '', limit = SEC_FILING_EVIDENCE_TE
     ['material risks', /\bRisk Factors\b/ig]
   ].map(([label, pattern]) => {
     const positions = Array.from(text.matchAll(pattern), match => match.index).filter(index => index > 1800);
-    return { label, picks: positions.length > 1 ? [positions[Math.floor(positions.length / 2)], positions.at(-1)] : positions };
+    return { label, picks: positions.length > 1 ? [positions[Math.floor((positions.length - 1) / 2)], positions.at(-1)] : positions };
   })
     // Every topic gets one window before any gets a second.
     .flatMap(({ label, picks }) => picks.map((position, round) => ({ label, position, round })))

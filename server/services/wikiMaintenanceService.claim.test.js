@@ -1233,6 +1233,14 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     ]);
   });
 
+  it('carries a membership business\'s reported fee rows and renewal rate', () => {
+    const filler = count => 'lorem ipsum '.repeat(count);
+    const filing = `${filler(300)} Membership fee revenue increased 11% ${filler(2000)} Membership fees $ 5,907 $ 5,323 $ 4,828 ${filler(2000)} Our worldwide renewal rate was 89.8% ${filler(20000)}`;
+    const excerpt = __testables.extractSecFilingEvidenceText(filing);
+    expect(excerpt).toContain('Membership fees $ 5,907 $ 5,323');
+    expect(excerpt).toContain('renewal rate was 89.8%');
+  });
+
   it('fills a missing investment-dossier maintenance test from the filing clock', () => {
     const article = fillInvestmentDossierMaintenanceTest({
       page: {
