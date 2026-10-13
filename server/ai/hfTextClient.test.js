@@ -105,6 +105,7 @@ const run = () => {
     );
     assert.strictEqual(validateOutputContract({ text: '{"ok":true}', parserStrategy: 'json' }).ok, true);
     assert.strictEqual(validateOutputContract({ text: 'not json', parserStrategy: 'json' }).ok, false);
+    assert.strictEqual(validateOutputContract({ text: 'Here is the page:\n{"ok":true}\nDone.', parserStrategy: 'json' }).ok, true);
     const strictResponseFormat = {
       type: 'json_schema',
       json_schema: {

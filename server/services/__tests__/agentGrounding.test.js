@@ -53,6 +53,13 @@ describe('unstatedFigures', () => {
   const { unstatedFigures } = require('../agentGrounding');
   const filing = 'Revenue was $81,615 million, up 85% from a year ago. Gross margin was 75.0%.';
 
+  it('reads "tn" as trillions and follows a stated base carried forward at a compounding rate', () => {
+    const sources = ['Market value of $5.52 trillion.', 'Diluted EPS $4.90.', 'Owner hurdle: 10% a year.'];
+    expect(unstatedFigures('At $5.52tn the shares trade near 46x.', [...sources, '46x'])).toEqual([]);
+    expect(unstatedFigures('Clearing the 10% hurdle for five years needs EPS of $7.89 ($4.90 x 1.10^5).', sources)).toEqual([]);
+    expect(unstatedFigures('Clearing the 10% hurdle for five years needs EPS of $12.50 ($4.90 x 1.10^5).', sources)).toEqual(['$12.50']);
+  });
+
   it('finds a figure in the source at the scale the source states it', () => {
     expect(unstatedFigures('Revenue reached $81.6 billion, up 85%.', [filing])).toEqual([]);
   });

@@ -203,6 +203,9 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
       citationIndexes: [2]
     });
     expect(normalizeArticleTextBlock('A bounded claim. [1, 3]').citationIndexes).toEqual([1, 3]);
+    expect(extractJson('{"title":"Moats","summary":"the更 company holds; the 道 stays"}')).toMatchObject({
+      summary: 'the company holds; the 道 stays'
+    });
     expect(extractJson('{"title":"Parenting","sections":[{"heading":"Care",}],}')).toMatchObject({
       title: 'Parenting',
       sections: [{ heading: 'Care' }]

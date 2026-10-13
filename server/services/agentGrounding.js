@@ -67,8 +67,8 @@ const inventedQuotes = (reply = '', texts = []) => quotations(reply).filter(span
 // the value it stands for and how precisely it was written, so "$81.6 billion"
 // matches a filing's "81,615" (in millions) but not "$80 billion". Years and
 // small bare counts are not figures a reader checks.
-const SCALES = { thousand: 1e3, million: 1e6, mn: 1e6, mm: 1e6, m: 1e6, billion: 1e9, bn: 1e9, b: 1e9, trillion: 1e12, t: 1e12 };
-const NUMBER = /(\$)?(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)(?:\s*(%|percent|thousand|million|billion|trillion|mm|mn|bn|[mbt]\b|x\b|×))?/gi;
+const SCALES = { thousand: 1e3, million: 1e6, mn: 1e6, mm: 1e6, m: 1e6, billion: 1e9, bn: 1e9, b: 1e9, trillion: 1e12, tn: 1e12, t: 1e12 };
+const NUMBER = /(\$)?(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)(?:\s*(%|percent|thousand|million|billion|trillion|mm|mn|bn|tn|[mbt]\b|x\b|×))?/gi;
 
 const MONTH_BEFORE = /\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s+$/i;
 
@@ -157,10 +157,8 @@ const unstatedFigures = (claim = '', texts = []) => {
   const exponents = [...text.matchAll(/\^\s*\(?\s*(\d+(?:\.\d+)?)(?:\s*\/\s*(\d+))?\s*\)?/g)]
     .map(([, a, b]) => (b ? Number(a) / Number(b) : Number(a)))
     .filter(Number.isFinite);
-  const powered = value => exponents.flatMap((e) => {
-    const p = value ** e;
-    return Number.isFinite(p) ? [p, p - 1, (p - 1) * 100] : [];
-  });
+  const powers = value => exponents.map(e => value ** e).filter(Number.isFinite);
+  const powered = value => powers(value).flatMap(p => [p, p - 1, (p - 1) * 100]);
   const known = figures.filter(figure => statedIn(figure, values));
   const follows = figure => known.some(a => (
     near(a.value, figure)
@@ -168,6 +166,9 @@ const unstatedFigures = (claim = '', texts = []) => {
     || near(1 + a.value / 100, figure)
     || powered(a.value).concat(powered(1 + a.value / 100)).some(value => near(value, figure))
     || known.some(b => a !== b && b.value !== 0 && powered(a.value / b.value).some(value => near(value, figure)))
+    // "$4.90 x 1.10^5" carries a stated base forward at a compounding rate.
+    || known.some(b => a !== b && powers(b.value).concat(powers(1 + b.value / 100))
+      .some(p => near(a.value * p, figure) || near(a.value / p, figure)))
     || scalers.some(k => near(a.value * k, figure) || near(a.value / k, figure))
     || known.some(b => a !== b && b.value !== 0 && derivedFrom(a.value, b.value).some(value => near(value, figure)))
   )) || signedSums(known.map(a => a.value)).some(value => near(value, figure));

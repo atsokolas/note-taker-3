@@ -380,8 +380,26 @@ const getAnthropicConfig = () => {
 // A Claude failure is silent to the caller (another model answers), so say it here.
 const noteClaudeFallback = error => console.warn('[AI] Claude did not answer; falling back', {
   status: Number(error?.status || 0) || undefined,
-  message: String(error?.message || '').slice(0, 200)
+  message: String(error?.message || '').slice(0, 200),
+  finishReason: error?.contract?.finishReason || undefined
 });
+
+const CLAUDE_RETRY_MAX_TOKENS = 32000;
+
+// A long answer can miss its contract once: cut off at the token cap, or not
+// quite JSON. One more try, with room to finish when it ran out, beats handing
+// the draft to a weaker model.
+const askClaude = async (input, config) => {
+  try {
+    return await chatCompleteWithConfig(input, config);
+  } catch (error) {
+    if (!error?.contract) throw error;
+    const { finishReason, maxTokens } = error.contract;
+    console.warn('[AI] Claude missed the output contract; asking once more', { finishReason, maxTokens });
+    const roomier = finishReason === 'length' ? Math.min(maxTokens * 2, CLAUDE_RETRY_MAX_TOKENS) : maxTokens;
+    return chatCompleteWithConfig({ ...input, maxTokens: roomier }, config);
+  }
+};
 
 const getConfigChain = ({ allowFallback = true } = {}) => {
   const preferred = getConfig();
@@ -743,7 +761,11 @@ const parseStructuredText = (value = '') => {
   const direct = parseJsonSafely(text);
   if (direct) return direct;
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  return fenced ? parseJsonSafely(fenced[1].trim()) : null;
+  if (fenced) return parseJsonSafely(fenced[1].trim());
+  // A sentence before or after the object is still an answer.
+  const start = text.indexOf('{');
+  const end = text.lastIndexOf('}');
+  return start >= 0 && end > start ? parseJsonSafely(text.slice(start, end + 1)) : null;
 };
 
 const hasReasoningLeak = (value = '') => (
@@ -1003,14 +1025,14 @@ const chatCompleteWithConfig = async ({
         responseFormat: generationContract.responseFormat
       });
       if (!validation.ok) {
-        throw buildError({
+        throw Object.assign(buildError({
           status: 502,
           detail: validation.message,
           message: validation.message,
           provider: resolvedProvider || provider,
           model: candidateModel,
           upstream
-        });
+        }), { contract: { finishReason: body?.choices?.[0]?.finish_reason || '', maxTokens: generationContract.maxTokens } });
       }
 
       return {
@@ -1052,7 +1074,9 @@ const chatComplete = async (input = {}) => {
   for (const config of configs) {
     const startedAt = Date.now();
     try {
-      const completion = await chatCompleteWithConfig(input, config);
+      const completion = config.upstream === 'anthropic'
+        ? await askClaude(input, config)
+        : await chatCompleteWithConfig(input, config);
       return {
         ...completion,
         upstreamAttempts: [
@@ -1149,7 +1173,7 @@ const chatCompleteStream = async (input = {}) => {
   const claude = getAnthropicConfig();
   if (claude) {
     try {
-      const completion = await chatCompleteWithConfig(input, claude);
+      const completion = await askClaude(input, claude);
       if (typeof input.onDelta === 'function') input.onDelta(completion.text);
       return completion;
     } catch (error) {

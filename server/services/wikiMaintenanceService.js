@@ -1533,8 +1533,12 @@ Ordinary Wiki repair contract (attempt ${repairAttempt}):
 Return the complete repaired article. Make defensible claims, compare evidence, and include concrete tensions.`
 );
 
+// A lone CJK glyph fused to an English word ("the更 company") is a sampling
+// slip, not writing; a CJK word set apart by spaces is left alone.
+const STRAY_GLYPH = /(?<=[A-Za-z])[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]|[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af](?=[A-Za-z])/g;
+
 const extractJson = (value = '') => {
-  const text = asString(value);
+  const text = asString(value).replace(STRAY_GLYPH, '');
   if (!text) return null;
   const parseLooseJson = (candidate = '') => {
     try {
