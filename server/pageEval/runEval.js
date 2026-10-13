@@ -74,7 +74,7 @@ const startApp = async (userId) => {
 /* What the build produced, whether or not it was kept: the newest revision's
    page if there is one, else the page itself. */
 const builtPage = async ({ models, pageId }) => {
-  const revision = await models.WikiRevision.findOne({ pageId, reason: { $ne: 'created' }, after: { $ne: null } }).sort({ createdAt: -1 }).lean();
+  const revision = await models.WikiRevision.findOne({ pageId, reason: { $in: ['agent_maintenance', 'agent_candidate'] }, after: { $ne: null } }).sort({ createdAt: -1 }).lean();
   const page = await models.WikiPage.findById(pageId).lean();
   /* Only what the writer produced counts; the page as first created is a
      placeholder, and scoring it would score nothing. */
