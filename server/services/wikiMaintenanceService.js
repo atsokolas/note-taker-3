@@ -1715,7 +1715,7 @@ const extractSecFilingEvidenceText = (value = '', limit = SEC_FILING_EVIDENCE_TE
     // excerpt is full, so a long 10-Q keeps its results, buybacks and
     // concentration before its descriptions.
     ['results of operations', /\b(?:management['’]s discussion and analysis|results of operations)\b/ig],
-    ['revenue and cost structure', /\b(?:cost of revenue|gross profit|gross margin|operating loss)\b/ig],
+    ['revenue and cost structure', /\b(?:cost of revenue|gross profit|gross margin|operating loss|membership fees|renewal rate)\b/ig],
     ['net income and share count', /\b(?:per diluted share|net income per (?:diluted )?share|diluted (?:net income|earnings) per share|weighted[- ]average (?:diluted )?shares)\b/ig],
     ['customer concentration', /\b(?:customer concentration|concentration of revenue|major customers?|largest customer|direct customers? (?:represented|accounted))\b/ig],
     ['capital return', /\b(?:share repurchase|repurchase program|stock repurchases?|repurchased? (?:approximately )?[\d.]+ (?:million|billion) shares)\b/ig],
