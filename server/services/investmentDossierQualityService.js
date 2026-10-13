@@ -12,8 +12,9 @@ const DECISION_DOSSIER_MIN_WORDS = 1800;
 // A sentence that says what the evidence does not show: a negation, then what
 // was not found, stated, or computable.
 const MISSING_EVIDENCE = new RegExp([
-  /\b(?:no|not|none|cannot|could not|unable|insufficient)\b[^.]{0,160}\b(?:found|located|available|attached|stated|disclosed|comput\w*|calculated|answered|tested|testable|assessed|established|determined|present)\b/.source,
-  /\b(?:is|are|remains?)\s+(?:missing|unanswered|unavailable|unknown)\b/.source
+  /\b(?:no|not|none|cannot|could not|unable|insufficient)\b[^.]{0,160}\b(?:found|located|available|attached|stated|disclosed|comput\w*|calculated|answered|backed out|tested|testable|assessed|established|determined|present)\b/.source,
+  /\b(?:is|are|remains?)\s+(?:missing|unanswered|unavailable|unknown)\b/.source,
+  /\bevidence gap\b/.source
 ].join('|'), 'i');
 const DECISION_DOSSIER_MIN_CLAIMS = 20;
 const REPRODUCIBLE_MODULE_IDS = Object.freeze([
@@ -77,7 +78,7 @@ const evaluateInvestmentDossierQuality = ({
       ? `${(Number(hurdle.annualReturn) * 100).toFixed(1)}% ${hurdle.horizonYears} years`
       : ''
   ].filter(Boolean).join(' ');
-  const ownersOwn = claim => /owner(?:'s)? hurdle|starting judgment/i.test(clean(claim?.text))
+  const ownersOwn = claim => /\bowner(?:'s)?\b[^.]{0,40}\b(?:hurdle|thesis|judgment|hypothesis)\b|\bstarting (?:judgment|assumption)\b/i.test(clean(claim?.text))
     && ownerText && !unstatedFigures(claim?.text, [ownerText]).length;
   const namesMissingEvidence = claim => MISSING_EVIDENCE.test(clean(claim?.text))
     && !unstatedFigures(claim?.text, [sourceTextForClaim({ claim, sourceRefs: sourceList }), ownerText]).length;

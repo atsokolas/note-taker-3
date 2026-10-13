@@ -108,6 +108,11 @@ describe('unstatedFigures', () => {
     expect(unstatedFigures('Operating income rose from $7.79bn to $11.69bn, about 10.7% a year (($11.69bn / $7.79bn)^(1/4) - 1).', ['$7,793 million; $11,690 million'])).toEqual([]);
   });
 
+  it('reads a day of the month as no figure and follows multiplying in words', () => {
+    expect(unstatedFigures('Fiscal 2026 ended January 25, 2026.', ['nothing'])).toEqual([]);
+    expect(unstatedFigures('Multiplying $59,688 million by four gives $238.75 billion.', ['Net income $59,688 million.'])).toEqual([]);
+  });
+
   it('ignores years and small counts', () => {
     expect(unstatedFigures('In 2026 three of 5 segments grew.', [filing])).toEqual([]);
   });

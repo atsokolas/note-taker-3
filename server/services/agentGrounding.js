@@ -70,13 +70,16 @@ const inventedQuotes = (reply = '', texts = []) => quotations(reply).filter(span
 const SCALES = { thousand: 1e3, million: 1e6, mn: 1e6, mm: 1e6, m: 1e6, billion: 1e9, bn: 1e9, b: 1e9, trillion: 1e12, t: 1e12 };
 const NUMBER = /(\$)?(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)(?:\s*(%|percent|thousand|million|billion|trillion|mm|mn|bn|[mbt]\b|x\b|×))?/gi;
 
+const MONTH_BEFORE = /\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s+$/i;
+
 const figuresIn = (text = '') => {
   const figures = [];
   for (const match of String(text).matchAll(NUMBER)) {
     const [raw, dollar, digits, unitRaw = ''] = match;
     const unit = unitRaw.toLowerCase();
-    // "the high-80s" or "the 1990s" names a range, not a figure.
+    // "the high-80s" or "the 1990s" names a range, and "January 25" a day, not a figure.
     if (!unit && /^'?s\b/.test(String(text).slice(match.index + raw.length))) continue;
+    if (!dollar && !unit && MONTH_BEFORE.test(String(text).slice(Math.max(0, match.index - 12), match.index))) continue;
     const base = Number(digits.replace(/,/g, ''));
     if (!Number.isFinite(base)) continue;
     const decimals = (digits.split('.')[1] || '').length;
@@ -104,7 +107,11 @@ const derivedFrom = (a, b) => [a / b, (a / b) * 100, a / b - 1, ((a - b) / b) * 
 // Small whole numbers a claim scales by ("x 4", "over 5 years") are not
 // figures a reader checks, but they are inputs to the arithmetic shown.
 const SCALERS = /\b(?:[2-9]|1[0-2])\b/g;
-const SCALER_WORDS = [[/\b(?:doubl\w*|twice|halv\w*)\b/i, 2], [/\btripl\w*/i, 3], [/\bquadrupl\w*/i, 4]];
+const SCALER_WORDS = [
+  [/\b(?:doubl\w*|twice|halv\w*)\b/i, 2], [/\btripl\w*/i, 3], [/\bquadrupl\w*/i, 4],
+  ...['two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve']
+    .map((word, index) => [new RegExp(`\\b(?:by|times|over|divided by)\\s+${word}\\b`, 'i'), index + 2])
+];
 // "below roughly 70%" names a line to watch, not a fact to check.
 const THRESHOLD = /\b(?:below|above|under|over|exceeds?|beneath|falls? to|drops? to|rises? to)\s+(?:roughly\s+|about\s+|approximately\s+)?$/i;
 // Arithmetic often moves between units: 9,226 (millions) / 20.76 is 444.4 million.
