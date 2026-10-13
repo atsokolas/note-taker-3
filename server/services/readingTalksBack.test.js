@@ -5,8 +5,18 @@ const DAY = 24 * 60 * 60 * 1000;
 const now = new Date('2026-10-11T12:00:00.000Z');
 
 // Queries that resolve whether awaited directly or through .select().lean().
-const query = (value) => {
-  const chain = { select: () => chain, sort: () => chain, limit: () => chain, lean: async () => value, then: (ok, fail) => Promise.resolve(value).then(ok, fail) };
+const query = (found) => {
+  let value = found;
+  const chain = {
+    select: () => chain,
+    sort: (order = {}) => {
+      if (Array.isArray(value) && order.createdAt) value = [...value].sort((a, b) => order.createdAt * (a.createdAt - b.createdAt));
+      return chain;
+    },
+    limit: (count) => { if (Array.isArray(value)) value = value.slice(0, count); return chain; },
+    lean: async () => value,
+    then: (ok, fail) => Promise.resolve(value).then(ok, fail)
+  };
   return chain;
 };
 
@@ -14,6 +24,7 @@ const matches = (row, filter) => Object.entries(filter).every(([key, want]) => {
   const have = key.split('.').reduce((value, part) => value?.[part], row);
   if (want && typeof want === 'object' && !(want instanceof Date)) {
     if ('$gte' in want) return have >= want.$gte;
+    if ('$in' in want) return want.$in.map(String).includes(String(have));
     if ('$ne' in want) return have !== want.$ne && !(want.$type && typeof have !== want.$type);
     return true;
   }
@@ -194,6 +205,19 @@ describe('the reader version', () => {
     const found = await pushesAgainst({ userId: 'u1', models: challenged });
     expect(found).toMatchObject({ pageId: 'v1' });
     expect(found.proposal.provenance).toMatchObject({ stance: 'challenge', after: quote });
+  });
+
+  it('is not crowded out by newer readings of views since revised', async () => {
+    const models = world();
+    await read(models, answer({ stance: 'challenge', quote }));
+    const later = new Date(now.getTime() + 60 * 1000);
+    Array.from({ length: 12 }, (_, index) => models.NoeisReceipt.rows.push({
+      userId: 'u1', receiptId: `stale${index}`, kind: 'judgment_change_proposal', status: 'pending', createdAt: later,
+      provenance: { change: 'evidence', stance: 'challenge', pageId: 'v1', before: 'An older wording of the view.' }
+    }));
+    const found = await pushesAgainst({ userId: 'u1', models });
+    expect(found).toMatchObject({ pageId: 'v1' });
+    expect(found.proposal.provenance).toMatchObject({ after: quote });
   });
 });
 
