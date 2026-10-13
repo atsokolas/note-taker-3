@@ -249,7 +249,7 @@ const renderHomeFallback = (content) => `
       <section class="card">
         <p class="eyebrow">Start from a shared wiki</p>
         <h2>Read a public wiki, then make it yours.</h2>
-        <p>Each of these wikis is open to read. <strong>Make this mine</strong> copies its pages into your own knowledge base, where your reading keeps growing it. The owner's private highlights, notes and sources stay with them.</p>
+        <p>Each of these wikis is open to read. <strong>Add to my library</strong> copies its pages into your own wiki and saves every public source it cites into your Library, where your reading keeps growing it. The owner's private highlights and notes stay with them.</p>
         <div class="grid">
           ${renderStarterPackCards(content)}
         </div>

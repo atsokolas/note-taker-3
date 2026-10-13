@@ -8,6 +8,7 @@ import { buildSharePreviewReceipt } from '../utils/connectionMagicMoment';
 import useSeoMetadata from '../hooks/useSeoMetadata';
 import { CANONICAL_HOST, SITE_NAME, buildCanonicalUrl } from '../seo/siteMetadata';
 import { normalizeSpaces } from '../utils/editorialText';
+import { tookPath } from './welcomeModel';
 
 const hasAuthToken = () => {
   if (typeof window === 'undefined') return false;
@@ -159,7 +160,7 @@ const SharedWikiCollectionPage = () => {
       const firstPage = adoptedPages[0] || result.page || {};
       const adoptedId = pageIdFor(firstPage);
       if (adoptedId && shouldAutoAdopt) {
-        navigate(`/welcome?took=${encodeURIComponent(adoptedId)}`, { replace: true });
+        navigate(tookPath(adoptedId, result.library), { replace: true });
         return;
       }
       if (adoptedId) {
@@ -229,11 +230,11 @@ const SharedWikiCollectionPage = () => {
             <h1>{title}</h1>
             <section className="shared-wiki-page__adopt" aria-label="Adopt shared wiki">
               <div>
-                <h2>Make this wiki yours.</h2>
-                <p>The agent will copy these safe public pages into your workspace. Your copy joins your own background maintenance loop; the original owner keeps their private graph.</p>
+                <h2>Take this wiki, and its reading.</h2>
+                <p>The pages come into your Wiki and every public source they cite comes into your Library, ready to read. The original stays as it is.</p>
               </div>
               <button type="button" onClick={handleAdopt} disabled={adopting}>
-                {adopting ? 'Making a copy...' : 'Make this mine'}
+                {adopting ? 'Adding…' : 'Add to my library'}
               </button>
               {adoptionError ? <p className="shared-wiki-page__adopt-error" role="alert">{adoptionError}</p> : null}
             </section>

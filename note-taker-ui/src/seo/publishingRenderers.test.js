@@ -34,7 +34,7 @@ describe('publishing renderers', () => {
     expect(html).toContain('href="/examples"');
     expect(html).toContain('href="/skill.md"');
     expect(html).toContain('href="/ai-second-brain"');
-    expect(html).toContain('<strong>Make this mine</strong>');
+    expect(html).toContain('<strong>Add to my library</strong>');
     expect(html).toContain('href="/share/wiki/collection/mental-models"');
     expect(html).toContain('href="/share/wiki/collection/value-investing"');
     expect(html).not.toContain('The live app will show');

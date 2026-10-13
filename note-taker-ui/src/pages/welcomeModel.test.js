@@ -12,6 +12,8 @@ import {
   savedOn,
   topicProblem,
   viewProblem,
+  tookPath,
+  tookReceipt,
   writtenFrom
 } from './welcomeModel';
 
@@ -117,5 +119,14 @@ describe('welcomeModel', () => {
     expect(writtenFrom(0)).toBe('Your first page is written.');
     expect(writtenFrom(1)).toBe('Your first page is written, from one of your sources.');
     expect(writtenFrom(3)).toBe('Your first page is written, from three of your sources.');
+  });
+
+  it('lands a taken wiki in first run with what came into the Library', () => {
+    expect(tookPath('p 1')).toBe('/welcome?took=p+1');
+    expect(tookPath('p1', { sources: 5, alreadyHad: 1 })).toBe('/welcome?took=p1&sources=5&had=1');
+    expect(tookReceipt()).toBe('The wiki you took is in your Wiki now.');
+    expect(tookReceipt({ sources: 1, had: 0 })).toBe('The wiki you took is in your Wiki, and its source is in your Library.');
+    expect(tookReceipt({ sources: 5, had: 1 })).toBe('The wiki you took is in your Wiki, and its five sources are in your Library. One of them you had already saved.');
+    expect(tookReceipt({ sources: 5, had: 5 })).toBe('The wiki you took is in your Wiki, and its five sources are in your Library. You had already saved every one.');
   });
 });

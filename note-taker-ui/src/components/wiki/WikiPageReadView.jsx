@@ -431,7 +431,9 @@ const hasStarterPackSampleProvenance = (adoptedFrom = {}) => {
   return Boolean(adoptedFrom.sample || adoptedFrom.originType === 'starter_pack' || adoptedFrom.packId);
 };
 
+/* Packs taken before they cited sources were samples, and still say so. */
 const starterPackAttributionLine = (adoptedFrom = {}) => {
+  if (!adoptedFrom.sample) return 'From a ready-made Noeis wiki';
   const title = String(adoptedFrom.originTitle || '').trim();
   return title ? `Starter pack sample · ${title}` : 'Starter pack sample';
 };

@@ -145,7 +145,7 @@ const PublicProofGallery = () => {
             the highest-intent surface Noeis has, so the fork lives here too.
             ?adopt=1 completes the copy for a signed-in reader; a logged-out one
             sees the wiki first and adopts from the page itself. */}
-        <Link className="public-proof-gallery__card-link" to={`${item.href}?adopt=1`}>Make this mine</Link>
+        <Link className="public-proof-gallery__card-link" to={`${item.href}?adopt=1`}>Add to my library</Link>
         <Link className="public-proof-gallery__text-link" to={item.href}>Read maintained wiki</Link>
         {comparisonHref ? (
           <Link className="public-proof-gallery__text-link" to={comparisonHref}>Inspect the maintenance proof</Link>

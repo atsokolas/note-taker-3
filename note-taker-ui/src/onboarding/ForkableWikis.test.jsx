@@ -61,7 +61,7 @@ describe('ForkableWikis', () => {
   it('sends a logged-out reader to sign up, remembering where they were', async () => {
     renderForkable();
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Make this mine' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Add to my library' }));
 
     expect(adoptWikiStarterPack).not.toHaveBeenCalled();
     expect(sessionStorage.getItem('auth_return_to')).toBe('/proof#fork-mental-models');
@@ -70,14 +70,17 @@ describe('ForkableWikis', () => {
 
   it('forks for a signed-in reader and hands off to first run', async () => {
     localStorage.setItem('token', 'a-token');
-    adoptWikiStarterPack.mockResolvedValue({ pages: [{ _id: 'new-page-1', title: 'Loss Aversion' }] });
+    adoptWikiStarterPack.mockResolvedValue({
+      pages: [{ _id: 'new-page-1', title: 'Loss Aversion' }],
+      library: { sources: 14, alreadyHad: 2 }
+    });
 
     renderForkable();
-    fireEvent.click(await screen.findByRole('button', { name: 'Make this mine' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Add to my library' }));
 
     await waitFor(() => expect(adoptWikiStarterPack).toHaveBeenCalledWith('mental-models'));
     await waitFor(() => expect(navigate).toHaveBeenCalledWith(
-      '/welcome?took=new-page-1',
+      '/welcome?took=new-page-1&sources=14&had=2',
       { replace: true }
     ));
   });
@@ -87,9 +90,9 @@ describe('ForkableWikis', () => {
     adoptWikiStarterPack.mockRejectedValue(new Error('Could not copy that wiki. Try again.'));
 
     renderForkable();
-    fireEvent.click(await screen.findByRole('button', { name: 'Make this mine' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Add to my library' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Could not copy that wiki. Try again.');
-    expect(screen.getByRole('button', { name: 'Make this mine' })).not.toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Add to my library' })).not.toBeDisabled();
   });
 });

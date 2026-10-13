@@ -110,11 +110,11 @@ describe('SharedWikiPage', () => {
     expect(screen.getByText('Current through')).toBeInTheDocument();
     expect(screen.getByText('Reader article synced Jun 7, 2026')).toBeInTheDocument();
     expect(screen.getByText('Accepted reading refresh · Jun 7, 2026')).toBeInTheDocument();
-    expect(screen.getByLabelText('Adopt shared wiki')).toHaveTextContent(/background maintenance loop/i);
+    expect(screen.getByLabelText('Adopt shared wiki')).toHaveTextContent(/every public source they cite comes into your Library/i);
     expect(screen.getAllByText('Opportunity cost frames tradeoffs.')).toHaveLength(2);
     expect(screen.getByText('References')).toBeInTheDocument();
     expect(screen.getByText(PUBLIC_PROOF_PRIVACY_STATEMENT)).toBeInTheDocument();
-    const adoptCta = screen.getByRole('button', { name: 'Make this mine' });
+    const adoptCta = screen.getByRole('button', { name: 'Add to my library' });
     expect(adoptCta).toHaveClass('shared-wiki-page__adopt-cta');
     expect(adoptCta.className).not.toMatch(/ui-quiet-button/);
     expect(screen.getByRole('link', { name: 'Munger notes' })).toHaveAttribute('href', 'https://example.com/munger');
@@ -310,7 +310,7 @@ describe('SharedWikiPage', () => {
 
     render(<SharedWikiPage />);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Make this mine' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Add to my library' }));
 
     expect(trackSharedWikiAdoptClicked).toHaveBeenCalledWith(expect.objectContaining({
       page: '/share/wiki/opportunity-cost',
@@ -368,7 +368,7 @@ describe('SharedWikiPage', () => {
     expect(screen.getByText('Athan Tsokolas — researched and maintained with Noeis')).toBeInTheDocument();
     expect(screen.getAllByRole('link', { name: 'Primary filing' })).toHaveLength(2);
     expect(screen.queryByLabelText('Adopt shared wiki')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Make this mine' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Add to my library' })).not.toBeInTheDocument();
     expect(screen.queryByText(PUBLIC_PROOF_PRIVACY_STATEMENT)).not.toBeInTheDocument();
     expect(container.querySelectorAll('h1')).toHaveLength(1);
     expect(container.textContent).not.toContain('FORBIDDEN_PRIVATE_SENTINEL');
@@ -421,7 +421,7 @@ describe('SharedWikiPage', () => {
     expect(screen.getByText('This Week in AI')).toBeInTheDocument();
     expect(screen.getByText('Athan Tsokolas — researched and maintained with Noeis')).toBeInTheDocument();
     expect(screen.queryByLabelText('Adopt shared wiki')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Make this mine' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Add to my library' })).not.toBeInTheDocument();
   });
 
   it('adopts shared pages for signed-in readers and opens the private copy', async () => {
@@ -441,7 +441,7 @@ describe('SharedWikiPage', () => {
 
     render(<SharedWikiPage />);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Make this mine' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Add to my library' }));
 
     expect(trackSharedWikiAdoptClicked).toHaveBeenCalledWith(expect.objectContaining({
       page: '/share/wiki/opportunity-cost',

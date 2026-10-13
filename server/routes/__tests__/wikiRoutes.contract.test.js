@@ -24,7 +24,9 @@ const matches = (record, query = {}) => Object.entries(query).every(([key, value
     return String(recordValue) !== String(value.$ne);
   }
   if (value && typeof value === 'object' && Array.isArray(value.$in)) {
-    return value.$in.map(String).includes(String(recordValue || ''));
+    return value.$in.some(option => (option instanceof RegExp
+      ? option.test(String(recordValue || ''))
+      : String(option) === String(recordValue || '')));
   }
   if (value && typeof value === 'object' && value.$lt !== undefined) {
     return String(recordValue || '') < String(value.$lt || '');
@@ -666,7 +668,7 @@ const run = async () => {
       conceptName: 'Opportunity Cost'
     }
   ]);
-  const Article = createFakeLibraryModel([
+  const articleRecords = [
     {
       _id: new mongoose.Types.ObjectId().toString(),
       userId: 'user-1',
@@ -690,7 +692,25 @@ const run = async () => {
       createdAt: new Date(),
       updatedAt: new Date()
     }
-  ]);
+  ];
+  const Article = {
+    ...createFakeLibraryModel(articleRecords),
+    records: articleRecords,
+    findOneAndUpdate: async (query = {}, updates = {}, options = {}) => {
+      let found = articleRecords.find(record => matches(record, query));
+      if (!found && options.upsert) {
+        found = { _id: new mongoose.Types.ObjectId().toString(), highlights: [], ...updates.$setOnInsert };
+        articleRecords.push(found);
+      }
+      return found ? clone(found) : null;
+    },
+    updateOne: async (query = {}, updates = {}) => {
+      const found = articleRecords.find(record => matches({ ...record, content: record.content || '' }, { ...query, content: '' }));
+      if (found) Object.assign(found, updates.$set || {});
+      return { modifiedCount: found ? 1 : 0 };
+    }
+  };
+  const fetchedSourceBodies = [];
   const Connection = createFakeConnectionModel();
   const app = express();
   app.use(express.json());
@@ -725,6 +745,10 @@ const run = async () => {
     ConnectorActionLog,
     Connection,
     Article,
+    fetchSourceBody: async (sourceUrl) => {
+      fetchedSourceBodies.push(sourceUrl);
+      return '<p>The body, read by the taker.</p>';
+    },
     Question,
     EVENT_NAMES: {
       WIKI_PAGE_CREATED: 'wiki_page_created',
@@ -1881,15 +1905,27 @@ const run = async () => {
     assert.strictEqual(adoptedPublicPage.body.page.adoptedFrom.originSlug, 'public-systems-page');
     assert.strictEqual(String(adoptedPublicPage.body.page.adoptedFrom.originPageId), String(sharedPage._id));
     assert.strictEqual(adoptedPublicPage.body.page.sourceRefs.length, 1);
-    assert.strictEqual(adoptedPublicPage.body.page.sourceRefs[0].type, 'external');
     assert.strictEqual(adoptedPublicPage.body.page.sourceRefs[0].title, 'Public source title');
     assert.strictEqual(adoptedPublicPage.body.page.sourceRefs[0].url, 'https://example.com/source');
     /* Adopting copies what was public, which no longer includes the passage.
        The adopter gets the source named and linked and re-grounds it against
        their own reading, which is the only version of it they can defend. */
     assert.strictEqual(adoptedPublicPage.body.page.sourceRefs[0].snippet, '');
-    assert.strictEqual(adoptedPublicPage.body.page.sourceRefs[0].objectId, undefined);
     assert.strictEqual(adoptedPublicPage.body.page.sourceRefs[0].privateNote, undefined);
+    /* The source itself comes along: saved into the taker's Library, with the
+       footnote pointing at the taker's article rather than the owner's. */
+    const takenArticle = Article.records.find(record => record.userId === 'user-2' && record.url === 'https://example.com/source');
+    assert.ok(takenArticle, 'the source should be in the taker\'s Library');
+    assert.strictEqual(takenArticle.title, 'Public source title');
+    assert.strictEqual(takenArticle.importMeta.sourceLabel, 'Public Systems Page');
+    assert.strictEqual(adoptedPublicPage.body.page.sourceRefs[0].type, 'article');
+    assert.strictEqual(String(adoptedPublicPage.body.page.sourceRefs[0].objectId), String(takenArticle._id));
+    assert.deepStrictEqual(adoptedPublicPage.body.library, { sources: 1, alreadyHad: 0 });
+    for (let tick = 0; tick < 10 && !takenArticle.content; tick += 1) {
+      await new Promise(resolve => setImmediate(resolve));
+    }
+    assert.deepStrictEqual(fetchedSourceBodies, ['https://example.com/source']);
+    assert.strictEqual(takenArticle.content, '<p>The body, read by the taker.</p>');
     assert.deepStrictEqual(adoptedPublicPage.body.page.discussions, []);
     assert.deepStrictEqual(adoptedPublicPage.body.page.aiState.suggestions, []);
     assert.notStrictEqual(adoptedPublicPage.body.page.aiState.model, 'private-model');
@@ -1916,6 +1952,10 @@ const run = async () => {
     assert.strictEqual(duplicateAdoptedPublicPage.res.status, 201, duplicateAdoptedPublicPage.text);
     assert.strictEqual(duplicateAdoptedPublicPage.body.page.title, 'Public Systems Page (adapted)');
     assert.strictEqual(duplicateAdoptedPublicPage.body.mergeAvailable, true);
+    /* Taking it again finds the source already held: counted, not duplicated. */
+    assert.deepStrictEqual(duplicateAdoptedPublicPage.body.library, { sources: 1, alreadyHad: 1 });
+    assert.strictEqual(Article.records.filter(record => record.userId === 'user-2' && record.url === 'https://example.com/source').length, 1);
+    assert.deepStrictEqual(fetchedSourceBodies, ['https://example.com/source']);
 
     const collectionTargetPage = new WikiPage({
       userId: 'user-1',
@@ -2012,6 +2052,10 @@ const run = async () => {
     assert.strictEqual(starterPackCollection.body.collection.pages[0].userId, undefined);
     assert.strictEqual(starterPackCollection.body.collection.pages[0].aiState, undefined);
     assert.ok(starterPackCollection.body.collection.pages[0].lastReviewedAt, 'Starter pack public pages should expose a safe reviewed timestamp.');
+    const starterPublicPage = starterPackCollection.body.collection.pages[0];
+    assert.ok(starterPublicPage.sourceRefs.length >= 2 && starterPublicPage.sourceRefs.every(source => /^https:\/\//.test(source.url)), 'Ready-made pages cite public sources.');
+    assert.ok(JSON.stringify(starterPublicPage.body).includes('"citationIndexes"'), 'Ready-made pages carry their citations in the body.');
+    assert.ok(!JSON.stringify(starterPublicPage.body).includes('feed me your reading'));
 
     const adoptedStarterPackCollection = await request(url, '/api/public/wiki/collections/mental-models/adopt', {
       method: 'POST',
@@ -2026,7 +2070,7 @@ const run = async () => {
     assert.ok(adoptedStarterPackCollection.body.pages.length >= 6);
     assert.ok(adoptedStarterPackCollection.body.pages.every(page => page.userId === 'user-4'));
     assert.ok(adoptedStarterPackCollection.body.pages.every(page => page.adoptedFrom.originType === 'starter_pack'));
-    assert.ok(adoptedStarterPackCollection.body.pages.every(page => page.adoptedFrom.sample === true));
+    assert.ok(adoptedStarterPackCollection.body.pages.every(page => !page.adoptedFrom.sample));
     assert.ok(adoptedStarterPackCollection.body.pages.every(page => page.adoptedFrom.packId === 'mental-models'));
     const collectionFirstPrinciples = adoptedStarterPackCollection.body.pages.find(page => page.title === 'First Principles Thinking');
     const collectionOpportunityCost = adoptedStarterPackCollection.body.pages.find(page => page.title === 'Opportunity Cost');
@@ -2046,10 +2090,11 @@ const run = async () => {
     });
     assert.strictEqual(adoptedStarterPack.res.status, 201, adoptedStarterPack.text);
     assert.strictEqual(adoptedStarterPack.body.pack.id, 'mental-models');
+    assert.ok(adoptedStarterPack.body.library.sources >= 10, 'Taking a ready-made wiki brings its sources into the Library.');
     assert.ok(adoptedStarterPack.body.pages.length >= 6);
     assert.ok(adoptedStarterPack.body.pages.every(page => page.userId === 'user-3'));
     assert.ok(adoptedStarterPack.body.pages.every(page => page.adoptedFrom.originType === 'starter_pack'));
-    assert.ok(adoptedStarterPack.body.pages.every(page => page.adoptedFrom.sample === true));
+    assert.ok(adoptedStarterPack.body.pages.every(page => !page.adoptedFrom.sample));
     assert.ok(adoptedStarterPack.body.pages.every(page => page.adoptedFrom.packId === 'mental-models'));
     const firstPrinciples = adoptedStarterPack.body.pages.find(page => page.title === 'First Principles Thinking');
     const opportunityCost = adoptedStarterPack.body.pages.find(page => page.title === 'Opportunity Cost');

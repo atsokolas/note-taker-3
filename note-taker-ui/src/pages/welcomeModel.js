@@ -108,6 +108,25 @@ export const writtenFrom = (count = 0) => {
   return `Your first page is written, from ${count === 1 ? 'one of your sources' : `${countWord(count)} of your sources`}.`;
 };
 
+/* Where taking a wiki lands in first run, carrying what came with it. */
+export const tookPath = (pageId, library = null) => {
+  const params = new URLSearchParams({ took: pageId });
+  if (library?.sources) {
+    params.set('sources', library.sources);
+    params.set('had', library.alreadyHad || 0);
+  }
+  return `/welcome?${params}`;
+};
+
+export const tookReceipt = ({ sources = 0, had = 0 } = {}) => {
+  if (!sources) return 'The wiki you took is in your Wiki now.';
+  const arrived = sources === 1 ? 'its source is' : `its ${countWord(sources)} sources are`;
+  let already = '';
+  if (had >= sources) already = sources === 1 ? ' You had already saved it.' : ' You had already saved every one.';
+  else if (had) already = ` ${had === 1 ? 'One' : countWord(had).replace(/^./, c => c.toUpperCase())} of them you had already saved.`;
+  return `The wiki you took is in your Wiki, and ${arrived} in your Library.${already}`;
+};
+
 export const proposalSources = (count = 0) => (
   count === 1 ? 'from one of your sources' : `from ${countWord(count)} of your sources`
 );
