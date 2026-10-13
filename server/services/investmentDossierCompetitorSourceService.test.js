@@ -57,8 +57,27 @@ const run = async () => {
   });
   assert.deepEqual(
     mentions.map(mention => mention.name),
-    ['AGCO Corporation', 'CLAAS KGaA mbH', 'CNH Industrial N.V.', 'Kubota Tractor Corporation', 'The Toro Company', 'Caterpillar Inc.', 'Doosan Infracore Co.']
+    ['AGCO Corporation', 'CLAAS KGaA mbH', 'CNH Industrial N.V.', 'Kubota Tractor Corporation', 'The Toro Company', 'Caterpillar Inc.', 'Doosan Infracore Co., Ltd.']
   );
+  // NVIDIA lists competitors after a colon, with ", Inc." suffixes.
+  const nvidia = extractExplicitCompetitorMentions({
+    issuerName: 'NVIDIA CORP',
+    text: 'Our current competitors include: suppliers and licensors of hardware and software for discrete and integrated GPUs, such as Advanced Micro Devices, Inc., or AMD, Huawei Technologies Co. Ltd., or Huawei, and Intel Corporation, or Intel.'
+  });
+  assert.deepEqual(nvidia.map(mention => mention.name), ['Advanced Micro Devices, Inc.', 'Huawei Technologies Co. Ltd.', 'Intel Corporation']);
+  // Costco names competitors before the word, and without legal suffixes.
+  const costco = extractExplicitCompetitorMentions({
+    issuerName: 'COSTCO WHOLESALE CORP /NEW',
+    text: 'Walmart, Target, Kroger, and Amazon are among our significant general merchandise retail competitors in the U.S. We also compete with other warehouse clubs, including Walmart\'s Sam\'s Club and BJ\'s Wholesale Club in the U.S.'
+  });
+  assert.deepEqual(costco.slice(0, 4).map(mention => mention.name), ['Walmart', 'Target', 'Kroger', 'Amazon']);
+  assert.ok(costco.every(mention => mention.extractionMethod === 'explicit_competitor_list'));
+  assert.equal(resolveCompetitorRegistryMatch({
+    competitorName: 'Walmart',
+    registryRows: [{ cik: '104169', ticker: 'WMT', companyName: 'Walmart Inc.' }, { cik: '27419', ticker: 'TGT', companyName: 'TARGET CORP' }],
+    issuerCik: '909832'
+  }).ticker, 'WMT');
+
   const agco = resolveCompetitorRegistryMatch({
     competitorName: 'AGCO Corporation',
     registryRows,

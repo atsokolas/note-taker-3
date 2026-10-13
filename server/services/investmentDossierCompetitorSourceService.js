@@ -9,12 +9,20 @@ const {
 } = require('./edgarWatcherService');
 
 const ANNUAL_FORMS = Object.freeze(['10-K']);
-const CORPORATE_NAME_PATTERN = /\b((?:The\s+)?[A-Z][A-Za-z0-9&'’-]*(?:\s+(?:[A-Z][A-Za-z0-9&.'’()-]*|and|of)){0,7}\s+(?:Corporation|Corp\.?|Company|Co\.?|Inc\.?|N\.V\.|NV|PLC|plc|KGaA(?:\s+mbH)?|Ltd\.?))(?=\s*[,.;)]|$)/g;
+const CORPORATE_NAME_PATTERN = /\b((?:The\s+)?[A-Z][A-Za-z0-9&'’-]*(?:\s+(?:[A-Z][A-Za-z0-9&.'’()-]*|and|of)){0,7},?\s+(?:Corporation|Corp\.?|Company|Co\.?|Inc\.?|N\.V\.|NV|PLC|plc|KGaA(?:\s+mbH)?|Ltd\.?))(?=\s*[,.;)]|$)/g;
 const DECLARATION_PATTERNS = Object.freeze([
   /\bcompetitors?,\s+such as\s+(.+?)(?:\.|$)/i,
-  /\bcompetitors?\b[^.]{0,100}?\b(?:include|includes)\s+(.+?)(?:\.|$)/i,
-  /\b(?:principal|primary|major)\s+competitors?\s+(?:are|include)\s+(.+?)(?:\.|$)/i
+  /\bcompetitors?\b[^.]{0,100}?\b(?:include|includes):?\s+(.+?)(?:\.|$)/i,
+  /\b(?:principal|primary|major)\s+competitors?\s+(?:are|include):?\s+(.+?)(?:\.|$)/i,
+  // "We also compete with other warehouse clubs, including Sam's Club and BJ's Wholesale Club."
+  /\bcompete\s+with\b[^.]{0,100}?\b(?:including|such as)\s+(.+?)(?:\.|$)/i,
+  // "Walmart, Target, Kroger, and Amazon are among our significant ... competitors."
+  /^(.+?)\s+are\s+(?:among\s+)?our\b[^.]{0,80}?\bcompetitors\b/i
 ]);
+// A name a filing lists without a legal suffix ("Walmart, Target, and Kroger").
+// It counts only when it resolves to exactly one SEC issuer, so a stray
+// capitalized phrase never becomes a competitor.
+const LISTED_NAME_PATTERN = /^(?:[A-Z][A-Za-z0-9&.'’-]*)(?:\s+[A-Z][A-Za-z0-9&.'’-]*){0,3}$/;
 const TRANSIENT_STATUS_CODES = new Set([408, 425, 429, 500, 502, 503, 504]);
 
 const clean = (value = '', limit = 16000) => String(value || '')
@@ -60,20 +68,27 @@ const extractExplicitCompetitorMentions = ({ text = '', issuerName = '' } = {}) 
       .find(Boolean);
     if (!declaration?.[1]) return;
     const listText = declaration[1].replace(/§/g, '.');
-    let match;
-    CORPORATE_NAME_PATTERN.lastIndex = 0;
-    while ((match = CORPORATE_NAME_PATTERN.exec(listText))) {
-      const name = clean(match[1], 240);
+    const add = (name, extractionMethod) => {
       const base = normalizeLegalName(name);
-      if (!base || base === issuerBase || seen.has(base)) continue;
+      if (!base || base === issuerBase || seen.has(base)) return;
       seen.add(base);
       mentions.push({
         name,
         normalizedName: base,
         sentence: clean(sentence.replace(/§/g, '.'), 1800),
-        extractionMethod: 'explicit_competitor_declaration'
+        extractionMethod
       });
-    }
+    };
+    const before = mentions.length;
+    let match;
+    CORPORATE_NAME_PATTERN.lastIndex = 0;
+    while ((match = CORPORATE_NAME_PATTERN.exec(listText))) add(clean(match[1], 240), 'explicit_competitor_declaration');
+    if (mentions.length > before) return;
+    listText
+      .split(/,|;|\band\b|\bor\b/)
+      .map(item => clean(item, 80).replace(/^(?:the|and|or)\s+/i, ''))
+      .filter(item => LISTED_NAME_PATTERN.test(item))
+      .forEach(item => add(item, 'explicit_competitor_list'));
   });
   return mentions.slice(0, 12);
 };

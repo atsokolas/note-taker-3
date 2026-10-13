@@ -1261,6 +1261,7 @@ Investment dossier rules:
 - The selected business-model adapter is "${modelLabel}". Do not import AI-infrastructure metrics unless this company's economics actually require them.
 - Required analytical modules: ${(plan.requiredModuleIds || []).join(', ') || 'research plan is not classified yet'}.
 - Missing evidence archetypes: ${(plan.missingEvidenceArchetypes || []).join(', ') || 'none identified'}.
+- For each missing evidence archetype, say plainly in the relevant section what could not be found, and draw no conclusion that needs it. With no dated market price, state no market value, multiple or implied return.
 - Missing analytical modules: ${(plan.missingModuleIds || []).join(', ') || 'none identified'}.
 - Produce at least 1,800 words and at least 20 distinct claim-level analytical paragraphs or bullets. These are minimum decision-dossier gates, not permission to add filler.
 - Every paragraph or bullet must establish a mechanism, calculation, counterargument, falsifier, or next evidence test.
@@ -4088,8 +4089,9 @@ const evaluateWikiArticleQuality = ({
         words
       })
     : null;
-  if (investmentDossierQuality && !investmentDossierQuality.ok) {
-    investmentDossierQuality.failures.forEach(failure => failures.push(failure));
+  if (investmentDossierQuality) {
+    failures.push(...investmentDossierQuality.failures);
+    hints.push(...investmentDossierQuality.hints);
   }
 
   const score = Math.max(0, Number((1 - Math.min(1, failures.length / 6)).toFixed(2)));

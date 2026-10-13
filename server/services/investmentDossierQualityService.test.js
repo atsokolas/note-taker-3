@@ -133,10 +133,12 @@ const failing = evaluateInvestmentDossierQuality({
   words: 1200
 });
 assert.strictEqual(failing.ok, false);
-assert.match(failing.failures.join(' '), /unclassified/i);
-assert.match(failing.failures.join(' '), /too thin/i);
-assert.match(failing.failures.join(' '), /research modules remain incomplete/i);
-assert.match(failing.failures.join(' '), /evidence archetypes/i);
 assert.match(failing.failures.join(' '), /unsupported decision claims/i);
+// What the dossier lacks is a note for the repair pass and the owner, never a refusal.
+assert.match(failing.hints.join(' '), /unclassified/i);
+assert.match(failing.hints.join(' '), /too thin/i);
+assert.match(failing.hints.join(' '), /research modules remain incomplete/i);
+assert.match(failing.hints.join(' '), /evidence archetypes/i);
+assert.doesNotMatch(failing.failures.join(' '), /unclassified|too thin|modules|archetypes/i);
 
 console.log('investmentDossierQualityService tests passed');

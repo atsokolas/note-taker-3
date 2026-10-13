@@ -78,7 +78,11 @@ const evaluateInvestmentDossierQuality = ({
   sourceRefs = [],
   words = 0
 } = {}) => {
+  // As on ordinary pages: a dossier is refused for what it states without
+  // support, never for what it lacks. Missing evidence, modules, sections or
+  // length are hints for the repair pass and the owner who accepts the page.
   const failures = [];
+  const hints = [];
   const profile = page?.investmentDossier || {};
   const plan = profile?.researchPlan || {};
   const businessModel = profile?.businessModel?.primary || 'unknown';
@@ -136,16 +140,16 @@ const evaluateInvestmentDossierQuality = ({
   const headings = sectionHeadings(body);
 
   if (Number(profile.version || 0) < 2) {
-    failures.push('Investment dossier is missing the version-2 business-model research profile.');
+    hints.push('Investment dossier is missing the version-2 business-model research profile.');
   }
   if (!businessModel || businessModel === 'unknown') {
-    failures.push('Investment dossier business model is unclassified.');
+    hints.push('Investment dossier business model is unclassified.');
   }
   if (words < DECISION_DOSSIER_MIN_WORDS) {
-    failures.push(`Investment dossier is too thin for a decision: ${words} words, expected at least ${DECISION_DOSSIER_MIN_WORDS}.`);
+    hints.push(`Investment dossier is too thin for a decision: ${words} words, expected at least ${DECISION_DOSSIER_MIN_WORDS}.`);
   }
   if (claimList.length < DECISION_DOSSIER_MIN_CLAIMS) {
-    failures.push(`Investment dossier has too few claim-level analytical units: ${claimList.length}, expected at least ${DECISION_DOSSIER_MIN_CLAIMS}.`);
+    hints.push(`Investment dossier has too few claim-level analytical units: ${claimList.length}, expected at least ${DECISION_DOSSIER_MIN_CLAIMS}.`);
   }
   if (blockingUnsupportedClaims.length) {
     const samples = blockingUnsupportedClaims
@@ -169,19 +173,19 @@ const evaluateInvestmentDossierQuality = ({
     failures.push(`Investment dossier has numeric claims not grounded in cited source text: ${ungroundedNumericClaims.length}${samples ? ` (${samples})` : ''}.`);
   }
   if (missingEvidenceArchetypes.length) {
-    failures.push(`Investment dossier is missing evidence archetypes: ${missingEvidenceArchetypes.join(', ')}.`);
+    hints.push(`Investment dossier is missing evidence archetypes: ${missingEvidenceArchetypes.join(', ')}.`);
   }
   if (missingModuleIds.length) {
-    failures.push(`Investment dossier research modules remain incomplete: ${missingModuleIds.join(', ')}.`);
+    hints.push(`Investment dossier research modules remain incomplete: ${missingModuleIds.join(', ')}.`);
   }
   if (modulesWithoutClaims.length) {
-    failures.push(`Investment dossier modules lack claim-level outputs: ${modulesWithoutClaims.join(', ')}.`);
+    hints.push(`Investment dossier modules lack claim-level outputs: ${modulesWithoutClaims.join(', ')}.`);
   }
   if (missingCalculations.length) {
-    failures.push(`Investment dossier modules lack reproducible calculations: ${missingCalculations.join(', ')}.`);
+    hints.push(`Investment dossier modules lack reproducible calculations: ${missingCalculations.join(', ')}.`);
   }
   if (!reproducibleInsights.length) {
-    failures.push('Investment dossier lacks a non-obvious, reproducible insight tied to source evidence.');
+    hints.push('Investment dossier lacks a non-obvious, reproducible insight tied to source evidence.');
   }
   [
     [/current judgment/i],
@@ -195,7 +199,7 @@ const evaluateInvestmentDossierQuality = ({
     [/next evidence and maintenance test|sources and maintenance state/i]
   ].forEach((patterns) => {
     if (!includesHeading(headings, patterns)) {
-      failures.push(`Investment dossier is missing a required decision surface matching ${patterns.map(String).join(' or ')}.`);
+      hints.push(`Investment dossier is missing a required decision surface matching ${patterns.map(String).join(' or ')}.`);
     }
   });
 
@@ -203,6 +207,7 @@ const evaluateInvestmentDossierQuality = ({
     ok: failures.length === 0,
     status: failures.length ? 'research_incomplete' : 'decision_ready',
     failures,
+    hints,
     metrics: {
       businessModel,
       requiredModuleCount: requiredModuleIds.length,
