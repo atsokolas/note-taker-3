@@ -79,8 +79,7 @@ const evaluateInvestmentDossierQuality = ({
       ? `${(Number(hurdle.annualReturn) * 100).toFixed(1)}% ${hurdle.horizonYears} years`
       : ''
   ].filter(Boolean).join(' ');
-  const ownersOwn = claim => /\bowner(?:'s)?\b[^.]{0,40}\b(?:hurdle|thesis|judgment|hypothesis)\b|\bstarting (?:judgment|assumption)\b/i.test(clean(claim?.text))
-    && ownerText && !unstatedFigures(claim?.text, [ownerText]).length;
+
   // Its figures may come from anywhere on the page: "7%-8% growth could not be
   // corroborated" restates a figure, it does not claim a new one.
   const pageText = [
@@ -88,6 +87,9 @@ const evaluateInvestmentDossierQuality = ({
     ...sourceList.map(source => [source?.snippet, source?.quote, source?.text].filter(Boolean).join(' ')),
     ...(Array.isArray(claims) ? claims : []).map(claim => clean(claim?.text))
   ];
+  // The owner's own view, marked as such, restating figures shown on the page.
+  const ownersOwn = claim => /\bowner(?:'s)?\b[^.]{0,40}\b(?:hurdle|thesis|judgment|hypothesis|interpretation|view)\b|\bstarting (?:judgment|assumption)\b/i.test(clean(claim?.text))
+    && ownerText && !unstatedFigures(claim?.text, pageText.filter(text => text !== clean(claim?.text))).length;
   const namesMissingEvidence = claim => MISSING_EVIDENCE.test(clean(claim?.text))
     && !unstatedFigures(claim?.text, pageText.filter(text => text !== clean(claim?.text))).length;
   const claimList = (Array.isArray(claims) ? claims : [])

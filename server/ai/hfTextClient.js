@@ -755,21 +755,24 @@ const extractChatContent = (body) => {
   return '';
 };
 
-// Three mechanical slips a long JSON answer makes: a raw line break inside a
+// Four mechanical slips a long JSON answer makes: a raw line break inside a
 // string, a quotation mark left unescaped inside one (it closes nothing: no
-// comma, colon or bracket follows it), and a comma before a closing bracket.
-// Nothing else is guessed.
+// comma, colon or bracket follows it), a comma before a closing bracket, and
+// a closing bracket left off the very end. Nothing else is guessed.
 const repairJson = (text = '') => {
   let out = '';
   let inString = false;
+  const open = [];
   for (let i = 0; i < text.length; i += 1) {
     const char = text[i];
     if (inString && char === '\\') { out += char + (text[i + 1] || ''); i += 1; continue; }
     if (inString && char === '"' && !/^\s*(?:[,:}\]]|$)/.test(text.slice(i + 1, i + 40))) { out += '\\"'; continue; }
     if (char === '"') inString = !inString;
+    if (!inString && (char === '{' || char === '[')) open.push(char === '{' ? '}' : ']');
+    if (!inString && (char === '}' || char === ']')) open.pop();
     out += inString && char === '\n' ? '\\n' : inString && char === '\r' ? '' : inString && char === '\t' ? '\\t' : char;
   }
-  return out.replace(/,\s*([}\]])/g, '$1');
+  return (out + open.reverse().join('')).replace(/,\s*([}\]])/g, '$1');
 };
 
 const parseJsonLoosely = text => parseJsonSafely(text) || parseJsonSafely(repairJson(text));

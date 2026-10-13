@@ -165,6 +165,17 @@ assert.strictEqual(evaluateInvestmentDossierQuality({
   words: 2600
 }).ok, true);
 
+// The owner's own view, marked as such, may restate the page's figures.
+const ownerView = text => evaluateInvestmentDossierQuality({
+  page: { investmentDossier: { ...profile, hurdle: { annualReturn: 0.1, horizonYears: 5 } } },
+  body,
+  claims: [...claims, { claimId: 'view', section: 'Current Judgment', text, support: 'unsupported' }],
+  sourceRefs: filed,
+  words: 2600
+});
+assert.strictEqual(ownerView('Owner judgment, unresolved: whether 16%, 15% and 13% concentration is durable.').ok, true);
+assert.strictEqual(ownerView('Owner judgment: concentration will be 9% within a year.').ok, false);
+
 // A page that still says it has not been written is refused.
 const template = evaluateInvestmentDossierQuality({
   page: { investmentDossier: profile },

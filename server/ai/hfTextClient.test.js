@@ -107,6 +107,7 @@ const run = () => {
     assert.strictEqual(validateOutputContract({ text: 'not json', parserStrategy: 'json' }).ok, false);
     assert.strictEqual(validateOutputContract({ text: 'Here is the page:\n{"ok":true}\nDone.', parserStrategy: 'json' }).ok, true);
     assert.strictEqual(validateOutputContract({ text: '{"page":"line one\nline two","items":[1,2,],}', parserStrategy: 'json' }).ok, true);
+    assert.strictEqual(validateOutputContract({ text: '{"page":{"sections":[{"h":"One"}]}', parserStrategy: 'json' }).ok, true);
     assert.strictEqual(validateOutputContract({ text: '```json\n{"page":"the filing says "supply constraints" persist","n":[1]}\n```', parserStrategy: 'json' }).ok, true);
     const strictResponseFormat = {
       type: 'json_schema',
