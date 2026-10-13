@@ -21,6 +21,7 @@
     "wiki:intelligence-harness": "node scripts/run_wiki_intelligence_harness.js",
     "wiki:intelligence-harness:judge": "node scripts/run_wiki_intelligence_harness.js --judge-live --require-judge --fixture=rich_learning_loop_page_passes_live_judge",
     "wiki:maintenance-harness": "node scripts/run_wiki_maintenance_quality_harness.js",
+    "wiki:eval": "node scripts/run_page_eval.js",
     "wiki:maintenance-harness:live": "node scripts/run_wiki_maintenance_quality_harness.js --live",
     "wiki:qa": "git diff --check && node scripts/boot_check.js && npm run test:server && npm run harness:offline && cd note-taker-ui && CI=1 npm test -- --watchAll=false --runInBand src/components/wiki src/pages/PublicCasebook.test.jsx src/pages/SharedWikiPage.test.jsx src/styles/publicCasebookCss.test.js src/pages/JudgmentMirror.test.jsx && npm run build",
     "wiki:qa:live": "npm run wiki:qa && npm run wiki:intelligence-harness:judge && npm run wiki:maintenance-harness:live",
