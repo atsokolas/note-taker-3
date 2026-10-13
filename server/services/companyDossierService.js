@@ -48,9 +48,9 @@ const buildCompanyDossierBody = ({ companyName, ticker, startingJudgment, requir
     heading('Risks, falsifiers, and open questions'),
     paragraph(),
     heading('What changed'),
-    paragraph(`SEC filing watch armed for ${companyName || ticker}. Material changes remain candidates until the owner accepts a trusted head.`),
+    paragraph(`Each new SEC filing from ${companyName || ticker} is read against this page; a change waits for the owner to accept it.`),
     heading('Sources and maintenance state'),
-    paragraph('Free primary sources only. SEC filings will enter the evidence queue; paid transcript and market-data providers are not required.')
+    paragraph('Written from SEC filings and other free public sources.')
   ]
 });
 

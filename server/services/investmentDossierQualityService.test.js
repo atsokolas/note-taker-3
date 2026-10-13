@@ -134,6 +134,8 @@ assert.strictEqual(framing('Any such multiple would need share-count inputs not 
 assert.strictEqual(framing('Owner hurdle: 15.0% annual return over 5 years.').ok, false);
 assert.strictEqual(framing('What would have to be true for a 10% annual return over five years is not computable from the attached evidence.').ok, true);
 assert.strictEqual(framing('Whether the quoted price prices in too much growth cannot be answered from these filings alone.').ok, true);
+assert.strictEqual(framing('What is missing: a diluted share count as of the October 2026 price date. None of these could be found in the attached filings.').ok, true);
+assert.strictEqual(framing('Evidence here is insufficient to affirm or reject the 10% hurdle; the inputs needed to compute a multiple are missing.').ok, true);
 assert.strictEqual(framing('Net sales grew 5%, 8% and 10%, but whether the price assumes that cannot be tested without a share count.').ok, false);
 
 const thinProfile = upgradeInvestmentDossierProfile({

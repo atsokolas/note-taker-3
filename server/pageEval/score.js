@@ -18,7 +18,10 @@ const LEAKS = [
   /\bevidence archetypes?\b/i,
   /\bresearch modules?\b/i,
   /\bsource events?\b/i,
-  /\bmaintenance (?:pass|run|test)\b/i
+  /\bmaintenance (?:pass|run|test)\b/i,
+  /\bevidence queue\b/i,
+  /\btrusted head\b/i,
+  /\bwatch armed\b/i
 ];
 
 /* A claim is one run of text under one claim mark; a paragraph with none is

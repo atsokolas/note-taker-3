@@ -103,6 +103,11 @@ describe('unstatedFigures', () => {
     expect(unstatedFigures('That is $14.01 a share ($6,228mm / 444.455mm); x 52/36 gives $8,996 million.', [k])).toEqual([]);
   });
 
+  it('follows compounding and growth rates per year', () => {
+    expect(unstatedFigures('A 10% hurdle compounds to 1.61x over five years (1.10^5 = 1.61).', ['Hurdle 10%.'])).toEqual([]);
+    expect(unstatedFigures('Operating income rose from $7.79bn to $11.69bn, about 10.7% a year (($11.69bn / $7.79bn)^(1/4) - 1).', ['$7,793 million; $11,690 million'])).toEqual([]);
+  });
+
   it('ignores years and small counts', () => {
     expect(unstatedFigures('In 2026 three of 5 segments grew.', [filing])).toEqual([]);
   });

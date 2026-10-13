@@ -11,7 +11,10 @@ const unique = values => Array.from(new Set((Array.isArray(values) ? values : []
 const DECISION_DOSSIER_MIN_WORDS = 1800;
 // A sentence that says what the evidence does not show: a negation, then what
 // was not found, stated, or computable.
-const MISSING_EVIDENCE = /\b(?:no|not|cannot|could not|unable)\b[^.]{0,160}\b(?:found|located|available|attached|stated|disclosed|computed|computable|calculated|answered|tested|testable|assessed|established|determined|present)\b/i;
+const MISSING_EVIDENCE = new RegExp([
+  /\b(?:no|not|none|cannot|could not|unable|insufficient)\b[^.]{0,160}\b(?:found|located|available|attached|stated|disclosed|comput\w*|calculated|answered|tested|testable|assessed|established|determined|present)\b/.source,
+  /\b(?:is|are|remains?)\s+(?:missing|unanswered|unavailable|unknown)\b/.source
+].join('|'), 'i');
 const DECISION_DOSSIER_MIN_CLAIMS = 20;
 const REPRODUCIBLE_MODULE_IDS = Object.freeze([
   'reverse_expectations',
@@ -92,7 +95,8 @@ const evaluateInvestmentDossierQuality = ({
     || (claim?.sourceRefIds || []).length
     || (claim?.citationIndexes || []).length
   ));
-  const established = [];
+  // The owner's hurdle and what follows from it alone (1.10^5) are not claims about the company.
+  const established = [ownerText];
   const ungroundedNumericClaims = claimList.filter((claim) => {
     if (!['supported', 'partial', 'conflicted'].includes(clean(claim?.support).toLowerCase())) return false;
     if (numericGroundingFailure({ claim, sourceRefs: sourceList, established })) return true;

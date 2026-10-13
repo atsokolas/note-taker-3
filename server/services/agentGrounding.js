@@ -146,9 +146,21 @@ const unstatedFigures = (claim = '', texts = []) => {
   const near = (value, figure) => UNIT_SHIFTS.some(shift => (
     Math.abs(value * shift - figure.value) <= Math.max(figure.step / 2, Math.abs(figure.value) * 0.005)
   ));
+  // "1.10^5" compounds a rate; "(b / a)^(1/4) - 1" is a growth rate per year.
+  const exponents = [...text.matchAll(/\^\s*\(?\s*(\d+(?:\.\d+)?)(?:\s*\/\s*(\d+))?\s*\)?/g)]
+    .map(([, a, b]) => (b ? Number(a) / Number(b) : Number(a)))
+    .filter(Number.isFinite);
+  const powered = value => exponents.flatMap((e) => {
+    const p = value ** e;
+    return Number.isFinite(p) ? [p, p - 1, (p - 1) * 100] : [];
+  });
   const known = figures.filter(figure => statedIn(figure, values));
   const follows = figure => known.some(a => (
     near(a.value, figure)
+    // A rate written as a growth factor: 10% is 1.10.
+    || near(1 + a.value / 100, figure)
+    || powered(a.value).concat(powered(1 + a.value / 100)).some(value => near(value, figure))
+    || known.some(b => a !== b && b.value !== 0 && powered(a.value / b.value).some(value => near(value, figure)))
     || scalers.some(k => near(a.value * k, figure) || near(a.value / k, figure))
     || known.some(b => a !== b && b.value !== 0 && derivedFrom(a.value, b.value).some(value => near(value, figure)))
   )) || signedSums(known.map(a => a.value)).some(value => near(value, figure));
