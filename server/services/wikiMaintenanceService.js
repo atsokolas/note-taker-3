@@ -1274,6 +1274,7 @@ Investment dossier rules:
 - Say a ratio as its number ("about 1.6x"), never as a word it is not ("roughly double"); when comparing two amounts, divide the larger by the smaller and name which is larger.
 - Never back a prior-period figure out of a growth rate. If the sources do not state the earlier figure, give the current figure and the rate.
 - Read a multi-year table by column: compare rows within the same year's column, never one row's early year against another's latest.
+- Before calling two totals a discrepancy, reconcile them from the line items (total revenue is net sales plus membership fees and other revenue).
 - Name a debt figure as the filing does (total, or net of current portion) and take it from the latest balance sheet attached.
 - Open with the judgment and what the filings establish. Say what is missing once, where it matters (Implied Expectations for price and multiples), not in the opening.
 - Write for an investor: never use the words "evidence archetype", "module", "ledger", "maintenance test" or "dossier engine", never write internal labels with underscores, and do not name the app.
