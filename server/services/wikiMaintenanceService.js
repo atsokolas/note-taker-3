@@ -1271,6 +1271,7 @@ Investment dossier rules:
 - A market value is the dated price times the shares outstanding stated in SEC Company Facts, each with its date; a trailing multiple uses reported net income or diluted EPS, never one backed into from operating income. The two dates need not match: compute it, name both dates, and call it a sensitivity. Use the cover share count alone, not a weighted-average count beside it.
 - State the latest fiscal year's reported net income and diluted EPS from SEC Company Facts.
 - Use consolidated income-statement totals for margins and earnings; a segment total is named as one ("total segment operating income") and never called the company's total. Cite reported net income and EPS directly; never back into them.
+- Say a ratio as its number ("about 1.6x"), never as a word it is not ("roughly double"); when comparing two amounts, divide the larger by the smaller and name which is larger.
 - Never back a prior-period figure out of a growth rate. If the sources do not state the earlier figure, give the current figure and the rate.
 - Read a multi-year table by column: compare rows within the same year's column, never one row's early year against another's latest.
 - Name a debt figure as the filing does (total, or net of current portion) and take it from the latest balance sheet attached.

@@ -62,6 +62,11 @@ describe('unstatedFigures', () => {
     expect(unstatedFigures('Compute was 91.6% ($162.85bn / $177.84bn), with the remaining 8.4% from Graphics.', [filing])).toEqual([]);
   });
 
+  it('reads a slash between words as no division', () => {
+    const filing = 'Renewal rate 92.3% in the U.S. and Canada and 89.8% worldwide.';
+    expect(unstatedFigures('Renewal held near prior levels (92.3% U.S./Canada, 89.8% worldwide).', [filing])).toEqual([]);
+  });
+
   it('reads both ends of a band to watch as the threshold', () => {
     expect(unstatedFigures('A renewal rate below approximately 88-89% would break the thesis.', ['Renewal rate 89.8%.'])).toEqual([]);
   });

@@ -118,6 +118,7 @@ const inventedNumber = evaluateInvestmentDossierQuality({
 });
 assert.strictEqual(inventedNumber.ok, false);
 assert.match(inventedNumber.failures.join(' '), /numeric claims not grounded/i);
+assert.match(inventedNumber.failures.join(' '), /\[\$999 billion\]/);
 
 // The owner's own hurdle and a plain note of what could not be found have
 // nothing to cite and are not refused; a hurdle the owner did not set is.

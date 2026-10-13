@@ -169,7 +169,8 @@ const unstatedFigures = (claim = '', texts = []) => {
   // $269.91bn", however well sourced each figure is.
   const valueOf = raw => figuresIn(raw)[0];
   const wrongWorking = [
-    ...[...text.matchAll(/\(\s*([^()/]+?)\s*\/\s*([^()/]+?)\s*\)(?!\s*\^)/g)].flatMap(([raw, x, y]) => {
+    // Both sides are amounts: "(92.3% U.S./Canada, 89.8% worldwide)" divides nothing.
+    ...[...text.matchAll(new RegExp(`\\(\\s*${AMOUNT}\\s*\\/\\s*${AMOUNT}\\s*\\)(?!\\s*\\^)`, 'g'))].flatMap(([raw, x, y]) => {
       const [a, b] = [valueOf(x), valueOf(y)];
       if (!a || !b || !b.value || fractionTerms.has(x.trim())) return [];
       const others = figures.filter(figure => figure.raw !== a.raw && figure.raw !== b.raw);

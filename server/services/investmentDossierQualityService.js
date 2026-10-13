@@ -44,10 +44,13 @@ const sourceTextForClaim = ({ claim = {}, sourceRefs = [] } = {}) => {
 // source, or computed in the claim from figures that are.
 // A figure the page already established in an earlier claim that passed
 // (a market value computed above) may be used again below.
-const numericGroundingFailure = ({ claim = {}, sourceRefs = [], established = [] } = {}) => {
-  if (!figuresIn(claim?.text).length) return false;
-  const sourceText = sourceTextForClaim({ claim, sourceRefs });
-  return !sourceText || unstatedFigures(claim?.text, [sourceText, ...established]).length > 0;
+// A citation to a source with no text is not evidence either way: its figures
+// are checked against every source the page gathered.
+const ungroundedFigures = ({ claim = {}, sourceRefs = [], established = [] } = {}) => {
+  if (!figuresIn(claim?.text).length) return [];
+  const sourceText = sourceTextForClaim({ claim, sourceRefs })
+    || sourceRefs.map(source => [source?.snippet, source?.quote, source?.text].filter(Boolean).join(' ')).join(' ');
+  return sourceText ? unstatedFigures(claim?.text, [sourceText, ...established]) : ['no source text'];
 };
 
 const includesHeading = (headings, patterns) => patterns.some(pattern => (
@@ -114,7 +117,7 @@ const evaluateInvestmentDossierQuality = ({
     ['supported', 'partial', 'conflicted'].includes(clean(claim?.support).toLowerCase())
   ));
   for (let grew = true; grew;) {
-    const grounded = ungroundedNumericClaims.filter(claim => !numericGroundingFailure({ claim, sourceRefs: sourceList, established }));
+    const grounded = ungroundedNumericClaims.filter(claim => !ungroundedFigures({ claim, sourceRefs: sourceList, established }).length);
     established.push(...grounded.map(claim => clean(claim?.text)));
     ungroundedNumericClaims = ungroundedNumericClaims.filter(claim => !grounded.includes(claim));
     grew = grounded.length > 0;
@@ -186,7 +189,7 @@ const evaluateInvestmentDossierQuality = ({
   if (ungroundedNumericClaims.length) {
     const samples = ungroundedNumericClaims
       .slice(0, 4)
-      .map(claim => `${clean(claim?.section) || 'Unsectioned'}: ${clean(claim?.text).slice(0, 100)}`)
+      .map(claim => `${clean(claim?.section) || 'Unsectioned'}: ${clean(claim?.text).slice(0, 100)} [${ungroundedFigures({ claim, sourceRefs: sourceList, established }).join(', ')}]`)
       .join(' | ');
     failures.push(`Investment dossier has numeric claims not grounded in cited source text: ${ungroundedNumericClaims.length}${samples ? ` (${samples})` : ''}.`);
   }
