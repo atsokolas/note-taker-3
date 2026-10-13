@@ -1216,13 +1216,14 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(prompt).toContain('price_volume_mix');
   });
 
-  it('keeps a long filing\'s results, concentration and buybacks before its descriptions', () => {
+  it('keeps a long filing\'s results, share count, concentration and buybacks before its descriptions', () => {
     const filler = count => 'lorem ipsum '.repeat(count);
-    const filing = `${filler(300)} competition ${filler(2000)} results of operations ${filler(2000)} direct customers represented 16% ${filler(2000)} share repurchase program ${filler(3000)}`;
+    const filing = `${filler(300)} competition ${filler(2000)} results of operations ${filler(2000)} net income per diluted share ${filler(2000)} direct customers represented 16% ${filler(2000)} share repurchase program ${filler(3000)}`;
     const labels = __testables.extractSecFilingEvidenceText(filing).match(/\[Filing excerpt: [^\]]+\]/g);
     expect(labels).toEqual([
       '[Filing excerpt: filing identity and period]',
       '[Filing excerpt: results of operations]',
+      '[Filing excerpt: net income and share count]',
       '[Filing excerpt: customer concentration]',
       '[Filing excerpt: capital return]',
       '[Filing excerpt: competition]'
