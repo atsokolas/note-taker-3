@@ -18,6 +18,7 @@ const {
   compileInvestmentDossierResearchPlan,
   upgradeInvestmentDossierProfile
 } = require('./investmentDossierProfileService');
+const { describeEvidence } = require('./companyDossierEvidenceService');
 const { evaluateInvestmentDossierQuality } = require('./investmentDossierQualityService');
 const { withTransientRetries } = require('./wikiDossierBuildReliabilityService');
 const { normalizeComparableText } = require('./wikiDedupeService');
@@ -1262,12 +1263,12 @@ Investment dossier rules:
 - Lead with a current judgment, not a company description. Separate business quality from security attractiveness.
 - The selected business-model adapter is "${modelLabel}". Do not import AI-infrastructure metrics unless this company's economics actually require them.
 - Required analytical modules: ${(plan.requiredModuleIds || []).join(', ') || 'research plan is not classified yet'}.
-- Missing evidence archetypes: ${(plan.missingEvidenceArchetypes || []).join(', ') || 'none identified'}.
-- For each missing evidence archetype, say plainly in the relevant section that it could not be found (use those words), and draw no conclusion that needs it. With no dated market price, state no market value, multiple or implied return.
+- Not attached: ${(plan.missingEvidenceArchetypes || []).map(describeEvidence).join('; ') || 'nothing'}.
+- For each source not attached, say plainly in the relevant section that it could not be found (use those words), and draw no conclusion that needs it. With no dated market price, state no market value, multiple or implied return.
 - Every figure must be stated in a cited source, or computed in the same sentence from figures that are, with the inputs written out: "membership fees were 1.99% of net sales ($5.91bn / $297.25bn)". A margin, ratio, multiple or growth rate without its inputs beside it is refused.
-- For each disclosure (buybacks, customer concentration, commitments, guidance), use the latest attached filing that reports it, and give its latest quarter alongside any year-to-date total; cite an older filing only to compare against.
+- For each disclosure (buybacks, customer concentration, commitments, guidance), use the latest attached filing that reports it, and give its latest quarter alongside any year-to-date total. A figure from an older period cites the filing that reports it, and is compared only with the same length of period ("first half against first half", never a half-year against nine months).
 - Open with the judgment and what the filings establish. Say what is missing once, where it matters (Implied Expectations for price and multiples), not in the opening.
-- Write for an investor: never use the words "evidence archetype", "module", "maintenance test" or "dossier engine", and do not name the app.
+- Write for an investor: never use the words "evidence archetype", "module", "ledger", "maintenance test" or "dossier engine", never write internal labels with underscores, and do not name the app.
 - When a competitor's filing is attached, compare the company against it in Product and Technical Moat, citing it.
 - Missing analytical modules: ${(plan.missingModuleIds || []).join(', ') || 'none identified'}.
 - Produce at least 1,800 words and at least 20 distinct claim-level analytical paragraphs or bullets. These are minimum decision-dossier gates, not permission to add filler.
@@ -3689,7 +3690,7 @@ const fillInvestmentDossierMaintenanceTest = ({ article = {}, page = {}, candida
   return {
     ...article,
     sections: (Array.isArray(article.sections) ? article.sections : []).map((section) => {
-      if (normalizeSectionHeading(section?.heading) !== 'next evidence and maintenance test') return section;
+      if (normalizeSectionHeading(section?.heading) !== 'what to check next') return section;
       const sectionText = JSON.stringify(section || {});
       if (!/\bstill needs source-backed development\b/i.test(sectionText)) return section;
       const companyLabel = asString(page?.externalWatches?.edgar?.companyName || page?.title)

@@ -75,6 +75,8 @@ const figuresIn = (text = '') => {
   for (const match of String(text).matchAll(NUMBER)) {
     const [raw, dollar, digits, unitRaw = ''] = match;
     const unit = unitRaw.toLowerCase();
+    // "the high-80s" or "the 1990s" names a range, not a figure.
+    if (!unit && /^'?s\b/.test(String(text).slice(match.index + raw.length))) continue;
     const base = Number(digits.replace(/,/g, ''));
     if (!Number.isFinite(base)) continue;
     const decimals = (digits.split('.')[1] || '').length;
@@ -101,6 +103,7 @@ const derivedFrom = (a, b) => [a / b, (a / b) * 100, a / b - 1, ((a - b) / b) * 
 // Small whole numbers a claim scales by ("x 4", "over 5 years") are not
 // figures a reader checks, but they are inputs to the arithmetic shown.
 const SCALERS = /\b(?:[2-9]|1[0-2])\b/g;
+const SCALER_WORDS = [[/\b(?:doubl\w*|twice|halv\w*)\b/i, 2], [/\btripl\w*/i, 3], [/\bquadrupl\w*/i, 4]];
 // "below roughly 70%" names a line to watch, not a fact to check.
 const THRESHOLD = /\b(?:below|above|under|over|exceeds?|beneath|falls? to|drops? to|rises? to)\s+(?:roughly\s+|about\s+|approximately\s+)?$/i;
 // Arithmetic often moves between units: 9,226 (millions) / 20.76 is 444.4 million.
@@ -130,7 +133,10 @@ const unstatedFigures = (claim = '', texts = []) => {
   const values = (Array.isArray(texts) ? texts : []).flatMap(valuesIn);
   const text = String(claim);
   const figures = figuresIn(text).filter(figure => !THRESHOLD.test(text.slice(0, text.indexOf(figure.raw))));
-  const scalers = (text.match(SCALERS) || []).map(Number);
+  const scalers = [
+    ...(text.match(SCALERS) || []).map(Number),
+    ...SCALER_WORDS.filter(([pattern]) => pattern.test(text)).map(([, k]) => k)
+  ];
   const near = (value, figure) => UNIT_SHIFTS.some(shift => (
     Math.abs(value * shift - figure.value) <= Math.max(figure.step / 2, Math.abs(figure.value) * 0.005)
   ));

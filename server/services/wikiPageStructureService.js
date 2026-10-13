@@ -76,7 +76,7 @@ const INVESTMENT_DOSSIER_SECTIONS = Object.freeze([
   'Operating Engine and Capital Allocation',
   'Obligations, Concentration, and Policy',
   'What Would Change the Thesis',
-  'Next Evidence and Maintenance Test'
+  'What to Check Next'
 ]);
 
 const WIKI_PAGE_TYPES = Object.freeze(Object.keys(CONTRACTS));
@@ -131,11 +131,8 @@ const investmentDossierHeadingMatch = (target = '', candidate = '') => {
   const expected = normalizeHeading(target);
   const actual = normalizeHeading(candidate);
   if (expected === actual) return true;
-  if (expected === 'next evidence and maintenance test') {
-    return actual === 'next evidence'
-      || actual === 'maintenance test'
-      || (actual.includes('next evidence') && actual.includes('maintenance'));
-  }
+  // Pages written before the rename call it "Next Evidence and Maintenance Test".
+  if (expected === 'what to check next') return /next evidence|maintenance test/.test(actual);
   return false;
 };
 

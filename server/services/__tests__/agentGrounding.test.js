@@ -87,6 +87,16 @@ describe('unstatedFigures', () => {
     expect(unstatedFigures('Gross profit of $61.2 billion is 80% of $81.6 billion.', [filing, 'Gross profit $61,212 million.'])).toEqual(['80%']);
   });
 
+  it('reads a range like the high-80s as no figure', () => {
+    expect(unstatedFigures('A renewal rate below the high-80s (currently 89.8%) would matter, as in the 1990s.', ['Renewal rate 89.8%.'])).toEqual([]);
+  });
+
+  it('follows doubling written in words', () => {
+    const half = 'Operating income $122,871 million.';
+    expect(unstatedFigures('Doubling $122.87 billion gives about $245.7 billion.', [half])).toEqual([]);
+    expect(unstatedFigures('That gives about $245.7 billion.', [half])).toEqual(['$245.7 billion']);
+  });
+
   it('ignores years and small counts', () => {
     expect(unstatedFigures('In 2026 three of 5 segments grew.', [filing])).toEqual([]);
   });

@@ -449,7 +449,7 @@ const buildSections = () => ([
     ]
   },
   {
-    heading: 'Next Evidence and Maintenance Test',
+    heading: 'What to Check Next',
     claims: [
       claim(
         'cost-next-q4',

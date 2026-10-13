@@ -5,6 +5,16 @@ const {
 
 const COMPANY_DOSSIER_MIN_SOURCE_COUNT = 8;
 
+// What a missing kind of evidence is, in a reader's words.
+const describeEvidence = (archetype = '') => {
+  if (archetype === 'company_product') return 'an official product, pricing, technical, or customer document';
+  if (archetype === 'competitor_primary') return 'a primary source from a named competitor';
+  if (archetype === 'independent_domain') return 'an independent regulator, government, standards, academic, or benchmark source';
+  if (archetype === 'market_snapshot') return 'a dated market price with its public source URL';
+  if (archetype === 'filing') return 'a full-text primary filing';
+  return `a source covering ${String(archetype).replaceAll('_', ' ')}`;
+};
+
 const unique = values => Array.from(new Set((Array.isArray(values) ? values : []).filter(Boolean)));
 
 const buildCompanyDossierEvidenceCoverage = ({
@@ -34,14 +44,7 @@ const buildCompanyDossierEvidenceCoverage = ({
   // one could not be found the page says so rather than not existing: the
   // writer is told which are missing (researchPlan.missingEvidenceArchetypes).
   const ready = missingSourceCount === 0 && !missingEvidenceArchetypes.includes('filing');
-  const checklist = missingEvidenceArchetypes.map((archetype) => {
-    if (archetype === 'company_product') return 'an official product, pricing, technical, or customer document';
-    if (archetype === 'competitor_primary') return 'a primary source from a named competitor';
-    if (archetype === 'independent_domain') return 'an independent regulator, government, standards, academic, or benchmark source';
-    if (archetype === 'market_snapshot') return 'a dated market price with its public source URL';
-    if (archetype === 'filing') return 'a full-text primary filing';
-    return `a source covering ${archetype.replaceAll('_', ' ')}`;
-  });
+  const checklist = missingEvidenceArchetypes.map(describeEvidence);
   const summaryParts = [];
   if (missingSourceCount) {
     summaryParts.push(`${missingSourceCount} more substantive source${missingSourceCount === 1 ? '' : 's'}`);
@@ -70,6 +73,7 @@ const buildCompanyDossierEvidenceCoverage = ({
 };
 
 module.exports = {
+  describeEvidence,
   COMPANY_DOSSIER_MIN_SOURCE_COUNT,
   buildCompanyDossierEvidenceCoverage
 };

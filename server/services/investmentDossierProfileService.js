@@ -138,7 +138,7 @@ const MODULE_CLAIM_RULES = Object.freeze({
     keywords: /falsif|would (?:change|shift|validate|prove|invalidate)|evidence that|sustained|prolonged|break|decline|erosion|fail|monitor|threshold/i
   },
   next_evidence_clock: {
-    sections: [/next evidence and maintenance test/i],
+    sections: [/what to check next|next evidence and maintenance test/i],
     keywords: /next|10-q|10-k|filing|evidence|test|review|update/i
   },
   price_volume_mix: {

@@ -11,7 +11,7 @@ const headings = [
   'Operating Engine and Capital Allocation',
   'Obligations, Concentration, and Policy',
   'What Would Change the Thesis',
-  'Next Evidence and Maintenance Test'
+  'What to Check Next'
 ];
 const body = {
   type: 'doc',
@@ -132,6 +132,8 @@ assert.strictEqual(framing('An independent benchmark of warehouse density could 
 assert.strictEqual(framing('Security attractiveness cannot be assessed: no filing pairs a dated price with a diluted share count.').ok, true);
 assert.strictEqual(framing('Any such multiple would need share-count inputs not present in the source set.').ok, true);
 assert.strictEqual(framing('Owner hurdle: 15.0% annual return over 5 years.').ok, false);
+assert.strictEqual(framing('What would have to be true for a 10% annual return over five years is not computable from the attached evidence.').ok, true);
+assert.strictEqual(framing('Net sales grew 5%, 8% and 10%, but whether the price assumes that cannot be tested without a share count.').ok, false);
 
 const thinProfile = upgradeInvestmentDossierProfile({
   profile: { company: { name: 'Generic Company', ticker: 'GEN' } },

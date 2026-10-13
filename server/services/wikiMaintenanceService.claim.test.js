@@ -1239,8 +1239,8 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
       candidates: [{ index: 1, provider: 'sec-edgar' }, { index: 2, provider: 'sec-edgar' }],
       article: {
         sections: [{
-          heading: 'Next Evidence and Maintenance Test',
-          paragraphs: [{ text: 'Next Evidence and Maintenance Test still needs source-backed development.' }],
+          heading: 'What to Check Next',
+          paragraphs: [{ text: 'What to Check Next still needs source-backed development.' }],
           bullets: []
         }]
       }
