@@ -11,7 +11,7 @@ const unique = values => Array.from(new Set((Array.isArray(values) ? values : []
 const DECISION_DOSSIER_MIN_WORDS = 1800;
 // A sentence that says what the evidence does not show: a negation, then what
 // was not found, stated, or computable.
-const MISSING_EVIDENCE = /\b(?:no|not|cannot|could not|unable)\b[^.]{0,160}\b(?:found|located|available|attached|stated|disclosed|computed|computable|calculated|tested|testable|assessed|established|determined|present)\b/i;
+const MISSING_EVIDENCE = /\b(?:no|not|cannot|could not|unable)\b[^.]{0,160}\b(?:found|located|available|attached|stated|disclosed|computed|computable|calculated|answered|tested|testable|assessed|established|determined|present)\b/i;
 const DECISION_DOSSIER_MIN_CLAIMS = 20;
 const REPRODUCIBLE_MODULE_IDS = Object.freeze([
   'reverse_expectations',
@@ -37,10 +37,12 @@ const sourceTextForClaim = ({ claim = {}, sourceRefs = [] } = {}) => {
 
 // The same figure check every page gets: each figure is stated in a cited
 // source, or computed in the claim from figures that are.
-const numericGroundingFailure = ({ claim = {}, sourceRefs = [] } = {}) => {
+// A figure the page already established in an earlier claim that passed
+// (a market value computed above) may be used again below.
+const numericGroundingFailure = ({ claim = {}, sourceRefs = [], established = [] } = {}) => {
   if (!figuresIn(claim?.text).length) return false;
   const sourceText = sourceTextForClaim({ claim, sourceRefs });
-  return !sourceText || unstatedFigures(claim?.text, [sourceText]).length > 0;
+  return !sourceText || unstatedFigures(claim?.text, [sourceText, ...established]).length > 0;
 };
 
 const includesHeading = (headings, patterns) => patterns.some(pattern => (
@@ -90,10 +92,13 @@ const evaluateInvestmentDossierQuality = ({
     || (claim?.sourceRefIds || []).length
     || (claim?.citationIndexes || []).length
   ));
-  const ungroundedNumericClaims = claimList.filter(claim => (
-    ['supported', 'partial', 'conflicted'].includes(clean(claim?.support).toLowerCase())
-    && numericGroundingFailure({ claim, sourceRefs: sourceList })
-  ));
+  const established = [];
+  const ungroundedNumericClaims = claimList.filter((claim) => {
+    if (!['supported', 'partial', 'conflicted'].includes(clean(claim?.support).toLowerCase())) return false;
+    if (numericGroundingFailure({ claim, sourceRefs: sourceList, established })) return true;
+    established.push(clean(claim?.text));
+    return false;
+  });
   const observedEvidenceArchetypes = unique([
     ...(plan.evidenceArchetypes || []),
     ...sourceList.map(inferEvidenceArchetype)

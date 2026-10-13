@@ -67,8 +67,8 @@ const inventedQuotes = (reply = '', texts = []) => quotations(reply).filter(span
 // the value it stands for and how precisely it was written, so "$81.6 billion"
 // matches a filing's "81,615" (in millions) but not "$80 billion". Years and
 // small bare counts are not figures a reader checks.
-const SCALES = { thousand: 1e3, million: 1e6, mn: 1e6, m: 1e6, billion: 1e9, bn: 1e9, b: 1e9, trillion: 1e12, t: 1e12 };
-const NUMBER = /(\$)?(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)(?:\s*(%|percent|thousand|million|billion|trillion|mn|bn|[mbt]\b|x\b|×))?/gi;
+const SCALES = { thousand: 1e3, million: 1e6, mn: 1e6, mm: 1e6, m: 1e6, billion: 1e9, bn: 1e9, b: 1e9, trillion: 1e12, t: 1e12 };
+const NUMBER = /(\$)?(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)(?:\s*(%|percent|thousand|million|billion|trillion|mm|mn|bn|[mbt]\b|x\b|×))?/gi;
 
 const figuresIn = (text = '') => {
   const figures = [];
@@ -99,7 +99,8 @@ const statedIn = (figure, values) => values.some(value => (
 ));
 
 // What two stated figures make: a share, a ratio, a change, a product, a sum.
-const derivedFrom = (a, b) => [a / b, (a / b) * 100, a / b - 1, ((a - b) / b) * 100, a * b, a - b, a + b];
+// "75.0% of $177.8bn" is the percentage times the base.
+const derivedFrom = (a, b) => [a / b, (a / b) * 100, a / b - 1, ((a - b) / b) * 100, a * b, (a * b) / 100, a - b, a + b];
 // Small whole numbers a claim scales by ("x 4", "over 5 years") are not
 // figures a reader checks, but they are inputs to the arithmetic shown.
 const SCALERS = /\b(?:[2-9]|1[0-2])\b/g;
@@ -132,9 +133,14 @@ const signedSums = (list) => {
 const unstatedFigures = (claim = '', texts = []) => {
   const values = (Array.isArray(texts) ? texts : []).flatMap(valuesIn);
   const text = String(claim);
-  const figures = figuresIn(text).filter(figure => !THRESHOLD.test(text.slice(0, text.indexOf(figure.raw))));
+  // "x 52/36" scales a nine-month figure to a year; its terms are not claims.
+  const fractions = [...text.matchAll(/\b(\d{1,3})\s*\/\s*(\d{1,3})\b/g)];
+  const fractionTerms = new Set(fractions.flatMap(([, a, b]) => [a, b]));
+  const figures = figuresIn(text).filter(figure => !THRESHOLD.test(text.slice(0, text.indexOf(figure.raw)))
+    && !fractionTerms.has(figure.raw));
   const scalers = [
     ...(text.match(SCALERS) || []).map(Number),
+    ...fractions.map(([, a, b]) => Number(a) / Number(b)).filter(Number.isFinite),
     ...SCALER_WORDS.filter(([pattern]) => pattern.test(text)).map(([, k]) => k)
   ];
   const near = (value, figure) => UNIT_SHIFTS.some(shift => (

@@ -97,6 +97,12 @@ describe('unstatedFigures', () => {
     expect(unstatedFigures('That gives about $245.7 billion.', [half])).toEqual(['$245.7 billion']);
   });
 
+  it('follows a percentage of a base, fractional scaling and mm', () => {
+    const k = 'Gross margin 75.0%. Revenue $177,837 million. Net income $6,228 million; diluted shares 444,455 thousand.';
+    expect(unstatedFigures('Gross profit was $133.4 billion (75.0% of $177.837 billion).', [k])).toEqual([]);
+    expect(unstatedFigures('That is $14.01 a share ($6,228mm / 444.455mm); x 52/36 gives $8,996 million.', [k])).toEqual([]);
+  });
+
   it('ignores years and small counts', () => {
     expect(unstatedFigures('In 2026 three of 5 segments grew.', [filing])).toEqual([]);
   });
