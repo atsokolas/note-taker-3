@@ -130,6 +130,7 @@ const framing = (text) => evaluateInvestmentDossierQuality({
 assert.strictEqual(framing('Owner hurdle: 10.0% annual return over 5 years. This is a starting judgment.').ok, true);
 assert.strictEqual(framing('An independent benchmark of warehouse density could not be found.').ok, true);
 assert.strictEqual(framing('Security attractiveness cannot be assessed: no filing pairs a dated price with a diluted share count.').ok, true);
+assert.strictEqual(framing('Any such multiple would need share-count inputs not present in the source set.').ok, true);
 assert.strictEqual(framing('Owner hurdle: 15.0% annual return over 5 years.').ok, false);
 
 const thinProfile = upgradeInvestmentDossierProfile({

@@ -1702,35 +1702,34 @@ const extractSecFilingEvidenceText = (value = '', limit = SEC_FILING_EVIDENCE_TE
   };
   addWindow({ start: 0, end: 2400, label: 'filing identity and period' });
   [
-    ['business and platform', /\b(?:business overview|our platform|our cloud platform|products and services)\b/ig],
-    ['technical infrastructure', /\b(?:technology and infrastructure|accelerated computing|gpu infrastructure|data centers?)\b/ig],
-    ['competition', /\bcompetition\b/ig],
-    ['customer concentration', /\b(?:customer concentration|major customers?|largest customer)\b/ig],
-    ['contracted demand', /\b(?:remaining performance obligations|revenue backlog|contracted backlog)\b/ig],
+    // Most decision-bearing first: windows are taken in this order until the
+    // excerpt is full, so a long 10-Q keeps its results, buybacks and
+    // concentration before its descriptions.
     ['results of operations', /\b(?:management['’]s discussion and analysis|results of operations)\b/ig],
     ['revenue and cost structure', /\b(?:cost of revenue|gross profit|gross margin|operating loss)\b/ig],
+    ['customer concentration', /\b(?:customer concentration|concentration of revenue|major customers?|largest customer|direct customers? (?:represented|accounted))\b/ig],
+    ['capital return', /\b(?:share repurchase|repurchase program|stock repurchases?|repurchased? (?:approximately )?[\d.]+ (?:million|billion) shares)\b/ig],
     ['cash flow and capital intensity', /\b(?:cash flows?|capital expenditures?|purchases of property and equipment|depreciation and amortization)\b/ig],
+    ['contracted demand', /\b(?:remaining performance obligations|revenue backlog|contracted backlog)\b/ig],
+    ['business and platform', /\b(?:business overview|our platform|our cloud platform|products and services)\b/ig],
+    ['competition', /\bcompetition\b/ig],
+    ['technical infrastructure', /\b(?:technology and infrastructure|accelerated computing|gpu infrastructure|data centers?)\b/ig],
     ['financing and obligations', /\b(?:long-term debt|credit facilit|commitments and contingencies|purchase commitments?|lease liabilities)\b/ig],
     ['power and facilities', /\b(?:power capacity|power commitments?|data center leases?|facility commitments?)\b/ig],
     ['supplier and GPU dependency', /\b(?:NVIDIA|GPU supply|supplier concentration)\b/ig],
     ['material risks', /\bRisk Factors\b/ig]
-  ].forEach(([label, pattern]) => {
-    const positions = [];
-    let match = pattern.exec(text);
-    while (match) {
-      if (match.index > 1800) positions.push(match.index);
-      match = pattern.exec(text);
-    }
-    if (!positions.length) return;
-    const selected = positions.length > 1
-      ? [positions[Math.floor(positions.length / 2)], positions.at(-1)]
-      : positions;
-    selected.forEach(position => addWindow({
+  ].map(([label, pattern]) => {
+    const positions = Array.from(text.matchAll(pattern), match => match.index).filter(index => index > 1800);
+    return { label, picks: positions.length > 1 ? [positions[Math.floor(positions.length / 2)], positions.at(-1)] : positions };
+  })
+    // Every topic gets one window before any gets a second.
+    .flatMap(({ label, picks }) => picks.map((position, round) => ({ label, position, round })))
+    .sort((a, b) => a.round - b.round)
+    .forEach(({ label, position }) => addWindow({
       start: position - 700,
       end: position + 3000,
       label
     }));
-  });
   return truncateRaw(windows.join('\n\n'), limit);
 };
 

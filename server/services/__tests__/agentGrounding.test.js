@@ -71,6 +71,17 @@ describe('unstatedFigures', () => {
     expect(unstatedFigures('Annualized, revenue is near $384,884 million ($96,221m x 4), about 1.8x the $215.9 billion fiscal base.', [q])).toEqual([]);
   });
 
+  it('follows unit shifts, products and subtraction chains', () => {
+    const k = 'Net income $9,226 million. Diluted EPS $20.76. Operating cash flow $15,820 million, capex $6,435 million, dividends $2,458 million, buybacks $847 million. Price $958.32.';
+    expect(unstatedFigures('An implied 444.4 million shares (9,226 / 20.76) at $958.32 is about $425.9bn.', [k])).toEqual([]);
+    expect(unstatedFigures('That leaves $15.82bn - $6.435bn - $2.458bn - $0.847bn = $6.08bn.', [k])).toEqual([]);
+    expect(unstatedFigures('Operating cash flow of $15.82bn, or 15.82 in billions.', [k])).toEqual([]);
+  });
+
+  it('reads a threshold to watch as no claim', () => {
+    expect(unstatedFigures('A gross margin below roughly 70% would weaken the case.', [filing])).toEqual([]);
+  });
+
   it('does not accept a computed figure whose inputs are missing or wrong', () => {
     expect(unstatedFigures('Operating margin was 66%.', [filing])).toEqual(['66%']);
     expect(unstatedFigures('Gross profit of $61.2 billion is 80% of $81.6 billion.', [filing, 'Gross profit $61,212 million.'])).toEqual(['80%']);

@@ -9,12 +9,9 @@ const clean = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
 const unique = values => Array.from(new Set((Array.isArray(values) ? values : []).filter(Boolean)));
 
 const DECISION_DOSSIER_MIN_WORDS = 1800;
-const MISSING_EVIDENCE = new RegExp([
-  /\bcould not be found\b|\bwas not found\b/,
-  /\bcannot (?:yet )?be (?:assessed|computed|established|stated)\b/,
-  /\b(?:is|are|was|were) not (?:yet )?(?:attached|available)\b/,
-  /\bno [^.]{0,120}\b(?:is|are|was|were) (?:attached|stated|disclosed|available)\b/
-].map(pattern => pattern.source).join('|'), 'i');
+// A sentence that says what the evidence does not show: a negation, then what
+// was not found, stated, or computable.
+const MISSING_EVIDENCE = /\b(?:no|not|cannot|could not|unable)\b[^.]{0,160}\b(?:found|located|available|attached|stated|disclosed|computed|assessed|established|present)\b/i;
 const DECISION_DOSSIER_MIN_CLAIMS = 20;
 const REPRODUCIBLE_MODULE_IDS = Object.freeze([
   'reverse_expectations',
@@ -78,7 +75,7 @@ const evaluateInvestmentDossierQuality = ({
   const ownersOwn = claim => /owner(?:'s)? hurdle|starting judgment/i.test(clean(claim?.text))
     && ownerText && !unstatedFigures(claim?.text, [ownerText]).length;
   const namesMissingEvidence = claim => MISSING_EVIDENCE.test(clean(claim?.text))
-    && !figuresIn(claim?.text).length;
+    && !unstatedFigures(claim?.text, [sourceTextForClaim({ claim, sourceRefs: sourceList })]).length;
   const claimList = (Array.isArray(claims) ? claims : [])
     .filter(claim => !ownersOwn(claim) && !namesMissingEvidence(claim));
   const unsupportedClaims = claimList.filter(claim => clean(claim?.support).toLowerCase() === 'unsupported');

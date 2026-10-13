@@ -81,25 +81,46 @@ const figuresIn = (text = '') => {
     const bare = !dollar && !unit;
     if (bare && !digits.includes(',') && !digits.includes('.') && (base < 10 || (base >= 1900 && base <= 2100))) continue;
     const scale = SCALES[unit] || 1;
-    figures.push({ raw: raw.trim(), value: base * scale, step: scale * 10 ** -decimals });
+    figures.push({ raw: raw.trim(), value: base * scale, base, step: scale * 10 ** -decimals });
   }
   return figures;
 };
 
-// Every value a text states, at every scale a table might state it in.
-const valuesIn = (text = '') => figuresIn(text).flatMap(({ value, step }) => (
-  step >= 1 ? [value, value * 1e3, value * 1e6, value * 1e9] : [value]
+// Every value a text states, at every scale a table might state it in,
+// and as the bare number it was written as ("$9,226 million" also states 9,226).
+const valuesIn = (text = '') => figuresIn(text).flatMap(({ value, base, step }) => (
+  step >= 1 ? [value, value * 1e3, value * 1e6, value * 1e9, base] : [value, base]
 ));
 
 const statedIn = (figure, values) => values.some(value => (
   Math.abs(value - figure.value) <= Math.max(figure.step / 2, Math.abs(figure.value) * 1e-9)
 ));
 
-// What two stated figures make: a share, a ratio, a change, a sum.
-const derivedFrom = (a, b) => [a / b, (a / b) * 100, ((a - b) / b) * 100, a - b, a + b];
+// What two stated figures make: a share, a ratio, a change, a product, a sum.
+const derivedFrom = (a, b) => [a / b, (a / b) * 100, ((a - b) / b) * 100, a * b, a - b, a + b];
 // Small whole numbers a claim scales by ("x 4", "over 5 years") are not
 // figures a reader checks, but they are inputs to the arithmetic shown.
 const SCALERS = /\b(?:[2-9]|1[0-2])\b/g;
+// "below roughly 70%" names a line to watch, not a fact to check.
+const THRESHOLD = /\b(?:below|above|under|over|exceeds?|beneath|falls? to|drops? to|rises? to)\s+(?:roughly\s+|about\s+|approximately\s+)?$/i;
+// Arithmetic often moves between units: 9,226 (millions) / 20.76 is 444.4 million.
+const UNIT_SHIFTS = [1, 1e3, 1e6, 1e9, 1e-3, 1e-6, 1e-9];
+
+// Sums and differences of up to four figures, for a chain like
+// "$15.82bn - $6.435bn - $2.458bn - $0.847bn = $6.08bn".
+const signedSums = (list) => {
+  const sums = [];
+  const walk = (start, total, count) => {
+    if (count >= 3) sums.push(total);
+    if (count === 4) return;
+    for (let index = start; index < list.length; index += 1) {
+      walk(index + 1, total + list[index], count + 1);
+      walk(index + 1, total - list[index], count + 1);
+    }
+  };
+  list.slice(0, 12).forEach((value, index) => walk(index + 1, value, 1));
+  return sums;
+};
 
 // The figures in a claim that none of the given texts states. A figure the
 // writer computed counts when the claim shows its working: it follows from
@@ -107,14 +128,18 @@ const SCALERS = /\b(?:[2-9]|1[0-2])\b/g;
 // as "1.99% ($5.91bn / $297.25bn)" or "$384,884 million ($96,221m x 4)" do.
 const unstatedFigures = (claim = '', texts = []) => {
   const values = (Array.isArray(texts) ? texts : []).flatMap(valuesIn);
-  const figures = figuresIn(claim);
-  const scalers = (String(claim).match(SCALERS) || []).map(Number);
-  const near = (value, figure) => Math.abs(value - figure.value) <= Math.max(figure.step / 2, Math.abs(figure.value) * 0.005);
+  const text = String(claim);
+  const figures = figuresIn(text).filter(figure => !THRESHOLD.test(text.slice(0, text.indexOf(figure.raw))));
+  const scalers = (text.match(SCALERS) || []).map(Number);
+  const near = (value, figure) => UNIT_SHIFTS.some(shift => (
+    Math.abs(value * shift - figure.value) <= Math.max(figure.step / 2, Math.abs(figure.value) * 0.005)
+  ));
   const known = figures.filter(figure => statedIn(figure, values));
   const follows = figure => known.some(a => (
-    scalers.some(k => near(a.value * k, figure) || near(a.value / k, figure))
+    near(a.value, figure)
+    || scalers.some(k => near(a.value * k, figure) || near(a.value / k, figure))
     || known.some(b => a !== b && b.value !== 0 && derivedFrom(a.value, b.value).some(value => near(value, figure)))
-  ));
+  )) || signedSums(known.map(a => a.value)).some(value => near(value, figure));
   for (let grew = true; grew;) {
     const next = figures.filter(figure => !known.includes(figure) && follows(figure));
     known.push(...next);
