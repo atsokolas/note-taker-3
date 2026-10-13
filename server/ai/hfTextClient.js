@@ -1,3 +1,5 @@
+const { DEFAULT_ANTHROPIC_TEXT_MODEL, requestAnthropic } = require('./anthropicClient');
+
 const DEFAULT_TEXT_MODEL = 'openai/gpt-oss-120b';
 const DEFAULT_PROVIDER = 'groq';
 const DEFAULT_OPENROUTER_TEXT_MODEL = 'openai/gpt-4o-mini';
@@ -362,16 +364,29 @@ const getConfig = ({ upstream: upstreamOverride = '' } = {}) => {
   };
 };
 
+// Claude answers first when its key is set; whatever it cannot answer (credit
+// spent, rate limited, down, refused) goes on to the routes configured below.
+const getAnthropicConfig = () => {
+  const token = String(process.env.ANTHROPIC_API_KEY || '').trim();
+  if (!token) return null;
+  return {
+    upstream: 'anthropic',
+    token,
+    model: process.env.ANTHROPIC_TEXT_MODEL || DEFAULT_ANTHROPIC_TEXT_MODEL,
+    timeoutMs: Number(process.env.ANTHROPIC_TIMEOUT_MS || process.env.OPENROUTER_TIMEOUT_MS || DEFAULT_TIMEOUT_MS)
+  };
+};
+
 const getConfigChain = ({ allowFallback = true } = {}) => {
   const preferred = getConfig();
-  if (!allowFallback) return [preferred];
   const alternateUpstream = preferred.upstream === 'openrouter' ? 'huggingface' : 'openrouter';
-  const alternate = getConfig({ upstream: alternateUpstream });
-  return String(alternate.token || '').trim() ? [preferred, alternate] : [preferred];
+  const alternate = allowFallback ? getConfig({ upstream: alternateUpstream }) : null;
+  return [getAnthropicConfig(), preferred, String(alternate?.token || '').trim() ? alternate : null].filter(Boolean);
 };
 
 const startupConfig = getConfig();
 console.log('[AI] text client', {
+  claude: getAnthropicConfig()?.model || 'off',
   upstream: startupConfig.upstream,
   model: startupConfig.model,
   textModelFallbacks: startupConfig.textModelFallbacks,
@@ -490,6 +505,7 @@ const requestChatCompletions = async ({
   payload,
   signal
 }) => {
+  if (upstream === 'anthropic') return requestAnthropic({ token, model, timeoutMs, payload, signal });
   const url = `${String(routerBaseUrl || DEFAULT_ROUTER_BASE_URL).replace(/\/+$/, '')}/chat/completions`;
   const basePayload = {
     model,
@@ -834,6 +850,7 @@ const extractDeltaContent = (payload) => {
 };
 
 const isTextGenerationConfigured = () => {
+  if (getAnthropicConfig()) return true;
   const { token, model, routeProfiles } = getConfig();
   const hasProfileRoute = Object.values(routeProfiles || {}).some((routes) => (
     Array.isArray(routes) && routes.some((route) => route?.model)
@@ -919,13 +936,15 @@ const chatCompleteWithConfig = async ({
     parseRouteEntry({ model, provider }),
     ...configuredFallbacks.map((entry) => parseRouteEntry(entry, provider))
   ].filter(Boolean);
-  const candidateRoutes = explicitRoutes.length > 0
-    ? mergeCandidateRoutes(explicitRoutes, preferredFallbacks)
-    : profileRoutes.length > 0
-      ? mergeCandidateRoutes(preferFallbackModels ? preferredFallbacks : [], profileRoutes, preferFallbackModels ? [] : preferredFallbacks)
-      : preferFallbackModels
-        ? mergeCandidateRoutes(preferredFallbacks, legacyRoutes)
-        : mergeCandidateRoutes(legacyRoutes, preferredFallbacks);
+  const candidateRoutes = upstream === 'anthropic'
+    ? [{ model, provider: '' }]
+    : explicitRoutes.length > 0
+      ? mergeCandidateRoutes(explicitRoutes, preferredFallbacks)
+      : profileRoutes.length > 0
+        ? mergeCandidateRoutes(preferFallbackModels ? preferredFallbacks : [], profileRoutes, preferFallbackModels ? [] : preferredFallbacks)
+        : preferFallbackModels
+          ? mergeCandidateRoutes(preferredFallbacks, legacyRoutes)
+          : mergeCandidateRoutes(legacyRoutes, preferredFallbacks);
   let lastError = null;
 
   for (const candidateRoute of candidateRoutes) {
@@ -1049,7 +1068,8 @@ const chatComplete = async (input = {}) => {
         latencyMs: Date.now() - startedAt
       }));
       const hasNextUpstream = config !== configs.at(-1);
-      if (!hasNextUpstream || !isFallbackModelStatus(error?.status)) {
+      const canMoveOn = config.upstream === 'anthropic' ? error?.status !== 499 : isFallbackModelStatus(error?.status);
+      if (!hasNextUpstream || !canMoveOn) {
         error.upstreamAttempts = attempts;
         throw error;
       }
@@ -1116,7 +1136,23 @@ const readStreamingCompletion = async ({ response, onDelta, signal }) => {
   return { text: stripThinkBlocks(text), raw: finalRaw };
 };
 
-const chatCompleteStream = async ({
+// Router streams are buffered until they pass their contract anyway, so Claude
+// answers a stream request whole, and a failure falls through to the router.
+const chatCompleteStream = async (input = {}) => {
+  const claude = getAnthropicConfig();
+  if (claude) {
+    try {
+      const completion = await chatCompleteWithConfig(input, claude);
+      if (typeof input.onDelta === 'function') input.onDelta(completion.text);
+      return completion;
+    } catch (error) {
+      if (error?.status === 499) throw error;
+    }
+  }
+  return chatCompleteRouterStream(input);
+};
+
+const chatCompleteRouterStream = async ({
   messages = [],
   temperature,
   maxTokens,
@@ -1298,6 +1334,7 @@ module.exports = {
   chatCompleteStream,
   getConfig,
   isTextGenerationConfigured,
+  parseStructuredText,
   __testables: {
     getRouteContract,
     resolveParserStrategy,

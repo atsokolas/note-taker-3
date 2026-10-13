@@ -9,8 +9,7 @@ describe('Think writing focus mode', () => {
     expect(notes).toContain('grid-template-columns: var(--notes-width) var(--alternatives-width) minmax(0, 1fr) var(--drawer-width)');
     expect(notes).toContain('--notes-width: 30px; --drawer-width: 0px;');
     expect(css).toContain("content: attr(data-writing-rail-label);");
-    expect(css).toContain("[data-writing-rail='left']:is(:hover, :focus-within)");
-    expect(css).toContain("[data-writing-rail='right']:is(:hover, :focus-within)");
+    expect(notes).toContain("[data-writing-rail='left']:is(:hover, :focus-within)");
   });
 
   it('uses one shared push for typing and held focus', () => {
@@ -52,12 +51,6 @@ describe('Think writing focus mode', () => {
     expect(notes).toMatch(/\.think-notes__partner \{[\s\S]*?position:\s*sticky;/);
   });
 
-  it('outranks stitch-editorial resting columns so focus can close the rails', () => {
-    expect(css).toContain('body.noeis-editorial:is(.think-rails-away, .think-focus-held) .notebook-editorial-shell');
-    const stitch = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
-    expect(stitch).toContain('grid-template-columns: 250px minmax(0, 1fr) 300px;');
-  });
-
   it('lets the Think More menu grow the header instead of overlaying the title', () => {
     const notes = fs.readFileSync(path.join(__dirname, 'think-notes.css'), 'utf8');
     const moreMenu = notes.match(/\.think-notebook-utility__more > div \{[^}]+\}/);
@@ -67,11 +60,9 @@ describe('Think writing focus mode', () => {
     expect(notes).not.toMatch(/@media \(max-width: 760px\)[\s\S]*\.think-notes \.think-notebook-utility \{[^}]*overflow-x:\s*auto;/);
   });
 
-  it('responds to the column when the persistent agent rail narrows Think', () => {
-    const agentRail = fs.readFileSync(path.join(__dirname, 'agent-rail.css'), 'utf8');
+  it('responds to the column rather than the window', () => {
     const notes = fs.readFileSync(path.join(__dirname, 'think-notes.css'), 'utf8');
-    expect(agentRail).toContain('container-name: noeis-column;');
-    expect(agentRail).toContain('container-type: inline-size;');
+    expect(notes).toContain('container: noeis-column / inline-size;');
     expect(notes).toContain('@container noeis-column (max-width: 1280px)');
     expect(notes).toContain('@container noeis-column (max-width: 760px)');
     expect(notes).toContain('@container noeis-column (max-width: 1040px)');

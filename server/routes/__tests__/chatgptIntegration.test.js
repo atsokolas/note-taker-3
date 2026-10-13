@@ -56,8 +56,8 @@ test('actual OAuth grants and content routes preserve two-account boundaries in 
     const app = express(); app.use(require('../../services/chatgptOAuthIngress').buildChatgptOAuthIngress());
     app.use(buildChatgptOAuthRouter({ isAccountActive,config,authenticateToken:humanAuth,Request,Grant,AgentToken}));
     app.use(express.json());
-    app.use(buildLegacyContentRouter({authenticateToken:auth,mongoose,...models,normalizeChecklist:x=>x,normalizePdfs:x=>x,enqueueArticleEmbedding:noop,deleteArticleEmbeddingState:noop,safeMapEmbedding:noop,queueEmbeddingUpsert:noop,normalizeItemType:x=>x,queueEmbeddingDelete:noop}));
-    app.use(buildHighlightMutationRouter({authenticateToken:auth,mongoose,Article,normalizeTags:x=>x,enqueueHighlightEmbedding:noop,safeMapEmbedding:noop,highlightToEmbeddingItem:noop,queueEmbeddingUpsert:noop,markTourSignal:noop,normalizeItemType:x=>x,parseClaimId:x=>x,queueEmbeddingDelete:noop}));
+    app.use(buildLegacyContentRouter({authenticateToken:auth,mongoose,...models,normalizeChecklist:x=>x,normalizePdfs:x=>x,enqueueArticleEmbedding:noop,deleteArticleEmbeddingState:noop,normalizeItemType:x=>x}));
+    app.use(buildHighlightMutationRouter({authenticateToken:auth,mongoose,Article,normalizeTags:x=>x,enqueueHighlightEmbedding:noop,markTourSignal:noop,normalizeItemType:x=>x,parseClaimId:x=>x}));
     app.use(buildNotebookRouter({authenticateToken:auth,NotebookEntry,ensureNotebookBlocks:noop,createBlockId:()=>crypto.randomUUID(),stripHtml:x=>x,normalizeItemType:x=>x,parseClaimId:x=>x,normalizeTags:x=>x,syncNotebookReferences:noop,enqueueNotebookEmbedding:noop,trackEvent:noop,EVENT_NAMES:{}}));
     app.use(buildWikiRouter({authenticateToken:auth,WikiPage,WikiRevision,WikiProposal,Article,NotebookEntry}));
     app.use(buildEditionRouter({auth,Edition,EditionProfile,Article,humanOnly:(req,res,next)=>req.agentToken?res.status(403).json({error:'Human required'}):next()}));

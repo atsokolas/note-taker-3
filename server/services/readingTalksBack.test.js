@@ -1,4 +1,4 @@
-const { fileReadingProposal, proposeFromReading, PER_DAY } = require('./readingTalksBack');
+const { fileReadingProposal, opposeFromNote, proposeFromReading, pushesAgainst, readingStands, PER_DAY } = require('./readingTalksBack');
 const { buildReadingProposal, planJudgmentChangeDisposition } = require('./judgmentChangeProposalService');
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -6,7 +6,7 @@ const now = new Date('2026-10-11T12:00:00.000Z');
 
 // Queries that resolve whether awaited directly or through .select().lean().
 const query = (value) => {
-  const chain = { select: () => chain, sort: () => chain, lean: async () => value, then: (ok, fail) => Promise.resolve(value).then(ok, fail) };
+  const chain = { select: () => chain, sort: () => chain, limit: () => chain, lean: async () => value, then: (ok, fail) => Promise.resolve(value).then(ok, fail) };
   return chain;
 };
 
@@ -59,8 +59,13 @@ const world = ({ heldAt = new Date(now.getTime() - 30 * DAY), receipts = [] } = 
 const event = { _id: 'e1', userId: 'u1', sourceType: 'article', sourceObjectId: 'a1' };
 const answer = body => jest.fn(async () => ({ text: JSON.stringify(body) }));
 const read = (models, complete, extra = {}) => proposeFromReading({
-  event, userId: 'u1', models, complete, configured: () => true, now, ...extra
+  event, userId: 'u1', models, complete, configured: () => true, embed: null, now, ...extra
 });
+
+// Stub embeddings: texts about membership and downturns sit together.
+const embed = jest.fn(async texts => texts.map(text => (
+  /membership|recession|renewal|downturn|fee/i.test(text) ? [1, 0.1] : [0.1, 1]
+)));
 
 describe('reading talks back', () => {
   it('proposes a passage when the model finds support and quotes the source verbatim', async () => {
@@ -128,5 +133,283 @@ describe('reading talks back', () => {
     expect(planned.judgment.currentJudgment).toBe(page.judgment.currentJudgment);
     expect(planned.judgment.decisions.at(-1).summary).toBe('Not relevant: a passage from Costco and the Membership Moat.');
     expect(() => planJudgmentChangeDisposition({ receipt: stored, page, action: 'accept', now })).toThrow(/for or against/);
+  });
+});
+
+describe('reading talks back, by meaning', () => {
+  const WAREHOUSE = 'Warehouse club renewals barely dipped through the last downturn. Shoppers kept paying the annual fee even while they cut back on almost everything else.';
+  const unworded = () => {
+    const models = world();
+    models.Article.rows[0].content = WAREHOUSE;
+    return models;
+  };
+  const quote = 'Warehouse club renewals barely dipped through the last downturn.';
+
+  it('finds a view the source shares no words with when embeddings are on', async () => {
+    const complete = answer({ stance: 'support', quote });
+    const [proposal] = await read(unworded(), complete, { embed });
+    expect(complete).toHaveBeenCalledTimes(1);
+    expect(complete.mock.calls[0][0].messages[1].content).toContain('Warehouse club renewals');
+    expect(proposal.provenance).toMatchObject({ stance: 'support', after: quote });
+  });
+
+  it('falls back to words alone, deterministically, when embeddings are off or fail', async () => {
+    const complete = answer({ stance: 'support', quote });
+    expect(await read(unworded(), complete)).toEqual([]);
+    expect(await read(unworded(), complete, { embed: async () => { throw new Error('402'); } })).toEqual([]);
+    expect(complete).not.toHaveBeenCalled();
+    // A source that shares the view's words is still read without embeddings.
+    expect(await read(world(), answer({ stance: 'nothing', quote: '' }))).toEqual([]);
+  });
+});
+
+describe('the reader version', () => {
+  const quote = 'In 2009 traffic held while discretionary retailers saw double-digit declines.';
+
+  it('says the pending challenge this source already made, while the view is held in the same words', async () => {
+    const models = world();
+    await read(models, answer({ stance: 'challenge', quote }));
+    const found = await pushesAgainst({ userId: 'u1', articleId: 'a1', models });
+    expect(found).toMatchObject({ pageId: 'v1', view: 'Costco’s membership model makes it recession-resistant.' });
+    expect(found.proposal.provenance).toMatchObject({ stance: 'challenge', articleId: 'a1' });
+
+    models.WikiPage.rows[0].judgment.currentJudgment = 'Costco is a toll road on suburban errands.';
+    expect(await pushesAgainst({ userId: 'u1', articleId: 'a1', models })).toBeNull();
+  });
+
+  it('is silent for support, and for a source with nothing waiting', async () => {
+    const models = world();
+    await read(models, answer({ stance: 'support', quote }));
+    expect(await pushesAgainst({ userId: 'u1', articleId: 'a1', models })).toBeNull();
+    expect(await pushesAgainst({ userId: 'u1', articleId: 'a2', models })).toBeNull();
+  });
+});
+
+describe('you hold the opposite', () => {
+  const OPPOSITE = 'When a real recession comes, Costco members cancel their membership faster than anyone expects.';
+  const note = (over = {}) => ({
+    _id: 'n1',
+    blocks: [{ id: 'b1', type: 'paragraph', text: `Notes from the call. ${OPPOSITE}` }],
+    viewReadings: [],
+    ...over
+  });
+  const setup = () => {
+    const models = world();
+    models.NotebookEntry = { updateOne: jest.fn(async () => ({})) };
+    return models;
+  };
+  const verdict = (body) => jest.fn(async () => ({ text: JSON.stringify(body) }));
+  const check = (models, entry, complete, extra = {}) => opposeFromNote({
+    entry, userId: 'u1', models, complete, configured: () => true, embed: null, now, ...extra
+  });
+
+  it('names the sentence and the view it contradicts, once, and keeps the verdict on the note', async () => {
+    const models = setup();
+    const complete = verdict({ verdict: 'contradicts', confidence: 'high' });
+    const line = await check(models, note(), complete);
+    expect(complete).toHaveBeenCalledTimes(1);
+    expect(complete.mock.calls[0][0].messages[1].content).toContain(OPPOSITE);
+    expect(line).toMatchObject({
+      sentence: OPPOSITE,
+      blockId: 'b1',
+      pageId: 'v1',
+      view: 'Costco’s membership model makes it recession-resistant.'
+    });
+    const [, update] = models.NotebookEntry.updateOne.mock.calls[0];
+    const [kept] = update.$push.viewReadings.$each;
+    expect(kept).toMatchObject({ key: line.key, verdict: 'contradicts', sentence: OPPOSITE, pageId: 'v1' });
+
+    // The next save asks nothing; the line stands while sentence and view do.
+    const again = await check(models, note({ viewReadings: [kept] }), complete, { configured: () => false });
+    expect(again).toMatchObject({ key: line.key });
+    expect(complete).toHaveBeenCalledTimes(1);
+    // Rewrite the sentence and the line goes.
+    expect(await check(models, note({ viewReadings: [kept], blocks: [{ id: 'b1', text: 'Notes from the call.' }] }), complete)).toBeNull();
+  });
+
+  it('keeps a sentence no view answers as read, without asking', async () => {
+    const models = setup();
+    const complete = verdict({ verdict: 'contradicts', confidence: 'high' });
+    const plain = 'The garden needs watering before the long weekend arrives.';
+    expect(await check(models, note({ blocks: [{ id: 'b1', text: plain }] }), complete)).toBeNull();
+    expect(complete).not.toHaveBeenCalled();
+    const [kept] = models.NotebookEntry.updateOne.mock.calls[0][1].$push.viewReadings.$each;
+    expect(kept).toMatchObject({ sentence: plain, verdict: 'unrelated', pageId: '' });
+  });
+
+  it('asks every sentence a view answers, not only the best match, and keeps none twice', async () => {
+    const models = setup();
+    const first = 'Costco membership renewals rose again this quarter across every region.';
+    const complete = jest.fn(async ({ messages }) => ({
+      text: JSON.stringify(messages[1].content.includes(OPPOSITE)
+        ? { verdict: 'contradicts', confidence: 'high' }
+        : { verdict: 'unrelated', confidence: 'high' })
+    }));
+    const line = await check(models, note({ blocks: [{ id: 'b1', text: `${first} ${OPPOSITE}` }] }), complete);
+    expect(line).toMatchObject({ sentence: OPPOSITE });
+    // Both sentences meet the view; neither is filed as read without being asked.
+    const [filter, update] = models.NotebookEntry.updateOne.mock.calls[0];
+    const kept = update.$push.viewReadings.$each;
+    expect(kept).toHaveLength(complete.mock.calls.length);
+    expect(kept.every(reading => reading.pageId === 'v1')).toBe(true);
+    // An overlapping save that read these sentences first wins; nothing is kept twice.
+    expect(filter['viewReadings.sentence'].$nin).toEqual(kept.map(reading => reading.sentence));
+
+    // And when it did, this save shows nothing it did not keep.
+    models.NotebookEntry.updateOne.mockResolvedValueOnce({ matchedCount: 0 });
+    expect(await check(models, note({ blocks: [{ id: 'b1', text: `${first} ${OPPOSITE}` }] }), complete)).toBeNull();
+  });
+
+  it('never repeats a line set aside, and never asks that pair again', async () => {
+    const models = setup();
+    const line = await check(models, note(), verdict({ verdict: 'contradicts', confidence: 'high' }));
+    const [kept] = models.NotebookEntry.updateOne.mock.calls[0][1].$push.viewReadings.$each;
+    const complete = verdict({ verdict: 'contradicts', confidence: 'high' });
+    expect(await check(models, note({ viewReadings: [{ ...kept, dismissedAt: now }] }), complete)).toBeNull();
+    expect(complete).not.toHaveBeenCalled();
+    expect(line.key).toBe(kept.key);
+  });
+
+  it('stays silent on support, on an unsure contradiction, on shared words, and without a model', async () => {
+    for (const body of [
+      { verdict: 'supports', confidence: 'high' },
+      { verdict: 'contradicts', confidence: 'low' },
+      { verdict: 'unrelated', confidence: 'high' }
+    ]) {
+      expect(await check(setup(), note(), verdict(body))).toBeNull();
+    }
+    const complete = verdict({ verdict: 'contradicts', confidence: 'high' });
+    expect(await check(setup(), note(), complete, { configured: () => false })).toBeNull();
+    expect(await check(setup(), note({ blocks: [{ id: 'b1', text: 'Too short to read.' }] }), complete)).toBeNull();
+    // A sentence still being typed is not asked yet.
+    expect(await check(setup(), note({ blocks: [{ id: 'b1', text: OPPOSITE.slice(0, -1) }] }), complete)).toBeNull();
+    expect(complete).not.toHaveBeenCalled();
+  });
+});
+
+describe('what would change your mind', () => {
+  const TEST = 'Renewal rates fall for two straight quarters.';
+  const MET = 'Renewal rates fell for two straight quarters, the first decline since the company began reporting them.';
+  const withTest = (falsifier = {}, content = MET) => {
+    const models = world();
+    models.Article.rows[0].content = content;
+    models.WikiPage.rows[0].judgment.falsifiers = [{ falsifierId: 'f1', text: TEST, status: 'unobserved', ...falsifier }];
+    return models;
+  };
+  // The model answers each question for what it is: a test met, a sentence challenged.
+  const reader = jest.fn(async ({ messages }) => ({
+    text: JSON.stringify(messages[1].content.includes('change their mind if')
+      ? { stance: 'meets', quote: MET }
+      : { stance: 'challenge', quote: 'Costco renews nearly ninety percent of its members every year, even when wallets tighten.' })
+  }));
+  beforeEach(() => reader.mockClear());
+
+  it('surfaces a passage that meets an open falsifier as a challenge that names it', async () => {
+    const models = withTest();
+    const [proposal] = await read(models, reader);
+    expect(reader).toHaveBeenCalledTimes(1);
+    expect(reader.mock.calls[0][0].messages[1].content).toContain(`They said they would change their mind if: "${TEST}"`);
+    expect(proposal.title).toBe('A passage that meets what would change your mind');
+    expect(proposal.provenance).toMatchObject({ change: 'evidence', stance: 'challenge', falsifier: TEST, after: MET, articleId: 'a1' });
+    expect(await read(models, reader)).toEqual([]);
+    expect(reader).toHaveBeenCalledTimes(1);
+  });
+
+  it('asks a met test before the sentence, and files one proposal per view per source', async () => {
+    const models = withTest({}, `${SOURCE} ${MET}`);
+    const proposals = await read(models, reader);
+    expect(proposals).toHaveLength(1);
+    expect(proposals[0].provenance.falsifier).toBe(TEST);
+    expect(reader).toHaveBeenCalledTimes(1);
+  });
+
+  it('stays silent when the passage shares words but the model says it does not meet the test', async () => {
+    const models = withTest();
+    expect(await read(models, answer({ stance: 'nothing', quote: '' }))).toEqual([]);
+    // A "meets" answer to the sentence question is not a verdict either.
+    expect(await read(world(), answer({ stance: 'meets', quote: 'In 2009 traffic held while discretionary retailers saw double-digit declines.' }))).toEqual([]);
+    expect(models.NoeisReceipt.rows).toHaveLength(0);
+  });
+
+  it('asks one test per view, so many tests on one view do not crowd out another', async () => {
+    const models = withTest();
+    models.WikiPage.rows[0].judgment.falsifiers = ['Renewal rates fall.', 'Renewal rates fall two quarters.', 'Renewal rates fall again.']
+      .map((text, index) => ({ falsifierId: `f${index}`, text, status: 'unobserved' }));
+    const nothing = answer({ stance: 'nothing', quote: '' });
+    await read(models, nothing);
+    const tests = nothing.mock.calls.filter(([{ messages }]) => messages[1].content.includes('change their mind if'));
+    expect(tests).toHaveLength(1);
+  });
+
+  it('asks each view its sentence too, so views with tests cannot spend the budget on tests alone', async () => {
+    const models = withTest({}, `${SOURCE} ${MET}`);
+    const [first] = models.WikiPage.rows;
+    models.WikiPage.rows.push(...[2, 3, 4, 5].map(n => ({ ...first, _id: `v${n}` })));
+    const nothing = answer({ stance: 'nothing', quote: '' });
+    await read(models, nothing);
+    const sentences = nothing.mock.calls.filter(([{ messages }]) => !messages[1].content.includes('change their mind if'));
+    expect(sentences.length).toBeGreaterThan(0);
+  });
+
+  it('notices a revised sentence however long it is', async () => {
+    const models = withTest();
+    const page = models.WikiPage.rows[0];
+    page.judgment.currentJudgment = `${page.judgment.currentJudgment} ${'Because members renew. '.repeat(200)}`;
+    const [proposal] = await read(models, reader);
+    expect(readingStands(page, proposal)).toBe(true);
+    page.judgment.currentJudgment = `${page.judgment.currentJudgment} Except in Japan.`;
+    expect(readingStands(page, proposal)).toBe(false);
+  });
+
+  it('notices a reworded test however long it is', async () => {
+    const long = `${TEST} ${'Measured by cohort. '.repeat(40)}`;
+    const models = withTest({ text: long });
+    const [proposal] = await read(models, reader);
+    const page = models.WikiPage.rows[0];
+    expect(readingStands(page, proposal)).toBe(true);
+    page.judgment.falsifiers[0].text = `${long} Except in Japan.`;
+    expect(readingStands(page, proposal)).toBe(false);
+  });
+
+  it('goes quiet once the test it met is retired or reworded', async () => {
+    const models = withTest();
+    const [proposal] = await read(models, reader);
+    const page = models.WikiPage.rows[0];
+    expect(readingStands(page, proposal)).toBe(true);
+    page.judgment.falsifiers[0].status = 'retired';
+    expect(readingStands(page, proposal)).toBe(false);
+    page.judgment.falsifiers[0] = { falsifierId: 'f1', text: 'Renewals fall below eighty percent.', status: 'unobserved' };
+    expect(readingStands(page, proposal)).toBe(false);
+    // A proposal still on screen cannot be filed against the test it no longer meets.
+    const fileJudgmentEvidence = jest.fn();
+    await expect(fileReadingProposal({
+      userId: 'u1', pageId: 'v1', receiptId: proposal.id, field: 'against', fileJudgmentEvidence, models, now
+    })).rejects.toMatchObject({ statusCode: 409 });
+    expect(fileJudgmentEvidence).not.toHaveBeenCalled();
+    expect(models.Article.rows[0].highlights || []).toEqual([]);
+  });
+
+  it('never asks a retired or triggered falsifier, and asks nothing without a model', async () => {
+    expect(await read(withTest({ status: 'retired' }), reader)).toEqual([]);
+    expect(await read(withTest({ status: 'triggered' }), reader)).toEqual([]);
+    expect(await read(withTest(), reader, { configured: () => false })).toEqual([]);
+    expect(reader).not.toHaveBeenCalled();
+  });
+
+  it('reads the criteria line as a test, in the signal’s words', () => {
+    const { __testables: { asksOf, askedText } } = require('./readingTalksBack');
+    const page = { _id: 'v1', judgment: {
+      currentJudgment: 'Costco holds up.',
+      resolutionCriteria: 'Renewals under eighty percent.',
+      falsifiers: [{ text: 'Costco holds up.', observableSignal: 'Renewals under eighty percent.' }, { text: 'Fees cut.', status: 'warning' }]
+    } };
+    expect(asksOf(page).map(askedText)).toEqual(['Costco holds up.', 'Renewals under eighty percent.', 'Fees cut.']);
+  });
+
+  it('asks with a view\'s first three tests however many it lists', () => {
+    const { __testables: { asksOf, askedText } } = require('./readingTalksBack');
+    const falsifiers = Array.from({ length: 40 }, (_, index) => ({ text: `Signal ${index}.` }));
+    const page = { _id: 'v1', judgment: { currentJudgment: 'Costco holds up.', falsifiers } };
+    expect(asksOf(page).map(askedText)).toEqual(['Costco holds up.', 'Signal 0.', 'Signal 1.', 'Signal 2.']);
   });
 });

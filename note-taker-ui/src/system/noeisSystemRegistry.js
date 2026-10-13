@@ -201,9 +201,7 @@ export const createNoeisSystemInventory = ({ pathname = '/', theme = 'auto', con
       activeBecause = [`The current route is ${pathname}.`];
     } else if (manifest.kind === 'agent' && activeAgentContract?.agentId === manifest.id) {
       status = 'active';
-      activeBecause = [activeAgentContract.presentation === 'embedded'
-        ? 'The current Wiki workbench projects this agent into its build composer.'
-        : 'The current room supports the persistent contextual rail.'];
+      activeBecause = ['The current room opens the Partner (⌘J).'];
     } else if (manifest.kind === 'theme' && manifest.preferenceValue === theme) {
       status = 'active';
       activeBecause = [`Workspace theme preference is ${theme}.`];

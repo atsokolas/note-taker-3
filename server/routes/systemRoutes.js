@@ -718,8 +718,6 @@ const createLibrarySourceFixture = async ({
 
 const buildSystemRouter = ({
   authenticateToken,
-  parseAiServiceUrl,
-  joinUrl,
   isDatabaseReady = () => true,
   getWikiStorageStatus = async () => null,
   getVectorIndexHealth = async () => {
@@ -762,17 +760,6 @@ const buildSystemRouter = ({
       serverNowSec,
       iat: req.authInfo?.iat,
       exp: req.authInfo?.exp
-    });
-  });
-
-  router.get('/api/debug/ai-upstream', (req, res) => {
-    const { origin, hasPath } = parseAiServiceUrl(process.env.AI_SERVICE_URL || '');
-    const synthesizeUrl = origin ? joinUrl(origin, '/synthesize') : '';
-    res.status(200).json({
-      ai_service_origin: origin,
-      synthesize_url: synthesizeUrl,
-      looks_valid: Boolean(origin) && !hasPath,
-      has_path: hasPath
     });
   });
 

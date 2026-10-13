@@ -19,18 +19,13 @@ describe('sharedQuestionCompanion', () => {
       contextType: 'shared_question',
       contextId: 'qslug',
       contextTitle: 'What survives compounding?',
-      boundSources: 3,
       placeholder: 'Ask about this published question.',
       askLabel: 'Ask about this reading'
     }));
-    expect(buildSharedQuestionCompanion({ slug: 'qslug', page }).promptTemplates).not.toEqual(
-      expect.arrayContaining([expect.stringMatching(/related notes/i)])
-    );
   });
 
   it('stays bound to the door when nothing else is on the page', () => {
     expect(boundCompanionLine(questionSnapshot())).toBe('Bound to this published question.');
-    expect(buildSharedQuestionCompanion({ slug: 'qslug', page: questionSnapshot() }).boundSources).toBe(1);
     expect(buildSharedQuestionCompanion({ slug: '', page })).toBeNull();
   });
 
@@ -47,19 +42,11 @@ describe('sharedQuestionCompanion', () => {
     expect(partner).toEqual(expect.objectContaining({
       contextTitle: 'The window may close before compounding pays.',
       placeholder: 'Ask about this handoff.',
-      askLabel: 'Ask about this handoff',
-      boundSources: 1,
-      emptyStateText: 'Ask about the recorded handoff and the writing already on this door.'
+      askLabel: 'Ask about this handoff'
     }));
-    expect(partner.promptTemplates).toEqual([
-      'What alternatives were recorded then?',
-      'What evidence was available then?',
-      'When should this be looked at again?'
-    ]);
-    expect(partner.promptTemplates.join(' ')).not.toMatch(/lesson|institution|would have/i);
   });
 
-  it('lets a successor ask what we nearly did once an outcome is recorded', () => {
+  it('names what happened later once an outcome is recorded', () => {
     const archived = questionSnapshot({
       contributions: [
         questionContribution(),
@@ -70,19 +57,8 @@ describe('sharedQuestionCompanion', () => {
         outcome: 'The window closed. The latecomer paid.'
       })
     });
-    const partner = buildSharedQuestionCompanion({ slug: 'qslug', page: archived });
     expect(boundCompanionLine(archived)).toBe(
       "Bound to this successor record, what happened later, and Nia's later reading."
     );
-    expect(partner.boundSources).toBe(2);
-    expect(partner.emptyStateText).toBe(
-      'Ask about the recorded handoff. The other future is not in this record.'
-    );
-    expect(partner.promptTemplates).toEqual([
-      'What did we nearly do?',
-      'What happened later?',
-      'What evidence was available then?'
-    ]);
-    expect(partner.promptTemplates.join(' ')).not.toMatch(/lesson|institution|would have/i);
   });
 });

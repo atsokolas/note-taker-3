@@ -2,8 +2,6 @@ const assert = require('assert');
 const express = require('express');
 const http = require('http');
 
-const notebookEntryToEmbeddingItems = require('../../ai/mappers/notebookEntryToEmbeddingItems');
-
 const listen = (app) => new Promise((resolve) => {
   const server = http.createServer(app);
   server.listen(0, '127.0.0.1', () => {
@@ -262,28 +260,6 @@ const run = async () => {
     assert.strictEqual(storedEntry.content.includes('Imported insight refreshed for retrieval.'), true, 'Resync should refresh imported notebook content.');
     assert.strictEqual(storedEntry.blocks.some(block => block.text === 'Imported insight refreshed for retrieval.'), true, 'Resync should refresh imported notebook blocks.');
 
-    const embeddingItems = notebookEntryToEmbeddingItems(storedEntry, 'user-1');
-    assert.strictEqual(embeddingItems.length, 2, 'Updated imported note should emit embedding items for its refreshed blocks.');
-    assert.deepStrictEqual(
-      embeddingItems[0].metadata.sourcePathSegments,
-      ['Evernote Backup'],
-      'Embedding metadata should normalize Evernote sourcePath from the saved entry state.'
-    );
-    assert.strictEqual(
-      embeddingItems[0].metadata.folderPath,
-      'Evernote Backup',
-      'Embedding metadata should expose the saved mirrored folder path for diagnostics.'
-    );
-    assert.strictEqual(
-      embeddingItems[0].metadata.sourceLabel,
-      'Evernote Backup.enex',
-      'Embedding metadata should preserve the import source label from the saved entry.'
-    );
-    assert.strictEqual(
-      embeddingItems[0].metadata.searchableAt,
-      '2026-04-19T09:15:00.000Z',
-      'Embedding metadata should preserve notebook searchableAt from saved import metadata when resync does not replace it.'
-    );
   } finally {
     await new Promise((resolve) => server.close(resolve));
     notebookImportTreeService.ensureNotebookImportFolderPath = originalEnsureNotebookImportFolderPath;

@@ -28,7 +28,6 @@ const EVENT_NAMES = Object.freeze({
   AGENT_STRUCTURE_PLAN_APPLIED: 'agent_structure_plan_applied',
   AGENT_STRUCTURE_PLAN_REJECTED: 'agent_structure_plan_rejected',
   AGENT_STRUCTURE_PLAN_ROLLED_BACK: 'agent_structure_plan_rolled_back',
-  AGENT_ARTIFACT_DRAFT_STAGED: 'agent_artifact_draft_staged',
   AGENT_ARTIFACT_DRAFT_PROMOTED: 'agent_artifact_draft_promoted',
   AGENT_ARTIFACT_DRAFT_DISMISSED: 'agent_artifact_draft_dismissed',
   AGENT_RUN_APPROVAL_APPROVED: 'agent_run_approval_approved',

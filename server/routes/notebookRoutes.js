@@ -6,6 +6,7 @@ const { generateNotebookWordingOptions } = require('../services/notebookWordingO
 const express = require('express');
 const mongoose = require('mongoose');
 const { createWikiSourceEvent } = require('../services/wikiSourceEventService');
+const { opposeFromNote, setOppositeAside } = require('../services/readingTalksBack');
 const { processWikiSourceEvent } = require('../services/wikiMaintenanceOrchestrator');
 const {
   asObjectIdOrNull,
@@ -178,6 +179,7 @@ const buildNotebookRouter = ({
               title: 1,
               folder: 1,
               type: 1,
+              board: 1,
               'workingState.nextTimeLine.text': 1,
               ...(compact ? {} : {
                 claimId: 1, tags: 1, linkedArticleId: 1, linkedHighlightIds: 1, importMeta: 1,
@@ -480,6 +482,40 @@ const buildNotebookRouter = ({
     }
   });
 
+  /* Moving a note on the board is filing, not writing: it records when it
+     moved and leaves updatedAt, revisions and the wiki alone. */
+  router.patch('/api/notebook/:id/board', authenticateToken, async (req, res) => {
+    try {
+      const { stage, archived } = req.body || {};
+      if (stage !== undefined && !['idea', 'in_progress', 'done'].includes(stage)) {
+        return res.status(400).json({ error: 'stage must be one of idea, in_progress, done.' });
+      }
+      if (archived !== undefined && typeof archived !== 'boolean') {
+        return res.status(400).json({ error: 'archived must be true or false.' });
+      }
+      if (stage === undefined && archived === undefined) {
+        return res.status(400).json({ error: 'Send a stage or archived.' });
+      }
+      if (!mongoose.isValidObjectId(req.params.id)) {
+        return res.status(404).json({ error: 'Notebook entry not found.' });
+      }
+      const now = new Date();
+      const $set = {};
+      if (stage !== undefined) Object.assign($set, { 'board.stage': stage, 'board.movedAt': now });
+      if (archived !== undefined) $set['board.archivedAt'] = archived ? now : null;
+      const entry = await NotebookEntry.findOneAndUpdate(
+        { _id: req.params.id, userId: req.user.id },
+        { $set },
+        { new: true, timestamps: false, projection: { board: 1 } }
+      );
+      if (!entry) return res.status(404).json({ error: 'Notebook entry not found.' });
+      return res.status(200).json({ _id: entry._id, board: entry.board });
+    } catch (error) {
+      console.error('❌ Error moving notebook entry on the board:', error);
+      return res.status(500).json({ error: 'Failed to move that note.' });
+    }
+  });
+
   router.post('/api/notebook/:id/link-claim', authenticateToken, async (req, res) => {
     try {
       const userId = req.user.id;
@@ -690,6 +726,37 @@ const buildNotebookRouter = ({
     } catch (error) {
       console.error('❌ Error updating notebook workbench:', error);
       return res.status(500).json({ error: 'Failed to save nearby material.' });
+    }
+  });
+
+  /* You hold the opposite. After a save, the note's sentences meet the views
+     the reader holds: one line, or nothing. */
+  router.post('/api/notebook/:id/opposite', authenticateToken, humanOnly, async (req, res) => {
+    try {
+      const userId = req.user.id;
+      const entry = await NotebookEntry.findOne({ _id: req.params.id, userId }).select('_id blocks viewReadings').lean();
+      if (!entry) return res.status(404).json({ error: 'Notebook entry not found.' });
+      const line = WikiPage
+        ? await opposeFromNote({ entry, userId, models: { NotebookEntry, WikiPage } }).catch((error) => {
+          console.error('Reading a note against held views failed:', error.message);
+          return null;
+        })
+        : null;
+      noStore(res);
+      return res.status(200).json({ line });
+    } catch (error) {
+      console.error('❌ Error reading a note against held views:', error);
+      return res.status(500).json({ error: 'Failed to read the note against your views.' });
+    }
+  });
+
+  router.post('/api/notebook/:id/opposite/:key/aside', authenticateToken, humanOnly, async (req, res) => {
+    try {
+      await setOppositeAside({ entryId: req.params.id, userId: req.user.id, key: req.params.key, models: { NotebookEntry } });
+      return res.status(200).json({ line: null });
+    } catch (error) {
+      console.error('❌ Error setting a line aside:', error);
+      return res.status(500).json({ error: 'Failed to set the line aside.' });
     }
   });
 

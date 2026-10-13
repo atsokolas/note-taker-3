@@ -107,6 +107,7 @@ describe('publishing renderers', () => {
     expect(redirects).toContain('/from-saved-article-to-draft-in-noeis /from-saved-article-to-draft-in-noeis/index.html 200');
     expect(redirects.trim().endsWith('/* /index.html 200')).toBe(true);
 
+    expect(vercel.git.deploymentEnabled).toEqual({ 'claude/**': false });
     expect(vercel.cleanUrls).toBe(true);
     expect(vercel.redirects).toEqual(
       expect.arrayContaining([

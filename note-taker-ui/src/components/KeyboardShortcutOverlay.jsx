@@ -13,6 +13,7 @@ const SECTIONS = [
     title: 'Anywhere',
     items: [
       { keys: ['⌘', 'K'], label: 'Open command palette' },
+      { keys: ['⌘', 'J'], label: 'Ask the Partner' },
       { keys: ['?'], label: 'Open this help' },
       { keys: ['Esc'], label: 'Close any modal / overlay' }
     ]

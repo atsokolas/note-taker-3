@@ -57,7 +57,7 @@ test('settings redesign screenshots', async ({ page }) => {
 
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(`http://localhost:3000/settings?devToken=${encodeURIComponent(token)}`, { waitUntil: 'domcontentloaded' });
-  await page.waitForSelector('.settings-redesign__title');
+  await page.getByRole('heading', { level: 1, name: 'Settings' }).waitFor();
   await page.screenshot({ path: path.join(outDir, 'appearance-desktop.png'), fullPage: true });
 
   await page.locator('input[name="typographyScale"][value="large"]').click({ force: true });

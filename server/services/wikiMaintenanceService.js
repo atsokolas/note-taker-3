@@ -2672,7 +2672,7 @@ const REPO_FALLBACK_PRIORITY_PATHS = [
   /^note-taker-ui\/src\/pages\/DataIntegrations\.[jt]sx?$/i,
   /^note-taker-ui\/src\/pages\/SharedWikiPage\.[jt]sx?$/i,
   /^server\/services\/wikiScheduledMaintenanceWorker\.[jt]s$/i,
-  /^server\/(?:config\/aiClient|ai\/hfTextClient)\.[jt]s$/i,
+  /^server\/ai\/hfTextClient\.[jt]s$/i,
   /^packages\/wiki-mcp\/(?:README[^/]*|package\.json)$/i
 ];
 
@@ -2850,7 +2850,7 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
   const envVariableNames = envExamplePath ? prioritizedEnvVariableNames(envExamplePath) : [];
   const uiAppPath = repoSourceForPath(repoSources, /^note-taker-ui\/src\/App\.[jt]sx?$/i);
   const mcpPackagePath = repoSourceForPath(repoSources, /^packages\/wiki-mcp\/(?:README[^/]*|package\.json)$/i);
-  const aiClientPath = repoSourceForPath(repoSources, /^server\/(?:config\/aiClient|ai\/hfTextClient)\.[jt]s$/i);
+  const aiClientPath = repoSourceForPath(repoSources, /^server\/ai\/hfTextClient\.[jt]s$/i);
   const scheduledWorkerPath = repoSourceForPath(repoSources, /^server\/services\/wikiScheduledMaintenanceWorker\.[jt]s$/i);
   const publicationPath = repoSourceForPath(repoSources, /^server\/services\/wikiMaintenancePublicationService\.[jt]s$/i);
   const authRoutesPath = repoSourceForPath(repoSources, /^server\/routes\/authDiscoveryRoutes\.[jt]s$/i);
@@ -4262,6 +4262,7 @@ const maintainWikiPage = async ({
   recoveryDraftQuality = null,
   skipQualityRebuild = false,
   streamDraft = false,
+  failClosedChat = false,
   onProgress = null
 }) => {
   const normalizedProfile = normalizeMaintenanceProfile(maintenanceProfile);
@@ -4528,6 +4529,7 @@ const maintainWikiPage = async ({
         provider: modelInfo.provider
       });
     } catch (error) {
+      if (failClosedChat && (typeof error.code === 'string' && error.code.startsWith('REVIEWER_'))) throw error;
       modelInfo = { model: 'local-maintainer', provider: '' };
       result = null;
       await emitProgress({
@@ -4721,6 +4723,7 @@ const maintainWikiPage = async ({
         }
       }
       } catch (_error) {
+        if (failClosedChat && typeof _error.code === 'string' && _error.code.startsWith('REVIEWER_')) throw _error;
         materialized.quality = {
           ...materialized.quality,
           rebuildAttempted: true,

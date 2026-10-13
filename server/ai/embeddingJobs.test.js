@@ -6,6 +6,7 @@ const {
   buildNotebookEmbeddingJob,
   buildQuestionEmbeddingJob,
   deleteArticleEmbeddingState,
+  deleteHighlightEmbeddingState,
   drainEmbeddingJobQueue,
   enqueueNotebookEmbedding,
   enqueueQuestionEmbedding,
@@ -658,6 +659,20 @@ const run = async () => {
   });
   assert.strictEqual(abandonedModel.jobs[0].status, 'abandoned');
   assert.strictEqual(abandonedModel.jobs[0].nextRunAt, null);
+
+  // Deleting a highlight removes its queued job before its Atlas row, owner-scoped.
+  const calls = [];
+  const removed = await deleteHighlightEmbeddingState({
+    model: { deleteMany: async (query) => { calls.push(['jobs', query]); return { deletedCount: 1 }; } },
+    vectorItemModel: { deleteMany: async (query) => { calls.push(['vectors', query]); return { deletedCount: 1 }; } },
+    userId: OWNER,
+    highlightId: 'highlight-gone'
+  });
+  assert.deepStrictEqual(removed, { deletedJobs: 1, deletedVectors: 1 });
+  assert.deepStrictEqual(calls.map(([kind]) => kind), ['jobs', 'vectors']);
+  assert.strictEqual(calls[0][1]['payload.objectId'], 'highlight-gone');
+  assert.strictEqual(calls[0][1]['payload.userId'], OWNER);
+  assert.deepStrictEqual([calls[1][1].objectType, calls[1][1].objectId, String(calls[1][1].userId)], ['highlight', 'highlight-gone', OWNER]);
 
   console.log('embeddingJobs tests passed');
 };

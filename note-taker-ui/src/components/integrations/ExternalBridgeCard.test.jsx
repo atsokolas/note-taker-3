@@ -45,6 +45,24 @@ const sortedAgents = [
 ];
 
 describe('ExternalBridgeCard', () => {
+  it('shows what an agent wrote before you approve it', () => {
+    const bridgeModel = buildBridgeModel({
+      protocolApprovals: [{
+        approvalId: 'a1',
+        op: 'artifacts.drafts.promote',
+        preview: { title: 'Moats memo', text: 'Distribution beats product when switching costs are low.' }
+      }]
+    });
+
+    render(
+      <MemoryRouter>
+        <ExternalBridgeCard bridgeModel={bridgeModel} sortedAgents={sortedAgents} />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText('Distribution beats product when switching costs are low.')).toBeInTheDocument();
+  });
+
   it('shows a guided OpenClaw connection flow with test and copy actions after minting a token', async () => {
     const bridgeModel = buildBridgeModel();
 

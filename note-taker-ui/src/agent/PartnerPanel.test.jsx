@@ -1,0 +1,591 @@
+import React, { useState } from 'react';
+import { MemoryRouter } from 'react-router-dom';
+import { fireEvent, render as renderWithoutRouter, screen, waitFor, within } from '@testing-library/react';
+import PartnerPanel from './PartnerPanel';
+import { AgentRailProvider, useContextualAgentSurface } from './AgentRailContext';
+import { hasPartnerPanel } from './contextualAgentContracts';
+import { getAgentThread, streamChatWithAgent } from '../api/agent';
+
+// The panel links what it read back to its source.
+const render = ui => renderWithoutRouter(ui, { wrapper: MemoryRouter });
+
+jest.mock('../api/agent', () => ({
+  getAgentThread: jest.fn(),
+  streamChatWithAgent: jest.fn()
+}));
+
+// A stand-in for a page: it registers a surface with the rail and records what
+// the rail hands back when the human accepts.
+const Surface = ({ id, subject, empty, accepted }) => {
+  useContextualAgentSurface(
+    'agent-surface.judgment',
+    { objectType: 'judgment_claim', objectId: id, subject },
+    {
+      onAccept: (proposal, field) => accepted.push({
+        text: proposal.body,
+        field,
+        acceptedFrom: proposal.acceptedFrom
+      })
+    }
+  );
+  return <p>column: {subject}</p>;
+};
+
+const sourceReply = (reply, overrides = {}) => ({
+  reply,
+  relatedItems: [{
+    type: 'article',
+    id: 'article-1',
+    title: 'Grid queues',
+    snippet: reply
+  }],
+  ...overrides
+});
+
+const Column = ({ accepted }) => {
+  const [surface, setSurface] = useState('a');
+  return (
+    <>
+      <button type="button" onClick={() => setSurface(surface === 'a' ? 'b' : 'a')}>Navigate</button>
+      {surface === 'a'
+        ? <Surface id="a" subject="The first claim." empty="Nothing to retrieve until you ask." accepted={accepted} />
+        : <Surface id="b" subject="The second claim." empty="Nothing to retrieve until you ask." accepted={accepted} />}
+    </>
+  );
+};
+
+const PresentationColumn = ({ accepted = [] }) => {
+  const [subject, setSubject] = useState('Loading title…');
+  return (
+    <>
+      <button type="button" onClick={() => setSubject('The resolved claim title.')}>Resolve title</button>
+      <Surface id="stable-id" subject={subject} empty="Nothing to retrieve until you ask." accepted={accepted} />
+    </>
+  );
+};
+
+const AUTHORED_SOURCE_A = {
+  articleId: 'article-a',
+  title: 'The Uses of Error',
+  passage: 'A reversible mistake preserves another attempt.'
+};
+
+const AUTHORED_SOURCE_B = {
+  articleId: 'article-b',
+  title: 'Protective Instincts',
+  passage: 'Protection can quietly become control.'
+};
+
+const AuthoredWikiSurface = () => {
+  const [selectedSource, setSelectedSource] = useState(AUTHORED_SOURCE_A);
+  useContextualAgentSurface('agent-surface.wiki', {
+    objectType: 'wiki_claim',
+    objectId: 'claim-authored',
+    pageId: 'page-authored',
+    subject: 'Children need room to make mistakes.',
+    askPlaceholder: 'Think with me about this',
+    exploration: {
+      claimId: 'claim-authored',
+      draft: {
+        writing: 'Recoverable error can be a form of care.',
+        question: 'Where does protection become control?',
+        pressure: { premise: 'The cost of one mistake rises sharply.' },
+        selectedSource
+      }
+    }
+  }, {});
+  return (
+    <button type="button" onClick={() => setSelectedSource(AUTHORED_SOURCE_B)}>
+      Swap selected source
+    </button>
+  );
+};
+
+const renderRail = ({ accepted = [] } = {}) => {
+  const utils = render(
+    <AgentRailProvider>
+      <Column accepted={accepted} />
+      <PartnerPanel />
+    </AgentRailProvider>
+  );
+  return { ...utils, accepted, rail: () => screen.getByRole('complementary', { name: 'Partner' }) };
+};
+
+const ProjectionToggle = () => {
+  const [embedded, setEmbedded] = useState(false);
+  useContextualAgentSurface('agent-surface.wiki', {
+    objectType: 'wiki_page',
+    objectId: 'wiki-1',
+    subject: 'A Wiki page.'
+  }, {});
+  return (
+    <>
+      <button type="button" onClick={() => setEmbedded(current => !current)}>Swap projection</button>
+      {embedded ? <div data-testid="embedded-agent">Embedded Wiki agent</div> : <PartnerPanel />}
+    </>
+  );
+};
+
+describe('PartnerPanel', () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    getAgentThread.mockReset();
+    streamChatWithAgent.mockReset();
+    streamChatWithAgent.mockImplementation(async (payload) => ({ reply: `Reply to ${payload.message}` }));
+  });
+
+  it('says what it is for without branding itself', () => {
+    const { rail } = renderRail();
+
+    expect(rail()).toHaveAttribute('data-agent-contract', 'agent-surface.judgment');
+    expect(rail()).toHaveAttribute('data-agent-actions', expect.stringContaining('accept.against'));
+    expect(rail()).toHaveAttribute('data-agent-proposal-policy', 'human_acceptance');
+    expect(within(rail()).getByText('Partner')).toBeInTheDocument();
+    expect(within(rail()).getByText('Ask about this view.')).toBeInTheDocument();
+    expect(within(rail()).queryByText('Retrieves. You accept.')).not.toBeInTheDocument();
+    expect(within(rail()).getByPlaceholderText('Ask about this')).toBeInTheDocument();
+    expect(within(rail()).queryByText(/thought partner/i)).not.toBeInTheDocument();
+  });
+
+  it('names where it is looking in the reader\'s words', () => {
+    const { rail } = renderRail();
+
+    expect(within(rail()).getByText('this view')).toBeInTheDocument();
+    expect(within(rail()).queryByText(/bound source|anchored to/i)).not.toBeInTheDocument();
+  });
+
+  it('uses the durable conversation even when a page has no write adapter', async () => {
+    streamChatWithAgent.mockResolvedValueOnce({ reply: 'The accepted page changed in two places.' });
+    render(
+      <AgentRailProvider>
+        <ProjectionToggle />
+      </AgentRailProvider>
+    );
+    const rail = screen.getByRole('complementary', { name: 'Partner' });
+    fireEvent.change(within(rail).getByPlaceholderText('Ask about this'), {
+      target: { value: 'What changed?' }
+    });
+    fireEvent.click(within(rail).getByRole('button', { name: 'Ask' }));
+    expect(await within(rail).findByText('The accepted page changed in two places.')).toBeInTheDocument();
+    expect(streamChatWithAgent).toHaveBeenCalledWith(expect.objectContaining({
+      persistThread: true,
+      context: expect.objectContaining({ type: 'wiki_page', id: 'wiki-1', pageId: 'wiki-1' })
+    }), expect.any(Object));
+  });
+
+  it('survives a column change and follows the new subject', async () => {
+    const { rail } = renderRail();
+
+    expect(await within(rail()).findByText('The first claim.')).toBeInTheDocument();
+    const input = within(rail()).getByPlaceholderText('Ask about this');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Navigate' }));
+
+    // Same DOM node: the rail did not unmount and come back.
+    expect(within(rail()).getByPlaceholderText('Ask about this')).toBe(input);
+    expect(await within(rail()).findByText('The second claim.')).toBeInTheDocument();
+    expect(within(rail()).queryByText('The first claim.')).not.toBeInTheDocument();
+  });
+
+  it('keeps an unfinished rail draft while Wiki temporarily uses the embedded projection', () => {
+    render(
+      <AgentRailProvider>
+        <ProjectionToggle />
+      </AgentRailProvider>
+    );
+    const input = screen.getByPlaceholderText('Ask about this');
+    fireEvent.change(input, { target: { value: 'unfinished cross-room thought' } });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Swap projection' }));
+    expect(screen.getByTestId('embedded-agent')).toBeInTheDocument();
+    expect(screen.queryByRole('complementary', { name: 'Partner' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Swap projection' }));
+    expect(screen.getByPlaceholderText('Ask about this'))
+      .toHaveValue('unfinished cross-room thought');
+  });
+
+  it('gives each object its own conversation and restores it on return', async () => {
+    streamChatWithAgent.mockResolvedValueOnce(sourceReply('A retrieved line.'));
+    const { rail } = renderRail();
+
+    fireEvent.change(within(rail()).getByPlaceholderText('Ask about this'), {
+      target: { value: 'anything' }
+    });
+    fireEvent.click(within(rail()).getByRole('button', { name: 'Ask' }));
+    await within(rail()).findByText('A retrieved line.');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Navigate' }));
+    await within(rail()).findByText('The second claim.');
+    expect(within(rail()).queryByText('A retrieved line.')).not.toBeInTheDocument();
+
+    fireEvent.change(within(rail()).getByPlaceholderText('Ask about this'), {
+      target: { value: 'something else' }
+    });
+    fireEvent.click(within(rail()).getByRole('button', { name: 'Ask' }));
+    await within(rail()).findByText('Reply to something else');
+    expect(streamChatWithAgent.mock.calls[1][0].history).toEqual([]);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Navigate' }));
+    expect(await within(rail()).findByText('A retrieved line.')).toBeInTheDocument();
+    expect(within(rail()).queryByText('Reply to something else')).not.toBeInTheDocument();
+    // Page-bound write actions do not survive the trip.
+    expect(within(rail()).queryByRole('button', { name: 'Accept' })).not.toBeInTheDocument();
+  });
+
+  it('reopens the saved conversation for an object after a reload', async () => {
+    window.localStorage.setItem('noeis.agent.surface_threads', JSON.stringify({
+      'agent-surface.judgment|judgment_claim|a': 'thread-a'
+    }));
+    getAgentThread.mockResolvedValueOnce({
+      thread: { threadId: 'thread-a', messages: [{ role: 'user', text: 'Earlier question' }, { role: 'assistant', text: 'Earlier answer' }] }
+    });
+    const { rail } = renderRail();
+
+    expect(await within(rail()).findByText('Earlier answer')).toBeInTheDocument();
+    expect(getAgentThread).toHaveBeenCalledWith('thread-a');
+  });
+
+  it('loads a saved conversation again when the reader left before it arrived', async () => {
+    window.localStorage.setItem('noeis.agent.surface_threads', JSON.stringify({
+      'agent-surface.judgment|judgment_claim|a': 'thread-a'
+    }));
+    const saved = { thread: { threadId: 'thread-a', messages: [{ role: 'user', text: 'Earlier question' }, { role: 'assistant', text: 'Earlier answer' }] } };
+    getAgentThread.mockImplementationOnce(() => new Promise(() => {})).mockResolvedValueOnce(saved);
+    const { rail } = renderRail();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Navigate' }));
+    await within(rail()).findByText('The second claim.');
+    fireEvent.click(screen.getByRole('button', { name: 'Navigate' }));
+
+    expect(await within(rail()).findByText('Earlier answer')).toBeInTheDocument();
+    expect(getAgentThread).toHaveBeenCalledTimes(2);
+  });
+
+  it('discards and aborts a late reply when the exact room object changes', async () => {
+    let release;
+    streamChatWithAgent.mockImplementationOnce(() => new Promise(resolve => { release = resolve; }));
+    const { rail } = renderRail();
+
+    fireEvent.change(within(rail()).getByPlaceholderText('Ask about this'), {
+      target: { value: 'anything' }
+    });
+    fireEvent.click(within(rail()).getByRole('button', { name: 'Ask' }));
+    await waitFor(() => expect(streamChatWithAgent).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole('button', { name: 'Navigate' }));
+    release({ reply: 'A late line.' });
+
+    await waitFor(() => expect(within(rail()).getByText('The second claim.')).toBeInTheDocument());
+    expect(streamChatWithAgent.mock.calls[0][1].signal).toHaveProperty('aborted', true);
+    await waitFor(() => expect(within(rail()).queryByText('A late line.')).not.toBeInTheDocument());
+    expect(within(rail()).queryByText('anything')).not.toBeInTheDocument();
+    expect(within(rail()).queryByRole('button', { name: 'Accept' })).not.toBeInTheDocument();
+  });
+
+  it('cancels a late authored reply after a source swap but keeps the completed conversation', async () => {
+    let releaseLateReply;
+    streamChatWithAgent
+      .mockResolvedValueOnce({ reply: 'The first pairing has a durable answer.' })
+      .mockImplementationOnce(() => new Promise((resolve) => { releaseLateReply = resolve; }));
+    render(
+      <AgentRailProvider>
+        <AuthoredWikiSurface />
+        <PartnerPanel />
+      </AgentRailProvider>
+    );
+    const rail = screen.getByRole('complementary', { name: 'Partner' });
+    const ask = async (question) => {
+      fireEvent.change(within(rail).getByPlaceholderText('Think with me about this'), {
+        target: { value: question }
+      });
+      fireEvent.click(within(rail).getByRole('button', { name: 'Ask' }));
+    };
+
+    await ask('What does this pairing reveal?');
+    expect(await within(rail).findByText('The first pairing has a durable answer.')).toBeInTheDocument();
+    expect(streamChatWithAgent.mock.calls[0][0].context.metadata.exploration).toEqual({
+      claimId: 'claim-authored',
+      draft: {
+        writing: 'Recoverable error can be a form of care.',
+        question: 'Where does protection become control?',
+        pressure: { premise: 'The cost of one mistake rises sharply.' },
+        selectedSource: AUTHORED_SOURCE_A
+      }
+    });
+
+    await ask('Does the first source still hold?');
+    await waitFor(() => expect(streamChatWithAgent).toHaveBeenCalledTimes(2));
+    fireEvent.click(screen.getByRole('button', { name: 'Swap selected source' }));
+    releaseLateReply({ reply: 'This belongs only to the old pairing.' });
+
+    expect(streamChatWithAgent.mock.calls[1][1].signal).toHaveProperty('aborted', true);
+    await waitFor(() => expect(
+      within(rail).queryByText('Does the first source still hold?')
+    ).not.toBeInTheDocument());
+    expect(within(rail).queryByText('This belongs only to the old pairing.')).not.toBeInTheDocument();
+    expect(within(rail).getByText('The first pairing has a durable answer.')).toBeInTheDocument();
+  });
+
+  it('keeps pending work when only the named presentation resolves', async () => {
+    let release;
+    streamChatWithAgent.mockImplementationOnce(() => new Promise(resolve => { release = resolve; }));
+    render(
+      <AgentRailProvider>
+        <PresentationColumn />
+        <PartnerPanel />
+      </AgentRailProvider>
+    );
+    const rail = screen.getByRole('complementary', { name: 'Partner' });
+
+    fireEvent.change(within(rail).getByPlaceholderText('Ask about this'), {
+      target: { value: 'What changed?' }
+    });
+    fireEvent.click(within(rail).getByRole('button', { name: 'Ask' }));
+    await waitFor(() => expect(streamChatWithAgent).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole('button', { name: 'Resolve title' }));
+    release({ reply: 'The answer remains correctly bound.' });
+
+    expect(await within(rail).findByText('The answer remains correctly bound.')).toBeInTheDocument();
+    expect(streamChatWithAgent.mock.calls[0][1].signal).toHaveProperty('aborted', false);
+    expect(within(rail).getByText('The resolved claim title.')).toBeInTheDocument();
+  });
+
+  it('does not accept a proposal after the column changes during its exit motion', async () => {
+    streamChatWithAgent.mockResolvedValueOnce(sourceReply('A stale line.'));
+    const { rail, accepted } = renderRail();
+
+    fireEvent.change(within(rail()).getByPlaceholderText('Ask about this'), {
+      target: { value: 'anything' }
+    });
+    fireEvent.click(within(rail()).getByRole('button', { name: 'Ask' }));
+    await within(rail()).findByText('A stale line.');
+    fireEvent.click(within(rail()).getByRole('button', { name: 'Accept' }));
+    fireEvent.click(within(rail()).getByRole('button', { name: 'Against' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Navigate' }));
+
+    await new Promise(resolve => window.setTimeout(resolve, 250));
+    expect(accepted).toEqual([]);
+  });
+
+  it('hands an accepted line to the page, with the field the human chose', async () => {
+    streamChatWithAgent.mockResolvedValueOnce(sourceReply('Supply is catching up.'));
+    const { rail, accepted } = renderRail();
+
+    fireEvent.change(within(rail()).getByPlaceholderText('Ask about this'), {
+      target: { value: 'what changed' }
+    });
+    fireEvent.click(within(rail()).getByRole('button', { name: 'Ask' }));
+    await within(rail()).findByText('Supply is catching up.');
+
+    fireEvent.click(within(rail()).getByRole('button', { name: 'Accept' }));
+    fireEvent.click(await within(rail()).findByRole('button', { name: 'Against' }));
+
+    await waitFor(() => expect(accepted).toEqual([{
+      text: 'Supply is catching up.',
+      field: 'against',
+      acceptedFrom: 'article:article-1'
+    }]));
+  });
+
+  it('keeps agent commentary conversational but files only the saved passage it cites', async () => {
+    streamChatWithAgent.mockResolvedValueOnce(sourceReply(
+      'The model explains why the claim is under pressure.',
+      {
+        relatedItems: [{
+          type: 'article',
+          id: 'article-9',
+          title: 'Capacity disclosures',
+          snippet: 'Signed capacity grew faster than management previously guided.'
+        }]
+      }
+    ));
+    const { rail, accepted } = renderRail();
+
+    fireEvent.change(within(rail()).getByPlaceholderText('Ask about this'), {
+      target: { value: 'challenge this claim' }
+    });
+    fireEvent.click(within(rail()).getByRole('button', { name: 'Ask' }));
+
+    expect(await within(rail()).findByText('The model explains why the claim is under pressure.')).toBeInTheDocument();
+    expect(within(rail()).getByText('Signed capacity grew faster than management previously guided.')).toBeInTheDocument();
+    fireEvent.click(within(rail()).getByRole('button', { name: 'Accept' }));
+    fireEvent.click(await within(rail()).findByRole('button', { name: 'Against' }));
+
+    await waitFor(() => expect(accepted).toEqual([{
+      text: 'Signed capacity grew faster than management previously guided.',
+      field: 'against',
+      acceptedFrom: 'article:article-9'
+    }]));
+  });
+
+  it('keeps talking but offers no Judgment write when retrieval has no saved article passage', async () => {
+    streamChatWithAgent.mockResolvedValueOnce({
+      reply: 'I found a synthesis, but no exact saved passage.',
+      relatedItems: [{ type: 'wiki_page', id: 'wiki-1', title: 'A Wiki', snippet: 'A synthesis.' }]
+    });
+    const { rail } = renderRail();
+
+    fireEvent.change(within(rail()).getByPlaceholderText('Ask about this'), {
+      target: { value: 'challenge this claim' }
+    });
+    fireEvent.click(within(rail()).getByRole('button', { name: 'Ask' }));
+
+    expect(await within(rail()).findByText('I found a synthesis, but no exact saved passage.')).toBeInTheDocument();
+    expect(within(rail()).queryByRole('button', { name: 'Accept' })).not.toBeInTheDocument();
+  });
+
+  it('fails closed when a proposal asks for an action outside the room contract', async () => {
+    streamChatWithAgent.mockResolvedValueOnce(sourceReply('Publish this without review.'));
+    const { rail, accepted } = renderRail();
+
+    fireEvent.change(within(rail()).getByPlaceholderText('Ask about this'), {
+      target: { value: 'do it' }
+    });
+    fireEvent.click(within(rail()).getByRole('button', { name: 'Ask' }));
+    await within(rail()).findByText('Publish this without review.');
+    fireEvent.click(within(rail()).getByRole('button', { name: 'Accept' }));
+    fireEvent.click(within(rail()).getByRole('button', { name: 'Against' }));
+
+    expect(accepted).toEqual([]);
+    await new Promise(resolve => window.setTimeout(resolve, 250));
+    expect(accepted).toEqual([{
+      text: 'Publish this without review.',
+      field: 'against',
+      acceptedFrom: 'article:article-1'
+    }]);
+  });
+
+  it('offers a reply for keeping only when it quotes a source, in its place in the conversation', async () => {
+    const LibrarySurface = () => {
+      useContextualAgentSurface('agent-surface.library', { objectType: 'article', objectId: 'article-1', subject: 'Grid queues' }, {
+        onAccept: () => {}
+      });
+      return null;
+    };
+    streamChatWithAgent
+      .mockResolvedValueOnce({ reply: 'An unquoted paraphrase.', groundedIn: [] })
+      .mockResolvedValueOnce({ reply: 'It says the queue is the bottleneck.', groundedIn: [{ type: 'article', id: 'article-1', title: 'Grid queues' }] });
+    render(
+      <AgentRailProvider>
+        <LibrarySurface />
+        <PartnerPanel />
+      </AgentRailProvider>
+    );
+    const rail = screen.getByRole('complementary');
+    const ask = (question) => {
+      fireEvent.change(within(rail).getByRole('textbox'), { target: { value: question } });
+      fireEvent.click(within(rail).getByRole('button', { name: 'Ask' }));
+    };
+
+    ask('First question');
+    await within(rail).findByText('An unquoted paraphrase.');
+    expect(within(rail).queryByRole('button', { name: 'Accept' })).not.toBeInTheDocument();
+
+    ask('Second question');
+    await within(rail).findByText('It says the queue is the bottleneck.');
+    expect(within(rail).getByRole('button', { name: 'Accept' })).toBeInTheDocument();
+    expect(within(rail).getByText('Quotes Grid queues')).toBeInTheDocument();
+    const order = within(rail).getAllByRole('listitem').map(item => item.textContent);
+    expect(order.findIndex(text => text.includes('Second question')))
+      .toBeLessThan(order.findIndex(text => text.includes('It says the queue is the bottleneck.')));
+    expect(order.findIndex(text => text.includes('An unquoted paraphrase.')))
+      .toBeLessThan(order.findIndex(text => text.includes('Second question')));
+  });
+
+  it('reports a failed retrieve instead of inventing a line', async () => {
+    streamChatWithAgent.mockRejectedValueOnce(new Error('The index is offline.'));
+    const { rail } = renderRail();
+
+    fireEvent.change(within(rail()).getByPlaceholderText('Ask about this'), {
+      target: { value: 'anything' }
+    });
+    fireEvent.click(within(rail()).getByRole('button', { name: 'Ask' }));
+
+    expect(await within(rail()).findByRole('alert')).toHaveTextContent('The index is offline.');
+  });
+});
+
+describe('hasPartnerPanel', () => {
+  it('is present in the rooms and the surfaces inside them', () => {
+    ['/library', '/think', '/wiki', '/judgment', '/judgment/abc'].forEach((path) => {
+      expect(hasPartnerPanel(path)).toBe(true);
+    });
+  });
+
+  it('is the wiki workspace\'s one agent too', () => {
+    // The workspace had a chat of its own. Asking is the Partner's job here
+    // as everywhere; the workspace keeps only the actions that write.
+    expect(hasPartnerPanel('/wiki/workspace')).toBe(true);
+    expect(hasPartnerPanel('/wiki/workspace?view=list')).toBe(true);
+    expect(hasPartnerPanel('/wiki')).toBe(true);
+  });
+
+  it('is absent where the agent does not work', () => {
+    ['/settings', '/connections', '/paper', '/welcome', '/wiki/activity/run-1', '/'].forEach((path) => {
+      expect(hasPartnerPanel(path)).toBe(false);
+    });
+  });
+
+});
+
+const ThinkSurface = ({ onTryWording }) => {
+  useContextualAgentSurface('agent-surface.think', { objectType: 'notebook', objectId: 'note-1', subject: 'A note' }, { onTryWording });
+  return <PartnerPanel />;
+};
+
+describe('PartnerPanel in Think', () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    streamChatWithAgent.mockReset();
+  });
+
+  it('offers wording to try in the draft, and only wording', async () => {
+    const tried = [];
+    streamChatWithAgent
+      .mockResolvedValueOnce({ reply: 'Compounding rewards the patient, not the early.', mode: 'hf_chat' })
+      .mockResolvedValueOnce({ reply: 'From your passages.', mode: 'internal_only', relatedItems: [{ type: 'article', id: 'a1', title: 'Grid queues' }] });
+    render(<AgentRailProvider><ThinkSurface onTryWording={text => tried.push(text)} /></AgentRailProvider>);
+    const rail = screen.getByRole('complementary', { name: 'Partner' });
+    expect(within(rail).getByText('this note')).toBeInTheDocument();
+    expect(within(rail).getByText('Ask about this note.')).toBeInTheDocument();
+
+    fireEvent.change(within(rail).getByRole('textbox'), { target: { value: 'Say it another way' } });
+    fireEvent.click(within(rail).getByRole('button', { name: 'Ask' }));
+    await within(rail).findByText('Compounding rewards the patient, not the early.');
+    fireEvent.click(within(rail).getByRole('button', { name: 'Try wording' }));
+    expect(tried).toEqual(['Compounding rewards the patient, not the early.']);
+
+    fireEvent.change(within(rail).getByRole('textbox'), { target: { value: 'What did I read?' } });
+    fireEvent.click(within(rail).getByRole('button', { name: 'Ask' }));
+    await within(rail).findByText('From your passages.');
+    expect(within(rail).getAllByRole('button', { name: 'Try wording' })).toHaveLength(1);
+    expect(within(rail).getByText('From your passages while the Partner rests.')).toBeInTheDocument();
+    expect(within(rail).getByRole('region', { name: 'What it read' })).toHaveTextContent('Grid queues');
+    expect(within(rail).getByRole('link', { name: 'Grid queues' })).toHaveAttribute('href', '/library?articleId=a1');
+  });
+
+  it('offers no wording where there is no draft to try it in', async () => {
+    streamChatWithAgent.mockResolvedValueOnce({ reply: 'Compounding rewards the patient, not the early.', mode: 'hf_chat' });
+    render(<AgentRailProvider><ThinkSurface /></AgentRailProvider>);
+    const rail = screen.getByRole('complementary', { name: 'Partner' });
+    fireEvent.change(within(rail).getByRole('textbox'), { target: { value: 'Say it another way' } });
+    fireEvent.click(within(rail).getByRole('button', { name: 'Ask' }));
+    await within(rail).findByText('Compounding rewards the patient, not the early.');
+    expect(within(rail).queryByRole('button', { name: 'Try wording' })).toBeNull();
+  });
+});
+
+const WikiPageSurface = () => {
+  useContextualAgentSurface('agent-surface.wiki', { objectType: 'wiki_page', objectId: 'page-1', subject: 'Grid queues' });
+  return <PartnerPanel />;
+};
+
+describe('PartnerPanel in the Wiki workspace', () => {
+  it('opens scoped to this page', () => {
+    render(<AgentRailProvider><WikiPageSurface /></AgentRailProvider>);
+    const rail = screen.getByRole('complementary', { name: 'Partner' });
+    expect(rail).toHaveAttribute('data-agent-contract', 'agent-surface.wiki');
+    expect(within(rail).getByText('this page')).toBeInTheDocument();
+    expect(within(rail).getByText('Ask about this page.')).toBeInTheDocument();
+  });
+});

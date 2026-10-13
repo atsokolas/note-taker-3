@@ -16,7 +16,7 @@
   background: var(--surface);
 }
 
-/* think-home-polish.css is loaded deferred, so it lands after this sheet and
+/* wiki.css is loaded deferred, so it lands after this sheet and
    wins at equal specificity. Everything here is scoped one level deeper. */
 .shared-wiki-page .shared-wiki-page__topbar,
 .shared-wiki-page .shared-wiki-page__article {

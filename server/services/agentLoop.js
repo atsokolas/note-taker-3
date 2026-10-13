@@ -71,10 +71,11 @@ const proposeTool = (changes) => Object.freeze({
 });
 
 // Appended to the partner's system prompt for this loop.
-const SEARCH_RULE = 'You can search the reader\'s library and read a source before answering. Search when the question reaches beyond the passages already in front of you.';
+const SEARCH_RULE = 'You can search the reader\'s library and read a source before answering. Search when the question reaches beyond the passages already in front of you. To find reading that bears on the reader\'s own note, search for the idea the note holds in other words, not for the question\'s words.';
 const LOOP_RULES = [
   'When you rely on a source, quote its exact words in double quotes and name the source. Quote only words that appear in a passage you were shown or read.',
-  'A passage that begins "You hold:" is a view the reader holds, with their reasons and what would change their mind. When what you found supports it or cuts against it, say which, and quote the view.',
+  'In a highlight, the words after "Your note:" are the reader\'s margin note, not the author\'s. Quote the passage and the note separately, never as one quotation.',
+  'A passage that begins "You hold:" is a view the reader holds, with their reasons and what would change their mind. Bring it in only when the question is about it or asks what the reading challenges or supports; then say which, and quote the view.',
   'If nothing in the library bears on the question, say so plainly in one sentence. Do not answer from general knowledge as though the library said it.',
   'Name only the sources that answer the question. Do not add related reading the reader did not ask for, and do not name a source only to say it does not apply.'
 ];
@@ -96,6 +97,7 @@ const runAgentLoop = async ({
   read,
   history,
   changes = [],
+  quotable = [],
   chat,
   route = 'partner_chat',
   signal
@@ -176,14 +178,20 @@ const runAgentLoop = async ({
   // Everything of a source the model was shown: its title, its text, and for a
   // wiki page the attached sources and claims printed beside it. A title in
   // quotes is the source's name, not an invented quotation.
-  const texts = () => [...seen.values()].map(item => [item.title, item.fullText || item.replySnippet || item.snippet, item.sourceText, item.claimText].filter(Boolean).join('\n'));
+  // The reader's own words and the views they hold are theirs, not invented,
+  // when quoted back. The Partner's own earlier replies are not evidence.
+  const texts = () => [
+    ...messages.filter(message => message.role === 'user').map(message => String(message.content || '')),
+    ...quotable,
+    ...[...seen.values()].map(item => [item.title, item.fullText || item.replySnippet || item.snippet, item.sourceText, item.claimText].filter(Boolean).join('\n'))
+  ];
   let reply = String(completion?.text || '').trim();
   let invented = inventedQuotes(reply, texts());
   if (reply && invented.length) {
     conversation.push({ role: 'assistant', content: reply });
     conversation.push({
       role: 'user',
-      content: `These quotations are not in any source you were shown: ${invented.map(quote => `"${quote}"`).join('; ')}. Rewrite the answer quoting only exact words from the passages, or say the library does not cover it.`
+      content: `These quotations are not in any source you were shown: ${invented.map(quote => `"${quote}"`).join('; ')}. Rewrite the answer quoting only exact words from the passages, or say the library does not cover it. Give only the answer the reader will see, with no word about this correction.`
     });
     completion = await chat({ route, messages: conversation, ...answerOnly, signal });
     reply = String(completion?.text || '').trim();

@@ -1,0 +1,8 @@
+{
+  "userId": "6acaddb425462ec49bd0866f",
+  "identityConceptId": "6acb64742a6fed4f58c07ff6",
+  "pageId": "",
+  "sourceIds": [],
+  "ledgerId": "noeis-openai-review-2026-10-11",
+  "evidence": "Owner verified by existing private-concept read and Render REVIEWER_IDENTITY at 2026-10-11T23:21:43.215640759Z: enabled noeis_openai_review owns 6acb64742a6fed4f58c07ff6. User-only holds; page/source IDs remain unverified and synchronous drafting stays closed."
+}

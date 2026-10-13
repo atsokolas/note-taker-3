@@ -846,7 +846,9 @@ const CommandPalette = ({ open, onClose }) => {
         { type: 'Wiki', label: 'Wiki home', path: '/wiki' },
         { type: 'Wiki', label: 'Wiki workspace', path: '/wiki/workspace' },
         { type: 'Wiki', label: 'Wiki pages', path: '/wiki/workspace?view=list' },
-        { type: 'Wiki', label: 'Knowledge map', path: '/wiki/workspace?view=graph' }
+        { type: 'Wiki', label: 'Knowledge map', path: '/wiki/workspace?view=graph' },
+        { type: 'Wiki', label: 'Wiki activity and check', path: '/wiki/workspace?view=activity' },
+        { type: 'Wiki', label: 'Wiki schema', path: '/wiki/workspace?view=schema' }
       ]
     };
     const wikiPagesSection = {
@@ -1070,6 +1072,7 @@ const CommandPalette = ({ open, onClose }) => {
         </div>
         <div className="palette-shortcuts">
           <span className="muted small">Cmd/Ctrl+K: Open</span>
+          <span className="muted small">Cmd/Ctrl+J: Ask the Partner</span>
           <span className="muted small">Arrows + Enter: Navigate</span>
           {/* The one place the rooms' chord can be found by someone who does
               not already know it exists. The palette is where this product

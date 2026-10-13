@@ -418,7 +418,7 @@ const executeCreateHandoffStep = async ({
   return {
     type: 'handoff',
     handoff: safeHandoff,
-    path: clean(handoff?._id) ? `/think?tab=handoffs&handoffId=${handoff._id}` : '',
+    path: clean(handoff?._id) ? `/connections?handoffId=${handoff._id}#queue` : '',
     threadId: clean(handoffThread?._id)
   };
 };

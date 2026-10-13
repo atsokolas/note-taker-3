@@ -218,6 +218,9 @@ describe('WikiIndex graph', () => {
     expect(screen.getByRole('button', { name: 'Review connections' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^Inline links\s*1$/ })).toHaveClass('is-active');
     expect(screen.getByRole('link', { name: 'List' })).toHaveAttribute('href', '/wiki/list');
+    expect(screen.getByRole('link', { name: 'Sources' })).toHaveAttribute('href', '/wiki/workspace?view=sources');
+    expect(screen.getByRole('link', { name: 'Activity' })).toHaveAttribute('href', '/wiki/workspace?view=activity');
+    expect(screen.getByRole('link', { name: 'Schema' })).toHaveAttribute('href', '/wiki/workspace?view=schema');
     expect(await screen.findByText('Research memo')).toBeInTheDocument();
     expect(fetchGraphData).toHaveBeenCalledWith(expect.objectContaining({
       itemTypes: ['wiki_page', 'wiki_claim', 'concept', 'question', 'notebook', 'article', 'highlight']

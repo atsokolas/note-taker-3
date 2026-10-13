@@ -176,8 +176,9 @@ const timeOf = (value) => {
 };
 
 /* The bar above an entry: what kind it is, when it last saved (a timestamp
-   that fades rather than a standing "Saved"), the partner, and one menu. */
-export const EntryBar = ({ kind = 'note', saveState = 'idle', savedAt = null, onRetry, partnerOpen = false, onPartner, children }) => (
+   that fades rather than a standing "Saved"), and one menu. The Partner is
+   the shell's, one ⌘J away. */
+export const EntryBar = ({ kind = 'note', saveState = 'idle', savedAt = null, onRetry, children }) => (
   <div className="think-notebook-utility" aria-label="Note utilities">
     <span className="think-notebook-utility__kind">{kind}</span>
     <span className={`think-notebook-save-state is-${saveState}`} role="status" aria-live="polite">
@@ -185,7 +186,6 @@ export const EntryBar = ({ kind = 'note', saveState = 'idle', savedAt = null, on
         : saveState === 'error' ? <>Not saved {onRetry ? <Button variant="quiet" onClick={onRetry}>Retry</Button> : null}</>
           : savedAt ? <span key={String(savedAt)} className="think-notebook-save-state__time">Saved {timeOf(savedAt)}</span> : null}
     </span>
-    {onPartner ? <Button variant="quiet" data-context-trigger="partner" aria-pressed={partnerOpen} onClick={onPartner}>Partner</Button> : null}
     {children ? (
       <details className="think-notebook-utility__more">
         <summary className="ui-quiet-button" aria-label="More">…</summary>

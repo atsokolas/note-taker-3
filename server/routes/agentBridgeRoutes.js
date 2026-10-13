@@ -11,7 +11,6 @@ const buildAgentBridgeRouter = ({
   listAgentSkills,
   listWorkerRoles,
   listProtocolApprovals,
-  listProtocolHookRuns,
   approveProtocolApproval,
   rejectProtocolApproval
 }) => {
@@ -323,26 +322,6 @@ const buildAgentBridgeRouter = ({
       }
       console.error('❌ Error listing protocol approvals:', error);
       return res.status(500).json({ error: 'Failed to list protocol approvals.' });
-    }
-  });
-
-  router.get('/api/agent/protocol/hooks', authenticateToken, async (req, res) => {
-    try {
-      const hookRuns = await listProtocolHookRuns({
-        userId: String(req.user.id),
-        phase: String(req.query.phase || '').trim(),
-        op: String(req.query.op || '').trim(),
-        threadId: String(req.query.threadId || '').trim(),
-        handoffId: String(req.query.handoffId || '').trim(),
-        limit: Number(req.query.limit || 30)
-      });
-      return res.status(200).json({ hookRuns });
-    } catch (error) {
-      if (Number(error?.status) >= 400 && Number(error?.status) < 500) {
-        return res.status(Number(error.status)).json({ error: error.message || 'Invalid protocol hook request.' });
-      }
-      console.error('❌ Error listing protocol hook runs:', error);
-      return res.status(500).json({ error: 'Failed to list protocol hook runs.' });
     }
   });
 

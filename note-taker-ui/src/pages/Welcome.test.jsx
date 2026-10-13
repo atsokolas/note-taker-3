@@ -205,6 +205,17 @@ describe('Welcome', () => {
     await waitFor(() => expect(where()).toBe('step=page'));
   });
 
+  it('offers another attempt when the sources backed every claim', async () => {
+    const lastCandidateQuality = { metrics: { topicallyGroundedSourceCount: 3, unsupported: 0, claimCount: 9, cited: 9 } };
+    getWikiPage.mockResolvedValue(writtenPage({ aiState: { draftStatus: 'error', errorCode: 'WIKI_CANDIDATE_REJECTED', lastCandidateQuality } }));
+
+    renderAt('step=page&page=page-1');
+    expect(await screen.findByRole('heading', { name: 'Remote work did not pass the last check.' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    await waitFor(() => expect(startWikiPageBuild).toHaveBeenCalledWith('page-1'));
+    expect(archiveWikiPage).not.toHaveBeenCalled();
+  });
+
   it('shows the written page and holds what you think about it on that page', async () => {
     updateWikiPage.mockResolvedValue(heldPage());
 

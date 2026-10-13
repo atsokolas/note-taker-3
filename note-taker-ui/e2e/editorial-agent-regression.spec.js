@@ -85,10 +85,6 @@ async function setupLibraryAgentMocks(page) {
       });
     }
 
-    if (path === '/api/agent/artifacts/drafts' && method === 'GET') {
-      return json(route, { drafts: [] });
-    }
-
     if (path === '/api/folders' && method === 'GET') return json(route, []);
     if (path === '/api/ui-settings' && method === 'GET') return json(route, {});
     if (path === '/api/tour/state' && method === 'GET') return json(route, pausedTourState);
@@ -333,50 +329,6 @@ async function setupQuestionPartnerMocks(page) {
       });
     }
 
-    if (path === '/api/agent/artifacts/drafts' && method === 'GET') {
-      return json(route, {
-        drafts: [
-          {
-            draftId: 'question-draft-1',
-            artifactType: 'note',
-            status: 'pending',
-            title: 'Ground truth criteria',
-            summary: 'Define what real-world evidence would count as a valid answer.',
-            body: 'Define what real-world evidence would count as a valid answer.',
-            updatedAt: '2026-04-10T12:05:00.000Z',
-            sourceContext: {
-              type: 'question',
-              id: question._id,
-              title: question.text
-            },
-            skill: {
-              title: 'Summarize',
-              workerRole: 'synthesizer',
-              outputType: 'summary_brief'
-            }
-          },
-          {
-            draftId: 'article-draft-1',
-            artifactType: 'note',
-            status: 'pending',
-            title: 'Unrelated article brief',
-            summary: 'This should stay out of the question rail.',
-            body: 'This should stay out of the question rail.',
-            updatedAt: '2026-04-10T12:06:00.000Z',
-            sourceContext: {
-              type: 'article',
-              id: 'article-1',
-              title: 'World Models'
-            },
-            skill: {
-              title: 'Summarize',
-              workerRole: 'synthesizer',
-              outputType: 'summary_brief'
-            }
-          }
-        ]
-      });
-    }
 
     if (path === '/api/highlights/all' && method === 'GET') return json(route, []);
     if (path === '/api/notebook' && method === 'GET') return json(route, []);
@@ -441,8 +393,5 @@ test('question surface renders the active question and question-specific agent d
   await expect(page.getByText('Why do world models drift from reality?').first()).toBeVisible();
   await expect(page.getByText('Agent moves', { exact: true })).toBeVisible();
   await expect(page.getByText('Use a draft-first move to clarify what this question should prove or unlock.')).toBeVisible();
-  await expect(page.getByText('Draft queue')).toBeVisible();
-  await expect(page.getByText('Ground truth criteria')).toBeVisible();
-  await expect(page.getByText('Unrelated article brief')).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Think' })).toHaveCount(0);
 });

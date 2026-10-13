@@ -71,12 +71,42 @@ const createConnectionModel = () => {
 };
 
 const run = async () => {
-  const query = duePageQuery({ cutoff: new Date('2026-06-18T00:00:00.000Z') });
+  const query = duePageQuery({ cutoff: new Date('2026-06-18T00:00:00.000Z'), target: { userId: '' } });
   assert.strictEqual(query.status.$ne, 'archived');
   assert.ok(Array.isArray(query.$or));
   assert.ok(query.$or.some(clause => clause['freshness.pendingSourceEventIds.0']?.$exists === true));
   assert.ok(query['createdFrom.label'].$not.test('weekend-readings:owner:2026-07-01:2026-07-14'));
   assert.ok(query['createdFrom.label'].$not.test('research-ledger:2026-07:thesis-001'));
+  assert.strictEqual(query.userId, undefined, 'inactive policy leaves ordinary selection unchanged');
+  const reviewerPolicy = { userId: 'aaaaaaaaaaaaaaaaaaaaaaaa' };
+  assert.deepStrictEqual(duePageQuery({ target: reviewerPolicy }).userId, { $ne: reviewerPolicy.userId });
+  assert.strictEqual(duePageQuery({ target: { userId: '' } }).userId, undefined);
+  assert.strictEqual(duePageQuery({ target: { userId: 'invalid' } }).userId, undefined);
+
+  const reviewerPage = {
+    _id: 'reviewer-page', userId: reviewerPolicy.userId, title: 'Private reviewer fixture',
+    aiState: {}, save: async () => { throw new Error('held page must not be saved'); }
+  };
+  const staleReviewerModel = {
+    find: (selectedQuery) => {
+      assert.deepStrictEqual(selectedQuery.userId, { $ne: reviewerPolicy.userId });
+      return new Query([reviewerPage]); // Simulates a stale/adaptor result despite exclusion.
+    },
+    get db() { throw new Error('held reviewer must stop before budget acquisition'); }
+  };
+  const heldRunModel = createRunModel();
+  const heldRevisionModel = createRevisionModel();
+  const held = await drainScheduledWikiMaintenance({
+    models: { WikiPage: staleReviewerModel, WikiMaintenanceRun: heldRunModel, WikiRevision: heldRevisionModel },
+    reviewerPolicy,
+    maintainWikiPageFn: async () => { throw new Error('held reviewer must not invoke maintenance'); }
+  });
+  assert.strictEqual(held.held, 1);
+  assert.strictEqual(held.processed, 0);
+  assert.strictEqual(held.results[0].inferenceAttemptedByHold, false);
+  assert.deepStrictEqual(reviewerPage.aiState, {});
+  assert.strictEqual(heldRunModel.records.length, 0);
+  assert.strictEqual(heldRevisionModel.records.length, 0);
 
   const page = {
     _id: 'page-1',
@@ -101,6 +131,7 @@ const run = async () => {
       Connection
     },
     limit: 1,
+    reviewerPolicy, // A configured reviewer must not alter ordinary-user quality/persistence.
     maintainWikiPageFn: async ({ page: targetPage, trigger }) => {
       assert.strictEqual(trigger, 'scheduled');
       targetPage.aiState.maintenanceSummary = 'Scheduled refresh completed.';

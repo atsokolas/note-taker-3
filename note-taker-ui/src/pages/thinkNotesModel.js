@@ -157,13 +157,11 @@ export const buildThinkEntries = ({ notes = [], concepts = [], questions = [], f
     })) : [])
 ].filter(item => item.id).sort((left, right) => time(right.updatedAt) - time(left.updatedAt));
 
-/* Handoffs and learning paths are not writing; they keep the older page until
-   they leave Think altogether. Everything else — a note, a concept, a
-   question, a thread with the partner — opens in the one editor. */
-const LEDGER_TABS = new Set(['handoffs', 'paths']);
-
+/* Learning paths are not writing; they keep the older page until they leave
+   Think altogether. Everything else — a note, a concept, a question, a thread
+   with the partner — opens in the one editor. */
 export const namesAThinkObject = (search = '') => (
-  LEDGER_TABS.has(normalizeSpaces(new URLSearchParams(search).get('tab')).toLowerCase())
+  normalizeSpaces(new URLSearchParams(search).get('tab')).toLowerCase() === 'paths'
 );
 
 /** Recent private writing shares the shelf, but keeps its own Wiki identity. */

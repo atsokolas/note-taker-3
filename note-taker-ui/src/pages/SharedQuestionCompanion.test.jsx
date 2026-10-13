@@ -3,14 +3,16 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import SharedQuestionCompanion from './SharedQuestionCompanion.jsx';
 import { questionBrief, questionContribution, questionSnapshot, questionSuccession } from '../components/think/thinkShareFixture';
 
-jest.mock('../components/agent/ThoughtPartnerPanel', () => ({
-  __esModule: true,
-  default: (props) => (
-    <aside data-testid="thought-partner-panel">
-      {props.subtitle}:{props.contextType}:{props.contextId}:{props.placeholder}
-    </aside>
-  )
-}));
+jest.mock('../agent/PartnerPanel', () => {
+  const { useAgentRail } = jest.requireActual('../agent/AgentRailContext');
+  return {
+    __esModule: true,
+    default: () => {
+      const { surface } = useAgentRail();
+      return <aside data-testid="thought-partner-panel">{surface.caption}:{surface.objectType}:{surface.objectId}:{surface.askPlaceholder}</aside>;
+    }
+  };
+});
 
 const page = questionSnapshot({
   contributions: [questionContribution()],

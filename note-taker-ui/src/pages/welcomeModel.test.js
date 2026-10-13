@@ -98,6 +98,17 @@ describe('welcomeModel', () => {
     expect(buildFailure({ aiState: { errorCode: 'WIKI_ASYNC_BUILD_TIMED_OUT' } }).retry).toBe(true);
   });
 
+  it('offers a retry when every claim was backed and only a wording check refused it', () => {
+    const backed = { metrics: { topicallyGroundedSourceCount: 3, unsupported: 0, claimCount: 9, cited: 9 } };
+    const held = buildFailure({ title: 'Loss aversion', aiState: { errorCode: 'WIKI_CANDIDATE_REJECTED', lastCandidateQuality: backed } });
+    expect(held.headline).toBe('Loss aversion did not pass the last check.');
+    expect(held.retry).toBe(true);
+    const unbacked = { metrics: { topicallyGroundedSourceCount: 3, unsupported: 2 } };
+    expect(buildFailure({ aiState: { errorCode: 'WIKI_CANDIDATE_REJECTED', lastCandidateQuality: unbacked } }).retry).toBe(false);
+    const uncited = { metrics: { topicallyGroundedSourceCount: 3, unsupported: 0, claimCount: 9, cited: 6, uncitedSupported: 3 } };
+    expect(buildFailure({ aiState: { errorCode: 'WIKI_CANDIDATE_REJECTED', lastCandidateQuality: uncited } }).retry).toBe(false);
+  });
+
   it('opens the page on its first real paragraph', () => {
     const page = { plainText: '# Costco\n\nShort.\n\nCostco charges a fee up front, and the fee is most of its profit, so prices can sit near cost.' };
     expect(pageLede(page)).toMatch(/^Costco charges a fee/);

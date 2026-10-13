@@ -44,8 +44,8 @@ import { useSystemStatus } from './system/useSystemStatus';
 import { useStorageStatus } from './system/useStorageStatus';
 import { SystemStatusProvider } from './system/SystemStatusContext';
 import { AgentRailProvider } from './agent/AgentRailContext';
-import AgentRail from './agent/AgentRail';
-import { hasContextualAgentRail } from './agent/contextualAgentContracts';
+import PartnerPanel from './agent/PartnerPanel';
+import { hasPartnerPanel } from './agent/contextualAgentContracts';
 import { NoeisSurfaceProvider, useNoeisSurfaceState } from './surface/NoeisSurfaceContext';
 import { NoeisCapabilityProvider } from './system/NoeisCapabilityProvider';
 import { NoeisLoopProvider } from './system/NoeisLoopProvider';
@@ -55,7 +55,6 @@ import './App.css';
 import './styles/reading-layout.css';
 import './styles/dashboard-refresh.css';
 import './styles/editions.css';
-import './styles/stitch-editorial.css';
 import './styles/think-notes.css';
 import './surface/surface-frame.css';
 import './styles/semantic-theme.css';
@@ -82,6 +81,7 @@ const Contradictions = lazy(() => import('./pages/Contradictions'));
    a second round trip in series before any of the claim can be drawn. */
 const WikiIngestRun = lazy(() => import('./pages/WikiIngestRun'));
 const Welcome = lazy(() => import('./pages/Welcome'));
+const ReviewerFixtures = lazy(() => import('./pages/ReviewerFixtures'));
 const HowToUse = lazy(() => import('./pages/HowToUse'));
 const Integrations = lazy(() => import('./pages/Integrations'));
 const AgentConnectAuthorize = lazy(() => import('./pages/AgentConnectAuthorize'));
@@ -95,6 +95,7 @@ const MarketingAnalytics = lazy(() => import('./pages/MarketingAnalytics'));
 const SearchConsoleOpportunities = lazy(() => import('./pages/SearchConsoleOpportunities'));
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
 const TermsOfUse = lazy(() => import('./pages/TermsOfUse'));
+const Support = lazy(() => import('./pages/Support'));
 const OpenSentenceStoryboard = lazy(() => import('./pages/OpenSentenceStoryboard'));
 const SharedConcept = lazy(() => import('./pages/SharedConcept'));
 const SharedQuestion = lazy(() => import('./pages/SharedQuestion'));
@@ -162,8 +163,14 @@ const bootstrapDevTokenFromLocation = () => {
    so links from Library, Wiki and the palette keep landing where they point. */
 const ThinkSurface = () => {
   const location = useLocation();
-  const workId = new URLSearchParams(location.search).get('explorationId');
+  const params = new URLSearchParams(location.search);
+  const workId = params.get('explorationId');
   if (workId) return <AuthoredRecovery key={workId} workId={workId} />;
+  // The handoff queue moved to Connections; old links follow it there.
+  if (params.get('tab') === 'handoffs') {
+    const handoffId = params.get('handoffId') || params.get('handoff');
+    return <Navigate to={`/connections${handoffId ? `?handoffId=${encodeURIComponent(handoffId)}` : ''}#queue`} replace />;
+  }
   return namesAThinkObject(location.search) ? <ThinkMode /> : <ThinkNotes />;
 };
 
@@ -237,7 +244,7 @@ export const isDesignPreviewPath = (pathname = '') => (
 
 /* Pages that read the same signed in or out. They are drawn by the public
    tree either way, so they are declared once. */
-const PUBLIC_PAGES = new Set(['/guides', '/examples', '/proof', '/privacy', '/terms', ...GUIDE_SLUGS.map((slug) => `/${slug}`)]);
+const PUBLIC_PAGES = new Set(['/guides', '/examples', '/proof', '/privacy', '/terms', '/support', ...GUIDE_SLUGS.map((slug) => `/${slug}`)]);
 export const isPublicPage = (pathname = '') => (
   isPublicSharePath(pathname) || isDesignPreviewPath(pathname) || PUBLIC_PAGES.has(pathname)
 );
@@ -256,6 +263,7 @@ const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess }) => {
     location.pathname === '/'
     || location.pathname === '/privacy'
     || location.pathname === '/terms'
+    || location.pathname === '/support'
     || isShareRoute
     || isLongformRoute
   );
@@ -278,6 +286,7 @@ const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess }) => {
           ))}
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/terms" element={<TermsOfUse />} />
+          <Route path="/support" element={<Support />} />
           <Route path="/design-preview/open-sentence" element={<OpenSentenceStoryboard />} />
           <Route path="/design-preview/notebook-share" element={<NotebookSharePreview />} />
           <Route path="/design-preview/notebook-volume" element={<NotebookVolumePreview />} />
@@ -501,7 +510,7 @@ function App() {
 
   useEffect(() => (
     scheduleDeferredStyleLoad(() => {
-      import('./styles/think-home-polish.css');
+      import('./styles/wiki.css');
     })
   ), []);
 
@@ -532,7 +541,7 @@ function App() {
 
   useEffect(() => {
     // Add the editorial body class. Don't pin color-scheme inline — that
-    // overrides the dark/light selectors in theme.css and stitch-editorial.css
+    // overrides the dark/light selectors in theme.css
     // and was part of why the dark mode toggle appeared to do nothing.
     // color-scheme is now set inside the theme CSS itself, gated on
     // data-ui-theme, so flipping the theme attribute carries it along.
@@ -753,6 +762,7 @@ function App() {
             <Route path="/wiki/workspace" element={<Wiki />} />
             <Route path="/wiki/activity/:runId" element={<WikiIngestRun />} />
             <Route path="/welcome" element={<Welcome />} />
+            <Route path="/reviewer-fixtures" element={<ReviewerFixtures />} />
             <Route path="/wiki/:id" element={<LegacyWikiPageRedirect />} />
             <Route
               path="/settings"
@@ -815,15 +825,8 @@ function App() {
       >
       <AppShell
         surface={surface}
-        /* Think owns its Partner inside the writing surface. The shell
-           must never mount a second, generic agent beside it. The Wiki
-           collection keeps the steward reachable from Ask, not as a resting
-           column beside the list. */
-        agentOnDemand={shellLocation.pathname === '/wiki' || shellLocation.pathname === '/wiki/dossiers'}
-        rightRail={hasContextualAgentRail(shellLocation.pathname)
-          && !(shellLocation.pathname === '/think' || shellLocation.pathname.startsWith('/think/'))
-          ? <AgentRail />
-          : null}
+        /* One Partner, the same in every room: ⌘J or its button opens it. */
+        partner={hasPartnerPanel(shellLocation.pathname) ? <PartnerPanel /> : null}
         /* First run is one column and a way out; the rooms come after. */
         topBar={shellLocation.pathname === '/welcome' ? null : (
           <TopBar

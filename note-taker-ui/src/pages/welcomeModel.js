@@ -56,19 +56,40 @@ export const pageState = (page) => {
   return 'written';
 };
 
-export const buildFailure = (page = {}) => (
-  page?.aiState?.errorCode === 'WIKI_CANDIDATE_REJECTED'
+/* A refused build means one of two things. Either the reading is thin (no
+   source speaks to the subject, or a claim lacks a cited source), or every
+   claim was backed and a writing check caught something else, which another
+   attempt can pass, so that kind gets a retry. */
+const thinReading = (quality = {}) => {
+  const m = quality?.metrics;
+  const backed = m
+    && m.topicallyGroundedSourceCount > 0
+    && !m.unsupported && !m.partial && !m.uncitedSupported
+    && m.cited >= m.claimCount;
+  return !backed;
+};
+
+export const buildFailure = (page = {}) => {
+  const title = page.title || 'this';
+  if (page?.aiState?.errorCode !== 'WIKI_CANDIDATE_REJECTED') {
+    return {
+      headline: 'That page did not finish.',
+      lede: 'The writing stopped partway. Nothing you brought was lost.',
+      retry: true
+    };
+  }
+  return thinReading(page.aiState.lastCandidateQuality)
     ? {
-      headline: `Your reading does not say enough about ${page.title || 'this'} yet.`,
+      headline: `Your reading does not say enough about ${title} yet.`,
       lede: 'Noeis would have had to invent parts of the page, so it stopped. Pick a topic your sources share, or bring a few more about this one.',
       retry: false
     }
     : {
-      headline: 'That page did not finish.',
-      lede: 'The writing stopped partway. Nothing you brought was lost.',
+      headline: `${title} did not pass the last check.`,
+      lede: 'Every claim had a source behind it, but the page missed one of the writing checks, so Noeis held it back rather than show it. Try it once more.',
       retry: true
-    }
-);
+    };
+};
 
 /* The page's opening paragraph, which is the first thing worth reading on it:
    headings and empty lines are skipped. */

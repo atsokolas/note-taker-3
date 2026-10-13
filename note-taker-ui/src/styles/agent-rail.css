@@ -1,18 +1,13 @@
-/* The agent rail.
-   Cream like the column, separated by one hairline. Not a card, not a panel,
-   not a chat app — the margin of the page, where the agent works. It never
-   animates on navigation, because it never arrives: it was already there. */
+/* The Partner.
+   One panel in every room, opened with ⌘J or its button. Paper inside, glass
+   only on the floating sheet and its trigger. Not a chat app: the conversation,
+   what is waiting for you, and what it read. */
 
 .agent-rail {
-  position: sticky;
-  top: 88px;
-  align-self: start;
   display: grid;
   gap: 14px;
   align-content: start;
   width: 100%;
-  max-width: 280px;
-  padding: clamp(48px, 9vh, 104px) 0 40px 26px;
   background: transparent;
   color: var(--text-primary, var(--vellum-ink));
   font-family: var(--font-sans);
@@ -20,10 +15,10 @@
 
 /* A single living thread ties the agent to the object in the column. It is a
    bit of delight with a job: the knot wakes when context changes and travels
-   while retrieval is running. The rail remains paper, never a floating card. */
+   while retrieval is running. */
 .agent-rail__identity {
   display: grid;
-  grid-template-columns: 16px minmax(0, 1fr);
+  grid-template-columns: 16px auto minmax(0, 1fr);
   gap: 10px;
   align-items: center;
 }
@@ -93,14 +88,6 @@
   animation: agent-subject-arrive 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-.agent-rail__envelope {
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--font-mono);
-  font-size: 0.64rem;
-  letter-spacing: 0.06em;
-  font-variant-numeric: tabular-nums;
-}
-
 .agent-rail__subject span {
   color: var(--text-muted, var(--vellum-subtle));
   font-size: 0.66rem;
@@ -114,14 +101,28 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-.agent-rail__role-description {
-  margin: -5px 0 2px 26px;
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--font-serif);
-  font-size: 0.82rem;
-  font-style: italic;
+/* Where the Partner is looking, in the reader's words. The one thing that
+   changes from room to room. */
+.agent-rail__scope {
+  justify-self: start;
+  padding: 2px 9px;
+  border: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 80%, transparent);
+  border-radius: 999px;
+  color: var(--text-secondary, var(--vellum-muted));
+  font-size: 0.72rem;
   line-height: 1.5;
-  text-wrap: pretty;
+  animation: agent-subject-arrive 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.agent-rail__lines a {
+  color: inherit;
+  text-decoration-color: color-mix(in srgb, currentColor 35%, transparent);
+  text-underline-offset: 3px;
+}
+
+.agent-rail__lines a:hover,
+.agent-rail__lines a:focus-visible {
+  color: var(--wiki-warm-accent, var(--vellum-warm));
 }
 
 .agent-rail__lines {
@@ -301,7 +302,7 @@
 }
 
 /* One line on the page, not a field in a form. The editorial theme paints every
-   input with a tinted panel using !important (stitch-editorial.css), which here
+   input with a tinted panel using !important (theme.css), which here
    would read as a widget dropped into the margin — so this has to answer in
    kind to get back to a plain ruled line. */
 .agent-rail .agent-rail__ask input,
@@ -353,14 +354,14 @@
   line-height: 1.5;
 }
 
-.agent-rail__review-stage {
+.agent-rail__section {
   display: grid;
   gap: 12px;
   padding-top: 14px;
   border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 72%, transparent);
 }
 
-.agent-rail__review-label {
+.agent-rail__label {
   margin: 0;
   color: var(--text-muted, var(--vellum-subtle));
   font: 600 0.66rem/1.35 var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
@@ -368,173 +369,130 @@
   text-transform: uppercase;
 }
 
-/* The shared review contract belongs in every agent surface. In the narrow
-   resident rail it becomes a calm vertical checklist rather than the wider
-   Think workbench card. */
-.agent-rail__review-stage .agent-thought-partner__review-card {
+/* A staged plan reads as a calm vertical checklist in the narrow panel. */
+.agent-rail .agent-thought-partner__review-card {
   padding: 0;
   border: 0;
   background: transparent;
   box-shadow: none;
 }
 
-.agent-rail__review-stage .agent-thought-partner__review-head,
-.agent-rail__review-stage .agent-thought-partner__structure-step-head {
+.agent-rail .agent-thought-partner__review-head,
+.agent-rail .agent-thought-partner__structure-step-head {
   align-items: flex-start;
   flex-direction: column;
   gap: 5px;
 }
 
-.agent-rail__review-stage .agent-thought-partner__structure-summary,
-.agent-rail__review-stage .agent-thought-partner__structure-bulk-actions,
-.agent-rail__review-stage .agent-thought-partner__draft-actions {
+.agent-rail .agent-thought-partner__structure-summary,
+.agent-rail .agent-thought-partner__structure-bulk-actions,
+.agent-rail .agent-thought-partner__draft-actions {
   flex-wrap: wrap;
 }
 
-.agent-rail__review-stage .agent-thought-partner__structure-step {
+.agent-rail .agent-thought-partner__structure-step {
   padding-inline: 0;
 }
 
-/* ---------- the shell slot ---------- */
+/* ---------- the sheet ---------- */
 
-.app-shell-new__body--railed {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 280px);
-  gap: 0;
-  /* The column stretches so its hairline runs the height of the page. The rail
-     pins itself to the top with align-self, not by shrinking the row. */
-  align-items: stretch;
+.agent-rail-drawer__trigger {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 72;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 62px;
+  min-height: 40px;
+  padding: 8px 14px;
+  border: 1px solid var(--noeis-rule);
+  border-radius: 999px;
+  background: var(--noeis-floating);
+  box-shadow: var(--noeis-shadow-float, 0 12px 32px rgba(23, 27, 35, 0.12));
+  color: var(--noeis-ink);
+  font: 600 0.7rem/1 var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  backdrop-filter: blur(14px);
+  cursor: pointer;
 }
 
-.app-shell-new__body--railed > .app-shell-new__column {
-  min-width: 0;
-  container-name: noeis-column;
-  container-type: inline-size;
-  /* One hairline, the full height of the page — the rail box is short, and a
-     border on the rail itself would read as a floating segment. */
-  border-right: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 62%, transparent);
+.agent-rail-drawer {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  visibility: hidden;
+  pointer-events: none;
 }
 
-/* The wrapper disappears from desktop layout, leaving the rail itself as the
-   second grid item. On compact screens the same DOM instance becomes a sheet;
-   route changes therefore keep agent state instead of remounting a mobile copy. */
-.agent-rail-drawer,
+.agent-rail-drawer[data-open='true'] {
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.agent-rail-drawer__backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(24, 26, 30, 0.2);
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+
+.agent-rail-drawer[data-open='true'] .agent-rail-drawer__backdrop {
+  opacity: 1;
+}
+
 .agent-rail-drawer__sheet {
-  display: contents;
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(400px, calc(100vw - 28px));
+  overflow-y: auto;
+  padding: 18px 24px 28px;
+  border-left: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 72%, transparent);
+  background: var(--noeis-floating);
+  /* The sheet is read over the page; the page must not read through it. */
+  backdrop-filter: blur(14px);
+  box-shadow: -18px 0 48px rgba(23, 27, 35, 0.12);
+  transform: translateX(102%);
+  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.agent-rail-drawer__trigger,
-.agent-rail-drawer__backdrop,
+.agent-rail-drawer[data-open='true'] .agent-rail-drawer__sheet {
+  transform: translateX(0);
+}
+
 .agent-rail-drawer__close {
-  display: none;
+  display: block;
+  margin: 0 0 6px auto;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  background: transparent;
+  color: var(--text-muted, var(--vellum-subtle));
+  font: 500 0.72rem/1.4 var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  cursor: pointer;
 }
 
-/* Narrow viewports protect the reading/writing plane. Context is deliberate. */
+.agent-rail-drawer__sheet .agent-rail {
+  padding: 18px 0 40px;
+}
 
-  .app-shell-new--agent-on-demand .app-shell-new__body--railed {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .app-shell-new--agent-on-demand .app-shell-new__body--railed > .app-shell-new__column {
-    border-right: 0;
-  }
-
-  .app-shell-new--agent-on-demand .agent-rail-drawer__trigger {
-    position: fixed;
-    right: 18px;
-    bottom: 18px;
-    z-index: 72;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 62px;
-    min-height: 40px;
-    padding: 8px 14px;
-    border: 1px solid var(--noeis-rule);
-    border-radius: 999px;
-    background: var(--noeis-floating);
-    box-shadow: var(--noeis-shadow-float, 0 12px 32px rgba(23, 27, 35, 0.12));
-    color: var(--noeis-ink);
-    font: 600 0.7rem/1 var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    backdrop-filter: blur(14px);
-    cursor: pointer;
-  }
-
-  .app-shell-new--agent-on-demand .agent-rail-drawer {
-    position: fixed;
-    inset: 0;
-    z-index: 80;
-    display: block;
-    visibility: hidden;
-    pointer-events: none;
-  }
-
-  .app-shell-new--agent-on-demand .agent-rail-drawer[data-open='true'] {
-    visibility: visible;
-    pointer-events: auto;
-  }
-
-  .app-shell-new--agent-on-demand .agent-rail-drawer__backdrop {
-    position: absolute;
-    inset: 0;
-    display: block;
-    border: 0;
-    background: rgba(24, 26, 30, 0.2);
-    opacity: 0;
-    transition: opacity 180ms ease;
-  }
-
-  .app-shell-new--agent-on-demand .agent-rail-drawer[data-open='true'] .agent-rail-drawer__backdrop {
-    opacity: 1;
-  }
-
-  .app-shell-new--agent-on-demand .agent-rail-drawer__sheet {
-    position: absolute;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    display: block;
-    width: min(380px, calc(100vw - 28px));
-    overflow-y: auto;
-    padding: 18px 22px 28px;
-    border-left: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 72%, transparent);
-    background: var(--noeis-floating);
-    /* The sheet is read over the page; the page must not read through it. */
-    backdrop-filter: blur(14px);
-    box-shadow: -18px 0 48px rgba(23, 27, 35, 0.12);
-    transform: translateX(102%);
-    transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  .app-shell-new--agent-on-demand .agent-rail-drawer[data-open='true'] .agent-rail-drawer__sheet {
-    transform: translateX(0);
-  }
-
-  .app-shell-new--agent-on-demand .agent-rail-drawer__close {
-    display: block;
-    margin: 0 0 6px auto;
-    padding: 0;
-    border: 0;
-    border-bottom: 1px solid currentColor;
-    background: transparent;
-    color: var(--text-muted, var(--vellum-subtle));
-    font: 500 0.72rem/1.4 var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-    cursor: pointer;
-  }
-
-  .app-shell-new--agent-on-demand .agent-rail-drawer__sheet .agent-rail {
-    position: static;
-    max-width: none;
-    padding: 18px 0 40px;
-    border-top: 0;
-  }
+/* The conversation in the sheet has the sheet's height to scroll in. */
+.agent-rail-drawer__sheet .agent-rail__conversation {
+  max-height: none;
+  overflow: visible;
+}
 
 @media (prefers-reduced-motion: reduce) {
   .agent-rail__thread-knot,
   .agent-rail__thread.is-working .agent-rail__thread-knot,
-  .agent-rail__subject {
+  .agent-rail__subject,
+  .agent-rail__scope {
     animation: none;
   }
 
@@ -548,5 +506,497 @@
   .agent-rail-drawer__backdrop,
   .agent-rail-drawer__sheet {
     transition: none;
+  }
+}
+
+.agent-rail__role-description {
+  margin: -5px 0 2px 26px;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--font-serif);
+  font-size: 0.82rem;
+  font-style: italic;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+/* The ticker and the structure review the Partner shows. */
+
+body.noeis-editorial .agent-ticker {
+  position: relative;
+  display: grid;
+  gap: 7px;
+  max-width: 48rem;
+  padding: 12px 14px;
+  border: 1px solid var(--vellum-line);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--vellum-bg) 88%, var(--vellum-panel-strong) 12%);
+  overflow: hidden;
+}
+
+body.noeis-editorial .agent-ticker__history {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 2px;
+  padding: 0;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--vellum-warm) 48%, transparent),
+    transparent
+  );
+  border: 0;
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+body.noeis-editorial .agent-ticker[data-history-count="0"] .agent-ticker__history {
+  cursor: default;
+  opacity: 0.22;
+}
+
+body.noeis-editorial .agent-ticker:not([data-history-count="0"]) .agent-ticker__history:hover {
+  width: 4px;
+  opacity: 1;
+}
+
+body.noeis-editorial .agent-ticker__history:focus-visible {
+  width: 5px;
+  outline: 1px solid color-mix(in srgb, var(--vellum-cyan) 60%, transparent);
+  outline-offset: 3px;
+}
+
+body.noeis-editorial .agent-ticker__lines {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  line-height: 1.45;
+  color: color-mix(in srgb, var(--vellum-ink) 72%, transparent);
+}
+
+body.noeis-editorial .agent-ticker__lines--history {
+  padding-bottom: 5px;
+  border-bottom: 1px solid color-mix(in srgb, var(--vellum-line) 70%, transparent);
+}
+
+body.noeis-editorial .agent-ticker__line {
+  display: flex;
+  gap: 7px;
+  align-items: baseline;
+  min-width: 0;
+  opacity: 0.72;
+}
+
+body.noeis-editorial .agent-ticker__line span:not(.agent-ticker__prompt):not(.agent-ticker__cursor) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+body.noeis-editorial .agent-ticker__line--active {
+  color: var(--vellum-ink);
+  opacity: 1;
+}
+
+body.noeis-editorial .agent-ticker__prompt {
+  color: color-mix(in srgb, var(--vellum-warm) 86%, transparent);
+}
+
+body.noeis-editorial .agent-ticker__cursor {
+  width: 0.55em;
+  height: 1em;
+  background: color-mix(in srgb, var(--vellum-warm) 72%, transparent);
+  animation: noeisTickerCursor 900ms steps(2, start) infinite;
+}
+
+body.noeis-editorial .agent-ticker--working .agent-ticker__history {
+  opacity: 1;
+}
+
+@keyframes noeisTickerCursor {
+  0%,
+  45% {
+  opacity: 1;
+  }
+  46%,
+  100% {
+  opacity: 0;
+  }
+}
+
+body.noeis-editorial .agent-thought-partner__review-card,
+body.noeis-editorial .agent-thought-partner__review-card--structure,
+body.noeis-editorial .agent-thought-partner__structure-step,
+body.noeis-editorial .agent-thought-partner__structure-summary-chip {
+  min-width: 0;
+  max-width: 100%;
+}
+
+body.noeis-editorial .agent-thought-partner__review-card,
+body.noeis-editorial .agent-thought-partner__review-card--structure,
+body.noeis-editorial .agent-thought-partner__structure-step,
+body.noeis-editorial .agent-thought-partner__structure-summary-chip {
+  border-color: rgba(120, 110, 98, 0.14) !important;
+  background: color-mix(in srgb, var(--vellum-bg) 90%, transparent) !important;
+  box-shadow: none !important;
+}
+
+body.noeis-editorial .agent-thought-partner__review-card,
+body.noeis-editorial .agent-thought-partner__review-card--structure {
+  border-radius: 20px;
+}
+
+body.noeis-editorial .agent-thought-partner__draft-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+body.noeis-editorial .agent-thought-partner__draft-meta span {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 4px 8px;
+  border: 1px solid var(--vellum-line) !important;
+  border-radius: 999px;
+  background: rgba(255, 251, 246, 0.88) !important;
+  font-family: var(--font-sans);
+  font-size: 0.56rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--vellum-ink) 72%, transparent);
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+body.noeis-editorial .agent-thought-partner__draft-summary {
+  margin: 0;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  line-height: 1.62;
+  color: rgba(79, 74, 70, 0.8);
+}
+
+body.noeis-editorial .agent-thought-partner__draft-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  padding-top: 2px;
+}
+
+body.noeis-editorial .agent-thought-partner__draft-actions .ui-button,
+body.noeis-editorial .agent-thought-partner__draft-actions .ui-quiet-button {
+  min-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+/* The rail's short ask must read in full at every width; long instructional
+   copy belongs outside a single-line input. */
+
+body.noeis-editorial .agent-rail__ask input {
+  width: 100%;
+  min-width: 0;
+  font-size: 0.82rem;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 560px) {
+  body.noeis-editorial .agent-rail__ask input {
+    font-size: 0.78rem;
+  }
+}
+
+.agent-thought-partner__review-card {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border-radius: 20px;
+  border: 1px solid color-mix(in srgb, var(--noeis-rule) 80%, transparent);
+  background: color-mix(in srgb, var(--noeis-paper) 96%, transparent);
+}
+
+.agent-thought-partner__review-card.is-history {
+  background: color-mix(in srgb, var(--noeis-paper) 92%, transparent);
+}
+
+.agent-thought-partner__review-card.is-rolled_back {
+  background: color-mix(in srgb, #eef4ff 88%, var(--noeis-paper));
+}
+
+.agent-thought-partner__review-card.is-rejected {
+  background: color-mix(in srgb, #f7f1ef 92%, var(--noeis-paper));
+}
+
+.agent-thought-partner__review-card--structure {
+  background: color-mix(in srgb, #eef7f6 88%, var(--noeis-paper));
+  border-color: color-mix(in srgb, #0f766e 16%, var(--noeis-rule));
+}
+
+.agent-thought-partner__review-card--structure.is-history {
+  background: color-mix(in srgb, #f3f8ff 92%, var(--noeis-paper));
+}
+
+.agent-thought-partner__review-card--structure.is-rolled_back {
+  background: color-mix(in srgb, #eef8ff 90%, var(--noeis-paper));
+}
+
+.agent-thought-partner__review-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.agent-thought-partner__review-head h4 {
+  margin: 4px 0 0;
+  font-size: 1rem;
+  letter-spacing: -0.03em;
+}
+
+.agent-thought-partner__history-timestamp {
+  margin: 0;
+  font-size: 0.77rem;
+  color: var(--text-muted);
+  text-align: right;
+}
+
+.agent-thought-partner__draft-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.agent-thought-partner__draft-summary {
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.agent-thought-partner__snapshot-label {
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.agent-thought-partner__structure-note {
+  margin: -2px 0 0;
+  color: color-mix(in srgb, var(--text-secondary) 92%, transparent);
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
+.agent-thought-partner__structure-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.agent-thought-partner__structure-summary-chip {
+  display: grid;
+  gap: 2px;
+  min-width: 112px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--noeis-paper) 92%, transparent);
+  border: 1px solid color-mix(in srgb, #0f766e 14%, var(--noeis-rule));
+}
+
+.agent-thought-partner__structure-summary-chip strong {
+  font-size: 1.02rem;
+  letter-spacing: -0.03em;
+}
+
+.agent-thought-partner__structure-summary-chip span {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.agent-thought-partner__structure-operations {
+  display: grid;
+  gap: 10px;
+}
+
+.agent-thought-partner__structure-step {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--noeis-paper) 94%, transparent), color-mix(in srgb, var(--noeis-paper-muted) 96%, transparent));
+  border: 1px solid color-mix(in srgb, var(--noeis-rule) 74%, transparent);
+}
+
+.agent-thought-partner__structure-step.is-rejected {
+  opacity: 0.84;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, #f9f4ef 92%, var(--noeis-paper)), color-mix(in srgb, var(--noeis-paper-muted) 96%, transparent));
+}
+
+.agent-thought-partner__structure-step.is-invalid {
+  border-color: color-mix(in srgb, #b45309 24%, var(--noeis-rule));
+}
+
+.agent-thought-partner__structure-step-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.agent-thought-partner__structure-step-title {
+  margin: 4px 0 0;
+  font-size: 0.93rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+.agent-thought-partner__structure-step-copy,
+.agent-thought-partner__structure-warning {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.52;
+  color: var(--text-muted);
+}
+
+.agent-thought-partner__structure-bulk-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--noeis-paper) 88%, transparent);
+  border: 1px solid color-mix(in srgb, var(--noeis-rule) 74%, transparent);
+}
+
+.agent-thought-partner__structure-bulk-count {
+  display: inline-flex;
+  gap: 6px;
+  align-items: baseline;
+  font-size: 0.84rem;
+  color: var(--text-secondary);
+}
+
+.agent-thought-partner__structure-bulk-count strong {
+  font-size: 0.98rem;
+  color: var(--text-primary);
+}
+
+.agent-thought-partner__structure-bulk-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.agent-thought-partner__structure-step-title-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.agent-thought-partner__structure-step-check input {
+  margin-top: 4px;
+  accent-color: var(--noeis-action, #6b7280);
+}
+
+.agent-thought-partner__structure-step.is-bulk-selected {
+  border-color: color-mix(in srgb, var(--noeis-action, #6b7280) 28%, var(--noeis-rule));
+}
+
+.agent-thought-partner__structure-quality {
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--noeis-paper-muted) 88%, transparent);
+  color: var(--text-muted);
+}
+
+.agent-thought-partner__structure-quality--strong {
+  color: color-mix(in srgb, #166534 78%, var(--text-muted));
+  background: color-mix(in srgb, #dcfce7 72%, var(--noeis-paper-muted));
+}
+
+.agent-thought-partner__structure-quality--thin {
+  color: color-mix(in srgb, #92400e 78%, var(--text-muted));
+  background: color-mix(in srgb, #fef3c7 72%, var(--noeis-paper-muted));
+}
+
+.agent-thought-partner__structure-quality--needs_review {
+  color: color-mix(in srgb, #9a3412 78%, var(--text-muted));
+  background: color-mix(in srgb, #ffedd5 72%, var(--noeis-paper-muted));
+}
+
+.agent-thought-partner__structure-rationale {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.52;
+  color: var(--text-secondary);
+}
+
+.agent-thought-partner__structure-rationale span {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.agent-thought-partner__structure-evidence {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.agent-thought-partner__structure-evidence span {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--noeis-paper-muted) 78%, transparent);
+  border: 1px solid color-mix(in srgb, var(--noeis-rule) 58%, transparent);
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.agent-thought-partner__structure-warning {
+  color: color-mix(in srgb, #b45309 74%, var(--text-muted));
+}
+
+.agent-thought-partner__draft-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+@media (max-width: 720px) {
+  .agent-thought-partner__review-head {
+    display: grid;
+  }
+
+  .agent-thought-partner__structure-step-head {
+    display: grid;
+  }
+
+  .agent-thought-partner__history-timestamp {
+    text-align: left;
   }
 }

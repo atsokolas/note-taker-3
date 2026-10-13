@@ -307,13 +307,6 @@ const semanticPageScores = async ({ userId, question, models = {}, deps = {}, li
   const empty = new Map();
   if (!userId || !asString(question).trim()) return empty;
   try {
-    if (!deps.embed) {
-      // A disabled local AI service is a product configuration, not a cold
-      // start. Skip semantic recall and preserve the lexical path immediately.
-      // eslint-disable-next-line global-require
-      const { isAiEnabled } = require('../config/aiClient');
-      if (!isAiEnabled()) return empty;
-    }
     // eslint-disable-next-line global-require
     const { embedText } = deps.embed || require('../ai/embed');
     // eslint-disable-next-line global-require

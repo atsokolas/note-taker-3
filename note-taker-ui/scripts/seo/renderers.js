@@ -511,6 +511,8 @@ const renderStaticRedirects = (content) => {
 };
 
 const renderVercelConfig = (content) => JSON.stringify({
+  // Agent branches are tested on GitHub; previews there spend the daily build limit.
+  git: { deploymentEnabled: { 'claude/**': false } },
   cleanUrls: true,
   redirects: [
     {

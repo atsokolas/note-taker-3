@@ -78,6 +78,32 @@ describe('runAgentLoop', () => {
     expect(result.reply).toMatch(/code review/);
   });
 
+  it('sends back a quotation that runs a highlight into the reader\'s margin note', async () => {
+    const checklists = { id: 'checklists', title: 'Checklists', fullText: 'The resistance to checklists is mostly about identity. Your note: Same thing happens with code review checklists on my team.' };
+    const chat = scripted(
+      { text: 'It says "the resistance to checklists is mostly about identity. Your note: Same thing happens with code review checklists".' },
+      { text: 'It says "the resistance to checklists is mostly about identity", and you noted "Same thing happens with code review checklists".' }
+    );
+    const result = await runAgentLoop({ messages, sources: [checklists], chat });
+    expect(chat.mock.calls[0][0].messages[0].content).toMatch(/Quote the passage and the note separately/);
+    expect(chat).toHaveBeenCalledTimes(2);
+    expect(result.reply).toMatch(/you noted/);
+  });
+
+  it('takes a held view or the reader\'s own words in quotes as theirs, not an invented quotation', async () => {
+    const asked = [...messages, { role: 'user', content: 'Is it true that I decide worse after midnight?' }];
+    const chat = scripted({ text: 'You hold that "Rest beats willpower for late decisions", and you asked whether "I decide worse after midnight".' });
+    const result = await runAgentLoop({ messages: asked, sources: [sleep], quotable: ['Rest beats willpower for late decisions'], chat });
+    expect(chat).toHaveBeenCalledTimes(1);
+    expect(result.reply).toMatch(/Rest beats willpower/);
+  });
+
+  it('does not take its own earlier reply as a source', async () => {
+    const said = [...messages, { role: 'assistant', content: 'Sleep is the single best predictor of judgment.' }, { role: 'user', content: 'Quote that.' }];
+    const invented = { text: 'The source says "sleep is the single best predictor of judgment".' };
+    expect(await runAgentLoop({ messages: said, sources: [sleep], chat: scripted(invented, invented) })).toBeNull();
+  });
+
   it('returns nothing when the quotation is still invented after repair', async () => {
     const invented = { text: 'The source says "sleep is the single best predictor of judgment".' };
     const chat = scripted(invented, invented);

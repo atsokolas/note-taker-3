@@ -1,4 +1,5 @@
 const { CHATGPT_ACCESS_PROFILE } = require('../services/chatgptAccessPolicy');
+const { reviewerMaintenanceArgs: defaultReviewerMaintenanceArgs, isReviewer, readReviewerBudgetStatus } = require('../services/reviewerRehearsalBudget');
 const express = require('express');
 const { collectContradictions, contradictionsTouching } = require('../services/wikiContradictionService');
 const { describeHistory, describeSince, isPromoted } = require('../services/wikiChangeStory');
@@ -25,7 +26,7 @@ const {
 const { openTargets, paperColumns } = require('../services/paperColumns');
 const { buildClaimPage } = require('../services/claimFromHighlight');
 const { fetchArticleBody, fetchReadableArticle } = require('../services/readableArticle');
-const { linkPageSources } = require('../services/librarySource');
+const { findLibraryArticle, linkPageSources } = require('../services/librarySource');
 const { takeSourcesIntoLibrary } = require('../services/takeSourcesIntoLibrary');
 const { assertionsFrom, askedBefore, closings, dayOf, quietStreak } = require('../services/paperLedger');
 const { findWikiBacklinks: defaultFindWikiBacklinks } = require('../services/wikiBacklinkService');
@@ -1817,6 +1818,7 @@ const buildWikiRouter = ({
   updateNotionPageTitle = null,
   decryptSecret = null,
   maintainWikiPage = defaultMaintainWikiPage,
+  reviewerMaintenanceArgs = defaultReviewerMaintenanceArgs,
   asyncBuildTimeoutMs = DEFAULT_ASYNC_BUILD_TIMEOUT_MS,
   evaluateWikiArticleQuality = defaultEvaluateWikiArticleQuality,
   prepareOrdinaryWikiBuild = defaultPrepareOrdinaryWikiBuild,
@@ -5427,7 +5429,9 @@ const buildWikiRouter = ({
           }
         });
       }
-      res.status(200).json(serializeWikiPage(page));
+      const reviewerBudget = page.visibility === 'private'
+        ? await readReviewerBudgetStatus({ userId: req.user.id, pageId: page._id }) : null;
+      res.status(200).json({ ...serializeWikiPage(page), ...(reviewerBudget ? { reviewerBudget } : {}) });
     } catch (_error) {
       res.status(400).json({ error: 'Invalid wiki page id.' });
     }
@@ -6357,8 +6361,7 @@ const buildWikiRouter = ({
    * A belief, born from a sentence you marked.
    *
    * The one door into the ledger from the Library. Everything the morning
-   * paper reads — the anniversary, the calibration line, the falsifier watch
-   * — reads claims, and until now a highlight could become a question, a
+   * paper reads — the anniversary, the calibration line — reads claims, and until now a highlight could become a question, a
    * note, a concept or a wiki section, but never a claim.
    */
   router.post('/api/judgment/from-highlight', wikiAuth, async (req, res) => {
@@ -7224,6 +7227,13 @@ const buildWikiRouter = ({
       if (buildLease?.page) page = buildLease.page;
       repoHeadSha = buildLease?.headSha || '';
       const before = snapshotPage(page);
+      const boundedMaintenanceArgs = reviewerMaintenanceArgs({ userId: req.user.id, page });
+      if (isReviewer(req.user.id) && await Article.countDocuments({
+        userId: req.user.id,
+        _id: { $in: page.sourceRefs.map(ref => ref.objectId) }
+      }) !== 2) {
+        return res.status(422).json({ code: 'REVIEWER_SOURCE_OWNERSHIP_MISMATCH', error: 'Reviewer fixture sources must belong to the verified reviewer.' });
+      }
 
       page.aiState = {
         ...(page.aiState?.toObject ? page.aiState.toObject() : page.aiState || {}),
@@ -7240,9 +7250,10 @@ const buildWikiRouter = ({
         WikiRevision,
         beforeSnapshot: before,
         requireFirstHeadAcceptance: /^company-dossier:/i.test(String(page?.createdFrom?.label || '')),
-        requireOwnerAcceptance: req.agentToken?.accessProfile === CHATGPT_ACCESS_PROFILE || Boolean(page?.investmentDossier?.version),
+        requireOwnerAcceptance: req.agentToken?.accessProfile === CHATGPT_ACCESS_PROFILE || Boolean(page?.investmentDossier?.version) || isReviewer(req.user.id),
         maintainWikiPageFn: maintainWikiPage,
         maintainArgs: {
+          ...boundedMaintenanceArgs,
           wikiSchemaContent: await loadWikiSchemaContent(req.user.id),
           models: {
             Article,
@@ -7340,6 +7351,9 @@ const buildWikiRouter = ({
       }
     } catch (error) {
       console.error('Error maintaining wiki page:', error);
+      if ((typeof error.code === 'string' && error.code.startsWith('REVIEWER_'))) {
+        return res.status(error.status || 409).json({ code: error.code, error: error.message });
+      }
       if (buildLease?.acquired && page) {
         await releaseRepoBuildLease({
           WikiPage,
@@ -8646,6 +8660,22 @@ const buildWikiRouter = ({
       const normalized = normalizeIngestSource(req.body?.source);
       if (normalized.error) return res.status(400).json({ error: normalized.error });
       const source = normalized.value;
+      /* An address the reader already saved is their Library article, cited as
+         itself rather than as a second copy of the web page. A saved article
+         with nothing to read stays the web page, so the run cites what it read. */
+      const saved = source.rawType === 'url'
+        ? await findLibraryArticle({ Article, userId: req.user.id, url: source.url })
+        : null;
+      const savedText = cleanWikiSummary(saved?.content, INGEST_TEXT_LIMIT);
+      if (savedText) {
+        Object.assign(source, {
+          sourceType: 'article',
+          objectId: saved._id,
+          title: saved.title || source.title || '',
+          text: savedText,
+          summary: ''
+        });
+      }
       /* A URL used to arrive as a bare link. The run stored a title and an
          address and nothing to read, so the wiki either drafted from an empty
          source or drafted nothing at all. The reader's extension has always

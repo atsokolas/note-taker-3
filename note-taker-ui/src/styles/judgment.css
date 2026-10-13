@@ -401,6 +401,7 @@
 /* ---------- reading talks back ---------- */
 
 .judgment-reading { margin: 0 0 40px; }
+.judgment-test__met { margin: 20px 0 0; }
 .judgment-reading ul { display: grid; gap: 24px; margin: 0; padding: 0; list-style: none; }
 
 .judgment-reading__line {

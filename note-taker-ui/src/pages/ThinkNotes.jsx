@@ -8,9 +8,9 @@ import { getConcepts, updateConcept } from '../api/concepts';
 import { createQuestion, getQuestions } from '../api/questions';
 import { getAgentThread } from '../api/agent';
 import NotebookEditor from '../components/think/notebook/NotebookEditor';
+import NotebookBoard from '../components/think/notebook/NotebookBoard';
 import ThinkEntryEditor from '../components/think/ThinkEntryEditor';
 import FocusMode from '../components/think/FocusMode';
-import ThoughtPartnerPanel from '../components/agent/ThoughtPartnerPanel';
 import {
   RoomShelf,
   RoomShelfButton,
@@ -19,7 +19,7 @@ import {
   roomShelfItemClass
 } from '../components/collection/RoomShelf';
 import { takeFirstPaint } from '../motion/columnMotion';
-import { useNoeisSurface } from '../surface/NoeisSurfaceContext';
+import { useAgentRail, useNoeisAgentSurface } from '../agent/AgentRailContext';
 import {
   buildAuthoredShelf,
   buildThinkEntries,
@@ -31,15 +31,14 @@ import {
   resolveOpenNoteId,
   targetParams
 } from './thinkNotesModel';
-import { plainTextFrom } from '../utils/editorialText';
 import useDocumentTitle from '../hooks/useDocumentTitle';
 
 // Think.
 //
 // Opening Think opens the note you were last in. Notes, concepts and
 // questions share one list and one page; the kind is a chip on the entry, not
-// a room. The partner fetches into the page from the drawer; the page only
-// changes when the human accepts what came back.
+// a room. The Partner (⌘J) reads beside the page; the page only changes when
+// the reader keeps what came back.
 
 const KIND_LABELS = { all: 'All', note: 'Notes', concept: 'Concepts', question: 'Questions' };
 const NEW_PROMPTS = { concept: 'Name the concept', question: 'Ask the question' };
@@ -62,9 +61,9 @@ const ThinkNotes = () => {
   const [naming, setNaming] = useState('');
   const [nameDraft, setNameDraft] = useState('');
   const [openRecord, setOpenRecord] = useState(null);
-  const [thread, setThread] = useState(null);
   const threadId = searchParams.get('threadId') || '';
   const pulling = searchParams.get('pull') === '1';
+  const boardView = ['board', 'archive'].includes(searchParams.get('view')) ? searchParams.get('view') : '';
   const entries = useMemo(
     () => buildThinkEntries({ notes, concepts, questions, filter }),
     [notes, concepts, questions, filter]
@@ -107,7 +106,6 @@ const ThinkNotes = () => {
     setSearchParams(params, { replace: true });
   };
   const [shelfExpanded, setShelfExpanded] = useState(false);
-  const [queuedPrompt, setQueuedPrompt] = useState(null);
   const [contextByNote, setContextByNote] = useState({});
   const [contextPortal, setContextPortal] = useState(null);
   const [alternativesPortal, setAlternativesPortal] = useState(null);
@@ -123,7 +121,12 @@ const ThinkNotes = () => {
   const openKeyRef = useRef(openKey);
   openKeyRef.current = openKey;
   const activeContext = contextByNote[openKey] || null;
+  const { ask, adoptThread } = useAgentRail();
   const openContext = useCallback((mode) => {
+    if (mode === 'partner') {
+      window.dispatchEvent(new Event('noeis:open-agent'));
+      return;
+    }
     if (!openKey) return;
     if (room.current?.getBoundingClientRect().width <= 1040) setNotesCollapsed(true);
     setContextByNote(current => ({ ...current, [openKey]: mode }));
@@ -132,10 +135,9 @@ const ThinkNotes = () => {
     if (!openKey) return;
     setContextByNote(current => ({ ...current, [openKey]: null }));
   }, [openKey]);
-  const queuePartner = useCallback((prompt) => {
-    openContext('partner');
-    setQueuedPrompt(prompt);
-  }, [openContext]);
+  const queuePartner = useCallback((queued) => {
+    if (queued?.prompt) ask(queued.prompt);
+  }, [ask]);
   useEffect(() => {
     const element = room.current;
     if (!element) return undefined;
@@ -198,17 +200,17 @@ const ThinkNotes = () => {
     return () => { cancelled = true; };
   }, []);
 
-  /* A thread with the partner opens beside the page it belongs with. */
+  /* A conversation with the Partner opens beside the page it belongs with. */
   useEffect(() => {
     if (!threadId) return undefined;
     let cancelled = false;
-    getAgentThread(threadId).then(row => {
-      if (cancelled || !row?.threadId) return;
-      setThread(row);
-      setContextByNote(current => ({ ...current, [openKeyRef.current]: 'partner' }));
+    getAgentThread(threadId).then(result => {
+      if (cancelled || !result?.thread?.threadId) return;
+      adoptThread(result.thread);
+      window.dispatchEvent(new Event('noeis:open-agent'));
     }).catch(() => {});
     return () => { cancelled = true; };
-  }, [threadId]);
+  }, [adoptThread, threadId]);
 
   // Private continuations load independently: neither notes nor the partner
   // wait for them, and their words never enter automatic agent context.
@@ -300,12 +302,6 @@ const ThinkNotes = () => {
     && openId
     && String(entry._id) === String(openId)
   );
-  const noteContextText = useMemo(() => {
-    const blocks = Array.isArray(entry?.blocks)
-      ? entry.blocks.map(block => String(block?.text || '').trim()).filter(Boolean).join(' ')
-      : '';
-    return blocks || plainTextFrom(entry?.content);
-  }, [entry]);
 
   const saveEntry = useCallback(async (payload) => {
     if (!payload?.id) return;
@@ -332,6 +328,14 @@ const ThinkNotes = () => {
   const openEntry = async (item) => {
     if (await saveCurrent.current?.() === false) return;
     setSearchParams(targetParams(item));
+  };
+
+  /* The board sits over the page; the note stays mounted beneath it. */
+  const showBoard = async (view) => {
+    if (view && await saveCurrent.current?.() === false) return;
+    const params = new URLSearchParams(searchParams);
+    if (view) params.set('view', view); else params.delete('view');
+    setSearchParams(params);
   };
 
   const nameEntry = async (event) => {
@@ -431,14 +435,12 @@ const ThinkNotes = () => {
     ? {
       contextType: 'notebook',
       contextId: entryMatchesRoute ? openId : '',
-      contextTitle: entryMatchesRoute ? entry?.title || 'Note' : 'Think',
-      contextMetadata: entryMatchesRoute ? { primaryText: noteContextText } : null
+      contextTitle: entryMatchesRoute ? entry?.title || 'Note' : 'Think'
     }
     : {
       contextType: openTarget?.kind || '',
       contextId: openRecord?.key === openKey && openRecord.record?._id ? String(openRecord.record._id) : '',
-      contextTitle: (openRecord?.key === openKey && openRecord.title) || 'Think',
-      contextMetadata: null
+      contextTitle: (openRecord?.key === openKey && openRecord.title) || 'Think'
     };
 
   useDocumentTitle(partner.contextTitle === 'Think' ? '' : partner.contextTitle, 'Think');
@@ -456,21 +458,26 @@ const ThinkNotes = () => {
     });
   }, [partner.contextId, partner.contextTitle, partner.contextType, queuePartner]);
 
-  useNoeisSurface({
+  useNoeisAgentSurface('agent-surface.think', {
     room: 'think',
     objectType: partner.contextType || 'notebook',
     objectId: partner.contextId,
     title: partner.contextTitle === 'Think' ? '' : partner.contextTitle,
     orientation: openTarget
-      ? 'Unfinished writing. The partner may retrieve; only you can add what it finds.'
+      ? 'Unfinished writing. The Partner may retrieve; only you can add what it finds.'
       : 'Open a note and keep the thought moving.'
-  });
+  }, {
+    askPlaceholder: `Ask about this ${openTarget?.kind || 'note'} or selected words`
+  }, { onTryWording: partnerTrial });
 
   const step = (n) => (arriving ? `wfp-anim wfp-anim--${n}` : 'think-notes__return');
 
   return (
-    <div ref={room} className={`think-notes${activeContext ? ' has-context' : ''}${alternativesOpen ? ' has-alternatives' : ''}${notesCollapsed ? ' notes-collapsed' : ''}`}>
-      <button type="button" className="think-notes__shelf-toggle" aria-expanded={!notesCollapsed} aria-controls="think-notes-shelf" onClick={() => setNotesCollapsed(value => !value)}>{notesCollapsed ? 'Show list' : 'Hide list'}</button>
+    <div ref={room} className={`think-notes${boardView ? ' has-board' : ''}${activeContext ? ' has-context' : ''}${alternativesOpen ? ' has-alternatives' : ''}${notesCollapsed ? ' notes-collapsed' : ''}`}>
+      <div className="think-notes__toggles">
+        <button type="button" className="think-notes__shelf-toggle" aria-expanded={!notesCollapsed} aria-controls="think-notes-shelf" onClick={() => setNotesCollapsed(value => !value)}>{notesCollapsed ? 'Show list' : 'Hide list'}</button>
+        <button type="button" className="think-notes__shelf-toggle" aria-pressed={Boolean(boardView)} onClick={() => showBoard(boardView ? '' : 'board')}>Board</button>
+      </div>
       <aside id="think-notes-shelf" hidden={notesCollapsed} className="think-notes__shelf" aria-label="Think navigation" inert={contextTakesFocus ? '' : undefined} aria-hidden={contextTakesFocus || undefined}>
         <FocusMode inRail />
         <RoomShelf
@@ -587,6 +594,17 @@ const ThinkNotes = () => {
         </RoomShelf>
       </aside>
 
+      {boardView ? (
+        <main className="think-notes__board">
+          <NotebookBoard
+            view={boardView}
+            onView={showBoard}
+            onOpen={card => openEntry({ kind: 'note', id: card.id })}
+            onClose={() => showBoard('')}
+          />
+        </main>
+      ) : null}
+
       <aside className="think-notes__alternatives" hidden={!alternativesOpen || Boolean(activeContext)} aria-label="Wording alternatives">
         <div ref={setAlternativesPortal} />
       </aside>
@@ -605,8 +623,6 @@ const ThinkNotes = () => {
               key={editorKey}
               target={openTarget}
               startPull={pullKey === openKey}
-              partnerOpen={activeContext === 'partner'}
-              onPartner={() => openContext('partner')}
               onAsk={askPartner}
               onLoaded={loaded => setOpenRecord({ ...loaded, key: openKey })}
               onSaved={entrySaved}
@@ -667,33 +683,12 @@ const ThinkNotes = () => {
       >
         <div className="think-notes__context-head">
           <div role="tablist" aria-label="Note context">
-            <button type="button" role="tab" aria-selected={activeContext === 'partner'} onClick={() => openContext('partner')}>Partner</button>
-            {openTarget?.kind === 'note' ? <>
-              <button type="button" role="tab" aria-selected={activeContext === 'scratchpad'} onClick={() => openContext('scratchpad')}>Scratchpad</button>
-              <button type="button" role="tab" aria-selected={activeContext === 'material'} onClick={() => openContext('material')}>Material</button>
-            </> : null}
+            <button type="button" role="tab" aria-selected={activeContext === 'scratchpad'} onClick={() => openContext('scratchpad')}>Scratchpad</button>
+            <button type="button" role="tab" aria-selected={activeContext === 'material'} onClick={() => openContext('material')}>Material</button>
           </div>
           <button type="button" className="think-notes__context-close" onClick={closeContext} aria-label="Close note context">Close</button>
         </div>
         <div ref={setContextPortal} hidden={!['material', 'scratchpad'].includes(activeContext)} />
-        <div hidden={activeContext !== 'partner'}>
-          <ThoughtPartnerPanel
-            variant="stream"
-            contextType={partner.contextType}
-            contextId={partner.contextId}
-            contextTitle={partner.contextTitle}
-            contextMetadata={partner.contextMetadata}
-            queuedPrompt={queuedPrompt}
-            thread={thread}
-            subtitle={`This ${openTarget?.kind || 'note'}, when you ask`}
-            placeholder={`Ask about this ${openTarget?.kind || 'note'} or selected words…`}
-            promptTemplates={[]}
-            passiveStatusText="Keep writing. The partner will stay quiet until you ask."
-            emptyStateText="Ask when you want another mind in the room."
-            submitLabel="↗"
-            onTryWording={partnerTrial}
-          />
-        </div>
       </aside>
     </div>
   );

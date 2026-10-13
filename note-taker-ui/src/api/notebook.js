@@ -67,6 +67,17 @@ export const updateNotebookWorkbench = async (id, workingState, expectedRevision
   return res.data?.workingState || null;
 };
 
+// After a save: the one sentence of this note that contradicts a view the
+// reader holds, or null.
+export const readNoteAgainstViews = async (id) => {
+  const res = await api.post(`/api/notebook/${encodeURIComponent(id)}/opposite`, {}, getAuthHeaders());
+  return res.data?.line || null;
+};
+
+export const setOppositeAside = async (id, key) => {
+  await api.post(`/api/notebook/${encodeURIComponent(id)}/opposite/${encodeURIComponent(key)}/aside`, {}, getAuthHeaders());
+};
+
 export const createNotebookEntry = async (payload) => {
   const res = await api.post('/api/notebook', payload, getAuthHeaders());
   summariesCache.reset();
@@ -170,4 +181,15 @@ export const revokeNotebookVolume = async () => {
 export const getPublicVolume = async (slug) => {
   const res = await api.get(`/api/public/volumes/${encodeURIComponent(slug)}`);
   return res.data || null;
+};
+
+/* Every note, compact, with where it stands; the board is never stale cache. */
+export const getNotebookBoard = async () => {
+  const res = await api.get('/api/notebook?summary=1&compact=1', getAuthHeaders());
+  return Array.isArray(res.data) ? res.data : [];
+};
+
+export const moveNotebookEntry = async (id, board) => {
+  const res = await api.patch(`/api/notebook/${encodeURIComponent(id)}/board`, board, getAuthHeaders());
+  return res.data?.board || null;
 };

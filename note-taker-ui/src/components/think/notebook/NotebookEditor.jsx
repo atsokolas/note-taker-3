@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { NodeViewWrapper, ReactNodeViewRenderer, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import { Extension, Node, mergeAttributes } from '@tiptap/core';
-import { Button } from '../../ui';
+import { Button, buttonClass } from '../../ui';
 import InsertHighlightModal from './InsertHighlightModal';
 import InsertReferenceModal from './InsertReferenceModal';
 import { BlockIdExtension, EntryBar, HighlightRefNode, passageContent } from '../editor/writingParts';
@@ -24,7 +24,7 @@ import SourceCorrectionReview from '../SourceCorrectionReview';
 import NotebookShare from './NotebookShare';
 import NotebookVolume from './NotebookVolume';
 import { editorNodesFromDistinctionUse, eligibleDistinctions } from '../../../utils/distinctionUse';
-import { exportNotebookMarkdown, getNotebookSummaries, disposeNotebookSourceCorrection, requestNotebookWordingOptions } from '../../../api/notebook';
+import { exportNotebookMarkdown, getNotebookSummaries, disposeNotebookSourceCorrection, readNoteAgainstViews, requestNotebookWordingOptions, setOppositeAside } from '../../../api/notebook';
 import useHighlights from '../../../hooks/useHighlights';
 import useArticles from '../../../hooks/useArticles';
 import useConcepts from '../../../hooks/useConcepts';
@@ -230,6 +230,31 @@ const WikiRefNode = createReferenceNode({
   buildHref: (attrs) => (attrs.wikiId ? `/wiki/workspace?page=${encodeURIComponent(attrs.wikiId)}` : '')
 });
 
+/* "Your view from August", or "from August 2025" once the year has turned. */
+const heldMonth = (iso) => {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  const sameYear = date.getFullYear() === new Date().getFullYear();
+  return date.toLocaleDateString('en-US', sameYear ? { month: 'long' } : { month: 'long', year: 'numeric' });
+};
+
+/* You hold the opposite: a sentence of this note against a view you hold, in
+   one line beside it. The sentence carries a faint rule in the draft. */
+export const HeldOpposite = ({ line, onAside }) => {
+  const month = heldMonth(line.heldSince);
+  return (
+    <aside className="think-opposite" aria-label="A view you hold">
+      <div>
+        <p>
+          You hold the opposite. Your view{month ? ` from ${month}` : ''} says{' '}
+          <Link to={`/judgment/${encodeURIComponent(line.pageId)}`}>“{line.view}”</Link>
+        </p>
+        <Button variant="quiet" onClick={onAside}>Not now</Button>
+      </div>
+    </aside>
+  );
+};
+
 const NotebookEditor = ({
   entry,
   saving,
@@ -301,6 +326,7 @@ const NotebookEditor = ({
   const [trialPreview, setTrialPreview] = useState('original');
   const [workbenchReceipt, setWorkbenchReceipt] = useState(null);
   const [nextLineDismissed, setNextLineDismissed] = useState(false);
+  const [opposite, setOpposite] = useState(null);
   const workbench = useNotebookWorkbench(entry, { onEntryChange: onWorkingStateChange });
   const workbenchLatestRef = useRef(workbench);
   workbenchLatestRef.current = workbench;
@@ -769,6 +795,21 @@ const NotebookEditor = ({
     });
     return () => window.cancelAnimationFrame?.(frame);
   }, [editor, entry?._id, workbench.state.continuity]);
+
+  /* Read on open and after each save, never per keystroke: the server asks
+     only about sentences it has not read before. */
+  useEffect(() => {
+    if (!entry?._id) return undefined;
+    let live = true;
+    readNoteAgainstViews(entry._id).then((line) => { if (live) setOpposite(line); }).catch(() => {});
+    return () => { live = false; };
+  }, [entry?._id, savedAt]);
+
+  const setAsideOpposite = () => {
+    const key = opposite?.key;
+    setOpposite(null);
+    if (key) setOppositeAside(entry._id, key).catch(() => {});
+  };
 
   const scheduleSave = useCallback(() => {
     dirtyRef.current = true;
@@ -1449,9 +1490,10 @@ const NotebookEditor = ({
       preview: showingPreview
         ? { blockId: activeTrial?.target?.blockId, text: notebookTrialText(activeTrial?.target, activeTrial?.alternative), ...(activeTrial.target.scope ? { rangeStart: activeTrial.target.rangeStart, rangeEnd: activeTrial.target.rangeStart + activeTrial.alternative.length } : {}) }
         : null,
-      savedMarks: savedTrialMarks
+      savedMarks: savedTrialMarks,
+      opposite
     });
-  }, [activeContext, activeTrial, activeTrialResolution.status, editor, heldTarget, savedTrialMarks, trialPreview, workbenchView]);
+  }, [activeContext, activeTrial, activeTrialResolution.status, editor, heldTarget, opposite, savedTrialMarks, trialPreview, workbenchView]);
   useEffect(() => { onAlternativesOpenChange?.(alternativesVisible); }, [alternativesVisible, onAlternativesOpenChange]);
   useEffect(() => () => onAlternativesOpenChange?.(false), [onAlternativesOpenChange]);
   useEffect(() => () => partnerOptionsAbortRef.current?.abort?.(), []);
@@ -1575,8 +1617,6 @@ const NotebookEditor = ({
             : saveState === 'error' || workbench.saveState === 'error' ? 'error' : 'saved'}
           savedAt={savedAt || entry.updatedAt}
           onRetry={commitDraft}
-          partnerOpen={['partner', 'scratchpad', 'material'].includes(activeContext)}
-          onPartner={() => onOpenContext?.('partner')}
         >
           <Button variant="quiet"
             onMouseDown={(event) => event.preventDefault()}
@@ -1665,7 +1705,7 @@ const NotebookEditor = ({
                 </p>
               </div>
               {notebookSourceMeta.kind === 'concept' ? (
-                <a className="ui-quiet-button think-notebook-editor-provenance__link" href={notebookSourceMeta.href}>
+                <a className={buttonClass('quiet', 'think-notebook-editor-provenance__link')} href={notebookSourceMeta.href}>
                   {notebookSourceMeta.action}
                 </a>
               ) : resolvedSourceEvergreen?.status === 'ready' ? (
@@ -1844,6 +1884,7 @@ const NotebookEditor = ({
           }
         }}
       >
+      {opposite ? <HeldOpposite line={opposite} onAside={setAsideOpposite} /> : null}
       <EditorDraftShell
         editor={editor}
         surfaceRef={slashSurfaceRef}

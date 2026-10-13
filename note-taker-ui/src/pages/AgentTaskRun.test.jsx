@@ -68,4 +68,17 @@ describe('AgentTaskRun', () => {
     expect(await screen.findByText('Connect OpenClaw first.')).toBeInTheDocument();
     expect(screen.getByText('noeis connect openclaw')).toBeInTheDocument();
   });
+
+  it('links a dispatched task to its handoff in the queue', async () => {
+    dispatchAgentTaskLink.mockResolvedValue({ task: { taskId: 'at_123', status: 'dispatched' }, handoff: { handoffId: 'h-7' } });
+    render(
+      <BrowserRouter>
+        <AgentTaskRun taskIdOverride="at_123" />
+      </BrowserRouter>
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Run with OpenClaw' }));
+
+    expect(await screen.findByRole('link', { name: 'Open it in the queue' })).toHaveAttribute('href', '/connections?handoffId=h-7#queue');
+  });
 });

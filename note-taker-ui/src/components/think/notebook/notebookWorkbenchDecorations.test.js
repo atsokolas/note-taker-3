@@ -172,4 +172,21 @@ describe('split paragraphs keep distinct block ids', () => {
     editor.destroy();
     element.remove();
   });
+
+  it('rules the one sentence that contradicts a held view, and lets it go when the words change', () => {
+    const { editor, element } = mount({
+      type: 'doc',
+      content: [paragraph('p1', 'Notes from the call. Members cancel faster than anyone expects.')]
+    }, [StarterKit, BlockId, NotebookWorkbenchDecorations]);
+    const sentence = 'Members cancel faster than anyone expects.';
+    setNotebookWorkbenchDecorations(editor, { opposite: { blockId: 'p1', sentence } });
+    expect(editor.view.dom.querySelector('.notebook-opposite-sentence').textContent).toBe(sentence);
+
+    editor.commands.setContent({ type: 'doc', content: [paragraph('p1', 'Notes from the call.')] });
+    expect(editor.view.dom.querySelector('.notebook-opposite-sentence')).toBeNull();
+    setNotebookWorkbenchDecorations(editor, { opposite: null });
+    expect(editor.view.dom.querySelector('.notebook-opposite-sentence')).toBeNull();
+    editor.destroy();
+    element.remove();
+  });
 });

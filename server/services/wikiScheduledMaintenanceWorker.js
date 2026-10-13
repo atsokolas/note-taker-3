@@ -8,11 +8,13 @@ const {
 } = require('./wikiRepoBuildLeaseService');
 const { syncWikiPageGraphConnections } = require('./wikiGraphConnectionService');
 const { HUMAN_ONLY_WIKI_LABEL_PATTERN, isHumanOnlyWikiArtifact } = require('./wikiProtectedArtifactService');
+const { policy, isReviewer } = require('./reviewerRehearsalBudget');
 
 const DEFAULT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
-const duePageQuery = ({ cutoff = new Date(Date.now() - DEFAULT_MAX_AGE_MS) } = {}) => ({
+const duePageQuery = ({ cutoff = new Date(Date.now() - DEFAULT_MAX_AGE_MS), target = policy } = {}) => ({
   status: { $ne: 'archived' },
+  ...(isReviewer(target.userId, target) ? { userId: { $ne: target.userId } } : {}),
   'createdFrom.label': { $not: HUMAN_ONLY_WIKI_LABEL_PATTERN },
   $or: [
     { 'aiState.lastDraftedAt': null },
@@ -102,6 +104,7 @@ const drainScheduledWikiMaintenance = async ({
   models = {},
   limit = 3,
   maxAgeMs = DEFAULT_MAX_AGE_MS,
+  reviewerPolicy = policy,
   maintainWikiPageFn = maintainWikiPage,
   now = new Date()
 } = {}) => {
@@ -118,12 +121,18 @@ const drainScheduledWikiMaintenance = async ({
   if (!WikiPage) return { processed: 0, failed: 0, skipped: true, results: [] };
   const max = Math.max(1, Math.min(Number(limit) || 3, 25));
   const cutoff = new Date(now.getTime() - Math.max(60 * 60 * 1000, Number(maxAgeMs) || DEFAULT_MAX_AGE_MS));
-  const pages = await WikiPage.find(duePageQuery({ cutoff }))
+  const pages = await WikiPage.find(duePageQuery({ cutoff, target: reviewerPolicy }))
     .sort({ 'aiState.lastDraftedAt': 1, updatedAt: 1 })
     .limit(max);
   const results = [];
   const eligiblePages = (Array.isArray(pages) ? pages : []).filter(page => !isHumanOnlyWikiArtifact(page));
   for (const page of eligiblePages) {
+    // A stale/adaptor query result must not admit reviewer background inference.
+    // No run, budget reservation, save, timestamp or event is created by this hold.
+    if (isReviewer(page.userId, reviewerPolicy)) {
+      results.push({ pageId: String(page._id), status: 'held', reason: 'reviewer_rehearsal', inferenceAttemptedByHold: false });
+      continue;
+    }
     const budget = await acquireWikiWriteBudget(WikiPage.db?.db);
     if (!budget.allowed) {
       results.push({ pageId: String(page._id), status: 'skipped', reason: budget.reason });
@@ -259,6 +268,7 @@ const drainScheduledWikiMaintenance = async ({
     failed: results.filter(result => result.status === 'failed').length,
     needsReview: results.filter(result => result.status === 'needs_review').length,
     skipped: results.filter(result => result.status === 'skipped').length,
+    held: results.filter(result => result.status === 'held').length,
     results
   };
 };

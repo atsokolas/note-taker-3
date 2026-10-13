@@ -64,13 +64,8 @@ app.use(buildLegacyContentRouter({
   normalizePdfs: (value) => value,
   Article,
   enqueueArticleEmbedding: () => {},
-  safeMapEmbedding: () => {},
-  articleToEmbeddingItems: () => [],
-  queueEmbeddingUpsert: () => {},
   getFoldersWithCounts: async () => [],
-  normalizeItemType: (value) => value,
-  buildEmbeddingId: () => '',
-  queueEmbeddingDelete: () => {}
+  normalizeItemType: (value) => value
 }));
 
 const server = app.listen(0, '127.0.0.1', async () => {

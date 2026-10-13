@@ -387,12 +387,36 @@ const notebookWorkbenchSchema = new mongoose.Schema({
   continuity: { type: notebookWorkbenchContinuitySchema, default: () => ({}) }
 }, { _id: false });
 
+// Where a piece of writing stands for its writer: an idea, being worked on, or
+// done; set aside in the archive when archivedAt is set. Moving it is not
+// writing in it, so the board never touches updatedAt.
+const NOTEBOOK_STAGES = ['idea', 'in_progress', 'done'];
+const notebookBoardSchema = new mongoose.Schema({
+  stage: { type: String, enum: NOTEBOOK_STAGES, default: 'idea' },
+  movedAt: { type: Date, default: null },
+  archivedAt: { type: Date, default: null }
+}, { _id: false });
+
 const notebookEntrySchema = new mongoose.Schema({
   title: { type: String, default: '', trim: true },
   content: { type: String, default: '' },
   blocks: { type: [notebookBlockSchema], default: [] },
   asidePieces: { type: [notebookAsidePieceSchema], default: [] },
   workingState: { type: notebookWorkbenchSchema, default: () => ({}) },
+  /* Each sentence of this note read once against a view the reader holds:
+     the verdict, and whether the reader set the line aside. */
+  viewReadings: {
+    type: [new mongoose.Schema({
+      key: { type: String, required: true },
+      pageId: { type: String, default: '' },
+      sentence: { type: String, default: '' },
+      verdict: { type: String, enum: ['contradicts', 'supports', 'unrelated', 'unsure'], required: true },
+      at: { type: Date, default: Date.now },
+      dismissedAt: { type: Date, default: null }
+    }, { _id: false })],
+    default: [],
+    select: false
+  },
   folder: { type: mongoose.Schema.Types.ObjectId, ref: 'NotebookFolder', default: null },
   type: { type: String, enum: ['claim', 'evidence', 'note'], default: 'note' },
   claimId: { type: mongoose.Schema.Types.ObjectId, default: null },
@@ -403,6 +427,7 @@ const notebookEntrySchema = new mongoose.Schema({
   hiddenFromHome: { type: Boolean, default: false },
   debugOnly: { type: Boolean, default: false },
   archived: { type: Boolean, default: false },
+  board: { type: notebookBoardSchema, default: () => ({}) },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
 }, { timestamps: true });
 
@@ -1445,7 +1470,7 @@ const wikiSourceEventSchema = new mongoose.Schema({
   text: { type: String, default: '', trim: true },
   url: { type: String, default: '', trim: true },
   sourceUpdatedAt: { type: Date, default: null },
-  status: { type: String, enum: ['pending', 'processing', 'processed', 'failed', 'ignored'], default: 'pending', index: true },
+  status: { type: String, enum: ['pending', 'processing', 'processed', 'failed', 'ignored', 'held'], default: 'pending', index: true },
   affectedPageIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
   attemptCount: { type: Number, default: 0 },
   lockedAt: { type: Date, default: null },
@@ -2844,54 +2869,6 @@ agentStructureProposalSchema.index({ userId: 1, scope: 1, scopeRef: 1, updatedAt
 
 const AgentStructureProposal = mongoose.model('AgentStructureProposal', agentStructureProposalSchema);
 
-const agentUpkeepCycleRunSchema = new mongoose.Schema({
-  handoffId: { type: mongoose.Schema.Types.ObjectId, ref: 'AgentHandoff', default: null },
-  threadId: { type: mongoose.Schema.Types.ObjectId, ref: 'AgentThread', default: null },
-  scheduledFor: { type: Date, default: null },
-  startedAt: { type: Date, default: Date.now },
-  status: {
-    type: String,
-    enum: ['scheduled', 'in_progress', 'completed', 'cancelled'],
-    default: 'scheduled'
-  }
-}, { _id: false });
-
-const agentUpkeepCycleSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  title: { type: String, required: true, trim: true },
-  summary: { type: String, default: '', trim: true },
-  status: {
-    type: String,
-    enum: ['active', 'paused', 'completed'],
-    default: 'active'
-  },
-  cadence: { type: String, default: 'recurring', trim: true },
-  taskType: {
-    type: String,
-    enum: ['research', 'synthesis', 'restructure', 'qa', 'custom'],
-    default: 'custom'
-  },
-  workerRole: {
-    type: String,
-    enum: ['planner', 'researcher', 'synthesizer', 'critic', 'editor', 'organizer', ''],
-    default: ''
-  },
-  nextDueAt: { type: Date, default: null },
-  lastRunAt: { type: Date, default: null },
-  lastHandoffId: { type: mongoose.Schema.Types.ObjectId, ref: 'AgentHandoff', default: null },
-  lastThreadId: { type: mongoose.Schema.Types.ObjectId, ref: 'AgentThread', default: null },
-  sourceDraftId: { type: mongoose.Schema.Types.ObjectId, ref: 'AgentArtifactDraft', default: null },
-  sourceContext: { type: mongoose.Schema.Types.Mixed, default: {} },
-  workflow: { type: mongoose.Schema.Types.Mixed, default: {} },
-  seed: { type: mongoose.Schema.Types.Mixed, default: {} },
-  lastOutcome: { type: mongoose.Schema.Types.Mixed, default: {} },
-  runs: { type: [agentUpkeepCycleRunSchema], default: [] }
-}, { timestamps: true });
-
-agentUpkeepCycleSchema.index({ userId: 1, status: 1, nextDueAt: 1, updatedAt: -1 });
-agentUpkeepCycleSchema.index({ userId: 1, sourceDraftId: 1, updatedAt: -1 });
-
-const AgentUpkeepCycle = mongoose.model('AgentUpkeepCycle', agentUpkeepCycleSchema);
 
 // Reference edges (block-level backlinks)
 const referenceEdgeSchema = new mongoose.Schema({
@@ -3139,7 +3116,7 @@ const embeddingJobSchema = new mongoose.Schema({
   payload: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
   status: {
     type: String,
-    enum: ['queued', 'running', 'completed', 'failed', 'abandoned'],
+    enum: ['queued', 'running', 'completed', 'failed', 'abandoned', 'held'],
     default: 'queued',
     index: true
   },
@@ -3557,7 +3534,6 @@ module.exports = {
   AgentRun,
   AgentProposedChange,
   AgentStructureProposal,
-  AgentUpkeepCycle,
   ReferenceEdge,
   SavedView,
   Collection,

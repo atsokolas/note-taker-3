@@ -28,6 +28,20 @@ describe('quotedIn', () => {
     expect(quotedIn('a task competence of 90%', [source])).toBe(false);
   });
 
+  /* The author's highlight and the reader's margin note are two statements:
+     each can be quoted, but never run together as one quotation. */
+  it('never joins a highlight and its margin note into one quotation', () => {
+    const highlight = 'The resistance to checklists is mostly about identity. Your note: Same thing happens with code review checklists.';
+    expect(quotedIn('The resistance to checklists is mostly about identity', [highlight])).toBe(true);
+    expect(quotedIn('Same thing happens with code review checklists', [highlight])).toBe(true);
+    expect(quotedIn('mostly about identity. Same thing happens with code review', [highlight])).toBe(false);
+    expect(quotedIn('mostly about identity. Your note: Same thing happens', [highlight])).toBe(false);
+    expect(quotedIn('mostly about identity … Same thing happens with code review', [highlight])).toBe(false);
+    const page = `${highlight}\n\nThe second passage says teams skip the list under pressure.`;
+    expect(quotedIn('Same thing happens with code review … teams skip the list under pressure', [page])).toBe(false);
+    expect(quotedIn('The second passage says teams skip the list', [page])).toBe(true);
+  });
+
   /* A passage of nothing quotes nothing, so it is never found. */
   it('never finds a passage with no words in it', () => {
     expect(quotedIn('…', [source])).toBe(false);

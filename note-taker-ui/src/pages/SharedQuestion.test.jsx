@@ -17,14 +17,16 @@ jest.mock('../api/questions', () => ({
   getQuestionPresence: jest.fn()
 }));
 
-jest.mock('../components/agent/ThoughtPartnerPanel', () => ({
-  __esModule: true,
-  default: (props) => (
-    <aside data-testid="thought-partner-panel">
-      {props.subtitle}:{props.contextType}:{props.contextId}
-    </aside>
-  )
-}));
+jest.mock('../agent/PartnerPanel', () => {
+  const { useAgentRail } = jest.requireActual('../agent/AgentRailContext');
+  return {
+    __esModule: true,
+    default: () => {
+      const { surface } = useAgentRail();
+      return <aside data-testid="thought-partner-panel">{surface.caption}:{surface.objectType}:{surface.objectId}</aside>;
+    }
+  };
+});
 
 const {
   getPublicQuestion,

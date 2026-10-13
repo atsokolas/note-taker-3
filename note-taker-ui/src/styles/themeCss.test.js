@@ -78,14 +78,13 @@ describe('app theme design-system tokens', () => {
     expect(fs.existsSync(path.join(__dirname, 'noeis-rebrand.css'))).toBe(false);
   });
 
-  it('keeps lazy Think styling from taking ownership of the shell theme', () => {
-    const thinkCss = fs.readFileSync(path.join(__dirname, 'think-home-polish.css'), 'utf8');
+  it('keeps the deferred wiki sheet from taking ownership of the shell theme', () => {
+    const wikiCss = fs.readFileSync(path.join(__dirname, 'wiki.css'), 'utf8');
     const dashboardCss = fs.readFileSync(path.join(__dirname, 'dashboard-refresh.css'), 'utf8');
 
-    expect(thinkCss.slice(0, 1600)).toContain('consume the shared semantic shell package');
-    expect(thinkCss.slice(0, 1600)).not.toContain('--noeis-canvas:');
-    expect(thinkCss).not.toMatch(/\.app-shell-new\s*\{[^}]*background:/);
-    expect(thinkCss).not.toMatch(/\.topbar\s*\{[^}]*background:/);
+    expect(wikiCss).not.toContain('--noeis-canvas:');
+    expect(wikiCss).not.toMatch(/\.app-shell-new\s*\{[^}]*background:/);
+    expect(wikiCss).not.toMatch(/\.topbar\s*\{[^}]*background:/);
     expect(dashboardCss).not.toMatch(/^:root/m);
   });
 
@@ -109,7 +108,7 @@ describe('app theme design-system tokens', () => {
 
   it('rejects known cool palette literals from editorial dashboard dark tokens', () => {
     const semanticCss = fs.readFileSync(path.join(__dirname, 'semantic-theme.css'), 'utf8');
-    const editorialCss = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
+    const editorialCss = fs.readFileSync(path.join(__dirname, 'theme.css'), 'utf8');
     const wikiFrontCss = fs.readFileSync(path.join(__dirname, 'wiki-front-page.css'), 'utf8');
 
     expect(semanticCss).not.toContain('#9eb0cf');
@@ -120,7 +119,7 @@ describe('app theme design-system tokens', () => {
 
   it('pins the wiki front page dark surface to the warm editorial palette', () => {
     const css = fs.readFileSync(path.join(__dirname, 'wiki-front-page.css'), 'utf8');
-    const editorialCss = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
+    const editorialCss = fs.readFileSync(path.join(__dirname, 'theme.css'), 'utf8');
     const semanticCss = fs.readFileSync(path.join(__dirname, 'semantic-theme.css'), 'utf8');
 
     expect(css).toContain("html[data-ui-theme='dark'] body.noeis-editorial.wiki-front-page-route");
@@ -142,36 +141,23 @@ describe('app theme design-system tokens', () => {
 
   it('keeps collapsed wiki and concept rails inside their grid tracks', () => {
     const wikiCriticalCss = fs.readFileSync(path.join(__dirname, 'wiki-critical.css'), 'utf8');
-    const thinkHomePolishCss = fs.readFileSync(path.join(__dirname, 'think-home-polish.css'), 'utf8');
-    const editorialCss = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
+    const wikiCss = fs.readFileSync(path.join(__dirname, 'wiki.css'), 'utf8');
 
     expect(wikiCriticalCss).toContain('grid-template-columns: minmax(160px, 220px) minmax(0, 860px) 48px;');
     expect(wikiCriticalCss).toContain('grid-template-columns: minmax(128px, 180px) minmax(0, 1fr) 48px;');
     expect(wikiCriticalCss).toMatch(/\.wiki-read__rail-toggle--show \{[\s\S]*box-sizing: border-box;[\s\S]*max-width: 100%;/);
-    expect(thinkHomePolishCss).toContain('grid-template-columns: minmax(160px, 220px) minmax(0, 860px) 48px;');
-    expect(thinkHomePolishCss).toContain('grid-template-columns: minmax(120px, 160px) minmax(0, 1fr) 48px;');
-    expect(thinkHomePolishCss).toContain('grid-template-columns: minmax(128px, 180px) minmax(0, 1fr) 48px;');
-    expect(thinkHomePolishCss).toMatch(/\.wiki-read__rail-toggle--show \{[\s\S]*box-sizing: border-box;[\s\S]*max-width: 100%;/);
+    expect(wikiCss).toContain('grid-template-columns: minmax(160px, 220px) minmax(0, 860px) 48px;');
+    expect(wikiCss).toContain('grid-template-columns: minmax(120px, 160px) minmax(0, 1fr) 48px;');
+    expect(wikiCss).toContain('grid-template-columns: minmax(128px, 180px) minmax(0, 1fr) 48px;');
+    expect(wikiCss).toMatch(/\.wiki-read__rail-toggle--show \{[\s\S]*box-sizing: border-box;[\s\S]*max-width: 100%;/);
     /* The thing this test is named for. A fourth literal used to be asserted
        here — the 82/96 collapsed rail — and it was removed in a redesign,
        which turned a guard about crushed columns into a guard about one
        snapshot of the design. The columns above still exist and still document
        real breakpoints; what actually protects the reader is that no track
        gets crushed, so that is checked everywhere rather than in one file. */
-    [wikiCriticalCss, thinkHomePolishCss, editorialCss].forEach((sheet) => {
+    [wikiCriticalCss, wikiCss].forEach((sheet) => {
       expect(sheet).not.toMatch(/grid-template-columns: minmax\([^;]+\) minmax\([^;]+\) 3[0-9]px;/);
     });
-  });
-
-  it('pins the alive composer and presence motion to reduced-motion-safe primitives', () => {
-    const css = fs.readFileSync(path.join(__dirname, 'think-home-polish.css'), 'utf8');
-
-    expect(css).toContain('@property --composer-angle');
-    expect(css).toContain('animation: composer-breathe 7s linear infinite;');
-    expect(css).toContain('animation: wikiWorkspacePresenceBreathe 4s ease-in-out infinite;');
-    expect(css).toContain('@media (prefers-reduced-motion: reduce)');
-    expect(css).toContain('.wiki-workspace-chat__composer-field::before {\n    animation: none;');
-    expect(css).toContain('.wiki-workspace-chat__presence-dot,\n  .wiki-workspace-chat__presence-dot::after');
-    expect(css).toContain('animation: none !important;');
   });
 });

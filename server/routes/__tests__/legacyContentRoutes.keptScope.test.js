@@ -37,13 +37,8 @@ app.use(buildLegacyContentRouter({
   normalizePdfs: (value) => value,
   Article,
   enqueueArticleEmbedding: () => {},
-  safeMapEmbedding: () => {},
-  articleToEmbeddingItems: () => [],
-  queueEmbeddingUpsert: () => {},
   getFoldersWithCounts: async () => [],
-  normalizeItemType: (value) => value,
-  buildEmbeddingId: () => '',
-  queueEmbeddingDelete: () => {}
+  normalizeItemType: (value) => value
 }));
 
 const matchOf = (pipeline) => (pipeline.find((stage) => stage.$match) || {}).$match || {};

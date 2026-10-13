@@ -1,11 +1,6 @@
 import api from '../api';
 import { getAuthHeaders } from '../hooks/useAuthHeaders';
 
-export const executeAgentActions = async (payload = {}) => {
-  const res = await api.post('/api/agent/actions/execute', payload, getAuthHeaders());
-  return res.data || {};
-};
-
 export const chatWithAgent = async (payload = {}, options = {}) => {
   const config = {
     ...getAuthHeaders(),
@@ -168,57 +163,6 @@ export const updateAgentEntitlementsDev = async (payload = {}) => {
   return res.data || { entitlements: {} };
 };
 
-export const listAgentApprovals = async ({
-  conceptId = '',
-  status = 'pending',
-  limit = 30
-} = {}) => {
-  const params = new URLSearchParams();
-  if (conceptId) params.set('conceptId', String(conceptId).trim());
-  if (status) params.set('status', String(status).trim());
-  if (limit) params.set('limit', String(limit));
-  const suffix = params.toString();
-  const res = await api.get(`/api/agent/actions/approvals${suffix ? `?${suffix}` : ''}`, getAuthHeaders());
-  return res.data || { approvals: [] };
-};
-
-export const approveAgentAction = async (approvalId, payload = {}) => {
-  const safeApprovalId = encodeURIComponent(String(approvalId || '').trim());
-  const res = await api.post(`/api/agent/actions/approvals/${safeApprovalId}/approve`, payload, getAuthHeaders());
-  return res.data || {};
-};
-
-export const rejectAgentAction = async (approvalId, payload = {}) => {
-  const safeApprovalId = encodeURIComponent(String(approvalId || '').trim());
-  const res = await api.post(`/api/agent/actions/approvals/${safeApprovalId}/reject`, payload, getAuthHeaders());
-  return res.data || {};
-};
-
-export const undoLastAgentAction = async (payload = {}) => {
-  const res = await api.post('/api/agent/actions/undo', payload, getAuthHeaders());
-  return res.data || {};
-};
-
-export const listAgentSoftDeletes = async ({
-  conceptId = '',
-  status = 'deleted',
-  limit = 60
-} = {}) => {
-  const params = new URLSearchParams();
-  if (conceptId) params.set('conceptId', String(conceptId).trim());
-  if (status) params.set('status', String(status).trim());
-  if (limit) params.set('limit', String(limit));
-  const suffix = params.toString();
-  const res = await api.get(`/api/agent/actions/deletions${suffix ? `?${suffix}` : ''}`, getAuthHeaders());
-  return res.data || { retentionDays: 30, records: [] };
-};
-
-export const restoreAgentSoftDelete = async (recordId, payload = {}) => {
-  const safeRecordId = encodeURIComponent(String(recordId || '').trim());
-  const res = await api.post(`/api/agent/actions/deletions/${safeRecordId}/restore`, payload, getAuthHeaders());
-  return res.data || {};
-};
-
 export const listPersonalAgents = async () => {
   const res = await api.get('/api/agents/personal', getAuthHeaders());
   return Array.isArray(res.data) ? res.data : [];
@@ -292,75 +236,6 @@ export const createAgentHandoff = async (payload = {}) => {
   return res.data || {};
 };
 
-export const listAgentRuns = async ({
-  threadId = '',
-  status = 'all',
-  limit = 30
-} = {}) => {
-  const params = new URLSearchParams();
-  if (threadId) params.set('threadId', String(threadId).trim());
-  if (status) params.set('status', String(status).trim());
-  if (limit) params.set('limit', String(limit));
-  const suffix = params.toString();
-  const res = await api.get(`/api/agent/runs${suffix ? `?${suffix}` : ''}`, getAuthHeaders());
-  return res.data || { runs: [] };
-};
-
-export const createAgentRun = async (payload = {}) => {
-  const res = await api.post('/api/agent/runs', payload, getAuthHeaders());
-  return res.data || {};
-};
-
-export const resumeAgentRun = async (runId, payload = {}) => {
-  const safeId = encodeURIComponent(String(runId || '').trim());
-  const res = await api.post(`/api/agent/runs/${safeId}/resume`, payload, getAuthHeaders());
-  return res.data || {};
-};
-
-export const listAgentProposedChanges = async ({
-  threadId = '',
-  runId = '',
-  status = 'all',
-  targetType = '',
-  targetId = '',
-  limit = 40
-} = {}) => {
-  const params = new URLSearchParams();
-  if (threadId) params.set('threadId', String(threadId).trim());
-  if (runId) params.set('runId', String(runId).trim());
-  if (status) params.set('status', String(status).trim());
-  if (targetType) params.set('targetType', String(targetType).trim());
-  if (targetId) params.set('targetId', String(targetId).trim());
-  if (limit) params.set('limit', String(limit));
-  const suffix = params.toString();
-  const res = await api.get(`/api/agent/proposed-changes${suffix ? `?${suffix}` : ''}`, getAuthHeaders());
-  return res.data || { proposedChanges: [] };
-};
-
-export const updateAgentProposedChange = async (proposedChangeId, payload = {}) => {
-  const safeId = encodeURIComponent(String(proposedChangeId || '').trim());
-  const res = await api.patch(`/api/agent/proposed-changes/${safeId}`, payload, getAuthHeaders());
-  return res.data || {};
-};
-
-export const acceptAgentProposedChange = async (proposedChangeId) => {
-  const safeId = encodeURIComponent(String(proposedChangeId || '').trim());
-  const res = await api.post(`/api/agent/proposed-changes/${safeId}/accept`, {}, getAuthHeaders());
-  return res.data || {};
-};
-
-export const rejectAgentProposedChange = async (proposedChangeId) => {
-  const safeId = encodeURIComponent(String(proposedChangeId || '').trim());
-  const res = await api.post(`/api/agent/proposed-changes/${safeId}/reject`, {}, getAuthHeaders());
-  return res.data || {};
-};
-
-export const rollbackAgentProposedChange = async (proposedChangeId) => {
-  const safeId = encodeURIComponent(String(proposedChangeId || '').trim());
-  const res = await api.post(`/api/agent/proposed-changes/${safeId}/rollback`, {}, getAuthHeaders());
-  return res.data || {};
-};
-
 export const listAgentStructureProposals = async ({
   threadId = '',
   runId = '',
@@ -405,80 +280,14 @@ export const rollbackAgentStructureProposal = async (structureProposalId) => {
   return res.data || {};
 };
 
-export const getAgentHarnessMetrics = async ({
-  threadId = ''
-} = {}) => {
-  const params = new URLSearchParams();
-  if (threadId) params.set('threadId', String(threadId).trim());
-  const suffix = params.toString();
-  const res = await api.get(`/api/agent/harness-metrics${suffix ? `?${suffix}` : ''}`, getAuthHeaders());
-  return res.data || { metrics: null };
-};
-
-export const getAgentWriteBoundary = async ({
-  threadId = '',
-  workspaceType = '',
-  workspaceId = '',
-  limit = 5
-} = {}) => {
-  const params = new URLSearchParams();
-  if (threadId) params.set('threadId', String(threadId).trim());
-  if (workspaceType) params.set('workspaceType', String(workspaceType).trim());
-  if (workspaceId) params.set('workspaceId', String(workspaceId).trim());
-  if (limit) params.set('limit', String(limit));
-  const suffix = params.toString();
-  const res = await api.get(`/api/agent/write-boundary${suffix ? `?${suffix}` : ''}`, getAuthHeaders());
-  return res.data || { summary: null };
-};
-
-export const listAgentThreads = async ({
-  status = 'active',
-  scopeType = '',
-  scopeId = '',
-  handoffId = '',
-  limit = 40
-} = {}) => {
-  const params = new URLSearchParams();
-  if (status) params.set('status', String(status).trim());
-  if (scopeType) params.set('scopeType', String(scopeType).trim());
-  if (scopeId) params.set('scopeId', String(scopeId).trim());
-  if (handoffId) params.set('handoffId', String(handoffId).trim());
-  if (limit) params.set('limit', String(limit));
-  const suffix = params.toString();
-  const res = await api.get(`/api/agent/threads${suffix ? `?${suffix}` : ''}`, getAuthHeaders());
-  return res.data || { threads: [] };
-};
-
-export const createAgentThread = async (payload = {}) => {
-  const res = await api.post('/api/agent/threads', payload, getAuthHeaders());
-  return res.data || {};
-};
-
 export const getAgentThread = async (threadId) => {
   const safeId = encodeURIComponent(String(threadId || '').trim());
   const res = await api.get(`/api/agent/threads/${safeId}`, getAuthHeaders());
   return res.data || {};
 };
 
-export const updateAgentThread = async (threadId, payload = {}) => {
-  const safeId = encodeURIComponent(String(threadId || '').trim());
-  const res = await api.patch(`/api/agent/threads/${safeId}`, payload, getAuthHeaders());
-  return res.data || {};
-};
-
-export const appendAgentThreadMessage = async (threadId, payload = {}) => {
-  const safeId = encodeURIComponent(String(threadId || '').trim());
-  const res = await api.post(`/api/agent/threads/${safeId}/messages`, payload, getAuthHeaders());
-  return res.data || {};
-};
-
-export const convertAgentThreadToHandoff = async (threadId, payload = {}) => {
-  const safeId = encodeURIComponent(String(threadId || '').trim());
-  const res = await api.post(`/api/agent/threads/${safeId}/convert-to-handoff`, payload, getAuthHeaders());
-  return res.data || {};
-};
-
 export const listAgentHandoffs = async ({
+  handoffId = '',
   status = 'all',
   taskType = '',
   requestedActorType = '',
@@ -489,6 +298,7 @@ export const listAgentHandoffs = async ({
   limit = 40
 } = {}) => {
   const params = new URLSearchParams();
+  if (handoffId) params.set('handoffId', String(handoffId).trim());
   if (status) params.set('status', String(status).trim());
   if (taskType) params.set('taskType', String(taskType).trim());
   if (requestedActorType) params.set('requestedActorType', String(requestedActorType).trim());
@@ -537,36 +347,6 @@ export const createAutoAgentHandoff = async (payload = {}) => {
   return res.data || {};
 };
 
-export const listAgentUpkeepCycles = async ({
-  status = 'active',
-  limit = 12
-} = {}) => {
-  const params = new URLSearchParams();
-  if (status) params.set('status', String(status).trim());
-  if (limit) params.set('limit', String(limit));
-  const suffix = params.toString();
-  const res = await api.get(`/api/agent/protocol/upkeep-cycles${suffix ? `?${suffix}` : ''}`, getAuthHeaders());
-  return res.data || { cycles: [] };
-};
-
-export const createAgentUpkeepCycle = async (payload = {}) => {
-  const res = await api.post('/api/agent/protocol/upkeep-cycles', payload, getAuthHeaders());
-  return res.data || {};
-};
-
-export const updateAgentUpkeepCycle = async (cycleId, payload = {}) => {
-  const safeId = encodeURIComponent(String(cycleId || '').trim());
-  const res = await api.patch(`/api/agent/protocol/upkeep-cycles/${safeId}`, payload, getAuthHeaders());
-  return res.data || {};
-};
-
-export const resumeAgentUpkeepCycle = async (cycleId, options = {}) => {
-  const safeId = encodeURIComponent(String(cycleId || '').trim());
-  const payload = options?.force ? { force: true } : {};
-  const res = await api.post(`/api/agent/protocol/upkeep-cycles/${safeId}/resume`, payload, getAuthHeaders());
-  return res.data || {};
-};
-
 export const getAgentProtocolPolicy = async () => {
   const res = await api.get('/api/agent/protocol/policy', getAuthHeaders());
   return res.data || { policy: {} };
@@ -611,52 +391,6 @@ export const executeAgentBridgeMcp = async (bridgeToken, {
   return res.data || {};
 };
 
-export const listAgentSkills = async ({
-  surface = '',
-  contextType = '',
-  category = ''
-} = {}) => {
-  const params = new URLSearchParams();
-  if (surface) params.set('surface', String(surface).trim());
-  if (contextType) params.set('contextType', String(contextType).trim());
-  if (category) params.set('category', String(category).trim());
-  const suffix = params.toString();
-  const res = await api.get(`/api/agent/protocol/skills${suffix ? `?${suffix}` : ''}`, getAuthHeaders());
-  return res.data || { skills: [] };
-};
-
-export const listAgentArtifactDrafts = async ({
-  status = 'pending',
-  threadId = '',
-  artifactType = ''
-} = {}) => {
-  const params = new URLSearchParams();
-  if (status) params.set('status', String(status).trim());
-  if (threadId) params.set('threadId', String(threadId).trim());
-  if (artifactType) params.set('artifactType', String(artifactType).trim());
-  const suffix = params.toString();
-  const res = await api.get(`/api/agent/artifacts/drafts${suffix ? `?${suffix}` : ''}`, getAuthHeaders());
-  return res.data || { drafts: [] };
-};
-
-export const promoteAgentArtifactDraft = async (draftId) => {
-  const safeId = encodeURIComponent(String(draftId || '').trim());
-  const res = await api.post(`/api/agent/artifacts/drafts/${safeId}/promote`, {}, getAuthHeaders());
-  return res.data || {};
-};
-
-export const updateAgentArtifactDraft = async (draftId, payload = {}) => {
-  const safeId = encodeURIComponent(String(draftId || '').trim());
-  const res = await api.patch(`/api/agent/artifacts/drafts/${safeId}`, payload, getAuthHeaders());
-  return res.data || {};
-};
-
-export const dismissAgentArtifactDraft = async (draftId) => {
-  const safeId = encodeURIComponent(String(draftId || '').trim());
-  const res = await api.post(`/api/agent/artifacts/drafts/${safeId}/dismiss`, {}, getAuthHeaders());
-  return res.data || {};
-};
-
 export const listAgentProtocolApprovals = async ({
   status = 'pending',
   limit = 30,
@@ -673,24 +407,6 @@ export const listAgentProtocolApprovals = async ({
   const suffix = params.toString();
   const res = await api.get(`/api/agent/protocol/approvals${suffix ? `?${suffix}` : ''}`, getAuthHeaders());
   return res.data || { approvals: [] };
-};
-
-export const listAgentProtocolHookRuns = async ({
-  phase = '',
-  op = '',
-  threadId = '',
-  handoffId = '',
-  limit = 30
-} = {}) => {
-  const params = new URLSearchParams();
-  if (phase) params.set('phase', String(phase).trim());
-  if (op) params.set('op', String(op).trim());
-  if (threadId) params.set('threadId', String(threadId).trim());
-  if (handoffId) params.set('handoffId', String(handoffId).trim());
-  if (limit) params.set('limit', String(limit));
-  const suffix = params.toString();
-  const res = await api.get(`/api/agent/protocol/hooks${suffix ? `?${suffix}` : ''}`, getAuthHeaders());
-  return res.data || { hookRuns: [] };
 };
 
 export const approveAgentProtocolApproval = async (approvalId, payload = {}) => {

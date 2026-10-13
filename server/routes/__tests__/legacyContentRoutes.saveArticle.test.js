@@ -40,13 +40,8 @@ const saveArticle = async (body, { stored = null, fetchReadableArticle } = {}) =
     normalizePdfs: value => value,
     Article,
     enqueueArticleEmbedding: () => {},
-    safeMapEmbedding: () => {},
-    articleToEmbeddingItems: () => [],
-    queueEmbeddingUpsert: () => {},
     getFoldersWithCounts: async () => [],
     normalizeItemType: value => value,
-    buildEmbeddingId: () => '',
-    queueEmbeddingDelete: () => {},
     /* Never reach the network from a test; the default is the real fetcher,
        which goes through the public-URL guard. */
     fetchReadableArticle: fetchReadableArticle

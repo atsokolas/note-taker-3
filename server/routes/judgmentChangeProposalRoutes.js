@@ -8,6 +8,7 @@ const {
 const { normalizeJudgment } = require('../services/wikiJudgmentService');
 const { createWikiRevision, snapshotPage } = require('../services/wikiRevisionService');
 const { persistNoeisReceipt, serializeStoredReceipt } = require('../services/noeisReceiptService');
+const { pushesAgainst, readingStands } = require('../services/readingTalksBack');
 const { EVENT_NAMES } = require('../utils/analytics');
 
 const serializeId = value => String(value?._id || value?.id || value || '');
@@ -31,24 +32,40 @@ const buildJudgmentChangeProposalRouter = ({
 
   router.get('/api/wiki/pages/:id/judgment-change-proposal', authenticateToken, async (req, res) => {
     try {
-      const page = await findOwnedPage(req).select('_id judgment.currentJudgment').lean();
+      const page = await findOwnedPage(req).select('_id judgment.currentJudgment judgment.resolutionCriteria judgment.falsifiers').lean();
       if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
       if (!NoeisReceipt?.find) return res.status(200).json({ proposal: null, reading: [] });
       const mine = { userId: req.user.id, kind: 'judgment_change_proposal', 'provenance.pageId': serializeId(page._id) };
       let latest = NoeisReceipt.findOne({ ...mine, 'provenance.change': { $ne: 'evidence' } });
       latest = latest.sort?.({ createdAt: -1 }) || latest;
       /* Passages waiting on this view: only those read against the sentence
-         held now. A revision makes an older reading moot, so it goes quiet. */
+         held now, and a met test only while that test is still open. A
+         revision makes an older reading moot, so it goes quiet. */
       let pending = NoeisReceipt.find({ ...mine, 'provenance.change': 'evidence', status: 'pending' });
       pending = pending.sort?.({ createdAt: -1 }) || pending;
-      const held = String(page.judgment?.currentJudgment || '').trim();
       const reading = (await pending.lean?.() || await pending)
         .map(serializeStoredReceipt)
-        .filter(item => isReading(item) && String(item.provenance?.before || '').trim() === held);
+        .filter(item => isReading(item) && readingStands(page, item));
       return res.status(200).json({ proposal: serializeStoredReceipt(await latest), reading });
     } catch (error) {
       console.error('Error loading judgment change proposal:', error);
       return res.status(500).json({ error: 'Failed to load the judgment change proposal.' });
+    }
+  });
+
+  /* In the reader: the passage this source already proposed against a view
+     you hold, if one is waiting. */
+  router.get('/api/judgment/pushes-against', authenticateToken, async (req, res) => {
+    try {
+      const reading = await pushesAgainst({
+        userId: req.user.id,
+        articleId: String(req.query?.articleId || '').trim(),
+        models: { WikiPage, NoeisReceipt }
+      });
+      return res.status(200).json({ reading });
+    } catch (error) {
+      console.error('Error loading a passage against a held view:', error);
+      return res.status(500).json({ error: 'Failed to load the passage.' });
     }
   });
 

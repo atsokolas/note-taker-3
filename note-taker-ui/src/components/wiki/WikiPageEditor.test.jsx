@@ -37,6 +37,12 @@ jest.mock('@tiptap/react', () => ({
 
 jest.mock('@tiptap/starter-kit', () => ({}));
 
+const mockAgentSurface = jest.fn();
+jest.mock('../../agent/AgentRailContext', () => ({
+  ...jest.requireActual('../../agent/AgentRailContext'),
+  useNoeisAgentSurface: (...args) => mockAgentSurface(...args)
+}));
+
 jest.mock('@tiptap/extension-placeholder', () => ({
   configure: () => ({})
 }));
@@ -334,6 +340,7 @@ describe('WikiPageEditor', () => {
     fireEvent.mouseOver(screen.getByTestId('ledger-citation-number'));
 
     const popover = await screen.findByRole('dialog', { name: 'Claim citations' });
+    expect(mockAgentSurface.mock.calls.map(([, surface]) => surface.claimId || '')).not.toContain('claim-ledger');
     expect(within(popover).getByText('84% confidence')).toBeInTheDocument();
     expect(within(popover).getByText('Evidence')).toBeInTheDocument();
     expect(within(popover).getByText('2 events')).toBeInTheDocument();

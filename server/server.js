@@ -19,24 +19,15 @@ const {
 const {
   enqueueArticleEmbedding,
   deleteArticleEmbeddingState,
+  deleteHighlightEmbeddingState,
   enqueueHighlightEmbedding,
   enqueueNotebookEmbedding,
   enqueueQuestionEmbedding,
   drainEmbeddingJobQueue
 } = require('./ai/embeddingJobs');
 const { EVENT_NAMES, trackEvent, trackReturnVisit } = require('./utils/analytics');
-const { EmbeddingError } = require('./ai/embed');
-const { semanticSearch: atlasSemanticSearch } = require('./ai/semanticSearch');
-const { similarToVectorItem } = require('./ai/vectorStore');
-const {
-  isAiEnabled,
-  upsertEmbeddings,
-  deleteEmbeddings,
-  semanticSearch: aiSemanticSearch,
-  similarTo: aiSimilarTo,
-  getEmbeddings: aiGetEmbeddings,
-  checkUpstreamHealth
-} = require('./config/aiClient');
+const { EmbeddingError, isEmbeddingConfigured } = require('./ai/embed');
+const { similarToSource } = require('./ai/semanticSearch');
 const { buildEmbeddingId } = require('./ai/embeddingTypes');
 const { buildConnectionScopeQuery } = require('./utils/connectionScopeQuery');
 const { asObjectIdOrNull } = require('./utils/notebookIdentity');
@@ -45,13 +36,6 @@ const {
   classifyQuestionEvidenceTone,
   isBoilerplateRetrievalSentence
 } = require('./utils/retrievalSanitizer');
-const {
-  highlightToEmbeddingItem,
-  articleToEmbeddingItems,
-  notebookEntryToEmbeddingItems,
-  conceptToEmbeddingItem,
-  questionToEmbeddingItem
-} = require('./ai/mappers');
 
 dotenv.config();
 
@@ -147,7 +131,6 @@ const {
   AgentRun,
   AgentProposedChange,
   AgentStructureProposal,
-  AgentUpkeepCycle,
   ReferenceEdge,
   SavedView,
   Collection,
@@ -489,7 +472,7 @@ if (mongoose.connection.readyState === 1) {
 }
 
 const runEmbeddingJobWorker = async () => {
-  if (!isAiEnabled() || embeddingJobWorkerRunning || mongoose.connection.readyState !== 1) return;
+  if (!isEmbeddingConfigured() || embeddingJobWorkerRunning || mongoose.connection.readyState !== 1) return;
   embeddingJobWorkerRunning = true;
   try {
     const result = await drainEmbeddingJobQueue({
@@ -507,7 +490,7 @@ const runEmbeddingJobWorker = async () => {
 };
 
 const startEmbeddingJobWorker = () => {
-  if (!isAiEnabled() || process.env.EMBEDDING_JOB_WORKER_DISABLED === 'true' || embeddingJobWorkerTimer) return;
+  if (!isEmbeddingConfigured() || process.env.EMBEDDING_JOB_WORKER_DISABLED === 'true' || embeddingJobWorkerTimer) return;
   const intervalMs = Math.max(15000, Number(process.env.EMBEDDING_JOB_WORKER_INTERVAL_MS || 60000));
   embeddingJobWorkerTimer = setInterval(runEmbeddingJobWorker, intervalMs);
   runEmbeddingJobWorker();
@@ -671,7 +654,6 @@ const { buildAgentStructureProposalRouter } = require('./routes/agentStructurePr
 const { buildArticleReadingStateRouter } = require('./routes/articleReadingStateRoutes');
 const { buildLibraryCollectionRouter } = require('./routes/libraryCollectionRoutes');
 const { buildAgentChatRouter } = require('./routes/agentChatRoutes');
-const { buildAgentArtifactDraftRouter } = require('./routes/agentArtifactDraftRoutes');
 const {
   createAgentTokenSecret,
   hashAgentTokenSecret,
@@ -680,10 +662,8 @@ const {
   buildAuthenticateAgentToken,
   AGENT_TOKEN_PREFIX
 } = require('./services/agentTokenService');
-const { buildAgentHarnessMetricsRouter } = require('./routes/agentHarnessMetricsRoutes');
 const { buildAgentWriteBoundaryRouter } = require('./routes/agentWriteBoundaryRoutes');
 const { buildAgentMemoryApprovalRouter } = require('./routes/agentMemoryApprovalRoutes');
-const { buildAgentUpkeepCycleRouter } = require('./routes/agentUpkeepCycleRoutes');
 const {
   createMemoryCommitApproval,
   executeMemoryCommitApproval,
@@ -694,7 +674,6 @@ const { buildConceptWorkspaceRouter } = require('./routes/conceptWorkspaceRoutes
 const { buildConceptLayoutRouter } = require('./routes/conceptLayoutRoutes');
 const { buildConceptSuggestionRouter } = require('./routes/conceptSuggestionRoutes');
 const { buildConceptPinRouter } = require('./routes/conceptPinRoutes');
-const { buildAiInsightsRouter } = require('./routes/aiInsightsRoutes');
 const { buildTagInsightRouter } = require('./routes/tagInsightRoutes');
 const { buildConceptQuestionBoardRouter } = require('./routes/conceptQuestionBoardRoutes');
 const { buildSemanticReferenceRouter } = require('./routes/semanticReferenceRoutes');
@@ -749,7 +728,6 @@ const {
 } = require('./services/agentWorkerRoles');
 const {
   sanitizeAgentArtifactDraftDoc,
-  createAgentArtifactDraftFromSkillReply,
   createAgentArtifactDraftRecord,
   promoteAgentArtifactDraftRecord
 } = require('./services/agentArtifactDrafts');
@@ -792,9 +770,6 @@ const {
   planLibraryStructureProposal,
   persistLibraryStructureProposal
 } = require('./services/agentStructurePlanningService');
-const {
-  getAgentHarnessMetricsSnapshot
-} = require('./services/agentHarnessMetrics');
 const {
   buildMarketingFunnelSnapshot,
   buildMarketingFunnelSeries
@@ -1895,7 +1870,9 @@ const requestProtocolApproval = async ({
       ).trim(),
       threadId: String(preview?.threadId || payload?.threadId || '').trim(),
       handoffId: String(preview?.handoffId || payload?.handoffId || '').trim(),
-      draftId: String(preview?.draftId || payload?.draftId || '').trim()
+      draftId: String(preview?.draftId || payload?.draftId || '').trim(),
+      // What the agent wrote, so the owner reads it before saying yes.
+      text: String(preview?.text || payload?.body || payload?.content || '').trim().slice(0, 4000)
     },
     reason: String(reason || '').trim(),
     requestedBy: normalizeActorIdentity(requestedBy || {}, 'native_agent')
@@ -2192,11 +2169,15 @@ const runBridgeHandoffOperation = async ({
     policy
   });
   if (approvalPolicy.requiresApproval && !bypassProtocolApproval) {
+    const draft = ['artifacts.drafts.promote', 'artifacts.drafts.dismiss'].includes(operation) && mongoose.Types.ObjectId.isValid(String(payload.draftId || ''))
+      ? await AgentArtifactDraft.findOne({ _id: payload.draftId, userId }).select('title body').lean()
+      : null;
     const approval = await requestProtocolApproval({
       userId,
       scope: String(bridgeActor?.scope || 'agent_ops').trim() || 'agent_ops',
       op: operation,
       payload,
+      preview: draft ? { title: draft.title, text: draft.body } : {},
       reason: approvalPolicy.reason,
       requestedBy: actor
     });
@@ -2921,30 +2902,6 @@ const listProtocolApprovals = async ({
   const safeLimit = safeAgentHandoffLimit(limit, 30);
   const rows = await AgentProtocolApproval.find(query).sort({ createdAt: -1 }).limit(safeLimit);
   return rows.map(sanitizeProtocolApprovalDoc);
-};
-
-const listProtocolHookRuns = async ({
-  userId,
-  phase = '',
-  op = '',
-  threadId = '',
-  handoffId = '',
-  limit = 30
-}) => {
-  const userObjectId = mongoose.Types.ObjectId.isValid(userId) ? new mongoose.Types.ObjectId(String(userId)) : null;
-  if (!userObjectId) throw Object.assign(new Error('userId must be a valid ObjectId.'), { status: 400 });
-  const query = { userId: userObjectId };
-  const safePhase = String(phase || '').trim().toLowerCase();
-  const safeOp = String(op || '').trim().toLowerCase();
-  const safeThreadId = String(threadId || '').trim();
-  const safeHandoffId = String(handoffId || '').trim();
-  if (safePhase) query.phase = safePhase;
-  if (safeOp) query.op = safeOp;
-  if (safeThreadId) query.threadId = safeThreadId;
-  if (safeHandoffId) query.handoffId = safeHandoffId;
-  const safeLimit = safeAgentHandoffLimit(limit, 30);
-  const rows = await AgentProtocolHookRun.find(query).sort({ createdAt: -1 }).limit(safeLimit);
-  return rows.map(sanitizeProtocolHookRunDoc);
 };
 
 const approveProtocolApproval = async ({
@@ -5014,42 +4971,10 @@ const buildConceptMarkdown = ({ concept, related, questions }) => {
   return lines.join('\n').trim() + '\n';
 };
 
-const queueEmbeddingUpsert = (items) => {
-  if (!isAiEnabled()) return;
-  const payload = (items || []).filter(Boolean);
-  if (payload.length === 0) return;
-  setImmediate(() => {
-    upsertEmbeddings(payload, { requestId: 'embedding-upsert' })
-      .catch(err => {
-        console.error('❌ AI upsert failed:', err.message || err);
-      });
-  });
-};
-
-const queueEmbeddingDelete = (ids) => {
-  if (!isAiEnabled()) return;
-  const payload = (ids || []).filter(Boolean);
-  if (payload.length === 0) return;
-  setImmediate(() => {
-    deleteEmbeddings(payload).catch(err => {
-      console.error('❌ AI delete failed:', err.message || err);
-    });
-  });
-};
-
 const sendEmbeddingError = (res, error) => {
   const status = error.status || 503;
   const payload = error.payload || { error: error.message };
   res.status(status).json(payload);
-};
-
-const safeMapEmbedding = (fn, label) => {
-  try {
-    return fn();
-  } catch (err) {
-    console.error(`❌ AI mapping failed (${label}):`, err.message || err);
-    return null;
-  }
 };
 
 const ensureNotebookBlocks = (entry, createId) => {
@@ -5258,13 +5183,8 @@ app.use(buildLegacyContentRouter({
   ArticleReadingState,
   enqueueArticleEmbedding,
   deleteArticleEmbeddingState,
-  safeMapEmbedding,
-  articleToEmbeddingItems,
-  queueEmbeddingUpsert,
   getFoldersWithCounts,
   normalizeItemType,
-  buildEmbeddingId,
-  queueEmbeddingDelete,
   WikiPage,
   WikiProposal,
   WikiRevision,
@@ -5743,24 +5663,18 @@ app.use(buildSearchRetrievalRouter({
 }));
 
 const fetchSimilarEmbeddingsWithAvailability = async ({ userId, sourceId, types, limit }) => {
-  if (!isAiEnabled()) {
-    return { results: [], modelAvailable: false };
-  }
-  // Atlas, not ai_service. The stored vector is reused directly, so a
-  // "more like this" lookup costs no embedding call.
   const parsed = parseEmbeddingId(String(sourceId || ''));
   const objectType = String(parsed.objectType || '');
   const objectId = String(parsed.objectId || '');
   if (!objectType || !objectId) return { results: [], modelAvailable: true };
   try {
-    const rows = await similarToVectorItem({
-      VectorItem,
+    const rows = await similarToSource({
       userId,
       objectType,
       objectId,
       subId: String(parsed.subId || ''),
       limit,
-      objectTypes: Array.isArray(types) && types.length ? types : []
+      types: Array.isArray(types) && types.length ? types : []
     });
     return {
       results: rows.map(row => ({
@@ -5801,370 +5715,15 @@ const filterOutIds = (items, type, ids) => {
   });
 };
 
-const buildRangeStart = (range) => {
-  const mapping = { '7d': 7, '30d': 30, '90d': 90 };
-  const days = mapping[range] || 7;
-  const start = new Date();
-  start.setDate(start.getDate() - days);
-  return start;
-};
-
-const cosineSimilarity = (a, b) => {
-  if (!a || !b || a.length !== b.length) return 0;
-  let dot = 0;
-  let normA = 0;
-  let normB = 0;
-  for (let i = 0; i < a.length; i += 1) {
-    dot += a[i] * b[i];
-    normA += a[i] * a[i];
-    normB += b[i] * b[i];
-  }
-  if (!normA || !normB) return 0;
-  return dot / (Math.sqrt(normA) * Math.sqrt(normB));
-};
-
-const stopWords = new Set([
-  'the', 'and', 'for', 'with', 'that', 'this', 'from', 'into', 'your', 'you',
-  'are', 'was', 'were', 'have', 'has', 'had', 'but', 'not', 'about', 'what',
-  'when', 'where', 'who', 'why', 'how', 'can', 'could', 'should', 'would',
-  'their', 'they', 'them', 'then', 'than', 'these', 'those', 'its', 'it', 'in',
-  'on', 'of', 'to', 'a', 'an', 'as', 'is', 'be', 'by', 'or', 'we', 'our'
-]);
-
-const labelCluster = (highlights) => {
-  const tagCounts = new Map();
-  highlights.forEach(item => {
-    (item.tags || []).forEach(tag => {
-      tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
-    });
-  });
-  if (tagCounts.size > 0) {
-    return Array.from(tagCounts.entries()).sort((a, b) => b[1] - a[1])[0][0];
-  }
-  const wordCounts = new Map();
-  highlights.forEach(item => {
-    const words = stripHtml(item.text || '')
-      .toLowerCase()
-      .replace(/[^a-z0-9\s]/g, ' ')
-      .split(/\s+/)
-      .filter(word => word.length > 3 && !stopWords.has(word));
-    words.forEach(word => {
-      wordCounts.set(word, (wordCounts.get(word) || 0) + 1);
-    });
-  });
-  if (wordCounts.size === 0) return 'Highlights';
-  return Array.from(wordCounts.entries()).sort((a, b) => b[1] - a[1])[0][0];
-};
-
-const getObjectIdFromEmbedding = (item) => {
-  if (item?.metadata?.objectId) return String(item.metadata.objectId);
-  const parsed = parseEmbeddingId(item?.id || '');
-  return parsed.objectId ? String(parsed.objectId) : '';
-};
-
-const sentimentScore = (text = '') => {
-  const positive = ['growth', 'improve', 'benefit', 'win', 'success', 'good', 'great', 'strong', 'positive'];
-  const negative = ['risk', 'problem', 'failure', 'bad', 'weak', 'negative', 'loss', 'decline', 'conflict'];
-  const lower = stripHtml(text).toLowerCase();
-  let score = 0;
-  positive.forEach(word => {
-    if (lower.includes(word)) score += 1;
-  });
-  negative.forEach(word => {
-    if (lower.includes(word)) score -= 1;
-  });
-  return score;
-};
-
-const extractQuestions = (texts = []) => {
-  const questions = new Set();
-  texts.forEach(text => {
-    const clean = stripHtml(text || '');
-    const parts = clean.split(/(?<=[?.!])\s+/);
-    parts.forEach(part => {
-      const trimmed = part.trim();
-      if (!trimmed) return;
-      if (trimmed.endsWith('?')) {
-        questions.add(trimmed);
-        return;
-      }
-      if (/^(why|how|what|where|when|who)\b/i.test(trimmed)) {
-        questions.add(trimmed.endsWith('?') ? trimmed : `${trimmed}?`);
-      }
-    });
-  });
-  return Array.from(questions).slice(0, 10);
-};
-
-const uniqueStrings = (values = []) => {
-  const seen = new Set();
-  const out = [];
-  values.forEach((value) => {
-    const clean = String(value || '').trim();
-    if (!clean) return;
-    const key = clean.toLowerCase();
-    if (seen.has(key)) return;
-    seen.add(key);
-    out.push(clean);
-  });
-  return out;
-};
-
-const titleCaseWord = (value = '') => {
-  const clean = String(value || '').trim();
-  if (!clean) return '';
-  return clean.charAt(0).toUpperCase() + clean.slice(1);
-};
-
-const inferThemeTitlesFromTexts = (texts = [], limit = 3) => {
-  const counts = new Map();
-  texts.forEach((text) => {
-    const words = stripHtml(String(text || ''))
-      .toLowerCase()
-      .replace(/[^a-z0-9\s]/g, ' ')
-      .split(/\s+/)
-      .filter((word) => word.length > 3 && !stopWords.has(word));
-    words.forEach((word) => {
-      counts.set(word, (counts.get(word) || 0) + 1);
-    });
-  });
-  return Array.from(counts.entries())
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, limit)
-    .map(([word]) => titleCaseWord(word))
-    .filter(Boolean);
-};
-
-const normalizeThemeObjects = (themes = []) => (
-  (Array.isArray(themes) ? themes : [])
-    .map((theme) => {
-      const title = String(theme?.title || '').trim();
-      if (!title) return null;
-      return {
-        title,
-        evidence: Array.isArray(theme?.evidence) ? theme.evidence : [],
-        representative: Array.isArray(theme?.representative) ? theme.representative : []
-      };
-    })
-    .filter(Boolean)
-);
-
-const normalizeConnectionObjects = (connections = []) => (
-  (Array.isArray(connections) ? connections : [])
-    .map((item) => {
-      const description = String(item?.description || '').trim();
-      if (!description) return null;
-      return {
-        description,
-        evidence: Array.isArray(item?.evidence) ? item.evidence : []
-      };
-    })
-    .filter(Boolean)
-);
-
-const ensureBestEffortSynthesis = ({
-  themes = [],
-  connections = [],
-  questions = [],
-  sourceTexts = []
-}) => {
-  const safeThemes = normalizeThemeObjects(themes);
-  const themeTitles = uniqueStrings([
-    ...safeThemes.map((theme) => theme.title),
-    ...inferThemeTitlesFromTexts(sourceTexts, 6)
-  ]);
-  const fallbackThemeTitles = ['Core Pattern', 'Practical Implications', 'Open Risks'];
-  const finalThemeTitles = uniqueStrings([...themeTitles, ...fallbackThemeTitles]).slice(0, 3);
-  const finalThemes = finalThemeTitles.map((title, idx) => (
-    safeThemes[idx] || { title, evidence: [], representative: [] }
-  ));
-
-  const safeConnections = normalizeConnectionObjects(connections);
-  const fallbackConnections = [
-    finalThemeTitles.length >= 2
-      ? `Several excerpts connect ${finalThemeTitles[0]} with ${finalThemeTitles[1]}.`
-      : 'Several excerpts point to recurring links across the material.',
-    'The notes combine concrete examples with broader principles.',
-    'There are signals of trade-offs that may require explicit prioritization.'
-  ];
-  const finalConnections = [
-    ...safeConnections,
-    ...fallbackConnections.map((description) => ({ description, evidence: [] }))
-  ].slice(0, 3);
-
-  const safeQuestions = uniqueStrings((Array.isArray(questions) ? questions : []).map((q) => {
-    const text = String(q || '').trim();
-    if (!text) return '';
-    return text.endsWith('?') ? text : `${text}?`;
-  }));
-  const fallbackQuestions = [
-    `What would strengthen confidence in "${finalThemeTitles[0] || 'this pattern'}"?`,
-    `What assumptions could weaken "${finalThemeTitles[1] || 'the current direction'}"?`,
-    `What is the next small test to validate "${finalThemeTitles[2] || 'the key risk'}"?`
-  ];
-  const finalQuestions = uniqueStrings([...safeQuestions, ...fallbackQuestions]).slice(0, 3);
-
-  return {
-    themes: finalThemes,
-    connections: finalConnections,
-    questions: finalQuestions
-  };
-};
-
-const { parseAiServiceUrl, joinUrl } = require('./utils/aiUpstream');
-
-const toPositiveInt = (value, fallback) => {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-};
-
-const truncateText = (text, limit) => (
-  text.length > limit ? text.slice(0, limit) : text
-);
-
-const applySynthesisLimits = (items = [], limits = {}) => {
-  const maxItems = toPositiveInt(limits.maxItems, 60);
-  const maxTotalChars = toPositiveInt(limits.maxTotalChars, 25000);
-  const maxItemChars = toPositiveInt(limits.maxItemChars, 1200);
-  const prepared = items
-    .map(item => ({
-      ...item,
-      text: truncateText(String(item.text || ''), maxItemChars)
-    }))
-    .filter(item => item.text);
-
-  const recencyValue = (item) => {
-    if (typeof item.createdAt === 'number' && !Number.isNaN(item.createdAt)) {
-      return item.createdAt;
-    }
-    if (typeof item.order === 'number' && !Number.isNaN(item.order)) {
-      return item.order;
-    }
-    return 0;
-  };
-
-  const byRecency = [...prepared].sort((a, b) => {
-    const aValue = recencyValue(a);
-    const bValue = recencyValue(b);
-    if (aValue === bValue) {
-      return (b.order || 0) - (a.order || 0);
-    }
-    return bValue - aValue;
-  });
-
-  const cappedByTotal = [];
-  let totalChars = 0;
-  for (const item of byRecency) {
-    let text = item.text;
-    if (text.length > maxTotalChars) {
-      text = text.slice(0, maxTotalChars);
-    }
-    if (totalChars + text.length > maxTotalChars) {
-      continue;
-    }
-    totalChars += text.length;
-    cappedByTotal.push({ ...item, text });
-    if (totalChars >= maxTotalChars) break;
-  }
-
-  let capped = cappedByTotal;
-  if (capped.length > maxItems) {
-    capped = capped.slice(0, maxItems);
-  }
-
-  const stats = {
-    item_count: capped.length,
-    total_chars: capped.reduce((sum, item) => sum + item.text.length, 0),
-    max_item_chars: capped.reduce((max, item) => Math.max(max, item.text.length), 0)
-  };
-
-  return { items: capped, stats, limits: { maxItems, maxTotalChars, maxItemChars } };
-};
-
-const fetchHighlightsByIds = async (userId, highlightIds) => {
-  const ids = (highlightIds || [])
-    .map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : null)
-    .filter(Boolean);
-  if (!ids.length) return [];
-  const results = await Article.aggregate([
-    { $match: { userId: new mongoose.Types.ObjectId(userId) } },
-    { $unwind: '$highlights' },
-    { $match: { 'highlights._id': { $in: ids } } },
-    { $project: {
-      _id: '$highlights._id',
-      text: '$highlights.text',
-      note: '$highlights.note',
-      tags: '$highlights.tags',
-      articleId: '$_id',
-      articleTitle: '$title',
-      createdAt: '$highlights.createdAt'
-    } }
-  ]);
-  return results;
-};
-
-const kMeans = (vectors, k, maxIterations = 12) => {
-  const count = vectors.length;
-  const dims = vectors[0]?.length || 0;
-  const centroids = [];
-  const used = new Set();
-  while (centroids.length < k && centroids.length < count) {
-    const idx = Math.floor(Math.random() * count);
-    if (used.has(idx)) continue;
-    used.add(idx);
-    centroids.push([...vectors[idx]]);
-  }
-  const assignments = new Array(count).fill(0);
-  for (let iter = 0; iter < maxIterations; iter += 1) {
-    let changed = false;
-    for (let i = 0; i < count; i += 1) {
-      let bestIdx = 0;
-      let bestScore = -Infinity;
-      for (let c = 0; c < centroids.length; c += 1) {
-        const score = cosineSimilarity(vectors[i], centroids[c]);
-        if (score > bestScore) {
-          bestScore = score;
-          bestIdx = c;
-        }
-      }
-      if (assignments[i] !== bestIdx) {
-        assignments[i] = bestIdx;
-        changed = true;
-      }
-    }
-    const sums = Array.from({ length: centroids.length }, () => new Array(dims).fill(0));
-    const counts = new Array(centroids.length).fill(0);
-    for (let i = 0; i < count; i += 1) {
-      const cluster = assignments[i];
-      counts[cluster] += 1;
-      for (let d = 0; d < dims; d += 1) {
-        sums[cluster][d] += vectors[i][d];
-      }
-    }
-    for (let c = 0; c < centroids.length; c += 1) {
-      if (!counts[c]) continue;
-      for (let d = 0; d < dims; d += 1) {
-        centroids[c][d] = sums[c][d] / counts[c];
-      }
-    }
-    if (!changed) break;
-  }
-  return { centroids, assignments };
-};
-
-
 app.use(buildSemanticSearchRouter({
   authenticateToken,
   parseCsvList,
   normalizeConnectionItemType,
-  isAiEnabled,
-  atlasSemanticSearch,
-  aiSimilarTo,
+  fetchSimilarEmbeddingsWithAvailability,
   hydrateSemanticResults,
   findHighlightById,
   resolveConceptByParam,
   buildEmbeddingId,
-  markTourSignal,
   EmbeddingError,
   sendEmbeddingError
 }));
@@ -6196,6 +5755,7 @@ app.use(buildConceptMetaRouter({
   updateConceptMeta,
   getConceptRelated,
   TagMeta,
+  User,
   EntryRevision,
   conceptReferences: { Article, NotebookEntry, Question, ConceptNote, ReferenceEdge, SharedConcept, ConceptPath, Connection, ReturnQueueEntry },
   escapeRegExp,
@@ -6435,7 +5995,6 @@ app.use(buildAgentBridgeRouter({
   listAgentSkills,
   listWorkerRoles,
   listProtocolApprovals,
-  listProtocolHookRuns,
   approveProtocolApproval,
   rejectProtocolApproval
 }));
@@ -6593,8 +6152,6 @@ app.use(buildAgentChatRouter({
   normalizeThreadPlanner,
   sanitizeAgentThreadDoc,
   sanitizeAgentRunDoc,
-  AgentArtifactDraft,
-  createAgentArtifactDraftFromSkillReply,
   createRunFromProposalBundle,
   executeAgentRun,
   applyProposalBundleRunOutcome,
@@ -6607,7 +6164,6 @@ app.use(buildAgentChatRouter({
   sanitizeAgentHandoffDoc,
   resolveRequestedProposalBundle,
   applyProposalBundleInvalidations,
-  sanitizeAgentArtifactDraftDoc,
   sanitizeAgentStructureProposalDoc,
   planLibraryStructureProposal,
   persistLibraryStructureProposal,
@@ -6615,56 +6171,6 @@ app.use(buildAgentChatRouter({
   truncate: truncateThreadText,
   trackEvent,
   EVENT_NAMES
-}));
-
-app.use(buildAgentArtifactDraftRouter({
-  authenticateToken,
-  AgentArtifactDraft,
-  NotebookEntry,
-  Question,
-  updateConceptMeta,
-  syncNotebookReferences,
-  enqueueNotebookEmbedding,
-  enqueueQuestionEmbedding,
-  createBlockId,
-  AgentHandoff,
-  buildDefaultHandoffPlan,
-  buildDefaultHandoffCheckpoint,
-  createThreadForHandoff,
-  sanitizeAgentHandoffDoc,
-  sanitizeAgentArtifactDraftDoc,
-  promoteAgentArtifactDraftRecord,
-  trackEvent,
-  EVENT_NAMES
-}));
-
-app.use(buildAgentHarnessMetricsRouter({
-  authenticateToken,
-  AgentThread,
-  AgentRun,
-  AgentProposedChange,
-  AgentStructureProposal,
-  AgentArtifactDraft,
-  AgentProtocolApproval,
-  getAgentHarnessMetricsSnapshot
-}));
-
-app.use(buildAgentUpkeepCycleRouter({
-  mongoose,
-  authenticateToken,
-  AgentUpkeepCycle,
-  AgentHandoff,
-  sanitizeAgentHandoffDoc,
-  sanitizeAgentThreadDoc,
-  resolveAutoHandoffRequestedActor,
-  getUserAgentProtocolPolicy,
-  buildAgentPlanner,
-  buildDefaultHandoffPlan,
-  buildDefaultHandoffCheckpoint,
-  createThreadForHandoff,
-  normalizeAgentHandoffTaskType,
-  normalizeAgentHandoffPriority,
-  parseOptionalDate
 }));
 
 app.use(buildConceptAgentRouter({
@@ -6716,37 +6222,6 @@ app.use(buildConceptSuggestionRouter({
   hydrateSemanticResults,
   EmbeddingError,
   sendEmbeddingError
-}));
-
-app.use(buildAiInsightsRouter({
-  mongoose,
-  authenticateToken,
-  Article,
-  TagMeta,
-  Question,
-  NotebookEntry,
-  buildRangeStart,
-  buildEmbeddingId,
-  aiGetEmbeddings,
-  labelCluster,
-  kMeans,
-  cosineSimilarity,
-  fetchSimilarEmbeddings,
-  getObjectIdFromEmbedding,
-  findHighlightById,
-  EmbeddingError,
-  sendEmbeddingError,
-  fetchHighlightsByIds,
-  buildSnippet,
-  applySynthesisLimits,
-  parseAiServiceUrl,
-  joinUrl,
-  toPositiveInt,
-  sentimentScore,
-  extractQuestions,
-  ensureBestEffortSynthesis,
-  aiSemanticSearch,
-  hydrateSemanticResults
 }));
 
 app.use(buildConceptPinRouter({
@@ -6921,14 +6396,10 @@ app.use(buildHighlightMutationRouter({
   Article,
   normalizeTags,
   enqueueHighlightEmbedding,
-  safeMapEmbedding,
-  highlightToEmbeddingItem,
-  queueEmbeddingUpsert,
+  deleteHighlightEmbeddingState,
   markTourSignal,
   normalizeItemType,
   parseClaimId,
-  buildEmbeddingId,
-  queueEmbeddingDelete,
   WikiPage,
   WikiProposal,
   WikiRevision,
@@ -6939,30 +6410,10 @@ app.use(buildHighlightMutationRouter({
   Question
 }));
 
-app.use(buildAiMaintenanceRouter({
-  authenticateToken,
-  isAiEnabled,
-  Article,
-  NotebookEntry,
-  TagMeta,
-  Question,
-  EmbeddingJob,
-  safeMapEmbedding,
-  articleToEmbeddingItems,
-  highlightToEmbeddingItem,
-  notebookEntryToEmbeddingItems,
-  conceptToEmbeddingItem,
-  questionToEmbeddingItem,
-  upsertEmbeddings,
-  checkUpstreamHealth,
-  EmbeddingError,
-  sendEmbeddingError
-}));
+app.use(buildAiMaintenanceRouter({ authenticateToken, EmbeddingJob }));
 
 app.use(buildSystemRouter({
   authenticateToken,
-  parseAiServiceUrl,
-  joinUrl,
   isDatabaseReady: () => mongoose.connection.readyState === 1,
   getWikiStorageStatus: () => readWikiStorageStatus(mongoose.connection.db),
   allowDebugFixtures: process.env.NODE_ENV !== 'production',
@@ -6978,9 +6429,4 @@ app.use(buildSystemRouter({
   Question
 }));
 
-startServer({
-  app,
-  port: PORT,
-  parseAiServiceUrl,
-  joinUrl
-});
+startServer({ app, port: PORT });

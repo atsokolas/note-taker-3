@@ -4,7 +4,6 @@ import { MemoryRouter } from 'react-router-dom';
 import ThinkNotes from './ThinkNotes';
 import authoredExplorations from '../api/authoredExplorations';
 import api from '../api';
-import ThoughtPartnerPanel from '../components/agent/ThoughtPartnerPanel';
 
 jest.mock('../api/authoredExplorations', () => ({ __esModule: true, default: { list: jest.fn(), search: jest.fn() } }));
 import { getNotebookShelf } from '../api/notebook';
@@ -31,14 +30,13 @@ jest.mock('../components/think/notebook/NotebookEditor', () => ({ entry, onSave,
     <button onClick={() => onSave({id:entry._id, title:'A note of my own', content:'My words', blocks:[]})}>Save test words</button>
     <button onClick={() => onInvokeAgentSkill({ id: 'ask-1', mode: 'draft', prompt: 'Sharpen this.', contextType: 'notebook', contextId: entry._id, contextTitle: entry.title })}>Ask about the note</button></div>;
 });
-jest.mock('../components/think/ThinkEntryEditor', () => ({ target, onLoaded, onAsk, onPartner }) => {
+jest.mock('../components/think/ThinkEntryEditor', () => ({ target, onLoaded, onAsk }) => {
   const React = require('react');
   React.useEffect(() => {
     onLoaded({ kind: target.kind, title: target.kind === 'concept' ? 'Moats' : 'What would change my mind?', record: { _id: target.kind === 'concept' ? 'c1' : target.id } });
   }, [target.kind, target.id]); // eslint-disable-line react-hooks/exhaustive-deps
   return <div><output data-testid="open-entry">{`${target.kind}:${target.id}`}</output>
-    <button onClick={() => onAsk('the exact passage')}>Ask about the selection</button>
-    <button onClick={onPartner}>Open the partner</button></div>;
+    <button onClick={() => onAsk('the exact passage')}>Ask about the selection</button></div>;
 });
 jest.mock('../api/concepts', () => ({ getConcepts: jest.fn(), updateConcept: jest.fn() }));
 jest.mock('../api/questions', () => ({ getQuestions: jest.fn(), createQuestion: jest.fn() }));
@@ -68,8 +66,14 @@ jest.mock('react-router-dom', () => {
     }
   };
 });
-jest.mock('../components/agent/ThoughtPartnerPanel', () => jest.fn(() => <aside>Partner</aside>));
-jest.mock('../surface/NoeisSurfaceContext', () => ({ useNoeisSurface: jest.fn() }));
+const mockAsk = jest.fn();
+const mockAdoptThread = jest.fn();
+const mockPartnerSurface = jest.fn();
+jest.mock('../agent/AgentRailContext', () => ({
+  useAgentRail: () => ({ ask: mockAsk, adoptThread: mockAdoptThread }),
+  useNoeisAgentSurface: (...args) => mockPartnerSurface(...args)
+}));
+const partnerSees = () => mockPartnerSurface.mock.calls.at(-1)?.[1] || {};
 jest.mock('../motion/columnMotion', () => ({ takeFirstPaint: () => false }));
 
 describe('ThinkNotes first paint', () => {
@@ -127,46 +131,42 @@ describe('ThinkNotes first paint', () => {
   });
 
   /* The queued-prompt coverage that used to live in ThinkMode's templates
-     suite: the partner mounts beside every kind of entry and receives a
-     selection from it, bound to that exact entry. */
+     suite: the Partner is bound to every kind of entry and is asked about a
+     selection from it. */
   it.each([
     ['tab=concepts&concept=Moats', 'concept', 'c1', 'Moats'],
     ['tab=questions&questionId=q1', 'question', 'q1', 'What would change my mind?']
-  ])('mounts the partner for %s and queues a selection to it', async (search, contextType, contextId, contextTitle) => {
+  ])('binds the Partner to %s and asks it about a selection', async (search, objectType, objectId, title) => {
     window.history.replaceState({}, '', `/think?${search}`);
     render(<ThinkNotes />);
     await screen.findByTestId('open-entry');
-    await waitFor(() => expect(ThoughtPartnerPanel.mock.calls.at(-1)[0]).toMatchObject({ contextType, contextId, contextTitle }));
+    await waitFor(() => expect(partnerSees()).toMatchObject({ room: 'think', objectType, objectId, title }));
+    expect(mockPartnerSurface.mock.calls.at(-1)[0]).toBe('agent-surface.think');
     fireEvent.click(screen.getByRole('button', { name: 'Ask about the selection' }));
-    await waitFor(() => expect(ThoughtPartnerPanel.mock.calls.at(-1)[0].queuedPrompt).toMatchObject({
-      mode: 'draft',
-      contextType,
-      contextId,
-      contextTitle,
-      prompt: expect.stringContaining('the exact passage')
-    }));
-    expect(screen.getByRole('tab', { name: 'Partner' })).toHaveAttribute('aria-selected', 'true');
-    expect(screen.queryByRole('tab', { name: 'Scratchpad' })).toBeNull();
+    expect(mockAsk).toHaveBeenCalledWith(expect.stringContaining('the exact passage'));
+    expect(mockAsk.mock.calls[0][0]).toContain(title);
   });
 
-  it('queues a note\'s request to the partner beside the note', async () => {
+  it('asks the Partner about the note it is bound to, and lets it try wording', async () => {
     getNotebookShelf.mockResolvedValue([{ _id: 'note-1', title: 'A real note' }]);
     render(<ThinkNotes />);
     fireEvent.click(await screen.findByRole('button', { name: 'Ask about the note' }));
-    await waitFor(() => expect(ThoughtPartnerPanel.mock.calls.at(-1)[0]).toMatchObject({
-      contextType: 'notebook',
-      contextId: 'note-1',
-      queuedPrompt: expect.objectContaining({ id: 'ask-1', prompt: 'Sharpen this.' })
-    }));
-    expect(screen.getByRole('tab', { name: 'Scratchpad' })).toBeInTheDocument();
+    expect(mockAsk).toHaveBeenCalledWith('Sharpen this.');
+    await waitFor(() => expect(partnerSees()).toMatchObject({ objectType: 'notebook', objectId: 'note-1' }));
+    expect(mockPartnerSurface.mock.calls.at(-1)[3]).toHaveProperty('onTryWording');
+    expect(screen.queryByRole('tab', { name: 'Partner' })).toBeNull();
   });
 
-  it('opens a thread with the partner beside the page', async () => {
+  it('opens a saved conversation in the Partner', async () => {
     window.history.replaceState({}, '', '/think?threadId=t1');
-    getAgentThread.mockResolvedValue({ threadId: 't1', messages: [] });
+    const opened = jest.fn();
+    window.addEventListener('noeis:open-agent', opened);
+    getAgentThread.mockResolvedValue({ thread: { threadId: 't1', messages: [] } });
     getNotebookShelf.mockResolvedValue([{ _id: 'note-1', title: 'A real note' }]);
     render(<ThinkNotes />);
-    await waitFor(() => expect(ThoughtPartnerPanel.mock.calls.at(-1)[0].thread).toMatchObject({ threadId: 't1' }));
+    await waitFor(() => expect(mockAdoptThread).toHaveBeenCalledWith({ threadId: 't1', messages: [] }));
+    expect(opened).toHaveBeenCalled();
+    window.removeEventListener('noeis:open-agent', opened);
   });
 
   it('starts a concept or a question from the list by naming it', async () => {
@@ -192,8 +192,8 @@ describe('ThinkNotes first paint', () => {
     expect(within(work).getByRole('link')).toHaveAttribute('href', '/wiki/read/page-1?claimId=claim-1&exploration=1');
     expect(within(work).getByText('Test the exception.')).toBeInTheDocument();
     expect(screen.getByText('Opening your last note…')).toBeInTheDocument();
-    expect(ThoughtPartnerPanel).toHaveBeenCalled();
-    expect(JSON.stringify(ThoughtPartnerPanel.mock.calls)).not.toContain('Test the exception.');
+    expect(mockPartnerSurface).toHaveBeenCalled();
+    expect(JSON.stringify(mockPartnerSurface.mock.calls)).not.toContain('Test the exception.');
     expect(api.put).not.toHaveBeenCalled();
   });
 
@@ -230,7 +230,7 @@ describe('ThinkNotes first paint', () => {
     fireEvent.click(screen.getByText('Save test words'));
     await waitFor(() => expect(screen.getByRole('button',{name:'A note of my own'})).toBeInTheDocument());
     expect(api.put).toHaveBeenCalledWith('/api/notebook/new-note', expect.objectContaining({content:'My words'}), expect.anything());
-    expect(ThoughtPartnerPanel.mock.calls.at(-1)[0].contextId).toBe('new-note');
+    expect(partnerSees().objectId).toBe('new-note');
 
     // Returning through browser history is reading, even for a note born here.
     act(() => { window.history.replaceState({}, '', '/think?entryId=older-note'); window.dispatchEvent(new PopStateEvent('popstate')); });
@@ -282,7 +282,7 @@ describe('ThinkNotes first paint', () => {
     const results = await screen.findByRole('region', { name: 'Found in your writing' });
     const match = await within(results).findByRole('link', { name: /Room to return/ });
     expect(screen.getByTestId('open-note')).toHaveTextContent('note-1');
-    expect(JSON.stringify(ThoughtPartnerPanel.mock.calls)).not.toContain('What makes room');
+    expect(JSON.stringify(mockPartnerSurface.mock.calls)).not.toContain('What makes room');
     mockFlush.mockResolvedValue(false);
     fireEvent.click(match);
     await waitFor(() => expect(mockFlush).toHaveBeenCalled());

@@ -242,6 +242,22 @@ const run = async () => {
   assert.ok(wikiPrompt.includes('Never ask the user to ingest or attach the current page'), 'Wiki chat prompt should prohibit fake missing-context replies.');
   assert.ok(!wikiPrompt.includes('69fd2e7d212cd5a5f57db144'), 'Wiki chat prompt should not expose raw page ObjectIds to the model.');
 
+  const standing = { views: ['Compute stays scarce through 2027.'], sources: ['Grid queues, Ben Carlson'] };
+  const standingPrompt = buildPartnerChatMessages({
+    message: 'Does this matter?',
+    contextItem: { type: 'article', title: 'Grid queues', snippet: 'Interconnection takes years.' },
+    standing
+  })[0].content;
+  assert.ok(standingPrompt.includes('“Compute stays scarce through 2027.”'), 'Every room carries the views the reader holds.');
+  assert.ok(standingPrompt.includes('Most recently the reader saved: Grid queues, Ben Carlson.'), 'Every room carries recent reading.');
+  assert.ok(/Never attribute a view/.test(standingPrompt), 'The Partner may not invent a held view.');
+  assert.ok(!buildPartnerChatMessages({ message: 'Hi', contextItem: { type: 'article', title: 'A' } })[0].content.includes('The reader holds'), 'Silence when nothing is held.');
+  assert.ok(!buildPartnerChatMessages({
+    message: 'Hi',
+    contextItem: { type: 'shared_question', title: 'A door' },
+    standing
+  })[0].content.includes('Compute stays scarce'), 'A published door never sees the private views.');
+
   const privatePrompt = buildPartnerChatMessages({
     message: 'Develop my distinction into an essay.',
     contextItem: {

@@ -42,7 +42,7 @@ const proposalKey = ({ pageId, before, after }) => crypto
 const readingKey = ({ pageId, articleId }) => proposalKey({ pageId, before: 'evidence', after: clean(articleId, 100) });
 const readingReceiptId = ({ pageId, articleId }) => `judgment-change-proposal:${clean(pageId, 100)}:${readingKey({ pageId, articleId })}`;
 
-const buildReadingProposal = ({ page, article, stance, quote, eventId = '', now = new Date() } = {}) => {
+const buildReadingProposal = ({ page, article, stance, quote, falsifier = '', eventId = '', now = new Date() } = {}) => {
   const pageId = id(page);
   const before = clean(page?.judgment?.currentJudgment);
   const after = clean(quote, 1200);
@@ -58,7 +58,8 @@ const buildReadingProposal = ({ page, article, stance, quote, eventId = '', now 
     source: 'judgment',
     sourceLabel,
     status: 'pending',
-    title: stance === 'support' ? 'A passage that argues for what you hold' : 'A passage that argues against what you hold',
+    title: clean(falsifier) ? 'A passage that meets what would change your mind'
+      : stance === 'support' ? 'A passage that argues for what you hold' : 'A passage that argues against what you hold',
     summary: after,
     provenance: {
       pageId,
@@ -67,6 +68,7 @@ const buildReadingProposal = ({ page, article, stance, quote, eventId = '', now 
       after,
       change: 'evidence',
       stance,
+      ...(clean(falsifier) ? { falsifier: clean(falsifier, 2000) } : {}),
       articleId,
       author: clean(article?.author, 200),
       publishedAt: article?.publicationDate || article?.createdAt || null,
