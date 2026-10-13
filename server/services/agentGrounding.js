@@ -97,7 +97,7 @@ const statedIn = (figure, values) => values.some(value => (
 ));
 
 // What two stated figures make: a share, a ratio, a change, a product, a sum.
-const derivedFrom = (a, b) => [a / b, (a / b) * 100, ((a - b) / b) * 100, a * b, a - b, a + b];
+const derivedFrom = (a, b) => [a / b, (a / b) * 100, a / b - 1, ((a - b) / b) * 100, a * b, a - b, a + b];
 // Small whole numbers a claim scales by ("x 4", "over 5 years") are not
 // figures a reader checks, but they are inputs to the arithmetic shown.
 const SCALERS = /\b(?:[2-9]|1[0-2])\b/g;

@@ -84,7 +84,10 @@ const builtPage = async ({ models, pageId }) => {
     title: after.title || page?.title,
     body: after.body,
     sourceRefs: after.sourceRefs || [],
-    kept: revision.promotionStatus === 'promoted',
+    /* A first dossier that passes waits for its owner to accept it; it was
+       not refused. */
+    kept: revision.promotionStatus === 'promoted'
+      || Boolean(revision.quality && !(revision.quality.failures || []).length),
     quality: revision.quality || after.aiState?.quality || null,
     model: [after.aiState?.provider, after.aiState?.model].filter(Boolean).join(' ')
   };

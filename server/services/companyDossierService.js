@@ -36,7 +36,7 @@ const buildCompanyDossierBody = ({ companyName, ticker, startingJudgment, requir
     paragraph(startingJudgment),
     paragraph(`Owner hurdle: ${(requiredReturn * 100).toFixed(1)}% annual return over ${horizonYears} years. This is a starting judgment, not a proven conclusion.`),
     heading('What the market is pricing'),
-    paragraph('Awaiting a dated price, diluted share count, and normalized operating base. Noeis will not infer these inputs silently.'),
+    paragraph('Awaiting a dated price, diluted share count, and normalized operating base. None of these is inferred silently.'),
     heading('Business and product system'),
     paragraph(),
     heading('Technical architecture and moat'),
