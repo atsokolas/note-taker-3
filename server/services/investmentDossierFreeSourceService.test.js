@@ -68,7 +68,7 @@ const run = () => {
         ], 'gross-profit'),
         EarningsPerShareDiluted: {
           label: 'Diluted EPS',
-          units: { 'USD/shares': rows([{ fy: 2023, val: 1.1 }, { fy: 2024, val: 1.25 }, { fy: 2025, val: 1.4 }], 'eps') }
+          units: { 'USD/shares': [...rows([{ fy: 2022, val: 9.9 }], 'eps-presplit'), ...rows([{ fy: 2023, val: 1.1 }, { fy: 2024, val: 1.25 }, { fy: 2025, val: 1.4 }], 'eps')].map(row => (row.end > '2022-12-31' ? { ...row, accn: 'eps-2025-10k', filed: '2026-02-20' } : row)) }
         },
         InventoryNet: fact('Inventory', [
           { fy: 2023, val: 200000000 },

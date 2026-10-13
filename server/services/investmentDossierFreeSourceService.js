@@ -107,6 +107,10 @@ const metricSeriesFromCompanyFacts = ({ companyFacts = {}, years = 5 } = {}) => 
     });
     if (!selectedTag) return null;
     const fact = gaap[selectedTag] || {};
+    const points = annualPointsForFact({ fact, tag: selectedTag, years, unit });
+    // A per-share figure older than the newest 10-K may predate a split, so
+    // only the years that filing restates are given.
+    const newest = points.at(-1)?.accessionNumber;
     return {
       id: definition.id,
       label: clean(fact.label || definition.label, 120),
@@ -114,7 +118,7 @@ const metricSeriesFromCompanyFacts = ({ companyFacts = {}, years = 5 } = {}) => 
       namespace: 'us-gaap',
       tag: selectedTag,
       unit,
-      points: annualPointsForFact({ fact, tag: selectedTag, years, unit })
+      points: unit === 'USD/shares' ? points.filter(point => point.accessionNumber === newest) : points
     };
   }).filter(Boolean);
   const latestFiscalYear = Math.max(
