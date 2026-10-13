@@ -1263,7 +1263,8 @@ Investment dossier rules:
 - The selected business-model adapter is "${modelLabel}". Do not import AI-infrastructure metrics unless this company's economics actually require them.
 - Required analytical modules: ${(plan.requiredModuleIds || []).join(', ') || 'research plan is not classified yet'}.
 - Missing evidence archetypes: ${(plan.missingEvidenceArchetypes || []).join(', ') || 'none identified'}.
-- For each missing evidence archetype, say plainly in the relevant section what could not be found, and draw no conclusion that needs it. With no dated market price, state no market value, multiple or implied return.
+- For each missing evidence archetype, say plainly in the relevant section that it could not be found (use those words), and draw no conclusion that needs it. With no dated market price, state no market value, multiple or implied return.
+- Every figure must be stated in a cited source, or computed in the same sentence from figures that are, with the inputs written out: "membership fees were 1.99% of net sales ($5.91bn / $297.25bn)". A margin, ratio, multiple or growth rate without its inputs beside it is refused.
 - Missing analytical modules: ${(plan.missingModuleIds || []).join(', ') || 'none identified'}.
 - Produce at least 1,800 words and at least 20 distinct claim-level analytical paragraphs or bullets. These are minimum decision-dossier gates, not permission to add filler.
 - Every paragraph or bullet must establish a mechanism, calculation, counterargument, falsifier, or next evidence test.
@@ -3694,7 +3695,9 @@ const fillInvestmentDossierMaintenanceTest = ({ article = {}, page = {}, candida
       return {
         ...section,
         paragraphs: [{
-          text: `At ${companyLabel}'s next 10-Q, compare revenue growth with cost of revenue, technology and infrastructure expense, operating loss, operating cash flow, remaining performance obligation conversion, customer concentration, and debt or lease obligations. Before that filing, review any 8-K for material customer-contract, financing, capacity, or supplier changes. Treat each change as a candidate update until the owner accepts the revised judgment.`,
+          // Written for one company's economics once, it read as boilerplate on
+          // every other; what holds for any company is checking this page's figures.
+          text: `At ${companyLabel}'s next 10-Q or 10-K, check each figure this page relies on against the new filing, and read any 8-K filed before then for material changes. A changed figure is a candidate update until the owner accepts the revised judgment.`,
           citationIndexes,
           contradictionIndexes: [],
           support: 'partial'

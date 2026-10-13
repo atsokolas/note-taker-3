@@ -61,6 +61,16 @@ describe('unstatedFigures', () => {
     expect(unstatedFigures('Revenue reached $90 billion with a 78% gross margin.', [filing])).toEqual(['$90 billion', '78%']);
   });
 
+  it('accepts a computed figure whose inputs the claim shows and the source states', () => {
+    expect(unstatedFigures('Revenue grew 85% to $81.6 billion; $81.6 billion is 8.16x a $10 billion base.', [filing, 'A $10 billion base.'])).toEqual([]);
+    expect(unstatedFigures('Gross profit of $61.2 billion is 75.0% of $81.6 billion.', [filing, 'Gross profit $61,212 million.'])).toEqual([]);
+  });
+
+  it('does not accept a computed figure whose inputs are missing or wrong', () => {
+    expect(unstatedFigures('Operating margin was 66%.', [filing])).toEqual(['66%']);
+    expect(unstatedFigures('Gross profit of $61.2 billion is 80% of $81.6 billion.', [filing, 'Gross profit $61,212 million.'])).toEqual(['80%']);
+  });
+
   it('ignores years and small counts', () => {
     expect(unstatedFigures('In 2026 three of 5 segments grew.', [filing])).toEqual([]);
   });

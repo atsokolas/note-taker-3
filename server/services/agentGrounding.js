@@ -95,10 +95,22 @@ const statedIn = (figure, values) => values.some(value => (
   Math.abs(value - figure.value) <= Math.max(figure.step / 2, Math.abs(figure.value) * 1e-9)
 ));
 
-// The figures in a claim that none of the given texts states.
+// What two stated figures make: a share, a ratio, a change, a sum.
+const derivedFrom = (a, b) => [a / b, (a / b) * 100, ((a - b) / b) * 100, a - b, a + b];
+
+// The figures in a claim that none of the given texts states. A figure the
+// writer computed counts when the claim shows its working: it follows from two
+// figures in the same claim that the sources do state, as "1.99% ($5.91bn /
+// $297.25bn)" does.
 const unstatedFigures = (claim = '', texts = []) => {
   const values = (Array.isArray(texts) ? texts : []).flatMap(valuesIn);
-  return figuresIn(claim).filter(figure => !statedIn(figure, values)).map(figure => figure.raw);
+  const figures = figuresIn(claim);
+  const stated = figures.filter(figure => statedIn(figure, values));
+  const shown = figure => stated.some(a => stated.some(b => a !== b && b.value !== 0
+    && derivedFrom(a.value, b.value).some(value => (
+      Math.abs(value - figure.value) <= Math.max(figure.step / 2, Math.abs(figure.value) * 0.005)
+    ))));
+  return figures.filter(figure => !stated.includes(figure) && !shown(figure)).map(figure => figure.raw);
 };
 
 module.exports = {

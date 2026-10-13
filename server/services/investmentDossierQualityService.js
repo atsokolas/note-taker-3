@@ -3,11 +3,13 @@ const {
   CORE_EVIDENCE_ARCHETYPES,
   inferEvidenceArchetype
 } = require('./investmentDossierProfileService');
+const { figuresIn, unstatedFigures } = require('./agentGrounding');
 
 const clean = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
 const unique = values => Array.from(new Set((Array.isArray(values) ? values : []).filter(Boolean)));
 
 const DECISION_DOSSIER_MIN_WORDS = 1800;
+const MISSING_EVIDENCE = /\bcould not be found\b|\bwas not found\b|\b(?:is|are|was|were) not (?:yet )?(?:attached|available)\b|\bno [^.]{0,80}\b(?:is|are|was|were) attached\b/i;
 const DECISION_DOSSIER_MIN_CLAIMS = 20;
 const REPRODUCIBLE_MODULE_IDS = Object.freeze([
   'reverse_expectations',
@@ -18,28 +20,6 @@ const sectionHeadings = (body = {}) => (
   (Array.isArray(body?.content) ? body.content : [])
     .filter(node => node?.type === 'heading')
     .map(node => clean((node.content || []).map(item => item?.text || '').join('')).toLowerCase())
-);
-
-const normalizeNumberToken = (value = '') => (
-  clean(value)
-    .toLowerCase()
-    .replace(/,/g, '')
-    .replace(/\s+/g, '')
-    .replace(/billion/g, 'bn')
-    .replace(/million/g, 'mn')
-);
-
-const numericTokens = (value = '') => (
-  unique(
-    String(value || '')
-      .match(/(?:[$€£]\s*)?\d[\d,.]*(?:\s*(?:%|x|bn|mn|billion|million))?/gi)
-      || []
-  )
-    .map(normalizeNumberToken)
-    .filter(token => {
-      const bare = Number(token.replace(/[$€£%a-z]/gi, ''));
-      return !(Number.isInteger(bare) && bare >= 1900 && bare <= 2100);
-    })
 );
 
 const sourceTextForClaim = ({ claim = {}, sourceRefs = [] } = {}) => {
@@ -53,18 +33,12 @@ const sourceTextForClaim = ({ claim = {}, sourceRefs = [] } = {}) => {
     .join(' ');
 };
 
+// The same figure check every page gets: each figure is stated in a cited
+// source, or computed in the claim from figures that are.
 const numericGroundingFailure = ({ claim = {}, sourceRefs = [] } = {}) => {
-  const tokens = numericTokens(claim?.text);
-  if (!tokens.length) return false;
-  const sourceText = normalizeNumberToken(sourceTextForClaim({ claim, sourceRefs }));
-  if (!sourceText) return true;
-  const matched = tokens.filter(token => sourceText.includes(token));
-  const calculated = /calculation|calculated|yielding|implies|equals|divided by|multiplied by/i.test(clean(claim?.text));
-  if (calculated) {
-    return matched.length < Math.min(2, tokens.length)
-      || matched.length / tokens.length < 0.35;
-  }
-  return matched.length / tokens.length < 0.75;
+  if (!figuresIn(claim?.text).length) return false;
+  const sourceText = sourceTextForClaim({ claim, sourceRefs });
+  return !sourceText || unstatedFigures(claim?.text, [sourceText]).length > 0;
 };
 
 const includesHeading = (headings, patterns) => patterns.some(pattern => (
@@ -86,8 +60,22 @@ const evaluateInvestmentDossierQuality = ({
   const profile = page?.investmentDossier || {};
   const plan = profile?.researchPlan || {};
   const businessModel = profile?.businessModel?.primary || 'unknown';
-  const claimList = Array.isArray(claims) ? claims : [];
   const sourceList = Array.isArray(sourceRefs) ? sourceRefs : [];
+  // Two kinds of sentence have nothing to cite and are not decision claims: the
+  // owner's own hurdle restated, and a plain statement of what could not be found.
+  const hurdle = profile?.hurdle || {};
+  const ownerText = [
+    profile?.startingJudgment,
+    Number(hurdle.annualReturn) > 0
+      ? `${(Number(hurdle.annualReturn) * 100).toFixed(1)}% ${hurdle.horizonYears} years`
+      : ''
+  ].filter(Boolean).join(' ');
+  const ownersOwn = claim => /owner(?:'s)? hurdle|starting judgment/i.test(clean(claim?.text))
+    && ownerText && !unstatedFigures(claim?.text, [ownerText]).length;
+  const namesMissingEvidence = claim => MISSING_EVIDENCE.test(clean(claim?.text))
+    && !figuresIn(claim?.text).length;
+  const claimList = (Array.isArray(claims) ? claims : [])
+    .filter(claim => !ownersOwn(claim) && !namesMissingEvidence(claim));
   const unsupportedClaims = claimList.filter(claim => clean(claim?.support).toLowerCase() === 'unsupported');
   const exploratoryUnsupportedClaims = unsupportedClaims.filter(claim => (
     /thesis-changing questions|what would change the thesis/i.test(clean(claim?.section))

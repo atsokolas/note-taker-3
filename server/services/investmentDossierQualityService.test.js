@@ -118,6 +118,19 @@ const inventedNumber = evaluateInvestmentDossierQuality({
 assert.strictEqual(inventedNumber.ok, false);
 assert.match(inventedNumber.failures.join(' '), /numeric claims not grounded/i);
 
+// The owner's own hurdle and a plain note of what could not be found have
+// nothing to cite and are not refused; a hurdle the owner did not set is.
+const framing = (text) => evaluateInvestmentDossierQuality({
+  page: { investmentDossier: { ...profile, hurdle: { annualReturn: 0.1, horizonYears: 5 } } },
+  body,
+  claims: [...claims, { claimId: 'framing', section: 'Current Judgment', text, support: 'unsupported' }],
+  sourceRefs,
+  words: 2600
+});
+assert.strictEqual(framing('Owner hurdle: 10.0% annual return over 5 years. This is a starting judgment.').ok, true);
+assert.strictEqual(framing('An independent benchmark of warehouse density could not be found.').ok, true);
+assert.strictEqual(framing('Owner hurdle: 15.0% annual return over 5 years.').ok, false);
+
 const thinProfile = upgradeInvestmentDossierProfile({
   profile: { company: { name: 'Generic Company', ticker: 'GEN' } },
   candidates: [{ title: 'Generic 10-K', provider: 'sec-edgar', text: 'Generic filing.' }]

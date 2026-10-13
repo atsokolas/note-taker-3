@@ -252,7 +252,7 @@ const buildSections = () => ([
       claim(
         'cost-judgment-quality-price',
         'partial',
-        ['fy2025-10k', 'q3-2026-10q', 'cost-market-snapshot'],
+        ['fy2025-10k', 'q3-2026-10q', 'costco-june-2026-sales', 'cost-market-snapshot'],
         `Costco is an unusually high-quality retailer and a demanding security at the same time. The operating system converts member trust into high traffic, narrow assortment, purchasing concentration, fast inventory turns, supplier financing, and recurring fee income. Those mechanisms are still strengthening: fiscal 2026 year-to-date operating income rose to $7.884 billion, paid members reached 82.9 million, and the June sales release showed 6.7% adjusted comparable growth through 44 weeks. At $935.03, however, the equity value is approximately ${money(derived.equityValue)} and the price is about ${derived.currentPriceToLtmFcf.toFixed(1)} times a mechanically calculated ${money(derived.ltmFreeCashFlow)} of trailing free cash flow. Business quality is established; an attractive forward return is not.`
       ),
       claim(
@@ -369,7 +369,7 @@ const buildSections = () => ([
         'cost-warehouse-productivity',
         'partial',
         ['fy2025-10k'],
-        `Scale is valuable only when expressed through productive boxes. Fiscal 2025 net sales divided by 914 year-end warehouses was about $${derived.salesPerWarehouse.toFixed(1)} million per warehouse; divided by 134.7 million operating square feet, it was approximately $${derived.salesPerSquareFoot.toFixed(0)} per square foot. These are rough system averages, not same-store cohort economics, because openings occur through the year and e-commerce is allocated into merchandise categories. They nevertheless show why warehouse throughput matters more than store count: each site carries enough volume to support concentrated purchasing, low handling expense, ancillary traffic drivers and a membership relationship.`
+        `Scale is valuable only when expressed through productive boxes. Fiscal 2025 net sales of $${(INPUTS.fy2025NetSales / 1000).toFixed(1)} billion divided by 914 year-end warehouses was about $${derived.salesPerWarehouse.toFixed(1)} million per warehouse; divided by 134.7 million operating square feet, it was approximately $${derived.salesPerSquareFoot.toFixed(0)} per square foot. These are rough system averages, not same-store cohort economics, because openings occur through the year and e-commerce is allocated into merchandise categories. They nevertheless show why warehouse throughput matters more than store count: each site carries enough volume to support concentrated purchasing, low handling expense, ancillary traffic drivers and a membership relationship.`
       )
     ]
   },
