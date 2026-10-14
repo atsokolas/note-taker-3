@@ -49,7 +49,11 @@ const Settings = ({
     setCommitted(normalized);
     /* A theme kept from the menu lands here while other edits may be open;
        take every saved change the draft has not touched itself. */
-    setDraft(mergeRemoteIntoDraft(draft, editBase, normalized));
+    const merged = mergeRemoteIntoDraft(draft, editBase, normalized);
+    /* The theme menu saves on its own, so a theme kept there is newer than any
+       theme this draft still holds (say, from Restore defaults). */
+    if (normalized.theme !== editBase.theme) merged.theme = normalized.theme;
+    setDraft(merged);
     setEditBase(normalized);
   // eslint-disable-next-line react-hooks/exhaustive-deps -- only sync when server ack changes, not while editing
   }, [uiSettings]);

@@ -22,6 +22,7 @@ import {
   normalizeUiSettings,
   persistUiSettingsToStorage
 } from './settings/uiPreferences';
+import { formatAppearanceValue } from './settings/appearanceFieldModel';
 import { TemporaryAppearanceProvider, TemporaryAppearanceBar } from './settings/TemporaryAppearanceContext';
 import { Page } from './components/ui';
 import AppShell from './layout/AppShell';
@@ -624,10 +625,22 @@ function App() {
 
   const previewTheme = (theme) => applyUiSettingsToRoot(document.documentElement, { ...uiSettings, theme });
 
-  const closeThemePicker = (theme) => {
+  const closeThemePicker = async (theme) => {
     setThemePickerOpen(false);
-    if (theme === uiSettings.theme) applyUiSettingsToRoot(document.documentElement, uiSettings);
-    else handleAppearanceCommit({ theme });
+    if (theme === uiSettings.theme) {
+      applyUiSettingsToRoot(document.documentElement, uiSettings);
+      return;
+    }
+    systemStatus.clearRecoverableFailure();
+    const result = await handleAppearanceCommit({ theme });
+    if (!result.ok) {
+      systemStatus.setRecoverableFailure({
+        stage: 'Theme',
+        message: `${formatAppearanceValue('theme', theme)} did not save, so the theme you had is back.`,
+        retryable: true,
+        retry: () => { closeThemePicker(theme); }
+      });
+    }
   };
 
   const handleAppearanceUndo = async (receipt) => {
