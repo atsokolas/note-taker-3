@@ -52,15 +52,15 @@ describe('app theme design-system tokens', () => {
     expect(darkBlock).toContain('--noeis-canvas: #16140f');
     expect(darkBlock).not.toContain('#0e1829');
 
-    const tokyoEditorial = css.match(/html\[data-ui-theme='tokyo-midnight'\] body\.noeis-editorial \{[\s\S]*?\n\}/)?.[0] || '';
+    const tokyoEditorial = css.match(/html\[data-ui-family='palette'\] body\.noeis-editorial \{[\s\S]*?\n\}/)?.[0] || '';
     expect(tokyoEditorial).toContain('--ink: var(--noeis-ink)');
     expect(tokyoEditorial).toContain('--sagewash: var(--noeis-active)');
     expect(tokyoEditorial).toContain('--paper: var(--noeis-paper)');
     expect(tokyoEditorial).toContain('--vellum-surface: var(--noeis-floating)');
     expect(tokyoEditorial).toContain('--vellum-paper: var(--noeis-paper)');
-    expect(css).not.toContain("html[data-ui-theme='tokyo-midnight'] .wiki-collection__nav-btn.is-active");
-    expect(css).toContain("html[data-ui-theme='tokyo-midnight'] .library-highlights-surface");
-    expect(css).not.toContain("html[data-ui-theme='tokyo-midnight'] .app-shell-new--agent-on-demand .agent-rail-drawer__trigger");
+    expect(css).not.toContain("html[data-ui-family='palette'] .wiki-collection__nav-btn.is-active");
+    expect(css).toContain("html[data-ui-family='palette'] .library-highlights-surface");
+    expect(css).not.toContain("html[data-ui-family='palette'] .app-shell-new--agent-on-demand .agent-rail-drawer__trigger");
     expect(darkBlock).not.toContain('--sagewash:');
     expect(darkBlock).not.toContain('--vellum-surface:');
   });

@@ -1,23 +1,16 @@
+import { THEME_CATALOG } from './themeCatalog';
+
 export const NOEIS_THEME_SCHEMA_VERSION = 1;
 export const NOEIS_THEME_PACKAGE_ID = 'theme.editorial';
 
-export const NOEIS_THEME_VARIANTS = Object.freeze({
-  light: Object.freeze({
-    id: 'theme.editorial.light',
-    label: 'Light editorial theme',
-    colorScheme: 'light'
-  }),
-  dark: Object.freeze({
-    id: 'theme.editorial.dark',
-    label: 'Dark editorial theme',
-    colorScheme: 'dark'
-  }),
-  'tokyo-midnight': Object.freeze({
-    id: 'theme.editorial.tokyo-midnight',
-    label: 'Tokyo Midnight',
-    colorScheme: 'dark'
-  })
-});
+export const NOEIS_THEME_VARIANTS = Object.freeze(Object.fromEntries(
+  THEME_CATALOG.map(({ id, label, scheme, family }) => [id, Object.freeze({
+    id: `${NOEIS_THEME_PACKAGE_ID}.${id}`,
+    label,
+    colorScheme: scheme,
+    family
+  })])
+));
 
 export const colorSchemeForTheme = (activeTheme) => (
   NOEIS_THEME_VARIANTS[activeTheme]?.colorScheme === 'dark' ? 'dark' : 'light'
@@ -57,6 +50,7 @@ export const applySemanticThemeSnapshot = (root, snapshot) => {
 
   root.setAttribute('data-ui-theme', snapshot.activeTheme);
   root.setAttribute('data-ui-scheme', NOEIS_THEME_VARIANTS[snapshot.activeTheme].colorScheme);
+  root.setAttribute('data-ui-family', NOEIS_THEME_VARIANTS[snapshot.activeTheme].family);
   root.setAttribute('data-ui-theme-pref', snapshot.preferredTheme);
   root.setAttribute('data-ui-density', snapshot.density);
   root.setAttribute('data-ui-typography', snapshot.typographyScale);

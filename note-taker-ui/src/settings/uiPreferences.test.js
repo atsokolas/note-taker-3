@@ -37,7 +37,11 @@ describe('uiPreferences', () => {
 
   it('default theme is now "auto" (system-tracking)', () => {
     expect(DEFAULT_UI_SETTINGS.theme).toBe('auto');
-    expect(THEME_OPTIONS.map((option) => option.value)).toEqual(['auto', 'light', 'dark', 'tokyo-midnight']);
+    expect(THEME_OPTIONS.map((option) => option.value)).toEqual([
+      'auto', 'light', 'dark', 'tokyo-midnight',
+      'tokyo-night', 'catppuccin', 'dracula', 'nord', 'gruvbox-dark',
+      'rose-pine', 'everforest', 'monokai', 'solarized-dark', 'solarized-light'
+    ]);
     expect(THEME_OPTIONS.find((option) => option.value === 'tokyo-midnight').label).toBe('Tokyo Midnight');
   });
 

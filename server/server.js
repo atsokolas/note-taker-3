@@ -3466,7 +3466,7 @@ const UI_SETTINGS_DEFAULTS = Object.freeze({
 
 const UI_SETTINGS_TYPOGRAPHY_VALUES = new Set(['small', 'default', 'large']);
 const UI_SETTINGS_DENSITY_VALUES = new Set(['comfortable', 'compact']);
-const UI_SETTINGS_THEME_VALUES = new Set(['auto', 'light', 'dark', 'tokyo-midnight']);
+const UI_SETTINGS_THEME_VALUES = new Set(UiSettings.schema.path('theme').enumValues);
 const UI_SETTINGS_ACCENT_VALUES = new Set([
   'electric', 'violet', 'indigo',
   'blue', 'emerald', 'amber', 'rose'

@@ -25,7 +25,8 @@ import { Button } from '../components/ui';
 const Settings = ({
   uiSettings = normalizeUiSettings(),
   onAppearanceCommit = async () => ({ ok: false }),
-  onAppearanceUndo = async () => ({ ok: false })
+  onAppearanceUndo = async () => ({ ok: false }),
+  onOpenThemePicker
 }) => {
   useDocumentTitle('Settings');
   const location = useLocation();
@@ -46,10 +47,10 @@ const Settings = ({
   useEffect(() => {
     const normalized = normalizeUiSettings(uiSettings);
     setCommitted(normalized);
-    if (!appearanceDiffKeys(draft, editBase).length) {
-      setDraft(normalized);
-      setEditBase(normalized);
-    }
+    /* A theme kept from the menu lands here while other edits may be open;
+       take every saved change the draft has not touched itself. */
+    setDraft(mergeRemoteIntoDraft(draft, editBase, normalized));
+    setEditBase(normalized);
   // eslint-disable-next-line react-hooks/exhaustive-deps -- only sync when server ack changes, not while editing
   }, [uiSettings]);
 
@@ -163,6 +164,7 @@ const Settings = ({
           remoteBaseline={remoteBaseline}
           onAdoptRemoteBaseline={handleAdoptRemote}
           onDismissRemote={() => setRemoteBaseline(null)}
+          onOpenThemePicker={onOpenThemePicker}
         />
       );
     }
@@ -179,7 +181,8 @@ const Settings = ({
     lastReceipt,
     handleUndo,
     remoteBaseline,
-    handleAdoptRemote
+    handleAdoptRemote,
+    onOpenThemePicker
   ]);
 
   const handleSearchSelect = (entry) => {
