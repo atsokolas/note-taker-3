@@ -19,6 +19,18 @@ describe('TopBar help menu', () => {
     expect(onSearchOpen).toHaveBeenCalledTimes(1);
   });
 
+  it('wears the current theme as a swatch that opens the theme menu', () => {
+    const onOpen = jest.fn();
+    render(
+      <MemoryRouter>
+        <TopBar theme={{ id: 'dracula', label: 'Dracula', onOpen }} />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Theme: Dracula' }));
+    expect(onOpen).toHaveBeenCalledTimes(1);
+  });
+
   it('opens command palette from the icon search affordance', () => {
     const onSearchOpen = jest.fn();
     render(

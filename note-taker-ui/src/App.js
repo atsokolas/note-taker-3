@@ -719,10 +719,6 @@ function App() {
   const renderAppLayout = ({ shellLocation, surface }) => {
     const topBarAccountMenuItems = [
       {
-        label: 'Theme',
-        onClick: () => setThemePickerOpen(true)
-      },
-      {
         label: 'Feedback',
         onClick: () => setProductFeedbackOpen(true)
       },
@@ -872,6 +868,11 @@ function App() {
             searchMode="field"
             onSearchOpen={openPalette}
             accountMenuItems={topBarAccountMenuItems}
+            theme={{
+              id: uiSettings.theme,
+              label: formatAppearanceValue('theme', uiSettings.theme),
+              onOpen: () => setThemePickerOpen(true)
+            }}
             systemStatus={{
               backgroundWork: systemStatus.backgroundWork,
               latestReceipt: systemStatus.latestReceipt,
