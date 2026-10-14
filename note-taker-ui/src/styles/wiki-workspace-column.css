@@ -55,7 +55,7 @@
 .wiki-index .wiki-graph__actions .ui-button:focus-visible,
 .wiki-index .wiki-index__header .ui-button:focus-visible {
   background: none !important;
-  color: var(--wiki-warm-accent, var(--vellum-warm)) !important;
+  color: var(--wiki-warm-accent) !important;
 }
 
 /* ---- The map ------------------------------------------------------------ */
@@ -122,7 +122,7 @@
 .wiki-index .wiki-index__tabs a:focus-visible,
 .wiki-index .wiki-index__tabs button:focus-visible {
   border-bottom-color: currentColor;
-  color: var(--wiki-warm-accent, var(--vellum-warm));
+  color: var(--wiki-warm-accent);
   outline: none;
 }
 
@@ -287,7 +287,7 @@
 .wiki-index .wiki-graph-sparse-hint__actions button:focus-visible {
   border-color: currentColor;
   background: transparent;
-  color: var(--wiki-warm-accent, var(--vellum-warm));
+  color: var(--wiki-warm-accent);
   outline: none;
 }
 
@@ -448,7 +448,7 @@
 .wiki-workspace .wiki-workspace-activity__actions a:hover,
 .wiki-workspace .wiki-workspace-activity__actions a:focus-visible {
   background: transparent;
-  color: var(--wiki-warm-accent, var(--vellum-warm));
+  color: var(--wiki-warm-accent);
   outline: none;
 }
 
@@ -602,7 +602,7 @@ body.noeis-editorial .wiki-index .library-article-row-title,
     height: 3px;
     margin-left: -11px;
     border-radius: 999px;
-    background: var(--wiki-warm-accent, var(--vellum-warm));
+    background: var(--wiki-warm-accent);
     content: '';
     flex: 0 0 3px;
   }
@@ -704,7 +704,7 @@ body.noeis-editorial .wiki-index .library-article-row-title,
 .wiki-workspace .wiki-read__rail-toggle:focus-visible {
   border-color: currentColor;
   background: transparent;
-  color: var(--wiki-warm-accent, var(--vellum-warm));
+  color: var(--wiki-warm-accent);
   outline: none;
 }
 
@@ -766,7 +766,7 @@ body.noeis-editorial .wiki-index .library-article-row-title,
 .wiki-workspace .wiki-editor__topline .ui-button:focus-visible,
 .wiki-workspace .wiki-editor__inline-tools .ui-button:focus-visible {
   background: none !important;
-  color: var(--wiki-warm-accent, var(--vellum-warm)) !important;
+  color: var(--wiki-warm-accent) !important;
 }
 
 /* The page you are writing was a panel with a warm border and a filled title

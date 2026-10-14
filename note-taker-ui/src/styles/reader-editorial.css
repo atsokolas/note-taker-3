@@ -75,7 +75,7 @@ body.noeis-editorial .magnetic-reading-rail__track {
 
 body.noeis-editorial .magnetic-reading-rail__fill {
   border-radius: 0;
-  background: var(--wiki-warm-accent, var(--vellum-warm));
+  background: var(--wiki-warm-accent);
 }
 
 body.noeis-editorial .magnetic-reading-rail__pill-outer {
@@ -137,7 +137,7 @@ body.noeis-editorial .article-highlight-edition__note {
   font-style: italic;
 }
 
-html[data-ui-theme='dark'] body.noeis-editorial .article-reader-content mark.highlight {
+html[data-ui-scheme='dark'] body.noeis-editorial .article-reader-content mark.highlight {
   background: color-mix(in srgb, var(--highlight-color, #f6e27a) 46%, transparent) !important;
 }
 

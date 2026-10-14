@@ -98,7 +98,7 @@
 
 .system-status__section + .system-status__section {
   margin-top: 4px;
-  border-top: 1px solid var(--vellum-line-soft, rgba(0, 0, 0, 0.08));
+  border-top: 1px solid var(--noeis-rule);
   padding-top: 12px;
 }
 

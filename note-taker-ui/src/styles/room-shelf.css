@@ -61,8 +61,8 @@ body.noeis-editorial .room-shelf__search input {
 
 .room-shelf__search input:focus,
 body.noeis-editorial .room-shelf__search input:focus {
-  border-color: var(--wiki-warm-accent, var(--vellum-warm));
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--wiki-warm-accent, var(--vellum-warm)) 12%, transparent);
+  border-color: var(--wiki-warm-accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--wiki-warm-accent) 12%, transparent);
 }
 
 .room-shelf__section {

@@ -21,18 +21,18 @@ body.noeis-editorial.wiki-front-page-route .app-shell-new__body:has(.wiki-front-
   padding: 34px 30px 72px;
 }
 
-html[data-ui-theme='dark'] body.noeis-editorial.wiki-front-page-route,
-html[data-ui-theme='dark'] body.noeis-editorial:has(.wiki-front-page) {
-  background: var(--vellum-bg, var(--noeis-canvas)) !important;
+html[data-ui-scheme='dark'] body.noeis-editorial.wiki-front-page-route,
+html[data-ui-scheme='dark'] body.noeis-editorial:has(.wiki-front-page) {
+  background: var(--vellum-bg) !important;
 }
 
-html[data-ui-theme='dark'] .page-area:has(.wiki-front-page),
-html[data-ui-theme='dark'] .app-shell-new__body:has(.wiki-front-page),
-html[data-ui-theme='dark'] .wiki-front-page,
-html[data-ui-theme='dark'] body.noeis-editorial .page-area:has(.wiki-front-page),
-html[data-ui-theme='dark'] body.noeis-editorial .app-shell-new__body:has(.wiki-front-page),
-html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
-  background: var(--vellum-bg, var(--noeis-canvas));
+html[data-ui-scheme='dark'] .page-area:has(.wiki-front-page),
+html[data-ui-scheme='dark'] .app-shell-new__body:has(.wiki-front-page),
+html[data-ui-scheme='dark'] .wiki-front-page,
+html[data-ui-scheme='dark'] body.noeis-editorial .page-area:has(.wiki-front-page),
+html[data-ui-scheme='dark'] body.noeis-editorial .app-shell-new__body:has(.wiki-front-page),
+html[data-ui-scheme='dark'] body.noeis-editorial .wiki-front-page {
+  background: var(--vellum-bg);
 }
 
 /* Legible secondary nav — workspace destinations near the door. */
@@ -80,7 +80,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
   padding: 18px;
   border: 1px solid var(--border-subtle);
   border-radius: 12px;
-  background: var(--surface-primary);
+  background: var(--noeis-paper);
 }
 
 .wiki-company-dossier__form > p {
@@ -108,7 +108,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
   border: 1px solid var(--border-subtle);
   border-radius: 8px;
   padding: 10px 12px;
-  background: var(--surface-secondary);
+  background: var(--noeis-paper-muted);
   color: var(--text-primary);
   font: inherit;
 }
@@ -165,7 +165,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
   bottom: -1px;
   left: 0;
   height: 1px;
-  background: var(--wiki-warm-accent, var(--vellum-warm));
+  background: var(--wiki-warm-accent);
 }
 
 .wiki-creation__description {

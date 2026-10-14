@@ -1,4 +1,5 @@
 import { applySemanticThemeSnapshot, buildSemanticThemeSnapshot } from './semanticTheme';
+import { THEME_CATALOG } from './themeCatalog';
 
 export const UI_SETTINGS_STORAGE_KEY = 'ui-settings.v1';
 
@@ -13,16 +14,14 @@ const TYPOGRAPHY_VALUES = new Set(['small', 'default', 'large']);
 const DENSITY_VALUES = new Set(['comfortable', 'compact']);
 const MOTION_VALUES = new Set(['system', 'reduced']);
 
-// 'auto' tracks the OS. Light and Dark stay explicit. Tokyo Midnight is an
-// explicit night theme and does not follow prefers-color-scheme.
-// Unknown stored values fall back to auto; existing light/dark values stay.
-export const THEME_VALUES = new Set(['auto', 'light', 'dark', 'tokyo-midnight']);
+// 'auto' tracks the OS between Light and Dark. Every named theme is explicit
+// and does not follow prefers-color-scheme. Unknown stored values fall back to
+// auto; existing values stay.
 export const THEME_OPTIONS = [
   { value: 'auto', label: 'System', shortLabel: 'System' },
-  { value: 'light', label: 'Light', shortLabel: 'Light' },
-  { value: 'dark', label: 'Dark', shortLabel: 'Dark' },
-  { value: 'tokyo-midnight', label: 'Tokyo Midnight', shortLabel: 'Midnight' }
+  ...THEME_CATALOG.map(({ id, label }) => ({ value: id, label, shortLabel: label }))
 ];
+export const THEME_VALUES = new Set(THEME_OPTIONS.map((option) => option.value));
 
 export const MOTION_OPTIONS = [
   { value: 'system', label: 'Follow device' },

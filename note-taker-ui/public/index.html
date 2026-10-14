@@ -46,23 +46,39 @@
           };
           var raw = window.localStorage && window.localStorage.getItem('ui-settings.v1');
           var saved = raw ? JSON.parse(raw) : {};
-          var themeIds = ['auto', 'light', 'dark', 'tokyo-midnight'];
+          /* id: [scheme, family, browser bar colour]. Mirrors src/settings/themeCatalog.js. */
+          var themes = {
+            'light': ['light', 'editorial', '#fffcf7'],
+            'dark': ['dark', 'editorial', '#16140f'],
+            'tokyo-midnight': ['dark', 'palette', '#09111e'],
+            'tokyo-night': ['dark', 'palette', '#1a1b26'],
+            'catppuccin': ['dark', 'palette', '#1e1e2e'],
+            'dracula': ['dark', 'palette', '#282a36'],
+            'nord': ['dark', 'palette', '#2e3440'],
+            'gruvbox-dark': ['dark', 'palette', '#1d2021'],
+            'rose-pine': ['dark', 'palette', '#191724'],
+            'everforest': ['dark', 'palette', '#2d353b'],
+            'monokai': ['dark', 'palette', '#272822'],
+            'solarized-dark': ['dark', 'palette', '#002b36'],
+            'solarized-light': ['light', 'palette', '#fdf6e3']
+          };
           var savedTheme = String(saved.theme || '').toLowerCase();
-          var themePref = themeIds.indexOf(savedTheme) >= 0 ? savedTheme : defaults.theme;
+          var themePref = themes.hasOwnProperty(savedTheme) || savedTheme === 'auto' ? savedTheme : defaults.theme;
           var activeTheme = themePref;
           if (themePref === 'auto') {
             activeTheme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
           }
-          var scheme = activeTheme === 'light' ? 'light' : 'dark';
+          var active = themes[activeTheme];
           var density = ['comfortable', 'compact'].indexOf(saved.density) >= 0 ? saved.density : defaults.density;
           var typography = ['small', 'default', 'large'].indexOf(saved.typographyScale) >= 0 ? saved.typographyScale : defaults.typographyScale;
           var root = document.documentElement;
           root.setAttribute('data-ui-theme', activeTheme);
-          root.setAttribute('data-ui-scheme', scheme);
+          root.setAttribute('data-ui-scheme', active[0]);
+          root.setAttribute('data-ui-family', active[1]);
           root.setAttribute('data-ui-theme-pref', themePref);
           var themeColor = document.querySelector('meta[name="theme-color"]');
           if (themeColor) {
-            themeColor.setAttribute('content', activeTheme === 'tokyo-midnight' ? '#09111E' : (activeTheme === 'dark' ? '#16140f' : '#fffcf7'));
+            themeColor.setAttribute('content', active[2]);
           }
           root.setAttribute('data-ui-density', density);
           root.setAttribute('data-ui-typography', typography);
@@ -128,7 +144,7 @@
       <section class="card">
         <p class="eyebrow">Start from a shared wiki</p>
         <h2>Read a public wiki, then make it yours.</h2>
-        <p>Each of these wikis is open to read. <strong>Make this mine</strong> copies its pages into your own knowledge base, where your reading keeps growing it. The owner's private highlights, notes and sources stay with them.</p>
+        <p>Each of these wikis is open to read. <strong>Add to my library</strong> copies its pages into your own wiki and saves every public source it cites into your Library, where your reading keeps growing it. The owner's private highlights and notes stay with them.</p>
         <div class="grid">
           <a class="subcard guide-card" href="/share/wiki/collection/mental-models">
         <h2>Mental Models</h2>

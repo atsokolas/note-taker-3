@@ -134,7 +134,7 @@
 
 .shared-wiki-page .shared-wiki-page__adopt-cta:hover,
 .shared-wiki-page .shared-wiki-page__adopt-cta:focus-visible {
-  color: var(--wiki-warm-accent, var(--vellum-warm));
+  color: var(--wiki-warm-accent);
 }
 
 .shared-wiki-page .shared-wiki-page__sources {

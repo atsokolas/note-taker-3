@@ -1,12 +1,19 @@
 body.noeis-editorial .settings-redesign {
   --settings-green: #46634a;
-  --settings-muted: var(--noeis-muted, #656b62);
+  --settings-muted: var(--noeis-ink-muted, #656b62);
   --settings-rule: var(--noeis-rule, #dcded3);
   --settings-soft: color-mix(in srgb, var(--noeis-ink, #30352f) 6%, transparent);
-  --settings-panel: var(--noeis-panel, #fbfaf6);
+  --settings-panel: var(--noeis-paper, #fbfaf6);
   max-width: 1180px;
   margin: 2.5rem auto 5rem;
   padding: 0 1.25rem;
+}
+
+/* A named palette paints the page in its paper, so the chosen control lifts
+   off it, and links take the palette's own accent. */
+html[data-ui-family='palette'] body.noeis-editorial .settings-redesign {
+  --settings-green: var(--noeis-action);
+  --settings-panel: var(--noeis-active);
 }
 
 .settings-redesign__shell {
@@ -193,13 +200,6 @@ body.noeis-editorial .settings-redesign {
   --preview-accent: #e0b971;
 }
 
-.settings-redesign__preview.is-tokyo-midnight {
-  --preview-paper: #0e1829;
-  --preview-ink: #f3e9ed;
-  --preview-muted: #9dacca;
-  --preview-rule: #29374d;
-  --preview-accent: #e0b07a;
-}
 
 .settings-redesign__preview-top {
   height: 2.75rem;
@@ -260,9 +260,9 @@ body.noeis-editorial .settings-redesign {
 }
 
 .settings-redesign__receipt.is-error {
-  border-color: var(--noeis-error, #974d3c);
-  background: color-mix(in srgb, var(--noeis-error, #974d3c) 10%, transparent);
-  color: var(--noeis-error, #974d3c);
+  border-color: var(--noeis-danger);
+  background: color-mix(in srgb, var(--noeis-danger) 10%, transparent);
+  color: var(--noeis-danger);
 }
 
 .settings-redesign__link {

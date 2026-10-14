@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { colorSchemeForTheme } from '../../settings/semanticTheme';
+import { themeById } from '../../settings/themeCatalog';
 import { resolveActiveTheme, THEME_OPTIONS } from '../../settings/uiPreferences';
 
 const READER_SIZES = { small: '17px', default: '19px', large: '22px' };
@@ -18,15 +19,23 @@ const AppearancePreview = ({
 }) => {
   const activeTheme = resolveActiveTheme(settings.theme);
   const dark = colorSchemeForTheme(activeTheme) === 'dark';
-  const tokyo = activeTheme === 'tokyo-midnight';
+  /* A named palette previews on its own swatch colours. */
+  const palette = themeById(activeTheme)?.family === 'palette' ? themeById(activeTheme).swatch : null;
   const themeLine = settings.theme === 'auto'
     ? `Following this device · ${dark ? 'Dark' : 'Light'}`
     : (THEME_OPTIONS.find((option) => option.value === settings.theme)?.label || (dark ? 'Dark' : 'Light'));
   const style = useMemo(() => ({
     '--reader-size': READER_SIZES[settings.typographyScale] || READER_SIZES.default,
     '--row-space': ROW_SPACES[settings.density] || ROW_SPACES.comfortable,
-    '--preview-accent': dark ? ACCENT.dark : ACCENT.light
-  }), [settings, dark]);
+    '--preview-accent': dark ? ACCENT.dark : ACCENT.light,
+    ...(palette ? {
+      '--preview-paper': palette.paper,
+      '--preview-ink': palette.ink,
+      '--preview-muted': `color-mix(in srgb, ${palette.ink} 70%, ${palette.paper})`,
+      '--preview-rule': palette.rule,
+      '--preview-accent': palette.accent
+    } : {})
+  }), [settings, dark, palette]);
 
   return (
     <aside className="settings-redesign__preview-wrap" aria-label="Live appearance preview">
@@ -45,7 +54,7 @@ const AppearancePreview = ({
         </button>
       </div>
       <div
-        className={`settings-redesign__preview${dark ? ' is-dark' : ''}${tokyo ? ' is-tokyo-midnight' : ''}`}
+        className={`settings-redesign__preview${dark ? ' is-dark' : ''}`}
         style={style}
       >
         <div className="settings-redesign__preview-top">

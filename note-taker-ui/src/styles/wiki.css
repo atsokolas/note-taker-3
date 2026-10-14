@@ -1069,8 +1069,8 @@
 
 .wiki-graph-sync.is-stale,
 .wiki-graph-sync.is-limited {
-  border-color: color-mix(in srgb, var(--wiki-warm-accent, #b1862e) 46%, var(--noeis-rule));
-  background: color-mix(in srgb, var(--wiki-warm-accent, #b1862e) 8%, var(--surface));
+  border-color: color-mix(in srgb, var(--wiki-warm-accent) 46%, var(--noeis-rule));
+  background: color-mix(in srgb, var(--wiki-warm-accent) 8%, var(--surface));
 }
 
 .wiki-graph-sync div {
@@ -1457,7 +1457,7 @@
   min-width: 0;
   border: 1px solid var(--surface-border, rgba(130, 152, 230, 0.28));
   border-radius: 8px;
-  background: var(--surface-raised, #121f49);
+  background: var(--noeis-paper);
   color: var(--text-primary);
   font: inherit;
   font-size: 0.86rem;
@@ -1798,7 +1798,7 @@
   border: 1px solid color-mix(in srgb, var(--border-subtle, #d8d0c4) 88%, transparent);
   border-radius: 8px;
   background:
-    linear-gradient(135deg, color-mix(in srgb, var(--surface-raised, #fffaf2) 92%, transparent), transparent 120%),
+    linear-gradient(135deg, color-mix(in srgb, var(--noeis-paper) 92%, transparent), transparent 120%),
     var(--surface, #fffaf2);
   box-shadow: 0 12px 28px color-mix(in srgb, #2a241b 7%, transparent);
 }
@@ -1848,24 +1848,24 @@
   font-size: 0.78rem;
 }
 
-html[data-ui-theme='dark'] .wiki-read__share-card {
-  border-color: color-mix(in srgb, var(--wiki-warm-accent, #d2a45f) 28%, rgba(255, 255, 255, 0.08));
+html[data-ui-scheme='dark'] .wiki-read__share-card {
+  border-color: color-mix(in srgb, var(--wiki-warm-accent) 28%, rgba(255, 255, 255, 0.08));
   background:
-    linear-gradient(135deg, rgba(211, 164, 95, 0.10), rgba(211, 164, 95, 0.02) 44%, rgba(255, 255, 255, 0.02)),
-    color-mix(in srgb, var(--noeis-paper, #211e17) 88%, #080705);
+    linear-gradient(135deg, color-mix(in srgb, var(--noeis-thread) 10%, transparent), color-mix(in srgb, var(--noeis-thread) 2%, transparent) 44%, rgba(255, 255, 255, 0.02)),
+    color-mix(in srgb, var(--noeis-paper) 88%, black);
   box-shadow: 0 18px 42px rgba(0, 0, 0, 0.24);
 }
 
-html[data-ui-theme='dark'] .wiki-read__share-card-kicker {
-  color: color-mix(in srgb, var(--wiki-warm-accent, #d2a45f) 82%, var(--text-primary));
+html[data-ui-scheme='dark'] .wiki-read__share-card-kicker {
+  color: color-mix(in srgb, var(--wiki-warm-accent) 82%, var(--text-primary));
 }
 
-html[data-ui-theme='dark'] .wiki-read__share-card p {
+html[data-ui-scheme='dark'] .wiki-read__share-card p {
   color: color-mix(in srgb, var(--text-primary) 72%, var(--text-muted));
 }
 
-html[data-ui-theme='dark'] .wiki-read__share-card-actions .wiki-read__share-open {
-  color: color-mix(in srgb, var(--text-primary) 84%, var(--wiki-warm-accent, #d2a45f));
+html[data-ui-scheme='dark'] .wiki-read__share-card-actions .wiki-read__share-open {
+  color: color-mix(in srgb, var(--text-primary) 84%, var(--wiki-warm-accent));
 }
 
 .wiki-read__page-status {
@@ -1957,8 +1957,8 @@ html[data-ui-theme='dark'] .wiki-read__share-card-actions .wiki-read__share-open
   box-shadow: none;
 }
 
-html[data-ui-theme='dark'] .wiki-read__page-status {
-  border-color: color-mix(in srgb, var(--wiki-warm-accent, #d2a45f) 16%, rgba(255, 255, 255, 0.06));
+html[data-ui-scheme='dark'] .wiki-read__page-status {
+  border-color: color-mix(in srgb, var(--wiki-warm-accent) 16%, rgba(255, 255, 255, 0.06));
 }
 
 .wiki-read__edgar-watch {
@@ -1971,7 +1971,7 @@ html[data-ui-theme='dark'] .wiki-read__page-status {
   border: 1px solid color-mix(in srgb, var(--border-subtle, #d8d0c4) 88%, transparent);
   border-radius: 8px;
   background:
-    linear-gradient(135deg, color-mix(in srgb, var(--surface-raised, #fffaf2) 92%, transparent), transparent 120%),
+    linear-gradient(135deg, color-mix(in srgb, var(--noeis-paper) 92%, transparent), transparent 120%),
     var(--surface, #fffaf2);
   box-shadow: 0 12px 28px color-mix(in srgb, #2a241b 6%, transparent);
 }
@@ -2087,16 +2087,16 @@ html[data-ui-theme='dark'] .wiki-read__page-status {
   outline-offset: 1px;
 }
 
-html[data-ui-theme='dark'] .wiki-read__edgar-watch {
-  border-color: color-mix(in srgb, var(--wiki-warm-accent, #d2a45f) 22%, rgba(255, 255, 255, 0.08));
+html[data-ui-scheme='dark'] .wiki-read__edgar-watch {
+  border-color: color-mix(in srgb, var(--wiki-warm-accent) 22%, rgba(255, 255, 255, 0.08));
   background:
-    linear-gradient(135deg, rgba(211, 164, 95, 0.08), rgba(211, 164, 95, 0.02) 44%, rgba(255, 255, 255, 0.02)),
-    var(--surface, #171512);
+    linear-gradient(135deg, color-mix(in srgb, var(--noeis-thread) 8%, transparent), color-mix(in srgb, var(--noeis-thread) 2%, transparent) 44%, rgba(255, 255, 255, 0.02)),
+    var(--surface);
 }
 
-html[data-ui-theme='dark'] .wiki-read__edgar-watch-receipt {
-  border-color: color-mix(in srgb, var(--wiki-warm-accent, #d2a45f) 34%, rgba(255, 255, 255, 0.08));
-  background: color-mix(in srgb, var(--wiki-warm-accent, #d2a45f) 10%, rgba(255, 255, 255, 0.03));
+html[data-ui-scheme='dark'] .wiki-read__edgar-watch-receipt {
+  border-color: color-mix(in srgb, var(--wiki-warm-accent) 34%, rgba(255, 255, 255, 0.08));
+  background: color-mix(in srgb, var(--wiki-warm-accent) 10%, rgba(255, 255, 255, 0.03));
 }
 
 .wiki-read__entity-watches {
@@ -2270,14 +2270,14 @@ html[data-ui-theme='dark'] .wiki-read__edgar-watch-receipt {
   outline-offset: 1px;
 }
 
-html[data-ui-theme='dark'] .wiki-read__github-watch {
-  border-color: color-mix(in srgb, var(--wiki-warm-accent, #d2a45f) 14%, rgba(255, 255, 255, 0.06));
-  background: color-mix(in srgb, var(--surface, #171512) 98%, rgba(255, 255, 255, 0.02));
+html[data-ui-scheme='dark'] .wiki-read__github-watch {
+  border-color: color-mix(in srgb, var(--wiki-warm-accent) 14%, rgba(255, 255, 255, 0.06));
+  background: color-mix(in srgb, var(--surface) 98%, rgba(255, 255, 255, 0.02));
 }
 
-html[data-ui-theme='dark'] .wiki-read__github-watch-receipt {
-  border-color: color-mix(in srgb, var(--wiki-warm-accent, #d2a45f) 24%, rgba(255, 255, 255, 0.06));
-  background: color-mix(in srgb, var(--wiki-warm-accent, #d2a45f) 7%, rgba(255, 255, 255, 0.02));
+html[data-ui-scheme='dark'] .wiki-read__github-watch-receipt {
+  border-color: color-mix(in srgb, var(--wiki-warm-accent) 24%, rgba(255, 255, 255, 0.06));
+  background: color-mix(in srgb, var(--wiki-warm-accent) 7%, rgba(255, 255, 255, 0.02));
 }
 
 .wiki-read__repo-watches {
@@ -2430,15 +2430,15 @@ html[data-ui-theme='dark'] .wiki-read__github-watch-receipt {
   list-style: none;
 }
 
-html[data-ui-theme='dark'] .wiki-read__repo-quickstart {
-  border-color: color-mix(in srgb, var(--wiki-warm-accent, #d2a45f) 12%, rgba(255, 255, 255, 0.06));
-  background: color-mix(in srgb, var(--surface, #171512) 96%, rgba(255, 255, 255, 0.02));
+html[data-ui-scheme='dark'] .wiki-read__repo-quickstart {
+  border-color: color-mix(in srgb, var(--wiki-warm-accent) 12%, rgba(255, 255, 255, 0.06));
+  background: color-mix(in srgb, var(--surface) 96%, rgba(255, 255, 255, 0.02));
 }
 
-html[data-ui-theme='dark'] .wiki-read__repo-quickstart-code,
-html[data-ui-theme='dark'] .wiki-read__repo-quickstart-paths code,
-html[data-ui-theme='dark'] .wiki-read__repo-quickstart-source {
-  background: color-mix(in srgb, var(--surface-muted, #211d18) 88%, rgba(255, 255, 255, 0.03));
+html[data-ui-scheme='dark'] .wiki-read__repo-quickstart-code,
+html[data-ui-scheme='dark'] .wiki-read__repo-quickstart-paths code,
+html[data-ui-scheme='dark'] .wiki-read__repo-quickstart-source {
+  background: color-mix(in srgb, var(--surface-muted) 88%, rgba(255, 255, 255, 0.03));
 }
 
 .wiki-read__repo-dossier,
@@ -2545,7 +2545,7 @@ html[data-ui-theme='dark'] .wiki-read__repo-quickstart-source {
   height: 18px;
   padding: 0 5px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--wiki-warm-accent, #d2a45f) 18%, transparent);
+  background: color-mix(in srgb, var(--wiki-warm-accent) 18%, transparent);
   color: var(--text-primary);
   font-size: 0.68rem;
   font-weight: 700;
@@ -2632,11 +2632,11 @@ html[data-ui-theme='dark'] .wiki-read__repo-quickstart-source {
   opacity: 0.55;
 }
 
-html[data-ui-theme='dark'] .wiki-read__repo-dossier,
-html[data-ui-theme='dark'] .wiki-read__repo-dossier-toc,
-html[data-ui-theme='dark'] .wiki-read__repo-dossier-section {
-  border-color: color-mix(in srgb, var(--wiki-warm-accent, #d2a45f) 12%, rgba(255, 255, 255, 0.06));
-  background: color-mix(in srgb, var(--surface, #171512) 96%, rgba(255, 255, 255, 0.02));
+html[data-ui-scheme='dark'] .wiki-read__repo-dossier,
+html[data-ui-scheme='dark'] .wiki-read__repo-dossier-toc,
+html[data-ui-scheme='dark'] .wiki-read__repo-dossier-section {
+  border-color: color-mix(in srgb, var(--wiki-warm-accent) 12%, rgba(255, 255, 255, 0.06));
+  background: color-mix(in srgb, var(--surface) 96%, rgba(255, 255, 255, 0.02));
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -3100,7 +3100,7 @@ html[data-ui-theme='dark'] .wiki-read__repo-dossier-section {
 }
 
 .wiki-meta-bar__save-state--dirty {
-  color: color-mix(in srgb, var(--warning, #b7791f) 88%, var(--text-muted));
+  color: color-mix(in srgb, var(--noeis-warning) 88%, var(--text-muted));
 }
 
 .wiki-meta-bar__save-state--failed {
@@ -3268,12 +3268,12 @@ html[data-ui-theme='dark'] .wiki-read__repo-dossier-section {
 
 .wiki-claim[data-support='supported'],
 .wiki-claim-citation[data-support='supported'] {
-  --wiki-claim-color: var(--wiki-warm-accent, #b1862e);
+  --wiki-claim-color: var(--wiki-warm-accent);
 }
 
 .wiki-claim[data-support='partial'],
 .wiki-claim-citation[data-support='partial'] {
-  --wiki-claim-color: color-mix(in srgb, var(--wiki-warm-accent, #b1862e) 78%, var(--vellum-subtle));
+  --wiki-claim-color: color-mix(in srgb, var(--wiki-warm-accent) 78%, var(--vellum-subtle));
 }
 
 .wiki-claim[data-support='unsupported'],
@@ -3285,24 +3285,7 @@ html[data-ui-theme='dark'] .wiki-read__repo-dossier-section {
 .wiki-claim-citation[data-support='contradicted'],
 .wiki-claim[data-support='conflicted'],
 .wiki-claim-citation[data-support='conflicted'] {
-  --wiki-claim-color: var(--wiki-quiet-danger, #9b5a46);
-}
-
-html[data-ui-theme='dark'] .wiki-claim[data-support='supported'],
-html[data-ui-theme='dark'] .wiki-claim-citation[data-support='supported'] {
-  --wiki-claim-color: var(--wiki-warm-accent, #d2a45f);
-}
-
-html[data-ui-theme='dark'] .wiki-claim[data-support='partial'],
-html[data-ui-theme='dark'] .wiki-claim-citation[data-support='partial'] {
-  --wiki-claim-color: color-mix(in srgb, var(--wiki-warm-accent, #d2a45f) 78%, var(--vellum-subtle));
-}
-
-html[data-ui-theme='dark'] .wiki-claim[data-support='contradicted'],
-html[data-ui-theme='dark'] .wiki-claim-citation[data-support='contradicted'],
-html[data-ui-theme='dark'] .wiki-claim[data-support='conflicted'],
-html[data-ui-theme='dark'] .wiki-claim-citation[data-support='conflicted'] {
-  --wiki-claim-color: var(--wiki-quiet-danger, #c78978);
+  --wiki-claim-color: var(--wiki-quiet-danger);
 }
 
 /* Citation popover --------------------------------------------------------
@@ -3320,10 +3303,6 @@ html[data-ui-theme='dark'] .wiki-claim-citation[data-support='conflicted'] {
   line-height: 1.5;
   color: var(--vellum-ink);
   animation: wikiClaimPopIn 140ms ease-out;
-}
-
-html[data-ui-theme='dark'] .wiki-claim-popover {
-  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.4);
 }
 
 @keyframes wikiClaimPopIn {
@@ -3358,11 +3337,11 @@ html[data-ui-theme='dark'] .wiki-claim-popover {
 }
 
 .wiki-claim-popover__pill--supported {
-  color: var(--wiki-warm-accent, #b1862e);
+  color: var(--wiki-warm-accent);
 }
 
 .wiki-claim-popover__pill--partial {
-  color: color-mix(in srgb, var(--wiki-warm-accent, #b1862e) 78%, var(--vellum-subtle));
+  color: color-mix(in srgb, var(--wiki-warm-accent) 78%, var(--vellum-subtle));
 }
 
 .wiki-claim-popover__pill--unsupported {
@@ -3371,20 +3350,7 @@ html[data-ui-theme='dark'] .wiki-claim-popover {
 
 .wiki-claim-popover__pill--contradicted,
 .wiki-claim-popover__pill--conflicted {
-  color: var(--wiki-quiet-danger, #9b5a46);
-}
-
-html[data-ui-theme='dark'] .wiki-claim-popover__pill--supported {
-  color: var(--wiki-warm-accent, #d2a45f);
-}
-
-html[data-ui-theme='dark'] .wiki-claim-popover__pill--partial {
-  color: color-mix(in srgb, var(--wiki-warm-accent, #d2a45f) 78%, var(--vellum-subtle));
-}
-
-html[data-ui-theme='dark'] .wiki-claim-popover__pill--contradicted,
-html[data-ui-theme='dark'] .wiki-claim-popover__pill--conflicted {
-  color: var(--wiki-quiet-danger, #c78978);
+  color: var(--wiki-quiet-danger);
 }
 
 .wiki-claim-popover__count {
@@ -3456,19 +3422,11 @@ html[data-ui-theme='dark'] .wiki-claim-popover__pill--conflicted {
 }
 
 .wiki-claim-popover__evidence--supports .wiki-claim-popover__evidence-title {
-  color: var(--wiki-warm-accent, #b1862e);
+  color: var(--wiki-warm-accent);
 }
 
 .wiki-claim-popover__evidence--contradicts .wiki-claim-popover__evidence-title {
-  color: var(--wiki-quiet-danger, #9b5a46);
-}
-
-html[data-ui-theme='dark'] .wiki-claim-popover__evidence--supports .wiki-claim-popover__evidence-title {
-  color: var(--wiki-warm-accent, #d2a45f);
-}
-
-html[data-ui-theme='dark'] .wiki-claim-popover__evidence--contradicts .wiki-claim-popover__evidence-title {
-  color: var(--wiki-quiet-danger, #c78978);
+  color: var(--wiki-quiet-danger);
 }
 
 .wiki-claim-popover__list {
@@ -3599,8 +3557,8 @@ a.wiki-claim-popover__item-title:focus-visible {
 }
 
 .wiki-read__references li.is-kin {
-  background: color-mix(in srgb, var(--wiki-warm-accent, var(--vellum-warm, #b1862e)) 10%, transparent);
-  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--wiki-warm-accent, var(--vellum-warm, #b1862e)) 62%, transparent);
+  background: color-mix(in srgb, var(--wiki-warm-accent) 10%, transparent);
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--wiki-warm-accent) 62%, transparent);
 }
 
 .wiki-read__article.is-listening .wiki-claim-citation:not(.is-kin) {
@@ -3608,7 +3566,7 @@ a.wiki-claim-popover__item-title:focus-visible {
 }
 
 .wiki-read__article.is-listening .wiki-claim-citation.is-kin {
-  color: var(--wiki-warm-accent, var(--vellum-warm, #b1862e));
+  color: var(--wiki-warm-accent);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -3625,7 +3583,7 @@ a.wiki-claim-popover__item-title:focus-visible {
 
 .wiki-read__reference-index,
 .wiki-read__reference-backlink {
-  color: var(--text-tertiary);
+  color: var(--noeis-ink-subtle);
   font-family: var(--font-sans);
   font-size: 0.78rem;
   font-weight: 700;
@@ -4421,27 +4379,15 @@ a.wiki-read__reference-title:focus-visible {
 }
 
 .wiki-changes-banner__group--added .wiki-changes-banner__group-title {
-  color: var(--wiki-warm-accent, #b1862e);
+  color: var(--wiki-warm-accent);
 }
 
 .wiki-changes-banner__group--removed .wiki-changes-banner__group-title {
-  color: var(--wiki-quiet-danger, #9b5a46);
+  color: var(--wiki-quiet-danger);
 }
 
 .wiki-changes-banner__group--changed .wiki-changes-banner__group-title {
-  color: #6e7690;
-}
-
-html[data-ui-theme='dark'] .wiki-changes-banner__group--added .wiki-changes-banner__group-title {
-  color: var(--wiki-warm-accent, #d2a45f);
-}
-
-html[data-ui-theme='dark'] .wiki-changes-banner__group--removed .wiki-changes-banner__group-title {
-  color: var(--wiki-quiet-danger, #c78978);
-}
-
-html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-banner__group-title {
-  color: #aeb8d4;
+  color: var(--noeis-ink-muted);
 }
 
 .wiki-changes-banner__list {
@@ -4476,33 +4422,18 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
 }
 
 .wiki-changes-banner__group--added .wiki-changes-banner__sigil {
-  background: color-mix(in srgb, var(--wiki-warm-accent, #b1862e) 14%, transparent);
-  color: var(--wiki-warm-accent, #b1862e);
+  background: color-mix(in srgb, var(--wiki-warm-accent) 14%, transparent);
+  color: var(--wiki-warm-accent);
 }
 
 .wiki-changes-banner__group--removed .wiki-changes-banner__sigil {
-  background: color-mix(in srgb, var(--wiki-quiet-danger, #9b5a46) 12%, transparent);
-  color: var(--wiki-quiet-danger, #9b5a46);
+  background: color-mix(in srgb, var(--wiki-quiet-danger) 12%, transparent);
+  color: var(--wiki-quiet-danger);
 }
 
 .wiki-changes-banner__group--changed .wiki-changes-banner__sigil {
-  background: color-mix(in srgb, #6e7690 18%, transparent);
-  color: #6e7690;
-}
-
-html[data-ui-theme='dark'] .wiki-changes-banner__group--added .wiki-changes-banner__sigil {
-  color: var(--wiki-warm-accent, #d2a45f);
-  background: color-mix(in srgb, var(--wiki-warm-accent, #d2a45f) 14%, transparent);
-}
-
-html[data-ui-theme='dark'] .wiki-changes-banner__group--removed .wiki-changes-banner__sigil {
-  color: var(--wiki-quiet-danger, #c78978);
-  background: color-mix(in srgb, var(--wiki-quiet-danger, #c78978) 12%, transparent);
-}
-
-html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-banner__sigil {
-  color: #aeb8d4;
-  background: color-mix(in srgb, #aeb8d4 18%, transparent);
+  background: color-mix(in srgb, var(--noeis-ink-muted) 18%, transparent);
+  color: var(--noeis-ink-muted);
 }
 
 .wiki-changes-banner__item-meta {
@@ -4619,11 +4550,11 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
 }
 
 .wiki-inbox__item--pending {
-  border-color: color-mix(in srgb, var(--wiki-warm-accent, #b1862e) 35%, var(--vellum-line));
+  border-color: color-mix(in srgb, var(--wiki-warm-accent) 35%, var(--vellum-line));
 }
 
 .wiki-inbox__item--failed {
-  border-color: color-mix(in srgb, var(--wiki-quiet-danger, #9b5a46) 38%, var(--vellum-line));
+  border-color: color-mix(in srgb, var(--wiki-quiet-danger) 38%, var(--vellum-line));
 }
 
 .wiki-internal-link {
@@ -4640,10 +4571,10 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
 /* Wiki workspace --------------------------------------------------------- */
 
 .wiki-workspace {
-  --accent-primary: var(--wiki-warm-accent, #b1862e);
-  --noeis-action: var(--wiki-warm-accent, #b1862e);
-  --accent-secondary: var(--wiki-warm-accent, #b1862e);
-  --danger: var(--wiki-quiet-danger, #9b5a46);
+  --accent-primary: var(--wiki-warm-accent);
+  --noeis-action: var(--wiki-warm-accent);
+  --accent-secondary: var(--wiki-warm-accent);
+  --danger: var(--wiki-quiet-danger);
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   height: calc(100vh - 96px);
@@ -4656,10 +4587,10 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
 
 .wiki-read,
 .wiki-page.wiki-index {
-  --accent-primary: var(--wiki-warm-accent, #b1862e);
-  --noeis-action: var(--wiki-warm-accent, #b1862e);
-  --accent-secondary: var(--wiki-warm-accent, #b1862e);
-  --danger: var(--wiki-quiet-danger, #9b5a46);
+  --accent-primary: var(--wiki-warm-accent);
+  --noeis-action: var(--wiki-warm-accent);
+  --accent-secondary: var(--wiki-warm-accent);
+  --danger: var(--wiki-quiet-danger);
 }
 
 .wiki-workspace-onboarding {
@@ -4670,7 +4601,7 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
   place-items: center;
   padding: 24px;
   background:
-    linear-gradient(135deg, color-mix(in srgb, var(--wiki-warm-accent, #b1862e) 12%, transparent), transparent 44%),
+    linear-gradient(135deg, color-mix(in srgb, var(--wiki-warm-accent) 12%, transparent), transparent 44%),
     color-mix(in srgb, var(--surface) 94%, rgba(0, 0, 0, 0.16));
 }
 
@@ -4679,7 +4610,7 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
   gap: 18px;
   width: min(620px, 100%);
   padding: clamp(24px, 4vw, 40px);
-  border: 1px solid color-mix(in srgb, var(--wiki-warm-accent, #b1862e) 30%, var(--noeis-rule));
+  border: 1px solid color-mix(in srgb, var(--wiki-warm-accent) 30%, var(--noeis-rule));
   border-radius: 8px;
   background: color-mix(in srgb, var(--surface) 96%, transparent);
   box-shadow: 0 24px 80px color-mix(in srgb, #000 18%, transparent);
@@ -5347,7 +5278,7 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
   width: min(100% - 32px, 1160px);
   margin: 12px auto 0;
   padding: 10px 12px;
-  border: 1px solid color-mix(in srgb, var(--wiki-warm-accent, #b1862e) 34%, var(--noeis-rule));
+  border: 1px solid color-mix(in srgb, var(--wiki-warm-accent) 34%, var(--noeis-rule));
   border-radius: 8px;
   background: color-mix(in srgb, var(--surface) 94%, #fff);
   box-shadow: 0 8px 20px color-mix(in srgb, #000 8%, transparent);
@@ -5433,7 +5364,7 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
 
 .wiki-read__object-label {
   margin: 0 0 10px;
-  color: var(--wiki-warm-accent, #a47f32);
+  color: var(--wiki-warm-accent);
   font: 720 0.68rem/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
   letter-spacing: 0.13em;
   text-transform: uppercase;
@@ -5469,7 +5400,7 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
   column-gap: clamp(24px, 4vw, 46px);
   row-gap: 22px;
   padding: clamp(22px, 3vw, 34px) 0 clamp(26px, 4vw, 42px);
-  border-top: 1px solid color-mix(in srgb, var(--wiki-warm-accent, #a47f32) 44%, var(--noeis-rule));
+  border-top: 1px solid color-mix(in srgb, var(--wiki-warm-accent) 44%, var(--noeis-rule));
 }
 
 .wiki-thesis__heading {
@@ -5537,7 +5468,7 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
   grid-area: judgment;
   min-width: 0;
   padding-left: 16px;
-  border-left: 2px solid var(--wiki-warm-accent, #a47f32);
+  border-left: 2px solid var(--wiki-warm-accent);
 }
 
 .wiki-thesis__judgment p {
@@ -5571,7 +5502,7 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
 .wiki-thesis__decision-test > span {
   display: block;
   margin: 0 0 6px;
-  color: var(--wiki-warm-accent, #a47f32);
+  color: var(--wiki-warm-accent);
   font-size: 0.68rem;
   font-weight: 720;
   letter-spacing: 0.095em;
@@ -5629,7 +5560,7 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
 }
 
 .wiki-thesis__decision-focus.is-empty {
-  border-color: color-mix(in srgb, var(--wiki-warm-accent, #a47f32) 46%, var(--noeis-rule));
+  border-color: color-mix(in srgb, var(--wiki-warm-accent) 46%, var(--noeis-rule));
 }
 
 .wiki-thesis__facts {
@@ -5795,7 +5726,7 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
   min-width: 0;
   min-height: 42px;
   padding: 9px 10px;
-  border: 1px solid color-mix(in srgb, var(--wiki-warm-accent, #a47f32) 34%, var(--noeis-rule));
+  border: 1px solid color-mix(in srgb, var(--wiki-warm-accent) 34%, var(--noeis-rule));
   border-radius: 6px;
   background: color-mix(in srgb, var(--surface) 96%, transparent);
   color: var(--text-primary);
@@ -5883,8 +5814,8 @@ html[data-ui-theme='dark'] .wiki-changes-banner__group--changed .wiki-changes-ba
 
 .wiki-thesis__primary-action,
 .wiki-thesis__snapshot-action {
-  border-color: color-mix(in srgb, var(--wiki-warm-accent, #a47f32) 76%, var(--noeis-rule)) !important;
-  background: color-mix(in srgb, var(--wiki-warm-accent, #a47f32) 82%, var(--surface)) !important;
+  border-color: color-mix(in srgb, var(--wiki-warm-accent) 76%, var(--noeis-rule)) !important;
+  background: color-mix(in srgb, var(--wiki-warm-accent) 82%, var(--surface)) !important;
   color: #17130b !important;
 }
 

@@ -13,6 +13,7 @@ import Landing from './pages/Landing';
 import CommandPalette from './components/CommandPalette';
 import KeyboardShortcutOverlay from './components/KeyboardShortcutOverlay';
 import ProductFeedbackModal from './components/ProductFeedbackModal';
+import ThemePicker from './components/settings/ThemePicker';
 import { clearStoredTokens, hasUsableStoredToken } from './api';
 import { fetchUiSettings, saveUiSettings } from './api/uiSettings';
 import {
@@ -21,6 +22,7 @@ import {
   normalizeUiSettings,
   persistUiSettingsToStorage
 } from './settings/uiPreferences';
+import { formatAppearanceValue } from './settings/appearanceFieldModel';
 import { TemporaryAppearanceProvider, TemporaryAppearanceBar } from './settings/TemporaryAppearanceContext';
 import { Page } from './components/ui';
 import AppShell from './layout/AppShell';
@@ -462,6 +464,7 @@ function App() {
   const paletteReturnFocusRef = useRef(null);
   const [shortcutOverlayOpen, setShortcutOverlayOpen] = useState(false);
   const [productFeedbackOpen, setProductFeedbackOpen] = useState(false);
+  const [themePickerOpen, setThemePickerOpen] = useState(false);
   const [uiSettings, setUiSettings] = useState(() => loadUiSettingsFromStorage());
   const systemStatus = useSystemStatus();
   const storageFailure = useStorageStatus(isAuthenticated);
@@ -620,6 +623,26 @@ function App() {
     }
   };
 
+  const previewTheme = (theme) => applyUiSettingsToRoot(document.documentElement, { ...uiSettings, theme });
+
+  const closeThemePicker = async (theme) => {
+    setThemePickerOpen(false);
+    if (theme === uiSettings.theme) {
+      applyUiSettingsToRoot(document.documentElement, uiSettings);
+      return;
+    }
+    systemStatus.clearRecoverableFailure();
+    const result = await handleAppearanceCommit({ theme });
+    if (!result.ok) {
+      systemStatus.setRecoverableFailure({
+        stage: 'Theme',
+        message: `${formatAppearanceValue('theme', theme)} did not save, so the theme you had is back.`,
+        retryable: true,
+        retry: () => { closeThemePicker(theme); }
+      });
+    }
+  };
+
   const handleAppearanceUndo = async (receipt) => {
     const undoPatch = {};
     receipt.keys.forEach((key) => {
@@ -696,6 +719,10 @@ function App() {
   const renderAppLayout = ({ shellLocation, surface }) => {
     const topBarAccountMenuItems = [
       {
+        label: 'Theme',
+        onClick: () => setThemePickerOpen(true)
+      },
+      {
         label: 'Feedback',
         onClick: () => setProductFeedbackOpen(true)
       },
@@ -717,6 +744,13 @@ function App() {
         <CommandPalette open={paletteOpen} onClose={closePalette} />
         <KeyboardShortcutOverlay open={shortcutOverlayOpen} onClose={() => setShortcutOverlayOpen(false)} />
         <ProductFeedbackModal open={productFeedbackOpen} onClose={() => setProductFeedbackOpen(false)} />
+        <ThemePicker
+          open={themePickerOpen}
+          value={uiSettings.theme}
+          onPreview={previewTheme}
+          onConfirm={closeThemePicker}
+          onCancel={closeThemePicker}
+        />
         <TourManager />
         {/* A new account starts at the beginning, wherever it enters. */}
         <FirstRunGate />
@@ -771,6 +805,7 @@ function App() {
                   uiSettings={uiSettings}
                   onAppearanceCommit={handleAppearanceCommit}
                   onAppearanceUndo={handleAppearanceUndo}
+                  onOpenThemePicker={() => setThemePickerOpen(true)}
                 />
               )}
             />
