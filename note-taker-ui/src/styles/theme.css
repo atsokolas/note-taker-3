@@ -1065,13 +1065,13 @@ button.connections-row {
 }
 
 .connections-row--connected .connections-state-dot {
-  background: var(--success, var(--accent));
+  background: var(--noeis-success);
 }
 
 .connections-row--warning .connections-state-dot,
 .connections-row--waiting .connections-state-dot,
 .connections-row--working .connections-state-dot {
-  background: var(--warning, #9a6e2f);
+  background: var(--noeis-warning);
 }
 
 .connections-text-button,
@@ -1410,8 +1410,8 @@ button.connections-row {
 .connections-revoke-confirm {
   margin: 18px 0 0;
   padding: 14px 16px;
-  border-left: 2px solid var(--warning, #9a6e2f);
-  background: color-mix(in srgb, var(--warning, #9a6e2f) 9%, transparent);
+  border-left: 2px solid var(--noeis-warning);
+  background: color-mix(in srgb, var(--noeis-warning) 9%, transparent);
   color: var(--text-secondary);
   font-size: 0.78rem;
 }
@@ -1930,7 +1930,7 @@ button.connections-row {
 
 .ariadne-thread__line path {
   fill: none;
-  stroke: var(--noeis-gold, #a77721);
+  stroke: var(--noeis-thread);
   stroke-width: 1;
   stroke-linecap: round;
   stroke-dasharray: 1;
@@ -1944,7 +1944,7 @@ button.connections-row {
   position: fixed;
   width: 6px;
   height: 6px;
-  border: 1px solid var(--noeis-gold, #a77721);
+  border: 1px solid var(--noeis-thread);
   border-radius: 50%;
   background: var(--paper, #f7f3eb);
   opacity: 0;
@@ -2215,9 +2215,9 @@ button.connections-row {
 }
 
 .semantic-related-band.is-high {
-  background: color-mix(in srgb, var(--success) 20%, transparent);
-  color: color-mix(in srgb, var(--success) 80%, #132218);
-  border-color: color-mix(in srgb, var(--success) 50%, transparent);
+  background: color-mix(in srgb, var(--noeis-success) 20%, transparent);
+  color: color-mix(in srgb, var(--noeis-success) 80%, #132218);
+  border-color: color-mix(in srgb, var(--noeis-success) 50%, transparent);
 }
 
 .semantic-related-band.is-medium {
@@ -3214,8 +3214,8 @@ button.connections-row {
   margin: 0 auto var(--space-5);
   max-width: 760px;
   padding: var(--space-4) var(--space-5);
-  border-left: 2px solid var(--wiki-warm-accent, #b08a4f);
-  background: color-mix(in srgb, var(--wiki-warm-accent, #b08a4f) 7%, transparent);
+  border-left: 2px solid var(--wiki-warm-accent);
+  background: color-mix(in srgb, var(--wiki-warm-accent) 7%, transparent);
 }
 
 .article-cited-passage blockquote {
@@ -3249,9 +3249,9 @@ button.connections-row {
 .article-reader-content .is-cited-passage,
 .article-highlight-edition__item.is-cited-passage,
 .article-cited-passage.is-cited-passage {
-  outline: 1px solid color-mix(in srgb, var(--wiki-warm-accent, #b08a4f) 55%, transparent);
+  outline: 1px solid color-mix(in srgb, var(--wiki-warm-accent) 55%, transparent);
   outline-offset: 4px;
-  box-shadow: 0 0 0 6px color-mix(in srgb, var(--wiki-warm-accent, #b08a4f) 12%, transparent);
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--wiki-warm-accent) 12%, transparent);
   transition: box-shadow 1.2s ease, outline-color 1.2s ease;
 }
 
@@ -3701,43 +3701,6 @@ button.connections-row {
   font-size: 0.84rem;
   color: var(--muted);
   margin-top: 4px;
-}
-
-html[data-ui-theme='dark'] .article-reader-content,
-html[data-ui-theme='dark'] .article-reader-content :is(h1, h2, h3, h4, h5, h6, p, li, blockquote) {
-  color: #e8eef8;
-}
-
-html[data-ui-theme='dark'] .ui-section-header__subtitle,
-html[data-ui-theme='dark'] .library-reference-item .muted,
-html[data-ui-theme='dark'] .semantic-related-item .muted,
-html[data-ui-theme='dark'] .semantic-related-explain :is(p, div) {
-  color: #c1ccde;
-}
-
-html[data-ui-theme='dark'] .library-section-head.is-articles {
-  background: color-mix(in srgb, #17324f 74%, #0f1724);
-  border-color: color-mix(in srgb, #4a8fd6 56%, #263548);
-}
-
-html[data-ui-theme='dark'] .library-section-head.is-highlights {
-  background: color-mix(in srgb, #3f2b12 76%, #111a2a);
-  border-color: color-mix(in srgb, #c48a2b 45%, #314056);
-}
-
-html[data-ui-theme='dark'] .library-article-list {
-  background: color-mix(in srgb, #14273d 78%, #111a2a);
-  border-color: color-mix(in srgb, #4a8fd6 32%, #2b3b50);
-}
-
-html[data-ui-theme='dark'] .library-highlights-surface {
-  background: color-mix(in srgb, #3a2916 80%, #111a2a);
-  border-color: color-mix(in srgb, #c48a2b 30%, #2b3b50);
-}
-
-html[data-ui-theme='dark'] .article-reader-header {
-  border-color: #2b3b50;
-  background: #131f31;
 }
 
 .ui-subtle-divider {
@@ -4848,46 +4811,46 @@ a.notebook-ref-title:focus-visible {
    floating surfaces still read washed out because they were tuned against the
    original light palette. These rules lift the four surfaces the user flagged
    without touching layout. */
-html[data-ui-theme='dark'] .selection-menu,
+html[data-ui-scheme='dark'] .selection-menu,
 :root .selection-menu {
   box-shadow: 0 16px 48px rgba(2, 6, 23, 0.58);
 }
 
-html[data-ui-theme='dark'] .selection-menu {
+html[data-ui-scheme='dark'] .selection-menu {
   background: color-mix(in srgb, var(--surface-card) 96%, var(--mix-lift) 4%);
   border-color: color-mix(in srgb, var(--border-subtle) 100%, var(--mix-lift) 6%);
 }
 
-html[data-ui-theme='dark'] .selection-menu-button:hover {
+html[data-ui-scheme='dark'] .selection-menu-button:hover {
   background: color-mix(in srgb, var(--surface-muted) 85%, var(--mix-lift) 6%);
 }
 
-html[data-ui-theme='dark'] .magnetic-reading-rail__track {
+html[data-ui-scheme='dark'] .magnetic-reading-rail__track {
   background: color-mix(in srgb, var(--border-subtle) 90%, var(--mix-lift) 8%);
   opacity: 0.92;
 }
 
-html[data-ui-theme='dark'] .magnetic-reading-rail__pill {
+html[data-ui-scheme='dark'] .magnetic-reading-rail__pill {
   background: color-mix(in srgb, var(--surface-card) 82%, var(--mix-lift) 4%);
   border-color: color-mix(in srgb, var(--border-subtle) 100%, var(--mix-lift) 8%);
   box-shadow: 0 16px 44px rgba(2, 6, 23, 0.55);
 }
 
-html[data-ui-theme='dark'] .magnetic-reading-rail__btn {
+html[data-ui-scheme='dark'] .magnetic-reading-rail__btn {
   background: color-mix(in srgb, var(--accent) 22%, transparent);
   color: color-mix(in srgb, var(--accent) 72%, var(--mix-lift) 28%);
 }
 
-html[data-ui-theme='dark'] .magnetic-reading-rail__btn:hover {
+html[data-ui-scheme='dark'] .magnetic-reading-rail__btn:hover {
   background: color-mix(in srgb, var(--accent) 32%, transparent);
 }
 
-html[data-ui-theme='dark'] .external-bridge-token-well {
+html[data-ui-scheme='dark'] .external-bridge-token-well {
   border-color: color-mix(in srgb, var(--accent) 38%, var(--border-subtle));
   background: color-mix(in srgb, var(--surface-elevated) 88%, var(--accent) 6%);
 }
 
-html[data-ui-theme='dark'] .external-bridge-pre {
+html[data-ui-scheme='dark'] .external-bridge-pre {
   background: color-mix(in srgb, var(--surface-card) 92%, var(--mix-lift) 3%);
   border-color: color-mix(in srgb, var(--border-subtle) 100%, var(--mix-lift) 4%);
 }
@@ -5060,9 +5023,9 @@ html[data-ui-theme='dark'] .external-bridge-pre {
 
 .agent-connect-authorize-card__success {
   padding: 12px;
-  border: 1px solid color-mix(in srgb, var(--success, #2f8f5b) 45%, var(--border-subtle));
+  border: 1px solid color-mix(in srgb, var(--noeis-success) 45%, var(--border-subtle));
   border-radius: 10px;
-  background: color-mix(in srgb, var(--success, #2f8f5b) 10%, var(--surface-elevated));
+  background: color-mix(in srgb, var(--noeis-success) 10%, var(--surface-elevated));
 }
 
 .agent-connect-authorize-card__success p {
@@ -5149,13 +5112,13 @@ html[data-ui-theme='dark'] .external-bridge-pre {
 }
 
 .agent-task-run-card__success {
-  border-color: color-mix(in srgb, var(--success, #2f8f5b) 45%, var(--border-subtle));
-  background: color-mix(in srgb, var(--success, #2f8f5b) 10%, var(--surface-elevated));
+  border-color: color-mix(in srgb, var(--noeis-success) 45%, var(--border-subtle));
+  background: color-mix(in srgb, var(--noeis-success) 10%, var(--surface-elevated));
 }
 
 .agent-task-run-card__warning {
-  border-color: color-mix(in srgb, var(--warning, #c48a2c) 45%, var(--border-subtle));
-  background: color-mix(in srgb, var(--warning, #c48a2c) 10%, var(--surface-elevated));
+  border-color: color-mix(in srgb, var(--noeis-warning) 45%, var(--border-subtle));
+  background: color-mix(in srgb, var(--noeis-warning) 10%, var(--surface-elevated));
 }
 
 @media (max-width: 640px) {
@@ -5212,8 +5175,8 @@ html[data-ui-theme='dark'] .external-bridge-pre {
 }
 
 .external-bridge-status.is-ready {
-  border-color: color-mix(in srgb, var(--success-color, #10b981) 42%, var(--border-subtle));
-  background: color-mix(in srgb, var(--surface-elevated) 90%, var(--success-color, #10b981) 7%);
+  border-color: color-mix(in srgb, var(--noeis-success) 42%, var(--border-subtle));
+  background: color-mix(in srgb, var(--surface-elevated) 90%, var(--noeis-success) 7%);
 }
 
 .external-bridge-status.is-pending,
@@ -5299,9 +5262,9 @@ html[data-ui-theme='dark'] .external-bridge-pre {
 }
 
 .external-bridge-checklist li.is-done > span {
-  border-color: var(--success-color, #10b981);
-  background: var(--success-color, #10b981);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--success-color, #10b981) 14%, transparent);
+  border-color: var(--noeis-success);
+  background: var(--noeis-success);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--noeis-success) 14%, transparent);
 }
 
 .external-bridge-checklist strong {
@@ -5366,9 +5329,9 @@ html[data-ui-theme='dark'] .external-bridge-pre {
 
 .external-bridge-access-grid span.is-enabled,
 .external-bridge-health__checks span.is-enabled {
-  border-color: color-mix(in srgb, var(--success-color, #10b981) 34%, var(--border-subtle));
+  border-color: color-mix(in srgb, var(--noeis-success) 34%, var(--border-subtle));
   color: var(--text);
-  background: color-mix(in srgb, var(--surface-elevated) 88%, var(--success-color, #10b981) 8%);
+  background: color-mix(in srgb, var(--surface-elevated) 88%, var(--noeis-success) 8%);
 }
 
 .external-bridge-agent-grid {
@@ -5476,9 +5439,9 @@ html[data-ui-theme='dark'] .external-bridge-pre {
 
 .external-bridge-verify-banner {
   padding: 10px 12px;
-  border: 1px solid color-mix(in srgb, var(--success-color, #10b981) 34%, var(--border-subtle));
+  border: 1px solid color-mix(in srgb, var(--noeis-success) 34%, var(--border-subtle));
   border-radius: 12px;
-  background: color-mix(in srgb, var(--surface-elevated) 90%, var(--success-color, #10b981) 7%);
+  background: color-mix(in srgb, var(--surface-elevated) 90%, var(--noeis-success) 7%);
 }
 
 .external-bridge-health {
@@ -6706,7 +6669,7 @@ textarea.think-share-view__offer-field {
   padding: 20px;
   border: 1px solid var(--border-subtle);
   border-radius: 14px;
-  background: var(--surface-raised, transparent);
+  background: var(--noeis-paper);
 }
 
 .forkable-wikis__card-topline span {
@@ -6937,19 +6900,19 @@ body.noeis-editorial {
   --vellum-gold: var(--noeis-thread-strong);
   --vellum-cyan: #1d8fa2;
   --vellum-error: var(--noeis-danger);
-  --wiki-graph-node-concept: var(--wiki-warm-accent, #b1862e);
+  --wiki-graph-node-concept: var(--wiki-warm-accent);
   --wiki-graph-node-entity: #6f6a61;
-  --wiki-graph-node-source: var(--wiki-warm-accent, #b1862e);
+  --wiki-graph-node-source: var(--wiki-warm-accent);
   --wiki-graph-node-question: #74706a;
   --wiki-graph-node-comparison: #8b8176;
   --wiki-graph-node-overview: #625d55;
   --wiki-graph-node-project: #7a6040;
   --wiki-graph-node-log: #62707a;
   --wiki-graph-node-topic: #5f6468;
-  --wiki-graph-edge-wikiLink: var(--wiki-warm-accent, #b1862e);
+  --wiki-graph-edge-wikiLink: var(--wiki-warm-accent);
   --wiki-graph-edge-shared_source: #8f8373;
   --wiki-graph-edge-related: #7a8088;
-  --wiki-graph-edge-needs_review: var(--wiki-warm-accent, #b1862e);
+  --wiki-graph-edge-needs_review: var(--wiki-warm-accent);
   --wiki-graph-edge-supports: #7a756d;
   --wiki-graph-edge-contradicts: #9b5a46;
   --wiki-graph-edge-extends: #8b7652;
@@ -6994,25 +6957,11 @@ body.noeis-editorial .agent-ticker {
   }
 }
 
-/* Dark room-only roles. Shell palette, typography, and motion still come from
-   the active semantic theme package. */
+/* Dark's own graph and dropzone inks. Everything else follows the semantic
+   package, exactly as it does on Light. */
 
 html[data-ui-theme='dark'] body.noeis-editorial {
-  --vellum-bg: var(--noeis-canvas);
-  --vellum-panel: var(--noeis-paper);
-  --vellum-panel-strong: var(--noeis-paper-muted);
-  --vellum-panel-stronger: var(--noeis-paper-sunken);
-  --vellum-ink: var(--text-primary);
-  --ink-human: var(--vellum-ink);
-  --ink-agent: color-mix(in srgb, var(--vellum-warm, #b1862e) 26%, var(--vellum-ink));
-  --vellum-muted: var(--text-secondary);
-  --vellum-subtle: var(--text-muted);
-  --vellum-line: var(--surface-border);
-  --vellum-line-strong: var(--noeis-rule-strong);
-  --vellum-accent: var(--noeis-ink-muted);
-  --vellum-warm: var(--noeis-thread-strong);
   --vellum-cyan: #5ac7d6;
-  --vellum-error: var(--noeis-danger);
   --wiki-graph-node-concept: #c79a43;
   --wiki-graph-node-entity: #9d9487;
   --wiki-graph-node-source: #d2a34a;
@@ -7032,8 +6981,6 @@ html[data-ui-theme='dark'] body.noeis-editorial {
   --wiki-graph-label-backdrop: rgba(20, 17, 13, 0.76);
   --wiki-graph-label-text: #efe6d4;
   --wiki-graph-node-stroke: rgba(239, 230, 212, 0.36);
-  --vellum-shadow: var(--noeis-shadow-float);
-  color-scheme: inherit;
 
   /* The same quiet ink, lifted for a dark page. */
   --dropzone-border-active: rgba(210, 210, 198, 0.55);
@@ -7261,7 +7208,7 @@ body.noeis-editorial .think-notebook-title-input:focus,
 body.noeis-editorial .notebook-organize-panel input:focus,
 body.noeis-editorial .notebook-organize-panel select:focus,
 body.noeis-editorial .room-shelf__search input:focus {
-  border-color: var(--wiki-warm-accent, var(--vellum-warm)) !important;
+  border-color: var(--wiki-warm-accent) !important;
 }
 
 body.noeis-editorial .reference-pull-in {
@@ -7304,9 +7251,9 @@ body.noeis-editorial .reference-pull-in__relations button {
 }
 
 body.noeis-editorial .reference-pull-in__relations button[aria-pressed="true"] {
-  border-color: color-mix(in srgb, var(--noeis-accent, #11c5d9) 45%, var(--vellum-line));
+  border-color: color-mix(in srgb, var(--noeis-pointer) 45%, var(--vellum-line));
   color: var(--vellum-ink);
-  background: color-mix(in srgb, var(--noeis-accent, #11c5d9) 8%, transparent);
+  background: color-mix(in srgb, var(--noeis-pointer) 8%, transparent);
 }
 
 body.noeis-editorial .reference-pull-in__search {
@@ -7781,7 +7728,7 @@ body.noeis-editorial a:hover {
   --think-card-shadow-hover: 0 10px 24px rgba(15, 23, 42, 0.09);
 }
 
-html[data-ui-theme='dark'] {
+html[data-ui-scheme='dark'] {
   --think-card-border: color-mix(in srgb, var(--noeis-rule) 62%, transparent);
   --think-card-shadow: 0 8px 22px rgba(0, 0, 0, 0.22);
   --think-card-shadow-hover: 0 12px 28px rgba(0, 0, 0, 0.28);

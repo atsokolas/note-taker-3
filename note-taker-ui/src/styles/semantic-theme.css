@@ -625,15 +625,14 @@ html[data-ui-family='palette'] .wiki-reader-context__primary {
   border: 1px solid var(--noeis-action);
 }
 
-/* Dark restyles these with an older cold-blue palette. Named palettes keep
-   the same roles — articles, passages, reader chrome, and the ask affordance —
-   on its own ink and slate. */
-html[data-ui-family='palette'] .article-reader-content,
-html[data-ui-family='palette'] .article-reader-content :is(h1, h2, h3, h4, h5, h6, p, li, blockquote) {
+/* Articles, passages and reader chrome on any dark page, and on every named
+   palette: the theme's own ink, slate and thread, never a fixed tint. */
+html:is([data-ui-family='palette'], [data-ui-scheme='dark']) .article-reader-content,
+html:is([data-ui-family='palette'], [data-ui-scheme='dark']) .article-reader-content :is(h1, h2, h3, h4, h5, h6, p, li, blockquote) {
   color: var(--noeis-ink);
 }
 
-html[data-ui-family='palette'] :is(
+html:is([data-ui-family='palette'], [data-ui-scheme='dark']) :is(
   .ui-section-header__subtitle,
   .library-highlight-group-header,
   .library-reference-item .muted,
@@ -645,27 +644,27 @@ html[data-ui-family='palette'] :is(
   color: var(--noeis-ink-muted);
 }
 
-html[data-ui-family='palette'] .library-section-head.is-articles,
-html[data-ui-family='palette'] .library-article-list {
+html:is([data-ui-family='palette'], [data-ui-scheme='dark']) .library-section-head.is-articles,
+html:is([data-ui-family='palette'], [data-ui-scheme='dark']) .library-article-list {
   background: var(--noeis-mix-lift);
   border-color: var(--noeis-rule);
 }
 
-html[data-ui-family='palette'] .library-section-head.is-articles {
+html:is([data-ui-family='palette'], [data-ui-scheme='dark']) .library-section-head.is-articles {
   box-shadow: inset 2px 0 0 var(--noeis-action);
 }
 
-html[data-ui-family='palette'] .library-section-head.is-highlights,
-html[data-ui-family='palette'] .library-highlights-surface {
+html:is([data-ui-family='palette'], [data-ui-scheme='dark']) .library-section-head.is-highlights,
+html:is([data-ui-family='palette'], [data-ui-scheme='dark']) .library-highlights-surface {
   background: color-mix(in srgb, var(--noeis-thread) 14%, var(--noeis-paper));
   border-color: color-mix(in srgb, var(--noeis-thread) 36%, var(--noeis-rule));
 }
 
-html[data-ui-family='palette'] .library-section-head.is-highlights {
+html:is([data-ui-family='palette'], [data-ui-scheme='dark']) .library-section-head.is-highlights {
   box-shadow: inset 2px 0 0 var(--noeis-thread);
 }
 
-html[data-ui-family='palette'] :is(
+html:is([data-ui-family='palette'], [data-ui-scheme='dark']) :is(
   .think-main-actions,
   .think-question-list-pane,
   .think-question-editor-pane,

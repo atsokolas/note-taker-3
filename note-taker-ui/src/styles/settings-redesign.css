@@ -260,9 +260,9 @@ html[data-ui-family='palette'] body.noeis-editorial .settings-redesign {
 }
 
 .settings-redesign__receipt.is-error {
-  border-color: var(--noeis-error, #974d3c);
-  background: color-mix(in srgb, var(--noeis-error, #974d3c) 10%, transparent);
-  color: var(--noeis-error, #974d3c);
+  border-color: var(--noeis-danger);
+  background: color-mix(in srgb, var(--noeis-danger) 10%, transparent);
+  color: var(--noeis-danger);
 }
 
 .settings-redesign__link {

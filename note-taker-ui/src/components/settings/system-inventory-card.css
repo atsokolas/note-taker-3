@@ -151,16 +151,16 @@
 }
 
 .system-inventory-card__groups li > span[data-status='active'] {
-  color: var(--accent-warm, #9a6d1f);
+  color: var(--noeis-thread);
 }
 
 .system-inventory-card__groups li > span[data-status='connected'] {
-  color: var(--status-success, #35735c);
+  color: var(--noeis-success);
 }
 
 .system-inventory-card__groups li > span[data-status='error'],
 .system-inventory-card__groups li > span[data-status='invalid'] {
-  color: var(--status-danger, #9a4a42);
+  color: var(--noeis-danger);
 }
 
 .system-inventory-card__footer {

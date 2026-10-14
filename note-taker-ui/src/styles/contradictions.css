@@ -85,7 +85,7 @@
 }
 
 .contradiction__side--contradicts .contradiction__quote {
-  border-left-color: color-mix(in srgb, var(--wiki-warm-accent, var(--vellum-warm)) 55%, transparent);
+  border-left-color: color-mix(in srgb, var(--wiki-warm-accent) 55%, transparent);
 }
 
 .contradiction__quote--absent {

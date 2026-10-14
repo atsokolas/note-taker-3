@@ -3,7 +3,7 @@
   border: 1px solid color-mix(in srgb, var(--border-subtle) 82%, var(--text-primary) 18%);
   border-radius: 16px;
   padding: clamp(1rem, 2vw, 1.6rem);
-  background: color-mix(in srgb, var(--surface-primary, var(--surface)) 92%, var(--surface-secondary, var(--surface-muted)) 8%);
+  background: color-mix(in srgb, var(--noeis-paper) 92%, var(--noeis-paper-muted) 8%);
   color: var(--text-primary);
 }
 
@@ -85,7 +85,7 @@
 }
 
 .wiki-first-head__error {
-  color: var(--status-danger, #c75d4e);
+  color: var(--noeis-danger);
 }
 
 @media (max-width: 600px) {

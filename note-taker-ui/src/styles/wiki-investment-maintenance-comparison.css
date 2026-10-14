@@ -3,7 +3,7 @@
   padding: clamp(1rem, 2vw, 1.6rem);
   border: 1px solid var(--border-subtle);
   border-radius: 16px;
-  background: color-mix(in srgb, var(--surface-primary, var(--surface)) 94%, var(--surface-secondary, var(--surface-muted)) 6%);
+  background: color-mix(in srgb, var(--noeis-paper) 94%, var(--noeis-paper-muted) 6%);
   color: var(--text-primary);
 }
 
@@ -31,7 +31,7 @@
   padding: 1rem;
   border: 1px solid color-mix(in srgb, var(--border-subtle) 75%, transparent);
   border-radius: 12px;
-  background: color-mix(in srgb, var(--surface-primary, var(--surface)) 97%, transparent);
+  background: color-mix(in srgb, var(--noeis-paper) 97%, transparent);
 }
 
 .wiki-investment-change__claims span {
