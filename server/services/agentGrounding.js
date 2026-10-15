@@ -160,8 +160,9 @@ const unstatedFigures = (claim = '', texts = []) => {
   const near = (value, figure) => UNIT_SHIFTS.some(shift => (
     Math.abs(value * shift - figure.value) <= Math.max(figure.step / 2, Math.abs(figure.value) * 0.005)
   ));
-  // "1.10^5" compounds a rate; "(b / a)^(1/4) - 1" is a growth rate per year.
-  const exponents = [...text.matchAll(/\^\s*\(?\s*(\d+(?:\.\d+)?)(?:\s*\/\s*(\d+))?\s*\)?/g)]
+  // "1.10^5" (or "1.10 raised to the 5th power") compounds a rate;
+  // "(b / a)^(1/4) - 1" is a growth rate per year.
+  const exponents = [...text.matchAll(/(?:\^|\braised to the)\s*\(?\s*(\d+(?:\.\d+)?)(?:\s*\/\s*(\d+))?(?:st|nd|rd|th)?\s*\)?/gi)]
     .map(([, a, b]) => (b ? Number(a) / Number(b) : Number(a)))
     .filter(Number.isFinite);
   const powers = value => exponents.map(e => value ** e).filter(Number.isFinite);
