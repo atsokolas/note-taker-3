@@ -76,6 +76,37 @@ document.addEventListener("DOMContentLoaded", () => {
         statusMessage.className = tone ? `status ${tone}` : 'status';
     };
 
+    /* The save that answers back. A new piece is read against the views you
+       hold the moment it lands; while this card is open, it listens for the
+       one view the piece argues with. Nothing found is nothing said. */
+    const APP_URL = "https://www.noeis.io";
+    const LISTEN_MS = 45000;
+    const LISTEN_EVERY_MS = 3000;
+    const arguesBack = document.getElementById("arguesBack");
+
+    const showPushback = ({ pageId, view, proposal }) => {
+        const line = document.createElement("p");
+        const link = document.createElement("a");
+        link.href = `${APP_URL}/judgment/${encodeURIComponent(pageId)}`;
+        link.target = "_blank";
+        link.textContent = view;
+        line.append("This pushes against your view that ", link, ":");
+        const quote = document.createElement("blockquote");
+        quote.textContent = proposal?.provenance?.after || '';
+        arguesBack.replaceChildren(line, ...(quote.textContent ? [quote] : []));
+    };
+
+    const listenForPushback = async (token, articleId) => {
+        if (!token || !articleId) return;
+        const url = `${BASE_URL}/api/judgment/pushes-against?articleId=${encodeURIComponent(articleId)}`;
+        for (let waited = 0; waited < LISTEN_MS; waited += LISTEN_EVERY_MS) {
+            await new Promise(resolve => setTimeout(resolve, LISTEN_EVERY_MS));
+            const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } }).catch(() => null);
+            const reading = response?.ok ? (await readJsonSafe(response))?.reading : null;
+            if (reading) return showPushback(reading);
+        }
+    };
+
     const reportTourEvent = async (token, eventType, metadata = {}) => {
         try {
             const response = await fetch(`${BASE_URL}/api/tour/events`, {
@@ -395,6 +426,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Listener for the "Save Article" button
     saveButton.addEventListener("click", async () => {
+        arguesBack.replaceChildren();
         setStatus("Parsing article...");
         
         try {
@@ -438,6 +470,8 @@ document.addEventListener("DOMContentLoaded", () => {
                once the save actually landed. */
             rememberFiling(tab.url, folderSelect.value);
             setStatus("Arrives on the desk, filed and promised.", 'success');
+            const { token } = await chrome.storage.local.get("token");
+            listenForPushback(token, backgroundResponse.data?._id);
         } catch (error) {
             setStatus(error.message, 'error');
             console.error("[ERROR - Popup.js] Error saving article:", error);
