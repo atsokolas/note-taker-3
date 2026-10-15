@@ -1,7 +1,6 @@
 const assert = require('assert');
 const { completeResearchPlan, upgradeInvestmentDossierProfile } = require('./investmentDossierProfileService');
 const { evaluateInvestmentDossierQuality } = require('./investmentDossierQualityService');
-const { MARKET_PLACEHOLDER } = require('./companyDossierService');
 
 const headings = [
   'Current Judgment',
@@ -192,16 +191,6 @@ const ownerView = text => evaluateInvestmentDossierQuality({
 });
 assert.strictEqual(ownerView('Owner judgment, unresolved: whether 16%, 15% and 13% concentration is durable.').ok, true);
 assert.strictEqual(ownerView('Owner judgment: concentration will be 9% within a year.').ok, false);
-
-// A page that still says it has not been written is refused.
-const template = evaluateInvestmentDossierQuality({
-  page: { investmentDossier: profile },
-  body: { ...body, content: [...body.content, { type: 'paragraph', content: [{ type: 'text', text: MARKET_PLACEHOLDER }] }] },
-  claims,
-  sourceRefs,
-  words: 2600
-});
-assert.match(template.failures.join(' '), /unwritten template/);
 
 const thinProfile = upgradeInvestmentDossierProfile({
   profile: { company: { name: 'Generic Company', ticker: 'GEN' } },

@@ -185,6 +185,13 @@ const unstatedFigures = (claim = '', texts = []) => {
       if (!now || !then || !then.value) return [];
       const step = /\./.test(rate) ? 10 ** -rate.split('.')[1].length : 1;
       return Math.abs((now.value / then.value - 1) * 100 - Number(rate)) <= step / 2 + 0.05 ? [] : [raw];
+    }),
+    // "Quadrupled" from $119bn to $279bn is 2.3x: a multiple in words is working too.
+    ...[...text.matchAll(new RegExp(`\\b(doubl|tripl|quadrupl)\\w*(?:\\s+\\w+){0,3}?\\s+(?:from|to)\\s+${AMOUNT}\\s+(?:to|from)\\s+${AMOUNT}`, 'gi'))].flatMap(([raw, stem, x, y]) => {
+      const times = { doubl: 2, tripl: 3, quadrupl: 4 }[stem.toLowerCase()];
+      const [a, b] = [valueOf(x), valueOf(y)];
+      const ratio = a && b && Math.max(a.value, b.value) / Math.min(a.value, b.value);
+      return !ratio || (ratio >= times * 0.85 && ratio <= times * 1.4) ? [] : [raw];
     })
   ];
   const known = figures.filter(figure => statedIn(figure, values));

@@ -135,6 +135,10 @@ describe('unstatedFigures', () => {
   it('follows compounding and growth rates per year', () => {
     expect(unstatedFigures('A 10% hurdle compounds to 1.61x over five years (1.10^5 = 1.61).', ['Hurdle 10%.'])).toEqual([]);
     expect(unstatedFigures('A 10% return over five years needs 1.61 times the start (1.10 raised to the 5th power).', ['Hurdle 10%.'])).toEqual([]);
+    const commitments = ['Commitments were $119 billion and are $279 billion.'];
+    expect(unstatedFigures('Commitments nearly quadrupled from $119 billion to $279 billion.', commitments)).toEqual(['quadrupled from $119 billion to $279 billion']);
+    expect(unstatedFigures('Commitments more than doubled from $119 billion to $279 billion.', commitments)).toEqual([]);
+    expect(unstatedFigures('The dividend doubled; revenue was $96 billion and capex $6 billion.', ['Revenue $96 billion, capex $6 billion.'])).toEqual([]);
     expect(unstatedFigures('Operating income rose from $7.79bn to $11.69bn, about 10.7% a year (($11.69bn / $7.79bn)^(1/4) - 1).', ['$7,793 million; $11,690 million'])).toEqual([]);
   });
 

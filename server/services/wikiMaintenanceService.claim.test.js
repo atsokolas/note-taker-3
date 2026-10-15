@@ -4091,3 +4091,15 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(page.aiState.maintenanceSummary).toBe('Drafted after stream fallback.');
   });
 });
+
+describe('dossier template notes', () => {
+  it("never carries the template's market placeholder into the owner's notes", () => {
+    const { buildCompanyDossierBody, MARKET_PLACEHOLDER } = require('./companyDossierService');
+    const body = buildCompanyDossierBody({
+      companyName: 'NVIDIA', ticker: 'NVDA', startingJudgment: 'NVIDIA can keep earning outsized returns on AI systems.', requiredReturn: 0.1, horizonYears: 5
+    });
+    const notes = __testables.extractManualNotes({ title: 'NVIDIA', body });
+    expect(notes).toContain('outsized returns');
+    expect(notes).not.toContain(MARKET_PLACEHOLDER);
+  });
+});

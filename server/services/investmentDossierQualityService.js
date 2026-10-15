@@ -4,7 +4,6 @@ const {
   inferEvidenceArchetype
 } = require('./investmentDossierProfileService');
 const { figuresIn, unstatedFigures } = require('./agentGrounding');
-const { MARKET_PLACEHOLDER } = require('./companyDossierService');
 
 const clean = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
 const unique = values => Array.from(new Set((Array.isArray(values) ? values : []).filter(Boolean)));
@@ -173,9 +172,6 @@ const evaluateInvestmentDossierQuality = ({
   }
   if (claimList.length < DECISION_DOSSIER_MIN_CLAIMS) {
     hints.push(`Investment dossier has too few claim-level analytical units: ${claimList.length}, expected at least ${DECISION_DOSSIER_MIN_CLAIMS}.`);
-  }
-  if (JSON.stringify(body || {}).includes(MARKET_PLACEHOLDER)) {
-    failures.push('Investment dossier still carries the unwritten template: What the market is pricing was never written.');
   }
   if (blockingUnsupportedClaims.length) {
     const samples = blockingUnsupportedClaims

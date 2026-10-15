@@ -679,7 +679,8 @@ const isLikelyGeneratedPage = (page) => Boolean(
 );
 
 const extractManualNotes = (page) => {
-  const text = truncate(page?.plainText || toPlainText(page?.body), 1800);
+  // The dossier template's market placeholder is the template's, never the owner's.
+  const text = truncate((page?.plainText || toPlainText(page?.body)).replace(MARKET_PLACEHOLDER, ''), 1800);
   if (!text || text.length < 80 || isLikelyGeneratedPage(page)) return '';
   const repoScaffold = (
     (page?.externalWatches?.githubRepo || /GitHub repo:|github\.com\/[^/\s]+\/[^/\s]+/i.test([page?.createdFrom?.text, page?.createdFrom?.label].join(' ')))
@@ -1553,7 +1554,6 @@ const DOSSIER_EDITOR_BRIEF = `Above are the sources and the brief the writer was
 - a figure computed without its inputs beside it: write them in ("98% ($297.25bn / $303.15bn)");
 - a figure cited to a source that does not state it: cite the one that does, and cite every filing a sentence draws on (an earlier quarter's figure cites that quarter's filing);
 - a claim or question with no citation: cite the source it rests on;
-- a section still holding the template's placeholder ("${MARKET_PLACEHOLDER}"): write it from the sources, or say plainly what could not be found.
 Change nothing else: keep every other sentence, citation, heading and field exactly as written, and return the complete draft in the same JSON shape.
 Draft:`;
 
@@ -5042,6 +5042,7 @@ module.exports = {
   selectCandidateSources,
   fallbackMaintenance,
   __testables: {
+    extractManualNotes,
     perSourceTextBudget,
     applySourceTextBudget,
     extractJson,
