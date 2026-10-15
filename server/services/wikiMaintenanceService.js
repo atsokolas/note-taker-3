@@ -27,6 +27,7 @@ const { resolveClaimBornAt } = require('./claimBornAt');
 const { buildMaintenanceCitations } = require('./wikiMaintenanceCitations');
 const { wordBoundaryTrim } = require('../lib/editorialText');
 const { unstatedFigures } = require('./agentGrounding');
+const { MARKET_PLACEHOLDER } = require('./companyDossierService');
 const {
   sourceFamilyKey,
   evaluateOwnedSourceUtilization,
@@ -1548,7 +1549,11 @@ const DOSSIER_EDITOR_BRIEF = `Above are the sources and the brief the writer was
 - a label the filing does not use (the balance sheet's "Long-term debt" is the long-term portion, never "net"; a filing date is not an "as of" date);
 - a comparison that names the wrong side as larger, or a ratio called by a word it is not ("double" for 1.6x);
 - two totals called a discrepancy when the line items reconcile them;
-- a paragraph that repeats another.
+- a paragraph that repeats another;
+- a figure computed without its inputs beside it: write them in ("98% ($297.25bn / $303.15bn)");
+- a figure cited to a source that does not state it: cite the one that does;
+- a claim or question with no citation: cite the source it rests on;
+- a section still holding the template's placeholder ("${MARKET_PLACEHOLDER}"): write it from the sources, or say plainly what could not be found.
 Change nothing else: keep every other sentence, citation, heading and field exactly as written, and return the complete draft in the same JSON shape.
 Draft:`;
 
