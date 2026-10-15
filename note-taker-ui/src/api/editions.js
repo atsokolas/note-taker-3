@@ -33,11 +33,6 @@ export const saveEditionItem = async (editionId, itemId) => {
   return res.data || null;
 };
 
-export const removeEdition = async (id) => {
-  const res = await api.delete(`/api/editions/${encodeURIComponent(id)}`, getAuthHeaders());
-  return res.data || null;
-};
-
 export const getEditionInbox = async ({ cursor = '', limit, view = '', paper = '', by = '' } = {}) => {
   const params = new URLSearchParams();
   if (cursor) params.set('cursor', cursor);
