@@ -128,7 +128,7 @@ describe('editorial house CSS', () => {
     expect(searchLabel).toContain('line-height: 1.25;');
   });
 
-  it('maps vellum aliases to canonical text role tokens', () => {
+  it('maps vellum aliases to canonical text role tokens once, for every theme', () => {
     const css = theme();
     const lightPalette = css.match(/body\.noeis-editorial \{[\s\S]*?\n\}/)?.[0] || '';
     const darkPalette = css.match(/html\[data-ui-theme='dark'\] body\.noeis-editorial \{[\s\S]*?\n\}/)?.[0] || '';
@@ -136,9 +136,7 @@ describe('editorial house CSS', () => {
     expect(lightPalette).toContain('--vellum-ink: var(--text-primary');
     expect(lightPalette).toContain('--vellum-muted: var(--text-secondary');
     expect(lightPalette).toContain('--vellum-subtle: var(--text-muted');
-    expect(darkPalette).toContain('--vellum-ink: var(--text-primary)');
-    expect(darkPalette).toContain('--vellum-muted: var(--text-secondary)');
-    expect(darkPalette).toContain('--vellum-subtle: var(--text-muted)');
+    expect(darkPalette).not.toContain('--vellum-ink:');
     expect(css).not.toContain('--vellum-blue');
   });
 
@@ -197,6 +195,6 @@ describe('editorial house CSS', () => {
     expect(reader).toContain('var(--highlight-color, #f6e27a)');
     expect(reader).toContain('color: var(--ink-human, var(--vellum-ink))');
     expect(reader).toContain('color: var(--ink-agent, var(--vellum-ink))');
-    expect(reader).toMatch(/html\[data-ui-theme='dark'\][\s\S]*mark\.highlight/);
+    expect(reader).toMatch(/html\[data-ui-scheme='dark'\][\s\S]*mark\.highlight/);
   });
 });

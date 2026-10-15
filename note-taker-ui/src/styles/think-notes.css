@@ -791,7 +791,7 @@ body.noeis-editorial .notebook-scratchpad .notebook-workbench__row-actions .ui-q
 }
 .think-notes__continuation mark {
   color: var(--text-primary);
-  background: color-mix(in srgb, var(--wiki-warm-accent, var(--vellum-warm)) 14%, transparent);
+  background: color-mix(in srgb, var(--wiki-warm-accent) 14%, transparent);
   border-radius: 2px;
 }
 

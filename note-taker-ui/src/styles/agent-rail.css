@@ -29,7 +29,7 @@
   width: 16px;
   height: 1px;
   overflow: visible;
-  background: color-mix(in srgb, var(--wiki-warm-accent, var(--vellum-warm)) 42%, var(--noeis-rule));
+  background: color-mix(in srgb, var(--wiki-warm-accent) 42%, var(--noeis-rule));
 }
 
 .agent-rail__thread::before {
@@ -48,7 +48,7 @@
   right: 0;
   width: 7px;
   height: 7px;
-  border: 1px solid var(--wiki-warm-accent, var(--vellum-warm));
+  border: 1px solid var(--wiki-warm-accent);
   border-radius: 50%;
   background: var(--noeis-paper, var(--vellum-surface, #fbf8f2));
   animation: agent-thread-arrive 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
@@ -122,7 +122,7 @@
 
 .agent-rail__lines a:hover,
 .agent-rail__lines a:focus-visible {
-  color: var(--wiki-warm-accent, var(--vellum-warm));
+  color: var(--wiki-warm-accent);
 }
 
 .agent-rail__lines {
@@ -270,7 +270,7 @@
 
 .agent-rail__actions button:hover,
 .agent-rail__actions button:focus-visible {
-  color: var(--wiki-warm-accent, var(--vellum-warm));
+  color: var(--wiki-warm-accent);
 }
 
 .agent-rail__actions button:disabled {
@@ -322,7 +322,7 @@
 
 .agent-rail .agent-rail__ask input:focus {
   outline: none;
-  border-bottom-color: var(--wiki-warm-accent, var(--vellum-warm)) !important;
+  border-bottom-color: var(--wiki-warm-accent) !important;
 }
 
 .agent-rail__ask button {
@@ -339,7 +339,7 @@
 
 .agent-rail__ask button:hover,
 .agent-rail__ask button:focus-visible {
-  color: var(--wiki-warm-accent, var(--vellum-warm));
+  color: var(--wiki-warm-accent);
 }
 
 .agent-rail__ask button:disabled {

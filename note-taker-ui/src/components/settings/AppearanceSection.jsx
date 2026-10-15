@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   DEFAULT_UI_SETTINGS,
   MOTION_OPTIONS,
-  THEME_OPTIONS,
   effectiveReducedMotion
 } from '../../settings/uiPreferences';
 import {
@@ -13,6 +12,7 @@ import {
 } from '../../settings/appearanceFieldModel';
 import { useTemporaryAppearance } from '../../settings/TemporaryAppearanceContext';
 import AppearancePreview from './AppearancePreview';
+import { ThemeSwatch } from './ThemePicker';
 import { Button } from '../ui';
 
 const TYPOGRAPHY_OPTIONS = [
@@ -54,7 +54,8 @@ const AppearanceSection = ({
   onUndo,
   remoteBaseline,
   onAdoptRemoteBaseline,
-  onDismissRemote
+  onDismissRemote,
+  onOpenThemePicker
 }) => {
   const [compare, setCompare] = useState(false);
   const [previewMode, setPreviewMode] = useState('page');
@@ -142,12 +143,16 @@ const AppearanceSection = ({
           <fieldset id="theme">
             <legend className="settings-redesign__label">Page appearance</legend>
             <p className="settings-redesign__help">Follow this device, or choose a look to keep.</p>
-            <Segmented
-              name="theme"
-              value={draft.theme}
-              options={THEME_OPTIONS.map((o) => ({ value: o.value, label: o.shortLabel || o.label }))}
-              onChange={(value) => setField('theme', value)}
-            />
+            <button
+              type="button"
+              className="theme-picker-trigger"
+              aria-haspopup="dialog"
+              onClick={onOpenThemePicker}
+            >
+              <ThemeSwatch id={draft.theme} />
+              <span className="theme-picker-trigger__label">{formatAppearanceValue('theme', draft.theme)}</span>
+              <span className="theme-picker-trigger__caret" aria-hidden="true">▾</span>
+            </button>
           </fieldset>
 
           <details id="motion-more" style={{ borderTop: '1px solid var(--settings-rule)', paddingTop: '1rem' }}>

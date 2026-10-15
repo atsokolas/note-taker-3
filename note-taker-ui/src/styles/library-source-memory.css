@@ -1,5 +1,5 @@
 body.noeis-editorial .library-composition {
-  --library-memory-accent: color-mix(in srgb, var(--wiki-warm-accent, #9a6b2f) 74%, var(--vellum-ink));
+  --library-memory-accent: color-mix(in srgb, var(--wiki-warm-accent) 74%, var(--vellum-ink));
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 24px;

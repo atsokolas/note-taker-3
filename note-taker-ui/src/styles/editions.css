@@ -169,8 +169,10 @@
 }
 
 .edition-share__preview {
+  /* Gives way to the link and its actions, but never shrinks past a readable
+     glimpse; when room runs out the panel scrolls instead. */
   flex: 1 1 auto;
-  min-height: 0;
+  min-height: min(9rem, 24vh);
   margin: 0 0 16px;
   max-height: 42vh;
   overflow: auto;

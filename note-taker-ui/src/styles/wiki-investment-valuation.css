@@ -3,7 +3,7 @@
   padding: clamp(18px, 2.5vw, 28px);
   border: 1px solid color-mix(in srgb, var(--border-subtle) 82%, var(--text-primary) 18%);
   border-radius: 14px;
-  background: color-mix(in srgb, var(--surface-primary) 92%, var(--surface-secondary) 8%);
+  background: color-mix(in srgb, var(--noeis-paper) 92%, var(--noeis-paper-muted) 8%);
   color: var(--text-primary);
 }
 
@@ -191,7 +191,7 @@
   border: 1px solid var(--border-subtle);
   border-radius: 8px;
   padding: 9px 10px;
-  background: var(--surface-secondary);
+  background: var(--noeis-paper-muted);
   color: var(--text-primary);
   font: inherit;
 }

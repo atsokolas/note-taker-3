@@ -49,6 +49,16 @@ describe('semanticTheme', () => {
     expect(applySemanticThemeSnapshot(root, snapshot)).toBe(true);
     expect(root.getAttribute('data-ui-theme')).toBe('tokyo-midnight');
     expect(root.getAttribute('data-ui-scheme')).toBe('dark');
+    expect(root.getAttribute('data-ui-family')).toBe('palette');
+  });
+
+  it('names Solarized Light a light palette and Light an editorial theme', () => {
+    const root = document.createElement('html');
+    applySemanticThemeSnapshot(root, buildSemanticThemeSnapshot({ ...validInput, activeTheme: 'solarized-light' }));
+    expect(root.getAttribute('data-ui-scheme')).toBe('light');
+    expect(root.getAttribute('data-ui-family')).toBe('palette');
+    applySemanticThemeSnapshot(root, buildSemanticThemeSnapshot({ ...validInput, activeTheme: 'light' }));
+    expect(root.getAttribute('data-ui-family')).toBe('editorial');
   });
 
   it('preserves the last known-good identity when a snapshot is invalid', () => {

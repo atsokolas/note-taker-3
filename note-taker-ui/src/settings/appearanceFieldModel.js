@@ -1,4 +1,4 @@
-import { DEFAULT_UI_SETTINGS } from './uiPreferences';
+import { DEFAULT_UI_SETTINGS, THEME_OPTIONS } from './uiPreferences';
 
 export const APPEARANCE_FIELD_KEYS = Object.freeze([
   'typographyScale',
@@ -17,7 +17,7 @@ export const appearanceFieldLabel = {
 const valueLabels = {
   typographyScale: { small: 'Small', default: 'Standard', large: 'Large' },
   density: { comfortable: 'Comfortable', compact: 'Compact' },
-  theme: { auto: 'System', light: 'Light', dark: 'Dark', 'tokyo-midnight': 'Tokyo Midnight' },
+  theme: Object.fromEntries(THEME_OPTIONS.map(({ value, label }) => [value, label])),
   motion: { system: 'Follow device', reduced: 'Less motion' }
 };
 

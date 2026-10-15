@@ -79,7 +79,7 @@
 }
 
 .library-shelf__status.is-error {
-  color: var(--status-danger, #8a3e34);
+  color: var(--noeis-danger);
 }
 
 /* The way into the cabinet on a phone, where it is folded shut by default. */
@@ -117,7 +117,7 @@
 
 .library-shelf__filing:hover,
 .library-shelf__filing:focus-visible {
-  color: var(--wiki-warm-accent, var(--vellum-warm));
+  color: var(--wiki-warm-accent);
 }
 
 .library-shelf__filing:disabled {
@@ -313,7 +313,7 @@
 
 .library-pile__title:hover,
 .library-pile__title:focus-visible {
-  color: var(--wiki-warm-accent, var(--vellum-warm));
+  color: var(--wiki-warm-accent);
 }
 
 .library-pile__done {
@@ -350,7 +350,7 @@
   right: 8px;
   height: 10px;
   border: 1px solid color-mix(in srgb, var(--noeis-living-sap, #6f7340) 42%, transparent);
-  background: var(--noeis-paper, var(--vellum, #fffdf8));
+  background: var(--noeis-paper, var(--noeis-paper));
 }
 
 .library-pile__leaf:nth-child(1) { top: 0; }
@@ -424,7 +424,7 @@
     justify-items: start;
     padding: 20px 20px calc(20px + env(safe-area-inset-bottom, 0px));
     border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 62%, transparent);
-    background: var(--noeis-paper, var(--vellum, #fffdf8));
+    background: var(--noeis-paper, var(--noeis-paper));
     box-shadow: var(--noeis-shadow-float, 0 20px 48px rgba(55, 43, 26, 0.14));
     animation: library-sheet-up 220ms cubic-bezier(0.16, 1, 0.3, 1);
   }
@@ -479,7 +479,7 @@
 
 .library-reader__back:hover,
 .library-reader__back:focus-visible {
-  color: var(--wiki-warm-accent, var(--vellum-warm));
+  color: var(--wiki-warm-accent);
 }
 
 @media (max-width: 640px) {
@@ -557,7 +557,7 @@
   gap: 10px;
   padding: 14px;
   border: 1px solid var(--vellum-line);
-  background: var(--vellum, #f7f3eb);
+  background: var(--noeis-paper);
   box-shadow: 0 14px 32px color-mix(in srgb, var(--vellum-ink) 9%, transparent);
 }
 
@@ -582,7 +582,7 @@
 .library-page-shell__column-head button:focus-visible,
 .library-page-shell__tools button:hover,
 .library-page-shell__tools button:focus-visible {
-  color: var(--wiki-warm-accent, var(--vellum-warm));
+  color: var(--wiki-warm-accent);
   outline: none;
 }
 
@@ -828,7 +828,7 @@ body.noeis-editorial .library-page-shell .library-section-head .ui-section-heade
 
 /* Living ink marks the exact folder that was screened, and never its parent. */
 .library-shelf__branch.is-living > * > span:not(.library-shelf__disclose) {
-  color: var(--ink-sap, #6f7f4a);
+  color: var(--noeis-living-sap);
 }
 
 /* Procedural shelves: one mono line under the cabinet, not drawers in it. */
@@ -889,7 +889,7 @@ body.noeis-editorial .library-page-shell .library-section-head .ui-section-heade
    living-green for a quarter second, so the eye is told where the thing went
    rather than left to find out. */
 @keyframes noeis-destination-flash {
-  from { color: var(--ink-sap, #6f7f4a); }
+  from { color: var(--noeis-living-sap); }
   to   { color: inherit; }
 }
 
@@ -903,14 +903,14 @@ body.noeis-editorial .library-page-shell .library-section-head .ui-section-heade
    letting go there returns the drawer to the top. */
 .library-shelf__branch.is-drop-target > * > span:not(.library-shelf__disclose),
 .library-shelf__cabinet.is-drop-target > .room-shelf__section-label {
-  color: var(--ink-sap, #6f7f4a);
+  color: var(--noeis-living-sap);
 }
 
 /* A pile under a dragged piece holds its eyebrow in living ink while the
    pointer is over it — park it here, in the pile's own terms. Steady, not
    flashing: hover intent is a held state, not an arrival. */
 .library-pile.is-drop-target .library-pile__eyebrow {
-  color: var(--ink-sap, #6f7f4a);
+  color: var(--noeis-living-sap);
 }
 
 /* The promise ledger: pending mornings printed where the parked pieces are.
@@ -919,7 +919,7 @@ body.noeis-editorial .library-page-shell .library-section-head .ui-section-heade
 .library-pile__ledger {
   margin: 12px 0 0;
   padding: 8px 0 0;
-  border-top: 1px solid var(--noeis-hairline, var(--vellum-line));
+  border-top: 1px solid var(--noeis-rule);
   list-style: none;
   display: grid;
   gap: 6px;

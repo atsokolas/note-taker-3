@@ -4,6 +4,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import FocusMode from '../components/think/FocusMode';
 import { namesAThinkObject } from '../pages/thinkNotesModel';
 import SystemStatus from './SystemStatus';
+import { ThemeSwatch } from '../components/settings/ThemePicker';
 import { goToKeyFor } from '../navigation/appNavigation';
 
 const TopBarMenuPopover = ({
@@ -71,6 +72,7 @@ const TopBar = ({
   className = '',
   systemStatus = null,
   onSystemStatusRetry = null,
+  theme = null,
   routeLocation = null
 }) => {
   const routerLocation = useLocation();
@@ -237,6 +239,17 @@ const TopBar = ({
               <span aria-hidden="true">⌕</span>
             </button>
           )}
+          {theme ? (
+            <button
+              type="button"
+              className="topbar__icon-button topbar__theme"
+              aria-label={`Theme: ${theme.label}`}
+              title={`Theme: ${theme.label}`}
+              onClick={theme.onOpen}
+            >
+              <ThemeSwatch id={theme.id} />
+            </button>
+          ) : null}
           {systemStatus ? (
             <SystemStatus
               backgroundWork={systemStatus.backgroundWork}

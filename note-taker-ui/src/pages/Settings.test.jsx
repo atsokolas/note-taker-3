@@ -56,6 +56,27 @@ describe('Settings redesign', () => {
     }));
   });
 
+  it('takes a theme kept from the theme menu over a theme still pending in the draft', () => {
+    const base = { typographyScale: 'large', density: 'comfortable', theme: 'dark', motion: 'system' };
+    const props = { uiSettings: base, onOpenThemePicker: jest.fn() };
+    const { rerender } = renderSettings(props);
+    fireEvent.click(screen.getByRole('button', { name: /Restore appearance defaults/ }));
+    expect(screen.getByRole('button', { name: /System/ })).toHaveAttribute('aria-haspopup', 'dialog');
+    rerender(
+      <MemoryRouter>
+        <TemporaryAppearanceProvider committedSettings={base} onKeepTemporary={async () => ({ ok: true })}>
+          <Settings
+            uiSettings={{ ...base, theme: 'dracula' }}
+            onAppearanceCommit={jest.fn()}
+            onAppearanceUndo={jest.fn()}
+            onOpenThemePicker={props.onOpenThemePicker}
+          />
+        </TemporaryAppearanceProvider>
+      </MemoryRouter>
+    );
+    expect(screen.getByRole('button', { name: /Dracula/ })).toHaveAttribute('aria-haspopup', 'dialog');
+  });
+
   it('keeps appearance changes in preview until the reader applies them', async () => {
     const onAppearanceCommit = jest.fn().mockResolvedValue({ ok: true, settings: {
       typographyScale: 'large',
