@@ -269,7 +269,7 @@ describe('the view', () => {
       const region = await screen.findByRole('region', { name: 'Already in your library' });
       expect(getJudgmentLibraryEvidence).toHaveBeenCalledWith('view-1', { limit: 3 });
       const who = within(region).getByRole('link', { name: 'Costco and the Membership Moat' });
-      expect(who).toHaveAttribute('href', '/articles/article-4');
+      expect(who).toHaveAttribute('href', '/library?articleId=article-4&highlightId=highlight-7');
       expect(who.closest('p')).toHaveTextContent('Costco and the Membership Moat, saved Oct 9:');
       fireEvent.click(within(region).getByRole('button', { name: 'File for' }));
       await waitFor(() => expect(fileJudgmentEvidence).toHaveBeenCalledWith({
@@ -314,7 +314,8 @@ describe('the view', () => {
       openView();
       const region = await screen.findByRole('region', { name: 'From your reading' });
       const who = within(region).getByRole('link', { name: 'Ben Carlson' });
-      expect(who).toHaveAttribute('href', '/articles/article-9');
+      expect(decodeURIComponent(who.getAttribute('href'))).toContain('/library?articleId=article-9#passage=');
+      expect(decodeURIComponent(who.getAttribute('href'))).toContain(QUOTE);
       expect(who.closest('p')).toHaveTextContent('Ben Carlson, Oct 1, argues against this:');
       expect(screen.getByText(QUOTE)).toBeInTheDocument();
       fireEvent.click(screen.getByRole('button', { name: 'File against' }));

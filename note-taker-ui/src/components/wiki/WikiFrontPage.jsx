@@ -6,6 +6,7 @@ import { wikiReadPath } from '../../utils/wikiFeatureFlags';
 import { purgeUnscopedKeys, scopedKey } from '../../utils/browserScope';
 import { filterReturnViewItems } from '../../utils/cruftSuppression';
 import { formatSurfaceDate } from '../../utils/dateDisplay';
+import { buildPassagePath } from '../../utils/sourceRoutes';
 import { useNoeisAgentSurface } from '../../agent/AgentRailContext';
 import { AGENT_DISPLAY_NAME } from '../../constants/agentIdentity';
 import WikiCreationComposer from './WikiCreationComposer';
@@ -172,7 +173,7 @@ export const ArguesWithYou = ({ reading, onSettled }) => {
       ) : (
         <>
           <p>
-            {articleId ? <Link to={`/articles/${encodeURIComponent(articleId)}`}>{who}</Link> : who} pushes against
+            {articleId ? <Link to={buildPassagePath({ articleId, text: after })}>{who}</Link> : who} pushes against
             your view that {viewLink}:
           </p>
           {after ? <blockquote>{after}</blockquote> : null}

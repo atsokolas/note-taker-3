@@ -16,7 +16,7 @@ import {
 } from '../../api/judgmentResolution';
 import { useNoeisAgentSurface } from '../../agent/AgentRailContext';
 import { rememberOpenedJudgment } from '../reader/folioModel';
-import { parseSourceOrigin } from '../../utils/sourceRoutes';
+import { buildPassagePath, buildSourceOriginPath, parseSourceOrigin } from '../../utils/sourceRoutes';
 import { buildJudgmentSurfaceDescriptor } from '../../pages/judgmentSurfaceModel';
 import {
   CONFIDENCE,
@@ -130,7 +130,7 @@ const ReadingLine = ({ proposal, busy, onFile, onDismiss }) => {
     <li className="judgment-reading__line">
       {falsifier ? <p>You said you’d change your mind if “{falsifier}”</p> : null}
       <p>
-        {articleId ? <Link to={`/articles/${articleId}`}>{who}</Link> : who}
+        {articleId ? <Link to={buildPassagePath({ articleId, text: proposal.provenance?.after })}>{who}</Link> : who}
         {publishedAt ? `, ${formatLedgerDate(publishedAt)}` : ''}, {falsifier ? 'meets it' : `argues ${against ? 'against' : 'for'} this`}:
       </p>
       <blockquote>{proposal.provenance?.after}</blockquote>
@@ -149,13 +149,13 @@ const ReadingLine = ({ proposal, busy, onFile, onDismiss }) => {
 /* A passage you had already saved, found by the words or meaning it shares
    with the view. Retrieval cannot tell which side it is on; you say. */
 const LibraryLine = ({ candidate, busy, onFile, onSetAside }) => {
-  const { articleId } = parseSourceOrigin(candidate.id);
+  const href = buildSourceOriginPath(candidate.id, '', candidate.text);
   const who = candidate.sourceLabel || 'A source you saved';
   const when = savedOn(candidate.savedAt);
   return (
     <li className="judgment-reading__line">
       <p>
-        {articleId ? <Link to={`/articles/${articleId}`}>{who}</Link> : who}
+        {href ? <Link to={href}>{who}</Link> : who}
         {when ? `, ${when}` : ''}:
       </p>
       <blockquote>{candidate.text}</blockquote>

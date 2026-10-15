@@ -137,7 +137,7 @@ const passageOf = (page, line) => {
     || normalizeSpaces(ref?.title)
     || normalizeSpaces(ref?.citationLabel)
     || normalizeSpaces(ref?.provider);
-  const href = buildSourceOriginPath(line.acceptedFrom) || (ref ? buildSourceOpenPath(ref, { passage: ref.snippet }) : '');
+  const href = buildSourceOriginPath(line.acceptedFrom, '', line.text) || (ref ? buildSourceOpenPath(ref, { passage: ref.snippet }) : '');
   return { id: line.id, text: line.text, source: label, href, at: line.at };
 };
 
