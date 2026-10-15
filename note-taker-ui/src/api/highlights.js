@@ -42,12 +42,6 @@ export const getHighlights = async ({ folderId, tag, articleId, q, cursor, limit
   return res.data || [];
 };
 
-export const updateHighlightTags = async ({ articleId, highlightId, tags = [] }) => {
-  const res = await api.patch(`/articles/${articleId}/highlights/${highlightId}`, { tags }, getAuthHeaders());
-  clearHighlightsCache();
-  return res.data?.highlight || res.data;
-};
-
 export const updateHighlight = async ({ articleId, highlightId, payload = {} }) => {
   const res = await api.patch(
     `/articles/${articleId}/highlights/${highlightId}`,

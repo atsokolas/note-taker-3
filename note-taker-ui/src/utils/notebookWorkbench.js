@@ -2,15 +2,6 @@ const list = value => (Array.isArray(value) ? value : []);
 const text = value => String(value || '');
 const RANGE_SCOPES = new Set(['word', 'sentence', 'range']);
 
-export const emptyNotebookWorkingState = () => ({
-  revision: 0,
-  materials: [],
-  trials: [],
-  looseThoughts: [],
-  nextTimeLine: { text: '', target: { blockId: '', offset: 0, baseText: '' }, updatedAt: null },
-  continuity: { target: { blockId: '', offset: 0, baseText: '' }, scrollY: 0, updatedAt: null }
-});
-
 const target = (value = {}) => {
   const base = {
     blockId: text(value.blockId),

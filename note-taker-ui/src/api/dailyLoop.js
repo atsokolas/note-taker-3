@@ -3,11 +3,6 @@ import { getAuthHeaders } from '../hooks/useAuthHeaders';
 
 const safe = (value) => encodeURIComponent(String(value || '').trim());
 
-export const getDailyLoop = async () => {
-  const response = await api.get('/api/daily-loop', getAuthHeaders());
-  return response.data || {};
-};
-
 export const recordWikiPageVisit = async (pageId) => {
   const response = await api.post(`/api/daily-loop/page-visits/${safe(pageId)}`, {}, getAuthHeaders());
   return response.data || {};
@@ -33,55 +28,12 @@ export const recordClaimCheckIn = async ({
   return response.data || {};
 };
 
-export const recordClaimFalsifiability = async ({
-  pageId,
-  claimId = '',
-  resolutionCriteria,
-  horizon
-} = {}) => {
-  const path = claimId
-    ? `/api/daily-loop/claims/${safe(pageId)}/${safe(claimId)}/criteria`
-    : `/api/daily-loop/claims/${safe(pageId)}/criteria`;
-  const response = await api.post(
-    path,
-    { claimId, resolutionCriteria, horizon },
-    getAuthHeaders()
-  );
-  return response.data || {};
-};
-
-export const recordClaimVerdict = async ({
-  pageId,
-  claimId,
-  verdict,
-  trigger,
-  sourceEventId = '',
-  note = ''
-} = {}) => {
-  const response = await api.post(
-    `/api/daily-loop/verdicts/${safe(pageId)}/${safe(claimId)}`,
-    { verdict, trigger, sourceEventId, note },
-    getAuthHeaders()
-  );
-  return response.data || {};
-};
-
 export const getJudgmentMirror = async ({ stat = '' } = {}) => {
   const query = stat ? `?stat=${encodeURIComponent(stat)}` : '';
   const response = await api.get(`/api/judgment/mirror${query}`, getAuthHeaders());
   const data = response.data || {};
   if (data.stats || data.metrics || data.coverage) return data;
   return data.mirror || {};
-};
-
-export const disposeConsequence = async ({ preview, action, narrowedText = '' } = {}) => {
-  const eventId = encodeURIComponent(String(preview?.eventId || '').trim());
-  const response = await api.post(
-    `/api/daily-loop/consequences/${eventId}`,
-    { preview, action, narrowedText },
-    getAuthHeaders()
-  );
-  return response.data || {};
 };
 
 export const getMorningPaperSettings = async () => {
@@ -92,14 +44,4 @@ export const getMorningPaperSettings = async () => {
 export const updateMorningPaperSettings = async (patch = {}) => {
   const response = await api.patch('/api/morning-paper/settings', patch, getAuthHeaders());
   return response.data?.settings || {};
-};
-
-export const armReadingWatch = async (pageId, { feedUrl, label = '' } = {}) => {
-  const response = await api.post(`/api/wiki/pages/${safe(pageId)}/reading-watch`, { feedUrl, label }, getAuthHeaders());
-  return response.data || {};
-};
-
-export const disarmWatcher = async (pageId, type) => {
-  const response = await api.post(`/api/daily-loop/watchers/${safe(pageId)}/${safe(type)}/disarm`, {}, getAuthHeaders());
-  return response.data || {};
 };

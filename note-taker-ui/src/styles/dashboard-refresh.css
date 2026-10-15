@@ -584,6 +584,22 @@ body.noeis-editorial .topbar__search-slot {
   width: 100%;
 }
 
+/* One voice across the bar: Connections, Settings and More read in the same
+   serif as Library and Think, not as shouted labels. */
+body.noeis-editorial .topbar__right .topbar__button {
+  color: color-mix(in srgb, var(--vellum-ink) 72%, transparent) !important;
+  font-family: var(--font-serif);
+  font-size: 0.98rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+body.noeis-editorial .topbar__right .topbar__button:hover,
+body.noeis-editorial .topbar__right .topbar__button.is-active {
+  color: var(--vellum-ink) !important;
+}
+
 body.noeis-editorial .topbar__primary-link {
   color: color-mix(in srgb, var(--vellum-ink) 72%, transparent);
   font-family: var(--font-serif);
@@ -829,7 +845,6 @@ body.noeis-editorial .topbar__menu-popover .topbar__menu-item {
 
   body.noeis-editorial .topbar__button {
     padding-inline: 7px;
-    letter-spacing: 0.1em;
   }
 }
 

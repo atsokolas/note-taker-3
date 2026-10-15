@@ -1,0 +1,142 @@
+/* The New page composer: pick a kind of page, then build it. */
+
+.wiki-front-page__company-builder {
+  max-width: min(100%, 760px);
+  margin-top: 14px;
+}
+
+.wiki-company-dossier__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  cursor: pointer;
+}
+
+.wiki-company-dossier__form {
+  display: grid;
+  gap: 14px;
+  margin-top: 14px;
+  padding: 18px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: var(--noeis-paper);
+}
+
+.wiki-company-dossier__form > p {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.wiki-company-dossier__status {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+
+.wiki-company-dossier__form label {
+  display: grid;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+
+.wiki-company-dossier__form input,
+.wiki-company-dossier__form textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: var(--noeis-paper-muted);
+  color: var(--text-primary);
+  font: inherit;
+}
+
+.wiki-company-dossier__assumptions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.wiki-company-dossier__assumptions span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+@media (max-width: 560px) {
+  .wiki-company-dossier__assumptions {
+    grid-template-columns: 1fr;
+  }
+}
+
+.wiki-creation {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+}
+
+.wiki-creation__modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 68%, transparent);
+}
+
+.wiki-creation__modes button {
+  position: relative;
+  padding: 0 0 9px;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted, var(--vellum-subtle));
+  font: 0.86rem/1.2 var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  cursor: pointer;
+}
+
+.wiki-creation__modes button[aria-pressed="true"] {
+  color: var(--text-primary, var(--vellum-ink));
+}
+
+.wiki-creation__modes button[aria-pressed="true"]::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 1px;
+  background: var(--wiki-warm-accent);
+}
+
+.wiki-creation__description {
+  margin: 0;
+  color: var(--text-muted, var(--vellum-subtle));
+  font: 0.82rem/1.5 var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+}
+
+.wiki-creation__panel {
+  min-width: 0;
+}
+
+.wiki-creation .wiki-front-page__company-builder {
+  margin-top: 0;
+  max-width: 100%;
+}
+
+.wiki-creation .wiki-company-dossier__form {
+  margin-top: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+@media (max-width: 560px) {
+  .wiki-creation__modes {
+    gap: 8px 16px;
+  }
+}

@@ -6,13 +6,6 @@ export const createImportSession = async (payload = {}) => {
   return response.data?.session || null;
 };
 
-export const getImportSession = async (id) => {
-  const safeId = String(id || '').trim();
-  if (!safeId) return null;
-  const response = await api.get(`/api/import/sessions/${encodeURIComponent(safeId)}`, getAuthHeaders());
-  return response.data?.session || null;
-};
-
 export const getActiveImportSession = async () => {
   const response = await api.get('/api/import/sessions/active', getAuthHeaders());
   return response.data?.session || null;
@@ -66,11 +59,6 @@ export const disconnectImportConnection = async (connectionId) => {
 export const connectReadwiseToken = async ({ apiToken, accountLabel = '' } = {}) => {
   const response = await api.post('/api/import/readwise/connect', { apiToken, accountLabel }, getAuthHeaders());
   return response.data?.connection || null;
-};
-
-export const connectReadwiseMcp = async ({ accountLabel = '' } = {}) => {
-  const response = await api.post('/api/import/readwise/mcp/connect', { accountLabel }, getAuthHeaders());
-  return response.data || {};
 };
 
 export const startReadwiseOAuth = async () => {

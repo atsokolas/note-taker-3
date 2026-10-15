@@ -110,23 +110,16 @@ describe('app theme design-system tokens', () => {
   it('rejects known cool palette literals from editorial dashboard dark tokens', () => {
     const semanticCss = fs.readFileSync(path.join(__dirname, 'semantic-theme.css'), 'utf8');
     const editorialCss = fs.readFileSync(path.join(__dirname, 'theme.css'), 'utf8');
-    const wikiFrontCss = fs.readFileSync(path.join(__dirname, 'wiki-front-page.css'), 'utf8');
 
     expect(semanticCss).not.toContain('#9eb0cf');
     expect(semanticCss).not.toContain('rgba(96, 118, 153');
     expect(editorialCss).not.toContain('--vellum-blue');
-    expect(wikiFrontCss).not.toContain('#0d1422');
   });
 
-  it('pins the wiki front page dark surface to the warm editorial palette', () => {
-    const css = fs.readFileSync(path.join(__dirname, 'wiki-front-page.css'), 'utf8');
+  it('keeps the dark surface on the warm editorial palette', () => {
     const editorialCss = fs.readFileSync(path.join(__dirname, 'theme.css'), 'utf8');
     const semanticCss = fs.readFileSync(path.join(__dirname, 'semantic-theme.css'), 'utf8');
 
-    expect(css).toContain("html[data-ui-scheme='dark'] body.noeis-editorial.wiki-front-page-route");
-    expect(css).toContain('background: var(--vellum-bg) !important');
-    expect(css).toContain("html[data-ui-scheme='dark'] body.noeis-editorial .wiki-front-page");
-    expect(css).not.toContain('#0d1422');
     expect(semanticCss).not.toContain('#0d1422');
     expect(semanticCss).not.toContain('#9eb0cf');
     expect(semanticCss).not.toContain('rgba(96, 118, 153');

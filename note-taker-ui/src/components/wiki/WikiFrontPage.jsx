@@ -93,9 +93,14 @@ export const sinceLabel = (iso, now = new Date()) => {
   return then.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 };
 
-export const bylineFor = (page = {}) => (
-  page?.aiState?.lastDraftedAt ? `kept by ${AGENT_DISPLAY_NAME}` : 'written by you'
-);
+/* Who wrote it, truthfully: a page taken from someone else says where from,
+   a page Noeis drafts says so, and only the rest are yours. */
+export const bylineFor = (page = {}) => {
+  if (page?.adoptedFrom?.adoptedAt) {
+    return page.adoptedFrom.originTitle ? `taken from ${page.adoptedFrom.originTitle}` : 'taken from a shared page';
+  }
+  return page?.aiState?.lastDraftedAt ? `kept by ${AGENT_DISPLAY_NAME}` : 'written by you';
+};
 
 const openExistingAgent = () => {
   window.dispatchEvent(new Event('noeis:open-agent'));
@@ -298,13 +303,6 @@ const WikiFrontPage = ({ initialKind = '' }) => {
       .catch(() => { if (!cancelled) setChanges(null); });
     return () => { cancelled = true; };
   }, [since]);
-
-  useEffect(() => {
-    document.body.classList.add('wiki-front-page-route');
-    return () => {
-      document.body.classList.remove('wiki-front-page-route');
-    };
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
