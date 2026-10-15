@@ -4,7 +4,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import FocusMode from '../components/think/FocusMode';
 import { namesAThinkObject } from '../pages/thinkNotesModel';
 import SystemStatus from './SystemStatus';
-import { ThemeSwatch } from '../components/settings/ThemePicker';
+import { themeById } from '../settings/themeCatalog';
 import { goToKeyFor } from '../navigation/appNavigation';
 
 const TopBarMenuPopover = ({
@@ -247,7 +247,11 @@ const TopBar = ({
               title={`Theme: ${theme.label}`}
               onClick={theme.onOpen}
             >
-              <ThemeSwatch id={theme.id} />
+              <span
+                className="topbar__theme-glyph"
+                style={{ '--theme-accent': themeById(theme.id)?.swatch.accent }}
+                aria-hidden="true"
+              />
             </button>
           ) : null}
           {systemStatus ? (

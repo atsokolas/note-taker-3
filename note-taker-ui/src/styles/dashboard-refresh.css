@@ -744,6 +744,33 @@ body.noeis-editorial .topbar__avatar-glyph::after {
   transform: translate(-50%, -50%);
 }
 
+/* The theme is drawn in the bar's own hand, the ring the account glyph
+   wears, half-filled with the theme's accent. Following the device fills
+   it with ink instead: light on one side, dark on the other. */
+body.noeis-editorial .topbar__theme-glyph {
+  width: 15px;
+  height: 15px;
+  border: 1.2px solid currentColor;
+  border-radius: 999px;
+  box-sizing: border-box;
+  background: linear-gradient(90deg, transparent 50%, var(--theme-accent, currentColor) 50%);
+  transition: transform var(--noeis-motion-base) var(--noeis-ease-standard);
+}
+
+body.noeis-editorial .topbar__theme:hover .topbar__theme-glyph {
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.noeis-editorial .topbar__theme-glyph {
+    transition: none;
+  }
+}
+
+html[data-ui-motion='reduced'] body.noeis-editorial .topbar__theme-glyph {
+  transition: none;
+}
+
 body.noeis-editorial .topbar__menu {
   position: relative;
 }

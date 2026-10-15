@@ -413,25 +413,3 @@ html[data-ui-motion='reduced'] :is(.theme-picker, .theme-picker__dialog) {
   color: var(--noeis-ink-subtle);
   font-size: 0.7rem;
 }
-
-/* The top bar wears the current theme as a small swatch; it opens the menu. */
-.topbar__theme .theme-swatch {
-  width: 28px;
-  height: 20px;
-  padding: 4px;
-  gap: 2px;
-  border-radius: 5px;
-}
-
-.topbar__theme .theme-swatch--split {
-  padding: 0;
-  gap: 0;
-}
-
-.topbar__theme .theme-swatch--split .theme-swatch {
-  width: 50%;
-  height: 100%;
-  padding: 4px 2px;
-  gap: 1px;
-  border-radius: 0;
-}
