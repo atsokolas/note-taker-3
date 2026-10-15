@@ -92,17 +92,6 @@
   font-size: 10px;
 }
 
-.wiki-collection__nav-foot {
-  margin: 28px 12px 0;
-  font-size: 10px;
-  color: var(--muted, #676e62);
-  line-height: 1.65;
-}
-
-.wiki-collection__nav-foot span {
-  display: block;
-}
-
 .wiki-collection__nav-toggle {
   display: none;
   min-height: 36px;
@@ -288,6 +277,46 @@
   margin-top: 26px;
 }
 
+/* A piece you saved argues with a view you hold: the passage, set like a
+   quotation, under one line that says whose and against what. */
+.wiki-collection__argues {
+  display: grid;
+  gap: 10px;
+  margin-top: 26px;
+  padding-left: 16px;
+  border-left: 1px solid var(--accent, var(--noeis-rule, #dcded3));
+}
+
+.wiki-collection__argues p {
+  margin: 0;
+  font: 15px/1.5 var(--font-serif);
+  color: var(--text-secondary, #4d5248);
+}
+
+.wiki-collection__argues a { color: var(--text-primary, inherit); text-underline-offset: 3px; }
+
+.wiki-collection__argues blockquote {
+  margin: 0;
+  font: 18px/1.55 var(--font-serif);
+  color: var(--text-primary, #22261f);
+  text-wrap: pretty;
+}
+
+.wiki-collection__argues-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .wiki-collection__argues { animation: wiki-argues-arrive 220ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+}
+
+@keyframes wiki-argues-arrive {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+
 .wiki-collection__since-title {
   margin: 0 0 4px;
   font-size: 10px;
@@ -329,12 +358,6 @@
 .wiki-collection__since .wiki-collection__meta {
   justify-content: flex-start;
   margin-top: 8px;
-}
-
-.wiki-collection__foot {
-  font-size: 10px;
-  color: var(--muted, #676e62);
-  margin-top: 22px;
 }
 
 .wiki-collection__composer {

@@ -22,7 +22,7 @@ export const EXAMPLE_PAGE = {
     ['Where it shows up', 'Investors hold losing positions too long; teams keep projects alive to avoid admitting the cost already spent.'],
     ['Where it breaks', 'Caution that protects the downside can also hide the better path nobody chose.']
   ],
-  sources: 'Every line points back to a passage you saved.'
+  sources: 'On your own pages, every line names the source it came from.'
 };
 
 /* A pack's pages as a line, so the reader sees what they would be taking. */

@@ -6,7 +6,7 @@ export const LOGO_PATH = '/logo512.png';
 export const DEFAULT_SOCIAL_IMAGE_PATH = '/og-image.png';
 export const DEFAULT_LAST_UPDATED = '2026-04-19';
 export const DEFAULT_LAST_UPDATED_LABEL = 'April 19, 2026';
-export const DEFAULT_DESCRIPTION = 'Noeis grows a knowledge base from what you read: a wiki that cites every source, answers quoted from your own reading, and read-only access for your AI agents.';
+export const DEFAULT_DESCRIPTION = 'Noeis grows a knowledge base from what you read and checks it against what you believe: passages for and against your views, quoted, and a wiki that shows where your sources disagree.';
 
 export const buildCanonicalUrl = (path = '/') => {
   const normalizedPath = String(path || '/').trim();

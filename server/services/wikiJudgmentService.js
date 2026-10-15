@@ -315,7 +315,10 @@ const normalizeJudgment = ({ input, existing = null, actorType = 'user', pageId 
     evidenceResponses: Array.isArray(prior.evidenceResponses) ? prior.evidenceResponses : [],
     /* Per-case overnight silence. Not an event ignore — the same filing may
        still matter to another claim. */
-    dismissedOvernightEventIds: cleanList(next.dismissedOvernightEventIds, 80)
+    dismissedOvernightEventIds: cleanList(next.dismissedOvernightEventIds, 80),
+    /* Passages from the library the reader said are not about this view.
+       Kept with the view so they are not offered again. */
+    notAboutIds: cleanList(next.notAboutIds, 200)
   };
 };
 

@@ -41,8 +41,10 @@ export const fileJudgmentEvidence = async ({
 };
 
 // The passage this source already proposed against a view you hold, if any.
-export const getPushesAgainst = async (articleId) => {
-  const response = await api.get(`/api/judgment/pushes-against?articleId=${safe(articleId)}`, getAuthHeaders());
+// Without a source, the latest any source proposed.
+export const getPushesAgainst = async (articleId = '') => {
+  const query = articleId ? `?articleId=${safe(articleId)}` : '';
+  const response = await api.get(`/api/judgment/pushes-against${query}`, getAuthHeaders());
   return response.data?.reading || null;
 };
 

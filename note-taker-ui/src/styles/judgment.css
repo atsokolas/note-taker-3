@@ -127,7 +127,7 @@
   font: 400 0.9rem/1.4 var(--judgment-ui);
 }
 
-.judgment-hold input {
+.judgment-hold textarea {
   width: 100%;
   padding: 0 0 12px;
   border: 0;
@@ -135,9 +135,18 @@
   background: transparent;
   color: var(--judgment-ink);
   font: 400 clamp(1.25rem, 1.1rem + 0.6vw, 1.6rem)/1.35 var(--font-serif);
+  resize: none;
+  overflow: hidden;
 }
 
-.judgment-hold input::placeholder {
+.judgment-hold__note {
+  max-width: 34rem;
+  margin: 0;
+  color: var(--judgment-muted);
+  font: 400 0.9rem/1.5 var(--judgment-ui);
+}
+
+.judgment-hold textarea::placeholder {
   color: var(--judgment-subtle);
   opacity: 0.8;
 }

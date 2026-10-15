@@ -255,6 +255,17 @@ const fakeArticle = (articles) => ({
     'the exact passage already filed is not offered again'
   );
 
+  const setAside = await findLibraryEvidence({
+    Article: fakeArticle([article]),
+    userId: 'u1',
+    claim: 'Demand for compute outruns deliverable capacity',
+    judgment: { notAboutIds: ['highlight:a1:h1'] }
+  });
+  assert.ok(
+    setAside.candidates.every(candidate => candidate.highlightId !== 'h1'),
+    'a passage the reader said is not about this view is not offered again'
+  );
+
   const leftover = await findLibraryEvidence({
     Article: fakeArticle([{
       _id: 'thin', title: 'Capacity note', content: 'Capacity exists.', highlights: []

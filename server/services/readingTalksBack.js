@@ -282,21 +282,27 @@ const proposeFromReading = async ({
   return proposed;
 };
 
-/* The reader version: a pending passage from this source that argues against
-   a view still held in the same words. It is the proposal the source already
-   made on the view, said where the source is being read. */
-const pushesAgainst = async ({ userId, articleId, models: { WikiPage, NoeisReceipt } = {} }) => {
-  if (!WikiPage?.find || !NoeisReceipt?.find || !articleId) return null;
+/* A pending passage that argues against a view still held in the same words.
+   With a source, it is what that source proposed, said where the source is
+   being read; without one, it is the latest any source proposed, said where
+   the reader lands. */
+const pushesAgainst = async ({ userId, articleId = '', models: { WikiPage, NoeisReceipt } = {} }) => {
+  if (!WikiPage?.find || !NoeisReceipt?.find) return null;
+  /* Only readings of views still held in the words they were read against,
+     so readings left behind by a revised or set-aside view never crowd out
+     the one that still stands. */
+  const views = await heldViews({ WikiPage, userId });
+  if (!views.length) return null;
   const pending = await NoeisReceipt.find({
     userId,
     kind: 'judgment_change_proposal',
     status: 'pending',
     'provenance.change': 'evidence',
     'provenance.stance': 'challenge',
-    'provenance.articleId': String(articleId)
+    'provenance.pageId': { $in: views.map(view => String(view._id)) },
+    'provenance.before': { $in: views.map(sentenceOf) },
+    ...(articleId ? { 'provenance.articleId': String(articleId) } : {})
   }).sort({ createdAt: -1 }).limit(10).lean();
-  if (!pending.length) return null;
-  const views = await heldViews({ WikiPage, userId });
   for (const receipt of pending) {
     const page = views.find(view => String(view._id) === String(receipt.provenance?.pageId));
     if (page && readingStands(page, receipt)) {

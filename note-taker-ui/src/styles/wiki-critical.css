@@ -328,10 +328,23 @@
   font-size: 0.95rem;
   line-height: 1.55;
 }
+.wiki-read__disagrees {
+  display: grid;
+  gap: 6px;
+  padding-left: 14px;
+  border-left: 1px solid var(--accent, currentColor);
+}
+.wiki-read__disagrees p { margin: 0; }
+.wiki-read__disagrees-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 20px;
+}
 .wiki-read__disagrees a {
   color: inherit;
   text-underline-offset: 3px;
 }
+.wiki-read__disagrees-actions a:first-child { color: var(--text-primary); }
 .wiki-read__proposal {
   display: flex;
   flex-wrap: wrap;

@@ -50,7 +50,8 @@ describe('contextual agent contracts', () => {
       subject: 'A source',
       lines: [{ id: 'h', text: '2 highlights.' }],
       scope: 'this source',
-      caption: 'Ask about this source.',
+      caption: '',
+      askPlaceholder: 'Ask about this source',
       supportedActions: ['retrieve', 'accept.keep'],
       proposalPolicy: 'human_acceptance'
     }));
@@ -68,7 +69,9 @@ describe('contextual agent contracts', () => {
     ].map(([contractId, objectType]) => buildContextualAgentSurface(contractId, { objectType, objectId: 'x' }));
     expect(scopes.map(surface => surface.scope)).toEqual(['this source', 'this note', 'this page', 'this view', 'this issue', 'everything']);
     expect(new Set(scopes.map(surface => surface.roleLabel))).toEqual(new Set(['Partner']));
-    expect(scopes[5].caption).toBe('Ask about anything you have read.');
+    expect(scopes[2].askPlaceholder).toBe('Ask about this page');
+    expect(scopes[5].askPlaceholder).toBe('Ask about anything you have read');
+    expect(scopes.every(surface => surface.caption === '')).toBe(true);
   });
 
   it('fails closed when handlers exceed the registered action vocabulary', () => {

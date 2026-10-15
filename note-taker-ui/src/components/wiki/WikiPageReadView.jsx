@@ -1024,9 +1024,14 @@ const WikiReadReferences = ({ sources = [], citations = [], highlightedRef, onJu
 };
 
 /* Under the title: what the page is grown from, and the reading that last
-   changed it. A part that is not known is left out, not guessed. */
-const grownFrom = ({ words = 0, sources = 0, latest = null } = {}) => {
-  const parts = [`${words.toLocaleString()} word${words === 1 ? '' : 's'}${sources ? `, grown from ${sources} source${sources === 1 ? '' : 's'}` : ''}`];
+   changed it. A part that is not known is left out, not guessed. A page still
+   short of a page says it is a start, rather than wearing a page's furniture. */
+export const STARTED_PAGE_WORDS = 250;
+export const grownFrom = ({ words = 0, sources = 0, latest = null } = {}) => {
+  const fromSources = sources ? ` from ${sources} source${sources === 1 ? '' : 's'}` : '';
+  const parts = [words && words < STARTED_PAGE_WORDS && sources
+    ? `A start: ${words.toLocaleString()} word${words === 1 ? '' : 's'}${fromSources}. It grows as you read`
+    : `${words.toLocaleString()} word${words === 1 ? '' : 's'}${sources ? `, grown${fromSources}` : ''}`];
   const saved = latest?.changeSource?.title;
   if (saved) {
     const when = latest.changeSource.at || latest.createdAt;
@@ -1043,24 +1048,29 @@ const proposalSentence = ({ page, candidate }) => {
   return `${AGENT_DISPLAY_NAME} proposes ${passages}${sources}.`;
 };
 
-/* One line where your reading argues with this page: another of your pages
-   when one leans on the arguing source, otherwise the source itself. */
+/* Where your reading argues with this page: another of your pages when one
+   leans on the arguing source, otherwise the source itself. Then the question
+   only you can answer, which holds the sentence as a view in your words. */
 const PageDisagreement = ({ item, pageId }) => {
   const here = idsMatch(item.pageId, pageId);
   const elsewhere = Array.isArray(item.elsewhere) ? item.elsewhere : [];
   const says = here ? item.claimText : elsewhere.find(other => idsMatch(other.pageId, pageId))?.claimText;
   const other = here ? elsewhere[0] : { pageTitle: item.pageTitle, claimText: item.claimText };
   if (!says) return null;
-  const quote = text => `“${wordBoundaryTrim(text, { maxLength: 140 })}”`;
+  const quote = text => `“${wordBoundaryTrim(text, { maxLength: 140 }).replace(/[.;:,]+$/, '')}”`;
   return (
-    <p className="wiki-read__disagrees">
-      This page says {quote(says)}.{' '}
-      {other
-        ? <>Your page on {other.pageTitle} says {quote(other.claimText)}.</>
-        : <>{item.contradicting?.[0]?.title || 'Another source'} argues otherwise.</>}
-      {' '}
-      <Link to={`/wiki/contradictions?claim=${encodeURIComponent(`${item.pageId}:${item.claimId}`)}`}>Open both</Link>
-    </p>
+    <section className="wiki-read__disagrees" aria-label="Where your reading disagrees">
+      <p>
+        This page says {quote(says)}.{' '}
+        {other
+          ? <>Your page on {other.pageTitle} says {quote(other.claimText)}.</>
+          : <>{item.contradicting?.[0]?.title || 'Another source'} argues otherwise.</>}
+      </p>
+      <p className="wiki-read__disagrees-actions">
+        <Link to={`/judgment?hold=${encodeURIComponent(says)}`}>Which do you believe?</Link>
+        <Link to={`/wiki/contradictions?claim=${encodeURIComponent(`${item.pageId}:${item.claimId}`)}`}>Open both</Link>
+      </p>
+    </section>
   );
 };
 
@@ -3078,7 +3088,9 @@ const WikiPageReadView = ({
               </nav>
             )}
             {shareOpen ? shareCard : null}
-            {disagreements.map(item => (
+            {/* One disagreement, the newest: a page that argues with itself
+                everywhere is read as noise, not as a question. */}
+            {disagreements.slice(0, 1).map(item => (
               <PageDisagreement key={`${item.pageId}:${item.claimId}`} item={item} pageId={pageId} />
             ))}
           </header>

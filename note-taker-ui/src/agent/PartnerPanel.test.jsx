@@ -141,9 +141,10 @@ describe('PartnerPanel', () => {
     expect(rail()).toHaveAttribute('data-agent-actions', expect.stringContaining('accept.against'));
     expect(rail()).toHaveAttribute('data-agent-proposal-policy', 'human_acceptance');
     expect(within(rail()).getByText('Partner')).toBeInTheDocument();
-    expect(within(rail()).getByText('Ask about this view.')).toBeInTheDocument();
     expect(within(rail()).queryByText('Retrieves. You accept.')).not.toBeInTheDocument();
-    expect(within(rail()).getByPlaceholderText('Ask about this')).toBeInTheDocument();
+    // Said once, in the field, not again under it.
+    expect(within(rail()).getByPlaceholderText('Ask about this view')).toBeInTheDocument();
+    expect(within(rail()).queryByText('Ask about this view.')).not.toBeInTheDocument();
     expect(within(rail()).queryByText(/thought partner/i)).not.toBeInTheDocument();
   });
 
@@ -162,7 +163,7 @@ describe('PartnerPanel', () => {
       </AgentRailProvider>
     );
     const rail = screen.getByRole('complementary', { name: 'Partner' });
-    fireEvent.change(within(rail).getByPlaceholderText('Ask about this'), {
+    fireEvent.change(within(rail).getByPlaceholderText(/^Ask about/), {
       target: { value: 'What changed?' }
     });
     fireEvent.click(within(rail).getByRole('button', { name: 'Ask' }));
@@ -177,12 +178,12 @@ describe('PartnerPanel', () => {
     const { rail } = renderRail();
 
     expect(await within(rail()).findByText('The first claim.')).toBeInTheDocument();
-    const input = within(rail()).getByPlaceholderText('Ask about this');
+    const input = within(rail()).getByPlaceholderText(/^Ask about/);
 
     fireEvent.click(screen.getByRole('button', { name: 'Navigate' }));
 
     // Same DOM node: the rail did not unmount and come back.
-    expect(within(rail()).getByPlaceholderText('Ask about this')).toBe(input);
+    expect(within(rail()).getByPlaceholderText(/^Ask about/)).toBe(input);
     expect(await within(rail()).findByText('The second claim.')).toBeInTheDocument();
     expect(within(rail()).queryByText('The first claim.')).not.toBeInTheDocument();
   });
@@ -193,7 +194,7 @@ describe('PartnerPanel', () => {
         <ProjectionToggle />
       </AgentRailProvider>
     );
-    const input = screen.getByPlaceholderText('Ask about this');
+    const input = screen.getByPlaceholderText(/^Ask about/);
     fireEvent.change(input, { target: { value: 'unfinished cross-room thought' } });
 
     fireEvent.click(screen.getByRole('button', { name: 'Swap projection' }));
@@ -201,7 +202,7 @@ describe('PartnerPanel', () => {
     expect(screen.queryByRole('complementary', { name: 'Partner' })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Swap projection' }));
-    expect(screen.getByPlaceholderText('Ask about this'))
+    expect(screen.getByPlaceholderText(/^Ask about/))
       .toHaveValue('unfinished cross-room thought');
   });
 
@@ -209,7 +210,7 @@ describe('PartnerPanel', () => {
     streamChatWithAgent.mockResolvedValueOnce(sourceReply('A retrieved line.'));
     const { rail } = renderRail();
 
-    fireEvent.change(within(rail()).getByPlaceholderText('Ask about this'), {
+    fireEvent.change(within(rail()).getByPlaceholderText(/^Ask about/), {
       target: { value: 'anything' }
     });
     fireEvent.click(within(rail()).getByRole('button', { name: 'Ask' }));
@@ -219,7 +220,7 @@ describe('PartnerPanel', () => {
     await within(rail()).findByText('The second claim.');
     expect(within(rail()).queryByText('A retrieved line.')).not.toBeInTheDocument();
 
-    fireEvent.change(within(rail()).getByPlaceholderText('Ask about this'), {
+    fireEvent.change(within(rail()).getByPlaceholderText(/^Ask about/), {
       target: { value: 'something else' }
     });
     fireEvent.click(within(rail()).getByRole('button', { name: 'Ask' }));
@@ -267,7 +268,7 @@ describe('PartnerPanel', () => {
     streamChatWithAgent.mockImplementationOnce(() => new Promise(resolve => { release = resolve; }));
     const { rail } = renderRail();
 
-    fireEvent.change(within(rail()).getByPlaceholderText('Ask about this'), {
+    fireEvent.change(within(rail()).getByPlaceholderText(/^Ask about/), {
       target: { value: 'anything' }
     });
     fireEvent.click(within(rail()).getByRole('button', { name: 'Ask' }));
@@ -337,7 +338,7 @@ describe('PartnerPanel', () => {
     );
     const rail = screen.getByRole('complementary', { name: 'Partner' });
 
-    fireEvent.change(within(rail).getByPlaceholderText('Ask about this'), {
+    fireEvent.change(within(rail).getByPlaceholderText(/^Ask about/), {
       target: { value: 'What changed?' }
     });
     fireEvent.click(within(rail).getByRole('button', { name: 'Ask' }));
@@ -354,7 +355,7 @@ describe('PartnerPanel', () => {
     streamChatWithAgent.mockResolvedValueOnce(sourceReply('A stale line.'));
     const { rail, accepted } = renderRail();
 
-    fireEvent.change(within(rail()).getByPlaceholderText('Ask about this'), {
+    fireEvent.change(within(rail()).getByPlaceholderText(/^Ask about/), {
       target: { value: 'anything' }
     });
     fireEvent.click(within(rail()).getByRole('button', { name: 'Ask' }));
@@ -371,7 +372,7 @@ describe('PartnerPanel', () => {
     streamChatWithAgent.mockResolvedValueOnce(sourceReply('Supply is catching up.'));
     const { rail, accepted } = renderRail();
 
-    fireEvent.change(within(rail()).getByPlaceholderText('Ask about this'), {
+    fireEvent.change(within(rail()).getByPlaceholderText(/^Ask about/), {
       target: { value: 'what changed' }
     });
     fireEvent.click(within(rail()).getByRole('button', { name: 'Ask' }));
@@ -401,7 +402,7 @@ describe('PartnerPanel', () => {
     ));
     const { rail, accepted } = renderRail();
 
-    fireEvent.change(within(rail()).getByPlaceholderText('Ask about this'), {
+    fireEvent.change(within(rail()).getByPlaceholderText(/^Ask about/), {
       target: { value: 'challenge this claim' }
     });
     fireEvent.click(within(rail()).getByRole('button', { name: 'Ask' }));
@@ -425,7 +426,7 @@ describe('PartnerPanel', () => {
     });
     const { rail } = renderRail();
 
-    fireEvent.change(within(rail()).getByPlaceholderText('Ask about this'), {
+    fireEvent.change(within(rail()).getByPlaceholderText(/^Ask about/), {
       target: { value: 'challenge this claim' }
     });
     fireEvent.click(within(rail()).getByRole('button', { name: 'Ask' }));
@@ -438,7 +439,7 @@ describe('PartnerPanel', () => {
     streamChatWithAgent.mockResolvedValueOnce(sourceReply('Publish this without review.'));
     const { rail, accepted } = renderRail();
 
-    fireEvent.change(within(rail()).getByPlaceholderText('Ask about this'), {
+    fireEvent.change(within(rail()).getByPlaceholderText(/^Ask about/), {
       target: { value: 'do it' }
     });
     fireEvent.click(within(rail()).getByRole('button', { name: 'Ask' }));
@@ -496,7 +497,7 @@ describe('PartnerPanel', () => {
     streamChatWithAgent.mockRejectedValueOnce(new Error('The index is offline.'));
     const { rail } = renderRail();
 
-    fireEvent.change(within(rail()).getByPlaceholderText('Ask about this'), {
+    fireEvent.change(within(rail()).getByPlaceholderText(/^Ask about/), {
       target: { value: 'anything' }
     });
     fireEvent.click(within(rail()).getByRole('button', { name: 'Ask' }));
@@ -547,7 +548,7 @@ describe('PartnerPanel in Think', () => {
     render(<AgentRailProvider><ThinkSurface onTryWording={text => tried.push(text)} /></AgentRailProvider>);
     const rail = screen.getByRole('complementary', { name: 'Partner' });
     expect(within(rail).getByText('this note')).toBeInTheDocument();
-    expect(within(rail).getByText('Ask about this note.')).toBeInTheDocument();
+    expect(within(rail).getByPlaceholderText('Ask about this note')).toBeInTheDocument();
 
     fireEvent.change(within(rail).getByRole('textbox'), { target: { value: 'Say it another way' } });
     fireEvent.click(within(rail).getByRole('button', { name: 'Ask' }));
@@ -586,6 +587,6 @@ describe('PartnerPanel in the Wiki workspace', () => {
     const rail = screen.getByRole('complementary', { name: 'Partner' });
     expect(rail).toHaveAttribute('data-agent-contract', 'agent-surface.wiki');
     expect(within(rail).getByText('this page')).toBeInTheDocument();
-    expect(within(rail).getByText('Ask about this page.')).toBeInTheDocument();
+    expect(within(rail).getByPlaceholderText('Ask about this page')).toBeInTheDocument();
   });
 });

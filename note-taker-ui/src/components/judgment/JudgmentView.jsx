@@ -1,15 +1,22 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
+  getJudgmentLibraryEvidence,
   getWikiPage,
   listReadingProposals,
   proposeJudgmentChange,
   resolveJudgmentChange,
   updateWikiPage
 } from '../../api/wiki';
-import { fileReadingProposal, recordJudgmentVerdict, setJudgmentResolution } from '../../api/judgmentResolution';
+import {
+  fileJudgmentEvidence,
+  fileReadingProposal,
+  recordJudgmentVerdict,
+  setJudgmentResolution
+} from '../../api/judgmentResolution';
 import { useNoeisAgentSurface } from '../../agent/AgentRailContext';
 import { rememberOpenedJudgment } from '../reader/folioModel';
+import { parseSourceOrigin } from '../../utils/sourceRoutes';
 import { buildJudgmentSurfaceDescriptor } from '../../pages/judgmentSurfaceModel';
 import {
   CONFIDENCE,
@@ -21,6 +28,7 @@ import {
   projectView,
   resumeJudgment
 } from '../../pages/judgmentModel';
+import { savedOn } from '../../pages/welcomeModel';
 
 // The View.
 //
@@ -29,7 +37,12 @@ import {
 // A record of what happened. Two things you can do: revise it, or say how it
 // turned out. Above the passages, a quiet line for each passage a newly saved
 // source offered, until you file it or say it is not relevant; one that meets
-// what you said would change your mind waits under that line instead.
+// what you said would change your mind waits under that line instead. Below
+// those, the passages you had already saved that bear on the sentence: the
+// library is read against a view the moment it is held, not only when
+// something new arrives.
+
+const LIBRARY_PASSAGES = 3;
 
 const UNDO_MS = 6000;
 
@@ -133,6 +146,28 @@ const ReadingLine = ({ proposal, busy, onFile, onDismiss }) => {
   );
 };
 
+/* A passage you had already saved, found by the words or meaning it shares
+   with the view. Retrieval cannot tell which side it is on; you say. */
+const LibraryLine = ({ candidate, busy, onFile, onSetAside }) => {
+  const { articleId } = parseSourceOrigin(candidate.id);
+  const who = candidate.sourceLabel || 'A source you saved';
+  const when = savedOn(candidate.savedAt);
+  return (
+    <li className="judgment-reading__line">
+      <p>
+        {articleId ? <Link to={`/articles/${articleId}`}>{who}</Link> : who}
+        {when ? `, ${when}` : ''}:
+      </p>
+      <blockquote>{candidate.text}</blockquote>
+      <span className="judgment-actions">
+        <button type="button" onClick={() => onFile(candidate, 'why')} disabled={busy}>File for</button>
+        <button type="button" onClick={() => onFile(candidate, 'against')} disabled={busy}>File against</button>
+        <button type="button" className="is-quiet" onClick={() => onSetAside(candidate)} disabled={busy}>Not about this</button>
+      </span>
+    </li>
+  );
+};
+
 const toDateInput = (value) => {
   if (!value) return '';
   const date = new Date(value);
@@ -219,6 +254,7 @@ const Record = ({ lines }) => (
 const JudgmentView = ({ pageId, initialPage = null }) => {
   const [page, setPage] = useState(initialPage);
   const [reading, setReading] = useState([]);
+  const [library, setLibrary] = useState([]);
   const [loading, setLoading] = useState(!initialPage);
   const [error, setError] = useState('');
   const [revising, setRevising] = useState(false);
@@ -239,6 +275,10 @@ const JudgmentView = ({ pageId, initialPage = null }) => {
   const rereadPassages = useCallback(() => {
     const ask = ++readingAsk.current;
     setReading([]);
+    setLibrary([]);
+    getJudgmentLibraryEvidence(pageId, { limit: LIBRARY_PASSAGES })
+      .then(found => { if (ask === readingAsk.current) setLibrary(found.candidates); })
+      .catch(() => {});
     return listReadingProposals(pageId)
       .then(rows => { if (ask === readingAsk.current) setReading(rows.filter(row => !dismissed.current.has(row.id))); })
       .catch(() => {});
@@ -332,6 +372,26 @@ const JudgmentView = ({ pageId, initialPage = null }) => {
     await fileReadingProposal({ pageId, proposalId: proposal.id, field });
     setReading(rows => rows.filter(row => row.id !== proposal.id));
     setPage(await getWikiPage(pageId, { reader: 1 }));
+  });
+
+  const fileLibrary = (candidate, field) => run(async () => {
+    const { articleId, highlightId } = parseSourceOrigin(candidate.id);
+    const saved = await fileJudgmentEvidence({
+      pageId,
+      expectedClaim: view.claim,
+      field,
+      articleId,
+      highlightId,
+      quote: candidate.text
+    });
+    mergeJudgment(saved?.judgment);
+    setLibrary(rows => rows.filter(row => row.id !== candidate.id));
+  });
+
+  const setLibraryAside = (candidate) => run(async () => {
+    const judgment = pageRef.current.judgment || {};
+    await commit({ ...judgment, notAboutIds: [...(judgment.notAboutIds || []), candidate.id] });
+    setLibrary(rows => rows.filter(row => row.id !== candidate.id));
   });
 
   const dismissReading = (proposal) => {
@@ -437,6 +497,23 @@ const JudgmentView = ({ pageId, initialPage = null }) => {
       {offered.length || pending?.at === 'reading' ? (
         <section className="judgment-reading" aria-label="From your reading">
           {readingLines(offered, 'reading')}
+        </section>
+      ) : null}
+
+      {library.length ? (
+        <section className="judgment-reading" aria-labelledby="judgment-library-title">
+          <h2 id="judgment-library-title">Already in your library</h2>
+          <ul>
+            {library.map(candidate => (
+              <LibraryLine
+                key={candidate.id}
+                candidate={candidate}
+                busy={busy}
+                onFile={fileLibrary}
+                onSetAside={setLibraryAside}
+              />
+            ))}
+          </ul>
         </section>
       ) : null}
 

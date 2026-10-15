@@ -874,7 +874,8 @@ const wikiJudgmentSchema = new mongoose.Schema({
   clocks: { type: [judgmentClockFactSchema], default: [] },
   outcomes: { type: [judgmentCaseOutcomeSchema], default: [] },
   lessonApplications: { type: [judgmentLessonApplicationSchema], default: [] },
-  dismissedOvernightEventIds: { type: [String], default: [] }
+  dismissedOvernightEventIds: { type: [String], default: [] },
+  notAboutIds: { type: [String], default: [] }
 }, { _id: false });
 
 const wikiClaimSchema = new mongoose.Schema({

@@ -17,6 +17,8 @@
   color: var(--reading-ink);
 }
 .edition-reading__page { min-width: 0; }
+/* No ladder to zoom through: the page takes the whole width. */
+.edition-reading__page:only-child { grid-column: 1 / -1; }
 .edition-reading button, .edition-reading select, .edition-reading textarea { font: inherit; color: inherit; }
 .edition-reading button { cursor: pointer; background: none; border: 0; }
 .edition-reading button:disabled { cursor: default; opacity: .65; }

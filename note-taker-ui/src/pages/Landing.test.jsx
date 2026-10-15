@@ -60,7 +60,7 @@ describe('Landing', () => {
       expect(screen.getByText(title)).toBeInTheDocument();
       expect(screen.getByText(copy)).toBeInTheDocument();
     });
-    expect(screen.getByText('Let your agents learn from it.')).toBeInTheDocument();
+    expect(screen.getByText(/Connect Claude Code, Codex and other agents/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'How it works' })).toHaveAttribute('href', '#how-it-works');
     expect(screen.getByRole('link', { name: 'Log in' })).toHaveAttribute('href', '/login');
     expect(screen.queryByText(/Nothing is written until you accept it/)).not.toBeInTheDocument();

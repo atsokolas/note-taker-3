@@ -140,7 +140,8 @@ export default function Editions() {
 
   return (
     <div className="edition-reading" data-testid="editions-stand">
-      <EditionZoom rungs={rungs} at={4 - level} power={powerPath} {...zoom} />
+      {/* With no paper there is nothing to zoom through, so no ladder. */}
+      {level === 4 && editions?.length === 0 ? null : <EditionZoom rungs={rungs} at={4 - level} power={powerPath} {...zoom} />}
       <div className="edition-reading__page">
         {error ? <p role="alert">{error}</p> : null}
         {!editions && !error ? <p role="status">Opening your papers…</p> : null}
@@ -148,7 +149,9 @@ export default function Editions() {
           <section className="editions__empty">
             <h1>No paper yet.</h1>
             <p>
-              Ask an agent to keep one for you, from <Link to="/connections">Connections</Link>.
+              A paper is a short weekly issue that an agent you connect, such as Claude Code or Codex, files for you:
+              what it found, each finding with its source and how sure to be. Connect one
+              from <Link to="/connections">Connections</Link>.
             </p>
           </section>
         ) : null}

@@ -129,9 +129,11 @@ export const buildContextualAgentSurface = (contractId, context = {}) => {
     subject: String(context.subject || context.title || '').trim(),
     summary: String(context.summary || '').trim(),
     lines: normalizeLines(context.lines),
-    caption: String(context.caption || '').trim()
-      || (scope === 'everything' ? 'Ask about anything you have read.' : `Ask about ${scope}.`),
-    askPlaceholder: String(context.askPlaceholder || 'Ask about this').trim(),
+    /* The field says what it can be asked about, once; a caption is only for
+       something the field cannot say. */
+    caption: String(context.caption || '').trim(),
+    askPlaceholder: String(context.askPlaceholder || '').trim()
+      || (scope === 'everything' ? 'Ask about anything you have read' : `Ask about ${scope}`),
     supportedActions: [...resolved.actions],
     capabilities: [...resolved.capabilities],
     proposalPolicy: resolved.proposalPolicy
