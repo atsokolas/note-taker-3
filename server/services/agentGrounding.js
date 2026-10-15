@@ -192,6 +192,11 @@ const unstatedFigures = (claim = '', texts = []) => {
       const [a, b] = [valueOf(x), valueOf(y)];
       const ratio = a && b && Math.max(a.value, b.value) / Math.min(a.value, b.value);
       return !ratio || (ratio >= times * 0.85 && ratio <= times * 1.4) ? [] : [raw];
+    }),
+    // "Roughly double (1.10^5 ≈ 1.61x)": the word against the multiple beside it.
+    ...[...text.matchAll(/\b(doubl|tripl|quadrupl)\w*[^;]{0,40}?(?<![\d.])(\d+(?:\.\d+)?)\s*[x×](?![a-z])/gi)].flatMap(([raw, stem, multiple]) => {
+      const times = { doubl: 2, tripl: 3, quadrupl: 4 }[stem.toLowerCase()];
+      return Number(multiple) >= times * 0.85 && Number(multiple) <= times * 1.4 ? [] : [raw];
     })
   ];
   const known = figures.filter(figure => statedIn(figure, values));

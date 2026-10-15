@@ -1551,6 +1551,7 @@ const DOSSIER_EDITOR_BRIEF = `Above are the sources and the brief the writer was
 - a comparison that names the wrong side as larger, or a ratio called by a word it is not ("double" for 1.6x);
 - two totals called a discrepancy when the line items reconcile them;
 - a paragraph that repeats another;
+- a sentence cut off mid-word: finish it from the sources or remove it;
 - a figure computed without its inputs beside it: write them in ("98% ($297.25bn / $303.15bn)");
 - a figure cited to a source that does not state it: cite the one that does, and cite every filing a sentence draws on (an earlier quarter's figure cites that quarter's filing);
 - a claim or question with no citation: cite the source it rests on;
