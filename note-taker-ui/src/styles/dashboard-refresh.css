@@ -757,8 +757,10 @@ body.noeis-editorial .topbar__theme-glyph {
   transition: transform var(--noeis-motion-base) var(--noeis-ease-standard);
 }
 
-body.noeis-editorial .topbar__theme:hover .topbar__theme-glyph {
-  transform: rotate(180deg);
+@media (hover: hover) and (pointer: fine) {
+  body.noeis-editorial .topbar__theme:hover .topbar__theme-glyph {
+    transform: rotate(180deg);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
