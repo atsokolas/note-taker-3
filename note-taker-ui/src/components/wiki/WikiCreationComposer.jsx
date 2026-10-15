@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import WikiBuildPageComposer from './WikiBuildPageComposer';
 import WikiCompanyDossierComposer from './WikiCompanyDossierComposer';
 import WikiRepoCreateComposer from './WikiRepoCreateComposer';
+import '../../styles/wiki-creation.css';
 
 const CREATION_MODES = [
   {

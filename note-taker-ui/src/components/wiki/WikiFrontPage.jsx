@@ -305,13 +305,6 @@ const WikiFrontPage = ({ initialKind = '' }) => {
   }, [since]);
 
   useEffect(() => {
-    document.body.classList.add('wiki-front-page-route');
-    return () => {
-      document.body.classList.remove('wiki-front-page-route');
-    };
-  }, []);
-
-  useEffect(() => {
     let cancelled = false;
     const cached = seed || readFrontPageCache();
     const snapshot = {

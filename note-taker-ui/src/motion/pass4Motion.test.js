@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 
 const read = (file) => fs.readFileSync(path.join(__dirname, '..', 'styles', file), 'utf8');
-const paper = read('wiki-front-page.css');
+const arrival = read('theme.css');
 const library = read('library-column.css');
 const switchCss = read('placement-switch.css');
 
@@ -31,13 +31,13 @@ describe('living ink dries in', () => {
 
 describe('one curve, product-wide', () => {
   it('uses the same settle everywhere motion happens', () => {
-    [paper, library, switchCss].forEach((sheet) => {
+    [arrival, library, switchCss].forEach((sheet) => {
       expect(sheet).toMatch(/cubic-bezier\(0\.16, 1, 0\.3, 1\)/);
     });
   });
 
   it('never bounces', () => {
-    [paper, library, switchCss].forEach((sheet) => {
+    [arrival, library, switchCss].forEach((sheet) => {
       expect(sheet).not.toMatch(/cubic-bezier\([^)]*,\s*-\d/);
     });
   });
