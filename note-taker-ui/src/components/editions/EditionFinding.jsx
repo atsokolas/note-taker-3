@@ -5,6 +5,7 @@ import { findingAnchor } from './editionReadingState';
 import AgentMark from './AgentMark';
 import EditionReadings from './EditionReadings';
 import { Figures, Held, Passage } from './EditionLayer';
+import { buildCanonicalArticlePath } from '../../utils/sourceRoutes';
 
 export const EditionBoundary = ({ children }) => (
   <aside className="reading-boundary">
@@ -74,7 +75,7 @@ export default function EditionFinding({ editionId, item, number, section = '', 
         <Passage item={item} />
         <div className="reading-actions">
           {item.savedArticleId ? (
-            <Link className="reading-kept" to={`/articles/${encodeURIComponent(item.savedArticleId)}`}>
+            <Link className="reading-kept" to={buildCanonicalArticlePath(item.savedArticleId)}>
               ✓ Kept in your Library
             </Link>
           ) : (

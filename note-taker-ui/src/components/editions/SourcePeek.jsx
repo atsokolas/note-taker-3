@@ -8,6 +8,7 @@ import AgentMark from './AgentMark';
 import { EditionBoundary } from './EditionFinding';
 import { Passage } from './EditionLayer';
 import ThoughtComposer from './ThoughtComposer';
+import { buildCanonicalArticlePath } from '../../utils/sourceRoutes';
 
 // React renders text, never untrusted article markup. Preserve paragraph breaks.
 export const articleParagraphs = (html) => {
@@ -123,7 +124,7 @@ export default function SourcePeek({ item, view, origin, quote, onClose, thought
               <p>No safe original link is available.</p>
             )}
             {item.savedArticleId ? (
-              <Link to={`/articles/${encodeURIComponent(item.savedArticleId)}`}>
+              <Link to={buildCanonicalArticlePath(item.savedArticleId)}>
                 Open in Library →
               </Link>
             ) : null}

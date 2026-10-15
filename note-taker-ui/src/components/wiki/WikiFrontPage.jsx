@@ -190,19 +190,22 @@ export const ArguesWithYou = ({ reading, onSettled }) => {
 
 /* The day a view comes due: what you said you would know by now, and the
    test you set for it, one step from the verdict. */
-export const ComesDue = ({ due, onSettled }) => (
-  <section className="wiki-collection__argues" aria-label="A view has come due">
-    <p>
-      You said you would know by {formatLedgerDate(due.by)} whether{' '}
-      <Link to={`/judgment/${encodeURIComponent(due.pageId)}`}>{String(due.view).replace(/[.\s]+$/, '')}</Link>.
-    </p>
-    {due.test ? <blockquote>{due.test}</blockquote> : null}
-    <p className="wiki-collection__argues-actions">
-      <Link className={buttonClass('quiet')} to={`/judgment/${encodeURIComponent(due.pageId)}`}>Did it hold up?</Link>
-      <Button variant="quiet" onClick={onSettled}>Not now</Button>
-    </p>
-  </section>
-);
+export const ComesDue = ({ due, onSettled }) => {
+  const href = `/judgment/${encodeURIComponent(due.pageId)}`;
+  return (
+    <section className="wiki-collection__argues" aria-label="A view has come due">
+      <p>
+        You said you would know by {formatLedgerDate(due.by)} whether{' '}
+        <Link to={href}>{String(due.view).replace(/[.\s]+$/, '')}</Link>.
+      </p>
+      {due.test ? <blockquote>{due.test}</blockquote> : null}
+      <p className="wiki-collection__argues-actions">
+        <Link className={buttonClass('quiet')} to={href}>Did it hold up?</Link>
+        <Button variant="quiet" onClick={onSettled}>Not now</Button>
+      </p>
+    </section>
+  );
+};
 
 /* What moved since you last looked. Silence is a state: when nothing moved,
    one line says so and the list follows. */

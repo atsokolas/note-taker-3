@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { fetchRelatedItems, recordItemView } from '../../api/retrieval';
+import { buildCanonicalArticlePath } from '../../utils/sourceRoutes';
 
 const LAST_VIEWED_KEY = 'retrieval:last-viewed-item.v1';
 
@@ -33,7 +34,7 @@ const writeLastViewed = (itemType, itemId) => {
 const buildFallbackPath = (itemType, itemId) => {
   if (itemType === 'highlight') return `/library?focus=highlight:${encodeURIComponent(itemId)}`;
   if (itemType === 'notebook') return `/think?tab=notebook&entryId=${encodeURIComponent(itemId)}`;
-  if (itemType === 'article') return `/articles/${encodeURIComponent(itemId)}`;
+  if (itemType === 'article') return buildCanonicalArticlePath(itemId);
   if (itemType === 'concept') return `/think?tab=concepts&conceptId=${encodeURIComponent(itemId)}`;
   if (itemType === 'question') return `/think?tab=questions&questionId=${encodeURIComponent(itemId)}`;
   return '/library';

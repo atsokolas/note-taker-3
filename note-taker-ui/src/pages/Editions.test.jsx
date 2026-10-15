@@ -323,7 +323,7 @@ it('does not insert new filings until Show, even when Keep returns the newer iss
   expect(screen.queryByRole('heading', { name: 'An arrival' })).toBeNull();
   api.saveEditionItem.mockResolvedValue({ edition: { ...newer, items: newer.items.map(i => i.itemId === 'one' ? { ...i, savedArticleId: 'article' } : i) }, readable: false });
   fireEvent.click(screen.getByRole('button', { name: 'Keep' })); await act(async () => {});
-  expect(screen.getByRole('link', { name: '✓ Kept in your Library' })).toHaveAttribute('href', '/articles/article');
+  expect(screen.getByRole('link', { name: '✓ Kept in your Library' })).toHaveAttribute('href', '/library?articleId=article');
   expect(screen.getByText(/Saved the link/)).toBeVisible();
   expect(screen.queryByRole('heading', { name: 'An arrival' })).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: '1 finding added · Show' }));
