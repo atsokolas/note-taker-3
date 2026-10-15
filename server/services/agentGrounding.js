@@ -82,6 +82,8 @@ const figuresIn = (text = '') => {
     const unit = unitRaw.toLowerCase();
     // "the high-80s" or "the 1990s" names a range, and "January 25" a day, not a figure.
     if (!unit && /^'?s\b/.test(String(text).slice(match.index + raw.length))) continue;
+    // "the 52-week year" names a period's length, not a figure.
+    if (!dollar && !unit && /^[-\s](?:week|month|day|year|quarter)\b/i.test(String(text).slice(match.index + raw.length))) continue;
     if (!dollar && !unit && MONTH_BEFORE.test(String(text).slice(Math.max(0, match.index - 12), match.index))) continue;
     const base = Number(digits.replace(/,/g, ''));
     if (!Number.isFinite(base)) continue;

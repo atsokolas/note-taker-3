@@ -62,6 +62,10 @@ describe('unstatedFigures', () => {
     expect(unstatedFigures('Compute was 91.6% ($162.85bn / $177.84bn), with the remaining 8.4% from Graphics.', [filing])).toEqual([]);
   });
 
+  it('reads a period\'s length as no figure', () => {
+    expect(unstatedFigures('Net sales for the 52-week year were $297.25bn.', ['Net sales $297,247 million.'])).toEqual([]);
+  });
+
   it('reads a slash between words as no division', () => {
     const filing = 'Renewal rate 92.3% in the U.S. and Canada and 89.8% worldwide.';
     expect(unstatedFigures('Renewal held near prior levels (92.3% U.S./Canada, 89.8% worldwide).', [filing])).toEqual([]);

@@ -1551,7 +1551,7 @@ const DOSSIER_EDITOR_BRIEF = `Above are the sources and the brief the writer was
 - two totals called a discrepancy when the line items reconcile them;
 - a paragraph that repeats another;
 - a figure computed without its inputs beside it: write them in ("98% ($297.25bn / $303.15bn)");
-- a figure cited to a source that does not state it: cite the one that does;
+- a figure cited to a source that does not state it: cite the one that does, and cite both filings when a sentence draws on two;
 - a claim or question with no citation: cite the source it rests on;
 - a section still holding the template's placeholder ("${MARKET_PLACEHOLDER}"): write it from the sources, or say plainly what could not be found.
 Change nothing else: keep every other sentence, citation, heading and field exactly as written, and return the complete draft in the same JSON shape.
