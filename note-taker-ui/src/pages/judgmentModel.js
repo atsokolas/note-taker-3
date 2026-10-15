@@ -200,7 +200,9 @@ export const projectView = (page, now = Date.now()) => {
       by: judgment.resolutionHorizonAt || null
     },
     resolved: latest ? VERDICT_WORDS[latest.result] || '' : '',
-    due: !verdicts.length && !parked && time(judgment.resolutionHorizonAt) <= now,
+    // A verdict on wording since revised does not settle the sentence held now.
+    due: !parked && time(judgment.resolutionHorizonAt) <= now
+      && !verdicts.some(verdict => !(time(judgment.bornAt) > time(verdict?.recordedAt))),
     record: viewRecord(page),
     revised: list(judgment.heldHistory).length > 0,
     shared: page?.visibility === 'shared',

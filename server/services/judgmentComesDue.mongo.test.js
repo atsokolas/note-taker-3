@@ -55,3 +55,12 @@ test('nothing comes back before its date, once judged, set aside, or archived', 
   assert.equal(await comesDue({ userId: reader, WikiPage, now }), null);
   assert.equal(await comesDue({ userId: new mongoose.Types.ObjectId(), WikiPage, now }), null);
 });
+
+test('a verdict on wording since revised does not settle the sentence held now', async () => {
+  const revised = await view('Revised', {
+    bornAt: new Date(now - 5 * day),
+    resolutionHorizonAt: new Date(now - day),
+    verdicts: [{ verdictId: 'v1', result: 'broke', recordedAt: new Date(now - 6 * day), claimHash: 'old', recordHash: 'r', receiptId: 'k', revisionId: new mongoose.Types.ObjectId() }]
+  });
+  assert.equal((await comesDue({ userId: reader, WikiPage, now })).pageId, String(revised._id));
+});

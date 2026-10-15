@@ -260,11 +260,15 @@ const heldClaim = (page = {}) => {
 /* A change of mind, in the words it was held in: what the view said, what it
    said next, the day it moved, and the last passage filed against the old
    sentence before it moved. A passage travels only when the piece it was
-   quoted from is itself on the open web, and goes with its link; a note, an
-   upload, or a reason in the owner's own words stays home. */
+   quoted from is already cited among this casebook's public sources, and goes
+   with that link; anything else saved, and any reason in the owner's own
+   words, stays home. A URL alone is no sign a piece is public. */
 const articleOf = reason => /^(?:highlight|article):([^:]+)/.exec(clean(reason?.acceptedFrom))?.[1] || '';
 const at = value => new Date(value).getTime();
-const changesOfMind = (judgment = {}, publicUrls = new Map()) => {
+const changesOfMind = (page = {}, articleUrls = new Map()) => {
+  const judgment = plain(page.judgment) || {};
+  const cited = new Set(publicSources(page).map(source => source.url).filter(Boolean));
+  const publicUrls = new Map([...articleUrls].filter(([, url]) => cited.has(clean(url, 1000))));
   const history = list(judgment.heldHistory).filter(entry => clean(entry?.text) && iso(entry?.until));
   const quoted = list(judgment.against)
     .filter(reason => publicUrls.has(articleOf(reason)) && clean(reason?.text) && iso(reason?.createdAt))
@@ -287,7 +291,7 @@ const changesOfMind = (judgment = {}, publicUrls = new Map()) => {
   });
 };
 
-/** The saved pieces a change of mind could quote; the router looks up which are public. */
+/** The saved pieces a change of mind could quote; the router looks up their links. */
 const quotedArticleIds = (page = {}) => [...new Set(
   list(plain(plain(page)?.judgment)?.against).map(articleOf).filter(Boolean)
 )];
@@ -297,7 +301,7 @@ const serializePublicCasebook = ({
   revisions = [],
   lineage = {},
   receipts = [],
-  publicUrls = new Map()
+  articleUrls = new Map()
 } = {}) => {
   const raw = plain(page);
   if (!raw) return null;
@@ -313,7 +317,7 @@ const serializePublicCasebook = ({
     title: clean(raw.title, 240) || claim.text,
     slug: clean(raw.slug, 180),
     claim,
-    changes: changesOfMind(judgment, publicUrls),
+    changes: changesOfMind(raw, articleUrls),
     clocks: list(judgment.clocks).map(publicClock).filter(Boolean),
     verdicts: list(judgment.verdicts).map((row) => publicVerdict(raw, row)).filter(Boolean),
     postmortems: list(judgment.outcomes).map(publicPostmortem).filter(Boolean),

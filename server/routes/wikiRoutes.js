@@ -2271,21 +2271,19 @@ const buildWikiRouter = ({
     return Array.isArray(rows) ? rows : [];
   };
 
-  // Which of the pieces a change of mind quotes are on the open web.
-  const publicArticleUrls = async (page) => {
+  // The links of the saved pieces a change of mind quotes.
+  const quotedArticleUrls = async (page) => {
     const ids = quotedArticleIds(page).filter(id => mongoose.Types.ObjectId.isValid(id));
     if (!ids.length || !Article?.find) return new Map();
     const articles = await Article.find({ _id: { $in: ids }, userId: page.userId }).select('_id url').lean();
-    return new Map(articles
-      .filter(article => /^https?:\/\//i.test(String(article.url || '')))
-      .map(article => [String(article._id), article.url]));
+    return new Map(articles.map(article => [String(article._id), article.url]));
   };
 
   const loadPublicCasebook = async (page) => {
     if (!page || !String(page?.judgment?.currentJudgment || '').trim()) return null;
     const revisions = await loadCasebookRevisions(page._id);
     const lineage = await publicLineageTree({ CasebookLineage, WikiPage, page });
-    return serializePublicCasebook({ page, revisions, lineage, publicUrls: await publicArticleUrls(page) });
+    return serializePublicCasebook({ page, revisions, lineage, articleUrls: await quotedArticleUrls(page) });
   };
 
   const sendLineageError = (res, error) => {

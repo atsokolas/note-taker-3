@@ -202,6 +202,7 @@ describe('judgment public projection', () => {
     const page = {
       _id: 'p1',
       title: 'Remote work',
+      sourceRefs: [{ type: 'external', title: 'GitLab handbook', url: 'https://handbook.gitlab.com/async' }],
       judgment: {
         currentJudgment: 'Remote teams ship as fast once decisions are written down.',
         heldHistory: [{ text: 'Remote teams ship slower.', until: '2026-09-01T00:00:00.000Z' }],
@@ -214,7 +215,9 @@ describe('judgment public projection', () => {
       }
     };
     expect(quotedArticleIds(page)).toEqual(['art-1', 'art-2']);
-    const folio = serializePublicCasebook({ page, publicUrls: new Map([['art-1', 'https://handbook.gitlab.com/async']]) });
+    // A link alone is no sign a piece is public: a paywalled article has one too.
+    const articleUrls = new Map([['art-1', 'https://handbook.gitlab.com/async'], ['art-2', 'https://paywalled.example.com/x']]);
+    const folio = serializePublicCasebook({ page, articleUrls });
     expect(folio.changes).toEqual([{
       was: 'Remote teams ship slower.',
       now: 'Remote teams ship as fast once decisions are written down.',
@@ -223,6 +226,7 @@ describe('judgment public projection', () => {
     }]);
     expect(JSON.stringify(folio)).not.toContain('PRIVATE_UPLOAD_PASSAGE');
     expect(serializePublicCasebook({ page }).changes[0].passage).toBeNull();
+    expect(serializePublicCasebook({ page: { ...page, sourceRefs: [] }, articleUrls }).changes[0].passage).toBeNull();
   });
 
   it('keeps maintenance quiet without an accepted edition and folds same-day autosaves', () => {

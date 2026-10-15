@@ -212,6 +212,16 @@ describe('the view', () => {
     expect(screen.getByRole('button', { name: 'Resolve' })).toBeInTheDocument();
   });
 
+  it('asks again when the verdict was on wording since revised', async () => {
+    getWikiPage.mockResolvedValue(viewPage({
+      bornAt: '2026-10-05T12:00:00.000Z',
+      resolutionHorizonAt: '2026-10-08T12:00:00.000Z',
+      verdicts: [{ result: 'broke', recordedAt: '2026-10-02T12:00:00.000Z' }]
+    }));
+    openView();
+    expect(await screen.findByRole('group', { name: 'How it turned out' })).toBeInTheDocument();
+  });
+
   it('shares a changed mind on the public page, and takes it back', async () => {
     getWikiPage.mockResolvedValue(viewPage({ heldHistory: [{ text: 'Costco is recession-proof.', until: '2026-10-12T12:00:00.000Z' }] }));
     updateWikiPage.mockResolvedValueOnce({ visibility: 'shared' }).mockResolvedValueOnce({ visibility: 'private' });
