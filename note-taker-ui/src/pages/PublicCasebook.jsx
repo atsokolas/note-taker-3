@@ -144,6 +144,7 @@ const PublicCasebook = ({
 
   if (!casebook?.claim?.text) return null;
 
+  const changes = Array.isArray(casebook.changes) ? casebook.changes : [];
   const clocks = Array.isArray(casebook.clocks) ? casebook.clocks : [];
   const verdicts = Array.isArray(casebook.verdicts) ? casebook.verdicts : [];
   const postmortems = Array.isArray(casebook.postmortems) ? casebook.postmortems : [];
@@ -170,6 +171,31 @@ const PublicCasebook = ({
 
       {casebook.criterion ? (
         <p className="public-casebook__criterion">{casebook.criterion}</p>
+      ) : null}
+
+      {changes.length ? (
+        <section aria-label="Changed my mind">
+          <h2>Changed my mind</h2>
+          <ol className="public-casebook__changes">
+            {changes.map(change => (
+              <li key={change.at}>
+                <time dateTime={change.at}>{formatDay(change.at)}</time>
+                <p><del>{change.was}</del></p>
+                <p>{change.now}</p>
+                {change.passage ? (
+                  <blockquote>
+                    <p>{change.passage.text}</p>
+                    <footer>
+                      <a href={change.passage.url} target="_blank" rel="noopener noreferrer">
+                        {change.passage.source || 'The piece it came from'}
+                      </a>
+                    </footer>
+                  </blockquote>
+                ) : null}
+              </li>
+            ))}
+          </ol>
+        </section>
       ) : null}
 
       {clocks.length ? (

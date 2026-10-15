@@ -1,6 +1,7 @@
 const assert = require('assert');
 const {
   appendShareReceipt,
+  quotedArticleIds,
   serializePublicCasebook,
   signCasebook,
   verifyCasebook
@@ -195,6 +196,33 @@ describe('judgment public projection', () => {
     expect(folio.lineage.origin.slug).toBe('earlier-compute');
     expect(folio.lineage.branches[0].title).toBe('A later fork');
     expect(folio.corrections[0].kind).toBe('published');
+  });
+
+  it('shows a change of mind with the passage before it, only when that passage is on the open web', () => {
+    const page = {
+      _id: 'p1',
+      title: 'Remote work',
+      judgment: {
+        currentJudgment: 'Remote teams ship as fast once decisions are written down.',
+        heldHistory: [{ text: 'Remote teams ship slower.', until: '2026-09-01T00:00:00.000Z' }],
+        against: [
+          { reasonId: 'a1', text: 'An older passage.', acceptedFrom: 'highlight:art-1:h1', sourceLabel: 'GitLab handbook', createdAt: '2026-08-01T00:00:00.000Z' },
+          { reasonId: 'a2', text: 'Written decisions removed the meeting tax.', acceptedFrom: 'article:art-1', sourceLabel: 'GitLab handbook', createdAt: '2026-08-20T00:00:00.000Z' },
+          { reasonId: 'a3', text: 'PRIVATE_UPLOAD_PASSAGE', acceptedFrom: 'highlight:art-2:h2', sourceLabel: 'My notes.pdf', createdAt: '2026-08-25T00:00:00.000Z' },
+          { reasonId: 'a4', text: 'After the change.', acceptedFrom: 'article:art-1', createdAt: '2026-09-02T00:00:00.000Z' }
+        ]
+      }
+    };
+    expect(quotedArticleIds(page)).toEqual(['art-1', 'art-2']);
+    const folio = serializePublicCasebook({ page, publicUrls: new Map([['art-1', 'https://handbook.gitlab.com/async']]) });
+    expect(folio.changes).toEqual([{
+      was: 'Remote teams ship slower.',
+      now: 'Remote teams ship as fast once decisions are written down.',
+      at: '2026-09-01T00:00:00.000Z',
+      passage: { text: 'Written decisions removed the meeting tax.', source: 'GitLab handbook', url: 'https://handbook.gitlab.com/async' }
+    }]);
+    expect(JSON.stringify(folio)).not.toContain('PRIVATE_UPLOAD_PASSAGE');
+    expect(serializePublicCasebook({ page }).changes[0].passage).toBeNull();
   });
 
   it('keeps maintenance quiet without an accepted edition and folds same-day autosaves', () => {

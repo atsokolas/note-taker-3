@@ -368,6 +368,12 @@ const JudgmentView = ({ pageId, initialPage = null }) => {
     });
   });
   const pickUp = () => run(() => commit(resumeJudgment(pageRef.current)));
+  /* A changed mind, made public: the old sentence struck, the new one, and the
+     passage it met, on the view's public page. */
+  const share = shared => run(async () => {
+    const saved = await updateWikiPage(pageId, { visibility: shared ? 'shared' : 'private' });
+    setPage(current => ({ ...current, visibility: saved?.visibility || current.visibility }));
+  });
 
   const fileReading = (proposal, field) => run(async () => {
     await fileReadingProposal({ pageId, proposalId: proposal.id, field });
@@ -540,6 +546,14 @@ const JudgmentView = ({ pageId, initialPage = null }) => {
             {view.parked
               ? <button type="button" onClick={pickUp} disabled={busy}>Pick it back up</button>
               : <button type="button" onClick={setAside} disabled={busy}>Set aside</button>}
+            {view.shared ? (
+              <>
+                <a href={`/share/wiki/${encodeURIComponent(pageId)}`} target="_blank" rel="noopener noreferrer">Public page</a>
+                <button type="button" onClick={() => share(false)} disabled={busy}>Stop sharing</button>
+              </>
+            ) : view.revised ? (
+              <button type="button" onClick={() => share(true)} disabled={busy}>Share how this changed</button>
+            ) : null}
           </p>
         )}
       </section>

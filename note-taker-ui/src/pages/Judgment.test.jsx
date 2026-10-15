@@ -212,6 +212,18 @@ describe('the view', () => {
     expect(screen.getByRole('button', { name: 'Resolve' })).toBeInTheDocument();
   });
 
+  it('shares a changed mind on the public page, and takes it back', async () => {
+    getWikiPage.mockResolvedValue(viewPage({ heldHistory: [{ text: 'Costco is recession-proof.', until: '2026-10-12T12:00:00.000Z' }] }));
+    updateWikiPage.mockResolvedValueOnce({ visibility: 'shared' }).mockResolvedValueOnce({ visibility: 'private' });
+    openView();
+    fireEvent.click(await screen.findByRole('button', { name: 'Share how this changed' }));
+    await waitFor(() => expect(updateWikiPage).toHaveBeenCalledWith('view-1', { visibility: 'shared' }));
+    expect(await screen.findByRole('link', { name: 'Public page' })).toHaveAttribute('href', '/share/wiki/view-1');
+    fireEvent.click(screen.getByRole('button', { name: 'Stop sharing' }));
+    await waitFor(() => expect(updateWikiPage).toHaveBeenLastCalledWith('view-1', { visibility: 'private' }));
+    expect(await screen.findByRole('button', { name: 'Share how this changed' })).toBeInTheDocument();
+  });
+
   it('writes what would change my mind with an optional date', async () => {
     setJudgmentResolution.mockResolvedValue({
       judgment: viewPage({ resolutionCriteria: 'Two quarters of falling renewals.', resolutionHorizonAt: '2027-06-30T12:00:00.000Z' }).judgment

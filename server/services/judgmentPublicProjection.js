@@ -257,11 +257,47 @@ const heldClaim = (page = {}) => {
   };
 };
 
+/* A change of mind, in the words it was held in: what the view said, what it
+   said next, the day it moved, and the last passage filed against the old
+   sentence before it moved. A passage travels only when the piece it was
+   quoted from is itself on the open web, and goes with its link; a note, an
+   upload, or a reason in the owner's own words stays home. */
+const articleOf = reason => /^(?:highlight|article):([^:]+)/.exec(clean(reason?.acceptedFrom))?.[1] || '';
+const at = value => new Date(value).getTime();
+const changesOfMind = (judgment = {}, publicUrls = new Map()) => {
+  const history = list(judgment.heldHistory).filter(entry => clean(entry?.text) && iso(entry?.until));
+  const quoted = list(judgment.against)
+    .filter(reason => publicUrls.has(articleOf(reason)) && clean(reason?.text) && iso(reason?.createdAt))
+    .sort((left, right) => at(left.createdAt) - at(right.createdAt));
+  return history.map((entry, index) => {
+    const after = index ? at(history[index - 1].until) : -Infinity;
+    const passage = quoted
+      .filter(reason => at(reason.createdAt) > after && at(reason.createdAt) <= at(entry.until))
+      .pop();
+    return {
+      was: clean(entry.text, 8000),
+      now: clean(history[index + 1]?.text || judgment.currentJudgment, 8000),
+      at: iso(entry.until),
+      passage: passage ? {
+        text: clean(passage.text, 1200),
+        source: clean(passage.sourceLabel, 240),
+        url: publicUrls.get(articleOf(passage))
+      } : null
+    };
+  });
+};
+
+/** The saved pieces a change of mind could quote; the router looks up which are public. */
+const quotedArticleIds = (page = {}) => [...new Set(
+  list(plain(plain(page)?.judgment)?.against).map(articleOf).filter(Boolean)
+)];
+
 const serializePublicCasebook = ({
   page,
   revisions = [],
   lineage = {},
-  receipts = []
+  receipts = [],
+  publicUrls = new Map()
 } = {}) => {
   const raw = plain(page);
   if (!raw) return null;
@@ -277,6 +313,7 @@ const serializePublicCasebook = ({
     title: clean(raw.title, 240) || claim.text,
     slug: clean(raw.slug, 180),
     claim,
+    changes: changesOfMind(judgment, publicUrls),
     clocks: list(judgment.clocks).map(publicClock).filter(Boolean),
     verdicts: list(judgment.verdicts).map((row) => publicVerdict(raw, row)).filter(Boolean),
     postmortems: list(judgment.outcomes).map(publicPostmortem).filter(Boolean),
@@ -362,6 +399,7 @@ const appendShareReceipt = (page, kind, hash, at = new Date()) => {
 module.exports = {
   appendShareReceipt,
   digest,
+  quotedArticleIds,
   serializePublicCasebook,
   signCasebook,
   verifyCasebook

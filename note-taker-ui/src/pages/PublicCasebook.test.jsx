@@ -81,6 +81,30 @@ describe('PublicCasebook', () => {
     expect(screen.getByText(/deadbeef/i)).toBeInTheDocument();
   });
 
+  it('shows a change of mind struck through, with the passage it met and where it lives', () => {
+    render(
+      <MemoryRouter>
+        <PublicCasebook
+          casebook={{
+            ...folio,
+            changes: [{
+              was: 'Compute is scarce forever.',
+              now: 'Compute stays scarce through 2027.',
+              at: '2026-03-01T00:00:00.000Z',
+              passage: { text: 'New fabs come online in 2028.', source: 'TSMC annual report', url: 'https://example.com/tsmc' }
+            }]
+          }}
+          idOrSlug="compute-stays-scarce"
+        />
+      </MemoryRouter>
+    );
+    const change = screen.getByRole('region', { name: 'Changed my mind' });
+    expect(change.querySelector('del')).toHaveTextContent('Compute is scarce forever.');
+    expect(change).toHaveTextContent('March 1, 2026');
+    expect(change).toHaveTextContent('New fabs come online in 2028.');
+    expect(screen.getByRole('link', { name: 'TSMC annual report' })).toHaveAttribute('href', 'https://example.com/tsmc');
+  });
+
   it('asks a visitor to sign in before forking', () => {
     render(
       <MemoryRouter>

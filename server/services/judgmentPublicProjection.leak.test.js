@@ -32,7 +32,8 @@ const POISON = {
   lessonApplication: 'POISONlesson7l',
   causalSummary: 'POISONcausal7m',
   posture: 'POISONposture7n',
-  trigger: 'POISONtrigger7o'
+  trigger: 'POISONtrigger7o',
+  ownWords: 'POISONownwords7p'
 };
 
 const PUBLIC_CLAIM = 'Costco membership economics survive a consumer downturn.';
@@ -73,7 +74,12 @@ const loadedPage = () => ({
     dismissedOvernightEventIds: [POISON.dismissedEvent],
     // An unpublished candidate must never travel.
     why: [{ reasonId: 'w1', text: 'Renewals held above ninety percent.', sourceLabel: 'Costco FY25 10-K' }],
-    against: [{ reasonId: 'g1', text: POISON.unpublishedCandidate, reviewState: 'candidate' }],
+    against: [
+      { reasonId: 'g1', text: POISON.unpublishedCandidate, reviewState: 'candidate' },
+      // A reason in the owner's own words stays home even beside a change of mind.
+      { reasonId: 'g2', text: POISON.ownWords, createdAt: '2025-12-01T00:00:00.000Z' }
+    ],
+    heldHistory: [{ text: 'Costco is recession-proof.', until: '2026-01-01T00:00:00.000Z' }],
     clocks: [],
     verdicts: [],
     outcomes: [],
@@ -101,6 +107,9 @@ const flatten = (value, out = []) => {
   assert.equal(folio.claim.text, PUBLIC_CLAIM, 'the held claim is public, and is what a reader came for');
   assert.ok(folio.evidence.length > 0, 'cited evidence travels with the claim');
   assert.ok(folio.criterion.includes('Renewal rate'), 'the resolution criterion is public by design');
+  assert.deepStrictEqual(folio.changes, [{
+    was: 'Costco is recession-proof.', now: PUBLIC_CLAIM, at: '2026-01-01T00:00:00.000Z', passage: null
+  }], 'a change of mind is public; the reason written in private is not');
 
   const haystack = flatten(folio).join(' ').toLowerCase();
   const leaked = Object.entries(POISON)

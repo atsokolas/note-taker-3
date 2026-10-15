@@ -202,6 +202,8 @@ export const projectView = (page, now = Date.now()) => {
     resolved: latest ? VERDICT_WORDS[latest.result] || '' : '',
     due: !verdicts.length && !parked && time(judgment.resolutionHorizonAt) <= now,
     record: viewRecord(page),
+    revised: list(judgment.heldHistory).length > 0,
+    shared: page?.visibility === 'shared',
     parked
   };
 };
