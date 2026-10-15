@@ -16,7 +16,7 @@ import {
 } from '../../api/judgmentResolution';
 import { useNoeisAgentSurface } from '../../agent/AgentRailContext';
 import { rememberOpenedJudgment } from '../reader/folioModel';
-import { parseSourceOrigin } from '../../utils/sourceRoutes';
+import { buildPassagePath, buildSourceOriginPath, parseSourceOrigin } from '../../utils/sourceRoutes';
 import { buildJudgmentSurfaceDescriptor } from '../../pages/judgmentSurfaceModel';
 import {
   CONFIDENCE,
@@ -130,7 +130,7 @@ const ReadingLine = ({ proposal, busy, onFile, onDismiss }) => {
     <li className="judgment-reading__line">
       {falsifier ? <p>You said you’d change your mind if “{falsifier}”</p> : null}
       <p>
-        {articleId ? <Link to={`/articles/${articleId}`}>{who}</Link> : who}
+        {articleId ? <Link to={buildPassagePath({ articleId, text: proposal.provenance?.after })}>{who}</Link> : who}
         {publishedAt ? `, ${formatLedgerDate(publishedAt)}` : ''}, {falsifier ? 'meets it' : `argues ${against ? 'against' : 'for'} this`}:
       </p>
       <blockquote>{proposal.provenance?.after}</blockquote>
@@ -149,13 +149,13 @@ const ReadingLine = ({ proposal, busy, onFile, onDismiss }) => {
 /* A passage you had already saved, found by the words or meaning it shares
    with the view. Retrieval cannot tell which side it is on; you say. */
 const LibraryLine = ({ candidate, busy, onFile, onSetAside }) => {
-  const { articleId } = parseSourceOrigin(candidate.id);
+  const href = buildSourceOriginPath(candidate.id, '', candidate.text);
   const who = candidate.sourceLabel || 'A source you saved';
   const when = savedOn(candidate.savedAt);
   return (
     <li className="judgment-reading__line">
       <p>
-        {articleId ? <Link to={`/articles/${articleId}`}>{who}</Link> : who}
+        {href ? <Link to={href}>{who}</Link> : who}
         {when ? `, ${when}` : ''}:
       </p>
       <blockquote>{candidate.text}</blockquote>
@@ -259,7 +259,8 @@ const JudgmentView = ({ pageId, initialPage = null }) => {
   const [error, setError] = useState('');
   const [revising, setRevising] = useState(false);
   const [draft, setDraft] = useState('');
-  const [resolving, setResolving] = useState(false);
+  // Unasked, a view that has come due opens on its question.
+  const [resolving, setResolving] = useState(null);
   const [busy, setBusy] = useState(false);
   const { pending, offer, undo } = useUndo();
   const pageRef = useRef(page);
@@ -367,6 +368,12 @@ const JudgmentView = ({ pageId, initialPage = null }) => {
     });
   });
   const pickUp = () => run(() => commit(resumeJudgment(pageRef.current)));
+  /* A changed mind, made public: the old sentence struck, the new one, and the
+     passage it met, on the view's public page. */
+  const share = shared => run(async () => {
+    const saved = await updateWikiPage(pageId, { visibility: shared ? 'shared' : 'private' });
+    setPage(current => ({ ...current, visibility: saved?.visibility || current.visibility }));
+  });
 
   const fileReading = (proposal, field) => run(async () => {
     await fileReadingProposal({ pageId, proposalId: proposal.id, field });
@@ -539,13 +546,21 @@ const JudgmentView = ({ pageId, initialPage = null }) => {
             {view.parked
               ? <button type="button" onClick={pickUp} disabled={busy}>Pick it back up</button>
               : <button type="button" onClick={setAside} disabled={busy}>Set aside</button>}
+            {view.shared ? (
+              <>
+                <a href={`/share/wiki/${encodeURIComponent(pageId)}`} target="_blank" rel="noopener noreferrer">Public page</a>
+                <button type="button" onClick={() => share(false)} disabled={busy}>Stop sharing</button>
+              </>
+            ) : view.revised ? (
+              <button type="button" onClick={() => share(true)} disabled={busy}>Share how this changed</button>
+            ) : null}
           </p>
         )}
       </section>
 
-      {resolving ? (
+      {resolving ?? view.due ? (
         <div className="judgment-view__resolve" role="group" aria-label="How it turned out">
-          <span>Did it hold up?</span>
+          <span>{view.due ? `You said you would know by ${formatLedgerDate(view.test.by)}. ` : ''}Did it hold up?</span>
           {VERDICTS.map(option => (
             <button key={option.result} type="button" onClick={() => resolve(option.result)} disabled={busy}>
               {option.word}

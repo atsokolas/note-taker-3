@@ -28,6 +28,7 @@ app.use(buildJudgmentResolutionRouter({
   },
   highlightForQuote: async input => { quotes.push(input); return { highlight: { _id: '64f500000000000000000050' } }; },
   buildJudgmentMirror: async input => { calls.push(['mirror', input]); return { metrics: { claimsHeld: 1 } }; },
+  comesDue: async ({ userId }) => ({ pageId: PAGE_ID, view: `${userId} said so.` }),
   trackEvent: event => events.push(event)
 }));
 
@@ -52,6 +53,7 @@ const server = app.listen(0, '127.0.0.1', async () => {
       method: 'POST',
       body: { field: 'against', articleId: '64f500000000000000000030', highlightId: '64f500000000000000000040' }
     })).response.status, 201);
+    assert.deepStrictEqual((await request('/api/judgment/due')).body, { due: { pageId: PAGE_ID, view: 'user-1 said so.' } });
     const mirror = await request('/api/judgment/mirror');
     assert.strictEqual(mirror.response.status, 200);
     assert.strictEqual(mirror.body.mirror.metrics.claimsHeld, 1);

@@ -33,6 +33,7 @@ import WikiPageReadView from './WikiPageReadView';
 import { collectWikiText, countWikiSources, countWikiWords } from './wikiPageMetrics';
 import { buildWikiSurfaceDescriptor } from './wikiSurfaceModel';
 import useDocumentTitle from '../../hooks/useDocumentTitle';
+import { buildCanonicalArticlePath } from '../../utils/sourceRoutes';
 
 // The Wiki workspace is one canvas. Asking about it is the Partner's job
 // (⌘J, scoped to the page or the view); the canvas keeps only the actions
@@ -465,7 +466,7 @@ const WorkspaceSources = ({ onFeedSource }) => {
       <ol className="wiki-workspace-sources__list">
         {articles.map(article => (
           <li key={article._id || article.id}>
-            <Link to={`/articles/${article._id || article.id}`}>{article.title || article.url || 'Untitled source'}</Link>
+            <Link to={buildCanonicalArticlePath(article._id || article.id)}>{article.title || article.url || 'Untitled source'}</Link>
             {article.url ? <span>{article.url}</span> : null}
             <button type="button" onClick={() => onFeedSource?.(article)}>
               Feed to wiki

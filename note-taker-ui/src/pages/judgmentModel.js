@@ -137,7 +137,7 @@ const passageOf = (page, line) => {
     || normalizeSpaces(ref?.title)
     || normalizeSpaces(ref?.citationLabel)
     || normalizeSpaces(ref?.provider);
-  const href = buildSourceOriginPath(line.acceptedFrom) || (ref ? buildSourceOpenPath(ref, { passage: ref.snippet }) : '');
+  const href = buildSourceOriginPath(line.acceptedFrom, '', line.text) || (ref ? buildSourceOpenPath(ref, { passage: ref.snippet }) : '');
   return { id: line.id, text: line.text, source: label, href, at: line.at };
 };
 
@@ -181,11 +181,13 @@ export const viewRecord = (page = {}) => {
   return lines.sort((left, right) => time(left.at) - time(right.at));
 };
 
-/** The whole view, as one object. Empty parts come back empty. */
-export const projectView = (page) => {
+/** The whole view, as one object. Empty parts come back empty. A view is due
+    once its check-by date has passed with no verdict and it is still held. */
+export const projectView = (page, now = Date.now()) => {
   const judgment = page?.judgment || {};
   const verdicts = list(judgment.verdicts);
   const latest = verdicts[verdicts.length - 1] || null;
+  const parked = setAside(page);
   return {
     id: idOf(page),
     claim: claimSentence(page),
@@ -198,8 +200,13 @@ export const projectView = (page) => {
       by: judgment.resolutionHorizonAt || null
     },
     resolved: latest ? VERDICT_WORDS[latest.result] || '' : '',
+    // A verdict on wording since revised does not settle the sentence held now.
+    due: !parked && time(judgment.resolutionHorizonAt) <= now
+      && !verdicts.some(verdict => !(time(judgment.bornAt) > time(verdict?.recordedAt))),
     record: viewRecord(page),
-    parked: setAside(page)
+    revised: list(judgment.heldHistory).length > 0,
+    shared: page?.visibility === 'shared',
+    parked
   };
 };
 

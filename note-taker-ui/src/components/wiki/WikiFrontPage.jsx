@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { listWikiChanges, listWikiPages } from '../../api/wiki';
-import { fileReadingProposal, getPushesAgainst } from '../../api/judgmentResolution';
+import { fileReadingProposal, getDueView, getPushesAgainst } from '../../api/judgmentResolution';
+import { formatLedgerDate } from '../../pages/judgmentModel';
 import { wikiReadPath } from '../../utils/wikiFeatureFlags';
 import { purgeUnscopedKeys, scopedKey } from '../../utils/browserScope';
 import { filterReturnViewItems } from '../../utils/cruftSuppression';
 import { formatSurfaceDate } from '../../utils/dateDisplay';
+import { buildPassagePath } from '../../utils/sourceRoutes';
 import { useNoeisAgentSurface } from '../../agent/AgentRailContext';
 import { AGENT_DISPLAY_NAME } from '../../constants/agentIdentity';
 import WikiCreationComposer from './WikiCreationComposer';
@@ -20,7 +22,7 @@ import {
   pendingWikiProposal
 } from './wikiCollectionModel';
 import useDocumentTitle from '../../hooks/useDocumentTitle';
-import { Button, EmptyState, PageHeader } from '../ui';
+import { Button, EmptyState, PageHeader, buttonClass } from '../ui';
 import '../../styles/wiki-critical.css';
 import '../../styles/wiki-collection.css';
 
@@ -172,7 +174,7 @@ export const ArguesWithYou = ({ reading, onSettled }) => {
       ) : (
         <>
           <p>
-            {articleId ? <Link to={`/articles/${encodeURIComponent(articleId)}`}>{who}</Link> : who} pushes against
+            {articleId ? <Link to={buildPassagePath({ articleId, text: after })}>{who}</Link> : who} pushes against
             your view that {viewLink}:
           </p>
           {after ? <blockquote>{after}</blockquote> : null}
@@ -182,6 +184,25 @@ export const ArguesWithYou = ({ reading, onSettled }) => {
           </p>
         </>
       )}
+    </section>
+  );
+};
+
+/* The day a view comes due: what you said you would know by now, and the
+   test you set for it, one step from the verdict. */
+export const ComesDue = ({ due, onSettled }) => {
+  const href = `/judgment/${encodeURIComponent(due.pageId)}`;
+  return (
+    <section className="wiki-collection__argues" aria-label="A view has come due">
+      <p>
+        You said you would know by {formatLedgerDate(due.by)} whether{' '}
+        <Link to={href}>{String(due.view).replace(/[.\s]+$/, '')}</Link>.
+      </p>
+      {due.test ? <blockquote>{due.test}</blockquote> : null}
+      <p className="wiki-collection__argues-actions">
+        <Link className={buttonClass('quiet')} to={href}>Did it hold up?</Link>
+        <Button variant="quiet" onClick={onSettled}>Not now</Button>
+      </p>
     </section>
   );
 };
@@ -249,12 +270,13 @@ const WikiFrontPage = ({ initialKind = '' }) => {
   useEffect(markLooked, []);
   const [changes, setChanges] = useState(null);
   const [argues, setArgues] = useState(null);
+  const [due, setDue] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
-    getPushesAgainst()
-      .then(reading => { if (!cancelled) setArgues(reading); })
-      .catch(() => {});
+    const keep = set => value => { if (!cancelled) set(value); };
+    getPushesAgainst().then(keep(setArgues)).catch(() => {});
+    getDueView().then(keep(setDue)).catch(() => {});
     return () => { cancelled = true; };
   }, []);
 
@@ -458,6 +480,7 @@ const WikiFrontPage = ({ initialKind = '' }) => {
         {availabilityNotice ? <p className="wiki-collection__status" role="status">{availabilityNotice}</p> : null}
         {error ? <div className="wiki-index__error" role="alert">{error}</div> : null}
 
+        {showingSince && due ? <ComesDue due={due} onSettled={() => setDue(null)} /> : null}
         {showingSince && argues ? <ArguesWithYou reading={argues} onSettled={() => setArgues(null)} /> : null}
 
         {showingSince ? (

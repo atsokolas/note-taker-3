@@ -200,7 +200,7 @@ const ArticleRefNode = createReferenceNode({
   idKey: 'articleId',
   titleKey: 'articleTitle',
   metaKey: 'articleMeta',
-  buildHref: (attrs) => (attrs.articleId ? `/articles/${attrs.articleId}` : '')
+  buildHref: (attrs) => (attrs.articleId ? buildCanonicalArticlePath(attrs.articleId) : '')
 });
 
 const ConceptRefNode = createReferenceNode({

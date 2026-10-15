@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getEditionHeld } from '../../api/editions';
+import { buildPassagePath } from '../../utils/sourceRoutes';
 import { barsOf } from '../../pages/editionModel';
 import AgentMark from './AgentMark';
 
@@ -86,7 +87,7 @@ export function Held({ editionId, itemId }) {
   return (
     <div className="reading-held">
       <h3>Already in your library</h3>
-      <Link to={`/articles/${encodeURIComponent(held.articleId)}`}>“{held.text}”</Link>
+      <Link to={buildPassagePath(held)}>“{held.text}”</Link>
       {held.articleTitle ? <small>{held.articleTitle}</small> : null}
     </div>
   );

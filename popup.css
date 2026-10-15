@@ -209,3 +209,25 @@ button:active {
   font-size: 11px;
   letter-spacing: 0.04em;
 }
+
+/* The one view a saved piece argues with, said once, on the card it was saved
+   from. Empty until there is one. */
+.argues-back:empty { display: none; }
+
+.argues-back {
+  margin-top: 12px;
+  padding-left: 10px;
+  border-left: 2px solid var(--accent-color);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.argues-back p { margin: 0 0 6px; color: var(--secondary-text-color); }
+.argues-back a { color: var(--primary-text-color); }
+.argues-back blockquote { margin: 0; font-family: Georgia, serif; color: var(--primary-text-color); }
+
+@media (prefers-reduced-motion: no-preference) {
+  .argues-back:not(:empty) { animation: argues-arrive 240ms ease-out; }
+}
+
+@keyframes argues-arrive { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: none; } }

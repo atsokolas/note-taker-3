@@ -820,18 +820,21 @@ const runWikiSourceEvent = async ({
    would need a durable page lease of the kind repo builds already take. */
 const maintenanceQueues = new Map();
 
-/* Reading talks back. Once an arrival is maintained, it is read against the
-   views it may bear on, outside the queue so a model call never holds up
-   maintenance. Whatever happens there is silence to the caller. */
-const readBack = (args, maintained) => {
-  maintained
-    .then(result => (result?.deferred || !args.sourceEvent ? null : proposeFromReading({
-      event: args.sourceEvent,
-      userId: args.userId || args.sourceEvent.userId,
-      models: args.models
-    })))
+/* Reading talks back. An arrival is read against the views it may bear on the
+   moment it lands, beside maintenance rather than behind it: the person who
+   saved it is still looking. The event is marked read first, so a retried or
+   deferred event is never read twice. Whatever happens there is silence to
+   the caller. */
+const readBack = ({ sourceEvent: event, userId, models }) => {
+  if (!event?._id || !models?.WikiSourceEvent?.updateOne) return;
+  models.WikiSourceEvent.updateOne(
+    { _id: event._id, 'metadata.readBackAt': null },
+    { $set: { 'metadata.readBackAt': new Date() } }
+  )
+    .then(({ modifiedCount }) => (modifiedCount
+      ? proposeFromReading({ event, userId: userId || event.userId, models })
+      : null))
     .catch(() => null);
-  return maintained;
 };
 
 const afterPreviousMaintenance = (userId, task) => {
@@ -860,7 +863,8 @@ const processWikiSourceEvent = async (args = {}) => {
   const held = await holdReviewerSourceEvent({ event, userId: args.userId,
     WikiSourceEvent: args.models?.WikiSourceEvent, target });
   if (held) return held; // Includes the readBack/proposeFromReading sidecar.
-  return readBack(args, afterPreviousMaintenance(
+  readBack(args);
+  return afterPreviousMaintenance(
   args.userId || args.sourceEvent?.userId,
   async () => {
     const budget = await acquireWikiWriteBudget(args.models?.WikiPage?.db?.db);
@@ -875,7 +879,7 @@ const processWikiSourceEvent = async (args = {}) => {
     }
     try { return await runWikiSourceEvent(args); } finally { await budget.release(); }
   }
-  ));
+  );
 };
 
 const processPendingWikiSourceEvents = async ({ userId, models = {}, limit = 5, buildUniqueSlug = null, wikiSchemaContent = '' } = {}) => {

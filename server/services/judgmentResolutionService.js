@@ -383,8 +383,39 @@ const fileJudgmentEvidence = async ({
   });
 };
 
+/* The day a view comes due. A held view whose check-by date has passed with
+   no verdict on the sentence it holds now comes back, the longest-waiting
+   first. A verdict on wording since revised does not count. A view set aside,
+   closed, or already judged stays quiet; with nothing due, nothing returns. */
+const judgedAsWorded = judgment => list(judgment?.verdicts).some(verdict => (
+  !judgment.bornAt || new Date(verdict?.recordedAt) >= new Date(judgment.bornAt)
+));
+
+const comesDue = async ({ userId, WikiPage, now = new Date() } = {}) => {
+  if (!WikiPage?.find) return null;
+  const pages = await WikiPage.find({
+    userId,
+    status: { $ne: 'archived' },
+    'judgment.currentJudgment': { $type: 'string', $ne: '' },
+    'judgment.status': { $nin: ['parked', 'closed', 'archived'] },
+    'judgment.resolutionHorizonAt': { $lte: now }
+  }).sort({ 'judgment.resolutionHorizonAt': 1 })
+    .limit(20)
+    .select('_id judgment.currentJudgment judgment.resolutionCriteria judgment.resolutionHorizonAt judgment.bornAt judgment.verdicts.recordedAt')
+    .lean();
+  const page = pages.find(row => !judgedAsWorded(row.judgment));
+  if (!page) return null;
+  return {
+    pageId: id(page),
+    view: clean(page.judgment.currentJudgment, 8000),
+    test: clean(page.judgment.resolutionCriteria, 2000),
+    by: page.judgment.resolutionHorizonAt
+  };
+};
+
 module.exports = {
   JudgmentResolutionError,
+  comesDue,
   EVIDENCE_FIELDS,
   RESULTS,
   claimHash,

@@ -170,6 +170,7 @@ const {
 } = require('../services/publicComparisonCache');
 const {
   appendShareReceipt,
+  quotedArticleIds,
   serializePublicCasebook,
   signCasebook,
   verifyCasebook
@@ -1774,7 +1775,8 @@ const PUBLIC_WIKI_PAGE_SELECT = [
   'judgment.currentJudgment', 'judgment.bornAt', 'judgment.startedAt', 'judgment.status',
   'judgment.verdicts', 'judgment.clocks', 'judgment.outcomes',
   'judgment.resolutionCriteria', 'judgment.resolutionHorizonAt', 'judgment.resolutionSetAt',
-  'judgment.lastReviewedAt',
+  'judgment.lastReviewedAt', 'judgment.heldHistory',
+  'judgment.against.text', 'judgment.against.sourceLabel', 'judgment.against.acceptedFrom', 'judgment.against.createdAt',
   'createdAt', 'updatedAt'
 ].join(' ');
 
@@ -2269,11 +2271,19 @@ const buildWikiRouter = ({
     return Array.isArray(rows) ? rows : [];
   };
 
+  // The links of the saved pieces a change of mind quotes.
+  const quotedArticleUrls = async (page) => {
+    const ids = quotedArticleIds(page).filter(id => mongoose.Types.ObjectId.isValid(id));
+    if (!ids.length || !Article?.find) return new Map();
+    const articles = await Article.find({ _id: { $in: ids }, userId: page.userId }).select('_id url').lean();
+    return new Map(articles.map(article => [String(article._id), article.url]));
+  };
+
   const loadPublicCasebook = async (page) => {
     if (!page || !String(page?.judgment?.currentJudgment || '').trim()) return null;
     const revisions = await loadCasebookRevisions(page._id);
     const lineage = await publicLineageTree({ CasebookLineage, WikiPage, page });
-    return serializePublicCasebook({ page, revisions, lineage });
+    return serializePublicCasebook({ page, revisions, lineage, articleUrls: await quotedArticleUrls(page) });
   };
 
   const sendLineageError = (res, error) => {
