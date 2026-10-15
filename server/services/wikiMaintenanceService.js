@@ -1542,6 +1542,16 @@ Return the complete repaired article. Make defensible claims, compare evidence, 
 
 // A lone CJK glyph fused to an English word ("the更 company") is a sampling
 // slip, not writing; a CJK word set apart by spaces is left alone.
+// What the editor checks: the slips a writer makes with true numbers.
+const DOSSIER_EDITOR_BRIEF = `Above are the sources and the brief the writer was given. Below is the writer's draft. Check every figure in it against the sources and fix only what is wrong:
+- a figure given to the wrong period, line, segment or company (one quarter's margin given to another; a segment total called the company's);
+- a label the filing does not use (the balance sheet's "Long-term debt" is the long-term portion, never "net"; a filing date is not an "as of" date);
+- a comparison that names the wrong side as larger, or a ratio called by a word it is not ("double" for 1.6x);
+- two totals called a discrepancy when the line items reconcile them;
+- a paragraph that repeats another.
+Change nothing else: keep every other sentence, citation, heading and field exactly as written, and return the complete draft in the same JSON shape.
+Draft:`;
+
 const STRAY_GLYPH = /(?<=[A-Za-z])[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]|[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af](?=[A-Za-z])/g;
 
 // The text client's own reading: fences, a sentence around the object, and
@@ -4564,6 +4574,23 @@ const maintainWikiPage = async ({
       // A dossier is written by the model or not at all; the generic fallback
       // would publish the empty template under the model's name.
       if (investmentDossier && !result) throw Object.assign(new Error('The research model returned no readable draft.'), { status: 502 });
+      // A figure under the wrong label passes the figure check, because the
+      // number itself is stated somewhere. An editor rereads the draft against
+      // the same filings and corrects only what is wrong; if it cannot answer,
+      // the writer's draft goes to the gate as it was.
+      if (investmentDossier) {
+        await emitProgress({ stage: 'model_editing', summary: 'An editor is checking each figure and its label against the filings.' });
+        try {
+          const edited = extractJson((await chat({
+            ...draftRequest,
+            messages: [
+              { role: 'system', content: 'You are the editor of an investment dossier. Check it against its sources and return the corrected draft. Return JSON only.' },
+              { role: 'user', content: `${draftRequest.messages[1].content}\n\n${DOSSIER_EDITOR_BRIEF}\n${JSON.stringify(result)}` }
+            ]
+          }))?.text);
+          if (edited) result = edited;
+        } catch (_error) { /* keep the writer's draft */ }
+      }
       await emitProgress({
         stage: 'model_drafted',
         summary: 'Draft response received from the maintenance model.',
