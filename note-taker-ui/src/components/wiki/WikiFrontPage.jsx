@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { listWikiChanges, listWikiPages } from '../../api/wiki';
-import { fileReadingProposal, getPushesAgainst } from '../../api/judgmentResolution';
+import { fileReadingProposal, getDueView, getPushesAgainst } from '../../api/judgmentResolution';
+import { formatLedgerDate } from '../../pages/judgmentModel';
 import { wikiReadPath } from '../../utils/wikiFeatureFlags';
 import { purgeUnscopedKeys, scopedKey } from '../../utils/browserScope';
 import { filterReturnViewItems } from '../../utils/cruftSuppression';
@@ -187,6 +188,22 @@ export const ArguesWithYou = ({ reading, onSettled }) => {
   );
 };
 
+/* The day a view comes due: what you said you would know by now, and the
+   test you set for it, one step from the verdict. */
+export const ComesDue = ({ due, onSettled }) => (
+  <section className="wiki-collection__argues" aria-label="A view has come due">
+    <p>
+      You said you would know by {formatLedgerDate(due.by)} whether{' '}
+      <Link to={`/judgment/${encodeURIComponent(due.pageId)}`}>{String(due.view).replace(/[.\s]+$/, '')}</Link>.
+    </p>
+    {due.test ? <blockquote>{due.test}</blockquote> : null}
+    <p className="wiki-collection__argues-actions">
+      <Link to={`/judgment/${encodeURIComponent(due.pageId)}`}>Did it hold up?</Link>
+      <Button variant="quiet" onClick={onSettled}>Not now</Button>
+    </p>
+  </section>
+);
+
 /* What moved since you last looked. Silence is a state: when nothing moved,
    one line says so and the list follows. */
 const SinceYouLooked = ({ since, changes, pageCount, proposedCount }) => {
@@ -250,12 +267,13 @@ const WikiFrontPage = ({ initialKind = '' }) => {
   useEffect(markLooked, []);
   const [changes, setChanges] = useState(null);
   const [argues, setArgues] = useState(null);
+  const [due, setDue] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
-    getPushesAgainst()
-      .then(reading => { if (!cancelled) setArgues(reading); })
-      .catch(() => {});
+    const keep = set => value => { if (!cancelled) set(value); };
+    getPushesAgainst().then(keep(setArgues)).catch(() => {});
+    getDueView().then(keep(setDue)).catch(() => {});
     return () => { cancelled = true; };
   }, []);
 
@@ -459,6 +477,7 @@ const WikiFrontPage = ({ initialKind = '' }) => {
         {availabilityNotice ? <p className="wiki-collection__status" role="status">{availabilityNotice}</p> : null}
         {error ? <div className="wiki-index__error" role="alert">{error}</div> : null}
 
+        {showingSince && due ? <ComesDue due={due} onSettled={() => setDue(null)} /> : null}
         {showingSince && argues ? <ArguesWithYou reading={argues} onSettled={() => setArgues(null)} /> : null}
 
         {showingSince ? (

@@ -383,8 +383,33 @@ const fileJudgmentEvidence = async ({
   });
 };
 
+/* The day a view comes due. A held view whose check-by date has passed with
+   no verdict yet comes back once, the longest-waiting first. A view set aside,
+   closed, or already judged stays quiet; with nothing due, nothing returns. */
+const comesDue = async ({ userId, WikiPage, now = new Date() } = {}) => {
+  if (!WikiPage?.findOne) return null;
+  const page = await WikiPage.findOne({
+    userId,
+    status: { $ne: 'archived' },
+    'judgment.currentJudgment': { $type: 'string', $ne: '' },
+    'judgment.status': { $nin: ['parked', 'closed', 'archived'] },
+    'judgment.verdicts.0': { $exists: false },
+    'judgment.resolutionHorizonAt': { $lte: now }
+  }).sort({ 'judgment.resolutionHorizonAt': 1 })
+    .select('_id judgment.currentJudgment judgment.resolutionCriteria judgment.resolutionHorizonAt')
+    .lean();
+  if (!page) return null;
+  return {
+    pageId: id(page),
+    view: clean(page.judgment.currentJudgment, 8000),
+    test: clean(page.judgment.resolutionCriteria, 2000),
+    by: page.judgment.resolutionHorizonAt
+  };
+};
+
 module.exports = {
   JudgmentResolutionError,
+  comesDue,
   EVIDENCE_FIELDS,
   RESULTS,
   claimHash,

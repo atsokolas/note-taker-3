@@ -1,6 +1,7 @@
 const express = require('express');
 const {
   JudgmentResolutionError,
+  comesDue: findDue,
   fileJudgmentEvidence: persistEvidence,
   recordVerdict: persistVerdict,
   setResolutionCriteria: persistCriteria
@@ -46,6 +47,7 @@ const buildJudgmentResolutionRouter = ({
   highlightForQuote = persistQuote,
   recordVerdict = persistVerdict,
   buildJudgmentMirror = readMirror,
+  comesDue = findDue,
   trackEvent = () => {},
   ...models
 } = {}) => {
@@ -56,6 +58,15 @@ const buildJudgmentResolutionRouter = ({
     userId: req.user.id,
     requestId: req.requestId,
     properties: { pageId: req.params.pageId, ...properties }
+  });
+
+  // The held view whose check-by date has passed with no verdict, if any.
+  router.get('/api/judgment/due', authenticateToken, requireAuthenticatedUser, async (req, res) => {
+    try {
+      return res.status(200).json({ due: await comesDue({ userId: req.user.id, WikiPage: models.WikiPage }) });
+    } catch (error) {
+      return sendError(res, error);
+    }
   });
 
   router.get('/api/judgment/mirror', authenticateToken, requireAuthenticatedUser, async (req, res) => {

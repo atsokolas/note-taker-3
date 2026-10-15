@@ -199,6 +199,19 @@ describe('the view', () => {
     expect(await screen.findByText('Resolved: held up.')).toBeInTheDocument();
   });
 
+  it('opens on its question once the date you set has passed', async () => {
+    getWikiPage.mockResolvedValue(viewPage({
+      resolutionCriteria: 'Renewals stay above ninety percent through the next downturn.',
+      resolutionHorizonAt: '2026-10-01T12:00:00.000Z'
+    }));
+    openView();
+    const ask = await screen.findByRole('group', { name: 'How it turned out' });
+    expect(ask).toHaveTextContent(/^You said you would know by Oct 1\. Did it hold up\?/);
+    expect(screen.queryByRole('button', { name: 'Resolve' })).not.toBeInTheDocument();
+    fireEvent.click(within(ask).getByRole('button', { name: 'Too early to say' }));
+    expect(screen.getByRole('button', { name: 'Resolve' })).toBeInTheDocument();
+  });
+
   it('writes what would change my mind with an optional date', async () => {
     setJudgmentResolution.mockResolvedValue({
       judgment: viewPage({ resolutionCriteria: 'Two quarters of falling renewals.', resolutionHorizonAt: '2027-06-30T12:00:00.000Z' }).judgment

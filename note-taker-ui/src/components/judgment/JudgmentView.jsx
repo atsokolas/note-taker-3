@@ -259,7 +259,8 @@ const JudgmentView = ({ pageId, initialPage = null }) => {
   const [error, setError] = useState('');
   const [revising, setRevising] = useState(false);
   const [draft, setDraft] = useState('');
-  const [resolving, setResolving] = useState(false);
+  // Unasked, a view that has come due opens on its question.
+  const [resolving, setResolving] = useState(null);
   const [busy, setBusy] = useState(false);
   const { pending, offer, undo } = useUndo();
   const pageRef = useRef(page);
@@ -543,9 +544,9 @@ const JudgmentView = ({ pageId, initialPage = null }) => {
         )}
       </section>
 
-      {resolving ? (
+      {resolving ?? view.due ? (
         <div className="judgment-view__resolve" role="group" aria-label="How it turned out">
-          <span>Did it hold up?</span>
+          <span>{view.due ? `You said you would know by ${formatLedgerDate(view.test.by)}. ` : ''}Did it hold up?</span>
           {VERDICTS.map(option => (
             <button key={option.result} type="button" onClick={() => resolve(option.result)} disabled={busy}>
               {option.word}
