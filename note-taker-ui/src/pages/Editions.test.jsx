@@ -397,7 +397,7 @@ it('names the one highlight you already hold, but only for the finding in focus'
   mockSearch = 'item=one';
   api.getEditionHeld.mockResolvedValue({ held: { highlightId: 'h1', text: 'Using information is a skill.', articleId: 'a1', articleTitle: 'On practice' } });
   render(<Editions />);
-  expect(await screen.findByRole('link', { name: '“Using information is a skill.”' })).toHaveAttribute('href', '/articles/a1');
+  expect(await screen.findByRole('link', { name: '“Using information is a skill.”' })).toHaveAttribute('href', '/library?articleId=a1&highlightId=h1');
   expect(api.getEditionHeld).toHaveBeenCalledTimes(1);
   expect(api.getEditionHeld).toHaveBeenCalledWith('e1', 'one');
 });

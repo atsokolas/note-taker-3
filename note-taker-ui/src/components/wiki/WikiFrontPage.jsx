@@ -22,7 +22,7 @@ import {
   pendingWikiProposal
 } from './wikiCollectionModel';
 import useDocumentTitle from '../../hooks/useDocumentTitle';
-import { Button, EmptyState, PageHeader } from '../ui';
+import { Button, EmptyState, PageHeader, buttonClass } from '../ui';
 import '../../styles/wiki-critical.css';
 import '../../styles/wiki-collection.css';
 
@@ -198,7 +198,7 @@ export const ComesDue = ({ due, onSettled }) => (
     </p>
     {due.test ? <blockquote>{due.test}</blockquote> : null}
     <p className="wiki-collection__argues-actions">
-      <Link to={`/judgment/${encodeURIComponent(due.pageId)}`}>Did it hold up?</Link>
+      <Link className={buttonClass('quiet')} to={`/judgment/${encodeURIComponent(due.pageId)}`}>Did it hold up?</Link>
       <Button variant="quiet" onClick={onSettled}>Not now</Button>
     </p>
   </section>

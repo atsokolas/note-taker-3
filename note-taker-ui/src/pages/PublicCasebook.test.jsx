@@ -101,6 +101,8 @@ describe('PublicCasebook', () => {
     const change = screen.getByRole('region', { name: 'Changed my mind' });
     expect(change.querySelector('del')).toHaveTextContent('Compute is scarce forever.');
     expect(change).toHaveTextContent('March 1, 2026');
+    // The sentence it became is the headline already; it is not said twice.
+    expect(screen.getAllByText('Compute stays scarce through 2027.')).toHaveLength(1);
     expect(change).toHaveTextContent('New fabs come online in 2028.');
     expect(screen.getByRole('link', { name: 'TSMC annual report' })).toHaveAttribute('href', 'https://example.com/tsmc');
   });

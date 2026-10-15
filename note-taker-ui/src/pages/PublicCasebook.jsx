@@ -181,7 +181,7 @@ const PublicCasebook = ({
               <li key={change.at}>
                 <time dateTime={change.at}>{formatDay(change.at)}</time>
                 <p><del>{change.was}</del></p>
-                <p>{change.now}</p>
+                {change.now === casebook.claim.text ? null : <p>{change.now}</p>}
                 {change.passage ? (
                   <blockquote>
                     <p>{change.passage.text}</p>
