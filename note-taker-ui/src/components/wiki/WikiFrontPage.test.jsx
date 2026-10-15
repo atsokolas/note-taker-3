@@ -198,6 +198,12 @@ describe('WikiFrontPage collection', () => {
     expect(screen.queryByText('General wikis')).not.toBeInTheDocument();
   });
 
+  it('says where a page you took came from instead of claiming you wrote it', async () => {
+    listWikiPages.mockResolvedValueOnce([{ ...pages[0], adoptedFrom: { adoptedAt: '2026-10-11T12:00:00.000Z', originTitle: 'The NVIDIA dossier' } }, pages[1]]);
+    render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
+    expect(await screen.findByText('taken from The NVIDIA dossier')).toBeInTheDocument();
+  });
+
   it('opens accepted pages without waiting for a Daily Loop briefing', async () => {
     let resolvePages;
     listWikiPages.mockReturnValueOnce(new Promise((resolve) => { resolvePages = resolve; }));

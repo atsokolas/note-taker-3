@@ -1757,6 +1757,7 @@ const WIKI_PAGE_SUMMARY_FIELDS = Object.freeze([
   'aiState.lastDraftedAt', 'aiState.maintenanceSummary',
   'aiState.changeLog.type', 'aiState.changeLog.text', 'aiState.changeLog.title',
   'aiState.changeLog.createdAt',
+  'adoptedFrom.originTitle', 'adoptedFrom.adoptedAt',
   'createdAt', 'updatedAt'
 ]);
 
