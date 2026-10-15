@@ -66,16 +66,26 @@ const run = () => {
           { fy: 2017, val: 60000000 },
           { fy: 2018, val: 70000000 }
         ], 'gross-profit'),
+        EarningsPerShareDiluted: {
+          label: 'Diluted EPS',
+          units: { 'USD/shares': [...rows([{ fy: 2022, val: 9.9 }], 'eps-presplit'), ...rows([{ fy: 2023, val: 1.1 }, { fy: 2024, val: 1.25 }, { fy: 2025, val: 1.4 }], 'eps')].map(row => (row.end > '2022-12-31' ? { ...row, accn: 'eps-2025-10k', filed: '2026-02-20' } : row)) }
+        },
         InventoryNet: fact('Inventory', [
           { fy: 2023, val: 200000000 },
           { fy: 2024, val: 230000000 },
           { fy: 2025, val: 250000000 }
         ], 'inventory')
+      },
+      dei: {
+        EntityCommonStockSharesOutstanding: { units: { shares: [
+          { end: '2025-02-10', val: 120000000, form: '10-K', filed: '2025-02-20' },
+          { end: '2025-08-01', val: 118500000, form: '10-Q', filed: '2025-08-06' }
+        ] } }
       }
     }
   };
   const series = metricSeriesFromCompanyFacts({ companyFacts });
-  assert.deepEqual(series.map(metric => metric.id), ['revenue', 'operating_income', 'inventory']);
+  assert.deepEqual(series.map(metric => metric.id), ['revenue', 'operating_income', 'diluted_eps', 'inventory']);
 
   const built = buildCompanyFactsOperatingBenchmark({
     companyFacts,
@@ -87,8 +97,10 @@ const run = () => {
   assert.equal(built.sourceRef.provider, 'sec-companyfacts');
   assert.equal(built.sourceRef.metadata.evidenceArchetype, 'operating_benchmark');
   assert.equal(built.sourceRef.metadata.acquisitionMethod, 'sec_companyfacts');
-  assert.equal(built.sourceRef.metadata.metrics.length, 3);
+  assert.equal(built.sourceRef.metadata.metrics.length, 4);
   assert.match(built.sourceRef.snippet, /FY2025 \$1\.90bn/);
+  assert.match(built.sourceRef.snippet, /Diluted EPS: FY2023 \$1\.10; FY2024 \$1\.25; FY2025 \$1\.40\./);
+  assert.match(built.sourceRef.snippet, /Shares outstanding: 119 million as of 2025-08-01 \(cover of the 10-Q filed 2025-08-06\)\./);
   assert.match(built.sourceRef.url, /CIK0000123456\.json$/);
   assert.match(built.sourceRef.metadata.provenance.contentHash, /^[a-f0-9]{64}$/);
 

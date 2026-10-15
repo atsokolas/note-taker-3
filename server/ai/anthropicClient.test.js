@@ -33,7 +33,7 @@ const server = http.createServer((req, res) => {
     const body = JSON.parse(raw || '{}');
     if (req.url.startsWith('/v1/messages')) {
       seen.claude.push({ body, headers: req.headers });
-      const reply = claudeReply;
+      const reply = Array.isArray(claudeReply) ? claudeReply.shift() : claudeReply;
       if (reply.status) {
         res.writeHead(reply.status, { 'content-type': 'application/json' });
         return res.end(JSON.stringify({ type: 'error', error: { type: 'invalid_request_error', message: reply.message } }));
@@ -116,6 +116,25 @@ test('an answer cut at the token cap reads as cut off', async () => {
   claudeReply = { blocks: [{ type: 'text', text: 'Half an' }], stopReason: 'max_tokens' };
   const completion = await client.chatComplete({ messages: [{ role: 'user', content: 'Go on.' }] });
   assert.strictEqual(completion.raw.choices[0].finish_reason, 'length');
+});
+
+test('a JSON answer cut at the token cap is asked again with room to finish', async () => {
+  claudeReply = [
+    { blocks: [{ type: 'text', text: '{"title":"Moa' }], stopReason: 'max_tokens' },
+    { blocks: [{ type: 'text', text: '{"title":"Moats"}' }] }
+  ];
+  const completion = await client.chatComplete({ route: 'structure_planner', maxTokens: 900, messages: [{ role: 'user', content: 'Plan it.' }] });
+  assert.deepStrictEqual(seen.claude.map(sent => sent.body.max_tokens), [900, 1800]);
+  assert.strictEqual(completion.text, '{"title":"Moats"}');
+  assert.strictEqual(seen.router.length, 0);
+});
+
+test('a JSON answer that misses twice goes to OpenRouter', async () => {
+  claudeReply = { blocks: [{ type: 'text', text: 'Here is the plan in words.' }] };
+  // The router's plain-text stand-in fails the same contract; what matters is that it was asked.
+  await assert.rejects(client.chatComplete({ route: 'structure_planner', maxTokens: 900, messages: [{ role: 'user', content: 'Plan it.' }] }));
+  assert.deepStrictEqual(seen.claude.map(sent => sent.body.max_tokens), [900, 900]);
+  assert.ok(seen.router.length > 0);
 });
 
 test('when the Claude credit runs out, the same request goes to OpenRouter', async () => {

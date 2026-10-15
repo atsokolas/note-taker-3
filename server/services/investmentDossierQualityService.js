@@ -3,11 +3,20 @@ const {
   CORE_EVIDENCE_ARCHETYPES,
   inferEvidenceArchetype
 } = require('./investmentDossierProfileService');
+const { figuresIn, unstatedFigures } = require('./agentGrounding');
+const { MARKET_PLACEHOLDER } = require('./companyDossierService');
 
 const clean = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
 const unique = values => Array.from(new Set((Array.isArray(values) ? values : []).filter(Boolean)));
 
 const DECISION_DOSSIER_MIN_WORDS = 1800;
+// A sentence that says what the evidence does not show: a negation, then what
+// was not found, stated, or computable.
+const MISSING_EVIDENCE = new RegExp([
+  /\b(?:no|not|none|cannot|could not|unable|insufficient)\b[^.]{0,160}\b(?:found|located|available|attached|stated|disclosed|comput\w*|calculated|answered|backed out|tested|testable|assessed|established|determined|present)\b/.source,
+  /\b(?:is|are|remains?)\s+(?:missing|unanswered|unavailable|unknown)\b/.source,
+  /\bevidence gap\b/.source
+].join('|'), 'i');
 const DECISION_DOSSIER_MIN_CLAIMS = 20;
 const REPRODUCIBLE_MODULE_IDS = Object.freeze([
   'reverse_expectations',
@@ -18,28 +27,6 @@ const sectionHeadings = (body = {}) => (
   (Array.isArray(body?.content) ? body.content : [])
     .filter(node => node?.type === 'heading')
     .map(node => clean((node.content || []).map(item => item?.text || '').join('')).toLowerCase())
-);
-
-const normalizeNumberToken = (value = '') => (
-  clean(value)
-    .toLowerCase()
-    .replace(/,/g, '')
-    .replace(/\s+/g, '')
-    .replace(/billion/g, 'bn')
-    .replace(/million/g, 'mn')
-);
-
-const numericTokens = (value = '') => (
-  unique(
-    String(value || '')
-      .match(/(?:[$€£]\s*)?\d[\d,.]*(?:\s*(?:%|x|bn|mn|billion|million))?/gi)
-      || []
-  )
-    .map(normalizeNumberToken)
-    .filter(token => {
-      const bare = Number(token.replace(/[$€£%a-z]/gi, ''));
-      return !(Number.isInteger(bare) && bare >= 1900 && bare <= 2100);
-    })
 );
 
 const sourceTextForClaim = ({ claim = {}, sourceRefs = [] } = {}) => {
@@ -53,18 +40,17 @@ const sourceTextForClaim = ({ claim = {}, sourceRefs = [] } = {}) => {
     .join(' ');
 };
 
-const numericGroundingFailure = ({ claim = {}, sourceRefs = [] } = {}) => {
-  const tokens = numericTokens(claim?.text);
-  if (!tokens.length) return false;
-  const sourceText = normalizeNumberToken(sourceTextForClaim({ claim, sourceRefs }));
-  if (!sourceText) return true;
-  const matched = tokens.filter(token => sourceText.includes(token));
-  const calculated = /calculation|calculated|yielding|implies|equals|divided by|multiplied by/i.test(clean(claim?.text));
-  if (calculated) {
-    return matched.length < Math.min(2, tokens.length)
-      || matched.length / tokens.length < 0.35;
-  }
-  return matched.length / tokens.length < 0.75;
+// The same figure check every page gets: each figure is stated in a cited
+// source, or computed in the claim from figures that are.
+// A figure the page already established in an earlier claim that passed
+// (a market value computed above) may be used again below.
+// A citation to a source with no text is not evidence either way: its figures
+// are checked against every source the page gathered.
+const ungroundedFigures = ({ claim = {}, sourceRefs = [], established = [] } = {}) => {
+  if (!figuresIn(claim?.text).length) return [];
+  const sourceText = sourceTextForClaim({ claim, sourceRefs })
+    || sourceRefs.map(source => [source?.snippet, source?.quote, source?.text].filter(Boolean).join(' ')).join(' ');
+  return sourceText ? unstatedFigures(claim?.text, [sourceText, ...established]) : ['no source text'];
 };
 
 const includesHeading = (headings, patterns) => patterns.some(pattern => (
@@ -78,12 +64,39 @@ const evaluateInvestmentDossierQuality = ({
   sourceRefs = [],
   words = 0
 } = {}) => {
+  // As on ordinary pages: a dossier is refused for what it states without
+  // support, never for what it lacks. Missing evidence, modules, sections or
+  // length are hints for the repair pass and the owner who accepts the page.
   const failures = [];
+  const hints = [];
   const profile = page?.investmentDossier || {};
   const plan = profile?.researchPlan || {};
   const businessModel = profile?.businessModel?.primary || 'unknown';
-  const claimList = Array.isArray(claims) ? claims : [];
   const sourceList = Array.isArray(sourceRefs) ? sourceRefs : [];
+  // Two kinds of sentence have nothing to cite and are not decision claims: the
+  // owner's own hurdle restated, and a plain statement of what could not be found.
+  const hurdle = profile?.hurdle || {};
+  const ownerText = [
+    profile?.startingJudgment,
+    Number(hurdle.annualReturn) > 0
+      ? `${(Number(hurdle.annualReturn) * 100).toFixed(1)}% ${hurdle.horizonYears} years`
+      : ''
+  ].filter(Boolean).join(' ');
+
+  // Its figures may come from anywhere on the page: "7%-8% growth could not be
+  // corroborated" restates a figure, it does not claim a new one.
+  const pageText = [
+    ownerText,
+    ...sourceList.map(source => [source?.snippet, source?.quote, source?.text].filter(Boolean).join(' ')),
+    ...(Array.isArray(claims) ? claims : []).map(claim => clean(claim?.text))
+  ];
+  // The owner's own view, marked as such, restating figures shown on the page.
+  const ownersOwn = claim => /\bowner(?:'s)?\b[^.]{0,40}\b(?:hurdle|thesis|judgment|hypothesis|interpretation|view)\b|\bstarting (?:judgment|assumption)\b/i.test(clean(claim?.text))
+    && ownerText && !unstatedFigures(claim?.text, pageText.filter(text => text !== clean(claim?.text))).length;
+  const namesMissingEvidence = claim => MISSING_EVIDENCE.test(clean(claim?.text))
+    && !unstatedFigures(claim?.text, pageText.filter(text => text !== clean(claim?.text))).length;
+  const claimList = (Array.isArray(claims) ? claims : [])
+    .filter(claim => !ownersOwn(claim) && !namesMissingEvidence(claim));
   const unsupportedClaims = claimList.filter(claim => clean(claim?.support).toLowerCase() === 'unsupported');
   const exploratoryUnsupportedClaims = unsupportedClaims.filter(claim => (
     /thesis-changing questions|what would change the thesis/i.test(clean(claim?.section))
@@ -96,10 +109,19 @@ const evaluateInvestmentDossierQuality = ({
     || (claim?.sourceRefIds || []).length
     || (claim?.citationIndexes || []).length
   ));
-  const ungroundedNumericClaims = claimList.filter(claim => (
+  // The owner's hurdle and what follows from it alone (1.10^5) are not claims
+  // about the company. A figure shown once, anywhere on the page, may be
+  // restated: a question can name the 44% a later paragraph adds up.
+  const established = [ownerText];
+  let ungroundedNumericClaims = claimList.filter(claim => (
     ['supported', 'partial', 'conflicted'].includes(clean(claim?.support).toLowerCase())
-    && numericGroundingFailure({ claim, sourceRefs: sourceList })
   ));
+  for (let grew = true; grew;) {
+    const grounded = ungroundedNumericClaims.filter(claim => !ungroundedFigures({ claim, sourceRefs: sourceList, established }).length);
+    established.push(...grounded.map(claim => clean(claim?.text)));
+    ungroundedNumericClaims = ungroundedNumericClaims.filter(claim => !grounded.includes(claim));
+    grew = grounded.length > 0;
+  }
   const observedEvidenceArchetypes = unique([
     ...(plan.evidenceArchetypes || []),
     ...sourceList.map(inferEvidenceArchetype)
@@ -136,16 +158,19 @@ const evaluateInvestmentDossierQuality = ({
   const headings = sectionHeadings(body);
 
   if (Number(profile.version || 0) < 2) {
-    failures.push('Investment dossier is missing the version-2 business-model research profile.');
+    hints.push('Investment dossier is missing the version-2 business-model research profile.');
   }
   if (!businessModel || businessModel === 'unknown') {
-    failures.push('Investment dossier business model is unclassified.');
+    hints.push('Investment dossier business model is unclassified.');
   }
   if (words < DECISION_DOSSIER_MIN_WORDS) {
-    failures.push(`Investment dossier is too thin for a decision: ${words} words, expected at least ${DECISION_DOSSIER_MIN_WORDS}.`);
+    hints.push(`Investment dossier is too thin for a decision: ${words} words, expected at least ${DECISION_DOSSIER_MIN_WORDS}.`);
   }
   if (claimList.length < DECISION_DOSSIER_MIN_CLAIMS) {
-    failures.push(`Investment dossier has too few claim-level analytical units: ${claimList.length}, expected at least ${DECISION_DOSSIER_MIN_CLAIMS}.`);
+    hints.push(`Investment dossier has too few claim-level analytical units: ${claimList.length}, expected at least ${DECISION_DOSSIER_MIN_CLAIMS}.`);
+  }
+  if (JSON.stringify(body || {}).includes(MARKET_PLACEHOLDER)) {
+    failures.push('Investment dossier still carries the unwritten template: What the market is pricing was never written.');
   }
   if (blockingUnsupportedClaims.length) {
     const samples = blockingUnsupportedClaims
@@ -164,24 +189,24 @@ const evaluateInvestmentDossierQuality = ({
   if (ungroundedNumericClaims.length) {
     const samples = ungroundedNumericClaims
       .slice(0, 4)
-      .map(claim => `${clean(claim?.section) || 'Unsectioned'}: ${clean(claim?.text).slice(0, 100)}`)
+      .map(claim => `${clean(claim?.section) || 'Unsectioned'}: ${clean(claim?.text).slice(0, 100)} [${ungroundedFigures({ claim, sourceRefs: sourceList, established }).join(', ')}]`)
       .join(' | ');
     failures.push(`Investment dossier has numeric claims not grounded in cited source text: ${ungroundedNumericClaims.length}${samples ? ` (${samples})` : ''}.`);
   }
   if (missingEvidenceArchetypes.length) {
-    failures.push(`Investment dossier is missing evidence archetypes: ${missingEvidenceArchetypes.join(', ')}.`);
+    hints.push(`Investment dossier is missing evidence archetypes: ${missingEvidenceArchetypes.join(', ')}.`);
   }
   if (missingModuleIds.length) {
-    failures.push(`Investment dossier research modules remain incomplete: ${missingModuleIds.join(', ')}.`);
+    hints.push(`Investment dossier research modules remain incomplete: ${missingModuleIds.join(', ')}.`);
   }
   if (modulesWithoutClaims.length) {
-    failures.push(`Investment dossier modules lack claim-level outputs: ${modulesWithoutClaims.join(', ')}.`);
+    hints.push(`Investment dossier modules lack claim-level outputs: ${modulesWithoutClaims.join(', ')}.`);
   }
   if (missingCalculations.length) {
-    failures.push(`Investment dossier modules lack reproducible calculations: ${missingCalculations.join(', ')}.`);
+    hints.push(`Investment dossier modules lack reproducible calculations: ${missingCalculations.join(', ')}.`);
   }
   if (!reproducibleInsights.length) {
-    failures.push('Investment dossier lacks a non-obvious, reproducible insight tied to source evidence.');
+    hints.push('Investment dossier lacks a non-obvious, reproducible insight tied to source evidence.');
   }
   [
     [/current judgment/i],
@@ -192,10 +217,10 @@ const evaluateInvestmentDossierQuality = ({
     [/operating engine and capital allocation|economics and capital allocation/i],
     [/obligations, concentration, and policy|risks, falsifiers, and open questions/i],
     [/what would change the thesis|risks, falsifiers, and open questions/i],
-    [/next evidence and maintenance test|sources and maintenance state/i]
+    [/what to check next|next evidence and maintenance test|sources and maintenance state/i]
   ].forEach((patterns) => {
     if (!includesHeading(headings, patterns)) {
-      failures.push(`Investment dossier is missing a required decision surface matching ${patterns.map(String).join(' or ')}.`);
+      hints.push(`Investment dossier is missing a required decision surface matching ${patterns.map(String).join(' or ')}.`);
     }
   });
 
@@ -203,6 +228,7 @@ const evaluateInvestmentDossierQuality = ({
     ok: failures.length === 0,
     status: failures.length ? 'research_incomplete' : 'decision_ready',
     failures,
+    hints,
     metrics: {
       businessModel,
       requiredModuleCount: requiredModuleIds.length,

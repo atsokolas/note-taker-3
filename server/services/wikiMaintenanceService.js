@@ -2,7 +2,8 @@ const {
   chatComplete,
   chatCompleteStream,
   getConfig: getTextGenerationConfig,
-  isTextGenerationConfigured
+  isTextGenerationConfigured,
+  parseStructuredText
 } = require('../ai/hfTextClient');
 const {
   alignArticleToPageStructure,
@@ -18,12 +19,14 @@ const {
   compileInvestmentDossierResearchPlan,
   upgradeInvestmentDossierProfile
 } = require('./investmentDossierProfileService');
+const { describeEvidence } = require('./companyDossierEvidenceService');
 const { evaluateInvestmentDossierQuality } = require('./investmentDossierQualityService');
 const { withTransientRetries } = require('./wikiDossierBuildReliabilityService');
 const { normalizeComparableText } = require('./wikiDedupeService');
 const { resolveClaimBornAt } = require('./claimBornAt');
 const { buildMaintenanceCitations } = require('./wikiMaintenanceCitations');
 const { wordBoundaryTrim } = require('../lib/editorialText');
+const { unstatedFigures } = require('./agentGrounding');
 const {
   sourceFamilyKey,
   evaluateOwnedSourceUtilization,
@@ -74,13 +77,15 @@ const applySourceTextBudget = (candidates = []) => {
 };
 const DEFAULT_PROMPT_SOURCE_TEXT_LIMIT = 1300;
 const FAST_PROMPT_SOURCE_TEXT_LIMIT = 800;
-const INVESTMENT_DOSSIER_PROMPT_SOURCE_TEXT_LIMIT = 6000;
+const INVESTMENT_DOSSIER_SNIPPET_LIMIT = 6000;
 const SEC_FILING_EVIDENCE_TEXT_LIMIT = 36000;
 const DEFAULT_DRAFT_MAX_TOKENS = 2600;
 const DEFAULT_REBUILD_MAX_TOKENS = 3600;
 const ORDINARY_WIKI_MAX_TOKENS = 4200;
-const INVESTMENT_DOSSIER_DRAFT_MAX_TOKENS = 8000;
-const INVESTMENT_DOSSIER_REBUILD_MAX_TOKENS = 8000;
+// A full dossier as JSON runs past 8,000 tokens; a cut-off answer is invalid
+// JSON, and the page then falls to a weaker model.
+const INVESTMENT_DOSSIER_DRAFT_MAX_TOKENS = 16000;
+const INVESTMENT_DOSSIER_REBUILD_MAX_TOKENS = 16000;
 const MAX_ARTICLE_BLOCK_TEXT = 2400;
 const MIN_SOURCE_RELEVANCE_SCORE = 2;
 const MIN_SPARSE_PAGE_CANDIDATES = 3;
@@ -477,13 +482,14 @@ const findOrdinaryGroundingGaps = ({ claims = [], sourceRefs = [] } = {}) => {
       .split(/(?<=[.!?])\s+/)
       .map(sentence => sentence.trim())
       .filter(Boolean)
-      .filter((sentence) => {
+      .map((sentence) => {
         const tokens = ordinaryGroundingTokens(sentence);
-        if (tokens.length < 5) return false;
         const anchors = tokens.filter(token => evidenceTokens.has(token));
+        return { sentence, tokens, anchors };
+      })
+      .filter(({ tokens, anchors }) => {
+        if (tokens.length < 5) return false;
         if (anchors.length / tokens.length >= MIN_ORDINARY_GROUNDING_RATIO) return false;
-        // A sentence with almost no anchor is an unsupported abstraction no
-        // matter how many sources the paragraph cites.
         if (anchors.length < MIN_SYNTHESIS_ANCHORS_TOTAL) return true;
         if (perSourceTokens.length < MIN_SYNTHESIS_BRIDGE_SOURCES) return true;
         // A term every cited source shares says nothing about which source the
@@ -499,8 +505,15 @@ const findOrdinaryGroundingGaps = ({ claims = [], sourceRefs = [] } = {}) => {
           .length;
         return bridgedSources < MIN_SYNTHESIS_BRIDGE_SOURCES;
       })
-      .map(sentence => truncate(sentence, 220));
-  }).filter(Boolean).slice(0, 4);
+      // A sentence with almost no anchor is an abstraction its evidence never
+      // mentions, whatever the paragraph cites; that refuses the page. One
+      // with some anchors but too few is a judgment call about synthesis, so
+      // it is a note for the repair pass, not a refusal.
+      .map(({ sentence, anchors }) => ({
+        sentence: truncate(sentence, 220),
+        unanchored: anchors.length < MIN_SYNTHESIS_ANCHORS_TOTAL
+      }));
+  }).slice(0, 4);
 };
 
 const normalizeOrdinarySentence = (value = '') => asString(value)
@@ -1251,7 +1264,21 @@ Investment dossier rules:
 - Lead with a current judgment, not a company description. Separate business quality from security attractiveness.
 - The selected business-model adapter is "${modelLabel}". Do not import AI-infrastructure metrics unless this company's economics actually require them.
 - Required analytical modules: ${(plan.requiredModuleIds || []).join(', ') || 'research plan is not classified yet'}.
-- Missing evidence archetypes: ${(plan.missingEvidenceArchetypes || []).join(', ') || 'none identified'}.
+- Not attached: ${(plan.missingEvidenceArchetypes || []).map(describeEvidence).join('; ') || 'nothing'}.
+- For each source not attached, say plainly in the relevant section that it could not be found (use those words), and draw no conclusion that needs it. With no dated market price, state no market value, multiple or implied return.
+- Every figure must be stated in a cited source, or computed in the same sentence from figures that are, with the inputs written out: "membership fees were 1.99% of net sales ($5.91bn / $297.25bn)". A margin, ratio, multiple or growth rate without its inputs beside it is refused.
+- For each disclosure (buybacks, customer concentration, commitments, guidance), use the latest attached filing that reports it, and give its latest quarter alongside any year-to-date total. A figure from an older period cites the filing that reports it, and is compared only with the same length of period ("first half against first half", never a half-year against nine months).
+- A market value is the dated price times the shares outstanding stated in SEC Company Facts, each with its date; a trailing multiple uses reported net income or diluted EPS, never one backed into from operating income. The two dates need not match: compute it, name both dates, and call it a sensitivity. Use the cover share count alone, not a weighted-average count beside it.
+- State the latest fiscal year's reported net income and diluted EPS from SEC Company Facts.
+- Use consolidated income-statement totals for margins and earnings; a segment total is named as one ("total segment operating income") and never called the company's total. Cite reported net income and EPS directly; never back into them.
+- Say a ratio as its number ("about 1.6x"), never as a word it is not ("roughly double"); when comparing two amounts, divide the larger by the smaller and name which is larger.
+- Never back a prior-period figure out of a growth rate. If the sources do not state the earlier figure, give the current figure and the rate.
+- Read a multi-year table by column: compare rows within the same year's column, never one row's early year against another's latest.
+- Before calling two totals a discrepancy, reconcile them from the line items (total revenue is net sales plus membership fees and other revenue).
+- Name a debt figure as the filing does (total, or net of current portion) and take it from the latest balance sheet attached. The balance sheet's "Long-term debt" line is the long-term portion; never call it "net". A cover share count is dated by its cover date ("as of"), not the filing date.
+- Open with the judgment and what the filings establish. Say what is missing once, where it matters (Implied Expectations for price and multiples), not in the opening.
+- Write for an investor: never use the words "evidence archetype", "module", "ledger", "maintenance test" or "dossier engine", never write internal labels with underscores, and do not name the app.
+- When a competitor's filing is attached, compare the company against it in Product and Technical Moat, citing it.
 - Missing analytical modules: ${(plan.missingModuleIds || []).join(', ') || 'none identified'}.
 - Produce at least 1,800 words and at least 20 distinct claim-level analytical paragraphs or bullets. These are minimum decision-dossier gates, not permission to add filler.
 - Every paragraph or bullet must establish a mechanism, calculation, counterargument, falsifier, or next evidence test.
@@ -1513,38 +1540,13 @@ Ordinary Wiki repair contract (attempt ${repairAttempt}):
 Return the complete repaired article. Make defensible claims, compare evidence, and include concrete tensions.`
 );
 
-const extractJson = (value = '') => {
-  const text = asString(value);
-  if (!text) return null;
-  const parseLooseJson = (candidate = '') => {
-    try {
-      return JSON.parse(candidate);
-    } catch (_error) {
-      // Repair only the mechanical trailing-comma defect commonly returned
-      // by free JSON-capable routes. Never guess missing content or structure.
-      try {
-        return JSON.parse(String(candidate).replace(/,\s*([}\]])/g, '$1'));
-      } catch (__error) {
-        return null;
-      }
-    }
-  };
-  const parsed = parseLooseJson(text);
-  if (parsed) return parsed;
-  {
-    const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
-    if (fenced?.[1]) {
-      const fencedParsed = parseLooseJson(fenced[1]);
-      if (fencedParsed) return fencedParsed;
-    }
-    const start = text.indexOf('{');
-    const end = text.lastIndexOf('}');
-    if (start >= 0 && end > start) {
-      return parseLooseJson(text.slice(start, end + 1));
-    }
-  }
-  return null;
-};
+// A lone CJK glyph fused to an English word ("the更 company") is a sampling
+// slip, not writing; a CJK word set apart by spaces is left alone.
+const STRAY_GLYPH = /(?<=[A-Za-z])[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]|[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af](?=[A-Za-z])/g;
+
+// The text client's own reading: fences, a sentence around the object, and
+// the mechanical slips it repairs. Never guesses content or structure.
+const extractJson = (value = '') => parseStructuredText(asString(value).replace(STRAY_GLYPH, ''));
 
 const normalizeMaintenanceProfile = (value = '') => {
   const normalized = asString(value).toLowerCase();
@@ -1591,6 +1593,8 @@ const isQualityImprovement = ({ current = {}, retry = {} } = {}) => {
   const currentFailures = Array.isArray(current?.failures) ? current.failures.length : Number.MAX_SAFE_INTEGER;
   const retryFailures = Array.isArray(retry?.failures) ? retry.failures.length : Number.MAX_SAFE_INTEGER;
   if (retryFailures !== currentFailures) return retryFailures < currentFailures;
+  const hintCount = quality => (Array.isArray(quality?.hints) ? quality.hints.length : 0);
+  if (hintCount(retry) !== hintCount(current)) return hintCount(retry) < hintCount(current);
   if (Number(retryMetrics.words || 0) !== Number(currentMetrics.words || 0)) {
     return Number(retryMetrics.words || 0) > Number(currentMetrics.words || 0);
   }
@@ -1606,7 +1610,7 @@ const sourceRefFromCandidate = (candidate, { investmentDossier = false } = {}) =
   const snippetLimit = isGitHubConfig
     ? 4000
     : investmentDossier
-      ? INVESTMENT_DOSSIER_PROMPT_SOURCE_TEXT_LIMIT
+      ? INVESTMENT_DOSSIER_SNIPPET_LIMIT
       : 1000;
   return {
     type: candidate.type,
@@ -1685,35 +1689,37 @@ const extractSecFilingEvidenceText = (value = '', limit = SEC_FILING_EVIDENCE_TE
   };
   addWindow({ start: 0, end: 2400, label: 'filing identity and period' });
   [
-    ['business and platform', /\b(?:business overview|our platform|our cloud platform|products and services)\b/ig],
-    ['technical infrastructure', /\b(?:technology and infrastructure|accelerated computing|gpu infrastructure|data centers?)\b/ig],
-    ['competition', /\bcompetition\b/ig],
-    ['customer concentration', /\b(?:customer concentration|major customers?|largest customer)\b/ig],
-    ['contracted demand', /\b(?:remaining performance obligations|revenue backlog|contracted backlog)\b/ig],
+    // Most decision-bearing first: windows are taken in this order until the
+    // excerpt is full, so a long 10-Q keeps its results, buybacks and
+    // concentration before its descriptions.
     ['results of operations', /\b(?:management['’]s discussion and analysis|results of operations)\b/ig],
     ['revenue and cost structure', /\b(?:cost of revenue|gross profit|gross margin|operating loss)\b/ig],
+    // The reported rows, with prior years, and the year's renewal rate.
+    ['membership fees and renewal', /\bmembership fees \$|\brenewal rates? (?:was|were|of)\b/ig],
+    ['net income and share count', /\b(?:per diluted share|net income per (?:diluted )?share|diluted (?:net income|earnings) per share|weighted[- ]average (?:diluted )?shares)\b/ig],
+    ['customer concentration', /\b(?:customer concentration|concentration of revenue|major customers?|largest customer|direct customers? (?:represented|accounted))\b/ig],
+    ['capital return', /\b(?:share repurchase|repurchase program|stock repurchases?|repurchased? (?:approximately )?[\d.]+ (?:million|billion) shares)\b/ig],
     ['cash flow and capital intensity', /\b(?:cash flows?|capital expenditures?|purchases of property and equipment|depreciation and amortization)\b/ig],
+    ['contracted demand', /\b(?:remaining performance obligations|revenue backlog|contracted backlog)\b/ig],
+    ['business and platform', /\b(?:business overview|our platform|our cloud platform|products and services)\b/ig],
+    ['competition', /\bcompetition\b/ig],
+    ['technical infrastructure', /\b(?:technology and infrastructure|accelerated computing|gpu infrastructure|data centers?)\b/ig],
     ['financing and obligations', /\b(?:long-term debt|credit facilit|commitments and contingencies|purchase commitments?|lease liabilities)\b/ig],
     ['power and facilities', /\b(?:power capacity|power commitments?|data center leases?|facility commitments?)\b/ig],
     ['supplier and GPU dependency', /\b(?:NVIDIA|GPU supply|supplier concentration)\b/ig],
     ['material risks', /\bRisk Factors\b/ig]
-  ].forEach(([label, pattern]) => {
-    const positions = [];
-    let match = pattern.exec(text);
-    while (match) {
-      if (match.index > 1800) positions.push(match.index);
-      match = pattern.exec(text);
-    }
-    if (!positions.length) return;
-    const selected = positions.length > 1
-      ? [positions[Math.floor(positions.length / 2)], positions.at(-1)]
-      : positions;
-    selected.forEach(position => addWindow({
+  ].map(([label, pattern]) => {
+    const positions = Array.from(text.matchAll(pattern), match => match.index).filter(index => index > 1800);
+    return { label, picks: positions.length > 1 ? [positions[Math.floor((positions.length - 1) / 2)], positions.at(-1)] : positions };
+  })
+    // Every topic gets one window before any gets a second.
+    .flatMap(({ label, picks }) => picks.map((position, round) => ({ label, position, round })))
+    .sort((a, b) => a.round - b.round)
+    .forEach(({ label, position }) => addWindow({
       start: position - 700,
       end: position + 3000,
       label
     }));
-  });
   return truncateRaw(windows.join('\n\n'), limit);
 };
 
@@ -3671,7 +3677,7 @@ const fillInvestmentDossierMaintenanceTest = ({ article = {}, page = {}, candida
   return {
     ...article,
     sections: (Array.isArray(article.sections) ? article.sections : []).map((section) => {
-      if (normalizeSectionHeading(section?.heading) !== 'next evidence and maintenance test') return section;
+      if (normalizeSectionHeading(section?.heading) !== 'what to check next') return section;
       const sectionText = JSON.stringify(section || {});
       if (!/\bstill needs source-backed development\b/i.test(sectionText)) return section;
       const companyLabel = asString(page?.externalWatches?.edgar?.companyName || page?.title)
@@ -3680,7 +3686,9 @@ const fillInvestmentDossierMaintenanceTest = ({ article = {}, page = {}, candida
       return {
         ...section,
         paragraphs: [{
-          text: `At ${companyLabel}'s next 10-Q, compare revenue growth with cost of revenue, technology and infrastructure expense, operating loss, operating cash flow, remaining performance obligation conversion, customer concentration, and debt or lease obligations. Before that filing, review any 8-K for material customer-contract, financing, capacity, or supplier changes. Treat each change as a candidate update until the owner accepts the revised judgment.`,
+          // Written for one company's economics once, it read as boilerplate on
+          // every other; what holds for any company is checking this page's figures.
+          text: `At ${companyLabel}'s next 10-Q or 10-K, check each figure this page relies on against the new filing, and read any 8-K filed before then for material changes. A changed figure is a candidate update until the owner accepts the revised judgment.`,
           citationIndexes,
           contradictionIndexes: [],
           support: 'partial'
@@ -3844,10 +3852,27 @@ const evaluateWikiArticleQuality = ({
   let ordinaryRepeatedSentences = [];
   let ordinaryGenericHeadingCount = null;
   let ownedSourceUtilization = null;
+  let unstatedFigureClaims = [];
+  // Failures refuse the page: something on it is untrue, unsourced, or not
+  // about its subject. Hints are how it could read better; they go to the
+  // repair pass but never keep a page from the reader. A page whose every
+  // claim is backed is not refused for its headings.
   const failures = [];
+  const hints = [];
 
   SCAFFOLD_PATTERNS.forEach(({ label, pattern }) => {
     if (pattern.test(plainText)) failures.push(`Article contains ${label}.`);
+  });
+  // A number is checked only against sources the writer was given the text
+  // of; a citation to a source with no text is not evidence either way.
+  unstatedFigureClaims = docClaims.flatMap((claim) => {
+    const texts = (claim.citationIndexes || [])
+      .map(index => sourceRefs[index - 1] || {})
+      .map(source => [source.snippet, source.quote, source.text].filter(Boolean).join(' '))
+      .filter(Boolean);
+    if (!texts.length) return [];
+    const figures = unstatedFigures(claim.text, texts);
+    return figures.length ? [{ text: claim.text, figures }] : [];
   });
   const isRepoQualityPage = isGitHubRepoPage({ page, candidates: sourceRefs });
   const isInvestmentQualityPage = getWikiPageStructureForPage({
@@ -3871,20 +3896,26 @@ const evaluateWikiArticleQuality = ({
     const genericHeadingCount = headings.filter(heading => GENERIC_REFERENCE_HEADINGS.has(heading)).length;
     ordinaryGenericHeadingCount = genericHeadingCount;
     if (headings.length >= 4 && genericHeadingCount >= Math.ceil(headings.length * 0.75)) {
-      failures.push('Ordinary reference article uses generic template headings instead of subject-specific sections.');
+      hints.push('Ordinary reference article uses generic template headings instead of subject-specific sections.');
     } else if (genericHeadingCount > 0) {
-      failures.push(`Ordinary reference article contains ${genericHeadingCount} generic section heading${genericHeadingCount === 1 ? '' : 's'}; give every substantial section a subject-specific analytical role.`);
+      hints.push(`Ordinary reference article contains ${genericHeadingCount} generic section heading${genericHeadingCount === 1 ? '' : 's'}; give every substantial section a subject-specific analytical role.`);
     }
     const fillerCount = ORDINARY_REFERENCE_FILLER_PATTERNS
       .reduce((count, pattern) => count + (pattern.test(plainText) ? 1 : 0), 0);
     if (fillerCount >= 2) {
-      failures.push('Ordinary reference article relies on generic scene-setting instead of definitions, mechanisms, or evidence.');
+      hints.push('Ordinary reference article relies on generic scene-setting instead of definitions, mechanisms, or evidence.');
     }
-    if (ordinaryGroundingGaps.length) {
-      failures.push(`Ordinary reference article introduces claims with no lexical anchor in their cited evidence: ${ordinaryGroundingGaps.map(gap => `"${gap}"`).join('; ')}`);
+    const quoteGaps = gaps => gaps.map(gap => `"${gap.sentence}"`).join('; ');
+    const unanchored = ordinaryGroundingGaps.filter(gap => gap.unanchored);
+    const loose = ordinaryGroundingGaps.filter(gap => !gap.unanchored);
+    if (unanchored.length) {
+      failures.push(`Ordinary reference article introduces claims with no lexical anchor in their cited evidence: ${quoteGaps(unanchored)}`);
+    }
+    if (loose.length) {
+      hints.push(`Ordinary reference article has claims only loosely anchored in their cited evidence: ${quoteGaps(loose)}`);
     }
     if (ordinaryRepeatedSentences.length) {
-      failures.push(`Ordinary reference article repeats substantive sentences across sections instead of advancing the synthesis: ${ordinaryRepeatedSentences.map(sentence => `"${sentence}"`).join('; ')}`);
+      hints.push(`Ordinary reference article repeats substantive sentences across sections instead of advancing the synthesis: ${ordinaryRepeatedSentences.map(sentence => `"${sentence}"`).join('; ')}`);
     }
     const topicalTitle = primaryTopicTitle(page?.title || '') || asString(page?.title);
     const titleTopicTokens = topicTokens(topicalTitle);
@@ -3922,28 +3953,28 @@ const evaluateWikiArticleQuality = ({
     if (evidenceBudgetSourceCount >= 5) {
       const minimumEvidenceBlocks = Math.max(6, Math.min(8, Math.ceil(evidenceBudgetSourceCount * 1.15)));
       if (ordinaryHeadingCount < 3) {
-        failures.push(`Ordinary reference article has too little subject structure: ${ordinaryHeadingCount} sections, expected at least 3 subject-shaped sections for ${evidenceBudgetSourceCount} available sources.`);
+        hints.push(`Ordinary reference article has too little subject structure: ${ordinaryHeadingCount} sections, expected at least 3 subject-shaped sections for ${evidenceBudgetSourceCount} available sources.`);
       }
       if (ordinaryEvidenceBlockCount < minimumEvidenceBlocks) {
-        failures.push(`Ordinary reference article has too few evidence-bearing blocks: ${ordinaryEvidenceBlockCount}, expected at least ${minimumEvidenceBlocks} for ${evidenceBudgetSourceCount} available sources.`);
+        hints.push(`Ordinary reference article has too few evidence-bearing blocks: ${ordinaryEvidenceBlockCount}, expected at least ${minimumEvidenceBlocks} for ${evidenceBudgetSourceCount} available sources.`);
       }
       if (!ordinaryCoverageSignals.mechanism) {
-        failures.push('Ordinary reference article does not explain a causal process or organizing mechanism.');
+        hints.push('Ordinary reference article does not explain a causal process or organizing mechanism.');
       }
       if (!ordinaryCoverageSignals.example) {
-        failures.push('Ordinary reference article lacks a concrete example, case, or observable situation.');
+        hints.push('Ordinary reference article lacks a concrete example, case, or observable situation.');
       }
       if (!ordinaryCoverageSignals.boundary) {
-        failures.push('Ordinary reference article lacks a meaningful limit, exception, disagreement, or boundary.');
+        hints.push('Ordinary reference article lacks a meaningful limit, exception, disagreement, or boundary.');
       }
       const minimumUsedSources = Math.min(4, evidenceBudgetSourceCount);
       if (usedCitationIndexes.length < minimumUsedSources) {
-        failures.push(`Ordinary reference article underuses its evidence: ${usedCitationIndexes.length}/${evidenceBudgetSourceCount} available sources cited, expected at least ${minimumUsedSources}.`);
+        hints.push(`Ordinary reference article underuses its evidence: ${usedCitationIndexes.length}/${evidenceBudgetSourceCount} available sources cited, expected at least ${minimumUsedSources}.`);
       }
     }
     const firstArticleClaim = docClaims[0] || null;
     if (sourceCount && firstArticleClaim && !(firstArticleClaim.citationIndexes || []).length) {
-      failures.push('Ordinary reference article opens with an uncited definition or synthesis.');
+      hints.push('Ordinary reference article opens with an uncited definition or synthesis.');
     }
     if (danglingCitationIndexes.length) {
       failures.push(`Ordinary reference article has dangling citation indexes: ${danglingCitationIndexes.slice(0, 8).join(', ')}.`);
@@ -3966,6 +3997,9 @@ const evaluateWikiArticleQuality = ({
     ) {
       failures.push('Ordinary reference article asserts a formal equivalence that the cited source text does not establish.');
     }
+    if (unstatedFigureClaims.length) {
+      failures.push(`Ordinary reference article states figures its cited sources do not: ${unstatedFigureClaims.map(({ figures, text }) => `${figures.join(', ')} in "${truncate(text, 160)}"`).join('; ')}`);
+    }
   }
   const wordGateSourceCount = isFlexibleReferencePage ? evidenceBudgetSourceCount : sourceCount;
   const minWords = isRepoQualityPage
@@ -3977,7 +4011,7 @@ const evaluateWikiArticleQuality = ({
           })
         : (wordGateSourceCount >= 5 ? QUALITY_MIN_WORDS_WITH_MANY_SOURCES : QUALITY_MIN_WORDS));
   if (wordGateSourceCount >= 3 && words < minWords) {
-    failures.push(`Article is too thin for ${wordGateSourceCount} available sources: ${words} words, expected at least ${minWords}.`);
+    (isFlexibleReferencePage ? hints : failures).push(`Article is too thin for ${wordGateSourceCount} available sources: ${words} words, expected at least ${minWords}.`);
   }
   if (isRepoQualityPage && unsupported > 0) {
     failures.push(`GitHub repo article has unsupported claim ledger entries: ${unsupported}.`);
@@ -4051,8 +4085,9 @@ const evaluateWikiArticleQuality = ({
         words
       })
     : null;
-  if (investmentDossierQuality && !investmentDossierQuality.ok) {
-    investmentDossierQuality.failures.forEach(failure => failures.push(failure));
+  if (investmentDossierQuality) {
+    failures.push(...investmentDossierQuality.failures);
+    hints.push(...investmentDossierQuality.hints);
   }
 
   const score = Math.max(0, Number((1 - Math.min(1, failures.length / 6)).toFixed(2)));
@@ -4061,6 +4096,7 @@ const evaluateWikiArticleQuality = ({
     status: failures.length ? 'needs_rebuild' : 'pass',
     score,
     failures,
+    hints,
     checkedAt: now,
     metrics: {
       words,
@@ -4084,6 +4120,7 @@ const evaluateWikiArticleQuality = ({
       ordinaryGroundingGapCount: ordinaryGroundingGaps.length,
       ordinaryRepeatedSentenceCount: ordinaryRepeatedSentences.length,
       ordinaryGenericHeadingCount,
+      unstatedFigureCount: unstatedFigureClaims.reduce((total, claim) => total + claim.figures.length, 0),
       ownedSourceUtilization,
       durableCitationCheckSkipped: Boolean(skipDurableCitationCheck),
       ...(investmentDossierQuality
@@ -4323,14 +4360,16 @@ const maintainWikiPage = async ({
     summary: `${candidates.length} saved source${candidates.length === 1 ? '' : 's'} ready for analysis.`,
     sourceCount: candidates.length
   });
+  const investmentDossier = getWikiPageStructureForPage({ page, candidates }).profile === 'investment_dossier';
   // Spend the build's source-text allowance now that the final source count is
   // known. Everything downstream — the prompt and the evidence gate alike — reads
   // candidate text from here, so the writer and its judge stay on the same window
-  // by construction.
-  candidates = applySourceTextBudget(candidates);
+  // by construction. A dossier keeps each filing's whole excerpt: shared out
+  // across twelve sources, the allowance left each filing its cover page, and the
+  // writer said so ("filing identity pages only were retrievable").
+  if (!investmentDossier) candidates = applySourceTextBudget(candidates);
   const budgetedSourceTextLimit = perSourceTextBudget(candidates.length);
   const repoMaintenance = isGitHubRepoPage({ page, candidates });
-  const investmentDossier = getWikiPageStructureForPage({ page, candidates }).profile === 'investment_dossier';
   if (investmentDossier) {
     page.investmentDossier = upgradeInvestmentDossierProfile({
       profile: page.investmentDossier || {},
@@ -4343,8 +4382,8 @@ const maintainWikiPage = async ({
   const explicitSourceTextLimit = Number.isFinite(Number(sourceTextLimit)) && Number(sourceTextLimit) > 0;
   const effectiveSourceTextLimit = investmentDossier
     ? (explicitSourceTextLimit
-        ? Math.min(requestedSourceTextLimit, INVESTMENT_DOSSIER_PROMPT_SOURCE_TEXT_LIMIT)
-        : INVESTMENT_DOSSIER_PROMPT_SOURCE_TEXT_LIMIT)
+        ? Math.min(requestedSourceTextLimit, SEC_FILING_EVIDENCE_TEXT_LIMIT)
+        : SEC_FILING_EVIDENCE_TEXT_LIMIT)
     // A caller asking for less than the budget still gets less — the fast profile
     // is entitled to trade context for latency. A caller that says nothing gets the
     // budget rather than the old flat default, which is what starved single-source
@@ -4522,6 +4561,9 @@ const maintainWikiPage = async ({
         provider: completion.provider || ''
       };
       result = extractJson(completion.text);
+      // A dossier is written by the model or not at all; the generic fallback
+      // would publish the empty template under the model's name.
+      if (investmentDossier && !result) throw Object.assign(new Error('The research model returned no readable draft.'), { status: 502 });
       await emitProgress({
         stage: 'model_drafted',
         summary: 'Draft response received from the maintenance model.',
@@ -4585,7 +4627,7 @@ const maintainWikiPage = async ({
     for (let repairAttempt = 1; repairAttempt <= maxQualityRebuildAttempts && !materialized.quality.ok; repairAttempt += 1) {
       if (repairAttempt > 1) {
         const remainingFailures = (materialized.quality.failures || []).join(' ');
-        const editorialRepairStillActionable = /repeats substantive sentences|generic section heading|concrete example|too thin|lexical anchor|uncited|underuses its evidence|owned Library evidence|owned Library source|causal process|meaningful limit/i.test(remainingFailures);
+        const editorialRepairStillActionable = /states figures|repeats substantive sentences|generic section heading|concrete example|too thin|lexical anchor|uncited|underuses its evidence|owned Library evidence|owned Library source|causal process|meaningful limit/i.test(remainingFailures);
         if (!editorialRepairStillActionable) break;
       }
       try {
@@ -4628,7 +4670,7 @@ const maintainWikiPage = async ({
               recoveryDraftQuality,
               wikiSchemaContent,
               knownWikiPages,
-              failures: materialized.quality.failures,
+              failures: [...(materialized.quality.failures || []), ...(materialized.quality.hints || [])],
               draftArticle: finalNormalized.article,
               sourceTextLimit: effectiveSourceTextLimit,
               repairAttempt

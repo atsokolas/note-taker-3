@@ -20,7 +20,8 @@ const run = () => {
       }))
     }
   });
-  assert.equal(filingsOnly.ready, false);
+  // Filings alone are enough to write; the rest are named as missing.
+  assert.equal(filingsOnly.ready, true);
   assert.equal(filingsOnly.sourceCount, 8);
   assert.deepEqual(filingsOnly.observedEvidenceArchetypes, ['filing']);
   assert.deepEqual(filingsOnly.missingEvidenceArchetypes, [
@@ -76,8 +77,13 @@ const run = () => {
       }
     }
   });
-  assert.equal(adapterGap.ready, false);
+  assert.equal(adapterGap.ready, true);
   assert.deepEqual(adapterGap.missingEvidenceArchetypes, ['operating_benchmark']);
+
+  const noFilings = buildCompanyDossierEvidenceCoverage({
+    page: { sourceRefs: Array.from({ length: 8 }, (_, index) => source('company_product', index)) }
+  });
+  assert.equal(noFilings.ready, false, 'a dossier is never written without filings');
 
   const stopped = buildCompanyDossierEvidenceCoverage({
     page: {

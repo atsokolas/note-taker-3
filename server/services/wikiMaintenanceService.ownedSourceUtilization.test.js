@@ -359,7 +359,7 @@ describe('ordinary Wiki grounding judge', () => {
     });
 
     expect(gaps).toHaveLength(1);
-    expect(gaps[0]).toMatch(/decentralised governance/);
+    expect(gaps[0].sentence).toMatch(/decentralised governance/);
   });
 
   it('rejects a sub-threshold bridge that leans on only one of its cited sources', () => {
@@ -376,7 +376,7 @@ describe('ordinary Wiki grounding judge', () => {
     });
 
     expect(gaps).toHaveLength(1);
-    expect(gaps[0]).toMatch(/lifetime earnings/);
+    expect(gaps[0].sentence).toMatch(/lifetime earnings/);
   });
 
   it('represents contradictory evidence as a tension rather than a silent reconciliation', () => {

@@ -2,6 +2,10 @@ const { upgradeInvestmentDossierProfile } = require('./investmentDossierProfileS
 
 const clean = (value = '', max = 2400) => String(value || '').replace(/\s+/g, ' ').trim().slice(0, max);
 
+// What a new dossier says before anything is written. A page that still says
+// it has not been written.
+const MARKET_PLACEHOLDER = 'Awaiting a dated price, diluted share count, and normalized operating base. None of these is inferred silently.';
+
 const heading = (text) => ({
   type: 'heading',
   attrs: { level: 2 },
@@ -36,7 +40,7 @@ const buildCompanyDossierBody = ({ companyName, ticker, startingJudgment, requir
     paragraph(startingJudgment),
     paragraph(`Owner hurdle: ${(requiredReturn * 100).toFixed(1)}% annual return over ${horizonYears} years. This is a starting judgment, not a proven conclusion.`),
     heading('What the market is pricing'),
-    paragraph('Awaiting a dated price, diluted share count, and normalized operating base. Noeis will not infer these inputs silently.'),
+    paragraph(MARKET_PLACEHOLDER),
     heading('Business and product system'),
     paragraph(),
     heading('Technical architecture and moat'),
@@ -48,9 +52,9 @@ const buildCompanyDossierBody = ({ companyName, ticker, startingJudgment, requir
     heading('Risks, falsifiers, and open questions'),
     paragraph(),
     heading('What changed'),
-    paragraph(`SEC filing watch armed for ${companyName || ticker}. Material changes remain candidates until the owner accepts a trusted head.`),
+    paragraph(`Each new SEC filing from ${companyName || ticker} is read against this page; a change waits for the owner to accept it.`),
     heading('Sources and maintenance state'),
-    paragraph('Free primary sources only. SEC filings will enter the evidence queue; paid transcript and market-data providers are not required.')
+    paragraph('Written from SEC filings and other free public sources.')
   ]
 });
 
@@ -144,6 +148,7 @@ const activeCompanyDossierKey = (cik = '') => {
 };
 
 module.exports = {
+  MARKET_PLACEHOLDER,
   activeCompanyDossierKey,
   buildCompanyDossierBody,
   buildCompanyDossierJudgmentInput,

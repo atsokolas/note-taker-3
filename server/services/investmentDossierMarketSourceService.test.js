@@ -26,6 +26,8 @@ const run = async () => {
   assert.equal(parsePrice('N/A'), null);
   assert.equal(parseNasdaqDate('Jul 23, 2026').toISOString(), '2026-07-23T00:00:00.000Z');
   assert.equal(parseNasdaqDate('Jul 23, 26'), null);
+  assert.equal(parseNasdaqDate('Oct 13, 2026 1:17 PM ET').toISOString(), '2026-10-13T00:00:00.000Z');
+  assert.equal(parseNasdaqDate('Oct 13, 2026 tomorrow'), null);
 
   const accepted = assessNasdaqQuote({
     payload,

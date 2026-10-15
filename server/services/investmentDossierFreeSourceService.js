@@ -22,6 +22,17 @@ const COMPANY_FACTS_METRICS = Object.freeze([
     tags: ['OperatingIncomeLoss']
   },
   {
+    id: 'net_income',
+    label: 'Net income',
+    tags: ['NetIncomeLoss']
+  },
+  {
+    id: 'diluted_eps',
+    label: 'Diluted earnings per share',
+    tags: ['EarningsPerShareDiluted'],
+    unit: 'USD/shares'
+  },
+  {
     id: 'operating_cash_flow',
     label: 'Operating cash flow',
     tags: ['NetCashProvidedByUsedInOperatingActivities']
@@ -47,8 +58,8 @@ const companyFactsUrl = cik => (
   `https://data.sec.gov/api/xbrl/companyfacts/CIK${padCik(cik)}.json`
 );
 
-const annualPointsForFact = ({ fact = {}, tag = '', years = 5 } = {}) => {
-  const usd = Array.isArray(fact?.units?.USD) ? fact.units.USD : [];
+const annualPointsForFact = ({ fact = {}, tag = '', years = 5, unit = 'USD' } = {}) => {
+  const usd = Array.isArray(fact?.units?.[unit]) ? fact.units[unit] : [];
   const latestByPeriodEnd = new Map();
   usd
     .filter(row => (
@@ -73,7 +84,7 @@ const annualPointsForFact = ({ fact = {}, tag = '', years = 5 } = {}) => {
         fiscalYear: Number(periodEnd.slice(0, 4)),
         end: periodEnd,
         value: Number(row.val),
-        unit: 'USD',
+        unit,
         accessionNumber: String(row.accn),
         filed: String(row.filed || ''),
         form: '10-K',
@@ -89,20 +100,25 @@ const annualPointsForFact = ({ fact = {}, tag = '', years = 5 } = {}) => {
 const metricSeriesFromCompanyFacts = ({ companyFacts = {}, years = 5 } = {}) => {
   const gaap = companyFacts?.facts?.['us-gaap'] || {};
   const metrics = COMPANY_FACTS_METRICS.map((definition) => {
+    const unit = definition.unit || 'USD';
     const selectedTag = definition.tags.find((tag) => {
-      const points = annualPointsForFact({ fact: gaap[tag], tag, years });
+      const points = annualPointsForFact({ fact: gaap[tag], tag, years, unit });
       return points.length >= 3;
     });
     if (!selectedTag) return null;
     const fact = gaap[selectedTag] || {};
+    const points = annualPointsForFact({ fact, tag: selectedTag, years, unit });
+    // A per-share figure older than the newest 10-K may predate a split, so
+    // only the years that filing restates are given.
+    const newest = points.at(-1)?.accessionNumber;
     return {
       id: definition.id,
       label: clean(fact.label || definition.label, 120),
       description: clean(fact.description || '', 360),
       namespace: 'us-gaap',
       tag: selectedTag,
-      unit: 'USD',
-      points: annualPointsForFact({ fact, tag: selectedTag, years })
+      unit,
+      points: unit === 'USD/shares' ? points.filter(point => point.accessionNumber === newest) : points
     };
   }).filter(Boolean);
   const latestFiscalYear = Math.max(
@@ -120,6 +136,18 @@ const formatUsd = (value) => {
   return `${sign}$${Math.round(absolute).toLocaleString('en-US')}`;
 };
 
+const formatValue = (value, unit) => (unit === 'USD/shares' ? `$${Number(value).toFixed(2)}` : formatUsd(value));
+
+// The newest share count on a filing's cover page, with its date: what a
+// dated price is multiplied by to give a market value.
+const latestSharesOutstanding = (companyFacts = {}) => {
+  const rows = companyFacts?.facts?.dei?.EntityCommonStockSharesOutstanding?.units?.shares || [];
+  const latest = rows
+    .filter(row => Number(row?.val) > 0 && /^\d{4}-\d{2}-\d{2}$/.test(String(row?.end || '')))
+    .sort((a, b) => String(b.end).localeCompare(String(a.end)) || String(b.filed || '').localeCompare(String(a.filed || '')))[0];
+  return latest ? { value: Number(latest.val), asOf: latest.end, form: latest.form || '', filed: latest.filed || '' } : null;
+};
+
 const buildCompanyFactsOperatingBenchmark = ({
   companyFacts = {},
   cik = '',
@@ -130,6 +158,7 @@ const buildCompanyFactsOperatingBenchmark = ({
   const normalizedCik = padCik(cik || companyFacts?.cik);
   const url = companyFactsUrl(normalizedCik);
   const metrics = metricSeriesFromCompanyFacts({ companyFacts });
+  const shares = latestSharesOutstanding(companyFacts);
   if (metrics.length < 2) {
     return {
       sourceRef: null,
@@ -145,9 +174,10 @@ const buildCompanyFactsOperatingBenchmark = ({
     `${entityName} SEC Company Facts operating history.`,
     ...metrics.map(metric => (
       `${metric.label}: ${metric.points.map(point => (
-        `FY${point.fiscalYear} ${formatUsd(point.value)}`
+        `FY${point.fiscalYear} ${formatValue(point.value, metric.unit)}`
       )).join('; ')}.`
     )),
+    ...(shares ? [`Shares outstanding: ${Math.round(shares.value / 1e6).toLocaleString('en-US')} million as of ${shares.asOf} (cover of the ${shares.form} filed ${shares.filed}).`] : []),
     'Values are issuer-filed US-GAAP facts; periods and accessions are preserved in source metadata.'
   ].join('\n');
   const contentHash = crypto.createHash('sha256').update(snippet).digest('hex');
@@ -167,6 +197,7 @@ const buildCompanyFactsOperatingBenchmark = ({
         cik: normalizedCik,
         ticker: clean(ticker, 20).toUpperCase(),
         metrics,
+        sharesOutstanding: shares,
         provenance: {
           discoveredFrom: `SEC Company Facts for issuer CIK ${normalizedCik}`,
           retrievedAt,
@@ -190,5 +221,6 @@ module.exports = {
   annualPointsForFact,
   buildCompanyFactsOperatingBenchmark,
   companyFactsUrl,
+  latestSharesOutstanding,
   metricSeriesFromCompanyFacts
 };

@@ -7756,6 +7756,21 @@ const buildWikiRouter = ({
           res.end();
           return;
         }
+        if (evidenceCoverage.missingEvidenceArchetypes.length) {
+          /* The writer names what could not be found instead of filling it. */
+          const priorDossier = page.investmentDossier?.toObject
+            ? page.investmentDossier.toObject()
+            : page.investmentDossier || {};
+          page.investmentDossier = {
+            ...priorDossier,
+            researchPlan: {
+              ...(priorDossier.researchPlan || {}),
+              evidenceArchetypes: evidenceCoverage.observedEvidenceArchetypes,
+              missingEvidenceArchetypes: evidenceCoverage.missingEvidenceArchetypes
+            }
+          };
+          page.markModified?.('investmentDossier');
+        }
         before = snapshotPage(page);
       }
 

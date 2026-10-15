@@ -203,6 +203,9 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
       citationIndexes: [2]
     });
     expect(normalizeArticleTextBlock('A bounded claim. [1, 3]').citationIndexes).toEqual([1, 3]);
+    expect(extractJson('{"title":"Moats","summary":"the更 company holds; the 道 stays"}')).toMatchObject({
+      summary: 'the company holds; the 道 stays'
+    });
     expect(extractJson('{"title":"Parenting","sections":[{"heading":"Care",}],}')).toMatchObject({
       title: 'Parenting',
       sections: [{ heading: 'Care' }]
@@ -221,9 +224,10 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
         snippet: 'Routines should be regular and predictable without becoming rigid.'
       }]
     });
-    expect(gaps).toEqual([
-      'Cultural norms determine which parenting practices transfer across societies.'
-    ]);
+    expect(gaps).toEqual([{
+      sentence: 'Cultural norms determine which parenting practices transfer across societies.',
+      unanchored: true
+    }]);
   });
   it('remaps repo citation indexes after retained refs reorder the final reference list', () => {
     const article = {
@@ -458,11 +462,11 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
       skipDurableCitationCheck: true
     });
 
-    expect(quality.failures.join(' ')).toMatch(/too few evidence-bearing blocks/i);
-    expect(quality.failures.join(' ')).toMatch(/causal process or organizing mechanism/i);
-    expect(quality.failures.join(' ')).toMatch(/concrete example, case, or observable situation/i);
-    expect(quality.failures.join(' ')).toMatch(/limit, exception, disagreement, or boundary/i);
-    expect(quality.failures.join(' ')).toMatch(/underuses its evidence/i);
+    expect(quality.hints.join(' ')).toMatch(/too few evidence-bearing blocks/i);
+    expect(quality.hints.join(' ')).toMatch(/causal process or organizing mechanism/i);
+    expect(quality.hints.join(' ')).toMatch(/concrete example, case, or observable situation/i);
+    expect(quality.hints.join(' ')).toMatch(/limit, exception, disagreement, or boundary/i);
+    expect(quality.hints.join(' ')).toMatch(/underuses its evidence/i);
     expect(quality.metrics.sourceCount).toBe(2);
     expect(quality.metrics.availableSourceCount).toBe(5);
   });
@@ -483,7 +487,7 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(projectPrompt).toContain('Required section shape, in this order: Purpose | Current State');
   });
 
-  it('rejects a generic five-heading template for an ordinary reference page', () => {
+  it('asks a generic five-heading template to name its sections, without refusing it', () => {
     const body = docFromArticle({
       title: 'Compound Interest',
       article: {
@@ -500,10 +504,11 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
       skipDurableCitationCheck: true
     });
 
-    expect(quality.failures.join(' ')).toMatch(/subject-specific sections/i);
+    expect(quality.hints.join(' ')).toMatch(/subject-specific sections/i);
+    expect(quality.ok).toBe(true);
   });
 
-  it('rejects generic headings even when a narrow ordinary Wiki has one source', () => {
+  it('flags generic headings even when a narrow ordinary Wiki has one source', () => {
     const body = docFromArticle({
       title: 'Sparse attention',
       article: {
@@ -523,10 +528,10 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
       skipDurableCitationCheck: true
     });
 
-    expect(quality.failures.join(' ')).toMatch(/3 generic section headings/i);
+    expect(quality.hints.join(' ')).toMatch(/3 generic section headings/i);
   });
 
-  it('allows subject-specific overview headings while rejecting generic scene-setting', () => {
+  it('allows subject-specific overview headings while flagging generic scene-setting', () => {
     const subjectSpecificBody = docFromArticle({
       title: 'Compound Interest',
       article: {
@@ -546,7 +551,7 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
       sourceRefs: [],
       skipDurableCitationCheck: true
     });
-    expect(subjectSpecificQuality.failures.join(' ')).not.toMatch(/subject-specific sections|generic scene-setting/i);
+    expect(subjectSpecificQuality.hints.join(' ')).not.toMatch(/subject-specific sections|generic scene-setting/i);
 
     const fillerBody = docFromArticle({
       title: 'Compound Interest',
@@ -567,10 +572,10 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
       sourceRefs: [],
       skipDurableCitationCheck: true
     });
-    expect(fillerQuality.failures.join(' ')).toMatch(/generic scene-setting/i);
+    expect(fillerQuality.hints.join(' ')).toMatch(/generic scene-setting/i);
   });
 
-  it('rejects repeated evidence-bearing prose and a generic section role on an ordinary Wiki', () => {
+  it('flags repeated evidence-bearing prose and a generic section role on an ordinary Wiki', () => {
     const repeated = 'Serve and return describes responsive exchanges in which a young child signals and a caregiver answers with attention, words, eye contact, or touch.';
     const body = docFromArticle({
       title: 'Parenting',
@@ -596,8 +601,8 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
       skipDurableCitationCheck: true
     });
 
-    expect(quality.failures.join(' ')).toMatch(/repeats substantive sentences/i);
-    expect(quality.failures.join(' ')).toMatch(/generic section heading/i);
+    expect(quality.hints.join(' ')).toMatch(/repeats substantive sentences/i);
+    expect(quality.hints.join(' ')).toMatch(/generic section heading/i);
     expect(quality.metrics.ordinaryRepeatedSentenceCount).toBe(1);
     expect(quality.metrics.ordinaryGenericHeadingCount).toBe(1);
   });
@@ -623,7 +628,7 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
       skipDurableCitationCheck: true
     });
 
-    expect(quality.failures.join(' ')).not.toMatch(/repeats substantive sentences|generic section heading/i);
+    expect(quality.hints.join(' ')).not.toMatch(/repeats substantive sentences|generic section heading/i);
     expect(quality.metrics.ordinaryRepeatedSentenceCount).toBe(0);
     expect(quality.metrics.ordinaryGenericHeadingCount).toBe(0);
   });
@@ -811,6 +816,34 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
 
     expect(quality.metrics.topicallyGroundedSourceCount).toBe(1);
     expect(quality.failures.join(' ')).toMatch(/formal equivalence/i);
+  });
+
+  it('refuses a figure its cited source does not state, and nothing else about a backed page', () => {
+    const sourceRefs = [{
+      title: 'Costco annual report',
+      snippet: 'Membership fee income was $4,828 million in fiscal 2024, and the renewal rate in the United States and Canada was 92.9%.'
+    }];
+    const evaluate = text => evaluateWikiArticleQuality({
+      page: { title: 'Costco membership', pageType: 'topic' },
+      body: docFromArticle({
+        title: 'Costco membership',
+        article: {
+          summary: { text: 'Costco membership income comes from annual fees that members renew.', citationIndexes: [1], support: 'supported' },
+          sections: [{ heading: 'How it works', paragraphs: [{ text, citationIndexes: [1], support: 'supported' }], bullets: [] }]
+        }
+      }),
+      sourceRefs,
+      skipDurableCitationCheck: true
+    });
+
+    const backed = evaluate('Membership fee income reached $4.8 billion in fiscal 2024, with a 92.9% renewal rate.');
+    expect(backed.ok).toBe(true);
+    expect(backed.hints.join(' ')).toMatch(/generic section heading/i);
+
+    const invented = evaluate('Membership fee income reached $5.2 billion in fiscal 2024, with a 92.9% renewal rate.');
+    expect(invented.ok).toBe(false);
+    expect(invented.failures.join(' ')).toMatch(/states figures its cited sources do not: \$5\.2 billion in "Membership fee income/);
+    expect(invented.metrics.unstatedFigureCount).toBe(1);
   });
 
   it('anchors topical evidence to the subject before a descriptive subtitle', () => {
@@ -1186,6 +1219,28 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(prompt).toContain('price_volume_mix');
   });
 
+  it('keeps a long filing\'s results, share count, concentration and buybacks before its descriptions', () => {
+    const filler = count => 'lorem ipsum '.repeat(count);
+    const filing = `${filler(300)} competition ${filler(2000)} results of operations ${filler(2000)} net income per diluted share ${filler(2000)} direct customers represented 16% ${filler(2000)} share repurchase program ${filler(3000)}`;
+    const labels = __testables.extractSecFilingEvidenceText(filing).match(/\[Filing excerpt: [^\]]+\]/g);
+    expect(labels).toEqual([
+      '[Filing excerpt: filing identity and period]',
+      '[Filing excerpt: results of operations]',
+      '[Filing excerpt: net income and share count]',
+      '[Filing excerpt: customer concentration]',
+      '[Filing excerpt: capital return]',
+      '[Filing excerpt: competition]'
+    ]);
+  });
+
+  it('carries a membership business\'s reported fee rows and renewal rate', () => {
+    const filler = count => 'lorem ipsum '.repeat(count);
+    const filing = `${filler(300)} Membership fee revenue increased 11% ${filler(2000)} Membership fees $ 5,907 $ 5,323 $ 4,828 ${filler(2000)} Our worldwide renewal rate was 89.8% ${filler(20000)}`;
+    const excerpt = __testables.extractSecFilingEvidenceText(filing);
+    expect(excerpt).toContain('Membership fees $ 5,907 $ 5,323');
+    expect(excerpt).toContain('renewal rate was 89.8%');
+  });
+
   it('fills a missing investment-dossier maintenance test from the filing clock', () => {
     const article = fillInvestmentDossierMaintenanceTest({
       page: {
@@ -1196,8 +1251,8 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
       candidates: [{ index: 1, provider: 'sec-edgar' }, { index: 2, provider: 'sec-edgar' }],
       article: {
         sections: [{
-          heading: 'Next Evidence and Maintenance Test',
-          paragraphs: [{ text: 'Next Evidence and Maintenance Test still needs source-backed development.' }],
+          heading: 'What to Check Next',
+          paragraphs: [{ text: 'What to Check Next still needs source-backed development.' }],
           bullets: []
         }]
       }
@@ -1289,7 +1344,7 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(chat).toHaveBeenCalledTimes(1);
     expect(chat.mock.calls[0][0]).toMatchObject({
       route: 'artifact_draft',
-      maxTokens: 8000,
+      maxTokens: 16000,
       reasoningEffort: '',
       reasoning: { effort: 'none' },
       responseFormat: { type: 'json_object' }

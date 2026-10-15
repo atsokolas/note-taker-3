@@ -36,7 +36,7 @@ const run = () => {
     ],
     sourceRefs: [grahamSource]
   });
-  assert.deepEqual(developed, [], `faithful in-section synthesis must pass: ${developed.join(' | ')}`);
+  assert.deepEqual(developed, [], `faithful in-section synthesis must pass: ${developed.map(gap => gap.sentence).join(' | ')}`);
 
   // 2. Borrowing another section's evidence is still a fabricated bridge.
   const borrowed = findOrdinaryGroundingGaps({
@@ -57,7 +57,7 @@ const run = () => {
     sourceRefs: [grahamSource, amazonSource]
   });
   assert.equal(borrowed.length, 1, 'a cross-section borrow must still be caught');
-  assert.match(borrowed[0], /same general shape/);
+  assert.match(borrowed[0].sentence, /same general shape/);
 
   // 3. Anchored nowhere is still fabrication.
   const invented = findOrdinaryGroundingGaps({
@@ -96,7 +96,7 @@ const run = () => {
     ],
     sourceRefs: [grahamSource, amazonSource]
   });
-  assert.deepEqual(lead, [], `the lead is grounded by the article it introduces: ${lead.join(' | ')}`);
+  assert.deepEqual(lead, [], `the lead is grounded by the article it introduces: ${lead.map(gap => gap.sentence).join(' | ')}`);
 
   console.log('wikiGroundingSectionScope tests passed');
 };

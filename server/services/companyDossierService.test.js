@@ -47,6 +47,6 @@ const body = buildCompanyDossierBody({ ...input, companyName: 'NVIDIA CORP' });
 const text = JSON.stringify(body);
 assert.match(text, /Current judgment/);
 assert.match(text, /starting judgment, not a proven conclusion/i);
-assert.match(text, /Free primary sources only/);
+assert.match(text, /SEC filings and other free public sources/);
 
 console.log('companyDossierService tests passed');

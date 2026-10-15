@@ -104,7 +104,7 @@ const compiledDeere = compileInvestmentDossierResearchPlan({
     citedClaim('competition', 'Thesis-Changing Questions', 'AGCO and other competitors can substitute precision equipment and dealer service.'),
     citedClaim('valuation', 'Implied Expectations', 'At a $628.16 share price, a 10% return requires cash flow growth above 8% under this sensitivity.', ['filing', 'market']),
     citedClaim('falsifier', 'What Would Change the Thesis', 'A prolonged downturn with resilient software revenue would prove the precision strategy is less cyclical.'),
-    citedClaim('clock', 'Next Evidence and Maintenance Test', 'The next 10-Q should test pricing, inventory, and cash conversion.'),
+    citedClaim('clock', 'What to Check Next', 'The next 10-Q should test pricing, inventory, and cash conversion.'),
     citedClaim('pvm', 'System and Unit Economics', 'Reported price realization offset a 12% production-volume decline.'),
     citedClaim('aftermarket', 'Product and Technical Moat', 'The installed equipment base supports recurring parts, service, and dealer demand.'),
     citedClaim('working-capital', 'System and Unit Economics', 'Inventory and receivables increased the working-capital cash conversion cycle.')

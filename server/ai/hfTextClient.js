@@ -377,6 +377,30 @@ const getAnthropicConfig = () => {
   };
 };
 
+// A Claude failure is silent to the caller (another model answers), so say it here.
+const noteClaudeFallback = error => console.warn('[AI] Claude did not answer; falling back', {
+  status: Number(error?.status || 0) || undefined,
+  message: String(error?.message || '').slice(0, 200),
+  finishReason: error?.contract?.finishReason || undefined
+});
+
+const CLAUDE_RETRY_MAX_TOKENS = 32000;
+
+// A long answer can miss its contract once: cut off at the token cap, or not
+// quite JSON. One more try, with room to finish when it ran out, beats handing
+// the draft to a weaker model.
+const askClaude = async (input, config) => {
+  try {
+    return await chatCompleteWithConfig(input, config);
+  } catch (error) {
+    if (!error?.contract) throw error;
+    const { finishReason, maxTokens } = error.contract;
+    console.warn('[AI] Claude missed the output contract; asking once more', error.contract);
+    const roomier = finishReason === 'length' ? Math.min(maxTokens * 2, CLAUDE_RETRY_MAX_TOKENS) : maxTokens;
+    return chatCompleteWithConfig({ ...input, maxTokens: roomier }, config);
+  }
+};
+
 const getConfigChain = ({ allowFallback = true } = {}) => {
   const preferred = getConfig();
   const alternateUpstream = preferred.upstream === 'openrouter' ? 'huggingface' : 'openrouter';
@@ -731,13 +755,48 @@ const extractChatContent = (body) => {
   return '';
 };
 
+// Four mechanical slips a long JSON answer makes: a raw line break inside a
+// string, a quotation mark left unescaped inside one (it closes nothing: no
+// comma, colon or bracket follows it), a comma before a closing bracket, and
+// a closing bracket left off the very end. Nothing else is guessed.
+const repairJson = (text = '') => {
+  let out = '';
+  let inString = false;
+  const open = [];
+  for (let i = 0; i < text.length; i += 1) {
+    const char = text[i];
+    if (inString && char === '\\') { out += char + (text[i + 1] || ''); i += 1; continue; }
+    if (inString && char === '"' && !/^\s*(?:[,:}\]]|$)/.test(text.slice(i + 1, i + 40))) { out += '\\"'; continue; }
+    if (char === '"') inString = !inString;
+    if (!inString && (char === '{' || char === '[')) open.push(char === '{' ? '}' : ']');
+    if (!inString && (char === '}' || char === ']')) open.pop();
+    out += inString && char === '\n' ? '\\n' : inString && char === '\r' ? '' : inString && char === '\t' ? '\\t' : char;
+  }
+  return (out + open.reverse().join('')).replace(/,\s*([}\]])/g, '$1');
+};
+
+const parseJsonLoosely = text => parseJsonSafely(text) || parseJsonSafely(repairJson(text));
+
 const parseStructuredText = (value = '') => {
   const text = String(value || '').trim();
   if (!text) return null;
-  const direct = parseJsonSafely(text);
+  const direct = parseJsonLoosely(text);
   if (direct) return direct;
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  return fenced ? parseJsonSafely(fenced[1].trim()) : null;
+  const fencedParsed = fenced && parseJsonLoosely(fenced[1].trim());
+  if (fencedParsed) return fencedParsed;
+  // A sentence before or after the object is still an answer.
+  const start = text.indexOf('{');
+  const end = text.lastIndexOf('}');
+  return start >= 0 && end > start ? parseJsonLoosely(text.slice(start, end + 1)) : null;
+};
+
+// The shape of an answer that missed its contract, never its words.
+const describeShape = (text = '') => {
+  const trimmed = String(text || '').trim();
+  let parseError = '';
+  try { JSON.parse(trimmed.slice(Math.max(0, trimmed.indexOf('{')))); } catch (error) { parseError = String(error.message).slice(0, 120); }
+  return { length: trimmed.length, opens: trimmed.slice(0, 1), closes: trimmed.slice(-1), parseError };
 };
 
 const hasReasoningLeak = (value = '') => (
@@ -997,14 +1056,14 @@ const chatCompleteWithConfig = async ({
         responseFormat: generationContract.responseFormat
       });
       if (!validation.ok) {
-        throw buildError({
+        throw Object.assign(buildError({
           status: 502,
           detail: validation.message,
           message: validation.message,
           provider: resolvedProvider || provider,
           model: candidateModel,
           upstream
-        });
+        }), { contract: { finishReason: body?.choices?.[0]?.finish_reason || '', maxTokens: generationContract.maxTokens, ...describeShape(text) } });
       }
 
       return {
@@ -1046,7 +1105,9 @@ const chatComplete = async (input = {}) => {
   for (const config of configs) {
     const startedAt = Date.now();
     try {
-      const completion = await chatCompleteWithConfig(input, config);
+      const completion = config.upstream === 'anthropic'
+        ? await askClaude(input, config)
+        : await chatCompleteWithConfig(input, config);
       return {
         ...completion,
         upstreamAttempts: [
@@ -1073,6 +1134,7 @@ const chatComplete = async (input = {}) => {
         error.upstreamAttempts = attempts;
         throw error;
       }
+      if (config.upstream === 'anthropic') noteClaudeFallback(error);
     }
   }
 
@@ -1142,11 +1204,12 @@ const chatCompleteStream = async (input = {}) => {
   const claude = getAnthropicConfig();
   if (claude) {
     try {
-      const completion = await chatCompleteWithConfig(input, claude);
+      const completion = await askClaude(input, claude);
       if (typeof input.onDelta === 'function') input.onDelta(completion.text);
       return completion;
     } catch (error) {
       if (error?.status === 499) throw error;
+      noteClaudeFallback(error);
     }
   }
   return chatCompleteRouterStream(input);

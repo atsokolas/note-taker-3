@@ -268,6 +268,8 @@ const markdownLinks = ({ markdown = '', baseUrl = '', officialWebsite = '' } = {
         - depthPenalty
         - (LOW_VALUE_PATH_PATTERN.test(pathText) ? 20 : 0)
         - (/\bsign\s*in\b/i.test(match[1]) ? 20 : 0)
+        // One item for sale (a laptop on costco.com) says nothing about the business.
+        - (/\.product\.\d+\.html$|\/(?:dp|sku|ip)\/|\/p\/\d/i.test(parsed.pathname) ? 20 : 0)
         - (/\.(?:pdf|zip|jpg|jpeg|png|svg|webp|gif)$/i.test(parsed.pathname) ? 20 : 0);
       if (score <= 0) continue;
       links.push({ url: normalized, label: clean(match[1], 160), score });

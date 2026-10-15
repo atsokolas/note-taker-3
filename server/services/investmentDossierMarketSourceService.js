@@ -20,7 +20,8 @@ const parsePrice = value => {
 
 const parseNasdaqDate = (value = '') => {
   const match = clean(value, 80).match(
-    /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2}),\s+(\d{4})$/i
+    // During market hours Nasdaq adds the time: "Oct 13, 2026 1:17 PM ET".
+    /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2}),\s+(\d{4})(?:\s+\d{1,2}:\d{2}\s*[AP]M(?:\s+[A-Z]{2,4})?)?$/i
   );
   if (!match) return null;
   const months = {
