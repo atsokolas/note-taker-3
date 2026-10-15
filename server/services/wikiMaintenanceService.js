@@ -1276,7 +1276,7 @@ Investment dossier rules:
 - Never back a prior-period figure out of a growth rate. If the sources do not state the earlier figure, give the current figure and the rate.
 - Read a multi-year table by column: compare rows within the same year's column, never one row's early year against another's latest.
 - Before calling two totals a discrepancy, reconcile them from the line items (total revenue is net sales plus membership fees and other revenue).
-- Name a debt figure as the filing does (total, or net of current portion) and take it from the latest balance sheet attached. The balance sheet's "Long-term debt" line is the long-term portion; never call it "net". A cover share count is dated by its cover date ("as of"), not the filing date.
+- Name a debt figure as the filing does (total, or net of current portion) and take it from the latest balance sheet attached. The balance sheet's "Long-term debt" line is the long-term portion; never call it "net". A cover share count is dated by its cover date ("as of"), not the filing date. In a table by year, each column is that fiscal year: a cohort's first column is not its first year when the row groups years ("2017 & Before").
 - Open with the judgment and what the filings establish. Say what is missing once, where it matters (Implied Expectations for price and multiples), not in the opening.
 - Write for an investor: never use the words "evidence archetype", "module", "ledger", "maintenance test" or "dossier engine", never write internal labels with underscores, and do not name the app.
 - When a competitor's filing is attached, compare the company against it in Product and Technical Moat, citing it.
@@ -1402,7 +1402,7 @@ const buildPrompt = ({
     && structure.profile !== 'investment_dossier';
   const existingTextForPrompt = omitGeneratedOrdinaryProse
     ? 'Prior generated article prose intentionally omitted. Reconstruct from the source ledger and preserved user notes so earlier repetition or unsupported wording cannot become the template.'
-    : truncate(page.plainText || toPlainText(page.body), 2400);
+    : truncate((page.plainText || toPlainText(page.body)).replace(MARKET_PLACEHOLDER, ''), 2400);
 
   return `Maintain this Wiki page by directly rewriting it into a clean, durable Wiki article.
 
@@ -1551,7 +1551,7 @@ const DOSSIER_EDITOR_BRIEF = `Above are the sources and the brief the writer was
 - two totals called a discrepancy when the line items reconcile them;
 - a paragraph that repeats another;
 - a figure computed without its inputs beside it: write them in ("98% ($297.25bn / $303.15bn)");
-- a figure cited to a source that does not state it: cite the one that does, and cite both filings when a sentence draws on two;
+- a figure cited to a source that does not state it: cite the one that does, and cite every filing a sentence draws on (an earlier quarter's figure cites that quarter's filing);
 - a claim or question with no citation: cite the source it rests on;
 - a section still holding the template's placeholder ("${MARKET_PLACEHOLDER}"): write it from the sources, or say plainly what could not be found.
 Change nothing else: keep every other sentence, citation, heading and field exactly as written, and return the complete draft in the same JSON shape.
