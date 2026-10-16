@@ -290,7 +290,7 @@ private struct ReaderText: UIViewRepresentable {
     func updateUIView(_ view: UITextView, context: Context) {
         let coordinator = context.coordinator
         coordinator.onMark = onMark
-        let built = build()
+        let built = build(context.environment.palette)
         coordinator.bodyStart = built.bodyStart
         if coordinator.rendered != built.signature {
             let offset = view.contentOffset
@@ -314,13 +314,13 @@ private struct ReaderText: UIViewRepresentable {
         }
     }
 
-    private func build() -> (text: NSAttributedString, bodyStart: Int, focusRange: NSRange?, signature: Int) {
+    private func build(_ palette: Palette) -> (text: NSAttributedString, bodyStart: Int, focusRange: NSRange?, signature: Int) {
         let serif = { (style: UIFont.TextStyle, weight: UIFont.Weight) -> UIFont in
             let base = UIFont.preferredFont(forTextStyle: style)
             let descriptor = base.fontDescriptor.withDesign(.serif)?.addingAttributes([.traits: [UIFontDescriptor.TraitKey.weight: weight]]) ?? base.fontDescriptor
             return UIFontMetrics(forTextStyle: style).scaledFont(for: UIFont(descriptor: descriptor, size: base.pointSize))
         }
-        let ink = UIColor(Ink.text), muted = UIColor(Ink.subtle)
+        let ink = palette.text, muted = palette.subtle
         let paragraph = NSMutableParagraphStyle()
         paragraph.lineSpacing = 6
         paragraph.paragraphSpacing = 14
@@ -342,7 +342,7 @@ private struct ReaderText: UIViewRepresentable {
         }
 
         let whole = text.string as NSString
-        let markColor = UIColor(Ink.thread).withAlphaComponent(0.22)
+        let markColor = palette.thread.withAlphaComponent(0.22)
         for mark in marks where mark.count >= 3 {
             let range = whole.range(of: String(mark.prefix(300)), options: [], range: NSRange(location: bodyStart, length: whole.length - bodyStart))
             if range.location != NSNotFound { text.addAttribute(.backgroundColor, value: markColor, range: range) }
@@ -359,7 +359,7 @@ private struct ReaderText: UIViewRepresentable {
         }
 
         var hasher = Hasher()
-        hasher.combine(title); hasher.combine(paragraphs); hasher.combine(marks); hasher.combine(focus)
+        hasher.combine(title); hasher.combine(paragraphs); hasher.combine(marks); hasher.combine(focus); hasher.combine(palette.id)
         return (text, bodyStart, focusRange, hasher.finalize())
     }
 

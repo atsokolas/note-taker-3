@@ -1,9 +1,10 @@
 import SwiftUI
 
 /// The web's four rooms: Library is what you read, Think is what you wrote,
-/// Wiki is what the reading built, Judgment is what it was for.
+/// Wiki is what the reading built, Judgment is what it was for, and
+/// Editions is what the agents you connect bring back.
 enum Room: String, CaseIterable, Identifiable {
-    case wiki, judgment, library, think
+    case wiki, judgment, library, think, editions
 
     var id: String { rawValue }
 
@@ -13,6 +14,7 @@ enum Room: String, CaseIterable, Identifiable {
         case .judgment: return "Judgment"
         case .library: return "Library"
         case .think: return "Think"
+        case .editions: return "Editions"
         }
     }
 
@@ -22,6 +24,7 @@ enum Room: String, CaseIterable, Identifiable {
         case .judgment: return "scale.3d"
         case .library: return "books.vertical"
         case .think: return "square.and.pencil"
+        case .editions: return "newspaper"
         }
     }
 }
@@ -33,6 +36,7 @@ enum Route: Hashable {
     case view(String)
     case article(String, passage: String? = nil)
     case note(String)
+    case edition(String, item: String? = nil)
 }
 
 struct Rooms: View {
@@ -105,6 +109,7 @@ private extension Room {
         case .judgment: return "Pick a view"
         case .library: return "Pick something to read"
         case .think: return "Pick a note"
+        case .editions: return "Pick an issue"
         }
     }
 }
@@ -119,6 +124,7 @@ struct RoomList: View {
         case .judgment: ViewsList(selection: $selection)
         case .library: LibraryList(selection: $selection)
         case .think: NotesList(selection: $selection)
+        case .editions: EditionsFront(selection: $selection)
         }
     }
 }
@@ -132,6 +138,7 @@ struct RouteView: View {
         case .view(let id): ViewDetail(id: id)
         case .article(let id, let passage): ArticleReader(id: id, passage: passage)
         case .note(let id): NoteView(id: id)
+        case .edition(let id, let item): IssueView(id: id, focus: item)
         }
     }
 }

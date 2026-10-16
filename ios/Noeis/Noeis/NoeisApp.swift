@@ -3,6 +3,7 @@ import SwiftUI
 @main
 struct NoeisApp: App {
     @StateObject private var session = Session()
+    @StateObject private var theme = Theme()
 
     var body: some Scene {
         WindowGroup {
@@ -14,7 +15,11 @@ struct NoeisApp: App {
                 }
             }
             .environmentObject(session)
-            .tint(Ink.thread)
+            .environmentObject(theme)
+            .environment(\.noeisTheme, theme.id)
+            .preferredColorScheme(theme.scheme)
+            .tint(Ink.accent)
+            .task(id: session.signedIn) { if session.signedIn { await theme.sync() } }
             .onReceive(NotificationCenter.default.publisher(for: .noeisSignedOut)) { _ in
                 session.signedIn = false
             }
@@ -42,5 +47,26 @@ final class Session: ObservableObject {
     func deleteAccount(password: String) async throws {
         try await NoeisAPI.shared.deleteAccount(password: password)
         signOut()
+    }
+}
+
+/// The account's theme. Kept on the device so the app opens in it, and on
+/// the account so the web and every device wear the same one.
+@MainActor
+final class Theme: ObservableObject {
+    @Published var id = UserDefaults.standard.string(forKey: "theme") ?? "auto" {
+        didSet { UserDefaults.standard.set(id, forKey: "theme") }
+    }
+
+    /// A named palette sets light or dark for the system's own controls too.
+    var scheme: ColorScheme? { Palette.named(id).map { $0.dark ? .dark : .light } }
+
+    func sync() async {
+        if let saved = try? await NoeisAPI.shared.theme(), !saved.isEmpty, saved != id { id = saved }
+    }
+
+    func keep(_ chosen: String) async throws {
+        id = chosen
+        try await NoeisAPI.shared.setTheme(chosen)
     }
 }

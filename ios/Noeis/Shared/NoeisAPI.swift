@@ -52,6 +52,17 @@ struct NoeisAPI {
         _ = try await send("DELETE", "/api/account", body: ["password": .string(password)])
     }
 
+    /// The theme the account wears, shared with the web.
+    func theme() async throws -> String {
+        try await send("GET", "/api/ui-settings")["theme"].text
+    }
+
+    /// Settings are saved whole, so the others go back as they were.
+    func setTheme(_ theme: String) async throws {
+        let settings = try await send("GET", "/api/ui-settings")
+        _ = try await send("PUT", "/api/ui-settings", body: settings.setting("theme", to: .string(theme)))
+    }
+
     // MARK: Wiki
 
     func wikiPages() async throws -> [JSON] {
@@ -181,6 +192,34 @@ struct NoeisAPI {
         if let title, !title.isEmpty { body["title"] = .string(title) }
         let reply = try await send("POST", "/api/import/url", body: .object(body))
         return reply.at("article._id").text
+    }
+
+    // MARK: Editions
+
+    /// The stand: every issue of every paper, newest first, without findings.
+    func editions() async throws -> [JSON] {
+        try await send("GET", "/api/editions", query: ["limit": "120"])["editions"]?.array ?? []
+    }
+
+    func edition(_ id: String) async throws -> JSON {
+        try await send("GET", "/api/editions/\(id)")
+    }
+
+    /// Keep (save to Library), Later (save and move to Later), or a reader
+    /// state: "opened", "dismissed", or "new" to undo. Returns the issue as it now stands.
+    func act(edition id: String, item itemId: String, _ action: String) async throws -> JSON {
+        let path = "/api/editions/\(id)/items/\(itemId)"
+        switch action {
+        case "keep": return try await send("POST", "\(path)/save")["edition"] ?? .null
+        case "later": return try await send("POST", "\(path)/later")["edition"] ?? .null
+        default: return try await send("POST", "\(path)/state", body: ["status": .string(action)])["edition"] ?? .null
+        }
+    }
+
+    /// The one highlight of yours a finding touches, or nil when none clears the bar.
+    func held(edition id: String, item itemId: String) async throws -> JSON? {
+        let held = try await send("GET", "/api/editions/\(id)/items/\(itemId)/held")["held"]
+        return held == nil || held == .null ? nil : held
     }
 
     // MARK: Think
