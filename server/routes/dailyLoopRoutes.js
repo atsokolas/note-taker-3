@@ -1,13 +1,6 @@
 const express = require('express');
 const mongoose = require('mongoose');
-const {
-  recordClaimCheckIn,
-  recordClaimFalsifiability,
-  recordClaimVerdict,
-  listWatching,
-  buildDailyLoopBriefing
-} = require('../services/dailyLoopService');
-const { disposeConsequence } = require('../services/consequenceRoute');
+const { recordClaimCheckIn, listWatching } = require('../services/dailyLoopService');
 const {
   armReadingWatchForPage,
   checkReadingWatchForPage
@@ -103,36 +96,11 @@ const buildDailyLoopRouter = ({
   const router = express.Router();
   const auth = authenticateToken;
   const requireHumanForProtectedPageMutation = buildRequireHumanForProtectedPageMutation({ WikiPage });
-  const dailyLoopFlights = new Map();
   const models = {
     User, WikiPage, WikiRevision, WikiSourceEvent, WikiMaintenanceRun, WikiBriefingCache,
     WikiPageVisit, Article, NotebookEntry, TagMeta, Question, ImportSession, NoeisReceipt, Connection,
     Folder, ReturnQueueEntry
   };
-
-  router.get('/api/daily-loop', auth, async (req, res) => {
-    try {
-      const flightKey = String(req.user.id);
-      let flight = dailyLoopFlights.get(flightKey);
-      if (!flight) {
-        flight = buildDailyLoopBriefing({
-          userId: req.user.id,
-          models,
-          now: new Date(),
-          advanceCursor: true,
-          maxAgeMs: Number(env.WIKI_BRIEFING_CACHE_MAX_AGE_MS || 6 * 60 * 60 * 1000)
-        });
-        dailyLoopFlights.set(flightKey, flight);
-      }
-      const { briefing, user } = await flight;
-      return res.status(200).json({ briefing, settings: serializeSettings(user, env) });
-    } catch (error) {
-      console.error('Error building Daily Loop:', error);
-      return res.status(500).json({ error: 'Failed to build Daily Loop.' });
-    } finally {
-      dailyLoopFlights.delete(String(req.user.id));
-    }
-  });
 
   router.post('/api/daily-loop/page-visits/:pageId', auth, async (req, res) => {
     try {
@@ -172,63 +140,6 @@ const buildDailyLoopRouter = ({
       });
     } catch (error) {
       return res.status(error.statusCode || 500).json({ error: error.message || 'Failed to record claim check-in.' });
-    }
-  });
-
-  router.post('/api/daily-loop/claims/:pageId/criteria', auth, requireHumanForProtectedPageMutation, async (req, res) => {
-    try {
-      const result = await recordClaimFalsifiability({
-        models,
-        userId: req.user.id,
-        pageId: req.params.pageId,
-        claimId: String(req.body?.claimId || req.params.claimId || ''),
-        resolutionCriteria: req.body?.resolutionCriteria,
-        horizon: req.body?.horizon
-      });
-      await WikiBriefingCache.deleteOne({ userId: req.user.id });
-      return res.status(200).json({ claim: result.claim, revisionId: result.revisionId });
-    } catch (error) {
-      return res.status(error.statusCode || 500).json({ error: error.message || 'Failed to record criteria.' });
-    }
-  });
-
-  router.post('/api/daily-loop/claims/:pageId/:claimId/criteria', auth, requireHumanForProtectedPageMutation, async (req, res) => {
-    try {
-      const result = await recordClaimFalsifiability({
-        models,
-        userId: req.user.id,
-        pageId: req.params.pageId,
-        claimId: req.params.claimId,
-        resolutionCriteria: req.body?.resolutionCriteria,
-        horizon: req.body?.horizon
-      });
-      await WikiBriefingCache.deleteOne({ userId: req.user.id });
-      return res.status(200).json({ claim: result.claim, revisionId: result.revisionId });
-    } catch (error) {
-      return res.status(error.statusCode || 500).json({ error: error.message || 'Failed to record criteria.' });
-    }
-  });
-
-  router.post('/api/daily-loop/verdicts/:pageId/:claimId', auth, requireHumanForProtectedPageMutation, async (req, res) => {
-    try {
-      const result = await recordClaimVerdict({
-        models,
-        userId: req.user.id,
-        pageId: req.params.pageId,
-        claimId: req.params.claimId,
-        verdict: String(req.body?.verdict || ''),
-        trigger: String(req.body?.trigger || ''),
-        sourceEventId: req.body?.sourceEventId || '',
-        note: req.body?.note || ''
-      });
-      await WikiBriefingCache.deleteOne({ userId: req.user.id });
-      return res.status(200).json({
-        claim: result.claim,
-        verdict: result.verdict,
-        revisionId: result.revisionId
-      });
-    } catch (error) {
-      return res.status(error.statusCode || 500).json({ error: error.message || 'Failed to record verdict.' });
     }
   });
 
@@ -325,32 +236,6 @@ const buildDailyLoopRouter = ({
       return res.status(200).json({ page: plain(result.page), events: result.events.map(plain) });
     } catch (error) {
       return res.status(error.statusCode || 500).json({ error: error.message || 'Failed to check reading watch.' });
-    }
-  });
-
-  router.post('/api/daily-loop/consequences/:eventId', auth, async (req, res) => {
-    if (req.agentToken || req.authInfo?.tokenSource === 'agent-token' || req.personalAgent) {
-      return res.status(403).json({ error: 'Only the human owner can settle a consequence.' });
-    }
-    try {
-      const result = await disposeConsequence({
-        models,
-        userId: req.user.id,
-        preview: {
-          ...(req.body?.preview || {}),
-          eventId: req.params.eventId || req.body?.preview?.eventId
-        },
-        action: String(req.body?.action || ''),
-        narrowedText: req.body?.narrowedText || ''
-      });
-      await WikiBriefingCache.deleteOne({ userId: req.user.id });
-      return res.status(200).json({
-        receipt: result.receipt,
-        preview: result.preview,
-        replay: Boolean(result.replay)
-      });
-    } catch (error) {
-      return res.status(error.statusCode || 500).json({ error: error.message || 'Failed to settle the consequence.' });
     }
   });
 

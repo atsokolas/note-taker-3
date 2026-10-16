@@ -32,7 +32,7 @@ export const CONTEXTUAL_AGENT_CONTRACTS = Object.freeze([
     id: 'agent-surface.library',
     room: 'library',
     capabilities: ['capability.library.retrieve', 'capability.knowledge.connect'],
-    actions: ['retrieve', 'accept.keep'],
+    actions: ['retrieve'],
     match: under('/library')
   }),
   contract({

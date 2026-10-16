@@ -11,11 +11,7 @@ const multer = require('multer');
 const Papa = require('papaparse');
 const path = require('path');
 const crypto = require('crypto');
-const {
-  ensureWorkspace,
-  applyPatchOp,
-  validateWorkspacePayload
-} = require('./utils/workspaceUtils');
+const { ensureWorkspace } = require('./utils/workspaceUtils');
 const {
   enqueueArticleEmbedding,
   deleteArticleEmbeddingState,
@@ -104,7 +100,6 @@ const {
   NotebookFolder,
   EntryRevision,
   TagMeta,
-  ConceptDecisionLessonEvidence,
   ConceptNote,
   Question,
   Board,
@@ -586,7 +581,6 @@ const { buildEntryHistoryRouter } = require('./routes/entryHistoryRoutes');
 const { buildNotebookVolumeRouter } = require('./routes/notebookVolumeRoutes');
 const { buildAuthoredExplorationRouter } = require('./routes/authoredExplorationRoutes');
 const { buildWikiRouter } = require('./routes/wikiRoutes');
-const { buildWorkingMemoryRouter } = require('./routes/workingMemoryRoutes');
 const { buildUiTourRouter } = require('./routes/uiTourRoutes');
 const { buildReturnQueueRouter } = require('./routes/returnQueueRoutes');
 const { buildConnectionsRouter } = require('./routes/connectionsRoutes');
@@ -600,9 +594,6 @@ const { buildSearchRetrievalRouter } = require('./routes/searchRetrievalRoutes')
 const { buildSemanticSearchRouter } = require('./routes/semanticSearchRoutes');
 const { buildTagTemplateRouter } = require('./routes/tagTemplateRoutes');
 const { buildConceptMetaRouter } = require('./routes/conceptMetaRoutes');
-const { buildConceptInvestigationRouter } = require('./routes/conceptInvestigationRoutes');
-const { buildConceptContinuityRouter } = require('./routes/conceptContinuityRoutes');
-const { buildConceptDecisionLessonAdoptionRouter } = require('./routes/conceptDecisionLessonAdoptionRoutes');
 const { buildWikiClaimDispositionRouter } = require('./routes/wikiClaimDispositionRoutes');
 const { buildSharedConceptRouter } = require('./routes/sharedConceptRoutes');
 const { buildSharedQuestionRouter } = require('./routes/sharedQuestionRoutes');
@@ -669,9 +660,6 @@ const {
   executeMemoryCommitApproval,
   MEMORY_APPROVAL_OP
 } = require('./services/agentMemoryApprovals');
-const { buildConceptAgentRouter } = require('./routes/conceptAgentRoutes');
-const { buildConceptWorkspaceRouter } = require('./routes/conceptWorkspaceRoutes');
-const { buildConceptLayoutRouter } = require('./routes/conceptLayoutRoutes');
 const { buildConceptSuggestionRouter } = require('./routes/conceptSuggestionRoutes');
 const { buildConceptPinRouter } = require('./routes/conceptPinRoutes');
 const { buildTagInsightRouter } = require('./routes/tagInsightRoutes');
@@ -711,12 +699,6 @@ const { getConcepts, getConceptMeta, updateConceptMeta, getConceptRelated } = bu
   mongoose,
   workspaceAuthorization: conceptWorkspaceAuthorization
 });
-const {
-  buildConceptWorkspace,
-  createConceptSuggestionDraft,
-  getConceptSuggestionDrafts,
-  mutateConceptSuggestionDraft
-} = require('./services/conceptAgentService');
 const { generateCollaborativeReply } = require('./services/collaborativeAgentService');
 const { listAgentSkills } = require('./services/agentSkillCatalog');
 const {
@@ -802,7 +784,6 @@ const {
   restoreSoftDeletedWorkspaceItem,
   undoLastWorkspaceAction
 } = require('./services/agentActionService');
-const { logAgentMetric, getAgentMetricsSnapshot } = require('./utils/agentMetrics');
 
 
 const createBlockId = () => (
@@ -3338,115 +3319,6 @@ const ensureBoardOwnership = async (userId, boardId) => {
   return Board.findOne({ _id: boardId, userId });
 };
 
-const WORKING_MEMORY_STATUSES = new Set(['active', 'archived']);
-const WORKING_MEMORY_PROMOTE_TARGETS = new Set(['notebook', 'concept', 'question']);
-
-const normalizeWorkingMemoryStatus = (value, fallback = 'active') => {
-  const candidate = String(value || '').trim().toLowerCase();
-  if (WORKING_MEMORY_STATUSES.has(candidate)) return candidate;
-  return fallback;
-};
-
-const normalizeWorkingMemoryTarget = (value) => {
-  const candidate = String(value || '').trim().toLowerCase();
-  if (WORKING_MEMORY_PROMOTE_TARGETS.has(candidate)) return candidate;
-  return '';
-};
-
-const normalizeWorkingMemoryIds = (value) => {
-  const values = Array.isArray(value) ? value : [value];
-  const seen = new Set();
-  const ids = [];
-  values.forEach(raw => {
-    const id = String(raw || '').trim();
-    if (!id || seen.has(id) || !mongoose.Types.ObjectId.isValid(id)) return;
-    seen.add(id);
-    ids.push(new mongoose.Types.ObjectId(id));
-  });
-  return ids;
-};
-
-const activeWorkingMemoryStatusFilter = () => ({
-  $or: [
-    { status: 'active' },
-    { status: { $exists: false } }
-  ]
-});
-
-const parseWorkingMemoryTags = (value) => {
-  if (Array.isArray(value)) return normalizeTags(value).slice(0, 20);
-  const text = String(value || '').trim();
-  if (!text) return [];
-  return normalizeTags(text.split(',')).slice(0, 20);
-};
-
-const splitWorkingMemoryText = (value, mode = 'sentence') => {
-  const text = String(value || '').replace(/\r/g, '\n').trim();
-  if (!text) return [];
-  const safeMode = String(mode || 'sentence').trim().toLowerCase();
-  const chunks = safeMode === 'newline'
-    ? text.split(/\n+/)
-    : text.split(/(?<=[.!?])\s+|\n+/);
-  return chunks
-    .map(chunk => String(chunk || '').replace(/\s+/g, ' ').trim())
-    .filter(Boolean)
-    .slice(0, 40);
-};
-
-const buildWorkingMemoryNotebookTitle = (text = '') => {
-  const clean = stripHtml(text || '').replace(/\s+/g, ' ').trim();
-  if (!clean) return 'Working memory extract';
-  const words = clean.split(' ').slice(0, 8).join(' ');
-  return words.length > 80 ? `${words.slice(0, 80).trim()}...` : words;
-};
-
-const archiveWorkingMemoryItems = async ({
-  userId,
-  itemIds = [],
-  reason = 'archived'
-}) => {
-  if (!Array.isArray(itemIds) || itemIds.length === 0) {
-    return { matchedCount: 0, modifiedCount: 0 };
-  }
-  return WorkingMemoryItem.updateMany(
-    {
-      _id: { $in: itemIds },
-      userId,
-      ...activeWorkingMemoryStatusFilter()
-    },
-    {
-      $set: {
-        status: 'archived',
-        processedAt: new Date(),
-        processedReason: String(reason || 'archived').trim().slice(0, 120)
-      }
-    }
-  );
-};
-
-const unarchiveWorkingMemoryItems = async ({
-  userId,
-  itemIds = []
-}) => {
-  if (!Array.isArray(itemIds) || itemIds.length === 0) {
-    return { matchedCount: 0, modifiedCount: 0 };
-  }
-  return WorkingMemoryItem.updateMany(
-    {
-      _id: { $in: itemIds },
-      userId,
-      status: 'archived'
-    },
-    {
-      $set: {
-        status: 'active',
-        processedAt: null,
-        processedReason: ''
-      }
-    }
-  );
-};
-
 const RETURN_QUEUE_ITEM_TYPES = new Set(['highlight', 'notebook', 'question', 'concept', 'article']);
 
 const normalizeReturnQueueItemType = (value) => {
@@ -3781,136 +3653,6 @@ const buildQueueSnippet = (...values) => {
 
 const escapeRegExp = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-const CONCEPT_LAYOUT_CARD_TYPES = new Set(['highlight', 'article', 'note', 'question']);
-const CONCEPT_LAYOUT_CARD_ROLES = new Set(['idea', 'claim', 'evidence']);
-const CONCEPT_LAYOUT_CONNECTION_TYPES = new Set(['supports', 'contradicts', 'related']);
-
-const makeConceptLayoutId = (prefix = 'id') => (
-  `${prefix}-${crypto.randomUUID ? crypto.randomUUID() : `${Math.random().toString(36).slice(2, 9)}-${Date.now()}`}`
-);
-
-const createDefaultConceptLayout = () => ({
-  sections: [
-    { id: makeConceptLayoutId('section'), title: 'Claims', description: '', cardIds: [] },
-    { id: makeConceptLayoutId('section'), title: 'Evidence', description: '', cardIds: [] },
-    { id: makeConceptLayoutId('section'), title: 'Examples', description: '', cardIds: [] },
-    { id: makeConceptLayoutId('section'), title: 'Questions', description: '', cardIds: [] },
-    { id: makeConceptLayoutId('section'), title: 'To verify', description: '', cardIds: [] }
-  ],
-  cards: [],
-  connections: []
-});
-
-const normalizeConceptLayoutCardType = (value) => {
-  const candidate = String(value || '').trim().toLowerCase();
-  if (!CONCEPT_LAYOUT_CARD_TYPES.has(candidate)) return '';
-  return candidate;
-};
-
-const normalizeConceptLayoutCardRole = (value, fallback = 'idea') => {
-  const candidate = String(value || '').trim().toLowerCase();
-  if (CONCEPT_LAYOUT_CARD_ROLES.has(candidate)) return candidate;
-  return fallback;
-};
-
-const normalizeConceptLayoutConnectionType = (value, fallback = 'related') => {
-  const candidate = String(value || '').trim().toLowerCase();
-  if (CONCEPT_LAYOUT_CONNECTION_TYPES.has(candidate)) return candidate;
-  return fallback;
-};
-
-const normalizeConceptLayout = (input = {}, options = {}) => {
-  const base = options.baseLayout && typeof options.baseLayout === 'object'
-    ? options.baseLayout
-    : createDefaultConceptLayout();
-  const source = input && typeof input === 'object' ? input : {};
-
-  const cards = [];
-  const cardIds = new Set();
-  const incomingCards = Array.isArray(source.cards) ? source.cards : [];
-  incomingCards.forEach((rawCard) => {
-    if (!rawCard || typeof rawCard !== 'object') return;
-    const itemType = normalizeConceptLayoutCardType(rawCard.itemType);
-    const itemId = String(rawCard.itemId || '').trim();
-    if (!itemType || !itemId) return;
-    let id = String(rawCard.id || '').trim() || makeConceptLayoutId('card');
-    if (cardIds.has(id)) id = makeConceptLayoutId('card');
-    cardIds.add(id);
-    cards.push({
-      id,
-      itemType,
-      itemId,
-      role: normalizeConceptLayoutCardRole(rawCard.role),
-      title: String(rawCard.title || '').trim().slice(0, 220),
-      snippet: String(rawCard.snippet || '').trim().slice(0, 4000),
-      createdAt: rawCard.createdAt ? new Date(rawCard.createdAt) : new Date()
-    });
-  });
-
-  const sections = [];
-  const sectionIds = new Set();
-  const incomingSections = Array.isArray(source.sections) && source.sections.length > 0
-    ? source.sections
-    : (Array.isArray(base.sections) ? base.sections : []);
-  incomingSections.forEach((rawSection, index) => {
-    if (!rawSection || typeof rawSection !== 'object') return;
-    let id = String(rawSection.id || '').trim() || makeConceptLayoutId('section');
-    if (sectionIds.has(id)) id = makeConceptLayoutId('section');
-    sectionIds.add(id);
-    const fallbackTitle = index === 0 ? 'Section' : `Section ${index + 1}`;
-    const title = String(rawSection.title || '').trim() || fallbackTitle;
-    const description = String(rawSection.description || '').trim().slice(0, 400);
-    const list = Array.isArray(rawSection.cardIds) ? rawSection.cardIds : [];
-    const seenCardInSection = new Set();
-    const cardIdsForSection = [];
-    list.forEach((rawCardId) => {
-      const cardId = String(rawCardId || '').trim();
-      if (!cardId || seenCardInSection.has(cardId) || !cardIds.has(cardId)) return;
-      seenCardInSection.add(cardId);
-      cardIdsForSection.push(cardId);
-    });
-    sections.push({ id, title: title.slice(0, 120), description, cardIds: cardIdsForSection });
-  });
-
-  if (sections.length === 0) {
-    const fallback = createDefaultConceptLayout();
-    fallback.sections.forEach(section => sections.push(section));
-  }
-
-  const assigned = new Set();
-  sections.forEach(section => section.cardIds.forEach(cardId => assigned.add(cardId)));
-  const unassigned = cards.filter(card => !assigned.has(card.id)).map(card => card.id);
-  if (unassigned.length > 0) {
-    sections[0].cardIds = [...sections[0].cardIds, ...unassigned];
-  }
-
-  const connections = [];
-  const seenConnections = new Set();
-  const incomingConnections = Array.isArray(source.connections) ? source.connections : [];
-  incomingConnections.forEach((rawConnection) => {
-    if (!rawConnection || typeof rawConnection !== 'object') return;
-    const fromCardId = String(rawConnection.fromCardId || '').trim();
-    const toCardId = String(rawConnection.toCardId || '').trim();
-    if (!fromCardId || !toCardId || fromCardId === toCardId) return;
-    if (!cardIds.has(fromCardId) || !cardIds.has(toCardId)) return;
-    const type = normalizeConceptLayoutConnectionType(rawConnection.type, '');
-    if (!type) return;
-    const key = `${fromCardId}:${toCardId}:${type}`;
-    if (seenConnections.has(key)) return;
-    seenConnections.add(key);
-    const id = String(rawConnection.id || '').trim() || makeConceptLayoutId('connection');
-    connections.push({
-      id,
-      fromCardId,
-      toCardId,
-      type,
-      label: String(rawConnection.label || '').trim().slice(0, 120)
-    });
-  });
-
-  return { sections, cards, connections };
-};
-
 const resolveConceptByParam = async (userId, rawParam, { createIfMissing = false } = {}) => {
   const safeParam = String(rawParam || '').trim();
   if (!safeParam) return null;
@@ -3931,85 +3673,6 @@ const resolveConceptByParam = async (userId, rawParam, { createIfMissing = false
     { new: true, upsert: true, setDefaultsOnInsert: true }
   );
   return created;
-};
-
-const stripInlineHtml = (value = '') => (
-  String(value || '')
-    .replace(/<[^>]*>/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-);
-
-const createConceptLayoutCard = async ({ userId, itemType, itemId, title, snippet, role }) => {
-  const safeType = normalizeConceptLayoutCardType(itemType);
-  const safeItemId = String(itemId || '').trim();
-  const safeRole = normalizeConceptLayoutCardRole(role);
-  if (!safeType || !safeItemId) return null;
-
-  if (safeType === 'highlight') {
-    const highlight = await findHighlightById(userId, safeItemId);
-    if (!highlight) return null;
-    return {
-      id: makeConceptLayoutId('card'),
-      itemType: safeType,
-      itemId: String(highlight._id),
-      role: safeRole,
-      title: String(title || '').trim().slice(0, 220) || highlight.articleTitle || 'Highlight',
-      snippet: String(snippet || '').trim().slice(0, 4000) || String(highlight.text || '').trim(),
-      createdAt: new Date()
-    };
-  }
-
-  if (!mongoose.Types.ObjectId.isValid(safeItemId)) return null;
-  if (safeType === 'article') {
-    const article = await Article.findOne({ _id: safeItemId, userId }).select('title content url').lean();
-    if (!article) return null;
-    const fallbackSnippet = stripInlineHtml(article.content || article.url || '').slice(0, 320);
-    return {
-      id: makeConceptLayoutId('card'),
-      itemType: safeType,
-      itemId: String(article._id),
-      role: safeRole,
-      title: String(title || '').trim().slice(0, 220) || article.title || 'Article',
-      snippet: String(snippet || '').trim().slice(0, 4000) || fallbackSnippet,
-      createdAt: new Date()
-    };
-  }
-
-  if (safeType === 'note') {
-    const note = await NotebookEntry.findOne({ _id: safeItemId, userId }).select('title content blocks').lean();
-    if (!note) return null;
-    const blockSnippet = Array.isArray(note.blocks)
-      ? note.blocks.map(block => String(block?.text || '').trim()).filter(Boolean).join(' ')
-      : '';
-    return {
-      id: makeConceptLayoutId('card'),
-      itemType: safeType,
-      itemId: String(note._id),
-      role: safeRole,
-      title: String(title || '').trim().slice(0, 220) || note.title || 'Notebook note',
-      snippet: String(snippet || '').trim().slice(0, 4000) || stripInlineHtml(note.content || blockSnippet).slice(0, 320),
-      createdAt: new Date()
-    };
-  }
-
-  if (safeType === 'question') {
-    const question = await Question.findOne({ _id: safeItemId, userId })
-      .select('text linkedTagName')
-      .lean();
-    if (!question) return null;
-    return {
-      id: makeConceptLayoutId('card'),
-      itemType: safeType,
-      itemId: String(question._id),
-      role: safeRole,
-      title: String(title || '').trim().slice(0, 220) || question.text || 'Question',
-      snippet: String(snippet || '').trim().slice(0, 4000) || String(question.linkedTagName || '').trim(),
-      createdAt: new Date()
-    };
-  }
-
-  return null;
 };
 
 const resolveReturnQueueItem = async (userId, itemType, itemId) => {
@@ -5398,29 +5061,6 @@ app.use(buildWikiRouter({
   EVENT_NAMES
 }));
 
-app.use(buildWorkingMemoryRouter({
-  mongoose,
-  authenticateToken,
-  WorkingMemoryItem,
-  NotebookEntry,
-  TagMeta,
-  ConceptNote,
-  Question,
-  normalizeWorkingMemoryStatus,
-  activeWorkingMemoryStatusFilter,
-  parseWorkingMemoryTags,
-  normalizeWorkingMemoryIds,
-  archiveWorkingMemoryItems,
-  unarchiveWorkingMemoryItems,
-  splitWorkingMemoryText,
-  normalizeWorkingMemoryTarget,
-  buildWorkingMemoryNotebookTitle,
-  createBlockId,
-  escapeRegExp,
-  syncNotebookReferences,
-  enqueueNotebookEmbedding,
-  enqueueQuestionEmbedding
-}));
 
 app.use(buildUiTourRouter({
   mongoose,
@@ -5763,36 +5403,8 @@ app.use(buildConceptMetaRouter({
   EVENT_NAMES
 }));
 
-app.use(buildConceptInvestigationRouter({
-  authenticateToken,
-  ConceptDecisionLessonEvidence,
-  TagMeta,
-  WikiPage,
-  WikiRevision,
-  NoeisReceipt,
-  Article,
-  NotebookEntry,
-  Question
-}));
 
-app.use(buildConceptContinuityRouter({
-  authenticateToken,
-  TagMeta,
-  WikiPage,
-  WikiRevision
-}));
 
-app.use(buildConceptDecisionLessonAdoptionRouter({
-  authenticateToken,
-  ConceptDecisionLessonEvidence,
-  TagMeta,
-  WikiPage,
-  WikiRevision,
-  NoeisReceipt,
-  Article,
-  NotebookEntry,
-  Question
-}));
 
 app.use(buildWikiClaimDispositionRouter({
   authenticateToken: authenticateUserOrAgentToken,
@@ -6173,45 +5785,8 @@ app.use(buildAgentChatRouter({
   EVENT_NAMES
 }));
 
-app.use(buildConceptAgentRouter({
-  authenticateToken,
-  resolveConceptByParam,
-  buildConceptWorkspace,
-  createConceptSuggestionDraft,
-  getConceptSuggestionDrafts,
-  mutateConceptSuggestionDraft,
-  getUserAgentEntitlements,
-  logAgentMetric,
-  getAgentMetricsSnapshot
-}));
 
-app.use(buildConceptWorkspaceRouter({
-  mongoose,
-  authenticateToken,
-  resolveConceptByParam,
-  ensureWorkspace,
-  toSafeObjectId,
-  findHighlightById,
-  Article,
-  NotebookEntry,
-  Question,
-  TagMeta,
-  WikiPage,
-  validateWorkspacePayload,
-  applyPatchOp,
-  executeWorkspaceActionsWithPolicy,
-  normalizeAgentActionFlow,
-  normalizeAgentActorType,
-  markTourSignal
-}));
 
-app.use(buildConceptLayoutRouter({
-  authenticateToken,
-  resolveConceptByParam,
-  normalizeConceptLayout,
-  createConceptLayoutCard,
-  normalizeConceptLayoutCardRole
-}));
 
 app.use(buildConceptSuggestionRouter({
   mongoose,

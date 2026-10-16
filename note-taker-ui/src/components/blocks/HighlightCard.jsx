@@ -50,7 +50,6 @@ const HighlightCard = ({
   organizable = false,
   onOrganized,
   onDelete,
-  onDumpToWorkingMemory,
   connectionScopeType = '',
   connectionScopeId = '',
   forceExpandedState,
@@ -270,11 +269,6 @@ const HighlightCard = ({
               scopeType={connectionScopeType}
               scopeId={connectionScopeId}
             />
-            {onDumpToWorkingMemory && (
-              <Button variant="quiet" onClick={() => onDumpToWorkingMemory(highlight)}>
-                Dump to Working Memory
-              </Button>
-            )}
             {onDelete && highlightId && (
               <Button variant="quiet" onClick={() => onDelete(highlight)}>
                 Delete

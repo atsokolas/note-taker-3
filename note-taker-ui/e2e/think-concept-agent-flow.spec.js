@@ -242,7 +242,6 @@ const setupThinkConceptAgentFlowMocks = async (page) => {
     if (path === '/api/highlights' && method === 'GET') return json(route, []);
     if (path === '/api/highlights/all' && method === 'GET') return json(route, []);
     if (path === '/get-articles' && method === 'GET') return json(route, []);
-    if (path === '/api/working-memory' && method === 'GET') return json(route, []);
     if (path === '/api/ui-settings' && method === 'GET') return json(route, {});
     if (path === '/api/ui-settings' && method === 'PUT') return json(route, request.postDataJSON() || {});
     if (path === '/api/connections/scope' && method === 'GET') return json(route, { connections: [] });

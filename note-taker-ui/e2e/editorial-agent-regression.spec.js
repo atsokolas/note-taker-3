@@ -258,7 +258,6 @@ async function setupConceptQuickActionMocks(page) {
     if (path === '/api/notebook' && method === 'GET') return json(route, []);
     if (path === '/api/folders' && method === 'GET') return json(route, []);
     if (path === '/api/return-queue' && method === 'GET') return json(route, []);
-    if (path === '/api/working-memory' && method === 'GET') return json(route, []);
     if (path === '/api/tour/state' && method === 'GET') return json(route, pausedTourState);
     if (path === '/api/ui-settings' && method === 'GET') return json(route, {});
     if (path === '/api/tags' && method === 'GET') return json(route, []);
@@ -334,7 +333,6 @@ async function setupQuestionPartnerMocks(page) {
     if (path === '/api/notebook' && method === 'GET') return json(route, []);
     if (path === '/api/folders' && method === 'GET') return json(route, []);
     if (path === '/api/return-queue' && method === 'GET') return json(route, []);
-    if (path === '/api/working-memory' && method === 'GET') return json(route, []);
     if (path === '/api/concepts' && method === 'GET') return json(route, []);
     if (path === '/api/tour/state' && method === 'GET') return json(route, pausedTourState);
     if (path === '/api/ui-settings' && method === 'GET') return json(route, {});

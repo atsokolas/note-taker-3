@@ -49,8 +49,7 @@ const LibraryHighlights = ({
   articleOptions,
   externalQuery = '',
   onQueryChange,
-  view = 'concept',
-  onDumpHighlight
+  view = 'concept'
 }) => {
   const [folderId, setFolderId] = useState('');
   const [tag, setTag] = useState('');
@@ -518,7 +517,6 @@ const LibraryHighlights = ({
                       forceExpandedVersion={cardsExpandVersion}
                       onOrganized={handleHighlightOrganized}
                       onDelete={handleDeleteHighlight}
-                      onDumpToWorkingMemory={onDumpHighlight}
                       onAddConcept={(h) => setConceptModal({ open: true, highlight: h })}
                       onAddNotebook={(h) => setNotebookModal({ open: true, highlight: h })}
                       onAddQuestion={(h) => setQuestionModal({ open: true, highlight: h })}

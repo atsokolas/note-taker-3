@@ -10,8 +10,7 @@ const { applyFalsifiability, syncClaimFalsifier } = require('./claimFalsifiabili
 
 /* A claim in the retired state is not watching for anything. */
 const retiredNow = (claim = {}) => claim.checkInStatus === 'retired' || Boolean(claim.retiredAt);
-const { appendVerdict, selectPaperVerdicts } = require('./claimVerdicts');
-const { ensureHeldClaim, findHeldClaim } = require('./heldClaim');
+const { selectPaperVerdicts } = require('./claimVerdicts');
 const { buildReviewTriage, expireLowStakesReviews } = require('./reviewTriageService');
 const { canonicalWikiTitle } = require('./wikiPresentationGuard');
 const { loadConsequenceEvents, selectPaperConsequence } = require('./consequenceRoute');
@@ -380,16 +379,6 @@ const recordClaimCheckIn = async ({
   };
 };
 
-const loadOwnedPage = async ({ models, userId, pageId }) => {
-  const page = await models.WikiPage.findOne({ _id: pageId, userId });
-  if (!page) {
-    const error = new Error('Wiki page not found.');
-    error.statusCode = 404;
-    throw error;
-  }
-  return page;
-};
-
 /**
  * The belief a returning piece bears on.
  *
@@ -429,92 +418,11 @@ const attachClaims = ({ askedBack = [], pages = [] } = {}) => {
   });
 };
 
-const recordClaimFalsifiability = async ({
-  models = {},
-  userId,
-  pageId,
-  claimId = '',
-  resolutionCriteria,
-  horizon,
-  now = new Date()
-} = {}) => {
-  const page = await loadOwnedPage({ models, userId, pageId });
-  const before = snapshotPage(page);
-  const claim = findHeldClaim(page, claimId) || ensureHeldClaim(page, { now, actorType: 'user', claimId });
-  if (!claim) {
-    const error = new Error('Claim not found.');
-    error.statusCode = 404;
-    throw error;
-  }
-  applyFalsifiability(claim, { resolutionCriteria, horizon });
-  /* The answer and the thing that watches for it are one idea, so writing one
-     writes the other. */
-  syncClaimFalsifier(page, claim, { now });
-  if (typeof page.markModified === 'function') {
-    page.markModified('claims');
-    page.markModified('judgment.falsifiers');
-  }
-  await page.save();
-  const revision = await createWikiRevision({
-    WikiRevision: models.WikiRevision,
-    userId,
-    page,
-    before,
-    reason: 'user_edit',
-    actorType: 'user',
-    summary: `Claim ${claim.claimId} falsifiability updated.`
-  });
-  return { page, claim: asPlain(claim), revisionId: id(revision) };
-};
-
-const recordClaimVerdict = async ({
-  models = {},
-  userId,
-  pageId,
-  claimId,
-  verdict,
-  trigger,
-  sourceEventId = '',
-  note = '',
-  now = new Date()
-} = {}) => {
-  const page = await loadOwnedPage({ models, userId, pageId });
-  const claim = page.claims.find((row) => String(row.claimId) === String(claimId));
-  if (!claim) {
-    const error = new Error('Claim not found.');
-    error.statusCode = 404;
-    throw error;
-  }
-  const before = snapshotPage(page);
-  const entry = appendVerdict(claim, {
-    verdict,
-    trigger,
-    sourceEventId,
-    horizon: claim.horizon,
-    note,
-    now
-  });
-  if (typeof page.markModified === 'function') page.markModified('claims');
-  await page.save();
-  const revision = await createWikiRevision({
-    WikiRevision: models.WikiRevision,
-    userId,
-    page,
-    before,
-    reason: 'user_edit',
-    actorType: 'user',
-    summary: `Claim ${claim.claimId} verdict ${entry.verdict}.`
-  });
-  return { page, claim: asPlain(claim), verdict: entry, revisionId: id(revision) };
-};
-
 module.exports = {
   buildWatcherLeads,
   diffRevisionClaims,
   selectDailyClaimCheckIn,
   recordClaimCheckIn,
-  recordClaimFalsifiability,
-  recordClaimVerdict,
   listWatching,
   buildDailyLoopBriefing,
   localDateForTimezone,

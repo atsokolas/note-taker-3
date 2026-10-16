@@ -1,7 +1,6 @@
 const { ACCEPTED_CLASSES, contractEvent, dedupeEvents, freshness } = require('./consequenceEvent');
-const { disposeConsequence, routeOne, selectPaperConsequence } = require('./consequenceRoute');
+const { routeOne, selectPaperConsequence } = require('./consequenceRoute');
 
-const DAY = 24 * 60 * 60 * 1000;
 const NOW = new Date('2026-08-31T12:00:00.000Z');
 
 const event = (overrides = {}) => ({
@@ -113,82 +112,5 @@ describe('thin consequence route', () => {
     });
     expect(paper.eventId).toBe('evt-sec-1');
     expect(paper.eventTitle).toBe('NVIDIA 10-Q');
-  });
-});
-
-describe('consequence disposition persist', () => {
-  const modelsFor = (held) => {
-    const receipts = new Map();
-    return {
-      WikiPage: {
-        findOne: async () => held
-      },
-      WikiRevision: function Revision(value) {
-        Object.assign(this, value);
-        this._id = 'rev-1';
-      },
-      NoeisReceipt: {
-        findOne: async ({ receiptId }) => receipts.get(receiptId) || null,
-        findOneAndUpdate: async (_query, { $set }) => {
-          const stored = { ...$set, receiptId: $set.receiptId };
-          receipts.set(stored.receiptId, stored);
-          return stored;
-        }
-      },
-      _receipts: receipts
-    };
-  };
-
-  const heldPage = () => {
-    const row = page();
-    row.markModified = () => {};
-    row.save = async () => row;
-    row.toObject = () => JSON.parse(JSON.stringify(row));
-    return row;
-  };
-
-  beforeAll(() => {
-    const Revision = function WikiRevision(value) {
-      Object.assign(this, value);
-      this._id = 'rev-1';
-    };
-    modelsFor(heldPage()).WikiRevision = Revision;
-  });
-
-  it('accepts a reversible write, keeps prior wording, and schedules review', async () => {
-    const held = heldPage();
-    const models = modelsFor(held);
-    models.WikiRevision = function WikiRevision(value) {
-      Object.assign(this, value);
-      this._id = 'rev-1';
-      this.save = async () => this;
-    };
-    const routed = routeOne({ event: event(), pages: [held], now: NOW });
-    const result = await disposeConsequence({
-      models,
-      userId: 'user-a',
-      preview: routed.preview,
-      action: 'accept',
-      now: NOW
-    });
-    expect(result.receipt.status).toBe('accepted');
-    expect(result.receipt.provenance.prior).toBe('NVIDIA demand still outruns deliverable capacity.');
-    expect(held.judgment.currentJudgment).toContain('Confirmed signed capacity converts within 90 days');
-    expect(new Date(result.preview.reviewAt).getTime()).toBe(NOW.getTime() + 7 * DAY);
-    expect(result.receipt.provenance.dependentsMutated).toEqual([]);
-  });
-
-  it('preserve and reject leave the claim untouched', async () => {
-    const held = heldPage();
-    const models = modelsFor(held);
-    models.WikiRevision = function WikiRevision(value) {
-      Object.assign(this, value);
-      this.save = async () => this;
-    };
-    const routed = routeOne({ event: event(), pages: [held], now: NOW });
-    await disposeConsequence({
-      models, userId: 'user-a', preview: routed.preview, action: 'preserve', now: NOW
-    });
-    expect(held.judgment.currentJudgment).toBe('NVIDIA demand still outruns deliverable capacity.');
   });
 });
