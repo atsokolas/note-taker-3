@@ -303,7 +303,6 @@ async function installJourneyMocks(context, state) {
     if (pathName === '/api/questions' && method === 'GET') return json(route, []);
     if (pathName === '/api/tags' && method === 'GET') return json(route, []);
     if (pathName === '/get-articles' && method === 'GET') return json(route, []);
-    if (pathName === '/api/working-memory' && method === 'GET') return json(route, []);
     if (pathName === '/api/connections/scope' && method === 'GET') return json(route, { connections: [] });
     if (pathName === '/api/connections' && method === 'GET') return json(route, { outgoing: [], incoming: [] });
     if (pathName === '/api/return-queue' && method === 'GET') return json(route, []);

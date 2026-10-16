@@ -44,8 +44,6 @@ const main = async () => {
     headers: authHeaders(token),
     body: JSON.stringify({ feedUrl: FEED_URL, label: 'QA · Node.js releases' })
   });
-  const daily = await request('/api/daily-loop', { headers: authHeaders(token) });
-  const briefing = daily.briefing || {};
   const visit = await request(`/api/daily-loop/page-visits/${page._id}`, {
     method: 'POST', headers: authHeaders(token), body: '{}'
   });
@@ -77,15 +75,6 @@ const main = async () => {
       revisionIds: [retired.revisionId, restored.revisionId].filter(Boolean).map(String)
     },
     morningPaper: {
-      since: briefing.since,
-      watcherLead: briefing.lead ? {
-        provider: briefing.lead.provider,
-        pageId: briefing.lead.page?.id,
-        maintenanceStatus: briefing.lead.maintenanceStatus,
-        impactSummary: briefing.lead.impactSummary
-      } : null,
-      watchingCount: briefing.watching?.length || 0,
-      claimCheckInPresent: Boolean(briefing.claimCheckIn),
       emailConfiguration: settings.settings?.configuration || null,
       emailEnabled: Boolean(settings.settings?.enabled)
     }

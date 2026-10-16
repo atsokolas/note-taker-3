@@ -38,8 +38,7 @@ const baseProps = {
   onAddNotebook: jest.fn(),
   onAddQuestion: jest.fn(),
   onUpdateHighlight: jest.fn(),
-  onDeleteHighlight: jest.fn(),
-  onDumpToWorkingMemory: jest.fn()
+  onDeleteHighlight: jest.fn()
 };
 
 const renderContext = (props = {}) => render(

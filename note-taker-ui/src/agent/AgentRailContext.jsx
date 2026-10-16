@@ -285,19 +285,12 @@ export const AgentRailProvider = ({ children }) => {
         !result?.structureProposal
         && surfaceRevision.current === revision
         && typeof handlers.current.onAccept === 'function'
-        && surface.contractId !== 'agent-surface.wiki'
+        && surface.contractId === 'agent-surface.judgment'
       ) {
+        // A reply can be written down only as a source's own sentence.
         const evidence = buildAgentEvidenceCandidates(result?.relatedItems);
-        const judgmentEvidence = surface.contractId === 'agent-surface.judgment';
         const primaryEvidence = evidence[0] || null;
-        // A reply can be written down only when it carries a source's own
-        // words. Anything else stays conversation.
-        const quoted = (Array.isArray(result?.groundedIn) ? result.groundedIn : [])
-          .map(item => String(item?.title || '').trim())
-          .filter(Boolean);
-        const sentence = judgmentEvidence
-          ? String(primaryEvidence?.sentence || '').trim()
-          : quoted.length ? String(result?.reply || '').trim() : '';
+        const sentence = String(primaryEvidence?.sentence || '').trim();
         const allowedFields = (surface.supportedActions || [])
           .filter(action => action.startsWith('accept.'))
           .map(action => action.slice('accept.'.length));
@@ -309,12 +302,10 @@ export const AgentRailProvider = ({ children }) => {
             messageId: reply && sentence === reply.text ? reply.id : '',
             sentence,
             body: sentence,
-            source: judgmentEvidence
-              ? primaryEvidence?.source
-              : `Quotes ${quoted.slice(0, 2).join(' and ')}`,
+            source: primaryEvidence?.source,
             sourceLabel: primaryEvidence?.sourceLabel || '',
             acceptedFrom: primaryEvidence?.acceptedFrom || '',
-            ...(judgmentEvidence && evidence.length > 1 ? { alternatives: evidence.slice(1) } : {}),
+            ...(evidence.length > 1 ? { alternatives: evidence.slice(1) } : {}),
             origin: options.origin || '',
             fields: Array.isArray(options.fields) && options.fields.length ? options.fields : allowedFields
           }, revision);

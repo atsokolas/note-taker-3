@@ -108,7 +108,6 @@ async function installAgentHarnessMocks(page, { onChatRequest = null } = {}) {
     if (path === '/api/questions' && method === 'GET') return json(route, []);
     if (path === '/api/tags' && method === 'GET') return json(route, []);
     if (path === '/api/highlights' && method === 'GET') return json(route, []);
-    if (path === '/api/working-memory' && method === 'GET') return json(route, []);
     if (path === '/api/return-queue' && method === 'GET') return json(route, []);
     if (path === '/api/ai/health' && method === 'GET') return json(route, { status: 'ok' });
     if (path === '/api/connections/scope' && method === 'GET') return json(route, { connections: [] });

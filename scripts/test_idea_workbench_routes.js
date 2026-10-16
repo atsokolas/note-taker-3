@@ -64,15 +64,6 @@ const putWorkbench = async (conceptName, ideaWorkbench, baseRevision) => request
   }
 );
 
-const appendEvents = async (conceptName, events) => requestJson(
-  `/api/concepts/${encodeURIComponent(conceptName)}/idea-workbench/events`,
-  {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ events })
-  }
-);
-
 const buildWorkbench = (suffix = 'alpha') => ({
   version: 1,
   header: {
@@ -164,25 +155,6 @@ const run = async () => {
   assert.strictEqual(afterSave.ideaWorkbench?.workspaceDraft, 'Draft alpha', 'workspace draft should round-trip');
   assert.strictEqual(afterSave.ideaWorkbench?.agent?.messages?.[0]?.text, 'Message alpha', 'agent message should round-trip');
 
-  const eventBatch = [
-    {
-      id: `event-${Date.now()}`,
-      type: 'route_test_event',
-      actor: 'user',
-      summary: 'Added a route test event.',
-      createdAt: new Date().toISOString(),
-      payload: { route: 'idea-workbench' }
-    }
-  ];
-  const eventAppend = await appendEvents(conceptName, eventBatch);
-  assert.strictEqual(
-    eventAppend.res.status,
-    200,
-    `event append failed status=${eventAppend.res.status} body=${eventAppend.text}`
-  );
-  assert.ok(Array.isArray(eventAppend.data?.events), 'events array missing after append');
-  assert.ok(eventAppend.data.events.some((event) => event.type === 'route_test_event'), 'route test event missing after append');
-
   const stalePayload = buildWorkbench('stale');
   const conflictSave = await putWorkbench(conceptName, stalePayload, 0);
   assert.strictEqual(
@@ -211,7 +183,6 @@ const run = async () => {
   const afterResolve = await getWorkbench(conceptName);
   assert.strictEqual(afterResolve.revision, 2, 'revision after resolve should be 2');
   assert.strictEqual(afterResolve.ideaWorkbench?.header?.title, resolvedPayload.header.title, 'latest workbench title mismatch');
-  assert.ok(afterResolve.events.some((event) => event.type === 'route_test_event'), 'event log should survive later saves');
 
   console.log('idea workbench route tests passed');
 };

@@ -16,11 +16,9 @@ const scriptNames = [
   'test_concept_paths.js',
   'test_return_queue_routes.js',
   'test_ui_settings_routes.js',
-  'test_working_memory_routes.js',
   'test_map_graph.js',
   'test_retrieval_search.js',
   'test_semantic_related_route.js',
-  'test_working_memory_extraction_routes.js',
   'test_tour_routes.js',
   'test_workspace_templates.js'
 ];

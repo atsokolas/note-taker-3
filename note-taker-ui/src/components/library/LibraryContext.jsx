@@ -30,8 +30,7 @@ const LibraryContext = ({
   onAddNotebook,
   onAddQuestion,
   onHoldClaim,
-  onDeleteHighlight,
-  onDumpToWorkingMemory
+  onDeleteHighlight
 }) => {
   const [feedExpanded, setFeedExpanded] = useState(() => readStoredExpanded(FEED_EXPANDED_KEY, true));
   const [relatedExpanded, setRelatedExpanded] = useState(() => readStoredExpanded(RELATED_EXPANDED_KEY, false));
@@ -191,7 +190,6 @@ const LibraryContext = ({
                           {onHoldClaim ? (
                             <Button variant="quiet" onClick={() => onHoldClaim(highlight)}>Believe</Button>
                           ) : null}
-                          <Button variant="quiet" onClick={() => onDumpToWorkingMemory(highlight)}>Dump</Button>
                           <Button variant="quiet" onClick={() => onDeleteHighlight?.(highlight)}>Delete</Button>
                         </div>
                         {activeHighlightId === highlight._id && (
