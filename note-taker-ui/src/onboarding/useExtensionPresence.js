@@ -8,7 +8,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
  *   installed_signed_out -> it is there but useless; ask them to sign in
  *   connected            -> capture is actually working; say so and stop asking
  *
- * The extension content script announces itself on Noeis hosts (see content.js),
+ * The extension content script announces itself on Noeis hosts (see presence.js),
  * both as a DOM marker and as a postMessage reply to our ping. We read the marker
  * first for the case where the script ran before this mounted, then ping for the
  * case where it did not.

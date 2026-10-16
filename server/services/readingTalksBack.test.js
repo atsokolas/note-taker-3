@@ -1,4 +1,4 @@
-const { fileReadingProposal, opposeFromNote, proposeFromReading, pushesAgainst, readingStands, PER_DAY } = require('./readingTalksBack');
+const { fileReadingProposal, opposeFromNote, proposeFromReading, pushesAgainst, readingStands, viewBearingOn, PER_DAY } = require('./readingTalksBack');
 const { buildReadingProposal, planJudgmentChangeDisposition } = require('./judgmentChangeProposalService');
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -171,6 +171,26 @@ describe('reading talks back, by meaning', () => {
     expect(complete).not.toHaveBeenCalled();
     // A source that shares the view's words is still read without embeddings.
     expect(await read(world(), answer({ stance: 'nothing', quote: '' }))).toEqual([]);
+  });
+});
+
+describe('in the margin', () => {
+  const marked = 'Warehouse club renewals barely dipped through the last downturn.';
+
+  it('names the held view a marked passage bears on, by meaning', async () => {
+    const { WikiPage } = world();
+    expect(await viewBearingOn({ userId: 'u1', text: marked, WikiPage, embed })).toEqual({
+      pageId: 'v1',
+      view: 'Costco’s membership model makes it recession-resistant.'
+    });
+  });
+
+  it('is silent on topic alone, without embeddings, and for a fragment', async () => {
+    const { WikiPage } = world();
+    const elsewhere = 'The bridge was painted a brighter shade of red last spring.';
+    expect(await viewBearingOn({ userId: 'u1', text: elsewhere, WikiPage, embed })).toBeNull();
+    expect(await viewBearingOn({ userId: 'u1', text: marked, WikiPage, embed: null })).toBeNull();
+    expect(await viewBearingOn({ userId: 'u1', text: 'Membership renewals.', WikiPage, embed })).toBeNull();
   });
 });
 

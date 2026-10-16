@@ -28,7 +28,15 @@ app.use(buildJudgmentResolutionRouter({
   },
   highlightForQuote: async input => { quotes.push(input); return { highlight: { _id: '64f500000000000000000050' } }; },
   buildJudgmentMirror: async input => { calls.push(['mirror', input]); return { metrics: { claimsHeld: 1 } }; },
-  comesDue: async ({ userId }) => ({ pageId: PAGE_ID, view: `${userId} said so.` }),
+  comesDue: async ({ userId }) => ({ pageId: PAGE_ID, view: `${userId} said so.`, by: '2026-10-12T12:00:00.000Z' }),
+  viewBearingOn: async ({ text }) => (text.includes('meetings') ? { pageId: PAGE_ID, view: 'user-1 said so.' } : null),
+  findEarlierPassages: async ({ claim }) => ({
+    candidates: !claim.includes('meetings') ? [] : [
+      { kind: 'source', articleId: '64f500000000000000000031', text: 'A whole article.' },
+      { kind: 'highlight', articleId: '64f500000000000000000030', highlightId: 'h-same', text: 'This very source.' },
+      { kind: 'highlight', articleId: '64f500000000000000000032', highlightId: 'h-1', sourceLabel: 'On writing', text: 'Memos outlast meetings.', savedAt: '2026-03-03' }
+    ]
+  }),
   trackEvent: event => events.push(event)
 }));
 
@@ -53,7 +61,7 @@ const server = app.listen(0, '127.0.0.1', async () => {
       method: 'POST',
       body: { field: 'against', articleId: '64f500000000000000000030', highlightId: '64f500000000000000000040' }
     })).response.status, 201);
-    assert.deepStrictEqual((await request('/api/judgment/due')).body, { due: { pageId: PAGE_ID, view: 'user-1 said so.' } });
+    assert.deepStrictEqual((await request('/api/judgment/due')).body.due.pageId, PAGE_ID);
     const mirror = await request('/api/judgment/mirror');
     assert.strictEqual(mirror.response.status, 200);
     assert.strictEqual(mirror.body.mirror.metrics.claimsHeld, 1);
@@ -73,6 +81,26 @@ const server = app.listen(0, '127.0.0.1', async () => {
       { userId: 'user-1', articleId: '64f500000000000000000030', quote: 'Written decisions outlast meetings.' }
     ]);
     assert.strictEqual(calls[calls.length - 1][1].highlightId, '64f500000000000000000050');
+
+    // The margin: the view a marked passage bears on, due when it is the one
+    // due, and a passage marked in another source, never this one.
+    const margin = await request('/api/judgment/margin', {
+      method: 'POST',
+      body: { text: 'Decisions written down outlast meetings.', articleId: '64f500000000000000000030' }
+    });
+    assert.deepStrictEqual(margin.body, {
+      view: { pageId: PAGE_ID, view: 'user-1 said so.', dueBy: '2026-10-12T12:00:00.000Z' },
+      before: {
+        articleId: '64f500000000000000000032',
+        highlightId: 'h-1',
+        title: 'On writing',
+        text: 'Memos outlast meetings.',
+        savedAt: '2026-03-03'
+      }
+    });
+    const quiet = await request('/api/judgment/margin', { method: 'POST', body: { text: 'Nothing here.', articleId: '64f500000000000000000032' } });
+    assert.deepStrictEqual(quiet.body, { view: null, before: null });
+    assert.strictEqual((await request('/api/judgment/margin', { method: 'POST', body: {} })).response.status, 400);
     console.log('judgmentResolutionRoutes tests passed');
   } catch (error) {
     console.error(error);

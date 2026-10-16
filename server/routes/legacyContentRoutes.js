@@ -677,7 +677,11 @@ const buildLegacyContentRouter = ({
       }
 
       const userId = req.user.id;
-      const article = await Article.findOne({ url: url, userId: userId });
+      /* The extension asks only whether a page is saved and what was marked
+         on it; it has no use for the body, so brief leaves it on the server. */
+      const brief = req.query.brief === '1';
+      const found = Article.findOne({ url: url, userId: userId });
+      const article = await (brief ? found.select('_id title createdAt highlights._id highlights.text') : found);
 
       if (!article) {
         return res.status(200).json(null);

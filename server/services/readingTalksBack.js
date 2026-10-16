@@ -437,6 +437,24 @@ const setOppositeAside = ({ entryId, userId, key, models: { NotebookEntry }, now
   { arrayFilters: [{ 'reading.key': clean(key, 40) }], timestamps: false }
 );
 
+/* In the margin. A passage just marked meets the views you hold.
+
+   Eligibility: held, unresolved views, the same as a source's arrival.
+   Quality bar: meaning alone, at the semantic floor. Shared words only say
+   the passage is near a view in topic, which is not bearing on it.
+   Silence: no embeddings, no view above the floor, or a passage too short to
+   mean anything, and the margin says nothing about views. */
+const viewBearingOn = async ({ userId, text, WikiPage, embed = defaultEmbed() } = {}) => {
+  const passage = clean(text, 2000);
+  if (!embed || !WikiPage?.find || words(passage).length < MIN_QUOTE_WORDS) return null;
+  const views = await heldViews({ WikiPage, userId });
+  const near = await nearest({ views, passages: [passage], embed, textOf: sentenceOf });
+  const [best] = [...near.entries()]
+    .filter(([, found]) => found.length)
+    .sort(([, left], [, right]) => right[0].score - left[0].score);
+  return best ? { pageId: String(best[0]._id), view: sentenceOf(best[0]) } : null;
+};
+
 /* A quote from a saved source, as a highlight on it: the one already there
    with the same words, or a new one. Filing goes through highlights, so a
    passage read out of a source has to become one first. */
@@ -518,6 +536,7 @@ module.exports = {
   highlightForQuote,
   proposeFromReading,
   pushesAgainst,
+  viewBearingOn,
   setOppositeAside,
   readingStands,
   __testables: { asksOf, parseVerdict, promptFor, readOne, readSentence, askedText }

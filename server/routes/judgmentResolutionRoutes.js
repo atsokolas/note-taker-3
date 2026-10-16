@@ -8,7 +8,12 @@ const {
 } = require('../services/judgmentResolutionService');
 const { buildJudgmentMirror: readMirror } = require('../services/judgmentMirrorService');
 const { JudgmentChangeProposalError } = require('../services/judgmentChangeProposalService');
-const { fileReadingProposal: persistReading, highlightForQuote: persistQuote } = require('../services/readingTalksBack');
+const {
+  fileReadingProposal: persistReading,
+  highlightForQuote: persistQuote,
+  viewBearingOn: readViewBearingOn
+} = require('../services/readingTalksBack');
+const { findLibraryEvidence } = require('../services/judgmentEvidenceService');
 const { buildJudgmentMirror: buildClaimMirror, STATS } = require('../services/judgmentMirror');
 const { buildCalibration } = require('../services/calibrationInstrument');
 const { requireAuthenticatedUser } = require('./conceptRouteGuards');
@@ -48,6 +53,8 @@ const buildJudgmentResolutionRouter = ({
   recordVerdict = persistVerdict,
   buildJudgmentMirror = readMirror,
   comesDue = findDue,
+  viewBearingOn = readViewBearingOn,
+  findEarlierPassages = findLibraryEvidence,
   trackEvent = () => {},
   ...models
 } = {}) => {
@@ -64,6 +71,37 @@ const buildJudgmentResolutionRouter = ({
   router.get('/api/judgment/due', authenticateToken, requireAuthenticatedUser, async (req, res) => {
     try {
       return res.status(200).json({ due: await comesDue({ userId: req.user.id, WikiPage: models.WikiPage }) });
+    } catch (error) {
+      return sendError(res, error);
+    }
+  });
+
+  /* The margin beside a passage just marked: the view it bears on, whether
+     that view is due, and the passage you marked like it in another source.
+     Each answer is the reader's to act on; every one can be silent. */
+  router.post('/api/judgment/margin', authenticateToken, requireAuthenticatedUser, async (req, res) => {
+    const text = String(req.body?.text || '').trim().slice(0, 2000);
+    const articleId = String(req.body?.articleId || '');
+    if (!text) return res.status(400).json({ error: 'Mark a passage first.' });
+    try {
+      const userId = req.user.id;
+      const [view, due, earlier] = await Promise.all([
+        viewBearingOn({ userId, text, WikiPage: models.WikiPage }),
+        comesDue({ userId, WikiPage: models.WikiPage }),
+        findEarlierPassages({ Article: models.Article, userId, claim: text, limit: 6 })
+      ]);
+      const before = (earlier?.candidates || [])
+        .find(candidate => candidate.kind === 'highlight' && candidate.articleId !== articleId) || null;
+      return res.status(200).json({
+        view: view && { ...view, dueBy: due?.pageId === view.pageId ? due.by : null },
+        before: before && {
+          articleId: before.articleId,
+          highlightId: before.highlightId,
+          title: before.sourceLabel,
+          text: before.text,
+          savedAt: before.savedAt
+        }
+      });
     } catch (error) {
       return sendError(res, error);
     }
