@@ -72,7 +72,7 @@ struct SignInView: View {
         }
         .scrollDismissesKeyboard(.interactively)
         .paper()
-        .animation(.easeOut(duration: 0.2), value: creating)
+        .calmAnimation(.easeOut(duration: 0.2), value: creating)
     }
 
     private func submit() {

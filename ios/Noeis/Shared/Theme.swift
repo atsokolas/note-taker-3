@@ -37,7 +37,24 @@ extension Font {
     static let quote = Font.system(.callout, design: .serif).italic()
 }
 
+/// Motion that honours Reduce Motion: with it on, the change simply happens.
+@MainActor func calmly(_ animation: Animation = .default, _ change: () -> Void) {
+    if UIAccessibility.isReduceMotionEnabled { change() } else { withAnimation(animation, change) }
+}
+
+private struct CalmAnimation<V: Equatable>: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    let animation: Animation
+    let value: V
+    func body(content: Content) -> some View { content.animation(reduceMotion ? nil : animation, value: value) }
+}
+
 extension View {
+    /// `.animation(_:value:)` that stands still under Reduce Motion.
+    func calmAnimation<V: Equatable>(_ animation: Animation, value: V) -> some View {
+        modifier(CalmAnimation(animation: animation, value: value))
+    }
+
     /// The page every room sits on.
     func paper() -> some View {
         scrollContentBackground(.hidden)

@@ -103,7 +103,7 @@ private struct SaveCard: View {
             .shadow(color: .black.opacity(0.12), radius: 24, y: 8)
             .padding(16)
             .frame(maxWidth: 520)
-            .animation(.easeOut(duration: 0.25), value: stage)
+            .calmAnimation(.easeOut(duration: 0.25), value: stage)
         }
         .frame(maxWidth: .infinity)
         .foregroundStyle(Ink.text)

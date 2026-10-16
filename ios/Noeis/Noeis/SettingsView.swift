@@ -32,7 +32,7 @@ struct SettingsView: View {
                 Section {
                     Button("Delete account", role: .destructive) { confirmingDelete = true }
                 } footer: {
-                    Text("Deleting ends access at once, on every device. Everything you saved, wrote and built is then erased.")
+                    Text("Deleting ends access at once, on every device, and asks us to erase everything you saved, wrote and built. Erasing is done by hand, so it is not instant; until then no one can sign in to it.")
                 }
             }
             .paper()

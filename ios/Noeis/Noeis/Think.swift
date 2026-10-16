@@ -128,7 +128,7 @@ struct NoteView: View {
                 }
             }
             .safeAreaInset(edge: .bottom) {
-                if let opposite { OppositeBanner(noteId: id, line: opposite) { withAnimation { self.opposite = nil } } }
+                if let opposite { OppositeBanner(noteId: id, line: opposite) { calmly { self.opposite = nil } } }
             }
             .toolbar { PartnerToolbarItem(context: ["type": "notebook", "id": .string(id), "title": .string(note.noteTitle)]) }
         }
@@ -136,7 +136,7 @@ struct NoteView: View {
         .paper()
         .task {
             if let line = try? await NoeisAPI.shared.opposite(noteId: id) {
-                withAnimation(.easeOut(duration: 0.3)) { opposite = line }
+                calmly(.easeOut(duration: 0.3)) { opposite = line }
             }
         }
     }
@@ -215,7 +215,15 @@ private struct NoteEditor: View {
                 status = "Not saved: \(error.localizedDescription)"
             }
         }
-        .onDisappear { Task { await onSaved() } }
+        // Leaving mid-pause cancels the save above, so the last words go now.
+        .onDisappear {
+            let (title, text) = (title, text)
+            let unsaved = title != savedTitle || text != savedText
+            Task {
+                if unsaved { _ = try? await NoeisAPI.shared.updateNote(note.id, title: title, text: text) }
+                await onSaved()
+            }
+        }
     }
 }
 

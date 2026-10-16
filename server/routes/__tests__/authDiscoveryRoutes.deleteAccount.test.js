@@ -41,7 +41,8 @@ const run = async () => {
     const right = await del({ password: 'right1pass' });
     assert.strictEqual(right.status, 200);
     const body = await right.json();
-    assert.strictEqual(body.deleted, true);
+    assert.strictEqual(body.closed, true);
+    assert.ok(body.erasureRequestedAt);
     assert.strictEqual(updates.length, 1);
     const set = updates[0].update.$set;
     assert.ok(set.accountDisabledAt instanceof Date, 'access ends at once');

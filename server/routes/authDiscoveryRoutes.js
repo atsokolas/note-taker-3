@@ -118,8 +118,9 @@ const buildAuthDiscoveryRouter = ({
   /* Delete my account. The password is asked again so a borrowed session
      cannot close someone's account. Access ends now: every token this
      account holds stops working because the account check refuses a
-     disabled user. The content itself is erased by the support runbook,
-     which looks for accountDeletionRequestedAt. */
+     disabled user. The content is not erased here: erasure is done by hand
+     (docs/noeis-support-erasure-runbook-2026-10-11.md), so the reply says
+     it was requested, not done. */
   router.delete('/api/account', authenticateToken, async (req, res) => {
     try {
       const user = await User.findById(req.user.id);
@@ -135,7 +136,7 @@ const buildAuthDiscoveryRouter = ({
         { _id: user._id, accountDisabledAt: null },
         { $set: { accountDisabledAt: now, accountDeletionRequestedAt: now, 'morningPaper.enabled': false } }
       );
-      return res.status(200).json({ deleted: true, requestedAt: now.toISOString() });
+      return res.status(200).json({ closed: true, erasureRequestedAt: now.toISOString() });
     } catch (error) {
       console.error('❌ Error deleting account:', error);
       return res.status(500).json({ error: 'Internal server error.' });

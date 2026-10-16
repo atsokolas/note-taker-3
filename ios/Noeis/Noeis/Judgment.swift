@@ -358,7 +358,7 @@ struct HoldViewSheet: View {
                             let sentence = oneSentence(text)
                             writer.run {
                                 _ = try await NoeisAPI.shared.hold(sentence)
-                                withAnimation { held = sentence }
+                                calmly { held = sentence }
                             }
                         }
                         .disabled(oneSentence(text).isEmpty || writer.busy)

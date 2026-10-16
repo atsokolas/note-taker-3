@@ -145,8 +145,8 @@ struct NoeisAPI {
     /// Holds a new view and returns its page id.
     func hold(_ sentence: String) async throws -> String {
         let page = try await send("POST", "/api/wiki/pages", body: ["title": .string(sentence), "pageType": "topic"])
-        let held = page.at("judgment.currentJudgment").text
-        if page["reusedExisting"]?.bool == true || held.caseInsensitiveCompare(sentence) == .orderedSame {
+        // A reused page may be an ordinary one; only skip when it already holds this sentence.
+        if page.at("judgment.currentJudgment").text.caseInsensitiveCompare(sentence) == .orderedSame {
             return page.id
         }
         _ = try await patchPage(page.id, ["judgment": ["currentJudgment": .string(sentence), "startedAt": .string(JSON.iso(Date()))]])

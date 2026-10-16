@@ -57,8 +57,8 @@ struct PartnerSheet: View {
                     .padding(20)
                     .column()
                 }
-                .onChange(of: turns.count) { if let last = turns.last { withAnimation { scroller.scrollTo(last.id, anchor: .bottom) } } }
-                .onChange(of: thinking) { if thinking { withAnimation { scroller.scrollTo("thinking", anchor: .bottom) } } }
+                .onChange(of: turns.count) { if let last = turns.last { calmly { scroller.scrollTo(last.id, anchor: .bottom) } } }
+                .onChange(of: thinking) { if thinking { calmly { scroller.scrollTo("thinking", anchor: .bottom) } } }
             }
             .safeAreaInset(edge: .bottom) {
                 HStack(alignment: .bottom, spacing: 10) {

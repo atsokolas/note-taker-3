@@ -111,7 +111,7 @@ private struct DueCard: View {
                 HStack {
                     NavigationLink(value: Route.view(due["pageId"].text)) { Text("Did it hold up?").fontWeight(.semibold) }
                         .buttonStyle(.borderedProminent)
-                    Button("Not now") { withAnimation { dismissed = true } }.buttonStyle(.bordered)
+                    Button("Not now") { calmly { dismissed = true } }.buttonStyle(.bordered)
                 }
             }
         }
@@ -138,13 +138,13 @@ private struct ArguesCard: View {
                     Button("File against") {
                         writer.run {
                             _ = try await NoeisAPI.shared.file(pageId: reading["pageId"].text, claim: reading["view"].text, field: "against", proposalId: proposal.id)
-                            withAnimation { dismissed = true }
+                            calmly { dismissed = true }
                             await onFiled()
                         }
                     }
                     .buttonStyle(.borderedProminent)
                     .disabled(writer.busy)
-                    Button("Not now") { withAnimation { dismissed = true } }.buttonStyle(.bordered)
+                    Button("Not now") { calmly { dismissed = true } }.buttonStyle(.bordered)
                 }
             }
             .failureAlert(writer)

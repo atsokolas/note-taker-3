@@ -108,7 +108,7 @@ private struct SaveLinkSheet: View {
                             guard let url = URL(string: link.trimmingCharacters(in: .whitespaces)) else { return }
                             writer.run {
                                 _ = try await NoeisAPI.shared.save(url: url)
-                                withAnimation { saved = true }
+                                calmly { saved = true }
                             }
                         }
                         .disabled(URL(string: link)?.scheme?.hasPrefix("http") != true || writer.busy)
@@ -156,7 +156,7 @@ struct ArticleReader: View {
             )
             .ignoresSafeArea(edges: .bottom)
             .safeAreaInset(edge: .bottom) {
-                if let argument { ArgumentBanner(reading: argument) { withAnimation { self.argument = nil } } }
+                if let argument { ArgumentBanner(reading: argument) { calmly { self.argument = nil } } }
             }
             .toolbar {
                 if let url = article["url"]?.string.flatMap(URL.init(string:)) {
@@ -173,7 +173,7 @@ struct ArticleReader: View {
         .task {
             // Does this piece argue with something you hold? Said once, at the bottom.
             if let reading = try? await NoeisAPI.shared.pushesAgainst(articleId: id) {
-                withAnimation(.easeOut(duration: 0.3)) { argument = reading }
+                calmly(.easeOut(duration: 0.3)) { argument = reading }
             }
         }
     }

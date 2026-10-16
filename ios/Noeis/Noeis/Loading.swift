@@ -48,7 +48,7 @@ struct Loaded<Value, Content: View>: View {
         error = nil
         let slow = Task {
             try await Task.sleep(for: .seconds(4))
-            withAnimation { waking = true }
+            calmly { waking = true }
         }
         defer { slow.cancel(); waking = false }
         do {
