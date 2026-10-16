@@ -4,14 +4,14 @@ import SwiftUI
 
 /// What the reading built, and what changed since you last looked.
 struct WikiFront: View {
-    @Binding var selection: Route?
+    var selection: Binding<Route?>?
     @AppStorage("wiki.lastLooked") private var lastLooked = Date().addingTimeInterval(-7 * 86_400).timeIntervalSince1970
     @State private var query = ""
     @State private var dossiersOnly = false
 
     var body: some View {
         Loaded(load: load) { front, reload in
-            List(selection: $selection) {
+            List(selection: selection) {
                 if query.isEmpty && !dossiersOnly {
                     if let due = front.due { DueCard(due: due).listRowSeparator(.hidden) }
                     if let reading = front.argues { ArguesCard(reading: reading, onFiled: reload).listRowSeparator(.hidden) }

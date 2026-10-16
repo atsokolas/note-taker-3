@@ -4,7 +4,7 @@ import SwiftUI
 
 /// What you wrote: notes, or the same notes as a board (Ideas, In progress, Done).
 struct NotesList: View {
-    @Binding var selection: Route?
+    var selection: Binding<Route?>?
     @AppStorage("think.board") private var board = false
     @State private var showingArchive = false
     @State private var writing = false
@@ -19,7 +19,7 @@ struct NotesList: View {
         Loaded(load: { try await NoeisAPI.shared.notes() }) { notes, reload in
             let live = notes.filter { ($0.at("board.archivedAt") == nil || $0.at("board.archivedAt") == .null) != showingArchive }
                 .filter { query.isEmpty || $0.noteTitle.localizedCaseInsensitiveContains(query) || $0["snippet"].text.localizedCaseInsensitiveContains(query) }
-            List(selection: $selection) {
+            List(selection: selection) {
                 if board && !showingArchive {
                     ForEach(Self.stages, id: \.self) { stage in
                         let column = live.filter { $0.stage == stage.key }

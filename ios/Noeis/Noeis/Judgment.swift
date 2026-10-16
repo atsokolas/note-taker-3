@@ -66,7 +66,7 @@ struct HeldView {
 // MARK: The list
 
 struct ViewsList: View {
-    @Binding var selection: Route?
+    var selection: Binding<Route?>?
     @State private var showingSetAside = false
     @State private var holding = false
     @State private var generation = 0
@@ -75,7 +75,7 @@ struct ViewsList: View {
         Loaded(load: { try await NoeisAPI.shared.views().map(HeldView.init).filter { !$0.claim.isEmpty && !$0.judgment["currentJudgment"].text.isEmpty } }) { views, reload in
             let shown = views.filter { $0.setAside == showingSetAside }
                 .sorted { ($0.judgment["lastReviewedAt"]?.date ?? $0.page["updatedAt"]?.date ?? .distantPast) > ($1.judgment["lastReviewedAt"]?.date ?? $1.page["updatedAt"]?.date ?? .distantPast) }
-            List(selection: $selection) {
+            List(selection: selection) {
                 Section {
                     ForEach(shown, id: \.id) { view in
                         NavigationLink(value: Route.view(view.id)) {

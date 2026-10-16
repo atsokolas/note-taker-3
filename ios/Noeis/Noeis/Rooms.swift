@@ -57,7 +57,7 @@ struct Rooms: View {
         TabView(selection: $room) {
             ForEach(Room.allCases) { room in
                 NavigationStack {
-                    RoomList(room: room, selection: .constant(nil))
+                    RoomList(room: room, selection: nil)
                         .toolbar { accountButton }
                         .navigationDestination(for: Route.self) { RouteView(route: $0) }
                 }
@@ -116,15 +116,17 @@ private extension Room {
 
 struct RoomList: View {
     let room: Room
-    @Binding var selection: Route?
+    /// The iPad's detail column. On iPhone it is nil: a list with a selection
+    /// binding selects instead of pushing, so its rows would not open.
+    var selection: Binding<Route?>?
 
     var body: some View {
         switch room {
-        case .wiki: WikiFront(selection: $selection)
-        case .judgment: ViewsList(selection: $selection)
-        case .library: LibraryList(selection: $selection)
-        case .think: NotesList(selection: $selection)
-        case .editions: EditionsFront(selection: $selection)
+        case .wiki: WikiFront(selection: selection)
+        case .judgment: ViewsList(selection: selection)
+        case .library: LibraryList(selection: selection)
+        case .think: NotesList(selection: selection)
+        case .editions: EditionsFront(selection: selection)
         }
     }
 }

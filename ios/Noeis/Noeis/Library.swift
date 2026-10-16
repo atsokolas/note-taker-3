@@ -4,7 +4,7 @@ import UIKit
 // MARK: The list
 
 struct LibraryList: View {
-    @Binding var selection: Route?
+    var selection: Binding<Route?>?
     @State private var query = ""
     @State private var saving = false
     @State private var generation = 0
@@ -14,7 +14,7 @@ struct LibraryList: View {
             let shown = query.isEmpty ? articles : articles.filter {
                 $0["title"].text.localizedCaseInsensitiveContains(query) || $0["siteName"].text.localizedCaseInsensitiveContains(query) || $0["firstGraph"].text.localizedCaseInsensitiveContains(query)
             }
-            List(selection: $selection) {
+            List(selection: selection) {
                 ForEach(shown, id: \.id) { article in
                     NavigationLink(value: Route.article(article.id)) { ArticleRow(article: article) }
                 }

@@ -5,11 +5,11 @@ import SwiftUI
 /// Every paper the agents you connect file for you, each issue newest first,
 /// led by the one finding with the most a reader can check.
 struct EditionsFront: View {
-    @Binding var selection: Route?
+    var selection: Binding<Route?>?
 
     var body: some View {
         Loaded(load: Stand.load) { stand, reload in
-            List(selection: $selection) {
+            List(selection: selection) {
                 if let lead = stand.lead {
                     LeadStory(story: lead).listRowSeparator(.hidden)
                 }
