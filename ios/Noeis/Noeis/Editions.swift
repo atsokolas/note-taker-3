@@ -11,7 +11,7 @@ struct EditionsFront: View {
     @Namespace private var pill
 
     var body: some View {
-        Loaded(load: Stand.load) { stand, reload in
+        Loaded(load: { try await Stand.load() }) { stand, reload in
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
                     if stand.papers.isEmpty {
@@ -40,7 +40,8 @@ struct EditionsFront: View {
     private func bar(_ stand: Stand) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 0) {
-                ForEach([("front", "Front page"), ("stand", "Newsstand")], id: \.0) { key, label in
+                ForEach(["front", "stand"], id: \.self) { key in
+                    let label = key == "front" ? "Front page" : "Newsstand"
                     Button {
                         calmly(.spring(response: 0.34, dampingFraction: 0.86)) { view = key }
                     } label: {
@@ -125,7 +126,7 @@ private struct Stand {
             .sorted { $0.latest.recency > $1.latest.recency }
         guard opening else { return Stand(papers: papers, opened: [:]) }
         let opened = await withTaskGroup(of: JSON?.self) { group in
-            for paper in papers.prefix(8) { group.addTask { try? await NoeisAPI.shared.edition(paper.latest.id) } }
+            for id in papers.prefix(8).map(\.latest.id) { group.addTask { try? await NoeisAPI.shared.edition(id) } }
             return await group.reduce(into: [String: JSON]()) { if let issue = $1 { $0[issue.id] = issue } }
         }
         return Stand(papers: papers, opened: opened)
@@ -150,7 +151,10 @@ private struct Stand {
 
     /// The other papers, each a column of its own stories.
     var columns: [(paper: Paper, stories: [Story])] {
-        papers.filter { $0.profile != lead?.paper.profile }.map { ($0, stories(of: $0)) }.filter { !$0.stories.isEmpty }
+        let lead = self.lead?.paper.profile
+        return papers.filter { $0.profile != lead }
+            .map { (paper: $0, stories: stories(of: $0)) }
+            .filter { !$0.stories.isEmpty }
     }
 
     /// A paper that filed nothing can still say where it looked.
@@ -164,9 +168,9 @@ private struct Stand {
     /// What each paper has been watching: a line in one issue's watch list is
     /// answered by the next issue's follow-ups; a line nobody answered is open.
     var watching: [(status: String, watch: String)] {
-        papers.flatMap { paper -> [(String, String)] in
+        papers.flatMap { paper -> [(status: String, watch: String)] in
             let run = Array(paper.issues.reversed())
-            var threads: [String: (String, String)] = [:]
+            var threads: [String: (status: String, watch: String)] = [:]
             var order: [String] = []
             for (index, issue) in run.enumerated() {
                 for line in (issue["watchNext"]?.array ?? []).map(\.raw) {
@@ -175,22 +179,23 @@ private struct Stand {
                         ? (run[index + 1]["followUps"]?.array ?? []).first { $0["watch"].text.lowercased() == key }
                         : nil
                     if threads[key] == nil { order.append(key) }
-                    threads[key] = (answer?["status"].text ?? "open", line)
+                    threads[key] = (status: answer?["status"].text ?? "open", watch: line)
                 }
             }
-            return order.reversed().compactMap { threads[$0] }.filter { !["happened", "dropped"].contains($0.0) }
+            return order.reversed().compactMap { threads[$0] }.filter { !["happened", "dropped"].contains($0.status) }
         }
     }
 
     /// Who filed what into each paper's newest issue, newest first.
     var wire: [(paper: Paper, name: String, count: Int)] {
-        papers.flatMap { paper in
-            Dictionary(grouping: paper.latest["filings"]?.array ?? []) { agentName($0) ?? "" }
-                .filter { !$0.key.isEmpty }
-                .map { name, filings in (paper: paper, name: name, count: filings.count, at: filings.compactMap { $0["filedAt"]?.date }.max() ?? .distantPast) }
+        typealias Hand = (paper: Paper, name: String, count: Int, at: Date)
+        let hands: [Hand] = papers.flatMap { paper -> [Hand] in
+            let byHand = Dictionary(grouping: paper.latest["filings"]?.array ?? []) { agentName($0) ?? "" }
+            return byHand.compactMap { name, filings -> Hand? in
+                name.isEmpty ? nil : (paper: paper, name: name, count: filings.count, at: filings.compactMap { $0["filedAt"]?.date }.max() ?? .distantPast)
+            }
         }
-        .sorted { $0.at > $1.at }
-        .map { ($0.paper, $0.name, $0.count) }
+        return hands.sorted { $0.at > $1.at }.map { (paper: $0.paper, name: $0.name, count: $0.count) }
     }
 
     /// "3 new findings across 2 papers", or "Every paper read".
