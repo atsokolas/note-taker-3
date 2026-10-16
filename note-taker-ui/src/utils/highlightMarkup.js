@@ -108,10 +108,27 @@ export const applyStoredHighlight = (root, highlight) => {
     });
 };
 
+/* Pasted text is stored as written: blocks separated by blank lines, no markup.
+   Parsed as HTML it would collapse into one run, so each block becomes its own
+   paragraph. A first block that only repeats the title is the title, already
+   set above the body by the reader. */
+const plainTextToHtml = (text, title = '') => {
+  const escape = value => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const blocks = text.split(/\n\s*\n/).map(block => block.trim()).filter(Boolean);
+  if (blocks.length > 1 && blocks[0].replace(/\s+/g, ' ') === String(title).trim()) blocks.shift();
+  return blocks.map(block => `<p>${escape(block).replace(/\n/g, '<br/>')}</p>`).join('\n');
+};
+
+// Markup closes its elements; prose that merely mentions <this> does not.
+const isPlainText = (content) => !/<\/[a-z][a-z0-9]*\s*>|<br\s*\/?>/i.test(content);
+
 export const renderArticleContentWithHighlights = (article, highlights = []) => {
   if (!article?.content) return '';
   const parser = new DOMParser();
-  const doc = parser.parseFromString(article.content, 'text/html');
+  const markup = isPlainText(article.content)
+    ? plainTextToHtml(article.content, article.title)
+    : article.content;
+  const doc = parser.parseFromString(markup, 'text/html');
 
   doc.querySelectorAll('script, style, noscript').forEach(node => node.remove());
   cleanImportedArticleDocument(doc);

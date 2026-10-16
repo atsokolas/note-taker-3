@@ -265,6 +265,12 @@ const WikiFrontPage = ({ initialKind = '' }) => {
   const [wikiSearch, setWikiSearch] = useState('');
   const [searchPages, setSearchPages] = useState(null);
   const [composerOpen, setComposerOpen] = useState(false);
+  const composerRef = useRef(null);
+
+  // "+ New page" opens the composer where it was asked for, ready to type in.
+  useEffect(() => {
+    if (composerOpen) composerRef.current?.querySelector('textarea, input:not([type="hidden"])')?.focus();
+  }, [composerOpen]);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const searchParams = new URLSearchParams(location.search);
   const requestedKind = searchParams.get('kind') || initialKind;
@@ -434,7 +440,15 @@ const WikiFrontPage = ({ initialKind = '' }) => {
                   {proposedCount} proposed change{proposedCount === 1 ? '' : 's'}
                 </Button>
               ) : null}
-              <Button className="wiki-collection__newpage" onClick={() => setComposerOpen(true)}>+ New page</Button>
+              <Button
+                className="wiki-collection__newpage"
+                aria-expanded={emptyComposer || composerOpen}
+                onClick={() => (emptyComposer
+                  ? composerRef.current?.querySelector('textarea, input:not([type="hidden"])')?.focus()
+                  : setComposerOpen(open => !open))}
+              >
+                + New page
+              </Button>
               <Button onClick={openExistingAgent}>Ask</Button>
               <button
                 type="button"
@@ -448,6 +462,12 @@ const WikiFrontPage = ({ initialKind = '' }) => {
             </>
           )}
         />
+
+        {composerOpen && !emptyComposer ? (
+          <section ref={composerRef} className="wiki-collection__composer" aria-label="Build a wiki page">
+            <WikiCreationComposer />
+          </section>
+        ) : null}
 
         <div className="wiki-collection__search">
           <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -554,8 +574,8 @@ const WikiFrontPage = ({ initialKind = '' }) => {
           </p>
         ) : null}
 
-        {emptyComposer || composerOpen ? (
-          <section className="wiki-collection__composer" aria-label="Build a wiki page">
+        {emptyComposer ? (
+          <section ref={composerRef} className="wiki-collection__composer" aria-label="Build a wiki page">
             <WikiCreationComposer />
           </section>
         ) : null}

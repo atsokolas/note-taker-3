@@ -48,6 +48,7 @@ describe('welcomeModel', () => {
 
   it('names a pasted passage by how it begins', () => {
     expect(passageTitle('Remote teams write. They meet less.')).toBe('Remote teams write');
+    expect(passageTitle('Why checklists beat expertise\n\nIn fields where failure costs lives.')).toBe('Why checklists beat expertise');
     expect(passageTitle('Remote teams that write things down make better decisions than teams that rely on meetings.'))
       .toBe('Remote teams that write things down make better decisions…');
   });

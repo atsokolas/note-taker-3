@@ -83,10 +83,20 @@ const Landing = () => {
           <h1>{HOME.headline}</h1>
           <p className="landing-public__lede">{HOME.lede}</p>
           <div className="landing-public__actions">
-            <Button onClick={() => start('hero')}>{HOME.primaryCta.label}</Button>
+            <Button variant="primary" onClick={() => start('hero')}>{HOME.primaryCta.label}</Button>
             <Button onClick={seeHow}>{HOME.secondaryCta.label}</Button>
           </div>
         </div>
+        <figure className="landing-public__specimen" aria-label={HOME.specimen.label}>
+          <p className="landing-public__eyebrow">Your view</p>
+          <p className="landing-public__specimen-view">{HOME.specimen.view}</p>
+          <p className="landing-public__eyebrow">{HOME.specimen.against}</p>
+          <blockquote>{HOME.specimen.quote}</blockquote>
+          <figcaption>{HOME.specimen.source}</figcaption>
+          <p className="landing-public__specimen-choices" aria-hidden="true">
+            {HOME.specimen.choices.map(choice => <span key={choice}>{choice}</span>)}
+          </p>
+        </figure>
       </section>
 
       <section className="landing-public__strip" id="how-it-works" aria-label="How it works">
@@ -100,7 +110,7 @@ const Landing = () => {
 
       <section className="landing-public__support">
         <div>
-          <Button onClick={() => start('footer')}>{HOME.primaryCta.label}</Button>
+          <Button variant="primary" onClick={() => start('footer')}>{HOME.primaryCta.label}</Button>
         </div>
       </section>
 

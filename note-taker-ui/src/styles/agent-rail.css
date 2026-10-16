@@ -419,6 +419,21 @@
   cursor: pointer;
 }
 
+/* On a phone the Partner floats over the end of the page, where a room's last
+   action usually sits. The page keeps a band clear for it, so scrolling to the
+   end brings that action out from under it. */
+@media (max-width: 720px) {
+  .agent-rail-drawer__trigger {
+    bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+    right: 14px;
+  }
+
+  .app-shell-new__body:has(> .agent-rail-drawer__trigger),
+  body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(> .agent-rail-drawer__trigger) {
+    padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
 .agent-rail-drawer {
   position: fixed;
   inset: 0;
