@@ -216,12 +216,20 @@ struct QuietPress: ButtonStyle {
     }
 }
 
+private struct OnPage: ViewModifier {
+    let selected: Bool
+    @Environment(\.palette) private var palette
+
+    func body(content: Content) -> some View {
+        content
+            .listRowBackground(RowPaper(selected: selected))
+            .listRowSeparatorTint(Color(palette.rule))
+    }
+}
+
 extension View {
     /// A row on the page: no slab behind it, and rules in the theme's own colour.
-    func onPage(selected: Bool = false) -> some View {
-        listRowBackground(RowPaper(selected: selected))
-            .listRowSeparatorTint(Ink.rule)
-    }
+    func onPage(selected: Bool = false) -> some View { modifier(OnPage(selected: selected)) }
 
     /// Settles in: a short fade and a small rise, or simply appears under Reduce Motion.
     func arrives() -> some View { modifier(Arrive()) }
