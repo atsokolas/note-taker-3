@@ -47,7 +47,7 @@ struct SettingsView: View {
                     Text("Deleting ends access at once, on every device, and asks us to erase everything you saved, wrote and built. Erasing is done by hand, so it is not instant; until then no one can sign in to it.")
                 }
                 }
-                .listRowBackground(Ink.paper)
+                .listRowBackground(Rectangle().fill(Ink.paper))
             }
             .paper()
             .navigationTitle("Settings")
@@ -111,7 +111,7 @@ private struct ThemePicker: View {
                         }
                     }
                     .accessibilityAddTraits(entry.id == theme.id ? .isSelected : [])
-                    .listRowBackground(Ink.paper)
+                    .listRowBackground(Rectangle().fill(Ink.paper))
                 }
             } header: {
                 VStack(alignment: .leading, spacing: 8) {
