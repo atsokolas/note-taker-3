@@ -62,9 +62,52 @@ body.noeis-editorial .landing-public__footer-links a:hover {
   color: var(--vellum-ink);
 }
 
-body.noeis-editorial .landing-public__hero {
-  max-width: 62ch;
-  padding-bottom: 28px;
+
+/* The right of the fold shows what the headline means: a view, and a passage
+   from the reader's own library pushing against it. */
+body.noeis-editorial .landing-public__specimen {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 22px 24px;
+  border-left: 1px solid var(--vellum-line-strong);
+}
+
+body.noeis-editorial .landing-public__specimen-view {
+  margin: 0 0 10px;
+  font-family: var(--font-serif);
+  font-size: 1.32rem;
+  line-height: 1.25;
+  color: var(--vellum-ink);
+}
+
+body.noeis-editorial .landing-public__specimen blockquote {
+  margin: 0;
+  padding-left: 14px;
+  border-left: 2px solid var(--vellum-warm);
+  font-family: var(--font-serif);
+  font-size: 1.05rem;
+  font-style: italic;
+  line-height: 1.4;
+  color: var(--vellum-ink);
+}
+
+body.noeis-editorial .landing-public__specimen figcaption {
+  font-size: 0.8rem;
+  color: var(--vellum-subtle);
+}
+
+body.noeis-editorial .landing-public__specimen-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  margin: 6px 0 0;
+  font-size: 0.86rem;
+  color: var(--vellum-accent);
+}
+
+body.noeis-editorial .landing-public__specimen-choices span {
+  border-bottom: 1px solid currentColor;
 }
 
 body.noeis-editorial .landing-public__eyebrow {
@@ -179,9 +222,18 @@ body.noeis-editorial .landing-public__support {
 /* The base landing rules above sit at the same specificity, so every
    selector here is scoped one level deeper. */
 body.noeis-editorial .landing-public .landing-public__hero {
-  display: block;
-  max-width: 62ch;
+  display: grid;
+  grid-template-columns: minmax(0, 62ch) minmax(0, 24rem);
+  justify-content: space-between;
+  align-items: end;
+  gap: 48px;
   padding-bottom: 36px;
+}
+
+@media (max-width: 1100px) {
+  body.noeis-editorial .landing-public .landing-public__hero {
+    grid-template-columns: minmax(0, 62ch);
+  }
 }
 
 body.noeis-editorial .landing-public .landing-public__main h1 {
@@ -226,9 +278,31 @@ body.noeis-editorial .landing-public .landing-public__proof:hover {
   color: var(--vellum-ink);
 }
 
-/* Actions are words, here as everywhere else. */
-body.noeis-editorial .landing-public .landing-public__actions .ui-button,
-body.noeis-editorial .landing-public .landing-public__support .ui-button {
+/* Actions are words, here as everywhere else, except the front door itself:
+   "Get started" is the one thing this page wants, so it is set in ink. */
+body.noeis-editorial .landing-public .ui-button.ui-button-primary {
+  min-height: 0;
+  padding: 0.72rem 1.3rem;
+  border: 1px solid var(--vellum-ink) !important;
+  border-radius: 2px !important;
+  background: var(--vellum-ink) !important;
+  color: var(--vellum-bg) !important;
+  font-family: var(--font-sans);
+  font-size: 0.92rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+body.noeis-editorial .landing-public .ui-button.ui-button-primary:hover,
+body.noeis-editorial .landing-public .ui-button.ui-button-primary:focus-visible {
+  background: var(--vellum-warm) !important;
+  border-color: var(--vellum-warm) !important;
+  color: var(--vellum-bg) !important;
+}
+
+body.noeis-editorial .landing-public .landing-public__actions .ui-button:not(.ui-button-primary),
+body.noeis-editorial .landing-public .landing-public__support .ui-button:not(.ui-button-primary) {
   min-height: 0;
   padding: 0;
   border: 0;
@@ -245,10 +319,8 @@ body.noeis-editorial .landing-public .landing-public__support .ui-button {
   text-transform: none;
 }
 
-body.noeis-editorial .landing-public .landing-public__actions .ui-button:hover,
-body.noeis-editorial .landing-public .landing-public__support .ui-button:hover,
-body.noeis-editorial .landing-public .landing-public__actions .ui-button:focus-visible,
-body.noeis-editorial .landing-public .landing-public__support .ui-button:focus-visible {
+body.noeis-editorial .landing-public .landing-public__actions .ui-button:not(.ui-button-primary):hover,
+body.noeis-editorial .landing-public .landing-public__actions .ui-button:not(.ui-button-primary):focus-visible {
   color: var(--vellum-warm) !important;
 }
 
