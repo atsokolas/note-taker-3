@@ -115,6 +115,33 @@ const buildAuthDiscoveryRouter = ({
     }
   });
 
+  /* Delete my account. The password is asked again so a borrowed session
+     cannot close someone's account. Access ends now: every token this
+     account holds stops working because the account check refuses a
+     disabled user. The content itself is erased by the support runbook,
+     which looks for accountDeletionRequestedAt. */
+  router.delete('/api/account', authenticateToken, async (req, res) => {
+    try {
+      const user = await User.findById(req.user.id);
+      if (!user || user.accountDisabledAt) {
+        return res.status(404).json({ error: 'Account not found.' });
+      }
+      const isMatch = await bcrypt.compare(String(req.body?.password || ''), user.password);
+      if (!isMatch) {
+        return res.status(401).json({ error: 'That password is not right.' });
+      }
+      const now = new Date();
+      await User.updateOne(
+        { _id: user._id, accountDisabledAt: null },
+        { $set: { accountDisabledAt: now, accountDeletionRequestedAt: now, 'morningPaper.enabled': false } }
+      );
+      return res.status(200).json({ deleted: true, requestedAt: now.toISOString() });
+    } catch (error) {
+      console.error('❌ Error deleting account:', error);
+      return res.status(500).json({ error: 'Internal server error.' });
+    }
+  });
+
   router.post('/api/recommendations', authenticateToken, async (req, res) => {
     const { articleId, highlightIds } = req.body;
     const userId = req.user.id;

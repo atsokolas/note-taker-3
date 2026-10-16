@@ -68,6 +68,11 @@ const userSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true, trim: true },
   password: { type: String, required: true },
   accountDisabledAt: { type: Date, default: null },
+  /* Set when the owner deletes their account from an app. Access ends at
+     once (accountDisabledAt); the content is erased by the support runbook
+     (docs/noeis-support-erasure-runbook-2026-10-11.md), which finds the
+     requests by this field. */
+  accountDeletionRequestedAt: { type: Date, default: null },
   agentProfile: { type: userAgentProfileSchema, default: () => ({}) },
   agentProtocolPolicy: { type: userAgentProtocolPolicySchema, default: () => ({}) },
   morningPaper: { type: morningPaperSettingsSchema, default: () => ({}) }
