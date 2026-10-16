@@ -17,6 +17,8 @@ const MISSING_EVIDENCE = new RegExp([
   /\bevidence gap\b/.source
 ].join('|'), 'i');
 const DECISION_DOSSIER_MIN_CLAIMS = 20;
+// Arithmetic shown in the sentence: "$5.24tn x 1.10^5", "($217.53 / $4.90)".
+const WORKING = /\d\s*(?:[x×*\/^=≈]|raised to the)\s*\(?\$?\d/i;
 const REPRODUCIBLE_MODULE_IDS = Object.freeze([
   'reverse_expectations',
   'unit_economics_cash_conversion'
@@ -116,7 +118,7 @@ const evaluateInvestmentDossierQuality = ({
   // found in a filing; the last is held to the figure check instead.
   const exploratoryUnsupportedClaims = unsupportedClaims.filter(claim => (
     /thesis-changing questions|what would change the thesis/i.test(clean(claim?.section))
-    || (/implied expectations/i.test(clean(claim?.section)) && figuresIn(claim?.text).length && !ungrounded.includes(claim))
+    || (/implied expectations/i.test(clean(claim?.section)) && WORKING.test(clean(claim?.text)) && !ungrounded.includes(claim))
   ));
   const blockingUnsupportedClaims = unsupportedClaims.filter(claim => (
     !exploratoryUnsupportedClaims.includes(claim)

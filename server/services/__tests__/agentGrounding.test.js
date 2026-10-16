@@ -140,6 +140,7 @@ describe('unstatedFigures', () => {
     const commitments = ['Commitments were $119 billion and are $279 billion.'];
     expect(unstatedFigures('Commitments nearly quadrupled from $119 billion to $279 billion.', commitments)).toEqual(['quadrupled from $119 billion to $279 billion']);
     expect(unstatedFigures('Commitments more than doubled from $119 billion to $279 billion.', commitments)).toEqual([]);
+    expect(unstatedFigures('Commitments doubled from $279 billion to $119 billion.', commitments)).toEqual(['doubled from $279 billion to $119 billion']);
     expect(unstatedFigures('The dividend doubled; revenue was $96 billion and capex $6 billion.', ['Revenue $96 billion, capex $6 billion.'])).toEqual([]);
     expect(unstatedFigures('Operating income rose from $7.79bn to $11.69bn, about 10.7% a year (($11.69bn / $7.79bn)^(1/4) - 1).', ['$7,793 million; $11,690 million'])).toEqual([]);
   });

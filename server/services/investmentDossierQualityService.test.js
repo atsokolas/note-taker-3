@@ -172,6 +172,7 @@ const implied = text => evaluateInvestmentDossierQuality({
 });
 assert.strictEqual(implied('A 10% hurdle needs the $432.8bn to reach about $697bn in five years (1.10 raised to the 5th power).').ok, true);
 assert.strictEqual(implied('A 10% hurdle needs the $432.8bn to reach about $750bn in five years (1.10 raised to the 5th power).').ok, false);
+assert.strictEqual(implied('At $432.8bn, the company has an unassailable moat.').ok, false);
 assert.strictEqual(framing('Whether 7%-8% comparable growth lasts could not be found in any independent source.').ok, false);
 assert.strictEqual(evaluateInvestmentDossierQuality({
   page: { investmentDossier: { ...profile, hurdle: { annualReturn: 0.1, horizonYears: 5 } } },
