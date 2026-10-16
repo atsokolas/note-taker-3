@@ -29,7 +29,10 @@ app.use(buildJudgmentResolutionRouter({
   highlightForQuote: async input => { quotes.push(input); return { highlight: { _id: '64f500000000000000000050' } }; },
   buildJudgmentMirror: async input => { calls.push(['mirror', input]); return { metrics: { claimsHeld: 1 } }; },
   comesDue: async ({ userId }) => ({ pageId: PAGE_ID, view: `${userId} said so.`, by: '2026-10-12T12:00:00.000Z' }),
-  viewBearingOn: async ({ text }) => (text.includes('meetings') ? { pageId: PAGE_ID, view: 'user-1 said so.' } : null),
+  viewBearingOn: async ({ text, origin }) => {
+    calls.push(['bearing', origin]);
+    return text.includes('meetings') ? { pageId: PAGE_ID, view: 'user-1 said so.' } : null;
+  },
   findEarlierPassages: async ({ claim }) => ({
     candidates: !claim.includes('meetings') ? [] : [
       { kind: 'source', articleId: '64f500000000000000000031', text: 'A whole article.' },
@@ -37,7 +40,13 @@ app.use(buildJudgmentResolutionRouter({
       { kind: 'highlight', articleId: '64f500000000000000000032', highlightId: 'h-1', sourceLabel: 'On writing', text: 'Memos outlast meetings.', savedAt: '2026-03-03' }
     ]
   }),
-  trackEvent: event => events.push(event)
+  trackEvent: event => events.push(event),
+  WikiPage: {
+    updateOne: async (filter, update) => {
+      calls.push(['notAbout', filter, update]);
+      return { matchedCount: filter._id === PAGE_ID ? 1 : 0 };
+    }
+  }
 }));
 
 const server = app.listen(0, '127.0.0.1', async () => {
@@ -86,8 +95,10 @@ const server = app.listen(0, '127.0.0.1', async () => {
     // due, and a passage marked in another source, never this one.
     const margin = await request('/api/judgment/margin', {
       method: 'POST',
-      body: { text: 'Decisions written down outlast meetings.', articleId: '64f500000000000000000030' }
+      body: { text: 'Decisions written down outlast meetings.', articleId: '64f500000000000000000030', highlightId: '64f500000000000000000040' }
     });
+    // The margin asks about this passage, so a view it was decided on stays decided.
+    assert.strictEqual(calls.filter(call => call[0] === 'bearing').pop()[1], 'highlight:64f500000000000000000030:64f500000000000000000040');
     assert.deepStrictEqual(margin.body, {
       view: { pageId: PAGE_ID, view: 'user-1 said so.', dueBy: '2026-10-12T12:00:00.000Z' },
       before: {
@@ -101,6 +112,17 @@ const server = app.listen(0, '127.0.0.1', async () => {
     const quiet = await request('/api/judgment/margin', { method: 'POST', body: { text: 'Nothing here.', articleId: '64f500000000000000000032' } });
     assert.deepStrictEqual(quiet.body, { view: null, before: null });
     assert.strictEqual((await request('/api/judgment/margin', { method: 'POST', body: {} })).response.status, 400);
+
+    // "Not about this" sets the passage aside on that view, owner-scoped, and only by real ids.
+    const aside = { articleId: '64f500000000000000000030', highlightId: '64f500000000000000000040' };
+    assert.strictEqual((await request(`/api/judgment/pages/${PAGE_ID}/not-about`, { method: 'POST', body: aside })).response.status, 200);
+    assert.deepStrictEqual(calls.filter(call => call[0] === 'notAbout').pop().slice(1), [
+      { _id: PAGE_ID, userId: 'user-1' },
+      { $addToSet: { 'judgment.notAboutIds': 'highlight:64f500000000000000000030:64f500000000000000000040' } }
+    ]);
+    assert.strictEqual((await request('/api/judgment/pages/64f500000000000000000099/not-about', { method: 'POST', body: aside })).response.status, 404);
+    assert.strictEqual((await request(`/api/judgment/pages/${PAGE_ID}/not-about`, { method: 'POST', body: { articleId: 'x' } })).response.status, 400);
+    assert.strictEqual((await request(`/api/judgment/pages/${PAGE_ID}/not-about`, { method: 'POST', body: aside, token: 'agent' })).response.status, 403);
     console.log('judgmentResolutionRoutes tests passed');
   } catch (error) {
     console.error(error);

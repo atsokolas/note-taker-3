@@ -192,6 +192,16 @@ describe('in the margin', () => {
     expect(await viewBearingOn({ userId: 'u1', text: marked, WikiPage, embed: null })).toBeNull();
     expect(await viewBearingOn({ userId: 'u1', text: 'Membership renewals.', WikiPage, embed })).toBeNull();
   });
+
+  it('does not offer a view again once this passage is filed under it or set aside', async () => {
+    const origin = 'highlight:a1:h1';
+    for (const judgment of [{ notAboutIds: [origin] }, { why: [{ acceptedFrom: origin }] }, { against: [{ acceptedFrom: origin }] }]) {
+      const { WikiPage } = world();
+      Object.assign(WikiPage.rows[0].judgment, judgment);
+      expect(await viewBearingOn({ userId: 'u1', text: marked, origin, WikiPage, embed })).toBeNull();
+      expect(await viewBearingOn({ userId: 'u1', text: marked, origin: 'highlight:a1:h2', WikiPage, embed })).toMatchObject({ pageId: 'v1' });
+    }
+  });
 });
 
 describe('the reader version', () => {

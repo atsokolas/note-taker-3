@@ -82,11 +82,13 @@ const buildJudgmentResolutionRouter = ({
   router.post('/api/judgment/margin', authenticateToken, requireAuthenticatedUser, async (req, res) => {
     const text = String(req.body?.text || '').trim().slice(0, 2000);
     const articleId = String(req.body?.articleId || '');
+    const highlightId = String(req.body?.highlightId || '');
     if (!text) return res.status(400).json({ error: 'Mark a passage first.' });
     try {
       const userId = req.user.id;
+      const origin = articleId && highlightId ? `highlight:${articleId}:${highlightId}` : '';
       const [view, due, earlier] = await Promise.all([
-        viewBearingOn({ userId, text, WikiPage: models.WikiPage }),
+        viewBearingOn({ userId, text, origin, WikiPage: models.WikiPage }),
         comesDue({ userId, WikiPage: models.WikiPage }),
         findEarlierPassages({ Article: models.Article, userId, claim: text, limit: 6 })
       ]);
@@ -102,6 +104,26 @@ const buildJudgmentResolutionRouter = ({
           savedAt: before.savedAt
         }
       });
+    } catch (error) {
+      return sendError(res, error);
+    }
+  });
+
+  /* "Not about this" from the margin: the passage is set aside on that view,
+     the same list the view's own page keeps, so neither offers it again. */
+  router.post('/api/judgment/pages/:pageId/not-about', authenticateToken, requireAuthenticatedUser, requireHumanOwner, async (req, res) => {
+    const { pageId } = req.params;
+    const { articleId, highlightId } = req.body || {};
+    if (![pageId, articleId, highlightId].every(isObjectId)) {
+      return res.status(400).json({ error: 'That passage could not be set aside.' });
+    }
+    try {
+      const set = await models.WikiPage.updateOne(
+        { _id: pageId, userId: req.user.id },
+        { $addToSet: { 'judgment.notAboutIds': `highlight:${articleId}:${highlightId}` } }
+      );
+      if (!set?.matchedCount) return res.status(404).json({ error: 'That view is no longer here.' });
+      return res.status(200).json({ ok: true });
     } catch (error) {
       return sendError(res, error);
     }

@@ -124,13 +124,15 @@
   });
 
   /* Where saved words are on the page now, ignoring the whitespace that a
-     selection and a page lay out differently. */
+     selection and a page lay out differently. Words already marked are passed
+     over, so a passage saved twice lands on its second appearance, not inside
+     its first. */
   const rangeOf = (text) => {
     const want = String(text || '').replace(/\s+/g, '');
     if (!want) return null;
     let flat = '';
     const at = [];
-    textNodes(document.body).forEach((node) => {
+    textNodes(document.body, node => !node.parentElement?.closest('noeis-mark')).forEach((node) => {
       for (let index = 0; index < node.data.length; index += 1) {
         if (/\s/.test(node.data[index])) continue;
         flat += node.data[index];
@@ -270,7 +272,14 @@
       settle(bears, `Filed ${field === 'why' ? 'for' : 'against'} `, link(href, 'your view'), '.');
     };
     const bears = h('div', { class: 'row' }, h('p', {}, 'This bears on your view that ', link(href, sentence(view.view)), '.'));
-    bears.append(choices(bears, [['File for', file('why')], ['File against', file('against')], ['Not about this', async () => bears.remove(), true]]));
+    const notAbout = async () => {
+      await api(`/api/judgment/pages/${encodeURIComponent(view.pageId)}/not-about`, {
+        method: 'POST',
+        body: { articleId: article.id, highlightId: passage.id }
+      });
+      bears.remove();
+    };
+    bears.append(choices(bears, [['File for', file('why')], ['File against', file('against')], ['Not about this', notAbout, true]]));
     if (!view.dueBy) return [bears];
 
     const due = h('div', { class: 'row' }, h('p', {}, `You said you’d know by ${onDay(view.dueBy)}. Did it hold up?`));
@@ -301,7 +310,7 @@
       holdRow(passage),
       reading
     ]);
-    const margin = await api('/api/judgment/margin', { method: 'POST', body: { text: passage.text, articleId: article.id } })
+    const margin = await api('/api/judgment/margin', { method: 'POST', body: { text: passage.text, articleId: article.id, highlightId: passage.id } })
       .catch(() => ({}));
     reading.replaceWith(...[
       ...(margin.view ? viewRows(passage, margin.view) : []),

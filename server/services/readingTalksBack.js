@@ -73,7 +73,7 @@ const heldSince = page => time(page?.judgment?.startedAt) ?? time(page?.judgment
 const alreadyFiled = (page, articleId) => [...list(page?.judgment?.why), ...list(page?.judgment?.against)]
   .some(reason => String(reason?.acceptedFrom || '').startsWith(`highlight:${articleId}:`));
 
-const VIEW_FIELDS = '_id title createdAt judgment.currentJudgment judgment.status judgment.startedAt judgment.bornAt judgment.verdicts judgment.why judgment.against judgment.resolutionCriteria judgment.falsifiers';
+const VIEW_FIELDS = '_id title createdAt judgment.currentJudgment judgment.status judgment.startedAt judgment.bornAt judgment.verdicts judgment.why judgment.against judgment.notAboutIds judgment.resolutionCriteria judgment.falsifiers';
 const heldViews = async ({ WikiPage, userId }) => (await WikiPage.find({
   userId,
   status: { $ne: 'archived' },
@@ -442,12 +442,19 @@ const setOppositeAside = ({ entryId, userId, key, models: { NotebookEntry }, now
    Eligibility: held, unresolved views, the same as a source's arrival.
    Quality bar: meaning alone, at the semantic floor. Shared words only say
    the passage is near a view in topic, which is not bearing on it.
+   A view the reader already filed this passage under, or said it is not
+   about, is decided and never offered again.
    Silence: no embeddings, no view above the floor, or a passage too short to
    mean anything, and the margin says nothing about views. */
-const viewBearingOn = async ({ userId, text, WikiPage, embed = defaultEmbed() } = {}) => {
+const decidedOn = (page, origin) => [
+  ...list(page?.judgment?.notAboutIds),
+  ...[...list(page?.judgment?.why), ...list(page?.judgment?.against)].map(reason => reason?.acceptedFrom)
+].includes(origin);
+
+const viewBearingOn = async ({ userId, text, origin = '', WikiPage, embed = defaultEmbed() } = {}) => {
   const passage = clean(text, 2000);
   if (!embed || !WikiPage?.find || words(passage).length < MIN_QUOTE_WORDS) return null;
-  const views = await heldViews({ WikiPage, userId });
+  const views = (await heldViews({ WikiPage, userId })).filter(page => !origin || !decidedOn(page, origin));
   const near = await nearest({ views, passages: [passage], embed, textOf: sentenceOf });
   const [best] = [...near.entries()]
     .filter(([, found]) => found.length)
