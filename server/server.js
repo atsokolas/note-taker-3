@@ -654,12 +654,6 @@ const {
   AGENT_TOKEN_PREFIX
 } = require('./services/agentTokenService');
 const { buildAgentWriteBoundaryRouter } = require('./routes/agentWriteBoundaryRoutes');
-const { buildAgentMemoryApprovalRouter } = require('./routes/agentMemoryApprovalRoutes');
-const {
-  createMemoryCommitApproval,
-  executeMemoryCommitApproval,
-  MEMORY_APPROVAL_OP
-} = require('./services/agentMemoryApprovals');
 const { buildConceptSuggestionRouter } = require('./routes/conceptSuggestionRoutes');
 const { buildConceptPinRouter } = require('./routes/conceptPinRoutes');
 const { buildTagInsightRouter } = require('./routes/tagInsightRoutes');
@@ -2912,26 +2906,6 @@ const approveProtocolApproval = async ({
 
   try {
     const approvalOp = String(approval.op || '').trim().toLowerCase();
-    if (approvalOp === MEMORY_APPROVAL_OP) {
-      const result = await executeMemoryCommitApproval({
-        WorkingMemoryItem,
-        approval
-      });
-      approval.status = 'executed';
-      approval.executedAt = new Date();
-      approval.result = result && typeof result === 'object'
-        ? {
-            createdCount: Number(result.createdCount || 0),
-            skippedExistingCount: Number(result.skippedExistingCount || 0),
-            itemCount: Number(result.itemCount || 0)
-          }
-        : {};
-      await approval.save();
-      return {
-        approval: sanitizeProtocolApprovalDoc(approval),
-        result: approval.result
-      };
-    }
     if (approvalOp === 'runs.resume') {
       const runId = String(approval.payload?.runId || '').trim();
       if (!mongoose.Types.ObjectId.isValid(runId)) {
@@ -5734,11 +5708,6 @@ app.use(buildAgentWriteBoundaryRouter({
   getAgentWriteBoundarySummary
 }));
 
-app.use(buildAgentMemoryApprovalRouter({
-  authenticateToken,
-  AgentProtocolApproval,
-  createMemoryCommitApproval
-}));
 
 app.use(buildAgentChatRouter({
   authenticateToken,
