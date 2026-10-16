@@ -21,6 +21,22 @@
 .editions__empty { margin: 40px 0; max-width: 58ch; }
 .editions__empty h2 { margin: 0 0 10px; font-size: 1.4rem; }
 .editions__empty p { margin: 0 0 8px; line-height: 1.55; }
+.editions__specimen {
+  margin: 20px 0 22px;
+  padding: 16px 18px;
+  border-left: 2px solid var(--vellum-line, var(--border));
+}
+.editions__specimen figcaption,
+.editions__specimen-issue {
+  margin: 0 0 6px;
+  color: color-mix(in srgb, var(--text-muted) 86%, transparent);
+  font-family: var(--font-sans);
+  font-size: 0.66rem;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+.editions__specimen-headline { margin: 0 0 8px; font-family: var(--font-serif); font-size: 1.18rem; line-height: 1.35; }
+.editions__specimen-source { margin: 0; color: color-mix(in srgb, var(--text-muted) 86%, transparent); font-size: 0.86rem; }
 .editions__aside { color: color-mix(in srgb, var(--text-muted) 86%, transparent); }
 
 /* The line on the Connected agents card that says what a connected agent can

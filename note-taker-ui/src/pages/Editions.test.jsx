@@ -417,3 +417,11 @@ it('says what became of the last watch list, and keeps the paper’s threads at 
   expect(within(watching).getByText('Settled')).toBeVisible();
 });
 
+it('shows an empty account what a paper is and the one door to get one', async () => {
+  mockId = undefined;
+  api.listEditions.mockResolvedValue([]);
+  render(<Editions />);
+  expect(await screen.findByRole('heading', { name: 'No paper yet.' })).toBeVisible();
+  expect(screen.getByText('An example finding')).toBeVisible();
+  expect(screen.getByRole('link', { name: 'Connect an agent' })).toHaveAttribute('href', '/connections');
+});

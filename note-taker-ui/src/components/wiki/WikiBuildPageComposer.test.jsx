@@ -250,9 +250,8 @@ describe('WikiBuildPageComposer', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Build page' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Failed to build this repo wiki.');
-    fireEvent.click(screen.getByRole('button', { name: /expand .* trace history/i }));
-    expect(screen.getByLabelText('Wiki build trace')).toHaveTextContent('repo wiki failed · openai/private-repo');
+    expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't build a wiki for openai/private-repo. Try again.");
+    expect(screen.queryByLabelText('Wiki build trace')).not.toBeInTheDocument();
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 
@@ -271,12 +270,9 @@ describe('WikiBuildPageComposer', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Build page' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Failed to build this wiki page.');
-    fireEvent.click(screen.getByRole('button', { name: /expand .* trace history/i }));
-    expect(screen.getByLabelText('Wiki build trace')).toHaveTextContent('build failed · Broken page');
-    await waitFor(() => {
-      expect(screen.getByLabelText('Wiki build trace')).toHaveTextContent('waiting for a retry');
-    });
+    expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't build “Broken page”. Try again.");
+    expect(screen.queryByLabelText('Wiki build trace')).not.toBeInTheDocument();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
     expect(streamMaintainWikiPage).not.toHaveBeenCalled();
     expect(mockNavigate).not.toHaveBeenCalled();
   });
@@ -298,12 +294,10 @@ describe('WikiBuildPageComposer', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Build page' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('No direct Library source explains');
-    fireEvent.click(screen.getByRole('button', { name: /expand .* trace history/i }));
-    expect(screen.getByLabelText('Wiki build trace')).toHaveTextContent('no direct evidence · Roman concrete');
-    await waitFor(() => {
-      expect(screen.getByLabelText('Wiki build trace')).toHaveTextContent('closest Library material · Concrete market');
-    });
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('No direct Library source explains');
+    expect(alert).toHaveTextContent('Closest in your Library: Concrete markets.');
+    expect(screen.queryByLabelText('Wiki build trace')).not.toBeInTheDocument();
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 });

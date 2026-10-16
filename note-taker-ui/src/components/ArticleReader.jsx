@@ -561,11 +561,7 @@ const ArticleReader = ({
               onChange={keep}
             />
           ) : null}
-          {onMove && (
-            <Button variant="quiet" onClick={onMove}>
-              Move
-            </Button>
-          )}
+          {onMove ? <button type="button" className="source-decision" onClick={onMove}>Move</button> : null}
         </div>
       </div>
       {new URLSearchParams(location.search).has('searchMissing') ? <p role="status">The matching text could not be located in the readable source. Your source record is still here.</p> : null}
