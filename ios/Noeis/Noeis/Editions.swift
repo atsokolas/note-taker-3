@@ -220,7 +220,7 @@ private struct IssuePage: View {
                     if let watching = edition["watchNext"]?.array, !watching.isEmpty {
                         VStack(alignment: .leading, spacing: 8) {
                             Kicker("Watching for next time")
-                            ForEach(watching, id: \.self) { Text("· \($0.text)").font(.callout).foregroundStyle(Ink.muted) }
+                            ForEach(watching, id: \.self) { Text("· \($0.raw)").font(.callout).foregroundStyle(Ink.muted) }
                         }
                     }
 
@@ -239,7 +239,7 @@ private struct IssuePage: View {
                 DispatchQueue.main.async { proxy.scrollTo(focus, anchor: .top) }
             }
         }
-        .onChange(of: loaded) { edition = nil }
+        .onChange(of: loaded) { self.edition = nil }
     }
 
     private static let watch = ["open": "Open", "not_yet": "Not yet", "happened": "Happened", "dropped": "Dropped"]
