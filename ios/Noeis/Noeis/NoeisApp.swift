@@ -5,6 +5,18 @@ struct NoeisApp: App {
     @StateObject private var session = Session()
     @StateObject private var theme = Theme()
 
+    /// Page titles in the reading serif, as on the web.
+    init() {
+        func serif(_ style: UIFont.TextStyle, _ weight: UIFont.Weight) -> UIFont {
+            let base = UIFont.preferredFont(forTextStyle: style).fontDescriptor
+            let descriptor = (base.withDesign(.serif) ?? base).addingAttributes([.traits: [UIFontDescriptor.TraitKey.weight: weight]])
+            return UIFont(descriptor: descriptor, size: 0)
+        }
+        let bar = UINavigationBar.appearance()
+        bar.largeTitleTextAttributes = [.font: serif(.largeTitle, .semibold)]
+        bar.titleTextAttributes = [.font: serif(.headline, .semibold)]
+    }
+
     var body: some Scene {
         WindowGroup {
             Group {

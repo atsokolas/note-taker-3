@@ -66,7 +66,6 @@ struct HeldView {
 // MARK: The list
 
 struct ViewsList: View {
-    var selection: Binding<Route?>?
     @State private var showingSetAside = false
     @State private var holding = false
     @State private var generation = 0
@@ -75,22 +74,22 @@ struct ViewsList: View {
         Loaded(load: { try await NoeisAPI.shared.views().map(HeldView.init).filter { !$0.claim.isEmpty && !$0.judgment["currentJudgment"].text.isEmpty } }) { views, reload in
             let shown = views.filter { $0.setAside == showingSetAside }
                 .sorted { ($0.judgment["lastReviewedAt"]?.date ?? $0.page["updatedAt"]?.date ?? .distantPast) > ($1.judgment["lastReviewedAt"]?.date ?? $1.page["updatedAt"]?.date ?? .distantPast) }
-            List(selection: selection) {
+            List {
                 Section {
                     ForEach(shown, id: \.id) { view in
-                        NavigationLink(value: Route.view(view.id)) {
+                        RouteRow(route: .view(view.id)) {
                             VStack(alignment: .leading, spacing: 6) {
                                 if view.due { Kicker("Comes due", color: Ink.thread) }
-                                Text(view.claim).font(.system(.body, design: .serif))
-                                Text(view.card).font(.caption).foregroundStyle(Ink.subtle)
+                                Text(view.claim).font(.rowTitle)
+                                Text(view.card).font(.meta).foregroundStyle(Ink.subtle)
                             }
-                            .padding(.vertical, 6)
+                            .padding(.vertical, 10)
                         }
                     }
                 } footer: {
                     if shown.isEmpty {
                         Text(showingSetAside ? "Nothing set aside." : "Write down something you believe. Every passage you save is read against it, for or against.")
-                            .font(.callout).foregroundStyle(Ink.muted).padding(.top, 8)
+                            .font(.dek).foregroundStyle(Ink.muted).padding(.top, 8)
                     }
                 }
             }

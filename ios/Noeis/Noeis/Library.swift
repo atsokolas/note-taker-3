@@ -4,7 +4,6 @@ import UIKit
 // MARK: The list
 
 struct LibraryList: View {
-    var selection: Binding<Route?>?
     @State private var query = ""
     @State private var saving = false
     @State private var generation = 0
@@ -14,9 +13,9 @@ struct LibraryList: View {
             let shown = query.isEmpty ? articles : articles.filter {
                 $0["title"].text.localizedCaseInsensitiveContains(query) || $0["siteName"].text.localizedCaseInsensitiveContains(query) || $0["firstGraph"].text.localizedCaseInsensitiveContains(query)
             }
-            List(selection: selection) {
+            List {
                 ForEach(shown, id: \.id) { article in
-                    NavigationLink(value: Route.article(article.id)) { ArticleRow(article: article) }
+                    RouteRow(route: .article(article.id)) { ArticleRow(article: article) }
                 }
             }
             .listStyle(.plain)
@@ -47,12 +46,12 @@ private struct ArticleRow: View {
     let article: JSON
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
+        VStack(alignment: .leading, spacing: 6) {
             Text(article["title"].text.isEmpty ? "Untitled" : article["title"].text)
-                .font(.system(.headline, design: .serif))
+                .font(.rowTitle)
                 .lineLimit(3)
             if !article["firstGraph"].text.isEmpty {
-                Text(article["firstGraph"].text).font(.callout).foregroundStyle(Ink.muted).lineLimit(2)
+                Text(article["firstGraph"].text).font(.dek).foregroundStyle(Ink.muted).lineLimit(2)
             }
             HStack(spacing: 6) {
                 Text(article.byline)
@@ -61,10 +60,10 @@ private struct ArticleRow: View {
                     Text("· \(Int(ratio * 100))% read")
                 }
             }
-            .font(.caption)
+            .font(.meta)
             .foregroundStyle(Ink.subtle)
         }
-        .padding(.vertical, 6)
+        .padding(.vertical, 10)
     }
 }
 

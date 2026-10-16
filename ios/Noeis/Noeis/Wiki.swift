@@ -4,17 +4,16 @@ import SwiftUI
 
 /// What the reading built, and what changed since you last looked.
 struct WikiFront: View {
-    var selection: Binding<Route?>?
     @AppStorage("wiki.lastLooked") private var lastLooked = Date().addingTimeInterval(-7 * 86_400).timeIntervalSince1970
     @State private var query = ""
     @State private var dossiersOnly = false
 
     var body: some View {
         Loaded(load: load) { front, reload in
-            List(selection: selection) {
+            List {
                 if query.isEmpty && !dossiersOnly {
-                    if let due = front.due { DueCard(due: due).listRowSeparator(.hidden) }
-                    if let reading = front.argues { ArguesCard(reading: reading, onFiled: reload).listRowSeparator(.hidden) }
+                    if let due = front.due { DueCard(due: due).listRowSeparator(.hidden).onPage() }
+                    if let reading = front.argues { ArguesCard(reading: reading, onFiled: reload).listRowSeparator(.hidden).onPage() }
                     if !front.changes.isEmpty {
                         Section { ForEach(front.changes, id: \.self) { ChangeRow(change: $0) } } header: { Kicker("Since you looked") }
                     }
@@ -22,11 +21,11 @@ struct WikiFront: View {
                 Section {
                     let pages = shown(front.pages)
                     ForEach(pages, id: \.id) { page in
-                        NavigationLink(value: Route.wikiPage(page.id)) { WikiRow(page: page) }
+                        RouteRow(route: .wikiPage(page.id)) { WikiRow(page: page) }
                     }
                     if pages.isEmpty {
                         Text(query.isEmpty ? "No pages yet. Pages appear as Noeis builds them from what you save." : "No page matches “\(query)”.")
-                            .font(.callout).foregroundStyle(Ink.muted)
+                            .font(.dek).foregroundStyle(Ink.muted).onPage()
                     }
                 } header: {
                     Kicker(dossiersOnly ? "Dossiers" : "Pages")
@@ -156,13 +155,13 @@ private struct ChangeRow: View {
     let change: JSON
 
     var body: some View {
-        NavigationLink(value: Route.wikiPage(change["pageId"].text)) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(change["title"].text).font(.headline)
-                Text(change["sentence"].text).font(.callout).foregroundStyle(Ink.muted)
-                Text(byline).font(.caption).foregroundStyle(Ink.subtle)
+        RouteRow(route: .wikiPage(change["pageId"].text)) {
+            VStack(alignment: .leading, spacing: 5) {
+                Text(change["title"].text).font(.rowTitle)
+                Text(change["sentence"].text).font(.dek).foregroundStyle(Ink.muted)
+                Text(byline).font(.meta).foregroundStyle(Ink.subtle)
             }
-            .padding(.vertical, 4)
+            .padding(.vertical, 8)
         }
     }
 
@@ -178,20 +177,20 @@ private struct WikiRow: View {
     let page: JSON
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            Text(page["title"].text).font(.system(.headline, design: .serif))
+        VStack(alignment: .leading, spacing: 6) {
+            Text(page["title"].text).font(.rowTitle)
             if !page.dek.isEmpty {
-                Text(page.dek).font(.callout).foregroundStyle(Ink.muted).lineLimit(2)
+                Text(page.dek).font(.dek).foregroundStyle(Ink.muted).lineLimit(2)
             }
             HStack(spacing: 6) {
                 if page.at("investmentDossier.version") != nil { Text("Dossier") }
                 if page.at("aiState.candidateStatus").text.hasPrefix("awaiting_") { Text("Proposed change").foregroundStyle(Ink.thread) }
                 if let at = page["updatedAt"]?.date { Text(at.shortDay) }
             }
-            .font(.caption)
+            .font(.meta)
             .foregroundStyle(Ink.subtle)
         }
-        .padding(.vertical, 6)
+        .padding(.vertical, 10)
     }
 }
 

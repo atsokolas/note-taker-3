@@ -105,6 +105,14 @@ extension Font {
     static let reading = Font.system(.body, design: .serif)
     static let readingLarge = Font.system(.title3, design: .serif)
     static let quote = Font.system(.callout, design: .serif).italic()
+    /// The web's light display serif, for the head of a page.
+    static let display = Font.system(.largeTitle, design: .serif).weight(.light)
+    /// A row's title: the serif, set firmly so a list reads at a glance.
+    static let rowTitle = Font.system(.title3, design: .serif).weight(.semibold)
+    /// The line under a row's title, in the reading voice.
+    static let dek = Font.system(.callout, design: .serif).italic()
+    /// Dates, counts, sources: the quiet sans under everything.
+    static let meta = Font.caption
 }
 
 /// Motion that honours Reduce Motion: with it on, the change simply happens.
@@ -171,6 +179,7 @@ struct Passage: View {
     }
 }
 
+/// The web's small capitals, for every quiet heading.
 struct Kicker: View {
     let text: String
     var color = Ink.subtle
@@ -178,9 +187,57 @@ struct Kicker: View {
 
     var body: some View {
         Text(text.uppercased())
-            .font(.caption.weight(.semibold))
-            .tracking(0.8)
+            .font(.caption2.weight(.bold))
+            .tracking(1.4)
             .foregroundStyle(color)
+    }
+}
+
+/// What a list row stands on: the page itself, never a slab of its own. The
+/// row in the detail column takes a quiet wash of the thread and a rule at its
+/// edge, and its text keeps full contrast.
+struct RowPaper: View {
+    var selected = false
+
+    var body: some View {
+        ZStack(alignment: .leading) {
+            Rectangle().fill(selected ? AnyShapeStyle(Ink.thread.opacity(0.12)) : AnyShapeStyle(Color.clear))
+            if selected { Rectangle().fill(Ink.thread).frame(width: 3) }
+        }
+    }
+}
+
+/// A press that answers the finger: the row dims a touch and settles back.
+struct QuietPress: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .opacity(configuration.isPressed ? 0.6 : 1)
+            .calmAnimation(.easeOut(duration: 0.15), value: configuration.isPressed)
+    }
+}
+
+extension View {
+    /// A row on the page: no slab behind it, and rules in the theme's own colour.
+    func onPage(selected: Bool = false) -> some View {
+        listRowBackground(RowPaper(selected: selected))
+            .listRowSeparatorTint(Ink.rule)
+    }
+
+    /// Settles in: a short fade and a small rise, or simply appears under Reduce Motion.
+    func arrives() -> some View { modifier(Arrive()) }
+}
+
+private struct Arrive: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var shown = false
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(shown ? 1 : 0)
+            .offset(y: shown || reduceMotion ? 0 : 8)
+            .onAppear {
+                if reduceMotion { shown = true } else { withAnimation(.easeOut(duration: 0.32)) { shown = true } }
+            }
     }
 }
 

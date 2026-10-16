@@ -4,7 +4,6 @@ import SwiftUI
 
 /// What you wrote: notes, or the same notes as a board (Ideas, In progress, Done).
 struct NotesList: View {
-    var selection: Binding<Route?>?
     @AppStorage("think.board") private var board = false
     @State private var showingArchive = false
     @State private var writing = false
@@ -19,13 +18,13 @@ struct NotesList: View {
         Loaded(load: { try await NoeisAPI.shared.notes() }) { notes, reload in
             let live = notes.filter { ($0.at("board.archivedAt") == nil || $0.at("board.archivedAt") == .null) != showingArchive }
                 .filter { query.isEmpty || $0.noteTitle.localizedCaseInsensitiveContains(query) || $0["snippet"].text.localizedCaseInsensitiveContains(query) }
-            List(selection: selection) {
+            List {
                 if board && !showingArchive {
                     ForEach(Self.stages, id: \.self) { stage in
                         let column = live.filter { $0.stage == stage.key }
                         Section {
                             ForEach(column, id: \.id) { note in row(note, reload: reload) }
-                            if column.isEmpty { Text("Nothing here.").font(.callout).foregroundStyle(Ink.subtle) }
+                            if column.isEmpty { Text("Nothing here.").font(.dek).foregroundStyle(Ink.subtle).onPage() }
                         } header: { Kicker("\(stage.title) · \(column.count)") }
                     }
                 } else {
@@ -66,15 +65,15 @@ struct NotesList: View {
     }
 
     private func row(_ note: JSON, reload: @escaping () async -> Void) -> some View {
-        NavigationLink(value: Route.note(note.id)) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(note.noteTitle).font(.system(.headline, design: .serif)).lineLimit(2)
+        RouteRow(route: .note(note.id)) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(note.noteTitle).font(.rowTitle).lineLimit(2)
                 if !note["snippet"].text.isEmpty && note["snippet"].text != note.noteTitle {
-                    Text(note["snippet"].text).font(.callout).foregroundStyle(Ink.muted).lineLimit(2)
+                    Text(note["snippet"].text).font(.dek).foregroundStyle(Ink.muted).lineLimit(2)
                 }
-                if let at = note["updatedAt"]?.date { Text(at.ago).font(.caption).foregroundStyle(Ink.subtle) }
+                if let at = note["updatedAt"]?.date { Text(at.ago).font(.meta).foregroundStyle(Ink.subtle) }
             }
-            .padding(.vertical, 4)
+            .padding(.vertical, 8)
         }
         .contextMenu {
             ForEach(Self.stages.filter { $0.key != note.stage }, id: \.self) { stage in
