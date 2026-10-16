@@ -442,8 +442,10 @@ const WikiFrontPage = ({ initialKind = '' }) => {
               ) : null}
               <Button
                 className="wiki-collection__newpage"
-                aria-expanded={composerOpen}
-                onClick={() => setComposerOpen(open => !open)}
+                aria-expanded={emptyComposer || composerOpen}
+                onClick={() => (emptyComposer
+                  ? composerRef.current?.querySelector('textarea, input:not([type="hidden"])')?.focus()
+                  : setComposerOpen(open => !open))}
               >
                 + New page
               </Button>

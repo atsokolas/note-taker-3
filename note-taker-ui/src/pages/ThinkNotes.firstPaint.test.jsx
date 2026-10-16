@@ -231,6 +231,19 @@ describe('ThinkNotes first paint', () => {
     expect(await screen.findByTestId('open-note')).toHaveTextContent('new-note');
   });
 
+  it('keeps the new note open when the passage cannot be quoted into it', async () => {
+    getHighlights.mockResolvedValue([{ _id: 'h-gone', text: 'A passage deleted in another tab.' }]);
+    api.post.mockImplementation(async path => {
+      if (path.endsWith('append-highlight')) throw new Error('Highlight not found');
+      return { data: { _id: 'kept-note', title: '', blocks: [] } };
+    });
+    render(<ThinkNotes />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Think with it' }));
+    expect(await screen.findByTestId('open-note')).toHaveTextContent('kept-note');
+    expect(screen.getByText('The note is open, but the passage could not be quoted into it. Add it from Library.')).toBeInTheDocument();
+    expect(api.post).toHaveBeenCalledTimes(2);
+  });
+
   it('starts one ordinary note, opens it for writing and saves without inventing a source', async () => {
     let finishCreate;
     api.post.mockReturnValue(new Promise(resolve => { finishCreate = resolve; }));

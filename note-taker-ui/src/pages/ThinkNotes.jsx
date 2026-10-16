@@ -417,10 +417,13 @@ const ThinkNotes = () => {
       }, getAuthHeaders());
       if (!created?._id) throw new Error('Missing note identity');
       if (mark?._id) {
-        const { data: quoted } = await api.post(
+        // The note exists now; a passage that cannot be quoted into it must not
+        // lose it, or the next try leaves a second blank note behind.
+        const quoted = await api.post(
           `/api/notebook/${created._id}/append-highlight`, { highlightId: mark._id }, getAuthHeaders()
-        );
+        ).then(({ data }) => data, () => null);
         if (quoted?._id) created = quoted;
+        else setCreationError('The note is open, but the passage could not be quoted into it. Add it from Library.');
       }
       clearNotebookCache();
       setNotes(current => [created, ...current]);

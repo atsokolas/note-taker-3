@@ -428,7 +428,8 @@
     right: 14px;
   }
 
-  .app-shell-new__body:has(> .agent-rail-drawer__trigger) {
+  .app-shell-new__body:has(> .agent-rail-drawer__trigger),
+  body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(> .agent-rail-drawer__trigger) {
     padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
   }
 }
