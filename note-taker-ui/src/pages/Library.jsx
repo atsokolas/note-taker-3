@@ -866,6 +866,19 @@ const Library = () => {
     askRail?.(prompt, { origin: 'Asked of this passage' });
   }, [askRail, retainHighlightInLibraryHistory]);
 
+  /* A passage asked about from the browser extension arrives on its
+     highlight with ?ask=1, and the Partner opens already asking. Once. */
+  const askedFromExtension = searchParams.get('ask') === '1';
+  useEffect(() => {
+    if (!askedFromExtension) return;
+    const highlight = (articleHighlights || []).find(item => String(item?._id) === requestedHighlightId);
+    if (!highlight) return;
+    handleAskLibrarian(highlight);
+    const params = new URLSearchParams(searchParams);
+    params.delete('ask');
+    setSearchParams(params, { replace: true });
+  }, [askedFromExtension, articleHighlights, handleAskLibrarian, requestedHighlightId, searchParams, setSearchParams]);
+
   const selectedFolderName = useMemo(() => {
     if (scope !== 'folder' && scope !== 'feed') return '';
     const folder = folders.find(item => item._id === shelfFolderId);

@@ -34,6 +34,8 @@
     "test:server": "node scripts/run_server_tests.js",
     "harness:offline": "npm run judgment:evidence-harness && npm run judgment:semantic-evidence-harness && npm run judgment:ledger-acceptance && npm run wiki:proposal-harness && npm run wiki:intelligence-harness && npm run wiki:maintenance-harness",
     "seo:gsc": "node scripts/seo/search_console_opportunities.js",
+    "extension:pack": "node scripts/pack_extension.js",
+    "extension:smoke": "node scripts/extension_smoke.js",
     "chatgpt:plugin": "node scripts/validate_noeis_plugin_schema.cjs && python3 scripts/package_noeis_plugin.py"
   },
   "repository": {

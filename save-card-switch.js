@@ -18,14 +18,11 @@
  * that actually holds.
  *
  * No build step is involved: the manifest sits at the repository root, so
- * `note-taker-ui/src` is already inside the extension package, and every file
- * in the chain is a dependency-free ES module.
+ * `note-taker-ui/src` is already beside it, every file in the chain is a
+ * dependency-free ES module, and `npm run extension:pack` ships exactly the
+ * files this import reaches.
  */
-import {
-  clockCap,
-  pressPosition,
-  switchPositions
-} from './note-taker-ui/src/pages/placementSwitchModel.js';
+import { pressPosition, switchPositions } from './note-taker-ui/src/pages/placementSwitchModel.js';
 
 const el = (tag, className, text) => {
   const node = document.createElement(tag);
@@ -40,7 +37,7 @@ const el = (tag, className, text) => {
  * here talks to a server, because on the save card the piece does not exist
  * yet and there is nothing to update.
  */
-export const mountSaveCardSwitch = (mount, { onChange } = {}) => {
+export const mountSaveCardSwitch = (mount) => {
   if (!mount) return { placement: 'stream' };
   let placement = 'stream';
 
@@ -66,20 +63,9 @@ export const mountSaveCardSwitch = (mount, { onChange } = {}) => {
       button.addEventListener('click', () => {
         placement = pressPosition({ placement, pressed: position });
         draw();
-        onChange?.(placement);
       });
       capsule.appendChild(button);
     });
-
-    /* The cap is drawn only while something is parked, exactly as in the app.
-       On the save card it has nothing to promise yet — the piece has no id to
-       promise about — so it shows the em dash and waits. */
-    const cap = clockCap({ placement });
-    if (cap) {
-      const capNode = el('span', 'placement-switch__cap', cap.day || '—');
-      capNode.setAttribute('aria-hidden', 'true');
-      capsule.appendChild(capNode);
-    }
   };
 
   draw();

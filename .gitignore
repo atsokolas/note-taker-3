@@ -38,3 +38,6 @@ output/
 __pycache__/
 *.pyc
 .DS_Store
+
+# Packed browser extension (npm run extension:pack)
+dist/
