@@ -25,6 +25,8 @@ enum Route: Hashable {
     case view(String)
     case article(String, passage: String? = nil)
     case note(String)
+    case concept(String)
+    case question(String)
     case edition(String, item: String? = nil)
     case paper(String)
 }
@@ -222,7 +224,7 @@ struct RoomList: View {
         case .wiki: WikiFront()
         case .judgment: ViewsList()
         case .library: LibraryList()
-        case .think: NotesList()
+        case .think: ThinkRoom()
         case .editions: EditionsFront()
         }
     }
@@ -302,6 +304,8 @@ struct RouteView: View {
         case .view(let id): ViewDetail(id: id)
         case .article(let id, let passage): ArticleReader(id: id, passage: passage)
         case .note(let id): NoteView(id: id)
+        case .concept(let name): ConceptView(name: name)
+        case .question(let id): QuestionView(id: id)
         case .edition(let id, let item): IssueView(id: id, focus: item)
         case .paper(let profile): PaperIssues(profile: profile)
         }

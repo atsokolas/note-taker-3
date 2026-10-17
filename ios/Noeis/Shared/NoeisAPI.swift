@@ -322,17 +322,52 @@ struct NoeisAPI {
             .joined()
     }
 
-    // MARK: Partner
+    // MARK: Concepts and questions
 
-    /// One turn with the Partner. Pass back the returned thread id so a
-    /// conversation stays one thread on every device.
-    func ask(_ message: String, threadId: String?, context: JSON) async throws -> JSON {
-        var body: [String: JSON] = ["message": .string(message), "persistThread": true, "context": context]
-        if let threadId { body["threadId"] = .string(threadId) }
-        return try await send("POST", "/api/agent/chat", body: .object(body))
+    /// The concepts you name, by how much you have highlighted under each.
+    func concepts() async throws -> [JSON] {
+        try await send("GET", "/api/concepts").array.filter { concept in
+            !["hiddenFromHome", "debugOnly", "archived"].contains { concept[$0] == true }
+        }
     }
 
-    /// The same turn, streamed as the web streams it: what the Partner is
+    /// A concept, what you highlighted and wrote under it, and its open questions.
+    func concept(_ name: String) async throws -> (meta: JSON, related: JSON, questions: [JSON]) {
+        async let meta = send("GET", "/api/concepts/\(name)")
+        async let related = send("GET", "/api/concepts/\(name)/related", query: ["limit": "20"])
+        async let questions = send("GET", "/api/concepts/\(name)/questions", query: ["status": "open"])
+        return (try await meta, try await related, (try? await questions)?.array ?? [])
+    }
+
+    /// Names a concept, or rewrites what you mean by it. Only the description
+    /// is sent, so its pins stay as they are.
+    func saveConcept(_ name: String, description: String) async throws {
+        try await send("PUT", "/api/concepts/\(name)", body: ["description": .string(description)])
+    }
+
+    func questions() async throws -> [JSON] {
+        try await send("GET", "/api/questions").array
+    }
+
+    func question(_ id: String) async throws -> JSON {
+        try await send("GET", "/api/questions/\(id)")
+    }
+
+    func createQuestion(_ text: String, concept: String = "") async throws -> JSON {
+        try await send("POST", "/api/questions", body: [
+            "text": .string(text), "settledBy": "", "status": "open",
+            "conceptName": .string(concept), "linkedTagName": .string(concept), "blocks": [], "linkedHighlightIds": []
+        ])
+    }
+
+    /// Changes only the fields named (`settledBy`, `status`, `text`).
+    func updateQuestion(_ id: String, _ fields: JSON) async throws {
+        try await send("PUT", "/api/questions/\(id)", body: fields)
+    }
+
+    // MARK: Partner
+
+    /// One turn with the Partner, streamed as the web streams it: what it is
     /// doing (`agent-activity`), the reply as it is written (`agent-delta`),
     /// then the whole turn (`agent-final`), which is returned.
     func streamAsk(_ message: String, threadId: String?, context: JSON, history: [JSON],

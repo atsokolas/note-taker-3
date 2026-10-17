@@ -37,6 +37,16 @@ enum Sample {
         if at("api/notebook") != nil { return .array(notes.array.map { without($0, "blocks") }) }
         if let id = at("api/notebook/*")?.first { return find(notes, id) }
 
+        if at("api/concepts") != nil { return concepts }
+        if let name = at("api/concepts/*")?.first {
+            let concept = concepts.array.first { $0["name"].text == name } ?? ["name": .string(name)]
+            return concept.setting("allHighlightCount", to: concept["count"] ?? 0.0)
+        }
+        if let name = at("api/concepts/*/related")?.first { return conceptRelated[name] ?? ["highlights": [], "notes": [], "articles": []] }
+        if let name = at("api/concepts/*/questions")?.first { return .array(questions.array.filter { $0["linkedTagName"].text == name }) }
+        if at("api/questions") != nil { return questions }
+        if let id = at("api/questions/*")?.first { return find(questions, id) }
+
         if at("api/editions") != nil { return ["editions": .array(stand().map(listRow))] }
         if let id = at("api/editions/*")?.first { return stand().first { $0.id == id } }
         if let ids = at("api/editions/*/items/*/held") { return ["held": held[ids[1]] ?? .null] }
@@ -55,6 +65,7 @@ enum Sample {
         if at("api/agent/chat") != nil { return partner }
         if at("api/wiki/pages/*/judgment-change-proposals") != nil { return ["proposal": ["id": "rcpt-sample"]] }
         if at("api/wiki/pages") != nil { return wiki.array.first ?? .null }
+        if at("api/questions") != nil { return questions.array.first ?? .null }
         if at("api/import/url") != nil { return ["article": ["_id": "art-memory-wall"]] }
         return ["ok": true]
     }
@@ -189,6 +200,53 @@ enum Sample {
         {"_id": "hl-akl-3", "text": "Upzoning works through construction, and construction takes years.", "anchor": {"text": "Upzoning works through construction, and construction takes years."}}
       ]
     }
+    """#)
+
+    // MARK: Think
+
+    private static let concepts = parse(#"""
+    [
+      {"_id": "c-memory", "name": "Memory bandwidth", "count": 4, "description": "Why inference waits on memory, not arithmetic, and who gets paid for that."},
+      {"_id": "c-upzoning", "name": "Upzoning", "count": 3, "description": "What changing the rules on land does to rents, and how long it takes."},
+      {"_id": "c-rapamycin", "name": "Rapamycin", "count": 2, "description": ""},
+      {"_id": "c-clocks", "name": "Aging clocks", "count": 1, "description": "Whether a blood test can stand in for living longer."}
+    ]
+    """#)
+
+    private static let conceptRelated = parse(#"""
+    {
+      "Memory bandwidth": {
+        "highlights": [
+          {"_id": "hl-mw-1", "text": "At batch sizes typical of interactive serving, the arithmetic units spend most of their time waiting.", "articleId": "art-memory-wall", "articleTitle": "The memory wall is the real bottleneck for inference"},
+          {"_id": "hl-mw-2", "text": "HBM stacks now account for roughly a third of the bill of materials on a flagship part", "articleId": "art-memory-wall", "articleTitle": "The memory wall is the real bottleneck for inference"},
+          {"_id": "hl-hbm4-1", "text": "memory supply, more than wafer starts at the foundry, will set how many parts ship next year.", "articleId": "art-hbm4", "articleTitle": "SK hynix says HBM4 is sold out through 2027"}
+        ],
+        "notes": [{"notebookEntryId": "note-hbm-questions", "notebookTitle": "Questions for the HBM view", "blockPreviewText": "If CoWoS binds first, does memory bandwidth still set the price?"}],
+        "articles": [{"_id": "art-memory-wall"}, {"_id": "art-hbm4"}]
+      },
+      "Upzoning": {
+        "highlights": [
+          {"_id": "hl-akl-1", "text": "rents for three-bedroom homes ended up 26 to 33 percent lower than they would have been without the reform", "articleId": "art-auckland", "articleTitle": "What Auckland’s upzoning did to rents"},
+          {"_id": "hl-akl-3", "text": "Upzoning works through construction, and construction takes years.", "articleId": "art-auckland", "articleTitle": "What Auckland’s upzoning did to rents"}
+        ],
+        "notes": [],
+        "articles": [{"_id": "art-auckland"}, {"_id": "art-minneapolis"}]
+      }
+    }
+    """#)
+
+    private static let questions = parse(#"""
+    [
+      {"_id": "q-cowos", "text": "Does CoWoS capacity bind before HBM supply next year?", "status": "open", "linkedTagName": "Memory bandwidth",
+       "settledBy": "TSMC’s CoWoS capacity guidance against SK hynix HBM4 shipments for the same quarters."},
+      {"_id": "q-minneapolis", "text": "Why did Minneapolis permit so few duplexes after 2040?", "status": "open", "linkedTagName": "Upzoning", "settledBy": ""},
+      {"_id": "q-clocks", "text": "Is any aging clock precise enough to be a trial endpoint?", "status": "open", "linkedTagName": "Aging clocks",
+       "settledBy": "Test-retest noise under a year on a clock that also predicts mortality.",
+       "inquiry": {"run": {"status": "complete", "passages": [{"articleId": "art-clocks", "title": "The case against epigenetic clocks as trial endpoints", "passage": "Test-retest noise on several widely used clocks is on the order of two to three years."}]}}},
+      {"_id": "wq-rapamycin-0", "text": "Does rapamycin extend life in primates, or only improve markers?", "status": "open", "sourceType": "wiki_open_question", "sourcePageId": "wiki-rapamycin", "sourcePageTitle": "Rapamycin and healthy lifespan"},
+      {"_id": "q-auckland", "text": "Did Auckland’s rents fall because of upzoning or the pandemic?", "status": "answered", "linkedTagName": "Upzoning",
+       "settledBy": "A synthetic control that separates the 2020 shock from the 2016 reform."}
+    ]
     """#)
 
     // MARK: Wiki
