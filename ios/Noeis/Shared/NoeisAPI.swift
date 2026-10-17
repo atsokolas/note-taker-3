@@ -52,6 +52,17 @@ struct NoeisAPI {
         _ = try await send("DELETE", "/api/account", body: ["password": .string(password)])
     }
 
+    /// The theme the account wears, shared with the web.
+    func theme() async throws -> String {
+        try await send("GET", "/api/ui-settings")["theme"].text
+    }
+
+    /// Settings are saved whole, so the others go back as they were.
+    func setTheme(_ theme: String) async throws {
+        let settings = try await send("GET", "/api/ui-settings")
+        _ = try await send("PUT", "/api/ui-settings", body: settings.setting("theme", to: .string(theme)))
+    }
+
     // MARK: Wiki
 
     func wikiPages() async throws -> [JSON] {
@@ -68,6 +79,47 @@ struct NoeisAPI {
 
     func disagreements(pageId: String) async throws -> [JSON] {
         try await send("GET", "/api/wiki/contradictions", query: ["limit": "3", "pageId": pageId])["contradictions"]?.array ?? []
+    }
+
+    /// A new page, as the web's composer makes it: drafted from your whole
+    /// library, or a living thesis that leaves the conclusions to you.
+    func createWikiPage(_ topic: String, question: String? = nil) async throws -> JSON {
+        var body: [String: JSON] = [
+            "title": .string(topic), "pageType": "overview", "sourceScope": "entire_library",
+            "createdFrom": ["type": "idea", "objectId": .null, "objectIds": [], "text": .string(topic), "label": .string(topic)]
+        ]
+        if let question {
+            body["preset"] = "living_thesis"
+            body["governingQuestion"] = .string(question)
+        } else {
+            body["evidencePreflight"] = true
+        }
+        return try await send("POST", "/api/wiki/pages", body: .object(body))
+    }
+
+    /// Drafts a page from its sources, handing on the page as it fills. The
+    /// last event says whether the draft passed (`{ok, code}`).
+    func buildWikiPage(_ id: String, onPage: @escaping @MainActor (JSON) -> Void) async throws -> JSON {
+        #if DEBUG
+        if Self.standIn != nil { try? await Task.sleep(for: .seconds(2)); return ["ok": true] }
+        #endif
+        var done: JSON = .null
+        try await events("/api/wiki/pages/\(id)/ai/draft/stream", body: [:]) { event, payload in
+            if let page = payload["page"], page != .null { await onPage(page) }
+            if event == "error" { throw NoeisAPIError.server(payload["error"]?.string ?? "The page could not be drafted. Nothing was changed; try again.") }
+            if event == "done" { done = payload }
+        }
+        return done
+    }
+
+    /// A proposed change: `{candidate, summary: {reason}}`.
+    func proposedChange(pageId: String) async throws -> JSON {
+        try await send("GET", "/api/wiki/pages/\(pageId)/research-candidate")
+    }
+
+    /// Accepts or rejects a proposed change, which until then stays private.
+    func reviewProposedChange(pageId: String, accept: Bool) async throws {
+        try await send("POST", "/api/wiki/pages/\(pageId)/research-candidate/\(accept ? "accept" : "reject")", body: [:])
     }
 
     // MARK: Judgment
@@ -168,10 +220,17 @@ struct NoeisAPI {
     }
 
     /// Marks a passage. `prefix`/`suffix` let the web open the article at it.
-    func mark(articleId: String, text: String, prefix: String = "", suffix: String = "", offset: Int? = nil) async throws -> JSON {
+    func mark(articleId: String, text: String, prefix: String = "", suffix: String = "", offset: Int? = nil, color: String? = nil) async throws -> JSON {
         var anchor: [String: JSON] = ["text": .string(text), "prefix": .string(prefix), "suffix": .string(suffix)]
         if let offset { anchor["startOffsetApprox"] = .number(Double(offset)) }
-        return try await send("POST", "/articles/\(articleId)/highlights", body: ["text": .string(text), "anchor": .object(anchor)])["highlight"] ?? .null
+        var body: [String: JSON] = ["text": .string(text), "anchor": .object(anchor)]
+        if let color { body["color"] = .string(color) }
+        return try await send("POST", "/articles/\(articleId)/highlights", body: .object(body))["highlight"] ?? .null
+    }
+
+    /// A thought left on a highlight.
+    func note(articleId: String, highlightId: String, _ thought: String) async throws {
+        _ = try await send("PATCH", "/articles/\(articleId)/highlights/\(highlightId)", body: ["note": .string(thought)])
     }
 
     /// Saves a link; the server fetches and keeps the readable text.
@@ -181,6 +240,34 @@ struct NoeisAPI {
         if let title, !title.isEmpty { body["title"] = .string(title) }
         let reply = try await send("POST", "/api/import/url", body: .object(body))
         return reply.at("article._id").text
+    }
+
+    // MARK: Editions
+
+    /// The stand: every issue of every paper, newest first, without findings.
+    func editions() async throws -> [JSON] {
+        try await send("GET", "/api/editions", query: ["limit": "120"])["editions"]?.array ?? []
+    }
+
+    func edition(_ id: String) async throws -> JSON {
+        try await send("GET", "/api/editions/\(id)")
+    }
+
+    /// Keep (save to Library), Later (save and move to Later), or a reader
+    /// state: "opened", "dismissed", or "new" to undo. Returns the issue as it now stands.
+    func act(edition id: String, item itemId: String, _ action: String) async throws -> JSON {
+        let path = "/api/editions/\(id)/items/\(itemId)"
+        switch action {
+        case "keep": return try await send("POST", "\(path)/save")["edition"] ?? .null
+        case "later": return try await send("POST", "\(path)/later")["edition"] ?? .null
+        default: return try await send("POST", "\(path)/state", body: ["status": .string(action)])["edition"] ?? .null
+        }
+    }
+
+    /// The one highlight of yours a finding touches, or nil when none clears the bar.
+    func held(edition id: String, item itemId: String) async throws -> JSON? {
+        let held = try await send("GET", "/api/editions/\(id)/items/\(itemId)/held")["held"]
+        return held == nil || held == .null ? nil : held
     }
 
     // MARK: Think
@@ -235,20 +322,122 @@ struct NoeisAPI {
             .joined()
     }
 
+    // MARK: Concepts and questions
+
+    /// The concepts you name, by how much you have highlighted under each.
+    func concepts() async throws -> [JSON] {
+        try await send("GET", "/api/concepts").array.filter { concept in
+            !["hiddenFromHome", "debugOnly", "archived"].contains { concept[$0] == true }
+        }
+    }
+
+    /// A concept, what you highlighted and wrote under it, and its open questions.
+    func concept(_ name: String) async throws -> (meta: JSON, related: JSON, questions: [JSON]) {
+        async let meta = send("GET", "/api/concepts/\(name)")
+        async let related = send("GET", "/api/concepts/\(name)/related", query: ["limit": "20"])
+        async let questions = send("GET", "/api/concepts/\(name)/questions", query: ["status": "open"])
+        return (try await meta, try await related, (try? await questions)?.array ?? [])
+    }
+
+    /// Names a concept, or rewrites what you mean by it. Only the description
+    /// is sent, so its pins stay as they are.
+    func saveConcept(_ name: String, description: String) async throws {
+        try await send("PUT", "/api/concepts/\(name)", body: ["description": .string(description)])
+    }
+
+    func questions() async throws -> [JSON] {
+        try await send("GET", "/api/questions").array
+    }
+
+    func question(_ id: String) async throws -> JSON {
+        try await send("GET", "/api/questions/\(id)")
+    }
+
+    func createQuestion(_ text: String, concept: String = "") async throws -> JSON {
+        try await send("POST", "/api/questions", body: [
+            "text": .string(text), "settledBy": "", "status": "open",
+            "conceptName": .string(concept), "linkedTagName": .string(concept), "blocks": [], "linkedHighlightIds": []
+        ])
+    }
+
+    /// Changes only the fields named (`settledBy`, `status`, `text`).
+    func updateQuestion(_ id: String, _ fields: JSON) async throws {
+        try await send("PUT", "/api/questions/\(id)", body: fields)
+    }
+
     // MARK: Partner
 
-    /// One turn with the Partner. Pass back the returned thread id so a
-    /// conversation stays one thread on every device.
-    func ask(_ message: String, threadId: String?, context: JSON) async throws -> JSON {
-        var body: [String: JSON] = ["message": .string(message), "persistThread": true, "context": context]
+    /// One turn with the Partner, streamed as the web streams it: what it is
+    /// doing (`agent-activity`), the reply as it is written (`agent-delta`),
+    /// then the whole turn (`agent-final`), which is returned.
+    func streamAsk(_ message: String, threadId: String?, context: JSON, history: [JSON],
+                   onActivity: @escaping @MainActor (String) -> Void,
+                   onDelta: @escaping @MainActor (String) -> Void) async throws -> JSON {
+        var body: [String: JSON] = ["message": .string(message), "persistThread": true, "context": context, "history": .array(history), "limit": 6.0]
         if let threadId { body["threadId"] = .string(threadId) }
-        return try await send("POST", "/api/agent/chat", body: .object(body))
+        #if DEBUG
+        if let standIn = Self.standIn {
+            await onActivity("Searched your library.")
+            try? await Task.sleep(for: .milliseconds(600))
+            let reply = standIn("POST", "/api/agent/chat", [:]) ?? .null
+            await onDelta(reply["reply"].text)
+            return reply
+        }
+        #endif
+        var final: JSON?
+        try await events("/api/agent/chat/stream", body: .object(body)) { event, payload in
+            switch event {
+            case "agent-activity": await onActivity(payload["summary"].text)
+            case "agent-delta": await onDelta(payload["delta"].text)
+            case "agent-final": final = payload
+            case "error": throw NoeisAPIError.server(payload["error"]?.string ?? "The Partner could not answer.")
+            default: break
+            }
+        }
+        guard let final else { throw NoeisAPIError.server("The Partner stopped before it finished. Nothing was changed; ask again.") }
+        return final
+    }
+
+    /// Reads a server-sent event stream, handing each event and its JSON on.
+    private func events(_ path: String, body: JSON, each: (String, JSON) async throws -> Void) async throws {
+        guard let token = NoeisAuthStore.shared.token else { throw signOut() }
+        var request = URLRequest(url: base.appendingPathComponent(path))
+        request.httpMethod = "POST"
+        request.timeoutInterval = 300
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.httpBody = try JSONEncoder().encode(body)
+        let (bytes, response): (URLSession.AsyncBytes, URLResponse)
+        do { (bytes, response) = try await session.bytes(for: request) } catch { throw NoeisAPIError.offline }
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        if status == 401 { throw signOut() }
+        guard (200..<300).contains(status) else { throw NoeisAPIError.server("Noeis could not do that (\(status)).") }
+        var event = "message"
+        for try await line in bytes.lines {
+            if line.hasPrefix("event:") {
+                event = line.dropFirst(6).trimmingCharacters(in: .whitespaces)
+            } else if line.hasPrefix("data:"), let data = line.dropFirst(5).trimmingCharacters(in: .whitespaces).data(using: .utf8) {
+                try await each(event, (try? JSONDecoder().decode(JSON.self, from: data)) ?? .null)
+            }
+        }
     }
 
     // MARK: Transport
 
+    #if DEBUG
+    /// Set by the app in the simulator to answer from sample data instead of the network.
+    nonisolated(unsafe) static var standIn: ((String, String, [String: String]) -> JSON?)?
+    #endif
+
     @discardableResult
     func send(_ method: String, _ path: String, query: [String: String] = [:], body: JSON? = nil, signedIn: Bool = true) async throws -> JSON {
+        #if DEBUG
+        if let standIn = Self.standIn {
+            try? await Task.sleep(for: .milliseconds(350))
+            return standIn(method, path, query) ?? .null
+        }
+        #endif
         var components = URLComponents(url: base.appendingPathComponent(path), resolvingAgainstBaseURL: false)!
         if !query.isEmpty {
             components.queryItems = query.sorted { $0.key < $1.key }.map { URLQueryItem(name: $0.key, value: $0.value) }

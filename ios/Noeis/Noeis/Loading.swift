@@ -16,7 +16,7 @@ struct Loaded<Value, Content: View>: View {
     var body: some View {
         Group {
             if let value {
-                content(value, reload)
+                content(value, reload).arrives()
             } else if let error {
                 ContentUnavailableView {
                     Label("Could not load this", systemImage: "wifi.exclamationmark")
