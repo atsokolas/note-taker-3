@@ -38,6 +38,9 @@ struct Rooms: View {
     @Environment(\.horizontalSizeClass) private var sizeClass
     @SceneStorage("room") private var room: Room = .wiki
     @State private var sheet: Sheet?
+    /// Rooms with a page open. On iPhone the capsule steps aside for a page,
+    /// as a tab bar does, so reading and selecting get the whole screen.
+    @State private var deep: Set<Room> = []
 
     private enum Sheet: String, Identifiable { case settings, theme; var id: String { rawValue } }
 
@@ -47,7 +50,9 @@ struct Rooms: View {
         // only the open one takes touches. The rooms' words are ours.
         TabView(selection: $room) {
             ForEach(Room.allCases) { each in
-                RoomStack(room: each, account: wide ? nil : { sheet = .settings })
+                RoomStack(room: each, account: wide ? nil : { sheet = .settings }) { open in
+                    if open { deep.insert(each) } else { deep.remove(each) }
+                }
                     .toolbar(.hidden, for: .tabBar)
                     .tag(each)
             }
@@ -57,8 +62,11 @@ struct Rooms: View {
         }
         // The capsule floats over the room; each stack leaves room for it.
         .overlay(alignment: .bottom) {
-            if !wide { RoomCapsule(room: $room) }
+            if !wide && !deep.contains(room) {
+                RoomCapsule(room: $room).transition(.move(edge: .bottom).combined(with: .opacity))
+            }
         }
+        .calmAnimation(.easeOut(duration: 0.22), value: deep.contains(room))
         #if DEBUG
         .onAppear { if let start = ProcessInfo.processInfo.environment["NOEIS_ROOM"].flatMap(Room.init) { room = start } }
         #endif
@@ -74,6 +82,7 @@ struct Rooms: View {
 private struct RoomStack: View {
     let room: Room
     let account: (() -> Void)?
+    let pageOpen: (Bool) -> Void
     @Namespace private var zoom
     @State private var path: [Route] = []
 
@@ -90,10 +99,11 @@ private struct RoomStack: View {
                 }
                 .navigationDestination(for: Route.self) { RouteView(route: $0).zooms(from: $0, in: zoom) }
         }
-        // On iPhone, the last row and the end of a page scroll clear of the capsule.
+        // On iPhone, the last row of an index scrolls clear of the capsule.
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            if account != nil { Color.clear.frame(height: RoomCapsule.height) }
+            if account != nil && path.isEmpty { Color.clear.frame(height: RoomCapsule.height) }
         }
+        .onChange(of: path.isEmpty) { pageOpen(!path.isEmpty) }
         #if DEBUG
         // Screenshots: NOEIS_OPEN=wiki:wiki-rapamycin opens a page in its room.
         .onAppear {

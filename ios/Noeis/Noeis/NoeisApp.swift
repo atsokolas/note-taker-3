@@ -15,9 +15,21 @@ struct NoeisApp: App {
             let descriptor = (base.withDesign(.serif) ?? base).addingAttributes([.traits: [UIFontDescriptor.TraitKey.weight: weight]])
             return UIFont(descriptor: descriptor, size: 0)
         }
+        // Set on the appearances themselves: a bar given its own appearance
+        // drops the proxy's fonts, which is how titles fell back to bold sans.
+        // Clear at rest; frosted once something scrolls under it.
+        let scrolled = UINavigationBarAppearance()
+        scrolled.configureWithDefaultBackground()
+        let resting = UINavigationBarAppearance()
+        resting.configureWithTransparentBackground()
+        for appearance in [scrolled, resting] {
+            appearance.largeTitleTextAttributes = [.font: serif(.largeTitle, .regular)]
+            appearance.titleTextAttributes = [.font: serif(.headline, .regular)]
+        }
         let bar = UINavigationBar.appearance()
-        bar.largeTitleTextAttributes = [.font: serif(.largeTitle, .regular)]
-        bar.titleTextAttributes = [.font: serif(.headline, .regular)]
+        bar.standardAppearance = scrolled
+        bar.compactAppearance = scrolled
+        bar.scrollEdgeAppearance = resting
     }
 
     var body: some Scene {

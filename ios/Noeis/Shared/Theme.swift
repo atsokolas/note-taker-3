@@ -158,8 +158,6 @@ extension View {
         scrollContentBackground(.hidden)
             .background(Ink.canvas, ignoresSafeAreaEdges: .all)
             .foregroundStyle(Ink.text)
-            // The bar takes the page's colour once something scrolls under it.
-            .toolbarBackground(Ink.canvas, for: .navigationBar)
     }
 
     /// A room's title. iPhone shows it large in the bar; on iPad the masthead
@@ -225,6 +223,7 @@ struct RoomIndex<Content: View>: View {
                 RoomHeading()
                 content
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, sizeClass == .regular ? 40 : 20)
                 .padding(.top, 4)
                 .padding(.bottom, 48)

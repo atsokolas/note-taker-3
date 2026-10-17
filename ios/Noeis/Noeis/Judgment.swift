@@ -248,17 +248,16 @@ struct ViewDetail: View {
                             ForEach(candidates, id: \.self) { candidate in
                                 VStack(alignment: .leading, spacing: 10) {
                                     Passage(text: candidate["text"].text, source: candidate["sourceLabel"].text)
-                                    HStack {
-                                        Button("File for") { act { _ = try await NoeisAPI.shared.file(pageId: id, claim: view.claim, field: "why", candidate: candidate) } }
-                                        Button("File against") { act { _ = try await NoeisAPI.shared.file(pageId: id, claim: view.claim, field: "against", candidate: candidate) } }
+                                    Menu("File…") {
+                                        Button("For it") { act { _ = try await NoeisAPI.shared.file(pageId: id, claim: view.claim, field: "why", candidate: candidate) } }
+                                        Button("Against it") { act { _ = try await NoeisAPI.shared.file(pageId: id, claim: view.claim, field: "against", candidate: candidate) } }
                                         Button("Not about this") {
                                             let ids = (view.judgment["notAboutIds"]?.array ?? []) + [.string(candidate.id)]
                                             act { try await view.patch(["notAboutIds": .array(ids)]) }
                                         }
-                                        .foregroundStyle(Ink.muted)
                                     }
-                                    .buttonStyle(.bordered)
                                     .font(.subheadline)
+                                    .foregroundStyle(Ink.thread)
                                 }
                             }
                         }
@@ -272,14 +271,13 @@ struct ViewDetail: View {
                                 VStack(alignment: .leading, spacing: 10) {
                                     Text(challenge ? "Argues against it" : "Backs it up").font(.caption.weight(.semibold)).foregroundStyle(challenge ? Ink.danger : Ink.living)
                                     Passage(text: proposal.at("provenance.after").text, source: [proposal.at("provenance.author").text, proposal["sourceLabel"].text].filter { !$0.isEmpty }.joined(separator: ", "))
-                                    HStack {
-                                        Button("File for") { act { _ = try await NoeisAPI.shared.file(pageId: id, claim: view.claim, field: "why", proposalId: proposal.id) } }
-                                        Button("File against") { act { _ = try await NoeisAPI.shared.file(pageId: id, claim: view.claim, field: "against", proposalId: proposal.id) } }
+                                    Menu("File…") {
+                                        Button("For it") { act { _ = try await NoeisAPI.shared.file(pageId: id, claim: view.claim, field: "why", proposalId: proposal.id) } }
+                                        Button("Against it") { act { _ = try await NoeisAPI.shared.file(pageId: id, claim: view.claim, field: "against", proposalId: proposal.id) } }
                                         Button("Not relevant") { act { try await NoeisAPI.shared.dismissReading(pageId: id, proposalId: proposal.id) } }
-                                            .foregroundStyle(Ink.muted)
                                     }
-                                    .buttonStyle(.bordered)
                                     .font(.subheadline)
+                                    .foregroundStyle(Ink.thread)
                                 }
                             }
                         }
@@ -317,7 +315,7 @@ struct ViewDetail: View {
                                 Button { act { _ = try await NoeisAPI.shared.patchPage(id, ["visibility": "shared"]) } } label: { Label("Share how this changed", systemImage: "square.and.arrow.up") }
                             }
                         }
-                    } label: { Image(systemName: "ellipsis.circle") }
+                    } label: { Image(systemName: "ellipsis.circle") }.accessibilityLabel("More for this view")
                 }
                 PartnerToolbarItem(context: ["type": "wiki_page", "id": .string(id), "pageId": .string(id), "title": .string(view.claim)],
                                    holding: Held(pageId: id, claim: view.claim))

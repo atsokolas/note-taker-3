@@ -79,6 +79,7 @@ struct PartnerSheet: View {
                     .padding(20)
                     .column()
                 }
+                .scrollDismissesKeyboard(.interactively)
                 .onChange(of: turns.count) { if let last = turns.last { calmly { scroller.scrollTo(last.id, anchor: .bottom) } } }
                 .onChange(of: thinking) { if thinking { calmly { scroller.scrollTo("thinking", anchor: .bottom) } } }
             }
@@ -118,6 +119,7 @@ struct PartnerSheet: View {
         let message = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !message.isEmpty, !thinking else { return }
         draft = ""
+        focused = false
         failure = nil
         thinking = true
         doing = ""
@@ -205,9 +207,11 @@ private struct FileOffer: View {
                 Text(filed).font(.footnote).foregroundStyle(Ink.living).transition(.opacity)
             } else {
                 HStack(spacing: 10) {
-                    Button("File for") { file("why") }.buttonStyle(.ink)
-                    Button("File against") { file("against") }.buttonStyle(.bordered)
+                    // Neither is the default: which way it cuts is yours to say.
+                    Button("File for") { file("why") }
+                    Button("File against") { file("against") }
                 }
+                .buttonStyle(.bordered)
                 .disabled(writer.busy)
             }
         }

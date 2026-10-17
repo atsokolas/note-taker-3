@@ -245,6 +245,13 @@ private struct FrontPage: View {
                         Text(line).lineLimit(1).fixedSize()
                     }
                 }
+                // Middling widths: the date and the hands on one line, the counts under them.
+                if folio.count == 3 {
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack { Text(folio[0]).fixedSize(); Spacer(minLength: 16); Text(folio[2]).fixedSize() }
+                        Text(folio[1]).lineLimit(1).fixedSize()
+                    }
+                }
                 // Narrow: one phrase to a line, so none breaks mid-phrase.
                 VStack(alignment: .leading, spacing: 3) {
                     ForEach(folio.flatMap { $0.components(separatedBy: " · ") }, id: \.self) { Text($0) }
@@ -266,7 +273,9 @@ private struct FrontPage: View {
             VStack(spacing: 2) { Rule(); Rule() }
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: 26) { paperLinks }
-                ScrollView(.horizontal, showsIndicators: false) { HStack(spacing: 22) { paperLinks } }
+                ScrollView(.horizontal, showsIndicators: false) { HStack(spacing: 22) { paperLinks }.padding(.trailing, 28) }
+                    // Fades at the edge, so it reads as more to the side, not cut off.
+                    .mask(LinearGradient(stops: [.init(color: .black, location: 0.86), .init(color: .clear, location: 1)], startPoint: .leading, endPoint: .trailing))
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 11)

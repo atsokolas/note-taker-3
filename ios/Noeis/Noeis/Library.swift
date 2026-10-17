@@ -337,6 +337,17 @@ struct MarkedSelection {
 
 /// The article as one selectable text: select a passage and choose Mark.
 /// UITextView, because SwiftUI's Text cannot offer a custom action on a selection.
+/// Keeps a readable measure: a centred 680pt column on iPad, 20pt margins on iPhone.
+private final class ReadingTextView: UITextView {
+    override func layoutSubviews() {
+        let side = max(20, (bounds.width - 680) / 2)
+        if textContainerInset.left != side {
+            textContainerInset = UIEdgeInsets(top: 24, left: side, bottom: 120, right: side)
+        }
+        super.layoutSubviews()
+    }
+}
+
 private struct ReaderText: UIViewRepresentable {
     let title: String
     let byline: String
@@ -350,7 +361,7 @@ private struct ReaderText: UIViewRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator() }
 
     func makeUIView(context: Context) -> UITextView {
-        let view = UITextView()
+        let view = ReadingTextView()
         view.isEditable = false
         view.isSelectable = true
         view.backgroundColor = .clear
@@ -376,11 +387,6 @@ private struct ReaderText: UIViewRepresentable {
             if coordinator.rendered != nil { view.setContentOffset(offset, animated: false) }
             coordinator.rendered = built.signature
         }
-        // Keep a readable measure on iPad.
-        let side = max(20, (view.bounds.width - 680) / 2)
-        if view.textContainerInset.left != side {
-            view.textContainerInset = UIEdgeInsets(top: 24, left: side, bottom: 120, right: side)
-        }
         if focus != nil, !coordinator.focused, let range = built.focusRange {
             coordinator.focused = true
             DispatchQueue.main.async {
@@ -393,10 +399,11 @@ private struct ReaderText: UIViewRepresentable {
     }
 
     private func build(_ palette: Palette) -> (text: NSAttributedString, bodyStart: Int, focusRange: NSRange?, signature: Int) {
-        let serif = { (style: UIFont.TextStyle, weight: UIFont.Weight) -> UIFont in
+        // Sizes as the web reads: 19pt body, a display title; both follow Dynamic Type.
+        let serif = { (style: UIFont.TextStyle, size: CGFloat, weight: UIFont.Weight) -> UIFont in
             let base = UIFont.preferredFont(forTextStyle: style)
             let descriptor = base.fontDescriptor.withDesign(.serif)?.addingAttributes([.traits: [UIFontDescriptor.TraitKey.weight: weight]]) ?? base.fontDescriptor
-            return UIFontMetrics(forTextStyle: style).scaledFont(for: UIFont(descriptor: descriptor, size: base.pointSize))
+            return UIFontMetrics(forTextStyle: style).scaledFont(for: UIFont(descriptor: descriptor, size: size))
         }
         let ink = palette.text, muted = palette.subtle
         let paragraph = NSMutableParagraphStyle()
@@ -404,7 +411,7 @@ private struct ReaderText: UIViewRepresentable {
         paragraph.paragraphSpacing = 14
 
         let text = NSMutableAttributedString()
-        text.append(NSAttributedString(string: title + "\n", attributes: [.font: serif(.title1, .medium), .foregroundColor: ink, .paragraphStyle: paragraph]))
+        text.append(NSAttributedString(string: title + "\n", attributes: [.font: serif(.largeTitle, 36, .medium), .foregroundColor: ink, .paragraphStyle: paragraph]))
         if !byline.isEmpty {
             text.append(NSAttributedString(string: byline + "\n", attributes: [.font: UIFont.preferredFont(forTextStyle: .footnote), .foregroundColor: muted, .paragraphStyle: paragraph]))
         }
@@ -412,11 +419,11 @@ private struct ReaderText: UIViewRepresentable {
         let bodyStart = text.length
 
         for (index, item) in paragraphs.enumerated() {
-            let font = item.heading ? serif(.title3, .semibold) : serif(.body, .regular)
+            let font = item.heading ? serif(.title2, 23, .semibold) : serif(.body, 19, .regular)
             text.append(NSAttributedString(string: item.text + (index == paragraphs.count - 1 ? "" : "\n"), attributes: [.font: font, .foregroundColor: ink, .paragraphStyle: paragraph]))
         }
         if paragraphs.isEmpty {
-            text.append(NSAttributedString(string: "No readable text was saved for this page. Open the original from the share button.", attributes: [.font: serif(.body, .regular), .foregroundColor: muted]))
+            text.append(NSAttributedString(string: "No readable text was saved for this page. Open the original from the share button.", attributes: [.font: serif(.body, 19, .regular), .foregroundColor: muted]))
         }
 
         let whole = text.string as NSString
