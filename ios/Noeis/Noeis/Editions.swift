@@ -255,7 +255,7 @@ private struct FrontPage: View {
                 // Narrow: one run that wraps only between phrases, never inside one.
                 Text(folio.flatMap { $0.components(separatedBy: " · ") }
                     .map { $0.replacingOccurrences(of: " ", with: "\u{00A0}") }
-                    .joined(separator: " · "))
+                    .joined(separator: " ·\u{00A0}"))
             }
             .font(.system(.footnote, design: .serif))
             .foregroundStyle(Ink.text)
