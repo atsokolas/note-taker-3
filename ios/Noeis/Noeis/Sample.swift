@@ -526,6 +526,9 @@ enum Sample {
     private static let partner = parse(#"""
     {"reply": "Your library leans one way on this. Two sources you saved say memory sets the pace: Semiconductor Engineering on decode utilization, and SK hynix’s own guidance. One, SemiAnalysis, argues packaging binds first in four of the next six quarters. Your view would survive if the constraint alternates, but its wording says HBM caps shipments through 2027, which is the stronger claim.",
      "thread": {"threadId": "thread-sample-1"},
+     "relatedItems": [
+       {"type": "article", "id": "art-cowos", "title": "CoWoS, not HBM, is the constraint that matters", "snippet": "In our model, CoWoS capacity binds before HBM in four of the next six quarters."}
+     ],
      "citations": [
        {"type": "article", "id": "art-memory-wall", "title": "The memory wall is the real bottleneck for inference"},
        {"type": "article", "id": "art-cowos", "title": "CoWoS, not HBM, is the constraint that matters"},

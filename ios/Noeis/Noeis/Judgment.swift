@@ -319,7 +319,8 @@ struct ViewDetail: View {
                         }
                     } label: { Image(systemName: "ellipsis.circle") }
                 }
-                PartnerToolbarItem(context: ["type": "wiki_page", "id": .string(id), "pageId": .string(id), "title": .string(view.claim)])
+                PartnerToolbarItem(context: ["type": "wiki_page", "id": .string(id), "pageId": .string(id), "title": .string(view.claim)],
+                                   holding: Held(pageId: id, claim: view.claim))
             }
             .sheet(isPresented: $editingTest) {
                 TestSheet(view: view) { criteria, by in

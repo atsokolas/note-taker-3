@@ -2,8 +2,16 @@ import SwiftUI
 
 /// The Partner, from wherever you are. The web's ⌘J: one Partner in every
 /// room, told what you are looking at.
+/// A view you hold, when the Partner is opened from it: a passage it read
+/// can then be filed for or against the view, from the conversation.
+struct Held: Hashable {
+    let pageId: String
+    let claim: String
+}
+
 struct PartnerToolbarItem: ToolbarContent {
     let context: JSON
+    var holding: Held? = nil
     @State private var open = false
 
     var body: some ToolbarContent {
@@ -11,7 +19,7 @@ struct PartnerToolbarItem: ToolbarContent {
             Button { open = true } label: { Image(systemName: "bubble.left.and.text.bubble.right") }
                 .accessibilityLabel("Ask the Partner")
                 .keyboardShortcut("j", modifiers: .command)
-                .sheet(isPresented: $open) { PartnerSheet(context: context) }
+                .sheet(isPresented: $open) { PartnerSheet(context: context, holding: holding) }
         }
     }
 }
@@ -22,12 +30,15 @@ private struct Turn: Identifiable {
     var text: String
     var sources: [JSON] = []
     var proposed = false
+    /// The source sentence the answer rests on, which can be filed.
+    var offer: JSON?
 }
 
 struct PartnerSheet: View {
     let context: JSON
     /// A question already begun, such as one about a selected passage.
     var opening = ""
+    var holding: Held? = nil
     @Environment(\.dismiss) private var dismiss
     @State private var turns: [Turn] = []
     @State private var draft = ""
@@ -50,7 +61,7 @@ struct PartnerSheet: View {
                             }
                             .padding(.top, 8)
                         }
-                        ForEach(turns) { turn in TurnView(turn: turn).id(turn.id) }
+                        ForEach(turns) { turn in TurnView(turn: turn, holding: holding).id(turn.id) }
                         if thinking {
                             HStack(spacing: 8) {
                                 ProgressView()
@@ -130,8 +141,10 @@ struct PartnerSheet: View {
                 var seen = Set<String>()
                 let sources = ((reply["relatedItems"]?.array ?? []) + (reply["citations"]?.array ?? []))
                     .filter { !$0["title"].text.isEmpty && seen.insert("\($0["type"].text):\($0["id"]?.string ?? $0["title"].text)").inserted }
+                // As on the web: only a saved source's own sentence can be written down.
+                let offer = (reply["relatedItems"]?.array ?? []).first { $0["type"].text == "article" && !$0.id.isEmpty && !$0["snippet"].text.isEmpty }
                 let finished = Turn(mine: false, text: reply["reply"]?.string ?? "No answer came back.", sources: Array(sources.prefix(4)),
-                                    proposed: reply["proposalBundle"] != nil && reply["proposalBundle"] != .null)
+                                    proposed: reply["proposalBundle"] != nil && reply["proposalBundle"] != .null, offer: offer)
                 if let answer { turns[answer] = finished } else { turns.append(finished) }
             } catch {
                 failure = error.localizedDescription
@@ -142,6 +155,7 @@ struct PartnerSheet: View {
 
 private struct TurnView: View {
     let turn: Turn
+    let holding: Held?
 
     var body: some View {
         if turn.mine {
@@ -166,11 +180,45 @@ private struct TurnView: View {
                         }
                     }
                 }
+                if let holding, let offer = turn.offer { FileOffer(holding: holding, source: offer) }
                 if turn.proposed {
                     Link("The Partner suggested changes. Review them on noeis.io", destination: NoeisAPI.shared.site)
                         .font(.footnote)
                 }
             }
+        }
+    }
+}
+
+/// Click to confirm: the sentence the answer rests on, filed for or against
+/// the view only when you say so.
+private struct FileOffer: View {
+    let holding: Held
+    let source: JSON
+    @State private var filed: String?
+    @StateObject private var writer = Writer()
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Passage(text: source["snippet"].text, source: source["title"].text)
+            if let filed {
+                Text(filed).font(.footnote).foregroundStyle(Ink.living).transition(.opacity)
+            } else {
+                HStack(spacing: 10) {
+                    Button("File for") { file("why") }.buttonStyle(.ink)
+                    Button("File against") { file("against") }.buttonStyle(.bordered)
+                }
+                .disabled(writer.busy)
+            }
+        }
+        .failureAlert(writer)
+    }
+
+    private func file(_ field: String) {
+        writer.run {
+            _ = try await NoeisAPI.shared.file(pageId: holding.pageId, claim: holding.claim, field: field,
+                                               candidate: ["articleId": .string(source.id), "text": source["snippet"] ?? .null])
+            calmly { filed = field == "why" ? "Filed for your view." : "Filed against your view." }
         }
     }
 }
