@@ -38,35 +38,34 @@ struct Rooms: View {
     @Environment(\.horizontalSizeClass) private var sizeClass
     @SceneStorage("room") private var room: Room = .wiki
     @State private var sheet: Sheet?
-    /// Rooms with a page open. On iPhone the capsule steps aside for a page,
-    /// as a tab bar does, so reading and selecting get the whole screen.
-    @State private var deep: Set<Room> = []
+    /// Where each room is: its index, or the pages opened from it.
+    @State private var paths: [Room: [Route]] = [:]
 
     private enum Sheet: String, Identifiable { case settings, theme; var id: String { rawValue } }
 
     var body: some View {
         let wide = sizeClass == .regular
+        let deep = !(paths[room] ?? []).isEmpty
         // A tab view with its bar hidden: each room keeps its own stack, and
         // only the open one takes touches. The rooms' words are ours.
         TabView(selection: $room) {
             ForEach(Room.allCases) { each in
-                RoomStack(room: each, account: wide ? nil : { sheet = .settings }) { open in
-                    if open { deep.insert(each) } else { deep.remove(each) }
+                RoomStack(room: each, path: path(each), account: wide ? nil : { sheet = .settings }) {
+                    // Inside each stack, so a page's bar (back, Share, Ask) sits under it.
+                    if wide { Masthead(room: $room, pop: { paths[each] = [] }, theme: { sheet = .theme }, account: { sheet = .settings }) }
                 }
-                    .toolbar(.hidden, for: .tabBar)
-                    .tag(each)
+                .toolbar(.hidden, for: .tabBar)
+                .tag(each)
             }
         }
-        .safeAreaInset(edge: .top, spacing: 0) {
-            if wide { Masthead(room: $room, theme: { sheet = .theme }, account: { sheet = .settings }) }
-        }
-        // The capsule floats over the room; each stack leaves room for it.
+        // iPhone: the capsule floats over an index and steps aside for a page,
+        // as a tab bar does, so reading and selecting get the whole screen.
         .overlay(alignment: .bottom) {
-            if !wide && !deep.contains(room) {
+            if !wide && !deep {
                 RoomCapsule(room: $room).transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
-        .calmAnimation(.easeOut(duration: 0.22), value: deep.contains(room))
+        .calmAnimation(.easeOut(duration: 0.22), value: deep)
         #if DEBUG
         .onAppear { if let start = ProcessInfo.processInfo.environment["NOEIS_ROOM"].flatMap(Room.init) { room = start } }
         #endif
@@ -77,14 +76,18 @@ struct Rooms: View {
             }
         }
     }
+
+    private func path(_ room: Room) -> Binding<[Route]> {
+        Binding(get: { paths[room] ?? [] }, set: { paths[room] = $0 })
+    }
 }
 
-private struct RoomStack: View {
+private struct RoomStack<Top: View>: View {
     let room: Room
+    @Binding var path: [Route]
     let account: (() -> Void)?
-    let pageOpen: (Bool) -> Void
+    @ViewBuilder let top: Top
     @Namespace private var zoom
-    @State private var path: [Route] = []
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -99,11 +102,11 @@ private struct RoomStack: View {
                 }
                 .navigationDestination(for: Route.self) { RouteView(route: $0).zooms(from: $0, in: zoom) }
         }
+        .safeAreaInset(edge: .top, spacing: 0) { top }
         // On iPhone, the last row of an index scrolls clear of the capsule.
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if account != nil && path.isEmpty { Color.clear.frame(height: RoomCapsule.height) }
         }
-        .onChange(of: path.isEmpty) { pageOpen(!path.isEmpty) }
         #if DEBUG
         // Screenshots: NOEIS_OPEN=wiki:wiki-rapamycin opens a page in its room.
         .onAppear {
@@ -131,6 +134,8 @@ private struct RoomStack: View {
 /// words, the open one in full ink with a thread underline that slides to it.
 private struct Masthead: View {
     @Binding var room: Room
+    /// Tapping the open room's word goes back to its index, as a tab does.
+    let pop: () -> Void
     let theme: () -> Void
     let account: () -> Void
     @Namespace private var mark
@@ -144,7 +149,7 @@ private struct Masthead: View {
                 .padding(.trailing, 28)
             HStack(alignment: .firstTextBaseline, spacing: 22) {
                 ForEach(Room.allCases) { each in
-                    Button { calmly(.easeOut(duration: 0.22)) { room = each } } label: {
+                    Button { calmly(.easeOut(duration: 0.22)) { if each == room { pop() } else { room = each } } } label: {
                         Text(each.title)
                             .font(.system(size: 17, design: .serif))
                             .foregroundStyle(each == room ? Ink.text : Ink.muted)

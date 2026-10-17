@@ -131,16 +131,17 @@ struct ArticleReader: View {
     @State private var settled = 0
 
     var body: some View {
-        Loaded(load: { () async throws -> (JSON, [JSON]) in
+        Loaded(load: { () async throws -> (JSON, [JSON], NSAttributedString) in
             async let article = NoeisAPI.shared.article(id)
             async let highlights = (try? await NoeisAPI.shared.highlights(articleId: id)) ?? []
-            return (try await article, await highlights)
+            let saved = try await article
+            return (saved, await highlights, await ArticleBody.from(saved["content"]?.raw ?? ""))
         }) { loaded, _ in
-            let (article, highlights) = loaded
+            let (article, highlights, body) = loaded
             ReaderText(
                 title: article["title"].text,
                 byline: article.byline,
-                paragraphs: Paragraphs.from(article["content"].text),
+                body: body,
                 marks: highlights.map { Mark(text: $0.at("anchor.text")?.string ?? $0["text"].text, ink: Ink.Highlight(rawValue: $0["color"].text) ?? .keep) } + marks,
                 focus: passage,
                 settled: settled,
@@ -281,49 +282,82 @@ private struct ArgumentBanner: View {
 
 /// Saved article bodies are HTML (extension saves) or plain text (link
 /// imports). Both become paragraphs, with headings kept as headings.
-enum Paragraphs {
-    struct Paragraph: Hashable {
-        var text: String
-        var heading = false
+/// The saved article as the web reads it: its own HTML (headings, lists,
+/// quotes, captions, tables, links), set in the reading serif. Pictures and
+/// scripts stay out; every word stays in.
+@MainActor
+enum ArticleBody {
+    private static let cache = NSCache<NSString, NSAttributedString>()
+
+    static func from(_ content: String) -> NSAttributedString {
+        let key = String(content.hashValue) as NSString
+        if let hit = cache.object(forKey: key) { return hit }
+        let body = content.contains("<") ? html(content) ?? plain(content.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)) : plain(content)
+        cache.setObject(body, forKey: key)
+        return body
     }
 
-    static func from(_ content: String) -> [Paragraph] {
-        guard content.contains("<") else {
-            return content.components(separatedBy: "\n").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }.map { Paragraph(text: $0) }
-        }
-        var html = content
-        for (pattern, replacement) in [
-            (#"(?is)<(script|style|figure|svg|nav|aside)[^>]*>.*?</\1>"#, ""),
-            (#"(?i)<\s*br\s*/?\s*>"#, "\n"),
-            (#"(?i)<h[1-6][^>]*>"#, "\n\u{1}"),
-            (#"(?i)<li[^>]*>"#, "\n• "),
-            (#"(?i)</\s*(p|div|section|article|blockquote|h[1-6]|li|tr)\s*>"#, "\n"),
-            (#"<[^>]+>"#, "")
-        ] {
-            html = html.replacingOccurrences(of: pattern, with: replacement, options: .regularExpression)
-        }
-        return decodeEntities(html)
-            .components(separatedBy: "\n")
-            .map { $0.replacingOccurrences(of: #"[ \t\u{00A0}]+"#, with: " ", options: .regularExpression).trimmingCharacters(in: .whitespaces) }
-            .filter { !$0.isEmpty && $0 != "\u{1}" }
-            .map { $0.hasPrefix("\u{1}") ? Paragraph(text: String($0.dropFirst()).trimmingCharacters(in: .whitespaces), heading: true) : Paragraph(text: $0) }
+    static func serif(_ style: UIFont.TextStyle, _ size: CGFloat, _ weight: UIFont.Weight, italic: Bool = false) -> UIFont {
+        let base = UIFont.preferredFont(forTextStyle: style).fontDescriptor
+        var descriptor = (base.withDesign(.serif) ?? base).addingAttributes([.traits: [UIFontDescriptor.TraitKey.weight: weight]])
+        if italic { descriptor = descriptor.withSymbolicTraits(.traitItalic) ?? descriptor }
+        return UIFontMetrics(forTextStyle: style).scaledFont(for: UIFont(descriptor: descriptor, size: size))
     }
 
-    private static func decodeEntities(_ text: String) -> String {
-        var out = text
-        for (entity, character) in ["&nbsp;": " ", "&quot;": "\"", "&#39;": "'", "&apos;": "'", "&lt;": "<", "&gt;": ">", "&mdash;": "—", "&ndash;": "–", "&hellip;": "…", "&rsquo;": "’", "&lsquo;": "‘", "&rdquo;": "”", "&ldquo;": "“"] {
-            out = out.replacingOccurrences(of: entity, with: character)
+    private static func plain(_ content: String) -> NSAttributedString {
+        let text = content.components(separatedBy: "\n").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }.joined(separator: "\n")
+        return NSAttributedString(string: text, attributes: [.font: serif(.body, 19, .regular), .paragraphStyle: paragraph(from: nil)])
+    }
+
+    private static func html(_ content: String) -> NSAttributedString? {
+        var cleaned = content
+        for pattern in [#"(?is)<(script|style|svg|nav|iframe|noscript|form|button)\b[^>]*>.*?</\1>"#, #"(?i)<(img|picture|source|video|audio)\b[^>]*>"#] {
+            cleaned = cleaned.replacingOccurrences(of: pattern, with: "", options: .regularExpression)
         }
-        if let regex = try? NSRegularExpression(pattern: "&#(x?)([0-9a-fA-F]+);") {
-            for match in regex.matches(in: out, range: NSRange(out.startIndex..., in: out)).reversed() {
-                guard let whole = Range(match.range, in: out), let digits = Range(match.range(at: 2), in: out) else { continue }
-                let hex = match.range(at: 1).length > 0
-                if let code = UInt32(out[digits], radix: hex ? 16 : 10), let scalar = Unicode.Scalar(code) {
-                    out.replaceSubrange(whole, with: String(Character(scalar)))
-                }
+        guard let data = cleaned.data(using: .utf8),
+              let parsed = try? NSMutableAttributedString(data: data, options: [
+                .documentType: NSAttributedString.DocumentType.html,
+                .characterEncoding: String.Encoding.utf8.rawValue
+              ], documentAttributes: nil) else { return nil }
+        let whole = NSRange(location: 0, length: parsed.length)
+        // HTML comes in at 12pt Times with headings larger; map it onto the reader's ladder.
+        parsed.enumerateAttribute(.font, in: whole) { value, range, _ in
+            let font = value as? UIFont
+            let traits = font?.fontDescriptor.symbolicTraits ?? []
+            let size = font?.pointSize ?? 12
+            let next: UIFont
+            if traits.contains(.traitMonoSpace) {
+                next = UIFontMetrics(forTextStyle: .body).scaledFont(for: .monospacedSystemFont(ofSize: 15, weight: .regular))
+            } else if size >= 17 {
+                next = serif(.title2, 24, .semibold)
+            } else if size >= 13.5 {
+                next = serif(.title3, 21, .semibold)
+            } else {
+                next = serif(.body, 19, traits.contains(.traitBold) ? .semibold : .regular, italic: traits.contains(.traitItalic))
             }
+            parsed.addAttribute(.font, value: next, range: range)
         }
-        return out.replacingOccurrences(of: "&amp;", with: "&")
+        parsed.enumerateAttribute(.paragraphStyle, in: whole) { value, range, _ in
+            parsed.addAttribute(.paragraphStyle, value: paragraph(from: value as? NSParagraphStyle), range: range)
+        }
+        for key: NSAttributedString.Key in [.foregroundColor, .backgroundColor, .strokeColor, .underlineColor, .attachment, .kern] {
+            parsed.removeAttribute(key, range: whole)
+        }
+        // Drop the object-replacement characters images leave, and outer blank lines.
+        parsed.mutableString.replaceOccurrences(of: "\u{FFFC}", with: "", options: [], range: NSRange(location: 0, length: parsed.length))
+        while parsed.string.hasSuffix("\n") { parsed.deleteCharacters(in: NSRange(location: parsed.length - 1, length: 1)) }
+        while parsed.string.hasPrefix("\n") { parsed.deleteCharacters(in: NSRange(location: 0, length: 1)) }
+        return parsed
+    }
+
+    /// The reader's spacing, keeping the indents HTML gave lists and quotes.
+    private static func paragraph(from original: NSParagraphStyle?) -> NSParagraphStyle {
+        let style = (original?.mutableCopy() as? NSMutableParagraphStyle) ?? NSMutableParagraphStyle()
+        style.lineSpacing = 6
+        style.paragraphSpacing = max(style.paragraphSpacing, 14)
+        style.paragraphSpacingBefore = 0
+        style.alignment = .natural
+        return style
     }
 }
 
@@ -351,7 +385,7 @@ private final class ReadingTextView: UITextView {
 private struct ReaderText: UIViewRepresentable {
     let title: String
     let byline: String
-    let paragraphs: [Paragraphs.Paragraph]
+    let body: NSAttributedString
     let marks: [Mark]
     let focus: String?
     /// Bumped after a highlight lands, to let go of the selection.
@@ -399,31 +433,26 @@ private struct ReaderText: UIViewRepresentable {
     }
 
     private func build(_ palette: Palette) -> (text: NSAttributedString, bodyStart: Int, focusRange: NSRange?, signature: Int) {
-        // Sizes as the web reads: 19pt body, a display title; both follow Dynamic Type.
-        let serif = { (style: UIFont.TextStyle, size: CGFloat, weight: UIFont.Weight) -> UIFont in
-            let base = UIFont.preferredFont(forTextStyle: style)
-            let descriptor = base.fontDescriptor.withDesign(.serif)?.addingAttributes([.traits: [UIFontDescriptor.TraitKey.weight: weight]]) ?? base.fontDescriptor
-            return UIFontMetrics(forTextStyle: style).scaledFont(for: UIFont(descriptor: descriptor, size: size))
-        }
+        let serif = ArticleBody.serif
         let ink = palette.text, muted = palette.subtle
         let paragraph = NSMutableParagraphStyle()
         paragraph.lineSpacing = 6
         paragraph.paragraphSpacing = 14
 
         let text = NSMutableAttributedString()
-        text.append(NSAttributedString(string: title + "\n", attributes: [.font: serif(.largeTitle, 40, .medium), .foregroundColor: ink, .paragraphStyle: paragraph]))
+        text.append(NSAttributedString(string: title + "\n", attributes: [.font: serif(.largeTitle, 40, .medium, italic: false), .foregroundColor: ink, .paragraphStyle: paragraph]))
         if !byline.isEmpty {
             text.append(NSAttributedString(string: byline + "\n", attributes: [.font: UIFont.preferredFont(forTextStyle: .footnote), .foregroundColor: muted, .paragraphStyle: paragraph]))
         }
         text.append(NSAttributedString(string: "\n", attributes: [.font: UIFont.preferredFont(forTextStyle: .footnote)]))
         let bodyStart = text.length
 
-        for (index, item) in paragraphs.enumerated() {
-            let font = item.heading ? serif(.title2, 23, .semibold) : serif(.body, 19, .regular)
-            text.append(NSAttributedString(string: item.text + (index == paragraphs.count - 1 ? "" : "\n"), attributes: [.font: font, .foregroundColor: ink, .paragraphStyle: paragraph]))
-        }
-        if paragraphs.isEmpty {
-            text.append(NSAttributedString(string: "No readable text was saved for this page. Open the original from the share button.", attributes: [.font: serif(.body, 19, .regular), .foregroundColor: muted]))
+        if body.length > 0 {
+            let start = text.length
+            text.append(body)
+            text.addAttribute(.foregroundColor, value: ink, range: NSRange(location: start, length: body.length))
+        } else {
+            text.append(NSAttributedString(string: "No readable text was saved for this page. Open the original from the share button.", attributes: [.font: serif(.body, 19, .regular, italic: false), .foregroundColor: muted]))
         }
 
         let whole = text.string as NSString
@@ -446,7 +475,7 @@ private struct ReaderText: UIViewRepresentable {
         }
 
         var hasher = Hasher()
-        hasher.combine(title); hasher.combine(paragraphs); hasher.combine(marks); hasher.combine(focus); hasher.combine(palette.id)
+        hasher.combine(title); hasher.combine(ObjectIdentifier(body)); hasher.combine(marks); hasher.combine(focus); hasher.combine(palette.id)
         return (text, bodyStart, focusRange, hasher.finalize())
     }
 
