@@ -33,7 +33,7 @@ struct WikiFront: View {
             .onDisappear { lastLooked = Date().timeIntervalSince1970 }
         }
         .searchable(text: $query, prompt: "Search the wiki")
-        .navigationTitle("Wiki")
+        .roomTitle("Wiki")
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 Menu {
@@ -132,8 +132,7 @@ private struct NewPageField: View {
                 Spacer()
                 if ready {
                     Button(thesis ? "Open" : "Build", action: create)
-                        .font(.subheadline.weight(.semibold))
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.ink)
                         .disabled(writer.busy)
                         .transition(.opacity)
                 }
@@ -176,7 +175,7 @@ private struct DueCard: View {
                 if !due["test"].text.isEmpty { Passage(text: due["test"].text) }
                 HStack {
                     NavigationLink(value: Route.view(due["pageId"].text)) { Text("Did it hold up?").fontWeight(.semibold) }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.ink)
                     Button("Not now") { calmly { dismissed = true } }.buttonStyle(.bordered)
                 }
             }
@@ -208,7 +207,7 @@ private struct ArguesCard: View {
                             await onFiled()
                         }
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.ink)
                     .disabled(writer.busy)
                     Button("Not now") { calmly { dismissed = true } }.buttonStyle(.bordered)
                 }
@@ -377,7 +376,7 @@ private struct ProposedChange: View {
             }
             HStack {
                 Button("Accept") { decide(accept: true) }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.ink)
                 Button("Keep this version") { decide(accept: false) }
                     .buttonStyle(.bordered)
                 Spacer()

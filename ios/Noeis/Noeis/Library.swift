@@ -26,7 +26,7 @@ struct LibraryList: View {
             .onChange(of: generation) { Task { await reload() } }
         }
         .searchable(text: $query, prompt: "Search your library")
-        .navigationTitle("Library")
+        .roomTitle("Library")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button { saving = true } label: { Image(systemName: "plus") }.accessibilityLabel("Save a link")
@@ -146,7 +146,6 @@ struct ArticleReader: View {
                 settled: settled,
                 onSelect: { picked in calmly(.easeOut(duration: 0.18)) { selection = picked } }
             )
-            .ignoresSafeArea(edges: .bottom)
             .safeAreaInset(edge: .bottom) {
                 if let selection {
                     HighlightBar(selection: selection, busy: writer.busy) { ink, thought in

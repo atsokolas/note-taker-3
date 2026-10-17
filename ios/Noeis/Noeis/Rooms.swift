@@ -52,13 +52,16 @@ struct Rooms: View {
                     .tag(each)
             }
         }
-        .safeAreaInset(edge: wide ? .top : .bottom, spacing: 0) {
-            if wide {
-                Masthead(room: $room, theme: { sheet = .theme }, account: { sheet = .settings })
-            } else {
-                RoomCapsule(room: $room)
-            }
+        .safeAreaInset(edge: .top, spacing: 0) {
+            if wide { Masthead(room: $room, theme: { sheet = .theme }, account: { sheet = .settings }) }
         }
+        // The capsule floats over the room; each stack leaves room for it.
+        .overlay(alignment: .bottom) {
+            if !wide { RoomCapsule(room: $room) }
+        }
+        #if DEBUG
+        .onAppear { if let start = ProcessInfo.processInfo.environment["NOEIS_ROOM"].flatMap(Room.init) { room = start } }
+        #endif
         .sheet(item: $sheet) { which in
             switch which {
             case .settings: SettingsView()
@@ -80,13 +83,35 @@ private struct RoomStack: View {
                 .toolbar {
                     if let account {
                         ToolbarItem(placement: .topBarTrailing) {
-                            Button(action: account) { Image(systemName: "person.crop.circle") }
+                            Button(action: account) { Image(systemName: "person.crop.circle").foregroundStyle(Ink.muted) }
                                 .accessibilityLabel("Account and settings")
                         }
                     }
                 }
                 .navigationDestination(for: Route.self) { RouteView(route: $0).zooms(from: $0, in: zoom) }
         }
+        // On iPhone, the last row and the end of a page scroll clear of the capsule.
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if account != nil { Color.clear.frame(height: RoomCapsule.height) }
+        }
+        #if DEBUG
+        // Screenshots: NOEIS_OPEN=wiki:wiki-rapamycin opens a page in its room.
+        .onAppear {
+            guard let open = ProcessInfo.processInfo.environment["NOEIS_OPEN"]?.split(separator: ":", maxSplits: 1).map(String.init),
+                  open.count == 2 else { return }
+            let route: Route? = switch open[0] {
+            case "wiki" where room == .wiki: .wikiPage(open[1])
+            case "library" where room == .library: .article(open[1])
+            case "judgment" where room == .judgment: .view(open[1])
+            case "concept" where room == .think: .concept(open[1])
+            case "question" where room == .think: .question(open[1])
+            case "note" where room == .think: .note(open[1])
+            case "editions" where room == .editions: .edition(open[1])
+            default: nil
+            }
+            if let route { path = [route] }
+        }
+        #endif
         .environment(\.zoomSpace, zoom)
         .environment(\.open, OpenRoute { path.append($0) })
     }
@@ -178,6 +203,9 @@ private struct ThemeRing: View {
 private struct RoomCapsule: View {
     @Binding var room: Room
     @Namespace private var pill
+
+    /// What a page leaves free beneath it: the capsule and a little air.
+    static let height: CGFloat = 64
 
     var body: some View {
         ViewThatFits(in: .horizontal) {

@@ -158,13 +158,58 @@ extension View {
         scrollContentBackground(.hidden)
             .background(Ink.canvas, ignoresSafeAreaEdges: .all)
             .foregroundStyle(Ink.text)
+            // The bar takes the page's colour once something scrolls under it.
+            .toolbarBackground(Ink.canvas, for: .navigationBar)
     }
+
+    /// A room's title. iPhone shows it large in the bar; on iPad the masthead
+    /// already names the room, so the title sits in the column, where the
+    /// web puts it, and the bar keeps only its buttons.
+    func roomTitle(_ title: String) -> some View { modifier(RoomTitle(title: title)) }
 
     /// A centred column, as every web room is: 680 to read in, wider for an
     /// index or a broadsheet. Full width on iPhone.
     func column(_ width: CGFloat = 680) -> some View {
         frame(maxWidth: width, alignment: .leading)
             .frame(maxWidth: .infinity)
+    }
+}
+
+private struct RoomTitle: ViewModifier {
+    let title: String
+    @Environment(\.horizontalSizeClass) private var sizeClass
+
+    func body(content: Content) -> some View {
+        if sizeClass == .regular {
+            content
+                .environment(\.roomHeading, title)
+                .navigationTitle(title)
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar { ToolbarItem(placement: .principal) { Color.clear.frame(width: 1, height: 1) } }
+        } else {
+            content.navigationTitle(title)
+        }
+    }
+}
+
+extension EnvironmentValues {
+    private struct RoomHeadingKey: EnvironmentKey { static let defaultValue: String? = nil }
+
+    /// The room's title when the column shows it (iPad).
+    var roomHeading: String? {
+        get { self[RoomHeadingKey.self] }
+        set { self[RoomHeadingKey.self] = newValue }
+    }
+}
+
+/// The room's title at the head of its column, with air under the masthead.
+struct RoomHeading: View {
+    @Environment(\.roomHeading) private var heading
+
+    var body: some View {
+        if let heading {
+            Text(heading).font(.masthead).padding(.top, 28).padding(.bottom, 6)
+        }
     }
 }
 
@@ -176,7 +221,10 @@ struct RoomIndex<Content: View>: View {
 
     var body: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 0) { content }
+            LazyVStack(alignment: .leading, spacing: 0) {
+                RoomHeading()
+                content
+            }
                 .padding(.horizontal, sizeClass == .regular ? 40 : 20)
                 .padding(.top, 4)
                 .padding(.bottom, 48)
@@ -258,6 +306,27 @@ struct Kicker: View {
 }
 
 /// A press that answers the finger: the row dims a touch and settles back.
+/// The one filled button: page colour on ink, legible on every theme
+/// (the accent's own fill washed out white labels on the dark ones).
+struct InkButton: ButtonStyle {
+    @Environment(\.isEnabled) private var enabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(Ink.paper)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background(Ink.text, in: Capsule())
+            .opacity(enabled ? (configuration.isPressed ? 0.7 : 1) : 0.4)
+            .calmAnimation(.easeOut(duration: 0.15), value: configuration.isPressed)
+    }
+}
+
+extension ButtonStyle where Self == InkButton {
+    static var ink: InkButton { InkButton() }
+}
+
 struct QuietPress: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label

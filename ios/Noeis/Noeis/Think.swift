@@ -5,10 +5,7 @@ import SwiftUI
 /// Think, as on the web: what you wrote, the concepts you name, and the
 /// questions you are trying to settle, one shelf at a time.
 struct ThinkRoom: View {
-    enum Shelf: String, CaseIterable { case notes, concepts, questions }
-    @AppStorage("think.shelf") private var shelf: Shelf = .notes
-    @Namespace private var mark
-    @Environment(\.horizontalSizeClass) private var sizeClass
+    @AppStorage(Shelves.key) private var shelf: Shelves.Shelf = .notes
 
     var body: some View {
         Group {
@@ -18,34 +15,35 @@ struct ThinkRoom: View {
             case .questions: QuestionsList()
             }
         }
-        .safeAreaInset(edge: .top, spacing: 0) { shelves }
-        .navigationTitle("Think")
+        .roomTitle("Think")
+        .paper()
     }
+}
 
-    /// The web's Think tabs: words, the open one underlined in the accent.
-    private var shelves: some View {
+/// The web's Think tabs, at the head of each shelf: words, the open one
+/// underlined in the accent.
+private struct Shelves: View {
+    enum Shelf: String, CaseIterable { case notes, concepts, questions }
+    static let key = "think.shelf"
+    @AppStorage(Shelves.key) private var shelf: Shelf = .notes
+
+    var body: some View {
         HStack(spacing: 22) {
             ForEach(Shelf.allCases, id: \.self) { each in
                 Button { calmly(.easeOut(duration: 0.2)) { shelf = each } } label: {
                     Text(each.rawValue.capitalized)
-                        .font(.system(.subheadline, design: .serif))
+                        .font(.system(.body, design: .serif))
                         .foregroundStyle(each == shelf ? Ink.text : Ink.muted)
                         .padding(.vertical, 8)
                         .overlay(alignment: .bottom) {
-                            if each == shelf {
-                                Rectangle().fill(Ink.accent).frame(height: 1).matchedGeometryEffect(id: "shelf", in: mark)
-                            }
+                            if each == shelf { Rectangle().fill(Ink.accent).frame(height: 1) }
                         }
                 }
                 .buttonStyle(QuietPress())
                 .accessibilityAddTraits(each == shelf ? .isSelected : [])
             }
-            Spacer()
         }
-        .padding(.horizontal, sizeClass == .regular ? 40 : 20)
-        .column(800)
-        .background(Ink.canvas)
-        .overlay(alignment: .bottom) { Hairline() }
+        .padding(.bottom, 4)
     }
 }
 
@@ -72,6 +70,12 @@ struct NotesList: View {
                 if board && !showingArchive && sizeClass == .regular {
                     // The web's board: three equal columns of cards.
                     ScrollView {
+                        VStack(alignment: .leading, spacing: 0) {
+                            RoomHeading()
+                            Shelves()
+                        }
+                        .padding(.horizontal, 40)
+                        .column(1240)
                         HStack(alignment: .top, spacing: 28) {
                             ForEach(Self.stages, id: \.self) { stage in
                                 let column = live.filter { $0.stage == stage.key }
@@ -90,6 +94,7 @@ struct NotesList: View {
                     }
                 } else {
                     RoomIndex {
+                        Shelves()
                         if board && !showingArchive {
                             ForEach(Self.stages, id: \.self) { stage in
                                 let column = live.filter { $0.stage == stage.key }
@@ -128,7 +133,6 @@ struct NotesList: View {
         }
         .sheet(isPresented: $writing, onDismiss: { generation += 1 }) { NewNoteSheet() }
         .failureAlert(writer)
-        .paper()
     }
 
     private func row(_ note: JSON, reload: @escaping () async -> Void) -> some View {
@@ -380,7 +384,8 @@ private struct ConceptsList: View {
     var body: some View {
         Loaded(load: { try await NoeisAPI.shared.concepts() }) { concepts, reload in
             RoomIndex {
-                FirstLine(prompt: "Name a concept you keep returning to", action: "Name") { name in
+                Shelves()
+                FirstLine(prompt: "Name a concept", action: "Name") { name in
                     try await NoeisAPI.shared.saveConcept(name, description: "")
                     await reload()
                     return .concept(name)
@@ -389,7 +394,7 @@ private struct ConceptsList: View {
                 ForEach(concepts, id: \.self) { concept in
                     RouteRow(route: .concept(concept["name"].text)) {
                         VStack(alignment: .leading, spacing: 6) {
-                            Text(concept["name"].text).font(.rowTitle)
+                            Text(concept["name"].text).font(.rowTitle).lineLimit(2)
                             if !concept["description"].text.isEmpty {
                                 Text(concept["description"].text).font(.dek).foregroundStyle(Ink.muted).lineLimit(2)
                             }
@@ -435,7 +440,7 @@ struct ConceptView: View {
                             Text(question["text"].text).font(.dek).padding(.vertical, 14)
                         }
                     }
-                    FirstLine(prompt: "What do you want to find out about this?", action: "Ask") { text in
+                    FirstLine(prompt: "Ask a question", action: "Ask") { text in
                         let question = try await NoeisAPI.shared.createQuestion(text, concept: name)
                         await reload()
                         return .question(question.id)
@@ -520,6 +525,7 @@ private struct QuestionsList: View {
         Loaded(load: { try await NoeisAPI.shared.questions() }) { questions, reload in
             let shown = questions.filter { ($0["status"].text == "answered") == answered }
             RoomIndex {
+                Shelves()
                 if !answered {
                     FirstLine(prompt: "What are you trying to find out?", action: "Ask") { text in
                         let question = try await NoeisAPI.shared.createQuestion(text)
@@ -531,7 +537,7 @@ private struct QuestionsList: View {
                 ForEach(shown, id: \.self) { question in
                     RouteRow(route: question.questionRoute) {
                         VStack(alignment: .leading, spacing: 6) {
-                            Text(question["text"].text).font(.rowTitle)
+                            Text(question["text"].text).font(.rowTitle).lineLimit(3).fixedSize(horizontal: false, vertical: true)
                             Text(question.questionByline).font(.meta).foregroundStyle(Ink.subtle)
                         }
                         .padding(.vertical, 18)
@@ -586,6 +592,7 @@ struct QuestionView: View {
                         RouteLink(route: .concept(question["linkedTagName"].text)) {
                             Text("Under \(question["linkedTagName"].text)").font(.footnote).foregroundStyle(Ink.thread)
                         }
+                        .padding(.bottom, 12)
                     }
                     SettledByField(id: id, saved: question["settledBy"].text)
                     let passages = question.at("inquiry.run.passages")?.array ?? []
@@ -693,8 +700,7 @@ struct FirstLine: View {
                 .onSubmit(go)
             if !clean.isEmpty {
                 Button(action, action: go)
-                    .font(.subheadline.weight(.semibold))
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.ink)
                     .disabled(writer.busy)
                     .transition(.opacity)
             }

@@ -34,7 +34,8 @@ struct EditionsFront: View {
             }
             .refreshable { await reload() }
         }
-        .navigationTitle("Editions")
+        .toolbar { PartnerToolbarItem(context: ["type": "workspace", "id": "editions", "title": "Editions"]) }
+        .roomTitle("Editions")
         .paper()
     }
 
@@ -222,6 +223,11 @@ private extension Story {
 private struct FrontPage: View {
     let stand: Stand
 
+    /// "Claude", "Claude & Codex", "Claude, Codex & Hermes".
+    static func and(_ names: [String]) -> String {
+        names.count <= 2 ? names.joined(separator: " & ") : names.dropLast().joined(separator: ", ") + " & " + names.last!
+    }
+
     var body: some View {
         let lead = stand.lead
         let alsoIn = lead.map { lead in stand.stories(of: lead.paper).filter { $0.item["itemId"].text != lead.item["itemId"].text } } ?? []
@@ -231,7 +237,7 @@ private struct FrontPage: View {
         VStack(alignment: .leading, spacing: 0) {
             let folio = [Self.today.string(from: Date()),
                          [stories.isEmpty ? "" : costLine(stories.map { $0.item }), stand.news].filter { !$0.isEmpty }.joined(separator: " · "),
-                         hands.isEmpty ? "" : "Filed by \(hands.joined(separator: " & "))"].filter { !$0.isEmpty }
+                         hands.isEmpty ? "" : "Filed by \(Self.and(hands))"].filter { !$0.isEmpty }
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: 24) {
                     ForEach(Array(folio.enumerated()), id: \.offset) { index, line in
@@ -239,7 +245,10 @@ private struct FrontPage: View {
                         Text(line).lineLimit(1).fixedSize()
                     }
                 }
-                VStack(alignment: .leading, spacing: 3) { ForEach(folio, id: \.self) { Text($0) } }
+                // Narrow: one phrase to a line, so none breaks mid-phrase.
+                VStack(alignment: .leading, spacing: 3) {
+                    ForEach(folio.flatMap { $0.components(separatedBy: " · ") }, id: \.self) { Text($0) }
+                }
             }
             .font(.system(.footnote, design: .serif))
             .foregroundStyle(Ink.text)
@@ -255,9 +264,9 @@ private struct FrontPage: View {
                 .padding(.vertical, 16)
 
             VStack(spacing: 2) { Rule(); Rule() }
-            ViewThatFits {
+            ViewThatFits(in: .horizontal) {
                 HStack(spacing: 26) { paperLinks }
-                VStack(spacing: 8) { paperLinks }
+                ScrollView(.horizontal, showsIndicators: false) { HStack(spacing: 22) { paperLinks } }
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 11)
@@ -1050,7 +1059,7 @@ private struct FindingView: View {
             NavigationLink(value: Route.article(saved)) { Label("Kept in your Library", systemImage: "checkmark") }
                 .foregroundStyle(Ink.living)
         } else {
-            Button("Keep") { act("keep") }.buttonStyle(.borderedProminent)
+            Button("Keep") { act("keep") }.buttonStyle(.ink)
         }
         if let source = item.passageURL {
             Link("Read the source", destination: source)

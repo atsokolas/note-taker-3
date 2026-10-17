@@ -91,7 +91,7 @@ struct ViewsList: View {
             }
             .refreshable { await reload() }
         }
-        .navigationTitle(showingSetAside ? "Set aside" : "Judgment")
+        .roomTitle(showingSetAside ? "Set aside" : "Judgment")
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 Menu {
@@ -118,7 +118,7 @@ private struct HoldField: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            TextField("What do you believe? One sentence you would bet on.", text: $text, axis: .vertical)
+            TextField("What do you believe?", text: $text, axis: .vertical)
                 .font(.system(.title2, design: .serif))
                 .lineLimit(1...4)
                 .focused($focused)
@@ -127,14 +127,13 @@ private struct HoldField: View {
                 .padding(.vertical, 12)
                 .overlay(alignment: .bottom) { Hairline(color: focused ? Ink.text : Ink.rule) }
             HStack {
-                Text(receipt ?? "Write it so it could turn out wrong.")
+                Text(receipt ?? "One sentence you would bet on, written so it could turn out wrong.")
                     .font(.footnote)
                     .foregroundStyle(receipt == nil ? Ink.subtle : Ink.living)
                 Spacer()
                 if !oneSentence(text).isEmpty {
                     Button("Hold", action: hold)
-                        .font(.subheadline.weight(.semibold))
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.ink)
                         .disabled(writer.busy)
                         .transition(.opacity)
                 }
