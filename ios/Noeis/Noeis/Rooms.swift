@@ -46,16 +46,20 @@ struct Rooms: View {
     var body: some View {
         let wide = sizeClass == .regular
         let deep = !(paths[room] ?? []).isEmpty
-        // A tab view with its bar hidden: each room keeps its own stack, and
-        // only the open one takes touches. The rooms' words are ours.
-        TabView(selection: $room) {
+        // Every room stays alive in its own stack, so each keeps its place;
+        // only the open one shows and takes touches. (A tab view with its bar
+        // hidden also hid the page bars on iPad, and with them the way back.)
+        ZStack {
             ForEach(Room.allCases) { each in
+                let open = each == room
                 RoomStack(room: each, path: path(each), account: wide ? nil : { sheet = .settings }) {
                     // Inside each stack, so a page's bar (back, Share, Ask) sits under it.
                     if wide { Masthead(room: $room, pop: { paths[each] = [] }, theme: { sheet = .theme }, account: { sheet = .settings }) }
                 }
-                .toolbar(.hidden, for: .tabBar)
-                .tag(each)
+                .opacity(open ? 1 : 0)
+                .allowsHitTesting(open)
+                .accessibilityHidden(!open)
+                .zIndex(open ? 1 : 0)
             }
         }
         // iPhone: the capsule floats over an index and steps aside for a page,

@@ -285,6 +285,11 @@ private struct ArgumentBanner: View {
 /// The saved article as the web reads it: its own HTML (headings, lists,
 /// quotes, captions, tables, links), set in the reading serif. Pictures and
 /// scripts stay out; every word stays in.
+extension NSAttributedString.Key {
+    /// A quieter body run (a caption, an aside), coloured from the theme when shown.
+    static let readerTone = NSAttributedString.Key("noeis.readerTone")
+}
+
 @MainActor
 enum ArticleBody {
     private static let cache = NSCache<NSString, NSAttributedString>()
@@ -309,17 +314,23 @@ enum ArticleBody {
         return NSAttributedString(string: text, attributes: [.font: serif(.body, 19, .regular), .paragraphStyle: paragraph(from: nil)])
     }
 
+    /// Block kinds the importer would flatten, carried through it as marker
+    /// colours and given the reader's own treatment afterwards.
+    private enum Block: Int { case quote = 1, note, item }
+
     private static func html(_ content: String) -> NSAttributedString? {
-        var cleaned = content
-        for pattern in [#"(?is)<(script|style|svg|nav|iframe|noscript|form|button)\b[^>]*>.*?</\1>"#, #"(?i)<(img|picture|source|video|audio)\b[^>]*>"#] {
-            cleaned = cleaned.replacingOccurrences(of: pattern, with: "", options: .regularExpression)
-        }
-        guard let data = cleaned.data(using: .utf8),
+        guard let data = prepared(content).data(using: .utf8),
               let parsed = try? NSMutableAttributedString(data: data, options: [
                 .documentType: NSAttributedString.DocumentType.html,
                 .characterEncoding: String.Encoding.utf8.rawValue
               ], documentAttributes: nil) else { return nil }
         let whole = NSRange(location: 0, length: parsed.length)
+        var blocks: [(NSRange, Block)] = []
+        parsed.enumerateAttribute(.foregroundColor, in: whole) { value, range, _ in
+            var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
+            (value as? UIColor)?.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+            if red < 0.01, green < 0.01, let block = Block(rawValue: Int((blue * 255).rounded())) { blocks.append((range, block)) }
+        }
         // HTML comes in at 12pt Times with headings larger; map it onto the reader's ladder.
         parsed.enumerateAttribute(.font, in: whole) { value, range, _ in
             let font = value as? UIFont
@@ -343,11 +354,74 @@ enum ArticleBody {
         for key: NSAttributedString.Key in [.foregroundColor, .backgroundColor, .strokeColor, .underlineColor, .attachment, .kern] {
             parsed.removeAttribute(key, range: whole)
         }
+        for (range, block) in blocks {
+            let style = NSMutableParagraphStyle()
+            style.lineSpacing = 6
+            style.paragraphSpacing = 14
+            switch block {
+            case .quote:
+                // The web's pull quote: italic, set in from the measure.
+                style.firstLineHeadIndent = 22
+                style.headIndent = 22
+                parsed.addAttribute(.font, value: serif(.body, 20, .regular, italic: true), range: range)
+            case .note:
+                // Captions and asides: smaller and quieter than the text they serve.
+                style.paragraphSpacing = 18
+                parsed.addAttribute(.font, value: serif(.footnote, 15, .regular, italic: true), range: range)
+                parsed.addAttribute(.readerTone, value: "muted", range: range)
+            case .item:
+                // A hanging indent, so a wrapped item lines up under its words, not its bullet.
+                style.headIndent = 22
+                style.paragraphSpacing = 8
+                style.tabStops = [NSTextTab(textAlignment: .natural, location: 22)]
+                style.defaultTabInterval = 22
+            }
+            parsed.addAttribute(.paragraphStyle, value: style, range: range)
+        }
         // Drop the object-replacement characters images leave, and outer blank lines.
         parsed.mutableString.replaceOccurrences(of: "\u{FFFC}", with: "", options: [], range: NSRange(location: 0, length: parsed.length))
         while parsed.string.hasSuffix("\n") { parsed.deleteCharacters(in: NSRange(location: parsed.length - 1, length: 1)) }
         while parsed.string.hasPrefix("\n") { parsed.deleteCharacters(in: NSRange(location: 0, length: 1)) }
         return parsed
+    }
+
+    /// The saved HTML, reshaped so the importer keeps what a reader needs:
+    /// bullets and numbers as text, table rows as lines, and quotes, captions
+    /// and asides tagged with a marker colour. Pictures and scripts go.
+    private static func prepared(_ content: String) -> String {
+        func tag(_ block: Block) -> String { "<div style=\"color:#0000\(String(format: "%02x", block.rawValue))\">" }
+        var html = content
+        func replace(_ pattern: String, _ with: String) {
+            html = html.replacingOccurrences(of: pattern, with: with, options: .regularExpression)
+        }
+        replace(#"(?is)<(script|style|svg|nav|iframe|noscript|form|button|select)\b[^>]*>.*?</\1>"#, "")
+        replace(#"(?i)<(img|picture|source|video|audio|input)\b[^>]*>"#, "")
+        // Numbered lists keep their numbers; the rest take a bullet.
+        if let ordered = try? NSRegularExpression(pattern: #"(?is)<ol\b[^>]*>(.*?)</ol>"#) {
+            for match in ordered.matches(in: html, range: NSRange(html.startIndex..., in: html)).reversed() {
+                guard let whole = Range(match.range, in: html), let inner = Range(match.range(at: 1), in: html) else { continue }
+                var number = 0
+                let items = html[inner].components(separatedBy: "<li").enumerated().map { index, piece -> String in
+                    guard index > 0, let close = piece.firstIndex(of: ">") else { return index == 0 ? "" : piece }
+                    number += 1
+                    return "\(tag(.item))\(number).\t" + piece[piece.index(after: close)...]
+                }
+                html.replaceSubrange(whole, with: items.joined())
+            }
+        }
+        replace(#"(?i)<li\b[^>]*>"#, tag(.item) + "•\t")
+        replace(#"(?i)</li\s*>"#, "</div>")
+        replace(#"(?i)</?(ul|ol)\b[^>]*>"#, "")
+        // A table reads as one line per row, its cells set apart by dots.
+        replace(#"(?i)</t[dh]\s*>\s*<t[dh]\b[^>]*>"#, " · ")
+        replace(#"(?i)<tr\b[^>]*>"#, "<p>")
+        replace(#"(?i)</tr\s*>"#, "</p>")
+        replace(#"(?i)</?(table|thead|tbody|tfoot|t[dh]|caption|colgroup|col)\b[^>]*>"#, "")
+        replace(#"(?i)<blockquote\b[^>]*>"#, tag(.quote))
+        replace(#"(?i)</blockquote\s*>"#, "</div>")
+        replace(#"(?i)<(figcaption|aside|small)\b[^>]*>"#, tag(.note))
+        replace(#"(?i)</(figcaption|aside|small)\s*>"#, "</div>")
+        return html
     }
 
     /// The reader's spacing, keeping the indents HTML gave lists and quotes.
@@ -450,6 +524,10 @@ private struct ReaderText: UIViewRepresentable {
             let start = text.length
             text.append(body)
             text.addAttribute(.foregroundColor, value: ink, range: NSRange(location: start, length: body.length))
+            body.enumerateAttribute(.readerTone, in: NSRange(location: 0, length: body.length)) { tone, range, _ in
+                guard tone != nil else { return }
+                text.addAttribute(.foregroundColor, value: muted, range: NSRange(location: start + range.location, length: range.length))
+            }
         } else {
             text.append(NSAttributedString(string: "No readable text was saved for this page. Open the original from the share button.", attributes: [.font: ArticleBody.serif(.body, 19, .regular), .foregroundColor: muted]))
         }
