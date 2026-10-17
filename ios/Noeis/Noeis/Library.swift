@@ -433,14 +433,13 @@ private struct ReaderText: UIViewRepresentable {
     }
 
     private func build(_ palette: Palette) -> (text: NSAttributedString, bodyStart: Int, focusRange: NSRange?, signature: Int) {
-        let serif = ArticleBody.serif
         let ink = palette.text, muted = palette.subtle
         let paragraph = NSMutableParagraphStyle()
         paragraph.lineSpacing = 6
         paragraph.paragraphSpacing = 14
 
         let text = NSMutableAttributedString()
-        text.append(NSAttributedString(string: title + "\n", attributes: [.font: serif(.largeTitle, 40, .medium, italic: false), .foregroundColor: ink, .paragraphStyle: paragraph]))
+        text.append(NSAttributedString(string: title + "\n", attributes: [.font: ArticleBody.serif(.largeTitle, 40, .medium), .foregroundColor: ink, .paragraphStyle: paragraph]))
         if !byline.isEmpty {
             text.append(NSAttributedString(string: byline + "\n", attributes: [.font: UIFont.preferredFont(forTextStyle: .footnote), .foregroundColor: muted, .paragraphStyle: paragraph]))
         }
@@ -452,7 +451,7 @@ private struct ReaderText: UIViewRepresentable {
             text.append(body)
             text.addAttribute(.foregroundColor, value: ink, range: NSRange(location: start, length: body.length))
         } else {
-            text.append(NSAttributedString(string: "No readable text was saved for this page. Open the original from the share button.", attributes: [.font: serif(.body, 19, .regular, italic: false), .foregroundColor: muted]))
+            text.append(NSAttributedString(string: "No readable text was saved for this page. Open the original from the share button.", attributes: [.font: ArticleBody.serif(.body, 19, .regular), .foregroundColor: muted]))
         }
 
         let whole = text.string as NSString
