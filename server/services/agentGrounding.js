@@ -82,6 +82,8 @@ const figuresIn = (text = '') => {
     const unit = unitRaw.toLowerCase();
     // "the high-80s" or "the 1990s" names a range, and "January 25" a day, not a figure.
     if (!unit && /^'?s\b/.test(String(text).slice(match.index + raw.length))) continue;
+    // "the 52-week year" names a period's length, not a figure.
+    if (!dollar && !unit && /^[-\s](?:week|month|day|year|quarter)\b/i.test(String(text).slice(match.index + raw.length))) continue;
     if (!dollar && !unit && MONTH_BEFORE.test(String(text).slice(Math.max(0, match.index - 12), match.index))) continue;
     const base = Number(digits.replace(/,/g, ''));
     if (!Number.isFinite(base)) continue;
@@ -158,8 +160,9 @@ const unstatedFigures = (claim = '', texts = []) => {
   const near = (value, figure) => UNIT_SHIFTS.some(shift => (
     Math.abs(value * shift - figure.value) <= Math.max(figure.step / 2, Math.abs(figure.value) * 0.005)
   ));
-  // "1.10^5" compounds a rate; "(b / a)^(1/4) - 1" is a growth rate per year.
-  const exponents = [...text.matchAll(/\^\s*\(?\s*(\d+(?:\.\d+)?)(?:\s*\/\s*(\d+))?\s*\)?/g)]
+  // "1.10^5" (or "1.10 raised to the 5th power") compounds a rate;
+  // "(b / a)^(1/4) - 1" is a growth rate per year.
+  const exponents = [...text.matchAll(/(?:\^|\braised to the)\s*\(?\s*(\d+(?:\.\d+)?)(?:\s*\/\s*(\d+))?(?:st|nd|rd|th)?\s*\)?/gi)]
     .map(([, a, b]) => (b ? Number(a) / Number(b) : Number(a)))
     .filter(Number.isFinite);
   const powers = value => exponents.map(e => value ** e).filter(Number.isFinite);
@@ -182,6 +185,18 @@ const unstatedFigures = (claim = '', texts = []) => {
       if (!now || !then || !then.value) return [];
       const step = /\./.test(rate) ? 10 ** -rate.split('.')[1].length : 1;
       return Math.abs((now.value / then.value - 1) * 100 - Number(rate)) <= step / 2 + 0.05 ? [] : [raw];
+    }),
+    // "Quadrupled" from $119bn to $279bn is 2.3x: a multiple in words is working too.
+    ...[...text.matchAll(new RegExp(`\\b(doubl|tripl|quadrupl)\\w*(?:\\s+\\w+){0,3}?\\s+(from|to)\\s+${AMOUNT}\\s+(?:to|from)\\s+${AMOUNT}`, 'gi'))].flatMap(([raw, stem, first, x, y]) => {
+      const times = { doubl: 2, tripl: 3, quadrupl: 4 }[stem.toLowerCase()];
+      const [a, b] = /^from$/i.test(first) ? [valueOf(x), valueOf(y)] : [valueOf(y), valueOf(x)];
+      const ratio = a?.value && b && b.value / a.value;
+      return !ratio || (ratio >= times * 0.85 && ratio <= times * 1.4) ? [] : [raw];
+    }),
+    // "Roughly double (1.10^5 ≈ 1.61x)": the word against the multiple beside it.
+    ...[...text.matchAll(/\b(doubl|tripl|quadrupl)\w*[^;]{0,40}?(?<![\d.])(\d+(?:\.\d+)?)\s*[x×](?![a-z])/gi)].flatMap(([raw, stem, multiple]) => {
+      const times = { doubl: 2, tripl: 3, quadrupl: 4 }[stem.toLowerCase()];
+      return Number(multiple) >= times * 0.85 && Number(multiple) <= times * 1.4 ? [] : [raw];
     })
   ];
   const known = figures.filter(figure => statedIn(figure, values));

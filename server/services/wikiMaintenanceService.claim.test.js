@@ -1341,7 +1341,10 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
       }
     });
 
-    expect(chat).toHaveBeenCalledTimes(1);
+    // The writer, then the editor rereading the draft against the same filings.
+    expect(chat).toHaveBeenCalledTimes(2);
+    expect(chat.mock.calls[1][0].messages[1].content).toContain('Customer concentration remained material');
+    expect(chat.mock.calls[1][0].messages[1].content).toContain('the security case remains unresolved');
     expect(chat.mock.calls[0][0]).toMatchObject({
       route: 'artifact_draft',
       maxTokens: 16000,
@@ -1352,6 +1355,67 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(chat.mock.calls[0][0].messages[1].content).toContain('Customer concentration remained material');
     expect(chat.mock.calls[0][0].messages[1].content).toContain('Prior candidate preserved a source-backed customer concentration analysis.');
     expect(page.sourceScope).toBe('selected_sources');
+  });
+
+  it('publishes the editor\'s corrections to a dossier draft, and the writer\'s draft when the editor fails', async () => {
+    const draft = text => ({
+      model: 'test-model',
+      provider: 'test-provider',
+      text: JSON.stringify({
+        title: 'CoreWeave investment dossier',
+        article: { summary: { text, citationIndexes: [1], support: 'supported' }, sections: [] },
+        maintenance: { summary: 'Drafted dossier.', changelog: [], health: {} },
+        sourceIndexesUsed: [1]
+      })
+    });
+    const { maintainWikiPage } = require('./wikiMaintenanceService');
+    for (const [editor, expected] of [
+      [async () => draft('CoreWeave reported long-term debt of $12.5 billion.'), 'reported long-term debt of'],
+      [async () => { throw new Error('editor unavailable'); }, 'reported net long-term debt of']
+    ]) {
+      const page = {
+        _id: 'coreweave-page',
+        title: 'CoreWeave investment dossier',
+        pageType: 'entity',
+        sourceScope: 'selected_sources',
+        plainText: '',
+        body: { type: 'doc', content: [] },
+        sourceRefs: [{
+          type: 'external',
+          objectId: 'crwv-10k',
+          title: 'CoreWeave 10-K',
+          snippet: 'CoreWeave reported long-term debt of $12.5 billion.',
+          provider: 'sec-edgar',
+          metadata: { source: 'sec-edgar', sourceEventId: 'crwv-filing-event' }
+        }],
+        claims: [],
+        aiState: {}
+      };
+      const chat = jest.fn()
+        .mockResolvedValueOnce(draft('CoreWeave reported net long-term debt of $12.5 billion.'))
+        .mockImplementationOnce(editor);
+      await maintainWikiPage({
+        page,
+        userId: 'user-1',
+        chat,
+        isConfigured: () => true,
+        skipQualityRebuild: true,
+        models: {
+          Article: fakeFindModel([]),
+          NotebookEntry: fakeFindModel([]),
+          TagMeta: fakeFindModel([]),
+          Question: fakeFindModel([]),
+          WikiPage: fakeFindModel([]),
+          WikiSourceEvent: {
+            find: jest.fn(() => ({
+              select() { return this; },
+              lean: async () => [{ _id: 'crwv-filing-event', text: 'CoreWeave reported long-term debt of $12.5 billion at year end.' }]
+            }))
+          }
+        }
+      });
+      expect(page.plainText).toContain(expected);
+    }
   });
 
   it('keeps a watched company dossier on attached filings after a rejected candidate restores the old scope', async () => {
@@ -1411,7 +1475,7 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
       }
     });
 
-    expect(chat).toHaveBeenCalledTimes(1);
+    expect(chat).toHaveBeenCalledTimes(2);
     expect(chat.mock.calls[0][0].messages[1].content).toContain('CoreWeave 10-K');
     expect(page.sourceScope).toBe('selected_sources');
     expect(page.aiState.sourceScopeAtDraft).toBe('selected_sources');
@@ -4025,5 +4089,17 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(progressEvents.some(event => event.stage === 'model_stream_fallback')).toBe(true);
     expect(page.aiState.model).toContain('test-blocking-model');
     expect(page.aiState.maintenanceSummary).toBe('Drafted after stream fallback.');
+  });
+});
+
+describe('dossier template notes', () => {
+  it("never carries the template's market placeholder into the owner's notes", () => {
+    const { buildCompanyDossierBody, MARKET_PLACEHOLDER } = require('./companyDossierService');
+    const body = buildCompanyDossierBody({
+      companyName: 'NVIDIA', ticker: 'NVDA', startingJudgment: 'NVIDIA can keep earning outsized returns on AI systems.', requiredReturn: 0.1, horizonYears: 5
+    });
+    const notes = __testables.extractManualNotes({ title: 'NVIDIA', body });
+    expect(notes).toContain('outsized returns');
+    expect(notes).not.toContain(MARKET_PLACEHOLDER);
   });
 });
