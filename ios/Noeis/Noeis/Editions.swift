@@ -6,6 +6,7 @@ import SwiftUI
 /// of them, or a newsstand with each paper as a cover (EditionStand.jsx). The
 /// choice is remembered on this device.
 struct EditionsFront: View {
+    @Environment(\.horizontalSizeClass) private var sizeClass
     @AppStorage("editions.view") private var view = "front"
     @AppStorage("editions.last") private var last = ""
     @Namespace private var pill
@@ -27,9 +28,9 @@ struct EditionsFront: View {
                         .transition(.opacity)
                     }
                 }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 40)
-                .column()
+                .padding(.horizontal, sizeClass == .regular ? 40 : 20)
+                .padding(.bottom, 48)
+                .column(1240)
             }
             .refreshable { await reload() }
         }
@@ -81,13 +82,11 @@ struct PaperIssues: View {
 
     var body: some View {
         Loaded(load: { try await Stand.load(opening: false).papers.first { $0.profile == profile } }) { paper, reload in
-            List {
+            RoomIndex {
                 ForEach(paper?.issues ?? [], id: \.id) { issue in
                     RouteRow(route: .edition(issue.id)) { IssueRow(issue: issue) }
                 }
             }
-            .listStyle(.plain)
-            .scrollContentBackground(.hidden)
             .refreshable { await reload() }
             .navigationTitle(paper?.title ?? "Editions")
         }
@@ -230,10 +229,17 @@ private struct FrontPage: View {
         let stories = [lead].compactMap { $0 } + alsoIn + columns.flatMap { $0.stories }
         let hands = Array(Set(stand.wire.map { $0.name })).sorted()
         VStack(alignment: .leading, spacing: 0) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(Self.today.string(from: Date()))
-                Text([stories.isEmpty ? "" : costLine(stories.map { $0.item }), stand.news].filter { !$0.isEmpty }.joined(separator: " · "))
-                if !hands.isEmpty { Text("Filed by \(hands.joined(separator: " & "))") }
+            let folio = [Self.today.string(from: Date()),
+                         [stories.isEmpty ? "" : costLine(stories.map { $0.item }), stand.news].filter { !$0.isEmpty }.joined(separator: " · "),
+                         hands.isEmpty ? "" : "Filed by \(hands.joined(separator: " & "))"].filter { !$0.isEmpty }
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 24) {
+                    ForEach(Array(folio.enumerated()), id: \.offset) { index, line in
+                        if index > 0 { Spacer(minLength: 0) }
+                        Text(line).lineLimit(1).fixedSize()
+                    }
+                }
+                VStack(alignment: .leading, spacing: 3) { ForEach(folio, id: \.self) { Text($0) } }
             }
             .font(.system(.footnote, design: .serif))
             .foregroundStyle(Ink.text)
@@ -241,10 +247,10 @@ private struct FrontPage: View {
             Rule()
 
             Text("The Noeis Edition")
-                .font(.system(size: 46, weight: .heavy, design: .serif))
-                .tracking(-1.6)
+                .font(.system(size: 84, weight: .heavy, design: .serif))
+                .tracking(-2.6)
                 .lineLimit(1)
-                .minimumScaleFactor(0.6)
+                .minimumScaleFactor(0.4)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 16)
 
@@ -258,14 +264,59 @@ private struct FrontPage: View {
             Rule()
 
             if let lead {
-                VStack(alignment: .leading, spacing: 30) {
-                    LeadArticle(lead: lead, alsoIn: alsoIn)
-                    if let first = columns.first {
-                        PaperColumn(paper: first.paper, stories: Array(first.stories.prefix(3)))
+                let first = columns.first
+                let fold = Array(columns.dropFirst())
+                ViewThatFits(in: .horizontal) {
+                    // Landscape iPad: the web's three columns, ruled in ink.
+                    VStack(alignment: .leading, spacing: 34) {
+                        HStack(alignment: .top, spacing: 0) {
+                            LeadArticle(lead: lead, alsoIn: alsoIn, size: 42)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                                .padding(.trailing, 28)
+                            if let first {
+                                PaperColumn(paper: first.paper, stories: Array(first.stories.prefix(3)))
+                                    .frame(width: 280)
+                                    .frame(maxHeight: .infinity, alignment: .top)
+                                    .padding(.horizontal, 24)
+                                    .overlay(alignment: .leading) { ColumnRule() }
+                            }
+                            VStack(alignment: .leading, spacing: 26) { rail }
+                                .frame(width: 236)
+                                .frame(maxHeight: .infinity, alignment: .top)
+                                .padding(.leading, 22)
+                                .overlay(alignment: .leading) { ColumnRule() }
+                        }
+                        .fixedSize(horizontal: false, vertical: true)
+                        Fold(columns: fold)
                     }
-                    rail
-                    ForEach(Array(columns.dropFirst().enumerated()), id: \.offset) { _, column in
-                        PaperColumn(paper: column.paper, stories: Array(column.stories.prefix(1)))
+                    .frame(minWidth: 1000, idealWidth: 1000, maxWidth: .infinity)
+
+                    // Portrait iPad: the lead beside one paper, the rail beneath.
+                    VStack(alignment: .leading, spacing: 34) {
+                        HStack(alignment: .top, spacing: 0) {
+                            LeadArticle(lead: lead, alsoIn: alsoIn, size: 36)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                                .padding(.trailing, 24)
+                            if let first {
+                                PaperColumn(paper: first.paper, stories: Array(first.stories.prefix(3)))
+                                    .frame(width: 250)
+                                    .frame(maxHeight: .infinity, alignment: .top)
+                                    .padding(.leading, 24)
+                                    .overlay(alignment: .leading) { ColumnRule() }
+                            }
+                        }
+                        .fixedSize(horizontal: false, vertical: true)
+                        VStack(alignment: .leading, spacing: 26) { rail }
+                        Fold(columns: fold)
+                    }
+                    .frame(minWidth: 680, idealWidth: 680, maxWidth: .infinity)
+
+                    // iPhone: one column.
+                    VStack(alignment: .leading, spacing: 30) {
+                        LeadArticle(lead: lead, alsoIn: alsoIn)
+                        if let first { PaperColumn(paper: first.paper, stories: Array(first.stories.prefix(3))) }
+                        rail
+                        Fold(columns: fold)
                     }
                 }
                 .padding(.top, 24)
@@ -345,13 +396,14 @@ private struct FrontPage: View {
 private struct LeadArticle: View {
     let lead: Story
     let alsoIn: [Story]
+    var size: CGFloat = 32
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             SmallCaps("\(lead.paper.title) · lead story", size: 11).foregroundStyle(Ink.danger)
             RouteLink(route: lead.route) {
                 Text(lead.item.heading)
-                    .font(.system(size: 32, weight: .bold, design: .serif))
+                    .font(.system(size: size, weight: .bold, design: .serif))
                     .tracking(-0.8)
                     .foregroundStyle(Ink.text)
                     .multilineTextAlignment(.leading)
@@ -403,6 +455,29 @@ private struct PaperColumn: View {
             }
         }
     }
+}
+
+/// Below the fold: the rest of the papers, one story each, under a double rule.
+private struct Fold: View {
+    let columns: [(paper: Paper, stories: [Story])]
+
+    var body: some View {
+        if !columns.isEmpty {
+            VStack(alignment: .leading, spacing: 14) {
+                VStack(spacing: 2) { Rule(); Rule() }
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 240), spacing: 24, alignment: .top)], alignment: .leading, spacing: 24) {
+                    ForEach(Array(columns.enumerated()), id: \.offset) { _, column in
+                        PaperColumn(paper: column.paper, stories: Array(column.stories.prefix(1)))
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// The ink rule between broadsheet columns.
+private struct ColumnRule: View {
+    var body: some View { Rectangle().fill(Ink.text).frame(width: 1) }
 }
 
 // MARK: Newsstand
@@ -539,6 +614,7 @@ private struct Spread: View {
     let stand: Stand
     let paper: Paper
     let close: () -> Void
+    @Environment(\.horizontalSizeClass) private var sizeClass
 
     var body: some View {
         let issue = stand.opened[paper.latest.id]
@@ -554,9 +630,14 @@ private struct Spread: View {
             .foregroundStyle(Ink.muted)
             .buttonStyle(QuietPress())
 
-            VStack(alignment: .leading, spacing: 0) {
+            // Two facing pages on iPad; the cover above its contents on iPhone.
+            let pages = sizeClass == .regular
+                ? AnyLayout(HStackLayout(alignment: .top, spacing: 0))
+                : AnyLayout(VStackLayout(alignment: .leading, spacing: 0))
+            pages {
                 Cover(paper: paper, ink: covers[index % covers.count], figure: issue?.coverFigure, italic: index % 2 == 1, open: true)
-                    .frame(minHeight: 420)
+                    .frame(minHeight: sizeClass == .regular ? 600 : 420)
+                    .frame(width: sizeClass == .regular ? 380 : nil)
                 VStack(alignment: .leading, spacing: 18) {
                     if let issue, !items.isEmpty {
                         VStack(alignment: .leading, spacing: 0) {
@@ -611,8 +692,9 @@ private struct Spread: View {
                             .padding(.vertical, 30)
                     }
                 }
-                .padding(.horizontal, 18)
-                .padding(.vertical, 22)
+                .padding(.horizontal, sizeClass == .regular ? 32 : 18)
+                .padding(.vertical, sizeClass == .regular ? 30 : 22)
+                .frame(maxWidth: .infinity, alignment: .topLeading)
                 .background(Ink.paper)
             }
             .shadow(color: .black.opacity(0.22), radius: 22, y: 18)
@@ -728,7 +810,7 @@ private struct IssueRow: View {
             .font(.meta)
             .foregroundStyle(Ink.subtle)
         }
-        .padding(.vertical, 10)
+        .padding(.vertical, 20)
     }
 }
 

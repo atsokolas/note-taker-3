@@ -13,8 +13,8 @@ struct NoeisApp: App {
             return UIFont(descriptor: descriptor, size: 0)
         }
         let bar = UINavigationBar.appearance()
-        bar.largeTitleTextAttributes = [.font: serif(.largeTitle, .semibold)]
-        bar.titleTextAttributes = [.font: serif(.headline, .semibold)]
+        bar.largeTitleTextAttributes = [.font: serif(.largeTitle, .regular)]
+        bar.titleTextAttributes = [.font: serif(.headline, .regular)]
     }
 
     var body: some Scene {

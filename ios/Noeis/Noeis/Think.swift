@@ -10,6 +10,7 @@ struct NotesList: View {
     @State private var query = ""
     @State private var generation = 0
     @StateObject private var writer = Writer()
+    @Environment(\.horizontalSizeClass) private var sizeClass
 
     private struct Stage: Hashable { let key: String; let title: String }
     private static let stages = [Stage(key: "idea", title: "Ideas"), Stage(key: "in_progress", title: "In progress"), Stage(key: "done", title: "Done")]
@@ -18,24 +19,42 @@ struct NotesList: View {
         Loaded(load: { try await NoeisAPI.shared.notes() }) { notes, reload in
             let live = notes.filter { ($0.at("board.archivedAt") == nil || $0.at("board.archivedAt") == .null) != showingArchive }
                 .filter { query.isEmpty || $0.noteTitle.localizedCaseInsensitiveContains(query) || $0["snippet"].text.localizedCaseInsensitiveContains(query) }
-            List {
-                if board && !showingArchive {
-                    ForEach(Self.stages, id: \.self) { stage in
-                        let column = live.filter { $0.stage == stage.key }
-                        Section {
-                            ForEach(column, id: \.id) { note in row(note, reload: reload) }
-                            if column.isEmpty { Text("Nothing here.").font(.dek).foregroundStyle(Ink.subtle).onPage() }
-                        } header: { Kicker("\(stage.title) · \(column.count)") }
+            Group {
+                if board && !showingArchive && sizeClass == .regular {
+                    // The web's board: three equal columns of cards.
+                    ScrollView {
+                        HStack(alignment: .top, spacing: 28) {
+                            ForEach(Self.stages, id: \.self) { stage in
+                                let column = live.filter { $0.stage == stage.key }
+                                VStack(alignment: .leading, spacing: 12) {
+                                    Kicker("\(stage.title) · \(column.count)")
+                                    ForEach(column, id: \.id) { note in card(note, reload: reload) }
+                                    if column.isEmpty { Quiet("Nothing here.") }
+                                }
+                                .frame(maxWidth: .infinity, alignment: .topLeading)
+                            }
+                        }
+                        .padding(.horizontal, 40)
+                        .padding(.top, 8)
+                        .padding(.bottom, 48)
+                        .column(1240)
                     }
                 } else {
-                    ForEach(live, id: \.id) { note in row(note, reload: reload) }
-                }
-            }
-            .listStyle(.plain)
-            .overlay {
-                if live.isEmpty && !board {
-                    ContentUnavailableView(showingArchive ? "Nothing archived" : "No notes yet", systemImage: "square.and.pencil",
-                                           description: Text(showingArchive ? "" : "Write what you think. Noeis tells you when a note argues with a view you hold."))
+                    RoomIndex {
+                        if board && !showingArchive {
+                            ForEach(Self.stages, id: \.self) { stage in
+                                let column = live.filter { $0.stage == stage.key }
+                                IndexHeading("\(stage.title) · \(column.count)")
+                                ForEach(column, id: \.id) { note in row(note, reload: reload) }
+                                if column.isEmpty { Quiet("Nothing here.") }
+                            }
+                        } else {
+                            ForEach(live, id: \.id) { note in row(note, reload: reload) }
+                            if live.isEmpty {
+                                Quiet(showingArchive ? "Nothing archived." : "No notes yet. Write what you think; Noeis tells you when a note argues with a view you hold.")
+                            }
+                        }
+                    }
                 }
             }
             .refreshable { await reload() }
@@ -73,21 +92,35 @@ struct NotesList: View {
                 }
                 if let at = note["updatedAt"]?.date { Text(at.ago).font(.meta).foregroundStyle(Ink.subtle) }
             }
-            .padding(.vertical, 8)
+            .padding(.vertical, 18)
         }
-        .contextMenu {
-            ForEach(Self.stages.filter { $0.key != note.stage }, id: \.self) { stage in
-                Button("Move to \(stage.title)") { writer.run { try await NoeisAPI.shared.moveNote(note.id, stage: stage.key); await reload() } }
+        .contextMenu { moves(note, reload: reload) }
+    }
+
+    /// A note on the board: its title and two lines, on a card of the page.
+    private func card(_ note: JSON, reload: @escaping () async -> Void) -> some View {
+        RouteLink(route: .note(note.id)) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(note.noteTitle).font(.system(.headline, design: .serif).weight(.regular)).lineLimit(3)
+                if !note["snippet"].text.isEmpty && note["snippet"].text != note.noteTitle {
+                    Text(note["snippet"].text).font(.footnote).foregroundStyle(Ink.muted).lineLimit(2)
+                }
             }
-            Button(showingArchive ? "Restore" : "Archive") {
-                writer.run { try await NoeisAPI.shared.moveNote(note.id, archived: !showingArchive); await reload() }
-            }
+            .multilineTextAlignment(.leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(14)
+            .background(Ink.paper, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Ink.rule))
         }
-        .swipeActions(edge: .trailing) {
-            Button(showingArchive ? "Restore" : "Archive") {
-                writer.run { try await NoeisAPI.shared.moveNote(note.id, archived: !showingArchive); await reload() }
-            }
-            .tint(Ink.subtle)
+        .contextMenu { moves(note, reload: reload) }
+    }
+
+    @ViewBuilder private func moves(_ note: JSON, reload: @escaping () async -> Void) -> some View {
+        ForEach(Self.stages.filter { $0.key != note.stage }, id: \.self) { stage in
+            Button("Move to \(stage.title)") { writer.run { try await NoeisAPI.shared.moveNote(note.id, stage: stage.key); await reload() } }
+        }
+        Button(showingArchive ? "Restore" : "Archive") {
+            writer.run { try await NoeisAPI.shared.moveNote(note.id, archived: !showingArchive); await reload() }
         }
     }
 }

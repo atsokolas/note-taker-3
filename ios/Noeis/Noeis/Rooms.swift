@@ -1,36 +1,25 @@
 import SwiftUI
 
-/// The web's four rooms: Library is what you read, Think is what you wrote,
-/// Wiki is what the reading built, Judgment is what it was for, and
-/// Editions is what the agents you connect bring back.
+/// The web's rooms, in the web's order: Library is what you read, Think is
+/// what you wrote, Wiki is what the reading built, Editions is what the agents
+/// you connect bring back, and Judgment is what it was all for.
 enum Room: String, CaseIterable, Identifiable {
-    case wiki, judgment, library, think, editions
+    case library, think, wiki, editions, judgment
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
-        case .wiki: return "Wiki"
-        case .judgment: return "Judgment"
         case .library: return "Library"
         case .think: return "Think"
+        case .wiki: return "Wiki"
         case .editions: return "Editions"
-        }
-    }
-
-    var symbol: String {
-        switch self {
-        case .wiki: return "text.book.closed"
-        case .judgment: return "scale.3d"
-        case .library: return "books.vertical"
-        case .think: return "square.and.pencil"
-        case .editions: return "newspaper"
+        case .judgment: return "Judgment"
         }
     }
 }
 
-/// Anything a row can open. One type, so every room pushes the same way on
-/// iPhone and fills the same detail column on iPad.
+/// Anything a row can open. One type, so every room pushes the same way.
 enum Route: Hashable {
     case wikiPage(String)
     case view(String)
@@ -40,95 +29,189 @@ enum Route: Hashable {
     case paper(String)
 }
 
+/// One room at a time, full width, as on the web: no sidebar and no fixed
+/// columns. On iPad the rooms are words in a glass masthead; on iPhone they
+/// float in a glass capsule under your thumb. Each room keeps its own place.
 struct Rooms: View {
     @Environment(\.horizontalSizeClass) private var sizeClass
     @SceneStorage("room") private var room: Room = .wiki
-    @State private var selection: Route?
-    @State private var showingSettings = false
+    @State private var visited: Set<Room> = []
+    @State private var sheet: Sheet?
+
+    private enum Sheet: String, Identifiable { case settings, theme; var id: String { rawValue } }
 
     var body: some View {
-        Group {
-            if sizeClass == .regular { split } else { tabs }
-        }
-        .sheet(isPresented: $showingSettings) { SettingsView() }
-    }
-
-    // iPhone: a tab per room, each with its own stack.
-    private var tabs: some View {
-        TabView(selection: $room) {
-            ForEach(Room.allCases) { room in
-                NavigationStack {
-                    RoomList(room: room)
-                        .toolbar { accountButton }
-                        .navigationDestination(for: Route.self) { RouteView(route: $0) }
+        let wide = sizeClass == .regular
+        ZStack {
+            ForEach(Room.allCases) { each in
+                if visited.contains(each) || each == room {
+                    RoomStack(room: each, account: wide ? nil : { sheet = .settings })
+                        .opacity(each == room ? 1 : 0)
+                        .allowsHitTesting(each == room)
+                        .accessibilityHidden(each != room)
                 }
-                .tabItem { Label(room.title, systemImage: room.symbol) }
-                .tag(room)
             }
         }
-    }
-
-    // iPad: rooms, then the room's list, then the page.
-    private var split: some View {
-        NavigationSplitView {
-            List(Room.allCases) { room in
-                Button {
-                    calmly(.easeOut(duration: 0.2)) { self.room = room; selection = nil }
-                } label: {
-                    Label(room.title, systemImage: room.symbol)
-                        .font(.system(.body, design: .serif))
-                        .foregroundStyle(room == self.room ? Ink.text : Ink.muted)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(QuietPress())
-                .onPage(selected: room == self.room)
-                .listRowSeparator(.hidden)
+        .safeAreaInset(edge: wide ? .top : .bottom, spacing: 0) {
+            if wide {
+                Masthead(room: $room, theme: { sheet = .theme }, account: { sheet = .settings })
+            } else {
+                RoomCapsule(room: $room)
             }
-            .listStyle(.plain)
-            .navigationTitle("Noeis")
-            .toolbar { accountButton }
-            .paper()
-        } content: {
-            RoomList(room: room)
-                .navigationSplitViewColumnWidth(min: 300, ideal: room == .editions ? 440 : 340, max: 520)
-                .environment(\.detail, $selection)
-                .id(room)
-                .transition(.opacity)
-        } detail: {
-            NavigationStack {
-                Group {
-                    if let selection {
-                        RouteView(route: selection).id(selection).transition(.opacity)
-                    } else {
-                        Text(room.emptyDetail)
-                            .font(.system(.title3, design: .serif).italic())
-                            .foregroundStyle(Ink.subtle)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    }
-                }
-                .navigationDestination(for: Route.self) { RouteView(route: $0) }
-            }
-            .paper()
         }
-    }
-
-    private var accountButton: some ToolbarContent {
-        ToolbarItem(placement: .topBarTrailing) {
-            Button { showingSettings = true } label: { Image(systemName: "person.crop.circle") }
-                .accessibilityLabel("Account and settings")
+        .onAppear { visited.insert(room) }
+        .onChange(of: room) { visited.insert(room) }
+        .sheet(item: $sheet) { which in
+            switch which {
+            case .settings: SettingsView()
+            case .theme: NavigationStack { ThemePicker() }
+            }
         }
     }
 }
 
-private extension Room {
-    var emptyDetail: String {
-        switch self {
-        case .wiki: return "Choose a page to read."
-        case .judgment: return "Choose a view."
-        case .library: return "Choose something to read."
-        case .think: return "Choose a note."
-        case .editions: return "Choose an issue."
+private struct RoomStack: View {
+    let room: Room
+    let account: (() -> Void)?
+    @Namespace private var zoom
+
+    var body: some View {
+        NavigationStack {
+            RoomList(room: room)
+                .toolbar {
+                    if let account {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button(action: account) { Image(systemName: "person.crop.circle") }
+                                .accessibilityLabel("Account and settings")
+                        }
+                    }
+                }
+                .navigationDestination(for: Route.self) { RouteView(route: $0).zooms(from: $0, in: zoom) }
+        }
+        .environment(\.zoomSpace, zoom)
+    }
+}
+
+/// iPad: the web's top bar. The wordmark in italic serif, then the rooms as
+/// words, the open one in full ink with a thread underline that slides to it.
+private struct Masthead: View {
+    @Binding var room: Room
+    let theme: () -> Void
+    let account: () -> Void
+    @Namespace private var mark
+    @Environment(\.noeisTheme) private var themeId
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 0) {
+            Text("Noeis")
+                .font(.system(size: 30, design: .serif).italic())
+                .tracking(-1.2)
+                .padding(.trailing, 28)
+            HStack(alignment: .firstTextBaseline, spacing: 22) {
+                ForEach(Room.allCases) { each in
+                    Button { calmly(.easeOut(duration: 0.22)) { room = each } } label: {
+                        Text(each.title)
+                            .font(.system(size: 17, design: .serif))
+                            .foregroundStyle(each == room ? Ink.text : Ink.muted)
+                            .padding(.vertical, 6)
+                            .overlay(alignment: .bottom) {
+                                if each == room {
+                                    Rectangle().fill(Ink.accent).frame(height: 1)
+                                        .matchedGeometryEffect(id: "line", in: mark)
+                                }
+                            }
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(QuietPress())
+                    .accessibilityAddTraits(each == room ? .isSelected : [])
+                    .keyboardShortcut(KeyEquivalent(Character(each.title.prefix(1).lowercased())), modifiers: [.command, .option])
+                }
+            }
+            Spacer(minLength: 20)
+            HStack(spacing: 18) {
+                Button(action: theme) { ThemeRing(id: themeId) }
+                    .accessibilityLabel("Theme")
+                Button(action: account) {
+                    Image(systemName: "person.crop.circle").font(.system(size: 20, weight: .light))
+                }
+                .accessibilityLabel("Account and settings")
+            }
+            .buttonStyle(QuietPress())
+            .foregroundStyle(Ink.muted)
+        }
+        .padding(.horizontal, 40)
+        .padding(.top, 8)
+        .padding(.bottom, 10)
+        .background {
+            ZStack {
+                Rectangle().fill(.ultraThinMaterial)
+                Rectangle().fill(Ink.canvas).opacity(0.78)
+            }
+            .ignoresSafeArea(edges: .top)
+        }
+        .overlay(alignment: .bottom) { Hairline() }
+    }
+}
+
+/// The theme you wear, as the web's top bar shows it: a thin ring half filled
+/// with the theme's accent (light and dark halves when it follows the device).
+private struct ThemeRing: View {
+    let id: String
+
+    var body: some View {
+        let palette = Palette.named(id)
+        ZStack {
+            Circle().fill(Color(palette?.paper ?? Palette.light.paper))
+            Circle().trim(from: 0.25, to: 0.75)
+                .fill(Color(palette?.accent ?? Palette.dark.paper))
+                .rotationEffect(.degrees(180))
+            Circle().strokeBorder(Ink.muted, lineWidth: 1)
+        }
+        .frame(width: 18, height: 18)
+        .padding(6)
+        .contentShape(Rectangle())
+    }
+}
+
+/// iPhone: the rooms as words in a floating glass capsule; the open one sits
+/// in an ink pill that slides between them.
+private struct RoomCapsule: View {
+    @Binding var room: Room
+    @Namespace private var pill
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            words(size: 15, padding: 11)
+            words(size: 13, padding: 8)
+        }
+        .padding(4)
+        .background(.ultraThinMaterial, in: Capsule())
+        .overlay(Capsule().strokeBorder(Ink.rule))
+        .shadow(color: .black.opacity(0.12), radius: 14, y: 6)
+        .padding(.horizontal, 12)
+        .padding(.bottom, 2)
+        .frame(maxWidth: .infinity)
+    }
+
+    private func words(size: CGFloat, padding: CGFloat) -> some View {
+        HStack(spacing: 0) {
+            ForEach(Room.allCases) { each in
+                Button { calmly(.spring(response: 0.32, dampingFraction: 0.86)) { room = each } } label: {
+                    Text(each.title)
+                        .font(.system(size: size, design: .serif))
+                        .foregroundStyle(each == room ? Ink.paper : Ink.text)
+                        .lineLimit(1)
+                        .fixedSize()
+                        .padding(.horizontal, padding)
+                        .padding(.vertical, 9)
+                        .background {
+                            if each == room { Capsule().fill(Ink.text).matchedGeometryEffect(id: "pill", in: pill) }
+                        }
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(each == room ? .isSelected : [])
+            }
         }
     }
 }
@@ -148,49 +231,52 @@ struct RoomList: View {
 }
 
 extension EnvironmentValues {
-    private struct DetailKey: EnvironmentKey { static let defaultValue: Binding<Route?>? = nil }
+    private struct ZoomKey: EnvironmentKey { static let defaultValue: Namespace.ID? = nil }
 
-    /// The iPad's detail column, when there is one. On iPhone it is nil and a
-    /// row pushes onto its tab's stack instead.
-    var detail: Binding<Route?>? {
-        get { self[DetailKey.self] }
-        set { self[DetailKey.self] = newValue }
+    /// The room's namespace, so a page can open out of the row it came from.
+    var zoomSpace: Namespace.ID? {
+        get { self[ZoomKey.self] }
+        set { self[ZoomKey.self] = newValue }
     }
 }
 
-/// Anything that opens a page: into the detail column on iPad, pushed onto the
-/// stack on iPhone.
+extension View {
+    /// Where a page opens from (iOS 18's zoom; a plain push before it).
+    @ViewBuilder func zoomSource(_ route: Route, in space: Namespace.ID?) -> some View {
+        if #available(iOS 18, *), let space { matchedTransitionSource(id: route, in: space) } else { self }
+    }
+
+    /// A page that opens out of its row, and folds back into it.
+    @ViewBuilder func zooms(from route: Route, in space: Namespace.ID?) -> some View {
+        if #available(iOS 18, *), let space { navigationTransition(.zoom(sourceID: route, in: space)) } else { self }
+    }
+}
+
+/// Anything that opens a page: it pushes onto the room's stack, opening out of
+/// whatever was tapped.
 struct RouteLink<Label: View>: View {
     let route: Route
     @ViewBuilder var label: Label
-    @Environment(\.detail) private var detail
+    @Environment(\.zoomSpace) private var space
 
     var body: some View {
-        Group {
-            if let detail {
-                Button { calmly(.easeOut(duration: 0.22)) { detail.wrappedValue = route } } label: { label.contentShape(Rectangle()) }
-            } else {
-                NavigationLink(value: route) { label }
-            }
-        }
-        .buttonStyle(QuietPress())
+        NavigationLink(value: route) { label.contentShape(Rectangle()) }
+            .buttonStyle(QuietPress())
+            .zoomSource(route, in: space)
     }
 }
 
-/// A list row that opens a page, marked while it is open in the detail column.
-/// Either way it stands on the page.
+/// A row of an index: full width, ruled beneath, like the web's collection rows.
 struct RouteRow<Label: View>: View {
     let route: Route
     @ViewBuilder var label: Label
-    @Environment(\.detail) private var detail
 
     var body: some View {
-        if let detail {
-            RouteLink(route: route) { label.frame(maxWidth: .infinity, alignment: .leading) }
-                .onPage(selected: detail.wrappedValue == route)
-        } else {
-            NavigationLink(value: route) { label }
-                .onPage()
+        VStack(alignment: .leading, spacing: 0) {
+            RouteLink(route: route) {
+                label.frame(maxWidth: .infinity, alignment: .leading).multilineTextAlignment(.leading)
+            }
+            Hairline()
         }
     }
 }

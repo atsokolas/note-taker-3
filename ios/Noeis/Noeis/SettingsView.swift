@@ -80,7 +80,7 @@ struct SettingsView: View {
 /// The web's theme menu: choosing a theme puts it on at once, Looks good
 /// keeps it on the account, and leaving without it puts back the one you
 /// came in with.
-private struct ThemePicker: View {
+struct ThemePicker: View {
     @EnvironmentObject private var theme: Theme
     @Environment(\.dismiss) private var dismiss
     @State private var origin: String?

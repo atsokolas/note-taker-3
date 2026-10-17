@@ -13,17 +13,13 @@ struct LibraryList: View {
             let shown = query.isEmpty ? articles : articles.filter {
                 $0["title"].text.localizedCaseInsensitiveContains(query) || $0["siteName"].text.localizedCaseInsensitiveContains(query) || $0["firstGraph"].text.localizedCaseInsensitiveContains(query)
             }
-            List {
+            RoomIndex {
+                IndexHeading(shown.count == 1 ? "1 source" : "\(shown.count) sources")
                 ForEach(shown, id: \.id) { article in
                     RouteRow(route: .article(article.id)) { ArticleRow(article: article) }
                 }
-            }
-            .listStyle(.plain)
-            .overlay {
                 if shown.isEmpty {
-                    ContentUnavailableView(query.isEmpty ? "Nothing saved yet" : "Nothing matches “\(query)”",
-                                           systemImage: "books.vertical",
-                                           description: Text(query.isEmpty ? "Share a page to Noeis from Safari or any app, or tap + to paste a link." : ""))
+                    Quiet(query.isEmpty ? "Nothing saved yet. Share a page to Noeis from Safari or any app, or tap + to paste a link." : "Nothing matches “\(query)”.")
                 }
             }
             .refreshable { await reload() }
@@ -63,7 +59,7 @@ private struct ArticleRow: View {
             .font(.meta)
             .foregroundStyle(Ink.subtle)
         }
-        .padding(.vertical, 10)
+        .padding(.vertical, 20)
     }
 }
 

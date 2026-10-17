@@ -10,28 +10,24 @@ struct WikiFront: View {
 
     var body: some View {
         Loaded(load: load) { front, reload in
-            List {
+            let pages = shown(front.pages)
+            RoomIndex {
                 if query.isEmpty && !dossiersOnly {
-                    if let due = front.due { DueCard(due: due).listRowSeparator(.hidden).onPage() }
-                    if let reading = front.argues { ArguesCard(reading: reading, onFiled: reload).listRowSeparator(.hidden).onPage() }
+                    if let due = front.due { DueCard(due: due).padding(.top, 12) }
+                    if let reading = front.argues { ArguesCard(reading: reading, onFiled: reload).padding(.top, 12) }
                     if !front.changes.isEmpty {
-                        Section { ForEach(front.changes, id: \.self) { ChangeRow(change: $0) } } header: { Kicker("Since you looked") }
+                        IndexHeading("Since you looked")
+                        ForEach(front.changes, id: \.self) { ChangeRow(change: $0) }
                     }
                 }
-                Section {
-                    let pages = shown(front.pages)
-                    ForEach(pages, id: \.id) { page in
-                        RouteRow(route: .wikiPage(page.id)) { WikiRow(page: page) }
-                    }
-                    if pages.isEmpty {
-                        Text(query.isEmpty ? "No pages yet. Pages appear as Noeis builds them from what you save." : "No page matches “\(query)”.")
-                            .font(.dek).foregroundStyle(Ink.muted).onPage()
-                    }
-                } header: {
-                    Kicker(dossiersOnly ? "Dossiers" : "Pages")
+                IndexHeading(pages.count == 1 ? "1 page" : "\(pages.count) \(dossiersOnly ? "dossiers" : "pages")")
+                ForEach(pages, id: \.id) { page in
+                    RouteRow(route: .wikiPage(page.id)) { WikiRow(page: page) }
+                }
+                if pages.isEmpty {
+                    Quiet(query.isEmpty ? "No pages yet. Pages appear as Noeis builds them from what you save." : "No page matches “\(query)”.")
                 }
             }
-            .listStyle(.plain)
             .refreshable { await reload() }
             .onDisappear { lastLooked = Date().timeIntervalSince1970 }
         }
@@ -161,7 +157,7 @@ private struct ChangeRow: View {
                 Text(change["sentence"].text).font(.dek).foregroundStyle(Ink.muted)
                 Text(byline).font(.meta).foregroundStyle(Ink.subtle)
             }
-            .padding(.vertical, 8)
+            .padding(.vertical, 18)
         }
     }
 
@@ -190,7 +186,7 @@ private struct WikiRow: View {
             .font(.meta)
             .foregroundStyle(Ink.subtle)
         }
-        .padding(.vertical, 10)
+        .padding(.vertical, 20)
     }
 }
 

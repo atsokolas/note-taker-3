@@ -107,10 +107,10 @@ extension Font {
     static let quote = Font.system(.callout, design: .serif).italic()
     /// The web's light display serif, for the head of a page.
     static let display = Font.system(.largeTitle, design: .serif).weight(.light)
-    /// A row's title: the serif, set firmly so a list reads at a glance.
-    static let rowTitle = Font.system(.title3, design: .serif).weight(.semibold)
+    /// A row's title, the web's 25px serif: large enough that a list reads at a glance.
+    static let rowTitle = Font.system(.title2, design: .serif)
     /// The line under a row's title, in the reading voice.
-    static let dek = Font.system(.callout, design: .serif).italic()
+    static let dek = Font.system(.body, design: .serif)
     /// Dates, counts, sources: the quiet sans under everything.
     static let meta = Font.caption
 }
@@ -140,11 +140,55 @@ extension View {
             .foregroundStyle(Ink.text)
     }
 
-    /// A reading column: comfortable line length on iPad, full width on iPhone.
-    func column() -> some View {
-        frame(maxWidth: 680, alignment: .leading)
+    /// A centred column, as every web room is: 680 to read in, wider for an
+    /// index or a broadsheet. Full width on iPhone.
+    func column(_ width: CGFloat = 680) -> some View {
+        frame(maxWidth: width, alignment: .leading)
             .frame(maxWidth: .infinity)
     }
+}
+
+/// A room's index: one centred column of ruled rows on the page, the web's
+/// collection pages. Rows are `RouteRow`s; headings are `IndexHeading`s.
+struct RoomIndex<Content: View>: View {
+    @ViewBuilder var content: Content
+    @Environment(\.horizontalSizeClass) private var sizeClass
+
+    var body: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 0) { content }
+                .padding(.horizontal, sizeClass == .regular ? 40 : 20)
+                .padding(.top, 4)
+                .padding(.bottom, 48)
+                .column(800)
+        }
+    }
+}
+
+/// A heading inside an index: small capitals with air above.
+struct IndexHeading: View {
+    let text: String
+    init(_ text: String) { self.text = text }
+    var body: some View { Kicker(text).padding(.top, 28).padding(.bottom, 6) }
+}
+
+/// What an empty place says, in the reading voice; never a system icon.
+struct Quiet: View {
+    let text: String
+    init(_ text: String) { self.text = text }
+    var body: some View {
+        Text(text)
+            .font(.system(.title3, design: .serif).italic())
+            .foregroundStyle(Ink.muted)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, 32)
+    }
+}
+
+/// A hairline across the page.
+struct Hairline: View {
+    var color = Ink.rule
+    var body: some View { Rectangle().fill(color).frame(height: 1) }
 }
 
 /// A quiet bordered card, used for the lines that ask something of you.
@@ -193,20 +237,6 @@ struct Kicker: View {
     }
 }
 
-/// What a list row stands on: the page itself, never a slab of its own. The
-/// row in the detail column takes a quiet wash of the thread and a rule at its
-/// edge, and its text keeps full contrast.
-struct RowPaper: View {
-    var selected = false
-
-    var body: some View {
-        ZStack(alignment: .leading) {
-            Rectangle().fill(selected ? AnyShapeStyle(Ink.thread.opacity(0.12)) : AnyShapeStyle(Color.clear))
-            if selected { Rectangle().fill(Ink.thread).frame(width: 3) }
-        }
-    }
-}
-
 /// A press that answers the finger: the row dims a touch and settles back.
 struct QuietPress: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
@@ -216,21 +246,7 @@ struct QuietPress: ButtonStyle {
     }
 }
 
-private struct OnPage: ViewModifier {
-    let selected: Bool
-    @Environment(\.palette) private var palette
-
-    func body(content: Content) -> some View {
-        content
-            .listRowBackground(RowPaper(selected: selected))
-            .listRowSeparatorTint(Color(palette.rule))
-    }
-}
-
 extension View {
-    /// A row on the page: no slab behind it, and rules in the theme's own colour.
-    func onPage(selected: Bool = false) -> some View { modifier(OnPage(selected: selected)) }
-
     /// Settles in: a short fade and a small rise, or simply appears under Reduce Motion.
     func arrives() -> some View { modifier(Arrive()) }
 }

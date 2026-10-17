@@ -74,26 +74,22 @@ struct ViewsList: View {
         Loaded(load: { try await NoeisAPI.shared.views().map(HeldView.init).filter { !$0.claim.isEmpty && !$0.judgment["currentJudgment"].text.isEmpty } }) { views, reload in
             let shown = views.filter { $0.setAside == showingSetAside }
                 .sorted { ($0.judgment["lastReviewedAt"]?.date ?? $0.page["updatedAt"]?.date ?? .distantPast) > ($1.judgment["lastReviewedAt"]?.date ?? $1.page["updatedAt"]?.date ?? .distantPast) }
-            List {
-                Section {
-                    ForEach(shown, id: \.id) { view in
-                        RouteRow(route: .view(view.id)) {
-                            VStack(alignment: .leading, spacing: 6) {
-                                if view.due { Kicker("Comes due", color: Ink.thread) }
-                                Text(view.claim).font(.rowTitle)
-                                Text(view.card).font(.meta).foregroundStyle(Ink.subtle)
-                            }
-                            .padding(.vertical, 10)
+            RoomIndex {
+                IndexHeading(showingSetAside ? "Set aside" : (shown.count == 1 ? "1 view you hold" : "\(shown.count) views you hold"))
+                ForEach(shown, id: \.id) { view in
+                    RouteRow(route: .view(view.id)) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            if view.due { Kicker("Comes due", color: Ink.thread) }
+                            Text(view.claim).font(.rowTitle)
+                            Text(view.card).font(.meta).foregroundStyle(Ink.subtle)
                         }
-                    }
-                } footer: {
-                    if shown.isEmpty {
-                        Text(showingSetAside ? "Nothing set aside." : "Write down something you believe. Every passage you save is read against it, for or against.")
-                            .font(.dek).foregroundStyle(Ink.muted).padding(.top, 8)
+                        .padding(.vertical, 20)
                     }
                 }
+                if shown.isEmpty {
+                    Quiet(showingSetAside ? "Nothing set aside." : "Write down something you believe. Every passage you save is read against it, for or against.")
+                }
             }
-            .listStyle(.plain)
             .refreshable { await reload() }
             .onChange(of: generation) { Task { await reload() } }
         }
