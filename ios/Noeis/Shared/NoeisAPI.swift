@@ -338,7 +338,7 @@ struct NoeisAPI {
     func streamAsk(_ message: String, threadId: String?, context: JSON, history: [JSON],
                    onActivity: @escaping @MainActor (String) -> Void,
                    onDelta: @escaping @MainActor (String) -> Void) async throws -> JSON {
-        var body: [String: JSON] = ["message": .string(message), "persistThread": true, "context": context, "history": .array(history), "limit": 6]
+        var body: [String: JSON] = ["message": .string(message), "persistThread": true, "context": context, "history": .array(history), "limit": 6.0]
         if let threadId { body["threadId"] = .string(threadId) }
         #if DEBUG
         if let standIn = Self.standIn {
