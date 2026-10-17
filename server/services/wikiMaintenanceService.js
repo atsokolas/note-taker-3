@@ -1268,7 +1268,7 @@ Investment dossier rules:
 - Required analytical modules: ${(plan.requiredModuleIds || []).join(', ') || 'research plan is not classified yet'}.
 - Not attached: ${(plan.missingEvidenceArchetypes || []).map(describeEvidence).join('; ') || 'nothing'}.
 - For each source not attached, say plainly in the relevant section that it could not be found (use those words), and draw no conclusion that needs it. With no dated market price, state no market value, multiple or implied return.
-- Every figure must be stated in a cited source, or computed in the same sentence from figures that are, with the inputs written out: "membership fees were 1.99% of net sales ($5.91bn / $297.25bn)". A margin, ratio, multiple or growth rate without its inputs beside it is refused.
+- Every figure must be stated in a cited source, or computed in the same sentence from figures that are, with the inputs written out: "membership fees were 1.99% of net sales ($5.91bn / $297.25bn)". A margin, ratio, multiple or growth rate without its inputs beside it is refused. Write a figure as precisely as the source states it, never more: the filing's "$15.6 billion" stays "$15.6 billion", never "$15,606 million".
 - For each disclosure (buybacks, customer concentration, commitments, guidance), use the latest attached filing that reports it, and give its latest quarter alongside any year-to-date total. A figure from an older period cites the filing that reports it, and is compared only with the same length of period ("first half against first half", never a half-year against nine months).
 - A market value is the dated price times the shares outstanding stated in SEC Company Facts, each with its date; a trailing multiple uses reported net income or diluted EPS, never one backed into from operating income. The two dates need not match: compute it, name both dates, and call it a sensitivity. Use the cover share count alone, not a weighted-average count beside it.
 - State the latest fiscal year's reported net income and diluted EPS from SEC Company Facts.
@@ -1553,6 +1553,7 @@ const DOSSIER_EDITOR_BRIEF = `Above are the sources and the brief the writer was
 - a paragraph that repeats another;
 - a sentence cut off mid-word: finish it from the sources or remove it;
 - a figure computed without its inputs beside it: write them in ("98% ($297.25bn / $303.15bn)");
+- a figure more precise than its source ("$15,606 million" where the filing says "$15.6 billion"), or rounded to a different value (74.9% given as 75.0%): write it as the source does;
 - a figure cited to a source that does not state it: cite the one that does, and cite every filing a sentence draws on (an earlier quarter's figure cites that quarter's filing);
 - a claim or question with no citation: cite the source it rests on;
 Change nothing else: keep every other sentence, citation, heading and field exactly as written, and return the complete draft in the same JSON shape.
