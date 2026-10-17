@@ -17,18 +17,19 @@ struct NoeisApp: App {
         }
         // Set on the appearances themselves: a bar given its own appearance
         // drops the proxy's fonts, which is how titles fell back to bold sans.
-        // Clear at rest; frosted once something scrolls under it.
-        let scrolled = UINavigationBarAppearance()
-        scrolled.configureWithDefaultBackground()
-        let resting = UINavigationBarAppearance()
-        resting.configureWithTransparentBackground()
-        for appearance in [scrolled, resting] {
-            appearance.largeTitleTextAttributes = [.font: serif(.largeTitle, .regular)]
-            appearance.titleTextAttributes = [.font: serif(.headline, .regular)]
-        }
+        // Always frosted, so text never shows sharp under the title; the
+        // hairline appears only once something scrolls beneath. (Clear at
+        // rest relied on the bar seeing its scroll view, which it stopped
+        // doing with the rooms side by side.)
+        let frosted = UINavigationBarAppearance()
+        frosted.configureWithDefaultBackground()
+        frosted.largeTitleTextAttributes = [.font: serif(.largeTitle, .regular)]
+        frosted.titleTextAttributes = [.font: serif(.headline, .regular)]
+        let resting = frosted.copy()
+        resting.shadowColor = .clear
         let bar = UINavigationBar.appearance()
-        bar.standardAppearance = scrolled
-        bar.compactAppearance = scrolled
+        bar.standardAppearance = frosted
+        bar.compactAppearance = frosted
         bar.scrollEdgeAppearance = resting
     }
 

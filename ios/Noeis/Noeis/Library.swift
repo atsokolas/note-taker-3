@@ -412,7 +412,10 @@ enum ArticleBody {
         replace(#"(?i)<li\b[^>]*>"#, tag(.item) + "•\t")
         replace(#"(?i)</li\s*>"#, "</div>")
         replace(#"(?i)</?(ul|ol)\b[^>]*>"#, "")
-        // A table reads as one line per row, its cells set apart by dots.
+        // A table reads as one line per row, its cells set apart by dots;
+        // header cells are set heavier, so the first row reads as a header.
+        replace(#"(?i)<th\b[^>]*>"#, "<th><b>")
+        replace(#"(?i)</th\s*>"#, "</b></th>")
         replace(#"(?i)</t[dh]\s*>\s*<t[dh]\b[^>]*>"#, " · ")
         replace(#"(?i)<tr\b[^>]*>"#, "<p>")
         replace(#"(?i)</tr\s*>"#, "</p>")

@@ -46,20 +46,22 @@ struct Rooms: View {
     var body: some View {
         let wide = sizeClass == .regular
         let deep = !(paths[room] ?? []).isEmpty
-        // Every room stays alive in its own stack, so each keeps its place;
-        // only the open one shows and takes touches. (A tab view with its bar
-        // hidden also hid the page bars on iPad, and with them the way back.)
-        ZStack {
-            ForEach(Room.allCases) { each in
-                let open = each == room
-                RoomStack(room: each, path: path(each), account: wide ? nil : { sheet = .settings }) {
-                    // Inside each stack, so a page's bar (back, Share, Ask) sits under it.
-                    if wide { Masthead(room: $room, pop: { paths[each] = [] }, theme: { sheet = .theme }, account: { sheet = .settings }) }
+        // iPad: the masthead sits above the rooms, never over them, so a
+        // page's own bar (back, Share, Ask) shows beneath it. (Laid over a
+        // stack as an inset, it covered that bar.)
+        VStack(spacing: 0) {
+            if wide { Masthead(room: $room, pop: { paths[room] = [] }, theme: { sheet = .theme }, account: { sheet = .settings }) }
+            // Every room stays alive in its own stack, so each keeps its
+            // place; only the open one shows and takes touches.
+            ZStack {
+                ForEach(Room.allCases) { each in
+                    let open = each == room
+                    RoomStack(room: each, path: path(each), account: wide ? nil : { sheet = .settings })
+                        .opacity(open ? 1 : 0)
+                        .allowsHitTesting(open)
+                        .accessibilityHidden(!open)
+                        .zIndex(open ? 1 : 0)
                 }
-                .opacity(open ? 1 : 0)
-                .allowsHitTesting(open)
-                .accessibilityHidden(!open)
-                .zIndex(open ? 1 : 0)
             }
         }
         // iPhone: the capsule floats over an index and steps aside for a page,
@@ -86,11 +88,10 @@ struct Rooms: View {
     }
 }
 
-private struct RoomStack<Top: View>: View {
+private struct RoomStack: View {
     let room: Room
     @Binding var path: [Route]
     let account: (() -> Void)?
-    @ViewBuilder let top: Top
     @Namespace private var zoom
 
     var body: some View {
@@ -106,7 +107,6 @@ private struct RoomStack<Top: View>: View {
                 }
                 .navigationDestination(for: Route.self) { RouteView(route: $0).zooms(from: $0, in: zoom) }
         }
-        .safeAreaInset(edge: .top, spacing: 0) { top }
         // On iPhone, the last row of an index scrolls clear of the capsule.
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if account != nil && path.isEmpty { Color.clear.frame(height: RoomCapsule.height) }
