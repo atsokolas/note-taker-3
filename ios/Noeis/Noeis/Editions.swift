@@ -252,10 +252,10 @@ private struct FrontPage: View {
                         Text(folio[1]).lineLimit(1).fixedSize()
                     }
                 }
-                // Narrow: one phrase to a line, so none breaks mid-phrase.
-                VStack(alignment: .leading, spacing: 3) {
-                    ForEach(folio.flatMap { $0.components(separatedBy: " · ") }, id: \.self) { Text($0) }
-                }
+                // Narrow: one run that wraps only between phrases, never inside one.
+                Text(folio.flatMap { $0.components(separatedBy: " · ") }
+                    .map { $0.replacingOccurrences(of: " ", with: "\u{00A0}") }
+                    .joined(separator: " · "))
             }
             .font(.system(.footnote, design: .serif))
             .foregroundStyle(Ink.text)

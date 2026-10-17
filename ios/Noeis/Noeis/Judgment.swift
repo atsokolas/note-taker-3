@@ -315,7 +315,8 @@ struct ViewDetail: View {
                                 Button { act { _ = try await NoeisAPI.shared.patchPage(id, ["visibility": "shared"]) } } label: { Label("Share how this changed", systemImage: "square.and.arrow.up") }
                             }
                         }
-                    } label: { Image(systemName: "ellipsis.circle") }.accessibilityLabel("More for this view")
+                    } label: { Image(systemName: "ellipsis.circle") }
+                    .accessibilityLabel("More for this view")
                 }
                 PartnerToolbarItem(context: ["type": "wiki_page", "id": .string(id), "pageId": .string(id), "title": .string(view.claim)],
                                    holding: Held(pageId: id, claim: view.claim))

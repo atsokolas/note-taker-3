@@ -171,7 +171,7 @@ private struct TurnView: View {
                 Text(.init(turn.text)).font(.reading).lineSpacing(4).textSelection(.enabled)
                 if !turn.sources.isEmpty {
                     VStack(alignment: .leading, spacing: 6) {
-                        Kicker("What it read")
+                        Kicker("What it read").padding(.top, 8)
                         ForEach(Array(turn.sources.enumerated()), id: \.offset) { _, source in
                             if let route = source.citationRoute {
                                 NavigationLink(value: route) { Label(source["title"].text.isEmpty ? "Source" : source["title"].text, systemImage: source.citationSymbol) }

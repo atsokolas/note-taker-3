@@ -411,7 +411,7 @@ private struct ReaderText: UIViewRepresentable {
         paragraph.paragraphSpacing = 14
 
         let text = NSMutableAttributedString()
-        text.append(NSAttributedString(string: title + "\n", attributes: [.font: serif(.largeTitle, 36, .medium), .foregroundColor: ink, .paragraphStyle: paragraph]))
+        text.append(NSAttributedString(string: title + "\n", attributes: [.font: serif(.largeTitle, 40, .medium), .foregroundColor: ink, .paragraphStyle: paragraph]))
         if !byline.isEmpty {
             text.append(NSAttributedString(string: byline + "\n", attributes: [.font: UIFont.preferredFont(forTextStyle: .footnote), .foregroundColor: muted, .paragraphStyle: paragraph]))
         }
@@ -430,10 +430,10 @@ private struct ReaderText: UIViewRepresentable {
         let dark = palette.dark
         for mark in marks {
             if let range = Self.find(mark.text, in: whole, from: bodyStart) {
-                text.addAttribute(.backgroundColor, value: mark.ink.color.withAlphaComponent(dark ? 0.34 : 0.62), range: range)
+                text.addAttribute(.backgroundColor, value: mark.ink.color.withAlphaComponent(dark ? 0.34 : 0.45), range: range)
             }
         }
-        let markColor = Ink.Highlight.keep.color.withAlphaComponent(dark ? 0.34 : 0.62)
+        let markColor = Ink.Highlight.keep.color.withAlphaComponent(dark ? 0.34 : 0.45)
 
         var focusRange: NSRange?
         if let focus = focus?.trimmingCharacters(in: .whitespacesAndNewlines), focus.count >= 3 {

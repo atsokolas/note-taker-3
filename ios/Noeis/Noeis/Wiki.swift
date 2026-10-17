@@ -446,7 +446,11 @@ private struct References: View {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(source["title"].text.isEmpty ? source["citationLabel"].text : source["title"].text)
                                     .font(.callout).foregroundStyle(Ink.text).multilineTextAlignment(.leading)
-                                if let host = source["url"]?.string.flatMap(URL.init(string:))?.host() {
+                                // A passage cited from a source reads as its words, so two
+                                // references to one article are not mistaken for a repeat.
+                                if source["type"].text == "highlight", !source["snippet"].text.isEmpty {
+                                    Text("“\(source["snippet"].text)”").font(.caption).italic().foregroundStyle(Ink.subtle).lineLimit(2)
+                                } else if let host = source["url"]?.string.flatMap(URL.init(string:))?.host() {
                                     Text(host).font(.caption).foregroundStyle(Ink.subtle)
                                 }
                             }
