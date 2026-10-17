@@ -34,6 +34,22 @@ body.noeis-editorial .article-reader-decisions {
   margin-top: 10px;
 }
 
+/* Every word in this row is the same kind of word: a decision with a rule
+   under it (evergreen.css). Only the switch differs, because it is a place. */
+body.noeis-editorial .article-reader-decisions .read-fresh-toggle {
+  min-height: 0;
+  padding: 0;
+  border-bottom: 1px solid currentColor;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--font-sans);
+  font-size: 0.84rem;
+  text-decoration: none;
+}
+
+body.noeis-editorial .article-reader-decisions .read-fresh-toggle:hover {
+  color: var(--text-primary, var(--vellum-ink));
+}
+
 body.noeis-editorial .article-folio {
   margin-top: 10px;
   max-width: 38rem;

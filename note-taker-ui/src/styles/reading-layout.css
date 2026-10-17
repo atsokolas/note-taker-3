@@ -683,8 +683,19 @@ body.noeis-editorial .library-context-feed-item__meta {
 body.noeis-editorial .library-context-feed-item__actions {
   display: flex;
   flex-wrap: wrap;
+  align-items: baseline;
   gap: 6px;
   margin-top: 10px;
+}
+
+body.noeis-editorial .library-context-feed-item__add {
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  color: color-mix(in srgb, var(--vellum-ink) 60%, transparent);
+}
+
+body.noeis-editorial .library-context-feed-item__delete {
+  margin-left: auto;
 }
 
 body.noeis-editorial .library-context-feed-item__reference-pull-in {

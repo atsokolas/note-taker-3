@@ -460,6 +460,14 @@
   opacity: 1;
 }
 
+/* Where the sheet leaves the reading in view, the reading stays lit: you are
+   asking about the passage beside it. A click outside still closes it. */
+@media (min-width: 1100px) {
+  .agent-rail-drawer__backdrop {
+    background: transparent;
+  }
+}
+
 .agent-rail-drawer__sheet {
   position: absolute;
   top: 0;

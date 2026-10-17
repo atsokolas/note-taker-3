@@ -19,7 +19,7 @@ import LibraryNotebookModal from '../components/library/LibraryNotebookModal';
 import LibraryQuestionModal from '../components/library/LibraryQuestionModal';
 import ReferencePullIn from '../components/references/ReferencePullIn';
 import { getConnectionsForItem } from '../api/connections';
-import { updateHighlight, deleteHighlight } from '../api/highlights';
+import { deleteHighlight } from '../api/highlights';
 import api from '../api';
 import { getAuthHeaders } from '../hooks/useAuthHeaders';
 import { chatWithAgent } from '../api/agent';
@@ -518,17 +518,6 @@ const Library = () => {
   const handleHighlightClick = useCallback((highlight) => {
     setActiveHighlightId(highlight._id);
   }, []);
-
-  const handleUpdateHighlight = useCallback(async (highlightId, payload) => {
-    if (!selectedArticleId || !highlightId) return null;
-    const updated = await updateHighlight({
-      articleId: selectedArticleId,
-      highlightId,
-      payload
-    });
-    replaceHighlight(highlightId, updated);
-    return updated;
-  }, [replaceHighlight, selectedArticleId]);
 
   const handleDeleteHighlight = useCallback(async (highlight) => {
     if (!highlight?._id || !selectedArticleId) return;
@@ -1080,11 +1069,9 @@ const Library = () => {
           referencesError={articleError}
           activeHighlightId={activeHighlightId}
           onHighlightClick={handleHighlightClick}
-          onSelectHighlight={setActiveHighlightId}
           onAddConcept={handleOpenConceptModal}
           onAddNotebook={handleOpenNotebookModal}
           onAddQuestion={handleOpenQuestionModal}
-          onUpdateHighlight={handleUpdateHighlight}
           onDeleteHighlight={handleDeleteHighlight}
         />
       </EditorialSideRailCollapsible>
