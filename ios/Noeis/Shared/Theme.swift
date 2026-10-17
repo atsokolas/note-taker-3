@@ -97,6 +97,26 @@ struct Ink: ShapeStyle {
     static let rule = Ink(role: \.rule)
 }
 
+extension Ink {
+    /// The web's highlight inks (constants/highlightColors.js): keep, for, against.
+    enum Highlight: String, CaseIterable {
+        case keep = "#f6e27a", support = "#cfe3b4", against = "#f7c9a3"
+
+        var label: String {
+            switch self {
+            case .keep: return "Keep"
+            case .support: return "For"
+            case .against: return "Against"
+            }
+        }
+
+        var color: UIColor {
+            let value = Int(rawValue.dropFirst(), radix: 16) ?? 0xF6E27A
+            return UIColor(red: CGFloat((value >> 16) & 0xFF) / 255, green: CGFloat((value >> 8) & 0xFF) / 255, blue: CGFloat(value & 0xFF) / 255, alpha: 1)
+        }
+    }
+}
+
 /// Serif for what you read, the system face for everything you operate.
 /// Both scale with Dynamic Type.
 extension Font {

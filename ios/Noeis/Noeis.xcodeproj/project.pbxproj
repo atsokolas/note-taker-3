@@ -18,6 +18,7 @@
 		BA0000020000000000000019 /* SignInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA000002000000000000001A; };
 		BA000002000000000000001B /* Think.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA000002000000000000001C; };
 		BA0000020000000000000079 /* Editions.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA000002000000000000007A; };
+		BA000002000000000000007B /* Sample.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA000002000000000000007C; };
 		BA000002000000000000001D /* Wiki.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA000002000000000000001E; };
 		BA000002000000000000001F /* JSON.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA0000020000000000000020; };
 		BA0000020000000000000021 /* NoeisAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA0000020000000000000022; };
@@ -94,6 +95,7 @@
 		BA000002000000000000001A /* SignInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignInView.swift; sourceTree = "<group>"; };
 		BA000002000000000000001C /* Think.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Think.swift; sourceTree = "<group>"; };
 		BA000002000000000000007A /* Editions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Editions.swift; sourceTree = "<group>"; };
+		BA000002000000000000007C /* Sample.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sample.swift; sourceTree = "<group>"; };
 		BA000002000000000000001E /* Wiki.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Wiki.swift; sourceTree = "<group>"; };
 		BA0000020000000000000020 /* JSON.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSON.swift; sourceTree = "<group>"; };
 		BA0000020000000000000022 /* NoeisAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoeisAPI.swift; sourceTree = "<group>"; };
@@ -192,6 +194,7 @@
 				BA000002000000000000001A,
 				BA000002000000000000001C,
 				BA000002000000000000007A,
+				BA000002000000000000007C,
 				BA000002000000000000001E,
 				BA0000020000000000000028,
 				BA000002000000000000002A,
@@ -402,6 +405,7 @@
 				BA0000020000000000000019,
 				BA000002000000000000001B,
 				BA0000020000000000000079,
+				BA000002000000000000007B,
 				BA000002000000000000001D,
 				BA000002000000000000001F,
 				BA0000020000000000000021,

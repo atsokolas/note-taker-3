@@ -67,14 +67,13 @@ struct HeldView {
 
 struct ViewsList: View {
     @State private var showingSetAside = false
-    @State private var holding = false
-    @State private var generation = 0
 
     var body: some View {
         Loaded(load: { try await NoeisAPI.shared.views().map(HeldView.init).filter { !$0.claim.isEmpty && !$0.judgment["currentJudgment"].text.isEmpty } }) { views, reload in
             let shown = views.filter { $0.setAside == showingSetAside }
                 .sorted { ($0.judgment["lastReviewedAt"]?.date ?? $0.page["updatedAt"]?.date ?? .distantPast) > ($1.judgment["lastReviewedAt"]?.date ?? $1.page["updatedAt"]?.date ?? .distantPast) }
             RoomIndex {
+                if !showingSetAside { HoldField { await reload() } }
                 IndexHeading(showingSetAside ? "Set aside" : (shown.count == 1 ? "1 view you hold" : "\(shown.count) views you hold"))
                 ForEach(shown, id: \.id) { view in
                     RouteRow(route: .view(view.id)) {
@@ -91,7 +90,6 @@ struct ViewsList: View {
                 }
             }
             .refreshable { await reload() }
-            .onChange(of: generation) { Task { await reload() } }
         }
         .navigationTitle(showingSetAside ? "Set aside" : "Judgment")
         .toolbar {
@@ -104,14 +102,60 @@ struct ViewsList: View {
                 } label: { Image(systemName: "line.3.horizontal.decrease.circle") }
                     .accessibilityLabel("Show views you hold or set aside")
             }
-            ToolbarItem(placement: .primaryAction) {
-                Button { holding = true } label: { Image(systemName: "plus") }
-                    .accessibilityLabel("Hold a view")
-            }
             PartnerToolbarItem(context: ["type": "workspace", "id": "library", "title": "Judgment"])
         }
-        .sheet(isPresented: $holding, onDismiss: { generation += 1 }) { HoldViewSheet() }
         .paper()
+    }
+}
+
+/// The web's first line in Judgment: write what you believe, right here.
+private struct HoldField: View {
+    let held: () async -> Void
+    @State private var text = ""
+    @State private var receipt: String?
+    @StateObject private var writer = Writer()
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            TextField("What do you believe? One sentence you would bet on.", text: $text, axis: .vertical)
+                .font(.system(.title2, design: .serif))
+                .lineLimit(1...4)
+                .focused($focused)
+                .submitLabel(.done)
+                .onSubmit(hold)
+                .padding(.vertical, 12)
+                .overlay(alignment: .bottom) { Hairline(color: focused ? Ink.text : Ink.rule) }
+            HStack {
+                Text(receipt ?? "Write it so it could turn out wrong.")
+                    .font(.footnote)
+                    .foregroundStyle(receipt == nil ? Ink.subtle : Ink.living)
+                Spacer()
+                if !oneSentence(text).isEmpty {
+                    Button("Hold", action: hold)
+                        .font(.subheadline.weight(.semibold))
+                        .buttonStyle(.borderedProminent)
+                        .disabled(writer.busy)
+                        .transition(.opacity)
+                }
+            }
+        }
+        .padding(.top, 8)
+        .padding(.bottom, 8)
+        .calmAnimation(.easeOut(duration: 0.18), value: text.isEmpty)
+        .failureAlert(writer)
+    }
+
+    private func hold() {
+        let sentence = oneSentence(text)
+        guard !sentence.isEmpty else { return }
+        writer.run {
+            _ = try await NoeisAPI.shared.hold(sentence)
+            text = ""
+            focused = false
+            calmly { receipt = "Held. What you save is read against it from now on." }
+            await held()
+        }
     }
 }
 
@@ -157,6 +201,20 @@ struct ViewDetail: View {
                             }
                         }
                         .font(.footnote).foregroundStyle(Ink.subtle)
+                        // The web's two verbs on a view, always in reach.
+                        HStack(spacing: 10) {
+                            Button("Revise") { revising = true }
+                            Menu("Resolve") {
+                                Button("Held up") { act { _ = try await NoeisAPI.shared.recordVerdict(pageId: id, claim: view.claim, result: "held_up") } }
+                                Button("Broke") { act { _ = try await NoeisAPI.shared.recordVerdict(pageId: id, claim: view.claim, result: "broke") } }
+                                Button("Partly") { act { _ = try await NoeisAPI.shared.recordVerdict(pageId: id, claim: view.claim, result: "partly") } }
+                                Divider()
+                                Button("Too early to say", role: .cancel) {}
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                        .font(.subheadline)
+                        .padding(.top, 4)
                         if let words = view.verdictWords {
                             Text("You said it \(words).").font(.callout).foregroundStyle(Ink.living)
                         }
@@ -247,7 +305,6 @@ struct ViewDetail: View {
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Menu {
-                        Button { revising = true } label: { Label("Hold this instead…", systemImage: "arrow.triangle.2.circlepath") }
                         if view.setAside {
                             Button { act { try await view.patch(["status": "monitoring", "parkedAt": .null]) } } label: { Label("Pick it back up", systemImage: "arrow.uturn.backward") }
                         } else {

@@ -21,7 +21,7 @@ enum Room: String, CaseIterable, Identifiable {
 
 /// Anything a row can open. One type, so every room pushes the same way.
 enum Route: Hashable {
-    case wikiPage(String)
+    case wikiPage(String, build: Bool = false)
     case view(String)
     case article(String, passage: String? = nil)
     case note(String)
@@ -35,21 +35,19 @@ enum Route: Hashable {
 struct Rooms: View {
     @Environment(\.horizontalSizeClass) private var sizeClass
     @SceneStorage("room") private var room: Room = .wiki
-    @State private var visited: Set<Room> = []
     @State private var sheet: Sheet?
 
     private enum Sheet: String, Identifiable { case settings, theme; var id: String { rawValue } }
 
     var body: some View {
         let wide = sizeClass == .regular
-        ZStack {
+        // A tab view with its bar hidden: each room keeps its own stack, and
+        // only the open one takes touches. The rooms' words are ours.
+        TabView(selection: $room) {
             ForEach(Room.allCases) { each in
-                if visited.contains(each) || each == room {
-                    RoomStack(room: each, account: wide ? nil : { sheet = .settings })
-                        .opacity(each == room ? 1 : 0)
-                        .allowsHitTesting(each == room)
-                        .accessibilityHidden(each != room)
-                }
+                RoomStack(room: each, account: wide ? nil : { sheet = .settings })
+                    .toolbar(.hidden, for: .tabBar)
+                    .tag(each)
             }
         }
         .safeAreaInset(edge: wide ? .top : .bottom, spacing: 0) {
@@ -59,8 +57,6 @@ struct Rooms: View {
                 RoomCapsule(room: $room)
             }
         }
-        .onAppear { visited.insert(room) }
-        .onChange(of: room) { visited.insert(room) }
         .sheet(item: $sheet) { which in
             switch which {
             case .settings: SettingsView()
@@ -74,9 +70,10 @@ private struct RoomStack: View {
     let room: Room
     let account: (() -> Void)?
     @Namespace private var zoom
+    @State private var path: [Route] = []
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             RoomList(room: room)
                 .toolbar {
                     if let account {
@@ -89,6 +86,7 @@ private struct RoomStack: View {
                 .navigationDestination(for: Route.self) { RouteView(route: $0).zooms(from: $0, in: zoom) }
         }
         .environment(\.zoomSpace, zoom)
+        .environment(\.open, OpenRoute { path.append($0) })
     }
 }
 
@@ -230,7 +228,21 @@ struct RoomList: View {
     }
 }
 
+/// Opens a page on the room's stack from code, as a row would on a tap.
+struct OpenRoute {
+    let action: (Route) -> Void
+    init(_ action: @escaping (Route) -> Void = { _ in }) { self.action = action }
+    func callAsFunction(_ route: Route) { action(route) }
+}
+
 extension EnvironmentValues {
+    private struct OpenKey: EnvironmentKey { static let defaultValue = OpenRoute() }
+
+    var open: OpenRoute {
+        get { self[OpenKey.self] }
+        set { self[OpenKey.self] = newValue }
+    }
+
     private struct ZoomKey: EnvironmentKey { static let defaultValue: Namespace.ID? = nil }
 
     /// The room's namespace, so a page can open out of the row it came from.
@@ -286,7 +298,7 @@ struct RouteView: View {
 
     var body: some View {
         switch route {
-        case .wikiPage(let id): WikiPageView(id: id)
+        case .wikiPage(let id, let build): WikiPageView(id: id, build: build)
         case .view(let id): ViewDetail(id: id)
         case .article(let id, let passage): ArticleReader(id: id, passage: passage)
         case .note(let id): NoteView(id: id)

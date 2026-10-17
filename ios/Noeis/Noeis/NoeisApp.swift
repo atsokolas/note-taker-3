@@ -7,6 +7,9 @@ struct NoeisApp: App {
 
     /// Page titles in the reading serif, as on the web.
     init() {
+        #if DEBUG
+        if ProcessInfo.processInfo.environment["NOEIS_SAMPLE"] != nil { NoeisAPI.standIn = Sample.reply }
+        #endif
         func serif(_ style: UIFont.TextStyle, _ weight: UIFont.Weight) -> UIFont {
             let base = UIFont.preferredFont(forTextStyle: style).fontDescriptor
             let descriptor = (base.withDesign(.serif) ?? base).addingAttributes([.traits: [UIFontDescriptor.TraitKey.weight: weight]])
@@ -41,7 +44,7 @@ struct NoeisApp: App {
 
 @MainActor
 final class Session: ObservableObject {
-    @Published var signedIn = NoeisAuthStore.shared.token != nil
+    @Published var signedIn = NoeisAuthStore.shared.token != nil || ProcessInfo.processInfo.environment["NOEIS_SAMPLE"] != nil
 
     var username: String { NoeisAuthStore.shared.username ?? "" }
 

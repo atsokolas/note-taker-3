@@ -125,8 +125,10 @@ struct ArticleReader: View {
     let id: String
     let passage: String?
     @StateObject private var writer = Writer()
-    @State private var marks: [String] = []
+    @State private var marks: [Mark] = []
     @State private var argument: JSON?
+    @State private var selection: MarkedSelection?
+    @State private var settled = 0
 
     var body: some View {
         Loaded(load: { () async throws -> (JSON, [JSON]) in
@@ -139,19 +141,33 @@ struct ArticleReader: View {
                 title: article["title"].text,
                 byline: article.byline,
                 paragraphs: Paragraphs.from(article["content"].text),
-                marks: highlights.map { $0.at("anchor.text")?.string ?? $0["text"].text } + marks,
+                marks: highlights.map { Mark(text: $0.at("anchor.text")?.string ?? $0["text"].text, ink: Ink.Highlight(rawValue: $0["color"].text) ?? .keep) } + marks,
                 focus: passage,
-                onMark: { selection in
-                    writer.run {
-                        _ = try await NoeisAPI.shared.mark(articleId: id, text: selection.text, prefix: selection.prefix, suffix: selection.suffix, offset: selection.offset)
-                        marks.append(selection.text)
-                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                    }
-                }
+                settled: settled,
+                onSelect: { picked in calmly(.easeOut(duration: 0.18)) { selection = picked } }
             )
             .ignoresSafeArea(edges: .bottom)
             .safeAreaInset(edge: .bottom) {
-                if let argument { ArgumentBanner(reading: argument) { calmly { self.argument = nil } } }
+                if let selection {
+                    HighlightBar(selection: selection, busy: writer.busy) { ink, thought in
+                        // Painted at once; kept on the server, so it is there on the web and after a reload.
+                        let mark = Mark(text: selection.text, ink: ink)
+                        marks.append(mark)
+                        settled += 1
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        writer.run {
+                            do {
+                                let saved = try await NoeisAPI.shared.mark(articleId: id, text: selection.text, prefix: selection.prefix, suffix: selection.suffix, offset: selection.offset, color: ink.rawValue)
+                                if let thought, !thought.isEmpty { try await NoeisAPI.shared.note(articleId: id, highlightId: saved.id, thought) }
+                            } catch {
+                                marks.removeAll { $0 == mark }
+                                throw error
+                            }
+                        }
+                    }
+                } else if let argument {
+                    ArgumentBanner(reading: argument) { calmly { self.argument = nil } }
+                }
             }
             .toolbar {
                 if let url = article["url"]?.string.flatMap(URL.init(string:)) {
@@ -170,6 +186,68 @@ struct ArticleReader: View {
             if let reading = try? await NoeisAPI.shared.pushesAgainst(articleId: id) {
                 calmly(.easeOut(duration: 0.3)) { argument = reading }
             }
+        }
+    }
+}
+
+/// A highlight in the reader, in one of the web's inks.
+struct Mark: Hashable {
+    let text: String
+    let ink: Ink.Highlight
+}
+
+/// What a selection can become, as on the web: a highlight in one of three
+/// inks (keep, for, against), a highlight with a thought, or a question for the Partner.
+private struct HighlightBar: View {
+    let selection: MarkedSelection
+    let busy: Bool
+    let highlight: (Ink.Highlight, String?) -> Void
+    @State private var asking = false
+    @State private var thinking = false
+    @State private var thought = ""
+
+    var body: some View {
+        HStack(spacing: 2) {
+            ForEach(Ink.Highlight.allCases, id: \.self) { ink in
+                Button { highlight(ink, nil) } label: {
+                    HStack(spacing: 6) {
+                        Circle().fill(Color(ink.color)).frame(width: 12, height: 12)
+                            .overlay(Circle().strokeBorder(Ink.rule))
+                        Text(ink.label)
+                    }
+                    .padding(.horizontal, 11).padding(.vertical, 10)
+                }
+                .disabled(busy)
+                .accessibilityLabel(ink == .keep ? "Highlight" : "Highlight as \(ink.label.lowercased())")
+            }
+            Rectangle().fill(Ink.rule).frame(width: 1, height: 22)
+            Button { thinking = true } label: {
+                Image(systemName: "text.bubble").padding(.horizontal, 11).padding(.vertical, 10)
+            }
+            .accessibilityLabel("Leave a thought")
+            Button { asking = true } label: {
+                Image(systemName: "sparkle.magnifyingglass").padding(.horizontal, 11).padding(.vertical, 10)
+            }
+            .accessibilityLabel("Ask about this")
+        }
+        .font(.subheadline.weight(.medium))
+        .foregroundStyle(Ink.text)
+        .buttonStyle(QuietPress())
+        .background(.regularMaterial, in: Capsule())
+        .overlay(Capsule().strokeBorder(Ink.rule))
+        .shadow(color: .black.opacity(0.14), radius: 12, y: 6)
+        .padding(.bottom, 10)
+        .frame(maxWidth: .infinity)
+        .transition(.move(edge: .bottom).combined(with: .opacity))
+        .alert("Leave a thought", isPresented: $thinking) {
+            TextField("What it makes you think", text: $thought, axis: .vertical)
+            Button("Keep") { highlight(.keep, thought); thought = "" }
+            Button("Cancel", role: .cancel) { thought = "" }
+        } message: {
+            Text("“\(selection.text.prefix(140))”")
+        }
+        .sheet(isPresented: $asking) {
+            PartnerSheet(context: ["type": "passage", "id": .string(selection.text), "title": .string(String(selection.text.prefix(80)))], opening: "Help me understand this passage: “\(selection.text.prefix(400))”")
         }
     }
 }
@@ -264,9 +342,11 @@ private struct ReaderText: UIViewRepresentable {
     let title: String
     let byline: String
     let paragraphs: [Paragraphs.Paragraph]
-    let marks: [String]
+    let marks: [Mark]
     let focus: String?
-    let onMark: (MarkedSelection) -> Void
+    /// Bumped after a highlight lands, to let go of the selection.
+    let settled: Int
+    let onSelect: (MarkedSelection?) -> Void
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
@@ -284,7 +364,11 @@ private struct ReaderText: UIViewRepresentable {
 
     func updateUIView(_ view: UITextView, context: Context) {
         let coordinator = context.coordinator
-        coordinator.onMark = onMark
+        coordinator.onSelect = onSelect
+        if coordinator.settled != settled {
+            coordinator.settled = settled
+            view.selectedRange = NSRange(location: view.selectedRange.location, length: 0)
+        }
         let built = build(context.environment.palette)
         coordinator.bodyStart = built.bodyStart
         if coordinator.rendered != built.signature {
@@ -337,11 +421,13 @@ private struct ReaderText: UIViewRepresentable {
         }
 
         let whole = text.string as NSString
-        let markColor = palette.thread.withAlphaComponent(0.22)
-        for mark in marks where mark.count >= 3 {
-            let range = whole.range(of: String(mark.prefix(300)), options: [], range: NSRange(location: bodyStart, length: whole.length - bodyStart))
-            if range.location != NSNotFound { text.addAttribute(.backgroundColor, value: markColor, range: range) }
+        let dark = palette.dark
+        for mark in marks {
+            if let range = Self.find(mark.text, in: whole, from: bodyStart) {
+                text.addAttribute(.backgroundColor, value: mark.ink.color.withAlphaComponent(dark ? 0.34 : 0.62), range: range)
+            }
         }
+        let markColor = Ink.Highlight.keep.color.withAlphaComponent(dark ? 0.34 : 0.62)
 
         var focusRange: NSRange?
         if let focus = focus?.trimmingCharacters(in: .whitespacesAndNewlines), focus.count >= 3 {
@@ -358,24 +444,36 @@ private struct ReaderText: UIViewRepresentable {
         return (text, bodyStart, focusRange, hasher.finalize())
     }
 
+    /// Where a saved passage sits in this text: word for word, whatever the
+    /// spacing between them, since the web and this reader break lines differently.
+    static func find(_ passage: String, in whole: NSString, from start: Int) -> NSRange? {
+        let words = passage.split(whereSeparator: \.isWhitespace).prefix(80).map { NSRegularExpression.escapedPattern(for: String($0)) }
+        guard words.count > 0, start < whole.length, let pattern = try? NSRegularExpression(pattern: words.joined(separator: "\\s+")) else { return nil }
+        return pattern.firstMatch(in: whole as String, range: NSRange(location: start, length: whole.length - start))?.range
+    }
+
     final class Coordinator: NSObject, UITextViewDelegate {
-        var onMark: (MarkedSelection) -> Void = { _ in }
+        var onSelect: (MarkedSelection?) -> Void = { _ in }
         var rendered: Int?
         var bodyStart = 0
         var focused = false
+        var settled = 0
 
-        func textView(_ textView: UITextView, editMenuForTextIn range: NSRange, suggestedActions: [UIMenuElement]) -> UIMenu? {
+        /// Selecting a passage of the body offers to highlight it, the way the web does.
+        func textViewDidChangeSelection(_ textView: UITextView) {
+            onSelect(selection(in: textView, range: textView.selectedRange))
+        }
+
+        private func selection(in textView: UITextView, range: NSRange) -> MarkedSelection? {
             let whole = textView.text as NSString
+            guard range.length > 0, range.location >= bodyStart, NSMaxRange(range) <= whole.length else { return nil }
             let text = whole.substring(with: range).trimmingCharacters(in: .whitespacesAndNewlines)
-            guard text.count >= 3, range.location >= bodyStart else { return UIMenu(children: suggestedActions) }
-            let mark = UIAction(title: "Mark", image: UIImage(systemName: "highlighter")) { [weak self] _ in
-                let before = whole.substring(with: NSRange(location: max(self?.bodyStart ?? 0, range.location - 30), length: min(30, range.location - (self?.bodyStart ?? 0))))
-                let afterStart = range.location + range.length
-                let after = whole.substring(with: NSRange(location: afterStart, length: min(30, whole.length - afterStart)))
-                self?.onMark(MarkedSelection(text: text, prefix: before, suffix: after, offset: range.location - (self?.bodyStart ?? 0)))
-                textView.selectedRange = NSRange(location: range.location, length: 0)
-            }
-            return UIMenu(children: [mark] + suggestedActions)
+            guard text.count >= 3 else { return nil }
+            let lead = min(30, range.location - bodyStart)
+            let before = whole.substring(with: NSRange(location: range.location - lead, length: lead))
+            let afterStart = NSMaxRange(range)
+            let after = whole.substring(with: NSRange(location: afterStart, length: min(30, whole.length - afterStart)))
+            return MarkedSelection(text: text, prefix: before, suffix: after, offset: range.location - bodyStart)
         }
     }
 }
