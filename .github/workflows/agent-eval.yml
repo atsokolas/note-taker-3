@@ -9,7 +9,6 @@ on:
       - 'server/services/collaborativeAgent**'
       - 'server/services/agent**'
       - 'scripts/run_agent_eval.js'
-      - 'scripts/run_agent_memory_approval_smoke*.js'
       - 'package*.json'
       - '.github/workflows/agent-eval.yml'
   push:
@@ -24,24 +23,6 @@ on:
       - 'package*.json'
       - '.github/workflows/agent-eval.yml'
   workflow_dispatch:
-    inputs:
-      run_approval_smoke:
-        description: 'Run live memory approval smoke test against deployed API'
-        required: false
-        default: 'false'
-        type: choice
-        options:
-          - 'false'
-          - 'true'
-      approval_smoke_action:
-        description: 'Memory approval smoke action; reject is safe, approve commits test memory rows'
-        required: false
-        default: 'reject'
-        type: choice
-        options:
-          - 'reject'
-          - 'create'
-          - 'approve'
 
 jobs:
   eval:
@@ -61,32 +42,4 @@ jobs:
         with:
           name: agent-eval
           path: tmp/agent-eval/**
-          if-no-files-found: ignore
-
-  approval-smoke:
-    name: Live Memory Approval Smoke
-    runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_approval_smoke == 'true' }}
-    env:
-      AGENT_APPROVAL_SMOKE_BASE_URL: ${{ vars.AGENT_APPROVAL_SMOKE_BASE_URL }}
-      AGENT_APPROVAL_SMOKE_TOKEN: ${{ secrets.AGENT_APPROVAL_SMOKE_TOKEN }}
-      AGENT_APPROVAL_SMOKE_ACTION: ${{ inputs.approval_smoke_action || 'reject' }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: npm
-      - run: npm ci
-      - name: Skip smoke when API URL or token is missing
-        if: ${{ env.AGENT_APPROVAL_SMOKE_BASE_URL == '' || env.AGENT_APPROVAL_SMOKE_TOKEN == '' }}
-        run: echo "AGENT_APPROVAL_SMOKE_BASE_URL or AGENT_APPROVAL_SMOKE_TOKEN is not configured; skipping approval smoke."
-      - name: Run approval smoke
-        if: ${{ env.AGENT_APPROVAL_SMOKE_BASE_URL != '' && env.AGENT_APPROVAL_SMOKE_TOKEN != '' }}
-        run: npm run agent:approval-smoke
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: agent-approval-smoke
-          path: tmp/agent-approval-smoke-runs/**
           if-no-files-found: ignore

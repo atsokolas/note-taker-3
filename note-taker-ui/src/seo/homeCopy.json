@@ -12,6 +12,18 @@
     "label": "See how it works",
     "href": "#how-it-works"
   },
+  "specimen": {
+    "label": "What it looks like",
+    "view": "Teams that write things down make better decisions than teams that meet.",
+    "against": "A source you saved pushes against this",
+    "quote": "Written proposals reward the fluent writer. The quiet engineer with the right answer loses the argument on the page.",
+    "source": "An essay in your library, saved on Tuesday",
+    "choices": [
+      "File for",
+      "File against",
+      "Not about this"
+    ]
+  },
   "statements": [
     {
       "title": "Hold a view, and let your reading test it.",

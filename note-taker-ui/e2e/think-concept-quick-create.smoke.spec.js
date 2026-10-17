@@ -117,7 +117,6 @@ const setupThinkConceptMocks = async (page, { initialConceptNames = [] } = {}) =
     if (path === '/api/tags' && method === 'GET') return json(route, []);
     if (path === '/api/highlights' && method === 'GET') return json(route, []);
     if (path === '/get-articles' && method === 'GET') return json(route, []);
-    if (path === '/api/working-memory' && method === 'GET') return json(route, []);
     if (path === '/api/connections/scope' && method === 'GET') return json(route, { connections: [] });
     if (path === '/api/connections' && method === 'GET') return json(route, { outgoing: [], incoming: [] });
     if (path === '/api/return-queue' && method === 'GET') return json(route, []);

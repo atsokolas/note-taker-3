@@ -7,48 +7,74 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		BA0000010000000000000001 /* NoeisApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA0000010000000000001001 /* NoeisApp.swift */; };
-		BA0000010000000000000002 /* NoeisRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA0000010000000000001002 /* NoeisRootView.swift */; };
-		BA0000010000000000000003 /* NoeisAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA0000010000000000001003 /* NoeisAPI.swift */; };
-		BA0000010000000000000004 /* NoeisAuthStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA0000010000000000001004 /* NoeisAuthStore.swift */; };
-		BA0000010000000000000005 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = BA0000010000000000001005 /* Assets.xcassets */; };
-		BA0000010000000000000006 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = BA0000010000000000001006 /* LaunchScreen.storyboard */; };
-		BA0000010000000000000007 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = BA0000010000000000001007 /* PrivacyInfo.xcprivacy */; };
-		BA0000010000000000000008 /* SafariWebExtensionHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA0000010000000000001008 /* SafariWebExtensionHandler.swift */; };
-		BA0000010000000000000009 /* NoeisAuthStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA0000010000000000001004 /* NoeisAuthStore.swift */; };
-		BA000001000000000000000A /* manifest.json in Resources */ = {isa = PBXBuildFile; fileRef = BA000001000000000000100A /* manifest.json */; };
-		BA000001000000000000000B /* popup.html in Resources */ = {isa = PBXBuildFile; fileRef = BA000001000000000000100B /* popup.html */; };
-		BA000001000000000000000C /* popup.css in Resources */ = {isa = PBXBuildFile; fileRef = BA000001000000000000100C /* popup.css */; };
-		BA000001000000000000000D /* popup.js in Resources */ = {isa = PBXBuildFile; fileRef = BA000001000000000000100D /* popup.js */; };
-		BA000001000000000000000E /* content.js in Resources */ = {isa = PBXBuildFile; fileRef = BA000001000000000000100E /* content.js */; };
-		BA000001000000000000000F /* content.css in Resources */ = {isa = PBXBuildFile; fileRef = BA000001000000000000100F /* content.css */; };
-		BA0000010000000000000010 /* background.js in Resources */ = {isa = PBXBuildFile; fileRef = BA0000010000000000001010 /* background.js */; };
-		BA0000010000000000000011 /* Readability.js in Resources */ = {isa = PBXBuildFile; fileRef = BA0000010000000000001011 /* Readability.js */; };
-		BA0000010000000000000012 /* mark.min.js in Resources */ = {isa = PBXBuildFile; fileRef = BA0000010000000000001012 /* mark.min.js */; };
-		BA0000010000000000000013 /* images in Resources */ = {isa = PBXBuildFile; fileRef = BA0000010000000000001013 /* images */; };
-		BA0000010000000000000014 /* _locales in Resources */ = {isa = PBXBuildFile; fileRef = BA0000010000000000001014 /* _locales */; };
-		BA0000010000000000000015 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = BA0000010000000000001015 /* PrivacyInfo.xcprivacy */; };
-		BA0000010000000000000016 /* NoeisExtension.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = BA0000010000000000002002 /* NoeisExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		BA0000020000000000000009 /* Document.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA000002000000000000000A; };
+		BA000002000000000000000B /* Judgment.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA000002000000000000000C; };
+		BA000002000000000000000D /* Library.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA000002000000000000000E; };
+		BA000002000000000000000F /* Loading.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA0000020000000000000010; };
+		BA0000020000000000000011 /* NoeisApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA0000020000000000000012; };
+		BA0000020000000000000013 /* Partner.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA0000020000000000000014; };
+		BA0000020000000000000015 /* Rooms.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA0000020000000000000016; };
+		BA0000020000000000000017 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA0000020000000000000018; };
+		BA0000020000000000000019 /* SignInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA000002000000000000001A; };
+		BA000002000000000000001B /* Think.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA000002000000000000001C; };
+		BA000002000000000000001D /* Wiki.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA000002000000000000001E; };
+		BA000002000000000000001F /* JSON.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA0000020000000000000020; };
+		BA0000020000000000000021 /* NoeisAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA0000020000000000000022; };
+		BA0000020000000000000023 /* NoeisAuthStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA0000020000000000000024; };
+		BA0000020000000000000025 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA0000020000000000000026; };
+		BA0000020000000000000027 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = BA0000020000000000000028; };
+		BA0000020000000000000029 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = BA000002000000000000002A; };
+		BA0000020000000000000033 /* SafariWebExtensionHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA0000020000000000000034; };
+		BA0000020000000000000035 /* NoeisAuthStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA0000020000000000000024; };
+		BA0000020000000000000036 /* manifest.json in Resources */ = {isa = PBXBuildFile; fileRef = BA0000020000000000000037; };
+		BA0000020000000000000038 /* popup.html in Resources */ = {isa = PBXBuildFile; fileRef = BA0000020000000000000039; };
+		BA000002000000000000003A /* popup.css in Resources */ = {isa = PBXBuildFile; fileRef = BA000002000000000000003B; };
+		BA000002000000000000003C /* popup.js in Resources */ = {isa = PBXBuildFile; fileRef = BA000002000000000000003D; };
+		BA000002000000000000003E /* content.js in Resources */ = {isa = PBXBuildFile; fileRef = BA000002000000000000003F; };
+		BA0000020000000000000040 /* content.css in Resources */ = {isa = PBXBuildFile; fileRef = BA0000020000000000000041; };
+		BA0000020000000000000042 /* background.js in Resources */ = {isa = PBXBuildFile; fileRef = BA0000020000000000000043; };
+		BA0000020000000000000044 /* Readability.js in Resources */ = {isa = PBXBuildFile; fileRef = BA0000020000000000000045; };
+		BA0000020000000000000046 /* mark.min.js in Resources */ = {isa = PBXBuildFile; fileRef = BA0000020000000000000047; };
+		BA0000020000000000000048 /* images in Resources */ = {isa = PBXBuildFile; fileRef = BA0000020000000000000049; };
+		BA000002000000000000004A /* _locales in Resources */ = {isa = PBXBuildFile; fileRef = BA000002000000000000004B; };
+		BA000002000000000000004C /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = BA000002000000000000004D; };
+		BA0000020000000000000056 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA0000020000000000000057; };
+		BA0000020000000000000058 /* JSON.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA0000020000000000000020; };
+		BA0000020000000000000059 /* NoeisAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA0000020000000000000022; };
+		BA000002000000000000005A /* NoeisAuthStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA0000020000000000000024; };
+		BA000002000000000000005B /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA0000020000000000000026; };
+		BA000002000000000000005C /* GetPage.js in Resources */ = {isa = PBXBuildFile; fileRef = BA000002000000000000005D; };
+		BA000002000000000000005E /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = BA000002000000000000005F; };
+		BA000002000000000000006D /* NoeisExtension.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = BA000002000000000000002C; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		BA0000020000000000000070 /* NoeisShare.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = BA000002000000000000004F; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		BA0000010000000000003001 /* PBXContainerItemProxy */ = {
+		BA000002000000000000006E = {
 			isa = PBXContainerItemProxy;
-			containerPortal = BA0000010000000000004001 /* Project object */;
+			containerPortal = BA0000020000000000000066;
 			proxyType = 1;
-			remoteGlobalIDString = BA0000010000000000005002;
+			remoteGlobalIDString = BA000002000000000000002B;
 			remoteInfo = "Noeis Extension";
+		};
+		BA0000020000000000000071 = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BA0000020000000000000066;
+			proxyType = 1;
+			remoteGlobalIDString = BA000002000000000000004E;
+			remoteInfo = "Noeis Share";
 		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		BA0000010000000000006001 /* Embed App Extensions */ = {
+		BA0000020000000000000069 /* Embed App Extensions */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				BA0000010000000000000016 /* NoeisExtension.appex in Embed App Extensions */,
+				BA000002000000000000006D,
+				BA0000020000000000000070,
 			);
 			name = "Embed App Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -56,41 +82,66 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		BA0000010000000000001001 /* NoeisApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoeisApp.swift; sourceTree = "<group>"; };
-		BA0000010000000000001002 /* NoeisRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoeisRootView.swift; sourceTree = "<group>"; };
-		BA0000010000000000001003 /* NoeisAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoeisAPI.swift; sourceTree = "<group>"; };
-		BA0000010000000000001004 /* NoeisAuthStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoeisAuthStore.swift; sourceTree = "<group>"; };
-		BA0000010000000000001005 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		BA0000010000000000001006 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
-		BA0000010000000000001007 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
-		BA0000010000000000001008 /* SafariWebExtensionHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafariWebExtensionHandler.swift; sourceTree = "<group>"; };
-		BA0000010000000000001009 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		BA000001000000000000100A /* manifest.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = manifest.json; sourceTree = "<group>"; };
-		BA000001000000000000100B /* popup.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = popup.html; sourceTree = "<group>"; };
-		BA000001000000000000100C /* popup.css */ = {isa = PBXFileReference; lastKnownFileType = text.css; path = popup.css; sourceTree = "<group>"; };
-		BA000001000000000000100D /* popup.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = popup.js; sourceTree = "<group>"; };
-		BA000001000000000000100E /* content.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = content.js; sourceTree = "<group>"; };
-		BA000001000000000000100F /* content.css */ = {isa = PBXFileReference; lastKnownFileType = text.css; path = content.css; sourceTree = "<group>"; };
-		BA0000010000000000001010 /* background.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = background.js; sourceTree = "<group>"; };
-		BA0000010000000000001011 /* Readability.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = Readability.js; sourceTree = "<group>"; };
-		BA0000010000000000001012 /* mark.min.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = mark.min.js; sourceTree = "<group>"; };
-		BA0000010000000000001013 /* images */ = {isa = PBXFileReference; lastKnownFileType = folder; path = images; sourceTree = "<group>"; };
-		BA0000010000000000001014 /* _locales */ = {isa = PBXFileReference; lastKnownFileType = folder; path = _locales; sourceTree = "<group>"; };
-		BA0000010000000000001015 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
-		BA0000010000000000001016 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		BA0000010000000000002001 /* Noeis.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Noeis.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		BA0000010000000000002002 /* NoeisExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = NoeisExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		BA000002000000000000000A /* Document.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Document.swift; sourceTree = "<group>"; };
+		BA000002000000000000000C /* Judgment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Judgment.swift; sourceTree = "<group>"; };
+		BA000002000000000000000E /* Library.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Library.swift; sourceTree = "<group>"; };
+		BA0000020000000000000010 /* Loading.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Loading.swift; sourceTree = "<group>"; };
+		BA0000020000000000000012 /* NoeisApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoeisApp.swift; sourceTree = "<group>"; };
+		BA0000020000000000000014 /* Partner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Partner.swift; sourceTree = "<group>"; };
+		BA0000020000000000000016 /* Rooms.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Rooms.swift; sourceTree = "<group>"; };
+		BA0000020000000000000018 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		BA000002000000000000001A /* SignInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignInView.swift; sourceTree = "<group>"; };
+		BA000002000000000000001C /* Think.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Think.swift; sourceTree = "<group>"; };
+		BA000002000000000000001E /* Wiki.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Wiki.swift; sourceTree = "<group>"; };
+		BA0000020000000000000020 /* JSON.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSON.swift; sourceTree = "<group>"; };
+		BA0000020000000000000022 /* NoeisAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoeisAPI.swift; sourceTree = "<group>"; };
+		BA0000020000000000000024 /* NoeisAuthStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoeisAuthStore.swift; sourceTree = "<group>"; };
+		BA0000020000000000000026 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		BA0000020000000000000028 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		BA000002000000000000002A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		BA0000020000000000000034 /* SafariWebExtensionHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafariWebExtensionHandler.swift; sourceTree = "<group>"; };
+		BA0000020000000000000037 /* manifest.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = manifest.json; sourceTree = "<group>"; };
+		BA0000020000000000000039 /* popup.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = popup.html; sourceTree = "<group>"; };
+		BA000002000000000000003B /* popup.css */ = {isa = PBXFileReference; lastKnownFileType = text.css; path = popup.css; sourceTree = "<group>"; };
+		BA000002000000000000003D /* popup.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = popup.js; sourceTree = "<group>"; };
+		BA000002000000000000003F /* content.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = content.js; sourceTree = "<group>"; };
+		BA0000020000000000000041 /* content.css */ = {isa = PBXFileReference; lastKnownFileType = text.css; path = content.css; sourceTree = "<group>"; };
+		BA0000020000000000000043 /* background.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = background.js; sourceTree = "<group>"; };
+		BA0000020000000000000045 /* Readability.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = Readability.js; sourceTree = "<group>"; };
+		BA0000020000000000000047 /* mark.min.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = mark.min.js; sourceTree = "<group>"; };
+		BA0000020000000000000049 /* images */ = {isa = PBXFileReference; lastKnownFileType = folder; path = images; sourceTree = "<group>"; };
+		BA000002000000000000004B /* _locales */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "_locales"; sourceTree = "<group>"; };
+		BA000002000000000000004D /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		BA0000020000000000000057 /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
+		BA000002000000000000005D /* GetPage.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = GetPage.js; sourceTree = "<group>"; };
+		BA000002000000000000005F /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		BA0000020000000000000060 /* Noeis-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Noeis-Info.plist"; sourceTree = "<group>"; };
+		BA0000020000000000000061 /* Noeis.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Noeis.entitlements; sourceTree = "<group>"; };
+		BA0000020000000000000062 /* SafariExtension-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "SafariExtension-Info.plist"; sourceTree = "<group>"; };
+		BA0000020000000000000063 /* SafariExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SafariExtension.entitlements; sourceTree = "<group>"; };
+		BA0000020000000000000064 /* ShareExtension-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "ShareExtension-Info.plist"; sourceTree = "<group>"; };
+		BA0000020000000000000065 /* ShareExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ShareExtension.entitlements; sourceTree = "<group>"; };
+		BA0000020000000000000002 /* Noeis.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Noeis.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		BA000002000000000000002C /* NoeisExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = NoeisExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		BA000002000000000000004F /* NoeisShare.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = NoeisShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		BA0000010000000000007001 /* Frameworks */ = {
+		BA0000020000000000000005 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		BA0000010000000000007002 /* Frameworks */ = {
+		BA000002000000000000002F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BA0000020000000000000052 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -100,105 +151,140 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		BA0000010000000000008001 = {
+		BA0000020000000000000067 = {
 			isa = PBXGroup;
 			children = (
-				BA0000010000000000008002 /* Noeis */,
-				BA0000010000000000008003 /* Noeis Extension */,
-				BA0000010000000000008004 /* Shared */,
-				BA0000010000000000008005 /* Products */,
+				BA0000020000000000000078,
+				BA0000020000000000000073,
+				BA0000020000000000000075,
+				BA0000020000000000000077,
+				BA0000020000000000000074,
+				BA0000020000000000000068,
 			);
 			sourceTree = "<group>";
 		};
-		BA0000010000000000008002 /* Noeis */ = {
+		BA0000020000000000000078 /* Config */ = {
 			isa = PBXGroup;
 			children = (
-				BA0000010000000000001001 /* NoeisApp.swift */,
-				BA0000010000000000001002 /* NoeisRootView.swift */,
-				BA0000010000000000001003 /* NoeisAPI.swift */,
-				BA0000010000000000001005 /* Assets.xcassets */,
-				BA0000010000000000001006 /* LaunchScreen.storyboard */,
-				BA0000010000000000001007 /* PrivacyInfo.xcprivacy */,
-				BA0000010000000000001009 /* Info.plist */,
+				BA0000020000000000000060,
+				BA0000020000000000000061,
+				BA0000020000000000000062,
+				BA0000020000000000000063,
+				BA0000020000000000000064,
+				BA0000020000000000000065,
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
+		BA0000020000000000000073 /* Noeis */ = {
+			isa = PBXGroup;
+			children = (
+				BA000002000000000000000A,
+				BA000002000000000000000C,
+				BA000002000000000000000E,
+				BA0000020000000000000010,
+				BA0000020000000000000012,
+				BA0000020000000000000014,
+				BA0000020000000000000016,
+				BA0000020000000000000018,
+				BA000002000000000000001A,
+				BA000002000000000000001C,
+				BA000002000000000000001E,
+				BA0000020000000000000028,
+				BA000002000000000000002A,
 			);
 			path = Noeis;
 			sourceTree = "<group>";
 		};
-		BA0000010000000000008003 /* Noeis Extension */ = {
+		BA0000020000000000000075 /* Noeis Extension */ = {
 			isa = PBXGroup;
 			children = (
-				BA0000010000000000001008 /* SafariWebExtensionHandler.swift */,
-				BA0000010000000000008010 /* Resources */,
-				BA0000010000000000001015 /* PrivacyInfo.xcprivacy */,
-				BA0000010000000000001016 /* Info.plist */,
+				BA0000020000000000000034,
+				BA0000020000000000000076,
+				BA000002000000000000004D,
 			);
 			path = "Noeis Extension";
 			sourceTree = "<group>";
 		};
-		BA0000010000000000008004 /* Shared */ = {
+		BA0000020000000000000076 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
-				BA0000010000000000001004 /* NoeisAuthStore.swift */,
+				BA0000020000000000000037,
+				BA0000020000000000000039,
+				BA000002000000000000003B,
+				BA000002000000000000003D,
+				BA000002000000000000003F,
+				BA0000020000000000000041,
+				BA0000020000000000000043,
+				BA0000020000000000000045,
+				BA0000020000000000000047,
+				BA0000020000000000000049,
+				BA000002000000000000004B,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		BA0000020000000000000077 /* Share Extension */ = {
+			isa = PBXGroup;
+			children = (
+				BA0000020000000000000057,
+				BA000002000000000000005D,
+				BA000002000000000000005F,
+			);
+			path = "Share Extension";
+			sourceTree = "<group>";
+		};
+		BA0000020000000000000074 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				BA0000020000000000000020,
+				BA0000020000000000000022,
+				BA0000020000000000000024,
+				BA0000020000000000000026,
 			);
 			path = Shared;
 			sourceTree = "<group>";
 		};
-		BA0000010000000000008005 /* Products */ = {
+		BA0000020000000000000068 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				BA0000010000000000002001 /* Noeis.app */,
-				BA0000010000000000002002 /* NoeisExtension.appex */,
+				BA0000020000000000000002,
+				BA000002000000000000002C,
+				BA000002000000000000004F,
 			);
 			name = Products;
-			sourceTree = "<group>";
-		};
-		BA0000010000000000008010 /* Resources */ = {
-			isa = PBXGroup;
-			children = (
-				BA000001000000000000100A /* manifest.json */,
-				BA000001000000000000100B /* popup.html */,
-				BA000001000000000000100C /* popup.css */,
-				BA000001000000000000100D /* popup.js */,
-				BA000001000000000000100E /* content.js */,
-				BA000001000000000000100F /* content.css */,
-				BA0000010000000000001010 /* background.js */,
-				BA0000010000000000001011 /* Readability.js */,
-				BA0000010000000000001012 /* mark.min.js */,
-				BA0000010000000000001013 /* images */,
-				BA0000010000000000001014 /* _locales */,
-			);
-			path = Resources;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		BA0000010000000000005001 /* Noeis */ = {
+		BA0000020000000000000001 /* Noeis */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = BA0000010000000000009001 /* Build configuration list for PBXNativeTarget "Noeis" */;
+			buildConfigurationList = BA0000020000000000000006;
 			buildPhases = (
-				BA000001000000000000A001 /* Sources */,
-				BA0000010000000000007001 /* Frameworks */,
-				BA000001000000000000B001 /* Resources */,
-				BA0000010000000000006001 /* Embed App Extensions */,
+				BA0000020000000000000003,
+				BA0000020000000000000005,
+				BA0000020000000000000004,
+				BA0000020000000000000069,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				BA000001000000000000C001 /* PBXTargetDependency */,
+				BA000002000000000000006F,
+				BA0000020000000000000072,
 			);
 			name = Noeis;
 			productName = Noeis;
-			productReference = BA0000010000000000002001 /* Noeis.app */;
+			productReference = BA0000020000000000000002;
 			productType = "com.apple.product-type.application";
 		};
-		BA0000010000000000005002 /* Noeis Extension */ = {
+		BA000002000000000000002B /* Noeis Extension */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = BA0000010000000000009002 /* Build configuration list for PBXNativeTarget "Noeis Extension" */;
+			buildConfigurationList = BA0000020000000000000030;
 			buildPhases = (
-				BA000001000000000000A002 /* Sources */,
-				BA0000010000000000007002 /* Frameworks */,
-				BA000001000000000000B002 /* Resources */,
+				BA000002000000000000002D,
+				BA000002000000000000002F,
+				BA000002000000000000002E,
 			);
 			buildRules = (
 			);
@@ -206,112 +292,158 @@
 			);
 			name = "Noeis Extension";
 			productName = NoeisExtension;
-			productReference = BA0000010000000000002002 /* NoeisExtension.appex */;
+			productReference = BA000002000000000000002C;
+			productType = "com.apple.product-type.app-extension";
+		};
+		BA000002000000000000004E /* Noeis Share */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BA0000020000000000000053;
+			buildPhases = (
+				BA0000020000000000000050,
+				BA0000020000000000000052,
+				BA0000020000000000000051,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "Noeis Share";
+			productName = NoeisShare;
+			productReference = BA000002000000000000004F;
 			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
-		BA0000010000000000004001 /* Project object */ = {
+		BA0000020000000000000066 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 2640;
 				LastUpgradeCheck = 2640;
-				TargetAttributes = {
-					BA0000010000000000005001 = {
-						CreatedOnToolsVersion = 26.4.1;
-					};
-					BA0000010000000000005002 = {
-						CreatedOnToolsVersion = 26.4.1;
-					};
-				};
 			};
-			buildConfigurationList = BA0000010000000000009003 /* Build configuration list for PBXProject "Noeis" */;
+			buildConfigurationList = BA000002000000000000006A;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
 				Base,
 			);
-			mainGroup = BA0000010000000000008001;
+			mainGroup = BA0000020000000000000067;
 			minimizedProjectReferenceProxies = 1;
 			preferredProjectObjectVersion = 77;
-			productRefGroup = BA0000010000000000008005 /* Products */;
+			productRefGroup = BA0000020000000000000068;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				BA0000010000000000005001 /* Noeis */,
-				BA0000010000000000005002 /* Noeis Extension */,
+				BA0000020000000000000001,
+				BA000002000000000000002B,
+				BA000002000000000000004E,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		BA000001000000000000B001 /* Resources */ = {
+		BA0000020000000000000004 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				BA0000010000000000000005 /* Assets.xcassets in Resources */,
-				BA0000010000000000000006 /* LaunchScreen.storyboard in Resources */,
-				BA0000010000000000000007 /* PrivacyInfo.xcprivacy in Resources */,
+				BA0000020000000000000027,
+				BA0000020000000000000029,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		BA000001000000000000B002 /* Resources */ = {
+		BA000002000000000000002E /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				BA000001000000000000000A /* manifest.json in Resources */,
-				BA000001000000000000000B /* popup.html in Resources */,
-				BA000001000000000000000C /* popup.css in Resources */,
-				BA000001000000000000000D /* popup.js in Resources */,
-				BA000001000000000000000E /* content.js in Resources */,
-				BA000001000000000000000F /* content.css in Resources */,
-				BA0000010000000000000010 /* background.js in Resources */,
-				BA0000010000000000000011 /* Readability.js in Resources */,
-				BA0000010000000000000012 /* mark.min.js in Resources */,
-				BA0000010000000000000013 /* images in Resources */,
-				BA0000010000000000000014 /* _locales in Resources */,
-				BA0000010000000000000015 /* PrivacyInfo.xcprivacy in Resources */,
+				BA0000020000000000000036,
+				BA0000020000000000000038,
+				BA000002000000000000003A,
+				BA000002000000000000003C,
+				BA000002000000000000003E,
+				BA0000020000000000000040,
+				BA0000020000000000000042,
+				BA0000020000000000000044,
+				BA0000020000000000000046,
+				BA0000020000000000000048,
+				BA000002000000000000004A,
+				BA000002000000000000004C,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BA0000020000000000000051 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BA000002000000000000005C,
+				BA000002000000000000005E,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		BA000001000000000000A001 /* Sources */ = {
+		BA0000020000000000000003 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				BA0000010000000000000001 /* NoeisApp.swift in Sources */,
-				BA0000010000000000000002 /* NoeisRootView.swift in Sources */,
-				BA0000010000000000000003 /* NoeisAPI.swift in Sources */,
-				BA0000010000000000000004 /* NoeisAuthStore.swift in Sources */,
+				BA0000020000000000000009,
+				BA000002000000000000000B,
+				BA000002000000000000000D,
+				BA000002000000000000000F,
+				BA0000020000000000000011,
+				BA0000020000000000000013,
+				BA0000020000000000000015,
+				BA0000020000000000000017,
+				BA0000020000000000000019,
+				BA000002000000000000001B,
+				BA000002000000000000001D,
+				BA000002000000000000001F,
+				BA0000020000000000000021,
+				BA0000020000000000000023,
+				BA0000020000000000000025,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		BA000001000000000000A002 /* Sources */ = {
+		BA000002000000000000002D /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				BA0000010000000000000008 /* SafariWebExtensionHandler.swift in Sources */,
-				BA0000010000000000000009 /* NoeisAuthStore.swift in Sources */,
+				BA0000020000000000000033,
+				BA0000020000000000000035,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BA0000020000000000000050 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BA0000020000000000000056,
+				BA0000020000000000000058,
+				BA0000020000000000000059,
+				BA000002000000000000005A,
+				BA000002000000000000005B,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		BA000001000000000000C001 /* PBXTargetDependency */ = {
+		BA000002000000000000006F = {
 			isa = PBXTargetDependency;
-			target = BA0000010000000000005002 /* Noeis Extension */;
-			targetProxy = BA0000010000000000003001 /* PBXContainerItemProxy */;
+			target = BA000002000000000000002B;
+			targetProxy = BA000002000000000000006E;
+		};
+		BA0000020000000000000072 = {
+			isa = PBXTargetDependency;
+			target = BA000002000000000000004E;
+			targetProxy = BA0000020000000000000071;
 		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
-		BA000001000000000000D001 /* Debug */ = {
+		BA000002000000000000006B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -373,7 +505,7 @@
 			};
 			name = Debug;
 		};
-		BA000001000000000000D002 /* Release */ = {
+		BA000002000000000000006C /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -429,20 +561,23 @@
 			};
 			name = Release;
 		};
-		BA000001000000000000D003 /* Debug */ = {
+		BA0000020000000000000007 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = Noeis/Noeis.entitlements;
+				CODE_SIGN_ENTITLEMENTS = Config/Noeis.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = YM2YV962F6;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = Noeis/Info.plist;
+				INFOPLIST_FILE = Config/Noeis-Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Noeis;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2026 Noeis. All rights reserved.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -460,20 +595,23 @@
 			};
 			name = Debug;
 		};
-		BA000001000000000000D004 /* Release */ = {
+		BA0000020000000000000008 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = Noeis/Noeis.entitlements;
+				CODE_SIGN_ENTITLEMENTS = Config/Noeis.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = YM2YV962F6;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = Noeis/Info.plist;
+				INFOPLIST_FILE = Config/Noeis-Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Noeis;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2026 Noeis. All rights reserved.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -491,17 +629,17 @@
 			};
 			name = Release;
 		};
-		BA000001000000000000D005 /* Debug */ = {
+		BA0000020000000000000031 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGN_ENTITLEMENTS = "Noeis Extension/NoeisExtension.entitlements";
+				CODE_SIGN_ENTITLEMENTS = Config/SafariExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = YM2YV962F6;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "Noeis Extension/Info.plist";
+				INFOPLIST_FILE = Config/SafariExtension-Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Noeis Extension";
-				INFOPLIST_KEY_NSExtension = "";
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -519,17 +657,17 @@
 			};
 			name = Debug;
 		};
-		BA000001000000000000D006 /* Release */ = {
+		BA0000020000000000000032 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGN_ENTITLEMENTS = "Noeis Extension/NoeisExtension.entitlements";
+				CODE_SIGN_ENTITLEMENTS = Config/SafariExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = YM2YV962F6;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "Noeis Extension/Info.plist";
+				INFOPLIST_FILE = Config/SafariExtension-Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Noeis Extension";
-				INFOPLIST_KEY_NSExtension = "";
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -539,6 +677,62 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.atsokolas.noeis.extension;
 				PRODUCT_NAME = NoeisExtension;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		BA0000020000000000000054 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Config/ShareExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = YM2YV962F6;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Config/ShareExtension-Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Noeis;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.atsokolas.noeis.share;
+				PRODUCT_NAME = NoeisShare;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		BA0000020000000000000055 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Config/ShareExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = YM2YV962F6;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Config/ShareExtension-Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Noeis;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.atsokolas.noeis.share;
+				PRODUCT_NAME = NoeisShare;
 				SKIP_INSTALL = YES;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -550,34 +744,43 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		BA0000010000000000009001 /* Build configuration list for PBXNativeTarget "Noeis" */ = {
+		BA000002000000000000006A = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				BA000001000000000000D003 /* Debug */,
-				BA000001000000000000D004 /* Release */,
+				BA000002000000000000006B,
+				BA000002000000000000006C,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		BA0000010000000000009002 /* Build configuration list for PBXNativeTarget "Noeis Extension" */ = {
+		BA0000020000000000000006 = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				BA000001000000000000D005 /* Debug */,
-				BA000001000000000000D006 /* Release */,
+				BA0000020000000000000007,
+				BA0000020000000000000008,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		BA0000010000000000009003 /* Build configuration list for PBXProject "Noeis" */ = {
+		BA0000020000000000000030 = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				BA000001000000000000D001 /* Debug */,
-				BA000001000000000000D002 /* Release */,
+				BA0000020000000000000031,
+				BA0000020000000000000032,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		BA0000020000000000000053 = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BA0000020000000000000054,
+				BA0000020000000000000055,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};
-	rootObject = BA0000010000000000004001 /* Project object */;
+	rootObject = BA0000020000000000000066;
 }

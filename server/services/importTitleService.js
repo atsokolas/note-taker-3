@@ -58,11 +58,19 @@ const sentence = (value = '', limit = 120) => {
   return boundary > 40 ? clipped.slice(0, boundary).trim() : '';
 };
 
+// Plain text that opens with a short line standing alone, unpunctuated, then
+// a blank line: that line is the headline the writer gave it.
+const leadLine = (raw = '') => {
+  if (/<\/?[a-z][^>]*>/i.test(raw)) return '';
+  const line = clean(raw.match(/^\s*([^\n]{3,140})\n[ \t]*\n/)?.[1] || '', 180);
+  return /[.,;:!?]$/.test(line) ? '' : line;
+};
+
 const firstHeading = (value = '') => {
   const raw = String(value || '');
   const markdown = raw.match(/^\s{0,3}#{1,6}\s+(.+)$/m)?.[1];
   const html = raw.match(/<h[1-3][^>]*>([\s\S]*?)<\/h[1-3]>/i)?.[1];
-  return clean(markdown || html || '', 180);
+  return clean(markdown || html || '', 180) || leadLine(raw);
 };
 
 const bareTitle = (value = '') => clean(value, 240)

@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { listWikiChanges, listWikiPages } from '../../api/wiki';
-import { fileReadingProposal, getPushesAgainst } from '../../api/judgmentResolution';
+import { fileReadingProposal, getDueView, getPushesAgainst } from '../../api/judgmentResolution';
+import { formatLedgerDate } from '../../pages/judgmentModel';
 import { wikiReadPath } from '../../utils/wikiFeatureFlags';
 import { purgeUnscopedKeys, scopedKey } from '../../utils/browserScope';
 import { filterReturnViewItems } from '../../utils/cruftSuppression';
 import { formatSurfaceDate } from '../../utils/dateDisplay';
+import { buildPassagePath } from '../../utils/sourceRoutes';
 import { useNoeisAgentSurface } from '../../agent/AgentRailContext';
 import { AGENT_DISPLAY_NAME } from '../../constants/agentIdentity';
 import WikiCreationComposer from './WikiCreationComposer';
@@ -20,7 +22,7 @@ import {
   pendingWikiProposal
 } from './wikiCollectionModel';
 import useDocumentTitle from '../../hooks/useDocumentTitle';
-import { Button, EmptyState, PageHeader } from '../ui';
+import { Button, EmptyState, PageHeader, buttonClass } from '../ui';
 import '../../styles/wiki-critical.css';
 import '../../styles/wiki-collection.css';
 
@@ -91,9 +93,14 @@ export const sinceLabel = (iso, now = new Date()) => {
   return then.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 };
 
-export const bylineFor = (page = {}) => (
-  page?.aiState?.lastDraftedAt ? `kept by ${AGENT_DISPLAY_NAME}` : 'written by you'
-);
+/* Who wrote it, truthfully: a page taken from someone else says where from,
+   a page Noeis drafts says so, and only the rest are yours. */
+export const bylineFor = (page = {}) => {
+  if (page?.adoptedFrom?.adoptedAt) {
+    return page.adoptedFrom.originTitle ? `taken from ${page.adoptedFrom.originTitle}` : 'taken from a shared page';
+  }
+  return page?.aiState?.lastDraftedAt ? `kept by ${AGENT_DISPLAY_NAME}` : 'written by you';
+};
 
 const openExistingAgent = () => {
   window.dispatchEvent(new Event('noeis:open-agent'));
@@ -172,7 +179,7 @@ export const ArguesWithYou = ({ reading, onSettled }) => {
       ) : (
         <>
           <p>
-            {articleId ? <Link to={`/articles/${encodeURIComponent(articleId)}`}>{who}</Link> : who} pushes against
+            {articleId ? <Link to={buildPassagePath({ articleId, text: after })}>{who}</Link> : who} pushes against
             your view that {viewLink}:
           </p>
           {after ? <blockquote>{after}</blockquote> : null}
@@ -182,6 +189,25 @@ export const ArguesWithYou = ({ reading, onSettled }) => {
           </p>
         </>
       )}
+    </section>
+  );
+};
+
+/* The day a view comes due: what you said you would know by now, and the
+   test you set for it, one step from the verdict. */
+export const ComesDue = ({ due, onSettled }) => {
+  const href = `/judgment/${encodeURIComponent(due.pageId)}`;
+  return (
+    <section className="wiki-collection__argues" aria-label="A view has come due">
+      <p>
+        You said you would know by {formatLedgerDate(due.by)} whether{' '}
+        <Link to={href}>{String(due.view).replace(/[.\s]+$/, '')}</Link>.
+      </p>
+      {due.test ? <blockquote>{due.test}</blockquote> : null}
+      <p className="wiki-collection__argues-actions">
+        <Link className={buttonClass('quiet')} to={href}>Did it hold up?</Link>
+        <Button variant="quiet" onClick={onSettled}>Not now</Button>
+      </p>
     </section>
   );
 };
@@ -239,6 +265,12 @@ const WikiFrontPage = ({ initialKind = '' }) => {
   const [wikiSearch, setWikiSearch] = useState('');
   const [searchPages, setSearchPages] = useState(null);
   const [composerOpen, setComposerOpen] = useState(false);
+  const composerRef = useRef(null);
+
+  // "+ New page" opens the composer where it was asked for, ready to type in.
+  useEffect(() => {
+    if (composerOpen) composerRef.current?.querySelector('textarea, input:not([type="hidden"])')?.focus();
+  }, [composerOpen]);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const searchParams = new URLSearchParams(location.search);
   const requestedKind = searchParams.get('kind') || initialKind;
@@ -249,12 +281,13 @@ const WikiFrontPage = ({ initialKind = '' }) => {
   useEffect(markLooked, []);
   const [changes, setChanges] = useState(null);
   const [argues, setArgues] = useState(null);
+  const [due, setDue] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
-    getPushesAgainst()
-      .then(reading => { if (!cancelled) setArgues(reading); })
-      .catch(() => {});
+    const keep = set => value => { if (!cancelled) set(value); };
+    getPushesAgainst().then(keep(setArgues)).catch(() => {});
+    getDueView().then(keep(setDue)).catch(() => {});
     return () => { cancelled = true; };
   }, []);
 
@@ -276,13 +309,6 @@ const WikiFrontPage = ({ initialKind = '' }) => {
       .catch(() => { if (!cancelled) setChanges(null); });
     return () => { cancelled = true; };
   }, [since]);
-
-  useEffect(() => {
-    document.body.classList.add('wiki-front-page-route');
-    return () => {
-      document.body.classList.remove('wiki-front-page-route');
-    };
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -414,7 +440,15 @@ const WikiFrontPage = ({ initialKind = '' }) => {
                   {proposedCount} proposed change{proposedCount === 1 ? '' : 's'}
                 </Button>
               ) : null}
-              <Button className="wiki-collection__newpage" onClick={() => setComposerOpen(true)}>+ New page</Button>
+              <Button
+                className="wiki-collection__newpage"
+                aria-expanded={emptyComposer || composerOpen}
+                onClick={() => (emptyComposer
+                  ? composerRef.current?.querySelector('textarea, input:not([type="hidden"])')?.focus()
+                  : setComposerOpen(open => !open))}
+              >
+                + New page
+              </Button>
               <Button onClick={openExistingAgent}>Ask</Button>
               <button
                 type="button"
@@ -428,6 +462,12 @@ const WikiFrontPage = ({ initialKind = '' }) => {
             </>
           )}
         />
+
+        {composerOpen && !emptyComposer ? (
+          <section ref={composerRef} className="wiki-collection__composer" aria-label="Build a wiki page">
+            <WikiCreationComposer />
+          </section>
+        ) : null}
 
         <div className="wiki-collection__search">
           <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -458,6 +498,7 @@ const WikiFrontPage = ({ initialKind = '' }) => {
         {availabilityNotice ? <p className="wiki-collection__status" role="status">{availabilityNotice}</p> : null}
         {error ? <div className="wiki-index__error" role="alert">{error}</div> : null}
 
+        {showingSince && due ? <ComesDue due={due} onSettled={() => setDue(null)} /> : null}
         {showingSince && argues ? <ArguesWithYou reading={argues} onSettled={() => setArgues(null)} /> : null}
 
         {showingSince ? (
@@ -533,8 +574,8 @@ const WikiFrontPage = ({ initialKind = '' }) => {
           </p>
         ) : null}
 
-        {emptyComposer || composerOpen ? (
-          <section className="wiki-collection__composer" aria-label="Build a wiki page">
+        {emptyComposer ? (
+          <section ref={composerRef} className="wiki-collection__composer" aria-label="Build a wiki page">
             <WikiCreationComposer />
           </section>
         ) : null}

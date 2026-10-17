@@ -1,7 +1,7 @@
 {
   "privacy": {
     "title": "NOEIS Privacy Policy",
-    "updated": "Last updated October 11, 2026.",
+    "updated": "Last updated October 16, 2026.",
     "sections": [
       {
         "heading": "Who runs NOEIS",
@@ -27,11 +27,20 @@
       {
         "heading": "Service providers and connected tools",
         "paragraphs": [
-          "NOEIS uses Vercel to host its website, Render to run its API, and MongoDB to store workspace records and support semantic retrieval. AI features send relevant text through OpenRouter to model providers. The serving model and provider can vary, including when a fallback is used. Retention and model-training practices depend on the serving endpoint and applicable account controls. NOEIS does not promise that every AI endpoint has zero data retention or that every provider excludes inputs from training.",
-          "These services process information needed to operate their parts of NOEIS. Their notices provide additional information: [Vercel](https://vercel.com/legal/privacy-notice), [Render](https://render.com/privacy), [MongoDB](https://www.mongodb.com/legal/privacy/privacy-policy) and [OpenRouter](https://openrouter.ai/privacy).",
+          "NOEIS uses Vercel to host its website, Render to run its API, and MongoDB to store workspace records and support semantic retrieval. AI features send relevant text to Anthropic's Claude API. If that is unavailable, the same request goes through OpenRouter to another model provider. Text used for retrieval is turned into embeddings through OpenRouter. The serving model and provider can vary, including when a fallback is used. Retention and model-training practices depend on the serving endpoint and applicable account controls. NOEIS does not promise that every AI endpoint has zero data retention or that every provider excludes inputs from training.",
+          "These services process information needed to operate their parts of NOEIS. Their notices provide additional information: [Vercel](https://vercel.com/legal/privacy-notice), [Render](https://render.com/privacy), [MongoDB](https://www.mongodb.com/legal/privacy/privacy-policy), [Anthropic](https://www.anthropic.com/legal/privacy) and [OpenRouter](https://openrouter.ai/privacy).",
           "When you connect NOEIS to ChatGPT, the read scope lets ChatGPT retrieve supported content from your account. The agent-write scope allows private thought appends, Edition filing and Wiki source or candidate preparation. Available actions depend on the connection grant. ChatGPT receives content returned by those tools and handles it under [OpenAI's privacy policy](https://openai.com/policies/privacy-policy/) and applicable terms.",
           "The ChatGPT connection cannot delete, share or publish content, or accept Wiki changes. Edition filing can replace an existing headline or answered follow-up and can update masthead attribution. Those metadata replacements have no history or undo through the connection. Read the current issue and confirm an intended replacement first.",
           "If you use another connected import service, that service's own terms and privacy policy also apply."
+        ]
+      },
+      {
+        "heading": "The Chrome extension",
+        "paragraphs": [
+          "The NOEIS Chrome extension does nothing on a web page until you press its toolbar button there. It has no access to pages you do not open it on and does not record your browsing history.",
+          "When you press the button, the extension sends that page's address to NOEIS to check whether you already saved it. When you choose Save, it reads the article's title, author, date and text from the page and sends them to your Library. When you mark a passage, it sends the passage to your account and compares it with views you hold and passages you marked before, which uses the AI processing described above.",
+          "On noeis.io, the extension reads your sign-in token so you stay signed in with one account, and your colour theme so it matches the site. It keeps both in Chrome's extension storage on your device. It also remembers, on your device only, which folder you usually file each site's pages in. Signing out in the extension removes its copy of the token.",
+          "The extension does not sell or share what it reads, show advertising, or use your information for anything other than the features described here."
         ]
       },
       {

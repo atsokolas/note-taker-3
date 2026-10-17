@@ -292,67 +292,6 @@ const ensureWorkspace = (concept) => {
   });
 };
 
-const validateWorkspacePayload = (workspaceInput) => {
-  const source = workspaceInput && typeof workspaceInput === 'object' ? workspaceInput : {};
-  if (source.version !== undefined && Number(source.version) !== WORKSPACE_VERSION) {
-    throw new Error(`workspace.version must be ${WORKSPACE_VERSION}.`);
-  }
-
-  const sections = Array.isArray(source.outlineSections)
-    ? source.outlineSections
-    : (Array.isArray(source.groups) ? source.groups : []);
-  const items = Array.isArray(source.attachedItems)
-    ? source.attachedItems
-    : (Array.isArray(source.items) ? source.items : []);
-
-  const sectionIds = new Set();
-  sections.forEach((section, index) => {
-    const id = toSafeString(section?.id);
-    if (!id) throw new Error(`outlineSections[${index}] is missing id.`);
-    if (sectionIds.has(id)) throw new Error(`Duplicate outline section id: ${id}`);
-    sectionIds.add(id);
-  });
-
-  const itemIds = new Set();
-  items.forEach((item, index) => {
-    const id = toSafeString(item?.id);
-    if (!id) throw new Error(`attachedItems[${index}] is missing id.`);
-    if (itemIds.has(id)) throw new Error(`Duplicate attached item id: ${id}`);
-    itemIds.add(id);
-
-    const type = toSafeString(item?.type).toLowerCase();
-    if (!WORKSPACE_ITEM_TYPES.has(type)) {
-      throw new Error(`attachedItems[${index}] has unknown type: ${type || '(empty)'}`);
-    }
-
-    const refId = toSafeString(item?.refId);
-    if (!refId) throw new Error(`attachedItems[${index}] is missing refId.`);
-
-    const sectionId = toSafeString(item?.sectionId || item?.groupId);
-    if (sectionId && sections.length > 0 && !sectionIds.has(sectionId)) {
-      throw new Error(`attachedItems[${index}] has invalid sectionId: ${sectionId}`);
-    }
-
-    const stageRaw = item?.stage;
-    if (stageRaw !== undefined) {
-      const normalized = normalizeStage(stageRaw, '');
-      if (!normalized) {
-        throw new Error(`attachedItems[${index}] has invalid stage: ${toSafeString(stageRaw) || '(empty)'}`);
-      }
-    }
-
-    const statusRaw = item?.status;
-    if (statusRaw !== undefined && !WORKSPACE_ITEM_STATUSES.has(toSafeString(statusRaw).toLowerCase())) {
-      throw new Error(`attachedItems[${index}] has invalid status: ${toSafeString(statusRaw) || '(empty)'}`);
-    }
-
-    const order = Number(item?.order);
-    if (!Number.isFinite(order)) {
-      throw new Error(`attachedItems[${index}] has non-numeric order.`);
-    }
-  });
-};
-
 const isDescendant = (items, candidateParentId, itemId) => {
   const byParent = new Map();
   items.forEach((item) => {
@@ -690,6 +629,5 @@ module.exports = {
   WORKSPACE_CONNECTION_TYPES,
   ensureWorkspace,
   normalizeOrders,
-  applyPatchOp,
-  validateWorkspacePayload
+  applyPatchOp
 };

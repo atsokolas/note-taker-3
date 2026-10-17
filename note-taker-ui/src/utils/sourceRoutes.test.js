@@ -5,6 +5,7 @@ import {
   buildCanonicalHighlightPath,
   buildConceptPath,
   buildSourceOpenPath,
+  buildPassagePath,
   buildSourceOriginPath,
   isExternalSourceHref,
   parseSourceOrigin,
@@ -116,9 +117,21 @@ describe('sourceRoutes', () => {
       articleId: 'a1',
       highlightId: ''
     });
+    expect(buildSourceOriginPath('article:a1', '', 'Renewals held.')).toMatch(/^\/library\?articleId=a1#passage=/);
     expect(buildSourceOriginPath('highlight:a1:h1')).toBe('/library?articleId=a1&highlightId=h1');
     expect(buildSourceOriginPath('article:a1')).toBe('/library?articleId=a1');
     expect(buildSourceOriginPath('overnight-event', 'https://example.com/source'))
       .toBe('https://example.com/source');
+  });
+});
+
+describe('buildPassagePath', () => {
+  it('opens a quote at its highlight, else at its words, else at the article', () => {
+    expect(buildPassagePath({ articleId: 'a1', highlightId: 'h1', text: 'x' })).toBe('/library?articleId=a1&highlightId=h1');
+    const href = buildPassagePath({ articleId: 'a1', text: 'Renewals held.' });
+    expect(href.startsWith('/library?articleId=a1#passage=')).toBe(true);
+    expect(JSON.parse(decodeURIComponent(href.split('#passage=')[1]))).toMatchObject({ articleId: 'a1', text: 'Renewals held.' });
+    expect(buildPassagePath({ articleId: 'a1' })).toBe('/library?articleId=a1');
+    expect(buildPassagePath({ text: 'orphan' })).toBe('');
   });
 });

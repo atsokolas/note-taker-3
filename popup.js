@@ -1,449 +1,186 @@
+import { APP, request } from './api.js';
 import { mountSaveCardSwitch } from './save-card-switch.js';
 
-document.addEventListener("DOMContentLoaded", () => {
-    const PASSWORD_MIN_LENGTH = 8;
+/* The save card.
+ *
+ * Opened on a page, it does three things and no more: says which page this
+ * is, saves it where the reader puts it, and wakes the margin on the page so
+ * passages can be marked there. Everything the extension says after a save
+ * (what you already hold, what pushes against it) is said on the page, beside
+ * the words, because this card closes the moment the reader looks away. */
 
-    const validateRegistration = (username, password, confirmPassword) => {
-        const cleanUsername = String(username || '').trim();
-        const rawPassword = String(password || '');
-        if (!cleanUsername || !rawPassword || !confirmPassword) {
-            return "All fields are required.";
-        }
-        if (rawPassword !== confirmPassword) {
-            return "Passwords do not match.";
-        }
-        if (rawPassword.length < PASSWORD_MIN_LENGTH) {
-            return `Password must be at least ${PASSWORD_MIN_LENGTH} characters.`;
-        }
-        if (cleanUsername.toLowerCase() === rawPassword.trim().toLowerCase()) {
-            return "Password cannot match your username.";
-        }
-        if (!/[A-Za-z]/.test(rawPassword) || !/\d/.test(rawPassword)) {
-            return "Password must include at least one letter and one number.";
-        }
-        return "";
-    };
+const $ = id => document.getElementById(id);
+const show = view => { document.body.dataset.view = view; };
+const say = (text, { error = false } = {}) => {
+  $('receipt').textContent = text;
+  $('receipt').classList.toggle('is-error', error);
+};
+const onDay = value => new Date(value).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
+const count = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
-    // --- Element Selectors ---
-    const loggedInView = document.getElementById("loggedInView");
-    const loggedOutView = document.getElementById("loggedOutView");
+/* The reader's own palette, carried from noeis.io, over the house defaults. */
+const paint = palette => Object.entries(palette || {}).forEach(([name, value]) => (
+  document.documentElement.style.setProperty(name, value)
+));
+const paletteForMargin = () => {
+  const style = getComputedStyle(document.documentElement);
+  return Object.fromEntries(['canvas', 'paper', 'paper-muted', 'ink', 'ink-muted', 'ink-subtle', 'rule', 'rule-strong',
+    'thread', 'action', 'action-soft', 'focus', 'danger', 'font-ui', 'font-reading']
+    .map(name => [`--noeis-${name}`, style.getPropertyValue(`--noeis-${name}`).trim()]));
+};
 
-    // Logged Out Elements
-    const loginView = document.getElementById("loginView");
-    const loginForm = document.getElementById("loginForm");
-    const usernameInput = document.getElementById("username");
-    const passwordInput = document.getElementById("password");
-    const loginStatusMessage = document.getElementById("loginStatusMessage");
-    const showRegisterLink = document.getElementById("showRegisterLink");
+const usernameOf = token => {
+  try {
+    return JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).username || '';
+  } catch (_unreadable) {
+    return '';
+  }
+};
 
-    // Register Form Elements
-    const registerView = document.getElementById("registerView");
-    const registerForm = document.getElementById("registerForm");
-    const registerUsernameInput = document.getElementById("registerUsername");
-    const registerPasswordInput = document.getElementById("registerPassword");
-    const confirmPasswordInput = document.getElementById("confirmPassword");
-    const registerStatusMessage = document.getElementById("registerStatusMessage");
-    const showLoginLink = document.getElementById("showLoginLink");
+/* Where this site's pieces have been filed before. Three saves from one site
+   into one folder is a habit, and the card offers it; two is a guess, and the
+   card says nothing. Kept in this browser only. */
+const HABIT = 3;
+const FILING = 'noeis.filing.byDomain';
+const domainOf = url => { try { return new URL(url).hostname.replace(/^www\./, ''); } catch (_notAUrl) { return ''; } };
+const filings = () => { try { return JSON.parse(localStorage.getItem(FILING)) || {}; } catch (_unreadable) { return {}; } };
+const remember = (url, folderId) => {
+  const domain = domainOf(url);
+  if (!domain || !folderId) return;
+  const all = filings();
+  all[domain] = { ...all[domain], [folderId]: (all[domain]?.[folderId] || 0) + 1 };
+  try { localStorage.setItem(FILING, JSON.stringify(all)); } catch (_full) { /* a habit not kept is a suggestion not made */ }
+};
+const habitFor = url => {
+  const [best] = Object.entries(filings()[domainOf(url)] || {}).sort((a, b) => b[1] - a[1]);
+  return best?.[1] >= HABIT ? { folderId: best[0], times: best[1] } : null;
+};
 
-    // --- ADD THIS BLOCK BACK ---
-    // Logged In Elements (These were missing)
-    const saveButton = document.getElementById("saveArticleButton");
-    const statusMessage = document.getElementById("statusMessage");
-    const folderSelect = document.getElementById("folderSelect");
-    /* The same switch the reader's app draws, from the same model and the
-       same stylesheet — three decisions on one card, so a saved piece never
-       touches the Imbox as triage. */
-    const placementSwitch = mountSaveCardSwitch(document.getElementById('placementMount'));
-    const newFolderNameInput = document.getElementById("newFolderName");
-    const createFolderButton = document.getElementById("createFolderButton");
-    const logoutButton = document.getElementById("logoutButton");
-    // --- END BLOCK TO ADD ---
+const fillFolders = (folders, selected = '') => {
+  const select = $('folder');
+  const options = [...folders]
+    .sort((a, b) => String(a.name).localeCompare(String(b.name)))
+    .map(folder => new Option(folder.name, folder._id));
+  select.replaceChildren(new Option('Uncategorized', ''), ...options, new Option('New folder…', 'new'));
+  select.value = selected;
+};
 
+const tell = (tab, message) => chrome.tabs.sendMessage(tab.id, message);
 
-    const BASE_URL = "https://note-taker-3-unrg.onrender.com";
-    const TOUR_EXTENSION_SIGNAL_TOKEN_KEY = "tourExtensionSignalToken";
+const signIn = () => {
+  $('signIn').addEventListener('click', async () => {
+    await chrome.storage.local.remove('signedOut');
+    chrome.tabs.create({ url: `${APP}/login` });
+    window.close();
+  });
+  show('signin');
+};
 
-    const readJsonSafe = async (response) => {
-        try {
-            return await response.json();
-        } catch (_error) {
-            return null;
-        }
-    };
+const open = async () => {
+  const { token, palette } = await chrome.storage.local.get(['token', 'palette']);
+  paint(palette);
+  if (!token) return signIn();
 
-    const setStatus = (message, tone = '') => {
-        statusMessage.textContent = message;
-        statusMessage.className = tone ? `status ${tone}` : 'status';
-    };
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const site = domainOf(tab?.url);
+  $('who').textContent = usernameOf(token) ? `Signed in as ${usernameOf(token)}` : '';
+  $('signOut').addEventListener('click', async () => {
+    await chrome.storage.local.set({ signedOut: true });
+    await chrome.storage.local.remove('token');
+    signIn();
+  });
 
-    const reportTourEvent = async (token, eventType, metadata = {}) => {
-        try {
-            const response = await fetch(`${BASE_URL}/api/tour/events`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({ eventType, metadata })
-            });
-            return response.ok;
-        } catch (error) {
-            console.warn("[WARN - Popup.js] Failed to report tour event:", error);
-            return false;
-        }
-    };
+  /* The margin is woken on this page only, and only because the reader
+     pressed the button: Chrome's own pages, the Web Store and the PDF viewer
+     refuse it, and the card says so instead of failing later. */
+  const woke = await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['Readability.js', 'margin.js'] })
+    .then(() => true, () => false);
+  if (!woke) {
+    $('closedSite').textContent = site;
+    return show('closed');
+  }
 
-    const reportExtensionConnected = async (token) => {
-        if (!token) return;
-        const stored = await chrome.storage.local.get(TOUR_EXTENSION_SIGNAL_TOKEN_KEY);
-        const sentForToken = stored?.[TOUR_EXTENSION_SIGNAL_TOKEN_KEY] || '';
-        if (sentForToken === token) return;
-        const ok = await reportTourEvent(token, 'extension_connected', { source: 'extension_popup' });
-        if (ok) {
-            chrome.storage.local.set({ [TOUR_EXTENSION_SIGNAL_TOKEN_KEY]: token });
-        }
-    };
+  $('site').textContent = site;
+  $('pageTitle').textContent = tab.title || tab.url;
+  show('page');
 
-    // --- Core Logic ---
+  const colors = paletteForMargin();
+  let saved;
+  try {
+    saved = await request(`/api/articles/by-url?brief=1&url=${encodeURIComponent(tab.url)}`);
+  } catch (error) {
+    say(error.message, { error: true });
+    if (!(await chrome.storage.local.get('token')).token) signIn();
+    return;
+  }
 
-    // This function checks for a token and shows the correct UI view.
-    const updatePopupView = async () => {
-        const { token } = await chrome.storage.local.get("token");
-        if (token) {
-            loggedInView.style.display = 'block';
-            loggedOutView.style.display = 'none';
-            fetchFolders(token); // Fetch folders now that we know we're logged in
-            reportExtensionConnected(token);
-        } else {
-            loggedInView.style.display = 'none';
-            loggedOutView.style.display = 'block';
+  if (saved) {
+    const marks = saved.highlights || [];
+    $('saveForm').hidden = true;
+    $('pageTitle').textContent = saved.title || $('pageTitle').textContent;
+    $('libraryLink').href = `${APP}/library?articleId=${encodeURIComponent(saved._id)}`;
+    $('libraryLink').textContent = 'Open in Noeis';
+    say(`In your Library since ${onDay(saved.createdAt)}${marks.length ? `, with ${count(marks.length, 'mark')}` : ''}. Select a passage on the page to mark it.`);
+    tell(tab, { type: 'open', article: { id: saved._id, title: saved.title }, marks, palette: colors });
+    return;
+  }
 
-            // --- ADD THESE TWO LINES ---
-            loginView.style.display = 'block';    // Show login form by default
-            registerView.style.display = 'none'; // Hide register form
-        }
-    };
+  const placement = mountSaveCardSwitch($('placement'));
+  const habit = habitFor(tab.url);
+  request('/api/folders').then((folders) => {
+    fillFolders(folders || [], habit?.folderId || '');
+    if (habit && $('folder').value === habit.folderId) {
+      $('habit').hidden = false;
+      $('habit').textContent = `Filed here the last ${habit.times} times from ${site}.`;
+    }
+  }, error => say(error.message, { error: true }));
 
+  $('folder').addEventListener('change', () => {
+    const naming = $('folder').value === 'new';
+    $('newFolderRow').hidden = !naming;
+    if (naming) $('newFolder').focus();
+  });
+  $('newFolder').addEventListener('keydown', async (event) => {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    const name = $('newFolder').value.trim();
+    if (!name) return;
+    try {
+      const folder = await request('/api/folders', { method: 'POST', body: { name } });
+      const kept = [...$('folder').options].filter(option => option.value && option.value !== 'new')
+        .map(option => ({ _id: option.value, name: option.text }));
+      fillFolders([...kept, folder], folder._id);
+      $('newFolderRow').hidden = true;
+      $('newFolder').value = '';
+    } catch (error) {
+      say(error.message, { error: true });
+    }
+  });
 
-    // This function handles the new login form inside the popup.
-    const handleLogin = async (event) => {
-        event.preventDefault();
-        loginStatusMessage.textContent = "Logging in...";
-        loginStatusMessage.className = 'status';
+  $('saveForm').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const folderId = $('folder').value === 'new' ? '' : $('folder').value;
+    $('save').disabled = true;
+    say('Saving…');
+    try {
+      const page = await tell(tab, { type: 'read' });
+      if (!page?.content) throw new Error('This page has no article Noeis can read. Try the article’s own page.');
+      const article = await request('/save-article', {
+        method: 'POST',
+        body: { ...page, url: tab.url, folderId, placement: placement.placement }
+      });
+      remember(tab.url, folderId);
+      $('saveForm').hidden = true;
+      $('libraryLink').href = `${APP}/library?articleId=${encodeURIComponent(article._id)}`;
+      $('libraryLink').textContent = 'Open in Noeis';
+      const folder = folderId ? $('folder').selectedOptions[0].text : '';
+      say(`Saved${folder ? ` to ${folder}` : ' to your Library'}. Select a passage on the page to mark it.`);
+      tell(tab, { type: 'open', article: { id: article._id, title: article.title }, marks: [], palette: colors, fresh: true });
+    } catch (error) {
+      $('save').disabled = false;
+      say(error.message, { error: true });
+    }
+  });
+};
 
-        const username = usernameInput.value;
-        const password = passwordInput.value;
-
-        try {
-            const response = await fetch(`${BASE_URL}/api/auth/login`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password })
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.error || `Error ${response.status}`);
-            }
-
-            if (data.token) {
-                chrome.storage.local.set({ token: data.token }, () => {
-                    console.log("Token saved. Switching to logged-in view.");
-                    updatePopupView(); // Switch to the main "Save Article" view
-                });
-            } else {
-                throw new Error("Login successful, but no token received.");
-            }
-        } catch (error) {
-            loginStatusMessage.textContent = error.message;
-            loginStatusMessage.className = 'status error';
-            console.error("Login failed:", error);
-        }
-    };
-
-        // --- NEW FUNCTION: Handle Account Registration ---
-    const handleRegister = async (event) => {
-        event.preventDefault();
-        registerStatusMessage.textContent = "Creating account...";
-        registerStatusMessage.className = 'status';
-
-        const username = registerUsernameInput.value;
-        const password = registerPasswordInput.value;
-        const confirmPassword = confirmPasswordInput.value;
-
-        const validationMessage = validateRegistration(username, password, confirmPassword);
-        if (validationMessage) {
-            registerStatusMessage.textContent = validationMessage;
-            registerStatusMessage.className = 'status error';
-            return;
-        }
-
-        // --- API Call ---
-        try {
-            const response = await fetch(`${BASE_URL}/api/auth/register`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password })
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                // Handle errors like "Username already exists"
-                throw new Error(data.error || `Error ${response.status}`);
-            }
-
-            registerView.style.display = 'none';
-            loginView.style.display = 'block';
-            loginStatusMessage.textContent = data.loginMessage || "Account created. Please log in.";
-            loginStatusMessage.className = 'status success';
-            usernameInput.value = username.trim();
-            passwordInput.value = "";
-            registerStatusMessage.textContent = "";
-            registerForm.reset();
-
-        } catch (error) {
-            registerStatusMessage.textContent = error.message;
-            registerStatusMessage.className = 'status error';
-            console.error("Registration failed:", error);
-        }
-    };
-
-
-    // A stored token the server no longer accepts is worse than no token at
-    // all: the popup presents a signed-in view whose every action fails. Drop
-    // it and fall back to the sign-in form with an explanation.
-    const handleExpiredSession = async () => {
-        await chrome.storage.local.remove(["token", TOUR_EXTENSION_SIGNAL_TOKEN_KEY]);
-        loggedInView.style.display = 'none';
-        loggedOutView.style.display = 'block';
-        loginView.style.display = 'block';
-        registerView.style.display = 'none';
-        loginStatusMessage.textContent = "Your session expired. Please sign in again.";
-        loginStatusMessage.className = 'status error';
-    };
-
-    // Fetches folders from the server using a token.
-    const fetchFolders = async (token) => {
-        try {
-            const response = await fetch(`${BASE_URL}/api/folders`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (response.status === 401 || response.status === 403) {
-                await handleExpiredSession();
-                return;
-            }
-            if (!response.ok) {
-                 const errorData = await readJsonSafe(response);
-                 throw new Error(errorData?.error || `Error ${response.status}`);
-            }
-            const folders = await readJsonSafe(response) || [];
-            /* The suggestion is about this page, so the card has to know which
-               page it is looking at before it can offer one. */
-            let here = '';
-            try {
-                const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-                here = tab?.url || '';
-            } catch (_noTab) {
-                here = '';
-            }
-            populateFoldersDropdown(folders, here);
-        } catch (error) {
-            setStatus(error.message, 'error');
-            console.error("[ERROR - Popup.js] Failed to fetch folders:", error);
-        }
-    };
-    
-    /* Where this domain has been filed before.
-     *
-     * Three saves from one site into one folder is not a coincidence, it is a
-     * habit, and the card should offer the habit rather than make the reader
-     * repeat it. Kept in the extension's own storage: it is a convenience for
-     * the person at this browser and has no business on a server.
-     *
-     * Below three it suggests nothing at all. Two saves is not a pattern, and
-     * a suggestion made on two is a guess wearing confidence. */
-    const FILING_MEMORY = 'noeis.filing.byDomain';
-    const HABIT = 3;
-
-    const domainOf = (url) => {
-        try { return new URL(url).hostname.replace(/^www\./, ''); }
-        catch (_notAUrl) { return ''; }
-    };
-
-    const readFilingMemory = () => {
-        try { return JSON.parse(localStorage.getItem(FILING_MEMORY) || '{}') || {}; }
-        catch (_unreadable) { return {}; }
-    };
-
-    const rememberFiling = (url, folderId) => {
-        const domain = domainOf(url);
-        if (!domain || !folderId) return;
-        try {
-            const memory = readFilingMemory();
-            const seen = memory[domain] || {};
-            seen[folderId] = (seen[folderId] || 0) + 1;
-            memory[domain] = seen;
-            localStorage.setItem(FILING_MEMORY, JSON.stringify(memory));
-        } catch (_unwritable) {
-            // A habit we cannot remember is a suggestion we do not make.
-        }
-    };
-
-    const suggestedFolderFor = (url) => {
-        const seen = readFilingMemory()[domainOf(url)] || {};
-        const [best] = Object.entries(seen).sort((left, right) => right[1] - left[1]);
-        return best && best[1] >= HABIT ? best[0] : '';
-    };
-
-    // Populates the folder dropdown menu, with the habit already selected.
-    const populateFoldersDropdown = (folders, url = '') => {
-        folderSelect.innerHTML = '<option value="">Uncategorized</option>';
-        [...folders]
-            .sort((a, b) => String(a?.name || '').localeCompare(String(b?.name || '')))
-            .forEach(folder => {
-            const option = document.createElement("option");
-            option.value = folder._id;
-            option.textContent = folder.name;
-            folderSelect.appendChild(option);
-        });
-
-        const suggested = suggestedFolderFor(url);
-        if (suggested && folderSelect.querySelector(`option[value="${suggested}"]`)) {
-            folderSelect.value = suggested;
-            const domain = domainOf(url);
-            const note = document.getElementById('filingSuggestion');
-            if (note && domain) note.textContent = `Always file ${domain} here.`;
-        }
-    };
-
-    // --- Event Listeners ---
-
-    // Listener for the new login form
-    loginForm.addEventListener("submit", handleLogin);
-    
-    // Listener for the new register form
-    registerForm.addEventListener("submit", handleRegister);
-
-    // Listener to show register form
-    showRegisterLink.addEventListener("click", (e) => {
-        e.preventDefault();
-        loginView.style.display = 'none';
-        registerView.style.display = 'block';
-        loginStatusMessage.textContent = ''; // Clear any login errors
-    });
-
-    // Listener to show login form
-    showLoginLink.addEventListener("click", (e) => {
-        e.preventDefault();
-        registerView.style.display = 'none';
-        loginView.style.display = 'block';
-        registerStatusMessage.textContent = ''; // Clear any register errors
-    });
-
-    // Listener for the logout button
-    logoutButton.addEventListener("click", () => {
-        chrome.storage.local.remove(["token", TOUR_EXTENSION_SIGNAL_TOKEN_KEY], () => {
-            console.log("Token removed, user logged out.");
-            updatePopupView(); // Switch to the logged-out view
-        });
-    });
-
-    // Listener for the "Create Folder" button
-    createFolderButton.addEventListener("click", async () => {
-        const folderName = newFolderNameInput.value.trim();
-        if (!folderName) {
-            setStatus("Enter a folder name first.", 'error');
-            return;
-        }
-        const originalLabel = createFolderButton.textContent;
-        createFolderButton.disabled = true;
-        createFolderButton.textContent = "…";
-        try {
-            const { token } = await chrome.storage.local.get("token");
-            if (!token) throw new Error("Authentication token not found. Please log in.");
-
-            const response = await fetch(`${BASE_URL}/api/folders`, {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}` 
-                },
-                body: JSON.stringify({ name: folderName })
-            });
-            if (!response.ok) {
-                 const errorData = await readJsonSafe(response);
-                 throw new Error(errorData?.error || "Failed to create folder.");
-            }
-            const newFolder = await readJsonSafe(response);
-            populateFoldersDropdown([...(Array.from(folderSelect.options)
-                .filter(option => option.value)
-                .map(option => ({ _id: option.value, name: option.textContent }))), newFolder]);
-            folderSelect.value = newFolder._id;
-
-            newFolderNameInput.value = "";
-            setStatus(`Folder "${newFolder.name}" created.`, 'success');
-        } catch (error) {
-            setStatus(error.message, 'error');
-            console.error("[ERROR - Popup.js] Failed to create folder:", error);
-        } finally {
-            createFolderButton.disabled = false;
-            createFolderButton.textContent = originalLabel;
-        }
-    });
-
-    // Listener for the "Save Article" button
-    saveButton.addEventListener("click", async () => {
-        setStatus("Parsing article...");
-        
-        try {
-            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-            
-            if (!tab || typeof tab.id === 'undefined') {
-                throw new Error("No active tab found.");
-            }
-
-            const articleResponse = await chrome.tabs.sendMessage(tab.id, { action: "getCleanArticle" });
-            
-            if (!articleResponse || articleResponse.error) {
-                throw new Error(articleResponse?.error || "Content script failed.");
-            }
-            
-            setStatus("Saving article...");
-            
-            // --- MODIFIED MESSAGE PAYLOAD ---
-            // Pass all the new data from the article object
-            const messagePayload = {
-                action: "capture",
-                tabId: tab.id,
-                url: tab.url,
-                title: articleResponse.article.title,
-                content: articleResponse.article.content,
-                author: articleResponse.article.author,
-                publicationDate: articleResponse.article.publicationDate,
-                siteName: articleResponse.article.siteName,
-                folderId: folderSelect.value,
-                placement: placementSwitch.placement
-            };
-            // --- END MODIFIED PAYLOAD ---
-            
-            const backgroundResponse = await chrome.runtime.sendMessage(messagePayload);
-
-            if (!backgroundResponse || !backgroundResponse.success) {
-                throw new Error(backgroundResponse?.error || "Background service failed.");
-            }
-
-            /* A save is the evidence a habit is made of, so it is only counted
-               once the save actually landed. */
-            rememberFiling(tab.url, folderSelect.value);
-            setStatus("Arrives on the desk, filed and promised.", 'success');
-        } catch (error) {
-            setStatus(error.message, 'error');
-            console.error("[ERROR - Popup.js] Error saving article:", error);
-        }
-    });
-    // --- Initial Setup ---
-    // This will check if the user is logged in and show the correct view when the popup opens.
-    updatePopupView();
-});
+open();

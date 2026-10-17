@@ -10,6 +10,7 @@ import { getNotebookShelf } from '../api/notebook';
 import { getConcepts, updateConcept } from '../api/concepts';
 import { createQuestion, getQuestions } from '../api/questions';
 import { getAgentThread } from '../api/agent';
+import { getHighlights } from '../api/highlights';
 
 jest.mock('../api/notebook', () => ({
   clearNotebookCache: jest.fn(),
@@ -41,6 +42,7 @@ jest.mock('../components/think/ThinkEntryEditor', () => ({ target, onLoaded, onA
 jest.mock('../api/concepts', () => ({ getConcepts: jest.fn(), updateConcept: jest.fn() }));
 jest.mock('../api/questions', () => ({ getQuestions: jest.fn(), createQuestion: jest.fn() }));
 jest.mock('../api/agent', () => ({ getAgentThread: jest.fn() }));
+jest.mock('../api/highlights', () => ({ getHighlights: jest.fn() }));
 
 // setupTests supplies a static router stub. This suite needs URL changes to
 // drive the real component's note identity, including Back and delayed reads.
@@ -87,6 +89,7 @@ describe('ThinkNotes first paint', () => {
     getNotebookShelf.mockResolvedValue([]);
     getConcepts.mockResolvedValue([]);
     getQuestions.mockResolvedValue([]);
+    getHighlights.mockResolvedValue([]);
   });
   it('does not call the list empty before it has loaded', async () => {
     let resolveShelf;
@@ -211,6 +214,34 @@ describe('ThinkNotes first paint', () => {
     render(<MemoryRouter initialEntries={['/think']}><ThinkNotes /></MemoryRouter>);
     await screen.findByText('A thought does not need a source to begin. Start a note and see where it takes you.');
     expect(screen.queryByRole('region', { name: 'Your writing' })).not.toBeInTheDocument();
+  });
+
+  it('opens an empty notebook on the last mark and thinks with it in a new note', async () => {
+    getHighlights.mockResolvedValue([{ _id: 'h-1', articleTitle: 'Why checklists beat expertise', text: 'Procedure handles the predictable.', note: 'So judgment is spent elsewhere.' }]);
+    api.post.mockImplementation(async path => ({ data: { _id: 'new-note', title: '', blocks: path.endsWith('append-highlight') ? [{ type: 'highlight-ref', highlightId: 'h-1' }] : [] } }));
+    render(<ThinkNotes />);
+    const mark = await screen.findByRole('region', { name: 'Your last mark' });
+    expect(within(mark).getByText('Your last mark, from Why checklists beat expertise')).toBeInTheDocument();
+    expect(within(mark).getByText('Procedure handles the predictable.')).toBeInTheDocument();
+    expect(within(mark).getByText('You wrote: So judgment is spent elsewhere.')).toBeInTheDocument();
+    expect(getHighlights).toHaveBeenCalledWith({ limit: 1 });
+    fireEvent.click(within(mark).getByRole('button', { name: 'Think with it' }));
+    await waitFor(() => expect(api.post).toHaveBeenCalledTimes(2));
+    expect(api.post.mock.calls[1].slice(0, 2)).toEqual(['/api/notebook/new-note/append-highlight', { highlightId: 'h-1' }]);
+    expect(await screen.findByTestId('open-note')).toHaveTextContent('new-note');
+  });
+
+  it('keeps the new note open when the passage cannot be quoted into it', async () => {
+    getHighlights.mockResolvedValue([{ _id: 'h-gone', text: 'A passage deleted in another tab.' }]);
+    api.post.mockImplementation(async path => {
+      if (path.endsWith('append-highlight')) throw new Error('Highlight not found');
+      return { data: { _id: 'kept-note', title: '', blocks: [] } };
+    });
+    render(<ThinkNotes />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Think with it' }));
+    expect(await screen.findByTestId('open-note')).toHaveTextContent('kept-note');
+    expect(screen.getByText('The note is open, but the passage could not be quoted into it. Add it from Library.')).toBeInTheDocument();
+    expect(api.post).toHaveBeenCalledTimes(2);
   });
 
   it('starts one ordinary note, opens it for writing and saves without inventing a source', async () => {

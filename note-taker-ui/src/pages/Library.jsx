@@ -19,8 +19,7 @@ import LibraryNotebookModal from '../components/library/LibraryNotebookModal';
 import LibraryQuestionModal from '../components/library/LibraryQuestionModal';
 import ReferencePullIn from '../components/references/ReferencePullIn';
 import { getConnectionsForItem } from '../api/connections';
-import { createWorkingMemory } from '../api/workingMemory';
-import { updateHighlight, deleteHighlight } from '../api/highlights';
+import { deleteHighlight } from '../api/highlights';
 import api from '../api';
 import { getAuthHeaders } from '../hooks/useAuthHeaders';
 import { chatWithAgent } from '../api/agent';
@@ -177,13 +176,6 @@ const Library = () => {
     replaceHighlight,
     removeHighlight
   } = useArticleDetail(selectedArticleId, { enabled: Boolean(selectedArticleId) });
-
-  const workingMemoryScope = useMemo(() => {
-    if (selectedArticleId) {
-      return { workspaceType: 'article', workspaceId: selectedArticleId };
-    }
-    return { workspaceType: 'library', workspaceId: '' };
-  }, [selectedArticleId]);
 
   useEffect(() => {
     if (!requestedArticleId) setActiveHighlightId('');
@@ -527,17 +519,6 @@ const Library = () => {
     setActiveHighlightId(highlight._id);
   }, []);
 
-  const handleUpdateHighlight = useCallback(async (highlightId, payload) => {
-    if (!selectedArticleId || !highlightId) return null;
-    const updated = await updateHighlight({
-      articleId: selectedArticleId,
-      highlightId,
-      payload
-    });
-    replaceHighlight(highlightId, updated);
-    return updated;
-  }, [replaceHighlight, selectedArticleId]);
-
   const handleDeleteHighlight = useCallback(async (highlight) => {
     if (!highlight?._id || !selectedArticleId) return;
     if (!window.confirm('Delete this highlight?')) return;
@@ -708,25 +689,6 @@ const Library = () => {
     [allArticles]
   );
 
-  const addWorkingMemoryItem = useCallback(async ({
-    sourceType,
-    sourceId,
-    textSnippet
-  }) => {
-    const cleanText = String(textSnippet || '').trim();
-    if (!cleanText) return;
-    try {
-      await createWorkingMemory({
-        ...workingMemoryScope,
-        sourceType,
-        sourceId: String(sourceId || ''),
-        textSnippet: cleanText
-      });
-    } catch (err) {
-      console.error(err.response?.data?.error || 'Failed to dump to working memory.');
-    }
-  }, [workingMemoryScope]);
-
   const handleHighlightQueryChange = useCallback((value) => {
     const params = new URLSearchParams(searchParams);
     if (value) {
@@ -893,60 +855,18 @@ const Library = () => {
     askRail?.(prompt, { origin: 'Asked of this passage' });
   }, [askRail, retainHighlightInLibraryHistory]);
 
-  const buildFallbackDump = useCallback(() => {
-    if (selectedArticle) {
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(selectedArticle.content || '', 'text/html');
-      const excerpt = (doc.body?.textContent || '')
-        .replace(/\s+/g, ' ')
-        .trim()
-        .slice(0, 400);
-      return {
-        sourceType: 'article',
-        sourceId: selectedArticle._id,
-        textSnippet: excerpt || selectedArticle.title || 'Article'
-      };
-    }
-    return {
-      sourceType: 'library',
-      sourceId: 'library',
-      textSnippet: 'Library working memory item'
-    };
-  }, [selectedArticle]);
-
-  const handleDumpToWorkingMemory = useCallback(async (manualText = '') => {
-    const selectedText = window.getSelection?.()?.toString()?.trim() || '';
-    if (manualText) {
-      const fallback = buildFallbackDump();
-      await addWorkingMemoryItem({
-        sourceType: fallback.sourceType,
-        sourceId: fallback.sourceId,
-        textSnippet: manualText
-      });
-      return;
-    }
-    if (selectedText) {
-      const fallback = buildFallbackDump();
-      await addWorkingMemoryItem({
-        sourceType: `${fallback.sourceType}-selection`,
-        sourceId: fallback.sourceId,
-        textSnippet: selectedText
-      });
-      return;
-    }
-    await addWorkingMemoryItem(buildFallbackDump());
-  }, [addWorkingMemoryItem, buildFallbackDump]);
-
+  /* A passage asked about from the browser extension arrives on its
+     highlight with ?ask=1, and the Partner opens already asking. Once. */
+  const askedFromExtension = searchParams.get('ask') === '1';
   useEffect(() => {
-    const onKeyDown = (event) => {
-      const isDump = (event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === 'd';
-      if (!isDump) return;
-      event.preventDefault();
-      handleDumpToWorkingMemory();
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [handleDumpToWorkingMemory]);
+    if (!askedFromExtension) return;
+    const highlight = (articleHighlights || []).find(item => String(item?._id) === requestedHighlightId);
+    if (!highlight) return;
+    handleAskLibrarian(highlight);
+    const params = new URLSearchParams(searchParams);
+    params.delete('ask');
+    setSearchParams(params, { replace: true });
+  }, [askedFromExtension, articleHighlights, handleAskLibrarian, requestedHighlightId, searchParams, setSearchParams]);
 
   const selectedFolderName = useMemo(() => {
     if (scope !== 'folder' && scope !== 'feed') return '';
@@ -1059,11 +979,6 @@ const Library = () => {
             ? { id: 'references', text: `Used in ${articleReferenceCount} note${articleReferenceCount === 1 ? '' : 's'} or collection${articleReferenceCount === 1 ? '' : 's'}.` }
             : null
         ].filter(Boolean)
-    },
-    {
-      // Accepting keeps the line where the human's loose material already goes.
-      // Dismissing leaves nothing behind, which is the point.
-      onAccept: (proposal) => handleDumpToWorkingMemory(proposal.body)
     }
   );
 
@@ -1104,7 +1019,6 @@ const Library = () => {
       highlightView={highlightView}
       onArticleQueryChange={handleArticleQueryChange}
       onQueryChange={handleHighlightQueryChange}
-      onDumpHighlight={(highlight) => handleDumpToWorkingMemory(highlight?.text || '')}
       allArticles={allArticles}
       unfiledCount={unfiledCount}
       onReviewFiling={handleReviewFiling}
@@ -1155,13 +1069,10 @@ const Library = () => {
           referencesError={articleError}
           activeHighlightId={activeHighlightId}
           onHighlightClick={handleHighlightClick}
-          onSelectHighlight={setActiveHighlightId}
           onAddConcept={handleOpenConceptModal}
           onAddNotebook={handleOpenNotebookModal}
           onAddQuestion={handleOpenQuestionModal}
-          onUpdateHighlight={handleUpdateHighlight}
           onDeleteHighlight={handleDeleteHighlight}
-          onDumpToWorkingMemory={(highlight) => handleDumpToWorkingMemory(highlight?.text || '')}
         />
       </EditorialSideRailCollapsible>
     </div>

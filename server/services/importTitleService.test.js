@@ -118,4 +118,16 @@ describe('importTitleService', () => {
       publishedAt: '2026-08-29T12:00:00.000Z'
     })).toBe('Pasted text · 2026-08-29');
   });
+  test('takes a pasted headline standing on its own line, never a sentence', () => {
+    const pasted = { siteName: 'Pasted text', publishedAt: '2026-10-04T12:00:00.000Z' };
+    expect(deriveImportedTitle({
+      ...pasted,
+      content: 'Why checklists beat expertise in complex work\n\nIn fields where failure costs lives, procedure helps.'
+    })).toBe('Why checklists beat expertise in complex work');
+    expect(deriveImportedTitle({
+      ...pasted,
+      content: 'In fields where failure costs lives, procedure helps.\n\nJudgment still matters.'
+    })).toBe('Pasted text · 2026-10-04');
+    expect(firstHeading('<p>Short line</p>\n\n<p>Body.</p>')).toBe('');
+  });
 });

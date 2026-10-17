@@ -1,211 +1,196 @@
-/* --- Global Styles & Color Palette --- */
+/* The save card. House paper and ink: until the reader's own theme arrives
+   from noeis.io (presence.js), the house light palette, or dark when the
+   system is dark. The reader's palette is laid over these inline. */
 :root {
-    --background-color: #121212;
-    --surface-color: #1E1E1E;
-    --primary-text-color: #E1E1E1;
-    --secondary-text-color: #8A8A8A;
-    --accent-color: #007AFF;
-    --accent-color-hover: #0056b3;
-    --border-color: #333333;
-    --error-color: #ff3b30;
+  color-scheme: light dark;
+  --noeis-canvas: #f7f4ed;
+  --noeis-paper: #fffdf8;
+  --noeis-paper-muted: #f4eee2;
+  --noeis-ink: #332f29;
+  --noeis-ink-muted: #5f625f;
+  --noeis-ink-subtle: #7a756c;
+  --noeis-rule: rgba(91, 80, 63, 0.16);
+  --noeis-rule-strong: rgba(91, 80, 63, 0.28);
+  --noeis-thread: #b1862e;
+  --noeis-thread-strong: #8b5f1d;
+  --noeis-action: var(--noeis-thread-strong);
+  --noeis-action-soft: color-mix(in srgb, var(--noeis-thread) 18%, transparent);
+  --noeis-focus: color-mix(in srgb, var(--noeis-action) 38%, transparent);
+  --noeis-danger: #9b5a46;
+  --noeis-living-seed: color-mix(in srgb, #6f7340 62%, var(--noeis-paper));
+  --noeis-living-sap: color-mix(in srgb, #6f7340 82%, var(--noeis-ink));
+  --noeis-mix-lift: #ffffff;
+  --noeis-font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --noeis-font-reading: "Newsreader", "Iowan Old Style", Georgia, serif;
+  --noeis-font-mono: "SFMono-Regular", Menlo, Consolas, monospace;
+
+  /* The names the shared switch stylesheet reads. */
+  --font-mono: var(--noeis-font-mono);
+  --text-primary: var(--noeis-ink);
+  --text-muted: var(--noeis-ink-subtle);
+  --border-subtle: var(--noeis-rule);
+  --paper: var(--noeis-paper);
 }
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --noeis-canvas: #16140f;
+    --noeis-paper: #211e17;
+    --noeis-paper-muted: #1c1813;
+    --noeis-ink: #f1eadc;
+    --noeis-ink-muted: #c5bda9;
+    --noeis-ink-subtle: #948b7d;
+    --noeis-rule: rgba(223, 206, 166, 0.16);
+    --noeis-rule-strong: rgba(223, 206, 166, 0.28);
+    --noeis-thread: #d6ad63;
+    --noeis-thread-strong: #e0b971;
+    --noeis-danger: #c78978;
+    --noeis-mix-lift: #332812;
+  }
+}
+
+* { box-sizing: border-box; }
 
 body {
-    background-color: var(--background-color);
-    color: var(--primary-text-color);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    font-size: 14px;
-    margin: 0;
-    width: 350px;
+  width: 360px;
+  margin: 0;
+  padding: 16px 20px 14px;
+  background: var(--noeis-paper);
+  color: var(--noeis-ink);
+  font: 14px/1.5 var(--noeis-font-ui);
 }
 
-/* --- Main Container & Typography --- */
-.container {
-    padding: 20px;
-    box-sizing: border-box;
+/* Exactly one part of the card shows at a time; popup.js names it. */
+[hidden] { display: none !important; }
+[data-for] { display: none; }
+body[data-view="signin"] [data-for="signin"],
+body[data-view="closed"] [data-for="closed"],
+body[data-view="page"] [data-for="page"] { display: block; }
+body[data-view="page"] footer[data-for="page"] { display: flex; }
+
+.masthead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding-bottom: 10px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--noeis-rule);
 }
 
-h1, h2, h3 {
-    margin: 0 0 10px 0;
-    font-weight: 600;
+.wordmark {
+  font-family: var(--noeis-font-reading);
+  font-size: 20px;
+  font-style: italic;
+  letter-spacing: -0.01em;
 }
 
-h1.title {
-    font-size: 20px;
-    margin-bottom: 20px;
-    text-align: center;
-}
-
-h2 {
-    font-size: 24px;
-    text-align: center;
-    margin-bottom: 24px;
-}
-
-p {
-    color: var(--secondary-text-color);
-    text-align: center;
-    line-height: 1.5;
-    margin: 0 0 20px 0;
-}
-
-a {
-    color: var(--accent-color);
-    cursor: pointer;
-    text-decoration: none;
-}
-
-a:hover {
-    text-decoration: underline;
-}
-
-hr {
-    border: none;
-    border-top: 1px solid var(--border-color);
-    margin: 20px 0;
-}
-
-/* --- Form Group Styles --- */
-.form-group {
-    margin-bottom: 16px;
-}
-
-.form-group label {
-    display: block;
-    font-weight: 500;
-    margin-bottom: 6px;
-    color: var(--secondary-text-color);
-}
-
-input[type="text"],
-input[type="password"],
-select {
-    width: 100%;
-    padding: 10px 12px;
-    background-color: var(--surface-color);
-    border: 1px solid var(--border-color);
-    border-radius: 6px;
-    color: var(--primary-text-color);
-    font-size: 14px;
-    box-sizing: border-box;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-input[type="text"]:focus,
-input[type="password"]:focus,
-select:focus {
-    outline: none;
-    border-color: var(--accent-color);
-    box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.5);
-}
-
-/* --- Button Styles --- */
-button {
-    width: 100%;
-    padding: 12px;
-    border-radius: 6px;
-    border: none;
-    font-size: 15px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background-color 0.2s ease, transform 0.1s ease;
-    box-sizing: border-box;
-}
-
-button.primary-button,
-#saveArticleButton,
-#createFolderButton {
-    background-color: var(--accent-color);
-    color: white;
-}
-
-
-.cta-link {
-    display: inline-block;
-    text-decoration: none;
-    background: #0b84ff;
-    color: #fff;
-    padding: 10px 14px;
-    border-radius: 999px;
-    font-weight: 700;
-    font-size: 0.95em;
-    transition: background 0.2s ease, transform 0.1s ease;
-    letter-spacing: 0.2px;
-}
-
-.cta-link:hover {
-    background: #006ad4;
-    transform: translateY(-1px);
-}
-
-button.primary-button:hover,
-#saveArticleButton:hover,
-#createFolderButton:hover {
-    background-color: var(--accent-color-hover);
-}
-
-button:active {
-    transform: scale(0.98);
-}
-
-.secondary-button {
-    background-color: transparent;
-    border: 1px solid var(--border-color);
-    color: var(--primary-text-color);
-}
-
-.secondary-button:hover {
-    background-color: var(--surface-color);
-    border-color: var(--secondary-text-color);
-}
-
-
-/* --- Specific UI Element Styles --- */
-.folder-creation {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 12px;
-}
-
-.folder-creation input {
-    flex-grow: 1;
-}
-
-.folder-creation button {
-    width: auto;
-    flex-shrink: 0;
-    padding: 0 16px;
-}
-
-/* Status Message Styles */
-.status {
-    margin-top: 15px;
-    text-align: center;
-    padding: 8px;
-    border-radius: 4px;
-    font-size: 13px;
-}
-
-.status.error {
-    background-color: rgba(255, 59, 48, 0.15);
-    color: var(--error-color);
-}
-
-.status.success {
-    background-color: rgba(0, 122, 255, 0.15);
-    color: var(--accent-color);
-}
-
-/* The filing habit, offered rather than imposed. Three saves from one site
-   into one folder is a habit; two is a coincidence, and a suggestion made on
-   two is a guess wearing confidence. Empty until there is one, so the card
-   does not reserve a line for advice it has not got. */
-.filing-suggestion:empty { display: none; }
-
-.filing-suggestion {
-  margin: 0 0 4px;
-  color: #6d685e;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+.site {
+  margin: 0 0 2px;
+  color: var(--noeis-ink-subtle);
   font-size: 11px;
-  letter-spacing: 0.04em;
+  font-variant-caps: all-small-caps;
+  letter-spacing: 0.12em;
+}
+
+.title {
+  margin: 0 0 6px;
+  font-family: var(--noeis-font-reading);
+  font-size: 19px;
+  font-weight: 500;
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.meta { margin: 0 0 14px; color: var(--noeis-ink-muted); }
+
+.save { margin-top: 14px; }
+
+.row {
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.label {
+  color: var(--noeis-ink-subtle);
+  font-size: 11px;
+  font-variant-caps: all-small-caps;
+  letter-spacing: 0.12em;
+}
+
+select,
+input {
+  width: 100%;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--noeis-rule-strong);
+  border-radius: 6px;
+  background: var(--noeis-paper);
+  color: var(--noeis-ink);
+  font: inherit;
+}
+
+.habit {
+  margin: -4px 0 10px 74px;
+  color: var(--noeis-ink-subtle);
+  font-size: 12px;
+}
+
+.primary {
+  width: 100%;
+  height: 38px;
+  margin-top: 4px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--noeis-ink);
+  color: var(--noeis-paper);
+  font: 600 14px/1 var(--noeis-font-ui);
+  cursor: pointer;
+  transition: opacity 140ms ease;
+}
+
+.primary:hover { opacity: 0.88; }
+.primary:disabled { opacity: 0.5; cursor: default; }
+
+.quiet {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--noeis-ink-muted);
+  font: inherit;
+  font-size: 12px;
+  text-decoration: underline;
+  text-decoration-color: var(--noeis-rule-strong);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.quiet:hover { color: var(--noeis-ink); }
+
+a { color: var(--noeis-action); }
+
+:focus-visible { outline: 2px solid var(--noeis-focus); outline-offset: 2px; }
+
+.receipt { margin: 12px 0 0; min-height: 1.5em; color: var(--noeis-ink-muted); }
+.receipt:empty { display: none; }
+.receipt.is-error { color: var(--noeis-danger); }
+.receipt strong { color: var(--noeis-ink); font-weight: 600; }
+
+.footer {
+  justify-content: space-between;
+  align-items: baseline;
+  margin-top: 16px;
+  padding-top: 10px;
+  border-top: 1px solid var(--noeis-rule);
+  color: var(--noeis-ink-subtle);
+  font-size: 12px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .primary { transition: none; }
 }

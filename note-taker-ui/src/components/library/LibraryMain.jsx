@@ -45,7 +45,6 @@ const LibraryMain = ({
   highlightView,
   onArticleQueryChange,
   onQueryChange,
-  onDumpHighlight,
   allArticles = [],
   unfiledCount,
   onReviewFiling,
@@ -168,7 +167,6 @@ const LibraryMain = ({
           externalQuery={externalQuery}
           view={highlightView}
           onQueryChange={onQueryChange}
-          onDumpHighlight={onDumpHighlight}
         />
       </div>
     );

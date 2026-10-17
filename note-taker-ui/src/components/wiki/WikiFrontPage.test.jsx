@@ -4,7 +4,7 @@ import * as router from 'react-router-dom';
 import WikiFrontPage from './WikiFrontPage';
 import { AGENT_DISPLAY_NAME } from '../../constants/agentIdentity';
 import * as api from '../../api/wiki';
-import { fileReadingProposal, getPushesAgainst } from '../../api/judgmentResolution';
+import { fileReadingProposal, getDueView, getPushesAgainst } from '../../api/judgmentResolution';
 
 const { listWikiPages } = api;
 
@@ -15,6 +15,7 @@ jest.mock('../../api/wiki', () => ({
 
 jest.mock('../../api/judgmentResolution', () => ({
   fileReadingProposal: jest.fn(),
+  getDueView: jest.fn(),
   getPushesAgainst: jest.fn()
 }));
 
@@ -23,6 +24,7 @@ jest.mock('./WikiCreationComposer', () => () => (
     <button type="button">Wiki</button>
     <button type="button">Repo wiki</button>
     <button type="button">Investment dossier</button>
+    <textarea aria-label="What the page is about" />
   </section>
 ));
 
@@ -71,6 +73,7 @@ describe('WikiFrontPage collection', () => {
     listWikiPages.mockResolvedValue(pages);
     api.listWikiChanges.mockResolvedValue({ pageCount: 0, changes: [] });
     getPushesAgainst.mockResolvedValue(null);
+    getDueView.mockResolvedValue(null);
   });
 
   afterEach(() => jest.restoreAllMocks());
@@ -111,6 +114,18 @@ describe('WikiFrontPage collection', () => {
       .not.toBeNull();
     expect(screen.getByRole('button', { name: 'Ask' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '+ New page' })).toBeInTheDocument();
+  });
+
+  it('opens the composer under the header, ready to type in', async () => {
+    render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
+    const newPage = await screen.findByRole('button', { name: '+ New page' });
+    fireEvent.click(newPage);
+    const composer = screen.getByRole('region', { name: 'Build a wiki page' });
+    expect(newPage).toHaveAttribute('aria-expanded', 'true');
+    expect(composer.compareDocumentPosition(screen.getByLabelText('Search current Wiki pages')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(document.activeElement).toBe(within(composer).getByRole('textbox'));
+    fireEvent.click(newPage);
+    expect(screen.queryByRole('region', { name: 'Build a wiki page' })).not.toBeInTheDocument();
   });
 
   it('opens on what changed since you last looked, one sentence a page', async () => {
@@ -159,10 +174,27 @@ describe('WikiFrontPage collection', () => {
     expect(await within(line).findByRole('status')).toHaveTextContent('Filed against your view that Costco can ride out a recession.');
   });
 
-  it('is silent where you land when nothing argues with you', async () => {
+  it('brings back a view on the day it comes due, one step from its verdict', async () => {
+    getDueView.mockResolvedValue({
+      pageId: 'view-2',
+      view: 'Remote teams ship slower.',
+      test: 'Our cycle time is still worse in a year.',
+      by: '2026-10-20T12:00:00.000Z'
+    });
+    render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
+    const line = await screen.findByRole('region', { name: 'A view has come due' });
+    expect(line).toHaveTextContent(/^You said you would know by Oct 20 whether Remote teams ship slower\./);
+    expect(within(line).getByText('Our cycle time is still worse in a year.')).toBeInTheDocument();
+    expect(within(line).getByRole('link', { name: 'Did it hold up?' })).toHaveAttribute('href', '/judgment/view-2');
+    fireEvent.click(within(line).getByRole('button', { name: 'Not now' }));
+    expect(screen.queryByRole('region', { name: 'A view has come due' })).not.toBeInTheDocument();
+  });
+
+  it('is silent where you land when nothing argues with you and nothing is due', async () => {
     render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
     await screen.findByRole('heading', { level: 1, name: 'Wiki' });
     expect(screen.queryByRole('region', { name: 'Your reading argues with you' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'A view has come due' })).not.toBeInTheDocument();
   });
 
   it('says so in one line when nothing moved', async () => {
@@ -177,6 +209,12 @@ describe('WikiFrontPage collection', () => {
     expect(await screen.findByText(`kept by ${AGENT_DISPLAY_NAME}`)).toBeInTheDocument();
     expect(screen.getByText('written by you')).toBeInTheDocument();
     expect(screen.queryByText('General wikis')).not.toBeInTheDocument();
+  });
+
+  it('says where a page you took came from instead of claiming you wrote it', async () => {
+    listWikiPages.mockResolvedValueOnce([{ ...pages[0], adoptedFrom: { adoptedAt: '2026-10-11T12:00:00.000Z', originTitle: 'The NVIDIA dossier' } }, pages[1]]);
+    render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
+    expect(await screen.findByText('taken from The NVIDIA dossier')).toBeInTheDocument();
   });
 
   it('opens accepted pages without waiting for a Daily Loop briefing', async () => {

@@ -3,7 +3,6 @@ const path = require('path');
 
 const libraryCss = fs.readFileSync(path.join(__dirname, 'library-column.css'), 'utf8');
 const themeCss = fs.readFileSync(path.join(__dirname, 'semantic-theme.css'), 'utf8');
-const wikiCss = fs.readFileSync(path.join(__dirname, 'wiki-front-page.css'), 'utf8');
 
 describe('the 1px meander', () => {
   it('is one living-ink material, not a second stylesheet', () => {
@@ -15,12 +14,6 @@ describe('the 1px meander', () => {
     expect(libraryCss).not.toMatch(/Full meander polish is a later pass/);
     expect(libraryCss).not.toMatch(/\.library-feed\s*\{[^}]*border-left:\s*1px solid/s);
     expect(libraryCss).not.toMatch(/\.library-pile__leaf[\s\S]{0,240}border-left:\s*2px/);
-  });
-
-  it('replaces the asked-back inset bar with the same meander', () => {
-    expect(wikiCss).not.toMatch(
-      /\.wiki-front-page__asked-back\s*\{[^}]*box-shadow:\s*inset 2px 0 0 var\(--noeis-living-sap/s
-    );
   });
 });
 

@@ -199,6 +199,41 @@ describe('the view', () => {
     expect(await screen.findByText('Resolved: held up.')).toBeInTheDocument();
   });
 
+  it('opens on its question once the date you set has passed', async () => {
+    getWikiPage.mockResolvedValue(viewPage({
+      resolutionCriteria: 'Renewals stay above ninety percent through the next downturn.',
+      resolutionHorizonAt: '2026-10-01T12:00:00.000Z'
+    }));
+    openView();
+    const ask = await screen.findByRole('group', { name: 'How it turned out' });
+    expect(ask).toHaveTextContent(/^You said you would know by Oct 1\. Did it hold up\?/);
+    expect(screen.queryByRole('button', { name: 'Resolve' })).not.toBeInTheDocument();
+    fireEvent.click(within(ask).getByRole('button', { name: 'Too early to say' }));
+    expect(screen.getByRole('button', { name: 'Resolve' })).toBeInTheDocument();
+  });
+
+  it('asks again when the verdict was on wording since revised', async () => {
+    getWikiPage.mockResolvedValue(viewPage({
+      bornAt: '2026-10-05T12:00:00.000Z',
+      resolutionHorizonAt: '2026-10-08T12:00:00.000Z',
+      verdicts: [{ result: 'broke', recordedAt: '2026-10-02T12:00:00.000Z' }]
+    }));
+    openView();
+    expect(await screen.findByRole('group', { name: 'How it turned out' })).toBeInTheDocument();
+  });
+
+  it('shares a changed mind on the public page, and takes it back', async () => {
+    getWikiPage.mockResolvedValue(viewPage({ heldHistory: [{ text: 'Costco is recession-proof.', until: '2026-10-12T12:00:00.000Z' }] }));
+    updateWikiPage.mockResolvedValueOnce({ visibility: 'shared' }).mockResolvedValueOnce({ visibility: 'private' });
+    openView();
+    fireEvent.click(await screen.findByRole('button', { name: 'Share how this changed' }));
+    await waitFor(() => expect(updateWikiPage).toHaveBeenCalledWith('view-1', { visibility: 'shared' }));
+    expect(await screen.findByRole('link', { name: 'Public page' })).toHaveAttribute('href', '/share/wiki/view-1');
+    fireEvent.click(screen.getByRole('button', { name: 'Stop sharing' }));
+    await waitFor(() => expect(updateWikiPage).toHaveBeenLastCalledWith('view-1', { visibility: 'private' }));
+    expect(await screen.findByRole('button', { name: 'Share how this changed' })).toBeInTheDocument();
+  });
+
   it('writes what would change my mind with an optional date', async () => {
     setJudgmentResolution.mockResolvedValue({
       judgment: viewPage({ resolutionCriteria: 'Two quarters of falling renewals.', resolutionHorizonAt: '2027-06-30T12:00:00.000Z' }).judgment
@@ -269,7 +304,7 @@ describe('the view', () => {
       const region = await screen.findByRole('region', { name: 'Already in your library' });
       expect(getJudgmentLibraryEvidence).toHaveBeenCalledWith('view-1', { limit: 3 });
       const who = within(region).getByRole('link', { name: 'Costco and the Membership Moat' });
-      expect(who).toHaveAttribute('href', '/articles/article-4');
+      expect(who).toHaveAttribute('href', '/library?articleId=article-4&highlightId=highlight-7');
       expect(who.closest('p')).toHaveTextContent('Costco and the Membership Moat, saved Oct 9:');
       fireEvent.click(within(region).getByRole('button', { name: 'File for' }));
       await waitFor(() => expect(fileJudgmentEvidence).toHaveBeenCalledWith({
@@ -314,7 +349,8 @@ describe('the view', () => {
       openView();
       const region = await screen.findByRole('region', { name: 'From your reading' });
       const who = within(region).getByRole('link', { name: 'Ben Carlson' });
-      expect(who).toHaveAttribute('href', '/articles/article-9');
+      expect(decodeURIComponent(who.getAttribute('href'))).toContain('/library?articleId=article-9#passage=');
+      expect(decodeURIComponent(who.getAttribute('href'))).toContain(QUOTE);
       expect(who.closest('p')).toHaveTextContent('Ben Carlson, Oct 1, argues against this:');
       expect(screen.getByText(QUOTE)).toBeInTheDocument();
       fireEvent.click(screen.getByRole('button', { name: 'File against' }));

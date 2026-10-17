@@ -1,13 +1,19 @@
 const express = require('express');
 const {
   JudgmentResolutionError,
+  comesDue: findDue,
   fileJudgmentEvidence: persistEvidence,
   recordVerdict: persistVerdict,
   setResolutionCriteria: persistCriteria
 } = require('../services/judgmentResolutionService');
 const { buildJudgmentMirror: readMirror } = require('../services/judgmentMirrorService');
 const { JudgmentChangeProposalError } = require('../services/judgmentChangeProposalService');
-const { fileReadingProposal: persistReading, highlightForQuote: persistQuote } = require('../services/readingTalksBack');
+const {
+  fileReadingProposal: persistReading,
+  highlightForQuote: persistQuote,
+  viewBearingOn: readViewBearingOn
+} = require('../services/readingTalksBack');
+const { findLibraryEvidence } = require('../services/judgmentEvidenceService');
 const { buildJudgmentMirror: buildClaimMirror, STATS } = require('../services/judgmentMirror');
 const { buildCalibration } = require('../services/calibrationInstrument');
 const { requireAuthenticatedUser } = require('./conceptRouteGuards');
@@ -46,6 +52,9 @@ const buildJudgmentResolutionRouter = ({
   highlightForQuote = persistQuote,
   recordVerdict = persistVerdict,
   buildJudgmentMirror = readMirror,
+  comesDue = findDue,
+  viewBearingOn = readViewBearingOn,
+  findEarlierPassages = findLibraryEvidence,
   trackEvent = () => {},
   ...models
 } = {}) => {
@@ -56,6 +65,68 @@ const buildJudgmentResolutionRouter = ({
     userId: req.user.id,
     requestId: req.requestId,
     properties: { pageId: req.params.pageId, ...properties }
+  });
+
+  // The held view whose check-by date has passed with no verdict, if any.
+  router.get('/api/judgment/due', authenticateToken, requireAuthenticatedUser, async (req, res) => {
+    try {
+      return res.status(200).json({ due: await comesDue({ userId: req.user.id, WikiPage: models.WikiPage }) });
+    } catch (error) {
+      return sendError(res, error);
+    }
+  });
+
+  /* The margin beside a passage just marked: the view it bears on, whether
+     that view is due, and the passage you marked like it in another source.
+     Each answer is the reader's to act on; every one can be silent. */
+  router.post('/api/judgment/margin', authenticateToken, requireAuthenticatedUser, async (req, res) => {
+    const text = String(req.body?.text || '').trim().slice(0, 2000);
+    const articleId = String(req.body?.articleId || '');
+    const highlightId = String(req.body?.highlightId || '');
+    if (!text) return res.status(400).json({ error: 'Mark a passage first.' });
+    try {
+      const userId = req.user.id;
+      const origin = articleId && highlightId ? `highlight:${articleId}:${highlightId}` : '';
+      const [view, due, earlier] = await Promise.all([
+        viewBearingOn({ userId, text, origin, WikiPage: models.WikiPage }),
+        comesDue({ userId, WikiPage: models.WikiPage }),
+        findEarlierPassages({ Article: models.Article, userId, claim: text, limit: 6 })
+      ]);
+      const before = (earlier?.candidates || [])
+        .find(candidate => candidate.kind === 'highlight' && candidate.articleId !== articleId) || null;
+      return res.status(200).json({
+        view: view && { ...view, dueBy: due?.pageId === view.pageId ? due.by : null },
+        before: before && {
+          articleId: before.articleId,
+          highlightId: before.highlightId,
+          title: before.sourceLabel,
+          text: before.text,
+          savedAt: before.savedAt
+        }
+      });
+    } catch (error) {
+      return sendError(res, error);
+    }
+  });
+
+  /* "Not about this" from the margin: the passage is set aside on that view,
+     the same list the view's own page keeps, so neither offers it again. */
+  router.post('/api/judgment/pages/:pageId/not-about', authenticateToken, requireAuthenticatedUser, requireHumanOwner, async (req, res) => {
+    const { pageId } = req.params;
+    const { articleId, highlightId } = req.body || {};
+    if (![pageId, articleId, highlightId].every(isObjectId)) {
+      return res.status(400).json({ error: 'That passage could not be set aside.' });
+    }
+    try {
+      const set = await models.WikiPage.updateOne(
+        { _id: pageId, userId: req.user.id },
+        { $addToSet: { 'judgment.notAboutIds': `highlight:${articleId}:${highlightId}` } }
+      );
+      if (!set?.matchedCount) return res.status(404).json({ error: 'That view is no longer here.' });
+      return res.status(200).json({ ok: true });
+    } catch (error) {
+      return sendError(res, error);
+    }
   });
 
   router.get('/api/judgment/mirror', authenticateToken, requireAuthenticatedUser, async (req, res) => {

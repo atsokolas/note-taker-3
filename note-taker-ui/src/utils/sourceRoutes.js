@@ -171,14 +171,17 @@ export const resolveSourceDoors = (source = {}, { passage = '' } = {}) => {
  */
 export const buildSourceOpenPath = (source = {}, options) => resolveSourceDoors(source, options).openHref;
 
-export const buildSourceOriginPath = (origin = '', fallbackUrl = '') => {
+/** A quoted passage, opened at its words: the highlight when one was kept,
+    else the quoted words themselves, else the top of the article. */
+export const buildPassagePath = ({ articleId = '', highlightId = '', text = '' } = {}) => {
+  if (!idOf(articleId)) return '';
+  if (idOf(highlightId)) return buildCanonicalHighlightPath({ articleId, highlightId });
+  const anchor = { text: clean(text), prefix: '', suffix: '', startOffsetApprox: 0 };
+  return buildArticlePassageHref({ articleId, anchor }) || buildCanonicalArticlePath(articleId);
+};
+
+export const buildSourceOriginPath = (origin = '', fallbackUrl = '', text = '') => {
   const parsed = parseSourceOrigin(origin);
-  if (parsed.kind === 'highlight') {
-    return buildCanonicalHighlightPath({
-      articleId: parsed.articleId,
-      highlightId: parsed.highlightId
-    });
-  }
-  if (parsed.kind === 'article') return buildCanonicalArticlePath(parsed.articleId);
+  if (parsed.kind) return buildPassagePath({ ...parsed, text });
   return isExternalSourceHref(fallbackUrl) ? clean(fallbackUrl) : '';
 };

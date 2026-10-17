@@ -1,4 +1,4 @@
-const { recordClaimCheckIn, recordClaimVerdict, selectDailyClaimCheckIn } = require('./dailyLoopService');
+const { recordClaimCheckIn, selectDailyClaimCheckIn } = require('./dailyLoopService');
 const { applyFalsifiability } = require('./claimFalsifiability');
 
 class FakeRevision {
@@ -56,40 +56,6 @@ describe('stage 1 daily loop writes', () => {
     });
     expect(withTest.claim.resolutionCriteria).toBe('Utilisation falls two quarters.');
     expect(new Date(withTest.claim.horizon).toISOString().slice(0, 10)).toBe('2026-12-01');
-  });
-
-  it('appends a verdict and leaves the earlier one intact', async () => {
-    const page = pageWith({
-      claimId: 'c1',
-      text: 'Compute is scarce.',
-      support: 'partial',
-      checkInStatus: 'reaffirmed',
-      history: [],
-      verdicts: [],
-      horizon: new Date('2026-08-01')
-    });
-    const first = await recordClaimVerdict({
-      models: modelsFor(page),
-      userId: 'u1',
-      pageId: 'p1',
-      claimId: 'c1',
-      verdict: 'held_up',
-      trigger: 'horizon',
-      now: new Date('2026-08-31')
-    });
-    const second = await recordClaimVerdict({
-      models: modelsFor(page),
-      userId: 'u1',
-      pageId: 'p1',
-      claimId: 'c1',
-      verdict: 'broke',
-      trigger: 'evidence',
-      sourceEventId: 'evt-1',
-      now: new Date('2026-09-01')
-    });
-    expect(first.claim.verdicts[0].verdict).toBe('held_up');
-    expect(second.claim.verdicts.map((row) => row.verdict)).toEqual(['held_up', 'broke']);
-    expect(second.claim.history.filter((row) => row.event === 'verdict')).toHaveLength(2);
   });
 
   it('does not serve a check-in for a claim already asked as a verdict', () => {

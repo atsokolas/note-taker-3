@@ -268,11 +268,6 @@ export const verifyPublicCasebook = async (casebook) => {
   return res.data || {};
 };
 
-export const createWikiCollection = async (payload = {}) => {
-  const res = await api.post('/api/wiki/collections', payload, getAuthHeaders());
-  return res.data || {};
-};
-
 export const getPublicWikiCollection = async (idOrSlug) => {
   const res = await api.get(`/api/public/wiki/collections/${safeId(idOrSlug)}`);
   return res.data || {};
@@ -291,11 +286,6 @@ export const adoptPublicWikiCollection = async (idOrSlug) => {
 export const listWikiStarterPacks = async () => {
   const res = await api.get('/api/public/wiki/starter-packs');
   return Array.isArray(res.data?.packs) ? res.data.packs : [];
-};
-
-export const getWikiStarterPack = async (packId) => {
-  const res = await api.get(`/api/public/wiki/starter-packs/${safeId(packId)}`);
-  return res.data || {};
 };
 
 export const adoptWikiStarterPack = async (packId) => {

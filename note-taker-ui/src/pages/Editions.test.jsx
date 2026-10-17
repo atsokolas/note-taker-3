@@ -323,7 +323,7 @@ it('does not insert new filings until Show, even when Keep returns the newer iss
   expect(screen.queryByRole('heading', { name: 'An arrival' })).toBeNull();
   api.saveEditionItem.mockResolvedValue({ edition: { ...newer, items: newer.items.map(i => i.itemId === 'one' ? { ...i, savedArticleId: 'article' } : i) }, readable: false });
   fireEvent.click(screen.getByRole('button', { name: 'Keep' })); await act(async () => {});
-  expect(screen.getByRole('link', { name: '✓ Kept in your Library' })).toHaveAttribute('href', '/articles/article');
+  expect(screen.getByRole('link', { name: '✓ Kept in your Library' })).toHaveAttribute('href', '/library?articleId=article');
   expect(screen.getByText(/Saved the link/)).toBeVisible();
   expect(screen.queryByRole('heading', { name: 'An arrival' })).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: '1 finding added · Show' }));
@@ -397,7 +397,7 @@ it('names the one highlight you already hold, but only for the finding in focus'
   mockSearch = 'item=one';
   api.getEditionHeld.mockResolvedValue({ held: { highlightId: 'h1', text: 'Using information is a skill.', articleId: 'a1', articleTitle: 'On practice' } });
   render(<Editions />);
-  expect(await screen.findByRole('link', { name: '“Using information is a skill.”' })).toHaveAttribute('href', '/articles/a1');
+  expect(await screen.findByRole('link', { name: '“Using information is a skill.”' })).toHaveAttribute('href', '/library?articleId=a1&highlightId=h1');
   expect(api.getEditionHeld).toHaveBeenCalledTimes(1);
   expect(api.getEditionHeld).toHaveBeenCalledWith('e1', 'one');
 });
@@ -417,3 +417,11 @@ it('says what became of the last watch list, and keeps the paper’s threads at 
   expect(within(watching).getByText('Settled')).toBeVisible();
 });
 
+it('shows an empty account what a paper is and the one door to get one', async () => {
+  mockId = undefined;
+  api.listEditions.mockResolvedValue([]);
+  render(<Editions />);
+  expect(await screen.findByRole('heading', { name: 'No paper yet.' })).toBeVisible();
+  expect(screen.getByText('An example finding')).toBeVisible();
+  expect(screen.getByRole('link', { name: 'Connect an agent' })).toHaveAttribute('href', '/connections');
+});

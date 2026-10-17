@@ -383,7 +383,18 @@
 }
 
 .judgment-view__record-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 20px;
   margin: 18px 0 0;
+}
+
+.judgment-view__record-foot a {
+  padding: 0 0 2px;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 40%, transparent);
+  color: var(--judgment-muted);
+  font: 500 0.9rem/1.4 var(--judgment-ui);
+  text-decoration: none;
 }
 
 .judgment-undo {

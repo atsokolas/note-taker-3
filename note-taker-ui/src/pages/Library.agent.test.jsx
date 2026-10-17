@@ -94,9 +94,6 @@ jest.mock('../api/questions', () => ({
 jest.mock('../api/connections', () => ({
   getConnectionsForItem: jest.fn().mockResolvedValue({ outgoing: [], incoming: [] })
 }));
-jest.mock('../api/workingMemory', () => ({
-  createWorkingMemory: jest.fn()
-}));
 jest.mock('../api/highlights', () => ({
   updateHighlight: jest.fn(),
   deleteHighlight: jest.fn()

@@ -6,6 +6,7 @@ import { listWikiPages } from '../../api/wiki';
 
 jest.mock('../../api/judgmentResolution', () => ({
   fileReadingProposal: jest.fn(),
+  getDueView: async () => null,
   getPushesAgainst: async () => null
 }));
 

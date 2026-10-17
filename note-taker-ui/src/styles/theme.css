@@ -7733,3 +7733,26 @@ html[data-ui-scheme='dark'] {
   --think-card-shadow: 0 8px 22px rgba(0, 0, 0, 0.22);
   --think-card-shadow-hover: 0 12px 28px rgba(0, 0, 0, 0.28);
 }
+
+/* Arrival choreography: one brief orientation cue, then stillness.
+   Reduced motion: everything appears at once; nothing is lost. */
+.wfp-anim {
+  opacity: 0;
+  transform: translate3d(0, 6px, 0);
+  animation: wfp-enter 220ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.wfp-anim--1 { animation-delay: 0ms; }
+.wfp-anim--2 { animation-delay: 40ms; }
+.wfp-anim--3 { animation-delay: 80ms; }
+.wfp-anim--4 { animation-delay: 120ms; }
+.wfp-anim--5 { animation-delay: 160ms; }
+.wfp-anim--6,
+.wfp-anim--7 { animation-delay: 200ms; }
+
+@keyframes wfp-enter {
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wfp-anim { animation: none; opacity: 1; transform: none; }
+}

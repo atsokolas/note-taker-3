@@ -60,6 +60,35 @@
   line-height: 1.55;
 }
 
+/* A change of mind: the old sentence struck, the new one in full ink, and
+   the passage it met before it moved. */
+.public-casebook__changes li {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.9rem 0;
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line, #d8d0c4)) 70%, transparent);
+}
+
+.public-casebook__changes time {
+  color: var(--text-muted, var(--vellum-subtle, #6b645c));
+  font: 0.84rem var(--font-sans);
+}
+
+.public-casebook__changes del {
+  color: var(--text-muted, var(--vellum-subtle, #6b645c));
+  text-decoration-thickness: 1px;
+}
+
+.public-casebook__changes blockquote {
+  margin: 0.4rem 0 0;
+  padding-left: 1rem;
+  border-left: 1px solid var(--accent, var(--noeis-rule, #d8d0c4));
+}
+
+.public-casebook__changes footer {
+  font: 0.84rem var(--font-sans);
+}
+
 .public-casebook__clocks li,
 .public-casebook__revisions li {
   display: grid;

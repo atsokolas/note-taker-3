@@ -48,6 +48,12 @@ export const getPushesAgainst = async (articleId = '') => {
   return response.data?.reading || null;
 };
 
+// The held view whose check-by date has passed with no verdict, if any.
+export const getDueView = async () => {
+  const response = await api.get('/api/judgment/due', getAuthHeaders());
+  return response.data?.due || null;
+};
+
 export const fileReadingProposal = async ({ pageId, proposalId, field }) => {
   const response = await api.post(
     `/api/judgment/pages/${safe(pageId)}/evidence`,

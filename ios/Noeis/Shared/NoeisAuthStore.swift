@@ -25,6 +25,17 @@ struct NoeisAuthStore {
         try? readToken()
     }
 
+    /// The name inside the session token. There is no "who am I" endpoint,
+    /// and the token already says it.
+    var username: String? {
+        guard let payload = token?.split(separator: ".").dropFirst().first else { return nil }
+        var base64 = payload.replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/")
+        base64 += String(repeating: "=", count: (4 - base64.count % 4) % 4)
+        guard let data = Data(base64Encoded: base64),
+              let claims = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+        return claims["username"] as? String
+    }
+
     func saveToken(_ token: String) throws {
         guard let data = token.data(using: .utf8) else {
             throw NoeisAuthStoreError.unableToEncodeToken

@@ -1,83 +1,58 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Noeis</title>
-    <link rel="stylesheet" href="popup.css">
+  <meta charset="utf-8">
+  <title>Noeis</title>
+  <link rel="stylesheet" href="popup.css">
   <link rel="stylesheet" href="note-taker-ui/src/styles/placement-switch.css">
 </head>
-<body>
+<body data-view="">
+  <header class="masthead">
+    <span class="wordmark">Noeis</span>
+    <a class="quiet" id="libraryLink" href="https://www.noeis.io/library" target="_blank" rel="noreferrer">Library</a>
+  </header>
 
-    <div id="loggedOutView" class="container" style="display: none;">
+  <section data-for="signin">
+    <h1 class="title">Save what you read, with the passages you mark.</h1>
+    <p class="meta">Sign in on noeis.io and this button signs in with you.</p>
+    <button type="button" class="primary" id="signIn">Sign in on noeis.io</button>
+  </section>
 
-        <div id="loginView">
-            <h2>Welcome</h2>
-            <form id="loginForm">
-                <div class="form-group">
-                    <label for="username">Username:</label>
-                    <input type="text" id="username" required>
-                </div>
-                <div class="form-group">
-                    <label for="password">Password:</label>
-                    <input type="password" id="password" required>
-                </div>
-                <button type="submit" id="loginButton" class="primary-button">Login</button>
-            </form>
-            <p id="loginStatusMessage" class="status"></p>
-            <p class="toggle-link">
-                Don't have an account? <a href="#" id="showRegisterLink">Sign Up</a>
-            </p>
-        </div>
+  <section data-for="closed">
+    <p class="site" id="closedSite"></p>
+    <h1 class="title">Chrome keeps this page closed to extensions.</h1>
+    <p class="meta">Open an article in a tab of its own and press the button there.</p>
+  </section>
 
-        <div id="registerView" style="display: none;">
-            <h2>Create Account</h2>
-            <form id="registerForm">
-                <div class="form-group">
-                    <label for="registerUsername">Username:</label>
-                    <input type="text" id="registerUsername" required>
-                </div>
-                <div class="form-group">
-                    <label for="registerPassword">Password:</label>
-                    <input type="password" id="registerPassword" required>
-                </div>
-                <div class="form-group">
-                    <label for="confirmPassword">Confirm Password:</label>
-                    <input type="password" id="confirmPassword" required>
-                </div>
-                <button type="submit" class="primary-button">Create Account</button>
-            </form>
-            <p id="registerStatusMessage" class="status"></p>
-            <p class="toggle-link">
-                Already have an account? <a href="#" id="showLoginLink">Log In</a>
-            </p>
-        </div>
+  <section data-for="page">
+    <p class="site" id="site"></p>
+    <h1 class="title" id="pageTitle"></h1>
 
-    </div>
-    <div id="loggedInView" class="container" style="display: none;">
-        <h1 class="title">Save to Noeis</h1>
-        <a class="cta-link" href="https://www.noeis.io/library" target="_blank" rel="noreferrer">Open your Library</a>
-        
-        <div class="form-group">
-            <label for="folderSelect">Choose a Folder:</label>
-            <p id="filingSuggestion" class="filing-suggestion"></p>
-        <div id="placementMount" class="save-card__place"></div>
-        <select id="folderSelect">
-                <option value="">Uncategorized</option>
-            </select>
-        </div>
+    <form id="saveForm" class="save">
+      <label class="row">
+        <span class="label">Folder</span>
+        <select id="folder"><option value="">Uncategorized</option><option value="new">New folder…</option></select>
+      </label>
+      <label class="row" id="newFolderRow" hidden>
+        <span class="label">Name</span>
+        <input id="newFolder" autocomplete="off" placeholder="Name the folder and press Return">
+      </label>
+      <p class="habit" id="habit" hidden></p>
+      <div class="row">
+        <span class="label">Put in</span>
+        <div id="placement"></div>
+      </div>
+      <button type="submit" class="primary" id="save">Save to Library</button>
+    </form>
 
-        <div class="form-group folder-creation">
-            <input type="text" id="newFolderName" placeholder="Or create a new folder...">
-            <button id="createFolderButton">+</button>
-        </div>
+    <p class="receipt" id="receipt" role="status" aria-live="polite"></p>
+  </section>
 
-        <button id="saveArticleButton">Save</button>
-        
-        <hr>
-        <button id="logoutButton" class="secondary-button">Logout</button>
+  <footer class="footer" data-for="page">
+    <span id="who"></span>
+    <button type="button" class="quiet" id="signOut">Sign out</button>
+  </footer>
 
-        <div id="statusMessage"></div>
-    </div>
-
-    <script type="module" src="popup.js"></script>
+  <script type="module" src="popup.js"></script>
 </body>
 </html>

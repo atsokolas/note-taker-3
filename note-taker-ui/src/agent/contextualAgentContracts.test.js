@@ -52,7 +52,7 @@ describe('contextual agent contracts', () => {
       scope: 'this source',
       caption: '',
       askPlaceholder: 'Ask about this source',
-      supportedActions: ['retrieve', 'accept.keep'],
+      supportedActions: ['retrieve'],
       proposalPolicy: 'human_acceptance'
     }));
     expect(buildContextualAgentSurface('agent-surface.missing', {})).toBeNull();
@@ -77,8 +77,9 @@ describe('contextual agent contracts', () => {
   it('fails closed when handlers exceed the registered action vocabulary', () => {
     const onAsk = jest.fn();
     const onAccept = jest.fn();
-    expect(filterContextualAgentHandlers('agent-surface.library', { onAsk, onAccept, onPublish: jest.fn() }))
+    expect(filterContextualAgentHandlers('agent-surface.wiki', { onAsk, onAccept, onPublish: jest.fn() }))
       .toEqual({ onAccept });
+    expect(filterContextualAgentHandlers('agent-surface.library', { onAccept })).toEqual({});
     const onTryWording = jest.fn();
     expect(filterContextualAgentHandlers('agent-surface.think', { onAccept, onTryWording })).toEqual({ onTryWording });
     expect(filterContextualAgentHandlers('agent-surface.missing', { onAsk, onAccept })).toEqual({});

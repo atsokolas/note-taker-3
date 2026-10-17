@@ -70,12 +70,3 @@ export const searchConnectableItems = async ({
   const res = await api.get(`/api/connections/search?${params.toString()}`, getAuthHeaders());
   return Array.isArray(res.data) ? res.data : [];
 };
-
-export const getConnectionsForScope = async ({ scopeType, scopeId, limit = 40 }) => {
-  const params = new URLSearchParams();
-  params.set('scopeType', scopeType);
-  params.set('scopeId', scopeId);
-  params.set('limit', String(limit));
-  const res = await api.get(`/api/connections/scope?${params.toString()}`, getAuthHeaders());
-  return res.data || { connections: [] };
-};

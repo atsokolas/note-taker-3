@@ -25,13 +25,10 @@ const LibraryContext = ({
   referencesError,
   activeHighlightId,
   onHighlightClick,
-  onSelectHighlight,
   onAddConcept,
   onAddNotebook,
   onAddQuestion,
-  onHoldClaim,
-  onDeleteHighlight,
-  onDumpToWorkingMemory
+  onDeleteHighlight
 }) => {
   const [feedExpanded, setFeedExpanded] = useState(() => readStoredExpanded(FEED_EXPANDED_KEY, true));
   const [relatedExpanded, setRelatedExpanded] = useState(() => readStoredExpanded(RELATED_EXPANDED_KEY, false));
@@ -40,6 +37,9 @@ const LibraryContext = ({
 
   const semanticHighlightId = activeHighlightId || articleHighlights[0]?._id || '';
   const notebookBlocks = Array.isArray(references?.notebookBlocks) ? references.notebookBlocks : [];
+  // A thought written beside a highlight is marginalia too.
+  const marginThoughts = articleHighlights.filter(highlight => normalizeSpaces(highlight?.note));
+  const marginaliaCount = notebookBlocks.length + marginThoughts.length;
   const normalizedQuery = String(feedQuery || '').trim().toLowerCase();
 
   const feedItems = useMemo(() => {
@@ -93,12 +93,6 @@ const LibraryContext = ({
 
   const toggleRelatedExpanded = () => {
     setRelatedExpanded(prev => !prev);
-  };
-
-  const handleReferenceHighlight = (highlight) => {
-    if (!highlight?._id) return;
-    onSelectHighlight?.(highlight._id);
-    onHighlightClick?.(highlight);
   };
 
   if (!selectedArticleId) {
@@ -180,19 +174,11 @@ const LibraryContext = ({
                           text={highlight.text}
                         />
                         <div className="library-context-feed-item__actions">
-                          <Button variant="quiet" onClick={() => onSelectHighlight(highlight._id)}>Focus</Button>
-                          <Button variant="quiet" onClick={() => handleReferenceHighlight(highlight)}>Reference</Button>
-                          <Button variant="quiet" onClick={() => onAddNotebook(highlight)}>Notebook</Button>
+                          <span className="library-context-feed-item__add">Add to</span>
+                          <Button variant="quiet" onClick={() => onAddNotebook(highlight)}>Note</Button>
                           <Button variant="quiet" onClick={() => onAddConcept(highlight)}>Concept</Button>
                           <Button variant="quiet" onClick={() => onAddQuestion(highlight)}>Question</Button>
-                          {/* The door into the ledger. Everything the morning
-                              paper reads is claims, and nothing in the reading
-                              room could make one. */}
-                          {onHoldClaim ? (
-                            <Button variant="quiet" onClick={() => onHoldClaim(highlight)}>Believe</Button>
-                          ) : null}
-                          <Button variant="quiet" onClick={() => onDumpToWorkingMemory(highlight)}>Dump</Button>
-                          <Button variant="quiet" onClick={() => onDeleteHighlight?.(highlight)}>Delete</Button>
+                          <Button variant="quiet" className="library-context-feed-item__delete" onClick={() => onDeleteHighlight?.(highlight)}>Delete</Button>
                         </div>
                         {activeHighlightId === highlight._id && (
                           <ReferencePullIn
@@ -222,7 +208,7 @@ const LibraryContext = ({
         >
           <span className="library-context-section__title">Marginalia</span>
           <span className="library-context-section__meta">
-            {notebookBlocks.length} notes
+            {marginaliaCount === 1 ? '1 note' : `${marginaliaCount} notes`}
           </span>
           <span className="library-context-section__chevron" aria-hidden="true">
             {relatedExpanded ? '▾' : '▸'}
@@ -230,6 +216,24 @@ const LibraryContext = ({
         </button>
         {relatedExpanded && (
           <div className="library-context-section__body library-context-section__body--related">
+            {marginThoughts.length > 0 ? (
+              <div className="library-context-related">
+                <div className="library-context-related__title">Beside your highlights</div>
+                <div className="library-references">
+                  {marginThoughts.slice(0, 6).map(highlight => (
+                    <button
+                      key={highlight._id}
+                      type="button"
+                      className="library-reference-item"
+                      onClick={() => onHighlightClick(highlight)}
+                    >
+                      <div className="library-reference-title">{normalizeSpaces(highlight.note)}</div>
+                      <div className="muted small">{summarizeHighlight(highlight)}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
             <div className="library-context-related">
               <div className="library-context-related__title">Used in notes</div>
               {referencesLoading && <p className="muted small">Loading references...</p>}
@@ -237,7 +241,7 @@ const LibraryContext = ({
               {!referencesLoading && !referencesError && (
                 <div className="library-references">
                   {notebookBlocks.length === 0 ? (
-                    <p className="muted small">No notes yet.</p>
+                    <p className="muted small">Not quoted in a note yet.</p>
                   ) : (
                     notebookBlocks.slice(0, 6).map((block, idx) => (
                       <button

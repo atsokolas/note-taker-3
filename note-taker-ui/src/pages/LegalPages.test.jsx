@@ -12,7 +12,7 @@ describe('published NOEIS information', () => {
     const content = legalContent[page];
     const article = screen.getByRole('article', { name: content.title });
     expect(within(article).getByRole('heading', { level: 1 })).toHaveTextContent(content.title);
-    expect(within(article).getByText('Last updated October 11, 2026.')).toBeInTheDocument();
+    expect(within(article).getByText(content.updated)).toBeInTheDocument();
     content.sections.forEach(({ heading, paragraphs }) => {
       expect(within(article).getByRole('heading', { name: heading })).toBeInTheDocument();
       paragraphs.forEach((paragraph) => {

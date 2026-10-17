@@ -4,15 +4,9 @@ const {
   freshness,
   lastAcceptedClock
 } = require('./consequenceEvent');
-const { persistNoeisReceipt, serializeStoredReceipt } = require('./noeisReceiptService');
-const { createWikiRevision, snapshotPage } = require('./wikiRevisionService');
-const { ensureHeldClaim, findHeldClaim } = require('./heldClaim');
 const { wordBoundaryTrim } = require('../lib/editorialText');
 
 const ACTIONS = Object.freeze(['accept', 'narrow', 'preserve', 'reject', 'defer']);
-const TERMINAL = new Set(['accepted', 'narrowed', 'preserved', 'rejected']);
-const MUTATING = new Set(['accept', 'narrow']);
-const REVIEW_MS = 7 * 24 * 60 * 60 * 1000;
 
 const STOPWORDS = new Set([
   'about', 'after', 'again', 'also', 'and', 'are', 'because', 'been', 'before',
@@ -261,154 +255,6 @@ const selectPaperConsequence = ({ events = [], pages = [], now = new Date() } = 
   return chosen?.preview || null;
 };
 
-const receiptKey = ({ userId, eventId, claimId, action }) => `consequence:${userId}:${eventId}:${claimId}:${action}`;
-
-const scheduleReviewAt = (now = new Date()) => new Date(now.getTime() + REVIEW_MS);
-
-const disposeConsequence = async ({
-  models = {},
-  userId,
-  preview,
-  action,
-  narrowedText = '',
-  now = new Date()
-} = {}) => {
-  const selected = clean(action, 24).toLowerCase();
-  if (!ACTIONS.includes(selected)) {
-    const error = new Error('Choose accept, narrow, preserve, reject, or defer.');
-    error.statusCode = 400;
-    throw error;
-  }
-  if (!preview?.eventId || !preview?.pageId || !preview?.claimId) {
-    const error = new Error('The consequence is incomplete.');
-    error.statusCode = 400;
-    throw error;
-  }
-
-  const page = await models.WikiPage.findOne({ _id: preview.pageId, userId });
-  if (!page) {
-    const error = new Error('Wiki page not found.');
-    error.statusCode = 404;
-    throw error;
-  }
-
-  const key = receiptKey({ userId, eventId: preview.eventId, claimId: preview.claimId, action: selected });
-  const existing = models.NoeisReceipt?.findOne
-    ? serializeStoredReceipt(await models.NoeisReceipt.findOne({ userId, receiptId: key }))
-    : null;
-  if (existing && TERMINAL.has(existing.status)) {
-    return { receipt: existing, replay: true, preview, page: asPlain(page) };
-  }
-
-  const before = snapshotPage(page);
-  const claim = findHeldClaim(page, preview.claimId) || ensureHeldClaim(page, { now, actorType: 'user', claimId: preview.claimId });
-  const prior = clean(claim?.text || page?.judgment?.currentJudgment || preview.prior, 800);
-  const proposed = selected === 'narrow'
-    ? clean(narrowedText || preview.proposed, 800)
-    : clean(preview.proposed, 800);
-  const reviewAt = scheduleReviewAt(now);
-  const status = {
-    accept: 'accepted',
-    narrow: 'narrowed',
-    preserve: 'preserved',
-    reject: 'rejected',
-    defer: 'deferred'
-  }[selected];
-
-  if (MUTATING.has(selected) && claim && proposed && proposed !== prior) {
-    claim.history = list(claim.history);
-    claim.history.push({
-      at: now,
-      event: 'revised',
-      action: 'revised',
-      actorType: 'user',
-      disposition: 'accepted',
-      text: proposed,
-      summary: selected === 'narrow' ? 'Narrowed after a consequence.' : 'Revised after a consequence.'
-    });
-    claim.text = proposed;
-    claim.lastCheckedAt = now;
-    claim.lastAcceptedEvidenceAt = preview.datedAt || now;
-    if (typeof page.markModified === 'function') page.markModified('claims');
-    page.judgment = {
-      ...(asPlain(page.judgment) || {}),
-      currentJudgment: proposed,
-      lastReviewedAt: now,
-      decisions: [
-        ...list(page.judgment?.decisions).map(asPlain),
-        {
-          decisionId: `consequence-${preview.eventId}`,
-          summary: selected === 'narrow' ? `Narrowed: ${proposed}` : `Changed what I hold: ${proposed}`,
-          decidedAt: now,
-          reviewAt,
-          status: 'taken',
-          createdBy: 'user'
-        }
-      ]
-    };
-    await page.save();
-    await createWikiRevision({
-      WikiRevision: models.WikiRevision,
-      userId,
-      page,
-      before,
-      reason: 'user_edit',
-      actorType: 'user',
-      summary: `Claim ${claim.claimId} ${selected} after consequence ${preview.eventId}.`,
-      sourceEventId: preview.eventId
-    });
-  }
-
-  const receipt = await persistNoeisReceipt({
-    NoeisReceipt: models.NoeisReceipt,
-    userId,
-    receipt: {
-      id: key,
-      kind: 'consequence_disposition',
-      source: 'morning_paper',
-      sourceLabel: 'Morning paper',
-      status,
-      title: preview.eventTitle || 'Consequence',
-      summary: MUTATING.has(selected) ? `${selected}: ${proposed}` : `${selected}: ${prior}`,
-      provenance: {
-        eventId: preview.eventId,
-        eventIdentity: preview.eventIdentity,
-        contentHash: preview.contentHash,
-        correctsEventId: preview.correctsEventId || '',
-        pageId: preview.pageId,
-        claimId: preview.claimId,
-        prior,
-        proposed: MUTATING.has(selected) ? proposed : preview.proposed,
-        passage: preview.passage,
-        disposition: selected,
-        dependentsPreviewed: list(preview.dependents).map((row) => row.pageId),
-        dependentsMutated: [],
-        reviewAt: MUTATING.has(selected) || selected === 'defer' ? reviewAt : null,
-        resolvedAt: now
-      },
-      touched: [{ type: 'wiki_page', id: preview.pageId, title: clean(page.title, 240) }],
-      nextAction: MUTATING.has(selected) || selected === 'defer'
-        ? { type: 'open_judgment', id: preview.pageId, title: 'Return when the review comes due' }
-        : null,
-      completedAt: now,
-      createdAt: now
-    }
-  });
-
-  return {
-    receipt,
-    replay: false,
-    preview: {
-      ...preview,
-      prior,
-      proposed: MUTATING.has(selected) ? proposed : preview.proposed,
-      disposition: selected,
-      reviewAt
-    },
-    page: asPlain(page)
-  };
-};
-
 const loadConsequenceEvents = async ({ userId, models = {}, since = null, limit = 24 } = {}) => {
   if (!models.WikiSourceEvent?.find) return [];
   const query = { userId, status: { $ne: 'ignored' } };
@@ -426,7 +272,6 @@ const loadConsequenceEvents = async ({ userId, models = {}, since = null, limit 
 module.exports = {
   ACTIONS,
   binds,
-  disposeConsequence,
   loadConsequenceEvents,
   proposeWording,
   routeOne,

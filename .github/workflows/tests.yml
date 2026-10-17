@@ -58,3 +58,19 @@ jobs:
           # CI=true turns every lint warning into a build failure; the build gate is that it compiles.
           CI: false
         run: npm run build
+
+  extension:
+    name: Chrome extension
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      # Only Playwright and its Chromium: the walkthrough stubs every API call.
+      - run: npm install --no-save --no-audit --no-fund --prefix "$RUNNER_TEMP/pw" playwright@1.56.1
+      - run: npx --prefix "$RUNNER_TEMP/pw" playwright install --with-deps chromium
+      - name: Pack and walk through the extension in Chromium
+        env:
+          NODE_PATH: ${{ runner.temp }}/pw/node_modules
+        run: npm run extension:smoke

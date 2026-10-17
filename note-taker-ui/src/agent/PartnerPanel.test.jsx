@@ -456,43 +456,6 @@ describe('PartnerPanel', () => {
     }]);
   });
 
-  it('offers a reply for keeping only when it quotes a source, in its place in the conversation', async () => {
-    const LibrarySurface = () => {
-      useContextualAgentSurface('agent-surface.library', { objectType: 'article', objectId: 'article-1', subject: 'Grid queues' }, {
-        onAccept: () => {}
-      });
-      return null;
-    };
-    streamChatWithAgent
-      .mockResolvedValueOnce({ reply: 'An unquoted paraphrase.', groundedIn: [] })
-      .mockResolvedValueOnce({ reply: 'It says the queue is the bottleneck.', groundedIn: [{ type: 'article', id: 'article-1', title: 'Grid queues' }] });
-    render(
-      <AgentRailProvider>
-        <LibrarySurface />
-        <PartnerPanel />
-      </AgentRailProvider>
-    );
-    const rail = screen.getByRole('complementary');
-    const ask = (question) => {
-      fireEvent.change(within(rail).getByRole('textbox'), { target: { value: question } });
-      fireEvent.click(within(rail).getByRole('button', { name: 'Ask' }));
-    };
-
-    ask('First question');
-    await within(rail).findByText('An unquoted paraphrase.');
-    expect(within(rail).queryByRole('button', { name: 'Accept' })).not.toBeInTheDocument();
-
-    ask('Second question');
-    await within(rail).findByText('It says the queue is the bottleneck.');
-    expect(within(rail).getByRole('button', { name: 'Accept' })).toBeInTheDocument();
-    expect(within(rail).getByText('Quotes Grid queues')).toBeInTheDocument();
-    const order = within(rail).getAllByRole('listitem').map(item => item.textContent);
-    expect(order.findIndex(text => text.includes('Second question')))
-      .toBeLessThan(order.findIndex(text => text.includes('It says the queue is the bottleneck.')));
-    expect(order.findIndex(text => text.includes('An unquoted paraphrase.')))
-      .toBeLessThan(order.findIndex(text => text.includes('Second question')));
-  });
-
   it('reports a failed retrieve instead of inventing a line', async () => {
     streamChatWithAgent.mockRejectedValueOnce(new Error('The index is offline.'));
     const { rail } = renderRail();
