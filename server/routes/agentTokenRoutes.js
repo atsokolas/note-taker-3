@@ -1,6 +1,6 @@
 const express = require('express');
 
-const SUPPORTED_AGENT_SCOPES = new Set(['read', 'agent-write']);
+const { AGENT_TOKEN_SCOPE_SET } = require('../services/agentTokenService');
 
 const buildAgentTokenRouter = ({
   mongoose,
@@ -20,7 +20,7 @@ const buildAgentTokenRouter = ({
     const requested = (Array.isArray(value) ? value : value ? [value] : ['read'])
       .map(scope => String(scope || '').trim())
       .filter(Boolean);
-    const unsupported = requested.filter(scope => !SUPPORTED_AGENT_SCOPES.has(scope));
+    const unsupported = requested.filter(scope => !AGENT_TOKEN_SCOPE_SET.has(scope));
     if (unsupported.length > 0) {
       return { error: `Unsupported scope: ${unsupported.join(', ')}.` };
     }
