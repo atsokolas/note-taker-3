@@ -1,8 +1,8 @@
 const { isResearchEditionPage } = require('./wikiProtectedArtifactService');
+const { docText } = require('../lib/editorialText');
 const {
   WikiClaimBodyPatchError,
   exactClaimText,
-  extractPlainText,
   replaceExactClaimText
 } = require('./wikiClaimBodyPatchService');
 
@@ -106,7 +106,7 @@ const planOpenedSentenceAccept = ({ page, claimId, against, text } = {}) => {
     against: expected,
     text: nextText,
     body,
-    plainText: extractPlainText(body)
+    plainText: docText(body)
   };
 };
 

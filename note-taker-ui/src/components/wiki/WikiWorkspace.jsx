@@ -30,7 +30,8 @@ import WikiBuildPageComposer from './WikiBuildPageComposer';
 import WikiList from './WikiList';
 import WikiPageEditor from './WikiPageEditor';
 import WikiPageReadView from './WikiPageReadView';
-import { collectWikiText, countWikiSources, countWikiWords } from './wikiPageMetrics';
+import { countWikiSources, countWikiWords } from './wikiPageMetrics';
+import { docText } from '../../utils/editorialText';
 import { buildWikiSurfaceDescriptor } from './wikiSurfaceModel';
 import useDocumentTitle from '../../hooks/useDocumentTitle';
 import { buildCanonicalArticlePath } from '../../utils/sourceRoutes';
@@ -85,7 +86,7 @@ export const assessPersistedWikiBuild = (page = {}, expectedPageId = '') => {
   const pageId = clean(page?._id || page?.id);
   const expectedId = clean(expectedPageId);
   const wordCount = Math.max(
-    countWikiWords(collectWikiText(page?.body)),
+    countWikiWords(docText(page?.body)),
     countWikiWords(page?.plainText)
   );
   const sourceCount = countWikiSources(page);

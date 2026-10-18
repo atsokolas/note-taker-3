@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const { docText } = require('../lib/editorialText');
 
 const clone = value => JSON.parse(JSON.stringify(value ?? null));
 const digest = value => crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
@@ -15,17 +16,6 @@ class WikiClaimBodyPatchError extends Error {
 }
 
 const bodyHash = body => digest(body || null);
-
-const extractPlainText = node => {
-  if (!node) return '';
-  if (typeof node === 'string') return clean(node);
-  if (Array.isArray(node)) return clean(node.map(extractPlainText).filter(Boolean).join(' '));
-  if (typeof node !== 'object') return '';
-  return clean([
-    typeof node.text === 'string' ? node.text : '',
-    extractPlainText(node.content)
-  ].filter(Boolean).join(' '));
-};
 
 const claimMark = (node, claimId) => list(node?.marks).find(mark => (
   mark?.type === 'claim' && String(mark?.attrs?.claimId || '').trim() === claimId
@@ -198,8 +188,8 @@ const buildClaimBodyPatch = ({
     sourceRefs: list(afterSourceRefs),
     citations: list(afterCitations)
   });
-  const beforePlainText = extractPlainText(beforeBody);
-  const afterPlainText = extractPlainText(afterBody);
+  const beforePlainText = docText(beforeBody);
+  const afterPlainText = docText(afterBody);
   return {
     body: clone(afterBody),
     plainText: afterPlainText,
@@ -286,7 +276,6 @@ module.exports = {
   bodyHash,
   buildClaimBodyPatch,
   exactClaimText,
-  extractPlainText,
   inspectExactClaimAnchors,
   replaceExactClaimRange,
   replaceExactClaimText

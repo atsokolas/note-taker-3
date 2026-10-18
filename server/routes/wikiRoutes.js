@@ -214,7 +214,7 @@ const {
 } = require('../services/wikiDedupeService');
 const { reviewExpired } = require('../services/reviewTriageService');
 const { lintWiki: defaultLintWiki } = require('../services/wikiLintService');
-const { wordBoundaryTrim } = require('../lib/editorialText');
+const { docText, wordBoundaryTrim } = require('../lib/editorialText');
 const {
   activeProposalsNeedClusteringRefresh,
   autoMergeProposalCandidates,
@@ -502,16 +502,6 @@ const serializeStarterPackAsPublicCollection = (pack) => {
 
 const escapeRegExp = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-const extractPlainText = (node) => {
-  if (!node) return '';
-  if (typeof node === 'string') return node.trim();
-  if (Array.isArray(node)) return node.map(extractPlainText).filter(Boolean).join(' ').trim();
-  if (typeof node !== 'object') return '';
-  const ownText = typeof node.text === 'string' ? node.text : '';
-  const childText = Array.isArray(node.content) ? extractPlainText(node.content) : '';
-  return [ownText, childText].filter(Boolean).join(' ').trim();
-};
-
 const countWords = (value = '') => (
   String(value || '').trim().split(/\s+/).filter(Boolean).length
 );
@@ -524,7 +514,7 @@ const extractRelevanceTextFromDoc = (node, out = [], state = { paragraphSeen: fa
   }
   if (typeof node !== 'object') return out;
   if (node.type === 'heading' || (node.type === 'paragraph' && !state.paragraphSeen)) {
-    const text = extractPlainText(node);
+    const text = docText(node);
     if (text) out.push(text);
     if (node.type === 'paragraph') state.paragraphSeen = true;
   }
@@ -687,7 +677,7 @@ const stripSourceTitlePhrases = (value = '', sources = []) => (
 );
 
 const nodeMentionsRemovedSource = (node, removedSources = []) => {
-  const text = extractPlainText(node).toLowerCase().replace(/\s+/g, ' ');
+  const text = docText(node).toLowerCase().replace(/\s+/g, ' ');
   if (!text) return false;
   return removedSources
     .map(sourceTitlePhrase)
@@ -811,7 +801,7 @@ const buildPromotedDiscussionDoc = ({ title, discussion, citationIndexMap = new 
     ? remapCitationIndexesInDoc(clonePlain(discussion.answer.content), citationIndexMap)
     : [{ type: 'paragraph', content: [{ type: 'text', text: 'No answer yet.' }] }];
   const standaloneAnswerContent = answerContent.filter((node) => {
-    const text = extractPlainText(node).trim();
+    const text = docText(node).trim();
     return !/^you asked:/i.test(text);
   });
   return {
@@ -865,7 +855,7 @@ const serializeWikiPage = (page) => {
     const id = citation?.claimId || citation?.claim?._id || citation?.claim?.id;
     if (id) claimIds.add(String(id));
   });
-  const plainText = raw.plainText || extractPlainText(raw.body || emptyDoc());
+  const plainText = raw.plainText || docText(raw.body || emptyDoc());
   const qualityReview = classifyWikiPageQuality({ ...raw, plainText });
   const presentationTitle = canonicalWikiTitle(raw);
   return {
@@ -884,7 +874,7 @@ const serializeWikiPage = (page) => {
     sourceCount: sourceIds.size,
     claimCount: claimIds.size,
     wordCount: countWords(plainText),
-    bodyWordCount: countWords(extractPlainText(raw.body || emptyDoc())),
+    bodyWordCount: countWords(docText(raw.body || emptyDoc())),
     qualityReview,
     discussions: Array.isArray(raw.discussions) ? raw.discussions : [],
     aiState: {
@@ -1168,7 +1158,7 @@ const buildAdoptableWikiPageSnapshot = (page) => {
       title: publicPage.title || 'Untitled wiki page',
       pageType: normalizePageType(publicPage.pageType || 'topic'),
       body,
-      plainText: publicPage.plainText || extractPlainText(body),
+      plainText: publicPage.plainText || docText(body),
       sourceRefs
     }
   };
@@ -2195,7 +2185,7 @@ const buildWikiRouter = ({
     const pages = [];
     for (const entry of pageEntries) {
       entry.page.body = remapWikiLinkPageIdsInDoc(clonePlain(entry.page.body || emptyDoc()), pageIdMap);
-      entry.page.plainText = extractPlainText(entry.page.body);
+      entry.page.plainText = docText(entry.page.body);
       refreshPageClaims(entry.page);
       await entry.page.save();
       await syncPageGraph(entry.page, userId);
@@ -2654,7 +2644,7 @@ const buildWikiRouter = ({
       throw error;
     }
     page.body = applied.doc;
-    page.plainText = extractPlainText(applied.doc);
+    page.plainText = docText(applied.doc);
     await page.save();
     await syncPageGraph(page, userId);
     await createWikiRevision({
@@ -3417,7 +3407,7 @@ const buildWikiRouter = ({
       if (applied.applied) nextBody = applied.doc;
     }
     page.body = nextBody;
-    page.plainText = extractPlainText(nextBody);
+    page.plainText = docText(nextBody);
     return result;
   };
 
@@ -3443,7 +3433,7 @@ const buildWikiRouter = ({
       const result = applyWikiAutolinkToDoc({ doc: page.body || emptyDoc(), targetPage });
       if (!result.applied) return null;
       page.body = result.doc;
-      page.plainText = extractPlainText(result.doc);
+      page.plainText = docText(result.doc);
       refreshPageClaims(page);
       await page.save();
       await syncPageGraph(page, userId);
@@ -3969,7 +3959,7 @@ const buildWikiRouter = ({
         sourceScope: ordinaryEvidencePreflight ? 'selected_sources' : (sourceScope?.value || 'entire_library'),
         createdFrom,
         body,
-        plainText: extractPlainText(body),
+        plainText: docText(body),
         sourceRefs: initialSourceRefs.value,
         ...(ordinaryEvidencePreflight ? {
           aiState: {
@@ -4121,7 +4111,7 @@ const buildWikiRouter = ({
           label: `company-dossier:${company.ticker}`
         },
         body,
-        plainText: extractPlainText(body),
+        plainText: docText(body),
         // A dossier is maintained research. It becomes an active case only
         // after the owner explicitly chooses Track in Judgment.
         judgment: null,
@@ -5128,7 +5118,7 @@ const buildWikiRouter = ({
         sourceScope: 'selected_sources',
         createdFrom,
         body,
-        plainText: extractPlainText(body),
+        plainText: docText(body),
         sourceRefs: []
       });
       if (existingPage) {
@@ -6727,7 +6717,7 @@ const buildWikiRouter = ({
           return res.status(400).json({ error: 'body must be a TipTap JSON object or a non-empty string.' });
         }
         page.body = nextBody;
-        page.plainText = extractPlainText(nextBody);
+        page.plainText = docText(nextBody);
       }
       if (req.body?.body !== undefined) refreshPageClaims(page);
       if (normalizedJudgment) {
@@ -8420,7 +8410,7 @@ const buildWikiRouter = ({
           label: sourcePage.title
         },
         body,
-        plainText: extractPlainText(body),
+        plainText: docText(body),
         sourceRefs
       });
 
@@ -9289,7 +9279,7 @@ const buildWikiRouter = ({
         return res.status(409).json({ error: 'Could not apply link. The mention may already be linked or no longer exists.' });
       }
       page.body = result.doc;
-      page.plainText = extractPlainText(result.doc);
+      page.plainText = docText(result.doc);
       await page.save();
       await syncPageGraph(page, req.user.id);
       await createWikiRevision({
@@ -9375,7 +9365,6 @@ module.exports = {
   buildWikiRouter,
   normalizeBodyDoc,
   buildWikiDraftState,
-  extractPlainText,
   normalizeCreatedFrom,
   normalizeSourceRef,
   rejectAgentReservedWeekendReadingsCreation,
