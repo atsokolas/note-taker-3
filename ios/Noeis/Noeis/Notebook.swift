@@ -609,7 +609,7 @@ private struct BlockView: View {
                 Button(tried == 1 ? "1 other wording" : "\(tried) other wordings") {
                     draft.current = block.id
                     draft.selection = NSRange(location: 0, length: 0)
-                    draft.wording = draft.(workbench["trials"]?.array ?? []).first { $0.at("target.blockId")?.string == block.id && $0.at("target.baseText")?.raw == block.text }?["target"]
+                    draft.wording = (draft.workbench["trials"]?.array ?? []).first { $0.at("target.blockId")?.string == block.id && $0.at("target.baseText")?.raw == block.text }?["target"]
                 }
                 .font(.caption)
                 .foregroundStyle(Ink.thread)
@@ -831,6 +831,8 @@ private struct Alternatives: View {
             .paper()
         }
         .presentationDetents([.medium, .large])
+        // The draft stays bright above the sheet, so a wording shows in place.
+        .presentationBackgroundInteraction(.enabled(upThrough: .medium))
     }
 
     private func choose(_ trial: JSON?) {
