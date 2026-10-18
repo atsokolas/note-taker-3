@@ -56,7 +56,8 @@ describe('renderTiptapDoc', () => {
             content: [
               { type: 'text', text: 'Quarter ended July 26, ', marks: [claim] },
               { type: 'text', text: '2026', marks: [claim, { type: 'bold' }] },
-              { type: 'text', text: '.', marks: [claim] }
+              { type: 'text', text: '.', marks: [claim] },
+              { type: 'text', text: '【1†L1-L2】', marks: [claim] }
             ]
           }]
         })}

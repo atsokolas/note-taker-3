@@ -289,11 +289,13 @@ const renderTextNode = (node, key, options = {}) => {
 
 const claimIdOf = node => node?.marks?.find?.(mark => mark?.type === 'claim')?.attrs?.claimId;
 
-// A claim split across text nodes (a date, a link) cites once, at its end.
+// A claim split across text nodes (a date, a link) cites once, after its
+// last piece that shows.
 const renderInline = (content = [], keyPrefix = '', options = {}) => content
   .map((child, index) => {
     if (!child) return null;
-    const claimContinues = Boolean(claimIdOf(child)) && claimIdOf(content[index + 1]) === claimIdOf(child);
+    const next = content.slice(index + 1).find(node => stripModelSourceRangeCitations(node?.text || ''));
+    const claimContinues = Boolean(claimIdOf(child)) && claimIdOf(next) === claimIdOf(child);
     if (child.type === 'text') return renderTextNode(child, `${keyPrefix}-${index}`, { ...options, claimContinues });
     return null;
   })
