@@ -1,0 +1,64 @@
+#!/bin/bash
+# Makes Noeis the reader on this Omarchy machine, once. Each step checks
+# first, so running it again changes nothing that is already in place.
+#
+#   - noeis-open on your PATH, and Noeis in the launcher as its own window
+#     that opens EPUB and Markdown files and web+noeis:// links
+#   - the Noeis browser extension loaded into Omarchy's Chromium
+#   - Super+Alt+N opens the panel; Super+Alt+Shift+N saves the clipboard's link
+#   - "Noeis" in the Share menu (Super+Ctrl+S) saves the clipboard's link
+#   - noeis.io dressed in your Omarchy theme, if you are signed in
+set -euo pipefail
+
+PLUGIN=$(cd "$(dirname "$0")/.." && pwd)
+APP=${NOEIS_APP_URL:-https://www.noeis.io}
+API=${NOEIS_API_URL:-https://note-taker-3-unrg.onrender.com}
+SESSION=${XDG_CONFIG_HOME:-$HOME/.config}/noeis/omarchy.json
+BINDINGS=$HOME/.config/hypr/bindings.lua
+FLAGS=$HOME/.config/chromium-flags.conf
+MENU=$HOME/.config/omarchy/extensions/omarchy-menu.jsonc
+SAVE="omarchy-shell noeis saveClipboard"
+
+done_() { printf '  %s\n' "$1"; }
+
+mkdir -p "$HOME/.local/bin"
+ln -sf "$PLUGIN/bin/noeis-open" "$HOME/.local/bin/noeis-open"
+done_ "noeis-open is on your PATH"
+
+omarchy-webapp-install Noeis "$APP" "" "noeis-open %U" \
+  "application/epub+zip;text/markdown;x-scheme-handler/web+noeis;" >/dev/null
+xdg-mime default Noeis.desktop x-scheme-handler/web+noeis
+done_ "Noeis is in the launcher and opens web+noeis:// links"
+
+if [[ -d $PLUGIN/extension ]] && ! grep -q "$PLUGIN/extension" "$FLAGS" 2>/dev/null; then
+  if grep -q '^--load-extension=' "$FLAGS" 2>/dev/null; then
+    sed -i "s|^--load-extension=.*|&,$PLUGIN/extension|" "$FLAGS"
+  else
+    echo "--load-extension=$PLUGIN/extension" >>"$FLAGS"
+  fi
+  done_ "The extension loads the next time Chromium starts (Alt+Shift+N saves the tab)"
+fi
+
+if ! grep -q 'io.noeis' "$BINDINGS"; then
+  printf '\n-- Noeis\no.bind("SUPER + ALT + N", "Noeis", "omarchy-shell shell toggle io.noeis")\n' >>"$BINDINGS"
+fi
+if ! grep -q "$SAVE" "$BINDINGS"; then
+  printf 'o.bind("SUPER + ALT + SHIFT + N", "Save link to Noeis", "%s")\n' "$SAVE" >>"$BINDINGS"
+fi
+done_ "Super+Alt+N opens Noeis; Super+Alt+Shift+N saves the link on your clipboard"
+
+if ! grep -q 'trigger.share.noeis' "$MENU" 2>/dev/null; then
+  mkdir -p "$(dirname "$MENU")"
+  [[ -f $MENU ]] || echo '{}' >"$MENU"
+  # The file is JSONC, so the entry goes in before its closing brace.
+  sed -i "\$s|}\s*\$|  \"trigger.share.noeis\": {\"icon\":\"󰂺\",\"label\":\"Noeis\",\"description\":\"Save the link on your clipboard to read later\",\"action\":\"$SAVE\"},\n}|" "$MENU"
+fi
+done_ "Share → Noeis saves the link on your clipboard"
+
+token=$(jq -r '.token // empty' "$SESSION" 2>/dev/null) || true
+if [[ -n $token ]] && printf 'Authorization: Bearer %s\n' "$token" |
+  curl -fsS -o /dev/null -X PUT -H @- -H 'Content-Type: application/json' -d '{"theme":"omarchy"}' "$API/api/ui-settings"; then
+  done_ "noeis.io wears your Omarchy theme"
+else
+  done_ "To give noeis.io your Omarchy theme, choose Omarchy under its theme settings"
+fi
