@@ -41,7 +41,7 @@ const rig = () => {
       return { highlight };
     }),
     wiki: jest.fn(async sourceIds => {
-      writes.push('wiki'); const page = { _id: id(4), userId: owner, title: plan.wiki.title, visibility: 'private',
+      writes.push('wiki'); const page = { _id: id(4), userId: owner, title: plan.wiki.readbackTitle, visibility: 'private',
         status: 'draft', pageType: 'topic', sourceScope: 'selected_sources', plainText: plan.wiki.body,
         body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: plan.wiki.body }] }] },
         sourceRefs: plan.sources.map((source, index) => ({ type: 'article', objectId: sourceIds[index],
@@ -129,6 +129,34 @@ test('valid owned article holds and the consistent manual-text update contract r
     expect((await r.session().inspect()).sources[0]._id).toBe(id(1));
     expect(r.writes).toEqual([]);
   }
+});
+
+test('uncertain Wiki intent reconciles the exact canonical title with zero new writes', async () => {
+  const r = rig(); const complete = await r.session().run(); r.writes.length = 0;
+  const key = `noeis.reviewer.fixtures.v${plan.version}.${owner}`;
+  const journal = JSON.parse(r.saved.get(key)); delete journal.confirmed.wiki; journal.intent = 'wiki';
+  r.saved.set(key, JSON.stringify(journal));
+  const checked = await r.session().inspect();
+  expect(checked.wiki._id).toBe(complete.wiki._id); expect(checked.complete).toBe(true);
+  expect(JSON.parse(r.saved.get(key)).intent).toBe(null); expect(r.writes).toEqual([]);
+});
+
+test.each([plan.wiki.title, plan.wiki.readbackTitle.toLowerCase(), `${plan.wiki.readbackTitle}!`])(
+  'other title variants (%s) cannot resolve the uncertain Wiki intent', async title => {
+    const r = rig(); await r.session().run(); r.writes.length = 0;
+    const key = `noeis.reviewer.fixtures.v${plan.version}.${owner}`;
+    const journal = JSON.parse(r.saved.get(key)); delete journal.confirmed.wiki; journal.intent = 'wiki';
+    const uncertain = JSON.stringify(journal); r.saved.set(key, uncertain); r.pages[0].title = title;
+    await expect(r.session().inspect()).rejects.toThrow(/uncertain outcome/);
+    expect(r.saved.get(key)).toBe(uncertain); expect(r.writes).toEqual([]);
+  }
+);
+
+test('a canonical list entry cannot authorize a different full-page title', async () => {
+  const r = rig(); await r.session().run(); r.writes.length = 0;
+  r.client.page = async () => ({ ...r.pages[0], title: plan.wiki.title });
+  await expect(r.session().inspect()).rejects.toThrow(/Wiki differs/);
+  expect(r.writes).toEqual([]);
 });
 
 test('lost import response is reconciled from exact persisted records without repeating the POST', async () => {
@@ -219,6 +247,7 @@ test('transport captures explicit session once, uses only fixed approved routes 
   expect(api.post.mock.calls[2][1].initialSourceRefs.map(ref => ref.snippet)).toEqual(plan.sources.map(source => source.text));
   expect(api.post.mock.calls[2][1].evidencePreflight).toBeUndefined();
   expect(api.post.mock.calls[2][1].preset).toBeUndefined();
+  expect(api.post.mock.calls[2][1].title).toBe(plan.wiki.title);
   expect(api.post.mock.calls.every(call => call[2].headers.Authorization === 'Bearer OFFLINE_SYNTHETIC_SESSION')).toBe(true);
   getAuthHeaders.mockReturnValue({ headers: {} }); expect(() => createSetupClient(undefined, { origin: 'https://www.noeis.io', conceptId })).toThrow(/Sign in/);
   expect(() => verifySetupIdentity({})).toThrow();

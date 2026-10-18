@@ -14,7 +14,10 @@ const { buildImportRouter } = require('../importRoutes');
 const { buildHighlightMutationRouter } = require('../highlightMutationRoutes');
 const { buildWikiRouter } = require('../wikiRoutes');
 const { buildConceptMetaRouter } = require('../conceptMetaRoutes');
+const { buildLegacyContentRouter } = require('../legacyContentRoutes');
+const { normalizeWikiTitleForPresentation } = require('../../services/wikiPresentationGuard');
 const { heldFixtureEvent } = require('../../../note-taker-ui/src/pages/reviewerFixtureEvents');
+const fixturePlan = require('../../../note-taker-ui/src/pages/reviewerFixturePlan.json');
 const jobs = require('../../ai/embeddingJobs');
 const reviewer = '111111111111111111111111';
 const ordinary = '555555555555555555555555';
@@ -31,6 +34,18 @@ const response = () => ({ statusCode: 200, status(code) { this.statusCode = code
 const handle = (router, path, method) => router.stack.find(layer => layer.route?.path === path && layer.route.methods[method]).route.stack.at(-1).handle;
 const authenticateToken = (_req, _res, next) => next();
 const track = promise => { pending.push(promise); return promise; };
+
+// Execute the actual browser workflow with offline API bindings. Removing only
+// ESM declarations avoids adding a browser compiler to the server test runtime.
+const fixtureWorkflow = api => {
+  const filename = require('node:path').resolve(__dirname, '../../../note-taker-ui/src/pages/reviewerFixtureSetup.js');
+  const source = require('node:fs').readFileSync(filename, 'utf8');
+  assert.equal((source.match(/^import .*;$/gm) || []).length, 4);
+  const program = source.replace(/^import .*;$/gm, '').replace(/export const /g, 'const ');
+  return require('node:vm').compileFunction(`${program}\nreturn { createSetupClient, createFixtureSession, fixtureReceipt };`,
+    ['api', 'getAuthHeaders', 'plan', 'heldFixtureEvent'], { filename })(api,
+    () => ({ headers: { Authorization: 'Bearer OFFLINE_UNUSABLE' } }), fixturePlan, heldFixtureEvent);
+};
 test('existing owned concept read verifies only the exact enabled reviewer, without credentials or new access', async () => {
   const router = buildConceptMetaRouter({ authenticateToken, TagMeta: models.TagMeta, User: models.User, escapeRegExp: value => value });
   const route = handle(router, '/api/concepts/:name/idea-workbench', 'get');
@@ -129,6 +144,92 @@ test('direct event processing, ID invocation and worker claiming fail closed bef
   await assert.rejects(holdReviewerSourceEvent({ event, userId: ordinary, WikiSourceEvent: models.WikiSourceEvent }), { code: 'REVIEWER_SOURCE_EVENT_OWNER_MISMATCH' });
   await assert.rejects(holdReviewerSourceEvent({ event, userId: reviewer, WikiSourceEvent: { updateOne: async () => { throw new Error('offline storage failure'); } } }), { code: 'REVIEWER_SOURCE_EVENT_HOLD_UNAVAILABLE' });
   assert.equal(readBackCalls, 0);
+});
+
+test('actual creation/list/full-read contracts reconcile an uncertain Wiki with no repeated POST', async () => {
+  providerCalls = 0; readBackCalls = 0; pending = [];
+  const imports = buildImportRouter({ ...models, authenticateToken,
+    crypto: require('node:crypto'), upload: { single: () => (_req, _res, next) => next() },
+    enqueueArticleEmbedding: article => track(jobs.enqueueArticleEmbedding(article)),
+    fetchImpl: async () => { providerCalls++; throw new Error('no provider or URL fetch in fixture setup'); } });
+  const highlights = buildHighlightMutationRouter({ ...models, mongoose, authenticateToken,
+    normalizeTags: tags => tags || [], normalizeItemType: value => value || 'note',
+    enqueueHighlightEmbedding: args => track(jobs.enqueueHighlightEmbedding(args)), markTourSignal: async () => {} });
+  const wiki = buildWikiRouter({ ...models, authenticateToken });
+  const concepts = buildConceptMetaRouter({ authenticateToken, TagMeta: models.TagMeta, User: models.User, escapeRegExp: value => value });
+  const articles = buildLegacyContentRouter({ ...models, authenticateToken });
+  const calls = []; let alterRead = (_path, data) => data;
+  const invoke = async (router, route, method, req) => {
+    const res = response(); await handle(router, route, method)({ user: { id: reviewer }, query: {}, params: {}, ...req }, res);
+    assert(res.statusCode < 400, JSON.stringify(res.body));
+    return JSON.parse(JSON.stringify(res.body)); // the actual JSON wire shape
+  };
+  const api = {
+    get: async (path, config = {}) => {
+      calls.push({ method: 'GET', path }); let data;
+      if (path.endsWith('/idea-workbench')) data = await invoke(concepts, '/api/concepts/:name/idea-workbench', 'get', { params: { name: policy.identityConceptId } });
+      else if (path === '/api/articles/by-url') data = await invoke(articles, path, 'get', { query: config.params });
+      else if (['/api/wiki/pages', '/api/wiki/source-events'].includes(path)) data = await invoke(wiki, path, 'get', { query: config.params });
+      else if (/^\/api\/wiki\/pages\/[a-f0-9]{24}$/.test(path)) data = await invoke(wiki, '/api/wiki/pages/:id', 'get', { params: { id: path.split('/').at(-1) } });
+      else assert.fail(`Unexpected fixture GET ${path}`);
+      return { data: alterRead(path, data) };
+    },
+    post: async (path, body) => {
+      calls.push({ method: 'POST', path }); let data;
+      if (path === '/api/import/text') data = await invoke(imports, path, 'post', { body });
+      else if (path === '/api/wiki/pages') data = await invoke(wiki, path, 'post', { body });
+      else if (/^\/articles\/[a-f0-9]{24}\/highlights$/.test(path)) data = await invoke(highlights, '/articles/:id/highlights', 'post', { params: { id: path.split('/')[2] }, body });
+      else assert.fail(`Unexpected fixture POST ${path}`);
+      return { data };
+    }
+  };
+  const workflow = fixtureWorkflow(api);
+  const client = workflow.createSetupClient(undefined, { origin: 'https://www.noeis.io', conceptId: policy.identityConceptId });
+  const saved = new Map();
+  const storage = { getItem: key => saved.get(key) || null, setItem: (key, value) => saved.set(key, value) };
+  const locks = { request: async (_name, _options, callback) => callback({}) };
+  const session = () => workflow.createFixtureSession({ client, storage, locks });
+  const complete = await session().run();
+  assert.equal(complete.complete, true);
+  assert.equal(complete.wiki.title, fixturePlan.wiki.readbackTitle);
+  assert.equal(complete.wiki.title, normalizeWikiTitleForPresentation(fixturePlan.wiki.title, { maxLength: 180 }));
+  assert.notEqual(complete.wiki.title, fixturePlan.wiki.title);
+  assert.equal(calls.filter(call => call.method === 'POST').length, 4);
+  const key = `noeis.reviewer.fixtures.v${fixturePlan.version}.${reviewer}`;
+  const journal = JSON.parse(saved.get(key)); delete journal.confirmed.wiki; journal.intent = 'wiki';
+  const uncertain = JSON.stringify(journal); saved.set(key, uncertain); calls.length = 0;
+  const reread = await session().inspect();
+  assert.equal(reread.complete, true); assert.equal(reread.wiki._id, complete.wiki._id);
+  assert.equal(JSON.parse(saved.get(key)).intent, null);
+  assert.equal(workflow.fixtureReceipt(reread).wikiPageId, complete.wiki._id);
+  assert(calls.every(call => call.method === 'GET'));
+
+  for (const change of [
+    data => { data.title = fixturePlan.wiki.title; },
+    data => { data.userId = ordinary; },
+    data => { data.body.content[0].content[0].marks = [{ type: 'bold' }]; },
+    data => { data.plainText = 'Changed baseline'; },
+    data => { data.sourceScope = 'entire_library'; },
+    data => { data.sourceRefs[0].snippet = 'Changed source'; },
+    data => { data.sourceRefs[0].objectId = ordinary; }
+  ]) {
+    saved.set(key, uncertain); calls.length = 0;
+    alterRead = (path, data) => { if (path === `/api/wiki/pages/${complete.wiki._id}`) change(data); return data; };
+    await assert.rejects(session().inspect(), /Wiki differs/);
+    assert.equal(saved.get(key), uncertain); assert(calls.every(call => call.method === 'GET'));
+  }
+  for (const change of [
+    rows => rows.map(row => ({ ...row, title: fixturePlan.wiki.title })),
+    rows => [...rows, ...rows]
+  ]) {
+    saved.set(key, uncertain); calls.length = 0;
+    alterRead = (path, data) => path === '/api/wiki/pages' ? change(data) : data;
+    await assert.rejects(session().inspect(), /uncertain outcome|Duplicate fixture Wiki/);
+    assert.equal(saved.get(key), uncertain); assert(calls.every(call => call.method === 'GET'));
+  }
+  await Promise.all(pending); await new Promise(resolve => setImmediate(resolve));
+  assert.equal(providerCalls, 0); assert.equal(readBackCalls, 0);
+  assert.equal(await models.EmbeddingJob.countDocuments({ status: { $ne: 'held' } }), 0);
 });
 
 test('ordinary source events preserve pending status under a configured reviewer policy', async () => {

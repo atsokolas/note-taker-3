@@ -93,7 +93,7 @@ export const createFixtureSession = ({ client, storage, locks }) => {
     return article;
   };
   const checkPage = (page, sources) => {
-    if (!validId(idOf(page)) || String(page.userId) !== owner || page.title !== plan.wiki.title
+    if (!validId(idOf(page)) || String(page.userId) !== owner || page.title !== plan.wiki.readbackTitle
       || page.visibility !== 'private' || page.status !== 'draft' || page.pageType !== 'topic'
       || page.sourceScope !== 'selected_sources' || page.plainText !== plan.wiki.body || bodyText(page.body) !== plan.wiki.body
       || canonical(page.body) !== canonical(bodyDoc(plan.wiki.body))
@@ -121,7 +121,7 @@ export const createFixtureSession = ({ client, storage, locks }) => {
       throw pause('The saved highlight differs or is duplicated. It was preserved.');
     }
     const highlight = matchingHighlights[0] || null;
-    const candidates = (await client.pages()).filter(row => row.title === plan.wiki.title);
+    const candidates = (await client.pages()).filter(row => row.title === plan.wiki.readbackTitle);
     if (candidates.length > 1) throw pause('Duplicate fixture Wiki pages need review; setup is paused.');
     const wiki = candidates.length ? checkPage(await client.page(idOf(candidates[0])), sources) : null;
     const events = await client.events();
