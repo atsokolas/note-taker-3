@@ -42,6 +42,8 @@ const clearStoredTokens = () => {
   if (window.chrome && window.chrome.storage) {
     window.chrome.storage.local.remove(['token', 'authToken', 'jwt']);
   }
+  // The nightstand kept for offline reading (public/sw.js) is this account's.
+  window.caches?.delete('noeis-reading');
 };
 
 const redirectToLogin = (reason = 'auth') => {
