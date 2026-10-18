@@ -2199,6 +2199,11 @@ const WikiPageReadView = ({
     });
   }, [candidatePayload, exitIsolatedPreview, openContextPanel, page, previewMode]);
 
+  const handleReviewUpdate = useCallback(() => {
+    if (previewMode !== 'candidate') openCandidatePreview();
+    window.requestAnimationFrame(() => scrollToElementId('wiki-read-preview'));
+  }, [openCandidatePreview, previewMode]);
+
   const handleAcceptCandidate = useCallback(async () => {
     if (acceptBusy || !pageId) return;
     setAcceptBusy('accept');
@@ -2361,8 +2366,9 @@ const WikiPageReadView = ({
     if (!isRepoDossierPage(page)) return strippedBody;
     return applyRepoDossierSectionAnchors(strippedBody, bodyTocItems);
   }, [page, strippedBody, bodyTocItems]);
+  // A first draft has nothing to differ from, so nothing in it is marked changed.
   const previewDiffIds = useMemo(() => (
-    previewMode === 'candidate' ? changedClaimIdsFromPages(page, previewPage) : []
+    previewMode === 'candidate' && countPageClaims(page) ? changedClaimIdsFromPages(page, previewPage) : []
   ), [page, previewMode, previewPage]);
   const markedClaimIds = useMemo(() => {
     if (showChangedOnly && diffClaimIds.length) return new Set(diffClaimIds);
@@ -2972,7 +2978,7 @@ const WikiPageReadView = ({
                 judgmentTrackBusy={judgmentTrackBusy}
                 judgmentTrackStatus={judgmentTrackStatus}
                 onMaintain={handleMaintain}
-                onReview={() => openCandidatePreview()}
+                onReview={handleReviewUpdate}
                 onTrackInJudgment={handleTrackInJudgment}
               />
             ) : null}
@@ -3147,7 +3153,7 @@ const WikiPageReadView = ({
                 </div>
               ) : null}
               {previewMode === 'candidate' ? (
-                <div className="wiki-read__preview-strip">
+                <div className="wiki-read__preview-strip" id="wiki-read-preview" tabIndex={-1}>
                   <span>You are reading the proposed change. The page itself is unchanged.</span>
                   <button type="button" onClick={exitIsolatedPreview}>Return to the current page</button>
                 </div>

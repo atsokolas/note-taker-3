@@ -158,27 +158,18 @@
 }
 
 .wiki-read__preview-strip {
+  scroll-margin-top: 24px;
   border-color: var(--border-subtle);
   color: var(--accent);
+  outline: none;
 }
 
-.wiki-read__body.is-preview .wiki-read__article,
-.wiki-read--preview .wiki-read__article {
-  background: var(--surface-muted);
-}
-
+/* A changed claim is a phrase inside a paragraph, so it is marked where it
+   sits, line by line, rather than with a bar in the margin. */
 .wiki-read__changed-passage {
-  position: relative;
-}
-
-.wiki-read__changed-passage:before {
-  content: '';
-  position: absolute;
-  left: -16px;
-  top: 8px;
-  bottom: 8px;
-  width: 2px;
-  background: #99ac85;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
 }
 
 .wiki-read--diff-only .wiki-read__body [data-claim-id]:not(.wiki-read__changed-passage) {
