@@ -591,7 +591,6 @@ const { buildSemanticSearchRouter } = require('./routes/semanticSearchRoutes');
 const { buildTagTemplateRouter } = require('./routes/tagTemplateRoutes');
 const { buildConceptMetaRouter } = require('./routes/conceptMetaRoutes');
 const { buildWikiClaimDispositionRouter } = require('./routes/wikiClaimDispositionRoutes');
-const { buildSharedConceptRouter } = require('./routes/sharedConceptRoutes');
 const { buildSharedQuestionRouter } = require('./routes/sharedQuestionRoutes');
 const { buildConceptMaterialRouter } = require('./routes/conceptMaterialRoutes');
 const { buildAgentNotionFetchRouter } = require('./routes/agentNotionFetchRoutes');
@@ -4856,7 +4855,7 @@ app.use(buildNotebookRouter({
   Question,
   NoeisReceipt
 }));
-app.use(buildRetiredShareRouter({ SharedNotebook, WikiPage }));
+app.use(buildRetiredShareRouter({ SharedNotebook, SharedConcept, TagMeta, WikiPage }));
 
 app.use(buildAuthoredExplorationRouter({
   authenticateToken,
@@ -5365,16 +5364,6 @@ app.use(buildWikiClaimDispositionRouter({
   NotebookEntry,
   Question,
   WikiSourceEvent
-}));
-
-app.use(buildSharedConceptRouter({
-  authenticateToken,
-  SharedConcept,
-  TagMeta,
-  ConceptNote,
-  User,
-  escapeRegExp,
-  getConceptRelated
 }));
 
 app.use(buildSharedQuestionRouter({

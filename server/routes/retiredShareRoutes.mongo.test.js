@@ -16,7 +16,7 @@ test('real Mongo: an old Think share link opens the shared settled page, or says
   let server;
   try {
     await mongoose.connect(mongo.getUri());
-    const { SharedNotebook, WikiPage } = require('../models');
+    const { SharedConcept, SharedNotebook, TagMeta, WikiPage } = require('../models');
     const userId = new mongoose.Types.ObjectId();
     const [settledNote, privateNote, unsettledNote] = [0, 1, 2].map(() => new mongoose.Types.ObjectId());
     await SharedNotebook.create([
@@ -33,8 +33,20 @@ test('real Mongo: an old Think share link opens the shared settled page, or says
       createdFrom: { type: 'notebook', objectId: privateNote, label: `settled-note:${privateNote}` }
     });
 
+    const concept = await TagMeta.create({ userId, name: 'Durable advantage' });
+    const unsettledConcept = await TagMeta.create({ userId, name: 'Not settled' });
+    await SharedConcept.create([
+      { userId, conceptName: 'Durable advantage', slug: 'concept-settled' },
+      { userId, conceptName: unsettledConcept.name, slug: 'concept-unsettled' },
+      { userId, conceptName: 'Deleted since', slug: 'concept-gone' }
+    ]);
+    const conceptPage = await WikiPage.create({
+      userId, title: 'Durable advantage', slug: 'durable-advantage', status: 'published', visibility: 'shared',
+      createdFrom: { type: 'concept', objectId: concept._id, label: `settled-concept:${concept._id}` }
+    });
+
     const app = express();
-    app.use(buildRetiredShareRouter({ SharedNotebook, WikiPage }));
+    app.use(buildRetiredShareRouter({ SharedNotebook, SharedConcept, TagMeta, WikiPage }));
     let url;
     ({ server, url } = await listen(app));
     const resolve = async (path) => {
@@ -43,7 +55,8 @@ test('real Mongo: an old Think share link opens the shared settled page, or says
     };
 
     assert.deepEqual(await resolve('notebooks/settled-and-shared'), { status: 200, body: { to: `/share/wiki/${shared._id}` } });
-    for (const path of ['notebooks/settled-but-private', 'notebooks/never-settled', 'notebooks/no-such-slug', 'volumes/any-volume']) {
+    assert.deepEqual(await resolve('concepts/concept-settled'), { status: 200, body: { to: `/share/wiki/${conceptPage._id}` } });
+    for (const path of ['notebooks/settled-but-private', 'notebooks/never-settled', 'notebooks/no-such-slug', 'concepts/concept-unsettled', 'concepts/concept-gone', 'volumes/any-volume']) {
       assert.deepEqual(await resolve(path), { status: 410, body: { error: 'This piece is no longer shared here.' } }, path);
     }
 

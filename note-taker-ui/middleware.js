@@ -6,9 +6,9 @@ import { SHARE_ROUTES, injectSnapshot } from './src/seo/shareSnapshot';
    Think's retired share links answer with a permanent redirect to the shared
    wiki page they settled into; with nowhere to go, the app says so in one line. */
 
-export const config = { matcher: ['/share/wiki/:path*', '/share/editions/:path*', '/share/notebooks/:path*', '/share/volumes/:path*'] };
+export const config = { matcher: ['/share/wiki/:path*', '/share/editions/:path*', '/share/notebooks/:path*', '/share/volumes/:path*', '/share/concepts/:path*'] };
 
-const RETIRED = /^\/share\/(notebooks|volumes)\/([^/]+)\/?$/;
+const RETIRED = /^\/share\/(notebooks|volumes|concepts)\/([^/]+)\/?$/;
 
 const API_BASE = process.env.NOEIS_PUBLIC_API_BASE || 'https://note-taker-3-unrg.onrender.com';
 const passThrough = () => new Response(null, { headers: { 'x-middleware-next': '1' } });

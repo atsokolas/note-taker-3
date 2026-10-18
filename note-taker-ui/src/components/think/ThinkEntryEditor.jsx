@@ -9,7 +9,6 @@ import useSlashCommands from './editor/useSlashCommands';
 import { passageSlashItems } from './editor/slashCommands';
 import { BlockIdExtension, EntryBar, HighlightRefNode, passageContent } from './editor/writingParts';
 import InsertHighlightModal from './notebook/InsertHighlightModal';
-import ConceptShareModal from './concepts/ConceptShareModal';
 import QuestionShareModal from './questions/QuestionShareModal';
 import { useSettleIntoWiki } from './settleIntoWiki';
 import { Button } from '../ui';
@@ -332,7 +331,7 @@ const ThinkEntryEditor = ({
           onRetry={save}
         >
           <Button variant="quiet" onClick={() => setPicking(true)}>Pull a passage in</Button>
-          <Button variant="quiet" onClick={() => setSharing(true)}>Share</Button>
+          {isQuestion ? <Button variant="quiet" onClick={() => setSharing(true)}>Share</Button> : null}
           {concept?._id ? <Button variant="quiet" onClick={settleConcept} disabled={settlement.settling}>{settlement.action}</Button> : null}
           {entry.record?._id ? <Button variant="quiet" onClick={openHistory}>History</Button> : null}
         </EntryBar>
@@ -402,9 +401,7 @@ const ThinkEntryEditor = ({
       />
       {isQuestion ? (
         <QuestionShareModal open={sharing} questionId={entry.record._id} questionText={entry.record.text} onClose={() => setSharing(false)} />
-      ) : (
-        <ConceptShareModal open={sharing} conceptName={entry.record?.name || entry.title} onClose={() => setSharing(false)} />
-      )}
+      ) : null}
     </div>
   );
 };

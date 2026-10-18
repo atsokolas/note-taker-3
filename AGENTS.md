@@ -21,7 +21,7 @@
 - Wiki hub: `/wiki`, `/wiki/home`, `/wiki/workspace?page=…` (compact list via `?view=list` with WikiFacetRail facets + search); legacy `/wiki/:id` redirects to workspace.
 - Library default article list excludes suppressed items (`hiddenFromHome`, `debugOnly`, `archived`); append `?showSuppressed=1` to inspect the full corpus during QA.
 - Connections: use `/connections` as the single hub (`/integrations` same page; `/data-integrations` redirects with query/hash preserved for OAuth returns like `?source=readwise#sources`).
-- Public share routes (no auth chrome): `/share/wiki/:idOrSlug`, `/share/concepts/:slug`, `/share/questions/:slug` — editorial content only; no library/highlights leak.
+- Public share routes (no auth chrome): `/share/wiki/:idOrSlug`, `/share/questions/:slug` — editorial content only; no library/highlights leak. Think does not publish notes, Volumes or concepts: they settle into Wiki (`POST /api/notebook|concepts/:id/settle`) and are shared from the wiki page; old `/share/notebooks|volumes|concepts/:slug` links redirect to the shared settled page or say one calm line.
 - ThinkMode `legacyShell=0` only forces ThreePaneLayout for home, notebook, and concepts index; questions always use the editorial shell.
 - Editorial workbench styling uses `noeis-editorial` and shared tokens in `note-taker-ui/src/styles/theme.css` (plus `idea-workbench.css` / `stitch-editorial.css` where applicable).
 - Local editor/browser QA: run `node scripts/seed_editor_qa.js` for the `qa_editor_seed` user; run `node scripts/seed_wiki_qa.js` for wiki/graph QA (credentials live in seed scripts — never store passwords in docs or AGENTS.md).

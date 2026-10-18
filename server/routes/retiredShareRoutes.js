@@ -7,7 +7,7 @@ const { settledPageFor } = require('../services/settlement');
    line. Nothing about the old copy is read back out. */
 const NO_LONGER_SHARED = 'This piece is no longer shared here.';
 
-const buildRetiredShareRouter = ({ SharedNotebook, WikiPage }) => {
+const buildRetiredShareRouter = ({ SharedNotebook, SharedConcept, TagMeta, WikiPage }) => {
   const router = express.Router();
 
   const settledFrom = {
@@ -15,10 +15,15 @@ const buildRetiredShareRouter = ({ SharedNotebook, WikiPage }) => {
       const share = await SharedNotebook.findOne({ slug }).select('userId notebookId').lean();
       return share && { userId: share.userId, kind: 'notebook', id: share.notebookId };
     },
+    concepts: async (slug) => {
+      const share = await SharedConcept.findOne({ slug }).select('userId conceptName').lean();
+      const concept = share && await TagMeta.findOne({ userId: share.userId, name: share.conceptName }).select('_id').lean();
+      return concept && { userId: share.userId, kind: 'concepts', id: concept._id };
+    },
     volumes: async () => null
   };
 
-  router.get('/api/public/retired/:kind(notebooks|volumes)/:slug', async (req, res) => {
+  router.get('/api/public/retired/:kind(notebooks|concepts|volumes)/:slug', async (req, res) => {
     res.set('Cache-Control', 'no-store');
     try {
       const origin = await settledFrom[req.params.kind](String(req.params.slug || '').trim());

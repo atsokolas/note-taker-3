@@ -61,31 +61,3 @@ export const updateConceptIdeaWorkbench = async (conceptIdOrName, ideaWorkbench,
   const res = await api.put(`/api/concepts/${safe}/idea-workbench`, body, getAuthHeaders());
   return res.data || { conceptId: '', conceptName: '', ideaWorkbench: null, ideaWorkbenchMeta: null, revision: 0, events: [] };
 };
-
-// Public concept share -------------------------------------------------------
-
-export const getConceptShare = async (name) => {
-  const res = await api.get(`/api/concepts/${encodeURIComponent(name)}/share`, getAuthHeaders());
-  return res.data || { shared: false };
-};
-
-export const mintConceptShare = async (name, body = {}) => {
-  const res = await api.post(`/api/concepts/${encodeURIComponent(name)}/share`, body, getAuthHeaders());
-  return res.data || {};
-};
-
-export const updateConceptShare = async (name, body = {}) => {
-  const res = await api.put(`/api/concepts/${encodeURIComponent(name)}/share`, body, getAuthHeaders());
-  return res.data || {};
-};
-
-export const revokeConceptShare = async (name) => {
-  const res = await api.delete(`/api/concepts/${encodeURIComponent(name)}/share`, getAuthHeaders());
-  return res.data || { revoked: true };
-};
-
-// Public read — no auth headers; readable while unauthenticated.
-export const getPublicConcept = async (slug) => {
-  const res = await api.get(`/api/public/concepts/${encodeURIComponent(slug)}`);
-  return res.data;
-};

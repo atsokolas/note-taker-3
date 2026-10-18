@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import api from '../api';
 import RetiredShare, { NO_LONGER_SHARED } from './RetiredShare';
 
-// The router is stubbed to the surface this page uses, as in SharedConcept.test.
+// The router stub here names where Navigate goes and which slug the link held.
 jest.mock('react-router-dom', () => ({
   Link: ({ to, children, className }) => <a href={to} className={className}>{children}</a>,
   Navigate: ({ to, replace }) => <output data-testid="redirect" data-replace={String(replace)}>{to}</output>,

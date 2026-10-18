@@ -3253,22 +3253,13 @@ readingLoopEditionSchema.index({ userId: 1, 'history.key': 1 });
 
 const ReadingLoopEdition = mongoose.model('ReadingLoopEdition', readingLoopEditionSchema);
 
-/**
- * SharedConcept — a frozen public snapshot of a concept.
- *
- * Same URL contract as a shared notebook: the slug is the URL, the snapshot
- * is the version. Private workbench edits do not move the public copy. An
- * explicit owner update replaces the snapshot under the same URL. Revoking
- * deletes the row. ConceptNote and private source trails never enter.
- */
+/* A concept Think once shared at a link. Think no longer publishes; the rows
+   stay (and follow a rename) so an old link can still find the wiki page the
+   concept settled into (routes/retiredShareRoutes.js). */
 const sharedConceptSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   conceptName: { type: String, required: true, trim: true },
-  slug: { type: String, required: true, unique: true, index: true },
-  ownerDisplayName: { type: String, default: '' },
-  snapshot: { type: mongoose.Schema.Types.Mixed, default: null },
-  contentHash: { type: String, default: '' },
-  publishedAt: { type: Date, default: null }
+  slug: { type: String, required: true, unique: true, index: true }
 }, { timestamps: true });
 
 sharedConceptSchema.index({ userId: 1, conceptName: 1 }, { unique: true });
@@ -3278,7 +3269,7 @@ const SharedConcept = mongoose.model('SharedConcept', sharedConceptSchema);
 /**
  * SharedQuestion — a frozen public snapshot of a question thread.
  *
- * Same URL contract as a shared notebook. Public reads expose only authored
+ * The slug is the URL, the snapshot is the version. Public reads expose only authored
  * paragraph blocks; highlight refs and library material stay private.
  * A later reading sits beside the snapshot, counted on this door.
  * A brief may close the page; it is not inside the snapshot.

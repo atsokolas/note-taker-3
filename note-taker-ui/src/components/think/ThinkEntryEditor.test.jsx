@@ -28,7 +28,6 @@ jest.mock('./editor/EditorDraftShell', () => ({ onAskSelection }) => (
   <div data-testid="writing"><button type="button" onClick={() => onAskSelection('a sentence')}>Ask about selection</button></div>
 ));
 jest.mock('./notebook/InsertHighlightModal', () => ({ open }) => (open ? <div>Choose a passage</div> : null));
-jest.mock('./concepts/ConceptShareModal', () => () => null);
 jest.mock('./questions/QuestionShareModal', () => () => null);
 jest.mock('../../hooks/useHighlights', () => () => ({ highlights: [], highlightMap: new Map() }));
 jest.mock('../../api/concepts', () => ({
@@ -96,6 +95,7 @@ describe('ThinkEntryEditor', () => {
     settleIntoWiki.mockResolvedValueOnce({ page: { _id: 'page-1', title: 'Moats', sourceRefs: [{}] }, resettled: false });
     render(<ThinkEntryEditor target={{ kind: 'concept', id: 'Moats' }} />);
     fireEvent.click(await screen.findByRole('button', { name: 'Settle into Wiki' }));
+    expect(screen.queryByRole('button', { name: 'Share' })).not.toBeInTheDocument();
     expect(await screen.findByRole('link', { name: 'Moats' })).toHaveAttribute('href', '/wiki/read/page-1');
     expect(settleIntoWiki).toHaveBeenCalledWith('concepts', 'c1');
     expect(screen.getByText(/Share it from there/)).toBeInTheDocument();
