@@ -1,0 +1,481 @@
+import QtQuick
+import Quickshell
+import Quickshell.Io
+import qs.Commons
+import qs.Commons as Commons
+import qs.Ui
+import "Model.js" as Model
+
+// Noeis from the bar: one field that takes a link or a search.
+//
+// Paste a link and Enter saves it, asked for the nightstand; the receipt
+// says where the server actually put it. Type words and your Library
+// answers as you type: sources, passages and notes, each opening at its own
+// place on noeis.io. Opened with a link on the clipboard, the panel offers
+// that link already, selected, so typing replaces it.
+//
+// Signing in is the same as the iPhone app: username and password for a
+// session token, kept in ~/.config/noeis/omarchy.json (the directory the
+// Noeis CLI keeps private) and dropped the moment the server refuses it.
+// Requests go through XMLHttpRequest, so the token never sits in a
+// process's arguments.
+Panel {
+  id: root
+  moduleName: "io.noeis"
+  manageIpc: false
+
+  property var anchorItem: null
+  // The bar tracks the widget in its slot, not this nested panel, so the
+  // popout coordinator has to be handed that widget.
+  property var hostWidget: null
+  readonly property var barIdentity: hostWidget || root
+
+  readonly property string apiUrl: String(Quickshell.env("NOEIS_API_URL") || Model.API).replace(/\/+$/, "")
+  readonly property string appUrl: String(Quickshell.env("NOEIS_APP_URL") || Model.APP).replace(/\/+$/, "")
+  readonly property string sessionDir: (Quickshell.env("XDG_CONFIG_HOME") || Quickshell.env("HOME") + "/.config") + "/noeis"
+
+  property var session: Model.sessionFrom("", Date.now())
+  readonly property bool signedIn: session.token !== ""
+
+  property string query: ""
+  readonly property string link: Model.linkFrom(query)
+  readonly property string words: link ? "" : query.trim()
+  property bool fromClipboard: false
+  property string lastSaved: ""
+
+  property var results: []
+  property string searched: ""
+  property int cursor: 0
+  property int searchSeq: 0
+
+  property bool busy: false
+  property string line: ""
+  property bool lineIsProblem: false
+  property string lineUrl: ""
+
+  readonly property color foreground: Commons.Color.popups.text
+  readonly property real muted: 0.62
+
+  function open() {
+    controller.show()
+    readClipboard()
+  }
+
+  function close() { controller.hide() }
+  function toggle() { opened ? close() : open() }
+
+  function say(text, isProblem, url) {
+    line = text
+    lineIsProblem = !!isProblem
+    lineUrl = url || ""
+  }
+
+  function visit(path) {
+    Qt.openUrlExternally(path.indexOf("http") === 0 ? path : appUrl + path)
+    close()
+  }
+
+  // ---- The one door to the API. Every answer comes back as (status, body);
+  //      a refused token ends the session here, once, for every caller.
+  function request(method, path, body, done) {
+    var xhr = new XMLHttpRequest()
+    xhr.onreadystatechange = function() {
+      if (xhr.readyState !== XMLHttpRequest.DONE) return
+      var reply = null
+      try { reply = JSON.parse(xhr.responseText) } catch (e) { reply = null }
+      if (xhr.status === 401 && root.signedIn) root.forget(true)
+      done(xhr.status, reply)
+    }
+    xhr.open(method, apiUrl + path)
+    xhr.setRequestHeader("Accept", "application/json")
+    if (signedIn) xhr.setRequestHeader("Authorization", "Bearer " + session.token)
+    if (body !== null) xhr.setRequestHeader("Content-Type", "application/json")
+    xhr.send(body === null ? null : JSON.stringify(body))
+  }
+
+  // ---- Session.
+
+  FileView {
+    id: sessionFile
+    path: root.sessionDir + "/omarchy.json"
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: root.session = Model.sessionFrom(text(), Date.now())
+    onLoadFailed: root.session = Model.sessionFrom("", Date.now())
+  }
+
+  // The directory is made private before the token is written into it.
+  Process {
+    id: sessionDirProc
+    command: ["mkdir", "-p", "-m", "700", root.sessionDir]
+    onExited: root.write()
+  }
+
+  function write() {
+    sessionFile.setText(JSON.stringify(signedIn ? { token: session.token, username: session.username } : {}) + "\n")
+  }
+
+  function keep(token, username) {
+    session = { token: token, username: username, ended: false }
+    sessionDirProc.running = true
+  }
+
+  function forget(ended) {
+    session = { token: "", username: "", ended: !!ended }
+    field.text = ""
+    say("")
+    write()
+  }
+
+  function signIn(username, password) {
+    if (busy || !username || !password) return
+    busy = true
+    say("Signing in…")
+    request("POST", "/api/auth/login", { username: username, password: password }, function(status, reply) {
+      busy = false
+      if (status === 200 && reply && reply.token) {
+        root.keep(reply.token, reply.username || username)
+        say("")
+        Qt.callLater(function() { field.forceActiveFocus() })
+      } else {
+        say(Model.problem(status, reply, "signIn"), true)
+      }
+    })
+  }
+
+  // ---- Saving a link.
+  function save() {
+    var url = link
+    if (busy || !url) return
+    busy = true
+    say("Reading the page…")
+    request("POST", "/api/import/url", { url: url, placement: "later" }, function(status, reply) {
+      busy = false
+      if ((status === 200 || status === 201) && reply && reply.article) {
+        root.lastSaved = url
+        field.text = ""
+        say(Model.saveReceipt(reply), false, "/library?articleId=" + encodeURIComponent(reply.article._id))
+      } else if (status !== 401) {
+        say(Model.problem(status, reply, "save"), true)
+      }
+    })
+  }
+
+  // ---- Searching, as you type. Only the newest answer is shown.
+  Timer {
+    id: searchDelay
+    interval: 250
+    onTriggered: root.search(root.words)
+  }
+
+  onWordsChanged: {
+    if (words.length >= 2 && signedIn) searchDelay.restart()
+    else {
+      searchDelay.stop()
+      searchSeq++
+      results = []
+      searched = ""
+    }
+  }
+
+  // The Library and the Wiki answer separately; the list appears once both
+  // have, so rows never shift under the cursor. One side failing still shows
+  // what the other found.
+  function search(q) {
+    var seq = ++searchSeq
+    var answers = {}
+    function found(answer) { return answer.status === 200 ? answer.reply : null }
+    function settle(side, status, reply) {
+      if (seq !== root.searchSeq) return
+      answers[side] = { status: status, reply: reply }
+      if (!answers.library || !answers.wiki) return
+      var rows = Model.searchResults(found(answers.library), found(answers.wiki), 8)
+      var failed = [answers.library, answers.wiki].filter(function(a) { return a.status !== 200 && a.status !== 401 })[0]
+      if (failed && !rows.length) return say(Model.problem(failed.status, failed.reply, "search"), true)
+      root.results = rows
+      root.searched = q
+      root.cursor = 0
+    }
+    var words = encodeURIComponent(q)
+    request("GET", "/api/search?q=" + words, null, function(status, reply) { settle("library", status, reply) })
+    request("GET", "/api/wiki/pages?summary=1&limit=8&q=" + words, null, function(status, reply) { settle("wiki", status, reply) })
+  }
+
+  function moveCursor(step) {
+    if (results.length) cursor = (cursor + step + results.length) % results.length
+  }
+
+  function accept() {
+    if (link) save()
+    else if (results.length) visit(results[cursor].path)
+  }
+
+  // ---- The clipboard, read once per opening. A link just saved is not
+  //      offered again.
+  Process {
+    id: clipboardProc
+    command: ["wl-paste", "--no-newline", "--type", "text"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        var offered = Model.linkFrom(String(text || "").slice(0, 2048))
+        if (!offered || offered === root.lastSaved || field.text !== "") return
+        field.text = offered
+        field.selectAll()
+        root.fromClipboard = true
+      }
+    }
+  }
+
+  function readClipboard() {
+    if (signedIn && field.text === "" && !busy) clipboardProc.running = true
+  }
+
+  KeyboardPanel {
+    id: panel
+    anchorItem: root.anchorItem
+    owner: root.barIdentity
+    bar: root.bar
+    open: root.opened
+    focusTarget: root.signedIn ? field : usernameField
+    contentWidth: panel.fittedContentWidth(Style.space(420))
+    contentHeight: panel.fittedContentHeight(body.implicitHeight)
+
+    Column {
+      id: body
+      width: parent.width
+      spacing: Style.spacing.panelGap
+
+      Item {
+        width: parent.width
+        height: heading.implicitHeight
+
+        PanelSectionHeader {
+          id: heading
+          text: "NOEIS"
+          foreground: root.foreground
+        }
+
+        Text {
+          anchors.right: parent.right
+          anchors.baseline: heading.baseline
+          visible: root.signedIn && root.session.username !== ""
+          text: root.session.username
+          textFormat: Text.PlainText
+          color: root.foreground
+          opacity: root.muted
+          font.family: Style.font.family
+          font.pixelSize: Style.font.caption
+        }
+      }
+
+      // ---- Signed in: the field, its hint or receipt, and what it found.
+      Column {
+        visible: root.signedIn
+        width: parent.width
+        spacing: Style.spacing.rowGap
+
+        TextField {
+          id: field
+          width: parent.width
+          foreground: root.foreground
+          placeholderText: "Paste a link, or search what you keep"
+          enabled: !root.busy
+          inputMethodHints: Qt.ImhNoAutoUppercase | Qt.ImhNoPredictiveText
+          // A receipt answers the last thing typed, so the next one clears it.
+          onTextChanged: {
+            root.query = text
+            root.say("")
+          }
+          onTextEdited: root.fromClipboard = false
+          onAccepted: root.accept()
+          Keys.onUpPressed: root.moveCursor(-1)
+          Keys.onDownPressed: root.moveCursor(1)
+          Keys.onEscapePressed: function(event) {
+            if (text !== "") text = ""
+            else root.close()
+          }
+        }
+
+        Note {
+          text: root.line !== "" ? root.line
+            : root.link ? (root.fromClipboard ? "From your clipboard. Enter saves it to Noeis." : "Enter saves it to Noeis.")
+            : root.searched !== "" && root.searched === root.words && root.results.length === 0 ? "Nothing you keep matches that."
+            : ""
+          problem: root.line !== "" && root.lineIsProblem
+          url: root.line !== "" ? root.lineUrl : ""
+        }
+
+        Repeater {
+          model: root.link ? [] : root.results
+
+          Rectangle {
+            id: row
+            required property var modelData
+            required property int index
+            readonly property bool hot: rowMouse.containsMouse || root.cursor === index
+            width: body.width
+            height: rowText.implicitHeight + Style.space(10)
+            radius: Style.cornerRadius
+            color: Style.controlFill(false, hot, root.foreground, Commons.Color.accent)
+
+            Column {
+              id: rowText
+              x: Style.space(8)
+              width: parent.width - Style.space(16)
+              anchors.verticalCenter: parent.verticalCenter
+              spacing: Style.spacing.labelGap
+
+              Text {
+                width: parent.width
+                text: row.modelData.title
+                textFormat: Text.PlainText
+                elide: Text.ElideRight
+                color: root.foreground
+                font.family: Style.font.family
+                font.pixelSize: Style.font.body
+              }
+
+              Text {
+                width: parent.width
+                text: row.modelData.kind + (row.modelData.detail ? "  ·  " + row.modelData.detail : "")
+                textFormat: Text.PlainText
+                elide: Text.ElideRight
+                color: root.foreground
+                opacity: root.muted
+                font.family: Style.font.family
+                font.pixelSize: Style.font.bodySmall
+              }
+            }
+
+            MouseArea {
+              id: rowMouse
+              anchors.fill: parent
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onEntered: root.cursor = row.index
+              onClicked: root.visit(row.modelData.path)
+            }
+          }
+        }
+      }
+
+      // ---- Signed out.
+      Column {
+        visible: !root.signedIn
+        width: parent.width
+        spacing: Style.spacing.rowGap
+
+        Note {
+          text: root.line !== "" ? root.line
+            : root.session.ended ? Model.problem(401)
+            : "Sign in to save links and search what you keep from here."
+          problem: root.lineIsProblem
+        }
+
+        TextField {
+          id: usernameField
+          width: parent.width
+          foreground: root.foreground
+          placeholderText: "Username"
+          enabled: !root.busy
+          inputMethodHints: Qt.ImhNoAutoUppercase | Qt.ImhNoPredictiveText
+          onAccepted: passwordField.forceActiveFocus()
+          Keys.onEscapePressed: root.close()
+        }
+
+        TextField {
+          id: passwordField
+          width: parent.width
+          foreground: root.foreground
+          placeholderText: "Password"
+          password: true
+          enabled: !root.busy
+          onAccepted: signInButton.clicked()
+          Keys.onEscapePressed: root.close()
+        }
+
+        Button {
+          id: signInButton
+          text: "Sign in"
+          foreground: root.foreground
+          bordered: true
+          onClicked: {
+            root.signIn(usernameField.text.trim(), passwordField.text)
+            passwordField.text = ""
+          }
+        }
+      }
+
+      // ---- Where to go next.
+      Item {
+        width: parent.width
+        height: places.implicitHeight
+
+        Row {
+          id: places
+          spacing: Style.space(14)
+
+          Repeater {
+            model: root.signedIn
+              ? [["Library", "/library"], ["Think", "/think"], ["Wiki", "/wiki"], ["Judgment", "/judgment"], ["Editions", "/editions"]]
+              : [["Make an account at noeis.io", "/"]]
+
+            Place {
+              required property var modelData
+              text: modelData[0]
+              onClicked: root.visit(modelData[1])
+            }
+          }
+        }
+
+        Place {
+          anchors.right: parent.right
+          visible: root.signedIn
+          text: "Sign out"
+          onClicked: root.forget(false)
+        }
+      }
+    }
+  }
+
+  // A line under the field: a hint, a receipt, or a problem. A receipt's
+  // title opens the piece it names.
+  component Note: Text {
+    property bool problem: false
+    property string url: ""
+    width: parent ? parent.width : 0
+    visible: text !== ""
+    wrapMode: Text.Wrap
+    textFormat: Text.PlainText
+    color: problem ? Commons.Color.urgent : root.foreground
+    opacity: problem ? 1 : root.muted
+    font.family: Style.font.family
+    font.pixelSize: Style.font.bodySmall
+
+    MouseArea {
+      anchors.fill: parent
+      enabled: parent.url !== ""
+      cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+      onClicked: root.visit(parent.url)
+    }
+  }
+
+  component Place: Text {
+    signal clicked()
+    textFormat: Text.PlainText
+    color: placeMouse.containsMouse ? Commons.Color.accent : root.foreground
+    opacity: placeMouse.containsMouse ? 1 : root.muted
+    font.family: Style.font.family
+    font.pixelSize: Style.font.caption
+
+    MouseArea {
+      id: placeMouse
+      anchors.fill: parent
+      hoverEnabled: true
+      cursorShape: Qt.PointingHandCursor
+      onClicked: parent.clicked()
+    }
+  }
+}

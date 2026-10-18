@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "io.noeis",
+  "name": "Noeis",
+  "version": "0.1.0",
+  "author": "Noeis",
+  "license": "ISC",
+  "description": "Save a link to read later and search your Noeis library, Wiki and views from the bar",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Noeis",
+    "description": "Save a link to read later and search your Noeis library, Wiki and views",
+    "category": "Info",
+    "allowMultiple": false,
+    "defaultSection": "right"
+  }
+}
