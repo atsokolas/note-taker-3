@@ -24,6 +24,8 @@ struct LibraryList: View {
             }
             .refreshable { await reload() }
             .onChange(of: generation) { Task { await reload() } }
+            // The newest dozen wait on the device, to read later with no connection.
+            .task(id: articles.first?.id) { await NoeisAPI.shared.keep(articleIds: articles.prefix(12).map(\.id)) }
         }
         .searchable(text: $query, prompt: "Search your library")
         .roomTitle("Library")

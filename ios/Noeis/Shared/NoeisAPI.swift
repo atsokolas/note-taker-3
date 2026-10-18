@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 
 enum NoeisAPIError: LocalizedError {
@@ -33,6 +34,8 @@ struct NoeisAPI {
         // The API sleeps when idle; waking it can take most of a minute.
         configuration.timeoutIntervalForRequest = 75
         configuration.waitsForConnectivity = true
+        // But not forever: past this, a read answers from the device instead.
+        configuration.timeoutIntervalForResource = 90
         return URLSession(configuration: configuration)
     }()
 
@@ -432,12 +435,6 @@ struct NoeisAPI {
 
     @discardableResult
     func send(_ method: String, _ path: String, query: [String: String] = [:], body: JSON? = nil, signedIn: Bool = true) async throws -> JSON {
-        #if DEBUG
-        if let standIn = Self.standIn {
-            try? await Task.sleep(for: .milliseconds(350))
-            return standIn(method, path, query) ?? .null
-        }
-        #endif
         var components = URLComponents(url: base.appendingPathComponent(path), resolvingAgainstBaseURL: false)!
         if !query.isEmpty {
             components.queryItems = query.sorted { $0.key < $1.key }.map { URLQueryItem(name: $0.key, value: $0.value) }
@@ -450,18 +447,73 @@ struct NoeisAPI {
             request.httpBody = try JSONEncoder().encode(body)
         }
         if signedIn {
-            guard let token = NoeisAuthStore.shared.token else { throw signOut() }
+            var token = NoeisAuthStore.shared.token
+            #if DEBUG
+            if Self.standIn != nil { token = "sample" }
+            #endif
+            guard let token else { throw signOut() }
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        let (data, response) = try await perform(request)
-        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        // Every signed-in read is kept on the device, so a page can open from
+        // it at once and still opens with no connection or a sleeping server.
+        let key = method == "GET" && signedIn ? request.url!.absoluteString : nil
+        let reading = Self.reading
+        if reading?.saved == true {
+            guard let key, let copy = SavedCopies.read(key) else { throw NoeisAPIError.offline }
+            reading?.used(copy.date)
+            return copy.json
+        }
+        let data: Data, status: Int
+        do { (data, status) = try await perform(request) } catch NoeisAPIError.offline {
+            guard let key, let copy = SavedCopies.read(key) else { throw NoeisAPIError.offline }
+            reading?.used(copy.date)
+            return copy.json
+        }
         let json = (try? JSONDecoder().decode(JSON.self, from: data)) ?? .null
         if status == 401, signedIn { throw signOut() }
+        if status >= 500, let key, let copy = SavedCopies.read(key) {
+            reading?.used(copy.date)
+            return copy.json
+        }
         guard (200..<300).contains(status) else {
             throw NoeisAPIError.server(json["error"]?.string ?? json["message"]?.string ?? "Noeis could not do that (\(status)).")
         }
+        if let key { SavedCopies.write(key, data) }
         return json
+    }
+
+    /// Where a load's reads come from: the device only (`saved`), or the
+    /// network falling back to the device. Records the oldest copy it used.
+    final class Reading: @unchecked Sendable {
+        let saved: Bool
+        private let lock = NSLock()
+        private var oldest: Date?
+
+        init(saved: Bool) { self.saved = saved }
+
+        /// When the oldest saved copy this load showed was kept, or nil if every read was fresh.
+        var savedOn: Date? { lock.withLock { oldest } }
+
+        fileprivate func used(_ date: Date) { lock.withLock { oldest = min(oldest ?? date, date) } }
+    }
+
+    @TaskLocal static var reading: Reading?
+
+    /// Keeps the newest sources (and their marks) on the device while on Wi-Fi, so they can be
+    /// read later with no connection. Skipped on cellular and in Low Data Mode.
+    func keep(articleIds: [String]) async {
+        for path in articleIds.flatMap({ ["/articles/\($0)", "/api/articles/\($0)/highlights"] }) {
+            guard let token = NoeisAuthStore.shared.token, SavedCopies.read(base.appendingPathComponent(path).absoluteString) == nil else { continue }
+            var request = URLRequest(url: base.appendingPathComponent(path))
+            request.setValue("application/json", forHTTPHeaderField: "Accept")
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            request.allowsExpensiveNetworkAccess = false
+            request.allowsConstrainedNetworkAccess = false
+            guard let (data, response) = try? await session.data(for: request),
+                  (response as? HTTPURLResponse)?.statusCode == 200 else { return }
+            SavedCopies.write(request.url!.absoluteString, data)
+        }
     }
 
     private func signOut() -> NoeisAPIError {
@@ -470,14 +522,51 @@ struct NoeisAPI {
         return .signedOut
     }
 
-    private func perform(_ request: URLRequest) async throws -> (Data, URLResponse) {
+    /// The response's body and status code.
+    private func perform(_ request: URLRequest) async throws -> (Data, Int) {
+        #if DEBUG
+        if let standIn = Self.standIn {
+            try? await Task.sleep(for: .milliseconds(350))
+            // NOEIS_OFFLINE=1 cuts the sample network, to see the copies kept on the device.
+            if ProcessInfo.processInfo.environment["NOEIS_OFFLINE"] != nil { throw NoeisAPIError.offline }
+            let url = request.url!
+            let query = (URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []).reduce(into: [String: String]()) { $0[$1.name] = $1.value }
+            return (try JSONEncoder().encode(standIn(request.httpMethod ?? "GET", url.path, query) ?? .null), 200)
+        }
+        #endif
+        func status(_ reply: (Data, URLResponse)) -> (Data, Int) { (reply.0, (reply.1 as? HTTPURLResponse)?.statusCode ?? 0) }
         do {
-            return try await session.data(for: request)
+            return status(try await session.data(for: request))
         } catch let error as URLError where [URLError.networkConnectionLost, URLError.timedOut].contains(error.code) && request.httpMethod == "GET" {
             // One quiet retry for reads; a write is never repeated blind.
-            do { return try await session.data(for: request) } catch { throw NoeisAPIError.offline }
+            do { return status(try await session.data(for: request)) } catch { throw NoeisAPIError.offline }
         } catch let error as URLError where error.code != .cancelled {
             throw NoeisAPIError.offline
         }
+    }
+}
+
+/// The reads kept on the device, one file each, in Caches (iOS may clear it
+/// when space runs low; it is only ever a copy). Erased on sign-out.
+enum SavedCopies {
+    private static let folder = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+        .appendingPathComponent("Saved copies", isDirectory: true)
+
+    static func read(_ key: String) -> (json: JSON, date: Date)? {
+        let file = url(key)
+        guard let data = try? Data(contentsOf: file), let json = try? JSONDecoder().decode(JSON.self, from: data) else { return nil }
+        let date = (try? file.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? .distantPast
+        return (json, date)
+    }
+
+    static func write(_ key: String, _ data: Data) {
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        try? data.write(to: url(key), options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+    }
+
+    static func erase() { try? FileManager.default.removeItem(at: folder) }
+
+    private static func url(_ key: String) -> URL {
+        folder.appendingPathComponent(SHA256.hash(data: Data(key.utf8)).map { String(format: "%02x", $0) }.joined())
     }
 }

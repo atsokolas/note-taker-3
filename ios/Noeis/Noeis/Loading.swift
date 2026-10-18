@@ -4,7 +4,9 @@ import SwiftUI
 ///
 /// The API sleeps when nobody has used it for a while, and the first request
 /// after that can take most of a minute. A spinner that sits there silently
-/// reads as broken; after a few seconds this says what is happening.
+/// reads as broken; after a few seconds this says what is happening. A copy
+/// kept on the device shows at once, and stays, honestly dated, when the
+/// network can't be reached.
 struct Loaded<Value, Content: View>: View {
     let load: () async throws -> Value
     @ViewBuilder let content: (Value, _ reload: @escaping () async -> Void) -> Content
@@ -12,11 +14,16 @@ struct Loaded<Value, Content: View>: View {
     @State private var value: Value?
     @State private var error: String?
     @State private var waking = false
+    /// When the copy on screen was kept, if it isn't fresh from the server.
+    @State private var savedOn: Date?
 
     var body: some View {
         Group {
             if let value {
                 content(value, reload).arrives()
+                    .safeAreaInset(edge: .top, spacing: 0) {
+                        if let savedOn { SavedLine(date: savedOn).transition(.opacity) }
+                    }
             } else if let error {
                 ContentUnavailableView {
                     Label("Could not load this", systemImage: "wifi.exclamationmark")
@@ -51,14 +58,40 @@ struct Loaded<Value, Content: View>: View {
             calmly { waking = true }
         }
         defer { slow.cancel(); waking = false }
+        // First open: the copy on the device, at once, while the server answers.
+        var kept: Date?
+        if value == nil {
+            let saved = NoeisAPI.Reading(saved: true)
+            if let copy = try? await NoeisAPI.$reading.withValue(saved, operation: load) {
+                value = copy
+                kept = saved.savedOn
+            }
+        }
         do {
-            value = try await load()
+            let live = NoeisAPI.Reading(saved: false)
+            value = try await NoeisAPI.$reading.withValue(live, operation: load)
+            calmly { savedOn = live.savedOn }
         } catch is CancellationError {
         } catch NoeisAPIError.signedOut {
             // The session view takes over; nothing to show here.
         } catch {
-            if value == nil { self.error = error.localizedDescription }
+            if value == nil { self.error = error.localizedDescription } else if let kept { calmly { savedOn = kept } }
         }
+    }
+}
+
+/// Says, in one quiet line, that what you're reading is the copy on this
+/// device, and from when.
+private struct SavedLine: View {
+    let date: Date
+
+    var body: some View {
+        Text("Noeis can’t be reached. This is the copy saved on this \(UIDevice.current.userInterfaceIdiom == .pad ? "iPad" : "iPhone") \(date.ago).")
+            .font(.footnote)
+            .foregroundStyle(Ink.muted)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 6)
+            .background(Ink.canvas.opacity(0.92))
     }
 }
 
