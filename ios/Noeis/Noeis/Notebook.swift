@@ -420,6 +420,11 @@ private struct NotebookPage: View {
                 guard let piece = draft.currentPiece else { return }
                 scroll.scrollTo(draft.pieces[piece].id, anchor: .top)
             }
+            // The passage being reworded rises above the wordings, to be seen changing.
+            .onChange(of: draft.wording?["blockId"]?.string) { _, block in
+                guard let block, let at = draft.index(block), let piece = draft.pieces.first(where: { $0.blocks.contains(at) }) else { return }
+                calmly { scroll.scrollTo(piece.id, anchor: .top) }
+            }
             .toolbar {
                 ToolbarItemGroup(placement: .primaryAction) {
                     Button { outline = true } label: { Image(systemName: "list.bullet.indent") }
@@ -830,9 +835,9 @@ private struct Alternatives: View {
             }
             .paper()
         }
-        .presentationDetents([.medium, .large])
+        .presentationDetents([.fraction(0.45), .large])
         // The draft stays bright above the sheet, so a wording shows in place.
-        .presentationBackgroundInteraction(.enabled(upThrough: .medium))
+        .presentationBackgroundInteraction(.enabled(upThrough: .fraction(0.45)))
     }
 
     private func choose(_ trial: JSON?) {
