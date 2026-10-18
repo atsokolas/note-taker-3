@@ -58,7 +58,7 @@ struct LibraryList: View {
         let device = UIDevice.current.userInterfaceIdiom == .pad ? "iPad" : "iPhone"
         switch kept {
         case count: return "\(pieces) · all kept on this \(device)"
-        case 0: return "\(pieces) · kept on this \(device) on Wi-Fi"
+        case 0: return "\(pieces) · kept on this \(device) once you’re on Wi-Fi"
         default: return "\(pieces) · \(kept) kept on this \(device), the rest on Wi-Fi"
         }
     }

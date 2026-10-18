@@ -536,8 +536,8 @@ struct NoeisAPI {
             request.setValue("application/json", forHTTPHeaderField: "Accept")
             request.allowsExpensiveNetworkAccess = false
             request.allowsConstrainedNetworkAccess = false
-            guard let (data, status) = try? await perform(request), status == 200 else { return }
-            SavedCopies.write(key, data)
+            guard let (data, status) = try? await perform(request) else { return }
+            if status == 200 { SavedCopies.write(key, data) }
         }
     }
 
