@@ -47,7 +47,7 @@ const patch = buildClaimBodyPatch({
   afterSourceRefs: sources,
   afterCitations: citations
 });
-assert.strictEqual(patch.plainText, 'Thesis\nNew claim.\nUntouched context.');
+assert.strictEqual(patch.plainText, 'Thesis New claim. Untouched context.');
 assert.strictEqual(patch.manifest.version, 1);
 assert.strictEqual(patch.manifest.claimId, 'claim-1');
 assert.notStrictEqual(patch.manifest.baseBodyHash, patch.manifest.afterBodyHash);
@@ -94,7 +94,7 @@ const splitPatch = buildClaimBodyPatch({
   afterSourceRefs: sources,
   afterCitations: citations
 });
-assert.strictEqual(splitPatch.plainText, 'Thesis\nNew claim.\nUntouched context.');
+assert.strictEqual(splitPatch.plainText, 'Thesis New claim. Untouched context.');
 
 const linkedBefore = doc('Old claim.', { split: true });
 const linkedAfter = doc('New claim.', { split: true });
