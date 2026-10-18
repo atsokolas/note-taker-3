@@ -57,27 +57,50 @@ function trimmed(text, length) {
   return flat.length > length ? flat.slice(0, length).replace(/\s+\S*$/, "") + "…" : flat
 }
 
-// One list from /api/search: sources first, then passages, then notes, the
-// way the Library reads. A result is only what the server found; nothing
-// fills an empty search.
-function searchResults(reply, limit) {
-  var rows = []
-  var articles = (reply && reply.articles) || []
-  var passages = (reply && reply.highlights) || []
-  var notes = (reply && reply.notebook) || []
-  articles.forEach(function(a) {
-    rows.push({ kind: "Source", title: a.title || "Untitled", detail: trimmed(a.content, 120),
+// One list from the two places a search reaches: /api/search for the
+// Library (sources, passages, notes) and /api/wiki/pages for the Wiki, whose
+// pages that hold a claim are views. What you hold leads, then what you have
+// written up, then your reading. Each kind is promised two rows before any
+// kind takes more, so a search full of sources still shows the view it
+// touches. A result is only what the server found; nothing fills an empty
+// search.
+function searchResults(library, wiki, limit) {
+  var views = [], pages = [], sources = [], passages = [], notes = []
+  ;(Array.isArray(wiki) ? wiki : []).forEach(function(p) {
+    var claim = trimmed(p.judgment && p.judgment.currentJudgment, 120)
+    if (claim) {
+      var status = p.judgment.status
+      views.push({ kind: "View", title: claim,
+        detail: status === "parked" || status === "closed" ? "Set aside" : p.title && p.title !== claim ? p.title : "",
+        path: "/judgment/" + encodeURIComponent(p._id) })
+    } else {
+      pages.push({ kind: "Wiki", title: p.title || "Untitled page", detail: trimmed(p.plainText, 120),
+        path: "/wiki/workspace?page=" + encodeURIComponent(p._id) })
+    }
+  })
+  ;((library && library.articles) || []).forEach(function(a) {
+    sources.push({ kind: "Source", title: a.title || "Untitled", detail: trimmed(a.content, 120),
       path: "/library?articleId=" + encodeURIComponent(a._id) })
   })
-  passages.forEach(function(h) {
-    rows.push({ kind: "Passage", title: trimmed(h.text, 120), detail: h.articleTitle || "",
+  ;((library && library.highlights) || []).forEach(function(h) {
+    passages.push({ kind: "Passage", title: trimmed(h.text, 120), detail: h.articleTitle || "",
       path: "/library?articleId=" + encodeURIComponent(h.articleId) + "&highlightId=" + encodeURIComponent(h._id) })
   })
-  notes.forEach(function(n) {
-    rows.push({ kind: "Note", title: n.title || "Untitled note", detail: trimmed(n.content, 120),
+  ;((library && library.notebook) || []).forEach(function(n) {
+    notes.push({ kind: "Note", title: n.title || "Untitled note", detail: trimmed(n.content, 120),
       path: "/think?tab=notebook&entryId=" + encodeURIComponent(n._id) })
   })
-  return rows.slice(0, limit || 7)
+  var groups = [views, pages, sources, passages, notes]
+  var taken = groups.map(function() { return 0 })
+  var room = limit || 8
+  ;[2, Infinity].forEach(function(share) {
+    groups.forEach(function(group, i) {
+      var more = Math.min(Math.max(0, Math.min(group.length, share) - taken[i]), room)
+      taken[i] += more
+      room -= more
+    })
+  })
+  return [].concat.apply([], groups.map(function(group, i) { return group.slice(0, taken[i]) }))
 }
 
 function dayOf(value) {

@@ -7,12 +7,15 @@ mark sits in the bar; click it and one field takes either a link or a search.
 - **Paste a link** and press Enter to save it to read later. The receipt says
   where the piece actually landed: on your nightstand, on your desk, or
   already yours since the day you saved it. Click the receipt to open it.
-- **Type words** and your library answers as you type: sources, passages and
-  notes. Up and Down move, Enter opens the one you picked on noeis.io, at the
+- **Type words** and everything you keep answers as you type: the views you
+  hold first, then Wiki pages, then sources, passages and notes. Each kind
+  gets two rows before any kind gets more, so a search full of sources still
+  shows the view it touches. Up and Down move, Enter opens the one you picked
+  on noeis.io: a view in Judgment, a page in the Wiki, a passage at the
   passage itself.
 - **Open the panel with a link on your clipboard** and it is already in the
   field, selected, so Enter saves it and typing replaces it.
-- Library, Think, Wiki and Editions are one click away at the foot.
+- Library, Think, Wiki, Judgment and Editions are one click away at the foot.
 
 Escape clears the field, and closes the panel when the field is empty.
 

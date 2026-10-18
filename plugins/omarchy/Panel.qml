@@ -179,18 +179,27 @@ Panel {
     }
   }
 
+  // The Library and the Wiki answer separately; the list appears once both
+  // have, so rows never shift under the cursor. One side failing still shows
+  // what the other found.
   function search(q) {
     var seq = ++searchSeq
-    request("GET", "/api/search?q=" + encodeURIComponent(q), null, function(status, reply) {
+    var answers = {}
+    function found(answer) { return answer.status === 200 ? answer.reply : null }
+    function settle(side, status, reply) {
       if (seq !== root.searchSeq) return
-      if (status === 200) {
-        root.results = Model.searchResults(reply, 7)
-        root.searched = q
-        root.cursor = 0
-      } else if (status !== 401) {
-        say(Model.problem(status, reply, "search"), true)
-      }
-    })
+      answers[side] = { status: status, reply: reply }
+      if (!answers.library || !answers.wiki) return
+      var rows = Model.searchResults(found(answers.library), found(answers.wiki), 8)
+      var failed = [answers.library, answers.wiki].filter(function(a) { return a.status !== 200 && a.status !== 401 })[0]
+      if (failed && !rows.length) return say(Model.problem(failed.status, failed.reply, "search"), true)
+      root.results = rows
+      root.searched = q
+      root.cursor = 0
+    }
+    var words = encodeURIComponent(q)
+    request("GET", "/api/search?q=" + words, null, function(status, reply) { settle("library", status, reply) })
+    request("GET", "/api/wiki/pages?summary=1&limit=8&q=" + words, null, function(status, reply) { settle("wiki", status, reply) })
   }
 
   function moveCursor(step) {
@@ -271,7 +280,7 @@ Panel {
           id: field
           width: parent.width
           foreground: root.foreground
-          placeholderText: "Paste a link, or search your library"
+          placeholderText: "Paste a link, or search what you keep"
           enabled: !root.busy
           inputMethodHints: Qt.ImhNoAutoUppercase | Qt.ImhNoPredictiveText
           // A receipt answers the last thing typed, so the next one clears it.
@@ -292,7 +301,7 @@ Panel {
         Note {
           text: root.line !== "" ? root.line
             : root.link ? (root.fromClipboard ? "From your clipboard. Enter saves it to Noeis." : "Enter saves it to Noeis.")
-            : root.searched !== "" && root.searched === root.words && root.results.length === 0 ? "Nothing in your library matches that."
+            : root.searched !== "" && root.searched === root.words && root.results.length === 0 ? "Nothing you keep matches that."
             : ""
           problem: root.line !== "" && root.lineIsProblem
           url: root.line !== "" ? root.lineUrl : ""
@@ -361,7 +370,7 @@ Panel {
         Note {
           text: root.line !== "" ? root.line
             : root.session.ended ? Model.problem(401)
-            : "Sign in to save links and search your library from here."
+            : "Sign in to save links and search what you keep from here."
           problem: root.lineIsProblem
         }
 
@@ -410,7 +419,7 @@ Panel {
 
           Repeater {
             model: root.signedIn
-              ? [["Library", "/library"], ["Think", "/think"], ["Wiki", "/wiki"], ["Editions", "/editions"]]
+              ? [["Library", "/library"], ["Think", "/think"], ["Wiki", "/wiki"], ["Judgment", "/judgment"], ["Editions", "/editions"]]
               : [["Make an account at noeis.io", "/"]]
 
             Place {

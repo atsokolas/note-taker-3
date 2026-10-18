@@ -33,19 +33,32 @@ assert.deepStrictEqual(plain(Model.sessionFrom(JSON.stringify({ token: token(now
 assert.strictEqual(Model.sessionFrom('{}', now).ended, false, 'signed out is not ended');
 assert.strictEqual(Model.sessionFrom('not json', now).token, '');
 
-// Search answers in the Library's order, each opening where it lives.
+// Search answers with what you hold, then the Wiki, then your reading, each
+// opening where it lives.
 const results = Model.searchResults({
   articles: [{ _id: 'a1', title: 'Hiring', content: '<p>Most  hiring</p> mistakes' }],
   highlights: [{ _id: 'h1', articleId: 'a2', articleTitle: 'Who', text: 'Hire for slope.' }],
   notebook: [{ _id: 'n1', title: '', content: 'Slow down the yes.' }]
-}, 7);
+}, [
+  { _id: 'w1', title: 'Hiring', plainText: 'What we learned hiring.' },
+  { _id: 'j1', title: 'Hiring bar', judgment: { currentJudgment: 'Slope beats intercept.', status: 'monitoring' } },
+  { _id: 'j2', title: 'Slope beats intercept.', judgment: { currentJudgment: 'Slope beats intercept.' } },
+  { _id: 'j3', title: 'Referrals', judgment: { currentJudgment: 'Referrals hire best.', status: 'parked' } }
+], 8);
 assert.deepStrictEqual(plain(results.map(r => [r.kind, r.title, r.detail, r.path])), [
+  ['View', 'Slope beats intercept.', 'Hiring bar', '/judgment/j1'],
+  ['View', 'Slope beats intercept.', '', '/judgment/j2'],
+  ['View', 'Referrals hire best.', 'Set aside', '/judgment/j3'],
+  ['Wiki', 'Hiring', 'What we learned hiring.', '/wiki/workspace?page=w1'],
   ['Source', 'Hiring', 'Most hiring mistakes', '/library?articleId=a1'],
   ['Passage', 'Hire for slope.', 'Who', '/library?articleId=a2&highlightId=h1'],
   ['Note', 'Untitled note', 'Slow down the yes.', '/think?tab=notebook&entryId=n1']
 ]);
-assert.strictEqual(Model.searchResults({}, 7).length, 0, 'nothing found is nothing shown');
-assert.strictEqual(Model.searchResults({ articles: Array(9).fill({ _id: 'a' }) }, 7).length, 7);
+assert.strictEqual(Model.searchResults({}, null, 8).length, 0, 'nothing found is nothing shown');
+assert.strictEqual(Model.searchResults({}, { error: 'x' }, 8).length, 0, 'a refused Wiki is nothing shown');
+const crowded = Model.searchResults({ articles: Array(9).fill({ _id: 'a' }) }, [{ _id: 'j', judgment: { currentJudgment: 'A view.' } }], 8);
+assert.strictEqual(crowded.length, 8);
+assert.strictEqual(crowded[0].kind, 'View', 'a search full of sources still shows the view it touches');
 assert.strictEqual(Model.trimmed('word '.repeat(40), 20), 'word word word word…');
 
 // A receipt says where the server put the piece, nothing more.

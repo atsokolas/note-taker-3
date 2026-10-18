@@ -5,7 +5,7 @@
   "version": "0.1.0",
   "author": "Noeis",
   "license": "ISC",
-  "description": "Save a link to read later and search your Noeis library from the bar",
+  "description": "Save a link to read later and search your Noeis library, Wiki and views from the bar",
   "kinds": [
     "bar-widget"
   ],
@@ -14,7 +14,7 @@
   },
   "barWidget": {
     "displayName": "Noeis",
-    "description": "Save a link to read later and search your Noeis library",
+    "description": "Save a link to read later and search your Noeis library, Wiki and views",
     "category": "Info",
     "allowMultiple": false,
     "defaultSection": "right"
