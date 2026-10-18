@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import LibraryMain from '../components/library/LibraryMain';
 import LibraryContext from '../components/library/LibraryContext';
 import MoveToFolderModal from '../components/library/MoveToFolderModal';
@@ -773,7 +773,7 @@ const Library = () => {
     const previousArticle = known.find((item) => String(item._id || item.id) === String(articleId)) || {};
     const previous = placementOf(previousArticle);
     const saved = await setArticlePlacement(articleId, placement);
-      setCollectionRevision(revision => revision + 1);
+    setCollectionRevision(revision => revision + 1);
     const next = saved?.placement || placement;
     const stamp = Object.prototype.hasOwnProperty.call(saved || {}, 'placementAt')
       ? saved.placementAt
@@ -1103,7 +1103,7 @@ const Library = () => {
             key={folderId || scope} folders={folders} folderId={scope === 'folder' ? folderId : ''}
             onOpen={handleSelectArticle} onSaved={handleLinkSaved}
             onShowNightstand={scope === 'later' ? null : () => handleSelectScope('later')}
-          /> : null}
+          >{scope === 'later' ? <Link className="library-paste-link__more" to="/library/save">Save from your phone too</Link> : null}</LibraryPasteLink> : null}
           {collectionView && scope === 'all' && !isReadingView && !articleQuery ? <LibraryReadingRoom onOpen={handleSelectArticle} /> : null}
           {collectionView ? <LibraryCollection
             scope={scope} folderId={shelfFolderId} folderName={selectedFolderName} revision={collectionRevision}

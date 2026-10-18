@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { importPastedUrl } from '../../api/imports';
+import { setArticlePlacement } from '../../api/articles';
 
 /* What a person pastes is rarely a clean URL: a bare domain, a trailing space,
    a link copied with its angle brackets. Anything that reads as a web address
@@ -16,6 +17,14 @@ export const linkFrom = (value = '') => {
   }
 };
 
+/* Several links copied from a note or a group chat: every written-out web
+   address in it, once each. Words between them are not taken for domains. */
+export const linksFrom = (value = '') => {
+  const written = String(value || '').match(/<?https?:\/\/[^\s<>"]+/gi) || [];
+  const links = [...new Set(written.map(linkFrom).filter(Boolean))];
+  return links.length ? links : [linkFrom(value)].filter(Boolean);
+};
+
 const savedOn = value => {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString(undefined, { day: 'numeric', month: 'long' });
@@ -25,29 +34,37 @@ const savedOn = value => {
    phrase moves it to the other place. */
 const GOES = { later: 'on your nightstand', stream: 'in your Library, already read' };
 const PLACE = { later: 'on your nightstand', stream: 'in your Library', setAside: 'on your desk' };
+const capital = text => text.replace(/^./, c => c.toUpperCase());
 
 /**
  * The nightstand: paste a link you mean to come back to, and it waits there;
  * one you have already read goes straight into the Library. Either way it can
  * be filed as it lands. Where it goes is one sentence under the field, set
  * before the paste, so saving stays one step: paste, and it is put away.
+ * A link handed in from elsewhere (the share sheet, a bookmarklet) saves the
+ * same way, as soon as the field is shown.
  */
-export default function LibraryPasteLink({ folders = [], folderId = '', onSaved, onOpen, onShowNightstand }) {
+export default function LibraryPasteLink({ folders = [], folderId = '', link = '', onSaved, onOpen, onShowNightstand, children }) {
   const [value, setValue] = useState('');
   const [where, setWhere] = useState('later');
   const [folder, setFolder] = useState(folderId);
   const [state, setState] = useState({ phase: 'idle' });
+  const [why, setWhy] = useState(null);
+
+  const saveOne = url => importPastedUrl({ url, placement: where, folderId: folder });
 
   const save = async (raw) => {
-    const url = linkFrom(raw);
-    if (!url) {
+    const links = linksFrom(raw);
+    if (!links.length) {
       setState({ phase: 'problem', line: 'That does not look like a link.' });
       return;
     }
+    setWhy(null);
+    setValue('');
+    if (links.length > 1) return saveAll(links);
     setState({ phase: 'saving' });
     try {
-      const { article, existing } = await importPastedUrl({ url, placement: where, folderId: folder });
-      setValue('');
+      const { article, existing } = await saveOne(links[0]);
       setState({ phase: existing ? 'existing' : 'saved', article });
       onSaved?.(article);
     } catch (error) {
@@ -61,21 +78,76 @@ export default function LibraryPasteLink({ folders = [], folderId = '', onSaved,
     }
   };
 
+  /* One after another, so the titles arrive in the order they were pasted
+     and a slow page holds up nothing but itself. */
+  const saveAll = async (links) => {
+    const landed = [];
+    let missed = 0;
+    for (const url of links) {
+      setState({ phase: 'many', landed: [...landed], missed, total: links.length });
+      try {
+        const { article } = await saveOne(url);
+        landed.push(article);
+        onSaved?.(article);
+      } catch (_) {
+        missed += 1;
+      }
+    }
+    setState({ phase: 'many', landed, missed, total: links.length, done: true });
+  };
+
+  const handedIn = useRef(false);
+  useEffect(() => {
+    if (!link || handedIn.current) return;
+    handedIn.current = true;
+    save(link);
+  });
+
+  const keepWhy = async (event) => {
+    event.preventDefault();
+    const reason = String(why || '').trim();
+    setWhy(null);
+    if (!reason) return;
+    const saved = await setArticlePlacement(state.article._id, 'later', reason).catch(() => null);
+    if (saved) setState({ ...state, article: { ...state.article, placementReason: saved.placementReason } });
+  };
+
   const { phase, article, line } = state;
-  const title = article ? (
-    <button type="button" className="library-paste-link__title" onClick={() => onOpen?.(article._id)}>
-      {article.title || 'Untitled'}
+  const titleOf = piece => (
+    <button type="button" className="library-paste-link__title" onClick={() => onOpen?.(piece._id)}>
+      {piece.title || 'Untitled'}
     </button>
-  ) : null;
+  );
   const since = phase === 'existing' ? savedOn(article?.createdAt) : '';
   const place = [PLACE[article?.placement] || '', article?.folder?.name ? `in ${article.folder.name}` : '']
     .filter(Boolean).join(', ');
-  const nightstand = article?.placement === 'later' && onShowNightstand ? (
+  const waiting = article?.placement === 'later';
+  const nightstand = waiting && onShowNightstand ? (
     <> <button type="button" className="library-paste-link__more" onClick={onShowNightstand}>See the nightstand</button></>
   ) : null;
+  /* Why it waits, in the reader's words: shown back on the nightstand, at the
+     top of the piece, and in the Morning Paper. */
+  const reason = waiting ? (
+    article.placementReason
+      ? <> <span className="library-paste-link__why">{article.placementReason}</span></>
+      : why === null
+        ? <> <button type="button" className="library-paste-link__more" onClick={() => setWhy('')}>Add why</button></>
+        : null
+  ) : null;
   const sorted = [...folders].sort((a, b) => String(a.name).localeCompare(String(b.name)));
-
   const filedIn = folders.find(item => String(item._id) === String(folder))?.name;
+  const many = phase === 'many' ? (
+    <>
+      {state.done
+        ? (state.landed.length ? `${state.landed.length} ${PLACE[where]}` : 'None of those saved')
+        : `Saving ${state.landed.length + state.missed + 1} of ${state.total}…`}
+      {state.landed.length ? ': ' : ''}
+      {state.landed.map((piece, index) => (
+        <React.Fragment key={piece._id}>{index ? ' · ' : ''}{titleOf(piece)}</React.Fragment>
+      ))}
+      {state.done && state.missed ? `. ${state.missed} could not be read.` : ''}
+    </>
+  ) : null;
 
   return (
     <form
@@ -91,16 +163,15 @@ export default function LibraryPasteLink({ folders = [], folderId = '', onSaved,
           enterKeyHint="go"
           value={value}
           placeholder="Paste a link you found"
-          disabled={phase === 'saving'}
+          disabled={phase === 'saving' || (phase === 'many' && !state.done)}
           onChange={(event) => {
             setValue(event.target.value);
             if (phase === 'problem') setState({ phase: 'idle' });
           }}
           onPaste={(event) => {
             const pasted = event.clipboardData?.getData('text') || '';
-            if (value.trim() || !linkFrom(pasted)) return;
+            if (value.trim() || !linksFrom(pasted).length) return;
             event.preventDefault();
-            setValue(pasted.trim());
             save(pasted);
           }}
         />
@@ -128,14 +199,33 @@ export default function LibraryPasteLink({ folders = [], folderId = '', onSaved,
             </label>
           </>
         ) : null}
-        .
+        .{children ? <> {children}</> : null}
       </p>
       <p className="library-paste-link__receipt" role="status" aria-live="polite">
         {phase === 'saving' ? 'Reading the page…' : null}
-        {phase === 'saved' ? <>{place.replace(/^./, c => c.toUpperCase())}: {title}{nightstand}</> : null}
-        {phase === 'existing' ? <>Already yours{since ? ` since ${since}` : ''}{place ? `, ${place}` : ''}: {title}{nightstand}</> : null}
+        {phase === 'saved' ? <>{capital(place)}: {titleOf(article)}{reason}{nightstand}</> : null}
+        {phase === 'existing' ? <>Already yours{since ? ` since ${since}` : ''}{place ? `, ${place}` : ''}: {titleOf(article)}{reason}{nightstand}</> : null}
+        {many}
         {phase === 'problem' ? line : null}
       </p>
+      {why !== null ? (
+        <div className="library-paste-link__why-line">
+          <input
+            aria-label="Why you saved it"
+            value={why}
+            maxLength={280}
+            autoFocus
+            enterKeyHint="done"
+            placeholder="Sam sent this · for the hiring question"
+            onChange={(event) => setWhy(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') keepWhy(event);
+              if (event.key === 'Escape') setWhy(null);
+            }}
+            onBlur={keepWhy}
+          />
+        </div>
+      ) : null}
     </form>
   );
 }

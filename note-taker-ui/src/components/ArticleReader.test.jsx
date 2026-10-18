@@ -892,6 +892,45 @@ describe('Later and Set aside', () => {
     await waitFor(() => expect(onTogglePlacement).toHaveBeenCalledWith('a1', 'setAside'));
   });
 
+  it('a nightstand piece read to its end moves into the Library, with one step back', async () => {
+    const observers = [];
+    const original = window.IntersectionObserver;
+    window.IntersectionObserver = class {
+      constructor(callback) { this.callback = callback; observers.push(this); }
+      observe() {}
+      disconnect() { this.gone = true; }
+    };
+    const onTogglePlacement = jest.fn(async (_id, placement) => ({ placement }));
+    try {
+      render(
+        <MemoryRouter>
+          <ArticleReader
+            article={{ _id: 'a1', title: 'A source', content: '<p>Text.</p>', placement: 'later', placementReason: 'Sam sent this' }}
+            highlights={[]}
+            onToggleEvergreen={jest.fn()}
+            onTogglePlacement={onTogglePlacement}
+          />
+        </MemoryRouter>
+      );
+      // Why it waited sits under the headline.
+      expect(document.querySelector('.article-reader-why')).toHaveTextContent('Sam sent this');
+      const [end] = observers;
+      // Opening onto the end does not count; reaching it does.
+      act(() => end.callback([{ isIntersecting: false }]));
+      expect(onTogglePlacement).not.toHaveBeenCalled();
+      await act(async () => end.callback([{ isIntersecting: true }]));
+      expect(onTogglePlacement).toHaveBeenCalledWith('a1', 'stream');
+      const went = screen.getByRole('list', { name: 'Where this piece went' });
+      expect(within(went).getByText(/^Finished\. Moved to your Library\./)).toBeInTheDocument();
+      expect(document.querySelector('.article-reader-why')).toBeNull();
+      fireEvent.click(within(went).getByRole('button', { name: 'Put it back' }));
+      await waitFor(() => expect(onTogglePlacement).toHaveBeenLastCalledWith('a1', 'later'));
+      await waitFor(() => expect(screen.queryByText(/^Finished\./)).toBeNull());
+    } finally {
+      window.IntersectionObserver = original;
+    }
+  });
+
   it('returns home when the position it already sits in is pressed again', async () => {
     const onTogglePlacement = jest.fn().mockResolvedValue({ placement: 'stream' });
     render(
