@@ -225,8 +225,12 @@ const articleSchema = new mongoose.Schema({
   hiddenFromHome: { type: Boolean, default: false },
   debugOnly: { type: Boolean, default: false },
   archived: { type: Boolean, default: false },
-  /* Stamped by GET /articles/:id. Read by the reading loop and the reader. */
+  /* Stamped by GET /articles/:id. lastOpenedAt is read by the reading loop.
+     Opens within half an hour are one visit; previousVisitAt is when the
+     visit before this one began, which the reader's return greeting reads. */
   lastOpenedAt: { type: Date, default: null },
+  visitStartedAt: { type: Date, default: null },
+  previousVisitAt: { type: Date, default: null },
   /* Set only when we already learned it: a fetch, or the reader's own Open
      source check, answered 404 or 410. Never crawled for. */
   sourceGoneAt: { type: Date, default: null },

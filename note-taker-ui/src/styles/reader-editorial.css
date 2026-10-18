@@ -284,6 +284,10 @@ body.noeis-editorial .selection-menu__key {
 }
 
 /* The original is gone. Your copy isn't. */
-.article-source-gone {
+.article-reader-meta .article-source-gone {
   color: var(--text-muted);
+  font-family: var(--font-serif);
+  font-style: italic;
+  letter-spacing: 0;
+  text-transform: none;
 }

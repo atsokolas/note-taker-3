@@ -26,24 +26,25 @@ const setReducedMotion = (reduced) => {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  window.sessionStorage.clear();
   setReducedMotion(false);
   markPassageOpened.mockResolvedValue();
   checkOriginalSource.mockResolvedValue(null);
 });
 
 describe('your highlight greets you on return', () => {
-  const lastOpenedAt = at(NOW - 3 * 24 * HOUR);
+  const lastVisitAt = at(NOW - 3 * 24 * HOUR);
 
   test('serves the latest line marked on the last visit', () => {
     const highlights = [
       line('older', at(NOW - 3 * 24 * HOUR + 60000), 'The first thing you marked last time.'),
       line('newer', at(NOW - 3 * 24 * HOUR + 120000), 'The last thing you marked last time.')
     ];
-    expect(returnGreetingHighlight({ highlights, lastOpenedAt, now: NOW })._id).toBe('newer');
+    expect(returnGreetingHighlight({ highlights, lastVisitAt, now: NOW })._id).toBe('newer');
   });
 
   test.each([
-    ['no visit on record', { lastOpenedAt: null }],
+    ['no visit on record', { lastVisitAt: null }],
     ['marked before the last visit', { highlights: [line('a', at(NOW - 5 * 24 * HOUR))] }],
     ['marked within the hour: a refresh, not a return', { highlights: [line('a', at(NOW - 10 * 60000))] }],
     ['too short for a quote', { highlights: [line('a', at(NOW - 2 * 24 * HOUR), 'Yes.')] }],
@@ -51,12 +52,12 @@ describe('your highlight greets you on return', () => {
     ['not yet saved', { highlights: [line('temp-1', at(NOW - 2 * 24 * HOUR))] }],
     ['nothing marked', { highlights: [] }]
   ])('is silent when %s', (_label, overrides) => {
-    expect(returnGreetingHighlight({ highlights: [line('a', at(NOW - 2 * 24 * HOUR))], lastOpenedAt, now: NOW, ...overrides })).toBeNull();
+    expect(returnGreetingHighlight({ highlights: [line('a', at(NOW - 2 * 24 * HOUR))], lastVisitAt, now: NOW, ...overrides })).toBeNull();
   });
 
   const greet = (arrival, extra = {}) => render(
     <ReturnGreeting
-      article={{ _id: 'a1', lastOpenedAt: at(Date.now() - 3 * 24 * HOUR) }}
+      article={{ _id: 'a1', lastVisitAt: at(Date.now() - 3 * 24 * HOUR) }}
       highlights={[line('h1', at(Date.now() - 2 * 24 * HOUR))]}
       arrival={arrival}
       contentRef={{ current: null }}
@@ -71,6 +72,14 @@ describe('your highlight greets you on return', () => {
 
   test.each(['pending', 'shown', 'explicit'])('stays quiet when arrival is %s: one greeting, never two', (arrival) => {
     greet(arrival);
+    expect(screen.queryByTestId('return-greeting')).toBeNull();
+  });
+
+  test('a reload in the same tab does not greet twice', () => {
+    const first = greet('none');
+    expect(screen.getByTestId('return-greeting')).toBeInTheDocument();
+    first.unmount();
+    greet('none');
     expect(screen.queryByTestId('return-greeting')).toBeNull();
   });
 

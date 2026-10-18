@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 /* The shapes footnote references take in saved articles: a Pandoc or
    Markdown `#fn1`, the DPUB role, a Wikipedia `#cite_note`, a `#footnote-2`,
@@ -100,7 +101,8 @@ export default function FootnotePeek({ contentRef }) {
   }, [open]);
 
   if (!open) return null;
-  return (
+  /* On the page itself, so its place is the reference's place on the page. */
+  return createPortal(
     <aside
       ref={noteRef}
       id="footnote-peek"
@@ -109,9 +111,9 @@ export default function FootnotePeek({ contentRef }) {
       aria-label="Footnote"
       tabIndex={-1}
       style={{ top: open.top, left: open.left }}
-      data-reader-control
     >
       {open.text}
-    </aside>
+    </aside>,
+    document.body
   );
 }

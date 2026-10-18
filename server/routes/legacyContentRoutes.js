@@ -13,6 +13,8 @@ const { isGoneStatus } = require('../lib/publicUrlFetch');
 const { applyDefaultArticleVisibility } = require('../utils/articleVisibility');
 
 const ARTICLE_PLACEMENTS = new Set(['stream', 'later', 'setAside']);
+/* Opens closer together than this are one visit. */
+const VISIT_GAP_MS = 30 * 60 * 1000;
 
 const hasText = (value) => String(value || '').replace(/<[^>]*>/g, '').trim().length > 0;
 
@@ -641,9 +643,9 @@ const buildLegacyContentRouter = ({
           'placement',
           'placementAt',
           'placementReason',
-          /* When you were last here, read before this open is stamped:
-             the reader greets a return, not a refresh. */
           'lastOpenedAt',
+          'visitStartedAt',
+          'previousVisitAt',
           'sourceGoneAt',
           'createdAt',
           'updatedAt'
@@ -653,14 +655,21 @@ const buildLegacyContentRouter = ({
       if (!article) {
         return res.status(404).json({ error: "Article not found or you do not have permission to view it." });
       }
-      // Stamp the read. `lastOpenedAt` has existed on the schema since the
-      // beginning with nothing writing it, which left "have I read this?"
-      // answerable only for articles the user also highlighted. Fire-and-forget
-      // and without touching `updatedAt` — reading is not editing, and a failure
-      // here must never cost the reader their article.
-      Article.updateOne({ _id: id, userId }, { $set: { lastOpenedAt: new Date() } }, { timestamps: false })
-        .catch(error => console.error('Failed to stamp article lastOpenedAt:', error.message));
-      res.status(200).json(article);
+      // Stamp the read, fire-and-forget and without touching `updatedAt`:
+      // reading is not editing, and a failure here must never cost the
+      // reader their article. Opens closer together than VISIT_GAP_MS are one
+      // visit, so a refresh or a refetch does not move `previousVisitAt` —
+      // the reader greets a return, not a reload.
+      const now = new Date();
+      const { lastOpenedAt, visitStartedAt, previousVisitAt, ...served } = article;
+      const visitBegins = !lastOpenedAt || now - new Date(lastOpenedAt) > VISIT_GAP_MS;
+      const lastVisitAt = (visitBegins ? visitStartedAt || lastOpenedAt : previousVisitAt) || null;
+      Article.updateOne(
+        { _id: id, userId },
+        { $set: { lastOpenedAt: now, ...(visitBegins ? { visitStartedAt: now, previousVisitAt: lastVisitAt } : {}) } },
+        { timestamps: false }
+      ).catch(error => console.error('Failed to stamp article lastOpenedAt:', error.message));
+      res.status(200).json({ ...served, lastVisitAt });
     } catch (error) {
       console.error("❌ Error fetching single article by ID:", error);
       if (error.name === 'CastError') {

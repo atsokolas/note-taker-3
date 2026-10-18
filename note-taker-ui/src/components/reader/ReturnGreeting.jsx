@@ -5,20 +5,34 @@ import { returnGreetingHighlight } from './returnGreeting';
 const STAY_MS = 7000;
 const SETTLE_MS = 700;
 
+/* Once a tab has greeted you with a line, a reload does not do it again. */
+const greetedKey = (articleId, highlight) => `noeis:return-greeting:${articleId}:${highlight._id}`;
+const greeted = (key) => {
+  try { return window.sessionStorage.getItem(key) === '1'; } catch (_error) { return false; }
+};
+const rememberGreeting = (key) => {
+  try { window.sessionStorage.setItem(key, '1'); } catch (_error) { /* a convenience, not a record */ }
+};
+
 /* The line you marked last time, in pull-quote type at the top, before it
    settles away. With reduced motion it simply stays for this visit. */
 export default function ReturnGreeting({ article, highlights, arrival, contentRef }) {
   const reduced = usePrefersReducedMotion();
-  /* When you were last here, as the server said on this open. Mounted per
-     piece, so a later refetch cannot turn a return into a refresh. */
-  const [lastOpenedAt] = useState(article?.lastOpenedAt || null);
+  /* When your last visit began, as the server said on this open. Read once
+     per piece; the server keeps it steady across reloads within a visit. */
+  const [lastVisitAt] = useState(article?.lastVisitAt || null);
   const [chosen, setChosen] = useState(null);
   const [phase, setPhase] = useState('shown');
 
   useEffect(() => {
     if (chosen || arrival !== 'none') return;
-    setChosen(returnGreetingHighlight({ highlights, lastOpenedAt }));
-  }, [arrival, chosen, highlights, lastOpenedAt]);
+    const next = returnGreetingHighlight({ highlights, lastVisitAt });
+    if (next && !greeted(greetedKey(article?._id, next))) setChosen(next);
+  }, [arrival, article?._id, chosen, highlights, lastVisitAt]);
+
+  useEffect(() => {
+    if (chosen) rememberGreeting(greetedKey(article?._id, chosen));
+  }, [article?._id, chosen]);
 
   useEffect(() => {
     if (!chosen || reduced) return undefined;
