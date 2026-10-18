@@ -34,11 +34,14 @@
   border: 0;
   background: none;
   color: var(--text-muted, var(--vellum-subtle));
-  /* Mono operates. A control never wears serif. */
+  /* Mono operates. A control never wears serif. The words are set in real
+     capitals at a small size, not small caps: a face without its own small
+     caps has them synthesised per letter, and on phones LATER came out as
+     "LatEr". */
   font-family: var(--font-mono);
-  font-size: 0.68rem;
-  font-variant-caps: all-small-caps;
-  letter-spacing: 0.13em;
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  line-height: 1;
   white-space: nowrap;
   cursor: pointer;
   /* The fill slides between positions rather than blinking on. */

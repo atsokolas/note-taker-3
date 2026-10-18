@@ -1,3 +1,5 @@
+const { docText } = require('../lib/editorialText');
+
 const normalizeText = (value = '') => String(value || '')
   .replace(/\s+/g, ' ')
   .trim();
@@ -11,15 +13,7 @@ const idString = (value) => {
   return String(value);
 };
 
-const plainText = (node) => {
-  if (!node) return '';
-  if (typeof node === 'string') return node;
-  if (Array.isArray(node)) return node.map(plainText).join(' ');
-  if (typeof node !== 'object') return '';
-  return [node.text || '', plainText(node.content)].filter(Boolean).join(' ');
-};
-
-const headingLabel = (node = {}) => normalizeText(plainText(node.content || [])).toLowerCase();
+const headingLabel = (node = {}) => normalizeText(docText(node.content || [])).toLowerCase();
 
 const cleanupQuestionText = (value = '') => normalizeText(value)
   .replace(/^[\s•*\-–—\d.)]+/g, '')
@@ -49,13 +43,13 @@ const extractOpenQuestionsFromBody = (body = {}) => {
     }
     if (!collecting) return;
     if (block.type === 'paragraph' || block.type === 'listItem') {
-      const text = cleanupQuestionText(plainText(block.content || []));
+      const text = cleanupQuestionText(docText(block.content || []));
       if (isOpenQuestionPrompt(text)) questions.push(text);
       return;
     }
     if (block.type === 'bulletList' || block.type === 'orderedList') {
       (Array.isArray(block.content) ? block.content : []).forEach((item) => {
-        const text = cleanupQuestionText(plainText(item.content || []));
+        const text = cleanupQuestionText(docText(item.content || []));
         if (isOpenQuestionPrompt(text)) questions.push(text);
       });
     }
@@ -120,7 +114,6 @@ module.exports = {
   buildWikiOpenQuestionRows,
   filterWikiOpenQuestions,
   __testables: {
-    plainText,
     cleanupQuestionText,
     isOpenQuestionPrompt,
     wikiQuestionId

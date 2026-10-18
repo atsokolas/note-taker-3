@@ -2231,7 +2231,7 @@ const normalizeJudgeResult = (raw = {}) => {
 
 const sourceBriefForJudge = (page = {}) => (page.sourceRefs || [])
   .slice(0, 8)
-  .map((source, index) => `${index + 1}. ${source.title || 'Untitled source'} - ${source.snippet || source.url || source.type || 'No snippet'}`)
+  .map((source, index) => `${index + 1}. ${source.title || 'Untitled'} - ${source.snippet || source.url || source.type || 'No snippet'}`)
   .join('\n');
 
 const claimBriefForJudge = (page = {}) => (page.claims || [])

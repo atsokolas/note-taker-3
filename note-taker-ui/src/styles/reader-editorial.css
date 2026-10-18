@@ -81,12 +81,21 @@ body.noeis-editorial .magnetic-reading-rail.is-shown {
   transition: opacity 200ms ease;
 }
 
-body.noeis-editorial .magnetic-reading-rail__track {
+/* The pill and the hairline are one tab of paper, the same width, with the
+   line as its bottom edge. A bare line wider than the pill crossed whatever
+   sentence was passing under it. */
+body.noeis-editorial .magnetic-reading-rail__track,
+body.noeis-editorial .magnetic-reading-rail__pill-outer {
   width: min(240px, 100%);
+  background: var(--noeis-canvas, var(--surface-card));
+}
+
+body.noeis-editorial .magnetic-reading-rail__track {
+  --rail-rule: color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 62%, transparent);
   height: 1px;
   border-radius: 0;
   opacity: 1;
-  background: color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 62%, transparent);
+  background-image: linear-gradient(var(--rail-rule), var(--rail-rule));
 }
 
 body.noeis-editorial .magnetic-reading-rail__fill {
@@ -94,15 +103,16 @@ body.noeis-editorial .magnetic-reading-rail__fill {
   background: var(--wiki-warm-accent);
 }
 
+/* The words may drift toward the pointer, but only across their own paper. */
 body.noeis-editorial .magnetic-reading-rail__pill-outer {
-  width: auto;
+  overflow: hidden;
 }
 
 body.noeis-editorial .magnetic-reading-rail__pill {
   padding: 6px 16px 8px;
   border: 0;
   border-radius: 0;
-  background: var(--noeis-canvas, var(--surface-card));
+  background: none;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   box-shadow: none;

@@ -27,8 +27,8 @@ import { getConnectionsForItem } from '../../api/connections';
 import { recordClaimCheckIn, recordWikiPageVisit } from '../../api/dailyLoop';
 import { trackWikiReadModePageView } from '../../utils/wikiAnalytics';
 import { wikiPagePath, wikiReadPath } from '../../utils/wikiFeatureFlags';
-import { libraryIdentity, resolveSourceDoors } from '../../utils/sourceRoutes';
-import { cleanSourceTextForDisplay } from '../../utils/sourceDisplayText';
+import { buildSourceOpenPath, libraryIdentity, resolveSourceDoors } from '../../utils/sourceRoutes';
+import { cleanSourceTextForDisplay, sourceTitle } from '../../utils/sourceDisplayText';
 import ClaimCitationPopover from './ClaimCitationPopover';
 import renderTiptapDoc, { citationAnchorId, extractTocItems, firstParagraphText } from './renderTiptapDoc';
 import { cleanWikiLinkSnippetText } from './wikiLinkText';
@@ -113,7 +113,7 @@ import { swallowSkippedViewTransition } from '../../utils/viewTransitionNavigati
 import { useNoeisAgentSurface } from '../../agent/AgentRailContext';
 import { buildWikiSurfaceDescriptor, wikiAllowsOpenSentence } from './wikiSurfaceModel';
 import { carryTensionToJudgment, isTension, tensionSeed } from './carryTension';
-import { wordBoundaryTrim } from '../../utils/editorialText';
+import { docText, wordBoundaryTrim } from '../../utils/editorialText';
 import { humanizeLabel } from '../../utils/humanizeLabel';
 
 const WikiChangesSinceLastVisit = lazy(() => import('./WikiChangesSinceLastVisit'));
@@ -296,14 +296,6 @@ const collectFootnoteCitations = (node, fallbackPrefix = 'body') => {
   return matches;
 };
 
-const collectText = (node) => {
-  if (!node) return '';
-  if (typeof node === 'string') return node;
-  if (Array.isArray(node)) return node.map(collectText).join(' ');
-  if (typeof node !== 'object') return '';
-  return [node.text || '', collectText(node.content)].filter(Boolean).join(' ');
-};
-
 const normalizeHeadingText = (value = '') => String(value || '')
   .toLowerCase()
   .replace(/[\s\p{Punctuation}]+/gu, ' ')
@@ -314,7 +306,7 @@ const stripLeadingDuplicateTitleHeading = (body = emptyDoc, title = '') => {
   if (!body || !Array.isArray(body.content) || !normalizedTitle) return body || emptyDoc;
   const first = body.content[0];
   if (first?.type !== 'heading') return body;
-  const headingText = normalizeHeadingText(collectText(first));
+  const headingText = normalizeHeadingText(docText(first));
   if (headingText !== normalizedTitle) return body;
   return { ...body, content: body.content.slice(1) };
 };
@@ -982,15 +974,15 @@ const WikiReadReferences = ({ sources = [], citations = [], highlightedRef, onJu
                 {doors.ownedHref ? (
                   doors.isLibrary ? (
                     <Link className="wiki-read__reference-title" to={doors.ownedHref}>
-                      {source.title || 'Untitled source'}
+                      {sourceTitle(source)}
                     </Link>
                   ) : (
                     <a className="wiki-read__reference-title" href={doors.ownedHref}>
-                      {source.title || 'Untitled source'}
+                      {sourceTitle(source)}
                     </a>
                   )
                 ) : (
-                  <span className="wiki-read__reference-title">{source.title || 'Untitled source'}</span>
+                  <span className="wiki-read__reference-title">{sourceTitle(source)}</span>
                 )}
               </div>
               {excerpt ? <p>{conciseText(excerpt, 240)}</p> : null}
@@ -1152,7 +1144,7 @@ const WikiReadMarginalia = ({ sources = [], citations = [], onJumpToReference })
             }}
           >
             <span className="wiki-read__margin-note-index">[{citation.index}]</span>
-            <strong>{source.title || 'Untitled source'}</strong>
+            <strong>{sourceTitle(source)}</strong>
             {excerpt ? <span>{conciseText(excerpt, 120)}</span> : null}
           </a>
         );
@@ -3143,6 +3135,12 @@ const WikiPageReadView = ({
                 <div className="wiki-read__return-thread">
                   <span>You arrived from another page.</span>
                   <Link to={wikiReadPath(fromWikiPageId)}>Return to {location.state?.fromWikiTitle || 'the previous page'}</Link>
+                </div>
+              ) : null}
+              {page?.createdFrom?.type === 'notebook' && page.createdFrom.objectId ? (
+                <div className="wiki-read__return-thread">
+                  <span>Settled from your note in Think.</span>
+                  <Link to={buildSourceOpenPath({ type: 'notebook', objectId: page.createdFrom.objectId })}>Open the note</Link>
                 </div>
               ) : null}
               {awaitingCandidate && !proposalDeferred && !investmentDossierPage && !staleCandidate ? (

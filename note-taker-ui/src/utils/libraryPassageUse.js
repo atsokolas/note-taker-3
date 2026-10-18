@@ -1,4 +1,4 @@
-import { cleanSourceTextForDisplay } from './sourceDisplayText';
+import { cleanSourceTextForDisplay, sourceTitle } from './sourceDisplayText';
 
 const idOf = (value) => String(value?._id || value?.id || value || '').trim();
 const clean = (value) => cleanSourceTextForDisplay(value || '');
@@ -38,7 +38,7 @@ export const questionBlockFromPassage = (passage, createId) => ({
   text: passage?.passage || '',
   highlightId: passage?.highlightId || null,
   articleId: passage?.articleId || null,
-  articleTitle: passage?.title || 'Untitled source',
+  articleTitle: sourceTitle(passage),
   sourcePath: passage?.href || ''
 });
 

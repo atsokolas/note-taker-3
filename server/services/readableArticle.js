@@ -162,12 +162,61 @@ const fetchArticleBody = async ({ url, fetchReadable = fetchReadableArticle } = 
   return html.replace(/<[^>]*>/g, '').trim().length >= MIN_FETCHED_BODY_LENGTH ? html : '';
 };
 
+/* A slow page can hold a worker long after its last hop's timer cleared, so
+   each fetch also gets a ceiling of its own. */
+const FILL_TIMEOUT_MS = 20000;
+
+const withinTime = (work, ms) => {
+  let timer;
+  const ceiling = new Promise((_resolve, reject) => {
+    timer = setTimeout(() => reject(new Error(`no answer within ${ms}ms`)), ms);
+  });
+  return Promise.race([work, ceiling]).finally(() => clearTimeout(timer));
+};
+
+/**
+ * Fill in the bodies of links that arrived bare, a few at a time, after the
+ * response that brought them has gone. Only an empty body is ever written, so
+ * a piece the reader saved properly in the meantime is left as they have it.
+ * A link that will not read stays a link, and nobody is told about it.
+ */
+const fillArticleBodies = async ({
+  Article,
+  userId,
+  urls = [],
+  fetchBody = url => fetchArticleBody({ url }),
+  onFilled = null,
+  concurrency = 3,
+  timeoutMs = FILL_TIMEOUT_MS
+} = {}) => {
+  const queue = [...urls];
+  const worker = async () => {
+    while (queue.length) {
+      const url = queue.shift();
+      try {
+        const content = await withinTime(Promise.resolve().then(() => fetchBody(url)), timeoutMs);
+        if (!content) continue;
+        const article = await Article.findOneAndUpdate(
+          { userId, url, content: { $in: [null, ''] } },
+          { $set: { content } },
+          { new: true }
+        );
+        if (article && onFilled) await onFilled(article);
+      } catch (error) {
+        console.warn(`Could not fetch a body for ${url}:`, error?.message || error);
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(concurrency, queue.length) }, worker));
+};
+
 module.exports = {
   MAX_ARTICLE_BYTES,
   MAX_CONTENT_LENGTH,
   bodyFrom,
   fetchArticleBody,
   fetchReadableArticle,
+  fillArticleBodies,
   paragraphsToHtml,
   stripTags,
   titleFrom

@@ -32,7 +32,6 @@ const LibraryMain = ({
   onHighlightRemove,
   onOpenConcept,
   onOpenQuestion,
-  onAskLibrarian,
   onToggleEvergreen,
   onTogglePlacement,
   onOpenedSentence = null,
@@ -221,7 +220,6 @@ const LibraryMain = ({
             onHighlightOptimistic={onHighlightOptimistic}
             onHighlightReplace={onHighlightReplace}
             onHighlightRemove={onHighlightRemove}
-            onAskLibrarian={onAskLibrarian}
             onToggleEvergreen={onToggleEvergreen}
             onTogglePlacement={onTogglePlacement}
             onOpenedSentence={onOpenedSentence}

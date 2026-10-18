@@ -1,3 +1,5 @@
+const { docText } = require('../lib/editorialText');
+
 const GENERIC_PLACEHOLDER_TITLE_RE = /^(?:thing|stuff|blah|asdf|test|untitled|lorem ipsum)(?:\s+\d+)?$/i;
 const DEBUG_FIXTURE_TITLE_RE = /\bdebug fixture\b/i;
 const QA_GENERATED_TITLE_RE = /^(?:qa|codex qa)\b/i;
@@ -18,16 +20,6 @@ const countWords = (value = '') => {
   return text.split(/\s+/).filter(Boolean).length;
 };
 
-const extractPlainTextFromDoc = (node) => {
-  if (!node) return '';
-  if (typeof node === 'string') return node;
-  if (Array.isArray(node)) return node.map(extractPlainTextFromDoc).filter(Boolean).join(' ');
-  if (typeof node !== 'object') return '';
-  const own = typeof node.text === 'string' ? node.text : '';
-  const children = Array.isArray(node.content) ? extractPlainTextFromDoc(node.content) : '';
-  return [own, children].filter(Boolean).join(' ');
-};
-
 const isFailedDraftStub = ({ page, plainText }) => {
   const aiState = page?.aiState || {};
   const quality = aiState.quality || {};
@@ -40,7 +32,7 @@ const isFailedDraftStub = ({ page, plainText }) => {
 const classifyWikiPageQuality = (page = {}) => {
   const title = normalizeText(page.title || 'Untitled wiki page');
   const normalizedTitle = title.toLowerCase();
-  const plainText = normalizeText(page.plainText || extractPlainTextFromDoc(page.body));
+  const plainText = normalizeText(page.plainText || docText(page.body));
   const wordCount = countWords(plainText);
   const sourceCount = Array.isArray(page.sourceRefs) ? page.sourceRefs.length : 0;
   const reasons = [];
@@ -86,6 +78,7 @@ const classifyWikiPageQuality = (page = {}) => {
     severity: blockingReasons.length ? 'blocked' : (reasons.length ? 'review' : 'ok'),
     surfaceEligible,
     reasons,
+    blockingReasons,
     checkedAt: null
   };
 };
@@ -96,7 +89,6 @@ module.exports = {
   classifyWikiPageQuality,
   isWikiPageSurfaceEligible,
   __testables: {
-    countWords,
-    extractPlainTextFromDoc
+    countWords
   }
 };

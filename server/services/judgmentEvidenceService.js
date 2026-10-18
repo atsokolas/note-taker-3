@@ -239,7 +239,7 @@ const snippetAround = (text = '', terms = [], budget = SNIPPET_BUDGET) => {
 };
 
 const sourceLabelFor = (article = {}) => {
-  const title = clean(article.title) || 'Untitled source';
+  const title = clean(article.title) || 'Untitled';
   const site = clean(article.siteName);
   return site && !title.toLowerCase().includes(site.toLowerCase()) ? `${title} · ${site}` : title;
 };

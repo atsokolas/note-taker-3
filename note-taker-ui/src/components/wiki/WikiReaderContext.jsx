@@ -6,6 +6,7 @@ import { AGENT_DISPLAY_NAME } from '../../constants/agentIdentity';
 import { displayWikiPageTitle } from './wikiRepoDossierModel';
 import { candidateFootprint, historicalRevisionSnapshot } from './wikiReaderContextModel';
 import { wikiRevisionLabel } from './wikiCopyReference';
+import { sourceTitle } from '../../utils/sourceDisplayText';
 
 const clean = (value) => String(value || '').trim();
 
@@ -76,7 +77,7 @@ const WikiReaderContext = ({
           {panel.occurrence?.claimId ? ` · passage ${panel.occurrence.claimId}` : ''}
           {panel.occurrence?.citationIndex ? ` · source ${panel.occurrence.citationIndex}` : ''}
         </p>
-        <h2>{clean(source.title) || 'Untitled source'}</h2>
+        <h2>{sourceTitle(source)}</h2>
         {panel.checking ? (
           <p className="wiki-reader-context__checking">
             <span className="wiki-reader-context__kicker">{preview ? 'Proposed sentence' : 'You were checking'}</span>

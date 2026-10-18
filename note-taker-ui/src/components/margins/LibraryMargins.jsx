@@ -1,8 +1,9 @@
-import React, { forwardRef, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { forwardRef, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { fetchMarginNotes } from '../../api/retrieval';
 import { useFinePointer, usePrefersReducedMotion } from '../../hooks/useMotionPreferences';
 import { buildPassagePath } from '../../utils/sourceRoutes';
+import { MarginAnswer } from './MarginAnswer';
 import './margins.css';
 
 /* Your library in the margins. One engine (POST /api/semantic/margins) and two
@@ -57,8 +58,9 @@ export const placeBeside = (node, frame, column, edge = null) => {
 };
 
 /* Margin notes must not lie over one another when two close paragraphs both
-   carry one: each sits at its paragraph or just below the note above it. */
-export const useStackedMargins = (places) => {
+   carry one: each sits at its paragraph or just below the note above it.
+   `growing` names anything that changes a note's height in place. */
+export const useStackedMargins = (places, growing = '') => {
   const nodes = useRef([]);
   useLayoutEffect(() => {
     let floor = -Infinity;
@@ -69,7 +71,7 @@ export const useStackedMargins = (places) => {
       node.style.top = `${top}px`;
       floor = top + node.offsetHeight + STACK_GAP;
     });
-  }, [places]);
+  }, [places, growing]);
   return index => (node) => { nodes.current[index] = node; };
 };
 
@@ -84,11 +86,13 @@ const Lead = ({ highlight }) => {
   );
 };
 
-/* One note. In the reader it opens the passage where it lives; as a ghost in
-   the notebook, choosing it quotes the passage in. */
-export const MarginNote = forwardRef(({ note, place, onQuote, hint = '' }, ref) => {
+/* One note. In the reader it opens the passage where it lives, and may be
+   asked about; as a ghost in the notebook, choosing it quotes the passage in.
+   On a narrow page the answer opens in the note's own paper card. */
+export const MarginNote = forwardRef(({ note, place, onQuote, onAsk, answer = null, onCloseAnswer, hint = '' }, ref) => {
   const reduced = usePrefersReducedMotion();
-  const [open, setOpen] = useState(false);
+  const [opened, setOpened] = useState(false);
+  const open = opened || Boolean(answer);
   const { highlight } = note;
   const words = (
     <>
@@ -111,6 +115,9 @@ export const MarginNote = forwardRef(({ note, place, onQuote, hint = '' }, ref) 
     reduced ? '' : 'is-arriving',
     open ? 'is-open' : ''
   ].filter(Boolean).join(' ');
+  const ask = onAsk ? (
+    <button type="button" className="library-margin-note__ask" onClick={() => onAsk(note)}>Ask</button>
+  ) : null;
   return (
     <div
       ref={ref}
@@ -125,13 +132,13 @@ export const MarginNote = forwardRef(({ note, place, onQuote, hint = '' }, ref) 
             className="library-margin-note__mark"
             aria-expanded={open}
             aria-label={`Something you marked close to this${highlight.articleTitle ? `, in ${highlight.articleTitle}` : ''}`}
-            onClick={() => setOpen(value => !value)}
+            onClick={() => (answer ? onCloseAnswer?.() : setOpened(value => !value))}
           >
             <span aria-hidden="true">“</span>
           </button>
-          {open ? <div className="library-margin-note__card">{body}</div> : null}
+          {open ? <div className="library-margin-note__card">{body}{ask}{answer}</div> : null}
         </>
-      ) : body}
+      ) : <>{body}{ask}</>}
     </div>
   );
 });
@@ -145,11 +152,30 @@ const readingBlocks = root => [...root.querySelectorAll(BLOCKS)].filter((node) =
   return !outer || !root.contains(outer);
 });
 
+/* The paragraph that holds a node, or the first one after it (a selection
+   can begin in a heading). */
+export const paragraphAt = (root, node) => {
+  const blocks = root && node ? readingBlocks(root) : [];
+  const beside = blocks.findIndex(block => block.contains(node)
+    // eslint-disable-next-line no-bitwise
+    || Boolean(node.compareDocumentPosition(block) & Node.DOCUMENT_POSITION_FOLLOWING));
+  return beside < 0 ? null : { beside, paragraph: plainText(blocks[beside].textContent) };
+};
+
 /* While reading: up to five notes, never two beside one paragraph, and
-   nothing at all when nothing you marked elsewhere is close. */
-export const ArticleMargins = ({ articleId, contentRef, frameRef, contentKey = '', layoutKey = '', hidden = false }) => {
+   nothing at all when nothing you marked elsewhere is close. When the
+   Partner can read the piece (`asking.available`), each note can be asked
+   about, and the answer takes its place in the margin. */
+export const ArticleMargins = ({ articleId, contentRef, frameRef, contentKey = '', layoutKey = '', hidden = false, asking = null }) => {
   const [notes, setNotes] = useState([]);
   const [places, setPlaces] = useState([]);
+  const answer = asking?.answer || null;
+  const answerAt = answer ? answer.beside : null;
+  // In reading order, an answer just after the note beside its paragraph.
+  const items = useMemo(() => [
+    ...notes.map(note => ({ key: `${note.highlight._id}-${note.beside}`, beside: note.beside, note })),
+    ...(answerAt === null ? [] : [{ key: 'answer', beside: answerAt }])
+  ].sort((a, b) => a.beside - b.beside), [notes, answerAt]);
 
   useEffect(() => {
     setNotes([]);
@@ -174,15 +200,15 @@ export const ArticleMargins = ({ articleId, contentRef, frameRef, contentKey = '
   const measure = useCallback(() => {
     const root = contentRef.current;
     const frame = frameRef.current;
-    if (!root || !frame || !notes.length) {
+    if (!root || !frame || !items.length) {
       setPlaces([]);
       return;
     }
     const blocks = readingBlocks(root);
-    setPlaces(notes.map(note => (blocks[note.beside]
-      ? placeBeside(blocks[note.beside], frame, root)
+    setPlaces(items.map(item => (blocks[item.beside]
+      ? placeBeside(blocks[item.beside], frame, root)
       : null)));
-  }, [contentRef, frameRef, notes]);
+  }, [contentRef, frameRef, items]);
 
   useLayoutEffect(() => { measure(); }, [measure, layoutKey]);
   useEffect(() => {
@@ -199,13 +225,54 @@ export const ArticleMargins = ({ articleId, contentRef, frameRef, contentKey = '
     };
   }, [contentRef, measure]);
 
-  const stack = useStackedMargins(places);
-  if (hidden || !notes.length) return null;
+  const stack = useStackedMargins(places, answer ? `${answer.status}:${answer.reply.length}` : '');
+  if (hidden || !items.length) return null;
+  const card = answer ? (
+    <MarginAnswer
+      answer={answer}
+      onAsk={typed => asking.ask(answer, typed)}
+      onClose={asking.close}
+      onContinue={asking.carryOver}
+    />
+  ) : null;
+  const askNote = asking?.available ? note => asking.ask({
+    beside: note.beside,
+    paragraph: plainText(readingBlocks(contentRef.current)[note.beside]?.textContent),
+    highlight: note.highlight
+  }) : undefined;
+  // On a narrow page an answer beside a note opens inside that note's card.
+  const inNote = beside => items.some((item, index) => item.note && item.beside === beside && places[index]?.mode === 'mark');
   return (
     <aside className="library-margins" aria-label="From your library">
-      {notes.map((note, index) => (places[index] ? (
-        <MarginNote key={`${note.highlight._id}-${note.beside}`} ref={stack(index)} note={note} place={places[index]} />
-      ) : null))}
+      {items.map((item, index) => {
+        const place = places[index];
+        if (!place) return null;
+        if (item.note) {
+          const held = place.mode === 'mark' && answerAt === item.beside;
+          return (
+            <MarginNote
+              key={item.key}
+              ref={stack(index)}
+              note={item.note}
+              place={place}
+              onAsk={askNote}
+              answer={held ? card : null}
+              onCloseAnswer={asking?.close}
+            />
+          );
+        }
+        if (inNote(item.beside)) return null;
+        return (
+          <div
+            key={item.key}
+            ref={stack(index)}
+            className={`library-margin-note library-margin-answer is-${place.mode}${place.mode === 'mark' ? ' is-open' : ''}`}
+            style={{ top: place.top, left: place.left, ...(place.width ? { width: place.width } : {}) }}
+          >
+            {place.mode === 'mark' ? <div className="library-margin-note__card">{card}</div> : card}
+          </div>
+        );
+      })}
     </aside>
   );
 };

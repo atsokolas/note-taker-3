@@ -9,6 +9,7 @@ import { formatSurfaceDate } from '../../utils/dateDisplay';
 import useMagneticRow from '../../hooks/useMagneticRow';
 import { humanizeLabel } from '../../utils/humanizeLabel';
 import { beginArticleDrag } from '../../pages/dragGrammar';
+import { sourceTitle } from '../../utils/sourceDisplayText';
 
 const SOURCE_ROW_HEIGHT = 168;
 const ROOM_SOURCE_ROW_HEIGHT = 94;
@@ -61,7 +62,7 @@ const suppressedRecoveryHref = ({ sourceView, query }) => {
 };
 
 const openLabelFor = (source) => {
-  const title = source?.title || 'Untitled source';
+  const title = sourceTitle(source);
   if (source?.type === 'highlight') return `Open highlight: ${title}`;
   if (source?.type === 'note') return `Open notebook entry: ${title}`;
   return `Open in Reading Room: ${title}`;
@@ -177,7 +178,7 @@ const LibrarySourceRow = React.memo(({
             onOpenSource?.(source);
           }}
         >
-          <div className="library-article-row-title">{source.title || 'Untitled source'}</div>
+          <div className="library-article-row-title">{sourceTitle(source)}</div>
           <div className="library-article-row-kicker">
             {!isRoom ? <span className="library-source-row__type">{typeLabel}</span> : null}
             {metaBits.length > 0 ? (

@@ -17,7 +17,7 @@ const keepReadingPlace = (event) => {
 };
 const MAX_DRIFT_PX = 14;
 
-/* H, T and A act on a selection. The menu says so the first three times it
+/* H, T and A act on a selection (A only where the Partner can read). The menu says so the first three times it
    opens on this device, and then trusts the reader to remember. */
 const KEY_HINTS_KEY = 'noeis.reader.selectionKeyHints';
 const KEY_HINT_SHOWINGS = 3;
@@ -43,7 +43,7 @@ const SelectionMenu = React.forwardRef(({
   saving,
   onHighlight,
   onThought,
-  onAskLibrarian,
+  onAsk,
   onWorkWithPassage,
 }, ref) => {
   const reducedMotion = usePrefersReducedMotion();
@@ -61,7 +61,7 @@ const SelectionMenu = React.forwardRef(({
   useEffect(() => { if (showKeys) countKeyHintShowing(); }, [showKeys]);
 
   const keys = useRef({});
-  keys.current = { h: () => onHighlight?.(), t: onThought, a: onAskLibrarian };
+  keys.current = { h: () => onHighlight?.(), t: onThought, a: onAsk };
   useEffect(() => {
     if (!rect) return undefined;
     const press = (event) => {
@@ -152,17 +152,18 @@ const SelectionMenu = React.forwardRef(({
       {/* Keep a sentence, ask about it, or begin writing from it.
 
           Highlight keeps it in the default ink, so the reader who just wants
-          the sentence never meets a decision. The inks sit after Ask about
-          this, because choosing a colour is the rarer thing and the rarer
-          thing goes last. */}
+          the sentence never meets a decision. Ask answers in the margin
+          beside the paragraph, and is here only when a model can read the
+          piece. The inks sit after it, because choosing a colour is the
+          rarer thing and the rarer thing goes last. */}
       <div className="selection-menu__actions">
         <button type="button" className="selection-menu-button" onMouseDown={keepReadingPlace} onClick={() => onHighlight?.()} disabled={saving} aria-keyshortcuts="H">
           {saving ? 'Saving...' : 'Highlight'}{hint('H')}
         </button>
         {onThought ? <button type="button" className="selection-menu-button" onMouseDown={keepReadingPlace} onClick={onThought} disabled={saving} aria-keyshortcuts="T">Leave a thought{hint('T')}</button> : null}
-        <button type="button" className="selection-menu-button is-muted" onMouseDown={keepReadingPlace} onClick={onAskLibrarian} disabled={saving} aria-keyshortcuts="A">
-          Ask about this{hint('A')}
-        </button>
+        {onAsk ? <button type="button" className="selection-menu-button is-muted" onMouseDown={keepReadingPlace} onClick={onAsk} disabled={saving} aria-keyshortcuts="A">
+          Ask{hint('A')}
+        </button> : null}
         {onWorkWithPassage ? <button type="button" className="selection-menu-button" onMouseDown={keepReadingPlace} onClick={onWorkWithPassage} disabled={saving}>
           Work with this passage
         </button> : null}

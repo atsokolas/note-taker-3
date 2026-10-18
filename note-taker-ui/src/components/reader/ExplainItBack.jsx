@@ -1,27 +1,35 @@
 import React, { useEffect, useState } from 'react';
 import { canExplainBack, explainBack } from '../../api/readingRoom';
 
+/* Whether a model can read this piece. Explain it back and asking in the
+   margin both stand on it; without one, neither appears. */
+export const useModelReads = (articleId) => {
+  const [reads, setReads] = useState(false);
+  useEffect(() => {
+    let live = true;
+    setReads(false);
+    if (!articleId) return undefined;
+    canExplainBack(articleId)
+      .then((value) => { if (live) setReads(Boolean(value)); })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [articleId]);
+  return reads;
+};
+
 /**
  * Explain it back: two sentences in your own words, read against the piece
  * and your marks. Shown only when there is a model to read them; without one
  * the end of the article stays as it was.
  */
-export default function ExplainItBack({ articleId }) {
-  const [available, setAvailable] = useState(false);
+export default function ExplainItBack({ articleId, available = false }) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState('');
   const [state, setState] = useState({ status: 'idle', missed: [], error: '' });
 
   useEffect(() => {
-    let live = true;
-    setAvailable(false);
     setOpen(false);
     setState({ status: 'idle', missed: [], error: '' });
-    if (!articleId) return undefined;
-    canExplainBack(articleId)
-      .then((value) => { if (live) setAvailable(value); })
-      .catch(() => {});
-    return () => { live = false; };
   }, [articleId]);
 
   if (!available) return null;

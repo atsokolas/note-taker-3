@@ -187,6 +187,12 @@ export const getNotebookBoard = async () => {
   return Array.isArray(res.data) ? res.data : [];
 };
 
+/* Finished thinking settles into Wiki: a page the first time, a revision after. */
+export const settleNotebookEntry = async (id) => {
+  const res = await api.post(`/api/notebook/${encodeURIComponent(id)}/settle`, {}, getAuthHeaders());
+  return res.data;
+};
+
 export const moveNotebookEntry = async (id, board) => {
   const res = await api.patch(`/api/notebook/${encodeURIComponent(id)}/board`, board, getAuthHeaders());
   return res.data?.board || null;

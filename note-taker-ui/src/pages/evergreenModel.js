@@ -1,4 +1,5 @@
 import { normalizeSpaces } from '../utils/editorialText';
+import { sourceTitle } from '../utils/sourceDisplayText';
 
 /*
  * What you keep.
@@ -49,7 +50,7 @@ const sourceEntry = (article = {}) => ({
   id: `source:${idOf(article)}`,
   kind: 'source',
   targetId: idOf(article),
-  title: normalizeSpaces(article.title) || 'Untitled source',
+  title: sourceTitle(article),
   detail: normalizeSpaces(article.siteName || article.author),
   url: normalizeSpaces(article.url),
   keptAt: article.evergreenAt || article.updatedAt || article.createdAt || null,

@@ -10,7 +10,7 @@ import {
   surroundingFromLibrarySource,
   surroundingFromSource
 } from './wikiReaderContextModel';
-import { collectWikiText } from './wikiPageMetrics';
+import { docText } from '../../utils/editorialText';
 
 describe('wikiReaderContextModel', () => {
   it('nests inspect panels and returns to the previous view', () => {
@@ -145,7 +145,7 @@ describe('wikiReaderContextModel', () => {
       }
     });
     expect(snapshot).not.toBeNull();
-    expect(collectWikiText(snapshot.body)).toBe('UNIQUE_HISTORICAL_SENTENCE from a retained revision.');
+    expect(docText(snapshot.body)).toBe('UNIQUE_HISTORICAL_SENTENCE from a retained revision.');
     expect(snapshot.retained).toBe('before');
     expect(snapshot.rev).not.toBe('rev-list');
     expect(historicalRevisionSnapshot({
@@ -174,6 +174,6 @@ describe('wikiReaderContextModel', () => {
     });
     expect(afterSnapshot.retained).toBe('after');
     expect(afterSnapshot.rev).toBe('rev-2');
-    expect(collectWikiText(afterSnapshot.body)).toBe('The later words.');
+    expect(docText(afterSnapshot.body)).toBe('The later words.');
   });
 });

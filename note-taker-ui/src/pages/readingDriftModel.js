@@ -1,5 +1,6 @@
 import { normalizeSpaces } from '../utils/editorialText';
 import { isProceduralShelf, topLevelAncestor } from './folderTreeModel';
+import { sourceTitle } from '../utils/sourceDisplayText';
 
 /* What counts as a filing tray is the cabinet's call — re-exported here so
    every surface that learned it from this model keeps reading it in the
@@ -83,7 +84,7 @@ const periodFor = (index, now) => {
 
 const workOf = (article = {}) => ({
   id: normalizeSpaces(article?._id),
-  title: normalizeSpaces(article?.title) || 'Untitled source',
+  title: sourceTitle(article),
   author: normalizeSpaces(article?.author),
   publication: normalizeSpaces(article?.siteName),
   url: normalizeSpaces(article?.url),

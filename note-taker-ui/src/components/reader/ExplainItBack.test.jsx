@@ -1,12 +1,15 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import ExplainItBack from './ExplainItBack';
+import ExplainItBackAlone, { useModelReads } from './ExplainItBack';
 import { canExplainBack, explainBack } from '../../api/readingRoom';
 
 jest.mock('../../api/readingRoom', () => ({
   canExplainBack: jest.fn(),
   explainBack: jest.fn()
 }));
+
+// As the reader mounts it: availability read once, by the reader.
+const ExplainItBack = ({ articleId }) => <ExplainItBackAlone articleId={articleId} available={useModelReads(articleId)} />;
 
 const TWO = 'Costco sells cheap. People like it a great deal.';
 

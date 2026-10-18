@@ -1,5 +1,5 @@
 import { wikiReadPath } from '../../../utils/wikiFeatureFlags';
-import { cleanSourceTextForDisplay } from '../../../utils/sourceDisplayText';
+import { cleanSourceTextForDisplay, sourceTitle } from '../../../utils/sourceDisplayText';
 import { liveDefinitionAfterFailure } from '../../../utils/distinctionUse';
 import {
   EXPLORATION_STATUS,
@@ -247,7 +247,7 @@ export const bindLibraryPassage = ({ article, highlight } = {}) => {
   const passage = cleanSourceTextForDisplay(highlight?.text || highlight?.anchor?.text || '');
   const around = surroundingFromArticle({ article, highlight });
   return {
-    title: String(article?.title || '').trim() || 'Untitled source',
+    title: sourceTitle(article),
     passage,
     aroundBefore: around.aroundBefore,
     aroundAfter: around.aroundAfter,

@@ -29,6 +29,14 @@ const send = async (url, files, extra = {}) => {
   return { status: response.status, body: await response.json() };
 };
 
+const until = async (check, ms = 5000) => {
+  const deadline = Date.now() + ms;
+  while (!(await check())) {
+    if (Date.now() > deadline) throw new Error('timed out waiting');
+    await new Promise(resolve => setTimeout(resolve, 20));
+  }
+};
+
 test('real Mongo: export files land as books, saved articles and notes, and a second import adds nothing', async () => {
   const mongo = await MongoMemoryReplSet.create({ replSet: { count: 1 }, instanceOpts: [{ launchTimeout: 60000 }] });
   let server;
@@ -50,6 +58,13 @@ test('real Mongo: export files land as books, saved articles and notes, and a se
     });
 
     const indexed = [];
+    // Pages are read after the response, never during it; one of them will not open.
+    const fetched = [];
+    const fetchSourceBody = async (link) => {
+      fetched.push(link);
+      if (link === 'https://example.com/news/today') throw new Error('HTTP 403');
+      return `<p>The whole of ${link}.</p>`;
+    };
     const app = express();
     app.use(buildImportRouter({
       authenticateToken: (req, res, next) => { req.user = { id: String(userId) }; next(); },
@@ -67,7 +82,8 @@ test('real Mongo: export files land as books, saved articles and notes, and a se
       syncNotebookReferences: async () => {},
       enqueueArticleEmbedding: async (article) => { indexed.push(['article', article.title]); },
       enqueueHighlightEmbedding: async ({ highlight }) => { indexed.push(['highlight', highlight.text]); },
-      enqueueNotebookEmbedding: async (entry) => { indexed.push(['note', entry.title]); }
+      enqueueNotebookEmbedding: async (entry) => { indexed.push(['note', entry.title]); },
+      fetchSourceBody
     }));
     const listening = await listen(app);
     server = listening.server;
@@ -107,10 +123,27 @@ test('real Mongo: export files land as books, saved articles and notes, and a se
     assert.equal(String(essay.folder), String(essays._id));
     assert.equal(essay.highlights[0].text, 'Attention is the beginning of devotion.');
     assert.equal(await Folder.countDocuments({ userId }), 1);
+    // The links arrived bare; their pages follow, and the one that would not open stays a link.
+    assert.equal(instapaper.body.importedArticles, 3, 'the response did not wait for the pages');
+    await until(async () => (await Article.countDocuments({ userId, content: /The whole of/ })) === 2);
+    assert.deepEqual([...fetched].sort(), [
+      'https://example.com/essays/attention',
+      'https://example.com/longform/cities',
+      'https://example.com/news/today'
+    ], 'a Kindle book is not a web page, so it is never fetched');
+    assert.equal((await Article.findOne({ userId, url: 'https://example.com/news/today' }).lean()).content, '');
+    assert.ok(indexed.some(([kind, title]) => kind === 'article' && title === 'The Life of Cities'));
+    fetched.length = 0;
 
     const pocket = await send(url, [['pocket-ril_export.html'], ['pocket-part_000000.csv']]);
     assert.equal(pocket.status, 200);
     assert.equal(pocket.body.summary, 'Saved 2 articles; 3 were already here.');
+    await until(async () => (await Article.countDocuments({ userId, content: /The whole of/ })) === 4);
+    assert.deepEqual([...fetched].sort(), [
+      'https://example.com/garden/quiet',
+      'https://example.com/science/tides'
+    ], 'a page already read is not read again');
+    fetched.length = 0;
     const tides = await Article.findOne({ userId, url: 'https://example.com/science/tides' }).lean();
     assert.equal(tides.title, 'Why the Tides & the Moon');
     assert.equal(tides.createdAt.toISOString(), '2019-01-01T00:01:40.000Z', 'a saved link keeps the day it was saved');
@@ -119,6 +152,18 @@ test('real Mongo: export files land as books, saved articles and notes, and a se
     ]);
     assert.equal(await TagMeta.countDocuments({ userId }), 1, 'Pocket tags never invent concepts');
     assert.deepEqual((await Article.findOne({ userId, url: 'https://example.com/garden/quiet' }).lean()).importMeta.tags, undefined);
+
+    // A long export is read only up to the cap; the rest stay links.
+    const many = ['title,url,time_added,tags,status']
+      .concat(Array.from({ length: 60 }, (_v, index) => `Saved ${index},https://example.com/many/${index},1546300800,,unread`))
+      .join('\n');
+    const manyForm = new FormData();
+    manyForm.append('files', new Blob([many]), 'part_000001.csv');
+    assert.equal((await fetch(`${url}/api/import/files`, { method: 'POST', body: manyForm })).status, 200);
+    await until(async () => (await Article.countDocuments({ userId, url: /\/many\//, content: /The whole of/ })) === 50);
+    await new Promise(resolve => setTimeout(resolve, 100));
+    assert.equal(fetched.length, 50);
+    assert.equal(await Article.countDocuments({ userId, url: /\/many\//, content: '' }), 10);
 
     // A folder of Markdown becomes Think notes in mirrored folders; unchanged notes are left alone.
     const vault = [

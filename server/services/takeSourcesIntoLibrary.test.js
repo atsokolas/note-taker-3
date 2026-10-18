@@ -7,17 +7,17 @@ const fakeArticles = (records = []) => {
   return {
     records,
     find: query => ({ select: () => ({ lean: async () => find(query) }) }),
-    findOneAndUpdate: async ({ userId, url }, { $setOnInsert }) => {
+    findOneAndUpdate: async ({ userId, url }, { $setOnInsert, $set }) => {
+      if ($set) {
+        const bare = records.find(record => record.userId === userId && record.url === url && !record.content);
+        return bare ? Object.assign(bare, $set) : null;
+      }
       let found = records.find(record => record.userId === userId && record.url === url);
       if (!found) {
         found = { _id: `article-${records.length + 1}`, ...$setOnInsert };
         records.push(found);
       }
       return found;
-    },
-    updateOne: async ({ userId, url }, { $set }) => {
-      const found = records.find(record => record.userId === userId && record.url === url && !record.content);
-      if (found) Object.assign(found, $set);
     }
   };
 };

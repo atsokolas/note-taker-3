@@ -479,6 +479,8 @@ describe('CommandPalette', () => {
     expect(await screen.findByText('Think concepts')).toBeInTheDocument();
     expect(screen.getByText('Think notebook')).toBeInTheDocument();
     expect(screen.getByText('New Think note')).toBeInTheDocument();
+    // A blank page is writing; writing starts in Think, so Wiki offers no blank page.
+    expect(screen.queryByText('New Wiki page')).not.toBeInTheDocument();
     expect(screen.queryByText('Concepts')).not.toBeInTheDocument();
     expect(screen.queryByText('Notebook')).not.toBeInTheDocument();
   });

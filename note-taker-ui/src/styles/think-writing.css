@@ -595,6 +595,16 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
   letter-spacing: 0.06em;
 }
 
+/* Where the finished note now lives, said once and quietly under the title. */
+.think-notebook-settled,
+.think-notebook-settle-line {
+  margin: 4px 0 0;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--font-sans);
+  font-size: 0.84rem;
+}
+.think-notebook-settled a { color: inherit; text-underline-offset: 3px; }
+
 /* The arrange handle is there when the hand is: hover or focus only. */
 @media (hover: hover) {
   .notebook-arrangement { opacity: 0; transition: opacity 160ms ease; }

@@ -23,6 +23,7 @@ const net = require('net');
 
 const DEFAULT_MAX_BYTES = 1024 * 1024;
 const DEFAULT_TIMEOUT_MS = 10000;
+const DEFAULT_DEADLINE_MS = 20000;
 const MAX_REDIRECTS = 3;
 
 const isPrivateIpv4 = (address = '') => {
@@ -129,6 +130,7 @@ const requestPublic = async ({
   accept = 'text/html,application/xhtml+xml',
   userAgent = 'Noeis (+https://www.noeis.io)',
   timeoutMs = DEFAULT_TIMEOUT_MS,
+  signal = null,
   fetchImpl = global.fetch,
   lookup = dns.lookup
 } = {}) => {
@@ -138,6 +140,8 @@ const requestPublic = async ({
   for (let redirects = 0; redirects <= MAX_REDIRECTS; redirects += 1) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
+    // The hop's timer stops at the headers; a caller's signal can still end the body.
+    signal?.addEventListener('abort', () => controller.abort(), { once: true });
     let response;
     try {
       response = await fetchImpl(current, {
@@ -167,19 +171,28 @@ const fetchPublicText = async ({
   contentTypeMessage = '',
   maxBytes = DEFAULT_MAX_BYTES,
   subject = 'This URL',
+  deadlineMs = DEFAULT_DEADLINE_MS,
   ...request
 } = {}) => {
-  const { response, url } = await requestPublic({ ...request, subject });
-  if (!response?.ok) {
-    const error = new Error(`${subject} request failed with HTTP ${response?.status || 'unknown'}.`);
-    error.status = response?.status || 0;
-    throw error;
+  // One deadline over every hop and the whole body, so a page that sends its
+  // headers and then trickles forever is cut off and its socket released.
+  const deadline = new AbortController();
+  const timer = setTimeout(() => deadline.abort(), deadlineMs);
+  try {
+    const { response, url } = await requestPublic({ ...request, subject, signal: deadline.signal });
+    if (!response?.ok) {
+      const error = new Error(`${subject} request failed with HTTP ${response?.status || 'unknown'}.`);
+      error.status = response?.status || 0;
+      throw error;
+    }
+    const contentType = String(response.headers?.get?.('content-type') || '').toLowerCase();
+    if (contentTypePattern && contentType && !contentTypePattern.test(contentType)) {
+      throw new Error(contentTypeMessage || `${subject} did not return the expected content type.`);
+    }
+    return { text: await readBoundedBody(response, maxBytes, subject), url, contentType };
+  } finally {
+    clearTimeout(timer);
   }
-  const contentType = String(response.headers?.get?.('content-type') || '').toLowerCase();
-  if (contentTypePattern && contentType && !contentTypePattern.test(contentType)) {
-    throw new Error(contentTypeMessage || `${subject} did not return the expected content type.`);
-  }
-  return { text: await readBoundedBody(response, maxBytes, subject), url, contentType };
 };
 
 /* Not Found and Gone are the only answers that mean the page is no longer

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Button } from '../ui';
 import { listWikiSourceEvents, processPendingWikiSourceEvents, processWikiSourceEvent } from '../../api/wiki';
+import { sourceTitle } from '../../utils/sourceDisplayText';
 
 const formatDate = (value) => {
   if (!value) return '';
@@ -73,7 +74,7 @@ const WikiInbox = () => {
           <li key={event._id} className={`wiki-inbox__item wiki-inbox__item--${event.status || 'pending'}`}>
             <div>
               <span className="wiki-inbox__status">{event.status || 'pending'}</span>
-              <h3>{event.title || 'Untitled source'}</h3>
+              <h3>{sourceTitle(event)}</h3>
               <p>{event.summary || `${event.provider || event.sourceType || 'source'} changed.`}</p>
               <span className="wiki-inbox__meta">{event.provider || event.sourceType} · {formatDate(event.createdAt)}</span>
             </div>

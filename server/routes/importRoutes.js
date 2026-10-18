@@ -52,6 +52,7 @@ const { recordSourceCorrection } = require('../services/authoredSourceCorrection
 const { processWikiSourceEvent: defaultProcessWikiSourceEvent } = require('../services/wikiMaintenanceOrchestrator');
 const { persistNoeisReceipt } = require('../services/noeisReceiptService');
 const { wordBoundaryTrim } = require('../lib/editorialText');
+const { fillArticleBodies } = require('../services/readableArticle');
 const {
   inboundMailConfig,
   newsletterFromMail,
@@ -80,6 +81,14 @@ const READWISE_OAUTH_REGISTER_URL = 'https://readwise.io/o/register/';
 const READWISE_OAUTH_USERINFO_URL = 'https://readwise.io/o/userinfo';
 const READWISE_OAUTH_SCOPES = ['openid', 'read', 'write'];
 const READWISE_DYNAMIC_CLIENTS = new Map();
+/* Pocket and Instapaper hand over links, not pages. The bodies are read after
+   the import answers, and only this many per import, so a ten-year export
+   cannot keep the server reading all afternoon. */
+const IMPORT_BODY_FETCH_CAP = 50;
+const bareLinks = (articles = []) => articles
+  .filter(article => /^https?:\/\//i.test(article.url) && !String(article.content || '').trim())
+  .map(article => article.url)
+  .slice(0, IMPORT_BODY_FETCH_CAP);
 
 const buildImportRouter = ({
   authenticateToken,
@@ -109,7 +118,9 @@ const buildImportRouter = ({
   enqueueNotebookEmbedding,
   User = null,
   env = process.env,
-  fetchImpl = global.fetch
+  fetchImpl = global.fetch,
+  /* Reads a bare link's body; the public-URL-guarded reader when absent. */
+  fetchSourceBody
 }) => {
   const router = express.Router();
 
@@ -1806,7 +1817,15 @@ const buildImportRouter = ({
         requestId: req.requestId,
         properties: { source: `export-${provider}`, importedArticles: s.newSources, importedHighlights: s.newHighlights, importedNotes: resultPayload.importedNotes }
       });
-      return res.status(200).json(resultPayload);
+      res.status(200).json(resultPayload);
+      fillArticleBodies({
+        Article,
+        userId,
+        urls: bareLinks(landed.articles),
+        fetchBody: fetchSourceBody,
+        onFilled: article => enqueueArticleEmbedding(article)
+      }).catch(error => console.error('Failed fetching imported links:', error));
+      return undefined;
     } catch (error) {
       console.error('Export file import failed:', error);
       const message = 'Those files did not finish coming in. Whatever arrived stays, and trying again will not double it.';
