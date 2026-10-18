@@ -131,6 +131,8 @@ struct ArticleReader: View {
     @State private var argument: JSON?
     @State private var selection: MarkedSelection?
     @State private var settled = 0
+    /// A pencil touching paper: one soft, damped tap as the ink lands.
+    @State private var tick = UIImpactFeedbackGenerator(style: .soft)
 
     var body: some View {
         Loaded(load: { () async throws -> (JSON, [JSON], NSAttributedString) in
@@ -147,16 +149,23 @@ struct ArticleReader: View {
                 marks: highlights.map { Mark(text: $0.at("anchor.text")?.string ?? $0["text"].text, ink: Ink.Highlight(rawValue: $0["color"].text) ?? .keep) } + marks,
                 focus: passage,
                 settled: settled,
-                onSelect: { picked in calmly(.easeOut(duration: 0.18)) { selection = picked } }
+                onSelect: { picked in
+                    // Awake before the tap, so the first tick isn't late.
+                    if picked != nil { tick.prepare() }
+                    calmly(.easeOut(duration: 0.18)) { selection = picked }
+                }
             )
             .safeAreaInset(edge: .bottom) {
                 if let selection {
                     HighlightBar(selection: selection, busy: writer.busy) { ink, thought in
                         // Painted at once; kept on the server, so it is there on the web and after a reload.
                         let mark = Mark(text: selection.text, ink: ink)
+                        // Once per new mark: not again for a passage already marked.
+                        if !(highlights.contains { ($0.at("anchor.text")?.string ?? $0["text"].text) == mark.text } || marks.contains { $0.text == mark.text }) {
+                            tick.impactOccurred(intensity: 0.55)
+                        }
                         marks.append(mark)
                         settled += 1
-                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
                         writer.run {
                             do {
                                 let saved = try await NoeisAPI.shared.mark(articleId: id, text: selection.text, prefix: selection.prefix, suffix: selection.suffix, offset: selection.offset, color: ink.rawValue)
