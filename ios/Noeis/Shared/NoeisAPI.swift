@@ -457,7 +457,7 @@ struct NoeisAPI {
 
         // Every signed-in read is kept on the device, so a page can open from
         // it at once and still opens with no connection or a sleeping server.
-        let key = method == "GET" && signedIn ? request.url!.absoluteString : nil
+        let key = method == "GET" && signedIn ? SavedCopies.key(request.url!) : nil
         let reading = Self.reading
         if reading?.saved == true {
             guard let key, let copy = SavedCopies.read(key) else { throw NoeisAPIError.offline }
@@ -504,20 +504,22 @@ struct NoeisAPI {
     /// read later with no connection. Skipped on cellular and in Low Data Mode.
     func keep(articleIds: [String]) async {
         for path in articleIds.flatMap({ ["/articles/\($0)", "/api/articles/\($0)/highlights"] }) {
-            guard let token = NoeisAuthStore.shared.token, SavedCopies.read(base.appendingPathComponent(path).absoluteString) == nil else { continue }
-            var request = URLRequest(url: base.appendingPathComponent(path))
+            let url = base.appendingPathComponent(path)
+            guard let token = NoeisAuthStore.shared.token, SavedCopies.read(SavedCopies.key(url)) == nil else { continue }
+            var request = URLRequest(url: url)
             request.setValue("application/json", forHTTPHeaderField: "Accept")
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
             request.allowsExpensiveNetworkAccess = false
             request.allowsConstrainedNetworkAccess = false
             guard let (data, response) = try? await session.data(for: request),
                   (response as? HTTPURLResponse)?.statusCode == 200 else { return }
-            SavedCopies.write(request.url!.absoluteString, data)
+            SavedCopies.write(SavedCopies.key(url), data)
         }
     }
 
     private func signOut() -> NoeisAPIError {
         NoeisAuthStore.shared.clearToken()
+        SavedCopies.erase()
         NotificationCenter.default.post(name: .noeisSignedOut, object: nil)
         return .signedOut
     }
@@ -547,8 +549,11 @@ struct NoeisAPI {
 }
 
 /// The reads kept on the device, one file each, in Caches (iOS may clear it
-/// when space runs low; it is only ever a copy). Erased on sign-out.
+/// when space runs low; it is only ever a copy). Filed under the account, so
+/// one account's copies never show under another; erased on sign-out.
 enum SavedCopies {
+    static func key(_ url: URL) -> String { "\(NoeisAuthStore.shared.username ?? "")|\(url.absoluteString)" }
+
     private static let folder = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
         .appendingPathComponent("Saved copies", isDirectory: true)
 

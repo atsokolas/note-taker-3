@@ -25,13 +25,16 @@ struct Loaded<Value, Content: View>: View {
                         if let savedOn { SavedLine(date: savedOn).transition(.opacity) }
                     }
             } else if let error {
-                ContentUnavailableView {
-                    Label("Could not load this", systemImage: "wifi.exclamationmark")
-                } description: {
-                    Text(error)
-                } actions: {
-                    Button("Try again") { Task { await reload() } }
+                VStack(spacing: 12) {
+                    Text(error == Self.unsaved ? "Not saved on this \(thisDevice) yet" : "Could not load this")
+                        .font(.system(.title2, design: .serif))
+                    Text(error).font(.callout).foregroundStyle(Ink.muted)
+                    Button("Try again") { Task { await reload() } }.buttonStyle(.ink).padding(.top, 8)
                 }
+                .multilineTextAlignment(.center)
+                .padding(32)
+                .frame(maxWidth: 420)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 VStack(spacing: 12) {
                     ProgressView()
@@ -50,6 +53,8 @@ struct Loaded<Value, Content: View>: View {
         }
         .task { if value == nil { await reload() } }
     }
+
+    private static var unsaved: String { "Noeis can’t be reached, and this hasn’t been opened here while connected. It opens once Noeis is back." }
 
     private func reload() async {
         error = nil
@@ -74,11 +79,16 @@ struct Loaded<Value, Content: View>: View {
         } catch is CancellationError {
         } catch NoeisAPIError.signedOut {
             // The session view takes over; nothing to show here.
+        } catch NoeisAPIError.offline {
+            if value == nil { self.error = Self.unsaved } else if let kept { calmly { savedOn = kept } }
         } catch {
             if value == nil { self.error = error.localizedDescription } else if let kept { calmly { savedOn = kept } }
         }
     }
 }
+
+/// What a saved copy is kept on, in words.
+private var thisDevice: String { UIDevice.current.userInterfaceIdiom == .pad ? "iPad" : "iPhone" }
 
 /// Says, in one quiet line, that what you're reading is the copy on this
 /// device, and from when.
@@ -86,12 +96,20 @@ private struct SavedLine: View {
     let date: Date
 
     var body: some View {
-        Text("Noeis can’t be reached. This is the copy saved on this \(UIDevice.current.userInterfaceIdiom == .pad ? "iPad" : "iPhone") \(date.ago).")
+        Text("Noeis can’t be reached. This is the copy saved on this \(thisDevice) \(when).")
             .font(.footnote)
             .foregroundStyle(Ink.muted)
+            .multilineTextAlignment(.center)
             .frame(maxWidth: .infinity)
+            .padding(.horizontal, 20)
             .padding(.vertical, 6)
             .background(Ink.canvas.opacity(0.92))
+    }
+
+    private var when: String {
+        if date.timeIntervalSinceNow > -60 { return "a moment ago" }
+        if Calendar.current.isDateInToday(date) { return "at \(date.formatted(date: .omitted, time: .shortened))" }
+        return "on \(date.shortDay)"
     }
 }
 

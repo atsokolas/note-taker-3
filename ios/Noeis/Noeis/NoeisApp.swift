@@ -69,6 +69,7 @@ final class Session: ObservableObject {
 
     func signOut() {
         NoeisAuthStore.shared.clearToken()
+        SavedCopies.erase()
         signedIn = false
     }
 

@@ -42,8 +42,6 @@ struct NoeisAuthStore {
         }
 
         try deleteTokenFromKeychain()
-        // Another account's copies never show under this one.
-        SavedCopies.erase()
 
         var query = baseQuery()
         query[kSecValueData as String] = data
@@ -57,7 +55,6 @@ struct NoeisAuthStore {
 
     func clearToken() {
         try? deleteTokenFromKeychain()
-        SavedCopies.erase()
     }
 
     private func readToken() throws -> String? {
