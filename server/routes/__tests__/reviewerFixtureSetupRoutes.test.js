@@ -14,6 +14,7 @@ const { buildImportRouter } = require('../importRoutes');
 const { buildHighlightMutationRouter } = require('../highlightMutationRoutes');
 const { buildWikiRouter } = require('../wikiRoutes');
 const { buildConceptMetaRouter } = require('../conceptMetaRoutes');
+const { heldFixtureEvent } = require('../../../note-taker-ui/src/pages/reviewerFixtureEvents');
 const jobs = require('../../ai/embeddingJobs');
 const reviewer = '111111111111111111111111';
 const ordinary = '555555555555555555555555';
@@ -72,6 +73,20 @@ test('real human text import, highlight and private Wiki creation persist setup 
     articles.push(await models.Article.findById(res.body.article._id));
     const event = await models.WikiSourceEvent.findById(res.body.sourceEventId);
     assert.equal(event.status, 'held'); assert.equal(event.attemptCount, 0);
+    // Feed the actual persisted import event into the same validator the form
+    // uses, rather than inventing an article-shaped connector event in a mock.
+    const actual = event.toObject();
+    const source = { title: articles.at(-1).title, url: articles.at(-1).url };
+    const criteria = { owner: reviewer, type: 'article', objectId: String(articles.at(-1)._id), source };
+    assert.equal(actual.sourceType, 'external');
+    assert.equal(heldFixtureEvent([actual], criteria), actual);
+    for (const change of [{ userId: ordinary }, { provider: 'other' }, { eventType: 'created' },
+      { status: 'pending' }, { attemptCount: 1 }, { url: 'https://example.com/different' },
+      { metadata: { ...actual.metadata, importMode: 'url' } },
+      { metadata: { ...actual.metadata, reviewerRehearsalHold: { reason: 'reviewer_rehearsal', inferenceAttemptedByHold: true } } }]) {
+      assert.equal(heldFixtureEvent([{ ...actual, ...change }], criteria), null);
+    }
+    assert.equal(heldFixtureEvent([actual, { ...actual, sourceType: 'article', attemptCount: 1 }], criteria), null);
   }
   const highlights = buildHighlightMutationRouter({ ...models, mongoose, authenticateToken,
     normalizeTags: tags => tags || [],
