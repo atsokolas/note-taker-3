@@ -146,6 +146,7 @@ final class Draft {
         let next = Block.new(blocks[at].type == "bullet" ? "bullet" : "paragraph", text.substring(from: end))
         blocks.insert(next, at: at + 1)
         caret = (next.id, 0)
+        current = next.id
         edits += 1
     }
 
@@ -159,10 +160,14 @@ final class Draft {
             let length = blocks[at - 1].text.utf16.count
             blocks[at - 1].text += blocks[at].text
             caret = (blocks[at - 1].id, length)
+            current = blocks[at - 1].id
             blocks.remove(at: at)
         } else if blocks[at].text.isEmpty, blocks.count > 1 {
             blocks.remove(at: at)
-            if let previous = blocks[..<at].lastIndex(where: \.written) { caret = (blocks[previous].id, blocks[previous].text.utf16.count) }
+            if let previous = blocks[..<at].lastIndex(where: \.written) {
+                caret = (blocks[previous].id, blocks[previous].text.utf16.count)
+                current = blocks[previous].id
+            }
         } else { return }
         edits += 1
     }
@@ -206,7 +211,7 @@ final class Draft {
 
     /// Back where it was: after the block it followed, if that is still here.
     func bringBack(_ piece: JSON) {
-        let returning = piece["blocks"].array.map(Block.init(json:))
+        let returning = (piece["blocks"]?.array ?? []).map(Block.init(json:))
         guard !returning.isEmpty else { return }
         undoable("Brought back “\(piece["label"].text)”") {
             aside.removeAll { $0.id == piece.id }
@@ -260,11 +265,11 @@ final class Draft {
 
     /// Wordings tried for a passage, oldest first.
     func trials(for target: JSON) -> [JSON] {
-        workbench["trials"].array.filter { Self.sameSpot($0["target"] ?? nil, target) }
+        (workbench["trials"]?.array ?? []).filter { Self.sameSpot($0["target"] ?? nil, target) }
     }
 
     func trialCount(_ block: Block) -> Int {
-        workbench["trials"].array.filter { $0.at("target.blockId")?.string == block.id && $0.at("target.baseText")?.raw == block.text }.count
+        (workbench["trials"]?.array ?? []).filter { $0.at("target.blockId")?.string == block.id && $0.at("target.baseText")?.raw == block.text }.count
     }
 
     private static func sameSpot(_ a: JSON, _ b: JSON) -> Bool {
@@ -423,7 +428,7 @@ private struct NotebookPage: View {
                             Outline(draft: draft) { piece in
                                 outline = false
                                 calmly { scroll.scrollTo(piece.id, anchor: .top) }
-                                if let block = draft.blocks[piece.blocks].first(where: \.written) { draft.caret = (block.id, 0) }
+                                draft.current = piece.id
                             }
                             .presentationCompactAdaptation(.sheet)
                             .presentationDetents([.medium, .large])
@@ -431,14 +436,14 @@ private struct NotebookPage: View {
                     Button { draft.wording = draft.wordingTarget() } label: { Image(systemName: "character.cursor.ibeam") }
                         .accessibilityLabel("Try other wording")
                         .disabled(draft.wordingTarget() == nil)
-                    PartnerToolbarItem(context: ["type": "notebook", "id": .string(draft.id), "title": .string(draft.title)])
                 }
+                PartnerToolbarItem(context: ["type": "notebook", "id": .string(draft.id), "title": .string(draft.title)])
             }
         }
         .background { ArrangeKeys(draft: draft) }
-        .inspector(isPresented: Binding(get: { draft.wording != nil }, set: { if !$0 { draft.wording = nil; draft.preview = nil } })) {
-            if let target = draft.wording { Alternatives(draft: draft, target: target).inspectorColumnWidth(min: 300, ideal: 340, max: 420) }
-        }
+        .modifier(Beside(draft: draft, wide: sizeClass == .regular))
+        // The bar keeps its frost over the draft, whatever the scroll view tells it.
+        .toolbarBackground(.visible, for: .navigationBar)
         .safeAreaInset(edge: .bottom) {
             VStack(spacing: 8) {
                 if let receipt = draft.receipt { Receipt(text: receipt.text, undo: receipt.undo) { draft.receipt = nil } }
@@ -534,12 +539,16 @@ private struct ArrangeMenu: View {
             Divider()
             Button("Delete", systemImage: "trash", role: .destructive) { draft.delete(index) }
         } label: {
-            Image(systemName: "circle.grid.2x3.fill")
-                .font(.system(size: 9))
-                .foregroundStyle(Ink.thread)
-                .frame(width: 22, height: 28)
-                .background(Ink.canvas)
-                .contentShape(Rectangle())
+            // The web's six-dot handle.
+            Grid(horizontalSpacing: 3, verticalSpacing: 3) {
+                ForEach(0..<3, id: \.self) { _ in
+                    GridRow { Circle().frame(width: 3, height: 3); Circle().frame(width: 3, height: 3) }
+                }
+            }
+            .foregroundStyle(Ink.thread)
+            .frame(width: 22, height: 28)
+            .background(Ink.canvas)
+            .contentShape(Rectangle())
         }
         .accessibilityLabel("Arrange this passage")
     }
@@ -600,7 +609,7 @@ private struct BlockView: View {
                 Button(tried == 1 ? "1 other wording" : "\(tried) other wordings") {
                     draft.current = block.id
                     draft.selection = NSRange(location: 0, length: 0)
-                    draft.wording = draft.workbench["trials"].array.first { $0.at("target.blockId")?.string == block.id && $0.at("target.baseText")?.raw == block.text }?["target"]
+                    draft.wording = draft.(workbench["trials"]?.array ?? []).first { $0.at("target.blockId")?.string == block.id && $0.at("target.baseText")?.raw == block.text }?["target"]
                 }
                 .font(.caption)
                 .foregroundStyle(Ink.thread)
@@ -681,7 +690,8 @@ private struct BlockText: UIViewRepresentable {
         view.isEditable = !previewing
         view.accessibilityLabel = previewing ? "Trial wording. The draft is unchanged." : nil
         if let caret = draft.caret, caret.block == block.id {
-            DispatchQueue.main.async {
+            // After a joined block's view has let go of the keyboard.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
                 view.becomeFirstResponder()
                 view.selectedRange = NSRange(location: min(caret.at, (view.text as NSString).length), length: 0)
                 if draft.caret?.block == block.id { draft.caret = nil }
@@ -735,6 +745,29 @@ private struct BlockText: UIViewRepresentable {
 }
 
 // MARK: Other wordings
+
+/// On iPad the wordings open in a column beside the draft, as the web's rail;
+/// on iPhone, in a sheet over its lower half.
+private struct Beside: ViewModifier {
+    let draft: Draft
+    let wide: Bool
+
+    func body(content: Content) -> some View {
+        let open = Binding(get: { draft.wording.map(Wording.init) }, set: { if $0 == nil { draft.wording = nil; draft.preview = nil } })
+        if wide {
+            content.inspector(isPresented: Binding(get: { open.wrappedValue != nil }, set: { if !$0 { open.wrappedValue = nil } })) {
+                if let wording = open.wrappedValue { Alternatives(draft: draft, target: wording.target).inspectorColumnWidth(min: 300, ideal: 340, max: 420) }
+            }
+        } else {
+            content.sheet(item: open) { Alternatives(draft: draft, target: $0.target) }
+        }
+    }
+
+    struct Wording: Identifiable {
+        let target: JSON
+        var id: String { "\(target["blockId"].text)|\(target["rangeStart"]?.int ?? -1)|\(target["rangeEnd"]?.int ?? -1)" }
+    }
+}
 
 /// Beside the draft (on iPhone, under it): the passage as written, the other
 /// ways you or the Partner tried, and the one shown in place until you keep
@@ -904,7 +937,7 @@ private struct SetAside: View {
                 HStack(alignment: .firstTextBaseline) {
                     Text(piece["label"].text).font(.callout).foregroundStyle(Ink.muted).lineLimit(2)
                     Spacer(minLength: 12)
-                    if piece["blocks"].array.isEmpty {
+                    if (piece["blocks"]?.array ?? []).isEmpty {
                         Text("Bring back on noeis.io").font(.caption).foregroundStyle(Ink.subtle)
                     } else {
                         Button("Bring back") { draft.bringBack(piece) }.font(.callout).foregroundStyle(Ink.thread)
@@ -951,7 +984,8 @@ private struct Receipt: View {
         .padding(.horizontal, 16)
         .transition(.move(edge: .bottom).combined(with: .opacity))
         .task(id: text) {
-            try? await Task.sleep(for: .seconds(6))
+            try? await Task.sleep(for: .seconds(10))
+            guard !Task.isCancelled else { return }
             dismiss()
         }
     }

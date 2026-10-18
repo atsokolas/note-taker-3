@@ -306,7 +306,7 @@ struct NoeisAPI {
 
     /// Two or three other ways to say a passage, each with what it changed.
     func wordingOptions(_ id: String, target: JSON) async throws -> [JSON] {
-        try await send("POST", "/api/notebook/\(id)/workbench/wording-options", body: ["target": target, "requestId": .string(UUID().uuidString)])["options"].array
+        try await send("POST", "/api/notebook/\(id)/workbench/wording-options", body: ["target": target, "requestId": .string(UUID().uuidString)])["options"]?.array ?? []
     }
 
     func moveNote(_ id: String, stage: String? = nil, archived: Bool? = nil) async throws {
