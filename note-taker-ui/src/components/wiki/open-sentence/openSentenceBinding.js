@@ -1,5 +1,5 @@
 import { resolveSourceDoors } from '../../../utils/sourceRoutes';
-import { cleanSourceTextForDisplay } from '../../../utils/sourceDisplayText';
+import { cleanSourceTextForDisplay, sourceTitle } from '../../../utils/sourceDisplayText';
 import { createExploration } from './openSentenceModel';
 
 const asId = (value) => String(value?._id || value?.id || value || '').trim();
@@ -116,7 +116,7 @@ const bindPassage = (source, notes = []) => {
   const doors = resolveSourceDoors(source, { passage });
   const around = surrounding(source);
   return {
-    title: String(source.title || '').trim() || 'Untitled source',
+    title: sourceTitle(source),
     passage,
     aroundBefore: around.aroundBefore,
     aroundAfter: around.aroundAfter,

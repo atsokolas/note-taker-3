@@ -55,3 +55,20 @@ export const cleanImportedArticleDocument = (doc) => {
   }
   return doc;
 };
+
+/**
+ * What to call a source that never said its name: the site it came from, or
+ * plainly "Untitled". The old fallback, "Untitled source", was the database
+ * talking.
+ */
+export const sourceTitle = (source) => {
+  const title = String(source?.title || '').replace(/\s+/g, ' ').trim();
+  if (title) return title;
+  const url = String(source?.url || '').trim();
+  if (!/^https?:\/\//i.test(url)) return 'Untitled';
+  try {
+    return new URL(url).hostname.replace(/^www\./, '') || 'Untitled';
+  } catch (_error) {
+    return 'Untitled';
+  }
+};

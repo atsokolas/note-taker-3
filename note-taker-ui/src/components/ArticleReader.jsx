@@ -43,6 +43,7 @@ import { findExistingHighlightForSelection } from '../utils/libraryThinkSeam';
 import { sourceLabel } from './library/libraryColumnModel';
 import { formatCalendarDate } from '../utils/dateDisplay';
 import { AGENT_DISPLAY_NAME } from '../constants/agentIdentity';
+import { sourceTitle } from '../utils/sourceDisplayText';
 
 const hasReadableContent = (value) => String(value || '').replace(/<[^>]*>/g, '').trim().length > 0;
 
@@ -313,7 +314,7 @@ const ArticleReader = ({
       /* A source leaving the reading for a pile: the first of the four
          crossings, and the one a reader makes most often. */
       if (origin) {
-        handOffSentence(article.title || 'Untitled source', origin, {
+        handOffSentence(sourceTitle(article), origin, {
           from: PLACES.READER,
           to: PLACES.PILE
         });

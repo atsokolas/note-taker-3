@@ -68,7 +68,7 @@ const familyLabel = (members = []) => {
   const label = asString((parent || members[0] || {}).title)
     .replace(/\s+highlight$/i, '')
     .trim();
-  return label || 'Untitled source';
+  return label || 'Untitled';
 };
 
 // The topic-coverage function lives in the maintenance service alongside the

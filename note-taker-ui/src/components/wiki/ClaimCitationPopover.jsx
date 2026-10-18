@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { resolveSourceDoors } from '../../utils/sourceRoutes';
 import { formatClaimBornAt } from '../../utils/claimBornAt';
 import { AGENT_DISPLAY_NAME } from '../../constants/agentIdentity';
+import { sourceTitle } from '../../utils/sourceDisplayText';
 
 /**
  * ClaimCitationPopover — Wikipedia-style footnote popover for an inline
@@ -55,7 +56,7 @@ const formatConfidence = (value) => {
 };
 
 const SourceTitle = ({ source, doors }) => {
-  const title = source.title || 'Untitled source';
+  const title = sourceTitle(source);
   if (doors.ownedHref) {
     return doors.isLibrary ? (
       <Link className="wiki-claim-popover__item-title" to={doors.ownedHref}>{title}</Link>

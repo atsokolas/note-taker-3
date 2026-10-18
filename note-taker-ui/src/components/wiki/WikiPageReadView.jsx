@@ -28,7 +28,7 @@ import { recordClaimCheckIn, recordWikiPageVisit } from '../../api/dailyLoop';
 import { trackWikiReadModePageView } from '../../utils/wikiAnalytics';
 import { wikiPagePath, wikiReadPath } from '../../utils/wikiFeatureFlags';
 import { libraryIdentity, resolveSourceDoors } from '../../utils/sourceRoutes';
-import { cleanSourceTextForDisplay } from '../../utils/sourceDisplayText';
+import { cleanSourceTextForDisplay, sourceTitle } from '../../utils/sourceDisplayText';
 import ClaimCitationPopover from './ClaimCitationPopover';
 import renderTiptapDoc, { citationAnchorId, extractTocItems, firstParagraphText } from './renderTiptapDoc';
 import { cleanWikiLinkSnippetText } from './wikiLinkText';
@@ -982,15 +982,15 @@ const WikiReadReferences = ({ sources = [], citations = [], highlightedRef, onJu
                 {doors.ownedHref ? (
                   doors.isLibrary ? (
                     <Link className="wiki-read__reference-title" to={doors.ownedHref}>
-                      {source.title || 'Untitled source'}
+                      {sourceTitle(source)}
                     </Link>
                   ) : (
                     <a className="wiki-read__reference-title" href={doors.ownedHref}>
-                      {source.title || 'Untitled source'}
+                      {sourceTitle(source)}
                     </a>
                   )
                 ) : (
-                  <span className="wiki-read__reference-title">{source.title || 'Untitled source'}</span>
+                  <span className="wiki-read__reference-title">{sourceTitle(source)}</span>
                 )}
               </div>
               {excerpt ? <p>{conciseText(excerpt, 240)}</p> : null}
@@ -1152,7 +1152,7 @@ const WikiReadMarginalia = ({ sources = [], citations = [], onJumpToReference })
             }}
           >
             <span className="wiki-read__margin-note-index">[{citation.index}]</span>
-            <strong>{source.title || 'Untitled source'}</strong>
+            <strong>{sourceTitle(source)}</strong>
             {excerpt ? <span>{conciseText(excerpt, 120)}</span> : null}
           </a>
         );

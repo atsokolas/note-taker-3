@@ -601,7 +601,7 @@ const loadEvidenceResolver = async ({ pages, userId, models, session = null }) =
     const objectId = id(ref?.objectId);
     if (type === 'article') {
       const article = articleById.get(objectId);
-      return article ? { type: 'article', id: objectId, title: clean(article.title || 'Untitled source', 220), href: `/library?articleId=${encodeURIComponent(objectId)}` } : null;
+      return article ? { type: 'article', id: objectId, title: clean(article.title || 'Untitled', 220), href: `/library?articleId=${encodeURIComponent(objectId)}` } : null;
     }
     if (type === 'highlight') {
       const found = highlightById.get(objectId);

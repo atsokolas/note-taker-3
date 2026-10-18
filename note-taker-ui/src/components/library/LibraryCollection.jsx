@@ -23,6 +23,7 @@ import {
 import { scopedKey, currentAccountId } from '../../utils/browserScope';
 import { beginArticleDrag } from '../../pages/dragGrammar';
 import { useFinePointer } from '../../hooks/useMotionPreferences';
+import { sourceTitle } from '../../utils/sourceDisplayText';
 
 const LABELS = {
   all: 'Library',
@@ -399,7 +400,7 @@ export default function LibraryCollection({
                     disabled={opening === row._id}
                     onClick={() => open(row)}
                   >
-                    {row.title || 'Untitled source'}
+                    {sourceTitle(row)}
                   </button>
                   <p className="library-source-meta">
                     {[

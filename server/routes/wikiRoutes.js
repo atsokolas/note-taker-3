@@ -8709,7 +8709,7 @@ const buildWikiRouter = ({
         || (fetched?.ok ? fetched.title : '')
         || source.url
         || sourceText.slice(0, 120)
-        || 'Untitled source';
+        || 'Untitled';
       const event = await createWikiSourceEvent({
         WikiSourceEvent,
         userId: req.user.id,

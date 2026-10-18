@@ -467,7 +467,7 @@ const WorkspaceSources = ({ onFeedSource }) => {
       <ol className="wiki-workspace-sources__list">
         {articles.map(article => (
           <li key={article._id || article.id}>
-            <Link to={buildCanonicalArticlePath(article._id || article.id)}>{article.title || article.url || 'Untitled source'}</Link>
+            <Link to={buildCanonicalArticlePath(article._id || article.id)}>{sourceTitle(article)}</Link>
             {article.url ? <span>{article.url}</span> : null}
             <button type="button" onClick={() => onFeedSource?.(article)}>
               Feed to wiki

@@ -31,7 +31,7 @@ const sideFrom = ({ citation, sourceRef }) => {
   return {
     sourceId: idOf(sourceRef) || idOf(citation?.sourceRefId),
     sourceKey: sourceKey(sourceRef) || clean(url || title).toLowerCase(),
-    title: title || 'Untitled source',
+    title: title || 'Untitled',
     quote,
     url
   };

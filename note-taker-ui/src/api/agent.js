@@ -1,5 +1,6 @@
 import api from '../api';
 import { getAuthHeaders } from '../hooks/useAuthHeaders';
+import { AGENT_DISPLAY_NAME } from '../constants/agentIdentity';
 
 export const chatWithAgent = async (payload = {}, options = {}) => {
   const config = {
@@ -40,7 +41,7 @@ const readStreamWithTimeout = (reader, timeoutMs) => {
   let timeoutId;
   const timeout = new Promise((_, reject) => {
     timeoutId = setTimeout(() => {
-      const error = new Error('Thought Partner paused too long. Nothing was changed; ask again to retry.');
+      const error = new Error(`${AGENT_DISPLAY_NAME} took too long to answer, so nothing changed. Ask again.`);
       error.code = 'AGENT_STREAM_TIMEOUT';
       reject(error);
     }, safeTimeoutMs);

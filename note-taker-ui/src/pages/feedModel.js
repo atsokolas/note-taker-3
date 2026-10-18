@@ -9,6 +9,7 @@ import { isFeedArticle } from './placementModel';
 import { isProceduralShelf } from './readingDriftModel';
 import { sourceLabel } from '../components/library/libraryColumnModel';
 import { normalizeSpaces, plainTextFrom, sentenceBoundaryTrim } from '../utils/editorialText';
+import { sourceTitle } from '../utils/sourceDisplayText';
 
 export const FEED_RAIL_CAP = 7;
 
@@ -43,7 +44,7 @@ export const orderFeedNewestFirst = (articles = []) => (Array.isArray(articles) 
 
 export const feedFolios = (articles = []) => orderFeedNewestFirst(articles).map((article) => ({
   id: String(article._id || article.id || ''),
-  title: normalizeSpaces(article.title) || 'Untitled source',
+  title: sourceTitle(article),
   source: sourceLabel(article),
   graph: firstGraphOf(article),
   date: arrivedAt(article)

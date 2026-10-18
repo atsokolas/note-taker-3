@@ -10,7 +10,7 @@ import {
   buildCanonicalArticlePath,
   buildCanonicalHighlightPath
 } from '../../../utils/sourceRoutes';
-import { cleanSourceTextForDisplay } from '../../../utils/sourceDisplayText';
+import { cleanSourceTextForDisplay, sourceTitle } from '../../../utils/sourceDisplayText';
 import { alreadyUsedHere } from '../../../utils/libraryPassageUse';
 import {
   librarySearchRows,
@@ -53,7 +53,7 @@ const passageFromHighlight = ({ article, highlight }) => {
   const around = surroundingFromArticle({ article, highlight });
   const stale = passageIsStale({ passage, articleText: article?.content });
   return {
-    title: String(article?.title || highlight?.articleTitle || '').trim() || 'Untitled source',
+    title: sourceTitle({ title: article?.title || highlight?.articleTitle, url: article?.url }),
     passage,
     aroundBefore: around.aroundBefore,
     aroundAfter: around.aroundAfter,
@@ -83,7 +83,7 @@ export const passageFromSelection = ({ article, text, start, end }) => {
     startOffsetApprox: offset
   };
   return {
-    title: String(article?.title || '').trim() || 'Untitled source',
+    title: sourceTitle(article),
     passage,
     aroundBefore: text.slice(Math.max(0, offset - AROUND_WINDOW), offset).trim(),
     aroundAfter: text.slice(offset + passage.length, offset + passage.length + AROUND_WINDOW).trim(),
@@ -314,7 +314,7 @@ const LibraryPassagePicker = ({
           }}>
             Back to Library
           </button>
-          <h4>{preview.article.title || 'Untitled source'}</h4>
+          <h4>{sourceTitle(preview.article)}</h4>
           {preview.highlights.length ? (
             <div className="library-passage-picker__highlights" aria-label="Saved passages">
               {preview.highlights.map((highlight) => {
