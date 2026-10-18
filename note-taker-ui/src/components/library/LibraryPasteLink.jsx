@@ -21,17 +21,16 @@ const savedOn = value => {
   return Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString(undefined, { day: 'numeric', month: 'long' });
 };
 
-const WHERE = [
-  ['later', 'To read later'],
-  ['stream', 'Already read']
-];
+/* Where a link goes, said as the sentence under the field; tapping the
+   phrase moves it to the other place. */
+const GOES = { later: 'on your nightstand', stream: 'in your Library, already read' };
 const PLACE = { later: 'on your nightstand', stream: 'in your Library', setAside: 'on your desk' };
 
 /**
  * The nightstand: paste a link you mean to come back to, and it waits there;
  * one you have already read goes straight into the Library. Either way it can
- * be filed as it lands. The choices are set before the paste, so saving stays
- * one step: paste, and it is put away.
+ * be filed as it lands. Where it goes is one sentence under the field, set
+ * before the paste, so saving stays one step: paste, and it is put away.
  */
 export default function LibraryPasteLink({ folders = [], folderId = '', onSaved, onOpen, onShowNightstand }) {
   const [value, setValue] = useState('');
@@ -76,17 +75,20 @@ export default function LibraryPasteLink({ folders = [], folderId = '', onSaved,
   ) : null;
   const sorted = [...folders].sort((a, b) => String(a.name).localeCompare(String(b.name)));
 
+  const filedIn = folders.find(item => String(item._id) === String(folder))?.name;
+
   return (
     <form
       className="library-paste-link"
       noValidate
       onSubmit={(event) => { event.preventDefault(); save(value); }}
     >
-      <label className="library-paste-link__field">
+      <div className="library-paste-link__line">
         <input
           aria-label="Paste a link to save"
           type="url"
           inputMode="url"
+          enterKeyHint="go"
           value={value}
           placeholder="Paste a link you found"
           disabled={phase === 'saving'}
@@ -102,27 +104,32 @@ export default function LibraryPasteLink({ folders = [], folderId = '', onSaved,
             save(pasted);
           }}
         />
-        <kbd aria-hidden="true">↵</kbd>
-      </label>
-      <div className="library-paste-link__choices">
-        <div className="library-paste-link__where" role="radiogroup" aria-label="Where it goes">
-          {WHERE.map(([key, label]) => (
-            <label key={key}>
-              <input type="radio" name="library-paste-where" value={key} checked={where === key} onChange={() => setWhere(key)} />
-              {label}
-            </label>
-          ))}
-        </div>
-        {sorted.length ? (
-          <label className="library-paste-link__folder">
-            <span>File in</span>
-            <select value={folder} onChange={(event) => setFolder(event.target.value)}>
-              <option value="">No folder</option>
-              {sorted.map(item => <option key={item._id} value={item._id}>{item.name}</option>)}
-            </select>
-          </label>
-        ) : null}
+        {value.trim() && phase !== 'saving' ? <button type="submit" className="library-paste-link__save">Save</button> : null}
       </div>
+      <p className="library-paste-link__route">
+        Goes{' '}
+        <button
+          type="button"
+          className="library-paste-link__choice"
+          aria-label={`Goes ${GOES[where]}. Change`}
+          onClick={() => setWhere(where === 'later' ? 'stream' : 'later')}
+        >
+          {GOES[where]}
+        </button>
+        {sorted.length ? (
+          <>
+            {', '}
+            <label className="library-paste-link__choice library-paste-link__folder">
+              <span aria-hidden="true">{filedIn ? `in ${filedIn}` : 'unfiled'}</span>
+              <select aria-label="Folder" value={folder} onChange={(event) => setFolder(event.target.value)}>
+                <option value="">Unfiled</option>
+                {sorted.map(item => <option key={item._id} value={item._id}>{item.name}</option>)}
+              </select>
+            </label>
+          </>
+        ) : null}
+        .
+      </p>
       <p className="library-paste-link__receipt" role="status" aria-live="polite">
         {phase === 'saving' ? 'Reading the page…' : null}
         {phase === 'saved' ? <>{place.replace(/^./, c => c.toUpperCase())}: {title}{nightstand}</> : null}

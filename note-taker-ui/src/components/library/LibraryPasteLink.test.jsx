@@ -59,11 +59,14 @@ test('a link already read goes into the Library, filed in the folder chosen', as
   const folders = [{ _id: 'f2', name: 'Essays' }, { _id: 'f1', name: 'Art' }];
   render(<LibraryPasteLink folders={folders} folderId="f1" onShowNightstand={jest.fn()} />);
 
-  const select = screen.getByLabelText('File in');
-  expect(select).toHaveValue('f1');
-  expect([...select.options].map(option => option.text)).toEqual(['No folder', 'Art', 'Essays']);
+  expect(screen.getByRole('button', { name: 'Goes on your nightstand. Change' })).toBeInTheDocument();
+  expect(screen.getByText('in Art')).toBeInTheDocument();
+  const select = screen.getByLabelText('Folder');
+  expect([...select.options].map(option => option.text)).toEqual(['Unfiled', 'Art', 'Essays']);
   fireEvent.change(select, { target: { value: 'f2' } });
-  fireEvent.click(screen.getByRole('radio', { name: 'Already read' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Goes on your nightstand. Change' }));
+  expect(screen.getByRole('button', { name: 'Goes in your Library, already read. Change' })).toBeInTheDocument();
+  expect(screen.getByText('in Essays')).toBeInTheDocument();
   paste('https://example.com/taste');
   expect(importPastedUrl).toHaveBeenCalledWith({ url: 'https://example.com/taste', placement: 'stream', folderId: 'f2' });
   await screen.findByRole('button', { name: 'Notes on Taste' });
@@ -76,6 +79,14 @@ test('a page the server cannot read says so plainly', async () => {
 
   paste('https://example.com/walled');
   expect(await screen.findByText(/Noeis could not read that page/)).toBeInTheDocument();
+});
+
+test('without folders the sentence only says where, and Save shows once there is a link', () => {
+  render(<LibraryPasteLink />);
+  expect(screen.getByText(/^Goes/, { selector: 'p' })).toHaveTextContent(/^Goes on your nightstand\.$/);
+  expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
+  fireEvent.change(field(), { target: { value: 'example.com/a' } });
+  expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
 });
 
 test('words that are not a link are not sent anywhere', () => {

@@ -442,99 +442,86 @@ body.noeis-editorial .library-collection-search input {
 }
 /* Paste what you are reading. The input is ruled by the house field style
    and inks while you write; the receipt names what landed. */
-/* The slip: a sheet of slightly darker paper at the top of the Library, the
-   one place on the page you write rather than read. */
+/* Saving a link: one ruled line to write on, and under it the sentence that
+   says where the link will go. The words in that sentence are the controls,
+   so nothing on the page looks like a form until it is touched. */
 .library-paste-link {
-  margin: 0 0 40px;
-  padding: 22px 26px 18px;
-  border: 1px solid var(--noeis-rule, #ddd9d0);
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--noeis-paper-sunken, #eee7d9) 55%, transparent);
-  transition: border-color var(--noeis-motion-base, 180ms) var(--noeis-ease-standard, ease-out),
-    background-color var(--noeis-motion-base, 180ms) var(--noeis-ease-standard, ease-out);
+  margin: 0 0 44px;
 }
-.library-paste-link:focus-within {
-  border-color: color-mix(in srgb, var(--library-accent) 40%, var(--noeis-rule, #ddd9d0));
-  background: color-mix(in srgb, var(--noeis-paper-sunken, #eee7d9) 80%, transparent);
-}
-.library-paste-link__field {
+.library-paste-link__line {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 16px;
 }
-.library-paste-link .library-paste-link__field input {
-  width: 100%;
+.library-paste-link .library-paste-link__line input {
+  flex: 1;
   min-width: 0;
-  padding: 4px 0 10px;
-  font: 22px/1.35 var(--font-serif);
-  letter-spacing: -0.005em;
+  padding: 2px 0 10px;
+  font: 24px/1.3 var(--font-serif);
+  letter-spacing: -0.01em;
 }
-.library-paste-link .library-paste-link__field input::placeholder {
+.library-paste-link .library-paste-link__line input::placeholder {
   color: var(--text-muted);
   font-style: italic;
 }
-.library-paste-link .library-paste-link__field input:disabled {
+.library-paste-link .library-paste-link__line input:disabled {
   color: var(--text-muted);
 }
-.library-paste-link__field kbd {
-  font: 12px var(--noeis-ui-font, sans-serif);
+.library-paste-link .library-paste-link__save {
+  margin: 0;
+  padding: 4px 2px;
+  border: 0;
+  background: transparent;
+  font: 15px/1 var(--font-serif);
+  color: var(--library-accent);
+  cursor: pointer;
+  animation: library-paste-arrive 160ms var(--noeis-ease-standard, ease-out) both;
+}
+.library-paste-link__route {
+  margin: 12px 0 0;
+  font: 15px/1.6 var(--font-serif);
   color: var(--text-muted);
 }
-.library-paste-link__choices {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px 20px;
-  margin-top: 14px;
-  font: 13px/1.4 var(--noeis-ui-font, sans-serif);
-}
-/* Two places a link can go, as one small track with the choice lifted out. */
-.library-paste-link__where {
-  display: inline-flex;
-  padding: 3px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--noeis-ink, #2b2620) 6%, transparent);
-}
-.library-paste-link__where label {
+/* A word you can change: dotted until touched, inked when it is. */
+.library-paste-link .library-paste-link__choice {
   position: relative;
-  padding: 6px 14px;
-  border-radius: 999px;
+  display: inline;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
   color: var(--text-secondary);
+  text-decoration: underline dotted;
+  text-decoration-color: color-mix(in srgb, var(--text-secondary) 55%, transparent);
+  text-underline-offset: 4px;
   cursor: pointer;
-  transition: background-color 160ms var(--noeis-ease-standard, ease-out),
-    color 160ms var(--noeis-ease-standard, ease-out), box-shadow 160ms var(--noeis-ease-standard, ease-out);
+  transition: color 140ms var(--noeis-ease-standard, ease-out);
 }
-.library-paste-link__where input {
-  position: absolute;
-  opacity: 0;
-  pointer-events: none;
+.library-paste-link .library-paste-link__choice:hover,
+.library-paste-link .library-paste-link__choice:focus-visible,
+.library-paste-link .library-paste-link__folder:focus-within {
+  color: var(--library-accent);
+  text-decoration-style: solid;
 }
-.library-paste-link__where label:has(input:checked) {
-  background: var(--noeis-paper, #fbf8f2);
-  color: var(--text-primary);
-  box-shadow: 0 1px 2px color-mix(in srgb, var(--noeis-ink, #2b2620) 14%, transparent);
-}
-.library-paste-link__where label:has(input:focus-visible) {
+.library-paste-link .library-paste-link__choice:focus-visible,
+.library-paste-link .library-paste-link__folder:has(select:focus-visible) {
   outline: 2px solid var(--library-accent);
-  outline-offset: 1px;
+  outline-offset: 3px;
+  border-radius: 2px;
 }
-.library-paste-link__folder {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 8px;
-  color: var(--text-muted);
-}
+/* The folder word sits over the system's own picker, so a phone opens its
+   native wheel and a desktop its menu, with nothing drawn but the word. */
 .library-paste-link .library-paste-link__folder select {
-  max-width: 220px;
-  padding: 2px 18px 3px 0;
-  font: italic 15px/1.4 var(--font-serif);
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  opacity: 0;
   cursor: pointer;
+  font-size: 16px;
 }
 .library-paste-link__receipt {
-  margin: 14px 0 0;
-  padding-top: 12px;
-  border-top: 1px solid var(--noeis-rule, #ddd9d0);
+  margin: 10px 0 0;
   font: 14px/1.6 var(--noeis-ui-font, sans-serif);
   color: var(--text-secondary);
   animation: library-paste-arrive 220ms var(--noeis-ease-standard, ease-out) both;
@@ -571,8 +558,7 @@ body.noeis-editorial .library-collection-search input {
   color: var(--library-accent);
 }
 @media (max-width: 600px) {
-  .library-paste-link { padding: 18px 18px 14px; border-radius: 12px; }
-  .library-paste-link .library-paste-link__field input { font-size: 20px; }
+  .library-paste-link .library-paste-link__line input { font-size: 21px; }
 }
 @keyframes library-paste-arrive {
   from { opacity: 0; transform: translateY(-2px); }
@@ -580,5 +566,6 @@ body.noeis-editorial .library-collection-search input {
 }
 @media (prefers-reduced-motion: reduce) {
   .library-paste-link__receipt { animation: none; }
-  .library-paste-link, .library-paste-link__where label { transition: none; }
+  .library-paste-link__save { animation: none; }
+  .library-paste-link .library-paste-link__choice { transition: none; }
 }
