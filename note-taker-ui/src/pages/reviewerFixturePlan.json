@@ -26,6 +26,7 @@
   },
   "wiki": {
     "title": "Replication limits in synthetic evaluation",
+    "readbackTitle": "Replication Limits in Synthetic Evaluation",
     "visibility": "private",
     "status": "draft",
     "body": "NOEIS_OPENAI_REVIEW_FICTIONAL_ONLY: retained private wording about replication limits in synthetic evaluation.",
